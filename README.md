@@ -86,7 +86,7 @@ BDP=2000 SEEDS=100 PREFIX=baseline amm simulation_mc.sc
 
 ## Related
 
-- [`paper-01-acceleration-paradox`](https://github.com/complexity-econ/paper-01-acceleration-paradox) — paper, analysis scripts, and figures using this engine
+- [`paper-01-acceleration-paradox`](https://github.com/complexity-econ/paper-01-acceleration-paradox) — first paper using this engine (self-contained with its own Ammonite script). This repo (`core`) is the modularized, reusable extraction intended for future papers.
 
 ## Citation
 
