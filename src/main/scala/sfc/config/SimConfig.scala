@@ -1,5 +1,10 @@
 package sfc.config
 
+/** Monetary regime: determines central bank behavior and exchange rate dynamics. */
+enum MonetaryRegime:
+  case Pln   // NBP Taylor rule + floating PLN/EUR
+  case Eur   // Exogenous ECB rate + fixed exchange rate (Eurozone membership)
+
 /**
  * Runtime configuration: values that depend on CLI arguments.
  * Passed through runSingle and Simulation.step.
@@ -7,9 +12,11 @@ package sfc.config
 case class RunConfig(
   bdpAmount: Double,
   nSeeds: Int,
-  outputPrefix: String
+  outputPrefix: String,
+  regime: MonetaryRegime = MonetaryRegime.Pln
 ):
   val isNoBdp: Boolean = bdpAmount == 0.0
+  val isEurozone: Boolean = regime == MonetaryRegime.Eur
 
 /**
  * 4-to-6 sector definition with heterogeneous sigma (CES elasticity of substitution).
@@ -70,13 +77,27 @@ object Config:
   val GovBaseSpending  = 100000000.0
 
   // NBP (NBP data 2024)
-  val InitialRate      = 0.0575      // NBP reference rate 2024
-  val TargetInflation  = 0.025       // NBP target 2.5% +/- 1pp
+  val NbpInitialRate   = 0.0575      // NBP reference rate 2024
+  val NbpTargetInfl    = 0.025       // NBP target 2.5% +/- 1pp
+  val NbpNeutralRate   = 0.04        // NBP neutral rate
   val TaylorAlpha      = 1.5
   val TaylorBeta       = 0.8
   val TaylorInertia    = 0.70
   val RateFloor        = 0.005
   val RateCeiling      = 0.25
+
+  // ECB (Eurozone counterfactual)
+  val EcbInitialRate   = 0.035       // ECB deposit facility rate
+  val EcbNeutralRate   = 0.025       // ECB neutral rate (lower than NBP)
+  val EcbTargetInfl    = 0.020       // ECB target 2.0% (symmetric)
+  val EcbAlpha         = 1.5         // ECB inflation response
+  val EcbInertia       = 0.85        // ECB smoother than NBP
+  val EuroInflation    = 0.020       // Exogenous Eurozone-wide inflation (constant)
+
+  // SGP fiscal constraint (EUR regime only)
+  val SgpDeficitLimit  = 0.03        // Maastricht: annual deficit < 3% of GDP
+  val SgpDebtLimit     = 0.60        // Maastricht: public debt < 60% of GDP
+  val SgpAusterityRate = 2.0         // Austerity speed: BDP × max(0, 1 - (debtRatio - 0.60) × rate)
 
   // Banking system
   val InitBankCapital  = 500000000.0

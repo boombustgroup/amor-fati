@@ -3,7 +3,7 @@ package sfc
 import java.io.{File, PrintWriter}
 import scala.util.Random
 
-import _root_.sfc.config.{Config, SECTORS, RunConfig}
+import _root_.sfc.config.{Config, SECTORS, RunConfig, MonetaryRegime}
 import _root_.sfc.agents.*
 import _root_.sfc.sfc.*
 import _root_.sfc.engine.*
@@ -51,8 +51,9 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
   }.toArray
 
   val initCash = firms.map(_.cash).sum
+  val initRate = if rc.isEurozone then Config.EcbInitialRate else Config.NbpInitialRate
   var world = World(0, 0.02, 1.0, 1.0,
-    GovState(false, 0, 0, 0, 0), NbpState(Config.InitialRate),
+    GovState(false, 0, 0, 0, 0), NbpState(initRate),
     BankState(0, 0, Config.InitBankCapital, initCash),
     ForexState(Config.BaseExRate, 0, Config.ExportBase, 0, 0),
     HhState(Config.TotalPopulation, Config.BaseWage, Config.BaseReservationWage, 0, 0, 0, 0),
@@ -61,8 +62,9 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
   // Collect time-series: 120 rows x N columns
   // Columns: Month, Inflation, Unemployment, AutoRatio+HybridRatio, ExRate, MarketWage,
   //          GovDebt, NPL, RefRate, PriceLevel, AutoRatio, HybridRatio,
-  //          SectorAutoRatio(0..5): BPO, Manuf, Retail, Health, Public, Agri
-  val nCols = 18
+  //          SectorAutoRatio(0..5): BPO, Manuf, Retail, Health, Public, Agri,
+  //          EffectiveBDP (per-capita BDP actually delivered after fiscal constraints)
+  val nCols = 19
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -83,6 +85,11 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
       ).toDouble / secFirms.length
     }
 
+    // Effective BDP: actual per-capita BDP delivered (may be < legislated under EUR/SGP)
+    val effectiveBdp = if world.gov.bdpActive then
+      world.gov.bdpSpending / Config.TotalPopulation.toDouble
+    else 0.0
+
     results(t) = Array(
       (t + 1).toDouble,          // 0: Month
       world.inflation,            // 1: Inflation
@@ -101,20 +108,26 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
       sectorAuto(2),              // 14: Retail auto
       sectorAuto(3),              // 15: Health auto
       sectorAuto(4),              // 16: Public auto
-      sectorAuto(5)               // 17: Agri auto
+      sectorAuto(5),              // 17: Agri auto
+      effectiveBdp                // 18: EffectiveBDP
     )
 
   results
 
 // ---- Monte Carlo main entry point ----
 
-@main def sfcMonteCarlo(bdpAmountStr: String, nSeedsStr: String, outputPrefix: String): Unit =
+@main def sfcMonteCarlo(bdpAmountStr: String, nSeedsStr: String, outputPrefix: String,
+    regimeStr: String = "pln"): Unit =
   val bdpAmount = bdpAmountStr.toDouble
   val nSeeds    = nSeedsStr.toInt
-  val rc = RunConfig(bdpAmount, nSeeds, outputPrefix)
+  val regime = regimeStr.toLowerCase match
+    case "eur" | "euro" | "ecb" => MonetaryRegime.Eur
+    case _                      => MonetaryRegime.Pln
+  val rc = RunConfig(bdpAmount, nSeeds, outputPrefix, regime)
+  val regimeLabel = if rc.isEurozone then "EUR (ECB)" else "PLN (NBP)"
 
   println(s"+" + "=" * 62 + "+")
-  println(s"|  SFC-ABM v6 GUS-CALIBRATED MC: BDP=${bdpAmount.toInt} PLN, N=${nSeeds} seeds  |")
+  println(s"|  SFC-ABM v6: BDP=${bdpAmount.toInt} PLN, N=${nSeeds} seeds, ${regimeLabel}  ")
   println(s"|  10 000 firm x 6 sectors (GUS 2024) x WS network x 120m   |")
   println(s"+" + "=" * 62 + "+")
 
@@ -123,7 +136,7 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 18
+  val nCols   = 19
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
 
   val startTime = System.currentTimeMillis()
@@ -149,7 +162,7 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
   val termPw = new PrintWriter(new File(s"mc/${outputPrefix}_terminal.csv"))
   termPw.write("Seed;Inflation;Unemployment;TotalAdoption;ExRate;MarketWage;" +
     "GovDebt;NPL;RefRate;PriceLevel;AutoRatio;HybridRatio;" +
-    "BPO_Auto;Manuf_Auto;Retail_Auto;Health_Auto;Public_Auto;Agri_Auto\n")
+    "BPO_Auto;Manuf_Auto;Retail_Auto;Health_Auto;Public_Auto;Agri_Auto;EffectiveBDP\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -163,7 +176,7 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
   val colNames = Array("Month", "Inflation", "Unemployment", "TotalAdoption", "ExRate",
     "MarketWage", "GovDebt", "NPL", "RefRate", "PriceLevel",
     "AutoRatio", "HybridRatio", "BPO_Auto", "Manuf_Auto", "Retail_Auto", "Health_Auto",
-    "Public_Auto", "Agri_Auto")
+    "Public_Auto", "Agri_Auto", "EffectiveBDP")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

@@ -23,12 +23,12 @@ object Sectors:
 
   def updateInflation(prevInflation: Double, prevPrice: Double, demandMult: Double,
     wageGrowth: Double, exRateDeviation: Double,
-    autoRatio: Double, hybridRatio: Double): (Double, Double) =
+    autoRatio: Double, hybridRatio: Double, rc: RunConfig): (Double, Double) =
     val demandPull    = (demandMult - 1.0) * 0.15
     val costPush      = wageGrowth * 0.25
-    val importPush    = Math.max(0.0, exRateDeviation) * Config.ImportPropensity * 0.25
-    // In multi-sector economy, automated firms have stronger deflationary spillovers
-    // (BPO/SSC services are inputs to all industries -> supply-chain deflation)
+    // EUR: no exchange rate pass-through (single currency area)
+    val importPush    = if rc.isEurozone then 0.0
+                        else Math.max(0.0, exRateDeviation) * Config.ImportPropensity * 0.25
     val techDeflation = autoRatio * 0.060 + hybridRatio * 0.018
     // Soft floor: beyond -1.5%/month, deflation passes through at 30% rate
     // (models downward price stickiness -- Bewley 1999, Schmitt-Grohe & Uribe 2016)
@@ -40,29 +40,46 @@ object Sectors:
     val newPrice      = Math.max(0.30, prevPrice * (1.0 + monthly))
     (smoothed, newPrice)
 
-  def updateNbpRate(prevRate: Double, inflation: Double, exRateChange: Double): Double =
-    val neutral = 0.04
-    val infGap  = inflation - Config.TargetInflation
-    val taylor  = neutral +
-      Config.TaylorAlpha * Math.max(0.0, infGap) +
-      Config.TaylorBeta  * Math.max(0.0, exRateChange)
-    val smoothed = prevRate * Config.TaylorInertia + taylor * (1.0 - Config.TaylorInertia)
-    Math.max(Config.RateFloor, Math.min(Config.RateCeiling, smoothed))
+  def updateCbRate(prevRate: Double, inflation: Double, exRateChange: Double,
+    rc: RunConfig): Double =
+    if rc.isEurozone then
+      // ECB Taylor rule reacting to Eurozone-wide inflation (exogenous to Poland)
+      val infGap = Config.EuroInflation - Config.EcbTargetInfl
+      val taylor = Config.EcbNeutralRate +
+        Config.EcbAlpha * Math.max(0.0, infGap)
+      val smoothed = prevRate * Config.EcbInertia + taylor * (1.0 - Config.EcbInertia)
+      Math.max(Config.RateFloor, Math.min(Config.RateCeiling, smoothed))
+    else
+      // NBP Taylor rule reacting to Polish inflation + exchange rate
+      val infGap  = inflation - Config.NbpTargetInfl
+      val taylor  = Config.NbpNeutralRate +
+        Config.TaylorAlpha * Math.max(0.0, infGap) +
+        Config.TaylorBeta  * Math.max(0.0, exRateChange)
+      val smoothed = prevRate * Config.TaylorInertia + taylor * (1.0 - Config.TaylorInertia)
+      Math.max(Config.RateFloor, Math.min(Config.RateCeiling, smoothed))
 
   def updateForeign(prev: ForexState, importConsumption: Double, techImports: Double,
-    autoRatio: Double, domesticRate: Double, gdp: Double): ForexState =
-    val exComp   = prev.exchangeRate / Config.BaseExRate
+    autoRatio: Double, domesticRate: Double, gdp: Double, rc: RunConfig): ForexState =
     val techComp = 1.0 + autoRatio * Config.ExportAutoBoost
-    val exports  = Config.ExportBase * exComp * techComp
     val totalImp = importConsumption + techImports
-    val tradeBal = exports - totalImp
-    val rateDiff = domesticRate - Config.ForeignRate
-    val capAcct  = rateDiff * Config.IrpSensitivity * gdp
-    val bop      = tradeBal + capAcct
-    val bopRatio = if gdp > 0 then bop / gdp else 0.0
-    val exRateChg = -Config.ExRateAdjSpeed * bopRatio
-    val newRate  = Math.max(3.0, Math.min(8.0, prev.exchangeRate * (1.0 + exRateChg)))
-    ForexState(newRate, totalImp, exports, tradeBal, techImports)
+    if rc.isEurozone then
+      // EUR: fixed exchange rate, exports depend on relative price competitiveness
+      // No capital account arbitrage (single monetary zone)
+      val exports  = Config.ExportBase * techComp
+      val tradeBal = exports - totalImp
+      ForexState(Config.BaseExRate, totalImp, exports, tradeBal, techImports)
+    else
+      // PLN: floating exchange rate, BoP-driven adjustment
+      val exComp   = prev.exchangeRate / Config.BaseExRate
+      val exports  = Config.ExportBase * exComp * techComp
+      val tradeBal = exports - totalImp
+      val rateDiff = domesticRate - Config.ForeignRate
+      val capAcct  = rateDiff * Config.IrpSensitivity * gdp
+      val bop      = tradeBal + capAcct
+      val bopRatio = if gdp > 0 then bop / gdp else 0.0
+      val exRateChg = -Config.ExRateAdjSpeed * bopRatio
+      val newRate  = Math.max(3.0, Math.min(8.0, prev.exchangeRate * (1.0 + exRateChg)))
+      ForexState(newRate, totalImp, exports, tradeBal, techImports)
 
   def updateGov(prev: GovState, citPaid: Double, vat: Double,
     bdpActive: Boolean, bdpAmount: Double, priceLevel: Double): GovState =
@@ -77,7 +94,23 @@ object Simulation:
     val m = w.month + 1
     val bdpActive = m >= Config.ShockMonth
 
-    val bdp = if bdpActive then rc.bdpAmount else 0.0
+    val bdpUnconstrained = if bdpActive then rc.bdpAmount else 0.0
+    // EUR regime: SGP fiscal constraint caps BDP spending
+    val bdp = if rc.isEurozone && bdpActive && bdpUnconstrained > 0 then
+      val annualGdp = w.gdpProxy * 12.0
+      // Flow constraint: monthly deficit ≤ 3%/12 of annual GDP
+      val maxMonthlyDeficit = Config.SgpDeficitLimit * annualGdp / 12.0
+      val baseGovSpend = Config.GovBaseSpending * w.priceLevel
+      val estRevenue = w.gov.taxRevenue  // previous period's revenue
+      val maxBdpSpend = Math.max(0.0, maxMonthlyDeficit + estRevenue - baseGovSpend)
+      val maxBdpPerCapita = maxBdpSpend / Config.TotalPopulation.toDouble
+      // Stock constraint: debt brake — if debt > 60% of GDP, progressive austerity
+      val debtRatio = if annualGdp > 0 then w.gov.cumulativeDebt / annualGdp else 0.0
+      val austerityMult = if debtRatio > Config.SgpDebtLimit then
+        Math.max(0.0, 1.0 - (debtRatio - Config.SgpDebtLimit) * Config.SgpAusterityRate)
+      else 1.0
+      Math.max(0.0, Math.min(bdpUnconstrained, maxBdpPerCapita * austerityMult))
+    else bdpUnconstrained
     val resWage = Config.BaseReservationWage + bdp * Config.ReservationBdpMult
 
     val living = firms.filter(FirmOps.isAlive)
@@ -142,18 +175,20 @@ object Simulation:
     val hybR    = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]) / nLiving else 0.0
     val gdp     = domesticCons + Config.GovBaseSpending + w.forex.exports
 
-    val exDev = (w.forex.exchangeRate / Config.BaseExRate) - 1.0
+    val exDev = if rc.isEurozone then 0.0
+               else (w.forex.exchangeRate / Config.BaseExRate) - 1.0
     val (newInfl, newPrice) = Sectors.updateInflation(
-      w.inflation, w.priceLevel, demandMult, wageGrowth, exDev, autoR, hybR)
+      w.inflation, w.priceLevel, demandMult, wageGrowth, exDev, autoR, hybR, rc)
 
     val newForex = Sectors.updateForeign(
-      w.forex, importCons, sumTechImp, autoR, w.nbp.referenceRate, gdp)
+      w.forex, importCons, sumTechImp, autoR, w.nbp.referenceRate, gdp, rc)
 
-    val exRateChg = (newForex.exchangeRate / w.forex.exchangeRate) - 1.0
-    val newRefRate = Sectors.updateNbpRate(w.nbp.referenceRate, newInfl, exRateChg)
+    val exRateChg = if rc.isEurozone then 0.0
+                    else (newForex.exchangeRate / w.forex.exchangeRate) - 1.0
+    val newRefRate = Sectors.updateCbRate(w.nbp.referenceRate, newInfl, exRateChg, rc)
 
     val vat = consumption * Config.VatRate
-    val newGov = Sectors.updateGov(w.gov, sumTax, vat, bdpActive, rc.bdpAmount, newPrice)
+    val newGov = Sectors.updateGov(w.gov, sumTax, vat, bdpActive, bdp, newPrice)
 
     val newW = World(m, newInfl, newPrice, demandMult, newGov, NbpState(newRefRate),
       newBank, newForex,
