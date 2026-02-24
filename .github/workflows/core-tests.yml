@@ -14,7 +14,11 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-          cache: sbt
+
+      - name: Install sbt
+        run: |
+          curl -fsSL "https://github.com/sbt/sbt/releases/download/v1.10.7/sbt-1.10.7.tgz" | sudo tar xz -C /usr/local
+          echo "/usr/local/sbt/bin" >> "$GITHUB_PATH"
 
       - name: Run tests
         run: sbt test
