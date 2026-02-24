@@ -1,5 +1,7 @@
 # SFC-ABM Core
 
+[![Core Engine Tests](https://github.com/complexity-econ/core/actions/workflows/core-tests.yml/badge.svg)](https://github.com/complexity-econ/core/actions/workflows/core-tests.yml)
+
 Stock-Flow Consistent Agent-Based Model engine for macroeconomic simulation.
 
 ## Overview
