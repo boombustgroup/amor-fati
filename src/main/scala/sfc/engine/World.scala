@@ -1,6 +1,6 @@
 package sfc.engine
 
-import sfc.agents.{HhState, NbpState}
+import sfc.agents.{HhState, HhAggregates, Household, NbpState}
 import sfc.sfc.{GovState, BankState, ForexState}
 
 case class World(
@@ -16,5 +16,7 @@ case class World(
   automationRatio: Double,
   hybridRatio: Double,
   gdpProxy: Double,
-  currentSigmas: Vector[Double]
+  currentSigmas: Vector[Double],
+  hhAgg: Option[HhAggregates] = None,
+  households: Option[Vector[Household]] = None
 )

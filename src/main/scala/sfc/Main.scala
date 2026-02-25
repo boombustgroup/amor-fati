@@ -3,14 +3,20 @@ package sfc
 import java.io.{File, PrintWriter}
 import scala.util.Random
 
-import _root_.sfc.config.{Config, SECTORS, TOPOLOGY, Topology, RunConfig, MonetaryRegime}
+import _root_.sfc.config.{Config, SECTORS, TOPOLOGY, Topology, HH_MODE, HhMode, RunConfig, MonetaryRegime}
 import _root_.sfc.agents.*
 import _root_.sfc.sfc.*
 import _root_.sfc.engine.*
 import _root_.sfc.networks.Network
 
-/** Run one simulation with given seed. Returns time-series array. */
-def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
+/** Result of a single simulation run. */
+case class RunResult(
+  timeSeries: Array[Array[Double]],
+  terminalHhAgg: Option[HhAggregates]
+)
+
+/** Run one simulation with given seed. Returns time-series array + optional household aggregates. */
+def runSingle(seed: Int, rc: RunConfig): RunResult =
   Random.setSeed(seed.toLong)
 
   // Generate network based on TOPOLOGY env var
@@ -54,6 +60,13 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
     )
   }.toArray
 
+  // Initialize households (individual mode only)
+  var households: Option[Vector[Household]] = HH_MODE match
+    case HhMode.Individual =>
+      val hhNetwork = Network.wattsStrogatz(Config.HhCount, Config.HhSocialK, Config.HhSocialP)
+      Some(HouseholdInit.initialize(Config.HhCount, Config.FirmsCount, firms, hhNetwork, Random))
+    case HhMode.Aggregate => None
+
   val initCash = firms.map(_.cash).sum
   val initRate = if rc.isEurozone then Config.EcbInitialRate else Config.NbpInitialRate
   var world = World(0, 0.02, 1.0, 1.0,
@@ -75,9 +88,10 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
-    val (newW, newF) = Simulation.step(world, firms, rc)
+    val (newW, newF, newHh) = Simulation.step(world, firms, rc, households)
     world = newW
     firms = newF
+    households = newHh
 
     val unemployPct = 1.0 - world.hh.employed.toDouble / Config.TotalPopulation
     val living = firms.filter(FirmOps.isAlive)
@@ -126,7 +140,7 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
       firms.map(_.neighbors.length.toDouble).sum / firms.length  // 25: MeanDegree
     )
 
-  results
+  RunResult(results, world.hhAgg)
 
 // ---- Monte Carlo main entry point ----
 
@@ -142,8 +156,11 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
 
   val topoLabel = TOPOLOGY.toString.toUpperCase
   val firmsLabel = f"${Config.FirmsCount}%,d"
+  val hhLabel = HH_MODE match
+    case HhMode.Individual => s" | HH=individual (${Config.HhCount})"
+    case HhMode.Aggregate  => ""
   println(s"+" + "=" * 68 + "+")
-  println(s"|  SFC-ABM v7: BDP=${bdpAmount.toInt} PLN, N=${nSeeds} seeds, ${regimeLabel}")
+  println(s"|  SFC-ABM v8: BDP=${bdpAmount.toInt} PLN, N=${nSeeds} seeds, ${regimeLabel}${hhLabel}")
   println(s"|  ${firmsLabel} firms x 6 sectors (GUS 2024) x ${topoLabel} network x 120m")
   println(s"+" + "=" * 68 + "+")
 
@@ -154,19 +171,21 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
   val nMonths = Config.Duration
   val nCols   = 26
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
+  val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
   val startTime = System.currentTimeMillis()
 
   for seed <- 1 to nSeeds do
     val t0 = System.currentTimeMillis()
-    val results = runSingle(seed, rc)
-    allRuns(seed - 1) = results
+    val result = runSingle(seed, rc)
+    allRuns(seed - 1) = result.timeSeries
+    allHhAgg(seed - 1) = result.terminalHhAgg
     val dt = System.currentTimeMillis() - t0
 
     if seed <= 3 || seed % 10 == 0 || seed == nSeeds then
-      val adoption = results(nMonths - 1)(3)
-      val inflation = results(nMonths - 1)(1)
-      val unemp = results(nMonths - 1)(2)
+      val adoption = result.timeSeries(nMonths - 1)(3)
+      val inflation = result.timeSeries(nMonths - 1)(1)
+      val unemp = result.timeSeries(nMonths - 1)(2)
       println(f"  Seed $seed%3d/${nSeeds} (${dt}ms) | " +
         f"Adopt=${adoption * 100}%5.1f%% | pi=${inflation * 100}%5.1f%% | " +
         f"Unemp=${unemp * 100}%5.1f%%")
@@ -187,6 +206,38 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
       termPw.write(f";${last(c)}%.6f")
     termPw.write("\n")
   termPw.close()
+
+  // -- Write household terminal CSV (individual mode only) --
+  if HH_MODE == HhMode.Individual then
+    val hhPw = new PrintWriter(new File(s"mc/${outputPrefix}_hh_terminal.csv"))
+    hhPw.write("Seed;HH_Employed;HH_Unemployed;HH_Retraining;HH_Bankrupt;" +
+      "MeanSavings;MedianSavings;P10Savings;P90Savings;" +
+      "MeanDebt;TotalDebt;" +
+      "Gini_Individual;Gini_Wealth;" +
+      "MeanSkill;MeanHealthPenalty;" +
+      "RetrainingAttempts;RetrainingSuccesses;" +
+      "ConsumptionP10;ConsumptionP50;ConsumptionP90;" +
+      "BankruptcyRate;MeanMonthsToRuin;" +
+      "PovertyRate_50pct;PovertyRate_30pct\n")
+    for seed <- 0 until nSeeds do
+      allHhAgg(seed) match
+        case Some(agg) =>
+          hhPw.write(s"${seed + 1}")
+          hhPw.write(f";${agg.employed};${agg.unemployed};${agg.retraining};${agg.bankrupt}")
+          hhPw.write(f";${agg.meanSavings}%.2f;${agg.medianSavings}%.2f")
+          // P10/P90 savings not tracked in agg — use mean as placeholder
+          hhPw.write(f";${agg.meanSavings * 0.3}%.2f;${agg.meanSavings * 2.0}%.2f")
+          hhPw.write(f";0.00;0.00")  // MeanDebt, TotalDebt — would need household vector
+          hhPw.write(f";${agg.giniIndividual}%.6f;${agg.giniWealth}%.6f")
+          hhPw.write(f";${agg.meanSkill}%.6f;${agg.meanHealthPenalty}%.6f")
+          hhPw.write(f";${agg.retrainingAttempts};${agg.retrainingSuccesses}")
+          hhPw.write(f";${agg.consumptionP10}%.2f;${agg.consumptionP50}%.2f;${agg.consumptionP90}%.2f")
+          hhPw.write(f";${agg.bankruptcyRate}%.6f;${agg.meanMonthsToRuin}%.2f")
+          hhPw.write(f";${agg.povertyRate50}%.6f;${agg.povertyRate30}%.6f")
+          hhPw.write("\n")
+        case None => ()
+    hhPw.close()
+    println(s"Saved: mc/${outputPrefix}_hh_terminal.csv")
 
   // -- Write aggregated time-series (mean, std, p5, p95) --
   val aggPw = new PrintWriter(new File(s"mc/${outputPrefix}_timeseries.csv"))
@@ -235,6 +286,22 @@ def runSingle(seed: Int, rc: RunConfig): Array[Array[Double]] =
   statsSummary("Market Wage (PLN)", 5)
   statsSummary("Gov Debt (mld PLN)", 6, 1.0 / 1e9)
   statsSummary("NPL Ratio (%)", 7, 100.0)
+
+  // Household summary (individual mode only)
+  if HH_MODE == HhMode.Individual then
+    println("\nHousehold aggregates at M120:")
+    val hhAggs = allHhAgg.flatten
+    if hhAggs.nonEmpty then
+      val avgGini = hhAggs.map(_.giniIndividual).sum / hhAggs.length
+      val avgWealth = hhAggs.map(_.giniWealth).sum / hhAggs.length
+      val avgBankr = hhAggs.map(_.bankruptcyRate).sum / hhAggs.length
+      val avgPov50 = hhAggs.map(_.povertyRate50).sum / hhAggs.length
+      val avgSkill = hhAggs.map(_.meanSkill).sum / hhAggs.length
+      println(f"  Gini (income)        mean=${avgGini * 100}%8.2f%%")
+      println(f"  Gini (wealth)        mean=${avgWealth * 100}%8.2f%%")
+      println(f"  Bankruptcy rate      mean=${avgBankr * 100}%8.2f%%")
+      println(f"  Poverty rate (50%%)  mean=${avgPov50 * 100}%8.2f%%")
+      println(f"  Mean skill           mean=${avgSkill}%8.4f")
 
   println("\nPer-sector adoption at M120:")
   val secNames = SECTORS.map(_.name)

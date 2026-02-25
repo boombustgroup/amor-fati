@@ -1,0 +1,138 @@
+package sfc.engine
+
+import sfc.config.{Config, SECTORS}
+import sfc.agents.*
+
+import scala.util.Random
+
+object LaborMarket:
+
+  /** Phase 1: Separate workers from firms that automated or went bankrupt this step.
+    * Returns updated households with newly unemployed workers. */
+  def separations(households: Vector[Household], prevFirms: Array[Firm],
+                  newFirms: Array[Firm]): Vector[Household] =
+    // Build set of firm IDs that lost workers this step
+    val firmLostWorkers = (0 until newFirms.length).filter { i =>
+      val prevAlive = FirmOps.isAlive(prevFirms(i))
+      val newAlive = FirmOps.isAlive(newFirms(i))
+      val automatedNow = newFirms(i).tech.isInstanceOf[TechState.Automated] &&
+        !prevFirms(i).tech.isInstanceOf[TechState.Automated]
+      val hybridReduced = (prevFirms(i).tech, newFirms(i).tech) match
+        case (TechState.Traditional(w1), TechState.Hybrid(w2, _)) => w2 < w1
+        case _ => false
+      (!newAlive && prevAlive) || automatedNow || hybridReduced
+    }.toSet
+
+    // For firms that went to Hybrid, compute how many workers they retained
+    val hybridRetained: Map[Int, Int] = newFirms.filter(f =>
+      firmLostWorkers.contains(f.id) && f.tech.isInstanceOf[TechState.Hybrid]
+    ).map { f =>
+      val w = f.tech.asInstanceOf[TechState.Hybrid].workers
+      f.id -> w
+    }.toMap
+
+    // For automated firms, only skeleton crew stays
+    val automatedRetained: Map[Int, Int] = newFirms.filter(f =>
+      firmLostWorkers.contains(f.id) && f.tech.isInstanceOf[TechState.Automated]
+    ).map(f => f.id -> Config.AutoSkeletonCrew).toMap
+
+    // Track how many workers each affected firm keeps
+    val retainCounts = scala.collection.mutable.Map[Int, Int]()
+
+    households.map { hh =>
+      hh.status match
+        case HhStatus.Employed(firmId, sectorIdx, wage) if firmLostWorkers.contains(firmId) =>
+          val maxRetain = hybridRetained.getOrElse(firmId,
+            automatedRetained.getOrElse(firmId, 0))
+          val retained = retainCounts.getOrElse(firmId, 0)
+          if retained < maxRetain then
+            retainCounts(firmId) = retained + 1
+            hh  // stays employed
+          else
+            hh.copy(status = HhStatus.Unemployed(0))
+        case _ => hh
+    }
+
+  /** Phase 2: Job search — unemployed households bid for open positions.
+    * Matching: highest skill first fills vacancies. */
+  def jobSearch(households: Vector[Household], firms: Array[Firm],
+                marketWage: Double, rng: Random): Vector[Household] =
+    // Compute vacancies per firm: living firms that need workers
+    val vacancies = scala.collection.mutable.Map[Int, Int]()
+    for f <- firms if FirmOps.isAlive(f) do
+      val currentWorkers = households.count { hh =>
+        hh.status match
+          case HhStatus.Employed(fid, _, _) => fid == f.id
+          case _ => false
+      }
+      val needed = FirmOps.workers(f) - currentWorkers
+      if needed > 0 then vacancies(f.id) = needed
+
+    if vacancies.isEmpty then return households
+
+    // Rank unemployed by effective skill (skill × (1 - healthPenalty))
+    val unemployedIndices = households.indices.filter { i =>
+      households(i).status.isInstanceOf[HhStatus.Unemployed]
+    }.sortBy { i =>
+      val hh = households(i)
+      -(hh.skill * (1.0 - hh.healthPenalty))  // negative for descending sort
+    }
+
+    val result = households.toArray
+
+    for idx <- unemployedIndices do
+      if vacancies.nonEmpty then
+        val hh = result(idx)
+        // Find best matching vacancy: prefer same sector, then highest σ
+        val prevSector = hh.status match
+          case HhStatus.Unemployed(_) =>
+            // Try to recover previous sector from ID-based heuristic
+            firms(hh.id % firms.length).sector
+          case _ => 0
+
+        val bestFirmId = vacancies.keys.toSeq.sortBy { fid =>
+          val f = firms(fid)
+          val sectorBonus = if f.sector == prevSector then 0.2 else 0.0
+          -(SECTORS(f.sector).sigma + sectorBonus)  // higher σ = better match priority
+        }.headOption
+
+        bestFirmId.foreach { fid =>
+          val f = firms(fid)
+          // Wage will be normalized by updateWages in next step; set proportional here
+          val sectorMult = SECTORS(f.sector).wageMultiplier
+          val individualWage = marketWage * sectorMult * hh.skill * (1.0 - hh.healthPenalty)
+          result(idx) = hh.copy(
+            status = HhStatus.Employed(fid, f.sector, individualWage)
+          )
+          val remaining = vacancies(fid) - 1
+          if remaining <= 0 then vacancies.remove(fid)
+          else vacancies(fid) = remaining
+        }
+
+    result.toVector
+
+  /** Phase 3: Update wages for all employed households based on current market wage.
+    * Individual wages are heterogeneous (sector × skill × health) but normalized
+    * so the mean employed wage = marketWage (macro consistency). */
+  def updateWages(households: Vector[Household], marketWage: Double): Vector[Household] =
+    // Compute raw relative wages for employed
+    val rawWages = households.map { hh =>
+      hh.status match
+        case HhStatus.Employed(_, sectorIdx, _) =>
+          SECTORS(sectorIdx).wageMultiplier * hh.skill * (1.0 - hh.healthPenalty)
+        case _ => 0.0
+    }
+    val employed = households.indices.filter(i =>
+      households(i).status.isInstanceOf[HhStatus.Employed])
+    val rawMean = if employed.nonEmpty then
+      employed.map(rawWages(_)).sum / employed.length
+    else 1.0
+    val scale = if rawMean > 0 then 1.0 / rawMean else 1.0
+
+    households.zipWithIndex.map { (hh, i) =>
+      hh.status match
+        case HhStatus.Employed(firmId, sectorIdx, _) =>
+          val newWage = marketWage * rawWages(i) * scale
+          hh.copy(status = HhStatus.Employed(firmId, sectorIdx, newWage))
+        case _ => hh
+    }

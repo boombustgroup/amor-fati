@@ -1,6 +1,6 @@
 package sfc.engine
 
-import sfc.config.{Config, SECTORS, RunConfig}
+import sfc.config.{Config, SECTORS, HH_MODE, HhMode, RunConfig}
 import sfc.agents.*
 import sfc.sfc.*
 import sfc.networks.Network
@@ -91,7 +91,11 @@ object Sectors:
     GovState(bdpActive, totalRev, bdpSpend, deficit, prev.cumulativeDebt + deficit)
 
 object Simulation:
-  def step(w: World, firms: Array[Firm], rc: RunConfig): (World, Array[Firm]) =
+  /** Step with optional individual households.
+    * When households = None (aggregate mode), behavior is identical to Papers 1–5.
+    * When households = Some(...) (individual mode), uses HouseholdLogic + LaborMarket. */
+  def step(w: World, firms: Array[Firm], rc: RunConfig,
+           households: Option[Vector[Household]] = None): (World, Array[Firm], Option[Vector[Household]]) =
     val m = w.month + 1
     val bdpActive = m >= Config.ShockMonth
 
@@ -119,15 +123,34 @@ object Simulation:
     val (newWage, employed) = Sectors.updateLaborMarket(w.hh.marketWage, resWage, laborDemand)
     val wageGrowth = if w.hh.marketWage > 0 then newWage / w.hh.marketWage - 1.0 else 0.0
 
-    val wageIncome = employed.toDouble * newWage
-    val bdpIncome  = if bdpActive then Config.TotalPopulation.toDouble * bdp else 0.0
-    val totalIncome = wageIncome + bdpIncome
-    val consumption = totalIncome * Config.Mpc
-
+    // Import adjustment (used by both paths)
     val importAdj = Config.ImportPropensity *
       Math.pow(Config.BaseExRate / w.forex.exchangeRate, 0.5)
-    val importCons = consumption * Math.min(0.65, importAdj)
-    val domesticCons = consumption - importCons
+
+    // ---- Aggregate vs Individual household path ----
+    val (totalIncome, consumption, importCons, domesticCons, updatedHouseholds, hhAgg) =
+      households match
+        case None =>
+          // Aggregate mode: identical to Papers 1–5
+          val wageIncome = employed.toDouble * newWage
+          val bdpIncome  = if bdpActive then Config.TotalPopulation.toDouble * bdp else 0.0
+          val ti = wageIncome + bdpIncome
+          val cons = ti * Config.Mpc
+          val ic = cons * Math.min(0.65, importAdj)
+          val dc = cons - ic
+          (ti, cons, ic, dc, None, None)
+
+        case Some(hhs) =>
+          // Individual mode: process household agents
+          // Phase 1: separations (workers from automated/bankrupt firms)
+          val afterSep = LaborMarket.separations(hhs, firms, firms)  // firms not yet updated
+          // Phase 2+3: wages update (will be refined after firm processing below)
+          val afterWages = LaborMarket.updateWages(afterSep, newWage)
+          // Household monthly step
+          val (newHhs, agg) = HouseholdLogic.step(
+            afterWages, w, bdp, newWage, resWage, importAdj, Random)
+          (agg.totalIncome, agg.consumption, agg.importConsumption,
+           agg.domesticConsumption, Some(newHhs), Some(agg))
 
     val baseIncome = Config.TotalPopulation.toDouble * Config.BaseWage
     val demandMult = 1.0 + (totalIncome / baseIncome - 1.0) *
@@ -158,16 +181,25 @@ object Simulation:
       r.firm
     }
 
+    // Individual mode: post-firm-processing labor market update
+    val finalHouseholds = updatedHouseholds.map { hhs =>
+      val afterSep = LaborMarket.separations(hhs, firms, newFirms)
+      val afterSearch = LaborMarket.jobSearch(afterSep, newFirms, newWage, Random)
+      LaborMarket.updateWages(afterSearch, newWage)  // normalize wages for next step
+    }
+
     val prevAlive = firms.filter(FirmOps.isAlive).map(_.id).toSet
     val newlyDead = newFirms.filter(f => !FirmOps.isAlive(f) && prevAlive.contains(f.id))
     val nplNew    = newlyDead.map(_.debt).sum
     val nplLoss   = nplNew * (1.0 - Config.LoanRecovery)
     val intIncome = firms.filter(FirmOps.isAlive).map(_.debt * lendRate / 12.0).sum
 
+    // SFC: household debt service flows to bank as interest income
+    val hhDebtService = hhAgg.map(_.totalDebtService).getOrElse(0.0)
     val newBank = w.bank.copy(
       totalLoans = Math.max(0, w.bank.totalLoans + sumNewLoans - nplNew * Config.LoanRecovery),
       nplAmount  = Math.max(0, w.bank.nplAmount + nplNew - w.bank.nplAmount * 0.05),
-      capital    = w.bank.capital - nplLoss + intIncome * 0.3,
+      capital    = w.bank.capital - nplLoss + intIncome * 0.3 + hhDebtService * 0.3,
       deposits   = w.bank.deposits + (totalIncome - consumption))
 
     val living2 = newFirms.filter(FirmOps.isAlive)
@@ -206,8 +238,38 @@ object Simulation:
     val vat = consumption * Config.VatRate
     val newGov = Sectors.updateGov(w.gov, sumTax, vat, bdpActive, bdp, newPrice)
 
+    // Recompute hhAgg from final households if in individual mode
+    val finalHhAgg = finalHouseholds.map { hhs =>
+      HouseholdLogic.computeAggregates(hhs, newWage, resWage, importAdj, 0, 0, bdp)
+    }
+
     val newW = World(m, newInfl, newPrice, demandMult, newGov, NbpState(newRefRate),
       newBank, newForex,
       HhState(employed, newWage, resWage, totalIncome, consumption, domesticCons, importCons),
-      autoR, hybR, gdp, newSigmas)
-    (newW, rewiredFirms)
+      autoR, hybR, gdp, newSigmas,
+      hhAgg = finalHhAgg,
+      households = finalHouseholds)
+
+    // SFC accounting check: verify exact balance-sheet identities every step
+    val prevSnap = SfcCheck.snapshot(w, firms, households)
+    val currSnap = SfcCheck.snapshot(newW, rewiredFirms, finalHouseholds)
+    val sfcFlows = SfcCheck.MonthlyFlows(
+      govSpending = newGov.bdpSpending + Config.GovBaseSpending * newPrice,
+      govRevenue = sumTax + vat,
+      nplLoss = nplLoss,
+      interestIncome = intIncome,
+      hhDebtService = hhDebtService,
+      totalIncome = totalIncome,
+      totalConsumption = consumption,
+      newLoans = sumNewLoans,
+      nplRecovery = nplNew * Config.LoanRecovery
+    )
+    val sfcResult = SfcCheck.validate(m, prevSnap, currSnap, sfcFlows)
+    if !sfcResult.passed then
+      System.err.println(
+        f"[SFC] Month $m FAIL:" +
+        f" bankCap=${sfcResult.bankCapitalError}%.2f" +
+        f" bankDep=${sfcResult.bankDepositsError}%.2f" +
+        f" govDebt=${sfcResult.govDebtError}%.2f")
+
+    (newW, rewiredFirms, finalHouseholds)

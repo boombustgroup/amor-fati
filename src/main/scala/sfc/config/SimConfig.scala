@@ -9,6 +9,10 @@ enum MonetaryRegime:
 enum Topology:
   case Ws, Er, Ba, Lattice
 
+/** Household mode: aggregate (backward-compat) or individual agents (Paper-06). */
+enum HhMode:
+  case Aggregate, Individual
+
 /**
  * Runtime configuration: values that depend on CLI arguments.
  * Passed through runSingle and Simulation.step.
@@ -72,6 +76,12 @@ val TOPOLOGY: Topology =
     case "ba"      => Topology.Ba
     case "lattice" => Topology.Lattice
     case _         => Topology.Ws
+
+/** Household mode parsed from HH_MODE env var (default: aggregate). */
+val HH_MODE: HhMode =
+  sys.env.get("HH_MODE").map(_.trim.toLowerCase) match
+    case Some("individual") => HhMode.Individual
+    case _                  => HhMode.Aggregate
 
 object Config:
   val FirmsCount       = sys.env.get("FIRMS_COUNT").map(_.trim.toInt).getOrElse(10000)
@@ -160,3 +170,40 @@ object Config:
 
   // Dynamic network (Paper-05)
   val RewireRho    = sys.env.get("REWIRE_RHO").map(_.trim.toDouble).getOrElse(0.0)
+
+  // Heterogeneous households (Paper-06)
+  val HhCount = sys.env.get("HH_COUNT").map(_.trim.toInt).getOrElse(TotalPopulation)
+
+  // Savings distribution (GUS BBGD 2023): LogNormal(mu, sigma) → median ~15K PLN
+  val HhSavingsMu       = sys.env.get("HH_SAVINGS_MU").map(_.trim.toDouble).getOrElse(9.6)
+  val HhSavingsSigma    = 1.2
+  // Debt: 40% of households have debt; among those, LogNormal
+  val HhDebtFraction    = 0.40
+  val HhDebtMu          = 10.5     // median ~36K PLN for indebted
+  val HhDebtSigma       = 1.5
+  // Rent: Normal(mean, std), floor at 800 PLN/month
+  val HhRentMean        = 1800.0
+  val HhRentStd         = 400.0
+  val HhRentFloor       = 800.0
+  // MPC: Beta(alpha, beta) → mean ~0.82
+  val HhMpcAlpha        = sys.env.get("HH_MPC_ALPHA").map(_.trim.toDouble).getOrElse(8.2)
+  val HhMpcBeta         = sys.env.get("HH_MPC_BETA").map(_.trim.toDouble).getOrElse(1.8)
+  // Skill decay and health scarring
+  val HhSkillDecayRate  = 0.02     // per month after onset
+  val HhScarringRate    = 0.02     // health penalty per month after onset
+  val HhScarringCap     = 0.50
+  val HhScarringOnset   = 3        // months before scarring/skill decay starts
+  // Retraining
+  val HhRetrainingCost  = sys.env.get("HH_RETRAIN_COST").map(_.trim.toDouble).getOrElse(5000.0)
+  val HhRetrainingDuration = sys.env.get("HH_RETRAIN_DUR").map(_.trim.toInt).getOrElse(6)
+  val HhRetrainingBaseSuccess = 0.60
+  val HhRetrainingProb  = sys.env.get("HH_RETRAIN_PROB").map(_.trim.toDouble).getOrElse(0.15)
+  val HhRetrainingEnabled = sys.env.get("HH_RETRAIN_ENABLED").map(_.trim.toBoolean).getOrElse(true)
+  // Bankruptcy
+  val HhBankruptcyThreshold = -3.0 // multiplied by monthlyRent
+  // Social network (household-level WS)
+  val HhSocialK         = 10
+  val HhSocialP         = 0.15
+  // Debt service
+  val HhDebtServiceRate = 0.02     // monthly (2% of outstanding)
+
