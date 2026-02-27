@@ -15,7 +15,7 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
                         govDebt: Double = 0.0): World =
     World(
       month = 1, inflation = 0.02, priceLevel = 1.0, demandMultiplier = 1.0,
-      gov = GovState(false, 0, 0, 0, govDebt),
+      gov = GovState(false, 0, 0, 0, govDebt, 0),
       nbp = NbpState(0.0575),
       bank = BankState(bankLoans, bankNpl, bankCapital, bankDeposits),
       forex = ForexState(4.33, 0, 0, 0, 0),
@@ -236,4 +236,20 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
     SfcCheck.validate(1, prev, curr, zeroFlows).passed shouldBe false
     // Loose tolerance (10.0): passes
     SfcCheck.validate(1, prev, curr, zeroFlows, tolerance = 10.0).passed shouldBe true
+  }
+
+  // ---- Unemployment benefit SFC flow ----
+
+  "SfcCheck.validate (gov debt with benefits)" should "pass when benefits included in govSpending" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 50000)
+    val benefitSpend = 15000.0
+    val baseGovSpend = 30000.0
+    val totalGovSpend = baseGovSpend + benefitSpend  // 45000
+    val govRevenue = 25000.0
+    val expectedDeficit = totalGovSpend - govRevenue  // 20000
+    val curr = prev.copy(govDebt = prev.govDebt + expectedDeficit)
+    val flows = zeroFlows.copy(govSpending = totalGovSpend, govRevenue = govRevenue)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.govDebtError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
   }

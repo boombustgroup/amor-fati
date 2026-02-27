@@ -122,8 +122,13 @@ object Config:
   val TaylorAlpha      = 1.5
   val TaylorBeta       = 0.8
   val TaylorInertia    = 0.70
-  val RateFloor        = 0.005
+  val RateFloor        = sys.env.get("NBP_RATE_FLOOR").map(_.trim.toDouble).getOrElse(0.001)
   val RateCeiling      = 0.25
+
+  // Symmetric Taylor rule (v2.0 — dual mandate)
+  val NbpSymmetric: Boolean = sys.env.get("NBP_SYMMETRIC").map(_.trim.toBoolean).getOrElse(true)
+  val NbpNairu: Double = sys.env.get("NBP_NAIRU").map(_.trim.toDouble).getOrElse(0.05)
+  val TaylorDelta: Double = sys.env.get("NBP_DELTA").map(_.trim.toDouble).getOrElse(0.5)
 
   // ECB (Eurozone counterfactual)
   val EcbInitialRate   = 0.035       // ECB deposit facility rate
@@ -137,6 +142,12 @@ object Config:
   val SgpDeficitLimit  = 0.03        // Maastricht: annual deficit < 3% of GDP
   val SgpDebtLimit     = 0.60        // Maastricht: public debt < 60% of GDP
   val SgpAusterityRate = 2.0         // Austerity speed: BDP × max(0, 1 - (debtRatio - 0.60) × rate)
+
+  // Unemployment benefits (v2.0 — automatic stabilizers)
+  val GovUnempBenefitEnabled: Boolean = sys.env.get("GOV_UNEMP_BENEFIT").map(_.trim.toBoolean).getOrElse(true)
+  val GovBenefitM1to3: Double = sys.env.get("GOV_BENEFIT_M1_3").map(_.trim.toDouble).getOrElse(1500.0)
+  val GovBenefitM4to6: Double = sys.env.get("GOV_BENEFIT_M4_6").map(_.trim.toDouble).getOrElse(1200.0)
+  val GovBenefitDuration: Int = sys.env.get("GOV_BENEFIT_DURATION").map(_.trim.toInt).getOrElse(6)
 
   // Banking system
   val InitBankCapital  = 500000000.0 * ScaleFactor

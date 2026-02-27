@@ -7,7 +7,8 @@ case class GovState(
   taxRevenue: Double,
   bdpSpending: Double,
   deficit: Double,
-  cumulativeDebt: Double
+  cumulativeDebt: Double,
+  unempBenefitSpend: Double
 )
 
 case class BankState(

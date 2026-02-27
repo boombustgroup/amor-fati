@@ -64,7 +64,8 @@ case class HhAggregates(
   meanMonthsToRuin: Double,
   povertyRate30: Double,
   totalRent: Double,
-  totalDebtService: Double
+  totalDebtService: Double,
+  totalUnempBenefits: Double
 )
 
 object HouseholdInit:

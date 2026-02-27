@@ -44,7 +44,7 @@ object Sectors:
     (smoothed, newPrice)
 
   def updateCbRate(prevRate: Double, inflation: Double, exRateChange: Double,
-    rc: RunConfig): Double =
+    employed: Int, rc: RunConfig): Double =
     if rc.isEurozone then
       // ECB Taylor rule reacting to Eurozone-wide inflation (exogenous to Poland)
       val infGap = Config.EuroInflation - Config.EcbTargetInfl
@@ -52,8 +52,19 @@ object Sectors:
         Config.EcbAlpha * Math.max(0.0, infGap)
       val smoothed = prevRate * Config.EcbInertia + taylor * (1.0 - Config.EcbInertia)
       Math.max(Config.RateFloor, Math.min(Config.RateCeiling, smoothed))
+    else if Config.NbpSymmetric then
+      // v2.0: Symmetric Taylor + output gap (dual mandate)
+      val infGap = inflation - Config.NbpTargetInfl
+      val unempRate = 1.0 - (employed.toDouble / Config.TotalPopulation)
+      val outputGap = (unempRate - Config.NbpNairu) / Config.NbpNairu
+      val taylor = Config.NbpNeutralRate +
+        Config.TaylorAlpha * infGap -
+        Config.TaylorDelta * outputGap +
+        Config.TaylorBeta  * exRateChange
+      val smoothed = prevRate * Config.TaylorInertia + taylor * (1.0 - Config.TaylorInertia)
+      Math.max(Config.RateFloor, Math.min(Config.RateCeiling, smoothed))
     else
-      // NBP Taylor rule reacting to Polish inflation + exchange rate
+      // v1.0 legacy: asymmetric Taylor (inflation-only)
       val infGap  = inflation - Config.NbpTargetInfl
       val taylor  = Config.NbpNeutralRate +
         Config.TaylorAlpha * Math.max(0.0, infGap) +
@@ -85,12 +96,13 @@ object Sectors:
       ForexState(newRate, totalImp, exports, tradeBal, techImports)
 
   def updateGov(prev: GovState, citPaid: Double, vat: Double,
-    bdpActive: Boolean, bdpAmount: Double, priceLevel: Double): GovState =
+    bdpActive: Boolean, bdpAmount: Double, priceLevel: Double,
+    unempBenefitSpend: Double): GovState =
     val bdpSpend   = if bdpActive then Config.TotalPopulation.toDouble * bdpAmount else 0.0
-    val totalSpend = bdpSpend + Config.GovBaseSpending * priceLevel
+    val totalSpend = bdpSpend + unempBenefitSpend + Config.GovBaseSpending * priceLevel
     val totalRev   = citPaid + vat
     val deficit    = totalSpend - totalRev
-    GovState(bdpActive, totalRev, bdpSpend, deficit, prev.cumulativeDebt + deficit)
+    GovState(bdpActive, totalRev, bdpSpend, deficit, prev.cumulativeDebt + deficit, unempBenefitSpend)
 
 object Simulation:
   /** Step with optional individual households.
@@ -255,10 +267,11 @@ object Simulation:
 
     val exRateChg = if rc.isEurozone then 0.0
                     else (newForex.exchangeRate / w.forex.exchangeRate) - 1.0
-    val newRefRate = Sectors.updateCbRate(w.nbp.referenceRate, newInfl, exRateChg, rc)
+    val newRefRate = Sectors.updateCbRate(w.nbp.referenceRate, newInfl, exRateChg, employed, rc)
 
     val vat = consumption * Config.VatRate
-    val newGov = Sectors.updateGov(w.gov, sumTax, vat, bdpActive, bdp, newPrice)
+    val unempBenefitSpend = hhAgg.map(_.totalUnempBenefits).getOrElse(0.0)
+    val newGov = Sectors.updateGov(w.gov, sumTax, vat, bdpActive, bdp, newPrice, unempBenefitSpend)
 
     // Recompute hhAgg from final households if in individual mode
     // Carry retraining counters from the monthly step (hhAgg) — not zeros
@@ -282,7 +295,7 @@ object Simulation:
     val prevSnap = SfcCheck.snapshot(w, firms, households)
     val currSnap = SfcCheck.snapshot(newW, rewiredFirms, finalHouseholds)
     val sfcFlows = SfcCheck.MonthlyFlows(
-      govSpending = newGov.bdpSpending + Config.GovBaseSpending * newPrice,
+      govSpending = newGov.bdpSpending + newGov.unempBenefitSpend + Config.GovBaseSpending * newPrice,
       govRevenue = sumTax + vat,
       nplLoss = nplLoss,
       interestIncome = intIncome,

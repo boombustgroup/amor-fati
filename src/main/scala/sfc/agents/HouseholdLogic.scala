@@ -7,6 +7,14 @@ import scala.util.Random
 
 object HouseholdLogic:
 
+  /** Compute unemployment benefit based on months unemployed.
+    * Polish zasiłek: 1500 PLN months 1-3, 1200 PLN months 4-6, 0 after. */
+  def computeBenefit(monthsUnemployed: Int): Double =
+    if !Config.GovUnempBenefitEnabled then 0.0
+    else if monthsUnemployed <= Config.GovBenefitDuration / 2 then Config.GovBenefitM1to3
+    else if monthsUnemployed <= Config.GovBenefitDuration then Config.GovBenefitM4to6
+    else 0.0
+
   /** Process one month for all households. Returns updated households + aggregate stats.
     * This is the core individual-mode household step. */
   def step(households: Vector[Household], world: World, bdp: Double,
@@ -15,6 +23,8 @@ object HouseholdLogic:
 
     var retrainingAttempts = 0
     var retrainingSuccesses = 0
+    var actualTotalIncome = 0.0
+    var totalUnempBenefits = 0.0
 
     // Pre-compute distressed HH set: O(N_hh) instead of O(N_hh × k) per-HH lookup
     val distressedIds = new java.util.BitSet(households.length)
@@ -29,7 +39,9 @@ object HouseholdLogic:
       hh.status match
         case HhStatus.Bankrupt => hh  // absorbing barrier
         case _ =>
-          val (income, newStatus) = computeIncome(hh, bdp, marketWage, world)
+          val (income, benefit, newStatus) = computeIncome(hh, bdp, marketWage, world)
+          actualTotalIncome += income
+          totalUnempBenefits += benefit
           val obligations = hh.monthlyRent + hh.debt * Config.HhDebtServiceRate
           val disposable = Math.max(0.0, income - obligations)
           val consumption = disposable * hh.mpc
@@ -93,19 +105,24 @@ object HouseholdLogic:
 
     val agg = computeAggregates(updated, marketWage, reservationWage, importAdj,
       retrainingAttempts, retrainingSuccesses)
-    (updated, agg)
+    val correctedAgg = agg.copy(
+      totalIncome = actualTotalIncome,
+      totalUnempBenefits = totalUnempBenefits
+    )
+    (updated, correctedAgg)
 
   private def computeIncome(hh: Household, bdp: Double, marketWage: Double,
-                            world: World): (Double, HhStatus) =
+                            world: World): (Double, Double, HhStatus) =
     hh.status match
       case HhStatus.Employed(firmId, sectorIdx, wage) =>
-        (wage + bdp, hh.status)  // UBI is universal: employed also receive BDP
+        (wage + bdp, 0.0, hh.status)  // UBI is universal: employed also receive BDP
       case HhStatus.Unemployed(months) =>
-        (bdp, HhStatus.Unemployed(months + 1))
+        val benefit = computeBenefit(months)
+        (bdp + benefit, benefit, HhStatus.Unemployed(months + 1))
       case HhStatus.Retraining(monthsLeft, target, cost) =>
-        (bdp * 0.7, hh.status)  // reduced availability during training
+        (bdp * 0.7, 0.0, hh.status)  // reduced availability during training
       case HhStatus.Bankrupt =>
-        (0.0, HhStatus.Bankrupt)
+        (0.0, 0.0, HhStatus.Bankrupt)
 
   private def applySkillDecay(hh: Household, status: HhStatus): Double =
     status match
@@ -150,6 +167,7 @@ object HouseholdLogic:
 
     var totalRent = 0.0
     var totalDebtService = 0.0
+    var totalUnempBenefits = 0.0
 
     // Single pass: collect all per-HH stats + accumulate skill/health
     var i = 0
@@ -163,7 +181,9 @@ object HouseholdLogic:
           sumHealth += hh.healthPenalty
         case HhStatus.Unemployed(months) =>
           nUnemployed += 1
-          incomes(i) = bdp
+          val benefit = computeBenefit(months)
+          incomes(i) = bdp + benefit
+          totalUnempBenefits += benefit
           sumSkill += hh.skill
           sumHealth += hh.healthPenalty
         case HhStatus.Retraining(_, _, _) =>
@@ -256,7 +276,8 @@ object HouseholdLogic:
       meanMonthsToRuin = meanMonthsToRuin,
       povertyRate30 = povertyRate30,
       totalRent = totalRent,
-      totalDebtService = totalDebtService
+      totalDebtService = totalDebtService,
+      totalUnempBenefits = totalUnempBenefits
     )
 
   /** Gini coefficient for a pre-sorted array (handles negatives by shifting). */

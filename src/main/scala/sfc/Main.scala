@@ -70,7 +70,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   val initCash = firms.map(_.cash).sum
   val initRate = if rc.isEurozone then Config.EcbInitialRate else Config.NbpInitialRate
   var world = World(0, 0.02, 1.0, 1.0,
-    GovState(false, 0, 0, 0, 0), NbpState(initRate),
+    GovState(false, 0, 0, 0, 0, 0), NbpState(initRate),
     BankState(0, 0, Config.InitBankCapital, initCash),
     ForexState(Config.BaseExRate, 0, Config.ExportBase, 0, 0),
     HhState(Config.TotalPopulation, Config.BaseWage, Config.BaseReservationWage, 0, 0, 0, 0),
@@ -86,7 +86,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          MeanDegree: average network degree (changes when REWIRE_RHO>0),
   //          IoFlows: total intermediate market payments (Paper-07),
   //          IoGdpRatio: intermediate flows / GDP
-  val nCols = 36
+  val nCols = 38
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -149,7 +149,9 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.bop.exports,                // 32: Exports_OE
       world.bop.totalImports,           // 33: TotalImports_OE
       world.bop.importedIntermediates,  // 34: ImportedInterm
-      world.bop.fdi                     // 35: FDI
+      world.bop.fdi,                    // 35: FDI
+      world.gov.unempBenefitSpend,      // 36: UnempBenefitSpend
+      (1.0 - world.hh.employed.toDouble / Config.TotalPopulation - Config.NbpNairu) / Config.NbpNairu  // 37: OutputGap
     )
 
   RunResult(results, world.hhAgg)
@@ -212,7 +214,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "BPO_Auto;Manuf_Auto;Retail_Auto;Health_Auto;Public_Auto;Agri_Auto;EffectiveBDP;" +
     "BPO_Sigma;Manuf_Sigma;Retail_Sigma;Health_Sigma;Public_Sigma;Agri_Sigma;MeanDegree;" +
     "IoFlows;IoGdpRatio;" +
-    "NFA;CurrentAccount;CapitalAccount;TradeBalance_OE;Exports_OE;TotalImports_OE;ImportedInterm;FDI\n")
+    "NFA;CurrentAccount;CapitalAccount;TradeBalance_OE;Exports_OE;TotalImports_OE;ImportedInterm;FDI;" +
+    "UnempBenefitSpend;OutputGap\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -262,7 +265,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "BPO_Sigma", "Manuf_Sigma", "Retail_Sigma", "Health_Sigma", "Public_Sigma", "Agri_Sigma",
     "MeanDegree", "IoFlows", "IoGdpRatio",
     "NFA", "CurrentAccount", "CapitalAccount", "TradeBalance_OE", "Exports_OE",
-    "TotalImports_OE", "ImportedInterm", "FDI")
+    "TotalImports_OE", "ImportedInterm", "FDI",
+    "UnempBenefitSpend", "OutputGap")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

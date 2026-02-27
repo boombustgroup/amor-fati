@@ -14,11 +14,11 @@ class IntegrationSpec extends AnyFlatSpec with Matchers:
     noException should be thrownBy runSingle(42, rc)
   }
 
-  it should "produce 120 rows x 36 columns" in {
+  it should "produce 120 rows x 38 columns" in {
     val result = runSingle(42, rc)
     result.timeSeries.length shouldBe Config.Duration
     for row <- result.timeSeries do
-      row.length shouldBe 36
+      row.length shouldBe 38
   }
 
   it should "have Month column = 1..120" in {

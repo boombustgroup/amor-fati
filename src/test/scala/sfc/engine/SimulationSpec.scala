@@ -55,17 +55,17 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
 
   "Sectors.updateCbRate" should "increase rate when inflation rises (PLN)" in {
     val rc = RunConfig(0.0, 1, "test")
-    val rate1 = Sectors.updateCbRate(0.0575, 0.03, 0.0, rc)
-    val rate2 = Sectors.updateCbRate(0.0575, 0.10, 0.0, rc)
+    val rate1 = Sectors.updateCbRate(0.0575, 0.03, 0.0, Config.TotalPopulation * 95 / 100, rc)
+    val rate2 = Sectors.updateCbRate(0.0575, 0.10, 0.0, Config.TotalPopulation * 95 / 100, rc)
     rate2 should be > rate1
   }
 
   it should "bound rate between floor and ceiling" in {
     val rc = RunConfig(0.0, 1, "test")
-    val rateLow = Sectors.updateCbRate(0.005, -0.50, 0.0, rc)
+    val rateLow = Sectors.updateCbRate(0.005, -0.50, 0.0, Config.TotalPopulation * 95 / 100, rc)
     rateLow should be >= Config.RateFloor
 
-    val rateHigh = Sectors.updateCbRate(0.25, 1.0, 0.5, rc)
+    val rateHigh = Sectors.updateCbRate(0.25, 1.0, 0.5, Config.TotalPopulation * 95 / 100, rc)
     rateHigh should be <= Config.RateCeiling
   }
 
@@ -73,8 +73,8 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
     val rcPln = RunConfig(0.0, 1, "test", MonetaryRegime.Pln)
     val rcEur = RunConfig(0.0, 1, "test", MonetaryRegime.Eur)
     // ECB rate should differ from PLN rate at same inflation
-    val ratePln = Sectors.updateCbRate(0.0575, 0.05, 0.0, rcPln)
-    val rateEur = Sectors.updateCbRate(0.035, 0.05, 0.0, rcEur)
+    val ratePln = Sectors.updateCbRate(0.0575, 0.05, 0.0, Config.TotalPopulation * 95 / 100, rcPln)
+    val rateEur = Sectors.updateCbRate(0.035, 0.05, 0.0, Config.TotalPopulation * 95 / 100, rcEur)
     // They start from different initial rates, so just check both are bounded
     ratePln should be >= Config.RateFloor
     rateEur should be >= Config.RateFloor
@@ -83,27 +83,27 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateGov ---
 
   "Sectors.updateGov" should "compute deficit as spending - revenue" in {
-    val prev = sfc.sfc.GovState(false, 0, 0, 0, 0)
+    val prev = sfc.sfc.GovState(false, 0, 0, 0, 0, 0)
     val result = Sectors.updateGov(prev, citPaid = 100000, vat = 200000,
-      bdpActive = false, bdpAmount = 0, priceLevel = 1.0)
+      bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
     result.deficit shouldBe (Config.GovBaseSpending - 300000) +- 1.0
   }
 
   it should "have zero BDP spending when not active" in {
-    val prev = sfc.sfc.GovState(false, 0, 0, 0, 0)
-    val result = Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 2000, priceLevel = 1.0)
+    val prev = sfc.sfc.GovState(false, 0, 0, 0, 0, 0)
+    val result = Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 2000, priceLevel = 1.0, unempBenefitSpend = 0)
     result.bdpSpending shouldBe 0.0
   }
 
   it should "include BDP spending when active" in {
-    val prev = sfc.sfc.GovState(false, 0, 0, 0, 0)
-    val result = Sectors.updateGov(prev, 100000, 200000, bdpActive = true, bdpAmount = 2000, priceLevel = 1.0)
+    val prev = sfc.sfc.GovState(false, 0, 0, 0, 0, 0)
+    val result = Sectors.updateGov(prev, 100000, 200000, bdpActive = true, bdpAmount = 2000, priceLevel = 1.0, unempBenefitSpend = 0)
     result.bdpSpending shouldBe Config.TotalPopulation.toDouble * 2000.0
     result.bdpSpending should be > 0.0
   }
 
   it should "accumulate debt" in {
-    val prev = sfc.sfc.GovState(false, 0, 0, 0, 1000000)
-    val result = Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0)
+    val prev = sfc.sfc.GovState(false, 0, 0, 0, 1000000, 0)
+    val result = Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
     result.cumulativeDebt shouldBe (1000000 + result.deficit) +- 1.0
   }
