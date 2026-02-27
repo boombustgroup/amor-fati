@@ -173,6 +173,12 @@ object Config:
   val MinCar           = 0.08
   val LoanRecovery     = 0.30
 
+  // Multi-bank (Phase 4)
+  val BankMulti: Boolean = sys.env.get("BANK_MODE").map(_.trim.toLowerCase).getOrElse("single") == "multi"
+  val BankFailureEnabled: Boolean = sys.env.get("BANK_FAILURE").map(_.trim.toBoolean).getOrElse(false)
+  val BankReserveReq: Double = sys.env.get("BANK_RESERVE_REQ").map(_.trim.toDouble).getOrElse(0.035)
+  val BankStressThreshold: Double = sys.env.get("BANK_STRESS_THRESHOLD").map(_.trim.toDouble).getOrElse(0.05)
+
   // Foreign sector (NBP/ECB 2024)
   val BaseExRate       = 4.33        // NBP average PLN/EUR rate 2024
   val ForeignRate      = 0.04        // ECB rate 2024
@@ -301,5 +307,7 @@ object Config:
   val HhSocialK         = 10
   val HhSocialP         = 0.15
   // Debt service
-  val HhDebtServiceRate = 0.02     // monthly (2% of outstanding)
+  val HhDebtServiceRate = 0.02     // monthly (2% of outstanding) — aggregate mode fallback
+  val HhBaseAmortRate   = 0.015    // monthly principal amortization (individual mode)
+  val HhDepositSpread   = 0.02     // annual: deposit rate = max(0, refRate - spread)
 

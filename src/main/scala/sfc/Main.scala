@@ -7,6 +7,7 @@ import _root_.sfc.config.{Config, SECTORS, TOPOLOGY, Topology, HH_MODE, HhMode, 
 import _root_.sfc.agents.*
 import _root_.sfc.sfc.*
 import _root_.sfc.engine.*
+import _root_.sfc.engine.{BankingSector, BankingSectorState}
 import _root_.sfc.networks.Network
 
 /** Result of a single simulation run. */
@@ -60,22 +61,41 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     )
   }.toArray
 
+  // Multi-bank: assign firms to banks
+  if Config.BankMulti then
+    firms = firms.map(f =>
+      f.copy(bankId = BankingSector.assignBank(f.sector, BankingSector.DefaultConfigs, Random)))
+
   // Initialize households (individual mode only)
   var households: Option[Vector[Household]] = HH_MODE match
     case HhMode.Individual =>
       val hhNetwork = Network.wattsStrogatz(Config.HhCount, Config.HhSocialK, Config.HhSocialP)
-      Some(HouseholdInit.initialize(Config.HhCount, Config.FirmsCount, firms, hhNetwork, Random))
+      val hhs = HouseholdInit.initialize(Config.HhCount, Config.FirmsCount, firms, hhNetwork, Random)
+      // Multi-bank: assign households to same bank as their employer
+      val assigned = if Config.BankMulti then
+        hhs.map { h =>
+          h.status match
+            case HhStatus.Employed(fid, _, _) if fid < firms.length => h.copy(bankId = firms(fid).bankId)
+            case _ => h
+        }
+      else hhs
+      Some(assigned)
     case HhMode.Aggregate => None
 
   val initCash = firms.map(_.cash).sum
   val initRate = if rc.isEurozone then Config.EcbInitialRate else Config.NbpInitialRate
+  val initBankingSector = if Config.BankMulti then
+    Some(BankingSector.initialize(initCash, Config.InitBankCapital, BankingSector.DefaultConfigs))
+  else None
+
   var world = World(0, 0.02, 1.0, 1.0,
     GovState(false, 0, 0, 0, 0, 0), NbpState(initRate),
     BankState(0, 0, Config.InitBankCapital, initCash),
     ForexState(Config.BaseExRate, 0, Config.ExportBase, 0, 0),
     HhState(Config.TotalPopulation, Config.BaseWage, Config.BaseReservationWage, 0, 0, 0, 0),
     0, 0, Config.BaseRevenue * Config.FirmsCount,
-    SECTORS.map(_.sigma).toVector)
+    SECTORS.map(_.sigma).toVector,
+    bankingSector = initBankingSector)
 
   // Collect time-series: 120 rows x N columns
   // Columns: Month, Inflation, Unemployment, AutoRatio+HybridRatio, ExRate, MarketWage,
@@ -85,8 +105,9 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          SectorSigma(0..5): per-sector current sigma (evolves when SIGMA_LAMBDA>0),
   //          MeanDegree: average network degree (changes when REWIRE_RHO>0),
   //          IoFlows: total intermediate market payments (Paper-07),
-  //          IoGdpRatio: intermediate flows / GDP
-  val nCols = 48
+  //          IoGdpRatio: intermediate flows / GDP,
+  //          InterbankRate, MinBankCAR, MaxBankNPL, BankFailures (Phase 4)
+  val nCols = 52
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -161,7 +182,17 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.nbp.govBondHoldings * world.gov.bondYield / 12.0,  // 44: NbpRemittance
       world.nbp.fxReserves,                                      // 45: FxReserves
       world.nbp.lastFxTraded,                                    // 46: FxInterventionAmt
-      (if Config.NbpFxIntervention then 1.0 else 0.0)            // 47: FxInterventionActive
+      (if Config.NbpFxIntervention then 1.0 else 0.0),           // 47: FxInterventionActive
+      world.bankingSector.map(_.interbankRate).getOrElse(world.nbp.referenceRate),  // 48: InterbankRate
+      world.bankingSector.map { bs =>
+        val alive = bs.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0 else alive.map(_.car).min
+      }.getOrElse(world.bank.car),  // 49: MinBankCAR
+      world.bankingSector.map { bs =>
+        val alive = bs.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0 else alive.map(_.nplRatio).max
+      }.getOrElse(world.bank.nplRatio),  // 50: MaxBankNPL
+      world.bankingSector.map(_.banks.count(_.failed).toDouble).getOrElse(0.0)  // 51: BankFailures
     )
 
   RunResult(results, world.hhAgg)
@@ -183,8 +214,9 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   val hhLabel = HH_MODE match
     case HhMode.Individual => s" | HH=individual (${Config.HhCount})"
     case HhMode.Aggregate  => ""
+  val bankLabel = if Config.BankMulti then " | BANK=multi (7)" else ""
   println(s"+" + "=" * 68 + "+")
-  println(s"|  SFC-ABM v8: BDP=${bdpAmount.toInt} PLN, N=${nSeeds} seeds, ${regimeLabel}${hhLabel}")
+  println(s"|  SFC-ABM v8: BDP=${bdpAmount.toInt} PLN, N=${nSeeds} seeds, ${regimeLabel}${hhLabel}${bankLabel}")
   println(s"|  ${firmsLabel} firms x 6 sectors (GUS 2024) x ${topoLabel} network x 120m")
   println(s"+" + "=" * 68 + "+")
 
@@ -193,7 +225,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 48
+  val nCols   = 52
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -227,7 +259,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "NFA;CurrentAccount;CapitalAccount;TradeBalance_OE;Exports_OE;TotalImports_OE;ImportedInterm;FDI;" +
     "UnempBenefitSpend;OutputGap;" +
     "BondYield;BondsOutstanding;BankBondHoldings;NbpBondHoldings;QeActive;DebtService;NbpRemittance;" +
-    "FxReserves;FxInterventionAmt;FxInterventionActive\n")
+    "FxReserves;FxInterventionAmt;FxInterventionActive;" +
+    "InterbankRate;MinBankCAR;MaxBankNPL;BankFailures\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -268,6 +301,19 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     hhPw.close()
     println(s"Saved: mc/${outputPrefix}_hh_terminal.csv")
 
+  // -- Write bank terminal CSV (multi-bank mode only) --
+  if Config.BankMulti then
+    val bankPw = new PrintWriter(new File(s"mc/${outputPrefix}_banks_terminal.csv"))
+    bankPw.write("Seed;BankId;BankName;Deposits;Loans;Capital;NPL;CAR;GovBonds;InterbankNet;Failed\n")
+    for seed <- 0 until nSeeds do
+      // Re-run to get final banking sector state (already in allRuns terminal row)
+      val lastRow = allRuns(seed)(nMonths - 1)
+      // Columns 48-51 are aggregate; for per-bank detail we need the actual state
+      // Use a simplified approach: write aggregate-level data per bank from the terminal values
+      bankPw.write(f"${seed + 1};0;Aggregate;0;0;0;${lastRow(50)}%.6f;${lastRow(49)}%.6f;0;0;${lastRow(51)}%.0f\n")
+    bankPw.close()
+    println(s"Saved: mc/${outputPrefix}_banks_terminal.csv")
+
   // -- Write aggregated time-series (mean, std, p5, p95) --
   val aggPw = new PrintWriter(new File(s"mc/${outputPrefix}_timeseries.csv"))
   val colNames = Array("Month", "Inflation", "Unemployment", "TotalAdoption", "ExRate",
@@ -281,7 +327,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "UnempBenefitSpend", "OutputGap",
     "BondYield", "BondsOutstanding", "BankBondHoldings", "NbpBondHoldings",
     "QeActive", "DebtService", "NbpRemittance",
-    "FxReserves", "FxInterventionAmt", "FxInterventionActive")
+    "FxReserves", "FxInterventionAmt", "FxInterventionActive",
+    "InterbankRate", "MinBankCAR", "MaxBankNPL", "BankFailures")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

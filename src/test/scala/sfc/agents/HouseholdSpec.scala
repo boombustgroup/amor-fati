@@ -76,7 +76,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       mkHousehold(0, HhStatus.Bankrupt, savings = 0.0),
       mkHousehold(1, HhStatus.Employed(0, 2, 8000.0), savings = 50000.0)
     )
-    val (updated, _) = HouseholdLogic.step(hhs, mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng)
+    val (updated, _, _) = HouseholdLogic.step(hhs, mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng)
     updated(0).status shouldBe HhStatus.Bankrupt
   }
 
@@ -85,7 +85,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val hhs = Vector(
       mkHousehold(0, HhStatus.Unemployed(3), savings = 50000.0)
     )
-    val (updated, _) = HouseholdLogic.step(hhs, mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
+    val (updated, _, _) = HouseholdLogic.step(hhs, mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
     updated(0).status match
       case HhStatus.Unemployed(m) => m should be >= 4
       case HhStatus.Retraining(_, _, _) => succeed  // may enter retraining
@@ -96,29 +96,139 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   it should "apply skill decay after scarring onset" in {
     val rng = new Random(42)
     val hh = mkHousehold(0, HhStatus.Unemployed(5), savings = 100000.0, skill = 0.8)
-    val (updated, _) = HouseholdLogic.step(Vector(hh), mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
+    val (updated, _, _) = HouseholdLogic.step(Vector(hh), mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
     updated(0).skill should be < 0.8
   }
 
   it should "not decay skill before scarring onset" in {
     val rng = new Random(42)
     val hh = mkHousehold(0, HhStatus.Unemployed(1), savings = 100000.0, skill = 0.8)
-    val (updated, _) = HouseholdLogic.step(Vector(hh), mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
+    val (updated, _, _) = HouseholdLogic.step(Vector(hh), mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
     updated(0).skill shouldBe 0.8
   }
 
   it should "apply health scarring after onset" in {
     val rng = new Random(42)
     val hh = mkHousehold(0, HhStatus.Unemployed(5), savings = 100000.0, healthPenalty = 0.0)
-    val (updated, _) = HouseholdLogic.step(Vector(hh), mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
+    val (updated, _, _) = HouseholdLogic.step(Vector(hh), mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
     updated(0).healthPenalty should be > 0.0
   }
 
   it should "bankrupt household when savings fall below threshold" in {
     val rng = new Random(42)
     val hh = mkHousehold(0, HhStatus.Unemployed(1), savings = -10000.0, rent = 1800.0)
-    val (updated, _) = HouseholdLogic.step(Vector(hh), mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng)
+    val (updated, _, _) = HouseholdLogic.step(Vector(hh), mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng)
     updated(0).status shouldBe HhStatus.Bankrupt
+  }
+
+  it should "return None for perBankHhFlows when bankRates not provided" in {
+    val rng = new Random(42)
+    val hhs = Vector(mkHousehold(0, HhStatus.Employed(0, 2, 8000.0), savings = 50000.0))
+    val (_, _, pbf) = HouseholdLogic.step(hhs, mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
+    pbf shouldBe None
+  }
+
+  // --- Variable-rate debt service + deposit interest ---
+
+  "HouseholdLogic.step with bankRates" should "use variable lending rate for debt service" in {
+    val rng = new Random(42)
+    val debt = 100000.0
+    val hhs = Vector(
+      mkHousehold(0, HhStatus.Employed(0, 0, 8000.0), savings = 50000.0, debt = debt, bankId = 0),
+      mkHousehold(1, HhStatus.Employed(1, 0, 8000.0), savings = 50000.0, debt = debt, bankId = 1)
+    )
+    // Bank 0: 6% annual lending rate, Bank 1: 10% annual
+    val br = BankRates(
+      lendingRates = Array(0.06, 0.10),
+      depositRates = Array(0.04, 0.04)
+    )
+    val (_, agg, Some(pbf)) = HouseholdLogic.step(
+      hhs, mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng, nBanks = 2, bankRates = Some(br))
+    // Expected debt service: debt * (HhBaseAmortRate + lendingRate/12)
+    val expectedDs0 = debt * (Config.HhBaseAmortRate + 0.06 / 12.0)
+    val expectedDs1 = debt * (Config.HhBaseAmortRate + 0.10 / 12.0)
+    pbf.debtService(0) shouldBe expectedDs0 +- 0.01
+    pbf.debtService(1) shouldBe expectedDs1 +- 0.01
+    // Bank 1's higher rate should mean higher debt service
+    pbf.debtService(1) should be > pbf.debtService(0)
+  }
+
+  it should "pay deposit interest to HH with positive savings" in {
+    val rng = new Random(42)
+    val savings = 100000.0
+    val hhs = Vector(
+      mkHousehold(0, HhStatus.Employed(0, 0, 8000.0), savings = savings, bankId = 0)
+    )
+    val depRate = 0.04  // 4% annual
+    val br = BankRates(
+      lendingRates = Array(0.07),
+      depositRates = Array(depRate)
+    )
+    val (_, agg, Some(pbf)) = HouseholdLogic.step(
+      hhs, mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng, nBanks = 1, bankRates = Some(br))
+    val expectedDepInt = depRate / 12.0 * savings
+    pbf.depositInterest(0) shouldBe expectedDepInt +- 0.01
+    agg.totalDepositInterest shouldBe expectedDepInt +- 0.01
+  }
+
+  it should "include deposit interest in totalIncome" in {
+    val rng = new Random(42)
+    val savings = 200000.0
+    val wage = 8000.0
+    val bdp = 2000.0
+    val depRate = 0.04
+    val hhs = Vector(
+      mkHousehold(0, HhStatus.Employed(0, 0, wage), savings = savings, bankId = 0)
+    )
+    val br = BankRates(
+      lendingRates = Array(0.07),
+      depositRates = Array(depRate)
+    )
+    val (_, agg, _) = HouseholdLogic.step(
+      hhs, mkWorld(), bdp, wage, 4666.0, 0.4, rng, nBanks = 1, bankRates = Some(br))
+    val expectedDepInt = depRate / 12.0 * savings
+    // totalIncome should include wage + bdp + deposit interest
+    agg.totalIncome shouldBe (wage + bdp + expectedDepInt) +- 0.01
+  }
+
+  it should "accumulate per-bank flows correctly for 2 banks" in {
+    val rng = new Random(42)
+    val hhs = Vector(
+      mkHousehold(0, HhStatus.Employed(0, 0, 8000.0), savings = 50000.0, debt = 0.0, bankId = 0),
+      mkHousehold(1, HhStatus.Employed(1, 0, 7000.0), savings = 30000.0, debt = 0.0, bankId = 0),
+      mkHousehold(2, HhStatus.Employed(2, 0, 9000.0), savings = 80000.0, debt = 0.0, bankId = 1)
+    )
+    val br = BankRates(
+      lendingRates = Array(0.07, 0.08),
+      depositRates = Array(0.035, 0.035)
+    )
+    val (_, _, Some(pbf)) = HouseholdLogic.step(
+      hhs, mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng, nBanks = 2, bankRates = Some(br))
+    // Bank 0 has HH 0 and 1: income should include both
+    pbf.income(0) should be > 0.0
+    pbf.income(1) should be > 0.0
+    // Bank 0 deposit interest: (50000 + 30000) * 0.035/12
+    val expDepInt0 = (50000.0 + 30000.0) * 0.035 / 12.0
+    pbf.depositInterest(0) shouldBe expDepInt0 +- 0.01
+    // Bank 1 deposit interest: 80000 * 0.035/12
+    val expDepInt1 = 80000.0 * 0.035 / 12.0
+    pbf.depositInterest(1) shouldBe expDepInt1 +- 0.01
+  }
+
+  it should "not pay deposit interest on negative savings" in {
+    val rng = new Random(42)
+    val hhs = Vector(
+      mkHousehold(0, HhStatus.Employed(0, 0, 8000.0), savings = -5000.0, bankId = 0)
+    )
+    val br = BankRates(
+      lendingRates = Array(0.07),
+      depositRates = Array(0.04)
+    )
+    val (_, agg, Some(pbf)) = HouseholdLogic.step(
+      hhs, mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng, nBanks = 1, bankRates = Some(br))
+    // Deposit interest on negative savings is floored at 0
+    pbf.depositInterest(0) shouldBe 0.0
+    agg.totalDepositInterest shouldBe 0.0
   }
 
   // --- HouseholdLogic.giniSorted ---
@@ -173,8 +283,9 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   private def mkHousehold(id: Int, status: HhStatus,
                           savings: Double = 20000.0, debt: Double = 0.0,
                           rent: Double = 1800.0, skill: Double = 0.7,
-                          healthPenalty: Double = 0.0, mpc: Double = 0.82): Household =
-    Household(id, savings, debt, rent, skill, healthPenalty, mpc, status, Array.empty)
+                          healthPenalty: Double = 0.0, mpc: Double = 0.82,
+                          bankId: Int = 0): Household =
+    Household(id, savings, debt, rent, skill, healthPenalty, mpc, status, Array.empty, bankId)
 
   private def mkWorld(): World =
     World(

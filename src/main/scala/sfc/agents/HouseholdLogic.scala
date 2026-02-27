@@ -5,28 +5,55 @@ import sfc.engine.World
 
 import scala.util.Random
 
+/** Per-bank lending and deposit rates for individual HH mode. */
+case class BankRates(
+  lendingRates: Array[Double],  // annual lending rate per bank
+  depositRates: Array[Double]   // annual deposit rate per bank
+)
+
+/** Per-bank HH flow accumulators for multi-bank mode. */
+case class PerBankHhFlows(
+  income: Array[Double],          // per-bank total income (incl. deposit interest)
+  consumption: Array[Double],     // per-bank total consumption (goods + rent)
+  debtService: Array[Double],     // per-bank total debt service
+  depositInterest: Array[Double]  // per-bank total deposit interest paid
+)
+
 object HouseholdLogic:
 
   /** Compute unemployment benefit based on months unemployed.
-    * Polish zasiłek: 1500 PLN months 1-3, 1200 PLN months 4-6, 0 after. */
+    * Polish zasilek: 1500 PLN months 1-3, 1200 PLN months 4-6, 0 after. */
   def computeBenefit(monthsUnemployed: Int): Double =
     if !Config.GovUnempBenefitEnabled then 0.0
     else if monthsUnemployed <= Config.GovBenefitDuration / 2 then Config.GovBenefitM1to3
     else if monthsUnemployed <= Config.GovBenefitDuration then Config.GovBenefitM4to6
     else 0.0
 
-  /** Process one month for all households. Returns updated households + aggregate stats.
-    * This is the core individual-mode household step. */
+  /** Process one month for all households. Returns updated households + aggregate stats + optional per-bank flows.
+    * This is the core individual-mode household step.
+    * When bankRates is provided, uses variable-rate debt service and deposit interest. */
   def step(households: Vector[Household], world: World, bdp: Double,
            marketWage: Double, reservationWage: Double,
-           importAdj: Double, rng: Random): (Vector[Household], HhAggregates) =
+           importAdj: Double, rng: Random,
+           nBanks: Int = 1,
+           bankRates: Option[BankRates] = None
+  ): (Vector[Household], HhAggregates, Option[PerBankHhFlows]) =
 
     var retrainingAttempts = 0
     var retrainingSuccesses = 0
     var actualTotalIncome = 0.0
     var totalUnempBenefits = 0.0
+    var actualTotalDebtService = 0.0
+    var actualTotalDepositInterest = 0.0
 
-    // Pre-compute distressed HH set: O(N_hh) instead of O(N_hh × k) per-HH lookup
+    // Per-bank flow accumulators (only when bankRates provided)
+    val br = bankRates.orNull
+    val perBankInc    = if br != null then new Array[Double](nBanks) else null
+    val perBankCons   = if br != null then new Array[Double](nBanks) else null
+    val perBankDSvc   = if br != null then new Array[Double](nBanks) else null
+    val perBankDepInt = if br != null then new Array[Double](nBanks) else null
+
+    // Pre-compute distressed HH set: O(N_hh) instead of O(N_hh x k) per-HH lookup
     val distressedIds = new java.util.BitSet(households.length)
     var idx = 0
     while idx < households.length do
@@ -39,10 +66,26 @@ object HouseholdLogic:
       hh.status match
         case HhStatus.Bankrupt => hh  // absorbing barrier
         case _ =>
-          val (income, benefit, newStatus) = computeIncome(hh, bdp, marketWage, world)
+          val (baseIncome, benefit, newStatus) = computeIncome(hh, bdp, marketWage, world)
+
+          // Variable-rate debt service (monetary transmission channel 1)
+          val debtServiceRate = if br != null then
+            Config.HhBaseAmortRate + br.lendingRates(hh.bankId) / 12.0
+          else Config.HhDebtServiceRate
+
+          // Deposit interest (monetary transmission channel 2)
+          val depInterest = if br != null then
+            br.depositRates(hh.bankId) / 12.0 * hh.savings
+          else 0.0
+
+          val income = baseIncome + Math.max(0.0, depInterest)  // floor at 0 (no negative interest on negative savings)
           actualTotalIncome += income
           totalUnempBenefits += benefit
-          val obligations = hh.monthlyRent + hh.debt * Config.HhDebtServiceRate
+          val thisDebtService = hh.debt * debtServiceRate
+          actualTotalDebtService += thisDebtService
+          actualTotalDepositInterest += Math.max(0.0, depInterest)
+
+          val obligations = hh.monthlyRent + thisDebtService
           val disposable = Math.max(0.0, income - obligations)
           val consumption = disposable * hh.mpc
 
@@ -51,7 +94,15 @@ object HouseholdLogic:
           val consumptionAdj = if neighborDistress > 0.30 then consumption * 0.90 else consumption
 
           val newSavings = hh.savings + income - obligations - consumptionAdj
-          val newDebt = Math.max(0.0, hh.debt - hh.debt * Config.HhDebtServiceRate)
+          val newDebt = Math.max(0.0, hh.debt - thisDebtService)
+
+          // Per-bank accumulation
+          if perBankInc != null then
+            val bId = hh.bankId
+            perBankInc(bId) += income
+            perBankCons(bId) += consumptionAdj + hh.monthlyRent
+            perBankDSvc(bId) += thisDebtService
+            perBankDepInt(bId) += Math.max(0.0, depInterest)
 
           // Bankruptcy test
           if newSavings < Config.HhBankruptcyThreshold * hh.monthlyRent then
@@ -72,7 +123,7 @@ object HouseholdLogic:
                 else (newStatus, 0, 0)
               case HhStatus.Retraining(monthsLeft, targetSector, cost) =>
                 if monthsLeft <= 1 then
-                  // Retraining complete — check success
+                  // Retraining complete -- check success
                   val successProb = Config.HhRetrainingBaseSuccess *
                     afterSkill * (1.0 - afterHealth)
                   if rng.nextDouble() < successProb then
@@ -107,9 +158,14 @@ object HouseholdLogic:
       retrainingAttempts, retrainingSuccesses)
     val correctedAgg = agg.copy(
       totalIncome = actualTotalIncome,
-      totalUnempBenefits = totalUnempBenefits
+      totalUnempBenefits = totalUnempBenefits,
+      totalDebtService = actualTotalDebtService,
+      totalDepositInterest = actualTotalDepositInterest
     )
-    (updated, correctedAgg)
+    val pbf = if perBankInc != null then
+      Some(PerBankHhFlows(perBankInc, perBankCons, perBankDSvc, perBankDepInt))
+    else None
+    (updated, correctedAgg, pbf)
 
   private def computeIncome(hh: Household, bdp: Double, marketWage: Double,
                             world: World): (Double, Double, HhStatus) =
@@ -209,14 +265,14 @@ object HouseholdLogic:
 
     val nAlive = n - nBankrupt
 
-    // SFC consistency: rent is domestic consumption (landlord income → spending),
+    // SFC consistency: rent is domestic consumption (landlord income -> spending),
     // debt service flows to bank (captured via BankState in Simulation.scala).
     val goodsConsumption = consumptions.sum
     val totalConsumption = goodsConsumption + totalRent
     val importCons = goodsConsumption * Math.min(0.65, importAdj)
     val domesticCons = totalConsumption - importCons
 
-    // Sort each array once — reuse for Gini + percentiles + poverty
+    // Sort each array once -- reuse for Gini + percentiles + poverty
     java.util.Arrays.sort(incomes)
     java.util.Arrays.sort(savingsArr)
     java.util.Arrays.sort(consumptions)
@@ -229,7 +285,7 @@ object HouseholdLogic:
     val meanSavings = if n > 0 then savingsArr.sum / n else 0.0
     val medianSavings = if n > 0 then savingsArr(n / 2) else 0.0
 
-    // Poverty rates from sorted incomes — binary search instead of full scan
+    // Poverty rates from sorted incomes -- binary search instead of full scan
     val medianIncome = if n > 0 then incomes(n / 2) else 0.0
     val povertyRate50 = if n > 0 && medianIncome > 0 then
       lowerBound(incomes, medianIncome * 0.5).toDouble / n else 0.0

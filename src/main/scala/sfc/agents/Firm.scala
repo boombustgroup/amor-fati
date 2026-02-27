@@ -24,7 +24,8 @@ case class Firm(
   innovationCostFactor: Double,
   digitalReadiness: Double,
   sector: Int,              // Index into SECTORS
-  neighbors: Array[Int]     // Network adjacency (firm IDs)
+  neighbors: Array[Int],    // Network adjacency (firm IDs)
+  bankId: Int = 0           // Multi-bank: index into BankingSectorState.banks
 )
 
 object FirmOps:

@@ -277,6 +277,33 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
 
   // ---- Unemployment benefit SFC flow ----
 
+  // ---- Identity 6: Interbank netting ----
+
+  "SfcCheck.validate (interbank netting)" should "pass when interbankNetSum is zero" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0,
+      interbankNetSum = 0.0)
+    val result = SfcCheck.validate(1, prev, prev, zeroFlows)
+    result.interbankNettingError shouldBe 0.0
+    result.passed shouldBe true
+  }
+
+  it should "detect error when interbankNetSum is non-zero" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    val curr = prev.copy(interbankNetSum = 5000.0)
+    val result = SfcCheck.validate(1, prev, curr, zeroFlows)
+    result.interbankNettingError shouldBe 5000.0 +- 0.01
+    result.passed shouldBe false
+  }
+
+  it should "pass trivially in single-bank mode (interbankNetSum=0)" in {
+    val snap = SfcCheck.Snapshot(100000, 5000, 500000, 10000, 200000, 800000, 10000, 0)
+    val result = SfcCheck.validate(1, snap, snap, zeroFlows)
+    result.interbankNettingError shouldBe 0.0
+    result.passed shouldBe true
+  }
+
+  // ---- Unemployment benefit SFC flow ----
+
   "SfcCheck.validate (gov debt with benefits)" should "pass when benefits included in govSpending" in {
     val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 50000)
     val benefitSpend = 15000.0
@@ -289,4 +316,39 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
     val result = SfcCheck.validate(1, prev, curr, flows)
     result.govDebtError shouldBe 0.0 +- 0.01
     result.passed shouldBe true
+  }
+
+  // ---- Identity 1 with deposit interest ----
+
+  "SfcCheck.validate (bank capital with deposit interest)" should "subtract deposit interest from bank capital" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // depositInterestPaid=3000 -> (0 + 0 + 0 - 3000) * 0.3 = -900
+    val curr = prev.copy(bankCapital = prev.bankCapital - 900)
+    val flows = zeroFlows.copy(depositInterestPaid = 3000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankCapitalError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "pass with combined interest income and deposit interest" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // intIncome=10000, hhDebtService=2000, bankBondIncome=1000, depositInterestPaid=3000
+    // expected = -0 + (10000 + 2000 + 1000 - 3000) * 0.3 = 10000 * 0.3 = 3000
+    val curr = prev.copy(bankCapital = prev.bankCapital + 3000)
+    val flows = zeroFlows.copy(interestIncome = 10000, hhDebtService = 2000,
+      bankBondIncome = 1000, depositInterestPaid = 3000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankCapitalError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "detect error when deposit interest not deducted from bank capital" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // Bug: bank capital unchanged despite deposit interest obligation
+    val curr = prev.copy(bankCapital = prev.bankCapital)
+    val flows = zeroFlows.copy(depositInterestPaid = 5000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    // actual=0, expected=-5000*0.3=-1500, error=0-(-1500)=1500
+    result.bankCapitalError shouldBe 1500.0 +- 0.01
+    result.passed shouldBe false
   }

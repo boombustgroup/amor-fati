@@ -14,11 +14,11 @@ class IntegrationSpec extends AnyFlatSpec with Matchers:
     noException should be thrownBy runSingle(42, rc)
   }
 
-  it should "produce 120 rows x 48 columns" in {
+  it should "produce 120 rows x 52 columns" in {
     val result = runSingle(42, rc)
     result.timeSeries.length shouldBe Config.Duration
     for row <- result.timeSeries do
-      row.length shouldBe 48
+      row.length shouldBe 52
   }
 
   it should "have Month column = 1..120" in {
@@ -44,7 +44,7 @@ class IntegrationSpec extends AnyFlatSpec with Matchers:
   it should "be reproducible with the same seed" in {
     val r1 = runSingle(42, rc)
     val r2 = runSingle(42, rc)
-    for t <- 0 until Config.Duration; c <- 0 until 48 do
+    for t <- 0 until Config.Duration; c <- 0 until 52 do
       r1.timeSeries(t)(c) shouldBe r2.timeSeries(t)(c)
   }
 

@@ -147,17 +147,17 @@ object Simulation:
       Math.pow(Config.BaseExRate / w.forex.exchangeRate, 0.5)
 
     // ---- Aggregate vs Individual household path ----
-    val (totalIncome, consumption, importCons, domesticCons, updatedHouseholds, hhAgg) =
+    val (totalIncome, consumption, importCons, domesticCons, updatedHouseholds, hhAgg, perBankHhFlowsOpt) =
       households match
         case None =>
-          // Aggregate mode: identical to Papers 1–5
+          // Aggregate mode: identical to Papers 1-5
           val wageIncome = employed.toDouble * newWage
           val bdpIncome  = if bdpActive then Config.TotalPopulation.toDouble * bdp else 0.0
           val ti = wageIncome + bdpIncome
           val cons = ti * Config.Mpc
           val ic = cons * Math.min(0.65, importAdj)
           val dc = cons - ic
-          (ti, cons, ic, dc, None, None)
+          (ti, cons, ic, dc, None, None, Option.empty[PerBankHhFlows])
 
         case Some(hhs) =>
           // Individual mode: process household agents
@@ -165,21 +165,49 @@ object Simulation:
           val afterSep = LaborMarket.separations(hhs, firms, firms)  // firms not yet updated
           // Phase 2+3: wages update (will be refined after firm processing below)
           val afterWages = LaborMarket.updateWages(afterSep, newWage)
+          // Compute bank rates for variable-rate HH loans + deposit interest
+          val nBanksHh = w.bankingSector.map(_.banks.length).getOrElse(1)
+          val hhBankRates = Some(BankRates(
+            lendingRates = w.bankingSector match
+              case Some(bs) => bs.banks.zip(bs.configs).map((b, cfg) =>
+                BankingSector.lendingRate(b, cfg, w.nbp.referenceRate)).toArray
+              case None => Array(w.bank.lendingRate(w.nbp.referenceRate)),
+            depositRates = w.bankingSector match
+              case Some(bs) => bs.banks.map(_ =>
+                BankingSector.hhDepositRate(w.nbp.referenceRate)).toArray
+              case None => Array(BankingSector.hhDepositRate(w.nbp.referenceRate))
+          ))
           // Household monthly step
-          val (newHhs, agg) = HouseholdLogic.step(
-            afterWages, w, bdp, newWage, resWage, importAdj, Random)
+          val (newHhs, agg, pbf) = HouseholdLogic.step(
+            afterWages, w, bdp, newWage, resWage, importAdj, Random, nBanksHh, hhBankRates)
           (agg.totalIncome, agg.consumption, agg.importConsumption,
-           agg.domesticConsumption, Some(newHhs), Some(agg))
+           agg.domesticConsumption, Some(newHhs), Some(agg), pbf)
 
     val baseIncome = Config.TotalPopulation.toDouble * Config.BaseWage
     val demandMult = 1.0 + (totalIncome / baseIncome - 1.0) *
       Config.Mpc * (1.0 - Math.min(0.65, importAdj)) * Config.DemandPassthrough
 
-    val lendRate = w.bank.lendingRate(w.nbp.referenceRate)
-    val bankCanLend: Double => Boolean = { amt =>
-      val approvalP = Math.max(0.1, 1.0 - w.bank.nplRatio * 3.0)
-      w.bank.canLend(amt) && Random.nextDouble() < approvalP
-    }
+    // ---- Lending dispatch: single-bank vs multi-bank ----
+    val nBanks = w.bankingSector.map(_.banks.length).getOrElse(1)
+    val perBankNewLoans = new Array[Double](nBanks)
+    val perBankNplDebt  = new Array[Double](nBanks)
+    val perBankIntIncome = new Array[Double](nBanks)
+    val perBankWorkers  = new Array[Int](nBanks)
+
+    val (getLendRate, bankCanLendFn): (Int => Double, (Int, Double) => Boolean) =
+      w.bankingSector match
+        case Some(bs) =>
+          val rates = bs.banks.zip(bs.configs).map((b, cfg) =>
+            BankingSector.lendingRate(b, cfg, w.nbp.referenceRate))
+          ((bankId: Int) => rates(bankId),
+           (bankId: Int, amt: Double) => BankingSector.canLend(bs.banks(bankId), amt, Random))
+        case None =>
+          val rate = w.bank.lendingRate(w.nbp.referenceRate)
+          val canLendFn: (Int, Double) => Boolean = (_: Int, amt: Double) => {
+            val approvalP = Math.max(0.1, 1.0 - w.bank.nplRatio * 3.0)
+            w.bank.canLend(amt) && Random.nextDouble() < approvalP
+          }
+          ((_: Int) => rate, canLendFn)
 
     var sumTax      = 0.0
     var sumCapex    = 0.0
@@ -190,15 +218,22 @@ object Simulation:
       month = m, demandMultiplier = demandMult,
       hh = w.hh.copy(marketWage = newWage, reservationWage = resWage))
 
-    // Process firms -- pass allFirms for network lookups
+    // Process firms -- per-firm dispatch to bank, accumulate per-bank flows
     val newFirms = firms.map { f =>
-      val r = FirmLogic.process(f, macro4firms, lendRate, bankCanLend, firms, rc)
+      val firmRate = getLendRate(f.bankId)
+      val firmCanLend: Double => Boolean = amt => bankCanLendFn(f.bankId, amt)
+      val r = FirmLogic.process(f, macro4firms, firmRate, firmCanLend, firms, rc)
       sumTax      += r.taxPaid
       sumCapex    += r.capexSpent
       sumTechImp  += r.techImports
       sumNewLoans += r.newLoan
+      perBankNewLoans(f.bankId) += r.newLoan
       r.firm
     }
+
+    // Track per-bank workers for deposit partitioning
+    for f <- newFirms if FirmOps.isAlive(f) do
+      perBankWorkers(f.bankId) += FirmOps.workers(f)
 
     // I-O intermediate market (Paper-07)
     val (ioFirms, totalIoPaid) = if Config.IoEnabled then
@@ -219,10 +254,20 @@ object Simulation:
     val newlyDead = ioFirms.filter(f => !FirmOps.isAlive(f) && prevAlive.contains(f.id))
     val nplNew    = newlyDead.map(_.debt).sum
     val nplLoss   = nplNew * (1.0 - Config.LoanRecovery)
-    val intIncome = firms.filter(FirmOps.isAlive).map(_.debt * lendRate / 12.0).sum
+
+    // Per-bank NPL attribution
+    for f <- newlyDead do perBankNplDebt(f.bankId) += f.debt
+
+    // Per-bank interest income
+    for f <- firms if FirmOps.isAlive(f) do
+      perBankIntIncome(f.bankId) += f.debt * getLendRate(f.bankId) / 12.0
+
+    val intIncome = perBankIntIncome.sum
 
     // SFC: household debt service flows to bank as interest income
     val hhDebtService = hhAgg.map(_.totalDebtService).getOrElse(0.0)
+    // SFC: deposit interest paid to HH (monetary transmission channel 2)
+    val depositInterestPaid = hhAgg.map(_.totalDepositInterest).getOrElse(0.0)
     // Note: newBank construction deferred until after bond market block (needs bankBondIncome)
 
     val living2 = ioFirms.filter(FirmOps.isAlive)
@@ -301,7 +346,7 @@ object Simulation:
       totalLoans = Math.max(0, w.bank.totalLoans + sumNewLoans - nplNew * Config.LoanRecovery),
       nplAmount  = Math.max(0, w.bank.nplAmount + nplNew - w.bank.nplAmount * 0.05),
       capital    = w.bank.capital - nplLoss + intIncome * 0.3 + hhDebtService * 0.3
-                   + bankBondIncome * 0.3,
+                   + bankBondIncome * 0.3 - depositInterestPaid * 0.3,
       deposits   = w.bank.deposits + (totalIncome - consumption))
 
     val vat = consumption * Config.VatRate
@@ -324,18 +369,78 @@ object Simulation:
       newBank.copy(govBondHoldings = newBank.govBondHoldings + newGovWithYield.deficit - qePurchaseAmount)
     else newBank.copy(govBondHoldings = newBank.govBondHoldings - qePurchaseAmount)
 
+    // ---- Multi-bank update path ----
+    val (finalBankingSector, reassignedFirms, reassignedHouseholds) = w.bankingSector match
+      case Some(bs) =>
+        val totalWorkers = perBankWorkers.sum.toDouble
+        // 1. Update each bank with its per-bank flows
+        val updatedBanks = bs.banks.map { b =>
+          val bId = b.id
+          val bankNplNew = perBankNplDebt(bId)
+          val bankNplLoss = bankNplNew * (1.0 - Config.LoanRecovery)
+          val bankIntIncome = perBankIntIncome(bId)
+          // Per-bank HH flows: exact from individual HH data, or worker-proportional proxy
+          val (bankIncomeShare, bankConsShare, bankHhDebtService, bankDepInterest) =
+            perBankHhFlowsOpt match
+              case Some(pbf) =>
+                (pbf.income(bId), pbf.consumption(bId), pbf.debtService(bId), pbf.depositInterest(bId))
+              case None =>
+                // Aggregate HH mode fallback: worker-proportional proxy
+                val ws = if totalWorkers > 0 then perBankWorkers(bId) / totalWorkers else 0.0
+                (totalIncome * ws, consumption * ws, hhDebtService * ws, 0.0)
+          val bankBondInc = if w.bank.govBondHoldings > 0 then
+            bankBondIncome * (b.govBondHoldings / w.bank.govBondHoldings) else 0.0
+          b.copy(
+            loans = Math.max(0, b.loans + perBankNewLoans(bId) - bankNplNew * Config.LoanRecovery),
+            nplAmount = Math.max(0, b.nplAmount + bankNplNew - b.nplAmount * 0.05),
+            capital = b.capital - bankNplLoss + bankIntIncome * 0.3 +
+              bankHhDebtService * 0.3 + bankBondInc * 0.3 - bankDepInterest * 0.3,
+            deposits = b.deposits + (bankIncomeShare - bankConsShare)
+          )
+        }
+        // 2. Interbank clearing
+        val ibRate = BankingSector.interbankRate(updatedBanks, w.nbp.referenceRate)
+        val afterInterbank = BankingSector.clearInterbank(updatedBanks, bs.configs, ibRate)
+        // 3. Bond allocation
+        val afterBonds = if Config.GovBondMarket then
+          BankingSector.allocateBonds(afterInterbank, newGovWithYield.deficit)
+        else afterInterbank
+        // 4. QE allocation
+        val afterQe = BankingSector.allocateQePurchases(afterBonds, qePurchaseAmount)
+        // 5. Failure checks + BFG resolution
+        val (afterFailCheck, anyFailed) = BankingSector.checkFailures(afterQe, m)
+        val afterResolve = if anyFailed then BankingSector.resolveFailures(afterFailCheck)
+                           else afterFailCheck
+        val newBs = bs.copy(banks = afterResolve, interbankRate = ibRate)
+        // 6. Reassign firm/HH bankIds if any failure occurred
+        val reFirms = if anyFailed then
+          rewiredFirms.map(f => f.copy(bankId = BankingSector.reassignBankId(f.bankId, afterResolve)))
+        else rewiredFirms
+        val reHouseholds = if anyFailed then
+          finalHouseholds.map(_.map(h => h.copy(bankId = BankingSector.reassignBankId(h.bankId, afterResolve))))
+        else finalHouseholds
+        // 7. Sync aggregate BankState from individual banks
+        val aggBank = newBs.aggregate
+        (Some(newBs), reFirms, reHouseholds)
+      case None =>
+        (None, rewiredFirms, finalHouseholds)
+
+    // Use multi-bank aggregate if present, otherwise use single-bank finalBank
+    val resolvedBank = finalBankingSector.map(_.aggregate).getOrElse(finalBank)
+
     val newW = World(m, newInfl, newPrice, demandMult, newGovWithYield, postFxNbp,
-      finalBank, newForex,
+      resolvedBank, newForex,
       HhState(employed, newWage, resWage, totalIncome, consumption, domesticCons, importCons),
       autoR, hybR, gdp, newSigmas,
       ioFlows = totalIoPaid,
       bop = newBop,
       hhAgg = finalHhAgg,
-      households = finalHouseholds)
+      households = reassignedHouseholds,
+      bankingSector = finalBankingSector)
 
     // SFC accounting check: verify exact balance-sheet identities every step
     val prevSnap = SfcCheck.snapshot(w, firms, households)
-    val currSnap = SfcCheck.snapshot(newW, rewiredFirms, finalHouseholds)
+    val currSnap = SfcCheck.snapshot(newW, reassignedFirms, reassignedHouseholds)
     val sfcFlows = SfcCheck.MonthlyFlows(
       govSpending = newGovWithYield.bdpSpending + newGovWithYield.unempBenefitSpend
         + Config.GovBaseSpending * newPrice + monthlyDebtService,
@@ -351,7 +456,8 @@ object Simulation:
       valuationEffect = oeValuationEffect,
       bankBondIncome = bankBondIncome,
       qePurchase = qePurchaseAmount,
-      newBondIssuance = if Config.GovBondMarket then newGovWithYield.deficit else 0.0
+      newBondIssuance = if Config.GovBondMarket then newGovWithYield.deficit else 0.0,
+      depositInterestPaid = depositInterestPaid
     )
     val sfcResult = SfcCheck.validate(m, prevSnap, currSnap, sfcFlows)
     if !sfcResult.passed then
@@ -361,6 +467,7 @@ object Simulation:
         f" bankDep=${sfcResult.bankDepositsError}%.2f" +
         f" govDebt=${sfcResult.govDebtError}%.2f" +
         f" nfa=${sfcResult.nfaError}%.2f" +
-        f" bondClr=${sfcResult.bondClearingError}%.2f")
+        f" bondClr=${sfcResult.bondClearingError}%.2f" +
+        f" ibNet=${sfcResult.interbankNettingError}%.2f")
 
-    (newW, rewiredFirms, finalHouseholds)
+    (newW, reassignedFirms, reassignedHouseholds)

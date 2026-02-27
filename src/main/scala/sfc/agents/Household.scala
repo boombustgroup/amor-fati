@@ -33,7 +33,8 @@ case class Household(
   healthPenalty: Double,
   mpc: Double,
   status: HhStatus,
-  socialNeighbors: Array[Int]
+  socialNeighbors: Array[Int],
+  bankId: Int = 0             // Multi-bank: index into BankingSectorState.banks
 )
 
 /** Aggregate statistics computed from individual households (Paper-06). */
@@ -65,7 +66,8 @@ case class HhAggregates(
   povertyRate30: Double,
   totalRent: Double,
   totalDebtService: Double,
-  totalUnempBenefits: Double
+  totalUnempBenefits: Double,
+  totalDepositInterest: Double = 0.0
 )
 
 object HouseholdInit:

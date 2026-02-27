@@ -3,7 +3,7 @@ package sfc.testutil
 import org.scalacheck.{Arbitrary, Gen}
 import _root_.sfc.agents.*
 import _root_.sfc.sfc.*
-import _root_.sfc.engine.World
+import _root_.sfc.engine.{World, BankConfig, IndividualBankState, BankingSectorState, BankingSector}
 import _root_.sfc.config.{Config, SECTORS, RunConfig, MonetaryRegime}
 
 object Generators:
@@ -60,7 +60,8 @@ object Generators:
     innov  <- Gen.choose(0.5, 2.0)
     digiR  <- Gen.choose(0.02, 0.98)
     sector <- Gen.choose(0, 5)
-  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty)
+    bankId <- Gen.choose(0, 6)
+  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty, bankId)
 
   val genAliveFirm: Gen[Firm] = for
     id     <- Gen.choose(0, 9999)
@@ -71,7 +72,8 @@ object Generators:
     innov  <- Gen.choose(0.5, 2.0)
     digiR  <- Gen.choose(0.02, 0.98)
     sector <- Gen.choose(0, 5)
-  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty)
+    bankId <- Gen.choose(0, 6)
+  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty, bankId)
 
   // --- Balance sheet state generators ---
 
@@ -149,7 +151,8 @@ object Generators:
     health  <- Gen.choose(0.0, 0.5)
     mpc     <- Gen.choose(0.5, 0.98)
     status  <- genHhStatus
-  yield Household(id, savings, debt, rent, skill, health, mpc, status, Array.empty)
+    bankId  <- Gen.choose(0, 6)
+  yield Household(id, savings, debt, rent, skill, health, mpc, status, Array.empty, bankId)
 
   // --- World generator ---
 
@@ -190,7 +193,7 @@ object Generators:
     bankBonds <- Gen.choose(0.0, 1e10)
     nbpBonds  <- Gen.choose(0.0, 1e10)
   yield SfcCheck.Snapshot(hhS, hhD, fCash, fDebt, bCap, bDep, bLoans, govDebt, nfa,
-    bankBonds, nbpBonds, bankBonds + nbpBonds)
+    bankBonds, nbpBonds, bankBonds + nbpBonds, interbankNetSum = 0.0)
 
   val genMonthlyFlows: Gen[SfcCheck.MonthlyFlows] = for
     govSpend     <- Gen.choose(0.0, 1e9)
@@ -207,9 +210,10 @@ object Generators:
     bankBondInc  <- Gen.choose(0.0, 1e8)
     qePurchase   <- Gen.choose(0.0, 1e9)
     newBondIssue <- Gen.choose(0.0, 1e9)
+    depIntPaid   <- Gen.choose(0.0, 1e7)
   yield SfcCheck.MonthlyFlows(govSpend, govRev, nplLoss, intIncome, hhDebtSvc,
     totIncome, totCons, newLoans, nplRecov, ca, valEff,
-    bankBondInc, qePurchase, newBondIssue)
+    bankBondInc, qePurchase, newBondIssue, depIntPaid)
 
   /** Generate (prev, curr, flows) where all 5 SFC identities hold exactly. */
   val genConsistentFlowsAndSnapshots: Gen[(SfcCheck.Snapshot, SfcCheck.Snapshot, SfcCheck.MonthlyFlows)] =
@@ -217,8 +221,9 @@ object Generators:
       prev  <- genSnapshot
       flows <- genMonthlyFlows
     yield
-      val expectedBankCapChange = -flows.nplLoss + flows.interestIncome * 0.3 +
-        flows.hhDebtService * 0.3 + flows.bankBondIncome * 0.3
+      val expectedBankCapChange = -flows.nplLoss +
+        (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
+         - flows.depositInterestPaid) * 0.3
       val expectedDepChange = flows.totalIncome - flows.totalConsumption
       val expectedGovDebtChange = flows.govSpending - flows.govRevenue
       val expectedNfaChange = flows.currentAccount + flows.valuationEffect
@@ -273,3 +278,34 @@ object Generators:
       // column sums must be < 1.0
       (0.until(6)).forall(j => m.map(_(j)).sum < 1.0)
     }
+
+  // --- Banking sector generators (Phase 4) ---
+
+  val genBankConfig: Gen[BankConfig] = for
+    id     <- Gen.choose(0, 6)
+    share  <- Gen.choose(0.01, 0.50)
+    cet1   <- Gen.choose(0.10, 0.25)
+    spread <- Gen.choose(-0.005, 0.005)
+    aff    <- Gen.sequence[Vector[Double], Double]((0 until 6).map(_ => Gen.choose(0.05, 0.40)))
+  yield BankConfig(id, s"Bank$id", share, cet1, spread, aff)
+
+  val genIndividualBankState: Gen[IndividualBankState] = for
+    id       <- Gen.choose(0, 6)
+    deposits <- Gen.choose(1e6, 1e10)
+    loans    <- Gen.choose(0.0, 1e10)
+    capital  <- Gen.choose(1e5, 1e9)
+    nplFrac  <- Gen.choose(0.0, 0.20)
+    bonds    <- Gen.choose(0.0, 1e9)
+    reserves <- Gen.choose(0.0, 1e8)
+    ibNet    <- Gen.choose(-1e8, 1e8)
+    failed   <- Gen.oneOf(false, false, false, false, true)  // 20% chance
+    lowCar   <- Gen.choose(0, 5)
+  yield IndividualBankState(id, deposits, loans, capital, loans * nplFrac, bonds,
+    reserves, ibNet, failed, if failed then 30 else 0, lowCar)
+
+  val genBankingSectorState: Gen[BankingSectorState] = for
+    nBanks <- Gen.choose(2, 7)
+    banks  <- Gen.listOfN(nBanks, genIndividualBankState).map(_.toVector.zipWithIndex.map((b, i) => b.copy(id = i)))
+    rate   <- genRate
+    cfgs   <- Gen.listOfN(nBanks, genBankConfig).map(_.toVector.zipWithIndex.map((c, i) => c.copy(id = i)))
+  yield BankingSectorState(banks, rate, cfgs)
