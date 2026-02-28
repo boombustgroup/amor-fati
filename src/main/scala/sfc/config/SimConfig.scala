@@ -353,6 +353,26 @@ object Config:
   val GpwDividends: Boolean = sys.env.get("GPW_DIVIDENDS").map(_.trim.toBoolean).getOrElse(false)
   val GpwDivTax: Double = sys.env.get("GPW_DIV_TAX").map(_.trim.toDouble).getOrElse(0.19)
 
+  // Real Estate / Housing Market (v4.0 Tier 2)
+  val ReEnabled: Boolean = sys.env.get("RE_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val ReMortgage: Boolean = sys.env.get("RE_MORTGAGE").map(_.trim.toBoolean).getOrElse(true)
+  val ReHhHousing: Boolean = sys.env.get("RE_HH_HOUSING").map(_.trim.toBoolean).getOrElse(true)
+  val ReInitHpi: Double = sys.env.get("RE_INIT_HPI").map(_.trim.toDouble).getOrElse(100.0)
+  val ReInitValue: Double = sys.env.get("RE_INIT_VALUE").map(_.trim.toDouble).getOrElse(3.0e12) * ScaleFactor
+  val ReInitMortgage: Double = sys.env.get("RE_INIT_MORTGAGE").map(_.trim.toDouble).getOrElse(485e9) * ScaleFactor
+  val RePriceIncomeElast: Double = sys.env.get("RE_PRICE_INCOME_ELAST").map(_.trim.toDouble).getOrElse(1.2)
+  val RePriceRateElast: Double = sys.env.get("RE_PRICE_RATE_ELAST").map(_.trim.toDouble).getOrElse(-0.8)
+  val RePriceReversion: Double = sys.env.get("RE_PRICE_REVERSION").map(_.trim.toDouble).getOrElse(0.05)
+  val ReMortgageSpread: Double = sys.env.get("RE_MORTGAGE_SPREAD").map(_.trim.toDouble).getOrElse(0.025)
+  val ReMortgageMaturity: Int = sys.env.get("RE_MORTGAGE_MATURITY").map(_.trim.toInt).getOrElse(300)
+  val ReLtvMax: Double = sys.env.get("RE_LTV_MAX").map(_.trim.toDouble).getOrElse(0.80)
+  val ReOriginationRate: Double = sys.env.get("RE_ORIGINATION_RATE").map(_.trim.toDouble).getOrElse(0.003)
+  val ReDefaultBase: Double = sys.env.get("RE_DEFAULT_BASE").map(_.trim.toDouble).getOrElse(0.001)
+  val ReDefaultUnempSens: Double = sys.env.get("RE_DEFAULT_UNEMP_SENS").map(_.trim.toDouble).getOrElse(0.05)
+  val ReMortgageRecovery: Double = sys.env.get("RE_MORTGAGE_RECOVERY").map(_.trim.toDouble).getOrElse(0.70)
+  val ReWealthMpc: Double = sys.env.get("RE_WEALTH_MPC").map(_.trim.toDouble).getOrElse(0.05)
+  val ReRentalYield: Double = sys.env.get("RE_RENTAL_YIELD").map(_.trim.toDouble).getOrElse(0.045)
+
   // Heterogeneous households (Paper-06)
   val HhCount = sys.env.get("HH_COUNT").map(_.trim.toInt).getOrElse(TotalPopulation)
 

@@ -199,10 +199,11 @@ object Generators:
     jstDebt   <- Gen.choose(0.0, 1e9)
     fusBal    <- Gen.choose(-1e10, 1e10)
     ppkBonds  <- Gen.choose(0.0, 1e9)
+    mortStock <- Gen.choose(0.0, 1e12)
   yield SfcCheck.Snapshot(hhS, hhD, fCash, fDebt, bCap, bDep, bLoans, govDebt, nfa,
     bankBonds, nbpBonds, bankBonds + nbpBonds + ppkBonds, interbankNetSum = 0.0,
     jstDeposits = jstDep, jstDebt = jstDebt,
-    fusBalance = fusBal, ppkBondHoldings = ppkBonds)
+    fusBalance = fusBal, ppkBondHoldings = ppkBonds, mortgageStock = mortStock)
 
   val genMonthlyFlows: Gen[SfcCheck.MonthlyFlows] = for
     govSpend     <- Gen.choose(0.0, 1e9)
@@ -232,23 +233,29 @@ object Generators:
     divIncome    <- Gen.choose(0.0, 1e8)
     foreignDiv   <- Gen.choose(0.0, 1e8)
     divTax       <- Gen.choose(0.0, 1e7)
+    mortIntInc   <- Gen.choose(0.0, 1e8)
+    mortNplLoss  <- Gen.choose(0.0, 1e7)
+    mortOrig     <- Gen.choose(0.0, 1e9)
+    mortPrinc    <- Gen.choose(0.0, 1e8)
+    mortDefAmt   <- Gen.choose(0.0, 1e7)
   yield SfcCheck.MonthlyFlows(govSpend, govRev, nplLoss, intIncome, hhDebtSvc,
     totIncome, totCons, newLoans, nplRecov, ca, valEff,
     bankBondInc, qePurchase, newBondIssue, depIntPaid,
     resInt, sfIncome, ibInterest,
     jstDepChg, jstSpend, jstRev,
     zusContrib, zusPension, zusGovSub,
-    divIncome, foreignDiv, divTax)
+    divIncome, foreignDiv, divTax,
+    mortIntInc, mortNplLoss, mortOrig, mortPrinc, mortDefAmt)
 
-  /** Generate (prev, curr, flows) where all 5 SFC identities hold exactly. */
+  /** Generate (prev, curr, flows) where all 9 SFC identities hold exactly. */
   val genConsistentFlowsAndSnapshots: Gen[(SfcCheck.Snapshot, SfcCheck.Snapshot, SfcCheck.MonthlyFlows)] =
     for
       prev  <- genSnapshot
       flows <- genMonthlyFlows
     yield
-      val expectedBankCapChange = -flows.nplLoss +
+      val expectedBankCapChange = -flows.nplLoss - flows.mortgageNplLoss +
         (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
-         - flows.depositInterestPaid
+         + flows.mortgageInterestIncome - flows.depositInterestPaid
          + flows.reserveInterest + flows.standingFacilityIncome + flows.interbankInterest) * 0.3
       val expectedDepChange = flows.totalIncome - flows.totalConsumption + flows.jstDepositChange +
         flows.dividendIncome - flows.foreignDividendOutflow
@@ -256,13 +263,15 @@ object Generators:
       val expectedNfaChange = flows.currentAccount + flows.valuationEffect
       val expectedJstDebtChange = flows.jstSpending - flows.jstRevenue
       val expectedFusChange = flows.zusContributions - flows.zusPensionPayments
+      val expectedMortgageChange = flows.mortgageOrigination - flows.mortgagePrincipalRepaid - flows.mortgageDefaultAmount
       val curr = prev.copy(
         bankCapital = prev.bankCapital + expectedBankCapChange,
         bankDeposits = prev.bankDeposits + expectedDepChange,
         govDebt = prev.govDebt + expectedGovDebtChange,
         nfa = prev.nfa + expectedNfaChange,
         jstDebt = prev.jstDebt + expectedJstDebtChange,
-        fusBalance = prev.fusBalance + expectedFusChange
+        fusBalance = prev.fusBalance + expectedFusChange,
+        mortgageStock = prev.mortgageStock + expectedMortgageChange
       )
       // Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings = bondsOutstanding
       // genSnapshot already ensures this for prev; curr inherits prev's bond fields unchanged

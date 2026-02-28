@@ -454,13 +454,37 @@ object Simulation:
     val (newJst, jstDepositChange) = JstLogic.step(
       w.jst, newGovWithYield.taxRevenue, totalIncome, gdp, nLivingFirms)
 
+    // ---- Housing market step ----
+    val unempRate = 1.0 - employed.toDouble / Config.TotalPopulation
+    val prevMortgageRate = w.housing.avgMortgageRate
+    // Mortgage rate: WIBOR_3M + spread (when term structure) or refRate + spread
+    val mortgageBaseRate = if Config.InterbankTermStructure then
+      w.bankingSector.map(bs => YieldCurve.compute(bs.interbankRate).wibor3m)
+        .getOrElse(w.nbp.referenceRate)
+    else w.nbp.referenceRate
+    val mortgageRate = mortgageBaseRate + Config.ReMortgageSpread
+
+    val housingAfterPrice = HousingMarket.step(w.housing, mortgageRate, newInfl,
+      wageGrowth, employed, prevMortgageRate)
+    val housingAfterOrig = HousingMarket.processOrigination(housingAfterPrice, totalIncome,
+      mortgageRate, true)
+    val (mortgageInterestIncome, mortgagePrincipal, mortgageDefaultLoss) =
+      HousingMarket.processMortgageFlows(housingAfterOrig, mortgageRate, unempRate)
+    val mortgageDefaultAmount = if Config.ReMortgageRecovery < 1.0 then
+      mortgageDefaultLoss / (1.0 - Config.ReMortgageRecovery)
+    else 0.0
+    val housingAfterFlows = HousingMarket.applyFlows(housingAfterOrig,
+      mortgagePrincipal, mortgageDefaultAmount, mortgageInterestIncome)
+
     val newBank = w.bank.copy(
       totalLoans = Math.max(0, w.bank.totalLoans + sumNewLoans - nplNew * Config.LoanRecovery),
       nplAmount  = Math.max(0, w.bank.nplAmount + nplNew - w.bank.nplAmount * 0.05),
-      capital    = w.bank.capital - nplLoss + intIncome * 0.3 + hhDebtService * 0.3
+      capital    = w.bank.capital - nplLoss - mortgageDefaultLoss
+                   + intIncome * 0.3 + hhDebtService * 0.3
                    + bankBondIncome * 0.3 - depositInterestPaid * 0.3
                    + totalReserveInterest * 0.3 + totalStandingFacilityIncome * 0.3
-                   + totalInterbankInterest * 0.3,
+                   + totalInterbankInterest * 0.3
+                   + mortgageInterestIncome * 0.3,
       deposits   = w.bank.deposits + (totalIncome - consumption) + jstDepositChange
                    + netDomesticDividends - foreignDividendOutflow)
 
@@ -529,12 +553,17 @@ object Simulation:
           val bankDivInflow = netDomesticDividends * ws
           val bankDivOutflow = foreignDividendOutflow * ws
           val newDep = b.deposits + (bankIncomeShare - bankConsShare) + bankDivInflow - bankDivOutflow
+          // Per-bank mortgage flows (proportional to deposit share)
+          val bankDepShare = if totalWorkers > 0 then perBankWorkers(bId) / totalWorkers else 0.0
+          val bankMortgageIntIncome = mortgageInterestIncome * bankDepShare
+          val bankMortgageNplLoss = mortgageDefaultLoss * bankDepShare
           b.copy(
             loans = newLoansTotal,
             nplAmount = Math.max(0, b.nplAmount + bankNplNew - b.nplAmount * 0.05),
-            capital = b.capital - bankNplLoss + bankIntIncome * 0.3 +
+            capital = b.capital - bankNplLoss - bankMortgageNplLoss + bankIntIncome * 0.3 +
               bankHhDebtService * 0.3 + bankBondInc * 0.3 - bankDepInterest * 0.3
-              + bankResInt * 0.3 + bankSfInc * 0.3 + bankIbInt * 0.3,
+              + bankResInt * 0.3 + bankSfInc * 0.3 + bankIbInt * 0.3
+              + bankMortgageIntIncome * 0.3,
             deposits = newDep,
             // Deposit split + loan maturity tracking
             demandDeposits = newDep * (1.0 - Config.BankTermDepositFrac),
@@ -623,7 +652,8 @@ object Simulation:
       ppk = finalPpk,
       demographics = newDemographics,
       macropru = newMacropru,
-      equity = equityAfterStep)
+      equity = equityAfterStep,
+      housing = housingAfterFlows)
 
     // SFC accounting check: verify exact balance-sheet identities every step
     val prevSnap = SfcCheck.snapshot(w, firms, households)
@@ -656,7 +686,12 @@ object Simulation:
       zusGovSubvention = newZus.govSubvention,
       dividendIncome = netDomesticDividends,
       foreignDividendOutflow = foreignDividendOutflow,
-      dividendTax = dividendTax
+      dividendTax = dividendTax,
+      mortgageInterestIncome = mortgageInterestIncome,
+      mortgageNplLoss = mortgageDefaultLoss,
+      mortgageOrigination = housingAfterFlows.lastOrigination,
+      mortgagePrincipalRepaid = mortgagePrincipal,
+      mortgageDefaultAmount = mortgageDefaultAmount
     )
     val sfcResult = SfcCheck.validate(m, prevSnap, currSnap, sfcFlows)
     if !sfcResult.passed then
@@ -669,6 +704,7 @@ object Simulation:
         f" bondClr=${sfcResult.bondClearingError}%.2f" +
         f" ibNet=${sfcResult.interbankNettingError}%.2f" +
         f" jstDebt=${sfcResult.jstDebtError}%.2f" +
-        f" fusBal=${sfcResult.fusBalanceError}%.2f")
+        f" fusBal=${sfcResult.fusBalanceError}%.2f" +
+        f" mortgage=${sfcResult.mortgageStockError}%.2f")
 
     (newW, reassignedFirms, reassignedHouseholds)

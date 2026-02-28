@@ -23,7 +23,8 @@ object SfcCheck:
     jstDeposits: Double = 0.0,
     jstDebt: Double = 0.0,
     fusBalance: Double = 0.0,     // ZUS/FUS raw surplus/deficit
-    ppkBondHoldings: Double = 0.0 // PPK government bond holdings
+    ppkBondHoldings: Double = 0.0, // PPK government bond holdings
+    mortgageStock: Double = 0.0   // Outstanding mortgage debt
   )
 
   /** Flows observed during a single month (computed in Simulation.step).
@@ -55,10 +56,15 @@ object SfcCheck:
     zusGovSubvention: Double = 0.0,        // ZUS gov subvention
     dividendIncome: Double = 0.0,          // net domestic dividends → HH deposits
     foreignDividendOutflow: Double = 0.0,  // foreign dividends → CA outflow
-    dividendTax: Double = 0.0             // Belka tax → gov revenue
+    dividendTax: Double = 0.0,            // Belka tax → gov revenue
+    mortgageInterestIncome: Double = 0.0, // mortgage interest → bank capital
+    mortgageNplLoss: Double = 0.0,        // mortgage NPL loss → bank capital
+    mortgageOrigination: Double = 0.0,    // new mortgages issued
+    mortgagePrincipalRepaid: Double = 0.0, // monthly principal repaid
+    mortgageDefaultAmount: Double = 0.0   // gross mortgage defaults (before recovery)
   )
 
-  /** Result of the SFC check: eight exact balance-sheet identity checks. */
+  /** Result of the SFC check: nine exact balance-sheet identity checks. */
   case class SfcResult(
     month: Int,
     bankCapitalError: Double,
@@ -67,8 +73,9 @@ object SfcCheck:
     nfaError: Double = 0.0,
     bondClearingError: Double = 0.0,
     interbankNettingError: Double = 0.0,
-    jstDebtError: Double = 0.0,     // JST budget balance
-    fusBalanceError: Double = 0.0,  // FUS balance
+    jstDebtError: Double = 0.0,        // JST budget balance
+    fusBalanceError: Double = 0.0,     // FUS balance
+    mortgageStockError: Double = 0.0,  // Mortgage stock identity
     passed: Boolean
   )
 
@@ -94,16 +101,17 @@ object SfcCheck:
       jstDeposits = w.jst.deposits,
       jstDebt = w.jst.debt,
       fusBalance = w.zus.fusBalance,
-      ppkBondHoldings = w.ppk.bondHoldings
+      ppkBondHoldings = w.ppk.bondHoldings,
+      mortgageStock = w.housing.mortgageStock
     )
 
-  /** Validate eight exact balance-sheet identities.
+  /** Validate nine exact balance-sheet identities.
     *
     * The model uses a demand multiplier (not direct flow-of-funds) for the
     * firm revenue channel, so the full monetary circuit cannot close exactly.
     * Instead we check identities that ARE exact by construction:
     *
-    * 1. Bank capital:  Δ = -nplLoss + (interestIncome + hhDebtService + bankBondIncome - depositInterestPaid + reserveInterest + standingFacilityIncome + interbankInterest) × 0.3
+    * 1. Bank capital:  Δ = -nplLoss - mortgageNplLoss + (interestIncome + hhDebtService + bankBondIncome + mortgageInterestIncome - depositInterestPaid + reserveInterest + standingFacilityIncome + interbankInterest) × 0.3
     * 2. Bank deposits: Δ = totalIncome - totalConsumption + jstDepositChange + dividendIncome - foreignDividendOutflow
     * 3. Gov debt:      Δ = govSpending - govRevenue  (govRevenue includes dividendTax + zusGovSubvention)
     * 4. NFA:           Δ = currentAccount + valuationEffect  (currentAccount includes -foreignDividendOutflow)
@@ -111,6 +119,7 @@ object SfcCheck:
     * 6. Interbank netting: Σ interbankNet_i = 0 (trivially 0 in single-bank mode)
     * 7. JST debt:      Δ = jstSpending - jstRevenue (trivially 0 when JST disabled)
     * 8. FUS balance:   Δ = zusContributions - zusPensionPayments (trivially 0 when ZUS disabled)
+    * 9. Mortgage stock: Δ = origination - principalRepaid - defaultAmount (trivially 0 when RE disabled)
     *
     * These catch: mis-routed flows (e.g. rent subtracted from HH but not added
     * to bank/consumption), refactoring errors in balance sheet updates, and
@@ -119,11 +128,12 @@ object SfcCheck:
                flows: MonthlyFlows, tolerance: Double = 1.0,
                nfaTolerance: Double = 10.0): SfcResult =
 
-    // Identity 1: Bank capital (includes bond coupon income, minus deposit interest paid,
+    // Identity 1: Bank capital (includes bond coupon income, mortgage interest income,
+    // minus deposit interest paid, minus mortgage NPL loss,
     // plus reserve interest, standing facility income, interbank interest — all × 0.3 profit retention)
-    val expectedBankCapChange = -flows.nplLoss +
+    val expectedBankCapChange = -flows.nplLoss - flows.mortgageNplLoss +
       (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
-       - flows.depositInterestPaid
+       + flows.mortgageInterestIncome - flows.depositInterestPaid
        + flows.reserveInterest + flows.standingFacilityIncome + flows.interbankInterest) * 0.3
     val actualBankCapChange = curr.bankCapital - prev.bankCapital
     val bankCapErr = actualBankCapChange - expectedBankCapChange
@@ -167,6 +177,11 @@ object SfcCheck:
     val actualFusChange = curr.fusBalance - prev.fusBalance
     val fusErr = actualFusChange - expectedFusChange
 
+    // Identity 9: Mortgage stock (trivially 0 when RE disabled — both sides = 0)
+    val expectedMortgageChange = flows.mortgageOrigination - flows.mortgagePrincipalRepaid - flows.mortgageDefaultAmount
+    val actualMortgageChange = curr.mortgageStock - prev.mortgageStock
+    val mortgageErr = actualMortgageChange - expectedMortgageChange
+
     // NFA uses wider tolerance (default 10 PLN) because cumulative NFA
     // values can reach billions, causing floating-point cancellation
     // in the (curr.nfa - prev.nfa) subtraction.
@@ -177,6 +192,8 @@ object SfcCheck:
                  Math.abs(bondClearingErr) < tolerance &&
                  Math.abs(interbankErr) < tolerance &&
                  Math.abs(jstDebtErr) < tolerance &&
-                 Math.abs(fusErr) < tolerance
+                 Math.abs(fusErr) < tolerance &&
+                 Math.abs(mortgageErr) < tolerance
 
-    SfcResult(month, bankCapErr, bankDepErr, govDebtErr, nfaErr, bondClearingErr, interbankErr, jstDebtErr, fusErr, passed)
+    SfcResult(month, bankCapErr, bankDepErr, govDebtErr, nfaErr, bondClearingErr, interbankErr,
+      jstDebtErr, fusErr, mortgageErr, passed)
