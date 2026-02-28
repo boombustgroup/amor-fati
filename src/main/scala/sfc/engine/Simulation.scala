@@ -99,9 +99,10 @@ object Sectors:
     bdpActive: Boolean, bdpAmount: Double, priceLevel: Double,
     unempBenefitSpend: Double,
     debtService: Double = 0.0,
-    nbpRemittance: Double = 0.0): GovState =
+    nbpRemittance: Double = 0.0,
+    zusGovSubvention: Double = 0.0): GovState =
     val bdpSpend   = if bdpActive then Config.TotalPopulation.toDouble * bdpAmount else 0.0
-    val totalSpend = bdpSpend + unempBenefitSpend + Config.GovBaseSpending * priceLevel + debtService
+    val totalSpend = bdpSpend + unempBenefitSpend + Config.GovBaseSpending * priceLevel + debtService + zusGovSubvention
     val totalRev   = citPaid + vat + nbpRemittance
     val deficit    = totalSpend - totalRev
     val newBondsOutstanding = if Config.GovBondMarket then prev.bondsOutstanding + deficit
@@ -137,9 +138,29 @@ object Simulation:
     else bdpUnconstrained
     val resWage = Config.BaseReservationWage + bdp * Config.ReservationBdpMult
 
+    // Phase 8A: when term structure is enabled, use WIBOR 3M as lending base rate
+    // instead of refRate. Uses LAGGED interbankRate (standard SFC approach).
+    val lendingBaseRate = if Config.InterbankTermStructure then
+      w.bankingSector.map { bs =>
+        YieldCurve.compute(bs.interbankRate).wibor3m
+      }.getOrElse(w.nbp.referenceRate)
+    else w.nbp.referenceRate
+
     val living = firms.filter(FirmOps.isAlive)
     val laborDemand = living.map(FirmOps.workers).sum
-    val (newWage, employed) = Sectors.updateLaborMarket(w.hh.marketWage, resWage, laborDemand)
+    val (newWage, rawEmployed) = Sectors.updateLaborMarket(w.hh.marketWage, resWage, laborDemand)
+
+    // Phase 8B: Demographics caps employment at working-age population
+    val employed = if Config.DemEnabled then
+      Math.min(rawEmployed, w.demographics.workingAgePop)
+    else rawEmployed
+    val newDemographics = PublicSectorLogic.demographicsStep(w.demographics, employed)
+
+    // Phase 8B: ZUS (contributions + pensions) and PPK
+    val newZus = PublicSectorLogic.zusStep(w.zus.fusBalance, employed, newWage, newDemographics.retirees)
+    val newPpk = PublicSectorLogic.ppkStep(w.ppk.bondHoldings, employed, newWage)
+    val rawPpkBondPurchase = PublicSectorLogic.ppkBondPurchase(newPpk)
+
     val wageGrowth = if w.hh.marketWage > 0 then newWage / w.hh.marketWage - 1.0 else 0.0
 
     // Import adjustment (used by both paths)
@@ -150,10 +171,10 @@ object Simulation:
     val (totalIncome, consumption, importCons, domesticCons, updatedHouseholds, hhAgg, perBankHhFlowsOpt) =
       households match
         case None =>
-          // Aggregate mode: identical to Papers 1-5
+          // Aggregate mode: identical to Papers 1-5 (+ Phase 8B ZUS deductions/pensions)
           val wageIncome = employed.toDouble * newWage
           val bdpIncome  = if bdpActive then Config.TotalPopulation.toDouble * bdp else 0.0
-          val ti = wageIncome + bdpIncome
+          val ti = wageIncome + bdpIncome - newZus.contributions + newZus.pensionPayments
           val cons = ti * Config.Mpc
           val ic = cons * Math.min(0.65, importAdj)
           val dc = cons - ic
@@ -170,8 +191,8 @@ object Simulation:
           val hhBankRates = Some(BankRates(
             lendingRates = w.bankingSector match
               case Some(bs) => bs.banks.zip(bs.configs).map((b, cfg) =>
-                BankingSector.lendingRate(b, cfg, w.nbp.referenceRate)).toArray
-              case None => Array(w.bank.lendingRate(w.nbp.referenceRate)),
+                BankingSector.lendingRate(b, cfg, lendingBaseRate)).toArray
+              case None => Array(w.bank.lendingRate(lendingBaseRate)),
             depositRates = w.bankingSector match
               case Some(bs) => bs.banks.map(_ =>
                 BankingSector.hhDepositRate(w.nbp.referenceRate)).toArray
@@ -194,15 +215,17 @@ object Simulation:
     val perBankIntIncome = new Array[Double](nBanks)
     val perBankWorkers  = new Array[Int](nBanks)
 
+    // Phase 8C: pass macropru CCyB to canLend for effective MinCAR
+    val currentCcyb = w.macropru.ccyb
     val (getLendRate, bankCanLendFn): (Int => Double, (Int, Double) => Boolean) =
       w.bankingSector match
         case Some(bs) =>
           val rates = bs.banks.zip(bs.configs).map((b, cfg) =>
-            BankingSector.lendingRate(b, cfg, w.nbp.referenceRate))
+            BankingSector.lendingRate(b, cfg, lendingBaseRate))
           ((bankId: Int) => rates(bankId),
-           (bankId: Int, amt: Double) => BankingSector.canLend(bs.banks(bankId), amt, Random))
+           (bankId: Int, amt: Double) => BankingSector.canLend(bs.banks(bankId), amt, Random, currentCcyb))
         case None =>
-          val rate = w.bank.lendingRate(w.nbp.referenceRate)
+          val rate = w.bank.lendingRate(lendingBaseRate)
           val canLendFn: (Int, Double) => Boolean = (_: Int, amt: Double) => {
             val approvalP = Math.max(0.1, 1.0 - w.bank.nplRatio * 3.0)
             w.bank.canLend(amt) && Random.nextDouble() < approvalP
@@ -276,6 +299,10 @@ object Simulation:
     val hybR    = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]) / nLiving else 0.0
     val gdp     = domesticCons + Config.GovBaseSpending + w.forex.exports
 
+    // Phase 8C: Macroprudential — compute CCyB from credit-to-GDP gap
+    val totalSystemLoans = w.bankingSector.map(_.banks.map(_.loans).sum).getOrElse(w.bank.totalLoans)
+    val newMacropru = Macroprudential.step(w.macropru, totalSystemLoans, gdp)
+
     // Endogenous sigma evolution (Paper-05)
     val sectorAdoption = SECTORS.indices.map { s =>
       val secFirms = living2.filter(_.sector == s)
@@ -316,6 +343,18 @@ object Simulation:
                     else (newForex.exchangeRate / w.forex.exchangeRate) - 1.0
     val newRefRate = Sectors.updateCbRate(w.nbp.referenceRate, newInfl, exRateChg, employed, rc)
 
+    // Phase 6A-6C: reserve interest, standing facilities, interbank interest
+    // These flows are zero in single-bank mode (no reserves/interbank tracked)
+    // Computed from LAGGED bank state (w.bankingSector) — avoids circular dependency
+    val (totalReserveInterest, totalStandingFacilityIncome, totalInterbankInterest) =
+      w.bankingSector match
+        case Some(bs) =>
+          val (_, resInt) = BankingSector.computeReserveInterest(bs.banks, w.nbp.referenceRate)
+          val (_, sfInc) = BankingSector.computeStandingFacilities(bs.banks, w.nbp.referenceRate)
+          val (_, ibInt) = BankingSector.interbankInterestFlows(bs.banks, bs.interbankRate)
+          (resInt, sfInc, ibInt)
+        case None => (0.0, 0.0, 0.0)
+
     // --- Bond market + QE ---
     val annualGdpForBonds = w.gdpProxy * 12.0
     val debtToGdp = if annualGdpForBonds > 0 then w.gov.cumulativeDebt / annualGdpForBonds else 0.0
@@ -326,7 +365,9 @@ object Simulation:
     val monthlyDebtService = w.gov.bondsOutstanding * newBondYield / 12.0
     val bankBondIncome = w.bank.govBondHoldings * newBondYield / 12.0
     val nbpBondIncome = w.nbp.govBondHoldings * newBondYield / 12.0
-    val nbpRemittance = nbpBondIncome
+    // NBP remittance: bond income minus reserve interest paid to banks
+    // and adjusted for standing facility net (lombard income − deposit facility cost)
+    val nbpRemittance = nbpBondIncome - totalReserveInterest - totalStandingFacilityIncome
 
     // QE logic
     val qeActivate = CentralBankLogic.shouldActivateQe(newRefRate, newInfl)
@@ -342,18 +383,25 @@ object Simulation:
       lastFxTraded = fxResult.eurTraded
     )
 
+    val vat = consumption * Config.VatRate
+    val unempBenefitSpend = hhAgg.map(_.totalUnempBenefits).getOrElse(0.0)
+    val newGov = Sectors.updateGov(w.gov, sumTax, vat, bdpActive, bdp, newPrice, unempBenefitSpend,
+      monthlyDebtService, nbpRemittance, newZus.govSubvention)
+    val newGovWithYield = newGov.copy(bondYield = newBondYield)
+
+    // Phase 7B: JST (local government) — must precede newBank (JST deposits flow into bank)
+    val nLivingFirms = living2.length
+    val (newJst, jstDepositChange) = JstLogic.step(
+      w.jst, newGovWithYield.taxRevenue, totalIncome, gdp, nLivingFirms)
+
     val newBank = w.bank.copy(
       totalLoans = Math.max(0, w.bank.totalLoans + sumNewLoans - nplNew * Config.LoanRecovery),
       nplAmount  = Math.max(0, w.bank.nplAmount + nplNew - w.bank.nplAmount * 0.05),
       capital    = w.bank.capital - nplLoss + intIncome * 0.3 + hhDebtService * 0.3
-                   + bankBondIncome * 0.3 - depositInterestPaid * 0.3,
-      deposits   = w.bank.deposits + (totalIncome - consumption))
-
-    val vat = consumption * Config.VatRate
-    val unempBenefitSpend = hhAgg.map(_.totalUnempBenefits).getOrElse(0.0)
-    val newGov = Sectors.updateGov(w.gov, sumTax, vat, bdpActive, bdp, newPrice, unempBenefitSpend,
-      monthlyDebtService, nbpRemittance)
-    val newGovWithYield = newGov.copy(bondYield = newBondYield)
+                   + bankBondIncome * 0.3 - depositInterestPaid * 0.3
+                   + totalReserveInterest * 0.3 + totalStandingFacilityIncome * 0.3
+                   + totalInterbankInterest * 0.3,
+      deposits   = w.bank.deposits + (totalIncome - consumption) + jstDepositChange)
 
     // Recompute hhAgg from final households if in individual mode
     // Carry retraining counters from the monthly step (hhAgg) — not zeros
@@ -364,12 +412,29 @@ object Simulation:
         monthlyRetAttempts, monthlyRetSuccesses, bdp)
     }
 
-    // Bond allocation: new issuance goes to bank; QE transfers from bank to NBP
+    // Phase 8B: PPK bond purchases (capped at available bonds after QE)
+    val availableBondsForPpk = newBank.govBondHoldings +
+      (if Config.GovBondMarket then newGovWithYield.deficit else 0.0) - qePurchaseAmount
+    val ppkBondPurchase = Math.min(rawPpkBondPurchase, Math.max(0.0, availableBondsForPpk))
+    val finalPpk = newPpk.copy(bondHoldings = w.ppk.bondHoldings + ppkBondPurchase)
+
+    // Bond allocation: new issuance goes to bank; QE and PPK transfer from bank
     val finalBank = if Config.GovBondMarket then
-      newBank.copy(govBondHoldings = newBank.govBondHoldings + newGovWithYield.deficit - qePurchaseAmount)
-    else newBank.copy(govBondHoldings = newBank.govBondHoldings - qePurchaseAmount)
+      newBank.copy(govBondHoldings = newBank.govBondHoldings + newGovWithYield.deficit - qePurchaseAmount - ppkBondPurchase)
+    else newBank.copy(govBondHoldings = newBank.govBondHoldings - qePurchaseAmount - ppkBondPurchase)
 
     // ---- Multi-bank update path ----
+    // Phase 6A-6C: compute per-bank flows from lagged state
+    val (perBankReserveInt, perBankStandingFac, perBankInterbankInt) =
+      w.bankingSector match
+        case Some(bs) =>
+          val (ri, _) = BankingSector.computeReserveInterest(bs.banks, w.nbp.referenceRate)
+          val (sf, _) = BankingSector.computeStandingFacilities(bs.banks, w.nbp.referenceRate)
+          val (ib, _) = BankingSector.interbankInterestFlows(bs.banks, bs.interbankRate)
+          (ri, sf, ib)
+        case None =>
+          (Vector.empty[Double], Vector.empty[Double], Vector.empty[Double])
+
     val (finalBankingSector, reassignedFirms, reassignedHouseholds) = w.bankingSector match
       case Some(bs) =>
         val totalWorkers = perBankWorkers.sum.toDouble
@@ -389,12 +454,25 @@ object Simulation:
                 val ws = if totalWorkers > 0 then perBankWorkers(bId) / totalWorkers else 0.0
                 (totalIncome * ws, consumption * ws, hhDebtService * ws, 0.0)
           val bankBondInc = b.govBondHoldings * newBondYield / 12.0
+          // Phase 6A-6C: per-bank monetary plumbing flows
+          val bankResInt = if perBankReserveInt.nonEmpty then perBankReserveInt(bId) else 0.0
+          val bankSfInc = if perBankStandingFac.nonEmpty then perBankStandingFac(bId) else 0.0
+          val bankIbInt = if perBankInterbankInt.nonEmpty then perBankInterbankInt(bId) else 0.0
+          val newLoansTotal = Math.max(0, b.loans + perBankNewLoans(bId) - bankNplNew * Config.LoanRecovery)
+          val newDep = b.deposits + (bankIncomeShare - bankConsShare)
           b.copy(
-            loans = Math.max(0, b.loans + perBankNewLoans(bId) - bankNplNew * Config.LoanRecovery),
+            loans = newLoansTotal,
             nplAmount = Math.max(0, b.nplAmount + bankNplNew - b.nplAmount * 0.05),
             capital = b.capital - bankNplLoss + bankIntIncome * 0.3 +
-              bankHhDebtService * 0.3 + bankBondInc * 0.3 - bankDepInterest * 0.3,
-            deposits = b.deposits + (bankIncomeShare - bankConsShare)
+              bankHhDebtService * 0.3 + bankBondInc * 0.3 - bankDepInterest * 0.3
+              + bankResInt * 0.3 + bankSfInc * 0.3 + bankIbInt * 0.3,
+            deposits = newDep,
+            // Phase 7C: deposit split + loan maturity tracking
+            demandDeposits = newDep * (1.0 - Config.BankTermDepositFrac),
+            termDeposits = newDep * Config.BankTermDepositFrac,
+            loansShort = newLoansTotal * 0.20,   // 20% short-term
+            loansMedium = newLoansTotal * 0.30,   // 30% medium-term
+            loansLong = newLoansTotal * 0.50       // 50% long-term
           )
         }
         // 2. Interbank clearing
@@ -406,11 +484,16 @@ object Simulation:
         else afterInterbank
         // 4. QE allocation
         val afterQe = BankingSector.allocateQePurchases(afterBonds, qePurchaseAmount)
-        // 5. Failure checks + BFG resolution
-        val (afterFailCheck, anyFailed) = BankingSector.checkFailures(afterQe, m)
+        // 4b. PPK bond purchases (Phase 8B)
+        val afterPpk = BankingSector.allocateQePurchases(afterQe, ppkBondPurchase)
+        // 5. Failure checks + BFG resolution (Phase 8C: pass ccyb for effective MinCAR)
+        val (afterFailCheck, anyFailed) = BankingSector.checkFailures(afterPpk, m,
+          ccyb = newMacropru.ccyb)
         val afterResolve = if anyFailed then BankingSector.resolveFailures(afterFailCheck)
                            else afterFailCheck
-        val newBs = bs.copy(banks = afterResolve, interbankRate = ibRate)
+        // Phase 8A: compute term structure from O/N rate when enabled
+        val curve = if Config.InterbankTermStructure then Some(YieldCurve.compute(ibRate)) else None
+        val newBs = bs.copy(banks = afterResolve, interbankRate = ibRate, interbankCurve = curve)
         // 6. Reassign firm/HH bankIds if any failure occurred
         val reFirms = if anyFailed then
           rewiredFirms.map(f => f.copy(bankId = BankingSector.reassignBankId(f.bankId, afterResolve)))
@@ -427,6 +510,12 @@ object Simulation:
     // Use multi-bank aggregate if present, otherwise use single-bank finalBank
     val resolvedBank = finalBankingSector.map(_.aggregate).getOrElse(finalBank)
 
+    // Phase 7A: Credit diagnostics (M1/M2)
+    val monAgg = if Config.CreditDiagnostics then
+      val totalReserves = finalBankingSector.map(_.banks.map(_.reservesAtNbp).sum).getOrElse(0.0)
+      Some(MonetaryAggregates.compute(resolvedBank.deposits, totalReserves))
+    else None
+
     val newW = World(m, newInfl, newPrice, demandMult, newGovWithYield, postFxNbp,
       resolvedBank, newForex,
       HhState(employed, newWage, resWage, totalIncome, consumption, domesticCons, importCons),
@@ -435,14 +524,20 @@ object Simulation:
       bop = newBop,
       hhAgg = finalHhAgg,
       households = reassignedHouseholds,
-      bankingSector = finalBankingSector)
+      bankingSector = finalBankingSector,
+      monetaryAgg = monAgg,
+      jst = newJst,
+      zus = newZus,
+      ppk = finalPpk,
+      demographics = newDemographics,
+      macropru = newMacropru)
 
     // SFC accounting check: verify exact balance-sheet identities every step
     val prevSnap = SfcCheck.snapshot(w, firms, households)
     val currSnap = SfcCheck.snapshot(newW, reassignedFirms, reassignedHouseholds)
     val sfcFlows = SfcCheck.MonthlyFlows(
       govSpending = newGovWithYield.bdpSpending + newGovWithYield.unempBenefitSpend
-        + Config.GovBaseSpending * newPrice + monthlyDebtService,
+        + Config.GovBaseSpending * newPrice + monthlyDebtService + newZus.govSubvention,
       govRevenue = sumTax + vat + nbpRemittance,
       nplLoss = nplLoss,
       interestIncome = intIncome,
@@ -456,7 +551,16 @@ object Simulation:
       bankBondIncome = bankBondIncome,
       qePurchase = qePurchaseAmount,
       newBondIssuance = if Config.GovBondMarket then newGovWithYield.deficit else 0.0,
-      depositInterestPaid = depositInterestPaid
+      depositInterestPaid = depositInterestPaid,
+      reserveInterest = totalReserveInterest,
+      standingFacilityIncome = totalStandingFacilityIncome,
+      interbankInterest = totalInterbankInterest,
+      jstDepositChange = jstDepositChange,
+      jstSpending = newJst.spending,
+      jstRevenue = newJst.revenue,
+      zusContributions = newZus.contributions,
+      zusPensionPayments = newZus.pensionPayments,
+      zusGovSubvention = newZus.govSubvention
     )
     val sfcResult = SfcCheck.validate(m, prevSnap, currSnap, sfcFlows)
     if !sfcResult.passed then
@@ -467,6 +571,8 @@ object Simulation:
         f" govDebt=${sfcResult.govDebtError}%.2f" +
         f" nfa=${sfcResult.nfaError}%.2f" +
         f" bondClr=${sfcResult.bondClearingError}%.2f" +
-        f" ibNet=${sfcResult.interbankNettingError}%.2f")
+        f" ibNet=${sfcResult.interbankNettingError}%.2f" +
+        f" jstDebt=${sfcResult.jstDebtError}%.2f" +
+        f" fusBal=${sfcResult.fusBalanceError}%.2f")
 
     (newW, reassignedFirms, reassignedHouseholds)

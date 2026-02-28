@@ -88,6 +88,11 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     Some(BankingSector.initialize(initCash, Config.InitBankCapital, BankingSector.DefaultConfigs))
   else None
 
+  // Phase 8B: initialize demographics with configured initial retirees
+  val initDemographics = if Config.DemEnabled then
+    DemographicsState(Config.DemInitialRetirees, Config.TotalPopulation, 0)
+  else DemographicsState.zero
+
   var world = World(0, 0.02, 1.0, 1.0,
     GovState(false, 0, 0, 0, 0, 0), NbpState(initRate),
     BankState(0, 0, Config.InitBankCapital, initCash),
@@ -95,7 +100,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     HhState(Config.TotalPopulation, Config.BaseWage, Config.BaseReservationWage, 0, 0, 0, 0),
     0, 0, Config.BaseRevenue * Config.FirmsCount,
     SECTORS.map(_.sigma).toVector,
-    bankingSector = initBankingSector)
+    bankingSector = initBankingSector,
+    demographics = initDemographics)
 
   // Collect time-series: 120 rows x N columns
   // Columns: Month, Inflation, Unemployment, AutoRatio+HybridRatio, ExRate, MarketWage,
@@ -107,7 +113,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          IoFlows: total intermediate market payments (Paper-07),
   //          IoGdpRatio: intermediate flows / GDP,
   //          InterbankRate, MinBankCAR, MaxBankNPL, BankFailures (Phase 4)
-  val nCols = 52
+  val nCols = 82
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -192,7 +198,70 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
         val alive = bs.banks.filterNot(_.failed)
         if alive.isEmpty then 0.0 else alive.map(_.nplRatio).max
       }.getOrElse(world.bank.nplRatio),  // 50: MaxBankNPL
-      world.bankingSector.map(_.banks.count(_.failed).toDouble).getOrElse(0.0)  // 51: BankFailures
+      world.bankingSector.map(_.banks.count(_.failed).toDouble).getOrElse(0.0),  // 51: BankFailures
+      // Phase 6A-6C: monetary plumbing
+      world.bankingSector.map { bs =>
+        val (_, total) = BankingSector.computeReserveInterest(bs.banks, world.nbp.referenceRate)
+        total
+      }.getOrElse(0.0),  // 52: ReserveInterest
+      world.bankingSector.map { bs =>
+        val (perBank, _) = BankingSector.computeStandingFacilities(bs.banks, world.nbp.referenceRate)
+        perBank.sum
+      }.getOrElse(0.0),  // 53: StandingFacilityNet
+      world.bankingSector.map { bs =>
+        // Deposit facility usage: sum of reserves parked at deposit facility
+        bs.banks.filter(b => !b.failed && b.reservesAtNbp > 0).map(_.reservesAtNbp).sum
+      }.getOrElse(0.0),  // 54: DepositFacilityUsage
+      world.bankingSector.map { bs =>
+        val (_, total) = BankingSector.interbankInterestFlows(bs.banks, bs.interbankRate)
+        total
+      }.getOrElse(0.0),  // 55: InterbankInterestNet
+      // Phase 7A: Credit diagnostics
+      world.monetaryAgg.map(_.m1).getOrElse(world.bank.deposits),     // 56: M1
+      world.monetaryAgg.map(_.monetaryBase).getOrElse(0.0),           // 57: MonetaryBase
+      world.monetaryAgg.map(_.creditMultiplier).getOrElse(0.0),       // 58: CreditMultiplier
+      // Phase 7B: JST (local government)
+      world.jst.revenue,           // 59: JstRevenue
+      world.jst.spending,          // 60: JstSpending
+      world.jst.debt,              // 61: JstDebt
+      world.jst.deposits,          // 62: JstDeposits
+      world.jst.deficit,           // 63: JstDeficit
+      // Phase 7C: LCR/NSFR
+      world.bankingSector.map { bs =>
+        val alive = bs.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0 else alive.map(_.lcr).min
+      }.getOrElse(0.0),  // 64: MinBankLCR
+      world.bankingSector.map { bs =>
+        val alive = bs.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0 else alive.map(_.nsfr).min
+      }.getOrElse(0.0),  // 65: MinBankNSFR
+      world.bankingSector.map { bs =>
+        val alive = bs.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0
+        else alive.map(b => if b.deposits > 0 then b.termDeposits / b.deposits else 0.0).sum / alive.length
+      }.getOrElse(Config.BankTermDepositFrac),  // 66: AvgTermDepositFrac
+      // Phase 8A: Term structure
+      world.bankingSector.flatMap(_.interbankCurve).map(_.wibor1m).getOrElse(0.0),  // 67: WIBOR_1M
+      world.bankingSector.flatMap(_.interbankCurve).map(_.wibor3m).getOrElse(0.0),  // 68: WIBOR_3M
+      world.bankingSector.flatMap(_.interbankCurve).map(_.wibor6m).getOrElse(0.0),  // 69: WIBOR_6M
+      // Phase 8B: Full public sector
+      world.zus.contributions,           // 70: ZusContributions
+      world.zus.pensionPayments,         // 71: ZusPensionPayments
+      world.zus.govSubvention,           // 72: ZusGovSubvention
+      world.zus.fusBalance,              // 73: FusBalance
+      world.ppk.contributions,           // 74: PpkContributions
+      world.ppk.bondHoldings,            // 75: PpkBondHoldings
+      world.demographics.retirees.toDouble,           // 76: NRetirees
+      world.demographics.workingAgePop.toDouble,      // 77: WorkingAgePop
+      world.demographics.monthlyRetirements.toDouble,  // 78: MonthlyRetirements
+      // Phase 8C: Macroprudential
+      world.macropru.ccyb,                             // 79: CCyB
+      world.macropru.creditToGdpGap,                   // 80: CreditToGdpGap
+      world.bankingSector.map { bs =>
+        val alive = bs.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0
+        else alive.map(b => Macroprudential.effectiveMinCar(b.id, world.macropru.ccyb)).max
+      }.getOrElse(Macroprudential.effectiveMinCar(0, world.macropru.ccyb))  // 81: EffectiveMinCar
     )
 
   RunResult(results, world.hhAgg)
@@ -225,7 +294,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 52
+  val nCols   = 82
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -260,7 +329,15 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "UnempBenefitSpend;OutputGap;" +
     "BondYield;BondsOutstanding;BankBondHoldings;NbpBondHoldings;QeActive;DebtService;NbpRemittance;" +
     "FxReserves;FxInterventionAmt;FxInterventionActive;" +
-    "InterbankRate;MinBankCAR;MaxBankNPL;BankFailures\n")
+    "InterbankRate;MinBankCAR;MaxBankNPL;BankFailures;" +
+    "ReserveInterest;StandingFacilityNet;DepositFacilityUsage;InterbankInterestNet;" +
+    "M1;MonetaryBase;CreditMultiplier;" +
+    "JstRevenue;JstSpending;JstDebt;JstDeposits;JstDeficit;" +
+    "MinBankLCR;MinBankNSFR;AvgTermDepositFrac;" +
+    "WIBOR_1M;WIBOR_3M;WIBOR_6M;" +
+    "ZusContributions;ZusPensionPayments;ZusGovSubvention;FusBalance;" +
+    "PpkContributions;PpkBondHoldings;NRetirees;WorkingAgePop;MonthlyRetirements;" +
+    "CCyB;CreditToGdpGap;EffectiveMinCar\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -328,7 +405,15 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "BondYield", "BondsOutstanding", "BankBondHoldings", "NbpBondHoldings",
     "QeActive", "DebtService", "NbpRemittance",
     "FxReserves", "FxInterventionAmt", "FxInterventionActive",
-    "InterbankRate", "MinBankCAR", "MaxBankNPL", "BankFailures")
+    "InterbankRate", "MinBankCAR", "MaxBankNPL", "BankFailures",
+    "ReserveInterest", "StandingFacilityNet", "DepositFacilityUsage", "InterbankInterestNet",
+    "M1", "MonetaryBase", "CreditMultiplier",
+    "JstRevenue", "JstSpending", "JstDebt", "JstDeposits", "JstDeficit",
+    "MinBankLCR", "MinBankNSFR", "AvgTermDepositFrac",
+    "WIBOR_1M", "WIBOR_3M", "WIBOR_6M",
+    "ZusContributions", "ZusPensionPayments", "ZusGovSubvention", "FusBalance",
+    "PpkContributions", "PpkBondHoldings", "NRetirees", "WorkingAgePop", "MonthlyRetirements",
+    "CCyB", "CreditToGdpGap", "EffectiveMinCar")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

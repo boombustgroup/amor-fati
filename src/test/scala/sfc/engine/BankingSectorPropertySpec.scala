@@ -30,10 +30,14 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   "allocateBonds" should "change total bond holdings by exactly deficit" in {
     forAll(genBankingSectorState, Gen.choose(-1e8, 1e8)) { (bs: BankingSectorState, deficit: Double) =>
-      val before = bs.banks.map(_.govBondHoldings).sum
-      val after = BankingSector.allocateBonds(bs.banks, deficit)
-      val afterSum = after.map(_.govBondHoldings).sum
-      (afterSum - before) shouldBe deficit +- 1.0
+      // Skip when all banks are failed or total deposits <= 0 (allocateBonds no-ops)
+      val aliveDep = bs.banks.filterNot(_.failed).map(_.deposits).sum
+      whenever(aliveDep > 0 && deficit != 0.0) {
+        val before = bs.banks.map(_.govBondHoldings).sum
+        val after = BankingSector.allocateBonds(bs.banks, deficit)
+        val afterSum = after.map(_.govBondHoldings).sum
+        (afterSum - before) shouldBe deficit +- 1.0
+      }
     }
   }
 

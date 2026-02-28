@@ -37,6 +37,19 @@ case class ForexState(
   techImports: Double
 )
 
+/** Monetary aggregates (Phase 7A) — diagnostic, not SFC-relevant. */
+case class MonetaryAggregates(
+  m1: Double,              // Bank deposits (≈ narrow money)
+  monetaryBase: Double,    // Reserves at NBP
+  creditMultiplier: Double // m1 / monetaryBase
+)
+object MonetaryAggregates:
+  val zero: MonetaryAggregates = MonetaryAggregates(0, 0, 0)
+
+  def compute(deposits: Double, reserves: Double): MonetaryAggregates =
+    val base = Math.max(1.0, reserves)  // floor to avoid division by zero
+    MonetaryAggregates(deposits, reserves, deposits / base)
+
 case class BopState(
   nfa: Double,                    // Net foreign assets (cumulative)
   foreignAssets: Double,          // Gross foreign assets

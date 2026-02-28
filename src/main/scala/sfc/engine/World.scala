@@ -1,7 +1,7 @@
 package sfc.engine
 
-import sfc.agents.{HhState, HhAggregates, Household, NbpState}
-import sfc.sfc.{GovState, BankState, ForexState, BopState}
+import sfc.agents.{HhState, HhAggregates, Household, NbpState, JstState, ZusState, PpkState, DemographicsState}
+import sfc.sfc.{GovState, BankState, ForexState, BopState, MonetaryAggregates}
 import sfc.engine.BankingSectorState
 
 case class World(
@@ -22,5 +22,11 @@ case class World(
   bop: BopState = BopState.zero,
   hhAgg: Option[HhAggregates] = None,
   households: Option[Vector[Household]] = None,
-  bankingSector: Option[BankingSectorState] = None
+  bankingSector: Option[BankingSectorState] = None,
+  monetaryAgg: Option[MonetaryAggregates] = None,
+  jst: JstState = JstState.zero,
+  zus: ZusState = ZusState.zero,
+  ppk: PpkState = PpkState.zero,
+  demographics: DemographicsState = DemographicsState.zero,
+  macropru: MacropruState = MacropruState.zero
 )

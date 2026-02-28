@@ -192,8 +192,14 @@ object Generators:
     nfa       <- Gen.choose(-1e10, 1e10)
     bankBonds <- Gen.choose(0.0, 1e10)
     nbpBonds  <- Gen.choose(0.0, 1e10)
+    jstDep    <- Gen.choose(0.0, 1e9)
+    jstDebt   <- Gen.choose(0.0, 1e9)
+    fusBal    <- Gen.choose(-1e10, 1e10)
+    ppkBonds  <- Gen.choose(0.0, 1e9)
   yield SfcCheck.Snapshot(hhS, hhD, fCash, fDebt, bCap, bDep, bLoans, govDebt, nfa,
-    bankBonds, nbpBonds, bankBonds + nbpBonds, interbankNetSum = 0.0)
+    bankBonds, nbpBonds, bankBonds + nbpBonds + ppkBonds, interbankNetSum = 0.0,
+    jstDeposits = jstDep, jstDebt = jstDebt,
+    fusBalance = fusBal, ppkBondHoldings = ppkBonds)
 
   val genMonthlyFlows: Gen[SfcCheck.MonthlyFlows] = for
     govSpend     <- Gen.choose(0.0, 1e9)
@@ -211,9 +217,21 @@ object Generators:
     qePurchase   <- Gen.choose(0.0, 1e9)
     newBondIssue <- Gen.choose(0.0, 1e9)
     depIntPaid   <- Gen.choose(0.0, 1e7)
+    resInt       <- Gen.choose(0.0, 1e7)
+    sfIncome     <- Gen.choose(-1e6, 1e7)
+    ibInterest   <- Gen.choose(-1e7, 1e7)
+    jstDepChg    <- Gen.choose(-1e7, 1e7)
+    jstSpend     <- Gen.choose(0.0, 1e8)
+    jstRev       <- Gen.choose(0.0, 1e8)
+    zusContrib   <- Gen.choose(0.0, 1e9)
+    zusPension   <- Gen.choose(0.0, 1e9)
+    zusGovSub    <- Gen.choose(0.0, 1e8)
   yield SfcCheck.MonthlyFlows(govSpend, govRev, nplLoss, intIncome, hhDebtSvc,
     totIncome, totCons, newLoans, nplRecov, ca, valEff,
-    bankBondInc, qePurchase, newBondIssue, depIntPaid)
+    bankBondInc, qePurchase, newBondIssue, depIntPaid,
+    resInt, sfIncome, ibInterest,
+    jstDepChg, jstSpend, jstRev,
+    zusContrib, zusPension, zusGovSub)
 
   /** Generate (prev, curr, flows) where all 5 SFC identities hold exactly. */
   val genConsistentFlowsAndSnapshots: Gen[(SfcCheck.Snapshot, SfcCheck.Snapshot, SfcCheck.MonthlyFlows)] =
@@ -223,17 +241,22 @@ object Generators:
     yield
       val expectedBankCapChange = -flows.nplLoss +
         (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
-         - flows.depositInterestPaid) * 0.3
-      val expectedDepChange = flows.totalIncome - flows.totalConsumption
+         - flows.depositInterestPaid
+         + flows.reserveInterest + flows.standingFacilityIncome + flows.interbankInterest) * 0.3
+      val expectedDepChange = flows.totalIncome - flows.totalConsumption + flows.jstDepositChange
       val expectedGovDebtChange = flows.govSpending - flows.govRevenue
       val expectedNfaChange = flows.currentAccount + flows.valuationEffect
+      val expectedJstDebtChange = flows.jstSpending - flows.jstRevenue
+      val expectedFusChange = flows.zusContributions - flows.zusPensionPayments
       val curr = prev.copy(
         bankCapital = prev.bankCapital + expectedBankCapChange,
         bankDeposits = prev.bankDeposits + expectedDepChange,
         govDebt = prev.govDebt + expectedGovDebtChange,
-        nfa = prev.nfa + expectedNfaChange
+        nfa = prev.nfa + expectedNfaChange,
+        jstDebt = prev.jstDebt + expectedJstDebtChange,
+        fusBalance = prev.fusBalance + expectedFusChange
       )
-      // Bond clearing: bankBondHoldings + nbpBondHoldings = bondsOutstanding
+      // Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings = bondsOutstanding
       // genSnapshot already ensures this for prev; curr inherits prev's bond fields unchanged
       (prev, curr, flows)
 
