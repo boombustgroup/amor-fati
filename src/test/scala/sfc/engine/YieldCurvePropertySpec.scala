@@ -5,7 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Gen
 
-/** Phase 8A: Property-based tests for interbank term structure. */
+/** Property-based tests for interbank term structure. */
 class YieldCurvePropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)

@@ -2,7 +2,7 @@ package sfc.engine
 
 import sfc.config.Config
 
-/** Macroprudential state: CCyB, credit-to-GDP gap, effective minimum CAR. Phase 8C. */
+/** Macroprudential state: CCyB, credit-to-GDP gap, effective minimum CAR. */
 case class MacropruState(
   ccyb: Double,             // current countercyclical capital buffer rate
   creditToGdpGap: Double,   // credit-to-GDP deviation from trend (HP-filtered)

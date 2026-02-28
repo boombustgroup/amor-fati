@@ -302,7 +302,7 @@ object Generators:
       (0.until(6)).forall(j => m.map(_(j)).sum < 1.0)
     }
 
-  // --- Banking sector generators (Phase 4) ---
+  // --- Banking sector generators ---
 
   val genBankConfig: Gen[BankConfig] = for
     id     <- Gen.choose(0, 6)

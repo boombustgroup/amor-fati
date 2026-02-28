@@ -3,7 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Phase 8A: Interbank term structure tests. */
+/** Interbank term structure tests. */
 class YieldCurveSpec extends AnyFlatSpec with Matchers:
 
   // =========================================================================

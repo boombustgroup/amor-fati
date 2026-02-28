@@ -7,13 +7,13 @@ import org.scalacheck.Gen
 import sfc.testutil.Generators.*
 import sfc.sfc.SfcCheck
 
-/** Phase 6A-6C property-based tests. */
+/** Monetary plumbing property-based tests. */
 class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
   // =========================================================================
-  // Phase 6A: Reserve Interest Properties
+  // Reserve Interest Properties
   // =========================================================================
 
   "reserveInterest" should "be non-negative for alive banks with non-negative reserves" in {
@@ -44,7 +44,7 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   }
 
   // =========================================================================
-  // Phase 6C: Interbank Interest Properties
+  // Interbank Interest Properties
   // =========================================================================
 
   "interbankInterestFlows" should "net to zero for balanced positions" in {
@@ -73,10 +73,10 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   }
 
   // =========================================================================
-  // SFC: consistent flows with Phase 6A-6C still pass
+  // SFC: consistent flows with monetary plumbing still pass
   // =========================================================================
 
-  "SfcCheck with Phase 6A-6C flows" should "pass for consistent snapshots" in {
+  "SfcCheck with monetary plumbing flows" should "pass for consistent snapshots" in {
     forAll(genConsistentFlowsAndSnapshots) { case (prev, curr, flows) =>
       val result = SfcCheck.validate(1, prev, curr, flows)
       withClue(s"bankCapErr=${result.bankCapitalError}, bankDepErr=${result.bankDepositsError}, " +

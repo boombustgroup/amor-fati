@@ -3,7 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Phase 8C: Unit tests for macroprudential instruments. */
+/** Unit tests for macroprudential instruments. */
 class MacroprudentialSpec extends AnyFlatSpec with Matchers:
 
   // ==========================================================================

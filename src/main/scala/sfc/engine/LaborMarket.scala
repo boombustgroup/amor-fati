@@ -7,7 +7,7 @@ import scala.util.Random
 
 object LaborMarket:
 
-  /** Phase 1: Separate workers from firms that automated or went bankrupt this step.
+  /** Separate workers from firms that automated or went bankrupt this step.
     * Returns updated households with newly unemployed workers. */
   def separations(households: Vector[Household], prevFirms: Array[Firm],
                   newFirms: Array[Firm]): Vector[Household] =
@@ -53,7 +53,7 @@ object LaborMarket:
         case _ => hh
     }
 
-  /** Phase 2: Job search — unemployed households bid for open positions.
+  /** Job search — unemployed households bid for open positions.
     * Matching: highest skill first fills vacancies. */
   def jobSearch(households: Vector[Household], firms: Array[Firm],
                 marketWage: Double, rng: Random): Vector[Household] =
@@ -115,7 +115,7 @@ object LaborMarket:
 
     result.toVector
 
-  /** Phase 3: Update wages for all employed households based on current market wage.
+  /** Update wages for all employed households based on current market wage.
     * Individual wages are heterogeneous (sector × skill × health) but normalized
     * so the mean employed wage = marketWage (macro consistency). */
   def updateWages(households: Vector[Household], marketWage: Double): Vector[Household] =

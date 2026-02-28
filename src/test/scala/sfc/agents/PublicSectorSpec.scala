@@ -3,7 +3,7 @@ package sfc.agents
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Phase 8B: Public sector unit tests — ZUS, PPK, Demographics. */
+/** Public sector unit tests — ZUS, PPK, Demographics. */
 class PublicSectorSpec extends AnyFlatSpec with Matchers:
 
   // =========================================================================

@@ -2,9 +2,9 @@ package sfc.agents
 
 import sfc.config.Config
 
-/** State of local government (JST / samorządy). Phase 7B.
+/** State of local government (JST / samorządy).
   * JST receives PIT/CIT shares, property tax, subventions/dotacje.
-  * JST deposits sit in commercial banks and modify SFC Identity 2. */
+  * JST deposits sit in commercial banks. */
 case class JstState(
   deposits: Double,   // JST deposits in commercial banks
   debt: Double,       // cumulative JST debt

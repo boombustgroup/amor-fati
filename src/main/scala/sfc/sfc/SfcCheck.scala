@@ -20,10 +20,10 @@ object SfcCheck:
     nbpBondHoldings: Double = 0.0,
     bondsOutstanding: Double = 0.0,
     interbankNetSum: Double = 0.0,
-    jstDeposits: Double = 0.0,    // Phase 7B
-    jstDebt: Double = 0.0,        // Phase 7B
-    fusBalance: Double = 0.0,     // Phase 8B: ZUS/FUS raw surplus/deficit
-    ppkBondHoldings: Double = 0.0 // Phase 8B: PPK government bond holdings
+    jstDeposits: Double = 0.0,
+    jstDebt: Double = 0.0,
+    fusBalance: Double = 0.0,     // ZUS/FUS raw surplus/deficit
+    ppkBondHoldings: Double = 0.0 // PPK government bond holdings
   )
 
   /** Flows observed during a single month (computed in Simulation.step).
@@ -44,15 +44,15 @@ object SfcCheck:
     qePurchase: Double = 0.0,
     newBondIssuance: Double = 0.0,
     depositInterestPaid: Double = 0.0,
-    reserveInterest: Double = 0.0,          // Phase 6A: NBP pays on required reserves
-    standingFacilityIncome: Double = 0.0,   // Phase 6B: deposit/lombard facility net
-    interbankInterest: Double = 0.0,        // Phase 6C: interbank interest (net ≈ 0)
-    jstDepositChange: Double = 0.0,         // Phase 7B: JST deposit flow (affects Identity 2)
-    jstSpending: Double = 0.0,              // Phase 7B: JST spending (Identity 7)
-    jstRevenue: Double = 0.0,              // Phase 7B: JST revenue (Identity 7)
-    zusContributions: Double = 0.0,        // Phase 8B: ZUS contributions (Identity 8)
-    zusPensionPayments: Double = 0.0,      // Phase 8B: ZUS pension payments (Identity 8)
-    zusGovSubvention: Double = 0.0         // Phase 8B: ZUS gov subvention (Identity 3)
+    reserveInterest: Double = 0.0,          // NBP pays on required reserves
+    standingFacilityIncome: Double = 0.0,   // Deposit/lombard facility net
+    interbankInterest: Double = 0.0,        // Interbank interest (net ≈ 0)
+    jstDepositChange: Double = 0.0,         // JST deposit flow
+    jstSpending: Double = 0.0,              // JST spending
+    jstRevenue: Double = 0.0,              // JST revenue
+    zusContributions: Double = 0.0,        // ZUS contributions
+    zusPensionPayments: Double = 0.0,      // ZUS pension payments
+    zusGovSubvention: Double = 0.0         // ZUS gov subvention
   )
 
   /** Result of the SFC check: eight exact balance-sheet identity checks. */
@@ -64,8 +64,8 @@ object SfcCheck:
     nfaError: Double = 0.0,
     bondClearingError: Double = 0.0,
     interbankNettingError: Double = 0.0,
-    jstDebtError: Double = 0.0,     // Phase 7B: Identity 7
-    fusBalanceError: Double = 0.0,  // Phase 8B: Identity 8
+    jstDebtError: Double = 0.0,     // JST budget balance
+    fusBalanceError: Double = 0.0,  // FUS balance
     passed: Boolean
   )
 
@@ -143,7 +143,7 @@ object SfcCheck:
     val nfaErr = actualNfaChange - expectedNfaChange
 
     // Identity 5: Bond clearing
-    // All outstanding bonds must be held by bank + NBP + PPK (Phase 8B adds PPK as bondholder)
+    // All outstanding bonds must be held by bank + NBP + PPK
     // When GovBondMarket=false: all bond fields = 0.0, trivially passes.
     val bondClearingErr = (curr.bankBondHoldings + curr.nbpBondHoldings + curr.ppkBondHoldings) - curr.bondsOutstanding
 

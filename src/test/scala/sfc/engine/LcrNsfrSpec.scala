@@ -5,7 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Gen
 
-/** Phase 7C: LCR/NSFR and maturity mismatch tests. */
+/** LCR/NSFR and maturity mismatch tests. */
 class LcrNsfrSpec extends AnyFlatSpec with Matchers:
 
   private def mkBank(id: Int = 0, deposits: Double = 1e9, loans: Double = 5e8,

@@ -37,7 +37,7 @@ case class ForexState(
   techImports: Double
 )
 
-/** Monetary aggregates (Phase 7A) — diagnostic, not SFC-relevant. */
+/** Monetary aggregates — diagnostic, not SFC-relevant. */
 case class MonetaryAggregates(
   m1: Double,              // Bank deposits (≈ narrow money)
   monetaryBase: Double,    // Reserves at NBP

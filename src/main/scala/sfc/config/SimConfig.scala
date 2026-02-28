@@ -173,16 +173,16 @@ object Config:
   val MinCar           = 0.08
   val LoanRecovery     = 0.30
 
-  // Multi-bank (Phase 4)
+  // Multi-bank
   val BankMulti: Boolean = sys.env.get("BANK_MODE").map(_.trim.toLowerCase).getOrElse("single") == "multi"
   val BankFailureEnabled: Boolean = sys.env.get("BANK_FAILURE").map(_.trim.toBoolean).getOrElse(false)
   val BankReserveReq: Double = sys.env.get("BANK_RESERVE_REQ").map(_.trim.toDouble).getOrElse(0.035)
   val BankStressThreshold: Double = sys.env.get("BANK_STRESS_THRESHOLD").map(_.trim.toDouble).getOrElse(0.05)
 
-  // Credit diagnostics (Phase 7A): M1/M2 monetary aggregates
+  // Credit diagnostics: M1/M2 monetary aggregates
   val CreditDiagnostics: Boolean = sys.env.get("CREDIT_DIAGNOSTICS").map(_.trim.toBoolean).getOrElse(false)
 
-  // JST / Samorządy (Phase 7B): two-tier fiscal system
+  // JST / Samorządy: two-tier fiscal system
   val JstEnabled: Boolean = sys.env.get("JST_ENABLED").map(_.trim.toBoolean).getOrElse(false)
   val JstPitShare: Double = sys.env.get("JST_PIT_SHARE").map(_.trim.toDouble).getOrElse(0.3846)    // Ustawa o dochodach JST, Art. 4
   val JstCitShare: Double = sys.env.get("JST_CIT_SHARE").map(_.trim.toDouble).getOrElse(0.0671)    // j.w.
@@ -191,35 +191,35 @@ object Config:
   val JstDotacjeShare: Double = sys.env.get("JST_DOTACJE_SHARE").map(_.trim.toDouble).getOrElse(0.01)  // ~1% GDP
   val JstSpendingMult: Double = sys.env.get("JST_SPENDING_MULT").map(_.trim.toDouble).getOrElse(1.02)  // ~2% deficit ratio
 
-  // LCR/NSFR (Phase 7C): maturity mismatch + liquidity ratios
+  // LCR/NSFR: maturity mismatch + liquidity ratios
   val BankLcrEnabled: Boolean = sys.env.get("BANK_LCR_ENABLED").map(_.trim.toBoolean).getOrElse(false)
   val BankLcrMin: Double = sys.env.get("BANK_LCR_MIN").map(_.trim.toDouble).getOrElse(1.0)      // Basel III minimum 100%
   val BankNsfrMin: Double = sys.env.get("BANK_NSFR_MIN").map(_.trim.toDouble).getOrElse(1.0)    // Basel III minimum 100%
   val BankDemandDepositRunoff: Double = sys.env.get("BANK_DEMAND_DEPOSIT_RUNOFF").map(_.trim.toDouble).getOrElse(0.10)  // Basel III retail
   val BankTermDepositFrac: Double = sys.env.get("BANK_TERM_DEPOSIT_FRAC").map(_.trim.toDouble).getOrElse(0.40)
 
-  // Interbank term structure (Phase 8A)
+  // Interbank term structure
   val InterbankTermStructure: Boolean = sys.env.get("INTERBANK_TERM_STRUCTURE").map(_.trim.toBoolean).getOrElse(false)
 
-  // ZUS / Social Insurance (Phase 8B)
+  // ZUS / Social Insurance
   val ZusEnabled: Boolean = sys.env.get("ZUS_ENABLED").map(_.trim.toBoolean).getOrElse(false)
   val ZusContribRate: Double = sys.env.get("ZUS_CONTRIB_RATE").map(_.trim.toDouble).getOrElse(0.1952)  // pension portion
   val ZusBasePension: Double = sys.env.get("ZUS_BASE_PENSION").map(_.trim.toDouble).getOrElse(3500.0)  // PLN/month after waloryzacja
   val ZusScale: Double = sys.env.get("ZUS_SCALE").map(_.trim.toDouble).getOrElse(1.0)  // gradual introduction
 
-  // PPK / Capital Pension (Phase 8B)
+  // PPK / Capital Pension
   val PpkEnabled: Boolean = sys.env.get("PPK_ENABLED").map(_.trim.toBoolean).getOrElse(false)
   val PpkEmployeeRate: Double = sys.env.get("PPK_EMPLOYEE_RATE").map(_.trim.toDouble).getOrElse(0.02)  // 2%
   val PpkEmployerRate: Double = sys.env.get("PPK_EMPLOYER_RATE").map(_.trim.toDouble).getOrElse(0.015) // 1.5%
   val PpkBondAlloc: Double = sys.env.get("PPK_BOND_ALLOC").map(_.trim.toDouble).getOrElse(0.60)  // default TFI strategy
 
-  // Demographics (Phase 8B)
+  // Demographics
   val DemEnabled: Boolean = sys.env.get("DEMOGRAPHICS_ENABLED").map(_.trim.toBoolean).getOrElse(false)
   val DemRetirementRate: Double = sys.env.get("DEM_RETIREMENT_RATE").map(_.trim.toDouble).getOrElse(0.001)  // 0.1%/month
   val DemWorkingAgeDecline: Double = sys.env.get("DEM_WORKING_AGE_DECLINE").map(_.trim.toDouble).getOrElse(0.002)  // 0.2%/year
   val DemInitialRetirees: Int = sys.env.get("DEM_INITIAL_RETIREES").map(_.trim.toInt).getOrElse(0)
 
-  // Macroprudential (Phase 8C): KNF/CCyB/OSII
+  // Macroprudential: KNF/CCyB/OSII
   val MacropruEnabled: Boolean = sys.env.get("MACROPRU_ENABLED").map(_.trim.toBoolean).getOrElse(false)
   val CcybMax: Double = sys.env.get("CCYB_MAX").map(_.trim.toDouble).getOrElse(0.025)  // 2.5% max buffer
   val CcybActivationGap: Double = sys.env.get("CCYB_ACTIVATION_GAP").map(_.trim.toDouble).getOrElse(0.02)  // >2pp gap → build
@@ -228,11 +228,11 @@ object Config:
   val OsiiPekao: Double = sys.env.get("OSII_PEKAO").map(_.trim.toDouble).getOrElse(0.005)  // 0.5% for Pekao
   val ConcentrationLimit: Double = sys.env.get("CONCENTRATION_LIMIT").map(_.trim.toDouble).getOrElse(0.25)  // Art. 395 CRR
 
-  // Reserve interest (Phase 6A): NBP pays fraction of refRate on required reserves
+  // Reserve interest: NBP pays fraction of refRate on required reserves
   // Uchwała RPP nr 7/2003: oprocentowanie = 0.9 × stopa referencyjna (currently 0.5 in model for visibility)
   val NbpReserveRateMult: Double = sys.env.get("NBP_RESERVE_RATE_MULT").map(_.trim.toDouble).getOrElse(0.5)
 
-  // Standing facilities (Phase 6B): deposit/lombard facility actual flows
+  // Standing facilities: deposit/lombard facility actual flows
   val NbpStandingFacilities: Boolean = sys.env.get("NBP_STANDING_FACILITIES").map(_.trim.toBoolean).getOrElse(false)
   val NbpDepositFacilitySpread: Double = sys.env.get("NBP_DEPOSIT_FACILITY_SPREAD").map(_.trim.toDouble).getOrElse(0.01)
   val NbpLombardSpread: Double = sys.env.get("NBP_LOMBARD_SPREAD").map(_.trim.toDouble).getOrElse(0.01)

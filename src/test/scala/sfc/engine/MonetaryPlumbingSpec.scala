@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.config.Config
 
-/** Phase 6A-6C: Reserve Interest, Standing Facilities, Interbank Interest */
+/** Reserve Interest, Standing Facilities, Interbank Interest tests. */
 class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
 
   private def mkBank(id: Int, deposits: Double = 1e9, loans: Double = 5e8,
@@ -14,7 +14,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       interbankNet, failed, if failed then 30 else 0, 0)
 
   // =========================================================================
-  // Phase 6A: Reserve Interest
+  // Reserve Interest
   // =========================================================================
 
   "BankingSector.reserveInterest" should "compute monthly interest on reserves" in {
@@ -48,7 +48,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   // =========================================================================
-  // Phase 6B: Standing Facilities
+  // Standing Facilities
   // =========================================================================
 
   "BankingSector.computeStandingFacilities" should "return zeros when disabled" in {
@@ -78,7 +78,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   // =========================================================================
-  // Phase 6C: Interbank Interest Flows
+  // Interbank Interest Flows
   // =========================================================================
 
   "BankingSector.interbankInterestFlows" should "compute interest on net positions" in {
@@ -132,7 +132,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   // =========================================================================
-  // SFC Integration: Phase 6A-6C flows enter bank capital via Identity 1
+  // SFC Integration: monetary plumbing flows enter bank capital
   // =========================================================================
 
   "SfcCheck" should "pass with reserve interest in bank capital" in {
@@ -195,7 +195,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     Math.abs(result.bankCapitalError) should be > 1.0
   }
 
-  it should "pass with all three Phase 6A-6C flows combined" in {
+  it should "pass with all three monetary plumbing flows combined" in {
     import sfc.sfc.SfcCheck
     val prev = SfcCheck.Snapshot(0, 0, 0, 0,
       bankCapital = 1e8, bankDeposits = 1e9, bankLoans = 5e8,
@@ -213,7 +213,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   // =========================================================================
-  // Phase 7A: Credit Diagnostics (M1/M2)
+  // Credit Diagnostics (M1/M2)
   // =========================================================================
 
   "MonetaryAggregates.compute" should "compute M1 as deposits" in {
@@ -243,7 +243,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   // =========================================================================
-  // Phase 7B: JST — SFC Identity 2 (modified) + Identity 7 (new)
+  // JST — SFC deposit and debt identities
   // =========================================================================
 
   "SfcCheck Identity 2" should "include JST deposit change" in {

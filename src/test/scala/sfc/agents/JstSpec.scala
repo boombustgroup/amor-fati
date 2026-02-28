@@ -3,7 +3,7 @@ package sfc.agents
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Phase 7B: JST (local government) unit tests. */
+/** JST (local government) unit tests. */
 class JstSpec extends AnyFlatSpec with Matchers:
 
   "JstLogic.step" should "return zero deposit change when disabled" in {

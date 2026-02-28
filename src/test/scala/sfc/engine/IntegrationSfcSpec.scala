@@ -24,7 +24,7 @@ class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
 
   // --- SFC identity ---
 
-  "Phase 5 default integration" should "pass all SFC identity checks over 120 months" in {
+  "Default integration" should "pass all SFC identity checks over 120 months" in {
     stderrOutput should not include "[SFC]"
   }
 
@@ -95,7 +95,7 @@ class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
         succeed
   }
 
-  // --- Phase 4 columns in single-bank mode ---
+  // --- Multi-bank columns in single-bank mode ---
 
   it should "have BankFailures = 0 in single-bank mode" in {
     assume(!Config.BankMulti, "single-bank mode required")

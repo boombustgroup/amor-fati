@@ -28,7 +28,7 @@ case class IndividualBankState(
   failed: Boolean,
   failedMonth: Int,
   consecutiveLowCar: Int,
-  // Phase 7C: maturity mismatch
+  // Maturity mismatch
   demandDeposits: Double = 0.0,    // demand deposits (% split from deposits)
   termDeposits: Double = 0.0,      // term deposits
   loansShort: Double = 0.0,        // short-term loans (< 1 year)
@@ -141,10 +141,10 @@ object BankingSector:
     else
       val projectedCar = bank.capital / (bank.loans + amount)
       val approvalP = Math.max(0.1, 1.0 - bank.nplRatio * 3.0)
-      // Phase 8C: use effective MinCAR (base + CCyB + OSII) when macropru enabled
+      // Use effective MinCAR (base + CCyB + OSII) when macropru enabled
       val minCar = Macroprudential.effectiveMinCar(bank.id, ccyb)
       val carOk = projectedCar >= minCar
-      // Phase 7C: LCR/NSFR constraints (only when enabled)
+      // LCR/NSFR constraints (only when enabled)
       val lcrOk = if Config.BankLcrEnabled then bank.lcr >= Config.BankLcrMin else true
       val nsfrOk = if Config.BankLcrEnabled then bank.nsfr >= Config.BankNsfrMin else true
       carOk && lcrOk && nsfrOk && rng.nextDouble() < approvalP
@@ -201,10 +201,10 @@ object BankingSector:
       val updated = banks.map { b =>
         if b.failed then b
         else
-          // Phase 8C: use effective MinCAR (base + CCyB + OSII) for failure threshold
+          // Use effective MinCAR (base + CCyB + OSII) for failure threshold
           val minCar = Macroprudential.effectiveMinCar(b.id, ccyb)
           val lowCar = b.car < minCar
-          // Phase 7C: LCR/NSFR breach triggers immediate failure (severe liquidity crisis)
+          // LCR/NSFR breach triggers immediate failure (severe liquidity crisis)
           val lcrBreach = Config.BankLcrEnabled && b.lcr < Config.BankLcrMin * 0.5  // below 50% of min
           val newConsec = if lowCar then b.consecutiveLowCar + 1 else 0
           if newConsec >= 3 || lcrBreach then

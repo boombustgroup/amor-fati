@@ -2,7 +2,7 @@ package sfc.agents
 
 import sfc.config.Config
 
-/** ZUS/FUS state: social insurance fund balance and monthly flows. Phase 8B. */
+/** ZUS/FUS state: social insurance fund balance and monthly flows. */
 case class ZusState(
   fusBalance: Double,        // cumulative raw surplus/deficit (contributions - pensions, before gov subvention)
   contributions: Double,     // this month's total contributions
@@ -12,7 +12,7 @@ case class ZusState(
 object ZusState:
   val zero: ZusState = ZusState(0.0, 0.0, 0.0, 0.0)
 
-/** PPK state: capital pension fund bond holdings and monthly flows. Phase 8B. */
+/** PPK state: capital pension fund bond holdings and monthly flows. */
 case class PpkState(
   bondHoldings: Double,      // accumulated government bond holdings
   contributions: Double      // this month's total PPK contributions
@@ -20,7 +20,7 @@ case class PpkState(
 object PpkState:
   val zero: PpkState = PpkState(0.0, 0.0)
 
-/** Demographics state: retirees and working-age population. Phase 8B. */
+/** Demographics state: retirees and working-age population. */
 case class DemographicsState(
   retirees: Int,             // total retired workers receiving pensions
   workingAgePop: Int,        // effective working-age population
@@ -29,7 +29,7 @@ case class DemographicsState(
 object DemographicsState:
   val zero: DemographicsState = DemographicsState(0, 0, 0)
 
-/** BGK state: state development bank (stub for future use). Phase 8B. */
+/** BGK state: state development bank (stub for future use). */
 case class BgkState(
   loanPortfolio: Double = 0.0
 )

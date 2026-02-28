@@ -88,7 +88,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     Some(BankingSector.initialize(initCash, Config.InitBankCapital, BankingSector.DefaultConfigs))
   else None
 
-  // Phase 8B: initialize demographics with configured initial retirees
+  // Initialize demographics with configured initial retirees
   val initDemographics = if Config.DemEnabled then
     DemographicsState(Config.DemInitialRetirees, Config.TotalPopulation, 0)
   else DemographicsState.zero
@@ -112,7 +112,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          MeanDegree: average network degree (changes when REWIRE_RHO>0),
   //          IoFlows: total intermediate market payments (Paper-07),
   //          IoGdpRatio: intermediate flows / GDP,
-  //          InterbankRate, MinBankCAR, MaxBankNPL, BankFailures (Phase 4)
+  //          InterbankRate, MinBankCAR, MaxBankNPL, BankFailures
   val nCols = 82
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
@@ -199,7 +199,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
         if alive.isEmpty then 0.0 else alive.map(_.nplRatio).max
       }.getOrElse(world.bank.nplRatio),  // 50: MaxBankNPL
       world.bankingSector.map(_.banks.count(_.failed).toDouble).getOrElse(0.0),  // 51: BankFailures
-      // Phase 6A-6C: monetary plumbing
+      // Monetary plumbing
       world.bankingSector.map { bs =>
         val (_, total) = BankingSector.computeReserveInterest(bs.banks, world.nbp.referenceRate)
         total
@@ -216,17 +216,17 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
         val (_, total) = BankingSector.interbankInterestFlows(bs.banks, bs.interbankRate)
         total
       }.getOrElse(0.0),  // 55: InterbankInterestNet
-      // Phase 7A: Credit diagnostics
+      // Credit diagnostics
       world.monetaryAgg.map(_.m1).getOrElse(world.bank.deposits),     // 56: M1
       world.monetaryAgg.map(_.monetaryBase).getOrElse(0.0),           // 57: MonetaryBase
       world.monetaryAgg.map(_.creditMultiplier).getOrElse(0.0),       // 58: CreditMultiplier
-      // Phase 7B: JST (local government)
+      // JST (local government)
       world.jst.revenue,           // 59: JstRevenue
       world.jst.spending,          // 60: JstSpending
       world.jst.debt,              // 61: JstDebt
       world.jst.deposits,          // 62: JstDeposits
       world.jst.deficit,           // 63: JstDeficit
-      // Phase 7C: LCR/NSFR
+      // LCR/NSFR
       world.bankingSector.map { bs =>
         val alive = bs.banks.filterNot(_.failed)
         if alive.isEmpty then 0.0 else alive.map(_.lcr).min
@@ -240,11 +240,11 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
         if alive.isEmpty then 0.0
         else alive.map(b => if b.deposits > 0 then b.termDeposits / b.deposits else 0.0).sum / alive.length
       }.getOrElse(Config.BankTermDepositFrac),  // 66: AvgTermDepositFrac
-      // Phase 8A: Term structure
+      // Term structure
       world.bankingSector.flatMap(_.interbankCurve).map(_.wibor1m).getOrElse(0.0),  // 67: WIBOR_1M
       world.bankingSector.flatMap(_.interbankCurve).map(_.wibor3m).getOrElse(0.0),  // 68: WIBOR_3M
       world.bankingSector.flatMap(_.interbankCurve).map(_.wibor6m).getOrElse(0.0),  // 69: WIBOR_6M
-      // Phase 8B: Full public sector
+      // Full public sector
       world.zus.contributions,           // 70: ZusContributions
       world.zus.pensionPayments,         // 71: ZusPensionPayments
       world.zus.govSubvention,           // 72: ZusGovSubvention
@@ -254,7 +254,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.demographics.retirees.toDouble,           // 76: NRetirees
       world.demographics.workingAgePop.toDouble,      // 77: WorkingAgePop
       world.demographics.monthlyRetirements.toDouble,  // 78: MonthlyRetirements
-      // Phase 8C: Macroprudential
+      // Macroprudential
       world.macropru.ccyb,                             // 79: CCyB
       world.macropru.creditToGdpGap,                   // 80: CreditToGdpGap
       world.bankingSector.map { bs =>
