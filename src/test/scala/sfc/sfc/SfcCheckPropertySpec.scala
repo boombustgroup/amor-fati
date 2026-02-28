@@ -191,3 +191,24 @@ class SfcCheckPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProp
         Math.abs(result.bankDepositsError) should be > 0.0
     }
   }
+
+  // --- Mortgage stock identity ---
+
+  it should "detect perturbed mortgageStock" in {
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) {
+      (triple: (SfcCheck.Snapshot, SfcCheck.Snapshot, SfcCheck.MonthlyFlows), perturbation: Double) =>
+        val (prev, curr, flows) = triple
+        val perturbed = curr.copy(mortgageStock = curr.mortgageStock + perturbation)
+        val result = SfcCheck.validate(1, prev, perturbed, flows)
+        Math.abs(result.mortgageStockError) should be > 0.0
+    }
+  }
+
+  it should "pass mortgage stock identity in consistent snapshots" in {
+    forAll(genConsistentFlowsAndSnapshots) { (triple: (SfcCheck.Snapshot, SfcCheck.Snapshot, SfcCheck.MonthlyFlows)) =>
+      val (prev, curr, flows) = triple
+      val result = SfcCheck.validate(1, prev, curr, flows)
+      // Wider tolerance: mortgage stock values can reach 1e12, floating-point cancellation
+      result.mortgageStockError shouldBe 0.0 +- 0.01
+    }
+  }

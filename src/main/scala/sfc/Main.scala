@@ -110,7 +110,9 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
           Math.exp(Config.HhSavingsMu) * 0.05
       else 0.0
       initEq.copy(hhEquityWealth = initHhEq)
-    else EquityMarket.zero)
+    else EquityMarket.zero,
+    housing = if Config.ReEnabled then HousingMarket.initial
+              else HousingMarket.zero)
 
   // Collect time-series: 120 rows x N columns
   // Columns: Month, Inflation, Unemployment, AutoRatio+HybridRatio, ExRate, MarketWage,
@@ -121,8 +123,11 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          MeanDegree: average network degree (changes when REWIRE_RHO>0),
   //          IoFlows: total intermediate market payments (Paper-07),
   //          IoGdpRatio: intermediate flows / GDP,
-  //          InterbankRate, MinBankCAR, MaxBankNPL, BankFailures
-  val nCols = 92
+  //          InterbankRate, MinBankCAR, MaxBankNPL, BankFailures,
+  //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
+  //                   Repayment, Default, MortgageInterest, HhHousingWealth,
+  //                   HousingWealthEffect, MortgageToGdp
+  val nCols = 103
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -284,7 +289,20 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.equity.lastWealthEffect, // 89: EquityWealthEffect
       // GPW Dividends
       world.equity.lastDomesticDividends,  // 90: DomesticDividends
-      world.equity.lastForeignDividends    // 91: ForeignDividendOutflow
+      world.equity.lastForeignDividends,   // 91: ForeignDividendOutflow
+      // Housing Market
+      world.housing.priceIndex,            // 92: HousingPriceIndex
+      world.housing.totalValue,            // 93: HousingMarketValue
+      world.housing.mortgageStock,         // 94: MortgageStock
+      world.housing.avgMortgageRate,       // 95: AvgMortgageRate
+      world.housing.lastOrigination,       // 96: MortgageOrigination
+      world.housing.lastRepayment,         // 97: MortgageRepayment
+      world.housing.lastDefault,           // 98: MortgageDefault
+      world.housing.mortgageInterestIncome, // 99: MortgageInterestIncome
+      world.housing.hhHousingWealth,       // 100: HhHousingWealth
+      world.housing.lastWealthEffect,      // 101: HousingWealthEffect
+      (if world.gdpProxy > 0 && world.housing.mortgageStock > 0
+       then world.housing.mortgageStock / (world.gdpProxy * 12.0) else 0.0)  // 102: MortgageToGdp
     )
 
   RunResult(results, world.hhAgg)
@@ -317,7 +335,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 82
+  val nCols   = 103
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -364,7 +382,10 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "GpwIndex;GpwMarketCap;GpwPE;GpwDivYield;" +
     "EquityIssuanceTotal;EquityFinancedFrac;" +
     "HhEquityWealth;EquityWealthEffect;" +
-    "DomesticDividends;ForeignDividendOutflow\n")
+    "DomesticDividends;ForeignDividendOutflow;" +
+    "HousingPriceIndex;HousingMarketValue;MortgageStock;AvgMortgageRate;" +
+    "MortgageOrigination;MortgageRepayment;MortgageDefault;MortgageInterestIncome;" +
+    "HhHousingWealth;HousingWealthEffect;MortgageToGdp\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -444,7 +465,10 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "GpwIndex", "GpwMarketCap", "GpwPE", "GpwDivYield",
     "EquityIssuanceTotal", "EquityFinancedFrac",
     "HhEquityWealth", "EquityWealthEffect",
-    "DomesticDividends", "ForeignDividendOutflow")
+    "DomesticDividends", "ForeignDividendOutflow",
+    "HousingPriceIndex", "HousingMarketValue", "MortgageStock", "AvgMortgageRate",
+    "MortgageOrigination", "MortgageRepayment", "MortgageDefault", "MortgageInterestIncome",
+    "HhHousingWealth", "HousingWealthEffect", "MortgageToGdp")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

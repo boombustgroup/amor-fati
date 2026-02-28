@@ -396,3 +396,90 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
     result.bankDepositsError shouldBe -10000.0 +- 0.01
     result.passed shouldBe false
   }
+
+  // ---- Identity 1 with mortgage flows ----
+
+  "SfcCheck.validate (bank capital with mortgage)" should "include mortgage interest in Identity 1" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // mortgageInterestIncome=9000 → 9000*0.3 = 2700 added to bank capital
+    val curr = prev.copy(bankCapital = prev.bankCapital + 2700)
+    val flows = zeroFlows.copy(mortgageInterestIncome = 9000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankCapitalError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "include mortgage NPL loss in Identity 1" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // mortgageNplLoss=5000 → bank capital decreases by 5000
+    val curr = prev.copy(bankCapital = prev.bankCapital - 5000)
+    val flows = zeroFlows.copy(mortgageNplLoss = 5000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankCapitalError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "pass with combined mortgage interest and NPL" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // mortgageInterest=10000 → +3000, mortgageNplLoss=2000 → -2000, net = +1000
+    val curr = prev.copy(bankCapital = prev.bankCapital + 1000)
+    val flows = zeroFlows.copy(mortgageInterestIncome = 10000, mortgageNplLoss = 2000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankCapitalError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "detect error when mortgage interest not routed to bank capital" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // Bug: bank capital unchanged despite mortgage interest
+    val curr = prev.copy(bankCapital = prev.bankCapital)
+    val flows = zeroFlows.copy(mortgageInterestIncome = 6000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    // actual=0, expected=+1800, error=-1800
+    result.bankCapitalError shouldBe -1800.0 +- 0.01
+    result.passed shouldBe false
+  }
+
+  // ---- Identity 9: Mortgage stock ----
+
+  "SfcCheck.validate (mortgage stock)" should "pass when stock change matches flows" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0,
+      mortgageStock = 100000.0)
+    // origination=20000, principal=3000, default=1000 → Δ = 20000-3000-1000 = 16000
+    val curr = prev.copy(mortgageStock = 116000.0)
+    val flows = zeroFlows.copy(mortgageOrigination = 20000, mortgagePrincipalRepaid = 3000,
+      mortgageDefaultAmount = 1000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.mortgageStockError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "pass trivially when RE disabled (all zeros)" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    val result = SfcCheck.validate(1, prev, prev, zeroFlows)
+    result.mortgageStockError shouldBe 0.0
+    result.passed shouldBe true
+  }
+
+  it should "detect error when stock doesn't match flows" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0,
+      mortgageStock = 100000.0)
+    // Bug: stock unchanged despite origination
+    val curr = prev.copy(mortgageStock = 100000.0)
+    val flows = zeroFlows.copy(mortgageOrigination = 15000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.mortgageStockError shouldBe -15000.0 +- 0.01
+    result.passed shouldBe false
+  }
+
+  it should "handle net reduction in stock (repayment > origination)" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0,
+      mortgageStock = 100000.0)
+    // origination=2000, principal=5000, default=500 → Δ = 2000-5000-500 = -3500
+    val curr = prev.copy(mortgageStock = 96500.0)
+    val flows = zeroFlows.copy(mortgageOrigination = 2000, mortgagePrincipalRepaid = 5000,
+      mortgageDefaultAmount = 500)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.mortgageStockError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
