@@ -78,7 +78,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     )
     // Firm 1 has 10 workers (Traditional) but only hh(0) is assigned to firm 0, etc.
     // With 3 firms x 10 workers each = 30 needed, only 2 employed → 28 vacancies
-    val result = LaborMarket.jobSearch(hhs, firms, 8000.0, rng)
+    val (result, _) = LaborMarket.jobSearch(hhs, firms, 8000.0, rng)
     result(1).status shouldBe a[HhStatus.Employed]
   }
 
@@ -100,7 +100,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       mkHousehold(10, HhStatus.Unemployed(1), skill = 0.3)
     )
     // Firm needs 10 workers, has 9 employed → 1 vacancy
-    val result = LaborMarket.jobSearch(hhs, firms, 8000.0, rng)
+    val (result, _) = LaborMarket.jobSearch(hhs, firms, 8000.0, rng)
     // Higher skilled (id=9, skill=0.9) should get the job
     result(9).status shouldBe a[HhStatus.Employed]
   }

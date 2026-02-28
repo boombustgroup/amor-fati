@@ -127,7 +127,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
   //                   Repayment, Default, MortgageInterest, HhHousingWealth,
   //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 103
+  val nCols = 106
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -302,7 +302,11 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.housing.hhHousingWealth,       // 100: HhHousingWealth
       world.housing.lastWealthEffect,      // 101: HousingWealthEffect
       (if world.gdpProxy > 0 && world.housing.mortgageStock > 0
-       then world.housing.mortgageStock / (world.gdpProxy * 12.0) else 0.0)  // 102: MortgageToGdp
+       then world.housing.mortgageStock / (world.gdpProxy * 12.0) else 0.0),  // 102: MortgageToGdp
+      // Sectoral Labor Mobility
+      world.sectoralMobility.sectorMobilityRate,    // 103: SectorMobilityRate
+      world.sectoralMobility.crossSectorHires.toDouble,  // 104: CrossSectorHires
+      world.sectoralMobility.voluntaryQuits.toDouble // 105: VoluntaryQuits
     )
 
   RunResult(results, world.hhAgg)
@@ -335,7 +339,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 103
+  val nCols   = 106
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -385,7 +389,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "DomesticDividends;ForeignDividendOutflow;" +
     "HousingPriceIndex;HousingMarketValue;MortgageStock;AvgMortgageRate;" +
     "MortgageOrigination;MortgageRepayment;MortgageDefault;MortgageInterestIncome;" +
-    "HhHousingWealth;HousingWealthEffect;MortgageToGdp\n")
+    "HhHousingWealth;HousingWealthEffect;MortgageToGdp;" +
+    "SectorMobilityRate;CrossSectorHires;VoluntaryQuits\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -468,7 +473,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "DomesticDividends", "ForeignDividendOutflow",
     "HousingPriceIndex", "HousingMarketValue", "MortgageStock", "AvgMortgageRate",
     "MortgageOrigination", "MortgageRepayment", "MortgageDefault", "MortgageInterestIncome",
-    "HhHousingWealth", "HousingWealthEffect", "MortgageToGdp")
+    "HhHousingWealth", "HousingWealthEffect", "MortgageToGdp",
+    "SectorMobilityRate", "CrossSectorHires", "VoluntaryQuits")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

@@ -49,14 +49,16 @@ object LaborMarket:
             retainCounts(firmId) = retained + 1
             hh  // stays employed
           else
-            hh.copy(status = HhStatus.Unemployed(0))
+            // Record last sector when becoming unemployed
+            hh.copy(status = HhStatus.Unemployed(0), lastSectorIdx = sectorIdx)
         case _ => hh
     }
 
   /** Job search — unemployed households bid for open positions.
-    * Matching: highest skill first fills vacancies. */
+    * Matching: highest skill first fills vacancies.
+    * Returns (updated households, cross-sector hire count). */
   def jobSearch(households: Vector[Household], firms: Array[Firm],
-                marketWage: Double, rng: Random): Vector[Household] =
+                marketWage: Double, rng: Random): (Vector[Household], Int) =
     // Compute vacancies per firm: living firms that need workers
     // O(N_hh) map build instead of O(N_firms × N_hh) nested scan
     val workerCounts = scala.collection.mutable.Map[Int, Int]().withDefaultValue(0)
@@ -69,7 +71,7 @@ object LaborMarket:
       val needed = FirmOps.workers(f) - workerCounts(f.id)
       if needed > 0 then vacancies(f.id) = needed
 
-    if vacancies.isEmpty then return households
+    if vacancies.isEmpty then return (households, 0)
 
     // Rank unemployed by effective skill (skill × (1 - healthPenalty))
     val unemployedIndices = households.indices.filter { i =>
@@ -80,6 +82,7 @@ object LaborMarket:
     }
 
     val result = households.toArray
+    var crossSectorHires = 0
 
     // Pre-sort vacancy firms by sector sigma descending — O(V log V) once
     // For sector bonus, we group by sector: same-sector gets priority
@@ -91,10 +94,9 @@ object LaborMarket:
     for idx <- unemployedIndices do
       if vacancies.nonEmpty then
         val hh = result(idx)
-        val prevSector = hh.status match
-          case HhStatus.Unemployed(_) =>
-            firms(hh.id % firms.length).sector
-          case _ => 0
+        // Fix: use lastSectorIdx (actual last employer sector) instead of hh.id % firms.length
+        val prevSector = if hh.lastSectorIdx >= 0 then hh.lastSectorIdx
+          else firms(hh.id % firms.length).sector
 
         // Try same-sector first (bonus), then fall back to global priority order
         val bestFirmId = vacancyFirmsBySector.getOrElse(prevSector, Array.empty[Int])
@@ -104,16 +106,23 @@ object LaborMarket:
         bestFirmId.foreach { fid =>
           val f = firms(fid)
           val sectorMult = SECTORS(f.sector).wageMultiplier
-          val individualWage = marketWage * sectorMult * hh.skill * (1.0 - hh.healthPenalty)
+          val isCrossSector = f.sector != prevSector
+          // Cross-sector wage penalty when sectoral mobility is enabled
+          val penalty = if Config.LmSectoralMobility && isCrossSector then
+            SectoralMobility.crossSectorWagePenalty(Config.LmFrictionMatrix(prevSector)(f.sector))
+          else 1.0
+          val individualWage = marketWage * sectorMult * hh.skill * (1.0 - hh.healthPenalty) * penalty
+          if isCrossSector then crossSectorHires += 1
           result(idx) = hh.copy(
-            status = HhStatus.Employed(fid, f.sector, individualWage)
+            status = HhStatus.Employed(fid, f.sector, individualWage),
+            lastSectorIdx = f.sector
           )
           val remaining = vacancies(fid) - 1
           if remaining <= 0 then vacancies.remove(fid)
           else vacancies(fid) = remaining
         }
 
-    result.toVector
+    (result.toVector, crossSectorHires)
 
   /** Update wages for all employed households based on current market wage.
     * Individual wages are heterogeneous (sector × skill × health) but normalized

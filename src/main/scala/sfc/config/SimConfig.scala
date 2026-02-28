@@ -373,6 +373,22 @@ object Config:
   val ReWealthMpc: Double = sys.env.get("RE_WEALTH_MPC").map(_.trim.toDouble).getOrElse(0.05)
   val ReRentalYield: Double = sys.env.get("RE_RENTAL_YIELD").map(_.trim.toDouble).getOrElse(0.045)
 
+  // Sectoral labor mobility (v5.0)
+  val LmSectoralMobility: Boolean = sys.env.get("LM_SECTORAL_MOBILITY").map(_.trim.toBoolean).getOrElse(false)
+  val LmFrictionMatrix: Vector[Vector[Double]] = sys.env.get("LM_TRANSITION_MATRIX") match
+    case Some(s) if s.nonEmpty =>
+      val rows = s.split(";").map(_.split(",").map(_.trim.toDouble).toVector).toVector
+      require(rows.length == 6 && rows.forall(_.length == 6),
+        s"LM_TRANSITION_MATRIX must be 6x6, got ${rows.length} rows")
+      rows
+    case _ => sfc.engine.SectoralMobility.DefaultFrictionMatrix
+  val LmFrictionDurationMult: Double = sys.env.get("LM_FRICTION_DURATION_MULT").map(_.trim.toDouble).getOrElse(1.0)
+  val LmFrictionCostMult: Double = sys.env.get("LM_FRICTION_COST_MULT").map(_.trim.toDouble).getOrElse(0.5)
+  val LmVoluntarySearchProb: Double = sys.env.get("LM_VOLUNTARY_SEARCH_PROB").map(_.trim.toDouble).getOrElse(0.02)
+  val LmVoluntaryWageThreshold: Double = sys.env.get("LM_VOLUNTARY_WAGE_THRESHOLD").map(_.trim.toDouble).getOrElse(0.20)
+  val LmVacancyWeight: Double = sys.env.get("LM_VACANCY_WEIGHT").map(_.trim.toDouble).getOrElse(2.0)
+  val LmAdjacentFrictionMax: Double = sys.env.get("LM_ADJACENT_FRICTION_MAX").map(_.trim.toDouble).getOrElse(0.4)
+
   // Heterogeneous households (Paper-06)
   val HhCount = sys.env.get("HH_COUNT").map(_.trim.toInt).getOrElse(TotalPopulation)
 

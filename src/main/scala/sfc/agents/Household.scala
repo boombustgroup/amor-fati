@@ -35,7 +35,8 @@ case class Household(
   status: HhStatus,
   socialNeighbors: Array[Int],
   bankId: Int = 0,            // Multi-bank: index into BankingSectorState.banks
-  equityWealth: Double = 0.0  // GPW: value of equity holdings
+  equityWealth: Double = 0.0, // GPW: value of equity holdings
+  lastSectorIdx: Int = -1     // Sectoral mobility: last sector employed in (-1 = never)
 )
 
 /** Aggregate statistics computed from individual households (Paper-06). */
@@ -68,7 +69,10 @@ case class HhAggregates(
   totalRent: Double,
   totalDebtService: Double,
   totalUnempBenefits: Double,
-  totalDepositInterest: Double = 0.0
+  totalDepositInterest: Double = 0.0,
+  crossSectorHires: Int = 0,
+  voluntaryQuits: Int = 0,
+  sectorMobilityRate: Double = 0.0
 )
 
 object HouseholdInit:
@@ -120,7 +124,8 @@ object HouseholdInit:
         mpc = Math.max(0.5, Math.min(0.98, mpc)),
         status = HhStatus.Employed(firmId, sectorIdx, wage),
         socialNeighbors = if i < socialNetwork.length then socialNetwork(i) else Array.empty,
-        equityWealth = eqWealth
+        equityWealth = eqWealth,
+        lastSectorIdx = sectorIdx
       )
     }.toVector
 

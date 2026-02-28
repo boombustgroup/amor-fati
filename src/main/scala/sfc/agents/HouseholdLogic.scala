@@ -1,7 +1,7 @@
 package sfc.agents
 
 import sfc.config.Config
-import sfc.engine.World
+import sfc.engine.{World, SectoralMobility}
 
 import scala.util.Random
 
@@ -38,11 +38,14 @@ object HouseholdLogic:
            importAdj: Double, rng: Random,
            nBanks: Int = 1,
            bankRates: Option[BankRates] = None,
-           equityIndexReturn: Double = 0.0
+           equityIndexReturn: Double = 0.0,
+           sectorWages: Array[Double] = null,
+           sectorVacancies: Array[Int] = null
   ): (Vector[Household], HhAggregates, Option[PerBankHhFlows]) =
 
     var retrainingAttempts = 0
     var retrainingSuccesses = 0
+    var voluntaryQuits = 0
     var actualTotalIncome = 0.0
     var totalUnempBenefits = 0.0
     var actualTotalDebtService = 0.0
@@ -132,21 +135,64 @@ object HouseholdLogic:
             val afterSkill = applySkillDecay(hh, newStatus)
             val afterHealth = applyHealthScarring(hh, newStatus)
 
-            // Retraining decision
-            val (finalStatus, rAttempt, rSuccess) = newStatus match
+            // Voluntary cross-sector search (employed workers only, sectoral mobility ON)
+            val (afterVoluntary, vQuit) = newStatus match
+              case HhStatus.Employed(firmId, sectorIdx, wage)
+                if Config.LmSectoralMobility && sectorWages != null &&
+                   rng.nextDouble() < Config.LmVoluntarySearchProb =>
+                val targetSector = SectoralMobility.selectTargetSector(
+                  sectorIdx, sectorWages, sectorVacancies,
+                  Config.LmFrictionMatrix, Config.LmVacancyWeight, rng)
+                val targetAvgWage = sectorWages(targetSector)
+                if targetAvgWage > wage * (1.0 + Config.LmVoluntaryWageThreshold) then
+                  val friction = Config.LmFrictionMatrix(sectorIdx)(targetSector)
+                  if friction < Config.LmAdjacentFrictionMax then
+                    // Low friction: direct switch (1-month unemployment gap)
+                    (HhStatus.Unemployed(0), 1)
+                  else
+                    // High friction: enter retraining
+                    val (adjDur, adjCost) = SectoralMobility.frictionAdjustedParams(
+                      friction, Config.LmFrictionDurationMult, Config.LmFrictionCostMult)
+                    if hh.savings > adjCost then
+                      (HhStatus.Retraining(adjDur, targetSector, adjCost), 1)
+                    else (newStatus, 0)  // can't afford retraining
+                else (newStatus, 0)  // target wage not attractive enough
+              case _ => (newStatus, 0)
+            voluntaryQuits += vQuit
+
+            // Retraining decision (for unemployed, friction-aware when LM enabled)
+            val (finalStatus, rAttempt, rSuccess) = afterVoluntary match
               case HhStatus.Unemployed(months) if months > 6 && Config.HhRetrainingEnabled =>
                 val retrainProb = Config.HhRetrainingProb +
                   (if neighborDistress > 0.30 then 0.05 else 0.0)
                 if hh.savings > Config.HhRetrainingCost && rng.nextDouble() < retrainProb then
-                  val targetSector = rng.nextInt(sfc.config.SECTORS.length)
-                  (HhStatus.Retraining(Config.HhRetrainingDuration, targetSector,
-                    Config.HhRetrainingCost), 1, 0)
-                else (newStatus, 0, 0)
+                  if Config.LmSectoralMobility && sectorWages != null then
+                    // Friction-aware target selection
+                    val fromSector = if hh.lastSectorIdx >= 0 then hh.lastSectorIdx else 0
+                    val targetSector = SectoralMobility.selectTargetSector(
+                      fromSector, sectorWages, sectorVacancies,
+                      Config.LmFrictionMatrix, Config.LmVacancyWeight, rng)
+                    val friction = Config.LmFrictionMatrix(fromSector)(targetSector)
+                    val (adjDur, adjCost) = SectoralMobility.frictionAdjustedParams(
+                      friction, Config.LmFrictionDurationMult, Config.LmFrictionCostMult)
+                    if hh.savings > adjCost then
+                      (HhStatus.Retraining(adjDur, targetSector, adjCost), 1, 0)
+                    else (afterVoluntary, 0, 0)
+                  else
+                    val targetSector = rng.nextInt(sfc.config.SECTORS.length)
+                    (HhStatus.Retraining(Config.HhRetrainingDuration, targetSector,
+                      Config.HhRetrainingCost), 1, 0)
+                else (afterVoluntary, 0, 0)
               case HhStatus.Retraining(monthsLeft, targetSector, cost) =>
                 if monthsLeft <= 1 then
-                  // Retraining complete -- check success
-                  val successProb = Config.HhRetrainingBaseSuccess *
+                  // Retraining complete -- check success (friction-adjusted)
+                  val baseSuccessProb = Config.HhRetrainingBaseSuccess *
                     afterSkill * (1.0 - afterHealth)
+                  val successProb = if Config.LmSectoralMobility then
+                    val fromSector = if hh.lastSectorIdx >= 0 then hh.lastSectorIdx else 0
+                    val friction = Config.LmFrictionMatrix(fromSector)(targetSector)
+                    SectoralMobility.frictionAdjustedSuccess(baseSuccessProb, friction)
+                  else baseSuccessProb
                   if rng.nextDouble() < successProb then
                     // Success: reset skill, become unemployed (ready for job search)
                     (HhStatus.Unemployed(0), 0, 1)
@@ -155,7 +201,7 @@ object HouseholdLogic:
                     (HhStatus.Unemployed(7), 0, 0)  // 7 = 6 months training + 1
                 else
                   (HhStatus.Retraining(monthsLeft - 1, targetSector, cost), 0, 0)
-              case _ => (newStatus, 0, 0)
+              case _ => (afterVoluntary, 0, 0)
 
             retrainingAttempts += rAttempt
             retrainingSuccesses += rSuccess
@@ -181,6 +227,16 @@ object HouseholdLogic:
     val actualTotalConsumption = actualGoodsConsumption + actualTotalRent
     val actualImportCons = actualGoodsConsumption * Math.min(0.65, importAdj)
     val actualDomesticCons = actualTotalConsumption - actualImportCons
+    // Sector mobility rate: fraction of employed in different sector than lastSectorIdx
+    val smRate = if Config.LmSectoralMobility then
+      val employed = updated.filter(_.status.isInstanceOf[HhStatus.Employed])
+      if employed.nonEmpty then
+        employed.count { hh =>
+          val sec = hh.status.asInstanceOf[HhStatus.Employed].sectorIdx
+          hh.lastSectorIdx >= 0 && hh.lastSectorIdx != sec
+        }.toDouble / employed.length
+      else 0.0
+    else 0.0
     val correctedAgg = agg.copy(
       totalIncome = actualTotalIncome,
       consumption = actualTotalConsumption,
@@ -189,7 +245,9 @@ object HouseholdLogic:
       totalUnempBenefits = totalUnempBenefits,
       totalDebtService = actualTotalDebtService,
       totalDepositInterest = actualTotalDepositInterest,
-      totalRent = actualTotalRent
+      totalRent = actualTotalRent,
+      voluntaryQuits = voluntaryQuits,
+      sectorMobilityRate = smRate
     )
     val pbf = if perBankInc != null then
       Some(PerBankHhFlows(perBankInc, perBankCons, perBankDSvc, perBankDepInt))

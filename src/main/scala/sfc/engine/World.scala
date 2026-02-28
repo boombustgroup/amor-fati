@@ -2,7 +2,7 @@ package sfc.engine
 
 import sfc.agents.{HhState, HhAggregates, Household, NbpState, JstState, ZusState, PpkState, DemographicsState}
 import sfc.sfc.{GovState, BankState, ForexState, BopState, MonetaryAggregates}
-import sfc.engine.{BankingSectorState, EquityMarketState, HousingMarketState}
+import sfc.engine.{BankingSectorState, EquityMarketState, HousingMarketState, SectoralMobilityState}
 
 case class World(
   month: Int,
@@ -30,5 +30,6 @@ case class World(
   demographics: DemographicsState = DemographicsState.zero,
   macropru: MacropruState = MacropruState.zero,
   equity: EquityMarketState = EquityMarket.zero,
-  housing: HousingMarketState = HousingMarket.zero
+  housing: HousingMarketState = HousingMarket.zero,
+  sectoralMobility: SectoralMobilityState = SectoralMobility.zero
 )

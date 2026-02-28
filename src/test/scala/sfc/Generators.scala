@@ -155,7 +155,8 @@ object Generators:
     status  <- genHhStatus
     bankId  <- Gen.choose(0, 6)
     eqW     <- Gen.choose(0.0, 100000.0)
-  yield Household(id, savings, debt, rent, skill, health, mpc, status, Array.empty, bankId, eqW)
+    lastSec <- Gen.choose(-1, 5)
+  yield Household(id, savings, debt, rent, skill, health, mpc, status, Array.empty, bankId, eqW, lastSec)
 
   // --- World generator ---
 

@@ -200,9 +200,13 @@ object Simulation:
           ))
           // Equity index return for HH wealth revaluation (lagged: uses previous month's return)
           val eqReturn = w.equity.monthlyReturn
+          // Sectoral mobility signals (computed from lagged state)
+          val secWages = if Config.LmSectoralMobility then SectoralMobility.sectorWages(afterWages) else null
+          val secVacancies = if Config.LmSectoralMobility then SectoralMobility.sectorVacancies(afterWages, firms) else null
           // Household monthly step
           val (newHhs, agg, pbf) = HouseholdLogic.step(
-            afterWages, w, bdp, newWage, resWage, importAdj, Random, nBanksHh, hhBankRates, eqReturn)
+            afterWages, w, bdp, newWage, resWage, importAdj, Random, nBanksHh, hhBankRates, eqReturn,
+            secWages, secVacancies)
           (agg.totalIncome, agg.consumption, agg.importConsumption,
            agg.domesticConsumption, Some(newHhs), Some(agg), pbf)
 
@@ -287,9 +291,11 @@ object Simulation:
       (newFirms, 0.0)
 
     // Individual mode: post-firm-processing labor market update
+    var postFirmCrossSectorHires = 0
     val finalHouseholds = updatedHouseholds.map { hhs =>
       val afterSep = LaborMarket.separations(hhs, firms, ioFirms)
-      val afterSearch = LaborMarket.jobSearch(afterSep, ioFirms, newWage, Random)
+      val (afterSearch, csHires) = LaborMarket.jobSearch(afterSep, ioFirms, newWage, Random)
+      postFirmCrossSectorHires += csHires
       LaborMarket.updateWages(afterSearch, newWage)  // normalize wages for next step
     }
 
@@ -653,7 +659,12 @@ object Simulation:
       demographics = newDemographics,
       macropru = newMacropru,
       equity = equityAfterStep,
-      housing = housingAfterFlows)
+      housing = housingAfterFlows,
+      sectoralMobility = SectoralMobilityState(
+        crossSectorHires = postFirmCrossSectorHires + hhAgg.map(_.crossSectorHires).getOrElse(0),
+        voluntaryQuits = hhAgg.map(_.voluntaryQuits).getOrElse(0),
+        sectorMobilityRate = finalHhAgg.map(_.sectorMobilityRate).getOrElse(0.0)
+      ))
 
     // SFC accounting check: verify exact balance-sheet identities every step
     val prevSnap = SfcCheck.snapshot(w, firms, households)
