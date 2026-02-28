@@ -105,7 +105,7 @@ object Sectors:
     val totalSpend = bdpSpend + unempBenefitSpend + Config.GovBaseSpending * priceLevel + debtService + zusGovSubvention
     val totalRev   = citPaid + vat + nbpRemittance
     val deficit    = totalSpend - totalRev
-    val newBondsOutstanding = if Config.GovBondMarket then prev.bondsOutstanding + deficit
+    val newBondsOutstanding = if Config.GovBondMarket then Math.max(0.0, prev.bondsOutstanding + deficit)
                               else prev.bondsOutstanding
     GovState(bdpActive, totalRev, bdpSpend, deficit, prev.cumulativeDebt + deficit,
       unempBenefitSpend, newBondsOutstanding, prev.bondYield, debtService)
@@ -471,15 +471,19 @@ object Simulation:
         monthlyRetAttempts, monthlyRetSuccesses, bdp)
     }
 
+    // Actual bond change: bondsOutstanding is floored at 0, so actual issuance
+    // may differ from raw deficit when surplus exceeds outstanding bonds
+    val actualBondChange = newGovWithYield.bondsOutstanding - w.gov.bondsOutstanding
+
     // PPK bond purchases (capped at available bonds after QE)
     val availableBondsForPpk = newBank.govBondHoldings +
-      (if Config.GovBondMarket then newGovWithYield.deficit else 0.0) - qePurchaseAmount
+      (if Config.GovBondMarket then actualBondChange else 0.0) - qePurchaseAmount
     val ppkBondPurchase = Math.min(rawPpkBondPurchase, Math.max(0.0, availableBondsForPpk))
     val finalPpk = newPpk.copy(bondHoldings = w.ppk.bondHoldings + ppkBondPurchase)
 
     // Bond allocation: new issuance goes to bank; QE and PPK transfer from bank
     val finalBank = if Config.GovBondMarket then
-      newBank.copy(govBondHoldings = newBank.govBondHoldings + newGovWithYield.deficit - qePurchaseAmount - ppkBondPurchase)
+      newBank.copy(govBondHoldings = newBank.govBondHoldings + actualBondChange - qePurchaseAmount - ppkBondPurchase)
     else newBank.copy(govBondHoldings = newBank.govBondHoldings - qePurchaseAmount - ppkBondPurchase)
 
     // ---- Multi-bank update path ----
@@ -541,9 +545,9 @@ object Simulation:
         // 2. Interbank clearing
         val ibRate = BankingSector.interbankRate(updatedBanks, w.nbp.referenceRate)
         val afterInterbank = BankingSector.clearInterbank(updatedBanks, bs.configs, ibRate)
-        // 3. Bond allocation
+        // 3. Bond allocation (use actualBondChange, not raw deficit — surplus can't redeem below 0)
         val afterBonds = if Config.GovBondMarket then
-          BankingSector.allocateBonds(afterInterbank, newGovWithYield.deficit)
+          BankingSector.allocateBonds(afterInterbank, actualBondChange)
         else afterInterbank
         // 4. QE allocation
         val afterQe = BankingSector.allocateQePurchases(afterBonds, qePurchaseAmount)
@@ -637,7 +641,7 @@ object Simulation:
       valuationEffect = oeValuationEffect,
       bankBondIncome = bankBondIncome,
       qePurchase = qePurchaseAmount,
-      newBondIssuance = if Config.GovBondMarket then newGovWithYield.deficit else 0.0,
+      newBondIssuance = if Config.GovBondMarket then actualBondChange else 0.0,
       depositInterestPaid = depositInterestPaid,
       reserveInterest = totalReserveInterest,
       standingFacilityIncome = totalStandingFacilityIncome,

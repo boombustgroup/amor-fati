@@ -251,18 +251,21 @@ object BankingSector:
     if currentBankId < banks.length && !banks(currentBankId).failed then currentBankId
     else healthiestBankId(banks)
 
-  /** Allocate new bond issuance to banks proportional to their deposits. */
+  /** Allocate new bond issuance to banks proportional to their deposits.
+    * Falls back to equal shares when total deposits are non-positive
+    * (can happen when large foreign dividend outflows drain the system). */
   def allocateBonds(banks: Vector[IndividualBankState], deficit: Double): Vector[IndividualBankState] =
+    if deficit == 0.0 then return banks
     val aliveBanks = banks.filterNot(_.failed)
+    val nAlive = aliveBanks.length
+    if nAlive == 0 then return banks
     val totalDep = aliveBanks.map(_.deposits).sum
-    if totalDep <= 0 || deficit == 0.0 then banks
-    else
-      banks.map { b =>
-        if b.failed then b
-        else
-          val share = b.deposits / totalDep
-          b.copy(govBondHoldings = b.govBondHoldings + deficit * share)
-      }
+    banks.map { b =>
+      if b.failed then b
+      else
+        val share = if totalDep > 0 then b.deposits / totalDep else 1.0 / nAlive
+        b.copy(govBondHoldings = b.govBondHoldings + deficit * share)
+    }
 
   /** Compute reserve interest for a single bank (monthly).
     * NBP pays NbpReserveRateMult × refRate (annual) on reserves. */
