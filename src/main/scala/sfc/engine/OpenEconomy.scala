@@ -22,9 +22,10 @@ object OpenEconomy:
            month: Int, rc: RunConfig,
            nbpFxReserves: Double = 0.0,
            gvcExports: Option[Double] = None,
-           gvcIntermImports: Option[Vector[Double]] = None): OpenEconResult =
+           gvcIntermImports: Option[Vector[Double]] = None,
+           remittanceOutflow: Double = 0.0): OpenEconResult =
 
-    val nSectors = 6
+    val nSectors = SECTORS.length
 
     // A. Export demand (structural)
     // Foreign buyers care about the real exchange rate: PL / (ER/baseER).
@@ -68,7 +69,7 @@ object OpenEconomy:
 
     // E. Current account
     val primaryIncome = prevBop.nfa * Config.OeNfaReturnRate / 12.0
-    val secondaryIncome = Config.OeEuTransfers
+    val secondaryIncome = Config.OeEuTransfers - remittanceOutflow
     val currentAccount = tradeBalance + primaryIncome + secondaryIncome
 
     // F. Capital account

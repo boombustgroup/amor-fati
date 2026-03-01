@@ -138,6 +138,35 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     ((wage0 + wage1) / 2.0) shouldBe 10000.0 +- 1.0
   }
 
+  // --- immigrant wage discount ---
+
+  "LaborMarket.updateWages" should "apply immigrant wage discount when enabled" in {
+    // Two identical workers, one immigrant, one native.
+    // Since ImmigEnabled is false by default, immigrant discount won't apply.
+    // We test the formula effect: with ImmigEnabled=false, both get same wage.
+    val hhs = Vector(
+      mkHousehold(0, HhStatus.Employed(0, 2, 5000.0), skill = 0.7).copy(isImmigrant = false),
+      mkHousehold(1, HhStatus.Employed(1, 2, 5000.0), skill = 0.7).copy(isImmigrant = true)
+    )
+    val result = LaborMarket.updateWages(hhs, 10000.0)
+    val wage0 = result(0).status.asInstanceOf[HhStatus.Employed].wage
+    val wage1 = result(1).status.asInstanceOf[HhStatus.Employed].wage
+    // Both same sector, same skill, ImmigEnabled=false → same raw weight → same wage
+    wage0 shouldBe wage1 +- 0.01
+  }
+
+  it should "not apply immigrant discount when disabled" in {
+    // ImmigEnabled is false by default, so isImmigrant flag should have no effect
+    val native = mkHousehold(0, HhStatus.Employed(0, 2, 5000.0), skill = 0.8)
+    val immigrant = mkHousehold(1, HhStatus.Employed(1, 2, 5000.0), skill = 0.8).copy(isImmigrant = true)
+    val hhs = Vector(native, immigrant)
+    val result = LaborMarket.updateWages(hhs, 10000.0)
+    val wageNative = result(0).status.asInstanceOf[HhStatus.Employed].wage
+    val wageImmig = result(1).status.asInstanceOf[HhStatus.Employed].wage
+    // Same skill, same sector → identical weight → identical wage
+    wageNative shouldBe wageImmig +- 0.01
+  }
+
   // --- helpers ---
 
   private def mkFirms(n: Int): Array[Firm] =

@@ -67,8 +67,10 @@ object PublicSectorLogic:
     ppk.contributions * Config.PpkBondAlloc
 
   /** Compute demographics monthly step.
-    * Monthly retirements reduce labor supply; working-age population declines. */
-  def demographicsStep(prev: DemographicsState, employed: Int): DemographicsState =
+    * Monthly retirements reduce labor supply; working-age population declines.
+    * @param netMigration net immigration (inflow - outflow), added to workingAgePop */
+  def demographicsStep(prev: DemographicsState, employed: Int,
+                       netMigration: Int = 0): DemographicsState =
     if !Config.DemEnabled then prev.copy(monthlyRetirements = 0)
     else
       val retirements = Math.max(0, (employed.toDouble * Config.DemRetirementRate).toInt)
@@ -76,6 +78,6 @@ object PublicSectorLogic:
         (prev.workingAgePop.toDouble * Config.DemWorkingAgeDecline / 12.0).toInt)
       DemographicsState(
         retirees = prev.retirees + retirements,
-        workingAgePop = Math.max(0, prev.workingAgePop - retirements - workingAgeDecline),
+        workingAgePop = Math.max(0, prev.workingAgePop - retirements - workingAgeDecline + netMigration),
         monthlyRetirements = retirements
       )

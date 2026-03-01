@@ -483,3 +483,45 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
     result.mortgageStockError shouldBe 0.0 +- 0.01
     result.passed shouldBe true
   }
+
+  // ---- Identity 2 with remittance outflow ----
+
+  "SfcCheck.validate (deposits with remittances)" should "pass when remittance deducted from deposits" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // remittanceOutflow=12000 → deposits decrease by 12000
+    val curr = prev.copy(bankDeposits = prev.bankDeposits - 12000)
+    val flows = zeroFlows.copy(remittanceOutflow = 12000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankDepositsError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "pass with combined income, consumption, and remittance" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // totalIncome=80000, totalCons=60000, remittance=5000
+    // expected deposit Δ = 80000 - 60000 - 5000 = 15000
+    val curr = prev.copy(bankDeposits = prev.bankDeposits + 15000)
+    val flows = zeroFlows.copy(totalIncome = 80000, totalConsumption = 60000,
+      remittanceOutflow = 5000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankDepositsError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "detect error when remittance not deducted" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // Bug: deposits unchanged despite remittance outflow
+    val curr = prev.copy(bankDeposits = prev.bankDeposits)
+    val flows = zeroFlows.copy(remittanceOutflow = 8000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    // actual=0, expected=-8000, error=0-(-8000)=8000
+    result.bankDepositsError shouldBe 8000.0 +- 0.01
+    result.passed shouldBe false
+  }
+
+  it should "pass trivially when remittance is zero (immigration disabled)" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    val result = SfcCheck.validate(1, prev, prev, zeroFlows)
+    result.bankDepositsError shouldBe 0.0
+    result.passed shouldBe true
+  }

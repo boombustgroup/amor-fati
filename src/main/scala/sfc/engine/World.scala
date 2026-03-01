@@ -1,6 +1,6 @@
 package sfc.engine
 
-import sfc.agents.{HhState, HhAggregates, Household, NbpState, JstState, ZusState, PpkState, DemographicsState}
+import sfc.agents.{HhState, HhAggregates, Household, NbpState, JstState, ZusState, PpkState, DemographicsState, ImmigrationState}
 import sfc.sfc.{GovState, BankState, ForexState, BopState, MonetaryAggregates}
 import sfc.engine.{BankingSectorState, EquityMarketState, HousingMarketState, SectoralMobilityState}
 
@@ -33,5 +33,6 @@ case class World(
   housing: HousingMarketState = HousingMarket.zero,
   sectoralMobility: SectoralMobilityState = SectoralMobility.zero,
   gvc: GvcState = ExternalSector.zero,
-  expectations: ExpectationsState = Expectations.zero
+  expectations: ExpectationsState = Expectations.zero,
+  immigration: ImmigrationState = ImmigrationState.zero
 )

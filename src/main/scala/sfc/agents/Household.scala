@@ -36,7 +36,8 @@ case class Household(
   socialNeighbors: Array[Int],
   bankId: Int = 0,            // Multi-bank: index into BankingSectorState.banks
   equityWealth: Double = 0.0, // GPW: value of equity holdings
-  lastSectorIdx: Int = -1     // Sectoral mobility: last sector employed in (-1 = never)
+  lastSectorIdx: Int = -1,    // Sectoral mobility: last sector employed in (-1 = never)
+  isImmigrant: Boolean = false // Immigration: tracks immigrant status for wage discount + remittances
 )
 
 /** Aggregate statistics computed from individual households (Paper-06). */
@@ -72,7 +73,8 @@ case class HhAggregates(
   totalDepositInterest: Double = 0.0,
   crossSectorHires: Int = 0,
   voluntaryQuits: Int = 0,
-  sectorMobilityRate: Double = 0.0
+  sectorMobilityRate: Double = 0.0,
+  totalRemittances: Double = 0.0
 )
 
 object HouseholdInit:
