@@ -8,7 +8,7 @@ case class IoResult(firms: Array[Firm], totalPaid: Double)
 
 object IntermediateMarket:
 
-  def process(firms: Array[Firm], demandMult: Double, price: Double,
+  def process(firms: Array[Firm], sectorMults: Vector[Double], price: Double,
               ioMatrix: Vector[Vector[Double]],
               columnSums: Vector[Double],
               scale: Double = 1.0): IoResult =
@@ -18,7 +18,7 @@ object IntermediateMarket:
     val living = firms.indices.filter(i => FirmOps.isAlive(firms(i)))
     val grossOutput = new Array[Double](firms.length)
     for i <- living do
-      grossOutput(i) = FirmOps.capacity(firms(i)) * demandMult * price
+      grossOutput(i) = FirmOps.capacity(firms(i)) * sectorMults(firms(i).sector) * price
 
     // Total gross output per sector (for revenue distribution)
     val sectorOutput = new Array[Double](nSectors)

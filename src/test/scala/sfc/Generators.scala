@@ -166,7 +166,6 @@ object Generators:
     month    <- Gen.choose(1, 120)
     infl     <- genInflation
     price    <- genPrice
-    demand   <- Gen.choose(0.5, 2.0)
     gov      <- genGovState
     rate     <- genRate
     bank     <- genBankState
@@ -178,7 +177,7 @@ object Generators:
     hybR     <- genFraction
     gdp      <- Gen.choose(1e6, 1e11)
   yield World(
-    month, infl, price, demand, gov, NbpState(rate), bank, forex,
+    month, infl, price, gov, NbpState(rate), bank, forex,
     HhState(employed, wage, resWage, 0.0, 0.0, 0.0, 0.0),
     autoR, hybR, gdp,
     SECTORS.map(_.sigma)

@@ -82,9 +82,9 @@ case class FirmResult(firm: Firm, taxPaid: Double, capexSpent: Double,
 // ---- Firm decision logic ----
 
 object FirmLogic:
-  private def calcPnL(firm: Firm, wage: Double, demandMult: Double,
+  private def calcPnL(firm: Firm, wage: Double, sectorDemandMult: Double,
     price: Double, lendRate: Double): (Double, Double, Double) =
-    val revenue = FirmOps.capacity(firm) * demandMult * price
+    val revenue = FirmOps.capacity(firm) * sectorDemandMult * price
     val labor   = FirmOps.workers(firm) * wage * SECTORS(firm.sector).wageMultiplier
     val sizeFactor = firm.initialSize.toDouble / Config.WorkersPerFirm
     val other   = Config.OtherCosts * price * sizeFactor
@@ -111,7 +111,7 @@ object FirmLogic:
         FirmResult(firm, 0, 0, 0, 0)
 
       case _: TechState.Automated =>
-        val (rev, costs, net) = calcPnL(firm, w.hh.marketWage, w.demandMultiplier, w.priceLevel, lendRate)
+        val (rev, costs, net) = calcPnL(firm, w.hh.marketWage, w.sectorDemandMult(firm.sector), w.priceLevel, lendRate)
         val tax = Math.max(0.0, rev - costs) * Config.CitRate
         val nc  = firm.cash + net
         if nc < 0 then
@@ -120,7 +120,7 @@ object FirmLogic:
           FirmResult(firm.copy(cash = nc), tax, 0, 0, 0)
 
       case TechState.Hybrid(wkrs, aiEff) =>
-        val (rev, costs, net) = calcPnL(firm, w.hh.marketWage, w.demandMultiplier, w.priceLevel, lendRate)
+        val (rev, costs, net) = calcPnL(firm, w.hh.marketWage, w.sectorDemandMult(firm.sector), w.priceLevel, lendRate)
         val tax = Math.max(0.0, rev - costs) * Config.CitRate
         val ready2 = Math.min(1.0, firm.digitalReadiness + 0.005)
 
@@ -160,7 +160,7 @@ object FirmLogic:
             FirmResult(firm.copy(cash = nc, digitalReadiness = ready2), tax, 0, 0, 0)
 
       case TechState.Traditional(wkrs) =>
-        val (rev, costs, net) = calcPnL(firm, w.hh.marketWage, w.demandMultiplier, w.priceLevel, lendRate)
+        val (rev, costs, net) = calcPnL(firm, w.hh.marketWage, w.sectorDemandMult(firm.sector), w.priceLevel, lendRate)
         val tax = Math.max(0.0, rev - costs) * Config.CitRate
 
         // Full AI

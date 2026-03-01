@@ -109,7 +109,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     DemographicsState(Config.DemInitialRetirees, Config.TotalPopulation, 0)
   else DemographicsState.zero
 
-  var world = World(0, 0.02, 1.0, 1.0,
+  var world = World(0, 0.02, 1.0,
     GovState(false, 0, 0, 0, 0, 0), NbpState(initRate),
     BankState(0, 0, Config.InitBankCapital, initCash),
     ForexState(Config.BaseExRate, 0, Config.ExportBase, 0, 0),
@@ -150,7 +150,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
   //                   Repayment, Default, MortgageInterest, HhHousingWealth,
   //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 135
+  val nCols = 136
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -376,7 +376,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.gov.euCofinancing,                         // 131: EuCofinancing
       world.bop.euFundsMonthly,                        // 132: EuFundsMonthly
       world.bop.euCumulativeAbsorption,                // 133: EuCumulativeAbsorption
-      world.hh.minWageLevel                             // 134: MinWageLevel
+      world.hh.minWageLevel,                             // 134: MinWageLevel
+      world.fofResidual                                    // 135: FofResidual
     )
 
   RunResult(results, world.hhAgg)
@@ -409,7 +410,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 134
+  val nCols   = 136
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -467,7 +468,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "ImmigrantStock;MonthlyImmigInflow;RemittanceOutflow;ImmigrantUnempRate;" +
     "EffectivePitRate;SocialTransferSpend;" +
     "GovCurrentSpend;GovCapitalSpend;PublicCapitalStock;" +
-    "EuCofinancing;EuFundsMonthly;EuCumulativeAbsorption;MinWageLevel\n")
+    "EuCofinancing;EuFundsMonthly;EuCumulativeAbsorption;MinWageLevel;FofResidual\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -560,7 +561,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "EffectivePitRate", "SocialTransferSpend",
     "GovCurrentSpend", "GovCapitalSpend", "PublicCapitalStock",
     "EuCofinancing", "EuFundsMonthly", "EuCumulativeAbsorption",
-    "MinWageLevel")
+    "MinWageLevel", "FofResidual")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

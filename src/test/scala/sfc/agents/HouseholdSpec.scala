@@ -326,7 +326,6 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       month = 31,
       inflation = 0.02,
       priceLevel = 1.0,
-      demandMultiplier = 1.0,
       gov = GovState(false, 0, 0, 0, 0, 0),
       nbp = NbpState(0.0575),
       bank = BankState(1000000, 10000, 500000, 1000000),

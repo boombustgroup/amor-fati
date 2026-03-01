@@ -35,7 +35,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   "IntermediateMarket.process" should "produce zero-sum cash adjustments" in {
     val firms = makeFirmsAllSectors(20)
-    val result = IntermediateMarket.process(firms, 1.0, 1.0, defaultMatrix, defaultColSums)
+    val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     val totalCashBefore = firms.map(_.cash).sum
     val totalCashAfter = result.firms.map(_.cash).sum
     totalCashAfter shouldBe totalCashBefore +- 1.0
@@ -46,7 +46,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   it should "route payments according to a_ij coefficients" in {
     // 1 firm per sector, all Traditional(10)
     val firms = (0 until 6).map(s => makeFirm(s, s)).toArray
-    val result = IntermediateMarket.process(firms, 1.0, 1.0, defaultMatrix, defaultColSums)
+    val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Firm in sector 0 (BPO): should pay columnSum(0) of its gross output
     val bpoOutput = FirmOps.capacity(firms(0)) * 1.0 * 1.0
     val bpoCost = bpoOutput * defaultColSums(0)
@@ -68,7 +68,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       makeFirm(2, 1),
       makeFirm(3, 2)
     )
-    val result = IntermediateMarket.process(firms, 1.0, 1.0, defaultMatrix, defaultColSums)
+    val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Bankrupt firm's cash should not change
     result.firms(1).cash shouldBe firms(1).cash
     // Still zero-sum among living firms
@@ -81,7 +81,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "leave firms unchanged when A matrix is zero" in {
     val firms = makeFirmsAllSectors(10)
-    val result = IntermediateMarket.process(firms, 1.0, 1.0, zeroMatrix, zeroColSums)
+    val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, zeroMatrix, zeroColSums)
     for i <- firms.indices do
       result.firms(i).cash shouldBe firms(i).cash
     result.totalPaid shouldBe 0.0
@@ -91,7 +91,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "handle all firms in one sector (intra-sector I-O)" in {
     val firms = (0 until 10).map(i => makeFirm(i, 0)).toArray
-    val result = IntermediateMarket.process(firms, 1.0, 1.0, defaultMatrix, defaultColSums)
+    val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Zero-sum still holds
     val totalBefore = firms.map(_.cash).sum
     val totalAfter = result.firms.map(_.cash).sum
@@ -112,7 +112,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       makeFirm(1, 1, tech = TechState.Automated(1.5)),  // High capacity Mfg
       makeFirm(2, 1)   // Normal capacity Mfg
     )
-    val result = IntermediateMarket.process(firms, 1.0, 1.0, defaultMatrix, defaultColSums)
+    val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Firm 1 should get more I-O revenue than firm 2 (higher capacity)
     val cap1 = FirmOps.capacity(firms(1))
     val cap2 = FirmOps.capacity(firms(2))
@@ -135,7 +135,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "report positive totalPaid with non-zero matrix" in {
     val firms = makeFirmsAllSectors(10)
-    val result = IntermediateMarket.process(firms, 1.0, 1.0, defaultMatrix, defaultColSums)
+    val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     result.totalPaid should be > 0.0
   }
 
@@ -143,8 +143,8 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "scale I-O flows with demandMult and price" in {
     val firms = makeFirmsAllSectors(5)
-    val base = IntermediateMarket.process(firms, 1.0, 1.0, defaultMatrix, defaultColSums)
-    val doubled = IntermediateMarket.process(firms, 2.0, 1.0, defaultMatrix, defaultColSums)
+    val base = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
+    val doubled = IntermediateMarket.process(firms, Vector.fill(6)(2.0), 1.0, defaultMatrix, defaultColSums)
     // Doubling demand should double total I-O flows
     doubled.totalPaid shouldBe (base.totalPaid * 2.0) +- (base.totalPaid * 0.01)
   }

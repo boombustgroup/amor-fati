@@ -8,7 +8,6 @@ case class World(
   month: Int,
   inflation: Double,
   priceLevel: Double,
-  demandMultiplier: Double,
   gov: GovState,
   nbp: NbpState,
   bank: BankState,
@@ -34,5 +33,7 @@ case class World(
   sectoralMobility: SectoralMobilityState = SectoralMobility.zero,
   gvc: GvcState = ExternalSector.zero,
   expectations: ExpectationsState = Expectations.zero,
-  immigration: ImmigrationState = ImmigrationState.zero
+  immigration: ImmigrationState = ImmigrationState.zero,
+  sectorDemandMult: Vector[Double] = Vector.fill(6)(1.0),
+  fofResidual: Double = 0.0
 )

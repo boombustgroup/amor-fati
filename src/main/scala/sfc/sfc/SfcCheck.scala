@@ -63,10 +63,11 @@ object SfcCheck:
     mortgageOrigination: Double = 0.0,    // new mortgages issued
     mortgagePrincipalRepaid: Double = 0.0, // monthly principal repaid
     mortgageDefaultAmount: Double = 0.0,  // gross mortgage defaults (before recovery)
-    remittanceOutflow: Double = 0.0       // immigrant remittances → deposit outflow
+    remittanceOutflow: Double = 0.0,      // immigrant remittances → deposit outflow
+    fofResidual: Double = 0.0             // flow-of-funds residual (Σ firmRevenue - Σ sectorDemand)
   )
 
-  /** Result of the SFC check: nine exact balance-sheet identity checks. */
+  /** Result of the SFC check: ten exact balance-sheet identity checks. */
   case class SfcResult(
     month: Int,
     bankCapitalError: Double,
@@ -78,6 +79,7 @@ object SfcCheck:
     jstDebtError: Double = 0.0,        // JST budget balance
     fusBalanceError: Double = 0.0,     // FUS balance
     mortgageStockError: Double = 0.0,  // Mortgage stock identity
+    fofError: Double = 0.0,           // Flow-of-funds residual
     passed: Boolean
   )
 
@@ -107,11 +109,9 @@ object SfcCheck:
       mortgageStock = w.housing.mortgageStock
     )
 
-  /** Validate nine exact balance-sheet identities.
+  /** Validate ten exact balance-sheet identities.
     *
-    * The model uses a demand multiplier (not direct flow-of-funds) for the
-    * firm revenue channel, so the full monetary circuit cannot close exactly.
-    * Instead we check identities that ARE exact by construction:
+    * The monetary circuit closes via sector-level flow-of-funds (Identity 10).
     *
     * 1. Bank capital:  Δ = -nplLoss - mortgageNplLoss + (interestIncome + hhDebtService + bankBondIncome + mortgageInterestIncome - depositInterestPaid + reserveInterest + standingFacilityIncome + interbankInterest) × 0.3
     * 2. Bank deposits: Δ = totalIncome - totalConsumption + jstDepositChange + dividendIncome - foreignDividendOutflow - remittanceOutflow
@@ -122,6 +122,7 @@ object SfcCheck:
     * 7. JST debt:      Δ = jstSpending - jstRevenue (trivially 0 when JST disabled)
     * 8. FUS balance:   Δ = zusContributions - zusPensionPayments (trivially 0 when ZUS disabled)
     * 9. Mortgage stock: Δ = origination - principalRepaid - defaultAmount (trivially 0 when RE disabled)
+    * 10. Flow-of-funds: Σ firmRevenue = domesticCons + govPurchases + exports (closes by construction)
     *
     * These catch: mis-routed flows (e.g. rent subtracted from HH but not added
     * to bank/consumption), refactoring errors in balance sheet updates, and
@@ -184,6 +185,10 @@ object SfcCheck:
     val actualMortgageChange = curr.mortgageStock - prev.mortgageStock
     val mortgageErr = actualMortgageChange - expectedMortgageChange
 
+    // Identity 10: Flow-of-funds — Σ firmRevenue = domesticCons + govPurchases + exports
+    // Closes by construction via sector-level demand multipliers.
+    val fofErr = flows.fofResidual
+
     // NFA uses wider tolerance (default 10 PLN) because cumulative NFA
     // values can reach billions, causing floating-point cancellation
     // in the (curr.nfa - prev.nfa) subtraction.
@@ -195,7 +200,8 @@ object SfcCheck:
                  Math.abs(interbankErr) < tolerance &&
                  Math.abs(jstDebtErr) < tolerance &&
                  Math.abs(fusErr) < tolerance &&
-                 Math.abs(mortgageErr) < tolerance
+                 Math.abs(mortgageErr) < tolerance &&
+                 Math.abs(fofErr) < tolerance
 
     SfcResult(month, bankCapErr, bankDepErr, govDebtErr, nfaErr, bondClearingErr, interbankErr,
-      jstDebtErr, fusErr, mortgageErr, passed)
+      jstDebtErr, fusErr, mortgageErr, fofErr, passed)

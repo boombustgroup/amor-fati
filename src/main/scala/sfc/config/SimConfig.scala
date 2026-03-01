@@ -162,6 +162,55 @@ object Config:
   val MinWageTargetRatio: Double = sys.env.get("MIN_WAGE_TARGET_RATIO").map(_.trim.toDouble).getOrElse(0.50)
   val MinWageConvergenceSpeed: Double = sys.env.get("MIN_WAGE_CONVERGENCE_SPEED").map(_.trim.toDouble).getOrElse(0.33)
 
+  // Flow-of-Funds: sector-level demand multipliers (#30)
+  // Calibration sources:
+  //   ConsWeights — GUS BBGD 2024: COICOP household consumption structure mapped to 6 model sectors
+  //     BPO 2%: digital services, cloud subscriptions (fraction of COICOP 08 Communications 4.2%)
+  //     Mfg 22%: COICOP 07 Transport 10.7% + 05 Furnishings 5.6% + 03 Clothing 4.5% + manufactured misc
+  //     Ret 53%: COICOP 01 Food 25.3% + 11 Restaurants 5.3% + 09 Recreation 6.5% + 02 Alcohol 2.5%
+  //              + retail margins on clothing/furnishings + 12 Misc 6.2%
+  //     Hlt 6%: COICOP 06 Health 5.5%
+  //     Pub 7%: COICOP 10 Education 1.2% + public housing/utilities ~5% (fraction of COICOP 04)
+  //     Agr 10%: direct farm purchases, farmers' markets (~3-4% of food), upstream food processing
+  //   GovWeights — Eurostat COFOG 2023 (gov_10a_exp), normalized to model sectors:
+  //     BPO 4%: fraction of GF01 General Public Services (IT procurement, digital administration)
+  //     Mfg 12%: GF02 Defence 2.1% (equipment) + fraction of GF04 Economic Affairs 7.5% (infrastructure)
+  //     Ret 8%: government procurement of goods/services, fraction of GF04
+  //     Hlt 16%: GF07 Health ~5.5% GDP → ~12% of total gov spending
+  //     Pub 50%: GF09 Education ~5% + GF10 Social Protection ~17% + GF03 Public Order 2.3%
+  //              + GF01 admin → dominant share (~50% of gov spending goes to public sector)
+  //     Agr 10%: fraction of GF04 Economic Affairs (agricultural subsidies, CAP co-financing)
+  //   ExportShares — GUS foreign trade 2024 (SITC) + NBP BoP services:
+  //     BPO 7%: IT/telecoms services ~35% of services exports; services ~25% of total → ~8-9%
+  //     Mfg 52%: SITC 7 Machinery 36.6% + SITC 6 Manufactured goods 16.8% (partially)
+  //     Ret 12%: SITC 8 Misc manufactured articles 17.4% (retail/consumer goods portion)
+  //              + transport/travel services
+  //     Hlt 2%: medical devices, pharmaceutical exports (small)
+  //     Pub 3%: educational/admin services exports (minimal)
+  //     Agr 24%: SITC 0 Food 13.2% + SITC 1 Beverages 1.9% + SITC 4 Oils 0.3%
+  //              + upstream food processing share of SITC 6
+  val FofConsWeights: Vector[Double] = sys.env.get("FOF_CONS_WEIGHTS") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
+        s"FOF_CONS_WEIGHTS must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      v
+    case _ => Vector(0.02, 0.22, 0.53, 0.06, 0.07, 0.10)
+  val FofGovWeights: Vector[Double] = sys.env.get("FOF_GOV_WEIGHTS") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
+        s"FOF_GOV_WEIGHTS must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      v
+    case _ => Vector(0.04, 0.12, 0.08, 0.16, 0.50, 0.10)
+  val FofExportShares: Vector[Double] = sys.env.get("FOF_EXPORT_SHARES") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
+        s"FOF_EXPORT_SHARES must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      v
+    case _ => Vector(0.07, 0.52, 0.12, 0.02, 0.03, 0.24)
+
   // NBP (NBP data 2024)
   val NbpInitialRate   = 0.0575      // NBP reference rate 2024
   val NbpTargetInfl    = 0.025       // NBP target 2.5% +/- 1pp

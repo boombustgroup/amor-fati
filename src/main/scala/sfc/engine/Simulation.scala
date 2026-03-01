@@ -274,14 +274,33 @@ object Simulation:
       }
     else 0.0
 
-    val baseIncome = Config.TotalPopulation.toDouble * Config.BaseWage
+    // Flow-of-funds: sector-level demand multipliers
+    val govPurchases = Config.GovBaseSpending * w.priceLevel
+    val laggedExports = w.forex.exports
+    val sectorCap = (0 until SECTORS.length).map { s =>
+      living.filter(_.sector == s).kahanSumBy(f => FirmOps.capacity(f).toDouble)
+    }.toVector
+    val sectorExports = if Config.GvcEnabled && Config.OeEnabled then
+      w.gvc.sectorExports
+    else
+      Config.FofExportShares.map(_ * laggedExports)
+    val sectorDemand = (0 until SECTORS.length).map { s =>
+      Config.FofConsWeights(s) * domesticCons +
+      Config.FofGovWeights(s) * govPurchases +
+      sectorExports(s)
+    }.toVector
+    val sectorMults = sectorDemand.indices.map { s =>
+      if sectorCap(s) > 0 then sectorDemand(s) / (sectorCap(s) * w.priceLevel)
+      else 0.0
+    }.toVector
+    val fofTotalDemand = sectorDemand.kahanSum
+    val totalCapacity = sectorCap.kahanSum
     // Channel 4: Real rate effect — negative real rate boosts demand, positive dampens
     val realRateEffect = if Config.ExpEnabled then
       val realRate = w.nbp.referenceRate - w.expectations.expectedInflation
       -realRate * 0.02
     else 0.0
-    val demandMult = 1.0 + (totalIncome / baseIncome - 1.0) *
-      Config.Mpc * (1.0 - Math.min(0.65, importAdj)) * Config.DemandPassthrough + realRateEffect
+    val avgDemandMult = (if totalCapacity > 0 then fofTotalDemand / (totalCapacity * w.priceLevel) else 1.0) + realRateEffect
 
     // ---- Lending dispatch: single-bank vs multi-bank ----
     val nBanks = w.bankingSector.map(_.banks.length).getOrElse(1)
@@ -314,7 +333,7 @@ object Simulation:
     var sumEquityIssuance = 0.0
 
     val macro4firms = w.copy(
-      month = m, demandMultiplier = demandMult,
+      month = m, sectorDemandMult = sectorMults,
       hh = w.hh.copy(marketWage = newWage, reservationWage = resWage))
 
     // Process firms -- per-firm dispatch to bank, accumulate per-bank flows
@@ -353,7 +372,7 @@ object Simulation:
 
     // I-O intermediate market (Paper-07)
     val (ioFirms, totalIoPaid) = if Config.IoEnabled then
-      val r = IntermediateMarket.process(newFirms, demandMult, w.priceLevel,
+      val r = IntermediateMarket.process(newFirms, sectorMults, w.priceLevel,
         Config.IoMatrix, Config.IoColumnSums, Config.IoScale)
       (r.firms, r.totalPaid)
     else
@@ -451,11 +470,11 @@ object Simulation:
     val exDev = if rc.isEurozone then 0.0
                else (w.forex.exchangeRate / Config.BaseExRate) - 1.0
     val (newInfl, newPrice) = Sectors.updateInflation(
-      w.inflation, w.priceLevel, demandMult, wageGrowth, exDev, autoR, hybR, rc)
+      w.inflation, w.priceLevel, avgDemandMult, wageGrowth, exDev, autoR, hybR, rc)
 
     // Firm profits for equity market (sum of after-tax profits of living firms)
     val firmProfits = living2.kahanSumBy { f =>
-      val rev = FirmOps.capacity(f) * demandMult * newPrice
+      val rev = FirmOps.capacity(f) * sectorMults(f.sector) * newPrice
       val labor = FirmOps.workers(f) * newWage * SECTORS(f.sector).wageMultiplier
       val other = Config.OtherCosts * newPrice
       val aiMaint = f.tech match
@@ -484,8 +503,8 @@ object Simulation:
       else (0.0, 0.0, 0.0)
 
     // Open economy (Paper-08) or legacy foreign sector
-    val sectorOutputs = (0 until 6).map { s =>
-      living2.filter(_.sector == s).kahanSumBy(f => FirmOps.capacity(f) * demandMult * w.priceLevel)
+    val sectorOutputs = (0 until SECTORS.length).map { s =>
+      living2.filter(_.sector == s).kahanSumBy(f => FirmOps.capacity(f) * sectorMults(f.sector) * w.priceLevel)
     }.toVector
 
     // GVC / Deep External Sector (v5.0)
@@ -785,7 +804,17 @@ object Simulation:
       lastDividendTax = dividendTax
     )
 
-    val newW = World(m, newInfl, newPrice, demandMult, newGovWithYield, postFxNbp,
+    // Flow-of-funds residual: closes by construction (should be ~0)
+    // Uses pre-processing living firms (same as sectorCap computation)
+    val fofResidual = {
+      val totalFirmRev = (0 until SECTORS.length).map { s =>
+        living.filter(_.sector == s).kahanSumBy(f =>
+          FirmOps.capacity(f).toDouble * sectorMults(s) * w.priceLevel)
+      }.kahanSum
+      totalFirmRev - fofTotalDemand
+    }
+
+    val newW = World(m, newInfl, newPrice, newGovWithYield, postFxNbp,
       resolvedBank, newForex,
       HhState(employed, newWage, resWage, totalIncome, consumption, domesticCons, importCons,
         minWageLevel = baseMinWage, minWagePriceLevel = updatedMinWagePriceLevel),
@@ -810,7 +839,9 @@ object Simulation:
       ),
       gvc = newGvc,
       expectations = newExp,
-      immigration = newImmig)
+      immigration = newImmig,
+      sectorDemandMult = sectorMults,
+      fofResidual = fofResidual)
 
     // SFC accounting check: verify exact balance-sheet identities every step
     val prevSnap = SfcCheck.snapshot(w, firms, households)
@@ -851,7 +882,8 @@ object Simulation:
       mortgageOrigination = housingAfterFlows.lastOrigination,
       mortgagePrincipalRepaid = mortgagePrincipal,
       mortgageDefaultAmount = mortgageDefaultAmount,
-      remittanceOutflow = remittanceOutflow
+      remittanceOutflow = remittanceOutflow,
+      fofResidual = fofResidual
     )
     val sfcResult = SfcCheck.validate(m, prevSnap, currSnap, sfcFlows)
     if !sfcResult.passed then
@@ -865,6 +897,7 @@ object Simulation:
         f" ibNet=${sfcResult.interbankNettingError}%.2f" +
         f" jstDebt=${sfcResult.jstDebtError}%.2f" +
         f" fusBal=${sfcResult.fusBalanceError}%.2f" +
-        f" mortgage=${sfcResult.mortgageStockError}%.2f")
+        f" mortgage=${sfcResult.mortgageStockError}%.2f" +
+        f" fof=${sfcResult.fofError}%.2f")
 
     (newW, reassignedFirms, reassignedHouseholds)

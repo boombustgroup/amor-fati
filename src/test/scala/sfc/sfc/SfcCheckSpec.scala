@@ -14,7 +14,7 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
                         bankNpl: Double = 0.0,
                         govDebt: Double = 0.0): World =
     World(
-      month = 1, inflation = 0.02, priceLevel = 1.0, demandMultiplier = 1.0,
+      month = 1, inflation = 0.02, priceLevel = 1.0,
       gov = GovState(false, 0, 0, 0, govDebt, 0),
       nbp = NbpState(0.0575),
       bank = BankState(bankLoans, bankNpl, bankCapital, bankDeposits),

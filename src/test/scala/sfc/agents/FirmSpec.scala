@@ -115,7 +115,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     Random.setSeed(42)
     // Very low cash + high price level = deep losses → bankrupt
     val f = mkFirm(TechState.Automated(0.1)).copy(cash = -500000.0, debt = 5000000.0)
-    val w = mkWorld().copy(priceLevel = 0.3, demandMultiplier = 0.1)
+    val w = mkWorld().copy(priceLevel = 0.3, sectorDemandMult = Vector.fill(6)(0.1))
     val rc = RunConfig(0.0, 1, "test")
     val result = FirmLogic.process(f, w, 0.20, _ => true, Array(f), rc)
     result.firm.tech shouldBe a[TechState.Bankrupt]
@@ -131,7 +131,6 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       month = 31,
       inflation = 0.02,
       priceLevel = 1.0,
-      demandMultiplier = 1.0,
       gov = GovState(false, 0, 0, 0, 0, 0),
       nbp = NbpState(0.0575),
       bank = BankState(1000000, 10000, 500000, 1000000),
