@@ -15,7 +15,8 @@ case class GovState(
   socialTransferSpend: Double = 0.0,
   publicCapitalStock: Double = 0.0,
   govCurrentSpend: Double = 0.0,
-  govCapitalSpend: Double = 0.0
+  govCapitalSpend: Double = 0.0,
+  euCofinancing: Double = 0.0
 )
 
 case class BankState(
@@ -68,7 +69,9 @@ case class BopState(
   reserves: Double,               // CB foreign reserves
   exports: Double,                // Total exports this month
   totalImports: Double,           // Consumption + tech + intermediate imports
-  importedIntermediates: Double   // Cross-border intermediate inputs
+  importedIntermediates: Double,  // Cross-border intermediate inputs
+  euFundsMonthly: Double = 0.0,        // EU funds transfer this month
+  euCumulativeAbsorption: Double = 0.0  // Cumulative EU funds absorbed
 )
 object BopState:
   val zero: BopState = BopState(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)

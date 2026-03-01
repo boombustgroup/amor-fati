@@ -150,7 +150,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
   //                   Repayment, Default, MortgageInterest, HhHousingWealth,
   //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 131
+  val nCols = 134
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -371,7 +371,11 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       // Public Investment
       world.gov.govCurrentSpend,                     // 128: GovCurrentSpend
       world.gov.govCapitalSpend,                     // 129: GovCapitalSpend
-      world.gov.publicCapitalStock                   // 130: PublicCapitalStock
+      world.gov.publicCapitalStock,                   // 130: PublicCapitalStock
+      // EU Funds Dynamics
+      world.gov.euCofinancing,                         // 131: EuCofinancing
+      world.bop.euFundsMonthly,                        // 132: EuFundsMonthly
+      world.bop.euCumulativeAbsorption                 // 133: EuCumulativeAbsorption
     )
 
   RunResult(results, world.hhAgg)
@@ -404,7 +408,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 131
+  val nCols   = 134
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -461,7 +465,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "WawHpi;KrkHpi;WroHpi;GdnHpi;LdzHpi;PozHpi;RestHpi;" +
     "ImmigrantStock;MonthlyImmigInflow;RemittanceOutflow;ImmigrantUnempRate;" +
     "EffectivePitRate;SocialTransferSpend;" +
-    "GovCurrentSpend;GovCapitalSpend;PublicCapitalStock\n")
+    "GovCurrentSpend;GovCapitalSpend;PublicCapitalStock;" +
+    "EuCofinancing;EuFundsMonthly;EuCumulativeAbsorption\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -552,7 +557,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "WawHpi", "KrkHpi", "WroHpi", "GdnHpi", "LdzHpi", "PozHpi", "RestHpi",
     "ImmigrantStock", "MonthlyImmigInflow", "RemittanceOutflow", "ImmigrantUnempRate",
     "EffectivePitRate", "SocialTransferSpend",
-    "GovCurrentSpend", "GovCapitalSpend", "PublicCapitalStock")
+    "GovCurrentSpend", "GovCapitalSpend", "PublicCapitalStock",
+    "EuCofinancing", "EuFundsMonthly", "EuCumulativeAbsorption")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

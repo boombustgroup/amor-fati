@@ -71,7 +71,9 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   // ---- Current account ----
 
   it should "include EU transfers in current account" in {
-    val r = runStep()
+    val r = OpenEconomy.step(BopState.zero, baseForex, 1e7, 5e6, 0.0,
+      Config.NbpInitialRate, gdp, 1.0, baseSectorOutputs, 30, plnRc,
+      euFundsMonthly = Config.OeEuTransfers)
     r.bop.secondaryIncome shouldBe Config.OeEuTransfers +- 0.01
   }
 

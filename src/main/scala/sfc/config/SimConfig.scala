@@ -145,6 +145,16 @@ object Config:
   val GovDepreciationRate: Double = sys.env.get("GOV_DEPRECIATION_RATE").map(_.trim.toDouble).getOrElse(0.06)
   val GovInitCapital: Double = sys.env.get("GOV_INIT_CAPITAL").map(_.trim.toDouble).getOrElse(0.0)
 
+  // EU Funds Dynamics (#28)
+  val EuFundsEnabled: Boolean = sys.env.get("EU_FUNDS_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val EuFundsTotalEur: Double = sys.env.get("EU_FUNDS_TOTAL_EUR").map(_.trim.toDouble).getOrElse(76e9)
+  val EuFundsPeriodMonths: Int = sys.env.get("EU_FUNDS_PERIOD_MONTHS").map(_.trim.toInt).getOrElse(84)
+  val EuFundsStartMonth: Int = sys.env.get("EU_FUNDS_START_MONTH").map(_.trim.toInt).getOrElse(1)
+  val EuFundsAlpha: Double = sys.env.get("EU_FUNDS_ALPHA").map(_.trim.toDouble).getOrElse(2.0)
+  val EuFundsBeta: Double = sys.env.get("EU_FUNDS_BETA").map(_.trim.toDouble).getOrElse(5.0)
+  val EuCofinanceRate: Double = sys.env.get("EU_COFINANCE_RATE").map(_.trim.toDouble).getOrElse(0.15)
+  val EuCapitalShare: Double = sys.env.get("EU_CAPITAL_SHARE").map(_.trim.toDouble).getOrElse(0.60)
+
   // NBP (NBP data 2024)
   val NbpInitialRate   = 0.0575      // NBP reference rate 2024
   val NbpTargetInfl    = 0.025       // NBP target 2.5% +/- 1pp

@@ -23,7 +23,8 @@ object OpenEconomy:
            nbpFxReserves: Double = 0.0,
            gvcExports: Option[Double] = None,
            gvcIntermImports: Option[Vector[Double]] = None,
-           remittanceOutflow: Double = 0.0): OpenEconResult =
+           remittanceOutflow: Double = 0.0,
+           euFundsMonthly: Double = 0.0): OpenEconResult =
 
     val nSectors = SECTORS.length
 
@@ -69,7 +70,7 @@ object OpenEconomy:
 
     // E. Current account
     val primaryIncome = prevBop.nfa * Config.OeNfaReturnRate / 12.0
-    val secondaryIncome = Config.OeEuTransfers - remittanceOutflow
+    val secondaryIncome = euFundsMonthly - remittanceOutflow
     val currentAccount = tradeBalance + primaryIncome + secondaryIncome
 
     // F. Capital account

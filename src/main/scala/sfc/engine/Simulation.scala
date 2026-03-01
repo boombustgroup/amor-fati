@@ -103,23 +103,25 @@ object Sectors:
     debtService: Double = 0.0,
     nbpRemittance: Double = 0.0,
     zusGovSubvention: Double = 0.0,
-    socialTransferSpend: Double = 0.0): GovState =
+    socialTransferSpend: Double = 0.0,
+    euCofinancing: Double = 0.0,
+    euProjectCapital: Double = 0.0): GovState =
     val bdpSpend   = if bdpActive then Config.TotalPopulation.toDouble * bdpAmount else 0.0
     val govBaseRaw = Config.GovBaseSpending * priceLevel
     val (govCurrent, govCapital) = if Config.GovInvestEnabled then
       (govBaseRaw * (1.0 - Config.GovInvestShare), govBaseRaw * Config.GovInvestShare)
     else (govBaseRaw, 0.0)
-    val totalSpend = bdpSpend + unempBenefitSpend + socialTransferSpend + govCurrent + govCapital + debtService + zusGovSubvention
+    val totalSpend = bdpSpend + unempBenefitSpend + socialTransferSpend + govCurrent + govCapital + debtService + zusGovSubvention + euCofinancing
     val totalRev   = citPaid + vat + nbpRemittance
     val deficit    = totalSpend - totalRev
     val newBondsOutstanding = if Config.GovBondMarket then Math.max(0.0, prev.bondsOutstanding + deficit)
                               else prev.bondsOutstanding
     val newCapitalStock = if Config.GovInvestEnabled then
-      prev.publicCapitalStock * (1.0 - Config.GovDepreciationRate / 12.0) + govCapital
+      prev.publicCapitalStock * (1.0 - Config.GovDepreciationRate / 12.0) + govCapital + euProjectCapital
     else 0.0
     GovState(bdpActive, totalRev, bdpSpend, deficit, prev.cumulativeDebt + deficit,
       unempBenefitSpend, newBondsOutstanding, prev.bondYield, debtService, socialTransferSpend,
-      newCapitalStock, govCurrent, govCapital)
+      newCapitalStock, govCurrent, govCapital + euProjectCapital, euCofinancing)
 
 object Simulation:
   /** Step with optional individual households.
@@ -392,11 +394,26 @@ object Simulation:
     val nLiving = living2.length.toDouble
     val autoR   = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]) / nLiving else 0.0
     val hybR    = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]) / nLiving else 0.0
+
+    // EU Funds: time-varying absorption curve or flat legacy transfer
+    val euMonthly = if Config.EuFundsEnabled then EuFunds.monthlyTransfer(m)
+                    else Config.OeEuTransfers
+
     val govGdpContribution = if Config.GovInvestEnabled then
       Config.GovBaseSpending * (1.0 - Config.GovInvestShare) * Config.GovCurrentMultiplier +
       Config.GovBaseSpending * Config.GovInvestShare * Config.GovCapitalMultiplier
     else Config.GovBaseSpending
-    val gdp     = domesticCons + govGdpContribution + w.forex.exports
+    // EU Funds: co-financing and capital investment for GDP proxy
+    val euCofin = if Config.EuFundsEnabled then EuFunds.cofinancing(euMonthly) else 0.0
+    val euProjectCapital = if Config.EuFundsEnabled && Config.GovInvestEnabled then
+      EuFunds.capitalInvestment(euMonthly, euCofin)
+    else 0.0
+    val euGdpContribution = if Config.EuFundsEnabled && Config.GovInvestEnabled then
+      euProjectCapital * Config.GovCapitalMultiplier +
+      (euCofin - euProjectCapital).max(0.0) * Config.GovCurrentMultiplier
+    else if Config.EuFundsEnabled then euCofin
+    else 0.0
+    val gdp     = domesticCons + govGdpContribution + euGdpContribution + w.forex.exports
 
     // Macroprudential — compute CCyB from credit-to-GDP gap
     val totalSystemLoans = w.bankingSector.map(_.banks.kahanSumBy(_.loans)).getOrElse(w.bank.totalLoans)
@@ -475,19 +492,24 @@ object Simulation:
         nbpFxReserves = w.nbp.fxReserves,
         gvcExports = gvcExp,
         gvcIntermImports = gvcImp,
-        remittanceOutflow = remittanceOutflow)
+        remittanceOutflow = remittanceOutflow,
+        euFundsMonthly = euMonthly)
       (oeResult.forex, oeResult.bop, oeResult.valuationEffect, oeResult.fxIntervention)
     else
       val fx = Sectors.updateForeign(w.forex, importCons, sumTechImp, autoR, w.nbp.referenceRate, gdp, rc)
       (fx, w.bop, 0.0, CentralBankLogic.FxInterventionResult(0.0, 0.0, w.nbp.fxReserves))
 
-    // Adjust BOP for foreign dividend outflow (primary income component)
-    val newBop = if foreignDividendOutflow > 0 && Config.OeEnabled then
+    // Adjust BOP for foreign dividend outflow (primary income component) + EU funds tracking
+    val newBop1 = if foreignDividendOutflow > 0 && Config.OeEnabled then
       newBop0.copy(
         currentAccount = newBop0.currentAccount - foreignDividendOutflow,
         nfa = newBop0.nfa - foreignDividendOutflow
       )
     else newBop0
+    val newBop = newBop1.copy(
+      euFundsMonthly = euMonthly,
+      euCumulativeAbsorption = w.bop.euCumulativeAbsorption + euMonthly
+    )
 
     val exRateChg = if rc.isEurozone then 0.0
                     else (newForex.exchangeRate / w.forex.exchangeRate) - 1.0
@@ -556,7 +578,8 @@ object Simulation:
       )
     else 0.0
     val newGov = Sectors.updateGov(w.gov, sumTax + dividendTax + pitRevenue, vat, bdpActive, bdp, newPrice, unempBenefitSpend,
-      monthlyDebtService, nbpRemittance, newZus.govSubvention, socialTransferSpend)
+      monthlyDebtService, nbpRemittance, newZus.govSubvention, socialTransferSpend,
+      euCofinancing = euCofin, euProjectCapital = euProjectCapital)
     val newGovWithYield = newGov.copy(bondYield = newBondYield)
 
     // JST (local government) — must precede newBank (JST deposits flow into bank)
@@ -780,7 +803,8 @@ object Simulation:
     val sfcFlows = SfcCheck.MonthlyFlows(
       govSpending = newGovWithYield.bdpSpending + newGovWithYield.unempBenefitSpend
         + newGovWithYield.socialTransferSpend
-        + Config.GovBaseSpending * newPrice + monthlyDebtService + newZus.govSubvention,
+        + Config.GovBaseSpending * newPrice + monthlyDebtService + newZus.govSubvention
+        + euCofin,
       govRevenue = sumTax + dividendTax + pitRevenue + vat + nbpRemittance,
       nplLoss = nplLoss,
       interestIncome = intIncome,
