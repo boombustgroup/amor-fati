@@ -1,6 +1,7 @@
 package sfc.engine
 
 import sfc.config.Config
+import KahanSum.*
 
 /** Per-region housing state: only fields that vary regionally. */
 case class RegionalHousingState(
@@ -105,8 +106,9 @@ object HousingMarket:
                                  else reg.totalValue
 
           val monthlyGamma = gamma / 12.0
-          val pricePressure = alpha * regionalIncomeGrowth + beta * rateChange +
-            monthlyGamma * (fundamentalValue - reg.totalValue) / Math.max(1.0, fundamentalValue)
+          val pricePressure = Math.fma(alpha, regionalIncomeGrowth,
+            Math.fma(beta, rateChange,
+              monthlyGamma * (fundamentalValue - reg.totalValue) / Math.max(1.0, fundamentalValue)))
 
           val clampedChange = Math.max(-0.03, Math.min(0.03, pricePressure))
 
@@ -119,11 +121,11 @@ object HousingMarket:
         }
 
         // Aggregate: value-weighted HPI average
-        val aggTotalValue = updatedRegions.map(_.totalValue).sum
+        val aggTotalValue = updatedRegions.kahanSumBy(_.totalValue)
         val aggHpi = if aggTotalValue > 0 then
-          updatedRegions.zip(Config.ReRegionalValueShares).map { (reg, share) =>
+          updatedRegions.zip(Config.ReRegionalValueShares).kahanSumBy { (reg, share) =>
             reg.priceIndex * share
-          }.sum
+          }
         else prev.priceIndex
         val aggReturn = if prev.priceIndex > 0 then aggHpi / prev.priceIndex - 1.0 else 0.0
 
@@ -146,8 +148,9 @@ object HousingMarket:
                                else prev.totalValue
 
         val monthlyGamma = gamma / 12.0
-        val pricePressure = alpha * incomeGrowth + beta * rateChange +
-          monthlyGamma * (fundamentalValue - prev.totalValue) / Math.max(1.0, fundamentalValue)
+        val pricePressure = Math.fma(alpha, incomeGrowth,
+          Math.fma(beta, rateChange,
+            monthlyGamma * (fundamentalValue - prev.totalValue) / Math.max(1.0, fundamentalValue)))
 
         val clampedChange = Math.max(-0.03, Math.min(0.03, pricePressure))
 
@@ -201,8 +204,8 @@ object HousingMarket:
             lastOrigination = regionalOrig
           )
         }
-        val aggOrig = updatedRegions.map(_.lastOrigination).sum
-        val aggStock = updatedRegions.map(_.mortgageStock).sum
+        val aggOrig = updatedRegions.kahanSumBy(_.lastOrigination)
+        val aggStock = updatedRegions.kahanSumBy(_.mortgageStock)
         prev.copy(
           mortgageStock = aggStock,
           lastOrigination = aggOrig,

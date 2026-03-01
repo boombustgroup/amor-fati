@@ -8,6 +8,7 @@ import _root_.sfc.agents.*
 import _root_.sfc.sfc.*
 import _root_.sfc.engine.*
 import _root_.sfc.engine.{BankingSector, BankingSectorState}
+import _root_.sfc.engine.KahanSum.*
 import _root_.sfc.networks.Network
 
 /** Result of a single simulation run. */
@@ -82,7 +83,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       Some(assigned)
     case HhMode.Aggregate => None
 
-  val initCash = firms.map(_.cash).sum
+  val initCash = firms.kahanSumBy(_.cash)
   val initRate = if rc.isEurozone then Config.EcbInitialRate else Config.NbpInitialRate
   val initBankingSector = if Config.BankMulti then
     Some(BankingSector.initialize(initCash, Config.InitBankCapital, BankingSector.DefaultConfigs))
@@ -184,7 +185,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.currentSigmas(3),     // 22: Health_Sigma
       world.currentSigmas(4),     // 23: Public_Sigma
       world.currentSigmas(5),     // 24: Agri_Sigma
-      firms.map(_.neighbors.length.toDouble).sum / firms.length, // 25: MeanDegree
+      firms.kahanSumBy(_.neighbors.length.toDouble) / firms.length, // 25: MeanDegree
       world.ioFlows,                    // 26: IoFlows
       if world.gdpProxy > 0 then world.ioFlows / world.gdpProxy else 0.0,  // 27: IoGdpRatio
       world.bop.nfa,                    // 28: NFA
@@ -224,11 +225,11 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       }.getOrElse(0.0),  // 52: ReserveInterest
       world.bankingSector.map { bs =>
         val (perBank, _) = BankingSector.computeStandingFacilities(bs.banks, world.nbp.referenceRate)
-        perBank.sum
+        perBank.kahanSum
       }.getOrElse(0.0),  // 53: StandingFacilityNet
       world.bankingSector.map { bs =>
         // Deposit facility usage: sum of reserves parked at deposit facility
-        bs.banks.filter(b => !b.failed && b.reservesAtNbp > 0).map(_.reservesAtNbp).sum
+        bs.banks.filter(b => !b.failed && b.reservesAtNbp > 0).kahanSumBy(_.reservesAtNbp)
       }.getOrElse(0.0),  // 54: DepositFacilityUsage
       world.bankingSector.map { bs =>
         val (_, total) = BankingSector.interbankInterestFlows(bs.banks, bs.interbankRate)
@@ -287,7 +288,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.equity.dividendYield,   // 85: GpwDivYield
       // GPW Firm Issuance
       world.equity.lastIssuance,    // 86: EquityIssuanceTotal
-      living.map(_.equityRaised).sum / Math.max(1.0, living.map(f => f.debt + f.equityRaised).sum),  // 87: EquityFinancedFrac
+      living.kahanSumBy(_.equityRaised) / Math.max(1.0, living.kahanSumBy(f => f.debt + f.equityRaised)),  // 87: EquityFinancedFrac
       // GPW Household Equity
       world.equity.hhEquityWealth,  // 88: HhEquityWealth
       world.equity.lastWealthEffect, // 89: EquityWealthEffect
@@ -515,8 +516,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     aggPw.write(s"${t + 1}")
     for c <- 1 until nCols do
       val vals = (0 until nSeeds).map(s => allRuns(s)(t)(c)).sorted.toArray
-      val mean = vals.sum / vals.length
-      val variance = vals.map(v => (v - mean) * (v - mean)).sum / vals.length
+      val mean = vals.kahanSum / vals.length
+      val variance = vals.kahanSumBy(v => (v - mean) * (v - mean)) / vals.length
       val std  = Math.sqrt(variance)
       val p05  = vals((vals.length * 0.05).toInt)
       val p95  = vals(Math.min(vals.length - 1, (vals.length * 0.95).toInt))
@@ -531,8 +532,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   def statsSummary(name: String, colIdx: Int, mult: Double = 1.0): Unit =
     val vals = (0 until nSeeds).map(s => allRuns(s)(nMonths - 1)(colIdx) * mult).sorted.toArray
-    val mean = vals.sum / vals.length
-    val std  = Math.sqrt(vals.map(v => (v - mean) * (v - mean)).sum / vals.length)
+    val mean = vals.kahanSum / vals.length
+    val std  = Math.sqrt(vals.kahanSumBy(v => (v - mean) * (v - mean)) / vals.length)
     val p05  = vals((vals.length * 0.05).toInt)
     val p95  = vals(Math.min(vals.length - 1, (vals.length * 0.95).toInt))
     println(f"  $name%-25s mean=${mean}%8.2f +/- ${std}%6.2f  [${p05}%8.2f, ${p95}%8.2f]")
@@ -550,11 +551,11 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     println("\nHousehold aggregates at M120:")
     val hhAggs = allHhAgg.flatten
     if hhAggs.nonEmpty then
-      val avgGini = hhAggs.map(_.giniIndividual).sum / hhAggs.length
-      val avgWealth = hhAggs.map(_.giniWealth).sum / hhAggs.length
-      val avgBankr = hhAggs.map(_.bankruptcyRate).sum / hhAggs.length
-      val avgPov50 = hhAggs.map(_.povertyRate50).sum / hhAggs.length
-      val avgSkill = hhAggs.map(_.meanSkill).sum / hhAggs.length
+      val avgGini = hhAggs.kahanSumBy(_.giniIndividual) / hhAggs.length
+      val avgWealth = hhAggs.kahanSumBy(_.giniWealth) / hhAggs.length
+      val avgBankr = hhAggs.kahanSumBy(_.bankruptcyRate) / hhAggs.length
+      val avgPov50 = hhAggs.kahanSumBy(_.povertyRate50) / hhAggs.length
+      val avgSkill = hhAggs.kahanSumBy(_.meanSkill) / hhAggs.length
       println(f"  Gini (income)        mean=${avgGini * 100}%8.2f%%")
       println(f"  Gini (wealth)        mean=${avgWealth * 100}%8.2f%%")
       println(f"  Bankruptcy rate      mean=${avgBankr * 100}%8.2f%%")

@@ -215,16 +215,16 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
 
   it should "pass when error is below tolerance" in {
     val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
-    // Bank capital off by 0.5 (below default tolerance of 1.0)
-    val curr = prev.copy(bankCapital = prev.bankCapital + 0.5)
+    // Bank capital off by 0.005 (below default tolerance of 0.01)
+    val curr = prev.copy(bankCapital = prev.bankCapital + 0.005)
     val result = SfcCheck.validate(1, prev, curr, zeroFlows)
     result.passed shouldBe true
   }
 
   it should "fail when error exceeds tolerance" in {
     val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
-    // Bank capital off by 2.0 (above default tolerance of 1.0)
-    val curr = prev.copy(bankCapital = prev.bankCapital + 2.0)
+    // Bank capital off by 0.02 (above default tolerance of 0.01)
+    val curr = prev.copy(bankCapital = prev.bankCapital + 0.02)
     val result = SfcCheck.validate(1, prev, curr, zeroFlows)
     result.passed shouldBe false
   }
@@ -232,7 +232,7 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
   it should "respect custom tolerance parameter" in {
     val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
     val curr = prev.copy(bankCapital = prev.bankCapital + 5.0)
-    // Default tolerance (1.0): fails
+    // Default tolerance (0.01): fails
     SfcCheck.validate(1, prev, curr, zeroFlows).passed shouldBe false
     // Loose tolerance (10.0): passes
     SfcCheck.validate(1, prev, curr, zeroFlows, tolerance = 10.0).passed shouldBe true

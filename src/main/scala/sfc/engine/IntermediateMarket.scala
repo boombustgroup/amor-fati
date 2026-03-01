@@ -2,6 +2,7 @@ package sfc.engine
 
 import sfc.agents.{Firm, FirmOps, TechState}
 import sfc.config.Config
+import KahanSum.*
 
 case class IoResult(firms: Array[Firm], totalPaid: Double)
 
@@ -54,7 +55,7 @@ object IntermediateMarket:
       totalPaid += ioCost * scale
 
     // Verify zero-sum (within floating-point tolerance)
-    val totalAdj = cashAdj.sum
+    val totalAdj = cashAdj.kahanSum
     if Math.abs(totalAdj) > 1.0 then
       System.err.println(f"[IO] WARNING: non-zero-sum cash adjustment: $totalAdj%.2f")
 

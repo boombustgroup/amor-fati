@@ -2,6 +2,7 @@ package sfc.engine
 
 import sfc.config.Config
 import sfc.sfc.BankState
+import KahanSum.*
 
 import scala.util.Random
 
@@ -65,11 +66,11 @@ case class BankingSectorState(
 ):
   def aggregate: BankState =
     BankState(
-      totalLoans = banks.map(_.loans).sum,
-      nplAmount = banks.map(_.nplAmount).sum,
-      capital = banks.map(_.capital).sum,
-      deposits = banks.map(_.deposits).sum,
-      govBondHoldings = banks.map(_.govBondHoldings).sum
+      totalLoans = banks.kahanSumBy(_.loans),
+      nplAmount = banks.kahanSumBy(_.nplAmount),
+      capital = banks.kahanSumBy(_.capital),
+      deposits = banks.kahanSumBy(_.deposits),
+      govBondHoldings = banks.kahanSumBy(_.govBondHoldings)
     )
 
 object BankingSector:
@@ -108,7 +109,7 @@ object BankingSector:
   /** Assign a firm to a bank based on sector affinity and market share. */
   def assignBank(firmSector: Int, configs: Vector[BankConfig], rng: Random): Int =
     val weights = configs.map(c => c.sectorAffinity(firmSector) * c.initMarketShare)
-    val total = weights.sum
+    val total = weights.kahanSum
     if total <= 0.0 then 0
     else
       val r = rng.nextDouble() * total
@@ -152,8 +153,8 @@ object BankingSector:
   /** Compute interbank rate (WIBOR proxy).
     * stress = 0 → deposit rate; stress = 1 → lombard rate. */
   def interbankRate(banks: Vector[IndividualBankState], refRate: Double): Double =
-    val aggNpl = banks.filterNot(_.failed).map(_.nplAmount).sum
-    val aggLoans = banks.filterNot(_.failed).map(_.loans).sum
+    val aggNpl = banks.filterNot(_.failed).kahanSumBy(_.nplAmount)
+    val aggLoans = banks.filterNot(_.failed).kahanSumBy(_.loans)
     val aggNplRate = if aggLoans > 1.0 then aggNpl / aggLoans else 0.0
     val stress = Math.max(0.0, Math.min(1.0, aggNplRate / Config.BankStressThreshold))
     val depositRate = Math.max(0.0, refRate - 0.01)
@@ -168,8 +169,8 @@ object BankingSector:
       if b.failed then 0.0
       else b.deposits * (1.0 - Config.BankReserveReq) - b.loans - b.govBondHoldings
     }
-    val totalLending = excess.filter(_ > 0).sum
-    val totalBorrowing = -excess.filter(_ < 0).sum
+    val totalLending = excess.filter(_ > 0).kahanSum
+    val totalBorrowing = -excess.filter(_ < 0).kahanSum
 
     if totalLending <= 0 || totalBorrowing <= 0 then
       // No interbank activity: zero out net positions
@@ -229,9 +230,9 @@ object BankingSector:
             nplAmount = 0.0, interbankNet = 0.0, reservesAtNbp = 0.0)
         else if b.id == absorberId then
           // Absorb deposits, performing loans, bonds from failed banks
-          val addedDeposits = newlyFailed.map(_.deposits).sum
-          val addedLoans = newlyFailed.map(f => f.loans - f.nplAmount).sum
-          val addedBonds = newlyFailed.map(_.govBondHoldings).sum
+          val addedDeposits = newlyFailed.kahanSumBy(_.deposits)
+          val addedLoans = newlyFailed.kahanSumBy(f => f.loans - f.nplAmount)
+          val addedBonds = newlyFailed.kahanSumBy(_.govBondHoldings)
           b.copy(
             deposits = b.deposits + addedDeposits,
             loans = b.loans + Math.max(0, addedLoans),
@@ -260,7 +261,7 @@ object BankingSector:
     val aliveBanks = banks.filterNot(_.failed)
     val nAlive = aliveBanks.length
     if nAlive == 0 then return banks
-    val totalDep = aliveBanks.map(_.deposits).sum
+    val totalDep = aliveBanks.kahanSumBy(_.deposits)
     val lastAliveId = aliveBanks.last.id
     var allocated = 0.0
     banks.map { b =>
@@ -284,7 +285,7 @@ object BankingSector:
   /** Compute reserve interest for all banks. Returns per-bank vector + total. */
   def computeReserveInterest(banks: Vector[IndividualBankState], refRate: Double): (Vector[Double], Double) =
     val perBank = banks.map(b => reserveInterest(b, refRate))
-    (perBank, perBank.sum)
+    (perBank, perBank.kahanSum)
 
   /** Compute standing facility flows for all banks (monthly).
     * Excess after interbank → deposit facility income (refRate − spread).
@@ -308,7 +309,7 @@ object BankingSector:
           0.0  // credit rationing means the shortfall was already scaled in clearInterbank
         else 0.0
       }
-      (perBank, perBank.sum)
+      (perBank, perBank.kahanSum)
 
   /** Compute interbank interest flows for all banks (monthly).
     * Lender earns interbankRate × lent / 12, borrower pays same.
@@ -318,7 +319,7 @@ object BankingSector:
       if b.failed then 0.0
       else b.interbankNet * rate / 12.0  // positive for lenders, negative for borrowers
     }
-    (perBank, perBank.sum)
+    (perBank, perBank.kahanSum)
 
   /** Allocate QE purchases from banks proportional to their bond holdings.
     * Last eligible bank gets residual to guarantee exact aggregate preservation. */
@@ -327,7 +328,7 @@ object BankingSector:
     if qeTotal <= 0 then banks
     else
       val eligible = banks.filter(b => !b.failed && b.govBondHoldings > 0)
-      val totalBonds = eligible.map(_.govBondHoldings).sum
+      val totalBonds = eligible.kahanSumBy(_.govBondHoldings)
       if totalBonds <= 0 then banks
       else
         val lastEligibleId = eligible.last.id

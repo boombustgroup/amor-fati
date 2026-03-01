@@ -1,6 +1,7 @@
 package sfc.engine
 
 import sfc.config.{Config, RunConfig}
+import KahanSum.*
 
 case class ForeignFirm(
   id: Int,
@@ -89,15 +90,15 @@ object ExternalSector:
     // 5. Sector-specific exports
     val sectorExports = (0 until 6).map { s =>
       val sectorFirms = updatedFirms.filter(_.sectorId == s)
-      val demand = sectorFirms.map(_.baseExportDemand).sum * foreignGdpFactor
+      val demand = sectorFirms.kahanSumBy(_.baseExportDemand) * foreignGdpFactor
       // Per-sector automation ratio from sectorOutputs (proxy)
       val sectorAutoBoost = 1.0 + autoRatio * 0.15
       val avgDisruption = if sectorFirms.nonEmpty then
-        sectorFirms.map(_.disruption).sum / sectorFirms.length
+        sectorFirms.kahanSumBy(_.disruption) / sectorFirms.length
       else 0.0
       demand * realExRateEffect * sectorAutoBoost * (1.0 - avgDisruption)
     }.toVector
-    val totalExports = sectorExports.sum
+    val totalExports = sectorExports.kahanSum
 
     // 6. Sector-specific intermediate imports
     val sectorImports = (0 until 6).map { s =>
@@ -110,16 +111,16 @@ object ExternalSector:
         // EU partner: zero pass-through (single currency); non-EU: full
         val nonEuFirms = sectorFirms.filter(_.partnerId == 1)
         val euFirms = sectorFirms.filter(_.partnerId == 0)
-        val totalSupply = sectorFirms.map(_.baseImportSupply).sum
+        val totalSupply = sectorFirms.kahanSumBy(_.baseImportSupply)
         if totalSupply > 0 then
-          val nonEuWeight = nonEuFirms.map(_.baseImportSupply).sum / totalSupply
+          val nonEuWeight = nonEuFirms.kahanSumBy(_.baseImportSupply) / totalSupply
           1.0 + nonEuWeight * (exchangeRate / Config.BaseExRate - 1.0) * Config.GvcErPassthrough
         else 1.0
       else
         // PLN: differentiated pass-through by partner
-        val totalSupply = sectorFirms.map(_.baseImportSupply).sum
+        val totalSupply = sectorFirms.kahanSumBy(_.baseImportSupply)
         if totalSupply > 0 then
-          val euWeight = sectorFirms.filter(_.partnerId == 0).map(_.baseImportSupply).sum / totalSupply
+          val euWeight = sectorFirms.filter(_.partnerId == 0).kahanSumBy(_.baseImportSupply) / totalSupply
           val nonEuWeight = 1.0 - euWeight
           val erDeviation = exchangeRate / Config.BaseExRate - 1.0
           1.0 + euWeight * erDeviation * Config.GvcEuErPassthrough +
@@ -127,17 +128,17 @@ object ExternalSector:
         else 1.0
 
       val avgDisruption = if sectorFirms.nonEmpty then
-        sectorFirms.map(_.disruption).sum / sectorFirms.length
+        sectorFirms.kahanSumBy(_.disruption) / sectorFirms.length
       else 0.0
       baseDemand * Math.max(0.1, erEffect) * (1.0 - avgDisruption)
     }.toVector
-    val totalIntermImports = sectorImports.sum
+    val totalIntermImports = sectorImports.kahanSum
 
     // 7. Metrics
     val weightedDisruption = if updatedFirms.nonEmpty then
-      val totalDemand = updatedFirms.map(_.baseExportDemand).sum
+      val totalDemand = updatedFirms.kahanSumBy(_.baseExportDemand)
       if totalDemand > 0 then
-        updatedFirms.map(ff => ff.disruption * ff.baseExportDemand).sum / totalDemand
+        updatedFirms.kahanSumBy(ff => ff.disruption * ff.baseExportDemand) / totalDemand
       else 0.0
     else 0.0
 

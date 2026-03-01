@@ -2,6 +2,7 @@ package sfc.agents
 
 import sfc.config.Config
 import sfc.engine.{World, SectoralMobility}
+import sfc.engine.KahanSum.*
 
 import scala.util.Random
 
@@ -358,7 +359,7 @@ object HouseholdLogic:
 
     // SFC consistency: rent is domestic consumption (landlord income -> spending),
     // debt service flows to bank (captured via BankState in Simulation.scala).
-    val goodsConsumption = consumptions.sum
+    val goodsConsumption = consumptions.kahanSum
     val totalConsumption = goodsConsumption + totalRent
     val importCons = goodsConsumption * Math.min(0.65, importAdj)
     val domesticCons = totalConsumption - importCons
@@ -373,7 +374,7 @@ object HouseholdLogic:
     val giniWealth = giniSorted(savingsArr)
 
     // Savings statistics (savingsArr already sorted)
-    val meanSavings = if n > 0 then savingsArr.sum / n else 0.0
+    val meanSavings = if n > 0 then savingsArr.kahanSum / n else 0.0
     val medianSavings = if n > 0 then savingsArr(n / 2) else 0.0
 
     // Poverty rates from sorted incomes -- binary search instead of full scan

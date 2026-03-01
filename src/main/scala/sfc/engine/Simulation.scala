@@ -5,6 +5,7 @@ import sfc.agents.*
 import sfc.sfc.*
 import sfc.networks.Network
 import sfc.dynamics.{SigmaDynamics, DynamicNetwork}
+import KahanSum.*
 
 import scala.util.Random
 
@@ -152,7 +153,7 @@ object Simulation:
     else rawLendingBaseRate
 
     val living = firms.filter(FirmOps.isAlive)
-    val laborDemand = living.map(FirmOps.workers).sum
+    val laborDemand = living.kahanSumBy(f => FirmOps.workers(f).toDouble).toInt
     val (rawWage, rawEmployed) = Sectors.updateLaborMarket(w.hh.marketWage, resWage, laborDemand)
 
     // Channel 1: Expectations-augmented wage Phillips curve
@@ -320,7 +321,7 @@ object Simulation:
 
     val prevAlive = firms.filter(FirmOps.isAlive).map(_.id).toSet
     val newlyDead = ioFirms.filter(f => !FirmOps.isAlive(f) && prevAlive.contains(f.id))
-    val nplNew    = newlyDead.map(_.debt).sum
+    val nplNew    = newlyDead.kahanSumBy(_.debt)
     val nplLoss   = nplNew * (1.0 - Config.LoanRecovery)
 
     // Per-bank NPL attribution
@@ -330,7 +331,7 @@ object Simulation:
     for f <- firms if FirmOps.isAlive(f) do
       perBankIntIncome(f.bankId) += f.debt * getLendRate(f.bankId) / 12.0
 
-    val intIncome = perBankIntIncome.sum
+    val intIncome = perBankIntIncome.kahanSum
 
     // SFC: household debt service flows to bank as interest income
     val hhDebtService = hhAgg.map(_.totalDebtService).getOrElse(0.0)
@@ -345,7 +346,7 @@ object Simulation:
     val gdp     = domesticCons + Config.GovBaseSpending + w.forex.exports
 
     // Macroprudential — compute CCyB from credit-to-GDP gap
-    val totalSystemLoans = w.bankingSector.map(_.banks.map(_.loans).sum).getOrElse(w.bank.totalLoans)
+    val totalSystemLoans = w.bankingSector.map(_.banks.kahanSumBy(_.loans)).getOrElse(w.bank.totalLoans)
     val newMacropru = Macroprudential.step(w.macropru, totalSystemLoans, gdp)
 
     // Endogenous sigma evolution (Paper-05)
@@ -369,7 +370,7 @@ object Simulation:
       w.inflation, w.priceLevel, demandMult, wageGrowth, exDev, autoR, hybR, rc)
 
     // Firm profits for equity market (sum of after-tax profits of living firms)
-    val firmProfits = living2.map { f =>
+    val firmProfits = living2.kahanSumBy { f =>
       val rev = FirmOps.capacity(f) * demandMult * newPrice
       val labor = FirmOps.workers(f) * newWage * SECTORS(f.sector).wageMultiplier
       val other = Config.OtherCosts * newPrice
@@ -381,7 +382,7 @@ object Simulation:
       val gross = rev - labor - other - aiMaint - interest
       val tax = Math.max(0.0, gross) * Config.CitRate
       Math.max(0.0, gross - tax)
-    }.sum
+    }
 
     // GPW equity market step
     val prevGdp = if w.gdpProxy > 0 then w.gdpProxy else 1.0
@@ -400,7 +401,7 @@ object Simulation:
 
     // Open economy (Paper-08) or legacy foreign sector
     val sectorOutputs = (0 until 6).map { s =>
-      living2.filter(_.sector == s).map(f => FirmOps.capacity(f) * demandMult * w.priceLevel).sum
+      living2.filter(_.sector == s).kahanSumBy(f => FirmOps.capacity(f) * demandMult * w.priceLevel)
     }.toVector
 
     // GVC / Deep External Sector (v5.0)
@@ -576,7 +577,7 @@ object Simulation:
 
     val (finalBankingSector, reassignedFirms, reassignedHouseholds) = w.bankingSector match
       case Some(bs) =>
-        val totalWorkers = perBankWorkers.sum.toDouble
+        val totalWorkers = perBankWorkers.kahanSumBy(_.toDouble)
         // 1. Update each bank with its per-bank flows
         val updatedBanks = bs.banks.map { b =>
           val bId = b.id
@@ -660,14 +661,14 @@ object Simulation:
 
     // Credit diagnostics (M1/M2)
     val monAgg = if Config.CreditDiagnostics then
-      val totalReserves = finalBankingSector.map(_.banks.map(_.reservesAtNbp).sum).getOrElse(0.0)
+      val totalReserves = finalBankingSector.map(_.banks.kahanSumBy(_.reservesAtNbp)).getOrElse(0.0)
       Some(MonetaryAggregates.compute(resolvedBank.deposits, totalReserves))
     else None
 
     // GPW: finalize equity state with HH equity wealth
     val (totalHhEquityWealth, totalWealthEffectAgg) = reassignedHouseholds match
       case Some(hhs) =>
-        (hhs.map(_.equityWealth).sum, 0.0)  // wealth effect already embedded in individual consumption
+        (hhs.kahanSumBy(_.equityWealth), 0.0)  // wealth effect already embedded in individual consumption
       case None =>
         // Aggregate mode: HH equity wealth = previous × (1 + return)
         if Config.GpwHhEquity && Config.GpwEnabled then

@@ -2,6 +2,7 @@ package sfc.sfc
 
 import sfc.agents.{Firm, FirmOps, Household, HhStatus}
 import sfc.engine.{World, BankingSectorState}
+import sfc.engine.KahanSum.*
 
 object SfcCheck:
 
@@ -81,14 +82,14 @@ object SfcCheck:
 
   def snapshot(w: World, firms: Array[Firm],
                households: Option[Vector[Household]]): Snapshot =
-    val hhS = households.map(_.map(_.savings).sum).getOrElse(0.0)
-    val hhD = households.map(_.map(_.debt).sum).getOrElse(0.0)
-    val ibNet = w.bankingSector.map(_.banks.map(_.interbankNet).sum).getOrElse(0.0)
+    val hhS = households.map(_.kahanSumBy(_.savings)).getOrElse(0.0)
+    val hhD = households.map(_.kahanSumBy(_.debt)).getOrElse(0.0)
+    val ibNet = w.bankingSector.map(_.banks.kahanSumBy(_.interbankNet)).getOrElse(0.0)
     Snapshot(
       hhSavings = hhS,
       hhDebt = hhD,
-      firmCash = firms.map(_.cash).sum,
-      firmDebt = firms.map(_.debt).sum,
+      firmCash = firms.kahanSumBy(_.cash),
+      firmDebt = firms.kahanSumBy(_.debt),
       bankCapital = w.bank.capital,
       bankDeposits = w.bank.deposits,
       bankLoans = w.bank.totalLoans,
@@ -125,8 +126,8 @@ object SfcCheck:
     * to bank/consumption), refactoring errors in balance sheet updates, and
     * any new flow that modifies a stock without updating the counterpart. */
   def validate(month: Int, prev: Snapshot, curr: Snapshot,
-               flows: MonthlyFlows, tolerance: Double = 1.0,
-               nfaTolerance: Double = 10.0): SfcResult =
+               flows: MonthlyFlows, tolerance: Double = 0.01,
+               nfaTolerance: Double = 1.0): SfcResult =
 
     // Identity 1: Bank capital (includes bond coupon income, mortgage interest income,
     // minus deposit interest paid, minus mortgage NPL loss,

@@ -2,6 +2,7 @@ package sfc.engine
 
 import sfc.config.{Config, SECTORS}
 import sfc.agents.*
+import KahanSum.*
 
 import scala.util.Random
 
@@ -138,7 +139,7 @@ object LaborMarket:
     val employed = households.indices.filter(i =>
       households(i).status.isInstanceOf[HhStatus.Employed])
     val rawMean = if employed.nonEmpty then
-      employed.map(rawWages(_)).sum / employed.length
+      employed.kahanSumBy(i => rawWages(i)) / employed.length
     else 1.0
     val scale = if rawMean > 0 then 1.0 / rawMean else 1.0
 
