@@ -26,7 +26,8 @@ case class Firm(
   sector: Int,              // Index into SECTORS
   neighbors: Array[Int],    // Network adjacency (firm IDs)
   bankId: Int = 0,          // Multi-bank: index into BankingSectorState.banks
-  equityRaised: Double = 0.0 // GPW: cumulative equity raised via IPO/SPO
+  equityRaised: Double = 0.0, // GPW: cumulative equity raised via IPO/SPO
+  initialSize: Int = 10     // Firm size at creation (v6.0: heterogeneous when FIRM_SIZE_DIST=gus)
 )
 
 object FirmOps:
@@ -37,26 +38,34 @@ object FirmOps:
   def workers(f: Firm): Int = f.tech match
     case TechState.Traditional(w) => w
     case TechState.Hybrid(w, _)   => w
-    case _: TechState.Automated   => Config.AutoSkeletonCrew
+    case _: TechState.Automated   => skeletonCrew(f)
     case _: TechState.Bankrupt    => 0
+
+  /** Skeleton crew for automated firms — scales with firm size. */
+  def skeletonCrew(f: Firm): Int =
+    Math.max(Config.AutoSkeletonCrew, (f.initialSize * 0.02).toInt)
 
   def capacity(f: Firm): Double =
     val sec = SECTORS(f.sector)
+    val sizeScale = f.initialSize.toDouble / Config.WorkersPerFirm
     f.tech match
       case TechState.Traditional(w) =>
-        Config.BaseRevenue * sec.revenueMultiplier * Math.sqrt(w.toDouble / Config.WorkersPerFirm)
+        Config.BaseRevenue * sizeScale * sec.revenueMultiplier *
+          Math.sqrt(w.toDouble / f.initialSize)
       case TechState.Hybrid(w, eff) =>
-        Config.BaseRevenue * sec.revenueMultiplier *
-          (0.4 * Math.sqrt(w.toDouble / Config.WorkersPerFirm) + 0.6 * eff)
+        Config.BaseRevenue * sizeScale * sec.revenueMultiplier *
+          (0.4 * Math.sqrt(w.toDouble / f.initialSize) + 0.6 * eff)
       case TechState.Automated(eff) =>
-        Config.BaseRevenue * sec.revenueMultiplier * eff
+        Config.BaseRevenue * sizeScale * sec.revenueMultiplier * eff
       case _: TechState.Bankrupt => 0.0
 
-  /** Effective AI CAPEX for sector */
+  /** Effective AI CAPEX for sector — sublinear in firm size (exponent 0.6). */
   def aiCapex(f: Firm): Double =
-    Config.AiCapex * SECTORS(f.sector).aiCapexMultiplier * f.innovationCostFactor
+    val sizeFactor = Math.pow(f.initialSize.toDouble / Config.WorkersPerFirm, 0.6)
+    Config.AiCapex * SECTORS(f.sector).aiCapexMultiplier * f.innovationCostFactor * sizeFactor
   def hybridCapex(f: Firm): Double =
-    Config.HybridCapex * SECTORS(f.sector).hybridCapexMultiplier * f.innovationCostFactor
+    val sizeFactor = Math.pow(f.initialSize.toDouble / Config.WorkersPerFirm, 0.6)
+    Config.HybridCapex * SECTORS(f.sector).hybridCapexMultiplier * f.innovationCostFactor * sizeFactor
 
   /** sigma-based threshold modifier: high sigma sectors find automation profitable at lower cost gap.
    *  Only used for profitability threshold, NOT for probability multiplier.
@@ -77,11 +86,14 @@ object FirmLogic:
     price: Double, lendRate: Double): (Double, Double, Double) =
     val revenue = FirmOps.capacity(firm) * demandMult * price
     val labor   = FirmOps.workers(firm) * wage * SECTORS(firm.sector).wageMultiplier
-    val other   = Config.OtherCosts * price
+    val sizeFactor = firm.initialSize.toDouble / Config.WorkersPerFirm
+    val other   = Config.OtherCosts * price * sizeFactor
     // AI/hybrid opex is partially imported (40%) -- not fully domestic price-sensitive
+    // OPEX scales sublinearly with firm size (exponent 0.5)
+    val opexSizeFactor = Math.pow(firm.initialSize.toDouble / Config.WorkersPerFirm, 0.5)
     val aiMaint = firm.tech match
-      case _: TechState.Automated => Config.AiOpex * (0.60 + 0.40 * price)
-      case _: TechState.Hybrid    => Config.HybridOpex * (0.60 + 0.40 * price)
+      case _: TechState.Automated => Config.AiOpex * (0.60 + 0.40 * price) * opexSizeFactor
+      case _: TechState.Hybrid    => Config.HybridOpex * (0.60 + 0.40 * price) * opexSizeFactor
       case _                      => 0.0
     val interest = firm.debt * (lendRate / 12.0)
     val costs    = labor + other + aiMaint + interest
@@ -112,14 +124,17 @@ object FirmLogic:
         val tax = Math.max(0.0, rev - costs) * Config.CitRate
         val ready2 = Math.min(1.0, firm.digitalReadiness + 0.005)
 
+        val upSizeFactor = Math.pow(firm.initialSize.toDouble / Config.WorkersPerFirm, 0.6)
         val upCapex = Config.AiCapex * SECTORS(firm.sector).aiCapexMultiplier *
-          firm.innovationCostFactor * 0.6
+          firm.innovationCostFactor * 0.6 * upSizeFactor
         val upLoan  = upCapex * 0.85
         val upDown  = upCapex * 0.15
         val wMult   = SECTORS(firm.sector).wageMultiplier
-        val upCost  = Config.AiOpex * (0.60 + 0.40 * w.priceLevel) +
+        val upOpexSizeFactor = Math.pow(firm.initialSize.toDouble / Config.WorkersPerFirm, 0.5)
+        val upOtherSizeFactor = firm.initialSize.toDouble / Config.WorkersPerFirm
+        val upCost  = Config.AiOpex * (0.60 + 0.40 * w.priceLevel) * upOpexSizeFactor +
           (firm.debt + upLoan) * (lendRate / 12.0) +
-          Config.AutoSkeletonCrew * w.hh.marketWage * wMult + Config.OtherCosts * w.priceLevel
+          FirmOps.skeletonCrew(firm) * w.hh.marketWage * wMult + Config.OtherCosts * w.priceLevel * upOtherSizeFactor
         val profitable = costs > upCost * 1.1
         val canPay     = firm.cash > upDown
         val ready      = firm.digitalReadiness >= Config.FullAiReadinessMin
@@ -153,9 +168,11 @@ object FirmLogic:
         val fCapex = FirmOps.aiCapex(firm)
         val fLoan  = fCapex * 0.85
         val fDown  = fCapex * 0.15
-        val fCost  = Config.AiOpex * (0.60 + 0.40 * w.priceLevel) +
+        val fOpexSizeFactor = Math.pow(firm.initialSize.toDouble / Config.WorkersPerFirm, 0.5)
+        val fOtherSizeFactor = firm.initialSize.toDouble / Config.WorkersPerFirm
+        val fCost  = Config.AiOpex * (0.60 + 0.40 * w.priceLevel) * fOpexSizeFactor +
           (firm.debt + fLoan) * (lendRate / 12.0) +
-          Config.AutoSkeletonCrew * w.hh.marketWage * sWm + Config.OtherCosts * w.priceLevel
+          FirmOps.skeletonCrew(firm) * w.hh.marketWage * sWm + Config.OtherCosts * w.priceLevel * fOtherSizeFactor
         val fProf  = costs > fCost * (1.1 / FirmOps.sigmaThreshold(w.currentSigmas(firm.sector)))
         val fPay   = firm.cash > fDown
         val fReady = firm.digitalReadiness >= Config.FullAiReadinessMin
@@ -166,8 +183,10 @@ object FirmLogic:
         val hLoan  = hCapex * 0.80
         val hDown  = hCapex * 0.20
         val hWkrs  = Math.max(3, (wkrs * SECTORS(firm.sector).hybridRetainFrac).toInt)
-        val hCost  = hWkrs * w.hh.marketWage * sWm + Config.HybridOpex * (0.60 + 0.40 * w.priceLevel) +
-          (firm.debt + hLoan) * (lendRate / 12.0) + Config.OtherCosts * w.priceLevel
+        val hOpexSizeFactor = Math.pow(firm.initialSize.toDouble / Config.WorkersPerFirm, 0.5)
+        val hOtherSizeFactor = firm.initialSize.toDouble / Config.WorkersPerFirm
+        val hCost  = hWkrs * w.hh.marketWage * sWm + Config.HybridOpex * (0.60 + 0.40 * w.priceLevel) * hOpexSizeFactor +
+          (firm.debt + hLoan) * (lendRate / 12.0) + Config.OtherCosts * w.priceLevel * hOtherSizeFactor
         val hProf  = costs > hCost * (1.05 / FirmOps.sigmaThreshold(w.currentSigmas(firm.sector)))
         val hPay   = firm.cash > hDown
         val hReady = firm.digitalReadiness >= Config.HybridReadinessMin
@@ -242,7 +261,8 @@ object FirmLogic:
               tax, hCapex, tImp, hLoan)
 
         else if canReduce && Random.nextDouble() < 0.10 then
-          FirmResult(firm.copy(tech = TechState.Traditional(Math.max(3, wkrs - 2)),
+          val reductionAmt = Math.max(1, (wkrs * 0.05).toInt)
+          FirmResult(firm.copy(tech = TechState.Traditional(Math.max(3, wkrs - reductionAmt)),
             cash = firm.cash + net), tax, 0, 0, 0)
 
         else

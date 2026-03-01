@@ -38,8 +38,9 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     FirmOps.workers(mkFirm(TechState.Hybrid(7, 1.0))) shouldBe 7
   }
 
-  it should "return AutoSkeletonCrew for Automated" in {
-    FirmOps.workers(mkFirm(TechState.Automated(1.5))) shouldBe Config.AutoSkeletonCrew
+  it should "return skeletonCrew for Automated" in {
+    val f = mkFirm(TechState.Automated(1.5))
+    FirmOps.workers(f) shouldBe FirmOps.skeletonCrew(f)
   }
 
   it should "return 0 for Bankrupt" in {

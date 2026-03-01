@@ -60,6 +60,16 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
       result(i).sector shouldBe 2
   }
 
+  it should "set initialSize on new entrants matching their worker count" in {
+    Random.setSeed(42)
+    val firms = mkFirmsWithBankrupt(20, 3)
+    val result = DynamicNetwork.rewire(firms, 1.0)
+    for i <- 0 until 3 do
+      val f = result(i)
+      f.initialSize should be > 0
+      FirmOps.workers(f) shouldBe f.initialSize
+  }
+
   private def mkFirms(n: Int): Array[Firm] =
     (0 until n).map { i =>
       Firm(i, 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.5, 0,

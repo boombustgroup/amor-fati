@@ -76,58 +76,61 @@ case class HhAggregates(
 )
 
 object HouseholdInit:
-  /** Initialize N households, all employed, assigned to firms round-robin. */
+  /** Initialize households, all employed, assigned proportionally to firm sizes. */
   def initialize(nHouseholds: Int, nFirms: Int, firms: Array[Firm],
                  socialNetwork: Array[Array[Int]], rng: Random): Vector[Household] =
-    val sectorShares = firms.groupBy(_.sector).view.mapValues(_.length).toMap
+    var hhId = 0
+    val builder = Vector.newBuilder[Household]
 
-    (0 until nHouseholds).map { i =>
-      // Round-robin firm assignment
-      val firmId = i % nFirms
-      val sectorIdx = firms(firmId).sector
+    for f <- firms if FirmOps.isAlive(f) do
+      val nWorkers = FirmOps.workers(f)
+      val sectorIdx = f.sector
+      for _ <- 0 until nWorkers do
+        if hhId < nHouseholds then
+          // Savings: LogNormal(mu, sigma)
+          val savings = Math.exp(Config.HhSavingsMu + Config.HhSavingsSigma * rng.nextGaussian())
 
-      // Savings: LogNormal(mu, sigma)
-      val savings = Math.exp(Config.HhSavingsMu + Config.HhSavingsSigma * rng.nextGaussian())
+          // Debt: 40% have debt
+          val debt = if rng.nextDouble() < Config.HhDebtFraction then
+            Math.exp(Config.HhDebtMu + Config.HhDebtSigma * rng.nextGaussian())
+          else 0.0
 
-      // Debt: 40% have debt
-      val debt = if rng.nextDouble() < Config.HhDebtFraction then
-        Math.exp(Config.HhDebtMu + Config.HhDebtSigma * rng.nextGaussian())
-      else 0.0
+          // Rent: Normal(mean, std), floored
+          val rent = Math.max(Config.HhRentFloor,
+            Config.HhRentMean + Config.HhRentStd * rng.nextGaussian())
 
-      // Rent: Normal(mean, std), floored
-      val rent = Math.max(Config.HhRentFloor,
-        Config.HhRentMean + Config.HhRentStd * rng.nextGaussian())
+          // MPC: Beta(alpha, beta) via gamma transformation
+          val mpc = betaSample(Config.HhMpcAlpha, Config.HhMpcBeta, rng)
 
-      // MPC: Beta(alpha, beta) via gamma transformation
-      val mpc = betaSample(Config.HhMpcAlpha, Config.HhMpcBeta, rng)
+          // Skill: Uniform(0.3, 1.0), with sector correlation
+          val sectorSigma = sfc.config.SECTORS(sectorIdx).sigma
+          val baseSkill = 0.3 + 0.7 * rng.nextDouble()
+          val sectorBonus = Math.min(0.1, 0.02 * Math.log(sectorSigma))
+          val skill = Math.max(0.3, Math.min(1.0, baseSkill + sectorBonus))
 
-      // Skill: Uniform(0.3, 1.0), with sector correlation
-      val sectorSigma = sfc.config.SECTORS(sectorIdx).sigma
-      val baseSkill = 0.3 + 0.7 * rng.nextDouble()
-      val sectorBonus = Math.min(0.1, 0.02 * Math.log(sectorSigma))
-      val skill = Math.max(0.3, Math.min(1.0, baseSkill + sectorBonus))
+          val wage = Config.BaseWage * sfc.config.SECTORS(sectorIdx).wageMultiplier * skill
 
-      val wage = Config.BaseWage * sfc.config.SECTORS(sectorIdx).wageMultiplier * skill
+          // GPW equity wealth: GpwHhEquityFrac of HH participate, with wealth ∝ savings
+          val eqWealth = if sfc.config.Config.GpwHhEquity && rng.nextDouble() < sfc.config.Config.GpwHhEquityFrac then
+            savings * 0.05  // ~5% of savings in equity (NBP household wealth survey)
+          else 0.0
 
-      // GPW equity wealth: GpwHhEquityFrac of HH participate, with wealth ∝ savings
-      val eqWealth = if sfc.config.Config.GpwHhEquity && rng.nextDouble() < sfc.config.Config.GpwHhEquityFrac then
-        savings * 0.05  // ~5% of savings in equity (NBP household wealth survey)
-      else 0.0
+          builder += Household(
+            id = hhId,
+            savings = savings,
+            debt = debt,
+            monthlyRent = rent,
+            skill = skill,
+            healthPenalty = 0.0,
+            mpc = Math.max(0.5, Math.min(0.98, mpc)),
+            status = HhStatus.Employed(f.id, sectorIdx, wage),
+            socialNeighbors = if hhId < socialNetwork.length then socialNetwork(hhId) else Array.empty,
+            equityWealth = eqWealth,
+            lastSectorIdx = sectorIdx
+          )
+          hhId += 1
 
-      Household(
-        id = i,
-        savings = savings,
-        debt = debt,
-        monthlyRent = rent,
-        skill = skill,
-        healthPenalty = 0.0,
-        mpc = Math.max(0.5, Math.min(0.98, mpc)),
-        status = HhStatus.Employed(firmId, sectorIdx, wage),
-        socialNeighbors = if i < socialNetwork.length then socialNetwork(i) else Array.empty,
-        equityWealth = eqWealth,
-        lastSectorIdx = sectorIdx
-      )
-    }.toVector
+    builder.result()
 
   /** Sample from Beta(alpha, beta) using two Gamma samples. */
   private def betaSample(alpha: Double, beta: Double, rng: Random): Double =

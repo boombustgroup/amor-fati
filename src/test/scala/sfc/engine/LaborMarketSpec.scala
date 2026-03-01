@@ -45,11 +45,12 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       mkHousehold(i, HhStatus.Employed(0, 2, 8000.0))
     ).toVector
     val result = LaborMarket.separations(hhs, prevFirms, newFirms)
-    // Automated firms keep AutoSkeletonCrew (2) workers, rest become unemployed
+    // Automated firms keep skeletonCrew workers, rest become unemployed
+    val skCrew = FirmOps.skeletonCrew(newFirms(0))
     val employed = result.count(_.status.isInstanceOf[HhStatus.Employed])
     val unemployed = result.count(_.status == HhStatus.Unemployed(0))
-    employed shouldBe Config.AutoSkeletonCrew
-    unemployed shouldBe (5 - Config.AutoSkeletonCrew)
+    employed shouldBe skCrew
+    unemployed shouldBe (5 - skCrew)
   }
 
   it should "not affect already unemployed households" in {

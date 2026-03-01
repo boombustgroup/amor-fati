@@ -62,7 +62,8 @@ object Generators:
     sector <- Gen.choose(0, 5)
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
-  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty, bankId, eqR)
+    iSize  <- Gen.choose(1, 500)
+  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty, bankId, eqR, iSize)
 
   val genAliveFirm: Gen[Firm] = for
     id     <- Gen.choose(0, 9999)
@@ -75,7 +76,8 @@ object Generators:
     sector <- Gen.choose(0, 5)
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
-  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty, bankId, eqR)
+    iSize  <- Gen.choose(1, 500)
+  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty, bankId, eqR, iSize)
 
   // --- Balance sheet state generators ---
 

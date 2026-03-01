@@ -3,7 +3,7 @@ package sfc
 import java.io.{File, PrintWriter}
 import scala.util.Random
 
-import _root_.sfc.config.{Config, SECTORS, TOPOLOGY, Topology, HH_MODE, HhMode, RunConfig, MonetaryRegime}
+import _root_.sfc.config.{Config, SECTORS, TOPOLOGY, Topology, HH_MODE, HhMode, RunConfig, MonetaryRegime, FirmSizeDistribution}
 import _root_.sfc.agents.*
 import _root_.sfc.sfc.*
 import _root_.sfc.engine.*
@@ -48,19 +48,26 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   // Initialize firms
   var firms = (0 until Config.FirmsCount).map { i =>
     val sec = SECTORS(sectorAssignments(i))
+    val firmSize = FirmSizeDistribution.draw(Random)
+    val sizeMult = firmSize.toDouble / Config.WorkersPerFirm
     Firm(
       id = i,
-      cash = Random.between(10000.0, 80000.0) + (if Random.nextDouble() < 0.1 then 200000.0 else 0.0),
+      cash = (Random.between(10000.0, 80000.0) + (if Random.nextDouble() < 0.1 then 200000.0 else 0.0)) * sizeMult,
       debt = 0.0,
-      tech = TechState.Traditional(Config.WorkersPerFirm),
+      tech = TechState.Traditional(firmSize),
       riskProfile = Random.between(0.1, 0.9),
       innovationCostFactor = Random.between(0.8, 1.5),
       digitalReadiness = Math.max(0.02, Math.min(0.98,
         sec.baseDigitalReadiness + (Random.nextGaussian() * 0.20))),
       sector = sectorAssignments(i),
-      neighbors = adjList(i)
+      neighbors = adjList(i),
+      initialSize = firmSize
     )
   }.toArray
+
+  // Compute actual total population from firm sizes and set Config
+  val actualTotalPop = firms.map(f => FirmOps.workers(f)).sum
+  Config.setTotalPopulation(actualTotalPop)
 
   // Multi-bank: assign firms to banks
   if Config.BankMulti then
@@ -70,8 +77,9 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   // Initialize households (individual mode only)
   var households: Option[Vector[Household]] = HH_MODE match
     case HhMode.Individual =>
-      val hhNetwork = Network.wattsStrogatz(Config.HhCount, Config.HhSocialK, Config.HhSocialP)
-      val hhs = HouseholdInit.initialize(Config.HhCount, Config.FirmsCount, firms, hhNetwork, Random)
+      val hhCount = Config.TotalPopulation
+      val hhNetwork = Network.wattsStrogatz(hhCount, Config.HhSocialK, Config.HhSocialP)
+      val hhs = HouseholdInit.initialize(hhCount, Config.FirmsCount, firms, hhNetwork, Random)
       // Multi-bank: assign households to same bank as their employer
       val assigned = if Config.BankMulti then
         hhs.map { h =>

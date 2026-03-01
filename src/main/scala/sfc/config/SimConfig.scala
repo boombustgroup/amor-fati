@@ -83,11 +83,33 @@ val HH_MODE: HhMode =
     case Some("individual") => HhMode.Individual
     case _                  => HhMode.Aggregate
 
+/** Firm size distribution: stratified draw from GUS 2024 Polish enterprise data. */
+object FirmSizeDistribution:
+  import scala.util.Random
+
+  def draw(rng: Random): Int = Config.FirmSizeDist match
+    case "gus" =>
+      val r = rng.nextDouble()
+      if r < Config.FirmSizeMicroShare then rng.between(1, 10)
+      else if r < Config.FirmSizeMicroShare + Config.FirmSizeSmallShare then rng.between(10, 50)
+      else if r < 1.0 - Config.FirmSizeLargeShare then rng.between(50, 250)
+      else rng.between(250, Config.FirmSizeLargeMax + 1)
+    case _ => Config.WorkersPerFirm  // "uniform": all 10
+
 object Config:
   val FirmsCount       = sys.env.get("FIRMS_COUNT").map(_.trim.toInt).getOrElse(10000)
   val WorkersPerFirm   = 10
-  val TotalPopulation  = FirmsCount * WorkersPerFirm
+  var TotalPopulation: Int = FirmsCount * WorkersPerFirm
+  def setTotalPopulation(n: Int): Unit = TotalPopulation = n
   private val ScaleFactor = FirmsCount.toDouble / 10000.0
+
+  // Firm size distribution (v6.0)
+  val FirmSizeDist: String = sys.env.get("FIRM_SIZE_DIST").map(_.trim.toLowerCase).getOrElse("uniform")
+  val FirmSizeMicroShare: Double = sys.env.get("FIRM_SIZE_MICRO_SHARE").map(_.trim.toDouble).getOrElse(0.962)
+  val FirmSizeSmallShare: Double = sys.env.get("FIRM_SIZE_SMALL_SHARE").map(_.trim.toDouble).getOrElse(0.028)
+  val FirmSizeMediumShare: Double = sys.env.get("FIRM_SIZE_MEDIUM_SHARE").map(_.trim.toDouble).getOrElse(0.008)
+  val FirmSizeLargeShare: Double = sys.env.get("FIRM_SIZE_LARGE_SHARE").map(_.trim.toDouble).getOrElse(0.002)
+  val FirmSizeLargeMax: Int = sys.env.get("FIRM_SIZE_LARGE_MAX").map(_.trim.toInt).getOrElse(1000)
   val Duration         = sys.env.get("DURATION").map(_.trim.toInt).getOrElse(120)
   val ShockMonth       = sys.env.get("SHOCK_MONTH").map(_.trim.toInt).getOrElse(30)
 

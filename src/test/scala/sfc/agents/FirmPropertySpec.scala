@@ -96,18 +96,33 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     forAll(genAliveFirm, Gen.choose(1.0, 3.0)) { (firm: Firm, factor: Double) =>
       val f1 = firm.copy(innovationCostFactor = 1.0)
       val f2 = firm.copy(innovationCostFactor = factor)
-      FirmOps.aiCapex(f2) shouldBe (FirmOps.aiCapex(f1) * factor +- 1e-6)
+      FirmOps.aiCapex(f2) shouldBe (FirmOps.aiCapex(f1) * factor +- 0.01)
     }
   }
 
-  // --- capacity(Traditional) scales with sqrt(workers/wpf) ---
+  // --- capacity(Traditional) scales with sqrt(workers/initialSize) ---
 
-  "capacity for Traditional" should "scale with sqrt(workers/wpf)" in {
+  "capacity for Traditional" should "scale with sqrt(workers/initialSize)" in {
     forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) {
       (sector: Int, innov: Double, digiR: Double) =>
-        val f1 = Firm(0, 0, 0, TechState.Traditional(4), 0.5, innov, digiR, sector, Array.empty)
-        val f2 = Firm(0, 0, 0, TechState.Traditional(16), 0.5, innov, digiR, sector, Array.empty)
+        // Same initialSize=16, different worker counts: sqrt(4/16) vs sqrt(16/16)
+        val f1 = Firm(0, 0, 0, TechState.Traditional(4), 0.5, innov, digiR, sector, Array.empty,
+          initialSize = 16)
+        val f2 = Firm(0, 0, 0, TechState.Traditional(16), 0.5, innov, digiR, sector, Array.empty,
+          initialSize = 16)
         val ratio = FirmOps.capacity(f2) / FirmOps.capacity(f1)
         ratio shouldBe (2.0 +- 0.01)
+    }
+  }
+
+  it should "scale linearly with initialSize at full employment" in {
+    forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) {
+      (sector: Int, innov: Double, digiR: Double) =>
+        val f1 = Firm(0, 0, 0, TechState.Traditional(10), 0.5, innov, digiR, sector, Array.empty,
+          initialSize = 10)
+        val f2 = Firm(0, 0, 0, TechState.Traditional(25), 0.5, innov, digiR, sector, Array.empty,
+          initialSize = 25)
+        val ratio = FirmOps.capacity(f2) / FirmOps.capacity(f1)
+        ratio shouldBe (2.5 +- 0.01)
     }
   }

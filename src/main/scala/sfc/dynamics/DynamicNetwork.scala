@@ -1,7 +1,7 @@
 package sfc.dynamics
 
 import sfc.agents.{Firm, FirmOps, TechState}
-import sfc.config.{Config, SECTORS}
+import sfc.config.{Config, SECTORS, FirmSizeDistribution}
 
 import scala.util.Random
 
@@ -65,17 +65,20 @@ object DynamicNetwork:
     (0 until n).map { i =>
       if toReplace.contains(i) then
         val sec = firms(i).sector
+        val newSize = FirmSizeDistribution.draw(Random)
+        val sizeMult = newSize.toDouble / Config.WorkersPerFirm
         Firm(
           id = i,
-          cash = Random.between(10000.0, 80000.0),
+          cash = (Random.between(10000.0, 80000.0)) * sizeMult,
           debt = 0.0,
-          tech = TechState.Traditional(Config.WorkersPerFirm),
+          tech = TechState.Traditional(newSize),
           riskProfile = Random.between(0.1, 0.9),
           innovationCostFactor = Random.between(0.8, 1.5),
           digitalReadiness = Math.max(0.02, Math.min(0.98,
             SECTORS(sec).baseDigitalReadiness + (Random.nextGaussian() * 0.20))),
           sector = sec,
-          neighbors = adj(i).toArray
+          neighbors = adj(i).toArray,
+          initialSize = newSize
         )
       else
         val newNb = adj(i).toArray

@@ -35,7 +35,7 @@ object LaborMarket:
     // For automated firms, only skeleton crew stays
     val automatedRetained: Map[Int, Int] = newFirms.filter(f =>
       firmLostWorkers.contains(f.id) && f.tech.isInstanceOf[TechState.Automated]
-    ).map(f => f.id -> Config.AutoSkeletonCrew).toMap
+    ).map(f => f.id -> FirmOps.skeletonCrew(f)).toMap
 
     // Track how many workers each affected firm keeps
     val retainCounts = scala.collection.mutable.Map[Int, Int]()
