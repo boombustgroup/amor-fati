@@ -36,6 +36,11 @@ object HouseholdLogic:
           (annualized - Config.PitBracket1Annual) * Config.PitRate2
       Math.max(0.0, grossTax - Config.PitTaxCreditAnnual) / 12.0
 
+  /** Compute 800+ social transfer (PIT-exempt, lump-sum per child ≤ 18). */
+  def computeSocialTransfer(numChildren: Int): Double =
+    if !Config.Social800Enabled || numChildren <= 0 then 0.0
+    else numChildren.toDouble * Config.Social800Rate
+
   /** Compute unemployment benefit based on months unemployed.
     * Polish zasilek: 1500 PLN months 1-3, 1200 PLN months 4-6, 0 after. */
   def computeBenefit(monthsUnemployed: Int): Double =
@@ -71,6 +76,7 @@ object HouseholdLogic:
     var totalWealthEffect = 0.0
     var totalRemittances = 0.0
     var totalPit = 0.0
+    var totalSocialTransfers = 0.0
 
     // Per-bank flow accumulators (only when bankRates provided)
     val br = bankRates.orNull
@@ -107,7 +113,9 @@ object HouseholdLogic:
           val grossIncome = baseIncome + Math.max(0.0, depInterest)  // floor at 0 (no negative interest on negative savings)
           val pitTax = computeMonthlyPit(grossIncome)
           totalPit += pitTax
-          val income = grossIncome - pitTax
+          val socialTransfer = computeSocialTransfer(hh.numDependentChildren)  // PIT-exempt
+          totalSocialTransfers += socialTransfer
+          val income = grossIncome - pitTax + socialTransfer
           actualTotalIncome += income
           totalUnempBenefits += benefit
           val thisDebtService = hh.debt * debtServiceRate
@@ -279,7 +287,8 @@ object HouseholdLogic:
       voluntaryQuits = voluntaryQuits,
       sectorMobilityRate = smRate,
       totalRemittances = totalRemittances,
-      totalPit = totalPit
+      totalPit = totalPit,
+      totalSocialTransfers = totalSocialTransfers
     )
     val pbf = if perBankInc != null then
       Some(PerBankHhFlows(perBankInc, perBankCons, perBankDSvc, perBankDepInt))

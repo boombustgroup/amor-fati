@@ -150,7 +150,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
   //                   Repayment, Default, MortgageInterest, HhHousingWealth,
   //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 127
+  val nCols = 128
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -365,7 +365,9 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.hhAgg.map { agg =>                      // 126: EffectivePitRate
         val gross = agg.totalIncome + agg.totalPit   // totalIncome is net-of-PIT, add back
         if gross > 0 then agg.totalPit / gross else 0.0
-      }.getOrElse(if Config.PitEnabled then Config.PitEffectiveRate else 0.0)
+      }.getOrElse(if Config.PitEnabled then Config.PitEffectiveRate else 0.0),
+      // Social Transfers
+      world.gov.socialTransferSpend                  // 127: SocialTransferSpend
     )
 
   RunResult(results, world.hhAgg)
@@ -398,7 +400,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 127
+  val nCols   = 128
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -454,7 +456,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "ExpectedInflation;NbpCredibility;ForwardGuidanceRate;InflationForecastError;" +
     "WawHpi;KrkHpi;WroHpi;GdnHpi;LdzHpi;PozHpi;RestHpi;" +
     "ImmigrantStock;MonthlyImmigInflow;RemittanceOutflow;ImmigrantUnempRate;" +
-    "EffectivePitRate\n")
+    "EffectivePitRate;SocialTransferSpend\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -544,7 +546,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "ExpectedInflation", "NbpCredibility", "ForwardGuidanceRate", "InflationForecastError",
     "WawHpi", "KrkHpi", "WroHpi", "GdnHpi", "LdzHpi", "PozHpi", "RestHpi",
     "ImmigrantStock", "MonthlyImmigInflow", "RemittanceOutflow", "ImmigrantUnempRate",
-    "EffectivePitRate")
+    "EffectivePitRate", "SocialTransferSpend")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

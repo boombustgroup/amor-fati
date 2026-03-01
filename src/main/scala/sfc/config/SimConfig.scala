@@ -508,6 +508,12 @@ object Config:
   val PitTaxCreditAnnual: Double = sys.env.get("PIT_TAX_CREDIT").map(_.trim.toDouble).getOrElse(3600.0)
   val PitEffectiveRate: Double = sys.env.get("PIT_EFFECTIVE_RATE").map(_.trim.toDouble).getOrElse(0.09)
 
+  // Social Transfers: 800+ child benefit (#26)
+  val Social800Enabled: Boolean = sys.env.get("SOCIAL_800_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val Social800Rate: Double = sys.env.get("SOCIAL_800_RATE").map(_.trim.toDouble).getOrElse(800.0)
+  val Social800ChildrenPerHh: Double = sys.env.get("SOCIAL_800_CHILDREN").map(_.trim.toDouble).getOrElse(0.35)
+  val Social800ImmigrantEligible: Boolean = sys.env.get("SOCIAL_800_IMMIGRANT").map(_.trim.toBoolean).getOrElse(true)
+
   // Heterogeneous households (Paper-06)
   val HhCount = sys.env.get("HH_COUNT").map(_.trim.toInt).getOrElse(TotalPopulation)
 

@@ -78,6 +78,9 @@ object ImmigrationLogic:
       val savings = rng.nextDouble() * 5000.0
       val mpc = 0.85 + rng.nextGaussian() * 0.05
       val rent = Config.HhRentMean + rng.nextGaussian() * Config.HhRentStd
+      val numChildren = if Config.Social800Enabled && Config.Social800ImmigrantEligible then
+        HouseholdInit.poissonSample(Config.Social800ChildrenPerHh, rng)
+      else 0
       Household(
         id = startId + i,
         savings = savings,
@@ -89,7 +92,8 @@ object ImmigrationLogic:
         status = HhStatus.Unemployed(0),
         socialNeighbors = Array.empty,
         lastSectorIdx = sector,
-        isImmigrant = true
+        isImmigrant = true,
+        numDependentChildren = numChildren
       )
     }.toVector
 

@@ -37,7 +37,8 @@ case class Household(
   bankId: Int = 0,            // Multi-bank: index into BankingSectorState.banks
   equityWealth: Double = 0.0, // GPW: value of equity holdings
   lastSectorIdx: Int = -1,    // Sectoral mobility: last sector employed in (-1 = never)
-  isImmigrant: Boolean = false // Immigration: tracks immigrant status for wage discount + remittances
+  isImmigrant: Boolean = false, // Immigration: tracks immigrant status for wage discount + remittances
+  numDependentChildren: Int = 0 // 800+: children ≤ 18 for social transfers
 )
 
 /** Aggregate statistics computed from individual households (Paper-06). */
@@ -75,7 +76,8 @@ case class HhAggregates(
   voluntaryQuits: Int = 0,
   sectorMobilityRate: Double = 0.0,
   totalRemittances: Double = 0.0,
-  totalPit: Double = 0.0
+  totalPit: Double = 0.0,
+  totalSocialTransfers: Double = 0.0
 )
 
 object HouseholdInit:
@@ -118,6 +120,11 @@ object HouseholdInit:
             savings * 0.05  // ~5% of savings in equity (NBP household wealth survey)
           else 0.0
 
+          // 800+ children: Poisson(λ) per HH
+          val numChildren = if sfc.config.Config.Social800Enabled then
+            HouseholdInit.poissonSample(sfc.config.Config.Social800ChildrenPerHh, rng)
+          else 0
+
           builder += Household(
             id = hhId,
             savings = savings,
@@ -129,11 +136,24 @@ object HouseholdInit:
             status = HhStatus.Employed(f.id, sectorIdx, wage),
             socialNeighbors = if hhId < socialNetwork.length then socialNetwork(hhId) else Array.empty,
             equityWealth = eqWealth,
-            lastSectorIdx = sectorIdx
+            lastSectorIdx = sectorIdx,
+            numDependentChildren = numChildren
           )
           hhId += 1
 
     builder.result()
+
+  /** Sample from Poisson(lambda) using Knuth algorithm (small λ). */
+  private[agents] def poissonSample(lambda: Double, rng: Random): Int =
+    if lambda <= 0 then 0
+    else
+      val L = Math.exp(-lambda)
+      var k = 0
+      var p = rng.nextDouble()
+      while p > L do
+        k += 1
+        p *= rng.nextDouble()
+      k
 
   /** Sample from Beta(alpha, beta) using two Gamma samples. */
   private def betaSample(alpha: Double, beta: Double, rng: Random): Double =

@@ -102,15 +102,16 @@ object Sectors:
     unempBenefitSpend: Double,
     debtService: Double = 0.0,
     nbpRemittance: Double = 0.0,
-    zusGovSubvention: Double = 0.0): GovState =
+    zusGovSubvention: Double = 0.0,
+    socialTransferSpend: Double = 0.0): GovState =
     val bdpSpend   = if bdpActive then Config.TotalPopulation.toDouble * bdpAmount else 0.0
-    val totalSpend = bdpSpend + unempBenefitSpend + Config.GovBaseSpending * priceLevel + debtService + zusGovSubvention
+    val totalSpend = bdpSpend + unempBenefitSpend + socialTransferSpend + Config.GovBaseSpending * priceLevel + debtService + zusGovSubvention
     val totalRev   = citPaid + vat + nbpRemittance
     val deficit    = totalSpend - totalRev
     val newBondsOutstanding = if Config.GovBondMarket then Math.max(0.0, prev.bondsOutstanding + deficit)
                               else prev.bondsOutstanding
     GovState(bdpActive, totalRev, bdpSpend, deficit, prev.cumulativeDebt + deficit,
-      unempBenefitSpend, newBondsOutstanding, prev.bondYield, debtService)
+      unempBenefitSpend, newBondsOutstanding, prev.bondYield, debtService, socialTransferSpend)
 
 object Simulation:
   /** Step with optional individual households.
@@ -195,12 +196,15 @@ object Simulation:
     val (totalIncome, consumption, importCons, domesticCons, updatedHouseholds, hhAgg, perBankHhFlowsOpt) =
       households match
         case None =>
-          // Aggregate mode (+ ZUS deductions/pensions + PIT)
+          // Aggregate mode (+ ZUS deductions/pensions + PIT + 800+)
           val wageIncome = employed.toDouble * newWage
           val bdpIncome  = if bdpActive then Config.TotalPopulation.toDouble * bdp else 0.0
           val grossIncome = wageIncome + bdpIncome
           val pitDeduction = if Config.PitEnabled then grossIncome * Config.PitEffectiveRate else 0.0
-          val ti = grossIncome - newZus.contributions + newZus.pensionPayments - pitDeduction
+          val socialTransfers = if Config.Social800Enabled then
+            Config.TotalPopulation.toDouble * Config.Social800ChildrenPerHh * Config.Social800Rate
+          else 0.0
+          val ti = grossIncome - newZus.contributions + newZus.pensionPayments - pitDeduction + socialTransfers
           val cons = ti * Config.Mpc
           val ic = cons * Math.min(0.65, importAdj)
           val dc = cons - ic
@@ -534,8 +538,13 @@ object Simulation:
 
     val vat = consumption * Config.VatRate
     val unempBenefitSpend = hhAgg.map(_.totalUnempBenefits).getOrElse(0.0)
+    val socialTransferSpend = if Config.Social800Enabled then
+      hhAgg.map(_.totalSocialTransfers).getOrElse(
+        Config.TotalPopulation.toDouble * Config.Social800ChildrenPerHh * Config.Social800Rate
+      )
+    else 0.0
     val newGov = Sectors.updateGov(w.gov, sumTax + dividendTax + pitRevenue, vat, bdpActive, bdp, newPrice, unempBenefitSpend,
-      monthlyDebtService, nbpRemittance, newZus.govSubvention)
+      monthlyDebtService, nbpRemittance, newZus.govSubvention, socialTransferSpend)
     val newGovWithYield = newGov.copy(bondYield = newBondYield)
 
     // JST (local government) — must precede newBank (JST deposits flow into bank)
@@ -758,6 +767,7 @@ object Simulation:
     val currSnap = SfcCheck.snapshot(newW, reassignedFirms, reassignedHouseholds)
     val sfcFlows = SfcCheck.MonthlyFlows(
       govSpending = newGovWithYield.bdpSpending + newGovWithYield.unempBenefitSpend
+        + newGovWithYield.socialTransferSpend
         + Config.GovBaseSpending * newPrice + monthlyDebtService + newZus.govSubvention,
       govRevenue = sumTax + dividendTax + pitRevenue + vat + nbpRemittance,
       nplLoss = nplLoss,

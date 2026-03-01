@@ -11,7 +11,8 @@ case class GovState(
   unempBenefitSpend: Double,
   bondsOutstanding: Double = 0.0,
   bondYield: Double = 0.0,
-  debtServiceSpend: Double = 0.0
+  debtServiceSpend: Double = 0.0,
+  socialTransferSpend: Double = 0.0
 )
 
 case class BankState(
