@@ -137,6 +137,14 @@ object Config:
   val VatRate          = 0.23
   val GovBaseSpending  = 100000000.0 * ScaleFactor
 
+  // Public Investment vs Current Spending (#27)
+  val GovInvestEnabled: Boolean = sys.env.get("GOV_INVEST_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val GovInvestShare: Double = sys.env.get("GOV_INVEST_SHARE").map(_.trim.toDouble).getOrElse(0.20)
+  val GovCapitalMultiplier: Double = sys.env.get("GOV_CAPITAL_MULTIPLIER").map(_.trim.toDouble).getOrElse(1.5)
+  val GovCurrentMultiplier: Double = sys.env.get("GOV_CURRENT_MULTIPLIER").map(_.trim.toDouble).getOrElse(0.8)
+  val GovDepreciationRate: Double = sys.env.get("GOV_DEPRECIATION_RATE").map(_.trim.toDouble).getOrElse(0.06)
+  val GovInitCapital: Double = sys.env.get("GOV_INIT_CAPITAL").map(_.trim.toDouble).getOrElse(0.0)
+
   // NBP (NBP data 2024)
   val NbpInitialRate   = 0.0575      // NBP reference rate 2024
   val NbpTargetInfl    = 0.025       // NBP target 2.5% +/- 1pp

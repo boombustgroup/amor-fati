@@ -105,13 +105,21 @@ object Sectors:
     zusGovSubvention: Double = 0.0,
     socialTransferSpend: Double = 0.0): GovState =
     val bdpSpend   = if bdpActive then Config.TotalPopulation.toDouble * bdpAmount else 0.0
-    val totalSpend = bdpSpend + unempBenefitSpend + socialTransferSpend + Config.GovBaseSpending * priceLevel + debtService + zusGovSubvention
+    val govBaseRaw = Config.GovBaseSpending * priceLevel
+    val (govCurrent, govCapital) = if Config.GovInvestEnabled then
+      (govBaseRaw * (1.0 - Config.GovInvestShare), govBaseRaw * Config.GovInvestShare)
+    else (govBaseRaw, 0.0)
+    val totalSpend = bdpSpend + unempBenefitSpend + socialTransferSpend + govCurrent + govCapital + debtService + zusGovSubvention
     val totalRev   = citPaid + vat + nbpRemittance
     val deficit    = totalSpend - totalRev
     val newBondsOutstanding = if Config.GovBondMarket then Math.max(0.0, prev.bondsOutstanding + deficit)
                               else prev.bondsOutstanding
+    val newCapitalStock = if Config.GovInvestEnabled then
+      prev.publicCapitalStock * (1.0 - Config.GovDepreciationRate / 12.0) + govCapital
+    else 0.0
     GovState(bdpActive, totalRev, bdpSpend, deficit, prev.cumulativeDebt + deficit,
-      unempBenefitSpend, newBondsOutstanding, prev.bondYield, debtService, socialTransferSpend)
+      unempBenefitSpend, newBondsOutstanding, prev.bondYield, debtService, socialTransferSpend,
+      newCapitalStock, govCurrent, govCapital)
 
 object Simulation:
   /** Step with optional individual households.
@@ -384,7 +392,11 @@ object Simulation:
     val nLiving = living2.length.toDouble
     val autoR   = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]) / nLiving else 0.0
     val hybR    = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]) / nLiving else 0.0
-    val gdp     = domesticCons + Config.GovBaseSpending + w.forex.exports
+    val govGdpContribution = if Config.GovInvestEnabled then
+      Config.GovBaseSpending * (1.0 - Config.GovInvestShare) * Config.GovCurrentMultiplier +
+      Config.GovBaseSpending * Config.GovInvestShare * Config.GovCapitalMultiplier
+    else Config.GovBaseSpending
+    val gdp     = domesticCons + govGdpContribution + w.forex.exports
 
     // Macroprudential — compute CCyB from credit-to-GDP gap
     val totalSystemLoans = w.bankingSector.map(_.banks.kahanSumBy(_.loans)).getOrElse(w.bank.totalLoans)
