@@ -384,12 +384,24 @@ object Simulation:
       living2.filter(_.sector == s).map(f => FirmOps.capacity(f) * demandMult * w.priceLevel).sum
     }.toVector
 
+    // GVC / Deep External Sector (v5.0)
+    val newGvc = if Config.GvcEnabled && Config.OeEnabled then
+      ExternalSector.step(w.gvc, sectorOutputs, w.priceLevel,
+        w.forex.exchangeRate, autoR, m, rc)
+    else w.gvc
+
+    val (gvcExp, gvcImp) = if Config.GvcEnabled && Config.OeEnabled then
+      (Some(newGvc.totalExports), Some(newGvc.sectorImports))
+    else (None, None)
+
     val (newForex, newBop0, oeValuationEffect, fxResult) = if Config.OeEnabled then
       val oeResult = OpenEconomy.step(
         w.bop, w.forex, importCons, sumTechImp,
         autoR, w.nbp.referenceRate, gdp, w.priceLevel,
         sectorOutputs, m, rc,
-        nbpFxReserves = w.nbp.fxReserves)
+        nbpFxReserves = w.nbp.fxReserves,
+        gvcExports = gvcExp,
+        gvcIntermImports = gvcImp)
       (oeResult.forex, oeResult.bop, oeResult.valuationEffect, oeResult.fxIntervention)
     else
       val fx = Sectors.updateForeign(w.forex, importCons, sumTechImp, autoR, w.nbp.referenceRate, gdp, rc)
@@ -664,7 +676,8 @@ object Simulation:
         crossSectorHires = postFirmCrossSectorHires + hhAgg.map(_.crossSectorHires).getOrElse(0),
         voluntaryQuits = hhAgg.map(_.voluntaryQuits).getOrElse(0),
         sectorMobilityRate = finalHhAgg.map(_.sectorMobilityRate).getOrElse(0.0)
-      ))
+      ),
+      gvc = newGvc)
 
     // SFC accounting check: verify exact balance-sheet identities every step
     val prevSnap = SfcCheck.snapshot(w, firms, households)

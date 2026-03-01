@@ -373,6 +373,32 @@ object Config:
   val ReWealthMpc: Double = sys.env.get("RE_WEALTH_MPC").map(_.trim.toDouble).getOrElse(0.05)
   val ReRentalYield: Double = sys.env.get("RE_RENTAL_YIELD").map(_.trim.toDouble).getOrElse(0.045)
 
+  // GVC / Deep External Sector (v5.0)
+  val GvcEnabled: Boolean = sys.env.get("GVC_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val GvcEuTradeShare: Double = sys.env.get("GVC_EU_TRADE_SHARE").map(_.trim.toDouble).getOrElse(0.70)
+  val GvcExportShares: Vector[Double] = sys.env.get("GVC_EXPORT_SHARES") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 6, s"GVC_EXPORT_SHARES must have 6 values, got ${v.length}")
+      v
+    case _ => Vector(0.05, 0.55, 0.15, 0.03, 0.02, 0.20)
+  val GvcDepth: Vector[Double] = sys.env.get("GVC_DEPTH") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 6, s"GVC_DEPTH must have 6 values, got ${v.length}")
+      v
+    case _ => Vector(0.35, 0.75, 0.30, 0.40, 0.10, 0.45)
+  val GvcForeignInflation: Double = sys.env.get("GVC_FOREIGN_INFLATION").map(_.trim.toDouble).getOrElse(0.02)
+  val GvcForeignGdpGrowth: Double = sys.env.get("GVC_FOREIGN_GDP_GROWTH").map(_.trim.toDouble).getOrElse(0.015)
+  val GvcErPassthrough: Double = sys.env.get("GVC_ER_PASSTHROUGH").map(_.trim.toDouble).getOrElse(0.60)
+  val GvcEuErPassthrough: Double = sys.env.get("GVC_EU_ER_PASSTHROUGH").map(_.trim.toDouble).getOrElse(0.15)
+  val GvcDemandShockMonth: Int = sys.env.get("GVC_DEMAND_SHOCK_MONTH").map(_.trim.toInt).getOrElse(0)
+  val GvcDemandShockSize: Double = sys.env.get("GVC_DEMAND_SHOCK_SIZE").map(_.trim.toDouble).getOrElse(0.0)
+  val GvcDemandShockSectors: Set[Int] = sys.env.get("GVC_DEMAND_SHOCK_SECTORS") match
+    case Some(s) if s.nonEmpty => s.split(",").map(_.trim.toInt).toSet
+    case _ => Set.empty
+  val GvcDisruptionRecovery: Double = sys.env.get("GVC_DISRUPTION_RECOVERY").map(_.trim.toDouble).getOrElse(0.05)
+
   // Sectoral labor mobility (v5.0)
   val LmSectoralMobility: Boolean = sys.env.get("LM_SECTORAL_MOBILITY").map(_.trim.toBoolean).getOrElse(false)
   val LmFrictionMatrix: Vector[Vector[Double]] = sys.env.get("LM_TRANSITION_MATRIX") match

@@ -112,7 +112,9 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       initEq.copy(hhEquityWealth = initHhEq)
     else EquityMarket.zero,
     housing = if Config.ReEnabled then HousingMarket.initial
-              else HousingMarket.zero)
+              else HousingMarket.zero,
+    gvc = if Config.GvcEnabled && Config.OeEnabled then ExternalSector.initial
+          else ExternalSector.zero)
 
   // Collect time-series: 120 rows x N columns
   // Columns: Month, Inflation, Unemployment, AutoRatio+HybridRatio, ExRate, MarketWage,
@@ -127,7 +129,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
   //                   Repayment, Default, MortgageInterest, HhHousingWealth,
   //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 106
+  val nCols = 111
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -306,7 +308,13 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       // Sectoral Labor Mobility
       world.sectoralMobility.sectorMobilityRate,    // 103: SectorMobilityRate
       world.sectoralMobility.crossSectorHires.toDouble,  // 104: CrossSectorHires
-      world.sectoralMobility.voluntaryQuits.toDouble // 105: VoluntaryQuits
+      world.sectoralMobility.voluntaryQuits.toDouble, // 105: VoluntaryQuits
+      // GVC / Deep External Sector
+      world.gvc.disruptionIndex,        // 106: GvcDisruptionIndex
+      world.gvc.foreignPriceIndex,      // 107: ForeignPriceIndex
+      world.gvc.tradeConcentration,     // 108: GvcTradeConcentration
+      world.gvc.exportDemandShockMag,   // 109: GvcExportDemandShock
+      world.gvc.importCostIndex         // 110: GvcImportCostIndex
     )
 
   RunResult(results, world.hhAgg)
@@ -390,7 +398,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "HousingPriceIndex;HousingMarketValue;MortgageStock;AvgMortgageRate;" +
     "MortgageOrigination;MortgageRepayment;MortgageDefault;MortgageInterestIncome;" +
     "HhHousingWealth;HousingWealthEffect;MortgageToGdp;" +
-    "SectorMobilityRate;CrossSectorHires;VoluntaryQuits\n")
+    "SectorMobilityRate;CrossSectorHires;VoluntaryQuits;" +
+    "GvcDisruptionIndex;ForeignPriceIndex;GvcTradeConcentration;GvcExportDemandShock;GvcImportCostIndex\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -474,7 +483,9 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "HousingPriceIndex", "HousingMarketValue", "MortgageStock", "AvgMortgageRate",
     "MortgageOrigination", "MortgageRepayment", "MortgageDefault", "MortgageInterestIncome",
     "HhHousingWealth", "HousingWealthEffect", "MortgageToGdp",
-    "SectorMobilityRate", "CrossSectorHires", "VoluntaryQuits")
+    "SectorMobilityRate", "CrossSectorHires", "VoluntaryQuits",
+    "GvcDisruptionIndex", "ForeignPriceIndex", "GvcTradeConcentration",
+    "GvcExportDemandShock", "GvcImportCostIndex")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

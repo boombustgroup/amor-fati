@@ -20,7 +20,9 @@ object OpenEconomy:
            autoRatio: Double, domesticRate: Double, gdp: Double,
            priceLevel: Double, sectorOutputs: Vector[Double],
            month: Int, rc: RunConfig,
-           nbpFxReserves: Double = 0.0): OpenEconResult =
+           nbpFxReserves: Double = 0.0,
+           gvcExports: Option[Double] = None,
+           gvcIntermImports: Option[Vector[Double]] = None): OpenEconResult =
 
     val nSectors = 6
 
@@ -37,7 +39,9 @@ object OpenEconomy:
         val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER
                         else 1.0
         Math.pow(1.0 / Math.max(0.1, realPrice), Config.OeExportPriceElasticity)
-    val exports = Config.OeExportBase * foreignGdpFactor * realExRate * ulcEffect
+    val exports = gvcExports.getOrElse {
+      Config.OeExportBase * foreignGdpFactor * realExRate * ulcEffect
+    }
 
     // B. Imported intermediates (cross-border I-O)
     // Intermediate imports = real domestic output × import share × ER net effect.
@@ -47,11 +51,13 @@ object OpenEconomy:
     val erNetEffect = if rc.isEurozone then 1.0
       else Math.pow(prevForex.exchangeRate / Config.BaseExRate,
                     1.0 - Config.OeErElasticity)
-    val importedInterm = (0 until nSectors).map { s =>
-      val realOutput = if priceLevel > 0 then sectorOutputs(s) / priceLevel
-                       else sectorOutputs(s)
-      realOutput * Config.OeImportContent(s) * erNetEffect
-    }.toVector
+    val importedInterm = gvcIntermImports.getOrElse {
+      (0 until nSectors).map { s =>
+        val realOutput = if priceLevel > 0 then sectorOutputs(s) / priceLevel
+                         else sectorOutputs(s)
+        realOutput * Config.OeImportContent(s) * erNetEffect
+      }.toVector
+    }
     val totalImportedInterm = importedInterm.sum
 
     // C. Total imports

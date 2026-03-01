@@ -31,5 +31,6 @@ case class World(
   macropru: MacropruState = MacropruState.zero,
   equity: EquityMarketState = EquityMarket.zero,
   housing: HousingMarketState = HousingMarket.zero,
-  sectoralMobility: SectoralMobilityState = SectoralMobility.zero
+  sectoralMobility: SectoralMobilityState = SectoralMobility.zero,
+  gvc: GvcState = ExternalSector.zero
 )
