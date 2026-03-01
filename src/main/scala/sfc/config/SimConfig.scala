@@ -482,6 +482,24 @@ object Config:
   val ExpBondSensitivity: Double = sys.env.get("EXPECTATIONS_BOND_SENSITIVITY").map(_.trim.toDouble).getOrElse(0.50)
   val NbpForwardGuidance: Boolean = sys.env.get("NBP_FORWARD_GUIDANCE").map(_.trim.toBoolean).getOrElse(false)
 
+  // Immigration (#24)
+  val ImmigEnabled: Boolean = sys.env.get("IMMIG_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val ImmigMonthlyRate: Double = sys.env.get("IMMIG_MONTHLY_RATE").map(_.trim.toDouble).getOrElse(0.001)
+  val ImmigEndogenous: Boolean = sys.env.get("IMMIG_ENDOGENOUS").map(_.trim.toBoolean).getOrElse(false)
+  val ImmigWageElasticity: Double = sys.env.get("IMMIG_WAGE_ELASTICITY").map(_.trim.toDouble).getOrElse(2.0)
+  val ImmigForeignWage: Double = sys.env.get("IMMIG_FOREIGN_WAGE").map(_.trim.toDouble).getOrElse(4000.0)
+  val ImmigRemittanceRate: Double = sys.env.get("IMMIG_REMITTANCE_RATE").map(_.trim.toDouble).getOrElse(0.15)
+  val ImmigReturnRate: Double = sys.env.get("IMMIG_RETURN_RATE").map(_.trim.toDouble).getOrElse(0.005)
+  val ImmigSectorShares: Vector[Double] = sys.env.get("IMMIG_SECTOR_SHARES") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 6, s"IMMIG_SECTOR_SHARES must have 6 values, got ${v.length}")
+      v
+    case _ => Vector(0.05, 0.35, 0.25, 0.05, 0.05, 0.25)
+  val ImmigSkillMean: Double = sys.env.get("IMMIG_SKILL_MEAN").map(_.trim.toDouble).getOrElse(0.45)
+  val ImmigWageDiscount: Double = sys.env.get("IMMIG_WAGE_DISCOUNT").map(_.trim.toDouble).getOrElse(0.20)
+  val ImmigInitStock: Int = sys.env.get("IMMIG_INIT_STOCK").map(_.trim.toInt).getOrElse(0)
+
   // Heterogeneous households (Paper-06)
   val HhCount = sys.env.get("HH_COUNT").map(_.trim.toInt).getOrElse(TotalPopulation)
 

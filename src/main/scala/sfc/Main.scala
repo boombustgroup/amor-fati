@@ -91,6 +91,13 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       Some(assigned)
     case HhMode.Aggregate => None
 
+  // Initial immigrants (IMMIG_INIT_STOCK > 0, individual mode only)
+  if Config.ImmigEnabled && Config.ImmigInitStock > 0 && households.isDefined then
+    val startId = Config.TotalPopulation
+    val immigrants = ImmigrationLogic.spawnImmigrants(Config.ImmigInitStock, startId, Random)
+    households = households.map(hhs => hhs ++ immigrants)
+    Config.setTotalPopulation(Config.TotalPopulation + Config.ImmigInitStock)
+
   val initCash = firms.kahanSumBy(_.cash)
   val initRate = if rc.isEurozone then Config.EcbInitialRate else Config.NbpInitialRate
   val initBankingSector = if Config.BankMulti then
@@ -125,7 +132,10 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     gvc = if Config.GvcEnabled && Config.OeEnabled then ExternalSector.initial
           else ExternalSector.zero,
     expectations = if Config.ExpEnabled then Expectations.initial
-                   else Expectations.zero)
+                   else Expectations.zero,
+    immigration = if Config.ImmigEnabled then
+      ImmigrationState(Config.ImmigInitStock, 0, 0, 0.0)
+    else ImmigrationState.zero)
 
   // Collect time-series: 120 rows x N columns
   // Columns: Month, Inflation, Unemployment, AutoRatio+HybridRatio, ExRate, MarketWage,
@@ -140,7 +150,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
   //                   Repayment, Default, MortgageInterest, HhHousingWealth,
   //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 122
+  val nCols = 126
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -338,7 +348,19 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.housing.regions.map(_(3).priceIndex).getOrElse(0.0),  // 118: GdnHpi
       world.housing.regions.map(_(4).priceIndex).getOrElse(0.0),  // 119: LdzHpi
       world.housing.regions.map(_(5).priceIndex).getOrElse(0.0),  // 120: PozHpi
-      world.housing.regions.map(_(6).priceIndex).getOrElse(0.0)   // 121: RestHpi
+      world.housing.regions.map(_(6).priceIndex).getOrElse(0.0),  // 121: RestHpi
+      // Immigration
+      world.immigration.immigrantStock.toDouble,     // 122: ImmigrantStock
+      world.immigration.monthlyInflow.toDouble,      // 123: MonthlyImmigInflow
+      world.immigration.remittanceOutflow,            // 124: RemittanceOutflow
+      (if world.immigration.immigrantStock > 0 then  // 125: ImmigrantUnempRate
+        households.map { hhs =>
+          val immigrants = hhs.filter(_.isImmigrant)
+          if immigrants.nonEmpty then
+            immigrants.count(h => !h.status.isInstanceOf[HhStatus.Employed]).toDouble / immigrants.length
+          else 0.0
+        }.getOrElse(0.0)
+      else 0.0)
     )
 
   RunResult(results, world.hhAgg)
@@ -425,7 +447,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "SectorMobilityRate;CrossSectorHires;VoluntaryQuits;" +
     "GvcDisruptionIndex;ForeignPriceIndex;GvcTradeConcentration;GvcExportDemandShock;GvcImportCostIndex;" +
     "ExpectedInflation;NbpCredibility;ForwardGuidanceRate;InflationForecastError;" +
-    "WawHpi;KrkHpi;WroHpi;GdnHpi;LdzHpi;PozHpi;RestHpi\n")
+    "WawHpi;KrkHpi;WroHpi;GdnHpi;LdzHpi;PozHpi;RestHpi;" +
+    "ImmigrantStock;MonthlyImmigInflow;RemittanceOutflow;ImmigrantUnempRate\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -513,7 +536,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "GvcDisruptionIndex", "ForeignPriceIndex", "GvcTradeConcentration",
     "GvcExportDemandShock", "GvcImportCostIndex",
     "ExpectedInflation", "NbpCredibility", "ForwardGuidanceRate", "InflationForecastError",
-    "WawHpi", "KrkHpi", "WroHpi", "GdnHpi", "LdzHpi", "PozHpi", "RestHpi")
+    "WawHpi", "KrkHpi", "WroHpi", "GdnHpi", "LdzHpi", "PozHpi", "RestHpi",
+    "ImmigrantStock", "MonthlyImmigInflow", "RemittanceOutflow", "ImmigrantUnempRate")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

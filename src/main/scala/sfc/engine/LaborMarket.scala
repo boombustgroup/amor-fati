@@ -126,14 +126,17 @@ object LaborMarket:
     (result.toVector, crossSectorHires)
 
   /** Update wages for all employed households based on current market wage.
-    * Individual wages are heterogeneous (sector × skill × health) but normalized
-    * so the mean employed wage = marketWage (macro consistency). */
+    * Individual wages are heterogeneous (sector × skill × health × immigrant discount)
+    * but normalized so the mean employed wage = marketWage (macro consistency). */
   def updateWages(households: Vector[Household], marketWage: Double): Vector[Household] =
     // Compute raw relative wages for employed
     val rawWages = households.map { hh =>
       hh.status match
         case HhStatus.Employed(_, sectorIdx, _) =>
-          SECTORS(sectorIdx).wageMultiplier * hh.skill * (1.0 - hh.healthPenalty)
+          val immigrantDiscount = if hh.isImmigrant && Config.ImmigEnabled then
+            1.0 - Config.ImmigWageDiscount
+          else 1.0
+          SECTORS(sectorIdx).wageMultiplier * hh.skill * (1.0 - hh.healthPenalty) * immigrantDiscount
         case _ => 0.0
     }
     val employed = households.indices.filter(i =>

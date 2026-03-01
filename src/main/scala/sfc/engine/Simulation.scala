@@ -2,6 +2,7 @@ package sfc.engine
 
 import sfc.config.{Config, SECTORS, HH_MODE, HhMode, RunConfig}
 import sfc.agents.*
+import sfc.agents.{ImmigrationState, ImmigrationLogic}
 import sfc.sfc.*
 import sfc.networks.Network
 import sfc.dynamics.{SigmaDynamics, DynamicNetwork}
@@ -169,7 +170,15 @@ object Simulation:
     val employed = if Config.DemEnabled then
       Math.min(rawEmployed, w.demographics.workingAgePop)
     else rawEmployed
-    val newDemographics = PublicSectorLogic.demographicsStep(w.demographics, employed)
+
+    // Immigration step: compute inflow/outflow before demographics (net migration feeds into workingAgePop)
+    val unempRateForImmig = 1.0 - employed.toDouble / Config.TotalPopulation
+    val newImmig = ImmigrationLogic.step(
+      w.immigration, households, newWage, unempRateForImmig,
+      w.demographics.workingAgePop.max(Config.TotalPopulation), m)
+    val netMigration = newImmig.monthlyInflow - newImmig.monthlyOutflow
+
+    val newDemographics = PublicSectorLogic.demographicsStep(w.demographics, employed, netMigration)
 
     // ZUS (contributions + pensions) and PPK
     val newZus = PublicSectorLogic.zusStep(w.zus.fusBalance, employed, newWage, newDemographics.retirees)
@@ -312,12 +321,26 @@ object Simulation:
 
     // Individual mode: post-firm-processing labor market update
     var postFirmCrossSectorHires = 0
-    val finalHouseholds = updatedHouseholds.map { hhs =>
+    val preMigrationHouseholds = updatedHouseholds.map { hhs =>
       val afterSep = LaborMarket.separations(hhs, firms, ioFirms)
       val (afterSearch, csHires) = LaborMarket.jobSearch(afterSep, ioFirms, newWage, Random)
       postFirmCrossSectorHires += csHires
       LaborMarket.updateWages(afterSearch, newWage)  // normalize wages for next step
     }
+
+    // Immigration: spawn new immigrants, remove returning migrants (individual mode)
+    val finalHouseholds = if Config.ImmigEnabled then
+      preMigrationHouseholds.map { hhs =>
+        val afterRemoval = ImmigrationLogic.removeReturnMigrants(hhs, newImmig.monthlyOutflow)
+        val startId = afterRemoval.map(_.id).maxOption.getOrElse(-1) + 1
+        val newImmigrants = ImmigrationLogic.spawnImmigrants(newImmig.monthlyInflow, startId, Random)
+        afterRemoval ++ newImmigrants
+      }
+    else preMigrationHouseholds
+
+    // Aggregate mode: update TotalPopulation with net migration
+    if Config.ImmigEnabled && households.isEmpty then
+      Config.setTotalPopulation(Config.TotalPopulation + netMigration)
 
     val prevAlive = firms.filter(FirmOps.isAlive).map(_.id).toSet
     val newlyDead = ioFirms.filter(f => !FirmOps.isAlive(f) && prevAlive.contains(f.id))
@@ -337,6 +360,8 @@ object Simulation:
     val hhDebtService = hhAgg.map(_.totalDebtService).getOrElse(0.0)
     // SFC: deposit interest paid to HH (monetary transmission channel 2)
     val depositInterestPaid = hhAgg.map(_.totalDepositInterest).getOrElse(0.0)
+    // SFC: remittance outflow (immigrant wages sent abroad — deposit outflow + current account)
+    val remittanceOutflow = hhAgg.map(_.totalRemittances).getOrElse(newImmig.remittanceOutflow)
     // Note: newBank construction deferred until after bond market block (needs bankBondIncome)
 
     val living2 = ioFirms.filter(FirmOps.isAlive)
@@ -421,7 +446,8 @@ object Simulation:
         sectorOutputs, m, rc,
         nbpFxReserves = w.nbp.fxReserves,
         gvcExports = gvcExp,
-        gvcIntermImports = gvcImp)
+        gvcIntermImports = gvcImp,
+        remittanceOutflow = remittanceOutflow)
       (oeResult.forex, oeResult.bop, oeResult.valuationEffect, oeResult.fxIntervention)
     else
       val fx = Sectors.updateForeign(w.forex, importCons, sumTechImp, autoR, w.nbp.referenceRate, gdp, rc)
@@ -537,7 +563,7 @@ object Simulation:
                    + totalInterbankInterest * 0.3
                    + mortgageInterestIncome * 0.3,
       deposits   = w.bank.deposits + (totalIncome - consumption) + jstDepositChange
-                   + netDomesticDividends - foreignDividendOutflow)
+                   + netDomesticDividends - foreignDividendOutflow - remittanceOutflow)
 
     // Recompute hhAgg from final households if in individual mode
     // Carry retraining counters from the monthly step (hhAgg) — not zeros
@@ -603,7 +629,8 @@ object Simulation:
           val ws = if totalWorkers > 0 then perBankWorkers(bId) / totalWorkers else 0.0
           val bankDivInflow = netDomesticDividends * ws
           val bankDivOutflow = foreignDividendOutflow * ws
-          val newDep = b.deposits + (bankIncomeShare - bankConsShare) + bankDivInflow - bankDivOutflow
+          val bankRemittance = remittanceOutflow * ws
+          val newDep = b.deposits + (bankIncomeShare - bankConsShare) + bankDivInflow - bankDivOutflow - bankRemittance
           // Per-bank mortgage flows (proportional to deposit share)
           val bankDepShare = if totalWorkers > 0 then perBankWorkers(bId) / totalWorkers else 0.0
           val bankMortgageIntIncome = mortgageInterestIncome * bankDepShare
@@ -711,7 +738,8 @@ object Simulation:
         sectorMobilityRate = finalHhAgg.map(_.sectorMobilityRate).getOrElse(0.0)
       ),
       gvc = newGvc,
-      expectations = newExp)
+      expectations = newExp,
+      immigration = newImmig)
 
     // SFC accounting check: verify exact balance-sheet identities every step
     val prevSnap = SfcCheck.snapshot(w, firms, households)
@@ -749,7 +777,8 @@ object Simulation:
       mortgageNplLoss = mortgageDefaultLoss,
       mortgageOrigination = housingAfterFlows.lastOrigination,
       mortgagePrincipalRepaid = mortgagePrincipal,
-      mortgageDefaultAmount = mortgageDefaultAmount
+      mortgageDefaultAmount = mortgageDefaultAmount,
+      remittanceOutflow = remittanceOutflow
     )
     val sfcResult = SfcCheck.validate(m, prevSnap, currSnap, sfcFlows)
     if !sfcResult.passed then

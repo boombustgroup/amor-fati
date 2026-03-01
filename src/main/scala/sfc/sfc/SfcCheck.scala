@@ -62,7 +62,8 @@ object SfcCheck:
     mortgageNplLoss: Double = 0.0,        // mortgage NPL loss → bank capital
     mortgageOrigination: Double = 0.0,    // new mortgages issued
     mortgagePrincipalRepaid: Double = 0.0, // monthly principal repaid
-    mortgageDefaultAmount: Double = 0.0   // gross mortgage defaults (before recovery)
+    mortgageDefaultAmount: Double = 0.0,  // gross mortgage defaults (before recovery)
+    remittanceOutflow: Double = 0.0       // immigrant remittances → deposit outflow
   )
 
   /** Result of the SFC check: nine exact balance-sheet identity checks. */
@@ -113,7 +114,7 @@ object SfcCheck:
     * Instead we check identities that ARE exact by construction:
     *
     * 1. Bank capital:  Δ = -nplLoss - mortgageNplLoss + (interestIncome + hhDebtService + bankBondIncome + mortgageInterestIncome - depositInterestPaid + reserveInterest + standingFacilityIncome + interbankInterest) × 0.3
-    * 2. Bank deposits: Δ = totalIncome - totalConsumption + jstDepositChange + dividendIncome - foreignDividendOutflow
+    * 2. Bank deposits: Δ = totalIncome - totalConsumption + jstDepositChange + dividendIncome - foreignDividendOutflow - remittanceOutflow
     * 3. Gov debt:      Δ = govSpending - govRevenue  (govRevenue includes dividendTax + zusGovSubvention)
     * 4. NFA:           Δ = currentAccount + valuationEffect  (currentAccount includes -foreignDividendOutflow)
     * 5. Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings = bondsOutstanding
@@ -139,9 +140,9 @@ object SfcCheck:
     val actualBankCapChange = curr.bankCapital - prev.bankCapital
     val bankCapErr = actualBankCapChange - expectedBankCapChange
 
-    // Identity 2: Bank deposits (+ JST deposit flows + dividend flows)
+    // Identity 2: Bank deposits (+ JST deposit flows + dividend flows - remittance outflow)
     val expectedDepChange = flows.totalIncome - flows.totalConsumption + flows.jstDepositChange +
-      flows.dividendIncome - flows.foreignDividendOutflow
+      flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow
     val actualDepChange = curr.bankDeposits - prev.bankDeposits
     val bankDepErr = actualDepChange - expectedDepChange
 

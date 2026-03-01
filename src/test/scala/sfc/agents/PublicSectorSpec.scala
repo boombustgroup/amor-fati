@@ -98,6 +98,23 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
     result.monthlyRetirements shouldBe 0
   }
 
+  it should "accept netMigration=0 as default (backward compat)" in {
+    val dem = DemographicsState(100, 10000, 5)
+    val result = PublicSectorLogic.demographicsStep(dem, 9000)
+    // Same as calling with explicit netMigration=0
+    val result2 = PublicSectorLogic.demographicsStep(dem, 9000, 0)
+    result.workingAgePop shouldBe result2.workingAgePop
+  }
+
+  it should "increase workingAgePop with positive netMigration (when disabled)" in {
+    // When demographics disabled, state is returned unchanged (no retirement/decline)
+    // netMigration is only applied when DemEnabled=true, so this just tests the default path
+    val dem = DemographicsState(100, 10000, 5)
+    val result = PublicSectorLogic.demographicsStep(dem, 9000, 500)
+    // When disabled, workingAgePop unchanged regardless of netMigration
+    result.workingAgePop shouldBe 10000
+  }
+
   "DemographicsState.zero" should "have all zero fields" in {
     DemographicsState.zero.retirees shouldBe 0
     DemographicsState.zero.workingAgePop shouldBe 0

@@ -231,6 +231,40 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     agg.totalDepositInterest shouldBe 0.0
   }
 
+  // --- Immigration: remittance deduction ---
+
+  "HouseholdLogic.step" should "not deduct remittances from non-immigrant HH" in {
+    val rng = new Random(42)
+    val wage = 8000.0
+    val hhs = Vector(
+      mkHousehold(0, HhStatus.Employed(0, 2, wage), savings = 50000.0).copy(isImmigrant = false)
+    )
+    val (updated, agg, _) = HouseholdLogic.step(hhs, mkWorld(), 2000.0, wage, 4666.0, 0.4, rng)
+    agg.totalRemittances shouldBe 0.0
+  }
+
+  it should "not deduct remittances from immigrant HH when disabled" in {
+    val rng = new Random(42)
+    val wage = 8000.0
+    val hhs = Vector(
+      mkHousehold(0, HhStatus.Employed(0, 2, wage), savings = 50000.0).copy(isImmigrant = true)
+    )
+    // ImmigEnabled is false by default → no remittance deduction
+    val (updated, agg, _) = HouseholdLogic.step(hhs, mkWorld(), 2000.0, wage, 4666.0, 0.4, rng)
+    agg.totalRemittances shouldBe 0.0
+  }
+
+  it should "track totalRemittances in aggregates" in {
+    val rng = new Random(42)
+    val hhs = Vector(
+      mkHousehold(0, HhStatus.Employed(0, 2, 8000.0), savings = 50000.0).copy(isImmigrant = false),
+      mkHousehold(1, HhStatus.Employed(1, 2, 7000.0), savings = 50000.0).copy(isImmigrant = true)
+    )
+    // ImmigEnabled=false → totalRemittances=0 regardless of isImmigrant
+    val (_, agg, _) = HouseholdLogic.step(hhs, mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng)
+    agg.totalRemittances shouldBe 0.0
+  }
+
   // --- HouseholdLogic.giniSorted ---
 
   "HouseholdLogic.giniSorted" should "return 0 for equal values" in {

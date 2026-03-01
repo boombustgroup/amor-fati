@@ -55,6 +55,7 @@ object HouseholdLogic:
     var actualTotalRent = 0.0
     var totalEquityWealth = 0.0
     var totalWealthEffect = 0.0
+    var totalRemittances = 0.0
 
     // Per-bank flow accumulators (only when bankRates provided)
     val br = bankRates.orNull
@@ -95,7 +96,13 @@ object HouseholdLogic:
           actualTotalDebtService += thisDebtService
           actualTotalDepositInterest += Math.max(0.0, depInterest)
 
-          val obligations = hh.monthlyRent + thisDebtService
+          // Immigrant remittance: fraction of income sent abroad (deposit outflow)
+          val remittance = if hh.isImmigrant && Config.ImmigEnabled then
+            income * Config.ImmigRemittanceRate
+          else 0.0
+          totalRemittances += remittance
+
+          val obligations = hh.monthlyRent + thisDebtService + remittance
           val disposable = Math.max(0.0, income - obligations)
           val consumption = disposable * hh.mpc
 
@@ -252,7 +259,8 @@ object HouseholdLogic:
       totalDepositInterest = actualTotalDepositInterest,
       totalRent = actualTotalRent,
       voluntaryQuits = voluntaryQuits,
-      sectorMobilityRate = smRate
+      sectorMobilityRate = smRate,
+      totalRemittances = totalRemittances
     )
     val pbf = if perBankInc != null then
       Some(PerBankHhFlows(perBankInc, perBankCons, perBankDSvc, perBankDepInt))
