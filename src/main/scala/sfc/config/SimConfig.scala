@@ -88,8 +88,8 @@ object Config:
   val WorkersPerFirm   = 10
   val TotalPopulation  = FirmsCount * WorkersPerFirm
   private val ScaleFactor = FirmsCount.toDouble / 10000.0
-  val Duration         = 120
-  val ShockMonth       = 30
+  val Duration         = sys.env.get("DURATION").map(_.trim.toInt).getOrElse(120)
+  val ShockMonth       = sys.env.get("SHOCK_MONTH").map(_.trim.toInt).getOrElse(30)
 
   // Firm (base -- sectors modify these values)
   val BaseRevenue      = 100000.0   // Scaled to GUS 2024 wage level
