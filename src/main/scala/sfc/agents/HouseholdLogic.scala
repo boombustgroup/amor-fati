@@ -259,7 +259,7 @@ object HouseholdLogic:
                 if monthsLeft <= 1 then
                   // Retraining complete -- check success (friction-adjusted)
                   val baseSuccessProb = Config.HhRetrainingBaseSuccess *
-                    afterSkill * (1.0 - afterHealth)
+                    afterSkill * (1.0 - afterHealth) * Config.eduRetrainMultiplier(hh.education)
                   val successProb = if Config.LmSectoralMobility then
                     val fromSector = if hh.lastSectorIdx >= 0 then hh.lastSectorIdx else 0
                     val friction = Config.LmFrictionMatrix(fromSector)(targetSector)

@@ -41,7 +41,8 @@ case class Household(
   lastSectorIdx: Int = -1,    // Sectoral mobility: last sector employed in (-1 = never)
   isImmigrant: Boolean = false, // Immigration: tracks immigrant status for wage discount + remittances
   numDependentChildren: Int = 0, // 800+: children ≤ 18 for social transfers
-  consumerDebt: Double = 0.0    // Consumer credit: outstanding unsecured consumer loan
+  consumerDebt: Double = 0.0,   // Consumer credit: outstanding unsecured consumer loan
+  education: Int = 2            // Education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
 )
 
 /** Aggregate statistics computed from individual households (Paper-06). */
@@ -113,11 +114,13 @@ object HouseholdInit:
           // MPC: Beta(alpha, beta) via gamma transformation
           val mpc = betaSample(Config.HhMpcAlpha, Config.HhMpcBeta, rng)
 
-          // Skill: Uniform(0.3, 1.0), with sector correlation
+          // Education draw + skill range
+          val edu = sfc.config.Config.drawEducation(sectorIdx, rng)
+          val (skillFloor, skillCeiling) = sfc.config.Config.eduSkillRange(edu)
           val sectorSigma = sfc.config.SECTORS(sectorIdx).sigma
-          val baseSkill = 0.3 + 0.7 * rng.nextDouble()
+          val baseSkill = skillFloor + (skillCeiling - skillFloor) * rng.nextDouble()
           val sectorBonus = Math.min(0.1, 0.02 * Math.log(sectorSigma))
-          val skill = Math.max(0.3, Math.min(1.0, baseSkill + sectorBonus))
+          val skill = Math.max(skillFloor, Math.min(skillCeiling, baseSkill + sectorBonus))
 
           val wage = Config.BaseWage * sfc.config.SECTORS(sectorIdx).wageMultiplier * skill
 
@@ -149,7 +152,8 @@ object HouseholdInit:
             equityWealth = eqWealth,
             lastSectorIdx = sectorIdx,
             numDependentChildren = numChildren,
-            consumerDebt = consDebt
+            consumerDebt = consDebt,
+            education = edu
           )
           hhId += 1
 

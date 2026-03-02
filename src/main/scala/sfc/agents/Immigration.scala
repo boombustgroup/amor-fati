@@ -73,8 +73,10 @@ object ImmigrationLogic:
   def spawnImmigrants(count: Int, startId: Int, rng: Random): Vector[Household] =
     (0 until count).map { i =>
       val sector = chooseSector(rng)
+      val edu = Config.drawImmigrantEducation(rng)
       val skill = Config.ImmigSkillMean + (rng.nextGaussian() * 0.15)
-      val clampedSkill = skill.max(0.15).min(0.95)
+      val (skillFloor, skillCeiling) = Config.eduSkillRange(edu)
+      val clampedSkill = skill.max(skillFloor).min(skillCeiling)
       val savings = rng.nextDouble() * 5000.0
       val mpc = 0.85 + rng.nextGaussian() * 0.05
       val rent = Config.HhRentMean + rng.nextGaussian() * Config.HhRentStd
@@ -93,7 +95,8 @@ object ImmigrationLogic:
         socialNeighbors = Array.empty,
         lastSectorIdx = sector,
         isImmigrant = true,
-        numDependentChildren = numChildren
+        numDependentChildren = numChildren,
+        education = edu
       )
     }.toVector
 

@@ -37,21 +37,24 @@ object LaborMarket:
       firmLostWorkers.contains(f.id) && f.tech.isInstanceOf[TechState.Automated]
     ).map(f => f.id -> FirmOps.skeletonCrew(f)).toMap
 
-    // Track how many workers each affected firm keeps
-    val retainCounts = scala.collection.mutable.Map[Int, Int]()
+    // Build retain sets: sort workers by (-education, -skill), take top maxRetain
+    val firmToWorkers = scala.collection.mutable.Map[Int, scala.collection.mutable.ArrayBuffer[Int]]()
+    for (hh, idx) <- households.zipWithIndex do
+      hh.status match
+        case HhStatus.Employed(firmId, _, _) if firmLostWorkers.contains(firmId) =>
+          firmToWorkers.getOrElseUpdate(firmId, scala.collection.mutable.ArrayBuffer.empty) += idx
+        case _ =>
+    val eduRetainSets: Map[Int, Set[Int]] = firmToWorkers.map { (firmId, indices) =>
+      val sorted = indices.sortBy(i => (-households(i).education, -households(i).skill))
+      val maxRetain = hybridRetained.getOrElse(firmId, automatedRetained.getOrElse(firmId, 0))
+      firmId -> sorted.take(maxRetain).toSet
+    }.toMap
 
-    households.map { hh =>
+    households.zipWithIndex.map { (hh, idx) =>
       hh.status match
         case HhStatus.Employed(firmId, sectorIdx, wage) if firmLostWorkers.contains(firmId) =>
-          val maxRetain = hybridRetained.getOrElse(firmId,
-            automatedRetained.getOrElse(firmId, 0))
-          val retained = retainCounts.getOrElse(firmId, 0)
-          if retained < maxRetain then
-            retainCounts(firmId) = retained + 1
-            hh  // stays employed
-          else
-            // Record last sector when becoming unemployed
-            hh.copy(status = HhStatus.Unemployed(0), lastSectorIdx = sectorIdx)
+          if eduRetainSets.getOrElse(firmId, Set.empty).contains(idx) then hh
+          else hh.copy(status = HhStatus.Unemployed(0), lastSectorIdx = sectorIdx)
         case _ => hh
     }
 
@@ -112,7 +115,8 @@ object LaborMarket:
           val penalty = if Config.LmSectoralMobility && isCrossSector then
             SectoralMobility.crossSectorWagePenalty(Config.LmFrictionMatrix(prevSector)(f.sector))
           else 1.0
-          val individualWage = marketWage * sectorMult * hh.skill * (1.0 - hh.healthPenalty) * penalty
+          val individualWage = marketWage * sectorMult * hh.skill * (1.0 - hh.healthPenalty) * penalty *
+            Config.eduWagePremium(hh.education)
           if isCrossSector then crossSectorHires += 1
           result(idx) = hh.copy(
             status = HhStatus.Employed(fid, f.sector, individualWage),
@@ -136,7 +140,8 @@ object LaborMarket:
           val immigrantDiscount = if hh.isImmigrant && Config.ImmigEnabled then
             1.0 - Config.ImmigWageDiscount
           else 1.0
-          SECTORS(sectorIdx).wageMultiplier * hh.skill * (1.0 - hh.healthPenalty) * immigrantDiscount
+          SECTORS(sectorIdx).wageMultiplier * hh.skill * (1.0 - hh.healthPenalty) * immigrantDiscount *
+            Config.eduWagePremium(hh.education)
         case _ => 0.0
     }
     val employed = households.indices.filter(i =>

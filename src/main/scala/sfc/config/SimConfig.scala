@@ -596,6 +596,100 @@ object Config:
   val CcNplRecovery: Double = sys.env.get("CC_NPL_RECOVERY").map(_.trim.toDouble).getOrElse(0.15)
   val CcEligRate: Double = sys.env.get("CC_ELIG_RATE").map(_.trim.toDouble).getOrElse(0.30)
 
+  // Education / Human Capital (#34) — always-on, no master toggle
+  val EduShares: Vector[Double] = sys.env.get("EDU_SHARES") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 4 && Math.abs(v.sum - 1.0) < 0.01,
+        s"EDU_SHARES must have 4 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      v
+    case _ => Vector(0.08, 0.25, 0.30, 0.37) // GUS LFS 2024 (25-64): Primary, Vocational, Secondary, Tertiary
+  val EduSectorShares: Option[Vector[Vector[Double]]] = sys.env.get("EDU_SECTOR_SHARES") match
+    case Some(s) if s.nonEmpty =>
+      val vals = s.split(",").map(_.trim.toDouble).toVector
+      require(vals.length == 24, s"EDU_SECTOR_SHARES must have 24 values (6 sectors × 4 edu levels), got ${vals.length}")
+      val rows = (0 until 6).map(i => vals.slice(i * 4, i * 4 + 4)).toVector
+      rows.zipWithIndex.foreach { (row, i) =>
+        require(Math.abs(row.sum - 1.0) < 0.01,
+          s"EDU_SECTOR_SHARES row $i must sum to ~1.0, got ${row.sum}")
+      }
+      Some(rows)
+    case _ => None
+  val EduWagePreemia: Vector[Double] = sys.env.get("EDU_WAGE_PREMIA") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 4, s"EDU_WAGE_PREMIA must have 4 values, got ${v.length}")
+      v
+    case _ => Vector(0.70, 0.85, 1.00, 1.30) // Mincer returns (GUS 2022)
+  val EduRetrainMult: Vector[Double] = sys.env.get("EDU_RETRAIN_MULT") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 4, s"EDU_RETRAIN_MULT must have 4 values, got ${v.length}")
+      v
+    case _ => Vector(0.67, 0.83, 1.00, 1.25)
+  val EduSkillFloors: Vector[Double] = sys.env.get("EDU_SKILL_FLOORS") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 4, s"EDU_SKILL_FLOORS must have 4 values, got ${v.length}")
+      v
+    case _ => Vector(0.30, 0.35, 0.45, 0.55)
+  val EduSkillCeilings: Vector[Double] = sys.env.get("EDU_SKILL_CEILINGS") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 4, s"EDU_SKILL_CEILINGS must have 4 values, got ${v.length}")
+      v
+    case _ => Vector(0.75, 0.85, 0.95, 1.00)
+  val EduImmigShares: Vector[Double] = sys.env.get("EDU_IMMIG_SHARES") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 4 && Math.abs(v.sum - 1.0) < 0.01,
+        s"EDU_IMMIG_SHARES must have 4 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      v
+    case _ => Vector(0.15, 0.40, 0.35, 0.10) // NBP 2023: immigrant edu distribution
+
+  // Default sector-education distribution (GUS LFS 2024)
+  private val DefaultEduSectorShares: Vector[Vector[Double]] = Vector(
+    Vector(0.02, 0.10, 0.28, 0.60), // BPO
+    Vector(0.08, 0.40, 0.32, 0.20), // Manufacturing
+    Vector(0.06, 0.22, 0.38, 0.34), // Retail
+    Vector(0.02, 0.15, 0.23, 0.60), // Healthcare
+    Vector(0.03, 0.08, 0.25, 0.64), // Public
+    Vector(0.15, 0.45, 0.30, 0.10)  // Agriculture
+  )
+
+  /** Draw education level (0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary) for a sector. */
+  def drawEducation(sectorIdx: Int, rng: scala.util.Random): Int =
+    val shares = EduSectorShares.getOrElse(DefaultEduSectorShares)(sectorIdx.max(0).min(5))
+    cdfSample(shares, rng)
+
+  /** Draw education level for immigrant from immigrant-specific distribution. */
+  def drawImmigrantEducation(rng: scala.util.Random): Int =
+    cdfSample(EduImmigShares, rng)
+
+  /** Wage premium multiplier for education level. */
+  def eduWagePremium(education: Int): Double =
+    EduWagePreemia(education.max(0).min(3))
+
+  /** Retraining success multiplier for education level. */
+  def eduRetrainMultiplier(education: Int): Double =
+    EduRetrainMult(education.max(0).min(3))
+
+  /** Initial skill range (floor, ceiling) for education level. */
+  def eduSkillRange(education: Int): (Double, Double) =
+    val idx = education.max(0).min(3)
+    (EduSkillFloors(idx), EduSkillCeilings(idx))
+
+  /** CDF sampling from a discrete probability vector. Returns index 0..len-1. */
+  private def cdfSample(shares: Vector[Double], rng: scala.util.Random): Int =
+    val r = rng.nextDouble()
+    var cum = 0.0
+    var i = 0
+    while i < shares.length - 1 do
+      cum += shares(i)
+      if r < cum then return i
+      i += 1
+    shares.length - 1
+
   // Physical Capital & Depreciation (#31) — always-on, no master toggle
   val PhysCapEnabled: Boolean = sys.env.get("PHYS_CAPITAL_ENABLED").map(_.trim.toBoolean).getOrElse(true)
   val PhysCapKLRatios: Vector[Double] = sys.env.get("PHYS_CAPITAL_KL_RATIOS") match
