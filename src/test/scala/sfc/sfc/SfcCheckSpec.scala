@@ -548,3 +548,92 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
     result.bankDepositsError shouldBe 0.0
     result.passed shouldBe true
   }
+
+  // ---- Identity 2 with NBFI deposit drain (#42) ----
+
+  "SfcCheck.validate (NBFI deposit drain)" should "include nbfiDepositDrain in Identity 2" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // TFI drains deposits: HH buys fund units → deposit decreases
+    val nbfiDrain = -800.0
+    val curr = prev.copy(bankDeposits = prev.bankDeposits + nbfiDrain)
+    val flows = zeroFlows.copy(nbfiDepositDrain = nbfiDrain)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankDepositsError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "detect error when NBFI deposit drain not applied" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // Bug: deposits unchanged despite NBFI drain
+    val curr = prev.copy(bankDeposits = prev.bankDeposits)
+    val flows = zeroFlows.copy(nbfiDepositDrain = -1000.0)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankDepositsError shouldBe 1000.0 +- 0.01
+    result.passed shouldBe false
+  }
+
+  // ---- Identity 5 with TFI gov bond holdings (#42) ----
+
+  "SfcCheck.validate (TFI bonds)" should "include TFI gov bond holdings in bond clearing" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0, 0.0,
+      bankBondHoldings = 4000.0, nbpBondHoldings = 3000.0, bondsOutstanding = 12000.0,
+      insuranceGovBondHoldings = 2000.0, tfiGovBondHoldings = 3000.0)
+    val result = SfcCheck.validate(1, prev, prev, zeroFlows)
+    // 4000 + 3000 + 0 (ppk) + 2000 (insurance) + 3000 (TFI) = 12000 = outstanding
+    result.bondClearingError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "detect error when TFI holdings cause mismatch" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0, 0.0,
+      bankBondHoldings = 4000.0, nbpBondHoldings = 3000.0, bondsOutstanding = 10000.0,
+      insuranceGovBondHoldings = 2000.0, tfiGovBondHoldings = 5000.0)
+    val result = SfcCheck.validate(1, prev, prev, zeroFlows)
+    // 4000 + 3000 + 0 + 2000 + 5000 = 14000 vs 10000 = +4000 error
+    result.bondClearingError shouldBe 4000.0 +- 0.01
+    result.passed shouldBe false
+  }
+
+  // ---- Identity 13: NBFI credit stock (#42) ----
+
+  "SfcCheck.validate (NBFI credit stock)" should "pass when stock change matches flows" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0,
+      nbfiLoanStock = 100000.0)
+    // origination=5000, repayment=2000, default=500 → Δ = 5000-2000-500 = 2500
+    val curr = prev.copy(nbfiLoanStock = 102500.0)
+    val flows = zeroFlows.copy(nbfiOrigination = 5000, nbfiRepayment = 2000,
+      nbfiDefaultAmount = 500)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.nbfiCreditError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
+  it should "pass trivially when NBFI disabled (all zeros)" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    val result = SfcCheck.validate(1, prev, prev, zeroFlows)
+    result.nbfiCreditError shouldBe 0.0
+    result.passed shouldBe true
+  }
+
+  it should "detect error when NBFI stock doesn't match flows" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0,
+      nbfiLoanStock = 100000.0)
+    // Bug: stock unchanged despite origination
+    val curr = prev.copy(nbfiLoanStock = 100000.0)
+    val flows = zeroFlows.copy(nbfiOrigination = 8000)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.nbfiCreditError shouldBe -8000.0 +- 0.01
+    result.passed shouldBe false
+  }
+
+  it should "handle net reduction in NBFI stock (repayment > origination)" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0,
+      nbfiLoanStock = 100000.0)
+    // origination=1000, repayment=4000, default=200 → Δ = 1000-4000-200 = -3200
+    val curr = prev.copy(nbfiLoanStock = 96800.0)
+    val flows = zeroFlows.copy(nbfiOrigination = 1000, nbfiRepayment = 4000,
+      nbfiDefaultAmount = 200)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.nbfiCreditError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }

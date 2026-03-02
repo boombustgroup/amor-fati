@@ -28,7 +28,9 @@ object SfcCheck:
     mortgageStock: Double = 0.0,  // Outstanding mortgage debt
     consumerLoans: Double = 0.0,  // Outstanding consumer credit stock
     corpBondsOutstanding: Double = 0.0,  // #40: corporate bond stock
-    insuranceGovBondHoldings: Double = 0.0  // #41: insurance gov bond holdings
+    insuranceGovBondHoldings: Double = 0.0,  // #41: insurance gov bond holdings
+    tfiGovBondHoldings: Double = 0.0,  // #42: TFI gov bond holdings
+    nbfiLoanStock: Double = 0.0        // #42: NBFI credit stock
   )
 
   /** Flows observed during a single month (computed in Simulation.step).
@@ -78,7 +80,11 @@ object SfcCheck:
     corpBondIssuance: Double = 0.0,       // #40: new corp bonds issued this month
     corpBondAmortization: Double = 0.0,   // #40: corp bond principal repaid
     corpBondDefaultAmount: Double = 0.0,  // #40: gross corp bond defaults
-    insNetDepositChange: Double = 0.0     // #41: insurance net HH deposit change
+    insNetDepositChange: Double = 0.0,    // #41: insurance net HH deposit change
+    nbfiDepositDrain: Double = 0.0,      // #42: TFI deposit drain
+    nbfiOrigination: Double = 0.0,       // #42: NBFI monthly origination
+    nbfiRepayment: Double = 0.0,         // #42: NBFI monthly repayment
+    nbfiDefaultAmount: Double = 0.0      // #42: NBFI gross monthly defaults
   )
 
   /** Result of the SFC check: ten exact balance-sheet identity checks. */
@@ -96,6 +102,7 @@ object SfcCheck:
     fofError: Double = 0.0,           // Flow-of-funds residual
     consumerCreditError: Double = 0.0, // Consumer credit stock identity
     corpBondStockError: Double = 0.0,  // #40: Corporate bond stock identity
+    nbfiCreditError: Double = 0.0,     // #42: NBFI credit stock identity
     passed: Boolean
   )
 
@@ -125,7 +132,9 @@ object SfcCheck:
       mortgageStock = w.housing.mortgageStock,
       consumerLoans = w.bank.consumerLoans,
       corpBondsOutstanding = w.corporateBonds.outstanding,
-      insuranceGovBondHoldings = w.insurance.govBondHoldings
+      insuranceGovBondHoldings = w.insurance.govBondHoldings,
+      tfiGovBondHoldings = w.nbfi.tfiGovBondHoldings,
+      nbfiLoanStock = w.nbfi.nbfiLoanStock
     )
 
   /** Validate ten exact balance-sheet identities.
@@ -133,10 +142,10 @@ object SfcCheck:
     * The monetary circuit closes via sector-level flow-of-funds (Identity 10).
     *
     * 1. Bank capital:  Δ = -nplLoss - mortgageNplLoss - consumerNplLoss + (interestIncome + hhDebtService + bankBondIncome + mortgageInterestIncome + consumerDebtService - depositInterestPaid + reserveInterest + standingFacilityIncome + interbankInterest) × 0.3
-    * 2. Bank deposits: Δ = totalIncome - totalConsumption + jstDepositChange + dividendIncome - foreignDividendOutflow - remittanceOutflow + consumerOrigination + insNetDepositChange
+    * 2. Bank deposits: Δ = totalIncome - totalConsumption + jstDepositChange + dividendIncome - foreignDividendOutflow - remittanceOutflow + consumerOrigination + insNetDepositChange + nbfiDepositDrain
     * 3. Gov debt:      Δ = govSpending - govRevenue  (govRevenue includes dividendTax + zusGovSubvention)
     * 4. NFA:           Δ = currentAccount + valuationEffect  (currentAccount includes -foreignDividendOutflow)
-    * 5. Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings + insuranceGovBondHoldings = bondsOutstanding
+    * 5. Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings + insuranceGovBondHoldings + tfiGovBondHoldings = bondsOutstanding
     * 6. Interbank netting: Σ interbankNet_i = 0 (trivially 0 in single-bank mode)
     * 7. JST debt:      Δ = jstSpending - jstRevenue (trivially 0 when JST disabled)
     * 8. FUS balance:   Δ = zusContributions - zusPensionPayments (trivially 0 when ZUS disabled)
@@ -144,6 +153,7 @@ object SfcCheck:
     * 10. Flow-of-funds: Σ firmRevenue = domesticCons + govPurchases + exports (closes by construction)
     * 11. Consumer credit: Δ consumerLoans = origination - principalRepaid - defaultAmount
     * 12. Corp bond stock: Δ corpBondsOutstanding = issuance - amortization - defaultAmount
+    * 13. NBFI credit stock: Δ nbfiLoanStock = origination - repayment - defaultAmount
     *
     * These catch: mis-routed flows (e.g. rent subtracted from HH but not added
     * to bank/consumption), refactoring errors in balance sheet updates, and
@@ -165,10 +175,10 @@ object SfcCheck:
     val actualBankCapChange = curr.bankCapital - prev.bankCapital
     val bankCapErr = actualBankCapChange - expectedBankCapChange
 
-    // Identity 2: Bank deposits (+ JST deposit flows + dividend flows - remittance outflow + consumer origination + insurance)
+    // Identity 2: Bank deposits (+ JST deposit flows + dividend flows - remittance outflow + consumer origination + insurance + NBFI)
     val expectedDepChange = flows.totalIncome - flows.totalConsumption + flows.jstDepositChange +
       flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow +
-      flows.consumerOrigination + flows.insNetDepositChange
+      flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain
     val actualDepChange = curr.bankDeposits - prev.bankDeposits
     val bankDepErr = actualDepChange - expectedDepChange
 
@@ -188,7 +198,7 @@ object SfcCheck:
     // Identity 5: Bond clearing
     // All outstanding bonds must be held by bank + NBP + PPK + insurance
     // When GovBondMarket=false: all bond fields = 0.0, trivially passes.
-    val bondClearingErr = (curr.bankBondHoldings + curr.nbpBondHoldings + curr.ppkBondHoldings + curr.insuranceGovBondHoldings) - curr.bondsOutstanding
+    val bondClearingErr = (curr.bankBondHoldings + curr.nbpBondHoldings + curr.ppkBondHoldings + curr.insuranceGovBondHoldings + curr.tfiGovBondHoldings) - curr.bondsOutstanding
 
     // Identity 6: Interbank netting
     // Sum of all banks' interbankNet positions must be zero (closed system).
@@ -224,6 +234,11 @@ object SfcCheck:
     val actualCorpBondChange = curr.corpBondsOutstanding - prev.corpBondsOutstanding
     val corpBondErr = actualCorpBondChange - expectedCorpBondChange
 
+    // Identity 13: NBFI credit stock — Δ nbfiLoanStock = origination - repayment - defaultAmount
+    val expectedNbfiChange = flows.nbfiOrigination - flows.nbfiRepayment - flows.nbfiDefaultAmount
+    val actualNbfiChange = curr.nbfiLoanStock - prev.nbfiLoanStock
+    val nbfiCreditErr = actualNbfiChange - expectedNbfiChange
+
     // NFA uses wider tolerance (default 10 PLN) because cumulative NFA
     // values can reach billions, causing floating-point cancellation
     // in the (curr.nfa - prev.nfa) subtraction.
@@ -238,7 +253,8 @@ object SfcCheck:
                  Math.abs(mortgageErr) < tolerance &&
                  Math.abs(fofErr) < tolerance &&
                  Math.abs(ccErr) < tolerance &&
-                 Math.abs(corpBondErr) < tolerance
+                 Math.abs(corpBondErr) < tolerance &&
+                 Math.abs(nbfiCreditErr) < tolerance
 
     SfcResult(month, bankCapErr, bankDepErr, govDebtErr, nfaErr, bondClearingErr, interbankErr,
-      jstDebtErr, fusErr, mortgageErr, fofErr, ccErr, corpBondErr, passed)
+      jstDebtErr, fusErr, mortgageErr, fofErr, ccErr, corpBondErr, nbfiCreditErr, passed)

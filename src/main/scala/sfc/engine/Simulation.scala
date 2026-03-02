@@ -691,6 +691,17 @@ object Simulation:
     else w.insurance
     val insNetDepositChange = newInsurance.lastNetDepositChange
 
+    // --- Shadow Banking / NBFI step (#42) ---
+    val nbfiDepositRate = Math.max(0.0, postFxNbp.referenceRate - 0.02)
+    val nbfiUnempRate = 1.0 - employed.toDouble / Config.TotalPopulation
+    val newNbfi = if Config.NbfiEnabled then
+      ShadowBanking.step(w.nbfi, employed, newWage, w.priceLevel,
+        nbfiUnempRate, w.bank.nplRatio, newBondYield,
+        w.corporateBonds.corpBondYield, w.equity.monthlyReturn,
+        nbfiDepositRate, domesticCons)
+    else w.nbfi
+    val nbfiDepositDrain = newNbfi.lastDepositDrain
+
     val vat = consumption * Config.FofConsWeights.zip(Config.VatRates).map((w, r) => w * r).kahanSum
     val exciseRevenue = consumption * Config.FofConsWeights.zip(Config.ExciseRates).map((w, r) => w * r).kahanSum
     val customsDutyRevenue = if Config.OeEnabled then
@@ -749,7 +760,7 @@ object Simulation:
                    + corpBondBankCoupon * 0.3,
       deposits   = w.bank.deposits + (totalIncome - consumption) + jstDepositChange
                    + netDomesticDividends - foreignDividendOutflow - remittanceOutflow
-                   + consumerOrigination + insNetDepositChange,
+                   + consumerOrigination + insNetDepositChange + nbfiDepositDrain,
       consumerLoans = Math.max(0.0, w.bank.consumerLoans + consumerOrigination - consumerPrincipal - consumerDefaultAmt),
       consumerNpl = Math.max(0.0, w.bank.consumerNpl + consumerDefaultAmt - w.bank.consumerNpl * 0.05),
       corpBondHoldings = newCorpBonds.bankHoldings)
@@ -780,10 +791,18 @@ object Simulation:
     val insBondPurchase = Math.max(0.0, Math.min(Math.max(0.0, insGovBondDelta), Math.max(0.0, availableBondsForIns)))
     val finalInsurance = newInsurance.copy(govBondHoldings = w.insurance.govBondHoldings + insBondPurchase)
 
-    // Bond allocation: new issuance goes to bank; QE, PPK, and insurance transfer from bank
+    // TFI gov bond purchases (#42) (capped at available bonds after QE + PPK + insurance)
+    val tfiGovBondDelta = newNbfi.tfiGovBondHoldings - w.nbfi.tfiGovBondHoldings
+    val availableBondsForTfi = newBank.govBondHoldings +
+      (if Config.GovBondMarket then actualBondChange else 0.0) -
+      qePurchaseAmount - ppkBondPurchase - insBondPurchase
+    val tfiBondPurchase = Math.max(0.0, Math.min(Math.max(0.0, tfiGovBondDelta), Math.max(0.0, availableBondsForTfi)))
+    val finalNbfi = newNbfi.copy(tfiGovBondHoldings = w.nbfi.tfiGovBondHoldings + tfiBondPurchase)
+
+    // Bond allocation: new issuance goes to bank; QE, PPK, insurance, TFI transfer from bank
     val finalBank = if Config.GovBondMarket then
-      newBank.copy(govBondHoldings = newBank.govBondHoldings + actualBondChange - qePurchaseAmount - ppkBondPurchase - insBondPurchase)
-    else newBank.copy(govBondHoldings = newBank.govBondHoldings - qePurchaseAmount - ppkBondPurchase - insBondPurchase)
+      newBank.copy(govBondHoldings = newBank.govBondHoldings + actualBondChange - qePurchaseAmount - ppkBondPurchase - insBondPurchase - tfiBondPurchase)
+    else newBank.copy(govBondHoldings = newBank.govBondHoldings - qePurchaseAmount - ppkBondPurchase - insBondPurchase - tfiBondPurchase)
 
     // ---- Multi-bank update path ----
     // Compute per-bank flows from lagged state
@@ -832,7 +851,8 @@ object Simulation:
           val bankDivOutflow = foreignDividendOutflow * ws
           val bankRemittance = remittanceOutflow * ws
           val bankInsDepChange = insNetDepositChange * ws
-          val newDep = b.deposits + (bankIncomeShare - bankConsShare) + bankDivInflow - bankDivOutflow - bankRemittance + bankCcOrig + bankInsDepChange
+          val bankNbfiDepDrain = nbfiDepositDrain * ws
+          val newDep = b.deposits + (bankIncomeShare - bankConsShare) + bankDivInflow - bankDivOutflow - bankRemittance + bankCcOrig + bankInsDepChange + bankNbfiDepDrain
           // Per-bank mortgage flows (proportional to deposit share)
           val bankDepShare = if totalWorkers > 0 then perBankWorkers(bId) / totalWorkers else 0.0
           val bankMortgageIntIncome = mortgageInterestIncome * bankDepShare
@@ -879,8 +899,10 @@ object Simulation:
         val afterPpk = BankingSector.allocateQePurchases(afterQe, ppkBondPurchase)
         // 4c. Insurance gov bond purchases (#41)
         val afterIns = BankingSector.allocateQePurchases(afterPpk, insBondPurchase)
+        // 4d. TFI gov bond purchases (#42)
+        val afterTfi = BankingSector.allocateQePurchases(afterIns, tfiBondPurchase)
         // 5. Failure checks + BFG resolution (pass ccyb for effective MinCAR)
-        val (afterFailCheck, anyFailed) = BankingSector.checkFailures(afterIns, m,
+        val (afterFailCheck, anyFailed) = BankingSector.checkFailures(afterTfi, m,
           ccyb = newMacropru.ccyb)
         val afterResolve = if anyFailed then BankingSector.resolveFailures(afterFailCheck)
                            else afterFailCheck
@@ -970,6 +992,7 @@ object Simulation:
       immigration = newImmig,
       corporateBonds = newCorpBonds,
       insurance = finalInsurance,
+      nbfi = finalNbfi,
       sectorDemandMult = sectorMults,
       fofResidual = fofResidual,
       grossInvestment = sumGrossInvestment)
@@ -1025,7 +1048,11 @@ object Simulation:
       corpBondIssuance = actualBondIssuance,
       corpBondAmortization = corpBondAmort,
       corpBondDefaultAmount = totalBondDefault,
-      insNetDepositChange = insNetDepositChange
+      insNetDepositChange = insNetDepositChange,
+      nbfiDepositDrain = nbfiDepositDrain,
+      nbfiOrigination = finalNbfi.lastNbfiOrigination,
+      nbfiRepayment = finalNbfi.lastNbfiRepayment,
+      nbfiDefaultAmount = finalNbfi.lastNbfiDefaultAmount
     )
     val sfcResult = SfcCheck.validate(m, prevSnap, currSnap, sfcFlows)
     if !sfcResult.passed then
@@ -1042,6 +1069,7 @@ object Simulation:
         f" mortgage=${sfcResult.mortgageStockError}%.2f" +
         f" fof=${sfcResult.fofError}%.2f" +
         f" ccStock=${sfcResult.consumerCreditError}%.2f" +
-        f" corpBond=${sfcResult.corpBondStockError}%.2f")
+        f" corpBond=${sfcResult.corpBondStockError}%.2f" +
+        f" nbfiCredit=${sfcResult.nbfiCreditError}%.2f")
 
     (newW, reassignedFirms, reassignedHouseholds)

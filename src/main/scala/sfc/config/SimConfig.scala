@@ -502,6 +502,22 @@ object Config:
   val InsNonLifeUnempSens: Double = sys.env.get("INS_NONLIFE_UNEMP_SENS").map(_.trim.toDouble).getOrElse(0.5)
   val InsRebalanceSpeed: Double = sys.env.get("INS_REBALANCE_SPEED").map(_.trim.toDouble).getOrElse(0.05)
 
+  // Shadow Banking / NBFI (#42)
+  val NbfiEnabled: Boolean = sys.env.get("NBFI_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val NbfiTfiInitAum: Double = sys.env.get("NBFI_TFI_INIT_AUM").map(_.trim.toDouble).getOrElse(380e9) * ScaleFactor
+  val NbfiTfiGovBondShare: Double = sys.env.get("NBFI_TFI_GOVBOND_SHARE").map(_.trim.toDouble).getOrElse(0.40)
+  val NbfiTfiCorpBondShare: Double = sys.env.get("NBFI_TFI_CORPBOND_SHARE").map(_.trim.toDouble).getOrElse(0.10)
+  val NbfiTfiEquityShare: Double = sys.env.get("NBFI_TFI_EQUITY_SHARE").map(_.trim.toDouble).getOrElse(0.10)
+  val NbfiTfiInflowRate: Double = sys.env.get("NBFI_TFI_INFLOW_RATE").map(_.trim.toDouble).getOrElse(0.001)
+  val NbfiTfiRebalanceSpeed: Double = sys.env.get("NBFI_TFI_REBALANCE_SPEED").map(_.trim.toDouble).getOrElse(0.05)
+  val NbfiCreditInitStock: Double = sys.env.get("NBFI_CREDIT_INIT_STOCK").map(_.trim.toDouble).getOrElse(231e9) * ScaleFactor
+  val NbfiCreditBaseRate: Double = sys.env.get("NBFI_CREDIT_BASE_RATE").map(_.trim.toDouble).getOrElse(0.005)
+  val NbfiCreditRate: Double = sys.env.get("NBFI_CREDIT_RATE").map(_.trim.toDouble).getOrElse(0.10)
+  val NbfiCountercyclical: Double = sys.env.get("NBFI_COUNTERCYCLICAL").map(_.trim.toDouble).getOrElse(2.0)
+  val NbfiCreditMaturity: Double = sys.env.get("NBFI_CREDIT_MATURITY").map(_.trim.toDouble).getOrElse(36.0)
+  val NbfiDefaultBase: Double = sys.env.get("NBFI_DEFAULT_BASE").map(_.trim.toDouble).getOrElse(0.002)
+  val NbfiDefaultUnempSens: Double = sys.env.get("NBFI_DEFAULT_UNEMP_SENS").map(_.trim.toDouble).getOrElse(3.0)
+
   // Real Estate / Housing Market (v4.0 Tier 2)
   val ReEnabled: Boolean = sys.env.get("RE_ENABLED").map(_.trim.toBoolean).getOrElse(false)
   val ReMortgage: Boolean = sys.env.get("RE_MORTGAGE").map(_.trim.toBoolean).getOrElse(true)
