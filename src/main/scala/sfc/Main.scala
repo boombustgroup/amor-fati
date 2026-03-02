@@ -156,7 +156,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
   //                   Repayment, Default, MortgageInterest, HhHousingWealth,
   //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 143
+  val nCols = 145
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -394,7 +394,10 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.grossInvestment,                                       // 141: GrossInvestment
       (if Config.PhysCapEnabled then                               // 142: CapitalDepreciation
         living.kahanSumBy(f => f.capitalStock * Config.PhysCapDepRates(f.sector) / 12.0)
-      else 0.0)
+      else 0.0),
+      // Excise & Customs
+      world.gov.exciseRevenue,                                       // 143: ExciseRevenue
+      world.gov.customsDutyRevenue                                   // 144: CustomsDutyRevenue
     )
 
   RunResult(results, world.hhAgg)
@@ -427,7 +430,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 143
+  val nCols   = 145
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -487,7 +490,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "GovCurrentSpend;GovCapitalSpend;PublicCapitalStock;" +
     "EuCofinancing;EuFundsMonthly;EuCumulativeAbsorption;MinWageLevel;FofResidual;" +
     "ConsumerLoans;ConsumerNplRatio;ConsumerOrigination;ConsumerDebtService;" +
-    "AggCapitalStock;GrossInvestment;CapitalDepreciation\n")
+    "AggCapitalStock;GrossInvestment;CapitalDepreciation;" +
+    "ExciseRevenue;CustomsDutyRevenue\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -582,7 +586,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "EuCofinancing", "EuFundsMonthly", "EuCumulativeAbsorption",
     "MinWageLevel", "FofResidual",
     "ConsumerLoans", "ConsumerNplRatio", "ConsumerOrigination", "ConsumerDebtService",
-    "AggCapitalStock", "GrossInvestment", "CapitalDepreciation")
+    "AggCapitalStock", "GrossInvestment", "CapitalDepreciation",
+    "ExciseRevenue", "CustomsDutyRevenue")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

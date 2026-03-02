@@ -16,7 +16,9 @@ case class GovState(
   publicCapitalStock: Double = 0.0,
   govCurrentSpend: Double = 0.0,
   govCapitalSpend: Double = 0.0,
-  euCofinancing: Double = 0.0
+  euCofinancing: Double = 0.0,
+  exciseRevenue: Double = 0.0,
+  customsDutyRevenue: Double = 0.0
 )
 
 case class BankState(

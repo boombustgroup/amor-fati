@@ -105,14 +105,16 @@ object Sectors:
     zusGovSubvention: Double = 0.0,
     socialTransferSpend: Double = 0.0,
     euCofinancing: Double = 0.0,
-    euProjectCapital: Double = 0.0): GovState =
+    euProjectCapital: Double = 0.0,
+    exciseRevenue: Double = 0.0,
+    customsDutyRevenue: Double = 0.0): GovState =
     val bdpSpend   = if bdpActive then Config.TotalPopulation.toDouble * bdpAmount else 0.0
     val govBaseRaw = Config.GovBaseSpending * priceLevel
     val (govCurrent, govCapital) = if Config.GovInvestEnabled then
       (govBaseRaw * (1.0 - Config.GovInvestShare), govBaseRaw * Config.GovInvestShare)
     else (govBaseRaw, 0.0)
     val totalSpend = bdpSpend + unempBenefitSpend + socialTransferSpend + govCurrent + govCapital + debtService + zusGovSubvention + euCofinancing
-    val totalRev   = citPaid + vat + nbpRemittance
+    val totalRev   = citPaid + vat + nbpRemittance + exciseRevenue + customsDutyRevenue
     val deficit    = totalSpend - totalRev
     val newBondsOutstanding = if Config.GovBondMarket then Math.max(0.0, prev.bondsOutstanding + deficit)
                               else prev.bondsOutstanding
@@ -121,7 +123,8 @@ object Sectors:
     else 0.0
     GovState(bdpActive, totalRev, bdpSpend, deficit, prev.cumulativeDebt + deficit,
       unempBenefitSpend, newBondsOutstanding, prev.bondYield, debtService, socialTransferSpend,
-      newCapitalStock, govCurrent, govCapital + euProjectCapital, euCofinancing)
+      newCapitalStock, govCurrent, govCapital + euProjectCapital, euCofinancing,
+      exciseRevenue, customsDutyRevenue)
 
 object Simulation:
   /** Step with optional individual households.
@@ -629,6 +632,10 @@ object Simulation:
     )
 
     val vat = consumption * Config.FofConsWeights.zip(Config.VatRates).map((w, r) => w * r).kahanSum
+    val exciseRevenue = consumption * Config.FofConsWeights.zip(Config.ExciseRates).map((w, r) => w * r).kahanSum
+    val customsDutyRevenue = if Config.OeEnabled then
+      newBop.totalImports * Config.CustomsNonEuShare * Config.CustomsDutyRate
+    else 0.0
     val unempBenefitSpend = hhAgg.map(_.totalUnempBenefits).getOrElse(0.0)
     val socialTransferSpend = if Config.Social800Enabled then
       hhAgg.map(_.totalSocialTransfers).getOrElse(
@@ -637,7 +644,8 @@ object Simulation:
     else 0.0
     val newGov = Sectors.updateGov(w.gov, sumTax + dividendTax + pitRevenue, vat, bdpActive, bdp, newPrice, unempBenefitSpend,
       monthlyDebtService, nbpRemittance, newZus.govSubvention, socialTransferSpend,
-      euCofinancing = euCofin, euProjectCapital = euProjectCapital)
+      euCofinancing = euCofin, euProjectCapital = euProjectCapital,
+      exciseRevenue = exciseRevenue, customsDutyRevenue = customsDutyRevenue)
     val newGovWithYield = newGov.copy(bondYield = newBondYield)
 
     // JST (local government) — must precede newBank (JST deposits flow into bank)
@@ -893,7 +901,7 @@ object Simulation:
         + newGovWithYield.socialTransferSpend
         + Config.GovBaseSpending * newPrice + monthlyDebtService + newZus.govSubvention
         + euCofin,
-      govRevenue = sumTax + dividendTax + pitRevenue + vat + nbpRemittance,
+      govRevenue = sumTax + dividendTax + pitRevenue + vat + nbpRemittance + exciseRevenue + customsDutyRevenue,
       nplLoss = nplLoss,
       interestIncome = intIncome,
       hhDebtService = hhDebtService,

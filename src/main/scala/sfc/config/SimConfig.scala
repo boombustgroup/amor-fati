@@ -142,6 +142,20 @@ object Config:
       require(v.length == 6, s"VAT_RATES must have 6 values, got ${v.length}")
       v
     case _ => Vector(0.23, 0.19, 0.12, 0.06, 0.10, 0.07)
+
+  // Excise & customs (#39) — always-on
+  val ExciseRates: Vector[Double] = sys.env.get("EXCISE_RATES") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 6, s"EXCISE_RATES must have 6 values, got ${v.length}")
+      v
+    case _ => Vector(0.01, 0.04, 0.03, 0.005, 0.002, 0.02)
+    // BPO 1%, Mfg 4% (fuel-heavy), Retail 3% (alcohol/tobacco), Hlt 0.5%, Pub 0.2%, Agr 2%
+  val CustomsDutyRate: Double = sys.env.get("CUSTOMS_DUTY_RATE").map(_.trim.toDouble).getOrElse(0.04)
+    // 4% effective rate on non-EU imports (EU Common External Tariff weighted avg)
+  val CustomsNonEuShare: Double = sys.env.get("CUSTOMS_NON_EU_SHARE").map(_.trim.toDouble).getOrElse(0.30)
+    // 30% of imports from non-EU (= 1 - GvcEuTradeShare default)
+
   val GovBaseSpending  = 100000000.0 * ScaleFactor
 
   // Public Investment vs Current Spending (#27)
