@@ -49,7 +49,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
     requireAllMechanisms()
     ts.length shouldBe Config.Duration
     for row <- ts do
-      row.length shouldBe 111
+      row.length shouldBe 171
   }
 
   it should "produce no NaN or Infinity" in {
@@ -64,7 +64,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   it should "be reproducible with the same seed" in {
     requireAllMechanisms()
     val r2 = runSingle(42, rc)
-    for t <- 0 until Config.Duration; c <- 0 until 111 do
+    for t <- 0 until Config.Duration; c <- 0 until 171 do
       withClue(s"Month ${t + 1}, col $c: ") {
         ts(t)(c) shouldBe r2.timeSeries(t)(c)
       }

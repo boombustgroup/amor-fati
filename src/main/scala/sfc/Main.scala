@@ -79,6 +79,14 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     firms = firms.map(f =>
       f.copy(bankId = BankingSector.assignBank(f.sector, BankingSector.DefaultConfigs, Random)))
 
+  // FDI: assign foreign ownership by sector (#33)
+  if Config.FdiEnabled then
+    firms = firms.map { f =>
+      if Random.nextDouble() < Config.FdiForeignShares(f.sector) then
+        f.copy(foreignOwned = true)
+      else f
+    }
+
   // Initialize households (individual mode only)
   var households: Option[Vector[Household]] = HH_MODE match
     case HhMode.Individual =>
@@ -168,7 +176,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
   //                   Repayment, Default, MortgageInterest, HhHousingWealth,
   //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 166
+  val nCols = 171
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -433,7 +441,13 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.nbfi.lastNbfiOrigination,                                   // 162: NbfiOrigination
       world.nbfi.lastNbfiDefaultAmount,                                 // 163: NbfiDefaults
       world.nbfi.lastBankTightness,                                     // 164: NbfiBankTightness
-      world.nbfi.lastDepositDrain                                       // 165: NbfiDepositDrain
+      world.nbfi.lastDepositDrain,                                       // 165: NbfiDepositDrain
+      // FDI Composition (#33)
+      world.fdiProfitShifting,                                             // 166: FdiProfitShifting
+      world.fdiRepatriation,                                               // 167: FdiRepatriation
+      world.fdiProfitShifting + world.fdiRepatriation,                     // 168: FdiGrossOutflow
+      (if nLiving > 0 then living.count(_.foreignOwned).toDouble / nLiving else 0.0), // 169: ForeignOwnedFrac
+      world.fdiCitLoss                                                     // 170: FdiCitLoss
     )
 
   RunResult(results, world.hhAgg)
@@ -466,7 +480,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 166
+  val nCols   = 171
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -530,7 +544,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "ExciseRevenue;CustomsDutyRevenue;" +
     "CorpBondOutstanding;CorpBondYield;CorpBondIssuance;CorpBondSpread;BankCorpBondHoldings;PpkCorpBondHoldings;CorpBondAbsorptionRate;" +
     "InsLifeReserves;InsNonLifeReserves;InsGovBondHoldings;InsLifePremium;InsNonLifePremium;InsLifeClaims;InsNonLifeClaims;" +
-    "NbfiTfiAum;NbfiTfiGovBondHoldings;NbfiLoanStock;NbfiOrigination;NbfiDefaults;NbfiBankTightness;NbfiDepositDrain\n")
+    "NbfiTfiAum;NbfiTfiGovBondHoldings;NbfiLoanStock;NbfiOrigination;NbfiDefaults;NbfiBankTightness;NbfiDepositDrain;" +
+    "FdiProfitShifting;FdiRepatriation;FdiGrossOutflow;ForeignOwnedFrac;FdiCitLoss\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -633,7 +648,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "InsLifeReserves", "InsNonLifeReserves", "InsGovBondHoldings",
     "InsLifePremium", "InsNonLifePremium", "InsLifeClaims", "InsNonLifeClaims",
     "NbfiTfiAum", "NbfiTfiGovBondHoldings", "NbfiLoanStock",
-    "NbfiOrigination", "NbfiDefaults", "NbfiBankTightness", "NbfiDepositDrain")
+    "NbfiOrigination", "NbfiDefaults", "NbfiBankTightness", "NbfiDepositDrain",
+    "FdiProfitShifting", "FdiRepatriation", "FdiGrossOutflow", "ForeignOwnedFrac", "FdiCitLoss")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

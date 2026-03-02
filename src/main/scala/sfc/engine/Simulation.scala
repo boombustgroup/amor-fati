@@ -343,6 +343,8 @@ object Simulation:
     var sumEquityIssuance = 0.0
     var sumGrossInvestment = 0.0
     var sumBondIssuance = 0.0
+    var sumProfitShifting = 0.0
+    var sumFdiRepatriation = 0.0
 
     val macro4firms = w.copy(
       month = m, sectorDemandMult = sectorMults,
@@ -360,6 +362,8 @@ object Simulation:
       sumCapex    += r.capexSpent
       sumTechImp  += r.techImports
       sumGrossInvestment += r.grossInvestment
+      sumProfitShifting += r.profitShiftCost
+      sumFdiRepatriation += r.fdiRepatriation
 
       // GPW equity issuance: eligible firms replace fraction of loan with equity
       val (actualLoan, equityAmt, updatedFirm) =
@@ -609,7 +613,17 @@ object Simulation:
         nfa = newBop0.nfa - foreignDividendOutflow
       )
     else newBop0
-    val newBop = newBop1.copy(
+    // FDI composition (#33): profit shifting (service import) + repatriation (primary income debit)
+    val fdiTotalBopDebit = sumProfitShifting + sumFdiRepatriation
+    val newBop2 = if fdiTotalBopDebit > 0 && Config.FdiEnabled && Config.OeEnabled then
+      newBop1.copy(
+        currentAccount = newBop1.currentAccount - fdiTotalBopDebit,
+        nfa = newBop1.nfa - fdiTotalBopDebit,
+        tradeBalance = newBop1.tradeBalance - sumProfitShifting,
+        totalImports = newBop1.totalImports + sumProfitShifting)
+    else newBop1
+    val fdiCitLoss = sumProfitShifting * Config.CitRate
+    val newBop = newBop2.copy(
       euFundsMonthly = euMonthly,
       euCumulativeAbsorption = w.bop.euCumulativeAbsorption + euMonthly
     )
@@ -995,7 +1009,10 @@ object Simulation:
       nbfi = finalNbfi,
       sectorDemandMult = sectorMults,
       fofResidual = fofResidual,
-      grossInvestment = sumGrossInvestment)
+      grossInvestment = sumGrossInvestment,
+      fdiProfitShifting = sumProfitShifting,
+      fdiRepatriation = sumFdiRepatriation,
+      fdiCitLoss = fdiCitLoss)
 
     // SFC accounting check: verify exact balance-sheet identities every step
     val prevSnap = SfcCheck.snapshot(w, firms, households)
@@ -1052,7 +1069,9 @@ object Simulation:
       nbfiDepositDrain = nbfiDepositDrain,
       nbfiOrigination = finalNbfi.lastNbfiOrigination,
       nbfiRepayment = finalNbfi.lastNbfiRepayment,
-      nbfiDefaultAmount = finalNbfi.lastNbfiDefaultAmount
+      nbfiDefaultAmount = finalNbfi.lastNbfiDefaultAmount,
+      fdiProfitShifting = sumProfitShifting,
+      fdiRepatriation = sumFdiRepatriation
     )
     val sfcResult = SfcCheck.validate(m, prevSnap, currSnap, sfcFlows)
     if !sfcResult.passed then
@@ -1072,4 +1091,15 @@ object Simulation:
         f" corpBond=${sfcResult.corpBondStockError}%.2f" +
         f" nbfiCredit=${sfcResult.nbfiCreditError}%.2f")
 
-    (newW, reassignedFirms, reassignedHouseholds)
+    // FDI M&A: monthly domestic → foreign conversion (#33)
+    val finalFirms = if Config.FdiEnabled && Config.FdiMaProb > 0 then
+      reassignedFirms.map { f =>
+        if FirmOps.isAlive(f) && !f.foreignOwned &&
+           f.initialSize >= Config.FdiMaSizeMin &&
+           Random.nextDouble() < Config.FdiMaProb then
+          f.copy(foreignOwned = true)
+        else f
+      }
+    else reassignedFirms
+
+    (newW, finalFirms, reassignedHouseholds)

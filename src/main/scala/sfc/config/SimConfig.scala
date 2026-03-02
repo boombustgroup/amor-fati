@@ -518,6 +518,19 @@ object Config:
   val NbfiDefaultBase: Double = sys.env.get("NBFI_DEFAULT_BASE").map(_.trim.toDouble).getOrElse(0.002)
   val NbfiDefaultUnempSens: Double = sys.env.get("NBFI_DEFAULT_UNEMP_SENS").map(_.trim.toDouble).getOrElse(3.0)
 
+  // FDI Composition (#33)
+  val FdiEnabled: Boolean = sys.env.get("FDI_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val FdiForeignShares: Vector[Double] = sys.env.get("FDI_FOREIGN_SHARES") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 6, s"FDI_FOREIGN_SHARES must have 6 values, got ${v.length}")
+      v
+    case _ => Vector(0.15, 0.30, 0.10, 0.03, 0.00, 0.05)
+  val FdiProfitShiftRate: Double = sys.env.get("FDI_PROFIT_SHIFT_RATE").map(_.trim.toDouble).getOrElse(0.15)
+  val FdiRepatriationRate: Double = sys.env.get("FDI_REPATRIATION_RATE").map(_.trim.toDouble).getOrElse(0.70)
+  val FdiMaProb: Double = sys.env.get("FDI_MA_PROB").map(_.trim.toDouble).getOrElse(0.001)
+  val FdiMaSizeMin: Int = sys.env.get("FDI_MA_SIZE_MIN").map(_.trim.toInt).getOrElse(50)
+
   // Real Estate / Housing Market (v4.0 Tier 2)
   val ReEnabled: Boolean = sys.env.get("RE_ENABLED").map(_.trim.toBoolean).getOrElse(false)
   val ReMortgage: Boolean = sys.env.get("RE_MORTGAGE").map(_.trim.toBoolean).getOrElse(true)

@@ -39,5 +39,8 @@ case class World(
   nbfi: NbfiState = ShadowBanking.zero,
   sectorDemandMult: Vector[Double] = Vector.fill(6)(1.0),
   fofResidual: Double = 0.0,
-  grossInvestment: Double = 0.0
+  grossInvestment: Double = 0.0,
+  fdiProfitShifting: Double = 0.0,
+  fdiRepatriation: Double = 0.0,
+  fdiCitLoss: Double = 0.0
 )

@@ -29,7 +29,8 @@ case class Firm(
   equityRaised: Double = 0.0, // GPW: cumulative equity raised via IPO/SPO
   initialSize: Int = 10,    // Firm size at creation (v6.0: heterogeneous when FIRM_SIZE_DIST=gus)
   capitalStock: Double = 0.0, // Physical capital stock (PLN), #31
-  bondDebt: Double = 0.0     // Outstanding corporate bond debt (#40)
+  bondDebt: Double = 0.0,    // Outstanding corporate bond debt (#40)
+  foreignOwned: Boolean = false  // FDI (#33)
 )
 
 object FirmOps:
@@ -99,7 +100,8 @@ object FirmOps:
 
 case class FirmResult(firm: Firm, taxPaid: Double, capexSpent: Double,
   techImports: Double, newLoan: Double, equityIssuance: Double = 0.0,
-  grossInvestment: Double = 0.0, bondIssuance: Double = 0.0)
+  grossInvestment: Double = 0.0, bondIssuance: Double = 0.0,
+  profitShiftCost: Double = 0.0, fdiRepatriation: Double = 0.0)
 
 // ---- Firm decision logic ----
 
@@ -130,7 +132,7 @@ object FirmLogic:
            grossInvestment = actualInv)
 
   private def calcPnL(firm: Firm, wage: Double, sectorDemandMult: Double,
-    price: Double, lendRate: Double): (Double, Double, Double) =
+    price: Double, lendRate: Double): (Double, Double, Double, Double) =
     val revenue = FirmOps.capacity(firm) * sectorDemandMult * price
     val labor   = FirmOps.workers(firm) * wage * FirmOps.effectiveWageMult(firm.sector)
     val sizeFactor = firm.initialSize.toDouble / Config.WorkersPerFirm
@@ -147,10 +149,15 @@ object FirmLogic:
       case _: TechState.Hybrid    => Config.HybridOpex * (0.60 + 0.40 * price) * opexSizeFactor
       case _                      => 0.0
     val interest = (firm.debt + firm.bondDebt) * (lendRate / 12.0)
-    val costs    = labor + other + depnCost + aiMaint + interest
+    val prePsCosts = labor + other + depnCost + aiMaint + interest
+    val grossProfit = revenue - prePsCosts
+    val profitShiftCost = if Config.FdiEnabled && firm.foreignOwned then
+      Math.max(0.0, grossProfit) * Config.FdiProfitShiftRate
+    else 0.0
+    val costs    = prePsCosts + profitShiftCost
     val profit   = revenue - costs
     val tax      = Math.max(0.0, profit) * Config.CitRate
-    (revenue, costs, profit - tax)
+    (revenue, costs, profit - tax, profitShiftCost)
 
   def process(firm: Firm, w: World, lendRate: Double,
     bankCanLend: Double => Boolean,
@@ -162,16 +169,16 @@ object FirmLogic:
         FirmResult(firm, 0, 0, 0, 0)
 
       case _: TechState.Automated =>
-        val (rev, costs, net) = calcPnL(firm, w.hh.marketWage, w.sectorDemandMult(firm.sector), w.priceLevel, lendRate)
+        val (rev, costs, net, psCost) = calcPnL(firm, w.hh.marketWage, w.sectorDemandMult(firm.sector), w.priceLevel, lendRate)
         val tax = Math.max(0.0, rev - costs) * Config.CitRate
         val nc  = firm.cash + net
         if nc < 0 then
-          FirmResult(firm.copy(cash = nc, tech = TechState.Bankrupt("Pulapka plynnosci (dlug AI)")), tax, 0, 0, 0)
+          FirmResult(firm.copy(cash = nc, tech = TechState.Bankrupt("Pulapka plynnosci (dlug AI)")), tax, 0, 0, 0, profitShiftCost = psCost)
         else
-          FirmResult(firm.copy(cash = nc), tax, 0, 0, 0)
+          FirmResult(firm.copy(cash = nc), tax, 0, 0, 0, profitShiftCost = psCost)
 
       case TechState.Hybrid(wkrs, aiEff) =>
-        val (rev, costs, net) = calcPnL(firm, w.hh.marketWage, w.sectorDemandMult(firm.sector), w.priceLevel, lendRate)
+        val (rev, costs, net, psCost) = calcPnL(firm, w.hh.marketWage, w.sectorDemandMult(firm.sector), w.priceLevel, lendRate)
         val tax = Math.max(0.0, rev - costs) * Config.CitRate
         val ready2 = Math.min(1.0, firm.digitalReadiness + 0.005)
 
@@ -202,17 +209,17 @@ object FirmLogic:
           FirmResult(
             firm.copy(tech = TechState.Automated(eff), debt = firm.debt + upLoan,
               cash = firm.cash + net - upDown, digitalReadiness = ready2),
-            tax, upCapex, tImp, upLoan)
+            tax, upCapex, tImp, upLoan, profitShiftCost = psCost)
         else
           val nc = firm.cash + net
           if nc < 0 then
             FirmResult(firm.copy(cash = nc, tech = TechState.Bankrupt("Niewyplacalnosc (hybryda)")),
-              tax, 0, 0, 0)
+              tax, 0, 0, 0, profitShiftCost = psCost)
           else
-            FirmResult(firm.copy(cash = nc, digitalReadiness = ready2), tax, 0, 0, 0)
+            FirmResult(firm.copy(cash = nc, digitalReadiness = ready2), tax, 0, 0, 0, profitShiftCost = psCost)
 
       case TechState.Traditional(wkrs) =>
-        val (rev, costs, net) = calcPnL(firm, w.hh.marketWage, w.sectorDemandMult(firm.sector), w.priceLevel, lendRate)
+        val (rev, costs, net, psCost) = calcPnL(firm, w.hh.marketWage, w.sectorDemandMult(firm.sector), w.priceLevel, lendRate)
         val tax = Math.max(0.0, rev - costs) * Config.CitRate
 
         // Full AI
@@ -284,12 +291,12 @@ object FirmLogic:
             FirmResult(firm.copy(cash = firm.cash + net - fDown * 0.5,
               debt = firm.debt + fLoan * 0.3,
               tech = TechState.Bankrupt("Porazka implementacji AI")),
-              tax, fCapex * 0.5, tImp * 0.5, fLoan * 0.3)
+              tax, fCapex * 0.5, tImp * 0.5, fLoan * 0.3, profitShiftCost = psCost)
           else
             val eff = 1.0 + Random.between(0.05, 0.6) * firm.digitalReadiness
             FirmResult(firm.copy(tech = TechState.Automated(eff),
               debt = firm.debt + fLoan, cash = firm.cash + net - fDown),
-              tax, fCapex, tImp, fLoan)
+              tax, fCapex, tImp, fLoan, profitShiftCost = psCost)
 
         else if roll < pFull + pHyb then
           val failRate = 0.03 + (1.0 - firm.digitalReadiness) * 0.07
@@ -299,23 +306,23 @@ object FirmLogic:
             FirmResult(firm.copy(cash = firm.cash + net - hDown * 0.5,
               debt = firm.debt + hLoan * 0.3,
               tech = TechState.Bankrupt("Porazka implementacji hybrydy")),
-              tax, hCapex * 0.5, tImp * 0.5, hLoan * 0.3)
+              tax, hCapex * 0.5, tImp * 0.5, hLoan * 0.3, profitShiftCost = psCost)
           else if ir < failRate then
             val badEff = 0.85 + Random.between(0.0, 0.20)
             FirmResult(firm.copy(tech = TechState.Hybrid(hWkrs, badEff),
               debt = firm.debt + hLoan, cash = firm.cash + net - hDown),
-              tax, hCapex, tImp, hLoan)
+              tax, hCapex, tImp, hLoan, profitShiftCost = psCost)
           else
             val goodEff = 1.0 + (0.05 + Random.between(0.0, 0.15)) *
               (0.5 + firm.digitalReadiness * 0.5)
             FirmResult(firm.copy(tech = TechState.Hybrid(hWkrs, goodEff),
               debt = firm.debt + hLoan, cash = firm.cash + net - hDown),
-              tax, hCapex, tImp, hLoan)
+              tax, hCapex, tImp, hLoan, profitShiftCost = psCost)
 
         else if canReduce && Random.nextDouble() < 0.10 then
           val reductionAmt = Math.max(1, (wkrs * 0.05).toInt)
           FirmResult(firm.copy(tech = TechState.Traditional(Math.max(3, wkrs - reductionAmt)),
-            cash = firm.cash + net), tax, 0, 0, 0)
+            cash = firm.cash + net), tax, 0, 0, 0, profitShiftCost = psCost)
 
         else
           // Digital investment attempt (always-on, #37)
@@ -330,11 +337,24 @@ object FirmLogic:
             val boost = Config.DigiInvestBoost * diminishing
             val newDR = Math.min(1.0, firm.digitalReadiness + boost)
             FirmResult(firm.copy(cash = nc - digiCost, digitalReadiness = newDR),
-              tax, 0, 0, 0)
+              tax, 0, 0, 0, profitShiftCost = psCost)
           else if nc < 0 then
             FirmResult(firm.copy(cash = nc,
-              tech = TechState.Bankrupt("Niewyplacalnosc (koszty pracy)")), tax, 0, 0, 0)
+              tech = TechState.Bankrupt("Niewyplacalnosc (koszty pracy)")), tax, 0, 0, 0, profitShiftCost = psCost)
           else
-            FirmResult(firm.copy(cash = nc), tax, 0, 0, 0)
+            FirmResult(firm.copy(cash = nc), tax, 0, 0, 0, profitShiftCost = psCost)
 
-    applyDigitalDrift(applyInvestment(rawResult))
+    applyFdiFlows(applyDigitalDrift(applyInvestment(rawResult)))
+
+  /** Apply FDI dividend repatriation for foreign-owned firms (post-tax, cash-constrained). */
+  private def applyFdiFlows(r: FirmResult): FirmResult =
+    if !Config.FdiEnabled || !r.firm.foreignOwned || !FirmOps.isAlive(r.firm) then return r
+    val afterTaxProfit = if Config.CitRate > 0 && r.taxPaid > 0 then
+      r.taxPaid * (1.0 - Config.CitRate) / Config.CitRate
+    else 0.0
+    val repatriation = Math.min(
+      Math.max(0.0, afterTaxProfit) * Config.FdiRepatriationRate,
+      Math.max(0.0, r.firm.cash))
+    if repatriation <= 0.0 then return r
+    r.copy(firm = r.firm.copy(cash = r.firm.cash - repatriation),
+           fdiRepatriation = repatriation)

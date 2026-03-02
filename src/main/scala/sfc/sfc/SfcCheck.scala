@@ -84,7 +84,9 @@ object SfcCheck:
     nbfiDepositDrain: Double = 0.0,      // #42: TFI deposit drain
     nbfiOrigination: Double = 0.0,       // #42: NBFI monthly origination
     nbfiRepayment: Double = 0.0,         // #42: NBFI monthly repayment
-    nbfiDefaultAmount: Double = 0.0      // #42: NBFI gross monthly defaults
+    nbfiDefaultAmount: Double = 0.0,     // #42: NBFI gross monthly defaults
+    fdiProfitShifting: Double = 0.0,     // #33: FDI profit shifting (service import)
+    fdiRepatriation: Double = 0.0        // #33: FDI dividend repatriation (primary income debit)
   )
 
   /** Result of the SFC check: ten exact balance-sheet identity checks. */
@@ -144,7 +146,7 @@ object SfcCheck:
     * 1. Bank capital:  Δ = -nplLoss - mortgageNplLoss - consumerNplLoss + (interestIncome + hhDebtService + bankBondIncome + mortgageInterestIncome + consumerDebtService - depositInterestPaid + reserveInterest + standingFacilityIncome + interbankInterest) × 0.3
     * 2. Bank deposits: Δ = totalIncome - totalConsumption + jstDepositChange + dividendIncome - foreignDividendOutflow - remittanceOutflow + consumerOrigination + insNetDepositChange + nbfiDepositDrain
     * 3. Gov debt:      Δ = govSpending - govRevenue  (govRevenue includes dividendTax + zusGovSubvention)
-    * 4. NFA:           Δ = currentAccount + valuationEffect  (currentAccount includes -foreignDividendOutflow)
+    * 4. NFA:           Δ = currentAccount + valuationEffect  (currentAccount includes -foreignDividendOutflow, -fdiProfitShifting, -fdiRepatriation)
     * 5. Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings + insuranceGovBondHoldings + tfiGovBondHoldings = bondsOutstanding
     * 6. Interbank netting: Σ interbankNet_i = 0 (trivially 0 in single-bank mode)
     * 7. JST debt:      Δ = jstSpending - jstRevenue (trivially 0 when JST disabled)
