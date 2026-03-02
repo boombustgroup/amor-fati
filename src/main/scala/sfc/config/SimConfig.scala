@@ -134,7 +134,14 @@ object Config:
 
   // Government
   val CitRate          = 0.19
-  val VatRate          = 0.23
+  // Reduced VAT rates (#38): per-sector effective rate (Ustawa o VAT / GUS COICOP 2024)
+  // Standard 23%, food/hospitality 8%, basic goods 5%, medical exempt
+  val VatRates: Vector[Double] = sys.env.get("VAT_RATES") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == 6, s"VAT_RATES must have 6 values, got ${v.length}")
+      v
+    case _ => Vector(0.23, 0.19, 0.12, 0.06, 0.10, 0.07)
   val GovBaseSpending  = 100000000.0 * ScaleFactor
 
   // Public Investment vs Current Spending (#27)

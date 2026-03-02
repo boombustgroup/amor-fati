@@ -628,7 +628,7 @@ object Simulation:
       lastFxTraded = fxResult.eurTraded
     )
 
-    val vat = consumption * Config.VatRate
+    val vat = consumption * Config.FofConsWeights.zip(Config.VatRates).map((w, r) => w * r).kahanSum
     val unempBenefitSpend = hhAgg.map(_.totalUnempBenefits).getOrElse(0.0)
     val socialTransferSpend = if Config.Social800Enabled then
       hhAgg.map(_.totalSocialTransfers).getOrElse(
