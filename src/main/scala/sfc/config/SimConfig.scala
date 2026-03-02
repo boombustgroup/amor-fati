@@ -488,6 +488,20 @@ object Config:
   val CorpBondMaturity: Double = sys.env.get("CORPBOND_MATURITY").map(_.trim.toDouble).getOrElse(60.0)
     // Average maturity 5 years = 60 months → amortization = 1/60 per month
 
+  // Insurance Sector (#41)
+  val InsEnabled: Boolean = sys.env.get("INSURANCE_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val InsLifeReserves: Double = sys.env.get("INS_LIFE_RESERVES").map(_.trim.toDouble).getOrElse(110e9) * ScaleFactor
+  val InsNonLifeReserves: Double = sys.env.get("INS_NONLIFE_RESERVES").map(_.trim.toDouble).getOrElse(90e9) * ScaleFactor
+  val InsGovBondShare: Double = sys.env.get("INS_GOVBOND_SHARE").map(_.trim.toDouble).getOrElse(0.35)
+  val InsCorpBondShare: Double = sys.env.get("INS_CORPBOND_SHARE").map(_.trim.toDouble).getOrElse(0.08)
+  val InsEquityShare: Double = sys.env.get("INS_EQUITY_SHARE").map(_.trim.toDouble).getOrElse(0.12)
+  val InsLifePremiumRate: Double = sys.env.get("INS_LIFE_PREMIUM_RATE").map(_.trim.toDouble).getOrElse(0.003)
+  val InsNonLifePremiumRate: Double = sys.env.get("INS_NONLIFE_PREMIUM_RATE").map(_.trim.toDouble).getOrElse(0.0025)
+  val InsLifeLossRatio: Double = sys.env.get("INS_LIFE_LOSS_RATIO").map(_.trim.toDouble).getOrElse(0.85)
+  val InsNonLifeLossRatio: Double = sys.env.get("INS_NONLIFE_LOSS_RATIO").map(_.trim.toDouble).getOrElse(0.70)
+  val InsNonLifeUnempSens: Double = sys.env.get("INS_NONLIFE_UNEMP_SENS").map(_.trim.toDouble).getOrElse(0.5)
+  val InsRebalanceSpeed: Double = sys.env.get("INS_REBALANCE_SPEED").map(_.trim.toDouble).getOrElse(0.05)
+
   // Real Estate / Housing Market (v4.0 Tier 2)
   val ReEnabled: Boolean = sys.env.get("RE_ENABLED").map(_.trim.toBoolean).getOrElse(false)
   val ReMortgage: Boolean = sys.env.get("RE_MORTGAGE").map(_.trim.toBoolean).getOrElse(true)

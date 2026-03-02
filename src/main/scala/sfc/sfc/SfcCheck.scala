@@ -27,7 +27,8 @@ object SfcCheck:
     ppkBondHoldings: Double = 0.0, // PPK government bond holdings
     mortgageStock: Double = 0.0,  // Outstanding mortgage debt
     consumerLoans: Double = 0.0,  // Outstanding consumer credit stock
-    corpBondsOutstanding: Double = 0.0  // #40: corporate bond stock
+    corpBondsOutstanding: Double = 0.0,  // #40: corporate bond stock
+    insuranceGovBondHoldings: Double = 0.0  // #41: insurance gov bond holdings
   )
 
   /** Flows observed during a single month (computed in Simulation.step).
@@ -76,7 +77,8 @@ object SfcCheck:
     corpBondDefaultLoss: Double = 0.0,    // #40: bank loss from corp bond defaults
     corpBondIssuance: Double = 0.0,       // #40: new corp bonds issued this month
     corpBondAmortization: Double = 0.0,   // #40: corp bond principal repaid
-    corpBondDefaultAmount: Double = 0.0   // #40: gross corp bond defaults
+    corpBondDefaultAmount: Double = 0.0,  // #40: gross corp bond defaults
+    insNetDepositChange: Double = 0.0     // #41: insurance net HH deposit change
   )
 
   /** Result of the SFC check: ten exact balance-sheet identity checks. */
@@ -122,7 +124,8 @@ object SfcCheck:
       ppkBondHoldings = w.ppk.bondHoldings,
       mortgageStock = w.housing.mortgageStock,
       consumerLoans = w.bank.consumerLoans,
-      corpBondsOutstanding = w.corporateBonds.outstanding
+      corpBondsOutstanding = w.corporateBonds.outstanding,
+      insuranceGovBondHoldings = w.insurance.govBondHoldings
     )
 
   /** Validate ten exact balance-sheet identities.
@@ -130,10 +133,10 @@ object SfcCheck:
     * The monetary circuit closes via sector-level flow-of-funds (Identity 10).
     *
     * 1. Bank capital:  Δ = -nplLoss - mortgageNplLoss - consumerNplLoss + (interestIncome + hhDebtService + bankBondIncome + mortgageInterestIncome + consumerDebtService - depositInterestPaid + reserveInterest + standingFacilityIncome + interbankInterest) × 0.3
-    * 2. Bank deposits: Δ = totalIncome - totalConsumption + jstDepositChange + dividendIncome - foreignDividendOutflow - remittanceOutflow + consumerOrigination
+    * 2. Bank deposits: Δ = totalIncome - totalConsumption + jstDepositChange + dividendIncome - foreignDividendOutflow - remittanceOutflow + consumerOrigination + insNetDepositChange
     * 3. Gov debt:      Δ = govSpending - govRevenue  (govRevenue includes dividendTax + zusGovSubvention)
     * 4. NFA:           Δ = currentAccount + valuationEffect  (currentAccount includes -foreignDividendOutflow)
-    * 5. Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings = bondsOutstanding
+    * 5. Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings + insuranceGovBondHoldings = bondsOutstanding
     * 6. Interbank netting: Σ interbankNet_i = 0 (trivially 0 in single-bank mode)
     * 7. JST debt:      Δ = jstSpending - jstRevenue (trivially 0 when JST disabled)
     * 8. FUS balance:   Δ = zusContributions - zusPensionPayments (trivially 0 when ZUS disabled)
@@ -162,10 +165,10 @@ object SfcCheck:
     val actualBankCapChange = curr.bankCapital - prev.bankCapital
     val bankCapErr = actualBankCapChange - expectedBankCapChange
 
-    // Identity 2: Bank deposits (+ JST deposit flows + dividend flows - remittance outflow + consumer origination)
+    // Identity 2: Bank deposits (+ JST deposit flows + dividend flows - remittance outflow + consumer origination + insurance)
     val expectedDepChange = flows.totalIncome - flows.totalConsumption + flows.jstDepositChange +
       flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow +
-      flows.consumerOrigination
+      flows.consumerOrigination + flows.insNetDepositChange
     val actualDepChange = curr.bankDeposits - prev.bankDeposits
     val bankDepErr = actualDepChange - expectedDepChange
 
@@ -183,9 +186,9 @@ object SfcCheck:
     val nfaErr = actualNfaChange - expectedNfaChange
 
     // Identity 5: Bond clearing
-    // All outstanding bonds must be held by bank + NBP + PPK
+    // All outstanding bonds must be held by bank + NBP + PPK + insurance
     // When GovBondMarket=false: all bond fields = 0.0, trivially passes.
-    val bondClearingErr = (curr.bankBondHoldings + curr.nbpBondHoldings + curr.ppkBondHoldings) - curr.bondsOutstanding
+    val bondClearingErr = (curr.bankBondHoldings + curr.nbpBondHoldings + curr.ppkBondHoldings + curr.insuranceGovBondHoldings) - curr.bondsOutstanding
 
     // Identity 6: Interbank netting
     // Sum of all banks' interbankNet positions must be zero (closed system).

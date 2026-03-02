@@ -35,6 +35,7 @@ case class World(
   expectations: ExpectationsState = Expectations.zero,
   immigration: ImmigrationState = ImmigrationState.zero,
   corporateBonds: CorporateBondMarketState = CorporateBondMarket.zero,
+  insurance: InsuranceSectorState = InsuranceSector.zero,
   sectorDemandMult: Vector[Double] = Vector.fill(6)(1.0),
   fofResidual: Double = 0.0,
   grossInvestment: Double = 0.0

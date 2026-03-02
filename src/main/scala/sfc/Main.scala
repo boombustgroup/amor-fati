@@ -115,8 +115,13 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     DemographicsState(Config.DemInitialRetirees, Config.TotalPopulation, 0)
   else DemographicsState.zero
 
+  // Initial insurance gov bond holdings → must be reflected in bondsOutstanding (Identity 5)
+  val initInsurance = if Config.InsEnabled then InsuranceSector.initial
+                      else InsuranceSector.zero
+  val initBondsOutstanding = initInsurance.govBondHoldings
+
   var world = World(0, 0.02, 1.0,
-    GovState(false, 0, 0, 0, 0, 0), NbpState(initRate),
+    GovState(false, 0, 0, 0, 0, 0, bondsOutstanding = initBondsOutstanding), NbpState(initRate),
     BankState(0, 0, Config.InitBankCapital, initCash, consumerLoans = initConsumerLoans,
       corpBondHoldings = Config.CorpBondInitStock * Config.CorpBondBankShare),
     ForexState(Config.BaseExRate, 0, Config.ExportBase, 0, 0),
@@ -143,7 +148,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     immigration = if Config.ImmigEnabled then
       ImmigrationState(Config.ImmigInitStock, 0, 0, 0.0)
     else ImmigrationState.zero,
-    corporateBonds = CorporateBondMarket.initial)
+    corporateBonds = CorporateBondMarket.initial,
+    insurance = initInsurance)
 
   // Collect time-series: 120 rows x N columns
   // Columns: Month, Inflation, Unemployment, AutoRatio+HybridRatio, ExRate, MarketWage,
@@ -158,7 +164,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
   //                   Repayment, Default, MortgageInterest, HhHousingWealth,
   //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 152
+  val nCols = 159
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
@@ -407,7 +413,15 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.corporateBonds.creditSpread,                             // 148: CorpBondSpread
       world.corporateBonds.bankHoldings,                             // 149: BankCorpBondHoldings
       world.corporateBonds.ppkHoldings,                               // 150: PpkCorpBondHoldings
-      world.corporateBonds.lastAbsorptionRate                          // 151: CorpBondAbsorptionRate
+      world.corporateBonds.lastAbsorptionRate,                         // 151: CorpBondAbsorptionRate
+      // Insurance Sector (#41)
+      world.insurance.lifeReserves,                                    // 152: InsLifeReserves
+      world.insurance.nonLifeReserves,                                 // 153: InsNonLifeReserves
+      world.insurance.govBondHoldings,                                 // 154: InsGovBondHoldings
+      world.insurance.lastLifePremium,                                 // 155: InsLifePremium
+      world.insurance.lastNonLifePremium,                              // 156: InsNonLifePremium
+      world.insurance.lastLifeClaims,                                  // 157: InsLifeClaims
+      world.insurance.lastNonLifeClaims                                // 158: InsNonLifeClaims
     )
 
   RunResult(results, world.hhAgg)
@@ -440,7 +454,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols   = 152
+  val nCols   = 159
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
 
@@ -502,7 +516,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "ConsumerLoans;ConsumerNplRatio;ConsumerOrigination;ConsumerDebtService;" +
     "AggCapitalStock;GrossInvestment;CapitalDepreciation;" +
     "ExciseRevenue;CustomsDutyRevenue;" +
-    "CorpBondOutstanding;CorpBondYield;CorpBondIssuance;CorpBondSpread;BankCorpBondHoldings;PpkCorpBondHoldings;CorpBondAbsorptionRate\n")
+    "CorpBondOutstanding;CorpBondYield;CorpBondIssuance;CorpBondSpread;BankCorpBondHoldings;PpkCorpBondHoldings;CorpBondAbsorptionRate;" +
+    "InsLifeReserves;InsNonLifeReserves;InsGovBondHoldings;InsLifePremium;InsNonLifePremium;InsLifeClaims;InsNonLifeClaims\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -601,7 +616,9 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     "ExciseRevenue", "CustomsDutyRevenue",
     "CorpBondOutstanding", "CorpBondYield", "CorpBondIssuance",
     "CorpBondSpread", "BankCorpBondHoldings", "PpkCorpBondHoldings",
-    "CorpBondAbsorptionRate")
+    "CorpBondAbsorptionRate",
+    "InsLifeReserves", "InsNonLifeReserves", "InsGovBondHoldings",
+    "InsLifePremium", "InsNonLifePremium", "InsLifeClaims", "InsNonLifeClaims")
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do

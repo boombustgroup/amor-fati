@@ -683,6 +683,14 @@ object Simulation:
     val (_, _, corpBondBankDefaultLoss, _) = CorporateBondMarket.processDefaults(
       w.corporateBonds, totalBondDefault)
 
+    // --- Insurance sector step (#41) ---
+    val insUnempRate = 1.0 - employed.toDouble / Config.TotalPopulation
+    val newInsurance = if Config.InsEnabled then
+      InsuranceSector.step(w.insurance, employed, newWage, w.priceLevel, insUnempRate,
+        newBondYield, w.corporateBonds.corpBondYield, w.equity.monthlyReturn)
+    else w.insurance
+    val insNetDepositChange = newInsurance.lastNetDepositChange
+
     val vat = consumption * Config.FofConsWeights.zip(Config.VatRates).map((w, r) => w * r).kahanSum
     val exciseRevenue = consumption * Config.FofConsWeights.zip(Config.ExciseRates).map((w, r) => w * r).kahanSum
     val customsDutyRevenue = if Config.OeEnabled then
@@ -741,7 +749,7 @@ object Simulation:
                    + corpBondBankCoupon * 0.3,
       deposits   = w.bank.deposits + (totalIncome - consumption) + jstDepositChange
                    + netDomesticDividends - foreignDividendOutflow - remittanceOutflow
-                   + consumerOrigination,
+                   + consumerOrigination + insNetDepositChange,
       consumerLoans = Math.max(0.0, w.bank.consumerLoans + consumerOrigination - consumerPrincipal - consumerDefaultAmt),
       consumerNpl = Math.max(0.0, w.bank.consumerNpl + consumerDefaultAmt - w.bank.consumerNpl * 0.05),
       corpBondHoldings = newCorpBonds.bankHoldings)
@@ -765,10 +773,17 @@ object Simulation:
     val ppkBondPurchase = Math.min(rawPpkBondPurchase, Math.max(0.0, availableBondsForPpk))
     val finalPpk = newPpk.copy(bondHoldings = w.ppk.bondHoldings + ppkBondPurchase)
 
-    // Bond allocation: new issuance goes to bank; QE and PPK transfer from bank
+    // Insurance gov bond purchases (capped at available bonds after QE + PPK)
+    val insGovBondDelta = newInsurance.govBondHoldings - w.insurance.govBondHoldings
+    val availableBondsForIns = newBank.govBondHoldings +
+      (if Config.GovBondMarket then actualBondChange else 0.0) - qePurchaseAmount - ppkBondPurchase
+    val insBondPurchase = Math.max(0.0, Math.min(Math.max(0.0, insGovBondDelta), Math.max(0.0, availableBondsForIns)))
+    val finalInsurance = newInsurance.copy(govBondHoldings = w.insurance.govBondHoldings + insBondPurchase)
+
+    // Bond allocation: new issuance goes to bank; QE, PPK, and insurance transfer from bank
     val finalBank = if Config.GovBondMarket then
-      newBank.copy(govBondHoldings = newBank.govBondHoldings + actualBondChange - qePurchaseAmount - ppkBondPurchase)
-    else newBank.copy(govBondHoldings = newBank.govBondHoldings - qePurchaseAmount - ppkBondPurchase)
+      newBank.copy(govBondHoldings = newBank.govBondHoldings + actualBondChange - qePurchaseAmount - ppkBondPurchase - insBondPurchase)
+    else newBank.copy(govBondHoldings = newBank.govBondHoldings - qePurchaseAmount - ppkBondPurchase - insBondPurchase)
 
     // ---- Multi-bank update path ----
     // Compute per-bank flows from lagged state
@@ -816,7 +831,8 @@ object Simulation:
           val bankDivInflow = netDomesticDividends * ws
           val bankDivOutflow = foreignDividendOutflow * ws
           val bankRemittance = remittanceOutflow * ws
-          val newDep = b.deposits + (bankIncomeShare - bankConsShare) + bankDivInflow - bankDivOutflow - bankRemittance + bankCcOrig
+          val bankInsDepChange = insNetDepositChange * ws
+          val newDep = b.deposits + (bankIncomeShare - bankConsShare) + bankDivInflow - bankDivOutflow - bankRemittance + bankCcOrig + bankInsDepChange
           // Per-bank mortgage flows (proportional to deposit share)
           val bankDepShare = if totalWorkers > 0 then perBankWorkers(bId) / totalWorkers else 0.0
           val bankMortgageIntIncome = mortgageInterestIncome * bankDepShare
@@ -861,8 +877,10 @@ object Simulation:
         val afterQe = BankingSector.allocateQePurchases(afterBonds, qePurchaseAmount)
         // 4b. PPK bond purchases
         val afterPpk = BankingSector.allocateQePurchases(afterQe, ppkBondPurchase)
+        // 4c. Insurance gov bond purchases (#41)
+        val afterIns = BankingSector.allocateQePurchases(afterPpk, insBondPurchase)
         // 5. Failure checks + BFG resolution (pass ccyb for effective MinCAR)
-        val (afterFailCheck, anyFailed) = BankingSector.checkFailures(afterPpk, m,
+        val (afterFailCheck, anyFailed) = BankingSector.checkFailures(afterIns, m,
           ccyb = newMacropru.ccyb)
         val afterResolve = if anyFailed then BankingSector.resolveFailures(afterFailCheck)
                            else afterFailCheck
@@ -951,6 +969,7 @@ object Simulation:
       expectations = newExp,
       immigration = newImmig,
       corporateBonds = newCorpBonds,
+      insurance = finalInsurance,
       sectorDemandMult = sectorMults,
       fofResidual = fofResidual,
       grossInvestment = sumGrossInvestment)
@@ -1005,7 +1024,8 @@ object Simulation:
       corpBondDefaultLoss = corpBondBankDefaultLoss,
       corpBondIssuance = actualBondIssuance,
       corpBondAmortization = corpBondAmort,
-      corpBondDefaultAmount = totalBondDefault
+      corpBondDefaultAmount = totalBondDefault,
+      insNetDepositChange = insNetDepositChange
     )
     val sfcResult = SfcCheck.validate(m, prevSnap, currSnap, sfcFlows)
     if !sfcResult.passed then

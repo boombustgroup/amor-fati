@@ -263,6 +263,16 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
     result.passed shouldBe true
   }
 
+  it should "include insurance gov bond holdings in bond clearing" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0, 0.0,
+      bankBondHoldings = 5000.0, nbpBondHoldings = 3000.0, bondsOutstanding = 10000.0,
+      insuranceGovBondHoldings = 2000.0)
+    val result = SfcCheck.validate(1, prev, prev, zeroFlows)
+    // 5000 + 3000 + 0 (ppk) + 2000 (insurance) = 10000 = outstanding
+    result.bondClearingError shouldBe 0.0 +- 0.01
+    result.passed shouldBe true
+  }
+
   // ---- Identity 1 with bond income ----
 
   "SfcCheck.validate (bank capital with bond income)" should "include bankBondIncome in Identity 1" in {
@@ -299,6 +309,19 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
     val snap = SfcCheck.Snapshot(100000, 5000, 500000, 10000, 200000, 800000, 10000, 0)
     val result = SfcCheck.validate(1, snap, snap, zeroFlows)
     result.interbankNettingError shouldBe 0.0
+    result.passed shouldBe true
+  }
+
+  // ---- Identity 2 with insurance deposit change (#41) ----
+
+  "SfcCheck.validate (insurance deposits)" should "include insNetDepositChange in Identity 2" in {
+    val prev = SfcCheck.Snapshot(0, 0, 500000, 0, 200000, 1000000, 0, 0)
+    // Insurance premium > claims → negative deposit change (drain)
+    val insDepChange = -500.0
+    val curr = prev.copy(bankDeposits = prev.bankDeposits + insDepChange)
+    val flows = zeroFlows.copy(insNetDepositChange = insDepChange)
+    val result = SfcCheck.validate(1, prev, curr, flows)
+    result.bankDepositsError shouldBe 0.0 +- 0.01
     result.passed shouldBe true
   }
 
