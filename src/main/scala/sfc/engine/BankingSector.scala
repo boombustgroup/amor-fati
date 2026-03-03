@@ -250,37 +250,45 @@ object BankingSector:
       }
       (updated, totalBailIn)
 
-  /** BFG resolution: transfer deposits, bonds, performing loans to healthiest bank. */
+  /** BFG resolution: transfer deposits, bonds, performing loans to healthiest bank.
+    * Absorber branch is checked FIRST so that when the absorber is itself failed
+    * (all-banks-fail scenario) it gets resurrected as a bridge bank before the
+    * zero-out branch can wipe it. */
   def resolveFailures(banks: Vector[IndividualBankState]): Vector[IndividualBankState] =
     val newlyFailed = banks.filter(b => b.failed && b.deposits > 0)
     if newlyFailed.isEmpty then banks
     else
       val absorberId = healthiestBankId(banks)
       banks.map { b =>
-        if b.failed && b.deposits > 0 then
-          // Wipe this bank's balance sheet
-          b.copy(deposits = 0.0, loans = 0.0, govBondHoldings = 0.0,
-            nplAmount = 0.0, interbankNet = 0.0, reservesAtNbp = 0.0,
-            corpBondHoldings = 0.0)
-        else if b.id == absorberId then
-          // Absorb deposits, performing loans, bonds from failed banks
-          val addedDeposits = newlyFailed.kahanSumBy(_.deposits)
-          val addedLoans = newlyFailed.kahanSumBy(f => f.loans - f.nplAmount)
-          val addedBonds = newlyFailed.kahanSumBy(_.govBondHoldings)
-          val addedCorpBonds = newlyFailed.kahanSumBy(_.corpBondHoldings)
+        if b.id == absorberId then
+          // Absorb deposits, performing loans, bonds, interbank from OTHER failed banks
+          val toAbsorb = newlyFailed.filter(_.id != absorberId)
+          val addedDeposits = toAbsorb.kahanSumBy(_.deposits)
+          val addedLoans = toAbsorb.kahanSumBy(f => f.loans - f.nplAmount)
+          val addedBonds = toAbsorb.kahanSumBy(_.govBondHoldings)
+          val addedCorpBonds = toAbsorb.kahanSumBy(_.corpBondHoldings)
+          val addedInterbank = toAbsorb.kahanSumBy(_.interbankNet)
           b.copy(
             deposits = b.deposits + addedDeposits,
             loans = b.loans + Math.max(0, addedLoans),
             govBondHoldings = b.govBondHoldings + addedBonds,
-            corpBondHoldings = b.corpBondHoldings + addedCorpBonds
+            corpBondHoldings = b.corpBondHoldings + addedCorpBonds,
+            interbankNet = b.interbankNet + addedInterbank,
+            failed = false
           )
+        else if b.failed && b.deposits > 0 then
+          // Wipe this bank's balance sheet (assets transferred to absorber above)
+          b.copy(deposits = 0.0, loans = 0.0, govBondHoldings = 0.0,
+            nplAmount = 0.0, interbankNet = 0.0, reservesAtNbp = 0.0,
+            corpBondHoldings = 0.0)
         else b
       }
 
-  /** Find the healthiest (highest CAR) surviving bank. */
+  /** Find the healthiest (highest CAR) surviving bank.
+    * If all banks have failed, pick the least-bad (highest capital) as bridge bank. */
   def healthiestBankId(banks: Vector[IndividualBankState]): Int =
     val alive = banks.filterNot(_.failed)
-    if alive.isEmpty then 0
+    if alive.isEmpty then banks.maxBy(_.capital).id
     else alive.maxBy(_.car).id
 
   /** Reassign a firm/household from a failed bank to the healthiest surviving bank. */

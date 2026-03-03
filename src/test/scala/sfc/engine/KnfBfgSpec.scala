@@ -281,3 +281,78 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
     newBalance shouldBe 1500.0
     newBalance should be > prevBalance
   }
+
+  // ==========================================================================
+  // resolveFailures edge cases (4 tests)
+  // ==========================================================================
+
+  "resolveFailures" should "preserve total gov bond holdings when all banks fail" in {
+    val banks = Vector(
+      IndividualBankState(0, deposits = 500000.0, loans = 100000, capital = -10000,
+        nplAmount = 50000, govBondHoldings = 20e9, reservesAtNbp = 0, interbankNet = 0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3),
+      IndividualBankState(1, deposits = 300000.0, loans = 80000, capital = -5000,
+        nplAmount = 30000, govBondHoldings = 15e9, reservesAtNbp = 0, interbankNet = 0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3),
+      IndividualBankState(2, deposits = 200000.0, loans = 60000, capital = -20000,
+        nplAmount = 20000, govBondHoldings = 13.8e9, reservesAtNbp = 0, interbankNet = 0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3)
+    )
+    val totalBondsBefore = banks.map(_.govBondHoldings).sum
+    val resolved = BankingSector.resolveFailures(banks)
+    val totalBondsAfter = resolved.map(_.govBondHoldings).sum
+    totalBondsAfter shouldBe totalBondsBefore +- 1.0
+    // Bridge bank (highest capital = bank 1) should be resurrected
+    val bridge = resolved.find(!_.failed)
+    bridge shouldBe defined
+    bridge.get.govBondHoldings should be > 0.0
+  }
+
+  it should "preserve interbank netting sum when all banks fail" in {
+    val banks = Vector(
+      IndividualBankState(0, deposits = 500000.0, loans = 100000, capital = -5000,
+        nplAmount = 50000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 1000.0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3),
+      IndividualBankState(1, deposits = 300000.0, loans = 80000, capital = -3000,
+        nplAmount = 30000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = -600.0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3),
+      IndividualBankState(2, deposits = 200000.0, loans = 60000, capital = -10000,
+        nplAmount = 20000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = -400.0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3)
+    )
+    val resolved = BankingSector.resolveFailures(banks)
+    // All interbank nets should sum to the original total (zero-sum preserved)
+    val totalInterbankAfter = resolved.map(_.interbankNet).sum
+    val totalInterbankBefore = banks.map(_.interbankNet).sum
+    totalInterbankAfter shouldBe totalInterbankBefore +- 1e-6
+  }
+
+  it should "transfer bonds to healthy absorber in partial failure" in {
+    val banks = Vector(
+      IndividualBankState(0, deposits = 500000.0, loans = 100000, capital = 0,
+        nplAmount = 50000, govBondHoldings = 10e9, reservesAtNbp = 0, interbankNet = 0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3),
+      IndividualBankState(1, deposits = 2000000.0, loans = 200000, capital = 200000,
+        nplAmount = 0, govBondHoldings = 5e9, reservesAtNbp = 0, interbankNet = 0,
+        failed = false, failedMonth = 0, consecutiveLowCar = 0)
+    )
+    val resolved = BankingSector.resolveFailures(banks)
+    resolved(0).govBondHoldings shouldBe 0.0
+    resolved(1).govBondHoldings shouldBe 15e9 +- 1.0
+  }
+
+  "healthiestBankId" should "return bank with highest capital when all fail" in {
+    val banks = Vector(
+      IndividualBankState(0, deposits = 500000.0, loans = 100000, capital = -20000,
+        nplAmount = 50000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3),
+      IndividualBankState(1, deposits = 300000.0, loans = 80000, capital = -5000,
+        nplAmount = 30000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3),
+      IndividualBankState(2, deposits = 200000.0, loans = 60000, capital = -15000,
+        nplAmount = 20000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
+        failed = true, failedMonth = 3, consecutiveLowCar = 3)
+    )
+    // Bank 1 has highest (least negative) capital: -5000
+    BankingSector.healthiestBankId(banks) shouldBe 1
+  }
