@@ -346,6 +346,7 @@ object Simulation:
     var sumProfitShifting = 0.0
     var sumFdiRepatriation = 0.0
     var sumInventoryChange = 0.0
+    var sumCitEvasion = 0.0
 
     val macro4firms = w.copy(
       month = m, sectorDemandMult = sectorMults,
@@ -366,6 +367,7 @@ object Simulation:
       sumProfitShifting += r.profitShiftCost
       sumFdiRepatriation += r.fdiRepatriation
       sumInventoryChange += r.inventoryChange
+      sumCitEvasion += r.citEvasion
 
       // GPW equity issuance: eligible firms replace fraction of loan with equity
       val (actualLoan, equityAmt, updatedFirm) =
@@ -733,16 +735,31 @@ object Simulation:
         Config.TotalPopulation.toDouble * Config.Social800ChildrenPerHh * Config.Social800Rate
       )
     else 0.0
-    val newGov = Sectors.updateGov(w.gov, sumTax + dividendTax + pitRevenue, vat, bdpActive, bdp, newPrice, unempBenefitSpend,
+
+    // Informal economy: aggregate tax evasion (#45)
+    val informalCyclicalAdj = w.informalCyclicalAdj
+    val effectiveShadowShare = if Config.InformalEnabled then
+      Config.FofConsWeights.zip(Config.InformalSectorShares).map((cw, ss) =>
+        cw * Math.min(1.0, ss + informalCyclicalAdj)).kahanSum
+    else 0.0
+    val vatAfterEvasion = if Config.InformalEnabled then
+      vat * (1.0 - effectiveShadowShare * Config.InformalVatEvasion) else vat
+    val exciseAfterEvasion = if Config.InformalEnabled then
+      exciseRevenue * (1.0 - effectiveShadowShare * Config.InformalExciseEvasion) else exciseRevenue
+    val pitAfterEvasion = if Config.InformalEnabled then
+      pitRevenue * (1.0 - effectiveShadowShare * Config.InformalPitEvasion) else pitRevenue
+
+    val newGov = Sectors.updateGov(w.gov, sumTax + dividendTax + pitAfterEvasion, vatAfterEvasion,
+      bdpActive, bdp, newPrice, unempBenefitSpend,
       monthlyDebtService, nbpRemittance, newZus.govSubvention, socialTransferSpend,
       euCofinancing = euCofin, euProjectCapital = euProjectCapital,
-      exciseRevenue = exciseRevenue, customsDutyRevenue = customsDutyRevenue)
+      exciseRevenue = exciseAfterEvasion, customsDutyRevenue = customsDutyRevenue)
     val newGovWithYield = newGov.copy(bondYield = newBondYield)
 
     // JST (local government) — must precede newBank (JST deposits flow into bank)
     val nLivingFirms = living2.length
     val (newJst, jstDepositChange) = JstLogic.step(
-      w.jst, newGovWithYield.taxRevenue, totalIncome, gdp, nLivingFirms, pitRevenue)
+      w.jst, newGovWithYield.taxRevenue, totalIncome, gdp, nLivingFirms, pitAfterEvasion)
 
     // ---- Housing market step ----
     val unempRate = 1.0 - employed.toDouble / Config.TotalPopulation
@@ -984,6 +1001,17 @@ object Simulation:
       totalFirmRev - fofTotalDemand
     }
 
+    // Informal economy: aggregate metrics and next-month cyclical adjustment (#45)
+    val taxEvasionLoss = if Config.InformalEnabled then
+      sumCitEvasion + (vat - vatAfterEvasion) + (pitRevenue - pitAfterEvasion) + (exciseRevenue - exciseAfterEvasion)
+    else 0.0
+    val informalEmployed = if Config.InformalEnabled then
+      employed.toDouble * effectiveShadowShare else 0.0
+    val newInformalCyclicalAdj = if Config.InformalEnabled then
+      val unemp = 1.0 - employed.toDouble / Config.TotalPopulation
+      Math.max(0.0, unemp - Config.InformalUnempThreshold) * Config.InformalCyclicalSens
+    else 0.0
+
     val newW = World(m, newInfl, newPrice, newGovWithYield, postFxNbp,
       resolvedBank, newForex,
       HhState(employed, newWage, resWage, totalIncome, consumption, domesticCons, importCons,
@@ -1020,7 +1048,10 @@ object Simulation:
       fdiRepatriation = sumFdiRepatriation,
       fdiCitLoss = fdiCitLoss,
       aggInventoryStock = aggInventoryStock,
-      aggInventoryChange = aggInventoryChange)
+      aggInventoryChange = aggInventoryChange,
+      informalCyclicalAdj = newInformalCyclicalAdj,
+      taxEvasionLoss = taxEvasionLoss,
+      informalEmployed = informalEmployed)
 
     // SFC accounting check: verify exact balance-sheet identities every step
     val prevSnap = SfcCheck.snapshot(w, firms, households)
@@ -1030,7 +1061,7 @@ object Simulation:
         + newGovWithYield.socialTransferSpend
         + Config.GovBaseSpending * newPrice + monthlyDebtService + newZus.govSubvention
         + euCofin,
-      govRevenue = sumTax + dividendTax + pitRevenue + vat + nbpRemittance + exciseRevenue + customsDutyRevenue,
+      govRevenue = sumTax + dividendTax + pitAfterEvasion + vatAfterEvasion + nbpRemittance + exciseAfterEvasion + customsDutyRevenue,
       nplLoss = nplLoss,
       interestIncome = intIncome,
       hhDebtService = hhDebtService,

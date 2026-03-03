@@ -844,6 +844,21 @@ object Config:
   val InventoryLiquidationDisc: Double = sys.env.get("INVENTORY_LIQUIDATION_DISC").map(_.trim.toDouble).getOrElse(0.50)
   val InventoryInitRatio: Double = sys.env.get("INVENTORY_INIT_RATIO").map(_.trim.toDouble).getOrElse(0.80)
 
+  // Informal Economy (#45)
+  val InformalEnabled: Boolean = sys.env.get("INFORMAL_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val InformalSectorShares: Vector[Double] = sys.env.get("INFORMAL_SECTOR_SHARES") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == SECTORS.length, s"INFORMAL_SECTOR_SHARES must have ${SECTORS.length} values, got ${v.length}")
+      v
+    case _ => Vector(0.05, 0.15, 0.30, 0.20, 0.02, 0.35)
+  val InformalCitEvasion: Double = sys.env.get("INFORMAL_CIT_EVASION").map(_.trim.toDouble).getOrElse(0.80)
+  val InformalVatEvasion: Double = sys.env.get("INFORMAL_VAT_EVASION").map(_.trim.toDouble).getOrElse(0.90)
+  val InformalPitEvasion: Double = sys.env.get("INFORMAL_PIT_EVASION").map(_.trim.toDouble).getOrElse(0.85)
+  val InformalExciseEvasion: Double = sys.env.get("INFORMAL_EXCISE_EVASION").map(_.trim.toDouble).getOrElse(0.70)
+  val InformalUnempThreshold: Double = sys.env.get("INFORMAL_UNEMP_THRESHOLD").map(_.trim.toDouble).getOrElse(0.05)
+  val InformalCyclicalSens: Double = sys.env.get("INFORMAL_CYCLICAL_SENS").map(_.trim.toDouble).getOrElse(0.50)
+
   // Heterogeneous households (Paper-06)
   val HhCount = sys.env.get("HH_COUNT").map(_.trim.toInt).getOrElse(TotalPopulation)
 

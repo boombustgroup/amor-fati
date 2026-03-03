@@ -46,5 +46,8 @@ case class World(
   firmBirths: Int = 0,
   firmDeaths: Int = 0,
   aggInventoryStock: Double = 0.0,
-  aggInventoryChange: Double = 0.0
+  aggInventoryChange: Double = 0.0,
+  informalCyclicalAdj: Double = 0.0,
+  taxEvasionLoss: Double = 0.0,
+  informalEmployed: Double = 0.0
 )

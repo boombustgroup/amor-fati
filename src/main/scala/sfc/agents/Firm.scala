@@ -103,7 +103,8 @@ case class FirmResult(firm: Firm, taxPaid: Double, capexSpent: Double,
   techImports: Double, newLoan: Double, equityIssuance: Double = 0.0,
   grossInvestment: Double = 0.0, bondIssuance: Double = 0.0,
   profitShiftCost: Double = 0.0, fdiRepatriation: Double = 0.0,
-  inventoryChange: Double = 0.0)
+  inventoryChange: Double = 0.0,
+  citEvasion: Double = 0.0)
 
 // ---- Firm decision logic ----
 
@@ -379,7 +380,24 @@ object FirmLogic:
             FirmResult(firm.copy(cash = nc), tax, 0, 0, 0, profitShiftCost = psCost)
 
     val sectorDemandMult = w.sectorDemandMult(firm.sector)
-    applyFdiFlows(applyInventory(applyDigitalDrift(applyInvestment(rawResult)), sectorDemandMult))
+    applyInformalCitEvasion(
+      applyFdiFlows(applyInventory(applyDigitalDrift(applyInvestment(rawResult)), sectorDemandMult)),
+      w.informalCyclicalAdj)
+
+  /** Apply informal CIT evasion — firm keeps evaded tax (#45). */
+  private def applyInformalCitEvasion(r: FirmResult, cyclicalAdj: Double): FirmResult =
+    if !Config.InformalEnabled then return r
+    val f = r.firm
+    if !FirmOps.isAlive(f) || r.taxPaid <= 0.0 then return r
+    val baseShadow = Config.InformalSectorShares(f.sector)
+    val effectiveShadow = Math.min(1.0, baseShadow + cyclicalAdj)
+    val evasionFrac = effectiveShadow * Config.InformalCitEvasion
+    val evaded = r.taxPaid * evasionFrac
+    r.copy(
+      firm = f.copy(cash = f.cash + evaded),
+      taxPaid = r.taxPaid - evaded,
+      citEvasion = evaded
+    )
 
   /** Apply FDI dividend repatriation for foreign-owned firms (post-tax, cash-constrained). */
   private def applyFdiFlows(r: FirmResult): FirmResult =
