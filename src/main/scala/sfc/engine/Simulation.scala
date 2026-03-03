@@ -460,6 +460,7 @@ object Simulation:
 
     val prevAlive = firms.filter(FirmOps.isAlive).map(_.id).toSet
     val newlyDead = ioFirms.filter(f => !FirmOps.isAlive(f) && prevAlive.contains(f.id))
+    val firmDeaths = newlyDead.length
     val nplNew    = newlyDead.kahanSumBy(_.debt)
     val nplLoss   = nplNew * (1.0 - Config.LoanRecovery)
     val totalBondDefault = newlyDead.kahanSumBy(_.bondDebt)
@@ -1092,7 +1093,7 @@ object Simulation:
         f" nbfiCredit=${sfcResult.nbfiCreditError}%.2f")
 
     // FDI M&A: monthly domestic → foreign conversion (#33)
-    val finalFirms = if Config.FdiEnabled && Config.FdiMaProb > 0 then
+    val postFdiFirms = if Config.FdiEnabled && Config.FdiMaProb > 0 then
       reassignedFirms.map { f =>
         if FirmOps.isAlive(f) && !f.foreignOwned &&
            f.initialSize >= Config.FdiMaSizeMin &&
@@ -1102,4 +1103,98 @@ object Simulation:
       }
     else reassignedFirms
 
-    (newW, finalFirms, reassignedHouseholds)
+    // Endogenous Firm Entry (#35): recycle bankrupt slots
+    val (finalFirms, firmBirths) = if Config.FirmEntryEnabled then
+      val postLiving = postFdiFirms.filter(FirmOps.isAlive)
+      val sectorCashSum = Array.fill(SECTORS.length)(0.0)
+      val sectorCashCnt = Array.fill(SECTORS.length)(0)
+      for f <- postLiving do
+        sectorCashSum(f.sector) += f.cash
+        sectorCashCnt(f.sector) += 1
+      val sectorAvgCash = SECTORS.indices.map(s =>
+        if sectorCashCnt(s) > 0 then sectorCashSum(s) / sectorCashCnt(s) else 0.0).toArray
+      val globalAvgCash = if postLiving.nonEmpty then
+        postLiving.map(_.cash).sum / postLiving.length else 1.0
+      val profitSignals = sectorAvgCash.map { c =>
+        Math.max(-1.0, Math.min(2.0,
+          (c - globalAvgCash) / Math.max(1.0, Math.abs(globalAvgCash))))
+      }
+
+      val sectorWeights = SECTORS.indices.map { s =>
+        Math.max(0.01, (1.0 + profitSignals(s) * Config.FirmEntryProfitSens) *
+          Config.FirmEntrySectorBarriers(s))
+      }.toArray
+      val totalWeight = sectorWeights.sum
+
+      val totalAdoption = newW.automationRatio + newW.hybridRatio
+      val livingIds = postLiving.map(_.id)
+      var births = 0
+
+      val result = postFdiFirms.map { f =>
+        if !FirmOps.isAlive(f) then
+          val slotSector = f.sector
+          val entryProb = Config.FirmEntryRate * Config.FirmEntrySectorBarriers(slotSector) *
+            Math.max(0.0, 1.0 + profitSignals(slotSector) * Config.FirmEntryProfitSens)
+          if Random.nextDouble() < entryProb then
+            births += 1
+            val roll = Random.nextDouble() * totalWeight
+            var cumul = 0.0
+            var newSector = 0
+            var found = false
+            for s <- SECTORS.indices if !found do
+              cumul += sectorWeights(s)
+              if roll < cumul then { newSector = s; found = true }
+
+            val firmSize = Math.max(1, Random.between(1, 10))
+            val sizeMult = firmSize.toDouble / Config.WorkersPerFirm
+
+            val isAiNative = totalAdoption > Config.FirmEntryAiThreshold &&
+              Random.nextDouble() < Config.FirmEntryAiProb
+            val dr = if isAiNative then Random.between(0.50, 0.90)
+                     else Math.max(0.02, Math.min(0.30,
+                       SECTORS(newSector).baseDigitalReadiness + Random.nextGaussian() * 0.10))
+            val startWorkers = if households.isDefined then 0 else firmSize
+            val tech = if isAiNative then
+              val hw = Math.max(1, (startWorkers * 0.6).toInt)
+              TechState.Hybrid(hw, 0.5 + Random.nextDouble() * 0.3)
+            else TechState.Traditional(startWorkers)
+
+            val nNeighbors = Math.min(6, livingIds.length)
+            val newNeighbors = if nNeighbors > 0 then
+              Random.shuffle(livingIds.toList).take(nNeighbors).toArray
+            else Array.empty[Int]
+
+            val bankId = if Config.BankMulti then
+              BankingSector.assignBank(newSector, BankingSector.DefaultConfigs, Random)
+            else 0
+
+            val foreignOwned = Config.FdiEnabled &&
+              Random.nextDouble() < Config.FdiForeignShares(newSector)
+
+            val capitalStock = if Config.PhysCapEnabled then
+              firmSize.toDouble * Config.PhysCapKLRatios(newSector)
+            else 0.0
+
+            Firm(
+              id = f.id,
+              cash = Config.FirmEntryStartupCash * sizeMult,
+              debt = 0.0,
+              tech = tech,
+              riskProfile = Random.between(0.1, 0.9),
+              innovationCostFactor = Random.between(0.8, 1.5),
+              digitalReadiness = dr,
+              sector = newSector,
+              neighbors = newNeighbors,
+              bankId = bankId,
+              initialSize = firmSize,
+              capitalStock = capitalStock,
+              foreignOwned = foreignOwned
+            )
+          else f
+        else f
+      }
+      (result, births)
+    else (postFdiFirms, 0)
+
+    val finalW = newW.copy(firmBirths = firmBirths, firmDeaths = firmDeaths)
+    (finalW, finalFirms, reassignedHouseholds)

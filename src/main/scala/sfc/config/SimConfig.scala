@@ -110,6 +110,21 @@ object Config:
   val FirmSizeMediumShare: Double = sys.env.get("FIRM_SIZE_MEDIUM_SHARE").map(_.trim.toDouble).getOrElse(0.008)
   val FirmSizeLargeShare: Double = sys.env.get("FIRM_SIZE_LARGE_SHARE").map(_.trim.toDouble).getOrElse(0.002)
   val FirmSizeLargeMax: Int = sys.env.get("FIRM_SIZE_LARGE_MAX").map(_.trim.toInt).getOrElse(1000)
+
+  // Endogenous Firm Entry (#35)
+  val FirmEntryEnabled: Boolean = sys.env.get("FIRM_ENTRY_ENABLED").map(_.trim.toBoolean).getOrElse(false)
+  val FirmEntryRate: Double = sys.env.get("FIRM_ENTRY_RATE").map(_.trim.toDouble).getOrElse(0.02)
+  val FirmEntryProfitSens: Double = sys.env.get("FIRM_ENTRY_PROFIT_SENS").map(_.trim.toDouble).getOrElse(2.0)
+  val FirmEntrySectorBarriers: Vector[Double] = sys.env.get("FIRM_ENTRY_SECTOR_BARRIERS") match
+    case Some(s) if s.nonEmpty =>
+      val v = s.split(",").map(_.trim.toDouble).toVector
+      require(v.length == SECTORS.length, s"FIRM_ENTRY_SECTOR_BARRIERS must have ${SECTORS.length} values, got ${v.length}")
+      v
+    case _ => Vector(0.8, 0.6, 1.2, 0.5, 0.1, 0.7)
+  val FirmEntryAiThreshold: Double = sys.env.get("FIRM_ENTRY_AI_THRESHOLD").map(_.trim.toDouble).getOrElse(0.15)
+  val FirmEntryAiProb: Double = sys.env.get("FIRM_ENTRY_AI_PROB").map(_.trim.toDouble).getOrElse(0.20)
+  val FirmEntryStartupCash: Double = sys.env.get("FIRM_ENTRY_STARTUP_CASH").map(_.trim.toDouble).getOrElse(50000.0)
+
   val Duration         = sys.env.get("DURATION").map(_.trim.toInt).getOrElse(120)
   val ShockMonth       = sys.env.get("SHOCK_MONTH").map(_.trim.toInt).getOrElse(30)
 

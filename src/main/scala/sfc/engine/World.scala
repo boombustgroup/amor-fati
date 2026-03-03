@@ -42,5 +42,7 @@ case class World(
   grossInvestment: Double = 0.0,
   fdiProfitShifting: Double = 0.0,
   fdiRepatriation: Double = 0.0,
-  fdiCitLoss: Double = 0.0
+  fdiCitLoss: Double = 0.0,
+  firmBirths: Int = 0,
+  firmDeaths: Int = 0
 )
