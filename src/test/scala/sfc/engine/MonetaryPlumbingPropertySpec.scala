@@ -7,6 +7,7 @@ import org.scalacheck.Gen
 import sfc.accounting.SfcCheck
 import sfc.agents.{BankingSector, IndividualBankState}
 import sfc.testutil.Generators.*
+import sfc.types.*
 
 /** Monetary plumbing property-based tests. */
 class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -28,7 +29,7 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   it should "scale linearly with reserves" in {
     forAll(genRate, Gen.choose(1e4, 1e9), Gen.choose(1.1, 5.0)) { (rate, reserves, mult) =>
       whenever(rate > 0.001) {
-        val b1 = IndividualBankState(0, 1e9, 5e8, 1e8, 0, 0, reserves, 0, false, 0, 0)
+        val b1 = IndividualBankState(BankId(0), 1e9, 5e8, 1e8, 0, 0, reserves, 0, false, 0, 0)
         val b2 = b1.copy(reservesAtNbp = reserves * mult)
         val r1 = BankingSector.reserveInterest(b1, rate)
         val r2 = BankingSector.reserveInterest(b2, rate)
@@ -52,8 +53,8 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     forAll(Gen.choose(-1e8, 1e8), genRate) { (net1, rate) =>
       whenever(rate > 0.001) {
         val banks = Vector(
-          IndividualBankState(0, 1e9, 5e8, 1e8, 0, 0, 0, net1, false, 0, 0),
-          IndividualBankState(1, 1e9, 5e8, 1e8, 0, 0, 0, -net1, false, 0, 0)
+          IndividualBankState(BankId(0), 1e9, 5e8, 1e8, 0, 0, 0, net1, false, 0, 0),
+          IndividualBankState(BankId(1), 1e9, 5e8, 1e8, 0, 0, 0, -net1, false, 0, 0)
         )
         val (_, total) = BankingSector.interbankInterestFlows(banks, rate)
         total shouldBe (0.0 +- 1.0)
@@ -64,8 +65,8 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   it should "return zero for all-zero positions" in {
     forAll(genRate) { rate =>
       val banks = Vector(
-        IndividualBankState(0, 1e9, 5e8, 1e8, 0, 0, 0, 0, false, 0, 0),
-        IndividualBankState(1, 1e9, 5e8, 1e8, 0, 0, 0, 0, false, 0, 0)
+        IndividualBankState(BankId(0), 1e9, 5e8, 1e8, 0, 0, 0, 0, false, 0, 0),
+        IndividualBankState(BankId(1), 1e9, 5e8, 1e8, 0, 0, 0, 0, false, 0, 0)
       )
       val (perBank, total) = BankingSector.interbankInterestFlows(banks, rate)
       perBank.foreach(_ shouldBe 0.0)

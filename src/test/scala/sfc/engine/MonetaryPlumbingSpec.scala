@@ -4,6 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.{BankingSector, IndividualBankState}
 import sfc.config.Config
+import sfc.types.*
 
 /** Reserve Interest, Standing Facilities, Interbank Interest tests. */
 class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
@@ -11,7 +12,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   private def mkBank(id: Int, deposits: Double = 1e9, loans: Double = 5e8,
                      capital: Double = 1e8, reservesAtNbp: Double = 1e7,
                      interbankNet: Double = 0.0, failed: Boolean = false) =
-    IndividualBankState(id, deposits, loans, capital, 0.0, 0.0, reservesAtNbp,
+    IndividualBankState(BankId(id), deposits, loans, capital, 0.0, 0.0, reservesAtNbp,
       interbankNet, failed, if failed then 30 else 0, 0)
 
   // =========================================================================

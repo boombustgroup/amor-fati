@@ -4,6 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.GovState
 import sfc.config.Config
+import sfc.types.*
 
 import scala.util.Random
 
@@ -86,8 +87,8 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
     val hh = Household(
       id = 0, savings = 1000, debt = 0, monthlyRent = 1000,
       skill = 0.5, healthPenalty = 0.0, mpc = 0.8,
-      status = HhStatus.Employed(0, 0, 8000.0),
-      socialNeighbors = Array.empty
+      status = HhStatus.Employed(FirmId(0), SectorIdx(0), 8000.0),
+      socialNeighbors = Array.empty[Int]
     )
     hh.numDependentChildren shouldBe 0
   }

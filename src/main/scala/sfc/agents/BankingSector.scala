@@ -3,13 +3,14 @@ package sfc.agents
 import sfc.accounting.BankState
 import sfc.config.Config
 import sfc.engine.*
+import sfc.types.*
 import sfc.util.KahanSum.*
 
 import scala.util.Random
 
 /** Configuration for a single bank in the multi-bank system. */
 case class BankConfig(
-  id: Int,
+  id: BankId,
   name: String,
   initMarketShare: Double,
   initCet1: Double,
@@ -19,7 +20,7 @@ case class BankConfig(
 
 /** State of an individual bank (updated each month). */
 case class IndividualBankState(
-  id: Int,
+  id: BankId,
   deposits: Double,
   loans: Double,
   capital: Double,
@@ -86,13 +87,13 @@ object BankingSector:
 
   // 7 Polish banks (KNF 2024)
   val DefaultConfigs: Vector[BankConfig] = Vector(
-    BankConfig(0, "PKO BP",     0.175, 0.185, -0.002, Vector(0.15, 0.15, 0.15, 0.10, 0.30, 0.15)),
-    BankConfig(1, "Pekao",      0.120, 0.178, -0.001, Vector(0.15, 0.20, 0.20, 0.15, 0.15, 0.15)),
-    BankConfig(2, "mBank",      0.085, 0.169,  0.000, Vector(0.30, 0.10, 0.25, 0.10, 0.10, 0.15)),
-    BankConfig(3, "ING BSK",    0.075, 0.172, -0.001, Vector(0.15, 0.35, 0.15, 0.10, 0.10, 0.15)),
-    BankConfig(4, "Santander",  0.070, 0.170,  0.000, Vector(0.15, 0.10, 0.35, 0.15, 0.10, 0.15)),
-    BankConfig(5, "BPS/Coop",   0.050, 0.150,  0.003, Vector(0.05, 0.10, 0.10, 0.05, 0.05, 0.65)),
-    BankConfig(6, "Others",     0.425, 0.165,  0.001, Vector(0.15, 0.17, 0.17, 0.17, 0.17, 0.17))
+    BankConfig(BankId(0), "PKO BP",     0.175, 0.185, -0.002, Vector(0.15, 0.15, 0.15, 0.10, 0.30, 0.15)),
+    BankConfig(BankId(1), "Pekao",      0.120, 0.178, -0.001, Vector(0.15, 0.20, 0.20, 0.15, 0.15, 0.15)),
+    BankConfig(BankId(2), "mBank",      0.085, 0.169,  0.000, Vector(0.30, 0.10, 0.25, 0.10, 0.10, 0.15)),
+    BankConfig(BankId(3), "ING BSK",    0.075, 0.172, -0.001, Vector(0.15, 0.35, 0.15, 0.10, 0.10, 0.15)),
+    BankConfig(BankId(4), "Santander",  0.070, 0.170,  0.000, Vector(0.15, 0.10, 0.35, 0.15, 0.10, 0.15)),
+    BankConfig(BankId(5), "BPS/Coop",   0.050, 0.150,  0.003, Vector(0.05, 0.10, 0.10, 0.05, 0.05, 0.65)),
+    BankConfig(BankId(6), "Others",     0.425, 0.165,  0.001, Vector(0.15, 0.17, 0.17, 0.17, 0.17, 0.17))
   )
 
   /** Initialize banking sector from total deposits, capital, loans, bonds, consumer loans. */
@@ -119,19 +120,19 @@ object BankingSector:
     BankingSectorState(banks, 0.0, configs)
 
   /** Assign a firm to a bank based on sector affinity and market share. */
-  def assignBank(firmSector: Int, configs: Vector[BankConfig], rng: Random): Int =
-    val weights = configs.map(c => c.sectorAffinity(firmSector) * c.initMarketShare)
+  def assignBank(firmSector: SectorIdx, configs: Vector[BankConfig], rng: Random): BankId =
+    val weights = configs.map(c => c.sectorAffinity(firmSector.toInt) * c.initMarketShare)
     val total = weights.kahanSum
-    if total <= 0.0 then 0
+    if total <= 0.0 then BankId(0)
     else
       val r = rng.nextDouble() * total
       var cumulative = 0.0
       var i = 0
       while i < weights.length - 1 do
         cumulative += weights(i)
-        if r < cumulative then return i
+        if r < cumulative then return BankId(i)
         i += 1
-      weights.length - 1
+      BankId(weights.length - 1)
 
   /** HH deposit rate (annual). Polish banks: NBP rate - spread. */
   def hhDepositRate(refRate: Double): Double =
@@ -155,7 +156,7 @@ object BankingSector:
       val projectedCar = bank.capital / (bank.loans + bank.consumerLoans + bank.corpBondHoldings * 0.50 + amount)
       val approvalP = Math.max(0.1, 1.0 - bank.nplRatio * 3.0)
       // Use effective MinCAR (base + CCyB + OSII) when macropru enabled
-      val minCar = Macroprudential.effectiveMinCar(bank.id, ccyb)
+      val minCar = Macroprudential.effectiveMinCar(bank.id.toInt, ccyb)
       val carOk = projectedCar >= minCar
       // LCR/NSFR constraints (only when enabled)
       val lcrOk = if Config.BankLcrEnabled then bank.lcr >= Config.BankLcrMin else true
@@ -215,7 +216,7 @@ object BankingSector:
         if b.failed then b
         else
           // Use effective MinCAR (base + CCyB + OSII) for failure threshold
-          val minCar = Macroprudential.effectiveMinCar(b.id, ccyb)
+          val minCar = Macroprudential.effectiveMinCar(b.id.toInt, ccyb)
           val lowCar = b.car < minCar
           // LCR/NSFR breach triggers immediate failure (severe liquidity crisis)
           val lcrBreach = Config.BankLcrEnabled && b.lcr < Config.BankLcrMin * 0.5  // below 50% of min
@@ -259,9 +260,9 @@ object BankingSector:
     * Absorber branch is checked FIRST so that when the absorber is itself failed
     * (all-banks-fail scenario) it gets resurrected as a bridge bank before the
     * zero-out branch can wipe it. */
-  def resolveFailures(banks: Vector[IndividualBankState]): (Vector[IndividualBankState], Int) =
+  def resolveFailures(banks: Vector[IndividualBankState]): (Vector[IndividualBankState], BankId) =
     val newlyFailed = banks.filter(b => b.failed && b.deposits > 0)
-    if newlyFailed.isEmpty then (banks, -1)
+    if newlyFailed.isEmpty then (banks, BankId.NoBank)
     else
       val absorberId = healthiestBankId(banks)
       val resolved = banks.map { b =>
@@ -294,14 +295,14 @@ object BankingSector:
 
   /** Find the healthiest (highest CAR) surviving bank.
     * If all banks have failed, pick the least-bad (highest capital) as bridge bank. */
-  def healthiestBankId(banks: Vector[IndividualBankState]): Int =
+  def healthiestBankId(banks: Vector[IndividualBankState]): BankId =
     val alive = banks.filterNot(_.failed)
     if alive.isEmpty then banks.maxBy(_.capital).id
     else alive.maxBy(_.car).id
 
   /** Reassign a firm/household from a failed bank to the healthiest surviving bank. */
-  def reassignBankId(currentBankId: Int, banks: Vector[IndividualBankState]): Int =
-    if currentBankId < banks.length && !banks(currentBankId).failed then currentBankId
+  def reassignBankId(currentBankId: BankId, banks: Vector[IndividualBankState]): BankId =
+    if currentBankId.toInt < banks.length && !banks(currentBankId.toInt).failed then currentBankId
     else healthiestBankId(banks)
 
   /** Allocate new bond issuance to banks proportional to their deposits.

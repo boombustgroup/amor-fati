@@ -5,6 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Gen
 import sfc.agents.IndividualBankState
+import sfc.types.*
 
 /** LCR/NSFR and maturity mismatch tests. */
 class LcrNsfrSpec extends AnyFlatSpec with Matchers:
@@ -14,7 +15,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
                      govBonds: Double = 1e8,
                      demandDep: Double = 0, termDep: Double = 0,
                      loansS: Double = 0, loansM: Double = 0, loansL: Double = 0) =
-    IndividualBankState(id, deposits, loans, capital, 0.0, govBonds, reservesAtNbp,
+    IndividualBankState(BankId(id), deposits, loans, capital, 0.0, govBonds, reservesAtNbp,
       0.0, false, 0, 0,
       demandDeposits = demandDep, termDeposits = termDep,
       loansShort = loansS, loansMedium = loansM, loansLong = loansL)
@@ -103,7 +104,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
   "LCR" should "be non-negative" in {
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) {
       (reserves, bonds, demandDep) =>
-        val b = IndividualBankState(0, 1e9, 5e8, 1e8, 0, bonds, reserves, 0, false, 0, 0,
+        val b = IndividualBankState(BankId(0), 1e9, 5e8, 1e8, 0, bonds, reserves, 0, false, 0, 0,
           demandDeposits = demandDep, termDeposits = 0)
         b.lcr should be >= 0.0
     }
@@ -113,7 +114,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
     forAll(Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9),
            Gen.choose(0.0, 1e8), Gen.choose(0.0, 1.5e8), Gen.choose(0.0, 2.5e8)) {
       (capital, demandDep, termDep, loansS, loansM, loansL) =>
-        val b = IndividualBankState(0, 1e9, 5e8, capital, 0, 0, 0, 0, false, 0, 0,
+        val b = IndividualBankState(BankId(0), 1e9, 5e8, capital, 0, 0, 0, 0, false, 0, 0,
           demandDeposits = demandDep, termDeposits = termDep,
           loansShort = loansS, loansMedium = loansM, loansLong = loansL)
         b.nsfr should be >= 0.0
@@ -122,7 +123,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
 
   "HQLA" should "equal reserves + gov bonds" in {
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) { (reserves, bonds) =>
-      val b = IndividualBankState(0, 1e9, 5e8, 1e8, 0, bonds, reserves, 0, false, 0, 0)
+      val b = IndividualBankState(BankId(0), 1e9, 5e8, 1e8, 0, bonds, reserves, 0, false, 0, 0)
       b.hqla shouldBe (reserves + bonds +- 0.01)
     }
   }

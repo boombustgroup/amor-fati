@@ -6,6 +6,7 @@ import sfc.accounting
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, FirmLogic, FirmOps, FirmResult, TechState}
+import sfc.types.*
 
 class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
@@ -106,8 +107,8 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "FirmResult" should "have citEvasion defaulting to 0.0" in {
-    val f = Firm(0, 50000.0, 0.0, TechState.Traditional(10),
-      0.5, 1.0, 0.3, 0, Array.empty)
+    val f = Firm(FirmId(0), 50000.0, 0.0, TechState.Traditional(10),
+      0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     val r = FirmResult(f, 100.0, 0.0, 0.0, 0.0)
     r.citEvasion shouldBe 0.0
   }
@@ -119,8 +120,8 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   "CIT evasion (disabled)" should "not reduce taxPaid when InformalEnabled=false" in {
     // InformalEnabled defaults to false
     Config.InformalEnabled shouldBe false
-    val f = Firm(0, 50000.0, 0.0, TechState.Traditional(10),
-      0.5, 1.0, 0.3, 0, Array.empty)
+    val f = Firm(FirmId(0), 50000.0, 0.0, TechState.Traditional(10),
+      0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     val r = FirmResult(f, 1000.0, 0.0, 0.0, 0.0)
     // Since InformalEnabled is false, citEvasion should remain 0
     r.citEvasion shouldBe 0.0
@@ -131,15 +132,15 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "CIT evasion" should "be zero for bankrupt firms" in {
-    val f = Firm(0, 0.0, 0.0, TechState.Bankrupt("test"),
-      0.5, 1.0, 0.3, 0, Array.empty)
+    val f = Firm(FirmId(0), 0.0, 0.0, TechState.Bankrupt("test"),
+      0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     val r = FirmResult(f, 0.0, 0.0, 0.0, 0.0)
     r.citEvasion shouldBe 0.0
   }
 
   it should "be zero when taxPaid <= 0" in {
-    val f = Firm(0, 50000.0, 0.0, TechState.Traditional(10),
-      0.5, 1.0, 0.3, 0, Array.empty)
+    val f = Firm(FirmId(0), 50000.0, 0.0, TechState.Traditional(10),
+      0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     val r = FirmResult(f, 0.0, 0.0, 0.0, 0.0)
     r.citEvasion shouldBe 0.0
   }

@@ -1,6 +1,7 @@
 package sfc.agents
 
 import sfc.config.Config
+import sfc.types.*
 
 import scala.util.Random
 
@@ -21,9 +22,9 @@ case class HhState(
 // ---- Individual household types (Paper-06) ----
 
 enum HhStatus:
-  case Employed(firmId: Int, sectorIdx: Int, wage: Double)
+  case Employed(firmId: FirmId, sectorIdx: SectorIdx, wage: Double)
   case Unemployed(monthsUnemployed: Int)
-  case Retraining(monthsLeft: Int, targetSector: Int, cost: Double)
+  case Retraining(monthsLeft: Int, targetSector: SectorIdx, cost: Double)
   case Bankrupt
 
 case class Household(
@@ -36,9 +37,9 @@ case class Household(
   mpc: Double,
   status: HhStatus,
   socialNeighbors: Array[Int],
-  bankId: Int = 0,            // Multi-bank: index into BankingSectorState.banks
-  equityWealth: Double = 0.0, // GPW: value of equity holdings
-  lastSectorIdx: Int = -1,    // Sectoral mobility: last sector employed in (-1 = never)
+  bankId: BankId = BankId(0),   // Multi-bank: index into BankingSectorState.banks
+  equityWealth: Double = 0.0,   // GPW: value of equity holdings
+  lastSectorIdx: SectorIdx = SectorIdx(-1),  // Sectoral mobility: last sector employed in (-1 = never)
   isImmigrant: Boolean = false, // Immigration: tracks immigrant status for wage discount + remittances
   numDependentChildren: Int = 0, // 800+: children ≤ 18 for social transfers
   consumerDebt: Double = 0.0,   // Consumer credit: outstanding unsecured consumer loan
@@ -116,14 +117,14 @@ object HouseholdInit:
           val mpc = betaSample(Config.HhMpcAlpha, Config.HhMpcBeta, rng)
 
           // Education draw + skill range
-          val edu = sfc.config.Config.drawEducation(sectorIdx, rng)
+          val edu = sfc.config.Config.drawEducation(sectorIdx.toInt, rng)
           val (skillFloor, skillCeiling) = sfc.config.Config.eduSkillRange(edu)
-          val sectorSigma = sfc.config.SECTORS(sectorIdx).sigma
+          val sectorSigma = sfc.config.SECTORS(sectorIdx.toInt).sigma
           val baseSkill = skillFloor + (skillCeiling - skillFloor) * rng.nextDouble()
           val sectorBonus = Math.min(0.1, 0.02 * Math.log(sectorSigma))
           val skill = Math.max(skillFloor, Math.min(skillCeiling, baseSkill + sectorBonus))
 
-          val wage = Config.BaseWage * sfc.config.SECTORS(sectorIdx).wageMultiplier * skill
+          val wage = Config.BaseWage * sfc.config.SECTORS(sectorIdx.toInt).wageMultiplier * skill
 
           // GPW equity wealth: GpwHhEquityFrac of HH participate, with wealth ∝ savings
           val eqWealth = if sfc.config.Config.GpwHhEquity && rng.nextDouble() < sfc.config.Config.GpwHhEquityFrac then

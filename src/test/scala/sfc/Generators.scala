@@ -6,6 +6,7 @@ import _root_.sfc.accounting.*
 import _root_.sfc.engine.World
 import _root_.sfc.config.{Config, MonetaryRegime, RunConfig, SECTORS}
 import sfc.accounting.{BankState, BopState, ForexState, GovState, SfcCheck}
+import sfc.types.*
 
 object Generators:
 
@@ -64,7 +65,7 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty, bankId, eqR, iSize)
+  yield Firm(FirmId(id), cash, debt, tech, risk, innov, digiR, SectorIdx(sector), Array.empty[Int], BankId(bankId), eqR, iSize)
 
   val genAliveFirm: Gen[Firm] = for
     id     <- Gen.choose(0, 9999)
@@ -78,7 +79,7 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm(id, cash, debt, tech, risk, innov, digiR, sector, Array.empty, bankId, eqR, iSize)
+  yield Firm(FirmId(id), cash, debt, tech, risk, innov, digiR, SectorIdx(sector), Array.empty[Int], BankId(bankId), eqR, iSize)
 
   // --- Balance sheet state generators ---
 
@@ -135,13 +136,13 @@ object Generators:
       fid    <- Gen.choose(0, 9999)
       sector <- Gen.choose(0, 5)
       wage   <- genWage
-    yield HhStatus.Employed(fid, sector, wage),
+    yield HhStatus.Employed(FirmId(fid), SectorIdx(sector), wage),
     Gen.choose(0, 24).map(m => HhStatus.Unemployed(m)),
     for
       ml   <- Gen.choose(1, 6)
       sec  <- Gen.choose(0, 5)
       cost <- Gen.choose(1000.0, 10000.0)
-    yield HhStatus.Retraining(ml, sec, cost),
+    yield HhStatus.Retraining(ml, SectorIdx(sec), cost),
     Gen.const(HhStatus.Bankrupt)
   )
 
@@ -159,7 +160,7 @@ object Generators:
     bankId  <- Gen.choose(0, 6)
     eqW     <- Gen.choose(0.0, 100000.0)
     lastSec <- Gen.choose(-1, 5)
-  yield Household(id, savings, debt, rent, skill, health, mpc, status, Array.empty, bankId, eqW, lastSec)
+  yield Household(id, savings, debt, rent, skill, health, mpc, status, Array.empty[Int], BankId(bankId), eqW, SectorIdx(lastSec))
 
   // --- World generator ---
 
@@ -330,7 +331,7 @@ object Generators:
     cet1   <- Gen.choose(0.10, 0.25)
     spread <- Gen.choose(-0.005, 0.005)
     aff    <- Gen.sequence[Vector[Double], Double]((0 until 6).map(_ => Gen.choose(0.05, 0.40)))
-  yield BankConfig(id, s"Bank$id", share, cet1, spread, aff)
+  yield BankConfig(BankId(id), s"Bank$id", share, cet1, spread, aff)
 
   val genIndividualBankState: Gen[IndividualBankState] = for
     id       <- Gen.choose(0, 6)
@@ -343,12 +344,12 @@ object Generators:
     ibNet    <- Gen.choose(-1e8, 1e8)
     failed   <- Gen.oneOf(false, false, false, false, true)  // 20% chance
     lowCar   <- Gen.choose(0, 5)
-  yield IndividualBankState(id, deposits, loans, capital, loans * nplFrac, bonds,
+  yield IndividualBankState(BankId(id), deposits, loans, capital, loans * nplFrac, bonds,
     reserves, ibNet, failed, if failed then 30 else 0, lowCar)
 
   val genBankingSectorState: Gen[BankingSectorState] = for
     nBanks <- Gen.choose(2, 7)
-    banks  <- Gen.listOfN(nBanks, genIndividualBankState).map(_.toVector.zipWithIndex.map((b, i) => b.copy(id = i)))
+    banks  <- Gen.listOfN(nBanks, genIndividualBankState).map(_.toVector.zipWithIndex.map((b, i) => b.copy(id = BankId(i))))
     rate   <- genRate
-    cfgs   <- Gen.listOfN(nBanks, genBankConfig).map(_.toVector.zipWithIndex.map((c, i) => c.copy(id = i)))
+    cfgs   <- Gen.listOfN(nBanks, genBankConfig).map(_.toVector.zipWithIndex.map((c, i) => c.copy(id = BankId(i))))
   yield BankingSectorState(banks, rate, cfgs)

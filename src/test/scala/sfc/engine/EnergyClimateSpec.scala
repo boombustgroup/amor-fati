@@ -6,6 +6,7 @@ import sfc.accounting
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, FirmLogic, FirmOps, FirmResult, TechState}
+import sfc.types.*
 
 class EnergyClimateSpec extends AnyFlatSpec with Matchers:
 
@@ -127,7 +128,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Firm" should "default greenCapital to 0.0" in {
-    val f = Firm(0, 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.3, 0, Array.empty)
+    val f = Firm(FirmId(0), 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     f.greenCapital shouldBe 0.0
   }
 
@@ -136,13 +137,13 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "FirmResult" should "default energyCost to 0.0" in {
-    val f = Firm(0, 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.3, 0, Array.empty)
+    val f = Firm(FirmId(0), 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     val r = FirmResult(f, 0, 0, 0, 0)
     r.energyCost shouldBe 0.0
   }
 
   it should "default greenInvestment to 0.0" in {
-    val f = Firm(0, 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.3, 0, Array.empty)
+    val f = Firm(FirmId(0), 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     val r = FirmResult(f, 0, 0, 0, 0)
     r.greenInvestment shouldBe 0.0
   }
@@ -259,7 +260,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be zero for bankrupt firms" in {
-    val f = Firm(0, 50000.0, 0.0, TechState.Bankrupt("test"), 0.5, 1.0, 0.3, 0, Array.empty,
+    val f = Firm(FirmId(0), 50000.0, 0.0, TechState.Bankrupt("test"), 0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int],
       greenCapital = 5000.0)
     FirmOps.isAlive(f) shouldBe false
   }

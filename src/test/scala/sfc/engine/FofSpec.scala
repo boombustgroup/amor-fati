@@ -6,6 +6,7 @@ import sfc.accounting.SfcCheck
 import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, FirmOps, TechState}
 import sfc.util.KahanSum.*
+import sfc.types.*
 
 class FofSpec extends AnyFlatSpec with Matchers:
 
@@ -53,7 +54,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     val exports = Config.FofExportShares.map(_ * 100000.0)
 
     val sectorCap = (0 until 6).map { s =>
-      firms.filter(_.sector == s).kahanSumBy(f => FirmOps.capacity(f).toDouble)
+      firms.filter(_.sector.toInt == s).kahanSumBy(f => FirmOps.capacity(f).toDouble)
     }.toVector
     val sectorDemand = (0 until 6).map { s =>
       Config.FofConsWeights(s) * dc + Config.FofGovWeights(s) * gp + exports(s)
@@ -63,7 +64,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     }.toVector
 
     val totalFirmRev = (0 until 6).map { s =>
-      firms.filter(_.sector == s).kahanSumBy(f =>
+      firms.filter(_.sector.toInt == s).kahanSumBy(f =>
         FirmOps.capacity(f).toDouble * sectorMults(s) * price)
     }.kahanSum
     val totalDemand = sectorDemand.kahanSum
@@ -75,7 +76,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     val f1 = mkFirm(0, TechState.Traditional(10))
     val f2 = mkFirm(1, TechState.Traditional(20))
     // Both in sector 2 (Retail)
-    val firms = Array(f1.copy(sector = 2), f2.copy(sector = 2))
+    val firms = Array(f1.copy(sector = SectorIdx(2)), f2.copy(sector = SectorIdx(2)))
     val price = 1.0
     val cap1 = FirmOps.capacity(firms(0))
     val cap2 = FirmOps.capacity(firms(1))
@@ -134,7 +135,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
   // --- helpers ---
 
   private def mkFirm(id: Int, tech: TechState, sector: Int = 2): Firm =
-    Firm(id, 50000.0, 0.0, tech, 0.5, 1.0, 0.5, sector, Array.empty)
+    Firm(FirmId(id), 50000.0, 0.0, tech, 0.5, 1.0, 0.5, SectorIdx(sector), Array.empty[Int])
 
   private def mkFirms(): Array[Firm] =
     // Create firms distributed across all 6 sectors

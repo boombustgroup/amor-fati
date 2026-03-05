@@ -2,6 +2,7 @@ package sfc.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import sfc.types.*
 
 import scala.util.Random
 
@@ -89,7 +90,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
     val rng = new Random(42)
     val hhs = (0 until 10).map { i =>
       Household(i, 1000.0, 0, 1800.0, 0.5, 0.0, 0.85,
-        HhStatus.Employed(0, 0, 6000.0), Array.empty,
+        HhStatus.Employed(FirmId(0), SectorIdx(0), 6000.0), Array.empty[Int],
         isImmigrant = i >= 5)  // 5 natives + 5 immigrants
     }.toVector
     // Request removing 100, but only 5 immigrants exist

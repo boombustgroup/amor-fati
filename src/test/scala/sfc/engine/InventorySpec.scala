@@ -6,6 +6,7 @@ import sfc.accounting
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, FirmLogic, FirmOps, FirmResult, TechState}
+import sfc.types.*
 
 class InventorySpec extends AnyFlatSpec with Matchers:
 
@@ -103,14 +104,14 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Firm" should "have inventory defaulting to 0.0" in {
-    val f = Firm(0, 50000.0, 0.0, TechState.Traditional(10),
-      0.5, 1.0, 0.3, 0, Array.empty)
+    val f = Firm(FirmId(0), 50000.0, 0.0, TechState.Traditional(10),
+      0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     f.inventory shouldBe 0.0
   }
 
   "FirmResult" should "have inventoryChange defaulting to 0.0" in {
-    val f = Firm(0, 50000.0, 0.0, TechState.Traditional(10),
-      0.5, 1.0, 0.3, 0, Array.empty)
+    val f = Firm(FirmId(0), 50000.0, 0.0, TechState.Traditional(10),
+      0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     val r = FirmResult(f, 0.0, 0.0, 0.0, 0.0)
     r.inventoryChange shouldBe 0.0
   }
@@ -274,8 +275,8 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Bankrupt firm" should "have zero inventory" in {
-    val f = Firm(0, -1000.0, 50000.0, TechState.Bankrupt("test"),
-      0.5, 1.0, 0.3, 0, Array.empty, inventory = 5000.0)
+    val f = Firm(FirmId(0), -1000.0, 50000.0, TechState.Bankrupt("test"),
+      0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int], inventory = 5000.0)
     // applyInventory should zero out inventory for bankrupt firms
     FirmOps.isAlive(f) shouldBe false
   }

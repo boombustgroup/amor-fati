@@ -3,6 +3,7 @@ package sfc.networks
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.{Firm, TechState}
+import sfc.types.*
 
 import scala.util.Random
 
@@ -156,9 +157,9 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return 0.0 for firm with no neighbors" in {
-    val firms = Array(mkFirm(0, TechState.Traditional(10), Array.empty))
+    val firms = Array(mkFirm(0, TechState.Traditional(10), Array.empty[Int]))
     Network.localAutoRatio(firms(0), firms) shouldBe 0.0
   }
 
   private def mkFirm(id: Int, tech: TechState, neighbors: Array[Int]): Firm =
-    Firm(id, 50000.0, 0.0, tech, 0.5, 1.0, 0.5, 0, neighbors)
+    Firm(FirmId(id), 50000.0, 0.0, tech, 0.5, 1.0, 0.5, SectorIdx(0), neighbors)

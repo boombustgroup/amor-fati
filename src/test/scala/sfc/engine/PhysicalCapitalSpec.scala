@@ -4,16 +4,17 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, FirmOps, FirmLogic, FirmResult, TechState}
+import sfc.types.*
 
 class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   private def mkFirm(sector: Int = 1, workers: Int = 10, cash: Double = 500000.0,
     capitalStock: Double = 0.0): Firm =
-    Firm(id = 0, cash = cash, debt = 0.0,
+    Firm(id = FirmId(0), cash = cash, debt = 0.0,
       tech = TechState.Traditional(workers),
       riskProfile = 0.5, innovationCostFactor = 1.0,
-      digitalReadiness = 0.3, sector = sector,
-      neighbors = Array.empty, initialSize = workers,
+      digitalReadiness = 0.3, sector = SectorIdx(sector),
+      neighbors = Array.empty[Int], initialSize = workers,
       capitalStock = capitalStock)
 
   // --- Config defaults ---
@@ -136,11 +137,11 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return 0 for bankrupt firm" in {
-    val f = Firm(id = 0, cash = 0, debt = 0,
+    val f = Firm(id = FirmId(0), cash = 0, debt = 0,
       tech = TechState.Bankrupt("test"),
       riskProfile = 0.5, innovationCostFactor = 1.0,
-      digitalReadiness = 0.3, sector = 0,
-      neighbors = Array.empty, capitalStock = 100000.0)
+      digitalReadiness = 0.3, sector = SectorIdx(0),
+      neighbors = Array.empty[Int], capitalStock = 100000.0)
     FirmOps.capacity(f) shouldBe 0.0
   }
 
@@ -148,11 +149,11 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   "Bankruptcy" should "zero capitalStock via applyInvestment" in {
     // applyInvestment on a bankrupt firm should zero capitalStock
-    val f = Firm(id = 0, cash = 0, debt = 100000,
+    val f = Firm(id = FirmId(0), cash = 0, debt = 100000,
       tech = TechState.Bankrupt("test"),
       riskProfile = 0.5, innovationCostFactor = 1.0,
-      digitalReadiness = 0.3, sector = 1,
-      neighbors = Array.empty, capitalStock = 2500000.0)
+      digitalReadiness = 0.3, sector = SectorIdx(1),
+      neighbors = Array.empty[Int], capitalStock = 2500000.0)
     val r = FirmResult(f, 0, 0, 0, 0)
     // When PhysCapEnabled, applyInvestment should zero K for bankrupt
     if Config.PhysCapEnabled then

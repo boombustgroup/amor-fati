@@ -1,6 +1,7 @@
 package sfc.agents
 
 import sfc.config.{Config, SECTORS}
+import sfc.types.*
 
 import scala.util.Random
 
@@ -93,7 +94,7 @@ object ImmigrationLogic:
         mpc = mpc.max(0.7).min(0.98),
         status = HhStatus.Unemployed(0),
         socialNeighbors = Array.empty,
-        lastSectorIdx = sector,
+        lastSectorIdx = SectorIdx(sector),
         isImmigrant = true,
         numDependentChildren = numChildren,
         education = edu

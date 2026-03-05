@@ -5,6 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.agents.{BankingSector, IndividualBankState}
 import sfc.config.Config
+import sfc.types.*
 
 class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
@@ -80,7 +81,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "computeBfgLevy" should "compute monthly levy = deposits * rate / 12" in {
     val banks = Vector(
-      IndividualBankState(0, deposits = 1200000.0, loans = 0, capital = 100000,
+      IndividualBankState(BankId(0), deposits = 1200000.0, loans = 0, capital = 100000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0)
     )
@@ -92,7 +93,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   it should "return zero for failed bank" in {
     val banks = Vector(
-      IndividualBankState(0, deposits = 1200000.0, loans = 0, capital = 0,
+      IndividualBankState(BankId(0), deposits = 1200000.0, loans = 0, capital = 0,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 5, consecutiveLowCar = 3)
     )
@@ -103,13 +104,13 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   it should "sum per-bank levies correctly" in {
     val banks = Vector(
-      IndividualBankState(0, deposits = 1000000.0, loans = 0, capital = 100000,
+      IndividualBankState(BankId(0), deposits = 1000000.0, loans = 0, capital = 100000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0),
-      IndividualBankState(1, deposits = 2000000.0, loans = 0, capital = 200000,
+      IndividualBankState(BankId(1), deposits = 2000000.0, loans = 0, capital = 200000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0),
-      IndividualBankState(2, deposits = 500000.0, loans = 0, capital = 50000,
+      IndividualBankState(BankId(2), deposits = 500000.0, loans = 0, capital = 50000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3)
     )
@@ -121,7 +122,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   it should "be positive for non-failed bank with positive deposits" in {
     val banks = Vector(
-      IndividualBankState(0, deposits = 100000.0, loans = 0, capital = 10000,
+      IndividualBankState(BankId(0), deposits = 100000.0, loans = 0, capital = 10000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0)
     )
@@ -136,7 +137,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   "applyBailIn" should "return unchanged banks when BailInEnabled is false" in {
     // BailInEnabled defaults to false
     val banks = Vector(
-      IndividualBankState(0, deposits = 1000000.0, loans = 0, capital = 0,
+      IndividualBankState(BankId(0), deposits = 1000000.0, loans = 0, capital = 0,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 5, consecutiveLowCar = 3)
     )
@@ -149,7 +150,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
     // This test verifies behavior with bail-in logic directly
     // When bail-in is disabled (default), all banks pass through unchanged
     val banks = Vector(
-      IndividualBankState(0, deposits = 500000.0, loans = 100000, capital = 50000,
+      IndividualBankState(BankId(0), deposits = 500000.0, loans = 100000, capital = 50000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0)
     )
@@ -161,7 +162,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   it should "not haircut deposits below guarantee threshold" in {
     // Deposits below BfgDepositGuarantee → no haircut
     val banks = Vector(
-      IndividualBankState(0, deposits = 300000.0, loans = 0, capital = 0,
+      IndividualBankState(BankId(0), deposits = 300000.0, loans = 0, capital = 0,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 5, consecutiveLowCar = 3)
     )
@@ -176,10 +177,10 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   it should "return zero bail-in when no failures" in {
     val banks = Vector(
-      IndividualBankState(0, deposits = 1000000.0, loans = 100000, capital = 50000,
+      IndividualBankState(BankId(0), deposits = 1000000.0, loans = 100000, capital = 50000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0),
-      IndividualBankState(1, deposits = 2000000.0, loans = 200000, capital = 100000,
+      IndividualBankState(BankId(1), deposits = 2000000.0, loans = 200000, capital = 100000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0)
     )
@@ -192,10 +193,10 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   it should "apply before resolution (bail-in then resolve)" in {
     // Verify that bail-in is called with failed banks still having deposits
     val banks = Vector(
-      IndividualBankState(0, deposits = 1000000.0, loans = 100000, capital = 0,
+      IndividualBankState(BankId(0), deposits = 1000000.0, loans = 100000, capital = 0,
         nplAmount = 50000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 5, consecutiveLowCar = 3),
-      IndividualBankState(1, deposits = 2000000.0, loans = 200000, capital = 200000,
+      IndividualBankState(BankId(1), deposits = 2000000.0, loans = 200000, capital = 200000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0)
     )
@@ -210,13 +211,13 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   it should "track total loss across multiple failed banks" in {
     // With bail-in disabled, total loss = 0 for multiple failed banks
     val banks = Vector(
-      IndividualBankState(0, deposits = 800000.0, loans = 0, capital = 0,
+      IndividualBankState(BankId(0), deposits = 800000.0, loans = 0, capital = 0,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 5, consecutiveLowCar = 3),
-      IndividualBankState(1, deposits = 600000.0, loans = 0, capital = 0,
+      IndividualBankState(BankId(1), deposits = 600000.0, loans = 0, capital = 0,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 5, consecutiveLowCar = 3),
-      IndividualBankState(2, deposits = 2000000.0, loans = 200000, capital = 200000,
+      IndividualBankState(BankId(2), deposits = 2000000.0, loans = 200000, capital = 200000,
         nplAmount = 0, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0)
     )
@@ -290,13 +291,13 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "resolveFailures" should "preserve total gov bond holdings when all banks fail" in {
     val banks = Vector(
-      IndividualBankState(0, deposits = 500000.0, loans = 100000, capital = -10000,
+      IndividualBankState(BankId(0), deposits = 500000.0, loans = 100000, capital = -10000,
         nplAmount = 50000, govBondHoldings = 20e9, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3),
-      IndividualBankState(1, deposits = 300000.0, loans = 80000, capital = -5000,
+      IndividualBankState(BankId(1), deposits = 300000.0, loans = 80000, capital = -5000,
         nplAmount = 30000, govBondHoldings = 15e9, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3),
-      IndividualBankState(2, deposits = 200000.0, loans = 60000, capital = -20000,
+      IndividualBankState(BankId(2), deposits = 200000.0, loans = 60000, capital = -20000,
         nplAmount = 20000, govBondHoldings = 13.8e9, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3)
     )
@@ -312,13 +313,13 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   it should "preserve interbank netting sum when all banks fail" in {
     val banks = Vector(
-      IndividualBankState(0, deposits = 500000.0, loans = 100000, capital = -5000,
+      IndividualBankState(BankId(0), deposits = 500000.0, loans = 100000, capital = -5000,
         nplAmount = 50000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 1000.0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3),
-      IndividualBankState(1, deposits = 300000.0, loans = 80000, capital = -3000,
+      IndividualBankState(BankId(1), deposits = 300000.0, loans = 80000, capital = -3000,
         nplAmount = 30000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = -600.0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3),
-      IndividualBankState(2, deposits = 200000.0, loans = 60000, capital = -10000,
+      IndividualBankState(BankId(2), deposits = 200000.0, loans = 60000, capital = -10000,
         nplAmount = 20000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = -400.0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3)
     )
@@ -331,10 +332,10 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   it should "transfer bonds to healthy absorber in partial failure" in {
     val banks = Vector(
-      IndividualBankState(0, deposits = 500000.0, loans = 100000, capital = 0,
+      IndividualBankState(BankId(0), deposits = 500000.0, loans = 100000, capital = 0,
         nplAmount = 50000, govBondHoldings = 10e9, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3),
-      IndividualBankState(1, deposits = 2000000.0, loans = 200000, capital = 200000,
+      IndividualBankState(BankId(1), deposits = 2000000.0, loans = 200000, capital = 200000,
         nplAmount = 0, govBondHoldings = 5e9, reservesAtNbp = 0, interbankNet = 0,
         failed = false, failedMonth = 0, consecutiveLowCar = 0)
     )
@@ -345,16 +346,16 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "healthiestBankId" should "return bank with highest capital when all fail" in {
     val banks = Vector(
-      IndividualBankState(0, deposits = 500000.0, loans = 100000, capital = -20000,
+      IndividualBankState(BankId(0), deposits = 500000.0, loans = 100000, capital = -20000,
         nplAmount = 50000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3),
-      IndividualBankState(1, deposits = 300000.0, loans = 80000, capital = -5000,
+      IndividualBankState(BankId(1), deposits = 300000.0, loans = 80000, capital = -5000,
         nplAmount = 30000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3),
-      IndividualBankState(2, deposits = 200000.0, loans = 60000, capital = -15000,
+      IndividualBankState(BankId(2), deposits = 200000.0, loans = 60000, capital = -15000,
         nplAmount = 20000, govBondHoldings = 0, reservesAtNbp = 0, interbankNet = 0,
         failed = true, failedMonth = 3, consecutiveLowCar = 3)
     )
     // Bank 1 has highest (least negative) capital: -5000
-    BankingSector.healthiestBankId(banks) shouldBe 1
+    BankingSector.healthiestBankId(banks) shouldBe BankId(1)
   }

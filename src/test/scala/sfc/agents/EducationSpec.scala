@@ -2,6 +2,7 @@ package sfc.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import sfc.types.*
 
 import scala.util.Random
 
@@ -87,13 +88,13 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
   "Household.education" should "default to 2 (Secondary)" in {
     val hh = Household(0, 1000.0, 0.0, 1800.0, 0.5, 0.0, 0.85,
-      HhStatus.Employed(0, 0, 6000.0), Array.empty)
+      HhStatus.Employed(FirmId(0), SectorIdx(0), 6000.0), Array.empty[Int])
     hh.education shouldBe 2
   }
 
   it should "be preserved through copy" in {
     val hh = Household(0, 1000.0, 0.0, 1800.0, 0.5, 0.0, 0.85,
-      HhStatus.Employed(0, 0, 6000.0), Array.empty, education = 3)
+      HhStatus.Employed(FirmId(0), SectorIdx(0), 6000.0), Array.empty[Int], education = 3)
     val copied = hh.copy(savings = 2000.0)
     copied.education shouldBe 3
   }
@@ -104,17 +105,17 @@ class EducationSpec extends AnyFlatSpec with Matchers:
     // Set up: one firm that just automated with skeleton crew = 2
     // Two workers: one primary (edu=0, skill=0.5), one tertiary (edu=3, skill=0.4)
     // Tertiary should be retained despite lower skill (skeleton crew = max(2, 10*0.02) = 2, but need 3 workers to test)
-    val prevFirm = Firm(0, 1000000.0, 0.0,
-      TechState.Traditional(3), 0.5, 1.0, 0.5, 0, Array.empty)
-    val newFirm = Firm(0, 1000000.0, 0.0,
-      TechState.Automated(2), 0.5, 1.0, 0.5, 0, Array.empty)
+    val prevFirm = Firm(FirmId(0), 1000000.0, 0.0,
+      TechState.Traditional(3), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int])
+    val newFirm = Firm(FirmId(0), 1000000.0, 0.0,
+      TechState.Automated(2), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int])
 
     val hhPrimary = Household(0, 5000.0, 0, 1800.0, 0.5, 0.0, 0.85,
-      HhStatus.Employed(0, 0, 6000.0), Array.empty, education = 0)
+      HhStatus.Employed(FirmId(0), SectorIdx(0), 6000.0), Array.empty[Int], education = 0)
     val hhTertiary = Household(1, 5000.0, 0, 1800.0, 0.4, 0.0, 0.85,
-      HhStatus.Employed(0, 0, 5000.0), Array.empty, education = 3)
+      HhStatus.Employed(FirmId(0), SectorIdx(0), 5000.0), Array.empty[Int], education = 3)
     val hhVocational = Household(2, 5000.0, 0, 1800.0, 0.6, 0.0, 0.85,
-      HhStatus.Employed(0, 0, 5500.0), Array.empty, education = 1)
+      HhStatus.Employed(FirmId(0), SectorIdx(0), 5500.0), Array.empty[Int], education = 1)
 
     val result = sfc.engine.LaborMarket.separations(
       Vector(hhPrimary, hhTertiary, hhVocational),
@@ -129,17 +130,17 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "use skill as tiebreaker within same education level" in {
-    val prevFirm = Firm(0, 1000000.0, 0.0,
-      TechState.Traditional(3), 0.5, 1.0, 0.5, 0, Array.empty)
-    val newFirm = Firm(0, 1000000.0, 0.0,
-      TechState.Automated(2), 0.5, 1.0, 0.5, 0, Array.empty)
+    val prevFirm = Firm(FirmId(0), 1000000.0, 0.0,
+      TechState.Traditional(3), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int])
+    val newFirm = Firm(FirmId(0), 1000000.0, 0.0,
+      TechState.Automated(2), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int])
 
     val hhLowSkill = Household(0, 5000.0, 0, 1800.0, 0.3, 0.0, 0.85,
-      HhStatus.Employed(0, 0, 6000.0), Array.empty, education = 2)
+      HhStatus.Employed(FirmId(0), SectorIdx(0), 6000.0), Array.empty[Int], education = 2)
     val hhHighSkill = Household(1, 5000.0, 0, 1800.0, 0.9, 0.0, 0.85,
-      HhStatus.Employed(0, 0, 7000.0), Array.empty, education = 2)
+      HhStatus.Employed(FirmId(0), SectorIdx(0), 7000.0), Array.empty[Int], education = 2)
     val hhMidSkill = Household(2, 5000.0, 0, 1800.0, 0.5, 0.0, 0.85,
-      HhStatus.Employed(0, 0, 6500.0), Array.empty, education = 2)
+      HhStatus.Employed(FirmId(0), SectorIdx(0), 6500.0), Array.empty[Int], education = 2)
 
     val result = sfc.engine.LaborMarket.separations(
       Vector(hhLowSkill, hhHighSkill, hhMidSkill),
@@ -178,8 +179,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   "HouseholdInit.initialize" should "assign education to all households" in {
     val rng = new Random(42)
     val firms = Array(
-      Firm(0, 1000000.0, 0.0, TechState.Traditional(5), 0.5, 1.0, 0.5, 0, Array.empty),
-      Firm(1, 1000000.0, 0.0, TechState.Traditional(5), 0.5, 1.0, 0.5, 2, Array.empty)
+      Firm(FirmId(0), 1000000.0, 0.0, TechState.Traditional(5), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int]),
+      Firm(FirmId(1), 1000000.0, 0.0, TechState.Traditional(5), 0.5, 1.0, 0.5, SectorIdx(2), Array.empty[Int])
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
     val hhs = HouseholdInit.initialize(10, 2, firms, socialNet, rng)
@@ -192,7 +193,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   it should "clamp skill within education-specific range" in {
     val rng = new Random(42)
     val firms = Array(
-      Firm(0, 1000000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.5, 0, Array.empty)
+      Firm(FirmId(0), 1000000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int])
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
     val hhs = HouseholdInit.initialize(10, 1, firms, socialNet, rng)

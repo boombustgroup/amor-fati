@@ -6,6 +6,7 @@ import sfc.accounting.{BankState, ForexState, GovState, SfcCheck}
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
 import sfc.engine.World
+import sfc.types.*
 
 class SfcCheckSpec extends AnyFlatSpec with Matchers:
 
@@ -28,14 +29,14 @@ class SfcCheckSpec extends AnyFlatSpec with Matchers:
 
   private def makeFirms(n: Int, cash: Double = 50000.0, debt: Double = 0.0): Array[Firm] =
     (0 until n).map { i =>
-      Firm(i, cash, debt, TechState.Traditional(10), 0.5, 1.0, 0.3, 0, Array.empty)
+      Firm(FirmId(i), cash, debt, TechState.Traditional(10), 0.5, 1.0, 0.3, SectorIdx(0), Array.empty[Int])
     }.toArray
 
   private def makeHouseholds(n: Int, savings: Double = 15000.0,
                               debt: Double = 0.0): Vector[Household] =
     (0 until n).map { i =>
       Household(i, savings, debt, 1800.0, 0.8, 0.0, 0.82,
-        HhStatus.Employed(0, 0, 8266.0), Array.empty)
+        HhStatus.Employed(FirmId(0), SectorIdx(0), 8266.0), Array.empty[Int])
     }.toVector
 
   private val zeroFlows = SfcCheck.MonthlyFlows(0, 0, 0, 0, 0, 0, 0, 0, 0)

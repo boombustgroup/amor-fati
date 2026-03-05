@@ -7,6 +7,7 @@ import sfc.agents.{ImmigrationLogic, ImmigrationState}
 import sfc.accounting.*
 import sfc.networks.Network
 import sfc.dynamics.{DynamicNetwork, SigmaDynamics}
+import sfc.types.*
 import sfc.util.KahanSum.*
 
 import scala.util.Random
@@ -330,7 +331,7 @@ object Simulation:
     else targetGovPurchases
     val laggedExports = w.forex.exports
     val sectorCap = (0 until SECTORS.length).map { s =>
-      living.filter(_.sector == s).kahanSumBy(f => FirmOps.capacity(f).toDouble)
+      living.filter(_.sector.toInt == s).kahanSumBy(f => FirmOps.capacity(f).toDouble)
     }.toVector
     val sectorExports = if Config.GvcEnabled && Config.OeEnabled then
       w.gvc.sectorExports
@@ -416,12 +417,12 @@ object Simulation:
       hh = w.hh.copy(marketWage = newWage, reservationWage = resWage))
 
     // Per-firm bond issuance amounts (for demand-side constraint revert)
-    val firmBondAmounts = scala.collection.mutable.HashMap.empty[Int, Double]
+    val firmBondAmounts = scala.collection.mutable.HashMap.empty[FirmId, Double]
 
     // Process firms -- per-firm dispatch to bank, accumulate per-bank flows
     val newFirms = firms.map { f =>
-      val firmRate = getLendRate(f.bankId)
-      val firmCanLend: Double => Boolean = amt => bankCanLendFn(f.bankId, amt)
+      val firmRate = getLendRate(f.bankId.toInt)
+      val firmCanLend: Double => Boolean = amt => bankCanLendFn(f.bankId.toInt, amt)
       val r = FirmLogic.process(f, macro4firms, firmRate, firmCanLend, firms, rc)
       sumTax      += r.taxPaid
       sumCapex    += r.capexSpent
@@ -466,7 +467,7 @@ object Simulation:
       sumEquityIssuance += equityAmt
       sumBondIssuance += bondAmt
       if bondAmt > 0 then firmBondAmounts(f.id) = bondAmt
-      perBankNewLoans(f.bankId) += finalLoan
+      perBankNewLoans(f.bankId.toInt) += finalLoan
       bondUpdatedFirm
     }
 
@@ -490,11 +491,11 @@ object Simulation:
       sumNewLoans += unsoldBonds
       for (fid, ba) <- firmBondAmounts do
         val revert = ba * revertRatio
-        adjustedFirms.find(_.id == fid).foreach(ff => perBankNewLoans(ff.bankId) += revert)
+        adjustedFirms.find(_.id == fid).foreach(ff => perBankNewLoans(ff.bankId.toInt) += revert)
 
     // Track per-bank workers for deposit partitioning
     for f <- adjustedFirms if FirmOps.isAlive(f) do
-      perBankWorkers(f.bankId) += FirmOps.workers(f)
+      perBankWorkers(f.bankId.toInt) += FirmOps.workers(f)
 
     // I-O intermediate market (Paper-07)
     val (ioFirms, totalIoPaid) = if Config.IoEnabled then
@@ -535,11 +536,11 @@ object Simulation:
     val totalBondDefault = newlyDead.kahanSumBy(_.bondDebt)
 
     // Per-bank NPL attribution
-    for f <- newlyDead do perBankNplDebt(f.bankId) += f.debt
+    for f <- newlyDead do perBankNplDebt(f.bankId.toInt) += f.debt
 
     // Per-bank interest income
     for f <- firms if FirmOps.isAlive(f) do
-      perBankIntIncome(f.bankId) += f.debt * getLendRate(f.bankId) / 12.0
+      perBankIntIncome(f.bankId.toInt) += f.debt * getLendRate(f.bankId.toInt) / 12.0
 
     val intIncome = perBankIntIncome.kahanSum
 
@@ -641,7 +642,7 @@ object Simulation:
 
     // Endogenous sigma evolution (Paper-05)
     val sectorAdoption = SECTORS.indices.map { s =>
-      val secFirms = living2.filter(_.sector == s)
+      val secFirms = living2.filter(_.sector.toInt == s)
       if secFirms.isEmpty then 0.0
       else secFirms.count(f =>
         f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid]
@@ -661,14 +662,14 @@ object Simulation:
 
     // Firm profits for equity market (sum of after-tax profits of living firms)
     val firmProfits = living2.kahanSumBy { f =>
-      val rev = FirmOps.capacity(f) * sectorMults(f.sector) * newPrice
-      val labor = FirmOps.workers(f) * newWage * SECTORS(f.sector).wageMultiplier
+      val rev = FirmOps.capacity(f) * sectorMults(f.sector.toInt) * newPrice
+      val labor = FirmOps.workers(f) * newWage * SECTORS(f.sector.toInt).wageMultiplier
       val other = Config.OtherCosts * newPrice
       val aiMaint = f.tech match
         case _: TechState.Automated => Config.AiOpex * (0.60 + 0.40 * newPrice)
         case _: TechState.Hybrid    => Config.HybridOpex * (0.60 + 0.40 * newPrice)
         case _                      => 0.0
-      val interest = f.debt * getLendRate(f.bankId) / 12.0
+      val interest = f.debt * getLendRate(f.bankId.toInt) / 12.0
       val gross = rev - labor - other - aiMaint - interest
       val tax = Math.max(0.0, gross) * Config.CitRate
       Math.max(0.0, gross - tax)
@@ -691,7 +692,7 @@ object Simulation:
 
     // Open economy (Paper-08) or legacy foreign sector
     val sectorOutputs = (0 until SECTORS.length).map { s =>
-      living2.filter(_.sector == s).kahanSumBy(f => FirmOps.capacity(f) * sectorMults(f.sector) * w.priceLevel)
+      living2.filter(_.sector.toInt == s).kahanSumBy(f => FirmOps.capacity(f) * sectorMults(f.sector.toInt) * w.priceLevel)
     }.toVector
 
     // GVC / Deep External Sector (v5.0)
@@ -989,7 +990,7 @@ object Simulation:
         val totalWorkers = perBankWorkers.kahanSumBy(_.toDouble)
         // 1. Update each bank with its per-bank flows
         val updatedBanks = bs.banks.map { b =>
-          val bId = b.id
+          val bId = b.id.toInt
           val bankNplNew = perBankNplDebt(bId)
           val bankNplLoss = bankNplNew * (1.0 - Config.LoanRecovery)
           val bankIntIncome = perBankIntIncome(bId)
@@ -1087,10 +1088,10 @@ object Simulation:
           ccyb = newMacropru.ccyb)
         val (afterBailIn, multiBailInLoss) = if anyFailed then BankingSector.applyBailIn(afterFailCheck) else (afterFailCheck, 0.0)
         val (afterResolve, rawAbsorberId) = if anyFailed then BankingSector.resolveFailures(afterBailIn)
-                           else (afterBailIn, -1)
-        // Guard: resolveFailures returns -1 when no newly-failed bank has deposits > 0
+                           else (afterBailIn, BankId.NoBank)
+        // Guard: resolveFailures returns NoBank when no newly-failed bank has deposits > 0
         // (e.g. bank failed with zero deposits). Fall back to healthiest bank.
-        val absorberId = if rawAbsorberId >= 0 then rawAbsorberId
+        val absorberId = if rawAbsorberId.toInt >= 0 then rawAbsorberId
                          else BankingSector.healthiestBankId(afterResolve)
         // Track capital destruction: sum of capital wiped when banks fail
         val multiCapDestruction = if anyFailed then
@@ -1104,13 +1105,13 @@ object Simulation:
         // 6. Reassign firm/HH bankIds: use absorber ID directly for consistency
         val reFirms = if anyFailed then
           rewiredFirms.map { f =>
-            if f.bankId < afterResolve.length && afterResolve(f.bankId).failed then f.copy(bankId = absorberId)
+            if f.bankId.toInt < afterResolve.length && afterResolve(f.bankId.toInt).failed then f.copy(bankId = absorberId)
             else f
           }
         else rewiredFirms
         val reHouseholds = if anyFailed then
           finalHouseholds.map(_.map { h =>
-            if h.bankId < afterResolve.length && afterResolve(h.bankId).failed then h.copy(bankId = absorberId)
+            if h.bankId.toInt < afterResolve.length && afterResolve(h.bankId.toInt).failed then h.copy(bankId = absorberId)
             else h
           })
         else finalHouseholds
@@ -1158,7 +1159,7 @@ object Simulation:
     // not raw demand (which may exceed total capacity when aggregate demand > supply).
     val fofResidual = {
       val totalFirmRev = (0 until SECTORS.length).map { s =>
-        living.filter(_.sector == s).kahanSumBy(f =>
+        living.filter(_.sector.toInt == s).kahanSumBy(f =>
           FirmOps.capacity(f).toDouble * sectorMults(s) * w.priceLevel)
       }.kahanSum
       val adjustedDemand = sectorMults.indices.map { s =>
@@ -1336,8 +1337,8 @@ object Simulation:
       val sectorCashSum = Array.fill(SECTORS.length)(0.0)
       val sectorCashCnt = Array.fill(SECTORS.length)(0)
       for f <- postLiving do
-        sectorCashSum(f.sector) += f.cash
-        sectorCashCnt(f.sector) += 1
+        sectorCashSum(f.sector.toInt) += f.cash
+        sectorCashCnt(f.sector.toInt) += 1
       val sectorAvgCash = SECTORS.indices.map(s =>
         if sectorCashCnt(s) > 0 then sectorCashSum(s) / sectorCashCnt(s) else 0.0).toArray
       val globalAvgCash = if postLiving.nonEmpty then
@@ -1354,12 +1355,12 @@ object Simulation:
       val totalWeight = sectorWeights.sum
 
       val totalAdoption = newW.automationRatio + newW.hybridRatio
-      val livingIds = postLiving.map(_.id)
+      val livingIds = postLiving.map(_.id.toInt)
       var births = 0
 
       val result = postFdiFirms.map { f =>
         if !FirmOps.isAlive(f) then
-          val slotSector = f.sector
+          val slotSector = f.sector.toInt
           val entryProb = Config.FirmEntryRate * Config.FirmEntrySectorBarriers(slotSector) *
             Math.max(0.0, 1.0 + profitSignals(slotSector) * Config.FirmEntryProfitSens)
           if Random.nextDouble() < entryProb then
@@ -1391,9 +1392,9 @@ object Simulation:
               Random.shuffle(livingIds.toList).take(nNeighbors).toArray
             else Array.empty[Int]
 
-            val bankId = if Config.BankMulti then
-              BankingSector.assignBank(newSector, BankingSector.DefaultConfigs, Random)
-            else 0
+            val newBankId = if Config.BankMulti then
+              BankingSector.assignBank(SectorIdx(newSector), BankingSector.DefaultConfigs, Random)
+            else BankId(0)
 
             val foreignOwned = Config.FdiEnabled &&
               Random.nextDouble() < Config.FdiForeignShares(newSector)
@@ -1420,9 +1421,9 @@ object Simulation:
               riskProfile = Random.between(0.1, 0.9),
               innovationCostFactor = Random.between(0.8, 1.5),
               digitalReadiness = dr,
-              sector = newSector,
+              sector = SectorIdx(newSector),
               neighbors = newNeighbors,
-              bankId = bankId,
+              bankId = newBankId,
               initialSize = firmSize,
               capitalStock = capitalStock,
               foreignOwned = foreignOwned,

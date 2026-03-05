@@ -2,6 +2,7 @@ package sfc.engine
 
 import sfc.agents.{Firm, FirmOps, TechState}
 import sfc.config.Config
+import sfc.types.*
 import sfc.util.KahanSum.*
 
 case class IoResult(firms: Array[Firm], totalPaid: Double)
@@ -18,12 +19,12 @@ object IntermediateMarket:
     val living = firms.indices.filter(i => FirmOps.isAlive(firms(i)))
     val grossOutput = new Array[Double](firms.length)
     for i <- living do
-      grossOutput(i) = FirmOps.capacity(firms(i)) * sectorMults(firms(i).sector) * price
+      grossOutput(i) = FirmOps.capacity(firms(i)) * sectorMults(firms(i).sector.toInt) * price
 
     // Total gross output per sector (for revenue distribution)
     val sectorOutput = new Array[Double](nSectors)
     for i <- living do
-      sectorOutput(firms(i).sector) += grossOutput(i)
+      sectorOutput(firms(i).sector.toInt) += grossOutput(i)
 
     // Firms can only buy from sectors that have living suppliers.
     // Effective column sum for sector j = Σ_{i: hasFirms(i)} a_ij
@@ -44,12 +45,12 @@ object IntermediateMarket:
     // Distribute costs and revenues to individual firms
     for idx <- living do
       val f = firms(idx)
-      val j = f.sector
+      val j = f.sector.toInt
       // Cost: intermediate purchases only from sectors with suppliers
       val ioCost = grossOutput(idx) * effectiveColSums(j)
       // Revenue: proportional to this firm's output within its sector
-      val ioRevenue = if sectorOutput(f.sector) > 0 then
-        sectorRevenue(f.sector) * (grossOutput(idx) / sectorOutput(f.sector))
+      val ioRevenue = if sectorOutput(f.sector.toInt) > 0 then
+        sectorRevenue(f.sector.toInt) * (grossOutput(idx) / sectorOutput(f.sector.toInt))
       else 0.0
       cashAdj(idx) = (ioRevenue - ioCost) * scale
       totalPaid += ioCost * scale

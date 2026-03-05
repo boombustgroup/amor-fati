@@ -4,6 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.{Firm, FirmOps, TechState}
 import sfc.config.{Config, SECTORS}
+import sfc.types.*
 
 class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
@@ -24,7 +25,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   private def makeFirm(id: Int, sector: Int, cash: Double = 50000.0,
                        tech: TechState = TechState.Traditional(10)): Firm =
-    Firm(id, cash, 0.0, tech, 0.5, 1.0, 0.3, sector, Array.empty)
+    Firm(FirmId(id), cash, 0.0, tech, 0.5, 1.0, 0.3, SectorIdx(sector), Array.empty[Int])
 
   private def makeFirmsAllSectors(perSector: Int = 10): Array[Firm] =
     (0 until 6).flatMap { s =>

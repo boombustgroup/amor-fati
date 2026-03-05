@@ -4,6 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.{Firm, FirmOps, TechState}
 import sfc.config.Config
+import sfc.types.*
 
 import scala.util.Random
 
@@ -57,7 +58,7 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
     val firms = mkFirmsWithBankrupt(20, 3, sector = 2)
     val result = DynamicNetwork.rewire(firms, 1.0)
     for i <- 0 until 3 do
-      result(i).sector shouldBe 2
+      result(i).sector.toInt shouldBe 2
   }
 
   it should "set initialSize on new entrants matching their worker count" in {
@@ -72,7 +73,7 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
 
   private def mkFirms(n: Int): Array[Firm] =
     (0 until n).map { i =>
-      Firm(i, 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.5, 0,
+      Firm(FirmId(i), 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.5, SectorIdx(0),
         Array((i + 1) % n, (i - 1 + n) % n))
     }.toArray
 
@@ -80,6 +81,6 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
     (0 until n).map { i =>
       val tech = if i < nBankrupt then TechState.Bankrupt("test")
                  else TechState.Traditional(10)
-      Firm(i, 50000.0, 0.0, tech, 0.5, 1.0, 0.5, sector,
+      Firm(FirmId(i), 50000.0, 0.0, tech, 0.5, 1.0, 0.5, SectorIdx(sector),
         Array((i + 1) % n, (i - 1 + n) % n))
     }.toArray

@@ -2,6 +2,7 @@ package sfc.engine
 
 import sfc.config.{Config, SECTORS}
 import sfc.agents.*
+import sfc.types.*
 import sfc.util.KahanSum.*
 
 import scala.util.Random
@@ -26,23 +27,23 @@ object LaborMarket:
 
     // For firms that went to Hybrid, compute how many workers they retained
     val hybridRetained: Map[Int, Int] = newFirms.filter(f =>
-      firmLostWorkers.contains(f.id) && f.tech.isInstanceOf[TechState.Hybrid]
+      firmLostWorkers.contains(f.id.toInt) && f.tech.isInstanceOf[TechState.Hybrid]
     ).map { f =>
       val w = f.tech.asInstanceOf[TechState.Hybrid].workers
-      f.id -> w
+      f.id.toInt -> w
     }.toMap
 
     // For automated firms, only skeleton crew stays
     val automatedRetained: Map[Int, Int] = newFirms.filter(f =>
-      firmLostWorkers.contains(f.id) && f.tech.isInstanceOf[TechState.Automated]
-    ).map(f => f.id -> FirmOps.skeletonCrew(f)).toMap
+      firmLostWorkers.contains(f.id.toInt) && f.tech.isInstanceOf[TechState.Automated]
+    ).map(f => f.id.toInt -> FirmOps.skeletonCrew(f)).toMap
 
     // Build retain sets: sort workers by (-education, -skill), take top maxRetain
     val firmToWorkers = scala.collection.mutable.Map[Int, scala.collection.mutable.ArrayBuffer[Int]]()
     for (hh, idx) <- households.zipWithIndex do
       hh.status match
-        case HhStatus.Employed(firmId, _, _) if firmLostWorkers.contains(firmId) =>
-          firmToWorkers.getOrElseUpdate(firmId, scala.collection.mutable.ArrayBuffer.empty) += idx
+        case HhStatus.Employed(firmId, _, _) if firmLostWorkers.contains(firmId.toInt) =>
+          firmToWorkers.getOrElseUpdate(firmId.toInt, scala.collection.mutable.ArrayBuffer.empty) += idx
         case _ =>
     val eduRetainSets: Map[Int, Set[Int]] = firmToWorkers.map { (firmId, indices) =>
       val sorted = indices.sortBy(i => (-households(i).education, -households(i).skill))
@@ -52,8 +53,8 @@ object LaborMarket:
 
     households.zipWithIndex.map { (hh, idx) =>
       hh.status match
-        case HhStatus.Employed(firmId, sectorIdx, wage) if firmLostWorkers.contains(firmId) =>
-          if eduRetainSets.getOrElse(firmId, Set.empty).contains(idx) then hh
+        case HhStatus.Employed(firmId, sectorIdx, wage) if firmLostWorkers.contains(firmId.toInt) =>
+          if eduRetainSets.getOrElse(firmId.toInt, Set.empty).contains(idx) then hh
           else hh.copy(status = HhStatus.Unemployed(0), lastSectorIdx = sectorIdx)
         case _ => hh
     }
@@ -68,12 +69,12 @@ object LaborMarket:
     val workerCounts = scala.collection.mutable.Map[Int, Int]().withDefaultValue(0)
     for hh <- households do
       hh.status match
-        case HhStatus.Employed(fid, _, _) => workerCounts(fid) += 1
+        case HhStatus.Employed(fid, _, _) => workerCounts(fid.toInt) += 1
         case _ =>
     val vacancies = scala.collection.mutable.Map[Int, Int]()
     for f <- firms if FirmOps.isAlive(f) do
-      val needed = FirmOps.workers(f) - workerCounts(f.id)
-      if needed > 0 then vacancies(f.id) = needed
+      val needed = FirmOps.workers(f) - workerCounts(f.id.toInt)
+      if needed > 0 then vacancies(f.id.toInt) = needed
 
     if vacancies.isEmpty then return (households, 0)
 
@@ -91,16 +92,16 @@ object LaborMarket:
     // Pre-sort vacancy firms by sector sigma descending — O(V log V) once
     // For sector bonus, we group by sector: same-sector gets priority
     val vacancyFirmsBySector = vacancies.keys.toArray
-      .groupBy(fid => firms(fid).sector)
+      .groupBy(fid => firms(fid).sector.toInt)
     val vacancyFirmsByPriority = vacancies.keys.toArray
-      .sortBy(fid => -SECTORS(firms(fid).sector).sigma)
+      .sortBy(fid => -SECTORS(firms(fid).sector.toInt).sigma)
 
     for idx <- unemployedIndices do
       if vacancies.nonEmpty then
         val hh = result(idx)
         // Fix: use lastSectorIdx (actual last employer sector) instead of hh.id % firms.length
-        val prevSector = if hh.lastSectorIdx >= 0 then hh.lastSectorIdx
-          else firms(hh.id % firms.length).sector
+        val prevSector = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt
+          else firms(hh.id % firms.length).sector.toInt
 
         // Try same-sector first (bonus), then fall back to global priority order
         val bestFirmId = vacancyFirmsBySector.getOrElse(prevSector, Array.empty[Int])
@@ -110,16 +111,16 @@ object LaborMarket:
         bestFirmId.foreach { fid =>
           val f = firms(fid)
           val sectorMult = FirmOps.effectiveWageMult(f.sector)
-          val isCrossSector = f.sector != prevSector
+          val isCrossSector = f.sector.toInt != prevSector
           // Cross-sector wage penalty when sectoral mobility is enabled
           val penalty = if Config.LmSectoralMobility && isCrossSector then
-            SectoralMobility.crossSectorWagePenalty(Config.LmFrictionMatrix(prevSector)(f.sector))
+            SectoralMobility.crossSectorWagePenalty(Config.LmFrictionMatrix(prevSector)(f.sector.toInt))
           else 1.0
           val individualWage = marketWage * sectorMult * hh.skill * (1.0 - hh.healthPenalty) * penalty *
             Config.eduWagePremium(hh.education)
           if isCrossSector then crossSectorHires += 1
           result(idx) = hh.copy(
-            status = HhStatus.Employed(fid, f.sector, individualWage),
+            status = HhStatus.Employed(FirmId(fid), f.sector, individualWage),
             lastSectorIdx = f.sector
           )
           val remaining = vacancies(fid) - 1

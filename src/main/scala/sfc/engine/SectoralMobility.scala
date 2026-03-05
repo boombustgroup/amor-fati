@@ -2,6 +2,7 @@ package sfc.engine
 
 import sfc.config.{Config, SECTORS}
 import sfc.agents.*
+import sfc.types.*
 
 import scala.util.Random
 
@@ -33,12 +34,12 @@ object SectoralMobility:
     val workerCounts = new Array[Int](6)
     for hh <- households do
       hh.status match
-        case HhStatus.Employed(_, sectorIdx, _) => workerCounts(sectorIdx) += 1
+        case HhStatus.Employed(_, sectorIdx, _) => workerCounts(sectorIdx.toInt) += 1
         case _ =>
 
     val sectorDemand = new Array[Int](6)
     for f <- firms if FirmOps.isAlive(f) do
-      sectorDemand(f.sector) += FirmOps.workers(f)
+      sectorDemand(f.sector.toInt) += FirmOps.workers(f)
 
     val vac = new Array[Int](6)
     for s <- 0 until 6 do
@@ -52,8 +53,8 @@ object SectoralMobility:
     for hh <- households do
       hh.status match
         case HhStatus.Employed(_, sectorIdx, wage) =>
-          sums(sectorIdx) += wage
-          counts(sectorIdx) += 1
+          sums(sectorIdx.toInt) += wage
+          counts(sectorIdx.toInt) += 1
         case _ =>
     val result = new Array[Double](6)
     for s <- 0 until 6 do

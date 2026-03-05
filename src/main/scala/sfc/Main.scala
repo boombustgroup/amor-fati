@@ -6,6 +6,7 @@ import _root_.sfc.config.*
 import _root_.sfc.agents.*
 import _root_.sfc.accounting.*
 import _root_.sfc.engine.*
+import _root_.sfc.types.*
 import _root_.sfc.util.KahanSum.*
 import _root_.sfc.networks.Network
 
@@ -49,7 +50,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     val firmSize = FirmSizeDistribution.draw(Random)
     val sizeMult = firmSize.toDouble / Config.WorkersPerFirm
     Firm(
-      id = i,
+      id = FirmId(i),
       cash = (Random.between(10000.0, 80000.0) + (if Random.nextDouble() < 0.1 then 200000.0 else 0.0)) * sizeMult,
       debt = 0.0,
       tech = TechState.Traditional(firmSize),
@@ -57,7 +58,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       innovationCostFactor = Random.between(0.8, 1.5),
       digitalReadiness = Math.max(0.02, Math.min(0.98,
         sec.baseDigitalReadiness + (Random.nextGaussian() * 0.20))),
-      sector = sectorAssignments(i),
+      sector = SectorIdx(sectorAssignments(i)),
       neighbors = adjList(i),
       initialSize = firmSize
     )
@@ -70,7 +71,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   // Initialize physical capital stock
   if Config.PhysCapEnabled then
     firms = firms.map(f =>
-      f.copy(capitalStock = FirmOps.workers(f).toDouble * Config.PhysCapKLRatios(f.sector)))
+      f.copy(capitalStock = FirmOps.workers(f).toDouble * Config.PhysCapKLRatios(f.sector.toInt)))
 
   // Multi-bank: assign firms to banks
   if Config.BankMulti then
@@ -80,7 +81,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   // FDI: assign foreign ownership by sector (#33)
   if Config.FdiEnabled then
     firms = firms.map { f =>
-      if Random.nextDouble() < Config.FdiForeignShares(f.sector) then
+      if Random.nextDouble() < Config.FdiForeignShares(f.sector.toInt) then
         f.copy(foreignOwned = true)
       else f
     }
@@ -89,14 +90,14 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   if Config.InventoryEnabled then
     firms = firms.map { f =>
       val capacity = FirmOps.capacity(f).toDouble
-      val targetInv = capacity * Config.InventoryTargetRatios(f.sector)
+      val targetInv = capacity * Config.InventoryTargetRatios(f.sector.toInt)
       f.copy(inventory = targetInv * Config.InventoryInitRatio)
     }
 
   // Initialize green capital stock (#36)
   if Config.EnergyEnabled then
     firms = firms.map { f =>
-      val targetGK = FirmOps.workers(f).toDouble * Config.GreenKLRatios(f.sector)
+      val targetGK = FirmOps.workers(f).toDouble * Config.GreenKLRatios(f.sector.toInt)
       f.copy(greenCapital = targetGK * Config.GreenInitRatio)
     }
 
@@ -110,7 +111,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       val assigned = if Config.BankMulti then
         hhs.map { h =>
           h.status match
-            case HhStatus.Employed(fid, _, _) if fid < firms.length => h.copy(bankId = firms(fid).bankId)
+            case HhStatus.Employed(fid, _, _) if fid.toInt < firms.length => h.copy(bankId = firms(fid.toInt).bankId)
             case _ => h
         }
       else hhs
@@ -148,8 +149,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       case Some(hhs) =>
         val nBanks = bs0.banks.length
         val perBankCcDebt = new Array[Double](nBanks)
-        hhs.foreach(h => if h.bankId >= 0 && h.bankId < nBanks then perBankCcDebt(h.bankId) += h.consumerDebt)
-        bs0.banks.map(b => b.copy(consumerLoans = perBankCcDebt(b.id)))
+        hhs.foreach(h => if h.bankId.toInt >= 0 && h.bankId.toInt < nBanks then perBankCcDebt(h.bankId.toInt) += h.consumerDebt)
+        bs0.banks.map(b => b.copy(consumerLoans = perBankCcDebt(b.id.toInt)))
       case None => bs0.banks
     Some(bs0.copy(banks = fixedBanks))
   else None
@@ -174,7 +175,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Steady-state gross investment = depreciation (capital at target level at t=0)
   val initGrossInvestment = if Config.PhysCapEnabled then
-    firms.kahanSumBy(f => f.capitalStock * Config.PhysCapDepRates(f.sector) / 12.0)
+    firms.kahanSumBy(f => f.capitalStock * Config.PhysCapDepRates(f.sector.toInt) / 12.0)
   else 0.0
   val initGreenInvestment = if Config.EnergyEnabled then
     firms.kahanSumBy(f => f.greenCapital * Config.GreenDepRate / 12.0)
@@ -244,7 +245,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
     // Per-sector automation ratios
     val sectorAuto = SECTORS.indices.map { s =>
-      val secFirms = living.filter(_.sector == s)
+      val secFirms = living.filter(_.sector.toInt == s)
       if secFirms.isEmpty then 0.0
       else secFirms.count(f =>
         f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid]
@@ -376,7 +377,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.bankingSector.map { bs =>
         val alive = bs.banks.filterNot(_.failed)
         if alive.isEmpty then 0.0
-        else alive.map(b => Macroprudential.effectiveMinCar(b.id, world.macropru.ccyb)).max
+        else alive.map(b => Macroprudential.effectiveMinCar(b.id.toInt, world.macropru.ccyb)).max
       }.getOrElse(Macroprudential.effectiveMinCar(0, world.macropru.ccyb)),  // 81: EffectiveMinCar
       // GPW Equity Market
       world.equity.index,           // 82: GpwIndex
@@ -466,7 +467,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       living.kahanSumBy(_.capitalStock),                           // 140: AggCapitalStock
       world.grossInvestment,                                       // 141: GrossInvestment
       (if Config.PhysCapEnabled then                               // 142: CapitalDepreciation
-        living.kahanSumBy(f => f.capitalStock * Config.PhysCapDepRates(f.sector) / 12.0)
+        living.kahanSumBy(f => f.capitalStock * Config.PhysCapDepRates(f.sector.toInt) / 12.0)
       else 0.0),
       // Excise & Customs
       world.gov.exciseRevenue,                                       // 143: ExciseRevenue

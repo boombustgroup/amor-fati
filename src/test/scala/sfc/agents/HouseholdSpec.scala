@@ -5,6 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.config.{Config, SECTORS}
 import sfc.engine.World
+import sfc.types.*
 
 import scala.util.Random
 
@@ -74,7 +75,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng = new Random(42)
     val hhs = Vector(
       mkHousehold(0, HhStatus.Bankrupt, savings = 0.0),
-      mkHousehold(1, HhStatus.Employed(0, 2, 8000.0), savings = 50000.0)
+      mkHousehold(1, HhStatus.Employed(FirmId(0), SectorIdx(2), 8000.0), savings = 50000.0)
     )
     val (updated, _, _) = HouseholdLogic.step(hhs, mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng)
     updated(0).status shouldBe HhStatus.Bankrupt
@@ -123,7 +124,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
 
   it should "return None for perBankHhFlows when bankRates not provided" in {
     val rng = new Random(42)
-    val hhs = Vector(mkHousehold(0, HhStatus.Employed(0, 2, 8000.0), savings = 50000.0))
+    val hhs = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), 8000.0), savings = 50000.0))
     val (_, _, pbf) = HouseholdLogic.step(hhs, mkWorld(), 2000.0, 8000.0, 4666.0, 0.4, rng)
     pbf shouldBe None
   }
@@ -134,8 +135,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng = new Random(42)
     val debt = 100000.0
     val hhs = Vector(
-      mkHousehold(0, HhStatus.Employed(0, 0, 8000.0), savings = 50000.0, debt = debt, bankId = 0),
-      mkHousehold(1, HhStatus.Employed(1, 0, 8000.0), savings = 50000.0, debt = debt, bankId = 1)
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), 8000.0), savings = 50000.0, debt = debt, bankId = 0),
+      mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(0), 8000.0), savings = 50000.0, debt = debt, bankId = 1)
     )
     // Bank 0: 6% annual lending rate, Bank 1: 10% annual
     val br = BankRates(
@@ -157,7 +158,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng = new Random(42)
     val savings = 100000.0
     val hhs = Vector(
-      mkHousehold(0, HhStatus.Employed(0, 0, 8000.0), savings = savings, bankId = 0)
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), 8000.0), savings = savings, bankId = 0)
     )
     val depRate = 0.04  // 4% annual
     val br = BankRates(
@@ -178,7 +179,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val bdp = 2000.0
     val depRate = 0.04
     val hhs = Vector(
-      mkHousehold(0, HhStatus.Employed(0, 0, wage), savings = savings, bankId = 0)
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), wage), savings = savings, bankId = 0)
     )
     val br = BankRates(
       lendingRates = Array(0.07),
@@ -194,9 +195,9 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   it should "accumulate per-bank flows correctly for 2 banks" in {
     val rng = new Random(42)
     val hhs = Vector(
-      mkHousehold(0, HhStatus.Employed(0, 0, 8000.0), savings = 50000.0, debt = 0.0, bankId = 0),
-      mkHousehold(1, HhStatus.Employed(1, 0, 7000.0), savings = 30000.0, debt = 0.0, bankId = 0),
-      mkHousehold(2, HhStatus.Employed(2, 0, 9000.0), savings = 80000.0, debt = 0.0, bankId = 1)
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), 8000.0), savings = 50000.0, debt = 0.0, bankId = 0),
+      mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(0), 7000.0), savings = 30000.0, debt = 0.0, bankId = 0),
+      mkHousehold(2, HhStatus.Employed(FirmId(2), SectorIdx(0), 9000.0), savings = 80000.0, debt = 0.0, bankId = 1)
     )
     val br = BankRates(
       lendingRates = Array(0.07, 0.08),
@@ -218,7 +219,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   it should "not pay deposit interest on negative savings" in {
     val rng = new Random(42)
     val hhs = Vector(
-      mkHousehold(0, HhStatus.Employed(0, 0, 8000.0), savings = -5000.0, bankId = 0)
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), 8000.0), savings = -5000.0, bankId = 0)
     )
     val br = BankRates(
       lendingRates = Array(0.07),
@@ -237,7 +238,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng = new Random(42)
     val wage = 8000.0
     val hhs = Vector(
-      mkHousehold(0, HhStatus.Employed(0, 2, wage), savings = 50000.0).copy(isImmigrant = false)
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), wage), savings = 50000.0).copy(isImmigrant = false)
     )
     val (updated, agg, _) = HouseholdLogic.step(hhs, mkWorld(), 2000.0, wage, 4666.0, 0.4, rng)
     agg.totalRemittances shouldBe 0.0
@@ -247,7 +248,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng = new Random(42)
     val wage = 8000.0
     val hhs = Vector(
-      mkHousehold(0, HhStatus.Employed(0, 2, wage), savings = 50000.0).copy(isImmigrant = true)
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), wage), savings = 50000.0).copy(isImmigrant = true)
     )
     // ImmigEnabled is false by default → no remittance deduction
     val (updated, agg, _) = HouseholdLogic.step(hhs, mkWorld(), 2000.0, wage, 4666.0, 0.4, rng)
@@ -257,8 +258,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   it should "track totalRemittances in aggregates" in {
     val rng = new Random(42)
     val hhs = Vector(
-      mkHousehold(0, HhStatus.Employed(0, 2, 8000.0), savings = 50000.0).copy(isImmigrant = false),
-      mkHousehold(1, HhStatus.Employed(1, 2, 7000.0), savings = 50000.0).copy(isImmigrant = true)
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), 8000.0), savings = 50000.0).copy(isImmigrant = false),
+      mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), 7000.0), savings = 50000.0).copy(isImmigrant = true)
     )
     // ImmigEnabled=false → totalRemittances=0 regardless of isImmigrant
     val (_, agg, _) = HouseholdLogic.step(hhs, mkWorld(), 0.0, 8000.0, 4666.0, 0.4, rng)
@@ -292,10 +293,10 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
 
   "HouseholdLogic.computeAggregates" should "count statuses correctly" in {
     val hhs = Vector(
-      mkHousehold(0, HhStatus.Employed(0, 2, 8000.0)),
-      mkHousehold(1, HhStatus.Employed(1, 2, 7000.0)),
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), 8000.0)),
+      mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), 7000.0)),
       mkHousehold(2, HhStatus.Unemployed(3)),
-      mkHousehold(3, HhStatus.Retraining(4, 1, 5000.0)),
+      mkHousehold(3, HhStatus.Retraining(4, SectorIdx(1), 5000.0)),
       mkHousehold(4, HhStatus.Bankrupt)
     )
     val agg = HouseholdLogic.computeAggregates(hhs, 8000.0, 4666.0, 0.4, 0, 0)
@@ -310,8 +311,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
 
   private def mkFirms(n: Int): Array[Firm] =
     (0 until n).map { i =>
-      Firm(i, 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.5,
-        i % SECTORS.length, Array.empty)
+      Firm(FirmId(i), 50000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.5,
+        SectorIdx(i % SECTORS.length), Array.empty[Int])
     }.toArray
 
   private def mkHousehold(id: Int, status: HhStatus,
@@ -319,7 +320,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
                           rent: Double = 1800.0, skill: Double = 0.7,
                           healthPenalty: Double = 0.0, mpc: Double = 0.82,
                           bankId: Int = 0): Household =
-    Household(id, savings, debt, rent, skill, healthPenalty, mpc, status, Array.empty, bankId)
+    Household(id, savings, debt, rent, skill, healthPenalty, mpc, status, Array.empty[Int], BankId(bankId))
 
   private def mkWorld(): World =
     World(

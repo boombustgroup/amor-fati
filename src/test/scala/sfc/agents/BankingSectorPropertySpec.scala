@@ -7,6 +7,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.agents.{BankingSector, BankingSectorState, IndividualBankState}
 import sfc.config.Config
 import sfc.testutil.Generators.*
+import sfc.types.*
 
 import scala.util.Random
 
@@ -60,8 +61,8 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       (refRate: Double, npl1Frac: Double, npl2Frac: Double) =>
         val loans = 1e6
         val (lo, hi) = if npl1Frac <= npl2Frac then (npl1Frac, npl2Frac) else (npl2Frac, npl1Frac)
-        val bankLo = IndividualBankState(0, 1e6, loans, 2e5, loans * lo, 0, 0, 0, false, 0, 0)
-        val bankHi = IndividualBankState(0, 1e6, loans, 2e5, loans * hi, 0, 0, 0, false, 0, 0)
+        val bankLo = IndividualBankState(BankId(0), 1e6, loans, 2e5, loans * lo, 0, 0, 0, false, 0, 0)
+        val bankHi = IndividualBankState(BankId(0), 1e6, loans, 2e5, loans * hi, 0, 0, 0, false, 0, 0)
         val rateLo = BankingSector.lendingRate(bankLo, configs(0), refRate)
         val rateHi = BankingSector.lendingRate(bankHi, configs(0), refRate)
         rateHi should be >= rateLo
@@ -74,9 +75,9 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     forAll(Gen.choose(0, 5)) { (sector: Int) =>
       val rng = new Random()
       for _ <- 0 until 50 do
-        val bId = BankingSector.assignBank(sector, configs, rng)
-        bId should be >= 0
-        bId should be < configs.length
+        val bId = BankingSector.assignBank(SectorIdx(sector), configs, rng)
+        bId.toInt should be >= 0
+        bId.toInt should be < configs.length
     }
   }
 

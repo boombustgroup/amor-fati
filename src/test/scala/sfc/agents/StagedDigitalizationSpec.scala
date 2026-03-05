@@ -5,6 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.config.{Config, SECTORS, RunConfig}
 import sfc.engine.World
+import sfc.types.*
 
 class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
 
@@ -12,7 +13,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
 
   private def mkFirm(tech: TechState, sector: Int = 2,
     cash: Double = 500000.0, dr: Double = 0.5): Firm =
-    Firm(0, cash, 0.0, tech, 0.5, 1.0, dr, sector, Array.empty)
+    Firm(FirmId(0), cash, 0.0, tech, 0.5, 1.0, dr, SectorIdx(sector), Array.empty[Int])
 
   private def mkWorld(autoRatio: Double = 0.0, hybridRatio: Double = 0.0): World =
     World(

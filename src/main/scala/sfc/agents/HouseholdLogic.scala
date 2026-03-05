@@ -2,6 +2,7 @@ package sfc.agents
 
 import sfc.config.Config
 import sfc.engine.{World, SectoralMobility}
+import sfc.types.*
 import sfc.util.KahanSum.*
 
 import scala.util.Random
@@ -114,12 +115,12 @@ object HouseholdLogic:
 
           // Variable-rate debt service (monetary transmission channel 1)
           val debtServiceRate = if br != null then
-            Config.HhBaseAmortRate + br.lendingRates(hh.bankId) / 12.0
+            Config.HhBaseAmortRate + br.lendingRates(hh.bankId.toInt) / 12.0
           else Config.HhDebtServiceRate
 
           // Deposit interest (monetary transmission channel 2)
           val depInterest = if br != null then
-            br.depositRates(hh.bankId) / 12.0 * hh.savings
+            br.depositRates(hh.bankId.toInt) / 12.0 * hh.savings
           else 0.0
 
           val grossIncome = baseIncome + Math.max(0.0, depInterest)  // floor at 0 (no negative interest on negative savings)
@@ -136,7 +137,7 @@ object HouseholdLogic:
 
           // Consumer credit debt service
           val consumerRate = if br != null then
-            br.lendingRates(hh.bankId) + Config.CcSpread
+            br.lendingRates(hh.bankId.toInt) + Config.CcSpread
           else world.nbp.referenceRate + Config.CcSpread
           val consumerDebtSvc = hh.consumerDebt * (Config.CcAmortRate + consumerRate / 12.0)
           totalConsumerDebtService += consumerDebtSvc
@@ -188,7 +189,7 @@ object HouseholdLogic:
 
           // Per-bank accumulation
           if perBankInc != null then
-            val bId = hh.bankId
+            val bId = hh.bankId.toInt
             perBankInc(bId) += income
             perBankCons(bId) += consumptionWithWealth + hh.monthlyRent
             perBankDSvc(bId) += thisDebtService
@@ -203,7 +204,7 @@ object HouseholdLogic:
             // Default amount: remaining consumer debt after this month's principal repayment + new loan
             val ccDefaultAmt = hh.consumerDebt * (1.0 - Config.CcAmortRate) + newConsumerLoan
             totalConsumerDefault += ccDefaultAmt
-            if perBankCcDef != null then perBankCcDef(hh.bankId) += ccDefaultAmt
+            if perBankCcDef != null then perBankCcDef(hh.bankId.toInt) += ccDefaultAmt
             hh.copy(savings = newSavings, debt = newDebt, consumerDebt = 0.0,
               status = HhStatus.Bankrupt, equityWealth = 0.0)
           else
@@ -218,11 +219,11 @@ object HouseholdLogic:
                 val sw = sectorWages.get
                 val sv = sectorVacancies.get
                 val targetSector = SectoralMobility.selectTargetSector(
-                  sectorIdx, sw, sv,
+                  sectorIdx.toInt, sw, sv,
                   Config.LmFrictionMatrix, Config.LmVacancyWeight, rng)
                 val targetAvgWage = sw(targetSector)
                 if targetAvgWage > wage * (1.0 + Config.LmVoluntaryWageThreshold) then
-                  val friction = Config.LmFrictionMatrix(sectorIdx)(targetSector)
+                  val friction = Config.LmFrictionMatrix(sectorIdx.toInt)(targetSector)
                   if friction < Config.LmAdjacentFrictionMax then
                     // Low friction: direct switch (1-month unemployment gap)
                     (HhStatus.Unemployed(0), 1)
@@ -231,7 +232,7 @@ object HouseholdLogic:
                     val (adjDur, adjCost) = SectoralMobility.frictionAdjustedParams(
                       friction, Config.LmFrictionDurationMult, Config.LmFrictionCostMult)
                     if hh.savings > adjCost then
-                      (HhStatus.Retraining(adjDur, targetSector, adjCost), 1)
+                      (HhStatus.Retraining(adjDur, SectorIdx(targetSector), adjCost), 1)
                     else (newStatus, 0)  // can't afford retraining
                 else (newStatus, 0)  // target wage not attractive enough
               case _ => (newStatus, 0)
@@ -247,7 +248,7 @@ object HouseholdLogic:
                     // Friction-aware target selection
                     val sw = sectorWages.get
                     val sv = sectorVacancies.get
-                    val fromSector = if hh.lastSectorIdx >= 0 then hh.lastSectorIdx else 0
+                    val fromSector = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt else 0
                     val targetSector = SectoralMobility.selectTargetSector(
                       fromSector, sw, sv,
                       Config.LmFrictionMatrix, Config.LmVacancyWeight, rng)
@@ -255,11 +256,11 @@ object HouseholdLogic:
                     val (adjDur, adjCost) = SectoralMobility.frictionAdjustedParams(
                       friction, Config.LmFrictionDurationMult, Config.LmFrictionCostMult)
                     if hh.savings > adjCost then
-                      (HhStatus.Retraining(adjDur, targetSector, adjCost), 1, 0)
+                      (HhStatus.Retraining(adjDur, SectorIdx(targetSector), adjCost), 1, 0)
                     else (afterVoluntary, 0, 0)
                   else
                     val targetSector = rng.nextInt(sfc.config.SECTORS.length)
-                    (HhStatus.Retraining(Config.HhRetrainingDuration, targetSector,
+                    (HhStatus.Retraining(Config.HhRetrainingDuration, SectorIdx(targetSector),
                       Config.HhRetrainingCost), 1, 0)
                 else (afterVoluntary, 0, 0)
               case HhStatus.Retraining(monthsLeft, targetSector, cost) =>
@@ -268,8 +269,8 @@ object HouseholdLogic:
                   val baseSuccessProb = Config.HhRetrainingBaseSuccess *
                     afterSkill * (1.0 - afterHealth) * Config.eduRetrainMultiplier(hh.education)
                   val successProb = if Config.LmSectoralMobility then
-                    val fromSector = if hh.lastSectorIdx >= 0 then hh.lastSectorIdx else 0
-                    val friction = Config.LmFrictionMatrix(fromSector)(targetSector)
+                    val fromSector = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt else 0
+                    val friction = Config.LmFrictionMatrix(fromSector)(targetSector.toInt)
                     SectoralMobility.frictionAdjustedSuccess(baseSuccessProb, friction)
                   else baseSuccessProb
                   if rng.nextDouble() < successProb then
@@ -313,7 +314,7 @@ object HouseholdLogic:
       if employed.nonEmpty then
         employed.count { hh =>
           val sec = hh.status.asInstanceOf[HhStatus.Employed].sectorIdx
-          hh.lastSectorIdx >= 0 && hh.lastSectorIdx != sec
+          hh.lastSectorIdx.toInt >= 0 && hh.lastSectorIdx != sec
         }.toDouble / employed.length
       else 0.0
     else 0.0

@@ -5,6 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankState, ForexState, GovState, SfcCheck}
 import sfc.config.Config
 import sfc.engine.World
+import sfc.types.*
 
 import scala.util.Random
 
@@ -80,7 +81,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     val hh = Household(
       id = 0, savings = -5000.0, debt = 1000.0, monthlyRent = 1000.0,
       skill = 0.8, healthPenalty = 0.0, mpc = 0.82,
-      status = HhStatus.Bankrupt, socialNeighbors = Array.empty,
+      status = HhStatus.Bankrupt, socialNeighbors = Array.empty[Int],
       consumerDebt = 5000.0
     )
     // Bankrupt HH should have consumer debt → NPL
@@ -142,7 +143,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     val hh = Household(
       id = 0, savings = 10000.0, debt = 0.0, monthlyRent = 1000.0,
       skill = 0.8, healthPenalty = 0.0, mpc = 0.82,
-      status = HhStatus.Employed(0, 0, 8266.0), socialNeighbors = Array.empty
+      status = HhStatus.Employed(FirmId(0), SectorIdx(0), 8266.0), socialNeighbors = Array.empty[Int]
     )
     hh.consumerDebt shouldBe 0.0
   }

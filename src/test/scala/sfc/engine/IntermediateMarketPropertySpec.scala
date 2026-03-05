@@ -7,6 +7,7 @@ import org.scalacheck.Gen
 import sfc.testutil.Generators.*
 import sfc.agents.{Firm, FirmOps, TechState}
 import sfc.config.Config
+import sfc.types.*
 
 class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
@@ -19,7 +20,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   private def makeFirms(n: Int, sectors: Seq[Int] = Seq(0, 1, 2, 3, 4, 5)): Array[Firm] =
     (0 until n).map { i =>
       val sector = sectors(i % sectors.length)
-      Firm(i, 500000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.4, sector, Array.empty)
+      Firm(FirmId(i), 500000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.4, SectorIdx(sector), Array.empty[Int])
     }.toArray
 
   // --- Zero-sum property ---
@@ -101,9 +102,9 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   }
 
   it should "distribute revenue proportionally within sector" in {
-    val f1 = Firm(0, 500000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.4, 0, Array.empty)
-    val f2 = Firm(1, 500000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.4, 0, Array.empty)
-    val f3 = Firm(2, 500000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.4, 1, Array.empty)
+    val f1 = Firm(FirmId(0), 500000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.4, SectorIdx(0), Array.empty[Int])
+    val f2 = Firm(FirmId(1), 500000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.4, SectorIdx(0), Array.empty[Int])
+    val f3 = Firm(FirmId(2), 500000.0, 0.0, TechState.Traditional(10), 0.5, 1.0, 0.4, SectorIdx(1), Array.empty[Int])
     val firms = Array(f1, f2, f3)
     val r = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums, 1.0)
     val adj1 = r.firms(0).cash - firms(0).cash

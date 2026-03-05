@@ -6,6 +6,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Gen
 import sfc.testutil.Generators.*
 import sfc.agents.{Firm, TechState}
+import sfc.types.*
 
 import scala.util.Random
 
@@ -182,7 +183,7 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
   "localAutoRatio" should "be in [0, 1]" in {
     val firms = (0 until 10).map { i =>
       val tech = if i < 3 then TechState.Automated(1.0) else TechState.Traditional(10)
-      Firm(i, 100000, 0, tech, 0.5, 1.0, 0.4, 0, (0 until 10).filter(_ != i).toArray)
+      Firm(FirmId(i), 100000, 0, tech, 0.5, 1.0, 0.4, SectorIdx(0), (0 until 10).filter(_ != i).toArray)
     }.toArray
     for f <- firms do
       val r = Network.localAutoRatio(f, firms)
@@ -191,7 +192,7 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
   }
 
   it should "be 0 when no neighbors" in {
-    val firm = Firm(0, 100000, 0, TechState.Traditional(10), 0.5, 1.0, 0.4, 0, Array.empty)
+    val firm = Firm(FirmId(0), 100000, 0, TechState.Traditional(10), 0.5, 1.0, 0.4, SectorIdx(0), Array.empty[Int])
     val firms = Array(firm)
     Network.localAutoRatio(firm, firms) shouldBe 0.0
   }

@@ -3,6 +3,8 @@ package sfc.config
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import sfc.types.*
+
 import scala.util.Random
 
 class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
@@ -27,20 +29,20 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
   "FirmOps.skeletonCrew" should "return AutoSkeletonCrew for small firms" in {
     import sfc.agents.{Firm, FirmOps, TechState}
-    val f = Firm(0, 0, 0, TechState.Traditional(5), 0.5, 1.0, 0.5, 0, Array.empty, initialSize = 5)
+    val f = Firm(FirmId(0), 0, 0, TechState.Traditional(5), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int], initialSize = 5)
     FirmOps.skeletonCrew(f) shouldBe Config.AutoSkeletonCrew
   }
 
   it should "scale with initialSize for large firms" in {
     import sfc.agents.{Firm, FirmOps, TechState}
-    val f = Firm(0, 0, 0, TechState.Traditional(250), 0.5, 1.0, 0.5, 0, Array.empty, initialSize = 250)
+    val f = Firm(FirmId(0), 0, 0, TechState.Traditional(250), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int], initialSize = 250)
     FirmOps.skeletonCrew(f) shouldBe 5  // max(2, 250 * 0.02 = 5)
   }
 
   it should "be at least AutoSkeletonCrew" in {
     import sfc.agents.{Firm, FirmOps, TechState}
     for size <- Vector(1, 3, 5, 10, 50, 100, 250, 500) do
-      val f = Firm(0, 0, 0, TechState.Traditional(size), 0.5, 1.0, 0.5, 0, Array.empty, initialSize = size)
+      val f = Firm(FirmId(0), 0, 0, TechState.Traditional(size), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int], initialSize = size)
       FirmOps.skeletonCrew(f) should be >= Config.AutoSkeletonCrew
   }
 
@@ -48,16 +50,16 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
   "FirmOps.capacity" should "scale linearly with initialSize at full employment" in {
     import sfc.agents.{Firm, FirmOps, TechState}
-    val f10 = Firm(0, 0, 0, TechState.Traditional(10), 0.5, 1.0, 0.5, 2, Array.empty, initialSize = 10)
-    val f25 = Firm(0, 0, 0, TechState.Traditional(25), 0.5, 1.0, 0.5, 2, Array.empty, initialSize = 25)
+    val f10 = Firm(FirmId(0), 0, 0, TechState.Traditional(10), 0.5, 1.0, 0.5, SectorIdx(2), Array.empty[Int], initialSize = 10)
+    val f25 = Firm(FirmId(0), 0, 0, TechState.Traditional(25), 0.5, 1.0, 0.5, SectorIdx(2), Array.empty[Int], initialSize = 25)
     val ratio = FirmOps.capacity(f25) / FirmOps.capacity(f10)
     ratio shouldBe (2.5 +- 0.01)
   }
 
   it should "give same per-worker revenue at full employment regardless of size" in {
     import sfc.agents.{Firm, FirmOps, TechState}
-    val f5 = Firm(0, 0, 0, TechState.Traditional(5), 0.5, 1.0, 0.5, 2, Array.empty, initialSize = 5)
-    val f100 = Firm(0, 0, 0, TechState.Traditional(100), 0.5, 1.0, 0.5, 2, Array.empty, initialSize = 100)
+    val f5 = Firm(FirmId(0), 0, 0, TechState.Traditional(5), 0.5, 1.0, 0.5, SectorIdx(2), Array.empty[Int], initialSize = 5)
+    val f100 = Firm(FirmId(0), 0, 0, TechState.Traditional(100), 0.5, 1.0, 0.5, SectorIdx(2), Array.empty[Int], initialSize = 100)
     val perWorker5 = FirmOps.capacity(f5) / 5.0
     val perWorker100 = FirmOps.capacity(f100) / 100.0
     perWorker5 shouldBe (perWorker100 +- 0.01)
@@ -67,8 +69,8 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
   "FirmOps.aiCapex" should "scale sublinearly with firm size" in {
     import sfc.agents.{Firm, FirmOps, TechState}
-    val fSmall = Firm(0, 0, 0, TechState.Traditional(10), 0.5, 1.0, 0.5, 2, Array.empty, initialSize = 10)
-    val fLarge = Firm(0, 0, 0, TechState.Traditional(100), 0.5, 1.0, 0.5, 2, Array.empty, initialSize = 100)
+    val fSmall = Firm(FirmId(0), 0, 0, TechState.Traditional(10), 0.5, 1.0, 0.5, SectorIdx(2), Array.empty[Int], initialSize = 10)
+    val fLarge = Firm(FirmId(0), 0, 0, TechState.Traditional(100), 0.5, 1.0, 0.5, SectorIdx(2), Array.empty[Int], initialSize = 100)
     val capexSmall = FirmOps.aiCapex(fSmall)
     val capexLarge = FirmOps.aiCapex(fLarge)
     // Sublinear: 10× size → 10^0.6 ≈ 3.98× CAPEX (not 10×)
@@ -81,6 +83,6 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
   "Default initialSize" should "be 10 for backward compatibility" in {
     import sfc.agents.{Firm, TechState}
-    val f = Firm(0, 50000, 0, TechState.Traditional(10), 0.5, 1.0, 0.5, 0, Array.empty)
+    val f = Firm(FirmId(0), 50000, 0, TechState.Traditional(10), 0.5, 1.0, 0.5, SectorIdx(0), Array.empty[Int])
     f.initialSize shouldBe 10
   }

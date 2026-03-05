@@ -5,6 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.config.{Config, SECTORS, RunConfig}
 import sfc.agents.*
+import sfc.types.*
 
 class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
@@ -170,7 +171,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   // --- helpers ---
 
   private def mkFirm(tech: TechState, sector: Int = 2): Firm =
-    Firm(0, 50000.0, 0.0, tech, 0.5, 1.0, 0.5, sector, Array.empty)
+    Firm(FirmId(0), 50000.0, 0.0, tech, 0.5, 1.0, 0.5, SectorIdx(sector), Array.empty[Int])
 
   private def mkWorld(): World =
     World(

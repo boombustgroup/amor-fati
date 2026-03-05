@@ -6,6 +6,7 @@ import sfc.accounting
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, FirmOps, TechState}
+import sfc.types.*
 
 class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
@@ -90,11 +91,11 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   it should "have zero debt" in {
     val entrant = Firm(
-      id = 0, cash = 50000.0, debt = 0.0,
+      id = FirmId(0), cash = 50000.0, debt = 0.0,
       tech = TechState.Traditional(5),
       riskProfile = 0.5, innovationCostFactor = 1.0,
-      digitalReadiness = 0.15, sector = 2,
-      neighbors = Array.empty, initialSize = 5
+      digitalReadiness = 0.15, sector = SectorIdx(2),
+      neighbors = Array.empty[Int], initialSize = 5
     )
     entrant.debt shouldBe 0.0
   }
@@ -107,11 +108,11 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   it should "be alive" in {
     val entrant = Firm(
-      id = 0, cash = 50000.0, debt = 0.0,
+      id = FirmId(0), cash = 50000.0, debt = 0.0,
       tech = TechState.Traditional(5),
       riskProfile = 0.5, innovationCostFactor = 1.0,
-      digitalReadiness = 0.15, sector = 2,
-      neighbors = Array.empty, initialSize = 5
+      digitalReadiness = 0.15, sector = SectorIdx(2),
+      neighbors = Array.empty[Int], initialSize = 5
     )
     FirmOps.isAlive(entrant) shouldBe true
   }
@@ -206,10 +207,10 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     // When households.isDefined, startWorkers = 0
     val tech = TechState.Traditional(0)
     FirmOps.workers(Firm(
-      id = 0, cash = 50000.0, debt = 0.0, tech = tech,
+      id = FirmId(0), cash = 50000.0, debt = 0.0, tech = tech,
       riskProfile = 0.5, innovationCostFactor = 1.0,
-      digitalReadiness = 0.15, sector = 0,
-      neighbors = Array.empty, initialSize = 5
+      digitalReadiness = 0.15, sector = SectorIdx(0),
+      neighbors = Array.empty[Int], initialSize = 5
     )) shouldBe 0
   }
 
