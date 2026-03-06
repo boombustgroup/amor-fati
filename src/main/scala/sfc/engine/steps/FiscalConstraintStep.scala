@@ -20,7 +20,7 @@ object FiscalConstraintStep:
     nbpReferenceRate: Double,
     expectedRate: Double,
     bdpAmount: Double,
-    isEurozone: Boolean
+    isEurozone: Boolean,
   )
 
   case class Output(
@@ -30,7 +30,7 @@ object FiscalConstraintStep:
     baseMinWage: Double,
     updatedMinWagePriceLevel: Double,
     resWage: Double,
-    lendingBaseRate: Double
+    lendingBaseRate: Double,
   )
 
   def run(in: Input): Output =
@@ -46,36 +46,42 @@ object FiscalConstraintStep:
       val maxBdpSpend = Math.max(0.0, maxMonthlyDeficit + estRevenue.toDouble - baseGovSpend)
       val maxBdpPerCapita = maxBdpSpend / Config.TotalPopulation.toDouble
       val debtRatio = if annualGdp > 0 then in.gov.cumulativeDebt.toDouble / annualGdp else 0.0
-      val austerityMult = if debtRatio > Config.SgpDebtLimit then
-        Math.max(0.0, 1.0 - (debtRatio - Config.SgpDebtLimit) * Config.SgpAusterityRate)
-      else 1.0
+      val austerityMult =
+        if debtRatio > Config.SgpDebtLimit then
+          Math.max(0.0, 1.0 - (debtRatio - Config.SgpDebtLimit) * Config.SgpAusterityRate)
+        else 1.0
       Math.max(0.0, Math.min(bdpUnconstrained, maxBdpPerCapita * austerityMult))
     else bdpUnconstrained
 
     val (baseMinWage, updatedMinWagePriceLevel) = if Config.MinWageEnabled then
       val isAdjustMonth = m > 0 && m % Config.MinWageAdjustMonths == 0
       if isAdjustMonth then
-        val cumInfl = if Config.MinWageInflationIndex && in.minWagePriceLevel > 0 then
-          in.priceLevel / in.minWagePriceLevel - 1.0 else 0.0
+        val cumInfl =
+          if Config.MinWageInflationIndex && in.minWagePriceLevel > 0 then in.priceLevel / in.minWagePriceLevel - 1.0
+          else 0.0
         val inflIndexed = in.minWageLevel.toDouble * (1.0 + Math.max(0.0, cumInfl))
         val target = in.marketWage.toDouble * Config.MinWageTargetRatio
         val gap = target - inflIndexed
-        val adjusted = if gap > 0 then inflIndexed + gap * Config.MinWageConvergenceSpeed
-                       else inflIndexed
+        val adjusted =
+          if gap > 0 then inflIndexed + gap * Config.MinWageConvergenceSpeed
+          else inflIndexed
         (Math.max(in.minWageLevel.toDouble, adjusted), in.priceLevel)
       else (in.minWageLevel.toDouble, in.minWagePriceLevel)
     else (Config.BaseReservationWage, in.minWagePriceLevel)
 
     val resWage = baseMinWage + bdp * Config.ReservationBdpMult
 
-    val rawLendingBaseRate: Double = if Config.InterbankTermStructure then
-      in.bankingSector.map { bs =>
-        YieldCurve.compute(bs.interbankRate.toDouble).wibor3m.toDouble
-      }.getOrElse(in.nbpReferenceRate)
-    else in.nbpReferenceRate
+    val rawLendingBaseRate: Double =
+      if Config.InterbankTermStructure then
+        in.bankingSector
+          .map { bs =>
+            YieldCurve.compute(bs.interbankRate.toDouble).wibor3m.toDouble
+          }
+          .getOrElse(in.nbpReferenceRate)
+      else in.nbpReferenceRate
 
-    val lendingBaseRate = if Config.ExpEnabled then
-      0.5 * rawLendingBaseRate + 0.5 * in.expectedRate
-    else rawLendingBaseRate
+    val lendingBaseRate =
+      if Config.ExpEnabled then 0.5 * rawLendingBaseRate + 0.5 * in.expectedRate
+      else rawLendingBaseRate
 
     Output(m, bdpActive, bdp, baseMinWage, updatedMinWagePriceLevel, resWage, lendingBaseRate)

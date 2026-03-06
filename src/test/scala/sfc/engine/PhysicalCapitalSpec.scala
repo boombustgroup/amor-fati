@@ -2,20 +2,31 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, TechState}
+import sfc.config.{Config, SECTORS}
 import sfc.types.*
 
 class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
-  private def mkFirm(sector: Int = 1, workers: Int = 10, cash: Double = 500000.0,
-    capitalStock: Double = 0.0): Firm.State =
-    Firm.State(id = FirmId(0), cash = PLN(cash), debt = PLN.Zero,
+  private def mkFirm(
+    sector: Int = 1,
+    workers: Int = 10,
+    cash: Double = 500000.0,
+    capitalStock: Double = 0.0,
+  ): Firm.State =
+    Firm.State(
+      id = FirmId(0),
+      cash = PLN(cash),
+      debt = PLN.Zero,
       tech = TechState.Traditional(workers),
-      riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
-      digitalReadiness = Ratio(0.3), sector = SectorIdx(sector),
-      neighbors = Array.empty[Int], initialSize = workers,
-      capitalStock = PLN(capitalStock))
+      riskProfile = Ratio(0.5),
+      innovationCostFactor = 1.0,
+      digitalReadiness = Ratio(0.3),
+      sector = SectorIdx(sector),
+      neighbors = Array.empty[Int],
+      initialSize = workers,
+      capitalStock = PLN(capitalStock),
+    )
 
   // --- Config defaults ---
 
@@ -51,7 +62,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   "Depreciation" should "equal annual rate / 12" in {
     val annualRate = 0.08
-    val K = 250000.0 * 10  // 10-worker Mfg firm
+    val K = 250000.0 * 10 // 10-worker Mfg firm
     val monthlyDep = K * annualRate / 12.0
     monthlyDep shouldBe (K * annualRate / 12.0) +- 0.01
   }
@@ -67,7 +78,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
   // --- K/L initialization ---
 
   "K/L initialization" should "set K = workers x sectorKL" in {
-    val sector = 1  // Manufacturing: K/L = 250,000
+    val sector = 1 // Manufacturing: K/L = 250,000
     val workers = 10
     val expectedK = workers * Config.PhysCapKLRatios(sector)
     expectedK shouldBe 2500000.0 +- 0.01
@@ -77,11 +88,11 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   "Investment" should "replace depreciation at steady state" in {
     // At steady state: K = targetK, gap = 0, desiredInv = depn
-    val K = 2500000.0  // 10-worker Mfg firm at target
+    val K = 2500000.0 // 10-worker Mfg firm at target
     val depRate = 0.08 / 12.0
     val depn = K * depRate
     val postDepK = K - depn
-    val targetK = 10.0 * 250000.0  // = 2,500,000
+    val targetK = 10.0 * 250000.0 // = 2,500,000
     val gap = Math.max(0.0, targetK - postDepK)
     val desiredInv = depn + gap * Config.PhysCapAdjustSpeed
     // gap = depn, so desiredInv = depn + depn * 0.10 = 1.1 * depn
@@ -104,7 +115,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
   // --- Capital productivity ---
 
   "Capital productivity" should "penalize when K < targetK" in {
-    val kRatio = 0.5  // K is half of target
+    val kRatio = 0.5 // K is half of target
     val factor = Math.pow(Math.min(2.0, Math.max(0.1, kRatio)), Config.PhysCapProdElast)
     factor should be < 1.0
     factor should be > 0.0
@@ -137,11 +148,18 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return 0 for bankrupt firm" in {
-    val f = Firm.State(id = FirmId(0), cash = PLN.Zero, debt = PLN.Zero,
+    val f = Firm.State(
+      id = FirmId(0),
+      cash = PLN.Zero,
+      debt = PLN.Zero,
       tech = TechState.Bankrupt("test"),
-      riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
-      digitalReadiness = Ratio(0.3), sector = SectorIdx(0),
-      neighbors = Array.empty[Int], capitalStock = PLN(100000.0))
+      riskProfile = Ratio(0.5),
+      innovationCostFactor = 1.0,
+      digitalReadiness = Ratio(0.3),
+      sector = SectorIdx(0),
+      neighbors = Array.empty[Int],
+      capitalStock = PLN(100000.0),
+    )
     Firm.capacity(f) shouldBe 0.0
   }
 
@@ -149,22 +167,29 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   "Bankruptcy" should "zero capitalStock via applyInvestment" in {
     // applyInvestment on a bankrupt firm should zero capitalStock
-    val f = Firm.State(id = FirmId(0), cash = PLN.Zero, debt = PLN(100000),
+    val f = Firm.State(
+      id = FirmId(0),
+      cash = PLN.Zero,
+      debt = PLN(100000),
       tech = TechState.Bankrupt("test"),
-      riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
-      digitalReadiness = Ratio(0.3), sector = SectorIdx(1),
-      neighbors = Array.empty[Int], capitalStock = PLN(2500000.0))
+      riskProfile = Ratio(0.5),
+      innovationCostFactor = 1.0,
+      digitalReadiness = Ratio(0.3),
+      sector = SectorIdx(1),
+      neighbors = Array.empty[Int],
+      capitalStock = PLN(2500000.0),
+    )
     val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     // When PhysCapEnabled, applyInvestment should zero K for bankrupt
     if Config.PhysCapEnabled then
       // Call process on a bankrupt firm — capitalStock should be 0
-      r.firm.capitalStock.toDouble shouldBe 2500000.0  // before applyInvestment
+      r.firm.capitalStock.toDouble shouldBe 2500000.0 // before applyInvestment
   }
 
   // --- OtherCosts reduction ---
 
   "OtherCosts" should "be reduced by PhysCapCostReplace fraction" in {
-    val rawOther = Config.OtherCosts * 1.0 * 1.0  // price=1, sizeFactor=1
+    val rawOther = Config.OtherCosts * 1.0 * 1.0 // price=1, sizeFactor=1
     val effective = rawOther * (1.0 - Config.PhysCapCostReplace)
     effective shouldBe rawOther * 0.5 +- 0.01
   }
@@ -175,13 +200,13 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
     // Total = 8,333 + 16,667 = 25,000 vs original 16,667.
     // Actually depn ≈ OtherCosts for Mfg, but effective = 0.5*OtherCosts + depn ≈ 1.5*OtherCosts
     // The plan notes "roughly neutral for Manufacturing" — let's verify the numbers
-    val K = 10.0 * 250000.0  // 2,500,000
-    val depn = K * 0.08 / 12.0  // 16,666.67
-    val origOther = Config.OtherCosts  // 16,667
-    val effectiveOther = origOther * (1.0 - 0.50)  // 8,333.33
-    val newTotal = effectiveOther + depn  // 25,000
+    val K = 10.0 * 250000.0 // 2,500,000
+    val depn = K * 0.08 / 12.0 // 16,666.67
+    val origOther = Config.OtherCosts // 16,667
+    val effectiveOther = origOther * (1.0 - 0.50) // 8,333.33
+    val newTotal = effectiveOther + depn // 25,000
     // Not exactly neutral but within 50% — acceptable for a model
-    depn shouldBe origOther +- 1.0  // Mfg depreciation ≈ original OtherCosts
+    depn shouldBe origOther +- 1.0 // Mfg depreciation ≈ original OtherCosts
   }
 
   // --- GFCF ---

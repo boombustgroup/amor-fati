@@ -1,23 +1,24 @@
 package sfc.init
 
-import scala.util.Random
 import sfc.agents.*
 import sfc.config.*
 import sfc.networks.Network
 import sfc.types.*
 
+import scala.util.Random
+
 /** Factory for firm array initialization. */
 object FirmInit:
 
-  /** Create firm array with all post-creation enhancements.
-    * Returns (firms, actualTotalPopulation) — caller handles Config.setTotalPopulation.
-    */
+  /** Create firm array with all post-creation enhancements. Returns (firms, actualTotalPopulation) — caller handles
+   * Config.setTotalPopulation.
+   */
   def create(rng: Random): (Array[Firm.State], Int) =
     // Generate network based on TOPOLOGY env var
     val adjList = TOPOLOGY match
-      case Topology.Ws      => Network.wattsStrogatz(Config.FirmsCount, Config.NetworkK, Config.NetworkRewireP)
-      case Topology.Er      => Network.erdosRenyi(Config.FirmsCount, Config.NetworkK, rng)
-      case Topology.Ba      => Network.barabasiAlbert(Config.FirmsCount, Config.NetworkK / 2, rng)
+      case Topology.Ws => Network.wattsStrogatz(Config.FirmsCount, Config.NetworkK, Config.NetworkRewireP)
+      case Topology.Er => Network.erdosRenyi(Config.FirmsCount, Config.NetworkK, rng)
+      case Topology.Ba => Network.barabasiAlbert(Config.FirmsCount, Config.NetworkK / 2, rng)
       case Topology.Lattice => Network.lattice(Config.FirmsCount, Config.NetworkK)
 
     // Assign sectors
@@ -28,9 +29,12 @@ object FirmInit:
       for
         s <- SECTORS.indices
         _ <- 0 until sectorCounts(s)
-      do
-        if idx < Config.FirmsCount then { arr(idx) = s; idx += 1 }
-      while idx < Config.FirmsCount do { arr(idx) = SECTORS.length - 1; idx += 1 }
+      do if idx < Config.FirmsCount then {
+        arr(idx) = s; idx += 1
+      }
+      while idx < Config.FirmsCount do {
+        arr(idx) = SECTORS.length - 1; idx += 1
+      }
       rng.shuffle(arr.toList).toArray
 
     // Initialize firms
@@ -45,11 +49,11 @@ object FirmInit:
         tech = TechState.Traditional(firmSize),
         riskProfile = Ratio(rng.between(0.1, 0.9)),
         innovationCostFactor = rng.between(0.8, 1.5),
-        digitalReadiness = Ratio(Math.max(0.02, Math.min(0.98,
-          sec.baseDigitalReadiness.toDouble + (rng.nextGaussian() * 0.20)))),
+        digitalReadiness =
+          Ratio(Math.max(0.02, Math.min(0.98, sec.baseDigitalReadiness.toDouble + (rng.nextGaussian() * 0.20)))),
         sector = SectorIdx(sectorAssignments(i)),
         neighbors = adjList(i),
-        initialSize = firmSize
+        initialSize = firmSize,
       )
     }.toArray
 
@@ -57,19 +61,17 @@ object FirmInit:
 
     // Physical capital stock
     if Config.PhysCapEnabled then
-      firms = firms.map(f =>
-        f.copy(capitalStock = PLN(Firm.workers(f).toDouble * Config.PhysCapKLRatios(f.sector.toInt))))
+      firms =
+        firms.map(f => f.copy(capitalStock = PLN(Firm.workers(f).toDouble * Config.PhysCapKLRatios(f.sector.toInt))))
 
     // Multi-bank: assign firms to banks
     if Config.BankMulti then
-      firms = firms.map(f =>
-        f.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng)))
+      firms = firms.map(f => f.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng)))
 
     // FDI: assign foreign ownership by sector (#33)
     if Config.FdiEnabled then
       firms = firms.map { f =>
-        if rng.nextDouble() < Config.FdiForeignShares(f.sector.toInt) then
-          f.copy(foreignOwned = true)
+        if rng.nextDouble() < Config.FdiForeignShares(f.sector.toInt) then f.copy(foreignOwned = true)
         else f
       }
 
@@ -90,13 +92,13 @@ object FirmInit:
 
     // Distribute firm cash/debt proportionally to firm size (realistic initialization)
     val totalWorkers = firms.map(f => Firm.workers(f)).sum
-    val firmDepositShare = 0.35  // ~35% of deposits are corporate (NBP M3 2024)
+    val firmDepositShare = 0.35 // ~35% of deposits are corporate (NBP M3 2024)
     val totalFirmCash = Config.InitBankDeposits * firmDepositShare
     firms = firms.map { f =>
       val workerShare = Firm.workers(f).toDouble / totalWorkers
       f.copy(
         cash = PLN(totalFirmCash * workerShare),
-        debt = PLN(Config.InitBankLoans * workerShare)
+        debt = PLN(Config.InitBankLoans * workerShare),
       )
     }
 

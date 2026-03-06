@@ -1,7 +1,7 @@
 package sfc.dynamics
 
 import sfc.agents.{Firm, TechState}
-import sfc.config.{Config, SECTORS, FirmSizeDistribution}
+import sfc.config.{Config, FirmSizeDistribution, SECTORS}
 import sfc.types.*
 
 import scala.util.Random
@@ -9,15 +9,18 @@ import scala.util.Random
 object DynamicNetwork:
   /** Replace bankrupt firms with new Traditional entrants, wired via preferential attachment.
     *
-    * Each bankrupt firm has probability rho of being replaced each step.
-    * New entrants inherit the same sector, start with fresh state, and connect
-    * to k alive firms weighted by degree (preferential attachment).
+    * Each bankrupt firm has probability rho of being replaced each step. New entrants inherit the same sector, start
+    * with fresh state, and connect to k alive firms weighted by degree (preferential attachment).
     *
     * When rho=0.0, returns firms unchanged (static mode = no-op).
     *
-    * @param firms current firm array (some may be Bankrupt)
-    * @param rho   replacement probability per bankrupt firm per step (0.0 = static)
-    * @return updated firm array with same length */
+    * @param firms
+    *   current firm array (some may be Bankrupt)
+    * @param rho
+    *   replacement probability per bankrupt firm per step (0.0 = static)
+    * @return
+    *   updated firm array with same length
+    */
   def rewire(firms: Array[Firm.State], rho: Double): Array[Firm.State] =
     if rho == 0.0 then return firms
 
@@ -25,14 +28,11 @@ object DynamicNetwork:
     val k = Config.NetworkK
 
     // Identify bankrupt firms to replace (each with probability rho)
-    val toReplace = (0 until n).filter(i =>
-      !Firm.isAlive(firms(i)) && Random.nextDouble() < rho
-    ).toSet
+    val toReplace = (0 until n).filter(i => !Firm.isAlive(firms(i)) && Random.nextDouble() < rho).toSet
     if toReplace.isEmpty then return firms
 
     // Build mutable adjacency from current neighbor arrays
-    val adj = Array.tabulate(n)(i =>
-      scala.collection.mutable.Set.from(firms(i).neighbors))
+    val adj = Array.tabulate(n)(i => scala.collection.mutable.Set.from(firms(i).neighbors))
 
     // Alive firm indices (for preferential attachment targets)
     val alive = (0 until n).filter(i => Firm.isAlive(firms(i))).toArray
@@ -75,18 +75,20 @@ object DynamicNetwork:
           tech = TechState.Traditional(newSize),
           riskProfile = Ratio(Random.between(0.1, 0.9)),
           innovationCostFactor = Random.between(0.8, 1.5),
-          digitalReadiness = Ratio(Math.max(0.02, Math.min(0.98,
-            SECTORS(sec.toInt).baseDigitalReadiness.toDouble + (Random.nextGaussian() * 0.20)))),
+          digitalReadiness = Ratio(
+            Math.max(
+              0.02,
+              Math.min(0.98, SECTORS(sec.toInt).baseDigitalReadiness.toDouble + (Random.nextGaussian() * 0.20)),
+            ),
+          ),
           sector = sec,
           neighbors = adj(i).toArray,
           initialSize = newSize,
-          capitalStock = PLN(if Config.PhysCapEnabled then
-            newSize.toDouble * Config.PhysCapKLRatios(sec.toInt) else 0.0)
+          capitalStock =
+            PLN(if Config.PhysCapEnabled then newSize.toDouble * Config.PhysCapKLRatios(sec.toInt) else 0.0),
         )
       else
         val newNb = adj(i).toArray
-        if newNb.length != firms(i).neighbors.length then
-          firms(i).copy(neighbors = newNb)
-        else
-          firms(i)
+        if newNb.length != firms(i).neighbors.length then firms(i).copy(neighbors = newNb)
+        else firms(i)
     }.toArray

@@ -89,12 +89,21 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
   "Immigration.removeReturnMigrants" should "never remove more immigrants than exist" in {
     val rng = new Random(42)
     val hhs = (0 until 10).map { i =>
-      Household.State(i, PLN(1000.0), PLN.Zero, PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
-        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int],
-        isImmigrant = i >= 5)  // 5 natives + 5 immigrants
+      Household.State(
+        i,
+        PLN(1000.0),
+        PLN.Zero,
+        PLN(1800.0),
+        Ratio(0.5),
+        Ratio(0.0),
+        Ratio(0.85),
+        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
+        Array.empty[Int],
+        isImmigrant = i >= 5,
+      ) // 5 natives + 5 immigrants
     }.toVector
     // Request removing 100, but only 5 immigrants exist
     val result = Immigration.removeReturnMigrants(hhs, 100)
-    result.length shouldBe 5  // 5 natives remain
+    result.length shouldBe 5 // 5 natives remain
     result.foreach(_.isImmigrant shouldBe false)
   }

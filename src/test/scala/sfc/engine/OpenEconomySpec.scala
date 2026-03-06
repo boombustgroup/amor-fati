@@ -3,7 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BopState, ForexState}
-import sfc.config.{Config, RunConfig, MonetaryRegime}
+import sfc.config.{Config, MonetaryRegime, RunConfig}
 import sfc.types.*
 
 class OpenEconomySpec extends AnyFlatSpec with Matchers:
@@ -15,11 +15,26 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   private val baseSectorOutputs = Vector(30000.0, 160000.0, 450000.0, 60000.0, 220000.0, 80000.0)
   private val gdp = 1e9
 
-  private def runStep(rc: RunConfig = plnRc, prevBop: BopState = BopState.zero,
-                      prevForex: ForexState = baseForex,
-                      autoRatio: Double = 0.0, month: Int = 30): OpenEconomy.Result =
-    OpenEconomy.step(prevBop, prevForex, 1e7, 5e6, autoRatio,
-      Config.NbpInitialRate, gdp, 1.0, baseSectorOutputs, month, rc)
+  private def runStep(
+    rc: RunConfig = plnRc,
+    prevBop: BopState = BopState.zero,
+    prevForex: ForexState = baseForex,
+    autoRatio: Double = 0.0,
+    month: Int = 30,
+  ): OpenEconomy.Result =
+    OpenEconomy.step(
+      prevBop,
+      prevForex,
+      1e7,
+      5e6,
+      autoRatio,
+      Config.NbpInitialRate,
+      gdp,
+      1.0,
+      baseSectorOutputs,
+      month,
+      rc,
+    )
 
   // ---- Export tests ----
 
@@ -57,7 +72,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   it should "have manufacturing highest import content" in {
     val r = runStep()
     // Manufacturing has import content 0.50, highest among sectors
-    r.importedIntermediates(1) should be > r.importedIntermediates(4)  // Mfg > Public
+    r.importedIntermediates(1) should be > r.importedIntermediates(4) // Mfg > Public
   }
 
   // ---- BoP identity ----
@@ -72,9 +87,20 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   // ---- Current account ----
 
   it should "include EU transfers in current account" in {
-    val r = OpenEconomy.step(BopState.zero, baseForex, 1e7, 5e6, 0.0,
-      Config.NbpInitialRate, gdp, 1.0, baseSectorOutputs, 30, plnRc,
-      euFundsMonthly = Config.OeEuTransfers)
+    val r = OpenEconomy.step(
+      BopState.zero,
+      baseForex,
+      1e7,
+      5e6,
+      0.0,
+      Config.NbpInitialRate,
+      gdp,
+      1.0,
+      baseSectorOutputs,
+      30,
+      plnRc,
+      euFundsMonthly = Config.OeEuTransfers,
+    )
     r.bop.secondaryIncome.toDouble shouldBe Config.OeEuTransfers +- 0.01
   }
 

@@ -1,9 +1,9 @@
 package sfc.engine
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
 import sfc.agents.*
 import sfc.types.*
 
@@ -47,8 +47,8 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
       val rng = new Random(42)
       val wages = Array.fill(6)(10000.0)
       val vac = Array.fill(6)(5)
-      val target = SectoralMobility.selectTargetSector(
-        from, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
+      val target =
+        SectoralMobility.selectTargetSector(from, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
       target should not be from
       target should be >= 0
       target should be < 6
@@ -58,7 +58,19 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   // --- sectorVacancies ---
 
   "sectorVacancies" should "return array of length 6" in {
-    val firms = Array(Firm.State(FirmId(0), PLN(50000.0), PLN.Zero, TechState.Traditional(10), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(2), Array.empty[Int]))
+    val firms = Array(
+      Firm.State(
+        FirmId(0),
+        PLN(50000.0),
+        PLN.Zero,
+        TechState.Traditional(10),
+        Ratio(0.5),
+        1.0,
+        Ratio(0.5),
+        SectorIdx(2),
+        Array.empty[Int],
+      ),
+    )
     val hhs = Vector.empty[Household.State]
     val vac = SectoralMobility.sectorVacancies(hhs, firms)
     vac.length shouldBe 6
@@ -67,10 +79,21 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   // --- sectorWages ---
 
   "sectorWages" should "return non-negative values" in {
-    val hhs = (0 until 10).map(i =>
-      Household.State(i, PLN(20000.0), PLN.Zero, PLN(1800.0), Ratio(0.7), Ratio(0.0), Ratio(0.82),
-        HhStatus.Employed(FirmId(i), SectorIdx(i % 6), PLN(8000.0 + i * 100)), Array.empty[Int])
-    ).toVector
+    val hhs = (0 until 10)
+      .map(i =>
+        Household.State(
+          i,
+          PLN(20000.0),
+          PLN.Zero,
+          PLN(1800.0),
+          Ratio(0.7),
+          Ratio(0.0),
+          Ratio(0.82),
+          HhStatus.Employed(FirmId(i), SectorIdx(i % 6), PLN(8000.0 + i * 100)),
+          Array.empty[Int],
+        ),
+      )
+      .toVector
     val wages = SectoralMobility.sectorWages(hhs)
     wages.foreach(_ should be >= 0.0)
   }
@@ -78,11 +101,10 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   // --- frictionAdjustedParams ---
 
   "frictionAdjustedParams" should "increase monotonically with friction" in {
-    forAll(Gen.choose(0.0, 0.99), Gen.choose(0.01, 2.0), Gen.choose(0.01, 2.0)) {
-      (friction, durMult, costMult) =>
-        val (dur1, cost1) = SectoralMobility.frictionAdjustedParams(friction, durMult, costMult)
-        val (dur2, cost2) = SectoralMobility.frictionAdjustedParams(friction + 0.01, durMult, costMult)
-        dur2 should be >= dur1
-        cost2 should be >= cost1
+    forAll(Gen.choose(0.0, 0.99), Gen.choose(0.01, 2.0), Gen.choose(0.01, 2.0)) { (friction, durMult, costMult) =>
+      val (dur1, cost1) = SectoralMobility.frictionAdjustedParams(friction, durMult, costMult)
+      val (dur2, cost2) = SectoralMobility.frictionAdjustedParams(friction + 0.01, durMult, costMult)
+      dur2 should be >= dur1
+      cost2 should be >= cost1
     }
   }

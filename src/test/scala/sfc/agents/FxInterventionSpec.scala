@@ -40,28 +40,28 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   it should "intervene when PLN depreciates beyond band (sell EUR)" in {
     // PLN depreciates: ER > baseER * 1.10 → NBP sells EUR to strengthen PLN
     // erDev > 0 → direction = -1 → sells EUR (eurTraded < 0)
-    val er = Config.BaseExRate * 1.20  // 20% depreciation
+    val er = Config.BaseExRate * 1.20 // 20% depreciation
     val reserves = 1e10
     val result = fxEnabled(er, reserves, 1e9)
-    result.eurTraded should be < 0.0  // sold EUR
-    result.erEffect should be < 0.0   // dampens upward ER deviation
+    result.eurTraded should be < 0.0 // sold EUR
+    result.erEffect should be < 0.0 // dampens upward ER deviation
     result.newReserves should be < reserves
   }
 
   it should "intervene when PLN appreciates beyond band (buy EUR)" in {
     // PLN appreciates: ER < baseER * 0.90 → NBP buys EUR to weaken PLN
     // erDev < 0 → direction = +1 → buys EUR (eurTraded > 0)
-    val er = Config.BaseExRate * 0.80  // 20% appreciation
+    val er = Config.BaseExRate * 0.80 // 20% appreciation
     val reserves = 1e10
     val result = fxEnabled(er, reserves, 1e9)
-    result.eurTraded should be > 0.0   // bought EUR
-    result.erEffect should be > 0.0    // dampens downward ER deviation
+    result.eurTraded should be > 0.0 // bought EUR
+    result.erEffect should be > 0.0 // dampens downward ER deviation
     result.newReserves should be > reserves
   }
 
   it should "not sell more EUR than available reserves" in {
-    val er = Config.BaseExRate * 1.50  // massive depreciation
-    val reserves = 100.0  // tiny reserves
+    val er = Config.BaseExRate * 1.50 // massive depreciation
+    val reserves = 100.0 // tiny reserves
     val result = fxEnabled(er, reserves, 1e9)
     result.newReserves should be >= 0.0
     Math.abs(result.eurTraded) should be <= reserves

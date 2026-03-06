@@ -2,8 +2,8 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.config.{Config, SECTORS}
 import sfc.agents.*
+import sfc.config.{Config, SECTORS}
 import sfc.types.*
 
 import scala.util.Random
@@ -18,14 +18,12 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have zero diagonal" in {
-    for i <- 0 until 6 do
-      SectoralMobility.DefaultFrictionMatrix(i)(i) shouldBe 0.0
+    for i <- 0 until 6 do SectoralMobility.DefaultFrictionMatrix(i)(i) shouldBe 0.0
   }
 
   it should "be symmetric" in {
     val m = SectoralMobility.DefaultFrictionMatrix
-    for i <- 0 until 6; j <- 0 until 6 do
-      m(i)(j) shouldBe m(j)(i)
+    for i <- 0 until 6; j <- 0 until 6 do m(i)(j) shouldBe m(j)(i)
   }
 
   it should "have values in [0, 1]" in {
@@ -38,19 +36,18 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   "sectorVacancies" should "return non-negative vacancies per sector" in {
     val firms = mkFirms(6)
-    val hhs = (0 until 5).map(i =>
-      mkHousehold(i, HhStatus.Employed(FirmId(i % 6), SectorIdx(i % 6), PLN(8000.0)))
-    ).toVector
+    val hhs =
+      (0 until 5).map(i => mkHousehold(i, HhStatus.Employed(FirmId(i % 6), SectorIdx(i % 6), PLN(8000.0)))).toVector
     val vac = SectoralMobility.sectorVacancies(hhs, firms)
     vac.length shouldBe 6
     vac.foreach(_ should be >= 0)
   }
 
   it should "show vacancies when firms need more workers than employed" in {
-    val firms = Array(mkFirm(0, 2, TechState.Traditional(10)))  // needs 10
-    val hhs = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))))  // 1 employed
+    val firms = Array(mkFirm(0, 2, TechState.Traditional(10))) // needs 10
+    val hhs = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)))) // 1 employed
     val vac = SectoralMobility.sectorVacancies(hhs, firms)
-    vac(2) shouldBe 9  // 10 needed - 1 employed
+    vac(2) shouldBe 9 // 10 needed - 1 employed
   }
 
   // --- sectorWages ---
@@ -60,12 +57,12 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(10000.0))),
       mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(12000.0))),
       mkHousehold(2, HhStatus.Employed(FirmId(2), SectorIdx(2), PLN(8000.0))),
-      mkHousehold(3, HhStatus.Unemployed(1))
+      mkHousehold(3, HhStatus.Unemployed(1)),
     )
     val wages = SectoralMobility.sectorWages(hhs)
-    wages(0) shouldBe 11000.0 +- 0.01  // (10000+12000)/2
+    wages(0) shouldBe 11000.0 +- 0.01 // (10000+12000)/2
     wages(2) shouldBe 8000.0
-    wages(1) shouldBe 0.0  // no employed in sector 1
+    wages(1) shouldBe 0.0 // no employed in sector 1
   }
 
   // --- selectTargetSector ---
@@ -75,8 +72,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     val wages = Array(10000.0, 12000.0, 8000.0, 15000.0, 9000.0, 7000.0)
     val vac = Array(5, 10, 3, 8, 2, 1)
     for _ <- 0 until 100 do
-      val target = SectoralMobility.selectTargetSector(
-        0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
+      val target = SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
       target should not be 0
   }
 
@@ -88,8 +84,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     val vac = Array(0, 100, 1, 1, 1, 1)
     val counts = new Array[Int](6)
     for _ <- 0 until 1000 do
-      val target = SectoralMobility.selectTargetSector(
-        0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
+      val target = SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
       counts(target) += 1
     // Sector 1 should be heavily preferred
     counts(1) should be > 500
@@ -99,8 +94,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     val rng = new Random(42)
     val wages = Array.fill(6)(0.0)
     val vac = Array.fill(6)(0)
-    val target = SectoralMobility.selectTargetSector(
-      0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
+    val target = SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
     target should not be 0
     target should be >= 0
     target should be < 6
@@ -164,8 +158,32 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     }.toArray
 
   private def mkFirm(id: Int, sector: Int, tech: TechState): Firm.State =
-    Firm.State(FirmId(id), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(sector), Array.empty[Int])
+    Firm.State(
+      FirmId(id),
+      PLN(50000.0),
+      PLN.Zero,
+      tech,
+      Ratio(0.5),
+      1.0,
+      Ratio(0.5),
+      SectorIdx(sector),
+      Array.empty[Int],
+    )
 
-  private def mkHousehold(id: Int, status: HhStatus,
-                          skill: Double = 0.7, healthPenalty: Double = 0.0): Household.State =
-    Household.State(id, PLN(20000.0), PLN.Zero, PLN(1800.0), Ratio(skill), Ratio(healthPenalty), Ratio(0.82), status, Array.empty[Int])
+  private def mkHousehold(
+    id: Int,
+    status: HhStatus,
+    skill: Double = 0.7,
+    healthPenalty: Double = 0.0,
+  ): Household.State =
+    Household.State(
+      id,
+      PLN(20000.0),
+      PLN.Zero,
+      PLN(1800.0),
+      Ratio(skill),
+      Ratio(healthPenalty),
+      Ratio(0.82),
+      status,
+      Array.empty[Int],
+    )

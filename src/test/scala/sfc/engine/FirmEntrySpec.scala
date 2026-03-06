@@ -4,8 +4,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting
 import sfc.accounting.{BankState, ForexState, GovState}
-import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, TechState}
+import sfc.config.{Config, SECTORS}
 import sfc.types.*
 
 class FirmEntrySpec extends AnyFlatSpec with Matchers:
@@ -55,24 +55,38 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "World" should "have firmBirths defaulting to 0" in {
-    val w = World(0, Rate(0.0), 1.0,
+    val w = World(
+      0,
+      Rate(0.0),
+      1.0,
       GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.05)),
       BankState(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9)),
       ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100, PLN(8000), PLN(4500), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      Ratio(0), Ratio(0), 1e9, Vector.fill(6)(5.0))
+      Ratio(0),
+      Ratio(0),
+      1e9,
+      Vector.fill(6)(5.0),
+    )
     w.firmBirths shouldBe 0
   }
 
   it should "have firmDeaths defaulting to 0" in {
-    val w = World(0, Rate(0.0), 1.0,
+    val w = World(
+      0,
+      Rate(0.0),
+      1.0,
       accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.05)),
       accounting.BankState(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9)),
       accounting.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100, PLN(8000), PLN(4500), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      Ratio(0), Ratio(0), 1e9, Vector.fill(6)(5.0))
+      Ratio(0),
+      Ratio(0),
+      1e9,
+      Vector.fill(6)(5.0),
+    )
     w.firmDeaths shouldBe 0
   }
 
@@ -91,11 +105,16 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   it should "have zero debt" in {
     val entrant = Firm.State(
-      id = FirmId(0), cash = PLN(50000.0), debt = PLN.Zero,
+      id = FirmId(0),
+      cash = PLN(50000.0),
+      debt = PLN.Zero,
       tech = TechState.Traditional(5),
-      riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
-      digitalReadiness = Ratio(0.15), sector = SectorIdx(2),
-      neighbors = Array.empty[Int], initialSize = 5
+      riskProfile = Ratio(0.5),
+      innovationCostFactor = 1.0,
+      digitalReadiness = Ratio(0.15),
+      sector = SectorIdx(2),
+      neighbors = Array.empty[Int],
+      initialSize = 5,
     )
     entrant.debt shouldBe PLN.Zero
   }
@@ -108,11 +127,16 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   it should "be alive" in {
     val entrant = Firm.State(
-      id = FirmId(0), cash = PLN(50000.0), debt = PLN.Zero,
+      id = FirmId(0),
+      cash = PLN(50000.0),
+      debt = PLN.Zero,
       tech = TechState.Traditional(5),
-      riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
-      digitalReadiness = Ratio(0.15), sector = SectorIdx(2),
-      neighbors = Array.empty[Int], initialSize = 5
+      riskProfile = Ratio(0.5),
+      innovationCostFactor = 1.0,
+      digitalReadiness = Ratio(0.15),
+      sector = SectorIdx(2),
+      neighbors = Array.empty[Int],
+      initialSize = 5,
     )
     Firm.isAlive(entrant) shouldBe true
   }
@@ -144,8 +168,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     val rng = new scala.util.Random(42)
     val drs = (1 to 100).map { _ =>
       val sec = SECTORS(2) // Retail
-      Math.max(0.02, Math.min(0.30,
-        sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * 0.10))
+      Math.max(0.02, Math.min(0.30, sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * 0.10))
     }
     drs.foreach { dr =>
       dr should be >= 0.02
@@ -171,8 +194,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
         if roll < cumul then { sec = s; found = true }
       sec
     }
-    for s <- 0 until 6 do
-      sectors.count(_ == s) should be > 0
+    for s <- 0 until 6 do sectors.count(_ == s) should be > 0
   }
 
   // ==========================================================================
@@ -206,12 +228,20 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   "Entrant in individual mode" should "start with Traditional(0)" in {
     // When households.isDefined, startWorkers = 0
     val tech = TechState.Traditional(0)
-    Firm.workers(Firm.State(
-      id = FirmId(0), cash = PLN(50000.0), debt = PLN.Zero, tech = tech,
-      riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
-      digitalReadiness = Ratio(0.15), sector = SectorIdx(0),
-      neighbors = Array.empty[Int], initialSize = 5
-    )) shouldBe 0
+    Firm.workers(
+      Firm.State(
+        id = FirmId(0),
+        cash = PLN(50000.0),
+        debt = PLN.Zero,
+        tech = tech,
+        riskProfile = Ratio(0.5),
+        innovationCostFactor = 1.0,
+        digitalReadiness = Ratio(0.15),
+        sector = SectorIdx(0),
+        neighbors = Array.empty[Int],
+        initialSize = 5,
+      ),
+    ) shouldBe 0
   }
 
   // ==========================================================================
@@ -230,14 +260,13 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   "Profit signal" should "be clamped to [-1, 2]" in {
     val testCases = Seq(
-      (100.0, 50.0, 50.0),   // positive signal
-      (10.0, 50.0, 50.0),    // negative signal
-      (1000.0, 50.0, 50.0),  // extreme positive
-      (0.0, 50.0, 50.0)      // zero cash
+      (100.0, 50.0, 50.0), // positive signal
+      (10.0, 50.0, 50.0), // negative signal
+      (1000.0, 50.0, 50.0), // extreme positive
+      (0.0, 50.0, 50.0), // zero cash
     )
     for (sectorAvg, globalAvg, _) <- testCases do
-      val signal = Math.max(-1.0, Math.min(2.0,
-        (sectorAvg - globalAvg) / Math.max(1.0, Math.abs(globalAvg))))
+      val signal = Math.max(-1.0, Math.min(2.0, (sectorAvg - globalAvg) / Math.max(1.0, Math.abs(globalAvg))))
       signal should be >= -1.0
       signal should be <= 2.0
   }

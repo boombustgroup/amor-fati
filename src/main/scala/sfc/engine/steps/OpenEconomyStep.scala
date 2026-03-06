@@ -3,8 +3,7 @@ package sfc.engine.steps
 import sfc.accounting.{BopState, ForexState}
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
-import sfc.engine.{CorporateBondMarket, EquityMarket, Expectations,
-  GvcTrade, OpenEconomy, Sectors, World, YieldCurve}
+import sfc.engine.*
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -38,7 +37,7 @@ object OpenEconomyStep:
     newWage: Double,
     domesticCons: Double,
     m: Int,
-    rc: RunConfig
+    rc: RunConfig,
   )
 
   case class Output(
@@ -65,7 +64,7 @@ object OpenEconomyStep:
     newNbfi: Nbfi.State,
     nbfiDepositDrain: Double,
     oeValuationEffect: Double,
-    fdiCitLoss: Double
+    fdiCitLoss: Double,
   )
 
   def run(in: Input): Output =
@@ -73,26 +72,36 @@ object OpenEconomyStep:
 
     // Sector outputs for open economy
     val sectorOutputs = (0 until SECTORS.length).map { s =>
-      living2.filter(_.sector.toInt == s).kahanSumBy(f =>
-        Firm.capacity(f) * in.sectorMults(f.sector.toInt) * in.w.priceLevel)
+      living2
+        .filter(_.sector.toInt == s)
+        .kahanSumBy(f => Firm.capacity(f) * in.sectorMults(f.sector.toInt) * in.w.priceLevel)
     }.toVector
 
     // GVC / Deep External Sector (v5.0)
-    val newGvc = if Config.GvcEnabled && Config.OeEnabled then
-      GvcTrade.step(in.w.gvc, sectorOutputs, in.w.priceLevel,
-        in.w.forex.exchangeRate, in.autoR, in.m, in.rc)
-    else in.w.gvc
+    val newGvc =
+      if Config.GvcEnabled && Config.OeEnabled then
+        GvcTrade.step(in.w.gvc, sectorOutputs, in.w.priceLevel, in.w.forex.exchangeRate, in.autoR, in.m, in.rc)
+      else in.w.gvc
 
-    val (gvcExp, gvcImp) = if Config.GvcEnabled && Config.OeEnabled then
-      (Some(newGvc.totalExports.toDouble), Some(newGvc.sectorImports.map(_.toDouble)))
-    else (None, None)
+    val (gvcExp, gvcImp) =
+      if Config.GvcEnabled && Config.OeEnabled then
+        (Some(newGvc.totalExports.toDouble), Some(newGvc.sectorImports.map(_.toDouble)))
+      else (None, None)
 
     val totalTechAndInvImports = in.sumTechImp + in.investmentImports
     val (newForex, newBop0, oeValuationEffect, fxResult) = if Config.OeEnabled then
       val oeResult = OpenEconomy.step(
-        in.w.bop, in.w.forex, in.importCons, totalTechAndInvImports,
-        in.autoR, in.w.nbp.referenceRate.toDouble, in.gdp, in.w.priceLevel,
-        sectorOutputs, in.m, in.rc,
+        in.w.bop,
+        in.w.forex,
+        in.importCons,
+        totalTechAndInvImports,
+        in.autoR,
+        in.w.nbp.referenceRate.toDouble,
+        in.gdp,
+        in.w.priceLevel,
+        sectorOutputs,
+        in.m,
+        in.rc,
         nbpFxReserves = in.w.nbp.fxReserves.toDouble,
         gvcExports = gvcExp,
         gvcIntermImports = gvcImp,
@@ -100,44 +109,56 @@ object OpenEconomyStep:
         euFundsMonthly = in.euMonthly,
         diasporaInflow = in.diasporaInflow,
         tourismExport = in.tourismExport,
-        tourismImport = in.tourismImport)
+        tourismImport = in.tourismImport,
+      )
       (oeResult.forex, oeResult.bop, oeResult.valuationEffect, oeResult.fxIntervention)
     else
-      val fx = Sectors.updateForeign(in.w.forex, in.importCons, totalTechAndInvImports,
-        in.autoR, in.w.nbp.referenceRate.toDouble, in.gdp, in.rc)
+      val fx = Sectors.updateForeign(
+        in.w.forex,
+        in.importCons,
+        totalTechAndInvImports,
+        in.autoR,
+        in.w.nbp.referenceRate.toDouble,
+        in.gdp,
+        in.rc,
+      )
       (fx, in.w.bop, 0.0, Nbp.FxInterventionResult(0.0, 0.0, in.w.nbp.fxReserves.toDouble))
 
     // Adjust BOP for foreign dividend outflow (primary income component) + EU funds tracking
-    val newBop1 = if in.foreignDividendOutflow > 0 && Config.OeEnabled then
-      newBop0.copy(
-        currentAccount = newBop0.currentAccount - PLN(in.foreignDividendOutflow),
-        nfa = newBop0.nfa - PLN(in.foreignDividendOutflow)
-      )
-    else newBop0
+    val newBop1 =
+      if in.foreignDividendOutflow > 0 && Config.OeEnabled then
+        newBop0.copy(
+          currentAccount = newBop0.currentAccount - PLN(in.foreignDividendOutflow),
+          nfa = newBop0.nfa - PLN(in.foreignDividendOutflow),
+        )
+      else newBop0
     // FDI composition (#33): profit shifting (service import) + repatriation (primary income debit)
     val fdiTotalBopDebit = in.sumProfitShifting + in.sumFdiRepatriation
-    val newBop2 = if fdiTotalBopDebit > 0 && Config.FdiEnabled && Config.OeEnabled then
-      newBop1.copy(
-        currentAccount = newBop1.currentAccount - PLN(fdiTotalBopDebit),
-        nfa = newBop1.nfa - PLN(fdiTotalBopDebit),
-        tradeBalance = newBop1.tradeBalance - PLN(in.sumProfitShifting),
-        totalImports = newBop1.totalImports + PLN(in.sumProfitShifting))
-    else newBop1
+    val newBop2 =
+      if fdiTotalBopDebit > 0 && Config.FdiEnabled && Config.OeEnabled then
+        newBop1.copy(
+          currentAccount = newBop1.currentAccount - PLN(fdiTotalBopDebit),
+          nfa = newBop1.nfa - PLN(fdiTotalBopDebit),
+          tradeBalance = newBop1.tradeBalance - PLN(in.sumProfitShifting),
+          totalImports = newBop1.totalImports + PLN(in.sumProfitShifting),
+        )
+      else newBop1
     val fdiCitLoss = in.sumProfitShifting * Config.CitRate
     val newBop = newBop2.copy(
       euFundsMonthly = PLN(in.euMonthly),
-      euCumulativeAbsorption = in.w.bop.euCumulativeAbsorption + PLN(in.euMonthly)
+      euCumulativeAbsorption = in.w.bop.euCumulativeAbsorption + PLN(in.euMonthly),
     )
 
-    val exRateChg = if in.rc.isEurozone then 0.0
-                    else (newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0
+    val exRateChg =
+      if in.rc.isEurozone then 0.0
+      else (newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0
     val newRefRate = Sectors.updateCbRate(in.w.nbp.referenceRate.toDouble, in.newInfl, exRateChg, in.employed, in.rc)
 
     // Expectations step: update after inflation + rate computed
     val unempRateForExp = 1.0 - in.employed.toDouble / Config.TotalPopulation
-    val newExp = if Config.ExpEnabled then
-      Expectations.step(in.w.expectations, in.newInfl, newRefRate, unempRateForExp, in.rc)
-    else in.w.expectations
+    val newExp =
+      if Config.ExpEnabled then Expectations.step(in.w.expectations, in.newInfl, newRefRate, unempRateForExp, in.rc)
+      else in.w.expectations
 
     // Reserve interest, standing facilities, interbank interest
     val (totalReserveInterest, totalStandingFacilityIncome, totalInterbankInterest) =
@@ -172,48 +193,87 @@ object OpenEconomyStep:
     // QE logic
     val qeActivate = Nbp.shouldActivateQe(newRefRate, in.newInfl)
     val qeTaper = Nbp.shouldTaperQe(in.newInfl)
-    val qeActive = if qeActivate then true
-                   else if qeTaper then false
-                   else in.w.nbp.qeActive
+    val qeActive =
+      if qeActivate then true
+      else if qeTaper then false
+      else in.w.nbp.qeActive
     val preQeNbp = Nbp.State(Rate(newRefRate), in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative)
-    val (postQeNbp, qePurchaseAmount) = Nbp.executeQe(
-      preQeNbp, in.w.bank.govBondHoldings.toDouble, annualGdpForBonds)
+    val (postQeNbp, qePurchaseAmount) = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings.toDouble, annualGdpForBonds)
     val postFxNbp = postQeNbp.copy(
       fxReserves = PLN(fxResult.newReserves),
-      lastFxTraded = PLN(fxResult.eurTraded)
+      lastFxTraded = PLN(fxResult.eurTraded),
     )
 
     // --- Corporate bond market step (#40) ---
     val corpBondAmort = CorporateBondMarket.amortization(in.w.corporateBonds)
-    val newCorpBonds = CorporateBondMarket.step(in.w.corporateBonds, newBondYield,
-      in.w.bank.nplRatio, in.totalBondDefault, in.actualBondIssuance)
+    val newCorpBonds = CorporateBondMarket
+      .step(in.w.corporateBonds, newBondYield, in.w.bank.nplRatio, in.totalBondDefault, in.actualBondIssuance)
       .copy(lastAbsorptionRate = Ratio(in.corpBondAbsorption))
     val (_, corpBondBankCoupon, _) = CorporateBondMarket.computeCoupon(in.w.corporateBonds)
-    val (_, _, corpBondBankDefaultLoss, _) = CorporateBondMarket.processDefaults(
-      in.w.corporateBonds, in.totalBondDefault)
+    val (_, _, corpBondBankDefaultLoss, _) =
+      CorporateBondMarket.processDefaults(in.w.corporateBonds, in.totalBondDefault)
 
     // --- Insurance sector step ---
     val insUnempRate = 1.0 - in.employed.toDouble / Config.TotalPopulation
-    val newInsurance = if Config.InsEnabled then
-      Insurance.step(in.w.insurance, in.employed, in.newWage, in.w.priceLevel, insUnempRate,
-        newBondYield, in.w.corporateBonds.corpBondYield.toDouble, in.w.equity.monthlyReturn.toDouble)
-    else in.w.insurance
+    val newInsurance =
+      if Config.InsEnabled then
+        Insurance.step(
+          in.w.insurance,
+          in.employed,
+          in.newWage,
+          in.w.priceLevel,
+          insUnempRate,
+          newBondYield,
+          in.w.corporateBonds.corpBondYield.toDouble,
+          in.w.equity.monthlyReturn.toDouble,
+        )
+      else in.w.insurance
     val insNetDepositChange = newInsurance.lastNetDepositChange.toDouble
 
     // --- Shadow Banking / NBFI step ---
     val nbfiDepositRate = Math.max(0.0, postFxNbp.referenceRate.toDouble - 0.02)
     val nbfiUnempRate = 1.0 - in.employed.toDouble / Config.TotalPopulation
-    val newNbfi = if Config.NbfiEnabled then
-      Nbfi.step(in.w.nbfi, in.employed, in.newWage, in.w.priceLevel,
-        nbfiUnempRate, in.w.bank.nplRatio, newBondYield,
-        in.w.corporateBonds.corpBondYield.toDouble, in.w.equity.monthlyReturn.toDouble,
-        nbfiDepositRate, in.domesticCons)
-    else in.w.nbfi
+    val newNbfi =
+      if Config.NbfiEnabled then
+        Nbfi.step(
+          in.w.nbfi,
+          in.employed,
+          in.newWage,
+          in.w.priceLevel,
+          nbfiUnempRate,
+          in.w.bank.nplRatio,
+          newBondYield,
+          in.w.corporateBonds.corpBondYield.toDouble,
+          in.w.equity.monthlyReturn.toDouble,
+          nbfiDepositRate,
+          in.domesticCons,
+        )
+      else in.w.nbfi
     val nbfiDepositDrain = newNbfi.lastDepositDrain.toDouble
 
-    Output(newForex, newBop, newGvc, newRefRate, newExp,
-      totalReserveInterest, totalStandingFacilityIncome, totalInterbankInterest,
-      newBondYield, monthlyDebtService, bankBondIncome, nbpRemittance, postFxNbp,
-      qePurchaseAmount, newCorpBonds, corpBondBankCoupon, corpBondBankDefaultLoss,
-      corpBondAmort, newInsurance, insNetDepositChange, newNbfi, nbfiDepositDrain,
-      oeValuationEffect, fdiCitLoss)
+    Output(
+      newForex,
+      newBop,
+      newGvc,
+      newRefRate,
+      newExp,
+      totalReserveInterest,
+      totalStandingFacilityIncome,
+      totalInterbankInterest,
+      newBondYield,
+      monthlyDebtService,
+      bankBondIncome,
+      nbpRemittance,
+      postFxNbp,
+      qePurchaseAmount,
+      newCorpBonds,
+      corpBondBankCoupon,
+      corpBondBankDefaultLoss,
+      corpBondAmort,
+      newInsurance,
+      insNetDepositChange,
+      newNbfi,
+      nbfiDepositDrain,
+      oeValuationEffect,
+      fdiCitLoss,
+    )

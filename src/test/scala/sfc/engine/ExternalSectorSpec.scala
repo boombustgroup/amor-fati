@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.config.{Config, RunConfig, MonetaryRegime}
+import sfc.config.{Config, MonetaryRegime, RunConfig}
 import sfc.types.*
 
 class ExternalSectorSpec extends AnyFlatSpec with Matchers:

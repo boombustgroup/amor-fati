@@ -23,7 +23,7 @@ object DemandStep:
     gvcEnabled: Boolean,
     gvcSectorExports: Vector[PLN],
     grossInvestment: Double,
-    aggGreenInvestment: Double
+    aggGreenInvestment: Double,
   )
 
   case class Output(
@@ -31,36 +31,34 @@ object DemandStep:
     sectorMults: Vector[Double],
     avgDemandMult: Double,
     sectorCap: Vector[Double],
-    laggedInvestDemand: Double
+    laggedInvestDemand: Double,
   )
 
   def run(in: Input): Output =
-    val zusNetSurplus = if Config.ZusEnabled then
-      Math.max(0.0, in.zusContributions - in.zusPensionPayments) else 0.0
+    val zusNetSurplus = if Config.ZusEnabled then Math.max(0.0, in.zusContributions - in.zusPensionPayments) else 0.0
     val unempRateForFiscal = 1.0 - in.employed.toDouble / Config.TotalPopulation
     val unempGap = Math.max(0.0, unempRateForFiscal - Config.NbpNairu)
     val fiscalStimulus = Config.GovBaseSpending * unempGap * Config.GovAutoStabMult
     val targetGovPurchases = Config.GovBaseSpending * Math.max(1.0, in.priceLevel) +
       Config.GovFiscalRecyclingRate * (in.govTaxRevenue + zusNetSurplus) + fiscalStimulus
     val prevGovSpend = in.govCurrentSpend + in.govCapitalSpend
-    val govPurchases = if prevGovSpend > 0 then
-      Math.max(targetGovPurchases, prevGovSpend * 0.98)
-    else targetGovPurchases
+    val govPurchases =
+      if prevGovSpend > 0 then Math.max(targetGovPurchases, prevGovSpend * 0.98)
+      else targetGovPurchases
     val laggedExports = in.forexExports
     val sectorCap = (0 until SECTORS.length).map { s =>
       in.living.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble)
     }.toVector
-    val sectorExports = if in.gvcEnabled && Config.OeEnabled then
-      in.gvcSectorExports.map(_.toDouble)
-    else
-      Config.FofExportShares.map(_ * laggedExports)
+    val sectorExports =
+      if in.gvcEnabled && Config.OeEnabled then in.gvcSectorExports.map(_.toDouble)
+      else Config.FofExportShares.map(_ * laggedExports)
     val laggedInvestDemand = in.grossInvestment * (1.0 - Config.PhysCapImportShare) +
       in.aggGreenInvestment * (1.0 - Config.GreenImportShare)
     val sectorDemand = (0 until SECTORS.length).map { s =>
       Config.FofConsWeights(s) * in.domesticCons +
-      Config.FofGovWeights(s) * govPurchases +
-      Config.FofInvestWeights(s) * laggedInvestDemand +
-      sectorExports(s)
+        Config.FofGovWeights(s) * govPurchases +
+        Config.FofInvestWeights(s) * laggedInvestDemand +
+        sectorExports(s)
     }.toVector
     val fofTotalDemand = sectorDemand.kahanSum
     val totalCapacity = sectorCap.kahanSum
@@ -82,6 +80,7 @@ object DemandStep:
       val realRate = in.nbpReferenceRate - in.expectedInflation
       -realRate * 0.02
     else 0.0
-    val avgDemandMult = (if totalCapacity > 0 then fofTotalDemand / (totalCapacity * in.priceLevel) else 1.0) + realRateEffect
+    val avgDemandMult =
+      (if totalCapacity > 0 then fofTotalDemand / (totalCapacity * in.priceLevel) else 1.0) + realRateEffect
 
     Output(govPurchases, sectorMults, avgDemandMult, sectorCap, laggedInvestDemand)

@@ -3,10 +3,10 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.SfcCheck
-import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, TechState}
-import sfc.util.KahanSum.*
+import sfc.config.{Config, SECTORS}
 import sfc.types.*
+import sfc.util.KahanSum.*
 
 class FofSpec extends AnyFlatSpec with Matchers:
 
@@ -64,8 +64,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     }.toVector
 
     val totalFirmRev = (0 until 6).map { s =>
-      firms.filter(_.sector.toInt == s).kahanSumBy(f =>
-        Firm.capacity(f).toDouble * sectorMults(s) * price)
+      firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble * sectorMults(s) * price)
     }.kahanSum
     val totalDemand = sectorDemand.kahanSum
 
@@ -106,13 +105,19 @@ class FofSpec extends AnyFlatSpec with Matchers:
   "SfcCheck Identity 10" should "pass when fofResidual is zero" in {
     // All flows zero except fofResidual — all deltas are 0 = 0
     val flows = SfcCheck.MonthlyFlows(
-      govSpending = PLN.Zero, govRevenue = PLN.Zero,
-      nplLoss = PLN.Zero, interestIncome = PLN.Zero, hhDebtService = PLN.Zero,
-      totalIncome = PLN.Zero, totalConsumption = PLN.Zero,
-      newLoans = PLN.Zero, nplRecovery = PLN.Zero,
-      fofResidual = PLN.Zero
+      govSpending = PLN.Zero,
+      govRevenue = PLN.Zero,
+      nplLoss = PLN.Zero,
+      interestIncome = PLN.Zero,
+      hhDebtService = PLN.Zero,
+      totalIncome = PLN.Zero,
+      totalConsumption = PLN.Zero,
+      newLoans = PLN.Zero,
+      nplRecovery = PLN.Zero,
+      fofResidual = PLN.Zero,
     )
-    val snap = SfcCheck.Snapshot(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN(500000.0), PLN(1000000.0), PLN.Zero, PLN.Zero)
+    val snap =
+      SfcCheck.Snapshot(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN(500000.0), PLN(1000000.0), PLN.Zero, PLN.Zero)
     val result = SfcCheck.validate(1, snap, snap, flows)
     result.fofError shouldBe 0.0
     result.passed shouldBe true
@@ -120,13 +125,19 @@ class FofSpec extends AnyFlatSpec with Matchers:
 
   it should "fail when fofResidual exceeds tolerance" in {
     val flows = SfcCheck.MonthlyFlows(
-      govSpending = PLN.Zero, govRevenue = PLN.Zero,
-      nplLoss = PLN.Zero, interestIncome = PLN.Zero, hhDebtService = PLN.Zero,
-      totalIncome = PLN.Zero, totalConsumption = PLN.Zero,
-      newLoans = PLN.Zero, nplRecovery = PLN.Zero,
-      fofResidual = PLN(1.0)
+      govSpending = PLN.Zero,
+      govRevenue = PLN.Zero,
+      nplLoss = PLN.Zero,
+      interestIncome = PLN.Zero,
+      hhDebtService = PLN.Zero,
+      totalIncome = PLN.Zero,
+      totalConsumption = PLN.Zero,
+      newLoans = PLN.Zero,
+      nplRecovery = PLN.Zero,
+      fofResidual = PLN(1.0),
     )
-    val snap = SfcCheck.Snapshot(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN(500000.0), PLN(1000000.0), PLN.Zero, PLN.Zero)
+    val snap =
+      SfcCheck.Snapshot(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN(500000.0), PLN(1000000.0), PLN.Zero, PLN.Zero)
     val result = SfcCheck.validate(1, snap, snap, flows)
     result.fofError shouldBe 1.0
     result.passed shouldBe false
@@ -135,7 +146,17 @@ class FofSpec extends AnyFlatSpec with Matchers:
   // --- helpers ---
 
   private def mkFirm(id: Int, tech: TechState, sector: Int = 2): Firm.State =
-    Firm.State(FirmId(id), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(sector), Array.empty[Int])
+    Firm.State(
+      FirmId(id),
+      PLN(50000.0),
+      PLN.Zero,
+      tech,
+      Ratio(0.5),
+      1.0,
+      Ratio(0.5),
+      SectorIdx(sector),
+      Array.empty[Int],
+    )
 
   private def mkFirms(): Array[Firm.State] =
     // Create firms distributed across all 6 sectors

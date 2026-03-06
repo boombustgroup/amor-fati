@@ -47,7 +47,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "ER adjustment" should "increase inflow when PLN weakens" in {
-    val weakerER = Config.BaseExRate * 1.2  // PLN weaker → higher exchange rate number
+    val weakerER = Config.BaseExRate * 1.2 // PLN weaker → higher exchange rate number
     val erAdj = Math.pow(weakerER / Config.BaseExRate, Config.RemittanceErElasticity)
     erAdj should be > 1.0
   }
@@ -152,12 +152,10 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
     val prevForex = ForexState(Config.BaseExRate, PLN.Zero, PLN(Config.ExportBase), PLN.Zero, PLN.Zero)
     val rc = sfc.config.RunConfig(2000.0, 1, "test")
 
-    val resultWith = OpenEconomy.step(prevBop, prevForex,
-      0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc,
-      diasporaInflow = 1000.0)
-    val resultWithout = OpenEconomy.step(prevBop, prevForex,
-      0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc,
-      diasporaInflow = 0.0)
+    val resultWith =
+      OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, diasporaInflow = 1000.0)
+    val resultWithout =
+      OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, diasporaInflow = 0.0)
 
     resultWith.bop.secondaryIncome shouldBe resultWithout.bop.secondaryIncome + PLN(1000.0)
   }
@@ -167,9 +165,21 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
     val prevForex = ForexState(Config.BaseExRate, PLN.Zero, PLN(Config.ExportBase), PLN.Zero, PLN.Zero)
     val rc = sfc.config.RunConfig(2000.0, 1, "test")
 
-    val result = OpenEconomy.step(prevBop, prevForex,
-      0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc,
-      remittanceOutflow = 500.0, diasporaInflow = 800.0)
+    val result = OpenEconomy.step(
+      prevBop,
+      prevForex,
+      0,
+      0,
+      0,
+      0.05,
+      1e9,
+      1.0,
+      Vector.fill(6)(1e8),
+      1,
+      rc,
+      remittanceOutflow = 500.0,
+      diasporaInflow = 800.0,
+    )
 
     // secondaryIncome = euFunds(0) - outflow(500) + inflow(800) = 300
     result.bop.secondaryIncome shouldBe PLN(300.0)
@@ -190,12 +200,19 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "World" should "default diasporaRemittanceInflow to 0.0" in {
-    val w = World(0, Rate(0.02), 1.0,
+    val w = World(
+      0,
+      Rate(0.02),
+      1.0,
       GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.05)),
       BankState(PLN.Zero, PLN.Zero, PLN(100), PLN(1000)),
       ForexState(Config.BaseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100, PLN(5000), PLN(4000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      Ratio.Zero, Ratio.Zero, 1e9, Vector.fill(6)(0.1))
+      Ratio.Zero,
+      Ratio.Zero,
+      1e9,
+      Vector.fill(6)(0.1),
+    )
     w.diasporaRemittanceInflow shouldBe PLN.Zero
   }

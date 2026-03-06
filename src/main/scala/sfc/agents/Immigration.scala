@@ -9,20 +9,19 @@ import scala.util.Random
 object Immigration:
 
   case class State(
-    immigrantStock: Int,        // total immigrant workers currently in economy
-    monthlyInflow: Int,         // new immigrants this month
-    monthlyOutflow: Int,        // returning emigrants this month
-    remittanceOutflow: Double   // total remittance PLN leaving deposits this month
+    immigrantStock: Int, // total immigrant workers currently in economy
+    monthlyInflow: Int, // new immigrants this month
+    monthlyOutflow: Int, // returning emigrants this month
+    remittanceOutflow: Double, // total remittance PLN leaving deposits this month
   )
 
   object State:
     val zero: State = State(0, 0, 0, 0.0)
 
-  /** Compute monthly immigration inflow.
-    * Exogenous: fixed rate × workingAgePop.
-    * Endogenous: responds to (domesticWage / foreignWage - 1) × elasticity. */
-  def computeInflow(workingAgePop: Int, wage: Double, unempRate: Double,
-                    month: Int): Int =
+  /** Compute monthly immigration inflow. Exogenous: fixed rate × workingAgePop. Endogenous: responds to (domesticWage /
+    * foreignWage - 1) × elasticity.
+    */
+  def computeInflow(workingAgePop: Int, wage: Double, unempRate: Double, month: Int): Int =
     if !Config.ImmigEnabled then 0
     else if Config.ImmigEndogenous then
       val wageGap = (wage / Config.ImmigForeignWage - 1.0).max(0.0)
@@ -30,29 +29,31 @@ object Immigration:
       val push = (1.0 - unempRate).max(0.0)
       val rate = Config.ImmigMonthlyRate * (0.5 + 0.5 * pull * push)
       (workingAgePop * rate).toInt.max(0)
-    else
-      (workingAgePop * Config.ImmigMonthlyRate).toInt.max(0)
+    else (workingAgePop * Config.ImmigMonthlyRate).toInt.max(0)
 
   /** Compute monthly return migration (outflow). */
   def computeOutflow(immigrantStock: Int): Int =
     if !Config.ImmigEnabled then 0
     else (immigrantStock * Config.ImmigReturnRate).toInt.max(0)
 
-  /** Compute total remittance outflow from immigrant HH (individual mode).
-    * Remittances = employed immigrant wages × remittance rate. */
+  /** Compute total remittance outflow from immigrant HH (individual mode). Remittances = employed immigrant wages ×
+    * remittance rate.
+    */
   def computeRemittances(immigrantHH: Iterable[Household.State]): Double =
     if !Config.ImmigEnabled then 0.0
     else
-      immigrantHH.filter(h => h.isImmigrant).map { h =>
-        h.status match
-          case HhStatus.Employed(_, _, wage) =>
-            wage.toDouble * Config.ImmigRemittanceRate
-          case _ => 0.0
-      }.sum
+      immigrantHH
+        .filter(h => h.isImmigrant)
+        .map { h =>
+          h.status match
+            case HhStatus.Employed(_, _, wage) =>
+              wage.toDouble * Config.ImmigRemittanceRate
+            case _ => 0.0
+        }
+        .sum
 
   /** Compute aggregate-mode remittances (no individual HH). */
-  def computeRemittancesAggregate(immigrantStock: Int, wage: Double,
-                                   unempRate: Double): Double =
+  def computeRemittancesAggregate(immigrantStock: Int, wage: Double, unempRate: Double): Double =
     if !Config.ImmigEnabled then 0.0
     else
       val employedImmigrants = (immigrantStock * (1.0 - unempRate)).toInt
@@ -70,8 +71,9 @@ object Immigration:
       s += 1
     SECTORS.length - 1 // fallback: last sector
 
-  /** Spawn new immigrant households (individual mode).
-    * Start as Unemployed(0) — will be matched in next jobSearch round. */
+  /** Spawn new immigrant households (individual mode). Start as Unemployed(0) — will be matched in next jobSearch
+    * round.
+    */
   def spawnImmigrants(count: Int, startId: Int, rng: Random): Vector[Household.State] =
     (0 until count).map { i =>
       val sector = chooseSector(rng)
@@ -82,9 +84,10 @@ object Immigration:
       val savings = rng.nextDouble() * 5000.0
       val mpc = 0.85 + rng.nextGaussian() * 0.05
       val rent = Config.HhRentMean + rng.nextGaussian() * Config.HhRentStd
-      val numChildren = if Config.Social800Enabled && Config.Social800ImmigrantEligible then
-        Household.Init.poissonSample(Config.Social800ChildrenPerHh, rng)
-      else 0
+      val numChildren =
+        if Config.Social800Enabled && Config.Social800ImmigrantEligible then
+          Household.Init.poissonSample(Config.Social800ChildrenPerHh, rng)
+        else 0
       Household.State(
         id = startId + i,
         savings = PLN(savings),
@@ -98,25 +101,30 @@ object Immigration:
         lastSectorIdx = SectorIdx(sector),
         isImmigrant = true,
         numDependentChildren = numChildren,
-        education = edu
+        education = edu,
       )
     }.toVector
 
-  /** Remove returning migrants from household vector.
-    * Removes oldest immigrants (lowest ids among immigrants). */
+  /** Remove returning migrants from household vector. Removes oldest immigrants (lowest ids among immigrants).
+    */
   def removeReturnMigrants(households: Vector[Household.State], count: Int): Vector[Household.State] =
     if count <= 0 then return households
     val immigrantIds = households.filter(_.isImmigrant).map(_.id).sorted.take(count).toSet
     households.filterNot(h => immigrantIds.contains(h.id))
 
   /** Full monthly step: compute inflow, outflow, remittances, update state. */
-  def step(prev: State, households: Option[Vector[Household.State]],
-           wage: Double, unempRate: Double, workingAgePop: Int,
-           month: Int): State =
+  def step(
+    prev: State,
+    households: Option[Vector[Household.State]],
+    wage: Double,
+    unempRate: Double,
+    workingAgePop: Int,
+    month: Int,
+  ): State =
     val inflow = computeInflow(workingAgePop, wage, unempRate, month)
     val outflow = computeOutflow(prev.immigrantStock)
     val newStock = (prev.immigrantStock + inflow - outflow).max(0)
     val remittances = households match
       case Some(hhs) => computeRemittances(hhs)
-      case None => computeRemittancesAggregate(newStock, wage, unempRate)
+      case None      => computeRemittancesAggregate(newStock, wage, unempRate)
     State(newStock, inflow, outflow, remittances)

@@ -13,7 +13,7 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "YieldCurve.compute" should "produce correct premiums from O/N rate" in {
-    val curve = YieldCurve.compute(0.058)  // 5.80% O/N
+    val curve = YieldCurve.compute(0.058) // 5.80% O/N
     curve.overnight.toDouble shouldBe 0.058
     curve.wibor1m.toDouble shouldBe (0.058 + 0.0015 +- 1e-10)
     curve.wibor3m.toDouble shouldBe (0.058 + 0.0040 +- 1e-10)
@@ -36,12 +36,12 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle very low O/N rate" in {
-    val curve = YieldCurve.compute(0.001)  // 0.1% floor rate
+    val curve = YieldCurve.compute(0.001) // 0.1% floor rate
     curve.wibor3m.toDouble shouldBe (0.001 + 0.0040 +- 1e-10)
   }
 
   it should "handle high O/N rate" in {
-    val curve = YieldCurve.compute(0.25)  // 25% ceiling
+    val curve = YieldCurve.compute(0.25) // 25% ceiling
     curve.wibor6m.toDouble shouldBe (0.25 + 0.0080 +- 1e-10)
   }
 
@@ -71,8 +71,7 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
 
   it should "store curve when provided" in {
     val curve = YieldCurve.compute(0.058)
-    val bs = Banking.State(Vector.empty, Rate(0.058), Vector.empty,
-      interbankCurve = Some(curve))
+    val bs = Banking.State(Vector.empty, Rate(0.058), Vector.empty, interbankCurve = Some(curve))
     bs.interbankCurve shouldBe defined
     bs.interbankCurve.get.wibor3m.toDouble shouldBe (0.058 + 0.0040 +- 1e-10)
   }

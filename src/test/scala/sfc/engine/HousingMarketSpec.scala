@@ -18,7 +18,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     lastDefault = PLN.Zero,
     lastWealthEffect = PLN.Zero,
     monthlyReturn = Rate.Zero,
-    mortgageInterestIncome = PLN.Zero
+    mortgageInterestIncome = PLN.Zero,
   )
 
   "HousingMarket.zero" should "return all-zero state" in {
@@ -92,7 +92,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     val state = initState.copy(
       mortgageStock = PLN(400000.0),
       totalValue = PLN(1000000.0),
-      hhHousingWealth = PLN(600000.0)
+      hhHousingWealth = PLN(600000.0),
     )
     val result = HousingMarket.applyFlows(state, 10000.0, 0.0, 0.0)
     // new stock = 390000, new wealth = 1000000 - 390000 = 610000
@@ -107,7 +107,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     // Test the formula directly via the pure function behavior
     // When RE_ENABLED=false, returns zeros. This is correct behavior.
     val (interest, _, _) = HousingMarket.processMortgageFlows(state, rate, 0.05)
-    interest shouldBe 0.0  // RE_ENABLED is false by default
+    interest shouldBe 0.0 // RE_ENABLED is false by default
   }
 
   it should "increase default rate with unemployment" in {
@@ -142,7 +142,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     val origination = 20000.0
     val stateAfterOrig = state.copy(
       mortgageStock = PLN(stock0 + origination),
-      lastOrigination = PLN(origination)
+      lastOrigination = PLN(origination),
     )
     val principal = 3000.0
     val defaultAmt = 1000.0
@@ -165,7 +165,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
         lastOrigination = PLN.Zero,
         lastRepayment = PLN.Zero,
         lastDefault = PLN.Zero,
-        monthlyReturn = Rate.Zero
+        monthlyReturn = Rate.Zero,
       )
     }.toVector
     HousingMarket.State(
@@ -180,7 +180,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
       lastWealthEffect = PLN.Zero,
       monthlyReturn = Rate.Zero,
       mortgageInterestIncome = PLN.Zero,
-      regions = Some(regions)
+      regions = Some(regions),
     )
 
   "HousingMarket.RegionalState" should "have 7 entries" in {
@@ -269,7 +269,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     val stateAfterOrig = state.copy(
       mortgageStock = state.mortgageStock + PLN(origAmount),
       lastOrigination = PLN(origAmount),
-      regions = Some(updatedRegs)
+      regions = Some(updatedRegs),
     )
     val principal = 2000.0
     val defaultAmt = 1000.0

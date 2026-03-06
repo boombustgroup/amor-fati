@@ -1,10 +1,10 @@
 package sfc.dynamics
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
-import sfc.testutil.Generators.*
+import sfc.Generators.*
 
 class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
@@ -17,13 +17,14 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   private val genAdoptionVector: Gen[Vector[Double]] =
     Gen.sequence[Vector[Double], Double]((0.until(6)).map(_ => Gen.choose(0.0, 1.0)))
 
-  /** Generate (current, base, capMult) such that current(i) <= base(i) * capMult
-    * for all i — the valid operating regime where the ratchet holds. */
+  /** Generate (current, base, capMult) such that current(i) <= base(i) * capMult for all i — the valid operating regime
+    * where the ratchet holds.
+    */
   private val genBelowCapInputs: Gen[(Vector[Double], Vector[Double], Double)] =
     for
-      base    <- Gen.sequence[Vector[Double], Double]((0.until(6)).map(_ => Gen.choose(1.0, 50.0)))
+      base <- Gen.sequence[Vector[Double], Double]((0.until(6)).map(_ => Gen.choose(1.0, 50.0)))
       capMult <- Gen.choose(1.5, 5.0)
-      fracs   <- Gen.sequence[Vector[Double], Double]((0.until(6)).map(_ => Gen.choose(0.1, 0.95)))
+      fracs <- Gen.sequence[Vector[Double], Double]((0.until(6)).map(_ => Gen.choose(0.1, 0.95)))
     yield
       val current = base.zip(fracs).map((b, f) => b * capMult * f)
       (current, base, capMult)
@@ -32,12 +33,10 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   "SigmaDynamics.evolve" should "never decrease sigma when below cap (ratchet)" in {
     forAll(genBelowCapInputs, genAdoptionVector, Gen.choose(0.001, 0.10)) {
-      (inputs: (Vector[Double], Vector[Double], Double),
-       adoption: Vector[Double], lambda: Double) =>
+      (inputs: (Vector[Double], Vector[Double], Double), adoption: Vector[Double], lambda: Double) =>
         val (current, base, capMult) = inputs
         val result = SigmaDynamics.evolve(current, base, adoption, lambda, capMult)
-        for i <- current.indices do
-          result(i) should be >= (current(i) - 1e-10)
+        for i <- current.indices do result(i) should be >= (current(i) - 1e-10)
     }
   }
 
@@ -45,13 +44,11 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   it should "cap sigma at base * capMult" in {
     forAll(genBelowCapInputs, genAdoptionVector, Gen.choose(0.001, 0.10)) {
-      (inputs: (Vector[Double], Vector[Double], Double),
-       adoption: Vector[Double], lambda: Double) =>
+      (inputs: (Vector[Double], Vector[Double], Double), adoption: Vector[Double], lambda: Double) =>
         val (_, base, capMult) = inputs
         val current = base.map(_ * capMult * 0.99)
         val result = SigmaDynamics.evolve(current, base, adoption, lambda, capMult)
-        for i <- result.indices do
-          result(i) should be <= (base(i) * capMult + 1e-10)
+        for i <- result.indices do result(i) should be <= (base(i) * capMult + 1e-10)
     }
   }
 
@@ -73,8 +70,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         val (current, base, capMult) = inputs
         val zeroAdoption = Vector.fill(6)(0.0)
         val result = SigmaDynamics.evolve(current, base, zeroAdoption, lambda, capMult)
-        for i <- current.indices do
-          result(i) shouldBe (current(i) +- 1e-10)
+        for i <- current.indices do result(i) shouldBe (current(i) +- 1e-10)
     }
   }
 
@@ -86,18 +82,15 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       val current = base
       val adoption = Vector.fill(6)(0.5)
       val result = SigmaDynamics.evolve(current, base, adoption, lambda, capMult)
-      for i <- result.indices do
-        result(i) should be > current(i)
+      for i <- result.indices do result(i) should be > current(i)
     }
   }
 
   // --- Length preservation ---
 
   it should "preserve vector length" in {
-    forAll(genSigmaVector, genSigmaVector, genAdoptionVector,
-           Gen.choose(0.0, 0.10), Gen.choose(1.5, 5.0)) {
-      (current: Vector[Double], base: Vector[Double], adoption: Vector[Double],
-       lambda: Double, capMult: Double) =>
+    forAll(genSigmaVector, genSigmaVector, genAdoptionVector, Gen.choose(0.0, 0.10), Gen.choose(1.5, 5.0)) {
+      (current: Vector[Double], base: Vector[Double], adoption: Vector[Double], lambda: Double, capMult: Double) =>
         val result = SigmaDynamics.evolve(current, base, adoption, lambda, capMult)
         result.length shouldBe current.length
     }
@@ -106,16 +99,13 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   // --- Sector independence ---
 
   it should "have sector independence (changing sector i doesn't affect sector j)" in {
-    forAll(genBelowCapInputs, genAdoptionVector,
-           Gen.choose(0.001, 0.10), Gen.choose(0, 5)) {
-      (inputs: (Vector[Double], Vector[Double], Double),
-       adoption: Vector[Double], lambda: Double, targetSector: Int) =>
+    forAll(genBelowCapInputs, genAdoptionVector, Gen.choose(0.001, 0.10), Gen.choose(0, 5)) {
+      (inputs: (Vector[Double], Vector[Double], Double), adoption: Vector[Double], lambda: Double, targetSector: Int) =>
         val (current, base, capMult) = inputs
         val adoption2 = adoption.updated(targetSector, 0.0)
         val r1 = SigmaDynamics.evolve(current, base, adoption, lambda, capMult)
         val r2 = SigmaDynamics.evolve(current, base, adoption2, lambda, capMult)
-        for i <- current.indices if i != targetSector do
-          r1(i) shouldBe (r2(i) +- 1e-10)
+        for i <- current.indices if i != targetSector do r1(i) shouldBe (r2(i) +- 1e-10)
     }
   }
 
@@ -127,7 +117,6 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         val (current, base, capMult) = inputs
         val r1 = SigmaDynamics.evolve(current, base, adoption, 0.01, capMult)
         val r2 = SigmaDynamics.evolve(current, base, adoption, 0.10, capMult)
-        for i <- current.indices do
-          r2(i) should be >= (r1(i) - 1e-10)
+        for i <- current.indices do r2(i) should be >= (r1(i) - 1e-10)
     }
   }

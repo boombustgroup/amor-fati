@@ -16,7 +16,7 @@ object Insurance:
     lastLifeClaims: PLN = PLN.Zero,
     lastNonLifeClaims: PLN = PLN.Zero,
     lastInvestmentIncome: PLN = PLN.Zero,
-    lastNetDepositChange: PLN = PLN.Zero
+    lastNetDepositChange: PLN = PLN.Zero,
   )
 
   def zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
@@ -28,14 +28,20 @@ object Insurance:
       nonLifeReserves = PLN(Config.InsNonLifeReserves),
       govBondHoldings = PLN(totalAssets * Config.InsGovBondShare),
       corpBondHoldings = PLN(totalAssets * Config.InsCorpBondShare),
-      equityHoldings = PLN(totalAssets * Config.InsEquityShare)
+      equityHoldings = PLN(totalAssets * Config.InsEquityShare),
     )
 
   /** Full monthly step: premiums, claims, investment income, rebalancing. */
-  def step(prev: State, employed: Int, wage: Double,
-           priceLevel: Double, unempRate: Double,
-           govBondYield: Double, corpBondYield: Double,
-           equityReturn: Double): State =
+  def step(
+    prev: State,
+    employed: Int,
+    wage: Double,
+    priceLevel: Double,
+    unempRate: Double,
+    govBondYield: Double,
+    corpBondYield: Double,
+    equityReturn: Double,
+  ): State =
     // Premiums: proportional to wage bill (Double arithmetic)
     val lifePrem = employed * wage * Config.InsLifePremiumRate
     val nonLifePrem = employed * wage * Config.InsNonLifePremiumRate * priceLevel
@@ -69,5 +75,16 @@ object Insurance:
     val newCorp = prev.corpBondHoldings + (targetCorp - prev.corpBondHoldings) * s
     val newEq = prev.equityHoldings + (targetEq - prev.equityHoldings) * s
 
-    State(newLifeRes, newNonLifeRes, newGov, newCorp, newEq,
-      PLN(lifePrem), PLN(nonLifePrem), PLN(lifeCl), PLN(nonLifeCl), invIncome, netDepositChange)
+    State(
+      newLifeRes,
+      newNonLifeRes,
+      newGov,
+      newCorp,
+      newEq,
+      PLN(lifePrem),
+      PLN(nonLifePrem),
+      PLN(lifeCl),
+      PLN(nonLifeCl),
+      invIncome,
+      netDepositChange,
+    )

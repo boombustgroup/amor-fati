@@ -16,21 +16,23 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have positive sigma for every sector" in {
-    for s <- SECTORS do
-      s.sigma should be > 0.0
+    for s <- SECTORS do s.sigma should be > 0.0
   }
 
   it should "have known sector names" in {
-    SECTORS.map(_.name) should contain allOf(
-      "BPO/SSC", "Manufacturing", "Retail/Services",
-      "Healthcare", "Public", "Agriculture"
+    SECTORS.map(_.name) should contain allOf (
+      "BPO/SSC",
+      "Manufacturing",
+      "Retail/Services",
+      "Healthcare",
+      "Public",
+      "Agriculture",
     )
   }
 
   "Config" should "have FirmsCount = 10000 by default" in {
     // Only true when FIRMS_COUNT env var is unset
-    if sys.env.get("FIRMS_COUNT").isEmpty then
-      Config.FirmsCount shouldBe 10000
+    if sys.env.get("FIRMS_COUNT").isEmpty then Config.FirmsCount shouldBe 10000
   }
 
   it should "have Duration = 120" in {

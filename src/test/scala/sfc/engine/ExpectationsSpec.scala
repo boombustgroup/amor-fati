@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.config.{Config, RunConfig, MonetaryRegime}
+import sfc.config.{Config, MonetaryRegime, RunConfig}
 import sfc.types.*
 
 class ExpectationsSpec extends AnyFlatSpec with Matchers:
@@ -123,8 +123,7 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
 
   it should "converge when inflation equals target persistently" in {
     var s = Expectations.initial.copy(credibility = Ratio(0.5))
-    for _ <- 0 until 120 do
-      s = Expectations.step(s, Config.NbpTargetInfl, Config.NbpInitialRate, 0.05, plnRc)
+    for _ <- 0 until 120 do s = Expectations.step(s, Config.NbpTargetInfl, Config.NbpInitialRate, 0.05, plnRc)
     s.credibility.toDouble should be > 0.9
     s.expectedInflation.toDouble shouldBe Config.NbpTargetInfl +- 0.005
     s.forecastError.toDouble shouldBe 0.0 +- 0.005

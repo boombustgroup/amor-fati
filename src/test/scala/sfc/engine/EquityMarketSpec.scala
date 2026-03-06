@@ -12,7 +12,7 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     marketCap = PLN(1.4e12 * Config.FirmsCount / 10000.0),
     earningsYield = Rate(0.10),
     dividendYield = Rate(0.057),
-    foreignOwnership = Ratio(0.67)
+    foreignOwnership = Ratio(0.67),
   )
 
   "EquityMarket.zero" should "return all-zero state" in {

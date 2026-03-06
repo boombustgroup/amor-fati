@@ -2,8 +2,8 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.config.Config
 import sfc.agents.Household
+import sfc.config.Config
 import sfc.types.*
 
 class MinWageSpec extends AnyFlatSpec with Matchers:
@@ -30,9 +30,9 @@ class MinWageSpec extends AnyFlatSpec with Matchers:
 
   "Deflation" should "not decrease min wage (max(0, cumInfl))" in {
     val prevMinWage = 4666.0
-    val cumInfl = -0.03  // 3% deflation
+    val cumInfl = -0.03 // 3% deflation
     val inflIndexed = prevMinWage * (1.0 + Math.max(0.0, cumInfl))
-    inflIndexed shouldBe prevMinWage  // no change under deflation
+    inflIndexed shouldBe prevMinWage // no change under deflation
   }
 
   "Convergence" should "close gap toward 50% of market wage" in {
@@ -43,9 +43,9 @@ class MinWageSpec extends AnyFlatSpec with Matchers:
     val cumInfl = 0.0
 
     val inflIndexed = prevMinWage * (1.0 + Math.max(0.0, cumInfl))
-    val target = marketWage * targetRatio  // 6000
-    val gap = target - inflIndexed         // 6000 - 4666 = 1334
-    val adjusted = inflIndexed + gap * convergenceSpeed  // 4666 + 1334*0.33 = 5106.22
+    val target = marketWage * targetRatio // 6000
+    val gap = target - inflIndexed // 6000 - 4666 = 1334
+    val adjusted = inflIndexed + gap * convergenceSpeed // 4666 + 1334*0.33 = 5106.22
     val result = Math.max(prevMinWage, adjusted)
 
     result shouldBe (5106.22 +- 0.1)
@@ -59,12 +59,13 @@ class MinWageSpec extends AnyFlatSpec with Matchers:
     val convergenceSpeed = 0.33
     val cumInfl = 0.02
 
-    val inflIndexed = prevMinWage * (1.0 + Math.max(0.0, cumInfl))  // 5100
-    val target = marketWage * targetRatio  // 4000
-    val gap = target - inflIndexed         // 4000 - 5100 = -1100 (negative)
+    val inflIndexed = prevMinWage * (1.0 + Math.max(0.0, cumInfl)) // 5100
+    val target = marketWage * targetRatio // 4000
+    val gap = target - inflIndexed // 4000 - 5100 = -1100 (negative)
     // When gap <= 0, adjusted = inflIndexed (no convergence push down)
-    val adjusted = if gap > 0 then inflIndexed + gap * convergenceSpeed
-                   else inflIndexed
+    val adjusted =
+      if gap > 0 then inflIndexed + gap * convergenceSpeed
+      else inflIndexed
     val result = Math.max(prevMinWage, adjusted)
 
     result shouldBe (5100.0 +- 0.1)
@@ -74,7 +75,7 @@ class MinWageSpec extends AnyFlatSpec with Matchers:
   "BDP" should "stack on top of dynamic base" in {
     val baseMinWage = 5000.0
     val bdp = 2000.0
-    val bdpMult = Config.ReservationBdpMult  // 0.5
+    val bdpMult = Config.ReservationBdpMult // 0.5
     val resWage = baseMinWage + bdp * bdpMult
     resWage shouldBe (6000.0 +- 0.1)
   }

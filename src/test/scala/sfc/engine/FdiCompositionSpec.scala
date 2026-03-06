@@ -3,8 +3,8 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankState, ForexState, GovState}
-import sfc.config.{Config, SECTORS, RunConfig}
 import sfc.agents.*
+import sfc.config.{Config, RunConfig, SECTORS}
 import sfc.types.*
 
 class FdiCompositionSpec extends AnyFlatSpec with Matchers:
@@ -171,7 +171,17 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   // --- helpers ---
 
   private def mkFirm(tech: TechState, sector: Int = 2): Firm.State =
-    Firm.State(FirmId(0), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(sector), Array.empty[Int])
+    Firm.State(
+      FirmId(0),
+      PLN(50000.0),
+      PLN.Zero,
+      tech,
+      Ratio(0.5),
+      1.0,
+      Ratio(0.5),
+      SectorIdx(sector),
+      Array.empty[Int],
+    )
 
   private def mkWorld(): World =
     World(
@@ -182,9 +192,17 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
       nbp = Nbp.State(Rate(0.0575)),
       bank = BankState(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000)),
       forex = ForexState(4.33, PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
-      hh = Household.SectorState(100000, PLN(Config.BaseWage), PLN(Config.BaseReservationWage), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      hh = Household.SectorState(
+        100000,
+        PLN(Config.BaseWage),
+        PLN(Config.BaseReservationWage),
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+      ),
       automationRatio = Ratio.Zero,
       hybridRatio = Ratio.Zero,
       gdpProxy = 1e9,
-      currentSigmas = SECTORS.map(_.sigma).toVector
+      currentSigmas = SECTORS.map(_.sigma).toVector,
     )

@@ -1,7 +1,6 @@
 package sfc.engine
 
 import sfc.agents.{Firm, TechState}
-import sfc.config.Config
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -9,22 +8,24 @@ object IntermediateMarket:
 
   case class Result(firms: Array[Firm.State], totalPaid: Double)
 
-  def process(firms: Array[Firm.State], sectorMults: Vector[Double], price: Double,
-              ioMatrix: Vector[Vector[Double]],
-              columnSums: Vector[Double],
-              scale: Double = 1.0): Result =
+  def process(
+    firms: Array[Firm.State],
+    sectorMults: Vector[Double],
+    price: Double,
+    ioMatrix: Vector[Vector[Double]],
+    columnSums: Vector[Double],
+    scale: Double = 1.0,
+  ): Result =
     val nSectors = 6
 
     // Identify living firms and compute per-firm gross output
     val living = firms.indices.filter(i => Firm.isAlive(firms(i)))
     val grossOutput = new Array[Double](firms.length)
-    for i <- living do
-      grossOutput(i) = Firm.capacity(firms(i)) * sectorMults(firms(i).sector.toInt) * price
+    for i <- living do grossOutput(i) = Firm.capacity(firms(i)) * sectorMults(firms(i).sector.toInt) * price
 
     // Total gross output per sector (for revenue distribution)
     val sectorOutput = new Array[Double](nSectors)
-    for i <- living do
-      sectorOutput(firms(i).sector.toInt) += grossOutput(i)
+    for i <- living do sectorOutput(firms(i).sector.toInt) += grossOutput(i)
 
     // Firms can only buy from sectors that have living suppliers.
     // Effective column sum for sector j = Σ_{i: hasFirms(i)} a_ij
@@ -39,8 +40,7 @@ object IntermediateMarket:
 
     val sectorRevenue = new Array[Double](nSectors)
     for i <- 0 until nSectors if hasFirms(i) do
-      for j <- 0 until nSectors do
-        sectorRevenue(i) += ioMatrix(i)(j) * sectorOutput(j)
+      for j <- 0 until nSectors do sectorRevenue(i) += ioMatrix(i)(j) * sectorOutput(j)
 
     // Distribute costs and revenues to individual firms
     for idx <- living do
@@ -49,16 +49,16 @@ object IntermediateMarket:
       // Cost: intermediate purchases only from sectors with suppliers
       val ioCost = grossOutput(idx) * effectiveColSums(j)
       // Revenue: proportional to this firm's output within its sector
-      val ioRevenue = if sectorOutput(f.sector.toInt) > 0 then
-        sectorRevenue(f.sector.toInt) * (grossOutput(idx) / sectorOutput(f.sector.toInt))
-      else 0.0
+      val ioRevenue =
+        if sectorOutput(f.sector.toInt) > 0 then
+          sectorRevenue(f.sector.toInt) * (grossOutput(idx) / sectorOutput(f.sector.toInt))
+        else 0.0
       cashAdj(idx) = (ioRevenue - ioCost) * scale
       totalPaid += ioCost * scale
 
     // Verify zero-sum (within floating-point tolerance)
     val totalAdj = cashAdj.kahanSum
-    if Math.abs(totalAdj) > 1.0 then
-      System.err.println(f"[IO] WARNING: non-zero-sum cash adjustment: $totalAdj%.2f")
+    if Math.abs(totalAdj) > 1.0 then System.err.println(f"[IO] WARNING: non-zero-sum cash adjustment: $totalAdj%.2f")
 
     // Apply cash adjustments
     val newFirms = firms.clone()

@@ -40,7 +40,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   it should "compute govSubvention when FUS in deficit" in {
     val contributions = 100e6
     val pensions = 150e6
-    val deficit = contributions - pensions  // -50M
+    val deficit = contributions - pensions // -50M
     val govSubvention = if deficit < 0 then -deficit else 0.0
     govSubvention shouldBe 50e6
   }
@@ -48,7 +48,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   it should "have zero govSubvention when FUS in surplus" in {
     val contributions = 200e6
     val pensions = 100e6
-    val surplus = contributions - pensions  // +100M
+    val surplus = contributions - pensions // +100M
     val govSubvention = if surplus < 0 then -surplus else 0.0
     govSubvention shouldBe 0.0
   }
@@ -138,8 +138,8 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
     val prevBalance = 100e6
     val contributions = 50e6
     val pensions = 70e6
-    val expectedChange = contributions - pensions  // -20M
-    val newBalance = prevBalance + expectedChange  // 80M
+    val expectedChange = contributions - pensions // -20M
+    val newBalance = prevBalance + expectedChange // 80M
     (newBalance - prevBalance) shouldBe (expectedChange +- 0.01)
   }
 

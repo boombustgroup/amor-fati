@@ -16,7 +16,7 @@ object Network:
       j <- 1 to halfK
     do
       val right = (i + j) % n
-      val left  = (i - j + n) % n
+      val left = (i - j + n) % n
       adj(i) += right
       adj(right) += i
       adj(i) += left
@@ -56,8 +56,9 @@ object Network:
         adj(j) += i
     adj.map(_.toArray)
 
-  /** Generate Barabasi-Albert preferential attachment graph.
-    * Starts with K_{m+1} complete seed, attaches each new node to m existing nodes. */
+  /** Generate Barabasi-Albert preferential attachment graph. Starts with K_{m+1} complete seed, attaches each new node
+    * to m existing nodes.
+    */
   def barabasiAlbert(n: Int, m: Int, rng: Random): Array[Array[Int]] =
     val adj = Array.fill(n)(scala.collection.mutable.Set.empty[Int])
     val seedSize = m + 1
@@ -82,8 +83,7 @@ object Network:
         while r >= degree(j) do
           r -= degree(j)
           j += 1
-        if j < i && !targets.contains(j) then
-          targets += j
+        if j < i && !targets.contains(j) then targets += j
       for t <- targets do
         adj(i) += t
         adj(t) += i
@@ -101,7 +101,7 @@ object Network:
       j <- 1 to halfK
     do
       val right = (i + j) % n
-      val left  = (i - j + n) % n
+      val left = (i - j + n) % n
       adj(i) += right
       adj(right) += i
       adj(i) += left

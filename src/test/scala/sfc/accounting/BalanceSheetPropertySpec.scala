@@ -1,13 +1,13 @@
 package sfc.accounting
 
-import _root_.sfc.config.Config
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import sfc.Generators.*
 import sfc.accounting.{BankState, BopState, ForexState, GovState}
+import sfc.config.Config
 import sfc.types.*
-import sfc.testutil.Generators.*
 
 class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
@@ -17,12 +17,12 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   // Combined generator for gov update inputs (avoids >6 forAll limit)
   private val genGovUpdateInputs: Gen[(GovState, Double, Double, Boolean, Double, Double, Double)] =
     for
-      prev     <- genGovState
-      cit      <- Gen.choose(0.0, 1e8)
-      vat      <- Gen.choose(0.0, 1e8)
-      active   <- Gen.oneOf(true, false)
-      bdp      <- Gen.choose(0.0, 5000.0)
-      price    <- genPrice
+      prev <- genGovState
+      cit <- Gen.choose(0.0, 1e8)
+      vat <- Gen.choose(0.0, 1e8)
+      active <- Gen.oneOf(true, false)
+      bdp <- Gen.choose(0.0, 5000.0)
+      price <- genPrice
       unempBen <- Gen.choose(0.0, 1e7)
     yield (prev, cit, vat, active, bdp, price, unempBen)
 
@@ -103,7 +103,7 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   "GovState" should "have deficit = spending - revenue via updateGov" in {
     forAll(genGovUpdateInputs) { (inputs: (GovState, Double, Double, Boolean, Double, Double, Double)) =>
       val (prev, cit, vat, active, bdp, price, unempBen) = inputs
-      val gov = _root_.sfc.engine.Sectors.updateGov(prev, cit, vat, active, bdp, price, unempBen)
+      val gov = sfc.engine.Sectors.updateGov(prev, cit, vat, active, bdp, price, unempBen)
       val totalRev = cit + vat
       val bdpSpend = if active then Config.TotalPopulation.toDouble * bdp else 0.0
       val totalSpend = bdpSpend + unempBen + Config.GovBaseSpending * price

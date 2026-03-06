@@ -1,10 +1,10 @@
 package sfc.agents
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
-import sfc.testutil.Generators.*
+import sfc.Generators.*
 import sfc.config.Config
 import sfc.types.*
 
@@ -155,7 +155,17 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   "Bankrupt" should "be an absorbing barrier" in {
     forAll(Gen.choose(1, 20)) { (n: Int) =>
       val bankruptHhs = (0 until n).map { i =>
-        Household.State(i, PLN(-10000.0), PLN(5000.0), PLN(1800.0), Ratio(0.5), Ratio(0.3), Ratio(0.8), HhStatus.Bankrupt, Array.empty[Int])
+        Household.State(
+          i,
+          PLN(-10000.0),
+          PLN(5000.0),
+          PLN(1800.0),
+          Ratio(0.5),
+          Ratio(0.3),
+          Ratio(0.8),
+          HhStatus.Bankrupt,
+          Array.empty[Int],
+        )
       }.toVector
       val agg = Household.computeAggregates(bankruptHhs, 8266.0, 4666.0, 0.40, 0, 0)
       agg.bankrupt shouldBe n

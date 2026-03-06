@@ -16,14 +16,10 @@ object KahanSum:
       s = t
     s
 
-  extension (coll: Iterable[Double])
-    def kahanSum: Double = sum(coll)
+  extension (coll: Iterable[Double]) def kahanSum: Double = sum(coll)
 
-  extension [A](coll: Iterable[A])
-    def kahanSumBy(f: A => Double): Double = sumBy(coll)(f)
+  extension [A](coll: Iterable[A]) def kahanSumBy(f: A => Double): Double = sumBy(coll)(f)
 
-  extension (arr: Array[Double])
-    def kahanSum: Double = sum(arr)
+  extension (arr: Array[Double]) def kahanSum: Double = sum(arr)
 
-  extension [A](arr: Array[A])
-    def kahanSumBy(f: A => Double): Double = sumBy(arr)(f)
+  extension [A](arr: Array[A]) def kahanSumBy(f: A => Double): Double = sumBy(arr)(f)

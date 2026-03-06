@@ -20,8 +20,7 @@ object types:
   opaque type SectorIdx = Int
   object SectorIdx:
     inline def apply(i: Int): SectorIdx = i
-    extension (s: SectorIdx)
-      inline def toInt: Int = s
+    extension (s: SectorIdx) inline def toInt: Int = s
 
   // === Monetary amounts ===
   opaque type PLN = Double

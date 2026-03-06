@@ -3,7 +3,7 @@ package sfc.agents
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankState, ForexState, GovState}
-import sfc.config.{Config, SECTORS, RunConfig}
+import sfc.config.{Config, RunConfig, SECTORS}
 import sfc.engine.World
 import sfc.types.*
 
@@ -11,8 +11,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
 
   // ---- Helpers ----
 
-  private def mkFirm(tech: TechState, sector: Int = 2,
-    cash: Double = 500000.0, dr: Double = 0.5): Firm.State =
+  private def mkFirm(tech: TechState, sector: Int = 2, cash: Double = 500000.0, dr: Double = 0.5): Firm.State =
     Firm.State(FirmId(0), PLN(cash), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(dr), SectorIdx(sector), Array.empty[Int])
 
   private def mkWorld(autoRatio: Double = 0.0, hybridRatio: Double = 0.0): World =
@@ -24,11 +23,19 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       nbp = Nbp.State(Rate(0.0575)),
       bank = BankState(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000)),
       forex = ForexState(4.33, PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
-      hh = Household.SectorState(100000, PLN(Config.BaseWage), PLN(Config.BaseReservationWage), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      hh = Household.SectorState(
+        100000,
+        PLN(Config.BaseWage),
+        PLN(Config.BaseReservationWage),
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+      ),
       automationRatio = Ratio(autoRatio),
       hybridRatio = Ratio(hybridRatio),
       gdpProxy = 1e9,
-      currentSigmas = SECTORS.map(_.sigma).toVector
+      currentSigmas = SECTORS.map(_.sigma).toVector,
     )
 
   private val rc = RunConfig(2000.0, 1, "test")
@@ -51,13 +58,13 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   // ---- CAPEX discount (3 tests) ----
 
   "Firm.aiCapex" should "decrease with higher digitalReadiness" in {
-    val fLow  = mkFirm(TechState.Traditional(10), dr = 0.1)
+    val fLow = mkFirm(TechState.Traditional(10), dr = 0.1)
     val fHigh = mkFirm(TechState.Traditional(10), dr = 0.9)
     Firm.aiCapex(fHigh) should be < Firm.aiCapex(fLow)
   }
 
   "Firm.hybridCapex" should "decrease with higher digitalReadiness" in {
-    val fLow  = mkFirm(TechState.Traditional(10), dr = 0.1)
+    val fLow = mkFirm(TechState.Traditional(10), dr = 0.1)
     val fHigh = mkFirm(TechState.Traditional(10), dr = 0.9)
     Firm.hybridCapex(fHigh) should be < Firm.hybridCapex(fLow)
   }
@@ -100,7 +107,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     // Use very high DR so automation/hybrid won't trigger, but low enough for investment
     // Set cash very high and automation/hybrid conditions unfavorable
     val f = mkFirm(TechState.Traditional(10), cash = 10000000.0, dr = 0.15)
-    val w = mkWorld(autoRatio = 0.5)  // high competitive pressure
+    val w = mkWorld(autoRatio = 0.5) // high competitive pressure
     // Run many times to catch at least one investment
     var invested = false
     for _ <- 0 until 500 if !invested do
@@ -128,8 +135,8 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have diminishing returns at high DR" in {
-    val diminishingLow = 1.0 - 0.2   // DR=0.2
-    val diminishingHigh = 1.0 - 0.9  // DR=0.9
+    val diminishingLow = 1.0 - 0.2 // DR=0.2
+    val diminishingHigh = 1.0 - 0.9 // DR=0.9
     val boostLow = Config.DigiInvestBoost * diminishingLow
     val boostHigh = Config.DigiInvestBoost * diminishingHigh
     boostHigh should be < boostLow
@@ -168,7 +175,6 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     // Simulate 10 months — at minimum, drift alone adds 10 × 0.001 = 0.01
     for _ <- 0 until 10 do
       val result = Firm.process(f, w, 0.07, _ => false, Array(f), rc)
-      if Firm.isAlive(result.firm) then
-        f = result.firm.copy(cash = PLN(1000000.0))  // reset cash for next round
+      if Firm.isAlive(result.firm) then f = result.firm.copy(cash = PLN(1000000.0)) // reset cash for next round
     f.digitalReadiness.toDouble should be >= (initDR + 10 * Config.DigiDrift - 0.001)
   }

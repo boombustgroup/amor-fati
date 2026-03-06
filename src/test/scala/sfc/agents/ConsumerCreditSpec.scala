@@ -30,7 +30,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     val existingDti = 0.20
     val headroom = Math.max(0.0, Config.CcMaxDti - existingDti) * income
     headroom shouldBe 1600.0 +- 0.01
-    headroom should be < Config.CcMaxLoan  // 1600 < 50000
+    headroom should be < Config.CcMaxLoan // 1600 < 50000
   }
 
   it should "produce zero loan when at max DTI" in {
@@ -79,10 +79,16 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   "Bankruptcy" should "trigger consumer debt default" in {
     val hh = Household.State(
-      id = 0, savings = PLN(-5000.0), debt = PLN(1000.0), monthlyRent = PLN(1000.0),
-      skill = Ratio(0.8), healthPenalty = Ratio(0.0), mpc = Ratio(0.82),
-      status = HhStatus.Bankrupt, socialNeighbors = Array.empty[Int],
-      consumerDebt = PLN(5000.0)
+      id = 0,
+      savings = PLN(-5000.0),
+      debt = PLN(1000.0),
+      monthlyRent = PLN(1000.0),
+      skill = Ratio(0.8),
+      healthPenalty = Ratio(0.0),
+      mpc = Ratio(0.82),
+      status = HhStatus.Bankrupt,
+      socialNeighbors = Array.empty[Int],
+      consumerDebt = PLN(5000.0),
     )
     // Bankrupt HH should have consumer debt → NPL
     hh.consumerDebt.toDouble shouldBe 5000.0
@@ -125,14 +131,34 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   "Household.Aggregates consumer fields" should "default to 0.0" in {
     val agg = Household.Aggregates(
-      employed = 0, unemployed = 0, retraining = 0, bankrupt = 0,
-      totalIncome = PLN.Zero, consumption = PLN.Zero, domesticConsumption = PLN.Zero, importConsumption = PLN.Zero,
-      marketWage = PLN.Zero, reservationWage = PLN.Zero, giniIndividual = Ratio.Zero, giniWealth = Ratio.Zero,
-      meanSavings = PLN.Zero, medianSavings = PLN.Zero, povertyRate50 = Ratio.Zero, bankruptcyRate = Ratio.Zero,
-      meanSkill = 0, meanHealthPenalty = 0, retrainingAttempts = 0, retrainingSuccesses = 0,
-      consumptionP10 = PLN.Zero, consumptionP50 = PLN.Zero, consumptionP90 = PLN.Zero,
-      meanMonthsToRuin = 0, povertyRate30 = Ratio.Zero, totalRent = PLN.Zero,
-      totalDebtService = PLN.Zero, totalUnempBenefits = PLN.Zero
+      employed = 0,
+      unemployed = 0,
+      retraining = 0,
+      bankrupt = 0,
+      totalIncome = PLN.Zero,
+      consumption = PLN.Zero,
+      domesticConsumption = PLN.Zero,
+      importConsumption = PLN.Zero,
+      marketWage = PLN.Zero,
+      reservationWage = PLN.Zero,
+      giniIndividual = Ratio.Zero,
+      giniWealth = Ratio.Zero,
+      meanSavings = PLN.Zero,
+      medianSavings = PLN.Zero,
+      povertyRate50 = Ratio.Zero,
+      bankruptcyRate = Ratio.Zero,
+      meanSkill = 0,
+      meanHealthPenalty = 0,
+      retrainingAttempts = 0,
+      retrainingSuccesses = 0,
+      consumptionP10 = PLN.Zero,
+      consumptionP50 = PLN.Zero,
+      consumptionP90 = PLN.Zero,
+      meanMonthsToRuin = 0,
+      povertyRate30 = Ratio.Zero,
+      totalRent = PLN.Zero,
+      totalDebtService = PLN.Zero,
+      totalUnempBenefits = PLN.Zero,
     )
     agg.totalConsumerDebtService.toDouble shouldBe 0.0
     agg.totalConsumerOrigination.toDouble shouldBe 0.0
@@ -141,9 +167,15 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   "Household" should "have consumerDebt field defaulting to 0" in {
     val hh = Household.State(
-      id = 0, savings = PLN(10000.0), debt = PLN.Zero, monthlyRent = PLN(1000.0),
-      skill = Ratio(0.8), healthPenalty = Ratio(0.0), mpc = Ratio(0.82),
-      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266.0)), socialNeighbors = Array.empty[Int]
+      id = 0,
+      savings = PLN(10000.0),
+      debt = PLN.Zero,
+      monthlyRent = PLN(1000.0),
+      skill = Ratio(0.8),
+      healthPenalty = Ratio(0.0),
+      mpc = Ratio(0.82),
+      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266.0)),
+      socialNeighbors = Array.empty[Int],
     )
     hh.consumerDebt.toDouble shouldBe 0.0
   }
@@ -166,7 +198,8 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   "SfcCheck" should "include consumerCreditError in SfcResult" in {
     val snap = SfcCheck.Snapshot(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN(100.0), PLN(200.0), PLN.Zero, PLN.Zero)
-    val flow = SfcCheck.MonthlyFlows(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val flow =
+      SfcCheck.MonthlyFlows(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val result = SfcCheck.validate(1, snap, snap, flow)
     result.consumerCreditError shouldBe 0.0 +- 0.01
   }

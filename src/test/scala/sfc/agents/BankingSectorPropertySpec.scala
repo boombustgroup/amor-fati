@@ -4,9 +4,9 @@ import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import sfc.Generators.*
 import sfc.agents.Banking
 import sfc.config.Config
-import sfc.testutil.Generators.*
 import sfc.types.*
 
 import scala.util.Random
@@ -24,7 +24,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     forAll(genBanking.State) { (bs: Banking.State) =>
       val cleared = Banking.clearInterbank(bs.banks, bs.configs, bs.interbankRate.toDouble)
       val netSum = cleared.map(_.interbankNet.toDouble).sum
-      netSum shouldBe 0.0 +- 1.0  // tolerance for floating-point
+      netSum shouldBe 0.0 +- 1.0 // tolerance for floating-point
     }
   }
 
@@ -49,7 +49,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         val before = bs.banks.map(_.govBondHoldings.toDouble).sum
         val after = Banking.allocateBonds(bs.banks, deficit)
         val afterSum = after.map(_.govBondHoldings.toDouble).sum
-        (afterSum - before) shouldBe deficit +- 1.0  // well within SFC tolerance
+        (afterSum - before) shouldBe deficit +- 1.0 // well within SFC tolerance
       }
     }
   }
@@ -61,8 +61,32 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       (refRate: Double, npl1Frac: Double, npl2Frac: Double) =>
         val loans = 1e6
         val (lo, hi) = if npl1Frac <= npl2Frac then (npl1Frac, npl2Frac) else (npl2Frac, npl1Frac)
-        val bankLo = Banking.BankState(BankId(0), PLN(1e6), PLN(loans), PLN(2e5), PLN(loans * lo), PLN(0), PLN(0), PLN(0), false, 0, 0)
-        val bankHi = Banking.BankState(BankId(0), PLN(1e6), PLN(loans), PLN(2e5), PLN(loans * hi), PLN(0), PLN(0), PLN(0), false, 0, 0)
+        val bankLo = Banking.BankState(
+          BankId(0),
+          PLN(1e6),
+          PLN(loans),
+          PLN(2e5),
+          PLN(loans * lo),
+          PLN(0),
+          PLN(0),
+          PLN(0),
+          false,
+          0,
+          0,
+        )
+        val bankHi = Banking.BankState(
+          BankId(0),
+          PLN(1e6),
+          PLN(loans),
+          PLN(2e5),
+          PLN(loans * hi),
+          PLN(0),
+          PLN(0),
+          PLN(0),
+          false,
+          0,
+          0,
+        )
         val rateLo = Banking.lendingRate(bankLo, configs(0), refRate)
         val rateHi = Banking.lendingRate(bankHi, configs(0), refRate)
         rateHi should be >= rateLo

@@ -1,10 +1,10 @@
 package sfc.agents
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
-import sfc.testutil.Generators.*
+import sfc.Generators.*
 import sfc.config.Config
 import sfc.types.*
 
@@ -83,7 +83,7 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
         val totalBefore = bankBonds + nbp.govBondHoldings.toDouble
         val (newNbp, purchase) = Nbp.executeQe(nbp, bankBonds, gdp)
         val totalAfter = (bankBonds - purchase) + newNbp.govBondHoldings.toDouble
-        totalAfter shouldBe (totalBefore +- 1.0)  // FP tolerance at 1e10 scale
+        totalAfter shouldBe (totalBefore +- 1.0) // FP tolerance at 1e10 scale
     }
   }
 
@@ -91,8 +91,7 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   "Nbp.shouldActivateQe" should "imply rate near floor when true" in {
     forAll(genRate, genInflation) { (refRate: Double, inflation: Double) =>
-      if Nbp.shouldActivateQe(refRate, inflation) then
-        refRate should be <= (Config.RateFloor + 0.0025)
+      if Nbp.shouldActivateQe(refRate, inflation) then refRate should be <= (Config.RateFloor + 0.0025)
     }
   }
 

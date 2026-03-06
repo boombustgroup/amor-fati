@@ -1,9 +1,9 @@
 package sfc.agents
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
 import sfc.config.Config
 
 class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -60,7 +60,8 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
     // Generate ER strictly inside band (0.5% margin avoids FP boundary issues)
     val genERInBand = Gen.choose(
       Config.BaseExRate * (1.0 - Config.NbpFxBand + 0.005),
-      Config.BaseExRate * (1.0 + Config.NbpFxBand - 0.005))
+      Config.BaseExRate * (1.0 + Config.NbpFxBand - 0.005),
+    )
     forAll(genERInBand, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)
       result.erEffect shouldBe 0.0

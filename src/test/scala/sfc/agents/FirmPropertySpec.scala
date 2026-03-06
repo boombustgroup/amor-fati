@@ -1,10 +1,10 @@
 package sfc.agents
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
-import sfc.testutil.Generators.*
+import sfc.Generators.*
 import sfc.config.{Config, SECTORS}
 import sfc.types.*
 
@@ -25,7 +25,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     forAll(genFirm) { (firm: Firm.State) =>
       firm.tech match
         case _: TechState.Bankrupt => Firm.capacity(firm) shouldBe 0.0
-        case _ => Firm.capacity(firm) should be > 0.0
+        case _                     => Firm.capacity(firm) should be > 0.0
     }
   }
 
@@ -41,7 +41,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     forAll(genFirm) { (firm: Firm.State) =>
       firm.tech match
         case _: TechState.Bankrupt => Firm.workers(firm) shouldBe 0
-        case _ => Firm.workers(firm) should be > 0
+        case _                     => Firm.workers(firm) should be > 0
     }
   }
 
@@ -51,7 +51,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     forAll(genFirm) { (firm: Firm.State) =>
       firm.tech match
         case _: TechState.Bankrupt => Firm.isAlive(firm) shouldBe false
-        case _ => Firm.isAlive(firm) shouldBe true
+        case _                     => Firm.isAlive(firm) shouldBe true
     }
   }
 
@@ -107,10 +107,30 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) {
       (sector: Int, innov: Double, digiR: Double) =>
         // Same initialSize=16, different worker counts: sqrt(4/16) vs sqrt(16/16)
-        val f1 = Firm.State(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(4), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
-          initialSize = 16)
-        val f2 = Firm.State(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(16), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
-          initialSize = 16)
+        val f1 = Firm.State(
+          FirmId(0),
+          PLN.Zero,
+          PLN.Zero,
+          TechState.Traditional(4),
+          Ratio(0.5),
+          innov,
+          Ratio(digiR),
+          SectorIdx(sector),
+          Array.empty[Int],
+          initialSize = 16,
+        )
+        val f2 = Firm.State(
+          FirmId(0),
+          PLN.Zero,
+          PLN.Zero,
+          TechState.Traditional(16),
+          Ratio(0.5),
+          innov,
+          Ratio(digiR),
+          SectorIdx(sector),
+          Array.empty[Int],
+          initialSize = 16,
+        )
         val ratio = Firm.capacity(f2) / Firm.capacity(f1)
         ratio shouldBe (2.0 +- 0.01)
     }
@@ -119,10 +139,30 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   it should "scale linearly with initialSize at full employment" in {
     forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) {
       (sector: Int, innov: Double, digiR: Double) =>
-        val f1 = Firm.State(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(10), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
-          initialSize = 10)
-        val f2 = Firm.State(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(25), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
-          initialSize = 25)
+        val f1 = Firm.State(
+          FirmId(0),
+          PLN.Zero,
+          PLN.Zero,
+          TechState.Traditional(10),
+          Ratio(0.5),
+          innov,
+          Ratio(digiR),
+          SectorIdx(sector),
+          Array.empty[Int],
+          initialSize = 10,
+        )
+        val f2 = Firm.State(
+          FirmId(0),
+          PLN.Zero,
+          PLN.Zero,
+          TechState.Traditional(25),
+          Ratio(0.5),
+          innov,
+          Ratio(digiR),
+          SectorIdx(sector),
+          Array.empty[Int],
+          initialSize = 25,
+        )
         val ratio = Firm.capacity(f2) / Firm.capacity(f1)
         ratio shouldBe (2.5 +- 0.01)
     }

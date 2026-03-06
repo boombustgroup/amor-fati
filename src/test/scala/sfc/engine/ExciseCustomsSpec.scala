@@ -38,9 +38,9 @@ class ExciseCustomsSpec extends AnyFlatSpec with Matchers:
     // When OeEnabled is false, customs duty = 0 regardless of imports
     if !Config.OeEnabled then
       val imports = 1000000.0
-      val customs = if Config.OeEnabled then
-        imports * Config.CustomsNonEuShare * Config.CustomsDutyRate
-      else 0.0
+      val customs =
+        if Config.OeEnabled then imports * Config.CustomsNonEuShare * Config.CustomsDutyRate
+        else 0.0
       customs shouldBe 0.0
   }
 

@@ -11,7 +11,7 @@ class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
 
   private lazy val (result, stderrOutput) =
     val baos = new java.io.ByteArrayOutputStream()
-    val ps   = new java.io.PrintStream(baos)
+    val ps = new java.io.PrintStream(baos)
     val oldErr = System.err
     System.setErr(ps)
     try
@@ -59,8 +59,8 @@ class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
     assume(Config.GovBondMarket, "GOV_BOND_MARKET=true required")
     for t <- ts.indices do
       val outstanding = ts(t)(39) // BondsOutstanding
-      val bankHeld    = ts(t)(40) // BankBondHoldings
-      val nbpHeld     = ts(t)(41) // NbpBondHoldings
+      val bankHeld = ts(t)(40) // BankBondHoldings
+      val nbpHeld = ts(t)(41) // NbpBondHoldings
       withClue(s"Month ${t + 1}: bank($bankHeld) + nbp($nbpHeld) vs outstanding($outstanding): ") {
         (bankHeld + nbpHeld) shouldBe outstanding +- 1.0
       }
@@ -100,24 +100,21 @@ class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
 
   it should "have BankFailures = 0 in single-bank mode" in {
     assume(!Config.BankMulti, "single-bank mode required")
-    for t <- ts.indices do
-      ts(t)(51) shouldBe 0.0 // BankFailures
+    for t <- ts.indices do ts(t)(51) shouldBe 0.0 // BankFailures
   }
 
   // --- FX intervention OFF by default ---
 
   it should "have FxInterventionActive = 0 when FX intervention is off" in {
     assume(!Config.NbpFxIntervention, "FX intervention OFF required")
-    for t <- ts.indices do
-      ts(t)(47) shouldBe 0.0 // FxInterventionActive
+    for t <- ts.indices do ts(t)(47) shouldBe 0.0 // FxInterventionActive
   }
 
   // --- Open economy OFF by default ---
 
   it should "have zero NFA when open economy is off" in {
     assume(!Config.OeEnabled, "OPEN_ECON=false required")
-    for t <- ts.indices do
-      ts(t)(28) shouldBe 0.0 // NFA
+    for t <- ts.indices do ts(t)(28) shouldBe 0.0 // NFA
   }
 
   // --- Price floor ---

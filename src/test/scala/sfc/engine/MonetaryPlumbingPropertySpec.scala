@@ -1,12 +1,12 @@
 package sfc.engine
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
+import sfc.Generators.*
 import sfc.accounting.SfcCheck
 import sfc.agents.Banking
-import sfc.testutil.Generators.*
 import sfc.types.*
 
 /** Monetary plumbing property-based tests. */
@@ -29,7 +29,19 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   it should "scale linearly with reserves" in {
     forAll(genRate, Gen.choose(1e4, 1e9), Gen.choose(1.1, 5.0)) { (rate, reserves, mult) =>
       whenever(rate > 0.001) {
-        val b1 = Banking.BankState(BankId(0), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN.Zero, PLN(reserves), PLN.Zero, false, 0, 0)
+        val b1 = Banking.BankState(
+          BankId(0),
+          PLN(1e9),
+          PLN(5e8),
+          PLN(1e8),
+          PLN.Zero,
+          PLN.Zero,
+          PLN(reserves),
+          PLN.Zero,
+          false,
+          0,
+          0,
+        )
         val b2 = b1.copy(reservesAtNbp = PLN(reserves * mult))
         val r1 = Banking.reserveInterest(b1, rate)
         val r2 = Banking.reserveInterest(b2, rate)
@@ -53,8 +65,21 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     forAll(Gen.choose(-1e8, 1e8), genRate) { (net1, rate) =>
       whenever(rate > 0.001) {
         val banks = Vector(
-          Banking.BankState(BankId(0), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN.Zero, PLN.Zero, PLN(net1), false, 0, 0),
-          Banking.BankState(BankId(1), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN.Zero, PLN.Zero, PLN(-net1), false, 0, 0)
+          Banking
+            .BankState(BankId(0), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN.Zero, PLN.Zero, PLN(net1), false, 0, 0),
+          Banking.BankState(
+            BankId(1),
+            PLN(1e9),
+            PLN(5e8),
+            PLN(1e8),
+            PLN.Zero,
+            PLN.Zero,
+            PLN.Zero,
+            PLN(-net1),
+            false,
+            0,
+            0,
+          ),
         )
         val (_, total) = Banking.interbankInterestFlows(banks, rate)
         total shouldBe (0.0 +- 1.0)
@@ -66,7 +91,7 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     forAll(genRate) { rate =>
       val banks = Vector(
         Banking.BankState(BankId(0), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, false, 0, 0),
-        Banking.BankState(BankId(1), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, false, 0, 0)
+        Banking.BankState(BankId(1), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, false, 0, 0),
       )
       val (perBank, total) = Banking.interbankInterestFlows(banks, rate)
       perBank.foreach(_ shouldBe 0.0)
@@ -81,8 +106,10 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   "SfcCheck with monetary plumbing flows" should "pass for consistent snapshots" in {
     forAll(genConsistentFlowsAndSnapshots) { case (prev, curr, flows) =>
       val result = SfcCheck.validate(1, prev, curr, flows)
-      withClue(s"bankCapErr=${result.bankCapitalError}, bankDepErr=${result.bankDepositsError}, " +
-        s"govDebtErr=${result.govDebtError}: ") {
+      withClue(
+        s"bankCapErr=${result.bankCapitalError}, bankDepErr=${result.bankDepositsError}, " +
+          s"govDebtErr=${result.govDebtError}: ",
+      ) {
         result.passed shouldBe true
       }
     }

@@ -39,8 +39,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
   "Config.eduWagePremium" should "be monotonically increasing" in {
     val premia = (0 to 3).map(sfc.config.Config.eduWagePremium)
-    for i <- 0 until 3 do
-      premia(i) should be < premia(i + 1)
+    for i <- 0 until 3 do premia(i) should be < premia(i + 1)
   }
 
   it should "have Secondary = 1.0 (normalization)" in {
@@ -62,22 +61,19 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
   it should "have increasing floors" in {
     val floors = (0 to 3).map(e => sfc.config.Config.eduSkillRange(e)._1)
-    for i <- 0 until 3 do
-      floors(i) should be <= floors(i + 1)
+    for i <- 0 until 3 do floors(i) should be <= floors(i + 1)
   }
 
   it should "have increasing ceilings" in {
     val ceilings = (0 to 3).map(e => sfc.config.Config.eduSkillRange(e)._2)
-    for i <- 0 until 3 do
-      ceilings(i) should be <= ceilings(i + 1)
+    for i <- 0 until 3 do ceilings(i) should be <= ceilings(i + 1)
   }
 
   // ---- Retraining multipliers ----
 
   "Config.eduRetrainMultiplier" should "be monotonically increasing" in {
     val mults = (0 to 3).map(sfc.config.Config.eduRetrainMultiplier)
-    for i <- 0 until 3 do
-      mults(i) should be < mults(i + 1)
+    for i <- 0 until 3 do mults(i) should be < mults(i + 1)
   }
 
   it should "have Secondary = 1.0 (normalization)" in {
@@ -87,14 +83,33 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   // ---- Household field ----
 
   "Household.education" should "default to 2 (Secondary)" in {
-    val hh = Household.State(0, PLN(1000.0), PLN.Zero, PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
-      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int])
+    val hh = Household.State(
+      0,
+      PLN(1000.0),
+      PLN.Zero,
+      PLN(1800.0),
+      Ratio(0.5),
+      Ratio(0.0),
+      Ratio(0.85),
+      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
+      Array.empty[Int],
+    )
     hh.education shouldBe 2
   }
 
   it should "be preserved through copy" in {
-    val hh = Household.State(0, PLN(1000.0), PLN.Zero, PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
-      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int], education = 3)
+    val hh = Household.State(
+      0,
+      PLN(1000.0),
+      PLN.Zero,
+      PLN(1800.0),
+      Ratio(0.5),
+      Ratio(0.0),
+      Ratio(0.85),
+      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
+      Array.empty[Int],
+      education = 3,
+    )
     val copied = hh.copy(savings = PLN(2000.0))
     copied.education shouldBe 3
   }
@@ -105,52 +120,148 @@ class EducationSpec extends AnyFlatSpec with Matchers:
     // Set up: one firm that just automated with skeleton crew = 2
     // Two workers: one primary (edu=0, skill=0.5), one tertiary (edu=3, skill=0.4)
     // Tertiary should be retained despite lower skill (skeleton crew = max(2, 10*0.02) = 2, but need 3 workers to test)
-    val prevFirm = Firm.State(FirmId(0), PLN(1000000.0), PLN.Zero,
-      TechState.Traditional(3), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0), Array.empty[Int])
-    val newFirm = Firm.State(FirmId(0), PLN(1000000.0), PLN.Zero,
-      TechState.Automated(2), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0), Array.empty[Int])
+    val prevFirm = Firm.State(
+      FirmId(0),
+      PLN(1000000.0),
+      PLN.Zero,
+      TechState.Traditional(3),
+      Ratio(0.5),
+      1.0,
+      Ratio(0.5),
+      SectorIdx(0),
+      Array.empty[Int],
+    )
+    val newFirm = Firm.State(
+      FirmId(0),
+      PLN(1000000.0),
+      PLN.Zero,
+      TechState.Automated(2),
+      Ratio(0.5),
+      1.0,
+      Ratio(0.5),
+      SectorIdx(0),
+      Array.empty[Int],
+    )
 
-    val hhPrimary = Household.State(0, PLN(5000.0), PLN.Zero, PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
-      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int], education = 0)
-    val hhTertiary = Household.State(1, PLN(5000.0), PLN.Zero, PLN(1800.0), Ratio(0.4), Ratio(0.0), Ratio(0.85),
-      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5000.0)), Array.empty[Int], education = 3)
-    val hhVocational = Household.State(2, PLN(5000.0), PLN.Zero, PLN(1800.0), Ratio(0.6), Ratio(0.0), Ratio(0.85),
-      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5500.0)), Array.empty[Int], education = 1)
+    val hhPrimary = Household.State(
+      0,
+      PLN(5000.0),
+      PLN.Zero,
+      PLN(1800.0),
+      Ratio(0.5),
+      Ratio(0.0),
+      Ratio(0.85),
+      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
+      Array.empty[Int],
+      education = 0,
+    )
+    val hhTertiary = Household.State(
+      1,
+      PLN(5000.0),
+      PLN.Zero,
+      PLN(1800.0),
+      Ratio(0.4),
+      Ratio(0.0),
+      Ratio(0.85),
+      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5000.0)),
+      Array.empty[Int],
+      education = 3,
+    )
+    val hhVocational = Household.State(
+      2,
+      PLN(5000.0),
+      PLN.Zero,
+      PLN(1800.0),
+      Ratio(0.6),
+      Ratio(0.0),
+      Ratio(0.85),
+      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5500.0)),
+      Array.empty[Int],
+      education = 1,
+    )
 
     val result = sfc.engine.LaborMarket.separations(
       Vector(hhPrimary, hhTertiary, hhVocational),
       Array(prevFirm),
-      Array(newFirm)
+      Array(newFirm),
     )
 
     // Tertiary (id=1) should be retained first, then vocational (id=2). Primary (id=0) fired.
-    result(0).status shouldBe a[HhStatus.Unemployed]  // primary fired
-    result(1).status shouldBe a[HhStatus.Employed]    // tertiary retained
-    result(2).status shouldBe a[HhStatus.Employed]    // vocational retained
+    result(0).status shouldBe a[HhStatus.Unemployed] // primary fired
+    result(1).status shouldBe a[HhStatus.Employed] // tertiary retained
+    result(2).status shouldBe a[HhStatus.Employed] // vocational retained
   }
 
   it should "use skill as tiebreaker within same education level" in {
-    val prevFirm = Firm.State(FirmId(0), PLN(1000000.0), PLN.Zero,
-      TechState.Traditional(3), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0), Array.empty[Int])
-    val newFirm = Firm.State(FirmId(0), PLN(1000000.0), PLN.Zero,
-      TechState.Automated(2), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0), Array.empty[Int])
+    val prevFirm = Firm.State(
+      FirmId(0),
+      PLN(1000000.0),
+      PLN.Zero,
+      TechState.Traditional(3),
+      Ratio(0.5),
+      1.0,
+      Ratio(0.5),
+      SectorIdx(0),
+      Array.empty[Int],
+    )
+    val newFirm = Firm.State(
+      FirmId(0),
+      PLN(1000000.0),
+      PLN.Zero,
+      TechState.Automated(2),
+      Ratio(0.5),
+      1.0,
+      Ratio(0.5),
+      SectorIdx(0),
+      Array.empty[Int],
+    )
 
-    val hhLowSkill = Household.State(0, PLN(5000.0), PLN.Zero, PLN(1800.0), Ratio(0.3), Ratio(0.0), Ratio(0.85),
-      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int], education = 2)
-    val hhHighSkill = Household.State(1, PLN(5000.0), PLN.Zero, PLN(1800.0), Ratio(0.9), Ratio(0.0), Ratio(0.85),
-      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(7000.0)), Array.empty[Int], education = 2)
-    val hhMidSkill = Household.State(2, PLN(5000.0), PLN.Zero, PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
-      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6500.0)), Array.empty[Int], education = 2)
+    val hhLowSkill = Household.State(
+      0,
+      PLN(5000.0),
+      PLN.Zero,
+      PLN(1800.0),
+      Ratio(0.3),
+      Ratio(0.0),
+      Ratio(0.85),
+      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
+      Array.empty[Int],
+      education = 2,
+    )
+    val hhHighSkill = Household.State(
+      1,
+      PLN(5000.0),
+      PLN.Zero,
+      PLN(1800.0),
+      Ratio(0.9),
+      Ratio(0.0),
+      Ratio(0.85),
+      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(7000.0)),
+      Array.empty[Int],
+      education = 2,
+    )
+    val hhMidSkill = Household.State(
+      2,
+      PLN(5000.0),
+      PLN.Zero,
+      PLN(1800.0),
+      Ratio(0.5),
+      Ratio(0.0),
+      Ratio(0.85),
+      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6500.0)),
+      Array.empty[Int],
+      education = 2,
+    )
 
     val result = sfc.engine.LaborMarket.separations(
       Vector(hhLowSkill, hhHighSkill, hhMidSkill),
       Array(prevFirm),
-      Array(newFirm)
+      Array(newFirm),
     )
 
-    result(0).status shouldBe a[HhStatus.Unemployed]  // low skill fired
-    result(1).status shouldBe a[HhStatus.Employed]    // high skill retained
-    result(2).status shouldBe a[HhStatus.Employed]    // mid skill retained
+    result(0).status shouldBe a[HhStatus.Unemployed] // low skill fired
+    result(1).status shouldBe a[HhStatus.Employed] // high skill retained
+    result(2).status shouldBe a[HhStatus.Employed] // mid skill retained
   }
 
   // ---- Immigrant education ----
@@ -179,8 +290,28 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   "Household.Init.initialize" should "assign education to all households" in {
     val rng = new Random(42)
     val firms = Array(
-      Firm.State(FirmId(0), PLN(1000000.0), PLN.Zero, TechState.Traditional(5), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0), Array.empty[Int]),
-      Firm.State(FirmId(1), PLN(1000000.0), PLN.Zero, TechState.Traditional(5), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(2), Array.empty[Int])
+      Firm.State(
+        FirmId(0),
+        PLN(1000000.0),
+        PLN.Zero,
+        TechState.Traditional(5),
+        Ratio(0.5),
+        1.0,
+        Ratio(0.5),
+        SectorIdx(0),
+        Array.empty[Int],
+      ),
+      Firm.State(
+        FirmId(1),
+        PLN(1000000.0),
+        PLN.Zero,
+        TechState.Traditional(5),
+        Ratio(0.5),
+        1.0,
+        Ratio(0.5),
+        SectorIdx(2),
+        Array.empty[Int],
+      ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
     val hhs = Household.Init.initialize(10, 2, firms, socialNet, rng)
@@ -193,7 +324,17 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   it should "clamp skill within education-specific range" in {
     val rng = new Random(42)
     val firms = Array(
-      Firm.State(FirmId(0), PLN(1000000.0), PLN.Zero, TechState.Traditional(10), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0), Array.empty[Int])
+      Firm.State(
+        FirmId(0),
+        PLN(1000000.0),
+        PLN.Zero,
+        TechState.Traditional(10),
+        Ratio(0.5),
+        1.0,
+        Ratio(0.5),
+        SectorIdx(0),
+        Array.empty[Int],
+      ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
     val hhs = Household.Init.initialize(10, 1, firms, socialNet, rng)

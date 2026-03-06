@@ -91,7 +91,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase with excess returns" in {
-    val low = Nbfi.tfiInflow(1000, 8000.0, 0.0, 0.03, 0.05)  // fund < deposit
+    val low = Nbfi.tfiInflow(1000, 8000.0, 0.0, 0.03, 0.05) // fund < deposit
     val high = Nbfi.tfiInflow(1000, 8000.0, 0.0, 0.08, 0.02) // fund > deposit
     high should be > low
   }
@@ -105,13 +105,13 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be counter-cyclical (increase with bank tightness)" in {
-    val normal = Nbfi.nbfiOrigination(1000000.0, 0.02)  // NPL 2% → tightness 0
-    val tight = Nbfi.nbfiOrigination(1000000.0, 0.06)   // NPL 6% → tightness 1
+    val normal = Nbfi.nbfiOrigination(1000000.0, 0.02) // NPL 2% → tightness 0
+    val tight = Nbfi.nbfiOrigination(1000000.0, 0.06) // NPL 6% → tightness 1
     tight should be > normal
   }
 
   it should "equal base at zero tightness" in {
-    val base = Nbfi.nbfiOrigination(1000000.0, 0.03)  // NPL 3% → tightness 0
+    val base = Nbfi.nbfiOrigination(1000000.0, 0.03) // NPL 3% → tightness 0
     base shouldBe (1000000.0 * Config.NbfiCreditBaseRate) +- 1.0
   }
 
@@ -153,22 +153,19 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   "Nbfi.step" should "grow AUM with positive inflow" in {
     val init = Nbfi.initial
-    val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02,
-      0.05, 0.07, 0.005, 0.03, 1e8)
+    val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
     result.tfiAum > init.tfiAum shouldBe true
   }
 
   it should "produce deposit drain equal to negative inflow" in {
     val init = Nbfi.initial
-    val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02,
-      0.05, 0.07, 0.005, 0.03, 1e8)
+    val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
     result.lastDepositDrain.toDouble shouldBe -result.lastTfiNetInflow.toDouble +- 0.01
   }
 
   it should "maintain Identity 13 (NBFI credit stock)" in {
     val init = Nbfi.initial
-    val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02,
-      0.05, 0.07, 0.005, 0.03, 1e8)
+    val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
     val expectedChange = (result.lastNbfiOrigination - result.lastNbfiRepayment - result.lastNbfiDefaultAmount).toDouble
     val actualChange = (result.nbfiLoanStock - init.nbfiLoanStock).toDouble
     actualChange shouldBe expectedChange +- 0.01
@@ -182,30 +179,25 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       tfiCorpBondHoldings = PLN.Zero,
       tfiEquityHoldings = PLN.Zero,
       tfiCashHoldings = PLN(1000000.0),
-      nbfiLoanStock = PLN(100000.0)
+      nbfiLoanStock = PLN(100000.0),
     )
-    val result = Nbfi.step(offTarget, 50000, 8000.0, 1.0, 0.05, 0.02,
-      0.05, 0.07, 0.005, 0.03, 1e8)
+    val result = Nbfi.step(offTarget, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
     // Gov bond holdings should increase towards target
     result.tfiGovBondHoldings > PLN.Zero shouldBe true
   }
 
   it should "increase origination when bank NPL is high (counter-cyclical)" in {
     val init = Nbfi.initial
-    val normal = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02,
-      0.05, 0.07, 0.005, 0.03, 1e8)
-    val tight = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.06,
-      0.05, 0.07, 0.005, 0.03, 1e8)
+    val normal = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
+    val tight = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.06, 0.05, 0.07, 0.005, 0.03, 1e8)
     tight.lastNbfiOrigination > normal.lastNbfiOrigination shouldBe true
     tight.lastBankTightness.toDouble should be > normal.lastBankTightness.toDouble
   }
 
   it should "produce positive interest income from loan stock" in {
     val init = Nbfi.initial
-    val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02,
-      0.05, 0.07, 0.005, 0.03, 1e8)
-    if init.nbfiLoanStock > PLN.Zero then
-      result.lastNbfiInterestIncome > PLN.Zero shouldBe true
+    val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
+    if init.nbfiLoanStock > PLN.Zero then result.lastNbfiInterestIncome > PLN.Zero shouldBe true
   }
 
   // ---- Config defaults ----

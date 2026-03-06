@@ -34,7 +34,7 @@ class JstSpec extends AnyFlatSpec with Matchers:
 
   it should "compute property tax per firm correctly" in {
     val nFirms = 1000
-    val propertyTax = 5000.0  // per firm per year
+    val propertyTax = 5000.0 // per firm per year
     val monthly = nFirms.toDouble * propertyTax / 12.0
     monthly shouldBe (1000.0 * 5000.0 / 12.0 +- 1.0)
   }

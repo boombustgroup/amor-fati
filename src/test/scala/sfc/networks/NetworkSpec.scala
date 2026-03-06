@@ -21,15 +21,13 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   it should "be symmetric" in {
     Random.setSeed(42)
     val adj = Network.wattsStrogatz(1000, 6, 0.10)
-    for i <- adj.indices; j <- adj(i) do
-      adj(j) should contain(i)
+    for i <- adj.indices; j <- adj(i) do adj(j) should contain(i)
   }
 
   it should "have no self-loops" in {
     Random.setSeed(42)
     val adj = Network.wattsStrogatz(1000, 6, 0.10)
-    for i <- adj.indices do
-      adj(i) should not contain i
+    for i <- adj.indices do adj(i) should not contain i
   }
 
   it should "be a single connected component" in {
@@ -49,8 +47,7 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   it should "produce exact degree k when p=0.0" in {
     Random.setSeed(42)
     val adj = Network.wattsStrogatz(1000, 6, 0.0)
-    for i <- adj.indices do
-      adj(i).length shouldBe 6
+    for i <- adj.indices do adj(i).length shouldBe 6
   }
 
   // --- Erdos-Renyi ---
@@ -65,15 +62,13 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   it should "be symmetric" in {
     val rng = new Random(42)
     val adj = Network.erdosRenyi(1000, 6, rng)
-    for i <- adj.indices; j <- adj(i) do
-      adj(j) should contain(i)
+    for i <- adj.indices; j <- adj(i) do adj(j) should contain(i)
   }
 
   it should "have no self-loops" in {
     val rng = new Random(42)
     val adj = Network.erdosRenyi(1000, 6, rng)
-    for i <- adj.indices do
-      adj(i) should not contain i
+    for i <- adj.indices do adj(i) should not contain i
   }
 
   // --- Barabasi-Albert ---
@@ -88,42 +83,36 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   it should "be symmetric" in {
     val rng = new Random(42)
     val adj = Network.barabasiAlbert(1000, 3, rng)
-    for i <- adj.indices; j <- adj(i) do
-      adj(j) should contain(i)
+    for i <- adj.indices; j <- adj(i) do adj(j) should contain(i)
   }
 
   it should "have no self-loops" in {
     val rng = new Random(42)
     val adj = Network.barabasiAlbert(1000, 3, rng)
-    for i <- adj.indices do
-      adj(i) should not contain i
+    for i <- adj.indices do adj(i) should not contain i
   }
 
   it should "have no isolated nodes" in {
     val rng = new Random(42)
     val adj = Network.barabasiAlbert(1000, 3, rng)
-    for i <- adj.indices do
-      adj(i).length should be > 0
+    for i <- adj.indices do adj(i).length should be > 0
   }
 
   // --- Ring Lattice ---
 
   "lattice" should "produce exact degree k for all nodes" in {
     val adj = Network.lattice(1000, 6)
-    for i <- adj.indices do
-      adj(i).length shouldBe 6
+    for i <- adj.indices do adj(i).length shouldBe 6
   }
 
   it should "be symmetric" in {
     val adj = Network.lattice(1000, 6)
-    for i <- adj.indices; j <- adj(i) do
-      adj(j) should contain(i)
+    for i <- adj.indices; j <- adj(i) do adj(j) should contain(i)
   }
 
   it should "have no self-loops" in {
     val adj = Network.lattice(1000, 6)
-    for i <- adj.indices do
-      adj(i) should not contain i
+    for i <- adj.indices do adj(i) should not contain i
   }
 
   // --- localAutoRatio ---
@@ -132,7 +121,7 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
     val firms = Array(
       mkFirm(0, TechState.Traditional(10), Array(1, 2)),
       mkFirm(1, TechState.Traditional(10), Array(0)),
-      mkFirm(2, TechState.Traditional(10), Array(0))
+      mkFirm(2, TechState.Traditional(10), Array(0)),
     )
     Network.localAutoRatio(firms(0), firms) shouldBe 0.0
   }
@@ -141,7 +130,7 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
     val firms = Array(
       mkFirm(0, TechState.Traditional(10), Array(1, 2)),
       mkFirm(1, TechState.Automated(1.2), Array(0)),
-      mkFirm(2, TechState.Automated(1.1), Array(0))
+      mkFirm(2, TechState.Automated(1.1), Array(0)),
     )
     Network.localAutoRatio(firms(0), firms) shouldBe 1.0
   }
@@ -151,7 +140,7 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
       mkFirm(0, TechState.Traditional(10), Array(1, 2, 3)),
       mkFirm(1, TechState.Automated(1.2), Array(0)),
       mkFirm(2, TechState.Hybrid(5, 1.0), Array(0)),
-      mkFirm(3, TechState.Traditional(10), Array(0))
+      mkFirm(3, TechState.Traditional(10), Array(0)),
     )
     Network.localAutoRatio(firms(0), firms) shouldBe (2.0 / 3.0 +- 0.001)
   }

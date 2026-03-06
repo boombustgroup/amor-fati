@@ -31,8 +31,8 @@ class PitSpec extends AnyFlatSpec with Matchers:
     // 8266 PLN/month → 99192 PLN/year (below 120000 bracket)
     val monthly = 8266.0
     val annualized = monthly * 12.0
-    val grossTax = annualized * 0.12  // 11903.04
-    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0  // (11903.04 - 3600) / 12 = 691.92
+    val grossTax = annualized * 0.12 // 11903.04
+    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0 // (11903.04 - 3600) / 12 = 691.92
     netTax shouldBe 691.92 +- 0.01
   }
 
@@ -40,10 +40,10 @@ class PitSpec extends AnyFlatSpec with Matchers:
     // 15000 PLN/month → 180000 PLN/year (above 120000 bracket)
     val monthly = 15000.0
     val annualized = monthly * 12.0
-    val bracket1Tax = 120000.0 * 0.12  // 14400
-    val bracket2Tax = (annualized - 120000.0) * 0.32  // 60000 × 0.32 = 19200
-    val grossTax = bracket1Tax + bracket2Tax  // 33600
-    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0  // (33600 - 3600) / 12 = 2500
+    val bracket1Tax = 120000.0 * 0.12 // 14400
+    val bracket2Tax = (annualized - 120000.0) * 0.32 // 60000 × 0.32 = 19200
+    val grossTax = bracket1Tax + bracket2Tax // 33600
+    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0 // (33600 - 3600) / 12 = 2500
     netTax shouldBe 2500.0 +- 0.01
   }
 
@@ -51,11 +51,11 @@ class PitSpec extends AnyFlatSpec with Matchers:
     // Median: ~7000 PLN/month → 84000/year
     val monthly = 7000.0
     val annualized = monthly * 12.0
-    val grossTax = annualized * 0.12  // 10080
-    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0  // (10080 - 3600) / 12 = 540
+    val grossTax = annualized * 0.12 // 10080
+    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0 // (10080 - 3600) / 12 = 540
     val effectiveRate = netTax / monthly
     effectiveRate shouldBe 0.0771 +- 0.01
-    effectiveRate should be < 0.12  // kwota wolna reduces effective rate
+    effectiveRate should be < 0.12 // kwota wolna reduces effective rate
   }
 
   it should "have kwota wolna eliminate tax for very low income" in {
@@ -63,8 +63,8 @@ class PitSpec extends AnyFlatSpec with Matchers:
     // 3600 / 0.12 = 30000 PLN/year → 2500 PLN/month
     val monthly = 2500.0
     val annualized = monthly * 12.0
-    val grossTax = annualized * 0.12  // 3600
-    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0  // 0
+    val grossTax = annualized * 0.12 // 3600
+    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0 // 0
     netTax shouldBe 0.0
   }
 
@@ -80,14 +80,34 @@ class PitSpec extends AnyFlatSpec with Matchers:
 
   "Household.Aggregates.totalPit" should "default to 0.0" in {
     val agg = Household.Aggregates(
-      employed = 0, unemployed = 0, retraining = 0, bankrupt = 0,
-      totalIncome = PLN.Zero, consumption = PLN.Zero, domesticConsumption = PLN.Zero, importConsumption = PLN.Zero,
-      marketWage = PLN.Zero, reservationWage = PLN.Zero, giniIndividual = Ratio.Zero, giniWealth = Ratio.Zero,
-      meanSavings = PLN.Zero, medianSavings = PLN.Zero, povertyRate50 = Ratio.Zero, bankruptcyRate = Ratio.Zero,
-      meanSkill = 0, meanHealthPenalty = 0, retrainingAttempts = 0, retrainingSuccesses = 0,
-      consumptionP10 = PLN.Zero, consumptionP50 = PLN.Zero, consumptionP90 = PLN.Zero,
-      meanMonthsToRuin = 0, povertyRate30 = Ratio.Zero, totalRent = PLN.Zero,
-      totalDebtService = PLN.Zero, totalUnempBenefits = PLN.Zero
+      employed = 0,
+      unemployed = 0,
+      retraining = 0,
+      bankrupt = 0,
+      totalIncome = PLN.Zero,
+      consumption = PLN.Zero,
+      domesticConsumption = PLN.Zero,
+      importConsumption = PLN.Zero,
+      marketWage = PLN.Zero,
+      reservationWage = PLN.Zero,
+      giniIndividual = Ratio.Zero,
+      giniWealth = Ratio.Zero,
+      meanSavings = PLN.Zero,
+      medianSavings = PLN.Zero,
+      povertyRate50 = Ratio.Zero,
+      bankruptcyRate = Ratio.Zero,
+      meanSkill = 0,
+      meanHealthPenalty = 0,
+      retrainingAttempts = 0,
+      retrainingSuccesses = 0,
+      consumptionP10 = PLN.Zero,
+      consumptionP50 = PLN.Zero,
+      consumptionP90 = PLN.Zero,
+      meanMonthsToRuin = 0,
+      povertyRate30 = Ratio.Zero,
+      totalRent = PLN.Zero,
+      totalDebtService = PLN.Zero,
+      totalUnempBenefits = PLN.Zero,
     )
     agg.totalPit.toDouble shouldBe 0.0
   }

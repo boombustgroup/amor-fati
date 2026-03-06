@@ -4,8 +4,8 @@ import sfc.types.*
 
 /** Monetary regime: determines central bank behavior and exchange rate dynamics. */
 enum MonetaryRegime:
-  case Pln   // NBP Taylor rule + floating PLN/EUR
-  case Eur   // Exogenous ECB rate + fixed exchange rate (Eurozone membership)
+  case Pln // NBP Taylor rule + floating PLN/EUR
+  case Eur // Exogenous ECB rate + fixed exchange rate (Eurozone membership)
 
 /** Network topology selection for comparative experiments. */
 enum Topology:
@@ -15,56 +15,115 @@ enum Topology:
 enum HhMode:
   case Aggregate, Individual
 
-/**
- * Runtime configuration: values that depend on CLI arguments.
- * Passed through runSingle and Simulation.step.
- */
+/** Runtime configuration: values that depend on CLI arguments. Passed through runSingle and Simulation.step.
+  */
 case class RunConfig(
   bdpAmount: Double,
   nSeeds: Int,
   outputPrefix: String,
-  regime: MonetaryRegime = MonetaryRegime.Pln
+  regime: MonetaryRegime = MonetaryRegime.Pln,
 ):
   val isNoBdp: Boolean = bdpAmount == 0.0
   val isEurozone: Boolean = regime == MonetaryRegime.Eur
 
-/**
- * 4-to-6 sector definition with heterogeneous sigma (CES elasticity of substitution).
- * sigma affects: decision threshold, automation efficiency, CAPEX costs.
- */
+/** 4-to-6 sector definition with heterogeneous sigma (CES elasticity of substitution). sigma affects: decision
+  * threshold, automation efficiency, CAPEX costs.
+  */
 case class SectorDef(
   name: String,
-  share: Ratio,         // Share of firm population (GUS BAEL 2024)
-  sigma: Double,        // CES elasticity of substitution
-  wageMultiplier: Double,        // Sector wage multiplier vs national average
+  share: Ratio, // Share of firm population (GUS BAEL 2024)
+  sigma: Double, // CES elasticity of substitution
+  wageMultiplier: Double, // Sector wage multiplier vs national average
   revenueMultiplier: Double,
   aiCapexMultiplier: Double,
   hybridCapexMultiplier: Double,
-  baseDigitalReadiness: Ratio,   // Central tendency of digitalReadiness
-  hybridRetainFrac: Ratio        // Fraction of workers RETAINED in hybrid mode (0.5 = halve)
+  baseDigitalReadiness: Ratio, // Central tendency of digitalReadiness
+  hybridRetainFrac: Ratio, // Fraction of workers RETAINED in hybrid mode (0.5 = halve)
 )
 
 // Calibration GUS/NBP 2024: 6 sectors of the Polish economy
 private val BASE_SECTORS: Vector[SectorDef] = Vector(
   //                             share          sigma wage  rev   aiCpx hybCpx digiR          hybRet
-  SectorDef("BPO/SSC",          Ratio(0.03), 50.0, 1.35, 1.50, 0.70, 0.70,  Ratio(0.50),  Ratio(0.50)),  // ~489k workers (ABSL), avg 11 154 PLN
-  SectorDef("Manufacturing",    Ratio(0.16), 10.0, 0.94, 1.05, 1.12, 1.05,  Ratio(0.45),  Ratio(0.60)),  // ~2.8M workers, avg ~7 800 PLN
-  SectorDef("Retail/Services",  Ratio(0.45),  5.0, 0.79, 0.91, 0.85, 0.80,  Ratio(0.40),  Ratio(0.65)),  // ~61% employment (services), avg ~6 500 PLN
-  SectorDef("Healthcare",       Ratio(0.06),  2.0, 0.97, 1.10, 1.38, 1.25,  Ratio(0.25),  Ratio(0.75)),  // ~5.5%, nurses 6 890, doctors 16 300
-  SectorDef("Public",           Ratio(0.22),  1.0, 0.91, 1.08, 3.00, 2.50,  Ratio(0.08),  Ratio(0.90)),  // ~22% employment (public sector), avg ~7 500 PLN
-  SectorDef("Agriculture",      Ratio(0.08),  3.0, 0.67, 0.80, 2.50, 2.00,  Ratio(0.12),  Ratio(0.85))   // ~8% BAEL, avg ~5 500 PLN
+  SectorDef(
+    "BPO/SSC",
+    Ratio(0.03),
+    50.0,
+    1.35,
+    1.50,
+    0.70,
+    0.70,
+    Ratio(0.50),
+    Ratio(0.50),
+  ), // ~489k workers (ABSL), avg 11 154 PLN
+  SectorDef(
+    "Manufacturing",
+    Ratio(0.16),
+    10.0,
+    0.94,
+    1.05,
+    1.12,
+    1.05,
+    Ratio(0.45),
+    Ratio(0.60),
+  ), // ~2.8M workers, avg ~7 800 PLN
+  SectorDef(
+    "Retail/Services",
+    Ratio(0.45),
+    5.0,
+    0.79,
+    0.91,
+    0.85,
+    0.80,
+    Ratio(0.40),
+    Ratio(0.65),
+  ), // ~61% employment (services), avg ~6 500 PLN
+  SectorDef(
+    "Healthcare",
+    Ratio(0.06),
+    2.0,
+    0.97,
+    1.10,
+    1.38,
+    1.25,
+    Ratio(0.25),
+    Ratio(0.75),
+  ), // ~5.5%, nurses 6 890, doctors 16 300
+  SectorDef(
+    "Public",
+    Ratio(0.22),
+    1.0,
+    0.91,
+    1.08,
+    3.00,
+    2.50,
+    Ratio(0.08),
+    Ratio(0.90),
+  ), // ~22% employment (public sector), avg ~7 500 PLN
+  SectorDef(
+    "Agriculture",
+    Ratio(0.08),
+    3.0,
+    0.67,
+    0.80,
+    2.50,
+    2.00,
+    Ratio(0.12),
+    Ratio(0.85),
+  ), // ~8% BAEL, avg ~5 500 PLN
 )
 
-/** SECTORS with optional sigma override via SIGMAS env var.
-  * Format: SIGMAS="3.5,2.0,2.5,0.8,0.5,1.2" (6 comma-separated values, one per sector).
-  * When unset, uses calibrated values from BASE_SECTORS.
-  * SIGMA_MULT env var multiplies all sector sigmas (applied after SIGMAS override). */
+/** SECTORS with optional sigma override via SIGMAS env var. Format: SIGMAS="3.5,2.0,2.5,0.8,0.5,1.2" (6 comma-separated
+  * values, one per sector). When unset, uses calibrated values from BASE_SECTORS. SIGMA_MULT env var multiplies all
+  * sector sigmas (applied after SIGMAS override).
+  */
 val SECTORS: Vector[SectorDef] =
   val afterSigmas = sys.env.get("SIGMAS") match
     case Some(s) if s.nonEmpty =>
       val sigmas = s.split(",").map(_.trim.toDouble)
-      require(sigmas.length == BASE_SECTORS.length,
-        s"SIGMAS env var must have ${BASE_SECTORS.length} values, got ${sigmas.length}")
+      require(
+        sigmas.length == BASE_SECTORS.length,
+        s"SIGMAS env var must have ${BASE_SECTORS.length} values, got ${sigmas.length}",
+      )
       BASE_SECTORS.zip(sigmas).map((sd, sig) => sd.copy(sigma = sig))
     case _ => BASE_SECTORS
   val sigmaMult = sys.env.get("SIGMA_MULT").map(_.trim.toDouble).getOrElse(1.0)
@@ -96,37 +155,34 @@ object FirmSizeDistribution:
       else if r < Config.FirmSizeMicroShare + Config.FirmSizeSmallShare then rng.between(10, 50)
       else if r < 1.0 - Config.FirmSizeLargeShare then rng.between(50, 250)
       else rng.between(250, Config.FirmSizeLargeMax + 1)
-    case _ => Config.WorkersPerFirm  // "uniform": all 10
+    case _ => Config.WorkersPerFirm // "uniform": all 10
 
-/**
- * Complete parameterization of a 48-mechanism SFC-ABM model of the Polish economy.
- *
- * '''Model geography:''' Poland, 6-sector (BPO/SSC, Manufacturing, Retail/Services,
- * Healthcare, Public, Agriculture). Calibration year: 2024 unless noted otherwise.
- *
- * '''Calibration sources:''' GUS (Central Statistical Office — BAEL, BBGD, REGON, COICOP,
- * national accounts, I-O tables), NBP (monetary policy, BoP, MIR, Financial Stability Report,
- * FDI statistics), KNF (BION/SREP, insurance market, Recommendation S), MF (budget, SGP),
- * Eurostat (COFOG, SBS, energy), OECD (TiVA, Education at a Glance), WIOD, ZUS, IZFiA, URE.
- *
- * '''Environment variable overrides:''' Every field with `sys.env.get("ENV_VAR")` can be
- * overridden at runtime. See SUMMARY.md for the full catalogue (353 env vars).
- *
- * '''GdpRatio auto-scaling:''' Stock variables (bank deposits, loans, gov debt, etc.) are
- * calibrated to Poland's real economy (~3.5 tln PLN GDP) then scaled by `GdpRatio` so that
- * changing `FIRMS_COUNT` or `FIRM_SIZE_DIST` keeps balance-sheet ratios consistent with the
- * model's effective GDP. This means a 1 000-firm model has the same debt/GDP ratio as a
- * 10 000-firm model.
- *
- * '''SFC identities:''' 14 stock-flow consistency checks verified every period.
- * See SUMMARY.md § "SFC Identities" for the complete list.
- *
- * '''Organization:''' Fields are grouped by institutional domain (fiscal policy, monetary
- * policy, banking, etc.). Within each section, a banner comment explains the real-world
- * institutional context, and per-field comments give calibration sources and rationale.
- * A future refactoring (RX) will restructure into nested sub-objects; for now the flat
- * `Config.X` access pattern is preserved.
- */
+/** Complete parameterization of a 48-mechanism SFC-ABM model of the Polish economy.
+  *
+  * '''Model geography:''' Poland, 6-sector (BPO/SSC, Manufacturing, Retail/Services, Healthcare, Public, Agriculture).
+  * Calibration year: 2024 unless noted otherwise.
+  *
+  * '''Calibration sources:''' GUS (Central Statistical Office — BAEL, BBGD, REGON, COICOP, national accounts, I-O
+  * tables), NBP (monetary policy, BoP, MIR, Financial Stability Report, FDI statistics), KNF (BION/SREP, insurance
+  * market, Recommendation S), MF (budget, SGP), Eurostat (COFOG, SBS, energy), OECD (TiVA, Education at a Glance),
+  * WIOD, ZUS, IZFiA, URE.
+  *
+  * '''Environment variable overrides:''' Every field with `sys.env.get("ENV_VAR")` can be overridden at runtime. See
+  * SUMMARY.md for the full catalogue (353 env vars).
+  *
+  * '''GdpRatio auto-scaling:''' Stock variables (bank deposits, loans, gov debt, etc.) are calibrated to Poland's real
+  * economy (~3.5 tln PLN GDP) then scaled by `GdpRatio` so that changing `FIRMS_COUNT` or `FIRM_SIZE_DIST` keeps
+  * balance-sheet ratios consistent with the model's effective GDP. This means a 1 000-firm model has the same debt/GDP
+  * ratio as a 10 000-firm model.
+  *
+  * '''SFC identities:''' 14 stock-flow consistency checks verified every period. See SUMMARY.md § "SFC Identities" for
+  * the complete list.
+  *
+  * '''Organization:''' Fields are grouped by institutional domain (fiscal policy, monetary policy, banking, etc.).
+  * Within each section, a banner comment explains the real-world institutional context, and per-field comments give
+  * calibration sources and rationale. A future refactoring (RX) will restructure into nested sub-objects; for now the
+  * flat `Config.X` access pattern is preserved.
+  */
 object Config:
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -139,8 +195,8 @@ object Config:
   // ═══════════════════════════════════════════════════════════════════════
 
   // Number of firms in the model (default 10 000; scale up for smoother distributions)
-  val FirmsCount       = sys.env.get("FIRMS_COUNT").map(_.trim.toInt).getOrElse(10000)
-  val WorkersPerFirm   = 10        // Uniform-mode baseline (overridden by FirmSizeDistribution.draw)
+  val FirmsCount = sys.env.get("FIRMS_COUNT").map(_.trim.toInt).getOrElse(10000)
+  val WorkersPerFirm = 10 // Uniform-mode baseline (overridden by FirmSizeDistribution.draw)
   var TotalPopulation: Int = FirmsCount * WorkersPerFirm
   def setTotalPopulation(n: Int): Unit = TotalPopulation = n
 
@@ -170,7 +226,10 @@ object Config:
   val FirmEntrySectorBarriers: Vector[Double] = sys.env.get("FIRM_ENTRY_SECTOR_BARRIERS") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == SECTORS.length, s"FIRM_ENTRY_SECTOR_BARRIERS must have ${SECTORS.length} values, got ${v.length}")
+      require(
+        v.length == SECTORS.length,
+        s"FIRM_ENTRY_SECTOR_BARRIERS must have ${SECTORS.length} values, got ${v.length}",
+      )
       v
     case _ => Vector(0.8, 0.6, 1.2, 0.5, 0.1, 0.7)
   // Sector digitalReadiness must exceed this for AI-native startup creation
@@ -185,8 +244,8 @@ object Config:
   // Duration in months. ShockMonth = period when BDP (AI productivity) shock hits.
   // ═══════════════════════════════════════════════════════════════════════
 
-  val Duration         = sys.env.get("DURATION").map(_.trim.toInt).getOrElse(120)   // months (default 10 years)
-  val ShockMonth       = sys.env.get("SHOCK_MONTH").map(_.trim.toInt).getOrElse(30) // month of BDP shock
+  val Duration = sys.env.get("DURATION").map(_.trim.toInt).getOrElse(120) // months (default 10 years)
+  val ShockMonth = sys.env.get("SHOCK_MONTH").map(_.trim.toInt).getOrElse(30) // month of BDP shock
 
   // ═══════════════════════════════════════════════════════════════════════
   // FIRM PRODUCTION & COSTS
@@ -196,7 +255,7 @@ object Config:
   // ═══════════════════════════════════════════════════════════════════════
 
   // Monthly revenue per firm before sector multiplier (PLN; calibrated to GUS 2024 wage level)
-  val BaseRevenue      = 100000.0
+  val BaseRevenue = 100000.0
 
   // GdpRatio: auto-scales real-economy stock variables to match model size.
   // When FirmsCount or FirmSizeDist changes, GdpRatio adjusts so that
@@ -213,14 +272,14 @@ object Config:
   private val GdpRatio: Double =
     (FirmsCount.toDouble * ExpectedAvgWorkers / WorkersPerFirm.toDouble * BaseRevenue * 12.0) / RealGdp
 
-  val OtherCosts       = 16667.0    // Monthly non-labor operating costs per firm (PLN)
-  val AiCapex          = 1200000.0  // One-time full-AI adoption investment (PLN)
-  val HybridCapex      = 350000.0   // One-time hybrid (human+AI) adoption investment (PLN)
-  val AiOpex           = 30000.0    // Monthly AI operating cost: cloud, licenses, maintenance (PLN)
-  val HybridOpex       = 12000.0    // Monthly hybrid operating cost (PLN)
-  val AutoSkeletonCrew = 2          // Minimum workers retained even in full-AI mode
-  val HybridReadinessMin = 0.20     // Minimum digitalReadiness to adopt hybrid mode (fraction 0-1)
-  val FullAiReadinessMin = 0.35     // Minimum digitalReadiness to adopt full-AI mode (fraction 0-1)
+  val OtherCosts = 16667.0 // Monthly non-labor operating costs per firm (PLN)
+  val AiCapex = 1200000.0 // One-time full-AI adoption investment (PLN)
+  val HybridCapex = 350000.0 // One-time hybrid (human+AI) adoption investment (PLN)
+  val AiOpex = 30000.0 // Monthly AI operating cost: cloud, licenses, maintenance (PLN)
+  val HybridOpex = 12000.0 // Monthly hybrid operating cost (PLN)
+  val AutoSkeletonCrew = 2 // Minimum workers retained even in full-AI mode
+  val HybridReadinessMin = 0.20 // Minimum digitalReadiness to adopt hybrid mode (fraction 0-1)
+  val FullAiReadinessMin = 0.35 // Minimum digitalReadiness to adopt full-AI mode (fraction 0-1)
 
   // Demand pass-through: fraction of demand shock transmitted to firm revenue.
   // <1.0 reflects contractual rigidity, inventory buffers, and delivery lags.
@@ -233,12 +292,12 @@ object Config:
   // BaseReservationWage ≈ statutory minimum wage 2025 (Dz.U. 2024 poz. 1286).
   // MPC from GUS BBGD 2023: ~82% of disposable income consumed.
   // ═══════════════════════════════════════════════════════════════════════
-  val BaseWage              = 8266.0    // GUS average gross monthly wage 2024 (PLN)
-  val BaseReservationWage   = 4666.0    // Statutory minimum wage 2025 (PLN/month gross)
-  val ReservationBdpMult    = 0.5       // Reservation wage multiplier for BDP recipients
-  val Mpc                   = 0.82      // Marginal propensity to consume (GUS BBGD 2023)
-  val LaborSupplySteepness  = 8.0       // Logistic labor supply curve steepness
-  val WageAdjSpeed          = 0.12      // Monthly wage Phillips-curve adjustment speed (fraction)
+  val BaseWage = 8266.0 // GUS average gross monthly wage 2024 (PLN)
+  val BaseReservationWage = 4666.0 // Statutory minimum wage 2025 (PLN/month gross)
+  val ReservationBdpMult = 0.5 // Reservation wage multiplier for BDP recipients
+  val Mpc = 0.82 // Marginal propensity to consume (GUS BBGD 2023)
+  val LaborSupplySteepness = 8.0 // Logistic labor supply curve steepness
+  val WageAdjSpeed = 0.12 // Monthly wage Phillips-curve adjustment speed (fraction)
 
   // ═══════════════════════════════════════════════════════════════════════
   // FISCAL POLICY — GOVERNMENT
@@ -253,7 +312,7 @@ object Config:
   // Sources: MF budget execution reports, GUS national accounts, Eurostat COFOG.
   // ═══════════════════════════════════════════════════════════════════════
   // Corporate income tax: 19% flat rate (Art. 19 Ustawa o CIT; 9% for small taxpayers not modeled)
-  val CitRate          = 0.19
+  val CitRate = 0.19
   // Reduced VAT rates: per-sector effective rate (Ustawa o VAT / GUS COICOP 2024)
   // Standard 23%, food/hospitality 8%, basic goods 5%, medical exempt
   val VatRates: Vector[Double] = sys.env.get("VAT_RATES") match
@@ -272,13 +331,15 @@ object Config:
     case _ => Vector(0.01, 0.04, 0.03, 0.005, 0.002, 0.02)
     // BPO 1%, Mfg 4% (fuel-heavy), Retail 3% (alcohol/tobacco), Hlt 0.5%, Pub 0.2%, Agr 2%
   val CustomsDutyRate: Double = sys.env.get("CUSTOMS_DUTY_RATE").map(_.trim.toDouble).getOrElse(0.04)
-    // 4% effective rate on non-EU imports (EU Common External Tariff weighted avg)
+  // 4% effective rate on non-EU imports (EU Common External Tariff weighted avg)
   val CustomsNonEuShare: Double = sys.env.get("CUSTOMS_NON_EU_SHARE").map(_.trim.toDouble).getOrElse(0.30)
-    // 30% of imports from non-EU (= 1 - GvcEuTradeShare default)
+  // 30% of imports from non-EU (= 1 - GvcEuTradeShare default)
 
   // Government current consumption: goods, services, public-sector wages (GUS 2024: ~700 mld PLN/year)
-  val GovBaseSpending: Double = sys.env.get("GOV_BASE_SPENDING").map(_.trim.toDouble)
-    .getOrElse(58.3e9) * GdpRatio  // 58.3e9 PLN/month = 700e9/year
+  val GovBaseSpending: Double = sys.env
+    .get("GOV_BASE_SPENDING")
+    .map(_.trim.toDouble)
+    .getOrElse(58.3e9) * GdpRatio // 58.3e9 PLN/month = 700e9/year
 
   // Fiscal recycling: fraction of lagged tax revenue recycled as additional government
   // purchases. In real economies, tax revenue funds government consumption beyond autonomous
@@ -299,10 +360,14 @@ object Config:
   // Poland 2024: public GFCF ~5% GDP (GUS, Eurostat COFOG GF04+GF02).
   // ───────────────────────────────────────────────────────────────────────
   val GovInvestEnabled: Boolean = sys.env.get("GOV_INVEST_ENABLED").map(_.trim.toBoolean).getOrElse(false)
-  val GovInvestShare: Double = sys.env.get("GOV_INVEST_SHARE").map(_.trim.toDouble).getOrElse(0.20)  // 20% of spending is GFCF
-  val GovCapitalMultiplier: Double = sys.env.get("GOV_CAPITAL_MULTIPLIER").map(_.trim.toDouble).getOrElse(1.5)  // Long-run investment multiplier
-  val GovCurrentMultiplier: Double = sys.env.get("GOV_CURRENT_MULTIPLIER").map(_.trim.toDouble).getOrElse(0.8)  // Current spending multiplier
-  val GovDepreciationRate: Double = sys.env.get("GOV_DEPRECIATION_RATE").map(_.trim.toDouble).getOrElse(0.06)   // Annual depreciation of public capital
+  val GovInvestShare: Double =
+    sys.env.get("GOV_INVEST_SHARE").map(_.trim.toDouble).getOrElse(0.20) // 20% of spending is GFCF
+  val GovCapitalMultiplier: Double =
+    sys.env.get("GOV_CAPITAL_MULTIPLIER").map(_.trim.toDouble).getOrElse(1.5) // Long-run investment multiplier
+  val GovCurrentMultiplier: Double =
+    sys.env.get("GOV_CURRENT_MULTIPLIER").map(_.trim.toDouble).getOrElse(0.8) // Current spending multiplier
+  val GovDepreciationRate: Double =
+    sys.env.get("GOV_DEPRECIATION_RATE").map(_.trim.toDouble).getOrElse(0.06) // Annual depreciation of public capital
   val GovInitCapital: Double = sys.env.get("GOV_INIT_CAPITAL").map(_.trim.toDouble).getOrElse(0.0)
 
   // ───────────────────────────────────────────────────────────────────────
@@ -366,22 +431,28 @@ object Config:
   val FofConsWeights: Vector[Double] = sys.env.get("FOF_CONS_WEIGHTS") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
-        s"FOF_CONS_WEIGHTS must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      require(
+        v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
+        s"FOF_CONS_WEIGHTS must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}",
+      )
       v
     case _ => Vector(0.02, 0.22, 0.53, 0.06, 0.07, 0.10)
   val FofGovWeights: Vector[Double] = sys.env.get("FOF_GOV_WEIGHTS") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
-        s"FOF_GOV_WEIGHTS must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      require(
+        v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
+        s"FOF_GOV_WEIGHTS must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}",
+      )
       v
     case _ => Vector(0.04, 0.12, 0.08, 0.16, 0.50, 0.10)
   val FofExportShares: Vector[Double] = sys.env.get("FOF_EXPORT_SHARES") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
-        s"FOF_EXPORT_SHARES must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      require(
+        v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
+        s"FOF_EXPORT_SHARES must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}",
+      )
       v
     case _ => Vector(0.07, 0.52, 0.12, 0.02, 0.03, 0.24)
   // Investment demand weights — sector distribution of GFCF spending (GUS GFCF structure 2024)
@@ -394,8 +465,10 @@ object Config:
   val FofInvestWeights: Vector[Double] = sys.env.get("FOF_INVEST_WEIGHTS") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
-        s"FOF_INVEST_WEIGHTS must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      require(
+        v.length == 6 && Math.abs(v.sum - 1.0) < 0.01,
+        s"FOF_INVEST_WEIGHTS must have 6 values summing to ~1.0, got ${v.length} summing to ${v.sum}",
+      )
       v
     case _ => Vector(0.10, 0.40, 0.15, 0.05, 0.20, 0.10)
 
@@ -412,15 +485,17 @@ object Config:
   // Sources: NBP Monetary Policy Guidelines 2024, RPP minutes, NBP MIR database.
   // ═══════════════════════════════════════════════════════════════════════
 
-  val NbpInitialRate   = 0.0575      // NBP reference rate 2024 (Uchwała RPP nr 1/2024)
-  val NbpTargetInfl    = 0.025       // CPI target 2.5% ±1pp (continuous target since 2004)
-  val NbpNeutralRate   = 0.04        // Neutral real rate + target inflation (~1.5% + 2.5%)
+  val NbpInitialRate = 0.0575 // NBP reference rate 2024 (Uchwała RPP nr 1/2024)
+  val NbpTargetInfl = 0.025 // CPI target 2.5% ±1pp (continuous target since 2004)
+  val NbpNeutralRate = 0.04 // Neutral real rate + target inflation (~1.5% + 2.5%)
   // Taylor rule coefficients (Clarida, Galí & Gertler 1999; calibrated to NBP reaction function)
-  val TaylorAlpha: Double = sys.env.get("TAYLOR_ALPHA").map(_.trim.toDouble).getOrElse(1.5)   // >1 = Taylor principle
-  val TaylorBeta: Double = sys.env.get("TAYLOR_BETA").map(_.trim.toDouble).getOrElse(0.8)     // Output gap response
-  val TaylorInertia: Double = sys.env.get("TAYLOR_INERTIA").map(_.trim.toDouble).getOrElse(0.70)  // Interest rate smoothing
-  val RateFloor        = sys.env.get("NBP_RATE_FLOOR").map(_.trim.toDouble).getOrElse(0.001)   // Effective lower bound (ELB)
-  val RateCeiling: Double = sys.env.get("NBP_RATE_CEILING").map(_.trim.toDouble).getOrElse(0.25)  // Upper bound (historical max ~19%, 2001)
+  val TaylorAlpha: Double = sys.env.get("TAYLOR_ALPHA").map(_.trim.toDouble).getOrElse(1.5) // >1 = Taylor principle
+  val TaylorBeta: Double = sys.env.get("TAYLOR_BETA").map(_.trim.toDouble).getOrElse(0.8) // Output gap response
+  val TaylorInertia: Double =
+    sys.env.get("TAYLOR_INERTIA").map(_.trim.toDouble).getOrElse(0.70) // Interest rate smoothing
+  val RateFloor = sys.env.get("NBP_RATE_FLOOR").map(_.trim.toDouble).getOrElse(0.001) // Effective lower bound (ELB)
+  val RateCeiling: Double =
+    sys.env.get("NBP_RATE_CEILING").map(_.trim.toDouble).getOrElse(0.25) // Upper bound (historical max ~19%, 2001)
   // Max rate change per month: NBP typically moves 25-75bp per MPC meeting. Set 0.0 to disable.
   val NbpMaxRateChange: Double = sys.env.get("NBP_MAX_RATE_CHANGE").map(_.trim.toDouble).getOrElse(0.0)
 
@@ -456,12 +531,12 @@ object Config:
   // Simulates Poland's hypothetical Eurozone membership (Art. 4 Traktatu akcesyjnego).
   // ECB targets symmetric 2.0% HICP (Lagarde 2021 strategy review).
   // ───────────────────────────────────────────────────────────────────────
-  val EcbInitialRate   = 0.035       // ECB deposit facility rate (Oct 2024)
-  val EcbNeutralRate   = 0.025       // ECB neutral rate (lower than NBP; Holston-Laubach-Williams)
-  val EcbTargetInfl    = 0.020       // ECB symmetric HICP target 2.0% (2021 strategy review)
-  val EcbAlpha         = 1.5         // ECB Taylor inflation response (slower than Fed)
-  val EcbInertia       = 0.85        // ECB rate smoothing (smoother than NBP: consensus-driven GC)
-  val EuroInflation    = 0.020       // Exogenous Eurozone-wide HICP inflation (constant)
+  val EcbInitialRate = 0.035 // ECB deposit facility rate (Oct 2024)
+  val EcbNeutralRate = 0.025 // ECB neutral rate (lower than NBP; Holston-Laubach-Williams)
+  val EcbTargetInfl = 0.020 // ECB symmetric HICP target 2.0% (2021 strategy review)
+  val EcbAlpha = 1.5 // ECB Taylor inflation response (slower than Fed)
+  val EcbInertia = 0.85 // ECB rate smoothing (smoother than NBP: consensus-driven GC)
+  val EuroInflation = 0.020 // Exogenous Eurozone-wide HICP inflation (constant)
 
   // ───────────────────────────────────────────────────────────────────────
   // SGP fiscal constraint (EUR regime only)
@@ -471,9 +546,9 @@ object Config:
   // When debt exceeds 60%, austerity reduces BDP transfers at speed SgpAusterityRate.
   // Poland 2024: debt ~49% GDP (within limit), deficit ~5.1% GDP (EDP opened 2024).
   // ───────────────────────────────────────────────────────────────────────
-  val SgpDeficitLimit  = 0.03        // Maastricht: annual deficit < 3% of GDP
-  val SgpDebtLimit     = 0.60        // Maastricht: public debt < 60% of GDP
-  val SgpAusterityRate = 2.0         // Austerity speed: BDP × max(0, 1 - (debtRatio - 0.60) × rate)
+  val SgpDeficitLimit = 0.03 // Maastricht: annual deficit < 3% of GDP
+  val SgpDebtLimit = 0.60 // Maastricht: public debt < 60% of GDP
+  val SgpAusterityRate = 2.0 // Austerity speed: BDP × max(0, 1 - (debtRatio - 0.60) × rate)
 
   // ───────────────────────────────────────────────────────────────────────
   // Unemployment benefits — automatic stabilizers
@@ -500,8 +575,10 @@ object Config:
   // households (~10%), other (~11%) (MF monthly reports).
   // ───────────────────────────────────────────────────────────────────────
   val GovBondMarket: Boolean = sys.env.get("GOV_BOND_MARKET").map(_.trim.toBoolean).getOrElse(true)
-  val GovFiscalRiskBeta: Double = sys.env.get("GOV_FISCAL_RISK_BETA").map(_.trim.toDouble).getOrElse(2.0)  // Fiscal risk premium sensitivity
-  val GovTermPremium: Double = sys.env.get("GOV_TERM_PREMIUM").map(_.trim.toDouble).getOrElse(0.005)       // 50bp term premium (10Y vs overnight)
+  val GovFiscalRiskBeta: Double =
+    sys.env.get("GOV_FISCAL_RISK_BETA").map(_.trim.toDouble).getOrElse(2.0) // Fiscal risk premium sensitivity
+  val GovTermPremium: Double =
+    sys.env.get("GOV_TERM_PREMIUM").map(_.trim.toDouble).getOrElse(0.005) // 50bp term premium (10Y vs overnight)
 
   // ───────────────────────────────────────────────────────────────────────
   // Quantitative Easing
@@ -526,7 +603,8 @@ object Config:
   // ───────────────────────────────────────────────────────────────────────
   val NbpFxIntervention: Boolean = sys.env.get("NBP_FX_INTERVENTION").map(_.trim.toBoolean).getOrElse(false)
   val NbpFxBand: Double = sys.env.get("NBP_FX_BAND").map(_.trim.toDouble).getOrElse(0.10)
-  val NbpFxReserves: Double = sys.env.get("NBP_FX_RESERVES").map(_.trim.toDouble).getOrElse(185e9) * GdpRatio  // EUR-equivalent total
+  val NbpFxReserves: Double =
+    sys.env.get("NBP_FX_RESERVES").map(_.trim.toDouble).getOrElse(185e9) * GdpRatio // EUR-equivalent total
   val NbpFxMaxMonthly: Double = sys.env.get("NBP_FX_MAX_MONTHLY").map(_.trim.toDouble).getOrElse(0.03)
   val NbpFxStrength: Double = sys.env.get("NBP_FX_STRENGTH").map(_.trim.toDouble).getOrElse(0.5)
 
@@ -543,17 +621,38 @@ object Config:
   // ═══════════════════════════════════════════════════════════════════════
 
   // Initial balance sheet stocks (PLN, real economy; auto-scaled by GdpRatio)
-  val InitBankCapital: Double  = sys.env.get("INIT_BANK_CAPITAL").map(_.trim.toDouble).getOrElse(270e9) * GdpRatio   // ~270 bln PLN (KNF 2024: sector equity)
-  val InitBankDeposits: Double = sys.env.get("INIT_BANK_DEPOSITS").map(_.trim.toDouble).getOrElse(1900e9) * GdpRatio // ~1.9 tln PLN (NBP: M3 deposits)
-  val InitBankLoans: Double    = sys.env.get("INIT_BANK_LOANS").map(_.trim.toDouble).getOrElse(700e9) * GdpRatio     // ~700 bln PLN (corporate loans, NBP MIR)
-  val InitBankGovBonds: Double = sys.env.get("INIT_BANK_GOV_BONDS").map(_.trim.toDouble).getOrElse(400e9) * GdpRatio // ~400 bln PLN (bank holdings of TSec)
-  val InitNbpGovBonds: Double  = sys.env.get("INIT_NBP_GOV_BONDS").map(_.trim.toDouble).getOrElse(300e9) * GdpRatio  // ~300 bln PLN (NBP SOR portfolio)
-  val InitGovDebt: Double      = sys.env.get("INIT_GOV_DEBT").map(_.trim.toDouble).getOrElse(1600e9) * GdpRatio      // ~1.6 tln PLN (MF: State Treasury debt)
-  val InitConsumerLoans: Double = sys.env.get("INIT_CONSUMER_LOANS").map(_.trim.toDouble).getOrElse(200e9) * GdpRatio // ~200 bln PLN (BIK consumer credit)
-  val BaseSpread       = 0.015       // Corporate loan spread over reference rate (NBP MIR 2024: ~150bp)
-  val NplSpreadFactor  = 5.0         // NPL multiplier on spread: high NPLs → tighter credit
-  val MinCar           = 0.08        // Minimum capital adequacy ratio (Basel III Pillar 1: 8%)
-  val LoanRecovery     = 0.30        // Recovery rate on defaulted corporate loans (30%; KNF LGD estimates)
+  val InitBankCapital: Double = sys.env
+    .get("INIT_BANK_CAPITAL")
+    .map(_.trim.toDouble)
+    .getOrElse(270e9) * GdpRatio // ~270 bln PLN (KNF 2024: sector equity)
+  val InitBankDeposits: Double = sys.env
+    .get("INIT_BANK_DEPOSITS")
+    .map(_.trim.toDouble)
+    .getOrElse(1900e9) * GdpRatio // ~1.9 tln PLN (NBP: M3 deposits)
+  val InitBankLoans: Double = sys.env
+    .get("INIT_BANK_LOANS")
+    .map(_.trim.toDouble)
+    .getOrElse(700e9) * GdpRatio // ~700 bln PLN (corporate loans, NBP MIR)
+  val InitBankGovBonds: Double = sys.env
+    .get("INIT_BANK_GOV_BONDS")
+    .map(_.trim.toDouble)
+    .getOrElse(400e9) * GdpRatio // ~400 bln PLN (bank holdings of TSec)
+  val InitNbpGovBonds: Double = sys.env
+    .get("INIT_NBP_GOV_BONDS")
+    .map(_.trim.toDouble)
+    .getOrElse(300e9) * GdpRatio // ~300 bln PLN (NBP SOR portfolio)
+  val InitGovDebt: Double = sys.env
+    .get("INIT_GOV_DEBT")
+    .map(_.trim.toDouble)
+    .getOrElse(1600e9) * GdpRatio // ~1.6 tln PLN (MF: State Treasury debt)
+  val InitConsumerLoans: Double = sys.env
+    .get("INIT_CONSUMER_LOANS")
+    .map(_.trim.toDouble)
+    .getOrElse(200e9) * GdpRatio // ~200 bln PLN (BIK consumer credit)
+  val BaseSpread = 0.015 // Corporate loan spread over reference rate (NBP MIR 2024: ~150bp)
+  val NplSpreadFactor = 5.0 // NPL multiplier on spread: high NPLs → tighter credit
+  val MinCar = 0.08 // Minimum capital adequacy ratio (Basel III Pillar 1: 8%)
+  val LoanRecovery = 0.30 // Recovery rate on defaulted corporate loans (30%; KNF LGD estimates)
 
   // ───────────────────────────────────────────────────────────────────────
   // Multi-bank mode
@@ -563,10 +662,12 @@ object Config:
   // BANK_MODE=single (default): aggregate banking sector (1 representative bank).
   // ───────────────────────────────────────────────────────────────────────
   val BankMulti: Boolean = sys.env.get("BANK_MODE").map(_.trim.toLowerCase).getOrElse("single") == "multi"
-  val BankFailureEnabled: Boolean = sys.env.get("BANK_FAILURE").map(_.trim.toBoolean).getOrElse(false)  // Bank failure & resolution
+  val BankFailureEnabled: Boolean =
+    sys.env.get("BANK_FAILURE").map(_.trim.toBoolean).getOrElse(false) // Bank failure & resolution
   // Required reserves: 3.5% of deposits (Uchwała Zarządu NBP nr 7/2024; was 0.5% until Oct 2023)
   val BankReserveReq: Double = sys.env.get("BANK_RESERVE_REQ").map(_.trim.toDouble).getOrElse(0.035)
-  val BankStressThreshold: Double = sys.env.get("BANK_STRESS_THRESHOLD").map(_.trim.toDouble).getOrElse(0.05)  // CAR trigger for stress state
+  val BankStressThreshold: Double =
+    sys.env.get("BANK_STRESS_THRESHOLD").map(_.trim.toDouble).getOrElse(0.05) // CAR trigger for stress state
 
   // Credit diagnostics: outputs M1/M2 monetary aggregates for cross-validation
   val CreditDiagnostics: Boolean = sys.env.get("CREDIT_DIAGNOSTICS").map(_.trim.toBoolean).getOrElse(false)
@@ -579,12 +680,20 @@ object Config:
   // unsecured nature. Eligibility: ~30% of households actively borrow.
   // Flows to Identity 2 (bank loans ↑, deposits ↑), Identity 11.
   // ───────────────────────────────────────────────────────────────────────
-  val CcSpread: Double = sys.env.get("CC_SPREAD").map(_.trim.toDouble).getOrElse(0.04)       // 400bp over ref (NBP MIR consumer 2024)
-  val CcMaxDti: Double = sys.env.get("CC_MAX_DTI").map(_.trim.toDouble).getOrElse(0.40)      // Max debt-to-income 40% (KNF Recommendation T)
-  val CcMaxLoan: Double = sys.env.get("CC_MAX_LOAN").map(_.trim.toDouble).getOrElse(50000.0) // Max consumer loan per HH (PLN)
-  val CcAmortRate: Double = sys.env.get("CC_AMORT_RATE").map(_.trim.toDouble).getOrElse(0.025) // Monthly amortization (2.5% → ~40 month maturity)
-  val CcNplRecovery: Double = sys.env.get("CC_NPL_RECOVERY").map(_.trim.toDouble).getOrElse(0.15)  // 15% recovery (unsecured)
-  val CcEligRate: Double = sys.env.get("CC_ELIG_RATE").map(_.trim.toDouble).getOrElse(0.30)  // 30% of HH eligible for consumer credit
+  val CcSpread: Double =
+    sys.env.get("CC_SPREAD").map(_.trim.toDouble).getOrElse(0.04) // 400bp over ref (NBP MIR consumer 2024)
+  val CcMaxDti: Double =
+    sys.env.get("CC_MAX_DTI").map(_.trim.toDouble).getOrElse(0.40) // Max debt-to-income 40% (KNF Recommendation T)
+  val CcMaxLoan: Double =
+    sys.env.get("CC_MAX_LOAN").map(_.trim.toDouble).getOrElse(50000.0) // Max consumer loan per HH (PLN)
+  val CcAmortRate: Double = sys.env
+    .get("CC_AMORT_RATE")
+    .map(_.trim.toDouble)
+    .getOrElse(0.025) // Monthly amortization (2.5% → ~40 month maturity)
+  val CcNplRecovery: Double =
+    sys.env.get("CC_NPL_RECOVERY").map(_.trim.toDouble).getOrElse(0.15) // 15% recovery (unsecured)
+  val CcEligRate: Double =
+    sys.env.get("CC_ELIG_RATE").map(_.trim.toDouble).getOrElse(0.30) // 30% of HH eligible for consumer credit
 
   // ═══════════════════════════════════════════════════════════════════════
   // LOCAL GOVERNMENT — JST / SAMORZĄDY
@@ -596,12 +705,15 @@ object Config:
   // Sources: MF (Rb-27S/28S reports), GUS BDL, RIO.
   // ═══════════════════════════════════════════════════════════════════════
   val JstEnabled: Boolean = sys.env.get("JST_ENABLED").map(_.trim.toBoolean).getOrElse(false)
-  val JstPitShare: Double = sys.env.get("JST_PIT_SHARE").map(_.trim.toDouble).getOrElse(0.3846)    // Ustawa o dochodach JST, Art. 4
-  val JstCitShare: Double = sys.env.get("JST_CIT_SHARE").map(_.trim.toDouble).getOrElse(0.0671)    // j.w.
-  val JstPropertyTax: Double = sys.env.get("JST_PROPERTY_TAX").map(_.trim.toDouble).getOrElse(5000.0) // PLN/firm/year (GUS 2023)
-  val JstSubventionShare: Double = sys.env.get("JST_SUBVENTION_SHARE").map(_.trim.toDouble).getOrElse(0.03)  // ~3% GDP
-  val JstDotacjeShare: Double = sys.env.get("JST_DOTACJE_SHARE").map(_.trim.toDouble).getOrElse(0.01)  // ~1% GDP
-  val JstSpendingMult: Double = sys.env.get("JST_SPENDING_MULT").map(_.trim.toDouble).getOrElse(1.02)  // ~2% deficit ratio
+  val JstPitShare: Double =
+    sys.env.get("JST_PIT_SHARE").map(_.trim.toDouble).getOrElse(0.3846) // Ustawa o dochodach JST, Art. 4
+  val JstCitShare: Double = sys.env.get("JST_CIT_SHARE").map(_.trim.toDouble).getOrElse(0.0671) // j.w.
+  val JstPropertyTax: Double =
+    sys.env.get("JST_PROPERTY_TAX").map(_.trim.toDouble).getOrElse(5000.0) // PLN/firm/year (GUS 2023)
+  val JstSubventionShare: Double = sys.env.get("JST_SUBVENTION_SHARE").map(_.trim.toDouble).getOrElse(0.03) // ~3% GDP
+  val JstDotacjeShare: Double = sys.env.get("JST_DOTACJE_SHARE").map(_.trim.toDouble).getOrElse(0.01) // ~1% GDP
+  val JstSpendingMult: Double =
+    sys.env.get("JST_SPENDING_MULT").map(_.trim.toDouble).getOrElse(1.02) // ~2% deficit ratio
 
   // ───────────────────────────────────────────────────────────────────────
   // Bank Liquidity — LCR/NSFR
@@ -612,9 +724,10 @@ object Config:
   // Demand deposit runoff: 10% (CRR Art. 421: retail deposits, category 1).
   // ───────────────────────────────────────────────────────────────────────
   val BankLcrEnabled: Boolean = sys.env.get("BANK_LCR_ENABLED").map(_.trim.toBoolean).getOrElse(false)
-  val BankLcrMin: Double = sys.env.get("BANK_LCR_MIN").map(_.trim.toDouble).getOrElse(1.0)      // Basel III minimum 100%
-  val BankNsfrMin: Double = sys.env.get("BANK_NSFR_MIN").map(_.trim.toDouble).getOrElse(1.0)    // Basel III minimum 100%
-  val BankDemandDepositRunoff: Double = sys.env.get("BANK_DEMAND_DEPOSIT_RUNOFF").map(_.trim.toDouble).getOrElse(0.10)  // Basel III retail
+  val BankLcrMin: Double = sys.env.get("BANK_LCR_MIN").map(_.trim.toDouble).getOrElse(1.0) // Basel III minimum 100%
+  val BankNsfrMin: Double = sys.env.get("BANK_NSFR_MIN").map(_.trim.toDouble).getOrElse(1.0) // Basel III minimum 100%
+  val BankDemandDepositRunoff: Double =
+    sys.env.get("BANK_DEMAND_DEPOSIT_RUNOFF").map(_.trim.toDouble).getOrElse(0.10) // Basel III retail
   val BankTermDepositFrac: Double = sys.env.get("BANK_TERM_DEPOSIT_FRAC").map(_.trim.toDouble).getOrElse(0.40)
 
   // Interbank term structure: WIBOR-like term rates (O/N, 1M, 3M, 6M) with term spread
@@ -646,17 +759,23 @@ object Config:
 
   // PPK / Capital Pension (Pillar II — Ustawa o PPK, Dz.U. 2018 poz. 2215)
   val PpkEnabled: Boolean = sys.env.get("PPK_ENABLED").map(_.trim.toBoolean).getOrElse(false)
-  val PpkEmployeeRate: Double = sys.env.get("PPK_EMPLOYEE_RATE").map(_.trim.toDouble).getOrElse(0.02)  // 2% of gross (Art. 27 Ustawa o PPK)
-  val PpkEmployerRate: Double = sys.env.get("PPK_EMPLOYER_RATE").map(_.trim.toDouble).getOrElse(0.015) // 1.5% of gross (Art. 26)
-  val PpkBondAlloc: Double = sys.env.get("PPK_BOND_ALLOC").map(_.trim.toDouble).getOrElse(0.60)  // Default TFI lifecycle: 60% bonds, 40% equities
+  val PpkEmployeeRate: Double =
+    sys.env.get("PPK_EMPLOYEE_RATE").map(_.trim.toDouble).getOrElse(0.02) // 2% of gross (Art. 27 Ustawa o PPK)
+  val PpkEmployerRate: Double =
+    sys.env.get("PPK_EMPLOYER_RATE").map(_.trim.toDouble).getOrElse(0.015) // 1.5% of gross (Art. 26)
+  val PpkBondAlloc: Double =
+    sys.env.get("PPK_BOND_ALLOC").map(_.trim.toDouble).getOrElse(0.60) // Default TFI lifecycle: 60% bonds, 40% equities
 
   // Demographics (GUS Prognoza ludności 2023-2060)
   val DemEnabled: Boolean = sys.env.get("DEMOGRAPHICS_ENABLED").map(_.trim.toBoolean).getOrElse(false)
-  val DemRetirementRate: Double = sys.env.get("DEM_RETIREMENT_RATE").map(_.trim.toDouble).getOrElse(0.001)  // 0.1%/month
-  val DemWorkingAgeDecline: Double = sys.env.get("DEM_WORKING_AGE_DECLINE").map(_.trim.toDouble).getOrElse(0.002)  // 0.2%/year
+  val DemRetirementRate: Double = sys.env.get("DEM_RETIREMENT_RATE").map(_.trim.toDouble).getOrElse(0.001) // 0.1%/month
+  val DemWorkingAgeDecline: Double =
+    sys.env.get("DEM_WORKING_AGE_DECLINE").map(_.trim.toDouble).getOrElse(0.002) // 0.2%/year
   // Poland 2024: ~8M retirees / ~17.5M labor force ≈ 0.46 ratio.
   // Default: when ZUS enabled, use realistic ratio; otherwise 0.
-  val DemInitialRetirees: Int = sys.env.get("DEM_INITIAL_RETIREES").map(_.trim.toInt)
+  val DemInitialRetirees: Int = sys.env
+    .get("DEM_INITIAL_RETIREES")
+    .map(_.trim.toInt)
     .getOrElse(if ZusEnabled then (TotalPopulation * 0.46).toInt else 0)
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -672,12 +791,17 @@ object Config:
   // Sources: KNF macroprudential toolkit documentation, ESRB country page, SRB.
   // ═══════════════════════════════════════════════════════════════════════
   val MacropruEnabled: Boolean = sys.env.get("MACROPRU_ENABLED").map(_.trim.toBoolean).getOrElse(false)
-  val CcybMax: Double = sys.env.get("CCYB_MAX").map(_.trim.toDouble).getOrElse(0.025)  // 2.5% max CCyB (CRD V Art. 130)
-  val CcybActivationGap: Double = sys.env.get("CCYB_ACTIVATION_GAP").map(_.trim.toDouble).getOrElse(0.02)  // Credit/GDP gap >2pp → build buffer
-  val CcybReleaseGap: Double = sys.env.get("CCYB_RELEASE_GAP").map(_.trim.toDouble).getOrElse(-0.02)  // Gap <-2pp → release buffer
-  val OsiiPkoBp: Double = sys.env.get("OSII_PKO_BP").map(_.trim.toDouble).getOrElse(0.01)  // 1.0% O-SII for PKO BP (largest bank)
-  val OsiiPekao: Double = sys.env.get("OSII_PEKAO").map(_.trim.toDouble).getOrElse(0.005)  // 0.5% O-SII for Pekao (2nd largest)
-  val ConcentrationLimit: Double = sys.env.get("CONCENTRATION_LIMIT").map(_.trim.toDouble).getOrElse(0.25)  // Art. 395 CRR: large exposure limit
+  val CcybMax: Double = sys.env.get("CCYB_MAX").map(_.trim.toDouble).getOrElse(0.025) // 2.5% max CCyB (CRD V Art. 130)
+  val CcybActivationGap: Double =
+    sys.env.get("CCYB_ACTIVATION_GAP").map(_.trim.toDouble).getOrElse(0.02) // Credit/GDP gap >2pp → build buffer
+  val CcybReleaseGap: Double =
+    sys.env.get("CCYB_RELEASE_GAP").map(_.trim.toDouble).getOrElse(-0.02) // Gap <-2pp → release buffer
+  val OsiiPkoBp: Double =
+    sys.env.get("OSII_PKO_BP").map(_.trim.toDouble).getOrElse(0.01) // 1.0% O-SII for PKO BP (largest bank)
+  val OsiiPekao: Double =
+    sys.env.get("OSII_PEKAO").map(_.trim.toDouble).getOrElse(0.005) // 0.5% O-SII for Pekao (2nd largest)
+  val ConcentrationLimit: Double =
+    sys.env.get("CONCENTRATION_LIMIT").map(_.trim.toDouble).getOrElse(0.25) // Art. 395 CRR: large exposure limit
 
   // ───────────────────────────────────────────────────────────────────────
   // KNF/BFG Detail
@@ -709,19 +833,19 @@ object Config:
   // Sources: NBP BoP, GUS foreign trade statistics, Eurostat.
   // Affects: Identity 4 (BoP / NFA).
   // ═══════════════════════════════════════════════════════════════════════
-  val BaseExRate       = 4.33        // NBP average PLN/EUR rate 2024
-  val ForeignRate      = 0.04        // ECB rate 2024
+  val BaseExRate = 4.33 // NBP average PLN/EUR rate 2024
+  val ForeignRate = 0.04 // ECB rate 2024
   // HH consumption import propensity: share of household spending on imported goods.
   // Poland 2024: consumer goods imports ~400 bln / HH consumption ~2000 bln ≈ 0.20-0.22.
   // Previously 0.40 (= total import/GDP ratio including intermediates + capital goods,
   // which are now handled by separate import channels: PhysCapImportShare, GreenImportShare,
   // TechImportShare, GVC intermediate imports).
   val ImportPropensity: Double = sys.env.get("IMPORT_PROPENSITY").map(_.trim.toDouble).getOrElse(0.22)
-  val ExportBase       = 55.4e9 * GdpRatio  // ~665 bln PLN/year (GUS 2024, simplified forex model)
-  val TechImportShare  = 0.40        // Share of AI/tech CAPEX that is imported (fraction 0-1)
-  val IrpSensitivity   = 0.15        // Interest rate parity sensitivity (UIP deviation)
-  val ExRateAdjSpeed   = 0.02        // Monthly ER adjustment speed toward equilibrium
-  val ExportAutoBoost  = 0.15        // Automation → ULC reduction → export competitiveness gain
+  val ExportBase = 55.4e9 * GdpRatio // ~665 bln PLN/year (GUS 2024, simplified forex model)
+  val TechImportShare = 0.40 // Share of AI/tech CAPEX that is imported (fraction 0-1)
+  val IrpSensitivity = 0.15 // Interest rate parity sensitivity (UIP deviation)
+  val ExRateAdjSpeed = 0.02 // Monthly ER adjustment speed toward equilibrium
+  val ExportAutoBoost = 0.15 // Automation → ULC reduction → export competitiveness gain
 
   // ═══════════════════════════════════════════════════════════════════════
   // NETWORK TOPOLOGY & DEMONSTRATION EFFECTS
@@ -729,17 +853,17 @@ object Config:
   // Firms observe neighbors' automation decisions; demonstration effects
   // reduce uncertainty about AI adoption (Acemoglu & Restrepo 2018).
   // ═══════════════════════════════════════════════════════════════════════
-  val NetworkK          = 6      // Watts-Strogatz: neighbors
-  val NetworkRewireP    = 0.10   // Watts-Strogatz: rewire probability
-  val DemoEffectThresh  = sys.env.get("DEMO_THRESH").map(_.trim.toDouble).getOrElse(0.40)
-  val DemoEffectBoost   = 0.15   // Modest boost to uncertainty discount from demonstration
+  val NetworkK = 6 // Watts-Strogatz: neighbors
+  val NetworkRewireP = 0.10 // Watts-Strogatz: rewire probability
+  val DemoEffectThresh = sys.env.get("DEMO_THRESH").map(_.trim.toDouble).getOrElse(0.40)
+  val DemoEffectBoost = 0.15 // Modest boost to uncertainty discount from demonstration
 
   // Endogenous sigma dynamics: CES elasticity evolves with adoption
-  val SigmaLambda  = sys.env.get("SIGMA_LAMBDA").map(_.trim.toDouble).getOrElse(0.0)   // Learning rate (0 = static)
+  val SigmaLambda = sys.env.get("SIGMA_LAMBDA").map(_.trim.toDouble).getOrElse(0.0) // Learning rate (0 = static)
   val SigmaCapMult = sys.env.get("SIGMA_CAP_MULT").map(_.trim.toDouble).getOrElse(3.0) // Max sigma = base × mult
 
   // Dynamic network rewiring: firms rewire connections based on profitability
-  val RewireRho    = sys.env.get("REWIRE_RHO").map(_.trim.toDouble).getOrElse(0.0)     // Rewire rate (0 = static)
+  val RewireRho = sys.env.get("REWIRE_RHO").map(_.trim.toDouble).getOrElse(0.0) // Rewire rate (0 = static)
 
   // ═══════════════════════════════════════════════════════════════════════
   // INPUT-OUTPUT COUPLING
@@ -754,26 +878,27 @@ object Config:
   // ═══════════════════════════════════════════════════════════════════════
   val IoEnabled: Boolean = sys.env.get("IO_MODE").map(_.trim.toLowerCase) match
     case Some("enabled" | "true" | "on") => true
-    case _ => false
+    case _                               => false
 
   val IoMatrix: Vector[Vector[Double]] = sys.env.get("IO_MATRIX") match
     case Some(s) if s.nonEmpty =>
       val rows = s.split(";").map(_.split(",").map(_.trim.toDouble).toVector).toVector
-      require(rows.length == 6 && rows.forall(_.length == 6),
-        s"IO_MATRIX must be 6x6, got ${rows.length} rows")
+      require(rows.length == 6 && rows.forall(_.length == 6), s"IO_MATRIX must be 6x6, got ${rows.length} rows")
       rows
     // a_ij = input from sector i per unit gross output of sector j.
     // Calibrated from GUS symmetric I-O tables (2015/2019), cross-validated
     // against WIOD (2000-2014), OECD ICIO (2005-2020), Eurostat (2015/2019).
     // ISIC mapping: BPO←J62-63+N78-82, Mfg←C10-33, Ret←G-I+K-L+M69-75+R-S,
     //               Hlt←Q86-88, Pub←O84+P85, Agr←A01-03.
-    case _ => Vector(
-      Vector(0.05, 0.03, 0.04, 0.02, 0.03, 0.01),  // BPO purchases
-      Vector(0.04, 0.35, 0.12, 0.15, 0.05, 0.18),  // Mfg purchases
-      Vector(0.15, 0.10, 0.12, 0.08, 0.07, 0.08),  // Retail purchases
-      Vector(0.01, 0.00, 0.01, 0.05, 0.02, 0.01),  // Healthcare purchases
-      Vector(0.01, 0.01, 0.01, 0.01, 0.03, 0.01),  // Public purchases
-      Vector(0.00, 0.08, 0.05, 0.01, 0.01, 0.12))  // Agriculture purchases
+    case _ =>
+      Vector(
+        Vector(0.05, 0.03, 0.04, 0.02, 0.03, 0.01), // BPO purchases
+        Vector(0.04, 0.35, 0.12, 0.15, 0.05, 0.18), // Mfg purchases
+        Vector(0.15, 0.10, 0.12, 0.08, 0.07, 0.08), // Retail purchases
+        Vector(0.01, 0.00, 0.01, 0.05, 0.02, 0.01), // Healthcare purchases
+        Vector(0.01, 0.01, 0.01, 0.01, 0.03, 0.01), // Public purchases
+        Vector(0.00, 0.08, 0.05, 0.01, 0.01, 0.12),
+      ) // Agriculture purchases
 
   val IoColumnSums: Vector[Double] =
     (0 until 6).map(j => IoMatrix.map(_(j)).sum).toVector
@@ -795,7 +920,7 @@ object Config:
   // ═══════════════════════════════════════════════════════════════════════
   val OeEnabled: Boolean = sys.env.get("OPEN_ECON").map(_.trim.toLowerCase) match
     case Some("true" | "enabled" | "on" | "1") => true
-    case _ => false
+    case _                                     => false
 
   val OeImportContent: Vector[Double] = sys.env.get("OE_IMPORT_CONTENT") match
     case Some(s) if s.nonEmpty =>
@@ -804,30 +929,32 @@ object Config:
       v
     case _ => Vector(0.15, 0.50, 0.20, 0.15, 0.05, 0.12) // BPO, Mfg, Ret, Hlt, Pub, Agr
 
-  val OeErFloor: Double   = sys.env.get("OE_ER_FLOOR").map(_.trim.toDouble).getOrElse(2.5)
+  val OeErFloor: Double = sys.env.get("OE_ER_FLOOR").map(_.trim.toDouble).getOrElse(2.5)
   val OeErCeiling: Double = sys.env.get("OE_ER_CEILING").map(_.trim.toDouble).getOrElse(10.0)
 
   // Export base for open economy.  Default 475M balances initial trade when
   // intermediate imports (~200M) are added to the existing consumption imports (~275M).
   // The legacy ExportBase (190M) was calibrated without intermediate imports.
-  val OeExportBase: Double = sys.env.get("OE_EXPORT_BASE").map(_.trim.toDouble)
-    .getOrElse(138.5e9) * GdpRatio  // ~1.66 bln PLN/year (GUS/NBP BoP 2024)
+  val OeExportBase: Double = sys.env
+    .get("OE_EXPORT_BASE")
+    .map(_.trim.toDouble)
+    .getOrElse(138.5e9) * GdpRatio // ~1.66 bln PLN/year (GUS/NBP BoP 2024)
 
   // Import-push inflation cap (monthly).  Prevents runaway ER→inflation→ER spiral.
   // At 3% cap, even a 100% ER deviation contributes at most 3% monthly inflation.
   val OeImportPushCap: Double = 0.03
 
   // Calibration (NBP/GUS/WIOD/Eurostat)
-  val OeForeignGdpGrowth      = 0.015   // Eurozone annual real GDP growth (ECB projection)
-  val OeExportPriceElasticity  = 0.8     // Marshall-Lerner: export price elasticity (Bahmani-Oskooee & Ratha 2004)
-  val OeImportPriceElasticity  = 0.6     // Marshall-Lerner: import price elasticity
-  val OeErElasticity           = 0.5     // ER pass-through to import prices (partial; Campa & Goldberg 2005)
-  val OeUlcExportBoost         = 0.15    // Automation → ULC reduction → export competitiveness gain
-  val OeNfaReturnRate          = 0.03    // Annual return on net foreign assets
-  val OeEuTransfers            = 1.458e9 * GdpRatio  // ~17.5 bln PLN/year EU structural funds (KE/MFiPR)
-  val OeFdiBase                = 583.1e6 * GdpRatio  // ~7 bln PLN/year baseline FDI inflows (NBP BoP)
-  val OePortfolioSensitivity   = 0.20    // Interest rate differential → portfolio capital flows
-  val OeRiskPremiumSensitivity = 0.10    // NFA/GDP ratio → risk premium on exchange rate
+  val OeForeignGdpGrowth = 0.015 // Eurozone annual real GDP growth (ECB projection)
+  val OeExportPriceElasticity = 0.8 // Marshall-Lerner: export price elasticity (Bahmani-Oskooee & Ratha 2004)
+  val OeImportPriceElasticity = 0.6 // Marshall-Lerner: import price elasticity
+  val OeErElasticity = 0.5 // ER pass-through to import prices (partial; Campa & Goldberg 2005)
+  val OeUlcExportBoost = 0.15 // Automation → ULC reduction → export competitiveness gain
+  val OeNfaReturnRate = 0.03 // Annual return on net foreign assets
+  val OeEuTransfers = 1.458e9 * GdpRatio // ~17.5 bln PLN/year EU structural funds (KE/MFiPR)
+  val OeFdiBase = 583.1e6 * GdpRatio // ~7 bln PLN/year baseline FDI inflows (NBP BoP)
+  val OePortfolioSensitivity = 0.20 // Interest rate differential → portfolio capital flows
+  val OeRiskPremiumSensitivity = 0.10 // NFA/GDP ratio → risk premium on exchange rate
 
   // ═══════════════════════════════════════════════════════════════════════
   // GPW EQUITY MARKET
@@ -871,21 +998,21 @@ object Config:
   // Affects: Identity 12 (corporate bond stock).
   // ═══════════════════════════════════════════════════════════════════════
   val CorpBondSpread: Double = sys.env.get("CORPBOND_SPREAD").map(_.trim.toDouble).getOrElse(0.025)
-    // 250 bps over gov bond yield (Polish BBB/BBB+ avg, RRRF 2024)
+  // 250 bps over gov bond yield (Polish BBB/BBB+ avg, RRRF 2024)
   val CorpBondInitStock: Double = sys.env.get("CORPBOND_INIT_STOCK").map(_.trim.toDouble).getOrElse(90e9) * GdpRatio
-    // ~90 bln PLN outstanding (Catalyst + non-public, KNF 2024)
+  // ~90 bln PLN outstanding (Catalyst + non-public, KNF 2024)
   val CorpBondMinSize: Int = sys.env.get("CORPBOND_MIN_SIZE").map(_.trim.toInt).getOrElse(50)
-    // Only firms with ≥50 workers can issue bonds (medium/large)
+  // Only firms with ≥50 workers can issue bonds (medium/large)
   val CorpBondIssuanceFrac: Double = sys.env.get("CORPBOND_ISSUANCE_FRAC").map(_.trim.toDouble).getOrElse(0.15)
-    // 15% of new CAPEX loan replaced by bond issuance (eligible firms)
+  // 15% of new CAPEX loan replaced by bond issuance (eligible firms)
   val CorpBondBankShare: Double = sys.env.get("CORPBOND_BANK_SHARE").map(_.trim.toDouble).getOrElse(0.30)
-    // Banks hold 30% of outstanding corporate bonds
+  // Banks hold 30% of outstanding corporate bonds
   val CorpBondPpkShare: Double = sys.env.get("CORPBOND_PPK_SHARE").map(_.trim.toDouble).getOrElse(0.15)
-    // PPK holds 15% of outstanding corporate bonds
+  // PPK holds 15% of outstanding corporate bonds
   val CorpBondRecovery: Double = sys.env.get("CORPBOND_RECOVERY").map(_.trim.toDouble).getOrElse(0.30)
-    // 30% recovery rate on defaulted corporate bonds (lower than bank loans 50%)
+  // 30% recovery rate on defaulted corporate bonds (lower than bank loans 50%)
   val CorpBondMaturity: Double = sys.env.get("CORPBOND_MATURITY").map(_.trim.toDouble).getOrElse(60.0)
-    // Average maturity 5 years = 60 months → amortization = 1/60 per month
+  // Average maturity 5 years = 60 months → amortization = 1/60 per month
 
   // ═══════════════════════════════════════════════════════════════════════
   // INSURANCE SECTOR
@@ -929,7 +1056,8 @@ object Config:
   val NbfiTfiEquityShare: Double = sys.env.get("NBFI_TFI_EQUITY_SHARE").map(_.trim.toDouble).getOrElse(0.10)
   val NbfiTfiInflowRate: Double = sys.env.get("NBFI_TFI_INFLOW_RATE").map(_.trim.toDouble).getOrElse(0.001)
   val NbfiTfiRebalanceSpeed: Double = sys.env.get("NBFI_TFI_REBALANCE_SPEED").map(_.trim.toDouble).getOrElse(0.05)
-  val NbfiCreditInitStock: Double = sys.env.get("NBFI_CREDIT_INIT_STOCK").map(_.trim.toDouble).getOrElse(231e9) * GdpRatio
+  val NbfiCreditInitStock: Double =
+    sys.env.get("NBFI_CREDIT_INIT_STOCK").map(_.trim.toDouble).getOrElse(231e9) * GdpRatio
   val NbfiCreditBaseRate: Double = sys.env.get("NBFI_CREDIT_BASE_RATE").map(_.trim.toDouble).getOrElse(0.005)
   val NbfiCreditRate: Double = sys.env.get("NBFI_CREDIT_RATE").map(_.trim.toDouble).getOrElse(0.10)
   val NbfiCountercyclical: Double = sys.env.get("NBFI_COUNTERCYCLICAL").map(_.trim.toDouble).getOrElse(2.0)
@@ -990,7 +1118,8 @@ object Config:
   val RePriceReversion: Double = sys.env.get("RE_PRICE_REVERSION").map(_.trim.toDouble).getOrElse(0.05)
   val ReMortgageSpread: Double = sys.env.get("RE_MORTGAGE_SPREAD").map(_.trim.toDouble).getOrElse(0.025)
   val ReMortgageMaturity: Int = sys.env.get("RE_MORTGAGE_MATURITY").map(_.trim.toInt).getOrElse(300)
-  val ReLtvMax: Double = sys.env.get("RE_LTV_MAX").map(_.trim.toDouble).getOrElse(0.80)          // KNF Recommendation S: 80% (90% with insurance)
+  val ReLtvMax: Double =
+    sys.env.get("RE_LTV_MAX").map(_.trim.toDouble).getOrElse(0.80) // KNF Recommendation S: 80% (90% with insurance)
   val ReOriginationRate: Double = sys.env.get("RE_ORIGINATION_RATE").map(_.trim.toDouble).getOrElse(0.003)
   val ReDefaultBase: Double = sys.env.get("RE_DEFAULT_BASE").map(_.trim.toDouble).getOrElse(0.001)
   val ReDefaultUnempSens: Double = sys.env.get("RE_DEFAULT_UNEMP_SENS").map(_.trim.toDouble).getOrElse(0.05)
@@ -1065,7 +1194,7 @@ object Config:
   val GvcDemandShockSize: Double = sys.env.get("GVC_DEMAND_SHOCK_SIZE").map(_.trim.toDouble).getOrElse(0.0)
   val GvcDemandShockSectors: Set[Int] = sys.env.get("GVC_DEMAND_SHOCK_SECTORS") match
     case Some(s) if s.nonEmpty => s.split(",").map(_.trim.toInt).toSet
-    case _ => Set.empty
+    case _                     => Set.empty
   val GvcDisruptionRecovery: Double = sys.env.get("GVC_DISRUPTION_RECOVERY").map(_.trim.toDouble).getOrElse(0.05)
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1082,8 +1211,10 @@ object Config:
   val LmFrictionMatrix: Vector[Vector[Double]] = sys.env.get("LM_TRANSITION_MATRIX") match
     case Some(s) if s.nonEmpty =>
       val rows = s.split(";").map(_.split(",").map(_.trim.toDouble).toVector).toVector
-      require(rows.length == 6 && rows.forall(_.length == 6),
-        s"LM_TRANSITION_MATRIX must be 6x6, got ${rows.length} rows")
+      require(
+        rows.length == 6 && rows.forall(_.length == 6),
+        s"LM_TRANSITION_MATRIX must be 6x6, got ${rows.length} rows",
+      )
       rows
     case _ => sfc.engine.SectoralMobility.DefaultFrictionMatrix
   val LmFrictionDurationMult: Double = sys.env.get("LM_FRICTION_DURATION_MULT").map(_.trim.toDouble).getOrElse(1.0)
@@ -1124,7 +1255,8 @@ object Config:
   val ExpLambda: Double = sys.env.get("EXPECTATIONS_LAMBDA").map(_.trim.toDouble).getOrElse(0.70)
   val ExpCredibilityInit: Double = sys.env.get("EXPECTATIONS_CREDIBILITY_INIT").map(_.trim.toDouble).getOrElse(0.80)
   val ExpCredibilitySpeed: Double = sys.env.get("EXPECTATIONS_CREDIBILITY_SPEED").map(_.trim.toDouble).getOrElse(0.05)
-  val ExpCredibilityThreshold: Double = sys.env.get("EXPECTATIONS_CREDIBILITY_THRESHOLD").map(_.trim.toDouble).getOrElse(0.02)
+  val ExpCredibilityThreshold: Double =
+    sys.env.get("EXPECTATIONS_CREDIBILITY_THRESHOLD").map(_.trim.toDouble).getOrElse(0.02)
   val ExpWagePassthrough: Double = sys.env.get("EXPECTATIONS_WAGE_PASSTHROUGH").map(_.trim.toDouble).getOrElse(0.50)
   val ExpBondSensitivity: Double = sys.env.get("EXPECTATIONS_BOND_SENSITIVITY").map(_.trim.toDouble).getOrElse(0.50)
 
@@ -1200,18 +1332,22 @@ object Config:
   val EduShares: Vector[Double] = sys.env.get("EDU_SHARES") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == 4 && Math.abs(v.sum - 1.0) < 0.01,
-        s"EDU_SHARES must have 4 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      require(
+        v.length == 4 && Math.abs(v.sum - 1.0) < 0.01,
+        s"EDU_SHARES must have 4 values summing to ~1.0, got ${v.length} summing to ${v.sum}",
+      )
       v
     case _ => Vector(0.08, 0.25, 0.30, 0.37) // GUS LFS 2024 (25-64): Primary, Vocational, Secondary, Tertiary
   val EduSectorShares: Option[Vector[Vector[Double]]] = sys.env.get("EDU_SECTOR_SHARES") match
     case Some(s) if s.nonEmpty =>
       val vals = s.split(",").map(_.trim.toDouble).toVector
-      require(vals.length == 24, s"EDU_SECTOR_SHARES must have 24 values (6 sectors × 4 edu levels), got ${vals.length}")
+      require(
+        vals.length == 24,
+        s"EDU_SECTOR_SHARES must have 24 values (6 sectors × 4 edu levels), got ${vals.length}",
+      )
       val rows = (0 until 6).map(i => vals.slice(i * 4, i * 4 + 4)).toVector
       rows.zipWithIndex.foreach { (row, i) =>
-        require(Math.abs(row.sum - 1.0) < 0.01,
-          s"EDU_SECTOR_SHARES row $i must sum to ~1.0, got ${row.sum}")
+        require(Math.abs(row.sum - 1.0) < 0.01, s"EDU_SECTOR_SHARES row $i must sum to ~1.0, got ${row.sum}")
       }
       Some(rows)
     case _ => None
@@ -1242,8 +1378,10 @@ object Config:
   val EduImmigShares: Vector[Double] = sys.env.get("EDU_IMMIG_SHARES") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == 4 && Math.abs(v.sum - 1.0) < 0.01,
-        s"EDU_IMMIG_SHARES must have 4 values summing to ~1.0, got ${v.length} summing to ${v.sum}")
+      require(
+        v.length == 4 && Math.abs(v.sum - 1.0) < 0.01,
+        s"EDU_IMMIG_SHARES must have 4 values summing to ~1.0, got ${v.length} summing to ${v.sum}",
+      )
       v
     case _ => Vector(0.15, 0.40, 0.35, 0.10) // NBP 2023: immigrant edu distribution
 
@@ -1254,7 +1392,7 @@ object Config:
     Vector(0.06, 0.22, 0.38, 0.34), // Retail
     Vector(0.02, 0.15, 0.23, 0.60), // Healthcare
     Vector(0.03, 0.08, 0.25, 0.64), // Public
-    Vector(0.15, 0.45, 0.30, 0.10)  // Agriculture
+    Vector(0.15, 0.45, 0.30, 0.10), // Agriculture
   )
 
   /** Draw education level (0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary) for a sector. */
@@ -1298,7 +1436,8 @@ object Config:
   // (DigiCapexDiscount, up to 30%). Models Poland's digital transformation
   // trajectory (EC DESI 2024: Poland rank 24/27 in EU).
   // ═══════════════════════════════════════════════════════════════════════
-  val DigiDrift: Double = sys.env.get("DIGI_DRIFT").map(_.trim.toDouble).getOrElse(0.001)          // Monthly DR drift (secular digitalization)
+  val DigiDrift: Double =
+    sys.env.get("DIGI_DRIFT").map(_.trim.toDouble).getOrElse(0.001) // Monthly DR drift (secular digitalization)
   val DigiInvestCost: Double = sys.env.get("DIGI_INVEST_COST").map(_.trim.toDouble).getOrElse(50000.0)
   val DigiInvestBoost: Double = sys.env.get("DIGI_INVEST_BOOST").map(_.trim.toDouble).getOrElse(0.05)
   val DigiCapexDiscount: Double = sys.env.get("DIGI_CAPEX_DISCOUNT").map(_.trim.toDouble).getOrElse(0.30)
@@ -1346,7 +1485,10 @@ object Config:
   val InventoryTargetRatios: Vector[Double] = sys.env.get("INVENTORY_TARGET_RATIOS") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == SECTORS.length, s"INVENTORY_TARGET_RATIOS must have ${SECTORS.length} values, got ${v.length}")
+      require(
+        v.length == SECTORS.length,
+        s"INVENTORY_TARGET_RATIOS must have ${SECTORS.length} values, got ${v.length}",
+      )
       v
     case _ => Vector(0.05, 0.25, 0.15, 0.10, 0.02, 0.30)
   val InventoryAdjustSpeed: Double = sys.env.get("INVENTORY_ADJUST_SPEED").map(_.trim.toDouble).getOrElse(0.10)
@@ -1354,7 +1496,10 @@ object Config:
   val InventorySpoilageRates: Vector[Double] = sys.env.get("INVENTORY_SPOILAGE_RATES") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == SECTORS.length, s"INVENTORY_SPOILAGE_RATES must have ${SECTORS.length} values, got ${v.length}")
+      require(
+        v.length == SECTORS.length,
+        s"INVENTORY_SPOILAGE_RATES must have ${SECTORS.length} values, got ${v.length}",
+      )
       v
     case _ => Vector(0.0, 0.02, 0.05, 0.03, 0.0, 0.10)
   val InventoryCostFraction: Double = sys.env.get("INVENTORY_COST_FRACTION").map(_.trim.toDouble).getOrElse(0.50)
@@ -1414,7 +1559,10 @@ object Config:
   val EnergyCarbonIntensity: Vector[Double] = sys.env.get("ENERGY_CARBON_INTENSITY") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == SECTORS.length, s"ENERGY_CARBON_INTENSITY must have ${SECTORS.length} values, got ${v.length}")
+      require(
+        v.length == SECTORS.length,
+        s"ENERGY_CARBON_INTENSITY must have ${SECTORS.length} values, got ${v.length}",
+      )
       v
     case _ => Vector(0.01, 0.08, 0.02, 0.01, 0.02, 0.04)
   val EtsBasePrice: Double = sys.env.get("ETS_BASE_PRICE").map(_.trim.toDouble).getOrElse(80.0)
@@ -1495,37 +1643,36 @@ object Config:
   val HhCount = sys.env.get("HH_COUNT").map(_.trim.toInt).getOrElse(TotalPopulation)
 
   // Savings distribution (GUS BBGD 2023): LogNormal(mu, sigma) → median ~15K PLN
-  val HhSavingsMu       = sys.env.get("HH_SAVINGS_MU").map(_.trim.toDouble).getOrElse(9.6)
-  val HhSavingsSigma    = 1.2
+  val HhSavingsMu = sys.env.get("HH_SAVINGS_MU").map(_.trim.toDouble).getOrElse(9.6)
+  val HhSavingsSigma = 1.2
   // Debt: 40% of households have debt; among those, LogNormal
-  val HhDebtFraction    = 0.40
-  val HhDebtMu          = 10.5     // median ~36K PLN for indebted
-  val HhDebtSigma       = 1.5
+  val HhDebtFraction = 0.40
+  val HhDebtMu = 10.5 // median ~36K PLN for indebted
+  val HhDebtSigma = 1.5
   // Rent: Normal(mean, std), floor at 800 PLN/month
-  val HhRentMean        = 1800.0
-  val HhRentStd         = 400.0
-  val HhRentFloor       = 800.0
+  val HhRentMean = 1800.0
+  val HhRentStd = 400.0
+  val HhRentFloor = 800.0
   // MPC: Beta(alpha, beta) → mean ~0.82
-  val HhMpcAlpha        = sys.env.get("HH_MPC_ALPHA").map(_.trim.toDouble).getOrElse(8.2)
-  val HhMpcBeta         = sys.env.get("HH_MPC_BETA").map(_.trim.toDouble).getOrElse(1.8)
+  val HhMpcAlpha = sys.env.get("HH_MPC_ALPHA").map(_.trim.toDouble).getOrElse(8.2)
+  val HhMpcBeta = sys.env.get("HH_MPC_BETA").map(_.trim.toDouble).getOrElse(1.8)
   // Skill decay and health scarring
-  val HhSkillDecayRate  = 0.02     // per month after onset
-  val HhScarringRate    = 0.02     // health penalty per month after onset
-  val HhScarringCap     = 0.50
-  val HhScarringOnset   = 3        // months before scarring/skill decay starts
+  val HhSkillDecayRate = 0.02 // per month after onset
+  val HhScarringRate = 0.02 // health penalty per month after onset
+  val HhScarringCap = 0.50
+  val HhScarringOnset = 3 // months before scarring/skill decay starts
   // Retraining
-  val HhRetrainingCost  = sys.env.get("HH_RETRAIN_COST").map(_.trim.toDouble).getOrElse(5000.0)
+  val HhRetrainingCost = sys.env.get("HH_RETRAIN_COST").map(_.trim.toDouble).getOrElse(5000.0)
   val HhRetrainingDuration = sys.env.get("HH_RETRAIN_DUR").map(_.trim.toInt).getOrElse(6)
   val HhRetrainingBaseSuccess = 0.60
-  val HhRetrainingProb  = sys.env.get("HH_RETRAIN_PROB").map(_.trim.toDouble).getOrElse(0.15)
+  val HhRetrainingProb = sys.env.get("HH_RETRAIN_PROB").map(_.trim.toDouble).getOrElse(0.15)
   val HhRetrainingEnabled = sys.env.get("HH_RETRAIN_ENABLED").map(_.trim.toBoolean).getOrElse(true)
   // Bankruptcy
   val HhBankruptcyThreshold = -3.0 // multiplied by monthlyRent
   // Social network (household-level WS)
-  val HhSocialK         = 10
-  val HhSocialP         = 0.15
+  val HhSocialK = 10
+  val HhSocialP = 0.15
   // Debt service
-  val HhDebtServiceRate = 0.02     // monthly (2% of outstanding) — aggregate mode fallback
-  val HhBaseAmortRate   = 0.015    // monthly principal amortization (individual mode)
-  val HhDepositSpread   = 0.02     // annual: deposit rate = max(0, refRate - spread)
-
+  val HhDebtServiceRate = 0.02 // monthly (2% of outstanding) — aggregate mode fallback
+  val HhBaseAmortRate = 0.015 // monthly principal amortization (individual mode)
+  val HhDepositSpread = 0.02 // annual: deposit rate = max(0, refRate - spread)

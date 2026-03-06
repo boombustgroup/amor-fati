@@ -20,7 +20,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   private lazy val (result, stderrOutput) =
     requireAllMechanisms()
     val baos = new java.io.ByteArrayOutputStream()
-    val ps   = new java.io.PrintStream(baos)
+    val ps = new java.io.PrintStream(baos)
     val oldErr = System.err
     System.setErr(ps)
     try
@@ -48,8 +48,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   it should "produce 120 rows x 197 columns" in {
     requireAllMechanisms()
     ts.length shouldBe Config.Duration
-    for row <- ts do
-      row.length shouldBe 197
+    for row <- ts do row.length shouldBe 197
   }
 
   it should "produce no NaN or Infinity" in {
@@ -77,8 +76,8 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   "Multi-bank" should "have interbank rate deviating from refRate" in {
     requireAllMechanisms()
     val deviates = ts.indices.exists { t =>
-      val ibRate  = ts(t)(48) // InterbankRate
-      val refRate = ts(t)(8)  // RefRate
+      val ibRate = ts(t)(48) // InterbankRate
+      val refRate = ts(t)(8) // RefRate
       Math.abs(ibRate - refRate) > 1e-6
     }
     deviates shouldBe true

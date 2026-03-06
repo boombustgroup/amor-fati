@@ -8,7 +8,8 @@ import sfc.types.*
 class BopSfcCheckSpec extends AnyFlatSpec with Matchers:
 
   private val zeroFlows = SfcCheck.MonthlyFlows(PLN(0), PLN(0), PLN(0), PLN(0), PLN(0), PLN(0), PLN(0), PLN(0), PLN(0))
-  private val baseSnap = SfcCheck.Snapshot(PLN(0), PLN(0), PLN(500000), PLN(0), PLN(200000), PLN(1000000), PLN(0), PLN(0), nfa = PLN(0.0))
+  private val baseSnap =
+    SfcCheck.Snapshot(PLN(0), PLN(0), PLN(500000), PLN(0), PLN(200000), PLN(1000000), PLN(0), PLN(0), nfa = PLN(0.0))
 
   // ---- Identity 4: NFA ----
 

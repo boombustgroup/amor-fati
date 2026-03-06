@@ -23,13 +23,11 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "osiiBuffer (disabled)" should "return 0 for all banks" in {
-    for id <- 0 to 6 do
-      Macroprudential.osiiBuffer(id) shouldBe 0.0
+    for id <- 0 to 6 do Macroprudential.osiiBuffer(id) shouldBe 0.0
   }
 
   "effectiveMinCar (disabled)" should "return base MinCar for all banks" in {
-    for id <- 0 to 6 do
-      Macroprudential.effectiveMinCar(id, 0.02) shouldBe sfc.config.Config.MinCar
+    for id <- 0 to 6 do Macroprudential.effectiveMinCar(id, 0.02) shouldBe sfc.config.Config.MinCar
   }
 
   "step (disabled)" should "return prev unchanged" in {
@@ -55,8 +53,7 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return 0% for other banks (id>=2)" in {
-    for id <- 2 to 6 do
-      Macroprudential.osiiBufferInternal(id) shouldBe 0.0
+    for id <- 2 to 6 do Macroprudential.osiiBufferInternal(id) shouldBe 0.0
   }
 
   // ==========================================================================
@@ -102,9 +99,9 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "maintain ccyb=0 when gap is within neutral zone" in {
-    val prev = Macroprudential.State(Rate.Zero, 0.0, 0.5)  // trend already established
+    val prev = Macroprudential.State(Rate.Zero, 0.0, 0.5) // trend already established
     // creditToGdp ≈ trend → gap ≈ 0 → within neutral zone
-    val totalLoans = 0.5 * 100.0 * 12.0  // exactly at trend
+    val totalLoans = 0.5 * 100.0 * 12.0 // exactly at trend
     val result = Macroprudential.stepInternal(prev, totalLoans, 100.0)
     result.ccyb.toDouble shouldBe 0.0
   }
@@ -131,7 +128,7 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
     // newTrend = 0.50*0.95 + 0.0083*0.05 ≈ 0.4754
     // gap = 0.0083 - 0.4754 ≈ -0.467 < -0.02
     val result = Macroprudential.stepInternal(prev, 10.0, 100.0)
-    result.ccyb.toDouble shouldBe 0.0  // immediate release
+    result.ccyb.toDouble shouldBe 0.0 // immediate release
   }
 
   it should "cap CCyB at CcybMax" in {

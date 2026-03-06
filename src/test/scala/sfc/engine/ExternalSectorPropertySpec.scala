@@ -1,10 +1,10 @@
 package sfc.engine
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
-import sfc.testutil.Generators.*
+import sfc.Generators.*
 import sfc.config.{Config, MonetaryRegime, RunConfig}
 import sfc.types.*
 
@@ -17,9 +17,13 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   private val eurConfig = RunConfig(2000.0, 1, "test", MonetaryRegime.Eur)
   private val defaultSectorOutputs = Vector.fill(6)(1e8)
 
-  private def runStep(er: Double = Config.BaseExRate, price: Double = 1.0,
-                      autoR: Double = 0.0, month: Int = 30,
-                      rc: RunConfig = plnConfig): GvcTrade.State =
+  private def runStep(
+    er: Double = Config.BaseExRate,
+    price: Double = 1.0,
+    autoR: Double = 0.0,
+    month: Int = 30,
+    rc: RunConfig = plnConfig,
+  ): GvcTrade.State =
     GvcTrade.step(GvcTrade.initial, defaultSectorOutputs, price, er, autoR, month, rc)
 
   // --- Exports always non-negative ---
@@ -53,11 +57,10 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   // --- Disruption in [0, 1] ---
 
   it should "keep disruption index in [0, 1]" in {
-    forAll(genExchangeRate, genFraction, Gen.choose(1, 120)) {
-      (er: Double, autoR: Double, month: Int) =>
-        val r = runStep(er, autoR = autoR, month = month)
-        r.disruptionIndex.toDouble should be >= 0.0
-        r.disruptionIndex.toDouble should be <= 1.0
+    forAll(genExchangeRate, genFraction, Gen.choose(1, 120)) { (er: Double, autoR: Double, month: Int) =>
+      val r = runStep(er, autoR = autoR, month = month)
+      r.disruptionIndex.toDouble should be >= 0.0
+      r.disruptionIndex.toDouble should be <= 1.0
     }
   }
 

@@ -1,10 +1,9 @@
 package sfc.engine.steps
 
-import sfc.accounting.{BankState, BopState, ForexState, GovState, MonetaryAggregates, SfcCheck}
+import sfc.accounting.*
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
-import sfc.engine.{CorporateBondMarket, EquityMarket, Expectations, GvcTrade,
-  HousingMarket, Macroprudential, SectoralMobility, World}
+import sfc.engine.*
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -139,13 +138,13 @@ object WorldAssemblyStep:
     investNetDepositFlow: Double,
     actualBondChange: Double,
     m: Int,
-    rc: RunConfig
+    rc: RunConfig,
   )
 
   case class Output(
     newWorld: World,
     finalFirms: Array[Firm.State],
-    reassignedHouseholds: Option[Vector[Household.State]]
+    reassignedHouseholds: Option[Vector[Household.State]],
   )
 
   def run(in: Input): Output =
@@ -157,9 +156,9 @@ object WorldAssemblyStep:
         if Config.GpwHhEquity && Config.GpwEnabled then
           val prevHhEq = in.w.equity.hhEquityWealth.toDouble
           val newHhEq = prevHhEq * (1.0 + in.equityAfterIssuance.monthlyReturn.toDouble)
-          val wEffect = if in.equityAfterIssuance.monthlyReturn > Rate.Zero then
-            (newHhEq - prevHhEq) * Config.GpwWealthEffectMpc
-          else 0.0
+          val wEffect =
+            if in.equityAfterIssuance.monthlyReturn > Rate.Zero then (newHhEq - prevHhEq) * Config.GpwWealthEffectMpc
+            else 0.0
           (newHhEq, wEffect)
         else (0.0, 0.0)
 
@@ -168,14 +167,15 @@ object WorldAssemblyStep:
       lastWealthEffect = PLN(totalWealthEffectAgg),
       lastDomesticDividends = PLN(in.netDomesticDividends),
       lastForeignDividends = PLN(in.foreignDividendOutflow),
-      lastDividendTax = PLN(in.dividendTax)
+      lastDividendTax = PLN(in.dividendTax),
     )
 
     // Flow-of-funds residual
     val fofResidual = {
       val totalFirmRev = (0 until SECTORS.length).map { s =>
-        in.living.filter(_.sector.toInt == s).kahanSumBy(f =>
-          Firm.capacity(f).toDouble * in.sectorMults(s) * in.w.priceLevel)
+        in.living
+          .filter(_.sector.toInt == s)
+          .kahanSumBy(f => Firm.capacity(f).toDouble * in.sectorMults(s) * in.w.priceLevel)
       }.kahanSum
       val adjustedDemand = in.sectorMults.indices.map { s =>
         in.sectorCap(s) * in.sectorMults(s) * in.w.priceLevel
@@ -187,19 +187,36 @@ object WorldAssemblyStep:
     val taxEvasionLoss = if Config.InformalEnabled then
       in.sumCitEvasion + (in.vat - in.vatAfterEvasion) + (in.pitRevenue - in.pitAfterEvasion) + (in.exciseRevenue - in.exciseAfterEvasion)
     else 0.0
-    val informalEmployed = if Config.InformalEnabled then
-      in.employed.toDouble * in.effectiveShadowShare else 0.0
+    val informalEmployed = if Config.InformalEnabled then in.employed.toDouble * in.effectiveShadowShare else 0.0
     val newInformalCyclicalAdj = if Config.InformalEnabled then
       val unemp = 1.0 - in.employed.toDouble / Config.TotalPopulation
       val target = Math.max(0.0, unemp - Config.InformalUnempThreshold) * Config.InformalCyclicalSens
       in.w.informalCyclicalAdj * Config.InformalSmoothing + target * (1.0 - Config.InformalSmoothing)
     else 0.0
 
-    val newW = World(in.m, Rate(in.newInfl), in.newPrice, in.newGovWithYield, in.postFxNbp,
-      in.resolvedBank, in.newForex,
-      Household.SectorState(in.employed, PLN(in.newWage), PLN(in.resWage), PLN(in.totalIncome), PLN(in.consumption), PLN(in.domesticCons), PLN(in.importCons),
-        minWageLevel = PLN(in.baseMinWage), minWagePriceLevel = in.updatedMinWagePriceLevel),
-      Ratio(in.autoR), Ratio(in.hybR), in.gdp, in.newSigmas,
+    val newW = World(
+      in.m,
+      Rate(in.newInfl),
+      in.newPrice,
+      in.newGovWithYield,
+      in.postFxNbp,
+      in.resolvedBank,
+      in.newForex,
+      Household.SectorState(
+        in.employed,
+        PLN(in.newWage),
+        PLN(in.resWage),
+        PLN(in.totalIncome),
+        PLN(in.consumption),
+        PLN(in.domesticCons),
+        PLN(in.importCons),
+        minWageLevel = PLN(in.baseMinWage),
+        minWagePriceLevel = in.updatedMinWagePriceLevel,
+      ),
+      Ratio(in.autoR),
+      Ratio(in.hybR),
+      in.gdp,
+      in.newSigmas,
       ioFlows = PLN(in.totalIoPaid),
       bop = in.newBop,
       hhAgg = in.finalHhAgg,
@@ -216,7 +233,7 @@ object WorldAssemblyStep:
       sectoralMobility = SectoralMobility.State(
         crossSectorHires = in.postFirmCrossSectorHires + in.hhAgg.map(_.crossSectorHires).getOrElse(0),
         voluntaryQuits = in.hhAgg.map(_.voluntaryQuits).getOrElse(0),
-        sectorMobilityRate = in.finalHhAgg.map(_.sectorMobilityRate.toDouble).getOrElse(0.0)
+        sectorMobilityRate = in.finalHhAgg.map(_.sectorMobilityRate.toDouble).getOrElse(0.0),
       ),
       gvc = in.newGvc,
       expectations = in.newExp,
@@ -242,17 +259,22 @@ object WorldAssemblyStep:
       tourismExport = PLN(in.tourismExport),
       tourismImport = PLN(in.tourismImport),
       bfgFundBalance = PLN(in.w.bfgFundBalance.toDouble + in.bfgLevy),
-      bailInLoss = PLN(in.bailInLoss))
+      bailInLoss = PLN(in.bailInLoss),
+    )
 
     // SFC accounting check
     val prevSnap = SfcCheck.snapshot(in.w, in.firms, in.households)
     val currSnap = SfcCheck.snapshot(newW, in.reassignedFirms, in.reassignedHouseholds)
     val sfcFlows = SfcCheck.MonthlyFlows(
-      govSpending = PLN(in.newGovWithYield.bdpSpending.toDouble + in.newGovWithYield.unempBenefitSpend.toDouble
-        + in.newGovWithYield.socialTransferSpend.toDouble
-        + in.govPurchases + in.monthlyDebtService + in.newZus.govSubvention.toDouble
-        + in.euCofin),
-      govRevenue = PLN(in.sumTax + in.dividendTax + in.pitAfterEvasion + in.vatAfterEvasion + in.nbpRemittance + in.exciseAfterEvasion + in.customsDutyRevenue),
+      govSpending = PLN(
+        in.newGovWithYield.bdpSpending.toDouble + in.newGovWithYield.unempBenefitSpend.toDouble
+          + in.newGovWithYield.socialTransferSpend.toDouble
+          + in.govPurchases + in.monthlyDebtService + in.newZus.govSubvention.toDouble
+          + in.euCofin,
+      ),
+      govRevenue = PLN(
+        in.sumTax + in.dividendTax + in.pitAfterEvasion + in.vatAfterEvasion + in.nbpRemittance + in.exciseAfterEvasion + in.customsDutyRevenue,
+      ),
       nplLoss = PLN(in.nplLoss),
       interestIncome = PLN(in.intIncome),
       hhDebtService = PLN(in.hhDebtService),
@@ -313,37 +335,39 @@ object WorldAssemblyStep:
       totalImports = in.newBop.totalImports,
       grossInvestment = PLN(in.sumGrossInvestment),
       greenInvestment = PLN(in.sumGreenInvestment),
-      inventoryChange = PLN(in.aggInventoryChange)
+      inventoryChange = PLN(in.aggInventoryChange),
     )
     val sfcResult = SfcCheck.validate(in.m, prevSnap, currSnap, sfcFlows)
     if !sfcResult.passed then
       System.err.println(
         f"[SFC] Month ${in.m} FAIL:" +
-        f" bankCap=${sfcResult.bankCapitalError}%.2f" +
-        f" bankDep=${sfcResult.bankDepositsError}%.2f" +
-        f" govDebt=${sfcResult.govDebtError}%.2f" +
-        f" nfa=${sfcResult.nfaError}%.2f" +
-        f" bondClr=${sfcResult.bondClearingError}%.2f" +
-        f" ibNet=${sfcResult.interbankNettingError}%.2f" +
-        f" jstDebt=${sfcResult.jstDebtError}%.2f" +
-        f" fusBal=${sfcResult.fusBalanceError}%.2f" +
-        f" mortgage=${sfcResult.mortgageStockError}%.2f" +
-        f" fof=${sfcResult.fofError}%.2f" +
-        f" ccStock=${sfcResult.consumerCreditError}%.2f" +
-        f" corpBond=${sfcResult.corpBondStockError}%.2f" +
-        f" nbfiCredit=${sfcResult.nbfiCreditError}%.2f" +
-        f" secBal=${sfcResult.sectoralBalancesError}%.2f")
+          f" bankCap=${sfcResult.bankCapitalError}%.2f" +
+          f" bankDep=${sfcResult.bankDepositsError}%.2f" +
+          f" govDebt=${sfcResult.govDebtError}%.2f" +
+          f" nfa=${sfcResult.nfaError}%.2f" +
+          f" bondClr=${sfcResult.bondClearingError}%.2f" +
+          f" ibNet=${sfcResult.interbankNettingError}%.2f" +
+          f" jstDebt=${sfcResult.jstDebtError}%.2f" +
+          f" fusBal=${sfcResult.fusBalanceError}%.2f" +
+          f" mortgage=${sfcResult.mortgageStockError}%.2f" +
+          f" fof=${sfcResult.fofError}%.2f" +
+          f" ccStock=${sfcResult.consumerCreditError}%.2f" +
+          f" corpBond=${sfcResult.corpBondStockError}%.2f" +
+          f" nbfiCredit=${sfcResult.nbfiCreditError}%.2f" +
+          f" secBal=${sfcResult.sectoralBalancesError}%.2f",
+      )
 
     // FDI M&A: monthly domestic → foreign conversion (#33)
-    val postFdiFirms = if Config.FdiEnabled && Config.FdiMaProb > 0 then
-      in.reassignedFirms.map { f =>
-        if Firm.isAlive(f) && !f.foreignOwned &&
-           f.initialSize >= Config.FdiMaSizeMin &&
-           Random.nextDouble() < Config.FdiMaProb then
-          f.copy(foreignOwned = true)
-        else f
-      }
-    else in.reassignedFirms
+    val postFdiFirms =
+      if Config.FdiEnabled && Config.FdiMaProb > 0 then
+        in.reassignedFirms.map { f =>
+          if Firm.isAlive(f) && !f.foreignOwned &&
+            f.initialSize >= Config.FdiMaSizeMin &&
+            Random.nextDouble() < Config.FdiMaProb
+          then f.copy(foreignOwned = true)
+          else f
+        }
+      else in.reassignedFirms
 
     // Endogenous Firm Entry (#35): recycle bankrupt slots
     val (finalFirms, firmBirths) = if Config.FirmEntryEnabled then
@@ -353,18 +377,19 @@ object WorldAssemblyStep:
       for f <- postLiving do
         sectorCashSum(f.sector.toInt) += f.cash.toDouble
         sectorCashCnt(f.sector.toInt) += 1
-      val sectorAvgCash = SECTORS.indices.map(s =>
-        if sectorCashCnt(s) > 0 then sectorCashSum(s) / sectorCashCnt(s) else 0.0).toArray
-      val globalAvgCash = if postLiving.nonEmpty then
-        postLiving.map(_.cash.toDouble).sum / postLiving.length else 1.0
+      val sectorAvgCash =
+        SECTORS.indices.map(s => if sectorCashCnt(s) > 0 then sectorCashSum(s) / sectorCashCnt(s) else 0.0).toArray
+      val globalAvgCash = if postLiving.nonEmpty then postLiving.map(_.cash.toDouble).sum / postLiving.length else 1.0
       val profitSignals = sectorAvgCash.map { c =>
-        Math.max(-1.0, Math.min(2.0,
-          (c - globalAvgCash) / Math.max(1.0, Math.abs(globalAvgCash))))
+        Math.max(-1.0, Math.min(2.0, (c - globalAvgCash) / Math.max(1.0, Math.abs(globalAvgCash))))
       }
 
       val sectorWeights = SECTORS.indices.map { s =>
-        Math.max(0.01, (1.0 + profitSignals(s) * Config.FirmEntryProfitSens) *
-          Config.FirmEntrySectorBarriers(s))
+        Math.max(
+          0.01,
+          (1.0 + profitSignals(s) * Config.FirmEntryProfitSens) *
+            Config.FirmEntrySectorBarriers(s),
+        )
       }.toArray
       val totalWeight = sectorWeights.sum
 
@@ -392,9 +417,13 @@ object WorldAssemblyStep:
 
             val isAiNative = totalAdoption > Config.FirmEntryAiThreshold &&
               Random.nextDouble() < Config.FirmEntryAiProb
-            val dr = if isAiNative then Random.between(0.50, 0.90)
-                     else Math.max(0.02, Math.min(0.30,
-                       SECTORS(newSector).baseDigitalReadiness.toDouble + Random.nextGaussian() * 0.10))
+            val dr =
+              if isAiNative then Random.between(0.50, 0.90)
+              else
+                Math.max(
+                  0.02,
+                  Math.min(0.30, SECTORS(newSector).baseDigitalReadiness.toDouble + Random.nextGaussian() * 0.10),
+                )
             val startWorkers = if in.households.isDefined then 0 else firmSize
             val tech = if isAiNative then
               val hw = Math.max(1, (startWorkers * 0.6).toInt)
@@ -402,20 +431,20 @@ object WorldAssemblyStep:
             else TechState.Traditional(startWorkers)
 
             val nNeighbors = Math.min(6, livingIds.length)
-            val newNeighbors = if nNeighbors > 0 then
-              Random.shuffle(livingIds.toList).take(nNeighbors).toArray
-            else Array.empty[Int]
+            val newNeighbors =
+              if nNeighbors > 0 then Random.shuffle(livingIds.toList).take(nNeighbors).toArray
+              else Array.empty[Int]
 
-            val newBankId = if Config.BankMulti then
-              Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, Random)
-            else BankId(0)
+            val newBankId =
+              if Config.BankMulti then Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, Random)
+              else BankId(0)
 
             val foreignOwned = Config.FdiEnabled &&
               Random.nextDouble() < Config.FdiForeignShares(newSector)
 
-            val capitalStock = if Config.PhysCapEnabled then
-              firmSize.toDouble * Config.PhysCapKLRatios(newSector)
-            else 0.0
+            val capitalStock =
+              if Config.PhysCapEnabled then firmSize.toDouble * Config.PhysCapKLRatios(newSector)
+              else 0.0
 
             val initInventory = if Config.InventoryEnabled then
               val cap = Config.BaseRevenue * (firmSize.toDouble / Config.WorkersPerFirm) *
@@ -423,9 +452,9 @@ object WorldAssemblyStep:
               cap * Config.InventoryTargetRatios(newSector) * Config.InventoryInitRatio
             else 0.0
 
-            val initGreenK = if Config.EnergyEnabled then
-              firmSize.toDouble * Config.GreenKLRatios(newSector) * Config.GreenInitRatio
-            else 0.0
+            val initGreenK =
+              if Config.EnergyEnabled then firmSize.toDouble * Config.GreenKLRatios(newSector) * Config.GreenInitRatio
+              else 0.0
 
             Firm.State(
               id = f.id,
@@ -442,7 +471,7 @@ object WorldAssemblyStep:
               capitalStock = PLN(capitalStock),
               foreignOwned = foreignOwned,
               inventory = PLN(initInventory),
-              greenCapital = PLN(initGreenK)
+              greenCapital = PLN(initGreenK),
             )
           else f
         else f

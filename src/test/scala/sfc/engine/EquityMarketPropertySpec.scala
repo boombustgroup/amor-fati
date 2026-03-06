@@ -1,10 +1,10 @@
 package sfc.engine
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
-import sfc.testutil.Generators.*
+import sfc.Generators.*
 import sfc.types.*
 
 class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -13,12 +13,24 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     PropertyCheckConfiguration(minSuccessful = 200)
 
   private val genEquityState: Gen[EquityMarket.State] = for
-    index    <- Gen.choose(100.0, 10000.0)
-    mcap     <- Gen.choose(1e9, 1e13)
-    ey       <- Gen.choose(0.01, 0.50)
-    dy       <- Gen.choose(0.01, 0.15)
-    foreign  <- Gen.choose(0.0, 1.0)
-  yield EquityMarket.State(index, PLN(mcap), Rate(ey), Rate(dy), Ratio(foreign), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    index <- Gen.choose(100.0, 10000.0)
+    mcap <- Gen.choose(1e9, 1e13)
+    ey <- Gen.choose(0.01, 0.50)
+    dy <- Gen.choose(0.01, 0.15)
+    foreign <- Gen.choose(0.0, 1.0)
+  yield EquityMarket.State(
+    index,
+    PLN(mcap),
+    Rate(ey),
+    Rate(dy),
+    Ratio(foreign),
+    PLN.Zero,
+    PLN.Zero,
+    PLN.Zero,
+    PLN.Zero,
+    PLN.Zero,
+    PLN.Zero,
+  )
 
   // --- processIssuance properties ---
 
@@ -90,15 +102,14 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   }
 
   it should "scale dividends linearly with market cap" in {
-    forAll(Gen.choose(1e6, 1e12), Gen.choose(0.01, 0.15), genFraction) {
-      (mcap, divYield, foreignShare) =>
-        val (d1, f1, t1) = EquityMarket.computeDividends(1e8, divYield, mcap, foreignShare)
-        val (d2, f2, t2) = EquityMarket.computeDividends(1e8, divYield, mcap * 2.0, foreignShare)
-        whenever(d1 > 1e-6 && f1 > 1e-6 && t1 > 1e-6) {
-          (d2 / d1) shouldBe (2.0 +- 1e-6)
-          (f2 / f1) shouldBe (2.0 +- 1e-6)
-          (t2 / t1) shouldBe (2.0 +- 1e-6)
-        }
+    forAll(Gen.choose(1e6, 1e12), Gen.choose(0.01, 0.15), genFraction) { (mcap, divYield, foreignShare) =>
+      val (d1, f1, t1) = EquityMarket.computeDividends(1e8, divYield, mcap, foreignShare)
+      val (d2, f2, t2) = EquityMarket.computeDividends(1e8, divYield, mcap * 2.0, foreignShare)
+      whenever(d1 > 1e-6 && f1 > 1e-6 && t1 > 1e-6) {
+        (d2 / d1) shouldBe (2.0 +- 1e-6)
+        (f2 / f1) shouldBe (2.0 +- 1e-6)
+        (t2 / t1) shouldBe (2.0 +- 1e-6)
+      }
     }
   }
 

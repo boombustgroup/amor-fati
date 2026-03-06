@@ -1,9 +1,9 @@
 package sfc.agents
 
+import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Gen
 
 /** JST property-based tests. */
 class JstPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -27,7 +27,7 @@ class JstPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(Gen.choose(0.0, 1e8), Gen.choose(1.0, 2.0)) { (revenue, mult) =>
       val spending = revenue * mult
       val deficit = spending - revenue
-      val depositChange = revenue - spending  // = -deficit
+      val depositChange = revenue - spending // = -deficit
       depositChange shouldBe (-deficit +- 0.01)
     }
   }

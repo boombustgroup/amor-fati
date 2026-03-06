@@ -14,27 +14,34 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
 
   "updateGov" should "have identical totalSpend when disabled" in {
     // When GovInvestEnabled=false (default), govCurrent + govCapital = govBaseRaw
-    val result = Sectors.updateGov(prev, citPaid = 100000, vat = 200000,
-      bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+    val result = Sectors.updateGov(
+      prev,
+      citPaid = 100000,
+      vat = 200000,
+      bdpActive = false,
+      bdpAmount = 0,
+      priceLevel = 1.0,
+      unempBenefitSpend = 0,
+    )
     // Total spend should be govBaseSpending * priceLevel + 0 (no bdp, no benefits)
     result.deficit.toDouble shouldBe (Config.GovBaseSpending - 300000.0) +- 1.0
   }
 
   it should "have zero govCapitalSpend when disabled" in {
-    val result = Sectors.updateGov(prev, 100000, 200000,
-      bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+    val result =
+      Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
     result.govCapitalSpend shouldBe PLN.Zero
   }
 
   it should "have zero publicCapitalStock when disabled" in {
-    val result = Sectors.updateGov(prev, 100000, 200000,
-      bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+    val result =
+      Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
     result.publicCapitalStock shouldBe PLN.Zero
   }
 
   it should "have govCurrentSpend equal to govBaseSpending when disabled" in {
-    val result = Sectors.updateGov(prev, 100000, 200000,
-      bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+    val result =
+      Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
     result.govCurrentSpend.toDouble shouldBe Config.GovBaseSpending * 1.0
   }
 
@@ -70,7 +77,7 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
   }
 
   "capital stock formula" should "accumulate investment net of depreciation" in {
-    val depRate = 0.06  // annual
+    val depRate = 0.06 // annual
     val monthlyDep = depRate / 12.0
     val prevStock = 1000000.0
     val investment = 20000.0
@@ -111,9 +118,16 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
 
   "updateGov with prior capital stock" should "carry forward stock when disabled" in {
     // Even if prev has nonzero capitalStock, disabled mode resets to 0
-    val prevWithStock = GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero,
-      publicCapitalStock = PLN(500000.0))
-    val result = Sectors.updateGov(prevWithStock, 100000, 200000,
-      bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+    val prevWithStock =
+      GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, publicCapitalStock = PLN(500000.0))
+    val result = Sectors.updateGov(
+      prevWithStock,
+      100000,
+      200000,
+      bdpActive = false,
+      bdpAmount = 0,
+      priceLevel = 1.0,
+      unempBenefitSpend = 0,
+    )
     result.publicCapitalStock shouldBe PLN.Zero
   }

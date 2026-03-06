@@ -60,7 +60,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
     val monthInYear = 7
     val factor = 1.0 + Config.TourismSeasonality *
       Math.cos(2 * Math.PI * (monthInYear - Config.TourismPeakMonth) / 12.0)
-    factor shouldBe 1.0 + Config.TourismSeasonality  // cos(0) = 1
+    factor shouldBe 1.0 + Config.TourismSeasonality // cos(0) = 1
     factor should be > 1.0
   }
 
@@ -100,7 +100,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
     val weakerER = Config.BaseExRate * 1.2
     val inboundErAdj = Math.pow(weakerER / Config.BaseExRate, 0.6)
     inboundErAdj should be > 1.0
-    inboundErAdj should be < 1.2  // partial, not full pass-through
+    inboundErAdj should be < 1.2 // partial, not full pass-through
   }
 
   // ==========================================================================
@@ -123,19 +123,19 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "COVID shock" should "have no disruption when shock month is 0" in {
-    val disruption = if 0 > 0 && 10 >= 0 then
-      Config.TourismShockSize * Math.pow(1.0 - Config.TourismShockRecovery, 10.0)
-    else 0.0
+    val disruption =
+      if 0 > 0 && 10 >= 0 then Config.TourismShockSize * Math.pow(1.0 - Config.TourismShockRecovery, 10.0)
+      else 0.0
     disruption shouldBe 0.0
   }
 
   it should "apply disruption at shock trigger month" in {
     val shockMonth = 24
     val m = 24
-    val disruption = if shockMonth > 0 && m >= shockMonth then
-      Config.TourismShockSize * Math.pow(1.0 - Config.TourismShockRecovery,
-        (m - shockMonth).toDouble)
-    else 0.0
+    val disruption =
+      if shockMonth > 0 && m >= shockMonth then
+        Config.TourismShockSize * Math.pow(1.0 - Config.TourismShockRecovery, (m - shockMonth).toDouble)
+      else 0.0
     // At trigger month: disruption = 0.80 * (0.97)^0 = 0.80
     disruption shouldBe 0.80
     val shockFactor = 1.0 - disruption
@@ -144,14 +144,13 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   it should "recover gradually after shock" in {
     val shockMonth = 24
-    val m = 36  // 12 months after shock
-    val disruption = Config.TourismShockSize * Math.pow(1.0 - Config.TourismShockRecovery,
-      (m - shockMonth).toDouble)
+    val m = 36 // 12 months after shock
+    val disruption = Config.TourismShockSize * Math.pow(1.0 - Config.TourismShockRecovery, (m - shockMonth).toDouble)
     disruption should be < Config.TourismShockSize
     disruption should be > 0.0
     val shockFactor = 1.0 - disruption
-    shockFactor should be > 0.20  // Better than at trigger
-    shockFactor should be < 1.0   // Not fully recovered
+    shockFactor should be > 0.20 // Better than at trigger
+    shockFactor should be < 1.0 // Not fully recovered
   }
 
   // ==========================================================================
@@ -160,7 +159,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "Full formula" should "combine all components multiplicatively" in {
     val baseGdp = 1e9
-    val monthInYear = 7  // peak month
+    val monthInYear = 7 // peak month
     val m = 12
     val er = Config.BaseExRate * 1.1
 
@@ -169,7 +168,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
     val inboundErAdj = Math.pow(er / Config.BaseExRate, Config.TourismErElasticity)
     val outboundErAdj = Math.pow(Config.BaseExRate / er, Config.TourismErElasticity)
     val trendAdj = Math.pow(1.0 + Config.TourismGrowthRate / 12.0, m.toDouble)
-    val shockFactor = 1.0  // no shock
+    val shockFactor = 1.0 // no shock
 
     val inbound = baseGdp * Config.TourismInboundShare *
       seasonalFactor * inboundErAdj * trendAdj * shockFactor
@@ -192,8 +191,9 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Tourism flows" should "be zero when disabled" in {
-    val (tourismExport, tourismImport) = if Config.TourismEnabled then (100.0, 60.0)
-    else (0.0, 0.0)
+    val (tourismExport, tourismImport) =
+      if Config.TourismEnabled then (100.0, 60.0)
+      else (0.0, 0.0)
     tourismExport shouldBe 0.0
     tourismImport shouldBe 0.0
   }
@@ -207,12 +207,10 @@ class TourismSpec extends AnyFlatSpec with Matchers:
     val prevForex = ForexState(Config.BaseExRate, PLN.Zero, PLN(Config.ExportBase), PLN.Zero, PLN.Zero)
     val rc = sfc.config.RunConfig(2000.0, 1, "test")
 
-    val resultWith = OpenEconomy.step(prevBop, prevForex,
-      0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc,
-      tourismExport = 1000.0)
-    val resultWithout = OpenEconomy.step(prevBop, prevForex,
-      0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc,
-      tourismExport = 0.0)
+    val resultWith =
+      OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, tourismExport = 1000.0)
+    val resultWithout =
+      OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, tourismExport = 0.0)
 
     resultWith.bop.exports shouldBe resultWithout.bop.exports + PLN(1000.0)
   }
@@ -222,12 +220,10 @@ class TourismSpec extends AnyFlatSpec with Matchers:
     val prevForex = ForexState(Config.BaseExRate, PLN.Zero, PLN(Config.ExportBase), PLN.Zero, PLN.Zero)
     val rc = sfc.config.RunConfig(2000.0, 1, "test")
 
-    val resultWith = OpenEconomy.step(prevBop, prevForex,
-      0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc,
-      tourismImport = 500.0)
-    val resultWithout = OpenEconomy.step(prevBop, prevForex,
-      0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc,
-      tourismImport = 0.0)
+    val resultWith =
+      OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, tourismImport = 500.0)
+    val resultWithout =
+      OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, tourismImport = 0.0)
 
     resultWith.bop.totalImports shouldBe resultWithout.bop.totalImports + PLN(500.0)
   }
@@ -237,13 +233,20 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "World" should "default tourismExport and tourismImport to 0.0" in {
-    val w = World(0, Rate(0.02), 1.0,
+    val w = World(
+      0,
+      Rate(0.02),
+      1.0,
       GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.05)),
       BankState(PLN.Zero, PLN.Zero, PLN(100), PLN(1000)),
       ForexState(Config.BaseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100, PLN(5000), PLN(4000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      Ratio(0.0), Ratio(0.0), 1e9, Vector.fill(6)(0.1))
+      Ratio(0.0),
+      Ratio(0.0),
+      1e9,
+      Vector.fill(6)(0.1),
+    )
     w.tourismExport shouldBe PLN.Zero
     w.tourismImport shouldBe PLN.Zero
   }

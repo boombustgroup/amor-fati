@@ -9,7 +9,7 @@ object Expectations:
     expectedRate: Rate = Rate(0.0575),
     credibility: Ratio = Ratio(0.8),
     forecastError: Rate = Rate.Zero,
-    forwardGuidanceRate: Rate = Rate(0.0575)
+    forwardGuidanceRate: Rate = Rate(0.0575),
   )
 
   def zero: State = State()
@@ -19,12 +19,10 @@ object Expectations:
     expectedRate = Rate(Config.NbpInitialRate),
     credibility = Ratio(Config.ExpCredibilityInit),
     forecastError = Rate.Zero,
-    forwardGuidanceRate = Rate(Config.NbpInitialRate)
+    forwardGuidanceRate = Rate(Config.NbpInitialRate),
   )
 
-  def step(prev: State, realizedInflation: Double,
-           currentRate: Double, unemployment: Double,
-           rc: RunConfig): State =
+  def step(prev: State, realizedInflation: Double, currentRate: Double, unemployment: Double, rc: RunConfig): State =
 
     // 1. Forecast error
     val error = realizedInflation - prev.expectedInflation.toDouble
@@ -41,14 +39,15 @@ object Expectations:
     val absDeviation = Math.abs(realizedInflation - target)
     val threshold = Config.ExpCredibilityThreshold
     val speed = Config.ExpCredibilitySpeed
-    val rawCredibility = if absDeviation <= threshold then
-      // Below threshold: build credibility
-      cred + speed * (1.0 - cred) *
-        (threshold - absDeviation) / threshold
-    else
-      // Above threshold: erode credibility
-      cred - speed * cred *
-        (absDeviation - threshold) / threshold
+    val rawCredibility =
+      if absDeviation <= threshold then
+        // Below threshold: build credibility
+        cred + speed * (1.0 - cred) *
+          (threshold - absDeviation) / threshold
+      else
+        // Above threshold: erode credibility
+        cred - speed * cred *
+          (absDeviation - threshold) / threshold
     val newCredibility = Math.max(0.01, Math.min(1.0, rawCredibility))
 
     // 5. Forward guidance rate (when enabled)
@@ -66,14 +65,14 @@ object Expectations:
 
     // 6. Expected rate
     val adaptiveRate = prev.expectedRate.toDouble + Config.ExpLambda * (currentRate - prev.expectedRate.toDouble)
-    val expRate = if Config.NbpForwardGuidance then
-      0.6 * fgRate + 0.4 * adaptiveRate
-    else adaptiveRate
+    val expRate =
+      if Config.NbpForwardGuidance then 0.6 * fgRate + 0.4 * adaptiveRate
+      else adaptiveRate
 
     State(
       expectedInflation = Rate(expected),
       expectedRate = Rate(expRate),
       credibility = Ratio(newCredibility),
       forecastError = Rate(error),
-      forwardGuidanceRate = Rate(fgRate)
+      forwardGuidanceRate = Rate(fgRate),
     )

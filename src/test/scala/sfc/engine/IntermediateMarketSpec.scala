@@ -14,7 +14,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     Vector(0.15, 0.10, 0.12, 0.08, 0.07, 0.08),
     Vector(0.01, 0.00, 0.01, 0.05, 0.02, 0.01),
     Vector(0.01, 0.01, 0.01, 0.01, 0.03, 0.01),
-    Vector(0.00, 0.08, 0.05, 0.01, 0.01, 0.12)
+    Vector(0.00, 0.08, 0.05, 0.01, 0.01, 0.12),
   )
 
   private val defaultColSums =
@@ -23,8 +23,12 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   private val zeroMatrix = Vector.fill(6)(Vector.fill(6)(0.0))
   private val zeroColSums = Vector.fill(6)(0.0)
 
-  private def makeFirm(id: Int, sector: Int, cash: Double = 50000.0,
-                       tech: TechState = TechState.Traditional(10)): Firm.State =
+  private def makeFirm(
+    id: Int,
+    sector: Int,
+    cash: Double = 50000.0,
+    tech: TechState = TechState.Traditional(10),
+  ): Firm.State =
     Firm.State(FirmId(id), PLN(cash), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.3), SectorIdx(sector), Array.empty[Int])
 
   private def makeFirmsAllSectors(perSector: Int = 10): Array[Firm.State] =
@@ -67,7 +71,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       makeFirm(0, 0),
       makeFirm(1, 0, tech = TechState.Bankrupt("test")),
       makeFirm(2, 1),
-      makeFirm(3, 2)
+      makeFirm(3, 2),
     )
     val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Bankrupt firm's cash should not change
@@ -83,8 +87,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   it should "leave firms unchanged when A matrix is zero" in {
     val firms = makeFirmsAllSectors(10)
     val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, zeroMatrix, zeroColSums)
-    for i <- firms.indices do
-      result.firms(i).cash.toDouble shouldBe firms(i).cash.toDouble
+    for i <- firms.indices do result.firms(i).cash.toDouble shouldBe firms(i).cash.toDouble
     result.totalPaid shouldBe 0.0
   }
 
@@ -109,9 +112,9 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   it should "distribute revenue proportionally to capacity" in {
     // 2 firms in sector 1: one Automated (higher capacity), one Traditional
     val firms = Array(
-      makeFirm(0, 0),  // BPO: generates demand for sector 1
-      makeFirm(1, 1, tech = TechState.Automated(1.5)),  // High capacity Mfg
-      makeFirm(2, 1)   // Normal capacity Mfg
+      makeFirm(0, 0), // BPO: generates demand for sector 1
+      makeFirm(1, 1, tech = TechState.Automated(1.5)), // High capacity Mfg
+      makeFirm(2, 1), // Normal capacity Mfg
     )
     val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Firm 1 should get more I-O revenue than firm 2 (higher capacity)

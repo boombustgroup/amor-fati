@@ -16,7 +16,7 @@ object HouseholdFinancialStep:
     forexExchangeRate: Double,
     gdpProxy: Double,
     demographicsWorkingAgePop: Int,
-    bankConsumerLoans: Double
+    bankConsumerLoans: Double,
   )
 
   case class Output(
@@ -30,7 +30,7 @@ object HouseholdFinancialStep:
     consumerOrigination: Double,
     consumerDefaultAmt: Double,
     consumerNplLoss: Double,
-    consumerPrincipal: Double
+    consumerPrincipal: Double,
   )
 
   def run(in: Input): Output =
@@ -57,16 +57,25 @@ object HouseholdFinancialStep:
       val inboundErAdj = Math.pow(in.forexExchangeRate / Config.BaseExRate, Config.TourismErElasticity)
       val outboundErAdj = Math.pow(Config.BaseExRate / in.forexExchangeRate, Config.TourismErElasticity)
       val trendAdj = Math.pow(1.0 + Config.TourismGrowthRate / 12.0, in.m.toDouble)
-      val disruption = if Config.TourismShockMonth > 0 && in.m >= Config.TourismShockMonth then
-        Config.TourismShockSize * Math.pow(1.0 - Config.TourismShockRecovery,
-          (in.m - Config.TourismShockMonth).toDouble)
-      else 0.0
+      val disruption =
+        if Config.TourismShockMonth > 0 && in.m >= Config.TourismShockMonth then
+          Config.TourismShockSize * Math.pow(
+            1.0 - Config.TourismShockRecovery,
+            (in.m - Config.TourismShockMonth).toDouble,
+          )
+        else 0.0
       val shockFactor = 1.0 - disruption
       val baseGdp = Math.max(0.0, in.gdpProxy)
-      val inbound = Math.max(0.0, baseGdp * Config.TourismInboundShare *
-        seasonalFactor * inboundErAdj * trendAdj * shockFactor)
-      val outbound = Math.max(0.0, baseGdp * Config.TourismOutboundShare *
-        seasonalFactor * outboundErAdj * trendAdj * shockFactor)
+      val inbound = Math.max(
+        0.0,
+        baseGdp * Config.TourismInboundShare *
+          seasonalFactor * inboundErAdj * trendAdj * shockFactor,
+      )
+      val outbound = Math.max(
+        0.0,
+        baseGdp * Config.TourismOutboundShare *
+          seasonalFactor * outboundErAdj * trendAdj * shockFactor,
+      )
       (inbound, outbound)
     else (0.0, 0.0)
 
@@ -83,6 +92,16 @@ object HouseholdFinancialStep:
       else 0.0
     }
 
-    Output(hhDebtService, depositInterestPaid, remittanceOutflow, diasporaInflow,
-      tourismExport, tourismImport, consumerDebtService, consumerOrigination,
-      consumerDefaultAmt, consumerNplLoss, consumerPrincipal)
+    Output(
+      hhDebtService,
+      depositInterestPaid,
+      remittanceOutflow,
+      diasporaInflow,
+      tourismExport,
+      tourismImport,
+      consumerDebtService,
+      consumerOrigination,
+      consumerDefaultAmt,
+      consumerNplLoss,
+      consumerPrincipal,
+    )

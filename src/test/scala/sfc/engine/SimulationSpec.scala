@@ -87,26 +87,50 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
 
   "Sectors.updateGov" should "compute deficit as spending - revenue" in {
     val prev = GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    val result = Sectors.updateGov(prev, citPaid = 100000, vat = 200000,
-      bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+    val result = Sectors.updateGov(
+      prev,
+      citPaid = 100000,
+      vat = 200000,
+      bdpActive = false,
+      bdpAmount = 0,
+      priceLevel = 1.0,
+      unempBenefitSpend = 0,
+    )
     result.deficit.toDouble shouldBe (Config.GovBaseSpending - 300000) +- 1.0
   }
 
   it should "have zero BDP spending when not active" in {
     val prev = accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    val result = Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 2000, priceLevel = 1.0, unempBenefitSpend = 0)
+    val result = Sectors.updateGov(
+      prev,
+      100000,
+      200000,
+      bdpActive = false,
+      bdpAmount = 2000,
+      priceLevel = 1.0,
+      unempBenefitSpend = 0,
+    )
     result.bdpSpending shouldBe PLN.Zero
   }
 
   it should "include BDP spending when active" in {
     val prev = accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    val result = Sectors.updateGov(prev, 100000, 200000, bdpActive = true, bdpAmount = 2000, priceLevel = 1.0, unempBenefitSpend = 0)
+    val result = Sectors.updateGov(
+      prev,
+      100000,
+      200000,
+      bdpActive = true,
+      bdpAmount = 2000,
+      priceLevel = 1.0,
+      unempBenefitSpend = 0,
+    )
     result.bdpSpending.toDouble shouldBe Config.TotalPopulation.toDouble * 2000.0
     result.bdpSpending.toDouble should be > 0.0
   }
 
   it should "accumulate debt" in {
     val prev = accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN(1000000), PLN.Zero)
-    val result = Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+    val result =
+      Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
     result.cumulativeDebt.toDouble shouldBe (1000000 + result.deficit.toDouble) +- 1.0
   }

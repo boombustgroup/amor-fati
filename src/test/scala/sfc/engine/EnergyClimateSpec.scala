@@ -4,8 +4,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting
 import sfc.accounting.{BankState, ForexState, GovState}
-import sfc.config.{Config, SECTORS}
 import sfc.agents.{Firm, TechState}
+import sfc.config.{Config, SECTORS}
 import sfc.types.*
 
 class EnergyClimateSpec extends AnyFlatSpec with Matchers:
@@ -128,7 +128,17 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Firm" should "default greenCapital to 0.0" in {
-    val f = Firm.State(FirmId(0), PLN(50000.0), PLN.Zero, TechState.Traditional(10), Ratio(0.5), 1.0, Ratio(0.3), SectorIdx(0), Array.empty[Int])
+    val f = Firm.State(
+      FirmId(0),
+      PLN(50000.0),
+      PLN.Zero,
+      TechState.Traditional(10),
+      Ratio(0.5),
+      1.0,
+      Ratio(0.3),
+      SectorIdx(0),
+      Array.empty[Int],
+    )
     f.greenCapital.toDouble shouldBe 0.0
   }
 
@@ -137,13 +147,33 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Firm.Result" should "default energyCost to 0.0" in {
-    val f = Firm.State(FirmId(0), PLN(50000.0), PLN.Zero, TechState.Traditional(10), Ratio(0.5), 1.0, Ratio(0.3), SectorIdx(0), Array.empty[Int])
+    val f = Firm.State(
+      FirmId(0),
+      PLN(50000.0),
+      PLN.Zero,
+      TechState.Traditional(10),
+      Ratio(0.5),
+      1.0,
+      Ratio(0.3),
+      SectorIdx(0),
+      Array.empty[Int],
+    )
     val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     r.energyCost.toDouble shouldBe 0.0
   }
 
   it should "default greenInvestment to 0.0" in {
-    val f = Firm.State(FirmId(0), PLN(50000.0), PLN.Zero, TechState.Traditional(10), Ratio(0.5), 1.0, Ratio(0.3), SectorIdx(0), Array.empty[Int])
+    val f = Firm.State(
+      FirmId(0),
+      PLN(50000.0),
+      PLN.Zero,
+      TechState.Traditional(10),
+      Ratio(0.5),
+      1.0,
+      Ratio(0.3),
+      SectorIdx(0),
+      Array.empty[Int],
+    )
     val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     r.greenInvestment.toDouble shouldBe 0.0
   }
@@ -153,35 +183,56 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "World" should "default aggEnergyCost to 0.0" in {
-    val w = World(0, Rate(0.02), 1.0,
+    val w = World(
+      0,
+      Rate(0.02),
+      1.0,
       GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.0575)),
       BankState(PLN.Zero, PLN.Zero, PLN(500000000.0), PLN.Zero),
       ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100000, PLN(8266.0), PLN(4666.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      Ratio.Zero, Ratio.Zero, 1e9, Vector.fill(6)(5.0))
+      Ratio.Zero,
+      Ratio.Zero,
+      1e9,
+      Vector.fill(6)(5.0),
+    )
     w.aggEnergyCost.toDouble shouldBe 0.0
   }
 
   it should "default aggGreenCapital to 0.0" in {
-    val w = World(0, Rate(0.02), 1.0,
+    val w = World(
+      0,
+      Rate(0.02),
+      1.0,
       accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.0575)),
       accounting.BankState(PLN.Zero, PLN.Zero, PLN(500000000.0), PLN.Zero),
       accounting.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100000, PLN(8266.0), PLN(4666.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      Ratio.Zero, Ratio.Zero, 1e9, Vector.fill(6)(5.0))
+      Ratio.Zero,
+      Ratio.Zero,
+      1e9,
+      Vector.fill(6)(5.0),
+    )
     w.aggGreenCapital.toDouble shouldBe 0.0
   }
 
   it should "default aggGreenInvestment to 0.0" in {
-    val w = World(0, Rate(0.02), 1.0,
+    val w = World(
+      0,
+      Rate(0.02),
+      1.0,
       accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.0575)),
       accounting.BankState(PLN.Zero, PLN.Zero, PLN(500000000.0), PLN.Zero),
       accounting.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100000, PLN(8266.0), PLN(4666.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      Ratio.Zero, Ratio.Zero, 1e9, Vector.fill(6)(5.0))
+      Ratio.Zero,
+      Ratio.Zero,
+      1e9,
+      Vector.fill(6)(5.0),
+    )
     w.aggGreenInvestment.toDouble shouldBe 0.0
   }
 
@@ -191,15 +242,15 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
 
   "Energy cost formula" should "compute positive base energy cost" in {
     val revenue = 100000.0
-    val sector = 1  // Mfg
+    val sector = 1 // Mfg
     val baseEnergy = revenue * Config.EnergyCostShares(sector)
     baseEnergy should be > 0.0
-    baseEnergy shouldBe 10000.0  // 100k * 0.10
+    baseEnergy shouldBe 10000.0 // 100k * 0.10
   }
 
   it should "increase with carbon surcharge at later months" in {
     val revenue = 100000.0
-    val sector = 1  // Mfg
+    val sector = 1 // Mfg
     val baseEnergy = revenue * Config.EnergyCostShares(sector)
     val month = 60
     val etsPrice = Config.EtsBasePrice * Math.pow(1.0 + Config.EtsPriceDrift / 12.0, month.toDouble)
@@ -211,17 +262,17 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
 
   it should "reduce with green discount" in {
     val revenue = 100000.0
-    val sector = 1  // Mfg
+    val sector = 1 // Mfg
     val baseEnergy = revenue * Config.EnergyCostShares(sector)
-    val greenDiscount = 0.20  // 20%
+    val greenDiscount = 0.20 // 20%
     val costWithDiscount = baseEnergy * (1.0 - greenDiscount)
     costWithDiscount should be < baseEnergy
   }
 
   it should "cap green discount at GreenMaxDiscount" in {
-    val greenCapital = 1e9  // very large
-    val targetGK = 30000.0  // per worker * workers
-    val rawRatio = greenCapital / targetGK  // >> 1
+    val greenCapital = 1e9 // very large
+    val targetGK = 30000.0 // per worker * workers
+    val rawRatio = greenCapital / targetGK // >> 1
     val discount = Math.min(Config.GreenMaxDiscount, rawRatio * Config.GreenMaxDiscount)
     discount shouldBe Config.GreenMaxDiscount
   }
@@ -247,21 +298,31 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
     val gap = Math.max(0.0, targetGK - postDepGK)
     val desiredInv = depn + gap * Config.GreenAdjustSpeed
     desiredInv should be > 0.0
-    desiredInv should be > depn  // gap-driven portion adds to depreciation replacement
+    desiredInv should be > depn // gap-driven portion adds to depreciation replacement
   }
 
   it should "be constrained by green budget share of cash" in {
     val cash = 100000.0
     val desiredInv = 50000.0
-    val greenBudget = cash * Config.GreenBudgetShare  // 20,000
+    val greenBudget = cash * Config.GreenBudgetShare // 20,000
     val actualInv = Math.min(desiredInv, greenBudget)
     actualInv shouldBe greenBudget
     actualInv shouldBe 20000.0
   }
 
   it should "be zero for bankrupt firms" in {
-    val f = Firm.State(FirmId(0), PLN(50000.0), PLN.Zero, TechState.Bankrupt("test"), Ratio(0.5), 1.0, Ratio(0.3), SectorIdx(0), Array.empty[Int],
-      greenCapital = PLN(5000.0))
+    val f = Firm.State(
+      FirmId(0),
+      PLN(50000.0),
+      PLN.Zero,
+      TechState.Bankrupt("test"),
+      Ratio(0.5),
+      1.0,
+      Ratio(0.3),
+      SectorIdx(0),
+      Array.empty[Int],
+      greenCapital = PLN(5000.0),
+    )
     Firm.isAlive(f) shouldBe false
   }
 
@@ -273,11 +334,11 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
     val greenInv = 100000.0
     val greenDomesticGFCF = greenInv * (1.0 - Config.GreenImportShare)
     greenDomesticGFCF should be > 0.0
-    greenDomesticGFCF shouldBe 65000.0  // 100k * 0.65
+    greenDomesticGFCF shouldBe 65000.0 // 100k * 0.65
   }
 
   "Green import share" should "be correct fraction of investment" in {
     val greenInv = 100000.0
     val greenImports = greenInv * Config.GreenImportShare
-    greenImports shouldBe 35000.0  // 100k * 0.35
+    greenImports shouldBe 35000.0 // 100k * 0.35
   }

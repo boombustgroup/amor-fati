@@ -19,7 +19,7 @@ object LaborDemographicsStep:
     resWage: Double,
     expectedInflation: Double,
     m: Int,
-    rc: RunConfig
+    rc: RunConfig,
   )
 
   case class Output(
@@ -33,7 +33,7 @@ object LaborDemographicsStep:
     newZus: SocialSecurity.ZusState,
     newPpk: SocialSecurity.PpkState,
     rawPpkBondPurchase: Double,
-    living: Array[Firm.State]
+    living: Array[Firm.State],
   )
 
   def run(in: Input): Output =
@@ -57,15 +57,20 @@ object LaborDemographicsStep:
     else wageAfterExp
 
     // Demographics caps employment at working-age population
-    val employed = if Config.DemEnabled then
-      Math.min(rawEmployed, in.demographics.workingAgePop)
-    else rawEmployed
+    val employed =
+      if Config.DemEnabled then Math.min(rawEmployed, in.demographics.workingAgePop)
+      else rawEmployed
 
     // Immigration
     val unempRateForImmig = 1.0 - employed.toDouble / Config.TotalPopulation
     val newImmig = Immigration.step(
-      in.immigration, in.households, newWage, unempRateForImmig,
-      in.demographics.workingAgePop.max(Config.TotalPopulation), in.m)
+      in.immigration,
+      in.households,
+      newWage,
+      unempRateForImmig,
+      in.demographics.workingAgePop.max(Config.TotalPopulation),
+      in.m,
+    )
     val netMigration = newImmig.monthlyInflow - newImmig.monthlyOutflow
 
     val newDemographics = SocialSecurity.demographicsStep(in.demographics, employed, netMigration)
@@ -76,5 +81,16 @@ object LaborDemographicsStep:
 
     val wageGrowth = if in.marketWage.toDouble > 0 then newWage / in.marketWage.toDouble - 1.0 else 0.0
 
-    Output(newWage, employed, laborDemand, wageGrowth, newImmig, netMigration,
-      newDemographics, newZus, newPpk, rawPpkBondPurchase, living)
+    Output(
+      newWage,
+      employed,
+      laborDemand,
+      wageGrowth,
+      newImmig,
+      netMigration,
+      newDemographics,
+      newZus,
+      newPpk,
+      rawPpkBondPurchase,
+      living,
+    )
