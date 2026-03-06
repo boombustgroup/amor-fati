@@ -78,7 +78,7 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
         1.0,
         Ratio(0.5),
         SectorIdx(0),
-        Array((i + 1) % n, (i - 1 + n) % n),
+        Array(FirmId((i + 1) % n), FirmId((i - 1 + n) % n)),
       )
     }.toArray
 
@@ -96,6 +96,6 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
         1.0,
         Ratio(0.5),
         SectorIdx(sector),
-        Array((i + 1) % n, (i - 1 + n) % n),
+        Array(FirmId((i + 1) % n), FirmId((i - 1 + n) % n)),
       )
     }.toArray

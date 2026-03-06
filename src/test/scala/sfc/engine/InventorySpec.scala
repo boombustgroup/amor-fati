@@ -127,7 +127,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     f.inventory.toDouble shouldBe 0.0
   }
@@ -142,7 +142,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     r.inventoryChange.toDouble shouldBe 0.0
@@ -316,7 +316,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
       inventory = PLN(5000.0),
     )
     // applyInventory should zero out inventory for bankrupt firms

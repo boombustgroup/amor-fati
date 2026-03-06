@@ -167,7 +167,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(sector),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
 
   private def mkHousehold(
@@ -177,7 +177,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     healthPenalty: Double = 0.0,
   ): Household.State =
     Household.State(
-      id,
+      HhId(id),
       PLN(20000.0),
       PLN.Zero,
       PLN(1800.0),
@@ -185,5 +185,5 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
       Ratio(healthPenalty),
       Ratio(0.82),
       status,
-      Array.empty[Int],
+      Array.empty[HhId],
     )

@@ -17,6 +17,12 @@ object types:
     inline def apply(i: Int): FirmId = i
     extension (f: FirmId) inline def toInt: Int = f
 
+  opaque type HhId = Int
+  object HhId:
+    inline def apply(i: Int): HhId = i
+    extension (h: HhId) inline def toInt: Int = h
+    given Ordering[HhId] = Ordering.Int
+
   opaque type SectorIdx = Int
   object SectorIdx:
     inline def apply(i: Int): SectorIdx = i

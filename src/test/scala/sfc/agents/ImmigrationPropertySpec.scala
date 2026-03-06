@@ -89,7 +89,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
   "Immigration.removeReturnMigrants" should "never remove more immigrants than exist" in {
     val hhs = (0 until 10).map { i =>
       Household.State(
-        i,
+        HhId(i),
         PLN(1000.0),
         PLN.Zero,
         PLN(1800.0),
@@ -97,7 +97,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
         Ratio(0.0),
         Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
-        Array.empty[Int],
+        Array.empty[HhId],
         isImmigrant = i >= 5,
       ) // 5 natives + 5 immigrants
     }.toVector

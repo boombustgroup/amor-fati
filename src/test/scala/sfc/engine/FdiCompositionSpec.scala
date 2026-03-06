@@ -180,7 +180,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(sector),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
 
   private def mkWorld(): World =

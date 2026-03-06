@@ -2,9 +2,6 @@ package sfc.networks
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{Firm, TechState}
-import sfc.types.*
-
 import scala.util.Random
 
 class NetworkSpec extends AnyFlatSpec with Matchers:
@@ -114,41 +111,3 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
     val adj = Network.lattice(1000, 6)
     for i <- adj.indices do adj(i) should not contain i
   }
-
-  // --- localAutoRatio ---
-
-  "localAutoRatio" should "return 0.0 when no automated neighbors" in {
-    val firms = Array(
-      mkFirm(0, TechState.Traditional(10), Array(1, 2)),
-      mkFirm(1, TechState.Traditional(10), Array(0)),
-      mkFirm(2, TechState.Traditional(10), Array(0)),
-    )
-    Network.localAutoRatio(firms(0), firms) shouldBe 0.0
-  }
-
-  it should "return 1.0 when all neighbors are Automated" in {
-    val firms = Array(
-      mkFirm(0, TechState.Traditional(10), Array(1, 2)),
-      mkFirm(1, TechState.Automated(1.2), Array(0)),
-      mkFirm(2, TechState.Automated(1.1), Array(0)),
-    )
-    Network.localAutoRatio(firms(0), firms) shouldBe 1.0
-  }
-
-  it should "count Hybrid as automated in ratio" in {
-    val firms = Array(
-      mkFirm(0, TechState.Traditional(10), Array(1, 2, 3)),
-      mkFirm(1, TechState.Automated(1.2), Array(0)),
-      mkFirm(2, TechState.Hybrid(5, 1.0), Array(0)),
-      mkFirm(3, TechState.Traditional(10), Array(0)),
-    )
-    Network.localAutoRatio(firms(0), firms) shouldBe (2.0 / 3.0 +- 0.001)
-  }
-
-  it should "return 0.0 for firm with no neighbors" in {
-    val firms = Array(mkFirm(0, TechState.Traditional(10), Array.empty[Int]))
-    Network.localAutoRatio(firms(0), firms) shouldBe 0.0
-  }
-
-  private def mkFirm(id: Int, tech: TechState, neighbors: Array[Int]): Firm.State =
-    Firm.State(FirmId(id), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0), neighbors)

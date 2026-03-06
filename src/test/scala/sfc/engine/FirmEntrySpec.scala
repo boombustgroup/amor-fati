@@ -113,7 +113,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.15),
       sector = SectorIdx(2),
-      neighbors = Array.empty[Int],
+      neighbors = Array.empty[FirmId],
       initialSize = 5,
     )
     entrant.debt shouldBe PLN.Zero
@@ -135,7 +135,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.15),
       sector = SectorIdx(2),
-      neighbors = Array.empty[Int],
+      neighbors = Array.empty[FirmId],
       initialSize = 5,
     )
     Firm.isAlive(entrant) shouldBe true
@@ -238,7 +238,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
         innovationCostFactor = 1.0,
         digitalReadiness = Ratio(0.15),
         sector = SectorIdx(0),
-        neighbors = Array.empty[Int],
+        neighbors = Array.empty[FirmId],
         initialSize = 5,
       ),
     ) shouldBe 0

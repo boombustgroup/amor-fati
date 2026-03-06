@@ -36,7 +36,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
       initialSize = 5,
     )
     Firm.skeletonCrew(f) shouldBe Config.AutoSkeletonCrew
@@ -53,7 +53,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
       initialSize = 250,
     )
     Firm.skeletonCrew(f) shouldBe 5 // max(2, 250 * 0.02 = 5)
@@ -71,7 +71,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
         1.0,
         Ratio(0.5),
         SectorIdx(0),
-        Array.empty[Int],
+        Array.empty[FirmId],
         initialSize = size,
       )
       Firm.skeletonCrew(f) should be >= Config.AutoSkeletonCrew
@@ -90,7 +90,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(2),
-      Array.empty[Int],
+      Array.empty[FirmId],
       initialSize = 10,
     )
     val f25 = Firm.State(
@@ -102,7 +102,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(2),
-      Array.empty[Int],
+      Array.empty[FirmId],
       initialSize = 25,
     )
     val ratio = Firm.capacity(f25) / Firm.capacity(f10)
@@ -120,7 +120,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(2),
-      Array.empty[Int],
+      Array.empty[FirmId],
       initialSize = 5,
     )
     val f100 = Firm.State(
@@ -132,7 +132,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(2),
-      Array.empty[Int],
+      Array.empty[FirmId],
       initialSize = 100,
     )
     val perWorker5 = Firm.capacity(f5) / 5.0
@@ -153,7 +153,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(2),
-      Array.empty[Int],
+      Array.empty[FirmId],
       initialSize = 10,
     )
     val fLarge = Firm.State(
@@ -165,7 +165,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(2),
-      Array.empty[Int],
+      Array.empty[FirmId],
       initialSize = 100,
     )
     val capexSmall = Firm.aiCapex(fSmall)
@@ -189,7 +189,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     f.initialSize shouldBe 10
   }

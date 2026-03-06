@@ -29,7 +29,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
         1.0,
         Ratio(0.4),
         SectorIdx(sector),
-        Array.empty[Int],
+        Array.empty[FirmId],
       )
     }.toArray
 
@@ -116,7 +116,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       1.0,
       Ratio(0.4),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val f2 = Firm.State(
       FirmId(1),
@@ -127,7 +127,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       1.0,
       Ratio(0.4),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val f3 = Firm.State(
       FirmId(2),
@@ -138,7 +138,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       1.0,
       Ratio(0.4),
       SectorIdx(1),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val firms = Array(f1, f2, f3)
     val r = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums, 1.0)

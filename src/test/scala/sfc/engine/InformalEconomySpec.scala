@@ -137,7 +137,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val r = Firm.Result(f, PLN(100.0), PLN.Zero, PLN.Zero, PLN.Zero)
     r.citEvasion.toDouble shouldBe 0.0
@@ -159,7 +159,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val r = Firm.Result(f, PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero)
     // Since InformalEnabled is false, citEvasion should remain 0
@@ -180,7 +180,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     r.citEvasion.toDouble shouldBe 0.0
@@ -196,7 +196,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     r.citEvasion.toDouble shouldBe 0.0

@@ -8,35 +8,33 @@ import sfc.util.KahanSum.*
 
 /** Stock-flow consistent (SFC) accounting framework for the simulation.
   *
-  * Every monetary flow in the model creates exactly one debit and one credit entry — money is neither
-  * created nor destroyed outside of well-defined banking operations (loan origination, NPL write-off,
-  * bond issuance, etc.). This object provides the machinery to verify that invariant holds after every
-  * simulated month.
+  * Every monetary flow in the model creates exactly one debit and one credit entry — money is neither created nor
+  * destroyed outside of well-defined banking operations (loan origination, NPL write-off, bond issuance, etc.). This
+  * object provides the machinery to verify that invariant holds after every simulated month.
   *
   * The verification works in three steps:
-  *   1. '''Snapshot''' — capture all monetary stocks (deposits, loans, debt, bonds, NFA, …) from the
-  *      current World state, firm array, and optional household vector.
-  *   2. '''MonthlyFlows''' — assemble every flow that occurred during the month, using the exact same
-  *      values that were applied to balance sheet updates in Simulation.step / WorldAssemblyStep.
+  *   1. '''Snapshot''' — capture all monetary stocks (deposits, loans, debt, bonds, NFA, …) from the current World
+  *      state, firm array, and optional household vector.
+  *   2. '''MonthlyFlows''' — assemble every flow that occurred during the month, using the exact same values that were
+  *      applied to balance sheet updates in Simulation.step / WorldAssemblyStep.
   *   3. '''validate''' — for each of the 13 identities, check that Δstock = Σflows within tolerance.
   *
-  * Together these 13 identities cover every financial instrument in the model (deposits, loans,
-  * government bonds, corporate bonds, mortgages, consumer credit, NBFI credit, interbank positions,
-  * NFA, JST debt, FUS balance, and flow-of-funds). Because every asset is some other sector's
-  * liability, the Godley sectoral balances rule (S−I)+(G−T)+(X−M)=0 holds by construction when
-  * all 13 identities pass.
+  * Together these 13 identities cover every financial instrument in the model (deposits, loans, government bonds,
+  * corporate bonds, mortgages, consumer credit, NBFI credit, interbank positions, NFA, JST debt, FUS balance, and
+  * flow-of-funds). Because every asset is some other sector's liability, the Godley sectoral balances rule
+  * (S−I)+(G−T)+(X−M)=0 holds by construction when all 13 identities pass.
   *
-  * '''When to update this file:''' any new mechanism that modifies a monetary stock (bank capital,
-  * deposits, government debt, NFA, bond holdings, or interbank positions) MUST have its flow
-  * reflected in MonthlyFlows and checked in validate — otherwise the check will fail at runtime.
+  * '''When to update this file:''' any new mechanism that modifies a monetary stock (bank capital, deposits, government
+  * debt, NFA, bond holdings, or interbank positions) MUST have its flow reflected in MonthlyFlows and checked in
+  * validate — otherwise the check will fail at runtime.
   */
 object Sfc:
 
   /** Point-in-time snapshot of all monetary stocks in the economy.
     *
-    * Captured twice per month (before and after Simulation.step) so that validate can compute
-    * Δstock = curr - prev for each identity. Fields corresponding to disabled mechanisms are simply
-    * zero — the identity holds trivially in that case.
+    * Captured twice per month (before and after Simulation.step) so that validate can compute Δstock = curr - prev for
+    * each identity. Fields corresponding to disabled mechanisms are simply zero — the identity holds trivially in that
+    * case.
     */
   case class Snapshot(
     hhSavings: PLN, // Σ household savings (individual mode only, 0 in aggregate)
@@ -66,10 +64,9 @@ object Sfc:
 
   /** All monetary flows observed during a single simulated month.
     *
-    * These values are assembled in WorldAssemblyStep from the intermediate results of Simulation.step.
-    * They must match the '''exact''' values used in balance sheet updates — any discrepancy will cause
-    * validate to report an SfcIdentityError. Flows for disabled mechanisms are simply zero, so
-    * the corresponding identity holds trivially.
+    * These values are assembled in WorldAssemblyStep from the intermediate results of Simulation.step. They must match
+    * the '''exact''' values used in balance sheet updates — any discrepancy will cause validate to report an
+    * SfcIdentityError. Flows for disabled mechanisms are simply zero, so the corresponding identity holds trivially.
     */
   case class MonthlyFlows(
     govSpending: PLN, // total gov expenditure (BDP + benefits + transfers + debt service + ZUS subvention)
@@ -132,16 +129,16 @@ object Sfc:
     investNetDepositFlow: PLN, // Investment demand net flow: lagged revenue - current spending
   )
 
-  /** Enumeration of the 13 balance-sheet identities checked each month. Used as a discriminator
-    * in SfcIdentityError so callers can programmatically identify which identity was violated.
+  /** Enumeration of the 13 balance-sheet identities checked each month. Used as a discriminator in SfcIdentityError so
+    * callers can programmatically identify which identity was violated.
     */
   enum SfcIdentity:
     case BankCapital, BankDeposits, GovDebt, Nfa, BondClearing,
       InterbankNetting, JstDebt, FusBalance, MortgageStock,
       FlowOfFunds, ConsumerCredit, CorpBondStock, NbfiCredit
 
-  /** A single identity violation, carrying the identity that failed, a human-readable description,
-    * and the expected vs actual monetary values so callers can inspect the magnitude of the discrepancy.
+  /** A single identity violation, carrying the identity that failed, a human-readable description, and the expected vs
+    * actual monetary values so callers can inspect the magnitude of the discrepancy.
     */
   case class SfcIdentityError(
     identity: SfcIdentity,
@@ -152,9 +149,9 @@ object Sfc:
 
   /** Build a Snapshot from the current simulation state by aggregating all agent-level stocks.
     *
-    * In aggregate household mode (households = None), hhSavings and hhDebt are zero because
-    * household wealth is not tracked individually — the deposit identity still holds because
-    * totalIncome and totalConsumption capture the net HH flow into bank deposits.
+    * In aggregate household mode (households = None), hhSavings and hhDebt are zero because household wealth is not
+    * tracked individually — the deposit identity still holds because totalIncome and totalConsumption capture the net
+    * HH flow into bank deposits.
     */
   def snapshot(w: World, firms: Array[Firm.State], households: Option[Vector[Household.State]]): Snapshot =
     val hhS = PLN(households.map(_.kahanSumBy(_.savings.toDouble)).getOrElse(0.0))
@@ -186,18 +183,18 @@ object Sfc:
       nbfiLoanStock = w.nbfi.nbfiLoanStock,
     )
 
-  /** Validate 13 exact balance-sheet identities. Returns `Right(())` if all pass,
-    * or `Left(errors)` with every violated identity and its expected/actual values.
+  /** Validate 13 exact balance-sheet identities. Returns `Right(())` if all pass, or `Left(errors)` with every violated
+    * identity and its expected/actual values.
     *
-    * Together these 13 identities ensure that every financial asset has a matching liability,
-    * which implies the Godley sectoral balances rule (S−I)+(G−T)+(X−M)=0 by construction.
+    * Together these 13 identities ensure that every financial asset has a matching liability, which implies the Godley
+    * sectoral balances rule (S−I)+(G−T)+(X−M)=0 by construction.
     *
     * The monetary circuit closes via sector-level flow-of-funds (Identity 10).
     *
     *   1. Bank capital: Δ = -nplLoss - mortgageNplLoss - consumerNplLoss - corpBondDefaultLoss - bfgLevy -
     *      bankCapitalDestruction + (interestIncome + hhDebtService + bankBondIncome + mortgageInterestIncome +
-    *      consumerDebtService + corpBondCouponIncome - depositInterestPaid + reserveInterest +
-    *      standingFacilityIncome + interbankInterest) × BankProfitRetention
+    *      consumerDebtService + corpBondCouponIncome - depositInterestPaid + reserveInterest + standingFacilityIncome +
+    *      interbankInterest) × BankProfitRetention
     *   2. Bank deposits: Δ = totalIncome - totalConsumption + investNetDepositFlow + jstDepositChange + dividendIncome -
     *      foreignDividendOutflow - remittanceOutflow + diasporaInflow + tourismExport - tourismImport - bailInLoss +
     *      consumerOrigination + insNetDepositChange + nbfiDepositDrain

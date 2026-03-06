@@ -52,7 +52,7 @@ object Household:
   // ---- Individual household ----
 
   case class State(
-    id: Int,
+    id: HhId,
     savings: PLN,
     debt: PLN,
     monthlyRent: PLN,
@@ -60,7 +60,7 @@ object Household:
     healthPenalty: Ratio,
     mpc: Ratio,
     status: HhStatus,
-    socialNeighbors: Array[Int],
+    socialNeighbors: Array[HhId],
     bankId: BankId = BankId(0), // Multi-bank: index into Banking.State.banks
     equityWealth: PLN = PLN.Zero, // GPW: value of equity holdings
     lastSectorIdx: SectorIdx = SectorIdx(-1), // Sectoral mobility: last sector employed in (-1 = never)
@@ -198,7 +198,7 @@ object Household:
               else 0.0
 
             builder += State(
-              id = hhId,
+              id = HhId(hhId),
               savings = PLN(savings),
               debt = PLN(debt),
               monthlyRent = PLN(rent),
@@ -206,7 +206,8 @@ object Household:
               healthPenalty = Ratio.Zero,
               mpc = Ratio(Math.max(0.5, Math.min(0.98, mpc))),
               status = HhStatus.Employed(f.id, sectorIdx, PLN(wage)),
-              socialNeighbors = if hhId < socialNetwork.length then socialNetwork(hhId) else Array.empty,
+              socialNeighbors =
+                if hhId < socialNetwork.length then socialNetwork(hhId).map(HhId(_)) else Array.empty[HhId],
               equityWealth = PLN(eqWealth),
               lastSectorIdx = sectorIdx,
               numDependentChildren = numChildren,
@@ -648,7 +649,7 @@ object Household:
       var count = 0
       var i = 0
       while i < hh.socialNeighbors.length do
-        if distressedIds.get(hh.socialNeighbors(i)) then count += 1
+        if distressedIds.get(hh.socialNeighbors(i).toInt) then count += 1
         i += 1
       count.toDouble / hh.socialNeighbors.length
 

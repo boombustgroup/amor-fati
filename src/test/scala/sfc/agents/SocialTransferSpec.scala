@@ -104,7 +104,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
 
   "Household.numDependentChildren" should "default to 0" in {
     val hh = Household.State(
-      id = 0,
+      id = HhId(0),
       savings = PLN(1000),
       debt = PLN.Zero,
       monthlyRent = PLN(1000),
@@ -112,7 +112,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
       healthPenalty = Ratio(0.0),
       mpc = Ratio(0.8),
       status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
-      socialNeighbors = Array.empty[Int],
+      socialNeighbors = Array.empty[HhId],
     )
     hh.numDependentChildren shouldBe 0
   }

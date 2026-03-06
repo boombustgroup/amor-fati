@@ -84,7 +84,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
   "Household.education" should "default to 2 (Secondary)" in {
     val hh = Household.State(
-      0,
+      HhId(0),
       PLN(1000.0),
       PLN.Zero,
       PLN(1800.0),
@@ -92,14 +92,14 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.0),
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
-      Array.empty[Int],
+      Array.empty[HhId],
     )
     hh.education shouldBe 2
   }
 
   it should "be preserved through copy" in {
     val hh = Household.State(
-      0,
+      HhId(0),
       PLN(1000.0),
       PLN.Zero,
       PLN(1800.0),
@@ -107,7 +107,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.0),
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
-      Array.empty[Int],
+      Array.empty[HhId],
       education = 3,
     )
     val copied = hh.copy(savings = PLN(2000.0))
@@ -129,7 +129,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val newFirm = Firm.State(
       FirmId(0),
@@ -140,11 +140,11 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
 
     val hhPrimary = Household.State(
-      0,
+      HhId(0),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
@@ -152,11 +152,11 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.0),
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
-      Array.empty[Int],
+      Array.empty[HhId],
       education = 0,
     )
     val hhTertiary = Household.State(
-      1,
+      HhId(1),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
@@ -164,11 +164,11 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.0),
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5000.0)),
-      Array.empty[Int],
+      Array.empty[HhId],
       education = 3,
     )
     val hhVocational = Household.State(
-      2,
+      HhId(2),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
@@ -176,7 +176,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.0),
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5500.0)),
-      Array.empty[Int],
+      Array.empty[HhId],
       education = 1,
     )
 
@@ -202,7 +202,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val newFirm = Firm.State(
       FirmId(0),
@@ -213,11 +213,11 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.5),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
 
     val hhLowSkill = Household.State(
-      0,
+      HhId(0),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
@@ -225,11 +225,11 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.0),
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
-      Array.empty[Int],
+      Array.empty[HhId],
       education = 2,
     )
     val hhHighSkill = Household.State(
-      1,
+      HhId(1),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
@@ -237,11 +237,11 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.0),
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(7000.0)),
-      Array.empty[Int],
+      Array.empty[HhId],
       education = 2,
     )
     val hhMidSkill = Household.State(
-      2,
+      HhId(2),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
@@ -249,7 +249,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.0),
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6500.0)),
-      Array.empty[Int],
+      Array.empty[HhId],
       education = 2,
     )
 
@@ -299,7 +299,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
         1.0,
         Ratio(0.5),
         SectorIdx(0),
-        Array.empty[Int],
+        Array.empty[FirmId],
       ),
       Firm.State(
         FirmId(1),
@@ -310,7 +310,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
         1.0,
         Ratio(0.5),
         SectorIdx(2),
-        Array.empty[Int],
+        Array.empty[FirmId],
       ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
@@ -333,7 +333,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
         1.0,
         Ratio(0.5),
         SectorIdx(0),
-        Array.empty[Int],
+        Array.empty[FirmId],
       ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])

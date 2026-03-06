@@ -137,7 +137,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     f.greenCapital.toDouble shouldBe 0.0
   }
@@ -156,7 +156,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     r.energyCost.toDouble shouldBe 0.0
@@ -172,7 +172,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
     )
     val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     r.greenInvestment.toDouble shouldBe 0.0
@@ -320,7 +320,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
       1.0,
       Ratio(0.3),
       SectorIdx(0),
-      Array.empty[Int],
+      Array.empty[FirmId],
       greenCapital = PLN(5000.0),
     )
     Firm.isAlive(f) shouldBe false

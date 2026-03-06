@@ -114,7 +114,7 @@ object LaborMarket:
         // Fix: use lastSectorIdx (actual last employer sector) instead of hh.id % firms.length
         val prevSector =
           if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt
-          else firms(hh.id % firms.length).sector.toInt
+          else firms(hh.id.toInt % firms.length).sector.toInt
 
         // Try same-sector first (bonus), then fall back to global priority order
         val bestFirmId = vacancyFirmsBySector

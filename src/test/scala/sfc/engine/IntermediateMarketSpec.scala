@@ -28,7 +28,17 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     cash: Double = 50000.0,
     tech: TechState = TechState.Traditional(10),
   ): Firm.State =
-    Firm.State(FirmId(id), PLN(cash), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.3), SectorIdx(sector), Array.empty[Int])
+    Firm.State(
+      FirmId(id),
+      PLN(cash),
+      PLN.Zero,
+      tech,
+      Ratio(0.5),
+      1.0,
+      Ratio(0.3),
+      SectorIdx(sector),
+      Array.empty[FirmId],
+    )
 
   private def makeFirmsAllSectors(perSector: Int = 10): Array[Firm.State] =
     (0 until 6).flatMap { s =>

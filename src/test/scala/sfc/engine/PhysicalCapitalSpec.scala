@@ -23,7 +23,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.3),
       sector = SectorIdx(sector),
-      neighbors = Array.empty[Int],
+      neighbors = Array.empty[FirmId],
       initialSize = workers,
       capitalStock = PLN(capitalStock),
     )
@@ -157,7 +157,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.3),
       sector = SectorIdx(0),
-      neighbors = Array.empty[Int],
+      neighbors = Array.empty[FirmId],
       capitalStock = PLN(100000.0),
     )
     Firm.capacity(f) shouldBe 0.0
@@ -176,7 +176,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.3),
       sector = SectorIdx(1),
-      neighbors = Array.empty[Int],
+      neighbors = Array.empty[FirmId],
       capitalStock = PLN(2500000.0),
     )
     val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)

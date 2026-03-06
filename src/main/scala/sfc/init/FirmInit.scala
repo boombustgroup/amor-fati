@@ -53,7 +53,7 @@ object FirmInit:
         digitalReadiness =
           Ratio(Math.max(0.02, Math.min(0.98, sec.baseDigitalReadiness.toDouble + (rng.nextGaussian() * 0.20)))),
         sector = SectorIdx(sectorAssignments(i)),
-        neighbors = adjList(i),
+        neighbors = adjList(i).map(FirmId(_)),
         initialSize = firmSize,
       )
     }.toArray

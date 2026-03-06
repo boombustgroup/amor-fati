@@ -142,10 +142,10 @@ object WorldAssemblyStep:
   )
 
   case class Output(
-                     newWorld: World,
-                     finalFirms: Array[Firm.State],
-                     reassignedHouseholds: Option[Vector[Household.State]],
-                     sfcResult: Either[Vector[Sfc.SfcIdentityError], Unit],
+    newWorld: World,
+    finalFirms: Array[Firm.State],
+    reassignedHouseholds: Option[Vector[Household.State]],
+    sfcResult: Either[Vector[Sfc.SfcIdentityError], Unit],
   )
 
   def run(in: Input): Output =
@@ -410,8 +410,8 @@ object WorldAssemblyStep:
 
             val nNeighbors = Math.min(6, livingIds.length)
             val newNeighbors =
-              if nNeighbors > 0 then Random.shuffle(livingIds.toList).take(nNeighbors).toArray
-              else Array.empty[Int]
+              if nNeighbors > 0 then Random.shuffle(livingIds.toList).take(nNeighbors).map(FirmId(_)).toArray
+              else Array.empty[FirmId]
 
             val newBankId =
               if Config.BankMulti then Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, Random)

@@ -79,7 +79,7 @@ object Generators:
     innov,
     Ratio(digiR),
     SectorIdx(sector),
-    Array.empty[Int],
+    Array.empty[FirmId],
     BankId(bankId),
     PLN(eqR),
     iSize,
@@ -106,7 +106,7 @@ object Generators:
     innov,
     Ratio(digiR),
     SectorIdx(sector),
-    Array.empty[Int],
+    Array.empty[FirmId],
     BankId(bankId),
     PLN(eqR),
     iSize,
@@ -216,7 +216,7 @@ object Generators:
     eqW <- Gen.choose(0.0, 100000.0)
     lastSec <- Gen.choose(-1, 5)
   yield Household.State(
-    id,
+    HhId(id),
     PLN(savings),
     PLN(debt),
     PLN(rent),
@@ -224,7 +224,7 @@ object Generators:
     Ratio(health),
     Ratio(mpc),
     status,
-    Array.empty[Int],
+    Array.empty[HhId],
     BankId(bankId),
     PLN(eqW),
     SectorIdx(lastSec),

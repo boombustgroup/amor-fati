@@ -357,7 +357,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         1.0,
         Ratio(0.5),
         SectorIdx(i % SECTORS.length),
-        Array.empty[Int],
+        Array.empty[FirmId],
       )
     }.toArray
 
@@ -373,7 +373,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     bankId: Int = 0,
   ): Household.State =
     Household.State(
-      id,
+      HhId(id),
       savings,
       debt,
       rent,
@@ -381,7 +381,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       Ratio(healthPenalty),
       Ratio(mpc),
       status,
-      Array.empty[Int],
+      Array.empty[HhId],
       BankId(bankId),
     )
 

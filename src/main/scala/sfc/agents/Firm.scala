@@ -2,7 +2,7 @@ package sfc.agents
 
 import sfc.config.{Config, RunConfig, SECTORS}
 import sfc.engine.World
-import sfc.networks.Network
+
 import sfc.types.*
 
 import scala.util.Random
@@ -25,6 +25,26 @@ object Firm:
   def isAlive(f: State): Boolean = f.tech match
     case _: TechState.Bankrupt => false
     case _                     => true
+
+  /** Fraction of a firm's network neighbors that have adopted automation (Automated or Hybrid tech).
+    *
+    * Used in technology adoption decisions: firms with more automated neighbors face stronger competitive pressure to
+    * digitalize (network externality / peer effect). Returns 0.0 for firms with no neighbors (isolates).
+    *
+    * @param firm
+    *   the focal firm whose neighborhood is evaluated
+    * @param firms
+    *   full firm array (neighbors are looked up by index)
+    * @return
+    *   ratio ∈ [0.0, 1.0] of neighbors with TechState.Automated or TechState.Hybrid
+    */
+  def localAutoRatio(firm: Firm.State, firms: Array[Firm.State]): Double =
+    val neighbors = firm.neighbors
+    if neighbors.isEmpty then return 0.0
+    val autoCount = neighbors.count: nid =>
+      val nf = firms(nid.toInt)
+      nf.tech.isInstanceOf[TechState.Automated] || nf.tech.isInstanceOf[TechState.Hybrid]
+    autoCount.toDouble / neighbors.length
 
   // ---- Firm step result ----
 
@@ -282,7 +302,7 @@ object Firm:
         val hBank = bankCanLend(hLoan)
 
         // Network-aware mimetic pressure: blend local + global with moderate weights
-        val localAuto = Network.localAutoRatio(firm, allFirms)
+        val localAuto = localAutoRatio(firm, allFirms)
         val globalPanic = (w.automationRatio.toDouble + w.hybridRatio.toDouble * 0.5) * 0.5
         val panic = localAuto * 0.4 + globalPanic * 0.4 // Balanced local/global
         val desper = if net < 0 then 0.2 else 0.0
@@ -656,7 +676,7 @@ object Firm:
     innovationCostFactor: Double,
     digitalReadiness: Ratio,
     sector: SectorIdx, // Index into SECTORS
-    neighbors: Array[Int], // Network adjacency (firm IDs)
+    neighbors: Array[FirmId], // Network adjacency (firm IDs)
     bankId: BankId = BankId(0), // Multi-bank: index into Banking.State.banks
     equityRaised: PLN = PLN.Zero, // GPW: cumulative equity raised via IPO/SPO
     initialSize: Int = 10, // Firm size at creation (v6.0: heterogeneous when FIRM_SIZE_DIST=gus)

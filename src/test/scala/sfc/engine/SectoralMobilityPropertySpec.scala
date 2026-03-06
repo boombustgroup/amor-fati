@@ -68,7 +68,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
         1.0,
         Ratio(0.5),
         SectorIdx(2),
-        Array.empty[Int],
+        Array.empty[FirmId],
       ),
     )
     val hhs = Vector.empty[Household.State]
@@ -82,7 +82,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     val hhs = (0 until 10)
       .map(i =>
         Household.State(
-          i,
+          HhId(i),
           PLN(20000.0),
           PLN.Zero,
           PLN(1800.0),
@@ -90,7 +90,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
           Ratio(0.0),
           Ratio(0.82),
           HhStatus.Employed(FirmId(i), SectorIdx(i % 6), PLN(8000.0 + i * 100)),
-          Array.empty[Int],
+          Array.empty[HhId],
         ),
       )
       .toVector

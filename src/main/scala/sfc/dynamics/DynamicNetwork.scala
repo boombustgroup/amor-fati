@@ -32,7 +32,7 @@ object DynamicNetwork:
     if toReplace.isEmpty then return firms
 
     // Build mutable adjacency from current neighbor arrays
-    val adj = Array.tabulate(n)(i => scala.collection.mutable.Set.from(firms(i).neighbors))
+    val adj = Array.tabulate(n)(i => scala.collection.mutable.Set.from(firms(i).neighbors.map(_.toInt)))
 
     // Alive firm indices (for preferential attachment targets)
     val alive = (0 until n).filter(i => Firm.isAlive(firms(i))).toArray
@@ -82,13 +82,13 @@ object DynamicNetwork:
             ),
           ),
           sector = sec,
-          neighbors = adj(i).toArray,
+          neighbors = adj(i).toArray.map(FirmId(_)),
           initialSize = newSize,
           capitalStock =
             PLN(if Config.PhysCapEnabled then newSize.toDouble * Config.PhysCapKLRatios(sec.toInt) else 0.0),
         )
       else
-        val newNb = adj(i).toArray
+        val newNb = adj(i).toArray.map(FirmId(_))
         if newNb.length != firms(i).neighbors.length then firms(i).copy(neighbors = newNb)
         else firms(i)
     }.toArray

@@ -12,7 +12,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   // ---- Helpers ----
 
   private def mkFirm(tech: TechState, sector: Int = 2, cash: Double = 500000.0, dr: Double = 0.5): Firm.State =
-    Firm.State(FirmId(0), PLN(cash), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(dr), SectorIdx(sector), Array.empty[Int])
+    Firm.State(FirmId(0), PLN(cash), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(dr), SectorIdx(sector), Array.empty[FirmId])
 
   private def mkWorld(autoRatio: Double = 0.0, hybridRatio: Double = 0.0): World =
     World(

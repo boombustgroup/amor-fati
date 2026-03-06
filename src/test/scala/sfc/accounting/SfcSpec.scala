@@ -45,14 +45,14 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         1.0,
         Ratio(0.3),
         SectorIdx(0),
-        Array.empty[Int],
+        Array.empty[FirmId],
       )
     }.toArray
 
   private def makeHouseholds(n: Int, savings: Double = 15000.0, debt: Double = 0.0): Vector[Household.State] =
     (0 until n).map { i =>
       Household.State(
-        i,
+        HhId(i),
         PLN(savings),
         PLN(debt),
         PLN(1800.0),
@@ -60,7 +60,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         Ratio(0.0),
         Ratio(0.82),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266.0)),
-        Array.empty[Int],
+        Array.empty[HhId],
       )
     }.toVector
 
@@ -226,7 +226,13 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   it should "detect error when debt service is not routed to bank" in {
     val prev =
-      zeroSnap.copy(hhSavings = PLN(100000), hhDebt = PLN(5000), firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
+      zeroSnap.copy(
+        hhSavings = PLN(100000),
+        hhDebt = PLN(5000),
+        firmCash = PLN(500000),
+        bankCapital = PLN(200000),
+        bankDeposits = PLN(1000000),
+      )
     // Bug: hhDebtService=3000 should add 900 to bank capital, but bank unchanged
     val curr = prev.copy(bankCapital = prev.bankCapital)
     val flows = zeroFlows.copy(hhDebtService = PLN(3000))
@@ -262,7 +268,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   "Sfc.validate (gov debt)" should "pass when change matches deficit" in {
     val prev =
-      zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), govDebt = PLN(50000))
+      zeroSnap.copy(
+        firmCash = PLN(500000),
+        bankCapital = PLN(200000),
+        bankDeposits = PLN(1000000),
+        govDebt = PLN(50000),
+      )
     // govSpending=30000, govRevenue=20000 -> deficit=10000
     val curr = prev.copy(govDebt = prev.govDebt + PLN(10000))
     val flows = zeroFlows.copy(govSpending = PLN(30000), govRevenue = PLN(20000))
@@ -272,7 +283,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   it should "pass with government surplus (negative deficit)" in {
     val prev =
-      zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), govDebt = PLN(50000))
+      zeroSnap.copy(
+        firmCash = PLN(500000),
+        bankCapital = PLN(200000),
+        bankDeposits = PLN(1000000),
+        govDebt = PLN(50000),
+      )
     // govSpending=15000, govRevenue=25000 -> deficit=-10000 (surplus)
     val curr = prev.copy(govDebt = prev.govDebt - PLN(10000))
     val flows = zeroFlows.copy(govSpending = PLN(15000), govRevenue = PLN(25000))
@@ -282,7 +298,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   it should "detect error when debt doesn't match deficit" in {
     val prev =
-      zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), govDebt = PLN(50000))
+      zeroSnap.copy(
+        firmCash = PLN(500000),
+        bankCapital = PLN(200000),
+        bankDeposits = PLN(1000000),
+        govDebt = PLN(50000),
+      )
     // Bug: debt doesn't change despite deficit
     val curr = prev.copy(govDebt = prev.govDebt)
     val flows = zeroFlows.copy(govSpending = PLN(30000), govRevenue = PLN(20000))
@@ -295,7 +316,15 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   "Sfc.validate" should "pass with zero flows and no changes" in {
     val snap =
-      zeroSnap.copy(hhSavings = PLN(100000), hhDebt = PLN(5000), firmCash = PLN(500000), firmDebt = PLN(10000), bankCapital = PLN(200000), bankDeposits = PLN(800000), bankLoans = PLN(10000))
+      zeroSnap.copy(
+        hhSavings = PLN(100000),
+        hhDebt = PLN(5000),
+        firmCash = PLN(500000),
+        firmDebt = PLN(10000),
+        bankCapital = PLN(200000),
+        bankDeposits = PLN(800000),
+        bankLoans = PLN(10000),
+      )
     val result = Sfc.validate(snap, snap, zeroFlows)
     result shouldBe Right(())
   }
@@ -303,7 +332,16 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   // ---- Combined flows ----
 
   it should "pass when all three identities hold simultaneously" in {
-    val prev = zeroSnap.copy(hhSavings = PLN(100000), hhDebt = PLN(5000), firmCash = PLN(500000), firmDebt = PLN(10000), bankCapital = PLN(200000), bankDeposits = PLN(800000), bankLoans = PLN(10000), govDebt = PLN(50000))
+    val prev = zeroSnap.copy(
+      hhSavings = PLN(100000),
+      hhDebt = PLN(5000),
+      firmCash = PLN(500000),
+      firmDebt = PLN(10000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(800000),
+      bankLoans = PLN(10000),
+      govDebt = PLN(50000),
+    )
     // Bank capital: -2000 nplLoss + 6000*0.3 intIncome + 1000*0.3 hhDebtSvc = -2000 + 1800 + 300 = 100
     // Deposits: totalIncome(50000) - consumption(41000) = 9000
     // Gov debt: spending(30000) - revenue(25000) = 5000
@@ -358,13 +396,27 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   // ---- Identity 5: Bond clearing ----
 
   "Sfc.validate (bond clearing)" should "pass when holdings sum to outstanding" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), bankBondHoldings = PLN(5000.0), nbpBondHoldings = PLN(3000.0), bondsOutstanding = PLN(8000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      bankBondHoldings = PLN(5000.0),
+      nbpBondHoldings = PLN(3000.0),
+      bondsOutstanding = PLN(8000.0),
+    )
     val result = Sfc.validate(prev, prev, zeroFlows)
     result shouldBe Right(())
   }
 
   it should "detect error when holdings don't sum to outstanding" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), bankBondHoldings = PLN(5000.0), nbpBondHoldings = PLN(3000.0), bondsOutstanding = PLN(10000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      bankBondHoldings = PLN(5000.0),
+      nbpBondHoldings = PLN(3000.0),
+      bondsOutstanding = PLN(10000.0),
+    )
     val result = Sfc.validate(prev, prev, zeroFlows)
     result shouldBe a[Left[?, ?]]
     errorDelta(result, Sfc.SfcIdentity.BondClearing) shouldBe -2000.0 +- 0.01
@@ -378,7 +430,15 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "include insurance gov bond holdings in bond clearing" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), bankBondHoldings = PLN(5000.0), nbpBondHoldings = PLN(3000.0), bondsOutstanding = PLN(10000.0), insuranceGovBondHoldings = PLN(2000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      bankBondHoldings = PLN(5000.0),
+      nbpBondHoldings = PLN(3000.0),
+      bondsOutstanding = PLN(10000.0),
+      insuranceGovBondHoldings = PLN(2000.0),
+    )
     val result = Sfc.validate(prev, prev, zeroFlows)
     // 5000 + 3000 + 0 (ppk) + 2000 (insurance) = 10000 = outstanding
     result shouldBe Right(())
@@ -417,7 +477,15 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   it should "pass trivially in single-bank mode (interbankNetSum=0)" in {
     val snap =
-      zeroSnap.copy(hhSavings = PLN(100000), hhDebt = PLN(5000), firmCash = PLN(500000), firmDebt = PLN(10000), bankCapital = PLN(200000), bankDeposits = PLN(800000), bankLoans = PLN(10000))
+      zeroSnap.copy(
+        hhSavings = PLN(100000),
+        hhDebt = PLN(5000),
+        firmCash = PLN(500000),
+        firmDebt = PLN(10000),
+        bankCapital = PLN(200000),
+        bankDeposits = PLN(800000),
+        bankLoans = PLN(10000),
+      )
     val result = Sfc.validate(snap, snap, zeroFlows)
     result shouldBe Right(())
   }
@@ -439,7 +507,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   "Sfc.validate (gov debt with benefits)" should "pass when benefits included in govSpending" in {
     val prev =
-      zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), govDebt = PLN(50000))
+      zeroSnap.copy(
+        firmCash = PLN(500000),
+        bankCapital = PLN(200000),
+        bankDeposits = PLN(1000000),
+        govDebt = PLN(50000),
+      )
     val benefitSpend = PLN(15000.0)
     val baseGovSpend = PLN(30000.0)
     val totalGovSpend = baseGovSpend + benefitSpend // 45000
@@ -587,7 +660,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   // ---- Identity 9: Mortgage stock ----
 
   "Sfc.validate (mortgage stock)" should "pass when stock change matches flows" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), mortgageStock = PLN(100000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      mortgageStock = PLN(100000.0),
+    )
     // origination=20000, principal=3000, default=1000 -> delta = 20000-3000-1000 = 16000
     val curr = prev.copy(mortgageStock = PLN(116000.0))
     val flows = zeroFlows.copy(
@@ -607,7 +685,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "detect error when stock doesn't match flows" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), mortgageStock = PLN(100000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      mortgageStock = PLN(100000.0),
+    )
     // Bug: stock unchanged despite origination
     val curr = prev.copy(mortgageStock = PLN(100000.0))
     val flows = zeroFlows.copy(mortgageOrigination = PLN(15000))
@@ -617,7 +700,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle net reduction in stock (repayment > origination)" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), mortgageStock = PLN(100000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      mortgageStock = PLN(100000.0),
+    )
     // origination=2000, principal=5000, default=500 -> delta = 2000-5000-500 = -3500
     val curr = prev.copy(mortgageStock = PLN(96500.0))
     val flows = zeroFlows.copy(
@@ -698,14 +786,32 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   // ---- Identity 5 with TFI gov bond holdings (#42) ----
 
   "Sfc.validate (TFI bonds)" should "include TFI gov bond holdings in bond clearing" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), bankBondHoldings = PLN(4000.0), nbpBondHoldings = PLN(3000.0), bondsOutstanding = PLN(12000.0), insuranceGovBondHoldings = PLN(2000.0), tfiGovBondHoldings = PLN(3000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      bankBondHoldings = PLN(4000.0),
+      nbpBondHoldings = PLN(3000.0),
+      bondsOutstanding = PLN(12000.0),
+      insuranceGovBondHoldings = PLN(2000.0),
+      tfiGovBondHoldings = PLN(3000.0),
+    )
     val result = Sfc.validate(prev, prev, zeroFlows)
     // 4000 + 3000 + 0 (ppk) + 2000 (insurance) + 3000 (TFI) = 12000 = outstanding
     result shouldBe Right(())
   }
 
   it should "detect error when TFI holdings cause mismatch" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), bankBondHoldings = PLN(4000.0), nbpBondHoldings = PLN(3000.0), bondsOutstanding = PLN(10000.0), insuranceGovBondHoldings = PLN(2000.0), tfiGovBondHoldings = PLN(5000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      bankBondHoldings = PLN(4000.0),
+      nbpBondHoldings = PLN(3000.0),
+      bondsOutstanding = PLN(10000.0),
+      insuranceGovBondHoldings = PLN(2000.0),
+      tfiGovBondHoldings = PLN(5000.0),
+    )
     val result = Sfc.validate(prev, prev, zeroFlows)
     // 4000 + 3000 + 0 + 2000 + 5000 = 14000 vs 10000 = +4000 error
     result shouldBe a[Left[?, ?]]
@@ -715,7 +821,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   // ---- Identity 13: NBFI credit stock (#42) ----
 
   "Sfc.validate (NBFI credit stock)" should "pass when stock change matches flows" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), nbfiLoanStock = PLN(100000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      nbfiLoanStock = PLN(100000.0),
+    )
     // origination=5000, repayment=2000, default=500 -> delta = 5000-2000-500 = 2500
     val curr = prev.copy(nbfiLoanStock = PLN(102500.0))
     val flows = zeroFlows.copy(nbfiOrigination = PLN(5000), nbfiRepayment = PLN(2000), nbfiDefaultAmount = PLN(500))
@@ -731,7 +842,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "detect error when NBFI stock doesn't match flows" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), nbfiLoanStock = PLN(100000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      nbfiLoanStock = PLN(100000.0),
+    )
     // Bug: stock unchanged despite origination
     val curr = prev.copy(nbfiLoanStock = PLN(100000.0))
     val flows = zeroFlows.copy(nbfiOrigination = PLN(8000))
@@ -741,7 +857,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle net reduction in NBFI stock (repayment > origination)" in {
-    val prev = zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000), nbfiLoanStock = PLN(100000.0))
+    val prev = zeroSnap.copy(
+      firmCash = PLN(500000),
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      nbfiLoanStock = PLN(100000.0),
+    )
     // origination=1000, repayment=4000, default=200 -> delta = 1000-4000-200 = -3200
     val curr = prev.copy(nbfiLoanStock = PLN(96800.0))
     val flows = zeroFlows.copy(nbfiOrigination = PLN(1000), nbfiRepayment = PLN(4000), nbfiDefaultAmount = PLN(200))

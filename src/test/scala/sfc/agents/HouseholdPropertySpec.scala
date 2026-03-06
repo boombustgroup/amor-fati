@@ -156,7 +156,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     forAll(Gen.choose(1, 20)) { (n: Int) =>
       val bankruptHhs = (0 until n).map { i =>
         Household.State(
-          i,
+          HhId(i),
           PLN(-10000.0),
           PLN(5000.0),
           PLN(1800.0),
@@ -164,7 +164,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           Ratio(0.3),
           Ratio(0.8),
           HhStatus.Bankrupt,
-          Array.empty[Int],
+          Array.empty[HhId],
         )
       }.toVector
       val agg = Household.computeAggregates(bankruptHhs, 8266.0, 4666.0, 0.40, 0, 0)

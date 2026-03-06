@@ -184,7 +184,12 @@ object Simulation:
     firms: Array[Firm.State],
     rc: RunConfig,
     households: Option[Vector[Household.State]] = None,
-  ): (World, Array[Firm.State], Option[Vector[Household.State]], Either[Vector[sfc.accounting.Sfc.SfcIdentityError], Unit]) =
+  ): (
+    World,
+    Array[Firm.State],
+    Option[Vector[Household.State]],
+    Either[Vector[sfc.accounting.Sfc.SfcIdentityError], Unit],
+  ) =
     // ---- Step 1: Fiscal constraint ----
     val s1 = steps.FiscalConstraintStep.run(
       steps.FiscalConstraintStep.Input(

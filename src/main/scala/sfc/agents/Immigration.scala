@@ -89,7 +89,7 @@ object Immigration:
           Household.Init.poissonSample(Config.Social800ChildrenPerHh, rng)
         else 0
       Household.State(
-        id = startId + i,
+        id = HhId(startId + i),
         savings = PLN(savings),
         debt = PLN.Zero,
         monthlyRent = PLN(rent.max(800.0)),
@@ -97,7 +97,7 @@ object Immigration:
         healthPenalty = Ratio.Zero,
         mpc = Ratio(mpc.max(0.7).min(0.98)),
         status = HhStatus.Unemployed(0),
-        socialNeighbors = Array.empty,
+        socialNeighbors = Array.empty[HhId],
         lastSectorIdx = SectorIdx(sector),
         isImmigrant = true,
         numDependentChildren = numChildren,

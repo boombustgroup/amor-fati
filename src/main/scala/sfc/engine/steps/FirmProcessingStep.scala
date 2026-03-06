@@ -199,7 +199,7 @@ object FirmProcessingStep:
       if Config.ImmigEnabled then
         preMigrationHouseholds.map { hhs =>
           val afterRemoval = Immigration.removeReturnMigrants(hhs, in.newImmig.monthlyOutflow)
-          val startId = afterRemoval.map(_.id).maxOption.getOrElse(-1) + 1
+          val startId = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
           val newImmigrants = Immigration.spawnImmigrants(in.newImmig.monthlyInflow, startId, Random)
           afterRemoval ++ newImmigrants
         }
