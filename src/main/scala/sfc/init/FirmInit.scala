@@ -63,7 +63,7 @@ object FirmInit:
     // Multi-bank: assign firms to banks
     if Config.BankMulti then
       firms = firms.map(f =>
-        f.copy(bankId = BankingSector.assignBank(f.sector, BankingSector.DefaultConfigs, rng)))
+        f.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng)))
 
     // FDI: assign foreign ownership by sector (#33)
     if Config.FdiEnabled then

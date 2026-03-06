@@ -74,12 +74,12 @@ object HouseholdIncomeStep:
           val hhBankRates = Some(BankRates(
             lendingRates = in.w.bankingSector match
               case Some(bs) => bs.banks.zip(bs.configs).map((b, cfg) =>
-                BankingSector.lendingRate(b, cfg, in.lendingBaseRate)).toArray
+                Banking.lendingRate(b, cfg, in.lendingBaseRate)).toArray
               case None => Array(in.w.bank.lendingRate(in.lendingBaseRate)),
             depositRates = in.w.bankingSector match
               case Some(bs) => bs.banks.map(_ =>
-                BankingSector.hhDepositRate(in.w.nbp.referenceRate.toDouble)).toArray
-              case None => Array(BankingSector.hhDepositRate(in.w.nbp.referenceRate.toDouble))
+                Banking.hhDepositRate(in.w.nbp.referenceRate.toDouble)).toArray
+              case None => Array(Banking.hhDepositRate(in.w.nbp.referenceRate.toDouble))
           ))
           val eqReturn = in.w.equity.monthlyReturn.toDouble
           val secWages = if Config.LmSectoralMobility then Some(SectoralMobility.sectorWages(afterWages)) else None

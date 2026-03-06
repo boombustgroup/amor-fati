@@ -69,9 +69,9 @@ object FirmProcessingStep:
       in.w.bankingSector match
         case Some(bs) =>
           val rates = bs.banks.zip(bs.configs).map((b, cfg) =>
-            BankingSector.lendingRate(b, cfg, in.lendingBaseRate))
+            Banking.lendingRate(b, cfg, in.lendingBaseRate))
           ((bankId: Int) => rates(bankId),
-           (bankId: Int, amt: Double) => BankingSector.canLend(bs.banks(bankId), amt, Random, currentCcyb))
+           (bankId: Int, amt: Double) => Banking.canLend(bs.banks(bankId), amt, Random, currentCcyb))
         case None =>
           val rate = in.w.bank.lendingRate(in.lendingBaseRate)
           val canLendFn: (Int, Double) => Boolean = (_: Int, amt: Double) => {

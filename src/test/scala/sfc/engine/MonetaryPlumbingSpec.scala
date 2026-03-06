@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{BankingSector, IndividualBankState}
+import sfc.agents.Banking
 import sfc.config.Config
 import sfc.types.*
 
@@ -12,38 +12,38 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   private def mkBank(id: Int, deposits: PLN = PLN(1e9), loans: PLN = PLN(5e8),
                      capital: PLN = PLN(1e8), reservesAtNbp: PLN = PLN(1e7),
                      interbankNet: PLN = PLN.Zero, failed: Boolean = false) =
-    IndividualBankState(BankId(id), deposits, loans, capital, PLN.Zero, PLN.Zero, reservesAtNbp,
+    Banking.BankState(BankId(id), deposits, loans, capital, PLN.Zero, PLN.Zero, reservesAtNbp,
       interbankNet, failed, if failed then 30 else 0, 0)
 
   // =========================================================================
   // Reserve Interest
   // =========================================================================
 
-  "BankingSector.reserveInterest" should "compute monthly interest on reserves" in {
+  "Banking.reserveInterest" should "compute monthly interest on reserves" in {
     val bank = mkBank(0, reservesAtNbp = PLN(1e8))  // 100M in reserves
     val refRate = 0.0575
-    val interest = BankingSector.reserveInterest(bank, refRate)
+    val interest = Banking.reserveInterest(bank, refRate)
     // Expected: 100M × 0.0575 × 0.5 / 12 ≈ 239,583
     interest shouldBe (1e8 * 0.0575 * 0.5 / 12.0 +- 1.0)
   }
 
   it should "return 0 for failed banks" in {
     val bank = mkBank(0, reservesAtNbp = PLN(1e8), failed = true)
-    BankingSector.reserveInterest(bank, 0.0575) shouldBe 0.0
+    Banking.reserveInterest(bank, 0.0575) shouldBe 0.0
   }
 
   it should "return 0 when reserves are zero" in {
     val bank = mkBank(0, reservesAtNbp = PLN.Zero)
-    BankingSector.reserveInterest(bank, 0.0575) shouldBe 0.0
+    Banking.reserveInterest(bank, 0.0575) shouldBe 0.0
   }
 
-  "BankingSector.computeReserveInterest" should "sum per-bank interest" in {
+  "Banking.computeReserveInterest" should "sum per-bank interest" in {
     val banks = Vector(
       mkBank(0, reservesAtNbp = PLN(1e8)),
       mkBank(1, reservesAtNbp = PLN(5e7))
     )
     val refRate = 0.06
-    val (perBank, total) = BankingSector.computeReserveInterest(banks, refRate)
+    val (perBank, total) = Banking.computeReserveInterest(banks, refRate)
     perBank.length shouldBe 2
     total shouldBe (perBank.sum +- 0.01)
     total should be > 0.0
@@ -53,10 +53,10 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // Standing Facilities
   // =========================================================================
 
-  "BankingSector.computeStandingFacilities" should "return zeros when disabled" in {
+  "Banking.computeStandingFacilities" should "return zeros when disabled" in {
     // Standing facilities are OFF by default (Config.NbpStandingFacilities = false)
     val banks = Vector(mkBank(0, reservesAtNbp = PLN(1e8)), mkBank(1, reservesAtNbp = PLN(5e7)))
-    val (perBank, total) = BankingSector.computeStandingFacilities(banks, 0.06)
+    val (perBank, total) = Banking.computeStandingFacilities(banks, 0.06)
     perBank.foreach(_ shouldBe 0.0)
     total shouldBe 0.0
   }
@@ -74,7 +74,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
 
   it should "return zero for failed banks" in {
     val banks = Vector(mkBank(0, reservesAtNbp = PLN(1e8), failed = true))
-    val (perBank, total) = BankingSector.computeStandingFacilities(banks, 0.06)
+    val (perBank, total) = Banking.computeStandingFacilities(banks, 0.06)
     // Even if enabled, failed banks get 0 — but currently disabled by default
     total shouldBe 0.0
   }
@@ -83,13 +83,13 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // Interbank Interest Flows
   // =========================================================================
 
-  "BankingSector.interbankInterestFlows" should "compute interest on net positions" in {
+  "Banking.interbankInterestFlows" should "compute interest on net positions" in {
     val banks = Vector(
       mkBank(0, interbankNet = PLN(1e8)),   // Lender: +100M
       mkBank(1, interbankNet = PLN(-1e8))   // Borrower: -100M
     )
     val rate = 0.06
-    val (perBank, total) = BankingSector.interbankInterestFlows(banks, rate)
+    val (perBank, total) = Banking.interbankInterestFlows(banks, rate)
     perBank(0) should be > 0.0  // Lender earns
     perBank(1) should be < 0.0  // Borrower pays
     // Net should be ≈ 0 (closed system)
@@ -102,13 +102,13 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       mkBank(1, interbankNet = PLN(-3e7)),
       mkBank(2, interbankNet = PLN(-2e7))
     )
-    val (_, total) = BankingSector.interbankInterestFlows(banks, 0.055)
+    val (_, total) = Banking.interbankInterestFlows(banks, 0.055)
     total shouldBe (0.0 +- 0.01)
   }
 
   it should "return zeros for zero net positions" in {
     val banks = Vector(mkBank(0, interbankNet = PLN.Zero), mkBank(1, interbankNet = PLN.Zero))
-    val (perBank, total) = BankingSector.interbankInterestFlows(banks, 0.06)
+    val (perBank, total) = Banking.interbankInterestFlows(banks, 0.06)
     perBank.foreach(_ shouldBe 0.0)
     total shouldBe 0.0
   }
@@ -118,7 +118,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       mkBank(0, interbankNet = PLN(1e8), failed = true),
       mkBank(1, interbankNet = PLN(-1e8))
     )
-    val (perBank, _) = BankingSector.interbankInterestFlows(banks, 0.06)
+    val (perBank, _) = Banking.interbankInterestFlows(banks, 0.06)
     perBank(0) shouldBe 0.0
     perBank(1) should be < 0.0  // Borrower still pays
   }
@@ -128,8 +128,8 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       mkBank(0, interbankNet = PLN(1e8)),
       mkBank(1, interbankNet = PLN(-1e8))
     )
-    val (perBank1, _) = BankingSector.interbankInterestFlows(banks, 0.06)
-    val (perBank2, _) = BankingSector.interbankInterestFlows(banks, 0.12)
+    val (perBank1, _) = Banking.interbankInterestFlows(banks, 0.06)
+    val (perBank2, _) = Banking.interbankInterestFlows(banks, 0.12)
     perBank2(0) shouldBe (perBank1(0) * 2.0 +- 0.01)
   }
 

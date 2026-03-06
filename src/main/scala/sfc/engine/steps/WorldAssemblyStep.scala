@@ -110,7 +110,7 @@ object WorldAssemblyStep:
     actualBondIssuance: Double,
     // Step 9
     resolvedBank: BankState,
-    finalBankingSector: Option[BankingSectorState],
+    finalBankingSector: Option[Banking.State],
     reassignedFirms: Array[Firm],
     reassignedHouseholds: Option[Vector[Household]],
     finalPpk: SocialSecurity.PpkState,
@@ -407,7 +407,7 @@ object WorldAssemblyStep:
             else Array.empty[Int]
 
             val newBankId = if Config.BankMulti then
-              BankingSector.assignBank(SectorIdx(newSector), BankingSector.DefaultConfigs, Random)
+              Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, Random)
             else BankId(0)
 
             val foreignOwned = Config.FdiEnabled &&

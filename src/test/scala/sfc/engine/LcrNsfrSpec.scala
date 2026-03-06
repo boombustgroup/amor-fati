@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Gen
-import sfc.agents.IndividualBankState
+import sfc.agents.Banking
 import sfc.types.*
 
 /** LCR/NSFR and maturity mismatch tests. */
@@ -15,7 +15,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
                      govBonds: PLN = PLN(1e8),
                      demandDep: PLN = PLN.Zero, termDep: PLN = PLN.Zero,
                      loansS: PLN = PLN.Zero, loansM: PLN = PLN.Zero, loansL: PLN = PLN.Zero) =
-    IndividualBankState(BankId(id), deposits, loans, capital, PLN.Zero, govBonds, reservesAtNbp,
+    Banking.BankState(BankId(id), deposits, loans, capital, PLN.Zero, govBonds, reservesAtNbp,
       PLN.Zero, false, 0, 0,
       demandDeposits = demandDep, termDeposits = termDep,
       loansShort = loansS, loansMedium = loansM, loansLong = loansL)
@@ -24,7 +24,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
   // HQLA
   // =========================================================================
 
-  "IndividualBankState.hqla" should "equal reserves + gov bonds" in {
+  "Banking.BankState.hqla" should "equal reserves + gov bonds" in {
     val b = mkBank(reservesAtNbp = PLN(5e7), govBonds = PLN(2e8))
     b.hqla shouldBe (5e7 + 2e8)
   }
@@ -33,7 +33,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
   // LCR
   // =========================================================================
 
-  "IndividualBankState.lcr" should "compute HQLA / net cash outflows" in {
+  "Banking.BankState.lcr" should "compute HQLA / net cash outflows" in {
     val b = mkBank(reservesAtNbp = PLN(5e7), govBonds = PLN(2e8), demandDep = PLN(1e9))
     // HQLA = 50M + 200M = 250M
     // Net outflows = 1B × 0.10 = 100M
@@ -50,7 +50,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
   // NSFR
   // =========================================================================
 
-  "IndividualBankState.nsfr" should "compute ASF / RSF" in {
+  "Banking.BankState.nsfr" should "compute ASF / RSF" in {
     val b = mkBank(capital = PLN(1e8), demandDep = PLN(6e8), termDep = PLN(4e8),
       loansS = PLN(1e8), loansM = PLN(1.5e8), loansL = PLN(2.5e8), govBonds = PLN(5e7))
     // ASF = 100M + 400M×0.95 + 600M×0.90 = 100M + 380M + 540M = 1,020M
@@ -104,7 +104,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
   "LCR" should "be non-negative" in {
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) {
       (reserves, bonds, demandDep) =>
-        val b = IndividualBankState(BankId(0), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN(bonds), PLN(reserves), PLN.Zero, false, 0, 0,
+        val b = Banking.BankState(BankId(0), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN(bonds), PLN(reserves), PLN.Zero, false, 0, 0,
           demandDeposits = PLN(demandDep), termDeposits = PLN.Zero)
         b.lcr should be >= 0.0
     }
@@ -114,7 +114,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
     forAll(Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9),
            Gen.choose(0.0, 1e8), Gen.choose(0.0, 1.5e8), Gen.choose(0.0, 2.5e8)) {
       (capital, demandDep, termDep, loansS, loansM, loansL) =>
-        val b = IndividualBankState(BankId(0), PLN(1e9), PLN(5e8), PLN(capital), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, false, 0, 0,
+        val b = Banking.BankState(BankId(0), PLN(1e9), PLN(5e8), PLN(capital), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, false, 0, 0,
           demandDeposits = PLN(demandDep), termDeposits = PLN(termDep),
           loansShort = PLN(loansS), loansMedium = PLN(loansM), loansLong = PLN(loansL))
         b.nsfr should be >= 0.0
@@ -123,7 +123,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
 
   "HQLA" should "equal reserves + gov bonds" in {
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) { (reserves, bonds) =>
-      val b = IndividualBankState(BankId(0), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN(bonds), PLN(reserves), PLN.Zero, false, 0, 0)
+      val b = Banking.BankState(BankId(0), PLN(1e9), PLN(5e8), PLN(1e8), PLN.Zero, PLN(bonds), PLN(reserves), PLN.Zero, false, 0, 0)
       b.hqla shouldBe (reserves + bonds +- 0.01)
     }
   }

@@ -143,9 +143,9 @@ object OpenEconomyStep:
     val (totalReserveInterest, totalStandingFacilityIncome, totalInterbankInterest) =
       in.w.bankingSector match
         case Some(bs) =>
-          val (_, resInt) = BankingSector.computeReserveInterest(bs.banks, in.w.nbp.referenceRate.toDouble)
-          val (_, sfInc) = BankingSector.computeStandingFacilities(bs.banks, in.w.nbp.referenceRate.toDouble)
-          val (_, ibInt) = BankingSector.interbankInterestFlows(bs.banks, bs.interbankRate.toDouble)
+          val (_, resInt) = Banking.computeReserveInterest(bs.banks, in.w.nbp.referenceRate.toDouble)
+          val (_, sfInc) = Banking.computeStandingFacilities(bs.banks, in.w.nbp.referenceRate.toDouble)
+          val (_, ibInt) = Banking.interbankInterestFlows(bs.banks, bs.interbankRate.toDouble)
           (resInt, sfInc, ibInt)
         case None => (0.0, 0.0, 0.0)
 

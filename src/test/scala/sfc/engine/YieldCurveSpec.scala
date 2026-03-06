@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.BankingSectorState
+import sfc.agents.Banking
 import sfc.types.*
 
 /** Interbank term structure tests. */
@@ -61,17 +61,17 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
   }
 
   // =========================================================================
-  // BankingSectorState integration
+  // Banking.State integration
   // =========================================================================
 
-  "BankingSectorState" should "default to None for interbankCurve" in {
-    val bs = BankingSectorState(Vector.empty, Rate(0.05), Vector.empty)
+  "Banking.State" should "default to None for interbankCurve" in {
+    val bs = Banking.State(Vector.empty, Rate(0.05), Vector.empty)
     bs.interbankCurve shouldBe None
   }
 
   it should "store curve when provided" in {
     val curve = YieldCurve.compute(0.058)
-    val bs = BankingSectorState(Vector.empty, Rate(0.058), Vector.empty,
+    val bs = Banking.State(Vector.empty, Rate(0.058), Vector.empty,
       interbankCurve = Some(curve))
     bs.interbankCurve shouldBe defined
     bs.interbankCurve.get.wibor3m.toDouble shouldBe (0.058 + 0.0040 +- 1e-10)

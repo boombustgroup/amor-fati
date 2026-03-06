@@ -126,11 +126,11 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.bankingSector.map(_.banks.count(_.failed).toDouble).getOrElse(0.0),  // 51: BankFailures
       // Monetary plumbing
       world.bankingSector.map { bs =>
-        val (_, total) = BankingSector.computeReserveInterest(bs.banks, world.nbp.referenceRate.toDouble)
+        val (_, total) = Banking.computeReserveInterest(bs.banks, world.nbp.referenceRate.toDouble)
         total
       }.getOrElse(0.0),  // 52: ReserveInterest
       world.bankingSector.map { bs =>
-        val (perBank, _) = BankingSector.computeStandingFacilities(bs.banks, world.nbp.referenceRate.toDouble)
+        val (perBank, _) = Banking.computeStandingFacilities(bs.banks, world.nbp.referenceRate.toDouble)
         perBank.kahanSum
       }.getOrElse(0.0),  // 53: StandingFacilityNet
       world.bankingSector.map { bs =>
@@ -138,7 +138,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
         bs.banks.filter(b => !b.failed && b.reservesAtNbp > PLN.Zero).kahanSumBy(_.reservesAtNbp.toDouble)
       }.getOrElse(0.0),  // 54: DepositFacilityUsage
       world.bankingSector.map { bs =>
-        val (_, total) = BankingSector.interbankInterestFlows(bs.banks, bs.interbankRate.toDouble)
+        val (_, total) = Banking.interbankInterestFlows(bs.banks, bs.interbankRate.toDouble)
         total
       }.getOrElse(0.0),  // 55: InterbankInterestNet
       // Credit diagnostics

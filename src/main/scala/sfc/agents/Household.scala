@@ -37,7 +37,7 @@ case class Household(
   mpc: Ratio,
   status: HhStatus,
   socialNeighbors: Array[Int],
-  bankId: BankId = BankId(0),   // Multi-bank: index into BankingSectorState.banks
+  bankId: BankId = BankId(0),   // Multi-bank: index into Banking.State.banks
   equityWealth: PLN = PLN.Zero,   // GPW: value of equity holdings
   lastSectorIdx: SectorIdx = SectorIdx(-1),  // Sectoral mobility: last sector employed in (-1 = never)
   isImmigrant: Boolean = false, // Immigration: tracks immigrant status for wage discount + remittances

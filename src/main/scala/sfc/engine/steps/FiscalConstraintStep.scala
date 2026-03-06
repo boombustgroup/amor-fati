@@ -1,7 +1,7 @@
 package sfc.engine.steps
 
 import sfc.accounting.GovState
-import sfc.agents.BankingSectorState
+import sfc.agents.Banking
 import sfc.config.Config
 import sfc.engine.YieldCurve
 import sfc.types.*
@@ -16,7 +16,7 @@ object FiscalConstraintStep:
     minWageLevel: PLN,
     minWagePriceLevel: Double,
     marketWage: PLN,
-    bankingSector: Option[BankingSectorState],
+    bankingSector: Option[Banking.State],
     nbpReferenceRate: Double,
     expectedRate: Double,
     bdpAmount: Double,

@@ -331,31 +331,32 @@ object Generators:
 
   // --- Banking sector generators ---
 
-  val genBankConfig: Gen[BankConfig] = for
-    id     <- Gen.choose(0, 6)
-    share  <- Gen.choose(0.01, 0.50)
-    cet1   <- Gen.choose(0.10, 0.25)
-    spread <- Gen.choose(-0.005, 0.005)
-    aff    <- Gen.sequence[Vector[Double], Double]((0 until 6).map(_ => Gen.choose(0.05, 0.40)))
-  yield BankConfig(BankId(id), s"Bank$id", Ratio(share), Ratio(cet1), Rate(spread), aff)
+  object genBanking:
+    val Config: Gen[Banking.Config] = for
+      id     <- Gen.choose(0, 6)
+      share  <- Gen.choose(0.01, 0.50)
+      cet1   <- Gen.choose(0.10, 0.25)
+      spread <- Gen.choose(-0.005, 0.005)
+      aff    <- Gen.sequence[Vector[Double], Double]((0 until 6).map(_ => Gen.choose(0.05, 0.40)))
+    yield Banking.Config(BankId(id), s"Bank$id", Ratio(share), Ratio(cet1), Rate(spread), aff)
 
-  val genIndividualBankState: Gen[IndividualBankState] = for
-    id       <- Gen.choose(0, 6)
-    deposits <- Gen.choose(1e6, 1e10)
-    loans    <- Gen.choose(0.0, 1e10)
-    capital  <- Gen.choose(1e5, 1e9)
-    nplFrac  <- Gen.choose(0.0, 0.20)
-    bonds    <- Gen.choose(0.0, 1e9)
-    reserves <- Gen.choose(0.0, 1e8)
-    ibNet    <- Gen.choose(-1e8, 1e8)
-    failed   <- Gen.oneOf(false, false, false, false, true)  // 20% chance
-    lowCar   <- Gen.choose(0, 5)
-  yield IndividualBankState(BankId(id), PLN(deposits), PLN(loans), PLN(capital), PLN(loans * nplFrac), PLN(bonds),
-    PLN(reserves), PLN(ibNet), failed, if failed then 30 else 0, lowCar)
+    val BankState: Gen[Banking.BankState] = for
+      id       <- Gen.choose(0, 6)
+      deposits <- Gen.choose(1e6, 1e10)
+      loans    <- Gen.choose(0.0, 1e10)
+      capital  <- Gen.choose(1e5, 1e9)
+      nplFrac  <- Gen.choose(0.0, 0.20)
+      bonds    <- Gen.choose(0.0, 1e9)
+      reserves <- Gen.choose(0.0, 1e8)
+      ibNet    <- Gen.choose(-1e8, 1e8)
+      failed   <- Gen.oneOf(false, false, false, false, true)  // 20% chance
+      lowCar   <- Gen.choose(0, 5)
+    yield Banking.BankState(BankId(id), PLN(deposits), PLN(loans), PLN(capital), PLN(loans * nplFrac), PLN(bonds),
+      PLN(reserves), PLN(ibNet), failed, if failed then 30 else 0, lowCar)
 
-  val genBankingSectorState: Gen[BankingSectorState] = for
-    nBanks <- Gen.choose(2, 7)
-    banks  <- Gen.listOfN(nBanks, genIndividualBankState).map(_.toVector.zipWithIndex.map((b, i) => b.copy(id = BankId(i))))
-    rate   <- genRate
-    cfgs   <- Gen.listOfN(nBanks, genBankConfig).map(_.toVector.zipWithIndex.map((c, i) => c.copy(id = BankId(i))))
-  yield BankingSectorState(banks, Rate(rate), cfgs)
+    val State: Gen[Banking.State] = for
+      nBanks <- Gen.choose(2, 7)
+      banks  <- Gen.listOfN(nBanks, BankState).map(_.toVector.zipWithIndex.map((b, i) => b.copy(id = BankId(i))))
+      rate   <- genRate
+      cfgs   <- Gen.listOfN(nBanks, Config).map(_.toVector.zipWithIndex.map((c, i) => c.copy(id = BankId(i))))
+    yield Banking.State(banks, Rate(rate), cfgs)

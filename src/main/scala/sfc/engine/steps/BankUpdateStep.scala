@@ -98,7 +98,7 @@ object BankUpdateStep:
 
   case class Output(
     resolvedBank: BankState,
-    finalBankingSector: Option[BankingSectorState],
+    finalBankingSector: Option[Banking.State],
     reassignedFirms: Array[Firm],
     reassignedHouseholds: Option[Vector[Household]],
     finalPpk: SocialSecurity.PpkState,
@@ -195,7 +195,7 @@ object BankUpdateStep:
     val bfgLevy = if Config.BankFailureEnabled then
       in.w.bankingSector match
         case Some(bs) =>
-          val (_, total) = BankingSector.computeBfgLevy(bs.banks)
+          val (_, total) = Banking.computeBfgLevy(bs.banks)
           total
         case None =>
           in.w.bank.deposits.toDouble * Config.BfgLevyRate / 12.0
@@ -267,9 +267,9 @@ object BankUpdateStep:
     val (perBankReserveInt, perBankStandingFac, perBankInterbankInt) =
       in.w.bankingSector match
         case Some(bs) =>
-          val (ri, _) = BankingSector.computeReserveInterest(bs.banks, in.w.nbp.referenceRate.toDouble)
-          val (sf, _) = BankingSector.computeStandingFacilities(bs.banks, in.w.nbp.referenceRate.toDouble)
-          val (ib, _) = BankingSector.interbankInterestFlows(bs.banks, bs.interbankRate.toDouble)
+          val (ri, _) = Banking.computeReserveInterest(bs.banks, in.w.nbp.referenceRate.toDouble)
+          val (sf, _) = Banking.computeStandingFacilities(bs.banks, in.w.nbp.referenceRate.toDouble)
+          val (ib, _) = Banking.interbankInterestFlows(bs.banks, bs.interbankRate.toDouble)
           (ri, sf, ib)
         case None =>
           (Vector.empty[Double], Vector.empty[Double], Vector.empty[Double])
@@ -347,22 +347,22 @@ object BankUpdateStep:
             corpBondHoldings = in.newCorpBonds.bankHoldings * bankDepShare
           )
         }
-        val ibRate = BankingSector.interbankRate(updatedBanks, in.w.nbp.referenceRate.toDouble)
-        val afterInterbank = BankingSector.clearInterbank(updatedBanks, bs.configs, ibRate)
+        val ibRate = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate.toDouble)
+        val afterInterbank = Banking.clearInterbank(updatedBanks, bs.configs, ibRate)
         val afterBonds = if Config.GovBondMarket then
-          BankingSector.allocateBonds(afterInterbank, actualBondChange)
+          Banking.allocateBonds(afterInterbank, actualBondChange)
         else afterInterbank
-        val afterQe = BankingSector.allocateQePurchases(afterBonds, in.qePurchaseAmount)
-        val afterPpk = BankingSector.allocateQePurchases(afterQe, ppkBondPurchase)
-        val afterIns = BankingSector.allocateQePurchases(afterPpk, insBondPurchase)
-        val afterTfi = BankingSector.allocateQePurchases(afterIns, tfiBondPurchase)
-        val (afterFailCheck, anyFailed) = BankingSector.checkFailures(afterTfi, in.m,
+        val afterQe = Banking.allocateQePurchases(afterBonds, in.qePurchaseAmount)
+        val afterPpk = Banking.allocateQePurchases(afterQe, ppkBondPurchase)
+        val afterIns = Banking.allocateQePurchases(afterPpk, insBondPurchase)
+        val afterTfi = Banking.allocateQePurchases(afterIns, tfiBondPurchase)
+        val (afterFailCheck, anyFailed) = Banking.checkFailures(afterTfi, in.m,
           ccyb = in.newMacropru.ccyb.toDouble)
-        val (afterBailIn, multiBailInLoss) = if anyFailed then BankingSector.applyBailIn(afterFailCheck) else (afterFailCheck, 0.0)
-        val (afterResolve, rawAbsorberId) = if anyFailed then BankingSector.resolveFailures(afterBailIn)
+        val (afterBailIn, multiBailInLoss) = if anyFailed then Banking.applyBailIn(afterFailCheck) else (afterFailCheck, 0.0)
+        val (afterResolve, rawAbsorberId) = if anyFailed then Banking.resolveFailures(afterBailIn)
                            else (afterBailIn, BankId.NoBank)
         val absorberId = if rawAbsorberId.toInt >= 0 then rawAbsorberId
-                         else BankingSector.healthiestBankId(afterResolve)
+                         else Banking.healthiestBankId(afterResolve)
         val multiCapDest = if anyFailed then
           afterTfi.zip(afterFailCheck).map { (pre, post) =>
             if !pre.failed && post.failed then pre.capital.toDouble else 0.0

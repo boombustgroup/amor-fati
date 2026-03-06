@@ -26,7 +26,7 @@ case class Firm(
   digitalReadiness: Ratio,
   sector: SectorIdx,          // Index into SECTORS
   neighbors: Array[Int],      // Network adjacency (firm IDs)
-  bankId: BankId = BankId(0), // Multi-bank: index into BankingSectorState.banks
+  bankId: BankId = BankId(0), // Multi-bank: index into Banking.State.banks
   equityRaised: PLN = PLN.Zero, // GPW: cumulative equity raised via IPO/SPO
   initialSize: Int = 10,    // Firm size at creation (v6.0: heterogeneous when FIRM_SIZE_DIST=gus)
   capitalStock: PLN = PLN.Zero, // Physical capital stock (PLN), #31
