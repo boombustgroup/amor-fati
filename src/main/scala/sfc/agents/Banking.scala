@@ -72,8 +72,8 @@ object Banking:
     configs: Vector[Config],
     interbankCurve: Option[YieldCurve.State] = None,
   ):
-    def aggregate: sfc.accounting.BankState =
-      sfc.accounting.BankState(
+    def aggregate: sfc.accounting.BankingAggregate =
+      sfc.accounting.BankingAggregate(
         totalLoans = PLN(banks.kahanSumBy(_.loans.toDouble)),
         nplAmount = PLN(banks.kahanSumBy(_.nplAmount.toDouble)),
         capital = PLN(banks.kahanSumBy(_.capital.toDouble)),

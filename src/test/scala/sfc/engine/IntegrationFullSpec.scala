@@ -8,7 +8,6 @@ import sfc.runSingle
 class IntegrationFullSpec extends AnyFlatSpec with Matchers:
 
   private def requireAllMechanisms(): Unit =
-    assume(Config.BankMulti, "BANK_MODE=multi required")
     assume(Config.OeEnabled, "OPEN_ECON=true required")
     assume(Config.NbpQe, "NBP_QE=true required")
     assume(Config.NbpFxIntervention, "NBP_FX_INTERVENTION=true required")

@@ -108,8 +108,8 @@ object WorldAssemblyStep:
     totalBondDefault: Double,
     actualBondIssuance: Double,
     // Step 9
-    resolvedBank: BankState,
-    finalBankingSector: Option[Banking.State],
+    resolvedBank: BankingAggregate,
+    finalBankingSector: Banking.State,
     reassignedFirms: Array[Firm.State],
     reassignedHouseholds: Option[Vector[Household.State]],
     finalPpk: SocialSecurity.PpkState,
@@ -413,9 +413,7 @@ object WorldAssemblyStep:
               if nNeighbors > 0 then Random.shuffle(livingIds.toList).take(nNeighbors).map(FirmId(_)).toArray
               else Array.empty[FirmId]
 
-            val newBankId =
-              if Config.BankMulti then Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, Random)
-              else BankId(0)
+            val newBankId = Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, Random)
 
             val foreignOwned = Config.FdiEnabled &&
               Random.nextDouble() < Config.FdiForeignShares(newSector)

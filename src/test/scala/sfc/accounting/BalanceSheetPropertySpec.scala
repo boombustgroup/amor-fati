@@ -27,8 +27,8 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   // --- BankState properties ---
 
-  "BankState.nplRatio" should "be in [0, 1] when totalLoans > 1" in {
-    forAll(genBankState) { (bs: BankState) =>
+  "BankingAggregate.nplRatio" should "be in [0, 1] when totalLoans > 1" in {
+    forAll(genBankingAggregate) { (bs: BankingAggregate) =>
       whenever(bs.totalLoans > PLN(1.0)) {
         bs.nplRatio should be >= 0.0
         bs.nplRatio should be <= 1.0
@@ -38,15 +38,17 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   it should "be 0 when totalLoans <= 1" in {
     forAll(Gen.choose(-100.0, 1.0), Gen.choose(0.0, 1e6)) { (loans: Double, capital: Double) =>
-      val bs = BankState(PLN(loans), PLN(500.0), PLN(capital), PLN(1000.0))
+      val bs =
+        BankingAggregate(PLN(loans), PLN(500.0), PLN(capital), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
       bs.nplRatio shouldBe 0.0
     }
   }
 
-  "BankState.car" should "be >= 0 for non-negative capital and loans" in {
+  "BankingAggregate.car" should "be >= 0 for non-negative capital and loans" in {
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) { (capital: Double, loans: Double) =>
       whenever(loans > 1.0) {
-        val bs = BankState(PLN(loans), PLN(0.0), PLN(capital), PLN(1000.0))
+        val bs =
+          BankingAggregate(PLN(loans), PLN(0.0), PLN(capital), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
         bs.car should be >= 0.0
       }
     }
@@ -54,48 +56,12 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   it should "be 10.0 when totalLoans <= 1" in {
     forAll(Gen.choose(-100.0, 1.0)) { (loans: Double) =>
-      val bs = BankState(PLN(loans), PLN(0.0), PLN(1000.0), PLN(1000.0))
+      val bs = BankingAggregate(PLN(loans), PLN(0.0), PLN(1000.0), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
       bs.car shouldBe 10.0
     }
   }
 
-  "BankState.lendingRate" should "be >= refRate + BaseSpread" in {
-    forAll(genBankState, genRate) { (bs: BankState, refRate: Double) =>
-      bs.lendingRate(refRate) should be >= (refRate + Config.BaseSpread)
-    }
-  }
-
-  it should "have NPL spread capped at 0.15" in {
-    forAll(genBankState, genRate) { (bs: BankState, refRate: Double) =>
-      val maxRate = refRate + Config.BaseSpread + 0.15
-      bs.lendingRate(refRate) should be <= (maxRate + 1e-10)
-    }
-  }
-
-  it should "be monotonic in nplRatio" in {
-    forAll(genRate, Gen.choose(1000.0, 1e9), Gen.choose(0.0, 1e6)) {
-      (refRate: Double, loans: Double, capital: Double) =>
-        val bs1 = BankState(PLN(loans), PLN(loans * 0.05), PLN(capital), PLN(1000.0))
-        val bs2 = BankState(PLN(loans), PLN(loans * 0.20), PLN(capital), PLN(1000.0))
-        bs2.lendingRate(refRate) should be >= bs1.lendingRate(refRate)
-    }
-  }
-
-  "BankState.canLend" should "be monotonic (smaller amount still lendable)" in {
-    forAll(genBankState, Gen.choose(1000.0, 1e7)) { (bs: BankState, amount: Double) =>
-      whenever(bs.canLend(amount)) {
-        bs.canLend(amount * 0.5) shouldBe true
-      }
-    }
-  }
-
-  it should "be false when projected CAR < MinCar" in {
-    forAll(Gen.choose(1e6, 1e8)) { (loans: Double) =>
-      val tinyCapital = loans * Config.MinCar * 0.5
-      val bs = BankState(PLN(loans), PLN(0.0), PLN(tinyCapital), PLN(1000.0))
-      bs.canLend(loans) shouldBe false
-    }
-  }
+  // lendingRate and canLend removed from BankingAggregate — now only on Banking.BankState
 
   // --- GovState properties ---
 

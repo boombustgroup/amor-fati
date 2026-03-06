@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.accounting.{BankState, ForexState, GovState}
+import sfc.accounting.{BankingAggregate, ForexState, GovState}
 import sfc.agents.Banking
 import sfc.config.Config
 import sfc.types.*
@@ -396,13 +396,14 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
       1.0,
       GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.05)),
-      BankState(PLN.Zero, PLN.Zero, PLN(100000), PLN(500000)),
+      BankingAggregate(PLN.Zero, PLN.Zero, PLN(100000), PLN(500000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100, PLN(8000), PLN(4000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio.Zero,
       Ratio.Zero,
       100000,
       Vector(1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+      bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
     w.bfgFundBalance.toDouble shouldBe 0.0
     w.bailInLoss.toDouble shouldBe 0.0

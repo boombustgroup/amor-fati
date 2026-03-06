@@ -655,15 +655,12 @@ object Config:
   val LoanRecovery = 0.30 // Recovery rate on defaulted corporate loans (30%; KNF LGD estimates)
 
   // ───────────────────────────────────────────────────────────────────────
-  // Multi-bank mode
-  // BANK_MODE=multi: 7 heterogeneous banks (modeled on Polish systemically
+  // Banking sector: 7 heterogeneous banks (modeled on Polish systemically
   // important institutions). Enables interbank market, differential capital
   // requirements, and bank failure/resolution mechanics.
-  // BANK_MODE=single (default): aggregate banking sector (1 representative bank).
   // ───────────────────────────────────────────────────────────────────────
   // Profit retention ratio: fraction of net interest income retained as capital (KNF/UKNF dividend policy)
   val BankProfitRetention: Double = sys.env.get("BANK_PROFIT_RETENTION").map(_.trim.toDouble).getOrElse(0.30)
-  val BankMulti: Boolean = sys.env.get("BANK_MODE").map(_.trim.toLowerCase).getOrElse("single") == "multi"
   val BankFailureEnabled: Boolean =
     sys.env.get("BANK_FAILURE").map(_.trim.toBoolean).getOrElse(false) // Bank failure & resolution
   // Required reserves: 3.5% of deposits (Uchwała Zarządu NBP nr 7/2024; was 0.5% until Oct 2023)

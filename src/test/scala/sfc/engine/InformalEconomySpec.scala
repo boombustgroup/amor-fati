@@ -3,8 +3,8 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting
-import sfc.accounting.{BankState, ForexState, GovState}
-import sfc.agents.{Firm, TechState}
+import sfc.accounting.{BankingAggregate, ForexState, GovState}
+import sfc.agents.{Banking, Firm, TechState}
 import sfc.config.Config
 import sfc.types.*
 
@@ -76,13 +76,14 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
       1.0,
       GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.05)),
-      BankState(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9)),
+      BankingAggregate(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100, PLN(8000), PLN(4500), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio(0.0),
       Ratio(0.0),
       1e9,
       Vector.fill(6)(5.0),
+      bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
     w.informalCyclicalAdj shouldBe 0.0
   }
@@ -94,13 +95,14 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
       1.0,
       accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.05)),
-      accounting.BankState(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9)),
+      accounting.BankingAggregate(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       accounting.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100, PLN(8000), PLN(4500), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio(0.0),
       Ratio(0.0),
       1e9,
       Vector.fill(6)(5.0),
+      bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
     w.taxEvasionLoss.toDouble shouldBe 0.0
   }
@@ -112,13 +114,14 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
       1.0,
       accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.05)),
-      accounting.BankState(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9)),
+      accounting.BankingAggregate(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       accounting.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100, PLN(8000), PLN(4500), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio(0.0),
       Ratio(0.0),
       1e9,
       Vector.fill(6)(5.0),
+      bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
     w.informalEmployed.toDouble shouldBe 0.0
   }

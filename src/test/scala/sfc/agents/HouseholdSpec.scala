@@ -2,7 +2,7 @@ package sfc.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.accounting.{BankState, ForexState, GovState}
+import sfc.accounting.{BankingAggregate, ForexState, GovState}
 import sfc.config.{Config, SECTORS}
 import sfc.engine.World
 import sfc.types.*
@@ -392,7 +392,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       priceLevel = 1.0,
       gov = GovState(false, PLN(0.0), PLN(0.0), PLN(0.0), PLN(0.0), PLN(0.0)),
       nbp = Nbp.State(Rate(0.0575)),
-      bank = BankState(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000)),
+      bank =
+        BankingAggregate(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       forex = ForexState(4.33, PLN(0.0), PLN(190000000), PLN(0.0), PLN(0.0)),
       hh = Household.SectorState(
         100000,
@@ -407,4 +408,5 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       hybridRatio = Ratio.Zero,
       gdpProxy = 1e9,
       currentSigmas = SECTORS.map(_.sigma).toVector,
+      bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )

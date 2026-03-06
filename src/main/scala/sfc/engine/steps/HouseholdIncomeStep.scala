@@ -74,16 +74,13 @@ object HouseholdIncomeStep:
         case Some(hhs) =>
           val afterSep = LaborMarket.separations(hhs, in.firms, in.firms)
           val afterWages = LaborMarket.updateWages(afterSep, in.newWage)
-          val nBanksHh = in.w.bankingSector.map(_.banks.length).getOrElse(1)
+          val bsec = in.w.bankingSector
+          val nBanksHh = bsec.banks.length
           val hhBankRates = Some(
             BankRates(
-              lendingRates = in.w.bankingSector match
-                case Some(bs) =>
-                  bs.banks.zip(bs.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.lendingBaseRate)).toArray
-                case None => Array(in.w.bank.lendingRate(in.lendingBaseRate)),
-              depositRates = in.w.bankingSector match
-                case Some(bs) => bs.banks.map(_ => Banking.hhDepositRate(in.w.nbp.referenceRate.toDouble)).toArray
-                case None     => Array(Banking.hhDepositRate(in.w.nbp.referenceRate.toDouble)),
+              lendingRates =
+                bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.lendingBaseRate)).toArray,
+              depositRates = bsec.banks.map(_ => Banking.hhDepositRate(in.w.nbp.referenceRate.toDouble)).toArray,
             ),
           )
           val eqReturn = in.w.equity.monthlyReturn.toDouble

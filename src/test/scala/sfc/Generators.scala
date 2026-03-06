@@ -114,13 +114,22 @@ object Generators:
 
   // --- Balance sheet state generators ---
 
-  val genBankState: Gen[BankState] = for
+  val genBankingAggregate: Gen[BankingAggregate] = for
     totalLoans <- Gen.choose(1000.0, 1e10)
     nplFrac <- Gen.choose(0.0, 0.30)
     capital <- Gen.choose(1000.0, 1e9)
     deposits <- Gen.choose(0.0, 1e10)
     bonds <- Gen.choose(0.0, 1e9)
-  yield BankState(PLN(totalLoans), PLN(totalLoans * nplFrac), PLN(capital), PLN(deposits), PLN(bonds))
+  yield BankingAggregate(
+    PLN(totalLoans),
+    PLN(totalLoans * nplFrac),
+    PLN(capital),
+    PLN(deposits),
+    PLN(bonds),
+    PLN.Zero,
+    PLN.Zero,
+    PLN.Zero,
+  )
 
   val genGovState: Gen[GovState] = for
     bdpActive <- Gen.oneOf(true, false)
@@ -238,7 +247,7 @@ object Generators:
     price <- genPrice
     gov <- genGovState
     rate <- genRate
-    bank <- genBankState
+    bank <- genBankingAggregate
     forex <- genForexState
     employed <- Gen.choose(0, Config.TotalPopulation)
     wage <- genWage
@@ -259,6 +268,7 @@ object Generators:
     Ratio(hybR),
     gdp,
     SECTORS.map(_.sigma),
+    bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
   )
 
   // --- SFC Check generators ---

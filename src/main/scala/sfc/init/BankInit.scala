@@ -8,11 +8,8 @@ import sfc.util.KahanSum.*
 /** Factory for banking sector initialization. */
 object BankInit:
 
-  /** Initialize multi-bank sector with per-bank consumer loan override. Returns None in single-bank mode.
-    */
-  def create(firms: Array[Firm.State], households: Option[Vector[Household.State]]): Option[Banking.State] =
-    if !Config.BankMulti then return None
-
+  /** Initialize multi-bank sector (always 7 banks). Per-bank consumer loan override from actual HH sums. */
+  def create(firms: Array[Firm.State], households: Option[Vector[Household.State]]): Banking.State =
     val initConsumerLoans = households.map(_.kahanSumBy(_.consumerDebt.toDouble)).getOrElse(Config.InitConsumerLoans)
     val bs0 = Banking.initialize(
       Config.InitBankDeposits,
@@ -35,4 +32,4 @@ object BankInit:
         bs0.banks.map(b => b.copy(consumerLoans = PLN(perBankCcDebt(b.id.toInt))))
       case None => bs0.banks
 
-    Some(bs0.copy(banks = fixedBanks))
+    bs0.copy(banks = fixedBanks)

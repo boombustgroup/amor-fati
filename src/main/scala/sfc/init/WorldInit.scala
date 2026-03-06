@@ -78,13 +78,14 @@ object WorldInit:
         bondsOutstanding = initBondsOutstanding,
       ),
       Nbp.State(Rate(initRate), govBondHoldings = PLN(Config.InitNbpGovBonds)),
-      BankState(
+      BankingAggregate(
         PLN(Config.InitBankLoans),
         PLN.Zero,
         PLN(Config.InitBankCapital),
         PLN(Config.InitBankDeposits),
         govBondHoldings = PLN(Config.InitBankGovBonds),
         consumerLoans = PLN(initConsumerLoans),
+        consumerNpl = PLN.Zero,
         corpBondHoldings = PLN(Config.CorpBondInitStock * Config.CorpBondBankShare),
       ),
       ForexState(Config.BaseExRate, PLN.Zero, PLN(Config.ExportBase), PLN.Zero, PLN.Zero),

@@ -127,15 +127,13 @@ object Household:
           val hhNetwork = Network.wattsStrogatz(hhCount, Config.HhSocialK, Config.HhSocialP)
           val hhs = initialize(hhCount, Config.FirmsCount, firms, hhNetwork, rng)
           // Multi-bank: assign households to same bank as their employer
-          val assigned =
-            if Config.BankMulti then
-              hhs.map { h =>
-                h.status match
-                  case HhStatus.Employed(fid, _, _) if fid.toInt < firms.length =>
-                    h.copy(bankId = firms(fid.toInt).bankId)
-                  case _ => h
-              }
-            else hhs
+          // Assign households to same bank as their employer
+          val assigned = hhs.map { h =>
+            h.status match
+              case HhStatus.Employed(fid, _, _) if fid.toInt < firms.length =>
+                h.copy(bankId = firms(fid.toInt).bankId)
+              case _ => h
+          }
           Some(assigned)
         case HhMode.Aggregate => None
 

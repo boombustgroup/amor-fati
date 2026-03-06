@@ -99,7 +99,6 @@ class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
   // --- Multi-bank columns in single-bank mode ---
 
   it should "have BankFailures = 0 in single-bank mode" in {
-    assume(!Config.BankMulti, "single-bank mode required")
     for t <- ts.indices do ts(t)(51) shouldBe 0.0 // BankFailures
   }
 

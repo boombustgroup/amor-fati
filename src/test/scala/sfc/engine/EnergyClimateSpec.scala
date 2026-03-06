@@ -3,8 +3,8 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting
-import sfc.accounting.{BankState, ForexState, GovState}
-import sfc.agents.{Firm, TechState}
+import sfc.accounting.{BankingAggregate, ForexState, GovState}
+import sfc.agents.{Banking, Firm, TechState}
 import sfc.config.Config
 import sfc.types.*
 
@@ -189,13 +189,14 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
       1.0,
       GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.0575)),
-      BankState(PLN.Zero, PLN.Zero, PLN(500000000.0), PLN.Zero),
+      BankingAggregate(PLN.Zero, PLN.Zero, PLN(500000000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100000, PLN(8266.0), PLN(4666.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio.Zero,
       Ratio.Zero,
       1e9,
       Vector.fill(6)(5.0),
+      bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
     w.aggEnergyCost.toDouble shouldBe 0.0
   }
@@ -207,13 +208,15 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
       1.0,
       accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.0575)),
-      accounting.BankState(PLN.Zero, PLN.Zero, PLN(500000000.0), PLN.Zero),
+      accounting
+        .BankingAggregate(PLN.Zero, PLN.Zero, PLN(500000000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       accounting.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100000, PLN(8266.0), PLN(4666.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio.Zero,
       Ratio.Zero,
       1e9,
       Vector.fill(6)(5.0),
+      bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
     w.aggGreenCapital.toDouble shouldBe 0.0
   }
@@ -225,13 +228,15 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
       1.0,
       accounting.GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.0575)),
-      accounting.BankState(PLN.Zero, PLN.Zero, PLN(500000000.0), PLN.Zero),
+      accounting
+        .BankingAggregate(PLN.Zero, PLN.Zero, PLN(500000000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       accounting.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100000, PLN(8266.0), PLN(4666.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio.Zero,
       Ratio.Zero,
       1e9,
       Vector.fill(6)(5.0),
+      bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
     w.aggGreenInvestment.toDouble shouldBe 0.0
   }

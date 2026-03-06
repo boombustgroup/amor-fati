@@ -65,9 +65,8 @@ object FirmInit:
       firms =
         firms.map(f => f.copy(capitalStock = PLN(Firm.workers(f).toDouble * Config.PhysCapKLRatios(f.sector.toInt))))
 
-    // Multi-bank: assign firms to banks
-    if Config.BankMulti then
-      firms = firms.map(f => f.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng)))
+    // Assign firms to banks (always 7 banks via DefaultConfigs)
+    firms = firms.map(f => f.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng)))
 
     // FDI: assign foreign ownership by sector (#33)
     if Config.FdiEnabled then

@@ -161,14 +161,11 @@ object OpenEconomyStep:
       else in.w.expectations
 
     // Reserve interest, standing facilities, interbank interest
-    val (totalReserveInterest, totalStandingFacilityIncome, totalInterbankInterest) =
-      in.w.bankingSector match
-        case Some(bs) =>
-          val (_, resInt) = Banking.computeReserveInterest(bs.banks, in.w.nbp.referenceRate.toDouble)
-          val (_, sfInc) = Banking.computeStandingFacilities(bs.banks, in.w.nbp.referenceRate.toDouble)
-          val (_, ibInt) = Banking.interbankInterestFlows(bs.banks, bs.interbankRate.toDouble)
-          (resInt, sfInc, ibInt)
-        case None => (0.0, 0.0, 0.0)
+    val bsec = in.w.bankingSector
+    val (_, totalReserveInterest) = Banking.computeReserveInterest(bsec.banks, in.w.nbp.referenceRate.toDouble)
+    val (_, totalStandingFacilityIncome) =
+      Banking.computeStandingFacilities(bsec.banks, in.w.nbp.referenceRate.toDouble)
+    val (_, totalInterbankInterest) = Banking.interbankInterestFlows(bsec.banks, bsec.interbankRate.toDouble)
 
     // --- Bond market + QE ---
     val annualGdpForBonds = in.w.gdpProxy * 12.0

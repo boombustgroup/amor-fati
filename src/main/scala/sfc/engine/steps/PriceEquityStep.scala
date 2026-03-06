@@ -282,8 +282,7 @@ object PriceEquityStep:
     val gdp =
       in.domesticCons + govGdpContribution + euGdpContribution + in.w.forex.exports.toDouble + domesticGFCF + aggInventoryChange
 
-    val totalSystemLoans =
-      in.w.bankingSector.map(_.banks.kahanSumBy(_.loans.toDouble)).getOrElse(in.w.bank.totalLoans.toDouble)
+    val totalSystemLoans = in.w.bankingSector.banks.kahanSumBy(_.loans.toDouble)
     val newMacropru = Macroprudential.step(in.w.macropru, totalSystemLoans, gdp)
 
     val sectorAdoption = SECTORS.indices.map { s =>

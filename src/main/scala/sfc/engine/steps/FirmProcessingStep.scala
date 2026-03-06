@@ -58,28 +58,18 @@ object FirmProcessingStep:
   )
 
   def run(in: Input): Output =
-    val nBanks = in.w.bankingSector.map(_.banks.length).getOrElse(1)
+    val bsec = in.w.bankingSector
+    val nBanks = bsec.banks.length
     val perBankNewLoans = new Array[Double](nBanks)
     val perBankNplDebt = new Array[Double](nBanks)
     val perBankIntIncome = new Array[Double](nBanks)
     val perBankWorkers = new Array[Int](nBanks)
 
     val currentCcyb = in.w.macropru.ccyb.toDouble
-    val (getLendRate, bankCanLendFn): (Int => Double, (Int, Double) => Boolean) =
-      in.w.bankingSector match
-        case Some(bs) =>
-          val rates = bs.banks.zip(bs.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.lendingBaseRate))
-          (
-            (bankId: Int) => rates(bankId),
-            (bankId: Int, amt: Double) => Banking.canLend(bs.banks(bankId), amt, Random, currentCcyb),
-          )
-        case None =>
-          val rate = in.w.bank.lendingRate(in.lendingBaseRate)
-          val canLendFn: (Int, Double) => Boolean = (_: Int, amt: Double) => {
-            val approvalP = Math.max(0.1, 1.0 - in.w.bank.nplRatio * 3.0)
-            in.w.bank.canLend(amt) && Random.nextDouble() < approvalP
-          }
-          ((_: Int) => rate, canLendFn)
+    val rates = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.lendingBaseRate))
+    val getLendRate: Int => Double = (bankId: Int) => rates(bankId)
+    val bankCanLendFn: (Int, Double) => Boolean =
+      (bankId: Int, amt: Double) => Banking.canLend(bsec.banks(bankId), amt, Random, currentCcyb)
 
     val lendingRates = (0 until nBanks).map(getLendRate).toArray
 

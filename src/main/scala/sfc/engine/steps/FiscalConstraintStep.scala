@@ -16,7 +16,7 @@ object FiscalConstraintStep:
     minWageLevel: PLN,
     minWagePriceLevel: Double,
     marketWage: PLN,
-    bankingSector: Option[Banking.State],
+    bankingSector: Banking.State,
     nbpReferenceRate: Double,
     expectedRate: Double,
     bdpAmount: Double,
@@ -72,12 +72,7 @@ object FiscalConstraintStep:
     val resWage = baseMinWage + bdp * Config.ReservationBdpMult
 
     val rawLendingBaseRate: Double =
-      if Config.InterbankTermStructure then
-        in.bankingSector
-          .map { bs =>
-            YieldCurve.compute(bs.interbankRate.toDouble).wibor3m.toDouble
-          }
-          .getOrElse(in.nbpReferenceRate)
+      if Config.InterbankTermStructure then YieldCurve.compute(in.bankingSector.interbankRate.toDouble).wibor3m.toDouble
       else in.nbpReferenceRate
 
     val lendingBaseRate =

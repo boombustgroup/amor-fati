@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Run Phase 5 integration tests with all mechanisms enabled
 set -euo pipefail
-BANK_MODE=multi \
 HH_MODE=individual \
 OPEN_ECON=true \
 NBP_QE=true \

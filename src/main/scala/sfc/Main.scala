@@ -81,7 +81,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.forex.exchangeRate, // 4: ExRate
       world.hh.marketWage.toDouble, // 5: MarketWage
       world.gov.cumulativeDebt.toDouble, // 6: GovDebt
-      world.bank.nplRatio, // 7: NPL
+      world.bankingSector.aggregate.nplRatio, // 7: NPL
       world.nbp.referenceRate.toDouble, // 8: RefRate
       world.priceLevel, // 9: PriceLevel
       world.automationRatio.toDouble, // 10: AutoRatio
@@ -122,47 +122,34 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.nbp.fxReserves.toDouble, // 45: FxReserves
       world.nbp.lastFxTraded.toDouble, // 46: FxInterventionAmt
       (if Config.NbpFxIntervention then 1.0 else 0.0), // 47: FxInterventionActive
-      world.bankingSector
-        .map(_.interbankRate.toDouble)
-        .getOrElse(world.nbp.referenceRate.toDouble), // 48: InterbankRate
-      world.bankingSector
-        .map { bs =>
-          val alive = bs.banks.filterNot(_.failed)
-          if alive.isEmpty then 0.0 else alive.map(_.car).min
-        }
-        .getOrElse(world.bank.car), // 49: MinBankCAR
-      world.bankingSector
-        .map { bs =>
-          val alive = bs.banks.filterNot(_.failed)
-          if alive.isEmpty then 0.0 else alive.map(_.nplRatio).max
-        }
-        .getOrElse(world.bank.nplRatio), // 50: MaxBankNPL
-      world.bankingSector.map(_.banks.count(_.failed).toDouble).getOrElse(0.0), // 51: BankFailures
+      world.bankingSector.interbankRate.toDouble, // 48: InterbankRate
+      {
+        val alive = world.bankingSector.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0 else alive.map(_.car).min
+      }, // 49: MinBankCAR
+      {
+        val alive = world.bankingSector.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0 else alive.map(_.nplRatio).max
+      }, // 50: MaxBankNPL
+      world.bankingSector.banks.count(_.failed).toDouble, // 51: BankFailures
       // Monetary plumbing
-      world.bankingSector
-        .map { bs =>
-          val (_, total) = Banking.computeReserveInterest(bs.banks, world.nbp.referenceRate.toDouble)
-          total
-        }
-        .getOrElse(0.0), // 52: ReserveInterest
-      world.bankingSector
-        .map { bs =>
-          val (perBank, _) = Banking.computeStandingFacilities(bs.banks, world.nbp.referenceRate.toDouble)
-          perBank.kahanSum
-        }
-        .getOrElse(0.0), // 53: StandingFacilityNet
-      world.bankingSector
-        .map { bs =>
-          // Deposit facility usage: sum of reserves parked at deposit facility
-          bs.banks.filter(b => !b.failed && b.reservesAtNbp > PLN.Zero).kahanSumBy(_.reservesAtNbp.toDouble)
-        }
-        .getOrElse(0.0), // 54: DepositFacilityUsage
-      world.bankingSector
-        .map { bs =>
-          val (_, total) = Banking.interbankInterestFlows(bs.banks, bs.interbankRate.toDouble)
-          total
-        }
-        .getOrElse(0.0), // 55: InterbankInterestNet
+      {
+        val (_, total) = Banking.computeReserveInterest(world.bankingSector.banks, world.nbp.referenceRate.toDouble)
+        total
+      }, // 52: ReserveInterest
+      {
+        val (perBank, _) =
+          Banking.computeStandingFacilities(world.bankingSector.banks, world.nbp.referenceRate.toDouble)
+        perBank.kahanSum
+      }, // 53: StandingFacilityNet
+      world.bankingSector.banks
+        .filter(b => !b.failed && b.reservesAtNbp > PLN.Zero)
+        .kahanSumBy(_.reservesAtNbp.toDouble), // 54: DepositFacilityUsage
+      {
+        val (_, total) =
+          Banking.interbankInterestFlows(world.bankingSector.banks, world.bankingSector.interbankRate.toDouble)
+        total
+      }, // 55: InterbankInterestNet
       // Credit diagnostics
       world.monetaryAgg.map(_.m1.toDouble).getOrElse(world.bank.deposits.toDouble), // 56: M1
       world.monetaryAgg.map(_.monetaryBase.toDouble).getOrElse(0.0), // 57: MonetaryBase
@@ -174,29 +161,23 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.jst.deposits.toDouble, // 62: JstDeposits
       world.jst.deficit.toDouble, // 63: JstDeficit
       // LCR/NSFR
-      world.bankingSector
-        .map { bs =>
-          val alive = bs.banks.filterNot(_.failed)
-          if alive.isEmpty then 0.0 else alive.map(_.lcr).min
-        }
-        .getOrElse(0.0), // 64: MinBankLCR
-      world.bankingSector
-        .map { bs =>
-          val alive = bs.banks.filterNot(_.failed)
-          if alive.isEmpty then 0.0 else alive.map(_.nsfr).min
-        }
-        .getOrElse(0.0), // 65: MinBankNSFR
-      world.bankingSector
-        .map { bs =>
-          val alive = bs.banks.filterNot(_.failed)
-          if alive.isEmpty then 0.0
-          else alive.map(b => if b.deposits > PLN.Zero then b.termDeposits / b.deposits else 0.0).sum / alive.length
-        }
-        .getOrElse(Config.BankTermDepositFrac), // 66: AvgTermDepositFrac
+      {
+        val alive = world.bankingSector.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0 else alive.map(_.lcr).min
+      }, // 64: MinBankLCR
+      {
+        val alive = world.bankingSector.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0 else alive.map(_.nsfr).min
+      }, // 65: MinBankNSFR
+      {
+        val alive = world.bankingSector.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0
+        else alive.map(b => if b.deposits > PLN.Zero then b.termDeposits / b.deposits else 0.0).sum / alive.length
+      }, // 66: AvgTermDepositFrac
       // Term structure
-      world.bankingSector.flatMap(_.interbankCurve).map(_.wibor1m.toDouble).getOrElse(0.0), // 67: WIBOR_1M
-      world.bankingSector.flatMap(_.interbankCurve).map(_.wibor3m.toDouble).getOrElse(0.0), // 68: WIBOR_3M
-      world.bankingSector.flatMap(_.interbankCurve).map(_.wibor6m.toDouble).getOrElse(0.0), // 69: WIBOR_6M
+      world.bankingSector.interbankCurve.map(_.wibor1m.toDouble).getOrElse(0.0), // 67: WIBOR_1M
+      world.bankingSector.interbankCurve.map(_.wibor3m.toDouble).getOrElse(0.0), // 68: WIBOR_3M
+      world.bankingSector.interbankCurve.map(_.wibor6m.toDouble).getOrElse(0.0), // 69: WIBOR_6M
       // Full public sector
       world.zus.contributions.toDouble, // 70: ZusContributions
       world.zus.pensionPayments.toDouble, // 71: ZusPensionPayments
@@ -210,13 +191,11 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       // Macroprudential
       world.macropru.ccyb.toDouble, // 79: CCyB
       world.macropru.creditToGdpGap, // 80: CreditToGdpGap
-      world.bankingSector
-        .map { bs =>
-          val alive = bs.banks.filterNot(_.failed)
-          if alive.isEmpty then 0.0
-          else alive.map(b => Macroprudential.effectiveMinCar(b.id.toInt, world.macropru.ccyb.toDouble)).max
-        }
-        .getOrElse(Macroprudential.effectiveMinCar(0, world.macropru.ccyb.toDouble)), // 81: EffectiveMinCar
+      {
+        val alive = world.bankingSector.banks.filterNot(_.failed)
+        if alive.isEmpty then 0.0
+        else alive.map(b => Macroprudential.effectiveMinCar(b.id.toInt, world.macropru.ccyb.toDouble)).max
+      }, // 81: EffectiveMinCar
       // GPW Equity Market
       world.equity.index, // 82: GpwIndex
       world.equity.marketCap.toDouble, // 83: GpwMarketCap
@@ -393,9 +372,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       },
       // KNF/BFG (#48)
       (if Config.BankFailureEnabled then
-         world.bankingSector
-           .map(bs => bs.banks.filterNot(_.failed).map(b => (b.deposits * Config.BfgLevyRate / 12.0).toDouble).sum)
-           .getOrElse((world.bank.deposits * Config.BfgLevyRate / 12.0).toDouble)
+         world.bankingSector.banks.filterNot(_.failed).map(b => (b.deposits * Config.BfgLevyRate / 12.0).toDouble).sum
        else 0.0), // 194: BfgLevyTotal
       world.bfgFundBalance.toDouble, // 195: BfgFundBalance
       world.bailInLoss.toDouble, // 196: BailInLoss
@@ -424,7 +401,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   val hhLabel = HH_MODE match
     case HhMode.Individual => s" | HH=individual (${Config.HhCount})"
     case HhMode.Aggregate  => ""
-  val bankLabel = if Config.BankMulti then " | BANK=multi (7)" else ""
+  val bankLabel = " | BANK=multi (7)"
   println(s"+" + "=" * 68 + "+")
   println(s"|  SFC-ABM v8: BDP=${bdpAmount.toInt} PLN, N=${nSeeds} seeds, ${regimeLabel}${hhLabel}${bankLabel}")
   println(s"|  ${firmsLabel} firms x 6 sectors (GUS 2024) x ${topoLabel} network x 120m")
@@ -555,8 +532,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     hhPw.close()
     println(s"Saved: mc/${outputPrefix}_hh_terminal.csv")
 
-  // -- Write bank terminal CSV (multi-bank mode only) --
-  if Config.BankMulti then
+  // -- Write bank terminal CSV (always multi-bank) --
+  {
     val bankPw = new PrintWriter(new File(s"mc/${outputPrefix}_banks_terminal.csv"))
     bankPw.write("Seed;BankId;BankName;Deposits;Loans;Capital;NPL;CAR;GovBonds;InterbankNet;Failed\n")
     for seed <- 0 until nSeeds do
@@ -567,6 +544,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       bankPw.write(f"${seed + 1};0;Aggregate;0;0;0;${lastRow(50)}%.6f;${lastRow(49)}%.6f;0;0;${lastRow(51)}%.0f\n")
     bankPw.close()
     println(s"Saved: mc/${outputPrefix}_banks_terminal.csv")
+  }
 
   // -- Write aggregated time-series (mean, std, p5, p95) --
   val aggPw = new PrintWriter(new File(s"mc/${outputPrefix}_timeseries.csv"))

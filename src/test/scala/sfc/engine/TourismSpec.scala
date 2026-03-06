@@ -2,7 +2,8 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.accounting.{BankState, BopState, ForexState, GovState}
+import sfc.accounting.{BankingAggregate, BopState, ForexState, GovState}
+import sfc.agents.Banking
 import sfc.config.Config
 import sfc.types.*
 
@@ -239,13 +240,14 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       1.0,
       GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Nbp.State(Rate(0.05)),
-      BankState(PLN.Zero, PLN.Zero, PLN(100), PLN(1000)),
+      BankingAggregate(PLN.Zero, PLN.Zero, PLN(100), PLN(1000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       ForexState(Config.BaseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       sfc.agents.Household.SectorState(100, PLN(5000), PLN(4000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio(0.0),
       Ratio(0.0),
       1e9,
       Vector.fill(6)(0.1),
+      bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
     w.tourismExport shouldBe PLN.Zero
     w.tourismImport shouldBe PLN.Zero
