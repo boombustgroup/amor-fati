@@ -20,7 +20,7 @@ object FirmProcessingStep:
     m: Int,
     sectorMults: Vector[Double],
     lendingBaseRate: Double,
-    newImmig: ImmigrationState,
+    newImmig: Immigration.State,
     rc: RunConfig
   )
 
@@ -190,9 +190,9 @@ object FirmProcessingStep:
 
     val finalHouseholds = if Config.ImmigEnabled then
       preMigrationHouseholds.map { hhs =>
-        val afterRemoval = ImmigrationLogic.removeReturnMigrants(hhs, in.newImmig.monthlyOutflow)
+        val afterRemoval = Immigration.removeReturnMigrants(hhs, in.newImmig.monthlyOutflow)
         val startId = afterRemoval.map(_.id).maxOption.getOrElse(-1) + 1
-        val newImmigrants = ImmigrationLogic.spawnImmigrants(in.newImmig.monthlyInflow, startId, Random)
+        val newImmigrants = Immigration.spawnImmigrants(in.newImmig.monthlyInflow, startId, Random)
         afterRemoval ++ newImmigrants
       }
     else preMigrationHouseholds

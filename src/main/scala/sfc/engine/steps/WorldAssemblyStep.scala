@@ -3,7 +3,7 @@ package sfc.engine.steps
 import sfc.accounting.{BankState, BopState, ForexState, GovState, MonetaryAggregates, SfcCheck}
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
-import sfc.engine.{CorporateBondMarket, EquityMarket, Expectations, GvcState,
+import sfc.engine.{CorporateBondMarket, EquityMarket, Expectations, GvcTrade,
   HousingMarket, Macroprudential, SectoralMobility, World}
 import sfc.types.*
 import sfc.util.KahanSum.*
@@ -25,9 +25,9 @@ object WorldAssemblyStep:
     newWage: Double,
     resWage: Double,
     employed: Int,
-    newImmig: ImmigrationState,
-    newDemographics: DemographicsState,
-    newZus: ZusState,
+    newImmig: Immigration.State,
+    newDemographics: SocialSecurity.DemographicsState,
+    newZus: SocialSecurity.ZusState,
     // Step 3
     totalIncome: Double,
     consumption: Double,
@@ -87,7 +87,7 @@ object WorldAssemblyStep:
     // Step 8
     newForex: ForexState,
     newBop: BopState,
-    newGvc: GvcState,
+    newGvc: GvcTrade.State,
     newExp: Expectations.State,
     totalReserveInterest: Double,
     totalStandingFacilityIncome: Double,
@@ -113,7 +113,7 @@ object WorldAssemblyStep:
     finalBankingSector: Option[BankingSectorState],
     reassignedFirms: Array[Firm],
     reassignedHouseholds: Option[Vector[Household]],
-    finalPpk: PpkState,
+    finalPpk: SocialSecurity.PpkState,
     finalInsurance: Insurance.State,
     finalNbfi: Nbfi.State,
     newGovWithYield: GovState,

@@ -155,9 +155,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
   // ---- Immigrant education ----
 
-  "ImmigrationLogic.spawnImmigrants" should "assign education levels to immigrants" in {
+  "Immigration.spawnImmigrants" should "assign education levels to immigrants" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(100, 0, rng)
+    val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
       h.education should be >= 0
       h.education should be <= 3
@@ -166,7 +166,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
   it should "clamp immigrant skill within education-specific range" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(200, 0, rng)
+    val immigrants = Immigration.spawnImmigrants(200, 0, rng)
     immigrants.foreach { h =>
       val (floor, ceil) = sfc.config.Config.eduSkillRange(h.education)
       h.skill.toDouble should be >= floor

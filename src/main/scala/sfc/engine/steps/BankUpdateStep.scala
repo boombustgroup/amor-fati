@@ -24,8 +24,8 @@ object BankUpdateStep:
     bdp: Double,
     lendingBaseRate: Double,
     // Step 2 outputs
-    newZus: ZusState,
-    newPpk: PpkState,
+    newZus: SocialSecurity.ZusState,
+    newPpk: SocialSecurity.PpkState,
     rawPpkBondPurchase: Double,
     wageGrowth: Double,
     // Step 3 outputs
@@ -101,7 +101,7 @@ object BankUpdateStep:
     finalBankingSector: Option[BankingSectorState],
     reassignedFirms: Array[Firm],
     reassignedHouseholds: Option[Vector[Household]],
-    finalPpk: PpkState,
+    finalPpk: SocialSecurity.PpkState,
     finalInsurance: Insurance.State,
     finalNbfi: Nbfi.State,
     newGovWithYield: GovState,

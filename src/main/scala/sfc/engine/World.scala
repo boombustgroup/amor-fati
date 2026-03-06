@@ -1,7 +1,7 @@
 package sfc.engine
 
 import sfc.accounting.{BankState, BopState, ForexState, GovState, MonetaryAggregates}
-import sfc.agents.{BankingSectorState, DemographicsState, HhAggregates, HhState, Household, ImmigrationState, Insurance, Jst, Nbfi, NbpState, PpkState, ZusState}
+import sfc.agents.{BankingSectorState, HhAggregates, HhState, Household, Immigration, Insurance, Jst, Nbfi, NbpState, SocialSecurity}
 import sfc.types.*
 
 case class World(
@@ -24,16 +24,16 @@ case class World(
   bankingSector: Option[BankingSectorState] = None,
   monetaryAgg: Option[MonetaryAggregates] = None,
   jst: Jst.State = Jst.State.zero,
-  zus: ZusState = ZusState.zero,
-  ppk: PpkState = PpkState.zero,
-  demographics: DemographicsState = DemographicsState.zero,
+  zus: SocialSecurity.ZusState = SocialSecurity.ZusState.zero,
+  ppk: SocialSecurity.PpkState = SocialSecurity.PpkState.zero,
+  demographics: SocialSecurity.DemographicsState = SocialSecurity.DemographicsState.zero,
   macropru: Macroprudential.State = Macroprudential.State.zero,
   equity: EquityMarket.State = EquityMarket.zero,
   housing: HousingMarket.State = HousingMarket.zero,
   sectoralMobility: SectoralMobility.State = SectoralMobility.zero,
-  gvc: GvcState = ExternalSector.zero,
+  gvc: GvcTrade.State = GvcTrade.zero,
   expectations: Expectations.State = Expectations.zero,
-  immigration: ImmigrationState = ImmigrationState.zero,
+  immigration: Immigration.State = Immigration.State.zero,
   corporateBonds: CorporateBondMarket.State = CorporateBondMarket.zero,
   insurance: Insurance.State = Insurance.zero,
   nbfi: Nbfi.State = Nbfi.zero,

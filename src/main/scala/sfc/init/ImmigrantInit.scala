@@ -12,7 +12,7 @@ object ImmigrantInit:
     */
   def create(rng: Random, households: Option[Vector[Household]], startId: Int): (Option[Vector[Household]], Int) =
     if Config.ImmigEnabled && Config.ImmigInitStock > 0 && households.isDefined then
-      val immigrants = ImmigrationLogic.spawnImmigrants(Config.ImmigInitStock, startId, rng)
+      val immigrants = Immigration.spawnImmigrants(Config.ImmigInitStock, startId, rng)
       (households.map(hhs => hhs ++ immigrants), Config.ImmigInitStock)
     else
       (households, 0)

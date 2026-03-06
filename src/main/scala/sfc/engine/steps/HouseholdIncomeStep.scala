@@ -19,7 +19,7 @@ object HouseholdIncomeStep:
     households: Option[Vector[Household]],
     firms: Array[Firm],
     lendingBaseRate: Double,
-    newZus: ZusState,
+    newZus: SocialSecurity.ZusState,
     rc: RunConfig
   )
 

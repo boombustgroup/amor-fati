@@ -11,8 +11,8 @@ object LaborDemographicsStep:
   case class Input(
     marketWage: PLN,
     firms: Array[Firm],
-    demographics: DemographicsState,
-    immigration: ImmigrationState,
+    demographics: SocialSecurity.DemographicsState,
+    immigration: Immigration.State,
     zusBalance: Double,
     ppkBondHoldings: Double,
     households: Option[Vector[Household]],
@@ -27,11 +27,11 @@ object LaborDemographicsStep:
     employed: Int,
     laborDemand: Int,
     wageGrowth: Double,
-    newImmig: ImmigrationState,
+    newImmig: Immigration.State,
     netMigration: Int,
-    newDemographics: DemographicsState,
-    newZus: ZusState,
-    newPpk: PpkState,
+    newDemographics: SocialSecurity.DemographicsState,
+    newZus: SocialSecurity.ZusState,
+    newPpk: SocialSecurity.PpkState,
     rawPpkBondPurchase: Double,
     living: Array[Firm]
   )
@@ -63,16 +63,16 @@ object LaborDemographicsStep:
 
     // Immigration
     val unempRateForImmig = 1.0 - employed.toDouble / Config.TotalPopulation
-    val newImmig = ImmigrationLogic.step(
+    val newImmig = Immigration.step(
       in.immigration, in.households, newWage, unempRateForImmig,
       in.demographics.workingAgePop.max(Config.TotalPopulation), in.m)
     val netMigration = newImmig.monthlyInflow - newImmig.monthlyOutflow
 
-    val newDemographics = PublicSectorLogic.demographicsStep(in.demographics, employed, netMigration)
+    val newDemographics = SocialSecurity.demographicsStep(in.demographics, employed, netMigration)
 
-    val newZus = PublicSectorLogic.zusStep(in.zusBalance, employed, newWage, newDemographics.retirees)
-    val newPpk = PublicSectorLogic.ppkStep(in.ppkBondHoldings, employed, newWage)
-    val rawPpkBondPurchase = PublicSectorLogic.ppkBondPurchase(newPpk)
+    val newZus = SocialSecurity.zusStep(in.zusBalance, employed, newWage, newDemographics.retirees)
+    val newPpk = SocialSecurity.ppkStep(in.ppkBondHoldings, employed, newWage)
+    val rawPpkBondPurchase = SocialSecurity.ppkBondPurchase(newPpk)
 
     val wageGrowth = if in.marketWage.toDouble > 0 then newWage / in.marketWage.toDouble - 1.0 else 0.0
 

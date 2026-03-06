@@ -38,10 +38,10 @@ object WorldInit:
 
     // --- Demographics ---
     val initDemographics = if Config.DemEnabled then
-      DemographicsState(Config.DemInitialRetirees, Config.TotalPopulation, 0)
+      SocialSecurity.DemographicsState(Config.DemInitialRetirees, Config.TotalPopulation, 0)
     else if Config.ZusEnabled && Config.DemInitialRetirees > 0 then
-      DemographicsState(Config.DemInitialRetirees, Config.TotalPopulation, 0)
-    else DemographicsState.zero
+      SocialSecurity.DemographicsState(Config.DemInitialRetirees, Config.TotalPopulation, 0)
+    else SocialSecurity.DemographicsState.zero
 
     // --- Insurance / NBFI ---
     val initInsurance = if Config.InsEnabled then Insurance.initial
@@ -85,13 +85,13 @@ object WorldInit:
       else EquityMarket.zero,
       housing = if Config.ReEnabled then HousingMarket.initial
                 else HousingMarket.zero,
-      gvc = if Config.GvcEnabled && Config.OeEnabled then ExternalSector.initial
-            else ExternalSector.zero,
+      gvc = if Config.GvcEnabled && Config.OeEnabled then GvcTrade.initial
+            else GvcTrade.zero,
       expectations = if Config.ExpEnabled then Expectations.initial
                      else Expectations.zero,
       immigration = if Config.ImmigEnabled then
-        ImmigrationState(Config.ImmigInitStock, 0, 0, 0.0)
-      else ImmigrationState.zero,
+        Immigration.State(Config.ImmigInitStock, 0, 0, 0.0)
+      else Immigration.State.zero,
       corporateBonds = CorporateBondMarket.initial,
       insurance = initInsurance,
       nbfi = initNbfi,

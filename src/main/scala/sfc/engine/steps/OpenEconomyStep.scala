@@ -4,7 +4,7 @@ import sfc.accounting.{BopState, ForexState}
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
 import sfc.engine.{CorporateBondMarket, EquityMarket, Expectations,
-  ExternalSector, GvcState, OpenEconomy, Sectors, World, YieldCurve}
+  GvcTrade, OpenEconomy, Sectors, World, YieldCurve}
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -44,7 +44,7 @@ object OpenEconomyStep:
   case class Output(
     newForex: ForexState,
     newBop: BopState,
-    newGvc: GvcState,
+    newGvc: GvcTrade.State,
     newRefRate: Double,
     newExp: Expectations.State,
     totalReserveInterest: Double,
@@ -79,7 +79,7 @@ object OpenEconomyStep:
 
     // GVC / Deep External Sector (v5.0)
     val newGvc = if Config.GvcEnabled && Config.OeEnabled then
-      ExternalSector.step(in.w.gvc, sectorOutputs, in.w.priceLevel,
+      GvcTrade.step(in.w.gvc, sectorOutputs, in.w.priceLevel,
         in.w.forex.exchangeRate, in.autoR, in.m, in.rc)
     else in.w.gvc
 

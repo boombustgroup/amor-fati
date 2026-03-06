@@ -19,12 +19,12 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
 
   private def runStep(er: Double = Config.BaseExRate, price: Double = 1.0,
                       autoR: Double = 0.0, month: Int = 30,
-                      rc: RunConfig = plnConfig): GvcState =
-    ExternalSector.step(ExternalSector.initial, defaultSectorOutputs, price, er, autoR, month, rc)
+                      rc: RunConfig = plnConfig): GvcTrade.State =
+    GvcTrade.step(GvcTrade.initial, defaultSectorOutputs, price, er, autoR, month, rc)
 
   // --- Exports always non-negative ---
 
-  "ExternalSector.step" should "always have non-negative total exports" in {
+  "GvcTrade.step" should "always have non-negative total exports" in {
     forAll(genExchangeRate, genPrice, genFraction, Gen.choose(1, 120)) {
       (er: Double, price: Double, autoR: Double, month: Int) =>
         val r = runStep(er, price, autoR, month)

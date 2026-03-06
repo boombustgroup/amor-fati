@@ -5,17 +5,18 @@ import sfc.types.*
 
 import scala.util.Random
 
-/** Immigration state: tracks immigrant stock, flows, and remittances per month. */
-case class ImmigrationState(
-  immigrantStock: Int,        // total immigrant workers currently in economy
-  monthlyInflow: Int,         // new immigrants this month
-  monthlyOutflow: Int,        // returning emigrants this month
-  remittanceOutflow: Double   // total remittance PLN leaving deposits this month
-)
-object ImmigrationState:
-  val zero: ImmigrationState = ImmigrationState(0, 0, 0, 0.0)
+/** Immigration: tracks immigrant stock, flows, remittances, spawning/removal. */
+object Immigration:
 
-object ImmigrationLogic:
+  case class State(
+    immigrantStock: Int,        // total immigrant workers currently in economy
+    monthlyInflow: Int,         // new immigrants this month
+    monthlyOutflow: Int,        // returning emigrants this month
+    remittanceOutflow: Double   // total remittance PLN leaving deposits this month
+  )
+
+  object State:
+    val zero: State = State(0, 0, 0, 0.0)
 
   /** Compute monthly immigration inflow.
     * Exogenous: fixed rate × workingAgePop.
@@ -109,13 +110,13 @@ object ImmigrationLogic:
     households.filterNot(h => immigrantIds.contains(h.id))
 
   /** Full monthly step: compute inflow, outflow, remittances, update state. */
-  def step(prev: ImmigrationState, households: Option[Vector[Household]],
+  def step(prev: State, households: Option[Vector[Household]],
            wage: Double, unempRate: Double, workingAgePop: Int,
-           month: Int): ImmigrationState =
+           month: Int): State =
     val inflow = computeInflow(workingAgePop, wage, unempRate, month)
     val outflow = computeOutflow(prev.immigrantStock)
     val newStock = (prev.immigrantStock + inflow - outflow).max(0)
     val remittances = households match
       case Some(hhs) => computeRemittances(hhs)
       case None => computeRemittancesAggregate(newStock, wage, unempRate)
-    ImmigrationState(newStock, inflow, outflow, remittances)
+    State(newStock, inflow, outflow, remittances)

@@ -10,25 +10,25 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   // ---- computeInflow ----
 
-  "ImmigrationLogic.computeInflow" should "return 0 when disabled" in {
+  "Immigration.computeInflow" should "return 0 when disabled" in {
     // Config.ImmigEnabled is false by default
-    ImmigrationLogic.computeInflow(100000, 8000.0, 0.05, 1) shouldBe 0
+    Immigration.computeInflow(100000, 8000.0, 0.05, 1) shouldBe 0
   }
 
   // ---- computeOutflow ----
 
-  "ImmigrationLogic.computeOutflow" should "return 0 when disabled" in {
-    ImmigrationLogic.computeOutflow(5000) shouldBe 0
+  "Immigration.computeOutflow" should "return 0 when disabled" in {
+    Immigration.computeOutflow(5000) shouldBe 0
   }
 
   // ---- computeRemittances ----
 
-  "ImmigrationLogic.computeRemittances" should "return 0 when disabled" in {
+  "Immigration.computeRemittances" should "return 0 when disabled" in {
     val hhs = Vector(
       Household(0, PLN(5000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(1), PLN(6000.0)), Array.empty[Int], isImmigrant = true)
     )
-    ImmigrationLogic.computeRemittances(hhs) shouldBe 0.0
+    Immigration.computeRemittances(hhs) shouldBe 0.0
   }
 
   it should "return 0 for non-immigrant households" in {
@@ -36,54 +36,54 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
       Household(0, PLN(5000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(1), PLN(6000.0)), Array.empty[Int], isImmigrant = false)
     )
-    ImmigrationLogic.computeRemittances(hhs) shouldBe 0.0
+    Immigration.computeRemittances(hhs) shouldBe 0.0
   }
 
   // ---- computeRemittancesAggregate ----
 
-  "ImmigrationLogic.computeRemittancesAggregate" should "return 0 when disabled" in {
-    ImmigrationLogic.computeRemittancesAggregate(5000, 8000.0, 0.05) shouldBe 0.0
+  "Immigration.computeRemittancesAggregate" should "return 0 when disabled" in {
+    Immigration.computeRemittancesAggregate(5000, 8000.0, 0.05) shouldBe 0.0
   }
 
   // ---- chooseSector ----
 
-  "ImmigrationLogic.chooseSector" should "return valid sector index (0-5)" in {
+  "Immigration.chooseSector" should "return valid sector index (0-5)" in {
     val rng = new Random(42)
     for _ <- 0 until 100 do
-      val sector = ImmigrationLogic.chooseSector(rng)
+      val sector = Immigration.chooseSector(rng)
       sector should be >= 0
       sector should be < 6
   }
 
   // ---- spawnImmigrants ----
 
-  "ImmigrationLogic.spawnImmigrants" should "create correct number of immigrants" in {
+  "Immigration.spawnImmigrants" should "create correct number of immigrants" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(50, 1000, rng)
+    val immigrants = Immigration.spawnImmigrants(50, 1000, rng)
     immigrants.length shouldBe 50
   }
 
   it should "set isImmigrant=true on all spawned HH" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(20, 500, rng)
+    val immigrants = Immigration.spawnImmigrants(20, 500, rng)
     immigrants.foreach(_.isImmigrant shouldBe true)
   }
 
   it should "assign sequential IDs starting from startId" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(5, 100, rng)
+    val immigrants = Immigration.spawnImmigrants(5, 100, rng)
     immigrants.map(_.id) shouldBe Vector(100, 101, 102, 103, 104)
   }
 
   it should "start all immigrants as Unemployed(0)" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(10, 0, rng)
+    val immigrants = Immigration.spawnImmigrants(10, 0, rng)
     immigrants.foreach(_.status shouldBe HhStatus.Unemployed(0))
   }
 
   it should "clamp skill within valid range" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(100, 0, rng)
+    val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
       h.skill.toDouble should be >= 0.15
       h.skill.toDouble should be <= 0.95
@@ -92,7 +92,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   it should "clamp MPC within valid range" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(100, 0, rng)
+    val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
       h.mpc.toDouble should be >= 0.7
       h.mpc.toDouble should be <= 0.98
@@ -101,7 +101,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   it should "set lastSectorIdx to a valid sector" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(100, 0, rng)
+    val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
       h.lastSectorIdx.toInt should be >= 0
       h.lastSectorIdx.toInt should be < 6
@@ -110,13 +110,13 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   it should "produce zero immigrants when count is 0" in {
     val rng = new Random(42)
-    val immigrants = ImmigrationLogic.spawnImmigrants(0, 0, rng)
+    val immigrants = Immigration.spawnImmigrants(0, 0, rng)
     immigrants shouldBe empty
   }
 
   // ---- removeReturnMigrants ----
 
-  "ImmigrationLogic.removeReturnMigrants" should "remove oldest immigrants first" in {
+  "Immigration.removeReturnMigrants" should "remove oldest immigrants first" in {
     val hhs = Vector(
       Household(0, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int], isImmigrant = false),
@@ -127,7 +127,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
       Household(3, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(3), SectorIdx(0), PLN(5000.0)), Array.empty[Int], isImmigrant = true)
     )
-    val result = ImmigrationLogic.removeReturnMigrants(hhs, 2)
+    val result = Immigration.removeReturnMigrants(hhs, 2)
     result.length shouldBe 2
     result.map(_.id) should contain(0)   // native stays
     result.map(_.id) should contain(3)   // newest immigrant stays
@@ -142,7 +142,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
       Household(1, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(6000.0)), Array.empty[Int], isImmigrant = false)
     )
-    val result = ImmigrationLogic.removeReturnMigrants(hhs, 5)
+    val result = Immigration.removeReturnMigrants(hhs, 5)
     result.length shouldBe 2  // no immigrants to remove
   }
 
@@ -151,14 +151,14 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
       Household(0, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int], isImmigrant = true)
     )
-    ImmigrationLogic.removeReturnMigrants(hhs, 0) shouldBe hhs
+    Immigration.removeReturnMigrants(hhs, 0) shouldBe hhs
   }
 
   // ---- step ----
 
-  "ImmigrationLogic.step" should "return zero state when disabled" in {
-    val prev = ImmigrationState(100, 0, 0, 0.0)
-    val result = ImmigrationLogic.step(prev, None, 8000.0, 0.05, 100000, 1)
+  "Immigration.step" should "return zero state when disabled" in {
+    val prev = Immigration.State(100, 0, 0, 0.0)
+    val result = Immigration.step(prev, None, 8000.0, 0.05, 100000, 1)
     result.monthlyInflow shouldBe 0
     result.monthlyOutflow shouldBe 0
     result.remittanceOutflow shouldBe 0.0
@@ -167,16 +167,16 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   it should "maintain non-negative immigrant stock" in {
     // Even with large outflow, stock should not go negative
-    val prev = ImmigrationState(2, 0, 0, 0.0)
-    val result = ImmigrationLogic.step(prev, None, 8000.0, 0.05, 100000, 1)
+    val prev = Immigration.State(2, 0, 0, 0.0)
+    val result = Immigration.step(prev, None, 8000.0, 0.05, 100000, 1)
     result.immigrantStock should be >= 0
   }
 
-  // ---- ImmigrationState.zero ----
+  // ---- Immigration.State.zero ----
 
-  "ImmigrationState.zero" should "have all fields at zero" in {
-    ImmigrationState.zero.immigrantStock shouldBe 0
-    ImmigrationState.zero.monthlyInflow shouldBe 0
-    ImmigrationState.zero.monthlyOutflow shouldBe 0
-    ImmigrationState.zero.remittanceOutflow shouldBe 0.0
+  "Immigration.State.zero" should "have all fields at zero" in {
+    Immigration.State.zero.immigrantStock shouldBe 0
+    Immigration.State.zero.monthlyInflow shouldBe 0
+    Immigration.State.zero.monthlyOutflow shouldBe 0
+    Immigration.State.zero.remittanceOutflow shouldBe 0.0
   }

@@ -3,41 +3,42 @@ package sfc.agents
 import sfc.config.Config
 import sfc.types.*
 
-/** ZUS/FUS state: social insurance fund balance and monthly flows. */
-case class ZusState(
-  fusBalance: PLN,        // cumulative raw surplus/deficit (contributions - pensions, before gov subvention)
-  contributions: PLN,     // this month's total contributions
-  pensionPayments: PLN,   // this month's total pension payments
-  govSubvention: PLN      // this month's government subvention (covers deficit)
-)
-object ZusState:
-  val zero: ZusState = ZusState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+/** Social security and demographics: ZUS/FUS, PPK, demographics, BGK. */
+object SocialSecurity:
 
-/** PPK state: capital pension fund bond holdings and monthly flows. */
-case class PpkState(
-  bondHoldings: PLN,      // accumulated government bond holdings
-  contributions: PLN      // this month's total PPK contributions
-)
-object PpkState:
-  val zero: PpkState = PpkState(PLN.Zero, PLN.Zero)
+  /** ZUS/FUS state: social insurance fund balance and monthly flows. */
+  case class ZusState(
+    fusBalance: PLN,        // cumulative raw surplus/deficit (contributions - pensions, before gov subvention)
+    contributions: PLN,     // this month's total contributions
+    pensionPayments: PLN,   // this month's total pension payments
+    govSubvention: PLN      // this month's government subvention (covers deficit)
+  )
+  object ZusState:
+    val zero: ZusState = ZusState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
-/** Demographics state: retirees and working-age population. */
-case class DemographicsState(
-  retirees: Int,             // total retired workers receiving pensions
-  workingAgePop: Int,        // effective working-age population
-  monthlyRetirements: Int    // new retirements this month
-)
-object DemographicsState:
-  val zero: DemographicsState = DemographicsState(0, 0, 0)
+  /** PPK state: capital pension fund bond holdings and monthly flows. */
+  case class PpkState(
+    bondHoldings: PLN,      // accumulated government bond holdings
+    contributions: PLN      // this month's total PPK contributions
+  )
+  object PpkState:
+    val zero: PpkState = PpkState(PLN.Zero, PLN.Zero)
 
-/** BGK state: state development bank (stub for future use). */
-case class BgkState(
-  loanPortfolio: PLN = PLN.Zero
-)
-object BgkState:
-  val zero: BgkState = BgkState(PLN.Zero)
+  /** Demographics state: retirees and working-age population. */
+  case class DemographicsState(
+    retirees: Int,             // total retired workers receiving pensions
+    workingAgePop: Int,        // effective working-age population
+    monthlyRetirements: Int    // new retirements this month
+  )
+  object DemographicsState:
+    val zero: DemographicsState = DemographicsState(0, 0, 0)
 
-object PublicSectorLogic:
+  /** BGK state: state development bank (stub for future use). */
+  case class BgkState(
+    loanPortfolio: PLN = PLN.Zero
+  )
+  object BgkState:
+    val zero: BgkState = BgkState(PLN.Zero)
 
   /** Compute ZUS monthly flows.
     * Contributions from employed workers, pensions to retirees.

@@ -14,24 +14,24 @@ case class ForeignFirm(
   disruption: Ratio
 )
 
-case class GvcState(
-  foreignFirms: Vector[ForeignFirm],
-  totalExports: PLN = PLN.Zero,
-  totalIntermImports: PLN = PLN.Zero,
-  sectorExports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
-  sectorImports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
-  disruptionIndex: Ratio = Ratio.Zero,
-  foreignPriceIndex: Double = 1.0,
-  tradeConcentration: Ratio = Ratio.Zero,
-  exportDemandShockMag: Ratio = Ratio.Zero,
-  importCostIndex: Double = 1.0
-)
+object GvcTrade:
 
-object ExternalSector:
+  case class State(
+    foreignFirms: Vector[ForeignFirm],
+    totalExports: PLN = PLN.Zero,
+    totalIntermImports: PLN = PLN.Zero,
+    sectorExports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
+    sectorImports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
+    disruptionIndex: Ratio = Ratio.Zero,
+    foreignPriceIndex: Double = 1.0,
+    tradeConcentration: Ratio = Ratio.Zero,
+    exportDemandShockMag: Ratio = Ratio.Zero,
+    importCostIndex: Double = 1.0
+  )
 
-  def zero: GvcState = GvcState(Vector.empty)
+  def zero: State = State(Vector.empty)
 
-  def initial: GvcState =
+  def initial: State =
     val euShare = Config.GvcEuTradeShare
     val nonEuShare = 1.0 - euShare
     val partnerShares = Vector(euShare, nonEuShare)
@@ -51,12 +51,12 @@ object ExternalSector:
         disruption = Ratio.Zero
       )
 
-    GvcState(firms, foreignPriceIndex = 1.0,
+    State(firms, foreignPriceIndex = 1.0,
       tradeConcentration = Ratio(euShare * euShare + nonEuShare * nonEuShare))
 
-  def step(prev: GvcState, sectorOutputs: Vector[Double], priceLevel: Double,
+  def step(prev: State, sectorOutputs: Vector[Double], priceLevel: Double,
            exchangeRate: Double, autoRatio: Double, month: Int,
-           rc: RunConfig): GvcState =
+           rc: RunConfig): State =
 
     // 1. Evolve foreign price
     val newForeignPrice = prev.foreignPriceIndex * (1.0 + Config.GvcForeignInflation / 12.0)
@@ -147,7 +147,7 @@ object ExternalSector:
       newForeignPrice / 1.0  // relative to base
     else 1.0
 
-    GvcState(
+    State(
       foreignFirms = updatedFirms,
       totalExports = totalExports,
       totalIntermImports = totalIntermImports,
