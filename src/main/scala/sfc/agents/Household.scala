@@ -353,7 +353,7 @@ object Household:
       hh.status match
         case HhStatus.Bankrupt => hh // absorbing barrier
         case _                 =>
-          val (baseIncome, benefit, newStatus) = computeIncome(hh, bdp, marketWage, world)
+          val (baseIncome, benefit, newStatus) = computeIncome(hh, bdp)
 
           // Variable-rate debt service (monetary transmission channel 1)
           val debtServiceRate =
@@ -625,7 +625,7 @@ object Household:
       else None
     (updated, correctedAgg, pbf)
 
-  private def computeIncome(hh: State, bdp: Double, marketWage: Double, world: World): (Double, Double, HhStatus) =
+  private def computeIncome(hh: State, bdp: Double): (Double, Double, HhStatus) =
     hh.status match
       case HhStatus.Employed(firmId, sectorIdx, wage) =>
         (wage.toDouble + bdp, 0.0, hh.status) // UBI is universal: employed also receive BDP

@@ -3,7 +3,6 @@ package sfc.dynamics
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.{Firm, TechState}
-import sfc.config.Config
 import sfc.types.*
 
 import scala.util.Random

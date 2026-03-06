@@ -3,7 +3,6 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.Banking
-import sfc.config.Config
 import sfc.types.*
 
 /** Reserve Interest, Standing Facilities, Interbank Interest tests. */
@@ -84,9 +83,21 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     val bank = mkBank(0, reservesAtNbp = PLN(1e8))
     val refRate = 0.0575
     val depositRate = Math.max(0.0, refRate - 0.01) // 4.75%
-    val expectedMonthly = 1e8 * depositRate / 12.0
+    val expectedMonthly = bank.reservesAtNbp.toDouble * depositRate / 12.0
     // Direct formula check: reservesAtNbp × (refRate − spread) / 12
     expectedMonthly shouldBe (1e8 * 0.0475 / 12.0 +- 1.0)
+  }
+
+  it should "charge lombard rate for interbank borrowers (formula check)" in {
+    // Bank with negative interbankNet should pay lombard cost (negative income)
+    // interbankNet = -100M, refRate = 5.75%, lombardSpread = 1% → lombardRate = 6.75%
+    val refRate = 0.0575
+    val lombardRate = refRate + 0.01 // 6.75%
+    val interbankBorrowing = 1e8
+    val expectedMonthlyCost = (interbankBorrowing * lombardRate / 12.0) * -1.0
+    // Direct formula check: -|interbankNet| × lombardRate / 12
+    expectedMonthlyCost shouldBe (-1e8 * 0.0675 / 12.0 +- 1.0)
+    expectedMonthlyCost should be < 0.0
   }
 
   it should "return zero for failed banks" in {

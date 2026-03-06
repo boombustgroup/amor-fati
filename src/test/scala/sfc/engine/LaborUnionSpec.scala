@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{Firm, HhStatus, Household, TechState}
+import sfc.agents.Firm
 import sfc.config.{Config, SECTORS}
 import sfc.types.*
 
@@ -111,13 +111,12 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
     // When unions enabled, raw wages for union sectors are higher
     // After normalization (rawWages * scale where scale = 1/rawMean),
     // unionized sector workers earn more, non-union less (redistribution)
-    val mktWage = 8000.0
     val sectors = Vector(0.02, 0.15, 0.03, 0.12, 0.30, 0.04) // densities
     val premium = 0.08
 
     // Compute relative wages without union
     val baseRaw = SECTORS.map(_.wageMultiplier)
-    val baseMean = SECTORS.zipWithIndex.map((s, i) => s.wageMultiplier * s.share.toDouble).sum /
+    val baseMean = SECTORS.map(s => s.wageMultiplier * s.share.toDouble).sum /
       SECTORS.map(_.share.toDouble).sum
 
     // Compute relative wages with union

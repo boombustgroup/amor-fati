@@ -2,18 +2,12 @@ package sfc.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.accounting.{BankState, ForexState, GovState, SfcCheck}
+import sfc.accounting.{BankState, SfcCheck}
 import sfc.config.Config
-import sfc.engine.World
 import sfc.types.*
-
-import scala.util.Random
 
 /** Consumer credit unit tests. */
 class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
-
-  // Config defaults: CcSpread=0.04, CcMaxDti=0.40, CcMaxLoan=50000, CcAmortRate=0.025,
-  //                  CcNplRecovery=0.15, CcEligRate=0.30
 
   "Config defaults" should "have sensible consumer credit parameters" in {
     Config.CcSpread shouldBe 0.04

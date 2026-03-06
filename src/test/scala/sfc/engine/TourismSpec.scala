@@ -3,7 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankState, BopState, ForexState, GovState}
-import sfc.config.{Config, SECTORS}
+import sfc.config.Config
 import sfc.types.*
 
 class TourismSpec extends AnyFlatSpec with Matchers:

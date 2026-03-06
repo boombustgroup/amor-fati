@@ -1,6 +1,6 @@
 package sfc
 
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.Gen
 import sfc.accounting.*
 import sfc.agents.*
 import sfc.config.{Config, MonetaryRegime, RunConfig, SECTORS}

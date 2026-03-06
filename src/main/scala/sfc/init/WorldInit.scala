@@ -13,8 +13,8 @@ import scala.util.Random
 object WorldInit:
 
   /** Initialize a complete simulation world from a seed. Side effects: calls Config.setTotalPopulation (twice: once for
-   * firm workers, once for immigrants).
-   */
+    * firm workers, once for immigrants).
+    */
   def initialize(seed: Int, rc: RunConfig): InitResult =
     Random.setSeed(seed.toLong)
 

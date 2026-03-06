@@ -11,14 +11,14 @@ import scala.util.Random
 object FirmInit:
 
   /** Create firm array with all post-creation enhancements. Returns (firms, actualTotalPopulation) — caller handles
-   * Config.setTotalPopulation.
-   */
+    * Config.setTotalPopulation.
+    */
   def create(rng: Random): (Array[Firm.State], Int) =
     // Generate network based on TOPOLOGY env var
     val adjList = TOPOLOGY match
-      case Topology.Ws => Network.wattsStrogatz(Config.FirmsCount, Config.NetworkK, Config.NetworkRewireP)
-      case Topology.Er => Network.erdosRenyi(Config.FirmsCount, Config.NetworkK, rng)
-      case Topology.Ba => Network.barabasiAlbert(Config.FirmsCount, Config.NetworkK / 2, rng)
+      case Topology.Ws      => Network.wattsStrogatz(Config.FirmsCount, Config.NetworkK, Config.NetworkRewireP)
+      case Topology.Er      => Network.erdosRenyi(Config.FirmsCount, Config.NetworkK, rng)
+      case Topology.Ba      => Network.barabasiAlbert(Config.FirmsCount, Config.NetworkK / 2, rng)
       case Topology.Lattice => Network.lattice(Config.FirmsCount, Config.NetworkK)
 
     // Assign sectors
@@ -29,9 +29,10 @@ object FirmInit:
       for
         s <- SECTORS.indices
         _ <- 0 until sectorCounts(s)
-      do if idx < Config.FirmsCount then {
-        arr(idx) = s; idx += 1
-      }
+      do
+        if idx < Config.FirmsCount then {
+          arr(idx) = s; idx += 1
+        }
       while idx < Config.FirmsCount do {
         arr(idx) = SECTORS.length - 1; idx += 1
       }

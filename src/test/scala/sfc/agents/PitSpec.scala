@@ -2,7 +2,6 @@ package sfc.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.config.Config
 import sfc.types.*
 
 /** Progressive PIT unit tests. */

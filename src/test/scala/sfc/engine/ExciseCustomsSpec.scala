@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.config.{Config, SECTORS}
+import sfc.config.Config
 import sfc.util.KahanSum.*
 
 class ExciseCustomsSpec extends AnyFlatSpec with Matchers:
@@ -65,7 +65,6 @@ class ExciseCustomsSpec extends AnyFlatSpec with Matchers:
   }
 
   "Manual computation" should "match formula" in {
-    val consumption = 1000000.0
     val weights = Config.FofConsWeights
     val rates = Config.ExciseRates
     val manual = weights(0) * rates(0) + weights(1) * rates(1) + weights(2) * rates(2) +

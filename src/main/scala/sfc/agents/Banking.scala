@@ -338,7 +338,8 @@ object Banking:
       val perBank = banks.map { b =>
         if b.failed then 0.0
         else if b.reservesAtNbp > PLN.Zero then (b.reservesAtNbp * depositRate / 12.0).toDouble
-        else if b.interbankNet < PLN.Zero then 0.0
+        else if b.interbankNet < PLN.Zero then
+          (b.interbankNet.toDouble.abs * lombardRate / 12.0) * -1.0 // cost (negative income)
         else 0.0
       }
       (perBank, perBank.kahanSum)

@@ -6,23 +6,23 @@ import sfc.types.*
 /** Shadow Banking / NBFI: TFI investment funds + NBFI credit (leasing + fintech). */
 object Nbfi:
   case class State(
-                    // TFI component
-                    tfiAum: PLN, // Total AUM
-                    tfiGovBondHoldings: PLN, // Gov bonds (target share)
-                    tfiCorpBondHoldings: PLN, // Corp bonds (target share)
-                    tfiEquityHoldings: PLN, // Equities (target share)
-                    tfiCashHoldings: PLN, // Cash/money market (residual)
-                    // NBFI credit component (leasing + fintech)
-                    nbfiLoanStock: PLN, // Outstanding NBFI loans
-                    // Flow tracking
-                    lastTfiNetInflow: PLN = PLN.Zero, // HH net fund purchases
-                    lastNbfiOrigination: PLN = PLN.Zero, // Monthly new NBFI credit
-                    lastNbfiRepayment: PLN = PLN.Zero, // Monthly principal repaid
-                    lastNbfiDefaultAmount: PLN = PLN.Zero, // Monthly gross defaults
-                    lastNbfiInterestIncome: PLN = PLN.Zero, // NBFI interest earned
-                    lastBankTightness: Ratio = Ratio.Zero, // Counter-cyclical signal
-                    lastDepositDrain: PLN = PLN.Zero, // Net deposit outflow (TFI inflow)
-                  )
+    // TFI component
+    tfiAum: PLN, // Total AUM
+    tfiGovBondHoldings: PLN, // Gov bonds (target share)
+    tfiCorpBondHoldings: PLN, // Corp bonds (target share)
+    tfiEquityHoldings: PLN, // Equities (target share)
+    tfiCashHoldings: PLN, // Cash/money market (residual)
+    // NBFI credit component (leasing + fintech)
+    nbfiLoanStock: PLN, // Outstanding NBFI loans
+    // Flow tracking
+    lastTfiNetInflow: PLN = PLN.Zero, // HH net fund purchases
+    lastNbfiOrigination: PLN = PLN.Zero, // Monthly new NBFI credit
+    lastNbfiRepayment: PLN = PLN.Zero, // Monthly principal repaid
+    lastNbfiDefaultAmount: PLN = PLN.Zero, // Monthly gross defaults
+    lastNbfiInterestIncome: PLN = PLN.Zero, // NBFI interest earned
+    lastBankTightness: Ratio = Ratio.Zero, // Counter-cyclical signal
+    lastDepositDrain: PLN = PLN.Zero, // Net deposit outflow (TFI inflow)
+  )
 
   def zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
@@ -68,18 +68,18 @@ object Nbfi:
 
   /** Full monthly step: TFI inflow -> investment income -> rebalance; NBFI credit flows. */
   def step(
-            prev: State,
-            employed: Int,
-            wage: Double,
-            priceLevel: Double,
-            unempRate: Double,
-            bankNplRatio: Double,
-            govBondYield: Double,
-            corpBondYield: Double,
-            equityReturn: Double,
-            depositRate: Double,
-            domesticCons: Double,
-          ): State =
+    prev: State,
+    employed: Int,
+    wage: Double,
+    priceLevel: Double,
+    unempRate: Double,
+    bankNplRatio: Double,
+    govBondYield: Double,
+    corpBondYield: Double,
+    equityReturn: Double,
+    depositRate: Double,
+    domesticCons: Double,
+  ): State =
     // TFI: inflow + investment income + rebalance
     val netInflow = tfiInflow(employed, wage, equityReturn, govBondYield, depositRate)
     val invIncome = prev.tfiGovBondHoldings * govBondYield / 12.0 +

@@ -4,32 +4,32 @@ import sfc.config.Config
 import sfc.types.*
 
 /** Local government (JST / samorządy). JST receives PIT/CIT shares, property tax, subventions/dotacje. JST deposits sit
- * in commercial banks.
- */
+  * in commercial banks.
+  */
 object Jst:
   /** Compute JST monthly step.
-   *
-   * @param prev
-   * previous JST state
-   * @param govTaxRevenue
-   * central government total tax revenue (CIT + VAT)
-   * @param totalWageIncome
-   * total wage income (for PIT proxy)
-   * @param gdp
-   * GDP proxy for subvention/dotacje
-   * @param nFirms
-   * number of living firms (for property tax)
-   * @return
-   * (newJstState, depositChange) where depositChange affects bank deposits (SFC Identity 2)
-   */
+    *
+    * @param prev
+    *   previous JST state
+    * @param govTaxRevenue
+    *   central government total tax revenue (CIT + VAT)
+    * @param totalWageIncome
+    *   total wage income (for PIT proxy)
+    * @param gdp
+    *   GDP proxy for subvention/dotacje
+    * @param nFirms
+    *   number of living firms (for property tax)
+    * @return
+    *   (newJstState, depositChange) where depositChange affects bank deposits (SFC Identity 2)
+    */
   def step(
-            prev: State,
-            govTaxRevenue: Double,
-            totalWageIncome: Double,
-            gdp: Double,
-            nFirms: Int,
-            pitRevenue: Double = 0.0,
-          ): (State, Double) =
+    prev: State,
+    govTaxRevenue: Double,
+    totalWageIncome: Double,
+    gdp: Double,
+    nFirms: Int,
+    pitRevenue: Double = 0.0,
+  ): (State, Double) =
     if !Config.JstEnabled then (prev, 0.0)
     else
       // Revenue sources:
@@ -58,12 +58,12 @@ object Jst:
       (State(newDeposits, newDebt, PLN(totalRevenue), PLN(totalSpending), PLN(deficit)), depositChange)
 
   case class State(
-                    deposits: PLN, // JST deposits in commercial banks
-                    debt: PLN, // cumulative JST debt
-                    revenue: PLN, // this month's revenue
-                    spending: PLN, // this month's spending
-                    deficit: PLN, // spending - revenue (positive = deficit)
-                  )
+    deposits: PLN, // JST deposits in commercial banks
+    debt: PLN, // cumulative JST debt
+    revenue: PLN, // this month's revenue
+    spending: PLN, // this month's spending
+    deficit: PLN, // spending - revenue (positive = deficit)
+  )
 
   object State:
     val zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)

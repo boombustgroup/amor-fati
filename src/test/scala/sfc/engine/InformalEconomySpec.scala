@@ -5,7 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.agents.{Firm, TechState}
-import sfc.config.{Config, SECTORS}
+import sfc.config.Config
 import sfc.types.*
 
 class InformalEconomySpec extends AnyFlatSpec with Matchers:

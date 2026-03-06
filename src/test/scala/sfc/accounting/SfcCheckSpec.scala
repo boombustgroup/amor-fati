@@ -2,9 +2,8 @@ package sfc.accounting
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.accounting.{BankState, ForexState, GovState, SfcCheck}
 import sfc.agents.*
-import sfc.config.{Config, RunConfig, SECTORS}
+import sfc.config.SECTORS
 import sfc.engine.World
 import sfc.types.*
 

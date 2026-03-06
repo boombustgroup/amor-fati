@@ -101,6 +101,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
     val maxNpls = ts.map(_(50))
     // Not all identical across months (banks evolve differently)
     minCars.distinct.length should be > 1
+    maxNpls.distinct.length should be > 1
   }
 
   // ==========================================================================

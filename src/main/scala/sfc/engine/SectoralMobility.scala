@@ -1,7 +1,7 @@
 package sfc.engine
 
 import sfc.agents.*
-import sfc.config.{Config, SECTORS}
+import sfc.config.Config
 import sfc.types.*
 
 import scala.util.Random

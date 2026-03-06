@@ -2,7 +2,6 @@ package sfc.util
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.util.KahanSum
 import sfc.util.KahanSum.*
 
 class KahanSumSpec extends AnyFlatSpec with Matchers:

@@ -3,13 +3,8 @@ package sfc.engine
 import sfc.accounting.*
 import sfc.agents.*
 import sfc.config.*
-import sfc.dynamics.{DynamicNetwork, SigmaDynamics}
-import sfc.engine.steps
-import sfc.networks.Network
 import sfc.types.*
 import sfc.util.KahanSum.*
-
-import scala.util.Random
 
 object Sectors:
   private def laborSupplyRatio(wage: Double, resWage: Double): Double =
@@ -298,9 +293,9 @@ object Simulation:
       ),
     )
     val ioFirms = s5.ioFirms; val finalHouseholds = s5.finalHouseholds
-    val sumTax = s5.sumTax; val sumCapex = s5.sumCapex; val sumTechImp = s5.sumTechImp
+    val sumTax = s5.sumTax; val sumTechImp = s5.sumTechImp
     val sumNewLoans = s5.sumNewLoans; val sumEquityIssuance = s5.sumEquityIssuance
-    val sumGrossInvestment = s5.sumGrossInvestment; val sumBondIssuance = s5.sumBondIssuance
+    val sumGrossInvestment = s5.sumGrossInvestment
     val sumProfitShifting = s5.sumProfitShifting; val sumFdiRepatriation = s5.sumFdiRepatriation
     val sumInventoryChange = s5.sumInventoryChange; val sumCitEvasion = s5.sumCitEvasion
     val sumEnergyCost = s5.sumEnergyCost; val sumGreenInvestment = s5.sumGreenInvestment
@@ -365,7 +360,7 @@ object Simulation:
     val equityAfterIssuance = s7.equityAfterIssuance
     val netDomesticDividends = s7.netDomesticDividends
     val foreignDividendOutflow = s7.foreignDividendOutflow; val dividendTax = s7.dividendTax
-    val firmProfits = s7.firmProfits; val domesticGFCF = s7.domesticGFCF
+    val firmProfits = s7.firmProfits
     val investmentImports = s7.investmentImports; val aggInventoryChange = s7.aggInventoryChange
 
     // ---- Step 8: Open economy, monetary, bonds, insurance, NBFI ----
@@ -402,7 +397,7 @@ object Simulation:
       ),
     )
     val newForex = s8.newForex; val newBop = s8.newBop; val newGvc = s8.newGvc
-    val newRefRate = s8.newRefRate; val newExp = s8.newExp
+    val newExp = s8.newExp
     val totalReserveInterest = s8.totalReserveInterest
     val totalStandingFacilityIncome = s8.totalStandingFacilityIncome
     val totalInterbankInterest = s8.totalInterbankInterest

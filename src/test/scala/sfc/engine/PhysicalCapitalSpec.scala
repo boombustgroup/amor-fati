@@ -3,7 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.{Firm, TechState}
-import sfc.config.{Config, SECTORS}
+import sfc.config.Config
 import sfc.types.*
 
 class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
@@ -205,6 +205,8 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
     val origOther = Config.OtherCosts // 16,667
     val effectiveOther = origOther * (1.0 - 0.50) // 8,333.33
     val newTotal = effectiveOther + depn // 25,000
+    // New total cost (halved other + depreciation) should exceed original OtherCosts
+    newTotal should be > origOther.toDouble
     // Not exactly neutral but within 50% — acceptable for a model
     depn shouldBe origOther +- 1.0 // Mfg depreciation ≈ original OtherCosts
   }

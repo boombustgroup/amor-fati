@@ -5,7 +5,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
-import sfc.config.{Config, SECTORS}
 import sfc.types.*
 
 class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:

@@ -1,7 +1,7 @@
 package sfc.engine.steps
 
 import sfc.agents.*
-import sfc.config.{Config, RunConfig, SECTORS}
+import sfc.config.{Config, RunConfig}
 import sfc.engine.{CorporateBondMarket, IntermediateMarket, LaborMarket, World}
 import sfc.types.*
 import sfc.util.KahanSum.*

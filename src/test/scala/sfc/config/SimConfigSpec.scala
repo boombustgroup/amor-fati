@@ -2,7 +2,7 @@ package sfc.config
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{Firm, TechState}
+import sfc.agents.Firm
 import sfc.types.*
 
 class SimConfigSpec extends AnyFlatSpec with Matchers:

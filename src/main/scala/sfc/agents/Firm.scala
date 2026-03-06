@@ -24,15 +24,15 @@ object Firm:
 
   def isAlive(f: State): Boolean = f.tech match
     case _: TechState.Bankrupt => false
-    case _ => true
+    case _                     => true
 
   // ---- Firm step result ----
 
   def workers(f: State): Int = f.tech match
     case TechState.Traditional(w) => w
-    case TechState.Hybrid(w, _) => w
-    case _: TechState.Automated => skeletonCrew(f)
-    case _: TechState.Bankrupt => 0
+    case TechState.Hybrid(w, _)   => w
+    case _: TechState.Automated   => skeletonCrew(f)
+    case _: TechState.Bankrupt    => 0
 
   // ---- Ops ----
 
@@ -85,20 +85,20 @@ object Firm:
     Config.DigiInvestCost * sizeFactor
 
   /** sigma-based threshold modifier: high sigma sectors find automation profitable at lower cost gap. Only used for
-   * profitability threshold, NOT for probability multiplier. Mapping: sigma=2->0.91, sigma=5->0.95, sigma=10->0.98,
-   * sigma=50->1.00 At equilibrium P~1.1: Manufacturing marginal, Healthcare blocked.
-   */
+    * profitability threshold, NOT for probability multiplier. Mapping: sigma=2->0.91, sigma=5->0.95, sigma=10->0.98,
+    * sigma=50->1.00 At equilibrium P~1.1: Manufacturing marginal, Healthcare blocked.
+    */
   def sigmaThreshold(sigma: Double): Double =
     Math.min(1.0, 0.88 + 0.075 * Math.log(sigma) / Math.log(10.0))
 
   def process(
-               firm: State,
-               w: World,
-               lendRate: Double,
-               bankCanLend: Double => Boolean,
-               allFirms: Array[State],
-               rc: RunConfig,
-             ): Result =
+    firm: State,
+    w: World,
+    lendRate: Double,
+    bankCanLend: Double => Boolean,
+    allFirms: Array[State],
+    rc: RunConfig,
+  ): Result =
 
     val rawResult: Result = firm.tech match
       case _: TechState.Bankrupt =>
@@ -305,13 +305,13 @@ object Firm:
 
         val pFull = uncertaintyDiscount *
           (if fProf && fPay && fReady && fBank then
-            ((firm.riskProfile.toDouble * 0.1) + panic + desper) * firm.digitalReadiness.toDouble
-          else strat)
+             ((firm.riskProfile.toDouble * 0.1) + panic + desper) * firm.digitalReadiness.toDouble
+           else strat)
 
         val pHyb = uncertaintyDiscount *
           (if hProf && hPay && hReady && hBank then
-            ((firm.riskProfile.toDouble * 0.04) + (panic * 0.5) + (desper * 0.5)) * firm.digitalReadiness.toDouble
-          else 0.0)
+             ((firm.riskProfile.toDouble * 0.04) + (panic * 0.5) + (desper * 0.5)) * firm.digitalReadiness.toDouble
+           else 0.0)
 
         val canReduce = wkrs > 3 && net < 0
         val roll = Random.nextDouble()
@@ -501,8 +501,8 @@ object Firm:
   // ---- Firm decision logic ----
 
   /** Apply physical capital investment after firm decision. Depreciation, replacement + expansion investment,
-   * cash-constrained.
-   */
+    * cash-constrained.
+    */
   private def applyInvestment(r: Result): Result =
     if !Config.PhysCapEnabled then return r
     val f = r.firm
@@ -518,13 +518,13 @@ object Firm:
     r.copy(firm = f.copy(cash = f.cash - PLN(actualInv), capitalStock = PLN(newK)), grossInvestment = PLN(actualInv))
 
   private def calcPnL(
-                       firm: State,
-                       wage: Double,
-                       sectorDemandMult: Double,
-                       price: Double,
-                       lendRate: Double,
-                       month: Int,
-                     ): (Double, Double, Double, Double, Double) =
+    firm: State,
+    wage: Double,
+    sectorDemandMult: Double,
+    price: Double,
+    lendRate: Double,
+    month: Int,
+  ): (Double, Double, Double, Double, Double) =
     val revenue = capacity(firm) * sectorDemandMult * price
     val labor = workers(firm) * wage * effectiveWageMult(firm.sector)
     val sizeFactor = firm.initialSize.toDouble / Config.WorkersPerFirm
@@ -540,8 +540,8 @@ object Firm:
     val opexSizeFactor = Math.pow(firm.initialSize.toDouble / Config.WorkersPerFirm, 0.5)
     val aiMaint = firm.tech match
       case _: TechState.Automated => Config.AiOpex * (0.60 + 0.40 * price) * opexSizeFactor
-      case _: TechState.Hybrid => Config.HybridOpex * (0.60 + 0.40 * price) * opexSizeFactor
-      case _ => 0.0
+      case _: TechState.Hybrid    => Config.HybridOpex * (0.60 + 0.40 * price) * opexSizeFactor
+      case _                      => 0.0
     val interest = (firm.debt + firm.bondDebt).toDouble * (lendRate / 12.0)
     // Inventory carrying cost: storage, insurance, obsolescence (previously implicit in OtherCosts)
     val inventoryCost =
@@ -572,8 +572,8 @@ object Firm:
     (revenue, costs, profit - tax, profitShiftCost, energyCost)
 
   /** Apply green capital investment — separate cash pool (#36). Firms earmark GreenBudgetShare of cash for green
-   * investment; physical capital (applyInvestment) uses the remainder.
-   */
+    * investment; physical capital (applyInvestment) uses the remainder.
+    */
   private def applyGreenInvestment(r: Result): Result =
     if !Config.EnergyEnabled then return r
     val f = r.firm
@@ -648,38 +648,38 @@ object Firm:
     r.copy(firm = r.firm.copy(cash = r.firm.cash - PLN(repatriation)), fdiRepatriation = PLN(repatriation))
 
   case class State(
-                    id: FirmId,
-                    cash: PLN,
-                    debt: PLN,
-                    tech: TechState,
-                    riskProfile: Ratio,
-                    innovationCostFactor: Double,
-                    digitalReadiness: Ratio,
-                    sector: SectorIdx, // Index into SECTORS
-                    neighbors: Array[Int], // Network adjacency (firm IDs)
-                    bankId: BankId = BankId(0), // Multi-bank: index into Banking.State.banks
-                    equityRaised: PLN = PLN.Zero, // GPW: cumulative equity raised via IPO/SPO
-                    initialSize: Int = 10, // Firm size at creation (v6.0: heterogeneous when FIRM_SIZE_DIST=gus)
-                    capitalStock: PLN = PLN.Zero, // Physical capital stock (PLN), #31
-                    bondDebt: PLN = PLN.Zero, // Outstanding corporate bond debt (#40)
-                    foreignOwned: Boolean = false, // FDI (#33)
-                    inventory: PLN = PLN.Zero, // Inventory stock (PLN), #43
-                    greenCapital: PLN = PLN.Zero, // Green capital stock (PLN), #36
-                  )
+    id: FirmId,
+    cash: PLN,
+    debt: PLN,
+    tech: TechState,
+    riskProfile: Ratio,
+    innovationCostFactor: Double,
+    digitalReadiness: Ratio,
+    sector: SectorIdx, // Index into SECTORS
+    neighbors: Array[Int], // Network adjacency (firm IDs)
+    bankId: BankId = BankId(0), // Multi-bank: index into Banking.State.banks
+    equityRaised: PLN = PLN.Zero, // GPW: cumulative equity raised via IPO/SPO
+    initialSize: Int = 10, // Firm size at creation (v6.0: heterogeneous when FIRM_SIZE_DIST=gus)
+    capitalStock: PLN = PLN.Zero, // Physical capital stock (PLN), #31
+    bondDebt: PLN = PLN.Zero, // Outstanding corporate bond debt (#40)
+    foreignOwned: Boolean = false, // FDI (#33)
+    inventory: PLN = PLN.Zero, // Inventory stock (PLN), #43
+    greenCapital: PLN = PLN.Zero, // Green capital stock (PLN), #36
+  )
 
   case class Result(
-                     firm: State,
-                     taxPaid: PLN,
-                     capexSpent: PLN,
-                     techImports: PLN,
-                     newLoan: PLN,
-                     equityIssuance: PLN = PLN.Zero,
-                     grossInvestment: PLN = PLN.Zero,
-                     bondIssuance: PLN = PLN.Zero,
-                     profitShiftCost: PLN = PLN.Zero,
-                     fdiRepatriation: PLN = PLN.Zero,
-                     inventoryChange: PLN = PLN.Zero,
-                     citEvasion: PLN = PLN.Zero,
-                     energyCost: PLN = PLN.Zero,
-                     greenInvestment: PLN = PLN.Zero,
-                   )
+    firm: State,
+    taxPaid: PLN,
+    capexSpent: PLN,
+    techImports: PLN,
+    newLoan: PLN,
+    equityIssuance: PLN = PLN.Zero,
+    grossInvestment: PLN = PLN.Zero,
+    bondIssuance: PLN = PLN.Zero,
+    profitShiftCost: PLN = PLN.Zero,
+    fdiRepatriation: PLN = PLN.Zero,
+    inventoryChange: PLN = PLN.Zero,
+    citEvasion: PLN = PLN.Zero,
+    energyCost: PLN = PLN.Zero,
+    greenInvestment: PLN = PLN.Zero,
+  )

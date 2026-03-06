@@ -119,7 +119,6 @@ object GvcTrade:
       val erEffect = if rc.isEurozone then
         // EU partner: zero pass-through (single currency); non-EU: full
         val nonEuFirms = sectorFirms.filter(_.partnerId == 1)
-        val euFirms = sectorFirms.filter(_.partnerId == 0)
         val totalSupply = sectorFirms.kahanSumBy(_.baseImportSupply.toDouble)
         if totalSupply > 0 then
           val nonEuWeight = nonEuFirms.kahanSumBy(_.baseImportSupply.toDouble) / totalSupply

@@ -2,7 +2,7 @@ package sfc.engine.steps
 
 import sfc.accounting.{BankState, BopState, GovState, MonetaryAggregates}
 import sfc.agents.*
-import sfc.config.{Config, RunConfig, SECTORS}
+import sfc.config.{Config, RunConfig}
 import sfc.engine.*
 import sfc.types.*
 import sfc.util.KahanSum.*
@@ -466,7 +466,6 @@ object BankUpdateStep:
                 else h
               })
             else in.finalHouseholds
-          val aggBank = newBs.aggregate
           (Some(newBs), reFirms, reHouseholds, multiBailInLoss, multiCapDest)
         case None =>
           (None, in.rewiredFirms, in.finalHouseholds, 0.0, 0.0)

@@ -5,7 +5,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
-import sfc.accounting.{BankState, BopState, ForexState, GovState}
 import sfc.config.Config
 import sfc.types.*
 

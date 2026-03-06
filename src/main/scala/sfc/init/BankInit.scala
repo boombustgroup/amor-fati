@@ -9,7 +9,7 @@ import sfc.util.KahanSum.*
 object BankInit:
 
   /** Initialize multi-bank sector with per-bank consumer loan override. Returns None in single-bank mode.
-   */
+    */
   def create(firms: Array[Firm.State], households: Option[Vector[Household.State]]): Option[Banking.State] =
     if !Config.BankMulti then return None
 

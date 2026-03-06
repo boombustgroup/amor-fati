@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.SfcCheck
 import sfc.agents.{Firm, TechState}
-import sfc.config.{Config, SECTORS}
+import sfc.config.Config
 import sfc.types.*
 import sfc.util.KahanSum.*
 
