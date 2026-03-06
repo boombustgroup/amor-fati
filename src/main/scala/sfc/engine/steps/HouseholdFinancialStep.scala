@@ -7,7 +7,7 @@ import sfc.types.*
 object HouseholdFinancialStep:
 
   case class Input(
-    hhAgg: Option[HhAggregates],
+    hhAgg: Option[Household.Aggregates],
     newImmigRemittanceOutflow: Double,
     employed: Int,
     m: Int,

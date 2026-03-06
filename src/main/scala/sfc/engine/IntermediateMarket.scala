@@ -1,25 +1,25 @@
 package sfc.engine
 
-import sfc.agents.{Firm, FirmOps, TechState}
+import sfc.agents.{Firm, TechState}
 import sfc.config.Config
 import sfc.types.*
 import sfc.util.KahanSum.*
 
 object IntermediateMarket:
 
-  case class Result(firms: Array[Firm], totalPaid: Double)
+  case class Result(firms: Array[Firm.State], totalPaid: Double)
 
-  def process(firms: Array[Firm], sectorMults: Vector[Double], price: Double,
+  def process(firms: Array[Firm.State], sectorMults: Vector[Double], price: Double,
               ioMatrix: Vector[Vector[Double]],
               columnSums: Vector[Double],
               scale: Double = 1.0): Result =
     val nSectors = 6
 
     // Identify living firms and compute per-firm gross output
-    val living = firms.indices.filter(i => FirmOps.isAlive(firms(i)))
+    val living = firms.indices.filter(i => Firm.isAlive(firms(i)))
     val grossOutput = new Array[Double](firms.length)
     for i <- living do
-      grossOutput(i) = FirmOps.capacity(firms(i)) * sectorMults(firms(i).sector.toInt) * price
+      grossOutput(i) = Firm.capacity(firms(i)) * sectorMults(firms(i).sector.toInt) * price
 
     // Total gross output per sector (for revenue distribution)
     val sectorOutput = new Array[Double](nSectors)

@@ -10,7 +10,7 @@ import sfc.util.KahanSum.*
 object PriceEquityStep:
 
   case class Input(
-    ioFirms: Array[Firm],
+    ioFirms: Array[Firm.State],
     w: World,
     sectorMults: Vector[Double],
     newWage: Double,
@@ -37,7 +37,7 @@ object PriceEquityStep:
     gdp: Double,
     newMacropru: Macroprudential.State,
     newSigmas: Vector[Double],
-    rewiredFirms: Array[Firm],
+    rewiredFirms: Array[Firm.State],
     newInfl: Double,
     newPrice: Double,
     equityAfterIssuance: EquityMarket.State,
@@ -51,7 +51,7 @@ object PriceEquityStep:
   )
 
   def run(in: Input): Output =
-    val living2 = in.ioFirms.filter(FirmOps.isAlive)
+    val living2 = in.ioFirms.filter(Firm.isAlive)
     val nLiving = living2.length.toDouble
     val autoR   = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]) / nLiving else 0.0
     val hybR    = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]) / nLiving else 0.0
@@ -108,8 +108,8 @@ object PriceEquityStep:
       in.w.inflation.toDouble, in.w.priceLevel, in.avgDemandMult, in.wageGrowth, exDev, autoR, hybR, in.rc)
 
     val firmProfits = living2.kahanSumBy { f =>
-      val rev = FirmOps.capacity(f) * in.sectorMults(f.sector.toInt) * newPrice
-      val labor = FirmOps.workers(f) * in.newWage * SECTORS(f.sector.toInt).wageMultiplier
+      val rev = Firm.capacity(f) * in.sectorMults(f.sector.toInt) * newPrice
+      val labor = Firm.workers(f) * in.newWage * SECTORS(f.sector.toInt).wageMultiplier
       val other = Config.OtherCosts * newPrice
       val aiMaint = f.tech match
         case _: TechState.Automated => Config.AiOpex * (0.60 + 0.40 * newPrice)

@@ -12,9 +12,9 @@ object FirmProcessingStep:
 
   case class Input(
     w: World,
-    firms: Array[Firm],
-    households: Option[Vector[Household]],
-    updatedHouseholds: Option[Vector[Household]],
+    firms: Array[Firm.State],
+    households: Option[Vector[Household.State]],
+    updatedHouseholds: Option[Vector[Household.State]],
     newWage: Double,
     resWage: Double,
     m: Int,
@@ -25,8 +25,8 @@ object FirmProcessingStep:
   )
 
   case class Output(
-    ioFirms: Array[Firm],
-    finalHouseholds: Option[Vector[Household]],
+    ioFirms: Array[Firm.State],
+    finalHouseholds: Option[Vector[Household.State]],
     sumTax: Double,
     sumCapex: Double,
     sumTechImp: Double,
@@ -105,7 +105,7 @@ object FirmProcessingStep:
     val newFirms = in.firms.map { f =>
       val firmRate = getLendRate(f.bankId.toInt)
       val firmCanLend: Double => Boolean = amt => bankCanLendFn(f.bankId.toInt, amt)
-      val r = FirmLogic.process(f, macro4firms, firmRate, firmCanLend, in.firms, in.rc)
+      val r = Firm.process(f, macro4firms, firmRate, firmCanLend, in.firms, in.rc)
       sumTax      += r.taxPaid.toDouble
       sumCapex    += r.capexSpent.toDouble
       sumTechImp  += r.techImports.toDouble
@@ -119,7 +119,7 @@ object FirmProcessingStep:
 
       val (actualLoan, equityAmt, updatedFirm) =
         if Config.GpwEnabled && Config.GpwEquityIssuance && r.newLoan > PLN.Zero &&
-           FirmOps.workers(r.firm) >= Config.GpwIssuanceMinSize then
+           Firm.workers(r.firm) >= Config.GpwIssuanceMinSize then
           val eqAmt = r.newLoan * Config.GpwIssuanceFrac
           val adjLoan = r.newLoan - eqAmt
           val f2 = r.firm.copy(
@@ -131,7 +131,7 @@ object FirmProcessingStep:
           (r.newLoan.toDouble, 0.0, r.firm)
 
       val (finalLoan, bondAmt, bondUpdatedFirm) =
-        if actualLoan > 0 && FirmOps.workers(updatedFirm) >= Config.CorpBondMinSize then
+        if actualLoan > 0 && Firm.workers(updatedFirm) >= Config.CorpBondMinSize then
           val ba = actualLoan * Config.CorpBondIssuanceFrac
           val adjLoan = actualLoan - ba
           val f3 = updatedFirm.copy(
@@ -170,8 +170,8 @@ object FirmProcessingStep:
         val revert = ba * revertRatio
         adjustedFirms.find(_.id == fid).foreach(ff => perBankNewLoans(ff.bankId.toInt) += revert)
 
-    for f <- adjustedFirms if FirmOps.isAlive(f) do
-      perBankWorkers(f.bankId.toInt) += FirmOps.workers(f)
+    for f <- adjustedFirms if Firm.isAlive(f) do
+      perBankWorkers(f.bankId.toInt) += Firm.workers(f)
 
     val (ioFirms, totalIoPaid) = if Config.IoEnabled then
       val r = IntermediateMarket.process(adjustedFirms, in.sectorMults, in.w.priceLevel,
@@ -197,8 +197,8 @@ object FirmProcessingStep:
       }
     else preMigrationHouseholds
 
-    val prevAlive = in.firms.filter(FirmOps.isAlive).map(_.id).toSet
-    val newlyDead = ioFirms.filter(f => !FirmOps.isAlive(f) && prevAlive.contains(f.id))
+    val prevAlive = in.firms.filter(Firm.isAlive).map(_.id).toSet
+    val newlyDead = ioFirms.filter(f => !Firm.isAlive(f) && prevAlive.contains(f.id))
     val firmDeaths = newlyDead.length
     val nplNew    = newlyDead.kahanSumBy(_.debt.toDouble)
     val nplLoss   = nplNew * (1.0 - Config.LoanRecovery)
@@ -206,7 +206,7 @@ object FirmProcessingStep:
 
     for f <- newlyDead do perBankNplDebt(f.bankId.toInt) += f.debt.toDouble
 
-    for f <- in.firms if FirmOps.isAlive(f) do
+    for f <- in.firms if Firm.isAlive(f) do
       perBankIntIncome(f.bankId.toInt) += f.debt.toDouble * getLendRate(f.bankId.toInt) / 12.0
 
     val intIncome = perBankIntIncome.kahanSum

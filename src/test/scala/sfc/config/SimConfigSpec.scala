@@ -2,7 +2,7 @@ package sfc.config
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{Firm, TechState, FirmOps}
+import sfc.agents.{Firm, TechState}
 import sfc.types.*
 
 class SimConfigSpec extends AnyFlatSpec with Matchers:
@@ -61,18 +61,18 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   }
 
   "sigmaThreshold" should "return ~0.91 for sigma=2" in {
-    FirmOps.sigmaThreshold(2.0) shouldBe 0.9026 +- 0.01
+    Firm.sigmaThreshold(2.0) shouldBe 0.9026 +- 0.01
   }
 
   it should "return ~0.955 for sigma=5" in {
-    FirmOps.sigmaThreshold(5.0) shouldBe 0.9324 +- 0.01
+    Firm.sigmaThreshold(5.0) shouldBe 0.9324 +- 0.01
   }
 
   it should "return ~0.955 for sigma=10" in {
-    FirmOps.sigmaThreshold(10.0) shouldBe 0.955 +- 0.01
+    Firm.sigmaThreshold(10.0) shouldBe 0.955 +- 0.01
   }
 
   it should "be capped at 1.0 for sigma=50" in {
-    FirmOps.sigmaThreshold(50.0) should be <= 1.0
-    FirmOps.sigmaThreshold(50.0) shouldBe 1.0 +- 0.01
+    Firm.sigmaThreshold(50.0) should be <= 1.0
+    Firm.sigmaThreshold(50.0) shouldBe 1.0 +- 0.01
   }

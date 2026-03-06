@@ -161,5 +161,5 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
     Network.localAutoRatio(firms(0), firms) shouldBe 0.0
   }
 
-  private def mkFirm(id: Int, tech: TechState, neighbors: Array[Int]): Firm =
-    Firm(FirmId(id), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0), neighbors)
+  private def mkFirm(id: Int, tech: TechState, neighbors: Array[Int]): Firm.State =
+    Firm.State(FirmId(id), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0), neighbors)

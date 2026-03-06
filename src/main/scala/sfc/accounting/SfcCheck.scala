@@ -123,8 +123,8 @@ object SfcCheck:
     passed: Boolean
   )
 
-  def snapshot(w: World, firms: Array[Firm],
-               households: Option[Vector[Household]]): Snapshot =
+  def snapshot(w: World, firms: Array[Firm.State],
+               households: Option[Vector[Household.State]]): Snapshot =
     val hhS = PLN(households.map(_.kahanSumBy(_.savings.toDouble)).getOrElse(0.0))
     val hhD = PLN(households.map(_.kahanSumBy(_.debt.toDouble)).getOrElse(0.0))
     val ibNet = PLN(w.bankingSector.map(_.banks.kahanSumBy(_.interbankNet.toDouble)).getOrElse(0.0))

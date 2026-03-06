@@ -3,14 +3,14 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.config.{Config, SECTORS}
-import sfc.agents.{Firm, FirmOps, FirmLogic, FirmResult, TechState}
+import sfc.agents.{Firm, TechState}
 import sfc.types.*
 
 class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   private def mkFirm(sector: Int = 1, workers: Int = 10, cash: Double = 500000.0,
-    capitalStock: Double = 0.0): Firm =
-    Firm(id = FirmId(0), cash = PLN(cash), debt = PLN.Zero,
+    capitalStock: Double = 0.0): Firm.State =
+    Firm.State(id = FirmId(0), cash = PLN(cash), debt = PLN.Zero,
       tech = TechState.Traditional(workers),
       riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.3), sector = SectorIdx(sector),
@@ -130,31 +130,31 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   // --- Capacity augmented in FirmOps ---
 
-  "FirmOps.capacity" should "return positive for firm with capitalStock" in {
+  "Firm.capacity" should "return positive for firm with capitalStock" in {
     if Config.PhysCapEnabled then
       val f = mkFirm(sector = 1, workers = 10, capitalStock = 2500000.0)
-      FirmOps.capacity(f) should be > 0.0
+      Firm.capacity(f) should be > 0.0
   }
 
   it should "return 0 for bankrupt firm" in {
-    val f = Firm(id = FirmId(0), cash = PLN.Zero, debt = PLN.Zero,
+    val f = Firm.State(id = FirmId(0), cash = PLN.Zero, debt = PLN.Zero,
       tech = TechState.Bankrupt("test"),
       riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.3), sector = SectorIdx(0),
       neighbors = Array.empty[Int], capitalStock = PLN(100000.0))
-    FirmOps.capacity(f) shouldBe 0.0
+    Firm.capacity(f) shouldBe 0.0
   }
 
   // --- Bankruptcy ---
 
   "Bankruptcy" should "zero capitalStock via applyInvestment" in {
     // applyInvestment on a bankrupt firm should zero capitalStock
-    val f = Firm(id = FirmId(0), cash = PLN.Zero, debt = PLN(100000),
+    val f = Firm.State(id = FirmId(0), cash = PLN.Zero, debt = PLN(100000),
       tech = TechState.Bankrupt("test"),
       riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.3), sector = SectorIdx(1),
       neighbors = Array.empty[Int], capitalStock = PLN(2500000.0))
-    val r = FirmResult(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val r = Firm.Result(f, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     // When PhysCapEnabled, applyInvestment should zero K for bankrupt
     if Config.PhysCapEnabled then
       // Call process on a bankrupt firm — capitalStock should be 0

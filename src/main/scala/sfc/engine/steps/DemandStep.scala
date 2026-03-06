@@ -10,7 +10,7 @@ object DemandStep:
   case class Input(
     employed: Int,
     domesticCons: Double,
-    living: Array[Firm],
+    living: Array[Firm.State],
     priceLevel: Double,
     zusContributions: Double,
     zusPensionPayments: Double,
@@ -48,7 +48,7 @@ object DemandStep:
     else targetGovPurchases
     val laggedExports = in.forexExports
     val sectorCap = (0 until SECTORS.length).map { s =>
-      in.living.filter(_.sector.toInt == s).kahanSumBy(f => FirmOps.capacity(f).toDouble)
+      in.living.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble)
     }.toVector
     val sectorExports = if in.gvcEnabled && Config.OeEnabled then
       in.gvcSectorExports.map(_.toDouble)

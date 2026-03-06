@@ -11,7 +11,7 @@ import sfc.util.KahanSum.*
 /** Orchestrates all initialization factories and assembles World. */
 object WorldInit:
 
-  case class InitResult(world: World, firms: Array[Firm], households: Option[Vector[Household]])
+  case class InitResult(world: World, firms: Array[Firm.State], households: Option[Vector[Household.State]])
 
   /** Initialize a complete simulation world from a seed.
     * Side effects: calls Config.setTotalPopulation (twice: once for firm workers, once for immigrants).
@@ -24,7 +24,7 @@ object WorldInit:
     Config.setTotalPopulation(actualTotalPop)
 
     // --- Households ---
-    var households = HouseholdInit.create(Random, firms)
+    var households = Household.Init.create(Random, firms)
 
     // --- Immigrants ---
     val (updatedHh, popIncrease) = ImmigrantInit.create(Random, households, Config.TotalPopulation)
@@ -70,7 +70,7 @@ object WorldInit:
         govBondHoldings = PLN(Config.InitBankGovBonds), consumerLoans = PLN(initConsumerLoans),
         corpBondHoldings = PLN(Config.CorpBondInitStock * Config.CorpBondBankShare)),
       ForexState(Config.BaseExRate, PLN.Zero, PLN(Config.ExportBase), PLN.Zero, PLN.Zero),
-      HhState(Config.TotalPopulation, PLN(Config.BaseWage), PLN(Config.BaseReservationWage), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      Household.SectorState(Config.TotalPopulation, PLN(Config.BaseWage), PLN(Config.BaseReservationWage), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio.Zero, Ratio.Zero, Config.BaseRevenue * Config.FirmsCount,
       SECTORS.map(_.sigma).toVector,
       bankingSector = initBankingSector,

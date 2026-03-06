@@ -13,15 +13,15 @@ class PitSpec extends AnyFlatSpec with Matchers:
   // Since env vars are JVM-global, we test the internal math directly.
 
   "computeMonthlyPit" should "return 0 when PIT is disabled (default)" in {
-    HouseholdLogic.computeMonthlyPit(10000.0) shouldBe 0.0
+    Household.computeMonthlyPit(10000.0) shouldBe 0.0
   }
 
   it should "return 0 for zero income" in {
-    HouseholdLogic.computeMonthlyPit(0.0) shouldBe 0.0
+    Household.computeMonthlyPit(0.0) shouldBe 0.0
   }
 
   it should "return 0 for negative income" in {
-    HouseholdLogic.computeMonthlyPit(-5000.0) shouldBe 0.0
+    Household.computeMonthlyPit(-5000.0) shouldBe 0.0
   }
 
   // --- Formula verification tests (independent of Config.PitEnabled) ---
@@ -78,8 +78,8 @@ class PitSpec extends AnyFlatSpec with Matchers:
     netTax shouldBe 0.12 +- 0.01
   }
 
-  "HhAggregates.totalPit" should "default to 0.0" in {
-    val agg = HhAggregates(
+  "Household.Aggregates.totalPit" should "default to 0.0" in {
+    val agg = Household.Aggregates(
       employed = 0, unemployed = 0, retraining = 0, bankrupt = 0,
       totalIncome = PLN.Zero, consumption = PLN.Zero, domesticConsumption = PLN.Zero, importConsumption = PLN.Zero,
       marketWage = PLN.Zero, reservationWage = PLN.Zero, giniIndividual = Ratio.Zero, giniWealth = Ratio.Zero,

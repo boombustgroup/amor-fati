@@ -195,7 +195,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       sfc.agents.Nbp.State(Rate(0.05)),
       BankState(PLN.Zero, PLN.Zero, PLN(100), PLN(1000)),
       ForexState(Config.BaseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      sfc.agents.HhState(100, PLN(5000), PLN(4000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      sfc.agents.Household.SectorState(100, PLN(5000), PLN(4000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio.Zero, Ratio.Zero, 1e9, Vector.fill(6)(0.1))
     w.diasporaRemittanceInflow shouldBe PLN.Zero
   }

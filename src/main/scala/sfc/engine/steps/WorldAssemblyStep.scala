@@ -14,9 +14,9 @@ object WorldAssemblyStep:
 
   case class Input(
     w: World,
-    firms: Array[Firm],
-    households: Option[Vector[Household]],
-    living: Array[Firm],
+    firms: Array[Firm.State],
+    households: Option[Vector[Household.State]],
+    living: Array[Firm.State],
     sectorCap: Vector[Double],
     // Step 1
     baseMinWage: Double,
@@ -35,12 +35,12 @@ object WorldAssemblyStep:
     importCons: Double,
     importAdj: Double,
     pitRevenue: Double,
-    hhAgg: Option[HhAggregates],
+    hhAgg: Option[Household.Aggregates],
     // Step 4
     sectorMults: Vector[Double],
     govPurchases: Double,
     // Step 5
-    ioFirms: Array[Firm],
+    ioFirms: Array[Firm.State],
     sumTax: Double,
     sumNewLoans: Double,
     nplNew: Double,
@@ -111,8 +111,8 @@ object WorldAssemblyStep:
     // Step 9
     resolvedBank: BankState,
     finalBankingSector: Option[Banking.State],
-    reassignedFirms: Array[Firm],
-    reassignedHouseholds: Option[Vector[Household]],
+    reassignedFirms: Array[Firm.State],
+    reassignedHouseholds: Option[Vector[Household.State]],
     finalPpk: SocialSecurity.PpkState,
     finalInsurance: Insurance.State,
     finalNbfi: Nbfi.State,
@@ -123,7 +123,7 @@ object WorldAssemblyStep:
     bailInLoss: Double,
     multiCapDestruction: Double,
     monAgg: Option[MonetaryAggregates],
-    finalHhAgg: Option[HhAggregates],
+    finalHhAgg: Option[Household.Aggregates],
     vat: Double,
     vatAfterEvasion: Double,
     pitAfterEvasion: Double,
@@ -144,8 +144,8 @@ object WorldAssemblyStep:
 
   case class Output(
     newWorld: World,
-    finalFirms: Array[Firm],
-    reassignedHouseholds: Option[Vector[Household]]
+    finalFirms: Array[Firm.State],
+    reassignedHouseholds: Option[Vector[Household.State]]
   )
 
   def run(in: Input): Output =
@@ -175,7 +175,7 @@ object WorldAssemblyStep:
     val fofResidual = {
       val totalFirmRev = (0 until SECTORS.length).map { s =>
         in.living.filter(_.sector.toInt == s).kahanSumBy(f =>
-          FirmOps.capacity(f).toDouble * in.sectorMults(s) * in.w.priceLevel)
+          Firm.capacity(f).toDouble * in.sectorMults(s) * in.w.priceLevel)
       }.kahanSum
       val adjustedDemand = in.sectorMults.indices.map { s =>
         in.sectorCap(s) * in.sectorMults(s) * in.w.priceLevel
@@ -197,7 +197,7 @@ object WorldAssemblyStep:
 
     val newW = World(in.m, Rate(in.newInfl), in.newPrice, in.newGovWithYield, in.postFxNbp,
       in.resolvedBank, in.newForex,
-      HhState(in.employed, PLN(in.newWage), PLN(in.resWage), PLN(in.totalIncome), PLN(in.consumption), PLN(in.domesticCons), PLN(in.importCons),
+      Household.SectorState(in.employed, PLN(in.newWage), PLN(in.resWage), PLN(in.totalIncome), PLN(in.consumption), PLN(in.domesticCons), PLN(in.importCons),
         minWageLevel = PLN(in.baseMinWage), minWagePriceLevel = in.updatedMinWagePriceLevel),
       Ratio(in.autoR), Ratio(in.hybR), in.gdp, in.newSigmas,
       ioFlows = PLN(in.totalIoPaid),
@@ -337,7 +337,7 @@ object WorldAssemblyStep:
     // FDI M&A: monthly domestic → foreign conversion (#33)
     val postFdiFirms = if Config.FdiEnabled && Config.FdiMaProb > 0 then
       in.reassignedFirms.map { f =>
-        if FirmOps.isAlive(f) && !f.foreignOwned &&
+        if Firm.isAlive(f) && !f.foreignOwned &&
            f.initialSize >= Config.FdiMaSizeMin &&
            Random.nextDouble() < Config.FdiMaProb then
           f.copy(foreignOwned = true)
@@ -347,7 +347,7 @@ object WorldAssemblyStep:
 
     // Endogenous Firm Entry (#35): recycle bankrupt slots
     val (finalFirms, firmBirths) = if Config.FirmEntryEnabled then
-      val postLiving = postFdiFirms.filter(FirmOps.isAlive)
+      val postLiving = postFdiFirms.filter(Firm.isAlive)
       val sectorCashSum = Array.fill(SECTORS.length)(0.0)
       val sectorCashCnt = Array.fill(SECTORS.length)(0)
       for f <- postLiving do
@@ -373,7 +373,7 @@ object WorldAssemblyStep:
       var births = 0
 
       val result = postFdiFirms.map { f =>
-        if !FirmOps.isAlive(f) then
+        if !Firm.isAlive(f) then
           val slotSector = f.sector.toInt
           val entryProb = Config.FirmEntryRate * Config.FirmEntrySectorBarriers(slotSector) *
             Math.max(0.0, 1.0 + profitSignals(slotSector) * Config.FirmEntryProfitSens)
@@ -427,7 +427,7 @@ object WorldAssemblyStep:
               firmSize.toDouble * Config.GreenKLRatios(newSector) * Config.GreenInitRatio
             else 0.0
 
-            Firm(
+            Firm.State(
               id = f.id,
               cash = PLN(Config.FirmEntryStartupCash * sizeMult),
               debt = PLN.Zero,

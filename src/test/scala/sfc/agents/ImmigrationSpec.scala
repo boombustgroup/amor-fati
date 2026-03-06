@@ -25,7 +25,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   "Immigration.computeRemittances" should "return 0 when disabled" in {
     val hhs = Vector(
-      Household(0, PLN(5000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
+      Household.State(0, PLN(5000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(1), PLN(6000.0)), Array.empty[Int], isImmigrant = true)
     )
     Immigration.computeRemittances(hhs) shouldBe 0.0
@@ -33,7 +33,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   it should "return 0 for non-immigrant households" in {
     val hhs = Vector(
-      Household(0, PLN(5000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
+      Household.State(0, PLN(5000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(1), PLN(6000.0)), Array.empty[Int], isImmigrant = false)
     )
     Immigration.computeRemittances(hhs) shouldBe 0.0
@@ -118,13 +118,13 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   "Immigration.removeReturnMigrants" should "remove oldest immigrants first" in {
     val hhs = Vector(
-      Household(0, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
+      Household.State(0, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int], isImmigrant = false),
-      Household(1, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
+      Household.State(1, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(5000.0)), Array.empty[Int], isImmigrant = true),
-      Household(2, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
+      Household.State(2, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(2), SectorIdx(0), PLN(5000.0)), Array.empty[Int], isImmigrant = true),
-      Household(3, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
+      Household.State(3, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(3), SectorIdx(0), PLN(5000.0)), Array.empty[Int], isImmigrant = true)
     )
     val result = Immigration.removeReturnMigrants(hhs, 2)
@@ -137,9 +137,9 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   it should "not remove natives" in {
     val hhs = Vector(
-      Household(0, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
+      Household.State(0, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int], isImmigrant = false),
-      Household(1, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
+      Household.State(1, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(6000.0)), Array.empty[Int], isImmigrant = false)
     )
     val result = Immigration.removeReturnMigrants(hhs, 5)
@@ -148,7 +148,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   it should "return unchanged households when count is 0" in {
     val hhs = Vector(
-      Household(0, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
+      Household.State(0, PLN(1000.0), PLN(0.0), PLN(1800.0), Ratio(0.5), Ratio(0.0), Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)), Array.empty[Int], isImmigrant = true)
     )
     Immigration.removeReturnMigrants(hhs, 0) shouldBe hhs

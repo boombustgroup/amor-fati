@@ -59,7 +59,7 @@ object Generators:
 
   // --- Firm generators ---
 
-  val genFirm: Gen[Firm] = for
+  val genFirm: Gen[Firm.State] = for
     id     <- Gen.choose(0, 9999)
     cash   <- Gen.choose(-100000.0, 5000000.0)
     debt   <- Gen.choose(0.0, 3000000.0)
@@ -71,9 +71,9 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm(FirmId(id), PLN(cash), PLN(debt), tech, Ratio(risk), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int], BankId(bankId), PLN(eqR), iSize)
+  yield Firm.State(FirmId(id), PLN(cash), PLN(debt), tech, Ratio(risk), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int], BankId(bankId), PLN(eqR), iSize)
 
-  val genAliveFirm: Gen[Firm] = for
+  val genAliveFirm: Gen[Firm.State] = for
     id     <- Gen.choose(0, 9999)
     cash   <- Gen.choose(0.0, 5000000.0)
     debt   <- Gen.choose(0.0, 3000000.0)
@@ -85,7 +85,7 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm(FirmId(id), PLN(cash), PLN(debt), tech, Ratio(risk), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int], BankId(bankId), PLN(eqR), iSize)
+  yield Firm.State(FirmId(id), PLN(cash), PLN(debt), tech, Ratio(risk), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int], BankId(bankId), PLN(eqR), iSize)
 
   // --- Balance sheet state generators ---
 
@@ -154,7 +154,7 @@ object Generators:
 
   // --- Household generators ---
 
-  val genHousehold: Gen[Household] = for
+  val genHousehold: Gen[Household.State] = for
     id      <- Gen.choose(0, 99999)
     savings <- Gen.choose(-50000.0, 500000.0)
     debt    <- Gen.choose(0.0, 200000.0)
@@ -166,7 +166,7 @@ object Generators:
     bankId  <- Gen.choose(0, 6)
     eqW     <- Gen.choose(0.0, 100000.0)
     lastSec <- Gen.choose(-1, 5)
-  yield Household(id, PLN(savings), PLN(debt), PLN(rent), Ratio(skill), Ratio(health), Ratio(mpc), status, Array.empty[Int], BankId(bankId), PLN(eqW), SectorIdx(lastSec))
+  yield Household.State(id, PLN(savings), PLN(debt), PLN(rent), Ratio(skill), Ratio(health), Ratio(mpc), status, Array.empty[Int], BankId(bankId), PLN(eqW), SectorIdx(lastSec))
 
   // --- World generator ---
 
@@ -186,7 +186,7 @@ object Generators:
     gdp      <- Gen.choose(1e6, 1e11)
   yield World(
     month, Rate(infl), price, gov, Nbp.State(Rate(rate)), bank, forex,
-    HhState(employed, PLN(wage), PLN(resWage), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+    Household.SectorState(employed, PLN(wage), PLN(resWage), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
     Ratio(autoR), Ratio(hybR), gdp,
     SECTORS.map(_.sigma)
   )

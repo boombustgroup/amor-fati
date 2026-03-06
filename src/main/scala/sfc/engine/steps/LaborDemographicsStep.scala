@@ -10,12 +10,12 @@ object LaborDemographicsStep:
 
   case class Input(
     marketWage: PLN,
-    firms: Array[Firm],
+    firms: Array[Firm.State],
     demographics: SocialSecurity.DemographicsState,
     immigration: Immigration.State,
     zusBalance: Double,
     ppkBondHoldings: Double,
-    households: Option[Vector[Household]],
+    households: Option[Vector[Household.State]],
     resWage: Double,
     expectedInflation: Double,
     m: Int,
@@ -33,12 +33,12 @@ object LaborDemographicsStep:
     newZus: SocialSecurity.ZusState,
     newPpk: SocialSecurity.PpkState,
     rawPpkBondPurchase: Double,
-    living: Array[Firm]
+    living: Array[Firm.State]
   )
 
   def run(in: Input): Output =
-    val living = in.firms.filter(FirmOps.isAlive)
-    val laborDemand = living.kahanSumBy(f => FirmOps.workers(f).toDouble).toInt
+    val living = in.firms.filter(Firm.isAlive)
+    val laborDemand = living.kahanSumBy(f => Firm.workers(f).toDouble).toInt
     val (rawWage, rawEmployed) = Sectors.updateLaborMarket(in.marketWage.toDouble, in.resWage, laborDemand)
 
     // Channel 1: Expectations-augmented wage Phillips curve

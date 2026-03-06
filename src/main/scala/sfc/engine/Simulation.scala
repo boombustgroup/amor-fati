@@ -144,8 +144,8 @@ object Simulation:
   /** Step with optional individual households.
     * When households = None (aggregate mode), behavior is identical to Papers 1–5.
     * When households = Some(...) (individual mode), uses HouseholdLogic + LaborMarket. */
-  def step(w: World, firms: Array[Firm], rc: RunConfig,
-           households: Option[Vector[Household]] = None): (World, Array[Firm], Option[Vector[Household]]) =
+  def step(w: World, firms: Array[Firm.State], rc: RunConfig,
+           households: Option[Vector[Household.State]] = None): (World, Array[Firm.State], Option[Vector[Household.State]]) =
     // ---- Step 1: Fiscal constraint ----
     val s1 = steps.FiscalConstraintStep.run(steps.FiscalConstraintStep.Input(
       month = w.month, gdpProxy = w.gdpProxy, gov = w.gov, priceLevel = w.priceLevel,

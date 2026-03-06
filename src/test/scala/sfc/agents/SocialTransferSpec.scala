@@ -15,15 +15,15 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
   // Tests verify formula logic directly.
 
   "computeSocialTransfer" should "return 0 when disabled (default)" in {
-    HouseholdLogic.computeSocialTransfer(2) shouldBe 0.0
+    Household.computeSocialTransfer(2) shouldBe 0.0
   }
 
   it should "return 0 for 0 children regardless of config" in {
-    HouseholdLogic.computeSocialTransfer(0) shouldBe 0.0
+    Household.computeSocialTransfer(0) shouldBe 0.0
   }
 
   it should "return 0 for negative children" in {
-    HouseholdLogic.computeSocialTransfer(-1) shouldBe 0.0
+    Household.computeSocialTransfer(-1) shouldBe 0.0
   }
 
   // --- Formula verification (independent of Config.Social800Enabled) ---
@@ -46,31 +46,31 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
 
   "poissonSample" should "return 0 for lambda=0" in {
     val rng = new Random(42)
-    HouseholdInit.poissonSample(0.0, rng) shouldBe 0
+    Household.Init.poissonSample(0.0, rng) shouldBe 0
   }
 
   it should "return 0 for negative lambda" in {
     val rng = new Random(42)
-    HouseholdInit.poissonSample(-1.0, rng) shouldBe 0
+    Household.Init.poissonSample(-1.0, rng) shouldBe 0
   }
 
   it should "have mean approximately equal to lambda" in {
     val rng = new Random(42)
     val lambda = 0.35
     val n = 10000
-    val samples = (0 until n).map(_ => HouseholdInit.poissonSample(lambda, rng))
+    val samples = (0 until n).map(_ => Household.Init.poissonSample(lambda, rng))
     val mean = samples.sum.toDouble / n
     mean shouldBe lambda +- (lambda * 0.10)  // ±10% tolerance
   }
 
   it should "produce non-negative values" in {
     val rng = new Random(42)
-    val samples = (0 until 1000).map(_ => HouseholdInit.poissonSample(0.35, rng))
+    val samples = (0 until 1000).map(_ => Household.Init.poissonSample(0.35, rng))
     all(samples) should be >= 0
   }
 
-  "HhAggregates.totalSocialTransfers" should "default to 0.0" in {
-    val agg = HhAggregates(
+  "Household.Aggregates.totalSocialTransfers" should "default to 0.0" in {
+    val agg = Household.Aggregates(
       employed = 0, unemployed = 0, retraining = 0, bankrupt = 0,
       totalIncome = PLN.Zero, consumption = PLN.Zero, domesticConsumption = PLN.Zero, importConsumption = PLN.Zero,
       marketWage = PLN.Zero, reservationWage = PLN.Zero, giniIndividual = Ratio.Zero, giniWealth = Ratio.Zero,
@@ -84,7 +84,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
   }
 
   "Household.numDependentChildren" should "default to 0" in {
-    val hh = Household(
+    val hh = Household.State(
       id = 0, savings = PLN(1000), debt = PLN.Zero, monthlyRent = PLN(1000),
       skill = Ratio(0.5), healthPenalty = Ratio(0.0), mpc = Ratio(0.8),
       status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),

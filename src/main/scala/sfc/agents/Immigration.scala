@@ -40,7 +40,7 @@ object Immigration:
 
   /** Compute total remittance outflow from immigrant HH (individual mode).
     * Remittances = employed immigrant wages × remittance rate. */
-  def computeRemittances(immigrantHH: Iterable[Household]): Double =
+  def computeRemittances(immigrantHH: Iterable[Household.State]): Double =
     if !Config.ImmigEnabled then 0.0
     else
       immigrantHH.filter(h => h.isImmigrant).map { h =>
@@ -72,7 +72,7 @@ object Immigration:
 
   /** Spawn new immigrant households (individual mode).
     * Start as Unemployed(0) — will be matched in next jobSearch round. */
-  def spawnImmigrants(count: Int, startId: Int, rng: Random): Vector[Household] =
+  def spawnImmigrants(count: Int, startId: Int, rng: Random): Vector[Household.State] =
     (0 until count).map { i =>
       val sector = chooseSector(rng)
       val edu = Config.drawImmigrantEducation(rng)
@@ -83,9 +83,9 @@ object Immigration:
       val mpc = 0.85 + rng.nextGaussian() * 0.05
       val rent = Config.HhRentMean + rng.nextGaussian() * Config.HhRentStd
       val numChildren = if Config.Social800Enabled && Config.Social800ImmigrantEligible then
-        HouseholdInit.poissonSample(Config.Social800ChildrenPerHh, rng)
+        Household.Init.poissonSample(Config.Social800ChildrenPerHh, rng)
       else 0
-      Household(
+      Household.State(
         id = startId + i,
         savings = PLN(savings),
         debt = PLN.Zero,
@@ -104,13 +104,13 @@ object Immigration:
 
   /** Remove returning migrants from household vector.
     * Removes oldest immigrants (lowest ids among immigrants). */
-  def removeReturnMigrants(households: Vector[Household], count: Int): Vector[Household] =
+  def removeReturnMigrants(households: Vector[Household.State], count: Int): Vector[Household.State] =
     if count <= 0 then return households
     val immigrantIds = households.filter(_.isImmigrant).map(_.id).sorted.take(count).toSet
     households.filterNot(h => immigrantIds.contains(h.id))
 
   /** Full monthly step: compute inflow, outflow, remittances, update state. */
-  def step(prev: State, households: Option[Vector[Household]],
+  def step(prev: State, households: Option[Vector[Household.State]],
            wage: Double, unempRate: Double, workingAgePop: Int,
            month: Int): State =
     val inflow = computeInflow(workingAgePop, wage, unempRate, month)

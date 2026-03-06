@@ -78,7 +78,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "Bankruptcy" should "trigger consumer debt default" in {
-    val hh = Household(
+    val hh = Household.State(
       id = 0, savings = PLN(-5000.0), debt = PLN(1000.0), monthlyRent = PLN(1000.0),
       skill = Ratio(0.8), healthPenalty = Ratio(0.0), mpc = Ratio(0.82),
       status = HhStatus.Bankrupt, socialNeighbors = Array.empty[Int],
@@ -123,8 +123,8 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     (consWithCredit - consWithoutCredit) shouldBe (newLoan * mpc) +- 0.01
   }
 
-  "HhAggregates consumer fields" should "default to 0.0" in {
-    val agg = HhAggregates(
+  "Household.Aggregates consumer fields" should "default to 0.0" in {
+    val agg = Household.Aggregates(
       employed = 0, unemployed = 0, retraining = 0, bankrupt = 0,
       totalIncome = PLN.Zero, consumption = PLN.Zero, domesticConsumption = PLN.Zero, importConsumption = PLN.Zero,
       marketWage = PLN.Zero, reservationWage = PLN.Zero, giniIndividual = Ratio.Zero, giniWealth = Ratio.Zero,
@@ -140,7 +140,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "Household" should "have consumerDebt field defaulting to 0" in {
-    val hh = Household(
+    val hh = Household.State(
       id = 0, savings = PLN(10000.0), debt = PLN.Zero, monthlyRent = PLN(1000.0),
       skill = Ratio(0.8), healthPenalty = Ratio(0.0), mpc = Ratio(0.82),
       status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266.0)), socialNeighbors = Array.empty[Int]

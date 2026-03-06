@@ -11,12 +11,12 @@ object LaborMarket:
 
   /** Separate workers from firms that automated or went bankrupt this step.
     * Returns updated households with newly unemployed workers. */
-  def separations(households: Vector[Household], prevFirms: Array[Firm],
-                  newFirms: Array[Firm]): Vector[Household] =
+  def separations(households: Vector[Household.State], prevFirms: Array[Firm.State],
+                  newFirms: Array[Firm.State]): Vector[Household.State] =
     // Build set of firm IDs that lost workers this step
     val firmLostWorkers = (0 until newFirms.length).filter { i =>
-      val prevAlive = FirmOps.isAlive(prevFirms(i))
-      val newAlive = FirmOps.isAlive(newFirms(i))
+      val prevAlive = Firm.isAlive(prevFirms(i))
+      val newAlive = Firm.isAlive(newFirms(i))
       val automatedNow = newFirms(i).tech.isInstanceOf[TechState.Automated] &&
         !prevFirms(i).tech.isInstanceOf[TechState.Automated]
       val hybridReduced = (prevFirms(i).tech, newFirms(i).tech) match
@@ -36,7 +36,7 @@ object LaborMarket:
     // For automated firms, only skeleton crew stays
     val automatedRetained: Map[Int, Int] = newFirms.filter(f =>
       firmLostWorkers.contains(f.id.toInt) && f.tech.isInstanceOf[TechState.Automated]
-    ).map(f => f.id.toInt -> FirmOps.skeletonCrew(f)).toMap
+    ).map(f => f.id.toInt -> Firm.skeletonCrew(f)).toMap
 
     // Build retain sets: sort workers by (-education, -skill), take top maxRetain
     val firmToWorkers = scala.collection.mutable.Map[Int, scala.collection.mutable.ArrayBuffer[Int]]()
@@ -62,8 +62,8 @@ object LaborMarket:
   /** Job search — unemployed households bid for open positions.
     * Matching: highest skill first fills vacancies.
     * Returns (updated households, cross-sector hire count). */
-  def jobSearch(households: Vector[Household], firms: Array[Firm],
-                marketWage: Double, rng: Random): (Vector[Household], Int) =
+  def jobSearch(households: Vector[Household.State], firms: Array[Firm.State],
+                marketWage: Double, rng: Random): (Vector[Household.State], Int) =
     // Compute vacancies per firm: living firms that need workers
     // O(N_hh) map build instead of O(N_firms × N_hh) nested scan
     val workerCounts = scala.collection.mutable.Map[Int, Int]().withDefaultValue(0)
@@ -72,8 +72,8 @@ object LaborMarket:
         case HhStatus.Employed(fid, _, _) => workerCounts(fid.toInt) += 1
         case _ =>
     val vacancies = scala.collection.mutable.Map[Int, Int]()
-    for f <- firms if FirmOps.isAlive(f) do
-      val needed = FirmOps.workers(f) - workerCounts(f.id.toInt)
+    for f <- firms if Firm.isAlive(f) do
+      val needed = Firm.workers(f) - workerCounts(f.id.toInt)
       if needed > 0 then vacancies(f.id.toInt) = needed
 
     if vacancies.isEmpty then return (households, 0)
@@ -110,7 +110,7 @@ object LaborMarket:
 
         bestFirmId.foreach { fid =>
           val f = firms(fid)
-          val sectorMult = FirmOps.effectiveWageMult(f.sector)
+          val sectorMult = Firm.effectiveWageMult(f.sector)
           val isCrossSector = f.sector.toInt != prevSector
           // Cross-sector wage penalty when sectoral mobility is enabled
           val penalty = if Config.LmSectoralMobility && isCrossSector then
@@ -133,7 +133,7 @@ object LaborMarket:
   /** Update wages for all employed households based on current market wage.
     * Individual wages are heterogeneous (sector × skill × health × immigrant discount)
     * but normalized so the mean employed wage = marketWage (macro consistency). */
-  def updateWages(households: Vector[Household], marketWage: Double): Vector[Household] =
+  def updateWages(households: Vector[Household.State], marketWage: Double): Vector[Household.State] =
     // Compute raw relative wages for employed
     val rawWages = households.map { hh =>
       hh.status match
@@ -141,7 +141,7 @@ object LaborMarket:
           val immigrantDiscount = if hh.isImmigrant && Config.ImmigEnabled then
             1.0 - Config.ImmigWageDiscount
           else 1.0
-          FirmOps.effectiveWageMult(sectorIdx) * hh.skill.toDouble * (1.0 - hh.healthPenalty.toDouble) * immigrantDiscount *
+          Firm.effectiveWageMult(sectorIdx) * hh.skill.toDouble * (1.0 - hh.healthPenalty.toDouble) * immigrantDiscount *
             Config.eduWagePremium(hh.education)
         case _ => 0.0
     }

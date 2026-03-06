@@ -33,14 +33,14 @@ object BankUpdateStep:
     importAdj: Double,
     aggUnempBenefit: Double,
     perBankHhFlowsOpt: Option[PerBankHhFlows],
-    hhAgg: Option[HhAggregates],
+    hhAgg: Option[Household.Aggregates],
     // Step 4 outputs
     govPurchases: Double,
     laggedInvestDemand: Double,
     // Step 5 outputs
-    ioFirms: Array[Firm],
-    rewiredFirms: Array[Firm],
-    finalHouseholds: Option[Vector[Household]],
+    ioFirms: Array[Firm.State],
+    rewiredFirms: Array[Firm.State],
+    finalHouseholds: Option[Vector[Household.State]],
     sumTax: Double,
     sumNewLoans: Double,
     nplNew: Double,
@@ -99,8 +99,8 @@ object BankUpdateStep:
   case class Output(
     resolvedBank: BankState,
     finalBankingSector: Option[Banking.State],
-    reassignedFirms: Array[Firm],
-    reassignedHouseholds: Option[Vector[Household]],
+    reassignedFirms: Array[Firm.State],
+    reassignedHouseholds: Option[Vector[Household.State]],
     finalPpk: SocialSecurity.PpkState,
     finalInsurance: Insurance.State,
     finalNbfi: Nbfi.State,
@@ -111,7 +111,7 @@ object BankUpdateStep:
     bailInLoss: Double,
     multiCapDestruction: Double,
     monAgg: Option[MonetaryAggregates],
-    finalHhAgg: Option[HhAggregates],
+    finalHhAgg: Option[Household.Aggregates],
     // Tax intermediates (needed by SFC check)
     vat: Double,
     vatAfterEvasion: Double,
@@ -166,7 +166,7 @@ object BankUpdateStep:
     val newGovWithYield = newGov.copy(bondYield = Rate(in.newBondYield))
 
     // JST (local government)
-    val nLivingFirms = in.ioFirms.count(FirmOps.isAlive)
+    val nLivingFirms = in.ioFirms.count(Firm.isAlive)
     val (newJst, jstDepositChange) = Jst.step(
       in.w.jst, newGovWithYield.taxRevenue.toDouble, in.totalIncome, in.gdp, nLivingFirms, pitAfterEvasion)
 
@@ -231,7 +231,7 @@ object BankUpdateStep:
     val monthlyRetAttempts  = in.hhAgg.map(_.retrainingAttempts).getOrElse(0)
     val monthlyRetSuccesses = in.hhAgg.map(_.retrainingSuccesses).getOrElse(0)
     val finalHhAgg = in.finalHouseholds.map { hhs =>
-      HouseholdLogic.computeAggregates(hhs, in.newWage, in.resWage, in.importAdj,
+      Household.computeAggregates(hhs, in.newWage, in.resWage, in.importAdj,
         monthlyRetAttempts, monthlyRetSuccesses, in.bdp)
     }
 

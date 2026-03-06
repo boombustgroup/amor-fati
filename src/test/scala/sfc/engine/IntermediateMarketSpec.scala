@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{Firm, FirmOps, TechState}
+import sfc.agents.{Firm, TechState}
 import sfc.config.{Config, SECTORS}
 import sfc.types.*
 
@@ -24,10 +24,10 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   private val zeroColSums = Vector.fill(6)(0.0)
 
   private def makeFirm(id: Int, sector: Int, cash: Double = 50000.0,
-                       tech: TechState = TechState.Traditional(10)): Firm =
-    Firm(FirmId(id), PLN(cash), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.3), SectorIdx(sector), Array.empty[Int])
+                       tech: TechState = TechState.Traditional(10)): Firm.State =
+    Firm.State(FirmId(id), PLN(cash), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.3), SectorIdx(sector), Array.empty[Int])
 
-  private def makeFirmsAllSectors(perSector: Int = 10): Array[Firm] =
+  private def makeFirmsAllSectors(perSector: Int = 10): Array[Firm.State] =
     (0 until 6).flatMap { s =>
       (0 until perSector).map(i => makeFirm(s * perSector + i, s))
     }.toArray
@@ -49,11 +49,11 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val firms = (0 until 6).map(s => makeFirm(s, s)).toArray
     val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Firm in sector 0 (BPO): should pay columnSum(0) of its gross output
-    val bpoOutput = FirmOps.capacity(firms(0)) * 1.0 * 1.0
+    val bpoOutput = Firm.capacity(firms(0)) * 1.0 * 1.0
     val bpoCost = bpoOutput * defaultColSums(0)
     // BPO revenue: sum over j of a_0j * sectorOutput_j
     val bpoRevenue = (0 until 6).map { j =>
-      defaultMatrix(0)(j) * FirmOps.capacity(firms(j)) * 1.0 * 1.0
+      defaultMatrix(0)(j) * Firm.capacity(firms(j)) * 1.0 * 1.0
     }.sum
     val expectedAdj = bpoRevenue - bpoCost
     val actualAdj = (result.firms(0).cash - firms(0).cash).toDouble
@@ -73,8 +73,8 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     // Bankrupt firm's cash should not change
     result.firms(1).cash.toDouble shouldBe firms(1).cash.toDouble
     // Still zero-sum among living firms
-    val livingBefore = firms.filter(f => FirmOps.isAlive(f)).map(_.cash.toDouble).sum
-    val livingAfter = result.firms.filter(f => FirmOps.isAlive(f)).map(_.cash.toDouble).sum
+    val livingBefore = firms.filter(f => Firm.isAlive(f)).map(_.cash.toDouble).sum
+    val livingAfter = result.firms.filter(f => Firm.isAlive(f)).map(_.cash.toDouble).sum
     livingAfter shouldBe livingBefore +- 1.0
   }
 
@@ -115,8 +115,8 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     )
     val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Firm 1 should get more I-O revenue than firm 2 (higher capacity)
-    val cap1 = FirmOps.capacity(firms(1))
-    val cap2 = FirmOps.capacity(firms(2))
+    val cap1 = Firm.capacity(firms(1))
+    val cap2 = Firm.capacity(firms(2))
     cap1 should be > cap2
     // Revenue is proportional to capacity, cost is proportional to output
     // Both have same sector, so same cost rate, but different absolute amounts
@@ -124,7 +124,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val rev1share = cap1 / (cap1 + cap2)
     val rev2share = cap2 / (cap1 + cap2)
     // Total Mfg sector revenue from BPO sector: a_1_0 × bpoOutput
-    val bpoOutput = FirmOps.capacity(firms(0)) * 1.0 * 1.0
+    val bpoOutput = Firm.capacity(firms(0)) * 1.0 * 1.0
     val mfgRevenueFromBpo = defaultMatrix(1)(0) * bpoOutput
     // Firm 1 gets rev1share of total Mfg revenue, firm 2 gets rev2share
     // This is just one part; they also get from each other (intra-sector)

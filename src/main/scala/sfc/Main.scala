@@ -14,7 +14,7 @@ import _root_.sfc.networks.Network
 /** Result of a single simulation run. */
 case class RunResult(
   timeSeries: Array[Array[Double]],
-  terminalHhAgg: Option[HhAggregates]
+  terminalHhAgg: Option[Household.Aggregates]
 )
 
 /** Run one simulation with given seed. Returns time-series array + optional household aggregates. */
@@ -48,7 +48,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     households = newHh
 
     val unemployPct = 1.0 - world.hh.employed.toDouble / Config.TotalPopulation
-    val living = firms.filter(FirmOps.isAlive)
+    val living = firms.filter(Firm.isAlive)
     val nLiving = living.length.toDouble
 
     // Per-sector automation ratios
@@ -393,7 +393,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   val nMonths = Config.Duration
   val nCols   = 197
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
-  val allHhAgg = new Array[Option[HhAggregates]](nSeeds)
+  val allHhAgg = new Array[Option[Household.Aggregates]](nSeeds)
 
   val startTime = System.currentTimeMillis()
 

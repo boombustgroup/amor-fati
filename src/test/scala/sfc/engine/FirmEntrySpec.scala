@@ -5,7 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting
 import sfc.accounting.{BankState, ForexState, GovState}
 import sfc.config.{Config, SECTORS}
-import sfc.agents.{Firm, FirmOps, TechState}
+import sfc.agents.{Firm, TechState}
 import sfc.types.*
 
 class FirmEntrySpec extends AnyFlatSpec with Matchers:
@@ -60,7 +60,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       sfc.agents.Nbp.State(Rate(0.05)),
       BankState(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9)),
       ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      sfc.agents.HhState(100, PLN(8000), PLN(4500), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      sfc.agents.Household.SectorState(100, PLN(8000), PLN(4500), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio(0), Ratio(0), 1e9, Vector.fill(6)(5.0))
     w.firmBirths shouldBe 0
   }
@@ -71,7 +71,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       sfc.agents.Nbp.State(Rate(0.05)),
       accounting.BankState(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9)),
       accounting.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      sfc.agents.HhState(100, PLN(8000), PLN(4500), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      sfc.agents.Household.SectorState(100, PLN(8000), PLN(4500), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       Ratio(0), Ratio(0), 1e9, Vector.fill(6)(5.0))
     w.firmDeaths shouldBe 0
   }
@@ -90,7 +90,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have zero debt" in {
-    val entrant = Firm(
+    val entrant = Firm.State(
       id = FirmId(0), cash = PLN(50000.0), debt = PLN.Zero,
       tech = TechState.Traditional(5),
       riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
@@ -107,14 +107,14 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be alive" in {
-    val entrant = Firm(
+    val entrant = Firm.State(
       id = FirmId(0), cash = PLN(50000.0), debt = PLN.Zero,
       tech = TechState.Traditional(5),
       riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.15), sector = SectorIdx(2),
       neighbors = Array.empty[Int], initialSize = 5
     )
-    FirmOps.isAlive(entrant) shouldBe true
+    Firm.isAlive(entrant) shouldBe true
   }
 
   // ==========================================================================
@@ -206,7 +206,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   "Entrant in individual mode" should "start with Traditional(0)" in {
     // When households.isDefined, startWorkers = 0
     val tech = TechState.Traditional(0)
-    FirmOps.workers(Firm(
+    Firm.workers(Firm.State(
       id = FirmId(0), cash = PLN(50000.0), debt = PLN.Zero, tech = tech,
       riskProfile = Ratio(0.5), innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.15), sector = SectorIdx(0),

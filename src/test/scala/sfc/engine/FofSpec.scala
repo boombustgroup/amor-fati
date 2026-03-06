@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.SfcCheck
 import sfc.config.{Config, SECTORS}
-import sfc.agents.{Firm, FirmOps, TechState}
+import sfc.agents.{Firm, TechState}
 import sfc.util.KahanSum.*
 import sfc.types.*
 
@@ -54,7 +54,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     val exports = Config.FofExportShares.map(_ * 100000.0)
 
     val sectorCap = (0 until 6).map { s =>
-      firms.filter(_.sector.toInt == s).kahanSumBy(f => FirmOps.capacity(f).toDouble)
+      firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble)
     }.toVector
     val sectorDemand = (0 until 6).map { s =>
       Config.FofConsWeights(s) * dc + Config.FofGovWeights(s) * gp + exports(s)
@@ -65,7 +65,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
 
     val totalFirmRev = (0 until 6).map { s =>
       firms.filter(_.sector.toInt == s).kahanSumBy(f =>
-        FirmOps.capacity(f).toDouble * sectorMults(s) * price)
+        Firm.capacity(f).toDouble * sectorMults(s) * price)
     }.kahanSum
     val totalDemand = sectorDemand.kahanSum
 
@@ -78,8 +78,8 @@ class FofSpec extends AnyFlatSpec with Matchers:
     // Both in sector 2 (Retail)
     val firms = Array(f1.copy(sector = SectorIdx(2)), f2.copy(sector = SectorIdx(2)))
     val price = 1.0
-    val cap1 = FirmOps.capacity(firms(0))
-    val cap2 = FirmOps.capacity(firms(1))
+    val cap1 = Firm.capacity(firms(0))
+    val cap2 = Firm.capacity(firms(1))
     val sectorDemand = 500000.0
     val totalCap = cap1 + cap2
     val mult = sectorDemand / (totalCap * price)
@@ -134,10 +134,10 @@ class FofSpec extends AnyFlatSpec with Matchers:
 
   // --- helpers ---
 
-  private def mkFirm(id: Int, tech: TechState, sector: Int = 2): Firm =
-    Firm(FirmId(id), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(sector), Array.empty[Int])
+  private def mkFirm(id: Int, tech: TechState, sector: Int = 2): Firm.State =
+    Firm.State(FirmId(id), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(sector), Array.empty[Int])
 
-  private def mkFirms(): Array[Firm] =
+  private def mkFirms(): Array[Firm.State] =
     // Create firms distributed across all 6 sectors
     val firmsPerSector = 10
     (0 until 6).flatMap { s =>

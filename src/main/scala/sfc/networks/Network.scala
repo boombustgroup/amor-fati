@@ -109,7 +109,7 @@ object Network:
     adj.map(_.toArray)
 
   /** Compute local automation ratio among neighbors */
-  def localAutoRatio(firm: Firm, firms: Array[Firm]): Double =
+  def localAutoRatio(firm: Firm.State, firms: Array[Firm.State]): Double =
     val neighbors = firm.neighbors
     if neighbors.isEmpty then return 0.0
     val autoCount = neighbors.count { nid =>

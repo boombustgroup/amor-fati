@@ -16,8 +16,8 @@ object HouseholdIncomeStep:
     bdpActive: Boolean,
     resWage: Double,
     w: World,
-    households: Option[Vector[Household]],
-    firms: Array[Firm],
+    households: Option[Vector[Household.State]],
+    firms: Array[Firm.State],
     lendingBaseRate: Double,
     newZus: SocialSecurity.ZusState,
     rc: RunConfig
@@ -28,8 +28,8 @@ object HouseholdIncomeStep:
     consumption: Double,
     importCons: Double,
     domesticCons: Double,
-    updatedHouseholds: Option[Vector[Household]],
-    hhAgg: Option[HhAggregates],
+    updatedHouseholds: Option[Vector[Household.State]],
+    hhAgg: Option[Household.Aggregates],
     perBankHhFlowsOpt: Option[PerBankHhFlows],
     pitRevenue: Double,
     importAdj: Double,
@@ -84,7 +84,7 @@ object HouseholdIncomeStep:
           val eqReturn = in.w.equity.monthlyReturn.toDouble
           val secWages = if Config.LmSectoralMobility then Some(SectoralMobility.sectorWages(afterWages)) else None
           val secVacancies = if Config.LmSectoralMobility then Some(SectoralMobility.sectorVacancies(afterWages, in.firms)) else None
-          val (newHhs, agg, pbf) = HouseholdLogic.step(
+          val (newHhs, agg, pbf) = Household.step(
             afterWages, in.w, in.bdp, in.newWage, in.resWage, importAdj, Random, nBanksHh, hhBankRates, eqReturn,
             secWages, secVacancies)
           (agg.totalIncome.toDouble, agg.consumption.toDouble, agg.importConsumption.toDouble,

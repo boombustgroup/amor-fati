@@ -3,7 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.config.{Config, SECTORS}
-import sfc.agents.{FirmOps, Firm, TechState, Household, HhStatus}
+import sfc.agents.{Firm, TechState, Household, HhStatus}
 import sfc.types.*
 
 class LaborUnionSpec extends AnyFlatSpec with Matchers:
@@ -37,7 +37,7 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
   "effectiveWageMult" should "return base wageMultiplier when disabled" in {
     // Default: UnionEnabled = false
     for s <- SECTORS.indices do
-      FirmOps.effectiveWageMult(SectorIdx(s)) shouldBe SECTORS(s).wageMultiplier
+      Firm.effectiveWageMult(SectorIdx(s)) shouldBe SECTORS(s).wageMultiplier
   }
 
   // Note: union-enabled tests use pure formula verification since Config is static

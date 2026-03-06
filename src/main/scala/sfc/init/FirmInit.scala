@@ -12,7 +12,7 @@ object FirmInit:
   /** Create firm array with all post-creation enhancements.
     * Returns (firms, actualTotalPopulation) — caller handles Config.setTotalPopulation.
     */
-  def create(rng: Random): (Array[Firm], Int) =
+  def create(rng: Random): (Array[Firm.State], Int) =
     // Generate network based on TOPOLOGY env var
     val adjList = TOPOLOGY match
       case Topology.Ws      => Network.wattsStrogatz(Config.FirmsCount, Config.NetworkK, Config.NetworkRewireP)
@@ -38,7 +38,7 @@ object FirmInit:
       val sec = SECTORS(sectorAssignments(i))
       val firmSize = FirmSizeDistribution.draw(rng)
       val sizeMult = firmSize.toDouble / Config.WorkersPerFirm
-      Firm(
+      Firm.State(
         id = FirmId(i),
         cash = PLN((rng.between(10000.0, 80000.0) + (if rng.nextDouble() < 0.1 then 200000.0 else 0.0)) * sizeMult),
         debt = PLN.Zero,
@@ -53,12 +53,12 @@ object FirmInit:
       )
     }.toArray
 
-    val actualTotalPop = firms.map(f => FirmOps.workers(f)).sum
+    val actualTotalPop = firms.map(f => Firm.workers(f)).sum
 
     // Physical capital stock
     if Config.PhysCapEnabled then
       firms = firms.map(f =>
-        f.copy(capitalStock = PLN(FirmOps.workers(f).toDouble * Config.PhysCapKLRatios(f.sector.toInt))))
+        f.copy(capitalStock = PLN(Firm.workers(f).toDouble * Config.PhysCapKLRatios(f.sector.toInt))))
 
     // Multi-bank: assign firms to banks
     if Config.BankMulti then
@@ -76,7 +76,7 @@ object FirmInit:
     // Initialize inventory stock (#43)
     if Config.InventoryEnabled then
       firms = firms.map { f =>
-        val capacity = FirmOps.capacity(f).toDouble
+        val capacity = Firm.capacity(f).toDouble
         val targetInv = capacity * Config.InventoryTargetRatios(f.sector.toInt)
         f.copy(inventory = PLN(targetInv * Config.InventoryInitRatio))
       }
@@ -84,16 +84,16 @@ object FirmInit:
     // Initialize green capital stock (#36)
     if Config.EnergyEnabled then
       firms = firms.map { f =>
-        val targetGK = FirmOps.workers(f).toDouble * Config.GreenKLRatios(f.sector.toInt)
+        val targetGK = Firm.workers(f).toDouble * Config.GreenKLRatios(f.sector.toInt)
         f.copy(greenCapital = PLN(targetGK * Config.GreenInitRatio))
       }
 
     // Distribute firm cash/debt proportionally to firm size (realistic initialization)
-    val totalWorkers = firms.map(f => FirmOps.workers(f)).sum
+    val totalWorkers = firms.map(f => Firm.workers(f)).sum
     val firmDepositShare = 0.35  // ~35% of deposits are corporate (NBP M3 2024)
     val totalFirmCash = Config.InitBankDeposits * firmDepositShare
     firms = firms.map { f =>
-      val workerShare = FirmOps.workers(f).toDouble / totalWorkers
+      val workerShare = Firm.workers(f).toDouble / totalWorkers
       f.copy(
         cash = PLN(totalFirmCash * workerShare),
         debt = PLN(Config.InitBankLoans * workerShare)

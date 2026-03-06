@@ -30,7 +30,7 @@ object SectoralMobility:
   )
 
   /** Compute number of vacancies per sector. */
-  def sectorVacancies(households: Vector[Household], firms: Array[Firm]): Array[Int] =
+  def sectorVacancies(households: Vector[Household.State], firms: Array[Firm.State]): Array[Int] =
     val workerCounts = new Array[Int](6)
     for hh <- households do
       hh.status match
@@ -38,8 +38,8 @@ object SectoralMobility:
         case _ =>
 
     val sectorDemand = new Array[Int](6)
-    for f <- firms if FirmOps.isAlive(f) do
-      sectorDemand(f.sector.toInt) += FirmOps.workers(f)
+    for f <- firms if Firm.isAlive(f) do
+      sectorDemand(f.sector.toInt) += Firm.workers(f)
 
     val vac = new Array[Int](6)
     for s <- 0 until 6 do
@@ -47,7 +47,7 @@ object SectoralMobility:
     vac
 
   /** Compute average wage per sector from employed households. */
-  def sectorWages(households: Vector[Household]): Array[Double] =
+  def sectorWages(households: Vector[Household.State]): Array[Double] =
     val sums = new Array[Double](6)
     val counts = new Array[Int](6)
     for hh <- households do

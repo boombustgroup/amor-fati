@@ -2,7 +2,7 @@ package sfc.dynamics
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{Firm, FirmOps, TechState}
+import sfc.agents.{Firm, TechState}
 import sfc.config.Config
 import sfc.types.*
 
@@ -27,11 +27,11 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
   it should "replace bankrupt firms with Traditional when rho=1.0" in {
     Random.setSeed(42)
     val firms = mkFirmsWithBankrupt(20, 5)
-    firms.count(!FirmOps.isAlive(_)) shouldBe 5
+    firms.count(!Firm.isAlive(_)) shouldBe 5
 
     val result = DynamicNetwork.rewire(firms, 1.0)
     // All bankrupt firms should be replaced
-    result.count(!FirmOps.isAlive(_)) shouldBe 0
+    result.count(!Firm.isAlive(_)) shouldBe 0
     // Replaced firms should be Traditional
     for i <- 0 until 5 do
       result(i).tech shouldBe a[TechState.Traditional]
@@ -68,19 +68,19 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
     for i <- 0 until 3 do
       val f = result(i)
       f.initialSize should be > 0
-      FirmOps.workers(f) shouldBe f.initialSize
+      Firm.workers(f) shouldBe f.initialSize
   }
 
-  private def mkFirms(n: Int): Array[Firm] =
+  private def mkFirms(n: Int): Array[Firm.State] =
     (0 until n).map { i =>
-      Firm(FirmId(i), PLN(50000.0), PLN.Zero, TechState.Traditional(10), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0),
+      Firm.State(FirmId(i), PLN(50000.0), PLN.Zero, TechState.Traditional(10), Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(0),
         Array((i + 1) % n, (i - 1 + n) % n))
     }.toArray
 
-  private def mkFirmsWithBankrupt(n: Int, nBankrupt: Int, sector: Int = 0): Array[Firm] =
+  private def mkFirmsWithBankrupt(n: Int, nBankrupt: Int, sector: Int = 0): Array[Firm.State] =
     (0 until n).map { i =>
       val tech = if i < nBankrupt then TechState.Bankrupt("test")
                  else TechState.Traditional(10)
-      Firm(FirmId(i), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(sector),
+      Firm.State(FirmId(i), PLN(50000.0), PLN.Zero, tech, Ratio(0.5), 1.0, Ratio(0.5), SectorIdx(sector),
         Array((i + 1) % n, (i - 1 + n) % n))
     }.toArray

@@ -11,7 +11,7 @@ object BankInit:
   /** Initialize multi-bank sector with per-bank consumer loan override.
     * Returns None in single-bank mode.
     */
-  def create(firms: Array[Firm], households: Option[Vector[Household]]): Option[Banking.State] =
+  def create(firms: Array[Firm.State], households: Option[Vector[Household.State]]): Option[Banking.State] =
     if !Config.BankMulti then return None
 
     val initConsumerLoans = households.map(_.kahanSumBy(_.consumerDebt.toDouble)).getOrElse(Config.InitConsumerLoans)

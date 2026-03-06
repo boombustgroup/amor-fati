@@ -47,7 +47,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     ).toVector
     val result = LaborMarket.separations(hhs, prevFirms, newFirms)
     // Automated firms keep skeletonCrew workers, rest become unemployed
-    val skCrew = FirmOps.skeletonCrew(newFirms(0))
+    val skCrew = Firm.skeletonCrew(newFirms(0))
     val employed = result.count(_.status.isInstanceOf[HhStatus.Employed])
     val unemployed = result.count(_.status == HhStatus.Unemployed(0))
     employed shouldBe skCrew
@@ -170,12 +170,12 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   // --- helpers ---
 
-  private def mkFirms(n: Int): Array[Firm] =
+  private def mkFirms(n: Int): Array[Firm.State] =
     (0 until n).map { i =>
-      Firm(FirmId(i), PLN(50000.0), PLN.Zero, TechState.Traditional(10), Ratio(0.5), 1.0, Ratio(0.5),
+      Firm.State(FirmId(i), PLN(50000.0), PLN.Zero, TechState.Traditional(10), Ratio(0.5), 1.0, Ratio(0.5),
         SectorIdx(2), Array.empty[Int])  // sector 2 = Retail/Services
     }.toArray
 
   private def mkHousehold(id: Int, status: HhStatus,
-                          skill: Double = 0.7, healthPenalty: Double = 0.0): Household =
-    Household(id, PLN(20000.0), PLN.Zero, PLN(1800.0), Ratio(skill), Ratio(healthPenalty), Ratio(0.82), status, Array.empty[Int])
+                          skill: Double = 0.7, healthPenalty: Double = 0.0): Household.State =
+    Household.State(id, PLN(20000.0), PLN.Zero, PLN(1800.0), Ratio(skill), Ratio(healthPenalty), Ratio(0.82), status, Array.empty[Int])

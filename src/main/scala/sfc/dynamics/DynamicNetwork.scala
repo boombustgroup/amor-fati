@@ -1,6 +1,6 @@
 package sfc.dynamics
 
-import sfc.agents.{Firm, FirmOps, TechState}
+import sfc.agents.{Firm, TechState}
 import sfc.config.{Config, SECTORS, FirmSizeDistribution}
 import sfc.types.*
 
@@ -18,7 +18,7 @@ object DynamicNetwork:
     * @param firms current firm array (some may be Bankrupt)
     * @param rho   replacement probability per bankrupt firm per step (0.0 = static)
     * @return updated firm array with same length */
-  def rewire(firms: Array[Firm], rho: Double): Array[Firm] =
+  def rewire(firms: Array[Firm.State], rho: Double): Array[Firm.State] =
     if rho == 0.0 then return firms
 
     val n = firms.length
@@ -26,7 +26,7 @@ object DynamicNetwork:
 
     // Identify bankrupt firms to replace (each with probability rho)
     val toReplace = (0 until n).filter(i =>
-      !FirmOps.isAlive(firms(i)) && Random.nextDouble() < rho
+      !Firm.isAlive(firms(i)) && Random.nextDouble() < rho
     ).toSet
     if toReplace.isEmpty then return firms
 
@@ -35,7 +35,7 @@ object DynamicNetwork:
       scala.collection.mutable.Set.from(firms(i).neighbors))
 
     // Alive firm indices (for preferential attachment targets)
-    val alive = (0 until n).filter(i => FirmOps.isAlive(firms(i))).toArray
+    val alive = (0 until n).filter(i => Firm.isAlive(firms(i))).toArray
 
     for idx <- toReplace do
       // Remove old edges
@@ -68,7 +68,7 @@ object DynamicNetwork:
         val sec = firms(i).sector
         val newSize = FirmSizeDistribution.draw(Random)
         val sizeMult = newSize.toDouble / Config.WorkersPerFirm
-        Firm(
+        Firm.State(
           id = FirmId(i),
           cash = PLN(Random.between(10000.0, 80000.0) * sizeMult),
           debt = PLN.Zero,

@@ -12,7 +12,7 @@ object OpenEconomyStep:
 
   case class Input(
     w: World,
-    ioFirms: Array[Firm],
+    ioFirms: Array[Firm.State],
     sectorMults: Vector[Double],
     importCons: Double,
     sumTechImp: Double,
@@ -69,12 +69,12 @@ object OpenEconomyStep:
   )
 
   def run(in: Input): Output =
-    val living2 = in.ioFirms.filter(FirmOps.isAlive)
+    val living2 = in.ioFirms.filter(Firm.isAlive)
 
     // Sector outputs for open economy
     val sectorOutputs = (0 until SECTORS.length).map { s =>
       living2.filter(_.sector.toInt == s).kahanSumBy(f =>
-        FirmOps.capacity(f) * in.sectorMults(f.sector.toInt) * in.w.priceLevel)
+        Firm.capacity(f) * in.sectorMults(f.sector.toInt) * in.w.priceLevel)
     }.toVector
 
     // GVC / Deep External Sector (v5.0)

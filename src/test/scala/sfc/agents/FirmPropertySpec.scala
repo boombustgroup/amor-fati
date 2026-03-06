@@ -15,51 +15,51 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   // --- capacity properties ---
 
-  "FirmOps.capacity" should "be >= 0 for all tech states" in {
-    forAll(genFirm) { (firm: Firm) =>
-      FirmOps.capacity(firm) should be >= 0.0
+  "Firm.capacity" should "be >= 0 for all tech states" in {
+    forAll(genFirm) { (firm: Firm.State) =>
+      Firm.capacity(firm) should be >= 0.0
     }
   }
 
   it should "be 0 iff Bankrupt" in {
-    forAll(genFirm) { (firm: Firm) =>
+    forAll(genFirm) { (firm: Firm.State) =>
       firm.tech match
-        case _: TechState.Bankrupt => FirmOps.capacity(firm) shouldBe 0.0
-        case _ => FirmOps.capacity(firm) should be > 0.0
+        case _: TechState.Bankrupt => Firm.capacity(firm) shouldBe 0.0
+        case _ => Firm.capacity(firm) should be > 0.0
     }
   }
 
   // --- workers properties ---
 
-  "FirmOps.workers" should "be >= 0 for all tech states" in {
-    forAll(genFirm) { (firm: Firm) =>
-      FirmOps.workers(firm) should be >= 0
+  "Firm.workers" should "be >= 0 for all tech states" in {
+    forAll(genFirm) { (firm: Firm.State) =>
+      Firm.workers(firm) should be >= 0
     }
   }
 
   it should "be 0 iff Bankrupt" in {
-    forAll(genFirm) { (firm: Firm) =>
+    forAll(genFirm) { (firm: Firm.State) =>
       firm.tech match
-        case _: TechState.Bankrupt => FirmOps.workers(firm) shouldBe 0
-        case _ => FirmOps.workers(firm) should be > 0
+        case _: TechState.Bankrupt => Firm.workers(firm) shouldBe 0
+        case _ => Firm.workers(firm) should be > 0
     }
   }
 
   // --- isAlive property ---
 
-  "FirmOps.isAlive" should "be false iff Bankrupt" in {
-    forAll(genFirm) { (firm: Firm) =>
+  "Firm.isAlive" should "be false iff Bankrupt" in {
+    forAll(genFirm) { (firm: Firm.State) =>
       firm.tech match
-        case _: TechState.Bankrupt => FirmOps.isAlive(firm) shouldBe false
-        case _ => FirmOps.isAlive(firm) shouldBe true
+        case _: TechState.Bankrupt => Firm.isAlive(firm) shouldBe false
+        case _ => Firm.isAlive(firm) shouldBe true
     }
   }
 
   // --- sigmaThreshold properties ---
 
-  "FirmOps.sigmaThreshold" should "be in [0, 1]" in {
+  "Firm.sigmaThreshold" should "be in [0, 1]" in {
     forAll(genSigma) { (sigma: Double) =>
-      val t = FirmOps.sigmaThreshold(sigma)
+      val t = Firm.sigmaThreshold(sigma)
       t should be >= 0.0
       t should be <= 1.0
     }
@@ -68,36 +68,36 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   it should "be monotonic in sigma" in {
     forAll(genSigma) { (sigma: Double) =>
       whenever(sigma > 0.1 && sigma < 99.0) {
-        val t1 = FirmOps.sigmaThreshold(sigma)
-        val t2 = FirmOps.sigmaThreshold(sigma * 2)
+        val t1 = Firm.sigmaThreshold(sigma)
+        val t2 = Firm.sigmaThreshold(sigma * 2)
         t2 should be >= (t1 - 1e-10)
       }
     }
   }
 
   it should "be 1.0 for very large sigma" in {
-    FirmOps.sigmaThreshold(1000.0) shouldBe 1.0
+    Firm.sigmaThreshold(1000.0) shouldBe 1.0
   }
 
   // --- aiCapex properties ---
 
-  "FirmOps.aiCapex" should "be > 0 for alive firms" in {
-    forAll(genAliveFirm) { (firm: Firm) =>
-      FirmOps.aiCapex(firm) should be > 0.0
+  "Firm.aiCapex" should "be > 0 for alive firms" in {
+    forAll(genAliveFirm) { (firm: Firm.State) =>
+      Firm.aiCapex(firm) should be > 0.0
     }
   }
 
-  "FirmOps.hybridCapex" should "be > 0 for alive firms" in {
-    forAll(genAliveFirm) { (firm: Firm) =>
-      FirmOps.hybridCapex(firm) should be > 0.0
+  "Firm.hybridCapex" should "be > 0 for alive firms" in {
+    forAll(genAliveFirm) { (firm: Firm.State) =>
+      Firm.hybridCapex(firm) should be > 0.0
     }
   }
 
-  "FirmOps.aiCapex" should "scale with innovationCostFactor" in {
-    forAll(genAliveFirm, Gen.choose(1.0, 3.0)) { (firm: Firm, factor: Double) =>
+  "Firm.aiCapex" should "scale with innovationCostFactor" in {
+    forAll(genAliveFirm, Gen.choose(1.0, 3.0)) { (firm: Firm.State, factor: Double) =>
       val f1 = firm.copy(innovationCostFactor = 1.0)
       val f2 = firm.copy(innovationCostFactor = factor)
-      FirmOps.aiCapex(f2) shouldBe (FirmOps.aiCapex(f1) * factor +- 0.01)
+      Firm.aiCapex(f2) shouldBe (Firm.aiCapex(f1) * factor +- 0.01)
     }
   }
 
@@ -107,11 +107,11 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) {
       (sector: Int, innov: Double, digiR: Double) =>
         // Same initialSize=16, different worker counts: sqrt(4/16) vs sqrt(16/16)
-        val f1 = Firm(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(4), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
+        val f1 = Firm.State(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(4), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
           initialSize = 16)
-        val f2 = Firm(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(16), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
+        val f2 = Firm.State(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(16), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
           initialSize = 16)
-        val ratio = FirmOps.capacity(f2) / FirmOps.capacity(f1)
+        val ratio = Firm.capacity(f2) / Firm.capacity(f1)
         ratio shouldBe (2.0 +- 0.01)
     }
   }
@@ -119,11 +119,11 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   it should "scale linearly with initialSize at full employment" in {
     forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) {
       (sector: Int, innov: Double, digiR: Double) =>
-        val f1 = Firm(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(10), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
+        val f1 = Firm.State(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(10), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
           initialSize = 10)
-        val f2 = Firm(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(25), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
+        val f2 = Firm.State(FirmId(0), PLN.Zero, PLN.Zero, TechState.Traditional(25), Ratio(0.5), innov, Ratio(digiR), SectorIdx(sector), Array.empty[Int],
           initialSize = 25)
-        val ratio = FirmOps.capacity(f2) / FirmOps.capacity(f1)
+        val ratio = Firm.capacity(f2) / Firm.capacity(f1)
         ratio shouldBe (2.5 +- 0.01)
     }
   }
