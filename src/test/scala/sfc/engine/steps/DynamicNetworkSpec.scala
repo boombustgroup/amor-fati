@@ -1,4 +1,4 @@
-package sfc.dynamics
+package sfc.engine.steps
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -9,17 +9,17 @@ import scala.util.Random
 
 class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
 
-  "DynamicNetwork.rewire" should "return unchanged firms when rho=0" in {
+  "PriceEquityStep.rewireFirms" should "return unchanged firms when rho=0" in {
     Random.setSeed(42)
     val firms = mkFirms(20)
-    val result = DynamicNetwork.rewire(firms, 0.0)
+    val result = PriceEquityStep.rewireFirms(firms, 0.0)
     result shouldBe theSameInstanceAs(firms)
   }
 
   it should "preserve total firm count" in {
     Random.setSeed(42)
     val firms = mkFirmsWithBankrupt(20, 5)
-    val result = DynamicNetwork.rewire(firms, 1.0)
+    val result = PriceEquityStep.rewireFirms(firms, 1.0)
     result.length shouldBe 20
   }
 
@@ -28,7 +28,7 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
     val firms = mkFirmsWithBankrupt(20, 5)
     firms.count(!Firm.isAlive(_)) shouldBe 5
 
-    val result = DynamicNetwork.rewire(firms, 1.0)
+    val result = PriceEquityStep.rewireFirms(firms, 1.0)
     // All bankrupt firms should be replaced
     result.count(!Firm.isAlive(_)) shouldBe 0
     // Replaced firms should be Traditional
@@ -38,7 +38,7 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
   it should "give new firms neighbors" in {
     Random.setSeed(42)
     val firms = mkFirmsWithBankrupt(30, 3)
-    val result = DynamicNetwork.rewire(firms, 1.0)
+    val result = PriceEquityStep.rewireFirms(firms, 1.0)
     // Replaced firms (indices 0-2) should have neighbors
     for i <- 0 until 3 do result(i).neighbors.length should be > 0
   }
@@ -46,21 +46,21 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
   it should "return unchanged when no bankrupt firms exist" in {
     Random.setSeed(42)
     val firms = mkFirms(20)
-    val result = DynamicNetwork.rewire(firms, 1.0)
+    val result = PriceEquityStep.rewireFirms(firms, 1.0)
     result shouldBe theSameInstanceAs(firms)
   }
 
   it should "preserve sector assignment" in {
     Random.setSeed(42)
     val firms = mkFirmsWithBankrupt(20, 3, sector = 2)
-    val result = DynamicNetwork.rewire(firms, 1.0)
+    val result = PriceEquityStep.rewireFirms(firms, 1.0)
     for i <- 0 until 3 do result(i).sector.toInt shouldBe 2
   }
 
   it should "set initialSize on new entrants matching their worker count" in {
     Random.setSeed(42)
     val firms = mkFirmsWithBankrupt(20, 3)
-    val result = DynamicNetwork.rewire(firms, 1.0)
+    val result = PriceEquityStep.rewireFirms(firms, 1.0)
     for i <- 0 until 3 do
       val f = result(i)
       f.initialSize should be > 0

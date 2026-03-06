@@ -1,11 +1,12 @@
 package sfc.engine.steps
 
 import sfc.agents.*
-import sfc.config.{Config, RunConfig, SECTORS}
-import sfc.dynamics.{DynamicNetwork, SigmaDynamics}
+import sfc.config.{Config, FirmSizeDistribution, RunConfig, SECTORS}
 import sfc.engine.*
 import sfc.types.*
 import sfc.util.KahanSum.*
+
+import scala.util.Random
 
 object PriceEquityStep:
 
@@ -49,6 +50,200 @@ object PriceEquityStep:
     investmentImports: Double,
     aggInventoryChange: Double,
   )
+
+  // ---------------------------------------------------------------------------
+  // Sigma dynamics — Arthur-style increasing returns / learning-by-doing
+  // ---------------------------------------------------------------------------
+  //
+  // Per-sector technological sophistication (sigma) evolves endogenously as firms
+  // adopt automation. The mechanism captures a key insight from W. Brian Arthur's
+  // increasing returns theory: technologies that get adopted become *better* (or
+  // at least more productive), reinforcing further adoption.
+  //
+  // The update rule is a logistic growth equation:
+  //
+  //   sigma_s(t+1) = sigma_s(t) + lambda * sigma_s(t) * adoptionRate_s(t) * (1 - sigma_s(t) / cap)
+  //
+  // where:
+  //   - lambda       = learning rate (Config.SigmaLambda); 0.0 disables the mechanism entirely
+  //   - adoptionRate = fraction of alive firms in sector s that are Automated or Hybrid
+  //   - cap          = baseSigma * capMult — the logistic ceiling; sigma saturates at cap
+  //
+  // Two safety constraints:
+  //   - **Ratchet**: sigma never decreases (knowledge is sticky — once learned, not forgotten)
+  //   - **Hard cap**: sigma never exceeds baseSigma * capMult (bounded rationality / diminishing returns)
+  //
+  // The ratchet + logistic combination produces an S-curve: slow initial adoption in each sector,
+  // rapid mid-phase growth as network externalities kick in, then saturation as the sector approaches
+  // its technological frontier.
+  //
+  // Reference: Arthur, W.B. (1989), "Competing Technologies, Increasing Returns, and Lock-In by
+  // Historical Events", The Economic Journal 99(394).
+  // ---------------------------------------------------------------------------
+
+  /** Evolve per-sector sigma via Arthur-style increasing returns / learning-by-doing.
+    *
+    * @param currentSigmas
+    *   current per-sector sigma values
+    * @param baseSigmas
+    *   initial per-sector sigma (used to compute logistic cap)
+    * @param sectorAdoption
+    *   per-sector adoption rates (fraction automated+hybrid)
+    * @param lambda
+    *   learning rate (0.0 = static mode, no-op)
+    * @param capMult
+    *   logistic ceiling multiplier (cap = baseSigma * capMult)
+    * @return
+    *   updated sigma vector (never decreasing — ratchet)
+    */
+  private[steps] def evolveSigmas(
+    currentSigmas: Vector[Double],
+    baseSigmas: Vector[Double],
+    sectorAdoption: Vector[Double],
+    lambda: Double,
+    capMult: Double,
+  ): Vector[Double] =
+    // Fast path: when lambda=0 the mechanism is disabled — sigma is static across the entire simulation.
+    // This is the default for baseline runs and backward-compatible experiments.
+    if lambda == 0.0 then currentSigmas
+    else
+      currentSigmas.zip(baseSigmas).zip(sectorAdoption).map { case ((sig, base), adopt) =>
+        val cap = base * capMult
+        // Logistic delta: positive when sig < cap and adopt > 0; approaches zero as sig → cap.
+        val delta = lambda * sig * adopt * (1.0 - sig / cap)
+        // Ratchet (max with current) ensures sigma never decreases; hard cap ensures it never overshoots.
+        Math.min(cap, Math.max(sig, sig + delta))
+      }
+
+  // ---------------------------------------------------------------------------
+  // Dynamic network rewiring — bankrupt firm replacement with preferential attachment
+  // ---------------------------------------------------------------------------
+  //
+  // In real economies, bankrupt firms don't leave permanent "holes" in the production
+  // network — their market niches get filled by new entrants. This mechanism models
+  // that process: each bankrupt firm has probability rho of being replaced each month
+  // by a fresh Traditional entrant.
+  //
+  // New entrants:
+  //   - Inherit the **same sector** as the bankrupt firm (market niche persistence)
+  //   - Start with fresh financial state: random cash, zero debt, Traditional tech
+  //   - Firm size drawn from FirmSizeDistribution (matching the empirical GUS distribution)
+  //   - Connect to k alive firms via **preferential attachment** (Barabási-Albert mechanism):
+  //     connection probability proportional to current degree, so well-connected hub firms
+  //     attract more new partners — mimicking real-world "rich get richer" network formation
+  //
+  // When rho=0.0, the function is a no-op (static network mode). This is the default
+  // for experiments that need a fixed network topology.
+  //
+  // The mechanism interacts with Firm.localAutoRatio (technology diffusion via network
+  // peer effects): newly wired entrants immediately start receiving competitive pressure
+  // from their automated neighbors.
+  //
+  // Reference: Barabási, A.-L. & Albert, R. (1999), "Emergence of Scaling in Random
+  // Networks", Science 286(5439).
+  // ---------------------------------------------------------------------------
+
+  /** Replace bankrupt firms with new Traditional entrants, wired via preferential attachment.
+    *
+    * Each bankrupt firm has probability rho of being replaced each step. New entrants inherit the same sector, start
+    * with fresh state, and connect to k alive firms weighted by degree (preferential attachment).
+    *
+    * When rho=0.0, returns firms unchanged (static mode = no-op).
+    *
+    * @param firms
+    *   current firm array (some may be Bankrupt)
+    * @param rho
+    *   replacement probability per bankrupt firm per step (0.0 = static)
+    * @return
+    *   updated firm array with same length
+    */
+  private[steps] def rewireFirms(firms: Array[Firm.State], rho: Double): Array[Firm.State] =
+    // Fast path: static network mode — no rewiring, return the exact same array instance.
+    if rho == 0.0 then return firms
+
+    val n = firms.length
+    val k = Config.NetworkK
+
+    // Identify bankrupt firms eligible for replacement. Each bankrupt firm independently
+    // "rolls the dice" with probability rho — this creates stochastic variation in the
+    // replacement rate, avoiding artificial synchronization of firm entry.
+    val toReplace = (0 until n).filter(i => !Firm.isAlive(firms(i)) && Random.nextDouble() < rho).toSet
+    if toReplace.isEmpty then return firms
+
+    // Build mutable adjacency from current neighbor arrays so we can rewire edges
+    // without modifying the original firm states.
+    val adj = Array.tabulate(n)(i => scala.collection.mutable.Set.from(firms(i).neighbors.map(_.toInt)))
+
+    // Alive firm indices serve as targets for preferential attachment.
+    val alive = (0 until n).filter(i => Firm.isAlive(firms(i))).toArray
+
+    for idx <- toReplace do
+      // Remove all edges of the bankrupt firm — its old connections are severed.
+      for nb <- adj(idx) do adj(nb) -= idx
+      adj(idx).clear()
+
+      // Wire the new entrant to k existing alive firms via preferential attachment:
+      // probability of connecting to firm j is proportional to deg(j).
+      if alive.nonEmpty then
+        val numTargets = Math.min(k, alive.length)
+        val targets = scala.collection.mutable.Set.empty[Int]
+        val degrees = alive.map(i => Math.max(1, adj(i).size))
+        val totalDeg = degrees.sum
+
+        // Retry loop with bounded attempts to avoid infinite loops in degenerate cases
+        // (e.g., very small networks where all targets are already selected).
+        var attempts = 0
+        while targets.size < numTargets && attempts < numTargets * 20 do
+          var r = Random.nextInt(if totalDeg > 0 then totalDeg else 1)
+          var j = 0
+          while j < alive.length - 1 && r >= degrees(j) do
+            r -= degrees(j)
+            j += 1
+          targets += alive(j)
+          attempts += 1
+
+        // Create symmetric edges (undirected graph).
+        for t <- targets do
+          adj(idx) += t
+          adj(t) += idx
+
+    // Rebuild firm array: replaced firms get fresh state, others get updated neighbor lists.
+    (0 until n).map { i =>
+      if toReplace.contains(i) then
+        val sec = firms(i).sector
+        val newSize = FirmSizeDistribution.draw(Random)
+        val sizeMult = newSize.toDouble / Config.WorkersPerFirm
+        Firm.State(
+          id = FirmId(i),
+          cash = PLN(Random.between(10000.0, 80000.0) * sizeMult),
+          debt = PLN.Zero,
+          tech = TechState.Traditional(newSize),
+          riskProfile = Ratio(Random.between(0.1, 0.9)),
+          innovationCostFactor = Random.between(0.8, 1.5),
+          digitalReadiness = Ratio(
+            Math.max(
+              0.02,
+              Math.min(0.98, SECTORS(sec.toInt).baseDigitalReadiness.toDouble + (Random.nextGaussian() * 0.20)),
+            ),
+          ),
+          sector = sec,
+          neighbors = adj(i).toArray.map(FirmId(_)),
+          initialSize = newSize,
+          capitalStock =
+            PLN(if Config.PhysCapEnabled then newSize.toDouble * Config.PhysCapKLRatios(sec.toInt) else 0.0),
+        )
+      else
+        // For surviving firms: only allocate a new neighbors array if the neighbor set actually changed
+        // (an edge was added/removed due to a nearby firm being replaced). This avoids unnecessary
+        // garbage collection pressure in the common case where most firms are unaffected.
+        val newNb = adj(i).toArray.map(FirmId(_))
+        if newNb.length != firms(i).neighbors.length then firms(i).copy(neighbors = newNb)
+        else firms(i)
+    }.toArray
+
+  // ---------------------------------------------------------------------------
+  // Main step logic
+  // ---------------------------------------------------------------------------
 
   def run(in: Input): Output =
     val living2 = in.ioFirms.filter(Firm.isAlive)
@@ -101,9 +296,9 @@ object PriceEquityStep:
     }.toVector
     val baseSigmas = SECTORS.map(_.sigma).toVector
     val newSigmas =
-      SigmaDynamics.evolve(in.w.currentSigmas, baseSigmas, sectorAdoption, Config.SigmaLambda, Config.SigmaCapMult)
+      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, Config.SigmaLambda, Config.SigmaCapMult)
 
-    val rewiredFirms = DynamicNetwork.rewire(in.ioFirms, Config.RewireRho)
+    val rewiredFirms = rewireFirms(in.ioFirms, Config.RewireRho)
 
     val exDev =
       if in.rc.isEurozone then 0.0

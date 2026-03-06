@@ -1,21 +1,21 @@
-package sfc.dynamics
+package sfc.engine.steps
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
 
-  "SigmaDynamics.evolve" should "return unchanged sigmas when lambda=0" in {
+  "PriceEquityStep.evolveSigmas" should "return unchanged sigmas when lambda=0" in {
     val current = Vector(50.0, 10.0, 5.0, 2.0, 1.0, 3.0)
     val adoption = Vector(0.5, 0.3, 0.2, 0.1, 0.0, 0.1)
-    SigmaDynamics.evolve(current, current, adoption, 0.0, 3.0) shouldBe current
+    PriceEquityStep.evolveSigmas(current, current, adoption, 0.0, 3.0) shouldBe current
   }
 
   it should "increase sigma when lambda>0 and adoption>0" in {
     val current = Vector(5.0)
     val base = Vector(5.0)
     val adoption = Vector(0.5)
-    val result = SigmaDynamics.evolve(current, base, adoption, 0.02, 3.0)
+    val result = PriceEquityStep.evolveSigmas(current, base, adoption, 0.02, 3.0)
     result(0) should be > 5.0
   }
 
@@ -23,7 +23,7 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
     val current = Vector(5.0)
     val base = Vector(5.0)
     val adoption = Vector(0.0)
-    val result = SigmaDynamics.evolve(current, base, adoption, 0.02, 3.0)
+    val result = PriceEquityStep.evolveSigmas(current, base, adoption, 0.02, 3.0)
     result(0) shouldBe 5.0
   }
 
@@ -32,7 +32,7 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
     val current = Vector(14.99)
     val base = Vector(5.0)
     val adoption = Vector(1.0)
-    val result = SigmaDynamics.evolve(current, base, adoption, 10.0, 3.0)
+    val result = PriceEquityStep.evolveSigmas(current, base, adoption, 10.0, 3.0)
     result(0) should be <= 15.0
   }
 
@@ -41,7 +41,7 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
     val base = Vector(5.0)
     // Negative adoption is pathological but ratchet should still hold
     val adoption = Vector(-0.5)
-    val result = SigmaDynamics.evolve(current, base, adoption, 0.02, 3.0)
+    val result = PriceEquityStep.evolveSigmas(current, base, adoption, 0.02, 3.0)
     result(0) should be >= 5.0
   }
 
@@ -49,7 +49,7 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
     val current = Vector(50.0, 10.0, 5.0, 2.0, 1.0, 3.0)
     val base = current
     val adoption = Vector(0.5, 0.0, 0.3, 0.0, 0.0, 0.2)
-    val result = SigmaDynamics.evolve(current, base, adoption, 0.02, 3.0)
+    val result = PriceEquityStep.evolveSigmas(current, base, adoption, 0.02, 3.0)
     // Sectors with adoption > 0 should increase
     result(0) should be > 50.0
     result(2) should be > 5.0
