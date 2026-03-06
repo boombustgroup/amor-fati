@@ -3,26 +3,26 @@ package sfc.engine
 import sfc.config.Config
 import sfc.types.*
 
-/** GPW equity market state: aggregate index, market cap, yields, foreign ownership. */
-case class EquityMarketState(
-  index: Double,            // WIG-like composite index level
-  marketCap: PLN,           // total market capitalization
-  earningsYield: Rate,      // E/P = inverse of P/E
-  dividendYield: Rate,      // dividend / price
-  foreignOwnership: Ratio,  // fraction held by foreign investors
-  lastIssuance: PLN = PLN.Zero,          // equity issuance this month
-  lastDomesticDividends: PLN = PLN.Zero, // net domestic dividends this month
-  lastForeignDividends: PLN = PLN.Zero,  // foreign dividend outflow this month
-  lastDividendTax: PLN = PLN.Zero,       // dividend tax this month
-  hhEquityWealth: PLN = PLN.Zero,        // total HH equity holdings value
-  lastWealthEffect: PLN = PLN.Zero,      // wealth effect consumption boost this month
-  monthlyReturn: Rate = Rate.Zero       // index return this month (for HH revaluation next month)
-)
-
 object EquityMarket:
-  def zero: EquityMarketState = EquityMarketState(0.0, PLN.Zero, Rate.Zero, Rate.Zero, Ratio.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero)
 
-  def initial: EquityMarketState = EquityMarketState(
+  /** GPW equity market state: aggregate index, market cap, yields, foreign ownership. */
+  case class State(
+    index: Double,            // WIG-like composite index level
+    marketCap: PLN,           // total market capitalization
+    earningsYield: Rate,      // E/P = inverse of P/E
+    dividendYield: Rate,      // dividend / price
+    foreignOwnership: Ratio,  // fraction held by foreign investors
+    lastIssuance: PLN = PLN.Zero,          // equity issuance this month
+    lastDomesticDividends: PLN = PLN.Zero, // net domestic dividends this month
+    lastForeignDividends: PLN = PLN.Zero,  // foreign dividend outflow this month
+    lastDividendTax: PLN = PLN.Zero,       // dividend tax this month
+    hhEquityWealth: PLN = PLN.Zero,        // total HH equity holdings value
+    lastWealthEffect: PLN = PLN.Zero,      // wealth effect consumption boost this month
+    monthlyReturn: Rate = Rate.Zero       // index return this month (for HH revaluation next month)
+  )
+  def zero: State = State(0.0, PLN.Zero, Rate.Zero, Rate.Zero, Ratio.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero)
+
+  def initial: State = State(
     index = Config.GpwInitIndex,
     marketCap = PLN(Config.GpwInitMcap),
     earningsYield = Rate(1.0 / Config.GpwPeMean),
@@ -43,8 +43,8 @@ object EquityMarket:
     * @param firmProfits total firm profits this month
     * @return updated equity market state
     */
-  def step(prev: EquityMarketState, refRate: Double, inflation: Double,
-           gdpGrowth: Double, firmProfits: Double): EquityMarketState =
+  def step(prev: State, refRate: Double, inflation: Double,
+           gdpGrowth: Double, firmProfits: Double): State =
     if !Config.GpwEnabled then return zero
 
     // Equity risk premium: mean-reverting around 5% (GPW historical)
@@ -85,12 +85,12 @@ object EquityMarket:
     // Monthly return for HH revaluation (used next month)
     val mReturn = if prev.index > 0 then newIndex / prev.index - 1.0 else 0.0
 
-    EquityMarketState(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership,
+    State(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership,
       monthlyReturn = Rate(mReturn))
 
   /** Process equity issuance: firm raises CAPEX via equity, increasing market cap.
     * Returns updated state with diluted index (supply effect). */
-  def processIssuance(amount: Double, prev: EquityMarketState): EquityMarketState =
+  def processIssuance(amount: Double, prev: State): State =
     if amount <= 0 then return prev.copy(lastIssuance = PLN.Zero)
     val amountPLN = PLN(amount)
     // New shares increase market cap; index diluted by supply effect

@@ -7,7 +7,7 @@ import sfc.types.*
 
 class HousingMarketSpec extends AnyFlatSpec with Matchers:
 
-  private val initState = HousingMarketState(
+  private val initState = HousingMarket.State(
     priceIndex = 100.0,
     totalValue = PLN(3.0e12 * Config.FirmsCount / 10000.0),
     mortgageStock = PLN(485e9 * Config.FirmsCount / 10000.0),
@@ -153,12 +153,12 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
 
   // --- Regional Housing Market tests ---
 
-  private def makeRegionalState(aggValue: Double, aggMortgage: Double): HousingMarketState =
+  private def makeRegionalState(aggValue: Double, aggMortgage: Double): HousingMarket.State =
     val valueShares = Vector(0.25, 0.08, 0.07, 0.08, 0.04, 0.05, 0.43)
     val mortgageShares = Vector(0.30, 0.10, 0.08, 0.09, 0.04, 0.06, 0.33)
     val hpis = Vector(230.0, 190.0, 170.0, 175.0, 110.0, 140.0, 100.0)
     val regions = (0 until 7).map { r =>
-      RegionalHousingState(
+      HousingMarket.RegionalState(
         priceIndex = hpis(r),
         totalValue = PLN(aggValue * valueShares(r)),
         mortgageStock = PLN(aggMortgage * mortgageShares(r)),
@@ -168,7 +168,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
         monthlyReturn = Rate.Zero
       )
     }.toVector
-    HousingMarketState(
+    HousingMarket.State(
       priceIndex = 100.0,
       totalValue = PLN(aggValue),
       mortgageStock = PLN(aggMortgage),
@@ -183,7 +183,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
       regions = Some(regions)
     )
 
-  "RegionalHousingState" should "have 7 entries" in {
+  "HousingMarket.RegionalState" should "have 7 entries" in {
     val state = makeRegionalState(1e9, 4e8)
     state.regions.get.length shouldBe 7
   }

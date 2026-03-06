@@ -17,7 +17,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
 
   private def runStep(rc: RunConfig = plnRc, prevBop: BopState = BopState.zero,
                       prevForex: ForexState = baseForex,
-                      autoRatio: Double = 0.0, month: Int = 30): OpenEconResult =
+                      autoRatio: Double = 0.0, month: Int = 30): OpenEconomy.Result =
     OpenEconomy.step(prevBop, prevForex, 1e7, 5e6, autoRatio,
       Config.NbpInitialRate, gdp, 1.0, baseSectorOutputs, month, rc)
 

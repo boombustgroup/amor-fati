@@ -147,7 +147,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     SectoralMobility.frictionAdjustedSuccess(base, 1.0) shouldBe (base * 0.5) +- 0.001
   }
 
-  // --- SectoralMobilityState ---
+  // --- SectoralMobility.State ---
 
   "SectoralMobility.zero" should "have zero fields" in {
     val z = SectoralMobility.zero

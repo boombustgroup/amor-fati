@@ -3,8 +3,8 @@ package sfc.engine.steps
 import sfc.accounting.{BopState, ForexState}
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
-import sfc.engine.{CorporateBondMarket, CorporateBondMarketState, EquityMarketState, Expectations,
-  ExpectationsState, ExternalSector, GvcState, OpenEconomy, Sectors, World, YieldCurve}
+import sfc.engine.{CorporateBondMarket, EquityMarket, Expectations,
+  ExternalSector, GvcState, OpenEconomy, Sectors, World, YieldCurve}
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -29,7 +29,7 @@ object OpenEconomyStep:
     diasporaInflow: Double,
     tourismExport: Double,
     tourismImport: Double,
-    equityAfterIssuance: EquityMarketState,
+    equityAfterIssuance: EquityMarket.State,
     foreignDividendOutflow: Double,
     totalBondDefault: Double,
     actualBondIssuance: Double,
@@ -46,7 +46,7 @@ object OpenEconomyStep:
     newBop: BopState,
     newGvc: GvcState,
     newRefRate: Double,
-    newExp: ExpectationsState,
+    newExp: Expectations.State,
     totalReserveInterest: Double,
     totalStandingFacilityIncome: Double,
     totalInterbankInterest: Double,
@@ -56,7 +56,7 @@ object OpenEconomyStep:
     nbpRemittance: Double,
     postFxNbp: NbpState,
     qePurchaseAmount: Double,
-    newCorpBonds: CorporateBondMarketState,
+    newCorpBonds: CorporateBondMarket.State,
     corpBondBankCoupon: Double,
     corpBondBankDefaultLoss: Double,
     corpBondAmort: Double,

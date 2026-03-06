@@ -6,14 +6,14 @@ import sfc.types.*
 
 import scala.util.Random
 
-case class SectoralMobilityState(
-  crossSectorHires: Int = 0,
-  voluntaryQuits: Int = 0,
-  sectorMobilityRate: Double = 0.0
-)
-
 object SectoralMobility:
-  def zero: SectoralMobilityState = SectoralMobilityState()
+  case class State(
+    crossSectorHires: Int = 0,
+    voluntaryQuits: Int = 0,
+    sectorMobilityRate: Double = 0.0
+  )
+
+  def zero: State = State()
 
   /** Default 6x6 symmetric transition friction matrix.
     * f(i,j) in [0,1]: 0 = frictionless, 1 = near-impossible.

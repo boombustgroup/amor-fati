@@ -12,13 +12,13 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  private val genEquityState: Gen[EquityMarketState] = for
+  private val genEquityState: Gen[EquityMarket.State] = for
     index    <- Gen.choose(100.0, 10000.0)
     mcap     <- Gen.choose(1e9, 1e13)
     ey       <- Gen.choose(0.01, 0.50)
     dy       <- Gen.choose(0.01, 0.15)
     foreign  <- Gen.choose(0.0, 1.0)
-  yield EquityMarketState(index, PLN(mcap), Rate(ey), Rate(dy), Ratio(foreign), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+  yield EquityMarket.State(index, PLN(mcap), Rate(ey), Rate(dy), Ratio(foreign), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   // --- processIssuance properties ---
 

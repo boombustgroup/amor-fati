@@ -2,7 +2,6 @@ package sfc.engine
 
 import sfc.accounting.{BankState, BopState, ForexState, GovState, MonetaryAggregates}
 import sfc.agents.{BankingSectorState, DemographicsState, HhAggregates, HhState, Household, ImmigrationState, InsuranceSector, InsuranceSectorState, JstState, NbfiState, NbpState, PpkState, ShadowBanking, ZusState}
-import sfc.engine.{EquityMarketState, HousingMarketState, SectoralMobilityState}
 import sfc.types.*
 
 case class World(
@@ -28,14 +27,14 @@ case class World(
   zus: ZusState = ZusState.zero,
   ppk: PpkState = PpkState.zero,
   demographics: DemographicsState = DemographicsState.zero,
-  macropru: MacropruState = MacropruState.zero,
-  equity: EquityMarketState = EquityMarket.zero,
-  housing: HousingMarketState = HousingMarket.zero,
-  sectoralMobility: SectoralMobilityState = SectoralMobility.zero,
+  macropru: Macroprudential.State = Macroprudential.State.zero,
+  equity: EquityMarket.State = EquityMarket.zero,
+  housing: HousingMarket.State = HousingMarket.zero,
+  sectoralMobility: SectoralMobility.State = SectoralMobility.zero,
   gvc: GvcState = ExternalSector.zero,
-  expectations: ExpectationsState = Expectations.zero,
+  expectations: Expectations.State = Expectations.zero,
   immigration: ImmigrationState = ImmigrationState.zero,
-  corporateBonds: CorporateBondMarketState = CorporateBondMarket.zero,
+  corporateBonds: CorporateBondMarket.State = CorporateBondMarket.zero,
   insurance: InsuranceSectorState = InsuranceSector.zero,
   nbfi: NbfiState = ShadowBanking.zero,
   sectorDemandMult: Vector[Double] = Vector.fill(6)(1.0),

@@ -3,8 +3,8 @@ package sfc.engine.steps
 import sfc.accounting.{BankState, BopState, ForexState, GovState, MonetaryAggregates, SfcCheck}
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
-import sfc.engine.{CorporateBondMarketState, EquityMarketState, ExpectationsState, GvcState,
-  HousingMarketState, MacropruState, SectoralMobilityState, World}
+import sfc.engine.{CorporateBondMarket, EquityMarket, Expectations, GvcState,
+  HousingMarket, Macroprudential, SectoralMobility, World}
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -75,11 +75,11 @@ object WorldAssemblyStep:
     aggGreenCapital: Double,
     euCofin: Double,
     gdp: Double,
-    newMacropru: MacropruState,
+    newMacropru: Macroprudential.State,
     newSigmas: Vector[Double],
     newInfl: Double,
     newPrice: Double,
-    equityAfterIssuance: EquityMarketState,
+    equityAfterIssuance: EquityMarket.State,
     netDomesticDividends: Double,
     foreignDividendOutflow: Double,
     dividendTax: Double,
@@ -88,7 +88,7 @@ object WorldAssemblyStep:
     newForex: ForexState,
     newBop: BopState,
     newGvc: GvcState,
-    newExp: ExpectationsState,
+    newExp: Expectations.State,
     totalReserveInterest: Double,
     totalStandingFacilityIncome: Double,
     totalInterbankInterest: Double,
@@ -98,7 +98,7 @@ object WorldAssemblyStep:
     nbpRemittance: Double,
     postFxNbp: NbpState,
     qePurchaseAmount: Double,
-    newCorpBonds: CorporateBondMarketState,
+    newCorpBonds: CorporateBondMarket.State,
     corpBondBankCoupon: Double,
     corpBondBankDefaultLoss: Double,
     corpBondAmort: Double,
@@ -118,7 +118,7 @@ object WorldAssemblyStep:
     finalNbfi: NbfiState,
     newGovWithYield: GovState,
     newJst: JstState,
-    housingAfterFlows: HousingMarketState,
+    housingAfterFlows: HousingMarket.State,
     bfgLevy: Double,
     bailInLoss: Double,
     multiCapDestruction: Double,
@@ -213,7 +213,7 @@ object WorldAssemblyStep:
       macropru = in.newMacropru,
       equity = equityAfterStep,
       housing = in.housingAfterFlows,
-      sectoralMobility = SectoralMobilityState(
+      sectoralMobility = SectoralMobility.State(
         crossSectorHires = in.postFirmCrossSectorHires + in.hhAgg.map(_.crossSectorHires).getOrElse(0),
         voluntaryQuits = in.hhAgg.map(_.voluntaryQuits).getOrElse(0),
         sectorMobilityRate = in.finalHhAgg.map(_.sectorMobilityRate.toDouble).getOrElse(0.0)

@@ -15,7 +15,7 @@ class MacroprudentialPropertySpec extends AnyFlatSpec with Matchers with ScalaCh
     forAll(Gen.choose(0.0, 0.025), Gen.choose(-0.10, 0.10), Gen.choose(0.0, 1.0),
            Gen.choose(0.0, 1e10), Gen.choose(1.0, 1e9)) {
       (prevCcyb, prevGap, prevTrend, totalLoans, gdp) =>
-        val prev = MacropruState(Rate(prevCcyb), prevGap, prevTrend)
+        val prev = Macroprudential.State(Rate(prevCcyb), prevGap, prevTrend)
         val result = Macroprudential.stepInternal(prev, totalLoans, gdp)
         result.ccyb.toDouble should be >= 0.0
         result.ccyb.toDouble should be <= sfc.config.Config.CcybMax

@@ -3,28 +3,28 @@ package sfc.engine
 import sfc.config.Config
 import sfc.types.*
 
-/** Corporate bond market state: Catalyst + non-public issuance (#40). */
-case class CorporateBondMarketState(
-  outstanding: PLN,          // total corp bonds outstanding
-  bankHoldings: PLN,         // banks' share of outstanding
-  ppkHoldings: PLN,          // PPK's share of outstanding
-  otherHoldings: PLN,        // other investors (off-model sink)
-  corpBondYield: Rate,          // current yield = govBondYield + spread
-  lastIssuance: PLN = PLN.Zero,
-  lastAmortization: PLN = PLN.Zero,
-  lastCouponIncome: PLN = PLN.Zero,   // bank + ppk coupon income
-  lastDefaultLoss: PLN = PLN.Zero,    // net loss after recovery
-  lastDefaultAmount: PLN = PLN.Zero,  // gross default amount
-  creditSpread: Rate = Rate(0.025),    // current credit spread
-  lastAbsorptionRate: Ratio = Ratio.One  // demand-side absorption rate [0.3, 1.0]
-)
-
 object CorporateBondMarket:
-  def zero: CorporateBondMarketState = CorporateBondMarketState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero)
 
-  def initial: CorporateBondMarketState =
+  /** Corporate bond market state: Catalyst + non-public issuance. */
+  case class State(
+    outstanding: PLN,          // total corp bonds outstanding
+    bankHoldings: PLN,         // banks' share of outstanding
+    ppkHoldings: PLN,          // PPK's share of outstanding
+    otherHoldings: PLN,        // other investors (off-model sink)
+    corpBondYield: Rate,          // current yield = govBondYield + spread
+    lastIssuance: PLN = PLN.Zero,
+    lastAmortization: PLN = PLN.Zero,
+    lastCouponIncome: PLN = PLN.Zero,   // bank + ppk coupon income
+    lastDefaultLoss: PLN = PLN.Zero,    // net loss after recovery
+    lastDefaultAmount: PLN = PLN.Zero,  // gross default amount
+    creditSpread: Rate = Rate(0.025),    // current credit spread
+    lastAbsorptionRate: Ratio = Ratio.One  // demand-side absorption rate [0.3, 1.0]
+  )
+  def zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero)
+
+  def initial: State =
     val stock = PLN(Config.CorpBondInitStock)
-    CorporateBondMarketState(
+    State(
       outstanding = stock,
       bankHoldings = stock * Config.CorpBondBankShare,
       ppkHoldings = stock * Config.CorpBondPpkShare,
@@ -42,7 +42,7 @@ object CorporateBondMarket:
 
   /** Monthly coupon income from corporate bond holdings.
     * Returns (totalCoupon, bankCoupon, ppkCoupon). */
-  def computeCoupon(state: CorporateBondMarketState): (Double, Double, Double) =
+  def computeCoupon(state: State): (Double, Double, Double) =
     val totalCoupon = state.outstanding.toDouble * state.corpBondYield.toDouble / 12.0
     val bankCoupon = state.bankHoldings.toDouble * state.corpBondYield.toDouble / 12.0
     val ppkCoupon = state.ppkHoldings.toDouble * state.corpBondYield.toDouble / 12.0
@@ -50,7 +50,7 @@ object CorporateBondMarket:
 
   /** Process defaults from bankrupt firms' bond debt.
     * Returns (grossDefault, lossAfterRecovery, bankLoss, ppkLoss). */
-  def processDefaults(state: CorporateBondMarketState,
+  def processDefaults(state: State,
                       totalBondDefault: Double): (Double, Double, Double, Double) =
     if totalBondDefault <= 0 || state.outstanding <= PLN.Zero then return (0.0, 0.0, 0.0, 0.0)
     val defaultFrac = Math.min(1.0, totalBondDefault / state.outstanding.toDouble)
@@ -62,14 +62,14 @@ object CorporateBondMarket:
     (totalBondDefault, lossAfterRecovery, bankLoss, ppkLoss)
 
   /** Monthly amortization: outstanding / maturity. */
-  def amortization(state: CorporateBondMarketState): Double =
+  def amortization(state: State): Double =
     state.outstanding.toDouble / Math.max(1.0, Config.CorpBondMaturity)
 
   /** Compute market absorption rate for new bond issuance.
     * Gate 1: spread-based investor appetite (cyclical).
     * Gate 2: bank CAR headroom (banks hold CorpBondBankShare at 50% RW).
     * Returns absorption rate in [0.3, 1.0]. */
-  def computeAbsorption(state: CorporateBondMarketState,
+  def computeAbsorption(state: State,
                         tentativeIssuance: Double,
                         aggBankCar: Double, minCar: Double): Double =
     if tentativeIssuance <= 0 then return 1.0
@@ -84,8 +84,8 @@ object CorporateBondMarket:
     Math.max(0.3, Math.min(1.0, spreadAbsorption * carAbsorption))
 
   /** Process new issuance: allocate to holders proportionally. */
-  def processIssuance(state: CorporateBondMarketState,
-                      issuance: Double): CorporateBondMarketState =
+  def processIssuance(state: State,
+                      issuance: Double): State =
     if issuance <= 0 then return state.copy(lastIssuance = PLN.Zero)
     state.copy(
       outstanding = state.outstanding + PLN(issuance),
@@ -97,9 +97,9 @@ object CorporateBondMarket:
     )
 
   /** Full monthly step: yield -> coupon -> amortization -> default -> issuance. */
-  def step(prev: CorporateBondMarketState, govBondYield: Double,
+  def step(prev: State, govBondYield: Double,
            nplRatio: Double, totalBondDefault: Double,
-           totalBondIssuance: Double): CorporateBondMarketState =
+           totalBondIssuance: Double): State =
     val newYield = computeYield(govBondYield, nplRatio)
     val (_, bankCoupon, ppkCoupon) = computeCoupon(prev)
     val amort = amortization(prev)

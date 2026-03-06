@@ -2,7 +2,7 @@ package sfc.engine.steps
 
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
-import sfc.engine.{ExpectationsState, Sectors}
+import sfc.engine.Sectors
 import sfc.types.*
 import sfc.util.KahanSum.*
 

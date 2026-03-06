@@ -7,7 +7,7 @@ import sfc.types.*
 
 class EquityMarketSpec extends AnyFlatSpec with Matchers:
 
-  private val initState = EquityMarketState(
+  private val initState = EquityMarket.State(
     index = 2400.0,
     marketCap = PLN(1.4e12 * Config.FirmsCount / 10000.0),
     earningsYield = Rate(0.10),

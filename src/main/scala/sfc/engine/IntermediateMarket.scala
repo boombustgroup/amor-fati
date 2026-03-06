@@ -5,14 +5,14 @@ import sfc.config.Config
 import sfc.types.*
 import sfc.util.KahanSum.*
 
-case class IoResult(firms: Array[Firm], totalPaid: Double)
-
 object IntermediateMarket:
+
+  case class Result(firms: Array[Firm], totalPaid: Double)
 
   def process(firms: Array[Firm], sectorMults: Vector[Double], price: Double,
               ioMatrix: Vector[Vector[Double]],
               columnSums: Vector[Double],
-              scale: Double = 1.0): IoResult =
+              scale: Double = 1.0): Result =
     val nSectors = 6
 
     // Identify living firms and compute per-firm gross output
@@ -66,4 +66,4 @@ object IntermediateMarket:
       val f = newFirms(idx)
       newFirms(idx) = f.copy(cash = f.cash + PLN(cashAdj(idx)))
 
-    IoResult(newFirms, totalPaid)
+    Result(newFirms, totalPaid)

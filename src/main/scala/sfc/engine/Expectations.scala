@@ -3,18 +3,18 @@ package sfc.engine
 import sfc.config.{Config, RunConfig}
 import sfc.types.*
 
-case class ExpectationsState(
-  expectedInflation: Rate = Rate(0.025),
-  expectedRate: Rate = Rate(0.0575),
-  credibility: Ratio = Ratio(0.8),
-  forecastError: Rate = Rate.Zero,
-  forwardGuidanceRate: Rate = Rate(0.0575)
-)
-
 object Expectations:
-  def zero: ExpectationsState = ExpectationsState()
+  case class State(
+    expectedInflation: Rate = Rate(0.025),
+    expectedRate: Rate = Rate(0.0575),
+    credibility: Ratio = Ratio(0.8),
+    forecastError: Rate = Rate.Zero,
+    forwardGuidanceRate: Rate = Rate(0.0575)
+  )
 
-  def initial: ExpectationsState = ExpectationsState(
+  def zero: State = State()
+
+  def initial: State = State(
     expectedInflation = Rate(Config.NbpTargetInfl),
     expectedRate = Rate(Config.NbpInitialRate),
     credibility = Ratio(Config.ExpCredibilityInit),
@@ -22,9 +22,9 @@ object Expectations:
     forwardGuidanceRate = Rate(Config.NbpInitialRate)
   )
 
-  def step(prev: ExpectationsState, realizedInflation: Double,
+  def step(prev: State, realizedInflation: Double,
            currentRate: Double, unemployment: Double,
-           rc: RunConfig): ExpectationsState =
+           rc: RunConfig): State =
 
     // 1. Forecast error
     val error = realizedInflation - prev.expectedInflation.toDouble
@@ -70,7 +70,7 @@ object Expectations:
       0.6 * fgRate + 0.4 * adaptiveRate
     else adaptiveRate
 
-    ExpectationsState(
+    State(
       expectedInflation = Rate(expected),
       expectedRate = Rate(expRate),
       credibility = Ratio(newCredibility),

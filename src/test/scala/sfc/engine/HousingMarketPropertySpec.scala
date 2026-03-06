@@ -12,13 +12,13 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  private val genHousingState: Gen[HousingMarketState] = for
+  private val genHousingState: Gen[HousingMarket.State] = for
     hpi       <- Gen.choose(50.0, 200.0)
     value     <- Gen.choose(1e9, 1e13)
     mortgage  <- Gen.choose(0.0, 1e12)
     rate      <- Gen.choose(0.02, 0.15)
     wealth    <- Gen.choose(0.0, 1e13)
-  yield HousingMarketState(hpi, PLN(value), PLN(mortgage), Rate(rate), PLN(wealth), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero, PLN.Zero)
+  yield HousingMarket.State(hpi, PLN(value), PLN(mortgage), Rate(rate), PLN(wealth), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero, PLN.Zero)
 
   // --- applyFlows properties ---
 
@@ -110,9 +110,9 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   private val mortgageShares = Vector(0.30, 0.10, 0.08, 0.09, 0.04, 0.06, 0.33)
   private val hpis = Vector(230.0, 190.0, 170.0, 175.0, 110.0, 140.0, 100.0)
 
-  private def makeRegionalState(aggValue: Double, aggMortgage: Double): HousingMarketState =
+  private def makeRegionalState(aggValue: Double, aggMortgage: Double): HousingMarket.State =
     val regions = (0 until 7).map { r =>
-      RegionalHousingState(
+      HousingMarket.RegionalState(
         priceIndex = hpis(r),
         totalValue = PLN(aggValue * valueShares(r)),
         mortgageStock = PLN(aggMortgage * mortgageShares(r)),
@@ -122,7 +122,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         monthlyReturn = Rate.Zero
       )
     }.toVector
-    HousingMarketState(100.0, PLN(aggValue), PLN(aggMortgage), Rate(0.08), PLN(aggValue - aggMortgage),
+    HousingMarket.State(100.0, PLN(aggValue), PLN(aggMortgage), Rate(0.08), PLN(aggValue - aggMortgage),
       PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero, PLN.Zero, Some(regions))
 
   "applyFlows with regions" should "never produce negative regional mortgage stock" in {

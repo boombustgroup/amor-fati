@@ -3,7 +3,7 @@ package sfc.engine.steps
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
 import sfc.dynamics.{DynamicNetwork, SigmaDynamics}
-import sfc.engine.{EuFunds, EquityMarket, EquityMarketState, Macroprudential, MacropruState, Sectors, World}
+import sfc.engine.{EuFunds, EquityMarket, Macroprudential, Sectors, World}
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -35,12 +35,12 @@ object PriceEquityStep:
     euCofin: Double,
     euProjectCapital: Double,
     gdp: Double,
-    newMacropru: MacropruState,
+    newMacropru: Macroprudential.State,
     newSigmas: Vector[Double],
     rewiredFirms: Array[Firm],
     newInfl: Double,
     newPrice: Double,
-    equityAfterIssuance: EquityMarketState,
+    equityAfterIssuance: EquityMarket.State,
     netDomesticDividends: Double,
     foreignDividendOutflow: Double,
     dividendTax: Double,

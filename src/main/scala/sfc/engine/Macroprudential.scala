@@ -3,17 +3,17 @@ package sfc.engine
 import sfc.config.Config
 import sfc.types.*
 
-/** Macroprudential state: CCyB, credit-to-GDP gap, effective minimum CAR. */
-case class MacropruState(
-  ccyb: Rate,              // current countercyclical capital buffer rate
-  creditToGdpGap: Double,  // credit-to-GDP deviation from trend (HP-filtered)
-  creditToGdpTrend: Double // HP-filtered trend (smoothed)
-)
-
-object MacropruState:
-  val zero: MacropruState = MacropruState(Rate.Zero, 0.0, 0.0)
-
 object Macroprudential:
+
+  /** Macroprudential state: CCyB, credit-to-GDP gap, effective minimum CAR. */
+  case class State(
+    ccyb: Rate,              // current countercyclical capital buffer rate
+    creditToGdpGap: Double,  // credit-to-GDP deviation from trend (HP-filtered)
+    creditToGdpTrend: Double // HP-filtered trend (smoothed)
+  )
+
+  object State:
+    val zero: State = State(Rate.Zero, 0.0, 0.0)
 
   /** OSII buffer for a specific bank (based on bank ID).
     * Systemically important banks get higher buffers.
@@ -49,12 +49,12 @@ object Macroprudential:
     * CCyB release: gap < releaseGap → release buffer immediately.
     *
     * HP filter approximated by exponential smoothing (λ=0.05 monthly ≈ quarterly HP 1600). */
-  def step(prev: MacropruState, totalLoans: Double, gdp: Double): MacropruState =
+  def step(prev: State, totalLoans: Double, gdp: Double): State =
     if !Config.MacropruEnabled then prev
     else stepInternal(prev, totalLoans, gdp)
 
   /** Internal step (always computes, for testing). */
-  private[engine] def stepInternal(prev: MacropruState, totalLoans: Double, gdp: Double): MacropruState =
+  private[engine] def stepInternal(prev: State, totalLoans: Double, gdp: Double): State =
     // Credit-to-GDP ratio (annualized GDP)
     val annualGdp = Math.max(1.0, gdp * 12.0)
     val creditToGdp = totalLoans / annualGdp
@@ -79,7 +79,7 @@ object Macroprudential:
       else
         prev.ccyb  // Maintain current buffer
 
-    MacropruState(newCcyb, gap, newTrend)
+    State(newCcyb, gap, newTrend)
 
   /** Check concentration limit: bank's loan share should not exceed limit × capital.
     * Returns true if within limit. */

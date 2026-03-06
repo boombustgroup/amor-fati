@@ -69,7 +69,7 @@ case class BankingSectorState(
   banks: Vector[IndividualBankState],
   interbankRate: Rate,
   configs: Vector[BankConfig],
-  interbankCurve: Option[InterbankCurve] = None
+  interbankCurve: Option[YieldCurve.State] = None
 ):
   def aggregate: BankState =
     BankState(

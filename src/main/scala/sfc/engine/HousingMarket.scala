@@ -4,46 +4,46 @@ import sfc.config.Config
 import sfc.types.*
 import sfc.util.KahanSum.*
 
-/** Per-region housing state: only fields that vary regionally. */
-case class RegionalHousingState(
-  priceIndex: Double,      // regional HPI (absolute — Warszawa starts at 230, Rest at 100)
-  totalValue: PLN,         // regional property value
-  mortgageStock: PLN,      // regional mortgage debt
-  lastOrigination: PLN,
-  lastRepayment: PLN,
-  lastDefault: PLN,
-  monthlyReturn: Rate
-)
-
-/** Housing market state: aggregate HPI, property value, mortgage stock, flows. */
-case class HousingMarketState(
-  priceIndex: Double,              // HPI (base 100)
-  totalValue: PLN,                 // aggregate residential property value
-  mortgageStock: PLN,              // total outstanding mortgage debt
-  avgMortgageRate: Rate,           // bank-weighted average mortgage rate
-  hhHousingWealth: PLN,            // HH property equity (value - mortgage)
-  lastOrigination: PLN,            // monthly new mortgages issued
-  lastRepayment: PLN,              // monthly principal repaid
-  lastDefault: PLN,                // monthly mortgage defaults
-  lastWealthEffect: PLN,           // consumption boost from housing wealth
-  monthlyReturn: Rate,             // HPI monthly return (for HH revaluation)
-  mortgageInterestIncome: PLN,     // monthly interest income (-> bank capital)
-  regions: Option[Vector[RegionalHousingState]] = None  // 7 entries when RE_REGIONAL=true
-)
-
 object HousingMarket:
+
+  /** Per-region housing state: only fields that vary regionally. */
+  case class RegionalState(
+    priceIndex: Double,      // regional HPI (absolute — Warszawa starts at 230, Rest at 100)
+    totalValue: PLN,         // regional property value
+    mortgageStock: PLN,      // regional mortgage debt
+    lastOrigination: PLN,
+    lastRepayment: PLN,
+    lastDefault: PLN,
+    monthlyReturn: Rate
+  )
+
+  /** Housing market state: aggregate HPI, property value, mortgage stock, flows. */
+  case class State(
+    priceIndex: Double,              // HPI (base 100)
+    totalValue: PLN,                 // aggregate residential property value
+    mortgageStock: PLN,              // total outstanding mortgage debt
+    avgMortgageRate: Rate,           // bank-weighted average mortgage rate
+    hhHousingWealth: PLN,            // HH property equity (value - mortgage)
+    lastOrigination: PLN,            // monthly new mortgages issued
+    lastRepayment: PLN,              // monthly principal repaid
+    lastDefault: PLN,                // monthly mortgage defaults
+    lastWealthEffect: PLN,           // consumption boost from housing wealth
+    monthlyReturn: Rate,             // HPI monthly return (for HH revaluation)
+    mortgageInterestIncome: PLN,     // monthly interest income (-> bank capital)
+    regions: Option[Vector[RegionalState]] = None  // 7 entries when RE_REGIONAL=true
+  )
   val NRegions = 7
   // Region names (for documentation): Warszawa, Kraków, Wrocław, Gdańsk, Łódź, Poznań, Rest
 
-  def zero: HousingMarketState = HousingMarketState(0.0, PLN.Zero, PLN.Zero, Rate.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero, PLN.Zero, None)
+  def zero: State = State(0.0, PLN.Zero, PLN.Zero, Rate.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero, PLN.Zero, None)
 
-  def initial: HousingMarketState =
+  def initial: State =
     val initMortgageRate = Config.NbpInitialRate + Config.ReMortgageSpread
     val regions = if Config.ReRegional then
       Some((0 until NRegions).map { r =>
         val rValue = PLN(Config.ReInitValue * Config.ReRegionalValueShares(r))
         val rMortgage = PLN(Config.ReInitMortgage * Config.ReRegionalMortgageShares(r))
-        RegionalHousingState(
+        RegionalState(
           priceIndex = Config.ReRegionalHpi(r),
           totalValue = rValue,
           mortgageStock = rMortgage,
@@ -54,7 +54,7 @@ object HousingMarket:
         )
       }.toVector)
     else None
-    HousingMarketState(
+    State(
       priceIndex = Config.ReInitHpi,
       totalValue = PLN(Config.ReInitValue),
       mortgageStock = PLN(Config.ReInitMortgage),
@@ -83,8 +83,8 @@ object HousingMarket:
     * @param prevMortgageRate previous period mortgage rate (for Δr)
     * @return updated housing market state (price only — origination/flows computed separately)
     */
-  def step(prev: HousingMarketState, mortgageRate: Double, inflation: Double,
-           incomeGrowth: Double, employed: Int, prevMortgageRate: Double): HousingMarketState =
+  def step(prev: State, mortgageRate: Double, inflation: Double,
+           incomeGrowth: Double, employed: Int, prevMortgageRate: Double): State =
     if !Config.ReEnabled then return zero
 
     val alpha = Config.RePriceIncomeElast
@@ -172,8 +172,8 @@ object HousingMarket:
   /** Mortgage origination: new mortgages issued monthly.
     * Scaled by origination rate, income growth, and bank capacity.
     * LTV constraint caps mortgage at RE_LTV_MAX × property value. */
-  def processOrigination(prev: HousingMarketState, totalIncome: Double,
-                         mortgageRate: Double, bankCapacity: Boolean): HousingMarketState =
+  def processOrigination(prev: State, totalIncome: Double,
+                         mortgageRate: Double, bankCapacity: Boolean): State =
     if !Config.ReEnabled || !Config.ReMortgage || !bankCapacity then
       return prev.copy(lastOrigination = PLN.Zero,
         regions = prev.regions.map(_.map(_.copy(lastOrigination = PLN.Zero))))
@@ -223,7 +223,7 @@ object HousingMarket:
 
   /** Mortgage servicing: compute interest, principal repayment, and defaults.
     * @return (interestIncome, principalRepaid, defaultLoss) */
-  def processMortgageFlows(prev: HousingMarketState,
+  def processMortgageFlows(prev: State,
                            mortgageRate: Double,
                            unemploymentRate: Double
   ): (Double, Double, Double) =
@@ -247,8 +247,8 @@ object HousingMarket:
     (interestIncome, principalRepaid, defaultLoss)
 
   /** Update mortgage stock after flows (principal repayment + defaults). */
-  def applyFlows(prev: HousingMarketState, principalRepaid: Double,
-                 defaultAmount: Double, interestIncome: Double): HousingMarketState =
+  def applyFlows(prev: State, principalRepaid: Double,
+                 defaultAmount: Double, interestIncome: Double): State =
     val newStock = PLN(Math.max(0.0, prev.mortgageStock.toDouble - principalRepaid - defaultAmount))
     val newHhWealth = prev.totalValue - newStock
     // Housing wealth effect: MPC x housing wealth change

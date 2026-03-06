@@ -6,16 +6,16 @@ import sfc.agents.CentralBankLogic
 import sfc.types.PLN
 import sfc.util.KahanSum.*
 
-case class OpenEconResult(
-  forex: ForexState,
-  bop: BopState,
-  importedIntermediates: Vector[Double],  // per-sector import cost (6 elements)
-  valuationEffect: Double,                // exact valuation effect used in NFA update
-  fxIntervention: CentralBankLogic.FxInterventionResult =
-    CentralBankLogic.FxInterventionResult(0.0, 0.0, 0.0)
-)
-
 object OpenEconomy:
+
+  case class Result(
+    forex: ForexState,
+    bop: BopState,
+    importedIntermediates: Vector[Double],  // per-sector import cost (6 elements)
+    valuationEffect: Double,                // exact valuation effect used in NFA update
+    fxIntervention: CentralBankLogic.FxInterventionResult =
+      CentralBankLogic.FxInterventionResult(0.0, 0.0, 0.0)
+  )
 
   def step(prevBop: BopState, prevForex: ForexState,
            importCons: Double, techImports: Double,
@@ -29,7 +29,7 @@ object OpenEconomy:
            euFundsMonthly: Double = 0.0,
            diasporaInflow: Double = 0.0,
            tourismExport: Double = 0.0,
-           tourismImport: Double = 0.0): OpenEconResult =
+           tourismImport: Double = 0.0): Result =
 
     val nSectors = SECTORS.length
 
@@ -136,4 +136,4 @@ object OpenEconomy:
       importedIntermediates = PLN(totalImportedInterm)
     )
 
-    OpenEconResult(newForex, newBop, importedInterm, valuationEffect, fxResult)
+    Result(newForex, newBop, importedInterm, valuationEffect, fxResult)

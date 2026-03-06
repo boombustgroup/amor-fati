@@ -3,7 +3,7 @@ package sfc.engine.steps
 import sfc.accounting.{BankState, BopState, MonetaryAggregates, GovState}
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SECTORS}
-import sfc.engine.{CorporateBondMarketState, HousingMarket, HousingMarketState, MacropruState,
+import sfc.engine.{CorporateBondMarket, HousingMarket, Macroprudential,
   Sectors, World, YieldCurve}
 import sfc.types.*
 import sfc.util.KahanSum.*
@@ -68,7 +68,7 @@ object BankUpdateStep:
     euCofin: Double,
     euProjectCapital: Double,
     gdp: Double,
-    newMacropru: MacropruState,
+    newMacropru: Macroprudential.State,
     newInfl: Double,
     newPrice: Double,
     netDomesticDividends: Double,
@@ -85,7 +85,7 @@ object BankUpdateStep:
     nbpRemittance: Double,
     postFxNbp: NbpState,
     qePurchaseAmount: Double,
-    newCorpBonds: CorporateBondMarketState,
+    newCorpBonds: CorporateBondMarket.State,
     corpBondBankCoupon: Double,
     corpBondBankDefaultLoss: Double,
     newInsurance: InsuranceSectorState,
@@ -106,7 +106,7 @@ object BankUpdateStep:
     finalNbfi: NbfiState,
     newGovWithYield: GovState,
     newJst: JstState,
-    housingAfterFlows: HousingMarketState,
+    housingAfterFlows: HousingMarket.State,
     bfgLevy: Double,
     bailInLoss: Double,
     multiCapDestruction: Double,
