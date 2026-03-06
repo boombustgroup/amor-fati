@@ -10,17 +10,17 @@ class JstPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  "JstLogic.step" should "always return zero when disabled" in {
+  "Jst.step" should "always return zero when disabled" in {
     forAll(Gen.choose(0.0, 1e10), Gen.choose(0.0, 1e10), Gen.choose(0.0, 1e11), Gen.choose(0, 50000)) {
       (govTax, wageInc, gdp, nFirms) =>
         // Default Config.JstEnabled = false
-        val (jst, dc) = JstLogic.step(JstState.zero, govTax, wageInc, gdp, nFirms)
+        val (jst, dc) = Jst.step(Jst.State.zero, govTax, wageInc, gdp, nFirms)
         dc shouldBe 0.0
-        jst shouldBe JstState.zero
+        jst shouldBe Jst.State.zero
     }
   }
 
-  "JstLogic deficit identity" should "hold: deficit = spending - revenue" in {
+  "Jst.step deficit identity" should "hold: deficit = spending - revenue" in {
     // When JST IS enabled, the deficit identity must hold exactly.
     // We can't easily toggle Config in property tests, but we can verify
     // the formula consistency directly.

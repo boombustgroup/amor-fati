@@ -88,9 +88,9 @@ object BankUpdateStep:
     newCorpBonds: CorporateBondMarket.State,
     corpBondBankCoupon: Double,
     corpBondBankDefaultLoss: Double,
-    newInsurance: InsuranceSectorState,
+    newInsurance: Insurance.State,
     insNetDepositChange: Double,
-    newNbfi: NbfiState,
+    newNbfi: Nbfi.State,
     nbfiDepositDrain: Double,
     m: Int,
     rc: RunConfig
@@ -102,10 +102,10 @@ object BankUpdateStep:
     reassignedFirms: Array[Firm],
     reassignedHouseholds: Option[Vector[Household]],
     finalPpk: PpkState,
-    finalInsurance: InsuranceSectorState,
-    finalNbfi: NbfiState,
+    finalInsurance: Insurance.State,
+    finalNbfi: Nbfi.State,
     newGovWithYield: GovState,
-    newJst: JstState,
+    newJst: Jst.State,
     housingAfterFlows: HousingMarket.State,
     bfgLevy: Double,
     bailInLoss: Double,
@@ -167,7 +167,7 @@ object BankUpdateStep:
 
     // JST (local government)
     val nLivingFirms = in.ioFirms.count(FirmOps.isAlive)
-    val (newJst, jstDepositChange) = JstLogic.step(
+    val (newJst, jstDepositChange) = Jst.step(
       in.w.jst, newGovWithYield.taxRevenue.toDouble, in.totalIncome, in.gdp, nLivingFirms, pitAfterEvasion)
 
     // ---- Housing market step ----

@@ -44,10 +44,10 @@ object WorldInit:
     else DemographicsState.zero
 
     // --- Insurance / NBFI ---
-    val initInsurance = if Config.InsEnabled then InsuranceSector.initial
-                        else InsuranceSector.zero
-    val initNbfi = if Config.NbfiEnabled then ShadowBanking.initial
-                   else ShadowBanking.zero
+    val initInsurance = if Config.InsEnabled then Insurance.initial
+                        else Insurance.zero
+    val initNbfi = if Config.NbfiEnabled then Nbfi.initial
+                   else Nbfi.zero
     val initBondsOutstanding = PLN(Config.InitBankGovBonds + Config.InitNbpGovBonds) +
       initInsurance.govBondHoldings + initNbfi.tfiGovBondHoldings
 

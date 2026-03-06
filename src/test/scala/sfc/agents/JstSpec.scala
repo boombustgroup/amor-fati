@@ -7,15 +7,15 @@ import sfc.types.*
 /** JST (local government) unit tests. */
 class JstSpec extends AnyFlatSpec with Matchers:
 
-  "JstLogic.step" should "return zero deposit change when disabled" in {
+  "Jst.step" should "return zero deposit change when disabled" in {
     // JST_ENABLED is false by default
-    val (jst, depChange) = JstLogic.step(JstState.zero, 1e8, 1e9, 1e10, 5000)
+    val (jst, depChange) = Jst.step(Jst.State.zero, 1e8, 1e9, 1e10, 5000)
     depChange shouldBe 0.0
-    jst shouldBe JstState.zero
+    jst shouldBe Jst.State.zero
   }
 
-  "JstState.zero" should "have all zero fields" in {
-    val z = JstState.zero
+  "Jst.State.zero" should "have all zero fields" in {
+    val z = Jst.State.zero
     z.deposits.toDouble shouldBe 0.0
     z.debt.toDouble shouldBe 0.0
     z.revenue.toDouble shouldBe 0.0
@@ -23,7 +23,7 @@ class JstSpec extends AnyFlatSpec with Matchers:
     z.deficit.toDouble shouldBe 0.0
   }
 
-  "JstLogic.step revenue components" should "compute PIT share correctly" in {
+  "Jst.step revenue components" should "compute PIT share correctly" in {
     // Direct test of the formula: totalWageIncome × 0.12 × JstPitShare
     val wageIncome = 1e9
     val effectivePitRate = 0.12
@@ -39,7 +39,7 @@ class JstSpec extends AnyFlatSpec with Matchers:
     monthly shouldBe (1000.0 * 5000.0 / 12.0 +- 1.0)
   }
 
-  "JstLogic deficit" should "be positive when spending mult > 1" in {
+  "Jst.step deficit" should "be positive when spending mult > 1" in {
     // With spending multiplier 1.02, deficit = revenue × 0.02
     val revenue = 1e8
     val spendingMult = 1.02

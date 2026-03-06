@@ -3,27 +3,27 @@ package sfc.agents
 import sfc.config.Config
 import sfc.types.*
 
-/** Insurance sector state: life + non-life reserves, asset allocation (#41). */
-case class InsuranceSectorState(
-  lifeReserves: PLN,
-  nonLifeReserves: PLN,
-  govBondHoldings: PLN,
-  corpBondHoldings: PLN,
-  equityHoldings: PLN,
-  lastLifePremium: PLN = PLN.Zero,
-  lastNonLifePremium: PLN = PLN.Zero,
-  lastLifeClaims: PLN = PLN.Zero,
-  lastNonLifeClaims: PLN = PLN.Zero,
-  lastInvestmentIncome: PLN = PLN.Zero,
-  lastNetDepositChange: PLN = PLN.Zero
-)
+/** Insurance sector: life + non-life reserves, asset allocation. */
+object Insurance:
+  case class State(
+    lifeReserves: PLN,
+    nonLifeReserves: PLN,
+    govBondHoldings: PLN,
+    corpBondHoldings: PLN,
+    equityHoldings: PLN,
+    lastLifePremium: PLN = PLN.Zero,
+    lastNonLifePremium: PLN = PLN.Zero,
+    lastLifeClaims: PLN = PLN.Zero,
+    lastNonLifeClaims: PLN = PLN.Zero,
+    lastInvestmentIncome: PLN = PLN.Zero,
+    lastNetDepositChange: PLN = PLN.Zero
+  )
 
-object InsuranceSector:
-  def zero: InsuranceSectorState = InsuranceSectorState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+  def zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
-  def initial: InsuranceSectorState =
+  def initial: State =
     val totalAssets = Config.InsLifeReserves + Config.InsNonLifeReserves
-    InsuranceSectorState(
+    State(
       lifeReserves = PLN(Config.InsLifeReserves),
       nonLifeReserves = PLN(Config.InsNonLifeReserves),
       govBondHoldings = PLN(totalAssets * Config.InsGovBondShare),
@@ -32,10 +32,10 @@ object InsuranceSector:
     )
 
   /** Full monthly step: premiums, claims, investment income, rebalancing. */
-  def step(prev: InsuranceSectorState, employed: Int, wage: Double,
+  def step(prev: State, employed: Int, wage: Double,
            priceLevel: Double, unempRate: Double,
            govBondYield: Double, corpBondYield: Double,
-           equityReturn: Double): InsuranceSectorState =
+           equityReturn: Double): State =
     // Premiums: proportional to wage bill (Double arithmetic)
     val lifePrem = employed * wage * Config.InsLifePremiumRate
     val nonLifePrem = employed * wage * Config.InsNonLifePremiumRate * priceLevel
@@ -69,5 +69,5 @@ object InsuranceSector:
     val newCorp = prev.corpBondHoldings + (targetCorp - prev.corpBondHoldings) * s
     val newEq = prev.equityHoldings + (targetEq - prev.equityHoldings) * s
 
-    InsuranceSectorState(newLifeRes, newNonLifeRes, newGov, newCorp, newEq,
+    State(newLifeRes, newNonLifeRes, newGov, newCorp, newEq,
       PLN(lifePrem), PLN(nonLifePrem), PLN(lifeCl), PLN(nonLifeCl), invIncome, netDepositChange)

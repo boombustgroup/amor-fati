@@ -60,9 +60,9 @@ object OpenEconomyStep:
     corpBondBankCoupon: Double,
     corpBondBankDefaultLoss: Double,
     corpBondAmort: Double,
-    newInsurance: InsuranceSectorState,
+    newInsurance: Insurance.State,
     insNetDepositChange: Double,
-    newNbfi: NbfiState,
+    newNbfi: Nbfi.State,
     nbfiDepositDrain: Double,
     oeValuationEffect: Double,
     fdiCitLoss: Double
@@ -192,19 +192,19 @@ object OpenEconomyStep:
     val (_, _, corpBondBankDefaultLoss, _) = CorporateBondMarket.processDefaults(
       in.w.corporateBonds, in.totalBondDefault)
 
-    // --- Insurance sector step (#41) ---
+    // --- Insurance sector step ---
     val insUnempRate = 1.0 - in.employed.toDouble / Config.TotalPopulation
     val newInsurance = if Config.InsEnabled then
-      InsuranceSector.step(in.w.insurance, in.employed, in.newWage, in.w.priceLevel, insUnempRate,
+      Insurance.step(in.w.insurance, in.employed, in.newWage, in.w.priceLevel, insUnempRate,
         newBondYield, in.w.corporateBonds.corpBondYield.toDouble, in.w.equity.monthlyReturn.toDouble)
     else in.w.insurance
     val insNetDepositChange = newInsurance.lastNetDepositChange.toDouble
 
-    // --- Shadow Banking / NBFI step (#42) ---
+    // --- Shadow Banking / NBFI step ---
     val nbfiDepositRate = Math.max(0.0, postFxNbp.referenceRate.toDouble - 0.02)
     val nbfiUnempRate = 1.0 - in.employed.toDouble / Config.TotalPopulation
     val newNbfi = if Config.NbfiEnabled then
-      ShadowBanking.step(in.w.nbfi, in.employed, in.newWage, in.w.priceLevel,
+      Nbfi.step(in.w.nbfi, in.employed, in.newWage, in.w.priceLevel,
         nbfiUnempRate, in.w.bank.nplRatio, newBondYield,
         in.w.corporateBonds.corpBondYield.toDouble, in.w.equity.monthlyReturn.toDouble,
         nbfiDepositRate, in.domesticCons)

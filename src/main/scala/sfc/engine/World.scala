@@ -1,7 +1,7 @@
 package sfc.engine
 
 import sfc.accounting.{BankState, BopState, ForexState, GovState, MonetaryAggregates}
-import sfc.agents.{BankingSectorState, DemographicsState, HhAggregates, HhState, Household, ImmigrationState, InsuranceSector, InsuranceSectorState, JstState, NbfiState, NbpState, PpkState, ShadowBanking, ZusState}
+import sfc.agents.{BankingSectorState, DemographicsState, HhAggregates, HhState, Household, ImmigrationState, Insurance, Jst, Nbfi, NbpState, PpkState, ZusState}
 import sfc.types.*
 
 case class World(
@@ -23,7 +23,7 @@ case class World(
   households: Option[Vector[Household]] = None,
   bankingSector: Option[BankingSectorState] = None,
   monetaryAgg: Option[MonetaryAggregates] = None,
-  jst: JstState = JstState.zero,
+  jst: Jst.State = Jst.State.zero,
   zus: ZusState = ZusState.zero,
   ppk: PpkState = PpkState.zero,
   demographics: DemographicsState = DemographicsState.zero,
@@ -35,8 +35,8 @@ case class World(
   expectations: Expectations.State = Expectations.zero,
   immigration: ImmigrationState = ImmigrationState.zero,
   corporateBonds: CorporateBondMarket.State = CorporateBondMarket.zero,
-  insurance: InsuranceSectorState = InsuranceSector.zero,
-  nbfi: NbfiState = ShadowBanking.zero,
+  insurance: Insurance.State = Insurance.zero,
+  nbfi: Nbfi.State = Nbfi.zero,
   sectorDemandMult: Vector[Double] = Vector.fill(6)(1.0),
   fofResidual: Double = 0.0,
   grossInvestment: PLN = PLN.Zero,
