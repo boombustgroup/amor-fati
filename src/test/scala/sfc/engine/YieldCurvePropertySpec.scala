@@ -4,6 +4,7 @@ import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import sfc.engine.mechanisms.YieldCurve
 import sfc.types.*
 
 /** Property-based tests for interbank term structure. */

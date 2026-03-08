@@ -6,6 +6,7 @@ import sfc.accounting
 import sfc.accounting.GovState
 import sfc.agents.Nbp
 import sfc.config.{Config, RunConfig}
+import sfc.engine.markets.{FiscalBudget, LaborMarket, PriceLevel}
 import sfc.types.*
 
 class SimulationSpec extends AnyFlatSpec with Matchers:

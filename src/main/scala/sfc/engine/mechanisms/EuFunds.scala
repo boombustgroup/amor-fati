@@ -1,4 +1,4 @@
-package sfc.engine
+package sfc.engine.mechanisms
 
 import sfc.config.Config
 

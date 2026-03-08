@@ -4,6 +4,7 @@ import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import sfc.engine.markets.HousingMarket
 import sfc.types.*
 
 class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:

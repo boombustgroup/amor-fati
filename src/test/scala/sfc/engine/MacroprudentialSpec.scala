@@ -2,6 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import sfc.engine.mechanisms.Macroprudential
 import sfc.types.*
 
 /** Unit tests for macroprudential instruments. */

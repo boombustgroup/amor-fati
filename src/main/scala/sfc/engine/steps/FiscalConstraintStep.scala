@@ -1,7 +1,8 @@
 package sfc.engine.steps
 
 import sfc.config.{Config, RunConfig}
-import sfc.engine.{World, YieldCurve}
+import sfc.engine.World
+import sfc.engine.mechanisms.YieldCurve
 import sfc.types.*
 
 object FiscalConstraintStep:

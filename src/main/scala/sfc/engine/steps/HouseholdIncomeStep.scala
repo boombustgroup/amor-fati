@@ -2,7 +2,8 @@ package sfc.engine.steps
 
 import sfc.agents.*
 import sfc.config.{Config, RunConfig}
-import sfc.engine.{LaborMarket, SectoralMobility, World}
+import sfc.engine.markets.{LaborMarket, SectoralMobility}
+import sfc.engine.World
 import sfc.types.*
 
 import scala.util.Random

@@ -4,6 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BopState, ForexState}
 import sfc.config.{Config, RunConfig}
+import sfc.engine.markets.OpenEconomy
 import sfc.types.*
 
 class OpenEconomySpec extends AnyFlatSpec with Matchers:

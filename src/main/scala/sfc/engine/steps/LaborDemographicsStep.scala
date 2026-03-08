@@ -2,7 +2,8 @@ package sfc.engine.steps
 
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SectorDefs}
-import sfc.engine.{LaborMarket, World}
+import sfc.engine.World
+import sfc.engine.markets.LaborMarket
 import sfc.types.*
 import sfc.util.KahanSum.*
 

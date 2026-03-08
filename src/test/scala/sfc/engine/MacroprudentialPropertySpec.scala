@@ -4,6 +4,7 @@ import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import sfc.engine.mechanisms.Macroprudential
 import sfc.types.*
 
 /** Property-based tests for macroprudential instruments. */

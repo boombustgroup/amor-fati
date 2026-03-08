@@ -3,6 +3,7 @@ package sfc
 import sfc.agents.*
 import sfc.config.{Config, SectorDefs}
 import sfc.engine.*
+import sfc.engine.mechanisms.Macroprudential
 import sfc.types.*
 import sfc.util.KahanSum.*
 

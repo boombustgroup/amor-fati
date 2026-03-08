@@ -3,6 +3,8 @@ package sfc.engine.steps
 import sfc.agents.*
 import sfc.config.{Config, FirmSizeDistribution, RunConfig, SectorDefs}
 import sfc.engine.*
+import sfc.engine.markets.{EquityMarket, PriceLevel}
+import sfc.engine.mechanisms.{EuFunds, Macroprudential}
 import sfc.types.*
 import sfc.util.KahanSum.*
 

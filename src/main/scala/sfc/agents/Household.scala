@@ -1,7 +1,8 @@
 package sfc.agents
 
 import sfc.config.Config
-import sfc.engine.{SectoralMobility, World}
+import sfc.engine.World
+import sfc.engine.markets.SectoralMobility
 import sfc.types.*
 import sfc.util.KahanSum.*
 

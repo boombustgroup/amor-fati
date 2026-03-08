@@ -4,6 +4,8 @@ import sfc.accounting.{BankingAggregate, BopState, GovState, MonetaryAggregates}
 import sfc.agents.*
 import sfc.config.{Config, RunConfig}
 import sfc.engine.*
+import sfc.engine.markets.{FiscalBudget, HousingMarket}
+import sfc.engine.mechanisms.YieldCurve
 import sfc.types.*
 import sfc.util.KahanSum.*
 

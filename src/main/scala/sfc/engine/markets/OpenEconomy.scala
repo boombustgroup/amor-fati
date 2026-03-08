@@ -1,4 +1,4 @@
-package sfc.engine
+package sfc.engine.markets
 
 import sfc.accounting.{BopState, ForexState}
 import sfc.agents.Nbp

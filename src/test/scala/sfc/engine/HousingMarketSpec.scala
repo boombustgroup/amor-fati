@@ -3,6 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.config.Config
+import sfc.engine.markets.HousingMarket
 import sfc.types.*
 
 class HousingMarketSpec extends AnyFlatSpec with Matchers:

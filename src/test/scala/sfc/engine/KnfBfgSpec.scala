@@ -5,6 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankingAggregate, ForexState, GovState}
 import sfc.agents.Banking
 import sfc.config.Config
+import sfc.engine.mechanisms.Macroprudential
 import sfc.types.*
 
 class KnfBfgSpec extends AnyFlatSpec with Matchers:

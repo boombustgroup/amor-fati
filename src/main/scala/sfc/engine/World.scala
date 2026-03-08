@@ -2,6 +2,8 @@ package sfc.engine
 
 import sfc.accounting.*
 import sfc.agents.*
+import sfc.engine.markets.{CorporateBondMarket, EquityMarket, GvcTrade, HousingMarket, SectoralMobility}
+import sfc.engine.mechanisms.{Expectations, Macroprudential}
 import sfc.types.*
 
 case class World(

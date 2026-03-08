@@ -7,6 +7,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
 import sfc.agents.{Firm, TechState}
 import sfc.config.Config
+import sfc.engine.markets.IntermediateMarket
 import sfc.types.*
 
 class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:

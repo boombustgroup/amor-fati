@@ -2,6 +2,8 @@ package sfc.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import sfc.engine.markets
+import sfc.engine.markets.LaborMarket
 import sfc.types.*
 
 import scala.util.Random
@@ -180,7 +182,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       education = 1,
     )
 
-    val result = sfc.engine.LaborMarket.separations(
+    val result = LaborMarket.separations(
       Vector(hhPrimary, hhTertiary, hhVocational),
       Vector(prevFirm),
       Vector(newFirm),
@@ -253,7 +255,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       education = 2,
     )
 
-    val result = sfc.engine.LaborMarket.separations(
+    val result = markets.LaborMarket.separations(
       Vector(hhLowSkill, hhHighSkill, hhMidSkill),
       Vector(prevFirm),
       Vector(newFirm),

@@ -3,6 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.{Firm, TechState}
+import sfc.engine.markets.IntermediateMarket
 import sfc.types.*
 
 class IntermediateMarketSpec extends AnyFlatSpec with Matchers:

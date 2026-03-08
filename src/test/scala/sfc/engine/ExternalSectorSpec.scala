@@ -3,6 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.config.{Config, RunConfig}
+import sfc.engine.markets.GvcTrade
 import sfc.types.*
 
 class ExternalSectorSpec extends AnyFlatSpec with Matchers:

@@ -7,6 +7,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
 import sfc.accounting.{BopState, ForexState}
 import sfc.config.{Config, RunConfig}
+import sfc.engine.markets.OpenEconomy
 import sfc.types.*
 
 class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:

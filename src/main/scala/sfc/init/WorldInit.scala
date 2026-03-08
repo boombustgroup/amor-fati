@@ -4,6 +4,8 @@ import sfc.accounting.*
 import sfc.agents.*
 import sfc.config.*
 import sfc.engine.*
+import sfc.engine.markets.{CorporateBondMarket, EquityMarket, GvcTrade, HousingMarket}
+import sfc.engine.mechanisms.Expectations
 import sfc.types.*
 import sfc.util.KahanSum.*
 

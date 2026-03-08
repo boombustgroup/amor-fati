@@ -8,6 +8,7 @@ import sfc.Generators.*
 import sfc.accounting.{ForexState, GovState}
 import sfc.agents.Nbp
 import sfc.config.{Config, RunConfig}
+import sfc.engine.markets.{FiscalBudget, LaborMarket, OpenEconomy, PriceLevel}
 import sfc.types.*
 
 class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:

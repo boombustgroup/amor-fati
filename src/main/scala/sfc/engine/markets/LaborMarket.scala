@@ -1,4 +1,4 @@
-package sfc.engine
+package sfc.engine.markets
 
 import sfc.agents.*
 import sfc.config.{Config, SectorDefs}

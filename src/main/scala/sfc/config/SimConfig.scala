@@ -1,5 +1,6 @@
 package sfc.config
 
+import sfc.engine.markets.SectoralMobility
 import sfc.types.*
 
 /** Network topology selection for comparative experiments. */
@@ -1174,7 +1175,7 @@ object Config:
         s"LM_TRANSITION_MATRIX must be 6x6, got ${rows.length} rows",
       )
       rows
-    case _ => sfc.engine.SectoralMobility.DefaultFrictionMatrix
+    case _ => SectoralMobility.DefaultFrictionMatrix
   val LmFrictionDurationMult: Double = sys.env.get("LM_FRICTION_DURATION_MULT").map(_.trim.toDouble).getOrElse(1.0)
   val LmFrictionCostMult: Double = sys.env.get("LM_FRICTION_COST_MULT").map(_.trim.toDouble).getOrElse(0.5)
   val LmVoluntarySearchProb: Double = sys.env.get("LM_VOLUNTARY_SEARCH_PROB").map(_.trim.toDouble).getOrElse(0.02)

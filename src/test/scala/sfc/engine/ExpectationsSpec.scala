@@ -3,6 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.config.{Config, RunConfig}
+import sfc.engine.mechanisms.Expectations
 import sfc.types.*
 
 class ExpectationsSpec extends AnyFlatSpec with Matchers:

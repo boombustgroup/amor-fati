@@ -5,6 +5,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.agents.*
+import sfc.engine.markets.SectoralMobility
 import sfc.types.*
 
 import scala.util.Random

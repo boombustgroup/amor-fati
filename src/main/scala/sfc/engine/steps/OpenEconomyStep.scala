@@ -4,6 +4,8 @@ import sfc.accounting.{BopState, ForexState}
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SectorDefs}
 import sfc.engine.*
+import sfc.engine.markets.{CorporateBondMarket, GvcTrade, OpenEconomy}
+import sfc.engine.mechanisms.Expectations
 import sfc.types.*
 import sfc.util.KahanSum.*
 

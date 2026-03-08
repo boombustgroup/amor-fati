@@ -3,6 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.Banking
+import sfc.engine.mechanisms.YieldCurve
 import sfc.types.*
 
 /** Interbank term structure tests. */

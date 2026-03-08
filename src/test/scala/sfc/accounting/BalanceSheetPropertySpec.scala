@@ -6,6 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
 import sfc.config.Config
+import sfc.engine.markets.FiscalBudget
 import sfc.types.*
 
 class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -68,7 +69,7 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   "GovState" should "have deficit = spending - revenue via updateGov" in {
     forAll(genGovUpdateInputs) { (inputs: (GovState, Double, Double, Boolean, Double, Double, Double)) =>
       val (prev, cit, vat, active, bdp, price, unempBen) = inputs
-      val gov = sfc.engine.FiscalBudget.update(prev, cit, vat, active, bdp, price, unempBen)
+      val gov = FiscalBudget.update(prev, cit, vat, active, bdp, price, unempBen)
       val totalRev = cit + vat
       val bdpSpend = if active then Config.TotalPopulation.toDouble * bdp else 0.0
       val totalSpend = bdpSpend + unempBen + Config.GovBaseSpending * price

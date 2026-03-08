@@ -5,6 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankingAggregate, BopState, ForexState, GovState}
 import sfc.agents.Banking
 import sfc.config.Config
+import sfc.engine.markets.OpenEconomy
 import sfc.types.*
 
 class TourismSpec extends AnyFlatSpec with Matchers:

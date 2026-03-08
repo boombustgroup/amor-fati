@@ -4,6 +4,7 @@ import sfc.accounting.*
 import sfc.agents.*
 import sfc.config.{Config, RunConfig, SectorDefs}
 import sfc.engine.*
+import sfc.engine.markets.SectoralMobility
 import sfc.types.*
 import sfc.util.KahanSum.*
 

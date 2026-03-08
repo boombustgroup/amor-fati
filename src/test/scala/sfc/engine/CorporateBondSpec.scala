@@ -3,6 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.config.Config
+import sfc.engine.markets.CorporateBondMarket
 import sfc.types.*
 
 class CorporateBondSpec extends AnyFlatSpec with Matchers:

@@ -4,6 +4,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.GovState
 import sfc.config.Config
+import sfc.engine.markets.FiscalBudget
+import sfc.engine.mechanisms.EuFunds
 import sfc.types.*
 
 class EuFundsSpec extends AnyFlatSpec with Matchers:
