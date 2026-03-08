@@ -2,6 +2,8 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import sfc.Observables
+import sfc.Observables.Col
 import sfc.config.{Config, RunConfig}
 import sfc.runSingle
 
@@ -46,7 +48,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   it should "produce 120 rows x 197 columns" in {
     requireAllMechanisms()
     ts.length shouldBe Config.Duration
-    for row <- ts do row.length shouldBe 197
+    for row <- ts do row.length shouldBe Observables.nCols
   }
 
   it should "produce no NaN or Infinity" in {
@@ -61,7 +63,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   it should "be reproducible with the same seed" in {
     requireAllMechanisms()
     val r2 = runSingle(42, rc)
-    for t <- 0 until Config.Duration; c <- 0 until 197 do
+    for t <- 0 until Config.Duration; c <- 0 until Observables.nCols do
       withClue(s"Month ${t + 1}, col $c: ") {
         ts(t)(c) shouldBe r2.timeSeries(t)(c)
       }
@@ -74,8 +76,8 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   "Multi-bank" should "have interbank rate deviating from refRate" in {
     requireAllMechanisms()
     val deviates = ts.indices.exists { t =>
-      val ibRate = ts(t)(48) // InterbankRate
-      val refRate = ts(t)(8) // RefRate
+      val ibRate = ts(t)(Col.InterbankRate.ordinal)
+      val refRate = ts(t)(Col.RefRate.ordinal)
       Math.abs(ibRate - refRate) > 1e-6
     }
     deviates shouldBe true
@@ -86,17 +88,17 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
     requireAllMechanisms()
     for t <- ts.indices do
       withClue(s"Month ${t + 1}: ") {
-        ts(t)(49).isNaN shouldBe false
-        ts(t)(49).isInfinite shouldBe false
+        ts(t)(Col.MinBankCAR.ordinal).isNaN shouldBe false
+        ts(t)(Col.MinBankCAR.ordinal).isInfinite shouldBe false
       }
   }
 
   it should "have distinct bank CARs (heterogeneity)" in {
     requireAllMechanisms()
-    // MinBankCAR (49) and MaxBankNPL (50) should differ from aggregate values
+    // MinBankCAR and MaxBankNPL should differ from aggregate values
     // At least in some months, MinBankCAR != the overall bank CAR
-    val minCars = ts.map(_(49))
-    val maxNpls = ts.map(_(50))
+    val minCars = ts.map(_(Col.MinBankCAR.ordinal))
+    val maxNpls = ts.map(_(Col.MaxBankNPL.ordinal))
     // Not all identical across months (banks evolve differently)
     minCars.distinct.length should be > 1
     maxNpls.distinct.length should be > 1
@@ -133,19 +135,19 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
 
   "Open economy" should "have non-zero NFA" in {
     requireAllMechanisms()
-    val nfaValues = ts.map(_(28)) // NFA
+    val nfaValues = ts.map(_(Col.NFA.ordinal))
     nfaValues.exists(_ != 0.0) shouldBe true
   }
 
   it should "have non-zero trade balance" in {
     requireAllMechanisms()
-    val tradeBalance = ts.map(_(31)) // TradeBalance
+    val tradeBalance = ts.map(_(Col.TradeBalance.ordinal))
     tradeBalance.exists(_ != 0.0) shouldBe true
   }
 
   it should "have exchange rate varying from base" in {
     requireAllMechanisms()
     val baseRate = Config.BaseExRate
-    val exRates = ts.map(_(4)) // ExRate
+    val exRates = ts.map(_(Col.ExRate.ordinal))
     exRates.exists(r => Math.abs(r - baseRate) > 1e-4) shouldBe true
   }

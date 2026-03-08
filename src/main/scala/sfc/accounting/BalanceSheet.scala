@@ -19,7 +19,9 @@ case class GovState(
   euCofinancing: PLN = PLN.Zero,
   exciseRevenue: PLN = PLN.Zero,
   customsDutyRevenue: PLN = PLN.Zero,
-)
+):
+  def effectiveBdpPerCapita(population: Int): Double =
+    if bdpActive then (bdpSpending / population.toDouble).toDouble else 0.0
 
 /** Aggregate banking-sector balance sheet — sum over all 7 per-bank BankStates.
   *

@@ -47,7 +47,8 @@ object Household:
     importConsumption: PLN,
     minWageLevel: PLN = PLN(4666.0),
     minWagePriceLevel: Double = 1.0,
-  )
+  ):
+    def unemploymentRate: Double = 1.0 - employed.toDouble / Config.TotalPopulation
 
   // ---- Individual household ----
 

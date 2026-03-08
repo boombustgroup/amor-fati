@@ -1,6 +1,6 @@
 package sfc
 
-import sfc.accounting.*
+import sfc.Observables.Col
 import sfc.agents.*
 import sfc.config.*
 import sfc.engine.*
@@ -21,21 +21,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   val init = WorldInit.initialize(seed, rc)
   var state = Simulation.SimState(init.world, init.firms, init.households)
 
-  // Collect time-series: 120 rows x N columns
-  // Columns: Month, Inflation, Unemployment, AutoRatio+HybridRatio, ExRate, MarketWage,
-  //          GovDebt, NPL, RefRate, PriceLevel, AutoRatio, HybridRatio,
-  //          SectorAutoRatio(0..5): BPO, Manuf, Retail, Health, Public, Agri,
-  //          EffectiveBDP (per-capita BDP actually delivered after fiscal constraints),
-  //          SectorSigma(0..5): per-sector current sigma (evolves when SIGMA_LAMBDA>0),
-  //          MeanDegree: average network degree (changes when REWIRE_RHO>0),
-  //          IoFlows: total intermediate market payments (Paper-07),
-  //          IoGdpRatio: intermediate flows / GDP,
-  //          InterbankRate, MinBankCAR, MaxBankNPL, BankFailures,
-  //          Housing: HPI, MarketValue, MortgageStock, MortgageRate, Origination,
-  //                   Repayment, Default, MortgageInterest, HhHousingWealth,
-  //                   HousingWealthEffect, MortgageToGdp
-  val nCols = 197
-  val results = Array.ofDim[Double](Config.Duration, nCols)
+  val results = Array.ofDim[Double](Config.Duration, Observables.nCols)
 
   for t <- 0 until Config.Duration do
     val stepResult = Simulation.step(state, rc)
@@ -49,330 +35,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
         }
       case Right(()) => // OK
     state = stepResult.state
-    val world = state.world
-    val firms = state.firms
-    val households = state.households
-
-    val unemployPct = 1.0 - world.hh.employed.toDouble / Config.TotalPopulation
-    val living = firms.filter(Firm.isAlive)
-    val nLiving = living.length.toDouble
-
-    // Per-sector automation ratios
-    val sectorAuto = SECTORS.indices.map { s =>
-      val secFirms = living.filter(_.sector.toInt == s)
-      if secFirms.isEmpty then 0.0
-      else
-        secFirms
-          .count(f => f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid])
-          .toDouble / secFirms.length
-    }
-
-    // Effective BDP: actual per-capita BDP delivered (may be < legislated under EUR/SGP)
-    val effectiveBdp =
-      if world.gov.bdpActive then (world.gov.bdpSpending / Config.TotalPopulation.toDouble).toDouble
-      else 0.0
-
-    results(t) = Array(
-      (t + 1).toDouble, // 0: Month
-      world.inflation.toDouble, // 1: Inflation
-      unemployPct, // 2: Unemployment
-      (world.automationRatio + world.hybridRatio).toDouble, // 3: TotalAdoption
-      world.forex.exchangeRate, // 4: ExRate
-      world.hh.marketWage.toDouble, // 5: MarketWage
-      world.gov.cumulativeDebt.toDouble, // 6: GovDebt
-      world.bankingSector.aggregate.nplRatio, // 7: NPL
-      world.nbp.referenceRate.toDouble, // 8: RefRate
-      world.priceLevel, // 9: PriceLevel
-      world.automationRatio.toDouble, // 10: AutoRatio
-      world.hybridRatio.toDouble, // 11: HybridRatio
-      sectorAuto(0), // 12: BPO auto
-      sectorAuto(1), // 13: Manuf auto
-      sectorAuto(2), // 14: Retail auto
-      sectorAuto(3), // 15: Health auto
-      sectorAuto(4), // 16: Public auto
-      sectorAuto(5), // 17: Agri auto
-      effectiveBdp, // 18: EffectiveBDP
-      world.currentSigmas(0), // 19: BPO_Sigma
-      world.currentSigmas(1), // 20: Manuf_Sigma
-      world.currentSigmas(2), // 21: Retail_Sigma
-      world.currentSigmas(3), // 22: Health_Sigma
-      world.currentSigmas(4), // 23: Public_Sigma
-      world.currentSigmas(5), // 24: Agri_Sigma
-      firms.kahanSumBy(_.neighbors.length.toDouble) / firms.length, // 25: MeanDegree
-      world.ioFlows.toDouble, // 26: IoFlows
-      if world.gdpProxy > 0 then (world.ioFlows / world.gdpProxy).toDouble else 0.0, // 27: IoGdpRatio
-      world.bop.nfa.toDouble, // 28: NFA
-      world.bop.currentAccount.toDouble, // 29: CurrentAccount
-      world.bop.capitalAccount.toDouble, // 30: CapitalAccount
-      world.bop.tradeBalance.toDouble, // 31: TradeBalance_OE
-      world.bop.exports.toDouble, // 32: Exports_OE
-      world.bop.totalImports.toDouble, // 33: TotalImports_OE
-      world.bop.importedIntermediates.toDouble, // 34: ImportedInterm
-      world.bop.fdi.toDouble, // 35: FDI
-      world.gov.unempBenefitSpend.toDouble, // 36: UnempBenefitSpend
-      (1.0 - world.hh.employed.toDouble / Config.TotalPopulation - Config.NbpNairu) / Config.NbpNairu, // 37: OutputGap
-      world.gov.bondYield.toDouble, // 38: BondYield
-      world.gov.bondsOutstanding.toDouble, // 39: BondsOutstanding
-      world.bank.govBondHoldings.toDouble, // 40: BankBondHoldings
-      world.nbp.govBondHoldings.toDouble, // 41: NbpBondHoldings
-      (if world.nbp.qeActive then 1.0 else 0.0), // 42: QeActive
-      world.gov.debtServiceSpend.toDouble, // 43: DebtService
-      (world.nbp.govBondHoldings * world.gov.bondYield / 12.0).toDouble, // 44: NbpRemittance
-      world.nbp.fxReserves.toDouble, // 45: FxReserves
-      world.nbp.lastFxTraded.toDouble, // 46: FxInterventionAmt
-      (if Config.NbpFxIntervention then 1.0 else 0.0), // 47: FxInterventionActive
-      world.bankingSector.interbankRate.toDouble, // 48: InterbankRate
-      {
-        val alive = world.bankingSector.banks.filterNot(_.failed)
-        if alive.isEmpty then 0.0 else alive.map(_.car).min
-      }, // 49: MinBankCAR
-      {
-        val alive = world.bankingSector.banks.filterNot(_.failed)
-        if alive.isEmpty then 0.0 else alive.map(_.nplRatio).max
-      }, // 50: MaxBankNPL
-      world.bankingSector.banks.count(_.failed).toDouble, // 51: BankFailures
-      // Monetary plumbing
-      {
-        val (_, total) = Banking.computeReserveInterest(world.bankingSector.banks, world.nbp.referenceRate.toDouble)
-        total
-      }, // 52: ReserveInterest
-      {
-        val (perBank, _) =
-          Banking.computeStandingFacilities(world.bankingSector.banks, world.nbp.referenceRate.toDouble)
-        perBank.kahanSum
-      }, // 53: StandingFacilityNet
-      world.bankingSector.banks
-        .filter(b => !b.failed && b.reservesAtNbp > PLN.Zero)
-        .kahanSumBy(_.reservesAtNbp.toDouble), // 54: DepositFacilityUsage
-      {
-        val (_, total) =
-          Banking.interbankInterestFlows(world.bankingSector.banks, world.bankingSector.interbankRate.toDouble)
-        total
-      }, // 55: InterbankInterestNet
-      // Credit diagnostics
-      world.monetaryAgg.map(_.m1.toDouble).getOrElse(world.bank.deposits.toDouble), // 56: M1
-      world.monetaryAgg.map(_.monetaryBase.toDouble).getOrElse(0.0), // 57: MonetaryBase
-      world.monetaryAgg.map(_.creditMultiplier).getOrElse(0.0), // 58: CreditMultiplier
-      // JST (local government)
-      world.jst.revenue.toDouble, // 59: JstRevenue
-      world.jst.spending.toDouble, // 60: JstSpending
-      world.jst.debt.toDouble, // 61: JstDebt
-      world.jst.deposits.toDouble, // 62: JstDeposits
-      world.jst.deficit.toDouble, // 63: JstDeficit
-      // LCR/NSFR
-      {
-        val alive = world.bankingSector.banks.filterNot(_.failed)
-        if alive.isEmpty then 0.0 else alive.map(_.lcr).min
-      }, // 64: MinBankLCR
-      {
-        val alive = world.bankingSector.banks.filterNot(_.failed)
-        if alive.isEmpty then 0.0 else alive.map(_.nsfr).min
-      }, // 65: MinBankNSFR
-      {
-        val alive = world.bankingSector.banks.filterNot(_.failed)
-        if alive.isEmpty then 0.0
-        else alive.map(b => if b.deposits > PLN.Zero then b.termDeposits / b.deposits else 0.0).sum / alive.length
-      }, // 66: AvgTermDepositFrac
-      // Term structure
-      world.bankingSector.interbankCurve.map(_.wibor1m.toDouble).getOrElse(0.0), // 67: WIBOR_1M
-      world.bankingSector.interbankCurve.map(_.wibor3m.toDouble).getOrElse(0.0), // 68: WIBOR_3M
-      world.bankingSector.interbankCurve.map(_.wibor6m.toDouble).getOrElse(0.0), // 69: WIBOR_6M
-      // Full public sector
-      world.zus.contributions.toDouble, // 70: ZusContributions
-      world.zus.pensionPayments.toDouble, // 71: ZusPensionPayments
-      world.zus.govSubvention.toDouble, // 72: ZusGovSubvention
-      world.zus.fusBalance.toDouble, // 73: FusBalance
-      world.ppk.contributions.toDouble, // 74: PpkContributions
-      world.ppk.bondHoldings.toDouble, // 75: PpkBondHoldings
-      world.demographics.retirees.toDouble, // 76: NRetirees
-      world.demographics.workingAgePop.toDouble, // 77: WorkingAgePop
-      world.demographics.monthlyRetirements.toDouble, // 78: MonthlyRetirements
-      // Macroprudential
-      world.macropru.ccyb.toDouble, // 79: CCyB
-      world.macropru.creditToGdpGap, // 80: CreditToGdpGap
-      {
-        val alive = world.bankingSector.banks.filterNot(_.failed)
-        if alive.isEmpty then 0.0
-        else alive.map(b => Macroprudential.effectiveMinCar(b.id.toInt, world.macropru.ccyb.toDouble)).max
-      }, // 81: EffectiveMinCar
-      // GPW Equity Market
-      world.equity.index, // 82: GpwIndex
-      world.equity.marketCap.toDouble, // 83: GpwMarketCap
-      (if world.equity.earningsYield.toDouble > 0 then 1.0 / world.equity.earningsYield.toDouble else 0.0), // 84: GpwPE
-      world.equity.dividendYield.toDouble, // 85: GpwDivYield
-      // GPW Firm Issuance
-      world.equity.lastIssuance.toDouble, // 86: EquityIssuanceTotal
-      living.kahanSumBy(_.equityRaised.toDouble) / Math.max(
-        1.0,
-        living.kahanSumBy(f => (f.debt + f.equityRaised).toDouble),
-      ), // 87: EquityFinancedFrac
-      // GPW Household Equity
-      world.equity.hhEquityWealth.toDouble, // 88: HhEquityWealth
-      world.equity.lastWealthEffect.toDouble, // 89: EquityWealthEffect
-      // GPW Dividends
-      world.equity.lastDomesticDividends.toDouble, // 90: DomesticDividends
-      world.equity.lastForeignDividends.toDouble, // 91: ForeignDividendOutflow
-      // Housing Market
-      world.housing.priceIndex, // 92: HousingPriceIndex
-      world.housing.totalValue.toDouble, // 93: HousingMarketValue
-      world.housing.mortgageStock.toDouble, // 94: MortgageStock
-      world.housing.avgMortgageRate.toDouble, // 95: AvgMortgageRate
-      world.housing.lastOrigination.toDouble, // 96: MortgageOrigination
-      world.housing.lastRepayment.toDouble, // 97: MortgageRepayment
-      world.housing.lastDefault.toDouble, // 98: MortgageDefault
-      world.housing.mortgageInterestIncome.toDouble, // 99: MortgageInterestIncome
-      world.housing.hhHousingWealth.toDouble, // 100: HhHousingWealth
-      world.housing.lastWealthEffect.toDouble, // 101: HousingWealthEffect
-      (if world.gdpProxy > 0 && world.housing.mortgageStock > PLN.Zero
-       then (world.housing.mortgageStock / (world.gdpProxy * 12.0)).toDouble
-       else 0.0), // 102: MortgageToGdp
-      // Sectoral Labor Mobility
-      world.sectoralMobility.sectorMobilityRate, // 103: SectorMobilityRate
-      world.sectoralMobility.crossSectorHires.toDouble, // 104: CrossSectorHires
-      world.sectoralMobility.voluntaryQuits.toDouble, // 105: VoluntaryQuits
-      // GVC / Deep External Sector
-      world.gvc.disruptionIndex.toDouble, // 106: GvcDisruptionIndex
-      world.gvc.foreignPriceIndex, // 107: ForeignPriceIndex
-      world.gvc.tradeConcentration.toDouble, // 108: GvcTradeConcentration
-      world.gvc.exportDemandShockMag.toDouble, // 109: GvcExportDemandShock
-      world.gvc.importCostIndex, // 110: GvcImportCostIndex
-      // Forward-Looking Expectations
-      world.expectations.expectedInflation.toDouble, // 111: ExpectedInflation
-      world.expectations.credibility.toDouble, // 112: NbpCredibility
-      world.expectations.forwardGuidanceRate.toDouble, // 113: ForwardGuidanceRate
-      world.expectations.forecastError.toDouble, // 114: InflationForecastError
-      // Regional Housing Market
-      world.housing.regions.map(_(0).priceIndex).getOrElse(0.0), // 115: WawHpi
-      world.housing.regions.map(_(1).priceIndex).getOrElse(0.0), // 116: KrkHpi
-      world.housing.regions.map(_(2).priceIndex).getOrElse(0.0), // 117: WroHpi
-      world.housing.regions.map(_(3).priceIndex).getOrElse(0.0), // 118: GdnHpi
-      world.housing.regions.map(_(4).priceIndex).getOrElse(0.0), // 119: LdzHpi
-      world.housing.regions.map(_(5).priceIndex).getOrElse(0.0), // 120: PozHpi
-      world.housing.regions.map(_(6).priceIndex).getOrElse(0.0), // 121: RestHpi
-      // Immigration
-      world.immigration.immigrantStock.toDouble, // 122: ImmigrantStock
-      world.immigration.monthlyInflow.toDouble, // 123: MonthlyImmigInflow
-      world.immigration.remittanceOutflow, // 124: RemittanceOutflow
-      (if world.immigration.immigrantStock > 0 then // 125: ImmigrantUnempRate
-         val immigrants = households.filter(_.isImmigrant)
-         if immigrants.nonEmpty then
-           immigrants.count(h => !h.status.isInstanceOf[HhStatus.Employed]).toDouble / immigrants.length
-         else 0.0
-       else 0.0)
-      ,
-      // PIT
-      { // 126: EffectivePitRate
-        val agg = world.hhAgg.get
-        val gross = agg.totalIncome + agg.totalPit
-        if gross > PLN.Zero then (agg.totalPit / gross).toDouble else 0.0
-      },
-      // Social Transfers
-      world.gov.socialTransferSpend.toDouble, // 127: SocialTransferSpend
-      // Public Investment
-      world.gov.govCurrentSpend.toDouble, // 128: GovCurrentSpend
-      world.gov.govCapitalSpend.toDouble, // 129: GovCapitalSpend
-      world.gov.publicCapitalStock.toDouble, // 130: PublicCapitalStock
-      // EU Funds Dynamics
-      world.gov.euCofinancing.toDouble, // 131: EuCofinancing
-      world.bop.euFundsMonthly.toDouble, // 132: EuFundsMonthly
-      world.bop.euCumulativeAbsorption.toDouble, // 133: EuCumulativeAbsorption
-      world.hh.minWageLevel.toDouble, // 134: MinWageLevel
-      world.fofResidual, // 135: FofResidual
-      // Consumer Credit
-      world.bank.consumerLoans.toDouble, // 136: ConsumerLoans
-      (if world.bank.consumerLoans > PLN.Zero then world.bank.consumerNpl / world.bank.consumerLoans
-       else 0.0), // 137: ConsumerNplRatio
-      world.hhAgg.map(_.totalConsumerOrigination.toDouble).getOrElse(0.0), // 138: ConsumerOrigination
-      world.hhAgg.map(_.totalConsumerDebtService.toDouble).getOrElse(0.0), // 139: ConsumerDebtService
-
-      // Physical Capital
-      living.kahanSumBy(_.capitalStock.toDouble), // 140: AggCapitalStock
-      world.grossInvestment.toDouble, // 141: GrossInvestment
-      (if Config.PhysCapEnabled then // 142: CapitalDepreciation
-         living.kahanSumBy(f => (f.capitalStock * Config.PhysCapDepRates(f.sector.toInt) / 12.0).toDouble)
-       else 0.0),
-      // Excise & Customs
-      world.gov.exciseRevenue.toDouble, // 143: ExciseRevenue
-      world.gov.customsDutyRevenue.toDouble, // 144: CustomsDutyRevenue
-      // Corporate Bonds / Catalyst (#40)
-      world.corporateBonds.outstanding.toDouble, // 145: CorpBondOutstanding
-      world.corporateBonds.corpBondYield.toDouble, // 146: CorpBondYield
-      world.corporateBonds.lastIssuance.toDouble, // 147: CorpBondIssuance
-      world.corporateBonds.creditSpread.toDouble, // 148: CorpBondSpread
-      world.corporateBonds.bankHoldings.toDouble, // 149: BankCorpBondHoldings
-      world.corporateBonds.ppkHoldings.toDouble, // 150: PpkCorpBondHoldings
-      world.corporateBonds.lastAbsorptionRate.toDouble, // 151: CorpBondAbsorptionRate
-      // Insurance Sector (#41)
-      world.insurance.lifeReserves.toDouble, // 152: InsLifeReserves
-      world.insurance.nonLifeReserves.toDouble, // 153: InsNonLifeReserves
-      world.insurance.govBondHoldings.toDouble, // 154: InsGovBondHoldings
-      world.insurance.lastLifePremium.toDouble, // 155: InsLifePremium
-      world.insurance.lastNonLifePremium.toDouble, // 156: InsNonLifePremium
-      world.insurance.lastLifeClaims.toDouble, // 157: InsLifeClaims
-      world.insurance.lastNonLifeClaims.toDouble, // 158: InsNonLifeClaims
-      // Shadow Banking / NBFI (#42)
-      world.nbfi.tfiAum.toDouble, // 159: NbfiTfiAum
-      world.nbfi.tfiGovBondHoldings.toDouble, // 160: NbfiTfiGovBondHoldings
-      world.nbfi.nbfiLoanStock.toDouble, // 161: NbfiLoanStock
-      world.nbfi.lastNbfiOrigination.toDouble, // 162: NbfiOrigination
-      world.nbfi.lastNbfiDefaultAmount.toDouble, // 163: NbfiDefaults
-      world.nbfi.lastBankTightness.toDouble, // 164: NbfiBankTightness
-      world.nbfi.lastDepositDrain.toDouble, // 165: NbfiDepositDrain
-      // FDI Composition (#33)
-      world.fdiProfitShifting.toDouble, // 166: FdiProfitShifting
-      world.fdiRepatriation.toDouble, // 167: FdiRepatriation
-      (world.fdiProfitShifting + world.fdiRepatriation).toDouble, // 168: FdiGrossOutflow
-      (if nLiving > 0 then living.count(_.foreignOwned).toDouble / nLiving else 0.0), // 169: ForeignOwnedFrac
-      world.fdiCitLoss.toDouble, // 170: FdiCitLoss
-      // Endogenous Firm Entry (#35)
-      world.firmBirths.toDouble, // 171: FirmBirths
-      world.firmDeaths.toDouble, // 172: FirmDeaths
-      (world.firmBirths - world.firmDeaths).toDouble, // 173: NetEntry
-      nLiving.toDouble, // 174: LivingFirmCount
-      // Inventories (#43)
-      world.aggInventoryStock.toDouble, // 175: AggInventoryStock
-      world.aggInventoryChange.toDouble, // 176: InventoryChange
-      (if world.gdpProxy > 0 then (world.aggInventoryStock / world.gdpProxy).toDouble else 0.0), // 177: InventoryToGdp
-      // Informal Economy (#45)
-      (if Config.InformalEnabled then
-         Config.FofConsWeights
-           .zip(Config.InformalSectorShares)
-           .map((cw, ss) => cw * Math.min(1.0, ss + world.informalCyclicalAdj))
-           .sum
-       else 0.0), // 178: EffectiveShadowShare
-      world.taxEvasionLoss.toDouble, // 179: TaxEvasionLoss
-      world.informalEmployed.toDouble, // 180: InformalEmployment
-      (if world.gdpProxy > 0 then (world.taxEvasionLoss / world.gdpProxy).toDouble else 0.0), // 181: EvasionToGdpRatio
-      // Energy / Climate (#36)
-      world.aggEnergyCost.toDouble, // 182: AggEnergyCost
-      (if world.gdpProxy > 0 then (world.aggEnergyCost / world.gdpProxy).toDouble else 0.0), // 183: EnergyCostToGdp
-      (if Config.EnergyEnabled then Config.EtsBasePrice * Math.pow(1.0 + Config.EtsPriceDrift / 12.0, (t + 1).toDouble)
-       else 0.0), // 184: EtsPrice
-      world.aggGreenCapital.toDouble, // 185: AggGreenCapital
-      world.aggGreenInvestment.toDouble, // 186: GreenInvestment
-      { // 187: GreenCapitalRatio
-        val aggK = living.kahanSumBy(_.capitalStock.toDouble)
-        if world.aggGreenCapital > PLN.Zero && aggK > 0 then world.aggGreenCapital.toDouble / aggK else 0.0
-      },
-      // Diaspora Remittances (#46)
-      world.diasporaRemittanceInflow.toDouble, // 188: DiasporaRemittanceInflow
-      (world.diasporaRemittanceInflow - PLN(world.immigration.remittanceOutflow)).toDouble, // 189: NetRemittances
-      // Tourism (#47)
-      world.tourismExport.toDouble, // 190: TourismExport
-      world.tourismImport.toDouble, // 191: TourismImport
-      (world.tourismExport - world.tourismImport).toDouble, // 192: NetTourismBalance
-      { // 193: TourismSeasonalFactor
-        val monthInYear = (t % 12) + 1
-        1.0 + Config.TourismSeasonality *
-          Math.cos(2 * Math.PI * (monthInYear - Config.TourismPeakMonth) / 12.0)
-      },
-      // KNF/BFG (#48)
-      (if Config.BankFailureEnabled then
-         world.bankingSector.banks.filterNot(_.failed).map(b => (b.deposits * Config.BfgLevyRate / 12.0).toDouble).sum
-       else 0.0), // 194: BfgLevyTotal
-      world.bfgFundBalance.toDouble, // 195: BfgFundBalance
-      world.bailInLoss.toDouble, // 196: BailInLoss
-    )
+    results(t) = Observables.compute(t, state.world, state.firms, state.households)
 
   RunResult(results, state.world.hhAgg.get)
 
@@ -406,7 +69,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // Aggregation arrays
   val nMonths = Config.Duration
-  val nCols = 197
+  val nCols = Observables.nCols
+  val colNames = Observables.colNames
   val allRuns = Array.ofDim[Double](nSeeds, nMonths, nCols)
   val allHhAgg = new Array[Household.Aggregates](nSeeds)
 
@@ -420,9 +84,10 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     val dt = System.currentTimeMillis() - t0
 
     if seed <= 3 || seed % 10 == 0 || seed == nSeeds then
-      val adoption = result.timeSeries(nMonths - 1)(3)
-      val inflation = result.timeSeries(nMonths - 1)(1)
-      val unemp = result.timeSeries(nMonths - 1)(2)
+      val last = result.timeSeries(nMonths - 1)
+      val adoption = last(Col.TotalAdoption.ordinal)
+      val inflation = last(Col.Inflation.ordinal)
+      val unemp = last(Col.Unemployment.ordinal)
       println(
         f"  Seed $seed%3d/${nSeeds} (${dt}ms) | " +
           f"Adopt=${adoption * 100}%5.1f%% | pi=${inflation * 100}%5.1f%% | " +
@@ -434,55 +99,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   // -- Write per-seed terminal values --
   val termPw = new PrintWriter(new File(s"mc/${outputPrefix}_terminal.csv"))
-  termPw.write(
-    "Seed;Inflation;Unemployment;TotalAdoption;ExRate;MarketWage;" +
-      "GovDebt;NPL;RefRate;PriceLevel;AutoRatio;HybridRatio;" +
-      "BPO_Auto;Manuf_Auto;Retail_Auto;Health_Auto;Public_Auto;Agri_Auto;EffectiveBDP;" +
-      "BPO_Sigma;Manuf_Sigma;Retail_Sigma;Health_Sigma;Public_Sigma;Agri_Sigma;MeanDegree;" +
-      "IoFlows;IoGdpRatio;" +
-      "NFA;CurrentAccount;CapitalAccount;TradeBalance_OE;Exports_OE;TotalImports_OE;ImportedInterm;FDI;" +
-      "UnempBenefitSpend;OutputGap;" +
-      "BondYield;BondsOutstanding;BankBondHoldings;NbpBondHoldings;QeActive;DebtService;NbpRemittance;" +
-      "FxReserves;FxInterventionAmt;FxInterventionActive;" +
-      "InterbankRate;MinBankCAR;MaxBankNPL;BankFailures;" +
-      "ReserveInterest;StandingFacilityNet;DepositFacilityUsage;InterbankInterestNet;" +
-      "M1;MonetaryBase;CreditMultiplier;" +
-      "JstRevenue;JstSpending;JstDebt;JstDeposits;JstDeficit;" +
-      "MinBankLCR;MinBankNSFR;AvgTermDepositFrac;" +
-      "WIBOR_1M;WIBOR_3M;WIBOR_6M;" +
-      "ZusContributions;ZusPensionPayments;ZusGovSubvention;FusBalance;" +
-      "PpkContributions;PpkBondHoldings;NRetirees;WorkingAgePop;MonthlyRetirements;" +
-      "CCyB;CreditToGdpGap;EffectiveMinCar;" +
-      "GpwIndex;GpwMarketCap;GpwPE;GpwDivYield;" +
-      "EquityIssuanceTotal;EquityFinancedFrac;" +
-      "HhEquityWealth;EquityWealthEffect;" +
-      "DomesticDividends;ForeignDividendOutflow;" +
-      "HousingPriceIndex;HousingMarketValue;MortgageStock;AvgMortgageRate;" +
-      "MortgageOrigination;MortgageRepayment;MortgageDefault;MortgageInterestIncome;" +
-      "HhHousingWealth;HousingWealthEffect;MortgageToGdp;" +
-      "SectorMobilityRate;CrossSectorHires;VoluntaryQuits;" +
-      "GvcDisruptionIndex;ForeignPriceIndex;GvcTradeConcentration;GvcExportDemandShock;GvcImportCostIndex;" +
-      "ExpectedInflation;NbpCredibility;ForwardGuidanceRate;InflationForecastError;" +
-      "WawHpi;KrkHpi;WroHpi;GdnHpi;LdzHpi;PozHpi;RestHpi;" +
-      "ImmigrantStock;MonthlyImmigInflow;RemittanceOutflow;ImmigrantUnempRate;" +
-      "EffectivePitRate;SocialTransferSpend;" +
-      "GovCurrentSpend;GovCapitalSpend;PublicCapitalStock;" +
-      "EuCofinancing;EuFundsMonthly;EuCumulativeAbsorption;MinWageLevel;FofResidual;" +
-      "ConsumerLoans;ConsumerNplRatio;ConsumerOrigination;ConsumerDebtService;" +
-      "AggCapitalStock;GrossInvestment;CapitalDepreciation;" +
-      "ExciseRevenue;CustomsDutyRevenue;" +
-      "CorpBondOutstanding;CorpBondYield;CorpBondIssuance;CorpBondSpread;BankCorpBondHoldings;PpkCorpBondHoldings;CorpBondAbsorptionRate;" +
-      "InsLifeReserves;InsNonLifeReserves;InsGovBondHoldings;InsLifePremium;InsNonLifePremium;InsLifeClaims;InsNonLifeClaims;" +
-      "NbfiTfiAum;NbfiTfiGovBondHoldings;NbfiLoanStock;NbfiOrigination;NbfiDefaults;NbfiBankTightness;NbfiDepositDrain;" +
-      "FdiProfitShifting;FdiRepatriation;FdiGrossOutflow;ForeignOwnedFrac;FdiCitLoss;" +
-      "FirmBirths;FirmDeaths;NetEntry;LivingFirmCount;" +
-      "AggInventoryStock;InventoryChange;InventoryToGdp;" +
-      "EffectiveShadowShare;TaxEvasionLoss;InformalEmployment;EvasionToGdpRatio;" +
-      "AggEnergyCost;EnergyCostToGdp;EtsPrice;AggGreenCapital;GreenInvestment;GreenCapitalRatio;" +
-      "DiasporaRemittanceInflow;NetRemittances;" +
-      "TourismExport;TourismImport;NetTourismBalance;TourismSeasonalFactor;" +
-      "BfgLevyTotal;BfgFundBalance;BailInLoss\n",
-  )
+  termPw.write("Seed;" + colNames.drop(1).mkString(";") + "\n")
   for seed <- 0 until nSeeds do
     val last = allRuns(seed)(nMonths - 1)
     termPw.write(s"${seed + 1}")
@@ -530,216 +147,16 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     val bankPw = new PrintWriter(new File(s"mc/${outputPrefix}_banks_terminal.csv"))
     bankPw.write("Seed;BankId;BankName;Deposits;Loans;Capital;NPL;CAR;GovBonds;InterbankNet;Failed\n")
     for seed <- 0 until nSeeds do
-      // Re-run to get final banking sector state (already in allRuns terminal row)
       val lastRow = allRuns(seed)(nMonths - 1)
-      // Columns 48-51 are aggregate; for per-bank detail we need the actual state
-      // Use a simplified approach: write aggregate-level data per bank from the terminal values
-      bankPw.write(f"${seed + 1};0;Aggregate;0;0;0;${lastRow(50)}%.6f;${lastRow(49)}%.6f;0;0;${lastRow(51)}%.0f\n")
+      bankPw.write(
+        f"${seed + 1};0;Aggregate;0;0;0;${lastRow(Col.MaxBankNPL.ordinal)}%.6f;${lastRow(Col.MinBankCAR.ordinal)}%.6f;0;0;${lastRow(Col.BankFailures.ordinal)}%.0f\n",
+      )
     bankPw.close()
     println(s"Saved: mc/${outputPrefix}_banks_terminal.csv")
   }
 
   // -- Write aggregated time-series (mean, std, p5, p95) --
   val aggPw = new PrintWriter(new File(s"mc/${outputPrefix}_timeseries.csv"))
-  val colNames = Array(
-    "Month",
-    "Inflation",
-    "Unemployment",
-    "TotalAdoption",
-    "ExRate",
-    "MarketWage",
-    "GovDebt",
-    "NPL",
-    "RefRate",
-    "PriceLevel",
-    "AutoRatio",
-    "HybridRatio",
-    "BPO_Auto",
-    "Manuf_Auto",
-    "Retail_Auto",
-    "Health_Auto",
-    "Public_Auto",
-    "Agri_Auto",
-    "EffectiveBDP",
-    "BPO_Sigma",
-    "Manuf_Sigma",
-    "Retail_Sigma",
-    "Health_Sigma",
-    "Public_Sigma",
-    "Agri_Sigma",
-    "MeanDegree",
-    "IoFlows",
-    "IoGdpRatio",
-    "NFA",
-    "CurrentAccount",
-    "CapitalAccount",
-    "TradeBalance_OE",
-    "Exports_OE",
-    "TotalImports_OE",
-    "ImportedInterm",
-    "FDI",
-    "UnempBenefitSpend",
-    "OutputGap",
-    "BondYield",
-    "BondsOutstanding",
-    "BankBondHoldings",
-    "NbpBondHoldings",
-    "QeActive",
-    "DebtService",
-    "NbpRemittance",
-    "FxReserves",
-    "FxInterventionAmt",
-    "FxInterventionActive",
-    "InterbankRate",
-    "MinBankCAR",
-    "MaxBankNPL",
-    "BankFailures",
-    "ReserveInterest",
-    "StandingFacilityNet",
-    "DepositFacilityUsage",
-    "InterbankInterestNet",
-    "M1",
-    "MonetaryBase",
-    "CreditMultiplier",
-    "JstRevenue",
-    "JstSpending",
-    "JstDebt",
-    "JstDeposits",
-    "JstDeficit",
-    "MinBankLCR",
-    "MinBankNSFR",
-    "AvgTermDepositFrac",
-    "WIBOR_1M",
-    "WIBOR_3M",
-    "WIBOR_6M",
-    "ZusContributions",
-    "ZusPensionPayments",
-    "ZusGovSubvention",
-    "FusBalance",
-    "PpkContributions",
-    "PpkBondHoldings",
-    "NRetirees",
-    "WorkingAgePop",
-    "MonthlyRetirements",
-    "CCyB",
-    "CreditToGdpGap",
-    "EffectiveMinCar",
-    "GpwIndex",
-    "GpwMarketCap",
-    "GpwPE",
-    "GpwDivYield",
-    "EquityIssuanceTotal",
-    "EquityFinancedFrac",
-    "HhEquityWealth",
-    "EquityWealthEffect",
-    "DomesticDividends",
-    "ForeignDividendOutflow",
-    "HousingPriceIndex",
-    "HousingMarketValue",
-    "MortgageStock",
-    "AvgMortgageRate",
-    "MortgageOrigination",
-    "MortgageRepayment",
-    "MortgageDefault",
-    "MortgageInterestIncome",
-    "HhHousingWealth",
-    "HousingWealthEffect",
-    "MortgageToGdp",
-    "SectorMobilityRate",
-    "CrossSectorHires",
-    "VoluntaryQuits",
-    "GvcDisruptionIndex",
-    "ForeignPriceIndex",
-    "GvcTradeConcentration",
-    "GvcExportDemandShock",
-    "GvcImportCostIndex",
-    "ExpectedInflation",
-    "NbpCredibility",
-    "ForwardGuidanceRate",
-    "InflationForecastError",
-    "WawHpi",
-    "KrkHpi",
-    "WroHpi",
-    "GdnHpi",
-    "LdzHpi",
-    "PozHpi",
-    "RestHpi",
-    "ImmigrantStock",
-    "MonthlyImmigInflow",
-    "RemittanceOutflow",
-    "ImmigrantUnempRate",
-    "EffectivePitRate",
-    "SocialTransferSpend",
-    "GovCurrentSpend",
-    "GovCapitalSpend",
-    "PublicCapitalStock",
-    "EuCofinancing",
-    "EuFundsMonthly",
-    "EuCumulativeAbsorption",
-    "MinWageLevel",
-    "FofResidual",
-    "ConsumerLoans",
-    "ConsumerNplRatio",
-    "ConsumerOrigination",
-    "ConsumerDebtService",
-    "AggCapitalStock",
-    "GrossInvestment",
-    "CapitalDepreciation",
-    "ExciseRevenue",
-    "CustomsDutyRevenue",
-    "CorpBondOutstanding",
-    "CorpBondYield",
-    "CorpBondIssuance",
-    "CorpBondSpread",
-    "BankCorpBondHoldings",
-    "PpkCorpBondHoldings",
-    "CorpBondAbsorptionRate",
-    "InsLifeReserves",
-    "InsNonLifeReserves",
-    "InsGovBondHoldings",
-    "InsLifePremium",
-    "InsNonLifePremium",
-    "InsLifeClaims",
-    "InsNonLifeClaims",
-    "NbfiTfiAum",
-    "NbfiTfiGovBondHoldings",
-    "NbfiLoanStock",
-    "NbfiOrigination",
-    "NbfiDefaults",
-    "NbfiBankTightness",
-    "NbfiDepositDrain",
-    "FdiProfitShifting",
-    "FdiRepatriation",
-    "FdiGrossOutflow",
-    "ForeignOwnedFrac",
-    "FdiCitLoss",
-    "FirmBirths",
-    "FirmDeaths",
-    "NetEntry",
-    "LivingFirmCount",
-    "AggInventoryStock",
-    "InventoryChange",
-    "InventoryToGdp",
-    "EffectiveShadowShare",
-    "TaxEvasionLoss",
-    "InformalEmployment",
-    "EvasionToGdpRatio",
-    "AggEnergyCost",
-    "EnergyCostToGdp",
-    "EtsPrice",
-    "AggGreenCapital",
-    "GreenInvestment",
-    "GreenCapitalRatio",
-    "DiasporaRemittanceInflow",
-    "NetRemittances",
-    "TourismExport",
-    "TourismImport",
-    "NetTourismBalance",
-    "TourismSeasonalFactor",
-    "BfgLevyTotal",
-    "BfgFundBalance",
-    "BailInLoss",
-  )
   // Header: Month, then for each metric: mean, std, p05, p95
   aggPw.write("Month")
   for c <- 1 until nCols do
@@ -772,13 +189,13 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
     val p95 = vals(Math.min(vals.length - 1, (vals.length * 0.95).toInt))
     println(f"  $name%-25s mean=${mean}%8.2f +/- ${std}%6.2f  [${p05}%8.2f, ${p95}%8.2f]")
 
-  statsSummary("Inflation (%)", 1, 100.0)
-  statsSummary("Unemployment (%)", 2, 100.0)
-  statsSummary("Total Adoption (%)", 3, 100.0)
-  statsSummary("Exchange Rate", 4)
-  statsSummary("Market Wage (PLN)", 5)
-  statsSummary("Gov Debt (mld PLN)", 6, 1.0 / 1e9)
-  statsSummary("NPL Ratio (%)", 7, 100.0)
+  statsSummary("Inflation (%)", Col.Inflation.ordinal, 100.0)
+  statsSummary("Unemployment (%)", Col.Unemployment.ordinal, 100.0)
+  statsSummary("Total Adoption (%)", Col.TotalAdoption.ordinal, 100.0)
+  statsSummary("Exchange Rate", Col.ExRate.ordinal)
+  statsSummary("Market Wage (PLN)", Col.MarketWage.ordinal)
+  statsSummary("Gov Debt (mld PLN)", Col.GovDebt.ordinal, 1.0 / 1e9)
+  statsSummary("NPL Ratio (%)", Col.NPL.ordinal, 100.0)
 
   // Household summary
   println("\nHousehold aggregates at M120:")
@@ -796,7 +213,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
 
   println("\nPer-sector adoption at M120:")
   val secNames = SECTORS.map(_.name)
-  for s <- SECTORS.indices do statsSummary(f"  ${secNames(s)}%-22s", 12 + s, 100.0)
+  for s <- SECTORS.indices do statsSummary(f"  ${secNames(s)}%-22s", Col.sectorAuto(s).ordinal, 100.0)
 
   println(s"\nSaved: mc/${outputPrefix}_terminal.csv")
   println(s"Saved: mc/${outputPrefix}_timeseries.csv")

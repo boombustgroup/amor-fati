@@ -58,4 +58,12 @@ case class World(
   tourismImport: PLN = PLN.Zero,
   bfgFundBalance: PLN = PLN.Zero,
   bailInLoss: PLN = PLN.Zero,
+  effectiveShadowShare: Double = 0.0,
+  bfgLevyTotal: Double = 0.0,
+  reserveInterestTotal: Double = 0.0,
+  standingFacilityNet: Double = 0.0,
+  interbankInterestNet: Double = 0.0,
+  depositFacilityUsage: Double = 0.0,
+  etsPrice: Double = 0.0,
+  tourismSeasonalFactor: Double = 1.0,
 )

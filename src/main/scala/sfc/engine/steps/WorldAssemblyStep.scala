@@ -71,6 +71,18 @@ object WorldAssemblyStep:
       in.w.informalCyclicalAdj * Config.InformalSmoothing + target * (1.0 - Config.InformalSmoothing)
     else 0.0
 
+    // Pre-compute values surfaced on World for Observables
+    val aliveBanksForObs = in.s9.finalBankingSector.banks.filterNot(_.failed)
+    val depositFacilityUsage = aliveBanksForObs
+      .filter(_.reservesAtNbp > PLN.Zero)
+      .kahanSumBy(_.reservesAtNbp.toDouble)
+    val etsPrice =
+      if Config.EnergyEnabled then Config.EtsBasePrice * Math.pow(1.0 + Config.EtsPriceDrift / 12.0, in.s1.m.toDouble)
+      else 0.0
+    val monthInYear = ((in.s1.m - 1) % 12) + 1
+    val tourismSeasonalFactor =
+      1.0 + Config.TourismSeasonality * Math.cos(2 * Math.PI * (monthInYear - Config.TourismPeakMonth) / 12.0)
+
     val newW = World(
       in.s1.m,
       Rate(in.s7.newInfl),
@@ -137,6 +149,20 @@ object WorldAssemblyStep:
       tourismImport = PLN(in.s6.tourismImport),
       bfgFundBalance = PLN(in.w.bfgFundBalance.toDouble + in.s9.bfgLevy),
       bailInLoss = PLN(in.s9.bailInLoss),
+      effectiveShadowShare =
+        if Config.InformalEnabled then
+          Config.FofConsWeights
+            .zip(Config.InformalSectorShares)
+            .map((cw, ss) => cw * Math.min(1.0, ss + newInformalCyclicalAdj))
+            .sum
+        else 0.0,
+      bfgLevyTotal = in.s9.bfgLevy,
+      reserveInterestTotal = in.s8.totalReserveInterest,
+      standingFacilityNet = in.s8.totalStandingFacilityIncome,
+      interbankInterestNet = in.s8.totalInterbankInterest,
+      depositFacilityUsage = depositFacilityUsage,
+      etsPrice = etsPrice,
+      tourismSeasonalFactor = tourismSeasonalFactor,
     )
 
     // SFC accounting check

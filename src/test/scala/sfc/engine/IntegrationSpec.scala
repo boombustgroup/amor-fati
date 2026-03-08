@@ -2,6 +2,8 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import sfc.Observables
+import sfc.Observables.Col
 import sfc.config.{Config, RunConfig}
 import sfc.runSingle
 
@@ -14,45 +16,45 @@ class IntegrationSpec extends AnyFlatSpec with Matchers:
     noException should be thrownBy runSingle(42, rc)
   }
 
-  it should "produce 120 rows x 166 columns" in {
+  it should "produce 120 rows x 197 columns" in {
     val result = runSingle(42, rc)
     result.timeSeries.length shouldBe Config.Duration
-    for row <- result.timeSeries do row.length shouldBe 197
+    for row <- result.timeSeries do row.length shouldBe Observables.nCols
   }
 
   it should "have Month column = 1..120" in {
     val result = runSingle(42, rc)
-    for t <- 0 until Config.Duration do result.timeSeries(t)(0) shouldBe (t + 1).toDouble
+    for t <- 0 until Config.Duration do result.timeSeries(t)(Col.Month.ordinal) shouldBe (t + 1).toDouble
   }
 
   it should "keep adoption ratio in [0, 1]" in {
     val result = runSingle(42, rc)
     for t <- 0 until Config.Duration do
-      result.timeSeries(t)(3) should be >= 0.0
-      result.timeSeries(t)(3) should be <= 1.0
+      result.timeSeries(t)(Col.TotalAdoption.ordinal) should be >= 0.0
+      result.timeSeries(t)(Col.TotalAdoption.ordinal) should be <= 1.0
   }
 
   it should "keep unemployment in [0, 1]" in {
     val result = runSingle(42, rc)
     for t <- 0 until Config.Duration do
-      result.timeSeries(t)(2) should be >= 0.0
-      result.timeSeries(t)(2) should be <= 1.0
+      result.timeSeries(t)(Col.Unemployment.ordinal) should be >= 0.0
+      result.timeSeries(t)(Col.Unemployment.ordinal) should be <= 1.0
   }
 
   it should "be reproducible with the same seed" in {
     val r1 = runSingle(42, rc)
     val r2 = runSingle(42, rc)
-    for t <- 0 until Config.Duration; c <- 0 until 197 do r1.timeSeries(t)(c) shouldBe r2.timeSeries(t)(c)
+    for t <- 0 until Config.Duration; c <- 0 until Observables.nCols do r1.timeSeries(t)(c) shouldBe r2.timeSeries(t)(c)
   }
 
   it should "have positive sigma values in columns 19-24" in {
     val result = runSingle(42, rc)
-    for t <- 0 until Config.Duration; c <- 19 until 25 do result.timeSeries(t)(c) should be > 0.0
+    for t <- 0 until Config.Duration; s <- 0 until 6 do result.timeSeries(t)(Col.sectorSigma(s).ordinal) should be > 0.0
   }
 
   it should "have positive mean degree in column 25" in {
     val result = runSingle(42, rc)
-    for t <- 0 until Config.Duration do result.timeSeries(t)(25) should be > 0.0
+    for t <- 0 until Config.Duration do result.timeSeries(t)(Col.MeanDegree.ordinal) should be > 0.0
   }
 
   it should "return defined terminalHhAgg" in {
