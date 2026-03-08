@@ -2,10 +2,10 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.Observables
-import sfc.Observables.Col
+import sfc.SimOutput
+import sfc.SimOutput.Col
 import sfc.config.{Config, RunConfig}
-import sfc.runSingle
+import sfc.McRunner.runSingle
 
 class IntegrationSpec extends AnyFlatSpec with Matchers:
 
@@ -19,7 +19,7 @@ class IntegrationSpec extends AnyFlatSpec with Matchers:
   it should "produce 120 rows x 197 columns" in {
     val result = runSingle(42, rc)
     result.timeSeries.length shouldBe Config.Duration
-    for row <- result.timeSeries do row.length shouldBe Observables.nCols
+    for row <- result.timeSeries do row.length shouldBe SimOutput.nCols
   }
 
   it should "have Month column = 1..120" in {
@@ -44,7 +44,7 @@ class IntegrationSpec extends AnyFlatSpec with Matchers:
   it should "be reproducible with the same seed" in {
     val r1 = runSingle(42, rc)
     val r2 = runSingle(42, rc)
-    for t <- 0 until Config.Duration; c <- 0 until Observables.nCols do r1.timeSeries(t)(c) shouldBe r2.timeSeries(t)(c)
+    for t <- 0 until Config.Duration; c <- 0 until SimOutput.nCols do r1.timeSeries(t)(c) shouldBe r2.timeSeries(t)(c)
   }
 
   it should "have positive sigma values in columns 19-24" in {
@@ -57,7 +57,7 @@ class IntegrationSpec extends AnyFlatSpec with Matchers:
     for t <- 0 until Config.Duration do result.timeSeries(t)(Col.MeanDegree.ordinal) should be > 0.0
   }
 
-  it should "return defined terminalHhAgg" in {
+  it should "return defined terminalState with hhAgg" in {
     val result = runSingle(42, rc)
-    result.terminalHhAgg.employed should be >= 0
+    result.terminalState.world.hhAgg.get.employed should be >= 0
   }

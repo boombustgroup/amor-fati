@@ -71,7 +71,7 @@ object WorldAssemblyStep:
       in.w.informalCyclicalAdj * Config.InformalSmoothing + target * (1.0 - Config.InformalSmoothing)
     else 0.0
 
-    // Pre-compute values surfaced on World for Observables
+    // Pre-compute values surfaced on World for SimOutput
     val aliveBanksForObs = in.s9.finalBankingSector.banks.filterNot(_.failed)
     val depositFacilityUsage = aliveBanksForObs
       .filter(_.reservesAtNbp > PLN.Zero)

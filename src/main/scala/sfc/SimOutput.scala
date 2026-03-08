@@ -12,7 +12,7 @@ import sfc.util.KahanSum.*
   * at call sites. Adding a column = adding one ColumnDef; names, indices, CSV headers, and `toArray` all follow
   * automatically.
   */
-object Observables:
+object SimOutput:
 
   /** A typed column handle. Wraps an ordinal — prevents raw Int column access. */
   opaque type Col = Int

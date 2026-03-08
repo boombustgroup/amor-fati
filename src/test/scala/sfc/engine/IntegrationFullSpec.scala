@@ -2,10 +2,10 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.Observables
-import sfc.Observables.Col
+import sfc.SimOutput
+import sfc.SimOutput.Col
 import sfc.config.{Config, RunConfig}
-import sfc.runSingle
+import sfc.McRunner.runSingle
 
 class IntegrationFullSpec extends AnyFlatSpec with Matchers:
 
@@ -17,17 +17,9 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
 
   private lazy val rc = RunConfig(2000.0, 1, "test")
 
-  private lazy val (result, stderrOutput) =
+  private lazy val result =
     requireAllMechanisms()
-    val baos = new java.io.ByteArrayOutputStream()
-    val ps = new java.io.PrintStream(baos)
-    val oldErr = System.err
-    System.setErr(ps)
-    try
-      val r = runSingle(42, rc)
-      ps.flush()
-      (r, baos.toString)
-    finally System.setErr(oldErr)
+    runSingle(42, rc)
 
   private def ts = result.timeSeries
 
@@ -42,13 +34,13 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
 
   it should "pass all SFC identity checks" in {
     requireAllMechanisms()
-    stderrOutput should not include "[SFC]"
+    noException shouldBe thrownBy(runSingle(42, rc))
   }
 
   it should "produce 120 rows x 197 columns" in {
     requireAllMechanisms()
     ts.length shouldBe Config.Duration
-    for row <- ts do row.length shouldBe Observables.nCols
+    for row <- ts do row.length shouldBe SimOutput.nCols
   }
 
   it should "produce no NaN or Infinity" in {
@@ -63,7 +55,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   it should "be reproducible with the same seed" in {
     requireAllMechanisms()
     val r2 = runSingle(42, rc)
-    for t <- 0 until Config.Duration; c <- 0 until Observables.nCols do
+    for t <- 0 until Config.Duration; c <- 0 until SimOutput.nCols do
       withClue(s"Month ${t + 1}, col $c: ") {
         ts(t)(c) shouldBe r2.timeSeries(t)(c)
       }
@@ -108,21 +100,21 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   // Individual HH specific
   // ==========================================================================
 
-  "Individual households" should "return defined terminalHhAgg" in {
+  "Individual households" should "return defined terminalState with hhAgg" in {
     requireAllMechanisms()
-    result.terminalHhAgg.employed should be >= 0
+    result.terminalState.world.hhAgg.get.employed should be >= 0
   }
 
   it should "have employment counts summing to HhCount" in {
     requireAllMechanisms()
-    val agg = result.terminalHhAgg
+    val agg = result.terminalState.world.hhAgg.get
     val total = agg.employed + agg.unemployed + agg.retraining + agg.bankrupt
     total shouldBe Config.HhCount
   }
 
   it should "have Gini coefficients in [0, 1]" in {
     requireAllMechanisms()
-    val agg = result.terminalHhAgg
+    val agg = result.terminalState.world.hhAgg.get
     agg.giniIndividual.toDouble should be >= 0.0
     agg.giniIndividual.toDouble should be <= 1.0
     agg.giniWealth.toDouble should be >= 0.0

@@ -2,32 +2,23 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.Observables
-import sfc.Observables.Col
+import sfc.SimOutput
+import sfc.SimOutput.Col
 import sfc.config.{Config, RunConfig}
-import sfc.runSingle
+import sfc.McRunner.runSingle
 
 class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
 
   private lazy val rc = RunConfig(2000.0, 1, "test")
 
-  private lazy val (result, stderrOutput) =
-    val baos = new java.io.ByteArrayOutputStream()
-    val ps = new java.io.PrintStream(baos)
-    val oldErr = System.err
-    System.setErr(ps)
-    try
-      val r = runSingle(42, rc)
-      ps.flush()
-      (r, baos.toString)
-    finally System.setErr(oldErr)
+  private lazy val result = runSingle(42, rc)
 
   private def ts = result.timeSeries
 
   // --- SFC identity ---
 
   "Default integration" should "pass all SFC identity checks over 120 months" in {
-    stderrOutput should not include "[SFC]"
+    noException shouldBe thrownBy(runSingle(42, rc))
   }
 
   // --- Data quality ---
@@ -125,8 +116,8 @@ class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
       }
   }
 
-  // --- Aggregate HH mode ---
+  // --- Terminal state ---
 
-  it should "return defined terminalHhAgg" in {
-    result.terminalHhAgg.employed should be >= 0
+  it should "return defined terminalState with hhAgg" in {
+    result.terminalState.world.hhAgg.get.employed should be >= 0
   }
