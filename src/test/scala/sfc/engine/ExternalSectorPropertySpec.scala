@@ -5,7 +5,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
-import sfc.config.{Config, MonetaryRegime, RunConfig}
+import sfc.config.{Config, RunConfig}
 import sfc.types.*
 
 class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -13,8 +13,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
 
-  private val plnConfig = RunConfig(2000.0, 1, "test", MonetaryRegime.Pln)
-  private val eurConfig = RunConfig(2000.0, 1, "test", MonetaryRegime.Eur)
+  private val rc = RunConfig(2000.0, 1, "test")
   private val defaultSectorOutputs = Vector.fill(6)(1e8)
 
   private def runStep(
@@ -22,7 +21,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
     price: Double = 1.0,
     autoR: Double = 0.0,
     month: Int = 30,
-    rc: RunConfig = plnConfig,
+    rc: RunConfig = rc,
   ): GvcTrade.State =
     GvcTrade.step(GvcTrade.initial, defaultSectorOutputs, price, er, autoR, month, rc)
 
@@ -81,15 +80,6 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
       val r = runStep(er)
       r.tradeConcentration.toDouble should be > 0.0
       r.tradeConcentration.toDouble should be <= 1.0
-    }
-  }
-
-  // --- EUR regime: exports still positive ---
-
-  it should "produce positive exports under EUR regime" in {
-    forAll(genFraction, Gen.choose(1, 120)) { (autoR: Double, month: Int) =>
-      val r = runStep(Config.BaseExRate, 1.0, autoR, month, eurConfig)
-      r.totalExports.toDouble should be > 0.0
     }
   }
 

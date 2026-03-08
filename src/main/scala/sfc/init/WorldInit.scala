@@ -61,7 +61,7 @@ object WorldInit:
       else PLN.Zero
 
     // --- Interest rate ---
-    val initRate = if rc.isEurozone then Config.EcbInitialRate else Config.NbpInitialRate
+    val initRate = Config.NbpInitialRate
 
     // --- World assembly ---
     val world = World(

@@ -57,11 +57,6 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
     RunConfig(2000.0, 1, "test").isNoBdp shouldBe false
   }
 
-  it should "derive isEurozone correctly" in {
-    RunConfig(2000.0, 1, "test", MonetaryRegime.Pln).isEurozone shouldBe false
-    RunConfig(2000.0, 1, "test", MonetaryRegime.Eur).isEurozone shouldBe true
-  }
-
   "sigmaThreshold" should "return ~0.91 for sigma=2" in {
     Firm.sigmaThreshold(2.0) shouldBe 0.9026 +- 0.01
   }

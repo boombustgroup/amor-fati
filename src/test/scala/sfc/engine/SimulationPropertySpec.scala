@@ -6,7 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
 import sfc.accounting.{ForexState, GovState}
-import sfc.config.{Config, MonetaryRegime, RunConfig}
+import sfc.config.{Config, RunConfig}
 import sfc.types.*
 
 class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -14,8 +14,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  private val plnConfig = RunConfig(2000.0, 1, "test", MonetaryRegime.Pln)
-  private val eurConfig = RunConfig(2000.0, 1, "test", MonetaryRegime.Eur)
+  private val rc = RunConfig(2000.0, 1, "test")
 
   // Combined generator for gov inputs (avoids >6 forAll limit)
   private val genGovInputs: Gen[(GovState, Double, Double, Boolean, Double, Double, Double)] =
@@ -46,38 +45,20 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateCbRate" should "be in [RateFloor, RateCeiling] for PLN" in {
     forAll(genRate, genInflation, Gen.choose(-0.10, 0.10), Gen.choose(0, Config.TotalPopulation)) {
       (prevRate: Double, inflation: Double, exRateChg: Double, employed: Int) =>
-        val r = Sectors.updateCbRate(prevRate, inflation, exRateChg, employed, plnConfig)
+        val r = Sectors.updateCbRate(prevRate, inflation, exRateChg, employed, rc)
         r should be >= Config.RateFloor
         r should be <= Config.RateCeiling
     }
   }
 
-  it should "be in [RateFloor, RateCeiling] for EUR" in {
-    forAll(genRate, genInflation, Gen.choose(-0.10, 0.10), Gen.choose(0, Config.TotalPopulation)) {
-      (prevRate: Double, inflation: Double, exRateChg: Double, employed: Int) =>
-        val r = Sectors.updateCbRate(prevRate, inflation, exRateChg, employed, eurConfig)
-        r should be >= Config.RateFloor
-        r should be <= Config.RateCeiling
-    }
-  }
-
-  it should "be monotonic in inflation for PLN (higher inflation -> higher rate)" in {
+  it should "be monotonic in inflation (higher inflation -> higher rate)" in {
     forAll(genRate, Gen.choose(-0.10, 0.30), Gen.choose(0, Config.TotalPopulation)) {
       (prevRate: Double, baseInflation: Double, employed: Int) =>
         val lowInfl = baseInflation
         val highInfl = baseInflation + 0.10
-        val rLow = Sectors.updateCbRate(prevRate, lowInfl, 0.0, employed, plnConfig)
-        val rHigh = Sectors.updateCbRate(prevRate, highInfl, 0.0, employed, plnConfig)
+        val rLow = Sectors.updateCbRate(prevRate, lowInfl, 0.0, employed, rc)
+        val rHigh = Sectors.updateCbRate(prevRate, highInfl, 0.0, employed, rc)
         rHigh should be >= (rLow - 1e-10)
-    }
-  }
-
-  it should "produce identical rates for EUR regardless of domestic inflation" in {
-    forAll(genRate, genInflation, genInflation, Gen.choose(0, Config.TotalPopulation)) {
-      (prevRate: Double, infl1: Double, infl2: Double, employed: Int) =>
-        val r1 = Sectors.updateCbRate(prevRate, infl1, 0.0, employed, eurConfig)
-        val r2 = Sectors.updateCbRate(prevRate, infl2, 0.0, employed, eurConfig)
-        r1 shouldBe (r2 +- 1e-10)
     }
   }
 
@@ -87,21 +68,21 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genInflInputs) { (inputs: (Double, Double, Double, Double, Double, Double, Double)) =>
       val (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, autoR, hybR) = inputs
       val (_, newPrice) =
-        Sectors.updateInflation(prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, autoR, hybR, plnConfig)
+        Sectors.updateInflation(prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, autoR, hybR, rc)
       newPrice should be >= 0.30
     }
   }
 
   it should "apply soft deflation floor (price >= 0.30)" in {
-    val (_, price) = Sectors.updateInflation(-0.30, 1.0, 0.5, -0.10, 0.0, 0.80, 0.15, plnConfig)
+    val (_, price) = Sectors.updateInflation(-0.30, 1.0, 0.5, -0.10, 0.0, 0.80, 0.15, rc)
     price should be >= 0.30
   }
 
   it should "produce lower inflation with more automation" in {
     forAll(genInflation, genPrice, Gen.choose(0.8, 1.2), Gen.choose(-0.02, 0.02)) {
       (prevInfl: Double, prevPrice: Double, demandMult: Double, wageGrowth: Double) =>
-        val (infl1, _) = Sectors.updateInflation(prevInfl, prevPrice, demandMult, wageGrowth, 0.0, 0.05, 0.0, plnConfig)
-        val (infl2, _) = Sectors.updateInflation(prevInfl, prevPrice, demandMult, wageGrowth, 0.0, 0.50, 0.0, plnConfig)
+        val (infl1, _) = Sectors.updateInflation(prevInfl, prevPrice, demandMult, wageGrowth, 0.0, 0.05, 0.0, rc)
+        val (infl2, _) = Sectors.updateInflation(prevInfl, prevPrice, demandMult, wageGrowth, 0.0, 0.50, 0.0, rc)
         infl2 should be <= (infl1 + 1e-10)
     }
   }
@@ -178,18 +159,10 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
 
   // --- updateForeign properties ---
 
-  "updateForeign" should "keep fixed exchange rate for EUR" in {
+  "updateForeign" should "keep exchange rate in [3.0, 8.0]" in {
     forAll(genForexState, Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e7), genFraction, genRate, Gen.choose(1e6, 1e10)) {
       (prev: ForexState, importCons: Double, techImp: Double, autoR: Double, rate: Double, gdp: Double) =>
-        val fx = Sectors.updateForeign(prev, importCons, techImp, autoR, rate, gdp, eurConfig)
-        fx.exchangeRate shouldBe Config.BaseExRate
-    }
-  }
-
-  it should "keep PLN exchange rate in [3.0, 8.0]" in {
-    forAll(genForexState, Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e7), genFraction, genRate, Gen.choose(1e6, 1e10)) {
-      (prev: ForexState, importCons: Double, techImp: Double, autoR: Double, rate: Double, gdp: Double) =>
-        val fx = Sectors.updateForeign(prev, importCons, techImp, autoR, rate, gdp, plnConfig)
+        val fx = Sectors.updateForeign(prev, importCons, techImp, autoR, rate, gdp, rc)
         fx.exchangeRate should be >= 3.0
         fx.exchangeRate should be <= 8.0
     }

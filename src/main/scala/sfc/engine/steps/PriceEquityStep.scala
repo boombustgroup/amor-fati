@@ -293,9 +293,7 @@ object PriceEquityStep:
 
     val rewiredFirms = rewireFirms(in.s5.ioFirms, Config.RewireRho)
 
-    val exDev =
-      if in.rc.isEurozone then 0.0
-      else (in.w.forex.exchangeRate / Config.BaseExRate) - 1.0
+    val exDev = (in.w.forex.exchangeRate / Config.BaseExRate) - 1.0
     val (newInfl, newPrice) = Sectors.updateInflation(
       in.w.inflation.toDouble,
       in.w.priceLevel,

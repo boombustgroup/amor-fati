@@ -26,21 +26,7 @@ object FiscalConstraintStep:
     val m = w.month + 1
     val bdpActive = m >= Config.ShockMonth
 
-    val bdpUnconstrained = if bdpActive then in.rc.bdpAmount else 0.0
-    val bdp = if in.rc.isEurozone && bdpActive && bdpUnconstrained > 0 then
-      val annualGdp = w.gdpProxy * 12.0
-      val maxMonthlyDeficit = Config.SgpDeficitLimit * annualGdp / 12.0
-      val baseGovSpend = Config.GovBaseSpending * w.priceLevel
-      val estRevenue = w.gov.taxRevenue
-      val maxBdpSpend = Math.max(0.0, maxMonthlyDeficit + estRevenue.toDouble - baseGovSpend)
-      val maxBdpPerCapita = maxBdpSpend / Config.TotalPopulation.toDouble
-      val debtRatio = if annualGdp > 0 then w.gov.cumulativeDebt.toDouble / annualGdp else 0.0
-      val austerityMult =
-        if debtRatio > Config.SgpDebtLimit then
-          Math.max(0.0, 1.0 - (debtRatio - Config.SgpDebtLimit) * Config.SgpAusterityRate)
-        else 1.0
-      Math.max(0.0, Math.min(bdpUnconstrained, maxBdpPerCapita * austerityMult))
-    else bdpUnconstrained
+    val bdp = if bdpActive then in.rc.bdpAmount else 0.0
 
     val (baseMinWage, updatedMinWagePriceLevel) = if Config.MinWageEnabled then
       val isAdjustMonth = m > 0 && m % Config.MinWageAdjustMonths == 0

@@ -73,13 +73,6 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     }
   }
 
-  it should "have isEurozone iff regime == Eur" in {
-    forAll(Gen.oneOf(MonetaryRegime.Pln, MonetaryRegime.Eur)) { (regime: MonetaryRegime) =>
-      val rc = RunConfig(2000.0, 1, "test", regime)
-      rc.isEurozone shouldBe (regime == MonetaryRegime.Eur)
-    }
-  }
-
   // --- Generated IoMatrix properties ---
 
   "Generated IoMatrix" should "have non-negative entries and column sums < 1.0" in {

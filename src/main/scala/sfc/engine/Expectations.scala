@@ -31,7 +31,7 @@ object Expectations:
     val adaptive = prev.expectedInflation.toDouble + Config.ExpLambda * error
 
     // 3. Anchoring: blend target with adaptive based on credibility
-    val target = if rc.isEurozone then Config.EcbTargetInfl else Config.NbpTargetInfl
+    val target = Config.NbpTargetInfl
     val cred = prev.credibility.toDouble
     val expected = cred * target + (1.0 - cred) * adaptive
 
@@ -51,9 +51,9 @@ object Expectations:
     val newCredibility = Math.max(0.01, Math.min(1.0, rawCredibility))
 
     // 5. Forward guidance rate (when enabled)
-    val neutral = if rc.isEurozone then Config.EcbNeutralRate else Config.NbpNeutralRate
-    val alpha = if rc.isEurozone then Config.EcbAlpha else Config.TaylorAlpha
-    val delta = if rc.isEurozone then 0.0 else Config.TaylorDelta
+    val neutral = Config.NbpNeutralRate
+    val alpha = Config.TaylorAlpha
+    val delta = Config.TaylorDelta
     val nairu = Config.NbpNairu
     val rawOutputGap = (unemployment - nairu) / nairu
     val outputGap = Math.max(-0.30, Math.min(0.30, rawOutputGap))

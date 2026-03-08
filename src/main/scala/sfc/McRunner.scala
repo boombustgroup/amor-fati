@@ -231,12 +231,11 @@ object McRunner:
     for s <- SECTORS.indices do statsSummary(f"  ${secNames(s)}%-22s", Col.sectorAuto(s), 100.0)
 
   private def printBanner(rc: RunConfig): Unit =
-    val regimeLabel = if rc.isEurozone then "EUR (ECB)" else "PLN (NBP)"
     val topoLabel = TOPOLOGY.toString.toUpperCase
     val firmsLabel = f"${Config.FirmsCount}%,d"
     val hhLabel = s" | HH=individual (${Config.HhCount})"
     val bankLabel = " | BANK=multi (7)"
     println(s"+" + "=" * 68 + "+")
-    println(s"|  SFC-ABM v8: BDP=${rc.bdpAmount.toInt} PLN, N=${rc.nSeeds} seeds, ${regimeLabel}${hhLabel}${bankLabel}")
+    println(s"|  SFC-ABM v8: BDP=${rc.bdpAmount.toInt} PLN, N=${rc.nSeeds} seeds, PLN (NBP)${hhLabel}${bankLabel}")
     println(s"|  ${firmsLabel} firms x 6 sectors (GUS 2024) x ${topoLabel} network x 120m")
     println(s"+" + "=" * 68 + "+")

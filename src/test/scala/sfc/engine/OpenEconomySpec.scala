@@ -3,20 +3,19 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BopState, ForexState}
-import sfc.config.{Config, MonetaryRegime, RunConfig}
+import sfc.config.{Config, RunConfig}
 import sfc.types.*
 
 class OpenEconomySpec extends AnyFlatSpec with Matchers:
 
-  private val plnRc = RunConfig(2000.0, 1, "test", MonetaryRegime.Pln)
-  private val eurRc = RunConfig(2000.0, 1, "test", MonetaryRegime.Eur)
+  private val rc = RunConfig(2000.0, 1, "test")
 
   private val baseForex = ForexState(Config.BaseExRate, PLN.Zero, PLN(Config.ExportBase), PLN.Zero, PLN.Zero)
   private val baseSectorOutputs = Vector(30000.0, 160000.0, 450000.0, 60000.0, 220000.0, 80000.0)
   private val gdp = 1e9
 
   private def runStep(
-    rc: RunConfig = plnRc,
+    rc: RunConfig = rc,
     prevBop: BopState = BopState.zero,
     prevForex: ForexState = baseForex,
     autoRatio: Double = 0.0,
@@ -98,7 +97,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
       1.0,
       baseSectorOutputs,
       30,
-      plnRc,
+      rc,
       euFundsMonthly = Config.OeEuTransfers,
     )
     r.bop.secondaryIncome.toDouble shouldBe Config.OeEuTransfers +- 0.01
@@ -108,18 +107,6 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
     val r = runStep()
     val expectedTb = (r.bop.exports - r.bop.totalImports).toDouble
     r.bop.tradeBalance.toDouble shouldBe expectedTb +- 0.01
-  }
-
-  // ---- EUR regime ----
-
-  it should "fix exchange rate at BaseExRate for EUR regime" in {
-    val r = runStep(rc = eurRc)
-    r.forex.exchangeRate shouldBe Config.BaseExRate
-  }
-
-  it should "have zero portfolio flows for EUR regime" in {
-    val r = runStep(rc = eurRc)
-    r.bop.portfolioFlows.toDouble shouldBe 0.0
   }
 
   // ---- NFA tracking ----

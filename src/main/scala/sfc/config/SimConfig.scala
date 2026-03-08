@@ -2,11 +2,6 @@ package sfc.config
 
 import sfc.types.*
 
-/** Monetary regime: determines central bank behavior and exchange rate dynamics. */
-enum MonetaryRegime:
-  case Pln // NBP Taylor rule + floating PLN/EUR
-  case Eur // Exogenous ECB rate + fixed exchange rate (Eurozone membership)
-
 /** Network topology selection for comparative experiments. */
 enum Topology:
   case Ws, Er, Ba, Lattice
@@ -17,10 +12,8 @@ case class RunConfig(
   bdpAmount: Double,
   nSeeds: Int,
   outputPrefix: String,
-  regime: MonetaryRegime = MonetaryRegime.Pln,
 ):
   val isNoBdp: Boolean = bdpAmount == 0.0
-  val isEurozone: Boolean = regime == MonetaryRegime.Eur
 
 /** 4-to-6 sector definition with heterogeneous sigma (CES elasticity of substitution). sigma affects: decision
   * threshold, automation efficiency, CAPEX costs.
@@ -516,30 +509,6 @@ object Config:
   val NbpForwardGuidance: Boolean = sys.env.get("NBP_FORWARD_GUIDANCE").map(_.trim.toBoolean).getOrElse(false)
 
   // ───────────────────────────────────────────────────────────────────────
-  // ECB — Eurozone counterfactual
-  // Parameters for EUR regime: exogenous ECB rate, no independent monetary policy.
-  // Simulates Poland's hypothetical Eurozone membership (Art. 4 Traktatu akcesyjnego).
-  // ECB targets symmetric 2.0% HICP (Lagarde 2021 strategy review).
-  // ───────────────────────────────────────────────────────────────────────
-  val EcbInitialRate = 0.035 // ECB deposit facility rate (Oct 2024)
-  val EcbNeutralRate = 0.025 // ECB neutral rate (lower than NBP; Holston-Laubach-Williams)
-  val EcbTargetInfl = 0.020 // ECB symmetric HICP target 2.0% (2021 strategy review)
-  val EcbAlpha = 1.5 // ECB Taylor inflation response (slower than Fed)
-  val EcbInertia = 0.85 // ECB rate smoothing (smoother than NBP: consensus-driven GC)
-  val EuroInflation = 0.020 // Exogenous Eurozone-wide HICP inflation (constant)
-
-  // ───────────────────────────────────────────────────────────────────────
-  // SGP fiscal constraint (EUR regime only)
-  // Maastricht convergence criteria (Art. 126 TFEU, Protocol No. 12):
-  //   - Annual general government deficit < 3% of GDP
-  //   - Gross government debt < 60% of GDP
-  // When debt exceeds 60%, austerity reduces BDP transfers at speed SgpAusterityRate.
-  // Poland 2024: debt ~49% GDP (within limit), deficit ~5.1% GDP (EDP opened 2024).
-  // ───────────────────────────────────────────────────────────────────────
-  val SgpDeficitLimit = 0.03 // Maastricht: annual deficit < 3% of GDP
-  val SgpDebtLimit = 0.60 // Maastricht: public debt < 60% of GDP
-  val SgpAusterityRate = 2.0 // Austerity speed: BDP × max(0, 1 - (debtRatio - 0.60) × rate)
-
   // ───────────────────────────────────────────────────────────────────────
   // Unemployment benefits — automatic stabilizers
   // Zasiłek dla bezrobotnych (Ustawa o promocji zatrudnienia, Art. 72-73):

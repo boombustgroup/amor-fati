@@ -130,9 +130,7 @@ object OpenEconomyStep:
       euCumulativeAbsorption = in.w.bop.euCumulativeAbsorption + PLN(in.s7.euMonthly),
     )
 
-    val exRateChg =
-      if in.rc.isEurozone then 0.0
-      else (newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0
+    val exRateChg = (newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0
     val newRefRate =
       Sectors.updateCbRate(in.w.nbp.referenceRate.toDouble, in.s7.newInfl, exRateChg, in.s2.employed, in.rc)
 
@@ -155,7 +153,7 @@ object OpenEconomyStep:
     val nbpBondGdpShare = if annualGdpForBonds > 0 then in.w.nbp.qeCumulative.toDouble / annualGdpForBonds else 0.0
     // Channel 3: De-anchored expectations → higher bond yields
     val credPremium = if Config.ExpEnabled then
-      val target = if in.rc.isEurozone then Config.EcbTargetInfl else Config.NbpTargetInfl
+      val target = Config.NbpTargetInfl
       (1.0 - in.w.expectations.credibility.toDouble) *
         Math.abs(in.w.expectations.expectedInflation.toDouble - target) *
         Config.ExpBondSensitivity

@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting
 import sfc.accounting.GovState
-import sfc.config.{Config, MonetaryRegime, RunConfig}
+import sfc.config.{Config, RunConfig}
 import sfc.types.*
 
 class SimulationSpec extends AnyFlatSpec with Matchers:
@@ -70,17 +70,6 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
 
     val rateHigh = Sectors.updateCbRate(0.25, 1.0, 0.5, Config.TotalPopulation * 95 / 100, rc)
     rateHigh should be <= Config.RateCeiling
-  }
-
-  it should "use ECB rule for EUR regime" in {
-    val rcPln = RunConfig(0.0, 1, "test", MonetaryRegime.Pln)
-    val rcEur = RunConfig(0.0, 1, "test", MonetaryRegime.Eur)
-    // ECB rate should differ from PLN rate at same inflation
-    val ratePln = Sectors.updateCbRate(0.0575, 0.05, 0.0, Config.TotalPopulation * 95 / 100, rcPln)
-    val rateEur = Sectors.updateCbRate(0.035, 0.05, 0.0, Config.TotalPopulation * 95 / 100, rcEur)
-    // They start from different initial rates, so just check both are bounded
-    ratePln should be >= Config.RateFloor
-    rateEur should be >= Config.RateFloor
   }
 
   // --- updateGov ---

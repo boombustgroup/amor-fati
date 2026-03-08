@@ -89,11 +89,9 @@ object GvcTrade:
 
     // 4. Real exchange rate effect (same formula as OpenEconomy)
     val realExRateEffect =
-      if rc.isEurozone then 1.0
-      else
-        val nominalER = exchangeRate / Config.BaseExRate
-        val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER else 1.0
-        Math.pow(1.0 / Math.max(0.1, realPrice), Config.OeExportPriceElasticity)
+      val nominalER = exchangeRate / Config.BaseExRate
+      val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER else 1.0
+      Math.pow(1.0 / Math.max(0.1, realPrice), Config.OeExportPriceElasticity)
 
     // 5. Sector-specific exports
     val sectorExports = (0 until 6).map { s =>
@@ -116,16 +114,8 @@ object GvcTrade:
       val baseDemand = realOutput * Config.GvcDepth(s)
       val sectorFirms = updatedFirms.filter(_.sectorId == s)
       // Weighted ER pass-through across partners
-      val erEffect = if rc.isEurozone then
-        // EU partner: zero pass-through (single currency); non-EU: full
-        val nonEuFirms = sectorFirms.filter(_.partnerId == 1)
-        val totalSupply = sectorFirms.kahanSumBy(_.baseImportSupply.toDouble)
-        if totalSupply > 0 then
-          val nonEuWeight = nonEuFirms.kahanSumBy(_.baseImportSupply.toDouble) / totalSupply
-          1.0 + nonEuWeight * (exchangeRate / Config.BaseExRate - 1.0) * Config.GvcErPassthrough
-        else 1.0
-      else
-        // PLN: differentiated pass-through by partner
+      // PLN: differentiated pass-through by partner
+      val erEffect =
         val totalSupply = sectorFirms.kahanSumBy(_.baseImportSupply.toDouble)
         if totalSupply > 0 then
           val euWeight = sectorFirms.filter(_.partnerId == 0).kahanSumBy(_.baseImportSupply.toDouble) / totalSupply

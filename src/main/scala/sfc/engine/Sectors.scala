@@ -30,10 +30,7 @@ object Sectors:
   ): (Double, Double) =
     val demandPull = (demandMult - 1.0) * 0.15
     val costPush = wageGrowth * 0.25
-    // EUR: no exchange rate pass-through (single currency area)
-    val rawImportPush =
-      if rc.isEurozone then 0.0
-      else Math.max(0.0, exRateDeviation) * Config.ImportPropensity * 0.25
+    val rawImportPush = Math.max(0.0, exRateDeviation) * Config.ImportPropensity * 0.25
     val importPush =
       if Config.OeEnabled then Math.min(rawImportPush, Config.OeImportPushCap)
       else rawImportPush
@@ -50,14 +47,7 @@ object Sectors:
     (smoothed, newPrice)
 
   def updateCbRate(prevRate: Double, inflation: Double, exRateChange: Double, employed: Int, rc: RunConfig): Double =
-    if rc.isEurozone then
-      // ECB Taylor rule reacting to Eurozone-wide inflation (exogenous to Poland)
-      val infGap = Config.EuroInflation - Config.EcbTargetInfl
-      val taylor = Config.EcbNeutralRate +
-        Config.EcbAlpha * Math.max(0.0, infGap)
-      val smoothed = prevRate * Config.EcbInertia + taylor * (1.0 - Config.EcbInertia)
-      Math.max(Config.RateFloor, Math.min(Config.RateCeiling, smoothed))
-    else if Config.NbpSymmetric then
+    if Config.NbpSymmetric then
       // v2.0: Symmetric Taylor + output gap (dual mandate)
       val infGap = inflation - Config.NbpTargetInfl
       val unempRate = 1.0 - (employed.toDouble / Config.TotalPopulation)
@@ -99,24 +89,17 @@ object Sectors:
   ): ForexState =
     val techComp = 1.0 + autoRatio * Config.ExportAutoBoost
     val totalImp = importConsumption + techImports
-    if rc.isEurozone then
-      // EUR: fixed exchange rate, exports depend on relative price competitiveness
-      // No capital account arbitrage (single monetary zone)
-      val exports = Config.ExportBase * techComp
-      val tradeBal = exports - totalImp
-      ForexState(Config.BaseExRate, PLN(totalImp), PLN(exports), PLN(tradeBal), PLN(techImports))
-    else
-      // PLN: floating exchange rate, BoP-driven adjustment
-      val exComp = prev.exchangeRate / Config.BaseExRate
-      val exports = Config.ExportBase * exComp * techComp
-      val tradeBal = exports - totalImp
-      val rateDiff = domesticRate - Config.ForeignRate
-      val capAcct = rateDiff * Config.IrpSensitivity * gdp
-      val bop = tradeBal + capAcct
-      val bopRatio = if gdp > 0 then bop / gdp else 0.0
-      val exRateChg = -Config.ExRateAdjSpeed * bopRatio
-      val newRate = Math.max(3.0, Math.min(8.0, prev.exchangeRate * (1.0 + exRateChg)))
-      ForexState(newRate, PLN(totalImp), PLN(exports), PLN(tradeBal), PLN(techImports))
+    // PLN: floating exchange rate, BoP-driven adjustment
+    val exComp = prev.exchangeRate / Config.BaseExRate
+    val exports = Config.ExportBase * exComp * techComp
+    val tradeBal = exports - totalImp
+    val rateDiff = domesticRate - Config.ForeignRate
+    val capAcct = rateDiff * Config.IrpSensitivity * gdp
+    val bop = tradeBal + capAcct
+    val bopRatio = if gdp > 0 then bop / gdp else 0.0
+    val exRateChg = -Config.ExRateAdjSpeed * bopRatio
+    val newRate = Math.max(3.0, Math.min(8.0, prev.exchangeRate * (1.0 + exRateChg)))
+    ForexState(newRate, PLN(totalImp), PLN(exports), PLN(tradeBal), PLN(techImports))
 
   def updateGov(
     prev: GovState,

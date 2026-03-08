@@ -37,7 +37,7 @@ object LaborDemographicsStep:
 
     // Channel 1: Expectations-augmented wage Phillips curve
     val wageAfterExp = if Config.ExpEnabled then
-      val target = if in.rc.isEurozone then Config.EcbTargetInfl else Config.NbpTargetInfl
+      val target = Config.NbpTargetInfl
       val expWagePressure = Config.ExpWagePassthrough *
         Math.max(0.0, in.w.expectations.expectedInflation.toDouble - target) / 12.0
       Math.max(in.s1.resWage, rawWage * (1.0 + expWagePressure))
