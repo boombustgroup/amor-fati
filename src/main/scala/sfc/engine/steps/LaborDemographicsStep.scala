@@ -1,8 +1,8 @@
 package sfc.engine.steps
 
 import sfc.agents.*
-import sfc.config.{Config, RunConfig, SECTORS}
-import sfc.engine.{Sectors, World}
+import sfc.config.{Config, RunConfig, SectorDefs}
+import sfc.engine.{LaborMarket, World}
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -33,7 +33,7 @@ object LaborDemographicsStep:
   def run(in: Input): Output =
     val living = in.firms.filter(Firm.isAlive)
     val laborDemand = living.kahanSumBy(f => Firm.workers(f).toDouble).toInt
-    val (rawWage, rawEmployed) = Sectors.updateLaborMarket(in.w.hh.marketWage.toDouble, in.s1.resWage, laborDemand)
+    val (rawWage, rawEmployed) = LaborMarket.updateLaborMarket(in.w.hh.marketWage.toDouble, in.s1.resWage, laborDemand)
 
     // Channel 1: Expectations-augmented wage Phillips curve
     val wageAfterExp = if Config.ExpEnabled then
@@ -45,7 +45,7 @@ object LaborDemographicsStep:
 
     // Union downward wage rigidity (#44)
     val newWage = if Config.UnionEnabled && wageAfterExp < in.w.hh.marketWage.toDouble then
-      val aggDensity = SECTORS.zipWithIndex.map((s, i) => s.share.toDouble * Config.UnionDensity(i)).sum
+      val aggDensity = SectorDefs.zipWithIndex.map((s, i) => s.share.toDouble * Config.UnionDensity(i)).sum
       val decline = in.w.hh.marketWage.toDouble - wageAfterExp
       Math.max(in.s1.resWage, wageAfterExp + decline * Config.UnionRigidity * aggDensity)
     else wageAfterExp

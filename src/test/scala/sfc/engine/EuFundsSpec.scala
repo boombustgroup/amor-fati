@@ -90,8 +90,16 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   "updateGov" should "include euCofinancing in deficit" in {
     val prev = GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val base =
-      Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
-    val withEu = Sectors.updateGov(
+      FiscalBudget.update(
+        prev,
+        100000,
+        200000,
+        bdpActive = false,
+        bdpAmount = 0,
+        priceLevel = 1.0,
+        unempBenefitSpend = 0,
+      )
+    val withEu = FiscalBudget.update(
       prev,
       100000,
       200000,
@@ -107,7 +115,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
 
   it should "record euCofinancing in GovState" in {
     val prev = GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    val result = Sectors.updateGov(
+    val result = FiscalBudget.update(
       prev,
       100000,
       200000,
@@ -122,7 +130,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
 
   it should "add euProjectCapital to govCapitalSpend when GovInvest disabled" in {
     val prev = GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    val result = Sectors.updateGov(
+    val result = FiscalBudget.update(
       prev,
       100000,
       200000,

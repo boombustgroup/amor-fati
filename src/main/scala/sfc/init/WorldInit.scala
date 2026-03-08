@@ -101,7 +101,7 @@ object WorldInit:
       Ratio.Zero,
       Ratio.Zero,
       Config.BaseRevenue * Config.FirmsCount,
-      SECTORS.map(_.sigma).toVector,
+      SectorDefs.map(_.sigma).toVector,
       bankingSector = initBankingSector,
       demographics = initDemographics,
       equity = if Config.GpwEnabled then

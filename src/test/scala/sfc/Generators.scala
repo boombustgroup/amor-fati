@@ -3,7 +3,7 @@ package sfc
 import org.scalacheck.Gen
 import sfc.accounting.*
 import sfc.agents.*
-import sfc.config.{Config, RunConfig, SECTORS}
+import sfc.config.{Config, RunConfig, SectorDefs}
 import sfc.engine.World
 import sfc.types.*
 
@@ -267,7 +267,7 @@ object Generators:
     Ratio(autoR),
     Ratio(hybR),
     gdp,
-    SECTORS.map(_.sigma),
+    SectorDefs.map(_.sigma),
     bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
   )
 

@@ -1,13 +1,26 @@
 package sfc.engine
 
 import sfc.agents.*
-import sfc.config.{Config, SECTORS}
+import sfc.config.{Config, SectorDefs}
 import sfc.types.*
 import sfc.util.KahanSum.*
 
 import scala.util.Random
 
 object LaborMarket:
+
+  private def laborSupplyRatio(wage: Double, resWage: Double): Double =
+    val x = Config.LaborSupplySteepness * (wage / resWage - 1.0)
+    1.0 / (1.0 + Math.exp(-x))
+
+  def updateLaborMarket(prevWage: Double, resWage: Double, laborDemand: Int): (Double, Int) =
+    val supplyAtPrev = (Config.TotalPopulation * laborSupplyRatio(prevWage, resWage)).toInt
+    val excessDemand = (laborDemand - supplyAtPrev).toDouble / Config.TotalPopulation
+    val wageGrowth = excessDemand * Config.WageAdjSpeed
+    val newWage = Math.max(resWage, prevWage * (1.0 + wageGrowth))
+    val newSupply = (Config.TotalPopulation * laborSupplyRatio(newWage, resWage)).toInt
+    val employed = Math.min(laborDemand, newSupply)
+    (newWage, employed)
 
   /** Separate workers from firms that automated or went bankrupt this step. Returns updated households with newly
     * unemployed workers.
@@ -106,7 +119,7 @@ object LaborMarket:
     val vacancyFirmsBySector = vacancies.keys.toArray
       .groupBy(fid => firms(fid).sector.toInt)
     val vacancyFirmsByPriority = vacancies.keys.toArray
-      .sortBy(fid => -SECTORS(firms(fid).sector.toInt).sigma)
+      .sortBy(fid => -SectorDefs(firms(fid).sector.toInt).sigma)
 
     for idx <- unemployedIndices do
       if vacancies.nonEmpty then

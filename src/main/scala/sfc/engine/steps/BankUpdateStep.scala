@@ -86,7 +86,7 @@ object BankUpdateStep:
       if Config.InformalEnabled then in.s3.pitRevenue * (1.0 - effectiveShadowShare * Config.InformalPitEvasion)
       else in.s3.pitRevenue
 
-    val newGov = Sectors.updateGov(
+    val newGov = FiscalBudget.update(
       in.w.gov,
       in.s5.sumTax + in.s7.dividendTax + pitAfterEvasion,
       vatAfterEvasion,

@@ -7,20 +7,20 @@ import sfc.types.*
 
 class SimConfigSpec extends AnyFlatSpec with Matchers:
 
-  "SECTORS" should "have 6 entries" in {
-    SECTORS.length shouldBe 6
+  "SectorDefs" should "have 6 entries" in {
+    SectorDefs.length shouldBe 6
   }
 
   it should "have shares summing to ~1.0" in {
-    SECTORS.map(_.share.toDouble).sum shouldBe 1.0 +- 0.01
+    SectorDefs.map(_.share.toDouble).sum shouldBe 1.0 +- 0.01
   }
 
   it should "have positive sigma for every sector" in {
-    for s <- SECTORS do s.sigma should be > 0.0
+    for s <- SectorDefs do s.sigma should be > 0.0
   }
 
   it should "have known sector names" in {
-    SECTORS.map(_.name) should contain allOf (
+    SectorDefs.map(_.name) should contain allOf (
       "BPO/SSC",
       "Manufacturing",
       "Retail/Services",

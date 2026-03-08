@@ -2,7 +2,7 @@ package sfc.engine.steps
 
 import sfc.accounting.{BopState, ForexState}
 import sfc.agents.*
-import sfc.config.{Config, RunConfig, SECTORS}
+import sfc.config.{Config, RunConfig, SectorDefs}
 import sfc.engine.*
 import sfc.types.*
 import sfc.util.KahanSum.*
@@ -52,7 +52,7 @@ object OpenEconomyStep:
     val living2 = in.s5.ioFirms.filter(Firm.isAlive)
 
     // Sector outputs for open economy
-    val sectorOutputs = (0 until SECTORS.length).map { s =>
+    val sectorOutputs = (0 until SectorDefs.length).map { s =>
       living2
         .filter(_.sector.toInt == s)
         .kahanSumBy(f => Firm.capacity(f) * in.s4.sectorMults(f.sector.toInt) * in.w.priceLevel)
@@ -94,7 +94,7 @@ object OpenEconomyStep:
       )
       (oeResult.forex, oeResult.bop, oeResult.valuationEffect, oeResult.fxIntervention)
     else
-      val fx = Sectors.updateForeign(
+      val fx = OpenEconomy.updateForeign(
         in.w.forex,
         in.s3.importCons,
         totalTechAndInvImports,
@@ -132,7 +132,7 @@ object OpenEconomyStep:
 
     val exRateChg = (newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0
     val newRefRate =
-      Sectors.updateCbRate(in.w.nbp.referenceRate.toDouble, in.s7.newInfl, exRateChg, in.s2.employed, in.rc)
+      Nbp.updateRate(in.w.nbp.referenceRate.toDouble, in.s7.newInfl, exRateChg, in.s2.employed, in.rc)
 
     // Expectations step: update after inflation + rate computed
     val unempRateForExp = 1.0 - in.s2.employed.toDouble / Config.TotalPopulation

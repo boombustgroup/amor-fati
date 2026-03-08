@@ -2,11 +2,34 @@ package sfc.engine
 
 import sfc.accounting.{BopState, ForexState}
 import sfc.agents.Nbp
-import sfc.config.{Config, RunConfig, SECTORS}
+import sfc.config.{Config, RunConfig, SectorDefs}
 import sfc.types.PLN
 import sfc.util.KahanSum.*
 
 object OpenEconomy:
+
+  def updateForeign(
+    prev: ForexState,
+    importConsumption: Double,
+    techImports: Double,
+    autoRatio: Double,
+    domesticRate: Double,
+    gdp: Double,
+    rc: RunConfig,
+  ): ForexState =
+    val techComp = 1.0 + autoRatio * Config.ExportAutoBoost
+    val totalImp = importConsumption + techImports
+    // PLN: floating exchange rate, BoP-driven adjustment
+    val exComp = prev.exchangeRate / Config.BaseExRate
+    val exports = Config.ExportBase * exComp * techComp
+    val tradeBal = exports - totalImp
+    val rateDiff = domesticRate - Config.ForeignRate
+    val capAcct = rateDiff * Config.IrpSensitivity * gdp
+    val bop = tradeBal + capAcct
+    val bopRatio = if gdp > 0 then bop / gdp else 0.0
+    val exRateChg = -Config.ExRateAdjSpeed * bopRatio
+    val newRate = Math.max(3.0, Math.min(8.0, prev.exchangeRate * (1.0 + exRateChg)))
+    ForexState(newRate, PLN(totalImp), PLN(exports), PLN(tradeBal), PLN(techImports))
 
   case class Result(
     forex: ForexState,
@@ -38,7 +61,7 @@ object OpenEconomy:
     tourismImport: Double = 0.0,
   ): Result =
 
-    val nSectors = SECTORS.length
+    val nSectors = SectorDefs.length
 
     // A. Export demand (structural)
     // Foreign buyers care about the real exchange rate: PL / (ER/baseER).

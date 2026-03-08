@@ -166,12 +166,12 @@ object Household:
             // Education draw + skill range
             val edu = sfc.config.Config.drawEducation(sectorIdx.toInt, rng)
             val (skillFloor, skillCeiling) = sfc.config.Config.eduSkillRange(edu)
-            val sectorSigma = sfc.config.SECTORS(sectorIdx.toInt).sigma
+            val sectorSigma = sfc.config.SectorDefs(sectorIdx.toInt).sigma
             val baseSkill = skillFloor + (skillCeiling - skillFloor) * rng.nextDouble()
             val sectorBonus = Math.min(0.1, 0.02 * Math.log(sectorSigma))
             val skill = Math.max(skillFloor, Math.min(skillCeiling, baseSkill + sectorBonus))
 
-            val wage = Config.BaseWage * sfc.config.SECTORS(sectorIdx.toInt).wageMultiplier * skill
+            val wage = Config.BaseWage * sfc.config.SectorDefs(sectorIdx.toInt).wageMultiplier * skill
 
             // GPW equity wealth: GpwHhEquityFrac of HH participate, with wealth ∝ savings
             val eqWealth =
@@ -523,7 +523,7 @@ object Household:
                       (HhStatus.Retraining(adjDur, SectorIdx(targetSector), PLN(adjCost)), 1, 0)
                     else (afterVoluntary, 0, 0)
                   else
-                    val targetSector = rng.nextInt(sfc.config.SECTORS.length)
+                    val targetSector = rng.nextInt(sfc.config.SectorDefs.length)
                     (
                       HhStatus.Retraining(
                         Config.HhRetrainingDuration,

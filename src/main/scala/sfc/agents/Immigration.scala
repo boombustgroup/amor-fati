@@ -1,6 +1,6 @@
 package sfc.agents
 
-import sfc.config.{Config, SECTORS}
+import sfc.config.{Config, SectorDefs}
 import sfc.types.*
 
 import scala.util.Random
@@ -57,11 +57,11 @@ object Immigration:
     val r = rng.nextDouble()
     var cum = 0.0
     var s = 0
-    while s < SECTORS.length - 1 do
+    while s < SectorDefs.length - 1 do
       cum += Config.ImmigSectorShares(s)
       if r < cum then return s
       s += 1
-    SECTORS.length - 1 // fallback: last sector
+    SectorDefs.length - 1 // fallback: last sector
 
   /** Spawn new immigrant households (individual mode). Start as Unemployed(0) — will be matched in next jobSearch
     * round.

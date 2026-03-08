@@ -22,25 +22,25 @@ object FirmInit:
       case Topology.Lattice => Network.lattice(Config.FirmsCount, Config.NetworkK)
 
     // Assign sectors
-    val sectorCounts = SECTORS.map(s => (s.share.toDouble * Config.FirmsCount).toInt)
+    val sectorCounts = SectorDefs.map(s => (s.share.toDouble * Config.FirmsCount).toInt)
     val sectorAssignments =
       val arr = new Array[Int](Config.FirmsCount)
       var idx = 0
       for
-        s <- SECTORS.indices
+        s <- SectorDefs.indices
         _ <- 0 until sectorCounts(s)
       do
         if idx < Config.FirmsCount then {
           arr(idx) = s; idx += 1
         }
       while idx < Config.FirmsCount do {
-        arr(idx) = SECTORS.length - 1; idx += 1
+        arr(idx) = SectorDefs.length - 1; idx += 1
       }
       rng.shuffle(arr.toList).toArray
 
     // Initialize firms
     var firms = (0 until Config.FirmsCount).map { i =>
-      val sec = SECTORS(sectorAssignments(i))
+      val sec = SectorDefs(sectorAssignments(i))
       val firmSize = FirmSizeDistribution.draw(rng)
       val sizeMult = firmSize.toDouble / Config.WorkersPerFirm
       Firm.State(

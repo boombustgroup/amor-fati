@@ -1,7 +1,7 @@
 package sfc
 
 import sfc.agents.*
-import sfc.config.{Config, SECTORS}
+import sfc.config.{Config, SectorDefs}
 import sfc.engine.*
 import sfc.types.*
 import sfc.util.KahanSum.*
@@ -98,7 +98,7 @@ object SimOutput:
     val nLiving: Double,
     val aliveBanks: Vector[Banking.BankState],
   ):
-    lazy val sectorAuto: IndexedSeq[Double] = SECTORS.indices.map { s =>
+    lazy val sectorAuto: IndexedSeq[Double] = SectorDefs.indices.map { s =>
       val secFirms = living.filter(_.sector.toInt == s)
       if secFirms.isEmpty then 0.0
       else

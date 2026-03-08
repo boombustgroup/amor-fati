@@ -3,7 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.Firm
-import sfc.config.{Config, SECTORS}
+import sfc.config.{Config, SectorDefs}
 import sfc.types.*
 
 class LaborUnionSpec extends AnyFlatSpec with Matchers:
@@ -19,7 +19,7 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
   }
 
   "UnionDensity" should "have aggregate ~12%" in {
-    val aggDensity = SECTORS.zipWithIndex.map((s, i) => s.share.toDouble * Config.UnionDensity(i)).sum
+    val aggDensity = SectorDefs.zipWithIndex.map((s, i) => s.share.toDouble * Config.UnionDensity(i)).sum
     aggDensity shouldBe (0.12 +- 0.02)
   }
 
@@ -36,7 +36,7 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
 
   "effectiveWageMult" should "return base wageMultiplier when disabled" in {
     // Default: UnionEnabled = false
-    for s <- SECTORS.indices do Firm.effectiveWageMult(SectorIdx(s)) shouldBe SECTORS(s).wageMultiplier
+    for s <- SectorDefs.indices do Firm.effectiveWageMult(SectorIdx(s)) shouldBe SectorDefs(s).wageMultiplier
   }
 
   // Note: union-enabled tests use pure formula verification since Config is static
@@ -44,7 +44,7 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
   "effectiveWageMult formula" should "include premium proportional to density" in {
     // Verify the formula: base * (1 + premium * density)
     val publicIdx = 4 // Public sector: density 0.30
-    val base = SECTORS(publicIdx).wageMultiplier
+    val base = SectorDefs(publicIdx).wageMultiplier
     val premium = Config.UnionWagePremium
     val density = Config.UnionDensity(publicIdx)
     val expected = base * (1.0 + premium * density)
@@ -64,7 +64,7 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
   "Downward rigidity formula" should "dampen wage decline" in {
     val prevWage = 8000.0
     val rawWage = 7600.0 // 5% decline
-    val aggDensity = SECTORS.zipWithIndex.map((s, i) => s.share.toDouble * Config.UnionDensity(i)).sum
+    val aggDensity = SectorDefs.zipWithIndex.map((s, i) => s.share.toDouble * Config.UnionDensity(i)).sum
     val decline = prevWage - rawWage // 400
     val dampened = rawWage + decline * Config.UnionRigidity * aggDensity
     // With ~12% density and 0.50 rigidity: 7600 + 400 * 0.50 * 0.12 = 7600 + 24 = 7624
@@ -115,14 +115,14 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
     val premium = 0.08
 
     // Compute relative wages without union
-    val baseRaw = SECTORS.map(_.wageMultiplier)
-    val baseMean = SECTORS.map(s => s.wageMultiplier * s.share.toDouble).sum /
-      SECTORS.map(_.share.toDouble).sum
+    val baseRaw = SectorDefs.map(_.wageMultiplier)
+    val baseMean = SectorDefs.map(s => s.wageMultiplier * s.share.toDouble).sum /
+      SectorDefs.map(_.share.toDouble).sum
 
     // Compute relative wages with union
-    val unionRaw = SECTORS.zipWithIndex.map((s, i) => s.wageMultiplier * (1.0 + premium * sectors(i)))
+    val unionRaw = SectorDefs.zipWithIndex.map((s, i) => s.wageMultiplier * (1.0 + premium * sectors(i)))
     val unionMean =
-      SECTORS.zipWithIndex.map((s, i) => unionRaw(i) * s.share.toDouble).sum / SECTORS.map(_.share.toDouble).sum
+      SectorDefs.zipWithIndex.map((s, i) => unionRaw(i) * s.share.toDouble).sum / SectorDefs.map(_.share.toDouble).sum
 
     // After normalization, Public sector (index 4) should be relatively higher
     val publicBaseNorm = baseRaw(4) / baseMean

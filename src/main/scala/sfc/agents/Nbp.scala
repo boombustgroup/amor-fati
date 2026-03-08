@@ -1,9 +1,41 @@
 package sfc.agents
 
-import sfc.config.Config
+import sfc.config.{Config, RunConfig}
 import sfc.types.*
 
 object Nbp:
+
+  def updateRate(prevRate: Double, inflation: Double, exRateChange: Double, employed: Int, rc: RunConfig): Double =
+    if Config.NbpSymmetric then
+      // v2.0: Symmetric Taylor + output gap (dual mandate)
+      val infGap = inflation - Config.NbpTargetInfl
+      val unempRate = 1.0 - (employed.toDouble / Config.TotalPopulation)
+      val rawOutputGap = (unempRate - Config.NbpNairu) / Config.NbpNairu
+      // Cap output gap at ±0.30 — prevents extreme Taylor responses from initial tight labor
+      // market while preserving dual-mandate stabilization (Svensson 2003)
+      val outputGap = Math.max(-0.30, Math.min(0.30, rawOutputGap))
+      val taylor = Config.NbpNeutralRate +
+        Config.TaylorAlpha * infGap -
+        Config.TaylorDelta * outputGap +
+        Config.TaylorBeta * exRateChange
+      val smoothed = prevRate * Config.TaylorInertia + taylor * (1.0 - Config.TaylorInertia)
+      val effective =
+        if Config.NbpMaxRateChange > 0 then
+          prevRate + Math.max(-Config.NbpMaxRateChange, Math.min(Config.NbpMaxRateChange, smoothed - prevRate))
+        else smoothed
+      Math.max(Config.RateFloor, Math.min(Config.RateCeiling, effective))
+    else
+      // v1.0 legacy: asymmetric Taylor (inflation-only)
+      val infGap = inflation - Config.NbpTargetInfl
+      val taylor = Config.NbpNeutralRate +
+        Config.TaylorAlpha * Math.max(0.0, infGap) +
+        Config.TaylorBeta * Math.max(0.0, exRateChange)
+      val smoothed = prevRate * Config.TaylorInertia + taylor * (1.0 - Config.TaylorInertia)
+      val effective =
+        if Config.NbpMaxRateChange > 0 then
+          prevRate + Math.max(-Config.NbpMaxRateChange, Math.min(Config.NbpMaxRateChange, smoothed - prevRate))
+        else smoothed
+      Math.max(Config.RateFloor, Math.min(Config.RateCeiling, effective))
 
   /** Bond yield = refRate + termPremium + fiscalRiskPremium - qeCompression - foreignDemandEffect + credibilityPremium
     */

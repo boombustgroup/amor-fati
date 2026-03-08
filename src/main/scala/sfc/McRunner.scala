@@ -227,8 +227,8 @@ object McRunner:
       println(f"  Mean skill           mean=${avgSkill}%8.4f")
 
     println("\nPer-sector adoption at M120:")
-    val secNames = SECTORS.map(_.name)
-    for s <- SECTORS.indices do statsSummary(f"  ${secNames(s)}%-22s", Col.sectorAuto(s), 100.0)
+    val secNames = SectorDefs.map(_.name)
+    for s <- SectorDefs.indices do statsSummary(f"  ${secNames(s)}%-22s", Col.sectorAuto(s), 100.0)
 
   private def printBanner(rc: RunConfig): Unit =
     val topoLabel = TOPOLOGY.toString.toUpperCase

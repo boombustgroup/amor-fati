@@ -3,7 +3,7 @@ package sfc.agents
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankingAggregate, ForexState, GovState}
-import sfc.config.{Config, SECTORS}
+import sfc.config.{Config, SectorDefs}
 import sfc.engine.World
 import sfc.types.*
 
@@ -356,7 +356,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         Ratio(0.5),
         1.0,
         Ratio(0.5),
-        SectorIdx(i % SECTORS.length),
+        SectorIdx(i % SectorDefs.length),
         Array.empty[FirmId],
       )
     }.toVector
@@ -407,6 +407,6 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       automationRatio = Ratio.Zero,
       hybridRatio = Ratio.Zero,
       gdpProxy = 1e9,
-      currentSigmas = SECTORS.map(_.sigma).toVector,
+      currentSigmas = SectorDefs.map(_.sigma).toVector,
       bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )

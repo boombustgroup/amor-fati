@@ -14,7 +14,7 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
 
   "updateGov" should "have identical totalSpend when disabled" in {
     // When GovInvestEnabled=false (default), govCurrent + govCapital = govBaseRaw
-    val result = Sectors.updateGov(
+    val result = FiscalBudget.update(
       prev,
       citPaid = 100000,
       vat = 200000,
@@ -29,19 +29,43 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
 
   it should "have zero govCapitalSpend when disabled" in {
     val result =
-      Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+      FiscalBudget.update(
+        prev,
+        100000,
+        200000,
+        bdpActive = false,
+        bdpAmount = 0,
+        priceLevel = 1.0,
+        unempBenefitSpend = 0,
+      )
     result.govCapitalSpend shouldBe PLN.Zero
   }
 
   it should "have zero publicCapitalStock when disabled" in {
     val result =
-      Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+      FiscalBudget.update(
+        prev,
+        100000,
+        200000,
+        bdpActive = false,
+        bdpAmount = 0,
+        priceLevel = 1.0,
+        unempBenefitSpend = 0,
+      )
     result.publicCapitalStock shouldBe PLN.Zero
   }
 
   it should "have govCurrentSpend equal to govBaseSpending when disabled" in {
     val result =
-      Sectors.updateGov(prev, 100000, 200000, bdpActive = false, bdpAmount = 0, priceLevel = 1.0, unempBenefitSpend = 0)
+      FiscalBudget.update(
+        prev,
+        100000,
+        200000,
+        bdpActive = false,
+        bdpAmount = 0,
+        priceLevel = 1.0,
+        unempBenefitSpend = 0,
+      )
     result.govCurrentSpend.toDouble shouldBe Config.GovBaseSpending * 1.0
   }
 
@@ -120,7 +144,7 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
     // Even if prev has nonzero capitalStock, disabled mode resets to 0
     val prevWithStock =
       GovState(false, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, publicCapitalStock = PLN(500000.0))
-    val result = Sectors.updateGov(
+    val result = FiscalBudget.update(
       prevWithStock,
       100000,
       200000,

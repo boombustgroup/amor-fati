@@ -1,7 +1,7 @@
 package sfc.engine.steps
 
 import sfc.agents.*
-import sfc.config.{Config, SECTORS}
+import sfc.config.{Config, SectorDefs}
 import sfc.engine.World
 import sfc.types.*
 import sfc.util.KahanSum.*
@@ -36,7 +36,7 @@ object DemandStep:
       if prevGovSpend > 0 then Math.max(targetGovPurchases, prevGovSpend * 0.98)
       else targetGovPurchases
     val laggedExports = in.w.forex.exports.toDouble
-    val sectorCap = (0 until SECTORS.length).map { s =>
+    val sectorCap = (0 until SectorDefs.length).map { s =>
       in.s2.living.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble)
     }.toVector
     val sectorExports =
@@ -44,7 +44,7 @@ object DemandStep:
       else Config.FofExportShares.map(_ * laggedExports)
     val laggedInvestDemand = in.w.grossInvestment.toDouble * (1.0 - Config.PhysCapImportShare) +
       in.w.aggGreenInvestment.toDouble * (1.0 - Config.GreenImportShare)
-    val sectorDemand = (0 until SECTORS.length).map { s =>
+    val sectorDemand = (0 until SectorDefs.length).map { s =>
       Config.FofConsWeights(s) * in.s3.domesticCons +
         Config.FofGovWeights(s) * govPurchases +
         Config.FofInvestWeights(s) * laggedInvestDemand +

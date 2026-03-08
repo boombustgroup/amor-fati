@@ -3,7 +3,7 @@ package sfc.accounting
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.*
-import sfc.config.SECTORS
+import sfc.config.SectorDefs
 import sfc.engine.World
 import sfc.types.*
 
@@ -40,7 +40,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       automationRatio = Ratio.Zero,
       hybridRatio = Ratio.Zero,
       gdpProxy = 1e9,
-      currentSigmas = SECTORS.map(_.sigma).toVector,
+      currentSigmas = SectorDefs.map(_.sigma).toVector,
       bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
 

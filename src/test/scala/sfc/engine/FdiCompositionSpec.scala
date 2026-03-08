@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankingAggregate, ForexState, GovState}
 import sfc.agents.*
-import sfc.config.{Config, RunConfig, SECTORS}
+import sfc.config.{Config, RunConfig, SectorDefs}
 import sfc.types.*
 
 class FdiCompositionSpec extends AnyFlatSpec with Matchers:
@@ -205,6 +205,6 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
       automationRatio = Ratio.Zero,
       hybridRatio = Ratio.Zero,
       gdpProxy = 1e9,
-      currentSigmas = SECTORS.map(_.sigma).toVector,
+      currentSigmas = SectorDefs.map(_.sigma).toVector,
       bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )

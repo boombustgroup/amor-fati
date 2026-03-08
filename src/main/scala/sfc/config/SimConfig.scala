@@ -101,11 +101,11 @@ private val BASE_SECTORS: Vector[SectorDef] = Vector(
   ), // ~8% BAEL, avg ~5 500 PLN
 )
 
-/** SECTORS with optional sigma override via SIGMAS env var. Format: SIGMAS="3.5,2.0,2.5,0.8,0.5,1.2" (6 comma-separated
-  * values, one per sector). When unset, uses calibrated values from BASE_SECTORS. SIGMA_MULT env var multiplies all
-  * sector sigmas (applied after SIGMAS override).
+/** SectorDefs with optional sigma override via SIGMAS env var. Format: SIGMAS="3.5,2.0,2.5,0.8,0.5,1.2" (6
+  * comma-separated values, one per sector). When unset, uses calibrated values from BASE_SECTORS. SIGMA_MULT env var
+  * multiplies all sector sigmas (applied after SIGMAS override).
   */
-val SECTORS: Vector[SectorDef] =
+val SectorDefs: Vector[SectorDef] =
   val afterSigmas = sys.env.get("SIGMAS") match
     case Some(s) if s.nonEmpty =>
       val sigmas = s.split(",").map(_.trim.toDouble)
@@ -210,8 +210,8 @@ object Config:
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
       require(
-        v.length == SECTORS.length,
-        s"FIRM_ENTRY_SECTOR_BARRIERS must have ${SECTORS.length} values, got ${v.length}",
+        v.length == SectorDefs.length,
+        s"FIRM_ENTRY_SECTOR_BARRIERS must have ${SectorDefs.length} values, got ${v.length}",
       )
       v
     case _ => Vector(0.8, 0.6, 1.2, 0.5, 0.1, 0.7)
@@ -1444,8 +1444,8 @@ object Config:
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
       require(
-        v.length == SECTORS.length,
-        s"INVENTORY_TARGET_RATIOS must have ${SECTORS.length} values, got ${v.length}",
+        v.length == SectorDefs.length,
+        s"INVENTORY_TARGET_RATIOS must have ${SectorDefs.length} values, got ${v.length}",
       )
       v
     case _ => Vector(0.05, 0.25, 0.15, 0.10, 0.02, 0.30)
@@ -1455,8 +1455,8 @@ object Config:
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
       require(
-        v.length == SECTORS.length,
-        s"INVENTORY_SPOILAGE_RATES must have ${SECTORS.length} values, got ${v.length}",
+        v.length == SectorDefs.length,
+        s"INVENTORY_SPOILAGE_RATES must have ${SectorDefs.length} values, got ${v.length}",
       )
       v
     case _ => Vector(0.0, 0.02, 0.05, 0.03, 0.0, 0.10)
@@ -1483,7 +1483,10 @@ object Config:
   val InformalSectorShares: Vector[Double] = sys.env.get("INFORMAL_SECTOR_SHARES") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == SECTORS.length, s"INFORMAL_SECTOR_SHARES must have ${SECTORS.length} values, got ${v.length}")
+      require(
+        v.length == SectorDefs.length,
+        s"INFORMAL_SECTOR_SHARES must have ${SectorDefs.length} values, got ${v.length}",
+      )
       v
     case _ => Vector(0.05, 0.15, 0.30, 0.20, 0.02, 0.35)
   val InformalCitEvasion: Double = sys.env.get("INFORMAL_CIT_EVASION").map(_.trim.toDouble).getOrElse(0.80)
@@ -1511,15 +1514,18 @@ object Config:
   val EnergyCostShares: Vector[Double] = sys.env.get("ENERGY_COST_SHARES") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == SECTORS.length, s"ENERGY_COST_SHARES must have ${SECTORS.length} values, got ${v.length}")
+      require(
+        v.length == SectorDefs.length,
+        s"ENERGY_COST_SHARES must have ${SectorDefs.length} values, got ${v.length}",
+      )
       v
     case _ => Vector(0.02, 0.10, 0.04, 0.05, 0.03, 0.06)
   val EnergyCarbonIntensity: Vector[Double] = sys.env.get("ENERGY_CARBON_INTENSITY") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
       require(
-        v.length == SECTORS.length,
-        s"ENERGY_CARBON_INTENSITY must have ${SECTORS.length} values, got ${v.length}",
+        v.length == SectorDefs.length,
+        s"ENERGY_CARBON_INTENSITY must have ${SectorDefs.length} values, got ${v.length}",
       )
       v
     case _ => Vector(0.01, 0.08, 0.02, 0.01, 0.02, 0.04)
@@ -1528,7 +1534,7 @@ object Config:
   val GreenKLRatios: Vector[Double] = sys.env.get("GREEN_KL_RATIOS") match
     case Some(s) if s.nonEmpty =>
       val v = s.split(",").map(_.trim.toDouble).toVector
-      require(v.length == SECTORS.length, s"GREEN_KL_RATIOS must have ${SECTORS.length} values, got ${v.length}")
+      require(v.length == SectorDefs.length, s"GREEN_KL_RATIOS must have ${SectorDefs.length} values, got ${v.length}")
       v
     case _ => Vector(5000.0, 30000.0, 10000.0, 15000.0, 8000.0, 20000.0)
   val GreenDepRate: Double = sys.env.get("GREEN_DEP_RATE").map(_.trim.toDouble).getOrElse(0.04)

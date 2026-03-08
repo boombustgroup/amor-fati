@@ -1,7 +1,7 @@
 package sfc.engine.steps
 
 import sfc.agents.*
-import sfc.config.{Config, FirmSizeDistribution, RunConfig, SECTORS}
+import sfc.config.{Config, FirmSizeDistribution, RunConfig, SectorDefs}
 import sfc.engine.*
 import sfc.types.*
 import sfc.util.KahanSum.*
@@ -216,7 +216,7 @@ object PriceEquityStep:
           digitalReadiness = Ratio(
             Math.max(
               0.02,
-              Math.min(0.98, SECTORS(sec.toInt).baseDigitalReadiness.toDouble + (Random.nextGaussian() * 0.20)),
+              Math.min(0.98, SectorDefs(sec.toInt).baseDigitalReadiness.toDouble + (Random.nextGaussian() * 0.20)),
             ),
           ),
           sector = sec,
@@ -279,7 +279,7 @@ object PriceEquityStep:
     val totalSystemLoans = in.w.bankingSector.banks.kahanSumBy(_.loans.toDouble)
     val newMacropru = Macroprudential.step(in.w.macropru, totalSystemLoans, gdp)
 
-    val sectorAdoption = SECTORS.indices.map { s =>
+    val sectorAdoption = SectorDefs.indices.map { s =>
       val secFirms = living2.filter(_.sector.toInt == s)
       if secFirms.isEmpty then 0.0
       else
@@ -287,14 +287,14 @@ object PriceEquityStep:
           .count(f => f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid])
           .toDouble / secFirms.length
     }.toVector
-    val baseSigmas = SECTORS.map(_.sigma).toVector
+    val baseSigmas = SectorDefs.map(_.sigma).toVector
     val newSigmas =
       evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, Config.SigmaLambda, Config.SigmaCapMult)
 
     val rewiredFirms = rewireFirms(in.s5.ioFirms, Config.RewireRho)
 
     val exDev = (in.w.forex.exchangeRate / Config.BaseExRate) - 1.0
-    val (newInfl, newPrice) = Sectors.updateInflation(
+    val (newInfl, newPrice) = PriceLevel.update(
       in.w.inflation.toDouble,
       in.w.priceLevel,
       in.s4.avgDemandMult,
@@ -307,7 +307,7 @@ object PriceEquityStep:
 
     val firmProfits = living2.kahanSumBy { f =>
       val rev = Firm.capacity(f) * in.s4.sectorMults(f.sector.toInt) * newPrice
-      val labor = Firm.workers(f) * in.s2.newWage * SECTORS(f.sector.toInt).wageMultiplier
+      val labor = Firm.workers(f) * in.s2.newWage * SectorDefs(f.sector.toInt).wageMultiplier
       val other = Config.OtherCosts * newPrice
       val aiMaint = f.tech match
         case _: TechState.Automated => Config.AiOpex * (0.60 + 0.40 * newPrice)

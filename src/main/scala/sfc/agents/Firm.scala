@@ -1,6 +1,6 @@
 package sfc.agents
 
-import sfc.config.{Config, RunConfig, SECTORS}
+import sfc.config.{Config, RunConfig, SectorDefs}
 import sfc.engine.World
 
 import sfc.types.*
@@ -62,12 +62,12 @@ object Firm:
 
   /** Effective wage multiplier including union wage premium (#44). */
   def effectiveWageMult(sectorIdx: SectorIdx): Double =
-    val base = SECTORS(sectorIdx.toInt).wageMultiplier
+    val base = SectorDefs(sectorIdx.toInt).wageMultiplier
     if Config.UnionEnabled then base * (1.0 + Config.UnionWagePremium * Config.UnionDensity(sectorIdx.toInt))
     else base
 
   def capacity(f: State): Double =
-    val sec = SECTORS(f.sector.toInt)
+    val sec = SectorDefs(f.sector.toInt)
     val sizeScale = f.initialSize.toDouble / Config.WorkersPerFirm
     val base = f.tech match
       case TechState.Traditional(w) =>
@@ -90,12 +90,12 @@ object Firm:
   def aiCapex(f: State): Double =
     val sizeFactor = Math.pow(f.initialSize.toDouble / Config.WorkersPerFirm, 0.6)
     val digiDiscount = 1.0 - Config.DigiCapexDiscount * f.digitalReadiness.toDouble
-    Config.AiCapex * SECTORS(f.sector.toInt).aiCapexMultiplier * f.innovationCostFactor * sizeFactor * digiDiscount
+    Config.AiCapex * SectorDefs(f.sector.toInt).aiCapexMultiplier * f.innovationCostFactor * sizeFactor * digiDiscount
 
   def hybridCapex(f: State): Double =
     val sizeFactor = Math.pow(f.initialSize.toDouble / Config.WorkersPerFirm, 0.6)
     val digiDiscount = 1.0 - Config.DigiCapexDiscount * f.digitalReadiness.toDouble
-    Config.HybridCapex * SECTORS(
+    Config.HybridCapex * SectorDefs(
       f.sector.toInt,
     ).hybridCapexMultiplier * f.innovationCostFactor * sizeFactor * digiDiscount
 
@@ -170,7 +170,7 @@ object Firm:
 
         val upSizeFactor = Math.pow(firm.initialSize.toDouble / Config.WorkersPerFirm, 0.6)
         val upDigiDiscount = 1.0 - Config.DigiCapexDiscount * firm.digitalReadiness.toDouble
-        val upCapex = Config.AiCapex * SECTORS(firm.sector.toInt).aiCapexMultiplier *
+        val upCapex = Config.AiCapex * SectorDefs(firm.sector.toInt).aiCapexMultiplier *
           firm.innovationCostFactor * 0.6 * upSizeFactor * upDigiDiscount
         val upLoan = upCapex * 0.85
         val upDown = upCapex * 0.15
@@ -290,7 +290,7 @@ object Firm:
         val hCapex = hybridCapex(firm)
         val hLoan = hCapex * 0.80
         val hDown = hCapex * 0.20
-        val hWkrs = Math.max(3, (wkrs * SECTORS(firm.sector.toInt).hybridRetainFrac.toDouble).toInt)
+        val hWkrs = Math.max(3, (wkrs * SectorDefs(firm.sector.toInt).hybridRetainFrac.toDouble).toInt)
         val hOpexSizeFactor = Math.pow(firm.initialSize.toDouble / Config.WorkersPerFirm, 0.5)
         val hOtherSizeFactor = firm.initialSize.toDouble / Config.WorkersPerFirm
         val hCost =
@@ -675,7 +675,7 @@ object Firm:
     riskProfile: Ratio,
     innovationCostFactor: Double,
     digitalReadiness: Ratio,
-    sector: SectorIdx, // Index into SECTORS
+    sector: SectorIdx, // Index into SectorDefs
     neighbors: Array[FirmId], // Network adjacency (firm IDs)
     bankId: BankId = BankId(0), // Multi-bank: index into Banking.State.banks
     equityRaised: PLN = PLN.Zero, // GPW: cumulative equity raised via IPO/SPO

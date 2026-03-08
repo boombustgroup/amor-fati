@@ -6,6 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
 import sfc.accounting.{ForexState, GovState}
+import sfc.agents.Nbp
 import sfc.config.{Config, RunConfig}
 import sfc.types.*
 
@@ -45,7 +46,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateCbRate" should "be in [RateFloor, RateCeiling] for PLN" in {
     forAll(genRate, genInflation, Gen.choose(-0.10, 0.10), Gen.choose(0, Config.TotalPopulation)) {
       (prevRate: Double, inflation: Double, exRateChg: Double, employed: Int) =>
-        val r = Sectors.updateCbRate(prevRate, inflation, exRateChg, employed, rc)
+        val r = Nbp.updateRate(prevRate, inflation, exRateChg, employed, rc)
         r should be >= Config.RateFloor
         r should be <= Config.RateCeiling
     }
@@ -56,8 +57,8 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
       (prevRate: Double, baseInflation: Double, employed: Int) =>
         val lowInfl = baseInflation
         val highInfl = baseInflation + 0.10
-        val rLow = Sectors.updateCbRate(prevRate, lowInfl, 0.0, employed, rc)
-        val rHigh = Sectors.updateCbRate(prevRate, highInfl, 0.0, employed, rc)
+        val rLow = Nbp.updateRate(prevRate, lowInfl, 0.0, employed, rc)
+        val rHigh = Nbp.updateRate(prevRate, highInfl, 0.0, employed, rc)
         rHigh should be >= (rLow - 1e-10)
     }
   }
@@ -68,21 +69,21 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genInflInputs) { (inputs: (Double, Double, Double, Double, Double, Double, Double)) =>
       val (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, autoR, hybR) = inputs
       val (_, newPrice) =
-        Sectors.updateInflation(prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, autoR, hybR, rc)
+        PriceLevel.update(prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, autoR, hybR, rc)
       newPrice should be >= 0.30
     }
   }
 
   it should "apply soft deflation floor (price >= 0.30)" in {
-    val (_, price) = Sectors.updateInflation(-0.30, 1.0, 0.5, -0.10, 0.0, 0.80, 0.15, rc)
+    val (_, price) = PriceLevel.update(-0.30, 1.0, 0.5, -0.10, 0.0, 0.80, 0.15, rc)
     price should be >= 0.30
   }
 
   it should "produce lower inflation with more automation" in {
     forAll(genInflation, genPrice, Gen.choose(0.8, 1.2), Gen.choose(-0.02, 0.02)) {
       (prevInfl: Double, prevPrice: Double, demandMult: Double, wageGrowth: Double) =>
-        val (infl1, _) = Sectors.updateInflation(prevInfl, prevPrice, demandMult, wageGrowth, 0.0, 0.05, 0.0, rc)
-        val (infl2, _) = Sectors.updateInflation(prevInfl, prevPrice, demandMult, wageGrowth, 0.0, 0.50, 0.0, rc)
+        val (infl1, _) = PriceLevel.update(prevInfl, prevPrice, demandMult, wageGrowth, 0.0, 0.05, 0.0, rc)
+        val (infl2, _) = PriceLevel.update(prevInfl, prevPrice, demandMult, wageGrowth, 0.0, 0.50, 0.0, rc)
         infl2 should be <= (infl1 + 1e-10)
     }
   }
@@ -92,7 +93,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateLaborMarket" should "keep wage >= reservationWage" in {
     forAll(genWage, Gen.choose(4666.0, 10000.0), Gen.choose(0, Config.TotalPopulation)) {
       (prevWage: Double, resWage: Double, laborDemand: Int) =>
-        val (newWage, _) = Sectors.updateLaborMarket(prevWage, resWage, laborDemand)
+        val (newWage, _) = LaborMarket.updateLaborMarket(prevWage, resWage, laborDemand)
         newWage should be >= resWage
     }
   }
@@ -100,7 +101,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   it should "keep employed <= min(laborDemand, TotalPopulation)" in {
     forAll(genWage, Gen.choose(4666.0, 10000.0), Gen.choose(0, Config.TotalPopulation * 2)) {
       (prevWage: Double, resWage: Double, laborDemand: Int) =>
-        val (_, employed) = Sectors.updateLaborMarket(prevWage, resWage, laborDemand)
+        val (_, employed) = LaborMarket.updateLaborMarket(prevWage, resWage, laborDemand)
         employed should be <= Math.min(laborDemand, Config.TotalPopulation)
     }
   }
@@ -110,7 +111,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateGov" should "have deficit = spending - revenue" in {
     forAll(genGovInputs) { (inputs: (GovState, Double, Double, Boolean, Double, Double, Double)) =>
       val (prev, cit, vat, active, bdp, price, unempBen) = inputs
-      val gov = Sectors.updateGov(prev, cit, vat, active, bdp, price, unempBen)
+      val gov = FiscalBudget.update(prev, cit, vat, active, bdp, price, unempBen)
       val totalRev = cit + vat
       val bdpSpend = if active then Config.TotalPopulation.toDouble * bdp else 0.0
       val totalSpend = bdpSpend + unempBen + Config.GovBaseSpending * price
@@ -121,7 +122,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   it should "accumulate debt (newDebt = prev + deficit)" in {
     forAll(genGovInputs) { (inputs: (GovState, Double, Double, Boolean, Double, Double, Double)) =>
       val (prev, cit, vat, active, bdp, price, unempBen) = inputs
-      val gov = Sectors.updateGov(prev, cit, vat, active, bdp, price, unempBen)
+      val gov = FiscalBudget.update(prev, cit, vat, active, bdp, price, unempBen)
       gov.cumulativeDebt.toDouble shouldBe (prev.cumulativeDebt.toDouble + gov.deficit.toDouble +- 1.0)
     }
   }
@@ -129,7 +130,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   it should "have zero BDP spending when not active" in {
     forAll(genGovState, Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e8), Gen.choose(0.0, 5000.0), genPrice) {
       (prev: GovState, cit: Double, vat: Double, bdp: Double, price: Double) =>
-        val gov = Sectors.updateGov(prev, cit, vat, false, bdp, price, 0.0)
+        val gov = FiscalBudget.update(prev, cit, vat, false, bdp, price, 0.0)
         gov.bdpSpending shouldBe PLN.Zero
     }
   }
@@ -138,7 +139,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genGovInputs, Gen.choose(0.0, 1e7)) {
       (inputs: (GovState, Double, Double, Boolean, Double, Double, Double), debtSvc: Double) =>
         val (prev, cit, vat, active, bdp, price, unempBen) = inputs
-        val gov = Sectors.updateGov(prev, cit, vat, active, bdp, price, unempBen, debtSvc)
+        val gov = FiscalBudget.update(prev, cit, vat, active, bdp, price, unempBen, debtSvc)
         val totalRev = cit + vat
         val bdpSpend = if active then Config.TotalPopulation.toDouble * bdp else 0.0
         val totalSpend = bdpSpend + unempBen + Config.GovBaseSpending * price + debtSvc
@@ -150,8 +151,8 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genGovInputs, Gen.choose(0.0, 1e7)) {
       (inputs: (GovState, Double, Double, Boolean, Double, Double, Double), nbpRemit: Double) =>
         val (prev, cit, vat, active, bdp, price, unempBen) = inputs
-        val govNoRemit = Sectors.updateGov(prev, cit, vat, active, bdp, price, unempBen)
-        val govWithRemit = Sectors.updateGov(prev, cit, vat, active, bdp, price, unempBen, 0.0, nbpRemit)
+        val govNoRemit = FiscalBudget.update(prev, cit, vat, active, bdp, price, unempBen)
+        val govWithRemit = FiscalBudget.update(prev, cit, vat, active, bdp, price, unempBen, 0.0, nbpRemit)
         // nbpRemittance reduces deficit
         govWithRemit.deficit.toDouble shouldBe (govNoRemit.deficit.toDouble - nbpRemit +- 1.0)
     }
@@ -162,7 +163,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateForeign" should "keep exchange rate in [3.0, 8.0]" in {
     forAll(genForexState, Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e7), genFraction, genRate, Gen.choose(1e6, 1e10)) {
       (prev: ForexState, importCons: Double, techImp: Double, autoR: Double, rate: Double, gdp: Double) =>
-        val fx = Sectors.updateForeign(prev, importCons, techImp, autoR, rate, gdp, rc)
+        val fx = OpenEconomy.updateForeign(prev, importCons, techImp, autoR, rate, gdp, rc)
         fx.exchangeRate should be >= 3.0
         fx.exchangeRate should be <= 8.0
     }

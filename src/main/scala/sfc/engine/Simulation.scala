@@ -51,7 +51,7 @@ import sfc.types.*
 // See also:
 //   - Sfc.scala          — the 13 SFC identities and MonthlyFlows
 //   - WorldAssemblyStep  — final state assembly + SFC check invocation
-//   - Sectors.scala       — labor market, inflation, Taylor rule, forex, gov
+//   - LaborMarket, PriceLevel, Nbp, OpenEconomy, FiscalBudget — domain modules
 //   - Main.scala          — simulation loop that calls step() each month
 // ---------------------------------------------------------------------------
 object Simulation:
