@@ -94,7 +94,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   // --- Firm.localAutoRatio ---
 
   "Firm.localAutoRatio" should "return 0.0 when no automated neighbors" in {
-    val firms = Array(
+    val firms = Vector(
       mkFirmWithNeighbors(0, TechState.Traditional(10), Array(FirmId(1), FirmId(2))),
       mkFirmWithNeighbors(1, TechState.Traditional(10), Array(FirmId(0))),
       mkFirmWithNeighbors(2, TechState.Traditional(10), Array(FirmId(0))),
@@ -103,7 +103,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return 1.0 when all neighbors are Automated" in {
-    val firms = Array(
+    val firms = Vector(
       mkFirmWithNeighbors(0, TechState.Traditional(10), Array(FirmId(1), FirmId(2))),
       mkFirmWithNeighbors(1, TechState.Automated(1.2), Array(FirmId(0))),
       mkFirmWithNeighbors(2, TechState.Automated(1.1), Array(FirmId(0))),
@@ -112,7 +112,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "count Hybrid as automated in ratio" in {
-    val firms = Array(
+    val firms = Vector(
       mkFirmWithNeighbors(0, TechState.Traditional(10), Array(FirmId(1), FirmId(2), FirmId(3))),
       mkFirmWithNeighbors(1, TechState.Automated(1.2), Array(FirmId(0))),
       mkFirmWithNeighbors(2, TechState.Hybrid(5, 1.0), Array(FirmId(0))),
@@ -122,7 +122,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return 0.0 for firm with no neighbors" in {
-    val firms = Array(mkFirmWithNeighbors(0, TechState.Traditional(10), Array.empty[FirmId]))
+    val firms = Vector(mkFirmWithNeighbors(0, TechState.Traditional(10), Array.empty[FirmId]))
     Firm.localAutoRatio(firms(0), firms) shouldBe 0.0
   }
 
@@ -132,7 +132,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     Random.setSeed(42)
     val f = mkFirm(TechState.Bankrupt("test"))
     val rc = RunConfig(0.0, 1, "test")
-    val result = Firm.process(f, mkWorld(), 0.07, _ => true, Array(f), rc)
+    val result = Firm.process(f, mkWorld(), 0.07, _ => true, Vector(f), rc)
     result.taxPaid shouldBe PLN.Zero
     result.capexSpent shouldBe PLN.Zero
     result.firm.tech shouldBe a[TechState.Bankrupt]
@@ -142,7 +142,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     Random.setSeed(42)
     val f = mkFirm(TechState.Automated(1.5)).copy(cash = PLN(10000000.0))
     val rc = RunConfig(0.0, 1, "test")
-    val result = Firm.process(f, mkWorld(), 0.07, _ => true, Array(f), rc)
+    val result = Firm.process(f, mkWorld(), 0.07, _ => true, Vector(f), rc)
     Firm.isAlive(result.firm) shouldBe true
   }
 
@@ -152,7 +152,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     val f = mkFirm(TechState.Automated(0.1)).copy(cash = PLN(-500000.0), debt = PLN(5000000.0))
     val w = mkWorld().copy(priceLevel = 0.3, sectorDemandMult = Vector.fill(6)(0.1))
     val rc = RunConfig(0.0, 1, "test")
-    val result = Firm.process(f, w, 0.20, _ => true, Array(f), rc)
+    val result = Firm.process(f, w, 0.20, _ => true, Vector(f), rc)
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }
 

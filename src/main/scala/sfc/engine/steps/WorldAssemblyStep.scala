@@ -13,328 +13,215 @@ object WorldAssemblyStep:
 
   case class Input(
     w: World,
-    firms: Array[Firm.State],
-    households: Vector[Household.State],
-    living: Array[Firm.State],
-    sectorCap: Vector[Double],
-    // Step 1
-    baseMinWage: Double,
-    updatedMinWagePriceLevel: Double,
-    // Step 2
-    newWage: Double,
-    resWage: Double,
-    employed: Int,
-    newImmig: Immigration.State,
-    newDemographics: SocialSecurity.DemographicsState,
-    newZus: SocialSecurity.ZusState,
-    // Step 3
-    totalIncome: Double,
-    consumption: Double,
-    domesticCons: Double,
-    importCons: Double,
-    importAdj: Double,
-    pitRevenue: Double,
-    hhAgg: Household.Aggregates,
-    // Step 4
-    sectorMults: Vector[Double],
-    govPurchases: Double,
-    // Step 5
-    ioFirms: Array[Firm.State],
-    sumTax: Double,
-    sumNewLoans: Double,
-    nplNew: Double,
-    nplLoss: Double,
-    intIncome: Double,
-    sumGrossInvestment: Double,
-    sumGreenInvestment: Double,
-    sumProfitShifting: Double,
-    sumFdiRepatriation: Double,
-    sumInventoryChange: Double,
-    sumCitEvasion: Double,
-    sumEnergyCost: Double,
-    totalIoPaid: Double,
-    firmDeaths: Int,
-    postFirmCrossSectorHires: Int,
-    // Step 6
-    hhDebtService: Double,
-    depositInterestPaid: Double,
-    consumerDebtService: Double,
-    consumerOrigination: Double,
-    consumerDefaultAmt: Double,
-    consumerNplLoss: Double,
-    consumerPrincipal: Double,
-    remittanceOutflow: Double,
-    diasporaInflow: Double,
-    tourismExport: Double,
-    tourismImport: Double,
-    // Step 7
-    autoR: Double,
-    hybR: Double,
-    aggInventoryStock: Double,
-    aggGreenCapital: Double,
-    euCofin: Double,
-    gdp: Double,
-    newMacropru: Macroprudential.State,
-    newSigmas: Vector[Double],
-    newInfl: Double,
-    newPrice: Double,
-    equityAfterIssuance: EquityMarket.State,
-    netDomesticDividends: Double,
-    foreignDividendOutflow: Double,
-    dividendTax: Double,
-    aggInventoryChange: Double,
-    // Step 8
-    newForex: ForexState,
-    newBop: BopState,
-    newGvc: GvcTrade.State,
-    newExp: Expectations.State,
-    totalReserveInterest: Double,
-    totalStandingFacilityIncome: Double,
-    totalInterbankInterest: Double,
-    newBondYield: Double,
-    monthlyDebtService: Double,
-    bankBondIncome: Double,
-    nbpRemittance: Double,
-    postFxNbp: Nbp.State,
-    qePurchaseAmount: Double,
-    newCorpBonds: CorporateBondMarket.State,
-    corpBondBankCoupon: Double,
-    corpBondBankDefaultLoss: Double,
-    corpBondAmort: Double,
-    insNetDepositChange: Double,
-    nbfiDepositDrain: Double,
-    oeValuationEffect: Double,
-    fdiCitLoss: Double,
-    totalBondDefault: Double,
-    actualBondIssuance: Double,
-    // Step 9
-    resolvedBank: BankingAggregate,
-    finalBankingSector: Banking.State,
-    reassignedFirms: Array[Firm.State],
-    reassignedHouseholds: Vector[Household.State],
-    finalPpk: SocialSecurity.PpkState,
-    finalInsurance: Insurance.State,
-    finalNbfi: Nbfi.State,
-    newGovWithYield: GovState,
-    newJst: Jst.State,
-    housingAfterFlows: HousingMarket.State,
-    bfgLevy: Double,
-    bailInLoss: Double,
-    multiCapDestruction: Double,
-    monAgg: Option[MonetaryAggregates],
-    finalHhAgg: Household.Aggregates,
-    vat: Double,
-    vatAfterEvasion: Double,
-    pitAfterEvasion: Double,
-    exciseRevenue: Double,
-    exciseAfterEvasion: Double,
-    customsDutyRevenue: Double,
-    effectiveShadowShare: Double,
-    mortgageInterestIncome: Double,
-    mortgagePrincipal: Double,
-    mortgageDefaultLoss: Double,
-    mortgageDefaultAmount: Double,
-    jstDepositChange: Double,
-    investNetDepositFlow: Double,
-    actualBondChange: Double,
-    m: Int,
     rc: RunConfig,
+    firms: Vector[Firm.State],
+    households: Vector[Household.State],
+    s1: FiscalConstraintStep.Output,
+    s2: LaborDemographicsStep.Output,
+    s3: HouseholdIncomeStep.Output,
+    s4: DemandStep.Output,
+    s5: FirmProcessingStep.Output,
+    s6: HouseholdFinancialStep.Output,
+    s7: PriceEquityStep.Output,
+    s8: OpenEconomyStep.Output,
+    s9: BankUpdateStep.Output,
   )
 
   case class Output(
     newWorld: World,
-    finalFirms: Array[Firm.State],
+    finalFirms: Vector[Firm.State],
     reassignedHouseholds: Vector[Household.State],
-    sfcResult: Either[Vector[Sfc.SfcIdentityError], Unit],
+    sfcResult: Sfc.SfcResult,
   )
 
   def run(in: Input): Output =
     // GPW: finalize equity state with HH equity wealth
-    val totalHhEquityWealth = in.reassignedHouseholds.kahanSumBy(_.equityWealth.toDouble)
+    val totalHhEquityWealth = in.s9.reassignedHouseholds.kahanSumBy(_.equityWealth.toDouble)
 
-    val equityAfterStep = in.equityAfterIssuance.copy(
+    val equityAfterStep = in.s7.equityAfterIssuance.copy(
       hhEquityWealth = PLN(totalHhEquityWealth),
       lastWealthEffect = PLN.Zero,
-      lastDomesticDividends = PLN(in.netDomesticDividends),
-      lastForeignDividends = PLN(in.foreignDividendOutflow),
-      lastDividendTax = PLN(in.dividendTax),
+      lastDomesticDividends = PLN(in.s7.netDomesticDividends),
+      lastForeignDividends = PLN(in.s7.foreignDividendOutflow),
+      lastDividendTax = PLN(in.s7.dividendTax),
     )
 
     // Flow-of-funds residual
     val fofResidual = {
       val totalFirmRev = (0 until SECTORS.length).map { s =>
-        in.living
+        in.s2.living
           .filter(_.sector.toInt == s)
-          .kahanSumBy(f => Firm.capacity(f).toDouble * in.sectorMults(s) * in.w.priceLevel)
+          .kahanSumBy(f => Firm.capacity(f).toDouble * in.s4.sectorMults(s) * in.w.priceLevel)
       }.kahanSum
-      val adjustedDemand = in.sectorMults.indices.map { s =>
-        in.sectorCap(s) * in.sectorMults(s) * in.w.priceLevel
+      val adjustedDemand = in.s4.sectorMults.indices.map { s =>
+        in.s4.sectorCap(s) * in.s4.sectorMults(s) * in.w.priceLevel
       }.kahanSum
       totalFirmRev - adjustedDemand
     }
 
     // Informal economy: aggregate metrics and next-month cyclical adjustment (#45)
-    val taxEvasionLoss = if Config.InformalEnabled then
-      in.sumCitEvasion + (in.vat - in.vatAfterEvasion) + (in.pitRevenue - in.pitAfterEvasion) + (in.exciseRevenue - in.exciseAfterEvasion)
-    else 0.0
-    val informalEmployed = if Config.InformalEnabled then in.employed.toDouble * in.effectiveShadowShare else 0.0
+    val taxEvasionLoss =
+      if Config.InformalEnabled then
+        in.s5.sumCitEvasion + (in.s9.vat - in.s9.vatAfterEvasion) + (in.s3.pitRevenue - in.s9.pitAfterEvasion) + (in.s9.exciseRevenue - in.s9.exciseAfterEvasion)
+      else 0.0
+    val informalEmployed = if Config.InformalEnabled then in.s2.employed.toDouble * in.s9.effectiveShadowShare else 0.0
     val newInformalCyclicalAdj = if Config.InformalEnabled then
-      val unemp = 1.0 - in.employed.toDouble / Config.TotalPopulation
+      val unemp = 1.0 - in.s2.employed.toDouble / Config.TotalPopulation
       val target = Math.max(0.0, unemp - Config.InformalUnempThreshold) * Config.InformalCyclicalSens
       in.w.informalCyclicalAdj * Config.InformalSmoothing + target * (1.0 - Config.InformalSmoothing)
     else 0.0
 
     val newW = World(
-      in.m,
-      Rate(in.newInfl),
-      in.newPrice,
-      in.newGovWithYield,
-      in.postFxNbp,
-      in.resolvedBank,
-      in.newForex,
+      in.s1.m,
+      Rate(in.s7.newInfl),
+      in.s7.newPrice,
+      in.s9.newGovWithYield,
+      in.s8.postFxNbp,
+      in.s9.resolvedBank,
+      in.s8.newForex,
       Household.SectorState(
-        in.employed,
-        PLN(in.newWage),
-        PLN(in.resWage),
-        PLN(in.totalIncome),
-        PLN(in.consumption),
-        PLN(in.domesticCons),
-        PLN(in.importCons),
-        minWageLevel = PLN(in.baseMinWage),
-        minWagePriceLevel = in.updatedMinWagePriceLevel,
+        in.s2.employed,
+        PLN(in.s2.newWage),
+        PLN(in.s1.resWage),
+        PLN(in.s3.totalIncome),
+        PLN(in.s3.consumption),
+        PLN(in.s3.domesticCons),
+        PLN(in.s3.importCons),
+        minWageLevel = PLN(in.s1.baseMinWage),
+        minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
       ),
-      Ratio(in.autoR),
-      Ratio(in.hybR),
-      in.gdp,
-      in.newSigmas,
-      ioFlows = PLN(in.totalIoPaid),
-      bop = in.newBop,
-      hhAgg = Some(in.finalHhAgg),
-      households = in.reassignedHouseholds,
-      bankingSector = in.finalBankingSector,
-      monetaryAgg = in.monAgg,
-      jst = in.newJst,
-      zus = in.newZus,
-      ppk = in.finalPpk,
-      demographics = in.newDemographics,
-      macropru = in.newMacropru,
+      Ratio(in.s7.autoR),
+      Ratio(in.s7.hybR),
+      in.s7.gdp,
+      in.s7.newSigmas,
+      ioFlows = PLN(in.s5.totalIoPaid),
+      bop = in.s8.newBop,
+      hhAgg = Some(in.s9.finalHhAgg),
+      households = in.s9.reassignedHouseholds,
+      bankingSector = in.s9.finalBankingSector,
+      monetaryAgg = in.s9.monAgg,
+      jst = in.s9.newJst,
+      zus = in.s2.newZus,
+      ppk = in.s9.finalPpk,
+      demographics = in.s2.newDemographics,
+      macropru = in.s7.newMacropru,
       equity = equityAfterStep,
-      housing = in.housingAfterFlows,
+      housing = in.s9.housingAfterFlows,
       sectoralMobility = SectoralMobility.State(
-        crossSectorHires = in.postFirmCrossSectorHires + in.hhAgg.crossSectorHires,
-        voluntaryQuits = in.hhAgg.voluntaryQuits,
-        sectorMobilityRate = in.finalHhAgg.sectorMobilityRate.toDouble,
+        crossSectorHires = in.s5.postFirmCrossSectorHires + in.s3.hhAgg.crossSectorHires,
+        voluntaryQuits = in.s3.hhAgg.voluntaryQuits,
+        sectorMobilityRate = in.s9.finalHhAgg.sectorMobilityRate.toDouble,
       ),
-      gvc = in.newGvc,
-      expectations = in.newExp,
-      immigration = in.newImmig,
-      corporateBonds = in.newCorpBonds,
-      insurance = in.finalInsurance,
-      nbfi = in.finalNbfi,
-      sectorDemandMult = in.sectorMults,
+      gvc = in.s8.newGvc,
+      expectations = in.s8.newExp,
+      immigration = in.s2.newImmig,
+      corporateBonds = in.s8.newCorpBonds,
+      insurance = in.s9.finalInsurance,
+      nbfi = in.s9.finalNbfi,
+      sectorDemandMult = in.s4.sectorMults,
       fofResidual = fofResidual,
-      grossInvestment = PLN(in.sumGrossInvestment),
-      fdiProfitShifting = PLN(in.sumProfitShifting),
-      fdiRepatriation = PLN(in.sumFdiRepatriation),
-      fdiCitLoss = PLN(in.fdiCitLoss),
-      aggInventoryStock = PLN(in.aggInventoryStock),
-      aggInventoryChange = PLN(in.aggInventoryChange),
+      grossInvestment = PLN(in.s5.sumGrossInvestment),
+      fdiProfitShifting = PLN(in.s5.sumProfitShifting),
+      fdiRepatriation = PLN(in.s5.sumFdiRepatriation),
+      fdiCitLoss = PLN(in.s8.fdiCitLoss),
+      aggInventoryStock = PLN(in.s7.aggInventoryStock),
+      aggInventoryChange = PLN(in.s7.aggInventoryChange),
       informalCyclicalAdj = newInformalCyclicalAdj,
       taxEvasionLoss = PLN(taxEvasionLoss),
       informalEmployed = PLN(informalEmployed),
-      aggEnergyCost = PLN(in.sumEnergyCost),
-      aggGreenCapital = PLN(in.aggGreenCapital),
-      aggGreenInvestment = PLN(in.sumGreenInvestment),
-      diasporaRemittanceInflow = PLN(in.diasporaInflow),
-      tourismExport = PLN(in.tourismExport),
-      tourismImport = PLN(in.tourismImport),
-      bfgFundBalance = PLN(in.w.bfgFundBalance.toDouble + in.bfgLevy),
-      bailInLoss = PLN(in.bailInLoss),
+      aggEnergyCost = PLN(in.s5.sumEnergyCost),
+      aggGreenCapital = PLN(in.s7.aggGreenCapital),
+      aggGreenInvestment = PLN(in.s5.sumGreenInvestment),
+      diasporaRemittanceInflow = PLN(in.s6.diasporaInflow),
+      tourismExport = PLN(in.s6.tourismExport),
+      tourismImport = PLN(in.s6.tourismImport),
+      bfgFundBalance = PLN(in.w.bfgFundBalance.toDouble + in.s9.bfgLevy),
+      bailInLoss = PLN(in.s9.bailInLoss),
     )
 
     // SFC accounting check
     val prevSnap = Sfc.snapshot(in.w, in.firms, in.w.households)
-    val currSnap = Sfc.snapshot(newW, in.reassignedFirms, in.reassignedHouseholds)
+    val currSnap = Sfc.snapshot(newW, in.s9.reassignedFirms, in.s9.reassignedHouseholds)
     val sfcFlows = Sfc.MonthlyFlows(
       govSpending = PLN(
-        in.newGovWithYield.bdpSpending.toDouble + in.newGovWithYield.unempBenefitSpend.toDouble
-          + in.newGovWithYield.socialTransferSpend.toDouble
-          + in.govPurchases + in.monthlyDebtService + in.newZus.govSubvention.toDouble
-          + in.euCofin,
+        in.s9.newGovWithYield.bdpSpending.toDouble + in.s9.newGovWithYield.unempBenefitSpend.toDouble
+          + in.s9.newGovWithYield.socialTransferSpend.toDouble
+          + in.s4.govPurchases + in.s8.monthlyDebtService + in.s2.newZus.govSubvention.toDouble
+          + in.s7.euCofin,
       ),
       govRevenue = PLN(
-        in.sumTax + in.dividendTax + in.pitAfterEvasion + in.vatAfterEvasion + in.nbpRemittance + in.exciseAfterEvasion + in.customsDutyRevenue,
+        in.s5.sumTax + in.s7.dividendTax + in.s9.pitAfterEvasion + in.s9.vatAfterEvasion + in.s8.nbpRemittance + in.s9.exciseAfterEvasion + in.s9.customsDutyRevenue,
       ),
-      nplLoss = PLN(in.nplLoss),
-      interestIncome = PLN(in.intIncome),
-      hhDebtService = PLN(in.hhDebtService),
-      totalIncome = PLN(in.totalIncome),
-      totalConsumption = PLN(in.consumption),
-      newLoans = PLN(in.sumNewLoans),
-      nplRecovery = PLN(in.nplNew * Config.LoanRecovery),
-      currentAccount = in.newBop.currentAccount,
-      valuationEffect = PLN(in.oeValuationEffect),
-      bankBondIncome = PLN(in.bankBondIncome),
-      qePurchase = PLN(in.qePurchaseAmount),
-      newBondIssuance = PLN(if Config.GovBondMarket then in.actualBondChange else 0.0),
-      depositInterestPaid = PLN(in.depositInterestPaid),
-      reserveInterest = PLN(in.totalReserveInterest),
-      standingFacilityIncome = PLN(in.totalStandingFacilityIncome),
-      interbankInterest = PLN(in.totalInterbankInterest),
-      jstDepositChange = PLN(in.jstDepositChange),
-      jstSpending = in.newJst.spending,
-      jstRevenue = in.newJst.revenue,
-      zusContributions = in.newZus.contributions,
-      zusPensionPayments = in.newZus.pensionPayments,
-      zusGovSubvention = in.newZus.govSubvention,
-      dividendIncome = PLN(in.netDomesticDividends),
-      foreignDividendOutflow = PLN(in.foreignDividendOutflow),
-      dividendTax = PLN(in.dividendTax),
-      mortgageInterestIncome = PLN(in.mortgageInterestIncome),
-      mortgageNplLoss = PLN(in.mortgageDefaultLoss),
-      mortgageOrigination = in.housingAfterFlows.lastOrigination,
-      mortgagePrincipalRepaid = PLN(in.mortgagePrincipal),
-      mortgageDefaultAmount = PLN(in.mortgageDefaultAmount),
-      remittanceOutflow = PLN(in.remittanceOutflow),
+      nplLoss = PLN(in.s5.nplLoss),
+      interestIncome = PLN(in.s5.intIncome),
+      hhDebtService = PLN(in.s6.hhDebtService),
+      totalIncome = PLN(in.s3.totalIncome),
+      totalConsumption = PLN(in.s3.consumption),
+      newLoans = PLN(in.s5.sumNewLoans),
+      nplRecovery = PLN(in.s5.nplNew * Config.LoanRecovery),
+      currentAccount = in.s8.newBop.currentAccount,
+      valuationEffect = PLN(in.s8.oeValuationEffect),
+      bankBondIncome = PLN(in.s8.bankBondIncome),
+      qePurchase = PLN(in.s8.qePurchaseAmount),
+      newBondIssuance = PLN(if Config.GovBondMarket then in.s9.actualBondChange else 0.0),
+      depositInterestPaid = PLN(in.s6.depositInterestPaid),
+      reserveInterest = PLN(in.s8.totalReserveInterest),
+      standingFacilityIncome = PLN(in.s8.totalStandingFacilityIncome),
+      interbankInterest = PLN(in.s8.totalInterbankInterest),
+      jstDepositChange = PLN(in.s9.jstDepositChange),
+      jstSpending = in.s9.newJst.spending,
+      jstRevenue = in.s9.newJst.revenue,
+      zusContributions = in.s2.newZus.contributions,
+      zusPensionPayments = in.s2.newZus.pensionPayments,
+      zusGovSubvention = in.s2.newZus.govSubvention,
+      dividendIncome = PLN(in.s7.netDomesticDividends),
+      foreignDividendOutflow = PLN(in.s7.foreignDividendOutflow),
+      dividendTax = PLN(in.s7.dividendTax),
+      mortgageInterestIncome = PLN(in.s9.mortgageInterestIncome),
+      mortgageNplLoss = PLN(in.s9.mortgageDefaultLoss),
+      mortgageOrigination = in.s9.housingAfterFlows.lastOrigination,
+      mortgagePrincipalRepaid = PLN(in.s9.mortgagePrincipal),
+      mortgageDefaultAmount = PLN(in.s9.mortgageDefaultAmount),
+      remittanceOutflow = PLN(in.s6.remittanceOutflow),
       fofResidual = PLN(fofResidual),
-      consumerDebtService = PLN(in.consumerDebtService),
-      consumerNplLoss = PLN(in.consumerNplLoss),
-      consumerOrigination = PLN(in.consumerOrigination),
-      consumerPrincipalRepaid = PLN(in.consumerPrincipal),
-      consumerDefaultAmount = PLN(in.consumerDefaultAmt),
-      corpBondCouponIncome = PLN(in.corpBondBankCoupon),
-      corpBondDefaultLoss = PLN(in.corpBondBankDefaultLoss),
-      corpBondIssuance = PLN(in.actualBondIssuance),
-      corpBondAmortization = PLN(in.corpBondAmort),
-      corpBondDefaultAmount = PLN(in.totalBondDefault),
-      insNetDepositChange = PLN(in.insNetDepositChange),
-      nbfiDepositDrain = PLN(in.nbfiDepositDrain),
-      nbfiOrigination = in.finalNbfi.lastNbfiOrigination,
-      nbfiRepayment = in.finalNbfi.lastNbfiRepayment,
-      nbfiDefaultAmount = in.finalNbfi.lastNbfiDefaultAmount,
-      fdiProfitShifting = PLN(in.sumProfitShifting),
-      fdiRepatriation = PLN(in.sumFdiRepatriation),
-      diasporaInflow = PLN(in.diasporaInflow),
-      tourismExport = PLN(in.tourismExport),
-      tourismImport = PLN(in.tourismImport),
-      bfgLevy = PLN(in.bfgLevy),
-      bailInLoss = PLN(in.bailInLoss),
-      bankCapitalDestruction = PLN(in.multiCapDestruction),
-      investNetDepositFlow = PLN(in.investNetDepositFlow),
+      consumerDebtService = PLN(in.s6.consumerDebtService),
+      consumerNplLoss = PLN(in.s6.consumerNplLoss),
+      consumerOrigination = PLN(in.s6.consumerOrigination),
+      consumerPrincipalRepaid = PLN(in.s6.consumerPrincipal),
+      consumerDefaultAmount = PLN(in.s6.consumerDefaultAmt),
+      corpBondCouponIncome = PLN(in.s8.corpBondBankCoupon),
+      corpBondDefaultLoss = PLN(in.s8.corpBondBankDefaultLoss),
+      corpBondIssuance = PLN(in.s5.actualBondIssuance),
+      corpBondAmortization = PLN(in.s8.corpBondAmort),
+      corpBondDefaultAmount = PLN(in.s5.totalBondDefault),
+      insNetDepositChange = PLN(in.s8.insNetDepositChange),
+      nbfiDepositDrain = PLN(in.s8.nbfiDepositDrain),
+      nbfiOrigination = in.s9.finalNbfi.lastNbfiOrigination,
+      nbfiRepayment = in.s9.finalNbfi.lastNbfiRepayment,
+      nbfiDefaultAmount = in.s9.finalNbfi.lastNbfiDefaultAmount,
+      fdiProfitShifting = PLN(in.s5.sumProfitShifting),
+      fdiRepatriation = PLN(in.s5.sumFdiRepatriation),
+      diasporaInflow = PLN(in.s6.diasporaInflow),
+      tourismExport = PLN(in.s6.tourismExport),
+      tourismImport = PLN(in.s6.tourismImport),
+      bfgLevy = PLN(in.s9.bfgLevy),
+      bailInLoss = PLN(in.s9.bailInLoss),
+      bankCapitalDestruction = PLN(in.s9.multiCapDestruction),
+      investNetDepositFlow = PLN(in.s9.investNetDepositFlow),
     )
     val sfcResult = Sfc.validate(prevSnap, currSnap, sfcFlows)
 
     // FDI M&A: monthly domestic → foreign conversion (#33)
     val postFdiFirms =
       if Config.FdiEnabled && Config.FdiMaProb > 0 then
-        in.reassignedFirms.map { f =>
+        in.s9.reassignedFirms.map { f =>
           if Firm.isAlive(f) && !f.foreignOwned &&
             f.initialSize >= Config.FdiMaSizeMin &&
             Random.nextDouble() < Config.FdiMaProb
           then f.copy(foreignOwned = true)
           else f
         }
-      else in.reassignedFirms
+      else in.s9.reassignedFirms
 
     // Endogenous Firm Entry (#35): recycle bankrupt slots
     val (finalFirms, firmBirths) = if Config.FirmEntryEnabled then
@@ -444,5 +331,5 @@ object WorldAssemblyStep:
       (result, births)
     else (postFdiFirms, 0)
 
-    val finalW = newW.copy(firmBirths = firmBirths, firmDeaths = in.firmDeaths)
-    Output(finalW, finalFirms, in.reassignedHouseholds, sfcResult)
+    val finalW = newW.copy(firmBirths = firmBirths, firmDeaths = in.s5.firmDeaths)
+    Output(finalW, finalFirms, in.s9.reassignedHouseholds, sfcResult)

@@ -9,7 +9,7 @@ import sfc.util.KahanSum.*
 object BankInit:
 
   /** Initialize multi-bank sector (always 7 banks). Per-bank consumer loan override from actual HH sums. */
-  def create(firms: Array[Firm.State], households: Vector[Household.State]): Banking.State =
+  def create(firms: Vector[Firm.State], households: Vector[Household.State]): Banking.State =
     val initConsumerLoans = households.kahanSumBy(_.consumerDebt.toDouble)
     val bs0 = Banking.initialize(
       Config.InitBankDeposits,

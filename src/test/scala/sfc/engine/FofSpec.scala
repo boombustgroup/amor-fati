@@ -225,11 +225,11 @@ class FofSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
     )
 
-  private def mkFirms(): Array[Firm.State] =
+  private def mkFirms(): Vector[Firm.State] =
     // Create firms distributed across all 6 sectors
     val firmsPerSector = 10
     (0 until 6).flatMap { s =>
       (0 until firmsPerSector).map { i =>
         mkFirm(s * firmsPerSector + i, TechState.Traditional(10), s)
       }
-    }.toArray
+    }.toVector

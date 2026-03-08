@@ -44,7 +44,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "show vacancies when firms need more workers than employed" in {
-    val firms = Array(mkFirm(0, 2, TechState.Traditional(10))) // needs 10
+    val firms = Vector(mkFirm(0, 2, TechState.Traditional(10))) // needs 10
     val hhs = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)))) // 1 employed
     val vac = SectoralMobility.sectorVacancies(hhs, firms)
     vac(2) shouldBe 9 // 10 needed - 1 employed
@@ -152,10 +152,10 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   // --- helpers ---
 
-  private def mkFirms(n: Int): Array[Firm.State] =
+  private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n).map { i =>
       mkFirm(i, i % 6, TechState.Traditional(10))
-    }.toArray
+    }.toVector
 
   private def mkFirm(id: Int, sector: Int, tech: TechState): Firm.State =
     Firm.State(

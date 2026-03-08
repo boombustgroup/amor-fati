@@ -147,8 +147,11 @@ object Sfc:
     actual: PLN,
   )
 
+  /** Result of SFC validation: Right(()) if all identities hold, Left(errors) otherwise. */
+  type SfcResult = Either[Vector[SfcIdentityError], Unit]
+
   /** Build a Snapshot from the current simulation state by aggregating all agent-level stocks. */
-  def snapshot(w: World, firms: Array[Firm.State], households: Vector[Household.State]): Snapshot =
+  def snapshot(w: World, firms: Vector[Firm.State], households: Vector[Household.State]): Snapshot =
     val hhS = PLN(households.kahanSumBy(_.savings.toDouble))
     val hhD = PLN(households.kahanSumBy(_.debt.toDouble))
     val ibNet = PLN(w.bankingSector.banks.kahanSumBy(_.interbankNet.toDouble))
@@ -218,7 +221,7 @@ object Sfc:
     flows: MonthlyFlows, // all flows that occurred during the month
     tolerance: PLN = PLN(0.01), // max allowed |actual − expected| for most identities
     nfaTolerance: PLN = PLN(1.0), // wider tolerance for NFA (Identity 4) due to FP cancellation in BoP
-  ): Either[Vector[SfcIdentityError], Unit] =
+  ): SfcResult =
     import SfcIdentity.*
 
     val identities: Vector[IdentitySpec] = Vector(

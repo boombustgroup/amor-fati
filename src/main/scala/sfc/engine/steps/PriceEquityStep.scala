@@ -11,20 +11,13 @@ import scala.util.Random
 object PriceEquityStep:
 
   case class Input(
-    ioFirms: Array[Firm.State],
     w: World,
-    sectorMults: Vector[Double],
-    newWage: Double,
-    wageGrowth: Double,
-    avgDemandMult: Double,
-    m: Int,
-    sumGrossInvestment: Double,
-    sumGreenInvestment: Double,
-    sumEquityIssuance: Double,
-    sumInventoryChange: Double,
-    domesticCons: Double,
-    lendingRates: Array[Double],
     rc: RunConfig,
+    s1: FiscalConstraintStep.Output,
+    s2: LaborDemographicsStep.Output,
+    s3: HouseholdIncomeStep.Output,
+    s4: DemandStep.Output,
+    s5: FirmProcessingStep.Output,
   )
 
   case class Output(
@@ -38,7 +31,7 @@ object PriceEquityStep:
     gdp: Double,
     newMacropru: Macroprudential.State,
     newSigmas: Vector[Double],
-    rewiredFirms: Array[Firm.State],
+    rewiredFirms: Vector[Firm.State],
     newInfl: Double,
     newPrice: Double,
     equityAfterIssuance: EquityMarket.State,
@@ -157,7 +150,7 @@ object PriceEquityStep:
     * @return
     *   updated firm array with same length
     */
-  private[steps] def rewireFirms(firms: Array[Firm.State], rho: Double): Array[Firm.State] =
+  private[steps] def rewireFirms(firms: Vector[Firm.State], rho: Double): Vector[Firm.State] =
     // Fast path: static network mode — no rewiring, return the exact same array instance.
     if rho == 0.0 then return firms
 
@@ -239,14 +232,14 @@ object PriceEquityStep:
         val newNb = adj(i).toArray.map(FirmId(_))
         if newNb.length != firms(i).neighbors.length then firms(i).copy(neighbors = newNb)
         else firms(i)
-    }.toArray
+    }.toVector
 
   // ---------------------------------------------------------------------------
   // Main step logic
   // ---------------------------------------------------------------------------
 
   def run(in: Input): Output =
-    val living2 = in.ioFirms.filter(Firm.isAlive)
+    val living2 = in.s5.ioFirms.filter(Firm.isAlive)
     val nLiving = living2.length.toDouble
     val autoR = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]) / nLiving else 0.0
     val hybR = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]) / nLiving else 0.0
@@ -254,7 +247,7 @@ object PriceEquityStep:
     val aggGreenCapital = if Config.EnergyEnabled then living2.kahanSumBy(_.greenCapital.toDouble) else 0.0
 
     val euMonthly =
-      if Config.EuFundsEnabled then EuFunds.monthlyTransfer(in.m)
+      if Config.EuFundsEnabled then EuFunds.monthlyTransfer(in.s1.m)
       else Config.OeEuTransfers
 
     val govGdpContribution =
@@ -273,14 +266,15 @@ object PriceEquityStep:
       else if Config.EuFundsEnabled then euCofin
       else 0.0
     val greenDomesticGFCF =
-      if Config.EnergyEnabled then in.sumGreenInvestment * (1.0 - Config.GreenImportShare) else 0.0
-    val domesticGFCF = (if Config.PhysCapEnabled then in.sumGrossInvestment * (1.0 - Config.PhysCapImportShare)
+      if Config.EnergyEnabled then in.s5.sumGreenInvestment * (1.0 - Config.GreenImportShare) else 0.0
+    val domesticGFCF = (if Config.PhysCapEnabled then in.s5.sumGrossInvestment * (1.0 - Config.PhysCapImportShare)
                         else 0.0) + greenDomesticGFCF
-    val investmentImports = (if Config.PhysCapEnabled then in.sumGrossInvestment * Config.PhysCapImportShare else 0.0) +
-      (if Config.EnergyEnabled then in.sumGreenInvestment * Config.GreenImportShare else 0.0)
-    val aggInventoryChange = if Config.InventoryEnabled then in.sumInventoryChange else 0.0
+    val investmentImports =
+      (if Config.PhysCapEnabled then in.s5.sumGrossInvestment * Config.PhysCapImportShare else 0.0) +
+        (if Config.EnergyEnabled then in.s5.sumGreenInvestment * Config.GreenImportShare else 0.0)
+    val aggInventoryChange = if Config.InventoryEnabled then in.s5.sumInventoryChange else 0.0
     val gdp =
-      in.domesticCons + govGdpContribution + euGdpContribution + in.w.forex.exports.toDouble + domesticGFCF + aggInventoryChange
+      in.s3.domesticCons + govGdpContribution + euGdpContribution + in.w.forex.exports.toDouble + domesticGFCF + aggInventoryChange
 
     val totalSystemLoans = in.w.bankingSector.banks.kahanSumBy(_.loans.toDouble)
     val newMacropru = Macroprudential.step(in.w.macropru, totalSystemLoans, gdp)
@@ -297,7 +291,7 @@ object PriceEquityStep:
     val newSigmas =
       evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, Config.SigmaLambda, Config.SigmaCapMult)
 
-    val rewiredFirms = rewireFirms(in.ioFirms, Config.RewireRho)
+    val rewiredFirms = rewireFirms(in.s5.ioFirms, Config.RewireRho)
 
     val exDev =
       if in.rc.isEurozone then 0.0
@@ -305,8 +299,8 @@ object PriceEquityStep:
     val (newInfl, newPrice) = Sectors.updateInflation(
       in.w.inflation.toDouble,
       in.w.priceLevel,
-      in.avgDemandMult,
-      in.wageGrowth,
+      in.s4.avgDemandMult,
+      in.s2.wageGrowth,
       exDev,
       autoR,
       hybR,
@@ -314,14 +308,14 @@ object PriceEquityStep:
     )
 
     val firmProfits = living2.kahanSumBy { f =>
-      val rev = Firm.capacity(f) * in.sectorMults(f.sector.toInt) * newPrice
-      val labor = Firm.workers(f) * in.newWage * SECTORS(f.sector.toInt).wageMultiplier
+      val rev = Firm.capacity(f) * in.s4.sectorMults(f.sector.toInt) * newPrice
+      val labor = Firm.workers(f) * in.s2.newWage * SECTORS(f.sector.toInt).wageMultiplier
       val other = Config.OtherCosts * newPrice
       val aiMaint = f.tech match
         case _: TechState.Automated => Config.AiOpex * (0.60 + 0.40 * newPrice)
         case _: TechState.Hybrid    => Config.HybridOpex * (0.60 + 0.40 * newPrice)
         case _                      => 0.0
-      val interest = f.debt.toDouble * in.lendingRates(f.bankId.toInt) / 12.0
+      val interest = f.debt.toDouble * in.s5.lendingRates(f.bankId.toInt) / 12.0
       val gross = rev - labor - other - aiMaint - interest
       val tax = Math.max(0.0, gross) * Config.CitRate
       Math.max(0.0, gross - tax)
@@ -331,7 +325,7 @@ object PriceEquityStep:
     val gdpGrowthForEquity = (gdp - prevGdp) / prevGdp
     val equityAfterIndex =
       EquityMarket.step(in.w.equity, in.w.nbp.referenceRate.toDouble, newInfl, gdpGrowthForEquity, firmProfits)
-    val equityAfterIssuance = EquityMarket.processIssuance(in.sumEquityIssuance, equityAfterIndex)
+    val equityAfterIssuance = EquityMarket.processIssuance(in.s5.sumEquityIssuance, equityAfterIndex)
 
     val (netDomesticDividends, foreignDividendOutflow, dividendTax) =
       if Config.GpwEnabled && Config.GpwDividends then

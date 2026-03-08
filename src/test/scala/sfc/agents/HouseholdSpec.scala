@@ -346,7 +346,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
 
   // --- helpers ---
 
-  private def mkFirms(n: Int): Array[Firm.State] =
+  private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n).map { i =>
       Firm.State(
         FirmId(i),
@@ -359,7 +359,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         SectorIdx(i % SECTORS.length),
         Array.empty[FirmId],
       )
-    }.toArray
+    }.toVector
 
   private def mkHousehold(
     id: Int,

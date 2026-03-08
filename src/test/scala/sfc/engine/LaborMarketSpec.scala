@@ -21,8 +21,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "make workers unemployed when firm goes bankrupt" in {
     val prevFirms = mkFirms(3)
-    val newFirms = prevFirms.clone()
-    newFirms(1) = prevFirms(1).copy(tech = TechState.Bankrupt("test"))
+    val newFirms = prevFirms.updated(1, prevFirms(1).copy(tech = TechState.Bankrupt("test")))
 
     val hhs = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
@@ -37,8 +36,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "make workers unemployed when firm automates" in {
     val prevFirms = mkFirms(2)
-    val newFirms = prevFirms.clone()
-    newFirms(0) = prevFirms(0).copy(tech = TechState.Automated(1.5))
+    val newFirms = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Automated(1.5)))
 
     val hhs = (0 until 5).map(i => mkHousehold(i, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)))).toVector
     val result = LaborMarket.separations(hhs, prevFirms, newFirms)
@@ -52,8 +50,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "not affect already unemployed households" in {
     val prevFirms = mkFirms(2)
-    val newFirms = prevFirms.clone()
-    newFirms(0) = prevFirms(0).copy(tech = TechState.Bankrupt("test"))
+    val newFirms = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Bankrupt("test")))
 
     val hhs = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
@@ -82,7 +79,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "prefer higher-skilled workers" in {
     val rng = new Random(42)
-    val firms = Array(mkFirms(1)(0))
+    val firms = Vector(mkFirms(1)(0))
     // Only 1 vacancy: Traditional(10) needs 10, but we have 11 workers
     val hhs = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
@@ -167,7 +164,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   // --- helpers ---
 
-  private def mkFirms(n: Int): Array[Firm.State] =
+  private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n).map { i =>
       Firm.State(
         FirmId(i),
@@ -180,7 +177,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
         SectorIdx(2),
         Array.empty[FirmId],
       ) // sector 2 = Retail/Services
-    }.toArray
+    }.toVector
 
   private def mkHousehold(
     id: Int,

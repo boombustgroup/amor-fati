@@ -38,7 +38,7 @@ object Firm:
     * @return
     *   ratio ∈ [0.0, 1.0] of neighbors with TechState.Automated or TechState.Hybrid
     */
-  def localAutoRatio(firm: Firm.State, firms: Array[Firm.State]): Double =
+  def localAutoRatio(firm: Firm.State, firms: Vector[Firm.State]): Double =
     val neighbors = firm.neighbors
     if neighbors.isEmpty then return 0.0
     val autoCount = neighbors.count: nid =>
@@ -116,7 +116,7 @@ object Firm:
     w: World,
     lendRate: Double,
     bankCanLend: Double => Boolean,
-    allFirms: Array[State],
+    allFirms: Vector[State],
     rc: RunConfig,
   ): Result =
 

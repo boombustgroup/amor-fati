@@ -30,7 +30,7 @@ object SectoralMobility:
   )
 
   /** Compute number of vacancies per sector. */
-  def sectorVacancies(households: Vector[Household.State], firms: Array[Firm.State]): Array[Int] =
+  def sectorVacancies(households: Vector[Household.State], firms: Vector[Firm.State]): Array[Int] =
     val workerCounts = new Array[Int](6)
     for hh <- households do
       hh.status match

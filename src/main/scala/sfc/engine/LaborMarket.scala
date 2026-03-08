@@ -14,8 +14,8 @@ object LaborMarket:
     */
   def separations(
     households: Vector[Household.State],
-    prevFirms: Array[Firm.State],
-    newFirms: Array[Firm.State],
+    prevFirms: Vector[Firm.State],
+    newFirms: Vector[Firm.State],
   ): Vector[Household.State] =
     // Build set of firm IDs that lost workers this step
     val firmLostWorkers = (0 until newFirms.length).filter { i =>
@@ -70,7 +70,7 @@ object LaborMarket:
     */
   def jobSearch(
     households: Vector[Household.State],
-    firms: Array[Firm.State],
+    firms: Vector[Firm.State],
     marketWage: Double,
     rng: Random,
   ): (Vector[Household.State], Int) =

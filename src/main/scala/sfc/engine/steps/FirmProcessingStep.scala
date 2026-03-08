@@ -12,20 +12,17 @@ object FirmProcessingStep:
 
   case class Input(
     w: World,
-    firms: Array[Firm.State],
-    households: Vector[Household.State],
-    updatedHouseholds: Vector[Household.State],
-    newWage: Double,
-    resWage: Double,
-    m: Int,
-    sectorMults: Vector[Double],
-    lendingBaseRate: Double,
-    newImmig: Immigration.State,
     rc: RunConfig,
+    firms: Vector[Firm.State],
+    households: Vector[Household.State],
+    s1: FiscalConstraintStep.Output,
+    s2: LaborDemographicsStep.Output,
+    s3: HouseholdIncomeStep.Output,
+    s4: DemandStep.Output,
   )
 
   case class Output(
-    ioFirms: Array[Firm.State],
+    ioFirms: Vector[Firm.State],
     households: Vector[Household.State],
     sumTax: Double,
     sumCapex: Double,
@@ -66,7 +63,7 @@ object FirmProcessingStep:
     val perBankWorkers = new Array[Int](nBanks)
 
     val currentCcyb = in.w.macropru.ccyb.toDouble
-    val rates = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.lendingBaseRate))
+    val rates = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate))
     val getLendRate: Int => Double = (bankId: Int) => rates(bankId)
     val bankCanLendFn: (Int, Double) => Boolean =
       (bankId: Int, amt: Double) => Banking.canLend(bsec.banks(bankId), amt, Random, currentCcyb)
@@ -88,9 +85,9 @@ object FirmProcessingStep:
     var sumGreenInvestment = 0.0
 
     val macro4firms = in.w.copy(
-      month = in.m,
-      sectorDemandMult = in.sectorMults,
-      hh = in.w.hh.copy(marketWage = PLN(in.newWage), reservationWage = PLN(in.resWage)),
+      month = in.s1.m,
+      sectorDemandMult = in.s4.sectorMults,
+      hh = in.w.hh.copy(marketWage = PLN(in.s2.newWage), reservationWage = PLN(in.s1.resWage)),
     )
 
     val firmBondAmounts = scala.collection.mutable.HashMap.empty[FirmId, Double]
@@ -168,7 +165,7 @@ object FirmProcessingStep:
     val (ioFirms, totalIoPaid) = if Config.IoEnabled then
       val r = IntermediateMarket.process(
         adjustedFirms,
-        in.sectorMults,
+        in.s4.sectorMults,
         in.w.priceLevel,
         Config.IoMatrix,
         Config.IoColumnSums,
@@ -178,16 +175,16 @@ object FirmProcessingStep:
     else (adjustedFirms, 0.0)
 
     var postFirmCrossSectorHires = 0
-    val afterSep = LaborMarket.separations(in.updatedHouseholds, in.firms, ioFirms)
-    val (afterSearch, csHires) = LaborMarket.jobSearch(afterSep, ioFirms, in.newWage, Random)
+    val afterSep = LaborMarket.separations(in.s3.updatedHouseholds, in.firms, ioFirms)
+    val (afterSearch, csHires) = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, Random)
     postFirmCrossSectorHires += csHires
-    val preMigrationHouseholds = LaborMarket.updateWages(afterSearch, in.newWage)
+    val preMigrationHouseholds = LaborMarket.updateWages(afterSearch, in.s2.newWage)
 
     val finalHouseholds =
       if Config.ImmigEnabled then
-        val afterRemoval = Immigration.removeReturnMigrants(preMigrationHouseholds, in.newImmig.monthlyOutflow)
+        val afterRemoval = Immigration.removeReturnMigrants(preMigrationHouseholds, in.s2.newImmig.monthlyOutflow)
         val startId = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
-        val newImmigrants = Immigration.spawnImmigrants(in.newImmig.monthlyInflow, startId, Random)
+        val newImmigrants = Immigration.spawnImmigrants(in.s2.newImmig.monthlyInflow, startId, Random)
         afterRemoval ++ newImmigrants
       else preMigrationHouseholds
 
@@ -204,7 +201,7 @@ object FirmProcessingStep:
       perBankIntIncome(f.bankId.toInt) += f.debt.toDouble * getLendRate(f.bankId.toInt) / 12.0
 
     val intIncome = perBankIntIncome.kahanSum
-    val netMigration = in.newImmig.monthlyInflow - in.newImmig.monthlyOutflow
+    val netMigration = in.s2.newImmig.monthlyInflow - in.s2.newImmig.monthlyOutflow
 
     Output(
       ioFirms = ioFirms,

@@ -117,7 +117,7 @@ object Household:
 
   object Init:
     /** Create individual households with multi-bank assignment. */
-    def create(rng: Random, firms: Array[Firm.State]): Vector[State] =
+    def create(rng: Random, firms: Vector[Firm.State]): Vector[State] =
       import sfc.config.*
       import sfc.networks.Network
       val hhCount = Config.TotalPopulation
@@ -135,7 +135,7 @@ object Household:
     def initialize(
       nHouseholds: Int,
       nFirms: Int,
-      firms: Array[Firm.State],
+      firms: Vector[Firm.State],
       socialNetwork: Array[Array[Int]],
       rng: Random,
     ): Vector[State] =

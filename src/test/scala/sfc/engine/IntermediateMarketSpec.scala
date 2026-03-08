@@ -40,10 +40,10 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
     )
 
-  private def makeFirmsAllSectors(perSector: Int = 10): Array[Firm.State] =
+  private def makeFirmsAllSectors(perSector: Int = 10): Vector[Firm.State] =
     (0 until 6).flatMap { s =>
       (0 until perSector).map(i => makeFirm(s * perSector + i, s))
-    }.toArray
+    }.toVector
 
   // ---- Test 1: Zero-sum ----
 
@@ -59,7 +59,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "route payments according to a_ij coefficients" in {
     // 1 firm per sector, all Traditional(10)
-    val firms = (0 until 6).map(s => makeFirm(s, s)).toArray
+    val firms = (0 until 6).map(s => makeFirm(s, s)).toVector
     val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Firm in sector 0 (BPO): should pay columnSum(0) of its gross output
     val bpoOutput = Firm.capacity(firms(0)) * 1.0 * 1.0
@@ -76,7 +76,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   // ---- Test 3: Bankrupt firms excluded ----
 
   it should "exclude bankrupt firms from buying and selling" in {
-    val firms = Array(
+    val firms = Vector(
       makeFirm(0, 0),
       makeFirm(1, 0, tech = TechState.Bankrupt("test")),
       makeFirm(2, 1),
@@ -103,7 +103,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   // ---- Test 5: Single sector ----
 
   it should "handle all firms in one sector (intra-sector I-O)" in {
-    val firms = (0 until 10).map(i => makeFirm(i, 0)).toArray
+    val firms = (0 until 10).map(i => makeFirm(i, 0)).toVector
     val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Zero-sum still holds
     val totalBefore = firms.map(_.cash.toDouble).sum
@@ -123,11 +123,11 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     // sector 1 has one Automated (higher capacity) and one Traditional.
     val baseFirms = (0 until 6).flatMap { s =>
       (0 until 10).map(i => makeFirm(s * 10 + i, s))
-    }.toArray
+    }.toVector
     // Replace two sector-1 firms with our test subjects
     val firm1 = makeFirm(100, 1, tech = TechState.Automated(1.5)) // High capacity Mfg
     val firm2 = makeFirm(101, 1) // Normal capacity Mfg
-    val firms = baseFirms.filter(_.sector.toInt != 1) ++ Array(firm1, firm2)
+    val firms = baseFirms.filter(_.sector.toInt != 1) ++ Vector(firm1, firm2)
     val result = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     val r1 = result.firms.find(_.id == FirmId(100)).get
     val r2 = result.firms.find(_.id == FirmId(101)).get

@@ -136,4 +136,4 @@ object WorldInit:
 
     InitResult(world, firms, households)
 
-  case class InitResult(world: World, firms: Array[Firm.State], households: Vector[Household.State])
+  case class InitResult(world: World, firms: Vector[Firm.State], households: Vector[Household.State])

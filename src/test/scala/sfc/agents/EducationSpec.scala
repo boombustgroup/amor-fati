@@ -182,8 +182,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
     val result = sfc.engine.LaborMarket.separations(
       Vector(hhPrimary, hhTertiary, hhVocational),
-      Array(prevFirm),
-      Array(newFirm),
+      Vector(prevFirm),
+      Vector(newFirm),
     )
 
     // Tertiary (id=1) should be retained first, then vocational (id=2). Primary (id=0) fired.
@@ -255,8 +255,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
     val result = sfc.engine.LaborMarket.separations(
       Vector(hhLowSkill, hhHighSkill, hhMidSkill),
-      Array(prevFirm),
-      Array(newFirm),
+      Vector(prevFirm),
+      Vector(newFirm),
     )
 
     result(0).status shouldBe a[HhStatus.Unemployed] // low skill fired
@@ -289,7 +289,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
   "Household.Init.initialize" should "assign education to all households" in {
     val rng = new Random(42)
-    val firms = Array(
+    val firms = Vector(
       Firm.State(
         FirmId(0),
         PLN(1000000.0),
@@ -323,7 +323,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
   it should "clamp skill within education-specific range" in {
     val rng = new Random(42)
-    val firms = Array(
+    val firms = Vector(
       Firm.State(
         FirmId(0),
         PLN(1000000.0),

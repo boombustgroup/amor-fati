@@ -17,7 +17,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   private val defaultMatrix = Config.IoMatrix
   private val defaultColSums = Config.IoColumnSums
 
-  private def makeFirms(n: Int, sectors: Seq[Int] = Seq(0, 1, 2, 3, 4, 5)): Array[Firm.State] =
+  private def makeFirms(n: Int, sectors: Seq[Int] = Seq(0, 1, 2, 3, 4, 5)): Vector[Firm.State] =
     (0 until n).map { i =>
       val sector = sectors(i % sectors.length)
       Firm.State(
@@ -31,7 +31,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
         SectorIdx(sector),
         Array.empty[FirmId],
       )
-    }.toArray
+    }.toVector
 
   // --- Zero-sum property ---
 
@@ -140,7 +140,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       SectorIdx(1),
       Array.empty[FirmId],
     )
-    val firms = Array(f1, f2, f3)
+    val firms = Vector(f1, f2, f3)
     val r = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums, 1.0)
     val adj1 = (r.firms(0).cash - firms(0).cash).toDouble
     val adj2 = (r.firms(1).cash - firms(1).cash).toDouble

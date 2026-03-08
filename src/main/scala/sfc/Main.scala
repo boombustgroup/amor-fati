@@ -19,9 +19,7 @@ case class RunResult(
 /** Run one simulation with given seed. Returns time-series array + optional household aggregates. */
 def runSingle(seed: Int, rc: RunConfig): RunResult =
   val init = WorldInit.initialize(seed, rc)
-  var world = init.world
-  var firms = init.firms
-  var households = init.households
+  var state = Simulation.SimState(init.world, init.firms, init.households)
 
   // Collect time-series: 120 rows x N columns
   // Columns: Month, Inflation, Unemployment, AutoRatio+HybridRatio, ExRate, MarketWage,
@@ -40,8 +38,8 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
   val results = Array.ofDim[Double](Config.Duration, nCols)
 
   for t <- 0 until Config.Duration do
-    val (newW, newF, newHh, sfcResult) = Simulation.step(world, firms, rc, households)
-    sfcResult match
+    val stepResult = Simulation.step(state, rc)
+    stepResult.sfcCheck match
       case Left(errors) =>
         errors.foreach { e =>
           System.err.println(
@@ -50,9 +48,10 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
           )
         }
       case Right(()) => // OK
-    world = newW
-    firms = newF
-    households = newHh
+    state = stepResult.state
+    val world = state.world
+    val firms = state.firms
+    val households = state.households
 
     val unemployPct = 1.0 - world.hh.employed.toDouble / Config.TotalPopulation
     val living = firms.filter(Firm.isAlive)
@@ -375,7 +374,7 @@ def runSingle(seed: Int, rc: RunConfig): RunResult =
       world.bailInLoss.toDouble, // 196: BailInLoss
     )
 
-  RunResult(results, world.hhAgg.get)
+  RunResult(results, state.world.hhAgg.get)
 
 // ---- Monte Carlo main entry point ----
 

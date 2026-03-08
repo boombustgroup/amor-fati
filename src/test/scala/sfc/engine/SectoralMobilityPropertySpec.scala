@@ -58,7 +58,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   // --- sectorVacancies ---
 
   "sectorVacancies" should "return array of length 6" in {
-    val firms = Array(
+    val firms = Vector(
       Firm.State(
         FirmId(0),
         PLN(50000.0),

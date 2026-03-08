@@ -6,10 +6,10 @@ import sfc.util.KahanSum.*
 
 object IntermediateMarket:
 
-  case class Result(firms: Array[Firm.State], totalPaid: Double)
+  case class Result(firms: Vector[Firm.State], totalPaid: Double)
 
   def process(
-    firms: Array[Firm.State],
+    firms: Vector[Firm.State],
     sectorMults: Vector[Double],
     price: Double,
     ioMatrix: Vector[Vector[Double]],
@@ -17,15 +17,16 @@ object IntermediateMarket:
     scale: Double = 1.0,
   ): Result =
     val nSectors = 6
+    val arr = firms.toArray
 
     // Identify living firms and compute per-firm gross output
-    val living = firms.indices.filter(i => Firm.isAlive(firms(i)))
-    val grossOutput = new Array[Double](firms.length)
-    for i <- living do grossOutput(i) = Firm.capacity(firms(i)) * sectorMults(firms(i).sector.toInt) * price
+    val living = arr.indices.filter(i => Firm.isAlive(arr(i)))
+    val grossOutput = new Array[Double](arr.length)
+    for i <- living do grossOutput(i) = Firm.capacity(arr(i)) * sectorMults(arr(i).sector.toInt) * price
 
     // Total gross output per sector (for revenue distribution)
     val sectorOutput = new Array[Double](nSectors)
-    for i <- living do sectorOutput(firms(i).sector.toInt) += grossOutput(i)
+    for i <- living do sectorOutput(arr(i).sector.toInt) += grossOutput(i)
 
     // Firms can only buy from sectors that have living suppliers.
     // Effective column sum for sector j = Σ_{i: hasFirms(i)} a_ij
@@ -35,7 +36,7 @@ object IntermediateMarket:
     }
 
     // Revenue for sector i = Σ_j a_ij × sectorOutput_j (only from sectors with firms)
-    val cashAdj = new Array[Double](firms.length)
+    val cashAdj = new Array[Double](arr.length)
     var totalPaid = 0.0
 
     val sectorRevenue = new Array[Double](nSectors)
@@ -44,7 +45,7 @@ object IntermediateMarket:
 
     // Distribute costs and revenues to individual firms
     for idx <- living do
-      val f = firms(idx)
+      val f = arr(idx)
       val j = f.sector.toInt
       // Cost: intermediate purchases only from sectors with suppliers
       val ioCost = grossOutput(idx) * effectiveColSums(j)
@@ -61,9 +62,9 @@ object IntermediateMarket:
     if Math.abs(totalAdj) > 1.0 then System.err.println(f"[IO] WARNING: non-zero-sum cash adjustment: $totalAdj%.2f")
 
     // Apply cash adjustments
-    val newFirms = firms.clone()
+    val newFirms = arr.clone()
     for idx <- living do
       val f = newFirms(idx)
       newFirms(idx) = f.copy(cash = f.cash + PLN(cashAdj(idx)))
 
-    Result(newFirms, totalPaid)
+    Result(newFirms.toVector, totalPaid)

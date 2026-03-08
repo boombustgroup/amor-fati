@@ -13,7 +13,7 @@ object FirmInit:
   /** Create firm array with all post-creation enhancements. Returns (firms, actualTotalPopulation) — caller handles
     * Config.setTotalPopulation.
     */
-  def create(rng: Random): (Array[Firm.State], Int) =
+  def create(rng: Random): (Vector[Firm.State], Int) =
     // Generate network based on TOPOLOGY env var
     val adjList = TOPOLOGY match
       case Topology.Ws      => Network.wattsStrogatz(Config.FirmsCount, Config.NetworkK, Config.NetworkRewireP)
@@ -56,7 +56,7 @@ object FirmInit:
         neighbors = adjList(i).map(FirmId(_)),
         initialSize = firmSize,
       )
-    }.toArray
+    }.toVector
 
     val actualTotalPop = firms.map(f => Firm.workers(f)).sum
 

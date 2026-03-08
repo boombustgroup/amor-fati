@@ -44,7 +44,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       bankingSector = Banking.initialize(1e9, 5e8, 5e8, 0, 0, Banking.DefaultConfigs),
     )
 
-  private def makeFirms(n: Int, cash: Double = 50000.0, debt: Double = 0.0): Array[Firm.State] =
+  private def makeFirms(n: Int, cash: Double = 50000.0, debt: Double = 0.0): Vector[Firm.State] =
     (0 until n).map { i =>
       Firm.State(
         FirmId(i),
@@ -57,7 +57,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         SectorIdx(0),
         Array.empty[FirmId],
       )
-    }.toArray
+    }.toVector
 
   private def makeHouseholds(n: Int, savings: Double = 15000.0, debt: Double = 0.0): Vector[Household.State] =
     (0 until n).map { i =>

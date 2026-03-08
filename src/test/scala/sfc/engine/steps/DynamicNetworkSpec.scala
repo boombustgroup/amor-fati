@@ -67,7 +67,7 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
       Firm.workers(f) shouldBe f.initialSize
   }
 
-  private def mkFirms(n: Int): Array[Firm.State] =
+  private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n).map { i =>
       Firm.State(
         FirmId(i),
@@ -80,9 +80,9 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
         SectorIdx(0),
         Array(FirmId((i + 1) % n), FirmId((i - 1 + n) % n)),
       )
-    }.toArray
+    }.toVector
 
-  private def mkFirmsWithBankrupt(n: Int, nBankrupt: Int, sector: Int = 0): Array[Firm.State] =
+  private def mkFirmsWithBankrupt(n: Int, nBankrupt: Int, sector: Int = 0): Vector[Firm.State] =
     (0 until n).map { i =>
       val tech =
         if i < nBankrupt then TechState.Bankrupt("test")
@@ -98,4 +98,4 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
         SectorIdx(sector),
         Array(FirmId((i + 1) % n), FirmId((i - 1 + n) % n)),
       )
-    }.toArray
+    }.toVector

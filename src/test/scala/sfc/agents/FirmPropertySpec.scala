@@ -183,7 +183,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         SectorIdx(0),
         (0 until 10).filter(_ != i).map(FirmId(_)).toArray,
       )
-    }.toArray
+    }.toVector
     for f <- firms do
       val r = Firm.localAutoRatio(f, firms)
       r should be >= 0.0
@@ -202,6 +202,6 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       SectorIdx(0),
       Array.empty[FirmId],
     )
-    val firms = Array(firm)
+    val firms = Vector(firm)
     Firm.localAutoRatio(firm, firms) shouldBe 0.0
   }
