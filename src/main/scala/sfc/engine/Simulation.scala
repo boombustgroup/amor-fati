@@ -5,55 +5,59 @@ import sfc.agents.*
 import sfc.config.*
 import sfc.types.*
 
-// ---------------------------------------------------------------------------
-// Simulation — step function for the SFC-ABM engine
-// ---------------------------------------------------------------------------
-//
-// This object is the top-level orchestrator of the simulation. Each call to
-// `step` transforms the current state into the next state by executing a
-// fixed 10-stage pipeline that mirrors the real-world sequence of economic
-// decisions. The caller (Main.runSingle) invokes `step` in a monthly loop,
-// but `step` itself is time-agnostic — it only sees the current state:
-//
-//   s1  FiscalConstraintStep    — fiscal rules, minimum wage, lending base rate
-//   s2  LaborDemographicsStep   — labor market clearing, wages, demographics, ZUS/PPK
-//   s3  HouseholdIncomeStep     — HH income, consumption, PIT, sectoral mobility
-//   s4  DemandStep              — per-sector demand multipliers, aggregate demand
-//   s5  FirmProcessingStep      — production, I-O, technology adoption, loans, NPL
-//   s6  HouseholdFinancialStep  — mortgages, consumer credit, remittances, tourism
-//   s7  PriceEquityStep         — inflation, price level, GPW equity market, sigma dynamics
-//   s8  OpenEconomyStep         — BoP, forex, GVC trade, monetary policy, bonds, QE, NBFI
-//   s9  BankUpdateStep          — bank P&L, provisioning, CAR, interbank, deposit rates
-//   s10 WorldAssemblyStep       — assemble new World + SFC validation (13 identities)
-//
-// The pipeline is strictly sequential: each step's Input case class carries
-// typed references to all prior step Outputs it needs (e.g. s7 receives
-// s1–s5). This makes data dependencies explicit at the type level and
-// eliminates the field-unpacking boilerplate that would otherwise dominate
-// the orchestrator.
-//
-// The final step (s10) assembles the updated World, reassigns households to
-// firms, and runs the SFC accounting check (see Sfc.validate). If any of
-// the 13 balance-sheet identities is violated, the check returns Left with
-// detailed error information — the simulation halts immediately in Main.
-//
-// No business logic lives here — every calculation is delegated to a Step
-// object in the `steps` package. This file is pure wiring.
-//
-// When to modify this file:
-//   - Adding a new pipeline stage: insert a new sN call and thread its
-//     Output to downstream steps that need it.
-//   - Adding a new field to an existing Step's Input: no change here —
-//     the Step's Input already receives the full Output objects.
-//   - Changing step ordering: reorder the sN calls (rare — ordering
-//     reflects real-world causality).
-//
-// See also:
-//   - Sfc.scala          — the 13 SFC identities and MonthlyFlows
-//   - WorldAssemblyStep  — final state assembly + SFC check invocation
-//   - LaborMarket, PriceLevel, Nbp, OpenEconomy, FiscalBudget — domain modules
-//   - Main.scala          — simulation loop that calls step() each month
-// ---------------------------------------------------------------------------
+/** Top-level orchestrator of the SFC-ABM simulation.
+  *
+  * Each call to `step` transforms the current state into the next state by
+  * executing a fixed 10-stage pipeline that mirrors the real-world sequence of
+  * economic decisions. The caller (Main.runSingle) invokes `step` in a monthly
+  * loop, but `step` itself is time-agnostic — it only sees the current state:
+  *
+  *   - s1 FiscalConstraintStep — fiscal rules, minimum wage, lending base rate
+  *   - s2 LaborDemographicsStep — labor market clearing, wages, demographics,
+  *     ZUS/PPK
+  *   - s3 HouseholdIncomeStep — HH income, consumption, PIT, sectoral mobility
+  *   - s4 DemandStep — per-sector demand multipliers, aggregate demand
+  *   - s5 FirmProcessingStep — production, I-O, technology adoption, loans, NPL
+  *   - s6 HouseholdFinancialStep — mortgages, consumer credit, remittances,
+  *     tourism
+  *   - s7 PriceEquityStep — inflation, price level, GPW equity market, sigma
+  *     dynamics
+  *   - s8 OpenEconomyStep — BoP, forex, GVC trade, monetary policy, bonds, QE,
+  *     NBFI
+  *   - s9 BankUpdateStep — bank P&L, provisioning, CAR, interbank, deposit
+  *     rates
+  *   - s10 WorldAssemblyStep — assemble new World + SFC validation (14
+  *     identities)
+  *
+  * The pipeline is strictly sequential: each step's Input case class carries
+  * typed references to all prior step Outputs it needs (e.g. s7 receives
+  * s1–s5). This makes data dependencies explicit at the type level and
+  * eliminates the field-unpacking boilerplate that would otherwise dominate the
+  * orchestrator.
+  *
+  * The final step (s10) assembles the updated World, reassigns households to
+  * firms, and runs the SFC accounting check (see Sfc.validate). If any of the
+  * 14 balance-sheet identities is violated, the check returns Left with
+  * detailed error information — the simulation halts immediately in Main.
+  *
+  * No business logic lives here — every calculation is delegated to a Step
+  * object in the `steps` package. This file is pure wiring.
+  *
+  * When to modify this file:
+  *   - Adding a new pipeline stage: insert a new sN call and thread its Output
+  *     to downstream steps that need it.
+  *   - Adding a new field to an existing Step's Input: no change here — the
+  *     Step's Input already receives the full Output objects.
+  *   - Changing step ordering: reorder the sN calls (rare — ordering reflects
+  *     real-world causality).
+  *
+  * @see
+  *   [[sfc.accounting.Sfc]] — the 14 SFC identities and MonthlyFlows
+  * @see
+  *   [[steps.WorldAssemblyStep]] — final state assembly + SFC check
+  * @see
+  *   [[sfc.Main]] — simulation loop that calls step() each month
+  */
 object Simulation:
 
   /** Bundles the three mutable components of the simulation: the World state,
