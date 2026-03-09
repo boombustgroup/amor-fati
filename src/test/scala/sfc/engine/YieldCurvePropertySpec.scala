@@ -11,20 +11,19 @@ import sfc.types.*
 class YieldCurvePropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams                                                         = SimParams.defaults
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  "YieldCurve" should "always maintain O/N < 1M < 3M < 6M ordering" in {
+  "YieldCurve" should "always maintain O/N < 1M < 3M < 6M ordering" in
     forAll(Gen.choose(0.0, 0.30)) { onRate =>
       val curve = YieldCurve.compute(onRate)
       curve.overnight.toDouble should be < curve.wibor1m.toDouble
       curve.wibor1m.toDouble should be < curve.wibor3m.toDouble
       curve.wibor3m.toDouble should be < curve.wibor6m.toDouble
     }
-  }
 
-  it should "produce non-negative term rates when O/N >= 0" in {
+  it should "produce non-negative term rates when O/N >= 0" in
     forAll(Gen.choose(0.0, 0.30)) { onRate =>
       val curve = YieldCurve.compute(onRate)
       curve.overnight.toDouble should be >= 0.0
@@ -32,13 +31,11 @@ class YieldCurvePropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
       curve.wibor3m.toDouble should be >= 0.0
       curve.wibor6m.toDouble should be >= 0.0
     }
-  }
 
-  it should "have fixed term premiums regardless of O/N rate" in {
+  it should "have fixed term premiums regardless of O/N rate" in
     forAll(Gen.choose(0.0, 0.30)) { onRate =>
       val curve = YieldCurve.compute(onRate)
       (curve.wibor1m - curve.overnight).toDouble shouldBe (YieldCurve.TermPremium1M +- 1e-12)
       (curve.wibor3m - curve.overnight).toDouble shouldBe (YieldCurve.TermPremium3M +- 1e-12)
       (curve.wibor6m - curve.overnight).toDouble shouldBe (YieldCurve.TermPremium6M +- 1e-12)
     }
-  }

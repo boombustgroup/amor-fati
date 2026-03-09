@@ -7,19 +7,18 @@ import sfc.util.KahanSum.*
 class ExciseCustomsSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   "ExciseRates" should "have 6 values" in {
     p.fiscal.exciseRates.map(_.toDouble).length shouldBe 6
   }
 
-  it should "have all rates in [0, 0.10]" in {
+  it should "have all rates in [0, 0.10]" in
     p.fiscal.exciseRates.map(_.toDouble).foreach { r =>
       r should be >= 0.0
       r should be <= 0.10
     }
-  }
 
   "Weighted excise" should "be between 2% and 4% effective rate" in {
     val weightedAvg =
@@ -50,7 +49,7 @@ class ExciseCustomsSpec extends AnyFlatSpec with Matchers:
 
   "Excise" should "always be positive for positive consumption" in {
     val consumption = 1000000.0
-    val excise = consumption * p.fiscal.fofConsWeights
+    val excise      = consumption * p.fiscal.fofConsWeights
       .map(_.toDouble)
       .zip(p.fiscal.exciseRates.map(_.toDouble))
       .map((w, r) => w * r)
@@ -60,12 +59,12 @@ class ExciseCustomsSpec extends AnyFlatSpec with Matchers:
 
   it should "be less than VAT for same consumption" in {
     val consumption = 1000000.0
-    val excise = consumption * p.fiscal.fofConsWeights
+    val excise      = consumption * p.fiscal.fofConsWeights
       .map(_.toDouble)
       .zip(p.fiscal.exciseRates.map(_.toDouble))
       .map((w, r) => w * r)
       .kahanSum
-    val vat = consumption * p.fiscal.fofConsWeights
+    val vat         = consumption * p.fiscal.fofConsWeights
       .map(_.toDouble)
       .zip(p.fiscal.vatRates.map(_.toDouble))
       .map((w, r) => w * r)
@@ -74,16 +73,16 @@ class ExciseCustomsSpec extends AnyFlatSpec with Matchers:
   }
 
   "Zero excise rates" should "produce zero excise" in {
-    val zeroRates = Vector.fill(6)(0.0)
+    val zeroRates   = Vector.fill(6)(0.0)
     val consumption = 1000000.0
-    val excise = consumption * p.fiscal.fofConsWeights.map(_.toDouble).zip(zeroRates).map((w, r) => w * r).sum
+    val excise      = consumption * p.fiscal.fofConsWeights.map(_.toDouble).zip(zeroRates).map((w, r) => w * r).sum
     excise shouldBe 0.0
   }
 
   "Manual computation" should "match formula" in {
     val weights = p.fiscal.fofConsWeights.map(_.toDouble)
-    val rates = p.fiscal.exciseRates.map(_.toDouble)
-    val manual = weights(0) * rates(0) + weights(1) * rates(1) + weights(2) * rates(2) +
+    val rates   = p.fiscal.exciseRates.map(_.toDouble)
+    val manual  = weights(0) * rates(0) + weights(1) * rates(1) + weights(2) * rates(2) +
       weights(3) * rates(3) + weights(4) * rates(4) + weights(5) * rates(5)
     val formula = weights.zip(rates).map((w, r) => w * r).sum
     Math.abs(formula - manual) should be < 1e-10
@@ -92,22 +91,22 @@ class ExciseCustomsSpec extends AnyFlatSpec with Matchers:
   "Combined fiscal plausibility" should "produce ~30 bln PLN/year at baseline" in {
     // Approximate: consumption ~1.8T PLN/year, imports ~600B PLN/year
     val monthlyConsumption = 1.8e12 / 12.0
-    val monthlyImports = 600e9 / 12.0
-    val monthlyExcise = monthlyConsumption * p.fiscal.fofConsWeights
+    val monthlyImports     = 600e9 / 12.0
+    val monthlyExcise      = monthlyConsumption * p.fiscal.fofConsWeights
       .map(_.toDouble)
       .zip(p.fiscal.exciseRates.map(_.toDouble))
       .map((w, r) => w * r)
       .sum
-    val monthlyCustoms = monthlyImports * p.fiscal.customsNonEuShare.toDouble * p.fiscal.customsDutyRate.toDouble
-    val annualCombined = (monthlyExcise + monthlyCustoms) * 12.0
+    val monthlyCustoms     = monthlyImports * p.fiscal.customsNonEuShare.toDouble * p.fiscal.customsDutyRate.toDouble
+    val annualCombined     = (monthlyExcise + monthlyCustoms) * 12.0
     // Should be in ~30-90 bln PLN range
     annualCombined should be > 20e9
     annualCombined should be < 120e9
   }
 
   "Customs" should "apply only to non-EU share" in {
-    val imports = 1000000.0
-    val fullCustoms = imports * p.fiscal.customsDutyRate.toDouble
+    val imports      = 1000000.0
+    val fullCustoms  = imports * p.fiscal.customsDutyRate.toDouble
     val nonEuCustoms = imports * p.fiscal.customsNonEuShare.toDouble * p.fiscal.customsDutyRate.toDouble
     nonEuCustoms should be < fullCustoms
     nonEuCustoms shouldBe (fullCustoms * p.fiscal.customsNonEuShare.toDouble +- 0.01)

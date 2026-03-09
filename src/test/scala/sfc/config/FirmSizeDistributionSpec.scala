@@ -8,7 +8,7 @@ import scala.util.Random
 
 class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   "FirmSizeDistribution.draw" should "return WorkersPerFirm when FirmSizeDist=uniform" in {
@@ -21,7 +21,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
     // We can't test "gus" mode directly via env vars in unit tests,
     // so we test the draw logic by verifying the returned values for
     // the default (uniform) mode are always p.pop.workersPerFirm
-    val rng = new Random(42)
+    val rng   = new Random(42)
     val sizes = (0 until 10000).map(_ => FirmSizeDistribution.draw(rng))
     sizes.foreach(_ shouldBe p.pop.workersPerFirm)
   }
@@ -84,7 +84,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
   "Firm.capacity" should "scale linearly with initialSize at full employment" in {
     import sfc.agents.{Firm, TechState}
-    val f10 = Firm.State(
+    val f10   = Firm.State(
       FirmId(0),
       PLN.Zero,
       PLN.Zero,
@@ -96,7 +96,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
       initialSize = 10,
     )
-    val f25 = Firm.State(
+    val f25   = Firm.State(
       FirmId(0),
       PLN.Zero,
       PLN.Zero,
@@ -114,7 +114,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
   it should "give same per-worker revenue at full employment regardless of size" in {
     import sfc.agents.{Firm, TechState}
-    val f5 = Firm.State(
+    val f5           = Firm.State(
       FirmId(0),
       PLN.Zero,
       PLN.Zero,
@@ -126,7 +126,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
       initialSize = 5,
     )
-    val f100 = Firm.State(
+    val f100         = Firm.State(
       FirmId(0),
       PLN.Zero,
       PLN.Zero,
@@ -138,7 +138,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
       initialSize = 100,
     )
-    val perWorker5 = Firm.capacity(f5) / 5.0
+    val perWorker5   = Firm.capacity(f5) / 5.0
     val perWorker100 = Firm.capacity(f100) / 100.0
     perWorker5 shouldBe (perWorker100 +- 0.01)
   }
@@ -147,7 +147,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
   "Firm.aiCapex" should "scale sublinearly with firm size" in {
     import sfc.agents.{Firm, TechState}
-    val fSmall = Firm.State(
+    val fSmall     = Firm.State(
       FirmId(0),
       PLN.Zero,
       PLN.Zero,
@@ -159,7 +159,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
       initialSize = 10,
     )
-    val fLarge = Firm.State(
+    val fLarge     = Firm.State(
       FirmId(0),
       PLN.Zero,
       PLN.Zero,
@@ -174,7 +174,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
     val capexSmall = Firm.aiCapex(fSmall)
     val capexLarge = Firm.aiCapex(fLarge)
     // Sublinear: 10× size → 10^0.6 ≈ 3.98× CAPEX (not 10×)
-    val ratio = capexLarge / capexSmall
+    val ratio      = capexLarge / capexSmall
     ratio shouldBe (Math.pow(10.0, 0.6) +- 0.01)
     ratio should be < 10.0
   }

@@ -9,7 +9,7 @@ import sfc.config.{RunConfig, SimParams}
 
 class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   private lazy val rc = RunConfig(1, "test")
@@ -55,8 +55,8 @@ class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
     assume(p.flags.govBondMarket, "GOV_BOND_MARKET=true required")
     for t <- ts.indices do
       val outstanding = ts(t)(Col.BondsOutstanding.ordinal)
-      val bankHeld = ts(t)(Col.BankBondHoldings.ordinal)
-      val nbpHeld = ts(t)(Col.NbpBondHoldings.ordinal)
+      val bankHeld    = ts(t)(Col.BankBondHoldings.ordinal)
+      val nbpHeld     = ts(t)(Col.NbpBondHoldings.ordinal)
       withClue(s"Month ${t + 1}: bank($bankHeld) + nbp($nbpHeld) vs outstanding($outstanding): ") {
         (bankHeld + nbpHeld) shouldBe outstanding +- 1.0
       }
@@ -78,14 +78,14 @@ class IntegrationSfcSpec extends AnyFlatSpec with Matchers:
 
   it should "cut NBP rate when inflation is negative (symmetric Taylor)" in {
     assume(p.flags.nbpSymmetric, "NBP_SYMMETRIC=true required")
-    val initialRate = 0.0575
+    val initialRate    = 0.0575
     val deflationMonth = ts.indices.find(t => ts(t)(Col.Inflation.ordinal) < 0.0)
     deflationMonth match
       case Some(t) =>
         // Rate should eventually decrease from initial
         val rateAfterDeflation = ((t + 1) until p.timeline.duration).map(m => ts(m)(Col.RefRate.ordinal))
         rateAfterDeflation.exists(_ < initialRate) shouldBe true
-      case None =>
+      case None    =>
         // No deflation occurred — test is vacuously true
         succeed
   }

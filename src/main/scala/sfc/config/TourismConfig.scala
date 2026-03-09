@@ -2,12 +2,15 @@ package sfc.config
 
 import sfc.types.*
 
-/** Tourism sector: inbound and outbound flows, seasonality, and COVID-type shock capability.
+/** Tourism sector: inbound and outbound flows, seasonality, and COVID-type
+  * shock capability.
   *
-  * Models bilateral tourism flows calibrated to GUS Tourism Satellite Account 2023 and NBP BoP 2023. Inbound tourism
-  * (~5% GDP) generates domestic demand and FX inflow; outbound (~3% GDP) is an import-side leakage. Features seasonal
-  * pattern (peak July, +/-40%), exchange rate sensitivity, secular growth trend, and a configurable COVID-type demand
-  * shock with gradual recovery. Affects SFC Identities 2 and 4.
+  * Models bilateral tourism flows calibrated to GUS Tourism Satellite Account
+  * 2023 and NBP BoP 2023. Inbound tourism (~5% GDP) generates domestic demand
+  * and FX inflow; outbound (~3% GDP) is an import-side leakage. Features
+  * seasonal pattern (peak July, +/-40%), exchange rate sensitivity, secular
+  * growth trend, and a configurable COVID-type demand shock with gradual
+  * recovery. Affects SFC Identities 2 and 4.
   *
   * @param inboundShare
   *   inbound tourism receipts as share of GDP (GUS TSA 2023: ~5%)
@@ -29,13 +32,13 @@ import sfc.types.*
   *   monthly recovery rate after shock (fraction of lost demand restored)
   */
 case class TourismConfig(
-  inboundShare: Ratio = Ratio(0.05),
-  outboundShare: Ratio = Ratio(0.03),
-  erElasticity: Double = 0.6,
-  seasonality: Ratio = Ratio(0.40),
-  peakMonth: Int = 7,
-  growthRate: Rate = Rate(0.03),
-  shockMonth: Int = 0,
-  shockSize: Ratio = Ratio(0.80),
-  shockRecovery: Rate = Rate(0.03),
+    inboundShare: Ratio = Ratio(0.05),
+    outboundShare: Ratio = Ratio(0.03),
+    erElasticity: Double = 0.6,
+    seasonality: Ratio = Ratio(0.40),
+    peakMonth: Int = 7,
+    growthRate: Rate = Rate(0.03),
+    shockMonth: Int = 0,
+    shockSize: Ratio = Ratio(0.80),
+    shockRecovery: Rate = Rate(0.03),
 )

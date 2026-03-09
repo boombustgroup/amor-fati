@@ -12,42 +12,42 @@ import sfc.util.KahanSum.*
 object OpenEconomyStep:
 
   case class Input(
-    w: World,
-    rc: RunConfig,
-    s1: FiscalConstraintStep.Output,
-    s2: LaborDemographicsStep.Output,
-    s3: HouseholdIncomeStep.Output,
-    s4: DemandStep.Output,
-    s5: FirmProcessingStep.Output,
-    s6: HouseholdFinancialStep.Output,
-    s7: PriceEquityStep.Output,
+      w: World,
+      rc: RunConfig,
+      s1: FiscalConstraintStep.Output,
+      s2: LaborDemographicsStep.Output,
+      s3: HouseholdIncomeStep.Output,
+      s4: DemandStep.Output,
+      s5: FirmProcessingStep.Output,
+      s6: HouseholdFinancialStep.Output,
+      s7: PriceEquityStep.Output,
   )
 
   case class Output(
-    newForex: ForexState,
-    newBop: BopState,
-    newGvc: GvcTrade.State,
-    newRefRate: Double,
-    newExp: Expectations.State,
-    totalReserveInterest: Double,
-    totalStandingFacilityIncome: Double,
-    totalInterbankInterest: Double,
-    newBondYield: Double,
-    monthlyDebtService: Double,
-    bankBondIncome: Double,
-    nbpRemittance: Double,
-    postFxNbp: Nbp.State,
-    qePurchaseAmount: Double,
-    newCorpBonds: CorporateBondMarket.State,
-    corpBondBankCoupon: Double,
-    corpBondBankDefaultLoss: Double,
-    corpBondAmort: Double,
-    newInsurance: Insurance.State,
-    insNetDepositChange: Double,
-    newNbfi: Nbfi.State,
-    nbfiDepositDrain: Double,
-    oeValuationEffect: Double,
-    fdiCitLoss: Double,
+      newForex: ForexState,
+      newBop: BopState,
+      newGvc: GvcTrade.State,
+      newRefRate: Double,
+      newExp: Expectations.State,
+      totalReserveInterest: Double,
+      totalStandingFacilityIncome: Double,
+      totalInterbankInterest: Double,
+      newBondYield: Double,
+      monthlyDebtService: Double,
+      bankBondIncome: Double,
+      nbpRemittance: Double,
+      postFxNbp: Nbp.State,
+      qePurchaseAmount: Double,
+      newCorpBonds: CorporateBondMarket.State,
+      corpBondBankCoupon: Double,
+      corpBondBankDefaultLoss: Double,
+      corpBondAmort: Double,
+      newInsurance: Insurance.State,
+      insNetDepositChange: Double,
+      newNbfi: Nbfi.State,
+      nbfiDepositDrain: Double,
+      oeValuationEffect: Double,
+      fdiCitLoss: Double,
   )
 
   def run(in: Input)(using p: SimParams): Output =
@@ -62,16 +62,14 @@ object OpenEconomyStep:
 
     // GVC / Deep External Sector (v5.0)
     val newGvc =
-      if p.flags.gvc && p.flags.openEcon then
-        GvcTrade.step(in.w.gvc, sectorOutputs, in.w.priceLevel, in.w.forex.exchangeRate, in.s7.autoR, in.s1.m, in.rc)
+      if p.flags.gvc && p.flags.openEcon then GvcTrade.step(in.w.gvc, sectorOutputs, in.w.priceLevel, in.w.forex.exchangeRate, in.s7.autoR, in.s1.m, in.rc)
       else in.w.gvc
 
     val (gvcExp, gvcImp) =
-      if p.flags.gvc && p.flags.openEcon then
-        (Some(newGvc.totalExports.toDouble), Some(newGvc.sectorImports.map(_.toDouble)))
+      if p.flags.gvc && p.flags.openEcon then (Some(newGvc.totalExports.toDouble), Some(newGvc.sectorImports.map(_.toDouble)))
       else (None, None)
 
-    val totalTechAndInvImports = in.s5.sumTechImp + in.s7.investmentImports
+    val totalTechAndInvImports                           = in.s5.sumTechImp + in.s7.investmentImports
     val (newForex, newBop0, oeValuationEffect, fxResult) = if p.flags.openEcon then
       val oeResult = OpenEconomy.step(
         in.w.bop,
@@ -108,7 +106,7 @@ object OpenEconomyStep:
       (fx, in.w.bop, 0.0, Nbp.FxInterventionResult(0.0, 0.0, in.w.nbp.fxReserves.toDouble))
 
     // Adjust BOP for foreign dividend outflow (primary income component) + EU funds tracking
-    val newBop1 =
+    val newBop1          =
       if in.s7.foreignDividendOutflow > 0 && p.flags.openEcon then
         newBop0.copy(
           currentAccount = newBop0.currentAccount - PLN(in.s7.foreignDividendOutflow),
@@ -117,7 +115,7 @@ object OpenEconomyStep:
       else newBop0
     // FDI composition (#33): profit shifting (service import) + repatriation (primary income debit)
     val fdiTotalBopDebit = in.s5.sumProfitShifting + in.s5.sumFdiRepatriation
-    val newBop2 =
+    val newBop2          =
       if fdiTotalBopDebit > 0 && p.flags.fdi && p.flags.openEcon then
         newBop1.copy(
           currentAccount = newBop1.currentAccount - PLN(fdiTotalBopDebit),
@@ -126,13 +124,13 @@ object OpenEconomyStep:
           totalImports = newBop1.totalImports + PLN(in.s5.sumProfitShifting),
         )
       else newBop1
-    val fdiCitLoss = in.s5.sumProfitShifting * p.fiscal.citRate.toDouble
-    val newBop = newBop2.copy(
+    val fdiCitLoss       = in.s5.sumProfitShifting * p.fiscal.citRate.toDouble
+    val newBop           = newBop2.copy(
       euFundsMonthly = PLN(in.s7.euMonthly),
       euCumulativeAbsorption = in.w.bop.euCumulativeAbsorption + PLN(in.s7.euMonthly),
     )
 
-    val exRateChg = (newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0
+    val exRateChg  = (newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0
     val newRefRate =
       Nbp.updateRate(
         in.w.nbp.referenceRate.toDouble,
@@ -145,64 +143,63 @@ object OpenEconomyStep:
 
     // Expectations step: update after inflation + rate computed
     val unempRateForExp = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
-    val newExp =
-      if p.flags.expectations then
-        Expectations.step(in.w.expectations, in.s7.newInfl, newRefRate, unempRateForExp, in.rc)
+    val newExp          =
+      if p.flags.expectations then Expectations.step(in.w.expectations, in.s7.newInfl, newRefRate, unempRateForExp, in.rc)
       else in.w.expectations
 
     // Reserve interest, standing facilities, interbank interest
-    val bsec = in.w.bankingSector
-    val (_, totalReserveInterest) = Banking.computeReserveInterest(bsec.banks, in.w.nbp.referenceRate.toDouble)
+    val bsec                             = in.w.bankingSector
+    val (_, totalReserveInterest)        = Banking.computeReserveInterest(bsec.banks, in.w.nbp.referenceRate.toDouble)
     val (_, totalStandingFacilityIncome) =
       Banking.computeStandingFacilities(bsec.banks, in.w.nbp.referenceRate.toDouble)
-    val (_, totalInterbankInterest) = Banking.interbankInterestFlows(bsec.banks, bsec.interbankRate.toDouble)
+    val (_, totalInterbankInterest)      = Banking.interbankInterestFlows(bsec.banks, bsec.interbankRate.toDouble)
 
     // --- Bond market + QE ---
     val annualGdpForBonds = in.w.gdpProxy * 12.0
-    val debtToGdp = if annualGdpForBonds > 0 then in.w.gov.cumulativeDebt.toDouble / annualGdpForBonds else 0.0
-    val nbpBondGdpShare = if annualGdpForBonds > 0 then in.w.nbp.qeCumulative.toDouble / annualGdpForBonds else 0.0
+    val debtToGdp         = if annualGdpForBonds > 0 then in.w.gov.cumulativeDebt.toDouble / annualGdpForBonds else 0.0
+    val nbpBondGdpShare   = if annualGdpForBonds > 0 then in.w.nbp.qeCumulative.toDouble / annualGdpForBonds else 0.0
     // Channel 3: De-anchored expectations → higher bond yields
-    val credPremium = if p.flags.expectations then
+    val credPremium       = if p.flags.expectations then
       val target = p.monetary.targetInfl.toDouble
       (1.0 - in.w.expectations.credibility.toDouble) *
         Math.abs(in.w.expectations.expectedInflation.toDouble - target) *
         p.labor.expBondSensitivity.toDouble
     else 0.0
-    val newBondYield = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa.toDouble, credPremium)
+    val newBondYield      = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa.toDouble, credPremium)
 
     // Debt service: use LAGGED bond stock
-    val rawDebtService = in.w.gov.bondsOutstanding.toDouble * newBondYield / 12.0
+    val rawDebtService     = in.w.gov.bondsOutstanding.toDouble * newBondYield / 12.0
     val monthlyDebtService = Math.min(rawDebtService, in.w.gdpProxy * 0.50)
-    val bankBondIncome = in.w.bank.govBondHoldings.toDouble * newBondYield / 12.0
-    val nbpBondIncome = in.w.nbp.govBondHoldings.toDouble * newBondYield / 12.0
-    val nbpRemittance = nbpBondIncome - totalReserveInterest - totalStandingFacilityIncome
+    val bankBondIncome     = in.w.bank.govBondHoldings.toDouble * newBondYield / 12.0
+    val nbpBondIncome      = in.w.nbp.govBondHoldings.toDouble * newBondYield / 12.0
+    val nbpRemittance      = nbpBondIncome - totalReserveInterest - totalStandingFacilityIncome
 
     // QE logic
-    val qeActivate = Nbp.shouldActivateQe(newRefRate, in.s7.newInfl)
-    val qeTaper = Nbp.shouldTaperQe(in.s7.newInfl)
-    val qeActive =
+    val qeActivate                    = Nbp.shouldActivateQe(newRefRate, in.s7.newInfl)
+    val qeTaper                       = Nbp.shouldTaperQe(in.s7.newInfl)
+    val qeActive                      =
       if qeActivate then true
       else if qeTaper then false
       else in.w.nbp.qeActive
-    val preQeNbp = Nbp.State(Rate(newRefRate), in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative)
+    val preQeNbp                      = Nbp.State(Rate(newRefRate), in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative)
     val (postQeNbp, qePurchaseAmount) = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings.toDouble, annualGdpForBonds)
-    val postFxNbp = postQeNbp.copy(
+    val postFxNbp                     = postQeNbp.copy(
       fxReserves = PLN(fxResult.newReserves),
       lastFxTraded = PLN(fxResult.eurTraded),
     )
 
     // --- Corporate bond market step (#40) ---
-    val corpBondAmort = CorporateBondMarket.amortization(in.w.corporateBonds)
-    val newCorpBonds = CorporateBondMarket
+    val corpBondAmort                      = CorporateBondMarket.amortization(in.w.corporateBonds)
+    val newCorpBonds                       = CorporateBondMarket
       .step(in.w.corporateBonds, newBondYield, in.w.bank.nplRatio, in.s5.totalBondDefault, in.s5.actualBondIssuance)
       .copy(lastAbsorptionRate = Ratio(in.s5.corpBondAbsorption))
-    val (_, corpBondBankCoupon, _) = CorporateBondMarket.computeCoupon(in.w.corporateBonds)
+    val (_, corpBondBankCoupon, _)         = CorporateBondMarket.computeCoupon(in.w.corporateBonds)
     val (_, _, corpBondBankDefaultLoss, _) =
       CorporateBondMarket.processDefaults(in.w.corporateBonds, in.s5.totalBondDefault)
 
     // --- Insurance sector step ---
-    val insUnempRate = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
-    val newInsurance =
+    val insUnempRate        = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+    val newInsurance        =
       if p.flags.insurance then
         Insurance.step(
           in.w.insurance,
@@ -218,9 +215,9 @@ object OpenEconomyStep:
     val insNetDepositChange = newInsurance.lastNetDepositChange.toDouble
 
     // --- Shadow Banking / NBFI step ---
-    val nbfiDepositRate = Math.max(0.0, postFxNbp.referenceRate.toDouble - 0.02)
-    val nbfiUnempRate = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
-    val newNbfi =
+    val nbfiDepositRate  = Math.max(0.0, postFxNbp.referenceRate.toDouble - 0.02)
+    val nbfiUnempRate    = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+    val newNbfi          =
       if p.flags.nbfi then
         Nbfi.step(
           in.w.nbfi,

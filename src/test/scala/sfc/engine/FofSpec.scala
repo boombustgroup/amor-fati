@@ -10,7 +10,7 @@ import sfc.util.KahanSum.*
 class FofSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   private def zeroSnap: Sfc.Snapshot = Sfc.Snapshot(
@@ -113,69 +113,69 @@ class FofSpec extends AnyFlatSpec with Matchers:
   }
 
   "Sector demand" should "equal consWeight*dc + govWeight*gp + exports" in {
-    val dc = 1000000.0
-    val gp = 500000.0
+    val dc      = 1000000.0
+    val gp      = 500000.0
     val exports = Vector(50.0, 550.0, 150.0, 20.0, 30.0, 200.0)
     for s <- 0 until 6 do
       val expected =
         p.fiscal.fofConsWeights.map(_.toDouble)(s) * dc + p.fiscal.fofGovWeights.map(_.toDouble)(s) * gp + exports(s)
-      val actual =
+      val actual   =
         p.fiscal.fofConsWeights.map(_.toDouble)(s) * dc + p.fiscal.fofGovWeights.map(_.toDouble)(s) * gp + exports(s)
       actual shouldBe expected
   }
 
   "Sector demand multiplier" should "equal sectorDemand / (sectorCap * price)" in {
     val sectorDemand = 500000.0
-    val sectorCap = 400000.0
-    val price = 1.0
-    val mult = sectorDemand / (sectorCap * price)
+    val sectorCap    = 400000.0
+    val price        = 1.0
+    val mult         = sectorDemand / (sectorCap * price)
     mult shouldBe 1.25
   }
 
   it should "be 0 for empty sectors" in {
     val sectorCap = 0.0
-    val mult = if sectorCap > 0 then 100.0 / (sectorCap * 1.0) else 0.0
+    val mult      = if sectorCap > 0 then 100.0 / (sectorCap * 1.0) else 0.0
     mult shouldBe 0.0
   }
 
   "Total firm revenue" should "equal sum of sector demands (identity closes)" in {
-    val firms = mkFirms()
-    val price = 1.0
-    val dc = 800000.0
-    val gp = 200000.0
+    val firms   = mkFirms()
+    val price   = 1.0
+    val dc      = 800000.0
+    val gp      = 200000.0
     val exports = p.fiscal.fofExportShares.map(_.toDouble).map(_ * 100000.0)
 
-    val sectorCap = (0 until 6).map { s =>
+    val sectorCap    = (0 until 6).map { s =>
       firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble)
     }.toVector
     val sectorDemand = (0 until 6).map { s =>
       p.fiscal.fofConsWeights.map(_.toDouble)(s) * dc + p.fiscal.fofGovWeights.map(_.toDouble)(s) * gp + exports(s)
     }.toVector
-    val sectorMults = sectorDemand.indices.map { s =>
+    val sectorMults  = sectorDemand.indices.map { s =>
       if sectorCap(s) > 0 then sectorDemand(s) / (sectorCap(s) * price) else 0.0
     }.toVector
 
     val totalFirmRev = (0 until 6).map { s =>
       firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble * sectorMults(s) * price)
     }.kahanSum
-    val totalDemand = sectorDemand.kahanSum
+    val totalDemand  = sectorDemand.kahanSum
 
     Math.abs(totalFirmRev - totalDemand) should be < 0.01
   }
 
   "Proportional allocation" should "distribute revenue proportionally within sector" in {
-    val f1 = mkFirm(0, TechState.Traditional(10))
-    val f2 = mkFirm(1, TechState.Traditional(20))
+    val f1           = mkFirm(0, TechState.Traditional(10))
+    val f2           = mkFirm(1, TechState.Traditional(20))
     // Both in sector 2 (Retail)
-    val firms = Array(f1.copy(sector = SectorIdx(2)), f2.copy(sector = SectorIdx(2)))
-    val price = 1.0
-    val cap1 = Firm.capacity(firms(0))
-    val cap2 = Firm.capacity(firms(1))
+    val firms        = Array(f1.copy(sector = SectorIdx(2)), f2.copy(sector = SectorIdx(2)))
+    val price        = 1.0
+    val cap1         = Firm.capacity(firms(0))
+    val cap2         = Firm.capacity(firms(1))
     val sectorDemand = 500000.0
-    val totalCap = cap1 + cap2
-    val mult = sectorDemand / (totalCap * price)
-    val rev1 = cap1 * mult * price
-    val rev2 = cap2 * mult * price
+    val totalCap     = cap1 + cap2
+    val mult         = sectorDemand / (totalCap * price)
+    val rev1         = cap1 * mult * price
+    val rev2         = cap2 * mult * price
     Math.abs(rev1 + rev2 - sectorDemand) should be < 0.01
     // Revenue proportional to capacity
     Math.abs(rev1 / rev2 - cap1 / cap2) should be < 0.001
@@ -183,28 +183,28 @@ class FofSpec extends AnyFlatSpec with Matchers:
 
   "Gov purchases" should "equal GovBaseSpending * price" in {
     val price = 1.2
-    val gp = p.fiscal.govBaseSpending.toDouble * price
+    val gp    = p.fiscal.govBaseSpending.toDouble * price
     gp shouldBe p.fiscal.govBaseSpending.toDouble * 1.2
   }
 
   "Scalar exports" should "be distributed by FofExportShares" in {
     val totalExports = 1000000.0
-    val distributed = p.fiscal.fofExportShares.map(_.toDouble).map(_ * totalExports)
+    val distributed  = p.fiscal.fofExportShares.map(_.toDouble).map(_ * totalExports)
     Math.abs(distributed.sum - totalExports) should be < 0.01
     distributed(1) shouldBe 520000.0 // Manufacturing gets 52%
   }
 
   "Sfc Identity 10" should "pass when fofResidual is zero" in {
     // All flows zero except fofResidual — all deltas are 0 = 0
-    val flows = zeroFlows
-    val snap = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
+    val flows  = zeroFlows
+    val snap   = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
     val result = Sfc.validate(snap, snap, flows)
     result shouldBe Right(())
   }
 
   it should "fail when fofResidual exceeds tolerance" in {
-    val flows = zeroFlows.copy(fofResidual = PLN(1.0))
-    val snap = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
+    val flows  = zeroFlows.copy(fofResidual = PLN(1.0))
+    val snap   = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
     val result = Sfc.validate(snap, snap, flows)
     result shouldBe a[Left[?, ?]]
     result.swap

@@ -9,78 +9,80 @@ import sfc.util.KahanSum.*
 
 /** Typed column schema for simulation output.
   *
-  * Each column is defined exactly once as a `(name, compute)` pair. Column handles are opaque — raw ints never appear
-  * at call sites. Adding a column = adding one ColumnDef; names, indices, CSV headers, and `toArray` all follow
+  * Each column is defined exactly once as a `(name, compute)` pair. Column
+  * handles are opaque — raw ints never appear at call sites. Adding a column =
+  * adding one ColumnDef; names, indices, CSV headers, and `toArray` all follow
   * automatically.
   */
 object SimOutput:
 
-  /** A typed column handle. Wraps an ordinal — prevents raw Int column access. */
+  /** A typed column handle. Wraps an ordinal — prevents raw Int column access.
+    */
   opaque type Col = Int
   object Col:
-    private var _next = 0
+    private var _next       = 0
     private def auto(): Col = { val c = _next; _next += 1; c }
 
     // Named handles for columns referenced in tests/Main
-    val Month: Col = auto() // 0
-    val Inflation: Col = auto() // 1
-    val Unemployment: Col = auto() // 2
-    val TotalAdoption: Col = auto() // 3
-    val ExRate: Col = auto() // 4
-    val MarketWage: Col = auto() // 5
-    val GovDebt: Col = auto() // 6
-    val NPL: Col = auto() // 7
-    val RefRate: Col = auto() // 8
-    val PriceLevel: Col = auto() // 9
-    val AutoRatio: Col = auto() // 10
-    val HybridRatio: Col = auto() // 11
+    val Month: Col                = auto() // 0
+    val Inflation: Col            = auto() // 1
+    val Unemployment: Col         = auto() // 2
+    val TotalAdoption: Col        = auto() // 3
+    val ExRate: Col               = auto() // 4
+    val MarketWage: Col           = auto() // 5
+    val GovDebt: Col              = auto() // 6
+    val NPL: Col                  = auto() // 7
+    val RefRate: Col              = auto() // 8
+    val PriceLevel: Col           = auto() // 9
+    val AutoRatio: Col            = auto() // 10
+    val HybridRatio: Col          = auto() // 11
     // 12–17: sector auto ratios
-    val BpoAuto: Col = auto()
-    val ManufAuto: Col = auto()
-    val RetailAuto: Col = auto()
-    val HealthAuto: Col = auto()
-    val PublicAuto: Col = auto()
-    val AgriAuto: Col = auto()
+    val BpoAuto: Col              = auto()
+    val ManufAuto: Col            = auto()
+    val RetailAuto: Col           = auto()
+    val HealthAuto: Col           = auto()
+    val PublicAuto: Col           = auto()
+    val AgriAuto: Col             = auto()
     // 18–23: sector sigmas
-    val BpoSigma: Col = auto()
-    val ManufSigma: Col = auto()
-    val RetailSigma: Col = auto()
-    val HealthSigma: Col = auto()
-    val PublicSigma: Col = auto()
-    val AgriSigma: Col = auto()
-    val MeanDegree: Col = auto() // 25
-    val IoFlows: Col = auto() // 26
-    val IoGdpRatio: Col = auto() // 27
-    val NFA: Col = auto() // 28
-    val CurrentAccount: Col = auto() // 29
-    val CapitalAccount: Col = auto() // 30
-    val TradeBalance: Col = auto() // 31
-    val Exports: Col = auto() // 32
-    val TotalImports: Col = auto() // 33
-    val ImportedInterm: Col = auto() // 34
-    val FDI: Col = auto() // 35
-    val UnempBenefitSpend: Col = auto() // 36
-    val OutputGap: Col = auto() // 37
-    val BondYield: Col = auto() // 38
-    val BondsOutstanding: Col = auto() // 39
-    val BankBondHoldings: Col = auto() // 40
-    val NbpBondHoldings: Col = auto() // 41
-    val QeActive: Col = auto() // 42
-    val DebtService: Col = auto() // 43
-    val NbpRemittance: Col = auto() // 44
-    val FxReserves: Col = auto() // 45
-    val FxInterventionAmt: Col = auto() // 46
+    val BpoSigma: Col             = auto()
+    val ManufSigma: Col           = auto()
+    val RetailSigma: Col          = auto()
+    val HealthSigma: Col          = auto()
+    val PublicSigma: Col          = auto()
+    val AgriSigma: Col            = auto()
+    val MeanDegree: Col           = auto() // 25
+    val IoFlows: Col              = auto() // 26
+    val IoGdpRatio: Col           = auto() // 27
+    val NFA: Col                  = auto() // 28
+    val CurrentAccount: Col       = auto() // 29
+    val CapitalAccount: Col       = auto() // 30
+    val TradeBalance: Col         = auto() // 31
+    val Exports: Col              = auto() // 32
+    val TotalImports: Col         = auto() // 33
+    val ImportedInterm: Col       = auto() // 34
+    val FDI: Col                  = auto() // 35
+    val UnempBenefitSpend: Col    = auto() // 36
+    val OutputGap: Col            = auto() // 37
+    val BondYield: Col            = auto() // 38
+    val BondsOutstanding: Col     = auto() // 39
+    val BankBondHoldings: Col     = auto() // 40
+    val NbpBondHoldings: Col      = auto() // 41
+    val QeActive: Col             = auto() // 42
+    val DebtService: Col          = auto() // 43
+    val NbpRemittance: Col        = auto() // 44
+    val FxReserves: Col           = auto() // 45
+    val FxInterventionAmt: Col    = auto() // 46
     val FxInterventionActive: Col = auto() // 47
-    val InterbankRate: Col = auto() // 48
-    val MinBankCAR: Col = auto() // 49
-    val MaxBankNPL: Col = auto() // 50
-    val BankFailures: Col = auto() // 51
-    val ReserveInterest: Col = auto() // 52
-    val StandingFacilityNet: Col = auto() // 53
+    val InterbankRate: Col        = auto() // 48
+    val MinBankCAR: Col           = auto() // 49
+    val MaxBankNPL: Col           = auto() // 50
+    val BankFailures: Col         = auto() // 51
+    val ReserveInterest: Col      = auto() // 52
+    val StandingFacilityNet: Col  = auto() // 53
     val DepositFacilityUsage: Col = auto() // 54
     val InterbankInterestNet: Col = auto() // 55
 
-    def sectorAuto(s: Int): Col = 12 + s
+    def sectorAuto(s: Int): Col  = 12 + s
     def sectorSigma(s: Int): Col = 18 + s
 
   extension (c: Col) def ordinal: Int = c
@@ -90,16 +92,16 @@ object SimOutput:
 
   /** Shared pre-computed context (computed once per timestep). */
   private class Ctx(
-    val t: Int,
-    val world: World,
-    val firms: Vector[Firm.State],
-    val households: Vector[Household.State],
-    val living: Vector[Firm.State],
-    val nLiving: Double,
-    val aliveBanks: Vector[Banking.BankState],
-    val p: SimParams,
+      val t: Int,
+      val world: World,
+      val firms: Vector[Firm.State],
+      val households: Vector[Household.State],
+      val living: Vector[Firm.State],
+      val nLiving: Double,
+      val aliveBanks: Vector[Banking.BankState],
+      val p: SimParams,
   ):
-    given SimParams = p
+    given SimParams                         = p
     lazy val sectorAuto: IndexedSeq[Double] = SectorDefs.indices.map { s =>
       val secFirms = living.filter(_.sector.toInt == s)
       if secFirms.isEmpty then 0.0
@@ -111,7 +113,9 @@ object SimOutput:
 
     inline def unemployPct: Double = world.hh.unemploymentRate(world.totalPopulation)
 
-  /** The schema: ordered sequence of (name, computation) pairs. SINGLE SOURCE OF TRUTH. */
+  /** The schema: ordered sequence of (name, computation) pairs. SINGLE SOURCE
+    * OF TRUTH.
+    */
   private val schema: IndexedSeq[ColumnDef] = IndexedSeq(
     ColumnDef("Month", ctx => (ctx.t + 1).toDouble),
     ColumnDef("Inflation", ctx => ctx.world.inflation.toDouble),
@@ -300,8 +304,7 @@ object SimOutput:
       ctx =>
         if ctx.world.immigration.immigrantStock > 0 then
           val immigrants = ctx.households.filter(_.isImmigrant)
-          if immigrants.nonEmpty then
-            immigrants.count(h => !h.status.isInstanceOf[HhStatus.Employed]).toDouble / immigrants.length
+          if immigrants.nonEmpty then immigrants.count(h => !h.status.isInstanceOf[HhStatus.Employed]).toDouble / immigrants.length
           else 0.0
         else 0.0,
     ),
@@ -309,7 +312,7 @@ object SimOutput:
     ColumnDef(
       "EffectivePitRate",
       ctx => {
-        val agg = ctx.world.hhAgg.get
+        val agg   = ctx.world.hhAgg.get
         val gross = agg.totalIncome + agg.totalPit
         if gross > PLN.Zero then (agg.totalPit / gross).toDouble else 0.0
       },
@@ -342,10 +345,7 @@ object SimOutput:
     ColumnDef(
       "CapitalDepreciation",
       ctx =>
-        if ctx.p.flags.physCap then
-          ctx.living.kahanSumBy(f =>
-            (f.capitalStock * ctx.p.capital.depRates.map(_.toDouble)(f.sector.toInt) / 12.0).toDouble,
-          )
+        if ctx.p.flags.physCap then ctx.living.kahanSumBy(f => (f.capitalStock * ctx.p.capital.depRates.map(_.toDouble)(f.sector.toInt) / 12.0).toDouble)
         else 0.0,
     ),
     // Excise & Customs
@@ -445,16 +445,16 @@ object SimOutput:
 
   /** Compute one row. Returns Array[Double] for MC aggregation. */
   def compute(
-    t: Int,
-    world: World,
-    firms: Vector[Firm.State],
-    households: Vector[Household.State],
+      t: Int,
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
   )(using p: SimParams): Array[Double] =
-    val living = firms.filter(Firm.isAlive)
+    val living     = firms.filter(Firm.isAlive)
     val aliveBanks = world.bankingSector.banks.filterNot(_.failed).toVector
-    val ctx = Ctx(t, world, firms, households, living, living.length.toDouble, aliveBanks, p)
-    val result = new Array[Double](schema.length)
-    var i = 0
+    val ctx        = Ctx(t, world, firms, households, living, living.length.toDouble, aliveBanks, p)
+    val result     = new Array[Double](schema.length)
+    var i          = 0
     while i < schema.length do
       result(i) = schema(i).compute(ctx)
       i += 1

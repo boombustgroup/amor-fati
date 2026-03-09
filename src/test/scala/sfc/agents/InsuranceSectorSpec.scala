@@ -7,7 +7,7 @@ import sfc.types.*
 class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   "Insurance.zero" should "return all-zero state" in {
@@ -36,19 +36,19 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have govBondHoldings = totalAssets * govBondShare" in {
-    val s = Insurance.initial
+    val s           = Insurance.initial
     val totalAssets = p.ins.lifeReserves.toDouble + p.ins.nonLifeReserves.toDouble
     s.govBondHoldings.toDouble shouldBe (totalAssets * p.ins.govBondShare.toDouble +- 1.0)
   }
 
   it should "have corpBondHoldings = totalAssets * corpBondShare" in {
-    val s = Insurance.initial
+    val s           = Insurance.initial
     val totalAssets = p.ins.lifeReserves.toDouble + p.ins.nonLifeReserves.toDouble
     s.corpBondHoldings.toDouble shouldBe (totalAssets * p.ins.corpBondShare.toDouble +- 1.0)
   }
 
   it should "have equityHoldings = totalAssets * equityShare" in {
-    val s = Insurance.initial
+    val s           = Insurance.initial
     val totalAssets = p.ins.lifeReserves.toDouble + p.ins.nonLifeReserves.toDouble
     s.equityHoldings.toDouble shouldBe (totalAssets * p.ins.equityShare.toDouble +- 1.0)
   }
@@ -59,86 +59,86 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   "Insurance.step" should "compute life premium proportional to employment and wage" in {
-    val prev = Insurance.initial
+    val prev   = Insurance.initial
     val result = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
     result.lastLifePremium.toDouble shouldBe (80000 * 8000.0 * p.ins.lifePremiumRate.toDouble +- 0.01)
   }
 
   it should "compute non-life premium scaling with price level" in {
     val prev = Insurance.initial
-    val r1 = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
-    val r2 = Insurance.step(prev, 80000, 8000.0, 1.5, 0.05, 0.06, 0.08, 0.005)
+    val r1   = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val r2   = Insurance.step(prev, 80000, 8000.0, 1.5, 0.05, 0.06, 0.08, 0.005)
     r2.lastNonLifePremium.toDouble shouldBe (r1.lastNonLifePremium.toDouble * 1.5 +- 0.01)
   }
 
   it should "compute life claims = premium * loss ratio" in {
     val prev = Insurance.initial
-    val r = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val r    = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
     r.lastLifeClaims.toDouble shouldBe (r.lastLifePremium.toDouble * p.ins.lifeLossRatio.toDouble +- 0.01)
   }
 
   it should "widen non-life claims with high unemployment" in {
-    val prev = Insurance.initial
-    val rLow = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val prev  = Insurance.initial
+    val rLow  = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
     val rHigh = Insurance.step(prev, 80000, 8000.0, 1.0, 0.15, 0.06, 0.08, 0.005)
     rHigh.lastNonLifeClaims.toDouble should be > rLow.lastNonLifeClaims.toDouble
   }
 
   it should "not widen non-life claims when unemployment is at or below 5%" in {
-    val prev = Insurance.initial
-    val r = Insurance.step(prev, 80000, 8000.0, 1.0, 0.04, 0.06, 0.08, 0.005)
+    val prev         = Insurance.initial
+    val r            = Insurance.step(prev, 80000, 8000.0, 1.0, 0.04, 0.06, 0.08, 0.005)
     val expectedBase = r.lastNonLifePremium.toDouble * p.ins.nonLifeLossRatio.toDouble
     r.lastNonLifeClaims.toDouble shouldBe (expectedBase +- 0.01)
   }
 
   it should "compute positive investment income with positive yields" in {
     val prev = Insurance.initial
-    val r = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val r    = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
     r.lastInvestmentIncome.toDouble should be > 0.0
   }
 
   it should "compute zero investment income with zero holdings" in {
     val prev = Insurance.zero
-    val r = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val r    = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
     r.lastInvestmentIncome shouldBe PLN.Zero
   }
 
   it should "have net deposit change = -(premium - claims)" in {
-    val prev = Insurance.initial
-    val r = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
-    val totalPrem = r.lastLifePremium.toDouble + r.lastNonLifePremium.toDouble
+    val prev        = Insurance.initial
+    val r           = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val totalPrem   = r.lastLifePremium.toDouble + r.lastNonLifePremium.toDouble
     val totalClaims = r.lastLifeClaims.toDouble + r.lastNonLifeClaims.toDouble
     r.lastNetDepositChange.toDouble shouldBe (-(totalPrem - totalClaims) +- 0.01)
   }
 
   it should "have negative net deposit change in normal times (premium > claims)" in {
     val prev = Insurance.initial
-    val r = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val r    = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
     r.lastNetDepositChange.toDouble should be < 0.0
   }
 
   it should "preserve reserves >= 0 under normal conditions" in {
     val prev = Insurance.initial
-    val r = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val r    = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
     r.lifeReserves.toDouble should be >= 0.0
     r.nonLifeReserves.toDouble should be >= 0.0
   }
 
   it should "move govBondHoldings towards target allocation" in {
     val prev = Insurance.initial.copy(govBondHoldings = PLN.Zero) // far below target
-    val r = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val r    = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
     r.govBondHoldings.toDouble should be > 0.0
   }
 
   it should "move equityHoldings towards target allocation" in {
     val prev = Insurance.initial.copy(equityHoldings = PLN.Zero) // far below target
-    val r = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
+    val r    = Insurance.step(prev, 80000, 8000.0, 1.0, 0.05, 0.06, 0.08, 0.005)
     r.equityHoldings.toDouble should be > 0.0
   }
 
   it should "be idempotent from zero state with zero employment" in {
     val prev = Insurance.zero
-    val r = Insurance.step(prev, 0, 8000.0, 1.0, 0.05, 0.0, 0.0, 0.0)
+    val r    = Insurance.step(prev, 0, 8000.0, 1.0, 0.05, 0.0, 0.0, 0.0)
     r.lastLifePremium shouldBe PLN.Zero
     r.lastNonLifePremium shouldBe PLN.Zero
     r.lastLifeClaims shouldBe PLN.Zero

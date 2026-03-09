@@ -9,7 +9,7 @@ import sfc.types.*
 class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   "Config defaults" should "have sensible consumer credit parameters" in {
@@ -23,59 +23,59 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   "DTI limit" should "cap loan at headroom × income" in {
     // HH with income 8000, existing DTI = 0.20 → headroom = (0.40 - 0.20) × 8000 = 1600
-    val income = 8000.0
+    val income      = 8000.0
     val existingDti = 0.20
-    val headroom = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income
+    val headroom    = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income
     headroom shouldBe 1600.0 +- 0.01
     headroom should be < p.household.ccMaxLoan.toDouble // 1600 < 50000
   }
 
   it should "produce zero loan when at max DTI" in {
-    val income = 8000.0
+    val income      = 8000.0
     val existingDti = 0.40
-    val headroom = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income
+    val headroom    = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income
     headroom shouldBe 0.0
   }
 
   "Loan size" should "not exceed CcMaxLoan" in {
     // HH with high income, low DTI → headroom > CcMaxLoan → capped
-    val income = 200000.0
+    val income      = 200000.0
     val existingDti = 0.0
-    val headroom = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income
-    val desired = Math.min(headroom, p.household.ccMaxLoan.toDouble)
+    val headroom    = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income
+    val desired     = Math.min(headroom, p.household.ccMaxLoan.toDouble)
     desired shouldBe p.household.ccMaxLoan.toDouble
   }
 
   "Consumer debt service" should "include both amortization and interest" in {
     val consumerDebt = 10000.0
-    val refRate = 0.0575
-    val rate = refRate + p.household.ccSpread.toDouble
-    val debtService = consumerDebt * (p.household.ccAmortRate.toDouble + rate / 12.0)
+    val refRate      = 0.0575
+    val rate         = refRate + p.household.ccSpread.toDouble
+    val debtService  = consumerDebt * (p.household.ccAmortRate.toDouble + rate / 12.0)
     // 10000 × (0.025 + (0.0575 + 0.04) / 12) = 10000 × (0.025 + 0.008125) = 331.25
     debtService shouldBe 331.25 +- 0.01
     debtService should be > 0.0
   }
 
   it should "reduce disposable income" in {
-    val income = 8000.0
-    val rent = 1800.0
+    val income          = 8000.0
+    val rent            = 1800.0
     val existingDebtSvc = 500.0
     val consumerDebtSvc = 331.25
-    val obligations = rent + existingDebtSvc + consumerDebtSvc
-    val disposable = Math.max(0.0, income - obligations)
+    val obligations     = rent + existingDebtSvc + consumerDebtSvc
+    val disposable      = Math.max(0.0, income - obligations)
     disposable shouldBe (8000.0 - 1800.0 - 500.0 - 331.25) +- 0.01
     disposable should be < (income - rent - existingDebtSvc)
   }
 
   "Consumer spread" should "be applied on top of reference rate" in {
-    val refRate = 0.0575
+    val refRate      = 0.0575
     val consumerRate = refRate + p.household.ccSpread.toDouble
     consumerRate shouldBe 0.0975 +- 0.001
     // Annualized consumer rate ~9.75% (NBP MIR consumer ~9-10%)
   }
 
   "Bankruptcy" should "trigger consumer debt default" in {
-    val hh = Household.State(
+    val hh      = Household.State(
       id = HhId(0),
       savings = PLN(-5000.0),
       debt = PLN(1000.0),
@@ -96,31 +96,31 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   "Bank capital" should "absorb consumer NPL loss with CcNplRecovery" in {
     val defaultAmount = 10000.0
-    val nplLoss = defaultAmount * (1.0 - p.household.ccNplRecovery.toDouble)
+    val nplLoss       = defaultAmount * (1.0 - p.household.ccNplRecovery.toDouble)
     nplLoss shouldBe 8500.0 +- 0.01
     // Lower recovery (15%) than firm NPL (30%) → higher bank capital impact
-    val firmNplLoss = defaultAmount * (1.0 - p.banking.loanRecovery.toDouble)
+    val firmNplLoss   = defaultAmount * (1.0 - p.banking.loanRecovery.toDouble)
     nplLoss should be > firmNplLoss
   }
 
   "Consumer credit stock identity" should "balance origination minus principal minus defaults" in {
-    val prevStock = 100000.0
-    val origination = 5000.0
-    val refRate = 0.0575
-    val totalRate = p.household.ccAmortRate.toDouble + (refRate + p.household.ccSpread.toDouble) / 12.0
-    val debtService = prevStock * totalRate
-    val principal = debtService * (p.household.ccAmortRate.toDouble / totalRate)
-    val defaultAmt = 1000.0
-    val newStock = prevStock + origination - principal - defaultAmt
+    val prevStock      = 100000.0
+    val origination    = 5000.0
+    val refRate        = 0.0575
+    val totalRate      = p.household.ccAmortRate.toDouble + (refRate + p.household.ccSpread.toDouble) / 12.0
+    val debtService    = prevStock * totalRate
+    val principal      = debtService * (p.household.ccAmortRate.toDouble / totalRate)
+    val defaultAmt     = 1000.0
+    val newStock       = prevStock + origination - principal - defaultAmt
     val expectedChange = origination - principal - defaultAmt
     (newStock - prevStock) shouldBe expectedChange +- 0.01
   }
 
   "Consumption smoothing" should "allow borrower to consume more than without credit" in {
-    val disposable = 2000.0
-    val newLoan = 3000.0
-    val mpc = 0.82
-    val consWithCredit = (disposable + newLoan) * mpc
+    val disposable        = 2000.0
+    val newLoan           = 3000.0
+    val mpc               = 0.82
+    val consWithCredit    = (disposable + newLoan) * mpc
     val consWithoutCredit = disposable * mpc
     consWithCredit should be > consWithoutCredit
     (consWithCredit - consWithoutCredit) shouldBe (newLoan * mpc) +- 0.01
@@ -184,7 +184,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "BankingAggregate.car" should "include consumer loans in RWA" in {
-    val bank =
+    val bank     =
       BankingAggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN(1000.0), PLN.Zero, PLN.Zero)
     // CAR = capital / (totalLoans + consumerLoans) = 500 / 2000 = 0.25
     bank.car shouldBe 0.25 +- 0.01
@@ -283,8 +283,8 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   )
 
   "Sfc" should "pass consumer credit identity with zero flows" in {
-    val snap = zeroSnap.copy(bankCapital = PLN(100.0), bankDeposits = PLN(200.0))
-    val flow = zeroFlows
+    val snap   = zeroSnap.copy(bankCapital = PLN(100.0), bankDeposits = PLN(200.0))
+    val flow   = zeroFlows
     val result = Sfc.validate(snap, snap, flow)
     result shouldBe Right(())
   }

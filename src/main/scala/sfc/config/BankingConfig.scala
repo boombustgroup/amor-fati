@@ -2,13 +2,17 @@ package sfc.config
 
 import sfc.types.*
 
-/** Commercial banking system: balance sheets, credit risk, LCR/NSFR, macroprudential, and KNF/BFG supervision.
+/** Commercial banking system: balance sheets, credit risk, LCR/NSFR,
+  * macroprudential, and KNF/BFG supervision.
   *
-  * Models a multi-bank system (7 banks by default, calibrated to KNF 2024) with heterogeneous balance sheets, credit
-  * spreads, NPL dynamics, capital adequacy (Basel III CRR), liquidity coverage (LCR/NSFR), macroprudential buffers
-  * (CCyB, O-SII), KNF BION/SREP P2R add-ons, BFG resolution levy and bail-in, and interbank market.
+  * Models a multi-bank system (7 banks by default, calibrated to KNF 2024) with
+  * heterogeneous balance sheets, credit spreads, NPL dynamics, capital adequacy
+  * (Basel III CRR), liquidity coverage (LCR/NSFR), macroprudential buffers
+  * (CCyB, O-SII), KNF BION/SREP P2R add-ons, BFG resolution levy and bail-in,
+  * and interbank market.
   *
-  * Stock values (`initCapital`, `initDeposits`, etc.) are in raw PLN — scaled by `gdpRatio` in `SimParams.defaults`.
+  * Stock values (`initCapital`, `initDeposits`, etc.) are in raw PLN — scaled
+  * by `gdpRatio` in `SimParams.defaults`.
   *
   * @param initCapital
   *   initial aggregate bank equity (KNF 2024: ~270 mld PLN)
@@ -66,39 +70,38 @@ import sfc.types.*
   *   single-name concentration limit as fraction of capital (Art. 395 CRR: 25%)
   */
 case class BankingConfig(
-  // Initial balance sheet (raw — scaled by gdpRatio in SimParams.defaults)
-  initCapital: PLN = PLN(270e9),
-  initDeposits: PLN = PLN(1900e9),
-  initLoans: PLN = PLN(700e9),
-  initGovBonds: PLN = PLN(400e9),
-  initNbpGovBonds: PLN = PLN(300e9),
-  initConsumerLoans: PLN = PLN(200e9),
-  // Spreads & risk
-  baseSpread: Rate = Rate(0.015),
-  nplSpreadFactor: Double = 5.0,
-  minCar: Ratio = Ratio(0.08),
-  loanRecovery: Ratio = Ratio(0.30),
-  profitRetention: Ratio = Ratio(0.30),
-  reserveReq: Rate = Rate(0.035),
-  stressThreshold: Ratio = Ratio(0.05),
-  // LCR/NSFR (Basel III)
-  lcrMin: Double = 1.0,
-  nsfrMin: Double = 1.0,
-  demandDepositRunoff: Ratio = Ratio(0.10),
-  termDepositFrac: Ratio = Ratio(0.40),
-  // KNF/BFG
-  p2rAddons: Vector[Rate] =
-    Vector(Rate(0.015), Rate(0.010), Rate(0.030), Rate(0.015), Rate(0.020), Rate(0.025), Rate(0.020)),
-  bfgLevyRate: Rate = Rate(0.0024),
-  bailInDepositHaircut: Ratio = Ratio(0.08),
-  bfgDepositGuarantee: PLN = PLN(400000.0),
-  // Macroprudential (KNF 2024)
-  ccybMax: Rate = Rate(0.025),
-  ccybActivationGap: Ratio = Ratio(0.02),
-  ccybReleaseGap: Double = -0.02,
-  osiiPkoBp: Rate = Rate(0.01),
-  osiiPekao: Rate = Rate(0.005),
-  concentrationLimit: Ratio = Ratio(0.25),
+    // Initial balance sheet (raw — scaled by gdpRatio in SimParams.defaults)
+    initCapital: PLN = PLN(270e9),
+    initDeposits: PLN = PLN(1900e9),
+    initLoans: PLN = PLN(700e9),
+    initGovBonds: PLN = PLN(400e9),
+    initNbpGovBonds: PLN = PLN(300e9),
+    initConsumerLoans: PLN = PLN(200e9),
+    // Spreads & risk
+    baseSpread: Rate = Rate(0.015),
+    nplSpreadFactor: Double = 5.0,
+    minCar: Ratio = Ratio(0.08),
+    loanRecovery: Ratio = Ratio(0.30),
+    profitRetention: Ratio = Ratio(0.30),
+    reserveReq: Rate = Rate(0.035),
+    stressThreshold: Ratio = Ratio(0.05),
+    // LCR/NSFR (Basel III)
+    lcrMin: Double = 1.0,
+    nsfrMin: Double = 1.0,
+    demandDepositRunoff: Ratio = Ratio(0.10),
+    termDepositFrac: Ratio = Ratio(0.40),
+    // KNF/BFG
+    p2rAddons: Vector[Rate] = Vector(Rate(0.015), Rate(0.010), Rate(0.030), Rate(0.015), Rate(0.020), Rate(0.025), Rate(0.020)),
+    bfgLevyRate: Rate = Rate(0.0024),
+    bailInDepositHaircut: Ratio = Ratio(0.08),
+    bfgDepositGuarantee: PLN = PLN(400000.0),
+    // Macroprudential (KNF 2024)
+    ccybMax: Rate = Rate(0.025),
+    ccybActivationGap: Ratio = Ratio(0.02),
+    ccybReleaseGap: Double = -0.02,
+    osiiPkoBp: Rate = Rate(0.01),
+    osiiPekao: Rate = Rate(0.005),
+    concentrationLimit: Ratio = Ratio(0.25),
 ):
   require(minCar > Ratio.Zero && minCar < Ratio.One, s"minCar must be in (0,1): $minCar")
   require(initCapital >= PLN.Zero, s"initCapital must be non-negative: $initCapital")

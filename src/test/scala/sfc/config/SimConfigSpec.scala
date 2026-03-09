@@ -7,7 +7,7 @@ import sfc.types.*
 
 class SimConfigSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   "SectorDefs" should "have 6 entries" in {

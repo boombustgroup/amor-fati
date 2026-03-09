@@ -9,7 +9,7 @@ import sfc.types.*
 class MacroprudentialSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // ==========================================================================
@@ -36,7 +36,7 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   }
 
   "step (disabled)" should "return prev unchanged" in {
-    val prev = Macroprudential.State(Rate(0.01), 0.05, 0.40)
+    val prev   = Macroprudential.State(Rate(0.01), 0.05, 0.40)
     val result = Macroprudential.step(prev, 1000.0, 100.0)
     result shouldBe prev
   }
@@ -73,19 +73,19 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
 
   it should "add CCyB to MinCar + P2R" in {
     val ccyb = 0.015
-    val eff = Macroprudential.effectiveMinCarInternal(3, ccyb)
+    val eff  = Macroprudential.effectiveMinCarInternal(3, ccyb)
     eff shouldBe (p.banking.minCar.toDouble + ccyb + p.banking.p2rAddons.map(_.toDouble)(3)) +- 1e-10
   }
 
   it should "add both CCyB and OSII and P2R for PKO BP" in {
     val ccyb = 0.01
-    val eff = Macroprudential.effectiveMinCarInternal(0, ccyb)
+    val eff  = Macroprudential.effectiveMinCarInternal(0, ccyb)
     eff shouldBe (p.banking.minCar.toDouble + ccyb + 0.01 + p.banking.p2rAddons.map(_.toDouble)(0)) +- 1e-10
   }
 
   it should "add CCyB and OSII and P2R for Pekao" in {
     val ccyb = 0.02
-    val eff = Macroprudential.effectiveMinCarInternal(1, ccyb)
+    val eff  = Macroprudential.effectiveMinCarInternal(1, ccyb)
     eff shouldBe (p.banking.minCar.toDouble + ccyb + 0.005 + p.banking.p2rAddons.map(_.toDouble)(1)) +- 1e-10
   }
 
@@ -94,7 +94,7 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "stepInternal" should "initialize trend on first call" in {
-    val prev = Macroprudential.State.zero
+    val prev   = Macroprudential.State.zero
     val result = Macroprudential.stepInternal(prev, 1000.0, 100.0)
     // creditToGdp = 1000 / (100*12) = 0.8333
     // First call: trend = creditToGdp (since prev trend = 0)
@@ -104,17 +104,17 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "maintain ccyb=0 when gap is within neutral zone" in {
-    val prev = Macroprudential.State(Rate.Zero, 0.0, 0.5) // trend already established
+    val prev       = Macroprudential.State(Rate.Zero, 0.0, 0.5) // trend already established
     // creditToGdp ≈ trend → gap ≈ 0 → within neutral zone
-    val totalLoans = 0.5 * 100.0 * 12.0 // exactly at trend
-    val result = Macroprudential.stepInternal(prev, totalLoans, 100.0)
+    val totalLoans = 0.5 * 100.0 * 12.0                         // exactly at trend
+    val result     = Macroprudential.stepInternal(prev, totalLoans, 100.0)
     result.ccyb.toDouble shouldBe 0.0
   }
 
   it should "build CCyB gradually when gap exceeds activation threshold" in {
     // Set up so credit-to-GDP ratio is much higher than trend
     // trend = 0.30, make creditToGdp ≈ 0.40 → gap ≈ 0.10 > 0.02
-    val prev = Macroprudential.State(Rate.Zero, 0.0, 0.30)
+    val prev   = Macroprudential.State(Rate.Zero, 0.0, 0.30)
     // creditToGdp = totalLoans / (gdp*12) = X / 1200
     // We want gap = creditToGdp - newTrend > 0.02
     // newTrend = 0.30*0.95 + creditToGdp*0.05
@@ -128,7 +128,7 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
 
   it should "release CCyB immediately when gap falls below release threshold" in {
     // trend = 0.50, make creditToGdp very low → gap < -0.02
-    val prev = Macroprudential.State(Rate(0.02), 0.0, 0.50)
+    val prev   = Macroprudential.State(Rate(0.02), 0.0, 0.50)
     // creditToGdp = 10 / 1200 ≈ 0.0083
     // newTrend = 0.50*0.95 + 0.0083*0.05 ≈ 0.4754
     // gap = 0.0083 - 0.4754 ≈ -0.467 < -0.02
@@ -138,7 +138,7 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
 
   it should "cap CCyB at CcybMax" in {
     // Start near max and build further
-    val prev = Macroprudential.State(Rate(0.024), 0.0, 0.30)
+    val prev   = Macroprudential.State(Rate(0.024), 0.0, 0.30)
     val result = Macroprudential.stepInternal(prev, 480.0, 100.0)
     result.ccyb.toDouble should be <= p.banking.ccybMax.toDouble
   }

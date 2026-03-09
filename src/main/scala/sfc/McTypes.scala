@@ -8,8 +8,8 @@ import sfc.util.KahanSum.*
 
 /** Result of a single simulation run. */
 case class RunResult(
-  timeSeries: TimeSeries,
-  terminalState: Simulation.SimState,
+    timeSeries: TimeSeries,
+    terminalState: Simulation.SimState,
 )
 
 // ---------------------------------------------------------------------------
@@ -35,13 +35,13 @@ object TimeSeries:
     inline def nMonths: Int = ts.length
 
     // ---- Source-compat with Array[Array[Double]] (tests, existing call sites) ----
-    inline def length: Int = ts.length
-    inline def indices: Range = 0 until ts.length
-    inline def apply(month: Int): Array[Double] = ts(month)
+    inline def length: Int                             = ts.length
+    inline def indices: Range                          = 0 until ts.length
+    inline def apply(month: Int): Array[Double]        = ts(month)
     inline def foreach(f: Array[Double] => Unit): Unit =
       var i = 0
       while i < ts.length do { f(ts(i)); i += 1 }
-    def map[B](f: Array[Double] => B): Vector[B] =
+    def map[B](f: Array[Double] => B): Vector[B]       =
       val b = Vector.newBuilder[B]
       b.sizeHint(ts.length)
       var i = 0
@@ -56,19 +56,23 @@ object TimeSeries:
 case class DescriptiveStats(mean: Double, std: Double, p05: Double, p95: Double)
 
 object DescriptiveStats:
-  /** Compute from an unsorted array. Sorts in-place, then computes stats via Kahan summation. */
+  /** Compute from an unsorted array. Sorts in-place, then computes stats via
+    * Kahan summation.
+    */
   def from(values: Array[Double]): DescriptiveStats =
     java.util.Arrays.sort(values)
     fromSorted(values)
 
-  /** Compute from a **pre-sorted** array. Package-private — callers outside `sfc` must use [[from]]. */
+  /** Compute from a **pre-sorted** array. Package-private — callers outside
+    * `sfc` must use [[from]].
+    */
   private[sfc] def fromSorted(sorted: Array[Double]): DescriptiveStats =
-    val n = sorted.length
-    val mean = sorted.kahanSum / n
+    val n        = sorted.length
+    val mean     = sorted.kahanSum / n
     val variance = sorted.kahanSumBy(v => (v - mean) * (v - mean)) / n
-    val std = Math.sqrt(variance)
-    val p05 = sorted((n * 0.05).toInt)
-    val p95 = sorted(Math.min(n - 1, (n * 0.95).toInt))
+    val std      = Math.sqrt(variance)
+    val p05      = sorted((n * 0.05).toInt)
+    val p95      = sorted(Math.min(n - 1, (n * 0.95).toInt))
     DescriptiveStats(mean, std, p05, p95)
 
 // ---------------------------------------------------------------------------
@@ -85,11 +89,13 @@ case class McResults(runs: Vector[RunResult]):
     java.util.Arrays.sort(arr)
     arr
 
-  /** Cross-seed statistics for all columns at a given month (batch — single pass). */
+  /** Cross-seed statistics for all columns at a given month (batch — single
+    * pass).
+    */
   def crossSeedStatsAll(month: Int, nCols: Int): Array[DescriptiveStats] =
-    val n = runs.length
+    val n      = runs.length
     val result = new Array[DescriptiveStats](nCols)
-    val buf = new Array[Double](n)
+    val buf    = new Array[Double](n)
     for c <- 0 until nCols do
       var i = 0
       while i < n do

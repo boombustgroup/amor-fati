@@ -12,7 +12,7 @@ import sfc.types.*
 
 class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
@@ -46,22 +46,22 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   // Combined generator for OE step inputs (avoids >6 forAll limit)
   private val genOeInputs: Gen[(Double, Double, Double, Double, Double, Double, Double, Int)] =
     for
-      er <- genExchangeRate
+      er      <- genExchangeRate
       importC <- Gen.choose(0.0, 1e8)
       techImp <- Gen.choose(0.0, 1e7)
-      autoR <- genFraction
-      rate <- genRate
-      gdp <- Gen.choose(1e6, 1e10)
-      price <- genPrice
-      month <- Gen.choose(1, 120)
+      autoR   <- genFraction
+      rate    <- genRate
+      gdp     <- Gen.choose(1e6, 1e10)
+      price   <- genPrice
+      month   <- Gen.choose(1, 120)
     yield (er, importC, techImp, autoR, rate, gdp, price, month)
 
   // --- Exchange rate bounds ---
 
-  "OpenEconomy.step" should "keep ER in [OeErFloor, OeErCeiling] for PLN" in {
+  "OpenEconomy.step" should "keep ER in [OeErFloor, OeErCeiling] for PLN" in
     forAll(genOeInputs) { (inputs: (Double, Double, Double, Double, Double, Double, Double, Int)) =>
       val (er, importCons, techImp, autoR, rate, gdp, price, month) = inputs
-      val r = OpenEconomy.step(
+      val r                                                         = OpenEconomy.step(
         makeBop(),
         makeForex(er),
         importCons,
@@ -77,11 +77,10 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
       r.forex.exchangeRate should be >= p.openEcon.erFloor
       r.forex.exchangeRate should be <= p.openEcon.erCeiling
     }
-  }
 
   // --- Exports >= 0 ---
 
-  it should "have exports >= 0" in {
+  it should "have exports >= 0" in
     forAll(genExchangeRate, genFraction, Gen.choose(1, 120)) { (er: Double, autoR: Double, month: Int) =>
       val r = OpenEconomy.step(
         makeBop(),
@@ -98,11 +97,10 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
       )
       r.bop.exports.toDouble should be >= 0.0
     }
-  }
 
   // --- Total imports >= 0 ---
 
-  it should "have total imports >= 0" in {
+  it should "have total imports >= 0" in
     forAll(Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e7)) { (importCons: Double, techImp: Double) =>
       val r = OpenEconomy.step(
         makeBop(),
@@ -119,33 +117,30 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
       )
       r.bop.totalImports.toDouble should be >= 0.0
     }
-  }
 
   // --- Trade balance identity ---
 
-  it should "have tradeBalance = exports - totalImports" in {
-    forAll(Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e7), genFraction) {
-      (importCons: Double, techImp: Double, autoR: Double) =>
-        val r = OpenEconomy.step(
-          makeBop(),
-          makeForex(),
-          importCons,
-          techImp,
-          autoR,
-          0.05,
-          1e9,
-          1.0,
-          defaultSectorOutputs,
-          30,
-          rc,
-        )
-        r.bop.tradeBalance.toDouble shouldBe ((r.bop.exports - r.bop.totalImports).toDouble +- 1.0)
+  it should "have tradeBalance = exports - totalImports" in
+    forAll(Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e7), genFraction) { (importCons: Double, techImp: Double, autoR: Double) =>
+      val r = OpenEconomy.step(
+        makeBop(),
+        makeForex(),
+        importCons,
+        techImp,
+        autoR,
+        0.05,
+        1e9,
+        1.0,
+        defaultSectorOutputs,
+        30,
+        rc,
+      )
+      r.bop.tradeBalance.toDouble shouldBe ((r.bop.exports - r.bop.totalImports).toDouble +- 1.0)
     }
-  }
 
   // --- CA identity ---
 
-  it should "have CA = tradeBalance + primaryIncome + secondaryIncome" in {
+  it should "have CA = tradeBalance + primaryIncome + secondaryIncome" in
     forAll(Gen.choose(0.0, 1e8), genFraction) { (importCons: Double, autoR: Double) =>
       val r = OpenEconomy.step(
         makeBop(),
@@ -163,31 +158,28 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
       r.bop.currentAccount.toDouble shouldBe
         ((r.bop.tradeBalance + r.bop.primaryIncome + r.bop.secondaryIncome).toDouble +- 1.0)
     }
-  }
 
   // --- BoP identity: CA + KA + ΔReserves ≈ 0 ---
 
-  it should "satisfy BoP identity: CA + KA + deltaReserves approx 0" in {
+  it should "satisfy BoP identity: CA + KA + deltaReserves approx 0" in
     forAll(genFraction, genRate) { (autoR: Double, rate: Double) =>
-      val prevBop = makeBop()
-      val r =
+      val prevBop       = makeBop()
+      val r             =
         OpenEconomy.step(prevBop, makeForex(), 1e7, 1e6, autoR, rate, 1e9, 1.0, defaultSectorOutputs, 30, rc)
       val deltaReserves = (r.bop.reserves - prevBop.reserves).toDouble
-      val bopSum = r.bop.currentAccount.toDouble + r.bop.capitalAccount.toDouble + deltaReserves
+      val bopSum        = r.bop.currentAccount.toDouble + r.bop.capitalAccount.toDouble + deltaReserves
       Math.abs(bopSum) should be < 1.0
     }
-  }
 
   // --- Imported intermediates per-sector >= 0 and length = 6 ---
 
-  it should "have per-sector imported intermediates >= 0 and length = 6" in {
+  it should "have per-sector imported intermediates >= 0 and length = 6" in
     forAll(genExchangeRate, genFraction) { (er: Double, autoR: Double) =>
       val r =
         OpenEconomy.step(makeBop(), makeForex(er), 1e7, 1e6, autoR, 0.05, 1e9, 1.0, defaultSectorOutputs, 30, rc)
       r.importedIntermediates.length shouldBe 6
       for v <- r.importedIntermediates do v should be >= 0.0
     }
-  }
 
   // --- Higher autoRatio → higher exports (ULC effect) ---
 
@@ -201,22 +193,20 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   // --- ΔNFA = CA + valuationEffect ---
 
-  it should "have deltaNFA = CA + valuationEffect" in {
+  it should "have deltaNFA = CA + valuationEffect" in
     forAll(genFraction, genRate, Gen.choose(-1e9, 1e9)) { (autoR: Double, rate: Double, prevNfa: Double) =>
-      val prevBop = makeBop(nfa = prevNfa)
-      val r =
+      val prevBop  = makeBop(nfa = prevNfa)
+      val r        =
         OpenEconomy.step(prevBop, makeForex(), 1e7, 1e6, autoR, rate, 1e9, 1.0, defaultSectorOutputs, 30, rc)
       val deltaNfa = r.bop.nfa.toDouble - prevNfa
       deltaNfa shouldBe (r.bop.currentAccount.toDouble + r.valuationEffect +- 1.0)
     }
-  }
 
   // --- FDI >= 0 ---
 
-  it should "have FDI >= 0" in {
+  it should "have FDI >= 0" in
     forAll(genFraction, genRate) { (autoR: Double, rate: Double) =>
       val r =
         OpenEconomy.step(makeBop(), makeForex(), 1e7, 1e6, autoR, rate, 1e9, 1.0, defaultSectorOutputs, 30, rc)
       r.bop.fdi.toDouble should be >= 0.0
     }
-  }

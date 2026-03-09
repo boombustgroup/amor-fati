@@ -9,7 +9,7 @@ import sfc.McRunner.runSingle
 
 class IntegrationFullSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   private def requireAllMechanisms(): Unit =
@@ -71,7 +71,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   "Multi-bank" should "have interbank rate deviating from refRate" in {
     requireAllMechanisms()
     val deviates = ts.indices.exists { t =>
-      val ibRate = ts(t)(Col.InterbankRate.ordinal)
+      val ibRate  = ts(t)(Col.InterbankRate.ordinal)
       val refRate = ts(t)(Col.RefRate.ordinal)
       Math.abs(ibRate - refRate) > 1e-6
     }
@@ -110,7 +110,7 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
 
   it should "have employment counts summing to HhCount" in {
     requireAllMechanisms()
-    val agg = result.terminalState.world.hhAgg.get
+    val agg   = result.terminalState.world.hhAgg.get
     val total = agg.employed + agg.unemployed + agg.retraining + agg.bankrupt
     total shouldBe p.household.count
   }
@@ -143,6 +143,6 @@ class IntegrationFullSpec extends AnyFlatSpec with Matchers:
   it should "have exchange rate varying from base" in {
     requireAllMechanisms()
     val baseRate = p.forex.baseExRate
-    val exRates = ts.map(_(Col.ExRate.ordinal))
+    val exRates  = ts.map(_(Col.ExRate.ordinal))
     exRates.exists(r => Math.abs(r - baseRate) > 1e-4) shouldBe true
   }

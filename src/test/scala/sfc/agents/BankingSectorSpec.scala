@@ -44,9 +44,9 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "favor BPS/Coop for agriculture firms" in {
-    val rng = new Random(42)
+    val rng         = new Random(42)
     val assignments = (0 until 10000).map(_ => Banking.assignBank(SectorIdx(5), configs, rng))
-    val bpsCount = assignments.count(_ == BankId(5))
+    val bpsCount    = assignments.count(_ == BankId(5))
     // BPS has 0.65 agriculture affinity vs others ~0.15, so it should get disproportionate share
     bpsCount.toDouble / 10000 should be > 0.10
   }
@@ -61,17 +61,17 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase with NPL ratio" in {
-    val bankLowNpl =
+    val bankLowNpl  =
       Banking.BankState(BankId(0), PLN(1e6), PLN(1e6), PLN(2e5), PLN(1e4), PLN(0), PLN(0), PLN(0), false, 0, 0)
     val bankHighNpl =
       Banking.BankState(BankId(0), PLN(1e6), PLN(1e6), PLN(2e5), PLN(2e5), PLN(0), PLN(0), PLN(0), false, 0, 0)
-    val rateLow = Banking.lendingRate(bankLowNpl, configs(0), 0.05)
-    val rateHigh = Banking.lendingRate(bankHighNpl, configs(0), 0.05)
+    val rateLow     = Banking.lendingRate(bankLowNpl, configs(0), 0.05)
+    val rateHigh    = Banking.lendingRate(bankHighNpl, configs(0), 0.05)
     rateHigh should be > rateLow
   }
 
   it should "include bank-specific spread" in {
-    val bank = Banking.BankState(BankId(0), PLN(1e6), PLN(1e6), PLN(2e5), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 0)
+    val bank    = Banking.BankState(BankId(0), PLN(1e6), PLN(1e6), PLN(2e5), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 0)
     val ratePko = Banking.lendingRate(bank, configs(0), 0.05) // spread = -0.002
     val rateBps = Banking.lendingRate(bank, configs(5), 0.05) // spread = +0.003
     rateBps should be > ratePko
@@ -88,7 +88,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   it should "reject when projected CAR too low" in {
     // capital=8000, loans=100000, existing CAR=0.08
     // Adding 10000 loan -> projected = 8000/110000 = 0.0727 < 0.08
-    val bank =
+    val bank    =
       Banking.BankState(BankId(0), PLN(1e6), PLN(100000.0), PLN(8000.0), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 0)
     // Need to test multiple times since there's a stochastic element
     val results = (0 until 100).map(_ => Banking.canLend(bank, 10000.0, new Random(42)))
@@ -102,7 +102,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       Banking.BankState(BankId(0), PLN(1e6), PLN(1e6), PLN(2e5), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 0),
       Banking.BankState(BankId(1), PLN(1e6), PLN(1e6), PLN(2e5), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 0),
     )
-    val rate = Banking.interbankRate(banks, 0.05)
+    val rate  = Banking.interbankRate(banks, 0.05)
     rate shouldBe (0.05 - 0.01) +- 0.001 // deposit rate
   }
 
@@ -123,7 +123,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       ), // 10% NPL
       Banking.BankState(BankId(1), PLN(1e6), PLN(1e6), PLN(2e5), PLN(1e5), PLN(0), PLN(0), PLN(0), false, 0, 0),
     )
-    val rate = Banking.interbankRate(banks, 0.05)
+    val rate  = Banking.interbankRate(banks, 0.05)
     // stress = 0.10 / 0.05 = 2.0, clipped to 1.0
     rate shouldBe (0.05 + 0.01) +- 0.001 // lombard rate
   }
@@ -131,18 +131,18 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   // ---- clearInterbank ----
 
   "Banking.clearInterbank" should "produce interbankNet that sums to zero" in {
-    val banks = Vector(
+    val banks   = Vector(
       Banking.BankState(BankId(0), PLN(1e6), PLN(3e5), PLN(2e5), PLN(0), PLN(1e5), PLN(0), PLN(0), false, 0, 0),
       Banking.BankState(BankId(1), PLN(5e5), PLN(8e5), PLN(1e5), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 0),
       Banking.BankState(BankId(2), PLN(8e5), PLN(2e5), PLN(1.5e5), PLN(0), PLN(5e4), PLN(0), PLN(0), false, 0, 0),
     )
     val cleared = Banking.clearInterbank(banks, configs.take(3), 0.05)
-    val netSum = cleared.map(_.interbankNet.toDouble).sum
+    val netSum  = cleared.map(_.interbankNet.toDouble).sum
     netSum shouldBe 0.0 +- 0.01
   }
 
   it should "set failed banks' interbankNet to zero" in {
-    val banks = Vector(
+    val banks   = Vector(
       Banking.BankState(BankId(0), PLN(1e6), PLN(3e5), PLN(2e5), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 0),
       Banking.BankState(BankId(1), PLN(5e5), PLN(8e5), PLN(1e5), PLN(0), PLN(0), PLN(0), PLN(0), failed = true, 30, 3),
     )
@@ -174,7 +174,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "trigger after 3 consecutive months of low CAR" in {
-    val bank =
+    val bank                =
       Banking.BankState(BankId(0), PLN(1e6), PLN(1e6), PLN(1000.0), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 2)
     val (result, anyFailed) = Banking.checkFailures(Vector(bank), 30, enabled = true)
     anyFailed shouldBe true
@@ -204,7 +204,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   // ---- resolveFailures ----
 
   "Banking.resolveFailures" should "transfer deposits to healthiest bank" in {
-    val banks = Vector(
+    val banks         = Vector(
       Banking.BankState(
         BankId(0),
         PLN(500000.0),
@@ -240,7 +240,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   // ---- allocateBonds ----
 
   "Banking.allocateBonds" should "distribute proportional to deposits" in {
-    val banks = Vector(
+    val banks  = Vector(
       Banking.BankState(BankId(0), PLN(600000.0), PLN(0), PLN(1e5), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 0),
       Banking.BankState(BankId(1), PLN(400000.0), PLN(0), PLN(1e5), PLN(0), PLN(0), PLN(0), PLN(0), false, 0, 0),
     )
@@ -250,18 +250,18 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle negative deficit (surplus)" in {
-    val banks = Vector(
+    val banks  = Vector(
       Banking.BankState(BankId(0), PLN(500000.0), PLN(0), PLN(1e5), PLN(0), PLN(8000.0), PLN(0), PLN(0), false, 0, 0),
       Banking.BankState(BankId(1), PLN(500000.0), PLN(0), PLN(1e5), PLN(0), PLN(2000.0), PLN(0), PLN(0), false, 0, 0),
     )
     val result = Banking.allocateBonds(banks, -4000.0)
     result(0).govBondHoldings.toDouble shouldBe 6000.0 +- 0.01 // 8000 + (-4000 * 0.5)
-    result(1).govBondHoldings.toDouble shouldBe 0.0 +- 0.01 // 2000 + (-4000 * 0.5)
+    result(1).govBondHoldings.toDouble shouldBe 0.0 +- 0.01    // 2000 + (-4000 * 0.5)
   }
 
   it should "have per-bank deltas summing to exactly deficit (residual-based)" in {
     // 7 banks with irrational deposit ratios -> FP rounding inevitable without residual
-    val banks = (0 until 7)
+    val banks   = (0 until 7)
       .map(i =>
         Banking.BankState(
           BankId(i),
@@ -279,24 +279,24 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       )
       .toVector
     val deficit = 123456.789
-    val result = Banking.allocateBonds(banks, deficit)
-    val deltas = result.zip(banks).map((a, b) => a.govBondHoldings.toDouble - b.govBondHoldings.toDouble)
+    val result  = Banking.allocateBonds(banks, deficit)
+    val deltas  = result.zip(banks).map((a, b) => a.govBondHoldings.toDouble - b.govBondHoldings.toDouble)
     deltas.sum shouldBe deficit +- 1e-6
   }
 
   it should "keep aggregate within tight tolerance with large deficit (1e13)" in {
-    val banks = Banking.initialize(1e9, 1e8, configs = configs).banks
+    val banks   = Banking.initialize(1e9, 1e8, configs = configs).banks
     val deficit = 1e13
-    val before = banks.map(_.govBondHoldings.toDouble).sum
-    val result = Banking.allocateBonds(banks, deficit)
-    val after = result.map(_.govBondHoldings.toDouble).sum
+    val before  = banks.map(_.govBondHoldings.toDouble).sum
+    val result  = Banking.allocateBonds(banks, deficit)
+    val after   = result.map(_.govBondHoldings.toDouble).sum
     (after - before) shouldBe deficit +- 0.01 // well within SFC tolerance of 1.0
   }
 
   // ---- allocateQePurchases ----
 
   "Banking.allocateQePurchases" should "sell proportional to bond holdings" in {
-    val banks = Vector(
+    val banks  = Vector(
       Banking.BankState(BankId(0), PLN(1e6), PLN(0), PLN(1e5), PLN(0), PLN(6000.0), PLN(0), PLN(0), false, 0, 0),
       Banking.BankState(BankId(1), PLN(1e6), PLN(0), PLN(1e5), PLN(0), PLN(4000.0), PLN(0), PLN(0), false, 0, 0),
     )
@@ -306,7 +306,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "not change banks when qeTotal is zero" in {
-    val banks = Vector(
+    val banks  = Vector(
       Banking.BankState(BankId(0), PLN(1e6), PLN(0), PLN(1e5), PLN(0), PLN(5000.0), PLN(0), PLN(0), false, 0, 0),
     )
     val result = Banking.allocateQePurchases(banks, 0.0)
@@ -334,7 +334,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   // ---- aggregate ----
 
   "Banking.State.aggregate" should "sum all individual bank values" in {
-    val bs = Banking.initialize(1000000.0, 100000.0, configs = configs)
+    val bs  = Banking.initialize(1000000.0, 100000.0, configs = configs)
     val agg = bs.aggregate
     agg.deposits.toDouble shouldBe 1000000.0 +- 0.01
     agg.capital.toDouble shouldBe 100000.0 +- 0.01

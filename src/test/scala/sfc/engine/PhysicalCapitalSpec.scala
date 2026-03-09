@@ -8,14 +8,14 @@ import sfc.types.*
 class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   private def mkFirm(
-    sector: Int = 1,
-    workers: Int = 10,
-    cash: Double = 500000.0,
-    capitalStock: Double = 0.0,
+      sector: Int = 1,
+      workers: Int = 10,
+      cash: Double = 500000.0,
+      capitalStock: Double = 0.0,
   ): Firm.State =
     Firm.State(
       id = FirmId(0),
@@ -41,16 +41,14 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
     p.capital.depRates.map(_.toDouble).length shouldBe 6
   }
 
-  it should "have positive K/L ratios" in {
+  it should "have positive K/L ratios" in
     p.capital.klRatios.map(_.toDouble).foreach(_ should be > 0.0)
-  }
 
-  it should "have depreciation rates in (0, 1)" in {
+  it should "have depreciation rates in (0, 1)" in
     p.capital.depRates.map(_.toDouble).foreach { d =>
       d should be > 0.0
       d should be < 1.0
     }
-  }
 
   it should "have sensible import share, adjust speed, prod elasticity" in {
     p.capital.importShare.toDouble should be > 0.0
@@ -65,24 +63,24 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   "Depreciation" should "equal annual rate / 12" in {
     val annualRate = 0.08
-    val K = 250000.0 * 10 // 10-worker Mfg firm
+    val K          = 250000.0 * 10 // 10-worker Mfg firm
     val monthlyDep = K * annualRate / 12.0
     monthlyDep shouldBe (K * annualRate / 12.0) +- 0.01
   }
 
   it should "reduce capital stock without investment" in {
-    val K = 2500000.0
-    val depRate = 0.08
+    val K          = 2500000.0
+    val depRate    = 0.08
     val monthlyDep = depRate / 12.0
-    val postDepK = K * (1.0 - monthlyDep)
+    val postDepK   = K * (1.0 - monthlyDep)
     postDepK should be < K
   }
 
   // --- K/L initialization ---
 
   "K/L initialization" should "set K = workers x sectorKL" in {
-    val sector = 1 // Manufacturing: K/L = 250,000
-    val workers = 10
+    val sector    = 1 // Manufacturing: K/L = 250,000
+    val workers   = 10
     val expectedK = workers * p.capital.klRatios.map(_.toDouble)(sector)
     expectedK shouldBe 2500000.0 +- 0.01
   }
@@ -91,12 +89,12 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   "Investment" should "replace depreciation at steady state" in {
     // At steady state: K = targetK, gap = 0, desiredInv = depn
-    val K = 2500000.0 // 10-worker Mfg firm at target
-    val depRate = 0.08 / 12.0
-    val depn = K * depRate
-    val postDepK = K - depn
-    val targetK = 10.0 * 250000.0 // = 2,500,000
-    val gap = Math.max(0.0, targetK - postDepK)
+    val K          = 2500000.0       // 10-worker Mfg firm at target
+    val depRate    = 0.08 / 12.0
+    val depn       = K * depRate
+    val postDepK   = K - depn
+    val targetK    = 10.0 * 250000.0 // = 2,500,000
+    val gap        = Math.max(0.0, targetK - postDepK)
     val desiredInv = depn + gap * p.capital.adjustSpeed.toDouble
     // gap = depn, so desiredInv = depn + depn * 0.10 = 1.1 * depn
     desiredInv should be > depn
@@ -104,9 +102,9 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
   }
 
   "Cash constraint" should "limit investment to available cash" in {
-    val desiredInv = 100000.0
+    val desiredInv    = 100000.0
     val availableCash = 5000.0
-    val actualInv = Math.min(desiredInv, Math.max(0.0, availableCash))
+    val actualInv     = Math.min(desiredInv, Math.max(0.0, availableCash))
     actualInv shouldBe 5000.0
   }
 
@@ -192,7 +190,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
   // --- OtherCosts reduction ---
 
   "OtherCosts" should "be reduced by PhysCapCostReplace fraction" in {
-    val rawOther = p.firm.otherCosts.toDouble * 1.0 * 1.0 // price=1, sizeFactor=1
+    val rawOther  = p.firm.otherCosts.toDouble * 1.0 * 1.0 // price=1, sizeFactor=1
     val effective = rawOther * (1.0 - p.capital.costReplace.toDouble)
     effective shouldBe rawOther * 0.5 +- 0.01
   }
@@ -203,11 +201,11 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
     // Total = 8,333 + 16,667 = 25,000 vs original 16,667.
     // Actually depn ≈ OtherCosts for Mfg, but effective = 0.5*OtherCosts + depn ≈ 1.5*OtherCosts
     // The plan notes "roughly neutral for Manufacturing" — let's verify the numbers
-    val K = 10.0 * 250000.0 // 2,500,000
-    val depn = K * 0.08 / 12.0 // 16,666.67
-    val origOther = p.firm.otherCosts.toDouble // 16,667
-    val effectiveOther = origOther * (1.0 - 0.50) // 8,333.33
-    val newTotal = effectiveOther + depn // 25,000
+    val K              = 10.0 * 250000.0            // 2,500,000
+    val depn           = K * 0.08 / 12.0            // 16,666.67
+    val origOther      = p.firm.otherCosts.toDouble // 16,667
+    val effectiveOther = origOther * (1.0 - 0.50)   // 8,333.33
+    val newTotal       = effectiveOther + depn      // 25,000
     // New total cost (halved other + depreciation) should exceed original OtherCosts
     newTotal should be > origOther.toDouble
     // Not exactly neutral but within 50% — acceptable for a model
@@ -217,14 +215,14 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
   // --- GFCF ---
 
   "GFCF formula" should "equal grossInv x (1 - importShare)" in {
-    val grossInv = 1000000.0
+    val grossInv    = 1000000.0
     val importShare = 0.35
-    val gfcf = grossInv * (1.0 - importShare)
+    val gfcf        = grossInv * (1.0 - importShare)
     gfcf shouldBe 650000.0 +- 0.01
   }
 
   "Investment imports" should "equal grossInv x importShare" in {
-    val grossInv = 1000000.0
+    val grossInv   = 1000000.0
     val invImports = grossInv * p.capital.importShare.toDouble
     invImports shouldBe 350000.0 +- 0.01
   }

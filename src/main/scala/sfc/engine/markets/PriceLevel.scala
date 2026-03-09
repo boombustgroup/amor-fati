@@ -5,29 +5,29 @@ import sfc.config.{RunConfig, SimParams}
 object PriceLevel:
 
   def update(
-    prevInflation: Double,
-    prevPrice: Double,
-    demandMult: Double,
-    wageGrowth: Double,
-    exRateDeviation: Double,
-    autoRatio: Double,
-    hybridRatio: Double,
-    rc: RunConfig,
+      prevInflation: Double,
+      prevPrice: Double,
+      demandMult: Double,
+      wageGrowth: Double,
+      exRateDeviation: Double,
+      autoRatio: Double,
+      hybridRatio: Double,
+      rc: RunConfig,
   )(using p: SimParams): (Double, Double) =
-    val demandPull = (demandMult - 1.0) * 0.15
-    val costPush = wageGrowth * 0.25
+    val demandPull    = (demandMult - 1.0) * 0.15
+    val costPush      = wageGrowth * 0.25
     val rawImportPush = Math.max(0.0, exRateDeviation) * p.forex.importPropensity.toDouble * 0.25
-    val importPush =
+    val importPush    =
       if p.flags.openEcon then Math.min(rawImportPush, p.openEcon.importPushCap.toDouble)
       else rawImportPush
     val techDeflation = autoRatio * 0.060 + hybridRatio * 0.018
     // Soft floor: beyond -1.5%/month, deflation passes through at 30% rate
     // (models downward price stickiness -- Bewley 1999, Schmitt-Grohe & Uribe 2016)
-    val rawMonthly = demandPull + costPush + importPush - techDeflation
-    val monthly =
+    val rawMonthly    = demandPull + costPush + importPush - techDeflation
+    val monthly       =
       if rawMonthly >= -0.015 then rawMonthly
       else -0.015 + (rawMonthly + 0.015) * 0.3
-    val annualized = monthly * 12.0
-    val smoothed = prevInflation * 0.7 + annualized * 0.3
-    val newPrice = Math.max(0.30, prevPrice * (1.0 + monthly))
+    val annualized    = monthly * 12.0
+    val smoothed      = prevInflation * 0.7 + annualized * 0.3
+    val newPrice      = Math.max(0.30, prevPrice * (1.0 + monthly))
     (smoothed, newPrice)

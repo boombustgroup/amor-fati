@@ -3,10 +3,12 @@ package sfc.config
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Regression test: SimParams.defaults must produce the same values as the old Config object. */
+/** Regression test: SimParams.defaults must produce the same values as the old
+  * Config object.
+  */
 class SimParamsSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // ── GdpRatio ──

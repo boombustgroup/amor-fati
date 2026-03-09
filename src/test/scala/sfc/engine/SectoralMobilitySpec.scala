@@ -11,7 +11,7 @@ import scala.util.Random
 class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // --- Default friction matrix ---
@@ -40,24 +40,24 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   "sectorVacancies" should "return non-negative vacancies per sector" in {
     val firms = mkFirms(6)
-    val hhs =
+    val hhs   =
       (0 until 5).map(i => mkHousehold(i, HhStatus.Employed(FirmId(i % 6), SectorIdx(i % 6), PLN(8000.0)))).toVector
-    val vac = SectoralMobility.sectorVacancies(hhs, firms)
+    val vac   = SectoralMobility.sectorVacancies(hhs, firms)
     vac.length shouldBe 6
     vac.foreach(_ should be >= 0)
   }
 
   it should "show vacancies when firms need more workers than employed" in {
-    val firms = Vector(mkFirm(0, 2, TechState.Traditional(10))) // needs 10
-    val hhs = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)))) // 1 employed
-    val vac = SectoralMobility.sectorVacancies(hhs, firms)
+    val firms = Vector(mkFirm(0, 2, TechState.Traditional(10)))                                 // needs 10
+    val hhs   = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)))) // 1 employed
+    val vac   = SectoralMobility.sectorVacancies(hhs, firms)
     vac(2) shouldBe 9 // 10 needed - 1 employed
   }
 
   // --- sectorWages ---
 
   "sectorWages" should "compute average wage per sector" in {
-    val hhs = Vector(
+    val hhs   = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(10000.0))),
       mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(12000.0))),
       mkHousehold(2, HhStatus.Employed(FirmId(2), SectorIdx(2), PLN(8000.0))),
@@ -66,26 +66,26 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     val wages = SectoralMobility.sectorWages(hhs)
     wages(0) shouldBe 11000.0 +- 0.01 // (10000+12000)/2
     wages(2) shouldBe 8000.0
-    wages(1) shouldBe 0.0 // no employed in sector 1
+    wages(1) shouldBe 0.0             // no employed in sector 1
   }
 
   // --- selectTargetSector ---
 
   "selectTargetSector" should "not select the source sector" in {
-    val rng = new Random(42)
+    val rng   = new Random(42)
     val wages = Array(10000.0, 12000.0, 8000.0, 15000.0, 9000.0, 7000.0)
-    val vac = Array(5, 10, 3, 8, 2, 1)
+    val vac   = Array(5, 10, 3, 8, 2, 1)
     for _ <- 0 until 100 do
       val target = SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
       target should not be 0
   }
 
   it should "prefer high-wage high-vacancy low-friction sectors" in {
-    val rng = new Random(42)
+    val rng    = new Random(42)
     // Sector 1 (Mfg): high wage, high vacancies
     // Sector 5 (Agr): high friction from BPO (0.9)
-    val wages = Array(0.0, 20000.0, 5000.0, 5000.0, 5000.0, 5000.0)
-    val vac = Array(0, 100, 1, 1, 1, 1)
+    val wages  = Array(0.0, 20000.0, 5000.0, 5000.0, 5000.0, 5000.0)
+    val vac    = Array(0, 100, 1, 1, 1, 1)
     val counts = new Array[Int](6)
     for _ <- 0 until 1000 do
       val target = SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
@@ -95,9 +95,9 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle all-zero wages gracefully" in {
-    val rng = new Random(42)
-    val wages = Array.fill(6)(0.0)
-    val vac = Array.fill(6)(0)
+    val rng    = new Random(42)
+    val wages  = Array.fill(6)(0.0)
+    val vac    = Array.fill(6)(0)
     val target = SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
     target should not be 0
     target should be >= 0
@@ -131,7 +131,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   it should "decrease monotonically with friction" in {
     for f <- 1 to 10 do
-      val low = SectoralMobility.crossSectorWagePenalty(f * 0.1 - 0.1)
+      val low  = SectoralMobility.crossSectorWagePenalty(f * 0.1 - 0.1)
       val high = SectoralMobility.crossSectorWagePenalty(f * 0.1)
       high should be <= low
   }
@@ -175,10 +175,10 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     )
 
   private def mkHousehold(
-    id: Int,
-    status: HhStatus,
-    skill: Double = 0.7,
-    healthPenalty: Double = 0.0,
+      id: Int,
+      status: HhStatus,
+      skill: Double = 0.7,
+      healthPenalty: Double = 0.0,
   ): Household.State =
     Household.State(
       HhId(id),

@@ -2,11 +2,13 @@ package sfc.config
 
 import sfc.types.*
 
-/** Foreign exchange market: PLN/EUR base rate, trade propensities, and interest rate parity.
+/** Foreign exchange market: PLN/EUR base rate, trade propensities, and interest
+  * rate parity.
   *
-  * Models the bilateral PLN/EUR exchange rate with interest rate parity (IRP) adjustment, import propensity, technology
-  * import channel, and export automation boost. Provides the exchange rate foundation used by OpenEconConfig,
-  * GvcConfig, TourismConfig, and RemittanceConfig.
+  * Models the bilateral PLN/EUR exchange rate with interest rate parity (IRP)
+  * adjustment, import propensity, technology import channel, and export
+  * automation boost. Provides the exchange rate foundation used by
+  * OpenEconConfig, GvcConfig, TourismConfig, and RemittanceConfig.
   *
   * `exportBase` is in raw PLN — scaled by `gdpRatio` in `SimParams.defaults`.
   *
@@ -28,14 +30,14 @@ import sfc.types.*
   *   export productivity boost from firm automation
   */
 case class ForexConfig(
-  baseExRate: Double = 4.33,
-  foreignRate: Rate = Rate(0.04),
-  importPropensity: Ratio = Ratio(0.22),
-  exportBase: PLN = PLN(55.4e9), // raw — scaled by gdpRatio
-  techImportShare: Ratio = Ratio(0.40),
-  irpSensitivity: Double = 0.15,
-  exRateAdjSpeed: Ratio = Ratio(0.02),
-  exportAutoBoost: Ratio = Ratio(0.15),
+    baseExRate: Double = 4.33,
+    foreignRate: Rate = Rate(0.04),
+    importPropensity: Ratio = Ratio(0.22),
+    exportBase: PLN = PLN(55.4e9), // raw — scaled by gdpRatio
+    techImportShare: Ratio = Ratio(0.40),
+    irpSensitivity: Double = 0.15,
+    exRateAdjSpeed: Ratio = Ratio(0.02),
+    exportAutoBoost: Ratio = Ratio(0.15),
 ):
   require(baseExRate > 0, s"baseExRate must be positive: $baseExRate")
   require(

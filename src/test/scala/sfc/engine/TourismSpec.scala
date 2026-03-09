@@ -10,7 +10,7 @@ import sfc.types.*
 class TourismSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // ==========================================================================
@@ -63,7 +63,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "Seasonal factor" should "peak in July (month 7) above 1.0" in {
     val monthInYear = 7
-    val factor = 1.0 + p.tourism.seasonality.toDouble *
+    val factor      = 1.0 + p.tourism.seasonality.toDouble *
       Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
     factor shouldBe 1.0 + p.tourism.seasonality.toDouble // cos(0) = 1
     factor should be > 1.0
@@ -71,7 +71,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   it should "trough in January below 1.0" in {
     val monthInYear = 1
-    val factor = 1.0 + p.tourism.seasonality.toDouble *
+    val factor      = 1.0 + p.tourism.seasonality.toDouble *
       Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
     factor should be < 1.0
   }
@@ -81,7 +81,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       1.0 + p.tourism.seasonality.toDouble *
         Math.cos(2 * Math.PI * (m - p.tourism.peakMonth) / 12.0)
     }
-    val avg = factors.sum / 12.0
+    val avg     = factors.sum / 12.0
     avg shouldBe 1.0 +- 1e-10
   }
 
@@ -90,19 +90,19 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "ER adjustment" should "increase inbound tourism when PLN weakens" in {
-    val weakerER = p.forex.baseExRate * 1.2
+    val weakerER     = p.forex.baseExRate * 1.2
     val inboundErAdj = Math.pow(weakerER / p.forex.baseExRate, p.tourism.erElasticity)
     inboundErAdj should be > 1.0
   }
 
   it should "decrease outbound tourism when PLN weakens" in {
-    val weakerER = p.forex.baseExRate * 1.2
+    val weakerER      = p.forex.baseExRate * 1.2
     val outboundErAdj = Math.pow(p.forex.baseExRate / weakerER, p.tourism.erElasticity)
     outboundErAdj should be < 1.0
   }
 
   it should "apply partial pass-through (exponent = 0.6)" in {
-    val weakerER = p.forex.baseExRate * 1.2
+    val weakerER     = p.forex.baseExRate * 1.2
     val inboundErAdj = Math.pow(weakerER / p.forex.baseExRate, 0.6)
     inboundErAdj should be > 1.0
     inboundErAdj should be < 1.2 // partial, not full pass-through
@@ -135,11 +135,10 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "apply disruption at shock trigger month" in {
-    val shockMonth = 24
-    val m = 24
-    val disruption =
-      if shockMonth > 0 && m >= shockMonth then
-        p.tourism.shockSize.toDouble * Math.pow(1.0 - p.tourism.shockRecovery.toDouble, (m - shockMonth).toDouble)
+    val shockMonth  = 24
+    val m           = 24
+    val disruption  =
+      if shockMonth > 0 && m >= shockMonth then p.tourism.shockSize.toDouble * Math.pow(1.0 - p.tourism.shockRecovery.toDouble, (m - shockMonth).toDouble)
       else 0.0
     // At trigger month: disruption = 0.80 * (0.97)^0 = 0.80
     disruption shouldBe 0.80
@@ -148,9 +147,9 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "recover gradually after shock" in {
-    val shockMonth = 24
-    val m = 36 // 12 months after shock
-    val disruption =
+    val shockMonth  = 24
+    val m           = 36 // 12 months after shock
+    val disruption  =
       p.tourism.shockSize.toDouble * Math.pow(1.0 - p.tourism.shockRecovery.toDouble, (m - shockMonth).toDouble)
     disruption should be < p.tourism.shockSize.toDouble
     disruption should be > 0.0
@@ -164,19 +163,19 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Full formula" should "combine all components multiplicatively" in {
-    val baseGdp = 1e9
+    val baseGdp     = 1e9
     val monthInYear = 7 // peak month
-    val m = 12
-    val er = p.forex.baseExRate * 1.1
+    val m           = 12
+    val er          = p.forex.baseExRate * 1.1
 
     val seasonalFactor = 1.0 + p.tourism.seasonality.toDouble *
       Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
-    val inboundErAdj = Math.pow(er / p.forex.baseExRate, p.tourism.erElasticity)
-    val outboundErAdj = Math.pow(p.forex.baseExRate / er, p.tourism.erElasticity)
-    val trendAdj = Math.pow(1.0 + p.tourism.growthRate.toDouble / 12.0, m.toDouble)
-    val shockFactor = 1.0 // no shock
+    val inboundErAdj   = Math.pow(er / p.forex.baseExRate, p.tourism.erElasticity)
+    val outboundErAdj  = Math.pow(p.forex.baseExRate / er, p.tourism.erElasticity)
+    val trendAdj       = Math.pow(1.0 + p.tourism.growthRate.toDouble / 12.0, m.toDouble)
+    val shockFactor    = 1.0 // no shock
 
-    val inbound = baseGdp * p.tourism.inboundShare.toDouble *
+    val inbound  = baseGdp * p.tourism.inboundShare.toDouble *
       seasonalFactor * inboundErAdj * trendAdj * shockFactor
     val outbound = baseGdp * p.tourism.outboundShare.toDouble *
       seasonalFactor * outboundErAdj * trendAdj * shockFactor
@@ -209,11 +208,11 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "OpenEconomy exports" should "include tourismExport" in {
-    val prevBop = BopState.zero
+    val prevBop   = BopState.zero
     val prevForex = ForexState(p.forex.baseExRate, PLN.Zero, PLN(p.forex.exportBase.toDouble), PLN.Zero, PLN.Zero)
-    val rc = sfc.config.RunConfig(1, "test")
+    val rc        = sfc.config.RunConfig(1, "test")
 
-    val resultWith =
+    val resultWith    =
       OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, tourismExport = 1000.0)
     val resultWithout =
       OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, tourismExport = 0.0)
@@ -222,11 +221,11 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   }
 
   "OpenEconomy imports" should "include tourismImport" in {
-    val prevBop = BopState.zero
+    val prevBop   = BopState.zero
     val prevForex = ForexState(p.forex.baseExRate, PLN.Zero, PLN(p.forex.exportBase.toDouble), PLN.Zero, PLN.Zero)
-    val rc = sfc.config.RunConfig(1, "test")
+    val rc        = sfc.config.RunConfig(1, "test")
 
-    val resultWith =
+    val resultWith    =
       OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, tourismImport = 500.0)
     val resultWithout =
       OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, tourismImport = 0.0)

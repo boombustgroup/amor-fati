@@ -6,5 +6,5 @@ package sfc.config
   *   number of monthly time-steps to simulate (default 120 = 10 years)
   */
 case class TimelineConfig(
-  duration: Int = 120,
+    duration: Int = 120,
 )

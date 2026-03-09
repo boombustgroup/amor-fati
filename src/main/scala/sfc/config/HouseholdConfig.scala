@@ -2,10 +2,13 @@ package sfc.config
 
 import sfc.types.*
 
-/** Household agent parameters: wages, consumption, savings, debt, and consumer credit.
+/** Household agent parameters: wages, consumption, savings, debt, and consumer
+  * credit.
   *
-  * Each household is an individual agent with heterogeneous MPC (Beta-distributed), log-normal savings and debt, skill
-  * level subject to decay and scarring, and access to consumer credit. Rent is drawn from a truncated normal.
+  * Each household is an individual agent with heterogeneous MPC
+  * (Beta-distributed), log-normal savings and debt, skill level subject to
+  * decay and scarring, and access to consumer credit. Rent is drawn from a
+  * truncated normal.
   *
   * @param baseWage
   *   mean monthly gross wage (PLN, GUS 2024: ~8,266 PLN)
@@ -58,7 +61,8 @@ import sfc.types.*
   * @param retrainingEnabled
   *   whether retraining mechanism is active
   * @param bankruptcyThreshold
-  *   savings threshold (in multiples of monthly wage) below which household defaults
+  *   savings threshold (in multiples of monthly wage) below which household
+  *   defaults
   * @param socialK
   *   Watts-Strogatz degree for household social network
   * @param socialP
@@ -72,7 +76,8 @@ import sfc.types.*
   * @param ccSpread
   *   consumer credit spread over policy rate (NBP MIR 2024)
   * @param ccMaxDti
-  *   maximum debt-to-income ratio for consumer credit eligibility (KNF Recommendation T)
+  *   maximum debt-to-income ratio for consumer credit eligibility (KNF
+  *   Recommendation T)
   * @param ccMaxLoan
   *   maximum consumer loan size (PLN)
   * @param ccAmortRate
@@ -83,52 +88,52 @@ import sfc.types.*
   *   fraction of employed households eligible for consumer credit each month
   */
 case class HouseholdConfig(
-  baseWage: PLN = PLN(8266.0),
-  baseReservationWage: PLN = PLN(4666.0),
-  mpc: Ratio = Ratio(0.82),
-  laborSupplySteepness: Double = 8.0,
-  wageAdjSpeed: Ratio = Ratio(0.12),
-  // Household count (defaults to totalPopulation — set in SimParams.defaults)
-  count: Int = 100000,
-  // Savings distribution
-  savingsMu: Double = 9.6,
-  savingsSigma: Double = 1.2,
-  // Debt
-  debtFraction: Ratio = Ratio(0.40),
-  debtMu: Double = 10.5,
-  debtSigma: Double = 1.5,
-  // Rent
-  rentMean: PLN = PLN(1800.0),
-  rentStd: PLN = PLN(400.0),
-  rentFloor: PLN = PLN(800.0),
-  // MPC distribution
-  mpcAlpha: Double = 8.2,
-  mpcBeta: Double = 1.8,
-  // Skill decay & scarring
-  skillDecayRate: Rate = Rate(0.02),
-  scarringRate: Rate = Rate(0.02),
-  scarringCap: Ratio = Ratio(0.50),
-  scarringOnset: Int = 3,
-  // Retraining
-  retrainingCost: PLN = PLN(5000.0),
-  retrainingDuration: Int = 6,
-  retrainingBaseSuccess: Ratio = Ratio(0.60),
-  retrainingProb: Ratio = Ratio(0.15),
-  retrainingEnabled: Boolean = true,
-  // Bankruptcy
-  bankruptcyThreshold: Double = -3.0,
-  // Social network
-  socialK: Int = 10,
-  socialP: Ratio = Ratio(0.15),
-  // Debt service
-  debtServiceRate: Ratio = Ratio(0.02),
-  baseAmortRate: Ratio = Ratio(0.015),
-  depositSpread: Rate = Rate(0.02),
-  // Consumer credit
-  ccSpread: Rate = Rate(0.04),
-  ccMaxDti: Ratio = Ratio(0.40),
-  ccMaxLoan: PLN = PLN(50000.0),
-  ccAmortRate: Rate = Rate(0.025),
-  ccNplRecovery: Ratio = Ratio(0.15),
-  ccEligRate: Ratio = Ratio(0.30),
+    baseWage: PLN = PLN(8266.0),
+    baseReservationWage: PLN = PLN(4666.0),
+    mpc: Ratio = Ratio(0.82),
+    laborSupplySteepness: Double = 8.0,
+    wageAdjSpeed: Ratio = Ratio(0.12),
+    // Household count (defaults to totalPopulation — set in SimParams.defaults)
+    count: Int = 100000,
+    // Savings distribution
+    savingsMu: Double = 9.6,
+    savingsSigma: Double = 1.2,
+    // Debt
+    debtFraction: Ratio = Ratio(0.40),
+    debtMu: Double = 10.5,
+    debtSigma: Double = 1.5,
+    // Rent
+    rentMean: PLN = PLN(1800.0),
+    rentStd: PLN = PLN(400.0),
+    rentFloor: PLN = PLN(800.0),
+    // MPC distribution
+    mpcAlpha: Double = 8.2,
+    mpcBeta: Double = 1.8,
+    // Skill decay & scarring
+    skillDecayRate: Rate = Rate(0.02),
+    scarringRate: Rate = Rate(0.02),
+    scarringCap: Ratio = Ratio(0.50),
+    scarringOnset: Int = 3,
+    // Retraining
+    retrainingCost: PLN = PLN(5000.0),
+    retrainingDuration: Int = 6,
+    retrainingBaseSuccess: Ratio = Ratio(0.60),
+    retrainingProb: Ratio = Ratio(0.15),
+    retrainingEnabled: Boolean = true,
+    // Bankruptcy
+    bankruptcyThreshold: Double = -3.0,
+    // Social network
+    socialK: Int = 10,
+    socialP: Ratio = Ratio(0.15),
+    // Debt service
+    debtServiceRate: Ratio = Ratio(0.02),
+    baseAmortRate: Ratio = Ratio(0.015),
+    depositSpread: Rate = Rate(0.02),
+    // Consumer credit
+    ccSpread: Rate = Rate(0.04),
+    ccMaxDti: Ratio = Ratio(0.40),
+    ccMaxLoan: PLN = PLN(50000.0),
+    ccAmortRate: Rate = Rate(0.025),
+    ccNplRecovery: Ratio = Ratio(0.15),
+    ccEligRate: Ratio = Ratio(0.30),
 )

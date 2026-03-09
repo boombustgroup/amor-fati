@@ -10,7 +10,7 @@ import sfc.types.*
 class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // ==========================================================================
@@ -42,7 +42,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Per-capita base" should "be positive for positive WAP" in {
-    val wap = 1000
+    val wap  = 1000
     val base = p.remittance.perCapita.toDouble * wap.toDouble
     base should be > 0.0
   }
@@ -53,20 +53,20 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "ER adjustment" should "increase inflow when PLN weakens" in {
     val weakerER = p.forex.baseExRate * 1.2 // PLN weaker → higher exchange rate number
-    val erAdj = Math.pow(weakerER / p.forex.baseExRate, p.remittance.erElasticity)
+    val erAdj    = Math.pow(weakerER / p.forex.baseExRate, p.remittance.erElasticity)
     erAdj should be > 1.0
   }
 
   it should "decrease inflow when PLN strengthens" in {
     val strongerER = p.forex.baseExRate * 0.8
-    val erAdj = Math.pow(strongerER / p.forex.baseExRate, p.remittance.erElasticity)
+    val erAdj      = Math.pow(strongerER / p.forex.baseExRate, p.remittance.erElasticity)
     erAdj should be < 1.0
   }
 
   it should "apply partial pass-through (exponent = 0.5)" in {
     // 20% depreciation → sqrt(1.2) ≈ 1.095 (not full 1.2)
     val weakerER = p.forex.baseExRate * 1.2
-    val erAdj = Math.pow(weakerER / p.forex.baseExRate, 0.5)
+    val erAdj    = Math.pow(weakerER / p.forex.baseExRate, 0.5)
     erAdj should be > 1.0
     erAdj should be < 1.2
     erAdj shouldBe Math.sqrt(1.2) +- 1e-10
@@ -94,7 +94,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "Cyclical adjustment" should "increase with unemployment above 5%" in {
     val highUnemp = 0.10
-    val adj = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, highUnemp - 0.05)
+    val adj       = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, highUnemp - 0.05)
     adj should be > 1.0
   }
 
@@ -105,7 +105,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   it should "be neutral at unemployment < 5%" in {
     val lowUnemp = 0.03
-    val adj = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, lowUnemp - 0.05)
+    val adj      = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, lowUnemp - 0.05)
     adj shouldBe 1.0
   }
 
@@ -114,16 +114,16 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Full formula" should "combine all components correctly" in {
-    val wap = 1000
+    val wap   = 1000
     val month = 12
     val unemp = 0.08
-    val er = p.forex.baseExRate * 1.1
+    val er    = p.forex.baseExRate * 1.1
 
-    val base = p.remittance.perCapita.toDouble * wap.toDouble
-    val erAdj = Math.pow(er / p.forex.baseExRate, p.remittance.erElasticity)
-    val trendAdj = Math.pow(1.0 + p.remittance.growthRate.toDouble / 12.0, month.toDouble)
+    val base        = p.remittance.perCapita.toDouble * wap.toDouble
+    val erAdj       = Math.pow(er / p.forex.baseExRate, p.remittance.erElasticity)
+    val trendAdj    = Math.pow(1.0 + p.remittance.growthRate.toDouble / 12.0, month.toDouble)
     val cyclicalAdj = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, unemp - 0.05)
-    val result = base * erAdj * trendAdj * cyclicalAdj
+    val result      = base * erAdj * trendAdj * cyclicalAdj
 
     result should be > 0.0
     // base = 40 * 1000 = 40000
@@ -153,11 +153,11 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "secondaryIncome" should "include diasporaInflow as credit" in {
-    val prevBop = BopState.zero
+    val prevBop   = BopState.zero
     val prevForex = ForexState(p.forex.baseExRate, PLN.Zero, PLN(p.forex.exportBase.toDouble), PLN.Zero, PLN.Zero)
-    val rc = sfc.config.RunConfig(1, "test")
+    val rc        = sfc.config.RunConfig(1, "test")
 
-    val resultWith =
+    val resultWith    =
       OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, diasporaInflow = 1000.0)
     val resultWithout =
       OpenEconomy.step(prevBop, prevForex, 0, 0, 0, 0.05, 1e9, 1.0, Vector.fill(6)(1e8), 1, rc, diasporaInflow = 0.0)
@@ -166,9 +166,9 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "net outflow and inflow" in {
-    val prevBop = BopState.zero
+    val prevBop   = BopState.zero
     val prevForex = ForexState(p.forex.baseExRate, PLN.Zero, PLN(p.forex.exportBase.toDouble), PLN.Zero, PLN.Zero)
-    val rc = sfc.config.RunConfig(1, "test")
+    val rc        = sfc.config.RunConfig(1, "test")
 
     val result = OpenEconomy.step(
       prevBop,
@@ -195,7 +195,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Net remittances" should "be inflow minus outflow" in {
-    val inflow = 1000.0
+    val inflow  = 1000.0
     val outflow = 400.0
     (inflow - outflow) shouldBe 600.0
   }

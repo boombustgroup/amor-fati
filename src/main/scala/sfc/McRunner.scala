@@ -16,9 +16,11 @@ import java.io.File
 /** Monte Carlo runner: simulation loop, CSV writers, summary statistics. */
 object McRunner:
 
-  /** Run one simulation with given seed. Throws [[Sfc.SfcViolationException]] on any SFC identity violation. */
+  /** Run one simulation with given seed. Throws [[Sfc.SfcViolationException]]
+    * on any SFC identity violation.
+    */
   def runSingle(seed: Int, rc: RunConfig)(using p: SimParams): RunResult =
-    val init = WorldInit.initialize(seed, rc)
+    val init  = WorldInit.initialize(seed, rc)
     var state = Simulation.SimState(init.world, init.firms, init.households)
 
     val results = Array.ofDim[Double](p.timeline.duration, SimOutput.nCols)
@@ -36,7 +38,7 @@ object McRunner:
   def run(rc: RunConfig)(using SimParams): Unit =
     printBanner(rc)
     val results = runAll(rc, defaultProgress(rc))
-    val outDir = new File("mc")
+    val outDir  = new File("mc")
     if !outDir.exists() then outDir.mkdirs()
     writeResults(rc, results, outDir)
     println(s"Saved: mc/${rc.outputPrefix}_terminal.csv")
@@ -49,11 +51,11 @@ object McRunner:
 
   def runAll(rc: RunConfig, onProgress: (Int, RunResult, Long) => Unit)(using SimParams): McResults =
     val startTime = System.currentTimeMillis()
-    val builder = Vector.newBuilder[RunResult]
+    val builder   = Vector.newBuilder[RunResult]
     builder.sizeHint(rc.nSeeds)
 
     for seed <- 1 to rc.nSeeds do
-      val t0 = System.currentTimeMillis()
+      val t0     = System.currentTimeMillis()
       val result = runSingle(seed, rc)
       builder += result
       onProgress(seed, result, System.currentTimeMillis() - t0)
@@ -65,10 +67,10 @@ object McRunner:
   private def defaultProgress(rc: RunConfig): (Int, RunResult, Long) => Unit =
     (seed, result, dt) =>
       if seed <= 3 || seed % 10 == 0 || seed == rc.nSeeds then
-        val last = result.timeSeries.lastMonth
-        val adoption = last(Col.TotalAdoption.ordinal)
+        val last      = result.timeSeries.lastMonth
+        val adoption  = last(Col.TotalAdoption.ordinal)
         val inflation = last(Col.Inflation.ordinal)
-        val unemp = last(Col.Unemployment.ordinal)
+        val unemp     = last(Col.Unemployment.ordinal)
         println(
           f"  Seed $seed%3d/${rc.nSeeds} (${dt}ms) | " +
             f"Adopt=${adoption * 100}%5.1f%% | pi=${inflation * 100}%5.1f%% | " +
@@ -87,7 +89,7 @@ object McRunner:
 
   // -- Per-seed terminal values CSV --
   private def writeTerminalCsv(rc: RunConfig, results: McResults, dir: File): Unit =
-    val nCols = SimOutput.nCols
+    val nCols    = SimOutput.nCols
     val colNames = SimOutput.colNames
     CsvWriter.write(
       new File(dir, s"${rc.outputPrefix}_terminal.csv"),
@@ -95,7 +97,7 @@ object McRunner:
       results.runs.zipWithIndex,
     ) { case (run, idx) =>
       val last = run.timeSeries.lastMonth
-      val sb = new StringBuilder
+      val sb   = new StringBuilder
       sb.append(idx + 1)
       for c <- 1 until nCols do sb.append(f";${last(c)}%.6f")
       sb.toString
@@ -156,7 +158,7 @@ object McRunner:
   private def writeBankTerminalCsv(rc: RunConfig, results: McResults, dir: File): Unit =
     val rows = for
       (run, idx) <- results.runs.zipWithIndex
-      b <- run.terminalState.world.bankingSector.banks
+      b          <- run.terminalState.world.bankingSector.banks
     yield (idx, b)
     CsvWriter.write(
       new File(dir, s"${rc.outputPrefix}_banks_terminal.csv"),
@@ -168,9 +170,9 @@ object McRunner:
 
   // -- Aggregated time-series (mean, std, p05, p95) via batch API --
   private def writeTimeseriesCsv(rc: RunConfig, results: McResults, dir: File)(using p: SimParams): Unit =
-    val nMonths = p.timeline.duration
-    val nCols = SimOutput.nCols
-    val colNames = SimOutput.colNames
+    val nMonths     = p.timeline.duration
+    val nCols       = SimOutput.nCols
+    val colNames    = SimOutput.colNames
     val headerParts =
       (1 until nCols).map(c => s"${colNames(c)}_mean;${colNames(c)}_std;${colNames(c)}_p05;${colNames(c)}_p95")
     CsvWriter.write(
@@ -179,7 +181,7 @@ object McRunner:
       0 until nMonths,
     ) { t =>
       val allStats = results.crossSeedStatsAll(t, nCols)
-      val sb = new StringBuilder
+      val sb       = new StringBuilder
       sb.append(t + 1)
       for c <- 1 until nCols do
         val ds = allStats(c)
@@ -198,7 +200,7 @@ object McRunner:
 
     def statsSummary(name: String, col: Col, mult: Double = 1.0): Unit =
       val vals = results.terminalValues(col)
-      val ds =
+      val ds   =
         if mult == 1.0 then DescriptiveStats.fromSorted(vals)
         else DescriptiveStats.from(vals.map(_ * mult))
       println(f"  $name%-25s mean=${ds.mean}%8.2f +/- ${ds.std}%6.2f  [${ds.p05}%8.2f, ${ds.p95}%8.2f]")
@@ -215,11 +217,11 @@ object McRunner:
     println("\nHousehold aggregates at M120:")
     val allHhAgg = results.runs.map(_.terminalState.world.hhAgg.get)
     if allHhAgg.nonEmpty then
-      val avgGini = allHhAgg.kahanSumBy(_.giniIndividual.toDouble) / allHhAgg.length
+      val avgGini   = allHhAgg.kahanSumBy(_.giniIndividual.toDouble) / allHhAgg.length
       val avgWealth = allHhAgg.kahanSumBy(_.giniWealth.toDouble) / allHhAgg.length
-      val avgBankr = allHhAgg.kahanSumBy(_.bankruptcyRate.toDouble) / allHhAgg.length
-      val avgPov50 = allHhAgg.kahanSumBy(_.povertyRate50.toDouble) / allHhAgg.length
-      val avgSkill = allHhAgg.kahanSumBy(_.meanSkill) / allHhAgg.length
+      val avgBankr  = allHhAgg.kahanSumBy(_.bankruptcyRate.toDouble) / allHhAgg.length
+      val avgPov50  = allHhAgg.kahanSumBy(_.povertyRate50.toDouble) / allHhAgg.length
+      val avgSkill  = allHhAgg.kahanSumBy(_.meanSkill) / allHhAgg.length
       println(f"  Gini (income)        mean=${avgGini * 100}%8.2f%%")
       println(f"  Gini (wealth)        mean=${avgWealth * 100}%8.2f%%")
       println(f"  Bankruptcy rate      mean=${avgBankr * 100}%8.2f%%")
@@ -231,10 +233,10 @@ object McRunner:
     for s <- SectorDefs.indices do statsSummary(f"  ${secNames(s)}%-22s", Col.sectorAuto(s), 100.0)
 
   private def printBanner(rc: RunConfig)(using p: SimParams): Unit =
-    val topoLabel = TOPOLOGY.toString.toUpperCase
+    val topoLabel  = TOPOLOGY.toString.toUpperCase
     val firmsLabel = f"${p.pop.firmsCount}%,d"
-    val hhLabel = s" | HH=individual (${p.household.count})"
-    val bankLabel = " | BANK=multi (7)"
+    val hhLabel    = s" | HH=individual (${p.household.count})"
+    val bankLabel  = " | BANK=multi (7)"
     println(s"+" + "=" * 68 + "+")
     println(s"|  SFC-ABM v8: N=${rc.nSeeds} seeds, PLN (NBP)${hhLabel}${bankLabel}")
     println(s"|  ${firmsLabel} firms x 6 sectors (GUS 2024) x ${topoLabel} network x 120m")

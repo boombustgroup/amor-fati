@@ -29,7 +29,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
 
   "Social transfer formula" should "compute rate * children" in {
     // 2 children × 800 PLN = 1600 PLN/month
-    val rate = 800.0
+    val rate     = 800.0
     val children = 2
     val expected = children.toDouble * rate
     expected shouldBe 1600.0
@@ -54,16 +54,16 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have mean approximately equal to lambda" in {
-    val rng = new Random(42)
-    val lambda = 0.35
-    val n = 10000
+    val rng     = new Random(42)
+    val lambda  = 0.35
+    val n       = 10000
     val samples = (0 until n).map(_ => Household.Init.poissonSample(lambda, rng))
-    val mean = samples.sum.toDouble / n
+    val mean    = samples.sum.toDouble / n
     mean shouldBe lambda +- (lambda * 0.10) // ±10% tolerance
   }
 
   it should "produce non-negative values" in {
-    val rng = new Random(42)
+    val rng     = new Random(42)
     val samples = (0 until 1000).map(_ => Household.Init.poissonSample(0.35, rng))
     all(samples) should be >= 0
   }

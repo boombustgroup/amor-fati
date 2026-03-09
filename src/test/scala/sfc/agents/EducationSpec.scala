@@ -11,7 +11,7 @@ import scala.util.Random
 class EducationSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // ---- Config helpers ----
@@ -104,7 +104,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be preserved through copy" in {
-    val hh = Household.State(
+    val hh     = Household.State(
       HhId(0),
       PLN(1000.0),
       PLN.Zero,
@@ -137,7 +137,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       SectorIdx(0),
       Array.empty[FirmId],
     )
-    val newFirm = Firm.State(
+    val newFirm  = Firm.State(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -149,7 +149,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
     )
 
-    val hhPrimary = Household.State(
+    val hhPrimary    = Household.State(
       HhId(0),
       PLN(5000.0),
       PLN.Zero,
@@ -161,7 +161,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Array.empty[HhId],
       education = 0,
     )
-    val hhTertiary = Household.State(
+    val hhTertiary   = Household.State(
       HhId(1),
       PLN(5000.0),
       PLN.Zero,
@@ -194,8 +194,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
 
     // Tertiary (id=1) should be retained first, then vocational (id=2). Primary (id=0) fired.
     result(0).status shouldBe a[HhStatus.Unemployed] // primary fired
-    result(1).status shouldBe a[HhStatus.Employed] // tertiary retained
-    result(2).status shouldBe a[HhStatus.Employed] // vocational retained
+    result(1).status shouldBe a[HhStatus.Employed]   // tertiary retained
+    result(2).status shouldBe a[HhStatus.Employed]   // vocational retained
   }
 
   it should "use skill as tiebreaker within same education level" in {
@@ -210,7 +210,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       SectorIdx(0),
       Array.empty[FirmId],
     )
-    val newFirm = Firm.State(
+    val newFirm  = Firm.State(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -222,7 +222,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
     )
 
-    val hhLowSkill = Household.State(
+    val hhLowSkill  = Household.State(
       HhId(0),
       PLN(5000.0),
       PLN.Zero,
@@ -246,7 +246,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Array.empty[HhId],
       education = 2,
     )
-    val hhMidSkill = Household.State(
+    val hhMidSkill  = Household.State(
       HhId(2),
       PLN(5000.0),
       PLN.Zero,
@@ -266,14 +266,14 @@ class EducationSpec extends AnyFlatSpec with Matchers:
     )
 
     result(0).status shouldBe a[HhStatus.Unemployed] // low skill fired
-    result(1).status shouldBe a[HhStatus.Employed] // high skill retained
-    result(2).status shouldBe a[HhStatus.Employed] // mid skill retained
+    result(1).status shouldBe a[HhStatus.Employed]   // high skill retained
+    result(2).status shouldBe a[HhStatus.Employed]   // mid skill retained
   }
 
   // ---- Immigrant education ----
 
   "Immigration.spawnImmigrants" should "assign education levels to immigrants" in {
-    val rng = new Random(42)
+    val rng        = new Random(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
       h.education should be >= 0
@@ -282,7 +282,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "clamp immigrant skill within education-specific range" in {
-    val rng = new Random(42)
+    val rng        = new Random(42)
     val immigrants = Immigration.spawnImmigrants(200, 0, rng)
     immigrants.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
@@ -294,8 +294,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   // ---- HouseholdInit education ----
 
   "Household.Init.initialize" should "assign education to all households" in {
-    val rng = new Random(42)
-    val firms = Vector(
+    val rng       = new Random(42)
+    val firms     = Vector(
       Firm.State(
         FirmId(0),
         PLN(1000000.0),
@@ -320,7 +320,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
-    val hhs = Household.Init.initialize(10, 2, firms, socialNet, rng)
+    val hhs       = Household.Init.initialize(10, 2, firms, socialNet, rng)
     hhs.foreach { h =>
       h.education should be >= 0
       h.education should be <= 3
@@ -328,8 +328,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "clamp skill within education-specific range" in {
-    val rng = new Random(42)
-    val firms = Vector(
+    val rng       = new Random(42)
+    val firms     = Vector(
       Firm.State(
         FirmId(0),
         PLN(1000000.0),
@@ -343,7 +343,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
-    val hhs = Household.Init.initialize(10, 1, firms, socialNet, rng)
+    val hhs       = Household.Init.initialize(10, 1, firms, socialNet, rng)
     hhs.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
       h.skill.toDouble should be >= floor

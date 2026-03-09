@@ -10,8 +10,8 @@ import scala.util.Random
 /** Factory for firm array initialization. */
 object FirmInit:
 
-  /** Create firm array with all post-creation enhancements. Returns (firms, actualTotalPopulation) — caller handles
-    * totalPopulation.
+  /** Create firm array with all post-creation enhancements. Returns (firms,
+    * actualTotalPopulation) — caller handles totalPopulation.
     */
   def create(rng: Random)(using p: SimParams): (Vector[Firm.State], Int) =
     // Generate network based on TOPOLOGY env var
@@ -22,7 +22,7 @@ object FirmInit:
       case Topology.Lattice => Network.lattice(p.pop.firmsCount, p.firm.networkK)
 
     // Assign sectors
-    val sectorCounts = SectorDefs.map(s => (s.share.toDouble * p.pop.firmsCount).toInt)
+    val sectorCounts      = SectorDefs.map(s => (s.share.toDouble * p.pop.firmsCount).toInt)
     val sectorAssignments =
       val arr = new Array[Int](p.pop.firmsCount)
       var idx = 0
@@ -40,7 +40,7 @@ object FirmInit:
 
     // Initialize firms
     var firms = (0 until p.pop.firmsCount).map { i =>
-      val sec = SectorDefs(sectorAssignments(i))
+      val sec      = SectorDefs(sectorAssignments(i))
       val firmSize = FirmSizeDistribution.draw(rng)
       val sizeMult = firmSize.toDouble / p.pop.workersPerFirm
       Firm.State(
@@ -50,8 +50,7 @@ object FirmInit:
         tech = TechState.Traditional(firmSize),
         riskProfile = Ratio(rng.between(0.1, 0.9)),
         innovationCostFactor = rng.between(0.8, 1.5),
-        digitalReadiness =
-          Ratio(Math.max(0.02, Math.min(0.98, sec.baseDigitalReadiness.toDouble + (rng.nextGaussian() * 0.20)))),
+        digitalReadiness = Ratio(Math.max(0.02, Math.min(0.98, sec.baseDigitalReadiness.toDouble + (rng.nextGaussian() * 0.20)))),
         sector = SectorIdx(sectorAssignments(i)),
         neighbors = adjList(i).map(FirmId(_)),
         initialSize = firmSize,
@@ -61,10 +60,7 @@ object FirmInit:
     val actualTotalPop = firms.map(f => Firm.workers(f)).sum
 
     // Physical capital stock
-    if p.flags.physCap then
-      firms = firms.map(f =>
-        f.copy(capitalStock = PLN(Firm.workers(f).toDouble * p.capital.klRatios.map(_.toDouble)(f.sector.toInt))),
-      )
+    if p.flags.physCap then firms = firms.map(f => f.copy(capitalStock = PLN(Firm.workers(f).toDouble * p.capital.klRatios.map(_.toDouble)(f.sector.toInt))))
 
     // Assign firms to banks (always 7 banks via DefaultConfigs)
     firms = firms.map(f => f.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng)))
@@ -79,7 +75,7 @@ object FirmInit:
     // Initialize inventory stock (#43)
     if p.flags.inventory then
       firms = firms.map { f =>
-        val capacity = Firm.capacity(f).toDouble
+        val capacity  = Firm.capacity(f).toDouble
         val targetInv = capacity * p.capital.inventoryTargetRatios.map(_.toDouble)(f.sector.toInt)
         f.copy(inventory = PLN(targetInv * p.capital.inventoryInitRatio.toDouble))
       }
@@ -92,9 +88,9 @@ object FirmInit:
       }
 
     // Distribute firm cash/debt proportionally to firm size (realistic initialization)
-    val totalWorkers = firms.map(f => Firm.workers(f)).sum
+    val totalWorkers     = firms.map(f => Firm.workers(f)).sum
     val firmDepositShare = 0.35 // ~35% of deposits are corporate (NBP M3 2024)
-    val totalFirmCash = p.banking.initDeposits.toDouble * firmDepositShare
+    val totalFirmCash    = p.banking.initDeposits.toDouble * firmDepositShare
     firms = firms.map { f =>
       val workerShare = Firm.workers(f).toDouble / totalWorkers
       f.copy(

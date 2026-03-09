@@ -14,10 +14,10 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
   "Immigration.computeInflow" should "always return non-negative" in {
     val rng = new Random(42)
     for _ <- 0 until 100 do
-      val wap = rng.nextInt(200000) + 1
-      val wage = rng.nextDouble() * 20000
-      val unemp = rng.nextDouble()
-      val month = rng.nextInt(120) + 1
+      val wap    = rng.nextInt(200000) + 1
+      val wage   = rng.nextDouble() * 20000
+      val unemp  = rng.nextDouble()
+      val month  = rng.nextInt(120) + 1
       val result = Immigration.computeInflow(wap, wage, unemp, month)
       result should be >= 0
   }
@@ -25,13 +25,13 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
   "Immigration.computeOutflow" should "always return non-negative" in {
     val rng = new Random(42)
     for _ <- 0 until 100 do
-      val stock = rng.nextInt(10000)
+      val stock  = rng.nextInt(10000)
       val result = Immigration.computeOutflow(stock)
       result should be >= 0
   }
 
   "Immigration.chooseSector" should "produce all 6 sectors over many draws" in {
-    val rng = new Random(42)
+    val rng     = new Random(42)
     val sectors = (0 until 1000).map(_ => Immigration.chooseSector(rng)).toSet
     sectors.size shouldBe 6
     sectors.foreach { s =>
@@ -43,14 +43,14 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
   "Immigration.spawnImmigrants" should "all have isImmigrant=true" in {
     val rng = new Random(42)
     for _ <- 0 until 10 do
-      val count = rng.nextInt(50) + 1
+      val count      = rng.nextInt(50) + 1
       val immigrants = Immigration.spawnImmigrants(count, 0, rng)
       immigrants.length shouldBe count
       immigrants.foreach(_.isImmigrant shouldBe true)
   }
 
   it should "have savings in [0, 5000] range" in {
-    val rng = new Random(42)
+    val rng        = new Random(42)
     val immigrants = Immigration.spawnImmigrants(200, 0, rng)
     immigrants.foreach { h =>
       h.savings.toDouble should be >= 0.0
@@ -59,13 +59,13 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have zero debt" in {
-    val rng = new Random(42)
+    val rng        = new Random(42)
     val immigrants = Immigration.spawnImmigrants(50, 0, rng)
     immigrants.foreach(_.debt shouldBe PLN.Zero)
   }
 
   it should "have rent >= 800" in {
-    val rng = new Random(42)
+    val rng        = new Random(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach(_.monthlyRent.toDouble should be >= 800.0)
   }
@@ -74,13 +74,13 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
     val rng = new Random(42)
     for _ <- 0 until 100 do
       val prevStock = rng.nextInt(5000)
-      val prev = Immigration.State(prevStock, 0, 0, 0.0)
-      val result = Immigration.step(prev, Vector.empty, 8000.0, 0.05, 100000, 1)
+      val prev      = Immigration.State(prevStock, 0, 0, 0.0)
+      val result    = Immigration.step(prev, Vector.empty, 8000.0, 0.05, 100000, 1)
       result.immigrantStock should be >= 0
   }
 
   "Immigration.removeReturnMigrants" should "never remove more immigrants than exist" in {
-    val hhs = (0 until 10).map { i =>
+    val hhs    = (0 until 10).map { i =>
       Household.State(
         HhId(i),
         PLN(1000.0),

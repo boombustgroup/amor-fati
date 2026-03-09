@@ -4,14 +4,18 @@ import sfc.types.*
 
 /** Physical capital and inventory accumulation at the firm level.
   *
-  * Two mechanisms: (1) physical capital with per-sector capital-labor ratios, Cobb-Douglas production, and vintage
-  * depreciation; (2) firm-level inventories with per-sector target ratios, spoilage, carrying costs, and stress
-  * liquidation. GDP accounting includes inventory investment (SNA 2008: GDP += delta-inventories).
+  * Two mechanisms: (1) physical capital with per-sector capital-labor ratios,
+  * Cobb-Douglas production, and vintage depreciation; (2) firm-level
+  * inventories with per-sector target ratios, spoilage, carrying costs, and
+  * stress liquidation. GDP accounting includes inventory investment (SNA 2008:
+  * GDP += delta-inventories).
   *
-  * Calibrated to GUS F-01 2024 (capital) and GUS 2024 industry data (inventories).
+  * Calibrated to GUS F-01 2024 (capital) and GUS 2024 industry data
+  * (inventories).
   *
   * @param klRatios
-  *   per-sector capital-labor ratio in PLN per worker (6 sectors, GUS F-01 2024)
+  *   per-sector capital-labor ratio in PLN per worker (6 sectors, GUS F-01
+  *   2024)
   * @param depRates
   *   per-sector annual capital depreciation rate (6 sectors)
   * @param importShare
@@ -40,24 +44,22 @@ import sfc.types.*
   *   cost of replacing spoiled inventory as fraction of revenue
   */
 case class CapitalConfig(
-  // Physical capital (GUS F-01 2024)
-  klRatios: Vector[PLN] =
-    Vector(PLN(120000.0), PLN(250000.0), PLN(80000.0), PLN(200000.0), PLN(150000.0), PLN(180000.0)),
-  depRates: Vector[Rate] = Vector(Rate(0.15), Rate(0.08), Rate(0.10), Rate(0.07), Rate(0.05), Rate(0.08)),
-  importShare: Ratio = Ratio(0.35),
-  adjustSpeed: Ratio = Ratio(0.10),
-  prodElast: Ratio = Ratio(0.30),
-  costReplace: Ratio = Ratio(0.50),
-  // Inventories (GUS 2024)
-  inventoryTargetRatios: Vector[Ratio] =
-    Vector(Ratio(0.05), Ratio(0.25), Ratio(0.15), Ratio(0.10), Ratio(0.02), Ratio(0.30)),
-  inventoryAdjustSpeed: Ratio = Ratio(0.10),
-  inventoryCarryingCost: Rate = Rate(0.06),
-  inventorySpoilageRates: Vector[Rate] = Vector(Rate(0.0), Rate(0.02), Rate(0.05), Rate(0.03), Rate(0.0), Rate(0.10)),
-  inventoryCostFraction: Ratio = Ratio(0.50),
-  inventoryLiquidationDisc: Ratio = Ratio(0.50),
-  inventoryInitRatio: Ratio = Ratio(0.80),
-  inventoryCostReplace: Ratio = Ratio(0.10),
+    // Physical capital (GUS F-01 2024)
+    klRatios: Vector[PLN] = Vector(PLN(120000.0), PLN(250000.0), PLN(80000.0), PLN(200000.0), PLN(150000.0), PLN(180000.0)),
+    depRates: Vector[Rate] = Vector(Rate(0.15), Rate(0.08), Rate(0.10), Rate(0.07), Rate(0.05), Rate(0.08)),
+    importShare: Ratio = Ratio(0.35),
+    adjustSpeed: Ratio = Ratio(0.10),
+    prodElast: Ratio = Ratio(0.30),
+    costReplace: Ratio = Ratio(0.50),
+    // Inventories (GUS 2024)
+    inventoryTargetRatios: Vector[Ratio] = Vector(Ratio(0.05), Ratio(0.25), Ratio(0.15), Ratio(0.10), Ratio(0.02), Ratio(0.30)),
+    inventoryAdjustSpeed: Ratio = Ratio(0.10),
+    inventoryCarryingCost: Rate = Rate(0.06),
+    inventorySpoilageRates: Vector[Rate] = Vector(Rate(0.0), Rate(0.02), Rate(0.05), Rate(0.03), Rate(0.0), Rate(0.10)),
+    inventoryCostFraction: Ratio = Ratio(0.50),
+    inventoryLiquidationDisc: Ratio = Ratio(0.50),
+    inventoryInitRatio: Ratio = Ratio(0.80),
+    inventoryCostReplace: Ratio = Ratio(0.10),
 ):
   require(klRatios.length == 6, s"klRatios must have 6 sectors: ${klRatios.length}")
   require(depRates.length == 6, s"depRates must have 6 sectors: ${depRates.length}")

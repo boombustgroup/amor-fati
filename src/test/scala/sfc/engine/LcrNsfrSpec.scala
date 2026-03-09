@@ -14,17 +14,17 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
   given SimParams = SimParams.defaults
 
   private def mkBank(
-    id: Int = 0,
-    deposits: PLN = PLN(1e9),
-    loans: PLN = PLN(5e8),
-    capital: PLN = PLN(1e8),
-    reservesAtNbp: PLN = PLN(1e7),
-    govBonds: PLN = PLN(1e8),
-    demandDep: PLN = PLN.Zero,
-    termDep: PLN = PLN.Zero,
-    loansS: PLN = PLN.Zero,
-    loansM: PLN = PLN.Zero,
-    loansL: PLN = PLN.Zero,
+      id: Int = 0,
+      deposits: PLN = PLN(1e9),
+      loans: PLN = PLN(5e8),
+      capital: PLN = PLN(1e8),
+      reservesAtNbp: PLN = PLN(1e7),
+      govBonds: PLN = PLN(1e8),
+      demandDep: PLN = PLN.Zero,
+      termDep: PLN = PLN.Zero,
+      loansS: PLN = PLN.Zero,
+      loansM: PLN = PLN.Zero,
+      loansL: PLN = PLN.Zero,
   ) =
     Banking.BankState(
       BankId(id),
@@ -106,7 +106,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
     // but we can test that the LCR/NSFR formulas work correctly
     val b = mkBank(reservesAtNbp = PLN.Zero, govBonds = PLN.Zero, demandDep = PLN(1e9))
     b.lcr shouldBe (0.0 +- 0.01) // zero HQLA → LCR ≈ 0
-    b.lcr should be < 1.0 // Below LCR min
+    b.lcr should be < 1.0        // Below LCR min
   }
 
   // =========================================================================
@@ -116,16 +116,16 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
   "deposit split" should "sum to total deposits" in {
     val termFrac = 0.40
     val deposits = 1e9
-    val demand = deposits * (1.0 - termFrac)
-    val term = deposits * termFrac
+    val demand   = deposits * (1.0 - termFrac)
+    val term     = deposits * termFrac
     (demand + term) shouldBe (deposits +- 0.01)
   }
 
   "loan maturity split" should "sum to total loans" in {
-    val loans = 5e8
-    val short = loans * 0.20
+    val loans  = 5e8
+    val short  = loans * 0.20
     val medium = loans * 0.30
-    val long = loans * 0.50
+    val long   = loans * 0.50
     (short + medium + long) shouldBe (loans +- 0.01)
   }
 
@@ -136,7 +136,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  "LCR" should "be non-negative" in {
+  "LCR" should "be non-negative" in
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) { (reserves, bonds, demandDep) =>
       val b = Banking.BankState(
         BankId(0),
@@ -155,9 +155,8 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
       )
       b.lcr should be >= 0.0
     }
-  }
 
-  "NSFR" should "be non-negative" in {
+  "NSFR" should "be non-negative" in
     forAll(
       Gen.choose(0.0, 1e8),
       Gen.choose(0.0, 1e9),
@@ -186,9 +185,8 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
       )
       b.nsfr should be >= 0.0
     }
-  }
 
-  "HQLA" should "equal reserves + gov bonds" in {
+  "HQLA" should "equal reserves + gov bonds" in
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) { (reserves, bonds) =>
       val b = Banking.BankState(
         BankId(0),
@@ -205,4 +203,3 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
       )
       b.hqla shouldBe (reserves + bonds +- 0.01)
     }
-  }

@@ -9,21 +9,21 @@ import sfc.types.*
 
 class OpenEconomySpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   private val rc = RunConfig(1, "test")
 
-  private val baseForex = ForexState(p.forex.baseExRate, PLN.Zero, PLN(p.forex.exportBase.toDouble), PLN.Zero, PLN.Zero)
+  private val baseForex         = ForexState(p.forex.baseExRate, PLN.Zero, PLN(p.forex.exportBase.toDouble), PLN.Zero, PLN.Zero)
   private val baseSectorOutputs = Vector(30000.0, 160000.0, 450000.0, 60000.0, 220000.0, 80000.0)
-  private val gdp = 1e9
+  private val gdp               = 1e9
 
   private def runStep(
-    rc: RunConfig = rc,
-    prevBop: BopState = BopState.zero,
-    prevForex: ForexState = baseForex,
-    autoRatio: Double = 0.0,
-    month: Int = 30,
+      rc: RunConfig = rc,
+      prevBop: BopState = BopState.zero,
+      prevForex: ForexState = baseForex,
+      autoRatio: Double = 0.0,
+      month: Int = 30,
   ): OpenEconomy.Result =
     OpenEconomy.step(
       prevBop,
@@ -54,8 +54,8 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
 
   it should "increase exports with weaker PLN (higher ER)" in {
     val weakPln = baseForex.copy(exchangeRate = 5.5)
-    val r0 = runStep(prevForex = baseForex)
-    val r1 = runStep(prevForex = weakPln)
+    val r0      = runStep(prevForex = baseForex)
+    val r1      = runStep(prevForex = weakPln)
     r1.bop.exports.toDouble should be > r0.bop.exports.toDouble
   }
 
@@ -81,7 +81,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   // ---- BoP identity ----
 
   it should "satisfy BoP identity: CA + KA + deltaReserves = 0" in {
-    val r = runStep()
+    val r      = runStep()
     val bopSum = r.bop.currentAccount.toDouble + r.bop.capitalAccount.toDouble +
       (r.bop.reserves - BopState.zero.reserves).toDouble
     Math.abs(bopSum) should be < 1.0
@@ -108,7 +108,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "compute trade balance as exports - imports" in {
-    val r = runStep()
+    val r          = runStep()
     val expectedTb = (r.bop.exports - r.bop.totalImports).toDouble
     r.bop.tradeBalance.toDouble shouldBe expectedTb +- 0.01
   }

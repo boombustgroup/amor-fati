@@ -2,18 +2,23 @@ package sfc.config
 
 import sfc.types.*
 
-/** Insurance sector: life and non-life reserves, asset allocation, and counter-cyclical claims.
+/** Insurance sector: life and non-life reserves, asset allocation, and
+  * counter-cyclical claims.
   *
-  * Models the Polish insurance industry with separate life (~110 mld PLN) and non-life (~90 mld PLN) reserve pools (KNF
-  * 2024). Three-asset allocation across government bonds, corporate bonds, and equities. Non-life claims are
+  * Models the Polish insurance industry with separate life (~110 mld PLN) and
+  * non-life (~90 mld PLN) reserve pools (KNF 2024). Three-asset allocation
+  * across government bonds, corporate bonds, and equities. Non-life claims are
   * counter-cyclical (unemployment-sensitive). Affects SFC Identities 2 and 5.
   *
-  * Reserve values are in raw PLN — scaled by `gdpRatio` in `SimParams.defaults`.
+  * Reserve values are in raw PLN — scaled by `gdpRatio` in
+  * `SimParams.defaults`.
   *
   * @param lifeReserves
-  *   initial life insurance reserves in raw PLN (KNF 2024: ~110 mld, scaled by gdpRatio)
+  *   initial life insurance reserves in raw PLN (KNF 2024: ~110 mld, scaled by
+  *   gdpRatio)
   * @param nonLifeReserves
-  *   initial non-life insurance reserves in raw PLN (KNF 2024: ~90 mld, scaled by gdpRatio)
+  *   initial non-life insurance reserves in raw PLN (KNF 2024: ~90 mld, scaled
+  *   by gdpRatio)
   * @param govBondShare
   *   share of reserves invested in government bonds
   * @param corpBondShare
@@ -34,15 +39,15 @@ import sfc.types.*
   *   monthly portfolio rebalancing speed toward target allocation
   */
 case class InsuranceConfig(
-  lifeReserves: PLN = PLN(110e9), // raw — scaled by gdpRatio
-  nonLifeReserves: PLN = PLN(90e9), // raw — scaled by gdpRatio
-  govBondShare: Ratio = Ratio(0.35),
-  corpBondShare: Ratio = Ratio(0.08),
-  equityShare: Ratio = Ratio(0.12),
-  lifePremiumRate: Ratio = Ratio(0.003),
-  nonLifePremiumRate: Ratio = Ratio(0.0025),
-  lifeLossRatio: Ratio = Ratio(0.85),
-  nonLifeLossRatio: Ratio = Ratio(0.70),
-  nonLifeUnempSens: Double = 0.5,
-  rebalanceSpeed: Ratio = Ratio(0.05),
+    lifeReserves: PLN = PLN(110e9),   // raw — scaled by gdpRatio
+    nonLifeReserves: PLN = PLN(90e9), // raw — scaled by gdpRatio
+    govBondShare: Ratio = Ratio(0.35),
+    corpBondShare: Ratio = Ratio(0.08),
+    equityShare: Ratio = Ratio(0.12),
+    lifePremiumRate: Ratio = Ratio(0.003),
+    nonLifePremiumRate: Ratio = Ratio(0.0025),
+    lifeLossRatio: Ratio = Ratio(0.85),
+    nonLifeLossRatio: Ratio = Ratio(0.70),
+    nonLifeUnempSens: Double = 0.5,
+    rebalanceSpeed: Ratio = Ratio(0.05),
 )

@@ -9,7 +9,7 @@ import sfc.config.{RunConfig, SimParams}
 
 class IntegrationSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // Use small firm count via env override if set, otherwise default
@@ -47,14 +47,12 @@ class IntegrationSpec extends AnyFlatSpec with Matchers:
   it should "be reproducible with the same seed" in {
     val r1 = runSingle(42, rc)
     val r2 = runSingle(42, rc)
-    for t <- 0 until p.timeline.duration; c <- 0 until SimOutput.nCols do
-      r1.timeSeries(t)(c) shouldBe r2.timeSeries(t)(c)
+    for t <- 0 until p.timeline.duration; c <- 0 until SimOutput.nCols do r1.timeSeries(t)(c) shouldBe r2.timeSeries(t)(c)
   }
 
   it should "have positive sigma values in columns 19-24" in {
     val result = runSingle(42, rc)
-    for t <- 0 until p.timeline.duration; s <- 0 until 6 do
-      result.timeSeries(t)(Col.sectorSigma(s).ordinal) should be > 0.0
+    for t <- 0 until p.timeline.duration; s <- 0 until 6 do result.timeSeries(t)(Col.sectorSigma(s).ordinal) should be > 0.0
   }
 
   it should "have positive mean degree in column 25" in {

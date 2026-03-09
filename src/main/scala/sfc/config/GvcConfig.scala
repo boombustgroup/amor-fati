@@ -2,11 +2,14 @@ package sfc.config
 
 import sfc.types.*
 
-/** Global Value Chain integration: sectoral trade structure, ER pass-through, and demand shocks.
+/** Global Value Chain integration: sectoral trade structure, ER pass-through,
+  * and demand shocks.
   *
-  * Models Poland's deep integration into EU/global supply chains (WIOD/OECD ICIO), with per-sector export shares, GVC
-  * depth (backward linkages), differentiated EUR/non-EUR exchange rate pass-through (Campa & Goldberg 2005), foreign
-  * demand shocks by sector, and supply chain disruption recovery. EU trade share ~70% of total (GUS/NBP 2024).
+  * Models Poland's deep integration into EU/global supply chains (WIOD/OECD
+  * ICIO), with per-sector export shares, GVC depth (backward linkages),
+  * differentiated EUR/non-EUR exchange rate pass-through (Campa & Goldberg
+  * 2005), foreign demand shocks by sector, and supply chain disruption
+  * recovery. EU trade share ~70% of total (GUS/NBP 2024).
   *
   * @param euTradeShare
   *   share of total trade with EU partners (GUS/NBP 2024: ~70%)
@@ -21,7 +24,8 @@ import sfc.types.*
   * @param erPassthrough
   *   exchange rate pass-through to non-EU import prices (Campa & Goldberg 2005)
   * @param euErPassthrough
-  *   exchange rate pass-through to EU import prices (lower due to EUR invoicing)
+  *   exchange rate pass-through to EU import prices (lower due to EUR
+  *   invoicing)
   * @param demandShockMonth
   *   simulation month when external demand shock hits (0 = no shock)
   * @param demandShockSize
@@ -32,17 +36,17 @@ import sfc.types.*
   *   monthly recovery rate from supply chain disruption
   */
 case class GvcConfig(
-  euTradeShare: Ratio = Ratio(0.70),
-  exportShares: Vector[Ratio] = Vector(Ratio(0.05), Ratio(0.55), Ratio(0.15), Ratio(0.03), Ratio(0.02), Ratio(0.20)),
-  depth: Vector[Ratio] = Vector(Ratio(0.35), Ratio(0.75), Ratio(0.30), Ratio(0.40), Ratio(0.10), Ratio(0.45)),
-  foreignInflation: Rate = Rate(0.02),
-  foreignGdpGrowth: Rate = Rate(0.015),
-  erPassthrough: Ratio = Ratio(0.60),
-  euErPassthrough: Ratio = Ratio(0.15),
-  demandShockMonth: Int = 0,
-  demandShockSize: Ratio = Ratio(0.0),
-  demandShockSectors: Set[Int] = Set.empty,
-  disruptionRecovery: Ratio = Ratio(0.05),
+    euTradeShare: Ratio = Ratio(0.70),
+    exportShares: Vector[Ratio] = Vector(Ratio(0.05), Ratio(0.55), Ratio(0.15), Ratio(0.03), Ratio(0.02), Ratio(0.20)),
+    depth: Vector[Ratio] = Vector(Ratio(0.35), Ratio(0.75), Ratio(0.30), Ratio(0.40), Ratio(0.10), Ratio(0.45)),
+    foreignInflation: Rate = Rate(0.02),
+    foreignGdpGrowth: Rate = Rate(0.015),
+    erPassthrough: Ratio = Ratio(0.60),
+    euErPassthrough: Ratio = Ratio(0.15),
+    demandShockMonth: Int = 0,
+    demandShockSize: Ratio = Ratio(0.0),
+    demandShockSectors: Set[Int] = Set.empty,
+    disruptionRecovery: Ratio = Ratio(0.05),
 ):
   require(exportShares.length == 6, s"exportShares must have 6 sectors: ${exportShares.length}")
   require(depth.length == 6, s"depth must have 6 sectors: ${depth.length}")

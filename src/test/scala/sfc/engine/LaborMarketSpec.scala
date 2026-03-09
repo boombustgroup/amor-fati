@@ -16,8 +16,8 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
   // --- separations ---
 
   "LaborMarket.separations" should "not change households when no firms changed" in {
-    val firms = mkFirms(5)
-    val hhs =
+    val firms  = mkFirms(5)
+    val hhs    =
       (0 until 10).map(i => mkHousehold(i, HhStatus.Employed(FirmId(i % 5), SectorIdx(2), PLN(8000.0)))).toVector
     val result = LaborMarket.separations(hhs, firms, firms)
     result.foreach(_.status shouldBe a[HhStatus.Employed])
@@ -25,9 +25,9 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "make workers unemployed when firm goes bankrupt" in {
     val prevFirms = mkFirms(3)
-    val newFirms = prevFirms.updated(1, prevFirms(1).copy(tech = TechState.Bankrupt("test")))
+    val newFirms  = prevFirms.updated(1, prevFirms(1).copy(tech = TechState.Bankrupt("test")))
 
-    val hhs = Vector(
+    val hhs    = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
       mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(8000.0))),
       mkHousehold(2, HhStatus.Employed(FirmId(2), SectorIdx(2), PLN(8000.0))),
@@ -40,13 +40,13 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "make workers unemployed when firm automates" in {
     val prevFirms = mkFirms(2)
-    val newFirms = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Automated(1.5)))
+    val newFirms  = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Automated(1.5)))
 
-    val hhs = (0 until 5).map(i => mkHousehold(i, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)))).toVector
-    val result = LaborMarket.separations(hhs, prevFirms, newFirms)
+    val hhs        = (0 until 5).map(i => mkHousehold(i, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)))).toVector
+    val result     = LaborMarket.separations(hhs, prevFirms, newFirms)
     // Automated firms keep skeletonCrew workers, rest become unemployed
-    val skCrew = Firm.skeletonCrew(newFirms(0))
-    val employed = result.count(_.status.isInstanceOf[HhStatus.Employed])
+    val skCrew     = Firm.skeletonCrew(newFirms(0))
+    val employed   = result.count(_.status.isInstanceOf[HhStatus.Employed])
     val unemployed = result.count(_.status == HhStatus.Unemployed(0))
     employed shouldBe skCrew
     unemployed shouldBe (5 - skCrew)
@@ -54,9 +54,9 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "not affect already unemployed households" in {
     val prevFirms = mkFirms(2)
-    val newFirms = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Bankrupt("test")))
+    val newFirms  = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Bankrupt("test")))
 
-    val hhs = Vector(
+    val hhs    = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
       mkHousehold(1, HhStatus.Unemployed(5)),
       mkHousehold(2, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(8000.0))),
@@ -68,9 +68,9 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
   // --- jobSearch ---
 
   "LaborMarket.jobSearch" should "employ unemployed when vacancies exist" in {
-    val rng = new Random(42)
-    val firms = mkFirms(3)
-    val hhs = Vector(
+    val rng         = new Random(42)
+    val firms       = mkFirms(3)
+    val hhs         = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
       mkHousehold(1, HhStatus.Unemployed(2), skill = 0.8),
       mkHousehold(2, HhStatus.Employed(FirmId(2), SectorIdx(2), PLN(8000.0))),
@@ -82,10 +82,10 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "prefer higher-skilled workers" in {
-    val rng = new Random(42)
-    val firms = Vector(mkFirms(1)(0))
+    val rng         = new Random(42)
+    val firms       = Vector(mkFirms(1)(0))
     // Only 1 vacancy: Traditional(10) needs 10, but we have 11 workers
-    val hhs = Vector(
+    val hhs         = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
       mkHousehold(1, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
       mkHousehold(2, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
@@ -108,7 +108,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   "LaborMarket.updateWages" should "produce mean wage = marketWage for employed" in {
     // With normalization, mean employed wage = marketWage regardless of sector/skill
-    val hhs = Vector(
+    val hhs    = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(5000.0)), skill = 0.8),
       mkHousehold(1, HhStatus.Unemployed(3)),
     )
@@ -117,19 +117,19 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       case HhStatus.Employed(_, _, wage) =>
         // Single employed: normalized to marketWage
         wage.toDouble shouldBe 10000.0 +- 1.0
-      case other => fail(s"Expected Employed, got $other")
+      case other                         => fail(s"Expected Employed, got $other")
     result(1).status shouldBe HhStatus.Unemployed(3)
   }
 
   it should "reduce relative wage with health penalty" in {
     // Two employed: one with penalty, one without. Penalty one gets less.
-    val hhs = Vector(
+    val hhs    = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(5000.0)), skill = 0.8, healthPenalty = 0.0),
       mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(5000.0)), skill = 0.8, healthPenalty = 0.2),
     )
     val result = LaborMarket.updateWages(hhs, 10000.0)
-    val wage0 = result(0).status.asInstanceOf[HhStatus.Employed].wage
-    val wage1 = result(1).status.asInstanceOf[HhStatus.Employed].wage
+    val wage0  = result(0).status.asInstanceOf[HhStatus.Employed].wage
+    val wage1  = result(1).status.asInstanceOf[HhStatus.Employed].wage
     // wage1 should be less than wage0 (health penalty reduces relative wage)
     wage1.toDouble should be < wage0.toDouble
     // Mean should be marketWage
@@ -142,26 +142,26 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     // Two identical workers, one immigrant, one native.
     // Since ImmigEnabled is false by default, immigrant discount won't apply.
     // We test the formula effect: with ImmigEnabled=false, both get same wage.
-    val hhs = Vector(
+    val hhs    = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(5000.0)), skill = 0.7).copy(isImmigrant = false),
       mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(5000.0)), skill = 0.7).copy(isImmigrant = true),
     )
     val result = LaborMarket.updateWages(hhs, 10000.0)
-    val wage0 = result(0).status.asInstanceOf[HhStatus.Employed].wage
-    val wage1 = result(1).status.asInstanceOf[HhStatus.Employed].wage
+    val wage0  = result(0).status.asInstanceOf[HhStatus.Employed].wage
+    val wage1  = result(1).status.asInstanceOf[HhStatus.Employed].wage
     // Both same sector, same skill, ImmigEnabled=false → same raw weight → same wage
     wage0.toDouble shouldBe wage1.toDouble +- 0.01
   }
 
   it should "not apply immigrant discount when disabled" in {
     // ImmigEnabled is false by default, so isImmigrant flag should have no effect
-    val native = mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(5000.0)), skill = 0.8)
-    val immigrant =
+    val native     = mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(5000.0)), skill = 0.8)
+    val immigrant  =
       mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(5000.0)), skill = 0.8).copy(isImmigrant = true)
-    val hhs = Vector(native, immigrant)
-    val result = LaborMarket.updateWages(hhs, 10000.0)
+    val hhs        = Vector(native, immigrant)
+    val result     = LaborMarket.updateWages(hhs, 10000.0)
     val wageNative = result(0).status.asInstanceOf[HhStatus.Employed].wage
-    val wageImmig = result(1).status.asInstanceOf[HhStatus.Employed].wage
+    val wageImmig  = result(1).status.asInstanceOf[HhStatus.Employed].wage
     // Same skill, same sector → identical weight → identical wage
     wageNative.toDouble shouldBe wageImmig.toDouble +- 0.01
   }
@@ -184,10 +184,10 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     }.toVector
 
   private def mkHousehold(
-    id: Int,
-    status: HhStatus,
-    skill: Double = 0.7,
-    healthPenalty: Double = 0.0,
+      id: Int,
+      status: HhStatus,
+      skill: Double = 0.7,
+      healthPenalty: Double = 0.0,
   ): Household.State =
     Household.State(
       HhId(id),

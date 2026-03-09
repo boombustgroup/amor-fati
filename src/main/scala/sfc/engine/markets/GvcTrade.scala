@@ -5,39 +5,39 @@ import sfc.types.*
 import sfc.util.KahanSum.*
 
 case class ForeignFirm(
-  id: Int,
-  sectorId: Int,
-  partnerId: Int, // 0=EU, 1=Non-EU
-  baseExportDemand: PLN,
-  baseImportSupply: PLN,
-  priceIndex: Double,
-  disruption: Ratio,
+    id: Int,
+    sectorId: Int,
+    partnerId: Int, // 0=EU, 1=Non-EU
+    baseExportDemand: PLN,
+    baseImportSupply: PLN,
+    priceIndex: Double,
+    disruption: Ratio,
 )
 
 object GvcTrade:
 
   case class State(
-    foreignFirms: Vector[ForeignFirm],
-    totalExports: PLN = PLN.Zero,
-    totalIntermImports: PLN = PLN.Zero,
-    sectorExports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
-    sectorImports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
-    disruptionIndex: Ratio = Ratio.Zero,
-    foreignPriceIndex: Double = 1.0,
-    tradeConcentration: Ratio = Ratio.Zero,
-    exportDemandShockMag: Ratio = Ratio.Zero,
-    importCostIndex: Double = 1.0,
+      foreignFirms: Vector[ForeignFirm],
+      totalExports: PLN = PLN.Zero,
+      totalIntermImports: PLN = PLN.Zero,
+      sectorExports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
+      sectorImports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
+      disruptionIndex: Ratio = Ratio.Zero,
+      foreignPriceIndex: Double = 1.0,
+      tradeConcentration: Ratio = Ratio.Zero,
+      exportDemandShockMag: Ratio = Ratio.Zero,
+      importCostIndex: Double = 1.0,
   )
 
   def zero: State = State(Vector.empty)
 
   def initial(using p: SimParams): State =
-    val euShare = p.gvc.euTradeShare.toDouble
-    val nonEuShare = 1.0 - euShare
+    val euShare       = p.gvc.euTradeShare.toDouble
+    val nonEuShare    = 1.0 - euShare
     val partnerShares = Vector(euShare, nonEuShare)
 
     val firms = for
-      s <- (0 until 6).toVector
+      s  <- (0 until 6).toVector
       pi <- (0 until 2).toVector
     yield
       val ps = partnerShares(pi)
@@ -54,13 +54,13 @@ object GvcTrade:
     State(firms, foreignPriceIndex = 1.0, tradeConcentration = Ratio(euShare * euShare + nonEuShare * nonEuShare))
 
   def step(
-    prev: State,
-    sectorOutputs: Vector[Double],
-    priceLevel: Double,
-    exchangeRate: Double,
-    autoRatio: Double,
-    month: Int,
-    rc: RunConfig,
+      prev: State,
+      sectorOutputs: Vector[Double],
+      priceLevel: Double,
+      exchangeRate: Double,
+      autoRatio: Double,
+      month: Int,
+      rc: RunConfig,
   )(using p: SimParams): State =
 
     // 1. Evolve foreign price
@@ -68,7 +68,7 @@ object GvcTrade:
 
     // 2. Apply demand shock + recover disruptions
     val shockActive = p.gvc.demandShockMonth > 0 && month >= p.gvc.demandShockMonth
-    val shockMag = if shockActive then p.gvc.demandShockSize.toDouble else 0.0
+    val shockMag    = if shockActive then p.gvc.demandShockSize.toDouble else 0.0
 
     val updatedFirms = prev.foreignFirms.map { ff =>
       val afterShock =
@@ -80,7 +80,7 @@ object GvcTrade:
       // Recover disruptions
       val newDisruption = Ratio(afterShock.disruption.toDouble * (1.0 - p.gvc.disruptionRecovery.toDouble))
       // Evolve price
-      val newPrice = afterShock.priceIndex * (1.0 + p.gvc.foreignInflation.toDouble / 12.0)
+      val newPrice      = afterShock.priceIndex * (1.0 + p.gvc.foreignInflation.toDouble / 12.0)
       afterShock.copy(disruption = newDisruption, priceIndex = newPrice)
     }
 
@@ -95,30 +95,30 @@ object GvcTrade:
 
     // 5. Sector-specific exports
     val sectorExports = (0 until 6).map { s =>
-      val sectorFirms = updatedFirms.filter(_.sectorId == s)
-      val demand = sectorFirms.kahanSumBy(_.baseExportDemand.toDouble) * foreignGdpFactor
+      val sectorFirms     = updatedFirms.filter(_.sectorId == s)
+      val demand          = sectorFirms.kahanSumBy(_.baseExportDemand.toDouble) * foreignGdpFactor
       // Per-sector automation ratio from sectorOutputs (proxy)
       val sectorAutoBoost = 1.0 + autoRatio * 0.15
-      val avgDisruption =
+      val avgDisruption   =
         if sectorFirms.nonEmpty then sectorFirms.kahanSumBy(_.disruption.toDouble) / sectorFirms.length
         else 0.0
       PLN(demand * realExRateEffect * sectorAutoBoost * (1.0 - avgDisruption))
     }.toVector
-    val totalExports = PLN(sectorExports.map(_.toDouble).kahanSum)
+    val totalExports  = PLN(sectorExports.map(_.toDouble).kahanSum)
 
     // 6. Sector-specific intermediate imports
-    val sectorImports = (0 until 6).map { s =>
-      val realOutput =
+    val sectorImports      = (0 until 6).map { s =>
+      val realOutput  =
         if priceLevel > 0 then sectorOutputs(s) / priceLevel
         else sectorOutputs(s)
-      val baseDemand = realOutput * p.gvc.depth.map(_.toDouble)(s)
+      val baseDemand  = realOutput * p.gvc.depth.map(_.toDouble)(s)
       val sectorFirms = updatedFirms.filter(_.sectorId == s)
       // Weighted ER pass-through across partners
       // PLN: differentiated pass-through by partner
-      val erEffect =
+      val erEffect    =
         val totalSupply = sectorFirms.kahanSumBy(_.baseImportSupply.toDouble)
         if totalSupply > 0 then
-          val euWeight = sectorFirms.filter(_.partnerId == 0).kahanSumBy(_.baseImportSupply.toDouble) / totalSupply
+          val euWeight    = sectorFirms.filter(_.partnerId == 0).kahanSumBy(_.baseImportSupply.toDouble) / totalSupply
           val nonEuWeight = 1.0 - euWeight
           val erDeviation = exchangeRate / p.forex.baseExRate - 1.0
           1.0 + euWeight * erDeviation * p.gvc.euErPassthrough.toDouble +
@@ -135,8 +135,7 @@ object GvcTrade:
     // 7. Metrics
     val weightedDisruption = if updatedFirms.nonEmpty then
       val totalDemand = updatedFirms.kahanSumBy(_.baseExportDemand.toDouble)
-      if totalDemand > 0 then
-        updatedFirms.kahanSumBy(ff => ff.disruption.toDouble * ff.baseExportDemand.toDouble) / totalDemand
+      if totalDemand > 0 then updatedFirms.kahanSumBy(ff => ff.disruption.toDouble * ff.baseExportDemand.toDouble) / totalDemand
       else 0.0
     else 0.0
 

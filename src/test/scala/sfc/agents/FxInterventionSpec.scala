@@ -7,7 +7,7 @@ import sfc.types.*
 class FxInterventionSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // Helper: call fxIntervention with enabled=true for tests that need active intervention
@@ -26,7 +26,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
 
   it should "return zero effect when ER within band" in {
     // ER deviation = 5% < default band of 10%
-    val er = p.forex.baseExRate * 1.05
+    val er     = p.forex.baseExRate * 1.05
     val result = fxEnabled(er, 1e10, 1e9)
     result.erEffect shouldBe 0.0
     result.eurTraded shouldBe 0.0
@@ -34,7 +34,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
 
   it should "return zero effect when ER just inside band boundary" in {
     // Use 9.9% deviation (just inside default 10% band) to avoid FP edge case
-    val er = p.forex.baseExRate * 1.099
+    val er     = p.forex.baseExRate * 1.099
     val result = fxEnabled(er, 1e10, 1e9)
     result.erEffect shouldBe 0.0
     result.eurTraded shouldBe 0.0
@@ -43,9 +43,9 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   it should "intervene when PLN depreciates beyond band (sell EUR)" in {
     // PLN depreciates: ER > baseER * 1.10 → NBP sells EUR to strengthen PLN
     // erDev > 0 → direction = -1 → sells EUR (eurTraded < 0)
-    val er = p.forex.baseExRate * 1.20 // 20% depreciation
+    val er       = p.forex.baseExRate * 1.20 // 20% depreciation
     val reserves = 1e10
-    val result = fxEnabled(er, reserves, 1e9)
+    val result   = fxEnabled(er, reserves, 1e9)
     result.eurTraded should be < 0.0 // sold EUR
     result.erEffect should be < 0.0 // dampens upward ER deviation
     result.newReserves should be < reserves
@@ -54,44 +54,44 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   it should "intervene when PLN appreciates beyond band (buy EUR)" in {
     // PLN appreciates: ER < baseER * 0.90 → NBP buys EUR to weaken PLN
     // erDev < 0 → direction = +1 → buys EUR (eurTraded > 0)
-    val er = p.forex.baseExRate * 0.80 // 20% appreciation
+    val er       = p.forex.baseExRate * 0.80 // 20% appreciation
     val reserves = 1e10
-    val result = fxEnabled(er, reserves, 1e9)
+    val result   = fxEnabled(er, reserves, 1e9)
     result.eurTraded should be > 0.0 // bought EUR
     result.erEffect should be > 0.0 // dampens downward ER deviation
     result.newReserves should be > reserves
   }
 
   it should "not sell more EUR than available reserves" in {
-    val er = p.forex.baseExRate * 1.50 // massive depreciation
-    val reserves = 100.0 // tiny reserves
-    val result = fxEnabled(er, reserves, 1e9)
+    val er       = p.forex.baseExRate * 1.50 // massive depreciation
+    val reserves = 100.0                     // tiny reserves
+    val result   = fxEnabled(er, reserves, 1e9)
     result.newReserves should be >= 0.0
     Math.abs(result.eurTraded) should be <= reserves
   }
 
   it should "produce erEffect opposing the deviation direction" in {
     // Depreciation → negative erEffect (pushes ER down)
-    val erHigh = p.forex.baseExRate * 1.30
+    val erHigh     = p.forex.baseExRate * 1.30
     val resultHigh = fxEnabled(erHigh, 1e10, 1e9)
     resultHigh.erEffect should be < 0.0
 
     // Appreciation → positive erEffect (pushes ER up)
-    val erLow = p.forex.baseExRate * 0.70
+    val erLow     = p.forex.baseExRate * 0.70
     val resultLow = fxEnabled(erLow, 1e10, 1e9)
     resultLow.erEffect should be > 0.0
   }
 
   it should "produce reserves consistent with eurTraded" in {
-    val er = p.forex.baseExRate * 1.25
+    val er       = p.forex.baseExRate * 1.25
     val reserves = 1e10
-    val result = fxEnabled(er, reserves, 1e9)
+    val result   = fxEnabled(er, reserves, 1e9)
     // newReserves = max(0, reserves + eurTraded)
     result.newReserves shouldBe Math.max(0.0, reserves + result.eurTraded) +- 1e-6
   }
 
   it should "produce zero erEffect when gdp is zero (no div-by-zero)" in {
-    val er = p.forex.baseExRate * 1.25
+    val er     = p.forex.baseExRate * 1.25
     val result = fxEnabled(er, 1e10, 0.0)
     result.erEffect shouldBe 0.0
     // But intervention still occurs (reserves change)

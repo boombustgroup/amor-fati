@@ -54,7 +54,7 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
 
   it should "multiply by Rate" in {
     val amount = PLN(1200.0)
-    val rate = Rate(0.06)
+    val rate   = Rate(0.06)
     (amount * rate).toDouble shouldBe 72.0 +- 1e-10
   }
 

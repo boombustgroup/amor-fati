@@ -31,30 +31,30 @@ class PitSpec extends AnyFlatSpec with Matchers:
 
   "PIT formula" should "compute correctly for income below bracket 1" in {
     // 8266 PLN/month → 99192 PLN/year (below 120000 bracket)
-    val monthly = 8266.0
+    val monthly    = 8266.0
     val annualized = monthly * 12.0
-    val grossTax = annualized * 0.12 // 11903.04
-    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0 // (11903.04 - 3600) / 12 = 691.92
+    val grossTax   = annualized * 0.12                       // 11903.04
+    val netTax     = Math.max(0.0, grossTax - 3600.0) / 12.0 // (11903.04 - 3600) / 12 = 691.92
     netTax shouldBe 691.92 +- 0.01
   }
 
   it should "compute correctly for income above bracket 1" in {
     // 15000 PLN/month → 180000 PLN/year (above 120000 bracket)
-    val monthly = 15000.0
-    val annualized = monthly * 12.0
-    val bracket1Tax = 120000.0 * 0.12 // 14400
-    val bracket2Tax = (annualized - 120000.0) * 0.32 // 60000 × 0.32 = 19200
-    val grossTax = bracket1Tax + bracket2Tax // 33600
-    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0 // (33600 - 3600) / 12 = 2500
+    val monthly     = 15000.0
+    val annualized  = monthly * 12.0
+    val bracket1Tax = 120000.0 * 0.12                         // 14400
+    val bracket2Tax = (annualized - 120000.0) * 0.32          // 60000 × 0.32 = 19200
+    val grossTax    = bracket1Tax + bracket2Tax               // 33600
+    val netTax      = Math.max(0.0, grossTax - 3600.0) / 12.0 // (33600 - 3600) / 12 = 2500
     netTax shouldBe 2500.0 +- 0.01
   }
 
   it should "produce effective rate ~9% for median earner" in {
     // Median: ~7000 PLN/month → 84000/year
-    val monthly = 7000.0
-    val annualized = monthly * 12.0
-    val grossTax = annualized * 0.12 // 10080
-    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0 // (10080 - 3600) / 12 = 540
+    val monthly       = 7000.0
+    val annualized    = monthly * 12.0
+    val grossTax      = annualized * 0.12                       // 10080
+    val netTax        = Math.max(0.0, grossTax - 3600.0) / 12.0 // (10080 - 3600) / 12 = 540
     val effectiveRate = netTax / monthly
     effectiveRate shouldBe 0.0771 +- 0.01
     effectiveRate should be < 0.12 // kwota wolna reduces effective rate
@@ -63,19 +63,19 @@ class PitSpec extends AnyFlatSpec with Matchers:
   it should "have kwota wolna eliminate tax for very low income" in {
     // If annual income × 12% ≤ 3600 → no tax
     // 3600 / 0.12 = 30000 PLN/year → 2500 PLN/month
-    val monthly = 2500.0
+    val monthly    = 2500.0
     val annualized = monthly * 12.0
-    val grossTax = annualized * 0.12 // 3600
-    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0 // 0
+    val grossTax   = annualized * 0.12                       // 3600
+    val netTax     = Math.max(0.0, grossTax - 3600.0) / 12.0 // 0
     netTax shouldBe 0.0
   }
 
   it should "be strictly positive above kwota wolna threshold" in {
     // Just above: 2501 PLN/month → 30012/year → tax = 30012 × 0.12 - 3600 = 1.44/year → 0.12/month
-    val monthly = 2501.0
+    val monthly    = 2501.0
     val annualized = monthly * 12.0
-    val grossTax = annualized * 0.12
-    val netTax = Math.max(0.0, grossTax - 3600.0) / 12.0
+    val grossTax   = annualized * 0.12
+    val netTax     = Math.max(0.0, grossTax - 3600.0) / 12.0
     netTax should be > 0.0
     netTax shouldBe 0.12 +- 0.01
   }

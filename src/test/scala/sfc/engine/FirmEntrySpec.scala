@@ -10,7 +10,7 @@ import sfc.types.*
 
 class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // ==========================================================================
@@ -33,9 +33,8 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     p.firm.entrySectorBarriers.length shouldBe 6
   }
 
-  it should "have all positive values" in {
+  it should "have all positive values" in
     p.firm.entrySectorBarriers.foreach(_ should be > 0.0)
-  }
 
   it should "match expected defaults" in {
     p.firm.entrySectorBarriers shouldBe Vector(0.8, 0.6, 1.2, 0.5, 0.1, 0.7)
@@ -100,7 +99,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "New entrant" should "be micro size (1-9 workers)" in {
-    val rng = new scala.util.Random(42)
+    val rng   = new scala.util.Random(42)
     val sizes = (1 to 100).map(_ => Math.max(1, rng.between(1, 10)))
     sizes.foreach { s =>
       s should be >= 1
@@ -126,7 +125,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   it should "have positive startup cash" in {
     val sizeMult = 5.0 / p.pop.workersPerFirm
-    val cash = p.firm.entryStartupCash.toDouble * sizeMult
+    val cash     = p.firm.entryStartupCash.toDouble * sizeMult
     cash should be > 0.0
   }
 
@@ -186,13 +185,13 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Sector choice" should "reach all 6 sectors with profit-weighted draws" in {
-    val rng = new scala.util.Random(42)
-    val weights = Array(0.8, 0.6, 1.2, 0.5, 0.1, 0.7)
+    val rng         = new scala.util.Random(42)
+    val weights     = Array(0.8, 0.6, 1.2, 0.5, 0.1, 0.7)
     val totalWeight = weights.sum
-    val sectors = (1 to 1000).map { _ =>
-      val roll = rng.nextDouble() * totalWeight
+    val sectors     = (1 to 1000).map { _ =>
+      val roll  = rng.nextDouble() * totalWeight
       var cumul = 0.0
-      var sec = 0
+      var sec   = 0
       var found = false
       for s <- 0 until 6 if !found do
         cumul += weights(s)
@@ -207,8 +206,8 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Entrant capitalStock" should "be initialized when PhysCapEnabled" in {
-    val firmSize = 5
-    val sector = 1 // Manufacturing
+    val firmSize  = 5
+    val sector    = 1 // Manufacturing
     val expectedK = firmSize.toDouble * p.capital.klRatios.map(_.toDouble)(sector)
     expectedK should be > 0.0
   }
@@ -265,10 +264,10 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   "Profit signal" should "be clamped to [-1, 2]" in {
     val testCases = Seq(
-      (100.0, 50.0, 50.0), // positive signal
-      (10.0, 50.0, 50.0), // negative signal
+      (100.0, 50.0, 50.0),  // positive signal
+      (10.0, 50.0, 50.0),   // negative signal
       (1000.0, 50.0, 50.0), // extreme positive
-      (0.0, 50.0, 50.0), // zero cash
+      (0.0, 50.0, 50.0),    // zero cash
     )
     for (sectorAvg, globalAvg, _) <- testCases do
       val signal = Math.max(-1.0, Math.min(2.0, (sectorAvg - globalAvg) / Math.max(1.0, Math.abs(globalAvg))))
@@ -283,21 +282,21 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   "Entry probability" should "be non-negative" in {
     for s <- 0 until 6 do
       val profitSignal = 0.5 // moderate positive
-      val entryProb = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(s) *
+      val entryProb    = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(s) *
         Math.max(0.0, 1.0 + profitSignal * p.firm.entryProfitSens)
       entryProb should be >= 0.0
   }
 
   it should "be zero when profit signal is very negative" in {
     val profitSignal = -1.0
-    val entryProb = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(0) *
+    val entryProb    = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(0) *
       Math.max(0.0, 1.0 + profitSignal * p.firm.entryProfitSens)
     entryProb shouldBe 0.0
   }
 
   it should "scale with sector barriers" in {
     val profitSignal = 0.0
-    val probs = (0 until 6).map { s =>
+    val probs        = (0 until 6).map { s =>
       p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(s) *
         Math.max(0.0, 1.0 + profitSignal * p.firm.entryProfitSens)
     }

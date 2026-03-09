@@ -12,77 +12,77 @@ import scala.util.Random
 object FirmProcessingStep:
 
   case class Input(
-    w: World,
-    rc: RunConfig,
-    firms: Vector[Firm.State],
-    households: Vector[Household.State],
-    s1: FiscalConstraintStep.Output,
-    s2: LaborDemographicsStep.Output,
-    s3: HouseholdIncomeStep.Output,
-    s4: DemandStep.Output,
+      w: World,
+      rc: RunConfig,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      s1: FiscalConstraintStep.Output,
+      s2: LaborDemographicsStep.Output,
+      s3: HouseholdIncomeStep.Output,
+      s4: DemandStep.Output,
   )
 
   case class Output(
-    ioFirms: Vector[Firm.State],
-    households: Vector[Household.State],
-    sumTax: Double,
-    sumCapex: Double,
-    sumTechImp: Double,
-    sumNewLoans: Double,
-    sumEquityIssuance: Double,
-    sumGrossInvestment: Double,
-    sumBondIssuance: Double,
-    sumProfitShifting: Double,
-    sumFdiRepatriation: Double,
-    sumInventoryChange: Double,
-    sumCitEvasion: Double,
-    sumEnergyCost: Double,
-    sumGreenInvestment: Double,
-    totalIoPaid: Double,
-    nplNew: Double,
-    nplLoss: Double,
-    totalBondDefault: Double,
-    firmDeaths: Int,
-    intIncome: Double,
-    corpBondAbsorption: Double,
-    actualBondIssuance: Double,
-    netMigration: Int,
-    perBankNewLoans: Array[Double],
-    perBankNplDebt: Array[Double],
-    perBankIntIncome: Array[Double],
-    perBankWorkers: Array[Int],
-    lendingRates: Array[Double],
-    postFirmCrossSectorHires: Int,
+      ioFirms: Vector[Firm.State],
+      households: Vector[Household.State],
+      sumTax: Double,
+      sumCapex: Double,
+      sumTechImp: Double,
+      sumNewLoans: Double,
+      sumEquityIssuance: Double,
+      sumGrossInvestment: Double,
+      sumBondIssuance: Double,
+      sumProfitShifting: Double,
+      sumFdiRepatriation: Double,
+      sumInventoryChange: Double,
+      sumCitEvasion: Double,
+      sumEnergyCost: Double,
+      sumGreenInvestment: Double,
+      totalIoPaid: Double,
+      nplNew: Double,
+      nplLoss: Double,
+      totalBondDefault: Double,
+      firmDeaths: Int,
+      intIncome: Double,
+      corpBondAbsorption: Double,
+      actualBondIssuance: Double,
+      netMigration: Int,
+      perBankNewLoans: Array[Double],
+      perBankNplDebt: Array[Double],
+      perBankIntIncome: Array[Double],
+      perBankWorkers: Array[Int],
+      lendingRates: Array[Double],
+      postFirmCrossSectorHires: Int,
   )
 
   def run(in: Input)(using p: SimParams): Output =
-    val bsec = in.w.bankingSector
-    val nBanks = bsec.banks.length
-    val perBankNewLoans = new Array[Double](nBanks)
-    val perBankNplDebt = new Array[Double](nBanks)
+    val bsec             = in.w.bankingSector
+    val nBanks           = bsec.banks.length
+    val perBankNewLoans  = new Array[Double](nBanks)
+    val perBankNplDebt   = new Array[Double](nBanks)
     val perBankIntIncome = new Array[Double](nBanks)
-    val perBankWorkers = new Array[Int](nBanks)
+    val perBankWorkers   = new Array[Int](nBanks)
 
-    val currentCcyb = in.w.macropru.ccyb.toDouble
-    val rates = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate))
-    val getLendRate: Int => Double = (bankId: Int) => rates(bankId)
+    val currentCcyb                             = in.w.macropru.ccyb.toDouble
+    val rates                                   = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate))
+    val getLendRate: Int => Double              = (bankId: Int) => rates(bankId)
     val bankCanLendFn: (Int, Double) => Boolean =
       (bankId: Int, amt: Double) => Banking.canLend(bsec.banks(bankId), amt, Random, currentCcyb)
 
     val lendingRates = (0 until nBanks).map(getLendRate).toArray
 
-    var sumTax = 0.0
-    var sumCapex = 0.0
-    var sumTechImp = 0.0
-    var sumNewLoans = 0.0
-    var sumEquityIssuance = 0.0
+    var sumTax             = 0.0
+    var sumCapex           = 0.0
+    var sumTechImp         = 0.0
+    var sumNewLoans        = 0.0
+    var sumEquityIssuance  = 0.0
     var sumGrossInvestment = 0.0
-    var sumBondIssuance = 0.0
-    var sumProfitShifting = 0.0
+    var sumBondIssuance    = 0.0
+    var sumProfitShifting  = 0.0
     var sumFdiRepatriation = 0.0
     var sumInventoryChange = 0.0
-    var sumCitEvasion = 0.0
-    var sumEnergyCost = 0.0
+    var sumCitEvasion      = 0.0
+    var sumEnergyCost      = 0.0
     var sumGreenInvestment = 0.0
 
     val macro4firms = in.w.copy(
@@ -94,9 +94,9 @@ object FirmProcessingStep:
     val firmBondAmounts = scala.collection.mutable.HashMap.empty[FirmId, Double]
 
     val newFirms = in.firms.map { f =>
-      val firmRate = getLendRate(f.bankId.toInt)
+      val firmRate                       = getLendRate(f.bankId.toInt)
       val firmCanLend: Double => Boolean = amt => bankCanLendFn(f.bankId.toInt, amt)
-      val r = Firm.process(f, macro4firms, firmRate, firmCanLend, in.firms, in.rc)
+      val r                              = Firm.process(f, macro4firms, firmRate, firmCanLend, in.firms, in.rc)
       sumTax += r.taxPaid.toDouble
       sumCapex += r.capexSpent.toDouble
       sumTechImp += r.techImports.toDouble
@@ -112,9 +112,9 @@ object FirmProcessingStep:
         if p.flags.gpw && p.flags.gpwEquityIssuance && r.newLoan > PLN.Zero &&
           Firm.workers(r.firm) >= p.equity.issuanceMinSize
         then
-          val eqAmt = r.newLoan * p.equity.issuanceFrac.toDouble
+          val eqAmt   = r.newLoan * p.equity.issuanceFrac.toDouble
           val adjLoan = r.newLoan - eqAmt
-          val f2 = r.firm.copy(
+          val f2      = r.firm.copy(
             debt = r.firm.debt - eqAmt,
             equityRaised = r.firm.equityRaised + eqAmt,
           )
@@ -123,9 +123,9 @@ object FirmProcessingStep:
 
       val (finalLoan, bondAmt, bondUpdatedFirm) =
         if actualLoan > 0 && Firm.workers(updatedFirm) >= p.corpBond.minSize then
-          val ba = actualLoan * p.corpBond.issuanceFrac.toDouble
+          val ba      = actualLoan * p.corpBond.issuanceFrac.toDouble
           val adjLoan = actualLoan - ba
-          val f3 = updatedFirm.copy(
+          val f3      = updatedFirm.copy(
             debt = updatedFirm.debt - PLN(ba),
             bondDebt = updatedFirm.bondDebt + PLN(ba),
           )
@@ -148,8 +148,8 @@ object FirmProcessingStep:
         p.banking.minCar.toDouble,
       )
     val actualBondIssuance = sumBondIssuance * corpBondAbsorption
-    val revertRatio = 1.0 - corpBondAbsorption
-    val adjustedFirms =
+    val revertRatio        = 1.0 - corpBondAbsorption
+    val adjustedFirms      =
       if revertRatio > 0.001 then
         newFirms.map { f =>
           val ba = firmBondAmounts.getOrElse(f.id, 0.0)
@@ -181,32 +181,31 @@ object FirmProcessingStep:
     else (adjustedFirms, 0.0)
 
     var postFirmCrossSectorHires = 0
-    val afterSep = LaborMarket.separations(in.s3.updatedHouseholds, in.firms, ioFirms)
-    val (afterSearch, csHires) = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, Random)
+    val afterSep                 = LaborMarket.separations(in.s3.updatedHouseholds, in.firms, ioFirms)
+    val (afterSearch, csHires)   = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, Random)
     postFirmCrossSectorHires += csHires
-    val preMigrationHouseholds = LaborMarket.updateWages(afterSearch, in.s2.newWage)
+    val preMigrationHouseholds   = LaborMarket.updateWages(afterSearch, in.s2.newWage)
 
     val finalHouseholds =
       if p.flags.immigration then
-        val afterRemoval = Immigration.removeReturnMigrants(preMigrationHouseholds, in.s2.newImmig.monthlyOutflow)
-        val startId = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
+        val afterRemoval  = Immigration.removeReturnMigrants(preMigrationHouseholds, in.s2.newImmig.monthlyOutflow)
+        val startId       = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
         val newImmigrants = Immigration.spawnImmigrants(in.s2.newImmig.monthlyInflow, startId, Random)
         afterRemoval ++ newImmigrants
       else preMigrationHouseholds
 
-    val prevAlive = in.firms.filter(Firm.isAlive).map(_.id).toSet
-    val newlyDead = ioFirms.filter(f => !Firm.isAlive(f) && prevAlive.contains(f.id))
-    val firmDeaths = newlyDead.length
-    val nplNew = newlyDead.kahanSumBy(_.debt.toDouble)
-    val nplLoss = nplNew * (1.0 - p.banking.loanRecovery.toDouble)
+    val prevAlive        = in.firms.filter(Firm.isAlive).map(_.id).toSet
+    val newlyDead        = ioFirms.filter(f => !Firm.isAlive(f) && prevAlive.contains(f.id))
+    val firmDeaths       = newlyDead.length
+    val nplNew           = newlyDead.kahanSumBy(_.debt.toDouble)
+    val nplLoss          = nplNew * (1.0 - p.banking.loanRecovery.toDouble)
     val totalBondDefault = newlyDead.kahanSumBy(_.bondDebt.toDouble)
 
     for f <- newlyDead do perBankNplDebt(f.bankId.toInt) += f.debt.toDouble
 
-    for f <- in.firms if Firm.isAlive(f) do
-      perBankIntIncome(f.bankId.toInt) += f.debt.toDouble * getLendRate(f.bankId.toInt) / 12.0
+    for f <- in.firms if Firm.isAlive(f) do perBankIntIncome(f.bankId.toInt) += f.debt.toDouble * getLendRate(f.bankId.toInt) / 12.0
 
-    val intIncome = perBankIntIncome.kahanSum
+    val intIncome    = perBankIntIncome.kahanSum
     val netMigration = in.s2.newImmig.monthlyInflow - in.s2.newImmig.monthlyOutflow
 
     Output(

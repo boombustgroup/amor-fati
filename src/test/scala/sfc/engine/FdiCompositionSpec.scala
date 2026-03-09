@@ -9,7 +9,7 @@ import sfc.types.*
 
 class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // --- Config defaults ---
@@ -22,12 +22,11 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     p.fdi.foreignShares.map(_.toDouble).length shouldBe 6
   }
 
-  it should "have all values in [0, 1]" in {
+  it should "have all values in [0, 1]" in
     p.fdi.foreignShares.map(_.toDouble).foreach { s =>
       s should be >= 0.0
       s should be <= 1.0
     }
-  }
 
   "FdiProfitShiftRate" should "default to 0.15" in {
     p.fdi.profitShiftRate.toDouble shouldBe 0.15
@@ -53,7 +52,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be preserved through copy" in {
-    val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = true)
+    val f  = mkFirm(TechState.Traditional(10)).copy(foreignOwned = true)
     f.foreignOwned shouldBe true
     val f2 = f.copy(cash = PLN(99999.0))
     f2.foreignOwned shouldBe true
@@ -150,11 +149,10 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   // --- Integration: output column count ---
 
-  "Output columns" should "have 171 entries in colNames" in {
+  "Output columns" should "have 171 entries in colNames" in
     // Verify the colNames array in Main matches nCols
     // We test this indirectly through the integration spec (nCols = 171)
     succeed
-  }
 
   // --- FDI foreign shares calibration ---
 
@@ -193,8 +191,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
       priceLevel = 1.0,
       gov = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = Nbp.State(Rate(0.0575)),
-      bank =
-        BankingAggregate(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      bank = BankingAggregate(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       forex = ForexState(4.33, PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
       hh = Household.SectorState(
         100000,

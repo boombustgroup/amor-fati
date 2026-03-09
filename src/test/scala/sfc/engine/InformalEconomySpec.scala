@@ -10,7 +10,7 @@ import sfc.types.*
 class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // ==========================================================================
@@ -25,12 +25,11 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     p.informal.sectorShares.map(_.toDouble).length shouldBe 6
   }
 
-  it should "have all values in [0,1]" in {
+  it should "have all values in [0,1]" in
     p.informal.sectorShares.map(_.toDouble).foreach { s =>
       s should be >= 0.0
       s should be <= 1.0
     }
-  }
 
   it should "have Agri highest" in {
     p.informal.sectorShares.map(_.toDouble)(5) shouldBe p.informal.sectorShares.map(_.toDouble).max
@@ -237,7 +236,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
   "Effective shadow share" should "be weighted by FofConsWeights" in {
     val cyclicalAdj = 0.0
-    val ess =
+    val ess         =
       p.fiscal.fofConsWeights
         .map(_.toDouble)
         .zip(p.informal.sectorShares.map(_.toDouble))
@@ -253,7 +252,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
   it should "be capped at 1.0 per sector" in {
     val cyclicalAdj = 2.0 // very high
-    val shares = p.informal.sectorShares.map(_.toDouble).map(ss => Math.min(1.0, ss + cyclicalAdj))
+    val shares      = p.informal.sectorShares.map(_.toDouble).map(ss => Math.min(1.0, ss + cyclicalAdj))
     shares.foreach(_ shouldBe 1.0)
   }
 
@@ -262,8 +261,8 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "VAT evasion" should "reduce VAT proportionally" in {
-    val vat = 1000.0
-    val ess = 0.20
+    val vat      = 1000.0
+    val ess      = 0.20
     val vatAfter = vat * (1.0 - ess * p.informal.vatEvasion.toDouble)
     vatAfter should be < vat
     vatAfter should be > 0.0
@@ -274,8 +273,8 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "PIT evasion" should "reduce PIT proportionally" in {
-    val pit = 500.0
-    val ess = 0.20
+    val pit      = 500.0
+    val ess      = 0.20
     val pitAfter = pit * (1.0 - ess * p.informal.pitEvasion.toDouble)
     pitAfter should be < pit
     pitAfter should be > 0.0
@@ -286,8 +285,8 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Excise evasion" should "reduce excise proportionally" in {
-    val excise = 300.0
-    val ess = 0.20
+    val excise      = 300.0
+    val ess         = 0.20
     val exciseAfter = excise * (1.0 - ess * p.informal.exciseEvasion.toDouble)
     exciseAfter should be < excise
     exciseAfter should be > 0.0
@@ -299,10 +298,10 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
   "TaxEvasionLoss" should "be sum of all channels" in {
     val citEvasion = 100.0
-    val vatDiff = 200.0
-    val pitDiff = 150.0
+    val vatDiff    = 200.0
+    val pitDiff    = 150.0
     val exciseDiff = 50.0
-    val total = citEvasion + vatDiff + pitDiff + exciseDiff
+    val total      = citEvasion + vatDiff + pitDiff + exciseDiff
     total shouldBe 500.0
   }
 
@@ -312,16 +311,16 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
   "EvasionToGdpRatio" should "be positive when evasion > 0 and GDP > 0" in {
     val evasion = 100.0
-    val gdp = 1000.0
-    val ratio = evasion / gdp
+    val gdp     = 1000.0
+    val ratio   = evasion / gdp
     ratio should be > 0.0
     ratio shouldBe 0.1
   }
 
   it should "be zero when GDP is zero" in {
     val evasion = 100.0
-    val gdp = 0.0
-    val ratio = if gdp > 0 then evasion / gdp else 0.0
+    val gdp     = 0.0
+    val ratio   = if gdp > 0 then evasion / gdp else 0.0
     ratio shouldBe 0.0
   }
 

@@ -4,12 +4,14 @@ import sfc.types.*
 
 /** Firm-level production, automation, entry, and digitalization parameters.
   *
-  * Covers the supply side of the agent-based model: revenue generation, cost structure, AI/hybrid automation adoption
-  * with CAPEX/OPEX, endogenous firm entry, staged digitalization, and Watts-Strogatz network topology for demonstration
-  * effects.
+  * Covers the supply side of the agent-based model: revenue generation, cost
+  * structure, AI/hybrid automation adoption with CAPEX/OPEX, endogenous firm
+  * entry, staged digitalization, and Watts-Strogatz network topology for
+  * demonstration effects.
   *
   * @param baseRevenue
-  *   monthly revenue per worker before demand shocks (PLN, calibrated to GUS F-01 2024)
+  *   monthly revenue per worker before demand shocks (PLN, calibrated to GUS
+  *   F-01 2024)
   * @param otherCosts
   *   fixed non-wage monthly cost per worker (materials, rent, utilities)
   * @param aiCapex
@@ -29,7 +31,8 @@ import sfc.types.*
   * @param demandPassthrough
   *   fraction of aggregate demand shock passed to firm revenue
   * @param entryRate
-  *   base monthly probability of new firm entry per vacant slot (GUS CEIDG 2024)
+  *   base monthly probability of new firm entry per vacant slot (GUS CEIDG
+  *   2024)
   * @param entryProfitSens
   *   sensitivity of entry probability to sector profitability
   * @param entrySectorBarriers
@@ -66,37 +69,37 @@ import sfc.types.*
   *   monthly probability of network rewiring (0 = static network)
   */
 case class FirmConfig(
-  // Production & costs
-  baseRevenue: PLN = PLN(100000.0),
-  otherCosts: PLN = PLN(16667.0),
-  aiCapex: PLN = PLN(1200000.0),
-  hybridCapex: PLN = PLN(350000.0),
-  aiOpex: PLN = PLN(30000.0),
-  hybridOpex: PLN = PLN(12000.0),
-  autoSkeletonCrew: Int = 2,
-  hybridReadinessMin: Ratio = Ratio(0.20),
-  fullAiReadinessMin: Ratio = Ratio(0.35),
-  demandPassthrough: Ratio = Ratio(0.40),
-  // Entry
-  entryRate: Ratio = Ratio(0.02),
-  entryProfitSens: Double = 2.0,
-  entrySectorBarriers: Vector[Double] = Vector(0.8, 0.6, 1.2, 0.5, 0.1, 0.7),
-  entryAiThreshold: Ratio = Ratio(0.15),
-  entryAiProb: Ratio = Ratio(0.20),
-  entryStartupCash: PLN = PLN(50000.0),
-  // Digitalization
-  digiDrift: Ratio = Ratio(0.001),
-  digiInvestCost: PLN = PLN(50000.0),
-  digiInvestBoost: Ratio = Ratio(0.05),
-  digiCapexDiscount: Ratio = Ratio(0.30),
-  digiInvestBaseProb: Ratio = Ratio(0.08),
-  // Network / demonstration effects
-  networkK: Int = 6,
-  networkRewireP: Ratio = Ratio(0.10),
-  demoEffectThresh: Ratio = Ratio(0.40),
-  demoEffectBoost: Ratio = Ratio(0.15),
-  sigmaLambda: Double = 0.0,
-  sigmaCapMult: Double = 3.0,
-  rewireRho: Ratio = Ratio(0.0),
+    // Production & costs
+    baseRevenue: PLN = PLN(100000.0),
+    otherCosts: PLN = PLN(16667.0),
+    aiCapex: PLN = PLN(1200000.0),
+    hybridCapex: PLN = PLN(350000.0),
+    aiOpex: PLN = PLN(30000.0),
+    hybridOpex: PLN = PLN(12000.0),
+    autoSkeletonCrew: Int = 2,
+    hybridReadinessMin: Ratio = Ratio(0.20),
+    fullAiReadinessMin: Ratio = Ratio(0.35),
+    demandPassthrough: Ratio = Ratio(0.40),
+    // Entry
+    entryRate: Ratio = Ratio(0.02),
+    entryProfitSens: Double = 2.0,
+    entrySectorBarriers: Vector[Double] = Vector(0.8, 0.6, 1.2, 0.5, 0.1, 0.7),
+    entryAiThreshold: Ratio = Ratio(0.15),
+    entryAiProb: Ratio = Ratio(0.20),
+    entryStartupCash: PLN = PLN(50000.0),
+    // Digitalization
+    digiDrift: Ratio = Ratio(0.001),
+    digiInvestCost: PLN = PLN(50000.0),
+    digiInvestBoost: Ratio = Ratio(0.05),
+    digiCapexDiscount: Ratio = Ratio(0.30),
+    digiInvestBaseProb: Ratio = Ratio(0.08),
+    // Network / demonstration effects
+    networkK: Int = 6,
+    networkRewireP: Ratio = Ratio(0.10),
+    demoEffectThresh: Ratio = Ratio(0.40),
+    demoEffectBoost: Ratio = Ratio(0.15),
+    sigmaLambda: Double = 0.0,
+    sigmaCapMult: Double = 3.0,
+    rewireRho: Ratio = Ratio(0.0),
 ):
   require(entrySectorBarriers.length == 6, s"entrySectorBarriers must have 6 sectors: ${entrySectorBarriers.length}")

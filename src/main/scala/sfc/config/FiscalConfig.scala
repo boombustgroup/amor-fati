@@ -2,13 +2,17 @@ package sfc.config
 
 import sfc.types.*
 
-/** Government fiscal policy: taxation, spending, transfers, bond market, and local government (JST).
+/** Government fiscal policy: taxation, spending, transfers, bond market, and
+  * local government (JST).
   *
-  * Covers the full fiscal architecture of the Polish state: CIT/VAT/PIT/excise/customs revenue, government consumption
-  * and investment, EU fund absorption, minimum wage indexation, unemployment benefits, government bond market, JST
-  * (local government) fiscal sharing, PIT brackets, and 800+ social transfers.
+  * Covers the full fiscal architecture of the Polish state:
+  * CIT/VAT/PIT/excise/customs revenue, government consumption and investment,
+  * EU fund absorption, minimum wage indexation, unemployment benefits,
+  * government bond market, JST (local government) fiscal sharing, PIT brackets,
+  * and 800+ social transfers.
   *
-  * Stock values (`govBaseSpending`, `initGovDebt`) are in raw PLN — scaled by `gdpRatio` in `SimParams.defaults`.
+  * Stock values (`govBaseSpending`, `initGovDebt`) are in raw PLN — scaled by
+  * `gdpRatio` in `SimParams.defaults`.
   *
   * @param citRate
   *   corporate income tax rate (MF 2024: 19%)
@@ -29,7 +33,8 @@ import sfc.types.*
   * @param govInvestShare
   *   share of government spending allocated to capital investment (MF 2024)
   * @param govCapitalMultiplier
-  *   fiscal multiplier for government capital spending (Ilzetzki, Mendoza & Vegh 2013)
+  *   fiscal multiplier for government capital spending (Ilzetzki, Mendoza &
+  *   Vegh 2013)
   * @param govCurrentMultiplier
   *   fiscal multiplier for government current spending
   * @param govDepreciationRate
@@ -55,11 +60,13 @@ import sfc.types.*
   * @param minWageInflationIndex
   *   whether to index minimum wage to inflation
   * @param minWageTargetRatio
-  *   target ratio of minimum wage to average wage (Art. 5 Ustawa o min. wynagrodzeniu: 50%)
+  *   target ratio of minimum wage to average wage (Art. 5 Ustawa o min.
+  *   wynagrodzeniu: 50%)
   * @param minWageConvergenceSpeed
   *   annual convergence speed toward target ratio
   * @param fofConsWeights
-  *   Flow-of-Funds: household consumption weights by sector (6 sectors, GUS 2024)
+  *   Flow-of-Funds: household consumption weights by sector (6 sectors, GUS
+  *   2024)
   * @param fofGovWeights
   *   Flow-of-Funds: government spending weights by sector (6 sectors, MF 2024)
   * @param fofExportShares
@@ -79,9 +86,11 @@ import sfc.types.*
   * @param govTermPremium
   *   term premium on government bonds over policy rate (NBP 2024)
   * @param initGovDebt
-  *   initial government debt in raw PLN (scaled by gdpRatio, MF 2024: ~1.6 bln PLN)
+  *   initial government debt in raw PLN (scaled by gdpRatio, MF 2024: ~1.6 bln
+  *   PLN)
   * @param jstPitShare
-  *   JST (local government) share of PIT revenue (Art. 4 Ustawa o dochodach JST: 38.46%)
+  *   JST (local government) share of PIT revenue (Art. 4 Ustawa o dochodach
+  *   JST: 38.46%)
   * @param jstCitShare
   *   JST share of CIT revenue (Art. 4: 6.71%)
   * @param jstPropertyTax
@@ -108,67 +117,66 @@ import sfc.types.*
   *   average number of eligible children per household (GUS 2024)
   */
 case class FiscalConfig(
-  // Tax rates
-  citRate: Rate = Rate(0.19),
-  vatRates: Vector[Rate] = Vector(Rate(0.23), Rate(0.19), Rate(0.12), Rate(0.06), Rate(0.10), Rate(0.07)),
-  exciseRates: Vector[Rate] = Vector(Rate(0.01), Rate(0.04), Rate(0.03), Rate(0.005), Rate(0.002), Rate(0.02)),
-  customsDutyRate: Rate = Rate(0.04),
-  customsNonEuShare: Ratio = Ratio(0.30),
-  // Government spending (raw — scaled by gdpRatio in SimParams.defaults)
-  govBaseSpending: PLN = PLN(58.3e9),
-  govFiscalRecyclingRate: Ratio = Ratio(0.85),
-  govAutoStabMult: Double = 3.0,
-  // Government investment
-  govInvestShare: Ratio = Ratio(0.20),
-  govCapitalMultiplier: Double = 1.5,
-  govCurrentMultiplier: Double = 0.8,
-  govDepreciationRate: Rate = Rate(0.06),
-  govInitCapital: PLN = PLN(0.0),
-  // EU Funds
-  euFundsTotalEur: Double = 76e9,
-  euFundsPeriodMonths: Int = 84,
-  euFundsStartMonth: Int = 1,
-  euFundsAlpha: Double = 2.0,
-  euFundsBeta: Double = 5.0,
-  euCofinanceRate: Ratio = Ratio(0.15),
-  euCapitalShare: Ratio = Ratio(0.60),
-  // Minimum wage
-  minWageAdjustMonths: Int = 12,
-  minWageInflationIndex: Boolean = true,
-  minWageTargetRatio: Ratio = Ratio(0.50),
-  minWageConvergenceSpeed: Ratio = Ratio(0.33),
-  // Flow-of-Funds weights (6 sectors)
-  fofConsWeights: Vector[Ratio] = Vector(Ratio(0.02), Ratio(0.22), Ratio(0.53), Ratio(0.06), Ratio(0.07), Ratio(0.10)),
-  fofGovWeights: Vector[Ratio] = Vector(Ratio(0.04), Ratio(0.12), Ratio(0.08), Ratio(0.16), Ratio(0.50), Ratio(0.10)),
-  fofExportShares: Vector[Ratio] = Vector(Ratio(0.07), Ratio(0.52), Ratio(0.12), Ratio(0.02), Ratio(0.03), Ratio(0.24)),
-  fofInvestWeights: Vector[Ratio] =
-    Vector(Ratio(0.10), Ratio(0.40), Ratio(0.15), Ratio(0.05), Ratio(0.20), Ratio(0.10)),
-  // Unemployment benefits
-  govBenefitM1to3: PLN = PLN(1500.0),
-  govBenefitM4to6: PLN = PLN(1200.0),
-  govBenefitDuration: Int = 6,
-  govBenefitCoverage: Ratio = Ratio(0.15),
-  // Bond market
-  govFiscalRiskBeta: Double = 2.0,
-  govTermPremium: Rate = Rate(0.005),
-  // Government debt (raw — scaled by gdpRatio in SimParams.defaults)
-  initGovDebt: PLN = PLN(1600e9),
-  // JST (local government, Art. 4 Ustawa o dochodach JST)
-  jstPitShare: Ratio = Ratio(0.3846),
-  jstCitShare: Ratio = Ratio(0.0671),
-  jstPropertyTax: PLN = PLN(5000.0),
-  jstSubventionShare: Ratio = Ratio(0.03),
-  jstDotacjeShare: Ratio = Ratio(0.01),
-  jstSpendingMult: Double = 1.02,
-  // PIT (Ustawa o PIT 2024)
-  pitRate1: Rate = Rate(0.12),
-  pitRate2: Rate = Rate(0.32),
-  pitBracket1Annual: PLN = PLN(120000.0),
-  pitTaxCreditAnnual: PLN = PLN(3600.0),
-  pitEffectiveRate: Rate = Rate(0.09),
-  // Social 800+ (Dz.U. 2023)
-  social800Rate: PLN = PLN(800.0),
-  social800ChildrenPerHh: Double = 0.35,
+    // Tax rates
+    citRate: Rate = Rate(0.19),
+    vatRates: Vector[Rate] = Vector(Rate(0.23), Rate(0.19), Rate(0.12), Rate(0.06), Rate(0.10), Rate(0.07)),
+    exciseRates: Vector[Rate] = Vector(Rate(0.01), Rate(0.04), Rate(0.03), Rate(0.005), Rate(0.002), Rate(0.02)),
+    customsDutyRate: Rate = Rate(0.04),
+    customsNonEuShare: Ratio = Ratio(0.30),
+    // Government spending (raw — scaled by gdpRatio in SimParams.defaults)
+    govBaseSpending: PLN = PLN(58.3e9),
+    govFiscalRecyclingRate: Ratio = Ratio(0.85),
+    govAutoStabMult: Double = 3.0,
+    // Government investment
+    govInvestShare: Ratio = Ratio(0.20),
+    govCapitalMultiplier: Double = 1.5,
+    govCurrentMultiplier: Double = 0.8,
+    govDepreciationRate: Rate = Rate(0.06),
+    govInitCapital: PLN = PLN(0.0),
+    // EU Funds
+    euFundsTotalEur: Double = 76e9,
+    euFundsPeriodMonths: Int = 84,
+    euFundsStartMonth: Int = 1,
+    euFundsAlpha: Double = 2.0,
+    euFundsBeta: Double = 5.0,
+    euCofinanceRate: Ratio = Ratio(0.15),
+    euCapitalShare: Ratio = Ratio(0.60),
+    // Minimum wage
+    minWageAdjustMonths: Int = 12,
+    minWageInflationIndex: Boolean = true,
+    minWageTargetRatio: Ratio = Ratio(0.50),
+    minWageConvergenceSpeed: Ratio = Ratio(0.33),
+    // Flow-of-Funds weights (6 sectors)
+    fofConsWeights: Vector[Ratio] = Vector(Ratio(0.02), Ratio(0.22), Ratio(0.53), Ratio(0.06), Ratio(0.07), Ratio(0.10)),
+    fofGovWeights: Vector[Ratio] = Vector(Ratio(0.04), Ratio(0.12), Ratio(0.08), Ratio(0.16), Ratio(0.50), Ratio(0.10)),
+    fofExportShares: Vector[Ratio] = Vector(Ratio(0.07), Ratio(0.52), Ratio(0.12), Ratio(0.02), Ratio(0.03), Ratio(0.24)),
+    fofInvestWeights: Vector[Ratio] = Vector(Ratio(0.10), Ratio(0.40), Ratio(0.15), Ratio(0.05), Ratio(0.20), Ratio(0.10)),
+    // Unemployment benefits
+    govBenefitM1to3: PLN = PLN(1500.0),
+    govBenefitM4to6: PLN = PLN(1200.0),
+    govBenefitDuration: Int = 6,
+    govBenefitCoverage: Ratio = Ratio(0.15),
+    // Bond market
+    govFiscalRiskBeta: Double = 2.0,
+    govTermPremium: Rate = Rate(0.005),
+    // Government debt (raw — scaled by gdpRatio in SimParams.defaults)
+    initGovDebt: PLN = PLN(1600e9),
+    // JST (local government, Art. 4 Ustawa o dochodach JST)
+    jstPitShare: Ratio = Ratio(0.3846),
+    jstCitShare: Ratio = Ratio(0.0671),
+    jstPropertyTax: PLN = PLN(5000.0),
+    jstSubventionShare: Ratio = Ratio(0.03),
+    jstDotacjeShare: Ratio = Ratio(0.01),
+    jstSpendingMult: Double = 1.02,
+    // PIT (Ustawa o PIT 2024)
+    pitRate1: Rate = Rate(0.12),
+    pitRate2: Rate = Rate(0.32),
+    pitBracket1Annual: PLN = PLN(120000.0),
+    pitTaxCreditAnnual: PLN = PLN(3600.0),
+    pitEffectiveRate: Rate = Rate(0.09),
+    // Social 800+ (Dz.U. 2023)
+    social800Rate: PLN = PLN(800.0),
+    social800ChildrenPerHh: Double = 0.35,
 ):
   require(citRate >= Rate.Zero && citRate <= Rate(1.0), s"citRate must be in [0,1]: $citRate")
   require(govBaseSpending >= PLN.Zero, s"govBaseSpending must be non-negative: $govBaseSpending")

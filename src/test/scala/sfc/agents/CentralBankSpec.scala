@@ -7,7 +7,7 @@ import sfc.types.*
 class CentralBankSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // --- bondYield ---
@@ -23,13 +23,13 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase with debtToGdp (fiscal risk premium)" in {
-    val low = Nbp.bondYield(0.05, 0.30, 0.0, 0.0)
+    val low  = Nbp.bondYield(0.05, 0.30, 0.0, 0.0)
     val high = Nbp.bondYield(0.05, 0.70, 0.0, 0.0)
     high should be > low
   }
 
   it should "decrease with nbpBondGdpShare (QE compression)" in {
-    val noQe = Nbp.bondYield(0.05, 0.50, 0.0, 0.0)
+    val noQe   = Nbp.bondYield(0.05, 0.50, 0.0, 0.0)
     val withQe = Nbp.bondYield(0.05, 0.50, 0.20, 0.0)
     withQe should be < noQe
   }
@@ -73,29 +73,29 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
   // --- executeQe ---
 
   "Nbp.executeQe" should "return 0 purchase when not active" in {
-    val nbp = Nbp.State(Rate(0.05), PLN(1000.0), qeActive = false)
+    val nbp                = Nbp.State(Rate(0.05), PLN(1000.0), qeActive = false)
     val (newNbp, purchase) = Nbp.executeQe(nbp, 5000.0, 1e10)
     purchase shouldBe 0.0
     newNbp.govBondHoldings shouldBe nbp.govBondHoldings
   }
 
   it should "not exceed available bank bond holdings" in {
-    val nbp = Nbp.State(Rate(0.05), PLN.Zero, qeActive = true)
-    val bankBonds = 100.0
+    val nbp           = Nbp.State(Rate(0.05), PLN.Zero, qeActive = true)
+    val bankBonds     = 100.0
     val (_, purchase) = Nbp.executeQe(nbp, bankBonds, 1e12)
     purchase should be <= bankBonds
   }
 
   it should "not exceed max GDP share" in {
-    val nbp = Nbp.State(Rate(0.05), PLN.Zero, qeActive = true)
-    val annualGdp = 1000.0
-    val maxByGdp = p.monetary.qeMaxGdpShare.toDouble * annualGdp
+    val nbp           = Nbp.State(Rate(0.05), PLN.Zero, qeActive = true)
+    val annualGdp     = 1000.0
+    val maxByGdp      = p.monetary.qeMaxGdpShare.toDouble * annualGdp
     val (_, purchase) = Nbp.executeQe(nbp, 1e12, annualGdp)
     purchase should be <= maxByGdp
   }
 
   it should "accumulate in qeCumulative" in {
-    val nbp = Nbp.State(Rate(0.05), PLN.Zero, qeActive = true)
+    val nbp                = Nbp.State(Rate(0.05), PLN.Zero, qeActive = true)
     val (newNbp, purchase) = Nbp.executeQe(nbp, 1e12, 1e12)
     purchase should be > 0.0
     newNbp.qeCumulative.toDouble shouldBe purchase

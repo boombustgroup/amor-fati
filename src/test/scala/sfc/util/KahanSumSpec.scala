@@ -24,11 +24,11 @@ class KahanSumSpec extends AnyFlatSpec with Matchers:
   it should "preserve precision with 1.0 + many small values" in {
     // Classic Kahan test: 1.0 + 10000 × 1e-16
     // Naive sum loses the small values; Kahan preserves them
-    val n = 10000
-    val values = 1.0 +: Array.fill(n)(1e-16)
+    val n           = 10000
+    val values      = 1.0 +: Array.fill(n)(1e-16)
     val kahanResult = KahanSum.sum(values)
     val naiveResult = values.sum
-    val exact = 1.0 + n * 1e-16
+    val exact       = 1.0 + n * 1e-16
 
     // Kahan should be much closer to exact than naive
     val kahanError = Math.abs(kahanResult - exact)
@@ -38,11 +38,11 @@ class KahanSumSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce result closer to BigDecimal truth than naive sum on large array" in {
-    val rng = new scala.util.Random(42)
-    val n = 10000
+    val rng    = new scala.util.Random(42)
+    val n      = 10000
     val values = Array.fill(n)(rng.nextDouble() * 1e8 - 5e7)
 
-    val exactBD = values.map(BigDecimal(_)).sum.toDouble
+    val exactBD     = values.map(BigDecimal(_)).sum.toDouble
     val kahanResult = KahanSum.sum(values)
     val naiveResult = values.sum
 

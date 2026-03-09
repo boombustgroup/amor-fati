@@ -8,16 +8,17 @@ import scala.util.Random
 
 object SectoralMobility:
   case class State(
-    crossSectorHires: Int = 0,
-    voluntaryQuits: Int = 0,
-    sectorMobilityRate: Double = 0.0,
+      crossSectorHires: Int = 0,
+      voluntaryQuits: Int = 0,
+      sectorMobilityRate: Double = 0.0,
   )
 
   def zero: State = State()
 
-  /** Default 6x6 symmetric transition friction matrix. f(i,j) in [0,1]: 0 = frictionless, 1 = near-impossible.
-    * BPO<->Retail low (digital/service overlap), Mfg<->Agr moderate (physical skills), Healthcare high from non-medical
-    * (credential barrier).
+  /** Default 6x6 symmetric transition friction matrix. f(i,j) in [0,1]: 0 =
+    * frictionless, 1 = near-impossible. BPO<->Retail low (digital/service
+    * overlap), Mfg<->Agr moderate (physical skills), Healthcare high from
+    * non-medical (credential barrier).
     */
   val DefaultFrictionMatrix: Vector[Vector[Double]] = Vector(
     //       BPO   Mfg   Ret   Hlt   Pub   Agr
@@ -46,34 +47,35 @@ object SectoralMobility:
 
   /** Compute average wage per sector from employed households. */
   def sectorWages(households: Vector[Household.State]): Array[Double] =
-    val sums = new Array[Double](6)
+    val sums   = new Array[Double](6)
     val counts = new Array[Int](6)
     for hh <- households do
       hh.status match
         case HhStatus.Employed(_, sectorIdx, wage) =>
           sums(sectorIdx.toInt) += wage.toDouble
           counts(sectorIdx.toInt) += 1
-        case _ =>
+        case _                                     =>
     val result = new Array[Double](6)
     for s <- 0 until 6 do result(s) = if counts(s) > 0 then sums(s) / counts(s) else 0.0
     result
 
-  /** Probabilistic target sector selection weighted by wage, vacancy, and inverse friction. score(to) = avgWage(to) *
-    * (vacancies(to) + 1)^vacancyWeight * (1 - friction(from, to)) Returns selected sector index.
+  /** Probabilistic target sector selection weighted by wage, vacancy, and
+    * inverse friction. score(to) = avgWage(to) * (vacancies(to) +
+    * 1)^vacancyWeight * (1 - friction(from, to)) Returns selected sector index.
     */
   def selectTargetSector(
-    from: Int,
-    wages: Array[Double],
-    vacancies: Array[Int],
-    matrix: Vector[Vector[Double]],
-    vacancyWeight: Double,
-    rng: Random,
+      from: Int,
+      wages: Array[Double],
+      vacancies: Array[Int],
+      matrix: Vector[Vector[Double]],
+      vacancyWeight: Double,
+      rng: Random,
   )(using p: SimParams): Int =
     val scores = new Array[Double](6)
-    var total = 0.0
+    var total  = 0.0
     for to <- 0 until 6 if to != from do
       val friction = matrix(from)(to)
-      val s = Math.max(0.0, wages(to)) *
+      val s        = Math.max(0.0, wages(to)) *
         Math.pow(vacancies(to).toDouble + 1.0, vacancyWeight) *
         (1.0 - friction)
       scores(to) = s
@@ -84,8 +86,8 @@ object SectoralMobility:
       val others = (0 until 6).filter(_ != from)
       others(rng.nextInt(others.length))
     else
-      val r = rng.nextDouble() * total
-      var cum = 0.0
+      val r        = rng.nextDouble() * total
+      var cum      = 0.0
       var selected = 0
       for to <- 0 until 6 do
         cum += scores(to)
@@ -101,10 +103,10 @@ object SectoralMobility:
 
   /** Adjust retraining parameters by friction level. */
   def frictionAdjustedParams(friction: Double, durationMult: Double, costMult: Double)(using
-    p: SimParams,
+      p: SimParams,
   ): (Int, Double) =
     val adjDuration = Math.round(p.household.retrainingDuration * (1.0 + friction * durationMult)).toInt
-    val adjCost = p.household.retrainingCost.toDouble * (1.0 + friction * costMult)
+    val adjCost     = p.household.retrainingCost.toDouble * (1.0 + friction * costMult)
     (adjDuration, adjCost)
 
   /** Cross-sector wage penalty: proportional to friction, max 30%. */

@@ -14,15 +14,15 @@ import scala.util.Random
 /** Orchestrates all initialization factories and assembles World. */
 object WorldInit:
 
-  /** Initialize a complete simulation world from a seed. Sets totalPopulation (twice: once for firm workers, once for
-    * immigrants).
+  /** Initialize a complete simulation world from a seed. Sets totalPopulation
+    * (twice: once for firm workers, once for immigrants).
     */
   def initialize(seed: Int, rc: RunConfig)(using p: SimParams): InitResult =
     Random.setSeed(seed.toLong)
 
     // --- Firms ---
     val (firms, actualTotalPop) = FirmInit.create(Random)
-    var totalPop = actualTotalPop
+    var totalPop                = actualTotalPop
 
     // --- Households ---
     var households = Household.Init.create(Random, firms)
@@ -39,15 +39,14 @@ object WorldInit:
     // --- Demographics ---
     val initDemographics =
       if p.flags.demographics then SocialSecurity.DemographicsState(p.social.demInitialRetirees, totalPop, 0)
-      else if p.flags.zus && p.social.demInitialRetirees > 0 then
-        SocialSecurity.DemographicsState(p.social.demInitialRetirees, totalPop, 0)
+      else if p.flags.zus && p.social.demInitialRetirees > 0 then SocialSecurity.DemographicsState(p.social.demInitialRetirees, totalPop, 0)
       else SocialSecurity.DemographicsState.zero
 
     // --- Insurance / NBFI ---
-    val initInsurance =
+    val initInsurance        =
       if p.flags.insurance then Insurance.initial
       else Insurance.zero
-    val initNbfi =
+    val initNbfi             =
       if p.flags.nbfi then Nbfi.initial
       else Nbfi.zero
     val initBondsOutstanding = PLN(p.banking.initGovBonds.toDouble + p.banking.initNbpGovBonds.toDouble) +
@@ -61,8 +60,7 @@ object WorldInit:
         )
       else PLN.Zero
     val initGreenInvestment =
-      if p.flags.energy then
-        PLN(firms.kahanSumBy(f => (f.greenCapital * p.climate.greenDepRate.toDouble / 12.0).toDouble))
+      if p.flags.energy then PLN(firms.kahanSumBy(f => (f.greenCapital * p.climate.greenDepRate.toDouble / 12.0).toDouble))
       else PLN.Zero
 
     // --- Interest rate ---
@@ -112,7 +110,7 @@ object WorldInit:
       bankingSector = initBankingSector,
       demographics = initDemographics,
       equity = if p.flags.gpw then
-        val initEq = EquityMarket.initial
+        val initEq   = EquityMarket.initial
         val initHhEq =
           if p.flags.gpwHhEquity then
             PLN(

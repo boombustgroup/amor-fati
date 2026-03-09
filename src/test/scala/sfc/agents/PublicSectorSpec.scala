@@ -26,32 +26,32 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
     // Need ZUS enabled to test — but p.flags.zus is false by default.
     // Test the formula directly instead.
     val employed = 100000
-    val wage = 8266.0
-    val rate = 0.1952
-    val scale = 1.0
+    val wage     = 8266.0
+    val rate     = 0.1952
+    val scale    = 1.0
     val expected = employed * wage * rate * scale
     expected shouldBe (161.3e6 +- 1e5)
   }
 
   it should "compute pension payments from retirees × basePension" in {
-    val retirees = 50000
+    val retirees    = 50000
     val basePension = 3500.0
-    val expected = retirees * basePension
+    val expected    = retirees * basePension
     expected shouldBe 175e6
   }
 
   it should "compute govSubvention when FUS in deficit" in {
     val contributions = 100e6
-    val pensions = 150e6
-    val deficit = contributions - pensions // -50M
+    val pensions      = 150e6
+    val deficit       = contributions - pensions // -50M
     val govSubvention = if deficit < 0 then -deficit else 0.0
     govSubvention shouldBe 50e6
   }
 
   it should "have zero govSubvention when FUS in surplus" in {
     val contributions = 200e6
-    val pensions = 100e6
-    val surplus = contributions - pensions // +100M
+    val pensions      = 100e6
+    val surplus       = contributions - pensions // +100M
     val govSubvention = if surplus < 0 then -surplus else 0.0
     govSubvention shouldBe 0.0
   }
@@ -79,7 +79,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   "SocialSecurity.ppkBondPurchase" should "be contributions × bondAlloc" in {
-    val ppk = SocialSecurity.PpkState(bondHoldings = PLN.Zero, contributions = PLN(1e6))
+    val ppk      = SocialSecurity.PpkState(bondHoldings = PLN.Zero, contributions = PLN(1e6))
     // Default bondAlloc = 0.60
     val purchase = SocialSecurity.ppkBondPurchase(ppk)
     purchase shouldBe (1e6 * 0.60 +- 0.01)
@@ -95,7 +95,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "SocialSecurity.demographicsStep" should "return unchanged state when disabled" in {
-    val dem = SocialSecurity.DemographicsState(100, 10000, 5)
+    val dem    = SocialSecurity.DemographicsState(100, 10000, 5)
     val result = SocialSecurity.demographicsStep(dem, 9000)
     result.retirees shouldBe 100
     result.workingAgePop shouldBe 10000
@@ -103,8 +103,8 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "accept netMigration=0 as default (backward compat)" in {
-    val dem = SocialSecurity.DemographicsState(100, 10000, 5)
-    val result = SocialSecurity.demographicsStep(dem, 9000)
+    val dem     = SocialSecurity.DemographicsState(100, 10000, 5)
+    val result  = SocialSecurity.demographicsStep(dem, 9000)
     // Same as calling with explicit netMigration=0
     val result2 = SocialSecurity.demographicsStep(dem, 9000, 0)
     result.workingAgePop shouldBe result2.workingAgePop
@@ -113,7 +113,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   it should "increase workingAgePop with positive netMigration (when disabled)" in {
     // When demographics disabled, state is returned unchanged (no retirement/decline)
     // netMigration is only applied when DemEnabled=true, so this just tests the default path
-    val dem = SocialSecurity.DemographicsState(100, 10000, 5)
+    val dem    = SocialSecurity.DemographicsState(100, 10000, 5)
     val result = SocialSecurity.demographicsStep(dem, 9000, 500)
     // When disabled, workingAgePop unchanged regardless of netMigration
     result.workingAgePop shouldBe 10000
@@ -138,18 +138,18 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "FUS balance identity" should "hold: ΔfusBalance = contributions - pensions" in {
-    val prevBalance = 100e6
-    val contributions = 50e6
-    val pensions = 70e6
-    val expectedChange = contributions - pensions // -20M
-    val newBalance = prevBalance + expectedChange // 80M
+    val prevBalance    = 100e6
+    val contributions  = 50e6
+    val pensions       = 70e6
+    val expectedChange = contributions - pensions     // -20M
+    val newBalance     = prevBalance + expectedChange // 80M
     (newBalance - prevBalance) shouldBe (expectedChange +- 0.01)
   }
 
   it should "hold trivially when ZUS disabled (both sides = 0)" in {
-    val prevBalance = 0.0
-    val newBalance = 0.0
+    val prevBalance   = 0.0
+    val newBalance    = 0.0
     val contributions = 0.0
-    val pensions = 0.0
+    val pensions      = 0.0
     (newBalance - prevBalance) shouldBe (contributions - pensions +- 0.01)
   }

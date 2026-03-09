@@ -2,10 +2,12 @@ package sfc.config
 
 import sfc.types.*
 
-/** GPW (Warsaw Stock Exchange) equity market: index, issuance, household equity, and dividends.
+/** GPW (Warsaw Stock Exchange) equity market: index, issuance, household
+  * equity, and dividends.
   *
-  * Models the WIG index with P/E-driven valuation, equity issuance by large firms (Catalyst), household equity
-  * participation with wealth effects (Case, Quigley & Shiller 2005), dividend distribution with Belka tax, and foreign
+  * Models the WIG index with P/E-driven valuation, equity issuance by large
+  * firms (Catalyst), household equity participation with wealth effects (Case,
+  * Quigley & Shiller 2005), dividend distribution with Belka tax, and foreign
   * ownership channel. Calibrated to GPW 2024, KNF/KDPW 2024 data.
   *
   * `initMcap` is in raw PLN — scaled by `gdpRatio` in `SimParams.defaults`.
@@ -13,7 +15,8 @@ import sfc.types.*
   * @param initIndex
   *   initial WIG index value (GPW 2024: ~2,400)
   * @param initMcap
-  *   initial market capitalization in raw PLN (GPW 2024: ~1.4 bln PLN, scaled by gdpRatio)
+  *   initial market capitalization in raw PLN (GPW 2024: ~1.4 bln PLN, scaled
+  *   by gdpRatio)
   * @param peMean
   *   long-run mean P/E ratio for reversion (GPW 2024: ~10)
   * @param divYield
@@ -32,14 +35,14 @@ import sfc.types.*
   *   dividend withholding tax rate (Belka tax, Ustawa o PIT Art. 30a: 19%)
   */
 case class EquityConfig(
-  initIndex: Double = 2400.0,
-  initMcap: PLN = PLN(1.4e12), // raw — scaled by gdpRatio
-  peMean: Double = 10.0,
-  divYield: Rate = Rate(0.057),
-  foreignShare: Ratio = Ratio(0.67),
-  issuanceFrac: Ratio = Ratio(0.10),
-  issuanceMinSize: Int = 5,
-  hhEquityFrac: Ratio = Ratio(0.07),
-  wealthEffectMpc: Ratio = Ratio(0.02),
-  divTax: Rate = Rate(0.19),
+    initIndex: Double = 2400.0,
+    initMcap: PLN = PLN(1.4e12), // raw — scaled by gdpRatio
+    peMean: Double = 10.0,
+    divYield: Rate = Rate(0.057),
+    foreignShare: Ratio = Ratio(0.67),
+    issuanceFrac: Ratio = Ratio(0.10),
+    issuanceMinSize: Int = 5,
+    hhEquityFrac: Ratio = Ratio(0.07),
+    wealthEffectMpc: Ratio = Ratio(0.02),
+    divTax: Rate = Rate(0.19),
 )

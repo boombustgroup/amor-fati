@@ -13,7 +13,7 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
 
   "wattsStrogatz" should "produce average degree ≈ k" in {
     Random.setSeed(42)
-    val adj = Network.wattsStrogatz(1000, 6, 0.10)
+    val adj    = Network.wattsStrogatz(1000, 6, 0.10)
     val avgDeg = adj.map(_.length).sum.toDouble / adj.length
     avgDeg shouldBe 6.0 +- 0.3 // ±5%
   }
@@ -32,9 +32,9 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
 
   it should "be a single connected component" in {
     Random.setSeed(42)
-    val adj = Network.wattsStrogatz(1000, 6, 0.10)
+    val adj     = Network.wattsStrogatz(1000, 6, 0.10)
     val visited = Array.fill(adj.length)(false)
-    val queue = scala.collection.mutable.Queue(0)
+    val queue   = scala.collection.mutable.Queue(0)
     visited(0) = true
     while queue.nonEmpty do
       val node = queue.dequeue()
@@ -53,8 +53,8 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   // --- Erdos-Renyi ---
 
   "erdosRenyi" should "produce average degree ≈ target" in {
-    val rng = new Random(42)
-    val adj = Network.erdosRenyi(1000, 6, rng)
+    val rng    = new Random(42)
+    val adj    = Network.erdosRenyi(1000, 6, rng)
     val avgDeg = adj.map(_.length).sum.toDouble / adj.length
     avgDeg shouldBe 6.0 +- 0.9 // ±15%
   }
@@ -74,8 +74,8 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   // --- Barabasi-Albert ---
 
   "barabasiAlbert" should "produce average degree ≈ 2m" in {
-    val rng = new Random(42)
-    val adj = Network.barabasiAlbert(1000, 3, rng)
+    val rng    = new Random(42)
+    val adj    = Network.barabasiAlbert(1000, 3, rng)
     val avgDeg = adj.map(_.length).sum.toDouble / adj.length
     avgDeg shouldBe 6.0 +- 0.6 // ±10%
   }

@@ -101,13 +101,13 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   )
 
   private def mkBank(
-    id: Int,
-    deposits: PLN = PLN(1e9),
-    loans: PLN = PLN(5e8),
-    capital: PLN = PLN(1e8),
-    reservesAtNbp: PLN = PLN(1e7),
-    interbankNet: PLN = PLN.Zero,
-    failed: Boolean = false,
+      id: Int,
+      deposits: PLN = PLN(1e9),
+      loans: PLN = PLN(5e8),
+      capital: PLN = PLN(1e8),
+      reservesAtNbp: PLN = PLN(1e7),
+      interbankNet: PLN = PLN.Zero,
+      failed: Boolean = false,
   ) =
     Banking.BankState(
       BankId(id),
@@ -128,8 +128,8 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "Banking.reserveInterest" should "compute monthly interest on reserves" in {
-    val bank = mkBank(0, reservesAtNbp = PLN(1e8)) // 100M in reserves
-    val refRate = 0.0575
+    val bank     = mkBank(0, reservesAtNbp = PLN(1e8)) // 100M in reserves
+    val refRate  = 0.0575
     val interest = Banking.reserveInterest(bank, refRate)
     // Expected: 100M × 0.0575 × 0.5 / 12 ≈ 239,583
     interest shouldBe (1e8 * 0.0575 * 0.5 / 12.0 +- 1.0)
@@ -146,11 +146,11 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   "Banking.computeReserveInterest" should "sum per-bank interest" in {
-    val banks = Vector(
+    val banks            = Vector(
       mkBank(0, reservesAtNbp = PLN(1e8)),
       mkBank(1, reservesAtNbp = PLN(5e7)),
     )
-    val refRate = 0.06
+    val refRate          = 0.06
     val (perBank, total) = Banking.computeReserveInterest(banks, refRate)
     perBank.length shouldBe 2
     total shouldBe (perBank.sum +- 0.01)
@@ -163,7 +163,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
 
   "Banking.computeStandingFacilities" should "return zeros when disabled" in {
     // Standing facilities are OFF by default (p.flags.nbpStandingFacilities = false)
-    val banks = Vector(mkBank(0, reservesAtNbp = PLN(1e8)), mkBank(1, reservesAtNbp = PLN(5e7)))
+    val banks            = Vector(mkBank(0, reservesAtNbp = PLN(1e8)), mkBank(1, reservesAtNbp = PLN(5e7)))
     val (perBank, total) = Banking.computeStandingFacilities(banks, 0.06)
     perBank.foreach(_ shouldBe 0.0)
     total shouldBe 0.0
@@ -172,9 +172,9 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   it should "compute deposit facility income for banks with excess reserves" in {
     // When standing facilities enabled, banks with reservesAtNbp > 0 earn deposit rate
     // We can't easily set Config at runtime, so test the formula directly
-    val bank = mkBank(0, reservesAtNbp = PLN(1e8))
-    val refRate = 0.0575
-    val depositRate = Math.max(0.0, refRate - 0.01) // 4.75%
+    val bank            = mkBank(0, reservesAtNbp = PLN(1e8))
+    val refRate         = 0.0575
+    val depositRate     = Math.max(0.0, refRate - 0.01) // 4.75%
     val expectedMonthly = bank.reservesAtNbp.toDouble * depositRate / 12.0
     // Direct formula check: reservesAtNbp × (refRate − spread) / 12
     expectedMonthly shouldBe (1e8 * 0.0475 / 12.0 +- 1.0)
@@ -183,9 +183,9 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   it should "charge lombard rate for interbank borrowers (formula check)" in {
     // Bank with negative interbankNet should pay lombard cost (negative income)
     // interbankNet = -100M, refRate = 5.75%, lombardSpread = 1% → lombardRate = 6.75%
-    val refRate = 0.0575
-    val lombardRate = refRate + 0.01 // 6.75%
-    val interbankBorrowing = 1e8
+    val refRate             = 0.0575
+    val lombardRate         = refRate + 0.01 // 6.75%
+    val interbankBorrowing  = 1e8
     val expectedMonthlyCost = (interbankBorrowing * lombardRate / 12.0) * -1.0
     // Direct formula check: -|interbankNet| × lombardRate / 12
     expectedMonthlyCost shouldBe (-1e8 * 0.0675 / 12.0 +- 1.0)
@@ -193,7 +193,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return zero for failed banks" in {
-    val banks = Vector(mkBank(0, reservesAtNbp = PLN(1e8), failed = true))
+    val banks            = Vector(mkBank(0, reservesAtNbp = PLN(1e8), failed = true))
     val (perBank, total) = Banking.computeStandingFacilities(banks, 0.06)
     // Even if enabled, failed banks get 0 — but currently disabled by default
     total shouldBe 0.0
@@ -204,11 +204,11 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "Banking.interbankInterestFlows" should "compute interest on net positions" in {
-    val banks = Vector(
+    val banks            = Vector(
       mkBank(0, interbankNet = PLN(1e8)), // Lender: +100M
       mkBank(1, interbankNet = PLN(-1e8)), // Borrower: -100M
     )
-    val rate = 0.06
+    val rate             = 0.06
     val (perBank, total) = Banking.interbankInterestFlows(banks, rate)
     perBank(0) should be > 0.0 // Lender earns
     perBank(1) should be < 0.0 // Borrower pays
@@ -217,7 +217,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "sum to zero for balanced interbank positions" in {
-    val banks = Vector(
+    val banks      = Vector(
       mkBank(0, interbankNet = PLN(5e7)),
       mkBank(1, interbankNet = PLN(-3e7)),
       mkBank(2, interbankNet = PLN(-2e7)),
@@ -227,14 +227,14 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return zeros for zero net positions" in {
-    val banks = Vector(mkBank(0, interbankNet = PLN.Zero), mkBank(1, interbankNet = PLN.Zero))
+    val banks            = Vector(mkBank(0, interbankNet = PLN.Zero), mkBank(1, interbankNet = PLN.Zero))
     val (perBank, total) = Banking.interbankInterestFlows(banks, 0.06)
     perBank.foreach(_ shouldBe 0.0)
     total shouldBe 0.0
   }
 
   it should "return zero for failed banks" in {
-    val banks = Vector(
+    val banks        = Vector(
       mkBank(0, interbankNet = PLN(1e8), failed = true),
       mkBank(1, interbankNet = PLN(-1e8)),
     )
@@ -244,7 +244,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "scale linearly with rate" in {
-    val banks = Vector(
+    val banks         = Vector(
       mkBank(0, interbankNet = PLN(1e8)),
       mkBank(1, interbankNet = PLN(-1e8)),
     )
@@ -258,59 +258,59 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "Sfc" should "pass with reserve interest in bank capital" in {
-    val prev = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
-    val reserveInt = PLN(100000.0)
+    val prev              = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
+    val reserveInt        = PLN(100000.0)
     val expectedCapChange = reserveInt * 0.3
-    val curr = prev.copy(bankCapital = prev.bankCapital + expectedCapChange)
-    val flows = zeroFlows.copy(reserveInterest = reserveInt)
-    val result = Sfc.validate(prev, curr, flows)
+    val curr              = prev.copy(bankCapital = prev.bankCapital + expectedCapChange)
+    val flows             = zeroFlows.copy(reserveInterest = reserveInt)
+    val result            = Sfc.validate(prev, curr, flows)
     result shouldBe Right(())
   }
 
   it should "pass with standing facility income in bank capital" in {
-    val prev = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
-    val sfIncome = PLN(50000.0)
+    val prev              = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
+    val sfIncome          = PLN(50000.0)
     val expectedCapChange = sfIncome * 0.3
-    val curr = prev.copy(bankCapital = prev.bankCapital + expectedCapChange)
-    val flows = zeroFlows.copy(standingFacilityIncome = sfIncome)
-    val result = Sfc.validate(prev, curr, flows)
+    val curr              = prev.copy(bankCapital = prev.bankCapital + expectedCapChange)
+    val flows             = zeroFlows.copy(standingFacilityIncome = sfIncome)
+    val result            = Sfc.validate(prev, curr, flows)
     result shouldBe Right(())
   }
 
   it should "pass with interbank interest (net ≈ 0) in bank capital" in {
-    val prev = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
+    val prev   = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
     // Interbank interest nets to ~0 in aggregate, so bank capital unchanged
-    val ibInt = PLN.Zero
-    val curr = prev.copy(bankCapital = prev.bankCapital)
-    val flows = zeroFlows.copy(interbankInterest = ibInt)
+    val ibInt  = PLN.Zero
+    val curr   = prev.copy(bankCapital = prev.bankCapital)
+    val flows  = zeroFlows.copy(interbankInterest = ibInt)
     val result = Sfc.validate(prev, curr, flows)
     result shouldBe Right(())
   }
 
   it should "detect mismatch when reserve interest not in flows" in {
-    val prev = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
+    val prev       = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
     val reserveInt = PLN(100000.0)
-    val curr = prev.copy(bankCapital = prev.bankCapital + reserveInt * 0.3)
+    val curr       = prev.copy(bankCapital = prev.bankCapital + reserveInt * 0.3)
     // Flows do NOT include reserveInterest — should fail
-    val flows = zeroFlows
-    val result = Sfc.validate(prev, curr, flows)
+    val flows      = zeroFlows
+    val result     = Sfc.validate(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankCapital) shouldBe true
   }
 
   it should "pass with all three monetary plumbing flows combined" in {
-    val prev = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
-    val resInt = PLN(200000.0)
-    val sfInc = PLN(50000.0)
-    val ibInt = PLN(-1000.0) // small net from rounding
+    val prev              = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
+    val resInt            = PLN(200000.0)
+    val sfInc             = PLN(50000.0)
+    val ibInt             = PLN(-1000.0) // small net from rounding
     val expectedCapChange = (resInt + sfInc + ibInt) * 0.3
-    val curr = prev.copy(bankCapital = prev.bankCapital + expectedCapChange)
-    val flows = zeroFlows.copy(
+    val curr              = prev.copy(bankCapital = prev.bankCapital + expectedCapChange)
+    val flows             = zeroFlows.copy(
       reserveInterest = resInt,
       standingFacilityIncome = sfInc,
       interbankInterest = ibInt,
     )
-    val result = Sfc.validate(prev, curr, flows)
+    val result            = Sfc.validate(prev, curr, flows)
     result shouldBe Right(())
   }
 
@@ -349,54 +349,54 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "Sfc Identity 2" should "include JST deposit change" in {
-    val prev = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
+    val prev   = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
     val jstDep = PLN(50000.0) // positive = JST adds to bank deposits
-    val curr = prev.copy(bankDeposits = prev.bankDeposits + jstDep)
-    val flows = zeroFlows.copy(jstDepositChange = jstDep)
+    val curr   = prev.copy(bankDeposits = prev.bankDeposits + jstDep)
+    val flows  = zeroFlows.copy(jstDepositChange = jstDep)
     val result = Sfc.validate(prev, curr, flows)
     result shouldBe Right(())
   }
 
   it should "fail when JST deposit change not accounted for" in {
-    val prev = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
+    val prev   = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
     val jstDep = PLN(50000.0)
-    val curr = prev.copy(bankDeposits = prev.bankDeposits + jstDep)
+    val curr   = prev.copy(bankDeposits = prev.bankDeposits + jstDep)
     // Flows do NOT include jstDepositChange → should fail
-    val flows = zeroFlows
+    val flows  = zeroFlows
     val result = Sfc.validate(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
   }
 
   "Sfc Identity 7" should "pass when JST debt change matches" in {
-    val prev = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
-    val jstSpend = PLN(1e7)
-    val jstRev = PLN(9.8e6)
-    val deficit = jstSpend - jstRev
+    val prev      = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
+    val jstSpend  = PLN(1e7)
+    val jstRev    = PLN(9.8e6)
+    val deficit   = jstSpend - jstRev
     val depChange = -deficit // deposit change = revenue - spending = -deficit
-    val curr = prev.copy(
+    val curr      = prev.copy(
       jstDebt = prev.jstDebt + deficit,
       bankDeposits = prev.bankDeposits + depChange, // Identity 2: deposits change by jstDepositChange
     )
-    val flows = zeroFlows.copy(
+    val flows     = zeroFlows.copy(
       jstSpending = jstSpend,
       jstRevenue = jstRev,
       jstDepositChange = depChange,
     )
-    val result = Sfc.validate(prev, curr, flows)
+    val result    = Sfc.validate(prev, curr, flows)
     result shouldBe Right(())
   }
 
   it should "fail when JST debt change mismatches" in {
-    val prev = zeroSnap.copy(
+    val prev   = zeroSnap.copy(
       bankCapital = PLN(1e8),
       bankDeposits = PLN(1e9),
       bankLoans = PLN(5e8),
       jstDebt = PLN(1000.0),
     )
     // JST debt goes up by 5000 but flows say zero
-    val curr = prev.copy(jstDebt = prev.jstDebt + PLN(5000.0))
-    val flows = zeroFlows
+    val curr   = prev.copy(jstDebt = prev.jstDebt + PLN(5000.0))
+    val flows  = zeroFlows
     val result = Sfc.validate(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.JstDebt) shouldBe true

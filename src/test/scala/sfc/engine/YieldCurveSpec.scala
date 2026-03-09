@@ -75,7 +75,7 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
 
   it should "store curve when provided" in {
     val curve = YieldCurve.compute(0.058)
-    val bs = Banking.State(Vector.empty, Rate(0.058), Vector.empty, interbankCurve = Some(curve))
+    val bs    = Banking.State(Vector.empty, Rate(0.058), Vector.empty, interbankCurve = Some(curve))
     bs.interbankCurve shouldBe defined
     bs.interbankCurve.get.wibor3m.toDouble shouldBe (0.058 + 0.0040 +- 1e-10)
   }

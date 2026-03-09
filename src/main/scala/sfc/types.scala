@@ -7,49 +7,49 @@ object types:
   opaque type BankId = Int
   object BankId:
     inline def apply(i: Int): BankId = i
-    val NoBank: BankId = -1
+    val NoBank: BankId               = -1
     extension (b: BankId)
-      inline def toInt: Int = b
+      inline def toInt: Int              = b
       inline def ==(other: Int): Boolean = b == other
 
   opaque type FirmId = Int
   object FirmId:
-    inline def apply(i: Int): FirmId = i
+    inline def apply(i: Int): FirmId            = i
     extension (f: FirmId) inline def toInt: Int = f
 
   opaque type HhId = Int
   object HhId:
-    inline def apply(i: Int): HhId = i
+    inline def apply(i: Int): HhId            = i
     extension (h: HhId) inline def toInt: Int = h
-    given Ordering[HhId] = Ordering.Int
+    given Ordering[HhId]                      = Ordering.Int
 
   opaque type SectorIdx = Int
   object SectorIdx:
-    inline def apply(i: Int): SectorIdx = i
+    inline def apply(i: Int): SectorIdx            = i
     extension (s: SectorIdx) inline def toInt: Int = s
 
   // === Monetary amounts ===
   opaque type PLN = Double
   object PLN:
     inline def apply(d: Double): PLN = d
-    val Zero: PLN = 0.0
+    val Zero: PLN                    = 0.0
     extension (p: PLN)
-      inline def +(other: PLN): PLN = p + other
-      inline def -(other: PLN): PLN = p - other
-      inline def *(scalar: Double): PLN = p * scalar
+      inline def +(other: PLN): PLN      = p + other
+      inline def -(other: PLN): PLN      = p - other
+      inline def *(scalar: Double): PLN  = p * scalar
       @targetName("plnTimesRate")
-      inline def *(r: Rate): PLN = p * r
+      inline def *(r: Rate): PLN         = p * r
       @targetName("plnDivPln")
-      inline def /(other: PLN): Double = p / other
+      inline def /(other: PLN): Double   = p / other
       @targetName("plnDivScalar")
-      inline def /(scalar: Double): PLN = p / scalar
-      inline def unary_- : PLN = -p
-      inline def abs: PLN = math.abs(p)
-      inline def max(other: PLN): PLN = math.max(p, other)
-      inline def min(other: PLN): PLN = math.min(p, other)
-      inline def toDouble: Double = p
-      inline def >(other: PLN): Boolean = p > other
-      inline def <(other: PLN): Boolean = p < other
+      inline def /(scalar: Double): PLN  = p / scalar
+      inline def unary_- : PLN           = -p
+      inline def abs: PLN                = math.abs(p)
+      inline def max(other: PLN): PLN    = math.max(p, other)
+      inline def min(other: PLN): PLN    = math.min(p, other)
+      inline def toDouble: Double        = p
+      inline def >(other: PLN): Boolean  = p > other
+      inline def <(other: PLN): Boolean  = p < other
       inline def >=(other: PLN): Boolean = p >= other
       inline def <=(other: PLN): Boolean = p <= other
 
@@ -57,19 +57,19 @@ object types:
   opaque type Rate = Double
   object Rate:
     inline def apply(d: Double): Rate = d
-    val Zero: Rate = 0.0
+    val Zero: Rate                    = 0.0
     extension (r: Rate)
-      inline def +(other: Rate): Rate = r + other
-      inline def -(other: Rate): Rate = r - other
-      inline def *(scalar: Double): Rate = r * scalar
-      inline def /(scalar: Double): Rate = r / scalar
-      inline def unary_- : Rate = -r
-      inline def abs: Rate = math.abs(r)
-      inline def max(other: Rate): Rate = math.max(r, other)
-      inline def min(other: Rate): Rate = math.min(r, other)
-      inline def toDouble: Double = r
-      inline def >(other: Rate): Boolean = r > other
-      inline def <(other: Rate): Boolean = r < other
+      inline def +(other: Rate): Rate     = r + other
+      inline def -(other: Rate): Rate     = r - other
+      inline def *(scalar: Double): Rate  = r * scalar
+      inline def /(scalar: Double): Rate  = r / scalar
+      inline def unary_- : Rate           = -r
+      inline def abs: Rate                = math.abs(r)
+      inline def max(other: Rate): Rate   = math.max(r, other)
+      inline def min(other: Rate): Rate   = math.min(r, other)
+      inline def toDouble: Double         = r
+      inline def >(other: Rate): Boolean  = r > other
+      inline def <(other: Rate): Boolean  = r < other
       inline def >=(other: Rate): Boolean = r >= other
       inline def <=(other: Rate): Boolean = r <= other
 
@@ -77,20 +77,20 @@ object types:
   opaque type Ratio = Double
   object Ratio:
     inline def apply(d: Double): Ratio = d
-    val Zero: Ratio = 0.0
-    val One: Ratio = 1.0
+    val Zero: Ratio                    = 0.0
+    val One: Ratio                     = 1.0
     extension (r: Ratio)
-      inline def +(other: Ratio): Ratio = r + other
-      inline def -(other: Ratio): Ratio = r - other
-      inline def *(scalar: Double): Ratio = r * scalar
+      inline def +(other: Ratio): Ratio    = r + other
+      inline def -(other: Ratio): Ratio    = r - other
+      inline def *(scalar: Double): Ratio  = r * scalar
       @targetName("ratioTimesRatio")
-      inline def *(other: Ratio): Ratio = r * other
+      inline def *(other: Ratio): Ratio    = r * other
       @targetName("ratioDivScalar")
-      inline def /(scalar: Double): Ratio = r / scalar
-      inline def max(other: Ratio): Ratio = math.max(r, other)
-      inline def min(other: Ratio): Ratio = math.min(r, other)
-      inline def toDouble: Double = r
-      inline def >(other: Ratio): Boolean = r > other
-      inline def <(other: Ratio): Boolean = r < other
+      inline def /(scalar: Double): Ratio  = r / scalar
+      inline def max(other: Ratio): Ratio  = math.max(r, other)
+      inline def min(other: Ratio): Ratio  = math.min(r, other)
+      inline def toDouble: Double          = r
+      inline def >(other: Ratio): Boolean  = r > other
+      inline def <(other: Ratio): Boolean  = r < other
       inline def >=(other: Ratio): Boolean = r >= other
       inline def <=(other: Ratio): Boolean = r <= other

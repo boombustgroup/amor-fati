@@ -1,55 +1,61 @@
 package sfc.config
 
-/** Complete parameterization of a 48-mechanism SFC-ABM model of the Polish economy.
+/** Complete parameterization of a 48-mechanism SFC-ABM model of the Polish
+  * economy.
   *
-  * Replaces the flat `object Config` singleton with a hierarchical, immutable, and testable configuration. Thread via
-  * Scala 3 `using` context parameters (PR 2). Constructor is private — use `SimParams.defaults` or (in PR 2)
+  * Replaces the flat `object Config` singleton with a hierarchical, immutable,
+  * and testable configuration. Thread via Scala 3 `using` context parameters
+  * (PR 2). Constructor is private — use `SimParams.defaults` or (in PR 2)
   * `SimParams.fromFile(path)`.
   *
   * Sub-configs are grouped by economic domain:
   *   - `flags` — 49 mechanism toggles
   *   - `pop`, `timeline` — simulation structure
   *   - `firm`, `household` — agent parameters
-  *   - `fiscal`, `monetary`, `banking` — government, central bank, commercial banks
-  *   - `forex`, `openEcon`, `fdi`, `immigration`, `remittance`, `tourism`, `gvc` — external sector
+  *   - `fiscal`, `monetary`, `banking` — government, central bank, commercial
+  *     banks
+  *   - `forex`, `openEcon`, `fdi`, `immigration`, `remittance`, `tourism`,
+  *     `gvc` — external sector
   *   - `equity`, `corpBond`, `ins`, `nbfi`, `housing` — financial markets
-  *   - `social`, `io`, `labor`, `capital`, `climate`, `informal` — structural mechanisms
+  *   - `social`, `io`, `labor`, `capital`, `climate`, `informal` — structural
+  *     mechanisms
   *   - `sectorDefs`, `topology`, `gdpRatio` — simulation infrastructure
   *
-  * Stock values in sub-configs use raw PLN amounts. `SimParams.defaults` applies `gdpRatio` scaling so that agent-level
-  * flows map correctly to real Polish GDP (~3.5 bln PLN). Do NOT construct SimParams directly with unscaled values —
-  * always start from `defaults` and use `.copy()`.
+  * Stock values in sub-configs use raw PLN amounts. `SimParams.defaults`
+  * applies `gdpRatio` scaling so that agent-level flows map correctly to real
+  * Polish GDP (~3.5 bln PLN). Do NOT construct SimParams directly with unscaled
+  * values — always start from `defaults` and use `.copy()`.
   */
 case class SimParams private (
-  flags: FeatureFlags = FeatureFlags(),
-  pop: PopulationConfig = PopulationConfig(),
-  timeline: TimelineConfig = TimelineConfig(),
-  firm: FirmConfig = FirmConfig(),
-  household: HouseholdConfig = HouseholdConfig(),
-  fiscal: FiscalConfig = FiscalConfig(),
-  monetary: MonetaryConfig = MonetaryConfig(),
-  banking: BankingConfig = BankingConfig(),
-  forex: ForexConfig = ForexConfig(),
-  openEcon: OpenEconConfig = OpenEconConfig(),
-  fdi: FdiConfig = FdiConfig(),
-  immigration: ImmigrationConfig = ImmigrationConfig(),
-  remittance: RemittanceConfig = RemittanceConfig(),
-  tourism: TourismConfig = TourismConfig(),
-  gvc: GvcConfig = GvcConfig(),
-  equity: EquityConfig = EquityConfig(),
-  corpBond: CorpBondConfig = CorpBondConfig(),
-  ins: InsuranceConfig = InsuranceConfig(),
-  nbfi: NbfiConfig = NbfiConfig(),
-  housing: HousingConfig = HousingConfig(),
-  social: SocialConfig = SocialConfig(),
-  io: IoConfig = IoConfig(),
-  labor: LaborConfig = LaborConfig(),
-  capital: CapitalConfig = CapitalConfig(),
-  climate: ClimateConfig = ClimateConfig(),
-  informal: InformalConfig = InformalConfig(),
-  sectorDefs: Vector[SectorDef] = SimParams.DefaultSectorDefs,
-  topology: Topology = Topology.Ws,
-  gdpRatio: Double = SimParams.DefaultGdpRatio,
+    flags: FeatureFlags = FeatureFlags(),
+    pop: PopulationConfig = PopulationConfig(),
+    timeline: TimelineConfig = TimelineConfig(),
+    firm: FirmConfig = FirmConfig(),
+    household: HouseholdConfig = HouseholdConfig(),
+    fiscal: FiscalConfig = FiscalConfig(),
+    monetary: MonetaryConfig = MonetaryConfig(),
+    banking: BankingConfig = BankingConfig(),
+    forex: ForexConfig = ForexConfig(),
+    openEcon: OpenEconConfig = OpenEconConfig(),
+    fdi: FdiConfig = FdiConfig(),
+    immigration: ImmigrationConfig = ImmigrationConfig(),
+    remittance: RemittanceConfig = RemittanceConfig(),
+    tourism: TourismConfig = TourismConfig(),
+    gvc: GvcConfig = GvcConfig(),
+    equity: EquityConfig = EquityConfig(),
+    corpBond: CorpBondConfig = CorpBondConfig(),
+    ins: InsuranceConfig = InsuranceConfig(),
+    nbfi: NbfiConfig = NbfiConfig(),
+    housing: HousingConfig = HousingConfig(),
+    social: SocialConfig = SocialConfig(),
+    io: IoConfig = IoConfig(),
+    labor: LaborConfig = LaborConfig(),
+    capital: CapitalConfig = CapitalConfig(),
+    climate: ClimateConfig = ClimateConfig(),
+    informal: InformalConfig = InformalConfig(),
+    sectorDefs: Vector[SectorDef] = SimParams.DefaultSectorDefs,
+    topology: Topology = Topology.Ws,
+    gdpRatio: Double = SimParams.DefaultGdpRatio,
 )
 
 object SimParams:
@@ -60,9 +66,10 @@ object SimParams:
 
   /** Default 6-sector definitions calibrated to GUS 2024.
     *
-    * Sectors: BPO/SSC, Manufacturing, Retail/Services, Healthcare, Public, Agriculture. Each sector has: employment
-    * share, revenue multiplier, wage multiplier, cost multiplier, capital intensity, automation cost multiplier, export
-    * propensity, and import propensity.
+    * Sectors: BPO/SSC, Manufacturing, Retail/Services, Healthcare, Public,
+    * Agriculture. Each sector has: employment share, revenue multiplier, wage
+    * multiplier, cost multiplier, capital intensity, automation cost
+    * multiplier, export propensity, and import propensity.
     */
   val DefaultSectorDefs: Vector[SectorDef] = Vector(
     SectorDef("BPO/SSC", Ratio(0.03), 50.0, 1.35, 1.50, 0.70, 0.70, Ratio(0.50), Ratio(0.50)),
@@ -75,15 +82,17 @@ object SimParams:
 
   // ── GdpRatio computation ──
 
-  /** Compute the scaling factor that maps agent-level monthly flows to real Polish GDP.
+  /** Compute the scaling factor that maps agent-level monthly flows to real
+    * Polish GDP.
     *
-    * Formula: `(firmsCount * avgWorkers / workersPerFirm * baseRevenue * 12) / realGdp`
+    * Formula:
+    * `(firmsCount * avgWorkers / workersPerFirm * baseRevenue * 12) / realGdp`
     */
   def computeGdpRatio(pop: PopulationConfig, baseRevenue: Double): Double =
     val expectedAvgWorkers = pop.firmSizeDist match
-      case FirmSizeDist.Gus =>
-        val microMean = 5.0; val smallMean = 29.5; val mediumMean = 149.5
-        val largeMean = (250.0 + pop.firmSizeLargeMax.toDouble) / 2.0
+      case FirmSizeDist.Gus     =>
+        val microMean   = 5.0; val smallMean = 29.5; val mediumMean = 149.5
+        val largeMean   = (250.0 + pop.firmSizeLargeMax.toDouble) / 2.0
         val mediumShare =
           1.0 - pop.firmSizeMicroShare.toDouble - pop.firmSizeSmallShare.toDouble - pop.firmSizeLargeShare.toDouble
         pop.firmSizeMicroShare.toDouble * microMean + pop.firmSizeSmallShare.toDouble * smallMean +
@@ -95,13 +104,14 @@ object SimParams:
 
   /** All hardcoded defaults with gdpRatio-scaled stock variables.
     *
-    * Matches `object Config` defaults when no env vars are set. Stock values (bank balance sheets, government debt,
-    * market caps, reserves, etc.) are scaled by `gdpRatio` to map agent-level flows to real Polish GDP.
+    * Matches `object Config` defaults when no env vars are set. Stock values
+    * (bank balance sheets, government debt, market caps, reserves, etc.) are
+    * scaled by `gdpRatio` to map agent-level flows to real Polish GDP.
     */
   val defaults: SimParams =
-    val pop = PopulationConfig()
-    val firm = FirmConfig()
-    val r = DefaultGdpRatio
+    val pop      = PopulationConfig()
+    val firm     = FirmConfig()
+    val r        = DefaultGdpRatio
     val totalPop = pop.firmsCount * pop.workersPerFirm
 
     SimParams(

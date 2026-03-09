@@ -8,7 +8,7 @@ import sfc.types.*
 class EquityMarketSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   private val initState = EquityMarket.State(
@@ -52,8 +52,8 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   "EquityMarket.processIssuance" should "increase market cap and dilute index" in {
-    val issuanceAmount = 1e9
-    val result = EquityMarket.processIssuance(issuanceAmount, initState)
+    val issuanceAmount   = 1e9
+    val result           = EquityMarket.processIssuance(issuanceAmount, initState)
     result.marketCap.toDouble shouldBe (initState.marketCap.toDouble + issuanceAmount +- 1.0)
     // Index diluted: new < old
     result.index should be < initState.index
@@ -86,16 +86,16 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   "EquityMarket.computeDividends" should "compute correct split for given parameters" in {
-    val mcap = 1e12
-    val divYield = 0.057
-    val foreignShare = 0.67
+    val mcap                   = 1e12
+    val divYield               = 0.057
+    val foreignShare           = 0.67
     val (netDom, foreign, tax) = EquityMarket.computeDividends(1e8, divYield, mcap, foreignShare)
     // totalDividends = 0.057 * 1e12 / 12 = 4.75e9
-    val expectedTotal = divYield * mcap / 12.0
-    val expectedForeign = expectedTotal * foreignShare
-    val expectedDomGross = expectedTotal - expectedForeign
-    val expectedTax = expectedDomGross * p.equity.divTax.toDouble
-    val expectedNetDom = expectedDomGross - expectedTax
+    val expectedTotal          = divYield * mcap / 12.0
+    val expectedForeign        = expectedTotal * foreignShare
+    val expectedDomGross       = expectedTotal - expectedForeign
+    val expectedTax            = expectedDomGross * p.equity.divTax.toDouble
+    val expectedNetDom         = expectedDomGross - expectedTax
     foreign shouldBe (expectedForeign +- 1.0)
     tax shouldBe (expectedTax +- 1.0)
     netDom shouldBe (expectedNetDom +- 1.0)
@@ -107,8 +107,8 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     val (netDom, foreign, tax) = EquityMarket.computeDividends(1e8, 0.057, 1e12, 0.0)
     foreign shouldBe 0.0
     // All dividends are domestic (minus tax)
-    val total = 0.057 * 1e12 / 12.0
-    val expectedTax = total * p.equity.divTax.toDouble
+    val total                  = 0.057 * 1e12 / 12.0
+    val expectedTax            = total * p.equity.divTax.toDouble
     netDom shouldBe (total - expectedTax +- 1.0)
     tax shouldBe (expectedTax +- 1.0)
   }
@@ -117,16 +117,16 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     val (netDom, foreign, tax) = EquityMarket.computeDividends(1e8, 0.057, 1e12, 1.0)
     netDom shouldBe 0.0
     tax shouldBe 0.0
-    val total = 0.057 * 1e12 / 12.0
+    val total                  = 0.057 * 1e12 / 12.0
     foreign shouldBe (total +- 1.0)
   }
 
   it should "apply Belka tax rate correctly" in {
-    val mcap = 1e12
-    val foreignShare = 0.50
+    val mcap                   = 1e12
+    val foreignShare           = 0.50
     val (netDom, foreign, tax) = EquityMarket.computeDividends(1e8, 0.06, mcap, foreignShare)
-    val total = 0.06 * mcap / 12.0
-    val domGross = total * 0.50
+    val total                  = 0.06 * mcap / 12.0
+    val domGross               = total * 0.50
     // Tax = 19% of gross domestic
     tax shouldBe (domGross * 0.19 +- 1.0)
     netDom shouldBe (domGross * 0.81 +- 1.0)

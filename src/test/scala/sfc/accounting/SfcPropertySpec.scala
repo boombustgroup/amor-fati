@@ -20,15 +20,14 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
 
   // --- Consistent flows always pass ---
 
-  "Sfc.validate" should "pass when flows are consistent with snapshots" in {
+  "Sfc.validate" should "pass when flows are consistent with snapshots" in
     forAll(genConsistentFlowsAndSnapshots) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows)) =>
       val (prev, curr, flows) = triple
-      val result = Sfc.validate(prev, curr, flows)
+      val result              = Sfc.validate(prev, curr, flows)
       result shouldBe Right(())
     }
-  }
 
-  it should "pass with zero flows and identical snapshots" in {
+  it should "pass with zero flows and identical snapshots" in
     forAll(genSnapshot) { (snap: Sfc.Snapshot) =>
       val zeroFlows = Sfc.MonthlyFlows(
         govSpending = PLN.Zero,
@@ -90,186 +89,158 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
         bankCapitalDestruction = PLN.Zero,
         investNetDepositFlow = PLN.Zero,
       )
-      val result = Sfc.validate(snap, snap, zeroFlows)
+      val result    = Sfc.validate(snap, snap, zeroFlows)
       result shouldBe Right(())
     }
-  }
 
   // --- Perturbed states detect errors ---
 
-  it should "detect perturbed bankCapital" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(bankCapital = curr.bankCapital + PLN(perturbation))
-        val result = Sfc.validate(prev, perturbed, flows)
-        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankCapital) shouldBe true
+  it should "detect perturbed bankCapital" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(perturbation))
+      val result              = Sfc.validate(prev, perturbed, flows)
+      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankCapital) shouldBe true
     }
-  }
 
-  it should "detect perturbed bankDeposits" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(bankDeposits = curr.bankDeposits + PLN(perturbation))
-        val result = Sfc.validate(prev, perturbed, flows)
-        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
+  it should "detect perturbed bankDeposits" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(bankDeposits = curr.bankDeposits + PLN(perturbation))
+      val result              = Sfc.validate(prev, perturbed, flows)
+      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
     }
-  }
 
-  it should "detect perturbed govDebt" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(govDebt = curr.govDebt + PLN(perturbation))
-        val result = Sfc.validate(prev, perturbed, flows)
-        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.GovDebt) shouldBe true
+  it should "detect perturbed govDebt" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(perturbation))
+      val result              = Sfc.validate(prev, perturbed, flows)
+      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.GovDebt) shouldBe true
     }
-  }
 
-  it should "detect perturbed nfa" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(100.0, 10000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(nfa = curr.nfa + PLN(perturbation))
-        val result = Sfc.validate(prev, perturbed, flows)
-        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.Nfa) shouldBe true
+  it should "detect perturbed nfa" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(100.0, 10000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(nfa = curr.nfa + PLN(perturbation))
+      val result              = Sfc.validate(prev, perturbed, flows)
+      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.Nfa) shouldBe true
     }
-  }
 
   // --- Tolerance monotonicity ---
 
-  it should "have tolerance monotonicity (pass at t implies pass at t' > t)" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(0.01, 5.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(bankCapital = curr.bankCapital + PLN(perturbation))
-        val strictResult = Sfc.validate(prev, perturbed, flows, tolerance = PLN(perturbation))
-        val looseResult = Sfc.validate(prev, perturbed, flows, tolerance = PLN(perturbation * 10))
-        if strictResult.isRight then looseResult shouldBe Right(())
+  it should "have tolerance monotonicity (pass at t implies pass at t' > t)" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(0.01, 5.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(perturbation))
+      val strictResult        = Sfc.validate(prev, perturbed, flows, tolerance = PLN(perturbation))
+      val looseResult         = Sfc.validate(prev, perturbed, flows, tolerance = PLN(perturbation * 10))
+      if strictResult.isRight then looseResult shouldBe Right(())
     }
-  }
 
   // --- Error magnitude property ---
 
-  it should "have error magnitude = actual change - expected change" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(1.0, 1000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), delta: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(bankCapital = curr.bankCapital + PLN(delta))
-        val result = Sfc.validate(prev, perturbed, flows)
-        errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (delta +- 1e-6)
+  it should "have error magnitude = actual change - expected change" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(1.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), delta: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(delta))
+      val result              = Sfc.validate(prev, perturbed, flows)
+      errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (delta +- 1e-6)
     }
-  }
 
   // --- Four identities independent ---
 
-  it should "have independent identities (perturb one, others unaffected)" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(100.0, 10000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), delta: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(govDebt = curr.govDebt + PLN(delta))
-        val result = Sfc.validate(prev, perturbed, flows)
-        result shouldBe a[Left[?, ?]]
-        result.swap.getOrElse(Vector.empty).map(_.identity) should contain(Sfc.SfcIdentity.GovDebt)
-        result.swap.getOrElse(Vector.empty).exists(e => e.identity == Sfc.SfcIdentity.BankCapital) shouldBe false
-        result.swap.getOrElse(Vector.empty).exists(e => e.identity == Sfc.SfcIdentity.BankDeposits) shouldBe false
+  it should "have independent identities (perturb one, others unaffected)" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(100.0, 10000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), delta: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(delta))
+      val result              = Sfc.validate(prev, perturbed, flows)
+      result shouldBe a[Left[?, ?]]
+      result.swap.getOrElse(Vector.empty).map(_.identity) should contain(Sfc.SfcIdentity.GovDebt)
+      result.swap.getOrElse(Vector.empty).exists(e => e.identity == Sfc.SfcIdentity.BankCapital) shouldBe false
+      result.swap.getOrElse(Vector.empty).exists(e => e.identity == Sfc.SfcIdentity.BankDeposits) shouldBe false
     }
-  }
 
   // --- Bond clearing identity ---
 
-  it should "pass bond clearing when bankBonds + nbpBonds = bondsOutstanding" in {
+  it should "pass bond clearing when bankBonds + nbpBonds = bondsOutstanding" in
     forAll(genConsistentFlowsAndSnapshots) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows)) =>
       val (prev, curr, flows) = triple
-      val result = Sfc.validate(prev, curr, flows)
+      val result              = Sfc.validate(prev, curr, flows)
       result shouldBe Right(())
     }
-  }
 
-  it should "detect perturbed bondClearingError" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(bankBondHoldings = curr.bankBondHoldings + PLN(perturbation))
-        val result = Sfc.validate(prev, perturbed, flows)
-        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BondClearing) shouldBe true
+  it should "detect perturbed bondClearingError" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(bankBondHoldings = curr.bankBondHoldings + PLN(perturbation))
+      val result              = Sfc.validate(prev, perturbed, flows)
+      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BondClearing) shouldBe true
     }
-  }
 
   // --- Interbank netting identity ---
 
-  it should "pass interbank netting when interbankNetSum is zero" in {
+  it should "pass interbank netting when interbankNetSum is zero" in
     forAll(genConsistentFlowsAndSnapshots) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows)) =>
       val (prev, curr, flows) = triple
-      val result = Sfc.validate(prev, curr, flows)
+      val result              = Sfc.validate(prev, curr, flows)
       result shouldBe Right(())
     }
-  }
 
-  it should "detect perturbed interbankNetSum" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(interbankNetSum = PLN(perturbation))
-        val result = Sfc.validate(prev, perturbed, flows)
-        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.InterbankNetting) shouldBe true
+  it should "detect perturbed interbankNetSum" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(interbankNetSum = PLN(perturbation))
+      val result              = Sfc.validate(prev, perturbed, flows)
+      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.InterbankNetting) shouldBe true
     }
-  }
 
   // --- Snapshot sums property ---
 
-  it should "compute correct snapshot sums from firms" in {
+  it should "compute correct snapshot sums from firms" in
     forAll(Gen.choose(3, 20)) { (n: Int) =>
       forAll(Gen.listOfN(n, genAliveFirm)) { (firmList: List[sfc.agents.Firm.State]) =>
-        val firms = firmList.toArray
+        val firms        = firmList.toArray
         val expectedCash = firms.map(_.cash.toDouble).sum
         val expectedDebt = firms.map(_.debt.toDouble).sum
         Math.abs(expectedCash - firms.map(_.cash.toDouble).sum) should be < 1e-6
         Math.abs(expectedDebt - firms.map(_.debt.toDouble).sum) should be < 1e-6
       }
     }
-  }
 
   // --- Dividend flow consistency ---
 
-  it should "pass with non-zero dividend flows in consistent snapshots" in {
+  it should "pass with non-zero dividend flows in consistent snapshots" in
     // Verify that genConsistentFlowsAndSnapshots correctly handles dividend fields
     forAll(genConsistentFlowsAndSnapshots) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows)) =>
       val (prev, curr, flows) = triple
       // genMonthlyFlows generates non-zero dividend fields — verify all 8 identities hold
-      val result = Sfc.validate(prev, curr, flows)
+      val result              = Sfc.validate(prev, curr, flows)
       result shouldBe Right(())
     }
-  }
 
-  it should "detect perturbed deposits from dividend flow mismatch" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
-        val (prev, curr, flows) = triple
-        // Perturb dividendIncome without updating deposits → Identity 2 fails
-        val badFlows = flows.copy(dividendIncome = flows.dividendIncome + PLN(perturbation))
-        val result = Sfc.validate(prev, curr, badFlows)
-        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
+  it should "detect perturbed deposits from dividend flow mismatch" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+      val (prev, curr, flows) = triple
+      // Perturb dividendIncome without updating deposits → Identity 2 fails
+      val badFlows            = flows.copy(dividendIncome = flows.dividendIncome + PLN(perturbation))
+      val result              = Sfc.validate(prev, curr, badFlows)
+      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
     }
-  }
 
   // --- Mortgage stock identity ---
 
-  it should "detect perturbed mortgageStock" in {
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) {
-      (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
-        val (prev, curr, flows) = triple
-        val perturbed = curr.copy(mortgageStock = curr.mortgageStock + PLN(perturbation))
-        val result = Sfc.validate(prev, perturbed, flows)
-        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.MortgageStock) shouldBe true
+  it should "detect perturbed mortgageStock" in
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+      val (prev, curr, flows) = triple
+      val perturbed           = curr.copy(mortgageStock = curr.mortgageStock + PLN(perturbation))
+      val result              = Sfc.validate(prev, perturbed, flows)
+      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.MortgageStock) shouldBe true
     }
-  }
 
-  it should "pass mortgage stock identity in consistent snapshots" in {
+  it should "pass mortgage stock identity in consistent snapshots" in
     forAll(genConsistentFlowsAndSnapshots) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows)) =>
       val (prev, curr, flows) = triple
-      val result = Sfc.validate(prev, curr, flows)
+      val result              = Sfc.validate(prev, curr, flows)
       result shouldBe Right(())
     }
-  }

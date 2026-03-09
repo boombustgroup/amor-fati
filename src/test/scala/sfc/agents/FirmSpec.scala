@@ -11,7 +11,7 @@ import scala.util.Random
 
 class FirmSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // --- Firm.isAlive ---
@@ -66,7 +66,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   // --- Firm.aiCapex / hybridCapex ---
 
   "Firm.aiCapex" should "be positive and scale with multipliers" in {
-    val f = mkFirm(TechState.Traditional(10))
+    val f  = mkFirm(TechState.Traditional(10))
     Firm.aiCapex(f) should be > 0.0
     // With higher innovationCostFactor → higher capex
     val f2 = f.copy(innovationCostFactor = 1.5)
@@ -83,7 +83,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   "Firm.sigmaThreshold" should "be monotonically increasing with sigma" in {
     // Sectors ordered by sigma: Public(1.0) < Healthcare(2.0) < Agriculture(3.0) < Retail(5.0) < Manuf(10.0) < BPO(50.0)
     val sigmasOrdered = Vector(1.0, 2.0, 3.0, 5.0, 10.0, 50.0)
-    val thresholds = sigmasOrdered.map(Firm.sigmaThreshold)
+    val thresholds    = sigmasOrdered.map(Firm.sigmaThreshold)
     for i <- 0 until thresholds.length - 1 do thresholds(i) should be <= thresholds(i + 1)
   }
 
@@ -133,8 +133,8 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   "Firm.process" should "keep a Bankrupt firm bankrupt with zero tax/capex" in {
     Random.setSeed(42)
-    val f = mkFirm(TechState.Bankrupt("test"))
-    val rc = RunConfig(1, "test")
+    val f      = mkFirm(TechState.Bankrupt("test"))
+    val rc     = RunConfig(1, "test")
     val result = Firm.process(f, mkWorld(), 0.07, _ => true, Vector(f), rc)
     result.taxPaid shouldBe PLN.Zero
     result.capexSpent shouldBe PLN.Zero
@@ -143,8 +143,8 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   it should "keep an Automated firm alive with large cash" in {
     Random.setSeed(42)
-    val f = mkFirm(TechState.Automated(1.5)).copy(cash = PLN(10000000.0))
-    val rc = RunConfig(1, "test")
+    val f      = mkFirm(TechState.Automated(1.5)).copy(cash = PLN(10000000.0))
+    val rc     = RunConfig(1, "test")
     val result = Firm.process(f, mkWorld(), 0.07, _ => true, Vector(f), rc)
     Firm.isAlive(result.firm) shouldBe true
   }
@@ -152,9 +152,9 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   it should "bankrupt an Automated firm with negative cash when P&L is negative" in {
     Random.setSeed(42)
     // Very low cash + high price level = deep losses → bankrupt
-    val f = mkFirm(TechState.Automated(0.1)).copy(cash = PLN(-500000.0), debt = PLN(5000000.0))
-    val w = mkWorld().copy(priceLevel = 0.3, sectorDemandMult = Vector.fill(6)(0.1))
-    val rc = RunConfig(1, "test")
+    val f      = mkFirm(TechState.Automated(0.1)).copy(cash = PLN(-500000.0), debt = PLN(5000000.0))
+    val w      = mkWorld().copy(priceLevel = 0.3, sectorDemandMult = Vector.fill(6)(0.1))
+    val rc     = RunConfig(1, "test")
     val result = Firm.process(f, w, 0.20, _ => true, Vector(f), rc)
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }
@@ -184,8 +184,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       priceLevel = 1.0,
       gov = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = Nbp.State(Rate(0.0575)),
-      bank =
-        BankingAggregate(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      bank = BankingAggregate(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       forex = ForexState(4.33, PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
       hh = Household.SectorState(
         100000,

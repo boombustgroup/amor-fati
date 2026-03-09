@@ -4,14 +4,14 @@ import sfc.types.*
 
 object YieldCurve:
 
-  /** Interbank yield curve: O/N + WIBOR term rates (1M, 3M, 6M). Calibrated to NBP/GPW Benchmark 2024 with elevated
-    * premiums for visible heterogeneity.
+  /** Interbank yield curve: O/N + WIBOR term rates (1M, 3M, 6M). Calibrated to
+    * NBP/GPW Benchmark 2024 with elevated premiums for visible heterogeneity.
     */
   case class State(
-    overnight: Rate, // O/N rate (WIRON)
-    wibor1m: Rate, // WIBOR 1M
-    wibor3m: Rate, // WIBOR 3M
-    wibor6m: Rate, // WIBOR 6M
+      overnight: Rate, // O/N rate (WIRON)
+      wibor1m: Rate,   // WIBOR 1M
+      wibor3m: Rate,   // WIBOR 3M
+      wibor6m: Rate,   // WIBOR 6M
   )
   // Term premiums over O/N (annual).
   // NBP/GPW Benchmark 2024 actual: ~6/9/12bp.

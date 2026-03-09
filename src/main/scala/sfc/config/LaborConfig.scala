@@ -3,12 +3,14 @@ package sfc.config
 import sfc.types.*
 import sfc.engine.markets.SectoralMobility
 
-/** Labor market: sectoral mobility, trade unions, and forward-looking expectations.
+/** Labor market: sectoral mobility, trade unions, and forward-looking
+  * expectations.
   *
-  * Three interacting mechanisms: (1) sectoral labor mobility with friction matrix (GUS LFS 2024, Shimer 2005), (2)
-  * trade unions with per-sector density, wage premia, and downward rigidity (GUS 2024), and (3) forward-looking
-  * inflation/wage expectations with adaptive learning and central bank credibility (Carroll 2003, Bewley 1999, NBP
-  * target band).
+  * Three interacting mechanisms: (1) sectoral labor mobility with friction
+  * matrix (GUS LFS 2024, Shimer 2005), (2) trade unions with per-sector
+  * density, wage premia, and downward rigidity (GUS 2024), and (3)
+  * forward-looking inflation/wage expectations with adaptive learning and
+  * central bank credibility (Carroll 2003, Bewley 1999, NBP target band).
   *
   * @param frictionMatrix
   *   sector-to-sector transition friction matrix (6x6, higher = harder to move)
@@ -44,24 +46,24 @@ import sfc.engine.markets.SectoralMobility
   *   sensitivity of bond yields to inflation expectations
   */
 case class LaborConfig(
-  // Sectoral mobility (GUS LFS 2024, Shimer 2005)
-  frictionMatrix: Vector[Vector[Double]] = SectoralMobility.DefaultFrictionMatrix,
-  frictionDurationMult: Double = 1.0,
-  frictionCostMult: Ratio = Ratio(0.5),
-  voluntarySearchProb: Ratio = Ratio(0.02),
-  voluntaryWageThreshold: Ratio = Ratio(0.20),
-  vacancyWeight: Double = 2.0,
-  adjacentFrictionMax: Ratio = Ratio(0.4),
-  // Unions (GUS 2024)
-  unionDensity: Vector[Ratio] = Vector(Ratio(0.02), Ratio(0.15), Ratio(0.03), Ratio(0.12), Ratio(0.30), Ratio(0.04)),
-  unionWagePremium: Ratio = Ratio(0.08),
-  unionRigidity: Ratio = Ratio(0.50),
-  // Expectations (Carroll 2003, Bewley 1999)
-  expLambda: Ratio = Ratio(0.70),
-  expCredibilityInit: Ratio = Ratio(0.80),
-  expCredibilitySpeed: Ratio = Ratio(0.05),
-  expCredibilityThreshold: Rate = Rate(0.02),
-  expWagePassthrough: Ratio = Ratio(0.50),
-  expBondSensitivity: Ratio = Ratio(0.50),
+    // Sectoral mobility (GUS LFS 2024, Shimer 2005)
+    frictionMatrix: Vector[Vector[Double]] = SectoralMobility.DefaultFrictionMatrix,
+    frictionDurationMult: Double = 1.0,
+    frictionCostMult: Ratio = Ratio(0.5),
+    voluntarySearchProb: Ratio = Ratio(0.02),
+    voluntaryWageThreshold: Ratio = Ratio(0.20),
+    vacancyWeight: Double = 2.0,
+    adjacentFrictionMax: Ratio = Ratio(0.4),
+    // Unions (GUS 2024)
+    unionDensity: Vector[Ratio] = Vector(Ratio(0.02), Ratio(0.15), Ratio(0.03), Ratio(0.12), Ratio(0.30), Ratio(0.04)),
+    unionWagePremium: Ratio = Ratio(0.08),
+    unionRigidity: Ratio = Ratio(0.50),
+    // Expectations (Carroll 2003, Bewley 1999)
+    expLambda: Ratio = Ratio(0.70),
+    expCredibilityInit: Ratio = Ratio(0.80),
+    expCredibilitySpeed: Ratio = Ratio(0.05),
+    expCredibilityThreshold: Rate = Rate(0.02),
+    expWagePassthrough: Ratio = Ratio(0.50),
+    expBondSensitivity: Ratio = Ratio(0.50),
 ):
   require(unionDensity.length == 6, s"unionDensity must have 6 sectors: ${unionDensity.length}")

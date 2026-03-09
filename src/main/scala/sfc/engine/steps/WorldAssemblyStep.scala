@@ -13,26 +13,26 @@ import scala.util.Random
 object WorldAssemblyStep:
 
   case class Input(
-    w: World,
-    rc: RunConfig,
-    firms: Vector[Firm.State],
-    households: Vector[Household.State],
-    s1: FiscalConstraintStep.Output,
-    s2: LaborDemographicsStep.Output,
-    s3: HouseholdIncomeStep.Output,
-    s4: DemandStep.Output,
-    s5: FirmProcessingStep.Output,
-    s6: HouseholdFinancialStep.Output,
-    s7: PriceEquityStep.Output,
-    s8: OpenEconomyStep.Output,
-    s9: BankUpdateStep.Output,
+      w: World,
+      rc: RunConfig,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      s1: FiscalConstraintStep.Output,
+      s2: LaborDemographicsStep.Output,
+      s3: HouseholdIncomeStep.Output,
+      s4: DemandStep.Output,
+      s5: FirmProcessingStep.Output,
+      s6: HouseholdFinancialStep.Output,
+      s7: PriceEquityStep.Output,
+      s8: OpenEconomyStep.Output,
+      s9: BankUpdateStep.Output,
   )
 
   case class Output(
-    newWorld: World,
-    finalFirms: Vector[Firm.State],
-    reassignedHouseholds: Vector[Household.State],
-    sfcResult: Sfc.SfcResult,
+      newWorld: World,
+      finalFirms: Vector[Firm.State],
+      reassignedHouseholds: Vector[Household.State],
+      sfcResult: Sfc.SfcResult,
   )
 
   def run(in: Input)(using p: SimParams): Output =
@@ -49,7 +49,7 @@ object WorldAssemblyStep:
 
     // Flow-of-funds residual
     val fofResidual = {
-      val totalFirmRev = (0 until SectorDefs.length).map { s =>
+      val totalFirmRev   = (0 until SectorDefs.length).map { s =>
         in.s2.living
           .filter(_.sector.toInt == s)
           .kahanSumBy(f => Firm.capacity(f).toDouble * in.s4.sectorMults(s) * in.w.priceLevel)
@@ -61,27 +61,26 @@ object WorldAssemblyStep:
     }
 
     // Informal economy: aggregate metrics and next-month cyclical adjustment (#45)
-    val taxEvasionLoss =
+    val taxEvasionLoss         =
       if p.flags.informal then
         in.s5.sumCitEvasion + (in.s9.vat - in.s9.vatAfterEvasion) + (in.s3.pitRevenue - in.s9.pitAfterEvasion) + (in.s9.exciseRevenue - in.s9.exciseAfterEvasion)
       else 0.0
-    val informalEmployed = if p.flags.informal then in.s2.employed.toDouble * in.s9.effectiveShadowShare else 0.0
+    val informalEmployed       = if p.flags.informal then in.s2.employed.toDouble * in.s9.effectiveShadowShare else 0.0
     val newInformalCyclicalAdj = if p.flags.informal then
-      val unemp = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+      val unemp  = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
       val target = Math.max(0.0, unemp - p.informal.unempThreshold.toDouble) * p.informal.cyclicalSens.toDouble
       in.w.informalCyclicalAdj * p.informal.smoothing.toDouble + target * (1.0 - p.informal.smoothing.toDouble)
     else 0.0
 
     // Pre-compute values surfaced on World for SimOutput
-    val aliveBanksForObs = in.s9.finalBankingSector.banks.filterNot(_.failed)
-    val depositFacilityUsage = aliveBanksForObs
+    val aliveBanksForObs      = in.s9.finalBankingSector.banks.filterNot(_.failed)
+    val depositFacilityUsage  = aliveBanksForObs
       .filter(_.reservesAtNbp > PLN.Zero)
       .kahanSumBy(_.reservesAtNbp.toDouble)
-    val etsPrice =
-      if p.flags.energy then
-        p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, in.s1.m.toDouble)
+    val etsPrice              =
+      if p.flags.energy then p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, in.s1.m.toDouble)
       else 0.0
-    val monthInYear = ((in.s1.m - 1) % 12) + 1
+    val monthInYear           = ((in.s1.m - 1) % 12) + 1
     val tourismSeasonalFactor =
       1.0 + p.tourism.seasonality.toDouble * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
 
@@ -170,9 +169,9 @@ object WorldAssemblyStep:
     )
 
     // SFC accounting check
-    val prevSnap = Sfc.snapshot(in.w, in.firms, in.w.households)
-    val currSnap = Sfc.snapshot(newW, in.s9.reassignedFirms, in.s9.reassignedHouseholds)
-    val sfcFlows = Sfc.MonthlyFlows(
+    val prevSnap  = Sfc.snapshot(in.w, in.firms, in.w.households)
+    val currSnap  = Sfc.snapshot(newW, in.s9.reassignedFirms, in.s9.reassignedHouseholds)
+    val sfcFlows  = Sfc.MonthlyFlows(
       govSpending = PLN(
         in.s9.newGovWithYield.unempBenefitSpend.toDouble
           + in.s9.newGovWithYield.socialTransferSpend.toDouble
@@ -255,7 +254,7 @@ object WorldAssemblyStep:
 
     // Endogenous Firm Entry (#35): recycle bankrupt slots
     val (finalFirms, firmBirths) = if p.flags.firmEntry then
-      val postLiving = postFdiFirms.filter(Firm.isAlive)
+      val postLiving    = postFdiFirms.filter(Firm.isAlive)
       val sectorCashSum = Array.fill(SectorDefs.length)(0.0)
       val sectorCashCnt = Array.fill(SectorDefs.length)(0)
       for f <- postLiving do
@@ -275,23 +274,23 @@ object WorldAssemblyStep:
             p.firm.entrySectorBarriers(s),
         )
       }.toArray
-      val totalWeight = sectorWeights.sum
+      val totalWeight   = sectorWeights.sum
 
       val totalAdoption = newW.automationRatio.toDouble + newW.hybridRatio.toDouble
-      val livingIds = postLiving.map(_.id.toInt)
-      var births = 0
+      val livingIds     = postLiving.map(_.id.toInt)
+      var births        = 0
 
       val result = postFdiFirms.map { f =>
         if !Firm.isAlive(f) then
           val slotSector = f.sector.toInt
-          val entryProb = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(slotSector) *
+          val entryProb  = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(slotSector) *
             Math.max(0.0, 1.0 + profitSignals(slotSector) * p.firm.entryProfitSens)
           if Random.nextDouble() < entryProb then
             births += 1
-            val roll = Random.nextDouble() * totalWeight
-            var cumul = 0.0
+            val roll      = Random.nextDouble() * totalWeight
+            var cumul     = 0.0
             var newSector = 0
-            var found = false
+            var found     = false
             for s <- SectorDefs.indices if !found do
               cumul += sectorWeights(s)
               if roll < cumul then { newSector = s; found = true }
@@ -299,9 +298,9 @@ object WorldAssemblyStep:
             val firmSize = Math.max(1, Random.between(1, 10))
             val sizeMult = firmSize.toDouble / p.pop.workersPerFirm
 
-            val isAiNative = totalAdoption > p.firm.entryAiThreshold.toDouble &&
+            val isAiNative   = totalAdoption > p.firm.entryAiThreshold.toDouble &&
               Random.nextDouble() < p.firm.entryAiProb.toDouble
-            val dr =
+            val dr           =
               if isAiNative then Random.between(0.50, 0.90)
               else
                 Math.max(
@@ -309,12 +308,12 @@ object WorldAssemblyStep:
                   Math.min(0.30, SectorDefs(newSector).baseDigitalReadiness.toDouble + Random.nextGaussian() * 0.10),
                 )
             val startWorkers = 0 // workers hired via labor market
-            val tech = if isAiNative then
+            val tech         = if isAiNative then
               val hw = Math.max(1, (startWorkers * 0.6).toInt)
               TechState.Hybrid(hw, 0.5 + Random.nextDouble() * 0.3)
             else TechState.Traditional(startWorkers)
 
-            val nNeighbors = Math.min(6, livingIds.length)
+            val nNeighbors   = Math.min(6, livingIds.length)
             val newNeighbors =
               if nNeighbors > 0 then Random.shuffle(livingIds.toList).take(nNeighbors).map(FirmId(_)).toArray
               else Array.empty[FirmId]

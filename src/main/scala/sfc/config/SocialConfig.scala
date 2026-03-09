@@ -4,13 +4,16 @@ import sfc.types.*
 
 /** Social security, pensions, demographics, and education.
   *
-  * Covers ZUS (Social Insurance Institution) contributions and pension payments, PPK (Employee Capital Plans) with
-  * three-asset allocation, demographic transitions (retirement, working-age decline), and education system with 4-tier
-  * attainment (primary, vocational, secondary, tertiary), sector-specific composition, wage premia, retraining
-  * multipliers, and skill ranges. Calibrated to ZUS 2024, Ustawa o PPK, GUS LFS 2024.
+  * Covers ZUS (Social Insurance Institution) contributions and pension
+  * payments, PPK (Employee Capital Plans) with three-asset allocation,
+  * demographic transitions (retirement, working-age decline), and education
+  * system with 4-tier attainment (primary, vocational, secondary, tertiary),
+  * sector-specific composition, wage premia, retraining multipliers, and skill
+  * ranges. Calibrated to ZUS 2024, Ustawa o PPK, GUS LFS 2024.
   *
   * @param zusContribRate
-  *   total ZUS contribution rate as fraction of gross wage (Ustawa o systemie ubezpieczen spolecznych: 19.52%)
+  *   total ZUS contribution rate as fraction of gross wage (Ustawa o systemie
+  *   ubezpieczen spolecznych: 19.52%)
   * @param zusBasePension
   *   average monthly pension payment (PLN, ZUS 2024: ~3,500)
   * @param zusScale
@@ -28,11 +31,14 @@ import sfc.types.*
   * @param demInitialRetirees
   *   initial retiree count (0 = built from flow during simulation)
   * @param eduShares
-  *   population share by education tier (4 tiers: primary, vocational, secondary, tertiary; GUS LFS 2024)
+  *   population share by education tier (4 tiers: primary, vocational,
+  *   secondary, tertiary; GUS LFS 2024)
   * @param eduSectorShares
-  *   optional sector-specific education composition (6 sectors x 4 tiers, default from GUS)
+  *   optional sector-specific education composition (6 sectors x 4 tiers,
+  *   default from GUS)
   * @param eduWagePreemia
-  *   wage multiplier by education tier (GUS 2024: primary 0.70, vocational 0.85, secondary 1.00, tertiary 1.30)
+  *   wage multiplier by education tier (GUS 2024: primary 0.70, vocational
+  *   0.85, secondary 1.00, tertiary 1.30)
   * @param eduRetrainMult
   *   retraining success multiplier by education tier
   * @param eduSkillFloors
@@ -43,26 +49,26 @@ import sfc.types.*
   *   education tier distribution among immigrants (GUS/NBP 2024)
   */
 case class SocialConfig(
-  // ZUS (Ustawa o systemie ubezpieczen spolecznych)
-  zusContribRate: Rate = Rate(0.1952),
-  zusBasePension: PLN = PLN(3500.0),
-  zusScale: Double = 1.0,
-  // PPK (Ustawa o PPK)
-  ppkEmployeeRate: Rate = Rate(0.02),
-  ppkEmployerRate: Rate = Rate(0.015),
-  ppkBondAlloc: Ratio = Ratio(0.60),
-  // Demographics (GUS 2024)
-  demRetirementRate: Rate = Rate(0.001),
-  demWorkingAgeDecline: Rate = Rate(0.002),
-  demInitialRetirees: Int = 0,
-  // Education (GUS LFS 2024)
-  eduShares: Vector[Ratio] = Vector(Ratio(0.08), Ratio(0.25), Ratio(0.30), Ratio(0.37)),
-  eduSectorShares: Option[Vector[Vector[Double]]] = None,
-  eduWagePreemia: Vector[Double] = Vector(0.70, 0.85, 1.00, 1.30),
-  eduRetrainMult: Vector[Double] = Vector(0.67, 0.83, 1.00, 1.25),
-  eduSkillFloors: Vector[Ratio] = Vector(Ratio(0.30), Ratio(0.35), Ratio(0.45), Ratio(0.55)),
-  eduSkillCeilings: Vector[Ratio] = Vector(Ratio(0.75), Ratio(0.85), Ratio(0.95), Ratio(1.00)),
-  eduImmigShares: Vector[Ratio] = Vector(Ratio(0.15), Ratio(0.40), Ratio(0.35), Ratio(0.10)),
+    // ZUS (Ustawa o systemie ubezpieczen spolecznych)
+    zusContribRate: Rate = Rate(0.1952),
+    zusBasePension: PLN = PLN(3500.0),
+    zusScale: Double = 1.0,
+    // PPK (Ustawa o PPK)
+    ppkEmployeeRate: Rate = Rate(0.02),
+    ppkEmployerRate: Rate = Rate(0.015),
+    ppkBondAlloc: Ratio = Ratio(0.60),
+    // Demographics (GUS 2024)
+    demRetirementRate: Rate = Rate(0.001),
+    demWorkingAgeDecline: Rate = Rate(0.002),
+    demInitialRetirees: Int = 0,
+    // Education (GUS LFS 2024)
+    eduShares: Vector[Ratio] = Vector(Ratio(0.08), Ratio(0.25), Ratio(0.30), Ratio(0.37)),
+    eduSectorShares: Option[Vector[Vector[Double]]] = None,
+    eduWagePreemia: Vector[Double] = Vector(0.70, 0.85, 1.00, 1.30),
+    eduRetrainMult: Vector[Double] = Vector(0.67, 0.83, 1.00, 1.25),
+    eduSkillFloors: Vector[Ratio] = Vector(Ratio(0.30), Ratio(0.35), Ratio(0.45), Ratio(0.55)),
+    eduSkillCeilings: Vector[Ratio] = Vector(Ratio(0.75), Ratio(0.85), Ratio(0.95), Ratio(1.00)),
+    eduImmigShares: Vector[Ratio] = Vector(Ratio(0.15), Ratio(0.40), Ratio(0.35), Ratio(0.10)),
 ):
 
   private val defaultEduSectorShares: Vector[Vector[Double]] = Vector(
@@ -97,15 +103,17 @@ case class SocialConfig(
     (eduSkillFloors(idx).toDouble, eduSkillCeilings(idx).toDouble)
 
 object SocialConfig:
-  /** Sample a categorical index from a probability vector using the inverse CDF method.
+  /** Sample a categorical index from a probability vector using the inverse CDF
+    * method.
     *
-    * Builds a cumulative distribution from `shares`, draws a uniform random number, and returns the first index whose
-    * cumulative probability exceeds the draw. The last category absorbs any floating-point residual.
+    * Builds a cumulative distribution from `shares`, draws a uniform random
+    * number, and returns the first index whose cumulative probability exceeds
+    * the draw. The last category absorbs any floating-point residual.
     */
   private[config] def cdfSample(shares: Vector[Double], rng: scala.util.Random): Int =
-    val r = rng.nextDouble()
+    val r   = rng.nextDouble()
     var cum = 0.0
-    var i = 0
+    var i   = 0
     while i < shares.length - 1 do
       cum += shares(i)
       if r < cum then return i

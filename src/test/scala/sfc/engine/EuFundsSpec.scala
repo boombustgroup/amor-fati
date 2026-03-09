@@ -10,13 +10,13 @@ import sfc.types.*
 class EuFundsSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // --- Beta PDF tests ---
 
   "betaPdf" should "integrate to ~1.0 over [0,1]" in {
-    val n = 10000
+    val n   = 10000
     val sum = (1 until n).map { i =>
       val x = i.toDouble / n
       EuFunds.betaPdf(x, 2.0, 5.0) / n
@@ -25,11 +25,11 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "peak at (a-1)/(a+b-2) for a=2, b=5" in {
-    val peak = (2.0 - 1.0) / (2.0 + 5.0 - 2.0) // 0.20
+    val peak   = (2.0 - 1.0) / (2.0 + 5.0 - 2.0) // 0.20
     val atPeak = EuFunds.betaPdf(peak, 2.0, 5.0)
     // Values nearby should be lower
     val before = EuFunds.betaPdf(peak - 0.05, 2.0, 5.0)
-    val after = EuFunds.betaPdf(peak + 0.05, 2.0, 5.0)
+    val after  = EuFunds.betaPdf(peak + 0.05, 2.0, 5.0)
     atPeak should be > before
     atPeak should be > after
   }
@@ -62,7 +62,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   it should "sum to ~totalAllocation over full period" in {
     val totalPln = p.fiscal.euFundsTotalEur * p.forex.baseExRate *
       (p.pop.firmsCount.toDouble / 10000.0)
-    val sum = (1 to p.fiscal.euFundsPeriodMonths + p.fiscal.euFundsStartMonth).map { m =>
+    val sum      = (1 to p.fiscal.euFundsPeriodMonths + p.fiscal.euFundsStartMonth).map { m =>
       EuFunds.monthlyTransfer(m)
     }.sum
     sum shouldBe totalPln +- (totalPln * 0.02) // 2% tolerance (numerical integration)
@@ -71,8 +71,8 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   // --- cofinancing tests ---
 
   "cofinancing" should "equal euMonthly * rate / (1 - rate)" in {
-    val eu = 1000000.0
-    val rate = 0.15
+    val eu       = 1000000.0
+    val rate     = 0.15
     val expected = eu * rate / (1.0 - rate)
     EuFunds.cofinancing(eu) shouldBe expected +- 0.01
   }
@@ -84,8 +84,8 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   // --- capitalInvestment tests ---
 
   "capitalInvestment" should "equal (eu + cofin) * capitalShare" in {
-    val eu = 1000000.0
-    val cofin = 176470.59 // 15/85 of eu
+    val eu       = 1000000.0
+    val cofin    = 176470.59 // 15/85 of eu
     val expected = (eu + cofin) * 0.60
     EuFunds.capitalInvestment(eu, cofin) shouldBe expected +- 0.01
   }
@@ -93,8 +93,8 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   // --- updateGov integration ---
 
   "updateGov" should "include euCofinancing in deficit" in {
-    val prev = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    val base =
+    val prev   = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val base   =
       FiscalBudget.update(
         prev,
         100000,
@@ -115,7 +115,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "record euCofinancing in GovState" in {
-    val prev = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val prev   = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val result = FiscalBudget.update(
       prev,
       100000,
@@ -128,7 +128,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "add euProjectCapital to govCapitalSpend when GovInvest disabled" in {
-    val prev = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val prev   = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val result = FiscalBudget.update(
       prev,
       100000,

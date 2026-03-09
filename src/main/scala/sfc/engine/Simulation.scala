@@ -56,29 +56,33 @@ import sfc.types.*
 // ---------------------------------------------------------------------------
 object Simulation:
 
-  /** Bundles the three mutable components of the simulation: the World state, the firm vector, and the household
-    * vector. These always travel together between simulation steps and the Main loop.
+  /** Bundles the three mutable components of the simulation: the World state,
+    * the firm vector, and the household vector. These always travel together
+    * between simulation steps and the Main loop.
     */
   case class SimState(
-    world: World,
-    firms: Vector[Firm.State],
-    households: Vector[Household.State],
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
   )
 
   /** Result of a single monthly simulation step.
     *
-    * Bundles the updated simulation state together with the outcome of the SFC accounting check. The caller (Main)
-    * should inspect `sfcCheck` and halt on `Left` — a failed identity means a monetary flow was mis-routed or omitted.
+    * Bundles the updated simulation state together with the outcome of the SFC
+    * accounting check. The caller (Main) should inspect `sfcCheck` and halt on
+    * `Left` — a failed identity means a monetary flow was mis-routed or
+    * omitted.
     */
   case class StepResult(
-    state: SimState, // updated simulation state (World + firms + households)
-    sfcCheck: Sfc.SfcResult, // Right(()) if all 13 identities hold
+      state: SimState,        // updated simulation state (World + firms + households)
+      sfcCheck: Sfc.SfcResult, // Right(()) if all 13 identities hold
   )
 
   /** Transform current state into next state via the 10-stage pipeline.
     *
-    * Executes stages s1–s10 in causal order. Each stage receives typed Output references from all prior stages it
-    * depends on — no intermediate unpacking is needed. The dependency DAG is:
+    * Executes stages s1–s10 in causal order. Each stage receives typed Output
+    * references from all prior stages it depends on — no intermediate unpacking
+    * is needed. The dependency DAG is:
     *
     * {{{
     *   s1 ──┬──────────────────────────────────────────────────────────────→ s9, s10
@@ -92,8 +96,9 @@ object Simulation:
     *        └───────┴───────┴───────┴───────┴──────────────────────────────→ s10 (World assembly)
     * }}}
     *
-    * '''Ordering invariant:''' Scala val bindings are strictly sequential in method bodies (forward references are
-    * compile errors), and each step's Input requires specific prior Output types — reordering would not compile.
+    * '''Ordering invariant:''' Scala val bindings are strictly sequential in
+    * method bodies (forward references are compile errors), and each step's
+    * Input requires specific prior Output types — reordering would not compile.
     *
     * @param state
     *   current simulation state (World + firms + households)
@@ -116,14 +121,14 @@ object Simulation:
       WorldAssemblyStep as S10,
     }
     val SimState(w, firms, households) = state
-    val s1 = S1.run(S1.Input(w, rc))
-    val s2 = S2.run(S2.Input(w, rc, firms, households, s1))
-    val s3 = S3.run(S3.Input(w, rc, firms, households, s1, s2))
-    val s4 = S4.run(S4.Input(w, s2, s3))
-    val s5 = S5.run(S5.Input(w, rc, firms, households, s1, s2, s3, s4))
-    val s6 = S6.run(S6.Input(w, s1, s2, s3))
-    val s7 = S7.run(S7.Input(w, rc, s1, s2, s3, s4, s5))
-    val s8 = S8.run(S8.Input(w, rc, s1, s2, s3, s4, s5, s6, s7))
-    val s9 = S9.run(S9.Input(w, rc, s1, s2, s3, s4, s5, s6, s7, s8))
-    val s10 = S10.run(S10.Input(w, rc, firms, households, s1, s2, s3, s4, s5, s6, s7, s8, s9))
+    val s1                             = S1.run(S1.Input(w, rc))
+    val s2                             = S2.run(S2.Input(w, rc, firms, households, s1))
+    val s3                             = S3.run(S3.Input(w, rc, firms, households, s1, s2))
+    val s4                             = S4.run(S4.Input(w, s2, s3))
+    val s5                             = S5.run(S5.Input(w, rc, firms, households, s1, s2, s3, s4))
+    val s6                             = S6.run(S6.Input(w, s1, s2, s3))
+    val s7                             = S7.run(S7.Input(w, rc, s1, s2, s3, s4, s5))
+    val s8                             = S8.run(S8.Input(w, rc, s1, s2, s3, s4, s5, s6, s7))
+    val s9                             = S9.run(S9.Input(w, rc, s1, s2, s3, s4, s5, s6, s7, s8))
+    val s10                            = S10.run(S10.Input(w, rc, firms, households, s1, s2, s3, s4, s5, s6, s7, s8, s9))
     StepResult(SimState(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds), s10.sfcResult)

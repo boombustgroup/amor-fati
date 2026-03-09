@@ -7,7 +7,7 @@ import sfc.types.*
 class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // ---- zero / initial ----
@@ -49,7 +49,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "allocate residual to cash" in {
-    val init = Nbfi.initial
+    val init         = Nbfi.initial
     val expectedCash = p.nbfi.tfiInitAum.toDouble *
       (1.0 - p.nbfi.tfiGovBondShare.toDouble - p.nbfi.tfiCorpBondShare.toDouble - p.nbfi.tfiEquityShare.toDouble)
     init.tfiCashHoldings.toDouble shouldBe expectedCash +- 1.0
@@ -94,7 +94,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase with excess returns" in {
-    val low = Nbfi.tfiInflow(1000, 8000.0, 0.0, 0.03, 0.05) // fund < deposit
+    val low  = Nbfi.tfiInflow(1000, 8000.0, 0.0, 0.03, 0.05) // fund < deposit
     val high = Nbfi.tfiInflow(1000, 8000.0, 0.0, 0.08, 0.02) // fund > deposit
     high should be > low
   }
@@ -109,7 +109,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   it should "be counter-cyclical (increase with bank tightness)" in {
     val normal = Nbfi.nbfiOrigination(1000000.0, 0.02) // NPL 2% → tightness 0
-    val tight = Nbfi.nbfiOrigination(1000000.0, 0.06) // NPL 6% → tightness 1
+    val tight  = Nbfi.nbfiOrigination(1000000.0, 0.06) // NPL 6% → tightness 1
     tight should be > normal
   }
 
@@ -136,7 +136,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase with unemployment above 5%" in {
-    val low = Nbfi.nbfiDefaults(100000.0, 0.05)
+    val low  = Nbfi.nbfiDefaults(100000.0, 0.05)
     val high = Nbfi.nbfiDefaults(100000.0, 0.10)
     high should be > low
   }
@@ -146,7 +146,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be sensitive to unemployment (sensitivity 3.0)" in {
-    val d5 = Nbfi.nbfiDefaults(100000.0, 0.05)
+    val d5  = Nbfi.nbfiDefaults(100000.0, 0.05)
     val d10 = Nbfi.nbfiDefaults(100000.0, 0.10)
     // At 10%, excess = 5%, sensitivity = 3.0: factor = 1 + 3.0 * 0.05 = 1.15
     (d10 / d5) shouldBe 1.15 +- 0.01
@@ -155,22 +155,22 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   // ---- step ----
 
   "Nbfi.step" should "grow AUM with positive inflow" in {
-    val init = Nbfi.initial
+    val init   = Nbfi.initial
     val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
     result.tfiAum > init.tfiAum shouldBe true
   }
 
   it should "produce deposit drain equal to negative inflow" in {
-    val init = Nbfi.initial
+    val init   = Nbfi.initial
     val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
     result.lastDepositDrain.toDouble shouldBe -result.lastTfiNetInflow.toDouble +- 0.01
   }
 
   it should "maintain Identity 13 (NBFI credit stock)" in {
-    val init = Nbfi.initial
-    val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
+    val init           = Nbfi.initial
+    val result         = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
     val expectedChange = (result.lastNbfiOrigination - result.lastNbfiRepayment - result.lastNbfiDefaultAmount).toDouble
-    val actualChange = (result.nbfiLoanStock - init.nbfiLoanStock).toDouble
+    val actualChange   = (result.nbfiLoanStock - init.nbfiLoanStock).toDouble
     actualChange shouldBe expectedChange +- 0.01
   }
 
@@ -184,21 +184,21 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       tfiCashHoldings = PLN(1000000.0),
       nbfiLoanStock = PLN(100000.0),
     )
-    val result = Nbfi.step(offTarget, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
+    val result    = Nbfi.step(offTarget, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
     // Gov bond holdings should increase towards target
     result.tfiGovBondHoldings > PLN.Zero shouldBe true
   }
 
   it should "increase origination when bank NPL is high (counter-cyclical)" in {
-    val init = Nbfi.initial
+    val init   = Nbfi.initial
     val normal = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
-    val tight = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.06, 0.05, 0.07, 0.005, 0.03, 1e8)
+    val tight  = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.06, 0.05, 0.07, 0.005, 0.03, 1e8)
     tight.lastNbfiOrigination > normal.lastNbfiOrigination shouldBe true
     tight.lastBankTightness.toDouble should be > normal.lastBankTightness.toDouble
   }
 
   it should "produce positive interest income from loan stock" in {
-    val init = Nbfi.initial
+    val init   = Nbfi.initial
     val result = Nbfi.step(init, 50000, 8000.0, 1.0, 0.05, 0.02, 0.05, 0.07, 0.005, 0.03, 1e8)
     if init.nbfiLoanStock > PLN.Zero then result.lastNbfiInterestIncome > PLN.Zero shouldBe true
   }

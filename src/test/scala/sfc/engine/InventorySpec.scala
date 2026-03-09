@@ -10,7 +10,7 @@ import sfc.types.*
 class InventorySpec extends AnyFlatSpec with Matchers:
 
   import sfc.config.SimParams
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
   // ==========================================================================
@@ -25,9 +25,8 @@ class InventorySpec extends AnyFlatSpec with Matchers:
     p.capital.inventoryTargetRatios.map(_.toDouble).length shouldBe 6
   }
 
-  it should "have all non-negative values" in {
+  it should "have all non-negative values" in
     p.capital.inventoryTargetRatios.map(_.toDouble).foreach(_ should be >= 0.0)
-  }
 
   it should "have Mfg > BPO" in {
     p.capital.inventoryTargetRatios.map(_.toDouble)(1) should be > p.capital.inventoryTargetRatios.map(_.toDouble)(0)
@@ -49,12 +48,11 @@ class InventorySpec extends AnyFlatSpec with Matchers:
     p.capital.inventorySpoilageRates.map(_.toDouble).length shouldBe 6
   }
 
-  it should "have all values in [0,1]" in {
+  it should "have all values in [0,1]" in
     p.capital.inventorySpoilageRates.map(_.toDouble).foreach { r =>
       r should be >= 0.0
       r should be <= 1.0
     }
-  }
 
   it should "have Agri highest" in {
     p.capital.inventorySpoilageRates.map(_.toDouble)(5) shouldBe p.capital.inventorySpoilageRates.map(_.toDouble).max
@@ -160,7 +158,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   "Carrying cost" should "be positive when inventory > 0 and InventoryEnabled" in {
     // Monthly carrying cost = inventory * carryingCostRate / 12
     val inventory = 100000.0
-    val cost = inventory * p.capital.inventoryCarryingCost.toDouble / 12.0
+    val cost      = inventory * p.capital.inventoryCarryingCost.toDouble / 12.0
     cost should be > 0.0
   }
 
@@ -176,15 +174,15 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   "Spoilage" should "reduce inventory stock" in {
     val inventory = 100000.0
     for s <- 0 until 6 do
-      val spoilRate = p.capital.inventorySpoilageRates.map(_.toDouble)(s) / 12.0
+      val spoilRate    = p.capital.inventorySpoilageRates.map(_.toDouble)(s) / 12.0
       val postSpoilage = inventory * (1.0 - spoilRate)
       postSpoilage should be <= inventory
   }
 
   it should "be highest for Agriculture" in {
     val agriRate = p.capital.inventorySpoilageRates.map(_.toDouble)(5) / 12.0
-    val mfgRate = p.capital.inventorySpoilageRates.map(_.toDouble)(1) / 12.0
-    val bpoRate = p.capital.inventorySpoilageRates.map(_.toDouble)(0) / 12.0
+    val mfgRate  = p.capital.inventorySpoilageRates.map(_.toDouble)(1) / 12.0
+    val bpoRate  = p.capital.inventorySpoilageRates.map(_.toDouble)(0) / 12.0
     agriRate should be > mfgRate
     mfgRate should be > bpoRate
   }
@@ -195,8 +193,8 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   "Stress liquidation" should "recover cash at discount" in {
     val inventory = 100000.0
-    val cash = -30000.0
-    val disc = p.capital.inventoryLiquidationDisc.toDouble
+    val cash      = -30000.0
+    val disc      = p.capital.inventoryLiquidationDisc.toDouble
     val liquidate = Math.min(inventory, Math.abs(cash) / disc)
     val cashBoost = liquidate * disc
     cashBoost should be > 0.0
@@ -205,8 +203,8 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   it should "not exceed available inventory" in {
     val inventory = 10000.0
-    val cash = -100000.0
-    val disc = p.capital.inventoryLiquidationDisc.toDouble
+    val cash      = -100000.0
+    val disc      = p.capital.inventoryLiquidationDisc.toDouble
     val liquidate = Math.min(inventory, Math.abs(cash) / disc)
     liquidate shouldBe inventory
   }
@@ -217,9 +215,9 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   "Inventory" should "never go negative" in {
     val postSpoilage = 1000.0
-    val rawChange = -5000.0 // trying to draw down more than available
-    val invChange = Math.max(-postSpoilage, rawChange)
-    val newInv = Math.max(0.0, postSpoilage + invChange)
+    val rawChange    = -5000.0 // trying to draw down more than available
+    val invChange    = Math.max(-postSpoilage, rawChange)
+    val newInv       = Math.max(0.0, postSpoilage + invChange)
     newInv should be >= 0.0
   }
 
@@ -228,23 +226,23 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Unsold production" should "add to inventory" in {
-    val capacity = 100000.0
-    val costFraction = p.capital.inventoryCostFraction.toDouble
-    val productionValue = capacity * costFraction
+    val capacity         = 100000.0
+    val costFraction     = p.capital.inventoryCostFraction.toDouble
+    val productionValue  = capacity * costFraction
     val sectorDemandMult = 0.8 // 20% unsold
-    val salesValue = productionValue * Math.min(1.0, sectorDemandMult)
-    val unsoldValue = Math.max(0.0, productionValue - salesValue)
+    val salesValue       = productionValue * Math.min(1.0, sectorDemandMult)
+    val unsoldValue      = Math.max(0.0, productionValue - salesValue)
     unsoldValue should be > 0.0
     unsoldValue shouldBe productionValue * 0.2 +- 0.01
   }
 
   "Excess demand" should "not generate unsold production" in {
-    val capacity = 100000.0
-    val costFraction = p.capital.inventoryCostFraction.toDouble
-    val productionValue = capacity * costFraction
+    val capacity         = 100000.0
+    val costFraction     = p.capital.inventoryCostFraction.toDouble
+    val productionValue  = capacity * costFraction
     val sectorDemandMult = 1.2 // excess demand
-    val salesValue = productionValue * Math.min(1.0, sectorDemandMult)
-    val unsoldValue = Math.max(0.0, productionValue - salesValue)
+    val salesValue       = productionValue * Math.min(1.0, sectorDemandMult)
+    val unsoldValue      = Math.max(0.0, productionValue - salesValue)
     unsoldValue shouldBe 0.0
   }
 
@@ -253,24 +251,24 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Target adjustment" should "move inventory toward target" in {
-    val capacity = 100000.0
+    val capacity         = 100000.0
     val sectorDemandMult = 1.0
-    val revenue = capacity * sectorDemandMult
-    val targetRatio = 0.15
-    val targetInv = revenue * targetRatio
-    val currentInv = 0.0 // starting from zero
-    val desired = (targetInv - currentInv) * p.capital.inventoryAdjustSpeed.toDouble
+    val revenue          = capacity * sectorDemandMult
+    val targetRatio      = 0.15
+    val targetInv        = revenue * targetRatio
+    val currentInv       = 0.0 // starting from zero
+    val desired          = (targetInv - currentInv) * p.capital.inventoryAdjustSpeed.toDouble
     desired should be > 0.0 // should want to build up
   }
 
   it should "reduce inventory when above target" in {
-    val capacity = 100000.0
+    val capacity         = 100000.0
     val sectorDemandMult = 1.0
-    val revenue = capacity * sectorDemandMult
-    val targetRatio = 0.15
-    val targetInv = revenue * targetRatio
-    val currentInv = targetInv * 3.0 // well above target
-    val desired = (targetInv - currentInv) * p.capital.inventoryAdjustSpeed.toDouble
+    val revenue          = capacity * sectorDemandMult
+    val targetRatio      = 0.15
+    val targetInv        = revenue * targetRatio
+    val currentInv       = targetInv * 3.0 // well above target
+    val desired          = (targetInv - currentInv) * p.capital.inventoryAdjustSpeed.toDouble
     desired should be < 0.0 // should want to reduce
   }
 
@@ -280,20 +278,20 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   "GDP formula" should "include inventory change when enabled" in {
     val domesticCons = 1000.0
-    val gov = 200.0
-    val eu = 50.0
-    val exports = 300.0
-    val gfcf = 100.0
-    val invChange = 15.0
-    val gdpWithInv = domesticCons + gov + eu + exports + gfcf + invChange
-    val gdpWithout = domesticCons + gov + eu + exports + gfcf
+    val gov          = 200.0
+    val eu           = 50.0
+    val exports      = 300.0
+    val gfcf         = 100.0
+    val invChange    = 15.0
+    val gdpWithInv   = domesticCons + gov + eu + exports + gfcf + invChange
+    val gdpWithout   = domesticCons + gov + eu + exports + gfcf
     gdpWithInv should be > gdpWithout
     (gdpWithInv - gdpWithout) shouldBe invChange
   }
 
   it should "reduce GDP when destocking" in {
-    val invChange = -10.0
-    val baseGdp = 1650.0
+    val invChange      = -10.0
+    val baseGdp        = 1650.0
     val gdpWithDestock = baseGdp + invChange
     gdpWithDestock should be < baseGdp
   }
