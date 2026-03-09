@@ -23,7 +23,7 @@ object IntermediateMarket:
     // Identify living firms and compute per-firm gross output
     val living      = arr.indices.filter(i => Firm.isAlive(arr(i)))
     val grossOutput = new Array[Double](arr.length)
-    for i <- living do grossOutput(i) = Firm.capacity(arr(i)) * sectorMults(arr(i).sector.toInt) * price
+    for i <- living do grossOutput(i) = Firm.computeCapacity(arr(i)) * sectorMults(arr(i).sector.toInt) * price
 
     // Total gross output per sector (for revenue distribution)
     val sectorOutput = new Array[Double](nSectors)

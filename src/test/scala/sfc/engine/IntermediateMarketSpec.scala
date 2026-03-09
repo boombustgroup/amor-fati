@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{Firm, TechState}
+import sfc.agents.{BankruptReason, Firm, TechState}
 import sfc.engine.markets.IntermediateMarket
 import sfc.types.*
 
@@ -66,11 +66,11 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val firms       = (0 until 6).map(s => makeFirm(s, s)).toVector
     val result      = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums)
     // Firm in sector 0 (BPO): should pay columnSum(0) of its gross output
-    val bpoOutput   = Firm.capacity(firms(0)) * 1.0 * 1.0
+    val bpoOutput   = Firm.computeCapacity(firms(0)) * 1.0 * 1.0
     val bpoCost     = bpoOutput * defaultColSums(0)
     // BPO revenue: sum over j of a_0j * sectorOutput_j
     val bpoRevenue  = (0 until 6).map { j =>
-      defaultMatrix(0)(j) * Firm.capacity(firms(j)) * 1.0 * 1.0
+      defaultMatrix(0)(j) * Firm.computeCapacity(firms(j)) * 1.0 * 1.0
     }.sum
     val expectedAdj = bpoRevenue - bpoCost
     val actualAdj   = (result.firms(0).cash - firms(0).cash).toDouble
@@ -82,7 +82,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   it should "exclude bankrupt firms from buying and selling" in {
     val firms        = Vector(
       makeFirm(0, 0),
-      makeFirm(1, 0, tech = TechState.Bankrupt("test")),
+      makeFirm(1, 0, tech = TechState.Bankrupt(BankruptReason.Other("test"))),
       makeFirm(2, 1),
       makeFirm(3, 2),
     )

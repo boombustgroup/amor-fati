@@ -99,7 +99,7 @@ object LaborMarket:
         case _                            =>
     val vacancies    = scala.collection.mutable.Map[Int, Int]()
     for f <- firms if Firm.isAlive(f) do
-      val needed = Firm.workers(f) - workerCounts(f.id.toInt)
+      val needed = Firm.workerCount(f) - workerCounts(f.id.toInt)
       if needed > 0 then vacancies(f.id.toInt) = needed
 
     if vacancies.isEmpty then return (households, 0)

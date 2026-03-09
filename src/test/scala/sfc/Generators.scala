@@ -47,7 +47,7 @@ object Generators:
       eff <- Gen.choose(0.5, 2.0)
     yield TechState.Hybrid(w, eff),
     Gen.choose(0.5, 3.0).map(e => TechState.Automated(e)),
-    Gen.const(TechState.Bankrupt("test")),
+    Gen.const(TechState.Bankrupt(BankruptReason.Other("test"))),
   )
 
   val genAliveTechState: Gen[TechState] = Gen.oneOf(

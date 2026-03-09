@@ -52,7 +52,7 @@ object WorldAssemblyStep:
       val totalFirmRev   = (0 until SectorDefs.length).map { s =>
         in.s2.living
           .filter(_.sector.toInt == s)
-          .kahanSumBy(f => Firm.capacity(f).toDouble * in.s4.sectorMults(s) * in.w.priceLevel)
+          .kahanSumBy(f => Firm.computeCapacity(f).toDouble * in.s4.sectorMults(s) * in.w.priceLevel)
       }.kahanSum
       val adjustedDemand = in.s4.sectorMults.indices.map { s =>
         in.s4.sectorCap(s) * in.s4.sectorMults(s) * in.w.priceLevel

@@ -29,53 +29,53 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return false for Bankrupt" in {
-    Firm.isAlive(mkFirm(TechState.Bankrupt("test"))) shouldBe false
+    Firm.isAlive(mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))) shouldBe false
   }
 
   // --- Firm.workers ---
 
-  "Firm.workers" should "return workers for Traditional" in {
-    Firm.workers(mkFirm(TechState.Traditional(10))) shouldBe 10
+  "Firm.workerCount" should "return workers for Traditional" in {
+    Firm.workerCount(mkFirm(TechState.Traditional(10))) shouldBe 10
   }
 
   it should "return workers for Hybrid" in {
-    Firm.workers(mkFirm(TechState.Hybrid(7, 1.0))) shouldBe 7
+    Firm.workerCount(mkFirm(TechState.Hybrid(7, 1.0))) shouldBe 7
   }
 
   it should "return skeletonCrew for Automated" in {
     val f = mkFirm(TechState.Automated(1.5))
-    Firm.workers(f) shouldBe Firm.skeletonCrew(f)
+    Firm.workerCount(f) shouldBe Firm.skeletonCrew(f)
   }
 
   it should "return 0 for Bankrupt" in {
-    Firm.workers(mkFirm(TechState.Bankrupt("test"))) shouldBe 0
+    Firm.workerCount(mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))) shouldBe 0
   }
 
   // --- Firm.capacity ---
 
-  "Firm.capacity" should "be positive for alive firms" in {
-    Firm.capacity(mkFirm(TechState.Traditional(10))) should be > 0.0
-    Firm.capacity(mkFirm(TechState.Hybrid(5, 1.2))) should be > 0.0
-    Firm.capacity(mkFirm(TechState.Automated(1.5))) should be > 0.0
+  "Firm.computeCapacity" should "be positive for alive firms" in {
+    Firm.computeCapacity(mkFirm(TechState.Traditional(10))) should be > 0.0
+    Firm.computeCapacity(mkFirm(TechState.Hybrid(5, 1.2))) should be > 0.0
+    Firm.computeCapacity(mkFirm(TechState.Automated(1.5))) should be > 0.0
   }
 
   it should "be 0 for Bankrupt" in {
-    Firm.capacity(mkFirm(TechState.Bankrupt("test"))) shouldBe 0.0
+    Firm.computeCapacity(mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))) shouldBe 0.0
   }
 
   // --- Firm.aiCapex / hybridCapex ---
 
-  "Firm.aiCapex" should "be positive and scale with multipliers" in {
+  "Firm.computeAiCapex" should "be positive and scale with multipliers" in {
     val f  = mkFirm(TechState.Traditional(10))
-    Firm.aiCapex(f) should be > 0.0
+    Firm.computeAiCapex(f) should be > 0.0
     // With higher innovationCostFactor → higher capex
     val f2 = f.copy(innovationCostFactor = 1.5)
-    Firm.aiCapex(f2) should be > Firm.aiCapex(f)
+    Firm.computeAiCapex(f2) should be > Firm.computeAiCapex(f)
   }
 
-  "Firm.hybridCapex" should "be positive" in {
+  "Firm.computeHybridCapex" should "be positive" in {
     val f = mkFirm(TechState.Traditional(10))
-    Firm.hybridCapex(f) should be > 0.0
+    Firm.computeHybridCapex(f) should be > 0.0
   }
 
   // --- Firm.sigmaThreshold ---
@@ -96,13 +96,13 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   // --- Firm.localAutoRatio ---
 
-  "Firm.localAutoRatio" should "return 0.0 when no automated neighbors" in {
+  "Firm.computeLocalAutoRatio" should "return 0.0 when no automated neighbors" in {
     val firms = Vector(
       mkFirmWithNeighbors(0, TechState.Traditional(10), Array(FirmId(1), FirmId(2))),
       mkFirmWithNeighbors(1, TechState.Traditional(10), Array(FirmId(0))),
       mkFirmWithNeighbors(2, TechState.Traditional(10), Array(FirmId(0))),
     )
-    Firm.localAutoRatio(firms(0), firms) shouldBe 0.0
+    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe 0.0
   }
 
   it should "return 1.0 when all neighbors are Automated" in {
@@ -111,7 +111,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       mkFirmWithNeighbors(1, TechState.Automated(1.2), Array(FirmId(0))),
       mkFirmWithNeighbors(2, TechState.Automated(1.1), Array(FirmId(0))),
     )
-    Firm.localAutoRatio(firms(0), firms) shouldBe 1.0
+    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe 1.0
   }
 
   it should "count Hybrid as automated in ratio" in {
@@ -121,19 +121,19 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       mkFirmWithNeighbors(2, TechState.Hybrid(5, 1.0), Array(FirmId(0))),
       mkFirmWithNeighbors(3, TechState.Traditional(10), Array(FirmId(0))),
     )
-    Firm.localAutoRatio(firms(0), firms) shouldBe (2.0 / 3.0 +- 0.001)
+    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe (2.0 / 3.0 +- 0.001)
   }
 
   it should "return 0.0 for firm with no neighbors" in {
     val firms = Vector(mkFirmWithNeighbors(0, TechState.Traditional(10), Array.empty[FirmId]))
-    Firm.localAutoRatio(firms(0), firms) shouldBe 0.0
+    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe 0.0
   }
 
   // --- Firm.process ---
 
   "Firm.process" should "keep a Bankrupt firm bankrupt with zero tax/capex" in {
     Random.setSeed(42)
-    val f      = mkFirm(TechState.Bankrupt("test"))
+    val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))
     val rc     = RunConfig(1, "test")
     val result = Firm.process(f, mkWorld(), 0.07, _ => true, Vector(f), rc)
     result.taxPaid shouldBe PLN.Zero

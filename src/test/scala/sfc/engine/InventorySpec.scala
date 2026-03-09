@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting
 import sfc.accounting.{BankingAggregate, ForexState, GovState}
-import sfc.agents.{Banking, Firm, TechState}
+import sfc.agents.{Banking, BankruptReason, Firm, TechState}
 import sfc.types.*
 
 class InventorySpec extends AnyFlatSpec with Matchers:
@@ -308,7 +308,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
       FirmId(0),
       PLN(-1000.0),
       PLN(50000.0),
-      TechState.Bankrupt("test"),
+      TechState.Bankrupt(BankruptReason.Other("test")),
       Ratio(0.5),
       1.0,
       Ratio(0.3),

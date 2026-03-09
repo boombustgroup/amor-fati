@@ -146,7 +146,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     val exports = p.fiscal.fofExportShares.map(_.toDouble).map(_ * 100000.0)
 
     val sectorCap    = (0 until 6).map { s =>
-      firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble)
+      firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.computeCapacity(f).toDouble)
     }.toVector
     val sectorDemand = (0 until 6).map { s =>
       p.fiscal.fofConsWeights.map(_.toDouble)(s) * dc + p.fiscal.fofGovWeights.map(_.toDouble)(s) * gp + exports(s)
@@ -156,7 +156,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     }.toVector
 
     val totalFirmRev = (0 until 6).map { s =>
-      firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble * sectorMults(s) * price)
+      firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.computeCapacity(f).toDouble * sectorMults(s) * price)
     }.kahanSum
     val totalDemand  = sectorDemand.kahanSum
 
@@ -169,8 +169,8 @@ class FofSpec extends AnyFlatSpec with Matchers:
     // Both in sector 2 (Retail)
     val firms        = Array(f1.copy(sector = SectorIdx(2)), f2.copy(sector = SectorIdx(2)))
     val price        = 1.0
-    val cap1         = Firm.capacity(firms(0))
-    val cap2         = Firm.capacity(firms(1))
+    val cap1         = Firm.computeCapacity(firms(0))
+    val cap2         = Firm.computeCapacity(firms(1))
     val sectorDemand = 500000.0
     val totalCap     = cap1 + cap2
     val mult         = sectorDemand / (totalCap * price)

@@ -60,7 +60,7 @@ object FirmInit:
     // Pass 1: physCap (no rng) + bankId (rng) — separate to preserve rng sequence
     val firms1 = firms0.map { f =>
       val withCap =
-        if p.flags.physCap then f.copy(capitalStock = PLN(Firm.workers(f).toDouble * p.capital.klRatios.map(_.toDouble)(f.sector.toInt)))
+        if p.flags.physCap then f.copy(capitalStock = PLN(Firm.workerCount(f).toDouble * p.capital.klRatios.map(_.toDouble)(f.sector.toInt)))
         else f
       withCap.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng))
     }
@@ -75,7 +75,7 @@ object FirmInit:
       else firms1
 
     // Pass 3: inventory + energy + cash/debt (no rng) — single combined pass
-    val totalWorkers  = firms2.map(f => Firm.workers(f)).sum
+    val totalWorkers  = firms2.map(f => Firm.workerCount(f)).sum
     val totalFirmCash = p.banking.initDeposits.toDouble * FirmDepositShare
 
     firms2.map(f => enhanceNoRng(f, totalWorkers, totalFirmCash))
@@ -83,14 +83,14 @@ object FirmInit:
   private def enhanceNoRng(f: Firm.State, totalWorkers: Int, totalFirmCash: Double)(using p: SimParams): Firm.State =
     val withInv    =
       if p.flags.inventory then
-        val capacity  = Firm.capacity(f).toDouble
+        val capacity  = Firm.computeCapacity(f).toDouble
         val targetInv = capacity * p.capital.inventoryTargetRatios.map(_.toDouble)(f.sector.toInt)
         f.copy(inventory = PLN(targetInv * p.capital.inventoryInitRatio.toDouble))
       else f
     val withEnergy =
       if p.flags.energy then
-        val targetGK = Firm.workers(f).toDouble * p.climate.greenKLRatios.map(_.toDouble)(f.sector.toInt)
+        val targetGK = Firm.workerCount(f).toDouble * p.climate.greenKLRatios.map(_.toDouble)(f.sector.toInt)
         withInv.copy(greenCapital = PLN(targetGK * p.climate.greenInitRatio.toDouble))
       else withInv
-    val wshare     = Firm.workers(f).toDouble / totalWorkers
+    val wshare     = Firm.workerCount(f).toDouble / totalWorkers
     withEnergy.copy(cash = PLN(totalFirmCash * wshare), debt = PLN(p.banking.initLoans.toDouble * wshare))

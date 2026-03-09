@@ -131,7 +131,7 @@ object PriceEquityStep:
   // When rho=0.0, the function is a no-op (static network mode). This is the default
   // for experiments that need a fixed network topology.
   //
-  // The mechanism interacts with Firm.localAutoRatio (technology diffusion via network
+  // The mechanism interacts with Firm.computeLocalAutoRatio (technology diffusion via network
   // peer effects): newly wired entrants immediately start receiving competitive pressure
   // from their automated neighbors.
   //
@@ -310,8 +310,8 @@ object PriceEquityStep:
     )
 
     val firmProfits = living2.kahanSumBy { f =>
-      val rev      = Firm.capacity(f) * in.s4.sectorMults(f.sector.toInt) * newPrice
-      val labor    = Firm.workers(f) * in.s2.newWage * SectorDefs(f.sector.toInt).wageMultiplier
+      val rev      = Firm.computeCapacity(f) * in.s4.sectorMults(f.sector.toInt) * newPrice
+      val labor    = Firm.workerCount(f) * in.s2.newWage * SectorDefs(f.sector.toInt).wageMultiplier
       val other    = p.firm.otherCosts.toDouble * newPrice
       val aiMaint  = f.tech match
         case _: TechState.Automated => p.firm.aiOpex.toDouble * (0.60 + 0.40 * newPrice)

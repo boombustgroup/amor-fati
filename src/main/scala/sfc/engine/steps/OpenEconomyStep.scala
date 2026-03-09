@@ -57,7 +57,7 @@ object OpenEconomyStep:
     val sectorOutputs = (0 until SectorDefs.length).map { s =>
       living2
         .filter(_.sector.toInt == s)
-        .kahanSumBy(f => Firm.capacity(f) * in.s4.sectorMults(f.sector.toInt) * in.w.priceLevel)
+        .kahanSumBy(f => Firm.computeCapacity(f) * in.s4.sectorMults(f.sector.toInt) * in.w.priceLevel)
     }.toVector
 
     // GVC / Deep External Sector (v5.0)

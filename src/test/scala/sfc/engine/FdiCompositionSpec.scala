@@ -102,7 +102,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "not repatriate from bankrupt firm" in {
-    val f = mkFirm(TechState.Bankrupt("test")).copy(foreignOwned = true, cash = PLN(100000.0))
+    val f = mkFirm(TechState.Bankrupt(BankruptReason.Other("test"))).copy(foreignOwned = true, cash = PLN(100000.0))
     val r = Firm.Result(f, taxPaid = PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero)
     r.fdiRepatriation.toDouble shouldBe 0.0
   }

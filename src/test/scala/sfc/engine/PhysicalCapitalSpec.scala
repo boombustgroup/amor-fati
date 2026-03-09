@@ -2,7 +2,7 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{Firm, TechState}
+import sfc.agents.{BankruptReason, Firm, TechState}
 import sfc.types.*
 
 class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
@@ -142,10 +142,10 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   // --- Capacity augmented in FirmOps ---
 
-  "Firm.capacity" should "return positive for firm with capitalStock" in {
+  "Firm.computeCapacity" should "return positive for firm with capitalStock" in {
     if p.flags.physCap then
       val f = mkFirm(sector = 1, workers = 10, capitalStock = 2500000.0)
-      Firm.capacity(f) should be > 0.0
+      Firm.computeCapacity(f) should be > 0.0
   }
 
   it should "return 0 for bankrupt firm" in {
@@ -153,7 +153,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       id = FirmId(0),
       cash = PLN.Zero,
       debt = PLN.Zero,
-      tech = TechState.Bankrupt("test"),
+      tech = TechState.Bankrupt(BankruptReason.Other("test")),
       riskProfile = Ratio(0.5),
       innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.3),
@@ -161,7 +161,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       neighbors = Array.empty[FirmId],
       capitalStock = PLN(100000.0),
     )
-    Firm.capacity(f) shouldBe 0.0
+    Firm.computeCapacity(f) shouldBe 0.0
   }
 
   // --- Bankruptcy ---
@@ -172,7 +172,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       id = FirmId(0),
       cash = PLN.Zero,
       debt = PLN(100000),
-      tech = TechState.Bankrupt("test"),
+      tech = TechState.Bankrupt(BankruptReason.Other("test")),
       riskProfile = Ratio(0.5),
       innovationCostFactor = 1.0,
       digitalReadiness = Ratio(0.3),

@@ -17,30 +17,30 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   // --- capacity properties ---
 
-  "Firm.capacity" should "be >= 0 for all tech states" in
+  "Firm.computeCapacity" should "be >= 0 for all tech states" in
     forAll(genFirm) { (firm: Firm.State) =>
-      Firm.capacity(firm) should be >= 0.0
+      Firm.computeCapacity(firm) should be >= 0.0
     }
 
   it should "be 0 iff Bankrupt" in
     forAll(genFirm) { (firm: Firm.State) =>
       firm.tech match
-        case _: TechState.Bankrupt => Firm.capacity(firm) shouldBe 0.0
-        case _                     => Firm.capacity(firm) should be > 0.0
+        case _: TechState.Bankrupt => Firm.computeCapacity(firm) shouldBe 0.0
+        case _                     => Firm.computeCapacity(firm) should be > 0.0
     }
 
   // --- workers properties ---
 
-  "Firm.workers" should "be >= 0 for all tech states" in
+  "Firm.workerCount" should "be >= 0 for all tech states" in
     forAll(genFirm) { (firm: Firm.State) =>
-      Firm.workers(firm) should be >= 0
+      Firm.workerCount(firm) should be >= 0
     }
 
   it should "be 0 iff Bankrupt" in
     forAll(genFirm) { (firm: Firm.State) =>
       firm.tech match
-        case _: TechState.Bankrupt => Firm.workers(firm) shouldBe 0
-        case _                     => Firm.workers(firm) should be > 0
+        case _: TechState.Bankrupt => Firm.workerCount(firm) shouldBe 0
+        case _                     => Firm.workerCount(firm) should be > 0
     }
 
   // --- isAlive property ---
@@ -76,21 +76,21 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   // --- aiCapex properties ---
 
-  "Firm.aiCapex" should "be > 0 for alive firms" in
+  "Firm.computeAiCapex" should "be > 0 for alive firms" in
     forAll(genAliveFirm) { (firm: Firm.State) =>
-      Firm.aiCapex(firm) should be > 0.0
+      Firm.computeAiCapex(firm) should be > 0.0
     }
 
-  "Firm.hybridCapex" should "be > 0 for alive firms" in
+  "Firm.computeHybridCapex" should "be > 0 for alive firms" in
     forAll(genAliveFirm) { (firm: Firm.State) =>
-      Firm.hybridCapex(firm) should be > 0.0
+      Firm.computeHybridCapex(firm) should be > 0.0
     }
 
-  "Firm.aiCapex" should "scale with innovationCostFactor" in
+  "Firm.computeAiCapex" should "scale with innovationCostFactor" in
     forAll(genAliveFirm, Gen.choose(1.0, 3.0)) { (firm: Firm.State, factor: Double) =>
       val f1 = firm.copy(innovationCostFactor = 1.0)
       val f2 = firm.copy(innovationCostFactor = factor)
-      Firm.aiCapex(f2) shouldBe (Firm.aiCapex(f1) * factor +- 0.01)
+      Firm.computeAiCapex(f2) shouldBe (Firm.computeAiCapex(f1) * factor +- 0.01)
     }
 
   // --- capacity(Traditional) scales with sqrt(workers/initialSize) ---
@@ -122,7 +122,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         Array.empty[FirmId],
         initialSize = 16,
       )
-      val ratio = Firm.capacity(f2) / Firm.capacity(f1)
+      val ratio = Firm.computeCapacity(f2) / Firm.computeCapacity(f1)
       ratio shouldBe (2.0 +- 0.01)
     }
 
@@ -152,13 +152,13 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         Array.empty[FirmId],
         initialSize = 25,
       )
-      val ratio = Firm.capacity(f2) / Firm.capacity(f1)
+      val ratio = Firm.computeCapacity(f2) / Firm.computeCapacity(f1)
       ratio shouldBe (2.5 +- 0.01)
     }
 
   // --- localAutoRatio properties ---
 
-  "Firm.localAutoRatio" should "be in [0, 1]" in {
+  "Firm.computeLocalAutoRatio" should "be in [0, 1]" in {
     val firms = (0 until 10).map { i =>
       val tech = if i < 3 then TechState.Automated(1.0) else TechState.Traditional(10)
       Firm.State(
@@ -174,7 +174,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       )
     }.toVector
     for f <- firms do
-      val r = Firm.localAutoRatio(f, firms)
+      val r = Firm.computeLocalAutoRatio(f, firms)
       r should be >= 0.0
       r should be <= 1.0
   }
@@ -192,5 +192,5 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       Array.empty[FirmId],
     )
     val firms = Vector(firm)
-    Firm.localAutoRatio(firm, firms) shouldBe 0.0
+    Firm.computeLocalAutoRatio(firm, firms) shouldBe 0.0
   }

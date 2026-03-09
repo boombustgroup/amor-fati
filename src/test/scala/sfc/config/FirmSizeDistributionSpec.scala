@@ -82,7 +82,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
   // --- Capacity scaling ---
 
-  "Firm.capacity" should "scale linearly with initialSize at full employment" in {
+  "Firm.computeCapacity" should "scale linearly with initialSize at full employment" in {
     import sfc.agents.{Firm, TechState}
     val f10   = Firm.State(
       FirmId(0),
@@ -108,7 +108,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
       initialSize = 25,
     )
-    val ratio = Firm.capacity(f25) / Firm.capacity(f10)
+    val ratio = Firm.computeCapacity(f25) / Firm.computeCapacity(f10)
     ratio shouldBe (2.5 +- 0.01)
   }
 
@@ -138,14 +138,14 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
       initialSize = 100,
     )
-    val perWorker5   = Firm.capacity(f5) / 5.0
-    val perWorker100 = Firm.capacity(f100) / 100.0
+    val perWorker5   = Firm.computeCapacity(f5) / 5.0
+    val perWorker100 = Firm.computeCapacity(f100) / 100.0
     perWorker5 shouldBe (perWorker100 +- 0.01)
   }
 
   // --- CAPEX scaling ---
 
-  "Firm.aiCapex" should "scale sublinearly with firm size" in {
+  "Firm.computeAiCapex" should "scale sublinearly with firm size" in {
     import sfc.agents.{Firm, TechState}
     val fSmall     = Firm.State(
       FirmId(0),
@@ -171,8 +171,8 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       Array.empty[FirmId],
       initialSize = 100,
     )
-    val capexSmall = Firm.aiCapex(fSmall)
-    val capexLarge = Firm.aiCapex(fLarge)
+    val capexSmall = Firm.computeAiCapex(fSmall)
+    val capexLarge = Firm.computeAiCapex(fLarge)
     // Sublinear: 10× size → 10^0.6 ≈ 3.98× CAPEX (not 10×)
     val ratio      = capexLarge / capexSmall
     ratio shouldBe (Math.pow(10.0, 0.6) +- 0.01)

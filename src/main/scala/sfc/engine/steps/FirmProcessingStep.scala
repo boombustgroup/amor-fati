@@ -110,7 +110,7 @@ object FirmProcessingStep:
 
       val (actualLoan, equityAmt, updatedFirm) =
         if p.flags.gpw && p.flags.gpwEquityIssuance && r.newLoan > PLN.Zero &&
-          Firm.workers(r.firm) >= p.equity.issuanceMinSize
+          Firm.workerCount(r.firm) >= p.equity.issuanceMinSize
         then
           val eqAmt   = r.newLoan * p.equity.issuanceFrac.toDouble
           val adjLoan = r.newLoan - eqAmt
@@ -122,7 +122,7 @@ object FirmProcessingStep:
         else (r.newLoan.toDouble, 0.0, r.firm)
 
       val (finalLoan, bondAmt, bondUpdatedFirm) =
-        if actualLoan > 0 && Firm.workers(updatedFirm) >= p.corpBond.minSize then
+        if actualLoan > 0 && Firm.workerCount(updatedFirm) >= p.corpBond.minSize then
           val ba      = actualLoan * p.corpBond.issuanceFrac.toDouble
           val adjLoan = actualLoan - ba
           val f3      = updatedFirm.copy(
@@ -166,7 +166,7 @@ object FirmProcessingStep:
         val revert = ba * revertRatio
         adjustedFirms.find(_.id == fid).foreach(ff => perBankNewLoans(ff.bankId.toInt) += revert)
 
-    for f <- adjustedFirms if Firm.isAlive(f) do perBankWorkers(f.bankId.toInt) += Firm.workers(f)
+    for f <- adjustedFirms if Firm.isAlive(f) do perBankWorkers(f.bankId.toInt) += Firm.workerCount(f)
 
     val (ioFirms, totalIoPaid) = if p.flags.io then
       val r = IntermediateMarket.process(

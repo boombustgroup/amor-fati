@@ -25,7 +25,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "make workers unemployed when firm goes bankrupt" in {
     val prevFirms = mkFirms(3)
-    val newFirms  = prevFirms.updated(1, prevFirms(1).copy(tech = TechState.Bankrupt("test")))
+    val newFirms  = prevFirms.updated(1, prevFirms(1).copy(tech = TechState.Bankrupt(BankruptReason.Other("test"))))
 
     val hhs    = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
@@ -54,7 +54,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "not affect already unemployed households" in {
     val prevFirms = mkFirms(2)
-    val newFirms  = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Bankrupt("test")))
+    val newFirms  = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Bankrupt(BankruptReason.Other("test"))))
 
     val hhs    = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),

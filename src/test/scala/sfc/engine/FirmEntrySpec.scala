@@ -226,7 +226,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   "Entrant in individual mode" should "start with Traditional(0)" in {
     // When households.isDefined, startWorkers = 0
     val tech = TechState.Traditional(0)
-    Firm.workers(
+    Firm.workerCount(
       Firm.State(
         id = FirmId(0),
         cash = PLN(50000.0),

@@ -2,7 +2,7 @@ package sfc.engine.steps
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.agents.{Firm, TechState}
+import sfc.agents.{BankruptReason, Firm, TechState}
 import sfc.types.*
 
 import scala.util.Random
@@ -67,7 +67,7 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
     for i <- 0 until 3 do
       val f = result(i)
       f.initialSize should be > 0
-      Firm.workers(f) shouldBe f.initialSize
+      Firm.workerCount(f) shouldBe f.initialSize
   }
 
   private def mkFirms(n: Int): Vector[Firm.State] =
@@ -88,7 +88,7 @@ class DynamicNetworkSpec extends AnyFlatSpec with Matchers:
   private def mkFirmsWithBankrupt(n: Int, nBankrupt: Int, sector: Int = 0): Vector[Firm.State] =
     (0 until n).map { i =>
       val tech =
-        if i < nBankrupt then TechState.Bankrupt("test")
+        if i < nBankrupt then TechState.Bankrupt(BankruptReason.Other("test"))
         else TechState.Traditional(10)
       Firm.State(
         FirmId(i),

@@ -67,24 +67,24 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
 
   // ---- CAPEX discount (3 tests) ----
 
-  "Firm.aiCapex" should "decrease with higher digitalReadiness" in {
+  "Firm.computeAiCapex" should "decrease with higher digitalReadiness" in {
     val fLow  = mkFirm(TechState.Traditional(10), dr = 0.1)
     val fHigh = mkFirm(TechState.Traditional(10), dr = 0.9)
-    Firm.aiCapex(fHigh) should be < Firm.aiCapex(fLow)
+    Firm.computeAiCapex(fHigh) should be < Firm.computeAiCapex(fLow)
   }
 
-  "Firm.hybridCapex" should "decrease with higher digitalReadiness" in {
+  "Firm.computeHybridCapex" should "decrease with higher digitalReadiness" in {
     val fLow  = mkFirm(TechState.Traditional(10), dr = 0.1)
     val fHigh = mkFirm(TechState.Traditional(10), dr = 0.9)
-    Firm.hybridCapex(fHigh) should be < Firm.hybridCapex(fLow)
+    Firm.computeHybridCapex(fHigh) should be < Firm.computeHybridCapex(fLow)
   }
 
-  "Firm.aiCapex" should "apply no discount when digitalReadiness is 0" in {
+  "Firm.computeAiCapex" should "apply no discount when digitalReadiness is 0" in {
     val f0           = mkFirm(TechState.Traditional(10), dr = 0.0)
     // With dr=0: discount factor = 1.0 - 0.30 * 0.0 = 1.0 (no discount)
     val expectedBase = p.firm.aiCapex.toDouble * SectorDefs(2).aiCapexMultiplier * 1.0 *
       Math.pow(10.0 / p.pop.workersPerFirm, 0.6)
-    Firm.aiCapex(f0) shouldBe expectedBase +- 0.01
+    Firm.computeAiCapex(f0) shouldBe expectedBase +- 0.01
   }
 
   // ---- Digital drift (3 tests) ----
@@ -105,7 +105,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "not change DR for bankrupt firms" in {
-    val f      = mkFirm(TechState.Bankrupt("test"), dr = 0.50)
+    val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")), dr = 0.50)
     val w      = mkWorld()
     val result = Firm.process(f, w, 0.07, _ => true, Vector(f), rc)
     result.firm.digitalReadiness.toDouble shouldBe 0.50
@@ -130,7 +130,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "not invest when firm cannot afford it" in {
-    val digiCost = Firm.digiInvestCost(mkFirm(TechState.Traditional(10)))
+    val digiCost = Firm.computeDigiInvestCost(mkFirm(TechState.Traditional(10)))
     // Cash so low firm can't afford 2× digiCost, but not negative (would bankrupt)
     val f        = mkFirm(TechState.Traditional(10), cash = digiCost * 0.5, dr = 0.30)
     val w        = mkWorld(autoRatio = 0.5)
@@ -152,11 +152,11 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     boostHigh should be < boostLow
   }
 
-  "Firm.digiInvestCost" should "scale sublinearly with firm size" in {
+  "Firm.computeDigiInvestCost" should "scale sublinearly with firm size" in {
     val fSmall    = mkFirm(TechState.Traditional(10)).copy(initialSize = 5)
     val fLarge    = mkFirm(TechState.Traditional(10)).copy(initialSize = 100)
-    val costSmall = Firm.digiInvestCost(fSmall)
-    val costLarge = Firm.digiInvestCost(fLarge)
+    val costSmall = Firm.computeDigiInvestCost(fSmall)
+    val costLarge = Firm.computeDigiInvestCost(fLarge)
     // Large firm costs more
     costLarge should be > costSmall
     // But sublinearly: cost ratio < size ratio

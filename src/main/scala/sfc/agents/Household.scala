@@ -122,7 +122,7 @@ object Household:
     def create(rng: Random, firms: Vector[Firm.State])(using p: SimParams): Vector[State] =
       import sfc.config.*
       import sfc.networks.Network
-      val hhCount   = firms.map(f => Firm.workers(f)).sum
+      val hhCount   = firms.map(f => Firm.workerCount(f)).sum
       val hhNetwork = Network.wattsStrogatz(hhCount, p.household.socialK, p.household.socialP.toDouble)
       val hhs       = initialize(hhCount, p.pop.firmsCount, firms, hhNetwork, rng)
       // Assign households to same bank as their employer
@@ -147,7 +147,7 @@ object Household:
       val builder = Vector.newBuilder[State]
 
       for f <- firms if Firm.isAlive(f) do
-        val nWorkers  = Firm.workers(f)
+        val nWorkers  = Firm.workerCount(f)
         val sectorIdx = f.sector
         for _ <- 0 until nWorkers do
           if hhId < nHouseholds then

@@ -33,7 +33,7 @@ object LaborDemographicsStep:
 
   def run(in: Input)(using p: SimParams): Output =
     val living                 = in.firms.filter(Firm.isAlive)
-    val laborDemand            = living.kahanSumBy(f => Firm.workers(f).toDouble).toInt
+    val laborDemand            = living.kahanSumBy(f => Firm.workerCount(f).toDouble).toInt
     val (rawWage, rawEmployed) =
       LaborMarket.updateLaborMarket(in.w.hh.marketWage.toDouble, in.s1.resWage, laborDemand, in.w.totalPopulation)
 

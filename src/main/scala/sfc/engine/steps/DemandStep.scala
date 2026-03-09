@@ -37,7 +37,7 @@ object DemandStep:
       else targetGovPurchases
     val laggedExports      = in.w.forex.exports.toDouble
     val sectorCap          = (0 until SectorDefs.length).map { s =>
-      in.s2.living.filter(_.sector.toInt == s).kahanSumBy(f => Firm.capacity(f).toDouble)
+      in.s2.living.filter(_.sector.toInt == s).kahanSumBy(f => Firm.computeCapacity(f).toDouble)
     }.toVector
     val sectorExports      =
       if p.flags.gvc && p.flags.openEcon then in.w.external.gvc.sectorExports.map(_.toDouble)

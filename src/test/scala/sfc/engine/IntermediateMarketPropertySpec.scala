@@ -5,7 +5,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
-import sfc.agents.{Firm, TechState}
+import sfc.agents.{BankruptReason, Firm, TechState}
 import sfc.engine.markets.IntermediateMarket
 import sfc.types.*
 
@@ -58,7 +58,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
 
   it should "exclude bankrupt firms" in {
     val firms = makeFirms(12).zipWithIndex.map { (f, i) =>
-      if i == 0 then f.copy(tech = TechState.Bankrupt("test")) else f
+      if i == 0 then f.copy(tech = TechState.Bankrupt(BankruptReason.Other("test"))) else f
     }
     val r     = IntermediateMarket.process(firms, Vector.fill(6)(1.0), 1.0, defaultMatrix, defaultColSums, 1.0)
     r.firms(0).cash.toDouble shouldBe firms(0).cash.toDouble

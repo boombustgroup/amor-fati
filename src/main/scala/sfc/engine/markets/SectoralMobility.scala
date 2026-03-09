@@ -39,7 +39,7 @@ object SectoralMobility:
         case _                                  =>
 
     val sectorDemand = new Array[Int](6)
-    for f <- firms if Firm.isAlive(f) do sectorDemand(f.sector.toInt) += Firm.workers(f)
+    for f <- firms if Firm.isAlive(f) do sectorDemand(f.sector.toInt) += Firm.workerCount(f)
 
     val vac = new Array[Int](6)
     for s <- 0 until 6 do vac(s) = Math.max(0, sectorDemand(s) - workerCounts(s))
