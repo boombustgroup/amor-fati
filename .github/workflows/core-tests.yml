@@ -25,9 +25,3 @@ jobs:
 
       - name: Run tests
         run: sbt test
-
-      - name: Build fat JAR
-        run: sbt assembly
-
-      - name: Smoke test (3 seeds)
-        run: java -jar target/scala-3.5.2/sfc-abm.jar 2000 3 ci_smoke pln

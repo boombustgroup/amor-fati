@@ -3,9 +3,9 @@ package sfc.config
 /** Mechanism toggles for 49 model features.
   *
   * Each flag enables/disables an independently switchable mechanism in the
-  * SFC-ABM engine. Defaults reflect the full Polish economy baseline. Flags
-  * are used exclusively for counterfactual experiments — not for reproducing
-  * legacy behavior.
+  * SFC-ABM engine. Defaults reflect the full Polish economy baseline. Flags are
+  * used exclusively for counterfactual experiments — not for reproducing legacy
+  * behavior.
   *
   * Grouped by domain:
   *

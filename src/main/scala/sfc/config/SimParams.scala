@@ -103,9 +103,9 @@ object SimParams:
 
   /** All hardcoded defaults with gdpRatio-scaled stock variables.
     *
-    * Hardcoded calibration defaults (no env vars). Stock values
-    * (bank balance sheets, government debt, market caps, reserves, etc.) are
-    * scaled by `gdpRatio` to map agent-level flows to real Polish GDP.
+    * Hardcoded calibration defaults (no env vars). Stock values (bank balance
+    * sheets, government debt, market caps, reserves, etc.) are scaled by
+    * `gdpRatio` to map agent-level flows to real Polish GDP.
     */
   val defaults: SimParams =
     val pop      = PopulationConfig()
