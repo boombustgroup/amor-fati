@@ -19,15 +19,14 @@ object McRunner:
   /** Run one simulation with given seed. Throws [[Sfc.SfcViolationException]]
     * on any SFC identity violation.
     */
-  def runSingle(seed: Int, rc: RunConfig)(using p: SimParams): RunResult =
-    val masterSeed = seed.toLong
-    val init       = WorldInit.initialize(seed)
-    var state      = Simulation.SimState(init.world, init.firms, init.households)
+  def runSingle(seed: Long, rc: RunConfig)(using p: SimParams): RunResult =
+    val init  = WorldInit.initialize(seed)
+    var state = Simulation.SimState(init.world, init.firms, init.households)
 
     val results = Array.ofDim[Double](p.timeline.duration, SimOutput.nCols)
 
     for t <- 0 until p.timeline.duration do
-      val stepResult = Simulation.step(state, rc, masterSeed, t)
+      val stepResult = Simulation.step(state, rc, seed, t)
       stepResult.sfcCheck match
         case Left(errors) => throw Sfc.SfcViolationException(t + 1, errors)
         case Right(())    => // OK
@@ -51,12 +50,12 @@ object McRunner:
 
   // -- Pure MC loop → immutable McResults --
 
-  def runAll(rc: RunConfig, onProgress: (Int, RunResult, Long) => Unit)(using SimParams): McResults =
+  def runAll(rc: RunConfig, onProgress: (Long, RunResult, Long) => Unit)(using SimParams): McResults =
     val startTime = System.currentTimeMillis()
     val builder   = Vector.newBuilder[RunResult]
     builder.sizeHint(rc.nSeeds)
 
-    for seed <- 1 to rc.nSeeds do
+    for seed <- 1L to rc.nSeeds.toLong do
       val t0     = System.currentTimeMillis()
       val result = runSingle(seed, rc)
       builder += result
@@ -66,7 +65,7 @@ object McRunner:
     println(f"\nTotal time: ${totalTime}%.1f seconds")
     McResults(builder.result())
 
-  private def defaultProgress(rc: RunConfig): (Int, RunResult, Long) => Unit =
+  private def defaultProgress(rc: RunConfig): (Long, RunResult, Long) => Unit =
     (seed, result, dt) =>
       if seed <= 3 || seed % 10 == 0 || seed == rc.nSeeds then
         val last      = result.timeSeries.lastMonth

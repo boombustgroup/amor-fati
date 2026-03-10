@@ -15,8 +15,8 @@ import scala.util.Random
 object WorldInit:
 
   /** Initialize a complete simulation world from a seed. */
-  def initialize(seed: Int)(using p: SimParams): InitResult =
-    val rng = new Random(seed.toLong)
+  def initialize(seed: Long)(using p: SimParams): InitResult =
+    val rng = new Random(seed)
 
     // --- Firms ---
     val firms = FirmInit.create(rng)
