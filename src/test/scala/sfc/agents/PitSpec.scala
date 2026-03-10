@@ -110,6 +110,17 @@ class PitSpec extends AnyFlatSpec with Matchers:
       totalRent = PLN.Zero,
       totalDebtService = PLN.Zero,
       totalUnempBenefits = PLN.Zero,
+      totalDepositInterest = PLN.Zero,
+      crossSectorHires = 0,
+      voluntaryQuits = 0,
+      sectorMobilityRate = Ratio.Zero,
+      totalRemittances = PLN.Zero,
+      totalPit = PLN.Zero,
+      totalSocialTransfers = PLN.Zero,
+      totalConsumerDebtService = PLN.Zero,
+      totalConsumerOrigination = PLN.Zero,
+      totalConsumerDefault = PLN.Zero,
+      totalConsumerPrincipal = PLN.Zero,
     )
     agg.totalPit shouldBe PLN.Zero
   }

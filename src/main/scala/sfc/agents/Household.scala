@@ -79,65 +79,65 @@ object Household:
   /** Full state of a single household agent, carried across simulation months.
     */
   case class State(
-      id: HhId,                                 // unique household identifier
-      savings: PLN,                             // liquid savings (bank deposits)
-      debt: PLN,                                // outstanding secured (mortgage) debt
-      monthlyRent: PLN,                         // monthly rent payment (to landlord / housing market)
-      skill: Ratio,                             // labor productivity multiplier [0,1], decays during unemployment
-      healthPenalty: Ratio,                     // cumulative health penalty from long-term unemployment (scarring)
-      mpc: Ratio,                               // marginal propensity to consume (Beta-sampled at init)
-      status: HhStatus,                         // current employment/activity status
-      socialNeighbors: Array[HhId],             // Watts-Strogatz social network neighbor IDs
-      bankId: BankId = BankId(0),               // index into Banking.State.banks (multi-bank)
-      equityWealth: PLN = PLN.Zero,             // value of GPW equity holdings
-      lastSectorIdx: SectorIdx = SectorIdx(-1), // last sector employed in (-1 = never)
-      isImmigrant: Boolean = false,             // immigrant status for wage discount + remittances
-      numDependentChildren: Int = 0,            // children ≤ 18 for 800+ social transfers
-      consumerDebt: PLN = PLN.Zero,             // outstanding unsecured consumer loan
-      education: Int = 2,                       // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
+      id: HhId,                     // unique household identifier
+      savings: PLN,                 // liquid savings (bank deposits)
+      debt: PLN,                    // outstanding secured (mortgage) debt
+      monthlyRent: PLN,             // monthly rent payment (to landlord / housing market)
+      skill: Ratio,                 // labor productivity multiplier [0,1], decays during unemployment
+      healthPenalty: Ratio,         // cumulative health penalty from long-term unemployment (scarring)
+      mpc: Ratio,                   // marginal propensity to consume (Beta-sampled at init)
+      status: HhStatus,             // current employment/activity status
+      socialNeighbors: Array[HhId], // Watts-Strogatz social network neighbor IDs
+      bankId: BankId,               // index into Banking.State.banks (multi-bank)
+      equityWealth: PLN,            // value of GPW equity holdings
+      lastSectorIdx: SectorIdx,     // last sector employed in (-1 = never)
+      isImmigrant: Boolean,         // immigrant status for wage discount + remittances
+      numDependentChildren: Int,    // children ≤ 18 for 800+ social transfers
+      consumerDebt: PLN,            // outstanding unsecured consumer loan
+      education: Int,               // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
   )
 
   /** Aggregate statistics computed from individual households (Paper-06). */
   case class Aggregates(
-      employed: Int,                            // count of employed HH
-      unemployed: Int,                          // count of unemployed HH
-      retraining: Int,                          // count of HH in retraining
-      bankrupt: Int,                            // count of bankrupt HH
-      totalIncome: PLN,                         // aggregate income (wages + benefits + interest + transfers)
-      consumption: PLN,                         // aggregate consumption (goods + rent)
-      domesticConsumption: PLN,                 // domestic component of consumption
-      importConsumption: PLN,                   // import component of consumption
-      marketWage: PLN,                          // current market-clearing wage
-      reservationWage: PLN,                     // minimum acceptable wage for job search
-      giniIndividual: Ratio,                    // Gini of income distribution
-      giniWealth: Ratio,                        // Gini of wealth (savings) distribution
-      meanSavings: PLN,                         // mean savings across all HH
-      medianSavings: PLN,                       // median savings across all HH
-      povertyRate50: Ratio,                     // share with income < 50% median (EU AROP)
-      bankruptcyRate: Ratio,                    // share of bankrupt HH
-      meanSkill: Double,                        // mean skill of alive (non-bankrupt) HH
-      meanHealthPenalty: Double,                // mean health scarring of alive HH
-      retrainingAttempts: Int,                  // retraining attempts this month
-      retrainingSuccesses: Int,                 // successful retraining completions this month
-      consumptionP10: PLN,                      // 10th percentile of consumption
-      consumptionP50: PLN,                      // median consumption
-      consumptionP90: PLN,                      // 90th percentile of consumption
-      meanMonthsToRuin: Double,                 // mean months until bankruptcy (placeholder)
-      povertyRate30: Ratio,                     // share with income < 30% median (deep poverty)
-      totalRent: PLN,                           // aggregate rent payments
-      totalDebtService: PLN,                    // aggregate secured debt service
-      totalUnempBenefits: PLN,                  // aggregate unemployment benefits paid
-      totalDepositInterest: PLN = PLN.Zero,     // aggregate deposit interest received
-      crossSectorHires: Int = 0,                // cross-sector hires this month
-      voluntaryQuits: Int = 0,                  // voluntary quits (cross-sector search)
-      sectorMobilityRate: Ratio = Ratio.Zero,   // fraction employed in different sector than last
-      totalRemittances: PLN = PLN.Zero,         // aggregate remittances sent abroad
-      totalPit: PLN = PLN.Zero,                 // aggregate PIT paid
-      totalSocialTransfers: PLN = PLN.Zero,     // aggregate 800+ social transfers
-      totalConsumerDebtService: PLN = PLN.Zero, // aggregate consumer debt service
-      totalConsumerOrigination: PLN = PLN.Zero, // aggregate new consumer loans
-      totalConsumerDefault: PLN = PLN.Zero,     // aggregate consumer loan defaults
-      totalConsumerPrincipal: PLN = PLN.Zero,   // aggregate consumer loan principal repaid
+      employed: Int,                 // count of employed HH
+      unemployed: Int,               // count of unemployed HH
+      retraining: Int,               // count of HH in retraining
+      bankrupt: Int,                 // count of bankrupt HH
+      totalIncome: PLN,              // aggregate income (wages + benefits + interest + transfers)
+      consumption: PLN,              // aggregate consumption (goods + rent)
+      domesticConsumption: PLN,      // domestic component of consumption
+      importConsumption: PLN,        // import component of consumption
+      marketWage: PLN,               // current market-clearing wage
+      reservationWage: PLN,          // minimum acceptable wage for job search
+      giniIndividual: Ratio,         // Gini of income distribution
+      giniWealth: Ratio,             // Gini of wealth (savings) distribution
+      meanSavings: PLN,              // mean savings across all HH
+      medianSavings: PLN,            // median savings across all HH
+      povertyRate50: Ratio,          // share with income < 50% median (EU AROP)
+      bankruptcyRate: Ratio,         // share of bankrupt HH
+      meanSkill: Double,             // mean skill of alive (non-bankrupt) HH
+      meanHealthPenalty: Double,     // mean health scarring of alive HH
+      retrainingAttempts: Int,       // retraining attempts this month
+      retrainingSuccesses: Int,      // successful retraining completions this month
+      consumptionP10: PLN,           // 10th percentile of consumption
+      consumptionP50: PLN,           // median consumption
+      consumptionP90: PLN,           // 90th percentile of consumption
+      meanMonthsToRuin: Double,      // mean months until bankruptcy (placeholder)
+      povertyRate30: Ratio,          // share with income < 30% median (deep poverty)
+      totalRent: PLN,                // aggregate rent payments
+      totalDebtService: PLN,         // aggregate secured debt service
+      totalUnempBenefits: PLN,       // aggregate unemployment benefits paid
+      totalDepositInterest: PLN,     // aggregate deposit interest received
+      crossSectorHires: Int,         // cross-sector hires this month
+      voluntaryQuits: Int,           // voluntary quits (cross-sector search)
+      sectorMobilityRate: Ratio,     // fraction employed in different sector than last
+      totalRemittances: PLN,         // aggregate remittances sent abroad
+      totalPit: PLN,                 // aggregate PIT paid
+      totalSocialTransfers: PLN,     // aggregate 800+ social transfers
+      totalConsumerDebtService: PLN, // aggregate consumer debt service
+      totalConsumerOrigination: PLN, // aggregate new consumer loans
+      totalConsumerDefault: PLN,     // aggregate consumer loan defaults
+      totalConsumerPrincipal: PLN,   // aggregate consumer loan principal repaid
   ):
     def unemploymentRate(totalPopulation: Int): Double = 1.0 - employed.toDouble / totalPopulation
 
@@ -228,8 +228,10 @@ object Household:
               status = HhStatus.Employed(f.id, sectorIdx, PLN(wage)),
               socialNeighbors =
                 if hhId < socialNetwork.length then socialNetwork(hhId).map(HhId(_)) else Array.empty[HhId],
+              bankId = BankId(0),
               equityWealth = PLN(eqWealth),
               lastSectorIdx = sectorIdx,
+              isImmigrant = false,
               numDependentChildren = numChildren,
               consumerDebt = PLN(consDebt),
               education = edu,
@@ -885,6 +887,17 @@ object Household:
       totalRent = PLN(totalRent),
       totalDebtService = PLN(totalDebtService),
       totalUnempBenefits = PLN(totalUnempBenefits),
+      totalDepositInterest = PLN.Zero,
+      crossSectorHires = 0,
+      voluntaryQuits = 0,
+      sectorMobilityRate = Ratio.Zero,
+      totalRemittances = PLN.Zero,
+      totalPit = PLN.Zero,
+      totalSocialTransfers = PLN.Zero,
+      totalConsumerDebtService = PLN.Zero,
+      totalConsumerOrigination = PLN.Zero,
+      totalConsumerDefault = PLN.Zero,
+      totalConsumerPrincipal = PLN.Zero,
     )
 
   /** Gini coefficient for a pre-sorted array (handles negatives by shifting).

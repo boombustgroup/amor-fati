@@ -89,9 +89,12 @@ object Immigration:
         mpc = Ratio(mpc.max(0.7).min(0.98)),
         status = HhStatus.Unemployed(0),
         socialNeighbors = Array.empty[HhId],
+        bankId = BankId(0),
+        equityWealth = PLN.Zero,
         lastSectorIdx = sector,
         isImmigrant = true,
         numDependentChildren = numChildren,
+        consumerDebt = PLN.Zero,
         education = edu,
       )
     }.toVector

@@ -99,6 +99,13 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
       Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
+      education = 2,
     )
     hh.education shouldBe 2
   }
@@ -114,6 +121,12 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
       Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
       education = 3,
     )
     val copied = hh.copy(savings = PLN(2000.0))
@@ -175,6 +188,12 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
       Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
       education = 0,
     )
     val hhTertiary   = Household.State(
@@ -187,6 +206,12 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5000.0)),
       Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
       education = 3,
     )
     val hhVocational = Household.State(
@@ -199,6 +224,12 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5500.0)),
       Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
       education = 1,
     )
 
@@ -264,6 +295,12 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
       Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
       education = 2,
     )
     val hhHighSkill = Household.State(
@@ -276,6 +313,12 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(7000.0)),
       Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
       education = 2,
     )
     val hhMidSkill  = Household.State(
@@ -288,6 +331,12 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       Ratio(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6500.0)),
       Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
       education = 2,
     )
 

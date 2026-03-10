@@ -207,4 +207,11 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       Ratio(0.82),
       status,
       Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
+      education = 2,
     )

@@ -154,6 +154,13 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           Ratio(0.8),
           HhStatus.Bankrupt,
           Array.empty[HhId],
+          bankId = BankId(0),
+          equityWealth = PLN.Zero,
+          lastSectorIdx = SectorIdx(-1),
+          isImmigrant = false,
+          numDependentChildren = 0,
+          consumerDebt = PLN.Zero,
+          education = 2,
         )
       }.toVector
       val agg         = Household.computeAggregates(bankruptHhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)

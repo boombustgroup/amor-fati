@@ -91,7 +91,13 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
         Ratio(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
         Array.empty[HhId],
+        bankId = BankId(0),
+        equityWealth = PLN.Zero,
+        lastSectorIdx = SectorIdx(-1),
         isImmigrant = i >= 5,
+        numDependentChildren = 0,
+        consumerDebt = PLN.Zero,
+        education = 2,
       ) // 5 natives + 5 immigrants
     }.toVector
     // Request removing 100, but only 5 immigrants exist

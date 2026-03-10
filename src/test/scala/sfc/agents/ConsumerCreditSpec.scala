@@ -85,7 +85,13 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       mpc = Ratio(0.82),
       status = HhStatus.Bankrupt,
       socialNeighbors = Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
       consumerDebt = PLN(5000.0),
+      education = 2,
     )
     // Bankrupt HH should have consumer debt → NPL
     hh.consumerDebt shouldBe PLN(5000.0)
@@ -156,6 +162,17 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       totalRent = PLN.Zero,
       totalDebtService = PLN.Zero,
       totalUnempBenefits = PLN.Zero,
+      totalDepositInterest = PLN.Zero,
+      crossSectorHires = 0,
+      voluntaryQuits = 0,
+      sectorMobilityRate = Ratio.Zero,
+      totalRemittances = PLN.Zero,
+      totalPit = PLN.Zero,
+      totalSocialTransfers = PLN.Zero,
+      totalConsumerDebtService = PLN.Zero,
+      totalConsumerOrigination = PLN.Zero,
+      totalConsumerDefault = PLN.Zero,
+      totalConsumerPrincipal = PLN.Zero,
     )
     agg.totalConsumerDebtService shouldBe PLN.Zero
     agg.totalConsumerOrigination shouldBe PLN.Zero
@@ -173,6 +190,13 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       mpc = Ratio(0.82),
       status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266.0)),
       socialNeighbors = Array.empty[HhId],
+      bankId = BankId(0),
+      equityWealth = PLN.Zero,
+      lastSectorIdx = SectorIdx(-1),
+      isImmigrant = false,
+      numDependentChildren = 0,
+      consumerDebt = PLN.Zero,
+      education = 2,
     )
     hh.consumerDebt shouldBe PLN.Zero
   }

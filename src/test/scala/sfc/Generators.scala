@@ -246,6 +246,10 @@ object Generators:
     BankId(bankId),
     PLN(eqW),
     SectorIdx(lastSec),
+    isImmigrant = false,
+    numDependentChildren = 0,
+    consumerDebt = PLN.Zero,
+    education = 2,
   )
 
   // --- World generator ---
@@ -305,6 +309,17 @@ object Generators:
       totalRent = PLN.Zero,
       totalDebtService = PLN.Zero,
       totalUnempBenefits = PLN.Zero,
+      totalDepositInterest = PLN.Zero,
+      crossSectorHires = 0,
+      voluntaryQuits = 0,
+      sectorMobilityRate = Ratio.Zero,
+      totalRemittances = PLN.Zero,
+      totalPit = PLN.Zero,
+      totalSocialTransfers = PLN.Zero,
+      totalConsumerDebtService = PLN.Zero,
+      totalConsumerOrigination = PLN.Zero,
+      totalConsumerDefault = PLN.Zero,
+      totalConsumerPrincipal = PLN.Zero,
     ),
     social = SocialState.zero,
     financial = FinancialMarketsState.zero,

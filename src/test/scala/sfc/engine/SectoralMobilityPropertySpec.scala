@@ -100,6 +100,13 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
           Ratio(0.82),
           HhStatus.Employed(FirmId(i), SectorIdx(i % 6), PLN(8000.0 + i * 100)),
           Array.empty[HhId],
+          bankId = BankId(0),
+          equityWealth = PLN.Zero,
+          lastSectorIdx = SectorIdx(-1),
+          isImmigrant = false,
+          numDependentChildren = 0,
+          consumerDebt = PLN.Zero,
+          education = 2,
         ),
       )
       .toVector
