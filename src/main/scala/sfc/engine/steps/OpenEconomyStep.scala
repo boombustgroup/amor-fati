@@ -217,22 +217,22 @@ object OpenEconomyStep:
     val insNetDepositChange = newInsurance.lastNetDepositChange.toDouble
 
     // --- Shadow Banking / NBFI step ---
-    val nbfiDepositRate  = Math.max(0.0, postFxNbp.referenceRate.toDouble - 0.02)
-    val nbfiUnempRate    = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+    val nbfiDepositRate  = Rate(Math.max(0.0, postFxNbp.referenceRate.toDouble - 0.02))
+    val nbfiUnempRate    = Ratio(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
     val newNbfi          =
       if p.flags.nbfi then
         Nbfi.step(
           in.w.financial.nbfi,
           in.s2.employed,
-          in.s2.newWage,
+          PLN(in.s2.newWage),
           in.w.priceLevel,
           nbfiUnempRate,
-          in.w.bank.nplRatio.toDouble,
-          newBondYield,
-          in.w.financial.corporateBonds.corpBondYield.toDouble,
-          in.w.financial.equity.monthlyReturn.toDouble,
+          in.w.bank.nplRatio,
+          Rate(newBondYield),
+          in.w.financial.corporateBonds.corpBondYield,
+          in.w.financial.equity.monthlyReturn,
           nbfiDepositRate,
-          in.s3.domesticCons,
+          PLN(in.s3.domesticCons),
         )
       else in.w.financial.nbfi
     val nbfiDepositDrain = newNbfi.lastDepositDrain.toDouble

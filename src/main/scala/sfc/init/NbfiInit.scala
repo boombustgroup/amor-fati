@@ -8,4 +8,4 @@ object NbfiInit:
 
   def create()(using p: SimParams): Nbfi.State =
     if p.flags.nbfi then Nbfi.initial
-    else Nbfi.zero
+    else Nbfi.State.zero

@@ -141,7 +141,7 @@ object FinancialMarketsState:
     equity = EquityMarket.zero,
     corporateBonds = CorporateBondMarket.zero,
     insurance = Insurance.State.zero,
-    nbfi = Nbfi.zero,
+    nbfi = Nbfi.State.zero,
   )
 
 /** Structural external-sector state carried across steps (not recomputed from
