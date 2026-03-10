@@ -3,7 +3,7 @@ package sfc.agents
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankingAggregate, ForexState, GovState}
-import sfc.config.{SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.engine.*
 import sfc.types.*
 
@@ -88,7 +88,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be bounded in [0, 1]" in {
-    for s <- SectorDefs do
+    for s <- p.sectorDefs do
       val t = Firm.sigmaThreshold(s.sigma)
       t should be >= 0.0
       t should be <= 1.0
@@ -203,7 +203,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,
-      currentSigmas = SectorDefs.map(_.sigma).toVector,
+      currentSigmas = p.sectorDefs.map(_.sigma).toVector,
       totalPopulation = 100000,
       gov = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = Nbp.State(Rate(0.0575)),

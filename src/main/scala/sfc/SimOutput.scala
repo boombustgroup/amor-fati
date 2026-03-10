@@ -1,7 +1,7 @@
 package sfc
 
 import sfc.agents.*
-import sfc.config.{SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.engine.*
 import sfc.engine.mechanisms.Macroprudential
 import sfc.types.*
@@ -102,7 +102,7 @@ object SimOutput:
       val p: SimParams,
   ):
     given SimParams                         = p
-    lazy val sectorAuto: IndexedSeq[Double] = SectorDefs.indices.map { s =>
+    lazy val sectorAuto: IndexedSeq[Double] = p.sectorDefs.indices.map { s =>
       val secFirms = living.filter(_.sector.toInt == s)
       if secFirms.isEmpty then 0.0
       else

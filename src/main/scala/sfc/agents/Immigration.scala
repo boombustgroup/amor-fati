@@ -1,6 +1,6 @@
 package sfc.agents
 
-import sfc.config.{SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.types.*
 import sfc.util.Distributions
 
@@ -61,11 +61,11 @@ object Immigration:
     val r   = rng.nextDouble()
     var cum = 0.0
     var s   = 0
-    while s < SectorDefs.length - 1 do
+    while s < p.sectorDefs.length - 1 do
       cum += p.immigration.sectorShares.map(_.toDouble)(s)
       if r < cum then return s
       s += 1
-    SectorDefs.length - 1 // fallback: last sector
+    p.sectorDefs.length - 1 // fallback: last sector
 
   /** Spawn new immigrant households (individual mode). Start as Unemployed(0) —
     * will be matched in next jobSearch round.

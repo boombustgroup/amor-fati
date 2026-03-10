@@ -1,6 +1,7 @@
 package sfc.agents
 
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.types.*
 
 object Nbp:
@@ -11,7 +12,7 @@ object Nbp:
       exRateChange: Double,
       employed: Int,
       totalPopulation: Int,
-      rc: RunConfig,
+      rc: McRunConfig,
   )(using p: SimParams): Double =
     if p.flags.nbpSymmetric then
       // v2.0: Symmetric Taylor + output gap (dual mandate)

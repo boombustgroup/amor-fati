@@ -2,7 +2,8 @@ package sfc.engine.steps
 
 import sfc.accounting.*
 import sfc.agents.*
-import sfc.config.{RunConfig, SectorDefs, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.engine.*
 import sfc.engine.markets.SectoralMobility
 import sfc.types.*
@@ -14,7 +15,7 @@ object WorldAssemblyStep:
 
   case class Input(
       w: World,
-      rc: RunConfig,
+      rc: McRunConfig,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       s1: FiscalConstraintStep.Output,
@@ -49,7 +50,7 @@ object WorldAssemblyStep:
 
     // Flow-of-funds residual
     val fofResidual = {
-      val totalFirmRev   = (0 until SectorDefs.length).map { s =>
+      val totalFirmRev   = (0 until p.sectorDefs.length).map { s =>
         in.s2.living
           .filter(_.sector.toInt == s)
           .kahanSumBy(f => (Firm.computeCapacity(f) * (in.s4.sectorMults(s) * in.w.priceLevel)).toDouble)
@@ -265,19 +266,19 @@ object WorldAssemblyStep:
     // Endogenous Firm Entry (#35): recycle bankrupt slots
     val (finalFirms, firmBirths) = if p.flags.firmEntry then
       val postLiving    = postFdiFirms.filter(Firm.isAlive)
-      val sectorCashSum = Array.fill(SectorDefs.length)(0.0)
-      val sectorCashCnt = Array.fill(SectorDefs.length)(0)
+      val sectorCashSum = Array.fill(p.sectorDefs.length)(0.0)
+      val sectorCashCnt = Array.fill(p.sectorDefs.length)(0)
       for f <- postLiving do
         sectorCashSum(f.sector.toInt) += f.cash.toDouble
         sectorCashCnt(f.sector.toInt) += 1
       val sectorAvgCash =
-        SectorDefs.indices.map(s => if sectorCashCnt(s) > 0 then sectorCashSum(s) / sectorCashCnt(s) else 0.0).toArray
+        p.sectorDefs.indices.map(s => if sectorCashCnt(s) > 0 then sectorCashSum(s) / sectorCashCnt(s) else 0.0).toArray
       val globalAvgCash = if postLiving.nonEmpty then postLiving.map(_.cash.toDouble).sum / postLiving.length else 1.0
       val profitSignals = sectorAvgCash.map { c =>
         Math.max(-1.0, Math.min(2.0, (c - globalAvgCash) / Math.max(1.0, Math.abs(globalAvgCash))))
       }
 
-      val sectorWeights = SectorDefs.indices.map { s =>
+      val sectorWeights = p.sectorDefs.indices.map { s =>
         Math.max(
           0.01,
           (1.0 + profitSignals(s) * p.firm.entryProfitSens) *
@@ -301,7 +302,7 @@ object WorldAssemblyStep:
             var cumul     = 0.0
             var newSector = 0
             var found     = false
-            for s <- SectorDefs.indices if !found do
+            for s <- p.sectorDefs.indices if !found do
               cumul += sectorWeights(s)
               if roll < cumul then { newSector = s; found = true }
 
@@ -315,7 +316,7 @@ object WorldAssemblyStep:
               else
                 Math.max(
                   0.02,
-                  Math.min(0.30, SectorDefs(newSector).baseDigitalReadiness.toDouble + rng.nextGaussian() * 0.10),
+                  Math.min(0.30, p.sectorDefs(newSector).baseDigitalReadiness.toDouble + rng.nextGaussian() * 0.10),
                 )
             val startWorkers = 0 // workers hired via labor market
             val tech         = if isAiNative then
@@ -339,7 +340,7 @@ object WorldAssemblyStep:
 
             val initInventory = if p.flags.inventory then
               val cap = p.firm.baseRevenue.toDouble * (firmSize.toDouble / p.pop.workersPerFirm) *
-                SectorDefs(newSector).revenueMultiplier
+                p.sectorDefs(newSector).revenueMultiplier
               cap * p.capital.inventoryTargetRatios.map(_.toDouble)(newSector) * p.capital.inventoryInitRatio.toDouble
             else 0.0
 

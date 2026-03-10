@@ -6,7 +6,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
 import sfc.accounting.{BopState, ForexState}
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.engine.markets.OpenEconomy
 import sfc.types.*
 
@@ -18,7 +19,7 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  private val rc = RunConfig(1, "test")
+  private val rc = McRunConfig(1, "test")
 
   private val defaultSectorOutputs = Vector.fill(6)(1e8)
 

@@ -3,13 +3,14 @@ package sfc.accounting
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.*
-import sfc.config.{SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.engine.{ExternalState, FinancialMarketsState, FlowState, MechanismsState, MonetaryPlumbingState, RealState, SocialState, World}
 import sfc.types.*
 
 class SfcSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams = SimParams.defaults
+  given SimParams          = SimParams.defaults
+  private val p: SimParams = summon[SimParams]
 
   private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): Double =
     result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => (e.actual - e.expected).toDouble).getOrElse(0.0)
@@ -26,7 +27,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,
-      currentSigmas = SectorDefs.map(_.sigma).toVector,
+      currentSigmas = p.sectorDefs.map(_.sigma).toVector,
       totalPopulation = 100,
       gov = GovState(PLN.Zero, PLN.Zero, PLN(govDebt), PLN.Zero),
       nbp = Nbp.State(Rate(0.0575)),

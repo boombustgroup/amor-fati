@@ -2,7 +2,8 @@ package sfc.engine.steps
 
 import sfc.accounting.{BankingAggregate, BopState, GovState, MonetaryAggregates}
 import sfc.agents.*
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.engine.*
 import sfc.engine.markets.{FiscalBudget, HousingMarket}
 import sfc.engine.mechanisms.YieldCurve
@@ -13,7 +14,7 @@ object BankUpdateStep:
 
   case class Input(
       w: World,
-      rc: RunConfig,
+      rc: McRunConfig,
       s1: FiscalConstraintStep.Output,
       s2: LaborDemographicsStep.Output,
       s3: HouseholdIncomeStep.Output,

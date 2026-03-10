@@ -4,7 +4,8 @@ import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.engine.mechanisms.Expectations
 import sfc.types.*
 
@@ -13,7 +14,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  private val rc = RunConfig(1, "test")
+  private val rc = McRunConfig(1, "test")
 
   private val inflationGen = Gen.choose(-0.10, 0.20)
   private val rateGen      = Gen.choose(0.001, 0.25)

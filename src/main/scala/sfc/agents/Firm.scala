@@ -1,6 +1,6 @@
 package sfc.agents
 
-import sfc.config.{SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.engine.World
 import sfc.types.*
 
@@ -126,7 +126,7 @@ object Firm:
       riskProfile: Ratio,           // Propensity to invest / adopt technology [0,1]
       innovationCostFactor: Double, // Firm-specific CAPEX multiplier (drawn at creation)
       digitalReadiness: Ratio,      // Digital readiness score [0,1], gates tech upgrades
-      sector: SectorIdx,            // Index into SectorDefs
+      sector: SectorIdx,            // Index into p.sectorDefs
       neighbors: Vector[FirmId],    // Network adjacency (firm IDs)
       bankId: BankId,               // Multi-bank: index into Banking.State.banks
       equityRaised: PLN,            // GPW: cumulative equity raised via IPO/SPO
@@ -209,7 +209,7 @@ object Firm:
 
   /** Effective wage multiplier including union wage premium. */
   def effectiveWageMult(sectorIdx: SectorIdx)(using p: SimParams): Ratio =
-    val base = Ratio(SectorDefs(sectorIdx.toInt).wageMultiplier)
+    val base = Ratio(p.sectorDefs(sectorIdx.toInt).wageMultiplier)
     if p.flags.unions then base + base * (p.labor.unionWagePremium * p.labor.unionDensity(sectorIdx.toInt))
     else base
 
@@ -217,7 +217,7 @@ object Firm:
     * augmented by physical capital (Cobb-Douglas) when enabled.
     */
   def computeCapacity(f: State)(using p: SimParams): PLN =
-    val sec       = SectorDefs(f.sector.toInt)
+    val sec       = p.sectorDefs(f.sector.toInt)
     val sizeScale = f.initialSize.toDouble / p.pop.workersPerFirm
     val base: PLN = f.tech match
       case TechState.Traditional(w) => p.firm.baseRevenue * (sizeScale * sec.revenueMultiplier * Math.sqrt(w.toDouble / f.initialSize))
@@ -238,7 +238,7 @@ object Firm:
   def computeAiCapex(f: State)(using p: SimParams): PLN =
     val sizeFactor   = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, CapexSizeExponent)
     val digiDiscount = (Ratio.One - p.firm.digiCapexDiscount * f.digitalReadiness).toDouble
-    p.firm.aiCapex * (SectorDefs(f.sector.toInt).aiCapexMultiplier * f.innovationCostFactor * sizeFactor * digiDiscount)
+    p.firm.aiCapex * (p.sectorDefs(f.sector.toInt).aiCapexMultiplier * f.innovationCostFactor * sizeFactor * digiDiscount)
 
   /** Hybrid upgrade CAPEX — same scaling as AI CAPEX but using hybrid
     * multipliers.
@@ -246,7 +246,7 @@ object Firm:
   def computeHybridCapex(f: State)(using p: SimParams): PLN =
     val sizeFactor   = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, CapexSizeExponent)
     val digiDiscount = (Ratio.One - p.firm.digiCapexDiscount * f.digitalReadiness).toDouble
-    p.firm.hybridCapex * (SectorDefs(f.sector.toInt).hybridCapexMultiplier * f.innovationCostFactor * sizeFactor * digiDiscount)
+    p.firm.hybridCapex * (p.sectorDefs(f.sector.toInt).hybridCapexMultiplier * f.innovationCostFactor * sizeFactor * digiDiscount)
 
   /** Digital investment cost — sublinear in firm size (exponent 0.5). */
   def computeDigiInvestCost(f: State)(using p: SimParams): PLN =
@@ -455,7 +455,7 @@ object Firm:
     val capex = computeHybridCapex(firm)
     val loan  = capex * HybridLoanShare
     val down  = capex * HybridDownShare
-    val hWkrs = Math.max(3, (workers * SectorDefs(firm.sector.toInt).hybridRetainFrac.toDouble).toInt)
+    val hWkrs = Math.max(3, (workers * p.sectorDefs(firm.sector.toInt).hybridRetainFrac.toDouble).toInt)
     val cost  = estimateMonthlyCost(firm, p.firm.hybridOpex, hWkrs, loan, w.hhAgg.marketWage, lendRate, w.priceLevel)
     val cand  = UpgradeCandidate(
       capex,

@@ -5,7 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting
 import sfc.accounting.{BankingAggregate, ForexState, GovState}
 import sfc.agents.{Banking, Firm, TechState}
-import sfc.config.{SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.types.*
 
 class FirmEntrySpec extends AnyFlatSpec with Matchers:
@@ -208,7 +208,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "have low digital readiness (0.02-0.30)" in {
     val rng = new scala.util.Random(42)
     val drs = (1 to 100).map { _ =>
-      val sec = SectorDefs(2) // Retail
+      val sec = p.sectorDefs(2) // Retail
       Math.max(0.02, Math.min(0.30, sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * 0.10))
     }
     drs.foreach { dr =>

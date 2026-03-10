@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankingAggregate, ForexState, GovState}
 import sfc.agents.*
-import sfc.config.{SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.types.*
 
 class FdiCompositionSpec extends AnyFlatSpec with Matchers:
@@ -198,7 +198,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,
-      currentSigmas = SectorDefs.map(_.sigma).toVector,
+      currentSigmas = p.sectorDefs.map(_.sigma).toVector,
       totalPopulation = 100000,
       gov = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = Nbp.State(Rate(0.0575)),

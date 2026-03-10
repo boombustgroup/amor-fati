@@ -1,6 +1,6 @@
 package sfc
 
-import sfc.config.*
+import sfc.config.SimParams
 
 // $COVERAGE-OFF$ entry point only
 @main def sfcMonteCarlo(
@@ -9,6 +9,6 @@ import sfc.config.*
 ): Unit =
   given SimParams = SimParams.defaults
   val nSeeds      = nSeedsStr.toInt
-  val rc          = RunConfig(nSeeds, outputPrefix)
+  val rc          = McRunConfig(nSeeds, outputPrefix)
   McRunner.run(rc)
 // $COVERAGE-ON$

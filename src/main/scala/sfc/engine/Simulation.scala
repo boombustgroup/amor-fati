@@ -2,6 +2,7 @@ package sfc.engine
 
 import sfc.accounting.*
 import sfc.agents.*
+import sfc.McRunConfig
 import sfc.config.*
 import sfc.types.*
 
@@ -113,7 +114,7 @@ object Simulation:
     * @return
     *   StepResult with updated state and SFC check outcome
     */
-  def step(state: SimState, rc: RunConfig, masterSeed: Long, month: Int)(using SimParams): StepResult =
+  def step(state: SimState, rc: McRunConfig, masterSeed: Long, month: Int)(using SimParams): StepResult =
     import steps.{
       FiscalConstraintStep as S1,
       LaborDemographicsStep as S2,

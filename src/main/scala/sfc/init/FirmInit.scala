@@ -18,29 +18,28 @@ object FirmInit:
 
   /** Create firm array with all post-creation enhancements. */
   def create(rng: Random)(using p: SimParams): Vector[Firm.State] =
-    // Generate network based on TOPOLOGY env var
-    val adjList = TOPOLOGY match
+    val adjList = p.topology match
       case Topology.Ws      => Network.wattsStrogatz(p.pop.firmsCount, p.firm.networkK, p.firm.networkRewireP.toDouble, rng)
       case Topology.Er      => Network.erdosRenyi(p.pop.firmsCount, p.firm.networkK, rng)
       case Topology.Ba      => Network.barabasiAlbert(p.pop.firmsCount, p.firm.networkK / 2, rng)
       case Topology.Lattice => Network.lattice(p.pop.firmsCount, p.firm.networkK)
 
     // Assign sectors
-    val sectorCounts      = SectorDefs.map(s => (s.share.toDouble * p.pop.firmsCount).toInt)
+    val sectorCounts      = p.sectorDefs.map(s => (s.share.toDouble * p.pop.firmsCount).toInt)
     assert(sectorCounts.sum <= p.pop.firmsCount, s"Sector counts overflow: ${sectorCounts.sum} > ${p.pop.firmsCount}")
     val sectorAssignments =
       val arr = new Array[Int](p.pop.firmsCount)
       var idx = 0
       for
-        s <- SectorDefs.indices
+        s <- p.sectorDefs.indices
         _ <- 0 until sectorCounts(s)
       do if idx < p.pop.firmsCount then { arr(idx) = s; idx += 1 }
-      while idx < p.pop.firmsCount do { arr(idx) = SectorDefs.length - 1; idx += 1 }
+      while idx < p.pop.firmsCount do { arr(idx) = p.sectorDefs.length - 1; idx += 1 }
       rng.shuffle(arr.toIndexedSeq).toArray
 
     // Initialize firms
     val firms0 = (0 until p.pop.firmsCount).map { i =>
-      val sec      = SectorDefs(sectorAssignments(i))
+      val sec      = p.sectorDefs(sectorAssignments(i))
       val firmSize = FirmSizeDistribution.draw(rng)
       val sizeMult = firmSize.toDouble / p.pop.workersPerFirm
       Firm.State(

@@ -1,6 +1,7 @@
 package sfc.engine.steps
 
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.engine.World
 import sfc.engine.mechanisms.YieldCurve
 import sfc.types.*
@@ -9,7 +10,7 @@ object FiscalConstraintStep:
 
   case class Input(
       w: World,
-      rc: RunConfig,
+      rc: McRunConfig,
   )
 
   case class Output(

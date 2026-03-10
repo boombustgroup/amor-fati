@@ -7,7 +7,8 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import sfc.Generators.*
 import sfc.accounting.{ForexState, GovState}
 import sfc.agents.Nbp
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.engine.markets.{FiscalBudget, LaborMarket, OpenEconomy, PriceLevel}
 import sfc.types.*
 
@@ -19,7 +20,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  private val rc       = RunConfig(1, "test")
+  private val rc       = McRunConfig(1, "test")
   private val totalPop = p.pop.firmsCount * p.pop.workersPerFirm
 
   // Combined generator for gov inputs (avoids >6 forAll limit)

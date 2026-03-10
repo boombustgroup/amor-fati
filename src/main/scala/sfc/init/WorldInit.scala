@@ -56,7 +56,7 @@ object WorldInit:
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = p.firm.baseRevenue.toDouble * p.pop.firmsCount,
-      currentSigmas = SectorDefs.map(_.sigma),
+      currentSigmas = p.sectorDefs.map(_.sigma),
       totalPopulation = totalPop,
       gov = GovState(
         taxRevenue = PLN.Zero,

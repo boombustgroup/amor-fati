@@ -10,20 +10,20 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  "SectorDefs" should "have 6 entries" in {
-    SectorDefs.length shouldBe 6
+  "p.sectorDefs" should "have 6 entries" in {
+    p.sectorDefs.length shouldBe 6
   }
 
   it should "have shares summing to ~1.0" in {
-    SectorDefs.map(_.share.toDouble).sum shouldBe 1.0 +- 0.01
+    p.sectorDefs.map(_.share.toDouble).sum shouldBe 1.0 +- 0.01
   }
 
   it should "have positive sigma for every sector" in {
-    for s <- SectorDefs do s.sigma should be > 0.0
+    for s <- p.sectorDefs do s.sigma should be > 0.0
   }
 
   it should "have known sector names" in {
-    SectorDefs.map(_.name) should contain allOf (
+    p.sectorDefs.map(_.name) should contain allOf (
       "BPO/SSC",
       "Manufacturing",
       "Retail/Services",

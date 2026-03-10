@@ -1,7 +1,7 @@
 package sfc.engine.markets
 
 import sfc.agents.*
-import sfc.config.{SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -122,7 +122,7 @@ object LaborMarket:
     val vacancyFirmsBySector   = vacancies.keys.toArray
       .groupBy(fid => firms(fid).sector.toInt)
     val vacancyFirmsByPriority = vacancies.keys.toArray
-      .sortBy(fid => -SectorDefs(firms(fid).sector.toInt).sigma)
+      .sortBy(fid => -p.sectorDefs(firms(fid).sector.toInt).sigma)
 
     for idx <- unemployedIndices do
       if vacancies.nonEmpty then

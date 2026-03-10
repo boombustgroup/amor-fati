@@ -2,7 +2,7 @@ package sfc.engine
 
 import sfc.accounting.*
 import sfc.agents.*
-import sfc.config.SectorDefs
+import sfc.config.SimParams
 import sfc.engine.markets.{CorporateBondMarket, EquityMarket, GvcTrade, HousingMarket, SectoralMobility}
 import sfc.engine.mechanisms.{Expectations, Macroprudential}
 import sfc.types.*
@@ -315,7 +315,7 @@ case class FlowState(
     /** Per-sector demand multipliers from S4 — threaded into Firm.process via
       * macro4firms.copy.
       */
-    sectorDemandMult: Vector[Double] = Vector.fill(SectorDefs.length)(1.0),
+    sectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0),
 )
 object FlowState:
   val zero: FlowState = FlowState()

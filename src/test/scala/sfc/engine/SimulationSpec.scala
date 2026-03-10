@@ -5,7 +5,8 @@ import org.scalatest.matchers.should.Matchers
 import sfc.accounting
 import sfc.accounting.GovState
 import sfc.agents.Nbp
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.engine.markets.{FiscalBudget, LaborMarket, PriceLevel}
 import sfc.types.*
 
@@ -48,27 +49,27 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateInflation ---
 
   "PriceLevel.update" should "produce higher inflation with higher demand" in {
-    val rc         = RunConfig(1, "test")
+    val rc         = McRunConfig(1, "test")
     val (infl1, _) = PriceLevel.update(0.02, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, rc)
     val (infl2, _) = PriceLevel.update(0.02, 1.0, 1.5, 0.0, 0.0, 0.0, 0.0, rc)
     infl2 should be > infl1
   }
 
   it should "produce tech deflation with more automation" in {
-    val rc         = RunConfig(1, "test")
+    val rc         = McRunConfig(1, "test")
     val (infl1, _) = PriceLevel.update(0.02, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, rc)
     val (infl2, _) = PriceLevel.update(0.02, 1.0, 1.0, 0.0, 0.0, 0.8, 0.0, rc)
     infl2 should be < infl1
   }
 
   it should "enforce price floor at 0.30" in {
-    val rc         = RunConfig(1, "test")
+    val rc         = McRunConfig(1, "test")
     val (_, price) = PriceLevel.update(-0.50, 0.31, 0.5, -0.1, 0.0, 0.9, 0.0, rc)
     price should be >= 0.30
   }
 
   it should "apply soft deflation floor at -1.5%/mo" in {
-    val rc            = RunConfig(1, "test")
+    val rc            = McRunConfig(1, "test")
     // Strong deflation scenario: heavy automation, no demand, negative wage growth
     val (inflHard, _) = PriceLevel.update(-0.10, 1.0, 0.5, -0.05, 0.0, 0.9, 0.0, rc)
     // The soft floor means deflation doesn't accelerate as fast
@@ -79,14 +80,14 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateCbRate ---
 
   "Nbp.updateRate" should "increase rate when inflation rises (PLN)" in {
-    val rc    = RunConfig(1, "test")
+    val rc    = McRunConfig(1, "test")
     val rate1 = Nbp.updateRate(0.0575, 0.03, 0.0, totalPop * 95 / 100, totalPop, rc)
     val rate2 = Nbp.updateRate(0.0575, 0.10, 0.0, totalPop * 95 / 100, totalPop, rc)
     rate2 should be > rate1
   }
 
   it should "bound rate between floor and ceiling" in {
-    val rc      = RunConfig(1, "test")
+    val rc      = McRunConfig(1, "test")
     val rateLow = Nbp.updateRate(0.005, -0.50, 0.0, totalPop * 95 / 100, totalPop, rc)
     rateLow should be >= p.monetary.rateFloor.toDouble
 

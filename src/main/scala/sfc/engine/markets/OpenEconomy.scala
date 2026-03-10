@@ -2,7 +2,8 @@ package sfc.engine.markets
 
 import sfc.accounting.{BopState, ForexState}
 import sfc.agents.Nbp
-import sfc.config.{RunConfig, SectorDefs, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.types.PLN
 import sfc.util.KahanSum.*
 
@@ -15,7 +16,7 @@ object OpenEconomy:
       autoRatio: Double,
       domesticRate: Double,
       gdp: Double,
-      rc: RunConfig,
+      rc: McRunConfig,
   )(using p: SimParams): ForexState =
     val techComp  = 1.0 + autoRatio * p.forex.exportAutoBoost.toDouble
     val totalImp  = importConsumption + techImports
@@ -50,7 +51,7 @@ object OpenEconomy:
       priceLevel: Double,
       sectorOutputs: Vector[Double],
       month: Int,
-      rc: RunConfig,
+      rc: McRunConfig,
       nbpFxReserves: Double = 0.0,
       gvcExports: Option[Double] = None,
       gvcIntermImports: Option[Vector[Double]] = None,
@@ -61,7 +62,7 @@ object OpenEconomy:
       tourismImport: Double = 0.0,
   )(using p: SimParams): Result =
 
-    val nSectors = SectorDefs.length
+    val nSectors = p.sectorDefs.length
 
     // A. Export demand (structural)
     // Foreign buyers care about the real exchange rate: PL / (ER/baseER).

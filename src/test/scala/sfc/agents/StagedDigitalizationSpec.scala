@@ -3,7 +3,7 @@ package sfc.agents
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.accounting.{BankingAggregate, ForexState, GovState}
-import sfc.config.{SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.engine.*
 import sfc.types.*
 
@@ -41,7 +41,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,
-      currentSigmas = SectorDefs.map(_.sigma).toVector,
+      currentSigmas = p.sectorDefs.map(_.sigma).toVector,
       totalPopulation = 100000,
       gov = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = Nbp.State(Rate(0.0575)),
@@ -119,7 +119,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "Firm.computeAiCapex" should "apply no discount when digitalReadiness is 0" in {
     val f0           = mkFirm(TechState.Traditional(10), dr = 0.0)
     // With dr=0: discount factor = 1.0 - 0.30 * 0.0 = 1.0 (no discount)
-    val expectedBase = p.firm.aiCapex.toDouble * SectorDefs(2).aiCapexMultiplier * 1.0 *
+    val expectedBase = p.firm.aiCapex.toDouble * p.sectorDefs(2).aiCapexMultiplier * 1.0 *
       Math.pow(10.0 / p.pop.workersPerFirm, 0.6)
     Firm.computeAiCapex(f0).toDouble shouldBe expectedBase +- 0.01
   }

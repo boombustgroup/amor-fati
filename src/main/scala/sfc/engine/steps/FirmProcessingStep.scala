@@ -1,7 +1,8 @@
 package sfc.engine.steps
 
 import sfc.agents.*
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.engine.markets.{CorporateBondMarket, IntermediateMarket, LaborMarket}
 import sfc.engine.World
 import sfc.types.*
@@ -13,7 +14,7 @@ object FirmProcessingStep:
 
   case class Input(
       w: World,
-      rc: RunConfig,
+      rc: McRunConfig,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       s1: FiscalConstraintStep.Output,

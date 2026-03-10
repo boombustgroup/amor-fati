@@ -5,14 +5,15 @@ import org.scalatest.matchers.should.Matchers
 import sfc.McRunner.runSingle
 import sfc.SimOutput
 import sfc.SimOutput.Col
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 
 class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  private val rc = RunConfig(1, "test")
+  private val rc = McRunConfig(1, "test")
 
   // Single shared run — all tests read from this result
   private lazy val result = runSingle(42, rc)

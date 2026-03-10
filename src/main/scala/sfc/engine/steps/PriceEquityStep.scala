@@ -1,7 +1,8 @@
 package sfc.engine.steps
 
 import sfc.agents.*
-import sfc.config.{FirmSizeDistribution, RunConfig, SectorDefs, SimParams}
+import sfc.McRunConfig
+import sfc.config.{FirmSizeDistribution, SimParams}
 import sfc.engine.*
 import sfc.engine.markets.{EquityMarket, PriceLevel}
 import sfc.engine.mechanisms.{EuFunds, Macroprudential}
@@ -14,7 +15,7 @@ object PriceEquityStep:
 
   case class Input(
       w: World,
-      rc: RunConfig,
+      rc: McRunConfig,
       s1: FiscalConstraintStep.Output,
       s2: LaborDemographicsStep.Output,
       s3: HouseholdIncomeStep.Output,
@@ -221,7 +222,7 @@ object PriceEquityStep:
           digitalReadiness = Ratio(
             Math.max(
               0.02,
-              Math.min(0.98, SectorDefs(sec.toInt).baseDigitalReadiness.toDouble + (rng.nextGaussian() * 0.20)),
+              Math.min(0.98, p.sectorDefs(sec.toInt).baseDigitalReadiness.toDouble + (rng.nextGaussian() * 0.20)),
             ),
           ),
           sector = sec,
@@ -289,7 +290,7 @@ object PriceEquityStep:
     val totalSystemLoans = in.w.bankingSector.banks.kahanSumBy(_.loans.toDouble)
     val newMacropru      = Macroprudential.step(in.w.mechanisms.macropru, totalSystemLoans, gdp)
 
-    val sectorAdoption = SectorDefs.indices.map { s =>
+    val sectorAdoption = p.sectorDefs.indices.map { s =>
       val secFirms = living2.filter(_.sector.toInt == s)
       if secFirms.isEmpty then 0.0
       else
@@ -297,7 +298,7 @@ object PriceEquityStep:
           .count(f => f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid])
           .toDouble / secFirms.length
     }.toVector
-    val baseSigmas     = SectorDefs.map(_.sigma).toVector
+    val baseSigmas     = p.sectorDefs.map(_.sigma).toVector
     val newSigmas      =
       evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
 
@@ -317,7 +318,7 @@ object PriceEquityStep:
 
     val firmProfits = living2.kahanSumBy { f =>
       val rev      = Firm.computeCapacity(f).toDouble * in.s4.sectorMults(f.sector.toInt) * newPrice
-      val labor    = Firm.workerCount(f) * in.s2.newWage * SectorDefs(f.sector.toInt).wageMultiplier
+      val labor    = Firm.workerCount(f) * in.s2.newWage * p.sectorDefs(f.sector.toInt).wageMultiplier
       val other    = p.firm.otherCosts.toDouble * newPrice
       val aiMaint  = f.tech match
         case _: TechState.Automated => p.firm.aiOpex.toDouble * (0.60 + 0.40 * newPrice)

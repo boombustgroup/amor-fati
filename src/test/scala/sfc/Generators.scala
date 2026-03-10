@@ -3,7 +3,7 @@ package sfc
 import org.scalacheck.Gen
 import sfc.accounting.*
 import sfc.agents.*
-import sfc.config.{RunConfig, SectorDefs, SimParams}
+import sfc.config.SimParams
 import sfc.engine.{ExternalState, FinancialMarketsState, FlowState, MechanismsState, MonetaryPlumbingState, RealState, SocialState, World}
 import sfc.types.*
 
@@ -269,7 +269,7 @@ object Generators:
     inflation = Rate(infl),
     priceLevel = price,
     gdpProxy = gdp,
-    currentSigmas = SectorDefs.map(_.sigma),
+    currentSigmas = p.sectorDefs.map(_.sigma),
     totalPopulation = employed,
     gov = gov,
     nbp = Nbp.State(Rate(rate)),
@@ -499,10 +499,10 @@ object Generators:
       // genSnapshot already ensures this for prev; curr inherits prev's bond fields unchanged
       (prev, curr, flows)
 
-  // --- RunConfig generators ---
+  // --- McRunConfig generators ---
 
-  val genRunConfig: Gen[RunConfig] =
-    Gen.const(RunConfig(1, "test"))
+  val genMcRunConfig: Gen[McRunConfig] =
+    Gen.const(McRunConfig(1, "test"))
 
   // --- Sorted array generator (for Gini tests) ---
 

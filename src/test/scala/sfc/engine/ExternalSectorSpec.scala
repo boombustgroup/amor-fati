@@ -2,7 +2,8 @@ package sfc.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.config.{RunConfig, SimParams}
+import sfc.McRunConfig
+import sfc.config.SimParams
 import sfc.engine.markets.GvcTrade
 import sfc.types.*
 
@@ -11,7 +12,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  private val rc            = RunConfig(1, "test")
+  private val rc            = McRunConfig(1, "test")
   private val sectorOutputs = Vector(30000.0, 160000.0, 450000.0, 60000.0, 220000.0, 80000.0)
 
   // ---- Initialization ----

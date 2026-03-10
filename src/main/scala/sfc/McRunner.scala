@@ -4,7 +4,7 @@ import sfc.SimOutput.Col
 import sfc.accounting.Sfc
 import sfc.agents.Banking.BankState
 import sfc.agents.Household
-import sfc.config.*
+import sfc.config.SimParams
 import sfc.engine.*
 import sfc.init.WorldInit
 import sfc.types.*
@@ -19,7 +19,7 @@ object McRunner:
   /** Run one simulation with given seed. Throws [[Sfc.SfcViolationException]]
     * on any SFC identity violation.
     */
-  def runSingle(seed: Long, rc: RunConfig)(using p: SimParams): RunResult =
+  def runSingle(seed: Long, rc: McRunConfig)(using p: SimParams): RunResult =
     val init  = WorldInit.initialize(seed)
     var state = Simulation.SimState(init.world, init.firms, init.households)
 
@@ -36,7 +36,7 @@ object McRunner:
     RunResult(TimeSeries.wrap(results), state)
 
   // $COVERAGE-OFF$ I/O: CSV writers, progress, banner
-  def run(rc: RunConfig)(using SimParams): Unit =
+  def run(rc: McRunConfig)(using SimParams): Unit =
     printBanner(rc)
     val results = runAll(rc, defaultProgress(rc))
     val outDir  = new File("mc")
@@ -50,7 +50,7 @@ object McRunner:
 
   // -- Pure MC loop → immutable McResults --
 
-  def runAll(rc: RunConfig, onProgress: (Long, RunResult, Long) => Unit)(using SimParams): McResults =
+  def runAll(rc: McRunConfig, onProgress: (Long, RunResult, Long) => Unit)(using SimParams): McResults =
     val startTime = System.currentTimeMillis()
     val builder   = Vector.newBuilder[RunResult]
     builder.sizeHint(rc.nSeeds)
@@ -65,7 +65,7 @@ object McRunner:
     println(f"\nTotal time: ${totalTime}%.1f seconds")
     McResults(builder.result())
 
-  private def defaultProgress(rc: RunConfig): (Long, RunResult, Long) => Unit =
+  private def defaultProgress(rc: McRunConfig): (Long, RunResult, Long) => Unit =
     (seed, result, dt) =>
       if seed <= 3 || seed % 10 == 0 || seed == rc.nSeeds then
         val last      = result.timeSeries.lastMonth
@@ -82,14 +82,14 @@ object McRunner:
   //  IO: write all CSV files
   // ---------------------------------------------------------------------------
 
-  private def writeResults(rc: RunConfig, results: McResults, dir: File)(using SimParams): Unit =
+  private def writeResults(rc: McRunConfig, results: McResults, dir: File)(using SimParams): Unit =
     writeTerminalCsv(rc, results, dir)
     writeHhTerminalCsv(rc, results, dir)
     writeBankTerminalCsv(rc, results, dir)
     writeTimeseriesCsv(rc, results, dir)
 
   // -- Per-seed terminal values CSV --
-  private def writeTerminalCsv(rc: RunConfig, results: McResults, dir: File): Unit =
+  private def writeTerminalCsv(rc: McRunConfig, results: McResults, dir: File): Unit =
     val nCols    = SimOutput.nCols
     val colNames = SimOutput.colNames
     CsvWriter.write(
@@ -130,7 +130,7 @@ object McRunner:
 
   private val hhHeader: String = "Seed;" + hhSchema.map(_._1).mkString(";")
 
-  private def writeHhTerminalCsv(rc: RunConfig, results: McResults, dir: File): Unit =
+  private def writeHhTerminalCsv(rc: McRunConfig, results: McResults, dir: File): Unit =
     CsvWriter.write(
       new File(dir, s"${rc.outputPrefix}_hh_terminal.csv"),
       hhHeader,
@@ -156,7 +156,7 @@ object McRunner:
 
   private val bankHeader: String = "Seed;" + bankSchema.map(_._1).mkString(";")
 
-  private def writeBankTerminalCsv(rc: RunConfig, results: McResults, dir: File): Unit =
+  private def writeBankTerminalCsv(rc: McRunConfig, results: McResults, dir: File): Unit =
     val rows = for
       (run, idx) <- results.runs.zipWithIndex
       b          <- run.terminalState.world.bankingSector.banks
@@ -170,7 +170,7 @@ object McRunner:
     }
 
   // -- Aggregated time-series (mean, std, p05, p95) via batch API --
-  private def writeTimeseriesCsv(rc: RunConfig, results: McResults, dir: File)(using p: SimParams): Unit =
+  private def writeTimeseriesCsv(rc: McRunConfig, results: McResults, dir: File)(using p: SimParams): Unit =
     val nMonths     = p.timeline.duration
     val nCols       = SimOutput.nCols
     val colNames    = SimOutput.colNames
@@ -194,7 +194,7 @@ object McRunner:
   //  Summary statistics
   // ---------------------------------------------------------------------------
 
-  private def printSummary(rc: RunConfig, results: McResults)(using SimParams): Unit =
+  private def printSummary(rc: McRunConfig, results: McResults)(using p: SimParams): Unit =
     println("\n" + "=" * 54)
     println(s"MONTE CARLO SUMMARY: ${rc.outputPrefix} (N=${rc.nSeeds})")
     println("=" * 54)
@@ -230,11 +230,11 @@ object McRunner:
       println(f"  Mean skill           mean=${avgSkill}%8.4f")
 
     println("\nPer-sector adoption at M120:")
-    val secNames = SectorDefs.map(_.name)
-    for s <- SectorDefs.indices do statsSummary(f"  ${secNames(s)}%-22s", Col.sectorAuto(s), 100.0)
+    val secNames = p.sectorDefs.map(_.name)
+    for s <- p.sectorDefs.indices do statsSummary(f"  ${secNames(s)}%-22s", Col.sectorAuto(s), 100.0)
 
-  private def printBanner(rc: RunConfig)(using p: SimParams): Unit =
-    val topoLabel  = TOPOLOGY.toString.toUpperCase
+  private def printBanner(rc: McRunConfig)(using p: SimParams): Unit =
+    val topoLabel  = p.topology.toString.toUpperCase
     val firmsLabel = f"${p.pop.firmsCount}%,d"
     val hhLabel    = s" | HH=individual (${p.household.count})"
     val bankLabel  = " | BANK=multi (7)"
