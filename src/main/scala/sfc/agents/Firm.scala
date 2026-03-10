@@ -233,6 +233,31 @@ object Firm:
       case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, lendRate, bankCanLend, wkrs, aiEff)
       case TechState.Traditional(wkrs)   => decideTraditional(firm, w, lendRate, bankCanLend, allFirms, wkrs)
 
+  /** Attempt forced downsizing: cut up to 30% of workers, survive if net cash
+    * turns non-negative after labor savings minus lost revenue, else bankrupt.
+    */
+  private def attemptDownsize(
+      firm: State,
+      pnl: PnL,
+      nc: PLN,
+      workers: Int,
+      newTech: Int => TechState,
+      wage: PLN,
+      reason: BankruptReason,
+      drUpdate: Option[Ratio] = None,
+  )(using SimParams): Decision =
+    if workers > 3 then
+      val laborPerWorker: PLN = wage * effectiveWageMult(firm.sector)
+      val maxCut              = Math.max(1, (workers * 0.30).toInt)
+      val newWkrs             = Math.max(3, workers - maxCut)
+      val laborSaved          = laborPerWorker * (workers - newWkrs).toDouble
+      val revRatio            = Math.sqrt(newWkrs.toDouble / workers.toDouble)
+      val revLost             = pnl.revenue * (1.0 - revRatio)
+      val adjustedNc          = nc + laborSaved - revLost
+      if adjustedNc >= PLN.Zero then Decision.Downsize(pnl, newWkrs, adjustedNc, newTech(newWkrs), drUpdate = drUpdate)
+      else Decision.GoBankrupt(pnl, nc, reason)
+    else Decision.GoBankrupt(pnl, nc, reason)
+
   /** Automated firm: compute PnL, survive or go bankrupt (AI debt trap). */
   private def decideAutomated(
       firm: State,
@@ -281,18 +306,7 @@ object Firm:
     else
       val nc = firm.cash + pnl.netAfterTax
       if nc < PLN.Zero then
-        // Forced downsizing for hybrid firms
-        if workers > 3 then
-          val laborPerWorker: PLN = w.hh.marketWage * effectiveWageMult(firm.sector)
-          val maxCut              = Math.max(1, (workers * 0.30).toInt)
-          val newWkrs             = Math.max(3, workers - maxCut)
-          val laborSaved          = laborPerWorker * (workers - newWkrs).toDouble
-          val revRatio            = Math.sqrt(newWkrs.toDouble / workers.toDouble)
-          val revLost             = pnl.revenue * (1.0 - revRatio)
-          val adjustedNc          = nc + laborSaved - revLost
-          if adjustedNc >= PLN.Zero then Decision.Downsize(pnl, newWkrs, adjustedNc, TechState.Hybrid(newWkrs, aiEff), drUpdate = Some(ready2))
-          else Decision.GoBankrupt(pnl, nc, BankruptReason.HybridInsolvency)
-        else Decision.GoBankrupt(pnl, nc, BankruptReason.HybridInsolvency)
+        attemptDownsize(firm, pnl, nc, workers, w => TechState.Hybrid(w, aiEff), w.hh.marketWage, BankruptReason.HybridInsolvency, drUpdate = Some(ready2))
       else Decision.Survive(pnl, nc, drUpdate = Some(ready2))
 
   /** Traditional firm: evaluate full-AI, hybrid, downsize, digital invest, or
@@ -404,20 +418,7 @@ object Firm:
         val boost = p.firm.digiInvestBoost.toDouble * diminishing
         val newDR = Ratio(Math.min(1.0, firm.digitalReadiness.toDouble + boost))
         Decision.DigiInvest(pnl, digiCost, newDR)
-      else if nc < PLN.Zero then
-        // Forced downsizing before bankruptcy
-        if workers > 3 then
-          val laborPerWorker: PLN = w.hh.marketWage * effectiveWageMult(firm.sector)
-          // Max 30% cut per month, minimum 3 workers retained
-          val maxCut              = Math.max(1, (workers * 0.30).toInt)
-          val newWkrs             = Math.max(3, workers - maxCut)
-          val laborSaved          = laborPerWorker * (workers - newWkrs).toDouble
-          val revRatio            = Math.sqrt(newWkrs.toDouble / workers.toDouble)
-          val revLost             = pnl.revenue * (1.0 - revRatio)
-          val adjustedNc          = nc + laborSaved - revLost
-          if adjustedNc >= PLN.Zero then Decision.Downsize(pnl, newWkrs, adjustedNc, TechState.Traditional(newWkrs))
-          else Decision.GoBankrupt(pnl, nc, BankruptReason.LaborCostInsolvency)
-        else Decision.GoBankrupt(pnl, nc, BankruptReason.LaborCostInsolvency)
+      else if nc < PLN.Zero then attemptDownsize(firm, pnl, nc, workers, TechState.Traditional(_), w.hh.marketWage, BankruptReason.LaborCostInsolvency)
       else Decision.Survive(pnl, nc)
 
   // ---- Execute (pure dispatch, zero Random calls) ----
