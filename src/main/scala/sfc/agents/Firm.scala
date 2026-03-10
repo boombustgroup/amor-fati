@@ -601,10 +601,42 @@ object Firm:
 
   // ---- PnL computation ----
 
-  /** Monthly P&L: revenue (capacity × demand × price) minus labor, other costs,
-    * depreciation, AI/hybrid opex, interest, inventory carrying, energy/ETS,
-    * FDI profit shifting. CIT on positive profit.
+  /** Residual "other" operating costs — base scaled by price and firm size,
+    * reduced when physical capital, energy, or inventory costs are explicit.
     */
+  private def otherCosts(firm: State, price: Double)(using p: SimParams): PLN =
+    val sizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
+    val raw: PLN   = p.firm.otherCosts * (price * sizeFactor)
+    val afterCap   = if p.flags.physCap then raw * (Ratio.One - p.capital.costReplace) else raw
+    val afterEnerg = if p.flags.energy then afterCap * (Ratio.One - p.climate.energyCostReplace) else afterCap
+    if p.flags.inventory then afterEnerg * (Ratio.One - p.capital.inventoryCostReplace) else afterEnerg
+
+  /** AI/hybrid maintenance opex — partially imported (40%), sublinear in firm
+    * size.
+    */
+  private def aiMaintenanceCost(firm: State, price: Double)(using p: SimParams): PLN =
+    val opexSizeFactor = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, 0.5)
+    firm.tech match
+      case _: TechState.Automated => p.firm.aiOpex * ((0.60 + 0.40 * price) * opexSizeFactor)
+      case _: TechState.Hybrid    => p.firm.hybridOpex * ((0.60 + 0.40 * price) * opexSizeFactor)
+      case _                      => PLN.Zero
+
+  /** Energy cost including EU ETS carbon surcharge, net of green capital
+    * discount.
+    */
+  private def energyAndEtsCost(firm: State, revenue: PLN, month: Int)(using p: SimParams): PLN =
+    if !p.flags.energy then return PLN.Zero
+    val baseEnergy: PLN      = revenue * p.climate.energyCostShares(firm.sector.toInt)
+    val etsPrice             = p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, month.toDouble)
+    val carbonSurcharge      = p.climate.carbonIntensity(firm.sector.toInt) * (etsPrice / p.climate.etsBasePrice - 1.0)
+    val greenDiscount: Ratio = if firm.greenCapital > PLN.Zero then
+      val targetGK = p.climate.greenKLRatios(firm.sector.toInt) * workerCount(firm).toDouble
+      if targetGK > PLN.Zero then p.climate.greenMaxDiscount * Math.min(1.0, firm.greenCapital / targetGK)
+      else Ratio.Zero
+    else Ratio.Zero
+    baseEnergy * ((1.0 + Math.max(0.0, carbonSurcharge)) * (Ratio.One - greenDiscount).toDouble)
+
+  /** Monthly P&L: revenue minus all cost categories, CIT on positive profit. */
   private def computePnL(
       firm: State,
       wage: PLN,
@@ -615,40 +647,14 @@ object Firm:
   )(using p: SimParams): PnL =
     val revenue: PLN         = computeCapacity(firm) * (sectorDemandMult * price)
     val labor: PLN           = wage * workerCount(firm).toDouble * effectiveWageMult(firm.sector)
-    val sizeFactor           = firm.initialSize.toDouble / p.pop.workersPerFirm
-    val rawOther: PLN        = p.firm.otherCosts * (price * sizeFactor)
     val depnCost: PLN        =
       if p.flags.physCap then firm.capitalStock * (p.capital.depRates(firm.sector.toInt) / 12.0)
       else PLN.Zero
-    val otherAfterCap        = if p.flags.physCap then rawOther * (Ratio.One - p.capital.costReplace) else rawOther
-    // Reduce other costs when energy is explicit
-    val other                = if p.flags.energy then otherAfterCap * (Ratio.One - p.climate.energyCostReplace) else otherAfterCap
-    // AI/hybrid opex is partially imported (40%) -- not fully domestic price-sensitive
-    // OPEX scales sublinearly with firm size (exponent 0.5)
-    val opexSizeFactor       = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, 0.5)
-    val aiMaint: PLN         = firm.tech match
-      case _: TechState.Automated => p.firm.aiOpex * ((0.60 + 0.40 * price) * opexSizeFactor)
-      case _: TechState.Hybrid    => p.firm.hybridOpex * ((0.60 + 0.40 * price) * opexSizeFactor)
-      case _                      => PLN.Zero
     val interest: PLN        = (firm.debt + firm.bondDebt) * (lendRate / 12.0)
-    // Inventory carrying cost: storage, insurance, obsolescence
     val inventoryCost: PLN   =
       if p.flags.inventory then firm.inventory * (p.capital.inventoryCarryingCost / 12.0) else PLN.Zero
-    // Reduce other costs when inventory is explicit
-    val otherAfterInv        = if p.flags.inventory then other * (Ratio.One - p.capital.inventoryCostReplace) else other
-    // Energy cost + EU ETS carbon surcharge
-    val energyCost: PLN      = if p.flags.energy then
-      val baseEnergy: PLN      = revenue * p.climate.energyCostShares(firm.sector.toInt)
-      val etsPrice             = p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, month.toDouble)
-      val carbonSurcharge      = p.climate.carbonIntensity(firm.sector.toInt) * (etsPrice / p.climate.etsBasePrice - 1.0)
-      val greenDiscount: Ratio = if firm.greenCapital > PLN.Zero then
-        val targetGK = p.climate.greenKLRatios(firm.sector.toInt) * workerCount(firm).toDouble
-        if targetGK > PLN.Zero then p.climate.greenMaxDiscount * Math.min(1.0, firm.greenCapital / targetGK)
-        else Ratio.Zero
-      else Ratio.Zero
-      baseEnergy * ((1.0 + Math.max(0.0, carbonSurcharge)) * (Ratio.One - greenDiscount).toDouble)
-    else PLN.Zero
-    val prePsCosts           = labor + otherAfterInv + depnCost + aiMaint + interest + inventoryCost + energyCost
+    val energyCost: PLN      = energyAndEtsCost(firm, revenue, month)
+    val prePsCosts           = labor + otherCosts(firm, price) + depnCost + aiMaintenanceCost(firm, price) + interest + inventoryCost + energyCost
     val grossProfit          = revenue - prePsCosts
     val profitShiftCost: PLN =
       if p.flags.fdi && firm.foreignOwned then grossProfit.max(PLN.Zero) * p.fdi.profitShiftRate
