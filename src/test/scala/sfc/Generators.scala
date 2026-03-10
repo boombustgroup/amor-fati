@@ -272,7 +272,7 @@ object Generators:
     currentSigmas = p.sectorDefs.map(_.sigma),
     totalPopulation = employed,
     gov = gov,
-    nbp = Nbp.State(Rate(rate)),
+    nbp = Nbp.State(Rate(rate), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
     bank = bank,
     bankingSector = Banking.initialize(PLN(1e9), PLN(5e8), PLN(5e8), PLN.Zero, PLN.Zero, Banking.DefaultConfigs),
     forex = forex,

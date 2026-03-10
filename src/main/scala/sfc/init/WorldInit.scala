@@ -68,7 +68,10 @@ object WorldInit:
       nbp = Nbp.State(
         referenceRate = p.monetary.initialRate,
         govBondHoldings = p.banking.initNbpGovBonds,
+        qeActive = false,
+        qeCumulative = PLN.Zero,
         fxReserves = p.monetary.fxReserves,
+        lastFxTraded = PLN.Zero,
       ),
       bank = BankingAggregate(
         totalLoans = p.banking.initLoans,

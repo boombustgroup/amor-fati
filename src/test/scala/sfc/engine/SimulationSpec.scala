@@ -81,18 +81,18 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
 
   "Nbp.updateRate" should "increase rate when inflation rises (PLN)" in {
     val rc    = McRunConfig(1, "test")
-    val rate1 = Nbp.updateRate(0.0575, 0.03, 0.0, totalPop * 95 / 100, totalPop, rc)
-    val rate2 = Nbp.updateRate(0.0575, 0.10, 0.0, totalPop * 95 / 100, totalPop, rc)
-    rate2 should be > rate1
+    val rate1 = Nbp.updateRate(Rate(0.0575), Rate(0.03), 0.0, totalPop * 95 / 100, totalPop, rc)
+    val rate2 = Nbp.updateRate(Rate(0.0575), Rate(0.10), 0.0, totalPop * 95 / 100, totalPop, rc)
+    rate2.toDouble should be > rate1.toDouble
   }
 
   it should "bound rate between floor and ceiling" in {
     val rc      = McRunConfig(1, "test")
-    val rateLow = Nbp.updateRate(0.005, -0.50, 0.0, totalPop * 95 / 100, totalPop, rc)
-    rateLow should be >= p.monetary.rateFloor.toDouble
+    val rateLow = Nbp.updateRate(Rate(0.005), Rate(-0.50), 0.0, totalPop * 95 / 100, totalPop, rc)
+    rateLow.toDouble should be >= p.monetary.rateFloor.toDouble
 
-    val rateHigh = Nbp.updateRate(0.25, 1.0, 0.5, totalPop * 95 / 100, totalPop, rc)
-    rateHigh should be <= p.monetary.rateCeiling.toDouble
+    val rateHigh = Nbp.updateRate(Rate(0.25), Rate(1.0), 0.5, totalPop * 95 / 100, totalPop, rc)
+    rateHigh.toDouble should be <= p.monetary.rateCeiling.toDouble
   }
 
   // --- updateGov ---

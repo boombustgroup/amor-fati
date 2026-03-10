@@ -135,8 +135,8 @@ object OpenEconomyStep:
     val exRateChg  = (newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0
     val newRefRate =
       Nbp.updateRate(
-        in.w.nbp.referenceRate.toDouble,
-        in.s7.newInfl,
+        in.w.nbp.referenceRate,
+        Rate(in.s7.newInfl),
         exRateChg,
         in.s2.employed,
         in.w.totalPopulation,
@@ -146,7 +146,7 @@ object OpenEconomyStep:
     // Expectations step: update after inflation + rate computed
     val unempRateForExp = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
     val newExp          =
-      if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, in.s7.newInfl, newRefRate, unempRateForExp, in.rc)
+      if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, in.s7.newInfl, newRefRate.toDouble, unempRateForExp, in.rc)
       else in.w.mechanisms.expectations
 
     // Reserve interest, standing facilities, interbank interest
@@ -167,25 +167,27 @@ object OpenEconomyStep:
         Math.abs(in.w.mechanisms.expectations.expectedInflation.toDouble - target) *
         p.labor.expBondSensitivity.toDouble
     else 0.0
-    val newBondYield      = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa.toDouble, credPremium)
+    val newBondYield      = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
 
     // Debt service: use LAGGED bond stock
-    val rawDebtService     = in.w.gov.bondsOutstanding.toDouble * newBondYield / 12.0
+    val rawDebtService     = in.w.gov.bondsOutstanding.toDouble * newBondYield.toDouble / 12.0
     val monthlyDebtService = Math.min(rawDebtService, in.w.gdpProxy * 0.50)
-    val bankBondIncome     = in.w.bank.govBondHoldings.toDouble * newBondYield / 12.0
-    val nbpBondIncome      = in.w.nbp.govBondHoldings.toDouble * newBondYield / 12.0
+    val bankBondIncome     = in.w.bank.govBondHoldings.toDouble * newBondYield.toDouble / 12.0
+    val nbpBondIncome      = in.w.nbp.govBondHoldings.toDouble * newBondYield.toDouble / 12.0
     val nbpRemittance      = nbpBondIncome - totalReserveInterest - totalStandingFacilityIncome
 
     // QE logic
-    val qeActivate                    = Nbp.shouldActivateQe(newRefRate, in.s7.newInfl)
-    val qeTaper                       = Nbp.shouldTaperQe(in.s7.newInfl)
-    val qeActive                      =
+    val qeActivate       = Nbp.shouldActivateQe(newRefRate, Rate(in.s7.newInfl))
+    val qeTaper          = Nbp.shouldTaperQe(Rate(in.s7.newInfl))
+    val qeActive         =
       if qeActivate then true
       else if qeTaper then false
       else in.w.nbp.qeActive
-    val preQeNbp                      = Nbp.State(Rate(newRefRate), in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative)
-    val (postQeNbp, qePurchaseAmount) = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings.toDouble, annualGdpForBonds)
-    val postFxNbp                     = postQeNbp.copy(
+    val preQeNbp         = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
+    val qeResult         = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, PLN(annualGdpForBonds))
+    val postQeNbp        = qeResult.state
+    val qePurchaseAmount = qeResult.purchased.toDouble
+    val postFxNbp        = postQeNbp.copy(
       fxReserves = PLN(fxResult.newReserves),
       lastFxTraded = PLN(fxResult.eurTraded),
     )
@@ -193,7 +195,7 @@ object OpenEconomyStep:
     // --- Corporate bond market step (#40) ---
     val corpBondAmort                      = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
     val newCorpBonds                       = CorporateBondMarket
-      .step(in.w.financial.corporateBonds, newBondYield, in.w.bank.nplRatio.toDouble, in.s5.totalBondDefault, in.s5.actualBondIssuance)
+      .step(in.w.financial.corporateBonds, newBondYield.toDouble, in.w.bank.nplRatio.toDouble, in.s5.totalBondDefault, in.s5.actualBondIssuance)
       .copy(lastAbsorptionRate = Ratio(in.s5.corpBondAbsorption))
     val (_, corpBondBankCoupon, _)         = CorporateBondMarket.computeCoupon(in.w.financial.corporateBonds)
     val (_, _, corpBondBankDefaultLoss, _) =
@@ -209,7 +211,7 @@ object OpenEconomyStep:
           PLN(in.s2.newWage),
           in.w.priceLevel,
           insUnempRate,
-          Rate(newBondYield),
+          newBondYield,
           in.w.financial.corporateBonds.corpBondYield,
           in.w.financial.equity.monthlyReturn,
         )
@@ -228,7 +230,7 @@ object OpenEconomyStep:
           in.w.priceLevel,
           nbfiUnempRate,
           in.w.bank.nplRatio,
-          Rate(newBondYield),
+          newBondYield,
           in.w.financial.corporateBonds.corpBondYield,
           in.w.financial.equity.monthlyReturn,
           nbfiDepositRate,
@@ -241,12 +243,12 @@ object OpenEconomyStep:
       newForex,
       newBop,
       newGvc,
-      newRefRate,
+      newRefRate.toDouble,
       newExp,
       totalReserveInterest,
       totalStandingFacilityIncome,
       totalInterbankInterest,
-      newBondYield,
+      newBondYield.toDouble,
       monthlyDebtService,
       bankBondIncome,
       nbpRemittance,

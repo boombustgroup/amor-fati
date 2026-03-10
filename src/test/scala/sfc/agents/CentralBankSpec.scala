@@ -16,39 +16,39 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
     // When bond market off, yield = refRate (no risk premium, no QE)
     // This test depends on p.flags.govBondMarket which is true by default.
     // We test the positive path instead.
-    val y = Nbp.bondYield(0.05, 0.50, 0.0, 0.0)
+    val y = Nbp.bondYield(Rate(0.05), 0.50, 0.0, PLN.Zero, 0.0)
     // debtToGdp=0.50 > 0.40 → raw fiscalRisk = 2.0 * 0.10 = 0.20, capped at 0.10
     // yield = 0.05 + 0.005 + 0.10 - 0 - 0 = 0.155
-    y shouldBe 0.155 +- 0.001
+    y.toDouble shouldBe 0.155 +- 0.001
   }
 
   it should "increase with debtToGdp (fiscal risk premium)" in {
-    val low  = Nbp.bondYield(0.05, 0.30, 0.0, 0.0)
-    val high = Nbp.bondYield(0.05, 0.70, 0.0, 0.0)
-    high should be > low
+    val low  = Nbp.bondYield(Rate(0.05), 0.30, 0.0, PLN.Zero, 0.0)
+    val high = Nbp.bondYield(Rate(0.05), 0.70, 0.0, PLN.Zero, 0.0)
+    high.toDouble should be > low.toDouble
   }
 
   it should "decrease with nbpBondGdpShare (QE compression)" in {
-    val noQe   = Nbp.bondYield(0.05, 0.50, 0.0, 0.0)
-    val withQe = Nbp.bondYield(0.05, 0.50, 0.20, 0.0)
-    withQe should be < noQe
+    val noQe   = Nbp.bondYield(Rate(0.05), 0.50, 0.0, PLN.Zero, 0.0)
+    val withQe = Nbp.bondYield(Rate(0.05), 0.50, 0.20, PLN.Zero, 0.0)
+    withQe.toDouble should be < noQe.toDouble
   }
 
   it should "apply foreign demand discount when NFA > 0" in {
-    val nfaNeg = Nbp.bondYield(0.05, 0.50, 0.0, -1000.0)
-    val nfaPos = Nbp.bondYield(0.05, 0.50, 0.0, 1000.0)
-    nfaPos should be < nfaNeg
+    val nfaNeg = Nbp.bondYield(Rate(0.05), 0.50, 0.0, PLN(-1000.0), 0.0)
+    val nfaPos = Nbp.bondYield(Rate(0.05), 0.50, 0.0, PLN(1000.0), 0.0)
+    nfaPos.toDouble should be < nfaNeg.toDouble
   }
 
   it should "have a floor at 0" in {
     // Very high QE compression → yield should not go negative
-    val y = Nbp.bondYield(0.01, 0.30, 0.50, 1000.0)
-    y should be >= 0.0
+    val y = Nbp.bondYield(Rate(0.01), 0.30, 0.50, PLN(1000.0), 0.0)
+    y.toDouble should be >= 0.0
   }
 
   it should "have zero fiscal risk when debtToGdp <= 0.40" in {
-    val y1 = Nbp.bondYield(0.05, 0.30, 0.0, 0.0)
-    val y2 = Nbp.bondYield(0.05, 0.40, 0.0, 0.0)
+    val y1 = Nbp.bondYield(Rate(0.05), 0.30, 0.0, PLN.Zero, 0.0)
+    val y2 = Nbp.bondYield(Rate(0.05), 0.40, 0.0, PLN.Zero, 0.0)
     // Both below threshold → same yield (only termPremium differs)
     y1 shouldBe y2
   }
@@ -57,54 +57,54 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
 
   "Nbp.shouldActivateQe" should "be true at ZLB with deflation" in {
     // p.flags.nbpQe defaults to true (NBP March 2020 precedent)
-    Nbp.shouldActivateQe(p.monetary.rateFloor.toDouble, -0.05) shouldBe true
+    Nbp.shouldActivateQe(p.monetary.rateFloor, Rate(-0.05)) shouldBe true
   }
 
   // --- shouldTaperQe ---
 
   "Nbp.shouldTaperQe" should "be true when inflation exceeds target" in {
-    Nbp.shouldTaperQe(p.monetary.targetInfl.toDouble + 0.01) shouldBe true
+    Nbp.shouldTaperQe(Rate(p.monetary.targetInfl.toDouble + 0.01)) shouldBe true
   }
 
   it should "be false when inflation below target" in {
-    Nbp.shouldTaperQe(p.monetary.targetInfl.toDouble - 0.01) shouldBe false
+    Nbp.shouldTaperQe(Rate(p.monetary.targetInfl.toDouble - 0.01)) shouldBe false
   }
 
   // --- executeQe ---
 
   "Nbp.executeQe" should "return 0 purchase when not active" in {
-    val nbp                = Nbp.State(Rate(0.05), PLN(1000.0), qeActive = false)
-    val (newNbp, purchase) = Nbp.executeQe(nbp, 5000.0, 1e10)
-    purchase shouldBe 0.0
-    newNbp.govBondHoldings shouldBe nbp.govBondHoldings
+    val nbp      = Nbp.State(Rate(0.05), PLN(1000.0), false, PLN.Zero, PLN.Zero, PLN.Zero)
+    val qeResult = Nbp.executeQe(nbp, PLN(5000.0), PLN(1e10))
+    qeResult.purchased shouldBe PLN.Zero
+    qeResult.state.govBondHoldings shouldBe nbp.govBondHoldings
   }
 
   it should "not exceed available bank bond holdings" in {
-    val nbp           = Nbp.State(Rate(0.05), PLN.Zero, qeActive = true)
-    val bankBonds     = 100.0
-    val (_, purchase) = Nbp.executeQe(nbp, bankBonds, 1e12)
-    purchase should be <= bankBonds
+    val nbp       = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
+    val bankBonds = PLN(100.0)
+    val qeResult  = Nbp.executeQe(nbp, bankBonds, PLN(1e12))
+    qeResult.purchased.toDouble should be <= bankBonds.toDouble
   }
 
   it should "not exceed max GDP share" in {
-    val nbp           = Nbp.State(Rate(0.05), PLN.Zero, qeActive = true)
-    val annualGdp     = 1000.0
-    val maxByGdp      = p.monetary.qeMaxGdpShare.toDouble * annualGdp
-    val (_, purchase) = Nbp.executeQe(nbp, 1e12, annualGdp)
-    purchase should be <= maxByGdp
+    val nbp       = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
+    val annualGdp = PLN(1000.0)
+    val maxByGdp  = p.monetary.qeMaxGdpShare.toDouble * annualGdp.toDouble
+    val qeResult  = Nbp.executeQe(nbp, PLN(1e12), annualGdp)
+    qeResult.purchased.toDouble should be <= maxByGdp
   }
 
   it should "accumulate in qeCumulative" in {
-    val nbp                = Nbp.State(Rate(0.05), PLN.Zero, qeActive = true)
-    val (newNbp, purchase) = Nbp.executeQe(nbp, 1e12, 1e12)
-    purchase should be > 0.0
-    newNbp.qeCumulative.toDouble shouldBe purchase
+    val nbp      = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
+    val qeResult = Nbp.executeQe(nbp, PLN(1e12), PLN(1e12))
+    qeResult.purchased.toDouble should be > 0.0
+    qeResult.state.qeCumulative shouldBe qeResult.purchased
   }
 
   // --- NbpState defaults ---
 
   "Nbp.State" should "have backward-compatible constructor" in {
-    val nbp = Nbp.State(Rate(0.0575))
+    val nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero)
     nbp.referenceRate shouldBe Rate(0.0575)
     nbp.govBondHoldings shouldBe PLN.Zero
     nbp.qeActive shouldBe false

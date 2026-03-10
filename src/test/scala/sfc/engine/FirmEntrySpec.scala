@@ -64,7 +64,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     currentSigmas = Vector.fill(6)(5.0),
     totalPopulation = 100,
     gov = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-    nbp = sfc.agents.Nbp.State(Rate(0.05)),
+    nbp = sfc.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
     bank = BankingAggregate(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
     bankingSector = Banking.initialize(PLN(1e9), PLN(5e8), PLN(5e8), PLN.Zero, PLN.Zero, Banking.DefaultConfigs),
     forex = ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),

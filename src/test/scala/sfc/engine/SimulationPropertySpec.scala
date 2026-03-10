@@ -49,18 +49,18 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
 
   "updateCbRate" should "be in [RateFloor, RateCeiling] for PLN" in
     forAll(genRate, genInflation, Gen.choose(-0.10, 0.10), Gen.choose(0, totalPop)) { (prevRate: Double, inflation: Double, exRateChg: Double, employed: Int) =>
-      val r = Nbp.updateRate(prevRate, inflation, exRateChg, employed, totalPop, rc)
-      r should be >= p.monetary.rateFloor.toDouble
-      r should be <= p.monetary.rateCeiling.toDouble
+      val r = Nbp.updateRate(Rate(prevRate), Rate(inflation), exRateChg, employed, totalPop, rc)
+      r.toDouble should be >= p.monetary.rateFloor.toDouble
+      r.toDouble should be <= p.monetary.rateCeiling.toDouble
     }
 
   it should "be monotonic in inflation (higher inflation -> higher rate)" in
     forAll(genRate, Gen.choose(-0.10, 0.30), Gen.choose(0, totalPop)) { (prevRate: Double, baseInflation: Double, employed: Int) =>
       val lowInfl  = baseInflation
       val highInfl = baseInflation + 0.10
-      val rLow     = Nbp.updateRate(prevRate, lowInfl, 0.0, employed, totalPop, rc)
-      val rHigh    = Nbp.updateRate(prevRate, highInfl, 0.0, employed, totalPop, rc)
-      rHigh should be >= (rLow - 1e-10)
+      val rLow     = Nbp.updateRate(Rate(prevRate), Rate(lowInfl), 0.0, employed, totalPop, rc)
+      val rHigh    = Nbp.updateRate(Rate(prevRate), Rate(highInfl), 0.0, employed, totalPop, rc)
+      rHigh.toDouble should be >= (rLow.toDouble - 1e-10)
     }
 
   // --- updateInflation properties ---

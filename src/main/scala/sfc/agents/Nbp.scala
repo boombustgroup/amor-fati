@@ -4,100 +4,166 @@ import sfc.McRunConfig
 import sfc.config.SimParams
 import sfc.types.*
 
+/** National Bank of Poland: Taylor rule, bond yield, QE, FX intervention. */
 object Nbp:
 
+  // ---------------------------------------------------------------------------
+  // Named constants
+  // ---------------------------------------------------------------------------
+
+  private val OutputGapCap          = 0.30   // ±cap on output gap in Taylor rule (Svensson 2003)
+  private val DebtThreshold         = 0.40   // debt-to-GDP threshold for fiscal risk premium
+  private val FiscalRiskCap         = 0.10   // maximum fiscal risk premium
+  private val QeCompressionCoeff    = 0.5    // yield compression per unit of NBP bond/GDP share
+  private val ForeignDemandDiscount = 0.005  // yield discount when NFA > 0
+  private val QeActivationSlack     = 0.0025 // rate proximity to floor for QE activation
+  private val QeDeflationThreshold  = 0.01   // inflation must be this much below target for QE
+
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+
+  case class State(
+      referenceRate: Rate,  // NBP reference rate (annualised)
+      govBondHoldings: PLN, // NBP bond portfolio (QE + open market)
+      qeActive: Boolean,    // whether QE programme is currently active
+      qeCumulative: PLN,    // cumulative QE purchases since activation
+      fxReserves: PLN,      // EUR-equivalent total reserves (multi-currency)
+      lastFxTraded: PLN,    // monthly FX intervention amount (EUR, +bought/−sold)
+  )
+
+  // ---------------------------------------------------------------------------
+  // QE result type
+  // ---------------------------------------------------------------------------
+
+  /** Result of monthly QE execution. */
+  case class QeResult(
+      state: State,  // updated NBP state
+      purchased: PLN, // bond purchase amount this month
+  )
+
+  // ---------------------------------------------------------------------------
+  // FX intervention result
+  // ---------------------------------------------------------------------------
+
+  /** FX intervention result. */
+  case class FxInterventionResult(
+      erEffect: Double,   // added to erChange in OpenEconomy
+      eurTraded: Double,  // positive = bought EUR (weakened PLN), negative = sold EUR
+      newReserves: Double, // updated reserve level
+  )
+
+  // ---------------------------------------------------------------------------
+  // Taylor rule
+  // ---------------------------------------------------------------------------
+
+  /** Raw Taylor target: symmetric (dual mandate) or asymmetric
+    * (inflation-only).
+    */
+  private def taylorTarget(
+      inflation: Rate,
+      exRateChange: Double,
+      employed: Int,
+      totalPopulation: Int,
+  )(using p: SimParams): Double =
+    val infGap = inflation.toDouble - p.monetary.targetInfl.toDouble
+    if p.flags.nbpSymmetric then
+      val unempRate    = 1.0 - (employed.toDouble / totalPopulation)
+      val rawOutputGap = (unempRate - p.monetary.nairu.toDouble) / p.monetary.nairu.toDouble
+      val outputGap    = Math.max(-OutputGapCap, Math.min(OutputGapCap, rawOutputGap))
+      p.monetary.neutralRate.toDouble +
+        p.monetary.taylorAlpha * infGap -
+        p.monetary.taylorDelta * outputGap +
+        p.monetary.taylorBeta * exRateChange
+    else
+      p.monetary.neutralRate.toDouble +
+        p.monetary.taylorAlpha * Math.max(0.0, infGap) +
+        p.monetary.taylorBeta * Math.max(0.0, exRateChange)
+
+  /** Inertia smoothing + max rate change clamping. */
+  private def smoothAndClamp(prevRate: Rate, taylor: Double)(using p: SimParams): Double =
+    val smoothed = prevRate.toDouble * p.monetary.taylorInertia.toDouble + taylor * (1.0 - p.monetary.taylorInertia.toDouble)
+    if p.monetary.maxRateChange.toDouble > 0 then
+      prevRate.toDouble + Math.max(
+        -p.monetary.maxRateChange.toDouble,
+        Math.min(p.monetary.maxRateChange.toDouble, smoothed - prevRate.toDouble),
+      )
+    else smoothed
+
+  /** Floor/ceiling clamp to [rateFloor, rateCeiling]. */
+  private def clampRate(rate: Double)(using p: SimParams): Rate =
+    Rate(Math.max(p.monetary.rateFloor.toDouble, Math.min(p.monetary.rateCeiling.toDouble, rate)))
+
+  /** Update NBP reference rate via Taylor rule. Symmetric (dual mandate) or
+    * asymmetric (inflation-only) depending on flags.nbpSymmetric.
+    */
   def updateRate(
-      prevRate: Double,
-      inflation: Double,
+      prevRate: Rate,
+      inflation: Rate,
       exRateChange: Double,
       employed: Int,
       totalPopulation: Int,
       rc: McRunConfig,
-  )(using p: SimParams): Double =
-    if p.flags.nbpSymmetric then
-      // v2.0: Symmetric Taylor + output gap (dual mandate)
-      val infGap       = inflation - p.monetary.targetInfl.toDouble
-      val unempRate    = 1.0 - (employed.toDouble / totalPopulation)
-      val rawOutputGap = (unempRate - p.monetary.nairu.toDouble) / p.monetary.nairu.toDouble
-      // Cap output gap at ±0.30 — prevents extreme Taylor responses from initial tight labor
-      // market while preserving dual-mandate stabilization (Svensson 2003)
-      val outputGap    = Math.max(-0.30, Math.min(0.30, rawOutputGap))
-      val taylor       = p.monetary.neutralRate.toDouble +
-        p.monetary.taylorAlpha * infGap -
-        p.monetary.taylorDelta * outputGap +
-        p.monetary.taylorBeta * exRateChange
-      val smoothed     = prevRate * p.monetary.taylorInertia.toDouble + taylor * (1.0 - p.monetary.taylorInertia.toDouble)
-      val effective    =
-        if p.monetary.maxRateChange.toDouble > 0 then
-          prevRate + Math.max(
-            -p.monetary.maxRateChange.toDouble,
-            Math.min(p.monetary.maxRateChange.toDouble, smoothed - prevRate),
-          )
-        else smoothed
-      Math.max(p.monetary.rateFloor.toDouble, Math.min(p.monetary.rateCeiling.toDouble, effective))
-    else
-      // v1.0 legacy: asymmetric Taylor (inflation-only)
-      val infGap    = inflation - p.monetary.targetInfl.toDouble
-      val taylor    = p.monetary.neutralRate.toDouble +
-        p.monetary.taylorAlpha * Math.max(0.0, infGap) +
-        p.monetary.taylorBeta * Math.max(0.0, exRateChange)
-      val smoothed  = prevRate * p.monetary.taylorInertia.toDouble + taylor * (1.0 - p.monetary.taylorInertia.toDouble)
-      val effective =
-        if p.monetary.maxRateChange.toDouble > 0 then
-          prevRate + Math.max(
-            -p.monetary.maxRateChange.toDouble,
-            Math.min(p.monetary.maxRateChange.toDouble, smoothed - prevRate),
-          )
-        else smoothed
-      Math.max(p.monetary.rateFloor.toDouble, Math.min(p.monetary.rateCeiling.toDouble, effective))
+  )(using p: SimParams): Rate =
+    val taylor = taylorTarget(inflation, exRateChange, employed, totalPopulation)
+    clampRate(smoothAndClamp(prevRate, taylor))
 
-  /** Bond yield = refRate + termPremium + fiscalRiskPremium - qeCompression -
-    * foreignDemandEffect + credibilityPremium
+  // ---------------------------------------------------------------------------
+  // Bond yield
+  // ---------------------------------------------------------------------------
+
+  /** Bond yield = refRate + termPremium + fiscalRisk − qeCompression −
+    * foreignDemand + credibilityPremium.
     */
   def bondYield(
-      refRate: Double,
+      refRate: Rate,
       debtToGdp: Double,
       nbpBondGdpShare: Double,
-      nfa: Double,
-      credibilityPremium: Double = 0.0,
-  )(using p: SimParams): Double =
+      nfa: PLN,
+      credibilityPremium: Double,
+  )(using p: SimParams): Rate =
     if !p.flags.govBondMarket then refRate
     else
       val termPremium   = p.fiscal.govTermPremium.toDouble
-      val fiscalRisk    = Math.min(0.10, p.fiscal.govFiscalRiskBeta * Math.max(0.0, debtToGdp - 0.40))
-      val qeCompress    = 0.5 * nbpBondGdpShare
-      val foreignDemand = if nfa > 0 then 0.005 else 0.0
-      Math.max(0.0, refRate + termPremium + fiscalRisk - qeCompress - foreignDemand + credibilityPremium)
+      val fiscalRisk    = Math.min(FiscalRiskCap, p.fiscal.govFiscalRiskBeta * Math.max(0.0, debtToGdp - DebtThreshold))
+      val qeCompress    = QeCompressionCoeff * nbpBondGdpShare
+      val foreignDemand = if nfa > PLN.Zero then ForeignDemandDiscount else 0.0
+      Rate(Math.max(0.0, refRate.toDouble + termPremium + fiscalRisk - qeCompress - foreignDemand + credibilityPremium))
 
-  /** Should NBP activate QE? Rate at floor + inflation below target - 1pp */
-  def shouldActivateQe(refRate: Double, inflation: Double)(using p: SimParams): Boolean =
+  // ---------------------------------------------------------------------------
+  // QE
+  // ---------------------------------------------------------------------------
+
+  /** Should NBP activate QE? Rate near floor + inflation well below target. */
+  def shouldActivateQe(refRate: Rate, inflation: Rate)(using p: SimParams): Boolean =
     p.flags.nbpQe &&
-      refRate <= p.monetary.rateFloor.toDouble + 0.0025 &&
-      inflation < p.monetary.targetInfl.toDouble - 0.01
+      refRate.toDouble <= p.monetary.rateFloor.toDouble + QeActivationSlack &&
+      inflation.toDouble < p.monetary.targetInfl.toDouble - QeDeflationThreshold
 
-  /** Should NBP taper QE? Inflation returned above target */
-  def shouldTaperQe(inflation: Double)(using p: SimParams): Boolean =
-    inflation > p.monetary.targetInfl.toDouble
+  /** Should NBP taper QE? Inflation returned above target. */
+  def shouldTaperQe(inflation: Rate)(using p: SimParams): Boolean =
+    inflation > p.monetary.targetInfl
 
-  /** Execute monthly QE purchase. Returns (newState, purchaseAmount). */
-  def executeQe(nbp: State, bankBondHoldings: Double, annualGdp: Double)(using p: SimParams): (State, Double) =
-    if !nbp.qeActive then (nbp, 0.0)
+  /** Execute monthly QE purchase. */
+  def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN)(using p: SimParams): QeResult =
+    if !nbp.qeActive then QeResult(nbp, PLN.Zero)
     else
-      val maxByGdp  = (PLN(p.monetary.qeMaxGdpShare.toDouble * annualGdp) - nbp.govBondHoldings).toDouble
+      val maxByGdp  = (annualGdp * p.monetary.qeMaxGdpShare.toDouble - nbp.govBondHoldings).max(PLN.Zero)
       val available = bankBondHoldings
-      val purchase  = Math.max(0.0, Math.min(p.monetary.qePace.toDouble, Math.min(maxByGdp, available)))
+      val purchase  = PLN.Zero.max(maxByGdp.min(available).min(PLN(p.monetary.qePace.toDouble)))
       val newNbp    = nbp.copy(
-        govBondHoldings = nbp.govBondHoldings + PLN(purchase),
-        qeCumulative = nbp.qeCumulative + PLN(purchase),
+        govBondHoldings = nbp.govBondHoldings + purchase,
+        qeCumulative = nbp.qeCumulative + purchase,
       )
-      (newNbp, purchase)
+      QeResult(newNbp, purchase)
 
-  /** Compute sterilized FX intervention. NBP buys/sells EUR to dampen ER
-    * deviations beyond the tolerance band. Sterilized: affects only ER, not
-    * bank deposits/capital.
-    *
-    * @param enabled
-    *   override for p.flags.nbpFxIntervention (for testability)
+  // ---------------------------------------------------------------------------
+  // FX intervention
+  // ---------------------------------------------------------------------------
+
+  /** Sterilized FX intervention. NBP buys/sells EUR to dampen ER deviations
+    * beyond the tolerance band. Sterilized: affects only ER, not bank
+    * deposits/capital.
     */
   def fxIntervention(
       prevER: Double,
@@ -108,35 +174,15 @@ object Nbp:
     if !enabled then FxInterventionResult(0.0, 0.0, reserves)
     else
       val erDev = (prevER - p.forex.baseExRate) / p.forex.baseExRate
-      if Math.abs(erDev) <= p.monetary.fxBand.toDouble then FxInterventionResult(0.0, 0.0, reserves) // within band → no intervention
+      if Math.abs(erDev) <= p.monetary.fxBand.toDouble then FxInterventionResult(0.0, 0.0, reserves)
       else
-        val direction     = -Math.signum(erDev)   // opposite of deviation
+        val direction     = -Math.signum(erDev)
         val maxByReserves = reserves * p.monetary.fxMaxMonthly.toDouble
-        // Magnitude in EUR: capped by reserves when selling EUR
         val magnitude     =
-          if direction < 0 then // selling EUR (strengthening PLN)
-            Math.min(maxByReserves, reserves) // can't sell more than total reserves
-          else // buying EUR (weakening PLN) — prints PLN, pace-limited
-            maxByReserves
-        val eurTraded     = magnitude * direction // positive = bought EUR
+          if direction < 0 then Math.min(maxByReserves, reserves)
+          else maxByReserves
+        val eurTraded     = magnitude * direction
         val newReserves   = reserves + eurTraded
-        // Effect on ER: intervention dampens the excess deviation
         val gdpEffect     = if gdp > 0 then Math.abs(eurTraded) * p.forex.baseExRate / gdp else 0.0
         val erEffect      = direction * gdpEffect * p.monetary.fxStrength.toDouble
         FxInterventionResult(erEffect, eurTraded, Math.max(0.0, newReserves))
-
-  case class State(
-      referenceRate: Rate,
-      govBondHoldings: PLN = PLN.Zero,
-      qeActive: Boolean = false,
-      qeCumulative: PLN = PLN.Zero,
-      fxReserves: PLN = PLN.Zero,  // EUR-equivalent total (multi-currency); set at init
-      lastFxTraded: PLN = PLN.Zero, // monthly FX intervention amount (EUR)
-  )
-
-  /** FX intervention result. */
-  case class FxInterventionResult(
-      erEffect: Double,   // added to erChange in OpenEconomy
-      eurTraded: Double,  // positive = bought EUR (weakened PLN), negative = sold EUR
-      newReserves: Double, // updated reserve level
-  )
