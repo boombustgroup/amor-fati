@@ -35,7 +35,7 @@ object WorldAssemblyStep:
       sfcResult: Sfc.SfcResult,
   )
 
-  def run(in: Input)(using p: SimParams): Output =
+  def run(in: Input, rng: Random)(using p: SimParams): Output =
     // GPW: finalize equity state with HH equity wealth
     val totalHhEquityWealth = in.s9.reassignedHouseholds.kahanSumBy(_.equityWealth.toDouble)
 
@@ -256,7 +256,7 @@ object WorldAssemblyStep:
         in.s9.reassignedFirms.map { f =>
           if Firm.isAlive(f) && !f.foreignOwned &&
             f.initialSize >= p.fdi.maSizeMin &&
-            Random.nextDouble() < p.fdi.maProb.toDouble
+            rng.nextDouble() < p.fdi.maProb.toDouble
           then f.copy(foreignOwned = true)
           else f
         }
@@ -295,9 +295,9 @@ object WorldAssemblyStep:
           val slotSector = f.sector.toInt
           val entryProb  = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(slotSector) *
             Math.max(0.0, 1.0 + profitSignals(slotSector) * p.firm.entryProfitSens)
-          if Random.nextDouble() < entryProb then
+          if rng.nextDouble() < entryProb then
             births += 1
-            val roll      = Random.nextDouble() * totalWeight
+            val roll      = rng.nextDouble() * totalWeight
             var cumul     = 0.0
             var newSector = 0
             var found     = false
@@ -305,33 +305,33 @@ object WorldAssemblyStep:
               cumul += sectorWeights(s)
               if roll < cumul then { newSector = s; found = true }
 
-            val firmSize = Math.max(1, Random.between(1, 10))
+            val firmSize = Math.max(1, rng.between(1, 10))
             val sizeMult = firmSize.toDouble / p.pop.workersPerFirm
 
             val isAiNative   = totalAdoption > p.firm.entryAiThreshold.toDouble &&
-              Random.nextDouble() < p.firm.entryAiProb.toDouble
+              rng.nextDouble() < p.firm.entryAiProb.toDouble
             val dr           =
-              if isAiNative then Random.between(0.50, 0.90)
+              if isAiNative then rng.between(0.50, 0.90)
               else
                 Math.max(
                   0.02,
-                  Math.min(0.30, SectorDefs(newSector).baseDigitalReadiness.toDouble + Random.nextGaussian() * 0.10),
+                  Math.min(0.30, SectorDefs(newSector).baseDigitalReadiness.toDouble + rng.nextGaussian() * 0.10),
                 )
             val startWorkers = 0 // workers hired via labor market
             val tech         = if isAiNative then
               val hw = Math.max(1, (startWorkers * 0.6).toInt)
-              TechState.Hybrid(hw, 0.5 + Random.nextDouble() * 0.3)
+              TechState.Hybrid(hw, 0.5 + rng.nextDouble() * 0.3)
             else TechState.Traditional(startWorkers)
 
             val nNeighbors   = Math.min(6, livingIds.length)
             val newNeighbors =
-              if nNeighbors > 0 then Random.shuffle(livingIds.toList).take(nNeighbors).map(FirmId(_)).toVector
+              if nNeighbors > 0 then rng.shuffle(livingIds.toList).take(nNeighbors).map(FirmId(_)).toVector
               else Vector.empty[FirmId]
 
-            val newBankId = Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, Random)
+            val newBankId = Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, rng)
 
             val foreignOwned = p.flags.fdi &&
-              Random.nextDouble() < p.fdi.foreignShares.map(_.toDouble)(newSector)
+              rng.nextDouble() < p.fdi.foreignShares.map(_.toDouble)(newSector)
 
             val capitalStock =
               if p.flags.physCap then firmSize.toDouble * p.capital.klRatios.map(_.toDouble)(newSector)
@@ -355,8 +355,8 @@ object WorldAssemblyStep:
               cash = PLN(p.firm.entryStartupCash.toDouble * sizeMult),
               debt = PLN.Zero,
               tech = tech,
-              riskProfile = Ratio(Random.between(0.1, 0.9)),
-              innovationCostFactor = Random.between(0.8, 1.5),
+              riskProfile = Ratio(rng.between(0.1, 0.9)),
+              innovationCostFactor = rng.between(0.8, 1.5),
               digitalReadiness = Ratio(dr),
               sector = SectorIdx(newSector),
               neighbors = newNeighbors,

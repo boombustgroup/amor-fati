@@ -20,7 +20,7 @@ object FirmInit:
   def create(rng: Random)(using p: SimParams): Vector[Firm.State] =
     // Generate network based on TOPOLOGY env var
     val adjList = TOPOLOGY match
-      case Topology.Ws      => Network.wattsStrogatz(p.pop.firmsCount, p.firm.networkK, p.firm.networkRewireP.toDouble)
+      case Topology.Ws      => Network.wattsStrogatz(p.pop.firmsCount, p.firm.networkK, p.firm.networkRewireP.toDouble, rng)
       case Topology.Er      => Network.erdosRenyi(p.pop.firmsCount, p.firm.networkK, rng)
       case Topology.Ba      => Network.barabasiAlbert(p.pop.firmsCount, p.firm.networkK / 2, rng)
       case Topology.Lattice => Network.lattice(p.pop.firmsCount, p.firm.networkK)

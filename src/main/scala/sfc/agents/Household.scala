@@ -148,7 +148,7 @@ object Household:
     /** Create individual households with multi-bank assignment. */
     def create(rng: Random, firms: Vector[Firm.State])(using p: SimParams): Vector[State] =
       val hhCount   = firms.map(Firm.workerCount).sum
-      val hhNetwork = Network.wattsStrogatz(hhCount, p.household.socialK, p.household.socialP.toDouble)
+      val hhNetwork = Network.wattsStrogatz(hhCount, p.household.socialK, p.household.socialP.toDouble, rng)
       val hhs       = initialize(hhCount, p.pop.firmsCount, firms, hhNetwork, rng)
       // Assign households to same bank as their employer
       hhs.map: h =>

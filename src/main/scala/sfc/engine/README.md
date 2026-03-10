@@ -9,6 +9,7 @@ regulatory rules).
 engine/
 ├── Simulation.scala        # 10-step pipeline orchestrator
 ├── World.scala             # Immutable global state container
+├── StepSeeds.scala         # Per-component RNG isolation
 ├── markets/                # Market clearing & price formation
 ├── mechanisms/             # Policy rules & regulatory instruments
 └── steps/                  # Pipeline stages (typed Input/Output)
@@ -20,6 +21,7 @@ engine/
 |------|----------------|
 | `Simulation.scala` | Executes the 10-stage monthly pipeline: transforms `(World, firms, households)` → `(World', firms', households')`. Pure function, no side effects. |
 | `World.scala` | Case class holding all macro state: month, inflation, price level, government, NBP, banking sector, equity, housing, BOP, expectations, etc. |
+| `StepSeeds.scala` | Per-component RNG isolation. Each pipeline step receives its own deterministic `Random` derived from `(masterSeed, month, componentId)`, so adding stochastic draws in one step never shifts the sequence of another. |
 
 ## markets/
 

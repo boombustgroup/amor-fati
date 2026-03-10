@@ -21,7 +21,7 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
 
   "wattsStrogatz" should "produce symmetric adjacency" in
     forAll(genN, genK) { (n: Int, k: Int) =>
-      val adj = Network.wattsStrogatz(n, k, 0.10)
+      val adj = Network.wattsStrogatz(n, k, 0.10, new Random(42))
       for
         i <- 0 until n
         j <- adj(i)
@@ -30,14 +30,14 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
 
   it should "have no self-loops" in
     forAll(genN, genK) { (n: Int, k: Int) =>
-      val adj = Network.wattsStrogatz(n, k, 0.10)
+      val adj = Network.wattsStrogatz(n, k, 0.10, new Random(42))
       for i <- 0 until n do adj(i) should not contain i
     }
 
   it should "have exact degree k when p=0" in
     forAll(genN, genK) { (n: Int, k: Int) =>
       whenever(n > k) {
-        val adj = Network.wattsStrogatz(n, k, 0.0)
+        val adj = Network.wattsStrogatz(n, k, 0.0, new Random(42))
         for i <- 0 until n do adj(i).toSet.size shouldBe k
       }
     }
@@ -45,7 +45,7 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
   it should "have average degree approximately k" in
     forAll(genN, genK) { (n: Int, k: Int) =>
       whenever(n > k) {
-        val adj    = Network.wattsStrogatz(n, k, 0.10)
+        val adj    = Network.wattsStrogatz(n, k, 0.10, new Random(42))
         val avgDeg = adj.map(_.length).sum.toDouble / n
         avgDeg shouldBe (k.toDouble +- (k * 0.3))
       }
@@ -54,7 +54,7 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
   it should "be connected (single component)" in
     forAll(genN) { (n: Int) =>
       whenever(n >= 20) {
-        val adj     = Network.wattsStrogatz(n, 6, 0.10)
+        val adj     = Network.wattsStrogatz(n, 6, 0.10, new Random(42))
         val visited = new Array[Boolean](n)
         val queue   = scala.collection.mutable.Queue(0)
         visited(0) = true

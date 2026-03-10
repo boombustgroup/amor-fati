@@ -12,7 +12,6 @@ import sfc.util.CsvWriter
 import sfc.util.KahanSum.*
 
 import java.io.File
-import scala.util.Random
 
 /** Monte Carlo runner: simulation loop, CSV writers, summary statistics. */
 object McRunner:
@@ -21,19 +20,14 @@ object McRunner:
     * on any SFC identity violation.
     */
   def runSingle(seed: Int, rc: RunConfig)(using p: SimParams): RunResult =
-    // Engine steps (Firm.scala, PriceEquityStep, WorldAssemblyStep, …) call the global
-    // scala.util.Random singleton directly rather than accepting an rng parameter.
-    // Seeding it here — once per seed, before init and the simulation loop — ensures
-    // that two calls to runSingle with the same seed produce bit-identical output.
-    Random.setSeed(seed.toLong)
-
-    val init  = WorldInit.initialize(seed)
-    var state = Simulation.SimState(init.world, init.firms, init.households)
+    val masterSeed = seed.toLong
+    val init       = WorldInit.initialize(seed)
+    var state      = Simulation.SimState(init.world, init.firms, init.households)
 
     val results = Array.ofDim[Double](p.timeline.duration, SimOutput.nCols)
 
     for t <- 0 until p.timeline.duration do
-      val stepResult = Simulation.step(state, rc)
+      val stepResult = Simulation.step(state, rc, masterSeed, t)
       stepResult.sfcCheck match
         case Left(errors) => throw Sfc.SfcViolationException(t + 1, errors)
         case Right(())    => // OK

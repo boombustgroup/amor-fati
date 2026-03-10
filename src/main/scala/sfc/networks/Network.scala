@@ -43,7 +43,7 @@ object Network:
     * @return
     *   adjacency lists (symmetric, no self-loops)
     */
-  def wattsStrogatz(n: Int, k: Int, p: Double): Array[Array[Int]] =
+  def wattsStrogatz(n: Int, k: Int, p: Double, rng: Random): Array[Array[Int]] =
     val adj = Array.fill(n)(scala.collection.mutable.Set.empty[Int])
 
     // Ring lattice: connect each node to k/2 nearest neighbors on each side
@@ -65,12 +65,12 @@ object Network:
       j <- 1 to halfK
     do
       val target = (i + j) % n
-      if Random.nextDouble() < p && adj(i).size < n - 1 then
+      if rng.nextDouble() < p && adj(i).size < n - 1 then
         // Find a random node not already connected
-        var newTarget = Random.nextInt(n)
+        var newTarget = rng.nextInt(n)
         var attempts  = 0
         while (newTarget == i || adj(i).contains(newTarget)) && attempts < 20 do
-          newTarget = Random.nextInt(n)
+          newTarget = rng.nextInt(n)
           attempts += 1
         if newTarget != i && !adj(i).contains(newTarget) then
           adj(i) -= target

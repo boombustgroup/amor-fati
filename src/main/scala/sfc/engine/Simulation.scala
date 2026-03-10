@@ -5,6 +5,8 @@ import sfc.agents.*
 import sfc.config.*
 import sfc.types.*
 
+import scala.util.Random
+
 /** Top-level orchestrator of the SFC-ABM simulation.
   *
   * Each call to `step` transforms the current state into the next state by
@@ -111,7 +113,7 @@ object Simulation:
     * @return
     *   StepResult with updated state and SFC check outcome
     */
-  def step(state: SimState, rc: RunConfig)(using SimParams): StepResult =
+  def step(state: SimState, rc: RunConfig, masterSeed: Long, month: Int)(using SimParams): StepResult =
     import steps.{
       FiscalConstraintStep as S1,
       LaborDemographicsStep as S2,
@@ -125,14 +127,22 @@ object Simulation:
       WorldAssemblyStep as S10,
     }
     val SimState(w, firms, households) = state
-    val s1                             = S1.run(S1.Input(w, rc))
-    val s2                             = S2.run(S2.Input(w, rc, firms, households, s1))
-    val s3                             = S3.run(S3.Input(w, rc, firms, households, s1, s2))
-    val s4                             = S4.run(S4.Input(w, s2, s3))
-    val s5                             = S5.run(S5.Input(w, rc, firms, households, s1, s2, s3, s4))
-    val s6                             = S6.run(S6.Input(w, s1, s2, s3))
-    val s7                             = S7.run(S7.Input(w, rc, s1, s2, s3, s4, s5))
-    val s8                             = S8.run(S8.Input(w, rc, s1, s2, s3, s4, s5, s6, s7))
-    val s9                             = S9.run(S9.Input(w, rc, s1, s2, s3, s4, s5, s6, s7, s8))
-    val s10                            = S10.run(S10.Input(w, rc, firms, households, s1, s2, s3, s4, s5, s6, s7, s8, s9))
+    // Per-component RNG isolation: each step gets a deterministic seed derived
+    // from (masterSeed, month, componentId). Adding draws in one step does not
+    // shift the sequence of any other step.
+    val hhRng                          = new Random(StepSeeds.derive(masterSeed, month, StepSeeds.Household))
+    val firmRng                        = new Random(StepSeeds.derive(masterSeed, month, StepSeeds.Firm))
+    val rewRng                         = new Random(StepSeeds.derive(masterSeed, month, StepSeeds.Rewire))
+    val waRng                          = new Random(StepSeeds.derive(masterSeed, month, StepSeeds.WorldAssembly))
+
+    val s1  = S1.run(S1.Input(w, rc))
+    val s2  = S2.run(S2.Input(w, rc, firms, households, s1))
+    val s3  = S3.run(S3.Input(w, rc, firms, households, s1, s2), hhRng)
+    val s4  = S4.run(S4.Input(w, s2, s3))
+    val s5  = S5.run(S5.Input(w, rc, firms, households, s1, s2, s3, s4), firmRng)
+    val s6  = S6.run(S6.Input(w, s1, s2, s3))
+    val s7  = S7.run(S7.Input(w, rc, s1, s2, s3, s4, s5), rewRng)
+    val s8  = S8.run(S8.Input(w, rc, s1, s2, s3, s4, s5, s6, s7))
+    val s9  = S9.run(S9.Input(w, rc, s1, s2, s3, s4, s5, s6, s7, s8))
+    val s10 = S10.run(S10.Input(w, rc, firms, households, s1, s2, s3, s4, s5, s6, s7, s8, s9), waRng)
     StepResult(SimState(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds), s10.sfcResult)

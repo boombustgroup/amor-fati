@@ -155,7 +155,7 @@ object PriceEquityStep:
     * @return
     *   updated firm array with same length
     */
-  private[steps] def rewireFirms(firms: Vector[Firm.State], rho: Double)(using p: SimParams): Vector[Firm.State] =
+  private[steps] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: Random)(using p: SimParams): Vector[Firm.State] =
     // Fast path: static network mode — no rewiring, return the exact same array instance.
     if rho == 0.0 then return firms
 
@@ -165,7 +165,7 @@ object PriceEquityStep:
     // Identify bankrupt firms eligible for replacement. Each bankrupt firm independently
     // "rolls the dice" with probability rho — this creates stochastic variation in the
     // replacement rate, avoiding artificial synchronization of firm entry.
-    val toReplace = (0 until n).filter(i => !Firm.isAlive(firms(i)) && Random.nextDouble() < rho).toSet
+    val toReplace = (0 until n).filter(i => !Firm.isAlive(firms(i)) && rng.nextDouble() < rho).toSet
     if toReplace.isEmpty then return firms
 
     // Build mutable adjacency from current neighbor arrays so we can rewire edges
@@ -192,7 +192,7 @@ object PriceEquityStep:
         // (e.g., very small networks where all targets are already selected).
         var attempts = 0
         while targets.size < numTargets && attempts < numTargets * 20 do
-          var r = Random.nextInt(if totalDeg > 0 then totalDeg else 1)
+          var r = rng.nextInt(if totalDeg > 0 then totalDeg else 1)
           var j = 0
           while j < alive.length - 1 && r >= degrees(j) do
             r -= degrees(j)
@@ -209,19 +209,19 @@ object PriceEquityStep:
     (0 until n).map { i =>
       if toReplace.contains(i) then
         val sec      = firms(i).sector
-        val newSize  = FirmSizeDistribution.draw(Random)
+        val newSize  = FirmSizeDistribution.draw(rng)
         val sizeMult = newSize.toDouble / p.pop.workersPerFirm
         Firm.State(
           id = FirmId(i),
-          cash = PLN(Random.between(10000.0, 80000.0) * sizeMult),
+          cash = PLN(rng.between(10000.0, 80000.0) * sizeMult),
           debt = PLN.Zero,
           tech = TechState.Traditional(newSize),
-          riskProfile = Ratio(Random.between(0.1, 0.9)),
-          innovationCostFactor = Random.between(0.8, 1.5),
+          riskProfile = Ratio(rng.between(0.1, 0.9)),
+          innovationCostFactor = rng.between(0.8, 1.5),
           digitalReadiness = Ratio(
             Math.max(
               0.02,
-              Math.min(0.98, SectorDefs(sec.toInt).baseDigitalReadiness.toDouble + (Random.nextGaussian() * 0.20)),
+              Math.min(0.98, SectorDefs(sec.toInt).baseDigitalReadiness.toDouble + (rng.nextGaussian() * 0.20)),
             ),
           ),
           sector = sec,
@@ -248,7 +248,7 @@ object PriceEquityStep:
   // Main step logic
   // ---------------------------------------------------------------------------
 
-  def run(in: Input)(using p: SimParams): Output =
+  def run(in: Input, rng: Random)(using p: SimParams): Output =
     val living2           = in.s5.ioFirms.filter(Firm.isAlive)
     val nLiving           = living2.length.toDouble
     val autoR             = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]) / nLiving else 0.0
@@ -301,7 +301,7 @@ object PriceEquityStep:
     val newSigmas      =
       evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
 
-    val rewiredFirms = rewireFirms(in.s5.ioFirms, p.firm.rewireRho.toDouble)
+    val rewiredFirms = rewireFirms(in.s5.ioFirms, p.firm.rewireRho.toDouble, rng)
 
     val exDev               = (in.w.forex.exchangeRate / p.forex.baseExRate) - 1.0
     val (newInfl, newPrice) = PriceLevel.update(

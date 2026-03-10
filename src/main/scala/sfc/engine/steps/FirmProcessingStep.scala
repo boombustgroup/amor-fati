@@ -55,7 +55,7 @@ object FirmProcessingStep:
       postFirmCrossSectorHires: Int,
   )
 
-  def run(in: Input)(using p: SimParams): Output =
+  def run(in: Input, rng: Random)(using p: SimParams): Output =
     val bsec             = in.w.bankingSector
     val nBanks           = bsec.banks.length
     val perBankNewLoans  = new Array[Double](nBanks)
@@ -67,7 +67,7 @@ object FirmProcessingStep:
     val rates                                = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate))
     val getFirmRate: Int => Rate             = (bankId: Int) => Rate(rates(bankId))
     val bankCanLendFn: (Int, PLN) => Boolean =
-      (bankId: Int, amt: PLN) => Banking.canLend(bsec.banks(bankId), amt.toDouble, Random, currentCcyb)
+      (bankId: Int, amt: PLN) => Banking.canLend(bsec.banks(bankId), amt.toDouble, rng, currentCcyb)
 
     val lendingRates = rates.toArray
 
@@ -96,7 +96,7 @@ object FirmProcessingStep:
     val newFirms = in.firms.map { f =>
       val firmRate                    = getFirmRate(f.bankId.toInt)
       val firmCanLend: PLN => Boolean = amt => bankCanLendFn(f.bankId.toInt, amt)
-      val r                           = Firm.process(f, macro4firms, firmRate, firmCanLend, in.firms)
+      val r                           = Firm.process(f, macro4firms, firmRate, firmCanLend, in.firms, rng)
       sumTax += r.taxPaid.toDouble
       sumCapex += r.capexSpent.toDouble
       sumTechImp += r.techImports.toDouble
@@ -182,7 +182,7 @@ object FirmProcessingStep:
 
     var postFirmCrossSectorHires = 0
     val afterSep                 = LaborMarket.separations(in.s3.updatedHouseholds, in.firms, ioFirms)
-    val (afterSearch, csHires)   = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, Random)
+    val (afterSearch, csHires)   = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, rng)
     postFirmCrossSectorHires += csHires
     val preMigrationHouseholds   = LaborMarket.updateWages(afterSearch, in.s2.newWage)
 
@@ -190,7 +190,7 @@ object FirmProcessingStep:
       if p.flags.immigration then
         val afterRemoval  = Immigration.removeReturnMigrants(preMigrationHouseholds, in.s2.newImmig.monthlyOutflow)
         val startId       = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
-        val newImmigrants = Immigration.spawnImmigrants(in.s2.newImmig.monthlyInflow, startId, Random)
+        val newImmigrants = Immigration.spawnImmigrants(in.s2.newImmig.monthlyInflow, startId, rng)
         afterRemoval ++ newImmigrants
       else preMigrationHouseholds
 

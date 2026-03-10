@@ -288,8 +288,9 @@ object Firm:
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
+      rng: Random,
   )(using p: SimParams): Result =
-    val decision = decide(firm, w, lendRate, bankCanLend, allFirms)
+    val decision = decide(firm, w, lendRate, bankCanLend, allFirms, rng)
     val r0       = execute(firm, decision)
     val r1       = applyGreenInvestment(r0)
     val r2       = applyInvestment(r1)
@@ -307,12 +308,13 @@ object Firm:
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
+      rng: Random,
   )(using p: SimParams): Decision =
     firm.tech match
       case _: TechState.Bankrupt         => Decision.StayBankrupt
       case _: TechState.Automated        => decideAutomated(firm, w, lendRate)
-      case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, lendRate, bankCanLend, wkrs, aiEff)
-      case TechState.Traditional(wkrs)   => decideTraditional(firm, w, lendRate, bankCanLend, allFirms, wkrs)
+      case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, lendRate, bankCanLend, wkrs, aiEff, rng)
+      case TechState.Traditional(wkrs)   => decideTraditional(firm, w, lendRate, bankCanLend, allFirms, wkrs, rng)
 
   /** Attempt forced downsizing: cut up to 30% of workers, survive if net cash
     * turns non-negative after labor savings minus lost revenue, else bankrupt.
@@ -379,6 +381,7 @@ object Firm:
       bankCanLend: PLN => Boolean,
       workers: Int,
       aiEff: Double,
+      rng: Random,
   )(using p: SimParams): Decision =
     val pnl    = computePnL(firm, w.hhAgg.marketWage, w.flows.sectorDemandMult(firm.sector.toInt), w.priceLevel, lendRate, w.month)
     val ready2 = Ratio(Math.min(1.0, firm.digitalReadiness.toDouble + HybridMonthlyDrDrift))
@@ -397,8 +400,8 @@ object Firm:
         ((firm.riskProfile * RiskWeightHybUpgrade + w.real.automationRatio * AutoRatioWeight) * firm.digitalReadiness).toDouble
       else 0.0
 
-    if Random.nextDouble() < prob then
-      val eff = 1.0 + Random.between(HybToFullEffMin, HybToFullEffMax) * firm.digitalReadiness.toDouble
+    if rng.nextDouble() < prob then
+      val eff = 1.0 + rng.between(HybToFullEffMin, HybToFullEffMax) * firm.digitalReadiness.toDouble
       Decision.Upgrade(pnl, TechState.Automated(eff), upCapex, upLoan, upDown, drUpdate = Some(ready2))
     else
       val nc = firm.cash + pnl.netAfterTax
@@ -502,27 +505,27 @@ object Firm:
   /** Roll for full-AI upgrade: success (with random efficiency) or
     * implementation failure.
     */
-  private def rollFullAiUpgrade(firm: State, pnl: PnL, ai: UpgradeCandidate): Decision =
+  private def rollFullAiUpgrade(firm: State, pnl: PnL, ai: UpgradeCandidate, rng: Random): Decision =
     val failRate = FullAiBaseFailRate + (Ratio.One - firm.digitalReadiness).toDouble * FullAiFailDrSens
-    if Random.nextDouble() < failRate then
+    if rng.nextDouble() < failRate then
       Decision.UpgradeFailed(pnl, BankruptReason.AiImplFailure, ai.capex * FailCapexFrac, ai.loan * FailLoanFrac, ai.down * FailDownFrac)
     else
-      val eff = 1.0 + Random.between(TradToFullEffMin, TradToFullEffMax) * firm.digitalReadiness.toDouble
+      val eff = 1.0 + rng.between(TradToFullEffMin, TradToFullEffMax) * firm.digitalReadiness.toDouble
       Decision.Upgrade(pnl, TechState.Automated(eff), ai.capex, ai.loan, ai.down)
 
   /** Roll for hybrid upgrade: catastrophic failure, partial failure (bad
     * efficiency), or success (good efficiency).
     */
-  private def rollHybridUpgrade(firm: State, pnl: PnL, hyb: UpgradeCandidate, hWkrs: Int): Decision =
+  private def rollHybridUpgrade(firm: State, pnl: PnL, hyb: UpgradeCandidate, hWkrs: Int, rng: Random): Decision =
     val failRate = HybridBaseFailRate + (Ratio.One - firm.digitalReadiness).toDouble * HybridFailDrSens
-    val ir       = Random.nextDouble()
+    val ir       = rng.nextDouble()
     if ir < failRate * CatastrophicFailFrac then
       Decision.UpgradeFailed(pnl, BankruptReason.HybridImplFailure, hyb.capex * FailCapexFrac, hyb.loan * FailLoanFrac, hyb.down * FailDownFrac)
     else if ir < failRate then
-      val badEff = BadHybridEffBase + Random.between(0.0, BadHybridEffRange)
+      val badEff = BadHybridEffBase + rng.between(0.0, BadHybridEffRange)
       Decision.Upgrade(pnl, TechState.Hybrid(hWkrs, badEff), hyb.capex, hyb.loan, hyb.down)
     else
-      val goodEff = 1.0 + (GoodHybridEffBase + Random.between(0.0, GoodHybridEffRange)) *
+      val goodEff = 1.0 + (GoodHybridEffBase + rng.between(0.0, GoodHybridEffRange)) *
         (GoodHybridDrBlend + (firm.digitalReadiness * GoodHybridDrBlend).toDouble)
       Decision.Upgrade(pnl, TechState.Hybrid(hWkrs, goodEff), hyb.capex, hyb.loan, hyb.down)
 
@@ -534,9 +537,10 @@ object Firm:
       pnl: PnL,
       w: World,
       workers: Int,
+      rng: Random,
   )(using p: SimParams): Decision =
     val canReduce     = workers > MinWorkersRetained && pnl.netAfterTax < PLN.Zero
-    if canReduce && Random.nextDouble() < VoluntaryDownsizeProb then
+    if canReduce && rng.nextDouble() < VoluntaryDownsizeProb then
       val reductionAmt = Math.max(1, (workers * VoluntaryDownsizeFrac).toInt)
       val newWkrs      = Math.max(MinWorkersRetained, workers - reductionAmt)
       return Decision.Downsize(pnl, newWkrs, firm.cash + pnl.netAfterTax, TechState.Traditional(newWkrs))
@@ -547,7 +551,7 @@ object Firm:
     val diminishing   = (Ratio.One - firm.digitalReadiness).toDouble
     val digiProb      = (p.firm.digiInvestBaseProb * firm.riskProfile).toDouble *
       diminishing * (0.5 + competitive)
-    if canAfford && Random.nextDouble() < digiProb then
+    if canAfford && rng.nextDouble() < digiProb then
       val boost = p.firm.digiInvestBoost.toDouble * diminishing
       val newDR = Ratio(Math.min(1.0, firm.digitalReadiness.toDouble + boost))
       Decision.DigiInvest(pnl, digiCost, newDR)
@@ -564,16 +568,17 @@ object Firm:
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       workers: Int,
+      rng: Random,
   )(using p: SimParams): Decision =
     val pnl           = computePnL(firm, w.hhAgg.marketWage, w.flows.sectorDemandMult(firm.sector.toInt), w.priceLevel, lendRate, w.month)
     val ai            = evaluateFullAi(firm, pnl, w, lendRate, bankCanLend)
     val (hyb, hWkrs)  = evaluateHybrid(firm, pnl, workers, w, lendRate, bankCanLend)
     val (pFull, pHyb) = adoptionProbabilities(firm, pnl, ai, hyb, w, allFirms)
-    val roll          = Random.nextDouble()
+    val roll          = rng.nextDouble()
 
-    if roll < pFull then rollFullAiUpgrade(firm, pnl, ai)
-    else if roll < pFull + pHyb then rollHybridUpgrade(firm, pnl, hyb, hWkrs)
-    else fallbackDecision(firm, pnl, w, workers)
+    if roll < pFull then rollFullAiUpgrade(firm, pnl, ai, rng)
+    else if roll < pFull + pHyb then rollHybridUpgrade(firm, pnl, hyb, hWkrs, rng)
+    else fallbackDecision(firm, pnl, w, workers, rng)
 
   // ---- Execute (pure dispatch, zero Random calls) ----
 

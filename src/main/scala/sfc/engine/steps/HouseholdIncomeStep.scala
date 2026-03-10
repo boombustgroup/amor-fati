@@ -32,7 +32,7 @@ object HouseholdIncomeStep:
       aggUnempBenefit: Double,
   )
 
-  def run(in: Input)(using p: SimParams): Output =
+  def run(in: Input, rng: Random)(using p: SimParams): Output =
     val importAdj = p.forex.importPropensity.toDouble *
       Math.pow(p.forex.baseExRate / in.w.forex.exchangeRate, 0.5)
 
@@ -56,7 +56,7 @@ object HouseholdIncomeStep:
       PLN(in.s2.newWage),
       PLN(in.s1.resWage),
       importAdj,
-      Random,
+      rng,
       nBanksHh,
       hhBankRates,
       eqReturn,

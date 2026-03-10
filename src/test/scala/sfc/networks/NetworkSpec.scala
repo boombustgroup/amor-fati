@@ -12,27 +12,23 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   // --- Watts-Strogatz ---
 
   "wattsStrogatz" should "produce average degree ≈ k" in {
-    Random.setSeed(42)
-    val adj    = Network.wattsStrogatz(1000, 6, 0.10)
+    val adj    = Network.wattsStrogatz(1000, 6, 0.10, new Random(42))
     val avgDeg = adj.map(_.length).sum.toDouble / adj.length
     avgDeg shouldBe 6.0 +- 0.3 // ±5%
   }
 
   it should "be symmetric" in {
-    Random.setSeed(42)
-    val adj = Network.wattsStrogatz(1000, 6, 0.10)
+    val adj = Network.wattsStrogatz(1000, 6, 0.10, new Random(42))
     for i <- adj.indices; j <- adj(i) do adj(j) should contain(i)
   }
 
   it should "have no self-loops" in {
-    Random.setSeed(42)
-    val adj = Network.wattsStrogatz(1000, 6, 0.10)
+    val adj = Network.wattsStrogatz(1000, 6, 0.10, new Random(42))
     for i <- adj.indices do adj(i) should not contain i
   }
 
   it should "be a single connected component" in {
-    Random.setSeed(42)
-    val adj     = Network.wattsStrogatz(1000, 6, 0.10)
+    val adj     = Network.wattsStrogatz(1000, 6, 0.10, new Random(42))
     val visited = Array.fill(adj.length)(false)
     val queue   = scala.collection.mutable.Queue(0)
     visited(0) = true
@@ -45,8 +41,7 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce exact degree k when p=0.0" in {
-    Random.setSeed(42)
-    val adj = Network.wattsStrogatz(1000, 6, 0.0)
+    val adj = Network.wattsStrogatz(1000, 6, 0.0, new Random(42))
     for i <- adj.indices do adj(i).length shouldBe 6
   }
 
