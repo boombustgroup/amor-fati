@@ -398,7 +398,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       )
     val firms     = Vector(mkF(0, 0, 5), mkF(1, 2, 5))
     val socialNet = Array.fill(10)(Array.empty[Int])
-    val hhs       = Household.Init.initialize(10, 2, firms, socialNet, rng)
+    val hhs       = Household.Init.initialize(10, firms, socialNet, rng)
     hhs.foreach { h =>
       h.education should be >= 0
       h.education should be <= 3
@@ -429,7 +429,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
-    val hhs       = Household.Init.initialize(10, 1, firms, socialNet, rng)
+    val hhs       = Household.Init.initialize(10, firms, socialNet, rng)
     hhs.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
       h.skill.toDouble should be >= floor

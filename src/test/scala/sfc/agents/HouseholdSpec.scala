@@ -20,7 +20,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = new Random(42)
     val firms   = mkFirms(100)
     val network = Array.fill(1000)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(1000, 100, firms, network, rng)
+    val hhs     = Household.Init.initialize(1000, firms, network, rng)
     hhs.length shouldBe 1000
   }
 
@@ -28,7 +28,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = new Random(42)
     val firms   = mkFirms(100)
     val network = Array.fill(500)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(500, 100, firms, network, rng)
+    val hhs     = Household.Init.initialize(500, firms, network, rng)
     hhs.foreach { hh =>
       hh.status shouldBe a[HhStatus.Employed]
     }
@@ -38,7 +38,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = new Random(42)
     val firms   = mkFirms(50)
     val network = Array.fill(200)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(200, 50, firms, network, rng)
+    val hhs     = Household.Init.initialize(200, firms, network, rng)
     hhs.foreach(_.savings should be > PLN.Zero)
   }
 
@@ -46,7 +46,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = new Random(42)
     val firms   = mkFirms(50)
     val network = Array.fill(500)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(500, 50, firms, network, rng)
+    val hhs     = Household.Init.initialize(500, firms, network, rng)
     hhs.foreach { hh =>
       hh.mpc should be >= Ratio(0.5)
       hh.mpc should be <= Ratio(0.98)
@@ -57,7 +57,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = new Random(42)
     val firms   = mkFirms(50)
     val network = Array.fill(500)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(500, 50, firms, network, rng)
+    val hhs     = Household.Init.initialize(500, firms, network, rng)
     hhs.foreach { hh =>
       hh.skill should be >= Ratio(0.3)
       hh.skill should be <= Ratio.One
@@ -68,7 +68,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = new Random(42)
     val firms   = mkFirms(50)
     val network = Array.fill(500)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(500, 50, firms, network, rng)
+    val hhs     = Household.Init.initialize(500, firms, network, rng)
     hhs.foreach(_.monthlyRent should be >= p.household.rentFloor)
   }
 
