@@ -258,6 +258,27 @@ object Firm:
       else Decision.GoBankrupt(pnl, nc, reason)
     else Decision.GoBankrupt(pnl, nc, reason)
 
+  /** Estimate monthly operating cost for a hypothetical tech configuration.
+    * Used by `decideHybrid` and `decideTraditional` to compare current costs
+    * against upgrade costs.
+    */
+  private def estimateMonthlyCost(
+      firm: State,
+      opex: PLN,
+      laborWorkers: Int,
+      additionalDebt: PLN,
+      wage: PLN,
+      lendRate: Rate,
+      priceLevel: Double,
+  )(using p: SimParams): PLN =
+    val opexSizeFactor  = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, 0.5)
+    val otherSizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
+    val wMult           = effectiveWageMult(firm.sector)
+    opex * ((0.60 + 0.40 * priceLevel) * opexSizeFactor) +
+      (firm.debt + additionalDebt) * (lendRate / 12.0) +
+      wage * (wMult * laborWorkers.toDouble) +
+      p.firm.otherCosts * (priceLevel * otherSizeFactor)
+
   /** Automated firm: compute PnL, survive or go bankrupt (AI debt trap). */
   private def decideAutomated(
       firm: State,
@@ -281,20 +302,14 @@ object Firm:
     val pnl    = computePnL(firm, w.hh.marketWage, w.flows.sectorDemandMult(firm.sector.toInt), w.priceLevel, lendRate, w.month)
     val ready2 = Ratio(Math.min(1.0, firm.digitalReadiness.toDouble + 0.005))
 
-    val upCapex: PLN      = computeAiCapex(firm) * 0.6
-    val upLoan: PLN       = upCapex * 0.85
-    val upDown: PLN       = upCapex * 0.15
-    val wMult             = effectiveWageMult(firm.sector)
-    val upOpexSizeFactor  = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, 0.5)
-    val upOtherSizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
-    val upCost: PLN       = p.firm.aiOpex * ((0.60 + 0.40 * w.priceLevel) * upOpexSizeFactor) +
-      (firm.debt + upLoan) * (lendRate / 12.0) +
-      w.hh.marketWage * (wMult * skeletonCrew(firm).toDouble) +
-      p.firm.otherCosts * (w.priceLevel * upOtherSizeFactor)
-    val profitable        = pnl.costs > upCost * 1.1
-    val canPay            = firm.cash > upDown
-    val ready             = firm.digitalReadiness >= p.firm.fullAiReadinessMin
-    val bankOk            = bankCanLend(upLoan)
+    val upCapex    = computeAiCapex(firm) * 0.6
+    val upLoan     = upCapex * 0.85
+    val upDown     = upCapex * 0.15
+    val upCost     = estimateMonthlyCost(firm, p.firm.aiOpex, skeletonCrew(firm), upLoan, w.hh.marketWage, lendRate, w.priceLevel)
+    val profitable = pnl.costs > upCost * 1.1
+    val canPay     = firm.cash > upDown
+    val ready      = firm.digitalReadiness >= p.firm.fullAiReadinessMin
+    val bankOk     = bankCanLend(upLoan)
 
     val prob =
       if profitable && canPay && ready && bankOk then ((firm.riskProfile * 0.15 + w.real.automationRatio * 0.3) * firm.digitalReadiness).toDouble
@@ -323,37 +338,25 @@ object Firm:
     val pnl = computePnL(firm, w.hh.marketWage, w.flows.sectorDemandMult(firm.sector.toInt), w.priceLevel, lendRate, w.month)
 
     // Full AI
-    val sWm              = effectiveWageMult(firm.sector)
-    val fCapex: PLN      = computeAiCapex(firm)
-    val fLoan: PLN       = fCapex * 0.85
-    val fDown: PLN       = fCapex * 0.15
-    val fOpexSizeFactor  = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, 0.5)
-    val fOtherSizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
-    val fCost: PLN       = p.firm.aiOpex * ((0.60 + 0.40 * w.priceLevel) * fOpexSizeFactor) +
-      (firm.debt + fLoan) * (lendRate / 12.0) +
-      w.hh.marketWage * (sWm * skeletonCrew(firm).toDouble) +
-      p.firm.otherCosts * (w.priceLevel * fOtherSizeFactor)
-    val fProf            = pnl.costs > fCost * (1.1 / sigmaThreshold(w.currentSigmas(firm.sector.toInt)))
-    val fPay             = firm.cash > fDown
-    val fReady           = firm.digitalReadiness >= p.firm.fullAiReadinessMin
-    val fBank            = bankCanLend(fLoan)
+    val fCapex: PLN = computeAiCapex(firm)
+    val fLoan: PLN  = fCapex * 0.85
+    val fDown: PLN  = fCapex * 0.15
+    val fCost: PLN  = estimateMonthlyCost(firm, p.firm.aiOpex, skeletonCrew(firm), fLoan, w.hh.marketWage, lendRate, w.priceLevel)
+    val fProf       = pnl.costs > fCost * (1.1 / sigmaThreshold(w.currentSigmas(firm.sector.toInt)))
+    val fPay        = firm.cash > fDown
+    val fReady      = firm.digitalReadiness >= p.firm.fullAiReadinessMin
+    val fBank       = bankCanLend(fLoan)
 
     // Hybrid -- sector-specific worker retention
-    val hCapex: PLN      = computeHybridCapex(firm)
-    val hLoan: PLN       = hCapex * 0.80
-    val hDown: PLN       = hCapex * 0.20
-    val hWkrs            = Math.max(3, (workers * SectorDefs(firm.sector.toInt).hybridRetainFrac.toDouble).toInt)
-    val hOpexSizeFactor  = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, 0.5)
-    val hOtherSizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
-    val hCost: PLN       =
-      w.hh.marketWage * (sWm * hWkrs.toDouble) +
-        p.firm.hybridOpex * ((0.60 + 0.40 * w.priceLevel) * hOpexSizeFactor) +
-        (firm.debt + hLoan) * (lendRate / 12.0) +
-        p.firm.otherCosts * (w.priceLevel * hOtherSizeFactor)
-    val hProf            = pnl.costs > hCost * (1.05 / sigmaThreshold(w.currentSigmas(firm.sector.toInt)))
-    val hPay             = firm.cash > hDown
-    val hReady           = firm.digitalReadiness >= p.firm.hybridReadinessMin
-    val hBank            = bankCanLend(hLoan)
+    val hCapex: PLN = computeHybridCapex(firm)
+    val hLoan: PLN  = hCapex * 0.80
+    val hDown: PLN  = hCapex * 0.20
+    val hWkrs       = Math.max(3, (workers * SectorDefs(firm.sector.toInt).hybridRetainFrac.toDouble).toInt)
+    val hCost: PLN  = estimateMonthlyCost(firm, p.firm.hybridOpex, hWkrs, hLoan, w.hh.marketWage, lendRate, w.priceLevel)
+    val hProf       = pnl.costs > hCost * (1.05 / sigmaThreshold(w.currentSigmas(firm.sector.toInt)))
+    val hPay        = firm.cash > hDown
+    val hReady      = firm.digitalReadiness >= p.firm.hybridReadinessMin
+    val hBank       = bankCanLend(hLoan)
 
     // Network-aware mimetic pressure: blend local + global with moderate weights
     val localAuto   = computeLocalAutoRatio(firm, allFirms)
