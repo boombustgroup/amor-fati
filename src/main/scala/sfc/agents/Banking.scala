@@ -61,6 +61,60 @@ object Banking:
     case Failed(month: Int)
 
   // ---------------------------------------------------------------------------
+  // Aggregate balance sheet (sum over all per-bank BankStates)
+  // ---------------------------------------------------------------------------
+
+  /** Aggregate banking-sector balance sheet — sum over all 7 per-bank
+    * BankStates.
+    *
+    * Pure DTO recomputed every step via `Banking.State.aggregate`. Read-only
+    * snapshot consumed by output columns, SFC identities, macro feedback loops
+    * (corporate bond absorption, insurance/NBFI asset allocation), and
+    * government fiscal arithmetic. All mutation happens at the per-bank level
+    * in `Banking.BankState`; this aggregate is derived, never written back.
+    */
+  case class Aggregate(
+      totalLoans: PLN,      // Outstanding corporate loans (sum of per-bank `loans`)
+      nplAmount: PLN,       // Non-performing corporate loan stock (KNF Stage 3)
+      capital: PLN,         // Regulatory capital (Tier 1 + retained earnings)
+      deposits: PLN,        // Total customer deposits (households + firms)
+      govBondHoldings: PLN, // Treasury bond portfolio (skarbowe papiery wartościowe)
+      consumerLoans: PLN,   // Outstanding unsecured household credit
+      consumerNpl: PLN,     // Non-performing consumer loan stock
+      corpBondHoldings: PLN, // Corporate bond portfolio — bank share only (default 30%, CORPBOND_BANK_SHARE)
+  ):
+    /** Non-performing loan ratio: nplAmount / totalLoans. Returns Ratio.Zero
+      * when loan book is empty.
+      */
+    def nplRatio: Ratio = if totalLoans.toDouble > 1.0 then Ratio(nplAmount / totalLoans) else Ratio.Zero
+
+    /** Capital adequacy ratio: capital / risk-weighted assets. Corporate bonds
+      * carry 50% risk weight (Basel III, BBB bucket). Returns Ratio(10.0)
+      * (well-capitalised floor) when risk-weighted assets ≤ 1 to avoid division
+      * by zero.
+      */
+    def car: Ratio =
+      val totalRwa = (totalLoans + consumerLoans + corpBondHoldings * 0.50).toDouble
+      if totalRwa > 1.0 then Ratio(capital.toDouble / totalRwa) else Ratio(10.0)
+
+  // ---------------------------------------------------------------------------
+  // Monetary aggregates (diagnostic, not SFC-relevant)
+  // ---------------------------------------------------------------------------
+
+  /** Monetary aggregates — diagnostic, not SFC-relevant. */
+  case class MonetaryAggregates(
+      m1: PLN,                 // Bank deposits (≈ narrow money)
+      monetaryBase: PLN,       // Reserves at NBP
+      creditMultiplier: Double, // m1 / monetaryBase
+  )
+  object MonetaryAggregates:
+    val zero: MonetaryAggregates = MonetaryAggregates(PLN.Zero, PLN.Zero, 0)
+
+    def compute(deposits: PLN, reserves: PLN): MonetaryAggregates =
+      val base = Math.max(1.0, reserves.toDouble)
+      MonetaryAggregates(deposits, reserves, deposits.toDouble / base)
+
+  // ---------------------------------------------------------------------------
   // Named result types
   // ---------------------------------------------------------------------------
 
@@ -178,8 +232,8 @@ object Banking:
       configs: Vector[Config],
       interbankCurve: Option[YieldCurve.State],
   ):
-    def aggregate: sfc.accounting.BankingAggregate =
-      sfc.accounting.BankingAggregate(
+    def aggregate: Aggregate =
+      Aggregate(
         totalLoans = PLN(banks.kahanSumBy(_.loans.toDouble)),
         nplAmount = PLN(banks.kahanSumBy(_.nplAmount.toDouble)),
         capital = PLN(banks.kahanSumBy(_.capital.toDouble)),

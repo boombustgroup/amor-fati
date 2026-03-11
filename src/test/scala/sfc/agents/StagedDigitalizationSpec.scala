@@ -2,7 +2,7 @@ package sfc.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sfc.accounting.{BankingAggregate, ForexState, GovState}
+import sfc.accounting.{ForexState, GovState}
 import sfc.config.SimParams
 import sfc.engine.*
 import sfc.types.*
@@ -45,7 +45,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       totalPopulation = 100000,
       gov = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bank = BankingAggregate(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      bank = Banking.Aggregate(PLN(1000000), PLN(10000), PLN(500000), PLN(1000000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Banking.initialize(PLN(1e9), PLN(5e8), PLN(5e8), PLN.Zero, PLN.Zero, Banking.DefaultConfigs),
       forex = ForexState(4.33, PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
       hhAgg = Household.Aggregates(

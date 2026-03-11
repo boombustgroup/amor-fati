@@ -1,6 +1,6 @@
 package sfc.engine.steps
 
-import sfc.accounting.{BankingAggregate, BopState, GovState, MonetaryAggregates}
+import sfc.accounting.{BopState, GovState}
 import sfc.agents.*
 import sfc.config.SimParams
 import sfc.engine.*
@@ -24,7 +24,7 @@ object BankUpdateStep:
   )
 
   case class Output(
-      resolvedBank: BankingAggregate,
+      resolvedBank: Banking.Aggregate,
       finalBankingSector: Banking.State,
       reassignedFirms: Vector[Firm.State],
       reassignedHouseholds: Vector[Household.State],
@@ -37,7 +37,7 @@ object BankUpdateStep:
       bfgLevy: Double,
       bailInLoss: Double,
       multiCapDestruction: Double,
-      monAgg: Option[MonetaryAggregates],
+      monAgg: Option[Banking.MonetaryAggregates],
       finalHhAgg: Household.Aggregates,
       // Tax intermediates (needed by SFC check)
       vat: Double,
@@ -392,7 +392,7 @@ object BankUpdateStep:
 
     val monAgg = if p.flags.creditDiagnostics then
       val totalReserves = finalBankingSector.banks.kahanSumBy(_.reservesAtNbp.toDouble)
-      Some(MonetaryAggregates.compute(resolvedBank.deposits, PLN(totalReserves)))
+      Some(Banking.MonetaryAggregates.compute(resolvedBank.deposits, PLN(totalReserves)))
     else None
 
     Output(

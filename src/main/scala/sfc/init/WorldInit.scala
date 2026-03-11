@@ -73,7 +73,7 @@ object WorldInit:
         fxReserves = p.monetary.fxReserves,
         lastFxTraded = PLN.Zero,
       ),
-      bank = BankingAggregate(
+      bank = Banking.Aggregate(
         totalLoans = p.banking.initLoans,
         nplAmount = PLN.Zero,
         capital = p.banking.initCapital,

@@ -13,28 +13,28 @@ import sfc.types.*
   * populated during the step pipeline and do not need to be provided at init.
   */
 case class World(
-    month: Int,                                         // simulation month (1-indexed)
-    inflation: Rate,                                    // CPI YoY inflation
-    priceLevel: Double,                                 // cumulative CPI index (base = 1.0)
-    gdpProxy: Double,                                   // monthly GDP proxy
-    currentSigmas: Vector[Double],                      // per-sector σ (Arthur increasing returns)
-    totalPopulation: Int,                               // employed + immigrants + retirees
-    gov: GovState,                                      // government budget & debt
-    nbp: Nbp.State,                                     // central bank: rate, bonds, FX, QE
-    bank: BankingAggregate,                             // consolidated banking balance sheet
-    bankingSector: Banking.State,                       // multi-bank: individual states, interbank, term structure
-    forex: ForexState,                                  // EUR/PLN, exports, imports, trade balance
-    bop: BopState = BopState.zero,                      // balance of payments: NFA, CA, KA, FDI
-    hhAgg: Household.Aggregates,                        // household aggregates (employment, wages, consumption)
-    households: Vector[Household.State] = Vector.empty, // individual household states
-    monetaryAgg: Option[MonetaryAggregates] = None,     // M1, monetary base, credit multiplier (CREDIT_DIAGNOSTICS)
-    social: SocialState,                                // JST, ZUS, PPK, demographics
-    financial: FinancialMarketsState,                   // equity, corporate bonds, insurance, TFI
-    external: ExternalState,                            // GVC, immigration, tourism
-    real: RealState,                                    // housing, mobility, investment, energy, automation
-    mechanisms: MechanismsState,                        // macropru, expectations, BFG, informal economy
-    plumbing: MonetaryPlumbingState,                    // reserve corridor, standing facilities, interbank
-    flows: FlowState,                                   // single-step flows → SFC identities
+    month: Int,                                             // simulation month (1-indexed)
+    inflation: Rate,                                        // CPI YoY inflation
+    priceLevel: Double,                                     // cumulative CPI index (base = 1.0)
+    gdpProxy: Double,                                       // monthly GDP proxy
+    currentSigmas: Vector[Double],                          // per-sector σ (Arthur increasing returns)
+    totalPopulation: Int,                                   // employed + immigrants + retirees
+    gov: GovState,                                          // government budget & debt
+    nbp: Nbp.State,                                         // central bank: rate, bonds, FX, QE
+    bank: Banking.Aggregate,                                // consolidated banking balance sheet
+    bankingSector: Banking.State,                           // multi-bank: individual states, interbank, term structure
+    forex: ForexState,                                      // EUR/PLN, exports, imports, trade balance
+    bop: BopState = BopState.zero,                          // balance of payments: NFA, CA, KA, FDI
+    hhAgg: Household.Aggregates,                            // household aggregates (employment, wages, consumption)
+    households: Vector[Household.State] = Vector.empty,     // individual household states
+    monetaryAgg: Option[Banking.MonetaryAggregates] = None, // M1, monetary base, credit multiplier (CREDIT_DIAGNOSTICS)
+    social: SocialState,                                    // JST, ZUS, PPK, demographics
+    financial: FinancialMarketsState,                       // equity, corporate bonds, insurance, TFI
+    external: ExternalState,                                // GVC, immigration, tourism
+    real: RealState,                                        // housing, mobility, investment, energy, automation
+    mechanisms: MechanismsState,                            // macropru, expectations, BFG, informal economy
+    plumbing: MonetaryPlumbingState,                        // reserve corridor, standing facilities, interbank
+    flows: FlowState,                                       // single-step flows → SFC identities
 ):
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
   def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))

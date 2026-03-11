@@ -322,29 +322,25 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "MonetaryAggregates.compute" should "compute M1 as deposits" in {
-    import sfc.accounting.MonetaryAggregates
-    val agg = MonetaryAggregates.compute(PLN(1e9), PLN(1e8))
+    val agg = Banking.MonetaryAggregates.compute(PLN(1e9), PLN(1e8))
     agg.m1 shouldBe PLN(1e9)
     agg.monetaryBase shouldBe PLN(1e8)
   }
 
   it should "compute credit multiplier as M1/base" in {
-    import sfc.accounting.MonetaryAggregates
-    val agg = MonetaryAggregates.compute(PLN(4.5e9), PLN(1e9))
+    val agg = Banking.MonetaryAggregates.compute(PLN(4.5e9), PLN(1e9))
     agg.creditMultiplier shouldBe (4.5 +- 0.01)
   }
 
   it should "handle zero reserves with floor" in {
-    import sfc.accounting.MonetaryAggregates
-    val agg = MonetaryAggregates.compute(PLN(1e9), PLN.Zero)
+    val agg = Banking.MonetaryAggregates.compute(PLN(1e9), PLN.Zero)
     agg.creditMultiplier shouldBe (1e9 +- 1.0) // m1 / max(1.0, 0.0)
   }
 
   "MonetaryAggregates.zero" should "have all zero values" in {
-    import sfc.accounting.MonetaryAggregates
-    MonetaryAggregates.zero.m1 shouldBe PLN.Zero
-    MonetaryAggregates.zero.monetaryBase shouldBe PLN.Zero
-    MonetaryAggregates.zero.creditMultiplier shouldBe 0.0
+    Banking.MonetaryAggregates.zero.m1 shouldBe PLN.Zero
+    Banking.MonetaryAggregates.zero.monetaryBase shouldBe PLN.Zero
+    Banking.MonetaryAggregates.zero.creditMultiplier shouldBe 0.0
   }
 
   // =========================================================================

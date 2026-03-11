@@ -31,7 +31,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       totalPopulation = 100,
       gov = GovState(PLN.Zero, PLN.Zero, PLN(govDebt), PLN.Zero),
       nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bank = BankingAggregate(PLN(bankLoans), PLN(bankNpl), PLN(bankCapital), PLN(bankDeposits), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      bank = Banking.Aggregate(PLN(bankLoans), PLN(bankNpl), PLN(bankCapital), PLN(bankDeposits), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Banking.initialize(PLN(1e9), PLN(5e8), PLN(5e8), PLN.Zero, PLN.Zero, Banking.DefaultConfigs),
       forex = ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = Household.Aggregates(

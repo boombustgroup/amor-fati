@@ -4,6 +4,7 @@ import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import sfc.agents.Banking
 import sfc.config.SimParams
 import sfc.Generators.*
 import sfc.engine.markets.FiscalBudget
@@ -30,7 +31,7 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   // --- BankState properties ---
 
   "BankingAggregate.nplRatio" should "be in [0, 1] when totalLoans > 1" in
-    forAll(genBankingAggregate) { (bs: BankingAggregate) =>
+    forAll(genBankingAggregate) { (bs: Banking.Aggregate) =>
       whenever(bs.totalLoans > PLN(1.0)) {
         bs.nplRatio should be >= Ratio.Zero
         bs.nplRatio should be <= Ratio.One
@@ -40,7 +41,7 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   it should "be 0 when totalLoans <= 1" in
     forAll(Gen.choose(-100.0, 1.0), Gen.choose(0.0, 1e6)) { (loans: Double, capital: Double) =>
       val bs =
-        BankingAggregate(PLN(loans), PLN(500.0), PLN(capital), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+        Banking.Aggregate(PLN(loans), PLN(500.0), PLN(capital), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
       bs.nplRatio shouldBe Ratio.Zero
     }
 
@@ -48,14 +49,14 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) { (capital: Double, loans: Double) =>
       whenever(loans > 1.0) {
         val bs =
-          BankingAggregate(PLN(loans), PLN(0.0), PLN(capital), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+          Banking.Aggregate(PLN(loans), PLN(0.0), PLN(capital), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
         bs.car should be >= Ratio.Zero
       }
     }
 
   it should "be 10.0 when totalLoans <= 1" in
     forAll(Gen.choose(-100.0, 1.0)) { (loans: Double) =>
-      val bs = BankingAggregate(PLN(loans), PLN(0.0), PLN(1000.0), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+      val bs = Banking.Aggregate(PLN(loans), PLN(0.0), PLN(1000.0), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
       bs.car shouldBe Ratio(10.0)
     }
 

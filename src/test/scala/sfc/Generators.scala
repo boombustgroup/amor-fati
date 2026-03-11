@@ -127,13 +127,13 @@ object Generators:
 
   // --- Balance sheet state generators ---
 
-  val genBankingAggregate: Gen[BankingAggregate] = for
+  val genBankingAggregate: Gen[Banking.Aggregate] = for
     totalLoans <- Gen.choose(1000.0, 1e10)
     nplFrac    <- Gen.choose(0.0, 0.30)
     capital    <- Gen.choose(1000.0, 1e9)
     deposits   <- Gen.choose(0.0, 1e10)
     bonds      <- Gen.choose(0.0, 1e9)
-  yield BankingAggregate(
+  yield Banking.Aggregate(
     PLN(totalLoans),
     PLN(totalLoans * nplFrac),
     PLN(capital),
