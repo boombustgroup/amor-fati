@@ -13,14 +13,6 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
 
   // --- Initialization ---
 
-  "Expectations.zero" should "have default values" in {
-    val z = Expectations.zero
-    z.expectedInflation.toDouble shouldBe 0.025
-    z.expectedRate.toDouble shouldBe 0.0575
-    z.credibility.toDouble shouldBe 0.8
-    z.forecastError.toDouble shouldBe 0.0
-  }
-
   "Expectations.initial" should "use config values" in {
     val i = Expectations.initial
     i.expectedInflation.toDouble shouldBe p.monetary.targetInfl.toDouble

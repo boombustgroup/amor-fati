@@ -118,9 +118,9 @@ case class MechanismsState(
     effectiveShadowShare: Double = 0.0, // consumption-weighted shadow share
 )
 object MechanismsState:
-  val zero: MechanismsState = MechanismsState(
+  def zero(using SimParams): MechanismsState = MechanismsState(
     macropru = Macroprudential.State.zero,
-    expectations = Expectations.zero,
+    expectations = Expectations.initial,
   )
 
 /** NBP monetary plumbing — single-step flows from S8/S9, surfaced for

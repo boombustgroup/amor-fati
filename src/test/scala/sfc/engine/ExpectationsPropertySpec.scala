@@ -77,13 +77,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
       r.forwardGuidanceRate.toDouble.isFinite shouldBe true
     }
 
-  "zero and initial" should "have well-defined fields" in {
-    val z = Expectations.zero
-    z.expectedInflation.toDouble.isFinite shouldBe true
-    z.expectedRate.toDouble.isFinite shouldBe true
-    z.credibility.toDouble should be >= 0.0
-    z.credibility.toDouble should be <= 1.0
-
+  "initial" should "have well-defined fields" in {
     val i = Expectations.initial
     i.expectedInflation.toDouble.isFinite shouldBe true
     i.expectedRate.toDouble.isFinite shouldBe true
