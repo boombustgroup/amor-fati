@@ -355,8 +355,8 @@ object Household:
   private def tryVoluntarySearch(
       hh: State,
       status: HhStatus.Employed,
-      sectorWages: Array[Double],
-      sectorVacancies: Array[Int],
+      sectorWages: Vector[Double],
+      sectorVacancies: Vector[Int],
       rng: Random,
   )(using p: SimParams): (HhStatus, Int) =
     if !p.flags.sectoralMobility || rng.nextDouble() >= p.labor.voluntarySearchProb.toDouble then return (status, 0)
@@ -376,8 +376,8 @@ object Household:
       hh: State,
       status: HhStatus,
       neighborDistress: Double,
-      sectorWages: Option[Array[Double]],
-      sectorVacancies: Option[Array[Int]],
+      sectorWages: Option[Vector[Double]],
+      sectorVacancies: Option[Vector[Int]],
       rng: Random,
   )(using p: SimParams): (HhStatus, Int, Int) =
     status match
@@ -551,8 +551,8 @@ object Household:
       rng: Random,
       bankRates: Option[BankRates],
       equityIndexReturn: Double,
-      sectorWages: Option[Array[Double]],
-      sectorVacancies: Option[Array[Int]],
+      sectorWages: Option[Vector[Double]],
+      sectorVacancies: Option[Vector[Int]],
       distressedIds: java.util.BitSet,
   )(using p: SimParams): HhMonthlyResult =
     val f = computeMonthlyFlows(hh, world, rng, bankRates, equityIndexReturn, distressedIds)
@@ -590,8 +590,8 @@ object Household:
   /** Survival branch: skill decay, labor transitions, state update. */
   private def resolveSurvival(
       f: MonthlyFlows,
-      sectorWages: Option[Array[Double]],
-      sectorVacancies: Option[Array[Int]],
+      sectorWages: Option[Vector[Double]],
+      sectorVacancies: Option[Vector[Int]],
       rng: Random,
   )(using p: SimParams): HhMonthlyResult =
     val afterSkill  = applySkillDecay(f.hh, f.newStatus)
@@ -647,8 +647,8 @@ object Household:
       nBanks: Int = 1,
       bankRates: Option[BankRates] = None,
       equityIndexReturn: Double = 0.0,
-      sectorWages: Option[Array[Double]] = None,
-      sectorVacancies: Option[Array[Int]] = None,
+      sectorWages: Option[Vector[Double]] = None,
+      sectorVacancies: Option[Vector[Int]] = None,
   )(using p: SimParams): (Vector[State], Aggregates, Option[Vector[PerBankFlow]]) =
     val distressedIds = buildDistressedSet(households)
 

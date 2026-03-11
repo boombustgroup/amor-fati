@@ -51,53 +51,47 @@ object SectoralMobility:
   )
 
   /** Compute number of vacancies per sector. */
-  def sectorVacancies(households: Vector[Household.State], firms: Vector[Firm.State])(using SimParams): Array[Int] =
-    val workerCounts = new Array[Int](NumSectors)
-    for hh <- households do
+  def sectorVacancies(households: Vector[Household.State], firms: Vector[Firm.State])(using SimParams): Vector[Int] =
+    val workerCounts = households.foldLeft(Vector.fill(NumSectors)(0)) { (acc, hh) =>
       hh.status match
-        case HhStatus.Employed(_, sectorIdx, _) => workerCounts(sectorIdx.toInt) += 1
-        case _                                  =>
-
-    val sectorDemand = new Array[Int](NumSectors)
-    for f <- firms if Firm.isAlive(f) do sectorDemand(f.sector.toInt) += Firm.workerCount(f)
-
-    val vac = new Array[Int](NumSectors)
-    for s <- 0 until NumSectors do vac(s) = Math.max(0, sectorDemand(s) - workerCounts(s))
-    vac
+        case HhStatus.Employed(_, sectorIdx, _) => acc.updated(sectorIdx.toInt, acc(sectorIdx.toInt) + 1)
+        case _                                  => acc
+    }
+    val sectorDemand = firms.filter(Firm.isAlive).foldLeft(Vector.fill(NumSectors)(0)) { (acc, f) =>
+      acc.updated(f.sector.toInt, acc(f.sector.toInt) + Firm.workerCount(f))
+    }
+    (0 until NumSectors).map(s => Math.max(0, sectorDemand(s) - workerCounts(s))).toVector
 
   /** Compute average wage per sector from employed households. */
-  def sectorWages(households: Vector[Household.State]): Array[Double] =
-    val sums   = new Array[Double](NumSectors)
-    val counts = new Array[Int](NumSectors)
-    for hh <- households do
+  def sectorWages(households: Vector[Household.State]): Vector[Double] =
+    val (sums, counts) = households.foldLeft((Vector.fill(NumSectors)(0.0), Vector.fill(NumSectors)(0))) { case ((sums, counts), hh) =>
       hh.status match
         case HhStatus.Employed(_, sectorIdx, wage) =>
-          sums(sectorIdx.toInt) += wage.toDouble
-          counts(sectorIdx.toInt) += 1
-        case _                                     =>
-    val result = new Array[Double](NumSectors)
-    for s <- 0 until NumSectors do result(s) = if counts(s) > 0 then sums(s) / counts(s) else 0.0
-    result
+          val s = sectorIdx.toInt
+          (sums.updated(s, sums(s) + wage.toDouble), counts.updated(s, counts(s) + 1))
+        case _                                     => (sums, counts)
+    }
+    (0 until NumSectors).map(s => if counts(s) > 0 then sums(s) / counts(s) else 0.0).toVector
 
   /** Probabilistic target sector selection (gravity model). score(to) =
     * wage(to) × (vacancies(to) + 1)^vacancyWeight × (1 − friction(from,to)).
     */
   def selectTargetSector(
       from: Int,
-      wages: Array[Double],
-      vacancies: Array[Int],
+      wages: Vector[Double],
+      vacancies: Vector[Int],
       matrix: Vector[Vector[Double]],
       vacancyWeight: Double,
       rng: Random,
   )(using p: SimParams): Int =
-    val scores = new Array[Double](NumSectors)
-    var total  = 0.0
-    for to <- 0 until NumSectors if to != from do
-      val s = Math.max(0.0, wages(to)) *
-        Math.pow(vacancies(to).toDouble + 1.0, vacancyWeight) *
-        (1.0 - matrix(from)(to))
-      scores(to) = s
-      total += s
+    val scores = (0 until NumSectors).map { to =>
+      if to == from then 0.0
+      else
+        Math.max(0.0, wages(to)) *
+          Math.pow(vacancies(to).toDouble + 1.0, vacancyWeight) *
+          (1.0 - matrix(from)(to))
+    }.toVector
+    val total  = scores.sum
 
     if total <= 0.0 then
       val others = (0 until NumSectors).filter(_ != from)
