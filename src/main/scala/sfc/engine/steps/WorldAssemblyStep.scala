@@ -4,7 +4,8 @@ import sfc.accounting.*
 import sfc.agents.*
 import sfc.config.SimParams
 import sfc.engine.*
-import sfc.engine.mechanisms.SectoralMobility
+import sfc.engine.markets.EquityMarket
+import sfc.engine.mechanisms.{FirmEntry, SectoralMobility}
 import sfc.types.*
 import sfc.util.KahanSum.*
 
@@ -34,11 +35,44 @@ object WorldAssemblyStep:
       sfcResult: Sfc.SfcResult,
   )
 
-  def run(in: Input, rng: Random)(using p: SimParams): Output =
-    // GPW: finalize equity state with HH equity wealth
-    val totalHhEquityWealth = in.s9.reassignedHouseholds.kahanSumBy(_.equityWealth.toDouble)
+  /** Intermediate result for informal economy computations. */
+  private case class InformalResult(
+      taxEvasionLoss: PLN,
+      informalEmployed: Double,
+      cyclicalAdj: Double,
+      effectiveShadowShare: Double,
+  )
 
-    val equityAfterStep = in.s7.equityAfterIssuance.copy(
+  /** Intermediate result for observable values surfaced on World. */
+  private case class Observables(
+      depositFacilityUsage: PLN,
+      etsPrice: Double,
+      tourismSeasonalFactor: Double,
+  )
+
+  def run(in: Input, rng: Random)(using p: SimParams): Output =
+    val equityAfterStep = finalizeEquity(in)
+    val fofResidual     = computeFofResidual(in)
+    val informal        = computeInformalEconomy(in)
+    val obs             = computeObservables(in)
+
+    val newW      = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
+    val sfcResult = validateSfc(in, newW, fofResidual)
+
+    val postFdiFirms             = applyFdiMa(in.s9.reassignedFirms, rng)
+    val (finalFirms, firmBirths) =
+      if p.flags.firmEntry then
+        val r = FirmEntry.run(postFdiFirms, newW.real.automationRatio, newW.real.hybridRatio, rng)
+        (r.firms, r.births)
+      else (postFdiFirms, 0)
+
+    val finalW = newW.updateFlows(_.copy(firmBirths = firmBirths, firmDeaths = in.s5.firmDeaths))
+    Output(finalW, finalFirms, in.s9.reassignedHouseholds, sfcResult)
+
+  /** Finalize GPW equity state with aggregate household equity wealth. */
+  private def finalizeEquity(in: Input): EquityMarket.State =
+    val totalHhEquityWealth = in.s9.reassignedHouseholds.kahanSumBy(_.equityWealth.toDouble)
+    in.s7.equityAfterIssuance.copy(
       hhEquityWealth = PLN(totalHhEquityWealth),
       lastWealthEffect = PLN.Zero,
       lastDomesticDividends = in.s7.netDomesticDividends,
@@ -46,53 +80,78 @@ object WorldAssemblyStep:
       lastDividendTax = in.s7.dividendTax,
     )
 
-    // Flow-of-funds residual
-    val fofResidual = {
-      val totalFirmRev   = (0 until p.sectorDefs.length).map { s =>
+  /** Flow-of-funds residual: total firm revenue minus adjusted demand. */
+  private def computeFofResidual(in: Input)(using p: SimParams): PLN =
+    val totalFirmRev   = (0 until p.sectorDefs.length)
+      .map: s =>
         in.s2.living
           .filter(_.sector.toInt == s)
           .kahanSumBy(f => (Firm.computeCapacity(f) * (in.s4.sectorMults(s) * in.w.priceLevel)).toDouble)
-      }.kahanSum
-      val adjustedDemand = in.s4.sectorMults.indices.map { s =>
+      .kahanSum
+    val adjustedDemand = in.s4.sectorMults.indices
+      .map: s =>
         in.s4.sectorCap(s) * in.s4.sectorMults(s) * in.w.priceLevel
-      }.kahanSum
-      totalFirmRev - adjustedDemand
-    }
+      .kahanSum
+    PLN(totalFirmRev - adjustedDemand)
 
-    // Informal economy: aggregate metrics and next-month cyclical adjustment (#45)
-    val taxEvasionLoss         =
-      if p.flags.informal then
-        in.s5.sumCitEvasion.toDouble + (in.s9.vat.toDouble - in.s9.vatAfterEvasion.toDouble) + (in.s3.pitRevenue.toDouble - in.s9.pitAfterEvasion.toDouble) + (in.s9.exciseRevenue.toDouble - in.s9.exciseAfterEvasion.toDouble)
-      else 0.0
-    val informalEmployed       = if p.flags.informal then in.s2.employed.toDouble * in.s9.effectiveShadowShare.toDouble else 0.0
-    val newInformalCyclicalAdj = if p.flags.informal then
-      val unemp  = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
-      val target = Math.max(0.0, unemp - p.informal.unempThreshold.toDouble) * p.informal.cyclicalSens.toDouble
-      in.w.mechanisms.informalCyclicalAdj * p.informal.smoothing.toDouble + target * (1.0 - p.informal.smoothing.toDouble)
-    else 0.0
+  /** Informal economy: four-channel tax evasion (CIT, VAT, PIT, excise),
+    * estimated informal employment, and smoothed cyclical adjustment for the
+    * counter-cyclical shadow economy share.
+    */
+  private def computeInformalEconomy(in: Input)(using p: SimParams): InformalResult =
+    if !p.flags.informal then return InformalResult(PLN.Zero, 0.0, 0.0, 0.0)
 
-    // Pre-compute values surfaced on World for SimOutput
-    val aliveBanksForObs      = in.s9.finalBankingSector.banks.filterNot(_.failed)
-    val depositFacilityUsage  = aliveBanksForObs
-      .filter(_.reservesAtNbp > PLN.Zero)
-      .kahanSumBy(_.reservesAtNbp.toDouble)
-    val etsPrice              =
-      if p.flags.energy then p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, in.s1.m.toDouble)
+    val taxEvasionLoss = PLN(
+      in.s5.sumCitEvasion.toDouble + (in.s9.vat.toDouble - in.s9.vatAfterEvasion.toDouble) +
+        (in.s3.pitRevenue.toDouble - in.s9.pitAfterEvasion.toDouble) +
+        (in.s9.exciseRevenue.toDouble - in.s9.exciseAfterEvasion.toDouble),
+    )
+
+    val informalEmployed = in.s2.employed.toDouble * in.s9.effectiveShadowShare.toDouble
+
+    val unemp       = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+    val target      = Math.max(0.0, unemp - p.informal.unempThreshold.toDouble) * p.informal.cyclicalSens.toDouble
+    val cyclicalAdj = in.w.mechanisms.informalCyclicalAdj * p.informal.smoothing.toDouble +
+      target * (1.0 - p.informal.smoothing.toDouble)
+
+    val effectiveShadowShare =
+      p.fiscal.fofConsWeights
+        .map(_.toDouble)
+        .zip(p.informal.sectorShares.map(_.toDouble))
+        .map((cw, ss) => cw * Math.min(1.0, ss + cyclicalAdj))
+        .sum: Double
+
+    InformalResult(taxEvasionLoss, informalEmployed, cyclicalAdj, effectiveShadowShare)
+
+  /** Pre-compute observable values surfaced on World for SimOutput. */
+  private def computeObservables(in: Input)(using p: SimParams): Observables =
+    val aliveBanks           = in.s9.finalBankingSector.banks.filterNot(_.failed)
+    val depositFacilityUsage = PLN(
+      aliveBanks
+        .filter(_.reservesAtNbp > PLN.Zero)
+        .kahanSumBy(_.reservesAtNbp.toDouble),
+    )
+
+    val monthsPerYear = 12.0
+    val etsPrice      =
+      if p.flags.energy then p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / monthsPerYear, in.s1.m.toDouble)
       else 0.0
+
     val monthInYear           = ((in.s1.m - 1) % 12) + 1
     val tourismSeasonalFactor =
       1.0 + p.tourism.seasonality.toDouble * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
 
-    val newEffectiveShadowShare =
-      if p.flags.informal then
-        p.fiscal.fofConsWeights
-          .map(_.toDouble)
-          .zip(p.informal.sectorShares.map(_.toDouble))
-          .map((cw, ss) => cw * Math.min(1.0, ss + newInformalCyclicalAdj))
-          .sum: Double
-      else 0.0
+    Observables(depositFacilityUsage, etsPrice, tourismSeasonalFactor)
 
-    val newW = World(
+  /** Construct the new World state from all step outputs. */
+  private def assembleWorld(
+      in: Input,
+      equityAfterStep: EquityMarket.State,
+      fofResidual: PLN,
+      informal: InformalResult,
+      obs: Observables,
+  ): World =
+    World(
       month = in.s1.m,
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
@@ -126,7 +185,7 @@ object WorldAssemblyStep:
       external = ExternalState(
         gvc = in.s8.external.newGvc,
         immigration = in.s2.newImmig,
-        tourismSeasonalFactor = tourismSeasonalFactor,
+        tourismSeasonalFactor = obs.tourismSeasonalFactor,
       ),
       real = RealState(
         housing = in.s9.housingAfterFlows,
@@ -138,7 +197,7 @@ object WorldAssemblyStep:
         grossInvestment = in.s5.sumGrossInvestment,
         aggGreenInvestment = in.s5.sumGreenInvestment,
         aggGreenCapital = in.s7.aggGreenCapital,
-        etsPrice = etsPrice,
+        etsPrice = obs.etsPrice,
         automationRatio = in.s7.autoR,
         hybridRatio = in.s7.hybR,
       ),
@@ -146,41 +205,51 @@ object WorldAssemblyStep:
         macropru = in.s7.newMacropru,
         expectations = in.s8.monetary.newExp,
         bfgFundBalance = PLN(in.w.mechanisms.bfgFundBalance.toDouble + in.s9.bfgLevy.toDouble),
-        informalCyclicalAdj = newInformalCyclicalAdj,
-        effectiveShadowShare = newEffectiveShadowShare,
+        informalCyclicalAdj = informal.cyclicalAdj,
+        effectiveShadowShare = informal.effectiveShadowShare,
       ),
       plumbing = MonetaryPlumbingState(
         reserveInterestTotal = in.s8.banking.totalReserveInterest,
         standingFacilityNet = in.s8.banking.totalStandingFacilityIncome,
         interbankInterestNet = in.s8.banking.totalInterbankInterest,
-        depositFacilityUsage = PLN(depositFacilityUsage),
-        fofResidual = PLN(fofResidual),
+        depositFacilityUsage = obs.depositFacilityUsage,
+        fofResidual = fofResidual,
       ),
-      flows = FlowState(
-        ioFlows = in.s5.totalIoPaid,
-        fdiProfitShifting = in.s5.sumProfitShifting,
-        fdiRepatriation = in.s5.sumFdiRepatriation,
-        fdiCitLoss = in.s8.external.fdiCitLoss,
-        diasporaRemittanceInflow = in.s6.diasporaInflow,
-        tourismExport = in.s6.tourismExport,
-        tourismImport = in.s6.tourismImport,
-        aggInventoryStock = in.s7.aggInventoryStock,
-        aggInventoryChange = in.s7.aggInventoryChange,
-        aggEnergyCost = in.s5.sumEnergyCost,
-        firmBirths = 0,
-        firmDeaths = 0,
-        taxEvasionLoss = PLN(taxEvasionLoss),
-        informalEmployed = informalEmployed,
-        bailInLoss = in.s9.bailInLoss,
-        bfgLevyTotal = in.s9.bfgLevy.toDouble,
-        sectorDemandMult = in.s4.sectorMults,
-      ),
+      flows = buildFlowState(in, informal),
     )
 
-    // SFC accounting check
-    val prevSnap  = Sfc.snapshot(in.w, in.firms, in.w.households)
-    val currSnap  = Sfc.snapshot(newW, in.s9.reassignedFirms, in.s9.reassignedHouseholds)
-    val sfcFlows  = Sfc.MonthlyFlows(
+  /** Construct the FlowState for this step. */
+  private def buildFlowState(in: Input, informal: InformalResult): FlowState =
+    FlowState(
+      ioFlows = in.s5.totalIoPaid,
+      fdiProfitShifting = in.s5.sumProfitShifting,
+      fdiRepatriation = in.s5.sumFdiRepatriation,
+      fdiCitLoss = in.s8.external.fdiCitLoss,
+      diasporaRemittanceInflow = in.s6.diasporaInflow,
+      tourismExport = in.s6.tourismExport,
+      tourismImport = in.s6.tourismImport,
+      aggInventoryStock = in.s7.aggInventoryStock,
+      aggInventoryChange = in.s7.aggInventoryChange,
+      aggEnergyCost = in.s5.sumEnergyCost,
+      firmBirths = 0,
+      firmDeaths = 0,
+      taxEvasionLoss = informal.taxEvasionLoss,
+      informalEmployed = informal.informalEmployed,
+      bailInLoss = in.s9.bailInLoss,
+      bfgLevyTotal = in.s9.bfgLevy.toDouble,
+      sectorDemandMult = in.s4.sectorMults,
+    )
+
+  /** Run SFC validation against previous and current snapshots. */
+  private def validateSfc(in: Input, newW: World, fofResidual: PLN)(using p: SimParams): Sfc.SfcResult =
+    val prevSnap = Sfc.snapshot(in.w, in.firms, in.w.households)
+    val currSnap = Sfc.snapshot(newW, in.s9.reassignedFirms, in.s9.reassignedHouseholds)
+    val flows    = buildMonthlyFlows(in, fofResidual)
+    Sfc.validate(prevSnap, currSnap, flows)
+
+  /** Construct Sfc.MonthlyFlows from all step outputs. */
+  private def buildMonthlyFlows(in: Input, fofResidual: PLN)(using p: SimParams): Sfc.MonthlyFlows =
+    Sfc.MonthlyFlows(
       govSpending = PLN(
         in.s9.newGovWithYield.unempBenefitSpend.toDouble
           + in.s9.newGovWithYield.socialTransferSpend.toDouble
@@ -221,7 +290,7 @@ object WorldAssemblyStep:
       mortgagePrincipalRepaid = in.s9.mortgagePrincipal,
       mortgageDefaultAmount = in.s9.mortgageDefaultAmount,
       remittanceOutflow = in.s6.remittanceOutflow,
-      fofResidual = PLN(fofResidual),
+      fofResidual = fofResidual,
       consumerDebtService = in.s6.consumerDebtService,
       consumerNplLoss = in.s6.consumerNplLoss,
       consumerOrigination = in.s6.consumerOrigination,
@@ -247,132 +316,16 @@ object WorldAssemblyStep:
       bankCapitalDestruction = in.s9.multiCapDestruction,
       investNetDepositFlow = in.s9.investNetDepositFlow,
     )
-    val sfcResult = Sfc.validate(prevSnap, currSnap, sfcFlows)
 
-    // FDI M&A: monthly domestic → foreign conversion (#33)
-    val postFdiFirms =
-      if p.flags.fdi && p.fdi.maProb.toDouble > 0 then
-        in.s9.reassignedFirms.map { f =>
-          if Firm.isAlive(f) && !f.foreignOwned &&
-            f.initialSize >= p.fdi.maSizeMin &&
-            rng.nextDouble() < p.fdi.maProb.toDouble
-          then f.copy(foreignOwned = true)
-          else f
-        }
-      else in.s9.reassignedFirms
-
-    // Endogenous Firm Entry (#35): recycle bankrupt slots
-    val (finalFirms, firmBirths) = if p.flags.firmEntry then
-      val postLiving    = postFdiFirms.filter(Firm.isAlive)
-      val sectorCashSum = Array.fill(p.sectorDefs.length)(0.0)
-      val sectorCashCnt = Array.fill(p.sectorDefs.length)(0)
-      for f <- postLiving do
-        sectorCashSum(f.sector.toInt) += f.cash.toDouble
-        sectorCashCnt(f.sector.toInt) += 1
-      val sectorAvgCash =
-        p.sectorDefs.indices.map(s => if sectorCashCnt(s) > 0 then sectorCashSum(s) / sectorCashCnt(s) else 0.0).toArray
-      val globalAvgCash = if postLiving.nonEmpty then postLiving.map(_.cash.toDouble).sum / postLiving.length else 1.0
-      val profitSignals = sectorAvgCash.map { c =>
-        Math.max(-1.0, Math.min(2.0, (c - globalAvgCash) / Math.max(1.0, Math.abs(globalAvgCash))))
-      }
-
-      val sectorWeights = p.sectorDefs.indices.map { s =>
-        Math.max(
-          0.01,
-          (1.0 + profitSignals(s) * p.firm.entryProfitSens) *
-            p.firm.entrySectorBarriers(s),
-        )
-      }.toArray
-      val totalWeight   = sectorWeights.sum
-
-      val totalAdoption = newW.real.automationRatio.toDouble + newW.real.hybridRatio.toDouble
-      val livingIds     = postLiving.map(_.id.toInt)
-      var births        = 0
-
-      val result = postFdiFirms.map { f =>
-        if !Firm.isAlive(f) then
-          val slotSector = f.sector.toInt
-          val entryProb  = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(slotSector) *
-            Math.max(0.0, 1.0 + profitSignals(slotSector) * p.firm.entryProfitSens)
-          if rng.nextDouble() < entryProb then
-            births += 1
-            val roll      = rng.nextDouble() * totalWeight
-            var cumul     = 0.0
-            var newSector = 0
-            var found     = false
-            for s <- p.sectorDefs.indices if !found do
-              cumul += sectorWeights(s)
-              if roll < cumul then { newSector = s; found = true }
-
-            val firmSize = Math.max(1, rng.between(1, 10))
-            val sizeMult = firmSize.toDouble / p.pop.workersPerFirm
-
-            val isAiNative   = totalAdoption > p.firm.entryAiThreshold.toDouble &&
-              rng.nextDouble() < p.firm.entryAiProb.toDouble
-            val dr           =
-              if isAiNative then rng.between(0.50, 0.90)
-              else
-                Math.max(
-                  0.02,
-                  Math.min(0.30, p.sectorDefs(newSector).baseDigitalReadiness.toDouble + rng.nextGaussian() * 0.10),
-                )
-            val startWorkers = 0 // workers hired via labor market
-            val tech         = if isAiNative then
-              val hw = Math.max(1, (startWorkers * 0.6).toInt)
-              TechState.Hybrid(hw, 0.5 + rng.nextDouble() * 0.3)
-            else TechState.Traditional(startWorkers)
-
-            val nNeighbors   = Math.min(6, livingIds.length)
-            val newNeighbors =
-              if nNeighbors > 0 then rng.shuffle(livingIds.toList).take(nNeighbors).map(FirmId(_)).toVector
-              else Vector.empty[FirmId]
-
-            val newBankId = Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, rng)
-
-            val foreignOwned = p.flags.fdi &&
-              rng.nextDouble() < p.fdi.foreignShares.map(_.toDouble)(newSector)
-
-            val capitalStock =
-              if p.flags.physCap then firmSize.toDouble * p.capital.klRatios.map(_.toDouble)(newSector)
-              else 0.0
-
-            val initInventory = if p.flags.inventory then
-              val cap = p.firm.baseRevenue.toDouble * (firmSize.toDouble / p.pop.workersPerFirm) *
-                p.sectorDefs(newSector).revenueMultiplier
-              cap * p.capital.inventoryTargetRatios.map(_.toDouble)(newSector) * p.capital.inventoryInitRatio.toDouble
-            else 0.0
-
-            val initGreenK =
-              if p.flags.energy then
-                firmSize.toDouble * p.climate.greenKLRatios.map(_.toDouble)(
-                  newSector,
-                ) * p.climate.greenInitRatio.toDouble
-              else 0.0
-
-            Firm.State(
-              id = f.id,
-              cash = PLN(p.firm.entryStartupCash.toDouble * sizeMult),
-              debt = PLN.Zero,
-              tech = tech,
-              riskProfile = Ratio(rng.between(0.1, 0.9)),
-              innovationCostFactor = rng.between(0.8, 1.5),
-              digitalReadiness = Ratio(dr),
-              sector = SectorIdx(newSector),
-              neighbors = newNeighbors,
-              bankId = newBankId,
-              equityRaised = PLN.Zero,
-              initialSize = firmSize,
-              capitalStock = PLN(capitalStock),
-              bondDebt = PLN.Zero,
-              foreignOwned = foreignOwned,
-              inventory = PLN(initInventory),
-              greenCapital = PLN(initGreenK),
-            )
-          else f
+  /** FDI M&A: monthly stochastic conversion of domestic firms to foreign
+    * ownership, representing cross-border mergers and acquisitions.
+    */
+  private def applyFdiMa(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
+    if p.flags.fdi && p.fdi.maProb.toDouble > 0 then
+      firms.map: f =>
+        if Firm.isAlive(f) && !f.foreignOwned &&
+          f.initialSize >= p.fdi.maSizeMin &&
+          rng.nextDouble() < p.fdi.maProb.toDouble
+        then f.copy(foreignOwned = true)
         else f
-      }
-      (result, births)
-    else (postFdiFirms, 0)
-
-    val finalW = newW.updateFlows(_.copy(firmBirths = firmBirths, firmDeaths = in.s5.firmDeaths))
-    Output(finalW, finalFirms, in.s9.reassignedHouseholds, sfcResult)
+    else firms
