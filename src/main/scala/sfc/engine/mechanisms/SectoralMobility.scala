@@ -84,35 +84,41 @@ object SectoralMobility:
       vacancyWeight: Double,
       rng: Random,
   )(using p: SimParams): Int =
-    val scores = (0 until NumSectors).map { to =>
+    val scores = gravityScores(from, wages, vacancies, matrix, vacancyWeight)
+    val total  = scores.sum
+    if total <= 0.0 then uniformFallback(from, rng)
+    else rouletteSelect(scores, from, rng.nextDouble() * total)
+
+  /** Gravity-model attractiveness score per destination sector. */
+  private def gravityScores(
+      from: Int,
+      wages: Vector[PLN],
+      vacancies: Vector[Int],
+      matrix: Vector[Vector[Double]],
+      vacancyWeight: Double,
+  ): Vector[Double] =
+    (0 until NumSectors).map { to =>
       if to == from then 0.0
       else
         wages(to).max(PLN.Zero).toDouble *
           Math.pow(vacancies(to).toDouble + 1.0, vacancyWeight) *
           (1.0 - matrix(from)(to))
     }.toVector
-    val total  = scores.sum
 
-    if total <= 0.0 then
-      val others = (0 until NumSectors).filter(_ != from)
-      others(rng.nextInt(others.length))
-    else
-      val r   = rng.nextDouble() * total
-      var cum = 0.0
-      var sel = -1
-      var i   = 0
-      while i < NumSectors && sel < 0 do
-        if i != from && scores(i) > 0 then
-          cum += scores(i)
-          if cum >= r then sel = i
-        i += 1
-      if sel < 0 then (0 until NumSectors).find(to => to != from && scores(to) > 0).getOrElse(if from == 0 then 1 else 0)
-      else sel
+  /** Roulette-wheel selection over non-zero scores (pure, no vars). */
+  private def rouletteSelect(scores: Vector[Double], from: Int, threshold: Double): Int =
+    val cumulative = scores.scanLeft(0.0)(_ + _).tail // cumulative sums, length = NumSectors
+    cumulative.indexWhere(_ >= threshold) match
+      case idx if idx >= 0 && idx != from => idx
+      case _                              => scores.indices.find(i => i != from && scores(i) > 0).getOrElse(if from == 0 then 1 else 0)
+
+  /** Uniform random fallback when all scores are zero. */
+  private def uniformFallback(from: Int, rng: Random): Int =
+    val others = (0 until NumSectors).filter(_ != from)
+    others(rng.nextInt(others.length))
 
   /** Adjust retraining duration and cost by friction level. */
-  def frictionAdjustedParams(friction: Double, durationMult: Double, costMult: Double)(using
-      p: SimParams,
-  ): (Int, Double) =
+  def frictionAdjustedParams(friction: Double, durationMult: Double, costMult: Double)(using p: SimParams): (Int, Double) =
     val adjDuration = Math.round(p.household.retrainingDuration * (1.0 + friction * durationMult)).toInt
     val adjCost     = p.household.retrainingCost.toDouble * (1.0 + friction * costMult)
     (adjDuration, adjCost)
