@@ -187,13 +187,21 @@ object OpenEconomyStep:
     )
 
     // --- Corporate bond market step (#40) ---
-    val corpBondAmort                      = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
-    val newCorpBonds                       = CorporateBondMarket
-      .step(in.w.financial.corporateBonds, newBondYield.toDouble, in.w.bank.nplRatio.toDouble, in.s5.totalBondDefault, in.s5.actualBondIssuance)
+    val corpBondAmort    = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
+    val newCorpBonds     = CorporateBondMarket
+      .step(
+        CorporateBondMarket.StepInput(
+          prev = in.w.financial.corporateBonds,
+          govBondYield = newBondYield,
+          nplRatio = in.w.bank.nplRatio,
+          totalBondDefault = PLN(in.s5.totalBondDefault),
+          totalBondIssuance = PLN(in.s5.actualBondIssuance),
+        ),
+      )
       .copy(lastAbsorptionRate = Ratio(in.s5.corpBondAbsorption))
-    val (_, corpBondBankCoupon, _)         = CorporateBondMarket.computeCoupon(in.w.financial.corporateBonds)
-    val (_, _, corpBondBankDefaultLoss, _) =
-      CorporateBondMarket.processDefaults(in.w.financial.corporateBonds, in.s5.totalBondDefault)
+    val corpBondCoupon   = CorporateBondMarket.computeCoupon(in.w.financial.corporateBonds)
+    val corpBondDefaults =
+      CorporateBondMarket.processDefaults(in.w.financial.corporateBonds, PLN(in.s5.totalBondDefault))
 
     // --- Insurance sector step ---
     val insUnempRate        = Ratio(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
@@ -249,9 +257,9 @@ object OpenEconomyStep:
       postFxNbp,
       qePurchaseAmount,
       newCorpBonds,
-      corpBondBankCoupon,
-      corpBondBankDefaultLoss,
-      corpBondAmort,
+      corpBondCoupon.bank.toDouble,
+      corpBondDefaults.bankLoss.toDouble,
+      corpBondAmort.toDouble,
       newInsurance,
       insNetDepositChange,
       newNbfi,

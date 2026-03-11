@@ -140,12 +140,14 @@ object FirmProcessingStep:
     }
 
     val corpBondAbsorption =
-      CorporateBondMarket.computeAbsorption(
-        in.w.financial.corporateBonds,
-        sumBondIssuance,
-        in.w.bank.car.toDouble,
-        p.banking.minCar.toDouble,
-      )
+      CorporateBondMarket
+        .computeAbsorption(
+          in.w.financial.corporateBonds,
+          PLN(sumBondIssuance),
+          in.w.bank.car,
+          p.banking.minCar,
+        )
+        .toDouble
     val actualBondIssuance = sumBondIssuance * corpBondAbsorption
     val revertRatio        = 1.0 - corpBondAbsorption
     val adjustedFirms      =
