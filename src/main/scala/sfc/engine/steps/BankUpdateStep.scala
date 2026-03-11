@@ -140,22 +140,32 @@ object BankUpdateStep:
       in.s5.sumGreenInvestment * (1.0 - p.climate.greenImportShare.toDouble)
     val investNetDepositFlow  = in.s4.laggedInvestDemand - currentInvestDomestic
 
-    val newBank = in.w.bank.copy(
+    val aggCapitalPnl = Banking.computeCapitalDelta(
+      Banking.CapitalPnlInput(
+        prevCapital = in.w.bank.capital,
+        nplLoss = PLN(in.s5.nplLoss),
+        mortgageNplLoss = mortgageFlows.defaultLoss,
+        consumerNplLoss = PLN(in.s6.consumerNplLoss),
+        corpBondDefaultLoss = PLN(in.s8.corpBondBankDefaultLoss),
+        bfgLevy = PLN(bfgLevy),
+        intIncome = PLN(in.s5.intIncome),
+        hhDebtService = PLN(in.s6.hhDebtService),
+        bondIncome = PLN(in.s8.bankBondIncome),
+        depositInterest = PLN(in.s6.depositInterestPaid),
+        reserveInterest = PLN(in.s8.totalReserveInterest),
+        standingFacilityIncome = PLN(in.s8.totalStandingFacilityIncome),
+        interbankInterest = PLN(in.s8.totalInterbankInterest),
+        mortgageInterestIncome = mortgageFlows.interest,
+        consumerDebtService = PLN(in.s6.consumerDebtService),
+        corpBondCoupon = PLN(in.s8.corpBondBankCoupon),
+      ),
+    )
+    val newBank       = in.w.bank.copy(
       totalLoans = PLN(
         Math.max(0, in.w.bank.totalLoans.toDouble + in.s5.sumNewLoans - in.s5.nplNew * p.banking.loanRecovery.toDouble),
       ),
       nplAmount = PLN(Math.max(0, in.w.bank.nplAmount.toDouble + in.s5.nplNew - in.w.bank.nplAmount.toDouble * 0.05)),
-      capital = PLN(
-        in.w.bank.capital.toDouble - in.s5.nplLoss - mortgageFlows.defaultLoss.toDouble - in.s6.consumerNplLoss
-          - in.s8.corpBondBankDefaultLoss - bfgLevy
-          + in.s5.intIncome * p.banking.profitRetention.toDouble + in.s6.hhDebtService * p.banking.profitRetention.toDouble
-          + in.s8.bankBondIncome * p.banking.profitRetention.toDouble - in.s6.depositInterestPaid * p.banking.profitRetention.toDouble
-          + in.s8.totalReserveInterest * p.banking.profitRetention.toDouble + in.s8.totalStandingFacilityIncome * p.banking.profitRetention.toDouble
-          + in.s8.totalInterbankInterest * p.banking.profitRetention.toDouble
-          + mortgageFlows.interest.toDouble * p.banking.profitRetention.toDouble
-          + in.s6.consumerDebtService * p.banking.profitRetention.toDouble
-          + in.s8.corpBondBankCoupon * p.banking.profitRetention.toDouble,
-      ),
+      capital = aggCapitalPnl.newCapital,
       deposits = PLN(
         in.w.bank.deposits.toDouble + (in.s3.totalIncome - in.s3.consumption) + investNetDepositFlow
           + jstDepositChange
@@ -290,18 +300,30 @@ object BankUpdateStep:
       val bankBfgLevy             =
         if p.flags.bankFailure && !b.failed then b.deposits.toDouble * p.banking.bfgLevyRate.toDouble / 12.0
         else 0.0
+      val capitalPnl              = Banking.computeCapitalDelta(
+        Banking.CapitalPnlInput(
+          prevCapital = b.capital,
+          nplLoss = PLN(bankNplLoss),
+          mortgageNplLoss = PLN(bankMortgageNplLoss),
+          consumerNplLoss = PLN(bankCcNplLoss),
+          corpBondDefaultLoss = PLN(bankCorpBondDefaultLoss),
+          bfgLevy = PLN(bankBfgLevy),
+          intIncome = PLN(bankIntIncome),
+          hhDebtService = PLN(bankHhDebtService),
+          bondIncome = PLN(bankBondInc),
+          depositInterest = PLN(bankDepInterest),
+          reserveInterest = PLN(bankResInt),
+          standingFacilityIncome = PLN(bankSfInc),
+          interbankInterest = PLN(bankIbInt),
+          mortgageInterestIncome = PLN(bankMortgageIntIncome),
+          consumerDebtService = PLN(bankCcDSvc),
+          corpBondCoupon = PLN(bankCorpBondCoupon),
+        ),
+      )
       b.copy(
         loans = PLN(newLoansTotal),
         nplAmount = PLN(Math.max(0.0, b.nplAmount.toDouble + bankNplNew - b.nplAmount.toDouble * 0.05)),
-        capital = PLN(
-          b.capital.toDouble - bankNplLoss - bankMortgageNplLoss - bankCcNplLoss
-            - bankCorpBondDefaultLoss - bankBfgLevy + bankIntIncome * p.banking.profitRetention.toDouble +
-            bankHhDebtService * p.banking.profitRetention.toDouble + bankBondInc * p.banking.profitRetention.toDouble - bankDepInterest * p.banking.profitRetention.toDouble
-            + bankResInt * p.banking.profitRetention.toDouble + bankSfInc * p.banking.profitRetention.toDouble + bankIbInt * p.banking.profitRetention.toDouble
-            + bankMortgageIntIncome * p.banking.profitRetention.toDouble
-            + bankCcDSvc * p.banking.profitRetention.toDouble
-            + bankCorpBondCoupon * p.banking.profitRetention.toDouble,
-        ),
+        capital = capitalPnl.newCapital,
         deposits = PLN(newDep),
         demandDeposits = PLN(newDep * (1.0 - p.banking.termDepositFrac.toDouble)),
         termDeposits = PLN(newDep * p.banking.termDepositFrac.toDouble),

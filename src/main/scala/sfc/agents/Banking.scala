@@ -571,6 +571,49 @@ object Banking:
         result
 
   // ---------------------------------------------------------------------------
+  // Per-bank capital PnL
+  // ---------------------------------------------------------------------------
+
+  /** All per-bank PnL components needed to compute the capital delta. */
+  case class CapitalPnlInput(
+      prevCapital: PLN,            // previous period capital
+      nplLoss: PLN,                // corporate NPL loss (after recovery)
+      mortgageNplLoss: PLN,        // mortgage default loss (bank share)
+      consumerNplLoss: PLN,        // consumer credit NPL loss (after recovery)
+      corpBondDefaultLoss: PLN,    // corporate bond default loss (bank share)
+      bfgLevy: PLN,                // BFG resolution fund levy
+      intIncome: PLN,              // interest income on corporate loans
+      hhDebtService: PLN,          // household mortgage debt service
+      bondIncome: PLN,             // government bond coupon income
+      depositInterest: PLN,        // interest paid on deposits (cost)
+      reserveInterest: PLN,        // reserve remuneration from NBP
+      standingFacilityIncome: PLN, // standing facility net income
+      interbankInterest: PLN,      // interbank market interest
+      mortgageInterestIncome: PLN, // mortgage interest income (bank share)
+      consumerDebtService: PLN,    // consumer credit debt service
+      corpBondCoupon: PLN,         // corporate bond coupon income (bank share)
+  )
+
+  /** Result of per-bank capital PnL computation. */
+  case class CapitalPnlOutput(
+      newCapital: PLN, // updated capital after all PnL flows
+  )
+
+  /** Compute new bank capital from previous capital and monthly PnL flows.
+    *
+    * Pure function: losses reduce capital 1:1, income items are retained at
+    * `profitRetention` rate (SimParams).
+    */
+  def computeCapitalDelta(in: CapitalPnlInput)(using p: SimParams): CapitalPnlOutput =
+    val retain    = p.banking.profitRetention.toDouble
+    val losses    =
+      in.nplLoss.toDouble + in.mortgageNplLoss.toDouble + in.consumerNplLoss.toDouble + in.corpBondDefaultLoss.toDouble + in.bfgLevy.toDouble
+    val retIncome = (in.intIncome.toDouble + in.hhDebtService.toDouble + in.bondIncome.toDouble - in.depositInterest.toDouble
+      + in.reserveInterest.toDouble + in.standingFacilityIncome.toDouble + in.interbankInterest.toDouble
+      + in.mortgageInterestIncome.toDouble + in.consumerDebtService.toDouble + in.corpBondCoupon.toDouble) * retain
+    CapitalPnlOutput(newCapital = PLN(in.prevCapital.toDouble - losses + retIncome))
+
+  // ---------------------------------------------------------------------------
   // Monetary plumbing
   // ---------------------------------------------------------------------------
 
