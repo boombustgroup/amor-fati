@@ -10,15 +10,32 @@ import sfc.util.KahanSum.*
 
 import scala.util.Random
 
+/** Price level dynamics, GPW equity market, GDP computation, macroprudential
+  * policy, Arthur-style sigma evolution, and network rewiring for bankrupt firm
+  * replacement. Integrates real-side aggregates with financial market state.
+  */
 object PriceEquityStep:
 
+  // ---- Calibration constants ----
+  private val StartupCashMin    = 10000.0 // minimum startup cash for rewired entrant (PLN)
+  private val StartupCashMax    = 80000.0 // maximum startup cash for rewired entrant (PLN)
+  private val RiskProfileMin    = 0.1     // minimum risk profile draw for new entrant
+  private val RiskProfileMax    = 0.9     // maximum risk profile draw for new entrant
+  private val InnovCostMin      = 0.8     // minimum innovation cost factor draw
+  private val InnovCostMax      = 1.5     // maximum innovation cost factor draw
+  private val DigitalReadyFloor = 0.02    // minimum digital readiness for rewired entrant
+  private val DigitalReadyCap   = 0.98    // maximum digital readiness for rewired entrant
+  private val DigitalReadyNoise = 0.20    // std dev of Gaussian noise on sector base DR
+  private val AiMaintRealShare  = 0.60    // real (price-insensitive) share of AI/hybrid maintenance cost
+  private val AiMaintNomShare   = 0.40    // nominal (price-sensitive) share of AI/hybrid maintenance cost
+
   case class Input(
-      w: World,
-      s1: FiscalConstraintStep.Output,
-      s2: LaborDemographicsStep.Output,
-      s3: HouseholdIncomeStep.Output,
-      s4: DemandStep.Output,
-      s5: FirmProcessingStep.Output,
+      w: World,                         // current world state
+      s1: FiscalConstraintStep.Output,  // fiscal constraint (month counter)
+      s2: LaborDemographicsStep.Output, // labor/demographics (employment, wage, living firms)
+      s3: HouseholdIncomeStep.Output,   // household income (domestic consumption)
+      s4: DemandStep.Output,            // demand (sector multipliers, gov purchases)
+      s5: FirmProcessingStep.Output,    // firm processing (I-O firms, equity issuance, investment)
   )
 
   case class Output(
@@ -212,15 +229,15 @@ object PriceEquityStep:
         val sizeMult = newSize.toDouble / p.pop.workersPerFirm
         Firm.State(
           id = FirmId(i),
-          cash = PLN(rng.between(10000.0, 80000.0) * sizeMult),
+          cash = PLN(rng.between(StartupCashMin, StartupCashMax) * sizeMult),
           debt = PLN.Zero,
           tech = TechState.Traditional(newSize),
-          riskProfile = Ratio(rng.between(0.1, 0.9)),
-          innovationCostFactor = rng.between(0.8, 1.5),
+          riskProfile = Ratio(rng.between(RiskProfileMin, RiskProfileMax)),
+          innovationCostFactor = rng.between(InnovCostMin, InnovCostMax),
           digitalReadiness = Ratio(
             Math.max(
-              0.02,
-              Math.min(0.98, p.sectorDefs(sec.toInt).baseDigitalReadiness.toDouble + (rng.nextGaussian() * 0.20)),
+              DigitalReadyFloor,
+              Math.min(DigitalReadyCap, p.sectorDefs(sec.toInt).baseDigitalReadiness.toDouble + (rng.nextGaussian() * DigitalReadyNoise)),
             ),
           ),
           sector = sec,
@@ -320,8 +337,8 @@ object PriceEquityStep:
       val labor    = Firm.workerCount(f) * in.s2.newWage.toDouble * p.sectorDefs(f.sector.toInt).wageMultiplier
       val other    = p.firm.otherCosts.toDouble * newPrice
       val aiMaint  = f.tech match
-        case _: TechState.Automated => p.firm.aiOpex.toDouble * (0.60 + 0.40 * newPrice)
-        case _: TechState.Hybrid    => p.firm.hybridOpex.toDouble * (0.60 + 0.40 * newPrice)
+        case _: TechState.Automated => p.firm.aiOpex.toDouble * (AiMaintRealShare + AiMaintNomShare * newPrice)
+        case _: TechState.Hybrid    => p.firm.hybridOpex.toDouble * (AiMaintRealShare + AiMaintNomShare * newPrice)
         case _                      => 0.0
       val interest = f.debt.toDouble * in.s5.lendingRates(f.bankId.toInt) / 12.0
       val gross    = rev - labor - other - aiMaint - interest

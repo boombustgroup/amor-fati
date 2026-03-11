@@ -8,17 +8,26 @@ import sfc.engine.mechanisms.Expectations
 import sfc.types.*
 import sfc.util.KahanSum.*
 
+/** Open economy step: monetary policy (Taylor rule, expectations), bond market
+  * (yield, QE), external sector (forex, BOP, GVC trade), corporate bonds, and
+  * non-bank financial institutions (insurance, NBFI/TFI). Integrates all
+  * cross-border and financial-sector flows into a single coherent update.
+  */
 object OpenEconomyStep:
 
+  // ---- Calibration constants ----
+  private val NbfiDepositRateSpread  = 0.02 // NBFI deposit rate spread below reference rate
+  private val MaxDebtServiceGdpShare = 0.50 // max monthly debt service as fraction of GDP proxy
+
   case class Input(
-      w: World,
-      s1: FiscalConstraintStep.Output,
-      s2: LaborDemographicsStep.Output,
-      s3: HouseholdIncomeStep.Output,
-      s4: DemandStep.Output,
-      s5: FirmProcessingStep.Output,
-      s6: HouseholdFinancialStep.Output,
-      s7: PriceEquityStep.Output,
+      w: World,                          // current world state
+      s1: FiscalConstraintStep.Output,   // fiscal constraint (month counter, lending base rate)
+      s2: LaborDemographicsStep.Output,  // labor/demographics (employment, wage)
+      s3: HouseholdIncomeStep.Output,    // household income (domestic consumption, import consumption)
+      s4: DemandStep.Output,             // demand (sector multipliers, gov purchases)
+      s5: FirmProcessingStep.Output,     // firm processing (loans, NPL, bond issuance, I-O firms)
+      s6: HouseholdFinancialStep.Output, // household financial (debt service, remittances, tourism)
+      s7: PriceEquityStep.Output,        // price/equity (inflation, GDP, equity state, macropru)
   )
 
   case class MonetaryPolicy(
@@ -299,7 +308,7 @@ object OpenEconomyStep:
 
     // Debt service: use LAGGED bond stock
     val rawDebtService     = in.w.gov.bondsOutstanding.toDouble * newBondYield.toDouble / 12.0
-    val monthlyDebtService = PLN(Math.min(rawDebtService, in.w.gdpProxy * 0.50))
+    val monthlyDebtService = PLN(Math.min(rawDebtService, in.w.gdpProxy * MaxDebtServiceGdpShare))
     val bankBondIncome     = PLN(in.w.bank.govBondHoldings.toDouble * newBondYield.toDouble / 12.0)
     val nbpBondIncome      = in.w.nbp.govBondHoldings.toDouble * newBondYield.toDouble / 12.0
     val nbpRemittance      = PLN(nbpBondIncome - interbank.reserveInterest.toDouble - interbank.standingFacilityIncome.toDouble)
@@ -359,7 +368,7 @@ object OpenEconomyStep:
     InsuranceResult(newInsurance)
 
   private def stepNbfi(in: Input, postFxNbp: Nbp.State, newBondYield: Rate)(using p: SimParams): NbfiResult =
-    val nbfiDepositRate = Rate(Math.max(0.0, postFxNbp.referenceRate.toDouble - 0.02))
+    val nbfiDepositRate = Rate(Math.max(0.0, postFxNbp.referenceRate.toDouble - NbfiDepositRateSpread))
     val nbfiUnempRate   = Ratio(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
     val newNbfi         =
       if p.flags.nbfi then

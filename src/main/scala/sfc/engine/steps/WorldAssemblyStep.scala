@@ -11,6 +11,12 @@ import sfc.util.KahanSum.*
 
 import scala.util.Random
 
+/** World assembly: constructs the new World state from all step outputs,
+  * validates SFC accounting identities, applies FDI M&A conversions, and
+  * triggers endogenous firm entry. Also computes informal economy effects
+  * (four-channel tax evasion), observable values (ETS price, tourism seasonal
+  * factor, deposit facility usage), and the flow-of-funds residual.
+  */
 object WorldAssemblyStep:
 
   case class Input(

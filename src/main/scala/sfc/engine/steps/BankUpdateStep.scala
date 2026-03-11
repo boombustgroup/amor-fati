@@ -8,7 +8,19 @@ import sfc.engine.mechanisms.{TaxRevenue, YieldCurve}
 import sfc.types.*
 import sfc.util.KahanSum.*
 
+/** Bank balance sheet update: capital PnL, loan/NPL dynamics, deposit flows,
+  * government bond allocation (PPK, insurance, TFI), multi-bank resolution path
+  * with interbank clearing, failure detection, bail-in, and firm/household
+  * reassignment. Also computes tax revenue, housing mortgage flows, and
+  * monetary aggregates (M1/M2/M3).
+  */
 object BankUpdateStep:
+
+  // ---- Calibration constants ----
+  private val NplMonthlyWriteOff = 0.05 // monthly NPL write-off rate (aggregate and per-bank)
+  private val ShortLoanFrac      = 0.20 // fraction of loans in short-term maturity bucket
+  private val MediumLoanFrac     = 0.30 // fraction of loans in medium-term maturity bucket
+  private val LongLoanFrac       = 0.50 // fraction of loans in long-term maturity bucket
 
   case class Input(
       w: World,
@@ -252,7 +264,7 @@ object BankUpdateStep:
       investNetDepositFlow: PLN,
       jstDepositChange: PLN,
   )(using p: SimParams): Banking.Aggregate =
-    val aggCapitalPnl   = Banking.computeCapitalDelta(
+    val aggCapitalPnl = Banking.computeCapitalDelta(
       Banking.CapitalPnlInput(
         prevCapital = in.w.bank.capital,
         nplLoss = in.s5.nplLoss,
@@ -272,10 +284,9 @@ object BankUpdateStep:
         corpBondCoupon = in.s8.corpBonds.corpBondBankCoupon,
       ),
     )
-    val nplWriteOffRate = 0.05 // monthly NPL write-off rate
     in.w.bank.copy(
       totalLoans = (in.w.bank.totalLoans + in.s5.sumNewLoans - in.s5.nplNew * p.banking.loanRecovery.toDouble).max(PLN.Zero),
-      nplAmount = (in.w.bank.nplAmount + in.s5.nplNew - in.w.bank.nplAmount * nplWriteOffRate).max(PLN.Zero),
+      nplAmount = (in.w.bank.nplAmount + in.s5.nplNew - in.w.bank.nplAmount * NplMonthlyWriteOff).max(PLN.Zero),
       capital = aggCapitalPnl.newCapital,
       deposits = in.w.bank.deposits + (in.s3.totalIncome - in.s3.consumption) + investNetDepositFlow
         + jstDepositChange
@@ -283,7 +294,7 @@ object BankUpdateStep:
         + in.s6.tourismExport - in.s6.tourismImport
         + in.s6.consumerOrigination + in.s8.nonBank.insNetDepositChange + in.s8.nonBank.nbfiDepositDrain,
       consumerLoans = (in.w.bank.consumerLoans + in.s6.consumerOrigination - in.s6.consumerPrincipal - in.s6.consumerDefaultAmt).max(PLN.Zero),
-      consumerNpl = (in.w.bank.consumerNpl + in.s6.consumerDefaultAmt - in.w.bank.consumerNpl * nplWriteOffRate).max(PLN.Zero),
+      consumerNpl = (in.w.bank.consumerNpl + in.s6.consumerDefaultAmt - in.w.bank.consumerNpl * NplMonthlyWriteOff).max(PLN.Zero),
       corpBondHoldings = in.s8.corpBonds.newCorpBonds.bankHoldings,
     )
 
@@ -442,22 +453,18 @@ object BankUpdateStep:
       ),
     )
 
-    val nplWriteOffRate = 0.05 // monthly NPL write-off rate
-    val shortLoanFrac   = 0.20
-    val mediumLoanFrac  = 0.30
-    val longLoanFrac    = 0.50
     b.copy(
       loans = newLoansTotal,
-      nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * nplWriteOffRate).max(PLN.Zero),
+      nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * NplMonthlyWriteOff).max(PLN.Zero),
       capital = capitalPnl.newCapital,
       deposits = newDep,
       demandDeposits = newDep * (1.0 - p.banking.termDepositFrac.toDouble),
       termDeposits = newDep * p.banking.termDepositFrac.toDouble,
-      loansShort = newLoansTotal * shortLoanFrac,
-      loansMedium = newLoansTotal * mediumLoanFrac,
-      loansLong = newLoansTotal * longLoanFrac,
+      loansShort = newLoansTotal * ShortLoanFrac,
+      loansMedium = newLoansTotal * MediumLoanFrac,
+      loansLong = newLoansTotal * LongLoanFrac,
       consumerLoans = (b.consumerLoans + hhFlows.ccOrigination - bankCcPrincipal - hhFlows.ccDefault).max(PLN.Zero),
-      consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * nplWriteOffRate).max(PLN.Zero),
+      consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * NplMonthlyWriteOff).max(PLN.Zero),
       corpBondHoldings = in.s8.corpBonds.newCorpBonds.bankHoldings * ws,
     )
 

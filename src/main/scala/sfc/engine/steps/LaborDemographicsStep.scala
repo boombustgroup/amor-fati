@@ -7,6 +7,11 @@ import sfc.engine.markets.LaborMarket
 import sfc.types.*
 import sfc.util.KahanSum.*
 
+/** Labor market clearing and demographics: wage determination (Phillips curve
+  * with expectations augmentation and union rigidity), employment capping at
+  * working-age population, immigration flows, ZUS pension system, PPK capital
+  * pillar contributions, and demographic transitions (aging, retirement).
+  */
 object LaborDemographicsStep:
 
   case class Input(

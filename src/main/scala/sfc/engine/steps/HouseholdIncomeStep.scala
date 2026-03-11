@@ -9,14 +9,22 @@ import sfc.types.*
 
 import scala.util.Random
 
+/** Household income determination: computes individual household income,
+  * consumption, saving, and portfolio decisions. Integrates labor market
+  * separations, wage updates, bank-specific lending/deposit rates, equity
+  * returns, and sectoral mobility signals into household-level state updates.
+  */
 object HouseholdIncomeStep:
 
+  // ---- Calibration constants ----
+  private val ImportErElasticity = 0.5 // exchange rate elasticity of import propensity
+
   case class Input(
-      w: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      s1: FiscalConstraintStep.Output,
-      s2: LaborDemographicsStep.Output,
+      w: World,                            // current world state
+      firms: Vector[Firm.State],           // pre-step firm population
+      households: Vector[Household.State], // pre-step household population
+      s1: FiscalConstraintStep.Output,     // fiscal constraint (reservation wage, lending base rate)
+      s2: LaborDemographicsStep.Output,    // labor/demographics (new wage)
   )
 
   case class Output(
@@ -34,7 +42,7 @@ object HouseholdIncomeStep:
 
   def run(in: Input, rng: Random)(using p: SimParams): Output =
     val importAdj = p.forex.importPropensity.toDouble *
-      Math.pow(p.forex.baseExRate / in.w.forex.exchangeRate, 0.5)
+      Math.pow(p.forex.baseExRate / in.w.forex.exchangeRate, ImportErElasticity)
 
     val afterSep           = LaborMarket.separations(in.households, in.firms, in.firms)
     val afterWages         = LaborMarket.updateWages(afterSep, in.s2.newWage)

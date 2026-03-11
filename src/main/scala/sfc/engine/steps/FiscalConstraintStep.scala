@@ -5,9 +5,18 @@ import sfc.engine.World
 import sfc.engine.mechanisms.YieldCurve
 import sfc.types.*
 
+/** Fiscal constraint initialization: minimum wage indexation, reservation wage,
+  * and lending base rate computation. The lending base rate blends the
+  * interbank term structure (or reference rate) with expected rates when the
+  * expectations mechanism is active, smoothing out monetary policy
+  * transmission.
+  */
 object FiscalConstraintStep:
 
-  case class Input(w: World)
+  // ---- Calibration constants ----
+  private val ExpectationsBlendWeight = 0.5 // weight on raw vs expected rate in lending base rate blend
+
+  case class Input(w: World) // current world state
 
   case class Output(
       m: Int,
@@ -44,7 +53,8 @@ object FiscalConstraintStep:
       else w.nbp.referenceRate.toDouble
 
     val lendingBaseRate =
-      if p.flags.expectations then 0.5 * rawLendingBaseRate + 0.5 * w.mechanisms.expectations.expectedRate.toDouble
+      if p.flags.expectations then
+        ExpectationsBlendWeight * rawLendingBaseRate + (1.0 - ExpectationsBlendWeight) * w.mechanisms.expectations.expectedRate.toDouble
       else rawLendingBaseRate
 
     Output(m, PLN(baseMinWage), updatedMinWagePriceLevel, PLN(resWage), Rate(lendingBaseRate))
