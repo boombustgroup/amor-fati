@@ -4,53 +4,83 @@ import sfc.accounting.*
 import sfc.config.*
 import sfc.types.*
 
+/** Government budget reconciliation: monthly revenue, spending, deficit, debt.
+  *
+  * Revenue: CIT + dividend tax (PIT Belka 19%), VAT, excise, customs, NBP
+  * remittance. Spending: current government purchases, capital investment,
+  * unemployment benefits, social transfers (800+), ZUS subvention, EU
+  * co-financing, debt service.
+  *
+  * When GOV_INVEST is enabled, base spending splits into current (1 − share)
+  * and capital (share) components; public capital stock depreciates monthly.
+  * Bond-financed deficit accumulates when GOV_BOND_MARKET is enabled.
+  *
+  * Calibration: MF budgetary law (ustawa budżetowa) structure. All flows in
+  * nominal PLN, price-adjusted via priceLevel.
+  */
 object FiscalBudget:
 
-  def update(
+  /** Monthly fiscal inputs — all monetary fields in PLN. */
+  case class Input(
       prev: GovState,
-      citPaid: Double,
-      vat: Double,
       priceLevel: Double,
-      unempBenefitSpend: Double,
-      debtService: Double = 0.0,
-      nbpRemittance: Double = 0.0,
-      zusGovSubvention: Double = 0.0,
-      socialTransferSpend: Double = 0.0,
-      euCofinancing: Double = 0.0,
-      euProjectCapital: Double = 0.0,
-      exciseRevenue: Double = 0.0,
-      customsDutyRevenue: Double = 0.0,
-      govPurchasesActual: Double = 0.0,
-  )(using p: SimParams): GovState =
-    val govBaseRaw               =
-      if govPurchasesActual > 0 then govPurchasesActual
-      else p.fiscal.govBaseSpending.toDouble * priceLevel
-    val (govCurrent, govCapital) =
-      if p.flags.govInvest then (govBaseRaw * (1.0 - p.fiscal.govInvestShare.toDouble), govBaseRaw * p.fiscal.govInvestShare.toDouble)
-      else (govBaseRaw, 0.0)
-    val totalSpend               =
-      unempBenefitSpend + socialTransferSpend + govCurrent + govCapital + debtService + zusGovSubvention + euCofinancing
-    val totalRev                 = citPaid + vat + nbpRemittance + exciseRevenue + customsDutyRevenue
-    val deficit                  = totalSpend - totalRev
-    val newBondsOutstanding      =
-      if p.flags.govBondMarket then Math.max(0.0, prev.bondsOutstanding.toDouble + deficit)
-      else prev.bondsOutstanding.toDouble
-    val newCapitalStock          =
-      if p.flags.govInvest then prev.publicCapitalStock.toDouble * (1.0 - p.fiscal.govDepreciationRate.toDouble / 12.0) + govCapital + euProjectCapital
-      else 0.0
+      // Revenue
+      citPaid: PLN = PLN.Zero,
+      vat: PLN = PLN.Zero,
+      nbpRemittance: PLN = PLN.Zero,
+      exciseRevenue: PLN = PLN.Zero,
+      customsDutyRevenue: PLN = PLN.Zero,
+      // Spending
+      unempBenefitSpend: PLN = PLN.Zero,
+      debtService: PLN = PLN.Zero,
+      zusGovSubvention: PLN = PLN.Zero,
+      socialTransferSpend: PLN = PLN.Zero,
+      euCofinancing: PLN = PLN.Zero,
+      euProjectCapital: PLN = PLN.Zero,
+      govPurchasesActual: PLN = PLN.Zero,
+  )
+
+  /** Monthly budget update → new GovState. */
+  def update(in: Input)(using p: SimParams): GovState =
+    val govBaseRaw: PLN =
+      if in.govPurchasesActual > PLN.Zero then in.govPurchasesActual
+      else p.fiscal.govBaseSpending * in.priceLevel
+
+    val (govCurrent, govCapital): (PLN, PLN) =
+      if p.flags.govInvest then
+        val capShare = p.fiscal.govInvestShare.toDouble
+        (govBaseRaw * (1.0 - capShare), govBaseRaw * capShare)
+      else (govBaseRaw, PLN.Zero)
+
+    val totalSpend = in.unempBenefitSpend + in.socialTransferSpend +
+      govCurrent + govCapital + in.debtService + in.zusGovSubvention + in.euCofinancing
+    val totalRev   = in.citPaid + in.vat + in.nbpRemittance +
+      in.exciseRevenue + in.customsDutyRevenue
+    val deficit    = totalSpend - totalRev
+
+    val newBondsOutstanding =
+      if p.flags.govBondMarket then (in.prev.bondsOutstanding + deficit).max(PLN.Zero)
+      else in.prev.bondsOutstanding
+
+    val newCapitalStock =
+      if p.flags.govInvest then
+        val monthlyDepreciation = p.fiscal.govDepreciationRate.toDouble / 12.0
+        in.prev.publicCapitalStock * (1.0 - monthlyDepreciation) + govCapital + in.euProjectCapital
+      else PLN.Zero
+
     GovState(
-      PLN(totalRev),
-      PLN(deficit),
-      PLN(prev.cumulativeDebt.toDouble + deficit),
-      PLN(unempBenefitSpend),
-      PLN(newBondsOutstanding),
-      prev.bondYield,
-      PLN(debtService),
-      PLN(socialTransferSpend),
-      PLN(newCapitalStock),
-      PLN(govCurrent),
-      PLN(govCapital + euProjectCapital),
-      PLN(euCofinancing),
-      PLN(exciseRevenue),
-      PLN(customsDutyRevenue),
+      taxRevenue = totalRev,
+      deficit = deficit,
+      cumulativeDebt = in.prev.cumulativeDebt + deficit,
+      unempBenefitSpend = in.unempBenefitSpend,
+      bondsOutstanding = newBondsOutstanding,
+      bondYield = in.prev.bondYield,
+      debtServiceSpend = in.debtService,
+      socialTransferSpend = in.socialTransferSpend,
+      publicCapitalStock = newCapitalStock,
+      govCurrentSpend = govCurrent,
+      govCapitalSpend = govCapital + in.euProjectCapital,
+      euCofinancing = in.euCofinancing,
+      exciseRevenue = in.exciseRevenue,
+      customsDutyRevenue = in.customsDutyRevenue,
     )

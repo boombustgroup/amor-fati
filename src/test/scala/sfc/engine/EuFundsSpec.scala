@@ -93,23 +93,10 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   // --- updateGov integration ---
 
   "updateGov" should "include euCofinancing in deficit" in {
-    val prev   = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    val base   =
-      FiscalBudget.update(
-        prev,
-        100000,
-        200000,
-        priceLevel = 1.0,
-        unempBenefitSpend = 0,
-      )
-    val withEu = FiscalBudget.update(
-      prev,
-      100000,
-      200000,
-      priceLevel = 1.0,
-      unempBenefitSpend = 0,
-      euCofinancing = 50000.0,
-    )
+    val prev      = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val baseInput = FiscalBudget.Input(prev, priceLevel = 1.0, citPaid = PLN(100000), vat = PLN(200000))
+    val base      = FiscalBudget.update(baseInput)
+    val withEu    = FiscalBudget.update(baseInput.copy(euCofinancing = PLN(50000.0)))
     // Deficit should increase by euCofinancing amount
     (withEu.deficit - base.deficit).toDouble shouldBe 50000.0 +- 0.01
   }
@@ -117,12 +104,13 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   it should "record euCofinancing in GovState" in {
     val prev   = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val result = FiscalBudget.update(
-      prev,
-      100000,
-      200000,
-      priceLevel = 1.0,
-      unempBenefitSpend = 0,
-      euCofinancing = 75000.0,
+      FiscalBudget.Input(
+        prev,
+        priceLevel = 1.0,
+        citPaid = PLN(100000),
+        vat = PLN(200000),
+        euCofinancing = PLN(75000.0),
+      ),
     )
     result.euCofinancing.toDouble shouldBe 75000.0
   }
@@ -130,12 +118,13 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   it should "add euProjectCapital to govCapitalSpend when GovInvest disabled" in {
     val prev   = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val result = FiscalBudget.update(
-      prev,
-      100000,
-      200000,
-      priceLevel = 1.0,
-      unempBenefitSpend = 0,
-      euProjectCapital = 30000.0,
+      FiscalBudget.Input(
+        prev,
+        priceLevel = 1.0,
+        citPaid = PLN(100000),
+        vat = PLN(200000),
+        euProjectCapital = PLN(30000.0),
+      ),
     )
     // GovInvestEnabled=false by default, so govCapitalSpend = 0 + euProjectCapital
     result.govCapitalSpend.toDouble shouldBe 30000.0

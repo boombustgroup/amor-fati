@@ -93,24 +93,25 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   "FiscalBudget.update" should "compute deficit as spending - revenue" in {
     val prev   = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val result = FiscalBudget.update(
-      prev,
-      citPaid = 100000,
-      vat = 200000,
-      priceLevel = 1.0,
-      unempBenefitSpend = 0,
+      FiscalBudget.Input(
+        prev,
+        priceLevel = 1.0,
+        citPaid = PLN(100000),
+        vat = PLN(200000),
+      ),
     )
     result.deficit.toDouble shouldBe (p.fiscal.govBaseSpending.toDouble - 300000) +- 1.0
   }
 
   it should "accumulate debt" in {
     val prev   = accounting.GovState(PLN.Zero, PLN.Zero, PLN(1000000), PLN.Zero)
-    val result =
-      FiscalBudget.update(
+    val result = FiscalBudget.update(
+      FiscalBudget.Input(
         prev,
-        100000,
-        200000,
         priceLevel = 1.0,
-        unempBenefitSpend = 0,
-      )
+        citPaid = PLN(100000),
+        vat = PLN(200000),
+      ),
+    )
     result.cumulativeDebt.toDouble shouldBe (1000000 + result.deficit.toDouble) +- 1.0
   }

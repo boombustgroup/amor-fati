@@ -16,50 +16,25 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
 
   // --- Disabled (default) ---
 
+  private val baseInput = FiscalBudget.Input(prev, priceLevel = 1.0, citPaid = PLN(100000), vat = PLN(200000))
+
   "updateGov" should "have identical totalSpend when disabled" in {
-    val result = FiscalBudget.update(
-      prev,
-      citPaid = 100000,
-      vat = 200000,
-      priceLevel = 1.0,
-      unempBenefitSpend = 0,
-    )
+    val result = FiscalBudget.update(baseInput)
     result.deficit.toDouble shouldBe (p.fiscal.govBaseSpending.toDouble - 300000.0) +- 1.0
   }
 
   it should "have zero govCapitalSpend when disabled" in {
-    val result =
-      FiscalBudget.update(
-        prev,
-        100000,
-        200000,
-        priceLevel = 1.0,
-        unempBenefitSpend = 0,
-      )
+    val result = FiscalBudget.update(baseInput)
     result.govCapitalSpend shouldBe PLN.Zero
   }
 
   it should "have zero publicCapitalStock when disabled" in {
-    val result =
-      FiscalBudget.update(
-        prev,
-        100000,
-        200000,
-        priceLevel = 1.0,
-        unempBenefitSpend = 0,
-      )
+    val result = FiscalBudget.update(baseInput)
     result.publicCapitalStock shouldBe PLN.Zero
   }
 
   it should "have govCurrentSpend equal to govBaseSpending when disabled" in {
-    val result =
-      FiscalBudget.update(
-        prev,
-        100000,
-        200000,
-        priceLevel = 1.0,
-        unempBenefitSpend = 0,
-      )
+    val result = FiscalBudget.update(baseInput)
     result.govCurrentSpend.toDouble shouldBe p.fiscal.govBaseSpending.toDouble * 1.0
   }
 
@@ -136,14 +111,7 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
 
   "updateGov with prior capital stock" should "carry forward stock when disabled" in {
     // Even if prev has nonzero capitalStock, disabled mode resets to 0
-    val prevWithStock =
-      GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, publicCapitalStock = PLN(500000.0))
-    val result        = FiscalBudget.update(
-      prevWithStock,
-      100000,
-      200000,
-      priceLevel = 1.0,
-      unempBenefitSpend = 0,
-    )
+    val prevWithStock = GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, publicCapitalStock = PLN(500000.0))
+    val result        = FiscalBudget.update(baseInput.copy(prev = prevWithStock))
     result.publicCapitalStock shouldBe PLN.Zero
   }

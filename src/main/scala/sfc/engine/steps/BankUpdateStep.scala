@@ -97,20 +97,22 @@ object BankUpdateStep:
       else in.s3.pitRevenue
 
     val newGov          = FiscalBudget.update(
-      in.w.gov,
-      in.s5.sumTax + in.s7.dividendTax + pitAfterEvasion,
-      vatAfterEvasion,
-      in.s7.newPrice,
-      unempBenefitSpend,
-      in.s8.monthlyDebtService,
-      in.s8.nbpRemittance,
-      in.s2.newZus.govSubvention.toDouble,
-      socialTransferSpend,
-      euCofinancing = in.s7.euCofin,
-      euProjectCapital = in.s7.euProjectCapital,
-      exciseRevenue = exciseAfterEvasion,
-      customsDutyRevenue = customsDutyRevenue,
-      govPurchasesActual = in.s4.govPurchases,
+      FiscalBudget.Input(
+        prev = in.w.gov,
+        priceLevel = in.s7.newPrice,
+        citPaid = PLN(in.s5.sumTax + in.s7.dividendTax + pitAfterEvasion),
+        vat = PLN(vatAfterEvasion),
+        nbpRemittance = PLN(in.s8.nbpRemittance),
+        exciseRevenue = PLN(exciseAfterEvasion),
+        customsDutyRevenue = PLN(customsDutyRevenue),
+        unempBenefitSpend = PLN(unempBenefitSpend),
+        debtService = PLN(in.s8.monthlyDebtService),
+        zusGovSubvention = PLN(in.s2.newZus.govSubvention.toDouble),
+        socialTransferSpend = PLN(socialTransferSpend),
+        euCofinancing = PLN(in.s7.euCofin),
+        euProjectCapital = PLN(in.s7.euProjectCapital),
+        govPurchasesActual = PLN(in.s4.govPurchases),
+      ),
     )
     val newGovWithYield = newGov.copy(bondYield = Rate(in.s8.newBondYield))
 
