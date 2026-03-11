@@ -38,16 +38,19 @@ object Macroprudential:
   object State:
     val zero: State = State(Rate.Zero, 0.0, 0.0)
 
+  /** Run `body` only when macropru is enabled, otherwise return `fallback`. */
+  private inline def guarded[A](fallback: A)(body: => A)(using p: SimParams): A =
+    if !p.flags.macropru then fallback else body
+
   // ---- O-SII buffer ----
 
   /** O-SII buffer for a specific bank. PKO BP (id=0): 1.0%, Pekao (id=1): 0.5%,
     * others: 0%.
     */
   def osiiBuffer(bankId: Int)(using p: SimParams): Double =
-    if !p.flags.macropru then 0.0
-    else osiiBufferInternal(bankId)
+    guarded(0.0)(osiiBufferImpl(bankId))
 
-  private[engine] def osiiBufferInternal(bankId: Int)(using p: SimParams): Double = bankId match
+  private[engine] def osiiBufferImpl(bankId: Int)(using p: SimParams): Double = bankId match
     case 0 => p.banking.osiiPkoBp.toDouble
     case 1 => p.banking.osiiPekao.toDouble
     case _ => 0.0
@@ -56,11 +59,10 @@ object Macroprudential:
 
   /** Effective minimum CAR = base + CCyB + O-SII + P2R. */
   def effectiveMinCar(bankId: Int, ccyb: Double)(using p: SimParams): Double =
-    if !p.flags.macropru then p.banking.minCar.toDouble
-    else p.banking.minCar.toDouble + ccyb + osiiBufferInternal(bankId) + p2rAddon(bankId)
+    guarded(p.banking.minCar.toDouble)(effectiveMinCarImpl(bankId, ccyb))
 
-  private[engine] def effectiveMinCarInternal(bankId: Int, ccyb: Double)(using p: SimParams): Double =
-    p.banking.minCar.toDouble + ccyb + osiiBufferInternal(bankId) + p2rAddon(bankId)
+  private[engine] def effectiveMinCarImpl(bankId: Int, ccyb: Double)(using p: SimParams): Double =
+    p.banking.minCar.toDouble + ccyb + osiiBufferImpl(bankId) + p2rAddon(bankId)
 
   /** P2R add-on from KNF BION/SREP, indexed by bank ID (last value as
     * fallback).
@@ -74,10 +76,9 @@ object Macroprudential:
 
   /** Monthly CCyB update: credit-to-GDP gap → build / release / hold. */
   def step(prev: State, totalLoans: Double, gdp: Double)(using p: SimParams): State =
-    if !p.flags.macropru then prev
-    else stepInternal(prev, totalLoans, gdp)
+    guarded(prev)(stepImpl(prev, totalLoans, gdp))
 
-  private[engine] def stepInternal(prev: State, totalLoans: Double, gdp: Double)(using p: SimParams): State =
+  private[engine] def stepImpl(prev: State, totalLoans: Double, gdp: Double)(using p: SimParams): State =
     val annualGdp   = Math.max(1.0, gdp * AnnualizeFactor)
     val creditToGdp = totalLoans / annualGdp
 
@@ -100,15 +101,12 @@ object Macroprudential:
 
   /** Returns true if bank's loan share is within the concentration limit. */
   def withinConcentrationLimit(bankLoans: Double, bankCapital: Double, totalSystemLoans: Double)(using p: SimParams): Boolean =
-    if !p.flags.macropru || totalSystemLoans <= 0 then true
-    else withinConcentrationLimitInternal(bankLoans, bankCapital, totalSystemLoans)
+    guarded(true)(withinConcentrationLimitImpl(bankLoans, bankCapital, totalSystemLoans))
 
-  private[engine] def withinConcentrationLimitInternal(
+  private[engine] def withinConcentrationLimitImpl(
       bankLoans: Double,
       bankCapital: Double,
       totalSystemLoans: Double,
   )(using p: SimParams): Boolean =
     if totalSystemLoans <= 0 then true
-    else
-      val loanShare = bankLoans / totalSystemLoans
-      loanShare <= p.banking.concentrationLimit.toDouble
+    else (bankLoans / totalSystemLoans) <= p.banking.concentrationLimit.toDouble

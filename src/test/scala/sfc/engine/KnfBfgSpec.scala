@@ -92,20 +92,20 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
     Macroprudential.p2rAddon(99) shouldBe p.banking.p2rAddons.last.toDouble
   }
 
-  "effectiveMinCarInternal" should "include P2R in total" in {
+  "effectiveMinCarImpl" should "include P2R in total" in {
     val ccyb     = 0.01
     val bankId   = 0 // PKO BP: OSII=1%, P2R=1.5%
     val expected =
       p.banking.minCar.toDouble + ccyb + p.banking.osiiPkoBp.toDouble + p.banking.p2rAddons.map(_.toDouble)(0)
-    Macroprudential.effectiveMinCarInternal(bankId, ccyb) shouldBe expected +- 1e-10
+    Macroprudential.effectiveMinCarImpl(bankId, ccyb) shouldBe expected +- 1e-10
   }
 
   it should "give mBank highest P2R (3.0%)" in {
     val ccyb     = 0.0
     // mBank (id=2): OSII=0%, P2R=3.0%
-    val mBankCar = Macroprudential.effectiveMinCarInternal(2, ccyb)
+    val mBankCar = Macroprudential.effectiveMinCarImpl(2, ccyb)
     // PKO BP (id=0): OSII=1%, P2R=1.5%
-    val pkoCar   = Macroprudential.effectiveMinCarInternal(0, ccyb)
+    val pkoCar   = Macroprudential.effectiveMinCarImpl(0, ccyb)
     // mBank P2R (3%) > PKO OSII+P2R (1%+1.5%)
     mBankCar shouldBe p.banking.minCar.toDouble + 0.030
     pkoCar shouldBe p.banking.minCar.toDouble + 0.010 + 0.015
@@ -281,14 +281,14 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "P2R" should "raise effectiveMinCar above base MinCar" in {
-    val carWithP2r = Macroprudential.effectiveMinCarInternal(0, 0.0)
+    val carWithP2r = Macroprudential.effectiveMinCarImpl(0, 0.0)
     carWithP2r should be > p.banking.minCar.toDouble
   }
 
   it should "vary across banks" in {
-    val car0 = Macroprudential.effectiveMinCarInternal(0, 0.0) // PKO: OSII 1% + P2R 1.5%
-    val car2 = Macroprudential.effectiveMinCarInternal(2, 0.0) // mBank: OSII 0% + P2R 3.0%
-    val car5 = Macroprudential.effectiveMinCarInternal(5, 0.0) // BPS: OSII 0% + P2R 2.5%
+    val car0 = Macroprudential.effectiveMinCarImpl(0, 0.0) // PKO: OSII 1% + P2R 1.5%
+    val car2 = Macroprudential.effectiveMinCarImpl(2, 0.0) // mBank: OSII 0% + P2R 3.0%
+    val car5 = Macroprudential.effectiveMinCarImpl(5, 0.0) // BPS: OSII 0% + P2R 2.5%
     // All different from each other
     car0 should not be car2
     car2 should not be car5
