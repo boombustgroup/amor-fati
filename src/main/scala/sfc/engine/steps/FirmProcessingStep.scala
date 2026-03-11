@@ -185,9 +185,9 @@ object FirmProcessingStep:
 
     var postFirmCrossSectorHires = 0
     val afterSep                 = LaborMarket.separations(in.s3.updatedHouseholds, in.firms, ioFirms)
-    val (afterSearch, csHires)   = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, rng)
-    postFirmCrossSectorHires += csHires
-    val preMigrationHouseholds   = LaborMarket.updateWages(afterSearch, in.s2.newWage)
+    val searchResult             = LaborMarket.jobSearch(afterSep, ioFirms, PLN(in.s2.newWage), rng)
+    postFirmCrossSectorHires += searchResult.crossSectorHires
+    val preMigrationHouseholds   = LaborMarket.updateWages(searchResult.households, PLN(in.s2.newWage))
 
     val finalHouseholds =
       if p.flags.immigration then

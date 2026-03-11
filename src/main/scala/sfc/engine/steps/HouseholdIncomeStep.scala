@@ -37,7 +37,7 @@ object HouseholdIncomeStep:
       Math.pow(p.forex.baseExRate / in.w.forex.exchangeRate, 0.5)
 
     val afterSep           = LaborMarket.separations(in.households, in.firms, in.firms)
-    val afterWages         = LaborMarket.updateWages(afterSep, in.s2.newWage)
+    val afterWages         = LaborMarket.updateWages(afterSep, PLN(in.s2.newWage))
     val bsec               = in.w.bankingSector
     val nBanksHh           = bsec.banks.length
     val hhBankRates        = Some(

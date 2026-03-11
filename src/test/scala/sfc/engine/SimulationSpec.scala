@@ -18,31 +18,15 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateLaborMarket ---
 
   "LaborMarket.updateLaborMarket" should "increase wage when demand exceeds supply" in {
-    val (wage1, _) = LaborMarket.updateLaborMarket(
-      p.household.baseWage.toDouble,
-      p.household.baseReservationWage.toDouble,
-      totalPop,
-      totalPop,
-    )
-    val (wage2, _) =
-      LaborMarket.updateLaborMarket(
-        p.household.baseWage.toDouble,
-        p.household.baseReservationWage.toDouble,
-        totalPop * 2,
-        totalPop,
-      )
-    wage2 should be > wage1
+    val r1 = LaborMarket.updateLaborMarket(p.household.baseWage, p.household.baseReservationWage, totalPop, totalPop)
+    val r2 = LaborMarket.updateLaborMarket(p.household.baseWage, p.household.baseReservationWage, totalPop * 2, totalPop)
+    r2.wage should be > r1.wage
   }
 
   it should "keep wage at or above reservation wage" in {
     // Very low demand → wage should still be >= reservation
-    val (wage, _) = LaborMarket.updateLaborMarket(
-      p.household.baseWage.toDouble,
-      p.household.baseReservationWage.toDouble,
-      0,
-      totalPop,
-    )
-    wage should be >= p.household.baseReservationWage.toDouble
+    val r = LaborMarket.updateLaborMarket(p.household.baseWage, p.household.baseReservationWage, 0, totalPop)
+    r.wage.toDouble should be >= p.household.baseReservationWage.toDouble
   }
 
   // --- updateInflation ---

@@ -87,14 +87,14 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
 
   "updateLaborMarket" should "keep wage >= reservationWage" in
     forAll(genWage, Gen.choose(4666.0, 10000.0), Gen.choose(0, totalPop)) { (prevWage: Double, resWage: Double, laborDemand: Int) =>
-      val (newWage, _) = LaborMarket.updateLaborMarket(prevWage, resWage, laborDemand, totalPop)
-      newWage should be >= resWage
+      val r = LaborMarket.updateLaborMarket(PLN(prevWage), PLN(resWage), laborDemand, totalPop)
+      r.wage.toDouble should be >= resWage
     }
 
   it should "keep employed <= min(laborDemand, TotalPopulation)" in
     forAll(genWage, Gen.choose(4666.0, 10000.0), Gen.choose(0, totalPop * 2)) { (prevWage: Double, resWage: Double, laborDemand: Int) =>
-      val (_, employed) = LaborMarket.updateLaborMarket(prevWage, resWage, laborDemand, totalPop)
-      employed should be <= Math.min(laborDemand, totalPop)
+      val r = LaborMarket.updateLaborMarket(PLN(prevWage), PLN(resWage), laborDemand, totalPop)
+      r.employed should be <= Math.min(laborDemand, totalPop)
     }
 
   // --- updateGov properties ---

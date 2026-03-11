@@ -33,8 +33,9 @@ object LaborDemographicsStep:
   def run(in: Input)(using p: SimParams): Output =
     val living                 = in.firms.filter(Firm.isAlive)
     val laborDemand            = living.kahanSumBy(f => Firm.workerCount(f).toDouble).toInt
-    val (rawWage, rawEmployed) =
-      LaborMarket.updateLaborMarket(in.w.hhAgg.marketWage.toDouble, in.s1.resWage, laborDemand, in.w.totalPopulation)
+    val wageResult             =
+      LaborMarket.updateLaborMarket(in.w.hhAgg.marketWage, PLN(in.s1.resWage), laborDemand, in.w.totalPopulation)
+    val (rawWage, rawEmployed) = (wageResult.wage.toDouble, wageResult.employed)
 
     // Channel 1: Expectations-augmented wage Phillips curve
     val wageAfterExp = if p.flags.expectations then
