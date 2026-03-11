@@ -110,14 +110,15 @@ object SectoralMobility:
     val cumulative = scores.scanLeft(0.0)(_ + _).tail // cumulative sums, length = NumSectors
     cumulative.indexWhere(_ >= threshold) match
       case idx if idx >= 0 && idx != from => idx
-      case _ => firstNonZeroSector(scores, from)
+      case _                              => firstNonZeroSector(scores, from)
 
   /** First sector with positive score, excluding `from`. Defensive fallback —
     * should only trigger on floating-point edge cases since rouletteSelect is
     * called only when total > 0.
     */
   private def firstNonZeroSector(scores: Vector[Double], from: Int): Int =
-    scores.indices.find(i => i != from && scores(i) > 0)
+    scores.indices
+      .find(i => i != from && scores(i) > 0)
       .getOrElse(scores.indices.find(_ != from).get)
 
   /** Uniform random fallback when all scores are zero. */

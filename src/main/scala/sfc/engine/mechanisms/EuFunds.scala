@@ -52,7 +52,7 @@ object EuFunds:
     val coef = Vector(
       76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5,
     )
-    val x   = z - 1.0
-    val tmp = (x + 0.5) * Math.log(x + g + 0.5) - (x + g + 0.5)
-    val ser = coef.zipWithIndex.foldLeft(1.000000000190015) { case (acc, (c, j)) => acc + c / (x + 1.0 + j) }
+    val x    = z - 1.0
+    val tmp  = (x + 0.5) * Math.log(x + g + 0.5) - (x + g + 0.5)
+    val ser  = coef.zipWithIndex.foldLeft(1.000000000190015) { case (acc, (c, j)) => acc + c / (x + 1.0 + j) }
     tmp + Math.log(2.5066282746310005 * ser)
