@@ -331,19 +331,28 @@ object PriceEquityStep:
 
     val prevGdp             = if in.w.gdpProxy > 0 then in.w.gdpProxy else 1.0
     val gdpGrowthForEquity  = (gdp - prevGdp) / prevGdp
-    val equityAfterIndex    =
-      EquityMarket.step(in.w.financial.equity, in.w.nbp.referenceRate.toDouble, newInfl, gdpGrowthForEquity, firmProfits)
-    val equityAfterIssuance = EquityMarket.processIssuance(in.s5.sumEquityIssuance, equityAfterIndex)
+    val equityAfterIndex    = EquityMarket.step(
+      EquityMarket.StepInput(
+        prev = in.w.financial.equity,
+        refRate = in.w.nbp.referenceRate,
+        inflation = Rate(newInfl),
+        gdpGrowth = gdpGrowthForEquity,
+        firmProfits = PLN(firmProfits),
+      ),
+    )
+    val equityAfterIssuance = EquityMarket.processIssuance(PLN(in.s5.sumEquityIssuance), equityAfterIndex)
 
-    val (netDomesticDividends, foreignDividendOutflow, dividendTax) =
+    val dividends              =
       if p.flags.gpw && p.flags.gpwDividends then
         EquityMarket.computeDividends(
-          firmProfits,
-          equityAfterIssuance.dividendYield.toDouble,
-          equityAfterIssuance.marketCap.toDouble,
-          equityAfterIssuance.foreignOwnership.toDouble,
+          equityAfterIssuance.dividendYield,
+          equityAfterIssuance.marketCap,
+          equityAfterIssuance.foreignOwnership,
         )
-      else (0.0, 0.0, 0.0)
+      else EquityMarket.DividendResultZero
+    val netDomesticDividends   = dividends.netDomestic.toDouble
+    val foreignDividendOutflow = dividends.foreign.toDouble
+    val dividendTax            = dividends.tax.toDouble
 
     Output(
       autoR,

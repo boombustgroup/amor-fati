@@ -3,147 +3,159 @@ package sfc.engine.markets
 import sfc.config.SimParams
 import sfc.types.*
 
+/** GPW equity market: WIG index, market cap, dividends, foreign ownership.
+  *
+  * Index tracks fundamental value via Gordon growth model (Gordon 1959): P = D
+  * / (r - g), where D = dividend yield × index, r = refRate + equity risk
+  * premium, g = expected earnings growth (GDP proxy). Monthly partial
+  * adjustment smooths convergence.
+  *
+  * Issuance (IPO/SPO) increases market cap with proportional index dilution.
+  * Dividends split between domestic (subject to Belka 19% PIT) and foreign
+  * holders. Foreign ownership mean-reverts to calibrated share.
+  *
+  * Calibration: GPW market data 2024, NBP BoP statistics.
+  */
 object EquityMarket:
+
+  // --- Named constants ---
+  private val EquityRiskPremium      = 0.05  // GPW historical average
+  private val MinDiscountRate        = 0.02  // floor to avoid near-zero discount
+  private val GrowthFloor            = -0.10 // max annualized contraction
+  private val GordonSingularityGuard = 0.005 // min denominator (r - g) to avoid explosion
+  private val AdjustmentSpeed        = 0.15  // monthly partial adjustment to fundamental
+  private val MinIndex               = 100.0 // index floor
+  private val MonthsPerYear          = 12.0  // annual-to-monthly conversion
+  private val EarningsYieldFloor     = 0.01  // E/P floor (P/E = 100)
+  private val EarningsYieldCap       = 0.50  // E/P cap (P/E = 2)
+  private val PayoutRatio            = 0.57  // GPW average payout ratio
+  private val DivYieldSmoothing      = 0.10  // weight on implied div yield (1-α on prev)
+  private val ForeignReversionSpeed  = 0.01  // monthly mean-reversion speed
 
   /** GPW equity market state: aggregate index, market cap, yields, foreign
     * ownership.
     */
   case class State(
-      index: Double,                         // WIG-like composite index level
-      marketCap: PLN,                        // total market capitalization
-      earningsYield: Rate,                   // E/P = inverse of P/E
-      dividendYield: Rate,                   // dividend / price
-      foreignOwnership: Ratio,               // fraction held by foreign investors
-      lastIssuance: PLN = PLN.Zero,          // equity issuance this month
-      lastDomesticDividends: PLN = PLN.Zero, // net domestic dividends this month
-      lastForeignDividends: PLN = PLN.Zero,  // foreign dividend outflow this month
-      lastDividendTax: PLN = PLN.Zero,       // dividend tax this month
-      hhEquityWealth: PLN = PLN.Zero,        // total HH equity holdings value
-      lastWealthEffect: PLN = PLN.Zero,      // wealth effect consumption boost this month
-      monthlyReturn: Rate = Rate.Zero,       // index return this month (for HH revaluation next month)
+      index: Double,
+      marketCap: PLN,
+      earningsYield: Rate,
+      dividendYield: Rate,
+      foreignOwnership: Ratio,
+      lastIssuance: PLN = PLN.Zero,
+      lastDomesticDividends: PLN = PLN.Zero,
+      lastForeignDividends: PLN = PLN.Zero,
+      lastDividendTax: PLN = PLN.Zero,
+      hhEquityWealth: PLN = PLN.Zero,
+      lastWealthEffect: PLN = PLN.Zero,
+      monthlyReturn: Rate = Rate.Zero,
   )
+
   def zero: State = State(
-    0.0,
-    PLN.Zero,
-    Rate.Zero,
-    Rate.Zero,
-    Ratio.Zero,
-    PLN.Zero,
-    PLN.Zero,
-    PLN.Zero,
-    PLN.Zero,
-    PLN.Zero,
-    PLN.Zero,
-    Rate.Zero,
+    index = 0.0,
+    marketCap = PLN.Zero,
+    earningsYield = Rate.Zero,
+    dividendYield = Rate.Zero,
+    foreignOwnership = Ratio.Zero,
   )
 
   def initial(using p: SimParams): State = State(
     index = p.equity.initIndex,
-    marketCap = PLN(p.equity.initMcap.toDouble),
+    marketCap = p.equity.initMcap,
     earningsYield = Rate(1.0 / p.equity.peMean),
-    dividendYield = Rate(p.equity.divYield.toDouble),
-    foreignOwnership = Ratio(p.equity.foreignShare.toDouble),
+    dividendYield = p.equity.divYield,
+    foreignOwnership = p.equity.foreignShare,
   )
 
   /** Monthly equity market step using Gordon growth model for equilibrium
-    * price. P = D / (r - g), where: D = dividend yield × current index r =
-    * discount rate = refRate + equity risk premium g = expected earnings growth
-    * (proxy: gdpGrowth)
-    *
-    * @param prev
-    *   previous equity market state
-    * @param refRate
-    *   central bank reference rate (annual)
-    * @param inflation
-    *   current annualized inflation
-    * @param gdpGrowth
-    *   GDP growth rate (monthly, relative to last period)
-    * @param firmProfits
-    *   total firm profits this month
-    * @return
-    *   updated equity market state
+    * price. P = D / (r - g), where: D = dividend yield x current index, r =
+    * discount rate = refRate + equity risk premium, g = expected earnings
+    * growth (proxy: gdpGrowth).
     */
-  def step(prev: State, refRate: Double, inflation: Double, gdpGrowth: Double, firmProfits: Double)(using
-      p: SimParams,
-  ): State =
-    if !p.flags.gpw then return zero
+  case class StepInput(
+      prev: State,
+      refRate: Rate,
+      inflation: Rate,
+      gdpGrowth: Double,
+      firmProfits: PLN,
+  )
 
-    // Equity risk premium: mean-reverting around 5% (GPW historical)
-    val equityRiskPremium = 0.05
-    // Discount rate: risk-free + ERP (annual)
-    val discountRate      = Math.max(0.02, refRate + equityRiskPremium)
-    // Expected growth: proxy from GDP growth (annualized) capped to avoid singularity
-    val expectedGrowth    = Math.max(-0.10, Math.min(discountRate - 0.01, gdpGrowth * 12.0))
+  def step(in: StepInput)(using p: SimParams): State =
+    if !p.flags.gpw then zero
+    else
+      val discountRate   = Math.max(MinDiscountRate, in.refRate.toDouble + EquityRiskPremium)
+      val growthCap      = discountRate - GordonSingularityGuard
+      val expectedGrowth = Math.max(GrowthFloor, Math.min(growthCap, in.gdpGrowth * MonthsPerYear))
 
-    // Gordon growth fundamental value
-    val dividend    = prev.dividendYield.toDouble * prev.index
-    val denominator = discountRate - expectedGrowth
-    val gordonIndex =
-      if denominator > 0.005 then dividend / denominator
-      else prev.index // fallback: hold steady if r ≈ g
+      // Gordon growth fundamental value
+      val dividend    = in.prev.dividendYield.toDouble * in.prev.index
+      val denominator = discountRate - expectedGrowth
+      val gordonIndex =
+        if denominator > GordonSingularityGuard then dividend / denominator
+        else in.prev.index
 
-    // Partial adjustment: index converges to fundamental (monthly smoothing)
-    val adjustmentSpeed = 0.15
-    val newIndex        = Math.max(100.0, prev.index + adjustmentSpeed * (gordonIndex - prev.index))
+      val newIndex = Math.max(MinIndex, in.prev.index + AdjustmentSpeed * (gordonIndex - in.prev.index))
 
-    // Market cap scales with index
-    val indexReturn  = if prev.index > 0 then newIndex / prev.index else 1.0
-    val newMarketCap = (prev.marketCap * indexReturn).max(PLN.Zero)
+      // Market cap scales with index
+      val indexReturn  = if in.prev.index > 0 then newIndex / in.prev.index else 1.0
+      val newMarketCap = (in.prev.marketCap * indexReturn).max(PLN.Zero)
 
-    // Earnings yield from firm profits and market cap
-    val annualProfits    = firmProfits * 12.0
-    val newEarningsYield = Rate(
-      if newMarketCap > PLN.Zero then Math.max(0.01, Math.min(0.50, annualProfits / newMarketCap.toDouble))
-      else prev.earningsYield.toDouble,
-    )
+      // Earnings yield from firm profits and market cap
+      val annualProfits    = in.firmProfits * MonthsPerYear
+      val newEarningsYield = Rate(
+        if newMarketCap > PLN.Zero then Math.max(EarningsYieldFloor, Math.min(EarningsYieldCap, annualProfits.toDouble / newMarketCap.toDouble))
+        else in.prev.earningsYield.toDouble,
+      )
 
-    // Dividend yield: payout ratio × earnings yield (mean-reverting to calibrated)
-    val payoutRatio     = 0.57 // GPW average
-    val impliedDivYield = newEarningsYield.toDouble * payoutRatio
-    val newDivYield     = Rate(prev.dividendYield.toDouble * 0.9 + impliedDivYield * 0.1)
+      // Dividend yield: payout ratio x earnings yield (mean-reverting to calibrated)
+      val impliedDivYield = newEarningsYield.toDouble * PayoutRatio
+      val newDivYield     = Rate(in.prev.dividendYield.toDouble * (1.0 - DivYieldSmoothing) + impliedDivYield * DivYieldSmoothing)
 
-    // Foreign ownership: slow-moving, mean-reverting to calibrated share
-    val newForeignOwnership = Ratio(prev.foreignOwnership.toDouble * 0.99 + p.equity.foreignShare.toDouble * 0.01)
+      // Foreign ownership: slow-moving, mean-reverting to calibrated share
+      val newForeignOwnership =
+        Ratio(in.prev.foreignOwnership.toDouble * (1.0 - ForeignReversionSpeed) + p.equity.foreignShare.toDouble * ForeignReversionSpeed)
 
-    // Monthly return for HH revaluation (used next month)
-    val mReturn = if prev.index > 0 then newIndex / prev.index - 1.0 else 0.0
+      val mReturn = if in.prev.index > 0 then newIndex / in.prev.index - 1.0 else 0.0
 
-    State(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership, monthlyReturn = Rate(mReturn))
+      State(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership, monthlyReturn = Rate(mReturn))
 
   /** Process equity issuance: firm raises CAPEX via equity, increasing market
-    * cap. Returns updated state with diluted index (supply effect).
+    * cap. Index diluted by supply effect.
     */
-  def processIssuance(amount: Double, prev: State): State =
-    if amount <= 0 then return prev.copy(lastIssuance = PLN.Zero)
-    val amountPLN      = PLN(amount)
-    // New shares increase market cap; index diluted by supply effect
-    val dilutionFactor = prev.marketCap.toDouble / (prev.marketCap.toDouble + amount)
-    prev.copy(
-      marketCap = prev.marketCap + amountPLN,
-      index = prev.index * dilutionFactor,
-      lastIssuance = amountPLN,
-    )
+  def processIssuance(amount: PLN, prev: State): State =
+    if amount <= PLN.Zero then prev.copy(lastIssuance = PLN.Zero)
+    else
+      val dilutionFactor = prev.marketCap.toDouble / (prev.marketCap.toDouble + amount.toDouble)
+      prev.copy(
+        marketCap = prev.marketCap + amount,
+        index = prev.index * dilutionFactor,
+        lastIssuance = amount,
+      )
 
-  /** Compute dividends from firm profits.
-    * @return
-    *   (domesticDividends, foreignDividends, dividendTax)
+  /** @param netDomestic
+    *   net domestic dividends (after Belka tax)
+    * @param foreign
+    *   foreign dividend outflow
+    * @param tax
+    *   Belka tax on domestic dividends (19% PIT)
     */
-  /** Compute dividends from market cap and yields.
-    * @return
-    *   (netDomesticDividends, foreignDividends, dividendTax)
-    */
+  case class DividendResult(netDomestic: PLN, foreign: PLN, tax: PLN)
+
+  val DividendResultZero: DividendResult = DividendResult(PLN.Zero, PLN.Zero, PLN.Zero)
+
+  /** Compute dividends from market cap and yields. */
   def computeDividends(
-      firmProfits: Double,
-      divYield: Double,
-      marketCap: Double,
-      foreignShare: Double,
-  )(using p: SimParams): (Double, Double, Double) =
-    if marketCap <= 0 then return (0.0, 0.0, 0.0)
-    // Total monthly dividends: divYield is annual, so /12
-    val totalDividends       = divYield * marketCap / 12.0
-    val foreignDividends     = totalDividends * foreignShare
-    val domesticDividends    = totalDividends - foreignDividends
-    // Belka tax on domestic dividends (19%)
-    val dividendTax          = domesticDividends * p.equity.divTax.toDouble
-    val netDomesticDividends = domesticDividends - dividendTax
-    (netDomesticDividends, foreignDividends, dividendTax)
+      divYield: Rate,
+      marketCap: PLN,
+      foreignShare: Ratio,
+  )(using p: SimParams): DividendResult =
+    if marketCap <= PLN.Zero then DividendResultZero
+    else
+      val totalDividends   = marketCap * divYield / MonthsPerYear
+      val foreignDividends = totalDividends * foreignShare
+      val domesticGross    = totalDividends - foreignDividends
+      val dividendTax      = domesticGross * p.equity.divTax
+      DividendResult(
+        netDomestic = domesticGross - dividendTax,
+        foreign = foreignDividends,
+        tax = dividendTax,
+      )
