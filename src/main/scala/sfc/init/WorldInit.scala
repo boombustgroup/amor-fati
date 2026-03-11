@@ -4,8 +4,8 @@ import sfc.accounting.*
 import sfc.agents.*
 import sfc.config.*
 import sfc.engine.*
-import sfc.engine.markets.{CorporateBondMarket, SectoralMobility}
-import sfc.engine.mechanisms.Macroprudential
+import sfc.engine.markets.CorporateBondMarket
+import sfc.engine.mechanisms.{Macroprudential, SectoralMobility}
 import sfc.types.*
 import sfc.util.KahanSum.*
 

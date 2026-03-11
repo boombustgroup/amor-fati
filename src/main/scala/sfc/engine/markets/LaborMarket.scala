@@ -2,6 +2,7 @@ package sfc.engine.markets
 
 import sfc.agents.*
 import sfc.config.SimParams
+import sfc.engine.mechanisms.SectoralMobility
 import sfc.types.*
 import sfc.util.KahanSum.*
 

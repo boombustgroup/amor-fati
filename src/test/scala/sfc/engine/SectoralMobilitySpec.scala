@@ -3,7 +3,7 @@ package sfc.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sfc.agents.*
-import sfc.engine.markets.SectoralMobility
+import sfc.engine.mechanisms.SectoralMobility
 import sfc.types.*
 
 import scala.util.Random

@@ -4,7 +4,7 @@ import sfc.accounting.*
 import sfc.agents.*
 import sfc.config.SimParams
 import sfc.engine.*
-import sfc.engine.markets.SectoralMobility
+import sfc.engine.mechanisms.SectoralMobility
 import sfc.types.*
 import sfc.util.KahanSum.*
 

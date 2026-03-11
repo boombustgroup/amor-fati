@@ -3,8 +3,8 @@ package sfc.engine
 import sfc.accounting.*
 import sfc.agents.*
 import sfc.config.SimParams
-import sfc.engine.markets.{CorporateBondMarket, EquityMarket, GvcTrade, HousingMarket, SectoralMobility}
-import sfc.engine.mechanisms.{Expectations, Macroprudential}
+import sfc.engine.markets.{CorporateBondMarket, EquityMarket, GvcTrade, HousingMarket}
+import sfc.engine.mechanisms.{Expectations, Macroprudential, SectoralMobility}
 import sfc.types.*
 
 /** Immutable snapshot of the entire simulation state at the end of one month.

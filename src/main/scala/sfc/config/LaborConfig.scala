@@ -1,7 +1,7 @@
 package sfc.config
 
+import sfc.engine.mechanisms.SectoralMobility
 import sfc.types.*
-import sfc.engine.markets.SectoralMobility
 
 /** Labor market: sectoral mobility, trade unions, and forward-looking
   * expectations.

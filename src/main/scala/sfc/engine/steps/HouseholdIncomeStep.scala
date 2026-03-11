@@ -2,8 +2,9 @@ package sfc.engine.steps
 
 import sfc.agents.*
 import sfc.config.SimParams
-import sfc.engine.markets.{LaborMarket, SectoralMobility}
+import sfc.engine.markets.LaborMarket
 import sfc.engine.World
+import sfc.engine.mechanisms.SectoralMobility
 import sfc.types.*
 
 import scala.util.Random

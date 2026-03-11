@@ -2,7 +2,7 @@ package sfc.agents
 
 import sfc.config.*
 import sfc.engine.World
-import sfc.engine.markets.SectoralMobility
+import sfc.engine.mechanisms.SectoralMobility
 import sfc.networks.Network
 import sfc.types.*
 import sfc.util.Distributions

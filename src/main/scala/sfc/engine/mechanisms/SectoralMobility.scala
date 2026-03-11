@@ -1,7 +1,7 @@
-package sfc.engine.markets
+package sfc.engine.mechanisms
 
-import sfc.config.SimParams
 import sfc.agents.*
+import sfc.config.SimParams
 import sfc.types.*
 
 import scala.util.Random

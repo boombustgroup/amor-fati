@@ -39,7 +39,6 @@ equilibrium prices, quantities, or flows given current state.
 | `CorporateBondMarket.scala` | Catalyst: corporate bond issuance, coupon, default, demand-side absorption |
 | `GvcTrade.scala` | GVC deep external sector: foreign firm partners, sector-level trade, disruption shocks |
 | `IntermediateMarket.scala` | I-O intermediate goods: inter-sector purchases via input-output matrix |
-| `SectoralMobility.scala` | Cross-sector labor transitions: friction matrix, voluntary quits, wage penalties |
 
 ## mechanisms/
 
@@ -51,6 +50,7 @@ don't clear markets themselves.
 | `EuFunds.scala` | EU structural funds: Beta-curve absorption timing, co-financing, capital investment |
 | `Expectations.scala` | Inflation expectations: adaptive-anchoring hybrid, central bank credibility |
 | `Macroprudential.scala` | CCyB (countercyclical capital buffer), credit-to-GDP gap, O-SII buffers |
+| `SectoralMobility.scala` | Cross-sector labor transitions: friction matrix, voluntary quits, wage penalties |
 | `YieldCurve.scala` | Interbank term structure: WIRON overnight → WIBOR 1M/3M/6M with term premia |
 
 ## steps/
