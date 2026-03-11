@@ -35,29 +35,37 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     PLN.Zero,
   )
 
+  private def mkFlows(
+      interest: Double = 0.0,
+      principal: Double = 0.0,
+      defaultAmount: Double = 0.0,
+      defaultLoss: Double = 0.0,
+  ): HousingMarket.MortgageFlows =
+    HousingMarket.MortgageFlows(PLN(interest), PLN(principal), PLN(defaultAmount), PLN(defaultLoss))
+
   // --- applyFlows properties ---
 
   "HousingMarket.applyFlows" should "never produce negative mortgage stock" in
     forAll(genHousingState, Gen.choose(0.0, 1e10), Gen.choose(0.0, 1e10), Gen.choose(0.0, 1e8)) { (state, principal, defaultAmt, interest) =>
-      val result = HousingMarket.applyFlows(state, principal, defaultAmt, interest)
+      val result = HousingMarket.applyFlows(state, mkFlows(interest, principal, defaultAmt))
       result.mortgageStock.toDouble should be >= 0.0
     }
 
   it should "always decrease or maintain mortgage stock" in
     forAll(genHousingState, Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e6)) { (state, principal, defaultAmt, interest) =>
-      val result = HousingMarket.applyFlows(state, principal, defaultAmt, interest)
+      val result = HousingMarket.applyFlows(state, mkFlows(interest, principal, defaultAmt))
       result.mortgageStock.toDouble should be <= state.mortgageStock.toDouble
     }
 
   it should "compute housing wealth as totalValue - mortgageStock" in
     forAll(genHousingState, Gen.choose(0.0, 1e6), Gen.choose(0.0, 1e6), Gen.choose(0.0, 1e6)) { (state, principal, defaultAmt, interest) =>
-      val result = HousingMarket.applyFlows(state, principal, defaultAmt, interest)
+      val result = HousingMarket.applyFlows(state, mkFlows(interest, principal, defaultAmt))
       result.hhHousingWealth.toDouble shouldBe ((result.totalValue - result.mortgageStock).toDouble +- 1.0)
     }
 
   it should "track repayment and default amounts correctly" in
     forAll(genHousingState, Gen.choose(0.0, 1e6), Gen.choose(0.0, 1e6), Gen.choose(0.0, 1e6)) { (state, principal, defaultAmt, interest) =>
-      val result = HousingMarket.applyFlows(state, principal, defaultAmt, interest)
+      val result = HousingMarket.applyFlows(state, mkFlows(interest, principal, defaultAmt))
       result.lastRepayment.toDouble shouldBe principal
       result.lastDefault.toDouble shouldBe defaultAmt
       result.mortgageInterestIncome.toDouble shouldBe interest
@@ -67,11 +75,11 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   "HousingMarket.processMortgageFlows" should "return zeros when RE disabled (default)" in
     forAll(genHousingState, Gen.choose(0.02, 0.15), Gen.choose(0.0, 0.50)) { (state, rate, unempRate) =>
-      val (interest, principal, defLoss) = HousingMarket.processMortgageFlows(state, rate, unempRate)
+      val flows = HousingMarket.processMortgageFlows(state, Rate(rate), Ratio(unempRate))
       // RE_ENABLED is false by default -> all zeros
-      interest shouldBe 0.0
-      principal shouldBe 0.0
-      defLoss shouldBe 0.0
+      flows.interest shouldBe PLN.Zero
+      flows.principal shouldBe PLN.Zero
+      flows.defaultLoss shouldBe PLN.Zero
     }
 
   // --- Zero state invariant ---
@@ -101,7 +109,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
           mortgageStock = PLN(state.mortgageStock.toDouble + origination),
           lastOrigination = PLN(origination),
         )
-        val result         = HousingMarket.applyFlows(stateAfterOrig, principal, defaultAmt, 0.0)
+        val result         = HousingMarket.applyFlows(stateAfterOrig, mkFlows(principal = principal, defaultAmount = defaultAmt))
         val expectedStock  = state.mortgageStock.toDouble + origination - principal - defaultAmt
         result.mortgageStock.toDouble shouldBe (expectedStock +- 1.0)
       }
@@ -150,7 +158,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     ) { (value, mortgage, principal, defaultAmt, interest) =>
       whenever(mortgage < value) {
         val state  = makeRegionalState(value, mortgage)
-        val result = HousingMarket.applyFlows(state, principal, defaultAmt, interest)
+        val result = HousingMarket.applyFlows(state, mkFlows(interest, principal, defaultAmt))
         result.regions.get.foreach { r =>
           r.mortgageStock.toDouble should be >= 0.0
         }
@@ -167,7 +175,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     ) { (value, mortgage, principal, defaultAmt, interest) =>
       whenever(mortgage < value && mortgage > principal + defaultAmt) {
         val state  = makeRegionalState(value, mortgage)
-        val result = HousingMarket.applyFlows(state, principal, defaultAmt, interest)
+        val result = HousingMarket.applyFlows(state, mkFlows(interest, principal, defaultAmt))
         val regSum = result.regions.get.map(_.mortgageStock.toDouble).sum
         regSum shouldBe (result.mortgageStock.toDouble +- 1.0)
       }
@@ -177,7 +185,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     forAll(Gen.choose(1e9, 1e12), Gen.choose(1e8, 5e11), Gen.choose(0.0, 1e6), Gen.choose(0.0, 1e6)) { (value, mortgage, principal, defaultAmt) =>
       whenever(mortgage < value && mortgage > 0) {
         val state         = makeRegionalState(value, mortgage)
-        val result        = HousingMarket.applyFlows(state, principal, defaultAmt, 0.0)
+        val result        = HousingMarket.applyFlows(state, mkFlows(principal = principal, defaultAmount = defaultAmt))
         val regRepaySum   = result.regions.get.map(_.lastRepayment.toDouble).sum
         regRepaySum shouldBe (principal +- 0.01)
         val regDefaultSum = result.regions.get.map(_.lastDefault.toDouble).sum
@@ -187,7 +195,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   it should "preserve None regions when state has no regions" in
     forAll(genHousingState, Gen.choose(0.0, 1e6), Gen.choose(0.0, 1e6), Gen.choose(0.0, 1e6)) { (state, principal, defaultAmt, interest) =>
-      val result = HousingMarket.applyFlows(state, principal, defaultAmt, interest)
+      val result = HousingMarket.applyFlows(state, mkFlows(interest, principal, defaultAmt))
       result.regions shouldBe None
     }
 
@@ -210,7 +218,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
           lastOrigination = PLN(origination),
           regions = Some(updatedRegs),
         )
-        val result         = HousingMarket.applyFlows(stateAfterOrig, principal, defaultAmt, 0.0)
+        val result         = HousingMarket.applyFlows(stateAfterOrig, mkFlows(principal = principal, defaultAmount = defaultAmt))
         val expectedStock  = mortgage + origination - principal - defaultAmt
         result.mortgageStock.toDouble shouldBe (expectedStock +- 1.0)
         val regSum         = result.regions.get.map(_.mortgageStock.toDouble).sum

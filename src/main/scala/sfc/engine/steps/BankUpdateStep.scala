@@ -138,23 +138,21 @@ object BankUpdateStep:
       else in.w.nbp.referenceRate.toDouble
     val mortgageRate             = mortgageBaseRate + p.housing.mortgageSpread.toDouble
 
-    val housingAfterPrice                                                =
-      HousingMarket.step(
-        in.w.real.housing,
-        mortgageRate,
-        in.s7.newInfl,
-        in.s2.wageGrowth,
-        in.s2.employed,
-        prevMortgageRate.toDouble,
-      )
-    val housingAfterOrig                                                 = HousingMarket.processOrigination(housingAfterPrice, in.s3.totalIncome, mortgageRate, true)
-    val (mortgageInterestIncome, mortgagePrincipal, mortgageDefaultLoss) =
-      HousingMarket.processMortgageFlows(housingAfterOrig, mortgageRate, unempRate)
-    val mortgageDefaultAmount                                            =
-      if p.housing.mortgageRecovery.toDouble < 1.0 then mortgageDefaultLoss / (1.0 - p.housing.mortgageRecovery.toDouble)
-      else 0.0
-    val housingAfterFlows                                                =
-      HousingMarket.applyFlows(housingAfterOrig, mortgagePrincipal, mortgageDefaultAmount, mortgageInterestIncome)
+    val mortgageRateTyped = Rate(mortgageRate)
+    val housingAfterPrice = HousingMarket.step(
+      HousingMarket.StepInput(
+        prev = in.w.real.housing,
+        mortgageRate = mortgageRateTyped,
+        inflation = Rate(in.s7.newInfl),
+        incomeGrowth = Rate(in.s2.wageGrowth),
+        employed = in.s2.employed,
+        prevMortgageRate = prevMortgageRate,
+      ),
+    )
+    val housingAfterOrig  =
+      HousingMarket.processOrigination(housingAfterPrice, PLN(in.s3.totalIncome), mortgageRateTyped, true)
+    val mortgageFlows     = HousingMarket.processMortgageFlows(housingAfterOrig, mortgageRateTyped, Ratio(unempRate))
+    val housingAfterFlows = HousingMarket.applyFlows(housingAfterOrig, mortgageFlows)
 
     // BFG levy (#48)
     val bfgLevy =
@@ -172,13 +170,13 @@ object BankUpdateStep:
       ),
       nplAmount = PLN(Math.max(0, in.w.bank.nplAmount.toDouble + in.s5.nplNew - in.w.bank.nplAmount.toDouble * 0.05)),
       capital = PLN(
-        in.w.bank.capital.toDouble - in.s5.nplLoss - mortgageDefaultLoss - in.s6.consumerNplLoss
+        in.w.bank.capital.toDouble - in.s5.nplLoss - mortgageFlows.defaultLoss.toDouble - in.s6.consumerNplLoss
           - in.s8.corpBondBankDefaultLoss - bfgLevy
           + in.s5.intIncome * p.banking.profitRetention.toDouble + in.s6.hhDebtService * p.banking.profitRetention.toDouble
           + in.s8.bankBondIncome * p.banking.profitRetention.toDouble - in.s6.depositInterestPaid * p.banking.profitRetention.toDouble
           + in.s8.totalReserveInterest * p.banking.profitRetention.toDouble + in.s8.totalStandingFacilityIncome * p.banking.profitRetention.toDouble
           + in.s8.totalInterbankInterest * p.banking.profitRetention.toDouble
-          + mortgageInterestIncome * p.banking.profitRetention.toDouble
+          + mortgageFlows.interest.toDouble * p.banking.profitRetention.toDouble
           + in.s6.consumerDebtService * p.banking.profitRetention.toDouble
           + in.s8.corpBondBankCoupon * p.banking.profitRetention.toDouble,
       ),
@@ -302,8 +300,8 @@ object BankUpdateStep:
       val newDep                  =
         b.deposits.toDouble + (bankIncomeShare - bankConsShare) + bankInvestNetFlow + bankJstDepChange + bankDivInflow - bankDivOutflow - bankRemittance + bankDiasporaInflow + bankTourismExport - bankTourismImport + bankCcOrig + bankInsDepChange + bankNbfiDepDrain
       val bankDepShare            = if totalWorkers > 0 then in.s5.perBankWorkers(bId) / totalWorkers else 0.0
-      val bankMortgageIntIncome   = mortgageInterestIncome * bankDepShare
-      val bankMortgageNplLoss     = mortgageDefaultLoss * bankDepShare
+      val bankMortgageIntIncome   = mortgageFlows.interest.toDouble * bankDepShare
+      val bankMortgageNplLoss     = mortgageFlows.defaultLoss.toDouble * bankDepShare
       val bankCcNplLoss           = bankCcDef * (1.0 - p.household.ccNplRecovery.toDouble)
       val bankCcPrincipal         = in.s3.perBankHhFlowsOpt match
         case Some(pbf) => pbf(bId).consumerPrincipal.toDouble
@@ -420,10 +418,10 @@ object BankUpdateStep:
       exciseAfterEvasion,
       customsDutyRevenue,
       effectiveShadowShare,
-      mortgageInterestIncome,
-      mortgagePrincipal,
-      mortgageDefaultLoss,
-      mortgageDefaultAmount,
+      mortgageFlows.interest.toDouble,
+      mortgageFlows.principal.toDouble,
+      mortgageFlows.defaultLoss.toDouble,
+      mortgageFlows.defaultAmount.toDouble,
       jstDepositChange,
       investNetDepositFlow,
       actualBondChange,

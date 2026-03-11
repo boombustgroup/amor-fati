@@ -4,13 +4,32 @@ import sfc.config.SimParams
 import sfc.types.*
 import sfc.util.KahanSum.*
 
+/** Residential real estate market: prices, mortgages, wealth effects, and
+  * regional disaggregation.
+  *
+  * Meen-type housing price model (Meen 2002): ΔP/P = α×(ΔY/Y) + β×Δr +
+  * γ×(P*−P)/P*, where P* = annualRent / (mortgageRate − incomeGrowth). Mortgage
+  * origination subject to LTV limits (KNF Recommendation S), defaults with
+  * unemployment sensitivity, and housing wealth effects on consumption (Case,
+  * Quigley & Shiller 2005).
+  *
+  * Optional 7-region disaggregation: Warsaw, Kraków, Wrocław, Gdańsk, Łódź,
+  * Poznań, rest-of-Poland.
+  *
+  * Calibration: NBP residential price survey 2024, KNF Recommendation S, GUS
+  * wage surveys 2024.
+  */
 object HousingMarket:
+
+  val NRegions = 7
+
+  // --- Data types ---
 
   /** Per-region housing state: only fields that vary regionally. */
   case class RegionalState(
-      priceIndex: Double, // regional HPI (absolute — Warszawa starts at 230, Rest at 100)
-      totalValue: PLN,    // regional property value
-      mortgageStock: PLN, // regional mortgage debt
+      priceIndex: Double,
+      totalValue: PLN,
+      mortgageStock: PLN,
       lastOrigination: PLN,
       lastRepayment: PLN,
       lastDefault: PLN,
@@ -21,314 +40,300 @@ object HousingMarket:
     * flows.
     */
   case class State(
-      priceIndex: Double,                           // HPI (base 100)
-      totalValue: PLN,                              // aggregate residential property value
-      mortgageStock: PLN,                           // total outstanding mortgage debt
-      avgMortgageRate: Rate,                        // bank-weighted average mortgage rate
-      hhHousingWealth: PLN,                         // HH property equity (value - mortgage)
-      lastOrigination: PLN,                         // monthly new mortgages issued
-      lastRepayment: PLN,                           // monthly principal repaid
-      lastDefault: PLN,                             // monthly mortgage defaults
-      lastWealthEffect: PLN,                        // consumption boost from housing wealth
-      monthlyReturn: Rate,                          // HPI monthly return (for HH revaluation)
-      mortgageInterestIncome: PLN,                  // monthly interest income (-> bank capital)
-      regions: Option[Vector[RegionalState]] = None, // 7 entries when RE_REGIONAL=true
+      priceIndex: Double,
+      totalValue: PLN,
+      mortgageStock: PLN,
+      avgMortgageRate: Rate,
+      hhHousingWealth: PLN,
+      lastOrigination: PLN,
+      lastRepayment: PLN,
+      lastDefault: PLN,
+      lastWealthEffect: PLN,
+      monthlyReturn: Rate,
+      mortgageInterestIncome: PLN,
+      regions: Option[Vector[RegionalState]] = None,
   )
-  val NRegions = 7
-  // Region names (for documentation): Warszawa, Kraków, Wrocław, Gdańsk, Łódź, Poznań, Rest
+
+  /** Mortgage flow result: interest, principal, gross default, and net loss. */
+  case class MortgageFlows(
+      interest: PLN,
+      principal: PLN,
+      defaultAmount: PLN,
+      defaultLoss: PLN,
+  )
+
+  /** Price step input. */
+  case class StepInput(
+      prev: State,
+      mortgageRate: Rate,
+      inflation: Rate,
+      incomeGrowth: Rate,
+      employed: Int,
+      prevMortgageRate: Rate,
+  )
+
+  /** Meen model output for a single price update. */
+  private case class PriceUpdate(value: PLN, hpi: Double, monthlyReturn: Rate)
+
+  // --- Constructors ---
 
   def zero: State = State(
-    0.0,
-    PLN.Zero,
-    PLN.Zero,
-    Rate.Zero,
-    PLN.Zero,
-    PLN.Zero,
-    PLN.Zero,
-    PLN.Zero,
-    PLN.Zero,
-    Rate.Zero,
-    PLN.Zero,
-    None,
+    priceIndex = 0.0,
+    totalValue = PLN.Zero,
+    mortgageStock = PLN.Zero,
+    avgMortgageRate = Rate.Zero,
+    hhHousingWealth = PLN.Zero,
+    lastOrigination = PLN.Zero,
+    lastRepayment = PLN.Zero,
+    lastDefault = PLN.Zero,
+    lastWealthEffect = PLN.Zero,
+    monthlyReturn = Rate.Zero,
+    mortgageInterestIncome = PLN.Zero,
+    regions = None,
   )
 
   def initial(using p: SimParams): State =
-    val initMortgageRate = p.monetary.initialRate.toDouble + p.housing.mortgageSpread.toDouble
-    val regions          =
-      if p.flags.reRegional then
-        Some((0 until NRegions).map { r =>
-          val rValue    = PLN(p.housing.initValue.toDouble * p.housing.regionalValueShares.map(_.toDouble)(r))
-          val rMortgage = PLN(p.housing.initMortgage.toDouble * p.housing.regionalMortgageShares.map(_.toDouble)(r))
-          RegionalState(
-            priceIndex = p.housing.regionalHpi(r),
-            totalValue = rValue,
-            mortgageStock = rMortgage,
-            lastOrigination = PLN.Zero,
-            lastRepayment = PLN.Zero,
-            lastDefault = PLN.Zero,
-            monthlyReturn = Rate.Zero,
-          )
-        }.toVector)
-      else None
     State(
       priceIndex = p.housing.initHpi,
-      totalValue = PLN(p.housing.initValue.toDouble),
-      mortgageStock = PLN(p.housing.initMortgage.toDouble),
-      avgMortgageRate = Rate(initMortgageRate),
-      hhHousingWealth = PLN(p.housing.initValue.toDouble - p.housing.initMortgage.toDouble),
+      totalValue = p.housing.initValue,
+      mortgageStock = p.housing.initMortgage,
+      avgMortgageRate = p.monetary.initialRate + p.housing.mortgageSpread,
+      hhHousingWealth = p.housing.initValue - p.housing.initMortgage,
       lastOrigination = PLN.Zero,
       lastRepayment = PLN.Zero,
       lastDefault = PLN.Zero,
       lastWealthEffect = PLN.Zero,
       monthlyReturn = Rate.Zero,
       mortgageInterestIncome = PLN.Zero,
-      regions = regions,
+      regions = if p.flags.reRegional then Some(initRegions) else None,
     )
 
-  /** Meen-type housing price model (Meen 2002).
-    *
-    * ΔP/P = α × (ΔY/Y) + β × Δr + γ × (P* - P)/P*
-    *
-    * P* = annualRent / (mortgageRate - incomeGrowth) — fundamental value
-    *
-    * @param prev
-    *   previous housing market state
-    * @param mortgageRate
-    *   current mortgage rate (annual)
-    * @param inflation
-    *   current annualized inflation
-    * @param incomeGrowth
-    *   income growth rate (monthly)
-    * @param employed
-    *   number employed
-    * @param prevMortgageRate
-    *   previous period mortgage rate (for Δr)
-    * @return
-    *   updated housing market state (price only — origination/flows computed
-    *   separately)
+  private def initRegions(using p: SimParams): Vector[RegionalState] =
+    (0 until NRegions)
+      .map: r =>
+        RegionalState(
+          priceIndex = p.housing.regionalHpi(r),
+          totalValue = p.housing.initValue * p.housing.regionalValueShares(r).toDouble,
+          mortgageStock = p.housing.initMortgage * p.housing.regionalMortgageShares(r).toDouble,
+          lastOrigination = PLN.Zero,
+          lastRepayment = PLN.Zero,
+          lastDefault = PLN.Zero,
+          monthlyReturn = Rate.Zero,
+        )
+      .toVector
+
+  // --- Price step (Meen model) ---
+
+  /** Update house prices via Meen-type fundamentals model. Returns zero state
+    * when housing module is disabled.
     */
-  def step(
-      prev: State,
-      mortgageRate: Double,
-      inflation: Double,
-      incomeGrowth: Double,
-      employed: Int,
-      prevMortgageRate: Double,
+  def step(in: StepInput)(using p: SimParams): State =
+    if !p.flags.re then zero
+    else
+      val rateChange = (in.mortgageRate - in.prevMortgageRate).toDouble
+      in.prev.regions match
+        case Some(regs) => stepRegional(in, regs, rateChange)
+        case None       => stepAggregate(in, rateChange)
+
+  /** Regional mode: apply Meen model per region, then aggregate. */
+  private def stepRegional(
+      in: StepInput,
+      regs: Vector[RegionalState],
+      rateChange: Double,
   )(using p: SimParams): State =
-    if !p.flags.re then return zero
+    val updatedRegions = regs.zipWithIndex.map: (reg, r) =>
+      val gamma          = p.housing.regionalGammas(r).toDouble
+      val regionalGrowth = in.incomeGrowth.toDouble * p.housing.regionalIncomeMult(r)
+      val update         = meenPriceUpdate(reg.totalValue, reg.priceIndex, gamma, regionalGrowth, rateChange, in.mortgageRate)
+      reg.copy(priceIndex = update.hpi, totalValue = update.value, monthlyReturn = update.monthlyReturn)
+    aggregateFromRegions(in.prev, updatedRegions, in.mortgageRate)
 
-    val alpha      = p.housing.priceIncomeElast
-    val beta       = p.housing.priceRateElast
-    val rateChange = mortgageRate - prevMortgageRate
+  /** Aggregate mode: single Meen model for the whole market. */
+  private def stepAggregate(in: StepInput, rateChange: Double)(using p: SimParams): State =
+    val update = meenPriceUpdate(
+      in.prev.totalValue,
+      in.prev.priceIndex,
+      p.housing.priceReversion.toDouble,
+      in.incomeGrowth.toDouble,
+      rateChange,
+      in.mortgageRate,
+    )
+    in.prev.copy(
+      priceIndex = update.hpi,
+      totalValue = update.value,
+      monthlyReturn = update.monthlyReturn,
+      avgMortgageRate = in.mortgageRate,
+    )
 
-    prev.regions match
-      case Some(regs) =>
-        // Regional mode: apply Meen model per region with regional gamma and income mult
-        val updatedRegions = regs.zipWithIndex.map { (reg, r) =>
-          val gamma                = p.housing.regionalGammas.map(_.toDouble)(r)
-          val incomeMult           = p.housing.regionalIncomeMult(r)
-          val regionalIncomeGrowth = incomeGrowth * incomeMult
+  /** Value-weighted aggregation from regional states. */
+  private def aggregateFromRegions(
+      prev: State,
+      regions: Vector[RegionalState],
+      mortgageRate: Rate,
+  )(using p: SimParams): State =
+    val aggValue  = PLN(regions.kahanSumBy(_.totalValue.toDouble))
+    val aggHpi    =
+      if aggValue > PLN.Zero then
+        regions
+          .zip(p.housing.regionalValueShares.map(_.toDouble))
+          .kahanSumBy: (reg, share) =>
+            reg.priceIndex * share
+      else prev.priceIndex
+    val aggReturn = if prev.priceIndex > 0 then aggHpi / prev.priceIndex - 1.0 else 0.0
+    prev.copy(
+      priceIndex = aggHpi,
+      totalValue = aggValue,
+      monthlyReturn = Rate(aggReturn),
+      avgMortgageRate = mortgageRate,
+      regions = Some(regions),
+    )
 
-          val regTotalVal      = reg.totalValue.toDouble
-          val annualRent       = regTotalVal * p.housing.rentalYield.toDouble
-          val effectiveRate    = Math.max(0.01, mortgageRate)
-          val expectedGrowth   = Math.max(-0.05, Math.min(effectiveRate - 0.005, regionalIncomeGrowth * 12.0))
-          val denominator      = effectiveRate - expectedGrowth
-          val fundamentalValue =
-            if denominator > 0.005 then annualRent / denominator
-            else regTotalVal
-
-          val monthlyGamma  = gamma / 12.0
-          val pricePressure = Math.fma(
-            alpha,
-            regionalIncomeGrowth,
-            Math.fma(
-              beta,
-              rateChange,
-              monthlyGamma * (fundamentalValue - regTotalVal) / Math.max(1.0, fundamentalValue),
-            ),
-          )
-
-          val clampedChange = Math.max(-0.03, Math.min(0.03, pricePressure))
-
-          val newValue = PLN(Math.max(regTotalVal * 0.30, regTotalVal * (1.0 + clampedChange)))
-          val newHpi   =
-            if regTotalVal > 0 then reg.priceIndex * (newValue / reg.totalValue)
-            else reg.priceIndex
-          val mReturn  = if reg.priceIndex > 0 then newHpi / reg.priceIndex - 1.0 else 0.0
-
-          reg.copy(priceIndex = newHpi, totalValue = newValue, monthlyReturn = Rate(mReturn))
-        }
-
-        // Aggregate: value-weighted HPI average
-        val aggTotalValue = PLN(updatedRegions.kahanSumBy(_.totalValue.toDouble))
-        val aggHpi        =
-          if aggTotalValue > PLN.Zero then
-            updatedRegions.zip(p.housing.regionalValueShares.map(_.toDouble)).kahanSumBy { (reg, share) =>
-              reg.priceIndex * share
-            }
-          else prev.priceIndex
-        val aggReturn     = if prev.priceIndex > 0 then aggHpi / prev.priceIndex - 1.0 else 0.0
-
-        prev.copy(
-          priceIndex = aggHpi,
-          totalValue = aggTotalValue,
-          monthlyReturn = Rate(aggReturn),
-          avgMortgageRate = Rate(mortgageRate),
-          regions = Some(updatedRegions),
-        )
-
-      case None =>
-        // Aggregate mode (original logic)
-        val gamma            = p.housing.priceReversion.toDouble
-        val prevTotalVal     = prev.totalValue.toDouble
-        val annualRent       = prevTotalVal * p.housing.rentalYield.toDouble
-        val effectiveRate    = Math.max(0.01, mortgageRate)
-        val expectedGrowth   = Math.max(-0.05, Math.min(effectiveRate - 0.005, incomeGrowth * 12.0))
-        val denominator      = effectiveRate - expectedGrowth
-        val fundamentalValue =
-          if denominator > 0.005 then annualRent / denominator
-          else prevTotalVal
-
-        val monthlyGamma  = gamma / 12.0
-        val pricePressure = Math.fma(
-          alpha,
-          incomeGrowth,
-          Math.fma(beta, rateChange, monthlyGamma * (fundamentalValue - prevTotalVal) / Math.max(1.0, fundamentalValue)),
-        )
-
-        val clampedChange = Math.max(-0.03, Math.min(0.03, pricePressure))
-
-        val newTotalValue = PLN(Math.max(prevTotalVal * 0.30, prevTotalVal * (1.0 + clampedChange)))
-        val newHpi        =
-          if prevTotalVal > 0 then prev.priceIndex * (newTotalValue / prev.totalValue)
-          else prev.priceIndex
-        val mReturn       = if prev.priceIndex > 0 then newHpi / prev.priceIndex - 1.0 else 0.0
-
-        prev.copy(
-          priceIndex = newHpi,
-          totalValue = newTotalValue,
-          monthlyReturn = Rate(mReturn),
-          avgMortgageRate = Rate(mortgageRate),
-        )
-
-  /** Mortgage origination: new mortgages issued monthly. Scaled by origination
-    * rate, income growth, and bank capacity. LTV constraint caps mortgage at
-    * RE_LTV_MAX × property value.
+  /** Meen model: compute new value, HPI, and monthly return from fundamentals.
+    * P* = annualRent / (effectiveRate − expectedGrowth).
     */
-  def processOrigination(prev: State, totalIncome: Double, mortgageRate: Double, bankCapacity: Boolean)(using
-      p: SimParams,
-  ): State =
+  private def meenPriceUpdate(
+      prevValue: PLN,
+      prevHpi: Double,
+      gamma: Double,
+      incomeGrowth: Double,
+      rateChange: Double,
+      mortgageRate: Rate,
+  )(using p: SimParams): PriceUpdate =
+    val prevVal          = prevValue.toDouble
+    val annualRent       = prevVal * p.housing.rentalYield.toDouble
+    val effectiveRate    = Math.max(0.01, mortgageRate.toDouble)
+    val expectedGrowth   = Math.max(-0.05, Math.min(effectiveRate - 0.005, incomeGrowth * 12.0))
+    val denominator      = effectiveRate - expectedGrowth
+    val fundamentalValue =
+      if denominator > 0.005 then annualRent / denominator
+      else prevVal
+    val monthlyGamma     = gamma / 12.0
+    val pricePressure    = Math.fma(
+      p.housing.priceIncomeElast,
+      incomeGrowth,
+      Math.fma(
+        p.housing.priceRateElast,
+        rateChange,
+        monthlyGamma * (fundamentalValue - prevVal) / Math.max(1.0, fundamentalValue),
+      ),
+    )
+    val clampedChange    = Math.max(-0.03, Math.min(0.03, pricePressure))
+    val newValue         = PLN(Math.max(prevVal * 0.30, prevVal * (1.0 + clampedChange)))
+    val newHpi           = if prevVal > 0 then prevHpi * (newValue / prevValue) else prevHpi
+    val mReturn          = if prevHpi > 0 then newHpi / prevHpi - 1.0 else 0.0
+    PriceUpdate(newValue, newHpi, Rate(mReturn))
+
+  // --- Mortgage origination ---
+
+  /** New mortgages issued monthly. Scaled by origination rate, income growth,
+    * and rate sensitivity. LTV constraint caps mortgage at ltvMax × property
+    * value (KNF Recommendation S).
+    */
+  def processOrigination(prev: State, totalIncome: PLN, mortgageRate: Rate, bankCapacity: Boolean)(using p: SimParams): State =
     if !p.flags.re || !p.flags.reMortgage || !bankCapacity then
-      return prev.copy(
+      prev.copy(
         lastOrigination = PLN.Zero,
         regions = prev.regions.map(_.map(_.copy(lastOrigination = PLN.Zero))),
       )
-
-    // Base origination: fraction of total market value per month
-    val baseOrigination = prev.totalValue.toDouble * p.housing.originationRate.toDouble
-
-    // Rate sensitivity: lower rates -> more origination (elasticity -0.5)
-    val rateAdj = Math.max(0.3, Math.min(2.0, 1.0 - 0.5 * (mortgageRate - 0.06)))
-
-    // Income sensitivity: higher income growth -> more origination
-    val incomeAdj = Math.max(0.5, Math.min(1.5, 1.0 + totalIncome / Math.max(1.0, prev.totalValue.toDouble) * 10.0))
-
-    val rawOrigination = baseOrigination * rateAdj * Math.min(1.5, incomeAdj)
-
-    // LTV constraint: total mortgages <= LTV_MAX x total value
-    val maxMortgage = prev.totalValue.toDouble * p.housing.ltvMax.toDouble
-    val headroom    = Math.max(0.0, maxMortgage - prev.mortgageStock.toDouble)
-    val origination = Math.min(rawOrigination, headroom)
-
-    prev.regions match
-      case Some(regs) =>
-        // Distribute origination proportional to regional value share, per-region LTV
-        val updatedRegions = regs.zipWithIndex.map { (reg, r) =>
-          val regionalRaw      = origination * p.housing.regionalValueShares.map(_.toDouble)(r)
-          val regionalMax      = reg.totalValue.toDouble * p.housing.ltvMax.toDouble
-          val regionalHeadroom = Math.max(0.0, regionalMax - reg.mortgageStock.toDouble)
-          val regionalOrig     = Math.min(regionalRaw, regionalHeadroom)
-          reg.copy(
-            mortgageStock = reg.mortgageStock + PLN(regionalOrig),
-            lastOrigination = PLN(regionalOrig),
+    else
+      val rawOrigination = computeRawOrigination(prev, totalIncome, mortgageRate)
+      val headroom       = Math.max(0.0, (prev.totalValue * p.housing.ltvMax.toDouble - prev.mortgageStock).toDouble)
+      val origination    = Math.min(rawOrigination, headroom)
+      prev.regions match
+        case Some(regs) => distributeOrigination(prev, regs, origination)
+        case None       =>
+          prev.copy(
+            mortgageStock = prev.mortgageStock + PLN(origination),
+            lastOrigination = PLN(origination),
           )
-        }
-        val aggOrig        = PLN(updatedRegions.kahanSumBy(_.lastOrigination.toDouble))
-        val aggStock       = PLN(updatedRegions.kahanSumBy(_.mortgageStock.toDouble))
-        prev.copy(
-          mortgageStock = aggStock,
-          lastOrigination = aggOrig,
-          regions = Some(updatedRegions),
-        )
 
-      case None =>
-        prev.copy(
-          mortgageStock = prev.mortgageStock + PLN(origination),
-          lastOrigination = PLN(origination),
-        )
+  /** Base origination adjusted for rate and income sensitivity. */
+  private def computeRawOrigination(prev: State, totalIncome: PLN, mortgageRate: Rate)(using p: SimParams): Double =
+    val baseOrigination = prev.totalValue.toDouble * p.housing.originationRate.toDouble
+    val rateAdj         = Math.max(0.3, Math.min(2.0, 1.0 - 0.5 * (mortgageRate.toDouble - 0.06)))
+    val incomeAdj       = Math.max(0.5, Math.min(1.5, 1.0 + totalIncome.toDouble / Math.max(1.0, prev.totalValue.toDouble) * 10.0))
+    baseOrigination * rateAdj * Math.min(1.5, incomeAdj)
 
-  /** Mortgage servicing: compute interest, principal repayment, and defaults.
-    * @return
-    *   (interestIncome, principalRepaid, defaultLoss)
+  /** Distribute origination proportionally to regional value share, per-region
+    * LTV cap.
     */
-  def processMortgageFlows(prev: State, mortgageRate: Double, unemploymentRate: Double)(using
-      p: SimParams,
-  ): (Double, Double, Double) =
-    if !p.flags.re || prev.mortgageStock <= PLN.Zero then return (0.0, 0.0, 0.0)
+  private def distributeOrigination(
+      prev: State,
+      regs: Vector[RegionalState],
+      origination: Double,
+  )(using p: SimParams): State =
+    val updatedRegions = regs.zipWithIndex.map: (reg, r) =>
+      val regionalRaw      = origination * p.housing.regionalValueShares(r).toDouble
+      val regionalMax      = reg.totalValue.toDouble * p.housing.ltvMax.toDouble
+      val regionalHeadroom = Math.max(0.0, regionalMax - reg.mortgageStock.toDouble)
+      val regionalOrig     = Math.min(regionalRaw, regionalHeadroom)
+      reg.copy(
+        mortgageStock = reg.mortgageStock + PLN(regionalOrig),
+        lastOrigination = PLN(regionalOrig),
+      )
+    val aggOrig        = PLN(updatedRegions.kahanSumBy(_.lastOrigination.toDouble))
+    val aggStock       = PLN(updatedRegions.kahanSumBy(_.mortgageStock.toDouble))
+    prev.copy(mortgageStock = aggStock, lastOrigination = aggOrig, regions = Some(updatedRegions))
 
-    val stock          = prev.mortgageStock.toDouble
-    // Interest: mortgage stock x annual rate / 12
-    val interestIncome = stock * Math.max(0.0, mortgageRate) / 12.0
+  // --- Mortgage flows ---
 
-    // Principal repayment: amortization over maturity
-    val principalRepaid = stock / p.housing.mortgageMaturity.toDouble
+  /** Compute interest, principal repayment, and defaults from mortgage stock.
+    * Default rate rises with unemployment (sensitivity above 5% threshold).
+    * Returns both gross defaultAmount (for stock reduction) and net defaultLoss
+    * (after recovery, for bank P&L).
+    */
+  def processMortgageFlows(prev: State, mortgageRate: Rate, unemploymentRate: Ratio)(using p: SimParams): MortgageFlows =
+    if !p.flags.re || prev.mortgageStock <= PLN.Zero
+    then MortgageFlows(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    else
+      val stock         = prev.mortgageStock.toDouble
+      val interest      = PLN(stock * Math.max(0.0, mortgageRate.toDouble) / 12.0)
+      val principal     = PLN(stock / p.housing.mortgageMaturity.toDouble)
+      val defaultRate   = p.housing.defaultBase.toDouble +
+        p.housing.defaultUnempSens * Math.max(0.0, unemploymentRate.toDouble - 0.05)
+      val defaultAmount = PLN(stock * defaultRate)
+      val defaultLoss   = defaultAmount * (1.0 - p.housing.mortgageRecovery.toDouble)
+      MortgageFlows(interest, principal, defaultAmount, defaultLoss)
 
-    // Default rate: base + unemployment sensitivity x max(0, unempRate - 5%)
-    val defaultRate   = p.housing.defaultBase.toDouble +
-      p.housing.defaultUnempSens * Math.max(0.0, unemploymentRate - 0.05)
-    val defaultAmount = stock * defaultRate
+  // --- Apply flows ---
 
-    // Default loss = defaultAmount x (1 - recovery)
-    val defaultLoss = defaultAmount * (1.0 - p.housing.mortgageRecovery.toDouble)
-
-    (interestIncome, principalRepaid, defaultLoss)
-
-  /** Update mortgage stock after flows (principal repayment + defaults). */
-  def applyFlows(prev: State, principalRepaid: Double, defaultAmount: Double, interestIncome: Double)(using
-      p: SimParams,
-  ): State =
-    val newStock     = PLN(Math.max(0.0, prev.mortgageStock.toDouble - principalRepaid - defaultAmount))
+  /** Update mortgage stock after flows (principal repayment + defaults).
+    * Computes housing wealth effect on consumption.
+    */
+  def applyFlows(prev: State, flows: MortgageFlows)(using p: SimParams): State =
+    val newStock     = PLN.Zero.max(prev.mortgageStock - flows.principal - flows.defaultAmount)
     val newHhWealth  = prev.totalValue - newStock
-    // Housing wealth effect: MPC x housing wealth change
     val wealthChange = newHhWealth - prev.hhHousingWealth
     val wealthEffect =
       if p.flags.reHhHousing && wealthChange > PLN.Zero then wealthChange * p.housing.wealthMpc.toDouble
       else PLN.Zero
-
-    val updatedRegions = prev.regions.map { regs =>
-      val totalPrevStock = prev.mortgageStock.toDouble
-      if totalPrevStock <= 0 then regs
-      else
-        regs.map { reg =>
-          val share      = reg.mortgageStock.toDouble / totalPrevStock
-          val rPrincipal = principalRepaid * share
-          val rDefault   = defaultAmount * share
-          val rStock     = PLN(Math.max(0.0, reg.mortgageStock.toDouble - rPrincipal - rDefault))
-          reg.copy(
-            mortgageStock = rStock,
-            lastRepayment = PLN(rPrincipal),
-            lastDefault = PLN(rDefault),
-          )
-        }
-    }
-
     prev.copy(
       mortgageStock = newStock,
       hhHousingWealth = newHhWealth,
-      lastRepayment = PLN(principalRepaid),
-      lastDefault = PLN(defaultAmount),
+      lastRepayment = flows.principal,
+      lastDefault = flows.defaultAmount,
       lastWealthEffect = wealthEffect,
-      mortgageInterestIncome = PLN(interestIncome),
-      regions = updatedRegions,
+      mortgageInterestIncome = flows.interest,
+      regions = prev.regions.map(distributeFlows(_, flows, prev.mortgageStock)),
     )
+
+  /** Distribute principal/default flows to regions proportional to mortgage
+    * stock share.
+    */
+  private def distributeFlows(
+      regs: Vector[RegionalState],
+      flows: MortgageFlows,
+      totalPrevStock: PLN,
+  ): Vector[RegionalState] =
+    if totalPrevStock <= PLN.Zero then regs
+    else
+      regs.map: reg =>
+        val share      = reg.mortgageStock / totalPrevStock
+        val rPrincipal = flows.principal.toDouble * share
+        val rDefault   = flows.defaultAmount.toDouble * share
+        val rStock     = PLN.Zero.max(PLN(reg.mortgageStock.toDouble - rPrincipal - rDefault))
+        reg.copy(
+          mortgageStock = rStock,
+          lastRepayment = PLN(rPrincipal),
+          lastDefault = PLN(rDefault),
+        )
