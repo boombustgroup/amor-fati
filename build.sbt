@@ -3,7 +3,8 @@ val scala3Version = "3.8.2"
 lazy val root = project
   .in(file("."))
   .settings(
-    name         := "sfc-abm-core",
+    organization := "com.boombustgroup",
+    name         := "amor-fati",
     version      := "0.2.0",
     scalaVersion := scala3Version,
     scalacOptions ++= Seq(
@@ -15,9 +16,9 @@ lazy val root = project
       "-Wunused:all",
       "-Wconf:msg=Alphanumeric method.*is not declared infix:s",
     ),
-    Compile / mainClass := Some("sfc.sfcMonteCarlo"),
-    assembly / mainClass := Some("sfc.sfcMonteCarlo"),
-    assembly / assemblyJarName := "sfc-abm.jar",
+    Compile / mainClass := Some("com.boombustgroup.amorfati.sfcMonteCarlo"),
+    assembly / mainClass := Some("com.boombustgroup.amorfati.sfcMonteCarlo"),
+    assembly / assemblyJarName := "amor-fati.jar",
     // Disable parallel test execution: production code uses global scala.util.Random,
     // so concurrent suites would cause non-deterministic interleaving (breaks reproducibility test)
     Test / parallelExecution := false,

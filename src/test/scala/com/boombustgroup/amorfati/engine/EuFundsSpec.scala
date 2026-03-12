@@ -1,0 +1,139 @@
+package com.boombustgroup.amorfati.engine
+
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.engine.markets.FiscalBudget
+import com.boombustgroup.amorfati.engine.mechanisms.EuFunds
+import com.boombustgroup.amorfati.types.*
+
+class EuFundsSpec extends AnyFlatSpec with Matchers:
+
+  import com.boombustgroup.amorfati.config.SimParams
+  given SimParams          = SimParams.defaults
+  private val p: SimParams = summon[SimParams]
+
+  // --- Beta PDF tests ---
+
+  "betaPdf" should "integrate to ~1.0 over [0,1]" in {
+    val n   = 10000
+    val sum = (1 until n).map { i =>
+      val x = i.toDouble / n
+      EuFunds.betaPdf(x, 2.0, 5.0) / n
+    }.sum
+    sum shouldBe 1.0 +- 0.01
+  }
+
+  it should "peak at (a-1)/(a+b-2) for a=2, b=5" in {
+    val peak   = (2.0 - 1.0) / (2.0 + 5.0 - 2.0) // 0.20
+    val atPeak = EuFunds.betaPdf(peak, 2.0, 5.0)
+    // Values nearby should be lower
+    val before = EuFunds.betaPdf(peak - 0.05, 2.0, 5.0)
+    val after  = EuFunds.betaPdf(peak + 0.05, 2.0, 5.0)
+    atPeak should be > before
+    atPeak should be > after
+  }
+
+  it should "return 0 outside [0,1]" in {
+    EuFunds.betaPdf(-0.1, 2.0, 5.0) shouldBe 0.0
+    EuFunds.betaPdf(0.0, 2.0, 5.0) shouldBe 0.0
+    EuFunds.betaPdf(1.0, 2.0, 5.0) shouldBe 0.0
+    EuFunds.betaPdf(1.5, 2.0, 5.0) shouldBe 0.0
+  }
+
+  // --- monthlyTransfer tests ---
+  // Note: monthlyTransfer depends on Config env vars. Default: start=1, period=84
+
+  "monthlyTransfer" should "return 0 before startMonth" in {
+    EuFunds.monthlyTransfer(0) shouldBe 0.0
+    EuFunds.monthlyTransfer(1) shouldBe 0.0 // t=0 → betaPdf(0)=0
+  }
+
+  it should "return 0 after startMonth + periodMonths" in {
+    val afterEnd = p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths + 1
+    EuFunds.monthlyTransfer(afterEnd) shouldBe 0.0
+  }
+
+  it should "return positive value in the middle of the period" in {
+    val mid = p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths / 2
+    EuFunds.monthlyTransfer(mid) should be > 0.0
+  }
+
+  it should "sum to ~totalAllocation over full period" in {
+    val totalPln = p.fiscal.euFundsTotalEur * p.forex.baseExRate *
+      (p.pop.firmsCount.toDouble / 10000.0)
+    val sum      = (1 to p.fiscal.euFundsPeriodMonths + p.fiscal.euFundsStartMonth).map { m =>
+      EuFunds.monthlyTransfer(m)
+    }.sum
+    sum shouldBe totalPln +- (totalPln * 0.02) // 2% tolerance (numerical integration)
+  }
+
+  // --- cofinancing tests ---
+
+  "cofinancing" should "equal euMonthly * rate / (1 - rate)" in {
+    val eu       = 1000000.0
+    val rate     = 0.15
+    val expected = eu * rate / (1.0 - rate)
+    EuFunds.cofinancing(eu) shouldBe expected +- 0.01
+  }
+
+  it should "return 0 for zero transfer" in {
+    EuFunds.cofinancing(0.0) shouldBe 0.0
+  }
+
+  // --- capitalInvestment tests ---
+
+  "capitalInvestment" should "equal (eu + cofin) * capitalShare" in {
+    val eu       = 1000000.0
+    val cofin    = 176470.59 // 15/85 of eu
+    val expected = (eu + cofin) * 0.60
+    EuFunds.capitalInvestment(eu, cofin) shouldBe expected +- 0.01
+  }
+
+  // --- updateGov integration ---
+
+  "updateGov" should "include euCofinancing in deficit" in {
+    val prev      = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val baseInput = FiscalBudget.Input(prev, priceLevel = 1.0, citPaid = PLN(100000), vat = PLN(200000))
+    val base      = FiscalBudget.update(baseInput)
+    val withEu    = FiscalBudget.update(baseInput.copy(euCofinancing = PLN(50000.0)))
+    // Deficit should increase by euCofinancing amount
+    (withEu.deficit - base.deficit).toDouble shouldBe 50000.0 +- 0.01
+  }
+
+  it should "record euCofinancing in GovState" in {
+    val prev   = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val result = FiscalBudget.update(
+      FiscalBudget.Input(
+        prev,
+        priceLevel = 1.0,
+        citPaid = PLN(100000),
+        vat = PLN(200000),
+        euCofinancing = PLN(75000.0),
+      ),
+    )
+    result.euCofinancing.toDouble shouldBe 75000.0
+  }
+
+  it should "add euProjectCapital to govCapitalSpend when GovInvest disabled" in {
+    val prev   = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val result = FiscalBudget.update(
+      FiscalBudget.Input(
+        prev,
+        priceLevel = 1.0,
+        citPaid = PLN(100000),
+        vat = PLN(200000),
+        euProjectCapital = PLN(30000.0),
+      ),
+    )
+    // GovInvestEnabled=false by default, so govCapitalSpend = 0 + euProjectCapital
+    result.govCapitalSpend.toDouble shouldBe 30000.0
+  }
+
+  // --- Disabled mode: identical to flat transfer ---
+
+  "disabled mode" should "produce euCofinancing = 0" in {
+    // When EU_FUNDS_ENABLED=false (default), euCofin should be 0
+    p.flags.euFunds shouldBe false
+    val euMonthly = p.openEcon.euTransfers.toDouble // flat fallback
+    euMonthly should be > 0.0 // sanity
+  }

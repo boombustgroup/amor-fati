@@ -1,0 +1,11 @@
+package com.boombustgroup.amorfati.init
+
+import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.markets.HousingMarket
+
+/** Factory for housing market state initialization. */
+object HousingInit:
+
+  def create()(using p: SimParams): HousingMarket.State =
+    if p.flags.re then HousingMarket.initial
+    else HousingMarket.zero
