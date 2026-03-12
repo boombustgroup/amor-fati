@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/logo.png" width="400" alt="Amor Fati — Rota Fortunae">
+</p>
+
+<p align="center">
   <strong>AMOR FATI</strong><br>
   <em>Stock-Flow Consistent Agent-Based Macroeconomic Engine</em>
 </p>
