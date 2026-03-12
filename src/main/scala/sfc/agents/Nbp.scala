@@ -91,7 +91,7 @@ object Nbp:
 
   /** Floor/ceiling clamp to [rateFloor, rateCeiling]. */
   private def clampRate(rate: Double)(using p: SimParams): Rate =
-    Rate(Math.max(p.monetary.rateFloor.toDouble, Math.min(p.monetary.rateCeiling.toDouble, rate)))
+    Rate(rate).clamp(p.monetary.rateFloor, p.monetary.rateCeiling)
 
   /** Update NBP reference rate via Taylor rule. Symmetric (dual mandate) or
     * asymmetric (inflation-only) depending on flags.nbpSymmetric.
@@ -126,7 +126,7 @@ object Nbp:
       val fiscalRisk    = Math.min(FiscalRiskCap, p.fiscal.govFiscalRiskBeta * Math.max(0.0, debtToGdp - DebtThreshold))
       val qeCompress    = QeCompressionCoeff * nbpBondGdpShare
       val foreignDemand = if nfa > PLN.Zero then ForeignDemandDiscount else 0.0
-      Rate(Math.max(0.0, refRate.toDouble + termPremium + fiscalRisk - qeCompress - foreignDemand + credibilityPremium))
+      (refRate + Rate(termPremium + fiscalRisk - qeCompress - foreignDemand + credibilityPremium)).max(Rate.Zero)
 
   // ---------------------------------------------------------------------------
   // QE
@@ -183,4 +183,4 @@ object Nbp:
         val newReserves   = reserves + eurTraded
         val gdpEffect     = if gdp > 0 then Math.abs(eurTraded) * p.forex.baseExRate / gdp else 0.0
         val erEffect      = direction * gdpEffect * p.monetary.fxStrength.toDouble
-        FxInterventionResult(erEffect, PLN(eurTraded), PLN(Math.max(0.0, newReserves)))
+        FxInterventionResult(erEffect, PLN(eurTraded), PLN(newReserves).max(PLN.Zero))

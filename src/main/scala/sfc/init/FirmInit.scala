@@ -73,7 +73,7 @@ object FirmInit:
         val firmSize = FirmSizeDistribution.draw(rng)
         val sizeMult = firmSize.toDouble / p.pop.workersPerFirm
         val baseCash = rng.between(CashMin, CashMax) + (if rng.nextDouble() < LargeCashProb then LargeCashBonus else 0.0)
-        val dr       = Math.max(DrFloor, Math.min(DrCap, sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * DrNoise))
+        val dr       = Ratio(sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * DrNoise).clamp(Ratio(DrFloor), Ratio(DrCap))
         Firm.State(
           id = FirmId(i),
           cash = PLN(baseCash * sizeMult),
@@ -81,7 +81,7 @@ object FirmInit:
           tech = TechState.Traditional(firmSize),
           riskProfile = Ratio(rng.between(RiskProfileMin, RiskProfileMax)),
           innovationCostFactor = rng.between(InnovCostMin, InnovCostMax),
-          digitalReadiness = Ratio(dr),
+          digitalReadiness = dr,
           sector = SectorIdx(sectorAssignments(i)),
           neighbors = adjList(i).iterator.map(FirmId(_)).toVector,
           bankId = BankId(0),

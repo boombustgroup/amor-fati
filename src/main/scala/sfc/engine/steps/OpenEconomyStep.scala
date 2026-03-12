@@ -318,11 +318,11 @@ object OpenEconomyStep:
     val newBondYield      = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
 
     // Debt service: use LAGGED bond stock
-    val rawDebtService     = in.w.gov.bondsOutstanding.toDouble * newBondYield.toDouble / 12.0
-    val monthlyDebtService = PLN(Math.min(rawDebtService, in.w.gdpProxy * MaxDebtServiceGdpShare))
-    val bankBondIncome     = PLN(in.w.bank.govBondHoldings.toDouble * newBondYield.toDouble / 12.0)
-    val nbpBondIncome      = in.w.nbp.govBondHoldings.toDouble * newBondYield.toDouble / 12.0
-    val nbpRemittance      = PLN(nbpBondIncome - interbank.reserveInterest.toDouble - interbank.standingFacilityIncome.toDouble)
+    val rawDebtService     = in.w.gov.bondsOutstanding * newBondYield.monthly
+    val monthlyDebtService = rawDebtService.min(PLN(in.w.gdpProxy * MaxDebtServiceGdpShare))
+    val bankBondIncome     = in.w.bank.govBondHoldings * newBondYield.monthly
+    val nbpBondIncome      = in.w.nbp.govBondHoldings * newBondYield.monthly
+    val nbpRemittance      = nbpBondIncome - interbank.reserveInterest - interbank.standingFacilityIncome
 
     // QE logic
     val qeActivate       = Nbp.shouldActivateQe(newRefRate, in.s7.newInfl)
@@ -379,7 +379,7 @@ object OpenEconomyStep:
     InsuranceResult(newInsurance)
 
   private def stepNbfi(in: Input, postFxNbp: Nbp.State, newBondYield: Rate)(using p: SimParams): NbfiResult =
-    val nbfiDepositRate = Rate(Math.max(0.0, postFxNbp.referenceRate.toDouble - NbfiDepositRateSpread))
+    val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
     val nbfiUnempRate   = Ratio(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
     val newNbfi         =
       if p.flags.nbfi then

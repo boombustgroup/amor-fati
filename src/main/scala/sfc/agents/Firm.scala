@@ -384,7 +384,7 @@ object Firm:
       rng: Random,
   )(using p: SimParams): Decision =
     val pnl    = computePnL(firm, w.hhAgg.marketWage, w.flows.sectorDemandMult(firm.sector.toInt), w.priceLevel, lendRate, w.month)
-    val ready2 = Ratio(Math.min(1.0, firm.digitalReadiness.toDouble + HybridMonthlyDrDrift))
+    val ready2 = (firm.digitalReadiness + Ratio(HybridMonthlyDrDrift)).min(Ratio.One)
 
     val upCapex    = computeAiCapex(firm) * HybridToFullCapexMul
     val upLoan     = upCapex * FullAiLoanShare
@@ -553,7 +553,7 @@ object Firm:
       diminishing * (0.5 + competitive)
     if canAfford && rng.nextDouble() < digiProb then
       val boost = p.firm.digiInvestBoost.toDouble * diminishing
-      val newDR = Ratio(Math.min(1.0, firm.digitalReadiness.toDouble + boost))
+      val newDR = (firm.digitalReadiness + Ratio(boost)).min(Ratio.One)
       Decision.DigiInvest(pnl, digiCost, newDR)
     else if nc < PLN.Zero then attemptDownsize(firm, pnl, nc, workers, TechState.Traditional(_), w.hhAgg.marketWage, BankruptReason.LaborCostInsolvency)
     else Decision.Survive(pnl, nc)
@@ -669,7 +669,7 @@ object Firm:
     if p.firm.digiDrift <= Ratio.Zero then return r
     val f     = r.firm
     if !isAlive(f) then return r
-    val newDR = Ratio(Math.min(1.0, f.digitalReadiness.toDouble + p.firm.digiDrift.toDouble))
+    val newDR = (f.digitalReadiness + p.firm.digiDrift).min(Ratio.One)
     r.copy(firm = f.copy(digitalReadiness = newDR))
 
   /** Apply physical capital investment after firm decision. Depreciation,
@@ -813,7 +813,7 @@ object Firm:
     * clamped to [0, 1].
     */
   private def effectiveShadowShare(sector: SectorIdx, cyclicalAdj: Double)(using p: SimParams): Ratio =
-    Ratio(Math.min(1.0, p.informal.sectorShares.map(_.toDouble)(sector.toInt) + cyclicalAdj))
+    (p.informal.sectorShares(sector.toInt) + Ratio(cyclicalAdj)).min(Ratio.One)
 
   /** CIT evasion fraction for a sector — shadow share × CIT evasion rate. */
   private def citEvasionFrac(sector: SectorIdx, cyclicalAdj: Double)(using p: SimParams): Ratio =

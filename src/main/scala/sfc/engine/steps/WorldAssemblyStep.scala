@@ -210,7 +210,7 @@ object WorldAssemblyStep:
       mechanisms = MechanismsState(
         macropru = in.s7.newMacropru,
         expectations = in.s8.monetary.newExp,
-        bfgFundBalance = PLN(in.w.mechanisms.bfgFundBalance.toDouble + in.s9.bfgLevy.toDouble),
+        bfgFundBalance = in.w.mechanisms.bfgFundBalance + in.s9.bfgLevy,
         informalCyclicalAdj = informal.cyclicalAdj,
         effectiveShadowShare = informal.effectiveShadowShare,
       ),

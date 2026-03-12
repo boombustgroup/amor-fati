@@ -207,7 +207,7 @@ object Household:
         monthlyRent = rent,
         skill = Ratio(skill),
         healthPenalty = Ratio.Zero,
-        mpc = Ratio(Math.max(MpcFloor, Math.min(MpcCeiling, mpc))),
+        mpc = Ratio(mpc).clamp(Ratio(MpcFloor), Ratio(MpcCeiling)),
         status = HhStatus.Employed(firm.id, sectorIdx, wage),
         socialNeighbors =
           if hhId < socialNetwork.length then socialNetwork(hhId).map(HhId(_)) else Array.empty[HhId],
@@ -337,7 +337,7 @@ object Household:
         else
           p.fiscal.pitBracket1Annual * p.fiscal.pitRate1.toDouble +
             (annualized - p.fiscal.pitBracket1Annual) * p.fiscal.pitRate2.toDouble
-      PLN(Math.max(0.0, grossTax.toDouble - p.fiscal.pitTaxCreditAnnual.toDouble) / 12.0)
+      (grossTax - p.fiscal.pitTaxCreditAnnual).max(PLN.Zero) / 12.0
 
   /** Compute 800+ social transfer (PIT-exempt, lump-sum per child ≤ 18). */
   def computeSocialTransfer(numChildren: Int)(using p: SimParams): PLN =
@@ -705,14 +705,14 @@ object Household:
   private def applySkillDecay(hh: State, status: HhStatus)(using p: SimParams): Ratio =
     status match
       case HhStatus.Unemployed(months) if months >= p.household.scarringOnset =>
-        hh.skill * (1.0 - p.household.skillDecayRate.toDouble)
+        hh.skill * (Ratio.One - p.household.skillDecayRate)
       case _                                                                  => hh.skill
 
   /** Apply health scarring for long-term unemployed (cumulative, capped). */
   private def applyHealthScarring(hh: State, status: HhStatus)(using p: SimParams): Ratio =
     status match
       case HhStatus.Unemployed(months) if months >= p.household.scarringOnset =>
-        Ratio(Math.min(p.household.scarringCap.toDouble, hh.healthPenalty.toDouble + p.household.scarringRate.toDouble))
+        (hh.healthPenalty + p.household.scarringRate).min(p.household.scarringCap)
       case _                                                                  => hh.healthPenalty
 
   /** Fraction of social neighbors in distress (BitSet, O(k) per HH). */

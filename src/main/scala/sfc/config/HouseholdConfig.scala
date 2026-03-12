@@ -110,8 +110,8 @@ case class HouseholdConfig(
     mpcAlpha: Double = 8.2,
     mpcBeta: Double = 1.8,
     // Skill decay & scarring
-    skillDecayRate: Rate = Rate(0.02),
-    scarringRate: Rate = Rate(0.02),
+    skillDecayRate: Ratio = Ratio(0.02),
+    scarringRate: Ratio = Ratio(0.02),
     scarringCap: Ratio = Ratio(0.50),
     scarringOnset: Int = 3,
     // Retraining

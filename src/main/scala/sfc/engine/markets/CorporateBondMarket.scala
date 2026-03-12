@@ -63,7 +63,7 @@ object CorporateBondMarket:
   def computeYield(govBondYield: Rate, nplRatio: Ratio)(using p: SimParams): Rate =
     val cyclicalSpread = p.corpBond.spread.toDouble * (1.0 + nplRatio.toDouble * NplSensitivity)
     val spread         = Math.min(MaxSpread, cyclicalSpread)
-    Rate(Math.max(MinYield, govBondYield.toDouble + spread))
+    (govBondYield + Rate(spread)).max(Rate(MinYield))
 
   /** @param total
     *   total monthly coupon across all holders
@@ -132,7 +132,7 @@ object CorporateBondMarket:
         if aggBankCar <= minCar then MinAbsorption
         else if aggBankCar.toDouble >= minCar.toDouble + CarBufferZone then 1.0
         else MinAbsorption + (1.0 - MinAbsorption) * (aggBankCar.toDouble - minCar.toDouble) / CarBufferZone
-      Ratio(Math.max(MinAbsorption, Math.min(1.0, spreadAbsorption * carAbsorption)))
+      Ratio(spreadAbsorption * carAbsorption).clamp(Ratio(MinAbsorption), Ratio.One)
 
   /** Process new issuance: allocate to holders proportionally. */
   def processIssuance(state: State, issuance: PLN)(using p: SimParams): State =
@@ -171,7 +171,7 @@ object CorporateBondMarket:
       ppkHoldings = (in.prev.ppkHoldings - in.prev.ppkHoldings * reductionFrac).max(PLN.Zero),
       otherHoldings = (in.prev.otherHoldings - in.prev.otherHoldings * reductionFrac).max(PLN.Zero),
       corpBondYield = newYield,
-      creditSpread = Rate(Math.max(0.0, newYield.toDouble - in.govBondYield.toDouble)),
+      creditSpread = (newYield - in.govBondYield).max(Rate.Zero),
       lastAmortization = amort,
       lastDefaultAmount = defaults.grossDefault,
       lastDefaultLoss = defaults.lossAfterRecovery,

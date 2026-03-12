@@ -91,7 +91,7 @@ object Macroprudential:
 
     // CCyB rule: build gradually above activation gap, release immediately below release gap
     val newCcyb =
-      if gap > p.banking.ccybActivationGap.toDouble then Rate(Math.min(p.banking.ccybMax.toDouble, prev.ccyb.toDouble + CcybBuildRate))
+      if gap > p.banking.ccybActivationGap.toDouble then (prev.ccyb + Rate(CcybBuildRate)).min(p.banking.ccybMax)
       else if gap < p.banking.ccybReleaseGap then Rate.Zero
       else prev.ccyb
 

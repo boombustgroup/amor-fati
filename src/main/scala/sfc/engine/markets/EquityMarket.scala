@@ -108,11 +108,11 @@ object EquityMarket:
 
       // Dividend yield: payout ratio x earnings yield (mean-reverting to calibrated)
       val impliedDivYield = newEarningsYield.toDouble * PayoutRatio
-      val newDivYield     = Rate(in.prev.dividendYield.toDouble * (1.0 - DivYieldSmoothing) + impliedDivYield * DivYieldSmoothing)
+      val newDivYield     = in.prev.dividendYield * (1.0 - DivYieldSmoothing) + Rate(impliedDivYield * DivYieldSmoothing)
 
       // Foreign ownership: slow-moving, mean-reverting to calibrated share
       val newForeignOwnership =
-        Ratio(in.prev.foreignOwnership.toDouble * (1.0 - ForeignReversionSpeed) + p.equity.foreignShare.toDouble * ForeignReversionSpeed)
+        in.prev.foreignOwnership * (1.0 - ForeignReversionSpeed) + p.equity.foreignShare * ForeignReversionSpeed
 
       val mReturn = if in.prev.index > 0 then newIndex / in.prev.index - 1.0 else 0.0
 

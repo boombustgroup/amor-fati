@@ -84,7 +84,7 @@ object Nbfi:
 
   /** Bank credit tightness signal: 0 at NPL ≤ 3%, rises linearly, 1.0 at 6%. */
   def bankTightness(bankNplRatio: Ratio): Ratio =
-    Ratio(Math.max(0.0, Math.min(1.0, (bankNplRatio.toDouble - NplTightnessFloor) / NplTightnessRange)))
+    Ratio((bankNplRatio.toDouble - NplTightnessFloor) / NplTightnessRange).clamp(Ratio.Zero, Ratio.One)
 
   /** TFI net inflow: proportional to wage bill, modulated by excess returns. */
   def tfiInflow(employed: Int, wage: PLN, equityReturn: Rate, govBondYield: Rate, depositRate: Rate)(using

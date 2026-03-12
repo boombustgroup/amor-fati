@@ -109,7 +109,7 @@ object FirmEntry:
       tech = tech,
       riskProfile = Ratio(rng.between(0.1, 0.9)),
       innovationCostFactor = rng.between(0.8, 1.5),
-      digitalReadiness = Ratio(dr),
+      digitalReadiness = dr,
       sector = SectorIdx(newSector),
       neighbors = newNeighbors,
       bankId = newBankId,
@@ -134,10 +134,11 @@ object FirmEntry:
     * conventional entrants draw from sector baseline with Gaussian noise,
     * clamped to the feasible range for non-digital firms.
     */
-  private def drawDigitalReadiness(isAiNative: Boolean, sector: Int, rng: Random)(using p: SimParams): Double =
-    if isAiNative then rng.between(AiNativeMinDr, AiNativeMaxDr)
+  private def drawDigitalReadiness(isAiNative: Boolean, sector: Int, rng: Random)(using p: SimParams): Ratio =
+    if isAiNative then Ratio(rng.between(AiNativeMinDr, AiNativeMaxDr))
     else
-      Math.max(ConventionalDrFloor, Math.min(ConventionalDrCap, p.sectorDefs(sector).baseDigitalReadiness.toDouble + rng.nextGaussian() * ConventionalDrNoise))
+      Ratio(p.sectorDefs(sector).baseDigitalReadiness.toDouble + rng.nextGaussian() * ConventionalDrNoise)
+        .clamp(Ratio(ConventionalDrFloor), Ratio(ConventionalDrCap))
 
   /** Assign network neighbors from the living firm population. */
   private def assignNeighbors(livingIds: Vector[Int], rng: Random): Vector[FirmId] =
