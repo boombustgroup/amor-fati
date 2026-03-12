@@ -41,7 +41,7 @@ object FirmEntry:
       births: Int,               // number of new entrants spawned this step
   )
 
-  def run(
+  def process(
       firms: Vector[Firm.State],
       automationRatio: Ratio,
       hybridRatio: Ratio,

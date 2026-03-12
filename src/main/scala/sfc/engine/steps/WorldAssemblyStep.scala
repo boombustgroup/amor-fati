@@ -68,7 +68,7 @@ object WorldAssemblyStep:
     val postFdiFirms             = applyFdiMa(in.s9.reassignedFirms, rng)
     val (finalFirms, firmBirths) =
       if p.flags.firmEntry then
-        val r = FirmEntry.run(postFdiFirms, newW.real.automationRatio, newW.real.hybridRatio, rng)
+        val r = FirmEntry.process(postFdiFirms, newW.real.automationRatio, newW.real.hybridRatio, rng)
         (r.firms, r.births)
       else (postFdiFirms, 0)
 
