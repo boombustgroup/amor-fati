@@ -49,7 +49,7 @@ object Jst:
       // 2. CIT share: JST gets ~6.71% of CIT
       val citRevenue   = govTaxRevenue * p.fiscal.jstCitShare.toDouble
       // 3. Property tax: fixed per firm per year
-      val propertyTax  = PLN(nFirms.toDouble * p.fiscal.jstPropertyTax.toDouble / 12.0)
+      val propertyTax  = p.fiscal.jstPropertyTax * nFirms.toDouble / 12.0
       // 4. Subwencja oświatowa (education subvention): ~3% of GDP annually
       val subvention   = gdp * p.fiscal.jstSubventionShare.toDouble / 12.0
       // 5. Dotacje celowe (targeted grants): ~1% of GDP annually

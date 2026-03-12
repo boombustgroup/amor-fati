@@ -480,11 +480,11 @@ object Firm:
       allFirms: Vector[State],
   )(using p: SimParams): (Double, Double) =
     val localAuto   = computeLocalAutoRatio(firm, allFirms)
-    val globalPanic = (w.real.automationRatio + w.real.hybridRatio * HybridPanicDiscount).toDouble * HybridPanicDiscount
+    val globalPanic = ((w.real.automationRatio + w.real.hybridRatio * HybridPanicDiscount) * HybridPanicDiscount).toDouble
     val panic       = localAuto * LocalPanicWeight + globalPanic * GlobalPanicWeight
     val desper      = if pnl.netAfterTax < PLN.Zero then DesperationBonus else 0.0
     val strat       =
-      if !fullAi.profitable && fullAi.canPay && fullAi.ready && fullAi.bankOk then (firm.riskProfile * firm.digitalReadiness).toDouble * StrategicAdoptBase
+      if !fullAi.profitable && fullAi.canPay && fullAi.ready && fullAi.bankOk then (firm.riskProfile * firm.digitalReadiness * StrategicAdoptBase).toDouble
       else 0.0
 
     val baseDiscount        = UncertaintyBase + UncertaintySlope * (w.month.toDouble / p.timeline.duration.toDouble)
@@ -506,7 +506,7 @@ object Firm:
     * implementation failure.
     */
   private def rollFullAiUpgrade(firm: State, pnl: PnL, ai: UpgradeCandidate, rng: Random): Decision =
-    val failRate = FullAiBaseFailRate + (Ratio.One - firm.digitalReadiness).toDouble * FullAiFailDrSens
+    val failRate = FullAiBaseFailRate + ((Ratio.One - firm.digitalReadiness) * FullAiFailDrSens).toDouble
     if rng.nextDouble() < failRate then
       Decision.UpgradeFailed(pnl, BankruptReason.AiImplFailure, ai.capex * FailCapexFrac, ai.loan * FailLoanFrac, ai.down * FailDownFrac)
     else
@@ -517,7 +517,7 @@ object Firm:
     * efficiency), or success (good efficiency).
     */
   private def rollHybridUpgrade(firm: State, pnl: PnL, hyb: UpgradeCandidate, hWkrs: Int, rng: Random): Decision =
-    val failRate = HybridBaseFailRate + (Ratio.One - firm.digitalReadiness).toDouble * HybridFailDrSens
+    val failRate = HybridBaseFailRate + ((Ratio.One - firm.digitalReadiness) * HybridFailDrSens).toDouble
     val ir       = rng.nextDouble()
     if ir < failRate * CatastrophicFailFrac then
       Decision.UpgradeFailed(pnl, BankruptReason.HybridImplFailure, hyb.capex * FailCapexFrac, hyb.loan * FailLoanFrac, hyb.down * FailDownFrac)

@@ -291,7 +291,7 @@ object Banking:
   def lendingRate(bank: BankState, cfg: Config, refRate: Rate)(using p: SimParams): Rate =
     if bank.failed then refRate + Rate(FailedBankSpread)
     else
-      val nplSpread  = Math.min(NplSpreadCap, bank.nplRatio.toDouble * p.banking.nplSpreadFactor)
+      val nplSpread  = Math.min(NplSpreadCap, (bank.nplRatio * p.banking.nplSpreadFactor).toDouble)
       val carPenalty =
         if bank.car.toDouble < p.banking.minCar.toDouble * CarPenaltyThreshMult then
           Math.max(0.0, (p.banking.minCar.toDouble * CarPenaltyThreshMult - bank.car.toDouble) * CarPenaltyScale)
@@ -323,7 +323,7 @@ object Banking:
     else
       val projectedCar =
         bank.capital.toDouble / (bank.loans.toDouble + bank.consumerLoans.toDouble + bank.corpBondHoldings.toDouble * CorpBondRiskWeight + amount.toDouble)
-      val approvalP    = Math.max(MinApprovalProb, 1.0 - bank.nplRatio.toDouble * NplApprovalPenalty)
+      val approvalP    = Math.max(MinApprovalProb, 1.0 - (bank.nplRatio * NplApprovalPenalty).toDouble)
       val minCar       = Macroprudential.effectiveMinCar(bank.id.toInt, ccyb.toDouble)
       val carOk        = projectedCar >= minCar
       val lcrOk        = if p.flags.bankLcr then bank.lcr.toDouble >= p.banking.lcrMin else true

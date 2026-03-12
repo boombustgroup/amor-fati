@@ -61,9 +61,9 @@ object CorporateBondMarket:
     * Spread widens with system NPL (credit risk channel).
     */
   def computeYield(govBondYield: Rate, nplRatio: Ratio)(using p: SimParams): Rate =
-    val cyclicalSpread = p.corpBond.spread.toDouble * (1.0 + nplRatio.toDouble * NplSensitivity)
-    val spread         = Math.min(MaxSpread, cyclicalSpread)
-    (govBondYield + Rate(spread)).max(Rate(MinYield))
+    val cyclicalSpread = p.corpBond.spread * (1.0 + (nplRatio * NplSensitivity).toDouble)
+    val spread         = cyclicalSpread.min(Rate(MaxSpread))
+    (govBondYield + spread).max(Rate(MinYield))
 
   /** @param total
     *   total monthly coupon across all holders

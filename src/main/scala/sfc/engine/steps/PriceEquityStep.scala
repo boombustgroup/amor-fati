@@ -245,7 +245,7 @@ object PriceEquityStep:
           bankId = BankId(0),
           equityRaised = PLN.Zero,
           initialSize = newSize,
-          capitalStock = PLN(if p.flags.physCap then newSize.toDouble * p.capital.klRatios.map(_.toDouble)(sec.toInt) else 0.0),
+          capitalStock = if p.flags.physCap then p.capital.klRatios(sec.toInt) * newSize.toDouble else PLN.Zero,
           bondDebt = PLN.Zero,
           foreignOwned = false,
           inventory = PLN.Zero,

@@ -342,7 +342,7 @@ object Household:
   /** Compute 800+ social transfer (PIT-exempt, lump-sum per child ≤ 18). */
   def computeSocialTransfer(numChildren: Int)(using p: SimParams): PLN =
     if !p.flags.social800 || numChildren <= 0 then PLN.Zero
-    else PLN(numChildren.toDouble * p.fiscal.social800Rate.toDouble)
+    else p.fiscal.social800Rate * numChildren.toDouble
 
   /** Unemployment benefit (zasilek): 1500 PLN m1-3, 1200 PLN m4-6, 0 after. */
   def computeBenefit(monthsUnemployed: Int)(using p: SimParams): PLN =

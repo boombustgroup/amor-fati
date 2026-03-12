@@ -101,7 +101,7 @@ object FirmInit:
   private def assignCapitalAndBank(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
     firms.map: f =>
       val withCap =
-        if p.flags.physCap then f.copy(capitalStock = PLN(Firm.workerCount(f).toDouble * p.capital.klRatios.map(_.toDouble)(f.sector.toInt)))
+        if p.flags.physCap then f.copy(capitalStock = p.capital.klRatios(f.sector.toInt) * Firm.workerCount(f).toDouble)
         else f
       withCap.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng))
 
@@ -121,26 +121,26 @@ object FirmInit:
     */
   private def finalize(firms: Vector[Firm.State])(using p: SimParams): Vector[Firm.State] =
     val totalWorkers  = firms.map(Firm.workerCount).sum
-    val totalFirmCash = p.banking.initDeposits.toDouble * FirmDepositShare
+    val totalFirmCash = p.banking.initDeposits * FirmDepositShare
     firms.map: f =>
       val wshare     = Firm.workerCount(f).toDouble / totalWorkers
       val withInv    = initInventory(f)
       val withEnergy = initGreenCapital(withInv)
-      withEnergy.copy(cash = PLN(totalFirmCash * wshare), debt = PLN(p.banking.initLoans.toDouble * wshare))
+      withEnergy.copy(cash = totalFirmCash * wshare, debt = p.banking.initLoans * wshare)
 
   /** Set initial inventory stock from sector target ratio scaled to firm
     * capacity.
     */
   private def initInventory(f: Firm.State)(using p: SimParams): Firm.State =
     if p.flags.inventory then
-      val capacity  = Firm.computeCapacity(f).toDouble
-      val targetInv = capacity * p.capital.inventoryTargetRatios.map(_.toDouble)(f.sector.toInt)
-      f.copy(inventory = PLN(targetInv * p.capital.inventoryInitRatio.toDouble))
+      val capacity  = Firm.computeCapacity(f)
+      val targetInv = capacity * p.capital.inventoryTargetRatios(f.sector.toInt)
+      f.copy(inventory = targetInv * p.capital.inventoryInitRatio)
     else f
 
   /** Set initial green capital stock from sector-specific green K/L ratio. */
   private def initGreenCapital(f: Firm.State)(using p: SimParams): Firm.State =
     if p.flags.energy then
-      val targetGK = Firm.workerCount(f).toDouble * p.climate.greenKLRatios.map(_.toDouble)(f.sector.toInt)
-      f.copy(greenCapital = PLN(targetGK * p.climate.greenInitRatio.toDouble))
+      val targetGK = p.climate.greenKLRatios(f.sector.toInt) * Firm.workerCount(f).toDouble
+      f.copy(greenCapital = targetGK * p.climate.greenInitRatio)
     else f

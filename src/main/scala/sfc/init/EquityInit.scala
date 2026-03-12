@@ -11,7 +11,7 @@ object EquityInit:
     if p.flags.gpw then
       val initHhEq =
         if p.flags.gpwHhEquity
-        then PLN(totalPop * p.equity.hhEquityFrac.toDouble * Math.exp(p.household.savingsMu) * 0.05)
+        then PLN(totalPop.toDouble * Math.exp(p.household.savingsMu) * 0.05) * p.equity.hhEquityFrac
         else PLN.Zero
       EquityMarket.initial.copy(hhEquityWealth = initHhEq)
     else EquityMarket.zero
