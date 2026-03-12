@@ -1,37 +1,35 @@
-# SFC-ABM Core Engine
+<p align="center">
+  <strong>AMOR FATI</strong><br>
+  <em>Stock-Flow Consistent Agent-Based Macroeconomic Engine</em>
+</p>
 
-[![Core Engine Tests](https://github.com/complexity-econ/core/actions/workflows/core-tests.yml/badge.svg)](https://github.com/complexity-econ/core/actions/workflows/core-tests.yml)
 
-Stock-Flow Consistent Agent-Based Model engine for studying phase transitions in AI-driven labor market automation. Powers all five papers in the [complexity-econ](https://github.com/complexity-econ) series (40,000+ Monte Carlo simulations).
 
-## Usage
+<p align="center">
+  <a href="https://github.com/complexity-econ/core/actions"><img src="https://github.com/complexity-econ/core/actions/workflows/core-tests.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/scala-3.8.2-red.svg" alt="Scala 3.8.2">
+  <img src="https://img.shields.io/badge/mechanisms-48-blue.svg" alt="48 mechanisms">
+<img src="https://img.shields.io/badge/SFC_identities-13-orange.svg" alt="13 SFC identities">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue.svg" alt="Apache 2.0"></a>
+</p>
 
-### Prerequisites
+> <p align="center">
+>   <em>"I want to learn more and more to see as beautiful what is necessary in things;<br>then I shall be one of those who makes things beautiful.<br>Amor fati: let that be my love henceforth!"</em><br>
+>   — Friedrich Nietzsche, <em>The Gay Science</em> §276
+> </p>
 
-- JDK 17+
-- [sbt](https://www.scala-sbt.org/)
+---
 
-## Tech stack
+A closed-economy simulation where **every monetary flow is accounted for**. Firms produce, households consume, banks lend, the central bank sets policy, the government taxes and spends — and the books must balance. Always.
 
-- **Scala 3.5.2** / sbt
-- **Zero runtime dependencies** (stdlib only)
-- **ScalaTest 3.2.19** for unit tests
-- **sbt-assembly** for fat JAR packaging
+Amor Fati is a **stock-flow consistent** (SFC) **agent-based model** (ABM) that simulates the Polish economy at the level of individual households, heterogeneous firms, and a realistic multi-bank financial system. The engine enforces 13 accounting identities each month — if a single zloty goes missing, the simulation fails.
 
-## Papers using this engine
+## Why
 
-| # | Paper | Sims | DOI |
-|---|-------|-----:|-----|
-| 1 | [The Acceleration Paradox](https://github.com/complexity-econ/paper-01-acceleration-paradox) | 6,300 | [10.5281/zenodo.18727928](https://doi.org/10.5281/zenodo.18727928) |
-| 2 | [PLN vs EUR with SGP](https://github.com/complexity-econ/paper-02-monetary-regimes) | 1,260 | [10.5281/zenodo.18740933](https://doi.org/10.5281/zenodo.18740933) |
-| 3 | [Empirical σ Estimation](https://github.com/complexity-econ/paper-03-empirical-sigma) | 120 | [10.5281/zenodo.18743780](https://doi.org/10.5281/zenodo.18743780) |
-| 4 | [Phase Diagram & Universality](https://github.com/complexity-econ/paper-04-phase-diagram) | 18,540 | [10.5281/zenodo.18751083](https://doi.org/10.5281/zenodo.18751083) |
-| 5 | [Endogenous Technology & Networks](https://github.com/complexity-econ/paper-05-endogenous) | 10,080 | [10.5281/zenodo.18758365](https://doi.org/10.5281/zenodo.18758365) |
+Standard macro models (DSGE) assume representative agents and rational expectations. Reality has neither. Amor Fati models the economy from the bottom up: thousands of heterogeneous agents making bounded decisions, interacting through markets, generating emergent macro dynamics.
 
-## Citation
-
-See [CITATION.cff](CITATION.cff)
+**Counterfactual analysis through code.** Want to test a policy hypothesis? Fork the repo, modify the mechanism, run the simulation, compare. The model is the experiment.
 
 ## License
 
-MIT
+[Apache 2.0](LICENSE) — Copyright 2026 [BoomBustGroup](https://www.boombustgroup.com/)
