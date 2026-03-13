@@ -1,0 +1,59 @@
+name: Economic Limitation
+description: Missing mechanism or channel in the SFC model
+title: "[limitation] "
+labels: ["type:limitation"]
+body:
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+      description: What the model does today
+    validations:
+      required: true
+  - type: textarea
+    id: alternative
+    attributes:
+      label: Better alternative
+      description: What the model should do instead, with references
+    validations:
+      required: true
+  - type: textarea
+    id: sfc-impact
+    attributes:
+      label: SFC impact
+      description: Which SFC identities are affected? New identity needed?
+    validations:
+      required: false
+  - type: textarea
+    id: calibration
+    attributes:
+      label: Calibration sources
+      description: Data sources for parameterization (NBP, GUS, KNF, etc.)
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - monetary
+        - banking
+        - fiscal
+        - public-sector
+        - private-sector
+        - labor
+        - external
+        - infrastructure
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0:critical
+        - P1:quick-win
+        - P2:medium
+        - P3:hard
+    validations:
+      required: true

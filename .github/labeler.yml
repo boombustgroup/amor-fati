@@ -1,0 +1,31 @@
+area:monetary:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**/Nbp.scala', 'src/**/YieldCurve.scala', 'src/**/MonetaryConfig.scala', 'src/**/Expectations.scala']
+
+area:banking:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**/Banking.scala', 'src/**/BankUpdateStep.scala', 'src/**/BankInit.scala', 'src/**/Macroprudential.scala', 'src/**/BankingConfig.scala']
+
+area:fiscal:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**/FiscalBudget.scala', 'src/**/TaxRevenue.scala', 'src/**/FiscalConfig.scala', 'src/**/Jst.scala', 'src/**/EuFunds.scala']
+
+area:public-sector:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**/SocialSecurity.scala', 'src/**/SocialConfig.scala']
+
+area:private-sector:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**/Firm.scala', 'src/**/Household.scala', 'src/**/FirmProcessingStep.scala', 'src/**/HouseholdFinancialStep.scala', 'src/**/IntermediateMarket.scala', 'src/**/PriceLevel.scala']
+
+area:labor:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**/LaborMarket.scala', 'src/**/LaborDemographicsStep.scala', 'src/**/SectoralMobility.scala', 'src/**/LaborConfig.scala', 'src/**/Immigration.scala']
+
+area:external:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**/OpenEconomy.scala', 'src/**/OpenEconomyStep.scala', 'src/**/GvcTrade.scala', 'src/**/ForexConfig.scala', 'src/**/OpenEconConfig.scala']
+
+area:infrastructure:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**/SimOutput.scala', 'src/**/Main.scala', 'src/**/McRunner.scala', 'src/**/SimParams.scala']

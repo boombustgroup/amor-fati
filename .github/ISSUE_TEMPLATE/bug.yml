@@ -1,0 +1,41 @@
+name: SFC Bug
+description: Incorrect accounting or mechanics in the engine
+title: "[bug] "
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: finding
+    attributes:
+      label: Finding
+      description: What is wrong, with file paths and line numbers
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What this breaks in the model output or SFC consistency
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: Proposed fix
+      description: How to fix it, with specific code changes
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - monetary
+        - banking
+        - fiscal
+        - public-sector
+        - private-sector
+        - labor
+        - external
+        - infrastructure
+    validations:
+      required: true
