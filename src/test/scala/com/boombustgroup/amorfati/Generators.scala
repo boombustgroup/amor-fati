@@ -519,6 +519,7 @@ object Generators:
         flows.jstDepositChange +
         flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow + flows.diasporaInflow +
         flows.tourismExport - flows.tourismImport - flows.bailInLoss +
+        flows.newLoans +
         flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain
       val expectedGovDebtChange  = flows.govSpending - flows.govRevenue
       val expectedNfaChange      = flows.currentAccount + flows.valuationEffect

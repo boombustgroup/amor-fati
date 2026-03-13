@@ -292,6 +292,7 @@ object BankUpdateStep:
         + jstDepositChange
         + in.s7.netDomesticDividends - in.s7.foreignDividendOutflow - in.s6.remittanceOutflow + in.s6.diasporaInflow
         + in.s6.tourismExport - in.s6.tourismImport
+        + in.s5.sumNewLoans
         + in.s6.consumerOrigination + in.s8.nonBank.insNetDepositChange + in.s8.nonBank.nbfiDepositDrain,
       consumerLoans = (in.w.bank.consumerLoans + in.s6.consumerOrigination - in.s6.consumerPrincipal - in.s6.consumerDefaultAmt).max(PLN.Zero),
       consumerNpl = (in.w.bank.consumerNpl + in.s6.consumerDefaultAmt - in.w.bank.consumerNpl * NplMonthlyWriteOff).max(PLN.Zero),
@@ -406,13 +407,14 @@ object BankUpdateStep:
     val bankSfInc     = perBankStandingFac.perBank(bId)
     val bankIbInt     = perBankInterbankInt.perBank(bId)
     val newLoansTotal =
-      (b.loans + PLN(in.s5.perBankNewLoans(bId)) - bankNplNew * p.banking.loanRecovery.toDouble).max(PLN.Zero)
+      (b.loans + in.s5.perBankNewLoans(bId) - bankNplNew * p.banking.loanRecovery.toDouble).max(PLN.Zero)
 
     val newDep = b.deposits + (hhFlows.incomeShare - hhFlows.consShare) +
       investNetDepositFlow * ws + jstDepositChange * ws +
       in.s7.netDomesticDividends * ws - in.s7.foreignDividendOutflow * ws -
       in.s6.remittanceOutflow * ws + in.s6.diasporaInflow * ws +
       in.s6.tourismExport * ws - in.s6.tourismImport * ws +
+      in.s5.perBankNewLoans(bId) +
       hhFlows.ccOrigination +
       in.s8.nonBank.insNetDepositChange * ws + in.s8.nonBank.nbfiDepositDrain * ws
 
