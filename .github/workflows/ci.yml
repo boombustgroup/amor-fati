@@ -23,5 +23,12 @@ jobs:
       - name: Check formatting
         run: sbt scalafmtCheckAll
 
-      - name: Run tests
-        run: sbt test
+      - name: Run tests with coverage
+        run: sbt coverage test coverageReport
+
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: codecov/codecov-action@v5
+        with:
+          files: target/scala-3.8.2/scoverage-report/scoverage.xml
+          fail_ci_if_error: false
