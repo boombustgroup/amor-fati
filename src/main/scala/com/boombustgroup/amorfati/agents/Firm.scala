@@ -602,7 +602,7 @@ object Firm:
         val f    = firm.copy(
           tech = newTech,
           debt = firm.debt + loan,
-          cash = firm.cash + pnl.netAfterTax - downPayment,
+          cash = firm.cash + pnl.netAfterTax + loan - downPayment,
         )
         buildResult(
           drUpdate.fold(f)(dr => f.copy(digitalReadiness = dr)),
@@ -616,7 +616,7 @@ object Firm:
         val tImp = capex * p.forex.techImportShare
         buildResult(
           firm.copy(
-            cash = firm.cash + pnl.netAfterTax - down,
+            cash = firm.cash + pnl.netAfterTax + loan - down,
             debt = firm.debt + loan,
             tech = TechState.Bankrupt(reason),
           ),

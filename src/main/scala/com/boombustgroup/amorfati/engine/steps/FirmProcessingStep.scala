@@ -115,7 +115,7 @@ object FirmProcessingStep:
       corpBondAbsorption: Ratio,           // Catalyst absorption ratio (0-1)
       actualBondIssuance: PLN,             // bond issuance after absorption constraint
       netMigration: Int,                   // net immigration (inflow - outflow)
-      perBankNewLoans: Vector[Double],     // new loans by bank index (mutable accumulator)
+      perBankNewLoans: Vector[PLN],        // new loans by bank index
       perBankNplDebt: Vector[Double],      // NPL debt by bank index
       perBankIntIncome: Vector[Double],    // interest income by bank index
       perBankWorkers: Vector[Int],         // worker count by bank index
@@ -296,7 +296,7 @@ object FirmProcessingStep:
       corpBondAbsorption = Ratio(corpBondAbsorption),
       actualBondIssuance = actualBondIssuance,
       netMigration = netMigration,
-      perBankNewLoans = perBankNewLoans.toVector,
+      perBankNewLoans = perBankNewLoans.toVector.map(PLN(_)),
       perBankNplDebt = perBankNplDebt.toVector,
       perBankIntIncome = perBankIntIncome.toVector,
       perBankWorkers = perBankWorkers.toVector,

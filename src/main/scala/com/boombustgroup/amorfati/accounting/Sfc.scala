@@ -290,6 +290,7 @@ object Sfc:
           flows.jstDepositChange +
           flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow + flows.diasporaInflow +
           flows.tourismExport - flows.tourismImport - flows.bailInLoss +
+          flows.newLoans +
           flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain,
         actual = curr.bankDeposits - prev.bankDeposits,
         tolerance,
