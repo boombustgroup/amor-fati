@@ -1,7 +1,10 @@
 cff-version: 1.2.0
-title: "SFC-ABM: Stock-Flow Consistent Agent-Based Model"
+title: "Amor Fati: Stock-Flow Consistent Agent-Based Macroeconomic Engine"
 type: software
 authors:
   - given-names: Mateusz
     family-names: Maciaszek
-license: MIT
+    affiliation: BoomBustGroup
+repository-code: "https://github.com/boombustgroup/amor-fati"
+url: "https://www.boombustgroup.com/"
+license: Apache-2.0
