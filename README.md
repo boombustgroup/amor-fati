@@ -10,7 +10,7 @@
 
 
 <p align="center">
-  <a href="https://github.com/complexity-econ/core/actions"><img src="https://github.com/complexity-econ/core/actions/workflows/core-tests.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/boombustgroup/amor-fati/actions"><img src="https://github.com/boombustgroup/amor-fati/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/scala-3.8.2-red.svg" alt="Scala 3.8.2">
   <img src="https://img.shields.io/badge/mechanisms-48-blue.svg" alt="48 mechanisms">
 <img src="https://img.shields.io/badge/SFC_identities-13-orange.svg" alt="13 SFC identities">

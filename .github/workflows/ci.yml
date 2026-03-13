@@ -1,4 +1,4 @@
-name: Core Engine Tests
+name: CI
 
 on:
   push:
