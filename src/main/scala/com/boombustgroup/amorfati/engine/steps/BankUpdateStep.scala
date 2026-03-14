@@ -285,14 +285,14 @@ object BankUpdateStep:
       ),
     )
     in.w.bank.copy(
-      totalLoans = (in.w.bank.totalLoans + in.s5.sumNewLoans - in.s5.nplNew * p.banking.loanRecovery.toDouble).max(PLN.Zero),
+      totalLoans = (in.w.bank.totalLoans + in.s5.sumNewLoans - in.s5.sumFirmPrincipal - in.s5.nplNew * p.banking.loanRecovery.toDouble).max(PLN.Zero),
       nplAmount = (in.w.bank.nplAmount + in.s5.nplNew - in.w.bank.nplAmount * NplMonthlyWriteOff).max(PLN.Zero),
       capital = aggCapitalPnl.newCapital,
       deposits = in.w.bank.deposits + (in.s3.totalIncome - in.s3.consumption) + investNetDepositFlow
         + jstDepositChange
         + in.s7.netDomesticDividends - in.s7.foreignDividendOutflow - in.s6.remittanceOutflow + in.s6.diasporaInflow
         + in.s6.tourismExport - in.s6.tourismImport
-        + in.s5.sumNewLoans
+        + in.s5.sumNewLoans - in.s5.sumFirmPrincipal
         + in.s6.consumerOrigination + in.s8.nonBank.insNetDepositChange + in.s8.nonBank.nbfiDepositDrain,
       consumerLoans = (in.w.bank.consumerLoans + in.s6.consumerOrigination - in.s6.consumerPrincipal - in.s6.consumerDefaultAmt).max(PLN.Zero),
       consumerNpl = (in.w.bank.consumerNpl + in.s6.consumerDefaultAmt - in.w.bank.consumerNpl * NplMonthlyWriteOff).max(PLN.Zero),
@@ -407,14 +407,14 @@ object BankUpdateStep:
     val bankSfInc     = perBankStandingFac.perBank(bId)
     val bankIbInt     = perBankInterbankInt.perBank(bId)
     val newLoansTotal =
-      (b.loans + in.s5.perBankNewLoans(bId) - bankNplNew * p.banking.loanRecovery.toDouble).max(PLN.Zero)
+      (b.loans + in.s5.perBankNewLoans(bId) - in.s5.perBankFirmPrincipal(bId) - bankNplNew * p.banking.loanRecovery.toDouble).max(PLN.Zero)
 
     val newDep = b.deposits + (hhFlows.incomeShare - hhFlows.consShare) +
       investNetDepositFlow * ws + jstDepositChange * ws +
       in.s7.netDomesticDividends * ws - in.s7.foreignDividendOutflow * ws -
       in.s6.remittanceOutflow * ws + in.s6.diasporaInflow * ws +
       in.s6.tourismExport * ws - in.s6.tourismImport * ws +
-      in.s5.perBankNewLoans(bId) +
+      in.s5.perBankNewLoans(bId) - in.s5.perBankFirmPrincipal(bId) +
       hhFlows.ccOrigination +
       in.s8.nonBank.insNetDepositChange * ws + in.s8.nonBank.nbfiDepositDrain * ws
 

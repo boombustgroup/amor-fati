@@ -138,6 +138,7 @@ object Sfc:
       bailInLoss: PLN,              // bail-in deposit destruction
       bankCapitalDestruction: PLN,  // Capital wiped when bank fails (shareholders wiped)
       investNetDepositFlow: PLN,    // Investment demand net flow: lagged revenue - current spending
+      firmPrincipalRepaid: PLN,     // firm loan principal repaid (deposit destruction)
   )
 
   /** Enumeration of the 13 balance-sheet identities checked each month. Used as
@@ -290,7 +291,7 @@ object Sfc:
           flows.jstDepositChange +
           flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow + flows.diasporaInflow +
           flows.tourismExport - flows.tourismImport - flows.bailInLoss +
-          flows.newLoans +
+          flows.newLoans - flows.firmPrincipalRepaid +
           flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain,
         actual = curr.bankDeposits - prev.bankDeposits,
         tolerance,

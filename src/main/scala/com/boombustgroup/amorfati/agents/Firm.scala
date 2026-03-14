@@ -156,11 +156,12 @@ object Firm:
       citEvasion: PLN,      // CIT evaded via informal economy
       energyCost: PLN,      // Total energy + ETS cost this month
       greenInvestment: PLN, // Green capital investment this month
+      principalRepaid: PLN, // Monthly firm loan principal repayment
   )
   object Result:
     /** Convenience factory for tests — all flow fields set to `PLN.Zero`. */
     def zero(firm: State): Result =
-      Result(firm, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+      Result(firm, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   /** Monthly profit-and-loss breakdown, computed by `computePnL`. */
   case class PnL(
@@ -292,7 +293,8 @@ object Firm:
   )(using p: SimParams): Result =
     val decision = decide(firm, w, lendRate, bankCanLend, allFirms, rng)
     val r0       = execute(firm, decision)
-    val r1       = applyGreenInvestment(r0)
+    val r0a      = applyLoanAmortization(r0)
+    val r1       = applyGreenInvestment(r0a)
     val r2       = applyInvestment(r1)
     val r3       = applyDigitalDrift(r2)
     val r4       = applyInventory(r3, sectorDemandMult = w.flows.sectorDemandMult(firm.sector.toInt))
@@ -660,9 +662,24 @@ object Firm:
       citEvasion = PLN.Zero,
       energyCost = pnl.energyCost,
       greenInvestment = PLN.Zero,
+      principalRepaid = PLN.Zero,
     )
 
   // ---- Post-processing pipeline ----
+
+  /** Scheduled loan principal repayment: debt × amortRate per month. Reduces
+    * firm.debt and firm.cash; reports flow for SFC accounting. Bankrupt firms
+    * and firms with zero debt skip.
+    */
+  private def applyLoanAmortization(r: Result)(using p: SimParams): Result =
+    val f         = r.firm
+    if !isAlive(f) || f.debt <= PLN.Zero then return r
+    val principal = f.debt * p.banking.firmLoanAmortRate
+    val paid      = principal.min(f.cash.max(PLN.Zero))
+    r.copy(
+      firm = f.copy(debt = f.debt - paid, cash = f.cash - paid),
+      principalRepaid = paid,
+    )
 
   /** Apply natural digital drift to all living firms (always-on). */
   private def applyDigitalDrift(r: Result)(using p: SimParams): Result =

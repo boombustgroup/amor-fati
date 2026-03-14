@@ -46,6 +46,7 @@ object FirmProcessingStep:
       citEvasion: PLN,      // CIT evaded via informal economy
       energyCost: PLN,      // total energy + ETS cost
       greenInvestment: PLN, // green capital investment
+      principalRepaid: PLN, // firm loan principal repaid
   ):
     def +(o: FirmFlows): FirmFlows = FirmFlows(
       tax = tax + o.tax,
@@ -61,6 +62,7 @@ object FirmProcessingStep:
       citEvasion = citEvasion + o.citEvasion,
       energyCost = energyCost + o.energyCost,
       greenInvestment = greenInvestment + o.greenInvestment,
+      principalRepaid = principalRepaid + o.principalRepaid,
     )
 
   private object FirmFlows:
@@ -78,6 +80,7 @@ object FirmProcessingStep:
       citEvasion = PLN.Zero,
       energyCost = PLN.Zero,
       greenInvestment = PLN.Zero,
+      principalRepaid = PLN.Zero,
     )
 
   case class Input(
@@ -116,6 +119,8 @@ object FirmProcessingStep:
       actualBondIssuance: PLN,             // bond issuance after absorption constraint
       netMigration: Int,                   // net immigration (inflow - outflow)
       perBankNewLoans: Vector[PLN],        // new loans by bank index
+      sumFirmPrincipal: PLN,               // aggregate firm loan principal repaid
+      perBankFirmPrincipal: Vector[PLN],   // firm principal repaid by bank index
       perBankNplDebt: Vector[Double],      // NPL debt by bank index
       perBankIntIncome: Vector[Double],    // interest income by bank index
       perBankWorkers: Vector[Int],         // worker count by bank index
@@ -124,12 +129,13 @@ object FirmProcessingStep:
   )
 
   def run(in: Input, rng: Random)(using p: SimParams): Output =
-    val bsec             = in.w.bankingSector
-    val nBanks           = bsec.banks.length
-    val perBankNewLoans  = new Array[Double](nBanks)
-    val perBankNplDebt   = new Array[Double](nBanks)
-    val perBankIntIncome = new Array[Double](nBanks)
-    val perBankWorkers   = new Array[Int](nBanks)
+    val bsec                 = in.w.bankingSector
+    val nBanks               = bsec.banks.length
+    val perBankNewLoans      = new Array[Double](nBanks)
+    val perBankFirmPrincipal = new Array[Double](nBanks)
+    val perBankNplDebt       = new Array[Double](nBanks)
+    val perBankIntIncome     = new Array[Double](nBanks)
+    val perBankWorkers       = new Array[Int](nBanks)
 
     val currentCcyb                          = in.w.mechanisms.macropru.ccyb
     val rates                                = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate))
@@ -178,6 +184,7 @@ object FirmProcessingStep:
 
       if bondAmt > PLN.Zero then firmBondAmounts(f.id) = bondAmt.toDouble
       perBankNewLoans(f.bankId.toInt) += finalLoan.toDouble
+      perBankFirmPrincipal(f.bankId.toInt) += r.principalRepaid.toDouble
 
       val flows = FirmFlows(
         tax = r.taxPaid,
@@ -193,6 +200,7 @@ object FirmProcessingStep:
         citEvasion = r.citEvasion,
         energyCost = r.energyCost,
         greenInvestment = r.greenInvestment,
+        principalRepaid = r.principalRepaid,
       )
       (bondUpdatedFirm, flows)
 
@@ -297,6 +305,8 @@ object FirmProcessingStep:
       actualBondIssuance = actualBondIssuance,
       netMigration = netMigration,
       perBankNewLoans = perBankNewLoans.toVector.map(PLN(_)),
+      sumFirmPrincipal = ff.principalRepaid,
+      perBankFirmPrincipal = perBankFirmPrincipal.toVector.map(PLN(_)),
       perBankNplDebt = perBankNplDebt.toVector,
       perBankIntIncome = perBankIntIncome.toVector,
       perBankWorkers = perBankWorkers.toVector,
