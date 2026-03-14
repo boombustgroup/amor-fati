@@ -32,18 +32,19 @@ object Banking:
   private val RsfCorpBond     = 0.50
 
   // Lending rate components
-  private val FailedBankSpread     = 0.50
-  private val NplSpreadCap         = 0.15
-  private val CarPenaltyThreshMult = 1.5
-  private val CarPenaltyScale      = 2.0
+  private val FailedBankSpread     = 0.50 // 500 bps penalty spread for failed banks
+  private val NplSpreadCap         = 0.15 // max NPL-driven spread (1500 bps)
+  private val CarPenaltyThreshMult = 1.5  // CAR penalty kicks in below minCar × 1.5
+  private val CarPenaltyScale      = 2.0  // bps per unit of CAR shortfall
 
   // Credit approval
-  private val MinApprovalProb    = 0.1
-  private val NplApprovalPenalty = 3.0
+  private val MinApprovalProb       = 0.1 // floor: 10% approval even under max stress
+  private val NplApprovalPenalty    = 3.0 // approval drop per unit NPL ratio (e.g. NPL 10% → 30pp)
+  private val ReserveDeficitPenalty = 0.5 // 50pp approval drop when free reserves < 0
 
-  // Interbank corridor
-  private val DepositSpreadFromRef = 0.01
-  private val LombardSpreadFromRef = 0.01
+  // Interbank corridor (NBP: ref ± 100 bps)
+  private val DepositSpreadFromRef = 0.01 // deposit facility rate = refRate − 100 bps
+  private val LombardSpreadFromRef = 0.01 // lombard facility rate = refRate + 100 bps
 
   // ---------------------------------------------------------------------------
   // ADT: BankStatus
@@ -315,18 +316,24 @@ object Banking:
   // ---------------------------------------------------------------------------
 
   /** Can this bank lend `amount`? Checks projected CAR, LCR/NSFR, and
-    * stochastic approval probability penalised by NPL ratio.
+    * stochastic approval probability penalised by NPL ratio and reserve
+    * utilisation. Reserve constraint is soft: approval probability decreases as
+    * the bank approaches full reserve utilisation, rather than a hard block
+    * (banks can temporarily fund via interbank market).
     */
   def canLend(bank: BankState, amount: PLN, rng: Random, ccyb: Rate)(using p: SimParams): Boolean =
     if bank.failed then false
     else
       val projectedCar =
         bank.capital.toDouble / (bank.loans.toDouble + bank.consumerLoans.toDouble + bank.corpBondHoldings.toDouble * CorpBondRiskWeight + amount.toDouble)
-      val approvalP    = Math.max(MinApprovalProb, 1.0 - (bank.nplRatio * NplApprovalPenalty).toDouble)
       val minCar       = Macroprudential.effectiveMinCar(bank.id.toInt, ccyb.toDouble)
       val carOk        = projectedCar >= minCar
       val lcrOk        = if p.flags.bankLcr then bank.lcr.toDouble >= p.banking.lcrMin else true
       val nsfrOk       = if p.flags.bankLcr then bank.nsfr.toDouble >= p.banking.nsfrMin else true
+      val nplPenalty   = (bank.nplRatio * NplApprovalPenalty).toDouble
+      val freeReserves = (bank.deposits * (1.0 - p.banking.reserveReq.toDouble) - bank.loans - bank.govBondHoldings).toDouble
+      val resPenalty   = if freeReserves > 0.0 then 0.0 else ReserveDeficitPenalty
+      val approvalP    = Math.max(MinApprovalProb, 1.0 - nplPenalty - resPenalty)
       carOk && lcrOk && nsfrOk && rng.nextDouble() < approvalP
 
   // ---------------------------------------------------------------------------
