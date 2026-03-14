@@ -501,6 +501,7 @@ object Generators:
     bailInLoss = PLN.Zero,
     bankCapitalDestruction = PLN.Zero,
     investNetDepositFlow = PLN.Zero,
+    firmPrincipalRepaid = PLN.Zero,
   )
 
   /** Generate (prev, curr, flows) where all 9 SFC identities hold exactly. */
@@ -519,7 +520,7 @@ object Generators:
         flows.jstDepositChange +
         flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow + flows.diasporaInflow +
         flows.tourismExport - flows.tourismImport - flows.bailInLoss +
-        flows.newLoans +
+        flows.newLoans - flows.firmPrincipalRepaid +
         flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain
       val expectedGovDebtChange  = flows.govSpending - flows.govRevenue
       val expectedNfaChange      = flows.currentAccount + flows.valuationEffect

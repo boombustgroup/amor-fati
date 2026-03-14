@@ -82,6 +82,7 @@ case class BankingConfig(
     nplSpreadFactor: Double = 5.0,
     minCar: Ratio = Ratio(0.08),
     loanRecovery: Ratio = Ratio(0.30),
+    firmLoanAmortRate: Rate = Rate(1.0 / 60), // monthly: 1/60 ≈ 5-year avg maturity (NBP 2024)
     profitRetention: Ratio = Ratio(0.30),
     reserveReq: Rate = Rate(0.035),
     stressThreshold: Ratio = Ratio(0.05),

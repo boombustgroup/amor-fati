@@ -226,6 +226,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     bailInLoss = PLN.Zero,
     bankCapitalDestruction = PLN.Zero,
     investNetDepositFlow = PLN.Zero,
+    firmPrincipalRepaid = PLN.Zero,
   )
 
   // ---- Snapshot tests ----
