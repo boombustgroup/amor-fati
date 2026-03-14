@@ -327,11 +327,14 @@ object Household:
 
   // ---- Logic ----
 
-  /** Monthly PIT: progressive Polish brackets (12%/32%), minus kwota wolna. */
+  /** Monthly PIT: progressive Polish brackets (12%/32%), minus kwota wolna. PIT
+    * base = gross income − ZUS employee contribution (Art. 26 ustawy o PIT).
+    */
   def computeMonthlyPit(monthlyIncome: PLN)(using p: SimParams): PLN =
     if !p.flags.pit || monthlyIncome <= PLN.Zero then PLN.Zero
     else
-      val annualized = monthlyIncome * 12.0
+      val afterZus   = monthlyIncome * (1.0 - p.social.zusEmployeeRate.toDouble)
+      val annualized = afterZus * 12.0
       val grossTax   =
         if annualized <= p.fiscal.pitBracket1Annual then annualized * p.fiscal.pitRate1.toDouble
         else

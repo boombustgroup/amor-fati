@@ -51,6 +51,7 @@ import com.boombustgroup.amorfati.types.*
 case class SocialConfig(
     // ZUS (Ustawa o systemie ubezpieczen spolecznych)
     zusContribRate: Rate = Rate(0.1952),
+    zusEmployeeRate: Rate = Rate(0.1371), // employee portion deducted from PIT base (emerytura 9.76% + rentowe 1.5% + chorobowe 2.45%)
     zusBasePension: PLN = PLN(3500.0),
     zusScale: Double = 1.0,
     // PPK (Ustawa o PPK)

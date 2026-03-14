@@ -597,20 +597,18 @@ object Banking:
     PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
 
   /** Standing facility flows (monthly): deposit rate for excess reserves,
-    * lombard rate for borrowers. No-op when flags.nbpStandingFacilities is
-    * false.
+    * lombard rate for borrowers. Always-on — the NBP corridor (ref ± 100 bps)
+    * is structural, not optional.
     */
   def computeStandingFacilities(banks: Vector[BankState], refRate: Rate)(using p: SimParams): PerBankAmounts =
-    if !p.flags.nbpStandingFacilities then PerBankAmounts(banks.map(_ => PLN.Zero), PLN.Zero)
-    else
-      val depositRate = Math.max(0.0, (refRate - p.monetary.depositFacilitySpread).toDouble)
-      val lombardRate = refRate + p.monetary.lombardSpread
-      val perBank     = banks.map: b =>
-        if b.failed then PLN.Zero
-        else if b.reservesAtNbp > PLN.Zero then b.reservesAtNbp * depositRate / 12.0
-        else if b.interbankNet < PLN.Zero then -(b.interbankNet.abs * lombardRate.monthly)
-        else PLN.Zero
-      PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
+    val depositRate = Math.max(0.0, (refRate - p.monetary.depositFacilitySpread).toDouble)
+    val lombardRate = refRate + p.monetary.lombardSpread
+    val perBank     = banks.map: b =>
+      if b.failed then PLN.Zero
+      else if b.reservesAtNbp > PLN.Zero then b.reservesAtNbp * depositRate / 12.0
+      else if b.interbankNet < PLN.Zero then -(b.interbankNet.abs * lombardRate.monthly)
+      else PLN.Zero
+    PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
 
   /** Interbank interest flows (monthly). Net zero in aggregate (closed system).
     */

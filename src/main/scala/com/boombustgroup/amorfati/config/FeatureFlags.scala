@@ -15,8 +15,8 @@ package com.boombustgroup.amorfati.config
   * '''Government:''' `govInvest`, `euFunds`, `minWage`, `govBondMarket`,
   * `govUnempBenefit`, `pit`, `social800`, `social800ImmigEligible`
   *
-  * '''Central bank (NBP):''' `nbpSymmetric`, `nbpStandingFacilities`,
-  * `nbpForwardGuidance`, `nbpQe`, `nbpFxIntervention`
+  * '''Central bank (NBP):''' `nbpSymmetric`, `nbpForwardGuidance`, `nbpQe`,
+  * `nbpFxIntervention`
   *
   * '''Banking:''' `bankFailure`, `bankLcr`, `interbankTermStructure`,
   * `creditDiagnostics`, `bailIn`, `macropru`, `jst`
@@ -52,7 +52,6 @@ case class FeatureFlags(
     social800ImmigEligible: Boolean = true,
     // Central bank (NBP)
     nbpSymmetric: Boolean = true,
-    nbpStandingFacilities: Boolean = false,
     nbpForwardGuidance: Boolean = false,
     nbpQe: Boolean = true,
     nbpFxIntervention: Boolean = false,
