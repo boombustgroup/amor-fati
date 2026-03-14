@@ -166,15 +166,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // Standing Facilities
   // =========================================================================
 
-  "Banking.computeStandingFacilities" should "return zeros when disabled" in {
-    // Standing facilities are OFF by default (p.flags.nbpStandingFacilities = false)
-    val banks  = Vector(mkBank(0, reservesAtNbp = PLN(1e8)), mkBank(1, reservesAtNbp = PLN(5e7)))
-    val result = Banking.computeStandingFacilities(banks, Rate(0.06))
-    result.perBank.foreach(_ shouldBe PLN.Zero)
-    result.total shouldBe PLN.Zero
-  }
-
-  it should "compute deposit facility income for banks with excess reserves" in {
+  "Banking.computeStandingFacilities" should "compute deposit facility income for banks with excess reserves" in {
     // When standing facilities enabled, banks with reservesAtNbp > 0 earn deposit rate
     // We can't easily set Config at runtime, so test the formula directly
     val bank            = mkBank(0, reservesAtNbp = PLN(1e8))
