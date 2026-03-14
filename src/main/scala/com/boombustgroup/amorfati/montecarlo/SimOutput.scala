@@ -182,9 +182,11 @@ object SimOutput:
     ColumnDef("StandingFacilityNet", ctx => ctx.world.plumbing.standingFacilityNet.toDouble),
     ColumnDef("DepositFacilityUsage", ctx => ctx.world.plumbing.depositFacilityUsage.toDouble),
     ColumnDef("InterbankInterestNet", ctx => ctx.world.plumbing.interbankInterestNet.toDouble),
-    // Credit diagnostics
+    // Credit diagnostics — NBP-compatible monetary aggregates
+    ColumnDef("M0", ctx => ctx.world.monetaryAgg.map(_.m0.toDouble).getOrElse(0.0)),
     ColumnDef("M1", ctx => ctx.world.monetaryAgg.map(_.m1.toDouble).getOrElse(ctx.world.bank.deposits.toDouble)),
-    ColumnDef("MonetaryBase", ctx => ctx.world.monetaryAgg.map(_.monetaryBase.toDouble).getOrElse(0.0)),
+    ColumnDef("M2", ctx => ctx.world.monetaryAgg.map(_.m2.toDouble).getOrElse(ctx.world.bank.deposits.toDouble)),
+    ColumnDef("M3", ctx => ctx.world.monetaryAgg.map(_.m3.toDouble).getOrElse(ctx.world.bank.deposits.toDouble)),
     ColumnDef("CreditMultiplier", ctx => ctx.world.monetaryAgg.map(_.creditMultiplier).getOrElse(0.0)),
     // JST
     ColumnDef("JstRevenue", ctx => ctx.world.social.jst.revenue.toDouble),

@@ -130,7 +130,7 @@ object BankUpdateStep:
       housing.mortgageFlows,
       bonds,
     )
-    val monAgg               = computeMonetaryAggregates(multi.finalBankingSector, multi.resolvedBank)
+    val monAgg               = computeMonetaryAggregates(multi.finalBankingSector, in)
 
     Output(
       resolvedBank = multi.resolvedBank,
@@ -573,12 +573,17 @@ object BankUpdateStep:
       resolvedBank = finalBankingSector.aggregate,
     )
 
-  /** Monetary aggregates (M1/M2/M3) when credit diagnostics enabled. */
+  /** Monetary aggregates (M0/M1/M2/M3) when credit diagnostics enabled. */
   private def computeMonetaryAggregates(
       finalBankingSector: Banking.State,
-      resolvedBank: Banking.Aggregate,
+      in: Input,
   )(using p: SimParams): Option[Banking.MonetaryAggregates] =
     if p.flags.creditDiagnostics then
-      val totalReserves = PLN(finalBankingSector.banks.kahanSumBy(_.reservesAtNbp.toDouble))
-      Some(Banking.MonetaryAggregates.compute(resolvedBank.deposits, totalReserves))
+      Some(
+        Banking.MonetaryAggregates.compute(
+          finalBankingSector.banks,
+          in.w.financial.nbfi.tfiAum,
+          in.w.financial.corporateBonds.outstanding,
+        ),
+      )
     else None
