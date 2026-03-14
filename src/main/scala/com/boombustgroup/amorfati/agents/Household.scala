@@ -520,13 +520,14 @@ object Household:
     val consumptionAdj   =
       if neighborDistress > NeighborDistressThreshold then consumption * NeighborDistressConsAdj else consumption
 
-    // GPW equity wealth effect
+    // Wealth effects: equity (GPW) + housing (Meen HPI)
     val newEquityWealth       = (hh.equityWealth * (1.0 + equityIndexReturn)).max(PLN.Zero)
     val equityGain            = newEquityWealth - hh.equityWealth
-    val wealthEffectBoost     =
+    val equityBoost           =
       if p.flags.gpwHhEquity && equityGain > PLN.Zero then equityGain * p.equity.wealthEffectMpc
       else PLN.Zero
-    val consumptionWithWealth = consumptionAdj + wealthEffectBoost
+    val housingBoost          = world.real.housing.lastWealthEffect / world.totalPopulation.toDouble
+    val consumptionWithWealth = consumptionAdj + equityBoost + housingBoost
 
     MonthlyFlows(
       hh = hh,
