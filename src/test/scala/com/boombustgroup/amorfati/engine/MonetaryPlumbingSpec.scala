@@ -314,25 +314,45 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // Credit Diagnostics (M1/M2)
   // =========================================================================
 
-  "MonetaryAggregates.compute" should "compute M1 as deposits" in {
-    val agg = Banking.MonetaryAggregates.compute(PLN(1e9), PLN(1e8))
-    agg.m1 shouldBe PLN(1e9)
-    agg.monetaryBase shouldBe PLN(1e8)
+  "MonetaryAggregates.compute" should "compute M0/M1/M2/M3 from bank vector" in {
+    val b0  = mkBank(0, deposits = PLN(6e8), reservesAtNbp = PLN(5e7)).copy(
+      demandDeposits = PLN(3.6e8),
+      termDeposits = PLN(2.4e8),
+    )
+    val b1  = mkBank(1, deposits = PLN(4e8), reservesAtNbp = PLN(5e7)).copy(
+      demandDeposits = PLN(2.4e8),
+      termDeposits = PLN(1.6e8),
+    )
+    val agg = Banking.MonetaryAggregates.compute(Vector(b0, b1), PLN(1e8), PLN(5e7))
+    agg.m0 shouldBe PLN(1e8)                          // sum of reserves
+    agg.m1 shouldBe PLN(6e8)                          // sum of demand deposits
+    agg.m2 shouldBe PLN(1e9)                          // demand + term
+    agg.m3.toDouble shouldBe (1e9 + 1e8 + 5e7 +- 1.0) // M2 + tfiAum + corpBonds
   }
 
-  it should "compute credit multiplier as M1/base" in {
-    val agg = Banking.MonetaryAggregates.compute(PLN(4.5e9), PLN(1e9))
+  it should "compute credit multiplier as M2/M0" in {
+    val b   = mkBank(0, deposits = PLN(4.5e9), reservesAtNbp = PLN(1e9)).copy(
+      demandDeposits = PLN(2.7e9),
+      termDeposits = PLN(1.8e9),
+    )
+    val agg = Banking.MonetaryAggregates.compute(Vector(b), PLN.Zero, PLN.Zero)
     agg.creditMultiplier shouldBe (4.5 +- 0.01)
   }
 
   it should "handle zero reserves with floor" in {
-    val agg = Banking.MonetaryAggregates.compute(PLN(1e9), PLN.Zero)
-    agg.creditMultiplier shouldBe (1e9 +- 1.0) // m1 / max(1.0, 0.0)
+    val b   = mkBank(0, deposits = PLN(1e9), reservesAtNbp = PLN.Zero).copy(
+      demandDeposits = PLN(6e8),
+      termDeposits = PLN(4e8),
+    )
+    val agg = Banking.MonetaryAggregates.compute(Vector(b), PLN.Zero, PLN.Zero)
+    agg.creditMultiplier shouldBe (1e9 +- 1.0) // m2 / max(PLN(1.0), PLN.Zero)
   }
 
   "MonetaryAggregates.zero" should "have all zero values" in {
+    Banking.MonetaryAggregates.zero.m0 shouldBe PLN.Zero
     Banking.MonetaryAggregates.zero.m1 shouldBe PLN.Zero
-    Banking.MonetaryAggregates.zero.monetaryBase shouldBe PLN.Zero
+    Banking.MonetaryAggregates.zero.m2 shouldBe PLN.Zero
+    Banking.MonetaryAggregates.zero.m3 shouldBe PLN.Zero
     Banking.MonetaryAggregates.zero.creditMultiplier shouldBe 0.0
   }
 

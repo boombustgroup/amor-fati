@@ -101,18 +101,31 @@ object Banking:
   // Monetary aggregates (diagnostic, not SFC-relevant)
   // ---------------------------------------------------------------------------
 
-  /** Monetary aggregates — diagnostic, not SFC-relevant. */
+  /** Monetary aggregates — diagnostic, NBP-compatible definitions. M0 =
+    * reserves at NBP (monetary base, excl. currency in circulation — model is
+    * cashless) M1 = demand deposits only (overnight, NBP definition) M2 = M1 +
+    * term deposits (deposits with agreed maturity) M3 = M2 + TFI AUM +
+    * short-term corporate bonds (money market instruments)
+    */
   case class MonetaryAggregates(
-      m1: PLN,                 // Bank deposits (≈ narrow money)
-      monetaryBase: PLN,       // Reserves at NBP
-      creditMultiplier: Double, // m1 / monetaryBase
+      m0: PLN,                 // monetary base: reserves at NBP
+      m1: PLN,                 // narrow money: demand deposits
+      m2: PLN,                 // intermediate: M1 + term deposits
+      m3: PLN,                 // broad money: M2 + TFI AUM + corp bonds
+      creditMultiplier: Double, // m2 / m0 (broad deposit multiplier)
   )
   object MonetaryAggregates:
-    val zero: MonetaryAggregates = MonetaryAggregates(PLN.Zero, PLN.Zero, 0)
+    val zero: MonetaryAggregates = MonetaryAggregates(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, 0)
 
-    def compute(deposits: PLN, reserves: PLN): MonetaryAggregates =
-      val base = Math.max(1.0, reserves.toDouble)
-      MonetaryAggregates(deposits, reserves, deposits.toDouble / base)
+    def compute(banks: Vector[BankState], tfiAum: PLN, corpBondOutstanding: PLN): MonetaryAggregates =
+      val alive  = banks.filterNot(_.failed)
+      val m0     = PLN(alive.kahanSumBy(_.reservesAtNbp.toDouble))
+      val demand = PLN(alive.kahanSumBy(_.demandDeposits.toDouble))
+      val term   = PLN(alive.kahanSumBy(_.termDeposits.toDouble))
+      val m1     = demand
+      val m2     = demand + term
+      val m3     = m2 + tfiAum + corpBondOutstanding
+      MonetaryAggregates(m0, m1, m2, m3, m2 / m0.max(PLN(1.0)))
 
   // ---------------------------------------------------------------------------
   // Named result types
