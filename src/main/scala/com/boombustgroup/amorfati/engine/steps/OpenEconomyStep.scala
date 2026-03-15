@@ -36,6 +36,7 @@ object OpenEconomyStep:
       newBondYield: Rate,
       qePurchaseAmount: PLN,
       postFxNbp: Nbp.State,
+      fxPlnInjection: PLN, // PLN injected (+) or drained (−) by FX intervention
   )
 
   case class BankingFlows(
@@ -112,6 +113,7 @@ object OpenEconomyStep:
         newBondYield = bondQe.newBondYield,
         qePurchaseAmount = bondQe.qePurchaseAmount,
         postFxNbp = bondQe.postFxNbp,
+        fxPlnInjection = external.fxIntervention.plnInjection,
       ),
       banking = BankingFlows(
         totalReserveInterest = interbank.reserveInterest,
@@ -233,7 +235,7 @@ object OpenEconomyStep:
         in.w.nbp.referenceRate,
         in.s7.gdp,
       )
-      ForexResult(fx, in.w.bop, PLN.Zero, Nbp.FxInterventionResult(0.0, PLN.Zero, in.w.nbp.fxReserves))
+      ForexResult(fx, in.w.bop, PLN.Zero, Nbp.FxInterventionResult(0.0, PLN.Zero, in.w.nbp.fxReserves, PLN.Zero))
 
   private def adjustBop(in: Input, bop0: OpenEconomy.BopState)(using p: SimParams): (OpenEconomy.BopState, PLN) =
     // Adjust BOP for foreign dividend outflow (primary income component)

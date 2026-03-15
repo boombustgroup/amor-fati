@@ -517,9 +517,10 @@ object BankUpdateStep:
   )(using p: SimParams): MultiBankResult =
     val ibRate               = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
     val afterInterbank       = Banking.clearInterbank(updatedBanks, bs.configs)
+    val afterFxInjection     = distributeFxInjection(afterInterbank, in.s8.monetary.fxPlnInjection)
     val afterBonds           =
-      if p.flags.govBondMarket then Banking.allocateBonds(afterInterbank, bonds.actualBondChange)
-      else afterInterbank
+      if p.flags.govBondMarket then Banking.allocateBonds(afterFxInjection, bonds.actualBondChange)
+      else afterFxInjection
     val afterQe              = Banking.allocateQePurchases(afterBonds, in.s8.monetary.qePurchaseAmount)
     val afterPpk             = Banking.allocateQePurchases(afterQe, bonds.ppkBondPurchase)
     val afterIns             = Banking.allocateQePurchases(afterPpk, bonds.insBondPurchase)
@@ -587,3 +588,17 @@ object BankUpdateStep:
         ),
       )
     else None
+
+  /** Distribute FX intervention PLN injection across banks proportional to
+    * deposit market share, adjusting reservesAtNbp. EUR purchase → PLN injected
+    * into banking system; EUR sale → PLN drained.
+    */
+  private def distributeFxInjection(banks: Vector[Banking.BankState], injection: PLN): Vector[Banking.BankState] =
+    if injection == PLN.Zero then banks
+    else
+      val totalDeposits = banks.kahanSumBy(_.deposits.toDouble)
+      if totalDeposits <= 0 then banks
+      else
+        banks.map: b =>
+          val share = b.deposits.toDouble / totalDeposits
+          b.copy(reservesAtNbp = (b.reservesAtNbp + injection * share).max(PLN.Zero))

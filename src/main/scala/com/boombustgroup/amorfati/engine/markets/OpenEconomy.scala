@@ -129,7 +129,7 @@ object OpenEconomy:
       importedIntermediates: Vector[PLN], // per-sector imported intermediate goods
       valuationEffect: PLN,               // NFA valuation change from ER movement
       fxIntervention: Nbp.FxInterventionResult // NBP FX intervention result (reserves, EUR traded)
-      = Nbp.FxInterventionResult(0.0, PLN.Zero, PLN.Zero),
+      = Nbp.FxInterventionResult(0.0, PLN.Zero, PLN.Zero, PLN.Zero),
   )
 
   case class StepInput(
