@@ -12,11 +12,15 @@ lazy val root = project
       "-explain",
       "-Wunused:all",
     ),
-    mainClass                  := Some("com.boombustgroup.amorfati.simulate"),
+    mainClass                  := Some("com.boombustgroup.amorfati.Main"),
     assembly / assemblyJarName := "amor-fati.jar",
     libraryDependencies ++= Seq(
+      "dev.zio"           %% "zio"             % "2.1.16",
+      "dev.zio"           %% "zio-streams"     % "2.1.16",
       "org.scalatest"     %% "scalatest"       % "3.2.19"   % Test,
       "org.scalacheck"    %% "scalacheck"      % "1.18.1"   % Test,
       "org.scalatestplus" %% "scalacheck-1-18" % "3.2.19.0" % Test,
+      "dev.zio"           %% "zio-test"        % "2.1.16"   % Test,
+      "dev.zio"           %% "zio-test-sbt"    % "2.1.16"   % Test,
     ),
   )

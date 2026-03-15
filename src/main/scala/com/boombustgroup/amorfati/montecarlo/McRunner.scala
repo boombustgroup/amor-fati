@@ -11,8 +11,11 @@ import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.CsvWriter
 import com.boombustgroup.amorfati.util.KahanSum.*
+import zio.{Clock, Console, Task, UIO, ZIO}
+import zio.stream.ZStream
 
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 /** Monte Carlo runner: simulation loop, CSV writers, summary statistics. */
 object McRunner:
@@ -41,6 +44,44 @@ object McRunner:
       results(t) = SimOutput.compute(t, state.world, state.firms, state.households)
 
     RunResult(TimeSeries.wrap(results), state)
+
+  // ---------------------------------------------------------------------------
+  //  ZIO wrappers
+  // ---------------------------------------------------------------------------
+
+  private def runSingleZIO(seed: Long, rc: McRunConfig)(using SimParams): Task[RunResult] =
+    ZIO.attemptBlocking(runSingle(seed, rc))
+
+  def runAllZIO(rc: McRunConfig)(using SimParams): Task[McResults] =
+    val parallelism = java.lang.Runtime.getRuntime.availableProcessors()
+    ZStream
+      .fromIterable(1L to rc.nSeeds.toLong)
+      .mapZIOPar(parallelism) { seed =>
+        for
+          t0     <- Clock.currentTime(TimeUnit.MILLISECONDS)
+          result <- runSingleZIO(seed, rc)
+          t1     <- Clock.currentTime(TimeUnit.MILLISECONDS)
+          _      <- printProgress(seed, rc.nSeeds, result, t1 - t0)
+        yield result
+      }
+      .runFold(Vector.empty[RunResult])(_ :+ _)
+      .map(McResults(_))
+
+  def runZIO(rc: McRunConfig)(using SimParams): Task[Unit] =
+    for
+      _       <- printBannerZIO(rc)
+      t0      <- Clock.currentTime(TimeUnit.MILLISECONDS)
+      results <- runAllZIO(rc)
+      t1      <- Clock.currentTime(TimeUnit.MILLISECONDS)
+      _       <- Console.printLine(f"\nTotal time: ${(t1 - t0) / 1000.0}%.1f seconds")
+      _       <- writeAllCsvZIO(rc, results)
+      _       <- printSavedZIO(rc)
+      _       <- printSummaryZIO(rc, results)
+    yield ()
+
+  // ---------------------------------------------------------------------------
+  //  Pure MC loop (kept for tests and non-ZIO callers)
+  // ---------------------------------------------------------------------------
 
   // $COVERAGE-OFF$ I/O: CSV writers, progress, banner
   def run(rc: McRunConfig)(using SimParams): Unit =
@@ -198,6 +239,40 @@ object McRunner:
     }
 
   // ---------------------------------------------------------------------------
+  //  ZIO I/O wrappers
+  // ---------------------------------------------------------------------------
+
+  private def writeAllCsvZIO(rc: McRunConfig, results: McResults)(using SimParams): Task[Unit] =
+    ZIO.attemptBlocking {
+      val outDir = new File("mc")
+      if !outDir.exists() then outDir.mkdirs()
+      writeResults(rc, results, outDir)
+    }
+
+  private def printSavedZIO(rc: McRunConfig): Task[Unit] =
+    Console.printLine(s"Saved: mc/${rc.outputPrefix}_terminal.csv") *>
+      Console.printLine(s"Saved: mc/${rc.outputPrefix}_hh_terminal.csv") *>
+      Console.printLine(s"Saved: mc/${rc.outputPrefix}_banks_terminal.csv") *>
+      Console.printLine(s"Saved: mc/${rc.outputPrefix}_timeseries.csv")
+
+  private def printProgress(seed: Long, total: Int, result: RunResult, dt: Long): UIO[Unit] =
+    ZIO
+      .when(seed <= 3 || seed % 10 == 0 || seed == total) {
+        val last      = result.timeSeries.lastMonth
+        val adoption  = last(Col.TotalAdoption.ordinal)
+        val inflation = last(Col.Inflation.ordinal)
+        val unemp     = last(Col.Unemployment.ordinal)
+        Console
+          .printLine(
+            f"  Seed $seed%3d/$total (${dt}ms) | " +
+              f"Adopt=${adoption * 100}%5.1f%% | pi=${inflation * 100}%5.1f%% | " +
+              f"Unemp=${unemp * 100}%5.1f%%",
+          )
+          .orDie
+      }
+      .unit
+
+  // ---------------------------------------------------------------------------
   //  Summary statistics
   // ---------------------------------------------------------------------------
 
@@ -240,6 +315,9 @@ object McRunner:
     val secNames = p.sectorDefs.map(_.name)
     for s <- p.sectorDefs.indices do statsSummary(f"  ${secNames(s)}%-22s", Col.sectorAuto(s), 100.0)
 
+  private def printSummaryZIO(rc: McRunConfig, results: McResults)(using SimParams): Task[Unit] =
+    ZIO.attemptBlocking(printSummary(rc, results))
+
   private def printBanner(rc: McRunConfig)(using p: SimParams): Unit =
     val topoLabel  = p.topology.toString.toUpperCase
     val firmsLabel = f"${p.pop.firmsCount}%,d"
@@ -249,4 +327,7 @@ object McRunner:
     println(s"|  SFC-ABM v8: N=${rc.nSeeds} seeds, PLN (NBP)${hhLabel}${bankLabel}")
     println(s"|  ${firmsLabel} firms x 6 sectors (GUS 2024) x ${topoLabel} network x 120m")
     println(s"+" + "=" * 68 + "+")
+
+  private def printBannerZIO(rc: McRunConfig)(using SimParams): Task[Unit] =
+    ZIO.attemptBlocking(printBanner(rc))
   // $COVERAGE-ON$
