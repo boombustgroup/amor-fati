@@ -504,6 +504,7 @@ object Generators:
     bankCapitalDestruction = PLN.Zero,
     investNetDepositFlow = PLN.Zero,
     firmPrincipalRepaid = PLN.Zero,
+    unrealizedBondLoss = PLN.Zero,
   )
 
   /** Generate (prev, curr, flows) where all 9 SFC identities hold exactly. */
@@ -513,7 +514,7 @@ object Generators:
       flows <- genMonthlyFlows
     yield
       val expectedBankCapChange  = -flows.nplLoss - flows.mortgageNplLoss - flows.consumerNplLoss
-        - flows.corpBondDefaultLoss - flows.bfgLevy - flows.bankCapitalDestruction +
+        - flows.corpBondDefaultLoss - flows.bfgLevy - flows.unrealizedBondLoss - flows.bankCapitalDestruction +
         (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
           + flows.mortgageInterestIncome + flows.consumerDebtService + flows.corpBondCouponIncome
           - flows.depositInterestPaid

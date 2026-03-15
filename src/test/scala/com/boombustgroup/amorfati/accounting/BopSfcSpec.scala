@@ -98,6 +98,7 @@ class BopSfcSpec extends AnyFlatSpec with Matchers:
     bankCapitalDestruction = PLN.Zero,
     investNetDepositFlow = PLN.Zero,
     firmPrincipalRepaid = PLN.Zero,
+    unrealizedBondLoss = PLN.Zero,
   )
 
   private val baseSnap =

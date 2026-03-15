@@ -99,6 +99,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     bankCapitalDestruction = PLN.Zero,
     investNetDepositFlow = PLN.Zero,
     firmPrincipalRepaid = PLN.Zero,
+    unrealizedBondLoss = PLN.Zero,
   )
 
   "FofConsWeights" should "sum to 1.0" in {

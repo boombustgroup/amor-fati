@@ -219,7 +219,7 @@ object Banking:
     def hqla: PLN = reservesAtNbp + govBondHoldings
 
     /** Net cash outflows (30-day): demand deposits × runoff rate. */
-    def netCashOutflows(using p: SimParams): PLN = demandDeposits * p.banking.demandDepositRunoff.toDouble
+    def netCashOutflows(using p: SimParams): PLN = demandDeposits * p.banking.demandDepositRunoff
 
     /** Liquidity Coverage Ratio = HQLA / net cash outflows (Basel III). */
     def lcr(using p: SimParams): Ratio =
@@ -304,12 +304,12 @@ object Banking:
   def lendingRate(bank: BankState, cfg: Config, refRate: Rate)(using p: SimParams): Rate =
     if bank.failed then refRate + Rate(FailedBankSpread)
     else
-      val nplSpread  = Math.min(NplSpreadCap, (bank.nplRatio * p.banking.nplSpreadFactor).toDouble)
+      val nplSpread  = Rate((bank.nplRatio * p.banking.nplSpreadFactor).toDouble).min(Rate(NplSpreadCap))
+      val carThresh  = p.banking.minCar.toDouble * CarPenaltyThreshMult
       val carPenalty =
-        if bank.car.toDouble < p.banking.minCar.toDouble * CarPenaltyThreshMult then
-          Math.max(0.0, (p.banking.minCar.toDouble * CarPenaltyThreshMult - bank.car.toDouble) * CarPenaltyScale)
-        else 0.0
-      refRate + p.banking.baseSpread + cfg.lendingSpread + Rate(nplSpread + carPenalty)
+        if bank.car.toDouble < carThresh then Rate((carThresh - bank.car.toDouble) * CarPenaltyScale)
+        else Rate.Zero
+      refRate + p.banking.baseSpread + cfg.lendingSpread + nplSpread + carPenalty
 
   /** Interbank rate (WIBOR O/N proxy): blends credit stress (NPL) and liquidity
     * position (excess reserves). Under excess liquidity (post-QE, post-FX
@@ -439,7 +439,7 @@ object Banking:
   def computeBfgLevy(banks: Vector[BankState])(using p: SimParams): PerBankAmounts =
     val perBank = banks.map: b =>
       if b.failed then PLN.Zero
-      else b.deposits * p.banking.bfgLevyRate.toDouble / 12.0
+      else b.deposits * p.banking.bfgLevyRate.monthly
     PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
 
   /** Bail-in: haircut uninsured deposits on failed banks. Deposits below
@@ -578,6 +578,7 @@ object Banking:
       consumerNplLoss: PLN,        // consumer credit NPL loss (after recovery)
       corpBondDefaultLoss: PLN,    // corporate bond default loss (bank share)
       bfgLevy: PLN,                // BFG resolution fund levy
+      unrealizedBondLoss: PLN,     // mark-to-market loss on gov bond portfolio (SVB channel)
       intIncome: PLN,              // interest income on corporate loans
       hhDebtService: PLN,          // household mortgage debt service
       bondIncome: PLN,             // government bond coupon income
@@ -601,13 +602,13 @@ object Banking:
     * `profitRetention` rate (SimParams).
     */
   def computeCapitalDelta(in: CapitalPnlInput)(using p: SimParams): CapitalPnlOutput =
-    val retain    = p.banking.profitRetention.toDouble
-    val losses    =
-      in.nplLoss.toDouble + in.mortgageNplLoss.toDouble + in.consumerNplLoss.toDouble + in.corpBondDefaultLoss.toDouble + in.bfgLevy.toDouble
-    val retIncome = (in.intIncome.toDouble + in.hhDebtService.toDouble + in.bondIncome.toDouble - in.depositInterest.toDouble
-      + in.reserveInterest.toDouble + in.standingFacilityIncome.toDouble + in.interbankInterest.toDouble
-      + in.mortgageInterestIncome.toDouble + in.consumerDebtService.toDouble + in.corpBondCoupon.toDouble) * retain
-    CapitalPnlOutput(newCapital = PLN(in.prevCapital.toDouble - losses + retIncome))
+    val losses         = in.nplLoss + in.mortgageNplLoss + in.consumerNplLoss +
+      in.corpBondDefaultLoss + in.bfgLevy + in.unrealizedBondLoss
+    val grossIncome    = in.intIncome + in.hhDebtService + in.bondIncome - in.depositInterest +
+      in.reserveInterest + in.standingFacilityIncome + in.interbankInterest +
+      in.mortgageInterestIncome + in.consumerDebtService + in.corpBondCoupon
+    val retainedIncome = grossIncome * p.banking.profitRetention
+    CapitalPnlOutput(newCapital = in.prevCapital - losses + retainedIncome)
 
   // ---------------------------------------------------------------------------
   // Monetary plumbing
@@ -617,7 +618,7 @@ object Banking:
     */
   def reserveInterest(bank: BankState, refRate: Rate)(using p: SimParams): PLN =
     if bank.failed || bank.reservesAtNbp <= PLN.Zero then PLN.Zero
-    else bank.reservesAtNbp * refRate.toDouble * p.monetary.reserveRateMult.toDouble / 12.0
+    else bank.reservesAtNbp * (refRate * p.monetary.reserveRateMult.toDouble).monthly
 
   /** Reserve interest for all banks → per-bank amounts + sector total. */
   def computeReserveInterest(banks: Vector[BankState], refRate: Rate)(using SimParams): PerBankAmounts =
@@ -629,11 +630,11 @@ object Banking:
     * is structural, not optional.
     */
   def computeStandingFacilities(banks: Vector[BankState], refRate: Rate)(using p: SimParams): PerBankAmounts =
-    val depositRate = Math.max(0.0, (refRate - p.monetary.depositFacilitySpread).toDouble)
+    val depositRate = (refRate - p.monetary.depositFacilitySpread).max(Rate.Zero)
     val lombardRate = refRate + p.monetary.lombardSpread
     val perBank     = banks.map: b =>
       if b.failed then PLN.Zero
-      else if b.reservesAtNbp > PLN.Zero then b.reservesAtNbp * depositRate / 12.0
+      else if b.reservesAtNbp > PLN.Zero then b.reservesAtNbp * depositRate.monthly
       else if b.interbankNet < PLN.Zero then -(b.interbankNet.abs * lombardRate.monthly)
       else PLN.Zero
     PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
@@ -643,5 +644,5 @@ object Banking:
   def interbankInterestFlows(banks: Vector[BankState], rate: Rate): PerBankAmounts =
     val perBank = banks.map: b =>
       if b.failed then PLN.Zero
-      else b.interbankNet * rate.toDouble / 12.0
+      else b.interbankNet * rate.monthly
     PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
