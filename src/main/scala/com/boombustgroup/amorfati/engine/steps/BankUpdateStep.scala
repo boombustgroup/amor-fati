@@ -65,6 +65,7 @@ object BankUpdateStep:
       investNetDepositFlow: PLN,                     // investment demand net deposit flow
       actualBondChange: PLN,                         // net change in gov bonds outstanding
       unrealizedBondLoss: PLN,                       // mark-to-market loss on gov bond portfolio (SVB channel)
+      htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
   )
 
   // --- Intermediate result types for sub-methods ---
@@ -108,6 +109,7 @@ object BankUpdateStep:
       bailInLoss: PLN,                               // total bail-in losses imposed on depositors
       multiCapDestruction: PLN,                      // capital destroyed by bank failures this month
       resolvedBank: Banking.Aggregate,               // aggregate banking sector after resolution
+      htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
   )
 
   def run(in: Input)(using p: SimParams): Output =
@@ -162,8 +164,9 @@ object BankUpdateStep:
       actualBondChange = bonds.actualBondChange,
       unrealizedBondLoss = {
         val yc = (in.s8.monetary.newBondYield - in.w.gov.bondYield).toDouble
-        if yc > 0 then in.w.bank.govBondHoldings * (yc * p.banking.govBondDuration) else PLN.Zero
+        if yc > 0 then in.w.bank.afsBonds * (yc * p.banking.govBondDuration) else PLN.Zero
       },
+      htmRealizedLoss = multi.htmRealizedLoss,
     )
 
   /** Government budget update (deficit, debt, bonds) and JST local government
@@ -274,9 +277,9 @@ object BankUpdateStep:
       investNetDepositFlow: PLN,
       jstDepositChange: PLN,
   )(using p: SimParams): Banking.Aggregate =
-    // Mark-to-market loss on gov bond portfolio when yields rise (SVB channel)
+    // Mark-to-market loss on AFS gov bond portfolio when yields rise (SVB channel)
     val yieldChange       = (in.s8.monetary.newBondYield - in.w.gov.bondYield).toDouble
-    val aggUnrealizedLoss = if yieldChange > 0 then in.w.bank.govBondHoldings * (yieldChange * p.banking.govBondDuration) else PLN.Zero
+    val aggUnrealizedLoss = if yieldChange > 0 then in.w.bank.afsBonds * (yieldChange * p.banking.govBondDuration) else PLN.Zero
 
     val aggCapitalPnl = Banking.computeCapitalDelta(
       Banking.CapitalPnlInput(
@@ -449,9 +452,9 @@ object BankUpdateStep:
       if p.flags.bankFailure && !b.failed then b.deposits * p.banking.bfgLevyRate.toDouble / 12.0
       else PLN.Zero
 
-    // Per-bank mark-to-market loss (proportional to bond holdings)
+    // Per-bank mark-to-market loss on AFS bonds only (HTM losses hidden until forced reclassification)
     val bankYieldChange    = (in.s8.monetary.newBondYield - in.w.gov.bondYield).toDouble
-    val bankUnrealizedLoss = if bankYieldChange > 0 then b.govBondHoldings * (bankYieldChange * p.banking.govBondDuration) else PLN.Zero
+    val bankUnrealizedLoss = if bankYieldChange > 0 then b.afsBonds * (bankYieldChange * p.banking.govBondDuration) else PLN.Zero
 
     val capitalPnl = Banking.computeCapitalDelta(
       Banking.CapitalPnlInput(
@@ -538,9 +541,12 @@ object BankUpdateStep:
     val ibRate               = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
     val afterInterbank       = Banking.clearInterbank(updatedBanks, bs.configs)
     val afterFxInjection     = distributeFxInjection(afterInterbank, in.s8.monetary.fxPlnInjection)
+    // HTM forced reclassification: LCR-stressed banks reclassify HTM→AFS, realizing hidden losses
+    val htmResult            = Banking.processHtmForcedSale(afterFxInjection, in.s8.monetary.newBondYield)
+    val afterHtm             = htmResult.banks
     val afterBonds           =
-      if p.flags.govBondMarket then Banking.allocateBonds(afterFxInjection, bonds.actualBondChange)
-      else afterFxInjection
+      if p.flags.govBondMarket then Banking.allocateBonds(afterHtm, bonds.actualBondChange, in.s8.monetary.newBondYield)
+      else afterHtm
     val afterQe              = Banking.allocateQePurchases(afterBonds, in.s8.monetary.qePurchaseAmount)
     val afterPpk             = Banking.allocateQePurchases(afterQe, bonds.ppkBondPurchase)
     val afterIns             = Banking.allocateQePurchases(afterPpk, bonds.insBondPurchase)
@@ -604,6 +610,7 @@ object BankUpdateStep:
       bailInLoss = bailInResult.totalLoss,
       multiCapDestruction = multiCapDest,
       resolvedBank = finalBankingSector.aggregate,
+      htmRealizedLoss = htmResult.totalRealizedLoss,
     )
 
   /** Monetary aggregates (M0/M1/M2/M3) when credit diagnostics enabled. */

@@ -437,6 +437,9 @@ object SimOutput:
     ColumnDef("BfgLevyTotal", ctx => ctx.world.flows.bfgLevyTotal),
     ColumnDef("BfgFundBalance", ctx => ctx.world.mechanisms.bfgFundBalance.toDouble),
     ColumnDef("BailInLoss", ctx => ctx.world.flows.bailInLoss.toDouble),
+    // AFS/HTM bond portfolio split (#56)
+    ColumnDef("BankAfsBonds", ctx => ctx.world.bank.afsBonds.toDouble),
+    ColumnDef("BankHtmBonds", ctx => ctx.world.bank.htmBonds.toDouble),
   )
 
   /** Column names — derived from schema. */

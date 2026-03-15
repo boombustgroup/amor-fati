@@ -42,7 +42,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN(govDebt), PLN.Zero),
       nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bank = Banking.Aggregate(PLN(bankLoans), PLN(bankNpl), PLN(bankCapital), PLN(bankDeposits), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      bank = Banking.Aggregate(PLN(bankLoans), PLN(bankNpl), PLN(bankCapital), PLN(bankDeposits), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Generators.testBankingSector(),
       forex = OpenEconomy.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = Household.Aggregates(
@@ -229,6 +229,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     investNetDepositFlow = PLN.Zero,
     firmPrincipalRepaid = PLN.Zero,
     unrealizedBondLoss = PLN.Zero,
+    htmRealizedLoss = PLN.Zero,
   )
 
   // ---- Snapshot tests ----

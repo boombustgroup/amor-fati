@@ -100,6 +100,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     investNetDepositFlow = PLN.Zero,
     firmPrincipalRepaid = PLN.Zero,
     unrealizedBondLoss = PLN.Zero,
+    htmRealizedLoss = PLN.Zero,
   )
 
   private def mkBank(
@@ -117,7 +118,9 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       loans = loans,
       capital = capital,
       nplAmount = PLN.Zero,
-      govBondHoldings = PLN.Zero,
+      afsBonds = PLN.Zero,
+      htmBonds = PLN.Zero,
+      htmBookYield = Rate.Zero,
       reservesAtNbp = reservesAtNbp,
       interbankNet = interbankNet,
       status = if failed then Banking.BankStatus.Failed(30) else Banking.BankStatus.Active(0),
