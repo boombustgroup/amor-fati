@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.steps
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.markets.FiscalRules
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.KahanSum.*
 
@@ -24,22 +25,25 @@ object DemandStep:
   )
 
   case class Output(
-      govPurchases: PLN,           // total government purchases this month
-      sectorMults: Vector[Double], // per-sector demand multiplier (0 = no demand, 1 = full capacity)
-      avgDemandMult: Double,       // economy-wide average demand multiplier
-      sectorCap: Vector[Double],   // per-sector nominal production capacity
-      laggedInvestDemand: PLN,     // lagged investment demand for deposit flow calculation
+      govPurchases: PLN,                       // total government purchases this month
+      sectorMults: Vector[Double],             // per-sector demand multiplier (0 = no demand, 1 = full capacity)
+      avgDemandMult: Double,                   // economy-wide average demand multiplier
+      sectorCap: Vector[Double],               // per-sector nominal production capacity
+      laggedInvestDemand: PLN,                 // lagged investment demand for deposit flow calculation
+      fiscalRuleStatus: FiscalRules.RuleStatus, // fiscal rule compliance diagnostics
   )
 
   def run(in: Input)(using p: SimParams): Output =
-    val govPurchases       = computeGovPurchases(in)
+    val rawGovPurchases    = computeGovPurchases(in)
+    val fiscalResult       = applyFiscalRules(in, rawGovPurchases)
+    val govPurchases       = fiscalResult.constrainedGovPurchases
     val sectorCap          = computeSectorCapacity(in)
     val sectorExports      = computeSectorExports(in)
     val laggedInvestDemand = computeLaggedInvestDemand(in)
     val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
     val sectorMults        = applySpillover(sectorDemand, sectorCap, in.w.priceLevel)
     val avgDemandMult      = computeAvgDemandMult(sectorDemand, sectorCap, in)
-    Output(govPurchases, sectorMults, avgDemandMult, sectorCap, laggedInvestDemand)
+    Output(govPurchases, sectorMults, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
 
   /** Government purchases: base spending × price level + fiscal recycling (tax
     * revenue + ZUS surplus) + automatic fiscal stimulus (unemployment gap ×
@@ -54,9 +58,40 @@ object DemandStep:
     val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
     val target        = p.fiscal.govBaseSpending * Math.max(1.0, in.w.priceLevel) +
       (in.w.gov.taxRevenue + zusNetSurplus) * p.fiscal.govFiscalRecyclingRate + stimulus
-    val prevGovSpend  = in.w.gov.govCurrentSpend + in.w.gov.govCapitalSpend
-    if prevGovSpend > PLN.Zero then target.max(prevGovSpend * GovSpendingFloor)
-    else target
+    target
+
+  /** Apply fiscal rules to raw government purchases. The 98% floor is applied
+    * only when no Art. 216/86 rule is binding.
+    */
+  private def applyFiscalRules(in: Input, rawTarget: PLN)(using p: SimParams): FiscalRules.Output =
+    val prevGovSpend = in.w.gov.govCurrentSpend + in.w.gov.govCapitalSpend
+    val unempRate    = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+    val outputGap    = Ratio((unempRate - p.monetary.nairu.toDouble) / p.monetary.nairu.toDouble)
+
+    val floored =
+      if prevGovSpend > PLN.Zero then rawTarget.max(prevGovSpend * GovSpendingFloor)
+      else rawTarget
+
+    val result = FiscalRules.constrain(
+      FiscalRules.Input(
+        rawGovPurchases = floored,
+        prevGovSpend = prevGovSpend,
+        cumulativeDebt = in.w.gov.cumulativeDebt,
+        monthlyGdp = PLN(in.w.gdpProxy),
+        prevRevenue = in.w.gov.taxRevenue,
+        prevDeficit = in.w.gov.deficit,
+        inflation = in.w.inflation,
+        outputGap = outputGap,
+      ),
+    )
+
+    // When Art. 216/86 is binding, override the 98% floor — fiscal rules take precedence
+    if result.status.bindingRule >= 3 then result
+    else
+      val withFloor = result.constrainedGovPurchases.max(
+        if prevGovSpend > PLN.Zero then prevGovSpend * GovSpendingFloor else PLN.Zero,
+      )
+      result.copy(constrainedGovPurchases = withFloor)
 
   /** Per-sector nominal production capacity: sum of firm capacities. */
   private def computeSectorCapacity(in: Input)(using p: SimParams): Vector[Double] =

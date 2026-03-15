@@ -440,6 +440,17 @@ object SimOutput:
     // AFS/HTM bond portfolio split (#56)
     ColumnDef("BankAfsBonds", ctx => ctx.world.bank.afsBonds.toDouble),
     ColumnDef("BankHtmBonds", ctx => ctx.world.bank.htmBonds.toDouble),
+    // Fiscal rules (#16)
+    ColumnDef(
+      "DebtToGdp",
+      ctx => if ctx.world.gdpProxy > 0 then ctx.world.gov.cumulativeDebt.toDouble / (ctx.world.gdpProxy * 12.0) else 0.0,
+    ),
+    ColumnDef(
+      "DeficitToGdp",
+      ctx => if ctx.world.gdpProxy > 0 then ctx.world.gov.deficit.toDouble / (ctx.world.gdpProxy * 12.0) else 0.0,
+    ),
+    ColumnDef("FiscalRuleBinding", ctx => ctx.world.flows.fiscalRuleSeverity.toDouble),
+    ColumnDef("GovSpendingCutRatio", ctx => ctx.world.flows.govSpendingCutRatio.toDouble),
   )
 
   /** Column names — derived from schema. */
