@@ -68,7 +68,7 @@ object Nbp:
   )(using p: SimParams): Rate =
     val infGap    = inflation - p.monetary.targetInfl
     val unempRate = Ratio.One - Ratio.fraction(employed, totalPopulation)
-    val nairu     = Ratio(p.monetary.nairu.toDouble) // Rate → Ratio: NAIRU is unemployment rate, not interest rate
+    val nairu     = p.monetary.nairu
     if p.flags.nbpSymmetric then
       val rawOutputGap = Ratio((unempRate - nairu) / nairu)
       val outputGap    = rawOutputGap.clamp(Ratio.Zero - OutputGapCap, OutputGapCap)

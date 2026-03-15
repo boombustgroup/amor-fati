@@ -87,7 +87,7 @@ object Expectations:
   private def forwardGuidance(expected: Double, target: Double, unemployment: Double, currentRate: Double)(using p: SimParams): Double =
     if !p.flags.nbpForwardGuidance then currentRate
     else
-      val nairu        = p.monetary.nairu.toDouble
+      val nairu        = p.monetary.nairu.toDouble // Ratio → Double: function operates in Double space
       val rawOutputGap = (unemployment - nairu) / nairu
       val outputGap    = Math.max(-OutputGapClamp, Math.min(OutputGapClamp, rawOutputGap))
       val rawFg        = p.monetary.neutralRate.toDouble + p.monetary.taylorAlpha * (expected - target) - p.monetary.taylorDelta * outputGap

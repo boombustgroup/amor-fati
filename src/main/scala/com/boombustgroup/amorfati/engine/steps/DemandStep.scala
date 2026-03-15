@@ -54,7 +54,7 @@ object DemandStep:
       if p.flags.zus then (in.w.social.zus.contributions - in.w.social.zus.pensionPayments).max(PLN.Zero)
       else PLN.Zero
     val unempRate     = Ratio(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
-    val unempGap      = (unempRate - Ratio(p.monetary.nairu.toDouble)).max(Ratio.Zero)
+    val unempGap      = (unempRate - p.monetary.nairu).max(Ratio.Zero)
     val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
     val target        = p.fiscal.govBaseSpending * Math.max(1.0, in.w.priceLevel) +
       (in.w.gov.taxRevenue + zusNetSurplus) * p.fiscal.govFiscalRecyclingRate + stimulus
@@ -65,8 +65,8 @@ object DemandStep:
     */
   private def applyFiscalRules(in: Input, rawTarget: PLN)(using p: SimParams): FiscalRules.Output =
     val prevGovSpend = in.w.gov.govCurrentSpend + in.w.gov.govCapitalSpend
-    val unempRate    = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
-    val outputGap    = Ratio((unempRate - p.monetary.nairu.toDouble) / p.monetary.nairu.toDouble)
+    val unempRate    = Ratio.One - Ratio.fraction(in.s2.employed, in.w.totalPopulation)
+    val outputGap    = Ratio((unempRate - p.monetary.nairu) / p.monetary.nairu)
 
     val floored =
       if prevGovSpend > PLN.Zero then rawTarget.max(prevGovSpend * GovSpendingFloor)
