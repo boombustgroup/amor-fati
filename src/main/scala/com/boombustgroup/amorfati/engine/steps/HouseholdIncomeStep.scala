@@ -50,7 +50,7 @@ object HouseholdIncomeStep:
     val nBanksHh           = bsec.banks.length
     val hhBankRates        = Some(
       BankRates(
-        lendingRates = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate)),
+        lendingRates = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield)),
         depositRates = bsec.banks.map(_ => Banking.hhDepositRate(in.w.nbp.referenceRate)),
       ),
     )

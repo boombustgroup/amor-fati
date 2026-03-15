@@ -42,6 +42,9 @@ object Banking:
   private val NplApprovalPenalty    = 3.0 // approval drop per unit NPL ratio (e.g. NPL 10% → 30pp)
   private val ReserveDeficitPenalty = 0.5 // 50pp approval drop when free reserves < 0
 
+  // Crowding-out (gov bonds vs firm loans)
+  private val CrowdingOutSensitivity = 0.30 // 30% of bond yield gap passed through to lending spread
+
   // Interbank corridor (NBP: ref ± 100 bps)
   private val DepositSpreadFromRef = 0.01 // deposit facility rate = refRate − 100 bps
   private val LombardSpreadFromRef = 0.01 // lombard facility rate = refRate + 100 bps
@@ -298,18 +301,24 @@ object Banking:
   def hhDepositRate(refRate: Rate)(using p: SimParams): Rate =
     (refRate - p.household.depositSpread).max(Rate.Zero)
 
-  /** Lending rate for a bank: refRate + baseSpread + bankSpread + nplSpread +
-    * carPenalty. Failed banks get flat refRate + FailedBankSpread.
+  /** Lending rate charged to firms. Reflects credit risk (NPL spread), capital
+    * adequacy pressure (CAR penalty), and crowding-out from government bonds —
+    * when risk-free yields are attractive, banks demand higher spreads on risky
+    * firm loans. Failed banks get a flat penalty rate.
     */
-  def lendingRate(bank: BankState, cfg: Config, refRate: Rate)(using p: SimParams): Rate =
+  def lendingRate(bank: BankState, cfg: Config, refRate: Rate, bondYield: Rate)(using p: SimParams): Rate =
     if bank.failed then refRate + Rate(FailedBankSpread)
     else
-      val nplSpread  = Rate((bank.nplRatio * p.banking.nplSpreadFactor).toDouble).min(Rate(NplSpreadCap))
-      val carThresh  = p.banking.minCar.toDouble * CarPenaltyThreshMult
-      val carPenalty =
+      val nplSpread   = Rate((bank.nplRatio * p.banking.nplSpreadFactor).toDouble).min(Rate(NplSpreadCap))
+      val carThresh   = p.banking.minCar.toDouble * CarPenaltyThreshMult
+      val carPenalty  =
         if bank.car.toDouble < carThresh then Rate((carThresh - bank.car.toDouble) * CarPenaltyScale)
         else Rate.Zero
-      refRate + p.banking.baseSpread + cfg.lendingSpread + nplSpread + carPenalty
+      // Crowding-out: banks demand higher lending spread when gov bonds offer
+      // attractive risk-free returns. Sensitivity = 0.3 (30% of yield gap
+      // passed through to lending spread).
+      val crowdingOut = (bondYield - refRate - p.banking.baseSpread).max(Rate.Zero) * CrowdingOutSensitivity
+      refRate + p.banking.baseSpread + cfg.lendingSpread + nplSpread + carPenalty + crowdingOut
 
   /** Interbank rate (WIBOR O/N proxy): blends credit stress (NPL) and liquidity
     * position (excess reserves). Under excess liquidity (post-QE, post-FX

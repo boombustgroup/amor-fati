@@ -201,7 +201,7 @@ object FirmProcessingStep:
     val bsec    = in.w.bankingSector
     val nBanks  = bsec.banks.length
     val ccyb    = in.w.mechanisms.macropru.ccyb
-    val rates   = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate))
+    val rates   = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield))
     val canLend = (bankId: Int, amt: PLN) => Banking.canLend(bsec.banks(bankId), amt, rng, ccyb)
     val world   = in.w.copy(
       month = in.s1.m,

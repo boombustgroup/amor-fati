@@ -95,22 +95,22 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   "Banking.lendingRate" should "return high spread for failed bank" in {
     val bank = mkBank(status = BankStatus.Failed(30))
-    val rate = Banking.lendingRate(bank, configs(0), Rate(0.05))
+    val rate = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero)
     rate.toDouble shouldBe (0.05 + 0.50) +- 0.001
   }
 
   it should "increase with NPL ratio" in {
     val bankLowNpl  = mkBank(nplAmount = PLN(1e4))
     val bankHighNpl = mkBank(nplAmount = PLN(2e5))
-    val rateLow     = Banking.lendingRate(bankLowNpl, configs(0), Rate(0.05))
-    val rateHigh    = Banking.lendingRate(bankHighNpl, configs(0), Rate(0.05))
+    val rateLow     = Banking.lendingRate(bankLowNpl, configs(0), Rate(0.05), Rate.Zero)
+    val rateHigh    = Banking.lendingRate(bankHighNpl, configs(0), Rate(0.05), Rate.Zero)
     rateHigh should be > rateLow
   }
 
   it should "include bank-specific spread" in {
     val bank    = mkBank(nplAmount = PLN.Zero)
-    val ratePko = Banking.lendingRate(bank, configs(0), Rate(0.05)) // spread = -0.002
-    val rateBps = Banking.lendingRate(bank, configs(5), Rate(0.05)) // spread = +0.003
+    val ratePko = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero) // spread = -0.002
+    val rateBps = Banking.lendingRate(bank, configs(5), Rate(0.05), Rate.Zero) // spread = +0.003
     rateBps should be > ratePko
   }
 
