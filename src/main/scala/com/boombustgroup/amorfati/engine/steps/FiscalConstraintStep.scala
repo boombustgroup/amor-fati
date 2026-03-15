@@ -49,7 +49,18 @@ object FiscalConstraintStep:
     val resWage = baseMinWage
 
     val rawLendingBaseRate: Double =
-      if p.flags.interbankTermStructure then YieldCurve.compute(w.bankingSector.interbankRate.toDouble).wibor3m.toDouble
+      if p.flags.interbankTermStructure then
+        val exp = w.mechanisms.expectations
+        YieldCurve
+          .compute(
+            w.bankingSector.interbankRate,
+            nplRatio = w.bank.nplRatio,
+            credibility = exp.credibility,
+            expectedInflation = exp.expectedInflation,
+            targetInflation = p.monetary.targetInfl,
+          )
+          .wibor3m
+          .toDouble
       else w.nbp.referenceRate.toDouble
 
     val lendingBaseRate =

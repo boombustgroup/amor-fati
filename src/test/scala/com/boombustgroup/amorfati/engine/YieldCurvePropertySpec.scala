@@ -17,25 +17,32 @@ class YieldCurvePropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
 
   "YieldCurve" should "always maintain O/N < 1M < 3M < 6M ordering" in
     forAll(Gen.choose(0.0, 0.30)) { onRate =>
-      val curve = YieldCurve.compute(onRate)
-      curve.overnight.toDouble should be < curve.wibor1m.toDouble
-      curve.wibor1m.toDouble should be < curve.wibor3m.toDouble
-      curve.wibor3m.toDouble should be < curve.wibor6m.toDouble
+      val curve = YieldCurve.compute(Rate(onRate))
+      curve.overnight should be < curve.wibor1m
+      curve.wibor1m should be < curve.wibor3m
+      curve.wibor3m should be < curve.wibor6m
     }
 
   it should "produce non-negative term rates when O/N >= 0" in
     forAll(Gen.choose(0.0, 0.30)) { onRate =>
-      val curve = YieldCurve.compute(onRate)
-      curve.overnight.toDouble should be >= 0.0
-      curve.wibor1m.toDouble should be >= 0.0
-      curve.wibor3m.toDouble should be >= 0.0
-      curve.wibor6m.toDouble should be >= 0.0
+      val curve = YieldCurve.compute(Rate(onRate))
+      curve.overnight should be >= Rate.Zero
+      curve.wibor1m should be >= Rate.Zero
+      curve.wibor3m should be >= Rate.Zero
+      curve.wibor6m should be >= Rate.Zero
     }
 
-  it should "have fixed term premiums regardless of O/N rate" in
+  it should "have base premiums when no stress (nplRatio=0, credibility=1)" in
     forAll(Gen.choose(0.0, 0.30)) { onRate =>
-      val curve = YieldCurve.compute(onRate)
-      (curve.wibor1m - curve.overnight).toDouble shouldBe (YieldCurve.TermPremium1M +- 1e-12)
-      (curve.wibor3m - curve.overnight).toDouble shouldBe (YieldCurve.TermPremium3M +- 1e-12)
-      (curve.wibor6m - curve.overnight).toDouble shouldBe (YieldCurve.TermPremium6M +- 1e-12)
+      val curve = YieldCurve.compute(Rate(onRate))
+      (curve.wibor1m - curve.overnight).toDouble should be(YieldCurve.BasePremium1M.toDouble +- 1e-12)
+      (curve.wibor3m - curve.overnight).toDouble should be(YieldCurve.BasePremium3M.toDouble +- 1e-12)
+      (curve.wibor6m - curve.overnight).toDouble should be(YieldCurve.BasePremium6M.toDouble +- 1e-12)
+    }
+
+  it should "widen monotonically with NPL" in
+    forAll(Gen.choose(0.0, 0.30), Gen.choose(0.0, 0.20)) { (onRate, npl) =>
+      val calm     = YieldCurve.compute(Rate(onRate))
+      val stressed = YieldCurve.compute(Rate(onRate), nplRatio = Ratio(npl))
+      stressed.wibor3m should be >= calm.wibor3m
     }
