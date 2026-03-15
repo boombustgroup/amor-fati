@@ -23,50 +23,48 @@ object BankUpdateStep:
   private val LongLoanFrac       = 0.50 // fraction of loans in long-term maturity bucket
 
   case class Input(
-      w: World,
-      s1: FiscalConstraintStep.Output,
-      s2: LaborDemographicsStep.Output,
-      s3: HouseholdIncomeStep.Output,
-      s4: DemandStep.Output,
-      s5: FirmProcessingStep.Output,
-      s6: HouseholdFinancialStep.Output,
-      s7: PriceEquityStep.Output,
-      s8: OpenEconomyStep.Output,
+      w: World,                          // current world state (pre-step)
+      s1: FiscalConstraintStep.Output,   // fiscal constraint (month, lending base rate, res wage)
+      s2: LaborDemographicsStep.Output,  // labor/demographics (employment, wage, immigration)
+      s3: HouseholdIncomeStep.Output,    // household income (consumption, PIT, debt service)
+      s4: DemandStep.Output,             // demand (sector multipliers, gov purchases)
+      s5: FirmProcessingStep.Output,     // firm processing (loans, NPL, bonds, I-O firms)
+      s6: HouseholdFinancialStep.Output, // household financial (remittances, tourism, consumer credit)
+      s7: PriceEquityStep.Output,        // price/equity (inflation, GDP, equity state, macropru)
+      s8: OpenEconomyStep.Output,        // open economy (NBP rate, bond yield, QE, FX, BoP)
   )
 
   case class Output(
-      resolvedBank: Banking.Aggregate,
-      finalBankingSector: Banking.State,
-      reassignedFirms: Vector[Firm.State],
-      reassignedHouseholds: Vector[Household.State],
-      finalPpk: SocialSecurity.PpkState,
-      finalInsurance: Insurance.State,
-      finalNbfi: Nbfi.State,
-      newGovWithYield: FiscalBudget.GovState,
-      newJst: Jst.State,
-      housingAfterFlows: HousingMarket.State,
-      bfgLevy: PLN,
-      bailInLoss: PLN,
-      multiCapDestruction: PLN,
-      monAgg: Option[Banking.MonetaryAggregates],
-      finalHhAgg: Household.Aggregates,
-      // Tax intermediates (needed by SFC check)
-      vat: PLN,
-      vatAfterEvasion: PLN,
-      pitAfterEvasion: PLN,
-      exciseRevenue: PLN,
-      exciseAfterEvasion: PLN,
-      customsDutyRevenue: PLN,
-      effectiveShadowShare: Ratio,
-      // Housing flows (needed by SFC check)
-      mortgageInterestIncome: PLN,
-      mortgagePrincipal: PLN,
-      mortgageDefaultLoss: PLN,
-      mortgageDefaultAmount: PLN,
-      // Other intermediates (needed by SFC/World assembly)
-      jstDepositChange: PLN,
-      investNetDepositFlow: PLN,
-      actualBondChange: PLN,
+      resolvedBank: Banking.Aggregate,               // aggregate bank balance sheet after resolution
+      finalBankingSector: Banking.State,             // full banking sector state (per-bank + interbank)
+      reassignedFirms: Vector[Firm.State],           // firms with bankId reassigned after bank failure
+      reassignedHouseholds: Vector[Household.State], // HH with bankId reassigned after bank failure
+      finalPpk: SocialSecurity.PpkState,             // PPK state after bond purchases
+      finalInsurance: Insurance.State,               // insurance state after asset allocation
+      finalNbfi: Nbfi.State,                         // NBFI/TFI state after bond purchases
+      newGovWithYield: FiscalBudget.GovState,        // gov state with updated bond yield
+      newJst: Jst.State,                             // local government state
+      housingAfterFlows: HousingMarket.State,        // housing market after mortgage flows
+      bfgLevy: PLN,                                  // BFG resolution fund levy (aggregate)
+      bailInLoss: PLN,                               // bail-in deposit destruction (aggregate)
+      multiCapDestruction: PLN,                      // capital wiped when banks fail
+      monAgg: Option[Banking.MonetaryAggregates],    // M0/M1/M2/M3 (when credit diagnostics on)
+      finalHhAgg: Household.Aggregates,              // recomputed HH aggregates
+      vat: PLN,                                      // gross VAT revenue
+      vatAfterEvasion: PLN,                          // VAT after informal evasion
+      pitAfterEvasion: PLN,                          // PIT after informal evasion
+      exciseRevenue: PLN,                            // gross excise revenue
+      exciseAfterEvasion: PLN,                       // excise after informal evasion
+      customsDutyRevenue: PLN,                       // customs duty revenue
+      effectiveShadowShare: Ratio,                   // effective shadow economy share
+      mortgageInterestIncome: PLN,                   // mortgage interest income (bank share)
+      mortgagePrincipal: PLN,                        // mortgage principal repaid
+      mortgageDefaultLoss: PLN,                      // mortgage default loss (bank share)
+      mortgageDefaultAmount: PLN,                    // gross mortgage default amount
+      jstDepositChange: PLN,                         // JST deposit flow (Identity 2)
+      investNetDepositFlow: PLN,                     // investment demand net deposit flow
+      actualBondChange: PLN,                         // net change in gov bonds outstanding
+      unrealizedBondLoss: PLN,                       // mark-to-market loss on gov bond portfolio (SVB channel)
   )
 
   // --- Intermediate result types for sub-methods ---
@@ -162,6 +160,10 @@ object BankUpdateStep:
       jstDepositChange = govJst.jstDepositChange,
       investNetDepositFlow = investNetDepositFlow,
       actualBondChange = bonds.actualBondChange,
+      unrealizedBondLoss = {
+        val yc = (in.s8.monetary.newBondYield - in.w.gov.bondYield).toDouble
+        if yc > 0 then in.w.bank.govBondHoldings * (yc * p.banking.govBondDuration) else PLN.Zero
+      },
     )
 
   /** Government budget update (deficit, debt, bonds) and JST local government
@@ -272,6 +274,10 @@ object BankUpdateStep:
       investNetDepositFlow: PLN,
       jstDepositChange: PLN,
   )(using p: SimParams): Banking.Aggregate =
+    // Mark-to-market loss on gov bond portfolio when yields rise (SVB channel)
+    val yieldChange       = (in.s8.monetary.newBondYield - in.w.gov.bondYield).toDouble
+    val aggUnrealizedLoss = if yieldChange > 0 then in.w.bank.govBondHoldings * (yieldChange * p.banking.govBondDuration) else PLN.Zero
+
     val aggCapitalPnl = Banking.computeCapitalDelta(
       Banking.CapitalPnlInput(
         prevCapital = in.w.bank.capital,
@@ -280,6 +286,7 @@ object BankUpdateStep:
         consumerNplLoss = in.s6.consumerNplLoss,
         corpBondDefaultLoss = in.s8.corpBonds.corpBondBankDefaultLoss,
         bfgLevy = bfgLevy,
+        unrealizedBondLoss = aggUnrealizedLoss,
         intIncome = in.s5.intIncome,
         hhDebtService = in.s6.hhDebtService,
         bondIncome = in.s8.banking.bankBondIncome,
@@ -442,6 +449,10 @@ object BankUpdateStep:
       if p.flags.bankFailure && !b.failed then b.deposits * p.banking.bfgLevyRate.toDouble / 12.0
       else PLN.Zero
 
+    // Per-bank mark-to-market loss (proportional to bond holdings)
+    val bankYieldChange    = (in.s8.monetary.newBondYield - in.w.gov.bondYield).toDouble
+    val bankUnrealizedLoss = if bankYieldChange > 0 then b.govBondHoldings * (bankYieldChange * p.banking.govBondDuration) else PLN.Zero
+
     val capitalPnl = Banking.computeCapitalDelta(
       Banking.CapitalPnlInput(
         prevCapital = b.capital,
@@ -450,6 +461,7 @@ object BankUpdateStep:
         consumerNplLoss = bankCcNplLoss,
         corpBondDefaultLoss = bankCorpBondDefaultLoss,
         bfgLevy = bankBfgLevy,
+        unrealizedBondLoss = bankUnrealizedLoss,
         intIncome = bankIntIncome,
         hhDebtService = hhFlows.hhDebtService,
         bondIncome = bankBondInc,

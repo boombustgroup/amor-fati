@@ -305,6 +305,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     bankCapitalDestruction = PLN.Zero,
     investNetDepositFlow = PLN.Zero,
     firmPrincipalRepaid = PLN.Zero,
+    unrealizedBondLoss = PLN.Zero,
   )
 
   "Sfc" should "pass consumer credit identity with zero flows" in {

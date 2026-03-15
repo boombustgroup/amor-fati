@@ -322,6 +322,7 @@ object WorldAssemblyStep:
       bankCapitalDestruction = in.s9.multiCapDestruction,
       investNetDepositFlow = in.s9.investNetDepositFlow,
       firmPrincipalRepaid = in.s5.sumFirmPrincipal,
+      unrealizedBondLoss = in.s9.unrealizedBondLoss,
     )
 
   /** FDI M&A: monthly stochastic conversion of domestic firms to foreign
