@@ -92,8 +92,8 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       val (lo, hi) = if npl1Frac <= npl2Frac then (npl1Frac, npl2Frac) else (npl2Frac, npl1Frac)
       val bankLo   = mkBank(nplAmount = PLN(loans * lo))
       val bankHi   = mkBank(nplAmount = PLN(loans * hi))
-      val rateLo   = Banking.lendingRate(bankLo, configs(0), Rate(refRate))
-      val rateHi   = Banking.lendingRate(bankHi, configs(0), Rate(refRate))
+      val rateLo   = Banking.lendingRate(bankLo, configs(0), Rate(refRate), Rate.Zero)
+      val rateHi   = Banking.lendingRate(bankHi, configs(0), Rate(refRate), Rate.Zero)
       rateHi should be >= rateLo
     }
 
