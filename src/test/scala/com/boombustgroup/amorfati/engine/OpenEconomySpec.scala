@@ -113,3 +113,33 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
     r.forex.exchangeRate should be >= p.openEcon.erFloor
     r.forex.exchangeRate should be <= p.openEcon.erCeiling
   }
+
+  // ---- PPP drift ----
+
+  it should "depreciate PLN when domestic inflation exceeds foreign" in {
+    val highInfl = baseInput().copy(inflation = Rate(0.10)) // 10% domestic vs 2% foreign
+    val lowInfl  = baseInput().copy(inflation = Rate(0.02)) // equal to foreign
+    val rHigh    = OpenEconomy.step(highInfl)
+    val rLow     = OpenEconomy.step(lowInfl)
+    // Higher domestic inflation → weaker PLN (higher ER)
+    rHigh.forex.exchangeRate should be > rLow.forex.exchangeRate
+  }
+
+  it should "appreciate PLN when domestic inflation below foreign" in {
+    val lowInfl = baseInput().copy(inflation = Rate(0.00)) // 0% domestic vs 2% foreign
+    val eqInfl  = baseInput().copy(inflation = Rate(0.02)) // equal
+    val rLow    = OpenEconomy.step(lowInfl)
+    val rEq     = OpenEconomy.step(eqInfl)
+    // Lower domestic inflation → stronger PLN (lower ER)
+    rLow.forex.exchangeRate should be < rEq.forex.exchangeRate
+  }
+
+  it should "have no PPP drift when inflation equals foreign" in {
+    val eqInfl   = baseInput().copy(inflation = p.gvc.foreignInflation)
+    val zeroInfl = baseInput().copy(inflation = Rate.Zero)
+    val rEq      = OpenEconomy.step(eqInfl)
+    val rZero    = OpenEconomy.step(zeroInfl)
+    // With equal inflation, PPP drift is zero — ER difference comes only from other channels
+    // Zero inflation case has negative PPP drift (domestic < foreign) → stronger PLN
+    rEq.forex.exchangeRate should be > rZero.forex.exchangeRate
+  }

@@ -212,6 +212,7 @@ object OpenEconomyStep:
           autoRatio = in.s7.autoR,
           domesticRate = in.w.nbp.referenceRate,
           gdp = in.s7.gdp,
+          inflation = in.w.inflation,
           priceLevel = in.w.priceLevel,
           sectorOutputs = sectorOutputs,
           month = in.s1.m,

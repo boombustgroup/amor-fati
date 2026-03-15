@@ -143,6 +143,7 @@ object OpenEconomy:
       priceLevel: Double,
       sectorOutputs: Vector[PLN],
       month: Int,
+      inflation: Rate = Rate.Zero, // domestic CPI YoY for PPP drift
       nbpFxReserves: PLN = PLN.Zero,
       gvcExports: Option[PLN] = None,
       gvcIntermImports: Option[Vector[PLN]] = None,
@@ -263,10 +264,11 @@ object OpenEconomy:
     val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER else 1.0
     Math.pow(1.0 / Math.max(MinRealPrice, realPrice), p.openEcon.exportPriceElasticity)
 
-  /** New nominal exchange rate for the next period, driven by BoP flows. ER
-    * adjusts to close the BoP gap: surplus → appreciation, deficit →
-    * depreciation. Includes NFA risk premium (negative NFA → weaker PLN) and
-    * NBP FX intervention. Clamped to [erFloor, erCeiling].
+  /** New nominal exchange rate for the next period, driven by BoP flows and
+    * relative PPP. ER adjusts to close the BoP gap: surplus → appreciation,
+    * deficit → depreciation. PPP drift depreciates PLN when domestic inflation
+    * exceeds foreign (Rogoff 1996). Includes NFA risk premium (negative NFA →
+    * weaker PLN) and NBP FX intervention. Clamped to [erFloor, erCeiling].
     */
   private def computeExchangeRate(
       in: StepInput,
@@ -278,7 +280,9 @@ object OpenEconomy:
     val nfaGdpRatio = if in.gdp > PLN.Zero then in.prevBop.nfa / annualGdp else 0.0
     val bopGdpRatio = if in.gdp > PLN.Zero then (ca + capitalAccount) / in.gdp else 0.0
     val nfaRisk     = p.openEcon.riskPremiumSensitivity * Math.min(0.0, nfaGdpRatio)
-    val erChange    = p.forex.exRateAdjSpeed.toDouble * (-bopGdpRatio + nfaRisk) + fxErEffect
+    // Relative PPP: higher domestic inflation → PLN depreciates (positive erChange)
+    val pppDrift    = ((in.inflation - p.gvc.foreignInflation) * p.openEcon.pppSpeed).monthly.toDouble
+    val erChange    = p.forex.exRateAdjSpeed.toDouble * (-bopGdpRatio + nfaRisk) + fxErEffect + pppDrift
     Math.max(p.openEcon.erFloor, Math.min(p.openEcon.erCeiling, in.prevForex.exchangeRate * (1.0 + erChange)))
 
   /** NFA valuation adjustment from ER movement between periods. Not a flow
