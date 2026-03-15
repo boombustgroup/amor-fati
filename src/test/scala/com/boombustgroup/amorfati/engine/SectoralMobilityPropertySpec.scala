@@ -78,6 +78,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       ),
     )
     val hhs   = Vector.empty[Household.State]

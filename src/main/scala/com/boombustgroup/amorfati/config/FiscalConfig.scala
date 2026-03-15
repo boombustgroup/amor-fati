@@ -119,6 +119,8 @@ import com.boombustgroup.amorfati.types.*
 case class FiscalConfig(
     // Tax rates
     citRate: Rate = Rate(0.19),
+    citCarryforwardMaxShare: Ratio = Ratio(0.50), // max 50% of profit offset per year (Art. 7 ustawy o CIT)
+    citCarryforwardDecay: Rate = Rate(1.0 / 60),  // monthly decay ≈ 5-year expiry horizon
     vatRates: Vector[Rate] = Vector(Rate(0.23), Rate(0.19), Rate(0.12), Rate(0.06), Rate(0.10), Rate(0.07)),
     exciseRates: Vector[Rate] = Vector(Rate(0.01), Rate(0.04), Rate(0.03), Rate(0.005), Rate(0.002), Rate(0.02)),
     customsDutyRate: Rate = Rate(0.04),

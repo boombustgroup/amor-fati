@@ -92,6 +92,7 @@ object FirmInit:
           foreignOwned = false,
           inventory = PLN.Zero,
           greenCapital = PLN.Zero,
+          accumulatedLoss = PLN.Zero,
         )
       .toVector
 

@@ -120,6 +120,7 @@ object FirmEntry:
       foreignOwned = p.flags.fdi && rng.nextDouble() < p.fdi.foreignShares.map(_.toDouble)(newSector),
       inventory = initInventory(firmSize, newSector),
       greenCapital = initGreenCapital(firmSize, newSector),
+      accumulatedLoss = PLN.Zero,
     )
 
   /** Select technology regime: AI-native entrants start as Hybrid with partial

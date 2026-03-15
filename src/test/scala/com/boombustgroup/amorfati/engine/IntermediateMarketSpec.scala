@@ -50,6 +50,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
   @annotation.nowarn("msg=unused private member") // default used by callers

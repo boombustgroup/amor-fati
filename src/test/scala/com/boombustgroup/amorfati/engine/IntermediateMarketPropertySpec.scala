@@ -42,6 +42,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       )
     }.toVector
 
@@ -145,6 +146,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
     val f1                     = mkF(0, 0)
     val f2                     = mkF(1, 0)

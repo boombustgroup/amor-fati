@@ -157,6 +157,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
     val newFirm  = Firm.State(
       FirmId(0),
@@ -176,6 +177,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
     val hhPrimary    = Household.State(
@@ -264,6 +266,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
     val newFirm  = Firm.State(
       FirmId(0),
@@ -283,6 +286,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
     val hhLowSkill  = Household.State(
@@ -395,6 +399,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       )
     val firms     = Vector(mkF(0, 0, 5), mkF(1, 2, 5))
     val socialNet = Array.fill(10)(Array.empty[Int])
@@ -426,6 +431,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])

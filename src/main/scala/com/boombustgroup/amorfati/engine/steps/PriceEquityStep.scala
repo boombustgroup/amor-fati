@@ -250,6 +250,7 @@ object PriceEquityStep:
           foreignOwned = false,
           inventory = PLN.Zero,
           greenCapital = PLN.Zero,
+          accumulatedLoss = PLN.Zero,
         )
       else
         // For surviving firms: only allocate a new neighbors array if the neighbor set actually changed

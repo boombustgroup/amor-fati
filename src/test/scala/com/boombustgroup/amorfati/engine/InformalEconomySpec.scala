@@ -171,6 +171,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
   "Firm.Result" should "have citEvasion defaulting to 0.0" in {
