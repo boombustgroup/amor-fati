@@ -13,55 +13,77 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
   given SimParams = SimParams.defaults
 
   // =========================================================================
-  // Compute
+  // Compute (base premiums, no stress)
   // =========================================================================
 
-  "YieldCurve.compute" should "produce correct premiums from O/N rate" in {
-    val curve = YieldCurve.compute(0.058) // 5.80% O/N
-    curve.overnight.toDouble shouldBe 0.058
-    curve.wibor1m.toDouble shouldBe (0.058 + YieldCurve.TermPremium1M +- 1e-10)
-    curve.wibor3m.toDouble shouldBe (0.058 + YieldCurve.TermPremium3M +- 1e-10)
-    curve.wibor6m.toDouble shouldBe (0.058 + YieldCurve.TermPremium6M +- 1e-10)
+  "YieldCurve.compute" should "produce base premiums from O/N rate" in {
+    val curve = YieldCurve.compute(Rate(0.058))
+    curve.overnight should be(Rate(0.058))
+    curve.wibor1m.toDouble should be(0.058 + YieldCurve.BasePremium1M.toDouble +- 1e-10)
+    curve.wibor3m.toDouble should be(0.058 + YieldCurve.BasePremium3M.toDouble +- 1e-10)
+    curve.wibor6m.toDouble should be(0.058 + YieldCurve.BasePremium6M.toDouble +- 1e-10)
   }
 
   it should "preserve term structure ordering: O/N < 1M < 3M < 6M" in {
-    val curve = YieldCurve.compute(0.05)
-    curve.overnight.toDouble should be < curve.wibor1m.toDouble
-    curve.wibor1m.toDouble should be < curve.wibor3m.toDouble
-    curve.wibor3m.toDouble should be < curve.wibor6m.toDouble
+    val curve = YieldCurve.compute(Rate(0.05))
+    curve.overnight should be < curve.wibor1m
+    curve.wibor1m should be < curve.wibor3m
+    curve.wibor3m should be < curve.wibor6m
   }
 
   it should "handle zero O/N rate" in {
-    val curve = YieldCurve.compute(0.0)
-    curve.overnight.toDouble shouldBe 0.0
-    curve.wibor1m.toDouble shouldBe YieldCurve.TermPremium1M
-    curve.wibor3m.toDouble shouldBe YieldCurve.TermPremium3M
-    curve.wibor6m.toDouble shouldBe YieldCurve.TermPremium6M
+    val curve = YieldCurve.compute(Rate.Zero)
+    curve.overnight should be(Rate.Zero)
+    curve.wibor1m should be(YieldCurve.BasePremium1M)
+    curve.wibor3m should be(YieldCurve.BasePremium3M)
+    curve.wibor6m should be(YieldCurve.BasePremium6M)
   }
 
   it should "handle very low O/N rate" in {
-    val curve = YieldCurve.compute(0.001) // 0.1% floor rate
-    curve.wibor3m.toDouble shouldBe (0.001 + YieldCurve.TermPremium3M +- 1e-10)
+    val curve = YieldCurve.compute(Rate(0.001))
+    curve.wibor3m.toDouble should be(0.001 + YieldCurve.BasePremium3M.toDouble +- 1e-10)
   }
 
   it should "handle high O/N rate" in {
-    val curve = YieldCurve.compute(0.25) // 25% ceiling
-    curve.wibor6m.toDouble shouldBe (0.25 + YieldCurve.TermPremium6M +- 1e-10)
+    val curve = YieldCurve.compute(Rate(0.25))
+    curve.wibor6m.toDouble should be(0.25 + YieldCurve.BasePremium6M.toDouble +- 1e-10)
   }
 
   // =========================================================================
-  // Term premiums
+  // Stress components
   // =========================================================================
 
-  "Term premiums" should "be positive" in {
-    YieldCurve.TermPremium1M should be > 0.0
-    YieldCurve.TermPremium3M should be > 0.0
-    YieldCurve.TermPremium6M should be > 0.0
+  it should "widen premium under credit stress (NPL > 0)" in {
+    val calm     = YieldCurve.compute(Rate(0.05))
+    val stressed = YieldCurve.compute(Rate(0.05), nplRatio = Ratio(0.10))
+    stressed.wibor3m should be > calm.wibor3m
+  }
+
+  it should "widen premium when expectations de-anchor (credibility < 1)" in {
+    val anchored   = YieldCurve.compute(Rate(0.05))
+    val deAnchored = YieldCurve.compute(Rate(0.05), credibility = Ratio(0.5), expectedInflation = Rate(0.08))
+    deAnchored.wibor3m should be > anchored.wibor3m
+  }
+
+  it should "have no extra premium when credibility = 1 regardless of expected inflation" in {
+    val base = YieldCurve.compute(Rate(0.05))
+    val high = YieldCurve.compute(Rate(0.05), credibility = Ratio.One, expectedInflation = Rate(0.10))
+    high.wibor3m should be(base.wibor3m)
+  }
+
+  // =========================================================================
+  // Base premiums
+  // =========================================================================
+
+  "Base premiums" should "be positive" in {
+    YieldCurve.BasePremium1M should be > Rate.Zero
+    YieldCurve.BasePremium3M should be > Rate.Zero
+    YieldCurve.BasePremium6M should be > Rate.Zero
   }
 
   it should "be monotonically increasing" in {
-    YieldCurve.TermPremium1M should be < YieldCurve.TermPremium3M
-    YieldCurve.TermPremium3M should be < YieldCurve.TermPremium6M
+    YieldCurve.BasePremium1M should be < YieldCurve.BasePremium3M
+    YieldCurve.BasePremium3M should be < YieldCurve.BasePremium6M
   }
 
   // =========================================================================
@@ -70,12 +92,12 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
 
   "Banking.State" should "default to None for interbankCurve" in {
     val bs = Banking.State(Vector.empty, Rate(0.05), Vector.empty, None)
-    bs.interbankCurve shouldBe None
+    bs.interbankCurve should be(None)
   }
 
   it should "store curve when provided" in {
-    val curve = YieldCurve.compute(0.058)
+    val curve = YieldCurve.compute(Rate(0.058))
     val bs    = Banking.State(Vector.empty, Rate(0.058), Vector.empty, interbankCurve = Some(curve))
-    bs.interbankCurve shouldBe defined
-    bs.interbankCurve.get.wibor3m.toDouble shouldBe (0.058 + YieldCurve.TermPremium3M +- 1e-10)
+    bs.interbankCurve should be(defined)
+    bs.interbankCurve.get.wibor3m.toDouble should be(0.058 + YieldCurve.BasePremium3M.toDouble +- 1e-10)
   }

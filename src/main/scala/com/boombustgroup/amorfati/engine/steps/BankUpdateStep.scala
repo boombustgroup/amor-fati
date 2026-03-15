@@ -222,28 +222,36 @@ object BankUpdateStep:
 
   /** Housing market: price step, origination, mortgage flows. */
   private def computeHousingFlows(in: Input)(using p: SimParams): HousingResult =
-    val unempRate                = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
-    val prevMortgageRate         = in.w.real.housing.avgMortgageRate
-    val mortgageBaseRate: Double =
-      if p.flags.interbankTermStructure then YieldCurve.compute(in.w.bankingSector.interbankRate.toDouble).wibor3m.toDouble
-      else in.w.nbp.referenceRate.toDouble
-    val mortgageRate             = mortgageBaseRate + p.housing.mortgageSpread.toDouble
-
-    val mortgageRateTyped = Rate(mortgageRate)
-    val housingAfterPrice = HousingMarket.step(
+    val unempRate              = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+    val prevMortgageRate       = in.w.real.housing.avgMortgageRate
+    val mortgageBaseRate: Rate =
+      if p.flags.interbankTermStructure then
+        val exp = in.w.mechanisms.expectations
+        YieldCurve
+          .compute(
+            in.w.bankingSector.interbankRate,
+            nplRatio = in.w.bank.nplRatio,
+            credibility = exp.credibility,
+            expectedInflation = exp.expectedInflation,
+            targetInflation = p.monetary.targetInfl,
+          )
+          .wibor3m
+      else in.w.nbp.referenceRate
+    val mortgageRate           = mortgageBaseRate + p.housing.mortgageSpread
+    val housingAfterPrice      = HousingMarket.step(
       HousingMarket.StepInput(
         prev = in.w.real.housing,
-        mortgageRate = mortgageRateTyped,
+        mortgageRate = mortgageRate,
         inflation = in.s7.newInfl,
         incomeGrowth = Rate(in.s2.wageGrowth.toDouble),
         employed = in.s2.employed,
         prevMortgageRate = prevMortgageRate,
       ),
     )
-    val housingAfterOrig  =
-      HousingMarket.processOrigination(housingAfterPrice, in.s3.totalIncome, mortgageRateTyped, true)
-    val mortgageFlows     = HousingMarket.processMortgageFlows(housingAfterOrig, mortgageRateTyped, Ratio(unempRate))
-    val housingAfterFlows = HousingMarket.applyFlows(housingAfterOrig, mortgageFlows)
+    val housingAfterOrig       =
+      HousingMarket.processOrigination(housingAfterPrice, in.s3.totalIncome, mortgageRate, true)
+    val mortgageFlows          = HousingMarket.processMortgageFlows(housingAfterOrig, mortgageRate, Ratio(unempRate))
+    val housingAfterFlows      = HousingMarket.applyFlows(housingAfterOrig, mortgageFlows)
 
     HousingResult(housingAfterFlows = housingAfterFlows, mortgageFlows = mortgageFlows)
 
@@ -550,7 +558,19 @@ object BankUpdateStep:
             .kahanSum,
         )
       else PLN.Zero
-    val curve                = if p.flags.interbankTermStructure then Some(YieldCurve.compute(ibRate.toDouble)) else None
+    val curve                =
+      if p.flags.interbankTermStructure then
+        val exp = in.w.mechanisms.expectations
+        Some(
+          YieldCurve.compute(
+            ibRate,
+            nplRatio = in.w.bank.nplRatio,
+            credibility = exp.credibility,
+            expectedInflation = exp.expectedInflation,
+            targetInflation = p.monetary.targetInfl,
+          ),
+        )
+      else None
     val finalBankingSector   = bs.copy(banks = afterResolve, interbankRate = ibRate, interbankCurve = curve)
     val reassignedFirms      =
       if anyFailed then
