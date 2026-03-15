@@ -159,7 +159,10 @@ object SimOutput:
     ColumnDef("ImportedInterm", ctx => ctx.world.bop.importedIntermediates.toDouble),
     ColumnDef("FDI", ctx => ctx.world.bop.fdi.toDouble),
     ColumnDef("UnempBenefitSpend", ctx => ctx.world.gov.unempBenefitSpend.toDouble),
-    ColumnDef("OutputGap", ctx => (ctx.unemployPct - ctx.p.monetary.nairu.toDouble) / ctx.p.monetary.nairu.toDouble),
+    ColumnDef(
+      "OutputGap",
+      ctx => (ctx.unemployPct - ctx.p.monetary.nairu.toDouble) / ctx.p.monetary.nairu.toDouble,
+    ), // Ratio.toDouble: ColumnDef computes Double
     // Bond market
     ColumnDef("BondYield", ctx => ctx.world.gov.bondYield.toDouble),
     ColumnDef("BondsOutstanding", ctx => ctx.world.gov.bondsOutstanding.toDouble),

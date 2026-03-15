@@ -66,7 +66,7 @@ case class MonetaryConfig(
     rateFloor: Rate = Rate(0.001),
     rateCeiling: Rate = Rate(0.25),
     maxRateChange: Rate = Rate(0.0),
-    nairu: Rate = Rate(0.05),
+    nairu: Ratio = Ratio(0.05),
     taylorDelta: Double = 0.5,
     reserveRateMult: Ratio = Ratio(0.5),
     depositFacilitySpread: Rate = Rate(0.01),
