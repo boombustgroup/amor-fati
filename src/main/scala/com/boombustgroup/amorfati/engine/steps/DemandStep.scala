@@ -39,23 +39,23 @@ object DemandStep:
     val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
     val sectorMults        = applySpillover(sectorDemand, sectorCap, in.w.priceLevel)
     val avgDemandMult      = computeAvgDemandMult(sectorDemand, sectorCap, in)
-    Output(PLN(govPurchases), sectorMults, avgDemandMult, sectorCap, PLN(laggedInvestDemand))
+    Output(govPurchases, sectorMults, avgDemandMult, sectorCap, laggedInvestDemand)
 
   /** Government purchases: base spending × price level + fiscal recycling (tax
     * revenue + ZUS surplus) + automatic fiscal stimulus (unemployment gap ×
     * multiplier). Floored at 98% of previous period.
     */
-  private def computeGovPurchases(in: Input)(using p: SimParams): Double =
+  private def computeGovPurchases(in: Input)(using p: SimParams): PLN =
     val zusNetSurplus =
-      if p.flags.zus then Math.max(0.0, in.w.social.zus.contributions.toDouble - in.w.social.zus.pensionPayments.toDouble)
-      else 0.0
-    val unempRate     = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
-    val unempGap      = Math.max(0.0, unempRate - p.monetary.nairu.toDouble)
-    val stimulus      = p.fiscal.govBaseSpending.toDouble * unempGap * p.fiscal.govAutoStabMult
-    val target        = p.fiscal.govBaseSpending.toDouble * Math.max(1.0, in.w.priceLevel) +
-      p.fiscal.govFiscalRecyclingRate.toDouble * (in.w.gov.taxRevenue.toDouble + zusNetSurplus) + stimulus
-    val prevGovSpend  = in.w.gov.govCurrentSpend.toDouble + in.w.gov.govCapitalSpend.toDouble
-    if prevGovSpend > 0 then Math.max(target, prevGovSpend * GovSpendingFloor)
+      if p.flags.zus then (in.w.social.zus.contributions - in.w.social.zus.pensionPayments).max(PLN.Zero)
+      else PLN.Zero
+    val unempRate     = Ratio(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
+    val unempGap      = (unempRate - Ratio(p.monetary.nairu.toDouble)).max(Ratio.Zero)
+    val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
+    val target        = p.fiscal.govBaseSpending * Math.max(1.0, in.w.priceLevel) +
+      (in.w.gov.taxRevenue + zusNetSurplus) * p.fiscal.govFiscalRecyclingRate + stimulus
+    val prevGovSpend  = in.w.gov.govCurrentSpend + in.w.gov.govCapitalSpend
+    if prevGovSpend > PLN.Zero then target.max(prevGovSpend * GovSpendingFloor)
     else target
 
   /** Per-sector nominal production capacity: sum of firm capacities. */
@@ -68,30 +68,30 @@ object DemandStep:
   /** Per-sector export demand: from GVC foreign firms when enabled, otherwise
     * from lagged aggregate exports split by fixed shares.
     */
-  private def computeSectorExports(in: Input)(using p: SimParams): Vector[Double] =
-    if p.flags.gvc && p.flags.openEcon then in.w.external.gvc.sectorExports.map(_.toDouble)
-    else p.fiscal.fofExportShares.map(_.toDouble).map(_ * in.w.forex.exports.toDouble)
+  private def computeSectorExports(in: Input)(using p: SimParams): Vector[PLN] =
+    if p.flags.gvc && p.flags.openEcon then in.w.external.gvc.sectorExports
+    else p.fiscal.fofExportShares.map(_ * in.w.forex.exports)
 
   /** Lagged domestic investment demand (net of import content). */
-  private def computeLaggedInvestDemand(in: Input)(using p: SimParams): Double =
-    in.w.real.grossInvestment.toDouble * (1.0 - p.capital.importShare.toDouble) +
-      in.w.real.aggGreenInvestment.toDouble * (1.0 - p.climate.greenImportShare.toDouble)
+  private def computeLaggedInvestDemand(in: Input)(using p: SimParams): PLN =
+    in.w.real.grossInvestment * (1.0 - p.capital.importShare.toDouble) +
+      in.w.real.aggGreenInvestment * (1.0 - p.climate.greenImportShare.toDouble)
 
   /** Per-sector total demand: consumption + gov purchases + investment +
     * exports, allocated via flow-of-funds weights.
     */
   private def computeSectorDemand(
       in: Input,
-      govPurchases: Double,
-      sectorExports: Vector[Double],
-      laggedInvestDemand: Double,
+      govPurchases: PLN,
+      sectorExports: Vector[PLN],
+      laggedInvestDemand: PLN,
   )(using p: SimParams): Vector[Double] =
     (0 until p.sectorDefs.length)
       .map: s =>
-        p.fiscal.fofConsWeights(s).toDouble * in.s3.domesticCons.toDouble +
-          p.fiscal.fofGovWeights(s).toDouble * govPurchases +
-          p.fiscal.fofInvestWeights(s).toDouble * laggedInvestDemand +
-          sectorExports(s)
+        (p.fiscal.fofConsWeights(s) * in.s3.domesticCons +
+          p.fiscal.fofGovWeights(s) * govPurchases +
+          p.fiscal.fofInvestWeights(s) * laggedInvestDemand +
+          sectorExports(s)).toDouble
       .toVector
 
   /** Redistribute excess demand from capacity-constrained sectors to sectors
@@ -115,7 +115,7 @@ object DemandStep:
       .map: s =>
         if rawMults(s) < 1.0 then (1.0 - rawMults(s)) * sectorCap(s) * priceLevel else 0.0
       .kahanSum
-    val spilloverFrac   = if deficitCapacity > 0 then Math.min(1.0, excessDemand / deficitCapacity) else 0.0
+    val spilloverFrac   = if deficitCapacity > 0 then Ratio(excessDemand / deficitCapacity).min(Ratio.One).toDouble else 0.0
     rawMults.indices
       .map: s =>
         if rawMults(s) > 1.0 then 1.0
@@ -135,7 +135,7 @@ object DemandStep:
     val baseMult      = if totalCapacity > 0 then totalDemand / (totalCapacity * in.w.priceLevel) else 1.0
     val realRateAdj   =
       if p.flags.expectations then
-        val realRate = in.w.nbp.referenceRate.toDouble - in.w.mechanisms.expectations.expectedInflation.toDouble
+        val realRate = (in.w.nbp.referenceRate - in.w.mechanisms.expectations.expectedInflation).toDouble
         -realRate * RealRateElasticity
       else 0.0
     baseMult + realRateAdj
