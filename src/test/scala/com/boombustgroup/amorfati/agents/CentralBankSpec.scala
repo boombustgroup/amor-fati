@@ -16,39 +16,39 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
     // When bond market off, yield = refRate (no risk premium, no QE)
     // This test depends on p.flags.govBondMarket which is true by default.
     // We test the positive path instead.
-    val y = Nbp.bondYield(Rate(0.05), 0.50, 0.0, PLN.Zero, 0.0)
+    val y = Nbp.bondYield(Rate(0.05), Ratio(0.50), Ratio.Zero, PLN.Zero, Rate.Zero)
     // debtToGdp=0.50 > 0.40 → raw fiscalRisk = 2.0 * 0.10 = 0.20, capped at 0.10
     // yield = 0.05 + 0.005 + 0.10 - 0 - 0 = 0.155
     y.toDouble shouldBe 0.155 +- 0.001
   }
 
   it should "increase with debtToGdp (fiscal risk premium)" in {
-    val low  = Nbp.bondYield(Rate(0.05), 0.30, 0.0, PLN.Zero, 0.0)
-    val high = Nbp.bondYield(Rate(0.05), 0.70, 0.0, PLN.Zero, 0.0)
+    val low  = Nbp.bondYield(Rate(0.05), Ratio(0.30), Ratio.Zero, PLN.Zero, Rate.Zero)
+    val high = Nbp.bondYield(Rate(0.05), Ratio(0.70), Ratio.Zero, PLN.Zero, Rate.Zero)
     high.toDouble should be > low.toDouble
   }
 
   it should "decrease with nbpBondGdpShare (QE compression)" in {
-    val noQe   = Nbp.bondYield(Rate(0.05), 0.50, 0.0, PLN.Zero, 0.0)
-    val withQe = Nbp.bondYield(Rate(0.05), 0.50, 0.20, PLN.Zero, 0.0)
+    val noQe   = Nbp.bondYield(Rate(0.05), Ratio(0.50), Ratio.Zero, PLN.Zero, Rate.Zero)
+    val withQe = Nbp.bondYield(Rate(0.05), Ratio(0.50), Ratio(0.20), PLN.Zero, Rate.Zero)
     withQe.toDouble should be < noQe.toDouble
   }
 
   it should "apply foreign demand discount when NFA > 0" in {
-    val nfaNeg = Nbp.bondYield(Rate(0.05), 0.50, 0.0, PLN(-1000.0), 0.0)
-    val nfaPos = Nbp.bondYield(Rate(0.05), 0.50, 0.0, PLN(1000.0), 0.0)
+    val nfaNeg = Nbp.bondYield(Rate(0.05), Ratio(0.50), Ratio.Zero, PLN(-1000.0), Rate.Zero)
+    val nfaPos = Nbp.bondYield(Rate(0.05), Ratio(0.50), Ratio.Zero, PLN(1000.0), Rate.Zero)
     nfaPos.toDouble should be < nfaNeg.toDouble
   }
 
   it should "have a floor at 0" in {
     // Very high QE compression → yield should not go negative
-    val y = Nbp.bondYield(Rate(0.01), 0.30, 0.50, PLN(1000.0), 0.0)
+    val y = Nbp.bondYield(Rate(0.01), Ratio(0.30), Ratio(0.50), PLN(1000.0), Rate.Zero)
     y.toDouble should be >= 0.0
   }
 
   it should "have zero fiscal risk when debtToGdp <= 0.40" in {
-    val y1 = Nbp.bondYield(Rate(0.05), 0.30, 0.0, PLN.Zero, 0.0)
-    val y2 = Nbp.bondYield(Rate(0.05), 0.40, 0.0, PLN.Zero, 0.0)
+    val y1 = Nbp.bondYield(Rate(0.05), Ratio(0.30), Ratio.Zero, PLN.Zero, Rate.Zero)
+    val y2 = Nbp.bondYield(Rate(0.05), Ratio(0.40), Ratio.Zero, PLN.Zero, Rate.Zero)
     // Both below threshold → same yield (only termPremium differs)
     y1 shouldBe y2
   }

@@ -10,13 +10,13 @@ object Nbp:
   // Named constants
   // ---------------------------------------------------------------------------
 
-  private val OutputGapCap          = 0.30   // ±cap on output gap in Taylor rule (Svensson 2003)
-  private val DebtThreshold         = 0.40   // debt-to-GDP threshold for fiscal risk premium
-  private val FiscalRiskCap         = 0.10   // maximum fiscal risk premium
-  private val QeCompressionCoeff    = 0.5    // yield compression per unit of NBP bond/GDP share
-  private val ForeignDemandDiscount = 0.005  // yield discount when NFA > 0
-  private val QeActivationSlack     = 0.0025 // rate proximity to floor for QE activation
-  private val QeDeflationThreshold  = 0.01   // inflation must be this much below target for QE
+  private val OutputGapCap          = Ratio(0.30)  // ±cap on output gap in Taylor rule (Svensson 2003)
+  private val DebtThreshold         = Ratio(0.40)  // debt-to-GDP threshold for fiscal risk premium
+  private val FiscalRiskCap         = Rate(0.10)   // maximum fiscal risk premium
+  private val QeCompressionCoeff    = Rate(0.5)    // yield compression per unit of NBP bond/GDP share
+  private val ForeignDemandDiscount = Rate(0.005)  // yield discount when NFA > 0
+  private val QeActivationSlack     = Rate(0.0025) // rate proximity to floor for QE activation
+  private val QeDeflationThreshold  = Rate(0.01)   // inflation must be this much below target for QE
 
   // ---------------------------------------------------------------------------
   // State
@@ -62,37 +62,37 @@ object Nbp:
     */
   private def taylorTarget(
       inflation: Rate,
-      exRateChange: Double,
+      exRateChange: Ratio,
       employed: Int,
       totalPopulation: Int,
-  )(using p: SimParams): Double =
-    val infGap = inflation.toDouble - p.monetary.targetInfl.toDouble
+  )(using p: SimParams): Rate =
+    val infGap    = inflation - p.monetary.targetInfl
+    val unempRate = Ratio.One - Ratio.fraction(employed, totalPopulation)
+    val nairu     = Ratio(p.monetary.nairu.toDouble) // Rate → Ratio: NAIRU is unemployment rate, not interest rate
     if p.flags.nbpSymmetric then
-      val unempRate    = 1.0 - (employed.toDouble / totalPopulation)
-      val rawOutputGap = (unempRate - p.monetary.nairu.toDouble) / p.monetary.nairu.toDouble
-      val outputGap    = Math.max(-OutputGapCap, Math.min(OutputGapCap, rawOutputGap))
-      p.monetary.neutralRate.toDouble +
-        p.monetary.taylorAlpha * infGap -
-        p.monetary.taylorDelta * outputGap +
-        p.monetary.taylorBeta * exRateChange
+      val rawOutputGap = Ratio((unempRate - nairu) / nairu)
+      val outputGap    = rawOutputGap.clamp(Ratio.Zero - OutputGapCap, OutputGapCap)
+      p.monetary.neutralRate +
+        infGap * p.monetary.taylorAlpha -
+        (outputGap * p.monetary.taylorDelta).toRate + // Ratio × coeff → Rate contribution
+        (exRateChange * p.monetary.taylorBeta).toRate // Ratio × coeff → Rate contribution
     else
-      p.monetary.neutralRate.toDouble +
-        p.monetary.taylorAlpha * Math.max(0.0, infGap) +
-        p.monetary.taylorBeta * Math.max(0.0, exRateChange)
+      p.monetary.neutralRate +
+        infGap.max(Rate.Zero) * p.monetary.taylorAlpha +
+        (exRateChange.max(Ratio.Zero) * p.monetary.taylorBeta).toRate
 
   /** Inertia smoothing + max rate change clamping. */
-  private def smoothAndClamp(prevRate: Rate, taylor: Double)(using p: SimParams): Double =
-    val smoothed = prevRate.toDouble * p.monetary.taylorInertia.toDouble + taylor * (1.0 - p.monetary.taylorInertia.toDouble)
-    if p.monetary.maxRateChange.toDouble > 0 then
-      prevRate.toDouble + Math.max(
-        -p.monetary.maxRateChange.toDouble,
-        Math.min(p.monetary.maxRateChange.toDouble, smoothed - prevRate.toDouble),
-      )
+  private def smoothAndClamp(prevRate: Rate, taylor: Rate)(using p: SimParams): Rate =
+    val inertia  = p.monetary.taylorInertia
+    val smoothed = prevRate * inertia + taylor * (Ratio.One - inertia)
+    if p.monetary.maxRateChange > Rate.Zero then
+      val delta = (smoothed - prevRate).clamp(-p.monetary.maxRateChange, p.monetary.maxRateChange)
+      prevRate + delta
     else smoothed
 
   /** Floor/ceiling clamp to [rateFloor, rateCeiling]. */
-  private def clampRate(rate: Double)(using p: SimParams): Rate =
-    Rate(rate).clamp(p.monetary.rateFloor, p.monetary.rateCeiling)
+  private def clampRate(rate: Rate)(using p: SimParams): Rate =
+    rate.clamp(p.monetary.rateFloor, p.monetary.rateCeiling)
 
   /** Update NBP reference rate via Taylor rule. Symmetric (dual mandate) or
     * asymmetric (inflation-only) depending on flags.nbpSymmetric.
@@ -100,7 +100,7 @@ object Nbp:
   def updateRate(
       prevRate: Rate,
       inflation: Rate,
-      exRateChange: Double,
+      exRateChange: Ratio,
       employed: Int,
       totalPopulation: Int,
   )(using p: SimParams): Rate =
@@ -116,31 +116,30 @@ object Nbp:
     */
   def bondYield(
       refRate: Rate,
-      debtToGdp: Double,
-      nbpBondGdpShare: Double,
+      debtToGdp: Ratio,
+      nbpBondGdpShare: Ratio,
       nfa: PLN,
-      credibilityPremium: Double,
+      credibilityPremium: Rate,
   )(using p: SimParams): Rate =
     if !p.flags.govBondMarket then refRate
     else
-      val termPremium   = p.fiscal.govTermPremium.toDouble
-      val fiscalRisk    = piecewiseFiscalRisk(Ratio(debtToGdp)).toDouble
+      val fiscalRisk    = piecewiseFiscalRisk(debtToGdp)
       val qeCompress    = QeCompressionCoeff * nbpBondGdpShare
-      val foreignDemand = if nfa > PLN.Zero then ForeignDemandDiscount else 0.0
-      (refRate + Rate(termPremium + fiscalRisk - qeCompress - foreignDemand + credibilityPremium)).max(Rate.Zero)
+      val foreignDemand = if nfa > PLN.Zero then ForeignDemandDiscount else Rate.Zero
+      (refRate + p.fiscal.govTermPremium + fiscalRisk - qeCompress - foreignDemand + credibilityPremium).max(Rate.Zero)
 
   /** Piecewise fiscal risk premium: steepens at 55% and 60% debt/GDP. base
     * segment (40%+) + caution segment (55%+) + crisis segment (60%+).
     */
   private def piecewiseFiscalRisk(debtToGdp: Ratio)(using p: SimParams): Rate =
-    val base      = Rate(p.fiscal.govFiscalRiskBeta * (debtToGdp - Ratio(DebtThreshold)).max(Ratio.Zero).toDouble)
+    val base      = Rate(p.fiscal.govFiscalRiskBeta * (debtToGdp - DebtThreshold).max(Ratio.Zero).toDouble)
     val caution55 =
       if debtToGdp > p.fiscal.fiscalRuleCautionThreshold then p.fiscal.fiscalRiskBeta55 * (debtToGdp - p.fiscal.fiscalRuleCautionThreshold)
       else Rate.Zero
     val crisis60  =
       if debtToGdp > p.fiscal.fiscalRuleDebtCeiling then p.fiscal.fiscalRiskBeta60 * (debtToGdp - p.fiscal.fiscalRuleDebtCeiling)
       else Rate.Zero
-    (base + caution55 + crisis60).min(Rate(FiscalRiskCap))
+    (base + caution55 + crisis60).min(FiscalRiskCap)
 
   // ---------------------------------------------------------------------------
   // QE
@@ -149,8 +148,8 @@ object Nbp:
   /** Should NBP activate QE? Rate near floor + inflation well below target. */
   def shouldActivateQe(refRate: Rate, inflation: Rate)(using p: SimParams): Boolean =
     p.flags.nbpQe &&
-      refRate.toDouble <= p.monetary.rateFloor.toDouble + QeActivationSlack &&
-      inflation.toDouble < p.monetary.targetInfl.toDouble - QeDeflationThreshold
+      refRate <= p.monetary.rateFloor + QeActivationSlack &&
+      inflation < p.monetary.targetInfl - QeDeflationThreshold
 
   /** Should NBP taper QE? Inflation returned above target. */
   def shouldTaperQe(inflation: Rate)(using p: SimParams): Boolean =
@@ -160,9 +159,9 @@ object Nbp:
   def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN)(using p: SimParams): QeResult =
     if !nbp.qeActive then QeResult(nbp, PLN.Zero)
     else
-      val maxByGdp  = (annualGdp * p.monetary.qeMaxGdpShare.toDouble - nbp.govBondHoldings).max(PLN.Zero)
+      val maxByGdp  = (annualGdp * p.monetary.qeMaxGdpShare - nbp.govBondHoldings).max(PLN.Zero)
       val available = bankBondHoldings
-      val purchase  = PLN.Zero.max(maxByGdp.min(available).min(PLN(p.monetary.qePace.toDouble)))
+      val purchase  = PLN.Zero.max(maxByGdp.min(available).min(p.monetary.qePace))
       val newNbp    = nbp.copy(
         govBondHoldings = nbp.govBondHoldings + purchase,
         qeCumulative = nbp.qeCumulative + purchase,

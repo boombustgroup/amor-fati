@@ -111,9 +111,10 @@ object types:
   // === Ratios (0-1 range: shares, probabilities, adoption rates) ===
   opaque type Ratio = Double
   object Ratio:
-    inline def apply(d: Double): Ratio = d
-    val Zero: Ratio                    = 0.0
-    val One: Ratio                     = 1.0
+    inline def apply(d: Double): Ratio             = d
+    inline def fraction(num: Int, den: Int): Ratio = num.toDouble / den.toDouble
+    val Zero: Ratio                                = 0.0
+    val One: Ratio                                 = 1.0
     extension (r: Ratio)
       inline def +(other: Ratio): Ratio             = r + other
       inline def -(other: Ratio): Ratio             = r - other
@@ -124,16 +125,19 @@ object types:
       inline def *(p: PLN): PLN                     = p * r
       @targetName("ratioDivScalar")
       inline def /(scalar: Double): Ratio           = r / scalar
+      @targetName("ratioDivRatio")
+      inline def /(other: Ratio): Double            = r / other
       inline def max(other: Ratio): Ratio           = math.max(r, other)
       inline def min(other: Ratio): Ratio           = math.min(r, other)
       inline def clamp(lo: Ratio, hi: Ratio): Ratio = math.max(lo, math.min(hi, r))
       inline def monthly: Ratio                     = r / 12.0
+      inline def toRate: Rate                       = Rate(r) // explicit Ratio → Rate at semantic boundary
       inline def toDouble: Double                   = r
       inline def >(other: Ratio): Boolean           = r > other
       inline def <(other: Ratio): Boolean           = r < other
       inline def >=(other: Ratio): Boolean          = r >= other
       inline def <=(other: Ratio): Boolean          = r <= other
-    given Ordering[Ratio]              = Ordering.Double.TotalOrdering
+    given Ordering[Ratio]                          = Ordering.Double.TotalOrdering
     given Numeric[Ratio] with
       def plus(x: Ratio, y: Ratio): Ratio         = x + y
       def minus(x: Ratio, y: Ratio): Ratio        = x - y
