@@ -37,7 +37,9 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     loans = loans,
     capital = capital,
     nplAmount = nplAmount,
-    govBondHoldings = govBondHoldings,
+    afsBonds = govBondHoldings * 0.40,
+    htmBonds = govBondHoldings * 0.60,
+    htmBookYield = Rate(0.055),
     reservesAtNbp = reservesAtNbp,
     interbankNet = interbankNet,
     status = status,
@@ -66,7 +68,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     forAll(genBanking.State, Gen.choose(-1e8, 1e8)) { (bs: Banking.State, deficit: Double) =>
       val aliveDep = bs.banks.filterNot(_.failed).map(_.deposits.toDouble).sum
       whenever(aliveDep > 0 && deficit != 0.0) {
-        val after  = Banking.allocateBonds(bs.banks, PLN(deficit))
+        val after  = Banking.allocateBonds(bs.banks, PLN(deficit), Rate(0.05))
         // Per-bank deltas sum to exactly deficit (residual-based allocation)
         val deltas = after.zip(bs.banks).map((a, b) => a.govBondHoldings.toDouble - b.govBondHoldings.toDouble)
         deltas.sum shouldBe deficit +- 1e-6
@@ -78,7 +80,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       val alive = bs.banks.filterNot(_.failed)
       whenever(alive.nonEmpty) {
         val before   = bs.banks.map(_.govBondHoldings.toDouble).sum
-        val after    = Banking.allocateBonds(bs.banks, PLN(deficit))
+        val after    = Banking.allocateBonds(bs.banks, PLN(deficit), Rate(0.05))
         val afterSum = after.map(_.govBondHoldings.toDouble).sum
         (afterSum - before) shouldBe deficit +- 1.0 // well within SFC tolerance
       }

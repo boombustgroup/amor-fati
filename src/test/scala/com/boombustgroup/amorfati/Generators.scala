@@ -25,13 +25,16 @@ object Generators:
       configs: Vector[Banking.Config] = Banking.DefaultConfigs,
   ): Banking.State =
     val banks = configs.map: cfg =>
+      val bankBonds = totalGovBonds * cfg.initMarketShare.toDouble
       Banking.BankState(
         id = cfg.id,
         deposits = totalDeposits * cfg.initMarketShare.toDouble,
         loans = totalLoans * cfg.initMarketShare.toDouble,
         capital = totalCapital * cfg.initMarketShare.toDouble,
         nplAmount = PLN.Zero,
-        govBondHoldings = totalGovBonds * cfg.initMarketShare.toDouble,
+        afsBonds = bankBonds * (1.0 - p.banking.htmShare.toDouble),
+        htmBonds = bankBonds * p.banking.htmShare.toDouble,
+        htmBookYield = p.banking.initHtmBookYield,
         reservesAtNbp = PLN.Zero,
         interbankNet = PLN.Zero,
         status = Banking.BankStatus.Active(0),
@@ -169,12 +172,14 @@ object Generators:
     capital    <- Gen.choose(1000.0, 1e9)
     deposits   <- Gen.choose(0.0, 1e10)
     bonds      <- Gen.choose(0.0, 1e9)
+    htmFrac    <- Gen.choose(0.0, 1.0)
   yield Banking.Aggregate(
     PLN(totalLoans),
     PLN(totalLoans * nplFrac),
     PLN(capital),
     PLN(deposits),
-    PLN(bonds),
+    PLN(bonds * (1.0 - htmFrac)),
+    PLN(bonds * htmFrac),
     PLN.Zero,
     PLN.Zero,
     PLN.Zero,
@@ -505,6 +510,7 @@ object Generators:
     investNetDepositFlow = PLN.Zero,
     firmPrincipalRepaid = PLN.Zero,
     unrealizedBondLoss = PLN.Zero,
+    htmRealizedLoss = PLN.Zero,
   )
 
   /** Generate (prev, curr, flows) where all 9 SFC identities hold exactly. */
@@ -514,7 +520,7 @@ object Generators:
       flows <- genMonthlyFlows
     yield
       val expectedBankCapChange  = -flows.nplLoss - flows.mortgageNplLoss - flows.consumerNplLoss
-        - flows.corpBondDefaultLoss - flows.bfgLevy - flows.unrealizedBondLoss - flows.bankCapitalDestruction +
+        - flows.corpBondDefaultLoss - flows.bfgLevy - flows.unrealizedBondLoss - flows.htmRealizedLoss - flows.bankCapitalDestruction +
         (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
           + flows.mortgageInterestIncome + flows.consumerDebtService + flows.corpBondCouponIncome
           - flows.depositInterestPaid
@@ -608,6 +614,8 @@ object Generators:
       capital  <- Gen.choose(1e5, 1e9)
       nplFrac  <- Gen.choose(0.0, 0.20)
       bonds    <- Gen.choose(0.0, 1e9)
+      htmFrac  <- Gen.choose(0.0, 1.0)
+      bookYld  <- Gen.choose(0.0, 0.15)
       reserves <- Gen.choose(0.0, 1e8)
       ibNet    <- Gen.choose(-1e8, 1e8)
       failed   <- Gen.oneOf(false, false, false, false, true) // 20% chance
@@ -618,7 +626,9 @@ object Generators:
       loans = PLN(loans),
       capital = PLN(capital),
       nplAmount = PLN(loans * nplFrac),
-      govBondHoldings = PLN(bonds),
+      afsBonds = PLN(bonds * (1.0 - htmFrac)),
+      htmBonds = PLN(bonds * htmFrac),
+      htmBookYield = Rate(bookYld),
       reservesAtNbp = PLN(reserves),
       interbankNet = PLN(ibNet),
       status = if failed then Banking.BankStatus.Failed(30) else Banking.BankStatus.Active(lowCar),

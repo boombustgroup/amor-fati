@@ -81,11 +81,15 @@ object Banking:
       nplAmount: PLN,       // Non-performing corporate loan stock (KNF Stage 3)
       capital: PLN,         // Regulatory capital (Tier 1 + retained earnings)
       deposits: PLN,        // Total customer deposits (households + firms)
-      govBondHoldings: PLN, // Treasury bond portfolio (skarbowe papiery wartościowe)
+      afsBonds: PLN,        // AFS gov bond portfolio (marked to market)
+      htmBonds: PLN,        // HTM gov bond portfolio (accrual only)
       consumerLoans: PLN,   // Outstanding unsecured household credit
       consumerNpl: PLN,     // Non-performing consumer loan stock
       corpBondHoldings: PLN, // Corporate bond portfolio — bank share only (default 30%, CORPBOND_BANK_SHARE)
   ):
+    /** Total government bond holdings (AFS + HTM). */
+    def govBondHoldings: PLN = afsBonds + htmBonds
+
     /** Non-performing loan ratio: nplAmount / totalLoans. Returns Ratio.Zero
       * when loan book is empty.
       */
@@ -175,7 +179,9 @@ object Banking:
       loans: PLN,           // outstanding corporate loan book
       capital: PLN,         // regulatory capital (Tier 1 + retained earnings)
       nplAmount: PLN,       // non-performing loan stock (KNF Stage 3)
-      govBondHoldings: PLN, // treasury bond portfolio (skarbowe papiery wartościowe)
+      afsBonds: PLN,        // Available-for-Sale gov bonds (marked to market each month)
+      htmBonds: PLN,        // Held-to-Maturity gov bonds (accrual only, hidden losses)
+      htmBookYield: Rate,   // weighted-average acquisition yield on HTM portfolio
       reservesAtNbp: PLN,   // excess reserves held at NBP
       interbankNet: PLN,    // net interbank position (positive = lender)
       status: BankStatus,   // operational status (Active with CAR counter, or Failed)
@@ -188,6 +194,11 @@ object Banking:
       consumerNpl: PLN,     // consumer credit NPL stock
       corpBondHoldings: PLN, // corporate bond holdings (bank share, Basel III BBB)
   ):
+
+    /** Total government bond holdings (AFS + HTM). All existing read-only
+      * references (hqla, rsf, canLend, etc.) use this derived method.
+      */
+    def govBondHoldings: PLN = afsBonds + htmBonds
 
     /** Whether this bank has been resolved by BFG. */
     def failed: Boolean = status match
@@ -254,7 +265,8 @@ object Banking:
         nplAmount = PLN(banks.kahanSumBy(_.nplAmount.toDouble)),
         capital = PLN(banks.kahanSumBy(_.capital.toDouble)),
         deposits = PLN(banks.kahanSumBy(_.deposits.toDouble)),
-        govBondHoldings = PLN(banks.kahanSumBy(_.govBondHoldings.toDouble)),
+        afsBonds = PLN(banks.kahanSumBy(_.afsBonds.toDouble)),
+        htmBonds = PLN(banks.kahanSumBy(_.htmBonds.toDouble)),
         consumerLoans = PLN(banks.kahanSumBy(_.consumerLoans.toDouble)),
         consumerNpl = PLN(banks.kahanSumBy(_.consumerNpl.toDouble)),
         corpBondHoldings = PLN(banks.kahanSumBy(_.corpBondHoldings.toDouble)),
@@ -473,26 +485,34 @@ object Banking:
     val newlyFailed = banks.filter(b => b.failed && b.deposits > PLN.Zero)
     if newlyFailed.isEmpty then ResolutionResult(banks, BankId.NoBank)
     else
-      val absorberId                                           = healthiestBankId(banks)
-      val toAbsorb                                             = newlyFailed.filter(_.id != absorberId)
+      val absorberId                                                             = healthiestBankId(banks)
+      val toAbsorb                                                               = newlyFailed.filter(_.id != absorberId)
       // Single-pass aggregation of all flows from failed banks
-      val (addDep, addLoans, addBonds, addCorpB, addCC, addIB) =
-        toAbsorb.foldLeft((0.0, 0.0, 0.0, 0.0, 0.0, 0.0)):
-          case ((dep, ln, bd, cb, cc, ib), f) =>
+      val (addDep, addLoans, addAfs, addHtm, addCorpB, addCC, addIB, htmYieldWt) =
+        toAbsorb.foldLeft((0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)):
+          case ((dep, ln, afs, htm, cb, cc, ib, yw), f) =>
             (
               dep + f.deposits.toDouble,
               ln + (f.loans - f.nplAmount).toDouble,
-              bd + f.govBondHoldings.toDouble,
+              afs + f.afsBonds.toDouble,
+              htm + f.htmBonds.toDouble,
               cb + f.corpBondHoldings.toDouble,
               cc + f.consumerLoans.toDouble,
               ib + f.interbankNet.toDouble,
+              yw + f.htmBonds.toDouble * f.htmBookYield.toDouble,
             )
-      val resolved                                             = banks.map: b =>
+      val resolved                                                               = banks.map: b =>
         if b.id == absorberId then
+          val combinedHtm      = b.htmBonds.toDouble + addHtm
+          val combinedHtmYield =
+            if combinedHtm > 0 then (b.htmBonds.toDouble * b.htmBookYield.toDouble + htmYieldWt) / combinedHtm
+            else b.htmBookYield.toDouble
           b.copy(
             deposits = b.deposits + PLN(addDep),
             loans = b.loans + PLN(addLoans).max(PLN.Zero),
-            govBondHoldings = b.govBondHoldings + PLN(addBonds),
+            afsBonds = b.afsBonds + PLN(addAfs),
+            htmBonds = b.htmBonds + PLN(addHtm),
+            htmBookYield = Rate(combinedHtmYield),
             corpBondHoldings = b.corpBondHoldings + PLN(addCorpB),
             consumerLoans = b.consumerLoans + PLN(addCC),
             interbankNet = b.interbankNet + PLN(addIB),
@@ -502,7 +522,9 @@ object Banking:
           b.copy(
             deposits = PLN.Zero,
             loans = PLN.Zero,
-            govBondHoldings = PLN.Zero,
+            afsBonds = PLN.Zero,
+            htmBonds = PLN.Zero,
+            htmBookYield = Rate.Zero,
             nplAmount = PLN.Zero,
             interbankNet = PLN.Zero,
             reservesAtNbp = PLN.Zero,
@@ -533,9 +555,12 @@ object Banking:
   // ---------------------------------------------------------------------------
 
   /** Allocate bond issuance/redemption to banks proportional to deposits. Last
-    * alive bank absorbs the residual for exact SFC closure.
+    * alive bank absorbs the residual for exact SFC closure. New issuance is
+    * split between HTM and AFS per `htmShare`; redemption reduces both
+    * proportionally. HTM book yield is updated as a weighted average on
+    * issuance.
     */
-  def allocateBonds(banks: Vector[BankState], deficit: PLN): Vector[BankState] =
+  def allocateBonds(banks: Vector[BankState], deficit: PLN, currentYield: Rate)(using p: SimParams): Vector[BankState] =
     if deficit == PLN.Zero then return banks
     val aliveBanks  = banks.filterNot(_.failed)
     val nAlive      = aliveBanks.length
@@ -545,15 +570,41 @@ object Banking:
     val (result, _) = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):
       case ((acc, allocated), b) =>
         if b.failed then (acc :+ b, allocated)
-        else if b.id == lastAliveId then (acc :+ b.copy(govBondHoldings = b.govBondHoldings + (deficit - allocated)), deficit)
         else
-          val share  = if totalDep > 0 then b.deposits.toDouble / totalDep else 1.0 / nAlive
-          val amount = deficit * share
-          (acc :+ b.copy(govBondHoldings = b.govBondHoldings + amount), allocated + amount)
+          val amount  =
+            if b.id == lastAliveId then deficit - allocated
+            else
+              val share = if totalDep > 0 then b.deposits.toDouble / totalDep else 1.0 / nAlive
+              deficit * share
+          val updated = applyBondAllocation(b, amount, currentYield)
+          (acc :+ updated, allocated + amount)
     result
 
+  private def applyBondAllocation(b: BankState, amount: PLN, currentYield: Rate)(using p: SimParams): BankState =
+    if amount > PLN.Zero then
+      // Issuance: split per htmShare, update book yield as weighted average
+      val htmPortion   = amount * p.banking.htmShare.toDouble
+      val afsPortion   = amount - htmPortion
+      val newHtmTotal  = b.htmBonds + htmPortion
+      val newBookYield =
+        if newHtmTotal > PLN.Zero then
+          Rate((b.htmBonds.toDouble * b.htmBookYield.toDouble + htmPortion.toDouble * currentYield.toDouble) / newHtmTotal.toDouble)
+        else b.htmBookYield
+      b.copy(afsBonds = b.afsBonds + afsPortion, htmBonds = newHtmTotal, htmBookYield = newBookYield)
+    else if amount < PLN.Zero then
+      // Redemption: reduce both proportionally (no floor — matches original behavior)
+      val total = b.govBondHoldings.toDouble
+      if total <= 0 then b.copy(afsBonds = b.afsBonds + amount * 0.5, htmBonds = b.htmBonds + amount * 0.5)
+      else
+        val afsFrac   = b.afsBonds.toDouble / total
+        val afsReduce = amount * afsFrac
+        val htmReduce = amount - afsReduce
+        b.copy(afsBonds = b.afsBonds + afsReduce, htmBonds = b.htmBonds + htmReduce)
+    else b
+
   /** Allocate QE purchases from banks proportional to their bond holdings.
-    * Capped at each bank's available holdings.
+    * Capped at each bank's available holdings. Sells AFS first; spills into HTM
+    * only if AFS is exhausted.
     */
   def allocateQePurchases(banks: Vector[BankState], qeTotal: PLN): Vector[BankState] =
     if qeTotal <= PLN.Zero then banks
@@ -566,14 +617,47 @@ object Banking:
         val (result, _)    = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):
           case ((acc, allocated), b) =>
             if b.failed || b.govBondHoldings <= PLN.Zero then (acc :+ b, allocated)
-            else if b.id == lastEligibleId then
-              val sold = b.govBondHoldings.min(qeTotal - allocated)
-              (acc :+ b.copy(govBondHoldings = b.govBondHoldings - sold), allocated + sold)
             else
-              val share = b.govBondHoldings.toDouble / totalBonds
-              val sold  = b.govBondHoldings.min(qeTotal * share)
-              (acc :+ b.copy(govBondHoldings = b.govBondHoldings - sold), allocated + sold)
+              val sold      =
+                if b.id == lastEligibleId then b.govBondHoldings.min(qeTotal - allocated)
+                else
+                  val share = b.govBondHoldings.toDouble / totalBonds
+                  b.govBondHoldings.min(qeTotal * share)
+              // Sell AFS first; spill into HTM only if AFS exhausted
+              val afsReduce = sold.min(b.afsBonds)
+              val htmReduce = sold - afsReduce
+              (acc :+ b.copy(afsBonds = (b.afsBonds - afsReduce).max(PLN.Zero), htmBonds = (b.htmBonds - htmReduce).max(PLN.Zero)), allocated + sold)
         result
+
+  // ---------------------------------------------------------------------------
+  // HTM forced reclassification (interest rate risk)
+  // ---------------------------------------------------------------------------
+
+  /** Result of HTM forced reclassification across all banks. */
+  case class HtmForcedSaleResult(banks: Vector[BankState], totalRealizedLoss: PLN)
+
+  /** Forcibly reclassify HTM bonds to AFS when LCR drops below
+    * `htmForcedSaleThreshold × lcrMin`. On reclassification the hidden
+    * mark-to-market loss is realized: realizedLoss = reclassified × duration ×
+    * max(currentYield − htmBookYield, 0) Total `govBondHoldings` is unchanged —
+    * only the AFS/HTM split moves.
+    */
+  def processHtmForcedSale(banks: Vector[BankState], currentYield: Rate)(using p: SimParams): HtmForcedSaleResult =
+    val threshold = p.banking.htmForcedSaleThreshold * p.banking.lcrMin
+    var totalLoss = 0.0
+    val updated   = banks.map: b =>
+      if b.failed || b.htmBonds <= PLN.Zero || b.lcr.toDouble >= threshold then b
+      else
+        val reclassified = b.htmBonds * p.banking.htmForcedSaleRate.toDouble
+        val yieldGap     = Math.max(currentYield.toDouble - b.htmBookYield.toDouble, 0.0)
+        val loss         = PLN(reclassified.toDouble * p.banking.govBondDuration * yieldGap)
+        totalLoss += loss.toDouble
+        b.copy(
+          htmBonds = b.htmBonds - reclassified,
+          afsBonds = b.afsBonds + reclassified,
+          capital = b.capital - loss,
+        )
+    HtmForcedSaleResult(updated, PLN(totalLoss))
 
   // ---------------------------------------------------------------------------
   // Per-bank capital PnL
@@ -587,7 +671,7 @@ object Banking:
       consumerNplLoss: PLN,        // consumer credit NPL loss (after recovery)
       corpBondDefaultLoss: PLN,    // corporate bond default loss (bank share)
       bfgLevy: PLN,                // BFG resolution fund levy
-      unrealizedBondLoss: PLN,     // mark-to-market loss on gov bond portfolio (SVB channel)
+      unrealizedBondLoss: PLN,     // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       intIncome: PLN,              // interest income on corporate loans
       hhDebtService: PLN,          // household mortgage debt service
       bondIncome: PLN,             // government bond coupon income

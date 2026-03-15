@@ -139,7 +139,8 @@ object Sfc:
       bankCapitalDestruction: PLN,  // Capital wiped when bank fails (shareholders wiped)
       investNetDepositFlow: PLN,    // Investment demand net flow: lagged revenue - current spending
       firmPrincipalRepaid: PLN,     // firm loan principal repaid (deposit destruction)
-      unrealizedBondLoss: PLN,      // mark-to-market loss on gov bond portfolio (SVB channel)
+      unrealizedBondLoss: PLN,      // mark-to-market loss on gov bond portfolio (interest rate risk channel)
+      htmRealizedLoss: PLN,         // realized loss from HTM forced reclassification (HTM reclassification channel)
   )
 
   /** Enumeration of the 13 balance-sheet identities checked each month. Used as
@@ -276,7 +277,7 @@ object Sfc:
         BankCapital,
         "bank capital change (profit retention + losses)",
         expected = -flows.nplLoss - flows.mortgageNplLoss - flows.consumerNplLoss
-          - flows.corpBondDefaultLoss - flows.bfgLevy - flows.unrealizedBondLoss - flows.bankCapitalDestruction +
+          - flows.corpBondDefaultLoss - flows.bfgLevy - flows.unrealizedBondLoss - flows.htmRealizedLoss - flows.bankCapitalDestruction +
           (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
             + flows.mortgageInterestIncome + flows.consumerDebtService + flows.corpBondCouponIncome
             - flows.depositInterestPaid
