@@ -1,27 +1,33 @@
 package com.boombustgroup.amorfati.montecarlo
 
-import SimOutput.Col
-import com.boombustgroup.amorfati.accounting.Sfc
+import com.boombustgroup.amorfati.*
+import com.boombustgroup.amorfati.accounting.{InitCheck, Sfc}
 import com.boombustgroup.amorfati.agents.Banking.BankState
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.CsvWriter
 import com.boombustgroup.amorfati.util.KahanSum.*
-import com.boombustgroup.amorfati.*
 
 import java.io.File
 
 /** Monte Carlo runner: simulation loop, CSV writers, summary statistics. */
 object McRunner:
 
-  /** Run one simulation with given seed. Throws [[Sfc.SfcViolationException]]
-    * on any SFC identity violation.
+  /** Run one simulation with given seed. Throws
+    * [[InitCheck.InitValidationException]] on init stock inconsistency, or
+    * [[Sfc.SfcViolationException]] on any monthly SFC identity violation.
     */
   def runSingle(seed: Long, @scala.annotation.unused rc: McRunConfig)(using p: SimParams): RunResult =
-    val init  = WorldInit.initialize(seed)
+    val init     = WorldInit.initialize(seed)
+    val snapshot = Sfc.snapshot(init.world, init.firms, init.households)
+
+    val initErrs = InitCheck.validate(snapshot, init.world.bankingSector, init.firms, init.households)
+    if initErrs.nonEmpty then throw InitCheck.InitValidationException(initErrs)
+
     var state = Simulation.SimState(init.world, init.firms, init.households)
 
     val results = Array.ofDim[Double](p.timeline.duration, SimOutput.nCols)

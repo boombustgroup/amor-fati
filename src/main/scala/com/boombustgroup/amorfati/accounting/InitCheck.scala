@@ -1,0 +1,123 @@
+package com.boombustgroup.amorfati.accounting
+
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
+import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.amorfati.util.KahanSum.*
+
+/** Pure init-time stock validation.
+  *
+  * SFC validates flow consistency (delta-stock = sum-flows) every month, but
+  * never checks that initial stocks are internally consistent. This object
+  * provides level checks at t=0: bond clearing, interbank netting, per-bank
+  * deposit/loan consistency, and aggregate cross-checks.
+  *
+  * The caller decides the reaction (throw, log, ignore).
+  */
+object InitCheck:
+
+  case class InitCheckResult(
+      identity: String,
+      expected: PLN,
+      actual: PLN,
+      passed: Boolean,
+  )
+
+  class InitValidationException(val errors: Vector[InitCheckResult])
+      extends RuntimeException(
+        errors.map(e => f"${e.identity}: expected=${e.expected.toDouble}%.2f actual=${e.actual.toDouble}%.2f").mkString("; "),
+      )
+
+  /** Validate initial stock identities. Returns only the failing checks (empty =
+    * all pass).
+    */
+  def validate(
+      snapshot: Sfc.Snapshot,
+      bankingSector: Banking.State,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+  ): Vector[InitCheckResult] =
+    val levelTol   = PLN(0.01)
+    val perBankTol = PLN(1.0)
+    val banks      = bankingSector.banks
+
+    // --- Level checks (reuse Sfc formulas) ---
+
+    val bondClearing = check(
+      "Bond clearing",
+      expected = snapshot.bondsOutstanding,
+      actual = snapshot.bankBondHoldings + snapshot.nbpBondHoldings +
+        snapshot.ppkBondHoldings + snapshot.insuranceGovBondHoldings + snapshot.tfiGovBondHoldings,
+      levelTol,
+    )
+
+    val interbankNetting = check(
+      "Interbank netting",
+      expected = PLN.Zero,
+      actual = snapshot.interbankNetSum,
+      levelTol,
+    )
+
+    // --- Per-bank agent cross-checks ---
+
+    val firmCashByBank   = firms.groupMapReduce(_.bankId.toInt)(_.cash)(_ + _)
+    val firmDebtByBank   = firms.groupMapReduce(_.bankId.toInt)(_.debt)(_ + _)
+    val hhSavingsByBank  = households.groupMapReduce(_.bankId.toInt)(_.savings)(_ + _)
+    val hhConsDebtByBank = households.groupMapReduce(_.bankId.toInt)(_.consumerDebt)(_ + _)
+
+    val perBankChecks = banks.flatMap: bank =>
+      val bId = bank.id.toInt
+
+      val expectedDeposits = firmCashByBank.getOrElse(bId, PLN.Zero) + hhSavingsByBank.getOrElse(bId, PLN.Zero)
+      val depositCheck     = check(
+        s"Deposit consistency (bank $bId)",
+        expected = expectedDeposits,
+        actual = bank.deposits,
+        perBankTol,
+      )
+
+      val expectedCorpLoans = firmDebtByBank.getOrElse(bId, PLN.Zero)
+      val corpLoanCheck     = check(
+        s"Corp loan consistency (bank $bId)",
+        expected = expectedCorpLoans,
+        actual = bank.loans,
+        perBankTol,
+      )
+
+      val expectedConsLoans = hhConsDebtByBank.getOrElse(bId, PLN.Zero)
+      val consLoanCheck     = check(
+        s"Consumer loan consistency (bank $bId)",
+        expected = expectedConsLoans,
+        actual = bank.consumerLoans,
+        perBankTol,
+      )
+
+      Vector(depositCheck, corpLoanCheck, consLoanCheck)
+
+    // --- Aggregate cross-checks ---
+
+    val aggDeposits     = PLN(banks.kahanSumBy(_.deposits.toDouble))
+    val aggDepositCheck = check(
+      "Aggregate deposits",
+      expected = aggDeposits,
+      actual = snapshot.bankDeposits,
+      levelTol,
+    )
+
+    val aggLoans     = PLN(banks.kahanSumBy(_.loans.toDouble))
+    val aggLoanCheck = check(
+      "Aggregate loans",
+      expected = aggLoans,
+      actual = snapshot.bankLoans,
+      levelTol,
+    )
+
+    val all = Vector(bondClearing, interbankNetting) ++ perBankChecks ++ Vector(aggDepositCheck, aggLoanCheck)
+    all.filterNot(_.passed)
+
+  private def check(identity: String, expected: PLN, actual: PLN, tolerance: PLN): InitCheckResult =
+    InitCheckResult(
+      identity = identity,
+      expected = expected,
+      actual = actual,
+      passed = (actual - expected).abs < tolerance,
+    )
