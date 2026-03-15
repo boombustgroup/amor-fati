@@ -279,7 +279,7 @@ object OpenEconomyStep:
     )
 
   private def stepRateAndExpectations(in: Input, newForex: OpenEconomy.ForexState)(using p: SimParams): RateExpResult =
-    val exRateChg       = (newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0
+    val exRateChg       = Ratio((newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0)
     val newRefRate      = Nbp.updateRate(
       in.w.nbp.referenceRate,
       in.s7.newInfl,
@@ -307,16 +307,15 @@ object OpenEconomyStep:
       fxResult: Nbp.FxInterventionResult,
       interbank: InterbankResult,
   )(using p: SimParams): BondQeResult =
-    val annualGdpForBonds = in.w.gdpProxy * 12.0
-    val debtToGdp         = if annualGdpForBonds > 0 then in.w.gov.cumulativeDebt.toDouble / annualGdpForBonds else 0.0
-    val nbpBondGdpShare   = if annualGdpForBonds > 0 then in.w.nbp.qeCumulative.toDouble / annualGdpForBonds else 0.0
+    val annualGdpForBonds = PLN(in.w.gdpProxy * 12.0)
+    val debtToGdp         = if annualGdpForBonds > PLN.Zero then Ratio(in.w.gov.cumulativeDebt / annualGdpForBonds) else Ratio.Zero
+    val nbpBondGdpShare   = if annualGdpForBonds > PLN.Zero then Ratio(in.w.nbp.qeCumulative / annualGdpForBonds) else Ratio.Zero
     // Channel 3: De-anchored expectations -> higher bond yields
     val credPremium       = if p.flags.expectations then
-      val target = p.monetary.targetInfl.toDouble
-      (1.0 - in.w.mechanisms.expectations.credibility.toDouble) *
-        Math.abs(in.w.mechanisms.expectations.expectedInflation.toDouble - target) *
-        p.labor.expBondSensitivity.toDouble
-    else 0.0
+      val deAnchor = (Ratio.One - in.w.mechanisms.expectations.credibility) *
+        Ratio((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs.toDouble)
+      Rate(deAnchor.toDouble * p.labor.expBondSensitivity.toDouble)
+    else Rate.Zero
     val newBondYield      = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
 
     // Debt service: use LAGGED bond stock
@@ -334,7 +333,7 @@ object OpenEconomyStep:
       else if qeTaper then false
       else in.w.nbp.qeActive
     val preQeNbp         = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
-    val qeResult         = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, PLN(annualGdpForBonds))
+    val qeResult         = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, annualGdpForBonds)
     val postQeNbp        = qeResult.state
     val qePurchaseAmount = qeResult.purchased
     val postFxNbp        = postQeNbp.copy(fxReserves = fxResult.newReserves, lastFxTraded = fxResult.eurTraded)

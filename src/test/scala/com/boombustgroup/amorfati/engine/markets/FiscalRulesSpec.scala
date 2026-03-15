@@ -98,13 +98,13 @@ class FiscalRulesSpec extends AnyWordSpec with Matchers:
   "Nbp.piecewiseFiscalRisk (via bondYield)" should {
 
     "have zero fiscal risk at 35% debt/GDP" in {
-      val y        = Nbp.bondYield(Rate(0.05), 0.35, 0.0, PLN.Zero, 0.0)
+      val y        = Nbp.bondYield(Rate(0.05), Ratio(0.35), Ratio.Zero, PLN.Zero, Rate.Zero)
       val expected = 0.05 + 0.005 // ref + termPremium
       y.toDouble shouldBe expected +- 0.001
     }
 
     "have base-only risk at 45% debt/GDP" in {
-      val y        = Nbp.bondYield(Rate(0.05), 0.45, 0.0, PLN.Zero, 0.0)
+      val y        = Nbp.bondYield(Rate(0.05), Ratio(0.45), Ratio.Zero, PLN.Zero, Rate.Zero)
       val baseRisk = 2.0 * 0.05
       val expected = 0.05 + 0.005 + baseRisk
       y.toDouble shouldBe expected +- 0.001
@@ -112,18 +112,18 @@ class FiscalRulesSpec extends AnyWordSpec with Matchers:
 
     "be monotonically non-decreasing with debt/GDP" in {
       val debtLevels = Seq(0.30, 0.35, 0.40, 0.42, 0.45, 0.50, 0.55, 0.56, 0.60, 0.62, 0.70, 0.90)
-      val yields     = debtLevels.map(d => Nbp.bondYield(Rate(0.05), d, 0.0, PLN.Zero, 0.0).toDouble)
+      val yields     = debtLevels.map(d => Nbp.bondYield(Rate(0.05), Ratio(d), Ratio.Zero, PLN.Zero, Rate.Zero).toDouble)
       for (y1, y2) <- yields.zip(yields.tail) do y2 should be >= y1
     }
 
     "increase above 40% threshold" in {
-      val yBelow = Nbp.bondYield(Rate(0.05), 0.39, 0.0, PLN.Zero, 0.0)
-      val yAbove = Nbp.bondYield(Rate(0.05), 0.42, 0.0, PLN.Zero, 0.0)
+      val yBelow = Nbp.bondYield(Rate(0.05), Ratio(0.39), Ratio.Zero, PLN.Zero, Rate.Zero)
+      val yAbove = Nbp.bondYield(Rate(0.05), Ratio(0.42), Ratio.Zero, PLN.Zero, Rate.Zero)
       yAbove.toDouble should be > yBelow.toDouble
     }
 
     "never exceed FiscalRiskCap (10%)" in {
-      val y = Nbp.bondYield(Rate(0.05), 0.90, 0.0, PLN.Zero, 0.0)
+      val y = Nbp.bondYield(Rate(0.05), Ratio(0.90), Ratio.Zero, PLN.Zero, Rate.Zero)
       y.toDouble should be <= 0.05 + 0.005 + 0.10 + 0.001
     }
   }

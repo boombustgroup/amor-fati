@@ -21,14 +21,14 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   "Nbp.bondYield" should "be >= 0 for all inputs" in
     forAll(genRate, Gen.choose(0.0, 2.0), Gen.choose(0.0, 0.50), Gen.choose(-1e10, 1e10)) {
       (refRate: Double, debtToGdp: Double, nbpBondGdpShare: Double, nfa: Double) =>
-        val y = Nbp.bondYield(Rate(refRate), debtToGdp, nbpBondGdpShare, PLN(nfa), 0.0)
+        val y = Nbp.bondYield(Rate(refRate), Ratio(debtToGdp), Ratio(nbpBondGdpShare), PLN(nfa), Rate.Zero)
         y.toDouble should be >= 0.0
     }
 
   it should "cap fiscal risk premium at 10% even at extreme debtToGdp" in
     forAll(genRate, Gen.choose(1.0, 100.0), Gen.choose(0.0, 0.50), Gen.choose(-1e10, 1e10)) {
       (refRate: Double, debtToGdp: Double, nbpBondGdpShare: Double, nfa: Double) =>
-        val y = Nbp.bondYield(Rate(refRate), debtToGdp, nbpBondGdpShare, PLN(nfa), 0.0)
+        val y = Nbp.bondYield(Rate(refRate), Ratio(debtToGdp), Ratio(nbpBondGdpShare), PLN(nfa), Rate.Zero)
         // Fiscal risk ≤ 0.10, so yield ≤ refRate + termPremium + 0.10
         y.toDouble should be <= (refRate + p.fiscal.govTermPremium.toDouble + 0.10 + 0.001)
     }
@@ -36,15 +36,15 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   it should "be monotonic in debtToGdp (higher debt → higher yield)" in
     forAll(genRate, Gen.choose(0.0, 1.0), Gen.choose(0.0, 0.50), Gen.choose(-1e10, 1e10)) {
       (refRate: Double, baseDebt: Double, nbpBondGdpShare: Double, nfa: Double) =>
-        val low  = Nbp.bondYield(Rate(refRate), baseDebt, nbpBondGdpShare, PLN(nfa), 0.0)
-        val high = Nbp.bondYield(Rate(refRate), baseDebt + 0.10, nbpBondGdpShare, PLN(nfa), 0.0)
+        val low  = Nbp.bondYield(Rate(refRate), Ratio(baseDebt), Ratio(nbpBondGdpShare), PLN(nfa), Rate.Zero)
+        val high = Nbp.bondYield(Rate(refRate), Ratio(baseDebt + 0.10), Ratio(nbpBondGdpShare), PLN(nfa), Rate.Zero)
         high.toDouble should be >= (low.toDouble - 1e-10)
     }
 
   it should "be monotonically decreasing in nbpBondGdpShare (QE effect)" in
     forAll(genRate, Gen.choose(0.0, 1.0), Gen.choose(0.0, 0.30), Gen.choose(-1e10, 1e10)) { (refRate: Double, debtToGdp: Double, baseQe: Double, nfa: Double) =>
-      val low  = Nbp.bondYield(Rate(refRate), debtToGdp, baseQe + 0.10, PLN(nfa), 0.0)
-      val high = Nbp.bondYield(Rate(refRate), debtToGdp, baseQe, PLN(nfa), 0.0)
+      val low  = Nbp.bondYield(Rate(refRate), Ratio(debtToGdp), Ratio(baseQe + 0.10), PLN(nfa), Rate.Zero)
+      val high = Nbp.bondYield(Rate(refRate), Ratio(debtToGdp), Ratio(baseQe), PLN(nfa), Rate.Zero)
       high.toDouble should be >= (low.toDouble - 1e-10)
     }
 
