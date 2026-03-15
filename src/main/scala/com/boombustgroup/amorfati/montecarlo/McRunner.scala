@@ -56,14 +56,13 @@ object McRunner:
     val parallelism = java.lang.Runtime.getRuntime.availableProcessors()
     ZStream
       .fromIterable(1L to rc.nSeeds.toLong)
-      .mapZIOPar(parallelism) { seed =>
+      .mapZIOPar(parallelism): seed =>
         for
           t0     <- Clock.currentTime(TimeUnit.MILLISECONDS)
           result <- runSingleZIO(seed, rc)
           t1     <- Clock.currentTime(TimeUnit.MILLISECONDS)
           _      <- printProgress(seed, rc.nSeeds, result, t1 - t0)
         yield result
-      }
       .runFold(Vector.empty[RunResult])(_ :+ _)
       .map(McResults(_))
 
@@ -243,11 +242,10 @@ object McRunner:
   // ---------------------------------------------------------------------------
 
   private def writeAllCsvZIO(rc: McRunConfig, results: McResults)(using SimParams): Task[Unit] =
-    ZIO.attemptBlocking {
+    ZIO.attemptBlocking:
       val outDir = new File("mc")
       if !outDir.exists() then outDir.mkdirs()
       writeResults(rc, results, outDir)
-    }
 
   private def printSavedZIO(rc: McRunConfig): Task[Unit] =
     Console.printLine(s"Saved: mc/${rc.outputPrefix}_terminal.csv") *>
@@ -257,7 +255,7 @@ object McRunner:
 
   private def printProgress(seed: Long, total: Int, result: RunResult, dt: Long): UIO[Unit] =
     ZIO
-      .when(seed <= 3 || seed % 10 == 0 || seed == total) {
+      .when(seed <= 3 || seed % 10 == 0 || seed == total):
         val last      = result.timeSeries.lastMonth
         val adoption  = last(Col.TotalAdoption.ordinal)
         val inflation = last(Col.Inflation.ordinal)
@@ -269,7 +267,6 @@ object McRunner:
               f"Unemp=${unemp * 100}%5.1f%%",
           )
           .orDie
-      }
       .unit
 
   // ---------------------------------------------------------------------------
