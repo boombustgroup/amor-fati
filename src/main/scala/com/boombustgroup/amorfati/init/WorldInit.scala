@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.init
 
+import com.boombustgroup.amorfati.accounting.{InitCheck, Sfc}
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.*
 import com.boombustgroup.amorfati.engine.*
@@ -150,6 +151,10 @@ object WorldInit:
       plumbing = MonetaryPlumbingState.zero,
       flows = FlowState.zero,
     )
+
+    val snapshot = Sfc.snapshot(world, firms, households)
+    val errors   = InitCheck.validate(snapshot, initBankingSector, firms, households)
+    if errors.nonEmpty then throw InitCheck.InitValidationException(errors)
 
     InitResult(world, firms, households)
 
