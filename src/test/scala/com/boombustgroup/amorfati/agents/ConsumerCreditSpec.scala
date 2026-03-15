@@ -202,19 +202,19 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "BankingAggregate" should "have consumerLoans and consumerNpl fields" in {
-    val bank = Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val bank = Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     bank.consumerLoans shouldBe PLN.Zero
     bank.consumerNpl shouldBe PLN.Zero
   }
 
   "BankingAggregate.car" should "include consumer loans in RWA" in {
     val bank     =
-      Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN(1000.0), PLN.Zero, PLN.Zero)
+      Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN(1000.0), PLN.Zero, PLN.Zero)
     // CAR = capital / (totalLoans + consumerLoans) = 500 / 2000 = 0.25
     bank.car.toDouble shouldBe 0.25 +- 0.01
     // Without consumer loans: CAR = 500 / 1000 = 0.50
     val bankNoCc =
-      Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+      Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     bankNoCc.car.toDouble shouldBe 0.50 +- 0.01
     bank.car should be < bankNoCc.car
   }
@@ -306,6 +306,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     investNetDepositFlow = PLN.Zero,
     firmPrincipalRepaid = PLN.Zero,
     unrealizedBondLoss = PLN.Zero,
+    htmRealizedLoss = PLN.Zero,
   )
 
   "Sfc" should "pass consumer credit identity with zero flows" in {

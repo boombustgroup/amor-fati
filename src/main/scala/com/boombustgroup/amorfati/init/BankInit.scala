@@ -26,13 +26,16 @@ object BankInit:
       val consLoans    = perBankConsLoans.getOrElse(bId, PLN.Zero)
       val firmDeposits = perBankCash.getOrElse(bId, PLN.Zero)
       val hhDeposits   = perBankHhDeposits.getOrElse(bId, PLN.Zero)
+      val bankBonds    = totalGovBonds * cfg.initMarketShare
       Banking.BankState(
         id = cfg.id,
         deposits = firmDeposits + hhDeposits,
         loans = corpLoans,
         capital = totalCapital * cfg.initMarketShare,
         nplAmount = PLN.Zero,
-        govBondHoldings = totalGovBonds * cfg.initMarketShare,
+        afsBonds = bankBonds * (1.0 - p.banking.htmShare.toDouble),
+        htmBonds = bankBonds * p.banking.htmShare.toDouble,
+        htmBookYield = p.banking.initHtmBookYield,
         reservesAtNbp = PLN.Zero,
         interbankNet = PLN.Zero,
         status = Banking.BankStatus.Active(0),

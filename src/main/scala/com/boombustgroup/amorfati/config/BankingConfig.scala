@@ -68,6 +68,17 @@ import com.boombustgroup.amorfati.types.*
   *   O-SII buffer for Pekao (KNF 2024: 0.5%)
   * @param concentrationLimit
   *   single-name concentration limit as fraction of capital (Art. 395 CRR: 25%)
+  * @param htmShare
+  *   fraction of gov bond portfolio classified Held-to-Maturity (NBP 2024:
+  *   ~60%)
+  * @param htmForcedSaleThreshold
+  *   LCR threshold (as fraction of lcrMin) below which HTM bonds are forcibly
+  *   reclassified to AFS, realizing hidden mark-to-market losses (SVB channel)
+  * @param htmForcedSaleRate
+  *   fraction of HTM portfolio reclassified to AFS per month under LCR stress
+  * @param initHtmBookYield
+  *   weighted-average acquisition yield on initial HTM portfolio (Polish 10Y at
+  *   model start, MF 2024)
   */
 case class BankingConfig(
     // Initial balance sheet (raw — scaled by gdpRatio in SimParams.defaults)
@@ -104,6 +115,11 @@ case class BankingConfig(
     osiiPkoBp: Rate = Rate(0.01),
     osiiPekao: Rate = Rate(0.005),
     concentrationLimit: Ratio = Ratio(0.25),
+    // AFS/HTM bond portfolio split (SVB channel)
+    htmShare: Ratio = Ratio(0.60),
+    htmForcedSaleThreshold: Double = 0.75,
+    htmForcedSaleRate: Ratio = Ratio(0.10),
+    initHtmBookYield: Rate = Rate(0.055),
 ):
   require(minCar > Ratio.Zero && minCar < Ratio.One, s"minCar must be in (0,1): $minCar")
   require(initCapital >= PLN.Zero, s"initCapital must be non-negative: $initCapital")

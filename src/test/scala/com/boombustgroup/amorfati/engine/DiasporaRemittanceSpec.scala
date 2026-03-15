@@ -220,7 +220,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bank = Banking.Aggregate(PLN.Zero, PLN.Zero, PLN(100), PLN(1000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      bank = Banking.Aggregate(PLN.Zero, PLN.Zero, PLN(100), PLN(1000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Generators.testBankingSector(),
       forex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
