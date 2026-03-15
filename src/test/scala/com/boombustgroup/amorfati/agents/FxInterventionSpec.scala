@@ -108,10 +108,11 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   // --- FxInterventionResult ---
 
   "FxInterventionResult" should "be constructable with all fields" in {
-    val r = Nbp.FxInterventionResult(0.01, PLN(-5e8), PLN(9.5e9))
-    r.erEffect shouldBe 0.01
-    r.eurTraded shouldBe PLN(-5e8)
-    r.newReserves shouldBe PLN(9.5e9)
+    val r = Nbp.FxInterventionResult(0.01, PLN(-5e8), PLN(9.5e9), PLN(-5e8 * 4.33))
+    r.erEffect should be(0.01)
+    r.eurTraded should be(PLN(-5e8))
+    r.newReserves should be(PLN(9.5e9))
+    r.plnInjection should be(PLN(-5e8 * 4.33))
   }
 
   // --- NbpState FX fields ---

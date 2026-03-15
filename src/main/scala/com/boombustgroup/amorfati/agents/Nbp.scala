@@ -49,7 +49,8 @@ object Nbp:
   case class FxInterventionResult(
       erEffect: Double, // dimensionless ER change added to erChange in OpenEconomy
       eurTraded: PLN,   // positive = bought EUR (weakened PLN), negative = sold EUR
-      newReserves: PLN, // updated reserve level
+      newReserves: PLN, // updated NBP FX reserve level (EUR)
+      plnInjection: PLN, // PLN injected (+) or drained (−) from banking system reserves
   )
 
   // ---------------------------------------------------------------------------
@@ -159,9 +160,10 @@ object Nbp:
   // FX intervention
   // ---------------------------------------------------------------------------
 
-  /** Sterilized FX intervention. NBP buys/sells EUR to dampen ER deviations
-    * beyond the tolerance band. Sterilized: affects only ER, not bank
-    * deposits/capital.
+  /** FX intervention. NBP buys/sells EUR to dampen ER deviations beyond the
+    * tolerance band. EUR purchase injects PLN into banking system reserves; EUR
+    * sale drains PLN. The PLN injection feeds into the liquidity-aware
+    * interbank rate (#9) via bank reservesAtNbp.
     */
   def fxIntervention(
       prevER: Double,
@@ -169,10 +171,10 @@ object Nbp:
       gdp: Double,
       enabled: Boolean,
   )(using p: SimParams): FxInterventionResult =
-    if !enabled then FxInterventionResult(0.0, PLN.Zero, PLN(reserves))
+    if !enabled then FxInterventionResult(0.0, PLN.Zero, PLN(reserves), PLN.Zero)
     else
       val erDev = (prevER - p.forex.baseExRate) / p.forex.baseExRate
-      if Math.abs(erDev) <= p.monetary.fxBand.toDouble then FxInterventionResult(0.0, PLN.Zero, PLN(reserves))
+      if Math.abs(erDev) <= p.monetary.fxBand.toDouble then FxInterventionResult(0.0, PLN.Zero, PLN(reserves), PLN.Zero)
       else
         val direction     = -Math.signum(erDev)
         val maxByReserves = reserves * p.monetary.fxMaxMonthly.toDouble
@@ -183,4 +185,6 @@ object Nbp:
         val newReserves   = reserves + eurTraded
         val gdpEffect     = if gdp > 0 then Math.abs(eurTraded) * p.forex.baseExRate / gdp else 0.0
         val erEffect      = direction * gdpEffect * p.monetary.fxStrength.toDouble
-        FxInterventionResult(erEffect, PLN(eurTraded), PLN(newReserves).max(PLN.Zero))
+        // PLN injection: EUR purchase → NBP pays PLN to banks (+), EUR sale → banks pay PLN to NBP (−)
+        val plnInjection  = PLN(eurTraded * p.forex.baseExRate)
+        FxInterventionResult(erEffect, PLN(eurTraded), PLN(newReserves).max(PLN.Zero), plnInjection)
