@@ -73,7 +73,8 @@ import com.boombustgroup.amorfati.types.*
   *   ~60%)
   * @param htmForcedSaleThreshold
   *   LCR threshold (as fraction of lcrMin) below which HTM bonds are forcibly
-  *   reclassified to AFS, realizing hidden mark-to-market losses (SVB channel)
+  *   reclassified to AFS, realizing hidden mark-to-market losses (interest rate
+  *   risk channel)
   * @param htmForcedSaleRate
   *   fraction of HTM portfolio reclassified to AFS per month under LCR stress
   * @param initHtmBookYield
@@ -115,7 +116,7 @@ case class BankingConfig(
     osiiPkoBp: Rate = Rate(0.01),
     osiiPekao: Rate = Rate(0.005),
     concentrationLimit: Ratio = Ratio(0.25),
-    // AFS/HTM bond portfolio split (SVB channel)
+    // AFS/HTM bond portfolio split (interest rate risk channel)
     htmShare: Ratio = Ratio(0.60),
     htmForcedSaleThreshold: Double = 0.75,
     htmForcedSaleRate: Ratio = Ratio(0.10),

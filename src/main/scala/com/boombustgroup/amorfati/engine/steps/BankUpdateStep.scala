@@ -64,7 +64,7 @@ object BankUpdateStep:
       jstDepositChange: PLN,                         // JST deposit flow (Identity 2)
       investNetDepositFlow: PLN,                     // investment demand net deposit flow
       actualBondChange: PLN,                         // net change in gov bonds outstanding
-      unrealizedBondLoss: PLN,                       // mark-to-market loss on gov bond portfolio (SVB channel)
+      unrealizedBondLoss: PLN,                       // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
   )
 
@@ -277,7 +277,7 @@ object BankUpdateStep:
       investNetDepositFlow: PLN,
       jstDepositChange: PLN,
   )(using p: SimParams): Banking.Aggregate =
-    // Mark-to-market loss on AFS gov bond portfolio when yields rise (SVB channel)
+    // Mark-to-market loss on AFS gov bond portfolio when yields rise (interest rate risk channel)
     val yieldChange       = (in.s8.monetary.newBondYield - in.w.gov.bondYield).toDouble
     val aggUnrealizedLoss = if yieldChange > 0 then in.w.bank.afsBonds * (yieldChange * p.banking.govBondDuration) else PLN.Zero
 

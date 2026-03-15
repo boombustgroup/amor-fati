@@ -630,7 +630,7 @@ object Banking:
         result
 
   // ---------------------------------------------------------------------------
-  // HTM forced reclassification (SVB death spiral)
+  // HTM forced reclassification (interest rate risk)
   // ---------------------------------------------------------------------------
 
   /** Result of HTM forced reclassification across all banks. */
@@ -671,7 +671,7 @@ object Banking:
       consumerNplLoss: PLN,        // consumer credit NPL loss (after recovery)
       corpBondDefaultLoss: PLN,    // corporate bond default loss (bank share)
       bfgLevy: PLN,                // BFG resolution fund levy
-      unrealizedBondLoss: PLN,     // mark-to-market loss on gov bond portfolio (SVB channel)
+      unrealizedBondLoss: PLN,     // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       intIncome: PLN,              // interest income on corporate loans
       hhDebtService: PLN,          // household mortgage debt service
       bondIncome: PLN,             // government bond coupon income
