@@ -244,6 +244,8 @@ object WorldAssemblyStep:
       bailInLoss = in.s9.bailInLoss,
       bfgLevyTotal = in.s9.bfgLevy.toDouble,
       sectorDemandMult = in.s4.sectorMults,
+      fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
+      govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
     )
 
   /** Run SFC validation against previous and current snapshots. */

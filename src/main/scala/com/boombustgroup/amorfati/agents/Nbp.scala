@@ -124,10 +124,23 @@ object Nbp:
     if !p.flags.govBondMarket then refRate
     else
       val termPremium   = p.fiscal.govTermPremium.toDouble
-      val fiscalRisk    = Math.min(FiscalRiskCap, p.fiscal.govFiscalRiskBeta * Math.max(0.0, debtToGdp - DebtThreshold))
+      val fiscalRisk    = piecewiseFiscalRisk(Ratio(debtToGdp)).toDouble
       val qeCompress    = QeCompressionCoeff * nbpBondGdpShare
       val foreignDemand = if nfa > PLN.Zero then ForeignDemandDiscount else 0.0
       (refRate + Rate(termPremium + fiscalRisk - qeCompress - foreignDemand + credibilityPremium)).max(Rate.Zero)
+
+  /** Piecewise fiscal risk premium: steepens at 55% and 60% debt/GDP. base
+    * segment (40%+) + caution segment (55%+) + crisis segment (60%+).
+    */
+  private def piecewiseFiscalRisk(debtToGdp: Ratio)(using p: SimParams): Rate =
+    val base      = Rate(p.fiscal.govFiscalRiskBeta * (debtToGdp - Ratio(DebtThreshold)).max(Ratio.Zero).toDouble)
+    val caution55 =
+      if debtToGdp > p.fiscal.fiscalRuleCautionThreshold then p.fiscal.fiscalRiskBeta55 * (debtToGdp - p.fiscal.fiscalRuleCautionThreshold)
+      else Rate.Zero
+    val crisis60  =
+      if debtToGdp > p.fiscal.fiscalRuleDebtCeiling then p.fiscal.fiscalRiskBeta60 * (debtToGdp - p.fiscal.fiscalRuleDebtCeiling)
+      else Rate.Zero
+    (base + caution55 + crisis60).min(Rate(FiscalRiskCap))
 
   // ---------------------------------------------------------------------------
   // QE

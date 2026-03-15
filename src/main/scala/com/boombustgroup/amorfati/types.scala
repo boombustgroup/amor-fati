@@ -78,6 +78,8 @@ object types:
       inline def +(other: Rate): Rate            = r + other
       inline def -(other: Rate): Rate            = r - other
       inline def *(scalar: Double): Rate         = r * scalar
+      @targetName("rateTimesRatio")
+      inline def *(ratio: Ratio): Rate           = r * ratio
       inline def /(scalar: Double): Rate         = r / scalar
       @targetName("rateDivRate")
       inline def /(other: Rate): Double          = r / other
@@ -125,6 +127,7 @@ object types:
       inline def max(other: Ratio): Ratio           = math.max(r, other)
       inline def min(other: Ratio): Ratio           = math.min(r, other)
       inline def clamp(lo: Ratio, hi: Ratio): Ratio = math.max(lo, math.min(hi, r))
+      inline def monthly: Ratio                     = r / 12.0
       inline def toDouble: Double                   = r
       inline def >(other: Ratio): Boolean           = r > other
       inline def <(other: Ratio): Boolean           = r < other
