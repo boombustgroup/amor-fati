@@ -64,6 +64,7 @@ case class OpenEconConfig(
     fdiBase: PLN = PLN(583.1e6),     // raw — scaled by gdpRatio
     portfolioSensitivity: Double = 0.20,
     riskPremiumSensitivity: Double = 0.10,
+    pppSpeed: Ratio = Ratio(0.10),   // annual convergence speed toward PPP equilibrium (Rogoff 1996: 3-5yr half-life)
 ):
   require(erFloor > 0, s"erFloor must be positive: $erFloor")
   require(erFloor < erCeiling, s"erFloor ($erFloor) must be < erCeiling ($erCeiling)")
