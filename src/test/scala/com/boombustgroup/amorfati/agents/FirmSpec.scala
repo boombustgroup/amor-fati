@@ -175,6 +175,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
   private def mkFirm(tech: TechState, sector: Int = 2): Firm.State =
@@ -196,6 +197,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
   private def mkWorld(): World =

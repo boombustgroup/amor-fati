@@ -116,6 +116,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       )
       val f2    = Firm.State(
         FirmId(0),
@@ -135,6 +136,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       )
       val ratio = Firm.computeCapacity(f2) / Firm.computeCapacity(f1)
       ratio shouldBe (2.0 +- 0.01)
@@ -160,6 +162,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       )
       val f2    = Firm.State(
         FirmId(0),
@@ -179,6 +182,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       )
       val ratio = Firm.computeCapacity(f2) / Firm.computeCapacity(f1)
       ratio shouldBe (2.5 +- 0.01)
@@ -207,6 +211,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       )
     }.toVector
     for f <- firms do
@@ -234,6 +239,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
     val firms = Vector(firm)
     Firm.computeLocalAutoRatio(firm, firms) shouldBe 0.0

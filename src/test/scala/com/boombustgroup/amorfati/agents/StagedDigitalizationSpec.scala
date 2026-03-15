@@ -34,6 +34,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
   private def mkWorld(autoRatio: Double = 0.0, hybridRatio: Double = 0.0): World =

@@ -49,6 +49,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
   "Firm.skeletonCrew" should "return AutoSkeletonCrew for small firms" in {

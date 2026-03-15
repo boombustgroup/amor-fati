@@ -36,6 +36,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
   // --- Config defaults ---
@@ -174,6 +175,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
     Firm.computeCapacity(f) shouldBe PLN.Zero
   }
@@ -200,6 +202,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
     val r = Firm.Result.zero(f)
     // When PhysCapEnabled, applyInvestment should zero K for bankrupt

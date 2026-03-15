@@ -136,6 +136,7 @@ object Firm:
       foreignOwned: Boolean,        // FDI: subject to profit shifting & repatriation
       inventory: PLN,               // Inventory stock (PLN)
       greenCapital: PLN,            // Green capital stock (PLN)
+      accumulatedLoss: PLN,         // CIT loss carryforward stock (Art. 7 ustawy o CIT)
   )
 
   /** Output of `process` for one firm in one month — updated state + flow
@@ -165,15 +166,16 @@ object Firm:
 
   /** Monthly profit-and-loss breakdown, computed by `computePnL`. */
   case class PnL(
-      revenue: PLN,         // Gross revenue (capacity × demand × price)
-      costs: PLN,           // Total costs including profit shifting
-      tax: PLN,             // CIT on positive profit
-      netAfterTax: PLN,     // Profit minus tax (can be negative)
-      profitShiftCost: PLN, // FDI profit shifting cost (zero if not foreign-owned)
-      energyCost: PLN,      // Energy + ETS carbon surcharge
+      revenue: PLN,           // Gross revenue (capacity × demand × price)
+      costs: PLN,             // Total costs including profit shifting
+      tax: PLN,               // CIT after loss carryforward offset
+      netAfterTax: PLN,       // Profit minus tax (can be negative)
+      profitShiftCost: PLN,   // FDI profit shifting cost (zero if not foreign-owned)
+      energyCost: PLN,        // Energy + ETS carbon surcharge
+      newAccumulatedLoss: PLN, // Updated loss carryforward stock for next month
   )
   object PnL:
-    val zero: PnL = PnL(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val zero: PnL = PnL(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   /** Intermediate ADT from `decide` → `execute`. Separates stochastic choices
     * from state mutation.
@@ -648,7 +650,7 @@ object Firm:
       newLoan: PLN = PLN.Zero,
   ): Result =
     Result(
-      firm = firm,
+      firm = firm.copy(accumulatedLoss = pnl.newAccumulatedLoss),
       taxPaid = pnl.tax,
       capexSpent = capex,
       techImports = techImports,
@@ -768,8 +770,21 @@ object Firm:
       else PLN.Zero
     val costs                = prePsCosts + profitShiftCost
     val profit               = revenue - costs
-    val tax: PLN             = profit.max(PLN.Zero) * p.fiscal.citRate
-    PnL(revenue, costs, tax, profit - tax, profitShiftCost, energyCost)
+
+    // CIT with loss carryforward (Art. 7 ustawy o CIT):
+    // - Losses accumulate when profit < 0
+    // - When profitable: offset up to 50% of profit from accumulated losses
+    // - Losses expire gradually (~5 year horizon via monthly decay)
+    val (tax, newAccLoss) =
+      if profit <= PLN.Zero then (PLN.Zero, firm.accumulatedLoss + profit.abs)
+      else
+        val maxOffset = profit * p.fiscal.citCarryforwardMaxShare.toDouble
+        val offset    = maxOffset.min(firm.accumulatedLoss)
+        val taxable   = profit - offset
+        val remaining = (firm.accumulatedLoss - offset) * (1.0 - p.fiscal.citCarryforwardDecay.toDouble)
+        (taxable * p.fiscal.citRate, remaining.max(PLN.Zero))
+
+    PnL(revenue, costs, tax, profit - tax, profitShiftCost, energyCost, newAccLoss)
 
   /** Apply green capital investment — separate cash pool. Firms earmark
     * GreenBudgetShare of cash for green investment; physical capital

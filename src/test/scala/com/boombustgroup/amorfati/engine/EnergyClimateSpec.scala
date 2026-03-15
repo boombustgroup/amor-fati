@@ -146,6 +146,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
 
   "Firm" should "default greenCapital to 0.0" in {

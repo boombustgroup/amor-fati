@@ -125,6 +125,7 @@ object Generators:
     foreignOwned = false,
     inventory = PLN.Zero,
     greenCapital = PLN.Zero,
+    accumulatedLoss = PLN.Zero,
   )
 
   val genAliveFirm: Gen[Firm.State] = for
@@ -157,6 +158,7 @@ object Generators:
     foreignOwned = false,
     inventory = PLN.Zero,
     greenCapital = PLN.Zero,
+    accumulatedLoss = PLN.Zero,
   )
 
   // --- Balance sheet state generators ---

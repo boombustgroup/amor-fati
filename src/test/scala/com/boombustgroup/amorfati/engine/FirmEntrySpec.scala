@@ -160,6 +160,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
     entrant.debt shouldBe PLN.Zero
   }
@@ -189,6 +190,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
     )
     Firm.isAlive(entrant) shouldBe true
   }
@@ -299,6 +301,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
       ),
     ) shouldBe 0
   }
