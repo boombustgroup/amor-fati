@@ -311,18 +311,33 @@ object Banking:
         else 0.0
       refRate + p.banking.baseSpread + cfg.lendingSpread + Rate(nplSpread + carPenalty)
 
-  /** Interbank rate (WIBOR proxy): deposit rate + stress × (lombard − deposit).
-    * stress = aggNplRate / stressThreshold, clipped to [0,1].
+  /** Interbank rate (WIBOR O/N proxy): blends credit stress (NPL) and liquidity
+    * position (excess reserves). Under excess liquidity (post-QE, post-FX
+    * intervention) rate falls toward deposit facility floor. Under scarce
+    * liquidity + NPL stress, rate rises toward lombard ceiling.
+    *
+    * rate = depositRate + (1 − liquidityRatio) × creditStress × corridor
     */
   def interbankRate(banks: Vector[BankState], refRate: Rate)(using p: SimParams): Rate =
     val alive       = banks.filterNot(_.failed)
     val aggNpl      = alive.kahanSumBy(_.nplAmount.toDouble)
     val aggLoans    = alive.kahanSumBy(_.loans.toDouble)
-    val aggNplRate  = if aggLoans > MinBalanceThreshold then aggNpl / aggLoans else 0.0
-    val stress      = Math.max(0.0, Math.min(1.0, aggNplRate / p.banking.stressThreshold.toDouble))
-    val depositRate = Math.max(0.0, refRate.toDouble - DepositSpreadFromRef)
-    val lombardRate = refRate.toDouble + LombardSpreadFromRef
-    Rate(depositRate + stress * (lombardRate - depositRate))
+    val aggDeposits = alive.kahanSumBy(_.deposits.toDouble)
+    val aggReserves = alive.kahanSumBy(_.reservesAtNbp.toDouble)
+
+    // Credit stress: NPL ratio relative to stress threshold (0 = healthy, 1 = max stress)
+    val aggNplRate   = if aggLoans > MinBalanceThreshold then aggNpl / aggLoans else 0.0
+    val creditStress = Ratio(aggNplRate / p.banking.stressThreshold.toDouble).clamp(Ratio.Zero, Ratio.One)
+
+    // Liquidity position: excess reserves relative to required (0 = scarce, 1 = abundant)
+    val requiredReserves = aggDeposits * p.banking.reserveReq.toDouble
+    val excessReserves   = aggReserves - requiredReserves
+    val liquidityRatio   = Ratio(excessReserves / Math.max(1.0, requiredReserves)).clamp(Ratio.Zero, Ratio.One)
+
+    val depositRate = Rate.Zero.max(refRate - Rate(DepositSpreadFromRef))
+    val lombardRate = refRate + Rate(LombardSpreadFromRef)
+    val corridor    = lombardRate - depositRate
+    depositRate + corridor * ((Ratio.One - liquidityRatio) * creditStress).toDouble
 
   // ---------------------------------------------------------------------------
   // Credit approval
