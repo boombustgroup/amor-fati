@@ -11,7 +11,7 @@ import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.CsvWriter
 import zio.stream.ZStream
-import zio.{Clock, Console, Ref, ZIO}
+import zio.{Clock, Console, ZIO}
 
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -29,35 +29,21 @@ object McRunner:
     val parallelism = java.lang.Runtime.getRuntime.availableProcessors()
     for
       _       <- ZIO.attemptBlocking { val d = new File("mc"); if !d.exists() then d.mkdirs() }.orDie
-      hhRef   <- Ref.make(Vector.empty[String])
-      bankRef <- Ref.make(Vector.empty[String])
       _       <- Console.printLine(s"  run-id: ${rc.runId}").orDie
       t0      <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      _       <- ZStream
+      results <- ZStream
         .fromIterable(1L to rc.nSeeds.toLong)
         .mapZIOPar(parallelism): seed =>
           for
-            st <- Clock.currentTime(TimeUnit.MILLISECONDS)
-            _  <- collectSeed(seed, rc)
-              .runFold(Option.empty[(Simulation.SimState, Vector[Array[Double]])]): (acc, pair) =>
-                val (_, snapshot) = pair
-                val series        = acc.map(_._2).getOrElse(Vector.empty)
-                Some((snapshot.state, series :+ snapshot.monthData))
-              .flatMap:
-                case None                  => ZIO.fail(SimError.Init(Vector.empty))
-                case Some((state, series)) =>
-                  val runResult = RunResult(TimeSeries.wrap(series.toArray), state)
-                  for
-                    et <- Clock.currentTime(TimeUnit.MILLISECONDS)
-                    _  <- printSeedDone(seed, rc.nSeeds, runResult, et - st)
-                    _  <- writeSeedCsv(seed, rc, runResult).orDie
-                    _  <- collectHhRow(seed, runResult, hhRef)
-                    _  <- collectBankRows(seed, runResult, bankRef)
-                  yield ()
-          yield ()
-        .runDrain
-      _       <- flushHhCsv(rc, hhRef).orDie
-      _       <- flushBankCsv(rc, bankRef).orDie
+            st        <- Clock.currentTime(TimeUnit.MILLISECONDS)
+            runResult <- materializeSeed(seed, rc)
+            et        <- Clock.currentTime(TimeUnit.MILLISECONDS)
+            _         <- printSeedDone(seed, rc.nSeeds, runResult, et - st)
+            _         <- writeSeedCsv(seed, rc, runResult).orDie
+          yield (seed, runResult)
+        .runCollect
+      _       <- writeHhCsv(rc, results).orDie
+      _       <- writeBankCsv(rc, results).orDie
       _       <- Console.printLine("").orDie
       _       <- printSavedZIO(rc).orDie
       t1      <- Clock.currentTime(TimeUnit.MILLISECONDS)
@@ -110,11 +96,15 @@ object McRunner:
         case Right((newState, monthData)) =>
           loop(newState, seed, month + 1, monthSeries :+ monthData)
 
-  /** Consume a seed stream into RunResult, collecting monthly monthData. */
-  private def collectSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
+  /** Consume a seed stream into RunResult, collecting monthly data. */
+  private def materializeSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
     seedStream(seed)
       .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.month, p.timeline.duration)))
-      .map(s => (seed, s))
+      .runFold((Option.empty[Simulation.SimState], Vector.empty[Array[Double]])):
+        case ((_, series), snapshot) => (Some(snapshot.state), series :+ snapshot.monthData)
+      .flatMap:
+        case (Some(state), series) => ZIO.succeed(RunResult(TimeSeries.wrap(series.toArray), state))
+        case _                     => ZIO.fail(SimError.Init(Vector.empty))
 
   // ---------------------------------------------------------------------------
   //  Per-seed CSV writer
@@ -143,7 +133,7 @@ object McRunner:
         sb.toString
 
   // ---------------------------------------------------------------------------
-  //  HH + Bank row accumulators (Ref-based, flushed at end)
+  //  HH + Bank CSV writers (from collected results)
   // ---------------------------------------------------------------------------
 
   private val hhSchema: Vector[(String, Household.Aggregates => String)] = Vector(
@@ -170,21 +160,12 @@ object McRunner:
 
   private val hhHeader = "Seed;" + hhSchema.map(_._1).mkString(";")
 
-  private def collectHhRow(seed: Long, result: RunResult, ref: Ref[Vector[String]]) =
-    val agg = result.terminalState.world.hhAgg
-    val row = s"$seed;" + hhSchema.map(_._2(agg)).mkString(";")
-    ref.update(_ :+ row).unit
-
-  private def flushHhCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams) =
-    for
-      rows <- ref.get
-      _    <- ZIO.attemptBlocking:
-        CsvWriter.write(
-          new File("mc", s"${filePrefix(rc)}_hh.csv"),
-          hhHeader,
-          rows,
-        )(identity)
-    yield ()
+  private def writeHhCsv(rc: McRunConfig, results: zio.Chunk[(Long, RunResult)])(using SimParams) =
+    ZIO.attemptBlocking:
+      val rows = results.map: (seed, r) =>
+        val agg = r.terminalState.world.hhAgg
+        s"$seed;" + hhSchema.map(_._2(agg)).mkString(";")
+      CsvWriter.write(new File("mc", s"${filePrefix(rc)}_hh.csv"), hhHeader, rows)(identity)
 
   private val bankSchema: Vector[(String, BankState => String)] = Vector(
     ("BankId", b => s"${b.id}"),
@@ -200,21 +181,12 @@ object McRunner:
 
   private val bankHeader = "Seed;" + bankSchema.map(_._1).mkString(";")
 
-  private def collectBankRows(seed: Long, result: RunResult, ref: Ref[Vector[String]]) =
-    val banks = result.terminalState.world.bankingSector.banks
-    val rows  = banks.map(b => s"$seed;" + bankSchema.map(_._2(b)).mkString(";"))
-    ref.update(_ ++ rows).unit
-
-  private def flushBankCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams) =
-    for
-      rows <- ref.get
-      _    <- ZIO.attemptBlocking:
-        CsvWriter.write(
-          new File("mc", s"${filePrefix(rc)}_banks.csv"),
-          bankHeader,
-          rows,
-        )(identity)
-    yield ()
+  private def writeBankCsv(rc: McRunConfig, results: zio.Chunk[(Long, RunResult)])(using SimParams) =
+    ZIO.attemptBlocking:
+      val rows = results.flatMap: (seed, r) =>
+        r.terminalState.world.bankingSector.banks.map: b =>
+          s"$seed;" + bankSchema.map(_._2(b)).mkString(";")
+      CsvWriter.write(new File("mc", s"${filePrefix(rc)}_banks.csv"), bankHeader, rows)(identity)
 
   // ---------------------------------------------------------------------------
   //  Progress
