@@ -22,8 +22,8 @@ object McRunner:
   /** Single month snapshot emitted by [[seedStream]]. */
   private case class MonthSnapshot(month: Int, state: Simulation.SimState, monthData: Array[Double])
 
-  /** Run N seeds in parallel, each streaming months via [[seedStream]].
-    * Writes per-seed CSV + aggregated HH/bank CSVs. Fails with [[SimError]].
+  /** Run N seeds in parallel, each streaming months via [[seedStream]]. Writes
+    * per-seed CSV + aggregated HH/bank CSVs. Fails with [[SimError]].
     */
   def runZIO(rc: McRunConfig)(using p: SimParams): ZIO[Any, SimError, Unit] =
     val parallelism = java.lang.Runtime.getRuntime.availableProcessors()
@@ -63,7 +63,7 @@ object McRunner:
       t1      <- Clock.currentTime(TimeUnit.MILLISECONDS)
       _       <- Console.printLine(f"\nTotal time: ${(t1 - t0) / 1000.0}%.1f seconds").orDie
     yield ()
-  
+
   /** Pure simulation — returns Either, no side effects. For tests. */
   def runSingle(seed: Long)(using p: SimParams): Either[SimError, RunResult] =
     initSeed(seed).flatMap(loop(_, seed, 0, Vector.empty))
