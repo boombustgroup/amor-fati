@@ -96,6 +96,7 @@ object Immigration:
         numDependentChildren = numChildren,
         consumerDebt = PLN.Zero,
         education = edu,
+        taskRoutineness = Household.Init.sampleTaskRoutineness(edu, sector, rng),
       )
     }.toVector
 

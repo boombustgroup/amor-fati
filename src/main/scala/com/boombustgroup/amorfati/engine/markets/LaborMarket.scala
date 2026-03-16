@@ -96,10 +96,10 @@ object LaborMarket:
     * discount × education premium) but normalized so mean employed wage =
     * marketWage (macro consistency).
     */
-  def updateWages(households: Vector[Household.State], marketWage: PLN)(using
+  def updateWages(households: Vector[Household.State], firms: Vector[Firm.State], marketWage: PLN)(using
       p: SimParams,
   ): Vector[Household.State] =
-    val rawWages = households.map(rawRelativeWage)
+    val rawWages = households.map(rawRelativeWage(_, firms))
     val rawMean  = employedMeanRawWage(households, rawWages)
     val scale    = if rawMean > Ratio(0.0) then Ratio(1.0 / rawMean.toDouble) else Ratio(1.0)
     applyNormalizedWages(households, rawWages, marketWage, scale)
@@ -156,12 +156,14 @@ object LaborMarket:
           case _                      => f.id -> 0
     }.toMap
 
-  /** Build retain sets: education-ranked workers kept per firm. */
+  /** Build retain sets: when SBTC enabled, low-routineness (cognitive) workers
+    * retained first; otherwise education-ranked.
+    */
   private def retainSets(
       households: Vector[Household.State],
       lostFirms: Set[FirmId],
       counts: Map[FirmId, Int],
-  ): Map[FirmId, Set[Int]] =
+  )(using p: SimParams): Map[FirmId, Set[Int]] =
     households.zipWithIndex
       .flatMap: (hh, idx) =>
         hh.status match
@@ -169,7 +171,11 @@ object LaborMarket:
           case _                                                             => None
       .groupMap(_._1)(_._2)
       .map: (firmId, indices) =>
-        val sorted    = indices.sortBy(i => (-households(i).education, -households(i).skill.toDouble))
+        val sorted    =
+          if p.flags.sbtc then
+            // Low routineness = cognitive = retained; high routineness = routine = displaced
+            indices.sortBy(i => (households(i).taskRoutineness.toDouble, -households(i).skill.toDouble))
+          else indices.sortBy(i => (-households(i).education, -households(i).skill.toDouble))
         val maxRetain = counts.getOrElse(firmId, 0)
         firmId -> sorted.take(maxRetain).toSet
 
@@ -301,17 +307,30 @@ object LaborMarket:
   // --- Wage helpers ---
 
   /** Raw relative wage weight for a household (unnormalized). */
-  private def rawRelativeWage(hh: Household.State)(using p: SimParams): Ratio =
+  private def rawRelativeWage(hh: Household.State, firms: Vector[Firm.State])(using p: SimParams): Ratio =
     hh.status match
-      case HhStatus.Employed(_, sectorIdx, _) =>
+      case HhStatus.Employed(firmId, sectorIdx, _) =>
         val immigrantDiscount =
           if hh.isImmigrant && p.flags.immigration then 1.0 - p.immigration.wageDiscount.toDouble
           else 1.0
+        val aiComplement      = aiComplementFactor(hh, firms(firmId.toInt))
         Ratio(
           Firm.effectiveWageMult(sectorIdx).toDouble * effectiveSkill(hh) * immigrantDiscount *
-            p.social.eduWagePremium(hh.education),
+            p.social.eduWagePremium(hh.education) * aiComplement,
         )
-      case _                                  => Ratio(0.0)
+      case _                                       => Ratio(0.0)
+
+  /** AI-complement wage premium: cognitive workers in automated/hybrid firms
+    * get a wage boost (1 - routineness) × complementPremium. Routine workers
+    * get no boost. Acemoglu & Restrepo 2020.
+    */
+  private def aiComplementFactor(hh: Household.State, firm: Firm.State)(using p: SimParams): Double =
+    if !p.flags.sbtc then 1.0
+    else
+      firm.tech match
+        case _: TechState.Automated | _: TechState.Hybrid =>
+          1.0 + p.labor.sbtcComplementPremium.toDouble * (1.0 - hh.taskRoutineness.toDouble)
+        case _                                            => 1.0
 
   /** Mean raw wage across employed households (Kahan summation). */
   private def employedMeanRawWage(

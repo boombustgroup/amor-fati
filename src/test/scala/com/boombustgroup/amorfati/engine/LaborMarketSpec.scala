@@ -112,7 +112,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(5000.0)), skill = 0.8),
       mkHousehold(1, HhStatus.Unemployed(3)),
     )
-    val result = LaborMarket.updateWages(hhs, PLN(10000.0))
+    val result = LaborMarket.updateWages(hhs, mkFirms(hhs.length), PLN(10000.0))
     result(0).status match
       case HhStatus.Employed(_, _, wage) =>
         // Single employed: normalized to marketWage
@@ -127,7 +127,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(5000.0)), skill = 0.8, healthPenalty = 0.0),
       mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(5000.0)), skill = 0.8, healthPenalty = 0.2),
     )
-    val result = LaborMarket.updateWages(hhs, PLN(10000.0))
+    val result = LaborMarket.updateWages(hhs, mkFirms(hhs.length), PLN(10000.0))
     val wage0  = result(0).status.asInstanceOf[HhStatus.Employed].wage
     val wage1  = result(1).status.asInstanceOf[HhStatus.Employed].wage
     // wage1 should be less than wage0 (health penalty reduces relative wage)
@@ -146,7 +146,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(5000.0)), skill = 0.7).copy(isImmigrant = false),
       mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(5000.0)), skill = 0.7).copy(isImmigrant = true),
     )
-    val result = LaborMarket.updateWages(hhs, PLN(10000.0))
+    val result = LaborMarket.updateWages(hhs, mkFirms(hhs.length), PLN(10000.0))
     val wage0  = result(0).status.asInstanceOf[HhStatus.Employed].wage
     val wage1  = result(1).status.asInstanceOf[HhStatus.Employed].wage
     // Both same sector, same skill, ImmigEnabled=false → same raw weight → same wage
@@ -159,7 +159,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     val immigrant  =
       mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(5000.0)), skill = 0.8).copy(isImmigrant = true)
     val hhs        = Vector(native, immigrant)
-    val result     = LaborMarket.updateWages(hhs, PLN(10000.0))
+    val result     = LaborMarket.updateWages(hhs, mkFirms(hhs.length), PLN(10000.0))
     val wageNative = result(0).status.asInstanceOf[HhStatus.Employed].wage
     val wageImmig  = result(1).status.asInstanceOf[HhStatus.Employed].wage
     // Same skill, same sector → identical weight → identical wage
@@ -215,4 +215,5 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
+      taskRoutineness = Ratio(0.5),
     )

@@ -45,6 +45,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ),
     )
     Immigration.computeRemittances(hhs) shouldBe PLN.Zero
@@ -69,6 +70,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ),
     )
     Immigration.computeRemittances(hhs) shouldBe PLN.Zero
@@ -164,6 +166,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ),
       Household.State(
         HhId(1),
@@ -182,6 +185,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ),
       Household.State(
         HhId(2),
@@ -200,6 +204,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ),
       Household.State(
         HhId(3),
@@ -218,6 +223,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ),
     )
     val result = Immigration.removeReturnMigrants(hhs, 2)
@@ -247,6 +253,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ),
       Household.State(
         HhId(1),
@@ -265,6 +272,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ),
     )
     val result = Immigration.removeReturnMigrants(hhs, 5)
@@ -290,6 +298,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ),
     )
     Immigration.removeReturnMigrants(hhs, 0) shouldBe hhs
