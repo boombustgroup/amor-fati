@@ -9,13 +9,27 @@ object Main extends ZIOAppDefault:
   override def run: ZIO[ZIOAppArgs, Any, Any] =
     for
       args           <- getArgs
-      _              <- ZIO.when(args.length < 2)(
-        ZIO.fail(new IllegalArgumentException("Usage: simulate <nSeeds> <prefix>")),
-      )
-      nSeeds          = args(0).toInt
-      prefix          = args(1)
+      rc             <- parseArgs(args)
       given SimParams = SimParams.defaults
-      rc              = McRunConfig(nSeeds, prefix)
       _              <- McRunner.runZIO(rc)
     yield ()
+
+  private def parseArgs(args: Chunk[String]): ZIO[Any, IllegalArgumentException, McRunConfig] =
+    val usage = "Usage: simulate <nSeeds> <prefix> [--run-id <id>]"
+
+    def findFlag(name: String): Option[String] =
+      val idx = args.indexOf(name)
+      if idx >= 0 && idx + 1 < args.length then Some(args(idx + 1)) else None
+
+    ZIO
+      .fromOption(for
+        _      <- Option.when(args.length >= 2)(())
+        nSeeds <- args.headOption.flatMap(s => scala.util.Try(s.toInt).toOption)
+        prefix <- args.lift(1)
+      yield
+        val runId = findFlag("--run-id")
+        runId match
+          case Some(id) => McRunConfig(nSeeds, prefix, id)
+          case None     => McRunConfig(nSeeds, prefix))
+      .mapError(_ => new IllegalArgumentException(usage))
 // $COVERAGE-ON$
