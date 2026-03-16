@@ -107,6 +107,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 2,
       taskRoutineness = Ratio(0.5),
+      wageScar = Ratio.Zero,
     )
     hh.education shouldBe 2
   }
@@ -130,6 +131,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 3,
       taskRoutineness = Ratio(0.5),
+      wageScar = Ratio.Zero,
     )
     val copied = hh.copy(savings = PLN(2000.0))
     copied.education shouldBe 3
@@ -200,6 +202,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 0,
       taskRoutineness = Ratio(0.80),
+      wageScar = Ratio.Zero,
     )
     val hhTertiary   = Household.State(
       HhId(1),
@@ -219,6 +222,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 3,
       taskRoutineness = Ratio(0.25),
+      wageScar = Ratio.Zero,
     )
     val hhVocational = Household.State(
       HhId(2),
@@ -238,6 +242,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 1,
       taskRoutineness = Ratio(0.65),
+      wageScar = Ratio.Zero,
     )
 
     val result = LaborMarket.separations(
@@ -312,6 +317,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 2,
       taskRoutineness = Ratio(0.5),
+      wageScar = Ratio.Zero,
     )
     val hhHighSkill = Household.State(
       HhId(1),
@@ -331,6 +337,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 2,
       taskRoutineness = Ratio(0.5),
+      wageScar = Ratio.Zero,
     )
     val hhMidSkill  = Household.State(
       HhId(2),
@@ -350,6 +357,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 2,
       taskRoutineness = Ratio(0.5),
+      wageScar = Ratio.Zero,
     )
 
     val result = markets.LaborMarket.separations(

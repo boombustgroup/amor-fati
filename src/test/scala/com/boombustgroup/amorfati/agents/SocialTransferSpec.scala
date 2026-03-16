@@ -133,6 +133,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 2,
       taskRoutineness = Ratio(0.5),
+      wageScar = Ratio.Zero,
     )
     hh.numDependentChildren shouldBe 0
   }

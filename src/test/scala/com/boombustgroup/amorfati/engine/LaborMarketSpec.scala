@@ -216,4 +216,5 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 2,
       taskRoutineness = Ratio(0.5),
+      wageScar = Ratio.Zero,
     )

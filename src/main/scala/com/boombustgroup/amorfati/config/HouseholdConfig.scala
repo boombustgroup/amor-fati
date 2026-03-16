@@ -114,6 +114,10 @@ case class HouseholdConfig(
     scarringRate: Ratio = Ratio(0.02),
     scarringCap: Ratio = Ratio(0.50),
     scarringOnset: Int = 3,
+    // Post-reemployment wage scarring (Jacobson, LaLonde & Sullivan 1993)
+    wageScarRate: Ratio = Ratio(0.025),  // monthly wage scar accumulation during long-term unemployment
+    wageScarCap: Ratio = Ratio(0.30),    // max 30% permanent wage loss
+    wageScarDecay: Ratio = Ratio(0.005), // monthly recovery once reemployed (~0.5%/mo → ~10 year half-life)
     // Retraining
     retrainingCost: PLN = PLN(5000.0),
     retrainingDuration: Int = 6,

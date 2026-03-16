@@ -93,6 +93,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN(5000.0),
       education = 2,
       taskRoutineness = Ratio(0.5),
+      wageScar = Ratio.Zero,
     )
     // Bankrupt HH should have consumer debt → NPL
     hh.consumerDebt shouldBe PLN(5000.0)
@@ -199,6 +200,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       consumerDebt = PLN.Zero,
       education = 2,
       taskRoutineness = Ratio(0.5),
+      wageScar = Ratio.Zero,
     )
     hh.consumerDebt shouldBe PLN.Zero
   }

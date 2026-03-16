@@ -96,6 +96,7 @@ object Household:
       consumerDebt: PLN,            // outstanding unsecured consumer loan
       education: Int,               // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
       taskRoutineness: Ratio,       // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
+      wageScar: Ratio,              // persistent wage penalty from unemployment spell (Jacobson et al. 1993)
   )
 
   /** Aggregate statistics computed from individual households (Paper-06). */
@@ -221,6 +222,7 @@ object Household:
         consumerDebt = consDebt,
         education = edu,
         taskRoutineness = routineness,
+        wageScar = Ratio.Zero,
       )
 
     /** Sample education level and skill for a sector, clamped to edu range. */
@@ -618,8 +620,9 @@ object Household:
       sectorVacancies: Option[Vector[Int]],
       rng: Random,
   )(using p: SimParams): HhMonthlyResult =
-    val afterSkill  = applySkillDecay(f.hh, f.newStatus)
-    val afterHealth = applyHealthScarring(f.hh, f.newStatus)
+    val afterSkill    = applySkillDecay(f.hh, f.newStatus)
+    val afterHealth   = applyHealthScarring(f.hh, f.newStatus)
+    val afterWageScar = applyWageScar(f.hh, f.newStatus)
 
     val (afterVoluntary, vQuit) = f.newStatus match
       case emp: HhStatus.Employed if sectorWages.isDefined =>
@@ -640,6 +643,7 @@ object Household:
         consumerDebt = f.credit.updatedDebt,
         skill = afterSkill,
         healthPenalty = afterHealth,
+        wageScar = afterWageScar,
         mpc = f.hh.mpc,
         status = finalStatus,
         equityWealth = f.newEquityWealth,
@@ -738,6 +742,17 @@ object Household:
       case HhStatus.Unemployed(months) if months >= p.household.scarringOnset =>
         (hh.healthPenalty + p.household.scarringRate).min(p.household.scarringCap)
       case _                                                                  => hh.healthPenalty
+
+  /** Wage scar: accumulates during long-term unemployment, decays slowly once
+    * reemployed. Jacobson, LaLonde & Sullivan 1993; Davis & von Wachter 2011.
+    */
+  private def applyWageScar(hh: State, status: HhStatus)(using p: SimParams): Ratio =
+    status match
+      case HhStatus.Unemployed(months) if months >= p.household.scarringOnset =>
+        (hh.wageScar + p.household.wageScarRate).min(p.household.wageScarCap)
+      case _: HhStatus.Employed                                               =>
+        (hh.wageScar - p.household.wageScarDecay).max(Ratio.Zero)
+      case _                                                                  => hh.wageScar
 
   /** Fraction of social neighbors in distress (BitSet, O(k) per HH). */
   private def neighborDistressRatioFast(hh: State, distressedIds: java.util.BitSet): Double =

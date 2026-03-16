@@ -297,12 +297,13 @@ object LaborMarket:
       prevSector: SectorIdx,
       isCrossSector: Boolean,
   )(using p: SimParams): PLN =
-    val sectorMult = Firm.effectiveWageMult(firm.sector).toDouble
-    val penalty    =
+    val sectorMult   = Firm.effectiveWageMult(firm.sector).toDouble
+    val penalty      =
       if p.flags.sectoralMobility && isCrossSector
       then SectoralMobility.crossSectorWagePenalty(p.labor.frictionMatrix(prevSector.toInt)(firm.sector.toInt))
       else 1.0
-    marketWage * (sectorMult * effectiveSkill(hh) * penalty * p.social.eduWagePremium(hh.education))
+    val scarDiscount = 1.0 - hh.wageScar.toDouble
+    marketWage * (sectorMult * effectiveSkill(hh) * penalty * p.social.eduWagePremium(hh.education) * scarDiscount)
 
   // --- Wage helpers ---
 
@@ -314,9 +315,10 @@ object LaborMarket:
           if hh.isImmigrant && p.flags.immigration then 1.0 - p.immigration.wageDiscount.toDouble
           else 1.0
         val aiComplement      = aiComplementFactor(hh, firms(firmId.toInt))
+        val scarDiscount      = 1.0 - hh.wageScar.toDouble
         Ratio(
           Firm.effectiveWageMult(sectorIdx).toDouble * effectiveSkill(hh) * immigrantDiscount *
-            p.social.eduWagePremium(hh.education) * aiComplement,
+            p.social.eduWagePremium(hh.education) * aiComplement * scarDiscount,
         )
       case _                                       => Ratio(0.0)
 
