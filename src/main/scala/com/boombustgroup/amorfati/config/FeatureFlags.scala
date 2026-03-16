@@ -92,4 +92,5 @@ case class FeatureFlags(
     sectoralMobility: Boolean = false,
     unions: Boolean = false,
     expectations: Boolean = false,
+    sbtc: Boolean = true,
 )

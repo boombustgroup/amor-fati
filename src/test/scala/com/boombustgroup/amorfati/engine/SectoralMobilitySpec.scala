@@ -206,4 +206,5 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
+      taskRoutineness = Ratio(0.5),
     )

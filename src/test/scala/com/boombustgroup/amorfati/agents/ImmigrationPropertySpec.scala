@@ -98,6 +98,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
+        taskRoutineness = Ratio(0.5),
       ) // 5 natives + 5 immigrants
     }.toVector
     // Request removing 100, but only 5 immigrants exist

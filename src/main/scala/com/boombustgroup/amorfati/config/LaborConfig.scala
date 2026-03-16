@@ -58,6 +58,9 @@ case class LaborConfig(
     unionDensity: Vector[Ratio] = Vector(Ratio(0.02), Ratio(0.15), Ratio(0.03), Ratio(0.12), Ratio(0.30), Ratio(0.04)),
     unionWagePremium: Ratio = Ratio(0.08),
     unionRigidity: Ratio = Ratio(0.50),
+    // Skills-biased technological change (Acemoglu & Restrepo 2020, Autor 2024)
+    sbtcEduRoutineness: Vector[Double] = Vector(0.80, 0.65, 0.45, 0.25), // Primary, Vocational, Secondary, Tertiary
+    sbtcComplementPremium: Ratio = Ratio(0.15),                          // max wage premium for AI-complemented cognitive workers
     // Expectations (Carroll 2003, Bewley 1999)
     expLambda: Ratio = Ratio(0.70),
     expCredibilityInit: Ratio = Ratio(0.80),
@@ -67,3 +70,4 @@ case class LaborConfig(
     expBondSensitivity: Ratio = Ratio(0.50),
 ):
   require(unionDensity.length == 6, s"unionDensity must have 6 sectors: ${unionDensity.length}")
+  require(sbtcEduRoutineness.length == 4, s"sbtcEduRoutineness must have 4 education levels: ${sbtcEduRoutineness.length}")

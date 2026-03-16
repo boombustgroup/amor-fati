@@ -106,6 +106,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
+      taskRoutineness = Ratio(0.5),
     )
     hh.education shouldBe 2
   }
@@ -128,6 +129,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 3,
+      taskRoutineness = Ratio(0.5),
     )
     val copied = hh.copy(savings = PLN(2000.0))
     copied.education shouldBe 3
@@ -197,6 +199,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 0,
+      taskRoutineness = Ratio(0.80),
     )
     val hhTertiary   = Household.State(
       HhId(1),
@@ -215,6 +218,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 3,
+      taskRoutineness = Ratio(0.25),
     )
     val hhVocational = Household.State(
       HhId(2),
@@ -233,6 +237,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 1,
+      taskRoutineness = Ratio(0.65),
     )
 
     val result = LaborMarket.separations(
@@ -306,6 +311,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
+      taskRoutineness = Ratio(0.5),
     )
     val hhHighSkill = Household.State(
       HhId(1),
@@ -324,6 +330,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
+      taskRoutineness = Ratio(0.5),
     )
     val hhMidSkill  = Household.State(
       HhId(2),
@@ -342,6 +349,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
+      taskRoutineness = Ratio(0.5),
     )
 
     val result = markets.LaborMarket.separations(

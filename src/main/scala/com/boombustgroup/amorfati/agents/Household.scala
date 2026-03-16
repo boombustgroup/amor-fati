@@ -95,6 +95,7 @@ object Household:
       numDependentChildren: Int,    // children ≤ 18 for 800+ social transfers
       consumerDebt: PLN,            // outstanding unsecured consumer loan
       education: Int,               // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
+      taskRoutineness: Ratio,       // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
   )
 
   /** Aggregate statistics computed from individual households (Paper-06). */
@@ -200,6 +201,7 @@ object Household:
         if rng.nextDouble() < p.household.debtFraction.toDouble then
           PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()) * ConsumerDebtInitFrac)
         else PLN.Zero
+      val routineness   = sampleTaskRoutineness(edu, sectorIdx, rng)
       State(
         id = HhId(hhId),
         savings = savings,
@@ -218,6 +220,7 @@ object Household:
         numDependentChildren = numChildren,
         consumerDebt = consDebt,
         education = edu,
+        taskRoutineness = routineness,
       )
 
     /** Sample education level and skill for a sector, clamped to edu range. */
@@ -229,6 +232,23 @@ object Household:
       val sectorBonus                = Math.min(SectorSkillBonusMax, SectorSkillBonusCoeff * Math.log(sectorSigma))
       val skill                      = Math.max(skillFloor, Math.min(skillCeiling, baseSkill + sectorBonus))
       (edu, skill)
+
+    /** Sample task routineness based on education and sector sigma.
+      *
+      * High-σ sectors (BPO) have more automatable routine tasks; high education
+      * workers tend toward cognitive (non-routine) tasks. Acemoglu & Restrepo
+      * 2020.
+      *
+      * routineness = base(edu) + σ-bonus, clamped to [0.05, 0.95], with noise.
+      */
+    private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: Random)(using p: SimParams): Ratio =
+      // Base routineness by education: Primary=0.8, Vocational=0.65, Secondary=0.45, Tertiary=0.25
+      val eduBase  = p.labor.sbtcEduRoutineness(edu)
+      // High-σ sectors (BPO=50) push routineness up; low-σ (Public=1) push down
+      val sigma    = p.sectorDefs(sectorIdx.toInt).sigma
+      val sigmaAdj = 0.05 * Math.log(sigma) / Math.log(10.0) // ±0.05 per log10(σ)
+      val noise    = 0.05 * (rng.nextDouble() - 0.5)         // ±2.5% uniform noise
+      Ratio(eduBase + sigmaAdj + noise).clamp(Ratio(0.05), Ratio(0.95))
 
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 
