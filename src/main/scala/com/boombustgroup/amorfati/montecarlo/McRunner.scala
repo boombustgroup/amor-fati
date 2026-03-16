@@ -23,7 +23,11 @@ object McRunner:
     * [[InitCheck.InitValidationException]] on init stock inconsistency, or
     * [[Sfc.SfcViolationException]] on any monthly SFC identity violation.
     */
-  def runSingle(seed: Long, @scala.annotation.unused rc: McRunConfig)(using p: SimParams): RunResult =
+  private val NoProgress: Int => Unit = _ => ()
+
+  def runSingle(seed: Long, @scala.annotation.unused rc: McRunConfig, onMonth: Int => Unit = NoProgress)(using
+      p: SimParams,
+  ): RunResult =
     val init     = WorldInit.initialize(seed)
     val snapshot = Sfc.snapshot(init.world, init.firms, init.households)
 
@@ -41,6 +45,7 @@ object McRunner:
         case Right(())    => // OK
       state = stepResult.state
       results(t) = SimOutput.compute(t, state.world, state.firms, state.households)
+      onMonth(t + 1)
 
     RunResult(TimeSeries.wrap(results), state)
 
@@ -48,11 +53,12 @@ object McRunner:
   //  ZIO entry point — parallel seeds, each writes own CSV
   // ---------------------------------------------------------------------------
 
-  private def runSingleZIO(seed: Long, rc: McRunConfig)(using SimParams): Task[RunResult] =
-    ZIO.attemptBlocking(runSingle(seed, rc))
+  private def runSingleZIO(seed: Long, rc: McRunConfig, onMonth: Int => Unit)(using SimParams): Task[RunResult] =
+    ZIO.attemptBlocking(runSingle(seed, rc, onMonth))
 
-  def runZIO(rc: McRunConfig)(using SimParams): Task[Unit] =
+  def runZIO(rc: McRunConfig)(using p: SimParams): Task[Unit] =
     val parallelism = java.lang.Runtime.getRuntime.availableProcessors()
+    val duration    = p.timeline.duration
     for
       _       <- printBannerZIO(rc)
       _       <- ZIO.attemptBlocking { val d = new File("mc"); if !d.exists() then d.mkdirs() }
@@ -65,9 +71,9 @@ object McRunner:
         .mapZIOPar(parallelism): seed =>
           for
             st     <- Clock.currentTime(TimeUnit.MILLISECONDS)
-            result <- runSingleZIO(seed, rc)
+            result <- runSingleZIO(seed, rc, monthProgressBar(seed, rc.nSeeds, duration))
             et     <- Clock.currentTime(TimeUnit.MILLISECONDS)
-            _      <- printProgress(seed, rc.nSeeds, result, et - st)
+            _      <- printSeedDone(seed, rc.nSeeds, result, et - st)
             _      <- writeSeedCsv(seed, rc, result)
             _      <- collectHhRow(seed, result, hhRef)
             _      <- collectBankRows(seed, result, bankRef)
@@ -186,22 +192,29 @@ object McRunner:
   //  Progress + Banner
   // ---------------------------------------------------------------------------
 
-  private def printProgress(seed: Long, total: Int, result: RunResult, dt: Long): UIO[Unit] =
-    ZIO
-      .when(seed <= 3 || seed % 10 == 0 || seed == total):
-        val last   = result.timeSeries.lastMonth
-        val months = result.timeSeries.nMonths
-        val adopt  = last(Col.TotalAdoption.ordinal)
-        val pi     = last(Col.Inflation.ordinal)
-        val unemp  = last(Col.Unemployment.ordinal)
-        Console
-          .printLine(
-            f"  Seed $seed%3d/$total (${dt}ms) M=$months | " +
-              f"Adopt=${adopt * 100}%5.1f%% | pi=${pi * 100}%5.1f%% | " +
-              f"Unemp=${unemp * 100}%5.1f%%",
-          )
-          .orDie
-      .unit
+  private val BarWidth = 20
+
+  private def monthProgressBar(seed: Long, total: Int, duration: Int): Int => Unit =
+    month =>
+      val frac   = month.toDouble / duration
+      val filled = (frac * BarWidth).toInt
+      val bar    = "\u2588" * filled + "\u2591" * (BarWidth - filled)
+      val pct    = (frac * 100).toInt
+      print(f"\r  Seed $seed%3d/$total [$bar] $month%3d/${duration}m ($pct%3d%%)")
+
+  private def printSeedDone(seed: Long, total: Int, result: RunResult, dt: Long): UIO[Unit] =
+    val last  = result.timeSeries.lastMonth
+    val adopt = last(Col.TotalAdoption.ordinal)
+    val pi    = last(Col.Inflation.ordinal)
+    val unemp = last(Col.Unemployment.ordinal)
+    val bar   = "\u2588" * BarWidth
+    Console
+      .printLine(
+        f"\r  Seed $seed%3d/$total [$bar] done (${dt}ms) | " +
+          f"Adopt=${adopt * 100}%5.1f%% | pi=${pi * 100}%5.1f%% | " +
+          f"Unemp=${unemp * 100}%5.1f%%",
+      )
+      .orDie
 
   private def printSavedZIO(rc: McRunConfig)(using SimParams): Task[Unit] =
     val seedFiles = (1L to rc.nSeeds.toLong).map(s => s"mc/${seedFileName(s, rc)}")
