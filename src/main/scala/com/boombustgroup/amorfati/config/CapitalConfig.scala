@@ -23,7 +23,7 @@ import com.boombustgroup.amorfati.types.*
   * @param adjustSpeed
   *   monthly speed of capital stock adjustment toward target
   * @param prodElast
-  *   output elasticity of capital in Cobb-Douglas production function
+  *   capital share α in CES production function (also Cobb-Douglas when σ≈1)
   * @param costReplace
   *   replacement cost of capital as fraction of original value
   * @param inventoryTargetRatios

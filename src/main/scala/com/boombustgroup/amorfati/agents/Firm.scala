@@ -217,23 +217,39 @@ object Firm:
     else base
 
   /** Monthly production capacity in PLN. Scales with tech, sector, firm size;
-    * augmented by physical capital (Cobb-Douglas) when enabled.
+    * augmented by physical capital via CES production function when enabled.
+    *
+    * CES: Y = A × [α·K^ρ + (1-α)·L^ρ]^(1/ρ) where ρ = (σ-1)/σ. High-σ sectors
+    * (BPO=50) substitute K/L easily; low-σ (Public=1) resist.
     */
   def computeCapacity(f: State)(using p: SimParams): PLN =
     val sec       = p.sectorDefs(f.sector.toInt)
-    val sizeScale = f.initialSize.toDouble / p.pop.workersPerFirm
-    val base: PLN = f.tech match
-      case TechState.Traditional(w) => p.firm.baseRevenue * (sizeScale * sec.revenueMultiplier * Math.sqrt(w.toDouble / f.initialSize))
-      case TechState.Hybrid(w, eff) =>
-        p.firm.baseRevenue * (sizeScale * sec.revenueMultiplier * (HybridLaborCapShare * Math.sqrt(w.toDouble / f.initialSize) + HybridAiCapShare * eff))
-      case TechState.Automated(eff) => p.firm.baseRevenue * (sizeScale * sec.revenueMultiplier * eff)
-      case _: TechState.Bankrupt    => PLN.Zero
-    if p.flags.physCap && f.capitalStock > PLN.Zero && base > PLN.Zero then
-      val targetK       = workerCount(f).toDouble * p.capital.klRatios.map(_.toDouble)(f.sector.toInt)
-      val kRatio        = if targetK > 0 then f.capitalStock.toDouble / targetK else 1.0
-      val capitalFactor = Math.pow(Math.min(2.0, Math.max(0.1, kRatio)), p.capital.prodElast.toDouble)
-      base * capitalFactor
-    else base
+    val sizeScale = Ratio(f.initialSize.toDouble / p.pop.workersPerFirm)
+    val laborEff  = f.tech match
+      case TechState.Traditional(w) => Ratio(Math.sqrt(w.toDouble / f.initialSize))
+      case TechState.Hybrid(w, eff) => Ratio(HybridLaborCapShare * Math.sqrt(w.toDouble / f.initialSize) + HybridAiCapShare * eff)
+      case TechState.Automated(eff) => Ratio(eff)
+      case _: TechState.Bankrupt    => Ratio.Zero
+    val tfp       = sizeScale * sec.revenueMultiplier
+    if p.flags.physCap && f.capitalStock > PLN.Zero && laborEff > Ratio.Zero then
+      val targetK: PLN  = workerCount(f) * p.capital.klRatios(f.sector.toInt)
+      val k: Ratio      = Ratio(if targetK > PLN.Zero then f.capitalStock / targetK else 1.0).clamp(Ratio(0.1), Ratio(2.0))
+      val alpha: Ratio  = p.capital.prodElast
+      val sigma: Double = sec.sigma
+      p.firm.baseRevenue * tfp * cesOutput(alpha, k, laborEff, sigma)
+    else p.firm.baseRevenue * tfp * laborEff
+
+  /** CES aggregator: [α·K^ρ + (1-α)·L^ρ]^(1/ρ). Degrades gracefully: σ→1 ≈
+    * Cobb-Douglas, σ→∞ ≈ linear (perfect substitutes).
+    */
+  private[amorfati] def cesOutput(alpha: Ratio, k: Ratio, l: Ratio, sigma: Double): Ratio =
+    if sigma <= 1.001 then // near-Leontief/Cobb-Douglas boundary — use Cobb-Douglas
+      Ratio(Math.pow(k.toDouble, alpha.toDouble) * Math.pow(l.toDouble, 1.0 - alpha.toDouble))
+    else
+      val rho   = (sigma - 1.0) / sigma
+      val kTerm = alpha.toDouble * Math.pow(k.toDouble, rho)
+      val lTerm = (1.0 - alpha.toDouble) * Math.pow(l.toDouble, rho)
+      Ratio(Math.pow(kTerm + lTerm, 1.0 / rho))
 
   /** Effective AI CAPEX for sector — sublinear in firm size (exponent 0.6),
     * digital readiness discount.
