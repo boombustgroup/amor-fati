@@ -55,6 +55,9 @@ object types:
       inline def <(other: PLN): Boolean       = p < other
       inline def >=(other: PLN): Boolean      = p >= other
       inline def <=(other: PLN): Boolean      = p <= other
+    extension (n: Int)
+      @targetName("intTimesPln")
+      inline def *(p: PLN): PLN      = p * n.toDouble
     given Ordering[PLN]              = Ordering.Double.TotalOrdering
     given Numeric[PLN] with
       def plus(x: PLN, y: PLN): PLN             = x + y
