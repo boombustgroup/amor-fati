@@ -22,64 +22,9 @@ object McRunner:
   /** Single month snapshot emitted by [[seedStream]]. */
   private case class MonthSnapshot(month: Int, state: Simulation.SimState, monthData: Array[Double])
 
-  /** Pure simulation — returns Either, no side effects. For tests. */
-  def runSingle(seed: Long)(using p: SimParams): Either[SimError, RunResult] =
-    initSeed(seed).flatMap(loop(_, seed, 0, Vector.empty))
-
-  /** Streaming simulation — emits one [[MonthSnapshot]] per month. */
-  private def seedStream(seed: Long)(using SimParams) =
-    ZStream.unwrap(ZIO.fromEither(initSeed(seed)).map(simulateMonths(seed, _)))
-
-  private def simulateMonths(seed: Long, initState: Simulation.SimState)(using p: SimParams) =
-    ZStream.unfoldZIO((initState, 0)):
-      case (_, month) if month >= p.timeline.duration => ZIO.none
-      case (state, month)                             =>
-        ZIO
-          .fromEither(stepMonth(state, seed, month))
-          .map: (newState, monthData) =>
-            Some((MonthSnapshot(month + 1, newState, monthData), (newState, month + 1)))
-
-  // -- Pure building blocks --
-
-  private def initSeed(seed: Long)(using p: SimParams) =
-    val init     = WorldInit.initialize(seed)
-    val snapshot = Sfc.snapshot(init.world, init.firms, init.households)
-    val errors   = InitCheck.validate(snapshot, init.world.bankingSector, init.firms, init.households)
-    if errors.nonEmpty then Left(SimError.Init(errors))
-    else Right(Simulation.SimState(init.world, init.firms, init.households))
-
-  private def stepMonth(state: Simulation.SimState, seed: Long, month: Int)(using SimParams) =
-    val step = Simulation.step(state, seed, month)
-    step.sfcCheck match
-      case Left(errors) => Left(SimError.SfcViolation(month + 1, errors))
-      case Right(())    =>
-        val monthData = SimOutput.compute(month, step.state.world, step.state.firms, step.state.households)
-        Right((step.state, monthData))
-
-  @scala.annotation.tailrec
-  private def loop(
-      state: Simulation.SimState,
-      seed: Long,
-      month: Int,
-      monthSeries: Vector[Array[Double]],
-  )(using p: SimParams): Either[SimError, RunResult] =
-    if month >= p.timeline.duration then Right(RunResult(TimeSeries.wrap(monthSeries.toArray), state))
-    else
-      stepMonth(state, seed, month) match
-        case Left(err)                    => Left(err)
-        case Right((newState, monthData)) =>
-          loop(newState, seed, month + 1, monthSeries :+ monthData)
-
-  // ---------------------------------------------------------------------------
-  //  ZIO entry point — parallel seeds, each writes own CSV
-  // ---------------------------------------------------------------------------
-
-  /** Consume a seed stream into RunResult, collecting monthly monthData. */
-  private def collectSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
-    seedStream(seed)
-      .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.month, p.timeline.duration)))
-      .map(s => (seed, s))
-
+  /** Run N seeds in parallel, each streaming months via [[seedStream]].
+    * Writes per-seed CSV + aggregated HH/bank CSVs. Fails with [[SimError]].
+    */
   def runZIO(rc: McRunConfig)(using p: SimParams): ZIO[Any, SimError, Unit] =
     val parallelism = java.lang.Runtime.getRuntime.availableProcessors()
     for
@@ -118,6 +63,58 @@ object McRunner:
       t1      <- Clock.currentTime(TimeUnit.MILLISECONDS)
       _       <- Console.printLine(f"\nTotal time: ${(t1 - t0) / 1000.0}%.1f seconds").orDie
     yield ()
+  
+  /** Pure simulation — returns Either, no side effects. For tests. */
+  def runSingle(seed: Long)(using p: SimParams): Either[SimError, RunResult] =
+    initSeed(seed).flatMap(loop(_, seed, 0, Vector.empty))
+
+  /** Streaming simulation — emits one [[MonthSnapshot]] per month. */
+  private def seedStream(seed: Long)(using SimParams) =
+    ZStream.unwrap(ZIO.fromEither(initSeed(seed)).map(simulateMonths(seed, _)))
+
+  private def simulateMonths(seed: Long, initState: Simulation.SimState)(using p: SimParams) =
+    ZStream.unfoldZIO((initState, 0)):
+      case (_, month) if month >= p.timeline.duration => ZIO.none
+      case (state, month)                             =>
+        ZIO
+          .fromEither(stepMonth(state, seed, month))
+          .map: (newState, monthData) =>
+            Some((MonthSnapshot(month + 1, newState, monthData), (newState, month + 1)))
+
+  private def initSeed(seed: Long)(using p: SimParams) =
+    val init     = WorldInit.initialize(seed)
+    val snapshot = Sfc.snapshot(init.world, init.firms, init.households)
+    val errors   = InitCheck.validate(snapshot, init.world.bankingSector, init.firms, init.households)
+    if errors.nonEmpty then Left(SimError.Init(errors))
+    else Right(Simulation.SimState(init.world, init.firms, init.households))
+
+  private def stepMonth(state: Simulation.SimState, seed: Long, month: Int)(using SimParams) =
+    val step = Simulation.step(state, seed, month)
+    step.sfcCheck match
+      case Left(errors) => Left(SimError.SfcViolation(month + 1, errors))
+      case Right(())    =>
+        val monthData = SimOutput.compute(month, step.state.world, step.state.firms, step.state.households)
+        Right((step.state, monthData))
+
+  @scala.annotation.tailrec
+  private def loop(
+      state: Simulation.SimState,
+      seed: Long,
+      month: Int,
+      monthSeries: Vector[Array[Double]],
+  )(using p: SimParams): Either[SimError, RunResult] =
+    if month >= p.timeline.duration then Right(RunResult(TimeSeries.wrap(monthSeries.toArray), state))
+    else
+      stepMonth(state, seed, month) match
+        case Left(err)                    => Left(err)
+        case Right((newState, monthData)) =>
+          loop(newState, seed, month + 1, monthSeries :+ monthData)
+
+  /** Consume a seed stream into RunResult, collecting monthly monthData. */
+  private def collectSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
+    seedStream(seed)
+      .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.month, p.timeline.duration)))
+      .map(s => (seed, s))
 
   // ---------------------------------------------------------------------------
   //  Per-seed CSV writer
