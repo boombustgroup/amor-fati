@@ -15,7 +15,7 @@ object Main extends ZIOAppDefault:
     yield ()
 
   private def parseArgs(args: Chunk[String]): ZIO[Any, IllegalArgumentException, McRunConfig] =
-    val usage = "Usage: simulate <nSeeds> <prefix> [--run-id <id>]"
+    val usage = "Usage: amor-fati <nSeeds> <prefix> [--run-id <id>]"
 
     def findFlag(name: String): Option[String] =
       val idx = args.indexOf(name)
