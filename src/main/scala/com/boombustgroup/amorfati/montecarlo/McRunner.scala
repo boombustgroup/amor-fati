@@ -27,12 +27,10 @@ object McRunner:
     initSeed(seed).flatMap(loop(_, seed, 0, Vector.empty))
 
   /** Streaming simulation — emits one [[MonthSnapshot]] per month. */
-  private def seedStream(seed: Long)(using SimParams): ZStream[Any, SimError, MonthSnapshot] =
+  private def seedStream(seed: Long)(using SimParams) =
     ZStream.unwrap(ZIO.fromEither(initSeed(seed)).map(simulateMonths(seed, _)))
 
-  private def simulateMonths(seed: Long, initState: Simulation.SimState)(using
-      p: SimParams,
-  ): ZStream[Any, SimError, MonthSnapshot] =
+  private def simulateMonths(seed: Long, initState: Simulation.SimState)(using p: SimParams) =
     ZStream.unfoldZIO((initState, 0)):
       case (_, month) if month >= p.timeline.duration => ZIO.none
       case (state, month)                             =>
@@ -43,18 +41,14 @@ object McRunner:
 
   // -- Pure building blocks --
 
-  private def initSeed(seed: Long)(using p: SimParams): Either[SimError.Init, Simulation.SimState] =
+  private def initSeed(seed: Long)(using p: SimParams) =
     val init     = WorldInit.initialize(seed)
     val snapshot = Sfc.snapshot(init.world, init.firms, init.households)
     val errors   = InitCheck.validate(snapshot, init.world.bankingSector, init.firms, init.households)
     if errors.nonEmpty then Left(SimError.Init(errors))
     else Right(Simulation.SimState(init.world, init.firms, init.households))
 
-  private def stepMonth(
-      state: Simulation.SimState,
-      seed: Long,
-      month: Int,
-  )(using SimParams): Either[SimError.SfcViolation, (Simulation.SimState, Array[Double])] =
+  private def stepMonth(state: Simulation.SimState, seed: Long, month: Int)(using SimParams) =
     val step = Simulation.step(state, seed, month)
     step.sfcCheck match
       case Left(errors) => Left(SimError.SfcViolation(month + 1, errors))
@@ -81,10 +75,7 @@ object McRunner:
   // ---------------------------------------------------------------------------
 
   /** Consume a seed stream into RunResult, collecting monthly monthData. */
-  private def collectSeed(
-      seed: Long,
-      rc: McRunConfig,
-  )(using p: SimParams): ZStream[Any, SimError, (Long, MonthSnapshot)] =
+  private def collectSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
     seedStream(seed)
       .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.month, p.timeline.duration)))
       .map(s => (seed, s))
@@ -133,13 +124,13 @@ object McRunner:
   // ---------------------------------------------------------------------------
 
   // $COVERAGE-OFF$ I/O: CSV writers, progress, banner
-  private def filePrefix(rc: McRunConfig)(using p: SimParams): String =
+  private def filePrefix(rc: McRunConfig)(using p: SimParams) =
     s"${rc.outputPrefix}_${rc.runId}_${p.timeline.duration}m"
 
-  private def seedFileName(seed: Long, rc: McRunConfig)(using SimParams): String =
+  private def seedFileName(seed: Long, rc: McRunConfig)(using SimParams) =
     f"${filePrefix(rc)}_seed${seed}%03d.csv"
 
-  private def writeSeedCsv(seed: Long, rc: McRunConfig, result: RunResult)(using SimParams): Task[Unit] =
+  private def writeSeedCsv(seed: Long, rc: McRunConfig, result: RunResult)(using SimParams) =
     ZIO.attemptBlocking:
       val nCols    = SimOutput.nCols
       val colNames = SimOutput.colNames
@@ -147,13 +138,12 @@ object McRunner:
         new File("mc", seedFileName(seed, rc)),
         colNames.mkString(";"),
         0 until result.timeSeries.nMonths,
-      ) { t =>
+      ): t =>
         val row = result.timeSeries.monthRow(t)
         val sb  = new StringBuilder
         sb.append(f"${row(0)}%.0f")
         for c <- 1 until nCols do sb.append(f";${row(c)}%.6f")
         sb.toString
-      }
 
   // ---------------------------------------------------------------------------
   //  HH + Bank row accumulators (Ref-based, flushed at end)
@@ -181,14 +171,14 @@ object McRunner:
     ("PovertyRate_30pct", a => f"${a.povertyRate30.toDouble}%.6f"),
   )
 
-  private val hhHeader: String = "Seed;" + hhSchema.map(_._1).mkString(";")
+  private val hhHeader = "Seed;" + hhSchema.map(_._1).mkString(";")
 
-  private def collectHhRow(seed: Long, result: RunResult, ref: Ref[Vector[String]]): UIO[Unit] =
+  private def collectHhRow(seed: Long, result: RunResult, ref: Ref[Vector[String]]) =
     val agg = result.terminalState.world.hhAgg
     val row = s"$seed;" + hhSchema.map(_._2(agg)).mkString(";")
     ref.update(_ :+ row).unit
 
-  private def flushHhCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams): Task[Unit] =
+  private def flushHhCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams) =
     for
       rows <- ref.get
       _    <- ZIO.attemptBlocking:
@@ -211,14 +201,14 @@ object McRunner:
     ("Failed", b => s"${b.failed}"),
   )
 
-  private val bankHeader: String = "Seed;" + bankSchema.map(_._1).mkString(";")
+  private val bankHeader = "Seed;" + bankSchema.map(_._1).mkString(";")
 
-  private def collectBankRows(seed: Long, result: RunResult, ref: Ref[Vector[String]]): UIO[Unit] =
+  private def collectBankRows(seed: Long, result: RunResult, ref: Ref[Vector[String]]) =
     val banks = result.terminalState.world.bankingSector.banks
     val rows  = banks.map(b => s"$seed;" + bankSchema.map(_._2(b)).mkString(";"))
     ref.update(_ ++ rows).unit
 
-  private def flushBankCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams): Task[Unit] =
+  private def flushBankCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams) =
     for
       rows <- ref.get
       _    <- ZIO.attemptBlocking:
@@ -242,7 +232,7 @@ object McRunner:
     val pct    = (frac * 100).toInt
     print(f"\r  Seed $seed%3d/$total [$bar] $month%3d/${duration}m ($pct%3d%%)")
 
-  private def printSeedDone(seed: Long, total: Int, result: RunResult, dt: Long): UIO[Unit] =
+  private def printSeedDone(seed: Long, total: Int, result: RunResult, dt: Long) =
     val last  = result.timeSeries.lastMonth
     val adopt = last(Col.TotalAdoption.ordinal)
     val pi    = last(Col.Inflation.ordinal)
@@ -256,7 +246,7 @@ object McRunner:
       )
       .orDie
 
-  private def printSavedZIO(rc: McRunConfig)(using SimParams): Task[Unit] =
+  private def printSavedZIO(rc: McRunConfig)(using SimParams) =
     val seedFiles = (1L to rc.nSeeds.toLong).map(s => s"mc/${seedFileName(s, rc)}")
     ZIO.foreachDiscard(seedFiles)(f => Console.printLine(s"Saved: $f")) *>
       Console.printLine(s"Saved: mc/${filePrefix(rc)}_hh.csv") *>
