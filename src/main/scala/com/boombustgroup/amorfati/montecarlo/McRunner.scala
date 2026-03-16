@@ -27,18 +27,19 @@ object McRunner:
     initSeed(seed).flatMap(loop(_, seed, 0, Vector.empty))
 
   /** Streaming simulation — emits one [[MonthSnapshot]] per month. */
-  private def seedStream(seed: Long)(using p: SimParams): ZStream[Any, SimError, MonthSnapshot] =
-    ZStream.unwrap:
-      ZIO
-        .fromEither(initSeed(seed))
-        .map: initState =>
-          ZStream.unfoldZIO((initState, 0)):
-            case (_, month) if month >= p.timeline.duration => ZIO.none
-            case (state, month)                             =>
-              ZIO
-                .fromEither(stepMonth(state, seed, month))
-                .map: (newState, monthData) =>
-                  Some((MonthSnapshot(month + 1, newState, monthData), (newState, month + 1)))
+  private def seedStream(seed: Long)(using SimParams): ZStream[Any, SimError, MonthSnapshot] =
+    ZStream.unwrap(ZIO.fromEither(initSeed(seed)).map(simulateMonths(seed, _)))
+
+  private def simulateMonths(seed: Long, initState: Simulation.SimState)(using
+      p: SimParams,
+  ): ZStream[Any, SimError, MonthSnapshot] =
+    ZStream.unfoldZIO((initState, 0)):
+      case (_, month) if month >= p.timeline.duration => ZIO.none
+      case (state, month)                             =>
+        ZIO
+          .fromEither(stepMonth(state, seed, month))
+          .map: (newState, monthData) =>
+            Some((MonthSnapshot(month + 1, newState, monthData), (newState, month + 1)))
 
   // -- Pure building blocks --
 
