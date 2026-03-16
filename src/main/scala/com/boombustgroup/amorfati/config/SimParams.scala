@@ -3,8 +3,11 @@ package com.boombustgroup.amorfati.config
 import com.boombustgroup.amorfati.types.*
 
 /** Network topology selection for comparative experiments. */
-enum Topology:
-  case Ws, Er, Ba, Lattice
+enum Topology(val label: String):
+  case Ws      extends Topology("Watts-Strogatz")
+  case Er      extends Topology("Erdos-Renyi")
+  case Ba      extends Topology("Barabasi-Albert")
+  case Lattice extends Topology("Lattice")
 
 /** 4-to-6 sector definition with heterogeneous sigma (CES elasticity of
   * substitution). sigma affects: decision threshold, automation efficiency,
