@@ -109,6 +109,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
           consumerDebt = PLN.Zero,
           education = 2,
           taskRoutineness = Ratio(0.5),
+          wageScar = Ratio.Zero,
         ),
       )
       .toVector

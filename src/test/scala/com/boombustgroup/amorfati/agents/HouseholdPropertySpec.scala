@@ -162,6 +162,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           consumerDebt = PLN.Zero,
           education = 2,
           taskRoutineness = Ratio(0.5),
+          wageScar = Ratio.Zero,
         )
       }.toVector
       val agg         = Household.computeAggregates(bankruptHhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)
