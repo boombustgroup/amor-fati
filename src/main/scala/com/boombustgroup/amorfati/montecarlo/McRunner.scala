@@ -9,9 +9,9 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.{BuildInfo, CsvWriter}
+import com.boombustgroup.amorfati.util.CsvWriter
 import zio.stream.ZStream
-import zio.{Clock, Console, Ref, Task, UIO, ZIO}
+import zio.{Clock, Console, Ref, ZIO}
 
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -19,86 +19,115 @@ import java.util.concurrent.TimeUnit
 /** Monte Carlo runner: simulation loop, per-seed CSV output. */
 object McRunner:
 
-  /** Run one simulation with given seed. Throws
-    * [[InitCheck.InitValidationException]] on init stock inconsistency, or
-    * [[Sfc.SfcViolationException]] on any monthly SFC identity violation.
+  /** Single month snapshot emitted by [[seedStream]]. */
+  private case class MonthSnapshot(month: Int, state: Simulation.SimState, monthData: Array[Double])
+
+  /** Run N seeds in parallel, each streaming months via [[seedStream]]. Writes
+    * per-seed CSV + aggregated HH/bank CSVs. Fails with [[SimError]].
     */
-  private val NoProgress: Int => Unit = _ => ()
-
-  def runSingle(seed: Long, @scala.annotation.unused rc: McRunConfig, onMonth: Int => Unit = NoProgress)(using
-      p: SimParams,
-  ): RunResult =
-    val init     = WorldInit.initialize(seed)
-    val snapshot = Sfc.snapshot(init.world, init.firms, init.households)
-
-    val initErrs = InitCheck.validate(snapshot, init.world.bankingSector, init.firms, init.households)
-    if initErrs.nonEmpty then throw InitCheck.InitValidationException(initErrs)
-
-    var state = Simulation.SimState(init.world, init.firms, init.households)
-
-    val results = Array.ofDim[Double](p.timeline.duration, SimOutput.nCols)
-
-    for t <- 0 until p.timeline.duration do
-      val stepResult = Simulation.step(state, seed, t)
-      stepResult.sfcCheck match
-        case Left(errors) => throw Sfc.SfcViolationException(t + 1, errors)
-        case Right(())    => // OK
-      state = stepResult.state
-      results(t) = SimOutput.compute(t, state.world, state.firms, state.households)
-      onMonth(t + 1)
-
-    RunResult(TimeSeries.wrap(results), state)
-
-  // ---------------------------------------------------------------------------
-  //  ZIO entry point — parallel seeds, each writes own CSV
-  // ---------------------------------------------------------------------------
-
-  private def runSingleZIO(seed: Long, rc: McRunConfig, onMonth: Int => Unit)(using SimParams): Task[RunResult] =
-    ZIO.attemptBlocking(runSingle(seed, rc, onMonth))
-
-  def runZIO(rc: McRunConfig)(using p: SimParams): Task[Unit] =
+  def runZIO(rc: McRunConfig)(using p: SimParams): ZIO[Any, SimError, Unit] =
     val parallelism = java.lang.Runtime.getRuntime.availableProcessors()
-    val duration    = p.timeline.duration
     for
-      _       <- printBannerZIO(rc)
-      _       <- ZIO.attemptBlocking { val d = new File("mc"); if !d.exists() then d.mkdirs() }
+      _       <- ZIO.attemptBlocking { val d = new File("mc"); if !d.exists() then d.mkdirs() }.orDie
       hhRef   <- Ref.make(Vector.empty[String])
       bankRef <- Ref.make(Vector.empty[String])
-      _       <- Console.printLine(s"  run-id: ${rc.runId}")
+      _       <- Console.printLine(s"  run-id: ${rc.runId}").orDie
       t0      <- Clock.currentTime(TimeUnit.MILLISECONDS)
       _       <- ZStream
         .fromIterable(1L to rc.nSeeds.toLong)
         .mapZIOPar(parallelism): seed =>
           for
-            st     <- Clock.currentTime(TimeUnit.MILLISECONDS)
-            result <- runSingleZIO(seed, rc, monthProgressBar(seed, rc.nSeeds, duration))
-            et     <- Clock.currentTime(TimeUnit.MILLISECONDS)
-            _      <- printSeedDone(seed, rc.nSeeds, result, et - st)
-            _      <- writeSeedCsv(seed, rc, result)
-            _      <- collectHhRow(seed, result, hhRef)
-            _      <- collectBankRows(seed, result, bankRef)
+            st <- Clock.currentTime(TimeUnit.MILLISECONDS)
+            _  <- collectSeed(seed, rc)
+              .runFold(Option.empty[(Simulation.SimState, Vector[Array[Double]])]): (acc, pair) =>
+                val (_, snapshot) = pair
+                val series        = acc.map(_._2).getOrElse(Vector.empty)
+                Some((snapshot.state, series :+ snapshot.monthData))
+              .flatMap:
+                case None                  => ZIO.fail(SimError.Init(Vector.empty))
+                case Some((state, series)) =>
+                  val runResult = RunResult(TimeSeries.wrap(series.toArray), state)
+                  for
+                    et <- Clock.currentTime(TimeUnit.MILLISECONDS)
+                    _  <- printSeedDone(seed, rc.nSeeds, runResult, et - st)
+                    _  <- writeSeedCsv(seed, rc, runResult).orDie
+                    _  <- collectHhRow(seed, runResult, hhRef)
+                    _  <- collectBankRows(seed, runResult, bankRef)
+                  yield ()
           yield ()
         .runDrain
-      _       <- flushHhCsv(rc, hhRef)
-      _       <- flushBankCsv(rc, bankRef)
-      _       <- Console.printLine("")
-      _       <- printSavedZIO(rc)
+      _       <- flushHhCsv(rc, hhRef).orDie
+      _       <- flushBankCsv(rc, bankRef).orDie
+      _       <- Console.printLine("").orDie
+      _       <- printSavedZIO(rc).orDie
       t1      <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      _       <- Console.printLine(f"\nTotal time: ${(t1 - t0) / 1000.0}%.1f seconds")
+      _       <- Console.printLine(f"\nTotal time: ${(t1 - t0) / 1000.0}%.1f seconds").orDie
     yield ()
+
+  /** Pure simulation — returns Either, no side effects. For tests. */
+  def runSingle(seed: Long)(using p: SimParams): Either[SimError, RunResult] =
+    initSeed(seed).flatMap(loop(_, seed, 0, Vector.empty))
+
+  /** Streaming simulation — emits one [[MonthSnapshot]] per month. */
+  private def seedStream(seed: Long)(using SimParams) =
+    ZStream.unwrap(ZIO.fromEither(initSeed(seed)).map(simulateMonths(seed, _)))
+
+  private def simulateMonths(seed: Long, initState: Simulation.SimState)(using p: SimParams) =
+    ZStream.unfoldZIO((initState, 0)):
+      case (_, month) if month >= p.timeline.duration => ZIO.none
+      case (state, month)                             =>
+        ZIO
+          .fromEither(stepMonth(state, seed, month))
+          .map: (newState, monthData) =>
+            Some((MonthSnapshot(month + 1, newState, monthData), (newState, month + 1)))
+
+  private def initSeed(seed: Long)(using p: SimParams) =
+    val init     = WorldInit.initialize(seed)
+    val snapshot = Sfc.snapshot(init.world, init.firms, init.households)
+    val errors   = InitCheck.validate(snapshot, init.world.bankingSector, init.firms, init.households)
+    if errors.nonEmpty then Left(SimError.Init(errors))
+    else Right(Simulation.SimState(init.world, init.firms, init.households))
+
+  private def stepMonth(state: Simulation.SimState, seed: Long, month: Int)(using SimParams) =
+    val step = Simulation.step(state, seed, month)
+    step.sfcCheck match
+      case Left(errors) => Left(SimError.SfcViolation(month + 1, errors))
+      case Right(())    =>
+        val monthData = SimOutput.compute(month, step.state.world, step.state.firms, step.state.households)
+        Right((step.state, monthData))
+
+  @scala.annotation.tailrec
+  private def loop(
+      state: Simulation.SimState,
+      seed: Long,
+      month: Int,
+      monthSeries: Vector[Array[Double]],
+  )(using p: SimParams): Either[SimError, RunResult] =
+    if month >= p.timeline.duration then Right(RunResult(TimeSeries.wrap(monthSeries.toArray), state))
+    else
+      stepMonth(state, seed, month) match
+        case Left(err)                    => Left(err)
+        case Right((newState, monthData)) =>
+          loop(newState, seed, month + 1, monthSeries :+ monthData)
+
+  /** Consume a seed stream into RunResult, collecting monthly monthData. */
+  private def collectSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
+    seedStream(seed)
+      .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.month, p.timeline.duration)))
+      .map(s => (seed, s))
 
   // ---------------------------------------------------------------------------
   //  Per-seed CSV writer
   // ---------------------------------------------------------------------------
 
   // $COVERAGE-OFF$ I/O: CSV writers, progress, banner
-  private def filePrefix(rc: McRunConfig)(using p: SimParams): String =
+  private def filePrefix(rc: McRunConfig)(using p: SimParams) =
     s"${rc.outputPrefix}_${rc.runId}_${p.timeline.duration}m"
 
-  private def seedFileName(seed: Long, rc: McRunConfig)(using SimParams): String =
+  private def seedFileName(seed: Long, rc: McRunConfig)(using SimParams) =
     f"${filePrefix(rc)}_seed${seed}%03d.csv"
 
-  private def writeSeedCsv(seed: Long, rc: McRunConfig, result: RunResult)(using SimParams): Task[Unit] =
+  private def writeSeedCsv(seed: Long, rc: McRunConfig, result: RunResult)(using SimParams) =
     ZIO.attemptBlocking:
       val nCols    = SimOutput.nCols
       val colNames = SimOutput.colNames
@@ -106,13 +135,12 @@ object McRunner:
         new File("mc", seedFileName(seed, rc)),
         colNames.mkString(";"),
         0 until result.timeSeries.nMonths,
-      ) { t =>
+      ): t =>
         val row = result.timeSeries.monthRow(t)
         val sb  = new StringBuilder
         sb.append(f"${row(0)}%.0f")
         for c <- 1 until nCols do sb.append(f";${row(c)}%.6f")
         sb.toString
-      }
 
   // ---------------------------------------------------------------------------
   //  HH + Bank row accumulators (Ref-based, flushed at end)
@@ -140,14 +168,14 @@ object McRunner:
     ("PovertyRate_30pct", a => f"${a.povertyRate30.toDouble}%.6f"),
   )
 
-  private val hhHeader: String = "Seed;" + hhSchema.map(_._1).mkString(";")
+  private val hhHeader = "Seed;" + hhSchema.map(_._1).mkString(";")
 
-  private def collectHhRow(seed: Long, result: RunResult, ref: Ref[Vector[String]]): UIO[Unit] =
+  private def collectHhRow(seed: Long, result: RunResult, ref: Ref[Vector[String]]) =
     val agg = result.terminalState.world.hhAgg
     val row = s"$seed;" + hhSchema.map(_._2(agg)).mkString(";")
     ref.update(_ :+ row).unit
 
-  private def flushHhCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams): Task[Unit] =
+  private def flushHhCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams) =
     for
       rows <- ref.get
       _    <- ZIO.attemptBlocking:
@@ -170,14 +198,14 @@ object McRunner:
     ("Failed", b => s"${b.failed}"),
   )
 
-  private val bankHeader: String = "Seed;" + bankSchema.map(_._1).mkString(";")
+  private val bankHeader = "Seed;" + bankSchema.map(_._1).mkString(";")
 
-  private def collectBankRows(seed: Long, result: RunResult, ref: Ref[Vector[String]]): UIO[Unit] =
+  private def collectBankRows(seed: Long, result: RunResult, ref: Ref[Vector[String]]) =
     val banks = result.terminalState.world.bankingSector.banks
     val rows  = banks.map(b => s"$seed;" + bankSchema.map(_._2(b)).mkString(";"))
     ref.update(_ ++ rows).unit
 
-  private def flushBankCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams): Task[Unit] =
+  private def flushBankCsv(rc: McRunConfig, ref: Ref[Vector[String]])(using SimParams) =
     for
       rows <- ref.get
       _    <- ZIO.attemptBlocking:
@@ -189,20 +217,19 @@ object McRunner:
     yield ()
 
   // ---------------------------------------------------------------------------
-  //  Progress + Banner
+  //  Progress
   // ---------------------------------------------------------------------------
 
   private val BarWidth = 20
 
-  private def monthProgressBar(seed: Long, total: Int, duration: Int): Int => Unit =
-    month =>
-      val frac   = month.toDouble / duration
-      val filled = (frac * BarWidth).toInt
-      val bar    = "\u2588" * filled + "\u2591" * (BarWidth - filled)
-      val pct    = (frac * 100).toInt
-      print(f"\r  Seed $seed%3d/$total [$bar] $month%3d/${duration}m ($pct%3d%%)")
+  private def printMonthProgress(seed: Long, total: Int, month: Int, duration: Int): Unit =
+    val frac   = month.toDouble / duration
+    val filled = (frac * BarWidth).toInt
+    val bar    = "\u2588" * filled + "\u2591" * (BarWidth - filled)
+    val pct    = (frac * 100).toInt
+    print(f"\r  Seed $seed%3d/$total [$bar] $month%3d/${duration}m ($pct%3d%%)")
 
-  private def printSeedDone(seed: Long, total: Int, result: RunResult, dt: Long): UIO[Unit] =
+  private def printSeedDone(seed: Long, total: Int, result: RunResult, dt: Long) =
     val last  = result.timeSeries.lastMonth
     val adopt = last(Col.TotalAdoption.ordinal)
     val pi    = last(Col.Inflation.ordinal)
@@ -216,27 +243,10 @@ object McRunner:
       )
       .orDie
 
-  private def printSavedZIO(rc: McRunConfig)(using SimParams): Task[Unit] =
+  private def printSavedZIO(rc: McRunConfig)(using SimParams) =
     val seedFiles = (1L to rc.nSeeds.toLong).map(s => s"mc/${seedFileName(s, rc)}")
     ZIO.foreachDiscard(seedFiles)(f => Console.printLine(s"Saved: $f")) *>
       Console.printLine(s"Saved: mc/${filePrefix(rc)}_hh.csv") *>
       Console.printLine(s"Saved: mc/${filePrefix(rc)}_banks.csv")
 
-  private[montecarlo] def prepareBanner(rc: McRunConfig)(using p: SimParams): String =
-    val commit   = BuildInfo.gitCommit
-    val firms    = String.format(java.util.Locale.US, "%,d", p.pop.firmsCount: Integer)
-    val asciiArt = com.github.lalyos.jfiglet.FigletFont.convertOneLine("AMOR-FATI").stripTrailing()
-    s"""
-       |$asciiArt
-       |
-       |  SFC-ABM  |  commit: $commit
-       |
-       |  N=${rc.nSeeds} seeds  |  PLN (NBP)  |  HH=${p.household.count}  |  BANK=multi (7)
-       |  $firms firms x 6 sectors (GUS 2024) x ${p.topology.label} x ${p.timeline.duration}m
-       |
-       |  Apache 2.0 | Copyright 2026 BoomBustGroup | www.boombustgroup.com
-       |""".stripMargin
-
-  private def printBannerZIO(rc: McRunConfig)(using SimParams): Task[Unit] =
-    Console.printLine(prepareBanner(rc))
   // $COVERAGE-ON$

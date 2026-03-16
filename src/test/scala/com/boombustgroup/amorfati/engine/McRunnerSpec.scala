@@ -1,27 +1,25 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.montecarlo.McRunner.runSingle
+import com.boombustgroup.amorfati.montecarlo.SimOutput
+import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.boombustgroup.amorfati.montecarlo.McRunner.runSingle
-import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
-import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.montecarlo.{McRunConfig, SimOutput}
 
 class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  private val rc = McRunConfig(1, "test")
-
   // Single shared run — all tests read from this result
-  private lazy val result = runSingle(42, rc)
+  private lazy val result = runSingle(42).fold(e => fail(e.toString), identity)
   private def ts          = result.timeSeries
 
   // --- Basic output sanity ---
 
-  "runSingle" should "complete without exception" in {
-    noException should be thrownBy result
+  "runSingle" should "return Right for valid seed" in {
+    runSingle(42) shouldBe a[Right[?, ?]]
   }
 
   it should "produce 120 rows x 197 columns" in {
@@ -71,7 +69,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   // --- Reproducibility ---
 
   it should "be reproducible with the same seed" in {
-    val r2 = runSingle(42, rc)
+    val r2 = runSingle(42).fold(e => fail(e.toString), identity)
     for t <- 0 until p.timeline.duration; c <- 0 until SimOutput.nCols do ts(t)(c) shouldBe r2.timeSeries(t)(c)
   }
 

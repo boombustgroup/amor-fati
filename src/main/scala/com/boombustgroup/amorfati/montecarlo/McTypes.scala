@@ -1,9 +1,21 @@
 package com.boombustgroup.amorfati.montecarlo
 
+import com.boombustgroup.amorfati.accounting.{InitCheck, Sfc}
 import com.boombustgroup.amorfati.engine.Simulation
 import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 
 /** Zero-cost typed wrappers for Monte Carlo simulation output. */
+
+/** Typed simulation errors — no exceptions, propagate via Either/ZIO. */
+sealed trait SimError
+object SimError:
+  case class Init(errors: Vector[InitCheck.InitCheckResult]) extends SimError:
+    override def toString: String =
+      s"Init validation failed:\n${errors.map(e => s"  ${e.identity}: expected=${e.expected}, actual=${e.actual}").mkString("\n")}"
+
+  case class SfcViolation(month: Int, errors: Vector[Sfc.SfcIdentityError]) extends SimError:
+    override def toString: String =
+      s"SFC violation at M$month:\n${errors.map(e => s"  ${e.identity}: ${e.msg}").mkString("\n")}"
 
 /** Result of a single simulation run. */
 case class RunResult(
