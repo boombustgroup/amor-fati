@@ -11,7 +11,7 @@ import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.CsvWriter
 import zio.stream.ZStream
-import zio.{Clock, Console, Ref, Task, UIO, ZIO}
+import zio.{Clock, Console, Ref, ZIO}
 
 import java.io.File
 import java.util.concurrent.TimeUnit
