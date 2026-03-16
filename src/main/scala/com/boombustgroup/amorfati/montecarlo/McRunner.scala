@@ -75,6 +75,7 @@ object McRunner:
         .runDrain
       _       <- flushHhCsv(rc, hhRef)
       _       <- flushBankCsv(rc, bankRef)
+      _       <- Console.printLine("")
       _       <- printSavedZIO(rc)
       t1      <- Clock.currentTime(TimeUnit.MILLISECONDS)
       _       <- Console.printLine(f"\nTotal time: ${(t1 - t0) / 1000.0}%.1f seconds")
