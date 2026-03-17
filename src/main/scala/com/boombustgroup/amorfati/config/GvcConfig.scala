@@ -2,14 +2,16 @@ package com.boombustgroup.amorfati.config
 
 import com.boombustgroup.amorfati.types.*
 
-/** Global Value Chain integration: sectoral trade structure, ER pass-through,
-  * and demand shocks.
+/** Global Value Chain integration: sectoral trade, ER pass-through, demand
+  * shocks, and commodity prices.
   *
   * Models Poland's deep integration into EU/global supply chains (WIOD/OECD
   * ICIO), with per-sector export shares, GVC depth (backward linkages),
   * differentiated EUR/non-EUR exchange rate pass-through (Campa & Goldberg
-  * 2005), foreign demand shocks by sector, and supply chain disruption
-  * recovery. EU trade share ~70% of total (GUS/NBP 2024).
+  * 2005), foreign demand shocks by sector, supply chain disruption recovery,
+  * and exogenous commodity price dynamics (GBM + shock). Commodity prices feed
+  * into importCostIndex and energy costs — Poland imports ~95% of oil/gas. EU
+  * trade share ~70% of total (GUS/NBP 2024).
   *
   * @param euTradeShare
   *   share of total trade with EU partners (GUS/NBP 2024: ~70%)
@@ -34,6 +36,15 @@ import com.boombustgroup.amorfati.types.*
   *   set of sector indices affected by demand shock
   * @param disruptionRecovery
   *   monthly recovery rate from supply chain disruption
+  * @param commodityDrift
+  *   annual commodity price drift (long-run trend, IMF commodity outlook)
+  * @param commodityVolatility
+  *   monthly GBM volatility (σ) for commodity price noise
+  * @param commodityShockMonth
+  *   simulation month when commodity price shock hits (0 = no shock)
+  * @param commodityShockMag
+  *   one-time shock magnitude as multiplicative increment (e.g., 3.0 = +300%
+  *   gas price, 2022-style). Not Ratio because can exceed 1.0.
   */
 case class GvcConfig(
     euTradeShare: Ratio = Ratio(0.70),
@@ -47,11 +58,11 @@ case class GvcConfig(
     demandShockSize: Ratio = Ratio(0.0),
     demandShockSectors: Set[Int] = Set.empty,
     disruptionRecovery: Ratio = Ratio(0.05),
-    // Commodity prices (energy, food, metals) — Poland imports ~95% of oil/gas
-    commodityDrift: Rate = Rate(0.02),  // annual commodity price drift (2%/yr, long-run trend)
-    commodityVolatility: Double = 0.03, // monthly volatility (σ) for geometric Brownian motion
-    commodityShockMonth: Int = 0,       // month when commodity price shock hits (0 = no shock)
-    commodityShockMag: Double = 0.0,    // shock magnitude as fraction (e.g., 3.0 = +300% gas price, 2022-style)
+    // Commodity prices (Poland imports ~95% of oil/gas)
+    commodityDrift: Rate = Rate(0.02),
+    commodityVolatility: Double = 0.03,
+    commodityShockMonth: Int = 0,
+    commodityShockMag: Double = 0.0,
 ):
   require(exportShares.length == 6, s"exportShares must have 6 sectors: ${exportShares.length}")
   require(depth.length == 6, s"depth must have 6 sectors: ${depth.length}")
