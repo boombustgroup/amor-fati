@@ -761,7 +761,7 @@ object Household:
     * When buffer depleted → MPC rises (spend everything). Unemployed get an
     * additional boost (desperate spending from depleted buffers).
     */
-  private def updateMpc(hh: State, income: PLN, status: HhStatus)(using p: SimParams): Ratio =
+  private[amorfati] def updateMpc(hh: State, income: PLN, status: HhStatus)(using p: SimParams): Ratio =
     val baseMpc = hh.mpc
     if income <= PLN.Zero then baseMpc
     else
