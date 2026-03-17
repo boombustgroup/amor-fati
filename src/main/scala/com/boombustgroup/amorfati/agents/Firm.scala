@@ -352,19 +352,19 @@ object Firm:
     if workers <= minRetained then return Decision.GoBankrupt(pnl, nc, reason)
     val laborPerWorker: PLN = wage * effectiveWageMult(firm.sector)
     // Target headcount: workers needed for revenue to cover non-labor costs
-    val nonLaborCost        = (pnl.costs - laborPerWorker * workers.toDouble).max(PLN.Zero)
-    val revenuePerWorker    = if workers > 0 then pnl.revenue / workers.toDouble else PLN.Zero
+    val nonLaborCost: PLN   = (pnl.costs - workers * laborPerWorker).max(PLN.Zero)
+    val revenuePerWorker    = if workers > 0 then pnl.revenue / workers else PLN.Zero
     val targetWorkers       = if revenuePerWorker > PLN.Zero then Math.ceil(nonLaborCost / revenuePerWorker).toInt else minRetained
     // Smooth adjustment: cut λ of the gap, not the entire excess
     val gap                 = workers - Math.max(minRetained, targetWorkers)
-    val cut                 = Math.max(1, (gap.toDouble * p.firm.laborAdjustSpeed.toDouble).toInt)
+    val cut                 = Math.max(1, (gap * p.firm.laborAdjustSpeed).toInt)
     val newWkrs             = Math.max(minRetained, workers - cut)
     // Severance cost = fired workers × wage × severanceMonths
     val fired               = workers - newWkrs
-    val severancePay        = laborPerWorker * (fired.toDouble * p.firm.severanceMonths)
-    val laborSaved          = laborPerWorker * fired.toDouble
-    val revRatio            = Math.sqrt(newWkrs.toDouble / workers.toDouble)
-    val revLost             = pnl.revenue * (1.0 - revRatio)
+    val severancePay: PLN   = fired * laborPerWorker * p.firm.severanceMonths
+    val laborSaved: PLN     = fired * laborPerWorker
+    val revRatio: Ratio     = Ratio.fraction(newWkrs, workers).sqrt
+    val revLost: PLN        = pnl.revenue * (Ratio.One - revRatio)
     val adjustedNc          = nc + laborSaved - revLost - severancePay
     if adjustedNc >= PLN.Zero then Decision.Downsize(pnl, newWkrs, adjustedNc, newTech(newWkrs), drUpdate = drUpdate)
     else Decision.GoBankrupt(pnl, nc, reason)

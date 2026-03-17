@@ -130,6 +130,7 @@ object types:
       inline def /(scalar: Double): Ratio           = r / scalar
       @targetName("ratioDivRatio")
       inline def /(other: Ratio): Double            = r / other
+      inline def sqrt: Ratio                        = math.sqrt(r)
       inline def max(other: Ratio): Ratio           = math.max(r, other)
       inline def min(other: Ratio): Ratio           = math.min(r, other)
       inline def clamp(lo: Ratio, hi: Ratio): Ratio = math.max(lo, math.min(hi, r))
@@ -141,6 +142,9 @@ object types:
       inline def >=(other: Ratio): Boolean          = r >= other
       inline def <=(other: Ratio): Boolean          = r <= other
     given Ordering[Ratio]                          = Ordering.Double.TotalOrdering
+    extension (n: Int)
+      @targetName("intTimesRatio")
+      inline def *(r: Ratio): Double               = n.toDouble * r.toDouble
     given Numeric[Ratio] with
       def plus(x: Ratio, y: Ratio): Ratio         = x + y
       def minus(x: Ratio, y: Ratio): Ratio        = x - y
