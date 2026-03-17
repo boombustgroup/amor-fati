@@ -623,6 +623,7 @@ object Household:
     val afterSkill    = applySkillDecay(f.hh, f.newStatus)
     val afterHealth   = applyHealthScarring(f.hh, f.newStatus)
     val afterWageScar = applyWageScar(f.hh, f.newStatus)
+    val afterMpc      = updateMpc(f.hh, f.income, f.newStatus)
 
     val (afterVoluntary, vQuit) = f.newStatus match
       case emp: HhStatus.Employed if sectorWages.isDefined =>
@@ -644,7 +645,7 @@ object Household:
         skill = afterSkill,
         healthPenalty = afterHealth,
         wageScar = afterWageScar,
-        mpc = f.hh.mpc,
+        mpc = afterMpc,
         status = finalStatus,
         equityWealth = f.newEquityWealth,
       ),
@@ -753,6 +754,24 @@ object Household:
       case _: HhStatus.Employed                                               =>
         (hh.wageScar - p.household.wageScarDecay).max(Ratio.Zero)
       case _                                                                  => hh.wageScar
+
+  /** State-dependent MPC: Carroll (1997) buffer-stock model.
+    *
+    * When savings/income > target → buffer is fat → MPC falls (more saving).
+    * When buffer depleted → MPC rises (spend everything). Unemployed get an
+    * additional boost (desperate spending from depleted buffers).
+    */
+  private[amorfati] def updateMpc(hh: State, income: PLN, status: HhStatus)(using p: SimParams): Ratio =
+    val baseMpc = hh.mpc
+    if income <= PLN.Zero then baseMpc
+    else
+      val targetSavings = income * p.household.bufferTargetMonths
+      val bufferRatio   = hh.savings / targetSavings // >1 = fat buffer, <1 = depleted
+      val bufferAdj     = Ratio(1.0 - p.household.bufferSensitivity * (bufferRatio - 1.0))
+      val unemployedAdj = status match
+        case _: HhStatus.Unemployed => Ratio.One + p.household.mpcUnemployedBoost
+        case _                      => Ratio.One
+      (baseMpc * bufferAdj * unemployedAdj).clamp(Ratio(MpcFloor), Ratio(MpcCeiling))
 
   /** Fraction of social neighbors in distress (BitSet, O(k) per HH). */
   private def neighborDistressRatioFast(hh: State, distressedIds: java.util.BitSet): Double =
