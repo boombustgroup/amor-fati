@@ -92,16 +92,26 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
 
   it should "cut more workers when non-labor costs are higher" in {
     // Higher non-labor costs → higher target workers → larger gap → more cut
-    val firm      = mkFirm(workers = 100, cash = PLN(500000.0))
-    val pnlLow    = mkPnl(PLN(200000.0), PLN(210000.0)) // low non-labor overhead
-    val pnlHigh   = mkPnl(PLN(200000.0), PLN(280000.0)) // high non-labor overhead
-    val resultLow = Firm.attemptDownsize(
-      firm, pnlLow, firm.cash + pnlLow.netAfterTax,
-      100, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency,
+    val firm       = mkFirm(workers = 100, cash = PLN(500000.0))
+    val pnlLow     = mkPnl(PLN(200000.0), PLN(210000.0)) // low non-labor overhead
+    val pnlHigh    = mkPnl(PLN(200000.0), PLN(280000.0)) // high non-labor overhead
+    val resultLow  = Firm.attemptDownsize(
+      firm,
+      pnlLow,
+      firm.cash + pnlLow.netAfterTax,
+      100,
+      TechState.Traditional(_),
+      wage,
+      BankruptReason.LaborCostInsolvency,
     )
     val resultHigh = Firm.attemptDownsize(
-      firm, pnlHigh, firm.cash + pnlHigh.netAfterTax,
-      100, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency,
+      firm,
+      pnlHigh,
+      firm.cash + pnlHigh.netAfterTax,
+      100,
+      TechState.Traditional(_),
+      wage,
+      BankruptReason.LaborCostInsolvency,
     )
     (resultLow, resultHigh) match
       case (Firm.Decision.Downsize(_, w1, _, _, _), Firm.Decision.Downsize(_, w2, _, _, _)) =>
