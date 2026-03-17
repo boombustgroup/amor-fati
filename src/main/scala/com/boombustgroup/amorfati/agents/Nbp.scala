@@ -36,9 +36,12 @@ object Nbp:
   // ---------------------------------------------------------------------------
 
   /** Result of monthly QE execution. */
-  case class QeResult(
-      state: State,  // updated NBP state
-      purchased: PLN, // bond purchase amount this month
+  /** QE purchase request — NBP state without bond update + requested amount.
+    * Actual purchase happens in the bond waterfall (BankUpdateStep).
+    */
+  case class QeRequest(
+      nbpState: State,       // NBP state (govBondHoldings NOT yet updated)
+      requestedPurchase: PLN, // how much QE wants to buy (actual capped by bank supply in waterfall)
   )
 
   // ---------------------------------------------------------------------------
@@ -155,18 +158,17 @@ object Nbp:
   def shouldTaperQe(inflation: Rate)(using p: SimParams): Boolean =
     inflation > p.monetary.targetInfl
 
-  /** Execute monthly QE purchase. */
-  def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN)(using p: SimParams): QeResult =
-    if !nbp.qeActive then QeResult(nbp, PLN.Zero)
+  /** Compute QE purchase request. Does NOT update govBondHoldings — the bond
+    * waterfall in BankUpdateStep handles the actual transfer so that SFC clears
+    * by construction (actualSold from banks = actualSold to NBP).
+    */
+  def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN)(using p: SimParams): QeRequest =
+    if !nbp.qeActive then QeRequest(nbp, PLN.Zero)
     else
       val maxByGdp  = (annualGdp * p.monetary.qeMaxGdpShare - nbp.govBondHoldings).max(PLN.Zero)
       val available = bankBondHoldings
       val purchase  = PLN.Zero.max(maxByGdp.min(available).min(p.monetary.qePace))
-      val newNbp    = nbp.copy(
-        govBondHoldings = nbp.govBondHoldings + purchase,
-        qeCumulative = nbp.qeCumulative + purchase,
-      )
-      QeResult(newNbp, purchase)
+      QeRequest(nbp, purchase)
 
   // ---------------------------------------------------------------------------
   // FX intervention

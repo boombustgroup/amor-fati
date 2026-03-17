@@ -53,27 +53,27 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   "Nbp.executeQe" should "always return purchase >= 0" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
       val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
-      qeResult.purchased.toDouble should be >= 0.0
+      qeResult.requestedPurchase.toDouble should be >= 0.0
     }
 
   it should "not exceed bankBondHoldings" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
       val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
-      qeResult.purchased.toDouble should be <= (bankBonds + 1e-6)
+      qeResult.requestedPurchase.toDouble should be <= (bankBonds + 1e-6)
     }
 
   it should "not exceed max GDP share limit when active" in
     forAll(Gen.choose(0.0, 0.25), Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (rate: Double, bankBonds: Double, gdp: Double) =>
       val nbp      = Nbp.State(Rate(rate), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
       val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
-      qeResult.state.govBondHoldings.toDouble should be <= (p.monetary.qeMaxGdpShare.toDouble * gdp + 1e-6)
+      qeResult.nbpState.govBondHoldings.toDouble should be <= (p.monetary.qeMaxGdpShare.toDouble * gdp + 1e-6)
     }
 
   it should "preserve bond clearing through QE (bank - purchase + nbp + purchase = total)" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
       val totalBefore = bankBonds + nbp.govBondHoldings.toDouble
       val qeResult    = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
-      val totalAfter  = (bankBonds - qeResult.purchased.toDouble) + qeResult.state.govBondHoldings.toDouble
+      val totalAfter  = (bankBonds - qeResult.requestedPurchase.toDouble) + qeResult.nbpState.govBondHoldings.toDouble
       totalAfter shouldBe (totalBefore +- 1.0) // FP tolerance at 1e10 scale
     }
 

@@ -168,7 +168,7 @@ object WorldAssemblyStep:
         minWageLevel = in.s1.baseMinWage,
         minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
       ),
-      nbp = in.s8.monetary.postFxNbp,
+      nbp = in.s9.finalNbp,
       bank = in.s9.resolvedBank,
       bankingSector = in.s9.finalBankingSector,
       forex = in.s8.external.newForex,

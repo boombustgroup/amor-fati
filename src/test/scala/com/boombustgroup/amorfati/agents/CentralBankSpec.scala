@@ -75,15 +75,15 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
   "Nbp.executeQe" should "return 0 purchase when not active" in {
     val nbp      = Nbp.State(Rate(0.05), PLN(1000.0), false, PLN.Zero, PLN.Zero, PLN.Zero)
     val qeResult = Nbp.executeQe(nbp, PLN(5000.0), PLN(1e10))
-    qeResult.purchased shouldBe PLN.Zero
-    qeResult.state.govBondHoldings shouldBe nbp.govBondHoldings
+    qeResult.requestedPurchase shouldBe PLN.Zero
+    qeResult.nbpState.govBondHoldings shouldBe nbp.govBondHoldings
   }
 
   it should "not exceed available bank bond holdings" in {
     val nbp       = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
     val bankBonds = PLN(100.0)
     val qeResult  = Nbp.executeQe(nbp, bankBonds, PLN(1e12))
-    qeResult.purchased.toDouble should be <= bankBonds.toDouble
+    qeResult.requestedPurchase.toDouble should be <= bankBonds.toDouble
   }
 
   it should "not exceed max GDP share" in {
@@ -91,14 +91,14 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
     val annualGdp = PLN(1000.0)
     val maxByGdp  = p.monetary.qeMaxGdpShare.toDouble * annualGdp.toDouble
     val qeResult  = Nbp.executeQe(nbp, PLN(1e12), annualGdp)
-    qeResult.purchased.toDouble should be <= maxByGdp
+    qeResult.requestedPurchase.toDouble should be <= maxByGdp
   }
 
   it should "accumulate in qeCumulative" in {
     val nbp      = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
     val qeResult = Nbp.executeQe(nbp, PLN(1e12), PLN(1e12))
-    qeResult.purchased.toDouble should be > 0.0
-    qeResult.state.qeCumulative shouldBe qeResult.purchased
+    qeResult.requestedPurchase.toDouble should be > 0.0
+    qeResult.nbpState.qeCumulative shouldBe qeResult.requestedPurchase
   }
 
   // --- NbpState defaults ---

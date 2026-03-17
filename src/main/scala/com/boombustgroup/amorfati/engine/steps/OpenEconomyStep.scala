@@ -338,10 +338,9 @@ object OpenEconomyStep:
       else if qeTaper then false
       else in.w.nbp.qeActive
     val preQeNbp         = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
-    val qeResult         = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, annualGdpForBonds)
-    val postQeNbp        = qeResult.state
-    val qePurchaseAmount = qeResult.purchased
-    val postFxNbp        = postQeNbp.copy(fxReserves = fxResult.newReserves, lastFxTraded = fxResult.eurTraded)
+    val qeRequest        = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, annualGdpForBonds)
+    val qePurchaseAmount = qeRequest.requestedPurchase
+    val postFxNbp        = qeRequest.nbpState.copy(fxReserves = fxResult.newReserves, lastFxTraded = fxResult.eurTraded)
 
     BondQeResult(newBondYield, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp)
 
