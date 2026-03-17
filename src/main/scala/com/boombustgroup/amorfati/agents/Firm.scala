@@ -88,9 +88,7 @@ object Firm:
   private val GoodHybridEffRange = 0.15 // good hybrid efficiency range
   private val GoodHybridDrBlend  = 0.5  // DR contribution weight in good hybrid efficiency
 
-  // Downsizing parameters
-  private val MaxWorkerCutFrac      = 0.30 // max 30% workforce cut per month
-  private val MinWorkersRetained    = 3    // minimum workers after downsizing
+  // Downsizing parameters (voluntary path only — forced uses FirmConfig.laborAdjustSpeed)
   private val VoluntaryDownsizeProb = 0.10 // monthly prob of voluntary downsizing
   private val VoluntaryDownsizeFrac = 0.05 // fraction cut in voluntary downsize
 
@@ -336,8 +334,9 @@ object Firm:
       case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, lendRate, bankCanLend, wkrs, aiEff, rng)
       case TechState.Traditional(wkrs)   => decideTraditional(firm, w, lendRate, bankCanLend, allFirms, wkrs, rng)
 
-  /** Attempt forced downsizing: cut up to 30% of workers, survive if net cash
-    * turns non-negative after labor savings minus lost revenue, else bankrupt.
+  /** Smooth labor adjustment: Δworkers = λ × (target − current), with severance
+    * costs. Target = break-even headcount from P&L. If adjustment insufficient
+    * to restore solvency, escalates to bankruptcy.
     */
   private def attemptDownsize(
       firm: State,
@@ -348,17 +347,26 @@ object Firm:
       wage: PLN,
       reason: BankruptReason,
       drUpdate: Option[Ratio] = None,
-  )(using SimParams): Decision =
-    if workers > MinWorkersRetained then
-      val laborPerWorker: PLN = wage * effectiveWageMult(firm.sector)
-      val maxCut              = Math.max(1, (workers * MaxWorkerCutFrac).toInt)
-      val newWkrs             = Math.max(MinWorkersRetained, workers - maxCut)
-      val laborSaved          = laborPerWorker * (workers - newWkrs).toDouble
-      val revRatio            = Math.sqrt(newWkrs.toDouble / workers.toDouble)
-      val revLost             = pnl.revenue * (1.0 - revRatio)
-      val adjustedNc          = nc + laborSaved - revLost
-      if adjustedNc >= PLN.Zero then Decision.Downsize(pnl, newWkrs, adjustedNc, newTech(newWkrs), drUpdate = drUpdate)
-      else Decision.GoBankrupt(pnl, nc, reason)
+  )(using p: SimParams): Decision =
+    val minRetained         = p.firm.minWorkersRetained
+    if workers <= minRetained then return Decision.GoBankrupt(pnl, nc, reason)
+    val laborPerWorker: PLN = wage * effectiveWageMult(firm.sector)
+    // Target headcount: workers needed for revenue to cover non-labor costs
+    val nonLaborCost        = (pnl.costs - laborPerWorker * workers.toDouble).max(PLN.Zero)
+    val revenuePerWorker    = if workers > 0 then pnl.revenue / workers.toDouble else PLN.Zero
+    val targetWorkers       = if revenuePerWorker > PLN.Zero then Math.ceil(nonLaborCost / revenuePerWorker).toInt else minRetained
+    // Smooth adjustment: cut λ of the gap, not the entire excess
+    val gap                 = workers - Math.max(minRetained, targetWorkers)
+    val cut                 = Math.max(1, (gap.toDouble * p.firm.laborAdjustSpeed.toDouble).toInt)
+    val newWkrs             = Math.max(minRetained, workers - cut)
+    // Severance cost = fired workers × wage × severanceMonths
+    val fired               = workers - newWkrs
+    val severancePay        = laborPerWorker * (fired.toDouble * p.firm.severanceMonths)
+    val laborSaved          = laborPerWorker * fired.toDouble
+    val revRatio            = Math.sqrt(newWkrs.toDouble / workers.toDouble)
+    val revLost             = pnl.revenue * (1.0 - revRatio)
+    val adjustedNc          = nc + laborSaved - revLost - severancePay
+    if adjustedNc >= PLN.Zero then Decision.Downsize(pnl, newWkrs, adjustedNc, newTech(newWkrs), drUpdate = drUpdate)
     else Decision.GoBankrupt(pnl, nc, reason)
 
   /** Estimate monthly operating cost for a hypothetical tech configuration.
@@ -559,10 +567,11 @@ object Firm:
       workers: Int,
       rng: Random,
   )(using p: SimParams): Decision =
-    val canReduce     = workers > MinWorkersRetained && pnl.netAfterTax < PLN.Zero
+    val minRetained   = p.firm.minWorkersRetained
+    val canReduce     = workers > minRetained && pnl.netAfterTax < PLN.Zero
     if canReduce && rng.nextDouble() < VoluntaryDownsizeProb then
       val reductionAmt = Math.max(1, (workers * VoluntaryDownsizeFrac).toInt)
-      val newWkrs      = Math.max(MinWorkersRetained, workers - reductionAmt)
+      val newWkrs      = Math.max(minRetained, workers - reductionAmt)
       return Decision.Downsize(pnl, newWkrs, firm.cash + pnl.netAfterTax, TechState.Traditional(newWkrs))
     val digiCost: PLN = computeDigiInvestCost(firm)
     val nc            = firm.cash + pnl.netAfterTax
