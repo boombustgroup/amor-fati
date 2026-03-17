@@ -93,6 +93,10 @@ case class FirmConfig(
     digiInvestBoost: Ratio = Ratio(0.05),
     digiCapexDiscount: Ratio = Ratio(0.30),
     digiInvestBaseProb: Ratio = Ratio(0.08),
+    // Labor adjustment (smooth hiring/firing)
+    laborAdjustSpeed: Ratio = Ratio(0.15), // monthly partial adjustment toward target (λ)
+    severanceMonths: Double = 2.0,         // months of wage per fired worker (Kodeks Pracy)
+    minWorkersRetained: Int = 3,           // hard floor on workforce
     // Network / demonstration effects
     networkK: Int = 6,
     networkRewireP: Ratio = Ratio(0.10),
