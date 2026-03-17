@@ -24,3 +24,5 @@ logs/
 out/
 .claude/
 mc/
+.bloop/
+.serena/
