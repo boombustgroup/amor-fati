@@ -3,9 +3,9 @@ package com.boombustgroup.amorfati.config
 /** Mechanism toggles for 49 model features.
   *
   * Each flag enables/disables an independently switchable mechanism in the
-  * SFC-ABM engine. Defaults reflect the full Polish economy baseline. Flags are
-  * used exclusively for counterfactual experiments — not for reproducing legacy
-  * behavior.
+  * SFC-ABM engine. Defaults reflect the full Polish economy baseline — all
+  * mechanisms enabled. Flags are used exclusively for counterfactual
+  * experiments — toggle OFF to isolate a channel's contribution.
   *
   * Grouped by domain:
   *
@@ -32,66 +32,66 @@ package com.boombustgroup.amorfati.config
   * '''Financial:''' `insurance`, `nbfi`, `re`, `reMortgage`, `reHhHousing`,
   * `reRegional`
   *
-  * '''Labor:''' `sectoralMobility`, `unions`, `expectations`
+  * '''Labor:''' `sectoralMobility`, `unions`, `expectations`, `sbtc`
   */
 case class FeatureFlags(
     // Firm & production
-    firmEntry: Boolean = false,
+    firmEntry: Boolean = true,
     physCap: Boolean = true,
-    inventory: Boolean = false,
-    informal: Boolean = false,
-    energy: Boolean = false,
+    inventory: Boolean = true,
+    informal: Boolean = true,
+    energy: Boolean = true,
     // Government
-    govInvest: Boolean = false,
-    euFunds: Boolean = false,
-    minWage: Boolean = false,
+    govInvest: Boolean = true,
+    euFunds: Boolean = true,
+    minWage: Boolean = true,
     govBondMarket: Boolean = true,
     govUnempBenefit: Boolean = true,
-    pit: Boolean = false,
-    social800: Boolean = false,
+    pit: Boolean = true,
+    social800: Boolean = true,
     social800ImmigEligible: Boolean = true,
     // Central bank (NBP)
     nbpSymmetric: Boolean = true,
-    nbpForwardGuidance: Boolean = false,
+    nbpForwardGuidance: Boolean = true,
     nbpQe: Boolean = true,
-    nbpFxIntervention: Boolean = false,
+    nbpFxIntervention: Boolean = true,
     // Banking
-    bankFailure: Boolean = false,
-    bankLcr: Boolean = false,
-    interbankTermStructure: Boolean = false,
-    creditDiagnostics: Boolean = false,
-    bailIn: Boolean = false,
-    macropru: Boolean = false,
-    jst: Boolean = false,
+    bankFailure: Boolean = true,
+    bankLcr: Boolean = true,
+    interbankTermStructure: Boolean = true,
+    creditDiagnostics: Boolean = true,
+    bailIn: Boolean = true,
+    macropru: Boolean = true,
+    jst: Boolean = true,
     // Social
     nfz: Boolean = true,
-    zus: Boolean = false,
-    ppk: Boolean = false,
-    demographics: Boolean = false,
+    zus: Boolean = true,
+    ppk: Boolean = true,
+    demographics: Boolean = true,
     // Markets
-    io: Boolean = false,
-    gpw: Boolean = false,
-    gpwEquityIssuance: Boolean = false,
-    gpwHhEquity: Boolean = false,
-    gpwDividends: Boolean = false,
+    io: Boolean = true,
+    gpw: Boolean = true,
+    gpwEquityIssuance: Boolean = true,
+    gpwHhEquity: Boolean = true,
+    gpwDividends: Boolean = true,
     // External
-    openEcon: Boolean = false,
-    gvc: Boolean = false,
-    immigration: Boolean = false,
-    immigEndogenous: Boolean = false,
-    fdi: Boolean = false,
-    remittance: Boolean = false,
-    tourism: Boolean = false,
+    openEcon: Boolean = true,
+    gvc: Boolean = true,
+    immigration: Boolean = true,
+    immigEndogenous: Boolean = true,
+    fdi: Boolean = true,
+    remittance: Boolean = true,
+    tourism: Boolean = true,
     // Financial
-    insurance: Boolean = false,
-    nbfi: Boolean = false,
-    re: Boolean = false,
+    insurance: Boolean = true,
+    nbfi: Boolean = true,
+    re: Boolean = true,
     reMortgage: Boolean = true,
     reHhHousing: Boolean = true,
-    reRegional: Boolean = false,
+    reRegional: Boolean = true,
     // Labor
-    sectoralMobility: Boolean = false,
-    unions: Boolean = false,
-    expectations: Boolean = false,
+    sectoralMobility: Boolean = true,
+    unions: Boolean = true,
+    expectations: Boolean = true,
     sbtc: Boolean = true,
 )

@@ -2,7 +2,6 @@ package com.boombustgroup.amorfati.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.boombustgroup.amorfati.agents.Firm
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
@@ -12,10 +11,6 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
   private val p: SimParams = summon[SimParams]
 
   // --- Config defaults ---
-
-  "UnionEnabled" should "be false by default" in {
-    p.flags.unions shouldBe false
-  }
 
   "UnionDensity" should "have 6 values" in {
     p.labor.unionDensity.map(_.toDouble).length shouldBe 6
@@ -37,11 +32,6 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
   }
 
   // --- effectiveWageMult ---
-
-  "effectiveWageMult" should "return base wageMultiplier when disabled" in {
-    // Default: UnionEnabled = false
-    for s <- p.sectorDefs.indices do Firm.effectiveWageMult(SectorIdx(s)).toDouble shouldBe p.sectorDefs(s).wageMultiplier
-  }
 
   // Note: union-enabled tests use pure formula verification since Config is static
 

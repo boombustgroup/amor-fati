@@ -24,28 +24,6 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   }
 
   // ==========================================================================
-  // Disabled state (default: MACROPRU_ENABLED=false)
-  // ==========================================================================
-
-  "osiiBuffer (disabled)" should "return 0 for all banks" in {
-    for id <- 0 to 6 do Macroprudential.osiiBuffer(id) shouldBe 0.0
-  }
-
-  "effectiveMinCar (disabled)" should "return base MinCar for all banks" in {
-    for id <- 0 to 6 do Macroprudential.effectiveMinCar(id, 0.02) shouldBe p.banking.minCar.toDouble
-  }
-
-  "step (disabled)" should "return prev unchanged" in {
-    val prev   = Macroprudential.State(Rate(0.01), 0.05, 0.40)
-    val result = Macroprudential.step(prev, 1000.0, 100.0)
-    result shouldBe prev
-  }
-
-  "withinConcentrationLimit (disabled)" should "always return true" in {
-    Macroprudential.withinConcentrationLimit(900.0, 100.0, 1000.0) shouldBe true
-  }
-
-  // ==========================================================================
   // OSII buffer (internal — bypasses Config guard)
   // ==========================================================================
 

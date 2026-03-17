@@ -65,10 +65,6 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
     p.banking.bfgLevyRate shouldBe Rate(0.0024)
   }
 
-  "BailInEnabled" should "default to false" in {
-    p.flags.bailIn shouldBe false
-  }
-
   "BailInDepositHaircut" should "default to 0.08" in {
     p.banking.bailInDepositHaircut shouldBe Ratio(0.08)
   }
@@ -156,15 +152,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   // Bail-in (6 tests)
   // ==========================================================================
 
-  "applyBailIn" should "return unchanged banks when BailInEnabled is false" in {
-    // BailInEnabled defaults to false
-    val banks  = Vector(mkBank(deposits = PLN(1000000.0), capital = PLN.Zero, status = BankStatus.Failed(5)))
-    val result = Banking.applyBailIn(banks)
-    result.banks(0).deposits shouldBe PLN(1000000.0)
-    result.totalLoss shouldBe PLN.Zero
-  }
-
-  it should "not touch non-failed banks" in {
+  "applyBailIn" should "not touch non-failed banks" in {
     val banks  = Vector(mkBank(deposits = PLN(500000.0), loans = PLN(100000), capital = PLN(50000)))
     val result = Banking.applyBailIn(banks)
     result.banks(0).deposits shouldBe PLN(500000.0)
@@ -198,16 +186,6 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
     val afterResolve = Banking.resolveFailures(afterBailIn.banks)
     afterResolve.banks(0).deposits shouldBe PLN.Zero       // failed bank wiped
     afterResolve.banks(1).deposits shouldBe PLN(3000000.0) // absorbed
-  }
-
-  it should "track total loss across multiple failed banks" in {
-    val banks  = Vector(
-      mkBank(id = 0, deposits = PLN(800000.0), capital = PLN.Zero, status = BankStatus.Failed(5)),
-      mkBank(id = 1, deposits = PLN(600000.0), capital = PLN.Zero, status = BankStatus.Failed(5)),
-      mkBank(id = 2, deposits = PLN(2000000.0), loans = PLN(200000), capital = PLN(200000)),
-    )
-    val result = Banking.applyBailIn(banks)
-    result.totalLoss shouldBe PLN.Zero // bail-in disabled by default
   }
 
   // ==========================================================================

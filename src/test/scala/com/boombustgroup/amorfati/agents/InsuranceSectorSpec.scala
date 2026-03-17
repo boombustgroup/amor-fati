@@ -171,7 +171,3 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     p.ins.nonLifeLossRatio should be > Ratio.Zero
     p.ins.nonLifeLossRatio should be <= Ratio.One
   }
-
-  it should "have InsEnabled default to false" in {
-    p.flags.insurance shouldBe false
-  }

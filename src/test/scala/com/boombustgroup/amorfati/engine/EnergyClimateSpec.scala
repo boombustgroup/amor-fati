@@ -17,10 +17,6 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   // Config defaults
   // ==========================================================================
 
-  "EnergyEnabled" should "default to false" in {
-    p.flags.energy shouldBe false
-  }
-
   "EnergyCostShares" should "have 6 elements" in {
     p.climate.energyCostShares.map(_.toDouble).length shouldBe 6
   }

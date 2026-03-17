@@ -17,10 +17,6 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // Config defaults
   // ==========================================================================
 
-  "InformalEnabled" should "default to false" in {
-    p.flags.informal shouldBe false
-  }
-
   "InformalSectorShares" should "have 6 elements" in {
     p.informal.sectorShares.map(_.toDouble).length shouldBe 6
   }
@@ -176,18 +172,6 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
   "Firm.Result" should "have citEvasion defaulting to 0.0" in {
     val r = Firm.Result.zero(mkFirm()).copy(taxPaid = PLN(100.0))
-    r.citEvasion.toDouble shouldBe 0.0
-  }
-
-  // ==========================================================================
-  // CIT evasion logic (disabled mode)
-  // ==========================================================================
-
-  "CIT evasion (disabled)" should "not reduce taxPaid when InformalEnabled=false" in {
-    // InformalEnabled defaults to false
-    p.flags.informal shouldBe false
-    val r = Firm.Result.zero(mkFirm()).copy(taxPaid = PLN(1000.0))
-    // Since InformalEnabled is false, citEvasion should remain 0
     r.citEvasion.toDouble shouldBe 0.0
   }
 

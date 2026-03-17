@@ -290,31 +290,6 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     agg.totalRemittances shouldBe PLN.Zero
   }
 
-  it should "not deduct remittances from immigrant HH when disabled" in {
-    val rng         = new Random(42)
-    val wage        = 8000.0
-    val hhs         = Vector(
-      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(wage)), savings = PLN(50000.0))
-        .copy(isImmigrant = true),
-    )
-    // ImmigEnabled is false by default → no remittance deduction
-    val (_, agg, _) = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), 0.4, rng)
-    agg.totalRemittances shouldBe PLN.Zero
-  }
-
-  it should "track totalRemittances in aggregates" in {
-    val rng         = new Random(42)
-    val hhs         = Vector(
-      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0))
-        .copy(isImmigrant = false),
-      mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(7000.0)), savings = PLN(50000.0))
-        .copy(isImmigrant = true),
-    )
-    // ImmigEnabled=false → totalRemittances=0 regardless of isImmigrant
-    val (_, agg, _) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
-    agg.totalRemittances shouldBe PLN.Zero
-  }
-
   // --- Household.giniSorted ---
 
   "Household.giniSorted" should "return 0 for equal values" in {

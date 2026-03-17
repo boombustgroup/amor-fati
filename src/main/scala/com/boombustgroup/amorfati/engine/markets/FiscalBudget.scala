@@ -75,6 +75,7 @@ object FiscalBudget:
       unempBenefitSpend: PLN = PLN.Zero,
       debtService: PLN = PLN.Zero,
       zusGovSubvention: PLN = PLN.Zero,
+      nfzGovSubvention: PLN = PLN.Zero,
       socialTransferSpend: PLN = PLN.Zero,
       euCofinancing: PLN = PLN.Zero,
       euProjectCapital: PLN = PLN.Zero,
@@ -94,7 +95,7 @@ object FiscalBudget:
       else (govBaseRaw, PLN.Zero)
 
     val totalSpend = in.unempBenefitSpend + in.socialTransferSpend +
-      govCurrent + govCapital + in.debtService + in.zusGovSubvention + in.euCofinancing
+      govCurrent + govCapital + in.debtService + in.zusGovSubvention + in.nfzGovSubvention + in.euCofinancing
     val totalRev   = in.citPaid + in.vat + in.nbpRemittance +
       in.exciseRevenue + in.customsDutyRevenue
     val deficit    = totalSpend - totalRev

@@ -74,15 +74,6 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   // --- processMortgageFlows properties ---
 
-  "HousingMarket.processMortgageFlows" should "return zeros when RE disabled (default)" in
-    forAll(genHousingState, Gen.choose(0.02, 0.15), Gen.choose(0.0, 0.50)) { (state, rate, unempRate) =>
-      val flows = HousingMarket.processMortgageFlows(state, Rate(rate), Ratio(unempRate))
-      // RE_ENABLED is false by default -> all zeros
-      flows.interest shouldBe PLN.Zero
-      flows.principal shouldBe PLN.Zero
-      flows.defaultLoss shouldBe PLN.Zero
-    }
-
   // --- Zero state invariant ---
 
   "HousingMarket.zero" should "have all fields equal to zero" in {

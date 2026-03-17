@@ -177,13 +177,3 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   }
 
   // --- FX / Open economy ---
-
-  it should "have FxInterventionActive = 0 when FX intervention is off" in {
-    assume(!p.flags.nbpFxIntervention, "FX intervention OFF required")
-    for t <- ts.indices do ts(t)(Col.FxInterventionActive.ordinal) shouldBe 0.0
-  }
-
-  it should "have zero NFA when open economy is off" in {
-    assume(!p.flags.openEcon, "OPEN_ECON=false required")
-    for t <- ts.indices do ts(t)(Col.NFA.ordinal) shouldBe 0.0
-  }

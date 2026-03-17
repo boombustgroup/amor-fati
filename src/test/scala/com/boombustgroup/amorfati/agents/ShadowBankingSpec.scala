@@ -223,11 +223,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   // ---- Config defaults ----
 
-  "Config" should "have NbfiEnabled=false by default" in {
-    p.flags.nbfi shouldBe false
-  }
-
-  it should "have correct TFI allocation shares" in {
+  "Config" should "have correct TFI allocation shares" in {
     p.nbfi.tfiGovBondShare shouldBe Ratio(0.40)
     p.nbfi.tfiCorpBondShare shouldBe Ratio(0.10)
     p.nbfi.tfiEquityShare shouldBe Ratio(0.10)

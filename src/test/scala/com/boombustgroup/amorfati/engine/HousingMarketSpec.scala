@@ -25,16 +25,6 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     mortgageInterestIncome = PLN.Zero,
   )
 
-  private def mkStepInput(
-      prev: HousingMarket.State = initState,
-      mortgageRate: Double = 0.0825,
-      inflation: Double = 0.025,
-      incomeGrowth: Double = 0.002,
-      employed: Int = 90000,
-      prevMortgageRate: Double = 0.0825,
-  ): HousingMarket.StepInput =
-    HousingMarket.StepInput(prev, Rate(mortgageRate), Rate(inflation), Rate(incomeGrowth), employed, Rate(prevMortgageRate))
-
   @annotation.nowarn("msg=unused private member") // defaults used by callers
   private def mkFlows(
       interest: Double = 0.0,
@@ -60,31 +50,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     z.regions shouldBe None
   }
 
-  "HousingMarket.step" should "return zero when RE_ENABLED=false" in {
-    // p.flags.re is false by default
-    val result = HousingMarket.step(mkStepInput())
-    result shouldBe HousingMarket.zero
-  }
-
-  "HousingMarket.processOrigination" should "return zero origination when RE_ENABLED=false" in {
-    val result = HousingMarket.processOrigination(initState, PLN(1e9), Rate(0.0825), true)
-    result.lastOrigination shouldBe PLN.Zero
-  }
-
-  it should "return zero origination when bankCapacity is false" in {
-    // Even with RE_ENABLED=false, this guard fires first
-    val result = HousingMarket.processOrigination(initState, PLN(1e9), Rate(0.0825), false)
-    result.lastOrigination shouldBe PLN.Zero
-  }
-
-  "HousingMarket.processMortgageFlows" should "return zeros when RE_ENABLED=false" in {
-    val flows = HousingMarket.processMortgageFlows(initState, Rate(0.0825), Ratio(0.05))
-    flows.interest shouldBe PLN.Zero
-    flows.principal shouldBe PLN.Zero
-    flows.defaultLoss shouldBe PLN.Zero
-  }
-
-  it should "return zeros for zero mortgage stock" in {
+  "HousingMarket.processMortgageFlows" should "return zeros for zero mortgage stock" in {
     val zeroStock = initState.copy(mortgageStock = PLN.Zero)
     val flows     = HousingMarket.processMortgageFlows(zeroStock, Rate(0.0825), Ratio(0.05))
     flows.interest shouldBe PLN.Zero
@@ -258,16 +224,6 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
 
     val regDefaultSum = result.regions.get.map(_.lastDefault.toDouble).sum
     regDefaultSum shouldBe (5000.0 +- 0.01)
-  }
-
-  "processOrigination with regions" should "zero out regional origination when disabled" in {
-    val state  = makeRegionalState(1e9, 4e8)
-    // RE_ENABLED is false by default
-    val result = HousingMarket.processOrigination(state, PLN(1e7), Rate(0.08), true)
-    result.lastOrigination shouldBe PLN.Zero
-    result.regions.get.foreach { r =>
-      r.lastOrigination shouldBe PLN.Zero
-    }
   }
 
   "Mortgage stock identity with regions" should "hold per-region" in {

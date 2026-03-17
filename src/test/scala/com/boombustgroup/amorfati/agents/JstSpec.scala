@@ -10,13 +10,6 @@ class JstSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
 
-  "Jst.step" should "return zero deposit change when disabled" in {
-    // JST_ENABLED is false by default
-    val result = Jst.step(Jst.State.zero, PLN(1e8), PLN(1e9), PLN(1e10), 5000, PLN.Zero)
-    result.depositChange shouldBe PLN.Zero
-    result.state shouldBe Jst.State.zero
-  }
-
   "Jst.State.zero" should "have all zero fields" in {
     val z = Jst.State.zero
     z.deposits shouldBe PLN.Zero

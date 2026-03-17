@@ -17,10 +17,6 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // Config defaults
   // ==========================================================================
 
-  "FirmEntryEnabled" should "default to false" in {
-    p.flags.firmEntry shouldBe false
-  }
-
   "FirmEntryRate" should "default to 0.02" in {
     p.firm.entryRate.toDouble shouldBe 0.02
   }
@@ -304,16 +300,6 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
         accumulatedLoss = PLN.Zero,
       ),
     ) shouldBe 0
-  }
-
-  // ==========================================================================
-  // Disabled: no births
-  // ==========================================================================
-
-  "FirmEntry disabled" should "produce zero births column" in {
-    // When FirmEntryEnabled=false, firmBirths stays 0
-    p.flags.firmEntry shouldBe false
-    // In a default run, births column (171) should be 0
   }
 
   // ==========================================================================
