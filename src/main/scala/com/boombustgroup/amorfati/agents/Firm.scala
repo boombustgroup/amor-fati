@@ -338,7 +338,7 @@ object Firm:
     * costs. Target = break-even headcount from P&L. If adjustment insufficient
     * to restore solvency, escalates to bankruptcy.
     */
-  private def attemptDownsize(
+  private[amorfati] def attemptDownsize(
       firm: State,
       pnl: PnL,
       nc: PLN,
