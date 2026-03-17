@@ -35,6 +35,35 @@ object SocialSecurity:
       ZusState(newBalance, contributions, pensions, govSubvention)
 
   // ---------------------------------------------------------------------------
+  // NFZ (Narodowy Fundusz Zdrowia — National Health Fund)
+  // ---------------------------------------------------------------------------
+
+  /** NFZ state: health insurance fund balance and monthly flows. */
+  case class NfzState(
+      balance: PLN,       // cumulative surplus/deficit (contributions − spending)
+      contributions: PLN, // this month's 9% składka zdrowotna
+      spending: PLN,      // this month's health sector contracts
+      govSubvention: PLN, // government covers deficit when contributions < spending
+  )
+  object NfzState:
+    val zero: NfzState = NfzState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+
+  /** Compute NFZ monthly flows. 9% składka zdrowotna from employed workers.
+    * Spending = per-capita cost × (working-age + retirees × aging elasticity).
+    * Aging drives cost pressure: retirees consume ~2.5× more healthcare.
+    * Deficit covered by government subvention (flows into GovDebt identity).
+    */
+  def nfzStep(prevBalance: PLN, employed: Int, wage: PLN, workingAge: Int, nRetirees: Int)(using p: SimParams): NfzState =
+    if !p.flags.nfz then NfzState(prevBalance, PLN.Zero, PLN.Zero, PLN.Zero)
+    else
+      val contributions       = wage * p.social.nfzContribRate * employed.toDouble
+      val effectivePopulation = workingAge.toDouble + nRetirees.toDouble * p.social.nfzAgingElasticity
+      val spending            = p.social.nfzPerCapitaCost * effectivePopulation
+      val monthlyFlow         = contributions - spending
+      val govSubvention       = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
+      NfzState(prevBalance + monthlyFlow, contributions, spending, govSubvention)
+
+  // ---------------------------------------------------------------------------
   // PPK
   // ---------------------------------------------------------------------------
 

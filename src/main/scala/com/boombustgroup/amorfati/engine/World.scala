@@ -51,6 +51,7 @@ case class World(
 case class SocialState(
     jst: Jst.State,                                // local government (JST): budget, debt, deposits
     zus: SocialSecurity.ZusState,                  // ZUS: contributions, pensions, FUS balance
+    nfz: SocialSecurity.NfzState,                  // NFZ: health insurance contributions, spending, balance
     ppk: SocialSecurity.PpkState,                  // PPK: employee contributions, gov bond portfolio
     demographics: SocialSecurity.DemographicsState, // working-age, retirees, monthly retirements
 )
@@ -58,6 +59,7 @@ object SocialState:
   val zero: SocialState = SocialState(
     jst = Jst.State.zero,
     zus = SocialSecurity.ZusState.zero,
+    nfz = SocialSecurity.NfzState.zero,
     ppk = SocialSecurity.PpkState.zero,
     demographics = SocialSecurity.DemographicsState.zero,
   )

@@ -18,6 +18,13 @@ import com.boombustgroup.amorfati.types.*
   *   average monthly pension payment (PLN, ZUS 2024: ~3,500)
   * @param zusScale
   *   scaling factor for pension payments (for sensitivity analysis)
+  * @param nfzContribRate
+  *   NFZ health insurance contribution rate (9%, Ustawa o swiadczeniach opieki
+  *   zdrowotnej Art. 79)
+  * @param nfzPerCapitaCost
+  *   monthly per-capita health spending (NFZ 2024: ~180 mld PLN/yr / 38M pop)
+  * @param nfzAgingElasticity
+  *   retiree health cost multiplier vs working-age (empirical: ~2.5×, OECD)
   * @param ppkEmployeeRate
   *   PPK employee contribution rate (Ustawa o PPK: 2%)
   * @param ppkEmployerRate
@@ -54,6 +61,10 @@ case class SocialConfig(
     zusEmployeeRate: Rate = Rate(0.1371), // employee portion deducted from PIT base (emerytura 9.76% + rentowe 1.5% + chorobowe 2.45%)
     zusBasePension: PLN = PLN(3500.0),
     zusScale: Double = 1.0,
+    // NFZ (Ustawa o swiadczeniach opieki zdrowotnej, Art. 79)
+    nfzContribRate: Rate = Rate(0.09),
+    nfzPerCapitaCost: PLN = PLN(1250.0),
+    nfzAgingElasticity: Double = 2.5,
     // PPK (Ustawa o PPK)
     ppkEmployeeRate: Rate = Rate(0.02),
     ppkEmployerRate: Rate = Rate(0.015),

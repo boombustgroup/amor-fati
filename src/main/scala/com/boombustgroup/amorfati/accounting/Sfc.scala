@@ -62,6 +62,7 @@ object Sfc:
       jstDeposits: PLN,              // local government (JST) deposits at banks
       jstDebt: PLN,                  // local government (JST) cumulative debt
       fusBalance: PLN,               // ZUS/FUS raw surplus/deficit
+      nfzBalance: PLN,               // NFZ health fund surplus/deficit
       ppkBondHoldings: PLN,          // PPK government bond holdings
       mortgageStock: PLN,            // Outstanding mortgage debt
       consumerLoans: PLN,            // Outstanding consumer credit stock
@@ -104,6 +105,9 @@ object Sfc:
       zusContributions: PLN,        // ZUS contributions
       zusPensionPayments: PLN,      // ZUS pension payments
       zusGovSubvention: PLN,        // ZUS gov subvention
+      nfzContributions: PLN,        // NFZ health insurance contributions
+      nfzSpending: PLN,             // NFZ health spending
+      nfzGovSubvention: PLN,        // NFZ gov subvention
       dividendIncome: PLN,          // net domestic dividends → HH deposits
       foreignDividendOutflow: PLN,  // foreign dividends → CA outflow
       dividendTax: PLN,             // Belka tax → gov revenue
@@ -149,7 +153,7 @@ object Sfc:
     */
   enum SfcIdentity:
     case BankCapital, BankDeposits, GovDebt, Nfa, BondClearing,
-      InterbankNetting, JstDebt, FusBalance, MortgageStock,
+      InterbankNetting, JstDebt, FusBalance, NfzBalance, MortgageStock,
       FlowOfFunds, ConsumerCredit, CorpBondStock, NbfiCredit
 
   /** A single identity violation, carrying the identity that failed, a
@@ -202,6 +206,7 @@ object Sfc:
       jstDeposits = w.social.jst.deposits,
       jstDebt = w.social.jst.debt,
       fusBalance = w.social.zus.fusBalance,
+      nfzBalance = w.social.nfz.balance,
       ppkBondHoldings = w.social.ppk.bondHoldings,
       mortgageStock = w.real.housing.mortgageStock,
       consumerLoans = w.bank.consumerLoans,
@@ -347,7 +352,15 @@ object Sfc:
         actual = curr.fusBalance - prev.fusBalance,
         tolerance,
       ),
-      // 9. Mortgage stock: origination − repayment − default
+      // 9. NFZ balance: contributions − spending
+      IdentitySpec(
+        NfzBalance,
+        "NFZ balance change (contributions - spending)",
+        expected = flows.nfzContributions - flows.nfzSpending,
+        actual = curr.nfzBalance - prev.nfzBalance,
+        tolerance,
+      ),
+      // 10. Mortgage stock: origination − repayment − default
       IdentitySpec(
         MortgageStock,
         "mortgage stock change",
