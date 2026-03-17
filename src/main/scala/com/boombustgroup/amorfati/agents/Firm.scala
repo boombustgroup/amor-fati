@@ -403,6 +403,7 @@ object Firm:
       w.flows.sectorDemandMult(firm.sector.toInt),
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
+      w.external.gvc.commodityPriceIndex,
       lendRate,
       w.month,
     )
@@ -426,6 +427,7 @@ object Firm:
       w.flows.sectorDemandMult(firm.sector.toInt),
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
+      w.external.gvc.commodityPriceIndex,
       lendRate,
       w.month,
     )
@@ -632,6 +634,7 @@ object Firm:
       w.flows.sectorDemandMult(firm.sector.toInt),
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
+      w.external.gvc.commodityPriceIndex,
       lendRate,
       w.month,
     )
@@ -794,7 +797,7 @@ object Firm:
   /** Energy cost including EU ETS carbon surcharge, net of green capital
     * discount.
     */
-  private def energyAndEtsCost(firm: State, revenue: PLN, month: Int)(using p: SimParams): PLN =
+  private def energyAndEtsCost(firm: State, revenue: PLN, month: Int, commodityPrice: PriceIndex)(using p: SimParams): PLN =
     if !p.flags.energy then return PLN.Zero
     val baseEnergy: PLN      = revenue * p.climate.energyCostShares(firm.sector.toInt)
     val etsPrice             = p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, month.toDouble)
@@ -804,7 +807,7 @@ object Firm:
       if targetGK > PLN.Zero then p.climate.greenMaxDiscount * Math.min(1.0, firm.greenCapital / targetGK)
       else Ratio.Zero
     else Ratio.Zero
-    baseEnergy * ((1.0 + Math.max(0.0, carbonSurcharge)) * (Ratio.One - greenDiscount).toDouble)
+    baseEnergy * ((1.0 + Math.max(0.0, carbonSurcharge)) * (Ratio.One - greenDiscount).toDouble) * commodityPrice.toDouble
 
   /** Monthly P&L: revenue minus all cost categories, CIT on positive profit. */
   private def computePnL(
@@ -813,6 +816,7 @@ object Firm:
       sectorDemandMult: Double,
       domesticPrice: PriceIndex,
       importPrice: PriceIndex,
+      commodityPrice: PriceIndex,
       lendRate: Rate,
       month: Int,
   )(using p: SimParams): PnL =
@@ -824,7 +828,7 @@ object Firm:
     val interest: PLN        = (firm.debt + firm.bondDebt) * (lendRate / 12.0)
     val inventoryCost: PLN   =
       if p.flags.inventory then firm.inventory * (p.capital.inventoryCarryingCost / 12.0) else PLN.Zero
-    val energyCost: PLN      = energyAndEtsCost(firm, revenue, month)
+    val energyCost: PLN      = energyAndEtsCost(firm, revenue, month, commodityPrice)
     val prePsCosts           =
       labor + otherCosts(firm, domesticPrice) + depnCost + aiMaintenanceCost(firm, domesticPrice, importPrice) + interest + inventoryCost + energyCost
     val grossProfit          = revenue - prePsCosts
