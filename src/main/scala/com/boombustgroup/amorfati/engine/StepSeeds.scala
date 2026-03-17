@@ -20,6 +20,7 @@ object StepSeeds:
   val LaborSearch: Int   = 4
   val Immigration: Int   = 5
   val BankLend: Int      = 6
+  val Commodity: Int     = 7
 
   /** Derive a deterministic sub-seed for a component in a given month.
     *

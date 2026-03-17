@@ -19,7 +19,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
       price: Double = 1.0,
       autoR: Double = 0.0,
       month: Int = 30,
-  ) = GvcTrade.StepInput(prev, sectorOutputs, price, er, autoR, month)
+  ) = GvcTrade.StepInput(prev, sectorOutputs, price, er, autoR, month, rng = new scala.util.Random(42))
 
   // ---- Initialization ----
 
@@ -27,7 +27,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
     val s = GvcTrade.zero
     s.foreignFirms shouldBe empty
     s.totalExports.toDouble shouldBe 0.0
-    s.foreignPriceIndex shouldBe 1.0
+    s.foreignPriceIndex shouldBe PriceIndex.Base
   }
 
   "GvcTrade.initial" should "create 12 foreign firms (6 sectors x 2 partners)" in {
@@ -76,7 +76,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
 
   it should "evolve foreign price index upward" in {
     val r = GvcTrade.step(baseInput())
-    r.foreignPriceIndex should be > 1.0
+    r.foreignPriceIndex.toDouble should be > 1.0
   }
 
   it should "have 6-element sector exports" in {
@@ -104,5 +104,5 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
 
   it should "have import cost index >= 1.0 (foreign inflation)" in {
     val r = GvcTrade.step(baseInput())
-    r.importCostIndex should be >= 1.0
+    r.importCostIndex.toDouble should be >= 1.0
   }

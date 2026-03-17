@@ -23,7 +23,6 @@ object GvcTrade:
   private val NumPartners           = 2
   private val AutomationExportBoost = 0.15 // export uplift per unit automation ratio
   private val MinErEffect           = 0.1  // floor on ER pass-through multiplier
-  private val MonthsPerYear         = 12.0
 
   case class ForeignFirm(
       id: Int,
@@ -42,10 +41,11 @@ object GvcTrade:
       sectorExports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
       sectorImports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
       disruptionIndex: Ratio = Ratio.Zero,
-      foreignPriceIndex: Double = 1.0,
+      foreignPriceIndex: PriceIndex = PriceIndex.Base,
       tradeConcentration: Ratio = Ratio.Zero,
       exportDemandShockMag: Ratio = Ratio.Zero,
-      importCostIndex: Double = 1.0,
+      importCostIndex: PriceIndex = PriceIndex.Base,
+      commodityPriceIndex: PriceIndex = PriceIndex.Base,
   )
 
   def zero: State = State(Vector.empty)
@@ -74,7 +74,7 @@ object GvcTrade:
         disruption = Ratio.Zero,
       )
 
-    State(firms, foreignPriceIndex = 1.0, tradeConcentration = hhi(euShare))
+    State(firms, foreignPriceIndex = PriceIndex.Base, tradeConcentration = hhi(euShare))
 
   case class StepInput(
       prev: State,
@@ -83,16 +83,25 @@ object GvcTrade:
       exchangeRate: Double,
       autoRatio: Double,
       month: Int,
+      rng: scala.util.Random,
   )
 
   def step(in: StepInput)(using p: SimParams): State =
     val nSectors         = in.prev.sectorExports.size
-    val monthlyInflation = p.gvc.foreignInflation.toDouble / MonthsPerYear
+    val monthlyInflation = p.gvc.foreignInflation.monthly.toDouble
     val newForeignPrice  = in.prev.foreignPriceIndex * (1.0 + monthlyInflation)
+    // Commodity price: GBM drift + volatility + optional shock
+    val commodityDrift   = p.gvc.commodityDrift.monthly.toDouble
+    val commodityNoise   = p.gvc.commodityVolatility * in.rng.nextGaussian()
+    val commodityShock   =
+      if p.gvc.commodityShockMonth > 0 && in.month == p.gvc.commodityShockMonth then p.gvc.commodityShockMag
+      else 0.0
+    val newCommodity     = in.prev.commodityPriceIndex * (1.0 + commodityDrift + commodityNoise + commodityShock)
+    val newImportCost    = newForeignPrice * newCommodity
     val shockActive      = p.gvc.demandShockMonth > 0 && in.month >= p.gvc.demandShockMonth
     val shockMag         = if shockActive then p.gvc.demandShockSize else Ratio.Zero
     val updatedFirms     = evolveFirms(in.prev.foreignFirms, monthlyInflation, shockActive, in.month)
-    val foreignGdpFactor = Math.pow(1.0 + p.gvc.foreignGdpGrowth.toDouble / MonthsPerYear, in.month.toDouble)
+    val foreignGdpFactor = Math.pow(1.0 + p.gvc.foreignGdpGrowth.monthly.toDouble, in.month.toDouble)
     val erEffect         = realExchangeRateEffect(in.priceLevel, in.exchangeRate)
     val exports          = computeSectorExports(updatedFirms, nSectors, foreignGdpFactor, erEffect, in.autoRatio)
     val imports          = computeSectorImports(updatedFirms, nSectors, in.sectorOutputs, in.priceLevel, in.exchangeRate)
@@ -108,7 +117,8 @@ object GvcTrade:
       foreignPriceIndex = newForeignPrice,
       tradeConcentration = hhi(euShare),
       exportDemandShockMag = shockMag,
-      importCostIndex = newForeignPrice,
+      importCostIndex = newImportCost,
+      commodityPriceIndex = newCommodity,
     )
 
   // --- Private helpers ---
