@@ -8,6 +8,8 @@ import com.boombustgroup.amorfati.engine.mechanisms.Expectations
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.KahanSum.*
 
+import scala.util.Random
+
 /** Open economy step: monetary policy (Taylor rule, expectations), bond market
   * (yield, QE), external sector (forex, BOP, GVC trade), corporate bonds, and
   * non-bank financial institutions (insurance, NBFI/TFI). Integrates all
@@ -28,6 +30,7 @@ object OpenEconomyStep:
       s5: FirmProcessingStep.Output,     // firm processing (loans, NPL, bond issuance, I-O firms)
       s6: HouseholdFinancialStep.Output, // household financial (debt service, remittances, tourism)
       s7: PriceEquityStep.Output,        // price/equity (inflation, GDP, equity state, macropru)
+      commodityRng: Random,              // deterministic RNG for commodity price noise
   )
 
   case class MonetaryPolicy(
@@ -192,6 +195,7 @@ object OpenEconomyStep:
           exchangeRate = in.w.forex.exchangeRate,
           autoRatio = in.s7.autoR.toDouble,
           month = in.s1.m,
+          rng = in.commodityRng,
         ),
       )
     else in.w.external.gvc

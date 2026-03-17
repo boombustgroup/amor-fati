@@ -135,6 +135,7 @@ object Simulation:
     val firmRng                        = new Random(StepSeeds.derive(masterSeed, month, StepSeeds.Firm))
     val rewRng                         = new Random(StepSeeds.derive(masterSeed, month, StepSeeds.Rewire))
     val waRng                          = new Random(StepSeeds.derive(masterSeed, month, StepSeeds.WorldAssembly))
+    val commodityRng                   = new Random(StepSeeds.derive(masterSeed, month, StepSeeds.Commodity))
 
     val s1  = S1.run(S1.Input(w))
     val s2  = S2.run(S2.Input(w, firms, households, s1))
@@ -143,7 +144,7 @@ object Simulation:
     val s5  = S5.run(S5.Input(w, firms, households, s1, s2, s3, s4), firmRng)
     val s6  = S6.run(S6.Input(w, s1, s2, s3))
     val s7  = S7.run(S7.Input(w, s1, s2, s3, s4, s5), rewRng)
-    val s8  = S8.run(S8.Input(w, s1, s2, s3, s4, s5, s6, s7))
+    val s8  = S8.run(S8.Input(w, s1, s2, s3, s4, s5, s6, s7, commodityRng))
     val s9  = S9.run(S9.Input(w, s1, s2, s3, s4, s5, s6, s7, s8))
     val s10 = S10.run(S10.Input(w, firms, households, s1, s2, s3, s4, s5, s6, s7, s8, s9), waRng)
     StepResult(SimState(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds), s10.sfcResult)

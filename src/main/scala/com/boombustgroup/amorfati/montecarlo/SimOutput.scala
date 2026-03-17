@@ -97,10 +97,11 @@ object SimOutput:
     ColumnDef("FDI", ctx => ctx.world.bop.fdi.toDouble),
     // GVC / Deep External Sector
     ColumnDef("GvcDisruptionIndex", ctx => ctx.world.external.gvc.disruptionIndex.toDouble),
-    ColumnDef("ForeignPriceIndex", ctx => ctx.world.external.gvc.foreignPriceIndex),
+    ColumnDef("ForeignPriceIndex", ctx => ctx.world.external.gvc.foreignPriceIndex.toDouble),
     ColumnDef("GvcTradeConcentration", ctx => ctx.world.external.gvc.tradeConcentration.toDouble),
     ColumnDef("GvcExportDemandShock", ctx => ctx.world.external.gvc.exportDemandShockMag.toDouble),
-    ColumnDef("GvcImportCostIndex", ctx => ctx.world.external.gvc.importCostIndex),
+    ColumnDef("GvcImportCostIndex", ctx => ctx.world.external.gvc.importCostIndex.toDouble),
+    ColumnDef("CommodityPriceIndex", ctx => ctx.world.external.gvc.commodityPriceIndex.toDouble),
     // Immigration
     ColumnDef("ImmigrantStock", ctx => ctx.world.external.immigration.immigrantStock.toDouble),
     ColumnDef("MonthlyImmigInflow", ctx => ctx.world.external.immigration.monthlyInflow.toDouble),

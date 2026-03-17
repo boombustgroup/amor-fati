@@ -47,6 +47,11 @@ case class GvcConfig(
     demandShockSize: Ratio = Ratio(0.0),
     demandShockSectors: Set[Int] = Set.empty,
     disruptionRecovery: Ratio = Ratio(0.05),
+    // Commodity prices (energy, food, metals) — Poland imports ~95% of oil/gas
+    commodityDrift: Rate = Rate(0.02),  // annual commodity price drift (2%/yr, long-run trend)
+    commodityVolatility: Double = 0.03, // monthly volatility (σ) for geometric Brownian motion
+    commodityShockMonth: Int = 0,       // month when commodity price shock hits (0 = no shock)
+    commodityShockMag: Double = 0.0,    // shock magnitude as fraction (e.g., 3.0 = +300% gas price, 2022-style)
 ):
   require(exportShares.length == 6, s"exportShares must have 6 sectors: ${exportShares.length}")
   require(depth.length == 6, s"depth must have 6 sectors: ${depth.length}")

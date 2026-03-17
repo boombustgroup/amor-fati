@@ -157,3 +157,23 @@ object types:
       def toFloat(x: Ratio): Float                = x.toDouble.toFloat
       def toDouble(x: Ratio): Double              = x.toDouble
       def compare(x: Ratio, y: Ratio): Int        = java.lang.Double.compare(x, y)
+
+  // === Price indices (base = 1.0, dimensionless multiplicative factors) ===
+  opaque type PriceIndex = Double
+  object PriceIndex:
+    inline def apply(d: Double): PriceIndex = d
+    val Base: PriceIndex                    = 1.0
+    extension (p: PriceIndex)
+      @targetName("priceIdxTimesIdx")
+      inline def *(other: PriceIndex): PriceIndex = PriceIndex(p * other)
+      @targetName("priceIdxTimesRate")
+      inline def *(r: Rate): PriceIndex           = PriceIndex(p * (r: Double))
+      @targetName("priceIdxTimesScalar")
+      inline def *(scalar: Double): PriceIndex    = PriceIndex(p * scalar)
+      @targetName("priceIdxTimesPln")
+      inline def *(pln: PLN): PLN                 = pln * (p: Double)
+      @targetName("priceIdxDivIdx")
+      inline def /(other: PriceIndex): Double     = (p: Double) / (other: Double)
+      inline def toDouble: Double                 = p
+      inline def >(other: PriceIndex): Boolean    = p > other
+      inline def <(other: PriceIndex): Boolean    = p < other
