@@ -322,7 +322,7 @@ object Sfc:
       // 5. Bond clearing: holders = outstanding (level, not delta)
       IdentitySpec(
         BondClearing,
-        s"bond clearing (holders vs outstanding) [bank=${curr.bankBondHoldings}, nbp=${curr.nbpBondHoldings}, ppk=${curr.ppkBondHoldings}, ins=${curr.insuranceGovBondHoldings}, tfi=${curr.tfiGovBondHoldings}, outstanding=${curr.bondsOutstanding}]",
+        "bond clearing (holders vs outstanding)",
         expected = curr.bondsOutstanding,
         actual = curr.bankBondHoldings + curr.nbpBondHoldings + curr.ppkBondHoldings +
           curr.insuranceGovBondHoldings + curr.tfiGovBondHoldings,

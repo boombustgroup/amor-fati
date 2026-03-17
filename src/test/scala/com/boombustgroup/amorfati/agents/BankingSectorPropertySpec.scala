@@ -157,6 +157,6 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   "allocateQePurchases" should "not make any bank's bond holdings negative" in
     forAll(genBanking.State, Gen.choose(0.0, 1e9)) { (bs: Banking.State, qe: Double) =>
-      val result = Banking.allocateQePurchases(bs.banks, PLN(qe)).banks
+      val result = Banking.allocateQePurchases(bs.banks, PLN(qe))
       result.foreach(_.govBondHoldings should be >= PLN.Zero)
     }
