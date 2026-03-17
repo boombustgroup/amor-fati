@@ -64,6 +64,7 @@ case class FeatureFlags(
     macropru: Boolean = false,
     jst: Boolean = false,
     // Social
+    nfz: Boolean = false,
     zus: Boolean = false,
     ppk: Boolean = false,
     demographics: Boolean = false,

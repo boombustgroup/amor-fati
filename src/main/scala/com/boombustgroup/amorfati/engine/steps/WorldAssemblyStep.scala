@@ -179,6 +179,7 @@ object WorldAssemblyStep:
       social = SocialState(
         jst = in.s9.newJst,
         zus = in.s2.newZus,
+        nfz = in.s2.newNfz,
         ppk = in.s9.finalPpk,
         demographics = in.s2.newDemographics,
       ),
@@ -262,7 +263,7 @@ object WorldAssemblyStep:
         in.s9.newGovWithYield.unempBenefitSpend.toDouble
           + in.s9.newGovWithYield.socialTransferSpend.toDouble
           + in.s4.govPurchases.toDouble + in.s8.banking.monthlyDebtService.toDouble + in.s2.newZus.govSubvention.toDouble
-          + in.s7.euCofin.toDouble,
+          + in.s2.newNfz.govSubvention.toDouble + in.s7.euCofin.toDouble,
       ),
       govRevenue = PLN(
         in.s5.sumTax.toDouble + in.s7.dividendTax.toDouble + in.s9.pitAfterEvasion.toDouble + in.s9.vatAfterEvasion.toDouble + in.s8.banking.nbpRemittance.toDouble + in.s9.exciseAfterEvasion.toDouble + in.s9.customsDutyRevenue.toDouble,
@@ -289,6 +290,9 @@ object WorldAssemblyStep:
       zusContributions = in.s2.newZus.contributions,
       zusPensionPayments = in.s2.newZus.pensionPayments,
       zusGovSubvention = in.s2.newZus.govSubvention,
+      nfzContributions = in.s2.newNfz.contributions,
+      nfzSpending = in.s2.newNfz.spending,
+      nfzGovSubvention = in.s2.newNfz.govSubvention,
       dividendIncome = in.s7.netDomesticDividends,
       foreignDividendOutflow = in.s7.foreignDividendOutflow,
       dividendTax = in.s7.dividendTax,

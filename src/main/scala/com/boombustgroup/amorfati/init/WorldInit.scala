@@ -122,6 +122,7 @@ object WorldInit:
       social = SocialState(
         jst = Jst.State.zero,
         zus = SocialSecurity.ZusState.zero,
+        nfz = SocialSecurity.NfzState.zero,
         ppk = SocialSecurity.PpkState.zero,
         demographics = initDemographics,
       ),

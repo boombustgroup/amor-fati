@@ -30,6 +30,7 @@ object LaborDemographicsStep:
       netMigration: Int,                                 // net migration this month (inflow minus outflow)
       newDemographics: SocialSecurity.DemographicsState, // updated demographics (working-age pop, retirees)
       newZus: SocialSecurity.ZusState,                   // updated ZUS pension system (contributions, payouts)
+      newNfz: SocialSecurity.NfzState,                   // updated NFZ health insurance (contributions, spending)
       newPpk: SocialSecurity.PpkState,                   // updated PPK capital pillar (bond holdings)
       rawPpkBondPurchase: PLN,                           // PPK monthly gov bond purchase before supply cap
       living: Vector[Firm.State],                        // surviving firms (bankrupt firms filtered out)
@@ -78,6 +79,7 @@ object LaborDemographicsStep:
     val newDemographics = SocialSecurity.demographicsStep(in.w.social.demographics, employed, netMigration)
 
     val newZus             = SocialSecurity.zusStep(in.w.social.zus.fusBalance, employed, PLN(newWage), newDemographics.retirees)
+    val newNfz             = SocialSecurity.nfzStep(in.w.social.nfz.balance, employed, PLN(newWage), newDemographics.workingAgePop, newDemographics.retirees)
     val newPpk             = SocialSecurity.ppkStep(in.w.social.ppk.bondHoldings, employed, PLN(newWage))
     val rawPpkBondPurchase = SocialSecurity.ppkBondPurchase(newPpk).toDouble
 
@@ -92,6 +94,7 @@ object LaborDemographicsStep:
       netMigration,
       newDemographics,
       newZus,
+      newNfz,
       newPpk,
       PLN(rawPpkBondPurchase),
       living,
