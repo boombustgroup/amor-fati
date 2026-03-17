@@ -21,7 +21,7 @@ package com.boombustgroup.amorfati.config
   * '''Banking:''' `bankFailure`, `bankLcr`, `interbankTermStructure`,
   * `creditDiagnostics`, `bailIn`, `macropru`, `jst`
   *
-  * '''Social:''' `zus`, `ppk`, `demographics`
+  * '''Social:''' `nfz`, `zus`, `ppk`, `demographics`
   *
   * '''Markets:''' `io`, `gpw`, `gpwEquityIssuance`, `gpwHhEquity`,
   * `gpwDividends`
