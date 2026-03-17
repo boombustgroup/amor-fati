@@ -92,6 +92,8 @@ object types:
       inline def min(other: Rate): Rate          = math.min(r, other)
       inline def clamp(lo: Rate, hi: Rate): Rate = math.max(lo, math.min(hi, r))
       inline def monthly: Rate                   = r / 12.0
+      @targetName("ratePlusDouble")
+      inline def +(scalar: Double): Double       = r + scalar
       inline def toDouble: Double                = r
       inline def >(other: Rate): Boolean         = r > other
       inline def <(other: Rate): Boolean         = r < other
@@ -177,3 +179,25 @@ object types:
       inline def toDouble: Double                 = p
       inline def >(other: PriceIndex): Boolean    = p > other
       inline def <(other: PriceIndex): Boolean    = p < other
+
+  // === Volatility (standard deviation, σ per period) ===
+  opaque type Sigma = Double
+  object Sigma:
+    inline def apply(d: Double): Sigma = d
+    val Zero: Sigma                    = 0.0
+    extension (s: Sigma)
+      inline def *(scalar: Double): Double = s * scalar
+      inline def +(other: Double): Double  = s + other
+      inline def toDouble: Double          = s
+
+  // === Shock magnitude (one-time multiplicative increment, unbounded) ===
+  opaque type Shock = Double
+  object Shock:
+    inline def apply(d: Double): Shock = d
+    val Zero: Shock                    = 0.0
+    extension (s: Shock)
+      inline def toDouble: Double         = s
+      inline def +(other: Double): Double = s + other
+      inline def >(other: Shock): Boolean = s > other
+      @targetName("shockPlusShock")
+      inline def +(other: Shock): Shock   = Shock(s + (other: Double))

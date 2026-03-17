@@ -39,12 +39,12 @@ import com.boombustgroup.amorfati.types.*
   * @param commodityDrift
   *   annual commodity price drift (long-run trend, IMF commodity outlook)
   * @param commodityVolatility
-  *   monthly GBM volatility (σ) for commodity price noise
+  *   monthly GBM standard deviation (σ) for commodity price noise
   * @param commodityShockMonth
   *   simulation month when commodity price shock hits (0 = no shock)
   * @param commodityShockMag
-  *   one-time shock magnitude as multiplicative increment (e.g., 3.0 = +300%
-  *   gas price, 2022-style). Not Ratio because can exceed 1.0.
+  *   one-time shock magnitude as multiplicative increment (e.g., Shock(3.0) =
+  *   +300% gas price, 2022-style). Unbounded — can exceed 1.0.
   */
 case class GvcConfig(
     euTradeShare: Ratio = Ratio(0.70),
@@ -60,9 +60,9 @@ case class GvcConfig(
     disruptionRecovery: Ratio = Ratio(0.05),
     // Commodity prices (Poland imports ~95% of oil/gas)
     commodityDrift: Rate = Rate(0.02),
-    commodityVolatility: Double = 0.03,
+    commodityVolatility: Sigma = Sigma(0.03),
     commodityShockMonth: Int = 0,
-    commodityShockMag: Double = 0.0,
+    commodityShockMag: Shock = Shock.Zero,
 ):
   require(exportShares.length == 6, s"exportShares must have 6 sectors: ${exportShares.length}")
   require(depth.length == 6, s"depth must have 6 sectors: ${depth.length}")
