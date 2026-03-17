@@ -110,6 +110,9 @@ object BankUpdateStep:
       multiCapDestruction: PLN,                      // capital destroyed by bank failures this month
       resolvedBank: Banking.Aggregate,               // aggregate banking sector after resolution
       htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
+      correctedPpk: SocialSecurity.PpkState,         // PPK with actual bond purchase (may be < requested)
+      correctedInsurance: Insurance.State,           // insurance with actual bond purchase
+      correctedNbfi: Nbfi.State,                     // NBFI/TFI with actual bond purchase
   )
 
   def run(in: Input)(using p: SimParams): Output =
@@ -137,9 +140,9 @@ object BankUpdateStep:
       finalBankingSector = multi.finalBankingSector,
       reassignedFirms = multi.reassignedFirms,
       reassignedHouseholds = multi.reassignedHouseholds,
-      finalPpk = bonds.finalPpk,
-      finalInsurance = bonds.finalInsurance,
-      finalNbfi = bonds.finalNbfi,
+      finalPpk = multi.correctedPpk,
+      finalInsurance = multi.correctedInsurance,
+      finalNbfi = multi.correctedNbfi,
       newGovWithYield = govJst.newGovWithYield,
       newJst = govJst.newJst,
       housingAfterFlows = housing.housingAfterFlows,
@@ -548,12 +551,12 @@ object BankUpdateStep:
     val afterBonds           =
       if p.flags.govBondMarket then Banking.allocateBonds(afterHtm, bonds.actualBondChange, in.s8.monetary.newBondYield)
       else afterHtm
-    val afterQe              = Banking.allocateQePurchases(afterBonds, in.s8.monetary.qePurchaseAmount)
-    val afterPpk             = Banking.allocateQePurchases(afterQe, bonds.ppkBondPurchase)
-    val afterIns             = Banking.allocateQePurchases(afterPpk, bonds.insBondPurchase)
-    val afterTfi             = Banking.allocateQePurchases(afterIns, bonds.tfiBondPurchase)
+    val qeResult             = Banking.allocateQePurchases(afterBonds, in.s8.monetary.qePurchaseAmount)
+    val ppkResult            = Banking.allocateQePurchases(qeResult.banks, bonds.ppkBondPurchase)
+    val insResult            = Banking.allocateQePurchases(ppkResult.banks, bonds.insBondPurchase)
+    val tfiResult            = Banking.allocateQePurchases(insResult.banks, bonds.tfiBondPurchase)
     val failResult           =
-      Banking.checkFailures(afterTfi, in.s1.m, p.flags.bankFailure, in.s7.newMacropru.ccyb)
+      Banking.checkFailures(tfiResult.banks, in.s1.m, p.flags.bankFailure, in.s7.newMacropru.ccyb)
     val afterFailCheck       = failResult.banks
     val anyFailed            = failResult.anyFailed
     val bailInResult         =
@@ -569,7 +572,7 @@ object BankUpdateStep:
     val multiCapDest: PLN    =
       if anyFailed then
         PLN(
-          afterTfi
+          tfiResult.banks
             .zip(afterFailCheck)
             .map { case (pre, post) =>
               if !pre.failed && post.failed then pre.capital.toDouble else 0.0
@@ -612,6 +615,9 @@ object BankUpdateStep:
       multiCapDestruction = multiCapDest,
       resolvedBank = finalBankingSector.aggregate,
       htmRealizedLoss = htmResult.totalRealizedLoss,
+      correctedPpk = bonds.finalPpk.copy(bondHoldings = in.w.social.ppk.bondHoldings + ppkResult.actualSold),
+      correctedInsurance = bonds.finalInsurance.copy(govBondHoldings = in.w.financial.insurance.govBondHoldings + insResult.actualSold),
+      correctedNbfi = bonds.finalNbfi.copy(tfiGovBondHoldings = in.w.financial.nbfi.tfiGovBondHoldings + tfiResult.actualSold),
     )
 
   /** Monetary aggregates (M0/M1/M2/M3) when credit diagnostics enabled. */

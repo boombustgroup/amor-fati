@@ -606,28 +606,31 @@ object Banking:
     * Capped at each bank's available holdings. Sells AFS first; spills into HTM
     * only if AFS is exhausted.
     */
-  def allocateQePurchases(banks: Vector[BankState], qeTotal: PLN): Vector[BankState] =
-    if qeTotal <= PLN.Zero then banks
+  /** Result of bond removal from banks: updated banks + actual amount sold. */
+  case class BondRemovalResult(banks: Vector[BankState], actualSold: PLN)
+
+  def allocateQePurchases(banks: Vector[BankState], qeTotal: PLN): BondRemovalResult =
+    if qeTotal <= PLN.Zero then BondRemovalResult(banks, PLN.Zero)
     else
       val eligible   = banks.filter(b => !b.failed && b.govBondHoldings > PLN.Zero)
       val totalBonds = eligible.kahanSumBy(_.govBondHoldings.toDouble)
-      if totalBonds <= 0 then banks
+      if totalBonds <= 0 then BondRemovalResult(banks, PLN.Zero)
       else
         val lastEligibleId = eligible.last.id
-        val (result, _)    = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):
+        val (result, sold) = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):
           case ((acc, allocated), b) =>
             if b.failed || b.govBondHoldings <= PLN.Zero then (acc :+ b, allocated)
             else
-              val sold      =
+              val amount    =
                 if b.id == lastEligibleId then b.govBondHoldings.min(qeTotal - allocated)
                 else
                   val share = b.govBondHoldings.toDouble / totalBonds
                   b.govBondHoldings.min(qeTotal * share)
               // Sell AFS first; spill into HTM only if AFS exhausted
-              val afsReduce = sold.min(b.afsBonds)
-              val htmReduce = sold - afsReduce
-              (acc :+ b.copy(afsBonds = (b.afsBonds - afsReduce).max(PLN.Zero), htmBonds = (b.htmBonds - htmReduce).max(PLN.Zero)), allocated + sold)
-        result
+              val afsReduce = amount.min(b.afsBonds)
+              val htmReduce = amount - afsReduce
+              (acc :+ b.copy(afsBonds = (b.afsBonds - afsReduce).max(PLN.Zero), htmBonds = (b.htmBonds - htmReduce).max(PLN.Zero)), allocated + amount)
+        BondRemovalResult(result, sold)
 
   // ---------------------------------------------------------------------------
   // HTM forced reclassification (interest rate risk)

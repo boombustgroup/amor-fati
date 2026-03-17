@@ -270,7 +270,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       mkBank(id = 0, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(6000.0)),
       mkBank(id = 1, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(4000.0)),
     )
-    val result = Banking.allocateQePurchases(banks, PLN(5000.0))
+    val result = Banking.allocateQePurchases(banks, PLN(5000.0)).banks
     result(0).govBondHoldings.toDouble shouldBe 3000.0 +- 0.01 // 6000 - 5000*0.6
     result(1).govBondHoldings.toDouble shouldBe 2000.0 +- 0.01 // 4000 - 5000*0.4
   }
@@ -279,7 +279,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     val banks  = Vector(
       mkBank(loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(5000.0)),
     )
-    val result = Banking.allocateQePurchases(banks, PLN.Zero)
+    val result = Banking.allocateQePurchases(banks, PLN.Zero).banks
     result(0).govBondHoldings shouldBe PLN(5000.0)
   }
 
@@ -377,7 +377,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       consumerNpl = PLN.Zero,
       corpBondHoldings = PLN.Zero,
     )
-    val result = Banking.allocateQePurchases(Vector(b0), PLN(3000.0))
+    val result = Banking.allocateQePurchases(Vector(b0), PLN(3000.0)).banks
     result(0).afsBonds.toDouble shouldBe 1000.0 +- 0.01 // 4000 - 3000
     result(0).htmBonds.toDouble shouldBe 6000.0 +- 0.01 // unchanged
   }
@@ -404,7 +404,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       consumerNpl = PLN.Zero,
       corpBondHoldings = PLN.Zero,
     )
-    val result = Banking.allocateQePurchases(Vector(b0), PLN(5000.0))
+    val result = Banking.allocateQePurchases(Vector(b0), PLN(5000.0)).banks
     result(0).afsBonds.toDouble shouldBe 0.0 +- 0.01    // 2000 fully sold
     result(0).htmBonds.toDouble shouldBe 5000.0 +- 0.01 // 8000 - 3000 spill
   }
