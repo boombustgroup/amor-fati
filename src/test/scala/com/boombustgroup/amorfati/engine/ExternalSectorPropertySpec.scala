@@ -25,7 +25,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
       autoR: Double = 0.0,
       month: Int = 30,
   ): GvcTrade.State =
-    GvcTrade.step(GvcTrade.StepInput(GvcTrade.initial, defaultSectorOutputs, price, er, autoR, month))
+    GvcTrade.step(GvcTrade.StepInput(GvcTrade.initial, defaultSectorOutputs, price, er, autoR, month, rng = new scala.util.Random(42)))
 
   // --- Exports always non-negative ---
 
@@ -48,7 +48,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "always have foreign price index >= 1.0" in
     forAll(Gen.choose(1, 120)) { (month: Int) =>
       val r = runStep(month = month)
-      r.foreignPriceIndex should be >= 1.0
+      r.foreignPriceIndex.toDouble should be >= 1.0
     }
 
   // --- Disruption in [0, 1] ---
@@ -83,5 +83,5 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "have import cost index >= 1.0" in
     forAll(Gen.choose(1, 120)) { (month: Int) =>
       val r = runStep(month = month)
-      r.importCostIndex should be >= 1.0
+      r.importCostIndex.toDouble should be >= 1.0
     }
