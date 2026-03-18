@@ -29,7 +29,8 @@ import com.boombustgroup.amorfati.types.*
   * @param rateFloor
   *   lower bound on policy rate (effective lower bound)
   * @param rateCeiling
-  *   upper bound on policy rate
+  *   upper bound on policy rate (15%, ~2× post-EU-accession max of 6.75%;
+  *   pre-2004 rates reached 24% but model baseline is modern PL economy)
   * @param maxRateChange
   *   maximum monthly rate change in pp (0 = unconstrained)
   * @param nairu
@@ -64,7 +65,7 @@ case class MonetaryConfig(
     taylorBeta: Double = 0.8,
     taylorInertia: Ratio = Ratio(0.70),
     rateFloor: Rate = Rate(0.001),
-    rateCeiling: Rate = Rate(0.25),
+    rateCeiling: Rate = Rate(0.15),
     maxRateChange: Rate = Rate(0.0),
     nairu: Ratio = Ratio(0.05),
     taylorDelta: Double = 0.5,
