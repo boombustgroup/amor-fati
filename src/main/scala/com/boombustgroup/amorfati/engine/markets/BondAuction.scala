@@ -19,9 +19,9 @@ import com.boombustgroup.amorfati.types.*
   *      debt. This is the fiscal crisis trigger (cf. Italy 2011, Greece 2010).
   *
   * Pure function — no state, no side effects. Called from BankUpdateStep
-  * waterfall to determine how new bond issuance is distributed between
-  * domestic holders (banks acting as DSPW primary dealers and final
-  * holders) and non-resident investors.
+  * waterfall to determine how new bond issuance is distributed between domestic
+  * holders (banks acting as DSPW primary dealers and final holders) and
+  * non-resident investors.
   *
   * Calibration: MF auction data (przetargi SPW), NBP SPW holder structure
   * (rezydenci vs nierezydenci), ECB Bund yields.

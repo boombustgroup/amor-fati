@@ -493,9 +493,10 @@ object BankUpdateStep:
     // ---- Bond waterfall: single pass, SFC by construction ----
     // Each sellToBuyer removes bonds from banks and returns actualSold.
     // Buyer gets exactly old + actualSold. No speculation, no correction.
+    val bankDeposits  = PLN(afterBonds.kahanSumBy(_.deposits.toDouble))
     val auctionResult = BondAuction.auction(
       newIssuance = wf.actualBondChange.max(PLN.Zero),
-      bankBondCapacity = PLN(afterBonds.kahanSumBy(_.deposits.toDouble) * 0.5), // banks can absorb up to 50% of deposits
+      bankBondCapacity = bankDeposits * p.fiscal.bankBondAbsorptionShare,
       marketYield = in.s8.monetary.newBondYield,
       erChange = wf.erChange,
     )

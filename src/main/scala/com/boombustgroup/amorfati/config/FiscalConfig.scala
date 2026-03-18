@@ -102,6 +102,9 @@ import com.boombustgroup.amorfati.types.*
   *   elasticity of foreign demand to PLN depreciation (risk-off)
   * @param bundYield
   *   German 10Y Bund yield benchmark (ECB 2024: ~2.5%)
+  * @param bankBondAbsorptionShare
+  *   fraction of bank deposits available for bond absorption (KNF 2024: banks
+  *   hold ~25-30% of assets in gov bonds, 0% RWA under Basel III)
   * @param initGovDebt
   *   initial government debt in raw PLN (scaled by gdpRatio, MF 2024: ~1.6 bln
   *   PLN)
@@ -185,6 +188,7 @@ case class FiscalConfig(
     foreignYieldSensitivity: Double = 8.0,
     foreignErSensitivity: Double = 4.0,
     bundYield: Rate = Rate(0.025),
+    bankBondAbsorptionShare: Ratio = Ratio(0.30),
     // Fiscal rules (Art. 216 Konstytucja RP, SRW Art. 112aa uFP, SGP)
     fiscalRuleDebtCeiling: Ratio = Ratio(0.60),      // Art. 216: constitutional 60% debt/GDP ceiling
     fiscalRuleCautionThreshold: Ratio = Ratio(0.55), // Art. 86 uFP: cautionary 55% debt/GDP threshold
