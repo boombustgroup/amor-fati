@@ -448,9 +448,9 @@ object OpenEconomyStep:
       deficit: PLN,
       avgMaturityMonths: Int,
   ): Rate =
-    val rolloverFrac = 1.0 / avgMaturityMonths.max(1)
-    val deficitFrac  =
-      if bondsOutstanding > PLN.Zero then (deficit.max(PLN.Zero) / bondsOutstanding).max(0.0)
-      else 0.0
-    val freshFrac    = Math.min(1.0, rolloverFrac + deficitFrac)
-    prevCoupon * (1.0 - freshFrac) + marketYield * freshFrac
+    val rolloverFrac: Ratio = Ratio(1.0 / avgMaturityMonths.max(1))
+    val deficitFrac: Ratio  =
+      if bondsOutstanding > PLN.Zero then Ratio(deficit.max(PLN.Zero) / bondsOutstanding)
+      else Ratio.Zero
+    val freshFrac: Ratio    = (rolloverFrac + deficitFrac).min(Ratio.One)
+    prevCoupon * (Ratio.One - freshFrac) + marketYield * freshFrac
