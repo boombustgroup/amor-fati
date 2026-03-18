@@ -19,6 +19,8 @@ SFC accounting check (see `com.boombustgroup.amorfati.accounting.Sfc`).
 | `Jst.scala` | Local government (JST) | Deposits, debt, revenue, spending | Identity 2 (JST deposits), 7 (JST debt) |
 | `Nbfi.scala` | TFI funds + NBFI credit | AUM, bond/equity holdings, loan stock | Identity 2 (deposit drain), 5 (TFI bonds), 13 (NBFI credit) |
 | `Nbp.scala` | National Bank of Poland | Reference rate, gov bond holdings, QE, FX reserves | Identity 1 (reserve interest), 4 (FX intervention → NFA), 5 (QE bonds) |
+| `DepositMobility.scala` | Deposit flight (Diamond-Dybvig) | Per-bank deposit flows, health-based flight, panic contagion | Identity 2 (deposit redistribution) |
+| `InterbankContagion.scala` | Interbank contagion (Lehman channel) | 7×7 bilateral exposure matrix, counterparty losses, liquidity hoarding | Identity 6 (interbank netting) |
 | `QuasiFiscal.scala` | BGK + PFR (consolidated) | Off-balance-sheet bonds, bank/NBP holdings, subsidized loan portfolio | Identity 5 (quasi-fiscal bond clearing) |
 | `SocialSecurity.scala` | ZUS, NFZ, PPK, demographics | FUS balance, NFZ balance, PPK bond holdings, retirees, working-age pop | Identity 5 (PPK bonds), 8 (FUS balance), 9 (NFZ balance) |
 
