@@ -36,10 +36,11 @@ object OpenEconomyStep:
   case class MonetaryPolicy(
       newRefRate: Rate,
       newExp: Expectations.State,
-      newBondYield: Rate,
+      newBondYield: Rate,      // market yield (for mark-to-market, bond allocation)
+      newWeightedCoupon: Rate, // WAM weighted coupon (for debt service)
       qePurchaseAmount: PLN,
       postFxNbp: Nbp.State,
-      fxPlnInjection: PLN, // PLN injected (+) or drained (−) by FX intervention
+      fxPlnInjection: PLN,     // PLN injected (+) or drained (−) by FX intervention
   )
 
   case class BankingFlows(
@@ -91,7 +92,8 @@ object OpenEconomyStep:
 
   // Internal intermediate type for bond market + QE results
   private case class BondQeResult(
-      newBondYield: Rate,
+      marketYield: Rate,       // current market yield (for mark-to-market, bond allocation)
+      newWeightedCoupon: Rate, // updated WAM weighted coupon (for debt service, GovState)
       bankBondIncome: PLN,
       nbpRemittance: PLN,
       monthlyDebtService: PLN,
@@ -105,15 +107,16 @@ object OpenEconomyStep:
     val rateAndExp    = stepRateAndExpectations(in, external.newForex)
     val interbank     = computeInterbankFlows(in.w)
     val bondQe        = stepBondYieldAndQe(in, rateAndExp.refRate, external.fxIntervention, interbank)
-    val corpBonds     = stepCorporateBonds(in, bondQe.newBondYield)
-    val insurance     = stepInsurance(in, bondQe.newBondYield)
-    val nbfi          = stepNbfi(in, bondQe.postFxNbp, bondQe.newBondYield)
+    val corpBonds     = stepCorporateBonds(in, bondQe.marketYield)
+    val insurance     = stepInsurance(in, bondQe.marketYield)
+    val nbfi          = stepNbfi(in, bondQe.postFxNbp, bondQe.marketYield)
 
     Output(
       monetary = MonetaryPolicy(
         newRefRate = rateAndExp.refRate,
         newExp = rateAndExp.expectations,
-        newBondYield = bondQe.newBondYield,
+        newBondYield = bondQe.marketYield,
+        newWeightedCoupon = bondQe.newWeightedCoupon,
         qePurchaseAmount = bondQe.qePurchaseAmount,
         postFxNbp = bondQe.postFxNbp,
         fxPlnInjection = external.fxIntervention.plnInjection,
@@ -321,13 +324,22 @@ object OpenEconomyStep:
         Ratio((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs.toDouble)
       Rate(deAnchor.toDouble * p.labor.expBondSensitivity.toDouble)
     else Rate.Zero
-    val newBondYield      = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
+    val marketYield       = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
 
-    // Debt service: use LAGGED bond stock
-    val rawDebtService     = in.w.gov.bondsOutstanding * newBondYield.monthly
+    val newWeightedCoupon = updateWeightedCoupon(
+      prevCoupon = in.w.gov.weightedCoupon,
+      marketYield = marketYield,
+      bondsOutstanding = in.w.gov.bondsOutstanding,
+      deficit = in.w.gov.deficit,
+      avgMaturityMonths = p.fiscal.govAvgMaturityMonths,
+    )
+
+    // Debt service: weighted coupon on lagged bond stock (not market yield)
+    val rawDebtService     = in.w.gov.bondsOutstanding * newWeightedCoupon.monthly
     val monthlyDebtService = rawDebtService.min(PLN(in.w.gdpProxy * MaxDebtServiceGdpShare))
-    val bankBondIncome     = in.w.bank.govBondHoldings * newBondYield.monthly
-    val nbpBondIncome      = in.w.nbp.govBondHoldings * newBondYield.monthly
+    // Bank/NBP bond income still uses market yield (mark-to-market accounting)
+    val bankBondIncome     = in.w.bank.govBondHoldings * marketYield.monthly
+    val nbpBondIncome      = in.w.nbp.govBondHoldings * marketYield.monthly
     val nbpRemittance      = nbpBondIncome - interbank.reserveInterest - interbank.standingFacilityIncome
 
     // QE logic
@@ -342,7 +354,7 @@ object OpenEconomyStep:
     val qePurchaseAmount = qeRequest.requestedPurchase
     val postFxNbp        = qeRequest.nbpState.copy(fxReserves = fxResult.newReserves, lastFxTraded = fxResult.eurTraded)
 
-    BondQeResult(newBondYield, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp)
+    BondQeResult(marketYield, newWeightedCoupon, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp)
 
   private def stepCorporateBonds(in: Input, newBondYield: Rate)(using SimParams): CorporateBonds =
     val corpBondAmort    = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
@@ -403,3 +415,42 @@ object OpenEconomyStep:
         )
       else in.w.financial.nbfi
     NbfiResult(newNbfi)
+
+  // ---------------------------------------------------------------------------
+  // WAM (Weighted Average Maturity) coupon update
+  // ---------------------------------------------------------------------------
+
+  /** Rolling-portfolio weighted average coupon update.
+    *
+    * Models a government bond portfolio with uniform maturity profile where
+    * `1/avgMaturityMonths` of the stock matures each month and is refinanced at
+    * the current market yield. New deficit issuance also enters at market
+    * yield. The weighted coupon converges gradually to market yield:
+    *
+    * {{{
+    * rolloverFrac = 1 / avgMaturityMonths           // maturing bonds
+    * deficitFrac  = max(0, deficit) / outstanding    // new issuance
+    * freshFrac    = min(1, rolloverFrac + deficitFrac)
+    * newCoupon    = prevCoupon × (1 − freshFrac) + marketYield × freshFrac
+    * }}}
+    *
+    * At 54-month average maturity (MF 2024), a yield shock takes ~4.5 years to
+    * fully pass through to debt service — matching the actual MF flat
+    * redemption profile (Strategia zarządzania długiem sektora finansów
+    * publicznych 2024).
+    *
+    * Pure function — no World dependency, testable in isolation.
+    */
+  private[amorfati] def updateWeightedCoupon(
+      prevCoupon: Rate,
+      marketYield: Rate,
+      bondsOutstanding: PLN,
+      deficit: PLN,
+      avgMaturityMonths: Int,
+  ): Rate =
+    val rolloverFrac: Ratio = Ratio(1.0 / avgMaturityMonths.max(1))
+    val deficitFrac: Ratio  =
+      if bondsOutstanding > PLN.Zero then Ratio(deficit.max(PLN.Zero) / bondsOutstanding)
+      else Ratio.Zero
+    val freshFrac: Ratio    = (rolloverFrac + deficitFrac).min(Ratio.One)
+    prevCoupon * (Ratio.One - freshFrac) + marketYield * freshFrac

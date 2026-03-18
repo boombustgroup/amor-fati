@@ -172,6 +172,7 @@ object SimOutput:
   private def monetaryGroup: Vector[ColumnDef] = Vector(
     // Bond market
     ColumnDef("BondYield", ctx => ctx.world.gov.bondYield.toDouble),
+    ColumnDef("WeightedCoupon", ctx => ctx.world.gov.weightedCoupon.toDouble),
     ColumnDef("BondsOutstanding", ctx => ctx.world.gov.bondsOutstanding.toDouble),
     ColumnDef("BankBondHoldings", ctx => ctx.world.bank.govBondHoldings.toDouble),
     ColumnDef("NbpBondHoldings", ctx => ctx.world.nbp.govBondHoldings.toDouble),

@@ -211,7 +211,7 @@ object BankUpdateStep:
         govPurchasesActual = in.s4.govPurchases,
       ),
     )
-    val newGovWithYield = newGov.copy(bondYield = in.s8.monetary.newBondYield)
+    val newGovWithYield = newGov.copy(bondYield = in.s8.monetary.newBondYield, weightedCoupon = in.s8.monetary.newWeightedCoupon)
 
     val nLivingFirms = in.s5.ioFirms.count(Firm.isAlive)
     val jstResult    =

@@ -35,6 +35,15 @@ object FiscalBudget:
     * `deficit` = totalSpend − totalRevenue (positive = deficit, negative =
     * surplus). `cumulativeDebt` += deficit each month.
     *
+    * `weightedCoupon` tracks the portfolio-weighted average coupon rate. This
+    * is the rolling-portfolio WAM (weighted average maturity) model: each
+    * month, a fraction `1/govAvgMaturityMonths` of the portfolio matures and is
+    * refinanced at the current market yield. New deficit issuance also enters
+    * at current yield. The weighted coupon converges gradually to market yield
+    * — a +5pp yield shock at 54-month average maturity takes ~4.5 years to
+    * fully pass through to debt service, matching the actual MF flat redemption
+    * profile (Strategia zarządzania długiem sektora finansów publicznych 2024).
+    *
     * Calibration: MF budgetary law structure 2024, GUS public finance
     * statistics, NBP government securities data.
     */
@@ -44,7 +53,8 @@ object FiscalBudget:
       cumulativeDebt: PLN,                 // cumulative public debt stock (Σ deficits since t = 0)
       unempBenefitSpend: PLN,              // unemployment benefit payments this month
       bondsOutstanding: PLN = PLN.Zero,    // government bond stock (skarbowe papiery wartościowe)
-      bondYield: Rate = Rate.Zero,         // weighted-average yield on outstanding bonds
+      bondYield: Rate = Rate.Zero,         // lagged market yield (for lending rates)
+      weightedCoupon: Rate = Rate.Zero,    // portfolio-weighted average coupon (WAM rolling model)
       debtServiceSpend: PLN = PLN.Zero,    // interest payments on public debt this month
       socialTransferSpend: PLN = PLN.Zero, // social transfers (800+, family benefits) this month
       publicCapitalStock: PLN = PLN.Zero,  // public capital stock (roads, infrastructure) — GOV_INVEST
@@ -116,7 +126,8 @@ object FiscalBudget:
       cumulativeDebt = in.prev.cumulativeDebt + deficit,
       unempBenefitSpend = in.unempBenefitSpend,
       bondsOutstanding = newBondsOutstanding,
-      bondYield = in.prev.bondYield,
+      bondYield = in.prev.bondYield,           // lagged market yield — updated by OpenEconomyStep
+      weightedCoupon = in.prev.weightedCoupon, // WAM coupon — updated by OpenEconomyStep
       debtServiceSpend = in.debtService,
       socialTransferSpend = in.socialTransferSpend,
       publicCapitalStock = newCapitalStock,
