@@ -80,6 +80,15 @@ import com.boombustgroup.amorfati.types.*
   * @param initHtmBookYield
   *   weighted-average acquisition yield on initial HTM portfolio (Polish 10Y at
   *   model start, MF 2024)
+  * @param depositFlightSensitivity
+  *   sensitivity of deposit switching to CAR shortfall below threshold
+  * @param depositFlightCarThreshold
+  *   CAR level below which depositors start leaving (KNF stress: ~10%)
+  * @param depositPanicRate
+  *   fraction of depositors who panic-switch when any bank fails (Diamond &
+  *   Dybvig 1983)
+  * @param maxDepositSwitchRate
+  *   maximum fraction of HH that can switch banks per month (structural cap)
   * @param interbankRecoveryRate
   *   recovery rate on interbank exposures when counterparty fails (NBP FSR:
   *   ~40%, secured/unsecured mix)
@@ -130,6 +139,11 @@ case class BankingConfig(
     htmForcedSaleThreshold: Double = 0.75,
     htmForcedSaleRate: Ratio = Ratio(0.10),
     initHtmBookYield: Rate = Rate(0.055),
+    // Deposit mobility (Diamond & Dybvig 1983)
+    depositFlightSensitivity: Double = 5.0,
+    depositFlightCarThreshold: Ratio = Ratio(0.10),
+    depositPanicRate: Ratio = Ratio(0.03),
+    maxDepositSwitchRate: Ratio = Ratio(0.10),
     // Interbank contagion
     interbankRecoveryRate: Ratio = Ratio(0.40),
     hoardingNplThreshold: Ratio = Ratio(0.05),

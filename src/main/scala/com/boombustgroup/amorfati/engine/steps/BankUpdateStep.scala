@@ -32,6 +32,7 @@ object BankUpdateStep:
       s6: HouseholdFinancialStep.Output, // household financial (remittances, tourism, consumer credit)
       s7: PriceEquityStep.Output,        // price/equity (inflation, GDP, equity state, macropru)
       s8: OpenEconomyStep.Output,        // open economy (NBP rate, bond yield, QE, FX, BoP)
+      depositRng: scala.util.Random,     // deterministic RNG for deposit flight decisions
   )
 
   case class Output(
@@ -543,17 +544,17 @@ object BankUpdateStep:
     val afterFailCheck = secondaryFail.banks
     val anyFailed      = failResult.anyFailed || secondaryFail.anyFailed
 
-    val bailInResult         =
+    val bailInResult       =
       if anyFailed then Banking.applyBailIn(afterFailCheck) else Banking.BailInResult(afterFailCheck, PLN.Zero)
-    val resolveResult        =
+    val resolveResult      =
       if anyFailed then Banking.resolveFailures(bailInResult.banks)
       else Banking.ResolutionResult(bailInResult.banks, BankId.NoBank)
-    val afterResolve         = resolveResult.banks
-    val rawAbsorberId        = resolveResult.absorberId
-    val absorberId           =
+    val afterResolve       = resolveResult.banks
+    val rawAbsorberId      = resolveResult.absorberId
+    val absorberId         =
       if rawAbsorberId.toInt >= 0 then rawAbsorberId
       else Banking.healthiestBankId(afterResolve)
-    val multiCapDest: PLN    =
+    val multiCapDest: PLN  =
       if anyFailed then
         PLN(
           tfiSale.banks
@@ -564,7 +565,7 @@ object BankUpdateStep:
             .kahanSum,
         )
       else PLN.Zero
-    val curve                =
+    val curve              =
       if p.flags.interbankTermStructure then
         val exp = in.w.mechanisms.expectations
         Some(
@@ -577,19 +578,27 @@ object BankUpdateStep:
           ),
         )
       else None
-    val finalBankingSector   = bs.copy(banks = afterResolve, interbankRate = ibRate, interbankCurve = curve)
-    val reassignedFirms      =
+    val finalBankingSector = bs.copy(banks = afterResolve, interbankRate = ibRate, interbankCurve = curve)
+    val reassignedFirms    =
       if anyFailed then
         in.s7.rewiredFirms.map: f =>
           if f.bankId.toInt < afterResolve.length && afterResolve(f.bankId.toInt).failed then f.copy(bankId = absorberId)
           else f
       else in.s7.rewiredFirms
-    val reassignedHouseholds =
+    val postFailureHh      =
       if anyFailed then
         in.s5.households.map: h =>
           if h.bankId.toInt < afterResolve.length && afterResolve(h.bankId.toInt).failed then h.copy(bankId = absorberId)
           else h
       else in.s5.households
+
+    // Deposit mobility: HH may switch banks based on health signals and panic
+    val mobilityResult       = DepositMobility(postFailureHh, afterResolve, anyFailed, in.depositRng)
+    val reassignedHouseholds = mobilityResult.households
+
+    // Deposit flows take effect next month when HH income/consumption routes
+    // to new bankId. No immediate balance sheet transfer — consistent with
+    // 1-month account transfer lag and avoids SFC flow mismatch.
 
     MultiBankResult(
       finalBankingSector = finalBankingSector,
