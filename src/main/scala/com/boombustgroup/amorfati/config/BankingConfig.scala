@@ -80,6 +80,15 @@ import com.boombustgroup.amorfati.types.*
   * @param initHtmBookYield
   *   weighted-average acquisition yield on initial HTM portfolio (Polish 10Y at
   *   model start, MF 2024)
+  * @param interbankRecoveryRate
+  *   recovery rate on interbank exposures when counterparty fails (NBP FSR:
+  *   ~40%, secured/unsecured mix)
+  * @param hoardingNplThreshold
+  *   system NPL ratio above which banks start hoarding liquidity (reducing
+  *   interbank lending)
+  * @param hoardingSensitivity
+  *   speed of hoarding onset: factor = 1 − sensitivity × (NPL − threshold). At
+  *   10.0, a 10pp NPL overshoot → full freeze.
   */
 case class BankingConfig(
     // Initial balance sheet (raw — scaled by gdpRatio in SimParams.defaults)
@@ -121,6 +130,10 @@ case class BankingConfig(
     htmForcedSaleThreshold: Double = 0.75,
     htmForcedSaleRate: Ratio = Ratio(0.10),
     initHtmBookYield: Rate = Rate(0.055),
+    // Interbank contagion
+    interbankRecoveryRate: Ratio = Ratio(0.40),
+    hoardingNplThreshold: Ratio = Ratio(0.05),
+    hoardingSensitivity: Double = 10.0,
 ):
   require(minCar > Ratio.Zero && minCar < Ratio.One, s"minCar must be in (0,1): $minCar")
   require(initCapital >= PLN.Zero, s"initCapital must be non-negative: $initCapital")

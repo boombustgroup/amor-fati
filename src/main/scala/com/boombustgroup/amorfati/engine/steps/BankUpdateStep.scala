@@ -493,7 +493,9 @@ object BankUpdateStep:
       wf: BondWaterfallInputs,
   )(using p: SimParams): MultiBankResult =
     val ibRate           = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
-    val afterInterbank   = Banking.clearInterbank(updatedBanks, bs.configs)
+    // Liquidity hoarding: reduce interbank lending when system NPL is high
+    val hoarding         = InterbankContagion.hoardingFactor(in.w.bank.nplRatio)
+    val afterInterbank   = Banking.clearInterbank(updatedBanks, bs.configs, hoarding)
     val afterFxInjection = distributeFxInjection(afterInterbank, in.s8.monetary.fxPlnInjection)
     // HTM forced reclassification: LCR-stressed banks reclassify HTM→AFS, realizing hidden losses
     val htmResult        = Banking.processHtmForcedSale(afterFxInjection, in.s8.monetary.newBondYield)
@@ -528,10 +530,19 @@ object BankUpdateStep:
     val finalNbfi                = in.s8.nonBank.newNbfi.copy(tfiGovBondHoldings = in.w.financial.nbfi.tfiGovBondHoldings + tfiSale.actualSold)
     val finalForeignBondHoldings = in.w.gov.foreignBondHoldings + foreignSale.actualSold
 
-    val failResult           =
+    val failResult =
       Banking.checkFailures(tfiSale.banks, in.s1.m, p.flags.bankFailure, in.s7.newMacropru.ccyb)
-    val afterFailCheck       = failResult.banks
-    val anyFailed            = failResult.anyFailed
+
+    // Interbank contagion: failed banks impose losses on counterparties
+    val exposures      = InterbankContagion.buildExposureMatrix(tfiSale.banks)
+    val afterContagion =
+      if failResult.anyFailed then InterbankContagion.applyContagionLosses(failResult.banks, exposures)
+      else failResult.banks
+    // Re-check for secondary failures triggered by contagion losses
+    val secondaryFail  = Banking.checkFailures(afterContagion, in.s1.m, p.flags.bankFailure, in.s7.newMacropru.ccyb)
+    val afterFailCheck = secondaryFail.banks
+    val anyFailed      = failResult.anyFailed || secondaryFail.anyFailed
+
     val bailInResult         =
       if anyFailed then Banking.applyBailIn(afterFailCheck) else Banking.BailInResult(afterFailCheck, PLN.Zero)
     val resolveResult        =

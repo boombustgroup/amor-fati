@@ -389,17 +389,20 @@ object Banking:
   // Interbank market
   // ---------------------------------------------------------------------------
 
-  /** Clear the interbank market: excess reserves → lender/borrower netting. */
-  def clearInterbank(banks: Vector[BankState], configs: Vector[Config])(using
+  /** Clear the interbank market: excess reserves → lender/borrower netting.
+    * Hoarding factor [0,1] scales lending: 0 = full freeze, 1 = normal.
+    */
+  def clearInterbank(banks: Vector[BankState], configs: Vector[Config], hoarding: Ratio = Ratio.One)(using
       p: SimParams,
   ): Vector[BankState] =
+    val hf     = hoarding.toDouble
     val excess = banks
       .zip(configs)
       .map: (b, _) =>
         if b.failed then 0.0
         else (b.deposits * (1.0 - p.banking.reserveReq.toDouble) - b.loans - b.govBondHoldings).toDouble
 
-    val totalLending   = excess.filter(_ > 0).kahanSum
+    val totalLending   = excess.filter(_ > 0).kahanSum * hf // hoarding reduces lending
     val totalBorrowing = -excess.filter(_ < 0).kahanSum
 
     if totalLending <= 0 || totalBorrowing <= 0 then banks.map(_.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero))
@@ -410,7 +413,7 @@ object Banking:
         .map: (b, ex) =>
           if b.failed then b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)
           else if ex > 0 then
-            val lent = ex * Math.min(1.0, totalBorrowing / totalLending)
+            val lent = ex * hf * Math.min(1.0, totalBorrowing / totalLending)
             b.copy(interbankNet = PLN(lent), reservesAtNbp = PLN(ex - lent))
           else if ex < 0 then
             val borrowed = -ex * scale
