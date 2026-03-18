@@ -49,11 +49,12 @@ case class World(
 
 /** Social security system and local government state. */
 case class SocialState(
-    jst: Jst.State,                                // local government (JST): budget, debt, deposits
-    zus: SocialSecurity.ZusState,                  // ZUS: contributions, pensions, FUS balance
-    nfz: SocialSecurity.NfzState,                  // NFZ: health insurance contributions, spending, balance
-    ppk: SocialSecurity.PpkState,                  // PPK: employee contributions, gov bond portfolio
+    jst: Jst.State,                                 // local government (JST): budget, debt, deposits
+    zus: SocialSecurity.ZusState,                   // ZUS: contributions, pensions, FUS balance
+    nfz: SocialSecurity.NfzState,                   // NFZ: health insurance contributions, spending, balance
+    ppk: SocialSecurity.PpkState,                   // PPK: employee contributions, gov bond portfolio
     demographics: SocialSecurity.DemographicsState, // working-age, retirees, monthly retirements
+    earmarked: EarmarkedFunds.State,                // FP, PFRON, FGŚP
 )
 object SocialState:
   val zero: SocialState = SocialState(
@@ -62,6 +63,7 @@ object SocialState:
     nfz = SocialSecurity.NfzState.zero,
     ppk = SocialSecurity.PpkState.zero,
     demographics = SocialSecurity.DemographicsState.zero,
+    earmarked = EarmarkedFunds.State.zero,
   )
 
 /** Non-bank financial sector state. */

@@ -232,6 +232,7 @@ object BankUpdateStep:
         debtService = in.s8.banking.monthlyDebtService,
         zusGovSubvention = in.s2.newZus.govSubvention,
         nfzGovSubvention = in.s2.newNfz.govSubvention,
+        earmarkedGovSubvention = in.s2.newEarmarked.totalGovSubvention,
         socialTransferSpend = socialTransferSpend,
         euCofinancing = in.s7.euCofin,
         euProjectCapital = in.s7.euProjectCapital,
