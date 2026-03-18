@@ -80,8 +80,8 @@ object BondAuction:
       val domesticCap    = bankBondCapacity.max(PLN.Zero)
       val domesticDemand = (newIssuance - foreignDemand).min(domesticCap).max(PLN.Zero)
       val totalDemand    = domesticDemand + foreignDemand
-      val btc            = Ratio((totalDemand / newIssuance).min(10.0))
+      val coverRatio     = Ratio((totalDemand / newIssuance).min(10.0))
       val absorbed       = totalDemand.min(newIssuance)
       val foreignActual  = foreignDemand.min(absorbed)
       val domesticActual = absorbed - foreignActual
-      Result(domesticActual, foreignActual, btc)
+      Result(domesticActual, foreignActual, coverRatio)
