@@ -69,6 +69,7 @@ case class SimParams private (
     gvc: GvcConfig = GvcConfig(),
     equity: EquityConfig = EquityConfig(),
     corpBond: CorpBondConfig = CorpBondConfig(),
+    quasiFiscal: QuasiFiscalConfig = QuasiFiscalConfig(),
     ins: InsuranceConfig = InsuranceConfig(),
     nbfi: NbfiConfig = NbfiConfig(),
     housing: HousingConfig = HousingConfig(),

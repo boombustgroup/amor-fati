@@ -22,7 +22,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
     runSingle(42) shouldBe a[Right[?, ?]]
   }
 
-  it should "produce 120 rows x 204 columns" in {
+  it should "produce 120 rows x 209 columns" in {
     ts.length shouldBe p.timeline.duration
     for row <- ts do row.length shouldBe SimOutput.nCols
   }

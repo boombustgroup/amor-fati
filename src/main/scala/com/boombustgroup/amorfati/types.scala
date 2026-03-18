@@ -130,6 +130,8 @@ object types:
       inline def *(p: PLN): PLN                     = p * r
       @targetName("ratioDivScalar")
       inline def /(scalar: Double): Ratio           = r / scalar
+      @targetName("ratioDivInt")
+      inline def /(n: Int): Ratio                   = r / n.toDouble
       @targetName("ratioDivRatio")
       inline def /(other: Ratio): Double            = r / other
       inline def sqrt: Ratio                        = math.sqrt(r)

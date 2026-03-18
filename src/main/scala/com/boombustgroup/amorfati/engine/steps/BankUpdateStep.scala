@@ -67,6 +67,7 @@ object BankUpdateStep:
       actualBondChange: PLN,                         // net change in gov bonds outstanding
       unrealizedBondLoss: PLN,                       // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
+      newQuasiFiscal: QuasiFiscal.State,             // BGK/PFR after issuance and lending
   )
 
   // --- Intermediate result types for sub-methods ---
@@ -139,6 +140,16 @@ object BankUpdateStep:
     )
     val monAgg               = computeMonetaryAggregates(multi.finalBankingSector, in)
 
+    val newQuasiFiscal =
+      if p.flags.quasiFiscal then
+        QuasiFiscal.step(
+          in.w.financial.quasiFiscal,
+          govJst.newGovWithYield.govCapitalSpend,
+          govJst.newGovWithYield.euCofinancing,
+          in.w.nbp.qeActive,
+        )
+      else in.w.financial.quasiFiscal
+
     Output(
       resolvedBank = multi.resolvedBank,
       finalBankingSector = multi.finalBankingSector,
@@ -175,6 +186,7 @@ object BankUpdateStep:
         if yc > 0 then in.w.bank.afsBonds * (yc * p.banking.govBondDuration) else PLN.Zero
       },
       htmRealizedLoss = multi.htmRealizedLoss,
+      newQuasiFiscal = newQuasiFiscal,
     )
 
   /** Government budget update (deficit, debt, bonds) and JST local government

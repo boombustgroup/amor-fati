@@ -273,6 +273,18 @@ object SimOutput:
     ColumnDef("NbfiOrigination", ctx => ctx.world.financial.nbfi.lastNbfiOrigination.toDouble),
     ColumnDef("NbfiDefaults", ctx => ctx.world.financial.nbfi.lastNbfiDefaultAmount.toDouble),
     ColumnDef("NbfiBankTightness", ctx => ctx.world.financial.nbfi.lastBankTightness.toDouble),
+    // Quasi-fiscal (BGK/PFR)
+    ColumnDef("QfBondsOutstanding", ctx => ctx.world.financial.quasiFiscal.bondsOutstanding.toDouble),
+    ColumnDef("QfNbpHoldings", ctx => ctx.world.financial.quasiFiscal.nbpHoldings.toDouble),
+    ColumnDef("QfLoanPortfolio", ctx => ctx.world.financial.quasiFiscal.loanPortfolio.toDouble),
+    ColumnDef("QfIssuance", ctx => ctx.world.financial.quasiFiscal.monthlyIssuance.toDouble),
+    ColumnDef(
+      "Esa2010DebtToGdp",
+      ctx =>
+        val annualGdp = ctx.world.gdpProxy * 12.0
+        if annualGdp > 0 then QuasiFiscal.esa2010Debt(ctx.world.gov.cumulativeDebt, ctx.world.financial.quasiFiscal.bondsOutstanding).toDouble / annualGdp
+        else 0.0,
+    ),
     ColumnDef("NbfiDepositDrain", ctx => ctx.world.financial.nbfi.lastDepositDrain.toDouble),
     // AFS/HTM bond portfolio split
     ColumnDef("BankAfsBonds", ctx => ctx.world.bank.afsBonds.toDouble),

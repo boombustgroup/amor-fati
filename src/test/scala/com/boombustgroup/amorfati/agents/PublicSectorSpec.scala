@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.agents.QuasiFiscal
 import com.boombustgroup.amorfati.types.*
 
 /** Public sector unit tests — ZUS, PPK, Demographics. */
@@ -85,8 +86,9 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // BGK (stub)
   // =========================================================================
 
-  "SocialSecurity.BgkState.zero" should "have zero loan portfolio" in {
-    SocialSecurity.BgkState.zero.loanPortfolio shouldBe PLN.Zero
+  "QuasiFiscal.State.zero" should "have zero outstanding and loans" in {
+    QuasiFiscal.State.zero.bondsOutstanding shouldBe PLN.Zero
+    QuasiFiscal.State.zero.loanPortfolio shouldBe PLN.Zero
   }
 
   // =========================================================================
