@@ -90,19 +90,17 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     val stock = 1e9
     val rate  = 0.08
     val state = initState.copy(mortgageStock = PLN(stock))
-    // Need RE_ENABLED to be true for this to work, but it's false by default
     val flows = HousingMarket.processMortgageFlows(state, Rate(rate), Ratio(0.05))
-    flows.interest shouldBe PLN.Zero // RE_ENABLED is false by default
+    // re=true by default: interest = stock * rate / 12
+    flows.interest.toDouble shouldBe (stock * rate / 12.0 +- 0.01)
   }
 
   it should "increase default rate with unemployment" in {
-    // Can't test directly since RE_ENABLED=false, but we verify the guard
     val state  = initState.copy(mortgageStock = PLN(1e9))
     val flows1 = HousingMarket.processMortgageFlows(state, Rate(0.08), Ratio(0.04))
     val flows2 = HousingMarket.processMortgageFlows(state, Rate(0.08), Ratio(0.15))
-    // Both zero when RE_ENABLED=false
-    flows1.defaultLoss shouldBe PLN.Zero
-    flows2.defaultLoss shouldBe PLN.Zero
+    // Higher unemployment → higher default losses
+    flows2.defaultLoss.toDouble should be > flows1.defaultLoss.toDouble
   }
 
   "HousingMarket.initial" should "have calibrated Polish values" in {
@@ -115,10 +113,10 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     init.hhHousingWealth.toDouble shouldBe (p.housing.initValue.toDouble - p.housing.initMortgage.toDouble +- 1.0)
   }
 
-  it should "have no regions when RE_REGIONAL is false" in {
+  it should "have regions when RE_REGIONAL is true" in {
     val init = HousingMarket.initial
-    // RE_REGIONAL is false by default
-    init.regions shouldBe None
+    // RE_REGIONAL is true by default
+    init.regions shouldBe defined
   }
 
   "Mortgage stock identity" should "hold: Δstock = origination - principal - default" in {

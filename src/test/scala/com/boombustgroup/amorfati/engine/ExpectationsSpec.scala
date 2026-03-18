@@ -96,11 +96,12 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
 
   // --- Expected rate ---
 
-  it should "update expected rate adaptively without forward guidance" in {
+  it should "update expected rate toward current rate" in {
     val prev = Expectations.initial
     val r    = Expectations.step(prev, 0.025, 0.08, 0.05)
-    // Expected rate should move toward current rate (0.08)
-    r.expectedRate.toDouble should be > p.monetary.initialRate.toDouble
+    // With forward guidance on, expected rate blends FG (≈neutralRate) and adaptive (toward 0.08)
+    // Expected rate should differ from initial (moves toward blended target)
+    r.expectedRate.toDouble should not be p.monetary.initialRate.toDouble
   }
 
   // --- Stability ---

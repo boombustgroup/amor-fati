@@ -66,15 +66,17 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
     forAll(Gen.choose(0.0, 0.25), Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (rate: Double, bankBonds: Double, gdp: Double) =>
       val nbp      = Nbp.State(Rate(rate), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
       val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
-      qeResult.nbpState.govBondHoldings.toDouble should be <= (p.monetary.qeMaxGdpShare.toDouble * gdp + 1e-6)
+      // executeQe returns a request; bond update happens in BankUpdateStep
+      (qeResult.requestedPurchase + nbp.govBondHoldings).toDouble should be <= (p.monetary.qeMaxGdpShare.toDouble * gdp + 1e-6)
     }
 
-  it should "preserve bond clearing through QE (bank - purchase + nbp + purchase = total)" in
+  it should "not modify nbpState.govBondHoldings (deferred to BankUpdateStep)" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
-      val totalBefore = bankBonds + nbp.govBondHoldings.toDouble
-      val qeResult    = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
-      val totalAfter  = (bankBonds - qeResult.requestedPurchase.toDouble) + qeResult.nbpState.govBondHoldings.toDouble
-      totalAfter shouldBe (totalBefore +- 1.0) // FP tolerance at 1e10 scale
+      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
+      // executeQe returns a request; bond update happens in BankUpdateStep waterfall
+      qeResult.nbpState.govBondHoldings shouldBe nbp.govBondHoldings
+      qeResult.requestedPurchase.toDouble should be >= 0.0
+      qeResult.requestedPurchase.toDouble should be <= (bankBonds + 1e-6)
     }
 
   // --- shouldActivateQe properties ---

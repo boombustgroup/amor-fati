@@ -94,11 +94,12 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
     qeResult.requestedPurchase.toDouble should be <= maxByGdp
   }
 
-  it should "accumulate in qeCumulative" in {
+  it should "return positive purchase when active with available bonds" in {
     val nbp      = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
     val qeResult = Nbp.executeQe(nbp, PLN(1e12), PLN(1e12))
     qeResult.requestedPurchase.toDouble should be > 0.0
-    qeResult.nbpState.qeCumulative shouldBe qeResult.requestedPurchase
+    // executeQe no longer updates cumulative; that happens in BankUpdateStep
+    qeResult.nbpState.qeCumulative shouldBe nbp.qeCumulative
   }
 
   // --- NbpState defaults ---

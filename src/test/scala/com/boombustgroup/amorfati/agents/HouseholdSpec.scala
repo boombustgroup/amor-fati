@@ -213,8 +213,10 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     )
     val (_, agg, _)    = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), 0.4, rng, nBanks = 1, bankRates = Some(br))
     val expectedDepInt = depRate / 12.0 * savings.toDouble
-    // totalIncome should include wage + deposit interest
-    agg.totalIncome shouldBe PLN(wage + expectedDepInt) +- PLN(0.01)
+    val grossIncome    = wage + expectedDepInt
+    val pitTax         = Household.computeMonthlyPit(PLN(grossIncome))
+    // totalIncome = grossIncome - PIT + socialTransfer (0 children → no transfer)
+    agg.totalIncome shouldBe PLN(grossIncome - pitTax.toDouble) +- PLN(0.01)
   }
 
   it should "accumulate per-bank flows correctly for 2 banks" in {
