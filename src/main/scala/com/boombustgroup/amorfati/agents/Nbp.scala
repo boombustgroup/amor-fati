@@ -13,6 +13,8 @@ object Nbp:
   private val OutputGapCap          = Ratio(0.30)  // ±cap on output gap in Taylor rule (Svensson 2003)
   private val DebtThreshold         = Ratio(0.40)  // debt-to-GDP threshold for fiscal risk premium
   private val FiscalRiskCap         = Rate(0.10)   // maximum fiscal risk premium
+  private val CredPremiumCap        = Rate(0.05)   // max credibility premium (5pp, ~Turkey 2018)
+  private val BondYieldCap          = Rate(0.20)   // absolute yield ceiling (20%, beyond any EM precedent)
   private val QeCompressionCoeff    = Rate(0.5)    // yield compression per unit of NBP bond/GDP share
   private val ForeignDemandDiscount = Rate(0.005)  // yield discount when NFA > 0
   private val QeActivationSlack     = Rate(0.0025) // rate proximity to floor for QE activation
@@ -36,9 +38,12 @@ object Nbp:
   // ---------------------------------------------------------------------------
 
   /** Result of monthly QE execution. */
-  case class QeResult(
-      state: State,  // updated NBP state
-      purchased: PLN, // bond purchase amount this month
+  /** QE purchase request — NBP state without bond update + requested amount.
+    * Actual purchase happens in the bond waterfall (BankUpdateStep).
+    */
+  case class QeRequest(
+      nbpState: State,       // NBP state (govBondHoldings NOT yet updated)
+      requestedPurchase: PLN, // how much QE wants to buy (actual capped by bank supply in waterfall)
   )
 
   // ---------------------------------------------------------------------------
@@ -123,10 +128,11 @@ object Nbp:
   )(using p: SimParams): Rate =
     if !p.flags.govBondMarket then refRate
     else
-      val fiscalRisk    = piecewiseFiscalRisk(debtToGdp)
-      val qeCompress    = QeCompressionCoeff * nbpBondGdpShare
-      val foreignDemand = if nfa > PLN.Zero then ForeignDemandDiscount else Rate.Zero
-      (refRate + p.fiscal.govTermPremium + fiscalRisk - qeCompress - foreignDemand + credibilityPremium).max(Rate.Zero)
+      val fiscalRisk     = piecewiseFiscalRisk(debtToGdp)
+      val qeCompress     = QeCompressionCoeff * nbpBondGdpShare
+      val foreignDemand  = if nfa > PLN.Zero then ForeignDemandDiscount else Rate.Zero
+      val cappedCredPrem = credibilityPremium.min(CredPremiumCap)
+      (refRate + p.fiscal.govTermPremium + fiscalRisk - qeCompress - foreignDemand + cappedCredPrem).max(Rate.Zero).min(BondYieldCap)
 
   /** Piecewise fiscal risk premium: steepens at 55% and 60% debt/GDP. base
     * segment (40%+) + caution segment (55%+) + crisis segment (60%+).
@@ -155,18 +161,17 @@ object Nbp:
   def shouldTaperQe(inflation: Rate)(using p: SimParams): Boolean =
     inflation > p.monetary.targetInfl
 
-  /** Execute monthly QE purchase. */
-  def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN)(using p: SimParams): QeResult =
-    if !nbp.qeActive then QeResult(nbp, PLN.Zero)
+  /** Compute QE purchase request. Does NOT update govBondHoldings — the bond
+    * waterfall in BankUpdateStep handles the actual transfer so that SFC clears
+    * by construction (actualSold from banks = actualSold to NBP).
+    */
+  def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN)(using p: SimParams): QeRequest =
+    if !nbp.qeActive then QeRequest(nbp, PLN.Zero)
     else
       val maxByGdp  = (annualGdp * p.monetary.qeMaxGdpShare - nbp.govBondHoldings).max(PLN.Zero)
       val available = bankBondHoldings
       val purchase  = PLN.Zero.max(maxByGdp.min(available).min(p.monetary.qePace))
-      val newNbp    = nbp.copy(
-        govBondHoldings = nbp.govBondHoldings + purchase,
-        qeCumulative = nbp.qeCumulative + purchase,
-      )
-      QeResult(newNbp, purchase)
+      QeRequest(nbp, purchase)
 
   // ---------------------------------------------------------------------------
   // FX intervention

@@ -183,9 +183,12 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
       mkBank(id = 1, deposits = PLN(2000000.0), loans = PLN(200000), capital = PLN(200000)),
     )
     val afterBailIn  = Banking.applyBailIn(banks)
+    // With bailIn=true: uninsured = 1M - 400k = 600k, haircut = 600k * 0.08 = 48k
+    val uninsured    = 1000000.0 - p.banking.bfgDepositGuarantee.toDouble
+    val haircut      = uninsured * p.banking.bailInDepositHaircut.toDouble
     val afterResolve = Banking.resolveFailures(afterBailIn.banks)
-    afterResolve.banks(0).deposits shouldBe PLN.Zero       // failed bank wiped
-    afterResolve.banks(1).deposits shouldBe PLN(3000000.0) // absorbed
+    afterResolve.banks(0).deposits shouldBe PLN.Zero                             // failed bank wiped
+    afterResolve.banks(1).deposits shouldBe PLN(2000000.0 + 1000000.0 - haircut) // absorbed after bail-in
   }
 
   // ==========================================================================
