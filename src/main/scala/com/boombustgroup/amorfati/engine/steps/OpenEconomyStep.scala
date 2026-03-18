@@ -326,17 +326,13 @@ object OpenEconomyStep:
     else Rate.Zero
     val marketYield       = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
 
-    // Rolling-portfolio WAM: weighted coupon converges to market yield as
-    // bonds mature (1/avgMaturity per month) and are refinanced at market yield.
-    // New deficit issuance also enters at market yield.
-    // debtService uses weightedCoupon (portfolio average), not market yield.
-    val prevCoupon        = in.w.gov.weightedCoupon
-    val rolloverFrac      = 1.0 / p.fiscal.govAvgMaturityMonths.max(1)
-    val deficitFrac       =
-      if in.w.gov.bondsOutstanding > PLN.Zero then (in.w.gov.deficit.max(PLN.Zero) / in.w.gov.bondsOutstanding).max(0.0)
-      else 0.0
-    val freshFrac         = Math.min(1.0, rolloverFrac + deficitFrac)
-    val newWeightedCoupon = prevCoupon * (1.0 - freshFrac) + marketYield * freshFrac
+    val newWeightedCoupon = updateWeightedCoupon(
+      prevCoupon = in.w.gov.weightedCoupon,
+      marketYield = marketYield,
+      bondsOutstanding = in.w.gov.bondsOutstanding,
+      deficit = in.w.gov.deficit,
+      avgMaturityMonths = p.fiscal.govAvgMaturityMonths,
+    )
 
     // Debt service: weighted coupon on lagged bond stock (not market yield)
     val rawDebtService     = in.w.gov.bondsOutstanding * newWeightedCoupon.monthly
@@ -419,3 +415,42 @@ object OpenEconomyStep:
         )
       else in.w.financial.nbfi
     NbfiResult(newNbfi)
+
+  // ---------------------------------------------------------------------------
+  // WAM (Weighted Average Maturity) coupon update
+  // ---------------------------------------------------------------------------
+
+  /** Rolling-portfolio weighted average coupon update.
+    *
+    * Models a government bond portfolio with uniform maturity profile where
+    * `1/avgMaturityMonths` of the stock matures each month and is refinanced at
+    * the current market yield. New deficit issuance also enters at market
+    * yield. The weighted coupon converges gradually to market yield:
+    *
+    * {{{
+    * rolloverFrac = 1 / avgMaturityMonths           // maturing bonds
+    * deficitFrac  = max(0, deficit) / outstanding    // new issuance
+    * freshFrac    = min(1, rolloverFrac + deficitFrac)
+    * newCoupon    = prevCoupon × (1 − freshFrac) + marketYield × freshFrac
+    * }}}
+    *
+    * At 54-month average maturity (MF 2024), a yield shock takes ~4.5 years to
+    * fully pass through to debt service — matching the actual MF flat
+    * redemption profile (Strategia zarządzania długiem sektora finansów
+    * publicznych 2024).
+    *
+    * Pure function — no World dependency, testable in isolation.
+    */
+  private[amorfati] def updateWeightedCoupon(
+      prevCoupon: Rate,
+      marketYield: Rate,
+      bondsOutstanding: PLN,
+      deficit: PLN,
+      avgMaturityMonths: Int,
+  ): Rate =
+    val rolloverFrac = 1.0 / avgMaturityMonths.max(1)
+    val deficitFrac  =
+      if bondsOutstanding > PLN.Zero then (deficit.max(PLN.Zero) / bondsOutstanding).max(0.0)
+      else 0.0
+    val freshFrac    = Math.min(1.0, rolloverFrac + deficitFrac)
+    prevCoupon * (1.0 - freshFrac) + marketYield * freshFrac
