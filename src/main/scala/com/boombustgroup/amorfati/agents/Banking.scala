@@ -174,25 +174,26 @@ object Banking:
     * field, same convention as `Firm.State`.
     */
   case class BankState(
-      id: BankId,           // unique bank identifier (index into banks vector)
-      deposits: PLN,        // total customer deposits (HH + firms)
-      loans: PLN,           // outstanding corporate loan book
-      capital: PLN,         // regulatory capital (Tier 1 + retained earnings)
-      nplAmount: PLN,       // non-performing loan stock (KNF Stage 3)
-      afsBonds: PLN,        // Available-for-Sale gov bonds (marked to market each month)
-      htmBonds: PLN,        // Held-to-Maturity gov bonds (accrual only, hidden losses)
-      htmBookYield: Rate,   // weighted-average acquisition yield on HTM portfolio
-      reservesAtNbp: PLN,   // excess reserves held at NBP
-      interbankNet: PLN,    // net interbank position (positive = lender)
-      status: BankStatus,   // operational status (Active with CAR counter, or Failed)
-      demandDeposits: PLN,  // demand deposits (% split from total deposits)
-      termDeposits: PLN,    // term deposits
-      loansShort: PLN,      // short-term loans (< 1 year)
-      loansMedium: PLN,     // medium-term loans (1–5 years)
-      loansLong: PLN,       // long-term loans (> 5 years)
-      consumerLoans: PLN,   // outstanding unsecured household credit
-      consumerNpl: PLN,     // consumer credit NPL stock
-      corpBondHoldings: PLN, // corporate bond holdings (bank share, Basel III BBB)
+      id: BankId,                                          // unique bank identifier (index into banks vector)
+      deposits: PLN,                                       // total customer deposits (HH + firms)
+      loans: PLN,                                          // outstanding corporate loan book
+      capital: PLN,                                        // regulatory capital (Tier 1 + retained earnings)
+      nplAmount: PLN,                                      // non-performing loan stock (KNF Stage 3)
+      afsBonds: PLN,                                       // Available-for-Sale gov bonds (marked to market each month)
+      htmBonds: PLN,                                       // Held-to-Maturity gov bonds (accrual only, hidden losses)
+      htmBookYield: Rate,                                  // weighted-average acquisition yield on HTM portfolio
+      reservesAtNbp: PLN,                                  // excess reserves held at NBP
+      interbankNet: PLN,                                   // net interbank position (positive = lender)
+      status: BankStatus,                                  // operational status (Active with CAR counter, or Failed)
+      demandDeposits: PLN,                                 // demand deposits (% split from total deposits)
+      termDeposits: PLN,                                   // term deposits
+      loansShort: PLN,                                     // short-term loans (< 1 year)
+      loansMedium: PLN,                                    // medium-term loans (1–5 years)
+      loansLong: PLN,                                      // long-term loans (> 5 years)
+      consumerLoans: PLN,                                  // outstanding unsecured household credit
+      consumerNpl: PLN,                                    // consumer credit NPL stock
+      corpBondHoldings: PLN,                               // corporate bond holdings (bank share, Basel III BBB)
+      eclStaging: EclStaging.State = EclStaging.State.zero, // IFRS 9 ECL staging (S1/S2/S3)
   ):
 
     /** Total government bond holdings (AFS + HTM). All existing read-only

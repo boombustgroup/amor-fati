@@ -106,6 +106,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     firmPrincipalRepaid = PLN.Zero,
     unrealizedBondLoss = PLN.Zero,
     htmRealizedLoss = PLN.Zero,
+    eclProvisionChange = PLN.Zero,
   )
 
   private def mkBank(

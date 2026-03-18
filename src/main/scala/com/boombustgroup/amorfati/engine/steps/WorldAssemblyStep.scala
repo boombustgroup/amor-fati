@@ -331,6 +331,7 @@ object WorldAssemblyStep:
       firmPrincipalRepaid = in.s5.sumFirmPrincipal,
       unrealizedBondLoss = in.s9.unrealizedBondLoss,
       htmRealizedLoss = in.s9.htmRealizedLoss,
+      eclProvisionChange = in.s9.eclProvisionChange,
     )
 
   /** FDI M&A: monthly stochastic conversion of domestic firms to foreign

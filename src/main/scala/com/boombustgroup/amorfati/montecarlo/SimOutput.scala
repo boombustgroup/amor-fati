@@ -289,6 +289,10 @@ object SimOutput:
     // AFS/HTM bond portfolio split
     ColumnDef("BankAfsBonds", ctx => ctx.world.bank.afsBonds.toDouble),
     ColumnDef("BankHtmBonds", ctx => ctx.world.bank.htmBonds.toDouble),
+    // IFRS 9 ECL staging (aggregate across banks)
+    ColumnDef("EclStage1", ctx => ctx.world.bankingSector.banks.map(_.eclStaging.stage1.toDouble).sum),
+    ColumnDef("EclStage2", ctx => ctx.world.bankingSector.banks.map(_.eclStaging.stage2.toDouble).sum),
+    ColumnDef("EclStage3", ctx => ctx.world.bankingSector.banks.map(_.eclStaging.stage3.toDouble).sum),
     // KNF/BFG
     ColumnDef("BfgLevyTotal", ctx => ctx.world.flows.bfgLevyTotal),
     ColumnDef("BfgFundBalance", ctx => ctx.world.mechanisms.bfgFundBalance.toDouble),
