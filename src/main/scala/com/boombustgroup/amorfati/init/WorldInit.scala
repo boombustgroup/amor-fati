@@ -131,6 +131,7 @@ object WorldInit:
         corporateBonds = CorporateBondMarket.initial,
         insurance = initInsurance,
         nbfi = initNbfi,
+        quasiFiscal = QuasiFiscal.State.zero,
       ),
       external = ExternalState(
         gvc = GvcInit.create(),

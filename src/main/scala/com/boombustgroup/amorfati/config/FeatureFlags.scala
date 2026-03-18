@@ -46,6 +46,7 @@ case class FeatureFlags(
     euFunds: Boolean = true,
     minWage: Boolean = true,
     govBondMarket: Boolean = true,
+    quasiFiscal: Boolean = true,
     govUnempBenefit: Boolean = true,
     pit: Boolean = true,
     social800: Boolean = true,

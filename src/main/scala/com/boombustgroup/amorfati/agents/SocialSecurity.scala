@@ -118,13 +118,4 @@ object SocialSecurity:
         monthlyRetirements = retirements,
       )
 
-  // ---------------------------------------------------------------------------
-  // BGK (stub)
-  // ---------------------------------------------------------------------------
-
-  /** BGK state: state development bank (stub for future use). */
-  case class BgkState(
-      loanPortfolio: PLN, // outstanding BGK loan portfolio
-  )
-  object BgkState:
-    val zero: BgkState = BgkState(PLN.Zero)
+  // BGK stub removed — replaced by QuasiFiscal agent (PR #10)

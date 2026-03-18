@@ -70,6 +70,7 @@ case class FinancialMarketsState(
     corporateBonds: CorporateBondMarket.State, // Catalyst: outstanding, YTM, spread, holdings
     insurance: Insurance.State,                // life/non-life reserves, three-asset allocation
     nbfi: Nbfi.State,                          // TFI: AUM, NBFI credit, deposit drain
+    quasiFiscal: QuasiFiscal.State,            // BGK/PFR: off-balance-sheet bonds, subsidized lending
 )
 object FinancialMarketsState:
   val zero: FinancialMarketsState = FinancialMarketsState(
@@ -77,6 +78,7 @@ object FinancialMarketsState:
     corporateBonds = CorporateBondMarket.zero,
     insurance = Insurance.State.zero,
     nbfi = Nbfi.State.zero,
+    quasiFiscal = QuasiFiscal.State.zero,
   )
 
 /** Structural external-sector state carried across steps. */
