@@ -38,6 +38,7 @@ equilibrium prices, quantities, or flows given current state.
 | `HousingMarket.scala` | House price index (aggregate + 7 regions), mortgage origination/default/amortization |
 | `CorporateBondMarket.scala` | Catalyst: corporate bond issuance, coupon, default, demand-side absorption |
 | `BondAuction.scala` | SPW primary market: foreign demand f(yield spread vs Bund, ER), absorption constraint |
+| `CapitalFlows.scala` | Capital flight: risk-off shock, carry trade (accumulation/unwind), auction confidence signal |
 | `GvcTrade.scala` | GVC deep external sector: foreign firm partners, sector-level trade, disruption shocks |
 | `IntermediateMarket.scala` | I-O intermediate goods: inter-sector purchases via input-output matrix |
 
