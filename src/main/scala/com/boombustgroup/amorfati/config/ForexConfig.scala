@@ -28,6 +28,22 @@ import com.boombustgroup.amorfati.types.*
   *   monthly exchange rate adjustment speed toward equilibrium
   * @param exportAutoBoost
   *   export productivity boost from firm automation
+  * @param riskOffShockMonth
+  *   simulation month when global risk-off event hits (0 = no shock)
+  * @param riskOffMagnitude
+  *   capital outflow as fraction of monthly GDP on risk-off (2020/2022: ~10%)
+  * @param riskOffDurationMonths
+  *   months of elevated risk-off (carry unwind persists)
+  * @param carryThreshold
+  *   yield spread above which carry trade positions accumulate
+  * @param carryAccumulationRate
+  *   speed of carry trade stock buildup
+  * @param carryUnwindSpeed
+  *   monthly fraction of carry stock unwound during risk-off
+  * @param auctionConfidenceThreshold
+  *   bid-to-cover below which foreign confidence erodes
+  * @param auctionOutflowSensitivity
+  *   portfolio outflow sensitivity to auction undersubscription
   */
 case class ForexConfig(
     baseExRate: Double = 4.33,
@@ -38,6 +54,15 @@ case class ForexConfig(
     irpSensitivity: Double = 0.15,
     exRateAdjSpeed: Ratio = Ratio(0.02),
     exportAutoBoost: Ratio = Ratio(0.15),
+    // Capital flight (risk-off, carry trade)
+    riskOffShockMonth: Int = 0,
+    riskOffMagnitude: Ratio = Ratio(0.10),
+    riskOffDurationMonths: Int = 6,
+    carryThreshold: Rate = Rate(0.03),
+    carryAccumulationRate: Double = 0.5,
+    carryUnwindSpeed: Ratio = Ratio(0.30),
+    auctionConfidenceThreshold: Ratio = Ratio(0.90),
+    auctionOutflowSensitivity: Double = 2.0,
 ):
   require(baseExRate > 0, s"baseExRate must be positive: $baseExRate")
   require(

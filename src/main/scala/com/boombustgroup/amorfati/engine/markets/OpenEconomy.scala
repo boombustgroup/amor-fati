@@ -58,22 +58,23 @@ object OpenEconomy:
     * Calibration: NBP BoP statistics 2024, Eurostat EU funds absorption data.
     */
   case class BopState(
-      nfa: PLN,                              // net foreign assets (cumulative stock, ΔNFA = CA + valuation)
-      foreignAssets: PLN,                    // gross foreign assets (cumulative, grows with KA inflows)
-      foreignLiabilities: PLN,               // gross foreign liabilities (cumulative, grows with KA outflows)
-      currentAccount: PLN,                   // monthly CA: trade + primary income + secondary income
-      capitalAccount: PLN,                   // monthly KA: FDI + portfolio flows (BPM6 financial account)
-      tradeBalance: PLN,                     // monthly exports − imports (merchandise + tourism)
-      primaryIncome: PLN,                    // monthly interest/dividends on NFA (nfa × nfaReturnRate / 12)
-      secondaryIncome: PLN,                  // monthly transfers: EU funds + diaspora − remittance outflow
-      fdi: PLN,                              // monthly FDI inflows (base + automation boost − NFA dampening)
-      portfolioFlows: PLN,                   // monthly portfolio flows (interest rate differential + risk premium)
-      reserves: PLN,                         // CB foreign reserves (cumulative, ΔRes = −(CA + KA))
-      exports: PLN,                          // total exports this month (merchandise + tourism)
-      totalImports: PLN,                     // total imports this month (consumption + tech + intermediates + tourism)
-      importedIntermediates: PLN,            // cross-border intermediate inputs (per-sector import content × output)
-      euFundsMonthly: PLN = PLN.Zero,        // EU structural/cohesion funds transferred this month
+      nfa: PLN,                               // net foreign assets (cumulative stock, ΔNFA = CA + valuation)
+      foreignAssets: PLN,                     // gross foreign assets (cumulative, grows with KA inflows)
+      foreignLiabilities: PLN,                // gross foreign liabilities (cumulative, grows with KA outflows)
+      currentAccount: PLN,                    // monthly CA: trade + primary income + secondary income
+      capitalAccount: PLN,                    // monthly KA: FDI + portfolio flows (BPM6 financial account)
+      tradeBalance: PLN,                      // monthly exports − imports (merchandise + tourism)
+      primaryIncome: PLN,                     // monthly interest/dividends on NFA (nfa × nfaReturnRate / 12)
+      secondaryIncome: PLN,                   // monthly transfers: EU funds + diaspora − remittance outflow
+      fdi: PLN,                               // monthly FDI inflows (base + automation boost − NFA dampening)
+      portfolioFlows: PLN,                    // monthly portfolio flows (interest rate differential + risk premium)
+      reserves: PLN,                          // CB foreign reserves (cumulative, ΔRes = −(CA + KA))
+      exports: PLN,                           // total exports this month (merchandise + tourism)
+      totalImports: PLN,                      // total imports this month (consumption + tech + intermediates + tourism)
+      importedIntermediates: PLN,             // cross-border intermediate inputs (per-sector import content × output)
+      euFundsMonthly: PLN = PLN.Zero,         // EU structural/cohesion funds transferred this month
       euCumulativeAbsorption: PLN = PLN.Zero, // cumulative EU funds absorbed since t = 0
+      carryTradeStock: PLN = PLN.Zero,        // outstanding carry trade positions
   )
   object BopState:
     val zero: BopState = BopState(
@@ -152,13 +153,20 @@ object OpenEconomy:
       diasporaInflow: PLN = PLN.Zero,
       tourismExport: PLN = PLN.Zero,
       tourismImport: PLN = PLN.Zero,
+      bondYield: Rate = Rate.Zero,
+      prevBidToCover: Ratio = Ratio(2.0),
   )
 
   /** Current account breakdown. */
   private case class CurrentAccountResult(ca: PLN, primaryIncome: PLN, secondaryIncome: PLN)
 
   /** Capital account breakdown. */
-  private case class CapitalAccountResult(total: PLN, fdi: PLN, portfolioFlows: PLN)
+  private case class CapitalAccountResult(
+      total: PLN,                     // FDI + adjusted portfolio flows
+      fdi: PLN,                       // foreign direct investment
+      portfolioFlows: PLN,            // portfolio flows (incl. risk-off, carry trade, auction signal)
+      carryTradeStock: PLN = PLN.Zero, // outstanding carry trade positions after this month
+  )
 
   def step(in: StepInput)(using p: SimParams): Result =
     val exports             = computeExports(in)
@@ -192,6 +200,7 @@ object OpenEconomy:
       exports = totalExportsIncTour,
       totalImports = totalImports,
       importedIntermediates = totalImportedInterm,
+      carryTradeStock = kaResult.carryTradeStock,
     )
 
     Result(newForex, newBop, importedInterm, valEffect, fxResult)
@@ -241,16 +250,26 @@ object OpenEconomy:
     * portfolio flows (interest rate differential + NFA risk premium).
     */
   private def computeCapitalAccount(in: StepInput)(using p: SimParams): CapitalAccountResult =
-    val annualGdp      = in.gdp * MonthsPerYear
-    val nfaGdpRatio    = if in.gdp > PLN.Zero then in.prevBop.nfa / annualGdp else 0.0
-    val fdi            = p.openEcon.fdiBase * ((1.0 + in.autoRatio.toDouble * FdiAutoBoost) *
+    val annualGdp         = in.gdp * MonthsPerYear
+    val nfaGdpRatio       = if in.gdp > PLN.Zero then in.prevBop.nfa / annualGdp else 0.0
+    val fdi               = p.openEcon.fdiBase * ((1.0 + in.autoRatio.toDouble * FdiAutoBoost) *
       (1.0 - Math.max(0.0, -nfaGdpRatio) * FdiNfaDampening))
-    val portfolioFlows =
+    val portfolioFlows    =
       val rateDiff    = (in.domesticRate - p.forex.foreignRate).toDouble
       val riskPremium = -p.openEcon.riskPremiumSensitivity * nfaGdpRatio
       val monthlyGdp  = if in.gdp > PLN.Zero then in.gdp else PLN(1.0)
       monthlyGdp * ((rateDiff + riskPremium) * p.openEcon.portfolioSensitivity)
-    CapitalAccountResult(fdi + portfolioFlows, fdi, portfolioFlows)
+    // Capital flight: risk-off, carry trade, auction signal
+    val yieldSpread       = in.bondYield - p.forex.foreignRate
+    val capitalFlight     = CapitalFlows.compute(
+      month = in.month,
+      yieldSpread = yieldSpread,
+      bidToCover = in.prevBidToCover,
+      prevCarry = CapitalFlows.CarryState(in.prevBop.carryTradeStock),
+      monthlyGdp = if in.gdp > PLN.Zero then in.gdp else PLN(1.0),
+    )
+    val adjustedPortfolio = portfolioFlows + capitalFlight.totalAdjustment
+    CapitalAccountResult(fdi + adjustedPortfolio, fdi, adjustedPortfolio, capitalFlight.newCarryState.stock)
 
   // --- Exchange rate & valuation ---
 
