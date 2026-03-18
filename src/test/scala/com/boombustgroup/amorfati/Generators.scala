@@ -199,6 +199,7 @@ object Generators:
     PLN(cumDebt),
     PLN(unempBen),
     PLN(bondsOut),
+    PLN.Zero,        // foreignBondHoldings
     Rate(bondYield),
     Rate(bondYield), // weightedCoupon starts at market yield
     PLN(debtService),
@@ -411,6 +412,7 @@ object Generators:
     jstDebt = PLN(jstDebt),
     fusBalance = PLN(fusBal),
     nfzBalance = PLN.Zero,
+    foreignBondHoldings = PLN.Zero,
     ppkBondHoldings = PLN(ppkBonds),
     mortgageStock = PLN(mortStock),
     consumerLoans = PLN.Zero,

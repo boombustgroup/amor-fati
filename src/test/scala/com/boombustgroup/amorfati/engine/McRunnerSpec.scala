@@ -22,7 +22,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
     runSingle(42) shouldBe a[Right[?, ?]]
   }
 
-  it should "produce 120 rows x 203 columns" in {
+  it should "produce 120 rows x 204 columns" in {
     ts.length shouldBe p.timeline.duration
     for row <- ts do row.length shouldBe SimOutput.nCols
   }
@@ -113,7 +113,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
     assume(p.flags.govBondMarket, "GOV_BOND_MARKET=true required")
     for t <- ts.indices do
       val outstanding = ts(t)(Col.BondsOutstanding.ordinal)
-      val holders     = ts(t)(Col.BankBondHoldings.ordinal) + ts(t)(Col.NbpBondHoldings.ordinal) +
+      val holders     = ts(t)(Col.BankBondHoldings.ordinal) + ts(t)(Col.ForeignBondHoldings.ordinal) + ts(t)(Col.NbpBondHoldings.ordinal) +
         ts(t)(Col.PpkBondHoldings.ordinal) + ts(t)(Col.InsGovBondHoldings.ordinal) + ts(t)(Col.NbfiTfiGovBondHoldings.ordinal)
       withClue(s"Month ${t + 1}: holders($holders) vs outstanding($outstanding): ") {
         holders shouldBe outstanding +- 1.0

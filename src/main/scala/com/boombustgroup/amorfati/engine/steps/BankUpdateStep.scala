@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.engine.steps
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, HousingMarket}
+import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.KahanSum.*
@@ -90,6 +90,7 @@ object BankUpdateStep:
       ppkRequested: PLN,     // PPK bond purchase request
       insRequested: PLN,     // insurance bond purchase request (delta)
       tfiRequested: PLN,     // TFI bond purchase request (delta)
+      erChange: Ratio,       // month-on-month ER change (for foreign demand)
   )
 
   private case class PerBankHhFlows(
@@ -116,6 +117,8 @@ object BankUpdateStep:
       finalInsurance: Insurance.State,               // insurance after bond purchase
       finalNbfi: Nbfi.State,                         // NBFI/TFI after bond purchase
       actualBondChange: PLN,                         // net change in gov bonds outstanding
+      foreignBondHoldings: PLN,                      // non-resident holdings after auction
+      bidToCover: Ratio,                             // bond auction bid-to-cover ratio
   )
 
   def run(in: Input)(using p: SimParams): Output =
@@ -145,7 +148,7 @@ object BankUpdateStep:
       finalPpk = multi.finalPpk,
       finalInsurance = multi.finalInsurance,
       finalNbfi = multi.finalNbfi,
-      newGovWithYield = govJst.newGovWithYield,
+      newGovWithYield = govJst.newGovWithYield.copy(foreignBondHoldings = multi.foreignBondHoldings),
       newJst = govJst.newJst,
       housingAfterFlows = housing.housingAfterFlows,
       bfgLevy = bfgLevy,
@@ -295,12 +298,16 @@ object BankUpdateStep:
     val actualBondChange = newGovWithYield.bondsOutstanding - in.w.gov.bondsOutstanding
     val insRequested     = (in.s8.nonBank.newInsurance.govBondHoldings - in.w.financial.insurance.govBondHoldings).max(PLN.Zero)
     val tfiRequested     = (in.s8.nonBank.newNbfi.tfiGovBondHoldings - in.w.financial.nbfi.tfiGovBondHoldings).max(PLN.Zero)
+    val prevEr           = in.w.forex.exchangeRate
+    val currEr           = in.s8.external.newForex.exchangeRate
+    val erChange         = if prevEr > 0.0 then Ratio((currEr - prevEr) / prevEr) else Ratio.Zero
     BondWaterfallInputs(
       actualBondChange = actualBondChange,
       qeRequested = in.s8.monetary.qePurchaseAmount,
       ppkRequested = in.s2.rawPpkBondPurchase,
       insRequested = insRequested,
       tfiRequested = tfiRequested,
+      erChange = erChange,
     )
 
   /** Resolve per-bank household flows from tracked data or worker-share
@@ -486,19 +493,27 @@ object BankUpdateStep:
     // ---- Bond waterfall: single pass, SFC by construction ----
     // Each sellToBuyer removes bonds from banks and returns actualSold.
     // Buyer gets exactly old + actualSold. No speculation, no correction.
-    val qeSale  = Banking.sellToBuyer(afterBonds, wf.qeRequested)
-    val ppkSale = Banking.sellToBuyer(qeSale.banks, wf.ppkRequested)
-    val insSale = Banking.sellToBuyer(ppkSale.banks, wf.insRequested)
-    val tfiSale = Banking.sellToBuyer(insSale.banks, wf.tfiRequested)
+    val auctionResult = BondAuction.auction(
+      newIssuance = wf.actualBondChange.max(PLN.Zero),
+      bankBondCapacity = PLN(afterBonds.kahanSumBy(_.deposits.toDouble) * 0.5), // banks can absorb up to 50% of deposits
+      marketYield = in.s8.monetary.newBondYield,
+      erChange = wf.erChange,
+    )
+    val foreignSale   = Banking.sellToBuyer(afterBonds, auctionResult.foreignAbsorbed)
+    val qeSale        = Banking.sellToBuyer(foreignSale.banks, wf.qeRequested)
+    val ppkSale       = Banking.sellToBuyer(qeSale.banks, wf.ppkRequested)
+    val insSale       = Banking.sellToBuyer(ppkSale.banks, wf.insRequested)
+    val tfiSale       = Banking.sellToBuyer(insSale.banks, wf.tfiRequested)
 
     // Buyer holdings: old + actualSold (single source of truth)
-    val finalNbp       = in.s8.monetary.postFxNbp.copy(
+    val finalNbp                 = in.s8.monetary.postFxNbp.copy(
       govBondHoldings = in.s8.monetary.postFxNbp.govBondHoldings + qeSale.actualSold,
       qeCumulative = in.s8.monetary.postFxNbp.qeCumulative + qeSale.actualSold,
     )
-    val finalPpk       = in.s2.newPpk.copy(bondHoldings = in.w.social.ppk.bondHoldings + ppkSale.actualSold)
-    val finalInsurance = in.s8.nonBank.newInsurance.copy(govBondHoldings = in.w.financial.insurance.govBondHoldings + insSale.actualSold)
-    val finalNbfi      = in.s8.nonBank.newNbfi.copy(tfiGovBondHoldings = in.w.financial.nbfi.tfiGovBondHoldings + tfiSale.actualSold)
+    val finalPpk                 = in.s2.newPpk.copy(bondHoldings = in.w.social.ppk.bondHoldings + ppkSale.actualSold)
+    val finalInsurance           = in.s8.nonBank.newInsurance.copy(govBondHoldings = in.w.financial.insurance.govBondHoldings + insSale.actualSold)
+    val finalNbfi                = in.s8.nonBank.newNbfi.copy(tfiGovBondHoldings = in.w.financial.nbfi.tfiGovBondHoldings + tfiSale.actualSold)
+    val finalForeignBondHoldings = in.w.gov.foreignBondHoldings + foreignSale.actualSold
 
     val failResult           =
       Banking.checkFailures(tfiSale.banks, in.s1.m, p.flags.bankFailure, in.s7.newMacropru.ccyb)
@@ -565,6 +580,8 @@ object BankUpdateStep:
       finalInsurance = finalInsurance,
       finalNbfi = finalNbfi,
       actualBondChange = wf.actualBondChange,
+      foreignBondHoldings = finalForeignBondHoldings,
+      bidToCover = auctionResult.bidToCover,
     )
 
   /** Monetary aggregates (M0/M1/M2/M3) when credit diagnostics enabled. */

@@ -92,6 +92,16 @@ import com.boombustgroup.amorfati.types.*
   *   The weighted average coupon converges to market yield gradually, not
   *   instantly. This prevents unrealistic debt service spikes after yield
   *   shocks — matching the actual MF flat redemption profile.
+  * @param baseForeignShare
+  *   baseline foreign holding share of SPW (NBP 2024: ~35%)
+  * @param maxForeignShare
+  *   ceiling on foreign share (structural limit, ~55%)
+  * @param foreignYieldSensitivity
+  *   elasticity of foreign demand to yield spread vs Bund
+  * @param foreignErSensitivity
+  *   elasticity of foreign demand to PLN depreciation (risk-off)
+  * @param bundYield
+  *   German 10Y Bund yield benchmark (ECB 2024: ~2.5%)
   * @param initGovDebt
   *   initial government debt in raw PLN (scaled by gdpRatio, MF 2024: ~1.6 bln
   *   PLN)
@@ -169,6 +179,12 @@ case class FiscalConfig(
     govFiscalRiskBeta: Double = 2.0,
     govTermPremium: Rate = Rate(0.005),
     govAvgMaturityMonths: Int = 54,
+    // Bond auction — foreign demand (NBP SPW holder structure 2024)
+    baseForeignShare: Ratio = Ratio(0.35),
+    maxForeignShare: Ratio = Ratio(0.55),
+    foreignYieldSensitivity: Double = 8.0,
+    foreignErSensitivity: Double = 4.0,
+    bundYield: Rate = Rate(0.025),
     // Fiscal rules (Art. 216 Konstytucja RP, SRW Art. 112aa uFP, SGP)
     fiscalRuleDebtCeiling: Ratio = Ratio(0.60),      // Art. 216: constitutional 60% debt/GDP ceiling
     fiscalRuleCautionThreshold: Ratio = Ratio(0.55), // Art. 86 uFP: cautionary 55% debt/GDP threshold

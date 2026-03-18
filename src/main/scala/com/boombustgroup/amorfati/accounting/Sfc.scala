@@ -63,6 +63,7 @@ object Sfc:
       jstDebt: PLN,                  // local government (JST) cumulative debt
       fusBalance: PLN,               // ZUS/FUS raw surplus/deficit
       nfzBalance: PLN,               // NFZ health fund surplus/deficit
+      foreignBondHoldings: PLN,      // non-resident SPW holdings
       ppkBondHoldings: PLN,          // PPK government bond holdings
       mortgageStock: PLN,            // Outstanding mortgage debt
       consumerLoans: PLN,            // Outstanding consumer credit stock
@@ -207,6 +208,7 @@ object Sfc:
       jstDebt = w.social.jst.debt,
       fusBalance = w.social.zus.fusBalance,
       nfzBalance = w.social.nfz.balance,
+      foreignBondHoldings = w.gov.foreignBondHoldings,
       ppkBondHoldings = w.social.ppk.bondHoldings,
       mortgageStock = w.real.housing.mortgageStock,
       consumerLoans = w.bank.consumerLoans,
@@ -322,9 +324,9 @@ object Sfc:
       // 5. Bond clearing: holders = outstanding (level, not delta)
       IdentitySpec(
         BondClearing,
-        s"bond clearing [bank=${curr.bankBondHoldings}, nbp=${curr.nbpBondHoldings}, ppk=${curr.ppkBondHoldings}, ins=${curr.insuranceGovBondHoldings}, tfi=${curr.tfiGovBondHoldings}, outstanding=${curr.bondsOutstanding}]",
+        s"bond clearing [bank=${curr.bankBondHoldings}, nbp=${curr.nbpBondHoldings}, foreign=${curr.foreignBondHoldings}, ppk=${curr.ppkBondHoldings}, ins=${curr.insuranceGovBondHoldings}, tfi=${curr.tfiGovBondHoldings}, outstanding=${curr.bondsOutstanding}]",
         expected = curr.bondsOutstanding,
-        actual = curr.bankBondHoldings + curr.nbpBondHoldings + curr.ppkBondHoldings +
+        actual = curr.bankBondHoldings + curr.nbpBondHoldings + curr.foreignBondHoldings + curr.ppkBondHoldings +
           curr.insuranceGovBondHoldings + curr.tfiGovBondHoldings,
         tolerance,
       ),

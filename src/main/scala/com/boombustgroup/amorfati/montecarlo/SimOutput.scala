@@ -175,6 +175,7 @@ object SimOutput:
     ColumnDef("WeightedCoupon", ctx => ctx.world.gov.weightedCoupon.toDouble),
     ColumnDef("BondsOutstanding", ctx => ctx.world.gov.bondsOutstanding.toDouble),
     ColumnDef("BankBondHoldings", ctx => ctx.world.bank.govBondHoldings.toDouble),
+    ColumnDef("ForeignBondHoldings", ctx => ctx.world.gov.foreignBondHoldings.toDouble),
     ColumnDef("NbpBondHoldings", ctx => ctx.world.nbp.govBondHoldings.toDouble),
     ColumnDef("QeActive", ctx => if ctx.world.nbp.qeActive then 1.0 else 0.0),
     ColumnDef("DebtService", ctx => ctx.world.gov.debtServiceSpend.toDouble),
@@ -481,6 +482,7 @@ object SimOutput:
     val BondYield: Col              = lookup("BondYield")
     val BondsOutstanding: Col       = lookup("BondsOutstanding")
     val BankBondHoldings: Col       = lookup("BankBondHoldings")
+    val ForeignBondHoldings: Col    = lookup("ForeignBondHoldings")
     val NbpBondHoldings: Col        = lookup("NbpBondHoldings")
     val PpkBondHoldings: Col        = lookup("PpkBondHoldings")
     val InsGovBondHoldings: Col     = lookup("InsGovBondHoldings")
