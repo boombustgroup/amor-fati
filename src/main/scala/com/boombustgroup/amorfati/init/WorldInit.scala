@@ -125,6 +125,7 @@ object WorldInit:
         nfz = SocialSecurity.NfzState.zero,
         ppk = SocialSecurity.PpkState.zero,
         demographics = initDemographics,
+        earmarked = EarmarkedFunds.State.zero,
       ),
       financial = FinancialMarketsState(
         equity = EquityInit.create(totalPop),

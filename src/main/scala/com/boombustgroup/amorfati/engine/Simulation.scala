@@ -15,7 +15,7 @@ import scala.util.Random
   *
   *   - s1 FiscalConstraintStep — fiscal rules, minimum wage, lending base rate
   *   - s2 LaborDemographicsStep — labor market clearing, wages, demographics,
-  *     ZUS/PPK
+  *     ZUS/NFZ/PPK, earmarked funds (FP/PFRON/FGŚP)
   *   - s3 HouseholdIncomeStep — HH income, consumption, PIT, sectoral mobility
   *   - s4 DemandStep — per-sector demand multipliers, aggregate demand
   *   - s5 FirmProcessingStep — production, I-O, technology adoption, loans, NPL
@@ -24,9 +24,9 @@ import scala.util.Random
   *   - s7 PriceEquityStep — inflation, price level, GPW equity market, sigma
   *     dynamics
   *   - s8 OpenEconomyStep — BoP, forex, GVC trade, monetary policy, bonds, QE,
-  *     NBFI
-  *   - s9 BankUpdateStep — bank P&L, provisioning, CAR, interbank, deposit
-  *     rates
+  *     NBFI, capital flight (risk-off, carry trade)
+  *   - s9 BankUpdateStep — bank P&L, IFRS 9 ECL staging, CAR, interbank
+  *     contagion, deposit mobility, bond waterfall, BGK/PFR quasi-fiscal
   *   - s10 WorldAssemblyStep — assemble new World + SFC validation (14
   *     identities)
   *

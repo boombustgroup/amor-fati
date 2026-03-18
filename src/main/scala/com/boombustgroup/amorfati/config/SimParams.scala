@@ -74,6 +74,7 @@ case class SimParams private (
     nbfi: NbfiConfig = NbfiConfig(),
     housing: HousingConfig = HousingConfig(),
     social: SocialConfig = SocialConfig(),
+    earmarked: EarmarkedConfig = EarmarkedConfig(),
     io: IoConfig = IoConfig(),
     labor: LaborConfig = LaborConfig(),
     capital: CapitalConfig = CapitalConfig(),

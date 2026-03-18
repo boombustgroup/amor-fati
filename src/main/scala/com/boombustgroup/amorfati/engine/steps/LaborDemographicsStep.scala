@@ -33,6 +33,7 @@ object LaborDemographicsStep:
       newNfz: SocialSecurity.NfzState,                   // updated NFZ health insurance (contributions, spending)
       newPpk: SocialSecurity.PpkState,                   // updated PPK capital pillar (bond holdings)
       rawPpkBondPurchase: PLN,                           // PPK monthly gov bond purchase before supply cap
+      newEarmarked: EarmarkedFunds.State,                // FP, PFRON, FGŚP earmarked funds
       living: Vector[Firm.State],                        // surviving firms (bankrupt firms filtered out)
   )
 
@@ -83,6 +84,17 @@ object LaborDemographicsStep:
     val newPpk             = SocialSecurity.ppkStep(in.w.social.ppk.bondHoldings, employed, PLN(newWage))
     val rawPpkBondPurchase = SocialSecurity.ppkBondPurchase(newPpk).toDouble
 
+    val nBankrupt    = in.firms.length - living.length
+    val avgWorkers   = if living.nonEmpty then laborDemand / living.length else 0
+    val newEarmarked = EarmarkedFunds.step(
+      in.w.social.earmarked,
+      employed,
+      PLN(newWage),
+      unempBenefitSpend = PLN.Zero, // actual benefit amount computed later in HouseholdIncomeStep
+      nBankrupt,
+      avgWorkers,
+    )
+
     val wageGrowth = if in.w.hhAgg.marketWage.toDouble > 0 then newWage / in.w.hhAgg.marketWage.toDouble - 1.0 else 0.0
 
     Output(
@@ -97,5 +109,6 @@ object LaborDemographicsStep:
       newNfz,
       newPpk,
       PLN(rawPpkBondPurchase),
+      newEarmarked,
       living,
     )

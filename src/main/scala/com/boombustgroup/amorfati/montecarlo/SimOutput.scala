@@ -385,6 +385,13 @@ object SimOutput:
     ColumnDef("NRetirees", ctx => ctx.world.social.demographics.retirees.toDouble),
     ColumnDef("WorkingAgePop", ctx => ctx.world.social.demographics.workingAgePop.toDouble),
     ColumnDef("MonthlyRetirements", ctx => ctx.world.social.demographics.monthlyRetirements.toDouble),
+    // Earmarked funds (FP, PFRON, FGŚP)
+    ColumnDef("FpBalance", ctx => ctx.world.social.earmarked.fpBalance.toDouble),
+    ColumnDef("FpContributions", ctx => ctx.world.social.earmarked.fpContributions.toDouble),
+    ColumnDef("PfronBalance", ctx => ctx.world.social.earmarked.pfronBalance.toDouble),
+    ColumnDef("FgspBalance", ctx => ctx.world.social.earmarked.fgspBalance.toDouble),
+    ColumnDef("FgspSpending", ctx => ctx.world.social.earmarked.fgspSpending.toDouble),
+    ColumnDef("EarmarkedGovSubvention", ctx => ctx.world.social.earmarked.totalGovSubvention.toDouble),
     // Forward-Looking Expectations
     ColumnDef("ExpectedInflation", ctx => ctx.world.mechanisms.expectations.expectedInflation.toDouble),
     ColumnDef("NbpCredibility", ctx => ctx.world.mechanisms.expectations.credibility.toDouble),

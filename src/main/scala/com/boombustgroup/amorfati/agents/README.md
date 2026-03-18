@@ -20,6 +20,7 @@ SFC accounting check (see `com.boombustgroup.amorfati.accounting.Sfc`).
 | `Nbfi.scala` | TFI funds + NBFI credit | AUM, bond/equity holdings, loan stock | Identity 2 (deposit drain), 5 (TFI bonds), 13 (NBFI credit) |
 | `Nbp.scala` | National Bank of Poland | Reference rate, gov bond holdings, QE, FX reserves | Identity 1 (reserve interest), 4 (FX intervention → NFA), 5 (QE bonds) |
 | `DepositMobility.scala` | Deposit flight (Diamond-Dybvig) | Per-bank deposit flows, health-based flight, panic contagion | Identity 2 (deposit redistribution) |
+| `EarmarkedFunds.scala` | FP, PFRON, FGŚP | Payroll-funded statutory funds, bankruptcy payouts, ALMP | Identity 3 (gov subvention → GovDebt) |
 | `EclStaging.scala` | IFRS 9 ECL provisioning | S1/S2/S3 staging, macro-driven migration, forward-looking provisions | Identity 1 (provision → capital) |
 | `InterbankContagion.scala` | Interbank contagion (Lehman channel) | 7×7 bilateral exposure matrix, counterparty losses, liquidity hoarding | Identity 6 (interbank netting) |
 | `QuasiFiscal.scala` | BGK + PFR (consolidated) | Off-balance-sheet bonds, bank/NBP holdings, subsidized loan portfolio | Identity 5 (quasi-fiscal bond clearing) |
