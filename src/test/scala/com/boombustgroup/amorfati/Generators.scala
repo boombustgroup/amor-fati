@@ -520,6 +520,7 @@ object Generators:
     firmPrincipalRepaid = PLN.Zero,
     unrealizedBondLoss = PLN.Zero,
     htmRealizedLoss = PLN.Zero,
+    eclProvisionChange = PLN.Zero,
   )
 
   /** Generate (prev, curr, flows) where all 9 SFC identities hold exactly. */

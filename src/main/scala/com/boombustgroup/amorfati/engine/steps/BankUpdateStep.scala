@@ -68,6 +68,7 @@ object BankUpdateStep:
       actualBondChange: PLN,                         // net change in gov bonds outstanding
       unrealizedBondLoss: PLN,                       // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
+      eclProvisionChange: PLN,                       // aggregate IFRS 9 ECL provision change
       newQuasiFiscal: QuasiFiscal.State,             // BGK/PFR after issuance and lending
   )
 
@@ -187,6 +188,16 @@ object BankUpdateStep:
         if yc > 0 then in.w.bank.afsBonds * (yc * p.banking.govBondDuration) else PLN.Zero
       },
       htmRealizedLoss = multi.htmRealizedLoss,
+      eclProvisionChange = PLN:
+        multi.finalBankingSector.banks
+          .zip(in.w.bankingSector.banks)
+          .kahanSumBy: (curr, prev) =>
+            val currProv: PLN =
+              curr.eclStaging.stage1 * p.banking.eclRate1 + curr.eclStaging.stage2 * p.banking.eclRate2 + curr.eclStaging.stage3 * p.banking.eclRate3
+            val prevProv: PLN =
+              prev.eclStaging.stage1 * p.banking.eclRate1 + prev.eclStaging.stage2 * p.banking.eclRate2 + prev.eclStaging.stage3 * p.banking.eclRate3
+            (currProv - prevProv).toDouble
+      ,
       newQuasiFiscal = newQuasiFiscal,
     )
 
@@ -433,10 +444,16 @@ object BankUpdateStep:
       ),
     )
 
+    // IFRS 9 ECL staging: provision change hits capital
+    val unemployment = Ratio(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
+    val gdpGrowth    = if in.w.gdpProxy > 0 then (in.s7.gdp.toDouble - in.w.gdpProxy) / in.w.gdpProxy else 0.0
+    val eclResult    = EclStaging.step(b.eclStaging, newLoansTotal + b.consumerLoans, bankNplNew, unemployment, gdpGrowth)
+
     b.copy(
       loans = newLoansTotal,
       nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * NplMonthlyWriteOff).max(PLN.Zero),
-      capital = capitalPnl.newCapital,
+      capital = capitalPnl.newCapital - eclResult.provisionChange,
+      eclStaging = eclResult.newStaging,
       deposits = newDep,
       demandDeposits = newDep * (1.0 - p.banking.termDepositFrac.toDouble),
       termDeposits = newDep * p.banking.termDepositFrac.toDouble,

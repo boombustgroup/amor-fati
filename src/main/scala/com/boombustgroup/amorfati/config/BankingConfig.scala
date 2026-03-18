@@ -98,6 +98,20 @@ import com.boombustgroup.amorfati.types.*
   * @param hoardingSensitivity
   *   speed of hoarding onset: factor = 1 − sensitivity × (NPL − threshold). At
   *   10.0, a 10pp NPL overshoot → full freeze.
+  * @param eclRate1
+  *   Stage 1 (performing) ECL provision rate (12-month ECL, KNF: ~1%)
+  * @param eclRate2
+  *   Stage 2 (watch) ECL provision rate (lifetime ECL, KNF: ~8%)
+  * @param eclRate3
+  *   Stage 3 (default) ECL provision rate (1 − recovery, KNF: ~50%)
+  * @param eclMigrationSensitivity
+  *   sensitivity of S1→S2 migration to unemployment excess above NAIRU
+  * @param eclGdpSensitivity
+  *   sensitivity of S1→S2 migration to GDP contraction
+  * @param eclMaxMigration
+  *   maximum monthly S1→S2 migration rate (structural cap)
+  * @param eclCureRate
+  *   monthly cure rate: fraction of S3 loans returning to S2 (restructuring)
   */
 case class BankingConfig(
     // Initial balance sheet (raw — scaled by gdpRatio in SimParams.defaults)
@@ -148,6 +162,14 @@ case class BankingConfig(
     interbankRecoveryRate: Ratio = Ratio(0.40),
     hoardingNplThreshold: Ratio = Ratio(0.05),
     hoardingSensitivity: Double = 10.0,
+    // IFRS 9 ECL staging
+    eclRate1: Ratio = Ratio(0.01),
+    eclRate2: Ratio = Ratio(0.08),
+    eclRate3: Ratio = Ratio(0.50),
+    eclMigrationSensitivity: Double = 3.0,
+    eclGdpSensitivity: Double = 5.0,
+    eclMaxMigration: Ratio = Ratio(0.20),
+    eclCureRate: Ratio = Ratio(0.02),
 ):
   require(minCar > Ratio.Zero && minCar < Ratio.One, s"minCar must be in (0,1): $minCar")
   require(initCapital >= PLN.Zero, s"initCapital must be non-negative: $initCapital")

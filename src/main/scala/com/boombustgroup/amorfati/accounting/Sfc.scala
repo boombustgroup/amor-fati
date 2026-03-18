@@ -146,6 +146,7 @@ object Sfc:
       firmPrincipalRepaid: PLN,     // firm loan principal repaid (deposit destruction)
       unrealizedBondLoss: PLN,      // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       htmRealizedLoss: PLN,         // realized loss from HTM forced reclassification (HTM reclassification channel)
+      eclProvisionChange: PLN,      // IFRS 9 ECL provision change (positive = additional provision → capital hit)
   )
 
   /** Enumeration of the 13 balance-sheet identities checked each month. Used as
@@ -284,7 +285,7 @@ object Sfc:
         BankCapital,
         "bank capital change (profit retention + losses)",
         expected = -flows.nplLoss - flows.mortgageNplLoss - flows.consumerNplLoss
-          - flows.corpBondDefaultLoss - flows.bfgLevy - flows.unrealizedBondLoss - flows.htmRealizedLoss - flows.bankCapitalDestruction +
+          - flows.corpBondDefaultLoss - flows.bfgLevy - flows.unrealizedBondLoss - flows.htmRealizedLoss - flows.eclProvisionChange - flows.bankCapitalDestruction +
           (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
             + flows.mortgageInterestIncome + flows.consumerDebtService + flows.corpBondCouponIncome
             - flows.depositInterestPaid
