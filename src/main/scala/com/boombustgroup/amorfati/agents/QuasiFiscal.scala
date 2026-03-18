@@ -59,28 +59,29 @@ object QuasiFiscal:
       nbpQeActive: Boolean,
   )(using p: SimParams): State =
     // Issuance: BGK/PFR finances a share of government capital programs off-balance-sheet
-    val rawIssuance = (govCapitalSpend + euProjectCapital) * p.quasiFiscal.issuanceShare.toDouble
-    val issuance    = rawIssuance.max(PLN.Zero)
+    val issuance: PLN = ((govCapitalSpend + euProjectCapital) * p.quasiFiscal.issuanceShare).max(PLN.Zero)
 
     // Amortization: bonds mature at 1/avgMaturity per month
-    val amortization = prev.bondsOutstanding * (1.0 / p.quasiFiscal.avgMaturityMonths.max(1))
+    val amortFrac: Ratio  = Ratio.One / p.quasiFiscal.avgMaturityMonths.max(1)
+    val amortization: PLN = prev.bondsOutstanding * amortFrac
 
     // NBP absorption: in crisis mode, NBP buys a share of new issuance
-    val nbpPurchase =
-      if nbpQeActive then issuance * p.quasiFiscal.nbpAbsorptionShare.toDouble
+    val nbpPurchase: PLN =
+      if nbpQeActive then issuance * p.quasiFiscal.nbpAbsorptionShare
       else PLN.Zero
 
     // Banks absorb the rest
-    val bankPurchase = issuance - nbpPurchase
+    val bankPurchase: PLN = issuance - nbpPurchase
 
     // Lending: fraction of outstanding portfolio directed to subsidized credit
-    val lendingGrowth    = issuance * p.quasiFiscal.lendingShare.toDouble
-    val lendingAmort     = prev.loanPortfolio * (1.0 / p.quasiFiscal.loanMaturityMonths.max(1))
-    val newLoanPortfolio = (prev.loanPortfolio + lendingGrowth - lendingAmort).max(PLN.Zero)
+    val lendingGrowth: PLN    = issuance * p.quasiFiscal.lendingShare
+    val loanAmortFrac: Ratio  = Ratio.One / p.quasiFiscal.loanMaturityMonths.max(1)
+    val lendingAmort: PLN     = prev.loanPortfolio * loanAmortFrac
+    val newLoanPortfolio: PLN = (prev.loanPortfolio + lendingGrowth - lendingAmort).max(PLN.Zero)
 
-    val newOutstanding  = (prev.bondsOutstanding + issuance - amortization).max(PLN.Zero)
-    val newBankHoldings = (prev.bankHoldings + bankPurchase - amortization * bankShareOf(prev)).max(PLN.Zero)
-    val newNbpHoldings  = (prev.nbpHoldings + nbpPurchase - amortization * nbpShareOf(prev)).max(PLN.Zero)
+    val newOutstanding: PLN  = (prev.bondsOutstanding + issuance - amortization).max(PLN.Zero)
+    val newBankHoldings: PLN = (prev.bankHoldings + bankPurchase - amortization * bankShareOf(prev)).max(PLN.Zero)
+    val newNbpHoldings: PLN  = (prev.nbpHoldings + nbpPurchase - amortization * nbpShareOf(prev)).max(PLN.Zero)
 
     State(
       bondsOutstanding = newOutstanding,
@@ -92,14 +93,14 @@ object QuasiFiscal:
     )
 
   /** Bank share of outstanding (for amortization split). */
-  private def bankShareOf(s: State): Double =
-    if s.bondsOutstanding > PLN.Zero then (s.bankHoldings / s.bondsOutstanding).max(0.0).min(1.0)
-    else 0.5
+  private def bankShareOf(s: State): Ratio =
+    if s.bondsOutstanding > PLN.Zero then Ratio(s.bankHoldings / s.bondsOutstanding).clamp(Ratio.Zero, Ratio.One)
+    else Ratio(0.5)
 
   /** NBP share of outstanding (for amortization split). */
-  private def nbpShareOf(s: State): Double =
-    if s.bondsOutstanding > PLN.Zero then (s.nbpHoldings / s.bondsOutstanding).max(0.0).min(1.0)
-    else 0.5
+  private def nbpShareOf(s: State): Ratio =
+    if s.bondsOutstanding > PLN.Zero then Ratio(s.nbpHoldings / s.bondsOutstanding).clamp(Ratio.Zero, Ratio.One)
+    else Ratio(0.5)
 
   /** ESA 2010 debt: MF debt + quasi-fiscal outstanding. */
   def esa2010Debt(govCumulativeDebt: PLN, qfOutstanding: PLN): PLN =
