@@ -53,7 +53,7 @@ object FiscalBudget:
       cumulativeDebt: PLN,                 // cumulative public debt stock (Σ deficits since t = 0)
       unempBenefitSpend: PLN,              // unemployment benefit payments this month
       bondsOutstanding: PLN = PLN.Zero,    // government bond stock (skarbowe papiery wartościowe)
-      bondYield: Rate = Rate.Zero,         // current market yield (lagged — set by OpenEconomyStep)
+      bondYield: Rate = Rate.Zero,         // lagged market yield (for lending rates)
       weightedCoupon: Rate = Rate.Zero,    // portfolio-weighted average coupon (WAM rolling model)
       debtServiceSpend: PLN = PLN.Zero,    // interest payments on public debt this month
       socialTransferSpend: PLN = PLN.Zero, // social transfers (800+, family benefits) this month
