@@ -31,6 +31,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     jstDebt = PLN.Zero,
     fusBalance = PLN.Zero,
     nfzBalance = PLN.Zero,
+    foreignBondHoldings = PLN.Zero,
     ppkBondHoldings = PLN.Zero,
     mortgageStock = PLN.Zero,
     consumerLoans = PLN.Zero,
