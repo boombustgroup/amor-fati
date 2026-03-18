@@ -85,6 +85,13 @@ import com.boombustgroup.amorfati.types.*
   *   sensitivity of bond spread to debt/GDP ratio
   * @param govTermPremium
   *   term premium on government bonds over policy rate (NBP 2024)
+  * @param govAvgMaturityMonths
+  *   average maturity of government bond portfolio in months (MF 2024: ~4.5
+  *   years = 54 months). Controls yield pass-through speed: each month
+  *   1/avgMaturity of the portfolio matures and is refinanced at current yield.
+  *   The weighted average coupon converges to market yield gradually, not
+  *   instantly. This prevents unrealistic debt service spikes after yield
+  *   shocks — matching the actual MF flat redemption profile.
   * @param initGovDebt
   *   initial government debt in raw PLN (scaled by gdpRatio, MF 2024: ~1.6 bln
   *   PLN)
@@ -161,6 +168,7 @@ case class FiscalConfig(
     // Bond market
     govFiscalRiskBeta: Double = 2.0,
     govTermPremium: Rate = Rate(0.005),
+    govAvgMaturityMonths: Int = 54,
     // Fiscal rules (Art. 216 Konstytucja RP, SRW Art. 112aa uFP, SGP)
     fiscalRuleDebtCeiling: Ratio = Ratio(0.60),      // Art. 216: constitutional 60% debt/GDP ceiling
     fiscalRuleCautionThreshold: Ratio = Ratio(0.55), // Art. 86 uFP: cautionary 55% debt/GDP threshold

@@ -200,6 +200,7 @@ object Generators:
     PLN(unempBen),
     PLN(bondsOut),
     Rate(bondYield),
+    Rate(bondYield),   // weightedCoupon starts at market yield
     PLN(debtService),
   )
 
