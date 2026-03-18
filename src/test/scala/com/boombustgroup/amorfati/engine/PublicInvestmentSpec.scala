@@ -8,38 +8,7 @@ import com.boombustgroup.amorfati.types.*
 class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
-  given SimParams          = SimParams.defaults
-  private val p: SimParams = summon[SimParams]
-
-  val prev = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-
-  // --- Disabled (default) ---
-
-  private val baseInput = FiscalBudget.Input(prev, priceLevel = 1.0, citPaid = PLN(100000), vat = PLN(200000))
-
-  "updateGov" should "have identical totalSpend when disabled" in {
-    val result = FiscalBudget.update(baseInput)
-    result.deficit.toDouble shouldBe (p.fiscal.govBaseSpending.toDouble - 300000.0) +- 1.0
-  }
-
-  it should "have zero govCapitalSpend when disabled" in {
-    val result = FiscalBudget.update(baseInput)
-    result.govCapitalSpend shouldBe PLN.Zero
-  }
-
-  it should "have zero publicCapitalStock when disabled" in {
-    val result = FiscalBudget.update(baseInput)
-    result.publicCapitalStock shouldBe PLN.Zero
-  }
-
-  it should "have govCurrentSpend equal to govBaseSpending when disabled" in {
-    val result = FiscalBudget.update(baseInput)
-    result.govCurrentSpend.toDouble shouldBe p.fiscal.govBaseSpending.toDouble * 1.0
-  }
-
-  // --- Enabled: split verification ---
-  // Since p.flags.govInvest is false by default and env vars are JVM-global,
-  // we verify the math by checking that the split preserves total spending.
+  given SimParams = SimParams.defaults
 
   "GovState" should "have new fields default to 0" in {
     val g = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
@@ -99,18 +68,4 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
     val govGdp        = base * (1.0 - share) * currentMult + base * share * capitalMult
     val effectiveMult = govGdp / base
     effectiveMult shouldBe 0.94 +- 0.001
-  }
-
-  it should "equal base when disabled (multiplier = 1.0)" in {
-    val base   = 100000000.0
-    // When disabled: govGdpContribution = base (no multiplier)
-    val govGdp = base
-    govGdp shouldBe base
-  }
-
-  "updateGov with prior capital stock" should "carry forward stock when disabled" in {
-    // Even if prev has nonzero capitalStock, disabled mode resets to 0
-    val prevWithStock = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, publicCapitalStock = PLN(500000.0))
-    val result        = FiscalBudget.update(baseInput.copy(prev = prevWithStock))
-    result.publicCapitalStock shouldBe PLN.Zero
   }

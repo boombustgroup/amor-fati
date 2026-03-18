@@ -602,32 +602,35 @@ object Banking:
         b.copy(afsBonds = b.afsBonds + afsReduce, htmBonds = b.htmBonds + htmReduce)
     else b
 
-  /** Allocate QE purchases from banks proportional to their bond holdings.
-    * Capped at each bank's available holdings. Sells AFS first; spills into HTM
-    * only if AFS is exhausted.
+  /** Result of a bond sale from banks to a single buyer. */
+  case class BondSaleResult(banks: Vector[BankState], actualSold: PLN)
+
+  /** Remove bonds from banks proportional to holdings, transferring to a buyer.
+    * Returns updated banks and the actual PLN sold (may be less than requested
+    * if banks lack sufficient holdings). Sells AFS first; spills into HTM. SFC
+    * invariant: actualSold leaves banks = actualSold arrives at buyer.
     */
-  def allocateQePurchases(banks: Vector[BankState], qeTotal: PLN): Vector[BankState] =
-    if qeTotal <= PLN.Zero then banks
+  def sellToBuyer(banks: Vector[BankState], requested: PLN): BondSaleResult =
+    if requested <= PLN.Zero then BondSaleResult(banks, PLN.Zero)
     else
       val eligible   = banks.filter(b => !b.failed && b.govBondHoldings > PLN.Zero)
       val totalBonds = eligible.kahanSumBy(_.govBondHoldings.toDouble)
-      if totalBonds <= 0 then banks
+      if totalBonds <= 0 then BondSaleResult(banks, PLN.Zero)
       else
-        val lastEligibleId = eligible.last.id
-        val (result, _)    = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):
+        val lastEligibleId   = eligible.last.id
+        val (result, actual) = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):
           case ((acc, allocated), b) =>
             if b.failed || b.govBondHoldings <= PLN.Zero then (acc :+ b, allocated)
             else
               val sold      =
-                if b.id == lastEligibleId then b.govBondHoldings.min(qeTotal - allocated)
+                if b.id == lastEligibleId then b.govBondHoldings.min(requested - allocated)
                 else
                   val share = b.govBondHoldings.toDouble / totalBonds
-                  b.govBondHoldings.min(qeTotal * share)
-              // Sell AFS first; spill into HTM only if AFS exhausted
+                  b.govBondHoldings.min(requested * share)
               val afsReduce = sold.min(b.afsBonds)
               val htmReduce = sold - afsReduce
               (acc :+ b.copy(afsBonds = (b.afsBonds - afsReduce).max(PLN.Zero), htmBonds = (b.htmBonds - htmReduce).max(PLN.Zero)), allocated + sold)
-        result
+        BondSaleResult(result, actual)
 
   // ---------------------------------------------------------------------------
   // HTM forced reclassification (interest rate risk)

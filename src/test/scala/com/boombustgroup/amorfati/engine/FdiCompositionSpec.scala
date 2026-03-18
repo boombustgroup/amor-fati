@@ -15,10 +15,6 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   // --- Config defaults ---
 
-  "FdiEnabled" should "default to false" in {
-    p.flags.fdi shouldBe false
-  }
-
   "FdiForeignShares" should "have 6 values" in {
     p.fdi.foreignShares.map(_.toDouble).length shouldBe 6
   }
@@ -76,22 +72,6 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     r.profitShiftCost.toDouble shouldBe 0.0
   }
 
-  it should "produce profitShiftCost=0 when FDI disabled (default)" in {
-    // FdiEnabled defaults to false
-    val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = true)
-    val w = mkWorld()
-    val r = Firm.process(f, w, Rate(0.06), _ => true, Vector(f), new scala.util.Random(42))
-    // Since FdiEnabled=false, profitShiftCost should be 0 even for foreign firm
-    r.profitShiftCost.toDouble shouldBe 0.0
-  }
-
-  it should "produce fdiRepatriation=0 when FDI disabled (default)" in {
-    val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = true)
-    val w = mkWorld()
-    val r = Firm.process(f, w, Rate(0.06), _ => true, Vector(f), new scala.util.Random(42))
-    r.fdiRepatriation.toDouble shouldBe 0.0
-  }
-
   // --- applyFdiFlows ---
 
   "applyFdiFlows" should "not repatriate from domestic firm" in {
@@ -109,23 +89,6 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   }
 
   // --- Automated foreign firm ---
-
-  "Firm.process" should "populate profitShiftCost for foreign Automated firm (when FDI enabled)" in {
-    // This test documents the expected behavior when FDI_ENABLED=true
-    // Since we can't set Config at test time, just verify the field exists
-    val f = mkFirm(TechState.Automated(1.5)).copy(foreignOwned = true, cash = PLN(500000.0))
-    val w = mkWorld()
-    val r = Firm.process(f, w, Rate(0.06), _ => true, Vector(f), new scala.util.Random(42))
-    // When FdiEnabled=false (default), profitShiftCost=0
-    r.profitShiftCost.toDouble shouldBe 0.0
-  }
-
-  it should "populate profitShiftCost for foreign Traditional firm (when FDI enabled)" in {
-    val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = true, cash = PLN(500000.0))
-    val w = mkWorld()
-    val r = Firm.process(f, w, Rate(0.06), _ => true, Vector(f), new scala.util.Random(42))
-    r.profitShiftCost.toDouble shouldBe 0.0
-  }
 
   // --- World FDI fields ---
 

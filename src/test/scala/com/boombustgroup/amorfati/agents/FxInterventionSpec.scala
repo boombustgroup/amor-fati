@@ -16,15 +16,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
 
   // --- fxIntervention ---
 
-  "Nbp.fxIntervention" should "return zero effect when disabled (default)" in {
-    // p.flags.nbpFxIntervention defaults to false
-    val result = Nbp.fxIntervention(p.forex.baseExRate * 1.5, 1e10, 1e9, enabled = false)
-    result.erEffect shouldBe 0.0
-    result.eurTraded shouldBe PLN.Zero
-    result.newReserves shouldBe PLN(1e10)
-  }
-
-  it should "return zero effect when ER within band" in {
+  "Nbp.fxIntervention" should "return zero effect when ER within band" in {
     // ER deviation = 5% < default band of 10%
     val er     = p.forex.baseExRate * 1.05
     val result = fxEnabled(er, 1e10, 1e9)

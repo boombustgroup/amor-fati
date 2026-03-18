@@ -17,10 +17,6 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   // Config defaults
   // ==========================================================================
 
-  "InventoryEnabled" should "default to false" in {
-    p.flags.inventory shouldBe false
-  }
-
   "InventoryTargetRatios" should "have 6 elements" in {
     p.capital.inventoryTargetRatios.map(_.toDouble).length shouldBe 6
   }
@@ -328,15 +324,6 @@ class InventorySpec extends AnyFlatSpec with Matchers:
     val baseGdp        = 1650.0
     val gdpWithDestock = baseGdp + invChange
     gdpWithDestock should be < baseGdp
-  }
-
-  // ==========================================================================
-  // Disabled mode
-  // ==========================================================================
-
-  "Inventory disabled" should "produce zero inventory columns" in {
-    // When InventoryEnabled=false, aggInventoryStock/Change should be 0
-    p.flags.inventory shouldBe false
   }
 
   // ==========================================================================

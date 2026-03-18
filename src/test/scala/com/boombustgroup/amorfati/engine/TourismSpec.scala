@@ -17,10 +17,6 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   // Config defaults (10 tests)
   // ==========================================================================
 
-  "TourismEnabled" should "default to false" in {
-    p.flags.tourism shouldBe false
-  }
-
   "TourismInboundShare" should "default to 0.05" in {
     p.tourism.inboundShare.toDouble shouldBe 0.05
   }
@@ -189,18 +185,6 @@ class TourismSpec extends AnyFlatSpec with Matchers:
     // ER: weaker PLN → inbound ↑, outbound ↓
     inboundErAdj should be > 1.0
     outboundErAdj should be < 1.0
-  }
-
-  // ==========================================================================
-  // Disabled (1 test)
-  // ==========================================================================
-
-  "Tourism flows" should "be zero when disabled" in {
-    val (tourismExport, tourismImport) =
-      if p.flags.tourism then (100.0, 60.0)
-      else (0.0, 0.0)
-    tourismExport shouldBe 0.0
-    tourismImport shouldBe 0.0
   }
 
   // ==========================================================================

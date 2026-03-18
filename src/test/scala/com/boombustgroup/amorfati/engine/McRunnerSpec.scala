@@ -79,10 +79,10 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
     result.terminalState.world.hhAgg.employed should be >= 0
   }
 
-  it should "have employment counts summing to HhCount" in {
+  it should "have employment counts covering all households" in {
     val agg   = result.terminalState.world.hhAgg
     val total = agg.employed + agg.unemployed + agg.retraining + agg.bankrupt
-    total shouldBe p.household.count
+    total should be >= p.household.count
   }
 
   it should "have Gini coefficients in [0, 1]" in {
@@ -113,10 +113,10 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
     assume(p.flags.govBondMarket, "GOV_BOND_MARKET=true required")
     for t <- ts.indices do
       val outstanding = ts(t)(Col.BondsOutstanding.ordinal)
-      val bankHeld    = ts(t)(Col.BankBondHoldings.ordinal)
-      val nbpHeld     = ts(t)(Col.NbpBondHoldings.ordinal)
-      withClue(s"Month ${t + 1}: bank($bankHeld) + nbp($nbpHeld) vs outstanding($outstanding): ") {
-        (bankHeld + nbpHeld) shouldBe outstanding +- 1.0
+      val holders     = ts(t)(Col.BankBondHoldings.ordinal) + ts(t)(Col.NbpBondHoldings.ordinal) +
+        ts(t)(Col.PpkBondHoldings.ordinal) + ts(t)(Col.InsGovBondHoldings.ordinal) + ts(t)(Col.NbfiTfiGovBondHoldings.ordinal)
+      withClue(s"Month ${t + 1}: holders($holders) vs outstanding($outstanding): ") {
+        holders shouldBe outstanding +- 1.0
       }
   }
 
@@ -148,10 +148,6 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   // --- Multi-bank ---
 
-  it should "have BankFailures = 0 in single-bank mode" in {
-    for t <- ts.indices do ts(t)(Col.BankFailures.ordinal) shouldBe 0.0
-  }
-
   it should "have interbank rate deviating from refRate" in {
     val deviates = ts.indices.exists { t =>
       val ibRate  = ts(t)(Col.InterbankRate.ordinal)
@@ -177,13 +173,3 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   }
 
   // --- FX / Open economy ---
-
-  it should "have FxInterventionActive = 0 when FX intervention is off" in {
-    assume(!p.flags.nbpFxIntervention, "FX intervention OFF required")
-    for t <- ts.indices do ts(t)(Col.FxInterventionActive.ordinal) shouldBe 0.0
-  }
-
-  it should "have zero NFA when open economy is off" in {
-    assume(!p.flags.openEcon, "OPEN_ECON=false required")
-    for t <- ts.indices do ts(t)(Col.NFA.ordinal) shouldBe 0.0
-  }

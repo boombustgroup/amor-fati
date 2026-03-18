@@ -14,15 +14,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // ZUS
   // =========================================================================
 
-  "SocialSecurity.zusStep" should "return zero flows when ZUS disabled" in {
-    val zus = SocialSecurity.zusStep(PLN.Zero, 100000, PLN(8266.0), 50000)
-    zus.contributions shouldBe PLN.Zero
-    zus.pensionPayments shouldBe PLN.Zero
-    zus.govSubvention shouldBe PLN.Zero
-    zus.fusBalance shouldBe PLN.Zero
-  }
-
-  it should "compute contributions from employed × wage × rate" in {
+  "SocialSecurity.zusStep" should "compute contributions from employed × wage × rate" in {
     // Need ZUS enabled to test — but p.flags.zus is false by default.
     // Test the formula directly instead.
     val employed = 100000
@@ -67,17 +59,6 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // PPK
   // =========================================================================
 
-  "SocialSecurity.ppkStep" should "return zero flows when PPK disabled" in {
-    val ppk = SocialSecurity.ppkStep(PLN.Zero, 100000, PLN(8266.0))
-    ppk.contributions shouldBe PLN.Zero
-    ppk.bondHoldings shouldBe PLN.Zero
-  }
-
-  it should "preserve previous bond holdings when disabled" in {
-    val ppk = SocialSecurity.ppkStep(PLN(1e9), 100000, PLN(8266.0))
-    ppk.bondHoldings shouldBe PLN(1e9)
-  }
-
   "SocialSecurity.ppkBondPurchase" should "be contributions × bondAlloc" in {
     val ppk      = SocialSecurity.PpkState(bondHoldings = PLN.Zero, contributions = PLN(1e6))
     // Default bondAlloc = 0.60
@@ -93,23 +74,6 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
   // Demographics
   // =========================================================================
-
-  "SocialSecurity.demographicsStep" should "return unchanged state when disabled" in {
-    val dem    = SocialSecurity.DemographicsState(100, 10000, 5)
-    val result = SocialSecurity.demographicsStep(dem, 9000, 0)
-    result.retirees shouldBe 100
-    result.workingAgePop shouldBe 10000
-    result.monthlyRetirements shouldBe 0
-  }
-
-  it should "increase workingAgePop with positive netMigration (when disabled)" in {
-    // When demographics disabled, state is returned unchanged (no retirement/decline)
-    // netMigration is only applied when DemEnabled=true, so this just tests the default path
-    val dem    = SocialSecurity.DemographicsState(100, 10000, 5)
-    val result = SocialSecurity.demographicsStep(dem, 9000, 500)
-    // When disabled, workingAgePop unchanged regardless of netMigration
-    result.workingAgePop shouldBe 10000
-  }
 
   "SocialSecurity.DemographicsState.zero" should "have all zero fields" in {
     SocialSecurity.DemographicsState.zero.retirees shouldBe 0
@@ -136,12 +100,4 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
     val expectedChange = contributions - pensions     // -20M
     val newBalance     = prevBalance + expectedChange // 80M
     (newBalance - prevBalance) shouldBe (expectedChange +- 0.01)
-  }
-
-  it should "hold trivially when ZUS disabled (both sides = 0)" in {
-    val prevBalance   = 0.0
-    val newBalance    = 0.0
-    val contributions = 0.0
-    val pensions      = 0.0
-    (newBalance - prevBalance) shouldBe (contributions - pensions +- 0.01)
   }

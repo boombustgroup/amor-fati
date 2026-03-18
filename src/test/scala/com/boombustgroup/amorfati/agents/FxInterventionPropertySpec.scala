@@ -47,15 +47,6 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
         else result.erEffect should be >= 0.0
     }
 
-  "Nbp.fxIntervention (disabled)" should "return zero effect" in
-    // p.flags.nbpFxIntervention defaults to false
-    forAll(genER, genReserves, genGdp) { (er, reserves, gdp) =>
-      val result = Nbp.fxIntervention(er, reserves, gdp, enabled = false)
-      result.erEffect shouldBe 0.0
-      result.eurTraded shouldBe PLN.Zero
-      result.newReserves shouldBe PLN(reserves)
-    }
-
   "Nbp.fxIntervention (enabled)" should "return zero effect when ER within band" in {
     // Generate ER strictly inside band (0.5% margin avoids FP boundary issues)
     val genERInBand = Gen.choose(

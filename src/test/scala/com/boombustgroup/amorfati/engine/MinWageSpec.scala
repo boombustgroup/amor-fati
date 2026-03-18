@@ -11,12 +11,6 @@ class MinWageSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  "MinWageEnabled=false" should "use BaseReservationWage" in {
-    // When disabled, baseMinWage = p.household.baseReservationWage.toDouble = 4666.0
-    p.flags.minWage shouldBe false
-    p.household.baseReservationWage.toDouble shouldBe 4666.0
-  }
-
   "GovState defaults" should "have minWageLevel=4666 and minWagePriceLevel=1.0" in {
     val gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     gov.minWageLevel shouldBe PLN(4666.0)

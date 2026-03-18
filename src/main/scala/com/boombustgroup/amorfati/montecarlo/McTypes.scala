@@ -15,7 +15,7 @@ object SimError:
 
   case class SfcViolation(month: Int, errors: Vector[Sfc.SfcIdentityError]) extends SimError:
     override def toString: String =
-      s"SFC violation at M$month:\n${errors.map(e => s"  ${e.identity}: ${e.msg}").mkString("\n")}"
+      s"SFC violation at M$month:\n${errors.map(e => s"  ${e.identity}: ${e.msg} (expected=${e.expected}, actual=${e.actual}, diff=${(e.actual - e.expected).abs})").mkString("\n")}"
 
 /** Result of a single simulation run. */
 case class RunResult(

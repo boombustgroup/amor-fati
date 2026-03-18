@@ -13,46 +13,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   // ---- computeInflow ----
 
-  "Immigration.computeInflow" should "return 0 when disabled" in {
-    // p.flags.immigration is false by default
-    Immigration.computeInflow(100000, PLN(8000.0), 0.05, 1) shouldBe 0
-  }
-
-  // ---- computeOutflow ----
-
-  "Immigration.computeOutflow" should "return 0 when disabled" in {
-    Immigration.computeOutflow(5000) shouldBe 0
-  }
-
-  // ---- computeRemittances ----
-
-  "Immigration.computeRemittances" should "return 0 when disabled" in {
-    val hhs = Vector(
-      Household.State(
-        HhId(0),
-        PLN(5000.0),
-        PLN(0.0),
-        PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
-        HhStatus.Employed(FirmId(0), SectorIdx(1), PLN(6000.0)),
-        Array.empty[HhId],
-        bankId = BankId(0),
-        equityWealth = PLN.Zero,
-        lastSectorIdx = SectorIdx(-1),
-        isImmigrant = true,
-        numDependentChildren = 0,
-        consumerDebt = PLN.Zero,
-        education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
-      ),
-    )
-    Immigration.computeRemittances(hhs) shouldBe PLN.Zero
-  }
-
-  it should "return 0 for non-immigrant households" in {
+  "Immigration.computeRemittances" should "return 0 for non-immigrant households" in {
     val hhs = Vector(
       Household.State(
         HhId(0),
@@ -315,16 +276,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   // ---- step ----
 
-  "Immigration.step" should "return zero state when disabled" in {
-    val prev   = Immigration.State(100, 0, 0, PLN.Zero)
-    val result = Immigration.step(prev, Vector.empty, PLN(8000.0), 0.05, 100000, 1)
-    result.monthlyInflow shouldBe 0
-    result.monthlyOutflow shouldBe 0
-    result.remittanceOutflow shouldBe PLN.Zero
-    result.immigrantStock shouldBe 100 // stock preserved (no inflow/outflow when disabled)
-  }
-
-  it should "maintain non-negative immigrant stock" in {
+  "Immigration.step" should "maintain non-negative immigrant stock" in {
     // Even with large outflow, stock should not go negative
     val prev   = Immigration.State(2, 0, 0, PLN.Zero)
     val result = Immigration.step(prev, Vector.empty, PLN(8000.0), 0.05, 100000, 1)

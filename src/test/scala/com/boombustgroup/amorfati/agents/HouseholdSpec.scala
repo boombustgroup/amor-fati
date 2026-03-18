@@ -213,8 +213,10 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     )
     val (_, agg, _)    = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), 0.4, rng, nBanks = 1, bankRates = Some(br))
     val expectedDepInt = depRate / 12.0 * savings.toDouble
-    // totalIncome should include wage + deposit interest
-    agg.totalIncome shouldBe PLN(wage + expectedDepInt) +- PLN(0.01)
+    val grossIncome    = wage + expectedDepInt
+    val pitTax         = Household.computeMonthlyPit(PLN(grossIncome))
+    // totalIncome = grossIncome - PIT + socialTransfer (0 children → no transfer)
+    agg.totalIncome shouldBe PLN(grossIncome - pitTax.toDouble) +- PLN(0.01)
   }
 
   it should "accumulate per-bank flows correctly for 2 banks" in {
@@ -287,31 +289,6 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         .copy(isImmigrant = false),
     )
     val (_, agg, _) = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), 0.4, rng)
-    agg.totalRemittances shouldBe PLN.Zero
-  }
-
-  it should "not deduct remittances from immigrant HH when disabled" in {
-    val rng         = new Random(42)
-    val wage        = 8000.0
-    val hhs         = Vector(
-      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(wage)), savings = PLN(50000.0))
-        .copy(isImmigrant = true),
-    )
-    // ImmigEnabled is false by default → no remittance deduction
-    val (_, agg, _) = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), 0.4, rng)
-    agg.totalRemittances shouldBe PLN.Zero
-  }
-
-  it should "track totalRemittances in aggregates" in {
-    val rng         = new Random(42)
-    val hhs         = Vector(
-      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0))
-        .copy(isImmigrant = false),
-      mkHousehold(1, HhStatus.Employed(FirmId(1), SectorIdx(2), PLN(7000.0)), savings = PLN(50000.0))
-        .copy(isImmigrant = true),
-    )
-    // ImmigEnabled=false → totalRemittances=0 regardless of isImmigrant
-    val (_, agg, _) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
     agg.totalRemittances shouldBe PLN.Zero
   }
 

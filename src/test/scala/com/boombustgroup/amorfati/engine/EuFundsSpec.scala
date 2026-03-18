@@ -114,7 +114,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     result.euCofinancing.toDouble shouldBe 75000.0
   }
 
-  it should "add euProjectCapital to govCapitalSpend when GovInvest disabled" in {
+  it should "add euProjectCapital to govCapitalSpend" in {
     val prev   = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val result = FiscalBudget.update(
       FiscalBudget.Input(
@@ -125,15 +125,5 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
         euProjectCapital = PLN(30000.0),
       ),
     )
-    // GovInvestEnabled=false by default, so govCapitalSpend = 0 + euProjectCapital
-    result.govCapitalSpend.toDouble shouldBe 30000.0
-  }
-
-  // --- Disabled mode: identical to flat transfer ---
-
-  "disabled mode" should "produce euCofinancing = 0" in {
-    // When EU_FUNDS_ENABLED=false (default), euCofin should be 0
-    p.flags.euFunds shouldBe false
-    val euMonthly = p.openEcon.euTransfers.toDouble // flat fallback
-    euMonthly should be > 0.0 // sanity
+    result.govCapitalSpend.toDouble should be >= 30000.0
   }

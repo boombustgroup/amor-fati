@@ -17,10 +17,6 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   // Config defaults
   // ==========================================================================
 
-  "RemittanceEnabled" should "default to false" in {
-    p.flags.remittance shouldBe false
-  }
-
   "RemittancePerCapita" should "default to 40.0" in {
     p.remittance.perCapita.toDouble shouldBe 40.0
   }
@@ -136,16 +132,6 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
     cyclicalAdj should be > 1.0
     // Result should be greater than base
     result should be > base
-  }
-
-  // ==========================================================================
-  // Disabled → zero
-  // ==========================================================================
-
-  "Diaspora inflow" should "be zero when disabled" in {
-    // p.flags.remittance defaults to false
-    val inflow = if p.flags.remittance then 100.0 else 0.0
-    inflow shouldBe 0.0
   }
 
   // ==========================================================================

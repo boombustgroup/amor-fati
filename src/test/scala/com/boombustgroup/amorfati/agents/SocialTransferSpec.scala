@@ -14,11 +14,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  "computeSocialTransfer" should "return 0 when disabled (default)" in {
-    Household.computeSocialTransfer(2) shouldBe PLN.Zero
-  }
-
-  it should "return 0 for 0 children regardless of config" in {
+  "computeSocialTransfer" should "return 0 for 0 children regardless of config" in {
     Household.computeSocialTransfer(0) shouldBe PLN.Zero
   }
 

@@ -14,11 +14,7 @@ class PitSpec extends AnyFlatSpec with Matchers:
   // These tests verify the formula logic assuming PIT_ENABLED=true would be set.
   // Since env vars are JVM-global, we test the internal math directly.
 
-  "computeMonthlyPit" should "return 0 when PIT is disabled (default)" in {
-    Household.computeMonthlyPit(PLN(10000.0)) shouldBe PLN.Zero
-  }
-
-  it should "return 0 for zero income" in {
+  "computeMonthlyPit" should "return 0 for zero income" in {
     Household.computeMonthlyPit(PLN(0.0)) shouldBe PLN.Zero
   }
 

@@ -34,11 +34,6 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     z.lastWealthEffect shouldBe PLN.Zero
   }
 
-  "EquityMarket.step" should "return zero when GPW_ENABLED=false" in {
-    val result = EquityMarket.step(EquityMarket.StepInput(initState, Rate(0.0575), Rate(0.025), 0.002, PLN(1e8)))
-    result shouldBe EquityMarket.zero
-  }
-
   "EquityMarket.step" should "keep index positive for reasonable inputs" in {
     val state = initState
     state.index should be > 0.0
