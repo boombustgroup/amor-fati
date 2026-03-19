@@ -44,6 +44,11 @@ object SimOutput:
 
     inline def unemployPct: Double = world.hhAgg.unemploymentRate(world.totalPopulation)
 
+  /** Regional unemployment rate from HH status distribution. */
+  private def regionalUnempRate(hhs: Vector[Household.State], region: Region): Double =
+    val reg = hhs.filter(_.region == region)
+    if reg.nonEmpty then reg.count(_.status.isInstanceOf[HhStatus.Unemployed]).toDouble / reg.length else 0.0
+
   // -------------------------------------------------------------------------
   //  Schema groups — composed with ++
   // -------------------------------------------------------------------------
@@ -72,6 +77,11 @@ object SimOutput:
         val total = ctx.world.hhAgg.employed.toDouble
         if total > 0 then ctx.households.count(h => h.contractType == ContractType.B2B && h.status.isInstanceOf[HhStatus.Employed]).toDouble / total else 0.0,
     ),
+    // Regional labor (NUTS-1) — per-region unemployment from HH status
+    ColumnDef("CentralUnemployment", ctx => regionalUnempRate(ctx.households, Region.Central)),
+    ColumnDef("EastUnemployment", ctx => regionalUnempRate(ctx.households, Region.East)),
+    ColumnDef("SouthUnemployment", ctx => regionalUnempRate(ctx.households, Region.South)),
+    ColumnDef("NorthUnemployment", ctx => regionalUnempRate(ctx.households, Region.North)),
     ColumnDef("TotalAdoption", ctx => (ctx.world.real.automationRatio + ctx.world.real.hybridRatio).toDouble),
     ColumnDef("ExRate", ctx => ctx.world.forex.exchangeRate),
     ColumnDef("MarketWage", ctx => ctx.world.hhAgg.marketWage.toDouble),

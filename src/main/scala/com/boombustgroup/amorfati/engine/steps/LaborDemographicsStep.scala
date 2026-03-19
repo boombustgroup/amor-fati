@@ -5,7 +5,6 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Labor market clearing and demographics: wage determination (Phillips curve
   * with expectations augmentation and union rigidity), employment capping at
@@ -38,8 +37,11 @@ object LaborDemographicsStep:
   )
 
   def run(in: Input)(using p: SimParams): Output =
-    val living                 = in.firms.filter(Firm.isAlive)
-    val laborDemand            = living.kahanSumBy(f => Firm.workerCount(f).toDouble).toInt
+    val living = in.firms.filter(Firm.isAlive)
+
+    // National labor clearing (regional clearing causes HH explosion via immigration
+    // feedback loop — see #93 for investigation)
+    val laborDemand            = living.map(Firm.workerCount).sum
     val wageResult             =
       LaborMarket.updateLaborMarket(in.w.hhAgg.marketWage, in.s1.resWage, laborDemand, in.w.totalPopulation)
     val (rawWage, rawEmployed) = (wageResult.wage.toDouble, wageResult.employed)

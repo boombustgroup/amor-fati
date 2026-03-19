@@ -249,7 +249,10 @@ object LaborMarket:
           case _                      => None
       .sortBy(i => -effectiveSkill(households(i)))
 
-  /** Try hiring one unemployed household into a vacancy. */
+  /** Try hiring one unemployed household into a vacancy. Priority: (1) same
+    * region + same sector, (2) same region + any sector, (3) any region + same
+    * sector, (4) any region + any sector.
+    */
   private def tryHire(
       st: MatchState,
       idx: Int,
