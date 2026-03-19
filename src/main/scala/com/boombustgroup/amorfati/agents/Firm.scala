@@ -136,6 +136,7 @@ object Firm:
       inventory: PLN,               // Inventory stock (PLN)
       greenCapital: PLN,            // Green capital stock (PLN)
       accumulatedLoss: PLN,         // CIT loss carryforward stock (Art. 7 ustawy o CIT)
+      markup: Ratio = Ratio.One,    // Calvo pricing: firm-specific markup over marginal cost
   )
 
   /** Output of `process` for one firm in one month — updated state + flow

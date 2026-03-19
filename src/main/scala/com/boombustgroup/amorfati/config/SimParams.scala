@@ -76,6 +76,7 @@ case class SimParams private (
     social: SocialConfig = SocialConfig(),
     earmarked: EarmarkedConfig = EarmarkedConfig(),
     soe: SoeConfig = SoeConfig(),
+    pricing: PricingConfig = PricingConfig(),
     io: IoConfig = IoConfig(),
     labor: LaborConfig = LaborConfig(),
     capital: CapitalConfig = CapitalConfig(),
