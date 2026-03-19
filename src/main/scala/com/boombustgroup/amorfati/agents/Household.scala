@@ -79,25 +79,26 @@ object Household:
   /** Full state of a single household agent, carried across simulation months.
     */
   case class State(
-      id: HhId,                                           // unique household identifier
-      savings: PLN,                                       // liquid savings (bank deposits)
-      debt: PLN,                                          // outstanding secured (mortgage) debt
-      monthlyRent: PLN,                                   // monthly rent payment (to landlord / housing market)
-      skill: Ratio,                                       // labor productivity multiplier [0,1], decays during unemployment
-      healthPenalty: Ratio,                               // cumulative health penalty from long-term unemployment (scarring)
-      mpc: Ratio,                                         // marginal propensity to consume (Beta-sampled at init)
-      status: HhStatus,                                   // current employment/activity status
-      socialNeighbors: Array[HhId],                       // Watts-Strogatz social network neighbor IDs
-      bankId: BankId,                                     // index into Banking.State.banks (multi-bank)
-      equityWealth: PLN,                                  // value of GPW equity holdings
-      lastSectorIdx: SectorIdx,                           // last sector employed in (-1 = never)
-      isImmigrant: Boolean,                               // immigrant status for wage discount + remittances
-      numDependentChildren: Int,                          // children ≤ 18 for 800+ social transfers
-      consumerDebt: PLN,                                  // outstanding unsecured consumer loan
-      education: Int,                                     // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
-      taskRoutineness: Ratio,                             // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
-      wageScar: Ratio,                                    // persistent wage penalty from unemployment spell (Jacobson et al. 1993)
+      id: HhId,                                            // unique household identifier
+      savings: PLN,                                        // liquid savings (bank deposits)
+      debt: PLN,                                           // outstanding secured (mortgage) debt
+      monthlyRent: PLN,                                    // monthly rent payment (to landlord / housing market)
+      skill: Ratio,                                        // labor productivity multiplier [0,1], decays during unemployment
+      healthPenalty: Ratio,                                // cumulative health penalty from long-term unemployment (scarring)
+      mpc: Ratio,                                          // marginal propensity to consume (Beta-sampled at init)
+      status: HhStatus,                                    // current employment/activity status
+      socialNeighbors: Array[HhId],                        // Watts-Strogatz social network neighbor IDs
+      bankId: BankId,                                      // index into Banking.State.banks (multi-bank)
+      equityWealth: PLN,                                   // value of GPW equity holdings
+      lastSectorIdx: SectorIdx,                            // last sector employed in (-1 = never)
+      isImmigrant: Boolean,                                // immigrant status for wage discount + remittances
+      numDependentChildren: Int,                           // children ≤ 18 for 800+ social transfers
+      consumerDebt: PLN,                                   // outstanding unsecured consumer loan
+      education: Int,                                      // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
+      taskRoutineness: Ratio,                              // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
+      wageScar: Ratio,                                     // persistent wage penalty from unemployment spell (Jacobson et al. 1993)
       contractType: ContractType = ContractType.Permanent, // employment contract type (Kodeks Pracy / umowa zlecenie / B2B)
+      region: Region = Region.Central,                     // NUTS-1 macroregion (geographic labor market)
   )
 
   /** Aggregate statistics computed from individual households (Paper-06). */
@@ -224,6 +225,7 @@ object Household:
         education = edu,
         taskRoutineness = routineness,
         wageScar = Ratio.Zero,
+        region = firm.region,
       )
 
     /** Sample education level and skill for a sector, clamped to edu range. */

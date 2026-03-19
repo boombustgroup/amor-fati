@@ -117,26 +117,27 @@ object Firm:
 
   /** Full mutable state of a single firm, carried across simulation months. */
   case class State(
-      id: FirmId,                   // Unique firm identifier (index into firms vector)
-      cash: PLN,                    // Current cash balance (can be negative)
-      debt: PLN,                    // Outstanding bank loan debt
-      tech: TechState,              // Current technology regime
-      riskProfile: Ratio,           // Propensity to invest / adopt technology [0,1]
-      innovationCostFactor: Double, // Firm-specific CAPEX multiplier (drawn at creation)
-      digitalReadiness: Ratio,      // Digital readiness score [0,1], gates tech upgrades
-      sector: SectorIdx,            // Index into p.sectorDefs
-      neighbors: Vector[FirmId],    // Network adjacency (firm IDs)
-      bankId: BankId,               // Multi-bank: index into Banking.State.banks
-      equityRaised: PLN,            // GPW: cumulative equity raised via IPO/SPO
-      initialSize: Int,             // Firm size at creation (heterogeneous when FIRM_SIZE_DIST=gus)
-      capitalStock: PLN,            // Physical capital stock (PLN)
-      bondDebt: PLN,                // Outstanding corporate bond debt
-      foreignOwned: Boolean,        // FDI: subject to profit shifting & repatriation
-      stateOwned: Boolean = false,  // SOE: Skarb Państwa ownership (dividend/employment/investment policy)
-      inventory: PLN,               // Inventory stock (PLN)
-      greenCapital: PLN,            // Green capital stock (PLN)
-      accumulatedLoss: PLN,         // CIT loss carryforward stock (Art. 7 ustawy o CIT)
-      markup: Ratio = Ratio.One,    // Calvo pricing: firm-specific markup over marginal cost
+      id: FirmId,                     // Unique firm identifier (index into firms vector)
+      cash: PLN,                      // Current cash balance (can be negative)
+      debt: PLN,                      // Outstanding bank loan debt
+      tech: TechState,                // Current technology regime
+      riskProfile: Ratio,             // Propensity to invest / adopt technology [0,1]
+      innovationCostFactor: Double,   // Firm-specific CAPEX multiplier (drawn at creation)
+      digitalReadiness: Ratio,        // Digital readiness score [0,1], gates tech upgrades
+      sector: SectorIdx,              // Index into p.sectorDefs
+      neighbors: Vector[FirmId],      // Network adjacency (firm IDs)
+      bankId: BankId,                 // Multi-bank: index into Banking.State.banks
+      equityRaised: PLN,              // GPW: cumulative equity raised via IPO/SPO
+      initialSize: Int,               // Firm size at creation (heterogeneous when FIRM_SIZE_DIST=gus)
+      capitalStock: PLN,              // Physical capital stock (PLN)
+      bondDebt: PLN,                  // Outstanding corporate bond debt
+      foreignOwned: Boolean,          // FDI: subject to profit shifting & repatriation
+      stateOwned: Boolean = false,    // SOE: Skarb Państwa ownership (dividend/employment/investment policy)
+      inventory: PLN,                 // Inventory stock (PLN)
+      greenCapital: PLN,              // Green capital stock (PLN)
+      accumulatedLoss: PLN,           // CIT loss carryforward stock (Art. 7 ustawy o CIT)
+      markup: Ratio = Ratio.One,      // Calvo pricing: firm-specific markup over marginal cost
+      region: Region = Region.Central, // NUTS-1 macroregion
   )
 
   /** Output of `process` for one firm in one month — updated state + flow
