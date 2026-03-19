@@ -67,6 +67,7 @@ object FirmInit:
       sectorAssignments: Vector[Int],
       rng: Random,
   )(using p: SimParams): Vector[Firm.State] =
+    val regionRng = new Random(rng.nextLong()) // isolated sub-RNG: one draw from main, then independent
     (0 until p.pop.firmsCount)
       .map: i =>
         val sec      = p.sectorDefs(sectorAssignments(i))
@@ -93,6 +94,7 @@ object FirmInit:
           inventory = PLN.Zero,
           greenCapital = PLN.Zero,
           accumulatedLoss = PLN.Zero,
+          region = Region.cdfSample(regionRng),
         )
       .toVector
 
