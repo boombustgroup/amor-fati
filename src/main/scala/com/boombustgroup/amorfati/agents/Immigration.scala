@@ -20,18 +20,24 @@ object Immigration:
   object State:
     val zero: State = State(0, 0, 0, PLN.Zero)
 
-  /** Monthly immigration inflow. Exogenous: fixed rate × workingAgePop.
-    * Endogenous: responds to (domesticWage / foreignWage − 1) × elasticity.
+  /** Monthly immigration inflow. Exogenous: fixed rate × basePop. Endogenous:
+    * responds to (domesticWage / foreignWage − 1) × elasticity.
+    *
+    * basePop is fixed at init-time population (firmsCount × workersPerFirm) to
+    * prevent feedback loop: immigration grows pop → grows basePop → more
+    * immigration → exponential explosion. Previous bug: 100K→590K HH in 58mo.
     */
-  def computeInflow(workingAgePop: Int, wage: PLN, unempRate: Double, @scala.annotation.unused month: Int)(using p: SimParams): Int =
+  def computeInflow(@scala.annotation.unused workingAgePop: Int, wage: PLN, unempRate: Double, @scala.annotation.unused month: Int)(using p: SimParams): Int =
     if !p.flags.immigration then 0
-    else if p.flags.immigEndogenous then
-      val wageGap = (wage.toDouble / p.immigration.foreignWage.toDouble - 1.0).max(0.0)
-      val pull    = wageGap * p.immigration.wageElasticity
-      val push    = (1.0 - unempRate).max(0.0)
-      val rate    = p.immigration.monthlyRate.toDouble * (0.5 + 0.5 * pull * push)
-      (workingAgePop * rate).toInt.max(0)
-    else (workingAgePop * p.immigration.monthlyRate.toDouble).toInt.max(0)
+    else
+      val basePop = p.pop.firmsCount * p.pop.workersPerFirm
+      if p.flags.immigEndogenous then
+        val wageGap = (wage.toDouble / p.immigration.foreignWage.toDouble - 1.0).max(0.0)
+        val pull    = wageGap * p.immigration.wageElasticity
+        val push    = (1.0 - unempRate).max(0.0)
+        val rate    = p.immigration.monthlyRate.toDouble * (0.5 + 0.5 * pull * push)
+        (basePop * rate).toInt.max(0)
+      else (basePop * p.immigration.monthlyRate.toDouble).toInt.max(0)
 
   /** Monthly return migration (outflow). */
   def computeOutflow(immigrantStock: Int)(using p: SimParams): Int =

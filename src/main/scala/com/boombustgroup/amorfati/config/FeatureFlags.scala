@@ -32,7 +32,8 @@ package com.boombustgroup.amorfati.config
   * '''Financial:''' `insurance`, `nbfi`, `re`, `reMortgage`, `reHhHousing`,
   * `reRegional`
   *
-  * '''Labor:''' `sectoralMobility`, `unions`, `expectations`, `sbtc`
+  * '''Labor:''' `sectoralMobility`, `unions`, `expectations`, `sbtc`,
+  * `regionalLabor`
   */
 case class FeatureFlags(
     // Firm & production
@@ -95,4 +96,5 @@ case class FeatureFlags(
     unions: Boolean = true,
     expectations: Boolean = true,
     sbtc: Boolean = true,
+    regionalLabor: Boolean = true,
 )
