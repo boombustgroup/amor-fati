@@ -34,6 +34,7 @@ case class World(
     mechanisms: MechanismsState,                            // macropru, expectations, BFG, informal economy
     plumbing: MonetaryPlumbingState,                        // reserve corridor, standing facilities, interbank
     flows: FlowState,                                       // single-step flows → SFC identities
+    regionalWages: Map[Region, PLN] = Map.empty,            // per-region wage levels (NUTS-1)
 ):
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
   def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))
