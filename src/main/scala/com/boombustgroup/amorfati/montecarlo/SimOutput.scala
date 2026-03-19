@@ -52,6 +52,26 @@ object SimOutput:
     ColumnDef("Month", ctx => (ctx.t + 1).toDouble),
     ColumnDef("Inflation", ctx => ctx.world.inflation.toDouble),
     ColumnDef("Unemployment", ctx => ctx.unemployPct),
+    ColumnDef(
+      "PermanentShare",
+      ctx =>
+        val total = ctx.world.hhAgg.employed.toDouble
+        if total > 0 then ctx.households.count(h => h.contractType == ContractType.Permanent && h.status.isInstanceOf[HhStatus.Employed]).toDouble / total
+        else 0.0,
+    ),
+    ColumnDef(
+      "ZlecenieShare",
+      ctx =>
+        val total = ctx.world.hhAgg.employed.toDouble
+        if total > 0 then ctx.households.count(h => h.contractType == ContractType.Zlecenie && h.status.isInstanceOf[HhStatus.Employed]).toDouble / total
+        else 0.0,
+    ),
+    ColumnDef(
+      "B2BShare",
+      ctx =>
+        val total = ctx.world.hhAgg.employed.toDouble
+        if total > 0 then ctx.households.count(h => h.contractType == ContractType.B2B && h.status.isInstanceOf[HhStatus.Employed]).toDouble / total else 0.0,
+    ),
     ColumnDef("TotalAdoption", ctx => (ctx.world.real.automationRatio + ctx.world.real.hybridRatio).toDouble),
     ColumnDef("ExRate", ctx => ctx.world.forex.exchangeRate),
     ColumnDef("MarketWage", ctx => ctx.world.hhAgg.marketWage.toDouble),

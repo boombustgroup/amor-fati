@@ -27,8 +27,7 @@ import scala.util.Random
   *     NBFI, capital flight (risk-off, carry trade)
   *   - s9 BankUpdateStep — bank P&L, IFRS 9 ECL staging, CAR, interbank
   *     contagion, deposit mobility, bond waterfall, BGK/PFR quasi-fiscal
-  *   - s10 WorldAssemblyStep — assemble new World + SFC validation (14
-  *     identities)
+  *   - s10 WorldAssemblyStep — assemble new World + SFC validation
   *
   * The pipeline is strictly sequential: each step's Input case class carries
   * typed references to all prior step Outputs it needs (e.g. s7 receives
@@ -38,8 +37,8 @@ import scala.util.Random
   *
   * The final step (s10) assembles the updated World, reassigns households to
   * firms, and runs the SFC accounting check (see Sfc.validate). If any of the
-  * 14 balance-sheet identities is violated, the check returns Left with
-  * detailed error information — the simulation halts immediately in Main.
+  * balance-sheet identities is violated, the check returns Left with detailed
+  * error information — the simulation halts immediately in Main.
   *
   * No business logic lives here — every calculation is delegated to a Step
   * object in the `steps` package. This file is pure wiring.
@@ -53,7 +52,7 @@ import scala.util.Random
   *     real-world causality).
   *
   * @see
-  *   [[com.boombustgroup.amorfati.accounting.Sfc]] — the 14 SFC identities and
+  *   [[com.boombustgroup.amorfati.accounting.Sfc]] — the SFC identities and
   *   MonthlyFlows
   * @see
   *   [[steps.WorldAssemblyStep]] — final state assembly + SFC check
@@ -82,7 +81,7 @@ object Simulation:
     */
   case class StepResult(
       state: SimState,        // updated simulation state (World + firms + households)
-      sfcCheck: Sfc.SfcResult, // Right(()) if all 13 identities hold
+      sfcCheck: Sfc.SfcResult, // Right(()) if all identities hold
   )
 
   /** Transform current state into next state via the 10-stage pipeline.
@@ -109,8 +108,6 @@ object Simulation:
     *
     * @param state
     *   current simulation state (World + firms + households)
-    * @param rc
-    *   run configuration (currency regime, time horizon)
     * @return
     *   StepResult with updated state and SFC check outcome
     */
