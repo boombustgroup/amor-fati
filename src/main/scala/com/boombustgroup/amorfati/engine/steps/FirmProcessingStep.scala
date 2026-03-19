@@ -353,7 +353,7 @@ object FirmProcessingStep:
       rng: Random,
   )(using p: SimParams): (Vector[Household.State], Int) =
     val afterSep     = LaborMarket.separations(in.s3.updatedHouseholds, in.firms, ioFirms)
-    val searchResult = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, rng)
+    val searchResult = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, rng, in.s2.regionalWages)
     val postWages    = LaborMarket.updateWages(searchResult.households, ioFirms, in.s2.newWage)
 
     val finalHouseholds =
