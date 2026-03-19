@@ -132,6 +132,7 @@ object Firm:
       capitalStock: PLN,            // Physical capital stock (PLN)
       bondDebt: PLN,                // Outstanding corporate bond debt
       foreignOwned: Boolean,        // FDI: subject to profit shifting & repatriation
+      stateOwned: Boolean = false,  // SOE: Skarb Państwa ownership (dividend/employment/investment policy)
       inventory: PLN,               // Inventory stock (PLN)
       greenCapital: PLN,            // Green capital stock (PLN)
       accumulatedLoss: PLN,         // CIT loss carryforward stock (Art. 7 ustawy o CIT)
