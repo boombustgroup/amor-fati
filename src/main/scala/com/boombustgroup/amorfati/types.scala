@@ -92,6 +92,7 @@ object types:
       inline def min(other: Rate): Rate          = math.min(r, other)
       inline def clamp(lo: Rate, hi: Rate): Rate = math.max(lo, math.min(hi, r))
       inline def monthly: Rate                   = r / 12.0
+      inline def annualize: Rate                 = r * 12.0
       @targetName("ratePlusDouble")
       inline def +(scalar: Double): Double       = r + scalar
       inline def toDouble: Double                = r

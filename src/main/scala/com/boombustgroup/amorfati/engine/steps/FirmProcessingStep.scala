@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.steps
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, IntermediateMarket, LaborMarket}
+import com.boombustgroup.amorfati.engine.markets.{CalvoPricing, CorporateBondMarket, IntermediateMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.KahanSum.*
@@ -122,6 +122,7 @@ object FirmProcessingStep:
       perBankWorkers: Vector[Int],         // worker count by bank index
       lendingRates: Vector[Double],        // per-bank lending rates
       postFirmCrossSectorHires: Int,       // cross-sector hires in labor matching
+      markupInflation: Rate,               // Calvo: annualized revenue-weighted avg markup change
   )
 
   // ---- Internal phase result types ----
@@ -188,9 +189,15 @@ object FirmProcessingStep:
     val fp                                  = processFirms(in.firms, lending, rng)
     val bonded                              = applyBondAbsorption(fp, in.w)
     val (ioFirms, totalIoPaid)              = applyIntermediateMarket(bonded.firms, in)
-    val (finalHouseholds, crossSectorHires) = processLaborMarket(ioFirms, in, rng)
-    val npl                                 = computeNplAndInterest(in.firms, ioFirms, lending)
-    assembleOutput(fp, bonded, ioFirms, totalIoPaid, finalHouseholds, crossSectorHires, npl, in, lending)
+    // Calvo staggered pricing: per-firm markup update
+    val calvoFirms                          = ioFirms.map: f =>
+      val sectorMult = in.s4.sectorMults(f.sector.toInt)
+      val calvo      = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, in.s2.wageGrowth.toDouble, rng)
+      f.copy(markup = calvo.newMarkup)
+    val (finalHouseholds, crossSectorHires) = processLaborMarket(calvoFirms, in, rng)
+    val npl                                 = computeNplAndInterest(in.firms, calvoFirms, lending)
+    val markupInfl                          = Rate(CalvoPricing.aggregateMarkupInflation(calvoFirms, ioFirms)).annualize
+    assembleOutput(fp, bonded, calvoFirms, totalIoPaid, finalHouseholds, crossSectorHires, npl, in, lending, markupInfl)
 
   // ---- Phase 1: Lending conditions ----
 
@@ -408,6 +415,7 @@ object FirmProcessingStep:
       npl: NplResult,
       in: Input,
       lending: LendingConditions,
+      markupInflation: Rate,
   ): Output =
     val flows = fp.flows
 
@@ -463,4 +471,5 @@ object FirmProcessingStep:
       perBankWorkers = npl.perBankWorkers,
       lendingRates = lending.lendingRates,
       postFirmCrossSectorHires = crossSectorHires,
+      markupInflation = markupInflation,
     )

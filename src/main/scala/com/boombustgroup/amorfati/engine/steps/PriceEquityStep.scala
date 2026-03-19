@@ -330,8 +330,9 @@ object PriceEquityStep:
       autoR,
       hybR,
     )
-    val newInfl  = priceUpd.inflation.toDouble
-    val newPrice = priceUpd.priceLevel
+    // Calvo markup contribution (already annualized Rate from FirmProcessingStep)
+    val newInfl  = (priceUpd.inflation + in.s5.markupInflation).toDouble
+    val newPrice = priceUpd.priceLevel * (1.0 + in.s5.markupInflation.monthly.toDouble)
 
     val firmProfits = living2.kahanSumBy { f =>
       val rev      = Firm.computeCapacity(f).toDouble * in.s4.sectorMults(f.sector.toInt) * newPrice
