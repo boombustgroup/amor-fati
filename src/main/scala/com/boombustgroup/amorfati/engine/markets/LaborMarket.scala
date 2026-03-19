@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.markets
 
 import com.boombustgroup.amorfati.agents.*
+import com.boombustgroup.amorfati.agents.Region
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.types.*
@@ -78,15 +79,21 @@ object LaborMarket:
     * highest effective skill (skill × (1 - healthPenalty)) fills vacancies
     * first. Same-sector gets priority; cross-sector hires incur friction
     * penalty when sectoral mobility is enabled.
+    *
+    * When regionalWages is non-empty: 3-tier matching (region+sector →
+    * region+any → cross-region). Hire wage uses regional wage. Cross-region
+    * hire relocates the household.
     */
   def jobSearch(
       households: Vector[Household.State],
       firms: Vector[Firm.State],
       marketWage: PLN,
       @scala.annotation.unused rng: Random,
+      regionalWages: Map[Region, PLN] = Map.empty,
   )(using p: SimParams): JobSearchResult =
     val vacancies = computeVacancies(households, firms)
     if vacancies.isEmpty then JobSearchResult(households, 0)
+    else if p.flags.regionalLabor && regionalWages.nonEmpty then matchWorkersRegional(households, firms, vacancies, marketWage, regionalWages)
     else matchWorkers(households, firms, vacancies, marketWage)
 
   // --- Wage updating ---
@@ -239,6 +246,80 @@ object LaborMarket:
 
     val updated = households.zipWithIndex.map((hh, i) => result.hired.getOrElse(i, hh))
     JobSearchResult(updated, result.crossSectorHires)
+
+  /** Regional matching: 3-tier (region+sector → region+any → cross-region).
+    * Pre-groups firms by (sector, region) for O(1) lookup per hire attempt.
+    */
+  private def matchWorkersRegional(
+      households: Vector[Household.State],
+      firms: Vector[Firm.State],
+      vacancies: Map[FirmId, Int],
+      marketWage: PLN,
+      regionalWages: Map[Region, PLN],
+  )(using p: SimParams): JobSearchResult =
+    val ranked = rankUnemployed(households)
+
+    // Pre-grouped maps for O(1) tier lookups
+    val firmsBySectorRegion: Map[(SectorIdx, Region), Vector[FirmId]] =
+      vacancies.keys.toVector.groupBy(fid => (firms(fid.toInt).sector, firms(fid.toInt).region))
+    val firmsByRegion: Map[Region, Vector[FirmId]]                    =
+      vacancies.keys.toVector.groupBy(fid => firms(fid.toInt).region)
+    val firmsByPriority                                               = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma)
+
+    val init   = MatchState(Map.empty, vacancies, 0)
+    val result = ranked.foldLeft(init): (st, idx) =>
+      if st.vacancies.isEmpty then st
+      else tryHireRegional(st, idx, households(idx), firms, firmsBySectorRegion, firmsByRegion, firmsByPriority, marketWage, regionalWages)
+
+    val updated = households.zipWithIndex.map((hh, i) => result.hired.getOrElse(i, hh))
+    JobSearchResult(updated, result.crossSectorHires)
+
+  /** 3-tier hire: same region+sector → same region any sector → cross-region.
+    */
+  private def tryHireRegional(
+      st: MatchState,
+      idx: Int,
+      hh: Household.State,
+      firms: Vector[Firm.State],
+      firmsBySectorRegion: Map[(SectorIdx, Region), Vector[FirmId]],
+      firmsByRegion: Map[Region, Vector[FirmId]],
+      firmsByPriority: Vector[FirmId],
+      marketWage: PLN,
+      regionalWages: Map[Region, PLN],
+  )(using p: SimParams): MatchState =
+    val prevSector = effectivePrevSector(hh, firms)
+    val hhRegion   = hh.region
+
+    // Tier 1: same region + same sector
+    val tier1 = firmsBySectorRegion
+      .getOrElse((prevSector, hhRegion), Vector.empty)
+      .find(fid => st.vacancies.contains(fid))
+
+    // Tier 2: same region + any sector
+    val tier2 = tier1.orElse(
+      firmsByRegion
+        .getOrElse(hhRegion, Vector.empty)
+        .find(fid => st.vacancies.contains(fid)),
+    )
+
+    // Tier 3: cross-region fallback
+    val bestFirm = tier2.orElse(firmsByPriority.find(fid => st.vacancies.contains(fid)))
+
+    bestFirm match
+      case None      => st
+      case Some(fid) =>
+        val firm          = firms(fid.toInt)
+        val isCrossSector = firm.sector.toInt != prevSector.toInt
+        val regWage       = regionalWages.getOrElse(firm.region, marketWage)
+        val wage          = computeHireWage(hh, firm, regWage, prevSector, isCrossSector)
+        val newHh         = hh.copy(
+          status = HhStatus.Employed(fid, firm.sector, wage),
+          lastSectorIdx = firm.sector,
+          region = firm.region,
+        )
+        val remaining     = st.vacancies(fid) - 1
+        val newVacancies  = if remaining <= 0 then st.vacancies - fid else st.vacancies.updated(fid, remaining)
+        MatchState(st.hired.updated(idx, newHh), newVacancies, st.crossSectorHires + (if isCrossSector then 1 else 0))
 
   /** Rank unemployed households by effective skill descending. */
   private def rankUnemployed(households: Vector[Household.State]): Vector[Int] =

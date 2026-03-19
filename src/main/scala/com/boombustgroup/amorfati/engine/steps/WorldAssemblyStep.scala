@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.EquityMarket
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, SectoralMobility}
+import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.KahanSum.*
 
@@ -56,7 +57,7 @@ object WorldAssemblyStep:
       tourismSeasonalFactor: Double,
   )
 
-  def run(in: Input, rng: Random)(using p: SimParams): Output =
+  def run(in: Input, rng: Random, migRng: Random)(using p: SimParams): Output =
     val equityAfterStep = finalizeEquity(in)
     val fofResidual     = computeFofResidual(in)
     val informal        = computeInformalEconomy(in)
@@ -72,8 +73,15 @@ object WorldAssemblyStep:
         (r.firms, r.births)
       else (postFdiFirms, 0)
 
-    val finalW = newW.updateFlows(_.copy(firmBirths = firmBirths, firmDeaths = in.s5.firmDeaths))
-    Output(finalW, finalFirms, in.s9.reassignedHouseholds, sfcResult)
+    // Regional migration: unemployed HH may relocate between NUTS-1 regions
+    val postMigHh =
+      if p.flags.regionalLabor then RegionalMigration(in.s9.reassignedHouseholds, in.s2.regionalWages, migRng).households
+      else in.s9.reassignedHouseholds
+
+    val finalW = newW
+      .updateFlows(_.copy(firmBirths = firmBirths, firmDeaths = in.s5.firmDeaths))
+      .copy(regionalWages = in.s2.regionalWages)
+    Output(finalW, finalFirms, postMigHh, sfcResult)
 
   /** Finalize GPW equity state with aggregate household equity wealth. */
   private def finalizeEquity(in: Input): EquityMarket.State =

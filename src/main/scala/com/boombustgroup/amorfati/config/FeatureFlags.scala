@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.config
 
-/** Mechanism toggles for 49 model features.
+/** Mechanism toggles for 50 model features.
   *
   * Each flag enables/disables an independently switchable mechanism in the
   * SFC-ABM engine. Defaults reflect the full Polish economy baseline — all
@@ -32,7 +32,8 @@ package com.boombustgroup.amorfati.config
   * '''Financial:''' `insurance`, `nbfi`, `re`, `reMortgage`, `reHhHousing`,
   * `reRegional`
   *
-  * '''Labor:''' `sectoralMobility`, `unions`, `expectations`, `sbtc`
+  * '''Labor:''' `sectoralMobility`, `unions`, `expectations`, `sbtc`,
+  * `regionalLabor`
   */
 case class FeatureFlags(
     // Firm & production
@@ -95,4 +96,5 @@ case class FeatureFlags(
     unions: Boolean = true,
     expectations: Boolean = true,
     sbtc: Boolean = true,
+    regionalLabor: Boolean = true,
 )

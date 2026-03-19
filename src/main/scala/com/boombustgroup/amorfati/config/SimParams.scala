@@ -33,7 +33,7 @@ case class SectorDef(
   * `SimParams.defaults`.
   *
   * Sub-configs are grouped by economic domain:
-  *   - `flags` — 49 mechanism toggles
+  *   - `flags` — 50 mechanism toggles
   *   - `pop`, `timeline` — simulation structure
   *   - `firm`, `household` — agent parameters
   *   - `fiscal`, `monetary`, `banking` — government, central bank, commercial

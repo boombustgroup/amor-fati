@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.engine.steps
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
-import com.boombustgroup.amorfati.engine.markets.LaborMarket
+import com.boombustgroup.amorfati.engine.markets.{LaborMarket, RegionalClearing}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.KahanSum.*
 
@@ -35,14 +35,22 @@ object LaborDemographicsStep:
       rawPpkBondPurchase: PLN,                           // PPK monthly gov bond purchase before supply cap
       newEarmarked: EarmarkedFunds.State,                // FP, PFRON, FGŚP earmarked funds
       living: Vector[Firm.State],                        // surviving firms (bankrupt firms filtered out)
+      regionalWages: Map[Region, PLN],                   // per-region wages from regional clearing
   )
 
   def run(in: Input)(using p: SimParams): Output =
-    val living                 = in.firms.filter(Firm.isAlive)
-    val laborDemand            = living.kahanSumBy(f => Firm.workerCount(f).toDouble).toInt
-    val wageResult             =
-      LaborMarket.updateLaborMarket(in.w.hhAgg.marketWage, in.s1.resWage, laborDemand, in.w.totalPopulation)
-    val (rawWage, rawEmployed) = (wageResult.wage.toDouble, wageResult.employed)
+    val living      = in.firms.filter(Firm.isAlive)
+    val laborDemand = living.kahanSumBy(f => Firm.workerCount(f).toDouble).toInt
+
+    // Regional clearing: 6 independent Phillips curves → national aggregate
+    val (rawWage, rawEmployed, regWages) =
+      if p.flags.regionalLabor then
+        val rc        = RegionalClearing.clear(in.w.regionalWages, in.s1.resWage, laborDemand, in.w.totalPopulation)
+        val natResult = LaborMarket.updateLaborMarket(rc.nationalWage, in.s1.resWage, laborDemand, in.w.totalPopulation)
+        (rc.nationalWage.toDouble, natResult.employed, rc.regionalWages)
+      else
+        val wageResult = LaborMarket.updateLaborMarket(in.w.hhAgg.marketWage, in.s1.resWage, laborDemand, in.w.totalPopulation)
+        (wageResult.wage.toDouble, wageResult.employed, in.w.regionalWages)
 
     // Channel 1: Expectations-augmented wage Phillips curve
     val wageAfterExp = if p.flags.expectations then
@@ -72,8 +80,6 @@ object LaborDemographicsStep:
       in.households,
       PLN(newWage),
       unempRateForImmig,
-      in.w.social.demographics.workingAgePop.max(in.w.totalPopulation),
-      in.s1.m,
     )
     val netMigration      = newImmig.monthlyInflow - newImmig.monthlyOutflow
 
@@ -111,4 +117,5 @@ object LaborDemographicsStep:
       PLN(rawPpkBondPurchase),
       newEarmarked,
       living,
+      regWages,
     )

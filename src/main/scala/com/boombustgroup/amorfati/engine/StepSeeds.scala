@@ -13,15 +13,16 @@ package com.boombustgroup.amorfati.engine
 object StepSeeds:
 
   // Component IDs — stable across versions, never reuse
-  val Household: Int     = 0
-  val Firm: Int          = 1
-  val Rewire: Int        = 2
-  val WorldAssembly: Int = 3
-  val LaborSearch: Int   = 4
-  val Immigration: Int   = 5
-  val BankLend: Int      = 6
-  val Commodity: Int     = 7
-  val DepositFlight: Int = 8
+  val Household: Int         = 0
+  val Firm: Int              = 1
+  val Rewire: Int            = 2
+  val WorldAssembly: Int     = 3
+  val LaborSearch: Int       = 4
+  val Immigration: Int       = 5
+  val BankLend: Int          = 6
+  val Commodity: Int         = 7
+  val DepositFlight: Int     = 8
+  val RegionalMigration: Int = 9
 
   /** Derive a deterministic sub-seed for a component in a given month.
     *

@@ -20,18 +20,20 @@ object Immigration:
   object State:
     val zero: State = State(0, 0, 0, PLN.Zero)
 
-  /** Monthly immigration inflow. Exogenous: fixed rate × workingAgePop.
-    * Endogenous: responds to (domesticWage / foreignWage − 1) × elasticity.
+  /** Monthly immigration inflow. Exogenous: fixed rate × basePop. Endogenous:
+    * responds to (domesticWage / foreignWage − 1) × elasticity.
     */
-  def computeInflow(workingAgePop: Int, wage: PLN, unempRate: Double, @scala.annotation.unused month: Int)(using p: SimParams): Int =
+  def computeInflow(wage: PLN, unempRate: Double)(using p: SimParams): Int =
     if !p.flags.immigration then 0
-    else if p.flags.immigEndogenous then
-      val wageGap = (wage.toDouble / p.immigration.foreignWage.toDouble - 1.0).max(0.0)
-      val pull    = wageGap * p.immigration.wageElasticity
-      val push    = (1.0 - unempRate).max(0.0)
-      val rate    = p.immigration.monthlyRate.toDouble * (0.5 + 0.5 * pull * push)
-      (workingAgePop * rate).toInt.max(0)
-    else (workingAgePop * p.immigration.monthlyRate.toDouble).toInt.max(0)
+    else
+      val basePop = p.pop.firmsCount * p.pop.workersPerFirm
+      if p.flags.immigEndogenous then
+        val wageGap = (wage.toDouble / p.immigration.foreignWage.toDouble - 1.0).max(0.0)
+        val pull    = wageGap * p.immigration.wageElasticity
+        val push    = (1.0 - unempRate).max(0.0)
+        val rate    = p.immigration.monthlyRate.toDouble * (0.5 + 0.5 * pull * push)
+        (basePop * rate).toInt.max(0)
+      else (basePop * p.immigration.monthlyRate.toDouble).toInt.max(0)
 
   /** Monthly return migration (outflow). */
   def computeOutflow(immigrantStock: Int)(using p: SimParams): Int =
@@ -75,7 +77,9 @@ object Immigration:
       val clampedSkill               = skill.max(skillFloor).min(skillCeiling)
       val savings                    = rng.nextDouble() * 5000.0
       val mpc                        = 0.85 + rng.nextGaussian() * 0.05
-      val rent                       = p.household.rentMean.toDouble + rng.nextGaussian() * p.household.rentStd.toDouble
+      val region                     = if p.flags.regionalLabor then Region.cdfSample(rng) else Region.Central
+      val baseRent                   = p.household.rentMean.toDouble + rng.nextGaussian() * p.household.rentStd.toDouble
+      val rent                       = if p.flags.regionalLabor then baseRent * region.housingCostIndex else baseRent
       val numChildren                =
         if p.flags.social800 && p.flags.social800ImmigEligible then Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
         else 0
@@ -98,6 +102,7 @@ object Immigration:
         education = edu,
         taskRoutineness = Household.Init.sampleTaskRoutineness(edu, sector, rng),
         wageScar = Ratio.Zero,
+        region = region,
       )
     }.toVector
 
@@ -116,10 +121,8 @@ object Immigration:
       households: Vector[Household.State],
       wage: PLN,
       unempRate: Double,
-      workingAgePop: Int,
-      month: Int,
   )(using SimParams): State =
-    val inflow      = computeInflow(workingAgePop, wage, unempRate, month)
+    val inflow      = computeInflow(wage, unempRate)
     val outflow     = computeOutflow(prev.immigrantStock)
     val newStock    = (prev.immigrantStock + inflow - outflow).max(0)
     val remittances = computeRemittances(households)

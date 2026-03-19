@@ -192,7 +192,8 @@ object Household:
       val debt: PLN     =
         if rng.nextDouble() < p.household.debtFraction.toDouble then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()))
         else PLN.Zero
-      val rent: PLN     = (p.household.rentMean + p.household.rentStd * rng.nextGaussian()).max(p.household.rentFloor)
+      val baseRent: PLN = (p.household.rentMean + p.household.rentStd * rng.nextGaussian()).max(p.household.rentFloor)
+      val rent: PLN     = if p.flags.regionalLabor then baseRent * firm.region.housingCostIndex else baseRent
       val mpc           = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
       val (edu, skill)  = sampleEducationAndSkill(sectorIdx, rng)
       val wage: PLN     = p.household.baseWage * (p.sectorDefs(sectorIdx.toInt).wageMultiplier * skill)

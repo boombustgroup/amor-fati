@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.KahanSum.*
+import com.boombustgroup.amorfati.agents.Region
 
 /** Typed column schema for simulation output.
   *
@@ -456,6 +457,25 @@ object SimOutput:
     ),
   )
 
+  /** Regional unemployment rates per NUTS-1 macroregion. */
+  private def regionalGroup: Vector[ColumnDef] =
+    def regionUnemp(region: Region, label: String): ColumnDef =
+      ColumnDef(
+        s"Unemp_$label",
+        ctx =>
+          val regHh = ctx.households.filter(_.region == region)
+          if regHh.isEmpty then 0.0
+          else regHh.count(h => !h.status.isInstanceOf[HhStatus.Employed]).toDouble / regHh.length,
+      )
+    Vector(
+      regionUnemp(Region.Central, "Central"),
+      regionUnemp(Region.South, "South"),
+      regionUnemp(Region.East, "East"),
+      regionUnemp(Region.Northwest, "Northwest"),
+      regionUnemp(Region.Southwest, "Southwest"),
+      regionUnemp(Region.North, "North"),
+    )
+
   // -------------------------------------------------------------------------
   //  Flat schema — single source of truth
   // -------------------------------------------------------------------------
@@ -469,7 +489,8 @@ object SimOutput:
       ++ financialGroup
       ++ realGroup
       ++ socialGroup
-      ++ mechanismsGroup).toArray
+      ++ mechanismsGroup
+      ++ regionalGroup).toArray
 
   // -------------------------------------------------------------------------
   //  Col — opaque Int, derived by name lookup
