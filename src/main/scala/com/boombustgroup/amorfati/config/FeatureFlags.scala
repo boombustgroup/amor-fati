@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.config
 
-/** Mechanism toggles for 49 model features.
+/** Mechanism toggles for 50 model features.
   *
   * Each flag enables/disables an independently switchable mechanism in the
   * SFC-ABM engine. Defaults reflect the full Polish economy baseline — all

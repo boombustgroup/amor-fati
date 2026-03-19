@@ -10,8 +10,8 @@ import com.boombustgroup.amorfati.util.KahanSum.*
   * population-weighted aggregate (Kahan summation for numerical stability).
   *
   * Each region clears its own labor market using the same Phillips curve
-  * mechanism as the national model (LaborMarket.updateLaborMarket), but with
-  * regional wage multipliers and base unemployment rates.
+  * mechanism as the national model, but with regional wage multipliers and base
+  * unemployment rates.
   */
 object RegionalClearing:
 
@@ -32,14 +32,15 @@ object RegionalClearing:
       laborDemand: Int,
       totalPopulation: Int,
   )(using p: SimParams): Result =
-    val regionalWages = Region.all.map { region =>
-      val prevWage    = prevRegionalWages.getOrElse(region, resWage * region.wageMultiplier.toDouble)
-      val regDemand   = (laborDemand * region.populationShare.toDouble).toInt
-      val regPop      = (totalPopulation * region.populationShare.toDouble).toInt.max(1)
-      val regResWage  = resWage * region.wageMultiplier.toDouble
-      val clearResult = LaborMarket.updateLaborMarket(prevWage, regResWage, regDemand, regPop)
-      region -> clearResult.wage
-    }.toMap
+    val regionalWages = Region.all
+      .map: region =>
+        val prevWage    = prevRegionalWages.getOrElse(region, resWage * region.wageMultiplier.toDouble)
+        val regDemand   = (laborDemand * region.populationShare.toDouble).toInt
+        val regPop      = (totalPopulation * region.populationShare.toDouble).toInt.max(1)
+        val regResWage  = resWage * region.wageMultiplier.toDouble
+        val clearResult = LaborMarket.updateLaborMarket(prevWage, regResWage, regDemand, regPop)
+        region -> clearResult.wage
+      .toMap
 
     val nationalWage = PLN(
       Region.all.kahanSumBy(r => regionalWages(r).toDouble * r.populationShare.toDouble),

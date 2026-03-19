@@ -22,10 +22,6 @@ object Immigration:
 
   /** Monthly immigration inflow. Exogenous: fixed rate × basePop. Endogenous:
     * responds to (domesticWage / foreignWage − 1) × elasticity.
-    *
-    * basePop is fixed at init-time population (firmsCount × workersPerFirm) to
-    * prevent feedback loop: immigration grows pop → grows basePop → more
-    * immigration → exponential explosion. Previous bug: 100K→590K HH in 58mo.
     */
   def computeInflow(@scala.annotation.unused workingAgePop: Int, wage: PLN, unempRate: Double, @scala.annotation.unused month: Int)(using p: SimParams): Int =
     if !p.flags.immigration then 0

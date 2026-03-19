@@ -42,6 +42,7 @@ equilibrium prices, quantities, or flows given current state.
 | `CapitalFlows.scala` | Capital flight: risk-off shock, carry trade (accumulation/unwind), auction confidence signal |
 | `GvcTrade.scala` | GVC deep external sector: foreign firm partners, sector-level trade, disruption shocks |
 | `IntermediateMarket.scala` | I-O intermediate goods: inter-sector purchases via input-output matrix |
+| `RegionalClearing.scala` | Regional labor markets: 6 independent Phillips curves (NUTS-1), population-weighted national wage (Kahan sum) |
 
 ## mechanisms/
 
