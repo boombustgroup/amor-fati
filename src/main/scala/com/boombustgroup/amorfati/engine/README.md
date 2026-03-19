@@ -32,6 +32,7 @@ equilibrium prices, quantities, or flows given current state.
 |------|--------|
 | `LaborMarket.scala` | Wage Phillips curve, worker separations, job search with sectoral priority |
 | `PriceLevel.scala` | Inflation: demand-pull + cost-push + import pass-through − tech deflation, soft floor |
+| `CalvoPricing.scala` | Calvo staggered pricing: per-firm markup lottery (θ=15%), endogenous markup, sticky prices |
 | `OpenEconomy.scala` | BoP, floating exchange rate, trade balance, capital account, NFA |
 | `FiscalBudget.scala` | Government budget: revenue (CIT/VAT/excise/customs), spending, deficit, bond issuance |
 | `EquityMarket.scala` | GPW: WIG index, market cap, dividend yield, foreign ownership, issuance |
