@@ -14,11 +14,9 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
   "Immigration.computeInflow" should "always return non-negative" in {
     val rng = new Random(42)
     for _ <- 0 until 100 do
-      val wap    = rng.nextInt(200000) + 1
       val wage   = PLN(rng.nextDouble() * 20000)
       val unemp  = rng.nextDouble()
-      val month  = rng.nextInt(120) + 1
-      val result = Immigration.computeInflow(wap, wage, unemp, month)
+      val result = Immigration.computeInflow(wage, unemp)
       result should be >= 0
   }
 
@@ -75,7 +73,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
     for _ <- 0 until 100 do
       val prevStock = rng.nextInt(5000)
       val prev      = Immigration.State(prevStock, 0, 0, PLN.Zero)
-      val result    = Immigration.step(prev, Vector.empty, PLN(8000.0), 0.05, 100000, 1)
+      val result    = Immigration.step(prev, Vector.empty, PLN(8000.0), 0.05)
       result.immigrantStock should be >= 0
   }
 

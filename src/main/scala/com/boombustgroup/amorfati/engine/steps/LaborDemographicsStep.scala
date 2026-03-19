@@ -80,8 +80,6 @@ object LaborDemographicsStep:
       in.households,
       PLN(newWage),
       unempRateForImmig,
-      in.w.social.demographics.workingAgePop.max(in.w.totalPopulation),
-      in.s1.m,
     )
     val netMigration      = newImmig.monthlyInflow - newImmig.monthlyOutflow
 

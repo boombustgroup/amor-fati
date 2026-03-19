@@ -23,7 +23,7 @@ object Immigration:
   /** Monthly immigration inflow. Exogenous: fixed rate × basePop. Endogenous:
     * responds to (domesticWage / foreignWage − 1) × elasticity.
     */
-  def computeInflow(@scala.annotation.unused workingAgePop: Int, wage: PLN, unempRate: Double, @scala.annotation.unused month: Int)(using p: SimParams): Int =
+  def computeInflow(wage: PLN, unempRate: Double)(using p: SimParams): Int =
     if !p.flags.immigration then 0
     else
       val basePop = p.pop.firmsCount * p.pop.workersPerFirm
@@ -121,10 +121,8 @@ object Immigration:
       households: Vector[Household.State],
       wage: PLN,
       unempRate: Double,
-      workingAgePop: Int,
-      month: Int,
   )(using SimParams): State =
-    val inflow      = computeInflow(workingAgePop, wage, unempRate, month)
+    val inflow      = computeInflow(wage, unempRate)
     val outflow     = computeOutflow(prev.immigrantStock)
     val newStock    = (prev.immigrantStock + inflow - outflow).max(0)
     val remittances = computeRemittances(households)
