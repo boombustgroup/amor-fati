@@ -81,7 +81,9 @@ object Immigration:
       val clampedSkill               = skill.max(skillFloor).min(skillCeiling)
       val savings                    = rng.nextDouble() * 5000.0
       val mpc                        = 0.85 + rng.nextGaussian() * 0.05
-      val rent                       = p.household.rentMean.toDouble + rng.nextGaussian() * p.household.rentStd.toDouble
+      val region                     = if p.flags.regionalLabor then Region.cdfSample(rng) else Region.Central
+      val baseRent                   = p.household.rentMean.toDouble + rng.nextGaussian() * p.household.rentStd.toDouble
+      val rent                       = if p.flags.regionalLabor then baseRent * region.housingCostIndex else baseRent
       val numChildren                =
         if p.flags.social800 && p.flags.social800ImmigEligible then Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
         else 0
@@ -104,6 +106,7 @@ object Immigration:
         education = edu,
         taskRoutineness = Household.Init.sampleTaskRoutineness(edu, sector, rng),
         wageScar = Ratio.Zero,
+        region = region,
       )
     }.toVector
 
