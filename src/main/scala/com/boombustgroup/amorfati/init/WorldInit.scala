@@ -83,7 +83,7 @@ object WorldInit:
       forex = OpenEconomy.ForexState(
         exchangeRate = p.forex.baseExRate,
         imports = PLN.Zero,
-        exports = p.forex.exportBase,
+        exports = if p.flags.openEcon then p.openEcon.exportBase else p.forex.exportBase,
         tradeBalance = PLN.Zero,
         techImports = PLN.Zero,
       ),

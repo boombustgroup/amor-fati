@@ -473,7 +473,7 @@ object BankUpdateStep:
       loansShort = newLoansTotal * ShortLoanFrac,
       loansMedium = newLoansTotal * MediumLoanFrac,
       loansLong = newLoansTotal * LongLoanFrac,
-      consumerLoans = (b.consumerLoans + hhFlows.ccOrigination - bankCcPrincipal - hhFlows.ccDefault).max(PLN.Zero),
+      consumerLoans = PLN(terms(b.consumerLoans.toDouble, hhFlows.ccOrigination.toDouble, -bankCcPrincipal.toDouble, -hhFlows.ccDefault.toDouble)),
       consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * NplMonthlyWriteOff).max(PLN.Zero),
       corpBondHoldings = in.s8.corpBonds.newCorpBonds.bankHoldings * ws,
     )
