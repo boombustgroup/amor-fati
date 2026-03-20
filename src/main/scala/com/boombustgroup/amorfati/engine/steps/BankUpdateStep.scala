@@ -394,14 +394,25 @@ object BankUpdateStep:
     val newLoansTotal =
       (b.loans + in.s5.perBankNewLoans(bId) - in.s5.perBankFirmPrincipal(bId) - bankNplNew * p.banking.loanRecovery.toDouble).max(PLN.Zero)
 
-    val newDep = b.deposits + (hhFlows.incomeShare - hhFlows.consShare) +
-      investNetDepositFlow * ws + jstDepositChange * ws +
-      in.s7.netDomesticDividends * ws - in.s7.foreignDividendOutflow * ws -
-      in.s6.remittanceOutflow * ws + in.s6.diasporaInflow * ws +
-      in.s6.tourismExport * ws - in.s6.tourismImport * ws +
-      in.s5.perBankNewLoans(bId) - in.s5.perBankFirmPrincipal(bId) +
-      hhFlows.ccOrigination +
-      in.s8.nonBank.insNetDepositChange * ws + in.s8.nonBank.nbfiDepositDrain * ws
+    val newDep = PLN(
+      terms(
+        b.deposits.toDouble,
+        (hhFlows.incomeShare - hhFlows.consShare).toDouble,
+        (investNetDepositFlow * ws).toDouble,
+        (jstDepositChange * ws).toDouble,
+        (in.s7.netDomesticDividends * ws).toDouble,
+        -(in.s7.foreignDividendOutflow * ws).toDouble,
+        -(in.s6.remittanceOutflow * ws).toDouble,
+        (in.s6.diasporaInflow * ws).toDouble,
+        (in.s6.tourismExport * ws).toDouble,
+        -(in.s6.tourismImport * ws).toDouble,
+        in.s5.perBankNewLoans(bId).toDouble,
+        -in.s5.perBankFirmPrincipal(bId).toDouble,
+        hhFlows.ccOrigination.toDouble,
+        (in.s8.nonBank.insNetDepositChange * ws).toDouble,
+        (in.s8.nonBank.nbfiDepositDrain * ws).toDouble,
+      ),
+    )
 
     val bankMortgageIntIncome   = mortgageFlows.interest * ws
     val bankMortgageNplLoss     = mortgageFlows.defaultLoss * ws

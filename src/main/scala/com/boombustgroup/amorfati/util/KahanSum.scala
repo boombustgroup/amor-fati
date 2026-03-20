@@ -25,3 +25,8 @@ object KahanSum:
   extension (arr: Array[Double]) def kahanSum: Double = sum(arr)
 
   extension [A](arr: Array[A]) def kahanSumBy(f: A => Double): Double = sumBy(arr)(f)
+
+  /** Kahan-compensated sum of individual Double values (varargs). Use for
+    * inline formulas with many terms where standard `+` loses precision.
+    */
+  def terms(values: Double*): Double = sum(values)
