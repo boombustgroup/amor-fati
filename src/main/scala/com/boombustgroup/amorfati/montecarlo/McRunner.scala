@@ -74,16 +74,13 @@ object McRunner:
     if errors.nonEmpty then Left(SimError.Init(errors))
     else Right(Simulation.SimState(init.world, init.firms, init.households))
 
-  private def stepMonth(state: Simulation.SimState, seed: Long, month: Int)(using
-      SimParams,
-  ): Either[SimError, (Simulation.SimState, Array[Double])] =
-    val step      = Simulation.step(state, seed, month)
+  private def stepMonth(state: Simulation.SimState, seed: Long, month: Int)(using SimParams) =
+    val step = Simulation.step(state, seed, month)
     step.sfcCheck match
-      case Left(errors) =>
-        System.err.println(s"[WARN] SFC violation at M${month + 1}: ${errors.map(_.msg).mkString("; ")}")
-      case Right(())    => ()
-    val monthData = SimOutput.compute(month, step.state.world, step.state.firms, step.state.households)
-    Right((step.state, monthData))
+      case Left(errors) => Left(SimError.SfcViolation(month + 1, errors))
+      case Right(())    =>
+        val monthData = SimOutput.compute(month, step.state.world, step.state.firms, step.state.households)
+        Right((step.state, monthData))
 
   @scala.annotation.tailrec
   private def loop(
