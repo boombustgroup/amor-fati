@@ -94,6 +94,7 @@ object FirmInit:
           inventory = PLN.Zero,
           greenCapital = PLN.Zero,
           accumulatedLoss = PLN.Zero,
+          markup = p.pricing.baseMarkup,
           region = Region.cdfSample(regionRng),
         )
       .toVector

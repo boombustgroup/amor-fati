@@ -149,16 +149,28 @@ object Household:
 
   object Init:
 
-    /** Create individual households with multi-bank assignment. */
+    /** Create individual households with multi-bank assignment. A
+      * NAIRU-fraction of households start as Unemployed(0) so the economy
+      * initializes near steady state rather than overheated.
+      */
     def create(rng: Random, firms: Vector[Firm.State])(using p: SimParams): Vector[State] =
-      val hhCount   = firms.map(Firm.workerCount).sum
-      val hhNetwork = Network.wattsStrogatz(hhCount, p.household.socialK, p.household.socialP.toDouble, rng)
-      val hhs       = initialize(hhCount, firms, hhNetwork, rng)
+      val hhCount     = firms.map(Firm.workerCount).sum
+      val hhNetwork   = Network.wattsStrogatz(hhCount, p.household.socialK, p.household.socialP.toDouble, rng)
+      val hhs         = initialize(hhCount, firms, hhNetwork, rng)
       // Assign households to same bank as their employer
-      hhs.map: h =>
+      val banked      = hhs.map: h =>
         h.status match
           case HhStatus.Employed(fid, _, _) if fid.toInt < firms.length => h.copy(bankId = firms(fid.toInt).bankId)
           case _                                                        => h
+      // Set NAIRU fraction as unemployed — prevents overheated init
+      val nUnemployed = (hhCount * p.monetary.nairu.toDouble).toInt
+      val toUnemploy  = rng.shuffle(banked.indices.toVector).take(nUnemployed).toSet
+      banked.zipWithIndex.map: (h, i) =>
+        if toUnemploy.contains(i) then
+          h.status match
+            case HhStatus.Employed(_, sector, _) => h.copy(status = HhStatus.Unemployed(0), lastSectorIdx = sector)
+            case _                               => h
+        else h
 
     /** Initialize households, all employed, assigned proportionally to firm
       * sizes.

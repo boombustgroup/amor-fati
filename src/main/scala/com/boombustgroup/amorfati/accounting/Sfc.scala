@@ -281,28 +281,63 @@ object Sfc:
 
     val identities: Vector[IdentitySpec] = Vector(
       // 1. Bank capital: losses + profit retention (p.banking.profitRetention.toDouble)
+      //    Kahan-compensated: many terms with large magnitudes
       IdentitySpec(
         BankCapital,
         "bank capital change (profit retention + losses)",
-        expected = -flows.nplLoss - flows.mortgageNplLoss - flows.consumerNplLoss
-          - flows.corpBondDefaultLoss - flows.bfgLevy - flows.unrealizedBondLoss - flows.htmRealizedLoss - flows.eclProvisionChange - flows.bankCapitalDestruction +
-          (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
-            + flows.mortgageInterestIncome + flows.consumerDebtService + flows.corpBondCouponIncome
-            - flows.depositInterestPaid
-            + flows.reserveInterest + flows.standingFacilityIncome + flows.interbankInterest) * p.banking.profitRetention.toDouble,
+        expected = PLN(
+          terms(
+            -flows.nplLoss.toDouble,
+            -flows.mortgageNplLoss.toDouble,
+            -flows.consumerNplLoss.toDouble,
+            -flows.corpBondDefaultLoss.toDouble,
+            -flows.bfgLevy.toDouble,
+            -flows.unrealizedBondLoss.toDouble,
+            -flows.htmRealizedLoss.toDouble,
+            -flows.eclProvisionChange.toDouble,
+            -flows.bankCapitalDestruction.toDouble,
+            terms(
+              flows.interestIncome.toDouble,
+              flows.hhDebtService.toDouble,
+              flows.bankBondIncome.toDouble,
+              flows.mortgageInterestIncome.toDouble,
+              flows.consumerDebtService.toDouble,
+              flows.corpBondCouponIncome.toDouble,
+              -flows.depositInterestPaid.toDouble,
+              flows.reserveInterest.toDouble,
+              flows.standingFacilityIncome.toDouble,
+              flows.interbankInterest.toDouble,
+            ) * p.banking.profitRetention.toDouble,
+          ),
+        ),
         actual = curr.bankCapital - prev.bankCapital,
         tolerance,
       ),
       // 2. Bank deposits: HH income − consumption + all deposit-affecting flows
+      //    Kahan-compensated: 15 terms with magnitudes ~10¹² lose precision with naive +
       IdentitySpec(
         BankDeposits,
         "bank deposits change",
-        expected = flows.totalIncome - flows.totalConsumption + flows.investNetDepositFlow +
-          flows.jstDepositChange +
-          flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow + flows.diasporaInflow +
-          flows.tourismExport - flows.tourismImport - flows.bailInLoss +
-          flows.newLoans - flows.firmPrincipalRepaid +
-          flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain,
+        expected = PLN(
+          terms(
+            flows.totalIncome.toDouble,
+            -flows.totalConsumption.toDouble,
+            flows.investNetDepositFlow.toDouble,
+            flows.jstDepositChange.toDouble,
+            flows.dividendIncome.toDouble,
+            -flows.foreignDividendOutflow.toDouble,
+            -flows.remittanceOutflow.toDouble,
+            flows.diasporaInflow.toDouble,
+            flows.tourismExport.toDouble,
+            -flows.tourismImport.toDouble,
+            -flows.bailInLoss.toDouble,
+            flows.newLoans.toDouble,
+            -flows.firmPrincipalRepaid.toDouble,
+            flows.consumerOrigination.toDouble,
+            flows.insNetDepositChange.toDouble,
+            flows.nbfiDepositDrain.toDouble,
+          ),
+        ),
         actual = curr.bankDeposits - prev.bankDeposits,
         tolerance,
       ),
@@ -327,8 +362,16 @@ object Sfc:
         BondClearing,
         s"bond clearing [bank=${curr.bankBondHoldings}, nbp=${curr.nbpBondHoldings}, foreign=${curr.foreignBondHoldings}, ppk=${curr.ppkBondHoldings}, ins=${curr.insuranceGovBondHoldings}, tfi=${curr.tfiGovBondHoldings}, outstanding=${curr.bondsOutstanding}]",
         expected = curr.bondsOutstanding,
-        actual = curr.bankBondHoldings + curr.nbpBondHoldings + curr.foreignBondHoldings + curr.ppkBondHoldings +
-          curr.insuranceGovBondHoldings + curr.tfiGovBondHoldings,
+        actual = PLN(
+          terms(
+            curr.bankBondHoldings.toDouble,
+            curr.nbpBondHoldings.toDouble,
+            curr.foreignBondHoldings.toDouble,
+            curr.ppkBondHoldings.toDouble,
+            curr.insuranceGovBondHoldings.toDouble,
+            curr.tfiGovBondHoldings.toDouble,
+          ),
+        ),
         tolerance,
       ),
       // 6. Interbank netting: Σ net positions = 0

@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Interbank contagion: bilateral exposures, counterparty losses, liquidity
   * hoarding.
@@ -44,7 +45,7 @@ object InterbankContagion:
   def buildExposureMatrix(banks: Vector[Banking.BankState]): ExposureMatrix =
     val n        = banks.length
     val nets     = banks.map(_.interbankNet.toDouble)
-    val totalBor = nets.filter(_ < 0).map(-_).sum
+    val totalBor = nets.filter(_ < 0).map(-_).kahanSum
     if totalBor <= 0 then Vector.fill(n)(Vector.fill(n)(PLN.Zero))
     else
       Vector.tabulate(n): i =>
@@ -97,5 +98,5 @@ object InterbankContagion:
         .zip(after)
         .map: (pre, post) =>
           if !pre.failed then (pre.capital - post.capital).max(PLN.Zero).toDouble else 0.0
-        .sum,
+        .kahanSum,
     )

@@ -22,12 +22,21 @@ object WorldInit:
     assert(firms.length == p.pop.firmsCount)
 
     // --- Households ---
-    val households0 = Household.Init.create(rng, firms)
-    val households  = ImmigrantInit.create(rng, households0)
-    val totalPop    = households.length
+    val households0    = Household.Init.create(rng, firms)
+    val households     = ImmigrantInit.create(rng, households0)
+    val totalPop       = households.length
+    val initEmployed   = households.count(_.status.isInstanceOf[HhStatus.Employed])
+    val initUnemployed = totalPop - initEmployed
     assert(totalPop > 0)
 
     // --- Banking sector ---
+    // Steady-state consumption estimate: employed × wage × MPC × domestic share
+    val initWageBill     = initEmployed.toDouble * p.household.baseWage.toDouble
+    val initMpc          = p.household.mpcAlpha / (p.household.mpcAlpha + p.household.mpcBeta) // Beta mean
+    val initConsumption  = PLN(initWageBill * initMpc)
+    val initDomesticCons = initConsumption * (1.0 - p.openEcon.importContent.map(_.toDouble).max)
+    val initImportCons   = initConsumption - initDomesticCons
+
     val initBankingSector = BankInit.create(firms, households)
 
     // --- Sub-state initializers ---
@@ -79,14 +88,14 @@ object WorldInit:
         techImports = PLN.Zero,
       ),
       hhAgg = Household.Aggregates(
-        employed = totalPop,
-        unemployed = 0,
+        employed = initEmployed,
+        unemployed = initUnemployed,
         retraining = 0,
         bankrupt = 0,
-        totalIncome = PLN.Zero,
-        consumption = PLN.Zero,
-        domesticConsumption = PLN.Zero,
-        importConsumption = PLN.Zero,
+        totalIncome = PLN(initWageBill),
+        consumption = initConsumption,
+        domesticConsumption = initDomesticCons,
+        importConsumption = initImportCons,
         marketWage = p.household.baseWage,
         reservationWage = p.household.baseReservationWage,
         giniIndividual = Ratio.Zero,

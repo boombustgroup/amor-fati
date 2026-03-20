@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.agents
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
+import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 
@@ -54,7 +55,7 @@ object Immigration:
               case HhStatus.Employed(_, _, wage) => wage.toDouble * p.immigration.remitRate.toDouble
               case _                             => 0.0
           }
-          .sum,
+          .kahanSum,
       )
 
   /** Choose sector for new immigrant (weighted by sectorShares). */

@@ -400,7 +400,7 @@ object FirmProcessingStep:
       .foldLeft(emptyInts): (acc, f) =>
         acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + Firm.workerCount(f))
 
-    NplResult(nplNew, nplLoss, totalBondDefault, newlyDead.length, PLN(perBankIntIncome.sum), perBankNplDebt, perBankIntIncome, perBankWorkers)
+    NplResult(nplNew, nplLoss, totalBondDefault, newlyDead.length, PLN(perBankIntIncome.kahanSum), perBankNplDebt, perBankIntIncome, perBankWorkers)
 
   // ---- Output assembly ----
 

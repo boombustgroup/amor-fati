@@ -42,7 +42,7 @@ object DemandStep:
     val laggedInvestDemand = computeLaggedInvestDemand(in)
     val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
     val sectorMults        = applySpillover(sectorDemand, sectorCap, in.w.priceLevel)
-    val avgDemandMult      = computeAvgDemandMult(sectorDemand, sectorCap, in)
+    val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCap, in)
     Output(govPurchases, sectorMults, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
 
   /** Government purchases: base spending × price level + fiscal recycling (tax
@@ -101,10 +101,14 @@ object DemandStep:
       .toVector
 
   /** Per-sector export demand: from GVC foreign firms when enabled, otherwise
-    * from lagged aggregate exports split by fixed shares.
+    * from lagged aggregate exports split by fixed shares. Falls back to
+    * aggregate split when GVC sector exports are zero (init month).
     */
   private def computeSectorExports(in: Input)(using p: SimParams): Vector[PLN] =
-    if p.flags.gvc && p.flags.openEcon then in.w.external.gvc.sectorExports
+    if p.flags.gvc && p.flags.openEcon then
+      val gvcExports = in.w.external.gvc.sectorExports
+      if gvcExports.exists(_ > PLN.Zero) then gvcExports
+      else p.fiscal.fofExportShares.map(_ * in.w.forex.exports)
     else p.fiscal.fofExportShares.map(_ * in.w.forex.exports)
 
   /** Lagged domestic investment demand (net of import content). */
@@ -159,15 +163,19 @@ object DemandStep:
 
   /** Economy-wide average demand multiplier, adjusted for real rate effect when
     * expectations mechanism is active.
+    *
+    * Uses post-spillover sector multipliers (capped at 1.0 per sector) weighted
+    * by sector capacity — consistent with the demand firms actually see.
     */
   private def computeAvgDemandMult(
-      sectorDemand: Vector[Double],
+      sectorMults: Vector[Double],
       sectorCap: Vector[Double],
       in: Input,
   )(using p: SimParams): Double =
-    val totalDemand   = sectorDemand.kahanSum
     val totalCapacity = sectorCap.kahanSum
-    val baseMult      = if totalCapacity > 0 then totalDemand / (totalCapacity * in.w.priceLevel) else 1.0
+    val baseMult      =
+      if totalCapacity > 0 then sectorMults.indices.kahanSumBy(s => sectorMults(s) * sectorCap(s)) / totalCapacity
+      else 1.0
     val realRateAdj   =
       if p.flags.expectations then
         val realRate = (in.w.nbp.referenceRate - in.w.mechanisms.expectations.expectedInflation).toDouble

@@ -14,8 +14,8 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
   // ── GdpRatio ──
 
   "SimParams.defaults.gdpRatio" should "match GdpRatio for uniform 10k×10 firms" in {
-    // 10000 firms × 10 workers × 100000 revenue × 12 months / 3500e9 GDP
-    val expected = (10000.0 * 10.0 / 10.0 * 100000.0 * 12.0) / 3500e9
+    // 10000 firms × 10 workers × 180000 revenue × 12 months / 3500e9 GDP
+    val expected = (10000.0 * 10.0 / 10.0 * 180000.0 * 12.0) / 3500e9
     p.gdpRatio shouldBe expected +- 1e-12
   }
 
