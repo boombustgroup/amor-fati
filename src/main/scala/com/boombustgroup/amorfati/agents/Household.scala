@@ -271,8 +271,8 @@ object Household:
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 
   /** Accumulated flow totals from one step, built via Kahan-compensated
-    * summation over per-HH results. Mutable for performance: 100K HH per step,
-    * immutable fold would allocate 100K case class copies.
+    * summation over per-HH results. Mutable for performance: one add() per
+    * household, immutable fold would allocate N case class copies.
     */
   private class StepTotals:
     // Kahan compensated accumulators: (sum, compensation)
