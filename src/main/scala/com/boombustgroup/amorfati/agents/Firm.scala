@@ -233,8 +233,8 @@ object Firm:
     val sec       = p.sectorDefs(f.sector.toInt)
     val sizeScale = Ratio(f.initialSize.toDouble / p.pop.workersPerFirm)
     val laborEff  = f.tech match
-      case TechState.Traditional(w) => Ratio(Math.sqrt(w.toDouble / f.initialSize))
-      case TechState.Hybrid(w, eff) => Ratio(HybridLaborCapShare * Math.sqrt(w.toDouble / f.initialSize) + HybridAiCapShare * eff)
+      case TechState.Traditional(w) => Ratio(w.toDouble / f.initialSize)
+      case TechState.Hybrid(w, eff) => Ratio(HybridLaborCapShare * (w.toDouble / f.initialSize) + HybridAiCapShare * eff)
       case TechState.Automated(eff) => Ratio(eff)
       case _: TechState.Bankrupt    => Ratio.Zero
     val tfp       = sizeScale * sec.revenueMultiplier

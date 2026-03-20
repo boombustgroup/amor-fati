@@ -93,11 +93,11 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       Firm.computeAiCapex(f2).toDouble shouldBe (Firm.computeAiCapex(f1).toDouble * factor +- 0.01)
     }
 
-  // --- capacity(Traditional) scales with sqrt(workers/initialSize) ---
+  // --- capacity(Traditional) scales linearly with workers/initialSize ---
 
-  "capacity for Traditional" should "scale with sqrt(workers/initialSize)" in
+  "capacity for Traditional" should "scale linearly with workers/initialSize" in
     forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) { (sector: Int, innov: Double, digiR: Double) =>
-      // Same initialSize=16, different worker counts: sqrt(4/16) vs sqrt(16/16)
+      // Same initialSize=16, different worker counts: (16/16) / (4/16) = 4.0
       val f1    = Firm.State(
         FirmId(0),
         PLN.Zero,
@@ -139,7 +139,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         accumulatedLoss = PLN.Zero,
       )
       val ratio = Firm.computeCapacity(f2) / Firm.computeCapacity(f1)
-      ratio shouldBe (2.0 +- 0.01)
+      ratio shouldBe (4.0 +- 0.01)
     }
 
   it should "scale linearly with initialSize at full employment" in

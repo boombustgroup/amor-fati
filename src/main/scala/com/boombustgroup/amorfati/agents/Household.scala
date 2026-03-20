@@ -270,66 +270,87 @@ object Household:
 
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 
-  /** Accumulated flow totals from one step, built via fold over
-    * HhMonthlyResult.
+  /** Accumulated flow totals from one step, built via Kahan-compensated
+    * summation over per-HH results. Mutable for performance: one add() per
+    * household, immutable fold would allocate N case class copies.
     */
-  private case class StepTotals(
-      income: PLN = PLN.Zero,
-      unempBenefits: PLN = PLN.Zero,
-      debtService: PLN = PLN.Zero,
-      depositInterest: PLN = PLN.Zero,
-      goodsConsumption: PLN = PLN.Zero,
-      rent: PLN = PLN.Zero,
-      remittances: PLN = PLN.Zero,
-      pit: PLN = PLN.Zero,
-      socialTransfers: PLN = PLN.Zero,
-      consumerDebtService: PLN = PLN.Zero,
-      consumerOrigination: PLN = PLN.Zero,
-      consumerDefault: PLN = PLN.Zero,
-      consumerPrincipal: PLN = PLN.Zero,
-      retrainingAttempts: Int = 0,
-      retrainingSuccesses: Int = 0,
-      voluntaryQuits: Int = 0,
-  ):
-    def add(r: HhMonthlyResult): StepTotals = copy(
-      income = income + r.income,
-      unempBenefits = unempBenefits + r.benefit,
-      debtService = debtService + r.debtService,
-      depositInterest = depositInterest + r.depositInterest,
-      goodsConsumption = goodsConsumption + r.consumption,
-      rent = rent + r.rent,
-      remittances = remittances + r.remittance,
-      pit = pit + r.pitTax,
-      socialTransfers = socialTransfers + r.socialTransfer,
-      consumerDebtService = consumerDebtService + r.credit.debtService,
-      consumerOrigination = consumerOrigination + r.credit.newLoan,
-      consumerDefault = consumerDefault + r.credit.defaultAmt,
-      consumerPrincipal = consumerPrincipal + r.credit.principal,
-      retrainingAttempts = retrainingAttempts + r.retrainingAttempt,
-      retrainingSuccesses = retrainingSuccesses + r.retrainingSuccess,
-      voluntaryQuits = voluntaryQuits + r.voluntaryQuit,
-    )
+  private class StepTotals:
+    // Kahan compensated accumulators: (sum, compensation)
+    private var incomeS          = 0.0; private var incomeC      = 0.0
+    private var benefitS         = 0.0; private var benefitC     = 0.0
+    private var debtSvcS         = 0.0; private var debtSvcC     = 0.0
+    private var depIntS          = 0.0; private var depIntC      = 0.0
+    private var goodsConsS       = 0.0; private var goodsConsC   = 0.0
+    private var rentS            = 0.0; private var rentC        = 0.0
+    private var remitS           = 0.0; private var remitC       = 0.0
+    private var pitS             = 0.0; private var pitC         = 0.0
+    private var socialS          = 0.0; private var socialC      = 0.0
+    private var ccDebtSvcS       = 0.0; private var ccDebtSvcC   = 0.0
+    private var ccOrigS          = 0.0; private var ccOrigC      = 0.0
+    private var ccDefaultS       = 0.0; private var ccDefaultC   = 0.0
+    private var ccPrincipalS     = 0.0; private var ccPrincipalC = 0.0
+    var retrainingAttempts: Int  = 0
+    var retrainingSuccesses: Int = 0
+    var voluntaryQuits: Int      = 0
 
-  /** Build per-bank flow vector from (BankId, HhMonthlyResult) pairs. */
+    private inline def kahanAdd(s: Double, c: Double, v: Double): (Double, Double) =
+      val y = v - c; val t = s + y; (t, (t - s) - y)
+
+    def add(r: HhMonthlyResult): Unit =
+      { val (s, c) = kahanAdd(incomeS, incomeC, r.income.toDouble); incomeS = s; incomeC = c }
+      { val (s, c) = kahanAdd(benefitS, benefitC, r.benefit.toDouble); benefitS = s; benefitC = c }
+      { val (s, c) = kahanAdd(debtSvcS, debtSvcC, r.debtService.toDouble); debtSvcS = s; debtSvcC = c }
+      { val (s, c) = kahanAdd(depIntS, depIntC, r.depositInterest.toDouble); depIntS = s; depIntC = c }
+      { val (s, c) = kahanAdd(goodsConsS, goodsConsC, r.consumption.toDouble); goodsConsS = s; goodsConsC = c }
+      { val (s, c) = kahanAdd(rentS, rentC, r.rent.toDouble); rentS = s; rentC = c }
+      { val (s, c) = kahanAdd(remitS, remitC, r.remittance.toDouble); remitS = s; remitC = c }
+      { val (s, c) = kahanAdd(pitS, pitC, r.pitTax.toDouble); pitS = s; pitC = c }
+      { val (s, c) = kahanAdd(socialS, socialC, r.socialTransfer.toDouble); socialS = s; socialC = c }
+      { val (s, c) = kahanAdd(ccDebtSvcS, ccDebtSvcC, r.credit.debtService.toDouble); ccDebtSvcS = s; ccDebtSvcC = c }
+      { val (s, c) = kahanAdd(ccOrigS, ccOrigC, r.credit.newLoan.toDouble); ccOrigS = s; ccOrigC = c }
+      { val (s, c) = kahanAdd(ccDefaultS, ccDefaultC, r.credit.defaultAmt.toDouble); ccDefaultS = s; ccDefaultC = c }
+      { val (s, c) = kahanAdd(ccPrincipalS, ccPrincipalC, r.credit.principal.toDouble); ccPrincipalS = s; ccPrincipalC = c }
+      retrainingAttempts += r.retrainingAttempt
+      retrainingSuccesses += r.retrainingSuccess
+      voluntaryQuits += r.voluntaryQuit
+
+    def income: PLN              = PLN(incomeS)
+    def unempBenefits: PLN       = PLN(benefitS)
+    def debtService: PLN         = PLN(debtSvcS)
+    def depositInterest: PLN     = PLN(depIntS)
+    def goodsConsumption: PLN    = PLN(goodsConsS)
+    def rent: PLN                = PLN(rentS)
+    def remittances: PLN         = PLN(remitS)
+    def pit: PLN                 = PLN(pitS)
+    def socialTransfers: PLN     = PLN(socialS)
+    def consumerDebtService: PLN = PLN(ccDebtSvcS)
+    def consumerOrigination: PLN = PLN(ccOrigS)
+    def consumerDefault: PLN     = PLN(ccDefaultS)
+    def consumerPrincipal: PLN   = PLN(ccPrincipalS)
+
+  /** Build per-bank flow vector from (BankId, HhMonthlyResult) pairs. Uses
+    * mutable arrays with Kahan-compensated summation per bank — each bank
+    * accumulates ~14K HH flows where naive + loses precision.
+    */
   private def buildPerBankFlows(flows: Vector[(BankId, HhMonthlyResult)], nBanks: Int): Vector[PerBankFlow] =
-    val zero = Vector.fill(nBanks)(PerBankFlow.zero)
-    flows.foldLeft(zero) { case (acc, (bankId, r)) =>
-      val bId = bankId.toInt
-      val cur = acc(bId)
-      acc.updated(
-        bId,
-        cur.copy(
-          income = cur.income + r.income,
-          consumption = cur.consumption + r.consumption + r.rent,
-          debtService = cur.debtService + r.debtService,
-          depositInterest = cur.depositInterest + r.depositInterest,
-          consumerDebtService = cur.consumerDebtService + r.credit.debtService,
-          consumerOrigination = cur.consumerOrigination + r.credit.newLoan,
-          consumerDefault = cur.consumerDefault + r.credit.defaultAmt,
-          consumerPrincipal = cur.consumerPrincipal + r.credit.principal,
-        ),
-      )
-    }
+    // 8 monetary fields × nBanks, each with (sum, compensation)
+    val s                                            = Array.ofDim[Double](nBanks, 8)
+    val c                                            = Array.ofDim[Double](nBanks, 8)
+    inline def kadd(b: Int, f: Int, v: Double): Unit =
+      val y = v - c(b)(f); val t = s(b)(f) + y; c(b)(f) = (t - s(b)(f)) - y; s(b)(f) = t
+    flows.foreach: (bankId, r) =>
+      val b = bankId.toInt
+      kadd(b, 0, r.income.toDouble)
+      kadd(b, 1, r.consumption.toDouble + r.rent.toDouble)
+      kadd(b, 2, r.debtService.toDouble)
+      kadd(b, 3, r.depositInterest.toDouble)
+      kadd(b, 4, r.credit.debtService.toDouble)
+      kadd(b, 5, r.credit.newLoan.toDouble)
+      kadd(b, 6, r.credit.defaultAmt.toDouble)
+      kadd(b, 7, r.credit.principal.toDouble)
+    (0 until nBanks)
+      .map(b => PerBankFlow(PLN(s(b)(0)), PLN(s(b)(1)), PLN(s(b)(2)), PLN(s(b)(3)), PLN(s(b)(4)), PLN(s(b)(5)), PLN(s(b)(6)), PLN(s(b)(7))))
+      .toVector
 
   // ---- Extracted per-HH pipeline types ----
 
@@ -705,7 +726,7 @@ object Household:
 
     val updated = mapped.map(_._1)
     val flows   = mapped.flatMap(_._2)
-    val totals  = flows.foldLeft(StepTotals())((acc, br) => acc.add(br._2))
+    val totals  = { val t = StepTotals(); flows.foreach((_, r) => t.add(r)); t }
     val agg     = computeAggregates(updated, marketWage, reservationWage, importAdj, totals)
     val pbf     = if bankRates.isDefined then Some(buildPerBankFlows(flows, nBanks)) else None
     (updated, agg, pbf)
@@ -816,7 +837,7 @@ object Household:
       marketWage,
       reservationWage,
       importAdj,
-      StepTotals(retrainingAttempts = retrainingAttempts, retrainingSuccesses = retrainingSuccesses),
+      { val t = StepTotals(); t.retrainingAttempts = retrainingAttempts; t.retrainingSuccesses = retrainingSuccesses; t },
     )
 
   /** Aggregate stats: single-pass accumulation + sorted-array Gini/percentiles.
