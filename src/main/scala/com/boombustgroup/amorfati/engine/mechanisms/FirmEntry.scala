@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.mechanisms
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 
@@ -71,8 +72,8 @@ object FirmEntry:
   private def computeProfitSignals(living: Vector[Firm.State])(using p: SimParams): Vector[Double] =
     val bySector      = living.groupBy(_.sector.toInt)
     val sectorAvgCash = p.sectorDefs.indices.map: s =>
-      bySector.get(s).fold(0.0)(fs => fs.map(_.cash.toDouble).sum / fs.length)
-    val globalAvgCash = if living.nonEmpty then living.map(_.cash.toDouble).sum / living.length else 1.0
+      bySector.get(s).fold(0.0)(fs => fs.kahanSumBy(_.cash.toDouble) / fs.length)
+    val globalAvgCash = if living.nonEmpty then living.kahanSumBy(_.cash.toDouble) / living.length else 1.0
     sectorAvgCash
       .map: c =>
         Math.max(ProfitClampMin, Math.min(ProfitClampMax, (c - globalAvgCash) / Math.max(1.0, Math.abs(globalAvgCash))))
