@@ -101,10 +101,14 @@ object DemandStep:
       .toVector
 
   /** Per-sector export demand: from GVC foreign firms when enabled, otherwise
-    * from lagged aggregate exports split by fixed shares.
+    * from lagged aggregate exports split by fixed shares. Falls back to
+    * aggregate split when GVC sector exports are zero (init month).
     */
   private def computeSectorExports(in: Input)(using p: SimParams): Vector[PLN] =
-    if p.flags.gvc && p.flags.openEcon then in.w.external.gvc.sectorExports
+    if p.flags.gvc && p.flags.openEcon then
+      val gvcExports = in.w.external.gvc.sectorExports
+      if gvcExports.exists(_ > PLN.Zero) then gvcExports
+      else p.fiscal.fofExportShares.map(_ * in.w.forex.exports)
     else p.fiscal.fofExportShares.map(_ * in.w.forex.exports)
 
   /** Lagged domestic investment demand (net of import content). */
