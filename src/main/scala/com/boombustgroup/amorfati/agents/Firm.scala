@@ -262,7 +262,7 @@ object Firm:
     val demandMult = w.flows.sectorDemandMult(f.sector.toInt)
     val price      = w.priceLevel
     val wage       = w.hhAgg.marketWage.toDouble * effectiveWageMult(f.sector).toDouble
-    val maxW       = (f.initialSize * 1.5).toInt
+    val maxW       = f.initialSize * 3
     val minW       = p.firm.minWorkersRetained
 
     // Binary search: find largest w where marginal revenue > marginal cost
