@@ -88,14 +88,8 @@ object Firm:
   private val GoodHybridEffRange = 0.15 // good hybrid efficiency range
   private val GoodHybridDrBlend  = 0.5  // DR contribution weight in good hybrid efficiency
 
-  // Downsizing parameters (voluntary path only — forced uses FirmConfig.laborAdjustSpeed)
-  private val VoluntaryDownsizeProb = 0.10 // monthly prob of voluntary downsizing
-  private val VoluntaryDownsizeFrac = 0.05 // fraction cut in voluntary downsize
-
-  // Upsizing parameters (demand-driven hiring)
-  private val UpsizeProb            = 0.08 // monthly prob of expanding when profitable + demand
-  private val UpsizeFrac            = 0.05 // fraction of workforce added per expansion
-  private val UpsizeDemandThreshold = 0.90 // sectorDemandMult must exceed this to trigger
+  // Labor adjustment: firm converges toward MR=MC optimal headcount
+  private val LaborAdjustFrac = 0.10 // fraction of gap closed per month (smooth, no overshoot)
 
   // Capacity blend: hybrid production = labor share + AI share
   private val HybridLaborCapShare = 0.4
@@ -257,6 +251,29 @@ object Firm:
       val kTerm = alpha.toDouble * Math.pow(k.toDouble, rho)
       val lTerm = (1.0 - alpha.toDouble) * Math.pow(l.toDouble, rho)
       Ratio(Math.pow(kTerm + lTerm, 1.0 / rho))
+
+  /** Optimal worker count where marginal revenue ≈ marginal cost.
+    *
+    * Numerically searches for the headcount where adding one more worker would
+    * cost more (wage) than the revenue gained (∂capacity × demand × price).
+    * Bounded by [minWorkersRetained, 3 × initialSize].
+    */
+  private def optimalWorkers(f: State, w: World)(using p: SimParams): Int =
+    val demandMult = w.flows.sectorDemandMult(f.sector.toInt)
+    val price      = w.priceLevel
+    val wage       = w.hhAgg.marketWage.toDouble * effectiveWageMult(f.sector).toDouble
+    val maxW       = f.initialSize * 3
+    val minW       = p.firm.minWorkersRetained
+
+    // Binary search: find largest w where marginal revenue > marginal cost
+    var lo = minW; var hi = maxW
+    while lo < hi do
+      val mid     = (lo + hi + 1) / 2
+      val capMid  = computeCapacity(f.copy(tech = TechState.Traditional(mid)))
+      val capPrev = computeCapacity(f.copy(tech = TechState.Traditional(mid - 1)))
+      val mr      = (capMid - capPrev).toDouble * demandMult * price
+      if mr > wage then lo = mid else hi = mid - 1
+    lo
 
   /** Effective AI CAPEX for sector — sublinear in firm size (exponent 0.6),
     * digital readiness discount.
@@ -606,19 +623,16 @@ object Firm:
       rng: Random,
   )(using p: SimParams): Decision =
     val nc            = firm.cash + pnl.netAfterTax
-    val demandMult    = w.flows.sectorDemandMult(firm.sector.toInt)
-    // Demand-driven hiring: profitable firm + sector demand above threshold
-    val canExpand     = pnl.netAfterTax > PLN.Zero && demandMult > UpsizeDemandThreshold && nc > PLN.Zero
-    if canExpand && rng.nextDouble() < UpsizeProb then
-      val addAmt  = Math.max(1, (workers * UpsizeFrac).toInt)
-      val newWkrs = workers + addAmt
-      return Decision.Upsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
-    val minRetained   = p.firm.minWorkersRetained
-    val canReduce     = workers > minRetained && pnl.netAfterTax < PLN.Zero
-    if canReduce && rng.nextDouble() < VoluntaryDownsizeProb then
-      val reductionAmt = Math.max(1, (workers * VoluntaryDownsizeFrac).toInt)
-      val newWkrs      = Math.max(minRetained, workers - reductionAmt)
-      return Decision.Downsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
+    // Marginal-cost labor adjustment: converge toward optimal headcount.
+    // Only adjust when gap is material (≥ 2 workers) to avoid blocking
+    // digi-invest and other decisions for trivial headcount differences.
+    val optW          = optimalWorkers(firm, w)
+    val gap           = optW - workers
+    if Math.abs(gap) >= Math.max(2, (workers * 0.10).toInt) then
+      val adj     = Math.max(1, (Math.abs(gap) * LaborAdjustFrac).toInt) * (if gap > 0 then 1 else -1)
+      val newWkrs = (workers + adj).max(p.firm.minWorkersRetained)
+      if newWkrs > workers && nc > PLN.Zero then return Decision.Upsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
+      else if newWkrs < workers then return Decision.Downsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
     val digiCost: PLN = computeDigiInvestCost(firm)
     val canAfford     = nc > digiCost * DigiInvestCashMult
     val competitive   = (w.real.automationRatio + w.real.hybridRatio * 0.5).toDouble
