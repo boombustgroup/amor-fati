@@ -397,7 +397,8 @@ object BankUpdateStep:
     val newDep = PLN(
       terms(
         b.deposits.toDouble,
-        (hhFlows.incomeShare - hhFlows.consShare).toDouble,
+        hhFlows.incomeShare.toDouble,
+        -hhFlows.consShare.toDouble,
         (investNetDepositFlow * ws).toDouble,
         (jstDepositChange * ws).toDouble,
         (in.s7.netDomesticDividends * ws).toDouble,

@@ -92,6 +92,11 @@ object Firm:
   private val VoluntaryDownsizeProb = 0.10 // monthly prob of voluntary downsizing
   private val VoluntaryDownsizeFrac = 0.05 // fraction cut in voluntary downsize
 
+  // Upsizing parameters (demand-driven hiring)
+  private val UpsizeProb            = 0.08 // monthly prob of expanding when profitable + demand
+  private val UpsizeFrac            = 0.05 // fraction of workforce added per expansion
+  private val UpsizeDemandThreshold = 0.90 // sectorDemandMult must exceed this to trigger
+
   // Capacity blend: hybrid production = labor share + AI share
   private val HybridLaborCapShare = 0.4
   private val HybridAiCapShare    = 0.6
@@ -189,6 +194,7 @@ object Firm:
     case class Upgrade(pnl: PnL, newTech: TechState, capex: PLN, loan: PLN, downPayment: PLN, drUpdate: Option[Ratio] = None) extends Decision
     case class UpgradeFailed(pnl: PnL, reason: BankruptReason, capex: PLN, loan: PLN, down: PLN)                              extends Decision
     case class Downsize(pnl: PnL, newWorkers: Int, adjustedCash: PLN, newTech: TechState, drUpdate: Option[Ratio] = None)     extends Decision
+    case class Upsize(pnl: PnL, newWorkers: Int, newCash: PLN, newTech: TechState)                                            extends Decision
     case class DigiInvest(pnl: PnL, cost: PLN, newDR: Ratio)                                                                  extends Decision
 
   // ---- Queries ----
@@ -589,8 +595,8 @@ object Firm:
         (GoodHybridDrBlend + (firm.digitalReadiness * GoodHybridDrBlend).toDouble)
       Decision.Upgrade(pnl, TechState.Hybrid(hWkrs, goodEff), hyb.capex, hyb.loan, hyb.down)
 
-  /** Try digital readiness investment, downsize, or survive — fallback when
-    * neither full-AI nor hybrid upgrade was chosen.
+  /** Try upsize, digital readiness investment, downsize, or survive — fallback
+    * when neither full-AI nor hybrid upgrade was chosen.
     */
   private def fallbackDecision(
       firm: State,
@@ -599,14 +605,21 @@ object Firm:
       workers: Int,
       rng: Random,
   )(using p: SimParams): Decision =
+    val nc            = firm.cash + pnl.netAfterTax
+    val demandMult    = w.flows.sectorDemandMult(firm.sector.toInt)
+    // Demand-driven hiring: profitable firm + sector demand above threshold
+    val canExpand     = pnl.netAfterTax > PLN.Zero && demandMult > UpsizeDemandThreshold && nc > PLN.Zero
+    if canExpand && rng.nextDouble() < UpsizeProb then
+      val addAmt  = Math.max(1, (workers * UpsizeFrac).toInt)
+      val newWkrs = workers + addAmt
+      return Decision.Upsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
     val minRetained   = p.firm.minWorkersRetained
     val canReduce     = workers > minRetained && pnl.netAfterTax < PLN.Zero
     if canReduce && rng.nextDouble() < VoluntaryDownsizeProb then
       val reductionAmt = Math.max(1, (workers * VoluntaryDownsizeFrac).toInt)
       val newWkrs      = Math.max(minRetained, workers - reductionAmt)
-      return Decision.Downsize(pnl, newWkrs, firm.cash + pnl.netAfterTax, TechState.Traditional(newWkrs))
+      return Decision.Downsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
     val digiCost: PLN = computeDigiInvestCost(firm)
-    val nc            = firm.cash + pnl.netAfterTax
     val canAfford     = nc > digiCost * DigiInvestCashMult
     val competitive   = (w.real.automationRatio + w.real.hybridRatio * 0.5).toDouble
     val diminishing   = (Ratio.One - firm.digitalReadiness).toDouble
@@ -699,6 +712,9 @@ object Firm:
       case Decision.Downsize(pnl, _, adjustedCash, newTech, drUpdate) =>
         val f = firm.copy(cash = adjustedCash, tech = newTech)
         buildResult(drUpdate.fold(f)(dr => f.copy(digitalReadiness = dr)), pnl)
+
+      case Decision.Upsize(pnl, _, newCash, newTech) =>
+        buildResult(firm.copy(cash = newCash, tech = newTech), pnl)
 
       case Decision.DigiInvest(pnl, cost, newDR) =>
         val nc = firm.cash + pnl.netAfterTax
