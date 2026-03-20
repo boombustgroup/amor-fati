@@ -22,9 +22,11 @@ object WorldInit:
     assert(firms.length == p.pop.firmsCount)
 
     // --- Households ---
-    val households0 = Household.Init.create(rng, firms)
-    val households  = ImmigrantInit.create(rng, households0)
-    val totalPop    = households.length
+    val households0    = Household.Init.create(rng, firms)
+    val households     = ImmigrantInit.create(rng, households0)
+    val totalPop       = households.length
+    val initEmployed   = households.count(_.status.isInstanceOf[HhStatus.Employed])
+    val initUnemployed = totalPop - initEmployed
     assert(totalPop > 0)
 
     // --- Banking sector ---
@@ -79,8 +81,8 @@ object WorldInit:
         techImports = PLN.Zero,
       ),
       hhAgg = Household.Aggregates(
-        employed = totalPop,
-        unemployed = 0,
+        employed = initEmployed,
+        unemployed = initUnemployed,
         retraining = 0,
         bankrupt = 0,
         totalIncome = PLN.Zero,

@@ -70,7 +70,7 @@ import com.boombustgroup.amorfati.types.*
   */
 case class FirmConfig(
     // Production & costs
-    baseRevenue: PLN = PLN(100000.0),
+    baseRevenue: PLN = PLN(180000.0),
     otherCosts: PLN = PLN(16667.0),
     aiCapex: PLN = PLN(1200000.0),
     hybridCapex: PLN = PLN(350000.0),
