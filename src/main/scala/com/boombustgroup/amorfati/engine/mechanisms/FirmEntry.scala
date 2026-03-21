@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.mechanisms
 
 import com.boombustgroup.amorfati.agents.*
+import com.boombustgroup.amorfati.agents.Region
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.KahanSum.*
@@ -98,7 +99,7 @@ object FirmEntry:
     val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm
     val isAiNative   = totalAdoption > p.firm.entryAiThreshold &&
       rng.nextDouble() < p.firm.entryAiProb.toDouble
-    val tech         = chooseTechnology(isAiNative, rng)
+    val tech         = chooseTechnology(isAiNative, firmSize, newSector, rng)
     val dr           = drawDigitalReadiness(isAiNative, newSector, rng)
     val newNeighbors = assignNeighbors(livingIds, rng)
     val newBankId    = Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, rng)
@@ -122,15 +123,21 @@ object FirmEntry:
       inventory = initInventory(firmSize, newSector),
       greenCapital = initGreenCapital(firmSize, newSector),
       accumulatedLoss = PLN.Zero,
+      markup = p.pricing.baseMarkup,
+      region = Region.cdfSample(rng),
     )
 
   /** Select technology regime: AI-native entrants start as Hybrid with partial
     * automation; conventional entrants use Traditional (workers hired via labor
     * market in subsequent steps).
     */
-  private def chooseTechnology(isAiNative: Boolean, rng: Random): TechState =
-    if isAiNative then TechState.Hybrid(HybridMinWorkers, MinAiProductivity + rng.nextDouble() * AiProductivityRange)
-    else TechState.Traditional(0) // workers assigned via labor market
+  private def chooseTechnology(isAiNative: Boolean, firmSize: Int, sector: Int, rng: Random)(using
+      p: SimParams,
+  ): TechState =
+    if isAiNative then
+      val hybridWorkers = Math.max(HybridMinWorkers, (firmSize * p.sectorDefs(sector).hybridRetainFrac.toDouble).toInt)
+      TechState.Hybrid(hybridWorkers, MinAiProductivity + rng.nextDouble() * AiProductivityRange)
+    else TechState.Traditional(firmSize)
 
   /** Draw digital readiness score: AI-native firms get high DR (0.50-0.90);
     * conventional entrants draw from sector baseline with Gaussian noise,

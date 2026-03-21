@@ -44,7 +44,7 @@ enum FirmSizeDist:
 case class PopulationConfig(
     firmsCount: Int = 10000,
     workersPerFirm: Int = 10,
-    firmSizeDist: FirmSizeDist = FirmSizeDist.Uniform,
+    firmSizeDist: FirmSizeDist = FirmSizeDist.Gus,
     firmSizeMicroShare: Ratio = Ratio(0.962),
     firmSizeSmallShare: Ratio = Ratio(0.028),
     firmSizeMediumShare: Ratio = Ratio(0.008),

@@ -22,18 +22,20 @@ import scala.util.Random
 object FirmInit:
 
   // ---- Calibration constants ----
-  private val FirmDepositShare = 0.35      // NBP M3 2024: ~35% of deposits are corporate
-  private val CashMin          = 10_000.0  // PLN floor for initial cash draw
-  private val CashMax          = 80_000.0  // PLN ceiling for initial cash draw
-  private val LargeCashBonus   = 200_000.0 // PLN bonus for top-decile firms (lottery draw)
-  private val LargeCashProb    = 0.10      // probability of receiving large cash bonus
-  private val RiskProfileMin   = 0.1       // minimum firm risk appetite
-  private val RiskProfileMax   = 0.9       // maximum firm risk appetite
-  private val InnovCostMin     = 0.8       // minimum innovation cost factor
-  private val InnovCostMax     = 1.5       // maximum innovation cost factor
-  private val DrNoise          = 0.20      // std dev for digital readiness draw
-  private val DrFloor          = 0.02      // minimum digital readiness
-  private val DrCap            = 0.98      // maximum digital readiness
+  private val FirmDepositShare   = 0.35      // NBP M3 2024: ~35% of deposits are corporate
+  private val CashMin            = 10_000.0  // PLN floor for initial cash draw
+  private val CashMax            = 80_000.0  // PLN ceiling for initial cash draw
+  private val LargeCashBonus     = 200_000.0 // PLN bonus for top-decile firms (lottery draw)
+  private val LargeCashProb      = 0.10      // probability of receiving large cash bonus
+  private val RiskProfileMin     = 0.1       // minimum firm risk appetite
+  private val RiskProfileMax     = 0.9       // maximum firm risk appetite
+  private val InnovCostMin       = 0.8       // minimum innovation cost factor
+  private val InnovCostMax       = 1.5       // maximum innovation cost factor
+  private val DrNoise            = 0.20      // std dev for digital readiness draw
+  private val DrFloor            = 0.02      // minimum digital readiness
+  private val DrCap              = 0.98      // maximum digital readiness
+  private val InitHybridMinSigma = 5.0       // minimum sector σ for init Hybrid (BPO=50, Mfg=10, Retail=5)
+  private val InitHybridProb     = 0.08      // ~8% of eligible firms start as Hybrid (OECD 2024: 5-10%)
 
   /** Create firm array with all post-creation enhancements. */
   def create(rng: Random)(using p: SimParams): Vector[Firm.State] =
@@ -70,16 +72,26 @@ object FirmInit:
     val regionRng = new Random(rng.nextLong()) // isolated sub-RNG: one draw from main, then independent
     (0 until p.pop.firmsCount)
       .map: i =>
-        val sec      = p.sectorDefs(sectorAssignments(i))
-        val firmSize = FirmSizeDistribution.draw(rng)
-        val sizeMult = firmSize.toDouble / p.pop.workersPerFirm
-        val baseCash = rng.between(CashMin, CashMax) + (if rng.nextDouble() < LargeCashProb then LargeCashBonus else 0.0)
-        val dr       = Ratio(sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * DrNoise).clamp(Ratio(DrFloor), Ratio(DrCap))
+        val sec          = p.sectorDefs(sectorAssignments(i))
+        val firmSize     = FirmSizeDistribution.draw(rng)
+        val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm
+        val baseCash     = rng.between(CashMin, CashMax) + (if rng.nextDouble() < LargeCashProb then LargeCashBonus else 0.0)
+        val dr           = Ratio(sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * DrNoise).clamp(Ratio(DrFloor), Ratio(DrCap))
+        // Init tech mix: high-σ sectors with high DR may start as Hybrid (OECD 2024: ~5-10% AI adoption)
+        val isHybridInit = sec.sigma >= InitHybridMinSigma &&
+          dr > p.firm.hybridReadinessMin &&
+          rng.nextDouble() < InitHybridProb
+        val tech         =
+          if isHybridInit then
+            val hybW = Math.max(1, (firmSize * sec.hybridRetainFrac.toDouble).toInt)
+            val eff  = 1.0 + rng.nextDouble() * 0.3
+            TechState.Hybrid(hybW, eff)
+          else TechState.Traditional(firmSize)
         Firm.State(
           id = FirmId(i),
           cash = PLN(baseCash * sizeMult),
           debt = PLN.Zero,
-          tech = TechState.Traditional(firmSize),
+          tech = tech,
           riskProfile = Ratio(rng.between(RiskProfileMin, RiskProfileMax)),
           innovationCostFactor = rng.between(InnovCostMin, InnovCostMax),
           digitalReadiness = dr,

@@ -11,19 +11,14 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  "FirmSizeDistribution.draw" should "return WorkersPerFirm when FirmSizeDist=uniform" in {
-    // Default config is "uniform" — all firms get WorkersPerFirm (10)
-    val rng = new Random(42)
-    for _ <- 0 until 100 do FirmSizeDistribution.draw(rng) shouldBe p.pop.workersPerFirm
-  }
-
-  it should "return values in valid ranges for all size classes" in {
-    // We can't test "gus" mode directly via env vars in unit tests,
-    // so we test the draw logic by verifying the returned values for
-    // the default (uniform) mode are always p.pop.workersPerFirm
-    val rng   = new Random(42)
-    val sizes = (0 until 10000).map(_ => FirmSizeDistribution.draw(rng))
-    sizes.foreach(_ shouldBe p.pop.workersPerFirm)
+  "FirmSizeDistribution.draw" should "return values in valid ranges for Gus distribution" in {
+    val rng        = new Random(42)
+    val sizes      = (0 until 10000).map(_ => FirmSizeDistribution.draw(rng))
+    // Gus mode: micro 1-9, small 10-49, medium 50-249, large 250+
+    sizes.foreach(s => s should (be >= 1 and be <= p.pop.firmSizeLargeMax))
+    // Majority should be micro (96.2%)
+    val microCount = sizes.count(_ < 10)
+    microCount.toDouble / sizes.length should be > 0.90
   }
 
   // --- FirmOps size-dependent methods ---
