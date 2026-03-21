@@ -13,9 +13,8 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
 
   // ── GdpRatio ──
 
-  "SimParams.defaults.gdpRatio" should "match GdpRatio for uniform 10k×10 firms" in {
-    // 10000 firms × 10 workers × 180000 revenue × 12 months / 3500e9 GDP
-    val expected = (10000.0 * 10.0 / 10.0 * 180000.0 * 12.0) / 3500e9
+  "SimParams.defaults.gdpRatio" should "match GdpRatio for Gus size distribution" in {
+    val expected = SimParams.computeGdpRatio(p.pop, p.firm.baseRevenue.toDouble)
     p.gdpRatio shouldBe expected +- 1e-12
   }
 
@@ -118,8 +117,8 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
 
   // ── FirmSizeDist enum ──
 
-  "FirmSizeDist" should "default to Uniform" in {
-    p.pop.firmSizeDist shouldBe FirmSizeDist.Uniform
+  "FirmSizeDist" should "default to Gus" in {
+    p.pop.firmSizeDist shouldBe FirmSizeDist.Gus
   }
 
   // ── Remittance split ──
