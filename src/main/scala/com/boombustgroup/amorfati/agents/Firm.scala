@@ -213,7 +213,7 @@ object Firm:
 
   /** Effective wage multiplier including union wage premium. */
   def effectiveWageMult(sectorIdx: SectorIdx)(using p: SimParams): Multiplier =
-    val base = Multiplier(p.sectorDefs(sectorIdx.toInt).wageMultiplier)
+    val base = p.sectorDefs(sectorIdx.toInt).wageMultiplier
     if p.flags.unions then base + base * (p.labor.unionWagePremium * p.labor.unionDensity(sectorIdx.toInt))
     else base
 
@@ -236,7 +236,7 @@ object Firm:
       val targetK: PLN  = workerCount(f) * p.capital.klRatios(f.sector.toInt)
       val k: Multiplier = Multiplier(if targetK > PLN.Zero then f.capitalStock / targetK else 1.0).clamp(Multiplier(0.1), Multiplier(2.0))
       val alpha: Share  = p.capital.prodElast
-      val sigma: Double = sec.sigma
+      val sigma: Double = sec.sigma.toDouble
       p.firm.baseRevenue * tfp * cesOutput(alpha, k, laborEff, sigma)
     else p.firm.baseRevenue * tfp * laborEff
 
@@ -383,7 +383,7 @@ object Firm:
     val targetWorkers       = if revenuePerWorker > PLN.Zero then Math.ceil(nonLaborCost / revenuePerWorker).toInt else minRetained
     // Smooth adjustment: cut λ of the gap, not the entire excess
     val gap                 = workers - Math.max(minRetained, targetWorkers)
-    val cut                 = Math.max(1, (gap * p.firm.laborAdjustSpeed).toInt)
+    val cut                 = Math.max(1, (gap * p.firm.laborAdjustSpeed.toDouble).toInt)
     val newWkrs             = Math.max(minRetained, workers - cut)
     // Severance cost = fired workers × wage × severanceMonths
     val fired               = workers - newWkrs

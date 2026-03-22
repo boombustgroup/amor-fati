@@ -56,7 +56,7 @@ object EclStaging:
   )(using p: SimParams): Share =
     val unempExcess    = (unemployment - p.monetary.nairu).max(Share.Zero).toDouble
     val gdpContraction = Math.max(0.0, -gdpGrowthMonthly)
-    val raw            = p.banking.eclMigrationSensitivity * unempExcess + p.banking.eclGdpSensitivity * gdpContraction
+    val raw            = p.banking.eclMigrationSensitivity.toDouble * unempExcess + p.banking.eclGdpSensitivity.toDouble * gdpContraction
     Share(raw.min(p.banking.eclMaxMigration.toDouble).max(0.0))
 
   /** Monthly ECL staging step for a single bank.

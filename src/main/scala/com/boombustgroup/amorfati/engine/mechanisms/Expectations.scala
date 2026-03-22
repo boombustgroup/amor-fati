@@ -90,5 +90,5 @@ object Expectations:
       val nairu        = p.monetary.nairu.toDouble // Share → Double: function operates in Double space
       val rawOutputGap = (unemployment - nairu) / nairu
       val outputGap    = Math.max(-OutputGapClamp, Math.min(OutputGapClamp, rawOutputGap))
-      val rawFg        = p.monetary.neutralRate.toDouble + p.monetary.taylorAlpha * (expected - target) - p.monetary.taylorDelta * outputGap
+      val rawFg        = p.monetary.neutralRate.toDouble + p.monetary.taylorAlpha.toDouble * (expected - target) - p.monetary.taylorDelta.toDouble * outputGap
       Math.max(p.monetary.rateFloor.toDouble, Math.min(p.monetary.rateCeiling.toDouble, rawFg))

@@ -298,7 +298,7 @@ object FirmProcessingStep:
       w: World,
   )(using p: SimParams): BondAbsorptionResult =
     val absorption         = CorporateBondMarket
-      .computeAbsorption(w.financial.corporateBonds, result.flows.bondIssuance, w.bank.car, p.banking.minCar)
+      .computeAbsorption(w.financial.corporateBonds, result.flows.bondIssuance, w.bank.car, Multiplier(p.banking.minCar.toDouble))
       .toDouble
     val actualBondIssuance = result.flows.bondIssuance * absorption
     val revertRatio        = 1.0 - absorption

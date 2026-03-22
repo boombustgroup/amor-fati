@@ -36,7 +36,7 @@ object LaborMarket:
     * given wage. Steepness controlled by p.household.laborSupplySteepness.
     */
   private def laborSupplyRatio(wage: PLN, resWage: PLN)(using p: SimParams): Share =
-    val x = p.household.laborSupplySteepness * (wage / resWage - 1.0)
+    val x = p.household.laborSupplySteepness.toDouble * (wage / resWage - 1.0)
     Share(1.0 / (1.0 + Math.exp(-x)))
 
   /** Aggregate wage clearing: adjust market wage via excess demand, then
@@ -237,7 +237,7 @@ object LaborMarket:
   )(using p: SimParams): JobSearchResult =
     val ranked          = rankUnemployed(households)
     val firmsBySector   = vacancies.keys.groupBy(fid => firms(fid.toInt).sector)
-    val firmsByPriority = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma)
+    val firmsByPriority = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma.toDouble)
 
     val init   = MatchState(Map.empty, vacancies, 0)
     val result = ranked.foldLeft(init): (st, idx) =>
@@ -264,7 +264,7 @@ object LaborMarket:
       vacancies.keys.toVector.groupBy(fid => (firms(fid.toInt).sector, firms(fid.toInt).region))
     val firmsByRegion: Map[Region, Vector[FirmId]]                    =
       vacancies.keys.toVector.groupBy(fid => firms(fid.toInt).region)
-    val firmsByPriority                                               = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma)
+    val firmsByPriority                                               = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma.toDouble)
 
     val init   = MatchState(Map.empty, vacancies, 0)
     val result = ranked.foldLeft(init): (st, idx) =>

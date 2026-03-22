@@ -245,7 +245,7 @@ object Household:
     private def sampleEducationAndSkill(sectorIdx: SectorIdx, rng: Random)(using p: SimParams): (Int, Double) =
       val edu                        = p.social.drawEducation(sectorIdx.toInt, rng)
       val (skillFloor, skillCeiling) = p.social.eduSkillRange(edu)
-      val sectorSigma                = p.sectorDefs(sectorIdx.toInt).sigma
+      val sectorSigma                = p.sectorDefs(sectorIdx.toInt).sigma.toDouble
       val baseSkill                  = skillFloor + (skillCeiling - skillFloor) * rng.nextDouble()
       val sectorBonus                = Math.min(SectorSkillBonusMax, SectorSkillBonusCoeff * Math.log(sectorSigma))
       val skill                      = Math.max(skillFloor, Math.min(skillCeiling, baseSkill + sectorBonus))
@@ -263,10 +263,10 @@ object Household:
       // Base routineness by education: Primary=0.8, Vocational=0.65, Secondary=0.45, Tertiary=0.25
       val eduBase  = p.labor.sbtcEduRoutineness(edu)
       // High-σ sectors (BPO=50) push routineness up; low-σ (Public=1) push down
-      val sigma    = p.sectorDefs(sectorIdx.toInt).sigma
+      val sigma    = p.sectorDefs(sectorIdx.toInt).sigma.toDouble
       val sigmaAdj = 0.05 * Math.log(sigma) / Math.log(10.0) // ±0.05 per log10(σ)
       val noise    = 0.05 * (rng.nextDouble() - 0.5)         // ±2.5% uniform noise
-      Share(eduBase + sigmaAdj + noise).clamp(Share(0.05), Share(0.95))
+      Share(eduBase.toDouble + sigmaAdj + noise).clamp(Share(0.05), Share(0.95))
 
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 
@@ -423,7 +423,7 @@ object Household:
   )(using p: SimParams): (HhStatus, Int) =
     if !p.flags.sectoralMobility || rng.nextDouble() >= p.labor.voluntarySearchProb.toDouble then return (status, 0)
     val targetSector  =
-      SectoralMobility.selectTargetSector(status.sectorIdx.toInt, sectorWages, sectorVacancies, p.labor.frictionMatrix, p.labor.vacancyWeight, rng)
+      SectoralMobility.selectTargetSector(status.sectorIdx.toInt, sectorWages, sectorVacancies, p.labor.frictionMatrix, p.labor.vacancyWeight.toDouble, rng)
     val targetAvgWage = sectorWages(targetSector)
     if targetAvgWage <= status.wage * (1.0 + p.labor.voluntaryWageThreshold.toDouble) then return (status, 0)
     val friction      = p.labor.frictionMatrix(status.sectorIdx.toInt)(targetSector)
@@ -451,7 +451,7 @@ object Household:
             val sw           = sectorWages.get
             val sv           = sectorVacancies.get
             val fromSector   = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt else 0
-            val targetSector = SectoralMobility.selectTargetSector(fromSector, sw, sv, p.labor.frictionMatrix, p.labor.vacancyWeight, rng)
+            val targetSector = SectoralMobility.selectTargetSector(fromSector, sw, sv, p.labor.frictionMatrix, p.labor.vacancyWeight.toDouble, rng)
             val friction     = p.labor.frictionMatrix(fromSector)(targetSector)
             val rp           = SectoralMobility.frictionAdjustedParams(friction, p.labor.frictionDurationMult, p.labor.frictionCostMult.toDouble)
             if hh.savings > rp.cost then (HhStatus.Retraining(rp.duration, SectorIdx(targetSector), rp.cost), 1, 0)
@@ -804,7 +804,7 @@ object Household:
     else
       val targetSavings = income * p.household.bufferTargetMonths
       val bufferRatio   = hh.savings / targetSavings // >1 = fat buffer, <1 = depleted
-      val bufferAdj     = Share(1.0 - p.household.bufferSensitivity * (bufferRatio - 1.0))
+      val bufferAdj     = Share(1.0 - p.household.bufferSensitivity.toDouble * (bufferRatio - 1.0))
       val unemployedAdj = status match
         case _: HhStatus.Unemployed => Share.One + p.household.mpcUnemployedBoost
         case _                      => Share.One

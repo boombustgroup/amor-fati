@@ -76,9 +76,9 @@ object FirmInit:
         val firmSize     = FirmSizeDistribution.draw(rng)
         val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm
         val baseCash     = rng.between(CashMin, CashMax) + (if rng.nextDouble() < LargeCashProb then LargeCashBonus else 0.0)
-        val dr           = Ratio(sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * DrNoise).clamp(Ratio(DrFloor), Ratio(DrCap))
+        val dr           = Share(sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * DrNoise).clamp(Share(DrFloor), Share(DrCap))
         // Init tech mix: high-σ sectors with high DR may start as Hybrid (OECD 2024: ~5-10% AI adoption)
-        val isHybridInit = sec.sigma >= InitHybridMinSigma &&
+        val isHybridInit = sec.sigma >= Sigma(InitHybridMinSigma) &&
           dr > p.firm.hybridReadinessMin &&
           rng.nextDouble() < InitHybridProb
         val tech         =
@@ -92,7 +92,7 @@ object FirmInit:
           cash = PLN(baseCash * sizeMult),
           debt = PLN.Zero,
           tech = tech,
-          riskProfile = Ratio(rng.between(RiskProfileMin, RiskProfileMax)),
+          riskProfile = Share(rng.between(RiskProfileMin, RiskProfileMax)),
           innovationCostFactor = rng.between(InnovCostMin, InnovCostMax),
           digitalReadiness = dr,
           sector = SectorIdx(sectorAssignments(i)),

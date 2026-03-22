@@ -103,11 +103,11 @@ case class SocialConfig(
 
   /** Wage premium multiplier for given education tier (0-3). */
   def eduWagePremium(education: Int): Double =
-    eduWagePreemia(education.max(0).min(3))
+    eduWagePreemia(education.max(0).min(3)).toDouble
 
   /** Retraining success multiplier for given education tier (0-3). */
   def eduRetrainMultiplier(education: Int): Double =
-    eduRetrainMult(education.max(0).min(3))
+    eduRetrainMult(education.max(0).min(3)).toDouble
 
   /** Skill floor and ceiling for given education tier (0-3). */
   def eduSkillRange(education: Int): (Double, Double) =

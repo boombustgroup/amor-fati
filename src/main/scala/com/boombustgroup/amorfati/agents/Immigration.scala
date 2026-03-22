@@ -30,7 +30,7 @@ object Immigration:
       val basePop = p.pop.firmsCount * p.pop.workersPerFirm
       if p.flags.immigEndogenous then
         val wageGap = (wage.toDouble / p.immigration.foreignWage.toDouble - 1.0).max(0.0)
-        val pull    = wageGap * p.immigration.wageElasticity
+        val pull    = wageGap * p.immigration.wageElasticity.toDouble
         val push    = (1.0 - unempRate).max(0.0)
         val rate    = p.immigration.monthlyRate.toDouble * (0.5 + 0.5 * pull * push)
         (basePop * rate).toInt.max(0)

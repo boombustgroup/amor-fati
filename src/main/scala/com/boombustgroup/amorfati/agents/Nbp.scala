@@ -76,15 +76,15 @@ object Nbp:
     val nairu     = p.monetary.nairu
     if p.flags.nbpSymmetric then
       val rawOutputGap = Coefficient((unempRate - nairu) / nairu)
-      val outputGap    = rawOutputGap.clamp(Coefficient.Zero - OutputGapCap, OutputGapCap)
+      val outputGap    = rawOutputGap.max(-OutputGapCap).min(OutputGapCap)
       p.monetary.neutralRate +
         infGap * p.monetary.taylorAlpha -
-        Rate(outputGap.toDouble * p.monetary.taylorDelta) + // Coefficient × coeff → Rate contribution
-        Rate(exRateChange.toDouble * p.monetary.taylorBeta) // Coefficient × coeff → Rate contribution
+        Rate(outputGap.toDouble * p.monetary.taylorDelta.toDouble) + // Coefficient × coeff → Rate contribution
+        Rate(exRateChange.toDouble * p.monetary.taylorBeta.toDouble) // Coefficient × coeff → Rate contribution
     else
       p.monetary.neutralRate +
         infGap.max(Rate.Zero) * p.monetary.taylorAlpha +
-        Rate(exRateChange.max(Coefficient.Zero).toDouble * p.monetary.taylorBeta)
+        Rate(exRateChange.max(Coefficient.Zero).toDouble * p.monetary.taylorBeta.toDouble)
 
   /** Inertia smoothing + max rate change clamping. */
   private def smoothAndClamp(prevRate: Rate, taylor: Rate)(using p: SimParams): Rate =
@@ -138,12 +138,13 @@ object Nbp:
     * segment (40%+) + caution segment (55%+) + crisis segment (60%+).
     */
   private def piecewiseFiscalRisk(debtToGdp: Share)(using p: SimParams): Rate =
-    val base      = Rate(p.fiscal.govFiscalRiskBeta * (debtToGdp - DebtThreshold).max(Share.Zero).toDouble)
+    val base      = Rate(p.fiscal.govFiscalRiskBeta.toDouble * (debtToGdp - DebtThreshold).max(Share.Zero).toDouble)
     val caution55 =
-      if debtToGdp > p.fiscal.fiscalRuleCautionThreshold then p.fiscal.fiscalRiskBeta55 * (debtToGdp - p.fiscal.fiscalRuleCautionThreshold)
+      if debtToGdp > p.fiscal.fiscalRuleCautionThreshold then
+        Rate(p.fiscal.fiscalRiskBeta55.toDouble * (debtToGdp - p.fiscal.fiscalRuleCautionThreshold).toDouble)
       else Rate.Zero
     val crisis60  =
-      if debtToGdp > p.fiscal.fiscalRuleDebtCeiling then p.fiscal.fiscalRiskBeta60 * (debtToGdp - p.fiscal.fiscalRuleDebtCeiling)
+      if debtToGdp > p.fiscal.fiscalRuleDebtCeiling then Rate(p.fiscal.fiscalRiskBeta60.toDouble * (debtToGdp - p.fiscal.fiscalRuleDebtCeiling).toDouble)
       else Rate.Zero
     (base + caution55 + crisis60).min(FiscalRiskCap)
 

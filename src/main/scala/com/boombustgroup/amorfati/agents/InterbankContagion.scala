@@ -86,7 +86,7 @@ object InterbankContagion:
     */
   def hoardingFactor(systemNplRatio: Share)(using p: SimParams): Share =
     val excess = (systemNplRatio - p.banking.hoardingNplThreshold).max(Share.Zero)
-    (Share.One - Share(excess.toDouble * p.banking.hoardingSensitivity)).clamp(Share.Zero, Share.One)
+    (Share.One - Share(excess.toDouble * p.banking.hoardingSensitivity.toDouble)).clamp(Share.Zero, Share.One)
 
   /** Total contagion loss across all non-failed banks. */
   def totalContagionLoss(

@@ -97,7 +97,7 @@ object GvcTrade:
     val commodityShock      =
       if p.gvc.commodityShockMonth > 0 && in.month == p.gvc.commodityShockMonth then p.gvc.commodityShockMag
       else Multiplier.Zero
-    val commodityGrowth     = commodityShock + (commodityDrift + 1.0 + commodityNoise)
+    val commodityGrowth     = commodityShock.toDouble + (commodityDrift + 1.0 + commodityNoise.toDouble)
     val newCommodity        = in.prev.commodityPriceIndex * commodityGrowth
     val newImportCost       = newForeignPrice * newCommodity
     val shockActive         = p.gvc.demandShockMonth > 0 && in.month >= p.gvc.demandShockMonth
@@ -150,7 +150,7 @@ object GvcTrade:
   private def realExchangeRateEffect(priceLevel: Double, exchangeRate: Double)(using p: SimParams): Double =
     val nominalER = exchangeRate / p.forex.baseExRate
     val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER else 1.0
-    Math.pow(1.0 / Math.max(MinErEffect, realPrice), p.openEcon.exportPriceElasticity)
+    Math.pow(1.0 / Math.max(MinErEffect, realPrice), p.openEcon.exportPriceElasticity.toDouble)
 
   /** Per-sector export demand. */
   private def computeSectorExports(

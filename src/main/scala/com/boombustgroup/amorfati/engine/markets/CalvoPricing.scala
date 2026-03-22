@@ -52,8 +52,8 @@ object CalvoPricing:
       wageGrowthMonthly: Double,
   )(using p: SimParams): Multiplier =
     val demandPressure = sectorDemandMult - 1.0
-    val costPressure   = wageGrowthMonthly * p.pricing.costPassthrough
-    val raw            = p.pricing.baseMarkup.toDouble * (1.0 + demandPressure * p.pricing.demandSensitivity + costPressure)
+    val costPressure   = wageGrowthMonthly * p.pricing.costPassthrough.toDouble
+    val raw            = p.pricing.baseMarkup.toDouble * (1.0 + demandPressure * p.pricing.demandSensitivity.toDouble + costPressure)
     Multiplier(raw.max(p.pricing.minMarkup.toDouble).min(p.pricing.maxMarkup.toDouble))
 
   /** Update a single firm's markup via Calvo lottery.
@@ -67,7 +67,7 @@ object CalvoPricing:
       wageGrowthMonthly: Double,
       rng: Random,
   )(using p: SimParams): FirmMarkupResult =
-    if rng.nextDouble() < p.pricing.calvoTheta then FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly), priceChanged = true)
+    if rng.nextDouble() < p.pricing.calvoTheta.toDouble then FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly), priceChanged = true)
     else FirmMarkupResult(currentMarkup, priceChanged = false)
 
   /** Compute aggregate inflation adjustment from markup dynamics.

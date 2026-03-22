@@ -61,8 +61,8 @@ object FirmEntry:
     val result = firms.map: f =>
       if !Firm.isAlive(f) then
         val slotSector = f.sector.toInt
-        val entryProb  = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(slotSector) *
-          Math.max(0.0, 1.0 + profitSignals(slotSector) * p.firm.entryProfitSens)
+        val entryProb  = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(slotSector).toDouble *
+          Math.max(0.0, 1.0 + profitSignals(slotSector) * p.firm.entryProfitSens.toDouble)
         if rng.nextDouble() < entryProb then
           births += 1
           createNewFirm(f.id, totalWeight, sectorWeights, totalAdoption, livingIds, rng)
@@ -83,7 +83,7 @@ object FirmEntry:
   private def computeSectorWeights(profitSignals: Vector[Double])(using p: SimParams): Vector[Double] =
     p.sectorDefs.indices
       .map: s =>
-        Math.max(MinSectorWeight, (1.0 + profitSignals(s) * p.firm.entryProfitSens) * p.firm.entrySectorBarriers(s))
+        Math.max(MinSectorWeight, (1.0 + profitSignals(s) * p.firm.entryProfitSens.toDouble) * p.firm.entrySectorBarriers(s).toDouble)
       .toVector
 
   private def createNewFirm(

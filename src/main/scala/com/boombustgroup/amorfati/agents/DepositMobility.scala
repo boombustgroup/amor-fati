@@ -49,7 +49,7 @@ object DepositMobility:
       anyBankFailed: Boolean,
   )(using p: SimParams): Double =
     val healthFlight =
-      p.banking.depositFlightSensitivity * (p.banking.depositFlightCarThreshold - bankCar).max(Multiplier.Zero).toDouble
+      p.banking.depositFlightSensitivity.toDouble * Math.max(0.0, p.banking.depositFlightCarThreshold.toDouble - bankCar.toDouble)
     val panicFlight  =
       if anyBankFailed then p.banking.depositPanicRate.toDouble else 0.0
     Math.min(healthFlight + panicFlight, p.banking.maxDepositSwitchRate.toDouble)

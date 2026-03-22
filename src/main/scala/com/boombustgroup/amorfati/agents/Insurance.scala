@@ -77,7 +77,7 @@ object Insurance:
     // Claims: life steady, non-life widens with unemployment stress
     val lifeCl      = lifePrem * p.ins.lifeLossRatio.toDouble
     val nonLifeBase = nonLifePrem * p.ins.nonLifeLossRatio.toDouble
-    val nonLifeCl   = nonLifeBase * (1.0 + p.ins.nonLifeUnempSens * Math.max(0.0, unempRate.toDouble - NonLifeUnempThreshold))
+    val nonLifeCl   = nonLifeBase * (1.0 + p.ins.nonLifeUnempSens.toDouble * Math.max(0.0, unempRate.toDouble - NonLifeUnempThreshold))
 
     // Investment income from all three asset classes
     val invIncome = prev.govBondHoldings * govBondYield.toDouble / 12.0 +

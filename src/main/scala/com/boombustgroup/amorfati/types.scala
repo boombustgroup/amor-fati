@@ -87,16 +87,16 @@ object types:
       def *(c: Coefficient): PLN = bankerRound(BigInt(p) * BigInt(c))
 
       // Scalar multiplication (for worker counts, Int divisors)
-      def *(scalar: Double): PLN       = PLN(p.toDouble / Scale * scalar)
+      def *(scalar: Double): PLN = PLN(p.toDouble / Scale * scalar)
       @targetName("plnDivPln")
-      def /(other: PLN): Double        = if other != 0L then p.toDouble / other.toDouble else 0.0
+      def /(other: PLN): Double  = if other != 0L then p.toDouble / other.toDouble else 0.0
       @targetName("plnDivScalar")
-      def /(scalar: Double): PLN       = PLN(p.toDouble / Scale / scalar)
-      def /(divisor: Long): PLN        = p / divisor
+      def /(scalar: Double): PLN = PLN(p.toDouble / Scale / scalar)
+      def /(divisor: Long): PLN  = p / divisor
       @targetName("plnDivShare")
-      def /(s: Share): PLN             = if s != 0L then PLN(p.toDouble / s.toDouble) else PLN.Zero
+      def /(s: Share): PLN       = if s != 0L then PLN(p.toDouble / s.toDouble) else PLN.Zero
       @targetName("plnDivMultiplier")
-      def /(m: Multiplier): PLN        = if m != 0L then PLN(p.toDouble / m.toDouble) else PLN.Zero
+      def /(m: Multiplier): PLN  = if m != 0L then PLN(p.toDouble / m.toDouble) else PLN.Zero
 
     extension (n: Int)
       @targetName("intTimesPln")
@@ -135,8 +135,10 @@ object types:
       def clamp(lo: Rate, hi: Rate): Rate = math.max(lo, math.min(hi, r))
       def monthly: Rate                   = Rate(r.toDouble / Scale / 12.0)
       def annualize: Rate                 = Rate(r.toDouble / Scale * 12.0)
-      def *(m: Multiplier): Rate           = Rate(r.toDouble / Scale * m.toDouble)
+      def *(m: Multiplier): Rate          = Rate(r.toDouble / Scale * m.toDouble)
+      @targetName("rateTimesShare")
       def *(s: Share): Rate               = Rate(r.toDouble / Scale * s.toDouble)
+      @targetName("rateTimesCoefficient")
       def *(c: Coefficient): Rate         = Rate(r.toDouble / Scale * c.toDouble)
       def *(scalar: Double): Rate         = Rate(r.toDouble / Scale * scalar)
       def /(scalar: Double): Rate         = Rate(r.toDouble / Scale / scalar)

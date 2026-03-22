@@ -102,7 +102,7 @@ object Nbfi:
   /** NBFI credit origination: counter-cyclical to bank tightness. */
   def nbfiOrigination(domesticCons: PLN, bankNplRatio: Share)(using p: SimParams): PLN =
     val tight = bankTightness(bankNplRatio)
-    domesticCons * p.nbfi.creditBaseRate.toDouble * (1.0 + p.nbfi.countercyclical * tight.toDouble)
+    domesticCons * p.nbfi.creditBaseRate.toDouble * (1.0 + p.nbfi.countercyclical.toDouble * tight.toDouble)
 
   /** NBFI loan repayment: stock / maturity. */
   def nbfiRepayment(loanStock: PLN)(using p: SimParams): PLN =
@@ -110,7 +110,7 @@ object Nbfi:
 
   /** NBFI defaults: base rate widening with unemployment. */
   def nbfiDefaults(loanStock: PLN, unempRate: Share)(using p: SimParams): PLN =
-    loanStock * p.nbfi.defaultBase.toDouble * (1.0 + p.nbfi.defaultUnempSens * Math.max(0.0, unempRate.toDouble - UnempDefaultThreshold))
+    loanStock * p.nbfi.defaultBase.toDouble * (1.0 + p.nbfi.defaultUnempSens.toDouble * Math.max(0.0, unempRate.toDouble - UnempDefaultThreshold))
 
   // ---------------------------------------------------------------------------
   // Monthly step

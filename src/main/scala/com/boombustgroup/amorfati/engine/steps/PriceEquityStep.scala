@@ -280,8 +280,8 @@ object PriceEquityStep:
 
     val govGdpContribution =
       if p.flags.govInvest then
-        p.fiscal.govBaseSpending.toDouble * (1.0 - p.fiscal.govInvestShare.toDouble) * p.fiscal.govCurrentMultiplier +
-          p.fiscal.govBaseSpending.toDouble * p.fiscal.govInvestShare.toDouble * p.fiscal.govCapitalMultiplier
+        p.fiscal.govBaseSpending.toDouble * (1.0 - p.fiscal.govInvestShare.toDouble) * p.fiscal.govCurrentMultiplier.toDouble +
+          p.fiscal.govBaseSpending.toDouble * p.fiscal.govInvestShare.toDouble * p.fiscal.govCapitalMultiplier.toDouble
       else p.fiscal.govBaseSpending.toDouble
     val euCofin            = if p.flags.euFunds then EuFunds.cofinancing(euMonthly) else 0.0
     val euProjectCapital   =
@@ -289,8 +289,8 @@ object PriceEquityStep:
       else 0.0
     val euGdpContribution  =
       if p.flags.euFunds && p.flags.govInvest then
-        euProjectCapital * p.fiscal.govCapitalMultiplier +
-          (euCofin - euProjectCapital).max(0.0) * p.fiscal.govCurrentMultiplier
+        euProjectCapital * p.fiscal.govCapitalMultiplier.toDouble +
+          (euCofin - euProjectCapital).max(0.0) * p.fiscal.govCurrentMultiplier.toDouble
       else if p.flags.euFunds then euCofin
       else 0.0
     val greenDomesticGFCF  =
@@ -337,7 +337,7 @@ object PriceEquityStep:
 
     val firmProfits = living2.kahanSumBy { f =>
       val rev      = Firm.computeCapacity(f).toDouble * in.s4.sectorMults(f.sector.toInt) * newPrice
-      val labor    = Firm.workerCount(f) * in.s2.newWage.toDouble * p.sectorDefs(f.sector.toInt).wageMultiplier
+      val labor    = Firm.workerCount(f) * in.s2.newWage.toDouble * p.sectorDefs(f.sector.toInt).wageMultiplier.toDouble
       val other    = p.firm.otherCosts.toDouble * newPrice
       val aiMaint  = f.tech match
         case _: TechState.Automated => p.firm.aiOpex.toDouble * (AiMaintRealShare + AiMaintNomShare * newPrice)

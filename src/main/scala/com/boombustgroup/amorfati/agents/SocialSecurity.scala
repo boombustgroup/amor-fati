@@ -27,7 +27,7 @@ object SocialSecurity:
   def zusStep(prevBalance: PLN, employed: Int, wage: PLN, nRetirees: Int)(using p: SimParams): ZusState =
     if !p.flags.zus then ZusState(prevBalance, PLN.Zero, PLN.Zero, PLN.Zero)
     else
-      val contributions = wage * (employed.toDouble * p.social.zusContribRate.toDouble * p.social.zusScale)
+      val contributions = wage * (employed.toDouble * p.social.zusContribRate.toDouble * p.social.zusScale.toDouble)
       val pensions      = p.social.zusBasePension * nRetirees.toDouble
       val monthlyFlow   = contributions - pensions
       val govSubvention = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
@@ -57,7 +57,7 @@ object SocialSecurity:
     if !p.flags.nfz then NfzState(prevBalance, PLN.Zero, PLN.Zero, PLN.Zero)
     else
       val contributions       = wage * p.social.nfzContribRate * employed.toDouble
-      val effectivePopulation = workingAge.toDouble + nRetirees.toDouble * p.social.nfzAgingElasticity
+      val effectivePopulation = workingAge.toDouble + nRetirees.toDouble * p.social.nfzAgingElasticity.toDouble
       val spending            = p.social.nfzPerCapitaCost * effectivePopulation
       val monthlyFlow         = contributions - spending
       val govSubvention       = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero

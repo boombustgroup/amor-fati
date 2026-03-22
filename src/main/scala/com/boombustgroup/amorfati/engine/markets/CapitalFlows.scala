@@ -73,7 +73,7 @@ object CapitalFlows:
     val isRiskOff            = p.forex.riskOffShockMonth > 0 && month >= p.forex.riskOffShockMonth &&
       month < p.forex.riskOffShockMonth + p.forex.riskOffDurationMonths
     val carryAccumulation    =
-      if !isRiskOff then monthlyGdp * (spreadAboveThreshold.toDouble * p.forex.carryAccumulationRate)
+      if !isRiskOff then monthlyGdp * (spreadAboveThreshold.toDouble * p.forex.carryAccumulationRate.toDouble)
       else PLN.Zero
     val carryUnwind          =
       if isRiskOff then prevCarry.stock * p.forex.carryUnwindSpeed.toDouble * -1.0
@@ -83,8 +83,8 @@ object CapitalFlows:
 
     // 3. Bond auction signal: low bid-to-cover → confidence erosion
     val auctionOutflow =
-      if bidToCover < p.forex.auctionConfidenceThreshold then
-        monthlyGdp * p.forex.auctionOutflowSensitivity * (p.forex.auctionConfidenceThreshold - bidToCover).toDouble * -1.0
+      if bidToCover.toDouble < p.forex.auctionConfidenceThreshold.toDouble then
+        monthlyGdp * p.forex.auctionOutflowSensitivity.toDouble * (p.forex.auctionConfidenceThreshold.toDouble - bidToCover.toDouble) * -1.0
       else PLN.Zero
 
     Result(riskOff, carryFlow, auctionOutflow, CarryState(newStock))

@@ -49,8 +49,8 @@ object BondAuction:
       erChange: Coefficient,
   )(using p: SimParams): Share =
     val spread      = marketYield - p.fiscal.bundYield
-    val yieldEffect = p.fiscal.foreignYieldSensitivity * spread.toDouble
-    val erEffect    = p.fiscal.foreignErSensitivity * erChange.toDouble
+    val yieldEffect = p.fiscal.foreignYieldSensitivity.toDouble * spread.toDouble
+    val erEffect    = p.fiscal.foreignErSensitivity.toDouble * erChange.toDouble
     val raw         = p.fiscal.baseForeignShare.toDouble * (1.0 + yieldEffect - erEffect)
     Share(raw.max(0.0).min(p.fiscal.maxForeignShare.toDouble))
 

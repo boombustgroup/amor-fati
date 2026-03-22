@@ -143,7 +143,7 @@ object HousingMarket:
   )(using p: SimParams): State =
     val updatedRegions = regs.zipWithIndex.map: (reg, r) =>
       val gamma          = p.housing.regionalGammas(r).toDouble
-      val regionalGrowth = in.incomeGrowth.toDouble * p.housing.regionalIncomeMult(r)
+      val regionalGrowth = in.incomeGrowth.toDouble * p.housing.regionalIncomeMult(r).toDouble
       val update         = meenPriceUpdate(reg.totalValue, reg.priceIndex, gamma, regionalGrowth, rateChange, in.mortgageRate)
       reg.copy(priceIndex = update.hpi, totalValue = update.value, monthlyReturn = update.monthlyReturn)
     aggregateFromRegions(in.prev, updatedRegions, in.mortgageRate)
@@ -209,10 +209,10 @@ object HousingMarket:
       else prevVal
     val monthlyGamma     = gamma / 12.0
     val pricePressure    = Math.fma(
-      p.housing.priceIncomeElast,
+      p.housing.priceIncomeElast.toDouble,
       incomeGrowth,
       Math.fma(
-        p.housing.priceRateElast,
+        p.housing.priceRateElast.toDouble,
         rateChange,
         monthlyGamma * (fundamentalValue - prevVal) / Math.max(1.0, fundamentalValue),
       ),
@@ -290,7 +290,7 @@ object HousingMarket:
       val interest      = stock * mortgageRate.max(Rate.Zero).monthly
       val principal     = stock / p.housing.mortgageMaturity.toDouble
       val defaultRate   = p.housing.defaultBase +
-        Share(p.housing.defaultUnempSens * (unemploymentRate - Share(0.05)).max(Share.Zero).toDouble)
+        Share(p.housing.defaultUnempSens.toDouble * (unemploymentRate - Share(0.05)).max(Share.Zero).toDouble)
       val defaultAmount = stock * defaultRate
       val defaultLoss   = defaultAmount * (Share.One - p.housing.mortgageRecovery)
       MortgageFlows(interest, principal, defaultAmount, defaultLoss)

@@ -378,8 +378,8 @@ object Banking:
         bank.capital.toDouble / (bank.loans.toDouble + bank.consumerLoans.toDouble + bank.corpBondHoldings.toDouble * CorpBondRiskWeight + amount.toDouble)
       val minCar       = Macroprudential.effectiveMinCar(bank.id.toInt, ccyb.toDouble)
       val carOk        = projectedCar >= minCar
-      val lcrOk        = if p.flags.bankLcr then bank.lcr.toDouble >= p.banking.lcrMin else true
-      val nsfrOk       = if p.flags.bankLcr then bank.nsfr.toDouble >= p.banking.nsfrMin else true
+      val lcrOk        = if p.flags.bankLcr then bank.lcr.toDouble >= p.banking.lcrMin.toDouble else true
+      val nsfrOk       = if p.flags.bankLcr then bank.nsfr.toDouble >= p.banking.nsfrMin.toDouble else true
       val nplPenalty   = (bank.nplRatio * NplApprovalPenalty).toDouble
       val freeReserves = (bank.deposits * (1.0 - p.banking.reserveReq.toDouble) - bank.loans - bank.govBondHoldings).toDouble
       val resPenalty   = if freeReserves > 0.0 then 0.0 else ReserveDeficitPenalty
@@ -450,7 +450,7 @@ object Banking:
           val consec    = b.consecutiveLowCar
           val minCar    = Macroprudential.effectiveMinCar(b.id.toInt, ccyb.toDouble)
           val lowCar    = b.car.toDouble < minCar
-          val lcrBreach = p.flags.bankLcr && b.lcr.toDouble < p.banking.lcrMin * 0.5
+          val lcrBreach = p.flags.bankLcr && b.lcr.toDouble < p.banking.lcrMin.toDouble * 0.5
           val newConsec = if lowCar then consec + 1 else 0
           if newConsec >= 3 || lcrBreach then b.copy(status = BankStatus.Failed(month), capital = PLN.Zero)
           else b.copy(status = BankStatus.Active(newConsec))
@@ -653,7 +653,7 @@ object Banking:
     val threshold = p.banking.htmForcedSaleThreshold * p.banking.lcrMin
     var totalLoss = 0.0
     val updated   = banks.map: b =>
-      if b.failed || b.htmBonds <= PLN.Zero || b.lcr.toDouble >= threshold then b
+      if b.failed || b.htmBonds <= PLN.Zero || b.lcr.toDouble >= threshold.toDouble then b
       else
         val reclassified = b.htmBonds * p.banking.htmForcedSaleRate.toDouble
         val yieldGap     = Math.max(currentYield.toDouble - b.htmBookYield.toDouble, 0.0)
