@@ -17,7 +17,7 @@ object Banking:
   private val CorpBondRiskWeight = 0.50
 
   /** Well-capitalised floor for CAR/LCR/NSFR when denominator ≤ threshold. */
-  private val SafeRatioFloor = Ratio(10.0)
+  private val SafeRatioFloor = Multiplier(10.0)
 
   /** Minimum balance threshold to avoid division by zero. */
   private val MinBalanceThreshold = 1.0
@@ -90,19 +90,19 @@ object Banking:
     /** Total government bond holdings (AFS + HTM). */
     def govBondHoldings: PLN = afsBonds + htmBonds
 
-    /** Non-performing loan ratio: nplAmount / totalLoans. Returns Ratio.Zero
+    /** Non-performing loan ratio: nplAmount / totalLoans. Returns Share.Zero
       * when loan book is empty.
       */
-    def nplRatio: Ratio = if totalLoans.toDouble > 1.0 then Ratio(nplAmount / totalLoans) else Ratio.Zero
+    def nplRatio: Share = if totalLoans.toDouble > 1.0 then Share(nplAmount / totalLoans) else Share.Zero
 
     /** Capital adequacy ratio: capital / risk-weighted assets. Corporate bonds
-      * carry 50% risk weight (Basel III, BBB bucket). Returns Ratio(10.0)
+      * carry 50% risk weight (Basel III, BBB bucket). Returns Multiplier(10.0)
       * (well-capitalised floor) when risk-weighted assets ≤ 1 to avoid division
       * by zero.
       */
-    def car: Ratio =
+    def car: Multiplier =
       val totalRwa = (totalLoans + consumerLoans + corpBondHoldings * 0.50).toDouble
-      if totalRwa > 1.0 then Ratio(capital.toDouble / totalRwa) else Ratio(10.0)
+      if totalRwa > 1.0 then Multiplier(capital.toDouble / totalRwa) else Multiplier(10.0)
 
   // ---------------------------------------------------------------------------
   // Monetary aggregates (diagnostic, not SFC-relevant)
@@ -158,10 +158,10 @@ object Banking:
   case class Config(
       id: BankId,                   // unique bank identifier (0–6)
       name: String,                 // human-readable label (KNF registry)
-      initMarketShare: Ratio,       // deposit-weighted share at t = 0
-      initCet1: Ratio,              // initial CET1 ratio (KNF 2024)
+      initMarketShare: Share,       // deposit-weighted share at t = 0
+      initCet1: Share,              // initial CET1 ratio (KNF 2024)
       lendingSpread: Rate,          // bank-specific spread over base lending rate
-      sectorAffinity: Vector[Ratio], // relative lending preference per sector
+      sectorAffinity: Vector[Share], // relative lending preference per sector
   )
 
   // ---------------------------------------------------------------------------
@@ -216,19 +216,19 @@ object Banking:
       case BankStatus.Active(c) => c
       case _                    => 0
 
-    /** Non-performing loan ratio: NPL / loans. Returns Ratio.Zero when loan
+    /** Non-performing loan ratio: NPL / loans. Returns Share.Zero when loan
       * book is empty.
       */
-    def nplRatio: Ratio =
-      if loans.toDouble > MinBalanceThreshold then Ratio(nplAmount / loans) else Ratio.Zero
+    def nplRatio: Share =
+      if loans.toDouble > MinBalanceThreshold then Share(nplAmount / loans) else Share.Zero
 
     /** Capital adequacy ratio: capital / risk-weighted assets (Basel III). Corp
       * bonds carry [[CorpBondRiskWeight]] risk weight (BBB bucket). Returns
       * [[SafeRatioFloor]] when RWA ≤ [[MinBalanceThreshold]].
       */
-    def car: Ratio =
+    def car: Multiplier =
       val totalRwa = loans + consumerLoans + corpBondHoldings * CorpBondRiskWeight
-      if totalRwa.toDouble > MinBalanceThreshold then Ratio(capital / totalRwa) else SafeRatioFloor
+      if totalRwa.toDouble > MinBalanceThreshold then Multiplier(capital / totalRwa) else SafeRatioFloor
 
     /** High-quality liquid assets: reserves + gov bonds (Basel III Level 1). */
     def hqla: PLN = reservesAtNbp + govBondHoldings
@@ -237,8 +237,8 @@ object Banking:
     def netCashOutflows(using p: SimParams): PLN = demandDeposits * p.banking.demandDepositRunoff
 
     /** Liquidity Coverage Ratio = HQLA / net cash outflows (Basel III). */
-    def lcr(using p: SimParams): Ratio =
-      if netCashOutflows.toDouble > MinBalanceThreshold then Ratio(hqla / netCashOutflows)
+    def lcr(using p: SimParams): Multiplier =
+      if netCashOutflows.toDouble > MinBalanceThreshold then Multiplier(hqla / netCashOutflows)
       else SafeRatioFloor
 
     /** Available Stable Funding (Basel III NSFR numerator). */
@@ -250,8 +250,8 @@ object Banking:
         govBondHoldings * RsfGovBond + corpBondHoldings * RsfCorpBond
 
     /** Net Stable Funding Ratio = ASF / RSF. */
-    def nsfr: Ratio =
-      if rsf.toDouble > MinBalanceThreshold then Ratio(asf / rsf) else SafeRatioFloor
+    def nsfr: Multiplier =
+      if rsf.toDouble > MinBalanceThreshold then Multiplier(asf / rsf) else SafeRatioFloor
 
   /** State of the entire banking sector. */
   case class State(
@@ -277,16 +277,16 @@ object Banking:
   // Default configs (7 Polish banks, KNF 2024)
   // ---------------------------------------------------------------------------
 
-  private def affinity(xs: Double*): Vector[Ratio] = xs.map(Ratio(_)).toVector
+  private def affinity(xs: Double*): Vector[Share] = xs.map(Share(_)).toVector
 
   val DefaultConfigs: Vector[Config] = Vector(
-    Config(BankId(0), "PKO BP", Ratio(0.175), Ratio(0.185), Rate(-0.002), affinity(0.15, 0.15, 0.15, 0.10, 0.30, 0.15)),
-    Config(BankId(1), "Pekao", Ratio(0.120), Ratio(0.178), Rate(-0.001), affinity(0.15, 0.20, 0.20, 0.15, 0.15, 0.15)),
-    Config(BankId(2), "mBank", Ratio(0.085), Ratio(0.169), Rate(0.000), affinity(0.30, 0.10, 0.25, 0.10, 0.10, 0.15)),
-    Config(BankId(3), "ING BSK", Ratio(0.075), Ratio(0.172), Rate(-0.001), affinity(0.15, 0.35, 0.15, 0.10, 0.10, 0.15)),
-    Config(BankId(4), "Santander", Ratio(0.070), Ratio(0.170), Rate(0.000), affinity(0.15, 0.10, 0.35, 0.15, 0.10, 0.15)),
-    Config(BankId(5), "BPS/Coop", Ratio(0.050), Ratio(0.150), Rate(0.003), affinity(0.05, 0.10, 0.10, 0.05, 0.05, 0.65)),
-    Config(BankId(6), "Others", Ratio(0.425), Ratio(0.165), Rate(0.001), affinity(0.15, 0.17, 0.17, 0.17, 0.17, 0.17)),
+    Config(BankId(0), "PKO BP", Share(0.175), Share(0.185), Rate(-0.002), affinity(0.15, 0.15, 0.15, 0.10, 0.30, 0.15)),
+    Config(BankId(1), "Pekao", Share(0.120), Share(0.178), Rate(-0.001), affinity(0.15, 0.20, 0.20, 0.15, 0.15, 0.15)),
+    Config(BankId(2), "mBank", Share(0.085), Share(0.169), Rate(0.000), affinity(0.30, 0.10, 0.25, 0.10, 0.10, 0.15)),
+    Config(BankId(3), "ING BSK", Share(0.075), Share(0.172), Rate(-0.001), affinity(0.15, 0.35, 0.15, 0.10, 0.10, 0.15)),
+    Config(BankId(4), "Santander", Share(0.070), Share(0.170), Rate(0.000), affinity(0.15, 0.10, 0.35, 0.15, 0.10, 0.15)),
+    Config(BankId(5), "BPS/Coop", Share(0.050), Share(0.150), Rate(0.003), affinity(0.05, 0.10, 0.10, 0.05, 0.05, 0.65)),
+    Config(BankId(6), "Others", Share(0.425), Share(0.165), Rate(0.001), affinity(0.15, 0.17, 0.17, 0.17, 0.17, 0.17)),
   )
 
   // ---------------------------------------------------------------------------
@@ -349,17 +349,17 @@ object Banking:
 
     // Credit stress: NPL ratio relative to stress threshold (0 = healthy, 1 = max stress)
     val aggNplRate   = if aggLoans > MinBalanceThreshold then aggNpl / aggLoans else 0.0
-    val creditStress = Ratio(aggNplRate / p.banking.stressThreshold.toDouble).clamp(Ratio.Zero, Ratio.One)
+    val creditStress = Share(aggNplRate / p.banking.stressThreshold.toDouble).clamp(Share.Zero, Share.One)
 
     // Liquidity position: excess reserves relative to required (0 = scarce, 1 = abundant)
     val requiredReserves = aggDeposits * p.banking.reserveReq.toDouble
     val excessReserves   = aggReserves - requiredReserves
-    val liquidityRatio   = Ratio(excessReserves / Math.max(1.0, requiredReserves)).clamp(Ratio.Zero, Ratio.One)
+    val liquidityRatio   = Share(excessReserves / Math.max(1.0, requiredReserves)).clamp(Share.Zero, Share.One)
 
     val depositRate = Rate.Zero.max(refRate - Rate(DepositSpreadFromRef))
     val lombardRate = refRate + Rate(LombardSpreadFromRef)
     val corridor    = lombardRate - depositRate
-    depositRate + corridor * ((Ratio.One - liquidityRatio) * creditStress).toDouble
+    depositRate + corridor * ((Share.One - liquidityRatio) * creditStress).toDouble
 
   // ---------------------------------------------------------------------------
   // Credit approval
@@ -393,7 +393,7 @@ object Banking:
   /** Clear the interbank market: excess reserves → lender/borrower netting.
     * Hoarding factor [0,1] scales lending: 0 = full freeze, 1 = normal.
     */
-  def clearInterbank(banks: Vector[BankState], configs: Vector[Config], hoarding: Ratio = Ratio.One)(using
+  def clearInterbank(banks: Vector[BankState], configs: Vector[Config], hoarding: Share = Share.One)(using
       p: SimParams,
   ): Vector[BankState] =
     val hf     = hoarding.toDouble

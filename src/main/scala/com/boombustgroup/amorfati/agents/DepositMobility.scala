@@ -45,11 +45,11 @@ object DepositMobility:
     * panicRate if any bank failed this month, else 0
     */
   private def switchProbability(
-      bankCar: Ratio,
+      bankCar: Multiplier,
       anyBankFailed: Boolean,
   )(using p: SimParams): Double =
     val healthFlight =
-      p.banking.depositFlightSensitivity * (p.banking.depositFlightCarThreshold - bankCar).max(Ratio.Zero).toDouble
+      p.banking.depositFlightSensitivity * (p.banking.depositFlightCarThreshold - bankCar).max(Multiplier.Zero).toDouble
     val panicFlight  =
       if anyBankFailed then p.banking.depositPanicRate.toDouble else 0.0
     Math.min(healthFlight + panicFlight, p.banking.maxDepositSwitchRate.toDouble)
@@ -75,8 +75,8 @@ object DepositMobility:
     val healthiest = Banking.healthiestBankId(banks)
     val carByBank  = banks.map(b => b.id.toInt -> b.car).toMap
     val systemCar  =
-      if banks.nonEmpty then Ratio(banks.kahanSumBy(_.car.toDouble) / banks.length)
-      else Ratio.Zero
+      if banks.nonEmpty then Multiplier(banks.kahanSumBy(_.car.toDouble) / banks.length)
+      else Multiplier.Zero
 
     val updated = households.map: hh =>
       val currentCar = carByBank.getOrElse(hh.bankId.toInt, systemCar)

@@ -71,7 +71,7 @@ object InterbankContagion:
       else
         val loss = banks.zipWithIndex.foldLeft(PLN.Zero):
           case (acc, (counterparty, j)) =>
-            if counterparty.failed && i != j then acc + exposures(i)(j) * (Ratio.One - recovery).toDouble
+            if counterparty.failed && i != j then acc + exposures(i)(j) * (Share.One - recovery).toDouble
             else acc
         if loss > PLN.Zero then b.copy(capital = b.capital - loss)
         else b
@@ -84,9 +84,9 @@ object InterbankContagion:
     * At factor = 0, interbank market freezes completely (all banks hoard). At
     * factor = 1, normal interbank activity.
     */
-  def hoardingFactor(systemNplRatio: Ratio)(using p: SimParams): Ratio =
-    val excess = (systemNplRatio - p.banking.hoardingNplThreshold).max(Ratio.Zero)
-    (Ratio.One - Ratio(excess.toDouble * p.banking.hoardingSensitivity)).clamp(Ratio.Zero, Ratio.One)
+  def hoardingFactor(systemNplRatio: Share)(using p: SimParams): Share =
+    val excess = (systemNplRatio - p.banking.hoardingNplThreshold).max(Share.Zero)
+    (Share.One - Share(excess.toDouble * p.banking.hoardingSensitivity)).clamp(Share.Zero, Share.One)
 
   /** Total contagion loss across all non-failed banks. */
   def totalContagionLoss(

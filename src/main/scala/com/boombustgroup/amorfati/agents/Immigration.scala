@@ -89,9 +89,9 @@ object Immigration:
         savings = PLN(savings),
         debt = PLN.Zero,
         monthlyRent = PLN(rent.max(800.0)),
-        skill = Ratio(clampedSkill),
-        healthPenalty = Ratio.Zero,
-        mpc = Ratio(mpc.max(0.7).min(0.98)),
+        skill = Share(clampedSkill),
+        healthPenalty = Share.Zero,
+        mpc = Share(mpc.max(0.7).min(0.98)),
         status = HhStatus.Unemployed(0),
         socialNeighbors = Array.empty[HhId],
         bankId = BankId(0),
@@ -102,7 +102,7 @@ object Immigration:
         consumerDebt = PLN.Zero,
         education = edu,
         taskRoutineness = Household.Init.sampleTaskRoutineness(edu, sector, rng),
-        wageScar = Ratio.Zero,
+        wageScar = Share.Zero,
         region = region,
       )
     }.toVector

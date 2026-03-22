@@ -32,15 +32,15 @@ object StateOwned:
   /** SOE dividend extraction: government takes higher dividends when deficit is
     * large. Returns dividend multiplier (>= 1.0 for SOEs).
     */
-  def dividendMultiplier(deficitToGdp: Ratio)(using p: SimParams): Double =
+  def dividendMultiplier(deficitToGdp: Share)(using p: SimParams): Double =
     val baseMult     = p.soe.baseDividendMultiplier
-    val fiscalDemand = (deficitToGdp - p.soe.dividendFiscalThreshold).max(Ratio.Zero).toDouble * p.soe.dividendFiscalSensitivity
+    val fiscalDemand = (deficitToGdp - p.soe.dividendFiscalThreshold).max(Share.Zero).toDouble * p.soe.dividendFiscalSensitivity
     baseMult + fiscalDemand
 
   /** SOE employment buffer: reduced firing rate during downturns. Returns
     * fraction of normal firing that SOE actually executes.
     */
-  def firingReduction(using p: SimParams): Ratio = p.soe.firingReduction
+  def firingReduction(using p: SimParams): Share = p.soe.firingReduction
 
   /** SOE directed investment: higher investment rate than private sector.
     * Returns investment multiplier (>= 1.0).
@@ -50,16 +50,16 @@ object StateOwned:
   /** SOE energy price absorption: energy SOEs absorb price shocks. Returns
     * fraction of commodity price shock passed to consumers.
     */
-  def energyPassthrough(using p: SimParams): Ratio = p.soe.energyPassthrough
+  def energyPassthrough(using p: SimParams): Share = p.soe.energyPassthrough
 
   /** Probability that a firm in given sector is state-owned at initialization.
     * Based on actual SOE presence per sector (GUS/GPW 2024).
     */
-  def sectorSoeShare(sectorIdx: Int): Ratio = sectorIdx match
-    case 0 => Ratio(0.05) // BPO — minimal SOE
-    case 1 => Ratio(0.20) // Manufacturing — Orlen, KGHM, JSW
-    case 2 => Ratio(0.05) // Retail — minimal
-    case 3 => Ratio(0.30) // Healthcare — public hospitals
-    case 4 => Ratio(0.80) // Public — by definition
-    case 5 => Ratio(0.15) // Agriculture — KOWR, ANR
-    case _ => Ratio(0.10)
+  def sectorSoeShare(sectorIdx: Int): Share = sectorIdx match
+    case 0 => Share(0.05) // BPO — minimal SOE
+    case 1 => Share(0.20) // Manufacturing — Orlen, KGHM, JSW
+    case 2 => Share(0.05) // Retail — minimal
+    case 3 => Share(0.30) // Healthcare — public hospitals
+    case 4 => Share(0.80) // Public — by definition
+    case 5 => Share(0.15) // Agriculture — KOWR, ANR
+    case _ => Share(0.10)

@@ -10,8 +10,8 @@ object Nbp:
   // Named constants
   // ---------------------------------------------------------------------------
 
-  private val OutputGapCap          = Ratio(0.30)  // ±cap on output gap in Taylor rule (Svensson 2003)
-  private val DebtThreshold         = Ratio(0.40)  // debt-to-GDP threshold for fiscal risk premium
+  private val OutputGapCap          = Coefficient(0.30)  // ±cap on output gap in Taylor rule (Svensson 2003)
+  private val DebtThreshold         = Share(0.40)  // debt-to-GDP threshold for fiscal risk premium
   private val FiscalRiskCap         = Rate(0.10)   // maximum fiscal risk premium
   private val CredPremiumCap        = Rate(0.05)   // max credibility premium (5pp, ~Turkey 2018)
   private val BondYieldCap          = Rate(0.20)   // absolute yield ceiling (20%, beyond any EM precedent)
@@ -67,29 +67,29 @@ object Nbp:
     */
   private def taylorTarget(
       inflation: Rate,
-      exRateChange: Ratio,
+      exRateChange: Coefficient,
       employed: Int,
       totalPopulation: Int,
   )(using p: SimParams): Rate =
     val infGap    = inflation - p.monetary.targetInfl
-    val unempRate = Ratio.One - Ratio.fraction(employed, totalPopulation)
+    val unempRate = Share.One - Share.fraction(employed, totalPopulation)
     val nairu     = p.monetary.nairu
     if p.flags.nbpSymmetric then
-      val rawOutputGap = Ratio((unempRate - nairu) / nairu)
-      val outputGap    = rawOutputGap.clamp(Ratio.Zero - OutputGapCap, OutputGapCap)
+      val rawOutputGap = Coefficient((unempRate - nairu) / nairu)
+      val outputGap    = rawOutputGap.clamp(Coefficient.Zero - OutputGapCap, OutputGapCap)
       p.monetary.neutralRate +
         infGap * p.monetary.taylorAlpha -
-        (outputGap * p.monetary.taylorDelta).toRate + // Ratio × coeff → Rate contribution
-        (exRateChange * p.monetary.taylorBeta).toRate // Ratio × coeff → Rate contribution
+        Rate(outputGap.toDouble * p.monetary.taylorDelta) + // Coefficient × coeff → Rate contribution
+        Rate(exRateChange.toDouble * p.monetary.taylorBeta) // Coefficient × coeff → Rate contribution
     else
       p.monetary.neutralRate +
         infGap.max(Rate.Zero) * p.monetary.taylorAlpha +
-        (exRateChange.max(Ratio.Zero) * p.monetary.taylorBeta).toRate
+        Rate(exRateChange.max(Coefficient.Zero).toDouble * p.monetary.taylorBeta)
 
   /** Inertia smoothing + max rate change clamping. */
   private def smoothAndClamp(prevRate: Rate, taylor: Rate)(using p: SimParams): Rate =
     val inertia  = p.monetary.taylorInertia
-    val smoothed = prevRate * inertia + taylor * (Ratio.One - inertia)
+    val smoothed = prevRate * inertia + taylor * (Share.One - inertia)
     if p.monetary.maxRateChange > Rate.Zero then
       val delta = (smoothed - prevRate).clamp(-p.monetary.maxRateChange, p.monetary.maxRateChange)
       prevRate + delta
@@ -105,7 +105,7 @@ object Nbp:
   def updateRate(
       prevRate: Rate,
       inflation: Rate,
-      exRateChange: Ratio,
+      exRateChange: Coefficient,
       employed: Int,
       totalPopulation: Int,
   )(using p: SimParams): Rate =
@@ -121,8 +121,8 @@ object Nbp:
     */
   def bondYield(
       refRate: Rate,
-      debtToGdp: Ratio,
-      nbpBondGdpShare: Ratio,
+      debtToGdp: Share,
+      nbpBondGdpShare: Share,
       nfa: PLN,
       credibilityPremium: Rate,
   )(using p: SimParams): Rate =
@@ -137,8 +137,8 @@ object Nbp:
   /** Piecewise fiscal risk premium: steepens at 55% and 60% debt/GDP. base
     * segment (40%+) + caution segment (55%+) + crisis segment (60%+).
     */
-  private def piecewiseFiscalRisk(debtToGdp: Ratio)(using p: SimParams): Rate =
-    val base      = Rate(p.fiscal.govFiscalRiskBeta * (debtToGdp - DebtThreshold).max(Ratio.Zero).toDouble)
+  private def piecewiseFiscalRisk(debtToGdp: Share)(using p: SimParams): Rate =
+    val base      = Rate(p.fiscal.govFiscalRiskBeta * (debtToGdp - DebtThreshold).max(Share.Zero).toDouble)
     val caution55 =
       if debtToGdp > p.fiscal.fiscalRuleCautionThreshold then p.fiscal.fiscalRiskBeta55 * (debtToGdp - p.fiscal.fiscalRuleCautionThreshold)
       else Rate.Zero

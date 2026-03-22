@@ -83,9 +83,9 @@ object Household:
       savings: PLN,                                        // liquid savings (bank deposits)
       debt: PLN,                                           // outstanding secured (mortgage) debt
       monthlyRent: PLN,                                    // monthly rent payment (to landlord / housing market)
-      skill: Ratio,                                        // labor productivity multiplier [0,1], decays during unemployment
-      healthPenalty: Ratio,                                // cumulative health penalty from long-term unemployment (scarring)
-      mpc: Ratio,                                          // marginal propensity to consume (Beta-sampled at init)
+      skill: Share,                                         // labor productivity multiplier [0,1], decays during unemployment
+      healthPenalty: Share,                                 // cumulative health penalty from long-term unemployment (scarring)
+      mpc: Share,                                           // marginal propensity to consume (Beta-sampled at init)
       status: HhStatus,                                    // current employment/activity status
       socialNeighbors: Array[HhId],                        // Watts-Strogatz social network neighbor IDs
       bankId: BankId,                                      // index into Banking.State.banks (multi-bank)
@@ -95,8 +95,8 @@ object Household:
       numDependentChildren: Int,                           // children ≤ 18 for 800+ social transfers
       consumerDebt: PLN,                                   // outstanding unsecured consumer loan
       education: Int,                                      // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
-      taskRoutineness: Ratio,                              // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
-      wageScar: Ratio,                                     // persistent wage penalty from unemployment spell (Jacobson et al. 1993)
+      taskRoutineness: Share,                               // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
+      wageScar: Share,                                      // persistent wage penalty from unemployment spell (Jacobson et al. 1993)
       contractType: ContractType = ContractType.Permanent, // employment contract type (Kodeks Pracy / umowa zlecenie / B2B)
       region: Region = Region.Central,                     // NUTS-1 macroregion (geographic labor market)
   )
@@ -113,12 +113,12 @@ object Household:
       importConsumption: PLN,        // import component of consumption
       marketWage: PLN,               // current market-clearing wage
       reservationWage: PLN,          // minimum acceptable wage for job search
-      giniIndividual: Ratio,         // Gini of income distribution
-      giniWealth: Ratio,             // Gini of wealth (savings) distribution
+      giniIndividual: Share,          // Gini of income distribution
+      giniWealth: Share,              // Gini of wealth (savings) distribution
       meanSavings: PLN,              // mean savings across all HH
       medianSavings: PLN,            // median savings across all HH
-      povertyRate50: Ratio,          // share with income < 50% median (EU AROP)
-      bankruptcyRate: Ratio,         // share of bankrupt HH
+      povertyRate50: Share,           // share with income < 50% median (EU AROP)
+      bankruptcyRate: Share,          // share of bankrupt HH
       meanSkill: Double,             // mean skill of alive (non-bankrupt) HH
       meanHealthPenalty: Double,     // mean health scarring of alive HH
       retrainingAttempts: Int,       // retraining attempts this month
@@ -127,14 +127,14 @@ object Household:
       consumptionP50: PLN,           // median consumption
       consumptionP90: PLN,           // 90th percentile of consumption
       meanMonthsToRuin: Double,      // mean months until bankruptcy (placeholder)
-      povertyRate30: Ratio,          // share with income < 30% median (deep poverty)
+      povertyRate30: Share,           // share with income < 30% median (deep poverty)
       totalRent: PLN,                // aggregate rent payments
       totalDebtService: PLN,         // aggregate secured debt service
       totalUnempBenefits: PLN,       // aggregate unemployment benefits paid
       totalDepositInterest: PLN,     // aggregate deposit interest received
       crossSectorHires: Int,         // cross-sector hires this month
       voluntaryQuits: Int,           // voluntary quits (cross-sector search)
-      sectorMobilityRate: Ratio,     // fraction employed in different sector than last
+      sectorMobilityRate: Share,      // fraction employed in different sector than last
       totalRemittances: PLN,         // aggregate remittances sent abroad
       totalPit: PLN,                 // aggregate PIT paid
       totalSocialTransfers: PLN,     // aggregate 800+ social transfers
@@ -223,9 +223,9 @@ object Household:
         savings = savings,
         debt = debt,
         monthlyRent = rent,
-        skill = Ratio(skill),
-        healthPenalty = Ratio.Zero,
-        mpc = Ratio(mpc).clamp(Ratio(MpcFloor), Ratio(MpcCeiling)),
+        skill = Share(skill),
+        healthPenalty = Share.Zero,
+        mpc = Share(mpc).clamp(Share(MpcFloor), Share(MpcCeiling)),
         status = HhStatus.Employed(firm.id, sectorIdx, wage),
         socialNeighbors =
           if hhId < socialNetwork.length then socialNetwork(hhId).map(HhId(_)) else Array.empty[HhId],
@@ -237,7 +237,7 @@ object Household:
         consumerDebt = consDebt,
         education = edu,
         taskRoutineness = routineness,
-        wageScar = Ratio.Zero,
+        wageScar = Share.Zero,
         region = firm.region,
       )
 
@@ -259,14 +259,14 @@ object Household:
       *
       * routineness = base(edu) + σ-bonus, clamped to [0.05, 0.95], with noise.
       */
-    private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: Random)(using p: SimParams): Ratio =
+    private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: Random)(using p: SimParams): Share =
       // Base routineness by education: Primary=0.8, Vocational=0.65, Secondary=0.45, Tertiary=0.25
       val eduBase  = p.labor.sbtcEduRoutineness(edu)
       // High-σ sectors (BPO=50) push routineness up; low-σ (Public=1) push down
       val sigma    = p.sectorDefs(sectorIdx.toInt).sigma
       val sigmaAdj = 0.05 * Math.log(sigma) / Math.log(10.0) // ±0.05 per log10(σ)
       val noise    = 0.05 * (rng.nextDouble() - 0.5)         // ±2.5% uniform noise
-      Ratio(eduBase + sigmaAdj + noise).clamp(Ratio(0.05), Ratio(0.95))
+      Share(eduBase + sigmaAdj + noise).clamp(Share(0.05), Share(0.95))
 
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 
@@ -768,14 +768,14 @@ object Household:
 
   /** Skill decay for long-term unemployed (onset after scarringOnset months).
     */
-  private def applySkillDecay(hh: State, status: HhStatus)(using p: SimParams): Ratio =
+  private def applySkillDecay(hh: State, status: HhStatus)(using p: SimParams): Share =
     status match
       case HhStatus.Unemployed(months) if months >= p.household.scarringOnset =>
-        hh.skill * (Ratio.One - p.household.skillDecayRate)
+        hh.skill * (Share.One - p.household.skillDecayRate)
       case _                                                                  => hh.skill
 
   /** Apply health scarring for long-term unemployed (cumulative, capped). */
-  private def applyHealthScarring(hh: State, status: HhStatus)(using p: SimParams): Ratio =
+  private def applyHealthScarring(hh: State, status: HhStatus)(using p: SimParams): Share =
     status match
       case HhStatus.Unemployed(months) if months >= p.household.scarringOnset =>
         (hh.healthPenalty + p.household.scarringRate).min(p.household.scarringCap)
@@ -784,12 +784,12 @@ object Household:
   /** Wage scar: accumulates during long-term unemployment, decays slowly once
     * reemployed. Jacobson, LaLonde & Sullivan 1993; Davis & von Wachter 2011.
     */
-  private def applyWageScar(hh: State, status: HhStatus)(using p: SimParams): Ratio =
+  private def applyWageScar(hh: State, status: HhStatus)(using p: SimParams): Share =
     status match
       case HhStatus.Unemployed(months) if months >= p.household.scarringOnset =>
         (hh.wageScar + p.household.wageScarRate).min(p.household.wageScarCap)
       case _: HhStatus.Employed                                               =>
-        (hh.wageScar - p.household.wageScarDecay).max(Ratio.Zero)
+        (hh.wageScar - p.household.wageScarDecay).max(Share.Zero)
       case _                                                                  => hh.wageScar
 
   /** State-dependent MPC: Carroll (1997) buffer-stock model.
@@ -798,17 +798,17 @@ object Household:
     * When buffer depleted → MPC rises (spend everything). Unemployed get an
     * additional boost (desperate spending from depleted buffers).
     */
-  private[amorfati] def updateMpc(hh: State, income: PLN, status: HhStatus)(using p: SimParams): Ratio =
+  private[amorfati] def updateMpc(hh: State, income: PLN, status: HhStatus)(using p: SimParams): Share =
     val baseMpc = hh.mpc
     if income <= PLN.Zero then baseMpc
     else
       val targetSavings = income * p.household.bufferTargetMonths
       val bufferRatio   = hh.savings / targetSavings // >1 = fat buffer, <1 = depleted
-      val bufferAdj     = Ratio(1.0 - p.household.bufferSensitivity * (bufferRatio - 1.0))
+      val bufferAdj     = Share(1.0 - p.household.bufferSensitivity * (bufferRatio - 1.0))
       val unemployedAdj = status match
-        case _: HhStatus.Unemployed => Ratio.One + p.household.mpcUnemployedBoost
-        case _                      => Ratio.One
-      (baseMpc * bufferAdj * unemployedAdj).clamp(Ratio(MpcFloor), Ratio(MpcCeiling))
+        case _: HhStatus.Unemployed => Share.One + p.household.mpcUnemployedBoost
+        case _                      => Share.One
+      (baseMpc * bufferAdj * unemployedAdj).clamp(Share(MpcFloor), Share(MpcCeiling))
 
   /** Fraction of social neighbors in distress (BitSet, O(k) per HH). */
   private def neighborDistressRatioFast(hh: State, distressedIds: java.util.BitSet): Double =
@@ -920,12 +920,12 @@ object Household:
       importConsumption = PLN(importCons),
       marketWage = marketWage,
       reservationWage = reservationWage,
-      giniIndividual = Ratio(giniSorted(incomes)),
-      giniWealth = Ratio(giniSorted(savingsArr)),
+      giniIndividual = Share(giniSorted(incomes)),
+      giniWealth = Share(giniSorted(savingsArr)),
       meanSavings = PLN(if n > 0 then savingsArr.kahanSum / n else 0.0),
       medianSavings = PLN(if n > 0 then savingsArr(n / 2) else 0.0),
-      povertyRate50 = Ratio(if n > 0 && medianIncome > 0 then lowerBound(incomes, medianIncome * PovertyRate50Pct).toDouble / n else 0.0),
-      bankruptcyRate = Ratio(if n > 0 then nBankrupt.toDouble / n else 0.0),
+      povertyRate50 = Share(if n > 0 && medianIncome > 0 then lowerBound(incomes, medianIncome * PovertyRate50Pct).toDouble / n else 0.0),
+      bankruptcyRate = Share(if n > 0 then nBankrupt.toDouble / n else 0.0),
       meanSkill = if nAlive > 0 then sumSkill / nAlive else 0.0,
       meanHealthPenalty = if nAlive > 0 then sumHealth / nAlive else 0.0,
       retrainingAttempts = t.retrainingAttempts,
@@ -934,14 +934,14 @@ object Household:
       consumptionP50 = PLN(if n > 0 then consumptions(n / 2) else 0.0),
       consumptionP90 = PLN(if n > 0 then consumptions(Math.min(n - 1, (n * ConsumptionP90).toInt)) else 0.0),
       meanMonthsToRuin = 0.0,
-      povertyRate30 = Ratio(if n > 0 && medianIncome > 0 then lowerBound(incomes, medianIncome * PovertyRate30Pct).toDouble / n else 0.0),
+      povertyRate30 = Share(if n > 0 && medianIncome > 0 then lowerBound(incomes, medianIncome * PovertyRate30Pct).toDouble / n else 0.0),
       totalRent = t.rent,
       totalDebtService = t.debtService,
       totalUnempBenefits = t.unempBenefits,
       totalDepositInterest = t.depositInterest,
       crossSectorHires = 0,
       voluntaryQuits = t.voluntaryQuits,
-      sectorMobilityRate = Ratio(sectorMobilityRate(households)),
+      sectorMobilityRate = Share(sectorMobilityRate(households)),
       totalRemittances = t.remittances,
       totalPit = t.pit,
       totalSocialTransfers = t.socialTransfers,

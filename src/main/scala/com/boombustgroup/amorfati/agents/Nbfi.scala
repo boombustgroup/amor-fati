@@ -38,7 +38,7 @@ object Nbfi:
       lastNbfiRepayment: PLN,      // monthly principal repaid
       lastNbfiDefaultAmount: PLN,  // monthly gross defaults
       lastNbfiInterestIncome: PLN, // NBFI interest earned this month
-      lastBankTightness: Ratio,    // counter-cyclical signal [0,1]
+      lastBankTightness: Share,    // counter-cyclical signal [0,1]
       lastDepositDrain: PLN,       // net deposit outflow (TFI inflow)
   )
 
@@ -55,7 +55,7 @@ object Nbfi:
       PLN.Zero,
       PLN.Zero,
       PLN.Zero,
-      Ratio.Zero,
+      Share.Zero,
       PLN.Zero,
     )
 
@@ -74,7 +74,7 @@ object Nbfi:
       lastNbfiRepayment = PLN.Zero,
       lastNbfiDefaultAmount = PLN.Zero,
       lastNbfiInterestIncome = PLN.Zero,
-      lastBankTightness = Ratio.Zero,
+      lastBankTightness = Share.Zero,
       lastDepositDrain = PLN.Zero,
     )
 
@@ -83,8 +83,8 @@ object Nbfi:
   // ---------------------------------------------------------------------------
 
   /** Bank credit tightness signal: 0 at NPL ≤ 3%, rises linearly, 1.0 at 6%. */
-  def bankTightness(bankNplRatio: Ratio): Ratio =
-    Ratio((bankNplRatio.toDouble - NplTightnessFloor) / NplTightnessRange).clamp(Ratio.Zero, Ratio.One)
+  def bankTightness(bankNplRatio: Share): Share =
+    Share((bankNplRatio.toDouble - NplTightnessFloor) / NplTightnessRange).clamp(Share.Zero, Share.One)
 
   /** TFI net inflow: proportional to wage bill, modulated by excess returns. */
   def tfiInflow(employed: Int, wage: PLN, equityReturn: Rate, govBondYield: Rate, depositRate: Rate)(using
@@ -100,7 +100,7 @@ object Nbfi:
     base * (1.0 + excessReturn * ExcessReturnSens)
 
   /** NBFI credit origination: counter-cyclical to bank tightness. */
-  def nbfiOrigination(domesticCons: PLN, bankNplRatio: Ratio)(using p: SimParams): PLN =
+  def nbfiOrigination(domesticCons: PLN, bankNplRatio: Share)(using p: SimParams): PLN =
     val tight = bankTightness(bankNplRatio)
     domesticCons * p.nbfi.creditBaseRate.toDouble * (1.0 + p.nbfi.countercyclical * tight.toDouble)
 
@@ -109,7 +109,7 @@ object Nbfi:
     loanStock / p.nbfi.creditMaturity
 
   /** NBFI defaults: base rate widening with unemployment. */
-  def nbfiDefaults(loanStock: PLN, unempRate: Ratio)(using p: SimParams): PLN =
+  def nbfiDefaults(loanStock: PLN, unempRate: Share)(using p: SimParams): PLN =
     loanStock * p.nbfi.defaultBase.toDouble * (1.0 + p.nbfi.defaultUnempSens * Math.max(0.0, unempRate.toDouble - UnempDefaultThreshold))
 
   // ---------------------------------------------------------------------------
@@ -124,8 +124,8 @@ object Nbfi:
       employed: Int,                               // employed workers
       wage: PLN,                                   // average monthly wage
       @scala.annotation.unused priceLevel: Double, // CPI price level (unused in current spec, kept for interface stability)
-      unempRate: Ratio,                            // unemployment rate
-      bankNplRatio: Ratio,                         // aggregate bank NPL ratio (tightness signal)
+      unempRate: Share,                              // unemployment rate
+      bankNplRatio: Share,                           // aggregate bank NPL ratio (tightness signal)
       govBondYield: Rate,                          // government bond yield (annualised)
       corpBondYield: Rate,                         // corporate bond yield (annualised)
       equityReturn: Rate,                          // equity monthly return

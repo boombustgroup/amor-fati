@@ -74,11 +74,11 @@ object RegionalMigration:
       origin: Region,
       originWage: PLN,
       regionalWages: Map[Region, PLN],
-  )(using p: SimParams): Option[(Region, Ratio)] =
+  )(using p: SimParams): Option[(Region, Share)] =
     Region.all
       .filter(_ != origin)
       .map(target => (target, migrationProb(origin, target, originWage, regionalWages)))
-      .filter(_._2 > Ratio.Zero)
+      .filter(_._2 > Share.Zero)
       .maxByOption(_._2.toDouble)
 
   /** Compute migration probability from origin to a specific target. Wraps
@@ -89,7 +89,7 @@ object RegionalMigration:
       target: Region,
       originWage: PLN,
       regionalWages: Map[Region, PLN],
-  )(using p: SimParams): Ratio =
+  )(using p: SimParams): Share =
     val targetWage = regionalWages.getOrElse(target, PLN.Zero)
-    val wageRatio  = if originWage > PLN.Zero then Ratio(targetWage / originWage) else Ratio.One
+    val wageRatio  = if originWage > PLN.Zero then Multiplier(targetWage / originWage) else Multiplier.One
     Region.migrationProbability(origin, target, wageRatio, p.regional.housingBarrierThreshold)
