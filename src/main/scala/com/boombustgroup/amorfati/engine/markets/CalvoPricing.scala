@@ -35,7 +35,7 @@ object CalvoPricing:
 
   /** Per-firm markup update result. */
   case class FirmMarkupResult(
-      newMarkup: Multiplier, // updated markup (unchanged if not selected by Calvo lottery)
+      newMarkup: Multiplier,
       priceChanged: Boolean,
   )
 
@@ -46,14 +46,16 @@ object CalvoPricing:
     *
     * Clamped to [minMarkup, maxMarkup] to prevent extreme pricing.
     */
+  @computationBoundary
   private[amorfati] def optimalMarkup(
       sectorDemandMult: Double,
       wageGrowthMonthly: Double,
   )(using p: SimParams): Multiplier =
+    import ComputationBoundary.toDouble
     val demandPressure = sectorDemandMult - 1.0
-    val costPressure   = wageGrowthMonthly * p.pricing.costPassthrough.toDouble
-    val raw            = p.pricing.baseMarkup.toDouble * (1.0 + demandPressure * p.pricing.demandSensitivity.toDouble + costPressure)
-    Multiplier(raw.max(p.pricing.minMarkup.toDouble).min(p.pricing.maxMarkup.toDouble))
+    val costPressure   = wageGrowthMonthly * toDouble(p.pricing.costPassthrough)
+    val raw            = toDouble(p.pricing.baseMarkup) * (1.0 + demandPressure * toDouble(p.pricing.demandSensitivity) + costPressure)
+    Multiplier(raw.max(toDouble(p.pricing.minMarkup)).min(toDouble(p.pricing.maxMarkup)))
 
   /** Update a single firm's markup via Calvo lottery.
     *
@@ -66,7 +68,7 @@ object CalvoPricing:
       wageGrowthMonthly: Double,
       rng: Random,
   )(using p: SimParams): FirmMarkupResult =
-    if rng.nextDouble() < p.pricing.calvoTheta.toDouble then FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly), priceChanged = true)
+    if p.pricing.calvoTheta.sampleBelow(rng) then FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly), priceChanged = true)
     else FirmMarkupResult(currentMarkup, priceChanged = false)
 
   /** Compute aggregate inflation adjustment from markup dynamics.
@@ -80,11 +82,14 @@ object CalvoPricing:
   )(using SimParams): Double =
     if firms.isEmpty then 0.0
     else
-      val totalRevenue = firms.kahanSumBy(f => Firm.computeCapacity(f).toDouble)
-      if totalRevenue <= 0 then 0.0
+      val totalRevenue = PLN.fromRaw(firms.map(f => Firm.computeCapacity(f).toLong).sum)
+      if totalRevenue <= PLN.Zero then 0.0
       else
-        val weightedChange = firms
-          .zip(prevFirms)
-          .kahanSumBy: (curr, prev) =>
-            Firm.computeCapacity(curr).toDouble * (curr.markup.toDouble - prev.markup.toDouble)
+        val weightedChange = PLN.fromRaw(
+          firms
+            .zip(prevFirms)
+            .map: (curr, prev) =>
+              (Firm.computeCapacity(curr) * (curr.markup - prev.markup)).toLong
+            .sum,
+        )
         weightedChange / totalRevenue
