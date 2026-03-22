@@ -37,9 +37,9 @@ object Banking:
   private val CarPenaltyScale: Multiplier      = Multiplier(2.0) // bps per unit of CAR shortfall
 
   // Credit approval
-  private val MinApprovalProb       = 0.1 // floor: 10% approval even under max stress
-  private val NplApprovalPenalty    = 3.0 // approval drop per unit NPL ratio (e.g. NPL 10% → 30pp)
-  private val ReserveDeficitPenalty = 0.5 // 50pp approval drop when free reserves < 0
+  private val MinApprovalProb: Share       = Share(0.1)  // floor: 10% approval even under max stress
+  private val NplApprovalPenalty: Multiplier = Multiplier(3.0) // approval drop per unit NPL ratio (e.g. NPL 10% → 30pp)
+  private val ReserveDeficitPenalty: Share  = Share(0.5) // 50pp approval drop when free reserves < 0
 
   // Crowding-out (gov bonds vs firm loans)
   private val CrowdingOutSensitivity: Multiplier = Multiplier(0.30) // 30% of bond yield gap passed through to lending spread
@@ -371,22 +371,21 @@ object Banking:
     * the bank approaches full reserve utilisation, rather than a hard block
     * (banks can temporarily fund via interbank market).
     */
-  @computationBoundary
   def canLend(bank: BankState, amount: PLN, rng: Random, ccyb: Rate)(using p: SimParams): Boolean =
-    import ComputationBoundary.toDouble
     if bank.failed then false
     else
       val projectedRwa = bank.loans + bank.consumerLoans + bank.corpBondHoldings * Share(CorpBondRiskWeight) + amount
-      val projectedCar = if projectedRwa > PLN(1.0) then bank.capital / projectedRwa else 10.0
-      val minCar       = Macroprudential.effectiveMinCar(bank.id.toInt, toDouble(ccyb))
+      val projectedCar = if projectedRwa > PLN(1.0) then Multiplier(bank.capital / projectedRwa) else Multiplier(10.0)
+      // TODO: Macroprudential.effectiveMinCar returns Double — needs typed migration
+      val minCar       = Multiplier(Macroprudential.effectiveMinCar(bank.id.toInt, ccyb.toLong.toDouble / 10000.0))
       val carOk        = projectedCar >= minCar
       val lcrOk        = if p.flags.bankLcr then bank.lcr >= p.banking.lcrMin else true
       val nsfrOk       = if p.flags.bankLcr then bank.nsfr >= p.banking.nsfrMin else true
-      val nplPenalty   = toDouble(bank.nplRatio * Multiplier(NplApprovalPenalty))
+      val nplPenalty   = bank.nplRatio * NplApprovalPenalty // Share * Multiplier → Multiplier
       val freeReserves = bank.deposits * (Share.One - p.banking.reserveReq) - bank.loans - bank.govBondHoldings
-      val resPenalty   = if freeReserves > PLN.Zero then 0.0 else ReserveDeficitPenalty
-      val approvalP    = Math.max(MinApprovalProb, 1.0 - nplPenalty - resPenalty)
-      carOk && lcrOk && nsfrOk && rng.nextDouble() < approvalP
+      val resPenalty   = if freeReserves > PLN.Zero then Share.Zero else ReserveDeficitPenalty
+      val approvalP    = (Share.One - nplPenalty.toShare - resPenalty).max(MinApprovalProb)
+      carOk && lcrOk && nsfrOk && approvalP.sampleBelow(rng)
 
   // ---------------------------------------------------------------------------
   // Interbank market

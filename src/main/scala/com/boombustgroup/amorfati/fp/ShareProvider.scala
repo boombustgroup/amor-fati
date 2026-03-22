@@ -30,6 +30,8 @@ object ShareProvider:
     def <(other: Share): Boolean                = s < other
     def >=(other: Share): Boolean               = s >= other
     def <=(other: Share): Boolean               = s <= other
+    /** True if rng.nextDouble() < this share. For probability sampling. */
+    def sampleBelow(rng: scala.util.Random): Boolean = rng.nextDouble() < asDouble(s)
 
   extension (n: Int)
     def *(s: Share): Double = n.toDouble * asDouble(s)
