@@ -2,8 +2,34 @@ package com.boombustgroup.amorfati
 
 import scala.annotation.targetName
 
+/** Fixed-point type system for SFC-ABM engine.
+  *
+  * All monetary and behavioral values are Long-based (scale 10^4). Addition is
+  * exact. Multiplication uses BigInt intermediate with banker's rounding
+  * (half-even). Double exists only inside CES production function (sandboxed).
+  *
+  * SFC identity check: `flows.map(_.toLong).sum == 0L` — exact zero, no
+  * tolerance.
+  */
 object types:
-  // === Entity IDs ===
+
+  // === Fixed-point scale ===
+  private val Scale: Long     = 10_000L
+  private val HalfScale: Long = 5_000L
+
+  /** Banker's rounding (half-even) for BigInt intermediate results. Eliminates
+    * systematic drift across thousands of agents.
+    */
+  private def bankerRound(product: BigInt): Long =
+    val quotient  = product / Scale
+    val remainder = (product % Scale).abs.toLong
+    if remainder < HalfScale then quotient.toLong
+    else if remainder > HalfScale then (quotient + product.signum).toLong
+    else if quotient % 2 == 0 then quotient.toLong
+    else (quotient + product.signum).toLong
+
+  // === Entity IDs (Int, not fixed-point) ===
+
   opaque type BankId = Int
   object BankId:
     inline def apply(i: Int): BankId            = i
@@ -26,81 +52,99 @@ object types:
     inline def apply(i: Int): SectorIdx            = i
     extension (s: SectorIdx) inline def toInt: Int = s
 
-  // === Monetary amounts ===
-  opaque type PLN = Double
+  // === PLN — monetary amounts (stocks, flows) ===
+
+  opaque type PLN = Long
   object PLN:
-    inline def apply(d: Double): PLN = d
-    val Zero: PLN                    = 0.0
+    val Zero: PLN                    = 0L
+    def apply(d: Double): PLN       = Math.round(d * Scale)
+    def fromLong(l: Long): PLN      = l * Scale
+    def fromRaw(raw: Long): PLN     = raw
+
     extension (p: PLN)
-      inline def +(other: PLN): PLN           = p + other
-      inline def -(other: PLN): PLN           = p - other
-      inline def *(scalar: Double): PLN       = p * scalar
+      def toDouble: Double             = p.toDouble / Scale
+      def toLong: Long                 = p
+      def +(other: PLN): PLN           = p + other
+      def -(other: PLN): PLN           = p - other
+      def unary_- : PLN               = -p
+      def abs: PLN                     = math.abs(p)
+      def max(other: PLN): PLN         = math.max(p, other)
+      def min(other: PLN): PLN         = math.min(p, other)
+      def clamp(lo: PLN, hi: PLN): PLN = math.max(lo, math.min(hi, p))
+      def >(other: PLN): Boolean       = p > other
+      def <(other: PLN): Boolean       = p < other
+      def >=(other: PLN): Boolean      = p >= other
+      def <=(other: PLN): Boolean      = p <= other
+
+      // Cross-type multiplication (BigInt intermediate, banker's rounding)
       @targetName("plnTimesRate")
-      inline def *(r: Rate): PLN              = p * r
-      @targetName("plnTimesRatio")
-      inline def *(r: Ratio): PLN             = p * r
+      def *(r: Rate): PLN              = bankerRound(BigInt(p) * BigInt(r))
+      @targetName("plnTimesShare")
+      def *(s: Share): PLN             = bankerRound(BigInt(p) * BigInt(s))
+      @targetName("plnTimesMultiplier")
+      def *(m: Multiplier): PLN        = bankerRound(BigInt(p) * BigInt(m))
+      @targetName("plnTimesCoefficient")
+      def *(c: Coefficient): PLN       = bankerRound(BigInt(p) * BigInt(c))
+
+      // Scalar multiplication (for worker counts, Int divisors)
+      def *(scalar: Double): PLN       = PLN(p.toDouble / Scale * scalar)
       @targetName("plnDivPln")
-      inline def /(other: PLN): Double        = p / other
+      def /(other: PLN): Double        = if other != 0L then p.toDouble / other.toDouble else 0.0
       @targetName("plnDivScalar")
-      inline def /(scalar: Double): PLN       = p / scalar
-      @targetName("plnDivRatio")
-      inline def /(r: Ratio): PLN             = p / r
-      inline def unary_- : PLN                = -p
-      inline def abs: PLN                     = math.abs(p)
-      inline def max(other: PLN): PLN         = math.max(p, other)
-      inline def min(other: PLN): PLN         = math.min(p, other)
-      inline def clamp(lo: PLN, hi: PLN): PLN = math.max(lo, math.min(hi, p))
-      inline def toDouble: Double             = p
-      inline def >(other: PLN): Boolean       = p > other
-      inline def <(other: PLN): Boolean       = p < other
-      inline def >=(other: PLN): Boolean      = p >= other
-      inline def <=(other: PLN): Boolean      = p <= other
+      def /(scalar: Double): PLN       = PLN(p.toDouble / Scale / scalar)
+      def /(divisor: Long): PLN        = p / divisor
+
     extension (n: Int)
       @targetName("intTimesPln")
-      inline def *(p: PLN): PLN      = p * n.toDouble
-    given Ordering[PLN]              = Ordering.Double.TotalOrdering
+      def *(p: PLN): PLN              = p * n.toLong
+
+    given Ordering[PLN]              = Ordering.Long
     given Numeric[PLN] with
       def plus(x: PLN, y: PLN): PLN             = x + y
       def minus(x: PLN, y: PLN): PLN            = x - y
-      def times(x: PLN, y: PLN): PLN            = PLN(x.toDouble * y.toDouble)
+      def times(x: PLN, y: PLN): PLN            = PLN(x.toDouble * y.toDouble) // rare, use typed ops
       def negate(x: PLN): PLN                   = -x
       def fromInt(x: Int): PLN                  = PLN(x.toDouble)
       def parseString(str: String): Option[PLN] = str.toDoubleOption.map(PLN(_))
-      def toInt(x: PLN): Int                    = x.toDouble.toInt
-      def toLong(x: PLN): Long                  = x.toDouble.toLong
+      def toInt(x: PLN): Int                    = (x / Scale).toInt
+      def toLong(x: PLN): Long                  = x / Scale
       def toFloat(x: PLN): Float                = x.toDouble.toFloat
       def toDouble(x: PLN): Double              = x.toDouble
-      def compare(x: PLN, y: PLN): Int          = java.lang.Double.compare(x, y)
+      def compare(x: PLN, y: PLN): Int          = java.lang.Long.compare(x, y)
 
-  // === Interest rates (annual, e.g., 0.0575 = 5.75%) ===
-  opaque type Rate = Double
+  // === Rate — interest rates (annual, e.g., 0.0575 = 5.75%) ===
+
+  opaque type Rate = Long
   object Rate:
-    inline def apply(d: Double): Rate = d
-    val Zero: Rate                    = 0.0
+    val Zero: Rate                  = 0L
+    def apply(d: Double): Rate     = Math.round(d * Scale)
+
     extension (r: Rate)
-      inline def +(other: Rate): Rate            = r + other
-      inline def -(other: Rate): Rate            = r - other
-      inline def *(scalar: Double): Rate         = r * scalar
-      @targetName("rateTimesRatio")
-      inline def *(ratio: Ratio): Rate           = r * ratio
-      inline def /(scalar: Double): Rate         = r / scalar
+      def toDouble: Double                      = r.toDouble / Scale
+      def toLong: Long                          = r
+      def +(other: Rate): Rate                  = r + other
+      def -(other: Rate): Rate                  = r - other
+      def unary_- : Rate                        = -r
+      def abs: Rate                             = math.abs(r)
+      def max(other: Rate): Rate                = math.max(r, other)
+      def min(other: Rate): Rate                = math.min(r, other)
+      def clamp(lo: Rate, hi: Rate): Rate       = math.max(lo, math.min(hi, r))
+      def monthly: Rate                         = Rate(r.toDouble / Scale / 12.0)
+      def annualize: Rate                       = Rate(r.toDouble / Scale * 12.0)
+      def *(m: Multiplier): Rate                = Rate(r.toDouble / Scale * m.toDouble)
+      def *(s: Share): Rate                     = Rate(r.toDouble / Scale * s.toDouble)
+      def *(scalar: Double): Rate               = Rate(r.toDouble / Scale * scalar)
+      def /(scalar: Double): Rate               = Rate(r.toDouble / Scale / scalar)
       @targetName("rateDivRate")
-      inline def /(other: Rate): Double          = r / other
-      inline def unary_- : Rate                  = -r
-      inline def abs: Rate                       = math.abs(r)
-      inline def max(other: Rate): Rate          = math.max(r, other)
-      inline def min(other: Rate): Rate          = math.min(r, other)
-      inline def clamp(lo: Rate, hi: Rate): Rate = math.max(lo, math.min(hi, r))
-      inline def monthly: Rate                   = r / 12.0
-      inline def annualize: Rate                 = r * 12.0
+      def /(other: Rate): Double                = if other != 0L then r.toDouble / other.toDouble else 0.0
       @targetName("ratePlusDouble")
-      inline def +(scalar: Double): Double       = r + scalar
-      inline def toDouble: Double                = r
-      inline def >(other: Rate): Boolean         = r > other
-      inline def <(other: Rate): Boolean         = r < other
-      inline def >=(other: Rate): Boolean        = r >= other
-      inline def <=(other: Rate): Boolean        = r <= other
-    given Ordering[Rate]              = Ordering.Double.TotalOrdering
+      def +(scalar: Double): Double             = r.toDouble / Scale + scalar
+      def >(other: Rate): Boolean               = r > other
+      def <(other: Rate): Boolean               = r < other
+      def >=(other: Rate): Boolean              = r >= other
+      def <=(other: Rate): Boolean              = r <= other
+
+    given Ordering[Rate]              = Ordering.Long
     given Numeric[Rate] with
       def plus(x: Rate, y: Rate): Rate           = x + y
       def minus(x: Rate, y: Rate): Rate          = x - y
@@ -108,99 +152,169 @@ object types:
       def negate(x: Rate): Rate                  = -x
       def fromInt(x: Int): Rate                  = Rate(x.toDouble)
       def parseString(str: String): Option[Rate] = str.toDoubleOption.map(Rate(_))
-      def toInt(x: Rate): Int                    = x.toDouble.toInt
-      def toLong(x: Rate): Long                  = x.toDouble.toLong
+      def toInt(x: Rate): Int                    = (x / Scale).toInt
+      def toLong(x: Rate): Long                  = x / Scale
       def toFloat(x: Rate): Float                = x.toDouble.toFloat
       def toDouble(x: Rate): Double              = x.toDouble
-      def compare(x: Rate, y: Rate): Int         = java.lang.Double.compare(x, y)
+      def compare(x: Rate, y: Rate): Int         = java.lang.Long.compare(x, y)
 
-  // === Ratios (0-1 range: shares, probabilities, adoption rates) ===
-  opaque type Ratio = Double
-  object Ratio:
-    inline def apply(d: Double): Ratio             = d
-    inline def fraction(num: Int, den: Int): Ratio = num.toDouble / den.toDouble
-    val Zero: Ratio                                = 0.0
-    val One: Ratio                                 = 1.0
-    extension (r: Ratio)
-      inline def +(other: Ratio): Ratio             = r + other
-      inline def -(other: Ratio): Ratio             = r - other
-      inline def *(scalar: Double): Ratio           = r * scalar
-      @targetName("ratioTimesRatio")
-      inline def *(other: Ratio): Ratio             = r * other
-      @targetName("ratioTimesPln")
-      inline def *(p: PLN): PLN                     = p * r
-      @targetName("ratioDivScalar")
-      inline def /(scalar: Double): Ratio           = r / scalar
-      @targetName("ratioDivInt")
-      inline def /(n: Int): Ratio                   = r / n.toDouble
-      @targetName("ratioDivRatio")
-      inline def /(other: Ratio): Double            = r / other
-      inline def sqrt: Ratio                        = math.sqrt(r)
-      inline def max(other: Ratio): Ratio           = math.max(r, other)
-      inline def min(other: Ratio): Ratio           = math.min(r, other)
-      inline def clamp(lo: Ratio, hi: Ratio): Ratio = math.max(lo, math.min(hi, r))
-      inline def monthly: Ratio                     = r / 12.0
-      inline def toRate: Rate                       = Rate(r) // explicit Ratio → Rate at semantic boundary
-      inline def toDouble: Double                   = r
-      inline def >(other: Ratio): Boolean           = r > other
-      inline def <(other: Ratio): Boolean           = r < other
-      inline def >=(other: Ratio): Boolean          = r >= other
-      inline def <=(other: Ratio): Boolean          = r <= other
-    given Ordering[Ratio]                          = Ordering.Double.TotalOrdering
+  // === Share — bounded [0,1] fractions, probabilities, proportions ===
+
+  opaque type Share = Long
+  object Share:
+    val Zero: Share                 = 0L
+    val One: Share                  = Scale
+    def apply(d: Double): Share    = Math.round(d * Scale)
+    def fraction(num: Int, den: Int): Share = Math.round(num.toDouble / den.toDouble * Scale)
+
+    extension (s: Share)
+      def toDouble: Double                         = s.toDouble / Scale
+      def toLong: Long                             = s
+      def +(other: Share): Share                    = s + other
+      def -(other: Share): Share                    = s - other
+      def *(other: Share): Share                    = bankerRound(BigInt(s) * BigInt(other))
+      @targetName("shareTimesMultiplier")
+      def *(m: Multiplier): Multiplier             = bankerRound(BigInt(s) * BigInt(m))
+      @targetName("shareTimesPln")
+      def *(p: PLN): PLN                           = bankerRound(BigInt(p) * BigInt(s))
+      def *(scalar: Double): Share                 = Share(s.toDouble / Scale * scalar)
+      @targetName("shareDivScalar")
+      def /(scalar: Double): Share                 = Share(s.toDouble / Scale / scalar)
+      @targetName("shareDivInt")
+      def /(n: Int): Share                         = Share(s.toDouble / Scale / n)
+      @targetName("shareDivShare")
+      def /(other: Share): Double                  = if other != 0L then s.toDouble / other.toDouble else 0.0
+      def max(other: Share): Share                 = math.max(s, other)
+      def min(other: Share): Share                 = math.min(s, other)
+      def clamp(lo: Share, hi: Share): Share        = math.max(lo, math.min(hi, s))
+      def monthly: Share                           = Share(s.toDouble / Scale / 12.0)
+      def sqrt: Share                              = Share(math.sqrt(s.toDouble / Scale))
+      def toRate: Rate                             = Rate.apply(s.toDouble / Scale)
+      def toMultiplier: Multiplier                 = Multiplier.fromRaw(s)
+      def >(other: Share): Boolean                 = s > other
+      def <(other: Share): Boolean                 = s < other
+      def >=(other: Share): Boolean                = s >= other
+      def <=(other: Share): Boolean                = s <= other
+
+    given Ordering[Share]                          = Ordering.Long
     extension (n: Int)
-      @targetName("intTimesRatio")
-      inline def *(r: Ratio): Double               = n.toDouble * r.toDouble
-    given Numeric[Ratio] with
-      def plus(x: Ratio, y: Ratio): Ratio         = x + y
-      def minus(x: Ratio, y: Ratio): Ratio        = x - y
-      def times(x: Ratio, y: Ratio): Ratio        = x * y
-      def negate(x: Ratio): Ratio                 = Ratio(-x.toDouble)
-      def fromInt(x: Int): Ratio                  = Ratio(x.toDouble)
-      def parseString(str: String): Option[Ratio] = str.toDoubleOption.map(Ratio(_))
-      def toInt(x: Ratio): Int                    = x.toDouble.toInt
-      def toLong(x: Ratio): Long                  = x.toDouble.toLong
-      def toFloat(x: Ratio): Float                = x.toDouble.toFloat
-      def toDouble(x: Ratio): Double              = x.toDouble
-      def compare(x: Ratio, y: Ratio): Int        = java.lang.Double.compare(x, y)
+      @targetName("intTimesShare")
+      def *(s: Share): Double                      = n.toDouble * s.toDouble / Scale
+    given Numeric[Share] with
+      def plus(x: Share, y: Share): Share         = x + y
+      def minus(x: Share, y: Share): Share        = x - y
+      def times(x: Share, y: Share): Share        = x * y
+      def negate(x: Share): Share                 = Share(-x.toDouble)
+      def fromInt(x: Int): Share                  = Share(x.toDouble)
+      def parseString(str: String): Option[Share] = str.toDoubleOption.map(Share(_))
+      def toInt(x: Share): Int                    = (x / Scale).toInt
+      def toLong(x: Share): Long                  = x / Scale
+      def toFloat(x: Share): Float                = x.toDouble.toFloat
+      def toDouble(x: Share): Double              = x.toDouble
+      def compare(x: Share, y: Share): Int        = java.lang.Long.compare(x, y)
 
-  // === Price indices (base = 1.0, dimensionless multiplicative factors) ===
-  opaque type PriceIndex = Double
+  // === Multiplier — [0,∞) multiplicative factors (markup, wage mult, labor eff) ===
+
+  opaque type Multiplier = Long
+  object Multiplier:
+    val Zero: Multiplier                    = 0L
+    val One: Multiplier                     = Scale
+    def apply(d: Double): Multiplier       = Math.round(d * Scale)
+    def fromRaw(raw: Long): Multiplier     = raw
+
+    extension (m: Multiplier)
+      def toDouble: Double                                    = m.toDouble / Scale
+      def toLong: Long                                        = m
+      @targetName("multPlusMult")
+      def +(other: Multiplier): Multiplier                    = m + other
+      @targetName("multMinusMult")
+      def -(other: Multiplier): Multiplier                    = m - other
+      @targetName("multTimesMult")
+      def *(other: Multiplier): Multiplier                    = bankerRound(BigInt(m) * BigInt(other))
+      @targetName("multTimesShare")
+      def *(s: Share): Multiplier                             = bankerRound(BigInt(m) * BigInt(s))
+      @targetName("multTimesPln")
+      def *(p: PLN): PLN                                      = bankerRound(BigInt(p) * BigInt(m))
+      def *(scalar: Double): Multiplier                       = Multiplier(m.toDouble / Scale * scalar)
+      @targetName("multDivScalar")
+      def /(scalar: Double): Multiplier                       = Multiplier(m.toDouble / Scale / scalar)
+      @targetName("multDivMult")
+      def /(other: Multiplier): Double                        = if other != 0L then m.toDouble / other.toDouble else 0.0
+      def max(other: Multiplier): Multiplier                  = math.max(m, other)
+      def min(other: Multiplier): Multiplier                  = math.min(m, other)
+      def clamp(lo: Multiplier, hi: Multiplier): Multiplier   = math.max(lo, math.min(hi, m))
+      def >(other: Multiplier): Boolean                       = m > other
+      def <(other: Multiplier): Boolean                       = m < other
+      def >=(other: Multiplier): Boolean                      = m >= other
+      def <=(other: Multiplier): Boolean                      = m <= other
+
+    given Ordering[Multiplier]              = Ordering.Long
+
+  // === Coefficient — (-∞,∞) behavioral parameters (sensitivity, elasticity, gap) ===
+
+  opaque type Coefficient = Long
+  object Coefficient:
+    val Zero: Coefficient                   = 0L
+    val One: Coefficient                    = Scale
+    def apply(d: Double): Coefficient      = Math.round(d * Scale)
+
+    extension (c: Coefficient)
+      def toDouble: Double                                       = c.toDouble / Scale
+      def toLong: Long                                           = c
+      @targetName("coefPlusCoef")
+      def +(other: Coefficient): Coefficient                     = c + other
+      @targetName("coefMinusCoef")
+      def -(other: Coefficient): Coefficient                     = c - other
+      @targetName("coefTimesCoef")
+      def *(other: Coefficient): Coefficient                     = bankerRound(BigInt(c) * BigInt(other))
+      def *(scalar: Double): Coefficient                         = Coefficient(c.toDouble / Scale * scalar)
+      def abs: Coefficient                                       = math.abs(c)
+      def max(other: Coefficient): Coefficient                   = math.max(c, other)
+      def min(other: Coefficient): Coefficient                   = math.min(c, other)
+      def >(other: Coefficient): Boolean                         = c > other
+      def <(other: Coefficient): Boolean                         = c < other
+      def >=(other: Coefficient): Boolean                        = c >= other
+      def <=(other: Coefficient): Boolean                        = c <= other
+
+    given Ordering[Coefficient]              = Ordering.Long
+
+  // === PriceIndex — price indices (CPI, HPI, ETS), base = 1.0 ===
+
+  opaque type PriceIndex = Long
   object PriceIndex:
-    inline def apply(d: Double): PriceIndex = d
-    val Base: PriceIndex                    = 1.0
+    val Base: PriceIndex                     = Scale
+    def apply(d: Double): PriceIndex        = Math.round(d * Scale)
+
     extension (p: PriceIndex)
+      def toDouble: Double                                    = p.toDouble / Scale
+      def toLong: Long                                        = p
       @targetName("priceIdxTimesIdx")
-      inline def *(other: PriceIndex): PriceIndex = PriceIndex(p * other)
+      def *(other: PriceIndex): PriceIndex                    = bankerRound(BigInt(p) * BigInt(other))
       @targetName("priceIdxTimesRate")
-      inline def *(r: Rate): PriceIndex           = PriceIndex(p * (r: Double))
+      def *(r: Rate): PriceIndex                              = PriceIndex(p.toDouble / Scale * r.toDouble)
       @targetName("priceIdxTimesScalar")
-      inline def *(scalar: Double): PriceIndex    = PriceIndex(p * scalar)
+      def *(scalar: Double): PriceIndex                       = PriceIndex(p.toDouble / Scale * scalar)
       @targetName("priceIdxTimesPln")
-      inline def *(pln: PLN): PLN                 = pln * (p: Double)
+      def *(pln: PLN): PLN                                    = bankerRound(BigInt(pln) * BigInt(p))
       @targetName("priceIdxDivIdx")
-      inline def /(other: PriceIndex): Double     = (p: Double) / (other: Double)
-      inline def toDouble: Double                 = p
-      inline def >(other: PriceIndex): Boolean    = p > other
-      inline def <(other: PriceIndex): Boolean    = p < other
+      def /(other: PriceIndex): Double                        = if other != 0L then p.toDouble / other.toDouble else 0.0
+      def >(other: PriceIndex): Boolean                       = p > other
+      def <(other: PriceIndex): Boolean                       = p < other
 
-  // === Volatility (standard deviation, σ per period) ===
-  opaque type Sigma = Double
+  // === Sigma — CES elasticity of substitution (evolves via logistic dynamics) ===
+
+  opaque type Sigma = Long
   object Sigma:
-    inline def apply(d: Double): Sigma = d
-    val Zero: Sigma                    = 0.0
-    extension (s: Sigma)
-      inline def *(scalar: Double): Double = s * scalar
-      inline def +(other: Double): Double  = s + other
-      inline def toDouble: Double          = s
+    val Zero: Sigma                          = 0L
+    def apply(d: Double): Sigma             = Math.round(d * Scale)
 
-  // === Shock magnitude (one-time multiplicative increment, unbounded) ===
-  opaque type Shock = Double
-  object Shock:
-    inline def apply(d: Double): Shock = d
-    val Zero: Shock                    = 0.0
-    extension (s: Shock)
-      inline def toDouble: Double         = s
-      inline def +(other: Double): Double = s + other
-      inline def >(other: Shock): Boolean = s > other
-      @targetName("shockPlusShock")
-      inline def +(other: Shock): Shock   = Shock(s + (other: Double))
+    extension (s: Sigma)
+      def toDouble: Double                  = s.toDouble / Scale
+      def toLong: Long                      = s
+      def +(other: Sigma): Sigma            = s + other
+      def *(scalar: Double): Sigma          = Sigma(s.toDouble / Scale * scalar)
+      def >(other: Sigma): Boolean          = s > other
+      def <(other: Sigma): Boolean          = s < other
+      def >=(other: Sigma): Boolean         = s >= other
+
+    given Ordering[Sigma]                   = Ordering.Long
