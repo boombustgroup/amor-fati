@@ -20,38 +20,38 @@ enum Region(
     val label: String,
     val wageMultiplier: Multiplier,
     val baseUnemployment: Share,
-    val housingCostIndex: Double,
+    val housingCostIndex: Multiplier,
     val populationShare: Share,
 ):
   /** Centralny: Warszawa + mazowieckie. Highest wages, lowest unemployment,
     * most expensive housing. Services/BPO hub.
     */
-  case Central extends Region("Centralny", Multiplier(1.35), Share(0.03), 1.80, Share(0.21))
+  case Central extends Region("Centralny", Multiplier(1.35), Share(0.03), Multiplier(1.80), Share(0.21))
 
   /** Południowy: Śląsk + Małopolska. Industry + services mix. Kraków tech hub.
     * Mining restrukturyzacja in Śląsk.
     */
-  case South extends Region("Poludniowy", Multiplier(1.10), Share(0.05), 1.20, Share(0.21))
+  case South extends Region("Poludniowy", Multiplier(1.10), Share(0.05), Multiplier(1.20), Share(0.21))
 
   /** Wschodni: Lubelskie, Podkarpackie, Podlaskie, Świętokrzyskie. Highest
     * unemployment, lowest wages. Agriculture-heavy. "Ściana wschodnia".
     */
-  case East extends Region("Wschodni", Multiplier(0.80), Share(0.09), 0.65, Share(0.14))
+  case East extends Region("Wschodni", Multiplier(0.80), Share(0.09), Multiplier(0.65), Share(0.14))
 
   /** Północno-zachodni: Wielkopolskie, Zachodniopomorskie, Lubuskie. Balanced
     * economy, Poznań as regional center, moderate wages.
     */
-  case Northwest extends Region("Polnocno-zachodni", Multiplier(1.00), Share(0.05), 0.90, Share(0.16))
+  case Northwest extends Region("Polnocno-zachodni", Multiplier(1.00), Share(0.05), Multiplier(0.90), Share(0.16))
 
   /** Południowo-zachodni: Dolnośląskie, Opolskie. Wrocław tech hub. Growing
     * services sector, moderate housing costs.
     */
-  case Southwest extends Region("Poludniowo-zachodni", Multiplier(1.05), Share(0.05), 1.00, Share(0.12))
+  case Southwest extends Region("Poludniowo-zachodni", Multiplier(1.05), Share(0.05), Multiplier(1.00), Share(0.12))
 
   /** Północny: Kujawsko-pomorskie, Warmińsko-mazurskie, Pomorskie.
     * Gdańsk/Gdynia port economy. Warmia high unemployment.
     */
-  case North extends Region("Polnocny", Multiplier(0.95), Share(0.07), 0.85, Share(0.16))
+  case North extends Region("Polnocny", Multiplier(0.95), Share(0.07), Multiplier(0.85), Share(0.16))
 
 object Region:
 
@@ -99,7 +99,7 @@ object Region:
     else
       val friction       = frictionMatrix(from.ordinal)(to.ordinal)
       val wagePull       = (wageDiffRatio - Multiplier.One).max(Multiplier.Zero).toDouble
-      val housingBarrier = Math.max(0.0, 1.0 - to.housingCostIndex / from.housingCostIndex * housingThreshold)
+      val housingBarrier = Math.max(0.0, 1.0 - to.housingCostIndex / from.housingCostIndex * housingThreshold.toDouble)
       Share(((1.0 - friction) * wagePull * housingBarrier).max(0.0).min(1.0))
 
   /** Sector composition by region (6 sectors × 6 regions). Rows = regions

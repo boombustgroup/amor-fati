@@ -80,7 +80,7 @@ object Immigration:
       val mpc                        = 0.85 + rng.nextGaussian() * 0.05
       val region                     = if p.flags.regionalLabor then Region.cdfSample(rng) else Region.Central
       val baseRent                   = p.household.rentMean.toDouble + rng.nextGaussian() * p.household.rentStd.toDouble
-      val rent                       = if p.flags.regionalLabor then baseRent * region.housingCostIndex else baseRent
+      val rent                       = if p.flags.regionalLabor then baseRent * region.housingCostIndex.toDouble else baseRent
       val numChildren                =
         if p.flags.social800 && p.flags.social800ImmigEligible then Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
         else 0
