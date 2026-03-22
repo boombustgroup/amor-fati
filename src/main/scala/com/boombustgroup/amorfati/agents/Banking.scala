@@ -491,35 +491,32 @@ object Banking:
     else
       val absorberId                                                             = healthiestBankId(banks)
       val toAbsorb                                                               = newlyFailed.filter(_.id != absorberId)
-      // Single-pass aggregation of all flows from failed banks
-      val (addDep, addLoans, addAfs, addHtm, addCorpB, addCC, addIB, htmYieldWt) =
-        toAbsorb.foldLeft((0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)):
-          case ((dep, ln, afs, htm, cb, cc, ib, yw), f) =>
-            (
-              dep + f.deposits.toDouble,
-              ln + (f.loans - f.nplAmount).toDouble,
-              afs + f.afsBonds.toDouble,
-              htm + f.htmBonds.toDouble,
-              cb + f.corpBondHoldings.toDouble,
-              cc + f.consumerLoans.toDouble,
-              ib + f.interbankNet.toDouble,
-              yw + f.htmBonds.toDouble * f.htmBookYield.toDouble,
-            )
-      val resolved                                                               = banks.map: b =>
+      // Single-pass PLN aggregation of all flows from failed banks (exact Long addition)
+      val addDep    = PLN.fromRaw(toAbsorb.map(_.deposits.toLong).sum)
+      val addLoans  = PLN.fromRaw(toAbsorb.map(f => (f.loans - f.nplAmount).toLong).sum)
+      val addAfs    = PLN.fromRaw(toAbsorb.map(_.afsBonds.toLong).sum)
+      val addHtm    = PLN.fromRaw(toAbsorb.map(_.htmBonds.toLong).sum)
+      val addCorpB  = PLN.fromRaw(toAbsorb.map(_.corpBondHoldings.toLong).sum)
+      val addCC     = PLN.fromRaw(toAbsorb.map(_.consumerLoans.toLong).sum)
+      val addIB     = PLN.fromRaw(toAbsorb.map(_.interbankNet.toLong).sum)
+      // Weighted yield: Σ(htmBonds × htmBookYield) — PLN × Rate → PLN
+      val htmYieldWt = PLN.fromRaw(toAbsorb.map(f => (f.htmBonds * f.htmBookYield).toLong).sum)
+
+      val resolved = banks.map: b =>
         if b.id == absorberId then
-          val combinedHtm      = b.htmBonds.toDouble + addHtm
+          val combinedHtm = b.htmBonds + addHtm
           val combinedHtmYield =
-            if combinedHtm > 0 then (b.htmBonds.toDouble * b.htmBookYield.toDouble + htmYieldWt) / combinedHtm
-            else b.htmBookYield.toDouble
+            if combinedHtm > PLN.Zero then Rate((b.htmBonds * b.htmBookYield + htmYieldWt) / combinedHtm)
+            else b.htmBookYield
           b.copy(
-            deposits = b.deposits + PLN(addDep),
-            loans = b.loans + PLN(addLoans).max(PLN.Zero),
-            afsBonds = b.afsBonds + PLN(addAfs),
-            htmBonds = b.htmBonds + PLN(addHtm),
-            htmBookYield = Rate(combinedHtmYield),
-            corpBondHoldings = b.corpBondHoldings + PLN(addCorpB),
-            consumerLoans = b.consumerLoans + PLN(addCC),
-            interbankNet = b.interbankNet + PLN(addIB),
+            deposits = b.deposits + addDep,
+            loans = (b.loans + addLoans).max(PLN.Zero),
+            afsBonds = b.afsBonds + addAfs,
+            htmBonds = combinedHtm,
+            htmBookYield = combinedHtmYield,
+            corpBondHoldings = b.corpBondHoldings + addCorpB,
+            consumerLoans = b.consumerLoans + addCC,
+            interbankNet = b.interbankNet + addIB,
             status = BankStatus.Active(0),
           )
         else if b.failed && b.deposits > PLN.Zero then
