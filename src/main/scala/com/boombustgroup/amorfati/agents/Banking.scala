@@ -432,7 +432,7 @@ object Banking:
       banks: Vector[BankState],
       month: Int,       // simulation month (recorded in BankStatus.Failed)
       enabled: Boolean, // whether failure mechanism is active
-      ccyb: Rate,       // countercyclical capital buffer
+      ccyb: Multiplier, // countercyclical capital buffer
   )(using p: SimParams): FailureCheckResult =
     if !enabled then
       FailureCheckResult(
@@ -448,9 +448,9 @@ object Banking:
         if b.failed then b
         else
           val consec    = b.consecutiveLowCar
-          val minCar    = Macroprudential.effectiveMinCar(b.id.toInt, ccyb.toDouble)
-          val lowCar    = b.car.toDouble < minCar
-          val lcrBreach = p.flags.bankLcr && b.lcr.toDouble < p.banking.lcrMin.toDouble * 0.5
+          val minCar    = Macroprudential.effectiveMinCar(b.id.toInt, ccyb)
+          val lowCar    = b.car < minCar
+          val lcrBreach = p.flags.bankLcr && b.lcr < p.banking.lcrMin * Share(0.5)
           val newConsec = if lowCar then consec + 1 else 0
           if newConsec >= 3 || lcrBreach then b.copy(status = BankStatus.Failed(month), capital = PLN.Zero)
           else b.copy(status = BankStatus.Active(newConsec))
@@ -475,7 +475,7 @@ object Banking:
     else
       val withHaircut = banks.map: b =>
         if b.failed && b.deposits > PLN.Zero then
-          val guaranteed = b.deposits.min(PLN(p.banking.bfgDepositGuarantee.toDouble))
+          val guaranteed = b.deposits.min(p.banking.bfgDepositGuarantee)
           val uninsured  = b.deposits - guaranteed
           val haircut    = uninsured * p.banking.bailInDepositHaircut
           (b.copy(deposits = b.deposits - haircut), haircut)
@@ -541,7 +541,7 @@ object Banking:
     */
   def healthiestBankId(banks: Vector[BankState]): BankId =
     val alive = banks.filterNot(_.failed)
-    if alive.isEmpty then banks.maxBy(_.capital.toDouble).id
+    if alive.isEmpty then banks.maxBy(_.capital.toLong).id
     else alive.maxBy(_.car).id
 
   /** Reassign a firm/household from a failed bank to the healthiest surviving
@@ -575,8 +575,8 @@ object Banking:
           val amount  =
             if b.id == lastAliveId then deficit - allocated
             else
-              val share = if totalDep > 0 then b.deposits.toDouble / totalDep else 1.0 / nAlive
-              deficit * Share(share)
+              val share = if totalDep > PLN.Zero then Share(b.deposits / totalDep) else Share(1.0 / nAlive)
+              deficit * share
           val updated = applyBondAllocation(b, amount, currentYield)
           (acc :+ updated, allocated + amount)
     result
@@ -589,16 +589,16 @@ object Banking:
       val newHtmTotal  = b.htmBonds + htmPortion
       val newBookYield =
         if newHtmTotal > PLN.Zero then
-          Rate((b.htmBonds.toDouble * b.htmBookYield.toDouble + htmPortion.toDouble * currentYield.toDouble) / newHtmTotal.toDouble)
+          Rate((b.htmBonds * b.htmBookYield + htmPortion * currentYield) / newHtmTotal)
         else b.htmBookYield
       b.copy(afsBonds = b.afsBonds + afsPortion, htmBonds = newHtmTotal, htmBookYield = newBookYield)
     else if amount < PLN.Zero then
       // Redemption: reduce both proportionally (no floor — matches original behavior)
-      val total = b.govBondHoldings.toDouble
-      if total <= 0 then b.copy(afsBonds = b.afsBonds + amount * Share(0.5), htmBonds = b.htmBonds + amount * Share(0.5))
+      val total = b.govBondHoldings
+      if total <= PLN.Zero then b.copy(afsBonds = b.afsBonds + amount * Share(0.5), htmBonds = b.htmBonds + amount * Share(0.5))
       else
-        val afsFrac   = b.afsBonds.toDouble / total
-        val afsReduce = amount * Share(afsFrac)
+        val afsFrac   = Share(b.afsBonds / total)
+        val afsReduce = amount * afsFrac
         val htmReduce = amount - afsReduce
         b.copy(afsBonds = b.afsBonds + afsReduce, htmBonds = b.htmBonds + htmReduce)
     else b
@@ -626,8 +626,8 @@ object Banking:
               val sold      =
                 if b.id == lastEligibleId then b.govBondHoldings.min(requested - allocated)
                 else
-                  val share = b.govBondHoldings.toDouble / totalBonds
-                  b.govBondHoldings.min(requested * Share(share))
+                  val share = Share(b.govBondHoldings / totalBonds)
+                  b.govBondHoldings.min(requested * share)
               val afsReduce = sold.min(b.afsBonds)
               val htmReduce = sold - afsReduce
               (acc :+ b.copy(afsBonds = (b.afsBonds - afsReduce).max(PLN.Zero), htmBonds = (b.htmBonds - htmReduce).max(PLN.Zero)), allocated + sold)
@@ -648,20 +648,20 @@ object Banking:
     */
   def processHtmForcedSale(banks: Vector[BankState], currentYield: Rate)(using p: SimParams): HtmForcedSaleResult =
     val threshold = p.banking.htmForcedSaleThreshold * p.banking.lcrMin
-    var totalLoss = 0.0
+    var totalLoss = PLN.Zero
     val updated   = banks.map: b =>
-      if b.failed || b.htmBonds <= PLN.Zero || b.lcr.toDouble >= threshold.toDouble then b
+      if b.failed || b.htmBonds <= PLN.Zero || b.lcr >= threshold then b
       else
         val reclassified = b.htmBonds * p.banking.htmForcedSaleRate
-        val yieldGap     = Math.max(currentYield.toDouble - b.htmBookYield.toDouble, 0.0)
-        val loss         = PLN(reclassified.toDouble * p.banking.govBondDuration * yieldGap)
-        totalLoss += loss.toDouble
+        val yieldGap     = (currentYield - b.htmBookYield).max(Rate.Zero)
+        val loss         = reclassified * yieldGap * Multiplier(p.banking.govBondDuration)
+        totalLoss = totalLoss + loss
         b.copy(
           htmBonds = b.htmBonds - reclassified,
           afsBonds = b.afsBonds + reclassified,
           capital = b.capital - loss,
         )
-    HtmForcedSaleResult(updated, PLN(totalLoss))
+    HtmForcedSaleResult(updated, totalLoss)
 
   // ---------------------------------------------------------------------------
   // Per-bank capital PnL
