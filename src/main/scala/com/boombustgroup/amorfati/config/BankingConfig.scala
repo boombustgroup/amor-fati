@@ -155,13 +155,13 @@ case class BankingConfig(
     initHtmBookYield: Rate = Rate(0.055),
     // Deposit mobility (Diamond & Dybvig 1983)
     depositFlightSensitivity: Coefficient = Coefficient(5.0),
-    depositFlightCarThreshold: Share = Share(0.10),
+    depositFlightCarThreshold: Multiplier = Multiplier(0.10),
     depositPanicRate: Share = Share(0.03),
     maxDepositSwitchRate: Share = Share(0.10),
     // Interbank contagion
     interbankRecoveryRate: Share = Share(0.40),
     hoardingNplThreshold: Share = Share(0.05),
-    hoardingSensitivity: Coefficient = Coefficient(10.0),
+    hoardingSensitivity: Multiplier = Multiplier(10.0),
     // IFRS 9 ECL staging
     eclRate1: Share = Share(0.01),
     eclRate2: Share = Share(0.08),

@@ -43,14 +43,16 @@ object InterbankContagion:
     */
   def buildExposureMatrix(banks: Vector[Banking.BankState]): ExposureMatrix =
     val n        = banks.length
-    val nets     = banks.map(_.interbankNet.toDouble)
-    val totalBor = nets.filter(_ < 0).map(-_).kahanSum
-    if totalBor <= 0 then Vector.fill(n)(Vector.fill(n)(PLN.Zero))
+    val nets     = banks.map(_.interbankNet)
+    val totalBor = PLN.fromRaw(nets.filter(_ < PLN.Zero).map(p => (-p).toLong).sum)
+    if totalBor <= PLN.Zero then Vector.fill(n)(Vector.fill(n)(PLN.Zero))
     else
       Vector.tabulate(n): i =>
         Vector.tabulate(n): j =>
           if i == j then PLN.Zero
-          else if nets(i) > 0 && nets(j) < 0 then PLN(nets(i) * (-nets(j) / totalBor))
+          else if nets(i) > PLN.Zero && nets(j) < PLN.Zero then
+            // exposure(i→j) = lender_i × (borrower_j / totalBorrowing)
+            nets(i) * Share((-nets(j)) / totalBor)
           else PLN.Zero
 
   /** Apply contagion losses from failed banks to their interbank
@@ -85,17 +87,17 @@ object InterbankContagion:
     */
   def hoardingFactor(systemNplRatio: Share)(using p: SimParams): Share =
     val excess = (systemNplRatio - p.banking.hoardingNplThreshold).max(Share.Zero)
-    (Share.One - Share(excess.toDouble * p.banking.hoardingSensitivity.toDouble)).clamp(Share.Zero, Share.One)
+    (Share.One - (excess * p.banking.hoardingSensitivity).toShare).clamp(Share.Zero, Share.One)
 
   /** Total contagion loss across all non-failed banks. */
   def totalContagionLoss(
       before: Vector[Banking.BankState],
       after: Vector[Banking.BankState],
   ): PLN =
-    PLN(
+    PLN.fromRaw(
       before
         .zip(after)
         .map: (pre, post) =>
-          if !pre.failed then (pre.capital - post.capital).max(PLN.Zero).toDouble else 0.0
-        .kahanSum,
+          if !pre.failed then (pre.capital - post.capital).max(PLN.Zero).toLong else 0L
+        .sum,
     )

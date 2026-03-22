@@ -80,6 +80,8 @@ object types:
   extension (c: Coefficient)
     @targetName("coefTimesShare")
     def *(s: Share): Coefficient       = Coefficient(asDouble(c.toLong) * asDouble(s.toLong))
+    @targetName("coefTimesMultiplier")
+    def *(m: Multiplier): Share        = Share(asDouble(c.toLong) * asDouble(m.toLong))
     @targetName("coefTimesPln")
     def *(p: PLN): PLN                 = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
 
