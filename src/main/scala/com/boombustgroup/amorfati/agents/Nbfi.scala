@@ -83,26 +83,29 @@ object Nbfi:
   // ---------------------------------------------------------------------------
 
   /** Bank credit tightness signal: 0 at NPL ≤ 3%, rises linearly, 1.0 at 6%. */
+  @computationBoundary
   def bankTightness(bankNplRatio: Share): Share =
-    Share((bankNplRatio.toDouble - NplTightnessFloor) / NplTightnessRange).clamp(Share.Zero, Share.One)
+    Share((ComputationBoundary.toDouble(bankNplRatio) - NplTightnessFloor) / NplTightnessRange).clamp(Share.Zero, Share.One)
 
   /** TFI net inflow: proportional to wage bill, modulated by excess returns. */
+  @computationBoundary
   def tfiInflow(employed: Int, wage: PLN, equityReturn: Rate, govBondYield: Rate, depositRate: Rate)(using
       p: SimParams,
   ): PLN =
-    val wageBill   = PLN(wage.toDouble * employed)
+    val wageBill   = employed * wage
     val base       = wageBill * p.nbfi.tfiInflowRate
     // Excess return: weighted avg of fund returns vs deposit rate
-    val fundReturn = govBondYield.toDouble * p.nbfi.tfiGovBondShare.toDouble +
-      equityReturn.toDouble * MonthsPerYear * p.nbfi.tfiEquityShare.toDouble +
-      govBondYield.toDouble * p.nbfi.tfiCorpBondShare.toDouble // proxy: corp ~ gov yield
-    val excessReturn = Math.max(-ExcessReturnCap, Math.min(ExcessReturnCap, fundReturn - depositRate.toDouble))
+    val fundReturn = ComputationBoundary.toDouble(govBondYield) * ComputationBoundary.toDouble(p.nbfi.tfiGovBondShare) +
+      ComputationBoundary.toDouble(equityReturn) * MonthsPerYear * ComputationBoundary.toDouble(p.nbfi.tfiEquityShare) +
+      ComputationBoundary.toDouble(govBondYield) * ComputationBoundary.toDouble(p.nbfi.tfiCorpBondShare) // proxy: corp ~ gov yield
+    val excessReturn = Math.max(-ExcessReturnCap, Math.min(ExcessReturnCap, fundReturn - ComputationBoundary.toDouble(depositRate)))
     base * Multiplier(1.0 + excessReturn * ExcessReturnSens)
 
   /** NBFI credit origination: counter-cyclical to bank tightness. */
   def nbfiOrigination(domesticCons: PLN, bankNplRatio: Share)(using p: SimParams): PLN =
-    val tight = bankTightness(bankNplRatio)
-    PLN(domesticCons.toDouble * p.nbfi.creditBaseRate.toDouble * (1.0 + p.nbfi.countercyclical.toDouble * tight.toDouble))
+    val tight       = bankTightness(bankNplRatio)
+    val cyclicalAdj = Multiplier.One + (p.nbfi.countercyclical * tight).toMultiplier
+    domesticCons * p.nbfi.creditBaseRate * cyclicalAdj
 
   /** NBFI loan repayment: stock / maturity. */
   def nbfiRepayment(loanStock: PLN)(using p: SimParams): PLN =
@@ -110,7 +113,9 @@ object Nbfi:
 
   /** NBFI defaults: base rate widening with unemployment. */
   def nbfiDefaults(loanStock: PLN, unempRate: Share)(using p: SimParams): PLN =
-    PLN(loanStock.toDouble * p.nbfi.defaultBase.toDouble * (1.0 + p.nbfi.defaultUnempSens.toDouble * Math.max(0.0, unempRate.toDouble - UnempDefaultThreshold)))
+    val unempExcess = (unempRate - Share(UnempDefaultThreshold)).max(Share.Zero)
+    val cyclicalAdj = Multiplier.One + (p.nbfi.defaultUnempSens * unempExcess).toMultiplier
+    loanStock * p.nbfi.defaultBase * cyclicalAdj
 
   // ---------------------------------------------------------------------------
   // Monthly step
@@ -140,13 +145,13 @@ object Nbfi:
     val newAum    = (prev.tfiAum + netInflow + invIncome).max(PLN.Zero)
 
     // Rebalance towards target allocation
-    val s          = p.nbfi.tfiRebalanceSpeed.toDouble
+    val s          = p.nbfi.tfiRebalanceSpeed
     val targetGov  = newAum * p.nbfi.tfiGovBondShare
     val targetCorp = newAum * p.nbfi.tfiCorpBondShare
     val targetEq   = newAum * p.nbfi.tfiEquityShare
-    val newGov     = prev.tfiGovBondHoldings + (targetGov - prev.tfiGovBondHoldings) * Share(s)
-    val newCorp    = prev.tfiCorpBondHoldings + (targetCorp - prev.tfiCorpBondHoldings) * Share(s)
-    val newEq      = prev.tfiEquityHoldings + (targetEq - prev.tfiEquityHoldings) * Share(s)
+    val newGov     = prev.tfiGovBondHoldings + (targetGov - prev.tfiGovBondHoldings) * s
+    val newCorp    = prev.tfiCorpBondHoldings + (targetCorp - prev.tfiCorpBondHoldings) * s
+    val newEq      = prev.tfiEquityHoldings + (targetEq - prev.tfiEquityHoldings) * s
     val newCash    = newAum - newGov - newCorp - newEq
 
     // Deposit drain: HH buys fund units → deposits decrease

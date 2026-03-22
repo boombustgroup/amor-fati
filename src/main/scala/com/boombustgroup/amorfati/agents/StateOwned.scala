@@ -32,10 +32,10 @@ object StateOwned:
   /** SOE dividend extraction: government takes higher dividends when deficit is
     * large. Returns dividend multiplier (>= 1.0 for SOEs).
     */
-  def dividendMultiplier(deficitToGdp: Share)(using p: SimParams): Double =
+  def dividendMultiplier(deficitToGdp: Share)(using p: SimParams): Multiplier =
     val baseMult     = p.soe.baseDividendMultiplier
-    val fiscalDemand = (deficitToGdp - p.soe.dividendFiscalThreshold).max(Share.Zero).toDouble * p.soe.dividendFiscalSensitivity.toDouble
-    baseMult.toDouble + fiscalDemand
+    val fiscalDemand = (deficitToGdp - p.soe.dividendFiscalThreshold).max(Share.Zero) * p.soe.dividendFiscalSensitivity
+    baseMult + fiscalDemand.toMultiplier
 
   /** SOE employment buffer: reduced firing rate during downturns. Returns
     * fraction of normal firing that SOE actually executes.
@@ -45,7 +45,7 @@ object StateOwned:
   /** SOE directed investment: higher investment rate than private sector.
     * Returns investment multiplier (>= 1.0).
     */
-  def investmentMultiplier(using p: SimParams): Double = p.soe.investmentMultiplier.toDouble
+  def investmentMultiplier(using p: SimParams): Multiplier = p.soe.investmentMultiplier
 
   /** SOE energy price absorption: energy SOEs absorb price shocks. Returns
     * fraction of commodity price shock passed to consumers.

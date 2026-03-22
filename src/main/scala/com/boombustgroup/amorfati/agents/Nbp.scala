@@ -79,12 +79,12 @@ object Nbp:
       val outputGap    = rawOutputGap.max(-OutputGapCap).min(OutputGapCap)
       p.monetary.neutralRate +
         infGap * p.monetary.taylorAlpha -
-        Rate(outputGap.toDouble * p.monetary.taylorDelta.toDouble) + // Coefficient × coeff → Rate contribution
-        Rate(exRateChange.toDouble * p.monetary.taylorBeta.toDouble) // Coefficient × coeff → Rate contribution
+        (outputGap * p.monetary.taylorDelta).toMultiplier.toRate + // Coefficient × Coefficient → Rate
+        (exRateChange * p.monetary.taylorBeta).toMultiplier.toRate // Coefficient × Coefficient → Rate
     else
       p.monetary.neutralRate +
         infGap.max(Rate.Zero) * p.monetary.taylorAlpha +
-        Rate(exRateChange.max(Coefficient.Zero).toDouble * p.monetary.taylorBeta.toDouble)
+        (exRateChange.max(Coefficient.Zero) * p.monetary.taylorBeta).toMultiplier.toRate
 
   /** Inertia smoothing + max rate change clamping. */
   private def smoothAndClamp(prevRate: Rate, taylor: Rate)(using p: SimParams): Rate =
@@ -138,13 +138,13 @@ object Nbp:
     * segment (40%+) + caution segment (55%+) + crisis segment (60%+).
     */
   private def piecewiseFiscalRisk(debtToGdp: Share)(using p: SimParams): Rate =
-    val base      = Rate(p.fiscal.govFiscalRiskBeta.toDouble * (debtToGdp - DebtThreshold).max(Share.Zero).toDouble)
+    val base      = (p.fiscal.govFiscalRiskBeta * (debtToGdp - DebtThreshold).max(Share.Zero)).toMultiplier.toRate
     val caution55 =
       if debtToGdp > p.fiscal.fiscalRuleCautionThreshold then
-        Rate(p.fiscal.fiscalRiskBeta55.toDouble * (debtToGdp - p.fiscal.fiscalRuleCautionThreshold).toDouble)
+        (p.fiscal.fiscalRiskBeta55 * (debtToGdp - p.fiscal.fiscalRuleCautionThreshold)).toMultiplier.toRate
       else Rate.Zero
     val crisis60  =
-      if debtToGdp > p.fiscal.fiscalRuleDebtCeiling then Rate(p.fiscal.fiscalRiskBeta60.toDouble * (debtToGdp - p.fiscal.fiscalRuleDebtCeiling).toDouble)
+      if debtToGdp > p.fiscal.fiscalRuleDebtCeiling then (p.fiscal.fiscalRiskBeta60 * (debtToGdp - p.fiscal.fiscalRuleDebtCeiling)).toMultiplier.toRate
       else Rate.Zero
     (base + caution55 + crisis60).min(FiscalRiskCap)
 
@@ -183,6 +183,7 @@ object Nbp:
     * sale drains PLN. The PLN injection feeds into the liquidity-aware
     * interbank rate (#9) via bank reservesAtNbp.
     */
+  @computationBoundary
   def fxIntervention(
       prevER: Double,
       reserves: Double,
@@ -192,17 +193,17 @@ object Nbp:
     if !enabled then FxInterventionResult(0.0, PLN.Zero, PLN(reserves), PLN.Zero)
     else
       val erDev = (prevER - p.forex.baseExRate) / p.forex.baseExRate
-      if Math.abs(erDev) <= p.monetary.fxBand.toDouble then FxInterventionResult(0.0, PLN.Zero, PLN(reserves), PLN.Zero)
+      if Math.abs(erDev) <= ComputationBoundary.toDouble(p.monetary.fxBand) then FxInterventionResult(0.0, PLN.Zero, PLN(reserves), PLN.Zero)
       else
         val direction     = -Math.signum(erDev)
-        val maxByReserves = reserves * p.monetary.fxMaxMonthly.toDouble
+        val maxByReserves = reserves * ComputationBoundary.toDouble(p.monetary.fxMaxMonthly)
         val magnitude     =
           if direction < 0 then Math.min(maxByReserves, reserves)
           else maxByReserves
         val eurTraded     = magnitude * direction
         val newReserves   = reserves + eurTraded
         val gdpEffect     = if gdp > 0 then Math.abs(eurTraded) * p.forex.baseExRate / gdp else 0.0
-        val erEffect      = direction * gdpEffect * p.monetary.fxStrength.toDouble
+        val erEffect      = direction * gdpEffect * ComputationBoundary.toDouble(p.monetary.fxStrength)
         // PLN injection: EUR purchase → NBP pays PLN to banks (+), EUR sale → banks pay PLN to NBP (−)
         val plnInjection  = PLN(eurTraded * p.forex.baseExRate)
         FxInterventionResult(erEffect, PLN(eurTraded), PLN(newReserves).max(PLN.Zero), plnInjection)

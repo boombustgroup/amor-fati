@@ -60,9 +60,10 @@ object Region:
   val count: Int = all.length
 
   /** Sample a region from population share CDF (inverse transform). */
+  @computationBoundary
   def cdfSample(rng: scala.util.Random): Region =
     val r   = rng.nextDouble()
-    val cdf = all.iterator.scanLeft(0.0)(_ + _.populationShare.toDouble).drop(1)
+    val cdf = all.iterator.scanLeft(0.0)((acc, reg) => acc + ComputationBoundary.toDouble(reg.populationShare)).drop(1)
     all.zip(cdf).find((_, cum) => r < cum).map(_._1).getOrElse(all.last)
 
   /** Migration friction matrix: `friction(from)(to)` ∈ [0,1]. 0 = no friction
@@ -89,17 +90,18 @@ object Region:
     * Workers only migrate if destination wages justify the housing cost
     * increase.
     */
+  @computationBoundary
   def migrationProbability(
       from: Region,
       to: Region,
       wageDiffRatio: Multiplier,
-      housingThreshold: Double,
+      housingThreshold: Share,
   ): Share =
     if from == to then Share.Zero
     else
       val friction       = frictionMatrix(from.ordinal)(to.ordinal)
-      val wagePull       = (wageDiffRatio - Multiplier.One).max(Multiplier.Zero).toDouble
-      val housingBarrier = Math.max(0.0, 1.0 - to.housingCostIndex / from.housingCostIndex * housingThreshold.toDouble)
+      val wagePull       = Math.max(0.0, ComputationBoundary.toDouble(wageDiffRatio) - 1.0)
+      val housingBarrier = Math.max(0.0, 1.0 - to.housingCostIndex / from.housingCostIndex * ComputationBoundary.toDouble(housingThreshold))
       Share(((1.0 - friction) * wagePull * housingBarrier).max(0.0).min(1.0))
 
   /** Sector composition by region (6 sectors × 6 regions). Rows = regions

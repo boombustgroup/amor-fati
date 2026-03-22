@@ -31,15 +31,15 @@ object Banking:
   private val RsfCorpBond     = 0.50
 
   // Lending rate components
-  private val FailedBankSpread: Rate          = Rate(0.50)       // 500 bps penalty spread for failed banks
-  private val NplSpreadCap: Rate              = Rate(0.15)       // max NPL-driven spread (1500 bps)
+  private val FailedBankSpread: Rate           = Rate(0.50)      // 500 bps penalty spread for failed banks
+  private val NplSpreadCap: Rate               = Rate(0.15)      // max NPL-driven spread (1500 bps)
   private val CarPenaltyThreshMult: Multiplier = Multiplier(1.5) // CAR penalty kicks in below minCar × 1.5
   private val CarPenaltyScale: Multiplier      = Multiplier(2.0) // bps per unit of CAR shortfall
 
   // Credit approval
-  private val MinApprovalProb: Share       = Share(0.1)  // floor: 10% approval even under max stress
+  private val MinApprovalProb: Share         = Share(0.1)      // floor: 10% approval even under max stress
   private val NplApprovalPenalty: Multiplier = Multiplier(3.0) // approval drop per unit NPL ratio (e.g. NPL 10% → 30pp)
-  private val ReserveDeficitPenalty: Share  = Share(0.5) // 50pp approval drop when free reserves < 0
+  private val ReserveDeficitPenalty: Share   = Share(0.5)      // 50pp approval drop when free reserves < 0
 
   // Crowding-out (gov bonds vs firm loans)
   private val CrowdingOutSensitivity: Multiplier = Multiplier(0.30) // 30% of bond yield gap passed through to lending spread
@@ -321,9 +321,9 @@ object Banking:
   def lendingRate(bank: BankState, cfg: Config, refRate: Rate, bondYield: Rate)(using p: SimParams): Rate =
     if bank.failed then refRate + FailedBankSpread
     else
-      val nplSpread  = (bank.nplRatio * p.banking.nplSpreadFactor).toRate.min(NplSpreadCap)
-      val carThresh  = p.banking.minCar * CarPenaltyThreshMult
-      val carPenalty =
+      val nplSpread   = (bank.nplRatio * p.banking.nplSpreadFactor).toRate.min(NplSpreadCap)
+      val carThresh   = p.banking.minCar * CarPenaltyThreshMult
+      val carPenalty  =
         if bank.car < carThresh then ((carThresh - bank.car) * CarPenaltyScale).toRate
         else Rate.Zero
       val crowdingOut = (bondYield - refRate - p.banking.baseSpread).max(Rate.Zero) * CrowdingOutSensitivity
@@ -354,9 +354,9 @@ object Banking:
       if requiredReserves > PLN.Zero then Share(excessReserves / requiredReserves).clamp(Share.Zero, Share.One)
       else Share.One
 
-    val depositRate = Rate.Zero.max(refRate - DepositSpreadFromRef)
-    val lombardRate = refRate + LombardSpreadFromRef
-    val corridor    = lombardRate - depositRate
+    val depositRate  = Rate.Zero.max(refRate - DepositSpreadFromRef)
+    val lombardRate  = refRate + LombardSpreadFromRef
+    val corridor     = lombardRate - depositRate
     // rate = depositRate + (1 - liquidityRatio) × creditStress × corridor
     val stressFactor = (Share.One - liquidityRatio) * creditStress // Share * Share → Share
     depositRate + corridor * stressFactor
@@ -489,22 +489,22 @@ object Banking:
     val newlyFailed = banks.filter(b => b.failed && b.deposits > PLN.Zero)
     if newlyFailed.isEmpty then ResolutionResult(banks, BankId.NoBank)
     else
-      val absorberId                                                             = healthiestBankId(banks)
-      val toAbsorb                                                               = newlyFailed.filter(_.id != absorberId)
+      val absorberId = healthiestBankId(banks)
+      val toAbsorb   = newlyFailed.filter(_.id != absorberId)
       // Single-pass PLN aggregation of all flows from failed banks (exact Long addition)
-      val addDep    = PLN.fromRaw(toAbsorb.map(_.deposits.toLong).sum)
-      val addLoans  = PLN.fromRaw(toAbsorb.map(f => (f.loans - f.nplAmount).toLong).sum)
-      val addAfs    = PLN.fromRaw(toAbsorb.map(_.afsBonds.toLong).sum)
-      val addHtm    = PLN.fromRaw(toAbsorb.map(_.htmBonds.toLong).sum)
-      val addCorpB  = PLN.fromRaw(toAbsorb.map(_.corpBondHoldings.toLong).sum)
-      val addCC     = PLN.fromRaw(toAbsorb.map(_.consumerLoans.toLong).sum)
-      val addIB     = PLN.fromRaw(toAbsorb.map(_.interbankNet.toLong).sum)
+      val addDep     = PLN.fromRaw(toAbsorb.map(_.deposits.toLong).sum)
+      val addLoans   = PLN.fromRaw(toAbsorb.map(f => (f.loans - f.nplAmount).toLong).sum)
+      val addAfs     = PLN.fromRaw(toAbsorb.map(_.afsBonds.toLong).sum)
+      val addHtm     = PLN.fromRaw(toAbsorb.map(_.htmBonds.toLong).sum)
+      val addCorpB   = PLN.fromRaw(toAbsorb.map(_.corpBondHoldings.toLong).sum)
+      val addCC      = PLN.fromRaw(toAbsorb.map(_.consumerLoans.toLong).sum)
+      val addIB      = PLN.fromRaw(toAbsorb.map(_.interbankNet.toLong).sum)
       // Weighted yield: Σ(htmBonds × htmBookYield) — PLN × Rate → PLN
       val htmYieldWt = PLN.fromRaw(toAbsorb.map(f => (f.htmBonds * f.htmBookYield).toLong).sum)
 
       val resolved = banks.map: b =>
         if b.id == absorberId then
-          val combinedHtm = b.htmBonds + addHtm
+          val combinedHtm      = b.htmBonds + addHtm
           val combinedHtmYield =
             if combinedHtm > PLN.Zero then Rate((b.htmBonds * b.htmBookYield + htmYieldWt) / combinedHtm)
             else b.htmBookYield
@@ -588,8 +588,7 @@ object Banking:
       val afsPortion   = amount - htmPortion
       val newHtmTotal  = b.htmBonds + htmPortion
       val newBookYield =
-        if newHtmTotal > PLN.Zero then
-          Rate((b.htmBonds * b.htmBookYield + htmPortion * currentYield) / newHtmTotal)
+        if newHtmTotal > PLN.Zero then Rate((b.htmBonds * b.htmBookYield + htmPortion * currentYield) / newHtmTotal)
         else b.htmBookYield
       b.copy(afsBonds = b.afsBonds + afsPortion, htmBonds = newHtmTotal, htmBookYield = newBookYield)
     else if amount < PLN.Zero then
@@ -616,7 +615,7 @@ object Banking:
     else
       val eligible   = banks.filter(b => !b.failed && b.govBondHoldings > PLN.Zero)
       val totalBonds = PLN.fromRaw(eligible.map(_.govBondHoldings.toLong).sum)
-      if totalBonds <= 0 then BondSaleResult(banks, PLN.Zero)
+      if totalBonds <= PLN.Zero then BondSaleResult(banks, PLN.Zero)
       else
         val lastEligibleId   = eligible.last.id
         val (result, actual) = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):

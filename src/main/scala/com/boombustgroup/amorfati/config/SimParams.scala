@@ -118,19 +118,21 @@ object SimParams:
     * Formula:
     * `(firmsCount * avgWorkers / workersPerFirm * baseRevenue * 12) / realGdp`
     */
-  def computeGdpRatio(pop: PopulationConfig, baseRevenue: Double): Double =
+  @computationBoundary
+  def computeGdpRatio(pop: PopulationConfig, baseRevenue: PLN): Double =
+    import ComputationBoundary.toDouble
     val expectedAvgWorkers = pop.firmSizeDist match
       case FirmSizeDist.Gus     =>
         val microMean   = 5.0; val smallMean = 29.5; val mediumMean = 149.5
         val largeMean   = (250.0 + pop.firmSizeLargeMax.toDouble) / 2.0
         val mediumShare =
-          1.0 - pop.firmSizeMicroShare.toDouble - pop.firmSizeSmallShare.toDouble - pop.firmSizeLargeShare.toDouble
-        pop.firmSizeMicroShare.toDouble * microMean + pop.firmSizeSmallShare.toDouble * smallMean +
-          mediumShare * mediumMean + pop.firmSizeLargeShare.toDouble * largeMean
+          1.0 - toDouble(pop.firmSizeMicroShare) - toDouble(pop.firmSizeSmallShare) - toDouble(pop.firmSizeLargeShare)
+        toDouble(pop.firmSizeMicroShare) * microMean + toDouble(pop.firmSizeSmallShare) * smallMean +
+          mediumShare * mediumMean + toDouble(pop.firmSizeLargeShare) * largeMean
       case FirmSizeDist.Uniform => pop.workersPerFirm.toDouble
-    (pop.firmsCount.toDouble * expectedAvgWorkers / pop.workersPerFirm.toDouble * baseRevenue * 12.0) / pop.realGdp.toDouble
+    (pop.firmsCount.toDouble * expectedAvgWorkers / pop.workersPerFirm.toDouble * toDouble(baseRevenue) * 12.0) / toDouble(pop.realGdp)
 
-  private val DefaultGdpRatio: Double = computeGdpRatio(PopulationConfig(), FirmConfig().baseRevenue.toDouble)
+  private val DefaultGdpRatio: Double = computeGdpRatio(PopulationConfig(), FirmConfig().baseRevenue)
 
   /** All hardcoded defaults with gdpRatio-scaled stock variables.
     *
@@ -200,11 +202,17 @@ object SimParams:
 object FirmSizeDistribution:
   import scala.util.Random
 
-  def draw(rng: Random)(using p: SimParams): Int = p.pop.firmSizeDist match
-    case FirmSizeDist.Gus     =>
-      val r = rng.nextDouble()
-      if r < p.pop.firmSizeMicroShare.toDouble then rng.between(1, 10)
-      else if r < p.pop.firmSizeMicroShare.toDouble + p.pop.firmSizeSmallShare.toDouble then rng.between(10, 50)
-      else if r < 1.0 - p.pop.firmSizeLargeShare.toDouble then rng.between(50, 250)
-      else rng.between(250, p.pop.firmSizeLargeMax + 1)
-    case FirmSizeDist.Uniform => p.pop.workersPerFirm
+  @computationBoundary
+  def draw(rng: Random)(using p: SimParams): Int =
+    import ComputationBoundary.toDouble
+    p.pop.firmSizeDist match
+      case FirmSizeDist.Gus     =>
+        val r     = rng.nextDouble()
+        val micro = toDouble(p.pop.firmSizeMicroShare)
+        val small = toDouble(p.pop.firmSizeSmallShare)
+        val large = toDouble(p.pop.firmSizeLargeShare)
+        if r < micro then rng.between(1, 10)
+        else if r < micro + small then rng.between(10, 50)
+        else if r < 1.0 - large then rng.between(50, 250)
+        else rng.between(250, p.pop.firmSizeLargeMax + 1)
+      case FirmSizeDist.Uniform => p.pop.workersPerFirm

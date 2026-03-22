@@ -61,8 +61,8 @@ object RegionalMigration:
     val currentWage = regionalWages.getOrElse(hh.region, PLN.Zero)
     findBestTarget(hh.region, currentWage, regionalWages) match
       case Some((target, prob)) =>
-        val effectiveProb = prob.toDouble * p.regional.baseMigrationRate.toDouble
-        if effectiveProb > 0 && rng.nextDouble() < effectiveProb then hh.copy(region = target)
+        val effectiveProb = prob * p.regional.baseMigrationRate
+        if effectiveProb.sampleBelow(rng) then hh.copy(region = target)
         else hh
       case None                 => hh
 
@@ -79,7 +79,7 @@ object RegionalMigration:
       .filter(_ != origin)
       .map(target => (target, migrationProb(origin, target, originWage, regionalWages)))
       .filter(_._2 > Share.Zero)
-      .maxByOption(_._2.toDouble)
+      .maxByOption(_._2.toLong)
 
   /** Compute migration probability from origin to a specific target. Wraps
     * Region.migrationProbability with wage ratio computation.
@@ -92,4 +92,4 @@ object RegionalMigration:
   )(using p: SimParams): Share =
     val targetWage = regionalWages.getOrElse(target, PLN.Zero)
     val wageRatio  = if originWage > PLN.Zero then Multiplier(targetWage / originWage) else Multiplier.One
-    Region.migrationProbability(origin, target, wageRatio, p.regional.housingBarrierThreshold.toDouble)
+    Region.migrationProbability(origin, target, wageRatio, p.regional.housingBarrierThreshold)

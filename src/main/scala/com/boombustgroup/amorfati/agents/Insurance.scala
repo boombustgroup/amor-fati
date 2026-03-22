@@ -71,8 +71,8 @@ object Insurance:
       equityReturn: Rate,  // equity monthly return
   )(using p: SimParams): State =
     // Premiums: proportional to wage bill
-    val lifePrem    = wage * p.ins.lifePremiumRate * employed.toLong
-    val nonLifePrem = wage * p.ins.nonLifePremiumRate * employed.toLong // TODO: × priceLevel (needs PriceIndex param)
+    val lifePrem    = employed * (wage * p.ins.lifePremiumRate)
+    val nonLifePrem = employed * (wage * p.ins.nonLifePremiumRate) // TODO: × priceLevel (needs PriceIndex param)
 
     // Claims: life steady, non-life widens with unemployment stress
     val lifeCl      = lifePrem * p.ins.lifeLossRatio
@@ -97,7 +97,7 @@ object Insurance:
 
     // Rebalance towards target allocation
     val totalAssets = newLifeRes + newNonLifeRes
-    val speed       = p.ins.rebalanceSpeed  // Coefficient used as adjustment speed
+    val speed       = p.ins.rebalanceSpeed // Coefficient used as adjustment speed
     val targetGov   = totalAssets * p.ins.govBondShare
     val targetCorp  = totalAssets * p.ins.corpBondShare
     val targetEq    = totalAssets * p.ins.equityShare
