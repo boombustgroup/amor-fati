@@ -15,14 +15,14 @@ enum Topology(val label: String):
   */
 case class SectorDef(
     name: String,
-    share: Ratio,                // Share of firm population (GUS BAEL 2024)
-    sigma: Double,               // CES elasticity of substitution
-    wageMultiplier: Double,      // Sector wage multiplier vs national average
-    revenueMultiplier: Double,
-    aiCapexMultiplier: Double,
-    hybridCapexMultiplier: Double,
-    baseDigitalReadiness: Ratio, // Central tendency of digitalReadiness
-    hybridRetainFrac: Ratio,     // Fraction of workers RETAINED in hybrid mode (0.5 = halve)
+    share: Share,                    // Share of firm population (GUS BAEL 2024)
+    sigma: Sigma,                    // CES elasticity of substitution
+    wageMultiplier: Multiplier,      // Sector wage multiplier vs national average
+    revenueMultiplier: Multiplier,
+    aiCapexMultiplier: Multiplier,
+    hybridCapexMultiplier: Multiplier,
+    baseDigitalReadiness: Share,     // Central tendency of digitalReadiness
+    hybridRetainFrac: Share,         // Fraction of workers RETAINED in hybrid mode (0.5 = halve)
 )
 
 /** Complete parameterization of a 48-mechanism SFC-ABM model of the Polish
@@ -85,7 +85,7 @@ case class SimParams private (
     informal: InformalConfig = InformalConfig(),
     sectorDefs: Vector[SectorDef] = SimParams.DefaultSectorDefs,
     topology: Topology = Topology.Ws,
-    gdpRatio: Double = SimParams.DefaultGdpRatio,
+    gdpRatio: Double = SimParams.DefaultGdpRatio, // scaling coefficient — computation boundary, not SFC flow
 )
 
 object SimParams:
@@ -102,12 +102,12 @@ object SimParams:
     * multiplier, export propensity, and import propensity.
     */
   val DefaultSectorDefs: Vector[SectorDef] = Vector(
-    SectorDef("BPO/SSC", Ratio(0.03), 50.0, 1.35, 1.50, 0.70, 0.70, Ratio(0.50), Ratio(0.50)),
-    SectorDef("Manufacturing", Ratio(0.16), 10.0, 0.94, 1.05, 1.12, 1.05, Ratio(0.45), Ratio(0.60)),
-    SectorDef("Retail/Services", Ratio(0.45), 5.0, 0.79, 0.91, 0.85, 0.80, Ratio(0.40), Ratio(0.65)),
-    SectorDef("Healthcare", Ratio(0.06), 2.0, 0.97, 1.10, 1.38, 1.25, Ratio(0.25), Ratio(0.75)),
-    SectorDef("Public", Ratio(0.22), 1.0, 0.91, 1.08, 3.00, 2.50, Ratio(0.08), Ratio(0.90)),
-    SectorDef("Agriculture", Ratio(0.08), 3.0, 0.67, 0.80, 2.50, 2.00, Ratio(0.12), Ratio(0.85)),
+    SectorDef("BPO/SSC", Share(0.03), Sigma(50.0), Multiplier(1.35), Multiplier(1.50), Multiplier(0.70), Multiplier(0.70), Share(0.50), Share(0.50)),
+    SectorDef("Manufacturing", Share(0.16), Sigma(10.0), Multiplier(0.94), Multiplier(1.05), Multiplier(1.12), Multiplier(1.05), Share(0.45), Share(0.60)),
+    SectorDef("Retail/Services", Share(0.45), Sigma(5.0), Multiplier(0.79), Multiplier(0.91), Multiplier(0.85), Multiplier(0.80), Share(0.40), Share(0.65)),
+    SectorDef("Healthcare", Share(0.06), Sigma(2.0), Multiplier(0.97), Multiplier(1.10), Multiplier(1.38), Multiplier(1.25), Share(0.25), Share(0.75)),
+    SectorDef("Public", Share(0.22), Sigma(1.0), Multiplier(0.91), Multiplier(1.08), Multiplier(3.00), Multiplier(2.50), Share(0.08), Share(0.90)),
+    SectorDef("Agriculture", Share(0.08), Sigma(3.0), Multiplier(0.67), Multiplier(0.80), Multiplier(2.50), Multiplier(2.00), Share(0.12), Share(0.85)),
   )
 
   // ── GdpRatio computation ──
