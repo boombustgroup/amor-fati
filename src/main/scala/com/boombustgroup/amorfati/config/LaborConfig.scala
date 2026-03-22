@@ -49,25 +49,25 @@ case class LaborConfig(
     // Sectoral mobility (GUS LFS 2024, Shimer 2005)
     frictionMatrix: Vector[Vector[Double]] = SectoralMobility.DefaultFrictionMatrix,
     frictionDurationMult: Double = 1.0,
-    frictionCostMult: Ratio = Ratio(0.5),
-    voluntarySearchProb: Ratio = Ratio(0.02),
-    voluntaryWageThreshold: Ratio = Ratio(0.20),
-    vacancyWeight: Double = 2.0,
-    adjacentFrictionMax: Ratio = Ratio(0.4),
+    frictionCostMult: Share = Share(0.5),
+    voluntarySearchProb: Share = Share(0.02),
+    voluntaryWageThreshold: Share = Share(0.20),
+    vacancyWeight: Coefficient = Coefficient(2.0),
+    adjacentFrictionMax: Share = Share(0.4),
     // Unions (GUS 2024)
-    unionDensity: Vector[Ratio] = Vector(Ratio(0.02), Ratio(0.15), Ratio(0.03), Ratio(0.12), Ratio(0.30), Ratio(0.04)),
-    unionWagePremium: Ratio = Ratio(0.08),
-    unionRigidity: Ratio = Ratio(0.50),
+    unionDensity: Vector[Share] = Vector(Share(0.02), Share(0.15), Share(0.03), Share(0.12), Share(0.30), Share(0.04)),
+    unionWagePremium: Share = Share(0.08),
+    unionRigidity: Share = Share(0.50),
     // Skills-biased technological change (Acemoglu & Restrepo 2020, Autor 2024)
-    sbtcEduRoutineness: Vector[Double] = Vector(0.80, 0.65, 0.45, 0.25), // Primary, Vocational, Secondary, Tertiary
-    sbtcComplementPremium: Ratio = Ratio(0.15),                          // max wage premium for AI-complemented cognitive workers
+    sbtcEduRoutineness: Vector[Share] = Vector(Share(0.80), Share(0.65), Share(0.45), Share(0.25)), // Primary, Vocational, Secondary, Tertiary
+    sbtcComplementPremium: Share = Share(0.15),                          // max wage premium for AI-complemented cognitive workers
     // Expectations (Carroll 2003, Bewley 1999)
-    expLambda: Ratio = Ratio(0.70),
-    expCredibilityInit: Ratio = Ratio(0.80),
-    expCredibilitySpeed: Ratio = Ratio(0.05),
+    expLambda: Coefficient = Coefficient(0.70),
+    expCredibilityInit: Share = Share(0.80),
+    expCredibilitySpeed: Coefficient = Coefficient(0.05),
     expCredibilityThreshold: Rate = Rate(0.02),
-    expWagePassthrough: Ratio = Ratio(0.50),
-    expBondSensitivity: Ratio = Ratio(0.50),
+    expWagePassthrough: Coefficient = Coefficient(0.50),
+    expBondSensitivity: Coefficient = Coefficient(0.50),
 ):
   require(unionDensity.length == 6, s"unionDensity must have 6 sectors: ${unionDensity.length}")
   require(sbtcEduRoutineness.length == 4, s"sbtcEduRoutineness must have 4 education levels: ${sbtcEduRoutineness.length}")

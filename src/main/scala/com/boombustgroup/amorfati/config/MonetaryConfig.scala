@@ -61,29 +61,29 @@ case class MonetaryConfig(
     initialRate: Rate = Rate(0.0575),
     targetInfl: Rate = Rate(0.025),
     neutralRate: Rate = Rate(0.04),
-    taylorAlpha: Double = 1.5,
-    taylorBeta: Double = 0.8,
-    taylorInertia: Ratio = Ratio(0.70),
+    taylorAlpha: Coefficient = Coefficient(1.5),
+    taylorBeta: Coefficient = Coefficient(0.8),
+    taylorInertia: Share = Share(0.70),
     rateFloor: Rate = Rate(0.001),
     rateCeiling: Rate = Rate(0.15),
     maxRateChange: Rate = Rate(0.0),
-    nairu: Ratio = Ratio(0.05),
-    taylorDelta: Double = 0.5,
-    reserveRateMult: Ratio = Ratio(0.5),
+    nairu: Share = Share(0.05),
+    taylorDelta: Coefficient = Coefficient(0.5),
+    reserveRateMult: Share = Share(0.5),
     depositFacilitySpread: Rate = Rate(0.01),
     lombardSpread: Rate = Rate(0.01),
     // QE (raw — scaled by gdpRatio in SimParams.defaults)
     qePace: PLN = PLN(5e9),
-    qeMaxGdpShare: Ratio = Ratio(0.30),
+    qeMaxGdpShare: Share = Share(0.30),
     // FX intervention (raw — scaled by gdpRatio in SimParams.defaults)
-    fxBand: Ratio = Ratio(0.10),
+    fxBand: Share = Share(0.10),
     fxReserves: PLN = PLN(185e9),
-    fxMaxMonthly: Ratio = Ratio(0.03),
-    fxStrength: Ratio = Ratio(0.5),
+    fxMaxMonthly: Share = Share(0.03),
+    fxStrength: Coefficient = Coefficient(0.5),
 ):
   require(rateFloor < rateCeiling, s"rateFloor ($rateFloor) must be < rateCeiling ($rateCeiling)")
   require(rateFloor >= Rate.Zero, s"rateFloor must be non-negative: $rateFloor")
   require(
-    qeMaxGdpShare > Ratio.Zero && qeMaxGdpShare <= Ratio.One,
+    qeMaxGdpShare > Share.Zero && qeMaxGdpShare <= Share.One,
     s"qeMaxGdpShare must be in (0,1]: $qeMaxGdpShare",
   )

@@ -23,7 +23,7 @@ import com.boombustgroup.amorfati.types.*
   */
 case class RemittanceConfig(
     perCapita: PLN = PLN(40.0),
-    erElasticity: Double = 0.5,
+    erElasticity: Coefficient = Coefficient(0.5),
     growthRate: Rate = Rate(0.02),
-    cyclicalSens: Ratio = Ratio(0.3),
+    cyclicalSens: Coefficient = Coefficient(0.3),
 )

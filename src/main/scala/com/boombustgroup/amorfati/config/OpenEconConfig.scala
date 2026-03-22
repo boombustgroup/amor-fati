@@ -49,22 +49,22 @@ import com.boombustgroup.amorfati.types.*
   *   sensitivity of portfolio flows to risk premium changes
   */
 case class OpenEconConfig(
-    importContent: Vector[Ratio] = Vector(Ratio(0.15), Ratio(0.50), Ratio(0.20), Ratio(0.15), Ratio(0.05), Ratio(0.12)),
+    importContent: Vector[Share] = Vector(Share(0.15), Share(0.50), Share(0.20), Share(0.15), Share(0.05), Share(0.12)),
     erFloor: Double = 2.5,
     erCeiling: Double = 10.0,
     exportBase: PLN = PLN(138.5e9),  // raw — scaled by gdpRatio
-    importPushCap: Ratio = Ratio(0.03),
+    importPushCap: Share = Share(0.03),
     foreignGdpGrowth: Rate = Rate(0.015),
-    exportPriceElasticity: Double = 0.8,
-    importPriceElasticity: Double = 0.6,
-    erElasticity: Double = 0.5,
-    ulcExportBoost: Double = 0.15,
+    exportPriceElasticity: Coefficient = Coefficient(0.8),
+    importPriceElasticity: Coefficient = Coefficient(0.6),
+    erElasticity: Coefficient = Coefficient(0.5),
+    ulcExportBoost: Coefficient = Coefficient(0.15),
     nfaReturnRate: Rate = Rate(0.03),
     euTransfers: PLN = PLN(1.458e9), // raw — scaled by gdpRatio
     fdiBase: PLN = PLN(583.1e6),     // raw — scaled by gdpRatio
-    portfolioSensitivity: Double = 0.20,
-    riskPremiumSensitivity: Double = 0.10,
-    pppSpeed: Ratio = Ratio(0.10),   // annual convergence speed toward PPP equilibrium (Rogoff 1996: 3-5yr half-life)
+    portfolioSensitivity: Coefficient = Coefficient(0.20),
+    riskPremiumSensitivity: Coefficient = Coefficient(0.10),
+    pppSpeed: Coefficient = Coefficient(0.10),   // annual convergence speed toward PPP equilibrium (Rogoff 1996: 3-5yr half-life)
 ):
   require(erFloor > 0, s"erFloor must be positive: $erFloor")
   require(erFloor < erCeiling, s"erFloor ($erFloor) must be < erCeiling ($erCeiling)")

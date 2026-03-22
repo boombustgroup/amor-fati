@@ -123,56 +123,56 @@ case class BankingConfig(
     initConsumerLoans: PLN = PLN(200e9),
     // Spreads & risk
     baseSpread: Rate = Rate(0.015),
-    nplSpreadFactor: Double = 5.0,
-    minCar: Ratio = Ratio(0.08),
-    loanRecovery: Ratio = Ratio(0.30),
+    nplSpreadFactor: Coefficient = Coefficient(5.0),
+    minCar: Share = Share(0.08),
+    loanRecovery: Share = Share(0.30),
     firmLoanAmortRate: Rate = Rate(1.0 / 60), // monthly: 1/60 ≈ 5-year avg maturity (NBP 2024)
-    profitRetention: Ratio = Ratio(0.30),
+    profitRetention: Share = Share(0.30),
     govBondDuration: Double = 4.5,            // avg modified duration of Polish gov bond portfolio (years, MF 2024)
     reserveReq: Rate = Rate(0.035),
-    stressThreshold: Ratio = Ratio(0.05),
+    stressThreshold: Share = Share(0.05),
     // LCR/NSFR (Basel III)
-    lcrMin: Double = 1.0,
-    nsfrMin: Double = 1.0,
-    demandDepositRunoff: Ratio = Ratio(0.10),
-    termDepositFrac: Ratio = Ratio(0.40),
+    lcrMin: Multiplier = Multiplier(1.0),
+    nsfrMin: Multiplier = Multiplier(1.0),
+    demandDepositRunoff: Share = Share(0.10),
+    termDepositFrac: Share = Share(0.40),
     // KNF/BFG
     p2rAddons: Vector[Rate] = Vector(Rate(0.015), Rate(0.010), Rate(0.030), Rate(0.015), Rate(0.020), Rate(0.025), Rate(0.020)),
     bfgLevyRate: Rate = Rate(0.0024),
-    bailInDepositHaircut: Ratio = Ratio(0.08),
+    bailInDepositHaircut: Share = Share(0.08),
     bfgDepositGuarantee: PLN = PLN(400000.0),
     // Macroprudential (KNF 2024)
     ccybMax: Rate = Rate(0.025),
-    ccybActivationGap: Ratio = Ratio(0.02),
+    ccybActivationGap: Share = Share(0.02),
     ccybReleaseGap: Double = -0.02,
     osiiPkoBp: Rate = Rate(0.01),
     osiiPekao: Rate = Rate(0.005),
-    concentrationLimit: Ratio = Ratio(0.25),
+    concentrationLimit: Share = Share(0.25),
     // AFS/HTM bond portfolio split (interest rate risk channel)
-    htmShare: Ratio = Ratio(0.60),
-    htmForcedSaleThreshold: Double = 0.75,
-    htmForcedSaleRate: Ratio = Ratio(0.10),
+    htmShare: Share = Share(0.60),
+    htmForcedSaleThreshold: Share = Share(0.75),
+    htmForcedSaleRate: Share = Share(0.10),
     initHtmBookYield: Rate = Rate(0.055),
     // Deposit mobility (Diamond & Dybvig 1983)
-    depositFlightSensitivity: Double = 5.0,
-    depositFlightCarThreshold: Ratio = Ratio(0.10),
-    depositPanicRate: Ratio = Ratio(0.03),
-    maxDepositSwitchRate: Ratio = Ratio(0.10),
+    depositFlightSensitivity: Coefficient = Coefficient(5.0),
+    depositFlightCarThreshold: Share = Share(0.10),
+    depositPanicRate: Share = Share(0.03),
+    maxDepositSwitchRate: Share = Share(0.10),
     // Interbank contagion
-    interbankRecoveryRate: Ratio = Ratio(0.40),
-    hoardingNplThreshold: Ratio = Ratio(0.05),
-    hoardingSensitivity: Double = 10.0,
+    interbankRecoveryRate: Share = Share(0.40),
+    hoardingNplThreshold: Share = Share(0.05),
+    hoardingSensitivity: Coefficient = Coefficient(10.0),
     // IFRS 9 ECL staging
-    eclRate1: Ratio = Ratio(0.01),
-    eclRate2: Ratio = Ratio(0.08),
-    eclRate3: Ratio = Ratio(0.50),
-    eclMigrationSensitivity: Double = 3.0,
-    eclGdpSensitivity: Double = 5.0,
-    eclMaxMigration: Ratio = Ratio(0.20),
-    eclCureRate: Ratio = Ratio(0.02),
+    eclRate1: Share = Share(0.01),
+    eclRate2: Share = Share(0.08),
+    eclRate3: Share = Share(0.50),
+    eclMigrationSensitivity: Coefficient = Coefficient(3.0),
+    eclGdpSensitivity: Coefficient = Coefficient(5.0),
+    eclMaxMigration: Share = Share(0.20),
+    eclCureRate: Share = Share(0.02),
 ):
-  require(minCar > Ratio.Zero && minCar < Ratio.One, s"minCar must be in (0,1): $minCar")
+  require(minCar > Share.Zero && minCar < Share.One, s"minCar must be in (0,1): $minCar")
   require(initCapital >= PLN.Zero, s"initCapital must be non-negative: $initCapital")
   require(initDeposits >= PLN.Zero, s"initDeposits must be non-negative: $initDeposits")
-  require(lcrMin > 0, s"lcrMin must be positive: $lcrMin")
-  require(nsfrMin > 0, s"nsfrMin must be positive: $nsfrMin")
+  require(lcrMin > Multiplier.Zero, s"lcrMin must be positive: $lcrMin")
+  require(nsfrMin > Multiplier.Zero, s"nsfrMin must be positive: $nsfrMin")

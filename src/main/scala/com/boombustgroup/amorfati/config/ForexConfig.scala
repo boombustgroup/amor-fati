@@ -48,24 +48,24 @@ import com.boombustgroup.amorfati.types.*
 case class ForexConfig(
     baseExRate: Double = 4.33,
     foreignRate: Rate = Rate(0.04),
-    importPropensity: Ratio = Ratio(0.22),
+    importPropensity: Share = Share(0.22),
     exportBase: PLN = PLN(55.4e9), // raw — scaled by gdpRatio
-    techImportShare: Ratio = Ratio(0.40),
-    irpSensitivity: Double = 0.15,
-    exRateAdjSpeed: Ratio = Ratio(0.02),
-    exportAutoBoost: Ratio = Ratio(0.15),
+    techImportShare: Share = Share(0.40),
+    irpSensitivity: Coefficient = Coefficient(0.15),
+    exRateAdjSpeed: Coefficient = Coefficient(0.02),
+    exportAutoBoost: Share = Share(0.15),
     // Capital flight (risk-off, carry trade)
     riskOffShockMonth: Int = 0,
-    riskOffMagnitude: Ratio = Ratio(0.10),
+    riskOffMagnitude: Share = Share(0.10),
     riskOffDurationMonths: Int = 6,
     carryThreshold: Rate = Rate(0.03),
-    carryAccumulationRate: Double = 0.5,
-    carryUnwindSpeed: Ratio = Ratio(0.30),
-    auctionConfidenceThreshold: Ratio = Ratio(0.90),
-    auctionOutflowSensitivity: Double = 2.0,
+    carryAccumulationRate: Coefficient = Coefficient(0.5),
+    carryUnwindSpeed: Share = Share(0.30),
+    auctionConfidenceThreshold: Share = Share(0.90),
+    auctionOutflowSensitivity: Coefficient = Coefficient(2.0),
 ):
   require(baseExRate > 0, s"baseExRate must be positive: $baseExRate")
   require(
-    importPropensity >= Ratio.Zero && importPropensity <= Ratio.One,
+    importPropensity >= Share.Zero && importPropensity <= Share.One,
     s"importPropensity must be in [0,1]: $importPropensity",
   )

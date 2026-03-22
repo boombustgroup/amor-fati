@@ -60,27 +60,27 @@ case class SocialConfig(
     zusContribRate: Rate = Rate(0.1952),
     zusEmployeeRate: Rate = Rate(0.1371), // employee portion deducted from PIT base (emerytura 9.76% + rentowe 1.5% + chorobowe 2.45%)
     zusBasePension: PLN = PLN(3500.0),
-    zusScale: Double = 1.0,
+    zusScale: Multiplier = Multiplier(1.0),
     // NFZ (Ustawa o swiadczeniach opieki zdrowotnej, Art. 79)
     nfzContribRate: Rate = Rate(0.09),
     nfzPerCapitaCost: PLN = PLN(1250.0),
-    nfzAgingElasticity: Double = 2.5,
+    nfzAgingElasticity: Multiplier = Multiplier(2.5),
     // PPK (Ustawa o PPK)
     ppkEmployeeRate: Rate = Rate(0.02),
     ppkEmployerRate: Rate = Rate(0.015),
-    ppkBondAlloc: Ratio = Ratio(0.60),
+    ppkBondAlloc: Share = Share(0.60),
     // Demographics (GUS 2024)
     demRetirementRate: Rate = Rate(0.001),
     demWorkingAgeDecline: Rate = Rate(0.002),
     demInitialRetirees: Int = 0,
     // Education (GUS LFS 2024)
-    eduShares: Vector[Ratio] = Vector(Ratio(0.08), Ratio(0.25), Ratio(0.30), Ratio(0.37)),
+    eduShares: Vector[Share] = Vector(Share(0.08), Share(0.25), Share(0.30), Share(0.37)),
     eduSectorShares: Option[Vector[Vector[Double]]] = None,
-    eduWagePreemia: Vector[Double] = Vector(0.70, 0.85, 1.00, 1.30),
-    eduRetrainMult: Vector[Double] = Vector(0.67, 0.83, 1.00, 1.25),
-    eduSkillFloors: Vector[Ratio] = Vector(Ratio(0.30), Ratio(0.35), Ratio(0.45), Ratio(0.55)),
-    eduSkillCeilings: Vector[Ratio] = Vector(Ratio(0.75), Ratio(0.85), Ratio(0.95), Ratio(1.00)),
-    eduImmigShares: Vector[Ratio] = Vector(Ratio(0.15), Ratio(0.40), Ratio(0.35), Ratio(0.10)),
+    eduWagePreemia: Vector[Multiplier] = Vector(Multiplier(0.70), Multiplier(0.85), Multiplier(1.00), Multiplier(1.30)),
+    eduRetrainMult: Vector[Multiplier] = Vector(Multiplier(0.67), Multiplier(0.83), Multiplier(1.00), Multiplier(1.25)),
+    eduSkillFloors: Vector[Share] = Vector(Share(0.30), Share(0.35), Share(0.45), Share(0.55)),
+    eduSkillCeilings: Vector[Share] = Vector(Share(0.75), Share(0.85), Share(0.95), Share(1.00)),
+    eduImmigShares: Vector[Share] = Vector(Share(0.15), Share(0.40), Share(0.35), Share(0.10)),
 ):
 
   private val defaultEduSectorShares: Vector[Vector[Double]] = Vector(

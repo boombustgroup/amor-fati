@@ -21,7 +21,7 @@ import com.boombustgroup.amorfati.types.*
   */
 case class IoConfig(
     matrix: Vector[Vector[Double]] = IoConfig.DefaultMatrix,
-    scale: Ratio = Ratio(1.0),
+    scale: Multiplier = Multiplier(1.0),
 ):
   /** Pre-computed column sums of the technical coefficients matrix (used in
     * intermediate demand calculation).

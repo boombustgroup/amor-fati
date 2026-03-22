@@ -65,25 +65,25 @@ case class HousingConfig(
     initHpi: Double = 100.0,
     initValue: PLN = PLN(3.0e12),   // raw — scaled by gdpRatio
     initMortgage: PLN = PLN(485e9), // raw — scaled by gdpRatio
-    priceIncomeElast: Double = 1.2,
-    priceRateElast: Double = -0.8,
-    priceReversion: Ratio = Ratio(0.05),
+    priceIncomeElast: Coefficient = Coefficient(1.2),
+    priceRateElast: Coefficient = Coefficient(-0.8),
+    priceReversion: Coefficient = Coefficient(0.05),
     mortgageSpread: Rate = Rate(0.025),
     mortgageMaturity: Int = 300,
-    ltvMax: Ratio = Ratio(0.80),
-    originationRate: Ratio = Ratio(0.003),
-    defaultBase: Ratio = Ratio(0.001),
-    defaultUnempSens: Double = 0.05,
-    mortgageRecovery: Ratio = Ratio(0.70),
-    wealthMpc: Ratio = Ratio(0.05),
+    ltvMax: Share = Share(0.80),
+    originationRate: Share = Share(0.003),
+    defaultBase: Share = Share(0.001),
+    defaultUnempSens: Coefficient = Coefficient(0.05),
+    mortgageRecovery: Share = Share(0.70),
+    wealthMpc: Share = Share(0.05),
     rentalYield: Rate = Rate(0.045),
     // Regional housing (7 regions: Warsaw, Krakow, Wroclaw, Gdansk, Poznan, Lodz, rest)
     regionalHpi: Vector[Double] = Vector(230.0, 190.0, 170.0, 175.0, 110.0, 140.0, 100.0),
-    regionalValueShares: Vector[Ratio] = Vector(Ratio(0.25), Ratio(0.08), Ratio(0.07), Ratio(0.08), Ratio(0.04), Ratio(0.05), Ratio(0.43)),
-    regionalMortgageShares: Vector[Ratio] = Vector(Ratio(0.30), Ratio(0.10), Ratio(0.08), Ratio(0.09), Ratio(0.04), Ratio(0.06), Ratio(0.33)),
-    regionalGammas: Vector[Ratio] = Vector(Ratio(0.03), Ratio(0.04), Ratio(0.04), Ratio(0.04), Ratio(0.06), Ratio(0.05), Ratio(0.06)),
-    regionalIncomeMult: Vector[Double] = Vector(1.35, 1.15, 1.10, 1.12, 0.95, 1.05, 0.82),
+    regionalValueShares: Vector[Share] = Vector(Share(0.25), Share(0.08), Share(0.07), Share(0.08), Share(0.04), Share(0.05), Share(0.43)),
+    regionalMortgageShares: Vector[Share] = Vector(Share(0.30), Share(0.10), Share(0.08), Share(0.09), Share(0.04), Share(0.06), Share(0.33)),
+    regionalGammas: Vector[Coefficient] = Vector(Coefficient(0.03), Coefficient(0.04), Coefficient(0.04), Coefficient(0.04), Coefficient(0.06), Coefficient(0.05), Coefficient(0.06)),
+    regionalIncomeMult: Vector[Multiplier] = Vector(Multiplier(1.35), Multiplier(1.15), Multiplier(1.10), Multiplier(1.12), Multiplier(0.95), Multiplier(1.05), Multiplier(0.82)),
 ):
-  require(ltvMax > Ratio.Zero && ltvMax <= Ratio.One, s"ltvMax must be in (0,1]: $ltvMax")
+  require(ltvMax > Share.Zero && ltvMax <= Share.One, s"ltvMax must be in (0,1]: $ltvMax")
   require(mortgageMaturity > 0, s"mortgageMaturity must be positive: $mortgageMaturity")
   require(initValue >= PLN.Zero, s"initValue must be non-negative: $initValue")

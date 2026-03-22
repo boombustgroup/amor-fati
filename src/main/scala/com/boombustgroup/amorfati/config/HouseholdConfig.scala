@@ -90,16 +90,16 @@ import com.boombustgroup.amorfati.types.*
 case class HouseholdConfig(
     baseWage: PLN = PLN(8266.0),
     baseReservationWage: PLN = PLN(4666.0),
-    mpc: Ratio = Ratio(0.82),
-    laborSupplySteepness: Double = 8.0,
-    wageAdjSpeed: Ratio = Ratio(0.12),
+    mpc: Share = Share(0.82),
+    laborSupplySteepness: Coefficient = Coefficient(8.0),
+    wageAdjSpeed: Coefficient = Coefficient(0.12),
     // Household count (defaults to totalPopulation — set in SimParams.defaults)
     count: Int = 100000,
     // Savings distribution
     savingsMu: Double = 9.6,
     savingsSigma: Double = 1.2,
     // Debt
-    debtFraction: Ratio = Ratio(0.40),
+    debtFraction: Share = Share(0.40),
     debtMu: Double = 10.5,
     debtSigma: Double = 1.5,
     // Rent
@@ -111,37 +111,37 @@ case class HouseholdConfig(
     mpcBeta: Double = 1.8,
     // State-dependent MPC (Carroll 1997 buffer-stock)
     bufferTargetMonths: Double = 6.0,        // target savings = 6 months of income
-    bufferSensitivity: Double = 0.4,         // MPC adjustment strength (0 = static, 1 = fully responsive)
-    mpcUnemployedBoost: Ratio = Ratio(0.10), // MPC uplift when unemployed (desperate spending)
+    bufferSensitivity: Coefficient = Coefficient(0.4),         // MPC adjustment strength (0 = static, 1 = fully responsive)
+    mpcUnemployedBoost: Share = Share(0.10), // MPC uplift when unemployed (desperate spending)
     // Skill decay & scarring
-    skillDecayRate: Ratio = Ratio(0.02),
-    scarringRate: Ratio = Ratio(0.02),
-    scarringCap: Ratio = Ratio(0.50),
+    skillDecayRate: Share = Share(0.02),
+    scarringRate: Share = Share(0.02),
+    scarringCap: Share = Share(0.50),
     scarringOnset: Int = 3,
     // Post-reemployment wage scarring (Jacobson, LaLonde & Sullivan 1993)
-    wageScarRate: Ratio = Ratio(0.025),      // monthly wage scar accumulation during long-term unemployment
-    wageScarCap: Ratio = Ratio(0.30),        // max 30% permanent wage loss
-    wageScarDecay: Ratio = Ratio(0.005),     // monthly recovery once reemployed (~0.5%/mo → ~10 year half-life)
+    wageScarRate: Share = Share(0.025),      // monthly wage scar accumulation during long-term unemployment
+    wageScarCap: Share = Share(0.30),        // max 30% permanent wage loss
+    wageScarDecay: Share = Share(0.005),     // monthly recovery once reemployed (~0.5%/mo → ~10 year half-life)
     // Retraining
     retrainingCost: PLN = PLN(5000.0),
     retrainingDuration: Int = 6,
-    retrainingBaseSuccess: Ratio = Ratio(0.60),
-    retrainingProb: Ratio = Ratio(0.15),
+    retrainingBaseSuccess: Share = Share(0.60),
+    retrainingProb: Share = Share(0.15),
     retrainingEnabled: Boolean = true,
     // Bankruptcy
     bankruptcyThreshold: Double = -3.0,
     // Social network
     socialK: Int = 10,
-    socialP: Ratio = Ratio(0.15),
+    socialP: Share = Share(0.15),
     // Debt service
-    debtServiceRate: Ratio = Ratio(0.02),
-    baseAmortRate: Ratio = Ratio(0.015),
+    debtServiceRate: Share = Share(0.02),
+    baseAmortRate: Share = Share(0.015),
     depositSpread: Rate = Rate(0.02),
     // Consumer credit
     ccSpread: Rate = Rate(0.04),
-    ccMaxDti: Ratio = Ratio(0.40),
+    ccMaxDti: Share = Share(0.40),
     ccMaxLoan: PLN = PLN(50000.0),
     ccAmortRate: Rate = Rate(0.025),
-    ccNplRecovery: Ratio = Ratio(0.15),
-    ccEligRate: Ratio = Ratio(0.30),
+    ccNplRecovery: Share = Share(0.15),
+    ccEligRate: Share = Share(0.30),
 )
