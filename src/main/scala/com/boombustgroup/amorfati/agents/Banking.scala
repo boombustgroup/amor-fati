@@ -293,15 +293,13 @@ object Banking:
   // ---------------------------------------------------------------------------
 
   /** Assign a firm to a bank based on sector affinity and market share. */
-  @computationBoundary
   def assignBank(firmSector: SectorIdx, configs: Vector[Config], rng: Random): BankId =
-    import ComputationBoundary.toDouble
-    val weights = configs.map(c => toDouble(c.sectorAffinity(firmSector.toInt)) * toDouble(c.initMarketShare))
-    val total   = weights.sum
-    if total <= 0.0 then BankId(0)
+    val weights = configs.map(c => c.sectorAffinity(firmSector.toInt) * c.initMarketShare) // Share * Share → Share
+    val total   = weights.map(_.toLong).sum
+    if total <= 0L then BankId(0)
     else
-      val r      = rng.nextDouble() * total
-      val cumul  = weights.scanLeft(0.0)(_ + _).tail // cumulative sums
+      val r      = (rng.nextDouble() * total).toLong
+      val cumul  = weights.map(_.toLong).scanLeft(0L)(_ + _).tail
       val picked = cumul.indexWhere(_ > r)
       BankId(if picked >= 0 then picked else weights.length - 1)
 
