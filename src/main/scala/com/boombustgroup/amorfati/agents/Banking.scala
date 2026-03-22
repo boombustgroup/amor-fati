@@ -45,8 +45,8 @@ object Banking:
   private val CrowdingOutSensitivity: Multiplier = Multiplier(0.30) // 30% of bond yield gap passed through to lending spread
 
   // Interbank corridor (NBP: ref ± 100 bps)
-  private val DepositSpreadFromRef = 0.01 // deposit facility rate = refRate − 100 bps
-  private val LombardSpreadFromRef = 0.01 // lombard facility rate = refRate + 100 bps
+  private val DepositSpreadFromRef: Rate = Rate(0.01) // deposit facility rate = refRate − 100 bps
+  private val LombardSpreadFromRef: Rate = Rate(0.01) // lombard facility rate = refRate + 100 bps
 
   // ---------------------------------------------------------------------------
   // ADT: BankStatus
@@ -336,9 +336,7 @@ object Banking:
     *
     * rate = depositRate + (1 − liquidityRatio) × creditStress × corridor
     */
-  @computationBoundary
   def interbankRate(banks: Vector[BankState], refRate: Rate)(using p: SimParams): Rate =
-    import ComputationBoundary.toDouble
     val alive       = banks.filterNot(_.failed)
     val aggNpl      = PLN.fromRaw(alive.map(_.nplAmount.toLong).sum)
     val aggLoans    = PLN.fromRaw(alive.map(_.loans.toLong).sum)
@@ -346,18 +344,22 @@ object Banking:
     val aggReserves = PLN.fromRaw(alive.map(_.reservesAtNbp.toLong).sum)
 
     // Credit stress: NPL ratio relative to stress threshold (0 = healthy, 1 = max stress)
-    val aggNplRate   = if aggLoans > PLN(MinBalanceThreshold) then aggNpl / aggLoans else 0.0
-    val creditStress = Share(aggNplRate / toDouble(p.banking.stressThreshold)).clamp(Share.Zero, Share.One)
+    val aggNplShare  = if aggLoans > PLN(MinBalanceThreshold) then Share(aggNpl / aggLoans) else Share.Zero
+    val creditStress = Share(aggNplShare / p.banking.stressThreshold).clamp(Share.Zero, Share.One)
 
     // Liquidity position: excess reserves relative to required (0 = scarce, 1 = abundant)
     val requiredReserves = aggDeposits * p.banking.reserveReq
     val excessReserves   = aggReserves - requiredReserves
-    val liquidityRatio   = Share(toDouble(excessReserves) / Math.max(1.0, toDouble(requiredReserves))).clamp(Share.Zero, Share.One)
+    val liquidityRatio   =
+      if requiredReserves > PLN.Zero then Share(excessReserves / requiredReserves).clamp(Share.Zero, Share.One)
+      else Share.One
 
-    val depositRate = Rate.Zero.max(refRate - Rate(DepositSpreadFromRef))
-    val lombardRate = refRate + Rate(LombardSpreadFromRef)
+    val depositRate = Rate.Zero.max(refRate - DepositSpreadFromRef)
+    val lombardRate = refRate + LombardSpreadFromRef
     val corridor    = lombardRate - depositRate
-    Rate(toDouble(depositRate) + toDouble(corridor) * toDouble((Share.One - liquidityRatio) * creditStress))
+    // rate = depositRate + (1 - liquidityRatio) × creditStress × corridor
+    val stressFactor = (Share.One - liquidityRatio) * creditStress // Share * Share → Share
+    depositRate + corridor * stressFactor
 
   // ---------------------------------------------------------------------------
   // Credit approval
