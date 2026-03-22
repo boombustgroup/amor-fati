@@ -47,8 +47,8 @@ import com.boombustgroup.amorfati.types.*
   */
 case class LaborConfig(
     // Sectoral mobility (GUS LFS 2024, Shimer 2005)
-    frictionMatrix: Vector[Vector[Double]] = SectoralMobility.DefaultFrictionMatrix,
-    frictionDurationMult: Double = 1.0,
+    frictionMatrix: Vector[Vector[Share]] = SectoralMobility.DefaultFrictionMatrix,
+    frictionDurationMult: Multiplier = Multiplier(1.0),
     frictionCostMult: Share = Share(0.5),
     voluntarySearchProb: Share = Share(0.02),
     voluntaryWageThreshold: Share = Share(0.20),

@@ -98,21 +98,23 @@ case class SocialConfig(
     SocialConfig.cdfSample(shares, rng)
 
   /** Draw education tier for an immigrant worker. */
+  @computationBoundary
   def drawImmigrantEducation(rng: scala.util.Random): Int =
-    SocialConfig.cdfSample(eduImmigShares.map(_.toDouble), rng)
+    import ComputationBoundary.toDouble
+    SocialConfig.cdfSample(eduImmigShares.map(s => toDouble(s)), rng)
 
   /** Wage premium multiplier for given education tier (0-3). */
-  def eduWagePremium(education: Int): Double =
-    eduWagePreemia(education.max(0).min(3)).toDouble
+  def eduWagePremium(education: Int): Multiplier =
+    eduWagePreemia(education.max(0).min(3))
 
   /** Retraining success multiplier for given education tier (0-3). */
-  def eduRetrainMultiplier(education: Int): Double =
-    eduRetrainMult(education.max(0).min(3)).toDouble
+  def eduRetrainMultiplier(education: Int): Multiplier =
+    eduRetrainMult(education.max(0).min(3))
 
   /** Skill floor and ceiling for given education tier (0-3). */
-  def eduSkillRange(education: Int): (Double, Double) =
+  def eduSkillRange(education: Int): (Share, Share) =
     val idx = education.max(0).min(3)
-    (eduSkillFloors(idx).toDouble, eduSkillCeilings(idx).toDouble)
+    (eduSkillFloors(idx), eduSkillCeilings(idx))
 
 object SocialConfig:
   /** Sample a categorical index from a probability vector using the inverse CDF

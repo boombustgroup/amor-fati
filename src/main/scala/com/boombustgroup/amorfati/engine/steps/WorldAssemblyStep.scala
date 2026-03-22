@@ -208,7 +208,7 @@ object WorldAssemblyStep:
         sectoralMobility = SectoralMobility.State(
           crossSectorHires = in.s5.postFirmCrossSectorHires + in.s3.hhAgg.crossSectorHires,
           voluntaryQuits = in.s3.hhAgg.voluntaryQuits,
-          sectorMobilityRate = in.s9.finalHhAgg.sectorMobilityRate.toDouble,
+          sectorMobilityRate = in.s9.finalHhAgg.sectorMobilityRate,
         ),
         grossInvestment = in.s5.sumGrossInvestment,
         aggGreenInvestment = in.s5.sumGreenInvestment,

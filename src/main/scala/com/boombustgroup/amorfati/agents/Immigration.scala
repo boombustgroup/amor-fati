@@ -75,17 +75,17 @@ object Immigration:
   def spawnImmigrants(count: Int, startId: Int, rng: Random)(using p: SimParams): Vector[Household.State] =
     import ComputationBoundary.toDouble
     (0 until count).map { i =>
-      val sector                     = chooseSector(rng)
-      val edu                        = p.social.drawImmigrantEducation(rng)
-      val skill                      = toDouble(p.immigration.skillMean) + (rng.nextGaussian() * 0.15)
-      val (skillFloor, skillCeiling) = p.social.eduSkillRange(edu)
-      val clampedSkill               = skill.max(skillFloor).min(skillCeiling)
-      val savings                    = rng.nextDouble() * 5000.0
-      val mpc                        = 0.85 + rng.nextGaussian() * 0.05
-      val region                     = if p.flags.regionalLabor then Region.cdfSample(rng) else Region.Central
-      val baseRent                   = toDouble(p.household.rentMean) + rng.nextGaussian() * toDouble(p.household.rentStd)
-      val rent                       = if p.flags.regionalLabor then baseRent * toDouble(region.housingCostIndex) else baseRent
-      val numChildren                =
+      val sector                       = chooseSector(rng)
+      val edu                          = p.social.drawImmigrantEducation(rng)
+      val skill                        = toDouble(p.immigration.skillMean) + (rng.nextGaussian() * 0.15)
+      val (skillFloorS, skillCeilingS) = p.social.eduSkillRange(edu)
+      val clampedSkill                 = skill.max(toDouble(skillFloorS)).min(toDouble(skillCeilingS))
+      val savings                      = rng.nextDouble() * 5000.0
+      val mpc                          = 0.85 + rng.nextGaussian() * 0.05
+      val region                       = if p.flags.regionalLabor then Region.cdfSample(rng) else Region.Central
+      val baseRent                     = toDouble(p.household.rentMean) + rng.nextGaussian() * toDouble(p.household.rentStd)
+      val rent                         = if p.flags.regionalLabor then baseRent * toDouble(region.housingCostIndex) else baseRent
+      val numChildren                  =
         if p.flags.social800 && p.flags.social800ImmigEligible then Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
         else 0
       Household.State(

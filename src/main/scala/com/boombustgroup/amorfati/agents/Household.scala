@@ -48,18 +48,18 @@ object Household:
   private val MpcCeiling = 0.98
 
   // Social network precautionary saving
-  private val NeighborDistressThreshold    = 0.30 // fraction of neighbors in distress that triggers adj
-  private val NeighborDistressConsAdj      = 0.90 // consumption multiplier when distress exceeds threshold
-  private val NeighborDistressRetrainBoost = 0.05 // additional retraining prob when neighbors distressed
+  private val NeighborDistressThreshold    = Share(0.30) // fraction of neighbors in distress that triggers adj
+  private val NeighborDistressConsAdj      = Share(0.90) // consumption multiplier when distress exceeds threshold
+  private val NeighborDistressRetrainBoost = Share(0.05) // additional retraining prob when neighbors distressed
 
   // Labor market
   private val UnemploymentRetrainingThreshold = 6 // months unemployed before eligible for retraining
   private val PostFailedRetrainingMonths      = 7 // months assigned after failed retraining (duration + 1)
 
   // Consumer credit
-  private val DisposableWageThreshold = 0.3   // disposable/wage ratio below which HH may borrow
-  private val MinConsumerLoanSize     = 100.0 // minimum loan size (PLN)
-  private val ConsumerDebtInitFrac    = 0.3   // init consumer debt as fraction of mortgage draw
+  private val DisposableWageThreshold = Share(0.3) // disposable/wage ratio below which HH may borrow
+  private val MinConsumerLoanSize     = PLN(100.0) // minimum loan size (PLN)
+  private val ConsumerDebtInitFrac    = 0.3        // init consumer debt as fraction of mortgage draw
 
   // Init sampling
   private val GpwEquityInitFrac     = 0.05 // fraction of savings allocated to GPW equity at init
@@ -164,7 +164,7 @@ object Household:
           case HhStatus.Employed(fid, _, _) if fid.toInt < firms.length => h.copy(bankId = firms(fid.toInt).bankId)
           case _                                                        => h
       // Set NAIRU fraction as unemployed — prevents overheated init
-      val nUnemployed = (hhCount * p.monetary.nairu.toDouble).toInt
+      val nUnemployed = (hhCount.toLong * p.monetary.nairu.toLong / 10000L).toInt
       val toUnemploy  = rng.shuffle(banked.indices.toVector).take(nUnemployed).toSet
       banked.zipWithIndex.map: (h, i) =>
         if toUnemploy.contains(i) then
@@ -194,6 +194,7 @@ object Household:
       }
 
     /** Sample attributes for a single household from init distributions. */
+    @computationBoundary
     private def sampleHousehold(
         hhId: Int,
         firm: Firm.State,
@@ -201,22 +202,22 @@ object Household:
         socialNetwork: Array[Array[Int]],
         rng: Random,
     )(using p: SimParams): State =
+      import ComputationBoundary.toDouble
       val savings: PLN  = PLN(Math.exp(p.household.savingsMu + p.household.savingsSigma * rng.nextGaussian()))
       val debt: PLN     =
-        if rng.nextDouble() < p.household.debtFraction.toDouble then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()))
+        if rng.nextDouble() < toDouble(p.household.debtFraction) then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()))
         else PLN.Zero
-      val baseRent: PLN = PLN((p.household.rentMean.toDouble + p.household.rentStd.toDouble * rng.nextGaussian()).max(p.household.rentFloor.toDouble))
+      val baseRent: PLN = PLN((toDouble(p.household.rentMean) + toDouble(p.household.rentStd) * rng.nextGaussian()).max(toDouble(p.household.rentFloor)))
       val rent: PLN     = if p.flags.regionalLabor then baseRent * firm.region.housingCostIndex else baseRent
       val mpc           = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
       val (edu, skill)  = sampleEducationAndSkill(sectorIdx, rng)
-      val wage: PLN     = PLN(p.household.baseWage.toDouble * p.sectorDefs(sectorIdx.toInt).wageMultiplier.toDouble * skill)
+      val wage: PLN     = p.household.baseWage * firm.region.wageMultiplier * p.sectorDefs(sectorIdx.toInt).wageMultiplier * Share(skill)
       val eqWealth: PLN =
-        if p.flags.gpwHhEquity && rng.nextDouble() < p.equity.hhEquityFrac.toDouble then savings * Share(GpwEquityInitFrac)
+        if p.flags.gpwHhEquity && p.equity.hhEquityFrac.sampleBelow(rng) then savings * Share(GpwEquityInitFrac)
         else PLN.Zero
       val numChildren   = if p.flags.social800 then Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng) else 0
       val consDebt: PLN =
-        if rng.nextDouble() < p.household.debtFraction.toDouble then
-          PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()) * ConsumerDebtInitFrac)
+        if p.household.debtFraction.sampleBelow(rng) then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()) * ConsumerDebtInitFrac)
         else PLN.Zero
       val routineness   = sampleTaskRoutineness(edu, sectorIdx, rng)
       State(
@@ -243,13 +244,17 @@ object Household:
       )
 
     /** Sample education level and skill for a sector, clamped to edu range. */
+    @computationBoundary
     private def sampleEducationAndSkill(sectorIdx: SectorIdx, rng: Random)(using p: SimParams): (Int, Double) =
-      val edu                        = p.social.drawEducation(sectorIdx.toInt, rng)
-      val (skillFloor, skillCeiling) = p.social.eduSkillRange(edu)
-      val sectorSigma                = p.sectorDefs(sectorIdx.toInt).sigma.toDouble
-      val baseSkill                  = skillFloor + (skillCeiling - skillFloor) * rng.nextDouble()
-      val sectorBonus                = Math.min(SectorSkillBonusMax, SectorSkillBonusCoeff * Math.log(sectorSigma))
-      val skill                      = Math.max(skillFloor, Math.min(skillCeiling, baseSkill + sectorBonus))
+      import ComputationBoundary.toDouble
+      val edu                          = p.social.drawEducation(sectorIdx.toInt, rng)
+      val (skillFloorS, skillCeilingS) = p.social.eduSkillRange(edu)
+      val skillFloor                   = toDouble(skillFloorS)
+      val skillCeiling                 = toDouble(skillCeilingS)
+      val sectorSigma                  = toDouble(p.sectorDefs(sectorIdx.toInt).sigma)
+      val baseSkill                    = skillFloor + (skillCeiling - skillFloor) * rng.nextDouble()
+      val sectorBonus                  = Math.min(SectorSkillBonusMax, SectorSkillBonusCoeff * Math.log(sectorSigma))
+      val skill                        = Math.max(skillFloor, Math.min(skillCeiling, baseSkill + sectorBonus))
       (edu, skill)
 
     /** Sample task routineness based on education and sector sigma.
@@ -260,37 +265,37 @@ object Household:
       *
       * routineness = base(edu) + σ-bonus, clamped to [0.05, 0.95], with noise.
       */
+    @computationBoundary
     private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: Random)(using p: SimParams): Share =
-      // Base routineness by education: Primary=0.8, Vocational=0.65, Secondary=0.45, Tertiary=0.25
-      val eduBase  = p.labor.sbtcEduRoutineness(edu)
-      // High-σ sectors (BPO=50) push routineness up; low-σ (Public=1) push down
-      val sigma    = p.sectorDefs(sectorIdx.toInt).sigma.toDouble
-      val sigmaAdj = 0.05 * Math.log(sigma) / Math.log(10.0) // ±0.05 per log10(σ)
-      val noise    = 0.05 * (rng.nextDouble() - 0.5)         // ±2.5% uniform noise
-      Share(eduBase.toDouble + sigmaAdj + noise).clamp(Share(0.05), Share(0.95))
+      import ComputationBoundary.toDouble
+      val eduBase  = toDouble(p.labor.sbtcEduRoutineness(edu))
+      val sigma    = toDouble(p.sectorDefs(sectorIdx.toInt).sigma)
+      val sigmaAdj = 0.05 * Math.log(sigma) / Math.log(10.0)
+      val noise    = 0.05 * (rng.nextDouble() - 0.5)
+      Share(eduBase + sigmaAdj + noise).clamp(Share(0.05), Share(0.95))
 
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 
-  /** Accumulated flow totals from one step. PLN is Long — addition is exact,
-    * no Kahan compensation needed.
+  /** Accumulated flow totals from one step. PLN is Long — addition is exact, no
+    * Kahan compensation needed.
     */
   private class StepTotals:
-    private var incomeAcc: PLN          = PLN.Zero
-    private var benefitAcc: PLN         = PLN.Zero
-    private var debtSvcAcc: PLN         = PLN.Zero
-    private var depIntAcc: PLN          = PLN.Zero
-    private var goodsConsAcc: PLN       = PLN.Zero
-    private var rentAcc: PLN            = PLN.Zero
-    private var remitAcc: PLN           = PLN.Zero
-    private var pitAcc: PLN             = PLN.Zero
-    private var socialAcc: PLN          = PLN.Zero
-    private var ccDebtSvcAcc: PLN       = PLN.Zero
-    private var ccOrigAcc: PLN          = PLN.Zero
-    private var ccDefaultAcc: PLN       = PLN.Zero
-    private var ccPrincipalAcc: PLN     = PLN.Zero
-    var retrainingAttempts: Int          = 0
-    var retrainingSuccesses: Int         = 0
-    var voluntaryQuits: Int              = 0
+    private var incomeAcc: PLN      = PLN.Zero
+    private var benefitAcc: PLN     = PLN.Zero
+    private var debtSvcAcc: PLN     = PLN.Zero
+    private var depIntAcc: PLN      = PLN.Zero
+    private var goodsConsAcc: PLN   = PLN.Zero
+    private var rentAcc: PLN        = PLN.Zero
+    private var remitAcc: PLN       = PLN.Zero
+    private var pitAcc: PLN         = PLN.Zero
+    private var socialAcc: PLN      = PLN.Zero
+    private var ccDebtSvcAcc: PLN   = PLN.Zero
+    private var ccOrigAcc: PLN      = PLN.Zero
+    private var ccDefaultAcc: PLN   = PLN.Zero
+    private var ccPrincipalAcc: PLN = PLN.Zero
+    var retrainingAttempts: Int     = 0
+    var retrainingSuccesses: Int    = 0
+    var voluntaryQuits: Int         = 0
 
     def add(r: HhMonthlyResult): Unit =
       incomeAcc = incomeAcc + r.income
@@ -314,7 +319,7 @@ object Household:
     def unempBenefits: PLN       = benefitAcc
     def debtService: PLN         = debtSvcAcc
     def depositInterest: PLN     = depIntAcc
-    def goodsConsumption: PLN    = PLN(goodsConsS)
+    def goodsConsumption: PLN    = goodsConsAcc
     def rent: PLN                = rentAcc
     def remittances: PLN         = remitAcc
     def pit: PLN                 = pitAcc
@@ -384,7 +389,7 @@ object Household:
   def computeMonthlyPit(monthlyIncome: PLN)(using p: SimParams): PLN =
     if !p.flags.pit || monthlyIncome <= PLN.Zero then PLN.Zero
     else
-      val afterZus   = monthlyIncome * Share(1.0 - p.social.zusEmployeeRate.toDouble)
+      val afterZus   = monthlyIncome - monthlyIncome * p.social.zusEmployeeRate
       val annualized = afterZus * Multiplier(12.0)
       val grossTax   =
         if annualized <= p.fiscal.pitBracket1Annual then annualized * p.fiscal.pitRate1
@@ -413,15 +418,16 @@ object Household:
       sectorVacancies: Vector[Int],
       rng: Random,
   )(using p: SimParams): (HhStatus, Int) =
-    if !p.flags.sectoralMobility || rng.nextDouble() >= p.labor.voluntarySearchProb.toDouble then return (status, 0)
-    val targetSector  =
-      SectoralMobility.selectTargetSector(status.sectorIdx.toInt, sectorWages, sectorVacancies, p.labor.frictionMatrix, p.labor.vacancyWeight.toDouble, rng)
-    val targetAvgWage = sectorWages(targetSector)
-    if targetAvgWage <= status.wage * Multiplier(1.0 + p.labor.voluntaryWageThreshold.toDouble) then return (status, 0)
-    val friction      = p.labor.frictionMatrix(status.sectorIdx.toInt)(targetSector)
-    if friction < p.labor.adjacentFrictionMax.toDouble then (HhStatus.Unemployed(0), 1)
+    if !p.flags.sectoralMobility || !p.labor.voluntarySearchProb.sampleBelow(rng) then return (status, 0)
+    val targetSector      =
+      SectoralMobility.selectTargetSector(status.sectorIdx.toInt, sectorWages, sectorVacancies, p.labor.frictionMatrix, p.labor.vacancyWeight, rng)
+    val targetAvgWage     = sectorWages(targetSector)
+    val wageThresholdMult = Multiplier.One + p.labor.voluntaryWageThreshold.toMultiplier
+    if targetAvgWage <= status.wage * wageThresholdMult then return (status, 0)
+    val friction          = p.labor.frictionMatrix(status.sectorIdx.toInt)(targetSector)
+    if friction < p.labor.adjacentFrictionMax then (HhStatus.Unemployed(0), 1)
     else
-      val rp = SectoralMobility.frictionAdjustedParams(friction, p.labor.frictionDurationMult, p.labor.frictionCostMult.toDouble)
+      val rp = SectoralMobility.frictionAdjustedParams(friction, p.labor.frictionDurationMult, p.labor.frictionCostMult)
       if hh.savings > rp.cost then (HhStatus.Retraining(rp.duration, SectorIdx(targetSector), rp.cost), 1)
       else (status, 0)
 
@@ -429,23 +435,23 @@ object Household:
   private def tryRetraining(
       hh: State,
       status: HhStatus,
-      neighborDistress: Double,
+      neighborDistress: Share,
       sectorWages: Option[Vector[PLN]],
       sectorVacancies: Option[Vector[Int]],
       rng: Random,
   )(using p: SimParams): (HhStatus, Int, Int) =
     status match
       case HhStatus.Unemployed(months) if months > UnemploymentRetrainingThreshold && p.household.retrainingEnabled =>
-        val retrainProb = p.household.retrainingProb.toDouble +
-          (if neighborDistress > NeighborDistressThreshold then NeighborDistressRetrainBoost else 0.0)
-        if hh.savings > p.household.retrainingCost && rng.nextDouble() < retrainProb then
+        val retrainProb = p.household.retrainingProb +
+          (if neighborDistress > NeighborDistressThreshold then NeighborDistressRetrainBoost else Share.Zero)
+        if hh.savings > p.household.retrainingCost && retrainProb.sampleBelow(rng) then
           if p.flags.sectoralMobility && sectorWages.isDefined then
             val sw           = sectorWages.get
             val sv           = sectorVacancies.get
             val fromSector   = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt else 0
-            val targetSector = SectoralMobility.selectTargetSector(fromSector, sw, sv, p.labor.frictionMatrix, p.labor.vacancyWeight.toDouble, rng)
+            val targetSector = SectoralMobility.selectTargetSector(fromSector, sw, sv, p.labor.frictionMatrix, p.labor.vacancyWeight, rng)
             val friction     = p.labor.frictionMatrix(fromSector)(targetSector)
-            val rp           = SectoralMobility.frictionAdjustedParams(friction, p.labor.frictionDurationMult, p.labor.frictionCostMult.toDouble)
+            val rp           = SectoralMobility.frictionAdjustedParams(friction, p.labor.frictionDurationMult, p.labor.frictionCostMult)
             if hh.savings > rp.cost then (HhStatus.Retraining(rp.duration, SectorIdx(targetSector), rp.cost), 1, 0)
             else (status, 0, 0)
           else
@@ -457,14 +463,16 @@ object Household:
         if monthsLeft <= 1 then
           val afterSkill      = applySkillDecay(hh, status)
           val afterHealth     = applyHealthScarring(hh, status)
-          val baseSuccessProb =
-            (p.household.retrainingBaseSuccess * afterSkill).toDouble * (1.0 - afterHealth.toDouble) * p.social.eduRetrainMultiplier(hh.education)
+          // baseSuccess × skill × (1 − healthPenalty) × eduMultiplier
+          val skillHealthProb = p.household.retrainingBaseSuccess * afterSkill * (Share.One - afterHealth)
+          val eduMult         = p.social.eduRetrainMultiplier(hh.education)
+          val baseSuccessProb = (skillHealthProb * eduMult).toShare // Multiplier → Share (probability)
           val successProb     = if p.flags.sectoralMobility then
             val fromSector = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt else 0
             val friction   = p.labor.frictionMatrix(fromSector)(targetSector.toInt)
-            SectoralMobility.frictionAdjustedSuccess(baseSuccessProb, friction)
+            baseSuccessProb * (Share.One - friction * SectoralMobility.FrictionSuccessDiscount)
           else baseSuccessProb
-          if rng.nextDouble() < successProb then (HhStatus.Unemployed(0), 0, 1)
+          if successProb.sampleBelow(rng) then (HhStatus.Unemployed(0), 0, 1)
           else (HhStatus.Unemployed(PostFailedRetrainingMonths), 0, 0)
         else (HhStatus.Retraining(monthsLeft - 1, targetSector, cost), 0, 0)
 
@@ -483,19 +491,21 @@ object Household:
     val consumerRate: Rate = bankRates match
       case Some(br) => br.lendingRates(hh.bankId.toInt) + p.household.ccSpread
       case None     => world.nbp.referenceRate + p.household.ccSpread
-    val consumerDebtSvc    = PLN(hh.consumerDebt.toDouble * (p.household.ccAmortRate.toDouble + consumerRate.toDouble / 12.0))
+    val consumerDebtSvc    = hh.consumerDebt * (p.household.ccAmortRate + consumerRate.monthly)
     val consumerPrin       = hh.consumerDebt * p.household.ccAmortRate
 
     val newConsumerLoan = hh.status match
       case HhStatus.Employed(_, _, wage)                                             =>
-        val stressed = disposable < wage * Share(DisposableWageThreshold)
-        val eligible = stressed && rng.nextDouble() < p.household.ccEligRate.toDouble
+        val stressed = disposable < wage * DisposableWageThreshold
+        val eligible = stressed && p.household.ccEligRate.sampleBelow(rng)
         if !eligible then PLN.Zero
         else
-          val existingDti = (debtService + consumerDebtSvc).toDouble / Math.max(1.0, income.toDouble)
-          val headroom    = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income.toDouble
-          val desired     = Math.min(headroom, p.household.ccMaxLoan.toDouble)
-          if desired > MinConsumerLoanSize then PLN(desired) else PLN.Zero
+          val totalDbtSvc   = debtService + consumerDebtSvc
+          val existingDti   = if income > PLN.Zero then Share(totalDbtSvc / income) else Share.One
+          val headroomShare = (p.household.ccMaxDti - existingDti).max(Share.Zero)
+          val headroom      = income * headroomShare
+          val desired       = headroom.min(p.household.ccMaxLoan)
+          if desired > MinConsumerLoanSize then desired else PLN.Zero
       case HhStatus.Unemployed(_) | HhStatus.Retraining(_, _, _) | HhStatus.Bankrupt => PLN.Zero
 
     val updatedDebt = (hh.consumerDebt + newConsumerLoan - consumerDebtSvc).max(PLN.Zero)
@@ -525,7 +535,7 @@ object Household:
       newEquityWealth: PLN,
       newSavings: PLN,
       newDebt: PLN,
-      neighborDistress: Double,
+      neighborDistress: Share,
   )
 
   /** Per-HH monthly pipeline: income → tax → credit → consumption → equity. */
@@ -534,15 +544,15 @@ object Household:
       world: World,
       rng: Random,
       bankRates: Option[BankRates],
-      equityIndexReturn: Double,
+      equityIndexReturn: Rate,
       distressedIds: java.util.BitSet,
   )(using p: SimParams): MonthlyFlows =
     val (baseIncome, benefit, newStatus) = computeIncome(hh)
 
     // Variable-rate debt service (monetary transmission channel 1)
-    val debtServiceRate: Double = bankRates match
-      case Some(br) => p.household.baseAmortRate.toDouble + br.lendingRates(hh.bankId.toInt).toDouble / 12.0
-      case None     => p.household.debtServiceRate.toDouble
+    val debtSvcRate: Rate = bankRates match
+      case Some(br) => p.household.baseAmortRate.toRate + br.lendingRates(hh.bankId.toInt).monthly
+      case None     => p.household.debtServiceRate.toRate
 
     // Deposit interest (monetary transmission channel 2)
     val depInterest: PLN = bankRates match
@@ -553,7 +563,7 @@ object Household:
     val pitTax          = computeMonthlyPit(grossIncome)
     val socialTransfer  = computeSocialTransfer(hh.numDependentChildren)
     val income          = grossIncome - pitTax + socialTransfer
-    val thisDebtService = hh.debt * Rate(debtServiceRate)
+    val thisDebtService = hh.debt * debtSvcRate
 
     val remittance =
       if hh.isImmigrant && p.flags.immigration then income * p.immigration.remitRate
@@ -569,10 +579,10 @@ object Household:
     // Social network precautionary effect
     val neighborDistress = neighborDistressRatioFast(hh, distressedIds)
     val consumptionAdj   =
-      if neighborDistress > NeighborDistressThreshold then consumption * Share(NeighborDistressConsAdj) else consumption
+      if neighborDistress > NeighborDistressThreshold then consumption * NeighborDistressConsAdj else consumption
 
     // Wealth effects: equity (GPW) + housing (Meen HPI)
-    val newEquityWealth       = (hh.equityWealth * Multiplier(1.0 + equityIndexReturn)).max(PLN.Zero)
+    val newEquityWealth       = (hh.equityWealth * (Multiplier.One + equityIndexReturn.toMultiplier)).max(PLN.Zero)
     val equityGain            = newEquityWealth - hh.equityWealth
     val equityBoost           =
       if p.flags.gpwHhEquity && equityGain > PLN.Zero then equityGain * p.equity.wealthEffectMpc
@@ -605,7 +615,7 @@ object Household:
       world: World,
       rng: Random,
       bankRates: Option[BankRates],
-      equityIndexReturn: Double,
+      equityIndexReturn: Rate,
       sectorWages: Option[Vector[PLN]],
       sectorVacancies: Option[Vector[Int]],
       distressedIds: java.util.BitSet,
@@ -616,7 +626,7 @@ object Household:
 
   /** Bankruptcy branch: write off consumer debt, zero equity. */
   private def resolveBankruptcy(f: MonthlyFlows)(using p: SimParams): HhMonthlyResult =
-    val ccDefaultAmt  = f.hh.consumerDebt * Share(1.0 - p.household.ccAmortRate.toDouble) + f.credit.newLoan
+    val ccDefaultAmt  = f.hh.consumerDebt * (Rate(1.0) - p.household.ccAmortRate) + f.credit.newLoan
     val creditWithDef = f.credit.copy(defaultAmt = ccDefaultAmt, updatedDebt = PLN.Zero)
     HhMonthlyResult(
       newState = f.hh.copy(
@@ -704,7 +714,7 @@ object Household:
       rng: Random,
       nBanks: Int = 1,
       bankRates: Option[BankRates] = None,
-      equityIndexReturn: Double = 0.0,
+      equityIndexReturn: Rate = Rate.Zero,
       sectorWages: Option[Vector[PLN]] = None,
       sectorVacancies: Option[Vector[Int]] = None,
   )(using p: SimParams): (Vector[State], Aggregates, Option[Vector[PerBankFlow]]) =
@@ -736,14 +746,15 @@ object Household:
 
   /** Sector mobility rate: fraction of employed in different sector than last.
     */
-  private def sectorMobilityRate(updated: Vector[State])(using p: SimParams): Double =
-    if !p.flags.sectoralMobility then return 0.0
-    val employed = updated.flatMap: hh =>
+  private def sectorMobilityRate(updated: Vector[State])(using p: SimParams): Share =
+    if !p.flags.sectoralMobility then return Share.Zero
+    val employed    = updated.flatMap: hh =>
       hh.status match
         case HhStatus.Employed(_, sec, _) => Some((hh.lastSectorIdx, sec))
         case _                            => None
-    if employed.isEmpty then return 0.0
-    employed.count((last, cur) => last.toInt >= 0 && last != cur).toDouble / employed.length
+    if employed.isEmpty then return Share.Zero
+    val crossSector = employed.count((last, cur) => last.toInt >= 0 && last != cur)
+    Share.fraction(crossSector, employed.length)
 
   /** Base income, benefit, and updated status for one HH. */
   private def computeIncome(hh: State)(using SimParams): (PLN, PLN, HhStatus) =
@@ -795,23 +806,25 @@ object Household:
     if income <= PLN.Zero then baseMpc
     else
       val targetSavings = income * Multiplier(p.household.bufferTargetMonths)
-      val bufferRatio   = hh.savings / targetSavings // >1 = fat buffer, <1 = depleted
-      val bufferAdj     = Share(1.0 - p.household.bufferSensitivity.toDouble * (bufferRatio - 1.0))
+      val bufferRatio   = Multiplier(hh.savings / targetSavings)    // PLN/PLN → Double → Multiplier
+      val deviation     = bufferRatio - Multiplier.One              // >0 = fat, <0 = depleted
+      val adjustment    = p.household.bufferSensitivity * deviation // Coefficient × Multiplier → Share
+      val bufferAdj     = (Share.One - adjustment).clamp(Share.Zero, Share.One)
       val unemployedAdj = status match
         case _: HhStatus.Unemployed => Share.One + p.household.mpcUnemployedBoost
         case _                      => Share.One
       (baseMpc * bufferAdj * unemployedAdj).clamp(Share(MpcFloor), Share(MpcCeiling))
 
   /** Fraction of social neighbors in distress (BitSet, O(k) per HH). */
-  private def neighborDistressRatioFast(hh: State, distressedIds: java.util.BitSet): Double =
-    if hh.socialNeighbors.isEmpty then 0.0
+  private def neighborDistressRatioFast(hh: State, distressedIds: java.util.BitSet): Share =
+    if hh.socialNeighbors.isEmpty then Share.Zero
     else
       var count = 0
       var i     = 0
       while i < hh.socialNeighbors.length do
         if distressedIds.get(hh.socialNeighbors(i).toInt) then count += 1
         i += 1
-      count.toDouble / hh.socialNeighbors.length
+      Share.fraction(count, hh.socialNeighbors.length)
 
   /** Public entry point for aggregate stats (used by BankUpdateStep and tests).
     * Flow totals default to zero — only distribution stats are computed.
@@ -836,6 +849,7 @@ object Household:
     * Merges per-HH distribution stats with flow totals from StepTotals in one
     * construction — no intermediate Aggregates + copy overwrite.
     */
+  @computationBoundary
   private def computeAggregates(
       households: Vector[State],
       marketWage: PLN,
@@ -843,6 +857,7 @@ object Household:
       importAdj: Double,
       t: StepTotals,
   )(using p: SimParams): Aggregates =
+    import ComputationBoundary.toDouble
     val n = households.length
 
     var nEmployed    = 0
@@ -863,28 +878,28 @@ object Household:
       hh.status match
         case HhStatus.Employed(_, _, wage) =>
           nEmployed += 1
-          incomes(i) = wage.toDouble
-          sumSkill += hh.skill.toDouble
-          sumHealth += hh.healthPenalty.toDouble
+          incomes(i) = toDouble(wage)
+          sumSkill += toDouble(hh.skill)
+          sumHealth += toDouble(hh.healthPenalty)
         case HhStatus.Unemployed(months)   =>
           nUnemployed += 1
-          incomes(i) = computeBenefit(months).toDouble
-          sumSkill += hh.skill.toDouble
-          sumHealth += hh.healthPenalty.toDouble
+          incomes(i) = toDouble(computeBenefit(months))
+          sumSkill += toDouble(hh.skill)
+          sumHealth += toDouble(hh.healthPenalty)
         case HhStatus.Retraining(_, _, _)  =>
           nRetraining += 1
           incomes(i) = 0.0
-          sumSkill += hh.skill.toDouble
-          sumHealth += hh.healthPenalty.toDouble
+          sumSkill += toDouble(hh.skill)
+          sumHealth += toDouble(hh.healthPenalty)
         case HhStatus.Bankrupt             =>
           nBankrupt += 1
           incomes(i) = 0.0
 
-      val rent       = hh.monthlyRent.toDouble
-      val debtSvc    = hh.debt.toDouble * p.household.debtServiceRate.toDouble
+      val rent       = toDouble(hh.monthlyRent)
+      val debtSvc    = toDouble(hh.debt) * toDouble(p.household.debtServiceRate)
       val disposable = Math.max(0.0, incomes(i) - rent - debtSvc)
-      consumptions(i) = disposable * hh.mpc.toDouble
-      savingsArr(i) = hh.savings.toDouble
+      consumptions(i) = disposable * toDouble(hh.mpc)
+      savingsArr(i) = toDouble(hh.savings)
       i += 1
 
     val nAlive = n - nBankrupt
@@ -895,8 +910,8 @@ object Household:
     java.util.Arrays.sort(consumptions)
 
     // Consumption split: flow totals (from StepTotals) are authoritative
-    val totalConsumption = (t.goodsConsumption + t.rent).toDouble
-    val importCons       = t.goodsConsumption.toDouble * Math.min(ImportRatioCap, importAdj)
+    val totalConsumption = toDouble(t.goodsConsumption + t.rent)
+    val importCons       = toDouble(t.goodsConsumption) * Math.min(ImportRatioCap, importAdj)
     val domesticCons     = totalConsumption - importCons
 
     val medianIncome = if n > 0 then incomes(n / 2) else 0.0
@@ -914,10 +929,10 @@ object Household:
       reservationWage = reservationWage,
       giniIndividual = Share(giniSorted(incomes)),
       giniWealth = Share(giniSorted(savingsArr)),
-      meanSavings = PLN(if n > 0 then savingsArr.kahanSum / n else 0.0),
+      meanSavings = PLN(if n > 0 then savingsArr.sum / n else 0.0),
       medianSavings = PLN(if n > 0 then savingsArr(n / 2) else 0.0),
-      povertyRate50 = Share(if n > 0 && medianIncome > 0 then lowerBound(incomes, medianIncome * PovertyRate50Pct).toDouble / n else 0.0),
-      bankruptcyRate = Share(if n > 0 then nBankrupt.toDouble / n else 0.0),
+      povertyRate50 = if n > 0 && medianIncome > 0 then Share.fraction(lowerBound(incomes, medianIncome * PovertyRate50Pct), n) else Share.Zero,
+      bankruptcyRate = if n > 0 then Share.fraction(nBankrupt, n) else Share.Zero,
       meanSkill = if nAlive > 0 then sumSkill / nAlive else 0.0,
       meanHealthPenalty = if nAlive > 0 then sumHealth / nAlive else 0.0,
       retrainingAttempts = t.retrainingAttempts,
@@ -926,14 +941,14 @@ object Household:
       consumptionP50 = PLN(if n > 0 then consumptions(n / 2) else 0.0),
       consumptionP90 = PLN(if n > 0 then consumptions(Math.min(n - 1, (n * ConsumptionP90).toInt)) else 0.0),
       meanMonthsToRuin = 0.0,
-      povertyRate30 = Share(if n > 0 && medianIncome > 0 then lowerBound(incomes, medianIncome * PovertyRate30Pct).toDouble / n else 0.0),
+      povertyRate30 = if n > 0 && medianIncome > 0 then Share.fraction(lowerBound(incomes, medianIncome * PovertyRate30Pct), n) else Share.Zero,
       totalRent = t.rent,
       totalDebtService = t.debtService,
       totalUnempBenefits = t.unempBenefits,
       totalDepositInterest = t.depositInterest,
       crossSectorHires = 0,
       voluntaryQuits = t.voluntaryQuits,
-      sectorMobilityRate = Share(sectorMobilityRate(households)),
+      sectorMobilityRate = sectorMobilityRate(households),
       totalRemittances = t.remittances,
       totalPit = t.pit,
       totalSocialTransfers = t.socialTransfers,
