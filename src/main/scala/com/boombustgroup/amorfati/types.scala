@@ -86,12 +86,9 @@ object types:
       @targetName("plnTimesCoefficient")
       def *(c: Coefficient): PLN = bankerRound(BigInt(p) * BigInt(c))
 
-      // Scalar multiplication (for worker counts, Int divisors)
-      def *(scalar: Double): PLN = PLN(p.toDouble / Scale * scalar)
+      // Scalar operations removed — use typed Multiplier/Share/Rate instead
       @targetName("plnDivPln")
       def /(other: PLN): Double  = if other != 0L then p.toDouble / other.toDouble else 0.0
-      @targetName("plnDivScalar")
-      def /(scalar: Double): PLN = PLN(p.toDouble / Scale / scalar)
       def /(divisor: Long): PLN  = p / divisor
       @targetName("plnDivShare")
       def /(s: Share): PLN       = if s != 0L then PLN(p.toDouble / Scale / ((s: Long).toDouble / Scale)) else PLN.Zero
@@ -140,12 +137,8 @@ object types:
       def *(s: Share): Rate               = Rate(r.toDouble / Scale * (s: Long).toDouble / Scale)
       @targetName("rateTimesCoefficient")
       def *(c: Coefficient): Rate         = Rate(r.toDouble / Scale * (c: Long).toDouble / Scale)
-      def *(scalar: Double): Rate         = Rate(r.toDouble / Scale * scalar)
-      def /(scalar: Double): Rate         = Rate(r.toDouble / Scale / scalar)
       @targetName("rateDivRate")
       def /(other: Rate): Double          = if other != 0L then r.toDouble / other.toDouble else 0.0
-      @targetName("ratePlusDouble")
-      def +(scalar: Double): Double       = r.toDouble / Scale + scalar
       def >(other: Rate): Boolean         = r > other
       def <(other: Rate): Boolean         = r < other
       def >=(other: Rate): Boolean        = r >= other
@@ -188,9 +181,6 @@ object types:
       def *(c: Coefficient): Coefficient     = bankerRound(BigInt(s) * BigInt(c))
       @targetName("shareTimesPln")
       def *(p: PLN): PLN                     = bankerRound(BigInt(p) * BigInt(s))
-      def *(scalar: Double): Share           = Share(s.toDouble / Scale * scalar)
-      @targetName("shareDivScalar")
-      def /(scalar: Double): Share           = Share(s.toDouble / Scale / scalar)
       @targetName("shareDivInt")
       def /(n: Int): Share                   = Share(s.toDouble / Scale / n)
       @targetName("shareDivShare")
@@ -248,9 +238,7 @@ object types:
       def *(s: Share): Multiplier                           = bankerRound(BigInt(m) * BigInt(s))
       @targetName("multTimesPln")
       def *(p: PLN): PLN                                    = bankerRound(BigInt(p) * BigInt(m))
-      def *(scalar: Double): Multiplier                     = Multiplier(m.toDouble / Scale * scalar)
       @targetName("multDivScalar")
-      def /(scalar: Double): Multiplier                     = Multiplier(m.toDouble / Scale / scalar)
       @targetName("multDivMult")
       def /(other: Multiplier): Double                      = if other != 0L then m.toDouble / other.toDouble else 0.0
       def max(other: Multiplier): Multiplier                = math.max(m, other)
@@ -285,8 +273,6 @@ object types:
       def *(s: Share): Coefficient             = bankerRound(BigInt(c) * BigInt(s))
       @targetName("coefTimesPln")
       def *(p: PLN): PLN                       = bankerRound(BigInt(p) * BigInt(c))
-      def *(scalar: Double): Coefficient       = Coefficient(c.toDouble / Scale * scalar)
-      def /(scalar: Double): Coefficient       = Coefficient(c.toDouble / Scale / scalar)
       def abs: Coefficient                     = math.abs(c)
       def max(other: Coefficient): Coefficient = math.max(c, other)
       def min(other: Coefficient): Coefficient = math.min(c, other)
@@ -314,7 +300,6 @@ object types:
       @targetName("priceIdxTimesMultiplier")
       def *(m: Multiplier): PriceIndex     = PriceIndex(p.toDouble / Scale * (m: Long).toDouble / Scale)
       @targetName("priceIdxTimesScalar")
-      def *(scalar: Double): PriceIndex    = PriceIndex(p.toDouble / Scale * scalar)
       @targetName("priceIdxTimesPln")
       def *(pln: PLN): PLN                 = bankerRound(BigInt(pln) * BigInt(p))
       @targetName("priceIdxDivIdx")
@@ -334,7 +319,6 @@ object types:
       def toDouble: Double          = s.toDouble / Scale
       def toLong: Long              = s
       def +(other: Sigma): Sigma    = s + other
-      def *(scalar: Double): Sigma  = Sigma(s.toDouble / Scale * scalar)
       def >(other: Sigma): Boolean  = s > other
       def <(other: Sigma): Boolean  = s < other
       def >=(other: Sigma): Boolean = s >= other
