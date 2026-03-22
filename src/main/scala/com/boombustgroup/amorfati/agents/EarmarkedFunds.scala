@@ -79,8 +79,8 @@ object EarmarkedFunds:
       avgFirmWorkers: Int,
   )(using p: SimParams): State =
     // Fundusz Pracy: 2.45% employer levy → finances unemployment benefits + ALMP
-    val fpContrib = PLN(wage.toDouble * p.earmarked.fpRate.toDouble * employed)
-    val fpSpend   = unempBenefitSpend + PLN(p.earmarked.fpAlmpSpendPerWorker.toDouble * employed)
+    val fpContrib = employed * (wage * p.earmarked.fpRate)
+    val fpSpend   = unempBenefitSpend + employed * p.earmarked.fpAlmpSpendPerWorker
     val fpFlow    = fpContrib - fpSpend
     val fpSubv    = if fpFlow < PLN.Zero then -fpFlow else PLN.Zero
 
@@ -91,8 +91,8 @@ object EarmarkedFunds:
     val pfronSubv    = if pfronFlow < PLN.Zero then -pfronFlow else PLN.Zero
 
     // FGŚP: 0.10% payroll → pays wages on bankruptcy (counter-cyclical)
-    val fgspContrib = PLN(wage.toDouble * p.earmarked.fgspRate.toDouble * employed)
-    val fgspSpend   = PLN(p.earmarked.fgspPayoutPerWorker.toDouble * nBankruptFirms * avgFirmWorkers)
+    val fgspContrib = employed * (wage * p.earmarked.fgspRate)
+    val fgspSpend   = (nBankruptFirms * avgFirmWorkers) * p.earmarked.fgspPayoutPerWorker
     val fgspFlow    = fgspContrib - fgspSpend
     val fgspSubv    = if fgspFlow < PLN.Zero then -fgspFlow else PLN.Zero
 

@@ -153,9 +153,11 @@ object Household:
       * NAIRU-fraction of households start as Unemployed(0) so the economy
       * initializes near steady state rather than overheated.
       */
+    @computationBoundary
     def create(rng: Random, firms: Vector[Firm.State])(using p: SimParams): Vector[State] =
+      import ComputationBoundary.toDouble
       val hhCount     = firms.map(Firm.workerCount).sum
-      val hhNetwork   = Network.wattsStrogatz(hhCount, p.household.socialK, p.household.socialP.toDouble, rng)
+      val hhNetwork   = Network.wattsStrogatz(hhCount, p.household.socialK, toDouble(p.household.socialP), rng)
       val hhs         = initialize(hhCount, firms, hhNetwork, rng)
       // Assign households to same bank as their employer
       val banked      = hhs.map: h =>
@@ -270,87 +272,78 @@ object Household:
 
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 
-  /** Accumulated flow totals from one step, built via Kahan-compensated
-    * summation over per-HH results. Mutable for performance: one add() per
-    * household, immutable fold would allocate N case class copies.
+  /** Accumulated flow totals from one step. PLN is Long — addition is exact,
+    * no Kahan compensation needed.
     */
   private class StepTotals:
-    // Kahan compensated accumulators: (sum, compensation)
-    private var incomeS          = 0.0; private var incomeC      = 0.0
-    private var benefitS         = 0.0; private var benefitC     = 0.0
-    private var debtSvcS         = 0.0; private var debtSvcC     = 0.0
-    private var depIntS          = 0.0; private var depIntC      = 0.0
-    private var goodsConsS       = 0.0; private var goodsConsC   = 0.0
-    private var rentS            = 0.0; private var rentC        = 0.0
-    private var remitS           = 0.0; private var remitC       = 0.0
-    private var pitS             = 0.0; private var pitC         = 0.0
-    private var socialS          = 0.0; private var socialC      = 0.0
-    private var ccDebtSvcS       = 0.0; private var ccDebtSvcC   = 0.0
-    private var ccOrigS          = 0.0; private var ccOrigC      = 0.0
-    private var ccDefaultS       = 0.0; private var ccDefaultC   = 0.0
-    private var ccPrincipalS     = 0.0; private var ccPrincipalC = 0.0
-    var retrainingAttempts: Int  = 0
-    var retrainingSuccesses: Int = 0
-    var voluntaryQuits: Int      = 0
-
-    private inline def kahanAdd(s: Double, c: Double, v: Double): (Double, Double) =
-      val y = v - c; val t = s + y; (t, (t - s) - y)
+    private var incomeAcc: PLN          = PLN.Zero
+    private var benefitAcc: PLN         = PLN.Zero
+    private var debtSvcAcc: PLN         = PLN.Zero
+    private var depIntAcc: PLN          = PLN.Zero
+    private var goodsConsAcc: PLN       = PLN.Zero
+    private var rentAcc: PLN            = PLN.Zero
+    private var remitAcc: PLN           = PLN.Zero
+    private var pitAcc: PLN             = PLN.Zero
+    private var socialAcc: PLN          = PLN.Zero
+    private var ccDebtSvcAcc: PLN       = PLN.Zero
+    private var ccOrigAcc: PLN          = PLN.Zero
+    private var ccDefaultAcc: PLN       = PLN.Zero
+    private var ccPrincipalAcc: PLN     = PLN.Zero
+    var retrainingAttempts: Int          = 0
+    var retrainingSuccesses: Int         = 0
+    var voluntaryQuits: Int              = 0
 
     def add(r: HhMonthlyResult): Unit =
-      { val (s, c) = kahanAdd(incomeS, incomeC, r.income.toDouble); incomeS = s; incomeC = c }
-      { val (s, c) = kahanAdd(benefitS, benefitC, r.benefit.toDouble); benefitS = s; benefitC = c }
-      { val (s, c) = kahanAdd(debtSvcS, debtSvcC, r.debtService.toDouble); debtSvcS = s; debtSvcC = c }
-      { val (s, c) = kahanAdd(depIntS, depIntC, r.depositInterest.toDouble); depIntS = s; depIntC = c }
-      { val (s, c) = kahanAdd(goodsConsS, goodsConsC, r.consumption.toDouble); goodsConsS = s; goodsConsC = c }
-      { val (s, c) = kahanAdd(rentS, rentC, r.rent.toDouble); rentS = s; rentC = c }
-      { val (s, c) = kahanAdd(remitS, remitC, r.remittance.toDouble); remitS = s; remitC = c }
-      { val (s, c) = kahanAdd(pitS, pitC, r.pitTax.toDouble); pitS = s; pitC = c }
-      { val (s, c) = kahanAdd(socialS, socialC, r.socialTransfer.toDouble); socialS = s; socialC = c }
-      { val (s, c) = kahanAdd(ccDebtSvcS, ccDebtSvcC, r.credit.debtService.toDouble); ccDebtSvcS = s; ccDebtSvcC = c }
-      { val (s, c) = kahanAdd(ccOrigS, ccOrigC, r.credit.newLoan.toDouble); ccOrigS = s; ccOrigC = c }
-      { val (s, c) = kahanAdd(ccDefaultS, ccDefaultC, r.credit.defaultAmt.toDouble); ccDefaultS = s; ccDefaultC = c }
-      { val (s, c) = kahanAdd(ccPrincipalS, ccPrincipalC, r.credit.principal.toDouble); ccPrincipalS = s; ccPrincipalC = c }
+      incomeAcc = incomeAcc + r.income
+      benefitAcc = benefitAcc + r.benefit
+      debtSvcAcc = debtSvcAcc + r.debtService
+      depIntAcc = depIntAcc + r.depositInterest
+      goodsConsAcc = goodsConsAcc + r.consumption
+      rentAcc = rentAcc + r.rent
+      remitAcc = remitAcc + r.remittance
+      pitAcc = pitAcc + r.pitTax
+      socialAcc = socialAcc + r.socialTransfer
+      ccDebtSvcAcc = ccDebtSvcAcc + r.credit.debtService
+      ccOrigAcc = ccOrigAcc + r.credit.newLoan
+      ccDefaultAcc = ccDefaultAcc + r.credit.defaultAmt
+      ccPrincipalAcc = ccPrincipalAcc + r.credit.principal
       retrainingAttempts += r.retrainingAttempt
       retrainingSuccesses += r.retrainingSuccess
       voluntaryQuits += r.voluntaryQuit
 
-    def income: PLN              = PLN(incomeS)
-    def unempBenefits: PLN       = PLN(benefitS)
-    def debtService: PLN         = PLN(debtSvcS)
-    def depositInterest: PLN     = PLN(depIntS)
+    def income: PLN              = incomeAcc
+    def unempBenefits: PLN       = benefitAcc
+    def debtService: PLN         = debtSvcAcc
+    def depositInterest: PLN     = depIntAcc
     def goodsConsumption: PLN    = PLN(goodsConsS)
-    def rent: PLN                = PLN(rentS)
-    def remittances: PLN         = PLN(remitS)
-    def pit: PLN                 = PLN(pitS)
-    def socialTransfers: PLN     = PLN(socialS)
-    def consumerDebtService: PLN = PLN(ccDebtSvcS)
-    def consumerOrigination: PLN = PLN(ccOrigS)
-    def consumerDefault: PLN     = PLN(ccDefaultS)
-    def consumerPrincipal: PLN   = PLN(ccPrincipalS)
+    def rent: PLN                = rentAcc
+    def remittances: PLN         = remitAcc
+    def pit: PLN                 = pitAcc
+    def socialTransfers: PLN     = socialAcc
+    def consumerDebtService: PLN = ccDebtSvcAcc
+    def consumerOrigination: PLN = ccOrigAcc
+    def consumerDefault: PLN     = ccDefaultAcc
+    def consumerPrincipal: PLN   = ccPrincipalAcc
 
-  /** Build per-bank flow vector from (BankId, HhMonthlyResult) pairs. Uses
-    * mutable arrays with Kahan-compensated summation per bank — each bank
-    * accumulates ~14K HH flows where naive + loses precision.
+  /** Build per-bank flow vector from (BankId, HhMonthlyResult) pairs. PLN is
+    * Long — addition is exact, no Kahan needed.
     */
   private def buildPerBankFlows(flows: Vector[(BankId, HhMonthlyResult)], nBanks: Int): Vector[PerBankFlow] =
-    // 8 monetary fields × nBanks, each with (sum, compensation)
-    val s                                            = Array.ofDim[Double](nBanks, 8)
-    val c                                            = Array.ofDim[Double](nBanks, 8)
-    inline def kadd(b: Int, f: Int, v: Double): Unit =
-      val y = v - c(b)(f); val t = s(b)(f) + y; c(b)(f) = (t - s(b)(f)) - y; s(b)(f) = t
+    val acc = Array.fill(nBanks)(PerBankFlow.zero)
     flows.foreach: (bankId, r) =>
-      val b = bankId.toInt
-      kadd(b, 0, r.income.toDouble)
-      kadd(b, 1, r.consumption.toDouble + r.rent.toDouble)
-      kadd(b, 2, r.debtService.toDouble)
-      kadd(b, 3, r.depositInterest.toDouble)
-      kadd(b, 4, r.credit.debtService.toDouble)
-      kadd(b, 5, r.credit.newLoan.toDouble)
-      kadd(b, 6, r.credit.defaultAmt.toDouble)
-      kadd(b, 7, r.credit.principal.toDouble)
-    (0 until nBanks)
-      .map(b => PerBankFlow(PLN(s(b)(0)), PLN(s(b)(1)), PLN(s(b)(2)), PLN(s(b)(3)), PLN(s(b)(4)), PLN(s(b)(5)), PLN(s(b)(6)), PLN(s(b)(7))))
-      .toVector
+      val b   = bankId.toInt
+      val cur = acc(b)
+      acc(b) = PerBankFlow(
+        income = cur.income + r.income,
+        consumption = cur.consumption + r.consumption + r.rent,
+        debtService = cur.debtService + r.debtService,
+        depositInterest = cur.depositInterest + r.depositInterest,
+        consumerDebtService = cur.consumerDebtService + r.credit.debtService,
+        consumerOrigination = cur.consumerOrigination + r.credit.newLoan,
+        consumerDefault = cur.consumerDefault + r.credit.defaultAmt,
+        consumerPrincipal = cur.consumerPrincipal + r.credit.principal,
+      )
+    acc.toVector
 
   // ---- Extracted per-HH pipeline types ----
 
