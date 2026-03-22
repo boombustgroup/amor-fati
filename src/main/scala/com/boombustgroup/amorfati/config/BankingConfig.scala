@@ -129,7 +129,7 @@ case class BankingConfig(
     firmLoanAmortRate: Rate = Rate(1.0 / 60), // monthly: 1/60 ≈ 5-year avg maturity (NBP 2024)
     profitRetention: Share = Share(0.30),
     govBondDuration: Double = 4.5,            // avg modified duration of Polish gov bond portfolio (years, MF 2024)
-    reserveReq: Rate = Rate(0.035),
+    reserveReq: Share = Share(0.035),
     stressThreshold: Share = Share(0.05),
     // LCR/NSFR (Basel III)
     lcrMin: Multiplier = Multiplier(1.0),

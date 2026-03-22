@@ -388,7 +388,7 @@ object Banking:
       val lcrOk        = if p.flags.bankLcr then bank.lcr >= p.banking.lcrMin else true
       val nsfrOk       = if p.flags.bankLcr then bank.nsfr >= p.banking.nsfrMin else true
       val nplPenalty   = toDouble(bank.nplRatio * Multiplier(NplApprovalPenalty))
-      val freeReserves = bank.deposits * (Share.One - p.banking.reserveReq.toRate.toLong.toInt.let(Share(_))) - bank.loans - bank.govBondHoldings
+      val freeReserves = bank.deposits * (Share.One - p.banking.reserveReq) - bank.loans - bank.govBondHoldings
       val resPenalty   = if freeReserves > PLN.Zero then 0.0 else ReserveDeficitPenalty
       val approvalP    = Math.max(MinApprovalProb, 1.0 - nplPenalty - resPenalty)
       carOk && lcrOk && nsfrOk && rng.nextDouble() < approvalP
@@ -403,29 +403,29 @@ object Banking:
   def clearInterbank(banks: Vector[BankState], configs: Vector[Config], hoarding: Share = Share.One)(using
       p: SimParams,
   ): Vector[BankState] =
-    val hf     = hoarding.toDouble
-    val excess = banks
+    val excess: Vector[PLN] = banks
       .zip(configs)
       .map: (b, _) =>
-        if b.failed then 0.0
-        else (b.deposits * Share(1.0 - p.banking.reserveReq.toDouble) - b.loans - b.govBondHoldings).toDouble
+        if b.failed then PLN.Zero
+        else b.deposits * (Share.One - p.banking.reserveReq) - b.loans - b.govBondHoldings
 
-    val totalLending   = excess.filter(_ > 0).kahanSum * hf // hoarding reduces lending
-    val totalBorrowing = -excess.filter(_ < 0).kahanSum
+    val totalLending   = excess.filter(_ > PLN.Zero).reduce(_ + _) * hoarding
+    val totalBorrowing = -excess.filter(_ < PLN.Zero).reduce(_ + _)
 
-    if totalLending <= 0 || totalBorrowing <= 0 then banks.map(_.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero))
+    if totalLending <= PLN.Zero || totalBorrowing <= PLN.Zero then banks.map(_.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero))
     else
-      val scale = Math.min(1.0, totalLending / totalBorrowing)
+      val lendRatio   = Share(Math.min(1.0, totalBorrowing / totalLending))
+      val borrowRatio = Share(Math.min(1.0, totalLending / totalBorrowing))
       banks
         .zip(excess)
         .map: (b, ex) =>
           if b.failed then b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)
-          else if ex > 0 then
-            val lent = ex * hf * Math.min(1.0, totalBorrowing / totalLending)
-            b.copy(interbankNet = PLN(lent), reservesAtNbp = PLN(ex - lent))
-          else if ex < 0 then
-            val borrowed = -ex * scale
-            b.copy(interbankNet = PLN(-borrowed), reservesAtNbp = PLN.Zero)
+          else if ex > PLN.Zero then
+            val lent = ex * hoarding * lendRatio
+            b.copy(interbankNet = lent, reservesAtNbp = ex - lent)
+          else if ex < PLN.Zero then
+            val borrowed = (-ex) * borrowRatio
+            b.copy(interbankNet = -borrowed, reservesAtNbp = PLN.Zero)
           else b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)
 
   // ---------------------------------------------------------------------------
@@ -472,7 +472,7 @@ object Banking:
     val perBank = banks.map: b =>
       if b.failed then PLN.Zero
       else b.deposits * p.banking.bfgLevyRate.monthly
-    PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
+    PerBankAmounts(perBank, PLN.fromRaw(perBank.map(_.toLong).sum))
 
   /** Bail-in: haircut uninsured deposits on failed banks. Deposits below
     * bfgDepositGuarantee are protected. No-op when flags.bailIn is false.
@@ -487,7 +487,7 @@ object Banking:
           val haircut    = uninsured * p.banking.bailInDepositHaircut
           (b.copy(deposits = b.deposits - haircut), haircut)
         else (b, PLN.Zero)
-      BailInResult(withHaircut.map(_._1), PLN(withHaircut.map(_._2.toDouble).kahanSum))
+      BailInResult(withHaircut.map(_._1), PLN.fromRaw(withHaircut.map(_._2.toLong).sum))
 
   /** BFG P&A resolution: transfer deposits, bonds, performing loans, consumer
     * loans from failed banks to the healthiest surviving bank.
@@ -576,7 +576,7 @@ object Banking:
     val aliveBanks  = banks.filterNot(_.failed)
     val nAlive      = aliveBanks.length
     if nAlive == 0 then return banks
-    val totalDep    = aliveBanks.kahanSumBy(_.deposits.toDouble)
+    val totalDep    = PLN.fromRaw(aliveBanks.map(_.deposits.toLong).sum)
     val lastAliveId = aliveBanks.last.id
     val (result, _) = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):
       case ((acc, allocated), b) =>
@@ -625,7 +625,7 @@ object Banking:
     if requested <= PLN.Zero then BondSaleResult(banks, PLN.Zero)
     else
       val eligible   = banks.filter(b => !b.failed && b.govBondHoldings > PLN.Zero)
-      val totalBonds = eligible.kahanSumBy(_.govBondHoldings.toDouble)
+      val totalBonds = PLN.fromRaw(eligible.map(_.govBondHoldings.toLong).sum)
       if totalBonds <= 0 then BondSaleResult(banks, PLN.Zero)
       else
         val lastEligibleId   = eligible.last.id
@@ -730,7 +730,7 @@ object Banking:
   /** Reserve interest for all banks → per-bank amounts + sector total. */
   def computeReserveInterest(banks: Vector[BankState], refRate: Rate)(using SimParams): PerBankAmounts =
     val perBank = banks.map(b => reserveInterest(b, refRate))
-    PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
+    PerBankAmounts(perBank, PLN.fromRaw(perBank.map(_.toLong).sum))
 
   /** Standing facility flows (monthly): deposit rate for excess reserves,
     * lombard rate for borrowers. Always-on — the NBP corridor (ref ± 100 bps)
@@ -744,7 +744,7 @@ object Banking:
       else if b.reservesAtNbp > PLN.Zero then b.reservesAtNbp * depositRate.monthly
       else if b.interbankNet < PLN.Zero then -(b.interbankNet.abs * lombardRate.monthly)
       else PLN.Zero
-    PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
+    PerBankAmounts(perBank, PLN.fromRaw(perBank.map(_.toLong).sum))
 
   /** Interbank interest flows (monthly). Net zero in aggregate (closed system).
     */
@@ -752,4 +752,4 @@ object Banking:
     val perBank = banks.map: b =>
       if b.failed then PLN.Zero
       else b.interbankNet * rate.monthly
-    PerBankAmounts(perBank, PLN(perBank.map(_.toDouble).kahanSum))
+    PerBankAmounts(perBank, PLN.fromRaw(perBank.map(_.toLong).sum))
