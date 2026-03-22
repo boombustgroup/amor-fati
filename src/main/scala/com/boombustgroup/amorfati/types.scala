@@ -2,11 +2,36 @@ package com.boombustgroup.amorfati
 
 import scala.annotation.targetName
 
+/** Marker annotation: this function deliberately converts fixed-point to Double
+  * at a computation boundary (CES, Math.pow, CSV output). Grep for
+  * `@computationBoundary` to audit all escape points in the codebase.
+  */
+class computationBoundary extends scala.annotation.StaticAnnotation
+
+/** Explicit Double conversion — requires `import ComputationBoundary.toDouble`
+  * and `@computationBoundary` annotation on the enclosing function. No
+  * extension methods — cannot be called as `value.toDouble`, only as
+  * `toDouble(value)`. This makes every Double escape grep-able and
+  * code-review visible.
+  */
+object ComputationBoundary:
+  private val Scale: Double = 10_000.0
+  def toDouble(p: types.PLN): Double         = (p: Long).toDouble / Scale
+  def toDouble(r: types.Rate): Double        = (r: Long).toDouble / Scale
+  def toDouble(s: types.Share): Double       = (s: Long).toDouble / Scale
+  def toDouble(m: types.Multiplier): Double  = (m: Long).toDouble / Scale
+  def toDouble(c: types.Coefficient): Double = (c: Long).toDouble / Scale
+  def toDouble(p: types.PriceIndex): Double  = (p: Long).toDouble / Scale
+  def toDouble(s: types.Sigma): Double       = (s: Long).toDouble / Scale
+
 /** Fixed-point type system for SFC-ABM engine.
   *
   * All monetary and behavioral values are Long-based (scale 10^4). Addition is
   * exact. Multiplication uses BigInt intermediate with banker's rounding
-  * (half-even). Double exists only inside CES production function (sandboxed).
+  * (half-even).
+  *
+  * NO `.toDouble` in public API. Double conversion requires explicit
+  * `import ComputationBoundary.toDouble` + `@computationBoundary` annotation.
   *
   * SFC identity check: `flows.map(_.toLong).sum == 0L` — exact zero, no
   * tolerance.
@@ -15,7 +40,11 @@ object types:
 
   // === Fixed-point scale ===
   private val Scale: Long     = 10_000L
-  private val HalfScale: Long = 5_000L
+  private val HalfScale: Long  = 5_000L
+  private val ScaleD: Double   = Scale.toDouble
+
+  /** Internal: convert raw Long to real Double value. NOT public API. */
+  private inline def asDouble(raw: Long): Double = raw.toDouble / ScaleD
 
   /** Banker's rounding (half-even) for BigInt intermediate results. Eliminates
     * systematic drift across thousands of agents.
@@ -62,7 +91,6 @@ object types:
     def fromRaw(raw: Long): PLN = raw
 
     extension (p: PLN)
-      def toDouble: Double             = p.toDouble / Scale
       def toLong: Long                 = p
       def +(other: PLN): PLN           = p + other
       def -(other: PLN): PLN           = p - other
@@ -121,7 +149,6 @@ object types:
     def apply(d: Double): Rate = Math.round(d * Scale)
 
     extension (r: Rate)
-      def toDouble: Double                = r.toDouble / Scale
       def toLong: Long                    = r
       def +(other: Rate): Rate            = r + other
       def -(other: Rate): Rate            = r - other
@@ -168,7 +195,6 @@ object types:
     def fraction(num: Int, den: Int): Share = Math.round(num.toDouble / den.toDouble * Scale)
 
     extension (s: Share)
-      def toDouble: Double                   = s.toDouble / Scale
       def toLong: Long                       = s
       def unary_- : Share                    = -s
       def abs: Share                         = math.abs(s)
@@ -224,7 +250,6 @@ object types:
     def fromRaw(raw: Long): Multiplier = raw
 
     extension (m: Multiplier)
-      def toDouble: Double                                  = m.toDouble / Scale
       def toLong: Long                                      = m
       def unary_- : Multiplier                              = -m
       def abs: Multiplier                                   = math.abs(m)
@@ -260,7 +285,6 @@ object types:
     def apply(d: Double): Coefficient = Math.round(d * Scale)
 
     extension (c: Coefficient)
-      def toDouble: Double                     = c.toDouble / Scale
       def toLong: Long                         = c
       def unary_- : Coefficient                = -c
       @targetName("coefPlusCoef")
@@ -291,7 +315,6 @@ object types:
     def apply(d: Double): PriceIndex = Math.round(d * Scale)
 
     extension (p: PriceIndex)
-      def toDouble: Double                 = p.toDouble / Scale
       def toLong: Long                     = p
       @targetName("priceIdxTimesIdx")
       def *(other: PriceIndex): PriceIndex = bankerRound(BigInt(p) * BigInt(other))
@@ -316,7 +339,6 @@ object types:
     def apply(d: Double): Sigma = Math.round(d * Scale)
 
     extension (s: Sigma)
-      def toDouble: Double          = s.toDouble / Scale
       def toLong: Long              = s
       def +(other: Sigma): Sigma    = s + other
       def >(other: Sigma): Boolean  = s > other
