@@ -16,7 +16,7 @@ case class World(
     inflation: Rate,                                        // CPI YoY inflation
     priceLevel: Double,                                     // cumulative CPI index (base = 1.0)
     gdpProxy: Double,                                       // monthly GDP proxy
-    currentSigmas: Vector[Double],                          // per-sector σ (Arthur increasing returns)
+    currentSigmas: Vector[Sigma],                           // per-sector σ (Arthur increasing returns)
     totalPopulation: Int,                                   // employed + immigrants + retirees
     gov: FiscalBudget.GovState,                             // government budget & debt
     nbp: Nbp.State,                                         // central bank: rate, bonds, FX, QE
@@ -104,8 +104,8 @@ case class RealState(
     aggGreenInvestment: PLN = PLN.Zero,       // green investment (renewables, energy efficiency)
     aggGreenCapital: PLN = PLN.Zero,          // green capital stock across all firms
     etsPrice: Double = 0.0,                   // EU ETS allowance price (EUR/tCO₂)
-    automationRatio: Ratio = Ratio.Zero,      // share of Automated firms
-    hybridRatio: Ratio = Ratio.Zero,          // share of Hybrid firms
+    automationRatio: Share = Share.Zero,      // share of Automated firms
+    hybridRatio: Share = Share.Zero,          // share of Hybrid firms
 )
 object RealState:
   val zero: RealState = RealState(
@@ -164,7 +164,7 @@ case class FlowState(
     bfgLevyTotal: Double = 0.0,                                                              // BFG resolution levy from all banks
     sectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // per-sector demand multipliers from S4
     fiscalRuleSeverity: Int = 0,                                                             // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
-    govSpendingCutRatio: Ratio = Ratio.Zero,                                                 // fraction of raw spending cut by fiscal rules
+    govSpendingCutRatio: Share = Share.Zero,                                                 // fraction of raw spending cut by fiscal rules
 )
 object FlowState:
   val zero: FlowState = FlowState()

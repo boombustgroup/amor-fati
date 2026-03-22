@@ -84,9 +84,9 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
         PLN(1000.0),
         PLN.Zero,
         PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
+        Share(0.5),
+        Share(0.0),
+        Share(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -96,8 +96,8 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       ) // 5 natives + 5 immigrants
     }.toVector
     // Request removing 100, but only 5 immigrants exist

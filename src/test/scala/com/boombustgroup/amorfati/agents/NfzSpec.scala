@@ -64,5 +64,5 @@ class NfzSpec extends AnyFlatSpec with Matchers:
     val workingOnly = SocialSecurity.nfzStep(PLN.Zero, employed, wage, 10000, 0)
     val retiredOnly = SocialSecurity.nfzStep(PLN.Zero, employed, wage, 0, 10000)
     val ratio       = retiredOnly.spending / workingOnly.spending
-    ratio shouldBe p.social.nfzAgingElasticity +- 0.01
+    ratio shouldBe p.social.nfzAgingElasticity.toDouble +- 0.01
   }

@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.config
 
+import com.boombustgroup.amorfati.types.*
+
 /** Regional labor market configuration.
   *
   * @param baseMigrationRate
@@ -10,6 +12,6 @@ package com.boombustgroup.amorfati.config
   *   housing must be ≤ origin housing cost. At 0.5, destination can be 2×.
   */
 case class RegionalConfig(
-    baseMigrationRate: Double = 0.005,
-    housingBarrierThreshold: Double = 0.7,
+    baseMigrationRate: Share = Share(0.005),
+    housingBarrierThreshold: Share = Share(0.7),
 )

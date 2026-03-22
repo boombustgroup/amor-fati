@@ -77,33 +77,34 @@ case class FirmConfig(
     aiOpex: PLN = PLN(30000.0),
     hybridOpex: PLN = PLN(12000.0),
     autoSkeletonCrew: Int = 2,
-    hybridReadinessMin: Ratio = Ratio(0.20),
-    fullAiReadinessMin: Ratio = Ratio(0.35),
-    demandPassthrough: Ratio = Ratio(0.40),
+    hybridReadinessMin: Share = Share(0.20),
+    fullAiReadinessMin: Share = Share(0.35),
+    demandPassthrough: Share = Share(0.40),
     // Entry
-    entryRate: Ratio = Ratio(0.02),
-    entryProfitSens: Double = 2.0,
-    entrySectorBarriers: Vector[Double] = Vector(0.8, 0.6, 1.2, 0.5, 0.1, 0.7),
-    entryAiThreshold: Ratio = Ratio(0.15),
-    entryAiProb: Ratio = Ratio(0.20),
+    entryRate: Share = Share(0.02),
+    entryProfitSens: Coefficient = Coefficient(2.0),
+    entrySectorBarriers: Vector[Coefficient] =
+      Vector(Coefficient(0.8), Coefficient(0.6), Coefficient(1.2), Coefficient(0.5), Coefficient(0.1), Coefficient(0.7)),
+    entryAiThreshold: Share = Share(0.15),
+    entryAiProb: Share = Share(0.20),
     entryStartupCash: PLN = PLN(50000.0),
     // Digitalization
-    digiDrift: Ratio = Ratio(0.001),
+    digiDrift: Share = Share(0.001),
     digiInvestCost: PLN = PLN(50000.0),
-    digiInvestBoost: Ratio = Ratio(0.05),
-    digiCapexDiscount: Ratio = Ratio(0.30),
-    digiInvestBaseProb: Ratio = Ratio(0.08),
+    digiInvestBoost: Share = Share(0.05),
+    digiCapexDiscount: Share = Share(0.30),
+    digiInvestBaseProb: Share = Share(0.08),
     // Labor adjustment (smooth hiring/firing)
-    laborAdjustSpeed: Ratio = Ratio(0.15), // monthly partial adjustment toward target (λ)
-    severanceMonths: Double = 2.0,         // months of wage per fired worker (Kodeks Pracy)
-    minWorkersRetained: Int = 3,           // hard floor on workforce
+    laborAdjustSpeed: Coefficient = Coefficient(0.15), // monthly partial adjustment toward target (λ)
+    severanceMonths: Double = 2.0,                     // months of wage per fired worker (Kodeks Pracy)
+    minWorkersRetained: Int = 3,                       // hard floor on workforce
     // Network / demonstration effects
     networkK: Int = 6,
-    networkRewireP: Ratio = Ratio(0.10),
-    demoEffectThresh: Ratio = Ratio(0.40),
-    demoEffectBoost: Ratio = Ratio(0.15),
+    networkRewireP: Share = Share(0.10),
+    demoEffectThresh: Share = Share(0.40),
+    demoEffectBoost: Share = Share(0.15),
     sigmaLambda: Double = 0.0,
-    sigmaCapMult: Double = 3.0,
-    rewireRho: Ratio = Ratio(0.0),
+    sigmaCapMult: Multiplier = Multiplier(3.0),
+    rewireRho: Share = Share(0.0),
 ):
   require(entrySectorBarriers.length == 6, s"entrySectorBarriers must have 6 sectors: ${entrySectorBarriers.length}")

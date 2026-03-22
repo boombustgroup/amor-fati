@@ -4,7 +4,6 @@ import com.boombustgroup.amorfati.agents.{Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Stock-flow consistent (SFC) accounting framework for the simulation.
   *
@@ -173,11 +172,12 @@ object Sfc:
     * meaningless.
     */
   class SfcViolationException(val month: Int, val errors: Vector[SfcIdentityError])
-      extends RuntimeException(
+      extends RuntimeException({
+        import ComputationBoundary.toDouble
         errors
-          .map(e => f"Month $month ${e.identity}: Δ=${(e.actual - e.expected).toDouble}%.2f — ${e.msg}")
-          .mkString("; "),
-      )
+          .map(e => f"Month $month ${e.identity}: Δ=${toDouble(e.actual - e.expected)}%.2f — ${e.msg}")
+          .mkString("; ")
+      })
 
   /** Result of SFC validation: Right(()) if all identities hold, Left(errors)
     * otherwise.
@@ -188,14 +188,14 @@ object Sfc:
     * agent-level stocks.
     */
   def snapshot(w: World, firms: Vector[Firm.State], households: Vector[Household.State]): Snapshot =
-    val hhS   = PLN(households.kahanSumBy(_.savings.toDouble))
-    val hhD   = PLN(households.kahanSumBy(_.debt.toDouble))
-    val ibNet = PLN(w.bankingSector.banks.kahanSumBy(_.interbankNet.toDouble))
+    val hhS   = PLN.fromRaw(households.map(_.savings.toLong).sum)
+    val hhD   = PLN.fromRaw(households.map(_.debt.toLong).sum)
+    val ibNet = PLN.fromRaw(w.bankingSector.banks.map(_.interbankNet.toLong).sum)
     Snapshot(
       hhSavings = hhS,
       hhDebt = hhD,
-      firmCash = PLN(firms.kahanSumBy(_.cash.toDouble)),
-      firmDebt = PLN(firms.kahanSumBy(_.debt.toDouble)),
+      firmCash = PLN.fromRaw(firms.map(_.cash.toLong).sum),
+      firmDebt = PLN.fromRaw(firms.map(_.debt.toLong).sum),
       bankCapital = w.bank.capital,
       bankDeposits = w.bank.deposits,
       bankLoans = w.bank.totalLoans,
@@ -280,64 +280,34 @@ object Sfc:
     import SfcIdentity.*
 
     val identities: Vector[IdentitySpec] = Vector(
-      // 1. Bank capital: losses + profit retention (p.banking.profitRetention.toDouble)
-      //    Kahan-compensated: many terms with large magnitudes
+      // 1. Bank capital: losses + profit retention
+      //    PLN is Long-based — addition is exact, no Kahan needed
       IdentitySpec(
         BankCapital,
         "bank capital change (profit retention + losses)",
-        expected = PLN(
-          terms(
-            -flows.nplLoss.toDouble,
-            -flows.mortgageNplLoss.toDouble,
-            -flows.consumerNplLoss.toDouble,
-            -flows.corpBondDefaultLoss.toDouble,
-            -flows.bfgLevy.toDouble,
-            -flows.unrealizedBondLoss.toDouble,
-            -flows.htmRealizedLoss.toDouble,
-            -flows.eclProvisionChange.toDouble,
-            -flows.bankCapitalDestruction.toDouble,
-            terms(
-              flows.interestIncome.toDouble,
-              flows.hhDebtService.toDouble,
-              flows.bankBondIncome.toDouble,
-              flows.mortgageInterestIncome.toDouble,
-              flows.consumerDebtService.toDouble,
-              flows.corpBondCouponIncome.toDouble,
-              -flows.depositInterestPaid.toDouble,
-              flows.reserveInterest.toDouble,
-              flows.standingFacilityIncome.toDouble,
-              flows.interbankInterest.toDouble,
-            ) * p.banking.profitRetention.toDouble,
-          ),
-        ),
+        expected = {
+          val losses      = flows.nplLoss + flows.mortgageNplLoss + flows.consumerNplLoss +
+            flows.corpBondDefaultLoss + flows.bfgLevy + flows.unrealizedBondLoss +
+            flows.htmRealizedLoss + flows.eclProvisionChange + flows.bankCapitalDestruction
+          val grossIncome = flows.interestIncome + flows.hhDebtService + flows.bankBondIncome +
+            flows.mortgageInterestIncome + flows.consumerDebtService + flows.corpBondCouponIncome -
+            flows.depositInterestPaid + flows.reserveInterest + flows.standingFacilityIncome +
+            flows.interbankInterest
+          -losses + grossIncome * p.banking.profitRetention
+        },
         actual = curr.bankCapital - prev.bankCapital,
         tolerance,
       ),
       // 2. Bank deposits: HH income − consumption + all deposit-affecting flows
-      //    Kahan-compensated: 15 terms with magnitudes ~10¹² lose precision with naive +
+      //    PLN is Long-based — addition is exact, no Kahan needed
       IdentitySpec(
         BankDeposits,
         "bank deposits change",
-        expected = PLN(
-          terms(
-            flows.totalIncome.toDouble,
-            -flows.totalConsumption.toDouble,
-            flows.investNetDepositFlow.toDouble,
-            flows.jstDepositChange.toDouble,
-            flows.dividendIncome.toDouble,
-            -flows.foreignDividendOutflow.toDouble,
-            -flows.remittanceOutflow.toDouble,
-            flows.diasporaInflow.toDouble,
-            flows.tourismExport.toDouble,
-            -flows.tourismImport.toDouble,
-            -flows.bailInLoss.toDouble,
-            flows.newLoans.toDouble,
-            -flows.firmPrincipalRepaid.toDouble,
-            flows.consumerOrigination.toDouble,
-            flows.insNetDepositChange.toDouble,
-            flows.nbfiDepositDrain.toDouble,
-          ),
-        ),
+        expected = flows.totalIncome - flows.totalConsumption + flows.investNetDepositFlow +
+          flows.jstDepositChange + flows.dividendIncome - flows.foreignDividendOutflow -
+          flows.remittanceOutflow + flows.diasporaInflow + flows.tourismExport -
+          flows.tourismImport - flows.bailInLoss + flows.newLoans - flows.firmPrincipalRepaid +
+          flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain,
         actual = curr.bankDeposits - prev.bankDeposits,
         tolerance,
       ),
@@ -362,16 +332,8 @@ object Sfc:
         BondClearing,
         s"bond clearing [bank=${curr.bankBondHoldings}, nbp=${curr.nbpBondHoldings}, foreign=${curr.foreignBondHoldings}, ppk=${curr.ppkBondHoldings}, ins=${curr.insuranceGovBondHoldings}, tfi=${curr.tfiGovBondHoldings}, outstanding=${curr.bondsOutstanding}]",
         expected = curr.bondsOutstanding,
-        actual = PLN(
-          terms(
-            curr.bankBondHoldings.toDouble,
-            curr.nbpBondHoldings.toDouble,
-            curr.foreignBondHoldings.toDouble,
-            curr.ppkBondHoldings.toDouble,
-            curr.insuranceGovBondHoldings.toDouble,
-            curr.tfiGovBondHoldings.toDouble,
-          ),
-        ),
+        actual = curr.bankBondHoldings + curr.nbpBondHoldings + curr.foreignBondHoldings +
+          curr.ppkBondHoldings + curr.insuranceGovBondHoldings + curr.tfiGovBondHoldings,
         tolerance,
       ),
       // 6. Interbank netting: Σ net positions = 0

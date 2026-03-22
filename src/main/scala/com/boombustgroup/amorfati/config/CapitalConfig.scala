@@ -47,19 +47,19 @@ case class CapitalConfig(
     // Physical capital (GUS F-01 2024)
     klRatios: Vector[PLN] = Vector(PLN(120000.0), PLN(250000.0), PLN(80000.0), PLN(200000.0), PLN(150000.0), PLN(180000.0)),
     depRates: Vector[Rate] = Vector(Rate(0.15), Rate(0.08), Rate(0.10), Rate(0.07), Rate(0.05), Rate(0.08)),
-    importShare: Ratio = Ratio(0.35),
-    adjustSpeed: Ratio = Ratio(0.10),
-    prodElast: Ratio = Ratio(0.30),
-    costReplace: Ratio = Ratio(0.50),
+    importShare: Share = Share(0.35),
+    adjustSpeed: Coefficient = Coefficient(0.10),
+    prodElast: Share = Share(0.30),
+    costReplace: Share = Share(0.50),
     // Inventories (GUS 2024)
-    inventoryTargetRatios: Vector[Ratio] = Vector(Ratio(0.05), Ratio(0.25), Ratio(0.15), Ratio(0.10), Ratio(0.02), Ratio(0.30)),
-    inventoryAdjustSpeed: Ratio = Ratio(0.10),
+    inventoryTargetRatios: Vector[Share] = Vector(Share(0.05), Share(0.25), Share(0.15), Share(0.10), Share(0.02), Share(0.30)),
+    inventoryAdjustSpeed: Coefficient = Coefficient(0.10),
     inventoryCarryingCost: Rate = Rate(0.06),
     inventorySpoilageRates: Vector[Rate] = Vector(Rate(0.0), Rate(0.02), Rate(0.05), Rate(0.03), Rate(0.0), Rate(0.10)),
-    inventoryCostFraction: Ratio = Ratio(0.50),
-    inventoryLiquidationDisc: Ratio = Ratio(0.50),
-    inventoryInitRatio: Ratio = Ratio(0.80),
-    inventoryCostReplace: Ratio = Ratio(0.10),
+    inventoryCostFraction: Share = Share(0.50),
+    inventoryLiquidationDisc: Share = Share(0.50),
+    inventoryInitRatio: Share = Share(0.80),
+    inventoryCostReplace: Share = Share(0.10),
 ):
   require(klRatios.length == 6, s"klRatios must have 6 sectors: ${klRatios.length}")
   require(depRates.length == 6, s"depRates must have 6 sectors: ${depRates.length}")

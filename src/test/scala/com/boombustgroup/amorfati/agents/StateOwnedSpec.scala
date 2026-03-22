@@ -10,12 +10,12 @@ class StateOwnedSpec extends AnyFlatSpec with Matchers:
   given SimParams = SimParams.defaults
 
   "dividendMultiplier" should "be above 1.0 at baseline" in {
-    StateOwned.dividendMultiplier(Ratio(0.02)).toDouble should be >= 1.0
+    StateOwned.dividendMultiplier(Share(0.02)).toDouble should be >= 1.0
   }
 
   it should "increase with higher deficit/GDP" in {
-    val low  = StateOwned.dividendMultiplier(Ratio(0.02))
-    val high = StateOwned.dividendMultiplier(Ratio(0.06))
+    val low  = StateOwned.dividendMultiplier(Share(0.02))
+    val high = StateOwned.dividendMultiplier(Share(0.06))
     high should be > low
   }
 

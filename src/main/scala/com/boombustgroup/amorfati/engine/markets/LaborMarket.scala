@@ -5,7 +5,6 @@ import com.boombustgroup.amorfati.agents.Region
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 
@@ -35,9 +34,11 @@ object LaborMarket:
   /** Logistic labor supply curve: fraction of population willing to work at
     * given wage. Steepness controlled by p.household.laborSupplySteepness.
     */
-  private def laborSupplyRatio(wage: PLN, resWage: PLN)(using p: SimParams): Ratio =
-    val x = p.household.laborSupplySteepness * (wage / resWage - 1.0)
-    Ratio(1.0 / (1.0 + Math.exp(-x)))
+  @computationBoundary
+  private def laborSupplyRatio(wage: PLN, resWage: PLN)(using p: SimParams): Share =
+    import ComputationBoundary.toDouble
+    val x = toDouble(p.household.laborSupplySteepness) * (wage / resWage - 1.0)
+    Share(1.0 / (1.0 + Math.exp(-x)))
 
   /** Aggregate wage clearing: adjust market wage via excess demand, then
     * compute employment. New wage = max(reservationWage, prevWage × (1 +
@@ -46,12 +47,12 @@ object LaborMarket:
   def updateLaborMarket(prevWage: PLN, resWage: PLN, laborDemand: Int, totalPopulation: Int)(using
       p: SimParams,
   ): WageResult =
-    val supplyAtPrev = (totalPopulation * laborSupplyRatio(prevWage, resWage).toDouble).toInt
-    val excessDemand = (laborDemand - supplyAtPrev).toDouble / totalPopulation
-    val wageGrowth   = Ratio(excessDemand * p.household.wageAdjSpeed.toDouble)
-    val newWage      = resWage.max(prevWage * (1.0 + wageGrowth.toDouble))
-    val newSupply    = (totalPopulation * laborSupplyRatio(newWage, resWage).toDouble).toInt
-    val employed     = Math.min(laborDemand, newSupply)
+    val supplyAtPrev   = (totalPopulation * laborSupplyRatio(prevWage, resWage)).toInt
+    val excessDemand   = (laborDemand - supplyAtPrev).toDouble / totalPopulation
+    val wageGrowthMult = Multiplier.One + (Coefficient(excessDemand) * p.household.wageAdjSpeed).toMultiplier
+    val newWage        = resWage.max(prevWage * wageGrowthMult)
+    val newSupply      = (totalPopulation * laborSupplyRatio(newWage, resWage)).toInt
+    val employed       = Math.min(laborDemand, newSupply)
     WageResult(newWage, employed)
 
   // --- Separations ---
@@ -108,14 +109,14 @@ object LaborMarket:
   ): Vector[Household.State] =
     val rawWages = households.map(rawRelativeWage(_, firms))
     val rawMean  = employedMeanRawWage(households, rawWages)
-    val scale    = if rawMean > Ratio(0.0) then Ratio(1.0 / rawMean.toDouble) else Ratio(1.0)
+    val scale    = if rawMean > Multiplier.Zero then Multiplier(1.0 / (rawMean / Multiplier.One)) else Multiplier.One
     applyNormalizedWages(households, rawWages, marketWage, scale)
 
   // --- Shared helpers ---
 
   /** Effective skill: skill × (1 - healthPenalty). */
-  private def effectiveSkill(hh: Household.State): Double =
-    hh.skill.toDouble * (1.0 - hh.healthPenalty.toDouble)
+  private def effectiveSkill(hh: Household.State): Share =
+    hh.skill * (Share.One - hh.healthPenalty)
 
   /** Infer sector for an unemployed household: last sector if known, else
     * fallback based on household id.
@@ -181,8 +182,8 @@ object LaborMarket:
         val sorted    =
           if p.flags.sbtc then
             // Low routineness = cognitive = retained; high routineness = routine = displaced
-            indices.sortBy(i => (households(i).taskRoutineness.toDouble, -households(i).skill.toDouble))
-          else indices.sortBy(i => (-households(i).education, -households(i).skill.toDouble))
+            indices.sortBy(i => (households(i).taskRoutineness.toLong, -households(i).skill.toLong))
+          else indices.sortBy(i => (-households(i).education, -households(i).skill.toLong))
         val maxRetain = counts.getOrElse(firmId, 0)
         firmId -> sorted.take(maxRetain).toSet
 
@@ -237,7 +238,7 @@ object LaborMarket:
   )(using p: SimParams): JobSearchResult =
     val ranked          = rankUnemployed(households)
     val firmsBySector   = vacancies.keys.groupBy(fid => firms(fid.toInt).sector)
-    val firmsByPriority = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma)
+    val firmsByPriority = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma.toLong)
 
     val init   = MatchState(Map.empty, vacancies, 0)
     val result = ranked.foldLeft(init): (st, idx) =>
@@ -264,7 +265,7 @@ object LaborMarket:
       vacancies.keys.toVector.groupBy(fid => (firms(fid.toInt).sector, firms(fid.toInt).region))
     val firmsByRegion: Map[Region, Vector[FirmId]]                    =
       vacancies.keys.toVector.groupBy(fid => firms(fid.toInt).region)
-    val firmsByPriority                                               = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma)
+    val firmsByPriority                                               = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma.toLong)
 
     val init   = MatchState(Map.empty, vacancies, 0)
     val result = ranked.foldLeft(init): (st, idx) =>
@@ -378,64 +379,62 @@ object LaborMarket:
       prevSector: SectorIdx,
       isCrossSector: Boolean,
   )(using p: SimParams): PLN =
-    val sectorMult   = Firm.effectiveWageMult(firm.sector).toDouble
-    val penalty      =
+    val sectorMult = Firm.effectiveWageMult(firm.sector)
+    val penalty    =
       if p.flags.sectoralMobility && isCrossSector
       then SectoralMobility.crossSectorWagePenalty(p.labor.frictionMatrix(prevSector.toInt)(firm.sector.toInt))
-      else 1.0
-    val scarDiscount = 1.0 - hh.wageScar.toDouble
-    marketWage * (sectorMult * effectiveSkill(hh) * penalty * p.social.eduWagePremium(hh.education) * scarDiscount)
+      else Multiplier.One
+    val scarMult   = (Share.One - hh.wageScar).toMultiplier
+    val eduMult    = p.social.eduWagePremium(hh.education)
+    marketWage * sectorMult * effectiveSkill(hh) * penalty * eduMult * scarMult
 
   // --- Wage helpers ---
 
   /** Raw relative wage weight for a household (unnormalized). */
-  private def rawRelativeWage(hh: Household.State, firms: Vector[Firm.State])(using p: SimParams): Ratio =
+  private def rawRelativeWage(hh: Household.State, firms: Vector[Firm.State])(using p: SimParams): Multiplier =
     hh.status match
       case HhStatus.Employed(firmId, sectorIdx, _) =>
-        val immigrantDiscount =
-          if hh.isImmigrant && p.flags.immigration then 1.0 - p.immigration.wageDiscount.toDouble
-          else 1.0
-        val aiComplement      = aiComplementFactor(hh, firms(firmId.toInt))
-        val scarDiscount      = 1.0 - hh.wageScar.toDouble
-        Ratio(
-          Firm.effectiveWageMult(sectorIdx).toDouble * effectiveSkill(hh) * immigrantDiscount *
-            p.social.eduWagePremium(hh.education) * aiComplement * scarDiscount,
-        )
-      case _                                       => Ratio(0.0)
+        val immigrantMult = if hh.isImmigrant && p.flags.immigration then (Share.One - p.immigration.wageDiscount).toMultiplier else Multiplier.One
+        val aiMult        = aiComplementFactor(hh, firms(firmId.toInt))
+        val scarMult      = (Share.One - hh.wageScar).toMultiplier
+        Firm.effectiveWageMult(sectorIdx) * effectiveSkill(hh) * immigrantMult *
+          p.social.eduWagePremium(hh.education) * aiMult * scarMult
+      case _                                       => Multiplier.Zero
 
   /** AI-complement wage premium: cognitive workers in automated/hybrid firms
     * get a wage boost (1 - routineness) × complementPremium. Routine workers
     * get no boost. Acemoglu & Restrepo 2020.
     */
-  private def aiComplementFactor(hh: Household.State, firm: Firm.State)(using p: SimParams): Double =
-    if !p.flags.sbtc then 1.0
+  private def aiComplementFactor(hh: Household.State, firm: Firm.State)(using p: SimParams): Multiplier =
+    if !p.flags.sbtc then Multiplier.One
     else
       firm.tech match
         case _: TechState.Automated | _: TechState.Hybrid =>
-          1.0 + p.labor.sbtcComplementPremium.toDouble * (1.0 - hh.taskRoutineness.toDouble)
-        case _                                            => 1.0
+          val cognitiveShare = Share.One - hh.taskRoutineness
+          Multiplier.One + (p.labor.sbtcComplementPremium * cognitiveShare).toMultiplier
+        case _                                            => Multiplier.One
 
   /** Mean raw wage across employed households (Kahan summation). */
   private def employedMeanRawWage(
       households: Vector[Household.State],
-      rawWages: Vector[Ratio],
-  ): Ratio =
+      rawWages: Vector[Multiplier],
+  ): Multiplier =
     val employedIndices = households.indices.flatMap: i =>
       households(i).status match
         case _: HhStatus.Employed => Some(i)
         case _                    => None
     if employedIndices.nonEmpty
-    then Ratio(employedIndices.kahanSumBy(i => rawWages(i).toDouble) / employedIndices.length)
-    else Ratio(1.0)
+    then Multiplier.fromRaw(employedIndices.map(i => rawWages(i).toLong).sum / employedIndices.length)
+    else Multiplier.One
 
   /** Apply normalized wages: each employed gets marketWage × (rawWeight ×
     * scale).
     */
   private def applyNormalizedWages(
       households: Vector[Household.State],
-      rawWages: Vector[Ratio],
+      rawWages: Vector[Multiplier],
       marketWage: PLN,
-      scale: Ratio,
+      scale: Multiplier,
   ): Vector[Household.State] =
     households.zipWithIndex.map: (hh, i) =>
       hh.status match

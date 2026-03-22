@@ -22,7 +22,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   }
 
   "RemittanceErElasticity" should "default to 0.5" in {
-    p.remittance.erElasticity shouldBe 0.5
+    p.remittance.erElasticity.toDouble shouldBe 0.5
   }
 
   "RemittanceGrowthRate" should "default to 0.02" in {
@@ -49,13 +49,13 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "ER adjustment" should "increase inflow when PLN weakens" in {
     val weakerER = p.forex.baseExRate * 1.2 // PLN weaker → higher exchange rate number
-    val erAdj    = Math.pow(weakerER / p.forex.baseExRate, p.remittance.erElasticity)
+    val erAdj    = Math.pow(weakerER / p.forex.baseExRate, p.remittance.erElasticity.toDouble)
     erAdj should be > 1.0
   }
 
   it should "decrease inflow when PLN strengthens" in {
     val strongerER = p.forex.baseExRate * 0.8
-    val erAdj      = Math.pow(strongerER / p.forex.baseExRate, p.remittance.erElasticity)
+    val erAdj      = Math.pow(strongerER / p.forex.baseExRate, p.remittance.erElasticity.toDouble)
     erAdj should be < 1.0
   }
 
@@ -116,7 +116,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
     val er    = p.forex.baseExRate * 1.1
 
     val base        = p.remittance.perCapita.toDouble * wap.toDouble
-    val erAdj       = Math.pow(er / p.forex.baseExRate, p.remittance.erElasticity)
+    val erAdj       = Math.pow(er / p.forex.baseExRate, p.remittance.erElasticity.toDouble)
     val trendAdj    = Math.pow(1.0 + p.remittance.growthRate.toDouble / 12.0, month.toDouble)
     val cyclicalAdj = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, unemp - 0.05)
     val result      = base * erAdj * trendAdj * cyclicalAdj
@@ -147,7 +147,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       prevForex = prevForex,
       importCons = PLN.Zero,
       techImports = PLN.Zero,
-      autoRatio = Ratio.Zero,
+      autoRatio = Share.Zero,
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
       priceLevel = 1.0,
@@ -169,7 +169,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       prevForex = prevForex,
       importCons = PLN.Zero,
       techImports = PLN.Zero,
-      autoRatio = Ratio.Zero,
+      autoRatio = Share.Zero,
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
       priceLevel = 1.0,
@@ -202,7 +202,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,
-      currentSigmas = Vector.fill(6)(0.1),
+      currentSigmas = Vector.fill(6)(Sigma(0.1)),
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
@@ -220,12 +220,12 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
         importConsumption = PLN.Zero,
         marketWage = PLN(5000),
         reservationWage = PLN(4000),
-        giniIndividual = Ratio.Zero,
-        giniWealth = Ratio.Zero,
+        giniIndividual = Share.Zero,
+        giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
         medianSavings = PLN.Zero,
-        povertyRate50 = Ratio.Zero,
-        bankruptcyRate = Ratio.Zero,
+        povertyRate50 = Share.Zero,
+        bankruptcyRate = Share.Zero,
         meanSkill = 0.0,
         meanHealthPenalty = 0.0,
         retrainingAttempts = 0,
@@ -234,14 +234,14 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
         meanMonthsToRuin = 0.0,
-        povertyRate30 = Ratio.Zero,
+        povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
         totalUnempBenefits = PLN.Zero,
         totalDepositInterest = PLN.Zero,
         crossSectorHires = 0,
         voluntaryQuits = 0,
-        sectorMobilityRate = Ratio.Zero,
+        sectorMobilityRate = Share.Zero,
         totalRemittances = PLN.Zero,
         totalPit = PLN.Zero,
         totalSocialTransfers = PLN.Zero,

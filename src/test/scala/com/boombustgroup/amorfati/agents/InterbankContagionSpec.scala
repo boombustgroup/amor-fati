@@ -80,17 +80,17 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
   }
 
   "hoardingFactor" should "be 1.0 when NPL below threshold" in {
-    val factor = InterbankContagion.hoardingFactor(Ratio(0.02))
+    val factor = InterbankContagion.hoardingFactor(Share(0.02))
     factor.toDouble shouldBe 1.0 +- 0.01
   }
 
   it should "decrease when NPL exceeds threshold" in {
-    val factor = InterbankContagion.hoardingFactor(Ratio(0.10))
+    val factor = InterbankContagion.hoardingFactor(Share(0.10))
     factor.toDouble should be < 1.0
     factor.toDouble should be >= 0.0
   }
 
   it should "be zero (full freeze) at very high NPL" in {
-    val factor = InterbankContagion.hoardingFactor(Ratio(0.50))
+    val factor = InterbankContagion.hoardingFactor(Share(0.50))
     factor.toDouble shouldBe 0.0 +- 0.01
   }

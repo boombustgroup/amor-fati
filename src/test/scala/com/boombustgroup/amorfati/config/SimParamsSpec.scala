@@ -141,8 +141,8 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
 
   "BankingConfig" should "reject invalid minCar" in {
     import com.boombustgroup.amorfati.types.*
-    an[IllegalArgumentException] should be thrownBy BankingConfig(minCar = Ratio(0.0))
-    an[IllegalArgumentException] should be thrownBy BankingConfig(minCar = Ratio(1.0))
+    an[IllegalArgumentException] should be thrownBy BankingConfig(minCar = Share(0.0))
+    an[IllegalArgumentException] should be thrownBy BankingConfig(minCar = Share(1.0))
   }
 
   // ── Vector length validation ──
@@ -159,7 +159,7 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
 
   "ClimateConfig" should "reject wrong-length energyCostShares" in {
     import com.boombustgroup.amorfati.types.*
-    an[IllegalArgumentException] should be thrownBy ClimateConfig(energyCostShares = Vector(Ratio(0.1)))
+    an[IllegalArgumentException] should be thrownBy ClimateConfig(energyCostShares = Vector(Share(0.1)))
   }
 
   // ── Private constructor ──

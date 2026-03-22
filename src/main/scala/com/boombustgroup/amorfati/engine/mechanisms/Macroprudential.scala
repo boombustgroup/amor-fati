@@ -25,18 +25,18 @@ import com.boombustgroup.amorfati.types.*
 object Macroprudential:
 
   // ---- Calibration constants ----
-  private val TrendSmoothing  = 0.05       // EWM λ for credit-to-GDP trend (≈ HP 1600 quarterly)
-  private val CcybBuildRate   = 0.0025 / 3 // ~0.25pp per quarter ÷ 3 months
-  private val AnnualizeFactor = 12.0       // monthly GDP → annual
+  private val TrendSmoothing: Share     = Share(0.05)            // EWM λ for credit-to-GDP trend (≈ HP 1600 quarterly)
+  private val CcybBuildRate: Multiplier = Multiplier(0.0025 / 3) // ~0.25pp per quarter ÷ 3 months
+  private val AnnualizeFactor           = 12.0                   // monthly GDP → annual
 
   case class State(
-      ccyb: Rate,              // countercyclical capital buffer rate
-      creditToGdpGap: Double,  // credit-to-GDP deviation from HP trend
-      creditToGdpTrend: Double, // HP-filtered trend (exponential smoothing)
+      ccyb: Multiplier,            // countercyclical capital buffer
+      creditToGdpGap: Coefficient, // credit-to-GDP deviation from HP trend
+      creditToGdpTrend: Multiplier, // HP-filtered trend (exponential smoothing)
   )
 
   object State:
-    val zero: State = State(Rate.Zero, 0.0, 0.0)
+    val zero: State = State(Multiplier.Zero, Coefficient.Zero, Multiplier.Zero)
 
   /** Run `body` only when macropru is enabled, otherwise return `fallback`. */
   private inline def guarded[A](fallback: A)(body: => A)(using p: SimParams): A =
@@ -47,52 +47,53 @@ object Macroprudential:
   /** O-SII buffer for a specific bank. PKO BP (id=0): 1.0%, Pekao (id=1): 0.5%,
     * others: 0%.
     */
-  def osiiBuffer(bankId: Int)(using p: SimParams): Double =
-    guarded(0.0)(osiiBufferImpl(bankId))
+  def osiiBuffer(bankId: Int)(using p: SimParams): Multiplier =
+    guarded(Multiplier.Zero)(osiiBufferImpl(bankId))
 
-  private[engine] def osiiBufferImpl(bankId: Int)(using p: SimParams): Double = bankId match
-    case 0 => p.banking.osiiPkoBp.toDouble
-    case 1 => p.banking.osiiPekao.toDouble
-    case _ => 0.0
+  private[engine] def osiiBufferImpl(bankId: Int)(using p: SimParams): Multiplier = bankId match
+    case 0 => p.banking.osiiPkoBp
+    case 1 => p.banking.osiiPekao
+    case _ => Multiplier.Zero
 
   // ---- Effective minimum CAR ----
 
   /** Effective minimum CAR = base + CCyB + O-SII + P2R. */
-  def effectiveMinCar(bankId: Int, ccyb: Double)(using p: SimParams): Double =
-    guarded(p.banking.minCar.toDouble)(effectiveMinCarImpl(bankId, ccyb))
+  def effectiveMinCar(bankId: Int, ccyb: Multiplier)(using p: SimParams): Multiplier =
+    guarded(p.banking.minCar)(effectiveMinCarImpl(bankId, ccyb))
 
-  private[engine] def effectiveMinCarImpl(bankId: Int, ccyb: Double)(using p: SimParams): Double =
-    p.banking.minCar.toDouble + ccyb + osiiBufferImpl(bankId) + p2rAddon(bankId)
+  private[engine] def effectiveMinCarImpl(bankId: Int, ccyb: Multiplier)(using p: SimParams): Multiplier =
+    p.banking.minCar + ccyb + osiiBufferImpl(bankId) + p2rAddon(bankId)
 
   /** P2R add-on from KNF BION/SREP, indexed by bank ID (last value as
     * fallback).
     */
-  private[engine] def p2rAddon(bankId: Int)(using p: SimParams): Double =
+  private[engine] def p2rAddon(bankId: Int)(using p: SimParams): Multiplier =
     val addons = p.banking.p2rAddons
-    if bankId >= 0 && bankId < addons.length then addons(bankId).toDouble
-    else addons.last.toDouble
+    if bankId >= 0 && bankId < addons.length then addons(bankId)
+    else addons.last
 
   // ---- CCyB step ----
 
   /** Monthly CCyB update: credit-to-GDP gap → build / release / hold. */
-  def step(prev: State, totalLoans: Double, gdp: Double)(using p: SimParams): State =
+  def step(prev: State, totalLoans: PLN, gdp: PLN)(using p: SimParams): State =
     guarded(prev)(stepImpl(prev, totalLoans, gdp))
 
-  private[engine] def stepImpl(prev: State, totalLoans: Double, gdp: Double)(using p: SimParams): State =
-    val annualGdp   = Math.max(1.0, gdp * AnnualizeFactor)
-    val creditToGdp = totalLoans / annualGdp
+  private[engine] def stepImpl(prev: State, totalLoans: PLN, gdp: PLN)(using p: SimParams): State =
+    val annualGdp   = (gdp * Multiplier(AnnualizeFactor)).max(PLN(1.0))
+    val creditToGdp = Multiplier(totalLoans / annualGdp)
 
     // Exponential smoothing of trend (proxy for HP filter)
     val newTrend =
-      if prev.creditToGdpTrend <= 0 then creditToGdp
-      else prev.creditToGdpTrend * (1.0 - TrendSmoothing) + creditToGdp * TrendSmoothing
+      if prev.creditToGdpTrend <= Multiplier.Zero then creditToGdp
+      else prev.creditToGdpTrend * (Share.One - TrendSmoothing) + creditToGdp * TrendSmoothing
 
-    val gap = creditToGdp - newTrend
+    val gapMult = creditToGdp - newTrend
+    val gap     = Coefficient(gapMult / Multiplier.One)
 
     // CCyB rule: build gradually above activation gap, release immediately below release gap
     val newCcyb =
-      if gap > p.banking.ccybActivationGap.toDouble then (prev.ccyb + Rate(CcybBuildRate)).min(p.banking.ccybMax)
-      else if gap < p.banking.ccybReleaseGap then Rate.Zero
+      if gap > p.banking.ccybActivationGap then (prev.ccyb + CcybBuildRate).min(p.banking.ccybMax)
+      else if gap < p.banking.ccybReleaseGap then Multiplier.Zero
       else prev.ccyb
 
     State(newCcyb, gap, newTrend)
@@ -103,10 +104,12 @@ object Macroprudential:
   def withinConcentrationLimit(bankLoans: Double, bankCapital: Double, totalSystemLoans: Double)(using p: SimParams): Boolean =
     guarded(true)(withinConcentrationLimitImpl(bankLoans, bankCapital, totalSystemLoans))
 
+  @computationBoundary
   private[engine] def withinConcentrationLimitImpl(
       bankLoans: Double,
       @scala.annotation.unused bankCapital: Double,
       totalSystemLoans: Double,
   )(using p: SimParams): Boolean =
+    import ComputationBoundary.toDouble
     if totalSystemLoans <= 0 then true
-    else (bankLoans / totalSystemLoans) <= p.banking.concentrationLimit.toDouble
+    else (bankLoans / totalSystemLoans) <= toDouble(p.banking.concentrationLimit)

@@ -46,7 +46,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
 
   "updateCbRate" should "be in [RateFloor, RateCeiling] for PLN" in
     forAll(genRate, genInflation, Gen.choose(-0.10, 0.10), Gen.choose(0, totalPop)) { (prevRate: Double, inflation: Double, exRateChg: Double, employed: Int) =>
-      val r = Nbp.updateRate(Rate(prevRate), Rate(inflation), Ratio(exRateChg), employed, totalPop)
+      val r = Nbp.updateRate(Rate(prevRate), Rate(inflation), Coefficient(exRateChg), employed, totalPop)
       r.toDouble should be >= p.monetary.rateFloor.toDouble
       r.toDouble should be <= p.monetary.rateCeiling.toDouble
     }
@@ -55,8 +55,8 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genRate, Gen.choose(-0.10, 0.30), Gen.choose(0, totalPop)) { (prevRate: Double, baseInflation: Double, employed: Int) =>
       val lowInfl  = baseInflation
       val highInfl = baseInflation + 0.10
-      val rLow     = Nbp.updateRate(Rate(prevRate), Rate(lowInfl), Ratio.Zero, employed, totalPop)
-      val rHigh    = Nbp.updateRate(Rate(prevRate), Rate(highInfl), Ratio.Zero, employed, totalPop)
+      val rLow     = Nbp.updateRate(Rate(prevRate), Rate(lowInfl), Coefficient.Zero, employed, totalPop)
+      val rHigh    = Nbp.updateRate(Rate(prevRate), Rate(highInfl), Coefficient.Zero, employed, totalPop)
       rHigh.toDouble should be >= (rLow.toDouble - 1e-10)
     }
 
@@ -139,7 +139,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateForeign" should "keep exchange rate in [3.0, 8.0]" in
     forAll(genForexState, Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e7), genFraction, genRate, Gen.choose(1e6, 1e10)) {
       (prev: OpenEconomy.ForexState, importCons: Double, techImp: Double, autoR: Double, rate: Double, gdp: Double) =>
-        val fx = OpenEconomy.updateForeign(prev, PLN(importCons), PLN(techImp), Ratio(autoR), Rate(rate), PLN(gdp))
+        val fx = OpenEconomy.updateForeign(prev, PLN(importCons), PLN(techImp), Share(autoR), Rate(rate), PLN(gdp))
         fx.exchangeRate should be >= 3.0
         fx.exchangeRate should be <= 8.0
     }

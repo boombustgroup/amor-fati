@@ -50,14 +50,16 @@ object EclStaging:
     * migrationRate = sensitivity × max(0, unemployment − nairu) +
     * gdpSensitivity × max(0, −gdpGrowth) Clamped to [0, maxMigration].
     */
+  @computationBoundary
   private[amorfati] def migrationRate(
-      unemployment: Ratio,
+      unemployment: Share,
       gdpGrowthMonthly: Double,
-  )(using p: SimParams): Ratio =
-    val unempExcess    = (unemployment - p.monetary.nairu).max(Ratio.Zero).toDouble
+  )(using p: SimParams): Share =
+    import ComputationBoundary.toDouble
+    val unempExcess    = toDouble((unemployment - p.monetary.nairu).max(Share.Zero))
     val gdpContraction = Math.max(0.0, -gdpGrowthMonthly)
-    val raw            = p.banking.eclMigrationSensitivity * unempExcess + p.banking.eclGdpSensitivity * gdpContraction
-    Ratio(raw.min(p.banking.eclMaxMigration.toDouble).max(0.0))
+    val raw            = toDouble(p.banking.eclMigrationSensitivity) * unempExcess + toDouble(p.banking.eclGdpSensitivity) * gdpContraction
+    Share(raw.min(toDouble(p.banking.eclMaxMigration)).max(0.0))
 
   /** Monthly ECL staging step for a single bank.
     *
@@ -76,7 +78,7 @@ object EclStaging:
       prev: State,
       totalLoans: PLN,
       nplNew: PLN,
-      unemployment: Ratio,
+      unemployment: Share,
       gdpGrowthMonthly: Double,
   )(using p: SimParams): StepResult =
     val migration = migrationRate(unemployment, gdpGrowthMonthly)

@@ -22,15 +22,15 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   }
 
   it should "have all sigma > 0" in {
-    for s <- p.sectorDefs do s.sigma should be > 0.0
+    for s <- p.sectorDefs do s.sigma.toDouble should be > 0.0
   }
 
   it should "have all multipliers > 0" in {
     for s <- p.sectorDefs do
-      s.wageMultiplier should be > 0.0
-      s.revenueMultiplier should be > 0.0
-      s.aiCapexMultiplier should be > 0.0
-      s.hybridCapexMultiplier should be > 0.0
+      s.wageMultiplier.toDouble should be > 0.0
+      s.revenueMultiplier.toDouble should be > 0.0
+      s.aiCapexMultiplier.toDouble should be > 0.0
+      s.hybridCapexMultiplier.toDouble should be > 0.0
   }
 
   it should "have hybridRetainFrac in (0, 1]" in {

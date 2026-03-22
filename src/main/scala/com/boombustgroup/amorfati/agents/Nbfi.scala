@@ -38,7 +38,7 @@ object Nbfi:
       lastNbfiRepayment: PLN,      // monthly principal repaid
       lastNbfiDefaultAmount: PLN,  // monthly gross defaults
       lastNbfiInterestIncome: PLN, // NBFI interest earned this month
-      lastBankTightness: Ratio,    // counter-cyclical signal [0,1]
+      lastBankTightness: Share,    // counter-cyclical signal [0,1]
       lastDepositDrain: PLN,       // net deposit outflow (TFI inflow)
   )
 
@@ -55,7 +55,7 @@ object Nbfi:
       PLN.Zero,
       PLN.Zero,
       PLN.Zero,
-      Ratio.Zero,
+      Share.Zero,
       PLN.Zero,
     )
 
@@ -64,17 +64,17 @@ object Nbfi:
     val aum = p.nbfi.tfiInitAum
     State(
       tfiAum = aum,
-      tfiGovBondHoldings = aum * p.nbfi.tfiGovBondShare.toDouble,
-      tfiCorpBondHoldings = aum * p.nbfi.tfiCorpBondShare.toDouble,
-      tfiEquityHoldings = aum * p.nbfi.tfiEquityShare.toDouble,
-      tfiCashHoldings = aum * (1.0 - p.nbfi.tfiGovBondShare.toDouble - p.nbfi.tfiCorpBondShare.toDouble - p.nbfi.tfiEquityShare.toDouble),
+      tfiGovBondHoldings = aum * p.nbfi.tfiGovBondShare,
+      tfiCorpBondHoldings = aum * p.nbfi.tfiCorpBondShare,
+      tfiEquityHoldings = aum * p.nbfi.tfiEquityShare,
+      tfiCashHoldings = aum * (Share.One - p.nbfi.tfiGovBondShare - p.nbfi.tfiCorpBondShare - p.nbfi.tfiEquityShare),
       nbfiLoanStock = p.nbfi.creditInitStock,
       lastTfiNetInflow = PLN.Zero,
       lastNbfiOrigination = PLN.Zero,
       lastNbfiRepayment = PLN.Zero,
       lastNbfiDefaultAmount = PLN.Zero,
       lastNbfiInterestIncome = PLN.Zero,
-      lastBankTightness = Ratio.Zero,
+      lastBankTightness = Share.Zero,
       lastDepositDrain = PLN.Zero,
     )
 
@@ -83,34 +83,39 @@ object Nbfi:
   // ---------------------------------------------------------------------------
 
   /** Bank credit tightness signal: 0 at NPL ≤ 3%, rises linearly, 1.0 at 6%. */
-  def bankTightness(bankNplRatio: Ratio): Ratio =
-    Ratio((bankNplRatio.toDouble - NplTightnessFloor) / NplTightnessRange).clamp(Ratio.Zero, Ratio.One)
+  @computationBoundary
+  def bankTightness(bankNplRatio: Share): Share =
+    Share((ComputationBoundary.toDouble(bankNplRatio) - NplTightnessFloor) / NplTightnessRange).clamp(Share.Zero, Share.One)
 
   /** TFI net inflow: proportional to wage bill, modulated by excess returns. */
+  @computationBoundary
   def tfiInflow(employed: Int, wage: PLN, equityReturn: Rate, govBondYield: Rate, depositRate: Rate)(using
       p: SimParams,
   ): PLN =
-    val wageBill   = wage * employed.toDouble
-    val base       = wageBill * p.nbfi.tfiInflowRate.toDouble
+    val wageBill   = employed * wage
+    val base       = wageBill * p.nbfi.tfiInflowRate
     // Excess return: weighted avg of fund returns vs deposit rate
-    val fundReturn = govBondYield.toDouble * p.nbfi.tfiGovBondShare.toDouble +
-      equityReturn.toDouble * MonthsPerYear * p.nbfi.tfiEquityShare.toDouble +
-      govBondYield.toDouble * p.nbfi.tfiCorpBondShare.toDouble // proxy: corp ~ gov yield
-    val excessReturn = Math.max(-ExcessReturnCap, Math.min(ExcessReturnCap, fundReturn - depositRate.toDouble))
-    base * (1.0 + excessReturn * ExcessReturnSens)
+    val fundReturn = ComputationBoundary.toDouble(govBondYield) * ComputationBoundary.toDouble(p.nbfi.tfiGovBondShare) +
+      ComputationBoundary.toDouble(equityReturn) * MonthsPerYear * ComputationBoundary.toDouble(p.nbfi.tfiEquityShare) +
+      ComputationBoundary.toDouble(govBondYield) * ComputationBoundary.toDouble(p.nbfi.tfiCorpBondShare) // proxy: corp ~ gov yield
+    val excessReturn = Math.max(-ExcessReturnCap, Math.min(ExcessReturnCap, fundReturn - ComputationBoundary.toDouble(depositRate)))
+    base * Multiplier(1.0 + excessReturn * ExcessReturnSens)
 
   /** NBFI credit origination: counter-cyclical to bank tightness. */
-  def nbfiOrigination(domesticCons: PLN, bankNplRatio: Ratio)(using p: SimParams): PLN =
-    val tight = bankTightness(bankNplRatio)
-    domesticCons * p.nbfi.creditBaseRate.toDouble * (1.0 + p.nbfi.countercyclical * tight.toDouble)
+  def nbfiOrigination(domesticCons: PLN, bankNplRatio: Share)(using p: SimParams): PLN =
+    val tight       = bankTightness(bankNplRatio)
+    val cyclicalAdj = Multiplier.One + (p.nbfi.countercyclical * tight).toMultiplier
+    domesticCons * p.nbfi.creditBaseRate * cyclicalAdj
 
   /** NBFI loan repayment: stock / maturity. */
   def nbfiRepayment(loanStock: PLN)(using p: SimParams): PLN =
-    loanStock / p.nbfi.creditMaturity
+    loanStock / p.nbfi.creditMaturity.toLong.max(1L)
 
   /** NBFI defaults: base rate widening with unemployment. */
-  def nbfiDefaults(loanStock: PLN, unempRate: Ratio)(using p: SimParams): PLN =
-    loanStock * p.nbfi.defaultBase.toDouble * (1.0 + p.nbfi.defaultUnempSens * Math.max(0.0, unempRate.toDouble - UnempDefaultThreshold))
+  def nbfiDefaults(loanStock: PLN, unempRate: Share)(using p: SimParams): PLN =
+    val unempExcess = (unempRate - Share(UnempDefaultThreshold)).max(Share.Zero)
+    val cyclicalAdj = Multiplier.One + (p.nbfi.defaultUnempSens * unempExcess).toMultiplier
+    loanStock * p.nbfi.defaultBase * cyclicalAdj
 
   // ---------------------------------------------------------------------------
   // Monthly step
@@ -124,8 +129,8 @@ object Nbfi:
       employed: Int,                               // employed workers
       wage: PLN,                                   // average monthly wage
       @scala.annotation.unused priceLevel: Double, // CPI price level (unused in current spec, kept for interface stability)
-      unempRate: Ratio,                            // unemployment rate
-      bankNplRatio: Ratio,                         // aggregate bank NPL ratio (tightness signal)
+      unempRate: Share,                            // unemployment rate
+      bankNplRatio: Share,                         // aggregate bank NPL ratio (tightness signal)
       govBondYield: Rate,                          // government bond yield (annualised)
       corpBondYield: Rate,                         // corporate bond yield (annualised)
       equityReturn: Rate,                          // equity monthly return
@@ -134,16 +139,16 @@ object Nbfi:
   )(using p: SimParams): State =
     // TFI: inflow + investment income + rebalance
     val netInflow = tfiInflow(employed, wage, equityReturn, govBondYield, depositRate)
-    val invIncome = prev.tfiGovBondHoldings * govBondYield.toDouble / MonthsPerYear +
-      prev.tfiCorpBondHoldings * corpBondYield.toDouble / MonthsPerYear +
-      prev.tfiEquityHoldings * equityReturn.toDouble
+    val invIncome = prev.tfiGovBondHoldings * govBondYield.monthly +
+      prev.tfiCorpBondHoldings * corpBondYield.monthly +
+      prev.tfiEquityHoldings * equityReturn
     val newAum    = (prev.tfiAum + netInflow + invIncome).max(PLN.Zero)
 
     // Rebalance towards target allocation
-    val s          = p.nbfi.tfiRebalanceSpeed.toDouble
-    val targetGov  = newAum * p.nbfi.tfiGovBondShare.toDouble
-    val targetCorp = newAum * p.nbfi.tfiCorpBondShare.toDouble
-    val targetEq   = newAum * p.nbfi.tfiEquityShare.toDouble
+    val s          = p.nbfi.tfiRebalanceSpeed
+    val targetGov  = newAum * p.nbfi.tfiGovBondShare
+    val targetCorp = newAum * p.nbfi.tfiCorpBondShare
+    val targetEq   = newAum * p.nbfi.tfiEquityShare
     val newGov     = prev.tfiGovBondHoldings + (targetGov - prev.tfiGovBondHoldings) * s
     val newCorp    = prev.tfiCorpBondHoldings + (targetCorp - prev.tfiCorpBondHoldings) * s
     val newEq      = prev.tfiEquityHoldings + (targetEq - prev.tfiEquityHoldings) * s
@@ -158,7 +163,7 @@ object Nbfi:
     val repayment      = nbfiRepayment(prev.nbfiLoanStock)
     val defaults       = nbfiDefaults(prev.nbfiLoanStock, unempRate)
     val newLoanStock   = (prev.nbfiLoanStock + origination - repayment - defaults).max(PLN.Zero)
-    val interestIncome = prev.nbfiLoanStock * p.nbfi.creditRate.toDouble / MonthsPerYear
+    val interestIncome = prev.nbfiLoanStock * p.nbfi.creditRate.monthly
 
     State(
       tfiAum = newAum,

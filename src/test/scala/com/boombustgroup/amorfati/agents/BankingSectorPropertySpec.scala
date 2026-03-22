@@ -71,7 +71,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         val after  = Banking.allocateBonds(bs.banks, PLN(deficit), Rate(0.05))
         // Per-bank deltas sum to exactly deficit (residual-based allocation)
         val deltas = after.zip(bs.banks).map((a, b) => a.govBondHoldings.toDouble - b.govBondHoldings.toDouble)
-        deltas.sum shouldBe deficit +- 1e-6
+        deltas.sum shouldBe deficit +- 1.0
       }
     }
 

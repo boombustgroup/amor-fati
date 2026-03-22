@@ -36,9 +36,9 @@ case class CorpBondConfig(
     spread: Rate = Rate(0.025),
     initStock: PLN = PLN(90e9), // raw — scaled by gdpRatio
     minSize: Int = 50,
-    issuanceFrac: Ratio = Ratio(0.15),
-    bankShare: Ratio = Ratio(0.30),
-    ppkShare: Ratio = Ratio(0.15),
-    recovery: Ratio = Ratio(0.30),
+    issuanceFrac: Share = Share(0.15),
+    bankShare: Share = Share(0.30),
+    ppkShare: Share = Share(0.15),
+    recovery: Share = Share(0.30),
     maturity: Double = 60.0,
 )

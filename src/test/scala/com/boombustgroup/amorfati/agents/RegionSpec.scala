@@ -37,18 +37,18 @@ class RegionSpec extends AnyFlatSpec with Matchers:
   }
 
   "migrationProbability" should "be zero for same region" in {
-    Region.migrationProbability(Region.Central, Region.Central, Ratio(1.5), 0.7) shouldBe Ratio.Zero
+    Region.migrationProbability(Region.Central, Region.Central, Multiplier(1.5), 0.7) shouldBe Share.Zero
   }
 
   it should "increase with wage differential" in {
     // East→Northwest: similar housing cost (0.65→0.90), migration not blocked
-    val low  = Region.migrationProbability(Region.East, Region.Northwest, Ratio(1.1), 0.7)
-    val high = Region.migrationProbability(Region.East, Region.Northwest, Ratio(1.5), 0.7)
+    val low  = Region.migrationProbability(Region.East, Region.Northwest, Multiplier(1.1), 0.7)
+    val high = Region.migrationProbability(Region.East, Region.Northwest, Multiplier(1.5), 0.7)
     high.toDouble should be > low.toDouble
   }
 
   it should "be zero when destination wages are lower" in {
-    Region.migrationProbability(Region.Central, Region.East, Ratio(0.8), 0.7) shouldBe Ratio.Zero
+    Region.migrationProbability(Region.Central, Region.East, Multiplier(0.8), 0.7) shouldBe Share.Zero
   }
 
   "sectorComposition" should "sum to ~1.0 per region" in {
@@ -82,9 +82,9 @@ class RegionSpec extends AnyFlatSpec with Matchers:
       savings = PLN(50000.0),
       debt = PLN.Zero,
       monthlyRent = PLN.Zero,
-      skill = Ratio(0.5),
-      healthPenalty = Ratio.Zero,
-      mpc = Ratio(0.7),
+      skill = Share(0.5),
+      healthPenalty = Share.Zero,
+      mpc = Share(0.7),
       status = status,
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(0),
@@ -94,7 +94,7 @@ class RegionSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
       region = region,
     )

@@ -45,18 +45,18 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   }
 
   "computeYield" should "equal govYield + spread when nplRatio = 0" in {
-    val y = CorporateBondMarket.computeYield(Rate(0.06), Ratio.Zero)
+    val y = CorporateBondMarket.computeYield(Rate(0.06), Share.Zero)
     y.toDouble shouldBe (0.06 + p.corpBond.spread.toDouble +- 0.001)
   }
 
   it should "widen with NPL ratio" in {
-    val y0 = CorporateBondMarket.computeYield(Rate(0.06), Ratio.Zero)
-    val y1 = CorporateBondMarket.computeYield(Rate(0.06), Ratio(0.05))
+    val y0 = CorporateBondMarket.computeYield(Rate(0.06), Share.Zero)
+    val y1 = CorporateBondMarket.computeYield(Rate(0.06), Share(0.05))
     y1 should be > y0
   }
 
   it should "cap spread at 10%" in {
-    val y = CorporateBondMarket.computeYield(Rate(0.06), Ratio.One)
+    val y = CorporateBondMarket.computeYield(Rate(0.06), Share.One)
     y.toDouble should be <= (0.06 + 0.10 + 0.001)
   }
 
@@ -113,7 +113,7 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
 
   "step" should "reduce outstanding by amortization + defaults" in {
     val prevOutstanding = initState.outstanding
-    val result          = CorporateBondMarket.step(CorporateBondMarket.StepInput(initState, Rate(0.06), Ratio.Zero, PLN.Zero, PLN.Zero))
+    val result          = CorporateBondMarket.step(CorporateBondMarket.StepInput(initState, Rate(0.06), Share.Zero, PLN.Zero, PLN.Zero))
     val amort           = prevOutstanding.toDouble / p.corpBond.maturity
     result.outstanding.toDouble shouldBe (prevOutstanding.toDouble - amort +- 1.0)
   }
@@ -121,7 +121,7 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   it should "satisfy SFC Identity 12: delta = issuance - amort - default" in {
     val issuance       = PLN(2000.0)
     val default        = PLN(500.0)
-    val result         = CorporateBondMarket.step(CorporateBondMarket.StepInput(initState, Rate(0.06), Ratio(0.02), default, issuance))
+    val result         = CorporateBondMarket.step(CorporateBondMarket.StepInput(initState, Rate(0.06), Share(0.02), default, issuance))
     val amort          = initState.outstanding.toDouble / p.corpBond.maturity
     val expectedChange = 2000.0 - amort - 500.0
     val actualChange   = result.outstanding.toDouble - initState.outstanding.toDouble
@@ -146,39 +146,39 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
 
   "computeAbsorption" should "return 1.0 when spread = base and CAR comfortable" in {
     val state      = initState.copy(creditSpread = Rate(p.corpBond.spread.toDouble))
-    val absorption = CorporateBondMarket.computeAbsorption(state, PLN(1000.0), Ratio(0.15), Ratio(0.08))
-    absorption shouldBe Ratio.One
+    val absorption = CorporateBondMarket.computeAbsorption(state, PLN(1000.0), Multiplier(0.15), Multiplier(0.08))
+    absorption shouldBe Share.One
   }
 
   it should "return 1.0 for zero issuance" in {
-    val absorption = CorporateBondMarket.computeAbsorption(initState, PLN.Zero, Ratio(0.05), Ratio(0.08))
-    absorption shouldBe Ratio.One
+    val absorption = CorporateBondMarket.computeAbsorption(initState, PLN.Zero, Multiplier(0.05), Multiplier(0.08))
+    absorption shouldBe Share.One
   }
 
   it should "decrease with widening spread" in {
     val normalState = initState.copy(creditSpread = Rate(p.corpBond.spread.toDouble))
     val wideState   = initState.copy(creditSpread = Rate(p.corpBond.spread.toDouble + 0.05))
-    val a1          = CorporateBondMarket.computeAbsorption(normalState, PLN(1000.0), Ratio(0.15), Ratio(0.08))
-    val a2          = CorporateBondMarket.computeAbsorption(wideState, PLN(1000.0), Ratio(0.15), Ratio(0.08))
+    val a1          = CorporateBondMarket.computeAbsorption(normalState, PLN(1000.0), Multiplier(0.15), Multiplier(0.08))
+    val a2          = CorporateBondMarket.computeAbsorption(wideState, PLN(1000.0), Multiplier(0.15), Multiplier(0.08))
     a2 should be < a1
   }
 
   it should "return 0.3 floor at extreme spread" in {
     val extremeState = initState.copy(creditSpread = Rate(p.corpBond.spread.toDouble + 0.15))
-    val absorption   = CorporateBondMarket.computeAbsorption(extremeState, PLN(1000.0), Ratio(0.15), Ratio(0.08))
+    val absorption   = CorporateBondMarket.computeAbsorption(extremeState, PLN(1000.0), Multiplier(0.15), Multiplier(0.08))
     absorption.toDouble shouldBe (0.3 +- 0.001)
   }
 
   it should "decrease when CAR near minimum" in {
     val state = initState.copy(creditSpread = Rate(p.corpBond.spread.toDouble))
-    val a1    = CorporateBondMarket.computeAbsorption(state, PLN(1000.0), Ratio(0.15), Ratio(0.08))
-    val a2    = CorporateBondMarket.computeAbsorption(state, PLN(1000.0), Ratio(0.09), Ratio(0.08))
+    val a1    = CorporateBondMarket.computeAbsorption(state, PLN(1000.0), Multiplier(0.15), Multiplier(0.08))
+    val a2    = CorporateBondMarket.computeAbsorption(state, PLN(1000.0), Multiplier(0.09), Multiplier(0.08))
     a2 should be < a1
   }
 
   it should "return 0.3 when CAR at or below minimum" in {
     val state      = initState.copy(creditSpread = Rate(p.corpBond.spread.toDouble))
-    val absorption = CorporateBondMarket.computeAbsorption(state, PLN(1000.0), Ratio(0.08), Ratio(0.08))
+    val absorption = CorporateBondMarket.computeAbsorption(state, PLN(1000.0), Multiplier(0.08), Multiplier(0.08))
     absorption.toDouble shouldBe (0.3 +- 0.001)
   }
 

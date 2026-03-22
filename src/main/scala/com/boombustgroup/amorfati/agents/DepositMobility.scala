@@ -2,7 +2,6 @@ package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 
@@ -44,15 +43,15 @@ object DepositMobility:
     * healthFlight = sensitivity × max(0, carThreshold − bankCAR) panicFlight =
     * panicRate if any bank failed this month, else 0
     */
+  @computationBoundary
   private def switchProbability(
-      bankCar: Ratio,
+      bankCar: Multiplier,
       anyBankFailed: Boolean,
-  )(using p: SimParams): Double =
-    val healthFlight =
-      p.banking.depositFlightSensitivity * (p.banking.depositFlightCarThreshold - bankCar).max(Ratio.Zero).toDouble
-    val panicFlight  =
-      if anyBankFailed then p.banking.depositPanicRate.toDouble else 0.0
-    Math.min(healthFlight + panicFlight, p.banking.maxDepositSwitchRate.toDouble)
+  )(using p: SimParams): Share =
+    val carGap       = (p.banking.depositFlightCarThreshold - bankCar).max(Multiplier.Zero)
+    val healthFlight = p.banking.depositFlightSensitivity * carGap // Coefficient * Multiplier → Share
+    val panicFlight  = if anyBankFailed then p.banking.depositPanicRate else Share.Zero
+    (healthFlight + panicFlight).min(p.banking.maxDepositSwitchRate)
 
   /** Run deposit mobility: households may switch from weak banks to the
     * healthiest bank.
@@ -75,13 +74,13 @@ object DepositMobility:
     val healthiest = Banking.healthiestBankId(banks)
     val carByBank  = banks.map(b => b.id.toInt -> b.car).toMap
     val systemCar  =
-      if banks.nonEmpty then Ratio(banks.kahanSumBy(_.car.toDouble) / banks.length)
-      else Ratio.Zero
+      if banks.nonEmpty then Multiplier.fromRaw(banks.map(_.car.toLong).sum / banks.length)
+      else Multiplier.Zero
 
     val updated = households.map: hh =>
       val currentCar = carByBank.getOrElse(hh.bankId.toInt, systemCar)
       val prob       = switchProbability(currentCar, anyBankFailed)
-      if prob > 0 && rng.nextDouble() < prob && hh.bankId != healthiest then hh.copy(bankId = healthiest)
+      if prob > Share.Zero && prob.sampleBelow(rng) && hh.bankId != healthiest then hh.copy(bankId = healthiest)
       else hh
 
     Result(updated)

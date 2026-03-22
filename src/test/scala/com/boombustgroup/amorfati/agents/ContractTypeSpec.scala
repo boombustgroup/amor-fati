@@ -12,13 +12,13 @@ class ContractTypeSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be zero for B2B" in {
-    ContractType.zusEmployerRate(ContractType.B2B) shouldBe Ratio.Zero
+    ContractType.zusEmployerRate(ContractType.B2B) shouldBe Share.Zero
   }
 
   "fpRate" should "be positive only for Permanent" in {
     ContractType.fpRate(ContractType.Permanent).toDouble should be > 0.0
-    ContractType.fpRate(ContractType.Zlecenie) shouldBe Ratio.Zero
-    ContractType.fpRate(ContractType.B2B) shouldBe Ratio.Zero
+    ContractType.fpRate(ContractType.Zlecenie) shouldBe Share.Zero
+    ContractType.fpRate(ContractType.B2B) shouldBe Share.Zero
   }
 
   "firingPriority" should "fire B2B first, Permanent last" in {

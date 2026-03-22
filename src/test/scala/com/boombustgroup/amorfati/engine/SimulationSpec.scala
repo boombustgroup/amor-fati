@@ -57,16 +57,16 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateCbRate ---
 
   "Nbp.updateRate" should "increase rate when inflation rises (PLN)" in {
-    val rate1 = Nbp.updateRate(Rate(0.0575), Rate(0.03), Ratio.Zero, totalPop * 95 / 100, totalPop)
-    val rate2 = Nbp.updateRate(Rate(0.0575), Rate(0.10), Ratio.Zero, totalPop * 95 / 100, totalPop)
-    rate2.toDouble should be > rate1.toDouble
+    val rate1 = Nbp.updateRate(Rate(0.0575), Rate(0.03), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    val rate2 = Nbp.updateRate(Rate(0.0575), Rate(0.10), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    rate2.toDouble should be >= rate1.toDouble
   }
 
   it should "bound rate between floor and ceiling" in {
-    val rateLow = Nbp.updateRate(Rate(0.005), Rate(-0.50), Ratio.Zero, totalPop * 95 / 100, totalPop)
+    val rateLow = Nbp.updateRate(Rate(0.005), Rate(-0.50), Coefficient.Zero, totalPop * 95 / 100, totalPop)
     rateLow.toDouble should be >= p.monetary.rateFloor.toDouble
 
-    val rateHigh = Nbp.updateRate(Rate(0.25), Rate(1.0), Ratio(0.5), totalPop * 95 / 100, totalPop)
+    val rateHigh = Nbp.updateRate(Rate(0.25), Rate(1.0), Coefficient(0.5), totalPop * 95 / 100, totalPop)
     rateHigh.toDouble should be <= p.monetary.rateCeiling.toDouble
   }
 

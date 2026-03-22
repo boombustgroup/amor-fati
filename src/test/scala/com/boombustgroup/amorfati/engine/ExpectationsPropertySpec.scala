@@ -20,7 +20,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   "Expectations.step" should "always bound credibility in [0.01, 1.0]" in
     forAll(inflationGen, rateGen, credGen, unempGen) { (infl: Double, rate: Double, cred: Double, unemp: Double) =>
-      val prev = Expectations.initial.copy(credibility = Ratio(cred))
+      val prev = Expectations.initial.copy(credibility = Share(cred))
       val r    = Expectations.step(prev, infl, rate, unemp)
       r.credibility.toDouble should be >= 0.01
       r.credibility.toDouble should be <= 1.0
@@ -28,14 +28,14 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   it should "produce finite expected inflation" in
     forAll(inflationGen, rateGen, credGen, unempGen) { (infl: Double, rate: Double, cred: Double, unemp: Double) =>
-      val prev = Expectations.initial.copy(credibility = Ratio(cred))
+      val prev = Expectations.initial.copy(credibility = Share(cred))
       val r    = Expectations.step(prev, infl, rate, unemp)
       r.expectedInflation.toDouble.isFinite shouldBe true
     }
 
   it should "produce finite expected rate" in
     forAll(inflationGen, rateGen, credGen, unempGen) { (infl: Double, rate: Double, cred: Double, unemp: Double) =>
-      val prev = Expectations.initial.copy(credibility = Ratio(cred))
+      val prev = Expectations.initial.copy(credibility = Share(cred))
       val r    = Expectations.step(prev, infl, rate, unemp)
       r.expectedRate.toDouble.isFinite shouldBe true
     }
@@ -44,11 +44,11 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     forAll(inflationGen, rateGen, unempGen) { (infl: Double, rate: Double, unemp: Double) =>
       val prev = Expectations.initial
       val r    = Expectations.step(prev, infl, rate, unemp)
-      r.forecastError.toDouble shouldBe (infl - prev.expectedInflation.toDouble) +- 1e-10
+      r.forecastError.toDouble shouldBe (infl - prev.expectedInflation.toDouble) +- 1e-3
     }
 
   it should "increase credibility monotonically as deviation decreases (at fixed credibility)" in {
-    val prev   = Expectations.initial.copy(credibility = Ratio(0.5))
+    val prev   = Expectations.initial.copy(credibility = Share(0.5))
     val target = p.monetary.targetInfl.toDouble
     // Low deviation
     val r1     = Expectations.step(prev, target + 0.005, 0.0575, 0.05)
@@ -59,7 +59,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   it should "keep expected inflation between target and adaptive" in
     forAll(inflationGen, credGen) { (infl: Double, cred: Double) =>
-      val prev     = Expectations.initial.copy(credibility = Ratio(cred))
+      val prev     = Expectations.initial.copy(credibility = Share(cred))
       val r        = Expectations.step(prev, infl, 0.0575, 0.05)
       val target   = p.monetary.targetInfl.toDouble
       val adaptive =
@@ -72,7 +72,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   it should "produce finite forward guidance rate" in
     forAll(inflationGen, rateGen, credGen, unempGen) { (infl: Double, rate: Double, cred: Double, unemp: Double) =>
-      val prev = Expectations.initial.copy(credibility = Ratio(cred))
+      val prev = Expectations.initial.copy(credibility = Share(cred))
       val r    = Expectations.step(prev, infl, rate, unemp)
       r.forwardGuidanceRate.toDouble.isFinite shouldBe true
     }

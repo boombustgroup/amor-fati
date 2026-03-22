@@ -29,7 +29,7 @@ class BalanceSheetSpec extends AnyFlatSpec with Matchers:
         PLN.Zero,
         PLN.Zero,
       )
-      .nplRatio shouldBe Ratio.Zero
+      .nplRatio shouldBe Share.Zero
     Banking
       .Aggregate(
         PLN(1),
@@ -42,7 +42,7 @@ class BalanceSheetSpec extends AnyFlatSpec with Matchers:
         PLN.Zero,
         PLN.Zero,
       )
-      .nplRatio shouldBe Ratio.Zero
+      .nplRatio shouldBe Share.Zero
   }
 
   "BankingAggregate.car" should "equal capital / totalLoans when totalLoans > 1" in {
@@ -63,7 +63,7 @@ class BalanceSheetSpec extends AnyFlatSpec with Matchers:
         PLN.Zero,
         PLN.Zero,
       )
-      .car shouldBe Ratio(10.0)
+      .car shouldBe Multiplier(10.0)
   }
 
   // lendingRate and canLend removed from BankingAggregate — now only on Banking.BankState

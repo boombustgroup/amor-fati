@@ -43,26 +43,27 @@ import com.boombustgroup.amorfati.types.*
   * @param commodityShockMonth
   *   simulation month when commodity price shock hits (0 = no shock)
   * @param commodityShockMag
-  *   one-time shock magnitude as multiplicative increment (e.g., Shock(3.0) =
-  *   +300% gas price, 2022-style). Unbounded — can exceed 1.0.
+  *   one-time shock magnitude as multiplicative increment (e.g.,
+  *   Multiplier(3.0) = +300% gas price, 2022-style). Unbounded — can exceed
+  *   1.0.
   */
 case class GvcConfig(
-    euTradeShare: Ratio = Ratio(0.70),
-    exportShares: Vector[Ratio] = Vector(Ratio(0.05), Ratio(0.55), Ratio(0.15), Ratio(0.03), Ratio(0.02), Ratio(0.20)),
-    depth: Vector[Ratio] = Vector(Ratio(0.35), Ratio(0.75), Ratio(0.30), Ratio(0.40), Ratio(0.10), Ratio(0.45)),
+    euTradeShare: Share = Share(0.70),
+    exportShares: Vector[Share] = Vector(Share(0.05), Share(0.55), Share(0.15), Share(0.03), Share(0.02), Share(0.20)),
+    depth: Vector[Share] = Vector(Share(0.35), Share(0.75), Share(0.30), Share(0.40), Share(0.10), Share(0.45)),
     foreignInflation: Rate = Rate(0.02),
     foreignGdpGrowth: Rate = Rate(0.015),
-    erPassthrough: Ratio = Ratio(0.60),
-    euErPassthrough: Ratio = Ratio(0.15),
+    erPassthrough: Coefficient = Coefficient(0.60),
+    euErPassthrough: Coefficient = Coefficient(0.15),
     demandShockMonth: Int = 0,
-    demandShockSize: Ratio = Ratio(0.0),
+    demandShockSize: Share = Share(0.0),
     demandShockSectors: Set[Int] = Set.empty,
-    disruptionRecovery: Ratio = Ratio(0.05),
+    disruptionRecovery: Share = Share(0.05),
     // Commodity prices (Poland imports ~95% of oil/gas)
     commodityDrift: Rate = Rate(0.02),
     commodityVolatility: Sigma = Sigma(0.03),
     commodityShockMonth: Int = 0,
-    commodityShockMag: Shock = Shock.Zero,
+    commodityShockMag: Multiplier = Multiplier.Zero,
 ):
   require(exportShares.length == 6, s"exportShares must have 6 sectors: ${exportShares.length}")
   require(depth.length == 6, s"depth must have 6 sectors: ${depth.length}")

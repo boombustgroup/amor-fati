@@ -26,7 +26,9 @@ object FiscalConstraintStep:
       lendingBaseRate: Rate,            // blended base rate for bank lending (interbank + expectations)
   )
 
+  @computationBoundary
   def run(in: Input)(using p: SimParams): Output =
+    import ComputationBoundary.toDouble
     val w = in.w
     val m = w.month + 1
 
@@ -36,22 +38,22 @@ object FiscalConstraintStep:
         val cumInfl     =
           if p.fiscal.minWageInflationIndex && w.gov.minWagePriceLevel > 0 then w.priceLevel / w.gov.minWagePriceLevel - 1.0
           else 0.0
-        val inflIndexed = w.gov.minWageLevel.toDouble * (1.0 + Math.max(0.0, cumInfl))
-        val target      = w.hhAgg.marketWage.toDouble * p.fiscal.minWageTargetRatio.toDouble
+        val inflIndexed = toDouble(w.gov.minWageLevel) * (1.0 + Math.max(0.0, cumInfl))
+        val target      = toDouble(w.hhAgg.marketWage) * toDouble(p.fiscal.minWageTargetRatio)
         val gap         = target - inflIndexed
         val adjusted    =
-          if gap > 0 then inflIndexed + gap * p.fiscal.minWageConvergenceSpeed.toDouble
+          if gap > 0 then inflIndexed + gap * toDouble(p.fiscal.minWageConvergenceSpeed)
           else inflIndexed
-        (Math.max(w.gov.minWageLevel.toDouble, adjusted), w.priceLevel)
-      else (w.gov.minWageLevel.toDouble, w.gov.minWagePriceLevel)
-    else (p.household.baseReservationWage.toDouble, w.gov.minWagePriceLevel)
+        (Math.max(toDouble(w.gov.minWageLevel), adjusted), w.priceLevel)
+      else (toDouble(w.gov.minWageLevel), w.gov.minWagePriceLevel)
+    else (toDouble(p.household.baseReservationWage), w.gov.minWagePriceLevel)
 
     val resWage = baseMinWage
 
     val rawLendingBaseRate: Double =
       if p.flags.interbankTermStructure then
         val exp = w.mechanisms.expectations
-        YieldCurve
+        val yc  = YieldCurve
           .compute(
             w.bankingSector.interbankRate,
             nplRatio = w.bank.nplRatio,
@@ -60,12 +62,12 @@ object FiscalConstraintStep:
             targetInflation = p.monetary.targetInfl,
           )
           .wibor3m
-          .toDouble
-      else w.nbp.referenceRate.toDouble
+        toDouble(yc)
+      else toDouble(w.nbp.referenceRate)
 
     val lendingBaseRate =
       if p.flags.expectations then
-        ExpectationsBlendWeight * rawLendingBaseRate + (1.0 - ExpectationsBlendWeight) * w.mechanisms.expectations.expectedRate.toDouble
+        ExpectationsBlendWeight * rawLendingBaseRate + (1.0 - ExpectationsBlendWeight) * toDouble(w.mechanisms.expectations.expectedRate)
       else rawLendingBaseRate
 
     Output(m, PLN(baseMinWage), updatedMinWagePriceLevel, PLN(resWage), Rate(lendingBaseRate))

@@ -59,13 +59,13 @@ object CapitalFlows:
   def compute(
       month: Int,
       yieldSpread: Rate,
-      bidToCover: Ratio,
+      bidToCover: Multiplier,
       prevCarry: CarryState,
       monthlyGdp: PLN,
   )(using p: SimParams): Result =
-    // 1. Global risk-off shock
+    // 1. Global risk-off shock: outflow = GDP × magnitude
     val riskOff =
-      if p.forex.riskOffShockMonth > 0 && month == p.forex.riskOffShockMonth then monthlyGdp * p.forex.riskOffMagnitude.toDouble * -1.0
+      if p.forex.riskOffShockMonth > 0 && month == p.forex.riskOffShockMonth then -(monthlyGdp * p.forex.riskOffMagnitude)
       else PLN.Zero
 
     // 2. Carry trade: accumulate when spread > threshold, unwind on risk-off
@@ -73,18 +73,20 @@ object CapitalFlows:
     val isRiskOff            = p.forex.riskOffShockMonth > 0 && month >= p.forex.riskOffShockMonth &&
       month < p.forex.riskOffShockMonth + p.forex.riskOffDurationMonths
     val carryAccumulation    =
-      if !isRiskOff then monthlyGdp * (spreadAboveThreshold.toDouble * p.forex.carryAccumulationRate)
+      if !isRiskOff then monthlyGdp * (spreadAboveThreshold * p.forex.carryAccumulationRate)
       else PLN.Zero
     val carryUnwind          =
-      if isRiskOff then prevCarry.stock * p.forex.carryUnwindSpeed.toDouble * -1.0
+      if isRiskOff then -(prevCarry.stock * p.forex.carryUnwindSpeed)
       else PLN.Zero
     val newStock             = (prevCarry.stock + carryAccumulation + carryUnwind).max(PLN.Zero)
     val carryFlow            = carryAccumulation + carryUnwind
 
     // 3. Bond auction signal: low bid-to-cover → confidence erosion
+    val threshold      = p.forex.auctionConfidenceThreshold.toMultiplier
     val auctionOutflow =
-      if bidToCover < p.forex.auctionConfidenceThreshold then
-        monthlyGdp * p.forex.auctionOutflowSensitivity * (p.forex.auctionConfidenceThreshold - bidToCover).toDouble * -1.0
+      if bidToCover < threshold then
+        val gap = (threshold - bidToCover).toShare
+        -(monthlyGdp * (gap * p.forex.auctionOutflowSensitivity).toMultiplier.toShare)
       else PLN.Zero
 
     Result(riskOff, carryFlow, auctionOutflow, CarryState(newStock))

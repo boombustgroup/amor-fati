@@ -26,7 +26,7 @@ object Expectations:
   case class State(
       expectedInflation: Rate,  // πᵉ: anchored inflation expectation
       expectedRate: Rate,       // rᵉ: expected policy rate
-      credibility: Ratio,       // κ ∈ [0.01, 1.0]: CB credibility index
+      credibility: Share,       // κ ∈ [0.01, 1.0]: CB credibility index
       forecastError: Rate,      // eₜ = πₜ − πᵉₜ₋₁
       forwardGuidanceRate: Rate, // Taylor-rule implied rate (= currentRate when FG off)
   )
@@ -42,23 +42,25 @@ object Expectations:
   /** Monthly update: forecast error → adaptive learning → anchoring →
     * credibility → FG.
     */
+  @computationBoundary
   def step(prev: State, realizedInflation: Double, currentRate: Double, unemployment: Double)(using p: SimParams): State =
-    val target = p.monetary.targetInfl.toDouble
-    val lambda = p.labor.expLambda.toDouble
+    import ComputationBoundary.toDouble
+    val target = toDouble(p.monetary.targetInfl)
+    val lambda = toDouble(p.labor.expLambda)
 
     // Adaptive learning: πᵉ_adaptive = πᵉₜ₋₁ + λ(πₜ − πᵉₜ₋₁)
-    val error    = realizedInflation - prev.expectedInflation.toDouble
-    val adaptive = prev.expectedInflation.toDouble + lambda * error
+    val error    = realizedInflation - toDouble(prev.expectedInflation)
+    val adaptive = toDouble(prev.expectedInflation) + lambda * error
 
     // Anchoring: blend target with adaptive based on credibility
-    val cred     = prev.credibility.toDouble
+    val cred     = toDouble(prev.credibility)
     val expected = cred * target + (1.0 - cred) * adaptive
 
     val newCred = updateCredibility(cred, realizedInflation, target)
     val fgRate  = forwardGuidance(expected, target, unemployment, currentRate)
 
     // Expected rate: adaptive learning on policy rate, blended with FG when enabled
-    val adaptiveRate = prev.expectedRate.toDouble + lambda * (currentRate - prev.expectedRate.toDouble)
+    val adaptiveRate = toDouble(prev.expectedRate) + lambda * (currentRate - toDouble(prev.expectedRate))
     val expRate      =
       if p.flags.nbpForwardGuidance then FgBlendWeight * fgRate + (1.0 - FgBlendWeight) * adaptiveRate
       else adaptiveRate
@@ -66,7 +68,7 @@ object Expectations:
     State(
       expectedInflation = Rate(expected),
       expectedRate = Rate(expRate),
-      credibility = Ratio(newCred),
+      credibility = Share(newCred),
       forecastError = Rate(error),
       forwardGuidanceRate = Rate(fgRate),
     )
@@ -74,21 +76,25 @@ object Expectations:
   /** Asymmetric credibility update: builds via (1−κ) scaling, erodes via κ
     * scaling.
     */
+  @computationBoundary
   private def updateCredibility(cred: Double, realizedInflation: Double, target: Double)(using p: SimParams): Double =
+    import ComputationBoundary.toDouble
     val absDeviation = Math.abs(realizedInflation - target)
-    val threshold    = p.labor.expCredibilityThreshold.toDouble
-    val speed        = p.labor.expCredibilitySpeed.toDouble
+    val threshold    = toDouble(p.labor.expCredibilityThreshold)
+    val speed        = toDouble(p.labor.expCredibilitySpeed)
     val raw          =
       if absDeviation <= threshold then cred + speed * (1.0 - cred) * (threshold - absDeviation) / threshold
       else cred - speed * cred * (absDeviation - threshold) / threshold
     Math.max(MinCredibility, Math.min(1.0, raw))
 
   /** Taylor-rule forward guidance: r_fg = r* + α(πᵉ − π*) − δ·gap. */
+  @computationBoundary
   private def forwardGuidance(expected: Double, target: Double, unemployment: Double, currentRate: Double)(using p: SimParams): Double =
+    import ComputationBoundary.toDouble
     if !p.flags.nbpForwardGuidance then currentRate
     else
-      val nairu        = p.monetary.nairu.toDouble // Ratio → Double: function operates in Double space
+      val nairu        = toDouble(p.monetary.nairu)
       val rawOutputGap = (unemployment - nairu) / nairu
       val outputGap    = Math.max(-OutputGapClamp, Math.min(OutputGapClamp, rawOutputGap))
-      val rawFg        = p.monetary.neutralRate.toDouble + p.monetary.taylorAlpha * (expected - target) - p.monetary.taylorDelta * outputGap
-      Math.max(p.monetary.rateFloor.toDouble, Math.min(p.monetary.rateCeiling.toDouble, rawFg))
+      val rawFg        = toDouble(p.monetary.neutralRate) + toDouble(p.monetary.taylorAlpha) * (expected - target) - toDouble(p.monetary.taylorDelta) * outputGap
+      Math.max(toDouble(p.monetary.rateFloor), Math.min(toDouble(p.monetary.rateCeiling), rawFg))

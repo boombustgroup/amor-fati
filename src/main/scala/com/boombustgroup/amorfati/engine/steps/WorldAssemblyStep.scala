@@ -8,7 +8,6 @@ import com.boombustgroup.amorfati.engine.markets.EquityMarket
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, SectoralMobility}
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 
@@ -85,9 +84,9 @@ object WorldAssemblyStep:
 
   /** Finalize GPW equity state with aggregate household equity wealth. */
   private def finalizeEquity(in: Input): EquityMarket.State =
-    val totalHhEquityWealth = in.s9.reassignedHouseholds.kahanSumBy(_.equityWealth.toDouble)
+    val totalHhEquityWealth = PLN.fromRaw(in.s9.reassignedHouseholds.map(_.equityWealth.toLong).sum)
     in.s7.equityAfterIssuance.copy(
-      hhEquityWealth = PLN(totalHhEquityWealth),
+      hhEquityWealth = totalHhEquityWealth,
       lastWealthEffect = PLN.Zero,
       lastDomesticDividends = in.s7.netDomesticDividends,
       lastForeignDividends = in.s7.foreignDividendOutflow,
@@ -95,69 +94,77 @@ object WorldAssemblyStep:
     )
 
   /** Flow-of-funds residual: total firm revenue minus adjusted demand. */
+  @computationBoundary
   private def computeFofResidual(in: Input)(using p: SimParams): PLN =
+    import ComputationBoundary.toDouble
     val totalFirmRev   = (0 until p.sectorDefs.length)
       .map: s =>
         in.s2.living
           .filter(_.sector.toInt == s)
-          .kahanSumBy(f => (Firm.computeCapacity(f) * (in.s4.sectorMults(s) * in.w.priceLevel)).toDouble)
-      .kahanSum
+          .map(f => toDouble(Firm.computeCapacity(f) * Multiplier(in.s4.sectorMults(s) * in.w.priceLevel)))
+          .sum
+      .sum
     val adjustedDemand = in.s4.sectorMults.indices
       .map: s =>
         in.s4.sectorCap(s) * in.s4.sectorMults(s) * in.w.priceLevel
-      .kahanSum
+      .sum
     PLN(totalFirmRev - adjustedDemand)
 
   /** Informal economy: four-channel tax evasion (CIT, VAT, PIT, excise),
     * estimated informal employment, and smoothed cyclical adjustment for the
     * counter-cyclical shadow economy share.
     */
+  @computationBoundary
   private def computeInformalEconomy(in: Input)(using p: SimParams): InformalResult =
+    import ComputationBoundary.toDouble
     if !p.flags.informal then return InformalResult(PLN.Zero, 0.0, 0.0, 0.0)
 
-    val taxEvasionLoss = PLN(
-      in.s5.sumCitEvasion.toDouble + (in.s9.vat.toDouble - in.s9.vatAfterEvasion.toDouble) +
-        (in.s3.pitRevenue.toDouble - in.s9.pitAfterEvasion.toDouble) +
-        (in.s9.exciseRevenue.toDouble - in.s9.exciseAfterEvasion.toDouble),
-    )
+    val taxEvasionLoss =
+      in.s5.sumCitEvasion + (in.s9.vat - in.s9.vatAfterEvasion) +
+        (in.s3.pitRevenue - in.s9.pitAfterEvasion) +
+        (in.s9.exciseRevenue - in.s9.exciseAfterEvasion)
 
-    val informalEmployed = in.s2.employed.toDouble * in.s9.effectiveShadowShare.toDouble
+    val informalEmployed = in.s2.employed.toDouble * toDouble(in.s9.effectiveShadowShare)
 
     val unemp       = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
-    val target      = Math.max(0.0, unemp - p.informal.unempThreshold.toDouble) * p.informal.cyclicalSens.toDouble
-    val cyclicalAdj = in.w.mechanisms.informalCyclicalAdj * p.informal.smoothing.toDouble +
-      target * (1.0 - p.informal.smoothing.toDouble)
+    val target      = Math.max(0.0, unemp - toDouble(p.informal.unempThreshold)) * toDouble(p.informal.cyclicalSens)
+    val cyclicalAdj = in.w.mechanisms.informalCyclicalAdj * toDouble(p.informal.smoothing) +
+      target * (1.0 - toDouble(p.informal.smoothing))
 
     val effectiveShadowShare =
       p.fiscal.fofConsWeights
-        .map(_.toDouble)
-        .zip(p.informal.sectorShares.map(_.toDouble))
+        .map(toDouble(_))
+        .zip(p.informal.sectorShares.map(toDouble(_)))
         .map((cw, ss) => cw * Math.min(1.0, ss + cyclicalAdj))
         .sum: Double
 
     InformalResult(taxEvasionLoss, informalEmployed, cyclicalAdj, effectiveShadowShare)
 
   /** Pre-compute observable values surfaced on World for SimOutput. */
+  @computationBoundary
   private def computeObservables(in: Input)(using p: SimParams): Observables =
+    import ComputationBoundary.toDouble
     val aliveBanks           = in.s9.finalBankingSector.banks.filterNot(_.failed)
-    val depositFacilityUsage = PLN(
+    val depositFacilityUsage = PLN.fromRaw(
       aliveBanks
         .filter(_.reservesAtNbp > PLN.Zero)
-        .kahanSumBy(_.reservesAtNbp.toDouble),
+        .map(_.reservesAtNbp.toLong)
+        .sum,
     )
 
     val monthsPerYear = 12.0
     val etsPrice      =
-      if p.flags.energy then p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / monthsPerYear, in.s1.m.toDouble)
+      if p.flags.energy then p.climate.etsBasePrice * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, in.s1.m.toDouble)
       else 0.0
 
     val monthInYear           = ((in.s1.m - 1) % 12) + 1
     val tourismSeasonalFactor =
-      1.0 + p.tourism.seasonality.toDouble * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
+      1.0 + toDouble(p.tourism.seasonality) * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
 
     Observables(depositFacilityUsage, etsPrice, tourismSeasonalFactor)
 
   /** Construct the new World state from all step outputs. */
+  @computationBoundary
   private def assembleWorld(
       in: Input,
       equityAfterStep: EquityMarket.State,
@@ -165,11 +172,12 @@ object WorldAssemblyStep:
       informal: InformalResult,
       obs: Observables,
   ): World =
+    import ComputationBoundary.toDouble
     World(
       month = in.s1.m,
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
-      gdpProxy = in.s7.gdp.toDouble,
+      gdpProxy = toDouble(in.s7.gdp),
       currentSigmas = in.s7.newSigmas,
       totalPopulation = in.w.totalPopulation + in.s5.netMigration,
       gov = in.s9.newGovWithYield.copy(
@@ -209,7 +217,7 @@ object WorldAssemblyStep:
         sectoralMobility = SectoralMobility.State(
           crossSectorHires = in.s5.postFirmCrossSectorHires + in.s3.hhAgg.crossSectorHires,
           voluntaryQuits = in.s3.hhAgg.voluntaryQuits,
-          sectorMobilityRate = in.s9.finalHhAgg.sectorMobilityRate.toDouble,
+          sectorMobilityRate = in.s9.finalHhAgg.sectorMobilityRate,
         ),
         grossInvestment = in.s5.sumGrossInvestment,
         aggGreenInvestment = in.s5.sumGreenInvestment,
@@ -236,7 +244,9 @@ object WorldAssemblyStep:
     )
 
   /** Construct the FlowState for this step. */
+  @computationBoundary
   private def buildFlowState(in: Input, informal: InformalResult): FlowState =
+    import ComputationBoundary.toDouble
     FlowState(
       ioFlows = in.s5.totalIoPaid,
       fdiProfitShifting = in.s5.sumProfitShifting,
@@ -253,7 +263,7 @@ object WorldAssemblyStep:
       taxEvasionLoss = informal.taxEvasionLoss,
       informalEmployed = informal.informalEmployed,
       bailInLoss = in.s9.bailInLoss,
-      bfgLevyTotal = in.s9.bfgLevy.toDouble,
+      bfgLevyTotal = toDouble(in.s9.bfgLevy),
       sectorDemandMult = in.s4.sectorMults,
       fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
       govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
@@ -267,24 +277,22 @@ object WorldAssemblyStep:
     Sfc.validate(prevSnap, currSnap, flows)
 
   /** Construct Sfc.MonthlyFlows from all step outputs. */
+  @computationBoundary
   private def buildMonthlyFlows(in: Input, fofResidual: PLN)(using p: SimParams): Sfc.MonthlyFlows =
     Sfc.MonthlyFlows(
-      govSpending = PLN(
-        in.s9.newGovWithYield.unempBenefitSpend.toDouble
-          + in.s9.newGovWithYield.socialTransferSpend.toDouble
-          + in.s4.govPurchases.toDouble + in.s8.banking.monthlyDebtService.toDouble + in.s2.newZus.govSubvention.toDouble
-          + in.s2.newNfz.govSubvention.toDouble + in.s2.newEarmarked.totalGovSubvention.toDouble + in.s7.euCofin.toDouble,
-      ),
-      govRevenue = PLN(
-        in.s5.sumTax.toDouble + in.s7.dividendTax.toDouble + in.s9.pitAfterEvasion.toDouble + in.s9.vatAfterEvasion.toDouble + in.s8.banking.nbpRemittance.toDouble + in.s9.exciseAfterEvasion.toDouble + in.s9.customsDutyRevenue.toDouble,
-      ),
+      govSpending = in.s9.newGovWithYield.unempBenefitSpend
+        + in.s9.newGovWithYield.socialTransferSpend
+        + in.s4.govPurchases + in.s8.banking.monthlyDebtService + in.s2.newZus.govSubvention
+        + in.s2.newNfz.govSubvention + in.s2.newEarmarked.totalGovSubvention + in.s7.euCofin,
+      govRevenue =
+        in.s5.sumTax + in.s7.dividendTax + in.s9.pitAfterEvasion + in.s9.vatAfterEvasion + in.s8.banking.nbpRemittance + in.s9.exciseAfterEvasion + in.s9.customsDutyRevenue,
       nplLoss = in.s5.nplLoss,
       interestIncome = in.s5.intIncome,
       hhDebtService = in.s6.hhDebtService,
       totalIncome = in.s3.totalIncome,
       totalConsumption = in.s3.consumption,
       newLoans = in.s5.sumNewLoans,
-      nplRecovery = in.s5.nplNew * p.banking.loanRecovery.toDouble,
+      nplRecovery = in.s5.nplNew * p.banking.loanRecovery,
       currentAccount = in.s8.external.newBop.currentAccount,
       valuationEffect = in.s8.external.oeValuationEffect,
       bankBondIncome = in.s8.banking.bankBondIncome,
@@ -347,11 +355,11 @@ object WorldAssemblyStep:
     * ownership, representing cross-border mergers and acquisitions.
     */
   private def applyFdiMa(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
-    if p.flags.fdi && p.fdi.maProb.toDouble > 0 then
+    if p.flags.fdi && p.fdi.maProb > Share.Zero then
       firms.map: f =>
         if Firm.isAlive(f) && !f.foreignOwned &&
           f.initialSize >= p.fdi.maSizeMin &&
-          rng.nextDouble() < p.fdi.maProb.toDouble
+          p.fdi.maProb.sampleBelow(rng)
         then f.copy(foreignOwned = true)
         else f
     else firms
