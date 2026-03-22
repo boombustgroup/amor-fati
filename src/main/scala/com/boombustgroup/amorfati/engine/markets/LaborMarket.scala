@@ -5,7 +5,6 @@ import com.boombustgroup.amorfati.agents.Region
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 

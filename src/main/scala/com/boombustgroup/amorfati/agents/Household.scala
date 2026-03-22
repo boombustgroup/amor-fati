@@ -6,7 +6,6 @@ import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.networks.Network
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 

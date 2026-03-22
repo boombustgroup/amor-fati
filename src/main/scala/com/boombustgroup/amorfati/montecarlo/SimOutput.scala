@@ -5,7 +5,6 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 import com.boombustgroup.amorfati.agents.Region
 
 /** Typed column schema for simulation output.

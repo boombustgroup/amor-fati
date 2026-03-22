@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine.mechanisms
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Tax revenue computation: VAT, excise, customs, and informal-economy evasion
   * adjustments.

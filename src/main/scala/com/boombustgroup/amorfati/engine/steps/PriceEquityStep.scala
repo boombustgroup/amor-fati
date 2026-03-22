@@ -6,7 +6,6 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, PriceLevel}
 import com.boombustgroup.amorfati.engine.mechanisms.{EuFunds, Macroprudential}
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 

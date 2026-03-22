@@ -6,7 +6,6 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Bank balance sheet update: capital PnL, loan/NPL dynamics, deposit flows,
   * government bond allocation (PPK, insurance, TFI), multi-bank resolution path

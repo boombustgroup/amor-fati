@@ -8,7 +8,6 @@ import com.boombustgroup.amorfati.engine.markets.EquityMarket
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, SectoralMobility}
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 

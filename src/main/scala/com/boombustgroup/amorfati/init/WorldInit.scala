@@ -6,7 +6,6 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.{Macroprudential, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 import scala.util.Random
 

@@ -5,7 +5,6 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.markets.{LaborMarket, RegionalClearing}
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Labor market clearing and demographics: wage determination (Phillips curve
   * with expectations augmentation and union rigidity), employment capping at

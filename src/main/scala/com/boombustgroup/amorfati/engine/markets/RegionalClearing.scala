@@ -3,7 +3,6 @@ package com.boombustgroup.amorfati.engine.markets
 import com.boombustgroup.amorfati.agents.Region
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Regional labor market clearing: 6 independent Phillips curves (one per
   * NUTS-1 macroregion), producing per-region wages. National wage =

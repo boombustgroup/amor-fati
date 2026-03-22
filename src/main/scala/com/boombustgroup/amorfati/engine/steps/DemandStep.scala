@@ -5,7 +5,6 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.markets.FiscalRules
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Aggregate demand formation: allocates household consumption, government
   * purchases, investment, and export demand across sectors via flow-of-funds

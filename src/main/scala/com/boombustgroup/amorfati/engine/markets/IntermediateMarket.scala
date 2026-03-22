@@ -3,7 +3,6 @@ package com.boombustgroup.amorfati.engine.markets
 import com.boombustgroup.amorfati.agents.Firm
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Inter-sectoral intermediate demand via Leontief Input-Output (Leontief
   * 1936).
