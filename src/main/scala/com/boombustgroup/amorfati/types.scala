@@ -84,6 +84,7 @@ object types:
     def *(m: Multiplier): Share        = Share(asDouble(c.toLong) * asDouble(m.toLong))
     @targetName("coefTimesPln")
     def *(p: PLN): PLN                 = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
+    def toMultiplier: Multiplier       = Multiplier.fromRaw(c.toLong)
 
   // --- PriceIndex × typed ---
   extension (pi: PriceIndex)

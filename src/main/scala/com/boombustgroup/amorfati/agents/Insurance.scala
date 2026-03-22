@@ -71,13 +71,15 @@ object Insurance:
       equityReturn: Rate,  // equity monthly return
   )(using p: SimParams): State =
     // Premiums: proportional to wage bill
-    val lifePrem    = PLN(wage.toDouble * employed * p.ins.lifePremiumRate.toDouble)
-    val nonLifePrem = PLN(wage.toDouble * employed * p.ins.nonLifePremiumRate.toDouble * priceLevel)
+    val lifePrem    = wage * p.ins.lifePremiumRate * employed.toLong
+    val nonLifePrem = wage * p.ins.nonLifePremiumRate * employed.toLong // TODO: × priceLevel (needs PriceIndex param)
 
     // Claims: life steady, non-life widens with unemployment stress
     val lifeCl      = lifePrem * p.ins.lifeLossRatio
     val nonLifeBase = nonLifePrem * p.ins.nonLifeLossRatio
-    val nonLifeCl   = nonLifeBase * Multiplier(1.0 + p.ins.nonLifeUnempSens.toDouble * Math.max(0.0, unempRate.toDouble - NonLifeUnempThreshold))
+    val stressGap   = (unempRate - Share(NonLifeUnempThreshold)).max(Share.Zero)
+    val stressAdj   = (stressGap * p.ins.nonLifeUnempSens).toMultiplier // Share * Coefficient → Coefficient → Multiplier
+    val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 
     // Investment income from all three asset classes
     val invIncome = prev.govBondHoldings * govBondYield.monthly +
@@ -89,19 +91,19 @@ object Insurance:
 
     // Update reserves: split investment income proportionally
     val totalReserves = prev.lifeReserves + prev.nonLifeReserves
-    val lifeShare     = if totalReserves > PLN.Zero then prev.lifeReserves / totalReserves else 0.5
-    val newLifeRes    = prev.lifeReserves + (lifePrem - lifeCl) + invIncome * Share(lifeShare)
-    val newNonLifeRes = prev.nonLifeReserves + (nonLifePrem - nonLifeCl) + invIncome * Share(1.0 - lifeShare)
+    val lifeShare     = if totalReserves > PLN.Zero then Share(prev.lifeReserves / totalReserves) else Share(0.5)
+    val newLifeRes    = prev.lifeReserves + (lifePrem - lifeCl) + invIncome * lifeShare
+    val newNonLifeRes = prev.nonLifeReserves + (nonLifePrem - nonLifeCl) + invIncome * (Share.One - lifeShare)
 
     // Rebalance towards target allocation
     val totalAssets = newLifeRes + newNonLifeRes
-    val s           = p.ins.rebalanceSpeed.toDouble
+    val speed       = p.ins.rebalanceSpeed  // Coefficient used as adjustment speed
     val targetGov   = totalAssets * p.ins.govBondShare
     val targetCorp  = totalAssets * p.ins.corpBondShare
     val targetEq    = totalAssets * p.ins.equityShare
-    val newGov      = prev.govBondHoldings + (targetGov - prev.govBondHoldings) * Share(s)
-    val newCorp     = prev.corpBondHoldings + (targetCorp - prev.corpBondHoldings) * Share(s)
-    val newEq       = prev.equityHoldings + (targetEq - prev.equityHoldings) * Share(s)
+    val newGov      = prev.govBondHoldings + (targetGov - prev.govBondHoldings) * speed
+    val newCorp     = prev.corpBondHoldings + (targetCorp - prev.corpBondHoldings) * speed
+    val newEq       = prev.equityHoldings + (targetEq - prev.equityHoldings) * speed
 
     State(
       newLifeRes,
