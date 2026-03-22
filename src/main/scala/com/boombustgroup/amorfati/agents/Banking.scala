@@ -31,10 +31,10 @@ object Banking:
   private val RsfCorpBond     = 0.50
 
   // Lending rate components
-  private val FailedBankSpread     = 0.50 // 500 bps penalty spread for failed banks
-  private val NplSpreadCap         = 0.15 // max NPL-driven spread (1500 bps)
-  private val CarPenaltyThreshMult = 1.5  // CAR penalty kicks in below minCar × 1.5
-  private val CarPenaltyScale      = 2.0  // bps per unit of CAR shortfall
+  private val FailedBankSpread: Rate          = Rate(0.50)       // 500 bps penalty spread for failed banks
+  private val NplSpreadCap: Rate              = Rate(0.15)       // max NPL-driven spread (1500 bps)
+  private val CarPenaltyThreshMult: Multiplier = Multiplier(1.5) // CAR penalty kicks in below minCar × 1.5
+  private val CarPenaltyScale: Multiplier      = Multiplier(2.0) // bps per unit of CAR shortfall
 
   // Credit approval
   private val MinApprovalProb       = 0.1 // floor: 10% approval even under max stress
@@ -42,7 +42,7 @@ object Banking:
   private val ReserveDeficitPenalty = 0.5 // 50pp approval drop when free reserves < 0
 
   // Crowding-out (gov bonds vs firm loans)
-  private val CrowdingOutSensitivity = 0.30 // 30% of bond yield gap passed through to lending spread
+  private val CrowdingOutSensitivity: Multiplier = Multiplier(0.30) // 30% of bond yield gap passed through to lending spread
 
   // Interbank corridor (NBP: ref ± 100 bps)
   private val DepositSpreadFromRef = 0.01 // deposit facility rate = refRate − 100 bps
@@ -318,20 +318,15 @@ object Banking:
     * when risk-free yields are attractive, banks demand higher spreads on risky
     * firm loans. Failed banks get a flat penalty rate.
     */
-  @computationBoundary
   def lendingRate(bank: BankState, cfg: Config, refRate: Rate, bondYield: Rate)(using p: SimParams): Rate =
-    import ComputationBoundary.toDouble
-    if bank.failed then refRate + Rate(FailedBankSpread)
+    if bank.failed then refRate + FailedBankSpread
     else
-      val nplSpread   = Rate(toDouble(bank.nplRatio * p.banking.nplSpreadFactor)).min(Rate(NplSpreadCap))
-      val carThresh   = toDouble(p.banking.minCar) * CarPenaltyThreshMult
-      val carPenalty  =
-        if toDouble(bank.car) < carThresh then Rate((carThresh - toDouble(bank.car)) * CarPenaltyScale)
+      val nplSpread  = (bank.nplRatio * p.banking.nplSpreadFactor).toRate.min(NplSpreadCap)
+      val carThresh  = p.banking.minCar * CarPenaltyThreshMult
+      val carPenalty =
+        if bank.car < carThresh then ((carThresh - bank.car) * CarPenaltyScale).toRate
         else Rate.Zero
-      // Crowding-out: banks demand higher lending spread when gov bonds offer
-      // attractive risk-free returns. Sensitivity = 0.3 (30% of yield gap
-      // passed through to lending spread).
-      val crowdingOut = (bondYield - refRate - p.banking.baseSpread).max(Rate.Zero) * Multiplier(CrowdingOutSensitivity)
+      val crowdingOut = (bondYield - refRate - p.banking.baseSpread).max(Rate.Zero) * CrowdingOutSensitivity
       refRate + p.banking.baseSpread + cfg.lendingSpread + nplSpread + carPenalty + crowdingOut
 
   /** Interbank rate (WIBOR O/N proxy): blends credit stress (NPL) and liquidity

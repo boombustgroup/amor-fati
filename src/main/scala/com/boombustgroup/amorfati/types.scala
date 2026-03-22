@@ -73,6 +73,8 @@ object types:
     def *(s: Share): Multiplier        = Multiplier.fromRaw(bankerRound(BigInt(m.toLong) * BigInt(s.toLong)))
     @targetName("multTimesPln")
     def *(p: PLN): PLN                 = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(m.toLong)))
+    def toRate: Rate                   = Rate(asDouble(m.toLong))
+    def toShare: Share                 = Share(asDouble(m.toLong))
 
   // --- Coefficient × typed ---
   extension (c: Coefficient)

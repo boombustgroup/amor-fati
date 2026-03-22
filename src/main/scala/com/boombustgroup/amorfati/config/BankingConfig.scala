@@ -123,8 +123,8 @@ case class BankingConfig(
     initConsumerLoans: PLN = PLN(200e9),
     // Spreads & risk
     baseSpread: Rate = Rate(0.015),
-    nplSpreadFactor: Coefficient = Coefficient(5.0),
-    minCar: Share = Share(0.08),
+    nplSpreadFactor: Multiplier = Multiplier(5.0),
+    minCar: Multiplier = Multiplier(0.08),
     loanRecovery: Share = Share(0.30),
     firmLoanAmortRate: Rate = Rate(1.0 / 60), // monthly: 1/60 ≈ 5-year avg maturity (NBP 2024)
     profitRetention: Share = Share(0.30),
@@ -171,7 +171,7 @@ case class BankingConfig(
     eclMaxMigration: Share = Share(0.20),
     eclCureRate: Share = Share(0.02),
 ):
-  require(minCar > Share.Zero && minCar < Share.One, s"minCar must be in (0,1): $minCar")
+  require(minCar > Multiplier.Zero && minCar < Multiplier.One, s"minCar must be in (0,1): $minCar")
   require(initCapital >= PLN.Zero, s"initCapital must be non-negative: $initCapital")
   require(initDeposits >= PLN.Zero, s"initDeposits must be non-negative: $initDeposits")
   require(lcrMin > Multiplier.Zero, s"lcrMin must be positive: $lcrMin")
