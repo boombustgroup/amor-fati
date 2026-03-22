@@ -137,7 +137,8 @@ case class BankingConfig(
     demandDepositRunoff: Share = Share(0.10),
     termDepositFrac: Share = Share(0.40),
     // KNF/BFG
-    p2rAddons: Vector[Multiplier] = Vector(Multiplier(0.015), Multiplier(0.010), Multiplier(0.030), Multiplier(0.015), Multiplier(0.020), Multiplier(0.025), Multiplier(0.020)),
+    p2rAddons: Vector[Multiplier] =
+      Vector(Multiplier(0.015), Multiplier(0.010), Multiplier(0.030), Multiplier(0.015), Multiplier(0.020), Multiplier(0.025), Multiplier(0.020)),
     bfgLevyRate: Rate = Rate(0.0024),
     bailInDepositHaircut: Share = Share(0.08),
     bfgDepositGuarantee: PLN = PLN(400000.0),

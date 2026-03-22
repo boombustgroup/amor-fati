@@ -286,7 +286,7 @@ object Sfc:
         BankCapital,
         "bank capital change (profit retention + losses)",
         expected = {
-          val losses = flows.nplLoss + flows.mortgageNplLoss + flows.consumerNplLoss +
+          val losses      = flows.nplLoss + flows.mortgageNplLoss + flows.consumerNplLoss +
             flows.corpBondDefaultLoss + flows.bfgLevy + flows.unrealizedBondLoss +
             flows.htmRealizedLoss + flows.eclProvisionChange + flows.bankCapitalDestruction
           val grossIncome = flows.interestIncome + flows.hhDebtService + flows.bankBondIncome +

@@ -47,16 +47,20 @@ object FirmInit:
     finalize(withFdi)
 
   /** Build network adjacency list from configured topology. */
+  @computationBoundary
   private def buildNetwork(rng: Random)(using p: SimParams): Array[Array[Int]] =
+    import ComputationBoundary.toDouble
     p.topology match
-      case Topology.Ws      => Network.wattsStrogatz(p.pop.firmsCount, p.firm.networkK, p.firm.networkRewireP.toDouble, rng)
+      case Topology.Ws      => Network.wattsStrogatz(p.pop.firmsCount, p.firm.networkK, toDouble(p.firm.networkRewireP), rng)
       case Topology.Er      => Network.erdosRenyi(p.pop.firmsCount, p.firm.networkK, rng)
       case Topology.Ba      => Network.barabasiAlbert(p.pop.firmsCount, p.firm.networkK / 2, rng)
       case Topology.Lattice => Network.lattice(p.pop.firmsCount, p.firm.networkK)
 
   /** Assign sectors to firm slots based on GUS structural shares, shuffled. */
+  @computationBoundary
   private def assignSectors(rng: Random)(using p: SimParams): Vector[Int] =
-    val perSector  = p.sectorDefs.map(s => (s.share.toDouble * p.pop.firmsCount).toInt)
+    import ComputationBoundary.toDouble
+    val perSector  = p.sectorDefs.map(s => (toDouble(s.share) * p.pop.firmsCount).toInt)
     val lastSector = p.sectorDefs.length - 1
     val assigned   = perSector.zipWithIndex.flatMap: (count, sector) =>
       Vector.fill(count)(sector)
@@ -64,11 +68,13 @@ object FirmInit:
     rng.shuffle(padded)
 
   /** Create initial firm states with stochastic attributes (cash, size, DR). */
+  @computationBoundary
   private def buildSkeleton(
       adjList: Array[Array[Int]],
       sectorAssignments: Vector[Int],
       rng: Random,
   )(using p: SimParams): Vector[Firm.State] =
+    import ComputationBoundary.toDouble
     val regionRng = new Random(rng.nextLong()) // isolated sub-RNG: one draw from main, then independent
     (0 until p.pop.firmsCount)
       .map: i =>
@@ -76,14 +82,14 @@ object FirmInit:
         val firmSize     = FirmSizeDistribution.draw(rng)
         val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm
         val baseCash     = rng.between(CashMin, CashMax) + (if rng.nextDouble() < LargeCashProb then LargeCashBonus else 0.0)
-        val dr           = Share(sec.baseDigitalReadiness.toDouble + rng.nextGaussian() * DrNoise).clamp(Share(DrFloor), Share(DrCap))
+        val dr           = Share(toDouble(sec.baseDigitalReadiness) + rng.nextGaussian() * DrNoise).clamp(Share(DrFloor), Share(DrCap))
         // Init tech mix: high-σ sectors with high DR may start as Hybrid (OECD 2024: ~5-10% AI adoption)
         val isHybridInit = sec.sigma >= Sigma(InitHybridMinSigma) &&
           dr > p.firm.hybridReadinessMin &&
           rng.nextDouble() < InitHybridProb
         val tech         =
           if isHybridInit then
-            val hybW = Math.max(1, (firmSize * sec.hybridRetainFrac.toDouble).toInt)
+            val hybW = Math.max(1, (firmSize * toDouble(sec.hybridRetainFrac)).toInt)
             val eff  = 1.0 + rng.nextDouble() * 0.3
             TechState.Hybrid(hybW, eff)
           else TechState.Traditional(firmSize)
@@ -114,10 +120,12 @@ object FirmInit:
   /** Assign physical capital stock and bank relationship (rng: bank
     * assignment).
     */
+  @computationBoundary
   private def assignCapitalAndBank(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
+    import ComputationBoundary.toDouble
     firms.map: f =>
       val withCap =
-        if p.flags.physCap then f.copy(capitalStock = PLN(p.capital.klRatios(f.sector.toInt).toDouble * Firm.workerCount(f)))
+        if p.flags.physCap then f.copy(capitalStock = PLN(toDouble(p.capital.klRatios(f.sector.toInt)) * Firm.workerCount(f)))
         else f
       withCap.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng))
 
@@ -127,7 +135,7 @@ object FirmInit:
   private def assignForeignOwnership(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
     if p.flags.fdi then
       firms.map: f =>
-        if rng.nextDouble() < p.fdi.foreignShares.map(_.toDouble)(f.sector.toInt) then f.copy(foreignOwned = true)
+        if p.fdi.foreignShares(f.sector.toInt).sampleBelow(rng) then f.copy(foreignOwned = true)
         else f
     else firms
 
@@ -155,8 +163,10 @@ object FirmInit:
     else f
 
   /** Set initial green capital stock from sector-specific green K/L ratio. */
+  @computationBoundary
   private def initGreenCapital(f: Firm.State)(using p: SimParams): Firm.State =
+    import ComputationBoundary.toDouble
     if p.flags.energy then
-      val targetGK = PLN(p.climate.greenKLRatios(f.sector.toInt).toDouble * Firm.workerCount(f))
+      val targetGK = PLN(toDouble(p.climate.greenKLRatios(f.sector.toInt)) * Firm.workerCount(f))
       f.copy(greenCapital = targetGK * p.climate.greenInitRatio)
     else f

@@ -11,21 +11,21 @@ object RateProvider:
     def apply(d: Double): Rate = Math.round(d * Scale)
 
   extension (r: Rate)
-    inline def toLong: Long                = r
-    def +(other: Rate): Rate               = r + other
-    def -(other: Rate): Rate               = r - other
-    def unary_- : Rate                     = -r
-    def abs: Rate                          = math.abs(r)
-    def max(other: Rate): Rate             = math.max(r, other)
-    def min(other: Rate): Rate             = math.min(r, other)
-    def clamp(lo: Rate, hi: Rate): Rate    = math.max(lo, math.min(hi, r))
-    def monthly: Rate                      = Rate(asDouble(r) / 12.0)
-    def annualize: Rate                    = Rate(asDouble(r) * 12.0)
-    def /(other: Rate): Double             = if other != 0L then r.toDouble / other.toDouble else 0.0
-    def >(other: Rate): Boolean            = r > other
-    def <(other: Rate): Boolean            = r < other
-    def >=(other: Rate): Boolean           = r >= other
-    def <=(other: Rate): Boolean           = r <= other
+    inline def toLong: Long             = r
+    def +(other: Rate): Rate            = r + other
+    def -(other: Rate): Rate            = r - other
+    def unary_- : Rate                  = -r
+    def abs: Rate                       = math.abs(r)
+    def max(other: Rate): Rate          = math.max(r, other)
+    def min(other: Rate): Rate          = math.min(r, other)
+    def clamp(lo: Rate, hi: Rate): Rate = math.max(lo, math.min(hi, r))
+    def monthly: Rate                   = Rate(asDouble(r) / 12.0)
+    def annualize: Rate                 = Rate(asDouble(r) * 12.0)
+    def /(other: Rate): Double          = if other != 0L then r.toDouble / other.toDouble else 0.0
+    def >(other: Rate): Boolean         = r > other
+    def <(other: Rate): Boolean         = r < other
+    def >=(other: Rate): Boolean        = r >= other
+    def <=(other: Rate): Boolean        = r <= other
 
   given Ordering[Rate] = Ordering.Long
   given Numeric[Rate] with

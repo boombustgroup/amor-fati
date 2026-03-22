@@ -2,9 +2,9 @@ package com.boombustgroup.amorfati.fp
 
 /** Shared constants and helpers for all fixed-point types. */
 object FixedPointBase:
-  val Scale: Long      = 10_000L
-  val HalfScale: Long  = 5_000L
-  val ScaleD: Double   = Scale.toDouble
+  val Scale: Long     = 10_000L
+  val HalfScale: Long = 5_000L
+  val ScaleD: Double  = Scale.toDouble
 
   /** Banker's rounding (half-even) for BigInt intermediate results. */
   def bankerRound(product: BigInt): Long =

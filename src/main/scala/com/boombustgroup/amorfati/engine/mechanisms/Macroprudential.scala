@@ -87,7 +87,8 @@ object Macroprudential:
       if prev.creditToGdpTrend <= Multiplier.Zero then creditToGdp
       else prev.creditToGdpTrend * (Share.One - TrendSmoothing) + creditToGdp * TrendSmoothing
 
-    val gap = Coefficient((creditToGdp - newTrend).toLong)
+    val gapMult = creditToGdp - newTrend
+    val gap     = Coefficient(gapMult / Multiplier.One)
 
     // CCyB rule: build gradually above activation gap, release immediately below release gap
     val newCcyb =

@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.fp
 
+import scala.annotation.targetName
 import FixedPointBase.*
 
 /** Monetary amounts — stocks and flows. SFC identity: diff == 0L. */
@@ -13,23 +14,24 @@ object PLNProvider:
     def fromRaw(raw: Long): PLN = raw
 
   extension (p: PLN)
-    inline def toLong: Long            = p
-    def +(other: PLN): PLN             = p + other
-    def -(other: PLN): PLN             = p - other
-    def unary_- : PLN                  = -p
-    def abs: PLN                       = math.abs(p)
-    def max(other: PLN): PLN           = math.max(p, other)
-    def min(other: PLN): PLN           = math.min(p, other)
-    def clamp(lo: PLN, hi: PLN): PLN   = math.max(lo, math.min(hi, p))
-    def /(other: PLN): Double          = if other != 0L then p.toDouble / other.toDouble else 0.0
-    def /(divisor: Long): PLN          = p / divisor
-    def >(other: PLN): Boolean         = p > other
-    def <(other: PLN): Boolean         = p < other
-    def >=(other: PLN): Boolean        = p >= other
-    def <=(other: PLN): Boolean        = p <= other
+    inline def toLong: Long          = p
+    def +(other: PLN): PLN           = p + other
+    def -(other: PLN): PLN           = p - other
+    def unary_- : PLN                = -p
+    def abs: PLN                     = math.abs(p)
+    def max(other: PLN): PLN         = math.max(p, other)
+    def min(other: PLN): PLN         = math.min(p, other)
+    def clamp(lo: PLN, hi: PLN): PLN = math.max(lo, math.min(hi, p))
+    @targetName("plnDivPln")
+    def /(other: PLN): Double        = if other != 0L then p.toDouble / other.toDouble else 0.0
+    @targetName("plnDivLong")
+    def /(divisor: Long): PLN        = p / divisor
+    def >(other: PLN): Boolean       = p > other
+    def <(other: PLN): Boolean       = p < other
+    def >=(other: PLN): Boolean      = p >= other
+    def <=(other: PLN): Boolean      = p <= other
 
-  extension (n: Int)
-    def *(p: PLN): PLN                 = p * n.toLong
+  extension (n: Int) def *(p: PLN): PLN = p * n.toLong
 
   given Ordering[PLN] = Ordering.Long
   given Numeric[PLN] with

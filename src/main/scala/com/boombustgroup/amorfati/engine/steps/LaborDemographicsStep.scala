@@ -37,34 +37,36 @@ object LaborDemographicsStep:
       regionalWages: Map[Region, PLN],                   // per-region wages from regional clearing
   )
 
+  @computationBoundary
   def run(in: Input)(using p: SimParams): Output =
+    import ComputationBoundary.toDouble
     val living      = in.firms.filter(Firm.isAlive)
-    val laborDemand = living.kahanSumBy(f => Firm.workerCount(f).toDouble).toInt
+    val laborDemand = living.map(f => Firm.workerCount(f)).sum
 
     // Regional clearing: 6 independent Phillips curves → national aggregate
     val (rawWage, rawEmployed, regWages) =
       if p.flags.regionalLabor then
         val rc        = RegionalClearing.clear(in.w.regionalWages, in.s1.resWage, laborDemand, in.w.totalPopulation)
         val natResult = LaborMarket.updateLaborMarket(rc.nationalWage, in.s1.resWage, laborDemand, in.w.totalPopulation)
-        (rc.nationalWage.toDouble, natResult.employed, rc.regionalWages)
+        (toDouble(rc.nationalWage), natResult.employed, rc.regionalWages)
       else
         val wageResult = LaborMarket.updateLaborMarket(in.w.hhAgg.marketWage, in.s1.resWage, laborDemand, in.w.totalPopulation)
-        (wageResult.wage.toDouble, wageResult.employed, in.w.regionalWages)
+        (toDouble(wageResult.wage), wageResult.employed, in.w.regionalWages)
 
     // Channel 1: Expectations-augmented wage Phillips curve
     val wageAfterExp = if p.flags.expectations then
-      val target          = p.monetary.targetInfl.toDouble
-      val expWagePressure = p.labor.expWagePassthrough.toDouble *
-        Math.max(0.0, in.w.mechanisms.expectations.expectedInflation.toDouble - target) / 12.0
-      Math.max(in.s1.resWage.toDouble, rawWage * (1.0 + expWagePressure))
+      val target          = toDouble(p.monetary.targetInfl)
+      val expWagePressure = toDouble(p.labor.expWagePassthrough) *
+        Math.max(0.0, toDouble(in.w.mechanisms.expectations.expectedInflation) - target) / 12.0
+      Math.max(toDouble(in.s1.resWage), rawWage * (1.0 + expWagePressure))
     else rawWage
 
     // Union downward wage rigidity (#44)
-    val newWage = if p.flags.unions && wageAfterExp < in.w.hhAgg.marketWage.toDouble then
+    val newWage = if p.flags.unions && wageAfterExp < toDouble(in.w.hhAgg.marketWage) then
       val aggDensity =
-        p.sectorDefs.zipWithIndex.map((s, i) => s.share.toDouble * p.labor.unionDensity.map(_.toDouble)(i)).sum
-      val decline    = in.w.hhAgg.marketWage.toDouble - wageAfterExp
-      Math.max(in.s1.resWage.toDouble, wageAfterExp + decline * p.labor.unionRigidity.toDouble * aggDensity)
+        p.sectorDefs.zipWithIndex.map((s, i) => toDouble(s.share) * toDouble(p.labor.unionDensity(i))).sum
+      val decline    = toDouble(in.w.hhAgg.marketWage) - wageAfterExp
+      Math.max(toDouble(in.s1.resWage), wageAfterExp + decline * toDouble(p.labor.unionRigidity) * aggDensity)
     else wageAfterExp
 
     // Demographics caps employment at working-age population
@@ -87,7 +89,7 @@ object LaborDemographicsStep:
     val newZus             = SocialSecurity.zusStep(in.w.social.zus.fusBalance, employed, PLN(newWage), newDemographics.retirees)
     val newNfz             = SocialSecurity.nfzStep(in.w.social.nfz.balance, employed, PLN(newWage), newDemographics.workingAgePop, newDemographics.retirees)
     val newPpk             = SocialSecurity.ppkStep(in.w.social.ppk.bondHoldings, employed, PLN(newWage))
-    val rawPpkBondPurchase = SocialSecurity.ppkBondPurchase(newPpk).toDouble
+    val rawPpkBondPurchase = SocialSecurity.ppkBondPurchase(newPpk)
 
     val nBankrupt    = in.firms.length - living.length
     val avgWorkers   = if living.nonEmpty then laborDemand / living.length else 0
@@ -100,7 +102,7 @@ object LaborDemographicsStep:
       avgWorkers,
     )
 
-    val wageGrowth = if in.w.hhAgg.marketWage.toDouble > 0 then newWage / in.w.hhAgg.marketWage.toDouble - 1.0 else 0.0
+    val wageGrowth = if toDouble(in.w.hhAgg.marketWage) > 0 then newWage / toDouble(in.w.hhAgg.marketWage) - 1.0 else 0.0
 
     Output(
       PLN(newWage),
@@ -113,7 +115,7 @@ object LaborDemographicsStep:
       newZus,
       newNfz,
       newPpk,
-      PLN(rawPpkBondPurchase),
+      rawPpkBondPurchase,
       newEarmarked,
       living,
       regWages,

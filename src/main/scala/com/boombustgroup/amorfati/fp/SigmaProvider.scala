@@ -11,10 +11,10 @@ object SigmaProvider:
     def apply(d: Double): Sigma = Math.round(d * Scale)
 
   extension (s: Sigma)
-    inline def toLong: Long           = s
-    def +(other: Sigma): Sigma        = s + other
-    def >(other: Sigma): Boolean      = s > other
-    def <(other: Sigma): Boolean      = s < other
-    def >=(other: Sigma): Boolean     = s >= other
+    inline def toLong: Long       = s
+    def +(other: Sigma): Sigma    = s + other
+    def >(other: Sigma): Boolean  = s > other
+    def <(other: Sigma): Boolean  = s < other
+    def >=(other: Sigma): Boolean = s >= other
 
   given Ordering[Sigma] = Ordering.Long

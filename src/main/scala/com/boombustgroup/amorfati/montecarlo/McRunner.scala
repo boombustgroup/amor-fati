@@ -136,26 +136,28 @@ object McRunner:
   //  HH + Bank CSV writers (from collected results)
   // ---------------------------------------------------------------------------
 
+  private val td = ComputationBoundary
+
   private val hhSchema: Vector[(String, Household.Aggregates => String)] = Vector(
     ("HH_Employed", a => s"${a.employed}"),
     ("HH_Unemployed", a => s"${a.unemployed}"),
     ("HH_Retraining", a => s"${a.retraining}"),
     ("HH_Bankrupt", a => s"${a.bankrupt}"),
-    ("MeanSavings", a => f"${a.meanSavings.toDouble}%.2f"),
-    ("MedianSavings", a => f"${a.medianSavings.toDouble}%.2f"),
-    ("Gini_Individual", a => f"${a.giniIndividual.toDouble}%.6f"),
-    ("Gini_Wealth", a => f"${a.giniWealth.toDouble}%.6f"),
+    ("MeanSavings", a => f"${td.toDouble(a.meanSavings)}%.2f"),
+    ("MedianSavings", a => f"${td.toDouble(a.medianSavings)}%.2f"),
+    ("Gini_Individual", a => f"${td.toDouble(a.giniIndividual)}%.6f"),
+    ("Gini_Wealth", a => f"${td.toDouble(a.giniWealth)}%.6f"),
     ("MeanSkill", a => f"${a.meanSkill}%.6f"),
     ("MeanHealthPenalty", a => f"${a.meanHealthPenalty}%.6f"),
     ("RetrainingAttempts", a => s"${a.retrainingAttempts}"),
     ("RetrainingSuccesses", a => s"${a.retrainingSuccesses}"),
-    ("ConsumptionP10", a => f"${a.consumptionP10.toDouble}%.2f"),
-    ("ConsumptionP50", a => f"${a.consumptionP50.toDouble}%.2f"),
-    ("ConsumptionP90", a => f"${a.consumptionP90.toDouble}%.2f"),
-    ("BankruptcyRate", a => f"${a.bankruptcyRate.toDouble}%.6f"),
+    ("ConsumptionP10", a => f"${td.toDouble(a.consumptionP10)}%.2f"),
+    ("ConsumptionP50", a => f"${td.toDouble(a.consumptionP50)}%.2f"),
+    ("ConsumptionP90", a => f"${td.toDouble(a.consumptionP90)}%.2f"),
+    ("BankruptcyRate", a => f"${td.toDouble(a.bankruptcyRate)}%.6f"),
     ("MeanMonthsToRuin", a => f"${a.meanMonthsToRuin}%.2f"),
-    ("PovertyRate_50pct", a => f"${a.povertyRate50.toDouble}%.6f"),
-    ("PovertyRate_30pct", a => f"${a.povertyRate30.toDouble}%.6f"),
+    ("PovertyRate_50pct", a => f"${td.toDouble(a.povertyRate50)}%.6f"),
+    ("PovertyRate_30pct", a => f"${td.toDouble(a.povertyRate30)}%.6f"),
   )
 
   private val hhHeader = "Seed;" + hhSchema.map(_._1).mkString(";")
@@ -169,13 +171,13 @@ object McRunner:
 
   private val bankSchema: Vector[(String, BankState => String)] = Vector(
     ("BankId", b => s"${b.id}"),
-    ("Deposits", b => f"${b.deposits.toDouble}%.2f"),
-    ("Loans", b => f"${b.loans.toDouble}%.2f"),
-    ("Capital", b => f"${b.capital.toDouble}%.2f"),
-    ("NPL", b => f"${b.nplRatio.toDouble}%.6f"),
-    ("CAR", b => f"${b.car.toDouble}%.6f"),
-    ("GovBonds", b => f"${b.govBondHoldings.toDouble}%.2f"),
-    ("InterbankNet", b => f"${b.interbankNet.toDouble}%.2f"),
+    ("Deposits", b => f"${td.toDouble(b.deposits)}%.2f"),
+    ("Loans", b => f"${td.toDouble(b.loans)}%.2f"),
+    ("Capital", b => f"${td.toDouble(b.capital)}%.2f"),
+    ("NPL", b => f"${td.toDouble(b.nplRatio)}%.6f"),
+    ("CAR", b => f"${td.toDouble(b.car)}%.6f"),
+    ("GovBonds", b => f"${td.toDouble(b.govBondHoldings)}%.2f"),
+    ("InterbankNet", b => f"${td.toDouble(b.interbankNet)}%.2f"),
     ("Failed", b => s"${b.failed}"),
   )
 

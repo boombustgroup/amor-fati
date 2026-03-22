@@ -589,7 +589,8 @@ object Firm:
     val panic       = localAuto * LocalPanicWeight + globalPanic * GlobalPanicWeight
     val desper      = if pnl.netAfterTax < PLN.Zero then DesperationBonus else 0.0
     val strat       =
-      if !fullAi.profitable && fullAi.canPay && fullAi.ready && fullAi.bankOk then toDouble(firm.riskProfile) * toDouble(firm.digitalReadiness) * StrategicAdoptBase
+      if !fullAi.profitable && fullAi.canPay && fullAi.ready && fullAi.bankOk then
+        toDouble(firm.riskProfile) * toDouble(firm.digitalReadiness) * StrategicAdoptBase
       else 0.0
 
     val baseDiscount        = UncertaintyBase + UncertaintySlope * (w.month.toDouble / p.timeline.duration.toDouble)
@@ -629,7 +630,13 @@ object Firm:
     val failRate = HybridBaseFailRate + toDouble(Share.One - firm.digitalReadiness) * HybridFailDrSens
     val ir       = rng.nextDouble()
     if ir < failRate * CatastrophicFailFrac then
-      Decision.UpgradeFailed(pnl, BankruptReason.HybridImplFailure, hyb.capex * Share(FailCapexFrac), hyb.loan * Share(FailLoanFrac), hyb.down * Share(FailDownFrac))
+      Decision.UpgradeFailed(
+        pnl,
+        BankruptReason.HybridImplFailure,
+        hyb.capex * Share(FailCapexFrac),
+        hyb.loan * Share(FailLoanFrac),
+        hyb.down * Share(FailDownFrac),
+      )
     else if ir < failRate then
       val badEff = BadHybridEffBase + rng.between(0.0, BadHybridEffRange)
       Decision.Upgrade(pnl, TechState.Hybrid(hWkrs, badEff), hyb.capex, hyb.loan, hyb.down)
@@ -663,7 +670,7 @@ object Firm:
       else if newWkrs < workers then return Decision.Downsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
     val digiCost: PLN = computeDigiInvestCost(firm)
     val canAfford     = nc > digiCost * Multiplier(DigiInvestCashMult)
-    val competitive   = (toDouble(w.real.automationRatio) + toDouble(w.real.hybridRatio) * 0.5)
+    val competitive   = toDouble(w.real.automationRatio) + toDouble(w.real.hybridRatio) * 0.5
     val diminishing   = toDouble(Share.One - firm.digitalReadiness)
     val digiProb      = toDouble(p.firm.digiInvestBaseProb * firm.riskProfile) *
       diminishing * (0.5 + competitive)

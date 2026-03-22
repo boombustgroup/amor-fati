@@ -114,98 +114,44 @@ object PriceEquityStep:
       lambda: Double,
       capMult: Double,
   ): Vector[Sigma] =
-    // Fast path: when lambda=0 the mechanism is disabled — sigma is static across the entire simulation.
-    // This is the default for baseline runs and backward-compatible experiments.
     if lambda == 0.0 then currentSigmas
     else
       currentSigmas.zip(baseSigmas).zip(sectorAdoption).map { case ((sig, base), adopt) =>
-        val s     = sig.toDouble
+        val s     = ComputationBoundary.toDouble(sig)
         val cap   = base * capMult
-        // Logistic delta: positive when s < cap and adopt > 0; approaches zero as s → cap.
         val delta = lambda * s * adopt * (1.0 - s / cap)
-        // Ratchet (max with current) ensures sigma never decreases; hard cap ensures it never overshoots.
         Sigma(Math.min(cap, Math.max(s, s + delta)))
       }
 
   // ---------------------------------------------------------------------------
   // Dynamic network rewiring — bankrupt firm replacement with preferential attachment
   // ---------------------------------------------------------------------------
-  //
-  // In real economies, bankrupt firms don't leave permanent "holes" in the production
-  // network — their market niches get filled by new entrants. This mechanism models
-  // that process: each bankrupt firm has probability rho of being replaced each month
-  // by a fresh Traditional entrant.
-  //
-  // New entrants:
-  //   - Inherit the **same sector** as the bankrupt firm (market niche persistence)
-  //   - Start with fresh financial state: random cash, zero debt, Traditional tech
-  //   - Firm size drawn from FirmSizeDistribution (matching the empirical GUS distribution)
-  //   - Connect to k alive firms via **preferential attachment** (Barabási-Albert mechanism):
-  //     connection probability proportional to current degree, so well-connected hub firms
-  //     attract more new partners — mimicking real-world "rich get richer" network formation
-  //
-  // When rho=0.0, the function is a no-op (static network mode). This is the default
-  // for experiments that need a fixed network topology.
-  //
-  // The mechanism interacts with Firm.computeLocalAutoRatio (technology diffusion via network
-  // peer effects): newly wired entrants immediately start receiving competitive pressure
-  // from their automated neighbors.
-  //
-  // Reference: Barabási, A.-L. & Albert, R. (1999), "Emergence of Scaling in Random
-  // Networks", Science 286(5439).
-  // ---------------------------------------------------------------------------
 
-  /** Replace bankrupt firms with new Traditional entrants, wired via
-    * preferential attachment.
-    *
-    * Each bankrupt firm has probability rho of being replaced each step. New
-    * entrants inherit the same sector, start with fresh state, and connect to k
-    * alive firms weighted by degree (preferential attachment).
-    *
-    * When rho=0.0, returns firms unchanged (static mode = no-op).
-    *
-    * @param firms
-    *   current firm array (some may be Bankrupt)
-    * @param rho
-    *   replacement probability per bankrupt firm per step (0.0 = static)
-    * @return
-    *   updated firm array with same length
-    */
+  @computationBoundary
   private[steps] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: Random)(using p: SimParams): Vector[Firm.State] =
-    // Fast path: static network mode — no rewiring, return the exact same array instance.
+    import ComputationBoundary.toDouble
     if rho == 0.0 then return firms
 
     val n = firms.length
     val k = p.firm.networkK
 
-    // Identify bankrupt firms eligible for replacement. Each bankrupt firm independently
-    // "rolls the dice" with probability rho — this creates stochastic variation in the
-    // replacement rate, avoiding artificial synchronization of firm entry.
     val toReplace = (0 until n).filter(i => !Firm.isAlive(firms(i)) && rng.nextDouble() < rho).toSet
     if toReplace.isEmpty then return firms
 
-    // Build mutable adjacency from current neighbor arrays so we can rewire edges
-    // without modifying the original firm states.
     val adj = Array.tabulate(n)(i => scala.collection.mutable.Set.from(firms(i).neighbors.map(_.toInt)))
 
-    // Alive firm indices serve as targets for preferential attachment.
     val alive = (0 until n).filter(i => Firm.isAlive(firms(i))).toArray
 
     for idx <- toReplace do
-      // Remove all edges of the bankrupt firm — its old connections are severed.
       for nb <- adj(idx) do adj(nb) -= idx
       adj(idx).clear()
 
-      // Wire the new entrant to k existing alive firms via preferential attachment:
-      // probability of connecting to firm j is proportional to deg(j).
       if alive.nonEmpty then
         val numTargets = Math.min(k, alive.length)
         val targets    = scala.collection.mutable.Set.empty[Int]
         val degrees    = alive.map(i => Math.max(1, adj(i).size))
         val totalDeg   = degrees.sum
 
-        // Retry loop with bounded attempts to avoid infinite loops in degenerate cases
-        // (e.g., very small networks where all targets are already selected).
         var attempts = 0
         while targets.size < numTargets && attempts < numTargets * 20 do
           var r = rng.nextInt(if totalDeg > 0 then totalDeg else 1)
@@ -216,12 +162,10 @@ object PriceEquityStep:
           targets += alive(j)
           attempts += 1
 
-        // Create symmetric edges (undirected graph).
         for t <- targets do
           adj(idx) += t
           adj(t) += idx
 
-    // Rebuild firm array: replaced firms get fresh state, others get updated neighbor lists.
     (0 until n).map { i =>
       if toReplace.contains(i) then
         val sec      = firms(i).sector
@@ -237,7 +181,7 @@ object PriceEquityStep:
           digitalReadiness = Share(
             Math.max(
               DigitalReadyFloor,
-              Math.min(DigitalReadyCap, p.sectorDefs(sec.toInt).baseDigitalReadiness.toDouble + (rng.nextGaussian() * DigitalReadyNoise)),
+              Math.min(DigitalReadyCap, toDouble(p.sectorDefs(sec.toInt).baseDigitalReadiness) + (rng.nextGaussian() * DigitalReadyNoise)),
             ),
           ),
           sector = sec,
@@ -245,7 +189,7 @@ object PriceEquityStep:
           bankId = BankId(0),
           equityRaised = PLN.Zero,
           initialSize = newSize,
-          capitalStock = if p.flags.physCap then PLN(p.capital.klRatios(sec.toInt).toDouble * newSize) else PLN.Zero,
+          capitalStock = if p.flags.physCap then PLN(toDouble(p.capital.klRatios(sec.toInt)) * newSize) else PLN.Zero,
           bondDebt = PLN.Zero,
           foreignOwned = false,
           inventory = PLN.Zero,
@@ -253,9 +197,6 @@ object PriceEquityStep:
           accumulatedLoss = PLN.Zero,
         )
       else
-        // For surviving firms: only allocate a new neighbors array if the neighbor set actually changed
-        // (an edge was added/removed due to a nearby firm being replaced). This avoids unnecessary
-        // garbage collection pressure in the common case where most firms are unaffected.
         val newNb = adj(i).iterator.map(FirmId(_)).toVector
         if newNb.length != firms(i).neighbors.length then firms(i).copy(neighbors = newNb)
         else firms(i)
@@ -265,46 +206,48 @@ object PriceEquityStep:
   // Main step logic
   // ---------------------------------------------------------------------------
 
+  @computationBoundary
   def run(in: Input, rng: Random)(using p: SimParams): Output =
+    import ComputationBoundary.toDouble
     val living2           = in.s5.ioFirms.filter(Firm.isAlive)
     val nLiving           = living2.length.toDouble
     val autoR             = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]) / nLiving else 0.0
     val hybR              = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]) / nLiving else 0.0
-    val aggInventoryStock = if p.flags.inventory then living2.kahanSumBy(_.inventory.toDouble) else 0.0
-    val aggGreenCapital   = if p.flags.energy then living2.kahanSumBy(_.greenCapital.toDouble) else 0.0
+    val aggInventoryStock = if p.flags.inventory then PLN.fromRaw(living2.map(_.inventory.toLong).sum) else PLN.Zero
+    val aggGreenCapital   = if p.flags.energy then PLN.fromRaw(living2.map(_.greenCapital.toLong).sum) else PLN.Zero
 
     val euMonthly =
       if p.flags.euFunds then EuFunds.monthlyTransfer(in.s1.m)
-      else p.openEcon.euTransfers.toDouble
+      else toDouble(p.openEcon.euTransfers)
 
     val govGdpContribution =
       if p.flags.govInvest then
-        p.fiscal.govBaseSpending.toDouble * (1.0 - p.fiscal.govInvestShare.toDouble) * p.fiscal.govCurrentMultiplier.toDouble +
-          p.fiscal.govBaseSpending.toDouble * p.fiscal.govInvestShare.toDouble * p.fiscal.govCapitalMultiplier.toDouble
-      else p.fiscal.govBaseSpending.toDouble
+        toDouble(p.fiscal.govBaseSpending) * (1.0 - toDouble(p.fiscal.govInvestShare)) * toDouble(p.fiscal.govCurrentMultiplier) +
+          toDouble(p.fiscal.govBaseSpending) * toDouble(p.fiscal.govInvestShare) * toDouble(p.fiscal.govCapitalMultiplier)
+      else toDouble(p.fiscal.govBaseSpending)
     val euCofin            = if p.flags.euFunds then EuFunds.cofinancing(euMonthly) else 0.0
     val euProjectCapital   =
       if p.flags.euFunds && p.flags.govInvest then EuFunds.capitalInvestment(euMonthly, euCofin)
       else 0.0
     val euGdpContribution  =
       if p.flags.euFunds && p.flags.govInvest then
-        euProjectCapital * p.fiscal.govCapitalMultiplier.toDouble +
-          (euCofin - euProjectCapital).max(0.0) * p.fiscal.govCurrentMultiplier.toDouble
+        euProjectCapital * toDouble(p.fiscal.govCapitalMultiplier) +
+          (euCofin - euProjectCapital).max(0.0) * toDouble(p.fiscal.govCurrentMultiplier)
       else if p.flags.euFunds then euCofin
       else 0.0
     val greenDomesticGFCF  =
-      if p.flags.energy then in.s5.sumGreenInvestment.toDouble * (1.0 - p.climate.greenImportShare.toDouble) else 0.0
-    val domesticGFCF       = (if p.flags.physCap then in.s5.sumGrossInvestment.toDouble * (1.0 - p.capital.importShare.toDouble)
+      if p.flags.energy then toDouble(in.s5.sumGreenInvestment) * (1.0 - toDouble(p.climate.greenImportShare)) else 0.0
+    val domesticGFCF       = (if p.flags.physCap then toDouble(in.s5.sumGrossInvestment) * (1.0 - toDouble(p.capital.importShare))
                         else 0.0) + greenDomesticGFCF
     val investmentImports  =
-      (if p.flags.physCap then in.s5.sumGrossInvestment.toDouble * p.capital.importShare.toDouble else 0.0) +
-        (if p.flags.energy then in.s5.sumGreenInvestment.toDouble * p.climate.greenImportShare.toDouble else 0.0)
-    val aggInventoryChange = if p.flags.inventory then in.s5.sumInventoryChange.toDouble else 0.0
+      (if p.flags.physCap then toDouble(in.s5.sumGrossInvestment) * toDouble(p.capital.importShare) else 0.0) +
+        (if p.flags.energy then toDouble(in.s5.sumGreenInvestment) * toDouble(p.climate.greenImportShare) else 0.0)
+    val aggInventoryChange = if p.flags.inventory then toDouble(in.s5.sumInventoryChange) else 0.0
     val gdp                =
-      in.s3.domesticCons.toDouble + govGdpContribution + euGdpContribution + in.w.forex.exports.toDouble + domesticGFCF + aggInventoryChange
+      toDouble(in.s3.domesticCons) + govGdpContribution + euGdpContribution + toDouble(in.w.forex.exports) + domesticGFCF + aggInventoryChange
 
-    val totalSystemLoans = in.w.bankingSector.banks.kahanSumBy(_.loans.toDouble)
-    val newMacropru      = Macroprudential.step(in.w.mechanisms.macropru, totalSystemLoans, gdp)
+    val totalSystemLoans = PLN.fromRaw(in.w.bankingSector.banks.map(_.loans.toLong).sum)
+    val newMacropru      = Macroprudential.step(in.w.mechanisms.macropru, totalSystemLoans, PLN(gdp))
 
     val sectorAdoption = p.sectorDefs.indices.map { s =>
       val secFirms = living2.filter(_.sector.toInt == s)
@@ -314,39 +257,39 @@ object PriceEquityStep:
           .count(f => f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid])
           .toDouble / secFirms.length
     }.toVector
-    val baseSigmas     = p.sectorDefs.map(_.sigma.toDouble).toVector
+    val baseSigmas     = p.sectorDefs.map(sd => toDouble(sd.sigma)).toVector
     val newSigmas      =
-      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult.toDouble)
+      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, toDouble(p.firm.sigmaCapMult))
 
-    val rewiredFirms = rewireFirms(in.s5.ioFirms, p.firm.rewireRho.toDouble, rng)
+    val rewiredFirms = rewireFirms(in.s5.ioFirms, toDouble(p.firm.rewireRho), rng)
 
     val exDev    = (in.w.forex.exchangeRate / p.forex.baseExRate) - 1.0
     val priceUpd = PriceLevel.update(
       in.w.inflation,
       in.w.priceLevel,
       in.s4.avgDemandMult,
-      in.s2.wageGrowth.toDouble,
+      toDouble(in.s2.wageGrowth),
       exDev,
       autoR,
       hybR,
     )
     // Calvo markup contribution (already annualized Rate from FirmProcessingStep)
-    val newInfl  = (priceUpd.inflation + in.s5.markupInflation).toDouble
-    val newPrice = priceUpd.priceLevel * (1.0 + in.s5.markupInflation.monthly.toDouble)
+    val newInfl  = toDouble(priceUpd.inflation + in.s5.markupInflation)
+    val newPrice = priceUpd.priceLevel * (1.0 + toDouble(in.s5.markupInflation.monthly))
 
-    val firmProfits = living2.kahanSumBy { f =>
-      val rev      = Firm.computeCapacity(f).toDouble * in.s4.sectorMults(f.sector.toInt) * newPrice
-      val labor    = Firm.workerCount(f) * in.s2.newWage.toDouble * p.sectorDefs(f.sector.toInt).wageMultiplier.toDouble
-      val other    = p.firm.otherCosts.toDouble * newPrice
+    val firmProfits = living2.map { f =>
+      val rev      = toDouble(Firm.computeCapacity(f)) * in.s4.sectorMults(f.sector.toInt) * newPrice
+      val labor    = Firm.workerCount(f) * toDouble(in.s2.newWage) * toDouble(p.sectorDefs(f.sector.toInt).wageMultiplier)
+      val other    = toDouble(p.firm.otherCosts) * newPrice
       val aiMaint  = f.tech match
-        case _: TechState.Automated => p.firm.aiOpex.toDouble * (AiMaintRealShare + AiMaintNomShare * newPrice)
-        case _: TechState.Hybrid    => p.firm.hybridOpex.toDouble * (AiMaintRealShare + AiMaintNomShare * newPrice)
+        case _: TechState.Automated => toDouble(p.firm.aiOpex) * (AiMaintRealShare + AiMaintNomShare * newPrice)
+        case _: TechState.Hybrid    => toDouble(p.firm.hybridOpex) * (AiMaintRealShare + AiMaintNomShare * newPrice)
         case _                      => 0.0
-      val interest = f.debt.toDouble * in.s5.lendingRates(f.bankId.toInt) / 12.0
+      val interest = toDouble(f.debt) * in.s5.lendingRates(f.bankId.toInt) / 12.0
       val gross    = rev - labor - other - aiMaint - interest
-      val tax      = Math.max(0.0, gross) * p.fiscal.citRate.toDouble
+      val tax      = Math.max(0.0, gross) * toDouble(p.fiscal.citRate)
       Math.max(0.0, gross - tax)
-    }
+    }.sum
 
     val prevGdp             = if in.w.gdpProxy > 0 then in.w.gdpProxy else 1.0
     val gdpGrowthForEquity  = (gdp - prevGdp) / prevGdp
@@ -369,15 +312,15 @@ object PriceEquityStep:
           equityAfterIssuance.foreignOwnership,
         )
       else EquityMarket.DividendResultZero
-    val netDomesticDividends   = dividends.netDomestic.toDouble
-    val foreignDividendOutflow = dividends.foreign.toDouble
-    val dividendTax            = dividends.tax.toDouble
+    val netDomesticDividends   = dividends.netDomestic
+    val foreignDividendOutflow = dividends.foreign
+    val dividendTax            = dividends.tax
 
     Output(
       Share(autoR),
       Share(hybR),
-      PLN(aggInventoryStock),
-      PLN(aggGreenCapital),
+      aggInventoryStock,
+      aggGreenCapital,
       PLN(euMonthly),
       PLN(euCofin),
       PLN(euProjectCapital),
@@ -388,9 +331,9 @@ object PriceEquityStep:
       Rate(newInfl),
       newPrice,
       equityAfterIssuance,
-      PLN(netDomesticDividends),
-      PLN(foreignDividendOutflow),
-      PLN(dividendTax),
+      netDomesticDividends,
+      foreignDividendOutflow,
+      dividendTax,
       PLN(firmProfits),
       PLN(domesticGFCF),
       PLN(investmentImports),

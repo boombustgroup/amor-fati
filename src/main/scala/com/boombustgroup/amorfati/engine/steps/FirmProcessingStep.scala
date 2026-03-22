@@ -147,9 +147,9 @@ object FirmProcessingStep:
 
   /** Result of per-firm processing (phase 2). */
   private case class FirmProcessingResult(
-      outcomes: Vector[FirmOutcome],       // per-firm immutable outcomes
-      flows: FirmFlows,                    // aggregate flows (monoid sum)
-      firmBondAmounts: Map[FirmId, Double], // per-firm bond issuance for reversion
+      outcomes: Vector[FirmOutcome],    // per-firm immutable outcomes
+      flows: FirmFlows,                 // aggregate flows (monoid sum)
+      firmBondAmounts: Map[FirmId, PLN], // per-firm bond issuance for reversion
   )
 
   /** Result of bond absorption (phase 3). */
@@ -183,7 +183,9 @@ object FirmProcessingStep:
 
   // ---- Entry point ----
 
+  @computationBoundary
   def run(in: Input, rng: Random)(using p: SimParams): Output =
+    import ComputationBoundary.toDouble
     val lending                             = prepareLending(in, rng)
     val fp                                  = processFirms(in.firms, lending, rng)
     val bonded                              = applyBondAbsorption(fp, in.w)
@@ -191,7 +193,7 @@ object FirmProcessingStep:
     // Calvo staggered pricing: per-firm markup update
     val calvoFirms                          = ioFirms.map: f =>
       val sectorMult = in.s4.sectorMults(f.sector.toInt)
-      val calvo      = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, in.s2.wageGrowth.toDouble, rng)
+      val calvo      = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, toDouble(in.s2.wageGrowth), rng)
       f.copy(markup = calvo.newMarkup)
     val (finalHouseholds, crossSectorHires) = processLaborMarket(calvoFirms, in, rng)
     val npl                                 = computeNplAndInterest(in.firms, calvoFirms, lending)
@@ -203,7 +205,9 @@ object FirmProcessingStep:
   /** Prepare per-bank rates, lending functions, and world snapshot with updated
     * demand multipliers and wages for firm decision-making.
     */
+  @computationBoundary
   private def prepareLending(in: Input, rng: Random)(using p: SimParams): LendingConditions =
+    import ComputationBoundary.toDouble
     val bsec    = in.w.bankingSector
     val nBanks  = bsec.banks.length
     val ccyb    = in.w.mechanisms.macropru.ccyb
@@ -214,7 +218,7 @@ object FirmProcessingStep:
       flows = in.w.flows.copy(sectorDemandMult = in.s4.sectorMults),
       hhAgg = in.w.hhAgg.copy(marketWage = in.s2.newWage, reservationWage = in.s1.resWage),
     )
-    LendingConditions(world, rates, rates.map(_.toDouble), canLend, nBanks)
+    LendingConditions(world, rates, rates.map(toDouble(_)), canLend, nBanks)
 
   // ---- Phase 2: Per-firm processing ----
 
@@ -257,7 +261,7 @@ object FirmProcessingStep:
       )
 
     val aggFlows = outcomes.foldLeft(FirmFlows.zero)((acc, o) => acc + o.flows)
-    val bondMap  = outcomes.collect { case o if o.bondAmt > PLN.Zero => o.firm.id -> o.bondAmt.toDouble }.toMap
+    val bondMap  = outcomes.collect { case o if o.bondAmt > PLN.Zero => o.firm.id -> o.bondAmt }.toMap
 
     FirmProcessingResult(outcomes, aggFlows, bondMap)
 
@@ -297,26 +301,25 @@ object FirmProcessingStep:
       w: World,
   )(using p: SimParams): BondAbsorptionResult =
     val absorption         = CorporateBondMarket
-      .computeAbsorption(w.financial.corporateBonds, result.flows.bondIssuance, w.bank.car, Multiplier(p.banking.minCar.toDouble))
-      .toDouble
-    val actualBondIssuance = result.flows.bondIssuance * Share(absorption)
-    val revertRatio        = 1.0 - absorption
+      .computeAbsorption(w.financial.corporateBonds, result.flows.bondIssuance, w.bank.car, p.banking.minCar)
+    val actualBondIssuance = result.flows.bondIssuance * absorption
+    val revertShare        = Share.One - absorption
 
     val adjustedFirms =
-      if revertRatio > BondRevertThreshold then
+      if revertShare > Share(BondRevertThreshold) then
         result.outcomes.map: o =>
-          val ba = result.firmBondAmounts.getOrElse(o.firm.id, 0.0)
-          if ba > 0 then
-            val revert = ba * revertRatio
-            o.firm.copy(bondDebt = o.firm.bondDebt - PLN(revert), debt = o.firm.debt + PLN(revert))
+          val ba = result.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero)
+          if ba > PLN.Zero then
+            val revert = ba * revertShare
+            o.firm.copy(bondDebt = o.firm.bondDebt - revert, debt = o.firm.debt + revert)
           else o.firm
       else result.outcomes.map(_.firm)
 
     val bondRevertLoans =
-      if revertRatio > BondRevertThreshold then result.flows.bondIssuance * Share(revertRatio)
+      if revertShare > Share(BondRevertThreshold) then result.flows.bondIssuance * revertShare
       else PLN.Zero
 
-    BondAbsorptionResult(adjustedFirms, result.flows.newLoans + bondRevertLoans, Share(absorption), actualBondIssuance)
+    BondAbsorptionResult(adjustedFirms, result.flows.newLoans + bondRevertLoans, absorption, actualBondIssuance)
 
   // ---- Phase 4: Intermediate market ----
 
@@ -370,28 +373,30 @@ object FirmProcessingStep:
   /** Detect newly bankrupt firms, compute per-bank NPL losses and interest
     * income on pre-step debt stock.
     */
+  @computationBoundary
   private def computeNplAndInterest(
       preFirms: Vector[Firm.State],
       postFirms: Vector[Firm.State],
       lending: LendingConditions,
   )(using p: SimParams): NplResult =
+    import ComputationBoundary.toDouble
     val prevAlive        = preFirms.filter(Firm.isAlive).map(_.id).toSet
     val newlyDead        = postFirms.filter(f => !Firm.isAlive(f) && prevAlive.contains(f.id))
-    val nplNew           = PLN(newlyDead.kahanSumBy(_.debt.toDouble))
+    val nplNew           = PLN.fromRaw(newlyDead.map(_.debt.toLong).sum)
     val nplLoss          = nplNew * (Share.One - p.banking.loanRecovery)
-    val totalBondDefault = PLN(newlyDead.kahanSumBy(_.bondDebt.toDouble))
+    val totalBondDefault = PLN.fromRaw(newlyDead.map(_.bondDebt.toLong).sum)
 
     // Per-bank aggregation via groupMapReduce (pure, no mutable arrays)
     val emptyDoubles = Vector.fill(lending.nBanks)(0.0)
     val emptyInts    = Vector.fill(lending.nBanks)(0)
 
     val perBankNplDebt = newlyDead.foldLeft(emptyDoubles): (acc, f) =>
-      acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + f.debt.toDouble)
+      acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + toDouble(f.debt))
 
     val perBankIntIncome = preFirms
       .filter(Firm.isAlive)
       .foldLeft(emptyDoubles): (acc, f) =>
-        val interest = f.debt.toDouble * lending.rates(f.bankId.toInt).toDouble / MonthsPerYear
+        val interest = toDouble(f.debt) * toDouble(lending.rates(f.bankId.toInt)) / MonthsPerYear
         acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + interest)
 
     val perBankWorkers = postFirms
@@ -399,11 +404,12 @@ object FirmProcessingStep:
       .foldLeft(emptyInts): (acc, f) =>
         acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + Firm.workerCount(f))
 
-    NplResult(nplNew, nplLoss, totalBondDefault, newlyDead.length, PLN(perBankIntIncome.kahanSum), perBankNplDebt, perBankIntIncome, perBankWorkers)
+    NplResult(nplNew, nplLoss, totalBondDefault, newlyDead.length, PLN(perBankIntIncome.sum), perBankNplDebt, perBankIntIncome, perBankWorkers)
 
   // ---- Output assembly ----
 
   /** Assemble final Output from phase results. Pure mapping, no computation. */
+  @computationBoundary
   private def assembleOutput(
       fp: FirmProcessingResult,
       bonded: BondAbsorptionResult,
@@ -427,10 +433,10 @@ object FirmProcessingStep:
     // Add bond reversion amounts to per-bank loans
     val perBankNewLoansWithRevert =
       if bonded.corpBondAbsorption < Share.One then
-        val revertRatio = 1.0 - bonded.corpBondAbsorption.toDouble
+        val revertShare = Share.One - bonded.corpBondAbsorption
         fp.outcomes.foldLeft(perBankNewLoans): (acc, o) =>
-          val ba = fp.firmBondAmounts.getOrElse(o.firm.id, 0.0)
-          if ba > 0 then acc.updated(o.bankId.toInt, acc(o.bankId.toInt) + PLN(ba * revertRatio))
+          val ba = fp.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero)
+          if ba > PLN.Zero then acc.updated(o.bankId.toInt, acc(o.bankId.toInt) + ba * revertShare)
           else acc
       else perBankNewLoans
 

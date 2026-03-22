@@ -52,7 +52,7 @@ object DemandStep:
     val zusNetSurplus =
       if p.flags.zus then (in.w.social.zus.contributions - in.w.social.zus.pensionPayments).max(PLN.Zero)
       else PLN.Zero
-    val unempRate     = Share(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
+    val unempRate     = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation)
     val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
     val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
     val target        = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, in.w.priceLevel)) +
@@ -93,10 +93,12 @@ object DemandStep:
       result.copy(constrainedGovPurchases = withFloor)
 
   /** Per-sector nominal production capacity: sum of firm capacities. */
+  @computationBoundary
   private def computeSectorCapacity(in: Input)(using p: SimParams): Vector[Double] =
+    import ComputationBoundary.toDouble
     (0 until p.sectorDefs.length)
       .map: s =>
-        in.s2.living.filter(_.sector.toInt == s).kahanSumBy(f => Firm.computeCapacity(f).toDouble)
+        in.s2.living.filter(_.sector.toInt == s).map(f => toDouble(Firm.computeCapacity(f))).sum
       .toVector
 
   /** Per-sector export demand: from GVC foreign firms when enabled, otherwise
@@ -112,24 +114,28 @@ object DemandStep:
 
   /** Lagged domestic investment demand (net of import content). */
   private def computeLaggedInvestDemand(in: Input)(using p: SimParams): PLN =
-    in.w.real.grossInvestment * Share(1.0 - p.capital.importShare.toDouble) +
-      in.w.real.aggGreenInvestment * Share(1.0 - p.climate.greenImportShare.toDouble)
+    in.w.real.grossInvestment * (Share.One - p.capital.importShare) +
+      in.w.real.aggGreenInvestment * (Share.One - p.climate.greenImportShare)
 
   /** Per-sector total demand: consumption + gov purchases + investment +
     * exports, allocated via flow-of-funds weights.
     */
+  @computationBoundary
   private def computeSectorDemand(
       in: Input,
       govPurchases: PLN,
       sectorExports: Vector[PLN],
       laggedInvestDemand: PLN,
   )(using p: SimParams): Vector[Double] =
+    import ComputationBoundary.toDouble
     (0 until p.sectorDefs.length)
       .map: s =>
-        (p.fiscal.fofConsWeights(s) * in.s3.domesticCons +
-          p.fiscal.fofGovWeights(s) * govPurchases +
-          p.fiscal.fofInvestWeights(s) * laggedInvestDemand +
-          sectorExports(s)).toDouble
+        toDouble(
+          p.fiscal.fofConsWeights(s) * in.s3.domesticCons +
+            p.fiscal.fofGovWeights(s) * govPurchases +
+            p.fiscal.fofInvestWeights(s) * laggedInvestDemand +
+            sectorExports(s),
+        )
       .toVector
 
   /** Redistribute excess demand from capacity-constrained sectors to sectors
@@ -148,12 +154,12 @@ object DemandStep:
     val excessDemand    = rawMults.indices
       .map: s =>
         if rawMults(s) > 1.0 then (rawMults(s) - 1.0) * sectorCap(s) * priceLevel else 0.0
-      .kahanSum
+      .sum
     val deficitCapacity = rawMults.indices
       .map: s =>
         if rawMults(s) < 1.0 then (1.0 - rawMults(s)) * sectorCap(s) * priceLevel else 0.0
-      .kahanSum
-    val spilloverFrac   = if deficitCapacity > 0 then Share(excessDemand / deficitCapacity).min(Share.One).toDouble else 0.0
+      .sum
+    val spilloverFrac   = if deficitCapacity > 0 then Math.min(1.0, excessDemand / deficitCapacity) else 0.0
     rawMults.indices
       .map: s =>
         if rawMults(s) > 1.0 then 1.0
@@ -166,18 +172,20 @@ object DemandStep:
     * Uses post-spillover sector multipliers (capped at 1.0 per sector) weighted
     * by sector capacity — consistent with the demand firms actually see.
     */
+  @computationBoundary
   private def computeAvgDemandMult(
       sectorMults: Vector[Double],
       sectorCap: Vector[Double],
       in: Input,
   )(using p: SimParams): Double =
-    val totalCapacity = sectorCap.kahanSum
+    import ComputationBoundary.toDouble
+    val totalCapacity = sectorCap.sum
     val baseMult      =
-      if totalCapacity > 0 then sectorMults.indices.kahanSumBy(s => sectorMults(s) * sectorCap(s)) / totalCapacity
+      if totalCapacity > 0 then sectorMults.indices.map(s => sectorMults(s) * sectorCap(s)).sum / totalCapacity
       else 1.0
     val realRateAdj   =
       if p.flags.expectations then
-        val realRate = (in.w.nbp.referenceRate - in.w.mechanisms.expectations.expectedInflation).toDouble
+        val realRate = toDouble(in.w.nbp.referenceRate - in.w.mechanisms.expectations.expectedInflation)
         -realRate * RealRateElasticity
       else 0.0
     baseMult + realRateAdj

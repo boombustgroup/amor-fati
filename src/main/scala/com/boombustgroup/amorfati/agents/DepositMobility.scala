@@ -49,7 +49,7 @@ object DepositMobility:
       anyBankFailed: Boolean,
   )(using p: SimParams): Share =
     val carGap       = (p.banking.depositFlightCarThreshold - bankCar).max(Multiplier.Zero)
-    val healthFlight = p.banking.depositFlightSensitivity * carGap  // Coefficient * Multiplier → Share
+    val healthFlight = p.banking.depositFlightSensitivity * carGap // Coefficient * Multiplier → Share
     val panicFlight  = if anyBankFailed then p.banking.depositPanicRate else Share.Zero
     (healthFlight + panicFlight).min(p.banking.maxDepositSwitchRate)
 

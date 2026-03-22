@@ -176,26 +176,31 @@ object OpenEconomyStep:
 
   // --- Sub-methods ---
 
+  @computationBoundary
   private def computeSectorOutputs(in: Input)(using p: SimParams): Vector[PLN] =
+    import ComputationBoundary.toDouble
     val living = in.s5.ioFirms.filter(Firm.isAlive)
     (0 until p.sectorDefs.length)
       .map: s =>
         PLN(
           living
             .filter(_.sector.toInt == s)
-            .kahanSumBy(f => (Firm.computeCapacity(f) * Multiplier(in.s4.sectorMults(f.sector.toInt) * in.w.priceLevel)).toDouble),
+            .map(f => toDouble(Firm.computeCapacity(f)) * in.s4.sectorMults(f.sector.toInt) * in.w.priceLevel)
+            .sum,
         )
       .toVector
 
+  @computationBoundary
   private def stepGvc(in: Input, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
+    import ComputationBoundary.toDouble
     if p.flags.gvc && p.flags.openEcon then
       GvcTrade.step(
         GvcTrade.StepInput(
           prev = in.w.external.gvc,
-          sectorOutputs = sectorOutputs.map(_.toDouble),
+          sectorOutputs = sectorOutputs.map(toDouble(_)),
           priceLevel = in.w.priceLevel,
           exchangeRate = in.w.forex.exchangeRate,
-          autoRatio = in.s7.autoR.toDouble,
+          autoRatio = toDouble(in.s7.autoR),
           month = in.s1.m,
           rng = in.commodityRng,
         ),
@@ -285,7 +290,9 @@ object OpenEconomyStep:
       fxIntervention = fxResult.fxIntervention,
     )
 
+  @computationBoundary
   private def stepRateAndExpectations(in: Input, newForex: OpenEconomy.ForexState)(using p: SimParams): RateExpResult =
+    import ComputationBoundary.toDouble
     val exRateChg       = Coefficient((newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0)
     val newRefRate      = Nbp.updateRate(
       in.w.nbp.referenceRate,
@@ -296,7 +303,7 @@ object OpenEconomyStep:
     )
     val unempRateForExp = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
     val newExp          =
-      if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, in.s7.newInfl.toDouble, newRefRate.toDouble, unempRateForExp)
+      if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, toDouble(in.s7.newInfl), toDouble(newRefRate), unempRateForExp)
       else in.w.mechanisms.expectations
     RateExpResult(newRefRate, newExp)
 
@@ -308,20 +315,22 @@ object OpenEconomyStep:
       interbankInterest = Banking.interbankInterestFlows(bsec.banks, bsec.interbankRate).total,
     )
 
+  @computationBoundary
   private def stepBondYieldAndQe(
       in: Input,
       newRefRate: Rate,
       fxResult: Nbp.FxInterventionResult,
       interbank: InterbankResult,
   )(using p: SimParams): BondQeResult =
+    import ComputationBoundary.toDouble
     val annualGdpForBonds = PLN(in.w.gdpProxy * 12.0)
     val debtToGdp         = if annualGdpForBonds > PLN.Zero then Share(in.w.gov.cumulativeDebt / annualGdpForBonds) else Share.Zero
     val nbpBondGdpShare   = if annualGdpForBonds > PLN.Zero then Share(in.w.nbp.qeCumulative / annualGdpForBonds) else Share.Zero
     // Channel 3: De-anchored expectations -> higher bond yields
     val credPremium       = if p.flags.expectations then
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
-        Share((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs.toDouble)
-      Rate(deAnchor.toDouble * p.labor.expBondSensitivity.toDouble)
+        Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
+      Rate(toDouble(deAnchor) * toDouble(p.labor.expBondSensitivity))
     else Rate.Zero
     val marketYield       = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
 
@@ -378,7 +387,7 @@ object OpenEconomyStep:
     )
 
   private def stepInsurance(in: Input, newBondYield: Rate)(using p: SimParams): InsuranceResult =
-    val unempRate    = Share(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
+    val unempRate    = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation)
     val newInsurance =
       if p.flags.insurance then
         Insurance.step(
@@ -396,7 +405,7 @@ object OpenEconomyStep:
 
   private def stepNbfi(in: Input, postFxNbp: Nbp.State, newBondYield: Rate)(using p: SimParams): NbfiResult =
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
-    val nbfiUnempRate   = Share(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
+    val nbfiUnempRate   = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation)
     val newNbfi         =
       if p.flags.nbfi then
         Nbfi.step(

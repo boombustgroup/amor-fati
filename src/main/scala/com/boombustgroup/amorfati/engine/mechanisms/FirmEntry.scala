@@ -100,7 +100,6 @@ object FirmEntry:
       livingIds: Vector[Int],
       rng: Random,
   )(using p: SimParams): Firm.State =
-    import ComputationBoundary.toDouble
     val newSector    = pickSector(totalWeight, sectorWeights, rng)
     val firmSize     = Math.max(1, rng.between(1, MaxEntrantSize))
     val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm

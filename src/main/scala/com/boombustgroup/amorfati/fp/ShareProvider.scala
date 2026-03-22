@@ -13,28 +13,28 @@ object ShareProvider:
     def fraction(num: Int, den: Int): Share = Math.round(num.toDouble / den.toDouble * Scale)
 
   extension (s: Share)
-    inline def toLong: Long                    = s
-    def unary_- : Share                        = -s
-    def abs: Share                             = math.abs(s)
-    def +(other: Share): Share                  = s + other
-    def -(other: Share): Share                  = s - other
-    def *(other: Share): Share                  = bankerRound(BigInt(s) * BigInt(other))
-    def /(n: Int): Share                       = Share(asDouble(s) / n)
-    def /(other: Share): Double                = if other != 0L then s.toDouble / other.toDouble else 0.0
-    def max(other: Share): Share                = math.max(s, other)
-    def min(other: Share): Share                = math.min(s, other)
-    def clamp(lo: Share, hi: Share): Share      = math.max(lo, math.min(hi, s))
-    def monthly: Share                         = Share(asDouble(s) / 12.0)
-    def sqrt: Share                            = Share(math.sqrt(asDouble(s)))
-    def >(other: Share): Boolean                = s > other
-    def <(other: Share): Boolean                = s < other
-    def >=(other: Share): Boolean               = s >= other
-    def <=(other: Share): Boolean               = s <= other
+    inline def toLong: Long                = s
+    def unary_- : Share                    = -s
+    def abs: Share                         = math.abs(s)
+    def +(other: Share): Share             = s + other
+    def -(other: Share): Share             = s - other
+    def *(other: Share): Share             = bankerRound(BigInt(s) * BigInt(other))
+    def /(n: Int): Share                   = Share(asDouble(s) / n)
+    def /(other: Share): Double            = if other != 0L then s.toDouble / other.toDouble else 0.0
+    def max(other: Share): Share           = math.max(s, other)
+    def min(other: Share): Share           = math.min(s, other)
+    def clamp(lo: Share, hi: Share): Share = math.max(lo, math.min(hi, s))
+    def monthly: Share                     = Share(asDouble(s) / 12.0)
+    def sqrt: Share                        = Share(math.sqrt(asDouble(s)))
+    def >(other: Share): Boolean           = s > other
+    def <(other: Share): Boolean           = s < other
+    def >=(other: Share): Boolean          = s >= other
+    def <=(other: Share): Boolean          = s <= other
+
     /** True if rng.nextDouble() < this share. For probability sampling. */
     def sampleBelow(rng: scala.util.Random): Boolean = rng.nextDouble() < asDouble(s)
 
-  extension (n: Int)
-    def *(s: Share): Double = n.toDouble * asDouble(s)
+  extension (n: Int) def *(s: Share): Double = n.toDouble * asDouble(s)
 
   given Ordering[Share] = Ordering.Long
   given Numeric[Share] with

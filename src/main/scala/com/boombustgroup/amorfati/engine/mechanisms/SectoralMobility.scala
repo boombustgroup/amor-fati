@@ -86,7 +86,6 @@ object SectoralMobility:
       vacancyWeight: Coefficient,
       rng: Random,
   )(using @unused p: SimParams): Int =
-    import ComputationBoundary.toDouble
     val scores = gravityScores(from, wages, vacancies, matrix, vacancyWeight)
     val total  = scores.sum
     if total <= 0.0 then uniformFallback(from, rng)

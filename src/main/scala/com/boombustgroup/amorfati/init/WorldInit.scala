@@ -13,7 +13,9 @@ import scala.util.Random
 object WorldInit:
 
   /** Initialize a complete simulation world from a seed. */
+  @computationBoundary
   def initialize(seed: Long)(using p: SimParams): InitResult =
+    import ComputationBoundary.toDouble
     val rng = new Random(seed)
 
     // --- Firms ---
@@ -30,10 +32,10 @@ object WorldInit:
 
     // --- Banking sector ---
     // Steady-state consumption estimate: employed × wage × MPC × domestic share
-    val initWageBill     = initEmployed.toDouble * p.household.baseWage.toDouble
+    val initWageBill     = initEmployed.toDouble * toDouble(p.household.baseWage)
     val initMpc          = p.household.mpcAlpha / (p.household.mpcAlpha + p.household.mpcBeta) // Beta mean
     val initConsumption  = PLN(initWageBill * initMpc)
-    val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(_.toDouble).max)
+    val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(toDouble(_)).max)
     val initImportCons   = initConsumption - initDomesticCons
 
     val initBankingSector = BankInit.create(firms, households)
@@ -48,10 +50,10 @@ object WorldInit:
 
     // --- Steady-state gross investment ---
     val initGrossInvestment =
-      if p.flags.physCap then PLN(firms.kahanSumBy(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toDouble))
+      if p.flags.physCap then PLN.fromRaw(firms.map(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toLong).sum)
       else PLN.Zero
     val initGreenInvestment =
-      if p.flags.energy then PLN(firms.kahanSumBy(f => (f.greenCapital * p.climate.greenDepRate.monthly).toDouble))
+      if p.flags.energy then PLN.fromRaw(firms.map(f => (f.greenCapital * p.climate.greenDepRate.monthly).toLong).sum)
       else PLN.Zero
 
     // --- World assembly ---
@@ -59,7 +61,7 @@ object WorldInit:
       month = 0,
       inflation = Rate(0.02),
       priceLevel = 1.0,
-      gdpProxy = p.firm.baseRevenue.toDouble * p.pop.firmsCount,
+      gdpProxy = toDouble(p.firm.baseRevenue) * p.pop.firmsCount,
       currentSigmas = p.sectorDefs.map(_.sigma),
       totalPopulation = totalPop,
       gov = FiscalBudget.GovState(
