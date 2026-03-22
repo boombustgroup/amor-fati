@@ -25,12 +25,12 @@ import com.boombustgroup.amorfati.types.*
 object Macroprudential:
 
   // ---- Calibration constants ----
-  private val TrendSmoothing: Share       = Share(0.05)             // EWM λ for credit-to-GDP trend (≈ HP 1600 quarterly)
-  private val CcybBuildRate: Multiplier   = Multiplier(0.0025 / 3)  // ~0.25pp per quarter ÷ 3 months
-  private val AnnualizeFactor = 12.0       // monthly GDP → annual
+  private val TrendSmoothing: Share     = Share(0.05)            // EWM λ for credit-to-GDP trend (≈ HP 1600 quarterly)
+  private val CcybBuildRate: Multiplier = Multiplier(0.0025 / 3) // ~0.25pp per quarter ÷ 3 months
+  private val AnnualizeFactor           = 12.0                   // monthly GDP → annual
 
   case class State(
-      ccyb: Multiplier,           // countercyclical capital buffer
+      ccyb: Multiplier,            // countercyclical capital buffer
       creditToGdpGap: Coefficient, // credit-to-GDP deviation from HP trend
       creditToGdpTrend: Multiplier, // HP-filtered trend (exponential smoothing)
   )
@@ -103,10 +103,12 @@ object Macroprudential:
   def withinConcentrationLimit(bankLoans: Double, bankCapital: Double, totalSystemLoans: Double)(using p: SimParams): Boolean =
     guarded(true)(withinConcentrationLimitImpl(bankLoans, bankCapital, totalSystemLoans))
 
+  @computationBoundary
   private[engine] def withinConcentrationLimitImpl(
       bankLoans: Double,
       @scala.annotation.unused bankCapital: Double,
       totalSystemLoans: Double,
   )(using p: SimParams): Boolean =
+    import ComputationBoundary.toDouble
     if totalSystemLoans <= 0 then true
-    else (bankLoans / totalSystemLoans) <= p.banking.concentrationLimit.toDouble
+    else (bankLoans / totalSystemLoans) <= toDouble(p.banking.concentrationLimit)

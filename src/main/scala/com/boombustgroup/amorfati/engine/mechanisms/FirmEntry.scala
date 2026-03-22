@@ -42,12 +42,14 @@ object FirmEntry:
       births: Int,               // number of new entrants spawned this step
   )
 
+  @computationBoundary
   def process(
       firms: Vector[Firm.State],
       automationRatio: Share,
       hybridRatio: Share,
       rng: Random,
   )(using p: SimParams): Result =
+    import ComputationBoundary.toDouble
     val living        = firms.filter(Firm.isAlive)
     val profitSignals = computeProfitSignals(living)
     val sectorWeights = computeSectorWeights(profitSignals)
@@ -60,8 +62,8 @@ object FirmEntry:
     val result = firms.map: f =>
       if !Firm.isAlive(f) then
         val slotSector = f.sector.toInt
-        val entryProb  = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(slotSector).toDouble *
-          Math.max(0.0, 1.0 + profitSignals(slotSector) * p.firm.entryProfitSens.toDouble)
+        val entryProb  = toDouble(p.firm.entryRate) * toDouble(p.firm.entrySectorBarriers(slotSector)) *
+          Math.max(0.0, 1.0 + profitSignals(slotSector) * toDouble(p.firm.entryProfitSens))
         if rng.nextDouble() < entryProb then
           births += 1
           createNewFirm(f.id, totalWeight, sectorWeights, totalAdoption, livingIds, rng)
@@ -69,22 +71,27 @@ object FirmEntry:
       else f
     Result(result, births)
 
+  @computationBoundary
   private def computeProfitSignals(living: Vector[Firm.State])(using p: SimParams): Vector[Double] =
+    import ComputationBoundary.toDouble
     val bySector      = living.groupBy(_.sector.toInt)
     val sectorAvgCash = p.sectorDefs.indices.map: s =>
-      bySector.get(s).fold(0.0)(fs => fs.kahanSumBy(_.cash.toDouble) / fs.length)
-    val globalAvgCash = if living.nonEmpty then living.kahanSumBy(_.cash.toDouble) / living.length else 1.0
+      bySector.get(s).fold(0.0)(fs => fs.map(f => toDouble(f.cash)).sum / fs.length)
+    val globalAvgCash = if living.nonEmpty then living.map(f => toDouble(f.cash)).sum / living.length else 1.0
     sectorAvgCash
       .map: c =>
         Math.max(ProfitClampMin, Math.min(ProfitClampMax, (c - globalAvgCash) / Math.max(1.0, Math.abs(globalAvgCash))))
       .toVector
 
+  @computationBoundary
   private def computeSectorWeights(profitSignals: Vector[Double])(using p: SimParams): Vector[Double] =
+    import ComputationBoundary.toDouble
     p.sectorDefs.indices
       .map: s =>
-        Math.max(MinSectorWeight, (1.0 + profitSignals(s) * p.firm.entryProfitSens.toDouble) * p.firm.entrySectorBarriers(s).toDouble)
+        Math.max(MinSectorWeight, (1.0 + profitSignals(s) * toDouble(p.firm.entryProfitSens)) * toDouble(p.firm.entrySectorBarriers(s)))
       .toVector
 
+  @computationBoundary
   private def createNewFirm(
       slotId: FirmId,
       totalWeight: Double,
@@ -93,11 +100,12 @@ object FirmEntry:
       livingIds: Vector[Int],
       rng: Random,
   )(using p: SimParams): Firm.State =
+    import ComputationBoundary.toDouble
     val newSector    = pickSector(totalWeight, sectorWeights, rng)
     val firmSize     = Math.max(1, rng.between(1, MaxEntrantSize))
     val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm
     val isAiNative   = totalAdoption > p.firm.entryAiThreshold &&
-      rng.nextDouble() < p.firm.entryAiProb.toDouble
+      p.firm.entryAiProb.sampleBelow(rng)
     val tech         = chooseTechnology(isAiNative, firmSize, newSector, rng)
     val dr           = drawDigitalReadiness(isAiNative, newSector, rng)
     val newNeighbors = assignNeighbors(livingIds, rng)
@@ -118,7 +126,7 @@ object FirmEntry:
       initialSize = firmSize,
       capitalStock = initCapitalStock(firmSize, newSector),
       bondDebt = PLN.Zero,
-      foreignOwned = p.flags.fdi && rng.nextDouble() < p.fdi.foreignShares.map(_.toDouble)(newSector),
+      foreignOwned = p.flags.fdi && p.fdi.foreignShares(newSector).sampleBelow(rng),
       inventory = initInventory(firmSize, newSector),
       greenCapital = initGreenCapital(firmSize, newSector),
       accumulatedLoss = PLN.Zero,
@@ -130,11 +138,13 @@ object FirmEntry:
     * automation; conventional entrants use Traditional (workers hired via labor
     * market in subsequent steps).
     */
+  @computationBoundary
   private def chooseTechnology(isAiNative: Boolean, firmSize: Int, sector: Int, rng: Random)(using
       p: SimParams,
   ): TechState =
+    import ComputationBoundary.toDouble
     if isAiNative then
-      val hybridWorkers = Math.max(HybridMinWorkers, (firmSize * p.sectorDefs(sector).hybridRetainFrac.toDouble).toInt)
+      val hybridWorkers = Math.max(HybridMinWorkers, (firmSize * toDouble(p.sectorDefs(sector).hybridRetainFrac)).toInt)
       TechState.Hybrid(hybridWorkers, MinAiProductivity + rng.nextDouble() * AiProductivityRange)
     else TechState.Traditional(firmSize)
 
@@ -142,10 +152,12 @@ object FirmEntry:
     * conventional entrants draw from sector baseline with Gaussian noise,
     * clamped to the feasible range for non-digital firms.
     */
+  @computationBoundary
   private def drawDigitalReadiness(isAiNative: Boolean, sector: Int, rng: Random)(using p: SimParams): Share =
+    import ComputationBoundary.toDouble
     if isAiNative then Share(rng.between(AiNativeMinDr, AiNativeMaxDr))
     else
-      Share(p.sectorDefs(sector).baseDigitalReadiness.toDouble + rng.nextGaussian() * ConventionalDrNoise)
+      Share(toDouble(p.sectorDefs(sector).baseDigitalReadiness) + rng.nextGaussian() * ConventionalDrNoise)
         .clamp(Share(ConventionalDrFloor), Share(ConventionalDrCap))
 
   /** Assign network neighbors from the living firm population. */
@@ -156,8 +168,10 @@ object FirmEntry:
 
   /** Initial physical capital stock from sector-specific capital-labor ratio.
     */
+  @computationBoundary
   private def initCapitalStock(firmSize: Int, sector: Int)(using p: SimParams): PLN =
-    if p.flags.physCap then PLN(p.capital.klRatios(sector).toDouble * firmSize)
+    import ComputationBoundary.toDouble
+    if p.flags.physCap then PLN(toDouble(p.capital.klRatios(sector)) * firmSize)
     else PLN.Zero
 
   /** Initial inventory from sector target ratio, scaled to firm capacity. */
@@ -169,8 +183,10 @@ object FirmEntry:
     else PLN.Zero
 
   /** Initial green capital stock from sector-specific green K/L ratio. */
+  @computationBoundary
   private def initGreenCapital(firmSize: Int, sector: Int)(using p: SimParams): PLN =
-    if p.flags.energy then PLN(p.climate.greenKLRatios(sector).toDouble * firmSize) * p.climate.greenInitRatio
+    import ComputationBoundary.toDouble
+    if p.flags.energy then PLN(toDouble(p.climate.greenKLRatios(sector)) * firmSize) * p.climate.greenInitRatio
     else PLN.Zero
 
   private def pickSector(totalWeight: Double, sectorWeights: Vector[Double], rng: Random): Int =

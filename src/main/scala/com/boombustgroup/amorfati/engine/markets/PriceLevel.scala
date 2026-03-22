@@ -32,6 +32,7 @@ object PriceLevel:
   /** Result of a monthly price-level update. */
   case class Result(inflation: Rate, priceLevel: Double)
 
+  @computationBoundary
   def update(
       prevInflation: Rate,
       prevPrice: Double,
@@ -41,18 +42,19 @@ object PriceLevel:
       autoRatio: Double,
       hybridRatio: Double,
   )(using p: SimParams): Result =
+    import ComputationBoundary.toDouble
     val demandPull    = (demandMult - 1.0) * DemandPullWeight
     val costPush      = wageGrowth * CostPushWeight
-    val rawImportPush = Math.max(0.0, exRateDeviation) * p.forex.importPropensity.toDouble * ImportPushWeight
+    val rawImportPush = Math.max(0.0, exRateDeviation) * toDouble(p.forex.importPropensity) * ImportPushWeight
     val importPush    =
-      if p.flags.openEcon then Math.min(rawImportPush, p.openEcon.importPushCap.toDouble)
+      if p.flags.openEcon then Math.min(rawImportPush, toDouble(p.openEcon.importPushCap))
       else rawImportPush
     val techDeflation = autoRatio * AutoDeflation + hybridRatio * HybridDeflation
 
     val rawMonthly = demandPull + costPush + importPush - techDeflation
     val monthly    = softFloor(rawMonthly)
     val annualized = monthly * 12.0
-    val smoothed   = prevInflation.toDouble * (1.0 - SmoothingLambda) + annualized * SmoothingLambda
+    val smoothed   = toDouble(prevInflation) * (1.0 - SmoothingLambda) + annualized * SmoothingLambda
     val newPrice   = Math.max(MinPriceLevel, prevPrice * (1.0 + monthly))
     Result(Rate(smoothed), newPrice)
 
