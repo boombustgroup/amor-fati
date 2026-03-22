@@ -371,13 +371,12 @@ object Banking:
     * the bank approaches full reserve utilisation, rather than a hard block
     * (banks can temporarily fund via interbank market).
     */
-  def canLend(bank: BankState, amount: PLN, rng: Random, ccyb: Rate)(using p: SimParams): Boolean =
+  def canLend(bank: BankState, amount: PLN, rng: Random, ccyb: Multiplier)(using p: SimParams): Boolean =
     if bank.failed then false
     else
       val projectedRwa = bank.loans + bank.consumerLoans + bank.corpBondHoldings * Share(CorpBondRiskWeight) + amount
       val projectedCar = if projectedRwa > PLN(1.0) then Multiplier(bank.capital / projectedRwa) else Multiplier(10.0)
-      // TODO: Macroprudential.effectiveMinCar returns Double — needs typed migration
-      val minCar       = Multiplier(Macroprudential.effectiveMinCar(bank.id.toInt, ccyb.toLong.toDouble / 10000.0))
+      val minCar       = Macroprudential.effectiveMinCar(bank.id.toInt, ccyb)
       val carOk        = projectedCar >= minCar
       val lcrOk        = if p.flags.bankLcr then bank.lcr >= p.banking.lcrMin else true
       val nsfrOk       = if p.flags.bankLcr then bank.nsfr >= p.banking.nsfrMin else true

@@ -137,16 +137,16 @@ case class BankingConfig(
     demandDepositRunoff: Share = Share(0.10),
     termDepositFrac: Share = Share(0.40),
     // KNF/BFG
-    p2rAddons: Vector[Rate] = Vector(Rate(0.015), Rate(0.010), Rate(0.030), Rate(0.015), Rate(0.020), Rate(0.025), Rate(0.020)),
+    p2rAddons: Vector[Multiplier] = Vector(Multiplier(0.015), Multiplier(0.010), Multiplier(0.030), Multiplier(0.015), Multiplier(0.020), Multiplier(0.025), Multiplier(0.020)),
     bfgLevyRate: Rate = Rate(0.0024),
     bailInDepositHaircut: Share = Share(0.08),
     bfgDepositGuarantee: PLN = PLN(400000.0),
     // Macroprudential (KNF 2024)
-    ccybMax: Rate = Rate(0.025),
-    ccybActivationGap: Share = Share(0.02),
-    ccybReleaseGap: Double = -0.02,
-    osiiPkoBp: Rate = Rate(0.01),
-    osiiPekao: Rate = Rate(0.005),
+    ccybMax: Multiplier = Multiplier(0.025),
+    ccybActivationGap: Coefficient = Coefficient(0.02),
+    ccybReleaseGap: Coefficient = Coefficient(-0.02),
+    osiiPkoBp: Multiplier = Multiplier(0.01),
+    osiiPekao: Multiplier = Multiplier(0.005),
     concentrationLimit: Share = Share(0.25),
     // AFS/HTM bond portfolio split (interest rate risk channel)
     htmShare: Share = Share(0.60),
