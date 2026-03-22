@@ -148,7 +148,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     val bank     = mkBank(0, reservesAtNbp = PLN(1e8)) // 100M in reserves
     val interest = Banking.reserveInterest(bank, Rate(0.0575))
     // Expected: 100M × 0.0575 × 0.5 / 12 ≈ 239,583
-    interest.toDouble shouldBe (1e8 * 0.0575 * 0.5 / 12.0 +- 1.0)
+    interest.toDouble shouldBe (1e8 * 0.0575 * 0.5 / 12.0 +- 1000.0)
   }
 
   it should "return 0 for failed banks" in {

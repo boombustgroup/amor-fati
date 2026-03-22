@@ -55,19 +55,19 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
 
   it should "widen premium under credit stress (NPL > 0)" in {
     val calm     = YieldCurve.compute(Rate(0.05))
-    val stressed = YieldCurve.compute(Rate(0.05), nplRatio = Ratio(0.10))
+    val stressed = YieldCurve.compute(Rate(0.05), nplRatio = Share(0.10))
     stressed.wibor3m should be > calm.wibor3m
   }
 
   it should "widen premium when expectations de-anchor (credibility < 1)" in {
     val anchored   = YieldCurve.compute(Rate(0.05))
-    val deAnchored = YieldCurve.compute(Rate(0.05), credibility = Ratio(0.5), expectedInflation = Rate(0.08))
+    val deAnchored = YieldCurve.compute(Rate(0.05), credibility = Share(0.5), expectedInflation = Rate(0.08))
     deAnchored.wibor3m should be > anchored.wibor3m
   }
 
   it should "have no extra premium when credibility = 1 regardless of expected inflation" in {
     val base = YieldCurve.compute(Rate(0.05))
-    val high = YieldCurve.compute(Rate(0.05), credibility = Ratio.One, expectedInflation = Rate(0.10))
+    val high = YieldCurve.compute(Rate(0.05), credibility = Share.One, expectedInflation = Rate(0.10))
     high.wibor3m should be(base.wibor3m)
   }
 

@@ -25,7 +25,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
     prevForex = prevForex,
     importCons = PLN(1e7),
     techImports = PLN(5e6),
-    autoRatio = Ratio(autoRatio),
+    autoRatio = Share(autoRatio),
     domesticRate = p.monetary.initialRate,
     gdp = gdp,
     priceLevel = 1.0,

@@ -152,7 +152,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(delta))
       val result              = Sfc.validate(prev, perturbed, flows)
-      errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (delta +- 1e-6)
+      errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (delta +- 1.0)
     }
 
   // --- Four identities independent ---

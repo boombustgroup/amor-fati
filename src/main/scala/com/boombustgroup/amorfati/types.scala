@@ -94,9 +94,9 @@ object types:
       def /(scalar: Double): PLN = PLN(p.toDouble / Scale / scalar)
       def /(divisor: Long): PLN  = p / divisor
       @targetName("plnDivShare")
-      def /(s: Share): PLN       = if s != 0L then PLN(p.toDouble / s.toDouble) else PLN.Zero
+      def /(s: Share): PLN       = if s != 0L then PLN(p.toDouble / Scale / ((s: Long).toDouble / Scale)) else PLN.Zero
       @targetName("plnDivMultiplier")
-      def /(m: Multiplier): PLN  = if m != 0L then PLN(p.toDouble / m.toDouble) else PLN.Zero
+      def /(m: Multiplier): PLN  = if m != 0L then PLN(p.toDouble / Scale / ((m: Long).toDouble / Scale)) else PLN.Zero
 
     extension (n: Int)
       @targetName("intTimesPln")
@@ -135,11 +135,11 @@ object types:
       def clamp(lo: Rate, hi: Rate): Rate = math.max(lo, math.min(hi, r))
       def monthly: Rate                   = Rate(r.toDouble / Scale / 12.0)
       def annualize: Rate                 = Rate(r.toDouble / Scale * 12.0)
-      def *(m: Multiplier): Rate          = Rate(r.toDouble / Scale * m.toDouble)
+      def *(m: Multiplier): Rate           = Rate(r.toDouble / Scale * (m: Long).toDouble / Scale)
       @targetName("rateTimesShare")
-      def *(s: Share): Rate               = Rate(r.toDouble / Scale * s.toDouble)
+      def *(s: Share): Rate               = Rate(r.toDouble / Scale * (s: Long).toDouble / Scale)
       @targetName("rateTimesCoefficient")
-      def *(c: Coefficient): Rate         = Rate(r.toDouble / Scale * c.toDouble)
+      def *(c: Coefficient): Rate         = Rate(r.toDouble / Scale * (c: Long).toDouble / Scale)
       def *(scalar: Double): Rate         = Rate(r.toDouble / Scale * scalar)
       def /(scalar: Double): Rate         = Rate(r.toDouble / Scale / scalar)
       @targetName("rateDivRate")
@@ -310,9 +310,9 @@ object types:
       @targetName("priceIdxTimesIdx")
       def *(other: PriceIndex): PriceIndex = bankerRound(BigInt(p) * BigInt(other))
       @targetName("priceIdxTimesRate")
-      def *(r: Rate): PriceIndex           = PriceIndex(p.toDouble / Scale * r.toDouble)
+      def *(r: Rate): PriceIndex           = PriceIndex(p.toDouble / Scale * (r: Long).toDouble / Scale)
       @targetName("priceIdxTimesMultiplier")
-      def *(m: Multiplier): PriceIndex     = PriceIndex(p.toDouble / Scale * m.toDouble)
+      def *(m: Multiplier): PriceIndex     = PriceIndex(p.toDouble / Scale * (m: Long).toDouble / Scale)
       @targetName("priceIdxTimesScalar")
       def *(scalar: Double): PriceIndex    = PriceIndex(p.toDouble / Scale * scalar)
       @targetName("priceIdxTimesPln")

@@ -90,7 +90,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   it should "be bounded in [0, 1]" in {
     for s <- p.sectorDefs do
-      val t = Firm.sigmaThreshold(s.sigma)
+      val t = Firm.sigmaThreshold(s.sigma.toDouble)
       t should be >= 0.0
       t should be <= 1.0
   }
@@ -162,9 +162,9 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       PLN(50000.0),
       PLN.Zero,
       tech,
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(0.5),
+      Share(0.5),
       SectorIdx(0),
       neighbors,
       bankId = BankId(0),
@@ -184,9 +184,9 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       PLN(50000.0),
       PLN.Zero,
       tech,
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(0.5),
+      Share(0.5),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -224,12 +224,12 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         importConsumption = PLN.Zero,
         marketWage = PLN(p.household.baseWage.toDouble),
         reservationWage = PLN(p.household.baseReservationWage.toDouble),
-        giniIndividual = Ratio.Zero,
-        giniWealth = Ratio.Zero,
+        giniIndividual = Share.Zero,
+        giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
         medianSavings = PLN.Zero,
-        povertyRate50 = Ratio.Zero,
-        bankruptcyRate = Ratio.Zero,
+        povertyRate50 = Share.Zero,
+        bankruptcyRate = Share.Zero,
         meanSkill = 0.0,
         meanHealthPenalty = 0.0,
         retrainingAttempts = 0,
@@ -238,14 +238,14 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
         meanMonthsToRuin = 0.0,
-        povertyRate30 = Ratio.Zero,
+        povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
         totalUnempBenefits = PLN.Zero,
         totalDepositInterest = PLN.Zero,
         crossSectorHires = 0,
         voluntaryQuits = 0,
-        sectorMobilityRate = Ratio.Zero,
+        sectorMobilityRate = Share.Zero,
         totalRemittances = PLN.Zero,
         totalPit = PLN.Zero,
         totalSocialTransfers = PLN.Zero,

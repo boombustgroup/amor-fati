@@ -124,30 +124,30 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
     Rate(0.03) < Rate(0.05) shouldBe true
   }
 
-  // === Ratio arithmetic ===
+  // === Share arithmetic ===
 
-  "Ratio" should "add two ratios" in {
-    (Ratio(0.3) + Ratio(0.2)).toDouble shouldBe 0.5 +- 1e-15
+  "Share" should "add two shares" in {
+    (Share(0.3) + Share(0.2)).toDouble shouldBe 0.5 +- 1e-9
   }
 
-  it should "subtract ratios" in {
-    (Ratio(0.8) - Ratio(0.3)).toDouble shouldBe 0.5 +- 1e-15
+  it should "subtract shares" in {
+    (Share(0.8) - Share(0.3)).toDouble shouldBe 0.5 +- 1e-9
   }
 
   it should "multiply by scalar" in {
-    (Ratio(0.5) * 2.0).toDouble shouldBe 1.0
+    (Share(0.5) * 2.0).toDouble shouldBe 1.0 +- 1e-9
   }
 
-  it should "multiply ratio by ratio" in {
-    (Ratio(0.5) * Ratio(0.4)).toDouble shouldBe 0.2 +- 1e-15
+  it should "multiply share by share" in {
+    (Share(0.5) * Share(0.4)).toDouble shouldBe 0.2 +- 1e-9
   }
 
   it should "compare with > <" in {
-    Ratio(0.8) > Ratio(0.2) shouldBe true
-    Ratio(0.2) < Ratio(0.8) shouldBe true
+    Share(0.8) > Share(0.2) shouldBe true
+    Share(0.2) < Share(0.8) shouldBe true
   }
 
   it should "have Zero and One constants" in {
-    Ratio.Zero.toDouble shouldBe 0.0
-    Ratio.One.toDouble shouldBe 1.0
+    Share.Zero.toDouble shouldBe 0.0
+    Share.One.toDouble shouldBe 1.0 +- 1e-9
   }

@@ -21,9 +21,9 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       PLN(cash),
       PLN.Zero,
       tech,
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(dr),
+      Share(dr),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -61,12 +61,12 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
         importConsumption = PLN.Zero,
         marketWage = PLN(p.household.baseWage.toDouble),
         reservationWage = PLN(p.household.baseReservationWage.toDouble),
-        giniIndividual = Ratio.Zero,
-        giniWealth = Ratio.Zero,
+        giniIndividual = Share.Zero,
+        giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
         medianSavings = PLN.Zero,
-        povertyRate50 = Ratio.Zero,
-        bankruptcyRate = Ratio.Zero,
+        povertyRate50 = Share.Zero,
+        bankruptcyRate = Share.Zero,
         meanSkill = 0.0,
         meanHealthPenalty = 0.0,
         retrainingAttempts = 0,
@@ -75,14 +75,14 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
         meanMonthsToRuin = 0.0,
-        povertyRate30 = Ratio.Zero,
+        povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
         totalUnempBenefits = PLN.Zero,
         totalDepositInterest = PLN.Zero,
         crossSectorHires = 0,
         voluntaryQuits = 0,
-        sectorMobilityRate = Ratio.Zero,
+        sectorMobilityRate = Share.Zero,
         totalRemittances = PLN.Zero,
         totalPit = PLN.Zero,
         totalSocialTransfers = PLN.Zero,
@@ -94,7 +94,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       social = SocialState.zero,
       financial = FinancialMarketsState.zero,
       external = ExternalState.zero,
-      real = RealState.zero.copy(automationRatio = Ratio(autoRatio), hybridRatio = Ratio(hybridRatio)),
+      real = RealState.zero.copy(automationRatio = Share(autoRatio), hybridRatio = Share(hybridRatio)),
       mechanisms = MechanismsState.zero,
       plumbing = MonetaryPlumbingState.zero,
       flows = FlowState.zero,
@@ -132,7 +132,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "Firm.computeAiCapex" should "apply no discount when digitalReadiness is 0" in {
     val f0           = mkFirm(TechState.Traditional(10), dr = 0.0)
     // With dr=0: discount factor = 1.0 - 0.30 * 0.0 = 1.0 (no discount)
-    val expectedBase = p.firm.aiCapex.toDouble * p.sectorDefs(2).aiCapexMultiplier * 1.0 *
+    val expectedBase = p.firm.aiCapex.toDouble * p.sectorDefs(2).aiCapexMultiplier.toDouble * 1.0 *
       Math.pow(10.0 / p.pop.workersPerFirm, 0.6)
     Firm.computeAiCapex(f0).toDouble shouldBe expectedBase +- 0.01
   }

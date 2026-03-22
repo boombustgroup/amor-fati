@@ -43,6 +43,6 @@ class YieldCurvePropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   it should "widen monotonically with NPL" in
     forAll(Gen.choose(0.0, 0.30), Gen.choose(0.0, 0.20)) { (onRate, npl) =>
       val calm     = YieldCurve.compute(Rate(onRate))
-      val stressed = YieldCurve.compute(Rate(onRate), nplRatio = Ratio(npl))
+      val stressed = YieldCurve.compute(Rate(onRate), nplRatio = Share(npl))
       stressed.wibor3m should be >= calm.wibor3m
     }

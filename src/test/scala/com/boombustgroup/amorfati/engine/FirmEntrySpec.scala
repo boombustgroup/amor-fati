@@ -22,7 +22,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   "FirmEntryProfitSens" should "default to 2.0" in {
-    p.firm.entryProfitSens shouldBe 2.0
+    p.firm.entryProfitSens.toDouble shouldBe 2.0
   }
 
   "FirmEntrySectorBarriers" should "have 6 elements" in {
@@ -30,10 +30,10 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have all positive values" in
-    p.firm.entrySectorBarriers.foreach(_ should be > 0.0)
+    p.firm.entrySectorBarriers.foreach(_.toDouble should be > 0.0)
 
   it should "match expected defaults" in {
-    p.firm.entrySectorBarriers shouldBe Vector(0.8, 0.6, 1.2, 0.5, 0.1, 0.7)
+    p.firm.entrySectorBarriers shouldBe Vector(Coefficient(0.8), Coefficient(0.6), Coefficient(1.2), Coefficient(0.5), Coefficient(0.1), Coefficient(0.7))
   }
 
   "FirmEntryAiThreshold" should "default to 0.15" in {
@@ -57,7 +57,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     inflation = Rate(0.0),
     priceLevel = 1.0,
     gdpProxy = 1e9,
-    currentSigmas = Vector.fill(6)(5.0),
+    currentSigmas = Vector.fill(6)(Sigma(5.0)),
     totalPopulation = 100,
     gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
     nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
@@ -75,12 +75,12 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       importConsumption = PLN.Zero,
       marketWage = PLN(8000),
       reservationWage = PLN(4500),
-      giniIndividual = Ratio.Zero,
-      giniWealth = Ratio.Zero,
+      giniIndividual = Share.Zero,
+      giniWealth = Share.Zero,
       meanSavings = PLN.Zero,
       medianSavings = PLN.Zero,
-      povertyRate50 = Ratio.Zero,
-      bankruptcyRate = Ratio.Zero,
+      povertyRate50 = Share.Zero,
+      bankruptcyRate = Share.Zero,
       meanSkill = 0.0,
       meanHealthPenalty = 0.0,
       retrainingAttempts = 0,
@@ -89,14 +89,14 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       consumptionP50 = PLN.Zero,
       consumptionP90 = PLN.Zero,
       meanMonthsToRuin = 0.0,
-      povertyRate30 = Ratio.Zero,
+      povertyRate30 = Share.Zero,
       totalRent = PLN.Zero,
       totalDebtService = PLN.Zero,
       totalUnempBenefits = PLN.Zero,
       totalDepositInterest = PLN.Zero,
       crossSectorHires = 0,
       voluntaryQuits = 0,
-      sectorMobilityRate = Ratio.Zero,
+      sectorMobilityRate = Share.Zero,
       totalRemittances = PLN.Zero,
       totalPit = PLN.Zero,
       totalSocialTransfers = PLN.Zero,
@@ -143,9 +143,9 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       cash = PLN(50000.0),
       debt = PLN.Zero,
       tech = TechState.Traditional(5),
-      riskProfile = Ratio(0.5),
+      riskProfile = Share(0.5),
       innovationCostFactor = 1.0,
-      digitalReadiness = Ratio(0.15),
+      digitalReadiness = Share(0.15),
       sector = SectorIdx(2),
       neighbors = Vector.empty[FirmId],
       bankId = BankId(0),
@@ -173,9 +173,9 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       cash = PLN(50000.0),
       debt = PLN.Zero,
       tech = TechState.Traditional(5),
-      riskProfile = Ratio(0.5),
+      riskProfile = Share(0.5),
       innovationCostFactor = 1.0,
-      digitalReadiness = Ratio(0.15),
+      digitalReadiness = Share(0.15),
       sector = SectorIdx(2),
       neighbors = Vector.empty[FirmId],
       bankId = BankId(0),
@@ -284,9 +284,9 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
         cash = PLN(50000.0),
         debt = PLN.Zero,
         tech = tech,
-        riskProfile = Ratio(0.5),
+        riskProfile = Share(0.5),
         innovationCostFactor = 1.0,
-        digitalReadiness = Ratio(0.15),
+        digitalReadiness = Share(0.15),
         sector = SectorIdx(0),
         neighbors = Vector.empty[FirmId],
         bankId = BankId(0),
@@ -326,23 +326,23 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   "Entry probability" should "be non-negative" in {
     for s <- 0 until 6 do
       val profitSignal = 0.5 // moderate positive
-      val entryProb    = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(s) *
-        Math.max(0.0, 1.0 + profitSignal * p.firm.entryProfitSens)
+      val entryProb    = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(s).toDouble *
+        Math.max(0.0, 1.0 + profitSignal * p.firm.entryProfitSens.toDouble)
       entryProb should be >= 0.0
   }
 
   it should "be zero when profit signal is very negative" in {
     val profitSignal = -1.0
-    val entryProb    = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(0) *
-      Math.max(0.0, 1.0 + profitSignal * p.firm.entryProfitSens)
+    val entryProb    = p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(0).toDouble *
+      Math.max(0.0, 1.0 + profitSignal * p.firm.entryProfitSens.toDouble)
     entryProb shouldBe 0.0
   }
 
   it should "scale with sector barriers" in {
     val profitSignal = 0.0
     val probs        = (0 until 6).map { s =>
-      p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(s) *
-        Math.max(0.0, 1.0 + profitSignal * p.firm.entryProfitSens)
+      p.firm.entryRate.toDouble * p.firm.entrySectorBarriers(s).toDouble *
+        Math.max(0.0, 1.0 + profitSignal * p.firm.entryProfitSens.toDouble)
     }
     // Retail (1.2) should have higher prob than Public (0.1)
     probs(2) should be > probs(4) // Retail > Public

@@ -19,7 +19,7 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have positive sigma for every sector" in {
-    for s <- p.sectorDefs do s.sigma should be > 0.0
+    for s <- p.sectorDefs do s.sigma.toDouble should be > 0.0
   }
 
   it should "have known sector names" in {

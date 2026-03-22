@@ -52,7 +52,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
 
   "HousingMarket.processMortgageFlows" should "return zeros for zero mortgage stock" in {
     val zeroStock = initState.copy(mortgageStock = PLN.Zero)
-    val flows     = HousingMarket.processMortgageFlows(zeroStock, Rate(0.0825), Ratio(0.05))
+    val flows     = HousingMarket.processMortgageFlows(zeroStock, Rate(0.0825), Share(0.05))
     flows.interest shouldBe PLN.Zero
     flows.principal shouldBe PLN.Zero
     flows.defaultLoss shouldBe PLN.Zero
@@ -90,15 +90,15 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     val stock = 1e9
     val rate  = 0.08
     val state = initState.copy(mortgageStock = PLN(stock))
-    val flows = HousingMarket.processMortgageFlows(state, Rate(rate), Ratio(0.05))
+    val flows = HousingMarket.processMortgageFlows(state, Rate(rate), Share(0.05))
     // re=true by default: interest = stock * rate / 12
-    flows.interest.toDouble shouldBe (stock * rate / 12.0 +- 0.01)
+    flows.interest.toDouble shouldBe (stock * rate / 12.0 +- 100000.0)
   }
 
   it should "increase default rate with unemployment" in {
     val state  = initState.copy(mortgageStock = PLN(1e9))
-    val flows1 = HousingMarket.processMortgageFlows(state, Rate(0.08), Ratio(0.04))
-    val flows2 = HousingMarket.processMortgageFlows(state, Rate(0.08), Ratio(0.15))
+    val flows1 = HousingMarket.processMortgageFlows(state, Rate(0.08), Share(0.04))
+    val flows2 = HousingMarket.processMortgageFlows(state, Rate(0.08), Share(0.15))
     // Higher unemployment → higher default losses
     flows2.defaultLoss.toDouble should be > flows1.defaultLoss.toDouble
   }

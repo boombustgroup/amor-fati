@@ -15,7 +15,7 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
       employed: Int = 80000,
       wage: PLN = PLN(8000.0),
       priceLevel: Double = 1.0,
-      unempRate: Ratio = Ratio(0.05),
+      unempRate: Share = Share(0.05),
       govBondYield: Rate = Rate(0.06),
       corpBondYield: Rate = Rate(0.08),
       equityReturn: Rate = Rate(0.005),
@@ -87,13 +87,13 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "widen non-life claims with high unemployment" in {
-    val rLow  = mkStep(unempRate = Ratio(0.05))
-    val rHigh = mkStep(unempRate = Ratio(0.15))
+    val rLow  = mkStep(unempRate = Share(0.05))
+    val rHigh = mkStep(unempRate = Share(0.15))
     rHigh.lastNonLifeClaims should be > rLow.lastNonLifeClaims
   }
 
   it should "not widen non-life claims when unemployment is at or below 5%" in {
-    val r            = mkStep(unempRate = Ratio(0.04))
+    val r            = mkStep(unempRate = Share(0.04))
     val expectedBase = r.lastNonLifePremium.toDouble * p.ins.nonLifeLossRatio.toDouble
     r.lastNonLifeClaims.toDouble shouldBe (expectedBase +- 0.01)
   }
@@ -157,17 +157,17 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have allocation shares that are positive and bounded" in {
-    p.ins.govBondShare should be > Ratio.Zero
-    p.ins.govBondShare should be < Ratio.One
-    p.ins.corpBondShare should be > Ratio.Zero
-    p.ins.corpBondShare should be < Ratio.One
-    p.ins.equityShare should be > Ratio.Zero
-    p.ins.equityShare should be < Ratio.One
+    p.ins.govBondShare should be > Share.Zero
+    p.ins.govBondShare should be < Share.One
+    p.ins.corpBondShare should be > Share.Zero
+    p.ins.corpBondShare should be < Share.One
+    p.ins.equityShare should be > Share.Zero
+    p.ins.equityShare should be < Share.One
   }
 
   it should "have loss ratios between 0 and 1" in {
-    p.ins.lifeLossRatio should be > Ratio.Zero
-    p.ins.lifeLossRatio should be <= Ratio.One
-    p.ins.nonLifeLossRatio should be > Ratio.Zero
-    p.ins.nonLifeLossRatio should be <= Ratio.One
+    p.ins.lifeLossRatio should be > Share.Zero
+    p.ins.lifeLossRatio should be <= Share.One
+    p.ins.nonLifeLossRatio should be > Share.Zero
+    p.ins.nonLifeLossRatio should be <= Share.One
   }

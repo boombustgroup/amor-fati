@@ -66,7 +66,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   }
 
   "BailInDepositHaircut" should "default to 0.08" in {
-    p.banking.bailInDepositHaircut shouldBe Ratio(0.08)
+    p.banking.bailInDepositHaircut shouldBe Share(0.08)
   }
 
   "BfgDepositGuarantee" should "default to 400000" in {
@@ -201,7 +201,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 100000.0,
-      currentSigmas = Vector(1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+      currentSigmas = Vector(Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0)),
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
@@ -219,12 +219,12 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         importConsumption = PLN.Zero,
         marketWage = PLN(8000),
         reservationWage = PLN(4000),
-        giniIndividual = Ratio.Zero,
-        giniWealth = Ratio.Zero,
+        giniIndividual = Share.Zero,
+        giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
         medianSavings = PLN.Zero,
-        povertyRate50 = Ratio.Zero,
-        bankruptcyRate = Ratio.Zero,
+        povertyRate50 = Share.Zero,
+        bankruptcyRate = Share.Zero,
         meanSkill = 0.0,
         meanHealthPenalty = 0.0,
         retrainingAttempts = 0,
@@ -233,14 +233,14 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
         meanMonthsToRuin = 0.0,
-        povertyRate30 = Ratio.Zero,
+        povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
         totalUnempBenefits = PLN.Zero,
         totalDepositInterest = PLN.Zero,
         crossSectorHires = 0,
         voluntaryQuits = 0,
-        sectorMobilityRate = Ratio.Zero,
+        sectorMobilityRate = Share.Zero,
         totalRemittances = PLN.Zero,
         totalPit = PLN.Zero,
         totalSocialTransfers = PLN.Zero,

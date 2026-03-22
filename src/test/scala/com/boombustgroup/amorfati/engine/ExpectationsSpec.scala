@@ -39,14 +39,14 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep expected inflation near target when credibility is high" in {
-    val prev = Expectations.initial.copy(credibility = Ratio(0.99))
+    val prev = Expectations.initial.copy(credibility = Share(0.99))
     val r    = Expectations.step(prev, 0.08, 0.0575, 0.05)
     // With 99% credibility, expectations should stay close to target
     r.expectedInflation.toDouble should be < 0.04
   }
 
   it should "track realized inflation when credibility is low" in {
-    val prev = Expectations.initial.copy(credibility = Ratio(0.05))
+    val prev = Expectations.initial.copy(credibility = Share(0.05))
     val r    = Expectations.step(prev, 0.10, 0.0575, 0.05)
     // With 5% credibility, expectations should move toward realized
     r.expectedInflation.toDouble should be > 0.06
@@ -55,13 +55,13 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
   // --- Credibility dynamics ---
 
   it should "build credibility when inflation is near target" in {
-    val prev = Expectations.initial.copy(credibility = Ratio(0.5))
+    val prev = Expectations.initial.copy(credibility = Share(0.5))
     val r    = Expectations.step(prev, p.monetary.targetInfl.toDouble, 0.0575, 0.05)
     r.credibility.toDouble should be > 0.5
   }
 
   it should "erode credibility when inflation deviates from target" in {
-    val prev = Expectations.initial.copy(credibility = Ratio(0.8))
+    val prev = Expectations.initial.copy(credibility = Share(0.8))
     // 10% inflation → well above 2pp threshold
     val r    = Expectations.step(prev, 0.10, 0.0575, 0.05)
     r.credibility.toDouble should be < 0.8
@@ -69,18 +69,18 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
 
   it should "bound credibility in [0.01, 1.0]" in {
     // Test lower bound
-    val low = Expectations.initial.copy(credibility = Ratio(0.02))
+    val low = Expectations.initial.copy(credibility = Share(0.02))
     val r1  = Expectations.step(low, 0.50, 0.0575, 0.05)
     r1.credibility.toDouble should be >= 0.01
 
     // Test upper bound
-    val high = Expectations.initial.copy(credibility = Ratio(0.99))
+    val high = Expectations.initial.copy(credibility = Share(0.99))
     val r2   = Expectations.step(high, p.monetary.targetInfl.toDouble, 0.0575, 0.05)
     r2.credibility.toDouble should be <= 1.0
   }
 
   it should "be harder to build credibility than to lose it (asymmetric)" in {
-    val mid        = Expectations.initial.copy(credibility = Ratio(0.5))
+    val mid        = Expectations.initial.copy(credibility = Share(0.5))
     // Build: at target
     val rBuild     = Expectations.step(mid, p.monetary.targetInfl.toDouble, 0.0575, 0.05)
     val buildDelta = rBuild.credibility.toDouble - 0.5
@@ -107,7 +107,7 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
   // --- Stability ---
 
   it should "converge when inflation equals target persistently" in {
-    var s = Expectations.initial.copy(credibility = Ratio(0.5))
+    var s = Expectations.initial.copy(credibility = Share(0.5))
     for _ <- 0 until 120 do s = Expectations.step(s, p.monetary.targetInfl.toDouble, p.monetary.initialRate.toDouble, 0.05)
     s.credibility.toDouble should be > 0.9
     s.expectedInflation.toDouble shouldBe p.monetary.targetInfl.toDouble +- 0.005

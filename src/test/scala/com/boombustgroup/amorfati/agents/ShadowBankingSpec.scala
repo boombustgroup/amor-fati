@@ -15,8 +15,8 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       employed: Int = 50000,
       wage: PLN = PLN(8000.0),
       priceLevel: Double = 1.0,
-      unempRate: Ratio = Ratio(0.05),
-      bankNplRatio: Ratio = Ratio(0.02),
+      unempRate: Share = Share(0.05),
+      bankNplRatio: Share = Share(0.02),
       govBondYield: Rate = Rate(0.05),
       corpBondYield: Rate = Rate(0.07),
       equityReturn: Rate = Rate(0.005),
@@ -39,7 +39,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
     z.lastNbfiOrigination shouldBe PLN.Zero
     z.lastNbfiRepayment shouldBe PLN.Zero
     z.lastNbfiDefaultAmount shouldBe PLN.Zero
-    z.lastBankTightness shouldBe Ratio.Zero
+    z.lastBankTightness shouldBe Share.Zero
     z.lastDepositDrain shouldBe PLN.Zero
   }
 
@@ -78,24 +78,24 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   // ---- bankTightness ----
 
   "Nbfi.bankTightness" should "be 0 at NPL <= 3%" in {
-    Nbfi.bankTightness(Ratio(0.01)) shouldBe Ratio.Zero
-    Nbfi.bankTightness(Ratio(0.03)) shouldBe Ratio.Zero
+    Nbfi.bankTightness(Share(0.01)) shouldBe Share.Zero
+    Nbfi.bankTightness(Share(0.03)) shouldBe Share.Zero
   }
 
   it should "be positive at NPL > 3%" in {
-    Nbfi.bankTightness(Ratio(0.04)) should be > Ratio.Zero
+    Nbfi.bankTightness(Share(0.04)) should be > Share.Zero
   }
 
   it should "be 1.0 at NPL = 6%" in {
-    Nbfi.bankTightness(Ratio(0.06)).toDouble shouldBe 1.0 +- 0.001
+    Nbfi.bankTightness(Share(0.06)).toDouble shouldBe 1.0 +- 0.001
   }
 
   it should "be capped at 1.0 for NPL > 6%" in {
-    Nbfi.bankTightness(Ratio(0.10)) shouldBe Ratio.One
+    Nbfi.bankTightness(Share(0.10)) shouldBe Share.One
   }
 
   it should "be 0.5 at NPL = 4.5%" in {
-    Nbfi.bankTightness(Ratio(0.045)).toDouble shouldBe 0.5 +- 0.001
+    Nbfi.bankTightness(Share(0.045)).toDouble shouldBe 0.5 +- 0.001
   }
 
   // ---- tfiInflow ----
@@ -117,19 +117,19 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   // ---- nbfiOrigination ----
 
   "Nbfi.nbfiOrigination" should "be proportional to consumption" in {
-    val o1 = Nbfi.nbfiOrigination(PLN(1000000.0), Ratio(0.02))
-    val o2 = Nbfi.nbfiOrigination(PLN(2000000.0), Ratio(0.02))
+    val o1 = Nbfi.nbfiOrigination(PLN(1000000.0), Share(0.02))
+    val o2 = Nbfi.nbfiOrigination(PLN(2000000.0), Share(0.02))
     (o2 / o1) shouldBe 2.0 +- 0.01
   }
 
   it should "be counter-cyclical (increase with bank tightness)" in {
-    val normal = Nbfi.nbfiOrigination(PLN(1000000.0), Ratio(0.02)) // NPL 2% → tightness 0
-    val tight  = Nbfi.nbfiOrigination(PLN(1000000.0), Ratio(0.06)) // NPL 6% → tightness 1
+    val normal = Nbfi.nbfiOrigination(PLN(1000000.0), Share(0.02)) // NPL 2% → tightness 0
+    val tight  = Nbfi.nbfiOrigination(PLN(1000000.0), Share(0.06)) // NPL 6% → tightness 1
     tight should be > normal
   }
 
   it should "equal base at zero tightness" in {
-    val base = Nbfi.nbfiOrigination(PLN(1000000.0), Ratio(0.03)) // NPL 3% → tightness 0
+    val base = Nbfi.nbfiOrigination(PLN(1000000.0), Share(0.03)) // NPL 3% → tightness 0
     base.toDouble shouldBe (1000000.0 * p.nbfi.creditBaseRate.toDouble) +- 1.0
   }
 
@@ -146,23 +146,23 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   // ---- nbfiDefaults ----
 
   "Nbfi.nbfiDefaults" should "use base rate at 5% unemployment" in {
-    val d = Nbfi.nbfiDefaults(PLN(100000.0), Ratio(0.05))
+    val d = Nbfi.nbfiDefaults(PLN(100000.0), Share(0.05))
     d.toDouble shouldBe (100000.0 * p.nbfi.defaultBase.toDouble) +- 0.01
   }
 
   it should "increase with unemployment above 5%" in {
-    val low  = Nbfi.nbfiDefaults(PLN(100000.0), Ratio(0.05))
-    val high = Nbfi.nbfiDefaults(PLN(100000.0), Ratio(0.10))
+    val low  = Nbfi.nbfiDefaults(PLN(100000.0), Share(0.05))
+    val high = Nbfi.nbfiDefaults(PLN(100000.0), Share(0.10))
     high should be > low
   }
 
   it should "be zero for zero stock" in {
-    Nbfi.nbfiDefaults(PLN.Zero, Ratio(0.10)) shouldBe PLN.Zero
+    Nbfi.nbfiDefaults(PLN.Zero, Share(0.10)) shouldBe PLN.Zero
   }
 
   it should "be sensitive to unemployment (sensitivity 3.0)" in {
-    val d5  = Nbfi.nbfiDefaults(PLN(100000.0), Ratio(0.05))
-    val d10 = Nbfi.nbfiDefaults(PLN(100000.0), Ratio(0.10))
+    val d5  = Nbfi.nbfiDefaults(PLN(100000.0), Share(0.05))
+    val d10 = Nbfi.nbfiDefaults(PLN(100000.0), Share(0.10))
     // At 10%, excess = 5%, sensitivity = 3.0: factor = 1 + 3.0 * 0.05 = 1.15
     (d10 / d5) shouldBe 1.15 +- 0.01
   }
@@ -201,7 +201,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       lastNbfiRepayment = PLN.Zero,
       lastNbfiDefaultAmount = PLN.Zero,
       lastNbfiInterestIncome = PLN.Zero,
-      lastBankTightness = Ratio.Zero,
+      lastBankTightness = Share.Zero,
       lastDepositDrain = PLN.Zero,
     )
     val result    = mkStep(prev = offTarget)
@@ -209,8 +209,8 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase origination when bank NPL is high (counter-cyclical)" in {
-    val normal = mkStep(bankNplRatio = Ratio(0.02))
-    val tight  = mkStep(bankNplRatio = Ratio(0.06))
+    val normal = mkStep(bankNplRatio = Share(0.02))
+    val tight  = mkStep(bankNplRatio = Share(0.06))
     tight.lastNbfiOrigination should be > normal.lastNbfiOrigination
     tight.lastBankTightness should be > normal.lastBankTightness
   }
@@ -224,7 +224,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   // ---- Config defaults ----
 
   "Config" should "have correct TFI allocation shares" in {
-    p.nbfi.tfiGovBondShare shouldBe Ratio(0.40)
-    p.nbfi.tfiCorpBondShare shouldBe Ratio(0.10)
-    p.nbfi.tfiEquityShare shouldBe Ratio(0.10)
+    p.nbfi.tfiGovBondShare shouldBe Share(0.40)
+    p.nbfi.tfiCorpBondShare shouldBe Share(0.10)
+    p.nbfi.tfiEquityShare shouldBe Share(0.10)
   }

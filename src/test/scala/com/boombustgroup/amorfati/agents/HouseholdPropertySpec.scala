@@ -103,10 +103,10 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
         val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)
-        agg.povertyRate30 should be >= Ratio.Zero
-        agg.povertyRate30 should be <= Ratio.One
-        agg.povertyRate50 should be >= Ratio.Zero
-        agg.povertyRate50 should be <= Ratio.One
+        agg.povertyRate30 should be >= Share.Zero
+        agg.povertyRate30 should be <= Share.One
+        agg.povertyRate50 should be >= Share.Zero
+        agg.povertyRate50 should be <= Share.One
       }
     }
 
@@ -115,7 +115,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
         val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)
-        agg.povertyRate30 should be <= Ratio(agg.povertyRate50.toDouble + 1e-10)
+        agg.povertyRate30 should be <= Share(agg.povertyRate50.toDouble + 1e-10)
       }
     }
 
@@ -124,8 +124,8 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
         val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)
-        agg.bankruptcyRate should be >= Ratio.Zero
-        agg.bankruptcyRate should be <= Ratio.One
+        agg.bankruptcyRate should be >= Share.Zero
+        agg.bankruptcyRate should be <= Share.One
       }
     }
 
@@ -149,9 +149,9 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           PLN(-10000.0),
           PLN(5000.0),
           PLN(1800.0),
-          Ratio(0.5),
-          Ratio(0.3),
-          Ratio(0.8),
+          Share(0.5),
+          Share(0.3),
+          Share(0.8),
           HhStatus.Bankrupt,
           Array.empty[HhId],
           bankId = BankId(0),
@@ -161,8 +161,8 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           numDependentChildren = 0,
           consumerDebt = PLN.Zero,
           education = 2,
-          taskRoutineness = Ratio(0.5),
-          wageScar = Ratio.Zero,
+          taskRoutineness = Share(0.5),
+          wageScar = Share.Zero,
         )
       }.toVector
       val agg         = Household.computeAggregates(bankruptHhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)

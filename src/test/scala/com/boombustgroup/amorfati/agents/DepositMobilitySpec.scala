@@ -43,9 +43,9 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
       savings = PLN(savings),
       debt = PLN.Zero,
       monthlyRent = PLN.Zero,
-      skill = Ratio(0.5),
-      healthPenalty = Ratio.Zero,
-      mpc = Ratio(0.7),
+      skill = Share(0.5),
+      healthPenalty = Share.Zero,
+      mpc = Share(0.7),
       status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(bankId),
@@ -55,8 +55,8 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
 
   "DepositMobility" should "not move deposits when all banks are healthy" in {

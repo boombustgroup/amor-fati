@@ -29,9 +29,9 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
         PLN(500000.0),
         PLN.Zero,
         TechState.Traditional(10),
-        Ratio(0.5),
+        Share(0.5),
         1.0,
-        Ratio(0.4),
+        Share(0.4),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -46,7 +46,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       )
     }.toVector
 
-  private def baseInput(firms: Vector[Firm.State], scale: Ratio = Ratio.One, price: Double = 1.0, demandMult: Double = 1.0) =
+  private def baseInput(firms: Vector[Firm.State], scale: Multiplier = Multiplier.One, price: Double = 1.0, demandMult: Double = 1.0) =
     IntermediateMarket.Input(
       firms = firms,
       sectorMults = Vector.fill(6)(demandMult),
@@ -87,14 +87,14 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     val firms = makeFirms(60)
     forAll(Gen.choose(0.1, 0.9)) { (scale: Double) =>
       val r1 = IntermediateMarket.process(baseInput(firms))
-      val rS = IntermediateMarket.process(baseInput(firms, scale = Ratio(scale)))
+      val rS = IntermediateMarket.process(baseInput(firms, scale = Multiplier(scale)))
       if r1.totalPaid > PLN.Zero then rS.totalPaid.toDouble shouldBe (r1.totalPaid.toDouble * scale +- (r1.totalPaid.toDouble * 0.01))
     }
   }
 
   it should "produce no changes with scale=0" in {
     val firms = makeFirms(30)
-    val r     = IntermediateMarket.process(baseInput(firms, scale = Ratio.Zero))
+    val r     = IntermediateMarket.process(baseInput(firms, scale = Multiplier.Zero))
     for i <- firms.indices do r.firms(i).cash.toDouble shouldBe firms(i).cash.toDouble
     r.totalPaid shouldBe PLN.Zero
   }
@@ -116,7 +116,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   it should "produce non-negative totalPaid" in
     forAll(Gen.choose(0.5, 2.0), genPrice, Gen.choose(0.0, 1.0)) { (dm: Double, price: Double, scale: Double) =>
       val firms = makeFirms(30)
-      val r     = IntermediateMarket.process(baseInput(firms, scale = Ratio(scale), price = price, demandMult = dm))
+      val r     = IntermediateMarket.process(baseInput(firms, scale = Multiplier(scale), price = price, demandMult = dm))
       r.totalPaid should be >= PLN.Zero
     }
 
@@ -133,9 +133,9 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       PLN(500000.0),
       PLN.Zero,
       TechState.Traditional(10),
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(0.4),
+      Share(0.4),
       SectorIdx(sec),
       Vector.empty[FirmId],
       bankId = BankId(0),

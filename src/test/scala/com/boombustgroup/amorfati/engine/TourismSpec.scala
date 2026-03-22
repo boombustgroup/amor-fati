@@ -26,7 +26,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   }
 
   "TourismErElasticity" should "default to 0.6" in {
-    p.tourism.erElasticity shouldBe 0.6
+    p.tourism.erElasticity.toDouble shouldBe 0.6
   }
 
   "TourismSeasonality" should "default to 0.40" in {
@@ -87,13 +87,13 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "ER adjustment" should "increase inbound tourism when PLN weakens" in {
     val weakerER     = p.forex.baseExRate * 1.2
-    val inboundErAdj = Math.pow(weakerER / p.forex.baseExRate, p.tourism.erElasticity)
+    val inboundErAdj = Math.pow(weakerER / p.forex.baseExRate, p.tourism.erElasticity.toDouble)
     inboundErAdj should be > 1.0
   }
 
   it should "decrease outbound tourism when PLN weakens" in {
     val weakerER      = p.forex.baseExRate * 1.2
-    val outboundErAdj = Math.pow(p.forex.baseExRate / weakerER, p.tourism.erElasticity)
+    val outboundErAdj = Math.pow(p.forex.baseExRate / weakerER, p.tourism.erElasticity.toDouble)
     outboundErAdj should be < 1.0
   }
 
@@ -166,8 +166,8 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
     val seasonalFactor = 1.0 + p.tourism.seasonality.toDouble *
       Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
-    val inboundErAdj   = Math.pow(er / p.forex.baseExRate, p.tourism.erElasticity)
-    val outboundErAdj  = Math.pow(p.forex.baseExRate / er, p.tourism.erElasticity)
+    val inboundErAdj   = Math.pow(er / p.forex.baseExRate, p.tourism.erElasticity.toDouble)
+    val outboundErAdj  = Math.pow(p.forex.baseExRate / er, p.tourism.erElasticity.toDouble)
     val trendAdj       = Math.pow(1.0 + p.tourism.growthRate.toDouble / 12.0, m.toDouble)
     val shockFactor    = 1.0 // no shock
 
@@ -200,7 +200,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       prevForex = prevForex,
       importCons = PLN.Zero,
       techImports = PLN.Zero,
-      autoRatio = Ratio.Zero,
+      autoRatio = Share.Zero,
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
       priceLevel = 1.0,
@@ -222,7 +222,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       prevForex = prevForex,
       importCons = PLN.Zero,
       techImports = PLN.Zero,
-      autoRatio = Ratio.Zero,
+      autoRatio = Share.Zero,
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
       priceLevel = 1.0,
@@ -245,7 +245,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,
-      currentSigmas = Vector.fill(6)(0.1),
+      currentSigmas = Vector.fill(6)(Sigma(0.1)),
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
@@ -263,12 +263,12 @@ class TourismSpec extends AnyFlatSpec with Matchers:
         importConsumption = PLN.Zero,
         marketWage = PLN(5000),
         reservationWage = PLN(4000),
-        giniIndividual = Ratio.Zero,
-        giniWealth = Ratio.Zero,
+        giniIndividual = Share.Zero,
+        giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
         medianSavings = PLN.Zero,
-        povertyRate50 = Ratio.Zero,
-        bankruptcyRate = Ratio.Zero,
+        povertyRate50 = Share.Zero,
+        bankruptcyRate = Share.Zero,
         meanSkill = 0.0,
         meanHealthPenalty = 0.0,
         retrainingAttempts = 0,
@@ -277,14 +277,14 @@ class TourismSpec extends AnyFlatSpec with Matchers:
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
         meanMonthsToRuin = 0.0,
-        povertyRate30 = Ratio.Zero,
+        povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
         totalUnempBenefits = PLN.Zero,
         totalDepositInterest = PLN.Zero,
         crossSectorHires = 0,
         voluntaryQuits = 0,
-        sectorMobilityRate = Ratio.Zero,
+        sectorMobilityRate = Share.Zero,
         totalRemittances = PLN.Zero,
         totalPit = PLN.Zero,
         totalSocialTransfers = PLN.Zero,

@@ -58,8 +58,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val network = Array.fill(500)(Array.empty[Int])
     val hhs     = Household.Init.initialize(500, firms, network, rng)
     hhs.foreach { hh =>
-      hh.mpc should be >= Ratio(0.5)
-      hh.mpc should be <= Ratio(0.98)
+      hh.mpc should be >= Share(0.5)
+      hh.mpc should be <= Share(0.98)
     }
   }
 
@@ -69,8 +69,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val network = Array.fill(500)(Array.empty[Int])
     val hhs     = Household.Init.initialize(500, firms, network, rng)
     hhs.foreach { hh =>
-      hh.skill should be >= Ratio(0.3)
-      hh.skill should be <= Ratio.One
+      hh.skill should be >= Share(0.3)
+      hh.skill should be <= Share.One
     }
   }
 
@@ -111,21 +111,21 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng             = new Random(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), skill = 0.8)
     val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
-    updated(0).skill should be < Ratio(0.8)
+    updated(0).skill should be < Share(0.8)
   }
 
   it should "not decay skill before scarring onset" in {
     val rng             = new Random(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(100000.0), skill = 0.8)
     val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
-    updated(0).skill shouldBe Ratio(0.8)
+    updated(0).skill shouldBe Share(0.8)
   }
 
   it should "apply health scarring after onset" in {
     val rng             = new Random(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), healthPenalty = 0.0)
     val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
-    updated(0).healthPenalty should be > Ratio.Zero
+    updated(0).healthPenalty should be > Share.Zero
   }
 
   it should "bankrupt household when savings fall below threshold" in {
@@ -330,7 +330,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     agg.unemployed shouldBe 1
     agg.retraining shouldBe 1
     agg.bankrupt shouldBe 1
-    agg.bankruptcyRate shouldBe Ratio(0.2) +- Ratio(0.001)
+    agg.bankruptcyRate shouldBe Share(0.2) +- Share(0.001)
   }
 
   // --- helpers ---
@@ -342,9 +342,9 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         PLN(50000.0),
         PLN(0.0),
         TechState.Traditional(10),
-        Ratio(0.5),
+        Share(0.5),
         1.0,
-        Ratio(0.5),
+        Share(0.5),
         SectorIdx(i % p.sectorDefs.length),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -375,9 +375,9 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       savings,
       debt,
       rent,
-      Ratio(skill),
-      Ratio(healthPenalty),
-      Ratio(mpc),
+      Share(skill),
+      Share(healthPenalty),
+      Share(mpc),
       status,
       Array.empty[HhId],
       BankId(bankId),
@@ -387,8 +387,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
 
   private def mkWorld(): World =
@@ -415,12 +415,12 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         importConsumption = PLN.Zero,
         marketWage = PLN(p.household.baseWage.toDouble),
         reservationWage = PLN(p.household.baseReservationWage.toDouble),
-        giniIndividual = Ratio.Zero,
-        giniWealth = Ratio.Zero,
+        giniIndividual = Share.Zero,
+        giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
         medianSavings = PLN.Zero,
-        povertyRate50 = Ratio.Zero,
-        bankruptcyRate = Ratio.Zero,
+        povertyRate50 = Share.Zero,
+        bankruptcyRate = Share.Zero,
         meanSkill = 0.0,
         meanHealthPenalty = 0.0,
         retrainingAttempts = 0,
@@ -429,14 +429,14 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
         meanMonthsToRuin = 0.0,
-        povertyRate30 = Ratio.Zero,
+        povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
         totalUnempBenefits = PLN.Zero,
         totalDepositInterest = PLN.Zero,
         crossSectorHires = 0,
         voluntaryQuits = 0,
-        sectorMobilityRate = Ratio.Zero,
+        sectorMobilityRate = Share.Zero,
         totalRemittances = PLN.Zero,
         totalPit = PLN.Zero,
         totalSocialTransfers = PLN.Zero,

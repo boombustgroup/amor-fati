@@ -43,7 +43,7 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
     val density   = p.labor.unionDensity(publicIdx)
     val expected  = base * (1.0 + (premium * density).toDouble)
     // Public: 0.91 * (1 + 0.08 * 0.30) = 0.91 * 1.024 = 0.93184
-    expected shouldBe (0.932 +- 0.001)
+    expected.toDouble shouldBe (0.932 +- 0.001)
     expected should be > base
   }
 
@@ -110,12 +110,12 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
     val premium = 0.08
 
     // Compute relative wages without union
-    val baseRaw  = p.sectorDefs.map(_.wageMultiplier)
-    val baseMean = p.sectorDefs.map(s => s.wageMultiplier * s.share.toDouble).sum /
+    val baseRaw  = p.sectorDefs.map(_.wageMultiplier.toDouble)
+    val baseMean = p.sectorDefs.map(s => s.wageMultiplier.toDouble * s.share.toDouble).sum /
       p.sectorDefs.map(_.share.toDouble).sum
 
     // Compute relative wages with union
-    val unionRaw  = p.sectorDefs.zipWithIndex.map((s, i) => s.wageMultiplier * (1.0 + premium * sectors(i)))
+    val unionRaw  = p.sectorDefs.zipWithIndex.map((s, i) => s.wageMultiplier.toDouble * (1.0 + premium * sectors(i)))
     val unionMean =
       p.sectorDefs.zipWithIndex.map((s, i) => unionRaw(i) * s.share.toDouble).sum / p.sectorDefs.map(_.share.toDouble).sum
 

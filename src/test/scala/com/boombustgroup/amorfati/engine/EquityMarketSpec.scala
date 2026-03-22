@@ -16,7 +16,7 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     marketCap = PLN(1.4e12 * p.pop.firmsCount / 10000.0),
     earningsYield = Rate(0.10),
     dividendYield = Rate(0.057),
-    foreignOwnership = Ratio(0.67),
+    foreignOwnership = Share(0.67),
   )
 
   "EquityMarket.zero" should "return all-zero state" in {
@@ -25,7 +25,7 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     z.marketCap shouldBe PLN.Zero
     z.earningsYield shouldBe Rate.Zero
     z.dividendYield shouldBe Rate.Zero
-    z.foreignOwnership shouldBe Ratio.Zero
+    z.foreignOwnership shouldBe Share.Zero
     z.lastIssuance shouldBe PLN.Zero
     z.lastDomesticDividends shouldBe PLN.Zero
     z.lastForeignDividends shouldBe PLN.Zero
@@ -65,14 +65,14 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   "EquityMarket.computeDividends" should "return zeros for zero market cap" in {
-    val r = EquityMarket.computeDividends(Rate(0.057), PLN.Zero, Ratio(0.67))
+    val r = EquityMarket.computeDividends(Rate(0.057), PLN.Zero, Share(0.67))
     r shouldBe EquityMarket.DividendResultZero
   }
 
   "EquityMarket.computeDividends" should "compute correct split for given parameters" in {
     val mcap             = PLN(1e12)
     val divYield         = Rate(0.057)
-    val foreignShare     = Ratio(0.67)
+    val foreignShare     = Share(0.67)
     val r                = EquityMarket.computeDividends(divYield, mcap, foreignShare)
     val expectedTotal    = 0.057 * 1e12 / 12.0
     val expectedForeign  = expectedTotal * 0.67
@@ -86,7 +86,7 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return no foreign dividends when foreign share is zero" in {
-    val r           = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Ratio.Zero)
+    val r           = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Share.Zero)
     r.foreign shouldBe PLN.Zero
     val total       = 0.057 * 1e12 / 12.0
     val expectedTax = total * p.equity.divTax.toDouble
@@ -95,7 +95,7 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return no domestic dividends when foreign share is 1.0" in {
-    val r     = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Ratio.One)
+    val r     = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Share.One)
     r.netDomestic shouldBe PLN.Zero
     r.tax shouldBe PLN.Zero
     val total = 0.057 * 1e12 / 12.0
@@ -104,7 +104,7 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "apply Belka tax rate correctly" in {
     val mcap     = PLN(1e12)
-    val r        = EquityMarket.computeDividends(Rate(0.06), mcap, Ratio(0.50))
+    val r        = EquityMarket.computeDividends(Rate(0.06), mcap, Share(0.50))
     val total    = 0.06 * 1e12 / 12.0
     val domGross = total * 0.50
     r.tax.toDouble shouldBe (domGross * 0.19 +- 1.0)
@@ -113,6 +113,6 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "compute dividends based on market cap, not firm profits" in {
     // firmProfits param was removed — dividends depend only on divYield × marketCap
-    val r = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Ratio(0.67))
+    val r = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Share(0.67))
     r.netDomestic should be > PLN.Zero
   }

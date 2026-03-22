@@ -56,7 +56,7 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
     prevForex = makeForex(er),
     importCons = PLN(importCons),
     techImports = PLN(techImp),
-    autoRatio = Ratio(autoR),
+    autoRatio = Share(autoR),
     domesticRate = Rate(rate),
     gdp = PLN(gdp),
     priceLevel = price,
