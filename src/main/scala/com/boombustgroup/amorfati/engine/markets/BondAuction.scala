@@ -44,15 +44,17 @@ object BondAuction:
     * capital. Depreciation (positive = PLN weakening) deters via currency risk.
     * Clamped to [0, maxForeignShare] to prevent unrealistic extremes.
     */
+  @computationBoundary
   private[amorfati] def foreignDemandShare(
       marketYield: Rate,
       erChange: Coefficient,
   )(using p: SimParams): Share =
+    import ComputationBoundary.toDouble
     val spread      = marketYield - p.fiscal.bundYield
-    val yieldEffect = p.fiscal.foreignYieldSensitivity.toDouble * spread.toDouble
-    val erEffect    = p.fiscal.foreignErSensitivity.toDouble * erChange.toDouble
-    val raw         = p.fiscal.baseForeignShare.toDouble * (1.0 + yieldEffect - erEffect)
-    Share(raw.max(0.0).min(p.fiscal.maxForeignShare.toDouble))
+    val yieldEffect = toDouble(p.fiscal.foreignYieldSensitivity) * toDouble(spread)
+    val erEffect    = toDouble(p.fiscal.foreignErSensitivity) * toDouble(erChange)
+    val raw         = toDouble(p.fiscal.baseForeignShare) * (1.0 + yieldEffect - erEffect)
+    Share(raw.max(0.0).min(toDouble(p.fiscal.maxForeignShare)))
 
   /** Run the bond auction for this month's issuance.
     *

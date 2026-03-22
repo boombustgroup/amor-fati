@@ -73,10 +73,12 @@ object FiscalRules:
   /** SRW ceiling: previous spending × (1 + monthly inflation + monthly real cap
     * − output gap correction).
     */
+  @computationBoundary
   private def computeSrwCeiling(in: Input)(using p: SimParams): PLN =
-    val monthlyInflation = Multiplier(in.inflation.monthly.toDouble)              // Rate → Multiplier: used as growth increment
-    val monthlyRealCap   = Multiplier(p.fiscal.srwRealGrowthCap.monthly.toDouble) // Rate → Multiplier: growth allowance
-    val gapCorrection    = Multiplier((in.outputGap * p.fiscal.srwOutputGapSensitivity).toDouble / 12.0)
+    import ComputationBoundary.toDouble
+    val monthlyInflation = Multiplier(toDouble(in.inflation.monthly))
+    val monthlyRealCap   = Multiplier(toDouble(p.fiscal.srwRealGrowthCap.monthly))
+    val gapCorrection    = Multiplier(toDouble(in.outputGap * p.fiscal.srwOutputGapSensitivity) / 12.0)
     in.prevGovSpend * (Multiplier.One + monthlyInflation + monthlyRealCap - gapCorrection)
 
   /** Blend raw spending toward SRW ceiling at convergence speed. */

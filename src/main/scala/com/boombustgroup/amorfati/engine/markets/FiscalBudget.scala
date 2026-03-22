@@ -118,8 +118,8 @@ object FiscalBudget:
 
     val newCapitalStock =
       if p.flags.govInvest then
-        val monthlyDepreciation = p.fiscal.govDepreciationRate.toDouble / 12.0
-        in.prev.publicCapitalStock * Share(1.0 - monthlyDepreciation) + govCapital + in.euProjectCapital
+        val monthlyDeprecShare = p.fiscal.govDepreciationRate.monthly.toMultiplier.toShare
+        in.prev.publicCapitalStock * (Share.One - monthlyDeprecShare) + govCapital + in.euProjectCapital
       else PLN.Zero
 
     GovState(
