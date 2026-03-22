@@ -39,8 +39,8 @@ object PriceEquityStep:
   )
 
   case class Output(
-      autoR: Ratio,
-      hybR: Ratio,
+      autoR: Share,
+      hybR: Share,
       aggInventoryStock: PLN,
       aggGreenCapital: PLN,
       euMonthly: PLN,
@@ -48,7 +48,7 @@ object PriceEquityStep:
       euProjectCapital: PLN,
       gdp: PLN,
       newMacropru: Macroprudential.State,
-      newSigmas: Vector[Double],
+      newSigmas: Vector[Sigma],
       rewiredFirms: Vector[Firm.State],
       newInfl: Rate,
       newPrice: Double,
@@ -109,22 +109,23 @@ object PriceEquityStep:
     *   updated sigma vector (never decreasing — ratchet)
     */
   private[steps] def evolveSigmas(
-      currentSigmas: Vector[Double],
+      currentSigmas: Vector[Sigma],
       baseSigmas: Vector[Double],
       sectorAdoption: Vector[Double],
       lambda: Double,
       capMult: Double,
-  ): Vector[Double] =
+  ): Vector[Sigma] =
     // Fast path: when lambda=0 the mechanism is disabled — sigma is static across the entire simulation.
     // This is the default for baseline runs and backward-compatible experiments.
     if lambda == 0.0 then currentSigmas
     else
       currentSigmas.zip(baseSigmas).zip(sectorAdoption).map { case ((sig, base), adopt) =>
+        val s     = sig.toDouble
         val cap   = base * capMult
-        // Logistic delta: positive when sig < cap and adopt > 0; approaches zero as sig → cap.
-        val delta = lambda * sig * adopt * (1.0 - sig / cap)
+        // Logistic delta: positive when s < cap and adopt > 0; approaches zero as s → cap.
+        val delta = lambda * s * adopt * (1.0 - s / cap)
         // Ratchet (max with current) ensures sigma never decreases; hard cap ensures it never overshoots.
-        Math.min(cap, Math.max(sig, sig + delta))
+        Sigma(Math.min(cap, Math.max(s, s + delta)))
       }
 
   // ---------------------------------------------------------------------------
@@ -232,9 +233,9 @@ object PriceEquityStep:
           cash = PLN(rng.between(StartupCashMin, StartupCashMax) * sizeMult),
           debt = PLN.Zero,
           tech = TechState.Traditional(newSize),
-          riskProfile = Ratio(rng.between(RiskProfileMin, RiskProfileMax)),
+          riskProfile = Share(rng.between(RiskProfileMin, RiskProfileMax)),
           innovationCostFactor = rng.between(InnovCostMin, InnovCostMax),
-          digitalReadiness = Ratio(
+          digitalReadiness = Share(
             Math.max(
               DigitalReadyFloor,
               Math.min(DigitalReadyCap, p.sectorDefs(sec.toInt).baseDigitalReadiness.toDouble + (rng.nextGaussian() * DigitalReadyNoise)),
@@ -314,9 +315,9 @@ object PriceEquityStep:
           .count(f => f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid])
           .toDouble / secFirms.length
     }.toVector
-    val baseSigmas     = p.sectorDefs.map(_.sigma).toVector
+    val baseSigmas     = p.sectorDefs.map(_.sigma.toDouble).toVector
     val newSigmas      =
-      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
+      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult.toDouble)
 
     val rewiredFirms = rewireFirms(in.s5.ioFirms, p.firm.rewireRho.toDouble, rng)
 
@@ -374,8 +375,8 @@ object PriceEquityStep:
     val dividendTax            = dividends.tax.toDouble
 
     Output(
-      Ratio(autoR),
-      Ratio(hybR),
+      Share(autoR),
+      Share(hybR),
       PLN(aggInventoryStock),
       PLN(aggGreenCapital),
       PLN(euMonthly),

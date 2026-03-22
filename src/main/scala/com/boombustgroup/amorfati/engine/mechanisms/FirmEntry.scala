@@ -45,8 +45,8 @@ object FirmEntry:
 
   def process(
       firms: Vector[Firm.State],
-      automationRatio: Ratio,
-      hybridRatio: Ratio,
+      automationRatio: Share,
+      hybridRatio: Share,
       rng: Random,
   )(using p: SimParams): Result =
     val living        = firms.filter(Firm.isAlive)
@@ -90,7 +90,7 @@ object FirmEntry:
       slotId: FirmId,
       totalWeight: Double,
       sectorWeights: Vector[Double],
-      totalAdoption: Ratio,
+      totalAdoption: Share,
       livingIds: Vector[Int],
       rng: Random,
   )(using p: SimParams): Firm.State =
@@ -109,7 +109,7 @@ object FirmEntry:
       cash = p.firm.entryStartupCash * sizeMult,
       debt = PLN.Zero,
       tech = tech,
-      riskProfile = Ratio(rng.between(0.1, 0.9)),
+      riskProfile = Share(rng.between(0.1, 0.9)),
       innovationCostFactor = rng.between(0.8, 1.5),
       digitalReadiness = dr,
       sector = SectorIdx(newSector),
@@ -143,11 +143,11 @@ object FirmEntry:
     * conventional entrants draw from sector baseline with Gaussian noise,
     * clamped to the feasible range for non-digital firms.
     */
-  private def drawDigitalReadiness(isAiNative: Boolean, sector: Int, rng: Random)(using p: SimParams): Ratio =
-    if isAiNative then Ratio(rng.between(AiNativeMinDr, AiNativeMaxDr))
+  private def drawDigitalReadiness(isAiNative: Boolean, sector: Int, rng: Random)(using p: SimParams): Share =
+    if isAiNative then Share(rng.between(AiNativeMinDr, AiNativeMaxDr))
     else
-      Ratio(p.sectorDefs(sector).baseDigitalReadiness.toDouble + rng.nextGaussian() * ConventionalDrNoise)
-        .clamp(Ratio(ConventionalDrFloor), Ratio(ConventionalDrCap))
+      Share(p.sectorDefs(sector).baseDigitalReadiness.toDouble + rng.nextGaussian() * ConventionalDrNoise)
+        .clamp(Share(ConventionalDrFloor), Share(ConventionalDrCap))
 
   /** Assign network neighbors from the living firm population. */
   private def assignNeighbors(livingIds: Vector[Int], rng: Random): Vector[FirmId] =

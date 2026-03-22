@@ -81,8 +81,10 @@ case class HousingConfig(
     regionalHpi: Vector[Double] = Vector(230.0, 190.0, 170.0, 175.0, 110.0, 140.0, 100.0),
     regionalValueShares: Vector[Share] = Vector(Share(0.25), Share(0.08), Share(0.07), Share(0.08), Share(0.04), Share(0.05), Share(0.43)),
     regionalMortgageShares: Vector[Share] = Vector(Share(0.30), Share(0.10), Share(0.08), Share(0.09), Share(0.04), Share(0.06), Share(0.33)),
-    regionalGammas: Vector[Coefficient] = Vector(Coefficient(0.03), Coefficient(0.04), Coefficient(0.04), Coefficient(0.04), Coefficient(0.06), Coefficient(0.05), Coefficient(0.06)),
-    regionalIncomeMult: Vector[Multiplier] = Vector(Multiplier(1.35), Multiplier(1.15), Multiplier(1.10), Multiplier(1.12), Multiplier(0.95), Multiplier(1.05), Multiplier(0.82)),
+    regionalGammas: Vector[Coefficient] =
+      Vector(Coefficient(0.03), Coefficient(0.04), Coefficient(0.04), Coefficient(0.04), Coefficient(0.06), Coefficient(0.05), Coefficient(0.06)),
+    regionalIncomeMult: Vector[Multiplier] =
+      Vector(Multiplier(1.35), Multiplier(1.15), Multiplier(1.10), Multiplier(1.12), Multiplier(0.95), Multiplier(1.05), Multiplier(0.82)),
 ):
   require(ltvMax > Share.Zero && ltvMax <= Share.One, s"ltvMax must be in (0,1]: $ltvMax")
   require(mortgageMaturity > 0, s"mortgageMaturity must be positive: $mortgageMaturity")

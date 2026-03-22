@@ -40,7 +40,7 @@ object EquityMarket:
       marketCap: PLN,
       earningsYield: Rate,
       dividendYield: Rate,
-      foreignOwnership: Ratio,
+      foreignOwnership: Share,
       lastIssuance: PLN = PLN.Zero,
       lastDomesticDividends: PLN = PLN.Zero,
       lastForeignDividends: PLN = PLN.Zero,
@@ -55,7 +55,7 @@ object EquityMarket:
     marketCap = PLN.Zero,
     earningsYield = Rate.Zero,
     dividendYield = Rate.Zero,
-    foreignOwnership = Ratio.Zero,
+    foreignOwnership = Share.Zero,
   )
 
   def initial(using p: SimParams): State = State(
@@ -146,7 +146,7 @@ object EquityMarket:
   def computeDividends(
       divYield: Rate,
       marketCap: PLN,
-      foreignShare: Ratio,
+      foreignShare: Share,
   )(using p: SimParams): DividendResult =
     if marketCap <= PLN.Zero then DividendResultZero
     else

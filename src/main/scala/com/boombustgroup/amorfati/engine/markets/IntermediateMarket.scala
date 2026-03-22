@@ -29,7 +29,7 @@ object IntermediateMarket:
       price: Double,
       ioMatrix: Vector[Vector[Double]],
       columnSums: Vector[Double],
-      scale: Ratio = Ratio.One,
+      scale: Multiplier = Multiplier.One,
   )
 
   /** @param firms

@@ -60,7 +60,7 @@ case class LaborConfig(
     unionRigidity: Share = Share(0.50),
     // Skills-biased technological change (Acemoglu & Restrepo 2020, Autor 2024)
     sbtcEduRoutineness: Vector[Share] = Vector(Share(0.80), Share(0.65), Share(0.45), Share(0.25)), // Primary, Vocational, Secondary, Tertiary
-    sbtcComplementPremium: Share = Share(0.15),                          // max wage premium for AI-complemented cognitive workers
+    sbtcComplementPremium: Share = Share(0.15),                                                     // max wage premium for AI-complemented cognitive workers
     // Expectations (Carroll 2003, Bewley 1999)
     expLambda: Coefficient = Coefficient(0.70),
     expCredibilityInit: Share = Share(0.80),

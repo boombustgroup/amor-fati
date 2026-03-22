@@ -139,8 +139,8 @@ import com.boombustgroup.amorfati.types.*
 case class FiscalConfig(
     // Tax rates
     citRate: Rate = Rate(0.19),
-    citCarryforwardMaxShare: Share = Share(0.50),    // max 50% of profit offset per year (Art. 7 ustawy o CIT)
-    citCarryforwardDecay: Rate = Rate(1.0 / 60),     // monthly decay ≈ 5-year expiry horizon
+    citCarryforwardMaxShare: Share = Share(0.50),             // max 50% of profit offset per year (Art. 7 ustawy o CIT)
+    citCarryforwardDecay: Rate = Rate(1.0 / 60),              // monthly decay ≈ 5-year expiry horizon
     vatRates: Vector[Rate] = Vector(Rate(0.23), Rate(0.19), Rate(0.12), Rate(0.06), Rate(0.10), Rate(0.07)),
     exciseRates: Vector[Rate] = Vector(Rate(0.01), Rate(0.04), Rate(0.03), Rate(0.005), Rate(0.002), Rate(0.02)),
     customsDutyRate: Rate = Rate(0.04),
@@ -190,16 +190,16 @@ case class FiscalConfig(
     bundYield: Rate = Rate(0.025),
     bankBondAbsorptionShare: Share = Share(0.30),
     // Fiscal rules (Art. 216 Konstytucja RP, SRW Art. 112aa uFP, SGP)
-    fiscalRuleDebtCeiling: Share = Share(0.60),      // Art. 216: constitutional 60% debt/GDP ceiling
-    fiscalRuleCautionThreshold: Share = Share(0.55), // Art. 86 uFP: cautionary 55% debt/GDP threshold
-    srwRealGrowthCap: Rate = Rate(0.015),            // SRW: max real growth allowance (CPI + 1.5pp)
-    srwCorrectionSpeed: Share = Share(0.33),         // SRW: annual convergence speed toward ceiling
-    srwOutputGapSensitivity: Coefficient = Coefficient(0.50),    // SRW: correction term sensitivity to output gap
-    fiscalConsolidationSpeed55: Share = Share(0.10), // annual spending cut rate at 55% threshold
-    fiscalConsolidationSpeed60: Share = Share(0.25), // annual spending cut rate at 60% threshold
-    sgpDeficitLimit: Share = Share(0.03),            // SGP: 3% deficit/GDP Maastricht limit
-    fiscalRiskBeta55: Coefficient = Coefficient(3.5),              // bond yield sensitivity above 55% debt/GDP
-    fiscalRiskBeta60: Coefficient = Coefficient(6.0),              // bond yield sensitivity above 60% debt/GDP
+    fiscalRuleDebtCeiling: Share = Share(0.60),               // Art. 216: constitutional 60% debt/GDP ceiling
+    fiscalRuleCautionThreshold: Share = Share(0.55),          // Art. 86 uFP: cautionary 55% debt/GDP threshold
+    srwRealGrowthCap: Rate = Rate(0.015),                     // SRW: max real growth allowance (CPI + 1.5pp)
+    srwCorrectionSpeed: Share = Share(0.33),                  // SRW: annual convergence speed toward ceiling
+    srwOutputGapSensitivity: Coefficient = Coefficient(0.50), // SRW: correction term sensitivity to output gap
+    fiscalConsolidationSpeed55: Share = Share(0.10),          // annual spending cut rate at 55% threshold
+    fiscalConsolidationSpeed60: Share = Share(0.25),          // annual spending cut rate at 60% threshold
+    sgpDeficitLimit: Share = Share(0.03),                     // SGP: 3% deficit/GDP Maastricht limit
+    fiscalRiskBeta55: Coefficient = Coefficient(3.5),         // bond yield sensitivity above 55% debt/GDP
+    fiscalRiskBeta60: Coefficient = Coefficient(6.0),         // bond yield sensitivity above 60% debt/GDP
     // Government debt (raw — scaled by gdpRatio in SimParams.defaults)
     initGovDebt: PLN = PLN(1600e9),
     // JST (local government, Art. 4 Ustawa o dochodach JST)

@@ -40,7 +40,7 @@ object CorporateBondMarket:
       lastDefaultLoss: PLN = PLN.Zero,
       lastDefaultAmount: PLN = PLN.Zero,
       creditSpread: Rate = Rate(0.025),
-      lastAbsorptionRate: Ratio = Ratio.One,
+      lastAbsorptionRate: Share = Share.One,
   )
   def zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero)
 
@@ -60,7 +60,7 @@ object CorporateBondMarket:
   /** Compute current corporate bond yield = gov bond yield + credit spread.
     * Spread widens with system NPL (credit risk channel).
     */
-  def computeYield(govBondYield: Rate, nplRatio: Ratio)(using p: SimParams): Rate =
+  def computeYield(govBondYield: Rate, nplRatio: Share)(using p: SimParams): Rate =
     val cyclicalSpread = p.corpBond.spread * (1.0 + (nplRatio * NplSensitivity).toDouble)
     val spread         = cyclicalSpread.min(Rate(MaxSpread))
     (govBondYield + spread).max(Rate(MinYield))
@@ -121,10 +121,10 @@ object CorporateBondMarket:
     * @return
     *   absorption rate in [0.3, 1.0]
     */
-  def computeAbsorption(state: State, tentativeIssuance: PLN, aggBankCar: Ratio, minCar: Ratio)(using
+  def computeAbsorption(state: State, tentativeIssuance: PLN, aggBankCar: Multiplier, minCar: Multiplier)(using
       p: SimParams,
-  ): Ratio =
-    if tentativeIssuance <= PLN.Zero then Ratio.One
+  ): Share =
+    if tentativeIssuance <= PLN.Zero then Share.One
     else
       val excessSpread     = Math.max(0.0, state.creditSpread.toDouble - p.corpBond.spread.toDouble)
       val spreadAbsorption = Math.max(MinAbsorption, 1.0 - excessSpread / SpreadAbsorptionCap)
@@ -132,7 +132,7 @@ object CorporateBondMarket:
         if aggBankCar <= minCar then MinAbsorption
         else if aggBankCar.toDouble >= minCar.toDouble + CarBufferZone then 1.0
         else MinAbsorption + (1.0 - MinAbsorption) * (aggBankCar.toDouble - minCar.toDouble) / CarBufferZone
-      Ratio(spreadAbsorption * carAbsorption).clamp(Ratio(MinAbsorption), Ratio.One)
+      Share(spreadAbsorption * carAbsorption).clamp(Share(MinAbsorption), Share.One)
 
   /** Process new issuance: allocate to holders proportionally. */
   def processIssuance(state: State, issuance: PLN)(using p: SimParams): State =
@@ -152,7 +152,7 @@ object CorporateBondMarket:
   case class StepInput(
       prev: State,
       govBondYield: Rate,
-      nplRatio: Ratio,
+      nplRatio: Share,
       totalBondDefault: PLN,
       totalBondIssuance: PLN,
   )

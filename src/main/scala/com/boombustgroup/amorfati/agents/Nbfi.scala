@@ -124,8 +124,8 @@ object Nbfi:
       employed: Int,                               // employed workers
       wage: PLN,                                   // average monthly wage
       @scala.annotation.unused priceLevel: Double, // CPI price level (unused in current spec, kept for interface stability)
-      unempRate: Share,                              // unemployment rate
-      bankNplRatio: Share,                           // aggregate bank NPL ratio (tightness signal)
+      unempRate: Share,                            // unemployment rate
+      bankNplRatio: Share,                         // aggregate bank NPL ratio (tightness signal)
       govBondYield: Rate,                          // government bond yield (annualised)
       corpBondYield: Rate,                         // corporate bond yield (annualised)
       equityReturn: Rate,                          // equity monthly return

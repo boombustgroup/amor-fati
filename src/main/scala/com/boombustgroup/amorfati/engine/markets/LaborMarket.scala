@@ -35,9 +35,9 @@ object LaborMarket:
   /** Logistic labor supply curve: fraction of population willing to work at
     * given wage. Steepness controlled by p.household.laborSupplySteepness.
     */
-  private def laborSupplyRatio(wage: PLN, resWage: PLN)(using p: SimParams): Ratio =
+  private def laborSupplyRatio(wage: PLN, resWage: PLN)(using p: SimParams): Share =
     val x = p.household.laborSupplySteepness * (wage / resWage - 1.0)
-    Ratio(1.0 / (1.0 + Math.exp(-x)))
+    Share(1.0 / (1.0 + Math.exp(-x)))
 
   /** Aggregate wage clearing: adjust market wage via excess demand, then
     * compute employment. New wage = max(reservationWage, prevWage × (1 +
@@ -48,7 +48,7 @@ object LaborMarket:
   ): WageResult =
     val supplyAtPrev = (totalPopulation * laborSupplyRatio(prevWage, resWage).toDouble).toInt
     val excessDemand = (laborDemand - supplyAtPrev).toDouble / totalPopulation
-    val wageGrowth   = Ratio(excessDemand * p.household.wageAdjSpeed.toDouble)
+    val wageGrowth   = Coefficient(excessDemand * p.household.wageAdjSpeed.toDouble)
     val newWage      = resWage.max(prevWage * (1.0 + wageGrowth.toDouble))
     val newSupply    = (totalPopulation * laborSupplyRatio(newWage, resWage).toDouble).toInt
     val employed     = Math.min(laborDemand, newSupply)
@@ -108,7 +108,7 @@ object LaborMarket:
   ): Vector[Household.State] =
     val rawWages = households.map(rawRelativeWage(_, firms))
     val rawMean  = employedMeanRawWage(households, rawWages)
-    val scale    = if rawMean > Ratio(0.0) then Ratio(1.0 / rawMean.toDouble) else Ratio(1.0)
+    val scale    = if rawMean > Multiplier(0.0) then Multiplier(1.0 / rawMean.toDouble) else Multiplier(1.0)
     applyNormalizedWages(households, rawWages, marketWage, scale)
 
   // --- Shared helpers ---
@@ -389,7 +389,7 @@ object LaborMarket:
   // --- Wage helpers ---
 
   /** Raw relative wage weight for a household (unnormalized). */
-  private def rawRelativeWage(hh: Household.State, firms: Vector[Firm.State])(using p: SimParams): Ratio =
+  private def rawRelativeWage(hh: Household.State, firms: Vector[Firm.State])(using p: SimParams): Multiplier =
     hh.status match
       case HhStatus.Employed(firmId, sectorIdx, _) =>
         val immigrantDiscount =
@@ -397,11 +397,11 @@ object LaborMarket:
           else 1.0
         val aiComplement      = aiComplementFactor(hh, firms(firmId.toInt))
         val scarDiscount      = 1.0 - hh.wageScar.toDouble
-        Ratio(
+        Multiplier(
           Firm.effectiveWageMult(sectorIdx).toDouble * effectiveSkill(hh) * immigrantDiscount *
             p.social.eduWagePremium(hh.education) * aiComplement * scarDiscount,
         )
-      case _                                       => Ratio(0.0)
+      case _                                       => Multiplier(0.0)
 
   /** AI-complement wage premium: cognitive workers in automated/hybrid firms
     * get a wage boost (1 - routineness) × complementPremium. Routine workers
@@ -418,24 +418,24 @@ object LaborMarket:
   /** Mean raw wage across employed households (Kahan summation). */
   private def employedMeanRawWage(
       households: Vector[Household.State],
-      rawWages: Vector[Ratio],
-  ): Ratio =
+      rawWages: Vector[Multiplier],
+  ): Multiplier =
     val employedIndices = households.indices.flatMap: i =>
       households(i).status match
         case _: HhStatus.Employed => Some(i)
         case _                    => None
     if employedIndices.nonEmpty
-    then Ratio(employedIndices.kahanSumBy(i => rawWages(i).toDouble) / employedIndices.length)
-    else Ratio(1.0)
+    then Multiplier(employedIndices.kahanSumBy(i => rawWages(i).toDouble) / employedIndices.length)
+    else Multiplier(1.0)
 
   /** Apply normalized wages: each employed gets marketWage × (rawWeight ×
     * scale).
     */
   private def applyNormalizedWages(
       households: Vector[Household.State],
-      rawWages: Vector[Ratio],
+      rawWages: Vector[Multiplier],
       marketWage: PLN,
-      scale: Ratio,
+      scale: Multiplier,
   ): Vector[Household.State] =
     households.zipWithIndex.map: (hh, i) =>
       hh.status match

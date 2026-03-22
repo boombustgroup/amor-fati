@@ -53,8 +53,8 @@ object DemandStep:
     val zusNetSurplus =
       if p.flags.zus then (in.w.social.zus.contributions - in.w.social.zus.pensionPayments).max(PLN.Zero)
       else PLN.Zero
-    val unempRate     = Ratio(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
-    val unempGap      = (unempRate - p.monetary.nairu).max(Ratio.Zero)
+    val unempRate     = Share(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
+    val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
     val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
     val target        = p.fiscal.govBaseSpending * Math.max(1.0, in.w.priceLevel) +
       (in.w.gov.taxRevenue + zusNetSurplus) * p.fiscal.govFiscalRecyclingRate + stimulus
@@ -65,8 +65,8 @@ object DemandStep:
     */
   private def applyFiscalRules(in: Input, rawTarget: PLN)(using p: SimParams): FiscalRules.Output =
     val prevGovSpend = in.w.gov.govCurrentSpend + in.w.gov.govCapitalSpend
-    val unempRate    = Ratio.One - Ratio.fraction(in.s2.employed, in.w.totalPopulation)
-    val outputGap    = Ratio((unempRate - p.monetary.nairu) / p.monetary.nairu)
+    val unempRate    = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation)
+    val outputGap    = Coefficient((unempRate - p.monetary.nairu) / p.monetary.nairu)
 
     val floored =
       if prevGovSpend > PLN.Zero then rawTarget.max(prevGovSpend * GovSpendingFloor)
@@ -154,7 +154,7 @@ object DemandStep:
       .map: s =>
         if rawMults(s) < 1.0 then (1.0 - rawMults(s)) * sectorCap(s) * priceLevel else 0.0
       .kahanSum
-    val spilloverFrac   = if deficitCapacity > 0 then Ratio(excessDemand / deficitCapacity).min(Ratio.One).toDouble else 0.0
+    val spilloverFrac   = if deficitCapacity > 0 then Share(excessDemand / deficitCapacity).min(Share.One).toDouble else 0.0
     rawMults.indices
       .map: s =>
         if rawMults(s) > 1.0 then 1.0

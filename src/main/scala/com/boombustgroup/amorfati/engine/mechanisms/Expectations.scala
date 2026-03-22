@@ -26,7 +26,7 @@ object Expectations:
   case class State(
       expectedInflation: Rate,  // πᵉ: anchored inflation expectation
       expectedRate: Rate,       // rᵉ: expected policy rate
-      credibility: Ratio,       // κ ∈ [0.01, 1.0]: CB credibility index
+      credibility: Share,       // κ ∈ [0.01, 1.0]: CB credibility index
       forecastError: Rate,      // eₜ = πₜ − πᵉₜ₋₁
       forwardGuidanceRate: Rate, // Taylor-rule implied rate (= currentRate when FG off)
   )
@@ -66,7 +66,7 @@ object Expectations:
     State(
       expectedInflation = Rate(expected),
       expectedRate = Rate(expRate),
-      credibility = Ratio(newCred),
+      credibility = Share(newCred),
       forecastError = Rate(error),
       forwardGuidanceRate = Rate(fgRate),
     )
@@ -87,7 +87,7 @@ object Expectations:
   private def forwardGuidance(expected: Double, target: Double, unemployment: Double, currentRate: Double)(using p: SimParams): Double =
     if !p.flags.nbpForwardGuidance then currentRate
     else
-      val nairu        = p.monetary.nairu.toDouble // Ratio → Double: function operates in Double space
+      val nairu        = p.monetary.nairu.toDouble // Share → Double: function operates in Double space
       val rawOutputGap = (unemployment - nairu) / nairu
       val outputGap    = Math.max(-OutputGapClamp, Math.min(OutputGapClamp, rawOutputGap))
       val rawFg        = p.monetary.neutralRate.toDouble + p.monetary.taylorAlpha * (expected - target) - p.monetary.taylorDelta * outputGap

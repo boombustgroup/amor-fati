@@ -83,7 +83,8 @@ case class FirmConfig(
     // Entry
     entryRate: Share = Share(0.02),
     entryProfitSens: Coefficient = Coefficient(2.0),
-    entrySectorBarriers: Vector[Coefficient] = Vector(Coefficient(0.8), Coefficient(0.6), Coefficient(1.2), Coefficient(0.5), Coefficient(0.1), Coefficient(0.7)),
+    entrySectorBarriers: Vector[Coefficient] =
+      Vector(Coefficient(0.8), Coefficient(0.6), Coefficient(1.2), Coefficient(0.5), Coefficient(0.1), Coefficient(0.7)),
     entryAiThreshold: Share = Share(0.15),
     entryAiProb: Share = Share(0.20),
     entryStartupCash: PLN = PLN(50000.0),
@@ -95,8 +96,8 @@ case class FirmConfig(
     digiInvestBaseProb: Share = Share(0.08),
     // Labor adjustment (smooth hiring/firing)
     laborAdjustSpeed: Coefficient = Coefficient(0.15), // monthly partial adjustment toward target (λ)
-    severanceMonths: Double = 2.0,         // months of wage per fired worker (Kodeks Pracy)
-    minWorkersRetained: Int = 3,           // hard floor on workforce
+    severanceMonths: Double = 2.0,                     // months of wage per fired worker (Kodeks Pracy)
+    minWorkersRetained: Int = 3,                       // hard floor on workforce
     // Network / demonstration effects
     networkK: Int = 6,
     networkRewireP: Share = Share(0.10),

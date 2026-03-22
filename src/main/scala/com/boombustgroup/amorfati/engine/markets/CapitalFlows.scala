@@ -59,7 +59,7 @@ object CapitalFlows:
   def compute(
       month: Int,
       yieldSpread: Rate,
-      bidToCover: Ratio,
+      bidToCover: Multiplier,
       prevCarry: CarryState,
       monthlyGdp: PLN,
   )(using p: SimParams): Result =

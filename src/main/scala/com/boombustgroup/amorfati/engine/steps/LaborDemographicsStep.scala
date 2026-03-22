@@ -25,7 +25,7 @@ object LaborDemographicsStep:
       newWage: PLN,                                      // market-clearing wage after Phillips curve + expectations + union adjustments
       employed: Int,                                     // total employed workers across all living firms
       laborDemand: Int,                                  // aggregate labor demand (sum of firm worker counts)
-      wageGrowth: Ratio,                                 // month-on-month nominal wage growth rate
+      wageGrowth: Coefficient,                           // month-on-month nominal wage growth rate
       newImmig: Immigration.State,                       // updated immigration state (inflows, outflows)
       netMigration: Int,                                 // net migration this month (inflow minus outflow)
       newDemographics: SocialSecurity.DemographicsState, // updated demographics (working-age pop, retirees)
@@ -107,7 +107,7 @@ object LaborDemographicsStep:
       PLN(newWage),
       employed,
       laborDemand,
-      Ratio(wageGrowth),
+      Coefficient(wageGrowth),
       newImmig,
       netMigration,
       newDemographics,

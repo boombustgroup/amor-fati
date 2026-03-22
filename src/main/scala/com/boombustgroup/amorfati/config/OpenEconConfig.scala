@@ -52,7 +52,7 @@ case class OpenEconConfig(
     importContent: Vector[Share] = Vector(Share(0.15), Share(0.50), Share(0.20), Share(0.15), Share(0.05), Share(0.12)),
     erFloor: Double = 2.5,
     erCeiling: Double = 10.0,
-    exportBase: PLN = PLN(138.5e9),  // raw — scaled by gdpRatio
+    exportBase: PLN = PLN(138.5e9),           // raw — scaled by gdpRatio
     importPushCap: Share = Share(0.03),
     foreignGdpGrowth: Rate = Rate(0.015),
     exportPriceElasticity: Coefficient = Coefficient(0.8),
@@ -60,11 +60,11 @@ case class OpenEconConfig(
     erElasticity: Coefficient = Coefficient(0.5),
     ulcExportBoost: Coefficient = Coefficient(0.15),
     nfaReturnRate: Rate = Rate(0.03),
-    euTransfers: PLN = PLN(1.458e9), // raw — scaled by gdpRatio
-    fdiBase: PLN = PLN(583.1e6),     // raw — scaled by gdpRatio
+    euTransfers: PLN = PLN(1.458e9),          // raw — scaled by gdpRatio
+    fdiBase: PLN = PLN(583.1e6),              // raw — scaled by gdpRatio
     portfolioSensitivity: Coefficient = Coefficient(0.20),
     riskPremiumSensitivity: Coefficient = Coefficient(0.10),
-    pppSpeed: Coefficient = Coefficient(0.10),   // annual convergence speed toward PPP equilibrium (Rogoff 1996: 3-5yr half-life)
+    pppSpeed: Coefficient = Coefficient(0.10), // annual convergence speed toward PPP equilibrium (Rogoff 1996: 3-5yr half-life)
 ):
   require(erFloor > 0, s"erFloor must be positive: $erFloor")
   require(erFloor < erCeiling, s"erFloor ($erFloor) must be < erCeiling ($erCeiling)")

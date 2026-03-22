@@ -282,7 +282,7 @@ object HousingMarket:
     * Returns both gross defaultAmount (for stock reduction) and net defaultLoss
     * (after recovery, for bank P&L).
     */
-  def processMortgageFlows(prev: State, mortgageRate: Rate, unemploymentRate: Ratio)(using p: SimParams): MortgageFlows =
+  def processMortgageFlows(prev: State, mortgageRate: Rate, unemploymentRate: Share)(using p: SimParams): MortgageFlows =
     if !p.flags.re || prev.mortgageStock <= PLN.Zero
     then MortgageFlows(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     else
@@ -290,9 +290,9 @@ object HousingMarket:
       val interest      = stock * mortgageRate.max(Rate.Zero).monthly
       val principal     = stock / p.housing.mortgageMaturity.toDouble
       val defaultRate   = p.housing.defaultBase +
-        Ratio(p.housing.defaultUnempSens * (unemploymentRate - Ratio(0.05)).max(Ratio.Zero).toDouble)
+        Share(p.housing.defaultUnempSens * (unemploymentRate - Share(0.05)).max(Share.Zero).toDouble)
       val defaultAmount = stock * defaultRate
-      val defaultLoss   = defaultAmount * (Ratio.One - p.housing.mortgageRecovery)
+      val defaultLoss   = defaultAmount * (Share.One - p.housing.mortgageRecovery)
       MortgageFlows(interest, principal, defaultAmount, defaultLoss)
 
   // --- Apply flows ---

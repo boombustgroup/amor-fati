@@ -31,7 +31,7 @@ object GvcTrade:
       baseExportDemand: PLN,
       baseImportSupply: PLN,
       priceIndex: Double,
-      disruption: Ratio,
+      disruption: Share,
   )
 
   case class State(
@@ -40,10 +40,10 @@ object GvcTrade:
       totalIntermImports: PLN = PLN.Zero,
       sectorExports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
       sectorImports: Vector[PLN] = Vector.fill(6)(PLN.Zero),
-      disruptionIndex: Ratio = Ratio.Zero,
+      disruptionIndex: Share = Share.Zero,
       foreignPriceIndex: PriceIndex = PriceIndex.Base,
-      tradeConcentration: Ratio = Ratio.Zero,
-      exportDemandShockMag: Ratio = Ratio.Zero,
+      tradeConcentration: Share = Share.Zero,
+      exportDemandShockMag: Share = Share.Zero,
       importCostIndex: PriceIndex = PriceIndex.Base,
       commodityPriceIndex: PriceIndex = PriceIndex.Base,
   )
@@ -71,7 +71,7 @@ object GvcTrade:
         baseExportDemand = PLN(exportBase * exportShares(s) * ps),
         baseImportSupply = PLN(exportBase * depths(s) * ps),
         priceIndex = 1.0,
-        disruption = Ratio.Zero,
+        disruption = Share.Zero,
       )
 
     State(firms, foreignPriceIndex = PriceIndex.Base, tradeConcentration = hhi(euShare))
@@ -96,12 +96,12 @@ object GvcTrade:
     val commodityNoise      = p.gvc.commodityVolatility * in.rng.nextGaussian()
     val commodityShock      =
       if p.gvc.commodityShockMonth > 0 && in.month == p.gvc.commodityShockMonth then p.gvc.commodityShockMag
-      else Shock.Zero
+      else Multiplier.Zero
     val commodityGrowth     = commodityShock + (commodityDrift + 1.0 + commodityNoise)
     val newCommodity        = in.prev.commodityPriceIndex * commodityGrowth
     val newImportCost       = newForeignPrice * newCommodity
     val shockActive         = p.gvc.demandShockMonth > 0 && in.month >= p.gvc.demandShockMonth
-    val shockMag            = if shockActive then p.gvc.demandShockSize else Ratio.Zero
+    val shockMag            = if shockActive then p.gvc.demandShockSize else Share.Zero
     val updatedFirms        = evolveFirms(in.prev.foreignFirms, monthlyInflationRaw, shockActive, in.month)
     val foreignGdpFactor    = Math.pow(1.0 + p.gvc.foreignGdpGrowth.monthly.toDouble, in.month.toDouble)
     val erEffect            = realExchangeRateEffect(in.priceLevel, in.exchangeRate)
@@ -142,7 +142,7 @@ object GvcTrade:
         then ff.copy(baseExportDemand = ff.baseExportDemand * (1.0 - p.gvc.demandShockSize.toDouble))
         else ff
       afterShock.copy(
-        disruption = Ratio(afterShock.disruption.toDouble * (1.0 - recoveryRate)),
+        disruption = Share(afterShock.disruption.toDouble * (1.0 - recoveryRate)),
         priceIndex = afterShock.priceIndex * (1.0 + monthlyInflation),
       )
 
@@ -206,16 +206,16 @@ object GvcTrade:
     else 0.0
 
   /** Demand-weighted disruption index across all firms. */
-  private def weightedDisruption(firms: Vector[ForeignFirm]): Ratio =
-    if firms.isEmpty then Ratio.Zero
+  private def weightedDisruption(firms: Vector[ForeignFirm]): Share =
+    if firms.isEmpty then Share.Zero
     else
       val totalDemand = firms.kahanSumBy(_.baseExportDemand.toDouble)
-      if totalDemand > 0 then Ratio(firms.kahanSumBy(ff => ff.disruption.toDouble * ff.baseExportDemand.toDouble) / totalDemand)
-      else Ratio.Zero
+      if totalDemand > 0 then Share(firms.kahanSumBy(ff => ff.disruption.toDouble * ff.baseExportDemand.toDouble) / totalDemand)
+      else Share.Zero
 
   /** Herfindahl-Hirschman Index for two-partner concentration. */
-  private def hhi(euShare: Double): Ratio =
-    Ratio(euShare * euShare + (1.0 - euShare) * (1.0 - euShare))
+  private def hhi(euShare: Double): Share =
+    Share(euShare * euShare + (1.0 - euShare) * (1.0 - euShare))
 
   /** Kahan-sum a vector of PLN values. */
   private def kahanSumPln(vs: Vector[PLN]): PLN =

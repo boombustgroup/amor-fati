@@ -15,14 +15,14 @@ enum Topology(val label: String):
   */
 case class SectorDef(
     name: String,
-    share: Share,                    // Share of firm population (GUS BAEL 2024)
-    sigma: Sigma,                    // CES elasticity of substitution
-    wageMultiplier: Multiplier,      // Sector wage multiplier vs national average
+    share: Share,                // Share of firm population (GUS BAEL 2024)
+    sigma: Sigma,                // CES elasticity of substitution
+    wageMultiplier: Multiplier,  // Sector wage multiplier vs national average
     revenueMultiplier: Multiplier,
     aiCapexMultiplier: Multiplier,
     hybridCapexMultiplier: Multiplier,
-    baseDigitalReadiness: Share,     // Central tendency of digitalReadiness
-    hybridRetainFrac: Share,         // Fraction of workers RETAINED in hybrid mode (0.5 = halve)
+    baseDigitalReadiness: Share, // Central tendency of digitalReadiness
+    hybridRetainFrac: Share,     // Fraction of workers RETAINED in hybrid mode (0.5 = halve)
 )
 
 /** Complete parameterization of a 48-mechanism SFC-ABM model of the Polish

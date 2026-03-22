@@ -110,18 +110,18 @@ case class HouseholdConfig(
     mpcAlpha: Double = 8.2,
     mpcBeta: Double = 1.8,
     // State-dependent MPC (Carroll 1997 buffer-stock)
-    bufferTargetMonths: Double = 6.0,        // target savings = 6 months of income
-    bufferSensitivity: Coefficient = Coefficient(0.4),         // MPC adjustment strength (0 = static, 1 = fully responsive)
-    mpcUnemployedBoost: Share = Share(0.10), // MPC uplift when unemployed (desperate spending)
+    bufferTargetMonths: Double = 6.0,                  // target savings = 6 months of income
+    bufferSensitivity: Coefficient = Coefficient(0.4), // MPC adjustment strength (0 = static, 1 = fully responsive)
+    mpcUnemployedBoost: Share = Share(0.10),           // MPC uplift when unemployed (desperate spending)
     // Skill decay & scarring
     skillDecayRate: Share = Share(0.02),
     scarringRate: Share = Share(0.02),
     scarringCap: Share = Share(0.50),
     scarringOnset: Int = 3,
     // Post-reemployment wage scarring (Jacobson, LaLonde & Sullivan 1993)
-    wageScarRate: Share = Share(0.025),      // monthly wage scar accumulation during long-term unemployment
-    wageScarCap: Share = Share(0.30),        // max 30% permanent wage loss
-    wageScarDecay: Share = Share(0.005),     // monthly recovery once reemployed (~0.5%/mo → ~10 year half-life)
+    wageScarRate: Share = Share(0.025),                // monthly wage scar accumulation during long-term unemployment
+    wageScarCap: Share = Share(0.30),                  // max 30% permanent wage loss
+    wageScarDecay: Share = Share(0.005),               // monthly recovery once reemployed (~0.5%/mo → ~10 year half-life)
     // Retraining
     retrainingCost: PLN = PLN(5000.0),
     retrainingDuration: Int = 6,

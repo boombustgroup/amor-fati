@@ -93,12 +93,12 @@ object SimOutput:
     ColumnDef("Public_Auto", ctx => ctx.sectorAuto(4)),
     ColumnDef("Agri_Auto", ctx => ctx.sectorAuto(5)),
     // per-sector current sigma
-    ColumnDef("BPO_Sigma", ctx => ctx.world.currentSigmas(0)),
-    ColumnDef("Manuf_Sigma", ctx => ctx.world.currentSigmas(1)),
-    ColumnDef("Retail_Sigma", ctx => ctx.world.currentSigmas(2)),
-    ColumnDef("Health_Sigma", ctx => ctx.world.currentSigmas(3)),
-    ColumnDef("Public_Sigma", ctx => ctx.world.currentSigmas(4)),
-    ColumnDef("Agri_Sigma", ctx => ctx.world.currentSigmas(5)),
+    ColumnDef("BPO_Sigma", ctx => ctx.world.currentSigmas(0).toDouble),
+    ColumnDef("Manuf_Sigma", ctx => ctx.world.currentSigmas(1).toDouble),
+    ColumnDef("Retail_Sigma", ctx => ctx.world.currentSigmas(2).toDouble),
+    ColumnDef("Health_Sigma", ctx => ctx.world.currentSigmas(3).toDouble),
+    ColumnDef("Public_Sigma", ctx => ctx.world.currentSigmas(4).toDouble),
+    ColumnDef("Agri_Sigma", ctx => ctx.world.currentSigmas(5).toDouble),
     ColumnDef("MeanDegree", ctx => ctx.firms.kahanSumBy(_.neighbors.length.toDouble) / ctx.firms.length),
     ColumnDef("IoFlows", ctx => ctx.world.flows.ioFlows.toDouble),
     ColumnDef(

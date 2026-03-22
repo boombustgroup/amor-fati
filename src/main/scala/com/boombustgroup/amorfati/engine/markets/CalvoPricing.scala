@@ -36,7 +36,7 @@ object CalvoPricing:
 
   /** Per-firm markup update result. */
   case class FirmMarkupResult(
-      newMarkup: Ratio, // updated markup (unchanged if not selected by Calvo lottery)
+      newMarkup: Multiplier, // updated markup (unchanged if not selected by Calvo lottery)
       priceChanged: Boolean,
   )
 
@@ -50,11 +50,11 @@ object CalvoPricing:
   private[amorfati] def optimalMarkup(
       sectorDemandMult: Double,
       wageGrowthMonthly: Double,
-  )(using p: SimParams): Ratio =
+  )(using p: SimParams): Multiplier =
     val demandPressure = sectorDemandMult - 1.0
     val costPressure   = wageGrowthMonthly * p.pricing.costPassthrough
     val raw            = p.pricing.baseMarkup.toDouble * (1.0 + demandPressure * p.pricing.demandSensitivity + costPressure)
-    Ratio(raw.max(p.pricing.minMarkup.toDouble).min(p.pricing.maxMarkup.toDouble))
+    Multiplier(raw.max(p.pricing.minMarkup.toDouble).min(p.pricing.maxMarkup.toDouble))
 
   /** Update a single firm's markup via Calvo lottery.
     *
@@ -62,7 +62,7 @@ object CalvoPricing:
     * 1−θ, the firm keeps its current markup.
     */
   def updateFirmMarkup(
-      currentMarkup: Ratio,
+      currentMarkup: Multiplier,
       sectorDemandMult: Double,
       wageGrowthMonthly: Double,
       rng: Random,

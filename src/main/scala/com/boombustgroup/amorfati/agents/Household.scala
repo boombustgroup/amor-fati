@@ -83,9 +83,9 @@ object Household:
       savings: PLN,                                        // liquid savings (bank deposits)
       debt: PLN,                                           // outstanding secured (mortgage) debt
       monthlyRent: PLN,                                    // monthly rent payment (to landlord / housing market)
-      skill: Share,                                         // labor productivity multiplier [0,1], decays during unemployment
-      healthPenalty: Share,                                 // cumulative health penalty from long-term unemployment (scarring)
-      mpc: Share,                                           // marginal propensity to consume (Beta-sampled at init)
+      skill: Share,                                        // labor productivity multiplier [0,1], decays during unemployment
+      healthPenalty: Share,                                // cumulative health penalty from long-term unemployment (scarring)
+      mpc: Share,                                          // marginal propensity to consume (Beta-sampled at init)
       status: HhStatus,                                    // current employment/activity status
       socialNeighbors: Array[HhId],                        // Watts-Strogatz social network neighbor IDs
       bankId: BankId,                                      // index into Banking.State.banks (multi-bank)
@@ -95,8 +95,8 @@ object Household:
       numDependentChildren: Int,                           // children ≤ 18 for 800+ social transfers
       consumerDebt: PLN,                                   // outstanding unsecured consumer loan
       education: Int,                                      // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
-      taskRoutineness: Share,                               // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
-      wageScar: Share,                                      // persistent wage penalty from unemployment spell (Jacobson et al. 1993)
+      taskRoutineness: Share,                              // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
+      wageScar: Share,                                     // persistent wage penalty from unemployment spell (Jacobson et al. 1993)
       contractType: ContractType = ContractType.Permanent, // employment contract type (Kodeks Pracy / umowa zlecenie / B2B)
       region: Region = Region.Central,                     // NUTS-1 macroregion (geographic labor market)
   )
@@ -113,12 +113,12 @@ object Household:
       importConsumption: PLN,        // import component of consumption
       marketWage: PLN,               // current market-clearing wage
       reservationWage: PLN,          // minimum acceptable wage for job search
-      giniIndividual: Share,          // Gini of income distribution
-      giniWealth: Share,              // Gini of wealth (savings) distribution
+      giniIndividual: Share,         // Gini of income distribution
+      giniWealth: Share,             // Gini of wealth (savings) distribution
       meanSavings: PLN,              // mean savings across all HH
       medianSavings: PLN,            // median savings across all HH
-      povertyRate50: Share,           // share with income < 50% median (EU AROP)
-      bankruptcyRate: Share,          // share of bankrupt HH
+      povertyRate50: Share,          // share with income < 50% median (EU AROP)
+      bankruptcyRate: Share,         // share of bankrupt HH
       meanSkill: Double,             // mean skill of alive (non-bankrupt) HH
       meanHealthPenalty: Double,     // mean health scarring of alive HH
       retrainingAttempts: Int,       // retraining attempts this month
@@ -127,14 +127,14 @@ object Household:
       consumptionP50: PLN,           // median consumption
       consumptionP90: PLN,           // 90th percentile of consumption
       meanMonthsToRuin: Double,      // mean months until bankruptcy (placeholder)
-      povertyRate30: Share,           // share with income < 30% median (deep poverty)
+      povertyRate30: Share,          // share with income < 30% median (deep poverty)
       totalRent: PLN,                // aggregate rent payments
       totalDebtService: PLN,         // aggregate secured debt service
       totalUnempBenefits: PLN,       // aggregate unemployment benefits paid
       totalDepositInterest: PLN,     // aggregate deposit interest received
       crossSectorHires: Int,         // cross-sector hires this month
       voluntaryQuits: Int,           // voluntary quits (cross-sector search)
-      sectorMobilityRate: Share,      // fraction employed in different sector than last
+      sectorMobilityRate: Share,     // fraction employed in different sector than last
       totalRemittances: PLN,         // aggregate remittances sent abroad
       totalPit: PLN,                 // aggregate PIT paid
       totalSocialTransfers: PLN,     // aggregate 800+ social transfers

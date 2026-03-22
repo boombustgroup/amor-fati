@@ -65,7 +65,7 @@ object Insurance:
       employed: Int,       // employed workers (premium base)
       wage: PLN,           // average monthly wage
       priceLevel: Double,  // CPI price level (non-life premium scaling)
-      unempRate: Share,     // unemployment rate (non-life claim cyclicality)
+      unempRate: Share,    // unemployment rate (non-life claim cyclicality)
       govBondYield: Rate,  // government bond yield (annualised)
       corpBondYield: Rate, // corporate bond yield (annualised)
       equityReturn: Rate,  // equity monthly return

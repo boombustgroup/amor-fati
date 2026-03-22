@@ -106,7 +106,7 @@ object OpenEconomy:
       prev: ForexState,
       importConsumption: PLN,
       techImports: PLN,
-      autoRatio: Ratio,
+      autoRatio: Share,
       domesticRate: Rate,
       gdp: PLN,
   )(using p: SimParams): ForexState =
@@ -138,7 +138,7 @@ object OpenEconomy:
       prevForex: ForexState,
       importCons: PLN,
       techImports: PLN,
-      autoRatio: Ratio,
+      autoRatio: Share,
       domesticRate: Rate,
       gdp: PLN,
       priceLevel: Double,
@@ -154,7 +154,7 @@ object OpenEconomy:
       tourismExport: PLN = PLN.Zero,
       tourismImport: PLN = PLN.Zero,
       bondYield: Rate = Rate.Zero,
-      prevBidToCover: Ratio = Ratio(2.0),
+      prevBidToCover: Multiplier = Multiplier(2.0),
   )
 
   /** Current account breakdown. */

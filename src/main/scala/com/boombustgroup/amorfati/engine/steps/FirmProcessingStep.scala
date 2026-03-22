@@ -111,7 +111,7 @@ object FirmProcessingStep:
       totalBondDefault: PLN,               // bond default from bankrupt firms
       firmDeaths: Int,                     // number of firms that went bankrupt
       intIncome: PLN,                      // aggregate bank interest income
-      corpBondAbsorption: Ratio,           // Catalyst absorption ratio (0-1)
+      corpBondAbsorption: Share,           // Catalyst absorption ratio (0-1)
       actualBondIssuance: PLN,             // bond issuance after absorption constraint
       netMigration: Int,                   // net immigration (inflow - outflow)
       perBankNewLoans: Vector[PLN],        // new loans by bank index
@@ -157,7 +157,7 @@ object FirmProcessingStep:
   private case class BondAbsorptionResult(
       firms: Vector[Firm.State], // firms after bond reversion (unsold → bank loans)
       sumNewLoans: PLN,          // total new bank loans incl. reversion
-      corpBondAbsorption: Ratio, // Catalyst absorption ratio (0-1)
+      corpBondAbsorption: Share, // Catalyst absorption ratio (0-1)
       actualBondIssuance: PLN,   // bonds issued after absorption constraint
   )
 
@@ -317,7 +317,7 @@ object FirmProcessingStep:
       if revertRatio > BondRevertThreshold then result.flows.bondIssuance * revertRatio
       else PLN.Zero
 
-    BondAbsorptionResult(adjustedFirms, result.flows.newLoans + bondRevertLoans, Ratio(absorption), actualBondIssuance)
+    BondAbsorptionResult(adjustedFirms, result.flows.newLoans + bondRevertLoans, Share(absorption), actualBondIssuance)
 
   // ---- Phase 4: Intermediate market ----
 
@@ -427,7 +427,7 @@ object FirmProcessingStep:
 
     // Add bond reversion amounts to per-bank loans
     val perBankNewLoansWithRevert =
-      if bonded.corpBondAbsorption < Ratio.One then
+      if bonded.corpBondAbsorption < Share.One then
         val revertRatio = 1.0 - bonded.corpBondAbsorption.toDouble
         fp.outcomes.foldLeft(perBankNewLoans): (acc, o) =>
           val ba = fp.firmBondAmounts.getOrElse(o.firm.id, 0.0)

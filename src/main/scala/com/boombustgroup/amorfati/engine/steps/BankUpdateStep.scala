@@ -58,7 +58,7 @@ object BankUpdateStep:
       exciseRevenue: PLN,                            // gross excise revenue
       exciseAfterEvasion: PLN,                       // excise after informal evasion
       customsDutyRevenue: PLN,                       // customs duty revenue
-      effectiveShadowShare: Ratio,                   // effective shadow economy share
+      effectiveShadowShare: Share,                   // effective shadow economy share
       mortgageInterestIncome: PLN,                   // mortgage interest income (bank share)
       mortgagePrincipal: PLN,                        // mortgage principal repaid
       mortgageDefaultLoss: PLN,                      // mortgage default loss (bank share)
@@ -93,7 +93,7 @@ object BankUpdateStep:
       ppkRequested: PLN,     // PPK bond purchase request
       insRequested: PLN,     // insurance bond purchase request (delta)
       tfiRequested: PLN,     // TFI bond purchase request (delta)
-      erChange: Ratio,       // month-on-month ER change (for foreign demand)
+      erChange: Coefficient, // month-on-month ER change (for foreign demand)
   )
 
   private case class PerBankHhFlows(
@@ -121,7 +121,7 @@ object BankUpdateStep:
       finalNbfi: Nbfi.State,                         // NBFI/TFI after bond purchase
       actualBondChange: PLN,                         // net change in gov bonds outstanding
       foreignBondHoldings: PLN,                      // non-resident holdings after auction
-      bidToCover: Ratio,                             // bond auction bid-to-cover ratio
+      bidToCover: Multiplier,                        // bond auction bid-to-cover ratio
   )
 
   def run(in: Input)(using p: SimParams): Output =
@@ -175,7 +175,7 @@ object BankUpdateStep:
       exciseRevenue = PLN(govJst.tax.exciseRevenue),
       exciseAfterEvasion = PLN(govJst.tax.exciseAfterEvasion),
       customsDutyRevenue = PLN(govJst.tax.customsDutyRevenue),
-      effectiveShadowShare = Ratio(govJst.tax.effectiveShadowShare),
+      effectiveShadowShare = Share(govJst.tax.effectiveShadowShare),
       mortgageInterestIncome = housing.mortgageFlows.interest,
       mortgagePrincipal = housing.mortgageFlows.principal,
       mortgageDefaultLoss = housing.mortgageFlows.defaultLoss,
@@ -289,7 +289,7 @@ object BankUpdateStep:
     )
     val housingAfterOrig       =
       HousingMarket.processOrigination(housingAfterPrice, in.s3.totalIncome, mortgageRate, true)
-    val mortgageFlows          = HousingMarket.processMortgageFlows(housingAfterOrig, mortgageRate, Ratio(unempRate))
+    val mortgageFlows          = HousingMarket.processMortgageFlows(housingAfterOrig, mortgageRate, Share(unempRate))
     val housingAfterFlows      = HousingMarket.applyFlows(housingAfterOrig, mortgageFlows)
 
     HousingResult(housingAfterFlows = housingAfterFlows, mortgageFlows = mortgageFlows)
@@ -325,7 +325,7 @@ object BankUpdateStep:
     val tfiRequested     = (in.s8.nonBank.newNbfi.tfiGovBondHoldings - in.w.financial.nbfi.tfiGovBondHoldings).max(PLN.Zero)
     val prevEr           = in.w.forex.exchangeRate
     val currEr           = in.s8.external.newForex.exchangeRate
-    val erChange         = if prevEr > 0.0 then Ratio((currEr - prevEr) / prevEr) else Ratio.Zero
+    val erChange         = if prevEr > 0.0 then Coefficient((currEr - prevEr) / prevEr) else Coefficient.Zero
     BondWaterfallInputs(
       actualBondChange = actualBondChange,
       qeRequested = in.s8.monetary.qePurchaseAmount,
@@ -373,7 +373,7 @@ object BankUpdateStep:
   private def updateSingleBank(
       b: Banking.BankState,
       hhFlows: PerBankHhFlows,
-      workerShare: Ratio,
+      workerShare: Share,
       mortgageFlows: HousingMarket.MortgageFlows,
       perBankReserveInt: Banking.PerBankAmounts,
       perBankStandingFac: Banking.PerBankAmounts,
@@ -458,7 +458,7 @@ object BankUpdateStep:
     )
 
     // IFRS 9 ECL staging: provision change hits capital
-    val unemployment = Ratio(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
+    val unemployment = Share(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
     val gdpGrowth    = if in.w.gdpProxy > 0 then (in.s7.gdp.toDouble - in.w.gdpProxy) / in.w.gdpProxy else 0.0
     val eclResult    = EclStaging.step(b.eclStaging, newLoansTotal + b.consumerLoans, bankNplNew, unemployment, gdpGrowth)
 
@@ -496,7 +496,7 @@ object BankUpdateStep:
 
     val updatedBanks = bs.banks.map { b =>
       val bId         = b.id.toInt
-      val workerShare = Ratio(if totalWorkers > 0 then in.s5.perBankWorkers(bId) / totalWorkers else 0.0)
+      val workerShare = Share(if totalWorkers > 0 then in.s5.perBankWorkers(bId) / totalWorkers else 0.0)
       val hhFlows     = resolvePerBankHhFlows(bId, in.s3.perBankHhFlowsOpt, totalWorkers, in.s5.perBankWorkers, in)
       updateSingleBank(
         b,

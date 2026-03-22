@@ -35,8 +35,8 @@ object YieldCurve:
   /** Compute term structure from O/N rate, credit stress, and expectations. */
   def compute(
       overnightRate: Rate,
-      nplRatio: Ratio = Ratio.Zero,
-      credibility: Ratio = Ratio.One,
+      nplRatio: Share = Share.Zero,
+      credibility: Share = Share.One,
       expectedInflation: Rate = Rate(0.025),
       targetInflation: Rate = Rate(0.025),
   ): State =
@@ -45,7 +45,7 @@ object YieldCurve:
     val creditAdj6M = CreditSensitivity6M * nplRatio.toDouble
 
     val expGap   = (expectedInflation - targetInflation).abs
-    val deAnchor = (Ratio.One - credibility).toDouble
+    val deAnchor = (Share.One - credibility).toDouble
     val expAdj1M = Rate(deAnchor * expGap.toDouble * ExpSensitivity1M)
     val expAdj3M = Rate(deAnchor * expGap.toDouble * ExpSensitivity3M)
     val expAdj6M = Rate(deAnchor * expGap.toDouble * ExpSensitivity6M)

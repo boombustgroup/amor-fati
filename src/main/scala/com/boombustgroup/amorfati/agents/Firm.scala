@@ -116,27 +116,27 @@ object Firm:
 
   /** Full mutable state of a single firm, carried across simulation months. */
   case class State(
-      id: FirmId,                     // Unique firm identifier (index into firms vector)
-      cash: PLN,                      // Current cash balance (can be negative)
-      debt: PLN,                      // Outstanding bank loan debt
-      tech: TechState,                // Current technology regime
-      riskProfile: Share,              // Propensity to invest / adopt technology [0,1]
-      innovationCostFactor: Double,   // Firm-specific CAPEX multiplier (drawn at creation)
-      digitalReadiness: Share,        // Digital readiness score [0,1], gates tech upgrades
-      sector: SectorIdx,              // Index into p.sectorDefs
-      neighbors: Vector[FirmId],      // Network adjacency (firm IDs)
-      bankId: BankId,                 // Multi-bank: index into Banking.State.banks
-      equityRaised: PLN,              // GPW: cumulative equity raised via IPO/SPO
-      initialSize: Int,               // Firm size at creation (heterogeneous when FIRM_SIZE_DIST=gus)
-      capitalStock: PLN,              // Physical capital stock (PLN)
-      bondDebt: PLN,                  // Outstanding corporate bond debt
-      foreignOwned: Boolean,          // FDI: subject to profit shifting & repatriation
-      stateOwned: Boolean = false,    // SOE: Skarb Państwa ownership (dividend/employment/investment policy)
-      inventory: PLN,                 // Inventory stock (PLN)
-      greenCapital: PLN,              // Green capital stock (PLN)
-      accumulatedLoss: PLN,           // CIT loss carryforward stock (Art. 7 ustawy o CIT)
+      id: FirmId,                          // Unique firm identifier (index into firms vector)
+      cash: PLN,                           // Current cash balance (can be negative)
+      debt: PLN,                           // Outstanding bank loan debt
+      tech: TechState,                     // Current technology regime
+      riskProfile: Share,                  // Propensity to invest / adopt technology [0,1]
+      innovationCostFactor: Double,        // Firm-specific CAPEX multiplier (drawn at creation)
+      digitalReadiness: Share,             // Digital readiness score [0,1], gates tech upgrades
+      sector: SectorIdx,                   // Index into p.sectorDefs
+      neighbors: Vector[FirmId],           // Network adjacency (firm IDs)
+      bankId: BankId,                      // Multi-bank: index into Banking.State.banks
+      equityRaised: PLN,                   // GPW: cumulative equity raised via IPO/SPO
+      initialSize: Int,                    // Firm size at creation (heterogeneous when FIRM_SIZE_DIST=gus)
+      capitalStock: PLN,                   // Physical capital stock (PLN)
+      bondDebt: PLN,                       // Outstanding corporate bond debt
+      foreignOwned: Boolean,               // FDI: subject to profit shifting & repatriation
+      stateOwned: Boolean = false,         // SOE: Skarb Państwa ownership (dividend/employment/investment policy)
+      inventory: PLN,                      // Inventory stock (PLN)
+      greenCapital: PLN,                   // Green capital stock (PLN)
+      accumulatedLoss: PLN,                // CIT loss carryforward stock (Art. 7 ustawy o CIT)
       markup: Multiplier = Multiplier.One, // Calvo pricing: firm-specific markup over marginal cost
-      region: Region = Region.Central, // NUTS-1 macroregion
+      region: Region = Region.Central,     // NUTS-1 macroregion
   )
 
   /** Output of `process` for one firm in one month — updated state + flow
@@ -233,10 +233,10 @@ object Firm:
       case _: TechState.Bankrupt    => Multiplier.Zero
     val tfp       = sizeScale * sec.revenueMultiplier
     if p.flags.physCap && f.capitalStock > PLN.Zero && laborEff > Multiplier.Zero then
-      val targetK: PLN       = workerCount(f) * p.capital.klRatios(f.sector.toInt)
-      val k: Multiplier      = Multiplier(if targetK > PLN.Zero then f.capitalStock / targetK else 1.0).clamp(Multiplier(0.1), Multiplier(2.0))
-      val alpha: Share       = p.capital.prodElast
-      val sigma: Double      = sec.sigma
+      val targetK: PLN  = workerCount(f) * p.capital.klRatios(f.sector.toInt)
+      val k: Multiplier = Multiplier(if targetK > PLN.Zero then f.capitalStock / targetK else 1.0).clamp(Multiplier(0.1), Multiplier(2.0))
+      val alpha: Share  = p.capital.prodElast
+      val sigma: Double = sec.sigma
       p.firm.baseRevenue * tfp * cesOutput(alpha, k, laborEff, sigma)
     else p.firm.baseRevenue * tfp * laborEff
 
@@ -520,7 +520,7 @@ object Firm:
       capex,
       loan,
       down,
-      profitable = pnl.costs > cost * (FullAiProfitMargin / sigmaThreshold(w.currentSigmas(firm.sector.toInt))),
+      profitable = pnl.costs > cost * (FullAiProfitMargin / sigmaThreshold(w.currentSigmas(firm.sector.toInt).toDouble)),
       canPay = firm.cash > down,
       ready = firm.digitalReadiness >= p.firm.fullAiReadinessMin,
       bankOk = bankCanLend(loan),
@@ -544,7 +544,7 @@ object Firm:
       capex,
       loan,
       down,
-      profitable = pnl.costs > cost * (HybridProfitMargin / sigmaThreshold(w.currentSigmas(firm.sector.toInt))),
+      profitable = pnl.costs > cost * (HybridProfitMargin / sigmaThreshold(w.currentSigmas(firm.sector.toInt).toDouble)),
       canPay = firm.cash > down,
       ready = firm.digitalReadiness >= p.firm.hybridReadinessMin,
       bankOk = bankCanLend(loan),
