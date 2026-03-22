@@ -27,8 +27,8 @@ object SocialSecurity:
   def zusStep(prevBalance: PLN, employed: Int, wage: PLN, nRetirees: Int)(using p: SimParams): ZusState =
     if !p.flags.zus then ZusState(prevBalance, PLN.Zero, PLN.Zero, PLN.Zero)
     else
-      val contributions = wage * (employed.toDouble * p.social.zusContribRate.toDouble * p.social.zusScale.toDouble)
-      val pensions      = p.social.zusBasePension * nRetirees.toDouble
+      val contributions = PLN(wage.toDouble * employed * p.social.zusContribRate.toDouble * p.social.zusScale.toDouble)
+      val pensions      = PLN(p.social.zusBasePension.toDouble * nRetirees)
       val monthlyFlow   = contributions - pensions
       val govSubvention = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
       val newBalance    = prevBalance + monthlyFlow
@@ -56,9 +56,9 @@ object SocialSecurity:
   def nfzStep(prevBalance: PLN, employed: Int, wage: PLN, workingAge: Int, nRetirees: Int)(using p: SimParams): NfzState =
     if !p.flags.nfz then NfzState(prevBalance, PLN.Zero, PLN.Zero, PLN.Zero)
     else
-      val contributions       = wage * p.social.nfzContribRate * employed.toDouble
+      val contributions       = PLN(wage.toDouble * p.social.nfzContribRate.toDouble * employed)
       val effectivePopulation = workingAge.toDouble + nRetirees.toDouble * p.social.nfzAgingElasticity.toDouble
-      val spending            = p.social.nfzPerCapitaCost * effectivePopulation
+      val spending            = PLN(p.social.nfzPerCapitaCost.toDouble * effectivePopulation)
       val monthlyFlow         = contributions - spending
       val govSubvention       = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
       NfzState(prevBalance + monthlyFlow, contributions, spending, govSubvention)
@@ -82,13 +82,13 @@ object SocialSecurity:
   def ppkStep(prevHoldings: PLN, employed: Int, wage: PLN)(using p: SimParams): PpkState =
     if !p.flags.ppk then PpkState(prevHoldings, PLN.Zero)
     else
-      val contributions = wage * (employed.toDouble *
+      val contributions = PLN(wage.toDouble * employed *
         (p.social.ppkEmployeeRate.toDouble + p.social.ppkEmployerRate.toDouble))
       PpkState(prevHoldings, contributions)
 
   /** PPK bond purchase this month: contributions × bond allocation. */
   def ppkBondPurchase(ppk: PpkState)(using p: SimParams): PLN =
-    ppk.contributions * p.social.ppkBondAlloc.toDouble
+    ppk.contributions * p.social.ppkBondAlloc
 
   // ---------------------------------------------------------------------------
   // Demographics

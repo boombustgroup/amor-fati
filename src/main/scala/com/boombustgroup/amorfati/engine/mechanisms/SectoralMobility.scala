@@ -71,7 +71,7 @@ object SectoralMobility:
           (sums.updated(s, sums(s) + wage), counts.updated(s, counts(s) + 1))
         case _                                     => (sums, counts)
     }
-    (0 until NumSectors).map(s => if counts(s) > 0 then sums(s) / counts(s).toDouble else PLN.Zero).toVector
+    (0 until NumSectors).map(s => if counts(s) > 0 then sums(s) / counts(s).toLong else PLN.Zero).toVector
 
   /** Probabilistic target sector selection (gravity model). score(to) =
     * wage(to) × (vacancies(to) + 1)^vacancyWeight × (1 − friction(from,to)).
@@ -132,7 +132,7 @@ object SectoralMobility:
   /** Adjust retraining duration and cost by friction level. */
   def frictionAdjustedParams(friction: Double, durationMult: Double, costMult: Double)(using p: SimParams): RetrainingParams =
     val adjDuration = Math.round(p.household.retrainingDuration * (1.0 + friction * durationMult)).toInt
-    val adjCost     = p.household.retrainingCost * (1.0 + friction * costMult)
+    val adjCost     = p.household.retrainingCost * Multiplier(1.0 + friction * costMult)
     RetrainingParams(adjDuration, adjCost)
 
   /** Cross-sector wage penalty: proportional to friction, max 30%. */

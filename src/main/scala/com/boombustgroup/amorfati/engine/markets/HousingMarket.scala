@@ -113,8 +113,8 @@ object HousingMarket:
       .map: r =>
         RegionalState(
           priceIndex = p.housing.regionalHpi(r),
-          totalValue = p.housing.initValue * p.housing.regionalValueShares(r).toDouble,
-          mortgageStock = p.housing.initMortgage * p.housing.regionalMortgageShares(r).toDouble,
+          totalValue = p.housing.initValue * p.housing.regionalValueShares(r),
+          mortgageStock = p.housing.initMortgage * p.housing.regionalMortgageShares(r),
           lastOrigination = PLN.Zero,
           lastRepayment = PLN.Zero,
           lastDefault = PLN.Zero,
@@ -237,7 +237,7 @@ object HousingMarket:
       )
     else
       val rawOrigination = computeRawOrigination(prev, totalIncome, mortgageRate)
-      val headroom       = Math.max(0.0, (prev.totalValue * p.housing.ltvMax.toDouble - prev.mortgageStock).toDouble)
+      val headroom       = Math.max(0.0, (prev.totalValue * p.housing.ltvMax - prev.mortgageStock).toDouble)
       val origination    = Math.min(rawOrigination, headroom)
       prev.regions match
         case Some(regs) => distributeOrigination(prev, regs, origination)
@@ -288,7 +288,7 @@ object HousingMarket:
     else
       val stock         = prev.mortgageStock
       val interest      = stock * mortgageRate.max(Rate.Zero).monthly
-      val principal     = stock / p.housing.mortgageMaturity.toDouble
+      val principal     = PLN(stock.toDouble / p.housing.mortgageMaturity.toDouble)
       val defaultRate   = p.housing.defaultBase +
         Share(p.housing.defaultUnempSens.toDouble * (unemploymentRate - Share(0.05)).max(Share.Zero).toDouble)
       val defaultAmount = stock * defaultRate
@@ -305,7 +305,7 @@ object HousingMarket:
     val newHhWealth  = prev.totalValue - newStock
     val wealthChange = newHhWealth - prev.hhHousingWealth
     val wealthEffect =
-      if p.flags.reHhHousing && wealthChange > PLN.Zero then wealthChange * p.housing.wealthMpc.toDouble
+      if p.flags.reHhHousing && wealthChange > PLN.Zero then wealthChange * p.housing.wealthMpc
       else PLN.Zero
     prev.copy(
       mortgageStock = newStock,

@@ -34,7 +34,7 @@ object WorldInit:
     val initWageBill     = initEmployed.toDouble * p.household.baseWage.toDouble
     val initMpc          = p.household.mpcAlpha / (p.household.mpcAlpha + p.household.mpcBeta) // Beta mean
     val initConsumption  = PLN(initWageBill * initMpc)
-    val initDomesticCons = initConsumption * (1.0 - p.openEcon.importContent.map(_.toDouble).max)
+    val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(_.toDouble).max)
     val initImportCons   = initConsumption - initDomesticCons
 
     val initBankingSector = BankInit.create(firms, households)
@@ -49,10 +49,10 @@ object WorldInit:
 
     // --- Steady-state gross investment ---
     val initGrossInvestment =
-      if p.flags.physCap then PLN(firms.kahanSumBy(f => (f.capitalStock * p.capital.depRates.map(_.toDouble)(f.sector.toInt) / 12.0).toDouble))
+      if p.flags.physCap then PLN(firms.kahanSumBy(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toDouble))
       else PLN.Zero
     val initGreenInvestment =
-      if p.flags.energy then PLN(firms.kahanSumBy(f => (f.greenCapital * p.climate.greenDepRate.toDouble / 12.0).toDouble))
+      if p.flags.energy then PLN(firms.kahanSumBy(f => (f.greenCapital * p.climate.greenDepRate.monthly).toDouble))
       else PLN.Zero
 
     // --- World assembly ---
@@ -161,7 +161,7 @@ object WorldInit:
       ),
       plumbing = MonetaryPlumbingState.zero,
       flows = FlowState.zero,
-      regionalWages = Region.all.map(r => r -> (p.household.baseWage * r.wageMultiplier.toDouble)).toMap,
+      regionalWages = Region.all.map(r => r -> (p.household.baseWage * r.wageMultiplier)).toMap,
     )
 
     InitResult(world, firms, households)

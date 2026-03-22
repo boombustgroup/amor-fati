@@ -71,7 +71,7 @@ object InterbankContagion:
       else
         val loss = banks.zipWithIndex.foldLeft(PLN.Zero):
           case (acc, (counterparty, j)) =>
-            if counterparty.failed && i != j then acc + exposures(i)(j) * (Share.One - recovery).toDouble
+            if counterparty.failed && i != j then acc + exposures(i)(j) * (Share.One - recovery)
             else acc
         if loss > PLN.Zero then b.copy(capital = b.capital - loss)
         else b

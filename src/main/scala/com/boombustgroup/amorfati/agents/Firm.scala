@@ -281,7 +281,7 @@ object Firm:
   def computeAiCapex(f: State)(using p: SimParams): PLN =
     val sizeFactor   = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, CapexSizeExponent)
     val digiDiscount = (Share.One - p.firm.digiCapexDiscount * f.digitalReadiness).toDouble
-    p.firm.aiCapex * (p.sectorDefs(f.sector.toInt).aiCapexMultiplier * f.innovationCostFactor * sizeFactor * digiDiscount)
+    PLN(p.firm.aiCapex.toDouble * p.sectorDefs(f.sector.toInt).aiCapexMultiplier.toDouble * f.innovationCostFactor * sizeFactor * digiDiscount)
 
   /** Hybrid upgrade CAPEX — same scaling as AI CAPEX but using hybrid
     * multipliers.
@@ -289,12 +289,12 @@ object Firm:
   def computeHybridCapex(f: State)(using p: SimParams): PLN =
     val sizeFactor   = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, CapexSizeExponent)
     val digiDiscount = (Share.One - p.firm.digiCapexDiscount * f.digitalReadiness).toDouble
-    p.firm.hybridCapex * (p.sectorDefs(f.sector.toInt).hybridCapexMultiplier * f.innovationCostFactor * sizeFactor * digiDiscount)
+    PLN(p.firm.hybridCapex.toDouble * p.sectorDefs(f.sector.toInt).hybridCapexMultiplier.toDouble * f.innovationCostFactor * sizeFactor * digiDiscount)
 
   /** Digital investment cost — sublinear in firm size (exponent 0.5). */
   def computeDigiInvestCost(f: State)(using p: SimParams): PLN =
     val sizeFactor = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, OpexSizeExponent)
-    p.firm.digiInvestCost * sizeFactor
+    p.firm.digiInvestCost * Multiplier(sizeFactor)
 
   /** Fraction of a firm's network neighbors that have adopted automation
     * (Automated or Hybrid tech).
@@ -387,7 +387,7 @@ object Firm:
     val newWkrs             = Math.max(minRetained, workers - cut)
     // Severance cost = fired workers × wage × severanceMonths
     val fired               = workers - newWkrs
-    val severancePay: PLN   = fired * laborPerWorker * p.firm.severanceMonths
+    val severancePay: PLN   = fired * laborPerWorker * Multiplier(p.firm.severanceMonths)
     val laborSaved: PLN     = fired * laborPerWorker
     val revRatio: Share     = Share.fraction(newWkrs, workers).sqrt
     val revLost: PLN        = pnl.revenue * (Share.One - revRatio)
@@ -412,10 +412,10 @@ object Firm:
     val opexSizeFactor  = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, OpexSizeExponent)
     val otherSizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
     val wMult           = effectiveWageMult(firm.sector)
-    opex * ((OpexDomesticShare * domesticPrice.toDouble + OpexImportShare * importPrice.toDouble) * opexSizeFactor) +
-      (firm.debt + additionalDebt) * (lendRate / 12.0) +
-      wage * (wMult * laborWorkers.toDouble) +
-      p.firm.otherCosts * (domesticPrice.toDouble * otherSizeFactor)
+    opex * Multiplier((OpexDomesticShare * domesticPrice.toDouble + OpexImportShare * importPrice.toDouble) * opexSizeFactor) +
+      (firm.debt + additionalDebt) * lendRate.monthly +
+      PLN(wage.toDouble * wMult.toDouble * laborWorkers) +
+      p.firm.otherCosts * Multiplier(domesticPrice.toDouble * otherSizeFactor)
 
   /** Automated firm: compute PnL, survive or go bankrupt (AI debt trap). */
   private def decideAutomated(
@@ -459,9 +459,9 @@ object Firm:
     )
     val ready2 = (firm.digitalReadiness + Share(HybridMonthlyDrDrift)).min(Share.One)
 
-    val upCapex    = computeAiCapex(firm) * HybridToFullCapexMul
-    val upLoan     = upCapex * FullAiLoanShare
-    val upDown     = upCapex * FullAiDownShare
+    val upCapex    = computeAiCapex(firm) * Share(HybridToFullCapexMul)
+    val upLoan     = upCapex * Share(FullAiLoanShare)
+    val upDown     = upCapex * Share(FullAiDownShare)
     val upCost     = estimateMonthlyCost(
       firm,
       p.firm.aiOpex,
@@ -472,14 +472,14 @@ object Firm:
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
     )
-    val profitable = pnl.costs > upCost * FullAiProfitMargin
+    val profitable = pnl.costs > upCost * Multiplier(FullAiProfitMargin)
     val canPay     = firm.cash > upDown
     val ready      = firm.digitalReadiness >= p.firm.fullAiReadinessMin
     val bankOk     = bankCanLend(upLoan)
 
     val prob =
       if profitable && canPay && ready && bankOk then
-        ((firm.riskProfile * RiskWeightHybUpgrade + w.real.automationRatio * AutoRatioWeight) * firm.digitalReadiness).toDouble
+        (firm.riskProfile.toDouble * RiskWeightHybUpgrade + w.real.automationRatio.toDouble * AutoRatioWeight) * firm.digitalReadiness.toDouble
       else 0.0
 
     if rng.nextDouble() < prob then
@@ -512,15 +512,15 @@ object Firm:
       bankCanLend: PLN => Boolean,
   )(using p: SimParams): UpgradeCandidate =
     val capex = computeAiCapex(firm)
-    val loan  = capex * FullAiLoanShare
-    val down  = capex * FullAiDownShare
+    val loan  = capex * Share(FullAiLoanShare)
+    val down  = capex * Share(FullAiDownShare)
     val cost  =
       estimateMonthlyCost(firm, p.firm.aiOpex, skeletonCrew(firm), loan, w.hhAgg.marketWage, lendRate, PriceIndex(w.priceLevel), w.external.gvc.importCostIndex)
     UpgradeCandidate(
       capex,
       loan,
       down,
-      profitable = pnl.costs > cost * (FullAiProfitMargin / sigmaThreshold(w.currentSigmas(firm.sector.toInt).toDouble)),
+      profitable = pnl.costs > cost * Multiplier(FullAiProfitMargin / sigmaThreshold(w.currentSigmas(firm.sector.toInt).toDouble)),
       canPay = firm.cash > down,
       ready = firm.digitalReadiness >= p.firm.fullAiReadinessMin,
       bankOk = bankCanLend(loan),
@@ -536,15 +536,15 @@ object Firm:
       bankCanLend: PLN => Boolean,
   )(using p: SimParams): (UpgradeCandidate, Int) =
     val capex = computeHybridCapex(firm)
-    val loan  = capex * HybridLoanShare
-    val down  = capex * HybridDownShare
+    val loan  = capex * Share(HybridLoanShare)
+    val down  = capex * Share(HybridDownShare)
     val hWkrs = Math.max(3, (workers * p.sectorDefs(firm.sector.toInt).hybridRetainFrac.toDouble).toInt)
     val cost  = estimateMonthlyCost(firm, p.firm.hybridOpex, hWkrs, loan, w.hhAgg.marketWage, lendRate, PriceIndex(w.priceLevel), w.external.gvc.importCostIndex)
     val cand  = UpgradeCandidate(
       capex,
       loan,
       down,
-      profitable = pnl.costs > cost * (HybridProfitMargin / sigmaThreshold(w.currentSigmas(firm.sector.toInt).toDouble)),
+      profitable = pnl.costs > cost * Multiplier(HybridProfitMargin / sigmaThreshold(w.currentSigmas(firm.sector.toInt).toDouble)),
       canPay = firm.cash > down,
       ready = firm.digitalReadiness >= p.firm.hybridReadinessMin,
       bankOk = bankCanLend(loan),
@@ -563,11 +563,11 @@ object Firm:
       allFirms: Vector[State],
   )(using p: SimParams): (Double, Double) =
     val localAuto   = computeLocalAutoRatio(firm, allFirms)
-    val globalPanic = ((w.real.automationRatio + w.real.hybridRatio * HybridPanicDiscount) * HybridPanicDiscount).toDouble
+    val globalPanic = (w.real.automationRatio.toDouble + w.real.hybridRatio.toDouble * HybridPanicDiscount) * HybridPanicDiscount
     val panic       = localAuto * LocalPanicWeight + globalPanic * GlobalPanicWeight
     val desper      = if pnl.netAfterTax < PLN.Zero then DesperationBonus else 0.0
     val strat       =
-      if !fullAi.profitable && fullAi.canPay && fullAi.ready && fullAi.bankOk then (firm.riskProfile * firm.digitalReadiness * StrategicAdoptBase).toDouble
+      if !fullAi.profitable && fullAi.canPay && fullAi.ready && fullAi.bankOk then firm.riskProfile.toDouble * firm.digitalReadiness.toDouble * StrategicAdoptBase
       else 0.0
 
     val baseDiscount        = UncertaintyBase + UncertaintySlope * (w.month.toDouble / p.timeline.duration.toDouble)
@@ -589,9 +589,9 @@ object Firm:
     * implementation failure.
     */
   private def rollFullAiUpgrade(firm: State, pnl: PnL, ai: UpgradeCandidate, rng: Random): Decision =
-    val failRate = FullAiBaseFailRate + ((Share.One - firm.digitalReadiness) * FullAiFailDrSens).toDouble
+    val failRate = FullAiBaseFailRate + (Share.One - firm.digitalReadiness).toDouble * FullAiFailDrSens
     if rng.nextDouble() < failRate then
-      Decision.UpgradeFailed(pnl, BankruptReason.AiImplFailure, ai.capex * FailCapexFrac, ai.loan * FailLoanFrac, ai.down * FailDownFrac)
+      Decision.UpgradeFailed(pnl, BankruptReason.AiImplFailure, ai.capex * Share(FailCapexFrac), ai.loan * Share(FailLoanFrac), ai.down * Share(FailDownFrac))
     else
       val eff = 1.0 + rng.between(TradToFullEffMin, TradToFullEffMax) * firm.digitalReadiness.toDouble
       Decision.Upgrade(pnl, TechState.Automated(eff), ai.capex, ai.loan, ai.down)
@@ -600,16 +600,16 @@ object Firm:
     * efficiency), or success (good efficiency).
     */
   private def rollHybridUpgrade(firm: State, pnl: PnL, hyb: UpgradeCandidate, hWkrs: Int, rng: Random): Decision =
-    val failRate = HybridBaseFailRate + ((Share.One - firm.digitalReadiness) * HybridFailDrSens).toDouble
+    val failRate = HybridBaseFailRate + (Share.One - firm.digitalReadiness).toDouble * HybridFailDrSens
     val ir       = rng.nextDouble()
     if ir < failRate * CatastrophicFailFrac then
-      Decision.UpgradeFailed(pnl, BankruptReason.HybridImplFailure, hyb.capex * FailCapexFrac, hyb.loan * FailLoanFrac, hyb.down * FailDownFrac)
+      Decision.UpgradeFailed(pnl, BankruptReason.HybridImplFailure, hyb.capex * Share(FailCapexFrac), hyb.loan * Share(FailLoanFrac), hyb.down * Share(FailDownFrac))
     else if ir < failRate then
       val badEff = BadHybridEffBase + rng.between(0.0, BadHybridEffRange)
       Decision.Upgrade(pnl, TechState.Hybrid(hWkrs, badEff), hyb.capex, hyb.loan, hyb.down)
     else
       val goodEff = 1.0 + (GoodHybridEffBase + rng.between(0.0, GoodHybridEffRange)) *
-        (GoodHybridDrBlend + (firm.digitalReadiness * GoodHybridDrBlend).toDouble)
+        (GoodHybridDrBlend + firm.digitalReadiness.toDouble * GoodHybridDrBlend)
       Decision.Upgrade(pnl, TechState.Hybrid(hWkrs, goodEff), hyb.capex, hyb.loan, hyb.down)
 
   /** Try upsize, digital readiness investment, downsize, or survive — fallback
@@ -634,8 +634,8 @@ object Firm:
       if newWkrs > workers && nc > PLN.Zero then return Decision.Upsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
       else if newWkrs < workers then return Decision.Downsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
     val digiCost: PLN = computeDigiInvestCost(firm)
-    val canAfford     = nc > digiCost * DigiInvestCashMult
-    val competitive   = (w.real.automationRatio + w.real.hybridRatio * 0.5).toDouble
+    val canAfford     = nc > digiCost * Multiplier(DigiInvestCashMult)
+    val competitive   = (w.real.automationRatio.toDouble + w.real.hybridRatio.toDouble * 0.5)
     val diminishing   = (Share.One - firm.digitalReadiness).toDouble
     val digiProb      = (p.firm.digiInvestBaseProb * firm.riskProfile).toDouble *
       diminishing * (0.5 + competitive)
@@ -794,10 +794,10 @@ object Firm:
     if !p.flags.physCap then return r
     val f          = r.firm
     if !isAlive(f) then return r.copy(firm = f.copy(capitalStock = PLN.Zero))
-    val depRate    = p.capital.depRates(f.sector.toInt) / 12.0
+    val depRate    = p.capital.depRates(f.sector.toInt).monthly
     val depn: PLN  = f.capitalStock * depRate
     val postDepK   = f.capitalStock - depn
-    val targetK    = p.capital.klRatios(f.sector.toInt) * workerCount(f).toDouble
+    val targetK    = PLN(p.capital.klRatios(f.sector.toInt).toDouble * workerCount(f))
     val gap        = (targetK - postDepK).max(PLN.Zero)
     val desiredInv = depn + gap * p.capital.adjustSpeed
     val actualInv  = desiredInv.min(f.cash.max(PLN.Zero))
@@ -811,7 +811,7 @@ object Firm:
     */
   private def otherCosts(firm: State, domesticPrice: PriceIndex)(using p: SimParams): PLN =
     val sizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
-    val raw: PLN   = p.firm.otherCosts * (domesticPrice.toDouble * sizeFactor)
+    val raw: PLN   = p.firm.otherCosts * Multiplier(domesticPrice.toDouble * sizeFactor)
     val afterCap   = if p.flags.physCap then raw * (Share.One - p.capital.costReplace) else raw
     val afterEnerg = if p.flags.energy then afterCap * (Share.One - p.climate.energyCostReplace) else afterCap
     if p.flags.inventory then afterEnerg * (Share.One - p.capital.inventoryCostReplace) else afterEnerg
@@ -823,8 +823,8 @@ object Firm:
     val opexSizeFactor = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, OpexSizeExponent)
     val priceFactor    = OpexDomesticShare * domesticPrice.toDouble + OpexImportShare * importPrice.toDouble
     firm.tech match
-      case _: TechState.Automated => p.firm.aiOpex * (priceFactor * opexSizeFactor)
-      case _: TechState.Hybrid    => p.firm.hybridOpex * (priceFactor * opexSizeFactor)
+      case _: TechState.Automated => p.firm.aiOpex * Multiplier(priceFactor * opexSizeFactor)
+      case _: TechState.Hybrid    => p.firm.hybridOpex * Multiplier(priceFactor * opexSizeFactor)
       case _                      => PLN.Zero
 
   /** Energy cost including EU ETS carbon surcharge, net of green capital
@@ -836,11 +836,11 @@ object Firm:
     val etsPrice             = p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, month.toDouble)
     val carbonSurcharge      = p.climate.carbonIntensity(firm.sector.toInt) * (etsPrice / p.climate.etsBasePrice - 1.0)
     val greenDiscount: Share = if firm.greenCapital > PLN.Zero then
-      val targetGK = p.climate.greenKLRatios(firm.sector.toInt) * workerCount(firm).toDouble
-      if targetGK > PLN.Zero then p.climate.greenMaxDiscount * Math.min(1.0, firm.greenCapital / targetGK)
+      val targetGK = PLN(p.climate.greenKLRatios(firm.sector.toInt).toDouble * workerCount(firm))
+      if targetGK > PLN.Zero then p.climate.greenMaxDiscount * Share(Math.min(1.0, firm.greenCapital / targetGK))
       else Share.Zero
     else Share.Zero
-    baseEnergy * ((1.0 + Math.max(0.0, carbonSurcharge)) * (Share.One - greenDiscount).toDouble) * commodityPrice.toDouble
+    PLN(baseEnergy.toDouble * (1.0 + Math.max(0.0, carbonSurcharge)) * (Share.One - greenDiscount).toDouble * commodityPrice.toDouble)
 
   /** Monthly P&L: revenue minus all cost categories, CIT on positive profit. */
   private def computePnL(
@@ -853,14 +853,14 @@ object Firm:
       lendRate: Rate,
       month: Int,
   )(using p: SimParams): PnL =
-    val revenue: PLN         = computeCapacity(firm) * (sectorDemandMult * domesticPrice.toDouble)
-    val labor: PLN           = wage * workerCount(firm).toDouble * effectiveWageMult(firm.sector)
+    val revenue: PLN         = computeCapacity(firm) * Multiplier(sectorDemandMult * domesticPrice.toDouble)
+    val labor: PLN           = PLN(wage.toDouble * workerCount(firm) * effectiveWageMult(firm.sector).toDouble)
     val depnCost: PLN        =
-      if p.flags.physCap then firm.capitalStock * (p.capital.depRates(firm.sector.toInt) / 12.0)
+      if p.flags.physCap then firm.capitalStock * p.capital.depRates(firm.sector.toInt).monthly
       else PLN.Zero
-    val interest: PLN        = (firm.debt + firm.bondDebt) * (lendRate / 12.0)
+    val interest: PLN        = (firm.debt + firm.bondDebt) * lendRate.monthly
     val inventoryCost: PLN   =
-      if p.flags.inventory then firm.inventory * (p.capital.inventoryCarryingCost / 12.0) else PLN.Zero
+      if p.flags.inventory then firm.inventory * p.capital.inventoryCarryingCost.monthly else PLN.Zero
     val energyCost: PLN      = energyAndEtsCost(firm, revenue, month, commodityPrice)
     val prePsCosts           =
       labor + otherCosts(firm, domesticPrice) + depnCost + aiMaintenanceCost(firm, domesticPrice, importPrice) + interest + inventoryCost + energyCost
@@ -878,10 +878,10 @@ object Firm:
     val (tax, newAccLoss) =
       if profit <= PLN.Zero then (PLN.Zero, firm.accumulatedLoss + profit.abs)
       else
-        val maxOffset = profit * p.fiscal.citCarryforwardMaxShare.toDouble
+        val maxOffset = profit * p.fiscal.citCarryforwardMaxShare
         val offset    = maxOffset.min(firm.accumulatedLoss)
         val taxable   = profit - offset
-        val remaining = (firm.accumulatedLoss - offset) * (1.0 - p.fiscal.citCarryforwardDecay.toDouble)
+        val remaining = (firm.accumulatedLoss - offset) * Share(1.0 - p.fiscal.citCarryforwardDecay.toDouble)
         (taxable * p.fiscal.citRate, remaining.max(PLN.Zero))
 
     PnL(revenue, costs, tax, profit - tax, profitShiftCost, energyCost, newAccLoss)
@@ -894,10 +894,10 @@ object Firm:
     if !p.flags.energy then return r
     val f           = r.firm
     if !isAlive(f) then return r.copy(firm = f.copy(greenCapital = PLN.Zero))
-    val depRate     = p.climate.greenDepRate / 12.0
+    val depRate     = p.climate.greenDepRate.monthly
     val depn: PLN   = f.greenCapital * depRate
     val postDepGK   = f.greenCapital - depn
-    val targetGK    = p.climate.greenKLRatios(f.sector.toInt) * workerCount(f).toDouble
+    val targetGK    = PLN(p.climate.greenKLRatios(f.sector.toInt).toDouble * workerCount(f))
     val gap         = (targetGK - postDepGK).max(PLN.Zero)
     val desiredInv  = depn + gap * p.climate.greenAdjustSpeed
     val greenBudget = f.cash.max(PLN.Zero) * p.climate.greenBudgetShare
@@ -916,13 +916,13 @@ object Firm:
     if !isAlive(f) then return r.copy(firm = f.copy(inventory = PLN.Zero))
     val cap                   = computeCapacity(f)
     val productionValue       = cap * p.capital.inventoryCostFraction
-    val salesValue            = productionValue * Math.min(1.0, sectorDemandMult)
+    val salesValue            = productionValue * Share(Math.min(1.0, sectorDemandMult))
     val unsoldValue           = (productionValue - salesValue).max(PLN.Zero)
     // Spoilage
-    val spoilRate             = p.capital.inventorySpoilageRates(f.sector.toInt) / 12.0
+    val spoilRate             = p.capital.inventorySpoilageRates(f.sector.toInt).monthly
     val postSpoilage          = f.inventory - f.inventory * spoilRate
     // Target-based adjustment
-    val revenue               = cap * sectorDemandMult
+    val revenue               = cap * Multiplier(sectorDemandMult)
     val targetInv             = revenue * p.capital.inventoryTargetRatios(f.sector.toInt)
     val desired               = (targetInv - postSpoilage) * p.capital.inventoryAdjustSpeed
     // Accumulate unsold + adjust toward target
@@ -967,7 +967,7 @@ object Firm:
   private def applyFdiFlows(r: Result)(using p: SimParams): Result =
     if !p.flags.fdi || !r.firm.foreignOwned || !isAlive(r.firm) then return r
     val afterTaxProfit: PLN =
-      if p.fiscal.citRate > Rate.Zero && r.taxPaid > PLN.Zero then r.taxPaid * (Rate(1.0) / p.fiscal.citRate - 1.0)
+      if p.fiscal.citRate > Rate.Zero && r.taxPaid > PLN.Zero then r.taxPaid * Multiplier(Rate(1.0) / p.fiscal.citRate - 1.0)
       else PLN.Zero
     val repatriation: PLN   =
       (afterTaxProfit.max(PLN.Zero) * p.fdi.repatriationRate).min(r.firm.cash.max(PLN.Zero))

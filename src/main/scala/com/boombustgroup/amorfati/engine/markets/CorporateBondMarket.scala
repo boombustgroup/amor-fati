@@ -24,7 +24,6 @@ object CorporateBondMarket:
   private val MinYield            = 0.01 // yield floor (100 bps)
   private val MinAbsorption       = 0.3  // absorption floor
   private val CarBufferZone       = 0.02 // 200 bps CAR ramp zone above minCar
-  private val MonthsPerYear       = 12.0
   private val SpreadAbsorptionCap = 0.10 // excess spread at which absorption hits floor
 
   /** Corporate bond market state: Catalyst + non-public issuance. */
@@ -50,9 +49,9 @@ object CorporateBondMarket:
     val ppkShare  = p.corpBond.ppkShare.toDouble
     State(
       outstanding = stock,
-      bankHoldings = stock * bankShare,
-      ppkHoldings = stock * ppkShare,
-      otherHoldings = stock * (1.0 - bankShare - ppkShare),
+      bankHoldings = stock * Share(bankShare),
+      ppkHoldings = stock * Share(ppkShare),
+      otherHoldings = stock * Share(1.0 - bankShare - ppkShare),
       corpBondYield = Rate(0.06 + p.corpBond.spread.toDouble),
       creditSpread = Rate(p.corpBond.spread.toDouble),
     )
@@ -61,7 +60,7 @@ object CorporateBondMarket:
     * Spread widens with system NPL (credit risk channel).
     */
   def computeYield(govBondYield: Rate, nplRatio: Share)(using p: SimParams): Rate =
-    val cyclicalSpread = p.corpBond.spread * (1.0 + (nplRatio * NplSensitivity).toDouble)
+    val cyclicalSpread = p.corpBond.spread * Multiplier(1.0 + (nplRatio * Multiplier(NplSensitivity)).toDouble)
     val spread         = cyclicalSpread.min(Rate(MaxSpread))
     (govBondYield + spread).max(Rate(MinYield))
 
@@ -76,7 +75,7 @@ object CorporateBondMarket:
 
   /** Monthly coupon income from corporate bond holdings. */
   def computeCoupon(state: State): CouponResult =
-    val yieldMonthly = state.corpBondYield.toDouble / MonthsPerYear
+    val yieldMonthly = state.corpBondYield.monthly
     CouponResult(
       total = state.outstanding * yieldMonthly,
       bank = state.bankHoldings * yieldMonthly,
@@ -104,14 +103,14 @@ object CorporateBondMarket:
       val lossRate    = 1.0 - p.corpBond.recovery.toDouble
       DefaultResult(
         grossDefault = totalBondDefault,
-        lossAfterRecovery = totalBondDefault * lossRate,
-        bankLoss = state.bankHoldings * defaultFrac * lossRate,
-        ppkLoss = state.ppkHoldings * defaultFrac * lossRate,
+        lossAfterRecovery = totalBondDefault * Share(lossRate),
+        bankLoss = PLN(state.bankHoldings.toDouble * defaultFrac * lossRate),
+        ppkLoss = PLN(state.ppkHoldings.toDouble * defaultFrac * lossRate),
       )
 
   /** Monthly amortization: outstanding / maturity. */
   def amortization(state: State)(using p: SimParams): PLN =
-    state.outstanding * (1.0 / Math.max(1.0, p.corpBond.maturity))
+    state.outstanding * Share(1.0 / Math.max(1.0, p.corpBond.maturity))
 
   /** Compute market absorption rate for new bond issuance.
     *
@@ -142,9 +141,9 @@ object CorporateBondMarket:
       val ppkShare  = p.corpBond.ppkShare.toDouble
       state.copy(
         outstanding = state.outstanding + issuance,
-        bankHoldings = state.bankHoldings + issuance * bankShare,
-        ppkHoldings = state.ppkHoldings + issuance * ppkShare,
-        otherHoldings = state.otherHoldings + issuance * (1.0 - bankShare - ppkShare),
+        bankHoldings = state.bankHoldings + issuance * Share(bankShare),
+        ppkHoldings = state.ppkHoldings + issuance * Share(ppkShare),
+        otherHoldings = state.otherHoldings + issuance * Share(1.0 - bankShare - ppkShare),
         lastIssuance = issuance,
       )
 
@@ -167,9 +166,9 @@ object CorporateBondMarket:
       if in.prev.outstanding > PLN.Zero then Math.min(1.0, reduction.toDouble / in.prev.outstanding.toDouble) else 0.0
     val afterReduction = in.prev.copy(
       outstanding = (in.prev.outstanding - reduction).max(PLN.Zero),
-      bankHoldings = (in.prev.bankHoldings - in.prev.bankHoldings * reductionFrac).max(PLN.Zero),
-      ppkHoldings = (in.prev.ppkHoldings - in.prev.ppkHoldings * reductionFrac).max(PLN.Zero),
-      otherHoldings = (in.prev.otherHoldings - in.prev.otherHoldings * reductionFrac).max(PLN.Zero),
+      bankHoldings = (in.prev.bankHoldings - in.prev.bankHoldings * Share(reductionFrac)).max(PLN.Zero),
+      ppkHoldings = (in.prev.ppkHoldings - in.prev.ppkHoldings * Share(reductionFrac)).max(PLN.Zero),
+      otherHoldings = (in.prev.otherHoldings - in.prev.otherHoldings * Share(reductionFrac)).max(PLN.Zero),
       corpBondYield = newYield,
       creditSpread = (newYield - in.govBondYield).max(Rate.Zero),
       lastAmortization = amort,

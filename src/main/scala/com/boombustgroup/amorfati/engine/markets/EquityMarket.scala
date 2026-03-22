@@ -97,10 +97,10 @@ object EquityMarket:
 
       // Market cap scales with index
       val indexReturn  = if in.prev.index > 0 then newIndex / in.prev.index else 1.0
-      val newMarketCap = (in.prev.marketCap * indexReturn).max(PLN.Zero)
+      val newMarketCap = (in.prev.marketCap * Multiplier(indexReturn)).max(PLN.Zero)
 
       // Earnings yield from firm profits and market cap
-      val annualProfits    = in.firmProfits * MonthsPerYear
+      val annualProfits    = in.firmProfits * Multiplier(MonthsPerYear)
       val newEarningsYield = Rate(
         if newMarketCap > PLN.Zero then Math.max(EarningsYieldFloor, Math.min(EarningsYieldCap, annualProfits.toDouble / newMarketCap.toDouble))
         else in.prev.earningsYield.toDouble,
@@ -108,11 +108,11 @@ object EquityMarket:
 
       // Dividend yield: payout ratio x earnings yield (mean-reverting to calibrated)
       val impliedDivYield = newEarningsYield.toDouble * PayoutRatio
-      val newDivYield     = in.prev.dividendYield * (1.0 - DivYieldSmoothing) + Rate(impliedDivYield * DivYieldSmoothing)
+      val newDivYield     = in.prev.dividendYield * Multiplier(1.0 - DivYieldSmoothing) + Rate(impliedDivYield * DivYieldSmoothing)
 
       // Foreign ownership: slow-moving, mean-reverting to calibrated share
       val newForeignOwnership =
-        in.prev.foreignOwnership * (1.0 - ForeignReversionSpeed) + p.equity.foreignShare * ForeignReversionSpeed
+        in.prev.foreignOwnership * Share(1.0 - ForeignReversionSpeed) + p.equity.foreignShare * Share(ForeignReversionSpeed)
 
       val mReturn = if in.prev.index > 0 then newIndex / in.prev.index - 1.0 else 0.0
 
@@ -150,7 +150,7 @@ object EquityMarket:
   )(using p: SimParams): DividendResult =
     if marketCap <= PLN.Zero then DividendResultZero
     else
-      val totalDividends   = marketCap * divYield / MonthsPerYear
+      val totalDividends   = marketCap * divYield.monthly
       val foreignDividends = totalDividends * foreignShare
       val domesticGross    = totalDividends - foreignDividends
       val dividendTax      = domesticGross * p.equity.divTax

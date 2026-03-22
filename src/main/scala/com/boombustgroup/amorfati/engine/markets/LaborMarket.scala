@@ -49,7 +49,7 @@ object LaborMarket:
     val supplyAtPrev = (totalPopulation * laborSupplyRatio(prevWage, resWage).toDouble).toInt
     val excessDemand = (laborDemand - supplyAtPrev).toDouble / totalPopulation
     val wageGrowth   = Coefficient(excessDemand * p.household.wageAdjSpeed.toDouble)
-    val newWage      = resWage.max(prevWage * (1.0 + wageGrowth.toDouble))
+    val newWage      = resWage.max(prevWage * Multiplier(1.0 + wageGrowth.toDouble))
     val newSupply    = (totalPopulation * laborSupplyRatio(newWage, resWage).toDouble).toInt
     val employed     = Math.min(laborDemand, newSupply)
     WageResult(newWage, employed)
@@ -384,7 +384,7 @@ object LaborMarket:
       then SectoralMobility.crossSectorWagePenalty(p.labor.frictionMatrix(prevSector.toInt)(firm.sector.toInt))
       else 1.0
     val scarDiscount = 1.0 - hh.wageScar.toDouble
-    marketWage * (sectorMult * effectiveSkill(hh) * penalty * p.social.eduWagePremium(hh.education) * scarDiscount)
+    PLN(marketWage.toDouble * sectorMult * effectiveSkill(hh) * penalty * p.social.eduWagePremium(hh.education).toDouble * scarDiscount)
 
   // --- Wage helpers ---
 

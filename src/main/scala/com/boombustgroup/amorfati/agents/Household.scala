@@ -204,13 +204,13 @@ object Household:
       val debt: PLN     =
         if rng.nextDouble() < p.household.debtFraction.toDouble then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()))
         else PLN.Zero
-      val baseRent: PLN = (p.household.rentMean + p.household.rentStd * rng.nextGaussian()).max(p.household.rentFloor)
+      val baseRent: PLN = PLN((p.household.rentMean.toDouble + p.household.rentStd.toDouble * rng.nextGaussian()).max(p.household.rentFloor.toDouble))
       val rent: PLN     = if p.flags.regionalLabor then baseRent * firm.region.housingCostIndex else baseRent
       val mpc           = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
       val (edu, skill)  = sampleEducationAndSkill(sectorIdx, rng)
-      val wage: PLN     = p.household.baseWage * (p.sectorDefs(sectorIdx.toInt).wageMultiplier * skill)
+      val wage: PLN     = PLN(p.household.baseWage.toDouble * p.sectorDefs(sectorIdx.toInt).wageMultiplier.toDouble * skill)
       val eqWealth: PLN =
-        if p.flags.gpwHhEquity && rng.nextDouble() < p.equity.hhEquityFrac.toDouble then savings * GpwEquityInitFrac
+        if p.flags.gpwHhEquity && rng.nextDouble() < p.equity.hhEquityFrac.toDouble then savings * Share(GpwEquityInitFrac)
         else PLN.Zero
       val numChildren   = if p.flags.social800 then Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng) else 0
       val consDebt: PLN =
@@ -392,19 +392,19 @@ object Household:
   def computeMonthlyPit(monthlyIncome: PLN)(using p: SimParams): PLN =
     if !p.flags.pit || monthlyIncome <= PLN.Zero then PLN.Zero
     else
-      val afterZus   = monthlyIncome * (1.0 - p.social.zusEmployeeRate.toDouble)
-      val annualized = afterZus * 12.0
+      val afterZus   = monthlyIncome * Share(1.0 - p.social.zusEmployeeRate.toDouble)
+      val annualized = afterZus * Multiplier(12.0)
       val grossTax   =
-        if annualized <= p.fiscal.pitBracket1Annual then annualized * p.fiscal.pitRate1.toDouble
+        if annualized <= p.fiscal.pitBracket1Annual then annualized * p.fiscal.pitRate1
         else
-          p.fiscal.pitBracket1Annual * p.fiscal.pitRate1.toDouble +
-            (annualized - p.fiscal.pitBracket1Annual) * p.fiscal.pitRate2.toDouble
-      (grossTax - p.fiscal.pitTaxCreditAnnual).max(PLN.Zero) / 12.0
+          p.fiscal.pitBracket1Annual * p.fiscal.pitRate1 +
+            (annualized - p.fiscal.pitBracket1Annual) * p.fiscal.pitRate2
+      (grossTax - p.fiscal.pitTaxCreditAnnual).max(PLN.Zero) / 12L
 
   /** Compute 800+ social transfer (PIT-exempt, lump-sum per child ≤ 18). */
   def computeSocialTransfer(numChildren: Int)(using p: SimParams): PLN =
     if !p.flags.social800 || numChildren <= 0 then PLN.Zero
-    else p.fiscal.social800Rate * numChildren.toDouble
+    else numChildren * p.fiscal.social800Rate
 
   /** Unemployment benefit (zasilek): 1500 PLN m1-3, 1200 PLN m4-6, 0 after. */
   def computeBenefit(monthsUnemployed: Int)(using p: SimParams): PLN =
@@ -425,7 +425,7 @@ object Household:
     val targetSector  =
       SectoralMobility.selectTargetSector(status.sectorIdx.toInt, sectorWages, sectorVacancies, p.labor.frictionMatrix, p.labor.vacancyWeight.toDouble, rng)
     val targetAvgWage = sectorWages(targetSector)
-    if targetAvgWage <= status.wage * (1.0 + p.labor.voluntaryWageThreshold.toDouble) then return (status, 0)
+    if targetAvgWage <= status.wage * Multiplier(1.0 + p.labor.voluntaryWageThreshold.toDouble) then return (status, 0)
     val friction      = p.labor.frictionMatrix(status.sectorIdx.toInt)(targetSector)
     if friction < p.labor.adjacentFrictionMax.toDouble then (HhStatus.Unemployed(0), 1)
     else
@@ -491,12 +491,12 @@ object Household:
     val consumerRate: Rate = bankRates match
       case Some(br) => br.lendingRates(hh.bankId.toInt) + p.household.ccSpread
       case None     => world.nbp.referenceRate + p.household.ccSpread
-    val consumerDebtSvc    = hh.consumerDebt * (p.household.ccAmortRate.toDouble + consumerRate.toDouble / 12.0)
-    val consumerPrin       = hh.consumerDebt * p.household.ccAmortRate.toDouble
+    val consumerDebtSvc    = PLN(hh.consumerDebt.toDouble * (p.household.ccAmortRate.toDouble + consumerRate.toDouble / 12.0))
+    val consumerPrin       = hh.consumerDebt * p.household.ccAmortRate
 
     val newConsumerLoan = hh.status match
       case HhStatus.Employed(_, _, wage)                                             =>
-        val stressed = disposable < wage * DisposableWageThreshold
+        val stressed = disposable < wage * Share(DisposableWageThreshold)
         val eligible = stressed && rng.nextDouble() < p.household.ccEligRate.toDouble
         if !eligible then PLN.Zero
         else
@@ -554,14 +554,14 @@ object Household:
 
     // Deposit interest (monetary transmission channel 2)
     val depInterest: PLN = bankRates match
-      case Some(br) => hh.savings * (br.depositRates(hh.bankId.toInt).toDouble / 12.0)
+      case Some(br) => hh.savings * br.depositRates(hh.bankId.toInt).monthly
       case None     => PLN.Zero
 
     val grossIncome     = baseIncome + depInterest.max(PLN.Zero)
     val pitTax          = computeMonthlyPit(grossIncome)
     val socialTransfer  = computeSocialTransfer(hh.numDependentChildren)
     val income          = grossIncome - pitTax + socialTransfer
-    val thisDebtService = hh.debt * debtServiceRate
+    val thisDebtService = hh.debt * Rate(debtServiceRate)
 
     val remittance =
       if hh.isImmigrant && p.flags.immigration then income * p.immigration.remitRate
@@ -577,15 +577,15 @@ object Household:
     // Social network precautionary effect
     val neighborDistress = neighborDistressRatioFast(hh, distressedIds)
     val consumptionAdj   =
-      if neighborDistress > NeighborDistressThreshold then consumption * NeighborDistressConsAdj else consumption
+      if neighborDistress > NeighborDistressThreshold then consumption * Share(NeighborDistressConsAdj) else consumption
 
     // Wealth effects: equity (GPW) + housing (Meen HPI)
-    val newEquityWealth       = (hh.equityWealth * (1.0 + equityIndexReturn)).max(PLN.Zero)
+    val newEquityWealth       = (hh.equityWealth * Multiplier(1.0 + equityIndexReturn)).max(PLN.Zero)
     val equityGain            = newEquityWealth - hh.equityWealth
     val equityBoost           =
       if p.flags.gpwHhEquity && equityGain > PLN.Zero then equityGain * p.equity.wealthEffectMpc
       else PLN.Zero
-    val housingBoost          = world.real.housing.lastWealthEffect / world.totalPopulation.toDouble
+    val housingBoost          = world.real.housing.lastWealthEffect / world.totalPopulation.toLong.max(1L)
     val consumptionWithWealth = consumptionAdj + equityBoost + housingBoost
 
     MonthlyFlows(
@@ -619,12 +619,12 @@ object Household:
       distressedIds: java.util.BitSet,
   )(using p: SimParams): HhMonthlyResult =
     val f = computeMonthlyFlows(hh, world, rng, bankRates, equityIndexReturn, distressedIds)
-    if f.newSavings < hh.monthlyRent * p.household.bankruptcyThreshold then resolveBankruptcy(f)
+    if f.newSavings < hh.monthlyRent * Multiplier(p.household.bankruptcyThreshold) then resolveBankruptcy(f)
     else resolveSurvival(f, sectorWages, sectorVacancies, rng)
 
   /** Bankruptcy branch: write off consumer debt, zero equity. */
   private def resolveBankruptcy(f: MonthlyFlows)(using p: SimParams): HhMonthlyResult =
-    val ccDefaultAmt  = f.hh.consumerDebt * (1.0 - p.household.ccAmortRate.toDouble) + f.credit.newLoan
+    val ccDefaultAmt  = f.hh.consumerDebt * Share(1.0 - p.household.ccAmortRate.toDouble) + f.credit.newLoan
     val creditWithDef = f.credit.copy(defaultAmt = ccDefaultAmt, updatedDebt = PLN.Zero)
     HhMonthlyResult(
       newState = f.hh.copy(
@@ -802,7 +802,7 @@ object Household:
     val baseMpc = hh.mpc
     if income <= PLN.Zero then baseMpc
     else
-      val targetSavings = income * p.household.bufferTargetMonths
+      val targetSavings = income * Multiplier(p.household.bufferTargetMonths)
       val bufferRatio   = hh.savings / targetSavings // >1 = fat buffer, <1 = depleted
       val bufferAdj     = Share(1.0 - p.household.bufferSensitivity.toDouble * (bufferRatio - 1.0))
       val unemployedAdj = status match

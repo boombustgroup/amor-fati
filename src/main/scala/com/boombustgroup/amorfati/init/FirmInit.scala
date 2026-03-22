@@ -117,7 +117,7 @@ object FirmInit:
   private def assignCapitalAndBank(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
     firms.map: f =>
       val withCap =
-        if p.flags.physCap then f.copy(capitalStock = p.capital.klRatios(f.sector.toInt) * Firm.workerCount(f).toDouble)
+        if p.flags.physCap then f.copy(capitalStock = PLN(p.capital.klRatios(f.sector.toInt).toDouble * Firm.workerCount(f)))
         else f
       withCap.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng))
 
@@ -137,12 +137,12 @@ object FirmInit:
     */
   private def finalize(firms: Vector[Firm.State])(using p: SimParams): Vector[Firm.State] =
     val totalWorkers  = firms.map(Firm.workerCount).sum
-    val totalFirmCash = p.banking.initDeposits * FirmDepositShare
+    val totalFirmCash = p.banking.initDeposits * Share(FirmDepositShare)
     firms.map: f =>
       val wshare     = Firm.workerCount(f).toDouble / totalWorkers
       val withInv    = initInventory(f)
       val withEnergy = initGreenCapital(withInv)
-      withEnergy.copy(cash = totalFirmCash * wshare, debt = p.banking.initLoans * wshare)
+      withEnergy.copy(cash = totalFirmCash * Share(wshare), debt = p.banking.initLoans * Share(wshare))
 
   /** Set initial inventory stock from sector target ratio scaled to firm
     * capacity.
@@ -157,6 +157,6 @@ object FirmInit:
   /** Set initial green capital stock from sector-specific green K/L ratio. */
   private def initGreenCapital(f: Firm.State)(using p: SimParams): Firm.State =
     if p.flags.energy then
-      val targetGK = p.climate.greenKLRatios(f.sector.toInt) * Firm.workerCount(f).toDouble
+      val targetGK = PLN(p.climate.greenKLRatios(f.sector.toInt).toDouble * Firm.workerCount(f))
       f.copy(greenCapital = targetGK * p.climate.greenInitRatio)
     else f

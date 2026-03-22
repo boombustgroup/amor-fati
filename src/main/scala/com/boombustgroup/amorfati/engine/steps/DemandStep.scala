@@ -56,7 +56,7 @@ object DemandStep:
     val unempRate     = Share(1.0 - in.s2.employed.toDouble / in.w.totalPopulation)
     val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
     val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
-    val target        = p.fiscal.govBaseSpending * Math.max(1.0, in.w.priceLevel) +
+    val target        = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, in.w.priceLevel)) +
       (in.w.gov.taxRevenue + zusNetSurplus) * p.fiscal.govFiscalRecyclingRate + stimulus
     target
 
@@ -69,7 +69,7 @@ object DemandStep:
     val outputGap    = Coefficient((unempRate - p.monetary.nairu) / p.monetary.nairu)
 
     val floored =
-      if prevGovSpend > PLN.Zero then rawTarget.max(prevGovSpend * GovSpendingFloor)
+      if prevGovSpend > PLN.Zero then rawTarget.max(prevGovSpend * Share(GovSpendingFloor))
       else rawTarget
 
     val result = FiscalRules.constrain(
@@ -89,7 +89,7 @@ object DemandStep:
     if result.status.bindingRule >= 3 then result
     else
       val withFloor = result.constrainedGovPurchases.max(
-        if prevGovSpend > PLN.Zero then prevGovSpend * GovSpendingFloor else PLN.Zero,
+        if prevGovSpend > PLN.Zero then prevGovSpend * Share(GovSpendingFloor) else PLN.Zero,
       )
       result.copy(constrainedGovPurchases = withFloor)
 
@@ -113,8 +113,8 @@ object DemandStep:
 
   /** Lagged domestic investment demand (net of import content). */
   private def computeLaggedInvestDemand(in: Input)(using p: SimParams): PLN =
-    in.w.real.grossInvestment * (1.0 - p.capital.importShare.toDouble) +
-      in.w.real.aggGreenInvestment * (1.0 - p.climate.greenImportShare.toDouble)
+    in.w.real.grossInvestment * Share(1.0 - p.capital.importShare.toDouble) +
+      in.w.real.aggGreenInvestment * Share(1.0 - p.climate.greenImportShare.toDouble)
 
   /** Per-sector total demand: consumption + gov purchases + investment +
     * exports, allocated via flow-of-funds weights.

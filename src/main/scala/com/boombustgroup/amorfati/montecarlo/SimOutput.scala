@@ -103,7 +103,7 @@ object SimOutput:
     ColumnDef("IoFlows", ctx => ctx.world.flows.ioFlows.toDouble),
     ColumnDef(
       "IoGdpRatio",
-      ctx => if ctx.world.gdpProxy > 0 then (ctx.world.flows.ioFlows / ctx.world.gdpProxy).toDouble else 0.0,
+      ctx => if ctx.world.gdpProxy > 0 then ctx.world.flows.ioFlows.toDouble / ctx.world.gdpProxy else 0.0,
     ),
   )
 
@@ -200,7 +200,7 @@ object SimOutput:
     ColumnDef("NbpBondHoldings", ctx => ctx.world.nbp.govBondHoldings.toDouble),
     ColumnDef("QeActive", ctx => if ctx.world.nbp.qeActive then 1.0 else 0.0),
     ColumnDef("DebtService", ctx => ctx.world.gov.debtServiceSpend.toDouble),
-    ColumnDef("NbpRemittance", ctx => (ctx.world.nbp.govBondHoldings * ctx.world.gov.bondYield / 12.0).toDouble),
+    ColumnDef("NbpRemittance", ctx => (ctx.world.nbp.govBondHoldings * ctx.world.gov.bondYield.monthly).toDouble),
     // Monetary plumbing
     ColumnDef("ReserveInterest", ctx => ctx.world.plumbing.reserveInterestTotal.toDouble),
     ColumnDef("StandingFacilityNet", ctx => ctx.world.plumbing.standingFacilityNet.toDouble),
@@ -336,7 +336,7 @@ object SimOutput:
       "MortgageToGdp",
       ctx =>
         if ctx.world.gdpProxy > 0 && ctx.world.real.housing.mortgageStock > PLN.Zero
-        then (ctx.world.real.housing.mortgageStock / (ctx.world.gdpProxy * 12.0)).toDouble
+        then ctx.world.real.housing.mortgageStock.toDouble / (ctx.world.gdpProxy * 12.0)
         else 0.0,
     ),
     // Regional Housing Market
@@ -357,7 +357,7 @@ object SimOutput:
     ColumnDef(
       "CapitalDepreciation",
       ctx =>
-        if ctx.p.flags.physCap then ctx.living.kahanSumBy(f => (f.capitalStock * ctx.p.capital.depRates.map(_.toDouble)(f.sector.toInt) / 12.0).toDouble)
+        if ctx.p.flags.physCap then ctx.living.kahanSumBy(f => (f.capitalStock * ctx.p.capital.depRates(f.sector.toInt).monthly).toDouble)
         else 0.0,
     ),
     // Inventories
@@ -365,13 +365,13 @@ object SimOutput:
     ColumnDef("InventoryChange", ctx => ctx.world.flows.aggInventoryChange.toDouble),
     ColumnDef(
       "InventoryToGdp",
-      ctx => if ctx.world.gdpProxy > 0 then (ctx.world.flows.aggInventoryStock / ctx.world.gdpProxy).toDouble else 0.0,
+      ctx => if ctx.world.gdpProxy > 0 then ctx.world.flows.aggInventoryStock.toDouble / ctx.world.gdpProxy else 0.0,
     ),
     // Energy / Climate
     ColumnDef("AggEnergyCost", ctx => ctx.world.flows.aggEnergyCost.toDouble),
     ColumnDef(
       "EnergyCostToGdp",
-      ctx => if ctx.world.gdpProxy > 0 then (ctx.world.flows.aggEnergyCost / ctx.world.gdpProxy).toDouble else 0.0,
+      ctx => if ctx.world.gdpProxy > 0 then ctx.world.flows.aggEnergyCost.toDouble / ctx.world.gdpProxy else 0.0,
     ),
     ColumnDef("EtsPrice", ctx => ctx.world.real.etsPrice),
     ColumnDef("AggGreenCapital", ctx => ctx.world.real.aggGreenCapital.toDouble),
@@ -453,7 +453,7 @@ object SimOutput:
     ColumnDef("InformalEmployment", ctx => ctx.world.flows.informalEmployed),
     ColumnDef(
       "EvasionToGdpRatio",
-      ctx => if ctx.world.gdpProxy > 0 then (ctx.world.flows.taxEvasionLoss / ctx.world.gdpProxy).toDouble else 0.0,
+      ctx => if ctx.world.gdpProxy > 0 then ctx.world.flows.taxEvasionLoss.toDouble / ctx.world.gdpProxy else 0.0,
     ),
   )
 

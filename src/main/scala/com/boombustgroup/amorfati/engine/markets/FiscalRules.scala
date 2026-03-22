@@ -41,7 +41,7 @@ object FiscalRules:
 
   /** Apply fiscal rules in order of severity, taking the most restrictive. */
   def constrain(in: Input)(using p: SimParams): Output =
-    val annualGdp    = in.monthlyGdp * 12.0
+    val annualGdp    = in.monthlyGdp * Multiplier(12.0)
     val debtToGdp    = if annualGdp > PLN.Zero then Share(in.cumulativeDebt / annualGdp) else Share.Zero
     val deficitToGdp = if annualGdp > PLN.Zero then Share(in.prevDeficit / in.monthlyGdp) else Share.Zero // monthly deficit / monthly GDP = annualized ratio
 

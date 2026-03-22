@@ -100,7 +100,7 @@ object WorldAssemblyStep:
       .map: s =>
         in.s2.living
           .filter(_.sector.toInt == s)
-          .kahanSumBy(f => (Firm.computeCapacity(f) * (in.s4.sectorMults(s) * in.w.priceLevel)).toDouble)
+          .kahanSumBy(f => (Firm.computeCapacity(f) * Multiplier(in.s4.sectorMults(s) * in.w.priceLevel)).toDouble)
       .kahanSum
     val adjustedDemand = in.s4.sectorMults.indices
       .map: s =>
@@ -284,7 +284,7 @@ object WorldAssemblyStep:
       totalIncome = in.s3.totalIncome,
       totalConsumption = in.s3.consumption,
       newLoans = in.s5.sumNewLoans,
-      nplRecovery = in.s5.nplNew * p.banking.loanRecovery.toDouble,
+      nplRecovery = in.s5.nplNew * p.banking.loanRecovery,
       currentAccount = in.s8.external.newBop.currentAccount,
       valuationEffect = in.s8.external.oeValuationEffect,
       bankBondIncome = in.s8.banking.bankBondIncome,

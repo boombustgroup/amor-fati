@@ -271,7 +271,7 @@ object FirmProcessingStep:
       if p.flags.gpw && p.flags.gpwEquityIssuance && r.newLoan > PLN.Zero &&
         Firm.workerCount(r.firm) >= p.equity.issuanceMinSize
       then
-        val eq  = r.newLoan * p.equity.issuanceFrac.toDouble
+        val eq  = r.newLoan * p.equity.issuanceFrac
         val adj = r.newLoan - eq
         val f   = r.firm.copy(debt = r.firm.debt - eq, equityRaised = r.firm.equityRaised + eq)
         (adj, eq, f)
@@ -280,7 +280,7 @@ object FirmProcessingStep:
     // Channel 2: Catalyst corporate bonds (medium+ firms only)
     val (finalLoan, bondAmt, finalFirm) =
       if afterEquityLoan > PLN.Zero && Firm.workerCount(afterEquityFirm) >= p.corpBond.minSize then
-        val ba  = afterEquityLoan * p.corpBond.issuanceFrac.toDouble
+        val ba  = afterEquityLoan * p.corpBond.issuanceFrac
         val adj = afterEquityLoan - ba
         val f   = afterEquityFirm.copy(debt = afterEquityFirm.debt - ba, bondDebt = afterEquityFirm.bondDebt + ba)
         (adj, ba, f)
@@ -300,7 +300,7 @@ object FirmProcessingStep:
     val absorption         = CorporateBondMarket
       .computeAbsorption(w.financial.corporateBonds, result.flows.bondIssuance, w.bank.car, Multiplier(p.banking.minCar.toDouble))
       .toDouble
-    val actualBondIssuance = result.flows.bondIssuance * absorption
+    val actualBondIssuance = result.flows.bondIssuance * Share(absorption)
     val revertRatio        = 1.0 - absorption
 
     val adjustedFirms =
@@ -314,7 +314,7 @@ object FirmProcessingStep:
       else result.outcomes.map(_.firm)
 
     val bondRevertLoans =
-      if revertRatio > BondRevertThreshold then result.flows.bondIssuance * revertRatio
+      if revertRatio > BondRevertThreshold then result.flows.bondIssuance * Share(revertRatio)
       else PLN.Zero
 
     BondAbsorptionResult(adjustedFirms, result.flows.newLoans + bondRevertLoans, Share(absorption), actualBondIssuance)
@@ -379,7 +379,7 @@ object FirmProcessingStep:
     val prevAlive        = preFirms.filter(Firm.isAlive).map(_.id).toSet
     val newlyDead        = postFirms.filter(f => !Firm.isAlive(f) && prevAlive.contains(f.id))
     val nplNew           = PLN(newlyDead.kahanSumBy(_.debt.toDouble))
-    val nplLoss          = nplNew * (1.0 - p.banking.loanRecovery.toDouble)
+    val nplLoss          = nplNew * (Share.One - p.banking.loanRecovery)
     val totalBondDefault = PLN(newlyDead.kahanSumBy(_.bondDebt.toDouble))
 
     // Per-bank aggregation via groupMapReduce (pure, no mutable arrays)

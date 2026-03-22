@@ -106,7 +106,7 @@ object FirmEntry:
 
     Firm.State(
       id = slotId,
-      cash = p.firm.entryStartupCash * sizeMult,
+      cash = p.firm.entryStartupCash * Multiplier(sizeMult),
       debt = PLN.Zero,
       tech = tech,
       riskProfile = Share(rng.between(0.1, 0.9)),
@@ -158,20 +158,20 @@ object FirmEntry:
   /** Initial physical capital stock from sector-specific capital-labor ratio.
     */
   private def initCapitalStock(firmSize: Int, sector: Int)(using p: SimParams): PLN =
-    if p.flags.physCap then p.capital.klRatios(sector) * firmSize.toDouble
+    if p.flags.physCap then PLN(p.capital.klRatios(sector).toDouble * firmSize)
     else PLN.Zero
 
   /** Initial inventory from sector target ratio, scaled to firm capacity. */
   private def initInventory(firmSize: Int, sector: Int)(using p: SimParams): PLN =
     if p.flags.inventory then
-      val cap = p.firm.baseRevenue * (firmSize.toDouble / p.pop.workersPerFirm) *
+      val cap = p.firm.baseRevenue * Multiplier(firmSize.toDouble / p.pop.workersPerFirm) *
         p.sectorDefs(sector).revenueMultiplier
       cap * p.capital.inventoryTargetRatios(sector) * p.capital.inventoryInitRatio
     else PLN.Zero
 
   /** Initial green capital stock from sector-specific green K/L ratio. */
   private def initGreenCapital(firmSize: Int, sector: Int)(using p: SimParams): PLN =
-    if p.flags.energy then p.climate.greenKLRatios(sector) * firmSize.toDouble * p.climate.greenInitRatio
+    if p.flags.energy then PLN(p.climate.greenKLRatios(sector).toDouble * firmSize) * p.climate.greenInitRatio
     else PLN.Zero
 
   private def pickSector(totalWeight: Double, sectorWeights: Vector[Double], rng: Random): Int =

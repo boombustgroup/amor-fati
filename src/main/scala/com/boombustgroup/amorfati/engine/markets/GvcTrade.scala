@@ -90,14 +90,14 @@ object GvcTrade:
     val nSectors            = in.prev.sectorExports.size
     val monthlyInflation    = p.gvc.foreignInflation.monthly
     val monthlyInflationRaw = monthlyInflation.toDouble // for pre-existing helpers taking Double
-    val newForeignPrice     = in.prev.foreignPriceIndex * (monthlyInflation + 1.0)
+    val newForeignPrice     = in.prev.foreignPriceIndex * Multiplier(monthlyInflationRaw + 1.0)
     // Commodity price: GBM drift + volatility + optional shock
     val commodityDrift      = p.gvc.commodityDrift.monthly
-    val commodityNoise      = p.gvc.commodityVolatility * in.rng.nextGaussian()
+    val commodityNoise      = p.gvc.commodityVolatility.toDouble * in.rng.nextGaussian()
     val commodityShock      =
       if p.gvc.commodityShockMonth > 0 && in.month == p.gvc.commodityShockMonth then p.gvc.commodityShockMag
       else Multiplier.Zero
-    val commodityGrowth     = commodityShock.toDouble + (commodityDrift + 1.0 + commodityNoise.toDouble)
+    val commodityGrowth     = Multiplier(commodityShock.toDouble + commodityDrift.toDouble + 1.0 + commodityNoise)
     val newCommodity        = in.prev.commodityPriceIndex * commodityGrowth
     val newImportCost       = newForeignPrice * newCommodity
     val shockActive         = p.gvc.demandShockMonth > 0 && in.month >= p.gvc.demandShockMonth
@@ -139,7 +139,7 @@ object GvcTrade:
       val afterShock =
         if shockActive && month == p.gvc.demandShockMonth &&
           p.gvc.demandShockSectors.contains(ff.sectorId)
-        then ff.copy(baseExportDemand = ff.baseExportDemand * (1.0 - p.gvc.demandShockSize.toDouble))
+        then ff.copy(baseExportDemand = ff.baseExportDemand * Share(1.0 - p.gvc.demandShockSize.toDouble))
         else ff
       afterShock.copy(
         disruption = Share(afterShock.disruption.toDouble * (1.0 - recoveryRate)),

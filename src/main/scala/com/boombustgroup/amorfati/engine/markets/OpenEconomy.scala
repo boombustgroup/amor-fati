@@ -113,10 +113,10 @@ object OpenEconomy:
     val techComp  = 1.0 + autoRatio.toDouble * p.forex.exportAutoBoost.toDouble
     val totalImp  = importConsumption + techImports
     val exComp    = prev.exchangeRate / p.forex.baseExRate
-    val exports   = p.forex.exportBase * (exComp * techComp)
+    val exports   = p.forex.exportBase * Multiplier(exComp * techComp)
     val tradeBal  = exports - totalImp
     val rateDiff  = (domesticRate - p.forex.foreignRate).toDouble
-    val capAcct   = gdp * (rateDiff * p.forex.irpSensitivity.toDouble)
+    val capAcct   = PLN(gdp.toDouble * rateDiff * p.forex.irpSensitivity.toDouble)
     val bop       = tradeBal + capAcct
     val bopRatio  = if gdp > PLN.Zero then bop / gdp else 0.0
     val exRateChg = -p.forex.exRateAdjSpeed.toDouble * bopRatio
@@ -218,7 +218,7 @@ object OpenEconomy:
       val foreignGdpFactor = Math.pow(1.0 + p.openEcon.foreignGdpGrowth.toDouble / MonthsPerYear, in.month.toDouble)
       val ulcEffect        = 1.0 + in.autoRatio.toDouble * p.openEcon.ulcExportBoost.toDouble
       val realExRate       = realExchangeRateEffect(in.prevForex.exchangeRate, in.priceLevel)
-      p.openEcon.exportBase * (foreignGdpFactor * realExRate * ulcEffect)
+      p.openEcon.exportBase * Multiplier(foreignGdpFactor * realExRate * ulcEffect)
 
   /** Per-sector imported intermediates: real output × sector import content ×
     * ER effect. Returns one PLN value per sector. Falls back to GVC module
@@ -230,8 +230,8 @@ object OpenEconomy:
       val erNetEffect = Math.pow(in.prevForex.exchangeRate / p.forex.baseExRate, 1.0 - p.openEcon.erElasticity.toDouble)
       (0 until nSectors)
         .map: s =>
-          val realOutput = if in.priceLevel > 0 then in.sectorOutputs(s) / in.priceLevel else in.sectorOutputs(s)
-          realOutput * p.openEcon.importContent(s) * erNetEffect
+          val realOutput = if in.priceLevel > 0 then PLN(in.sectorOutputs(s).toDouble / in.priceLevel) else in.sectorOutputs(s)
+          realOutput * p.openEcon.importContent(s) * Multiplier(erNetEffect)
         .toVector
 
   // --- BoP components ---
@@ -241,7 +241,7 @@ object OpenEconomy:
     * for BopState.
     */
   private def computeCurrentAccount(in: StepInput, tradeBalance: PLN)(using p: SimParams): CurrentAccountResult =
-    val primaryIncome   = in.prevBop.nfa * p.openEcon.nfaReturnRate / MonthsPerYear
+    val primaryIncome   = in.prevBop.nfa * p.openEcon.nfaReturnRate.monthly
     val secondaryIncome = in.euFundsMonthly - in.remittanceOutflow + in.diasporaInflow
     val ca              = tradeBalance + primaryIncome + secondaryIncome
     CurrentAccountResult(ca, primaryIncome, secondaryIncome)
@@ -250,15 +250,15 @@ object OpenEconomy:
     * portfolio flows (interest rate differential + NFA risk premium).
     */
   private def computeCapitalAccount(in: StepInput)(using p: SimParams): CapitalAccountResult =
-    val annualGdp         = in.gdp * MonthsPerYear
+    val annualGdp         = in.gdp * Multiplier(MonthsPerYear)
     val nfaGdpRatio       = if in.gdp > PLN.Zero then in.prevBop.nfa / annualGdp else 0.0
-    val fdi               = p.openEcon.fdiBase * ((1.0 + in.autoRatio.toDouble * FdiAutoBoost) *
+    val fdi               = p.openEcon.fdiBase * Multiplier((1.0 + in.autoRatio.toDouble * FdiAutoBoost) *
       (1.0 - Math.max(0.0, -nfaGdpRatio) * FdiNfaDampening))
     val portfolioFlows    =
       val rateDiff    = (in.domesticRate - p.forex.foreignRate).toDouble
       val riskPremium = -p.openEcon.riskPremiumSensitivity.toDouble * nfaGdpRatio
       val monthlyGdp  = if in.gdp > PLN.Zero then in.gdp else PLN(1.0)
-      monthlyGdp * ((rateDiff + riskPremium) * p.openEcon.portfolioSensitivity.toDouble)
+      PLN(monthlyGdp.toDouble * (rateDiff + riskPremium) * p.openEcon.portfolioSensitivity.toDouble)
     // Capital flight: risk-off, carry trade, auction signal
     val yieldSpread       = in.bondYield - p.forex.foreignRate
     val capitalFlight     = CapitalFlows.compute(
@@ -295,7 +295,7 @@ object OpenEconomy:
       capitalAccount: PLN,
       fxErEffect: Double,
   )(using p: SimParams): Double =
-    val annualGdp   = in.gdp * MonthsPerYear
+    val annualGdp   = in.gdp * Multiplier(MonthsPerYear)
     val nfaGdpRatio = if in.gdp > PLN.Zero then in.prevBop.nfa / annualGdp else 0.0
     val bopGdpRatio = if in.gdp > PLN.Zero then (ca + capitalAccount) / in.gdp else 0.0
     val nfaRisk     = p.openEcon.riskPremiumSensitivity.toDouble * Math.min(0.0, nfaGdpRatio)
@@ -311,7 +311,7 @@ object OpenEconomy:
     */
   private def computeValuationEffect(prevBop: BopState, prevExRate: Double, newExRate: Double): PLN =
     val erChange = (newExRate - prevExRate) / prevExRate
-    prevBop.foreignAssets * (erChange * ValuationPassThrough)
+    PLN(prevBop.foreignAssets.toDouble * erChange * ValuationPassThrough)
 
   /** Kahan-stable summation for PLN vectors. */
   private def kahanSumPln(vs: Vector[PLN]): PLN = PLN(vs.map(_.toDouble).kahanSum)

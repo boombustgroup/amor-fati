@@ -185,7 +185,7 @@ object BankUpdateStep:
       actualBondChange = multi.actualBondChange,
       unrealizedBondLoss = {
         val yc = (in.s8.monetary.newBondYield - in.w.gov.bondYield).toDouble
-        if yc > 0 then in.w.bank.afsBonds * (yc * p.banking.govBondDuration) else PLN.Zero
+        if yc > 0 then PLN(in.w.bank.afsBonds.toDouble * yc * p.banking.govBondDuration) else PLN.Zero
       },
       htmRealizedLoss = multi.htmRealizedLoss,
       eclProvisionChange = PLN:
@@ -298,8 +298,8 @@ object BankUpdateStep:
     * investment.
     */
   private def computeInvestNetDepositFlow(in: Input)(using p: SimParams): PLN =
-    val currentInvestDomestic = in.s5.sumGrossInvestment * (1.0 - p.capital.importShare.toDouble) +
-      in.s5.sumGreenInvestment * (1.0 - p.climate.greenImportShare.toDouble)
+    val currentInvestDomestic = in.s5.sumGrossInvestment * Share(1.0 - p.capital.importShare.toDouble) +
+      in.s5.sumGreenInvestment * Share(1.0 - p.climate.greenImportShare.toDouble)
     in.s4.laggedInvestDemand - currentInvestDomestic
 
   /** Recompute household aggregates from final households. */
@@ -360,13 +360,13 @@ object BankUpdateStep:
       case None      =>
         val ws = if totalWorkers > 0 then perBankWorkers(bId) / totalWorkers else 0.0
         PerBankHhFlows(
-          incomeShare = in.s3.totalIncome * ws,
-          consShare = in.s3.consumption * ws,
-          hhDebtService = in.s6.hhDebtService * ws,
+          incomeShare = in.s3.totalIncome * Share(ws),
+          consShare = in.s3.consumption * Share(ws),
+          hhDebtService = in.s6.hhDebtService * Share(ws),
           depInterest = PLN.Zero,
-          ccDebtService = in.s6.consumerDebtService * ws,
-          ccOrigination = in.s6.consumerOrigination * ws,
-          ccDefault = in.s6.consumerDefaultAmt * ws,
+          ccDebtService = in.s6.consumerDebtService * Share(ws),
+          ccOrigination = in.s6.consumerOrigination * Share(ws),
+          ccDefault = in.s6.consumerDefaultAmt * Share(ws),
         )
 
   /** Compute updated state for a single bank in the multi-bank path. */
@@ -385,55 +385,55 @@ object BankUpdateStep:
     val bId           = b.id.toInt
     val ws            = workerShare.toDouble
     val bankNplNew    = PLN(in.s5.perBankNplDebt(bId))   // Vector[Double] → PLN at boundary
-    val bankNplLoss   = bankNplNew * (1.0 - p.banking.loanRecovery.toDouble)
+    val bankNplLoss   = bankNplNew * (Share.One - p.banking.loanRecovery)
     val bankIntIncome = PLN(in.s5.perBankIntIncome(bId)) // Vector[Double] → PLN at boundary
-    val bankBondInc   = b.govBondHoldings * in.s8.monetary.newBondYield / 12.0
+    val bankBondInc   = b.govBondHoldings * in.s8.monetary.newBondYield.monthly
     val bankResInt    = perBankReserveInt.perBank(bId)
     val bankSfInc     = perBankStandingFac.perBank(bId)
     val bankIbInt     = perBankInterbankInt.perBank(bId)
     val newLoansTotal =
-      (b.loans + in.s5.perBankNewLoans(bId) - in.s5.perBankFirmPrincipal(bId) - bankNplNew * p.banking.loanRecovery.toDouble).max(PLN.Zero)
+      (b.loans + in.s5.perBankNewLoans(bId) - in.s5.perBankFirmPrincipal(bId) - bankNplNew * p.banking.loanRecovery).max(PLN.Zero)
 
     val newDep = PLN(
       terms(
         b.deposits.toDouble,
         hhFlows.incomeShare.toDouble,
         -hhFlows.consShare.toDouble,
-        (investNetDepositFlow * ws).toDouble,
-        (jstDepositChange * ws).toDouble,
-        (in.s7.netDomesticDividends * ws).toDouble,
-        -(in.s7.foreignDividendOutflow * ws).toDouble,
-        -(in.s6.remittanceOutflow * ws).toDouble,
-        (in.s6.diasporaInflow * ws).toDouble,
-        (in.s6.tourismExport * ws).toDouble,
-        -(in.s6.tourismImport * ws).toDouble,
+        investNetDepositFlow.toDouble * ws,
+        jstDepositChange.toDouble * ws,
+        in.s7.netDomesticDividends.toDouble * ws,
+        -(in.s7.foreignDividendOutflow.toDouble * ws),
+        -(in.s6.remittanceOutflow.toDouble * ws),
+        in.s6.diasporaInflow.toDouble * ws,
+        in.s6.tourismExport.toDouble * ws,
+        -(in.s6.tourismImport.toDouble * ws),
         in.s5.perBankNewLoans(bId).toDouble,
         -in.s5.perBankFirmPrincipal(bId).toDouble,
         hhFlows.ccOrigination.toDouble,
-        (in.s8.nonBank.insNetDepositChange * ws).toDouble,
-        (in.s8.nonBank.nbfiDepositDrain * ws).toDouble,
+        in.s8.nonBank.insNetDepositChange.toDouble * ws,
+        in.s8.nonBank.nbfiDepositDrain.toDouble * ws,
       ),
     )
 
-    val bankMortgageIntIncome   = mortgageFlows.interest * ws
-    val bankMortgageNplLoss     = mortgageFlows.defaultLoss * ws
-    val bankCcNplLoss           = hhFlows.ccDefault * (1.0 - p.household.ccNplRecovery.toDouble)
+    val bankMortgageIntIncome   = mortgageFlows.interest * Share(ws)
+    val bankMortgageNplLoss     = mortgageFlows.defaultLoss * Share(ws)
+    val bankCcNplLoss           = hhFlows.ccDefault * (Share.One - p.household.ccNplRecovery)
     val bankCcPrincipal: PLN    = in.s3.perBankHhFlowsOpt match
       case Some(pbf) => pbf(bId).consumerPrincipal
       case _         =>
         val ccAmort       = p.household.ccAmortRate.toDouble
         val ccMonthlyRate = (in.s1.lendingBaseRate.toDouble + p.household.ccSpread.toDouble) / 12.0
-        if ccAmort + ccMonthlyRate > 0 then hhFlows.ccDebtService * (ccAmort / (ccAmort + ccMonthlyRate))
+        if ccAmort + ccMonthlyRate > 0 then hhFlows.ccDebtService * Share(ccAmort / (ccAmort + ccMonthlyRate))
         else PLN.Zero
-    val bankCorpBondCoupon      = in.s8.corpBonds.corpBondBankCoupon * ws
-    val bankCorpBondDefaultLoss = in.s8.corpBonds.corpBondBankDefaultLoss * ws
+    val bankCorpBondCoupon      = in.s8.corpBonds.corpBondBankCoupon * Share(ws)
+    val bankCorpBondDefaultLoss = in.s8.corpBonds.corpBondBankDefaultLoss * Share(ws)
     val bankBfgLevy             =
-      if p.flags.bankFailure && !b.failed then b.deposits * p.banking.bfgLevyRate.toDouble / 12.0
+      if p.flags.bankFailure && !b.failed then b.deposits * p.banking.bfgLevyRate.monthly
       else PLN.Zero
 
     // Per-bank mark-to-market loss on AFS bonds only (HTM losses hidden until forced reclassification)
     val bankYieldChange    = (in.s8.monetary.newBondYield - in.w.gov.bondYield).toDouble
-    val bankUnrealizedLoss = if bankYieldChange > 0 then b.afsBonds * (bankYieldChange * p.banking.govBondDuration) else PLN.Zero
+    val bankUnrealizedLoss = if bankYieldChange > 0 then PLN(b.afsBonds.toDouble * bankYieldChange * p.banking.govBondDuration) else PLN.Zero
 
     val capitalPnl = Banking.computeCapitalDelta(
       Banking.CapitalPnlInput(
@@ -464,18 +464,18 @@ object BankUpdateStep:
 
     b.copy(
       loans = newLoansTotal,
-      nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * NplMonthlyWriteOff).max(PLN.Zero),
+      nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * Share(NplMonthlyWriteOff)).max(PLN.Zero),
       capital = capitalPnl.newCapital - eclResult.provisionChange,
       eclStaging = eclResult.newStaging,
       deposits = newDep,
-      demandDeposits = newDep * (1.0 - p.banking.termDepositFrac.toDouble),
-      termDeposits = newDep * p.banking.termDepositFrac.toDouble,
-      loansShort = newLoansTotal * ShortLoanFrac,
-      loansMedium = newLoansTotal * MediumLoanFrac,
-      loansLong = newLoansTotal * LongLoanFrac,
+      demandDeposits = newDep * (Share.One - p.banking.termDepositFrac),
+      termDeposits = newDep * p.banking.termDepositFrac,
+      loansShort = newLoansTotal * Share(ShortLoanFrac),
+      loansMedium = newLoansTotal * Share(MediumLoanFrac),
+      loansLong = newLoansTotal * Share(LongLoanFrac),
       consumerLoans = PLN(terms(b.consumerLoans.toDouble, hhFlows.ccOrigination.toDouble, -bankCcPrincipal.toDouble, -hhFlows.ccDefault.toDouble)),
-      consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * NplMonthlyWriteOff).max(PLN.Zero),
-      corpBondHoldings = in.s8.corpBonds.newCorpBonds.bankHoldings * ws,
+      consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * Share(NplMonthlyWriteOff)).max(PLN.Zero),
+      corpBondHoldings = in.s8.corpBonds.newCorpBonds.bankHoldings * Share(ws),
     )
 
   /** Multi-bank update: per-bank loop, interbank clearing, bond allocation,
@@ -674,4 +674,4 @@ object BankUpdateStep:
       else
         banks.map: b =>
           val share = b.deposits.toDouble / totalDeposits
-          b.copy(reservesAtNbp = (b.reservesAtNbp + injection * share).max(PLN.Zero))
+          b.copy(reservesAtNbp = (b.reservesAtNbp + injection * Share(share)).max(PLN.Zero))

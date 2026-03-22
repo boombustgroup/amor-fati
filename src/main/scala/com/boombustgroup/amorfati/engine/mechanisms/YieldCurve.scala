@@ -40,9 +40,9 @@ object YieldCurve:
       expectedInflation: Rate = Rate(0.025),
       targetInflation: Rate = Rate(0.025),
   ): State =
-    val creditAdj1M = CreditSensitivity1M * nplRatio.toDouble
-    val creditAdj3M = CreditSensitivity3M * nplRatio.toDouble
-    val creditAdj6M = CreditSensitivity6M * nplRatio.toDouble
+    val creditAdj1M = CreditSensitivity1M * nplRatio
+    val creditAdj3M = CreditSensitivity3M * nplRatio
+    val creditAdj6M = CreditSensitivity6M * nplRatio
 
     val expGap   = (expectedInflation - targetInflation).abs
     val deAnchor = (Share.One - credibility).toDouble

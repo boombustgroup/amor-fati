@@ -98,12 +98,12 @@ object FiscalBudget:
   def update(in: Input)(using p: SimParams): GovState =
     val govBaseRaw: PLN =
       if in.govPurchasesActual > PLN.Zero then in.govPurchasesActual
-      else p.fiscal.govBaseSpending * in.priceLevel
+      else p.fiscal.govBaseSpending * Multiplier(in.priceLevel)
 
     val (govCurrent, govCapital): (PLN, PLN) =
       if p.flags.govInvest then
-        val capShare = p.fiscal.govInvestShare.toDouble
-        (govBaseRaw * (1.0 - capShare), govBaseRaw * capShare)
+        val capShare = p.fiscal.govInvestShare
+        (govBaseRaw * (Share.One - capShare), govBaseRaw * capShare)
       else (govBaseRaw, PLN.Zero)
 
     val totalSpend = in.unempBenefitSpend + in.socialTransferSpend +
@@ -119,7 +119,7 @@ object FiscalBudget:
     val newCapitalStock =
       if p.flags.govInvest then
         val monthlyDepreciation = p.fiscal.govDepreciationRate.toDouble / 12.0
-        in.prev.publicCapitalStock * (1.0 - monthlyDepreciation) + govCapital + in.euProjectCapital
+        in.prev.publicCapitalStock * Share(1.0 - monthlyDepreciation) + govCapital + in.euProjectCapital
       else PLN.Zero
 
     GovState(

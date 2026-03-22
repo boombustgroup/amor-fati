@@ -184,7 +184,7 @@ object OpenEconomyStep:
         PLN(
           living
             .filter(_.sector.toInt == s)
-            .kahanSumBy(f => (Firm.computeCapacity(f) * (in.s4.sectorMults(f.sector.toInt) * in.w.priceLevel)).toDouble),
+            .kahanSumBy(f => (Firm.computeCapacity(f) * Multiplier(in.s4.sectorMults(f.sector.toInt) * in.w.priceLevel)).toDouble),
         )
       .toVector
 
@@ -265,7 +265,7 @@ object OpenEconomyStep:
           totalImports = bop1.totalImports + in.s5.sumProfitShifting,
         )
       else bop1
-    val fdiCitLoss       = in.s5.sumProfitShifting * p.fiscal.citRate.toDouble
+    val fdiCitLoss       = in.s5.sumProfitShifting * p.fiscal.citRate
     // EU funds tracking
     val bop              = bop2.copy(
       euFundsMonthly = in.s7.euMonthly,

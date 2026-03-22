@@ -76,7 +76,7 @@ object BondAuction:
     if newIssuance <= PLN.Zero then Result(PLN.Zero, PLN.Zero, Multiplier(1.0))
     else
       val foreignShare   = foreignDemandShare(marketYield, erChange)
-      val foreignDemand  = newIssuance * foreignShare.toDouble
+      val foreignDemand  = newIssuance * foreignShare
       val domesticCap    = bankBondCapacity.max(PLN.Zero)
       val domesticDemand = (newIssuance - foreignDemand).min(domesticCap).max(PLN.Zero)
       val totalDemand    = domesticDemand + foreignDemand
