@@ -87,12 +87,16 @@ object types:
       def *(c: Coefficient): PLN = bankerRound(BigInt(p) * BigInt(c))
 
       // Scalar multiplication (for worker counts, Int divisors)
-      def *(scalar: Double): PLN = PLN(p.toDouble / Scale * scalar)
+      def *(scalar: Double): PLN       = PLN(p.toDouble / Scale * scalar)
       @targetName("plnDivPln")
-      def /(other: PLN): Double  = if other != 0L then p.toDouble / other.toDouble else 0.0
+      def /(other: PLN): Double        = if other != 0L then p.toDouble / other.toDouble else 0.0
       @targetName("plnDivScalar")
-      def /(scalar: Double): PLN = PLN(p.toDouble / Scale / scalar)
-      def /(divisor: Long): PLN  = p / divisor
+      def /(scalar: Double): PLN       = PLN(p.toDouble / Scale / scalar)
+      def /(divisor: Long): PLN        = p / divisor
+      @targetName("plnDivShare")
+      def /(s: Share): PLN             = if s != 0L then PLN(p.toDouble / s.toDouble) else PLN.Zero
+      @targetName("plnDivMultiplier")
+      def /(m: Multiplier): PLN        = if m != 0L then PLN(p.toDouble / m.toDouble) else PLN.Zero
 
     extension (n: Int)
       @targetName("intTimesPln")
@@ -131,8 +135,9 @@ object types:
       def clamp(lo: Rate, hi: Rate): Rate = math.max(lo, math.min(hi, r))
       def monthly: Rate                   = Rate(r.toDouble / Scale / 12.0)
       def annualize: Rate                 = Rate(r.toDouble / Scale * 12.0)
-      def *(m: Multiplier): Rate          = Rate(r.toDouble / Scale * m.toDouble)
+      def *(m: Multiplier): Rate           = Rate(r.toDouble / Scale * m.toDouble)
       def *(s: Share): Rate               = Rate(r.toDouble / Scale * s.toDouble)
+      def *(c: Coefficient): Rate         = Rate(r.toDouble / Scale * c.toDouble)
       def *(scalar: Double): Rate         = Rate(r.toDouble / Scale * scalar)
       def /(scalar: Double): Rate         = Rate(r.toDouble / Scale / scalar)
       @targetName("rateDivRate")
@@ -170,11 +175,15 @@ object types:
     extension (s: Share)
       def toDouble: Double                   = s.toDouble / Scale
       def toLong: Long                       = s
+      def unary_- : Share                    = -s
+      def abs: Share                         = math.abs(s)
       def +(other: Share): Share             = s + other
       def -(other: Share): Share             = s - other
       def *(other: Share): Share             = bankerRound(BigInt(s) * BigInt(other))
       @targetName("shareTimesMultiplier")
       def *(m: Multiplier): Multiplier       = bankerRound(BigInt(s) * BigInt(m))
+      @targetName("shareTimesCoefficient")
+      def *(c: Coefficient): Coefficient     = bankerRound(BigInt(s) * BigInt(c))
       @targetName("shareTimesPln")
       def *(p: PLN): PLN                     = bankerRound(BigInt(p) * BigInt(s))
       def *(scalar: Double): Share           = Share(s.toDouble / Scale * scalar)
@@ -225,6 +234,8 @@ object types:
     extension (m: Multiplier)
       def toDouble: Double                                  = m.toDouble / Scale
       def toLong: Long                                      = m
+      def unary_- : Multiplier                              = -m
+      def abs: Multiplier                                   = math.abs(m)
       @targetName("multPlusMult")
       def +(other: Multiplier): Multiplier                  = m + other
       @targetName("multMinusMult")
@@ -261,13 +272,19 @@ object types:
     extension (c: Coefficient)
       def toDouble: Double                     = c.toDouble / Scale
       def toLong: Long                         = c
+      def unary_- : Coefficient                = -c
       @targetName("coefPlusCoef")
       def +(other: Coefficient): Coefficient   = c + other
       @targetName("coefMinusCoef")
       def -(other: Coefficient): Coefficient   = c - other
       @targetName("coefTimesCoef")
       def *(other: Coefficient): Coefficient   = bankerRound(BigInt(c) * BigInt(other))
+      @targetName("coefTimesShare")
+      def *(s: Share): Coefficient             = bankerRound(BigInt(c) * BigInt(s))
+      @targetName("coefTimesPln")
+      def *(p: PLN): PLN                       = bankerRound(BigInt(p) * BigInt(c))
       def *(scalar: Double): Coefficient       = Coefficient(c.toDouble / Scale * scalar)
+      def /(scalar: Double): Coefficient       = Coefficient(c.toDouble / Scale / scalar)
       def abs: Coefficient                     = math.abs(c)
       def max(other: Coefficient): Coefficient = math.max(c, other)
       def min(other: Coefficient): Coefficient = math.min(c, other)
@@ -292,6 +309,8 @@ object types:
       def *(other: PriceIndex): PriceIndex = bankerRound(BigInt(p) * BigInt(other))
       @targetName("priceIdxTimesRate")
       def *(r: Rate): PriceIndex           = PriceIndex(p.toDouble / Scale * r.toDouble)
+      @targetName("priceIdxTimesMultiplier")
+      def *(m: Multiplier): PriceIndex     = PriceIndex(p.toDouble / Scale * m.toDouble)
       @targetName("priceIdxTimesScalar")
       def *(scalar: Double): PriceIndex    = PriceIndex(p.toDouble / Scale * scalar)
       @targetName("priceIdxTimesPln")
@@ -300,6 +319,7 @@ object types:
       def /(other: PriceIndex): Double     = if other != 0L then p.toDouble / other.toDouble else 0.0
       def >(other: PriceIndex): Boolean    = p > other
       def <(other: PriceIndex): Boolean    = p < other
+      def >=(other: PriceIndex): Boolean   = p >= other
 
   // === Sigma — CES elasticity of substitution (evolves via logistic dynamics) ===
 
