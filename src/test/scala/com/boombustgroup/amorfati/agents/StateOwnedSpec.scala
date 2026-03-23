@@ -8,9 +8,10 @@ import org.scalatest.matchers.should.Matchers
 class StateOwnedSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   "dividendMultiplier" should "be above 1.0 at baseline" in {
-    StateOwned.dividendMultiplier(Share(0.02)).toDouble should be >= 1.0
+    td.toDouble(StateOwned.dividendMultiplier(Share(0.02))) should be >= 1.0
   }
 
   it should "increase with higher deficit/GDP" in {
@@ -20,29 +21,29 @@ class StateOwnedSpec extends AnyFlatSpec with Matchers:
   }
 
   "firingReduction" should "be less than 1.0 (SOEs fire less)" in {
-    StateOwned.firingReduction.toDouble should be < 1.0
-    StateOwned.firingReduction.toDouble should be > 0.0
+    td.toDouble(StateOwned.firingReduction) should be < 1.0
+    td.toDouble(StateOwned.firingReduction) should be > 0.0
   }
 
   "investmentMultiplier" should "be above 1.0 (SOEs invest more)" in {
-    StateOwned.investmentMultiplier should be > 1.0
+    StateOwned.investmentMultiplier should be > Multiplier.One
   }
 
   "energyPassthrough" should "be less than 1.0 (SOEs absorb shocks)" in {
-    StateOwned.energyPassthrough.toDouble should be < 1.0
-    StateOwned.energyPassthrough.toDouble should be > 0.0
+    td.toDouble(StateOwned.energyPassthrough) should be < 1.0
+    td.toDouble(StateOwned.energyPassthrough) should be > 0.0
   }
 
   "sectorSoeShare" should "be highest in Public sector" in {
-    StateOwned.sectorSoeShare(4).toDouble should be > 0.5
+    td.toDouble(StateOwned.sectorSoeShare(4)) should be > 0.5
   }
 
   it should "be low in BPO" in {
-    StateOwned.sectorSoeShare(0).toDouble should be < 0.10
+    td.toDouble(StateOwned.sectorSoeShare(0)) should be < 0.10
   }
 
   it should "be in [0, 1] for all sectors" in {
     for s <- 0 until 6 do
-      StateOwned.sectorSoeShare(s).toDouble should be >= 0.0
-      StateOwned.sectorSoeShare(s).toDouble should be <= 1.0
+      td.toDouble(StateOwned.sectorSoeShare(s)) should be >= 0.0
+      td.toDouble(StateOwned.sectorSoeShare(s)) should be <= 1.0
   }

@@ -12,6 +12,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // ---- Helpers ----
 
@@ -29,7 +30,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       bankId = BankId(0),
       equityRaised = PLN.Zero,
       initialSize = 10,
-      capitalStock = p.capital.klRatios(sector) * 10.0, // exact match for workers=10
+      capitalStock = p.capital.klRatios(sector) * Multiplier(10.0), // exact match for workers=10
       bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
@@ -59,8 +60,8 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
         consumption = PLN.Zero,
         domesticConsumption = PLN.Zero,
         importConsumption = PLN.Zero,
-        marketWage = PLN(p.household.baseWage.toDouble),
-        reservationWage = PLN(p.household.baseReservationWage.toDouble),
+        marketWage = PLN(td.toDouble(p.household.baseWage)),
+        reservationWage = PLN(td.toDouble(p.household.baseReservationWage)),
         giniIndividual = Share.Zero,
         giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
@@ -102,17 +103,17 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
 
   // ---- Config defaults (3 tests) ----
 
-  "p.firm.digiDrift.toDouble" should "be positive by default" in {
-    p.firm.digiDrift.toDouble should be > 0.0
+  "p.firm.digiDrift" should "be positive by default" in {
+    td.toDouble(p.firm.digiDrift) should be > 0.0
   }
 
-  "p.firm.digiInvestCost.toDouble" should "be positive by default" in {
-    p.firm.digiInvestCost.toDouble should be > 0.0
+  "p.firm.digiInvestCost" should "be positive by default" in {
+    td.toDouble(p.firm.digiInvestCost) should be > 0.0
   }
 
-  "p.firm.digiCapexDiscount.toDouble" should "be in [0, 1]" in {
-    p.firm.digiCapexDiscount.toDouble should be >= 0.0
-    p.firm.digiCapexDiscount.toDouble should be <= 1.0
+  "p.firm.digiCapexDiscount" should "be in [0, 1]" in {
+    td.toDouble(p.firm.digiCapexDiscount) should be >= 0.0
+    td.toDouble(p.firm.digiCapexDiscount) should be <= 1.0
   }
 
   // ---- CAPEX discount (3 tests) ----
@@ -132,9 +133,9 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "Firm.computeAiCapex" should "apply no discount when digitalReadiness is 0" in {
     val f0           = mkFirm(TechState.Traditional(10), dr = 0.0)
     // With dr=0: discount factor = 1.0 - 0.30 * 0.0 = 1.0 (no discount)
-    val expectedBase = p.firm.aiCapex.toDouble * p.sectorDefs(2).aiCapexMultiplier.toDouble * 1.0 *
+    val expectedBase = td.toDouble(p.firm.aiCapex) * td.toDouble(p.sectorDefs(2).aiCapexMultiplier) * 1.0 *
       Math.pow(10.0 / p.pop.workersPerFirm, 0.6)
-    Firm.computeAiCapex(f0).toDouble shouldBe expectedBase +- 0.01
+    td.toDouble(Firm.computeAiCapex(f0)) shouldBe expectedBase +- 0.01
   }
 
   // ---- Digital drift (3 tests) ----
@@ -144,21 +145,21 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     val w      = mkWorld()
     val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), new scala.util.Random(42))
     // DR should be at least initial + drift (could also get digital investment boost)
-    result.firm.digitalReadiness.toDouble should be >= (0.40 + p.firm.digiDrift.toDouble - 0.001)
+    td.toDouble(result.firm.digitalReadiness) should be >= (0.40 + td.toDouble(p.firm.digiDrift) - 0.001)
   }
 
   it should "cap digitalReadiness at 1.0" in {
     val f      = mkFirm(TechState.Traditional(10), dr = 0.999)
     val w      = mkWorld()
     val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), new scala.util.Random(42))
-    result.firm.digitalReadiness.toDouble should be <= 1.0
+    td.toDouble(result.firm.digitalReadiness) should be <= 1.0
   }
 
   it should "not change DR for bankrupt firms" in {
     val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")), dr = 0.50)
     val w      = mkWorld()
     val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), new scala.util.Random(42))
-    result.firm.digitalReadiness.toDouble shouldBe 0.50
+    td.toDouble(result.firm.digitalReadiness) shouldBe 0.50
   }
 
   // ---- Active digital investment (4 tests) ----
@@ -175,12 +176,12 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     for _ <- 0 until 200 do f1 = Firm.process(f1, w, Rate(0.07), _ => false, Vector(f1), rng).firm
     assume(Firm.isAlive(f1), "firm must survive processing")
     // DR should have increased from digital investment (beyond just drift)
-    val drIncrease = f1.digitalReadiness.toDouble - f.digitalReadiness.toDouble
-    drIncrease should be > (p.firm.digiDrift.toDouble * 200 + 0.01)
+    val drIncrease = td.toDouble(f1.digitalReadiness) - td.toDouble(f.digitalReadiness)
+    drIncrease should be > (td.toDouble(p.firm.digiDrift) * 200 + 0.01)
   }
 
   it should "not invest when firm cannot afford it" in {
-    val digiCost = Firm.computeDigiInvestCost(mkFirm(TechState.Traditional(10))).toDouble
+    val digiCost = td.toDouble(Firm.computeDigiInvestCost(mkFirm(TechState.Traditional(10))))
     // Cash so low firm can't afford 2× digiCost, but not negative (would bankrupt)
     val f        = mkFirm(TechState.Traditional(10), cash = digiCost * 0.5, dr = 0.30)
     val w        = mkWorld(autoRatio = 0.5)
@@ -191,14 +192,16 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       // But net income is added to cash, so firm may become solvent enough
       // Just verify no investment boost beyond drift
       if Firm.isAlive(result.firm) then
-        result.firm.digitalReadiness.toDouble should be <= (f.digitalReadiness.toDouble + p.firm.digiDrift.toDouble + p.firm.digiInvestBoost.toDouble * 0.001)
+        td.toDouble(result.firm.digitalReadiness) should be <= (td.toDouble(f.digitalReadiness) + td.toDouble(p.firm.digiDrift) + td.toDouble(
+          p.firm.digiInvestBoost,
+        ) * 0.001)
   }
 
   it should "have diminishing returns at high DR" in {
     val diminishingLow  = 1.0 - 0.2 // DR=0.2
     val diminishingHigh = 1.0 - 0.9 // DR=0.9
-    val boostLow        = p.firm.digiInvestBoost.toDouble * diminishingLow
-    val boostHigh       = p.firm.digiInvestBoost.toDouble * diminishingHigh
+    val boostLow        = td.toDouble(p.firm.digiInvestBoost) * diminishingLow
+    val boostHigh       = td.toDouble(p.firm.digiInvestBoost) * diminishingHigh
     boostHigh should be < boostLow
   }
 
@@ -223,7 +226,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), new scala.util.Random(42))
     if Firm.isAlive(result.firm) then
       // Hybrid learning (+0.005) + natural drift (+0.001)
-      result.firm.digitalReadiness.toDouble should be >= (0.40 + 0.005 + p.firm.digiDrift.toDouble - 0.001)
+      td.toDouble(result.firm.digitalReadiness) should be >= (0.40 + 0.005 + td.toDouble(p.firm.digiDrift) - 0.001)
   }
 
   // ---- Integration (1 test) ----
@@ -236,5 +239,5 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     for _ <- 0 until 10 do
       val result = Firm.process(f, w, Rate(0.07), _ => false, Vector(f), new scala.util.Random(42))
       if Firm.isAlive(result.firm) then f = result.firm.copy(cash = PLN(1000000.0)) // reset cash for next round
-    f.digitalReadiness.toDouble should be >= (initDR + 10 * p.firm.digiDrift.toDouble - 0.001)
+    td.toDouble(f.digitalReadiness) should be >= (initDR + 10 * td.toDouble(p.firm.digiDrift) - 0.001)
   }

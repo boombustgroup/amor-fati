@@ -12,6 +12,8 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
+  private val td = ComputationBoundary
+
   private def mkInput(
       prev: GvcTrade.State,
       month: Int,
@@ -45,33 +47,33 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
     val init     = GvcTrade.initial
     val after    = GvcTrade.step(mkInput(init, month = 1))
     val expected = after.foreignPriceIndex * after.commodityPriceIndex
-    (after.importCostIndex.toDouble) shouldBe expected.toDouble +- 1e-10
+    td.toDouble(after.importCostIndex) shouldBe td.toDouble(expected) +- 1e-10
   }
 
   it should "evolve commodity differently with different seeds (stochastic)" in {
     val init   = GvcTrade.initial
     val after1 = GvcTrade.step(mkInput(init, month = 1, seed = 1L))
     val after2 = GvcTrade.step(mkInput(init, month = 1, seed = 999L))
-    after1.commodityPriceIndex.toDouble should not be after2.commodityPriceIndex.toDouble
+    td.toDouble(after1.commodityPriceIndex) should not be td.toDouble(after2.commodityPriceIndex)
   }
 
   it should "keep commodity close to 1.0 after 1 month with default params" in {
     val init  = GvcTrade.initial
     val after = GvcTrade.step(mkInput(init, month = 1))
     // Default drift is small (~2%/yr), so after 1 month commodity stays near base
-    after.commodityPriceIndex.toDouble shouldBe 1.0 +- 0.1
+    td.toDouble(after.commodityPriceIndex) shouldBe 1.0 +- 0.1
   }
 
   "PriceIndex" should "multiply two indices" in {
     val a = PriceIndex(1.5)
     val b = PriceIndex(2.0)
-    (a * b).toDouble shouldBe 3.0 +- 1e-10
+    td.toDouble(a * b) shouldBe 3.0 +- 1e-10
   }
 
   it should "multiply with PLN" in {
     val idx  = PriceIndex(1.5)
     val cost = PLN(1000.0)
-    (idx * cost).toDouble shouldBe 1500.0 +- 1e-10
+    td.toDouble(idx * cost) shouldBe 1500.0 +- 1e-10
   }
 
   it should "divide two indices to get ratio" in {

@@ -15,6 +15,7 @@ import com.boombustgroup.amorfati.engine.{
   World,
 }
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -23,6 +24,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // --- HouseholdInit ---
 
@@ -172,8 +174,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng, nBanks = 2, bankRates = Some(br))
     val pbf              = maybePbf.get
     // Expected debt service: debt * (HhBaseAmortRate + lendingRate/12)
-    val expectedDs0      = debt.toDouble * (p.household.baseAmortRate.toDouble + 0.06 / 12.0)
-    val expectedDs1      = debt.toDouble * (p.household.baseAmortRate.toDouble + 0.10 / 12.0)
+    val expectedDs0      = td.toDouble(debt) * (td.toDouble(p.household.baseAmortRate) + 0.06 / 12.0)
+    val expectedDs1      = td.toDouble(debt) * (td.toDouble(p.household.baseAmortRate) + 0.10 / 12.0)
     pbf(0).debtService shouldBe PLN(expectedDs0) +- PLN(0.01)
     pbf(1).debtService shouldBe PLN(expectedDs1) +- PLN(0.01)
     // Bank 1's higher rate should mean higher debt service
@@ -194,7 +196,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val (_, agg, maybePbf) =
       Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng, nBanks = 1, bankRates = Some(br))
     val pbf                = maybePbf.get
-    val expectedDepInt     = depRate / 12.0 * savings.toDouble
+    val expectedDepInt     = depRate / 12.0 * td.toDouble(savings)
     pbf(0).depositInterest shouldBe PLN(expectedDepInt) +- PLN(0.01)
     agg.totalDepositInterest shouldBe PLN(expectedDepInt) +- PLN(0.01)
   }
@@ -212,11 +214,11 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       depositRates = Vector(Rate(depRate)),
     )
     val (_, agg, _)    = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), 0.4, rng, nBanks = 1, bankRates = Some(br))
-    val expectedDepInt = depRate / 12.0 * savings.toDouble
+    val expectedDepInt = depRate / 12.0 * td.toDouble(savings)
     val grossIncome    = wage + expectedDepInt
     val pitTax         = Household.computeMonthlyPit(PLN(grossIncome))
     // totalIncome = grossIncome - PIT + socialTransfer (0 children → no transfer)
-    agg.totalIncome shouldBe PLN(grossIncome - pitTax.toDouble) +- PLN(0.01)
+    agg.totalIncome shouldBe PLN(grossIncome - td.toDouble(pitTax)) +- PLN(0.01)
   }
 
   it should "accumulate per-bank flows correctly for 2 banks" in {
@@ -413,8 +415,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         consumption = PLN.Zero,
         domesticConsumption = PLN.Zero,
         importConsumption = PLN.Zero,
-        marketWage = PLN(p.household.baseWage.toDouble),
-        reservationWage = PLN(p.household.baseReservationWage.toDouble),
+        marketWage = p.household.baseWage,
+        reservationWage = p.household.baseReservationWage,
         giniIndividual = Share.Zero,
         giniWealth = Share.Zero,
         meanSavings = PLN.Zero,

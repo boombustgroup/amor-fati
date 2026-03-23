@@ -5,12 +5,14 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -90,7 +92,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     forAll(genAliveFirm, Gen.choose(1.0, 3.0)) { (firm: Firm.State, factor: Double) =>
       val f1 = firm.copy(innovationCostFactor = 1.0)
       val f2 = firm.copy(innovationCostFactor = factor)
-      Firm.computeAiCapex(f2).toDouble shouldBe (Firm.computeAiCapex(f1).toDouble * factor +- 0.01)
+      td.toDouble(Firm.computeAiCapex(f2)) shouldBe (td.toDouble(Firm.computeAiCapex(f1)) * factor +- 0.01)
     }
 
   // --- capacity(Traditional) scales linearly with workers/initialSize ---

@@ -12,6 +12,7 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -35,7 +36,7 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   "EquityMarket.processIssuance" should "always increase market cap for positive issuance" in
     forAll(genEquityState, Gen.choose(1.0, 1e10)) { (state, amount) =>
       val result = EquityMarket.processIssuance(PLN(amount), state)
-      result.marketCap.toDouble should be >= state.marketCap.toDouble
+      td.toDouble(result.marketCap) should be >= td.toDouble(state.marketCap)
     }
 
   it should "always decrease or maintain index (dilution)" in
@@ -44,11 +45,11 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
       result.index should be <= state.index
     }
 
-  it should "preserve index × (1 + amount/mcap) ≈ old index relationship" in
+  it should "preserve index x (1 + amount/mcap) approx old index relationship" in
     forAll(genEquityState, Gen.choose(1.0, 1e10)) { (state, amount) =>
       whenever(state.marketCap > PLN.Zero) {
         val result        = EquityMarket.processIssuance(PLN(amount), state)
-        val expectedIndex = state.index * state.marketCap.toDouble / (state.marketCap.toDouble + amount)
+        val expectedIndex = state.index * td.toDouble(state.marketCap) / (td.toDouble(state.marketCap) + amount)
         result.index shouldBe (expectedIndex +- 1.0)
       }
     }
@@ -63,28 +64,28 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
       r.tax should be >= PLN.Zero
     }
 
-  it should "have domestic + foreign + tax ≈ total dividends" in
+  it should "have domestic + foreign + tax approx total dividends" in
     forAll(Gen.choose(0.01, 0.15), Gen.choose(1e6, 1e13), Gen.choose(0.0, 1.0)) { (divYield, mcap, foreignShare) =>
       val r             = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
       val expectedTotal = divYield * mcap / 12.0
-      (r.netDomestic + r.tax + r.foreign).toDouble shouldBe (expectedTotal +- 1.0)
+      td.toDouble(r.netDomestic + r.tax + r.foreign) shouldBe (expectedTotal +- 1.0)
     }
 
   // --- Additional dividend properties ---
 
-  it should "have foreign dividends ≤ total dividends" in
+  it should "have foreign dividends <= total dividends" in
     forAll(Gen.choose(0.01, 0.15), Gen.choose(1e6, 1e13), genFraction) { (divYield, mcap, foreignShare) =>
       val r     = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
       val total = divYield * mcap / 12.0
-      r.foreign.toDouble should be <= (total + 1.0)
+      td.toDouble(r.foreign) should be <= (total + 1.0)
     }
 
-  it should "have dividend tax ≤ domestic gross" in
+  it should "have dividend tax <= domestic gross" in
     forAll(Gen.choose(0.01, 0.15), Gen.choose(1e6, 1e13), genFraction) { (divYield, mcap, foreignShare) =>
       val r        = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
       val total    = divYield * mcap / 12.0
       val domGross = total * (1.0 - foreignShare)
-      r.tax.toDouble should be <= (domGross + 1.0)
+      td.toDouble(r.tax) should be <= (domGross + 1.0)
     }
 
   it should "scale dividends linearly with market cap" in
@@ -92,9 +93,9 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
       val r1 = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
       val r2 = EquityMarket.computeDividends(Rate(divYield), PLN(mcap * 2.0), Share(foreignShare))
       whenever(r1.netDomestic > PLN(1e-6) && r1.foreign > PLN(1e-6) && r1.tax > PLN(1e-6)) {
-        (r2.netDomestic.toDouble / r1.netDomestic.toDouble) shouldBe (2.0 +- 1e-6)
-        (r2.foreign.toDouble / r1.foreign.toDouble) shouldBe (2.0 +- 1e-6)
-        (r2.tax.toDouble / r1.tax.toDouble) shouldBe (2.0 +- 1e-6)
+        (td.toDouble(r2.netDomestic) / td.toDouble(r1.netDomestic)) shouldBe (2.0 +- 1e-6)
+        (td.toDouble(r2.foreign) / td.toDouble(r1.foreign)) shouldBe (2.0 +- 1e-6)
+        (td.toDouble(r2.tax) / td.toDouble(r1.tax)) shouldBe (2.0 +- 1e-6)
       }
     }
 

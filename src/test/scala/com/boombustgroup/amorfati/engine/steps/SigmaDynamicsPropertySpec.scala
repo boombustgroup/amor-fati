@@ -10,6 +10,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -41,7 +42,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       (inputs: (Vector[Double], Vector[Double], Double), adoption: Vector[Double], lambda: Double) =>
         val (current, base, capMult) = inputs
         val result                   = PriceEquityStep.evolveSigmas(toSigmas(current), base, adoption, lambda, capMult)
-        for i <- current.indices do result(i).toDouble should be >= (current(i) - 1e-10)
+        for i <- current.indices do td.toDouble(result(i)) should be >= (current(i) - 1e-10)
     }
 
   // --- Cap property ---
@@ -52,7 +53,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         val (_, base, capMult) = inputs
         val current            = base.map(_ * capMult * 0.99)
         val result             = PriceEquityStep.evolveSigmas(toSigmas(current), base, adoption, lambda, capMult)
-        for i <- result.indices do result(i).toDouble should be <= (base(i) * capMult + 1e-10)
+        for i <- result.indices do td.toDouble(result(i)) should be <= (base(i) * capMult + 1e-10)
     }
 
   // --- Lambda=0 is identity ---
@@ -70,7 +71,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       val (current, base, capMult) = inputs
       val zeroAdoption             = Vector.fill(6)(0.0)
       val result                   = PriceEquityStep.evolveSigmas(toSigmas(current), base, zeroAdoption, lambda, capMult)
-      for i <- current.indices do result(i).toDouble shouldBe (current(i) +- 1e-3)
+      for i <- current.indices do td.toDouble(result(i)) shouldBe (current(i) +- 1e-3)
     }
 
   // --- Positive lambda + positive adoption → increase ---
@@ -81,7 +82,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       val current  = base
       val adoption = Vector.fill(6)(0.5)
       val result   = PriceEquityStep.evolveSigmas(toSigmas(current), base, adoption, lambda, capMult)
-      for i <- result.indices do result(i).toDouble should be > current(i)
+      for i <- result.indices do td.toDouble(result(i)) should be > current(i)
     }
 
   // --- Length preservation ---
@@ -102,7 +103,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         val adoption2                = adoption.updated(targetSector, 0.0)
         val r1                       = PriceEquityStep.evolveSigmas(toSigmas(current), base, adoption, lambda, capMult)
         val r2                       = PriceEquityStep.evolveSigmas(toSigmas(current), base, adoption2, lambda, capMult)
-        for i <- current.indices if i != targetSector do r1(i).toDouble shouldBe (r2(i).toDouble +- 1e-3)
+        for i <- current.indices if i != targetSector do td.toDouble(r1(i)) shouldBe (td.toDouble(r2(i)) +- 1e-3)
     }
 
   // --- Monotonic in lambda ---
@@ -112,5 +113,5 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       val (current, base, capMult) = inputs
       val r1                       = PriceEquityStep.evolveSigmas(toSigmas(current), base, adoption, 0.01, capMult)
       val r2                       = PriceEquityStep.evolveSigmas(toSigmas(current), base, adoption, 0.10, capMult)
-      for i <- current.indices do r2(i).toDouble should be >= (r1(i).toDouble - 1e-10)
+      for i <- current.indices do td.toDouble(r2(i)) should be >= (td.toDouble(r1(i)) - 1e-10)
     }

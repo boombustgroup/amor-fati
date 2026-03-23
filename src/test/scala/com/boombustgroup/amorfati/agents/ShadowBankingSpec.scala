@@ -9,6 +9,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   private def mkStep(
       prev: Nbfi.State = Nbfi.initial,
@@ -45,34 +46,34 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   "Nbfi.initial" should "have correct AUM" in {
     val init = Nbfi.initial
-    init.tfiAum.toDouble shouldBe p.nbfi.tfiInitAum.toDouble +- 1.0
+    td.toDouble(init.tfiAum) shouldBe td.toDouble(p.nbfi.tfiInitAum) +- 1.0
   }
 
   it should "allocate gov bonds at target share" in {
     val init = Nbfi.initial
-    init.tfiGovBondHoldings.toDouble shouldBe (p.nbfi.tfiInitAum.toDouble * p.nbfi.tfiGovBondShare.toDouble) +- 1.0
+    td.toDouble(init.tfiGovBondHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiGovBondShare)) +- 1.0
   }
 
   it should "allocate corp bonds at target share" in {
     val init = Nbfi.initial
-    init.tfiCorpBondHoldings.toDouble shouldBe (p.nbfi.tfiInitAum.toDouble * p.nbfi.tfiCorpBondShare.toDouble) +- 1.0
+    td.toDouble(init.tfiCorpBondHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiCorpBondShare)) +- 1.0
   }
 
   it should "allocate equities at target share" in {
     val init = Nbfi.initial
-    init.tfiEquityHoldings.toDouble shouldBe (p.nbfi.tfiInitAum.toDouble * p.nbfi.tfiEquityShare.toDouble) +- 1.0
+    td.toDouble(init.tfiEquityHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiEquityShare)) +- 1.0
   }
 
   it should "allocate residual to cash" in {
     val init         = Nbfi.initial
-    val expectedCash = p.nbfi.tfiInitAum.toDouble *
-      (1.0 - p.nbfi.tfiGovBondShare.toDouble - p.nbfi.tfiCorpBondShare.toDouble - p.nbfi.tfiEquityShare.toDouble)
-    init.tfiCashHoldings.toDouble shouldBe expectedCash +- 1.0
+    val expectedCash = td.toDouble(p.nbfi.tfiInitAum) *
+      (1.0 - td.toDouble(p.nbfi.tfiGovBondShare) - td.toDouble(p.nbfi.tfiCorpBondShare) - td.toDouble(p.nbfi.tfiEquityShare))
+    td.toDouble(init.tfiCashHoldings) shouldBe expectedCash +- 1.0
   }
 
   it should "have correct initial loan stock" in {
     val init = Nbfi.initial
-    init.nbfiLoanStock.toDouble shouldBe p.nbfi.creditInitStock.toDouble +- 1.0
+    td.toDouble(init.nbfiLoanStock) shouldBe td.toDouble(p.nbfi.creditInitStock) +- 1.0
   }
 
   // ---- bankTightness ----
@@ -87,7 +88,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be 1.0 at NPL = 6%" in {
-    Nbfi.bankTightness(Share(0.06)).toDouble shouldBe 1.0 +- 0.001
+    td.toDouble(Nbfi.bankTightness(Share(0.06))) shouldBe 1.0 +- 0.001
   }
 
   it should "be capped at 1.0 for NPL > 6%" in {
@@ -95,7 +96,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be 0.5 at NPL = 4.5%" in {
-    Nbfi.bankTightness(Share(0.045)).toDouble shouldBe 0.5 +- 0.001
+    td.toDouble(Nbfi.bankTightness(Share(0.045))) shouldBe 0.5 +- 0.001
   }
 
   // ---- tfiInflow ----
@@ -130,13 +131,13 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   it should "equal base at zero tightness" in {
     val base = Nbfi.nbfiOrigination(PLN(1000000.0), Share(0.03)) // NPL 3% → tightness 0
-    base.toDouble shouldBe (1000000.0 * p.nbfi.creditBaseRate.toDouble) +- 1.0
+    td.toDouble(base) shouldBe (1000000.0 * td.toDouble(p.nbfi.creditBaseRate)) +- 1.0
   }
 
   // ---- nbfiRepayment ----
 
   "Nbfi.nbfiRepayment" should "equal stock / maturity" in {
-    Nbfi.nbfiRepayment(PLN(360000.0)).toDouble shouldBe (360000.0 / p.nbfi.creditMaturity) +- 0.01
+    td.toDouble(Nbfi.nbfiRepayment(PLN(360000.0))) shouldBe (360000.0 / p.nbfi.creditMaturity) +- 0.01
   }
 
   it should "be zero for zero stock" in {
@@ -147,7 +148,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   "Nbfi.nbfiDefaults" should "use base rate at 5% unemployment" in {
     val d = Nbfi.nbfiDefaults(PLN(100000.0), Share(0.05))
-    d.toDouble shouldBe (100000.0 * p.nbfi.defaultBase.toDouble) +- 0.01
+    td.toDouble(d) shouldBe (100000.0 * td.toDouble(p.nbfi.defaultBase)) +- 0.01
   }
 
   it should "increase with unemployment above 5%" in {
@@ -177,14 +178,14 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   it should "produce deposit drain equal to negative inflow" in {
     val result = mkStep()
-    result.lastDepositDrain.toDouble shouldBe -result.lastTfiNetInflow.toDouble +- 0.01
+    td.toDouble(result.lastDepositDrain) shouldBe -td.toDouble(result.lastTfiNetInflow) +- 0.01
   }
 
   it should "maintain Identity 13 (NBFI credit stock)" in {
     val init           = Nbfi.initial
     val result         = mkStep(prev = init)
-    val expectedChange = (result.lastNbfiOrigination - result.lastNbfiRepayment - result.lastNbfiDefaultAmount).toDouble
-    val actualChange   = (result.nbfiLoanStock - init.nbfiLoanStock).toDouble
+    val expectedChange = td.toDouble(result.lastNbfiOrigination - result.lastNbfiRepayment - result.lastNbfiDefaultAmount)
+    val actualChange   = td.toDouble(result.nbfiLoanStock - init.nbfiLoanStock)
     actualChange shouldBe expectedChange +- 0.01
   }
 

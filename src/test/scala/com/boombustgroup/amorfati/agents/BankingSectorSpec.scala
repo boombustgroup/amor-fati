@@ -13,6 +13,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
+  private val td      = ComputationBoundary
   private val configs = Banking.DefaultConfigs
 
   private def mkBank(
@@ -39,8 +40,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     loans = loans,
     capital = capital,
     nplAmount = nplAmount,
-    afsBonds = govBondHoldings * 0.40,
-    htmBonds = govBondHoldings * 0.60,
+    afsBonds = govBondHoldings * Share(0.40),
+    htmBonds = govBondHoldings * Share(0.60),
     htmBookYield = Rate(0.055),
     reservesAtNbp = reservesAtNbp,
     interbankNet = interbankNet,
@@ -60,8 +61,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   "Banking.initialize" should "create 7 banks with correct deposit/capital shares" in {
     val bs = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
     bs.banks.length shouldBe 7
-    bs.banks.map(_.deposits.toDouble).sum shouldBe 1000000.0 +- 0.01
-    bs.banks.map(_.capital.toDouble).sum shouldBe 100000.0 +- 0.01
+    bs.banks.map(b => td.toDouble(b.deposits)).sum shouldBe 1000000.0 +- 0.01
+    bs.banks.map(b => td.toDouble(b.capital)).sum shouldBe 100000.0 +- 0.01
   }
 
   it should "set all banks as not failed initially" in {
@@ -71,8 +72,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   it should "set deposits proportional to market share" in {
     val bs = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
-    bs.banks(0).deposits.toDouble shouldBe (1000000.0 * 0.175) +- 0.01 // PKO BP
-    bs.banks(5).deposits.toDouble shouldBe (1000000.0 * 0.050) +- 0.01 // BPS/Coop
+    td.toDouble(bs.banks(0).deposits) shouldBe (1000000.0 * 0.175) +- 0.01 // PKO BP
+    td.toDouble(bs.banks(5).deposits) shouldBe (1000000.0 * 0.050) +- 0.01 // BPS/Coop
   }
 
   // ---- assignBank ----
@@ -98,7 +99,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   "Banking.lendingRate" should "return high spread for failed bank" in {
     val bank = mkBank(status = BankStatus.Failed(30))
     val rate = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero)
-    rate.toDouble shouldBe (0.05 + 0.50) +- 0.001
+    td.toDouble(rate) shouldBe (0.05 + 0.50) +- 0.001
   }
 
   it should "increase with NPL ratio" in {
@@ -120,7 +121,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   "Banking.canLend" should "return false for failed bank" in {
     val bank = mkBank(capital = PLN(1e5), status = BankStatus.Failed(30))
-    Banking.canLend(bank, PLN(1000.0), new Random(42), Rate.Zero) shouldBe false
+    Banking.canLend(bank, PLN(1000.0), new Random(42), Multiplier.Zero) shouldBe false
   }
 
   it should "reject when projected CAR too low" in {
@@ -128,7 +129,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     // Adding 10000 loan -> projected = 8000/110000 = 0.0727 < 0.08
     val bank    = mkBank(loans = PLN(100000.0), capital = PLN(8000.0))
     // Need to test multiple times since there's a stochastic element
-    val results = (0 until 100).map(_ => Banking.canLend(bank, PLN(10000.0), new Random(42), Rate.Zero))
+    val results = (0 until 100).map(_ => Banking.canLend(bank, PLN(10000.0), new Random(42), Multiplier.Zero))
     results.forall(_ == false) shouldBe true
   }
 
@@ -140,7 +141,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       mkBank(id = 1),
     )
     val rate  = Banking.interbankRate(banks, Rate(0.05))
-    rate.toDouble shouldBe (0.05 - 0.01) +- 0.001 // deposit rate
+    td.toDouble(rate) shouldBe (0.05 - 0.01) +- 0.001 // deposit rate
   }
 
   it should "approach lombard rate when NPL is high" in {
@@ -150,7 +151,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     )
     val rate  = Banking.interbankRate(banks, Rate(0.05))
     // stress = 0.10 / 0.05 = 2.0, clipped to 1.0
-    rate.toDouble shouldBe (0.05 + 0.01) +- 0.001 // lombard rate
+    td.toDouble(rate) shouldBe (0.05 + 0.01) +- 0.001 // lombard rate
   }
 
   // ---- clearInterbank ----
@@ -162,7 +163,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       mkBank(id = 2, deposits = PLN(8e5), loans = PLN(2e5), capital = PLN(1.5e5), govBondHoldings = PLN(5e4)),
     )
     val cleared = Banking.clearInterbank(banks, configs.take(3))
-    val netSum  = cleared.map(_.interbankNet.toDouble).sum
+    val netSum  = cleared.map(b => td.toDouble(b.interbankNet)).sum
     netSum shouldBe 0.0 +- 0.01
   }
 
@@ -181,14 +182,14 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     val banks = Vector(
       mkBank(capital = PLN(1000.0), status = BankStatus.Active(5)), // Very low CAR
     )
-    val result = Banking.checkFailures(banks, 30, enabled = false, Rate.Zero)
+    val result = Banking.checkFailures(banks, 30, enabled = false, Multiplier.Zero)
     result.anyFailed shouldBe false
     result.banks(0).failed shouldBe false
   }
 
   it should "trigger after 3 consecutive months of low CAR" in {
     val bank   = mkBank(capital = PLN(1000.0), status = BankStatus.Active(2))
-    val result = Banking.checkFailures(Vector(bank), 30, enabled = true, Rate.Zero)
+    val result = Banking.checkFailures(Vector(bank), 30, enabled = true, Multiplier.Zero)
     result.anyFailed shouldBe true
     result.banks(0).failed shouldBe true
     result.banks(0).capital shouldBe PLN.Zero // Shareholders wiped
@@ -196,7 +197,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   it should "reset consecutive counter when CAR recovers" in {
     val bank   = mkBank(status = BankStatus.Active(2)) // CAR = 0.20 > MinCar
-    val result = Banking.checkFailures(Vector(bank), 30, enabled = true, Rate.Zero)
+    val result = Banking.checkFailures(Vector(bank), 30, enabled = true, Multiplier.Zero)
     result.anyFailed shouldBe false
     result.banks(0).consecutiveLowCar shouldBe 0
   }
@@ -209,7 +210,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       mkBank(id = 1, deposits = PLN(300000.0), loans = PLN(80000.0), capital = PLN(0.0), govBondHoldings = PLN(5000.0), status = BankStatus.Failed(30)),
     )
     val result = Banking.resolveFailures(banks)
-    result.banks(0).deposits.toDouble shouldBe 800000.0 +- 0.01 // absorbed 300k
+    td.toDouble(result.banks(0).deposits) shouldBe 800000.0 +- 0.01 // absorbed 300k
     result.banks(1).deposits shouldBe PLN.Zero
   }
 
@@ -221,8 +222,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       mkBank(id = 1, deposits = PLN(400000.0), loans = PLN.Zero, capital = PLN(1e5)),
     )
     val result = Banking.allocateBonds(banks, PLN(10000.0), Rate(0.05))
-    result(0).govBondHoldings.toDouble shouldBe 6000.0 +- 0.01
-    result(1).govBondHoldings.toDouble shouldBe 4000.0 +- 0.01
+    td.toDouble(result(0).govBondHoldings) shouldBe 6000.0 +- 0.01
+    td.toDouble(result(1).govBondHoldings) shouldBe 4000.0 +- 0.01
   }
 
   it should "handle negative deficit (surplus)" in {
@@ -231,8 +232,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       mkBank(id = 1, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(2000.0)),
     )
     val result = Banking.allocateBonds(banks, PLN(-4000.0), Rate(0.05))
-    result(0).govBondHoldings.toDouble shouldBe 6000.0 +- 0.01 // 8000 + (-4000 * 0.5)
-    result(1).govBondHoldings.toDouble shouldBe 0.0 +- 0.01    // 2000 + (-4000 * 0.5)
+    td.toDouble(result(0).govBondHoldings) shouldBe 6000.0 +- 0.01 // 8000 + (-4000 * 0.5)
+    td.toDouble(result(1).govBondHoldings) shouldBe 0.0 +- 0.01    // 2000 + (-4000 * 0.5)
   }
 
   it should "have per-bank deltas summing to exactly deficit (residual-based)" in {
@@ -250,17 +251,17 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       .toVector
     val deficit = PLN(123456.789)
     val result  = Banking.allocateBonds(banks, deficit, Rate(0.05))
-    val deltas  = result.zip(banks).map((a, b) => a.govBondHoldings.toDouble - b.govBondHoldings.toDouble)
-    deltas.sum shouldBe deficit.toDouble +- 1e-6
+    val deltas  = result.zip(banks).map((a, b) => td.toDouble(a.govBondHoldings) - td.toDouble(b.govBondHoldings))
+    deltas.sum shouldBe td.toDouble(deficit) +- 1e-6
   }
 
   it should "keep aggregate within tight tolerance with large deficit (1e13)" in {
     val banks   = Generators.testBankingSector(totalDeposits = PLN(1e9), totalCapital = PLN(1e8), totalLoans = PLN.Zero, configs = configs).banks
     val deficit = PLN(1e13)
-    val before  = banks.map(_.govBondHoldings.toDouble).sum
+    val before  = banks.map(b => td.toDouble(b.govBondHoldings)).sum
     val result  = Banking.allocateBonds(banks, deficit, Rate(0.05))
-    val after   = result.map(_.govBondHoldings.toDouble).sum
-    (after - before) shouldBe deficit.toDouble +- 0.01 // well within SFC tolerance of 1.0
+    val after   = result.map(b => td.toDouble(b.govBondHoldings)).sum
+    (after - before) shouldBe td.toDouble(deficit) +- 0.01 // well within SFC tolerance of 1.0
   }
 
   // ---- sellToBuyer ----
@@ -271,8 +272,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       mkBank(id = 1, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(4000.0)),
     )
     val result = Banking.sellToBuyer(banks, PLN(5000.0)).banks
-    result(0).govBondHoldings.toDouble shouldBe 3000.0 +- 0.01 // 6000 - 5000*0.6
-    result(1).govBondHoldings.toDouble shouldBe 2000.0 +- 0.01 // 4000 - 5000*0.4
+    td.toDouble(result(0).govBondHoldings) shouldBe 3000.0 +- 0.01 // 6000 - 5000*0.6
+    td.toDouble(result(1).govBondHoldings) shouldBe 2000.0 +- 0.01 // 4000 - 5000*0.4
   }
 
   it should "not change banks when qeTotal is zero" in {
@@ -303,8 +304,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   "Banking.State.aggregate" should "sum all individual bank values" in {
     val bs  = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
     val agg = bs.aggregate
-    agg.deposits.toDouble shouldBe 1000000.0 +- 0.01
-    agg.capital.toDouble shouldBe 100000.0 +- 0.01
+    td.toDouble(agg.deposits) shouldBe 1000000.0 +- 0.01
+    td.toDouble(agg.capital) shouldBe 100000.0 +- 0.01
     agg.totalLoans shouldBe PLN.Zero
   }
 
@@ -312,17 +313,17 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   "BankState.govBondHoldings" should "equal afsBonds + htmBonds" in {
     val b = mkBank(govBondHoldings = PLN(10000.0))
-    b.govBondHoldings.toDouble shouldBe 10000.0 +- 0.01
-    b.afsBonds.toDouble shouldBe 4000.0 +- 0.01
-    b.htmBonds.toDouble shouldBe 6000.0 +- 0.01
+    td.toDouble(b.govBondHoldings) shouldBe 10000.0 +- 0.01
+    td.toDouble(b.afsBonds) shouldBe 4000.0 +- 0.01
+    td.toDouble(b.htmBonds) shouldBe 6000.0 +- 0.01
   }
 
   "allocateBonds" should "split new issuance per htmShare" in {
     val banks  = Vector(mkBank(id = 0, deposits = PLN(1e6)))
     val result = Banking.allocateBonds(banks, PLN(10000.0), Rate(0.06))
     // 60% HTM, 40% AFS
-    result(0).htmBonds.toDouble shouldBe 6000.0 +- 0.01
-    result(0).afsBonds.toDouble shouldBe 4000.0 +- 0.01
+    td.toDouble(result(0).htmBonds) shouldBe 6000.0 +- 0.01
+    td.toDouble(result(0).afsBonds) shouldBe 4000.0 +- 0.01
   }
 
   it should "update htmBookYield as weighted average on issuance" in {
@@ -350,7 +351,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     val result = Banking.allocateBonds(Vector(b0), PLN(10000.0), Rate(0.08))
     // new HTM = 10000 * 0.6 = 6000, total HTM = 12000
     // weighted yield = (6000*0.05 + 6000*0.08) / 12000 = 0.065
-    result(0).htmBookYield.toDouble shouldBe 0.065 +- 0.001
+    td.toDouble(result(0).htmBookYield) shouldBe 0.065 +- 0.001
   }
 
   // ---- sellToBuyer AFS-first ----
@@ -378,8 +379,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       corpBondHoldings = PLN.Zero,
     )
     val result = Banking.sellToBuyer(Vector(b0), PLN(3000.0)).banks
-    result(0).afsBonds.toDouble shouldBe 1000.0 +- 0.01 // 4000 - 3000
-    result(0).htmBonds.toDouble shouldBe 6000.0 +- 0.01 // unchanged
+    td.toDouble(result(0).afsBonds) shouldBe 1000.0 +- 0.01 // 4000 - 3000
+    td.toDouble(result(0).htmBonds) shouldBe 6000.0 +- 0.01 // unchanged
   }
 
   it should "spill into HTM when AFS exhausted" in {
@@ -405,8 +406,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       corpBondHoldings = PLN.Zero,
     )
     val result = Banking.sellToBuyer(Vector(b0), PLN(5000.0)).banks
-    result(0).afsBonds.toDouble shouldBe 0.0 +- 0.01    // 2000 fully sold
-    result(0).htmBonds.toDouble shouldBe 5000.0 +- 0.01 // 8000 - 3000 spill
+    td.toDouble(result(0).afsBonds) shouldBe 0.0 +- 0.01    // 2000 fully sold
+    td.toDouble(result(0).htmBonds) shouldBe 5000.0 +- 0.01 // 8000 - 3000 spill
   }
 
   // ---- processHtmForcedSale ----
@@ -472,14 +473,14 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     val yieldGap     = 0.08 - 0.04
     val duration     = 4.5
     val expectedLoss = reclassified * duration * yieldGap // 1e7 * 4.5 * 0.04 = 1.8e6
-    result.totalRealizedLoss.toDouble shouldBe expectedLoss +- 1.0
+    td.toDouble(result.totalRealizedLoss) shouldBe expectedLoss +- 1.0
     // Total govBondHoldings unchanged
-    result.banks(0).govBondHoldings.toDouble shouldBe stressedBank.govBondHoldings.toDouble +- 0.01
+    td.toDouble(result.banks(0).govBondHoldings) shouldBe td.toDouble(stressedBank.govBondHoldings) +- 0.01
     // HTM decreased, AFS increased
-    result.banks(0).htmBonds.toDouble shouldBe (1e8 - reclassified) +- 0.01
-    result.banks(0).afsBonds.toDouble shouldBe (1e7 + reclassified) +- 0.01
+    td.toDouble(result.banks(0).htmBonds) shouldBe (1e8 - reclassified) +- 0.01
+    td.toDouble(result.banks(0).afsBonds) shouldBe (1e7 + reclassified) +- 0.01
     // Capital reduced by realized loss
-    result.banks(0).capital.toDouble shouldBe (1e8 - expectedLoss) +- 1.0
+    td.toDouble(result.banks(0).capital) shouldBe (1e8 - expectedLoss) +- 1.0
   }
 
   it should "be no-op when htmBonds is zero" in {
@@ -534,5 +535,5 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     val result = Banking.processHtmForcedSale(Vector(bank), Rate(0.05))
     result.totalRealizedLoss shouldBe PLN.Zero
     // HTM still reclassified to AFS (just no loss since yield dropped)
-    result.banks(0).htmBonds.toDouble should be < bank.htmBonds.toDouble
+    td.toDouble(result.banks(0).htmBonds) should be < td.toDouble(bank.htmBonds)
   }

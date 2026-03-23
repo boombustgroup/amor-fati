@@ -7,6 +7,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
 import com.boombustgroup.amorfati.engine.markets.IntermediateMarket
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -14,6 +15,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -62,7 +64,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     forAll(Gen.choose(0.8, 1.5), genPrice) { (demandMult: Double, price: Double) =>
       val firms    = makeFirms(60)
       val r        = IntermediateMarket.process(baseInput(firms, price = price, demandMult = demandMult))
-      val totalAdj = r.firms.zip(firms).map((nf, of) => (nf.cash - of.cash).toDouble).sum
+      val totalAdj = r.firms.zip(firms).map((nf, of) => td.toDouble(nf.cash - of.cash)).sum
       Math.abs(totalAdj) should be < 1.0
     }
 
@@ -71,7 +73,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     val zeroColSums = Vector.fill(6)(0.0)
     val firms       = makeFirms(30)
     val r           = IntermediateMarket.process(IntermediateMarket.Input(firms, Vector.fill(6)(1.0), 1.0, zeroMatrix, zeroColSums))
-    for i <- firms.indices do r.firms(i).cash.toDouble shouldBe firms(i).cash.toDouble
+    for i <- firms.indices do td.toDouble(r.firms(i).cash) shouldBe td.toDouble(firms(i).cash)
     r.totalPaid shouldBe PLN.Zero
   }
 
@@ -80,7 +82,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       if i == 0 then f.copy(tech = TechState.Bankrupt(BankruptReason.Other("test"))) else f
     }
     val r     = IntermediateMarket.process(baseInput(firms))
-    r.firms(0).cash.toDouble shouldBe firms(0).cash.toDouble
+    td.toDouble(r.firms(0).cash) shouldBe td.toDouble(firms(0).cash)
   }
 
   it should "scale linearly with IO_SCALE" in {
@@ -88,14 +90,14 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     forAll(Gen.choose(0.1, 0.9)) { (scale: Double) =>
       val r1 = IntermediateMarket.process(baseInput(firms))
       val rS = IntermediateMarket.process(baseInput(firms, scale = Multiplier(scale)))
-      if r1.totalPaid > PLN.Zero then rS.totalPaid.toDouble shouldBe (r1.totalPaid.toDouble * scale +- (r1.totalPaid.toDouble * 0.01))
+      if r1.totalPaid > PLN.Zero then td.toDouble(rS.totalPaid) shouldBe (td.toDouble(r1.totalPaid) * scale +- (td.toDouble(r1.totalPaid) * 0.01))
     }
   }
 
   it should "produce no changes with scale=0" in {
     val firms = makeFirms(30)
     val r     = IntermediateMarket.process(baseInput(firms, scale = Multiplier.Zero))
-    for i <- firms.indices do r.firms(i).cash.toDouble shouldBe firms(i).cash.toDouble
+    for i <- firms.indices do td.toDouble(r.firms(i).cash) shouldBe td.toDouble(firms(i).cash)
     r.totalPaid shouldBe PLN.Zero
   }
 
@@ -123,7 +125,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   it should "have net zero adjustment for single-sector intra-trade" in {
     val firms    = makeFirms(10, Seq(1))
     val r        = IntermediateMarket.process(baseInput(firms))
-    val totalAdj = r.firms.zip(firms).map((nf, of) => (nf.cash - of.cash).toDouble).sum
+    val totalAdj = r.firms.zip(firms).map((nf, of) => td.toDouble(nf.cash - of.cash)).sum
     Math.abs(totalAdj) should be < 1.0
   }
 
@@ -153,7 +155,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     val f3                     = mkF(2, 1)
     val firms                  = Vector(f1, f2, f3)
     val r                      = IntermediateMarket.process(baseInput(firms))
-    val adj1                   = (r.firms(0).cash - firms(0).cash).toDouble
-    val adj2                   = (r.firms(1).cash - firms(1).cash).toDouble
+    val adj1                   = td.toDouble(r.firms(0).cash - firms(0).cash)
+    val adj2                   = td.toDouble(r.firms(1).cash - firms(1).cash)
     adj1 shouldBe (adj2 +- 1e-6)
   }

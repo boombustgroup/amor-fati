@@ -12,6 +12,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   // --- separations ---
 
@@ -116,7 +117,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     result(0).status match
       case HhStatus.Employed(_, _, wage) =>
         // Single employed: normalized to marketWage
-        wage.toDouble shouldBe 10000.0 +- 1.0
+        td.toDouble(wage) shouldBe 10000.0 +- 1.0
       case other                         => fail(s"Expected Employed, got $other")
     result(1).status shouldBe HhStatus.Unemployed(3)
   }
@@ -131,9 +132,9 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     val wage0  = result(0).status.asInstanceOf[HhStatus.Employed].wage
     val wage1  = result(1).status.asInstanceOf[HhStatus.Employed].wage
     // wage1 should be less than wage0 (health penalty reduces relative wage)
-    wage1.toDouble should be < wage0.toDouble
+    td.toDouble(wage1) should be < td.toDouble(wage0)
     // Mean should be marketWage
-    ((wage0 + wage1) / 2.0).toDouble shouldBe 10000.0 +- 1.0
+    td.toDouble(wage0 + wage1) / 2.0 shouldBe 10000.0 +- 1.0
   }
 
   // --- immigrant wage discount ---

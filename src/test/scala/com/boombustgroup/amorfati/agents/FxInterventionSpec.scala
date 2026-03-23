@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class FxInterventionSpec extends AnyFlatSpec with Matchers:
@@ -9,6 +10,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // Helper: call fxIntervention with enabled=true for tests that need active intervention
   private def fxEnabled(er: Double, reserves: Double, gdp: Double) =
@@ -33,8 +35,8 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "intervene when PLN depreciates beyond band (sell EUR)" in {
-    // PLN depreciates: ER > baseER * 1.10 → NBP sells EUR to strengthen PLN
-    // erDev > 0 → direction = -1 → sells EUR (eurTraded < 0)
+    // PLN depreciates: ER > baseER * 1.10 -> NBP sells EUR to strengthen PLN
+    // erDev > 0 -> direction = -1 -> sells EUR (eurTraded < 0)
     val er       = p.forex.baseExRate * 1.20 // 20% depreciation
     val reserves = 1e10
     val result   = fxEnabled(er, reserves, 1e9)
@@ -44,8 +46,8 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "intervene when PLN appreciates beyond band (buy EUR)" in {
-    // PLN appreciates: ER < baseER * 0.90 → NBP buys EUR to weaken PLN
-    // erDev < 0 → direction = +1 → buys EUR (eurTraded > 0)
+    // PLN appreciates: ER < baseER * 0.90 -> NBP buys EUR to weaken PLN
+    // erDev < 0 -> direction = +1 -> buys EUR (eurTraded > 0)
     val er       = p.forex.baseExRate * 0.80 // 20% appreciation
     val reserves = 1e10
     val result   = fxEnabled(er, reserves, 1e9)
@@ -63,12 +65,12 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce erEffect opposing the deviation direction" in {
-    // Depreciation → negative erEffect (pushes ER down)
+    // Depreciation -> negative erEffect (pushes ER down)
     val erHigh     = p.forex.baseExRate * 1.30
     val resultHigh = fxEnabled(erHigh, 1e10, 1e9)
     resultHigh.erEffect should be < 0.0
 
-    // Appreciation → positive erEffect (pushes ER up)
+    // Appreciation -> positive erEffect (pushes ER up)
     val erLow     = p.forex.baseExRate * 0.70
     val resultLow = fxEnabled(erLow, 1e10, 1e9)
     resultLow.erEffect should be > 0.0
@@ -79,7 +81,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
     val reserves = 1e10
     val result   = fxEnabled(er, reserves, 1e9)
     // newReserves = max(0, reserves + eurTraded)
-    result.newReserves.toDouble shouldBe Math.max(0.0, reserves + result.eurTraded.toDouble) +- 1e-6
+    td.toDouble(result.newReserves) shouldBe Math.max(0.0, reserves + td.toDouble(result.eurTraded)) +- 1e-6
   }
 
   it should "produce zero erEffect when gdp is zero (no div-by-zero)" in {
@@ -91,7 +93,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce no intervention when ER equals baseER (Eurozone scenario)" in {
-    // In EUR regime, ER = baseER → erDev = 0 → within any band
+    // In EUR regime, ER = baseER -> erDev = 0 -> within any band
     val result = fxEnabled(p.forex.baseExRate, 1e10, 1e9)
     result.erEffect shouldBe 0.0
     result.eurTraded shouldBe PLN.Zero

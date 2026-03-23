@@ -23,8 +23,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
+  private val td = ComputationBoundary
+
   private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): Double =
-    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => (e.actual - e.expected).toDouble).getOrElse(0.0)
+    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0)
 
   private def makeWorld(
       bankCapital: Double = 500000.0,
@@ -246,8 +248,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val w     = makeWorld()
     val firms = makeFirms(5, cash = 10000.0, debt = 5000.0)
     val snap  = Sfc.snapshot(w, firms, Vector.empty)
-    snap.firmCash.toDouble shouldBe 50000.0 +- 0.01
-    snap.firmDebt.toDouble shouldBe 25000.0 +- 0.01
+    td.toDouble(snap.firmCash) shouldBe 50000.0 +- 0.01
+    td.toDouble(snap.firmDebt) shouldBe 25000.0 +- 0.01
   }
 
   it should "correctly sum household savings and debt" in {
@@ -255,8 +257,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val firms = makeFirms(1)
     val hhs   = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
     val snap  = Sfc.snapshot(w, firms, hhs)
-    snap.hhSavings.toDouble shouldBe 200000.0 +- 0.01
-    snap.hhDebt.toDouble shouldBe 50000.0 +- 0.01
+    td.toDouble(snap.hhSavings) shouldBe 200000.0 +- 0.01
+    td.toDouble(snap.hhDebt) shouldBe 50000.0 +- 0.01
   }
 
   it should "return zero HH values with empty household vector" in {
@@ -305,7 +307,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
     // Bug: 50% of interest goes to bank instead of 30%
-    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(10000) * 0.5)
+    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(10000) * Share(0.5))
     val flows  = zeroFlows.copy(interestIncome = PLN(10000))
     val result = Sfc.validate(prev, curr, flows)
     // actual change = +5000, expected = +3000, error = 2000

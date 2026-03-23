@@ -6,6 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -14,6 +15,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // --- Firm.isAlive ---
 
@@ -90,7 +92,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   it should "be bounded in [0, 1]" in {
     for s <- p.sectorDefs do
-      val t = Firm.sigmaThreshold(s.sigma.toDouble)
+      val t = Firm.sigmaThreshold(td.toDouble(s.sigma))
       t should be >= 0.0
       t should be <= 1.0
   }
@@ -222,8 +224,8 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         consumption = PLN.Zero,
         domesticConsumption = PLN.Zero,
         importConsumption = PLN.Zero,
-        marketWage = PLN(p.household.baseWage.toDouble),
-        reservationWage = PLN(p.household.baseReservationWage.toDouble),
+        marketWage = p.household.baseWage,
+        reservationWage = p.household.baseReservationWage,
         giniIndividual = Share.Zero,
         giniWealth = Share.Zero,
         meanSavings = PLN.Zero,

@@ -5,13 +5,13 @@ import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.agents.{Firm, TechState}
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 class FofSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   private def zeroSnap: Sfc.Snapshot = Sfc.Snapshot(
     hhSavings = PLN.Zero,
@@ -110,15 +110,15 @@ class FofSpec extends AnyFlatSpec with Matchers:
   )
 
   "FofConsWeights" should "sum to 1.0" in {
-    Math.abs(p.fiscal.fofConsWeights.map(_.toDouble).sum - 1.0) should be < 0.01
+    Math.abs(p.fiscal.fofConsWeights.map(w => td.toDouble(w)).sum - 1.0) should be < 0.01
   }
 
   "FofGovWeights" should "sum to 1.0" in {
-    Math.abs(p.fiscal.fofGovWeights.map(_.toDouble).sum - 1.0) should be < 0.01
+    Math.abs(p.fiscal.fofGovWeights.map(w => td.toDouble(w)).sum - 1.0) should be < 0.01
   }
 
   "FofExportShares" should "sum to 1.0" in {
-    Math.abs(p.fiscal.fofExportShares.map(_.toDouble).sum - 1.0) should be < 0.01
+    Math.abs(p.fiscal.fofExportShares.map(s => td.toDouble(s)).sum - 1.0) should be < 0.01
   }
 
   "Sector demand" should "equal consWeight*dc + govWeight*gp + exports" in {
@@ -127,9 +127,9 @@ class FofSpec extends AnyFlatSpec with Matchers:
     val exports = Vector(50.0, 550.0, 150.0, 20.0, 30.0, 200.0)
     for s <- 0 until 6 do
       val expected =
-        p.fiscal.fofConsWeights.map(_.toDouble)(s) * dc + p.fiscal.fofGovWeights.map(_.toDouble)(s) * gp + exports(s)
+        p.fiscal.fofConsWeights.map(w => td.toDouble(w))(s) * dc + p.fiscal.fofGovWeights.map(w => td.toDouble(w))(s) * gp + exports(s)
       val actual   =
-        p.fiscal.fofConsWeights.map(_.toDouble)(s) * dc + p.fiscal.fofGovWeights.map(_.toDouble)(s) * gp + exports(s)
+        p.fiscal.fofConsWeights.map(w => td.toDouble(w))(s) * dc + p.fiscal.fofGovWeights.map(w => td.toDouble(w))(s) * gp + exports(s)
       actual shouldBe expected
   }
 
@@ -152,22 +152,22 @@ class FofSpec extends AnyFlatSpec with Matchers:
     val price   = 1.0
     val dc      = 800000.0
     val gp      = 200000.0
-    val exports = p.fiscal.fofExportShares.map(_.toDouble).map(_ * 100000.0)
+    val exports = p.fiscal.fofExportShares.map(s => td.toDouble(s)).map(_ * 100000.0)
 
     val sectorCap    = (0 until 6).map { s =>
-      firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.computeCapacity(f).toDouble)
+      firms.filter(_.sector.toInt == s).map(f => td.toDouble(Firm.computeCapacity(f))).sum
     }.toVector
     val sectorDemand = (0 until 6).map { s =>
-      p.fiscal.fofConsWeights.map(_.toDouble)(s) * dc + p.fiscal.fofGovWeights.map(_.toDouble)(s) * gp + exports(s)
+      p.fiscal.fofConsWeights.map(w => td.toDouble(w))(s) * dc + p.fiscal.fofGovWeights.map(w => td.toDouble(w))(s) * gp + exports(s)
     }.toVector
     val sectorMults  = sectorDemand.indices.map { s =>
       if sectorCap(s) > 0 then sectorDemand(s) / (sectorCap(s) * price) else 0.0
     }.toVector
 
     val totalFirmRev = (0 until 6).map { s =>
-      firms.filter(_.sector.toInt == s).kahanSumBy(f => Firm.computeCapacity(f).toDouble * sectorMults(s) * price)
-    }.kahanSum
-    val totalDemand  = sectorDemand.kahanSum
+      firms.filter(_.sector.toInt == s).map(f => td.toDouble(Firm.computeCapacity(f)) * sectorMults(s) * price).sum
+    }.sum
+    val totalDemand  = sectorDemand.sum
 
     Math.abs(totalFirmRev - totalDemand) should be < 0.01
   }
@@ -178,8 +178,8 @@ class FofSpec extends AnyFlatSpec with Matchers:
     // Both in sector 2 (Retail)
     val firms        = Array(f1.copy(sector = SectorIdx(2)), f2.copy(sector = SectorIdx(2)))
     val price        = 1.0
-    val cap1         = Firm.computeCapacity(firms(0)).toDouble
-    val cap2         = Firm.computeCapacity(firms(1)).toDouble
+    val cap1         = td.toDouble(Firm.computeCapacity(firms(0)))
+    val cap2         = td.toDouble(Firm.computeCapacity(firms(1)))
     val sectorDemand = 500000.0
     val totalCap     = cap1 + cap2
     val mult         = sectorDemand / (totalCap * price)
@@ -192,13 +192,13 @@ class FofSpec extends AnyFlatSpec with Matchers:
 
   "Gov purchases" should "equal GovBaseSpending * price" in {
     val price = 1.2
-    val gp    = p.fiscal.govBaseSpending.toDouble * price
-    gp shouldBe p.fiscal.govBaseSpending.toDouble * 1.2
+    val gp    = td.toDouble(p.fiscal.govBaseSpending) * price
+    gp shouldBe td.toDouble(p.fiscal.govBaseSpending) * 1.2
   }
 
   "Scalar exports" should "be distributed by FofExportShares" in {
     val totalExports = 1000000.0
-    val distributed  = p.fiscal.fofExportShares.map(_.toDouble).map(_ * totalExports)
+    val distributed  = p.fiscal.fofExportShares.map(s => td.toDouble(s)).map(_ * totalExports)
     Math.abs(distributed.sum - totalExports) should be < 0.01
     distributed(1) shouldBe 520000.0 // Manufacturing gets 52%
   }
@@ -216,12 +216,13 @@ class FofSpec extends AnyFlatSpec with Matchers:
     val snap   = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
     val result = Sfc.validate(snap, snap, flows)
     result shouldBe a[Left[?, ?]]
-    result.swap
-      .getOrElse(Vector.empty)
-      .find(_.identity == Sfc.SfcIdentity.FlowOfFunds)
-      .get
-      .actual
-      .toDouble shouldBe 1.0 +- 0.01
+    td.toDouble(
+      result.swap
+        .getOrElse(Vector.empty)
+        .find(_.identity == Sfc.SfcIdentity.FlowOfFunds)
+        .get
+        .actual,
+    ) shouldBe 1.0 +- 0.01
   }
 
   // --- helpers ---

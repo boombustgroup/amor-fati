@@ -12,31 +12,32 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // ==========================================================================
   // Config defaults
   // ==========================================================================
 
   "EnergyCostShares" should "have 6 elements" in {
-    p.climate.energyCostShares.map(_.toDouble).length shouldBe 6
+    p.climate.energyCostShares.map(td.toDouble(_)).length shouldBe 6
   }
 
   it should "have all values in [0,1]" in
-    p.climate.energyCostShares.map(_.toDouble).foreach { r =>
+    p.climate.energyCostShares.map(td.toDouble(_)).foreach { r =>
       r should be >= 0.0
       r should be <= 1.0
     }
 
   it should "have Mfg highest" in {
-    p.climate.energyCostShares.map(_.toDouble)(1) shouldBe p.climate.energyCostShares.map(_.toDouble).max
+    p.climate.energyCostShares.map(td.toDouble(_))(1) shouldBe p.climate.energyCostShares.map(td.toDouble(_)).max
   }
 
   it should "have BPO lowest" in {
-    p.climate.energyCostShares.map(_.toDouble)(0) shouldBe p.climate.energyCostShares.map(_.toDouble).min
+    p.climate.energyCostShares.map(td.toDouble(_))(0) shouldBe p.climate.energyCostShares.map(td.toDouble(_)).min
   }
 
   it should "match expected defaults" in {
-    p.climate.energyCostShares.map(_.toDouble) shouldBe Vector(0.02, 0.10, 0.04, 0.05, 0.03, 0.06)
+    p.climate.energyCostShares.map(td.toDouble(_)) shouldBe Vector(0.02, 0.10, 0.04, 0.05, 0.03, 0.06)
   }
 
   "EnergyCarbonIntensity" should "have 6 elements" in {
@@ -62,46 +63,46 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   }
 
   "EtsPriceDrift" should "default to 0.03" in {
-    p.climate.etsPriceDrift.toDouble shouldBe 0.03
+    td.toDouble(p.climate.etsPriceDrift) shouldBe 0.03
   }
 
   "GreenKLRatios" should "have 6 elements" in {
-    p.climate.greenKLRatios.map(_.toDouble).length shouldBe 6
+    p.climate.greenKLRatios.map(td.toDouble(_)).length shouldBe 6
   }
 
   it should "have all positive values" in
-    p.climate.greenKLRatios.map(_.toDouble).foreach(_ should be > 0.0)
+    p.climate.greenKLRatios.map(td.toDouble(_)).foreach(_ should be > 0.0)
 
   it should "have Mfg highest" in {
-    p.climate.greenKLRatios.map(_.toDouble)(1) shouldBe p.climate.greenKLRatios.map(_.toDouble).max
+    p.climate.greenKLRatios.map(td.toDouble(_))(1) shouldBe p.climate.greenKLRatios.map(td.toDouble(_)).max
   }
 
   it should "match expected defaults" in {
-    p.climate.greenKLRatios.map(_.toDouble) shouldBe Vector(5000.0, 30000.0, 10000.0, 15000.0, 8000.0, 20000.0)
+    p.climate.greenKLRatios.map(td.toDouble(_)) shouldBe Vector(5000.0, 30000.0, 10000.0, 15000.0, 8000.0, 20000.0)
   }
 
   "GreenDepRate" should "default to 0.04" in {
-    p.climate.greenDepRate.toDouble shouldBe 0.04
+    td.toDouble(p.climate.greenDepRate) shouldBe 0.04
   }
 
   "GreenAdjustSpeed" should "default to 0.08" in {
-    p.climate.greenAdjustSpeed.toDouble shouldBe 0.08
+    td.toDouble(p.climate.greenAdjustSpeed) shouldBe 0.08
   }
 
   "GreenMaxDiscount" should "default to 0.30" in {
-    p.climate.greenMaxDiscount.toDouble shouldBe 0.30
+    td.toDouble(p.climate.greenMaxDiscount) shouldBe 0.30
   }
 
   "GreenImportShare" should "default to 0.35" in {
-    p.climate.greenImportShare.toDouble shouldBe 0.35
+    td.toDouble(p.climate.greenImportShare) shouldBe 0.35
   }
 
   "GreenInitRatio" should "default to 0.10" in {
-    p.climate.greenInitRatio.toDouble shouldBe 0.10
+    td.toDouble(p.climate.greenInitRatio) shouldBe 0.10
   }
 
   "GreenBudgetShare" should "default to 0.20" in {
-    p.climate.greenBudgetShare.toDouble shouldBe 0.20
+    td.toDouble(p.climate.greenBudgetShare) shouldBe 0.20
   }
 
   // ==========================================================================
@@ -110,12 +111,12 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
 
   "ETS price" should "increase over time with positive drift" in {
     val month    = 12
-    val etsPrice = p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, month.toDouble)
+    val etsPrice = p.climate.etsBasePrice * Math.pow(1.0 + td.toDouble(p.climate.etsPriceDrift) / 12.0, month.toDouble)
     etsPrice should be > p.climate.etsBasePrice
   }
 
   it should "equal base price at month 0" in {
-    val etsPrice = p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, 0.0)
+    val etsPrice = p.climate.etsBasePrice * Math.pow(1.0 + td.toDouble(p.climate.etsPriceDrift) / 12.0, 0.0)
     etsPrice shouldBe p.climate.etsBasePrice
   }
 
@@ -147,7 +148,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
 
   "Firm" should "default greenCapital to 0.0" in {
     val f = mkFirm()
-    f.greenCapital.toDouble shouldBe 0.0
+    td.toDouble(f.greenCapital) shouldBe 0.0
   }
 
   // ==========================================================================
@@ -156,12 +157,12 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
 
   "Firm.Result" should "default energyCost to 0.0" in {
     val r = Firm.Result.zero(mkFirm())
-    r.energyCost.toDouble shouldBe 0.0
+    td.toDouble(r.energyCost) shouldBe 0.0
   }
 
   it should "default greenInvestment to 0.0" in {
     val r = Firm.Result.zero(mkFirm())
-    r.greenInvestment.toDouble shouldBe 0.0
+    td.toDouble(r.greenInvestment) shouldBe 0.0
   }
 
   // ==========================================================================
@@ -232,17 +233,17 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
 
   "World" should "default aggEnergyCost to 0.0" in {
     val w = mkMinimalWorld()
-    w.flows.aggEnergyCost.toDouble shouldBe 0.0
+    td.toDouble(w.flows.aggEnergyCost) shouldBe 0.0
   }
 
   it should "default aggGreenCapital to 0.0" in {
     val w = mkMinimalWorld()
-    w.real.aggGreenCapital.toDouble shouldBe 0.0
+    td.toDouble(w.real.aggGreenCapital) shouldBe 0.0
   }
 
   it should "default aggGreenInvestment to 0.0" in {
     val w = mkMinimalWorld()
-    w.real.aggGreenInvestment.toDouble shouldBe 0.0
+    td.toDouble(w.real.aggGreenInvestment) shouldBe 0.0
   }
 
   // ==========================================================================
@@ -252,7 +253,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   "Energy cost formula" should "compute positive base energy cost" in {
     val revenue    = 100000.0
     val sector     = 1 // Mfg
-    val baseEnergy = revenue * p.climate.energyCostShares.map(_.toDouble)(sector)
+    val baseEnergy = revenue * td.toDouble(p.climate.energyCostShares(sector))
     baseEnergy should be > 0.0
     baseEnergy shouldBe 10000.0 // 100k * 0.10
   }
@@ -260,9 +261,9 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   it should "increase with carbon surcharge at later months" in {
     val revenue           = 100000.0
     val sector            = 1 // Mfg
-    val baseEnergy        = revenue * p.climate.energyCostShares.map(_.toDouble)(sector)
+    val baseEnergy        = revenue * td.toDouble(p.climate.energyCostShares(sector))
     val month             = 60
-    val etsPrice          = p.climate.etsBasePrice * Math.pow(1.0 + p.climate.etsPriceDrift.toDouble / 12.0, month.toDouble)
+    val etsPrice          = p.climate.etsBasePrice * Math.pow(1.0 + td.toDouble(p.climate.etsPriceDrift) / 12.0, month.toDouble)
     val carbonSurcharge   = p.climate.carbonIntensity(sector) * (etsPrice / p.climate.etsBasePrice - 1.0)
     carbonSurcharge should be > 0.0
     val costWithSurcharge = baseEnergy * (1.0 + carbonSurcharge)
@@ -272,7 +273,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   it should "reduce with green discount" in {
     val revenue          = 100000.0
     val sector           = 1    // Mfg
-    val baseEnergy       = revenue * p.climate.energyCostShares.map(_.toDouble)(sector)
+    val baseEnergy       = revenue * td.toDouble(p.climate.energyCostShares(sector))
     val greenDiscount    = 0.20 // 20%
     val costWithDiscount = baseEnergy * (1.0 - greenDiscount)
     costWithDiscount should be < baseEnergy
@@ -282,8 +283,8 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
     val greenCapital = 1e9                     // very large
     val targetGK     = 30000.0                 // per worker * workers
     val rawRatio     = greenCapital / targetGK // >> 1
-    val discount     = Math.min(p.climate.greenMaxDiscount.toDouble, rawRatio * p.climate.greenMaxDiscount.toDouble)
-    discount shouldBe p.climate.greenMaxDiscount.toDouble
+    val discount     = Math.min(td.toDouble(p.climate.greenMaxDiscount), rawRatio * td.toDouble(p.climate.greenMaxDiscount))
+    discount shouldBe td.toDouble(p.climate.greenMaxDiscount)
   }
 
   // ==========================================================================
@@ -291,7 +292,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Green investment" should "depreciate greenCapital" in {
-    val depRate = p.climate.greenDepRate.toDouble / 12.0
+    val depRate = td.toDouble(p.climate.greenDepRate) / 12.0
     val gk      = 100000.0
     val postDep = gk * (1.0 - depRate)
     postDep should be < gk
@@ -301,11 +302,11 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   it should "compute gap-driven desired investment" in {
     val gk         = 10000.0
     val targetGK   = 50000.0
-    val depRate    = p.climate.greenDepRate.toDouble / 12.0
+    val depRate    = td.toDouble(p.climate.greenDepRate) / 12.0
     val depn       = gk * depRate
     val postDepGK  = gk - depn
     val gap        = Math.max(0.0, targetGK - postDepGK)
-    val desiredInv = depn + gap * p.climate.greenAdjustSpeed.toDouble
+    val desiredInv = depn + gap * td.toDouble(p.climate.greenAdjustSpeed)
     desiredInv should be > 0.0
     desiredInv should be > depn // gap-driven portion adds to depreciation replacement
   }
@@ -313,7 +314,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   it should "be constrained by green budget share of cash" in {
     val cash        = 100000.0
     val desiredInv  = 50000.0
-    val greenBudget = cash * p.climate.greenBudgetShare.toDouble // 20,000
+    val greenBudget = cash * td.toDouble(p.climate.greenBudgetShare) // 20,000
     val actualInv   = Math.min(desiredInv, greenBudget)
     actualInv shouldBe greenBudget
     actualInv shouldBe 20000.0
@@ -330,13 +331,13 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
 
   "Green domestic GFCF" should "be positive when enabled with positive investment" in {
     val greenInv          = 100000.0
-    val greenDomesticGFCF = greenInv * (1.0 - p.climate.greenImportShare.toDouble)
+    val greenDomesticGFCF = greenInv * (1.0 - td.toDouble(p.climate.greenImportShare))
     greenDomesticGFCF should be > 0.0
     greenDomesticGFCF shouldBe 65000.0 // 100k * 0.65
   }
 
   "Green import share" should "be correct fraction of investment" in {
     val greenInv     = 100000.0
-    val greenImports = greenInv * p.climate.greenImportShare.toDouble
+    val greenImports = greenInv * td.toDouble(p.climate.greenImportShare)
     greenImports shouldBe 35000.0 // 100k * 0.35
   }

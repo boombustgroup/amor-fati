@@ -12,29 +12,30 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // --- Config defaults ---
 
   "FdiForeignShares" should "have 6 values" in {
-    p.fdi.foreignShares.map(_.toDouble).length shouldBe 6
+    p.fdi.foreignShares.length shouldBe 6
   }
 
   it should "have all values in [0, 1]" in
-    p.fdi.foreignShares.map(_.toDouble).foreach { s =>
-      s should be >= 0.0
-      s should be <= 1.0
+    p.fdi.foreignShares.foreach { s =>
+      td.toDouble(s) should be >= 0.0
+      td.toDouble(s) should be <= 1.0
     }
 
   "FdiProfitShiftRate" should "default to 0.15" in {
-    p.fdi.profitShiftRate.toDouble shouldBe 0.15
+    td.toDouble(p.fdi.profitShiftRate) shouldBe 0.15
   }
 
   "FdiRepatriationRate" should "default to 0.70" in {
-    p.fdi.repatriationRate.toDouble shouldBe 0.70
+    td.toDouble(p.fdi.repatriationRate) shouldBe 0.70
   }
 
   "FdiMaProb" should "default to 0.001" in {
-    p.fdi.maProb.toDouble shouldBe 0.001
+    td.toDouble(p.fdi.maProb) shouldBe 0.001
   }
 
   "FdiMaSizeMin" should "default to 50" in {
@@ -59,8 +60,8 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   "Firm.Result" should "default profitShiftCost and fdiRepatriation to 0" in {
     val r = Firm.Result.zero(mkFirm(TechState.Traditional(10)))
-    r.profitShiftCost.toDouble shouldBe 0.0
-    r.fdiRepatriation.toDouble shouldBe 0.0
+    td.toDouble(r.profitShiftCost) shouldBe 0.0
+    td.toDouble(r.fdiRepatriation) shouldBe 0.0
   }
 
   // --- calcPnL: profit shifting ---
@@ -69,7 +70,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = false)
     val w = mkWorld()
     val r = Firm.process(f, w, Rate(0.06), _ => true, Vector(f), new scala.util.Random(42))
-    r.profitShiftCost.toDouble shouldBe 0.0
+    td.toDouble(r.profitShiftCost) shouldBe 0.0
   }
 
   // --- applyFdiFlows ---
@@ -79,13 +80,13 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     val r = Firm.Result.zero(f).copy(taxPaid = PLN(1000.0))
     // applyFdiFlows is private, but tested through Firm.process
     // Domestic firm should have 0 repatriation regardless
-    r.fdiRepatriation.toDouble shouldBe 0.0
+    td.toDouble(r.fdiRepatriation) shouldBe 0.0
   }
 
   it should "not repatriate from bankrupt firm" in {
     val f = mkFirm(TechState.Bankrupt(BankruptReason.Other("test"))).copy(foreignOwned = true, cash = PLN(100000.0))
     val r = Firm.Result.zero(f).copy(taxPaid = PLN(1000.0))
-    r.fdiRepatriation.toDouble shouldBe 0.0
+    td.toDouble(r.fdiRepatriation) shouldBe 0.0
   }
 
   // --- Automated foreign firm ---
@@ -94,9 +95,9 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   "World" should "have FDI fields defaulting to 0" in {
     val w = mkWorld()
-    w.flows.fdiProfitShifting.toDouble shouldBe 0.0
-    w.flows.fdiRepatriation.toDouble shouldBe 0.0
-    w.flows.fdiCitLoss.toDouble shouldBe 0.0
+    td.toDouble(w.flows.fdiProfitShifting) shouldBe 0.0
+    td.toDouble(w.flows.fdiRepatriation) shouldBe 0.0
+    td.toDouble(w.flows.fdiCitLoss) shouldBe 0.0
   }
 
   // --- Repatriation cash constraint ---
@@ -121,16 +122,17 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   // --- FDI foreign shares calibration ---
 
   "FDI foreign shares" should "have Manufacturing as highest share" in {
-    p.fdi.foreignShares.map(_.toDouble)(1) should be >= p.fdi.foreignShares.map(_.toDouble)(0) // Mfg >= BPO
-    p.fdi.foreignShares.map(_.toDouble)(1) should be >= p.fdi.foreignShares.map(_.toDouble)(2) // Mfg >= Retail
+    val shares = p.fdi.foreignShares.map(td.toDouble)
+    shares(1) should be >= shares(0) // Mfg >= BPO
+    shares(1) should be >= shares(2) // Mfg >= Retail
   }
 
   it should "have Public sector at 0%" in {
-    p.fdi.foreignShares.map(_.toDouble)(4) shouldBe 0.0
+    td.toDouble(p.fdi.foreignShares(4)) shouldBe 0.0
   }
 
   it should "have Healthcare low (3%)" in {
-    p.fdi.foreignShares.map(_.toDouble)(3) shouldBe 0.03
+    td.toDouble(p.fdi.foreignShares(3)) shouldBe 0.03
   }
 
   // --- helpers ---
@@ -179,8 +181,8 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
         consumption = PLN.Zero,
         domesticConsumption = PLN.Zero,
         importConsumption = PLN.Zero,
-        marketWage = PLN(p.household.baseWage.toDouble),
-        reservationWage = PLN(p.household.baseReservationWage.toDouble),
+        marketWage = PLN(td.toDouble(p.household.baseWage)),
+        reservationWage = PLN(td.toDouble(p.household.baseReservationWage)),
         giniIndividual = Share.Zero,
         giniWealth = Share.Zero,
         meanSavings = PLN.Zero,

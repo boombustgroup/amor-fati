@@ -15,8 +15,10 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
+  private val td = ComputationBoundary
+
   private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): Double =
-    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => (e.actual - e.expected).toDouble).getOrElse(0.0)
+    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0)
 
   // --- Consistent flows always pass ---
 
@@ -208,10 +210,10 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(Gen.choose(3, 20)) { (n: Int) =>
       forAll(Gen.listOfN(n, genAliveFirm)) { (firmList: List[com.boombustgroup.amorfati.agents.Firm.State]) =>
         val firms        = firmList.toArray
-        val expectedCash = firms.map(_.cash.toDouble).sum
-        val expectedDebt = firms.map(_.debt.toDouble).sum
-        Math.abs(expectedCash - firms.map(_.cash.toDouble).sum) should be < 1e-6
-        Math.abs(expectedDebt - firms.map(_.debt.toDouble).sum) should be < 1e-6
+        val expectedCash = firms.map(f => td.toDouble(f.cash)).sum
+        val expectedDebt = firms.map(f => td.toDouble(f.debt)).sum
+        Math.abs(expectedCash - firms.map(f => td.toDouble(f.cash)).sum) should be < 1e-6
+        Math.abs(expectedDebt - firms.map(f => td.toDouble(f.debt)).sum) should be < 1e-6
       }
     }
 

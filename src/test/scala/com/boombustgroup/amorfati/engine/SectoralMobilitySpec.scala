@@ -4,6 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -13,6 +14,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // --- Default friction matrix ---
 
@@ -22,7 +24,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have zero diagonal" in {
-    for i <- 0 until 6 do SectoralMobility.DefaultFrictionMatrix(i)(i) shouldBe 0.0
+    for i <- 0 until 6 do SectoralMobility.DefaultFrictionMatrix(i)(i) shouldBe Share.Zero
   }
 
   it should "be symmetric" in {
@@ -32,8 +34,8 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   it should "have values in [0, 1]" in {
     for row <- SectoralMobility.DefaultFrictionMatrix; v <- row do
-      v should be >= 0.0
-      v should be <= 1.0
+      td.toDouble(v) should be >= 0.0
+      td.toDouble(v) should be <= 1.0
   }
 
   // --- sectorVacancies ---
@@ -64,9 +66,9 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
       mkHousehold(3, HhStatus.Unemployed(1)),
     )
     val wages = SectoralMobility.sectorWages(hhs)
-    wages(0).toDouble shouldBe 11000.0 +- 0.01 // (10000+12000)/2
-    wages(2).toDouble shouldBe 8000.0
-    wages(1).toDouble shouldBe 0.0             // no employed in sector 1
+    td.toDouble(wages(0)) shouldBe 11000.0 +- 0.01 // (10000+12000)/2
+    td.toDouble(wages(2)) shouldBe 8000.0
+    td.toDouble(wages(1)) shouldBe 0.0             // no employed in sector 1
   }
 
   // --- selectTargetSector ---
@@ -76,7 +78,8 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     val wages = Vector(PLN(10000.0), PLN(12000.0), PLN(8000.0), PLN(15000.0), PLN(9000.0), PLN(7000.0))
     val vac   = Vector(5, 10, 3, 8, 2, 1)
     for _ <- 0 until 100 do
-      val target = SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
+      val target =
+        SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, Coefficient(2.0), rng)
       target should not be 0
   }
 
@@ -88,7 +91,8 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     val vac    = Vector(0, 100, 1, 1, 1, 1)
     val counts = new Array[Int](6)
     for _ <- 0 until 1000 do
-      val target = SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
+      val target =
+        SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, Coefficient(2.0), rng)
       counts(target) += 1
     // Sector 1 should be heavily preferred
     counts(1) should be > 500
@@ -98,7 +102,8 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     val rng    = new Random(42)
     val wages  = Vector.fill(6)(PLN.Zero)
     val vac    = Vector.fill(6)(0)
-    val target = SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, 2.0, rng)
+    val target =
+      SectoralMobility.selectTargetSector(0, wages, vac, SectoralMobility.DefaultFrictionMatrix, Coefficient(2.0), rng)
     target should not be 0
     target should be >= 0
     target should be < 6
@@ -107,32 +112,32 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   // --- frictionAdjustedParams ---
 
   "frictionAdjustedParams" should "increase duration and cost with higher friction" in {
-    val rp0 = SectoralMobility.frictionAdjustedParams(0.0, 1.0, 0.5)
-    val rp9 = SectoralMobility.frictionAdjustedParams(0.9, 1.0, 0.5)
+    val rp0 = SectoralMobility.frictionAdjustedParams(Share(0.0), Multiplier(1.0), Share(0.5))
+    val rp9 = SectoralMobility.frictionAdjustedParams(Share(0.9), Multiplier(1.0), Share(0.5))
     rp9.duration should be > rp0.duration
-    rp9.cost should be > rp0.cost
+    td.toDouble(rp9.cost) should be > td.toDouble(rp0.cost)
   }
 
   it should "return base values at zero friction" in {
-    val rp = SectoralMobility.frictionAdjustedParams(0.0, 1.0, 0.5)
+    val rp = SectoralMobility.frictionAdjustedParams(Share(0.0), Multiplier(1.0), Share(0.5))
     rp.duration shouldBe p.household.retrainingDuration
-    rp.cost.toDouble shouldBe p.household.retrainingCost.toDouble +- 0.01
+    td.toDouble(rp.cost) shouldBe td.toDouble(p.household.retrainingCost) +- 0.01
   }
 
   // --- crossSectorWagePenalty ---
 
   "crossSectorWagePenalty" should "return 1.0 at zero friction" in {
-    SectoralMobility.crossSectorWagePenalty(0.0) shouldBe 1.0
+    td.toDouble(SectoralMobility.crossSectorWagePenalty(Share(0.0))) shouldBe 1.0
   }
 
   it should "return 0.7 at friction 1.0" in {
-    SectoralMobility.crossSectorWagePenalty(1.0) shouldBe 0.7 +- 0.001
+    td.toDouble(SectoralMobility.crossSectorWagePenalty(Share(1.0))) shouldBe 0.7 +- 0.001
   }
 
   it should "decrease monotonically with friction" in {
     for f <- 1 to 10 do
-      val low  = SectoralMobility.crossSectorWagePenalty(f * 0.1 - 0.1)
-      val high = SectoralMobility.crossSectorWagePenalty(f * 0.1)
+      val low  = td.toDouble(SectoralMobility.crossSectorWagePenalty(Share(f * 0.1 - 0.1)))
+      val high = td.toDouble(SectoralMobility.crossSectorWagePenalty(Share(f * 0.1)))
       high should be <= low
   }
 
@@ -140,9 +145,9 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   "frictionAdjustedSuccess" should "reduce success probability with friction" in {
     val base = 0.6
-    SectoralMobility.frictionAdjustedSuccess(base, 0.0) shouldBe base
-    SectoralMobility.frictionAdjustedSuccess(base, 0.5) shouldBe (base * 0.75) +- 0.001
-    SectoralMobility.frictionAdjustedSuccess(base, 1.0) shouldBe (base * 0.5) +- 0.001
+    SectoralMobility.frictionAdjustedSuccess(base, Share(0.0)) shouldBe base
+    SectoralMobility.frictionAdjustedSuccess(base, Share(0.5)) shouldBe (base * 0.75) +- 0.001
+    SectoralMobility.frictionAdjustedSuccess(base, Share(1.0)) shouldBe (base * 0.5) +- 0.001
   }
 
   // --- SectoralMobility.State ---
@@ -151,7 +156,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     val z = SectoralMobility.zero
     z.crossSectorHires shouldBe 0
     z.voluntaryQuits shouldBe 0
-    z.sectorMobilityRate shouldBe 0.0
+    z.sectorMobilityRate shouldBe Share.Zero
   }
 
   // --- helpers ---

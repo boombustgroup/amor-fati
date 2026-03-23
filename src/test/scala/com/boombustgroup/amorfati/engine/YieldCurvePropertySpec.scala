@@ -12,6 +12,7 @@ class YieldCurvePropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams                                                         = SimParams.defaults
+  private val td                                                          = ComputationBoundary
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
@@ -35,9 +36,9 @@ class YieldCurvePropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   it should "have base premiums when no stress (nplRatio=0, credibility=1)" in
     forAll(Gen.choose(0.0, 0.30)) { onRate =>
       val curve = YieldCurve.compute(Rate(onRate))
-      (curve.wibor1m - curve.overnight).toDouble should be(YieldCurve.BasePremium1M.toDouble +- 1e-12)
-      (curve.wibor3m - curve.overnight).toDouble should be(YieldCurve.BasePremium3M.toDouble +- 1e-12)
-      (curve.wibor6m - curve.overnight).toDouble should be(YieldCurve.BasePremium6M.toDouble +- 1e-12)
+      td.toDouble(curve.wibor1m - curve.overnight) should be(td.toDouble(YieldCurve.BasePremium1M) +- 1e-12)
+      td.toDouble(curve.wibor3m - curve.overnight) should be(td.toDouble(YieldCurve.BasePremium3M) +- 1e-12)
+      td.toDouble(curve.wibor6m - curve.overnight) should be(td.toDouble(YieldCurve.BasePremium6M) +- 1e-12)
     }
 
   it should "widen monotonically with NPL" in

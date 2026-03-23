@@ -15,6 +15,7 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams                                                         = SimParams.defaults
+  private val td                                                          = ComputationBoundary
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
@@ -66,14 +67,14 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
         val b2 = b1.copy(reservesAtNbp = PLN(reserves * mult))
         val r1 = Banking.reserveInterest(b1, Rate(rate))
         val r2 = Banking.reserveInterest(b2, Rate(rate))
-        r2.toDouble shouldBe (r1.toDouble * mult +- 1.0)
+        td.toDouble(r2) shouldBe (td.toDouble(r1) * mult +- 1.0)
       }
     }
 
   "computeReserveInterest total" should "equal sum of per-bank interest" in
     forAll(genBanking.State, genRate) { (bs, rate) =>
       val result = Banking.computeReserveInterest(bs.banks, Rate(rate))
-      result.total.toDouble shouldBe (result.perBank.map(_.toDouble).sum +- 0.01)
+      td.toDouble(result.total) shouldBe (result.perBank.map(td.toDouble(_)).sum +- 0.01)
     }
 
   // =========================================================================
@@ -88,7 +89,7 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
           mkBank(id = 1, interbankNet = PLN(-net1)),
         )
         val result = Banking.interbankInterestFlows(banks, Rate(rate))
-        result.total.toDouble shouldBe (0.0 +- 1.0)
+        td.toDouble(result.total) shouldBe (0.0 +- 1.0)
       }
     }
 

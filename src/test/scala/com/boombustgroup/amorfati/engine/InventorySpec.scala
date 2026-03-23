@@ -5,6 +5,7 @@ import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.agents.{Banking, BankruptReason, Firm, TechState}
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class InventorySpec extends AnyFlatSpec with Matchers:
@@ -12,62 +13,63 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // ==========================================================================
   // Config defaults
   // ==========================================================================
 
   "InventoryTargetRatios" should "have 6 elements" in {
-    p.capital.inventoryTargetRatios.map(_.toDouble).length shouldBe 6
+    p.capital.inventoryTargetRatios.map(td.toDouble(_)).length shouldBe 6
   }
 
   it should "have all non-negative values" in
-    p.capital.inventoryTargetRatios.map(_.toDouble).foreach(_ should be >= 0.0)
+    p.capital.inventoryTargetRatios.map(td.toDouble(_)).foreach(_ should be >= 0.0)
 
   it should "have Mfg > BPO" in {
-    p.capital.inventoryTargetRatios.map(_.toDouble)(1) should be > p.capital.inventoryTargetRatios.map(_.toDouble)(0)
+    p.capital.inventoryTargetRatios.map(td.toDouble(_))(1) should be > p.capital.inventoryTargetRatios.map(td.toDouble(_))(0)
   }
 
   it should "match expected defaults" in {
-    p.capital.inventoryTargetRatios.map(_.toDouble) shouldBe Vector(0.05, 0.25, 0.15, 0.10, 0.02, 0.30)
+    p.capital.inventoryTargetRatios.map(td.toDouble(_)) shouldBe Vector(0.05, 0.25, 0.15, 0.10, 0.02, 0.30)
   }
 
   "InventoryAdjustSpeed" should "default to 0.10" in {
-    p.capital.inventoryAdjustSpeed.toDouble shouldBe 0.10
+    td.toDouble(p.capital.inventoryAdjustSpeed) shouldBe 0.10
   }
 
   "InventoryCarryingCost" should "default to 0.06" in {
-    p.capital.inventoryCarryingCost.toDouble shouldBe 0.06
+    td.toDouble(p.capital.inventoryCarryingCost) shouldBe 0.06
   }
 
   "InventorySpoilageRates" should "have 6 elements" in {
-    p.capital.inventorySpoilageRates.map(_.toDouble).length shouldBe 6
+    p.capital.inventorySpoilageRates.map(td.toDouble(_)).length shouldBe 6
   }
 
   it should "have all values in [0,1]" in
-    p.capital.inventorySpoilageRates.map(_.toDouble).foreach { r =>
+    p.capital.inventorySpoilageRates.map(td.toDouble(_)).foreach { r =>
       r should be >= 0.0
       r should be <= 1.0
     }
 
   it should "have Agri highest" in {
-    p.capital.inventorySpoilageRates.map(_.toDouble)(5) shouldBe p.capital.inventorySpoilageRates.map(_.toDouble).max
+    p.capital.inventorySpoilageRates.map(td.toDouble(_))(5) shouldBe p.capital.inventorySpoilageRates.map(td.toDouble(_)).max
   }
 
   it should "match expected defaults" in {
-    p.capital.inventorySpoilageRates.map(_.toDouble) shouldBe Vector(0.0, 0.02, 0.05, 0.03, 0.0, 0.10)
+    p.capital.inventorySpoilageRates.map(td.toDouble(_)) shouldBe Vector(0.0, 0.02, 0.05, 0.03, 0.0, 0.10)
   }
 
   "InventoryCostFraction" should "default to 0.50" in {
-    p.capital.inventoryCostFraction.toDouble shouldBe 0.50
+    td.toDouble(p.capital.inventoryCostFraction) shouldBe 0.50
   }
 
   "InventoryLiquidationDisc" should "default to 0.50" in {
-    p.capital.inventoryLiquidationDisc.toDouble shouldBe 0.50
+    td.toDouble(p.capital.inventoryLiquidationDisc) shouldBe 0.50
   }
 
   "InventoryInitRatio" should "default to 0.80" in {
-    p.capital.inventoryInitRatio.toDouble shouldBe 0.80
+    td.toDouble(p.capital.inventoryInitRatio) shouldBe 0.80
   }
 
   // ==========================================================================
@@ -138,12 +140,12 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   "World" should "have aggInventoryStock defaulting to 0.0" in {
     val w = mkMinimalWorld()
-    w.flows.aggInventoryStock.toDouble shouldBe 0.0
+    w.flows.aggInventoryStock shouldBe PLN.Zero
   }
 
   it should "have aggInventoryChange defaulting to 0.0" in {
     val w = mkMinimalWorld()
-    w.flows.aggInventoryChange.toDouble shouldBe 0.0
+    w.flows.aggInventoryChange shouldBe PLN.Zero
   }
 
   // ==========================================================================
@@ -173,12 +175,12 @@ class InventorySpec extends AnyFlatSpec with Matchers:
     )
 
   "Firm" should "have inventory defaulting to 0.0" in {
-    mkFirm().inventory.toDouble shouldBe 0.0
+    mkFirm().inventory shouldBe PLN.Zero
   }
 
   "Firm.Result" should "have inventoryChange defaulting to 0.0" in {
     val r = Firm.Result.zero(mkFirm())
-    r.inventoryChange.toDouble shouldBe 0.0
+    r.inventoryChange shouldBe PLN.Zero
   }
 
   // ==========================================================================
@@ -188,12 +190,12 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   "Carrying cost" should "be positive when inventory > 0 and InventoryEnabled" in {
     // Monthly carrying cost = inventory * carryingCostRate / 12
     val inventory = 100000.0
-    val cost      = inventory * p.capital.inventoryCarryingCost.toDouble / 12.0
+    val cost      = inventory * td.toDouble(p.capital.inventoryCarryingCost) / 12.0
     cost should be > 0.0
   }
 
   it should "be zero when inventory is 0" in {
-    val cost = 0.0 * p.capital.inventoryCarryingCost.toDouble / 12.0
+    val cost = 0.0 * td.toDouble(p.capital.inventoryCarryingCost) / 12.0
     cost shouldBe 0.0
   }
 
@@ -204,15 +206,15 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   "Spoilage" should "reduce inventory stock" in {
     val inventory = 100000.0
     for s <- 0 until 6 do
-      val spoilRate    = p.capital.inventorySpoilageRates.map(_.toDouble)(s) / 12.0
+      val spoilRate    = td.toDouble(p.capital.inventorySpoilageRates(s)) / 12.0
       val postSpoilage = inventory * (1.0 - spoilRate)
       postSpoilage should be <= inventory
   }
 
   it should "be highest for Agriculture" in {
-    val agriRate = p.capital.inventorySpoilageRates.map(_.toDouble)(5) / 12.0
-    val mfgRate  = p.capital.inventorySpoilageRates.map(_.toDouble)(1) / 12.0
-    val bpoRate  = p.capital.inventorySpoilageRates.map(_.toDouble)(0) / 12.0
+    val agriRate = td.toDouble(p.capital.inventorySpoilageRates(5)) / 12.0
+    val mfgRate  = td.toDouble(p.capital.inventorySpoilageRates(1)) / 12.0
+    val bpoRate  = td.toDouble(p.capital.inventorySpoilageRates(0)) / 12.0
     agriRate should be > mfgRate
     mfgRate should be > bpoRate
   }
@@ -224,7 +226,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   "Stress liquidation" should "recover cash at discount" in {
     val inventory = 100000.0
     val cash      = -30000.0
-    val disc      = p.capital.inventoryLiquidationDisc.toDouble
+    val disc      = td.toDouble(p.capital.inventoryLiquidationDisc)
     val liquidate = Math.min(inventory, Math.abs(cash) / disc)
     val cashBoost = liquidate * disc
     cashBoost should be > 0.0
@@ -234,7 +236,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   it should "not exceed available inventory" in {
     val inventory = 10000.0
     val cash      = -100000.0
-    val disc      = p.capital.inventoryLiquidationDisc.toDouble
+    val disc      = td.toDouble(p.capital.inventoryLiquidationDisc)
     val liquidate = Math.min(inventory, Math.abs(cash) / disc)
     liquidate shouldBe inventory
   }
@@ -257,7 +259,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   "Unsold production" should "add to inventory" in {
     val capacity         = 100000.0
-    val costFraction     = p.capital.inventoryCostFraction.toDouble
+    val costFraction     = td.toDouble(p.capital.inventoryCostFraction)
     val productionValue  = capacity * costFraction
     val sectorDemandMult = 0.8 // 20% unsold
     val salesValue       = productionValue * Math.min(1.0, sectorDemandMult)
@@ -268,7 +270,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   "Excess demand" should "not generate unsold production" in {
     val capacity         = 100000.0
-    val costFraction     = p.capital.inventoryCostFraction.toDouble
+    val costFraction     = td.toDouble(p.capital.inventoryCostFraction)
     val productionValue  = capacity * costFraction
     val sectorDemandMult = 1.2 // excess demand
     val salesValue       = productionValue * Math.min(1.0, sectorDemandMult)
@@ -287,7 +289,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
     val targetRatio      = 0.15
     val targetInv        = revenue * targetRatio
     val currentInv       = 0.0 // starting from zero
-    val desired          = (targetInv - currentInv) * p.capital.inventoryAdjustSpeed.toDouble
+    val desired          = (targetInv - currentInv) * td.toDouble(p.capital.inventoryAdjustSpeed)
     desired should be > 0.0 // should want to build up
   }
 
@@ -298,7 +300,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
     val targetRatio      = 0.15
     val targetInv        = revenue * targetRatio
     val currentInv       = targetInv * 3.0 // well above target
-    val desired          = (targetInv - currentInv) * p.capital.inventoryAdjustSpeed.toDouble
+    val desired          = (targetInv - currentInv) * td.toDouble(p.capital.inventoryAdjustSpeed)
     desired should be < 0.0 // should want to reduce
   }
 

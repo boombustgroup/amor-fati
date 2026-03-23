@@ -25,15 +25,15 @@ object Generators:
       configs: Vector[Banking.Config] = Banking.DefaultConfigs,
   ): Banking.State =
     val banks = configs.map: cfg =>
-      val bankBonds = totalGovBonds * cfg.initMarketShare.toDouble
+      val bankBonds = totalGovBonds * cfg.initMarketShare
       Banking.BankState(
         id = cfg.id,
-        deposits = totalDeposits * cfg.initMarketShare.toDouble,
-        loans = totalLoans * cfg.initMarketShare.toDouble,
-        capital = totalCapital * cfg.initMarketShare.toDouble,
+        deposits = totalDeposits * cfg.initMarketShare,
+        loans = totalLoans * cfg.initMarketShare,
+        capital = totalCapital * cfg.initMarketShare,
         nplAmount = PLN.Zero,
-        afsBonds = bankBonds * (1.0 - p.banking.htmShare.toDouble),
-        htmBonds = bankBonds * p.banking.htmShare.toDouble,
+        afsBonds = bankBonds * (Share.One - p.banking.htmShare),
+        htmBonds = bankBonds * p.banking.htmShare,
         htmBookYield = p.banking.initHtmBookYield,
         reservesAtNbp = PLN.Zero,
         interbankNet = PLN.Zero,
@@ -43,7 +43,7 @@ object Generators:
         loansShort = PLN.Zero,
         loansMedium = PLN.Zero,
         loansLong = PLN.Zero,
-        consumerLoans = totalConsumerLoans * cfg.initMarketShare.toDouble,
+        consumerLoans = totalConsumerLoans * cfg.initMarketShare,
         consumerNpl = PLN.Zero,
         corpBondHoldings = PLN.Zero,
       )
@@ -534,7 +534,7 @@ object Generators:
         (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
           + flows.mortgageInterestIncome + flows.consumerDebtService + flows.corpBondCouponIncome
           - flows.depositInterestPaid
-          + flows.reserveInterest + flows.standingFacilityIncome + flows.interbankInterest) * 0.3
+          + flows.reserveInterest + flows.standingFacilityIncome + flows.interbankInterest) * Share(0.3)
       val expectedDepChange      = flows.totalIncome - flows.totalConsumption + flows.investNetDepositFlow +
         flows.jstDepositChange +
         flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow + flows.diasporaInflow +

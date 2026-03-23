@@ -4,6 +4,7 @@ import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -11,6 +12,7 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -41,7 +43,7 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
     forAll(genER, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)
       val erDev  = (er - p.forex.baseExRate) / p.forex.baseExRate
-      if Math.abs(erDev) > p.monetary.fxBand.toDouble && reserves > 0 && gdp > 0 then
+      if Math.abs(erDev) > td.toDouble(p.monetary.fxBand) && reserves > 0 && gdp > 0 then
         // erEffect should oppose the deviation
         if erDev > 0 then result.erEffect should be <= 0.0
         else result.erEffect should be >= 0.0
@@ -50,8 +52,8 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   "Nbp.fxIntervention (enabled)" should "return zero effect when ER within band" in {
     // Generate ER strictly inside band (0.5% margin avoids FP boundary issues)
     val genERInBand = Gen.choose(
-      p.forex.baseExRate * (1.0 - p.monetary.fxBand.toDouble + 0.005),
-      p.forex.baseExRate * (1.0 + p.monetary.fxBand.toDouble - 0.005),
+      p.forex.baseExRate * (1.0 - td.toDouble(p.monetary.fxBand) + 0.005),
+      p.forex.baseExRate * (1.0 + td.toDouble(p.monetary.fxBand) - 0.005),
     )
     forAll(genERInBand, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)
@@ -66,5 +68,5 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
       // newReserves = max(0, reserves + eurTraded)
       // When reserves + eurTraded >= 0: |newReserves - reserves| = |eurTraded|
       // Tolerance 1.0 for large magnitudes (~1e10), consistent with SFC check
-      if result.newReserves > PLN.Zero then Math.abs(result.newReserves.toDouble - reserves) shouldBe (result.eurTraded.abs.toDouble +- 1.0)
+      if result.newReserves > PLN.Zero then Math.abs(td.toDouble(result.newReserves) - reserves) shouldBe (td.toDouble(result.eurTraded.abs) +- 1.0)
     }

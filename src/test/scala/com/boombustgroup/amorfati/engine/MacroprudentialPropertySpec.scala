@@ -13,6 +13,7 @@ class MacroprudentialPropertySpec extends AnyFlatSpec with Matchers with ScalaCh
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams                                                         = SimParams.defaults
   private val p: SimParams                                                = summon[SimParams]
+  private val td                                                          = ComputationBoundary
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
@@ -24,22 +25,22 @@ class MacroprudentialPropertySpec extends AnyFlatSpec with Matchers with ScalaCh
       Gen.choose(0.0, 1e10),
       Gen.choose(1.0, 1e9),
     ) { (prevCcyb, prevGap, prevTrend, totalLoans, gdp) =>
-      val prev   = Macroprudential.State(Rate(prevCcyb), prevGap, prevTrend)
-      val result = Macroprudential.stepImpl(prev, totalLoans, gdp)
-      result.ccyb.toDouble should be >= 0.0
-      result.ccyb.toDouble should be <= p.banking.ccybMax.toDouble
+      val prev   = Macroprudential.State(Multiplier(prevCcyb), Coefficient(prevGap), Multiplier(prevTrend))
+      val result = Macroprudential.stepImpl(prev, PLN(totalLoans), PLN(gdp))
+      td.toDouble(result.ccyb) should be >= 0.0
+      td.toDouble(result.ccyb) should be <= td.toDouble(p.banking.ccybMax)
     }
 
   "effectiveMinCarImpl" should "be >= base MinCar for all banks" in
     forAll(Gen.choose(0, 6), Gen.choose(0.0, 0.025)) { (bankId, ccyb) =>
-      val eff = Macroprudential.effectiveMinCarImpl(bankId, ccyb)
-      eff should be >= p.banking.minCar.toDouble
+      val eff = Macroprudential.effectiveMinCarImpl(bankId, Multiplier(ccyb))
+      eff should be >= p.banking.minCar
     }
 
   it should "be monotonically increasing in CCyB" in
     forAll(Gen.choose(0, 6), Gen.choose(0.0, 0.01), Gen.choose(0.005, 0.025)) { (bankId, ccyb1, delta) =>
       val ccyb2 = ccyb1 + delta
-      val eff1  = Macroprudential.effectiveMinCarImpl(bankId, ccyb1)
-      val eff2  = Macroprudential.effectiveMinCarImpl(bankId, ccyb2)
+      val eff1  = Macroprudential.effectiveMinCarImpl(bankId, Multiplier(ccyb1))
+      val eff2  = Macroprudential.effectiveMinCarImpl(bankId, Multiplier(ccyb2))
       eff2 should be >= eff1
     }

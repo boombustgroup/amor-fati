@@ -3,12 +3,14 @@ package com.boombustgroup.amorfati.agents
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class CentralBankSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // --- bondYield ---
 
@@ -17,39 +19,39 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
     // This test depends on p.flags.govBondMarket which is true by default.
     // We test the positive path instead.
     val y = Nbp.bondYield(Rate(0.05), Share(0.50), Share.Zero, PLN.Zero, Rate.Zero)
-    // debtToGdp=0.50 > 0.40 → raw fiscalRisk = 2.0 * 0.10 = 0.20, capped at 0.10
+    // debtToGdp=0.50 > 0.40 -> raw fiscalRisk = 2.0 * 0.10 = 0.20, capped at 0.10
     // yield = 0.05 + 0.005 + 0.10 - 0 - 0 = 0.155
-    y.toDouble shouldBe 0.155 +- 0.001
+    td.toDouble(y) shouldBe 0.155 +- 0.001
   }
 
   it should "increase with debtToGdp (fiscal risk premium)" in {
     val low  = Nbp.bondYield(Rate(0.05), Share(0.30), Share.Zero, PLN.Zero, Rate.Zero)
     val high = Nbp.bondYield(Rate(0.05), Share(0.70), Share.Zero, PLN.Zero, Rate.Zero)
-    high.toDouble should be > low.toDouble
+    td.toDouble(high) should be > td.toDouble(low)
   }
 
   it should "decrease with nbpBondGdpShare (QE compression)" in {
     val noQe   = Nbp.bondYield(Rate(0.05), Share(0.50), Share.Zero, PLN.Zero, Rate.Zero)
     val withQe = Nbp.bondYield(Rate(0.05), Share(0.50), Share(0.20), PLN.Zero, Rate.Zero)
-    withQe.toDouble should be < noQe.toDouble
+    td.toDouble(withQe) should be < td.toDouble(noQe)
   }
 
   it should "apply foreign demand discount when NFA > 0" in {
     val nfaNeg = Nbp.bondYield(Rate(0.05), Share(0.50), Share.Zero, PLN(-1000.0), Rate.Zero)
     val nfaPos = Nbp.bondYield(Rate(0.05), Share(0.50), Share.Zero, PLN(1000.0), Rate.Zero)
-    nfaPos.toDouble should be < nfaNeg.toDouble
+    td.toDouble(nfaPos) should be < td.toDouble(nfaNeg)
   }
 
   it should "have a floor at 0" in {
-    // Very high QE compression → yield should not go negative
+    // Very high QE compression -> yield should not go negative
     val y = Nbp.bondYield(Rate(0.01), Share(0.30), Share(0.50), PLN(1000.0), Rate.Zero)
-    y.toDouble should be >= 0.0
+    td.toDouble(y) should be >= 0.0
   }
 
   it should "have zero fiscal risk when debtToGdp <= 0.40" in {
     val y1 = Nbp.bondYield(Rate(0.05), Share(0.30), Share.Zero, PLN.Zero, Rate.Zero)
     val y2 = Nbp.bondYield(Rate(0.05), Share(0.40), Share.Zero, PLN.Zero, Rate.Zero)
-    // Both below threshold → same yield (only termPremium differs)
+    // Both below threshold -> same yield (only termPremium differs)
     y1 shouldBe y2
   }
 
@@ -63,11 +65,11 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
   // --- shouldTaperQe ---
 
   "Nbp.shouldTaperQe" should "be true when inflation exceeds target" in {
-    Nbp.shouldTaperQe(Rate(p.monetary.targetInfl.toDouble + 0.01)) shouldBe true
+    Nbp.shouldTaperQe(Rate(td.toDouble(p.monetary.targetInfl) + 0.01)) shouldBe true
   }
 
   it should "be false when inflation below target" in {
-    Nbp.shouldTaperQe(Rate(p.monetary.targetInfl.toDouble - 0.01)) shouldBe false
+    Nbp.shouldTaperQe(Rate(td.toDouble(p.monetary.targetInfl) - 0.01)) shouldBe false
   }
 
   // --- executeQe ---
@@ -83,21 +85,21 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
     val nbp       = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
     val bankBonds = PLN(100.0)
     val qeResult  = Nbp.executeQe(nbp, bankBonds, PLN(1e12))
-    qeResult.requestedPurchase.toDouble should be <= bankBonds.toDouble
+    td.toDouble(qeResult.requestedPurchase) should be <= td.toDouble(bankBonds)
   }
 
   it should "not exceed max GDP share" in {
     val nbp       = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
     val annualGdp = PLN(1000.0)
-    val maxByGdp  = p.monetary.qeMaxGdpShare.toDouble * annualGdp.toDouble
+    val maxByGdp  = td.toDouble(p.monetary.qeMaxGdpShare) * td.toDouble(annualGdp)
     val qeResult  = Nbp.executeQe(nbp, PLN(1e12), annualGdp)
-    qeResult.requestedPurchase.toDouble should be <= maxByGdp
+    td.toDouble(qeResult.requestedPurchase) should be <= maxByGdp
   }
 
   it should "return positive purchase when active with available bonds" in {
     val nbp      = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
     val qeResult = Nbp.executeQe(nbp, PLN(1e12), PLN(1e12))
-    qeResult.requestedPurchase.toDouble should be > 0.0
+    td.toDouble(qeResult.requestedPurchase) should be > 0.0
     // executeQe no longer updates cumulative; that happens in BankUpdateStep
     qeResult.nbpState.qeCumulative shouldBe nbp.qeCumulative
   }
