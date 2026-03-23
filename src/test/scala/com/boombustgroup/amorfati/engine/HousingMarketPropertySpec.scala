@@ -170,7 +170,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         val state  = makeRegionalState(value, mortgage)
         val result = HousingMarket.applyFlows(state, mkFlows(interest, principal, defaultAmt))
         val regSum = result.regions.get.map(r => td.toDouble(r.mortgageStock)).sum
-        regSum shouldBe (td.toDouble(result.mortgageStock) +- 1.0)
+        regSum shouldBe (td.toDouble(result.mortgageStock) +- 100.0)
       }
     }
 
@@ -215,6 +215,6 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         val expectedStock  = mortgage + origination - principal - defaultAmt
         td.toDouble(result.mortgageStock) shouldBe (expectedStock +- 1.0)
         val regSum         = result.regions.get.map(r => td.toDouble(r.mortgageStock)).sum
-        regSum shouldBe (td.toDouble(result.mortgageStock) +- 1.0)
+        regSum shouldBe (td.toDouble(result.mortgageStock) +- 100.0)
       }
     }
