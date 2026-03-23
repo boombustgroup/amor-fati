@@ -409,20 +409,15 @@ object BankUpdateStep:
       in.s8.nonBank.insNetDepositChange * workerShare +
       in.s8.nonBank.nbfiDepositDrain * workerShare
 
-    val bankMortgageIntIncome   = mortgageFlows.interest * workerShare
-    val bankMortgageNplLoss     = mortgageFlows.defaultLoss * workerShare
-    val bankCcNplLoss           = hhFlows.ccDefault * (Share.One - p.household.ccNplRecovery)
-    val bankCcPrincipal: PLN    = in.s3.perBankHhFlowsOpt match
-      case Some(pbf) => pbf(bId).consumerPrincipal
-      case _         =>
-        val totalRate = p.household.ccAmortRate + (in.s1.lendingBaseRate + p.household.ccSpread).monthly
-        if totalRate > Rate.Zero then
-          val amortShare = Share.fraction(p.household.ccAmortRate.toLong.toInt, totalRate.toLong.toInt.max(1))
-          hhFlows.ccDebtService * amortShare
-        else PLN.Zero
-    val bankCorpBondCoupon      = in.s8.corpBonds.corpBondBankCoupon * workerShare
-    val bankCorpBondDefaultLoss = in.s8.corpBonds.corpBondBankDefaultLoss * workerShare
-    val bankBfgLevy             =
+    val bankMortgageIntIncome     = mortgageFlows.interest * workerShare
+    val bankMortgageNplLoss       = mortgageFlows.defaultLoss * workerShare
+    val bankCcNplLoss             = hhFlows.ccDefault * (Share.One - p.household.ccNplRecovery)
+    val bankCcStockReduction: PLN = in.s3.perBankHhFlowsOpt match
+      case Some(pbf) => pbf(bId).consumerDebtService
+      case _         => hhFlows.ccDebtService
+    val bankCorpBondCoupon        = in.s8.corpBonds.corpBondBankCoupon * workerShare
+    val bankCorpBondDefaultLoss   = in.s8.corpBonds.corpBondBankDefaultLoss * workerShare
+    val bankBfgLevy               =
       if p.flags.bankFailure && !b.failed then b.deposits * p.banking.bfgLevyRate.monthly
       else PLN.Zero
 
@@ -468,7 +463,7 @@ object BankUpdateStep:
       loansShort = newLoansTotal * Share(ShortLoanFrac),
       loansMedium = newLoansTotal * Share(MediumLoanFrac),
       loansLong = newLoansTotal * Share(LongLoanFrac),
-      consumerLoans = (b.consumerLoans + hhFlows.ccOrigination - bankCcPrincipal - hhFlows.ccDefault).max(PLN.Zero),
+      consumerLoans = (b.consumerLoans + hhFlows.ccOrigination - bankCcStockReduction - hhFlows.ccDefault).max(PLN.Zero),
       consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * Share(NplMonthlyWriteOff)).max(PLN.Zero),
       corpBondHoldings = in.s8.corpBonds.newCorpBonds.bankHoldings * workerShare,
     )

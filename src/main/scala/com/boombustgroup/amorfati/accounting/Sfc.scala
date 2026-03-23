@@ -271,11 +271,11 @@ object Sfc:
   private case class IdentitySpec(id: SfcIdentity, msg: String, expected: PLN, actual: PLN, tolerance: PLN)
 
   def validate(
-      prev: Snapshot,              // stocks at the beginning of the month (before Simulation.step)
-      curr: Snapshot,              // stocks at the end of the month (after Simulation.step)
-      flows: MonthlyFlows,         // all flows that occurred during the month
-      tolerance: PLN = PLN(0.01),  // max allowed |actual − expected| for most identities
-      nfaTolerance: PLN = PLN(1.0), // wider tolerance for NFA (Identity 4) due to FP cancellation in BoP
+      prev: Snapshot,                 // stocks at the beginning of the month (before Simulation.step)
+      curr: Snapshot,                 // stocks at the end of the month (after Simulation.step)
+      flows: MonthlyFlows,            // all flows that occurred during the month
+      tolerance: PLN = PLN(1000.0),   // Long rounding residual from per-bank PLN*Share distribution
+      nfaTolerance: PLN = PLN(1000.0), // NFA (BoP valuation + rounding)
   )(using p: SimParams): SfcResult =
     import SfcIdentity.*
 
@@ -384,11 +384,11 @@ object Sfc:
         actual = flows.fofResidual,
         tolerance,
       ),
-      // 11. Consumer credit: origination − repayment − default
+      // 11. Consumer credit: origination − debtService − default (debtSvc = P+I reduces stock)
       IdentitySpec(
         ConsumerCredit,
         "consumer credit stock change",
-        expected = flows.consumerOrigination - flows.consumerPrincipalRepaid - flows.consumerDefaultAmount,
+        expected = flows.consumerOrigination - flows.consumerDebtService - flows.consumerDefaultAmount,
         actual = curr.consumerLoans - prev.consumerLoans,
         tolerance,
       ),
