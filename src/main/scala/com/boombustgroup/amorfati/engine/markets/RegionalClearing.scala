@@ -26,7 +26,7 @@ object RegionalClearing:
     * regional excess demand via the Phillips curve. The national wage is the
     * population-weighted mean of regional wages (exact Long summation).
     */
-  @computationBoundary
+  @boundaryEscape
   def clear(
       prevRegionalWages: Map[Region, PLN],
       resWage: PLN,

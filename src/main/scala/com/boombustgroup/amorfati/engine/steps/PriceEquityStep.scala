@@ -127,7 +127,7 @@ object PriceEquityStep:
   // Dynamic network rewiring — bankrupt firm replacement with preferential attachment
   // ---------------------------------------------------------------------------
 
-  @computationBoundary
+  @boundaryEscape
   private[steps] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: Random)(using p: SimParams): Vector[Firm.State] =
     import ComputationBoundary.toDouble
     if rho == 0.0 then return firms
@@ -206,7 +206,7 @@ object PriceEquityStep:
   // Main step logic
   // ---------------------------------------------------------------------------
 
-  @computationBoundary
+  @boundaryEscape
   def run(in: Input, rng: Random)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val living2           = in.s5.ioFirms.filter(Firm.isAlive)

@@ -43,7 +43,7 @@ object DepositMobility:
     * healthFlight = sensitivity × max(0, carThreshold − bankCAR) panicFlight =
     * panicRate if any bank failed this month, else 0
     */
-  @computationBoundary
+  @boundaryEscape
   private def switchProbability(
       bankCar: Multiplier,
       anyBankFailed: Boolean,

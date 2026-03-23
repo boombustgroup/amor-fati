@@ -10,7 +10,7 @@ import scala.annotation.targetName
   * opaque, so the compiler prevents PLN + Rate, Share + Coefficient, etc.
   *
   * No `.toDouble` in public API. Use `ComputationBoundary.toDouble(value)` +
-  * `@computationBoundary` annotation for CES/CSV escape points.
+  * `@boundaryEscape` annotation for CES/CSV escape points.
   */
 object types:
   // Re-export all types and their companions
@@ -24,7 +24,7 @@ object types:
   export com.boombustgroup.amorfati.fp.SigmaProvider.{Sigma, given}
 
   // Re-export boundary tools
-  export com.boombustgroup.amorfati.fp.{computationBoundary, ComputationBoundary}
+  export com.boombustgroup.amorfati.fp.{boundaryEscape, ComputationBoundary}
 
   import com.boombustgroup.amorfati.fp.FixedPointBase.{asDouble, bankerRound}
 

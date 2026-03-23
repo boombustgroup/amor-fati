@@ -28,7 +28,7 @@ object TaxRevenue:
       effectiveShadowShare: Double, // consumption-weighted aggregate shadow economy share
   )
 
-  @computationBoundary
+  @boundaryEscape
   def compute(in: Input)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val weights  = p.fiscal.fofConsWeights.map(toDouble(_))

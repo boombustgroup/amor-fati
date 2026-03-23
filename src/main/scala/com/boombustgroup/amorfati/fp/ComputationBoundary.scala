@@ -12,17 +12,15 @@ import SigmaProvider.Sigma
 
 /** Marker annotation: this function deliberately converts fixed-point to Double
   * at a computation boundary (CES, Math.pow, CSV output). Grep for
-  * `@computationBoundary` to audit all escape points in the codebase.
+  * `@boundaryEscape` to audit all escape points in the codebase.
   */
-class computationBoundary extends scala.annotation.StaticAnnotation
+class boundaryEscape extends scala.annotation.StaticAnnotation
 
 /** Explicit Double conversion — requires `import ComputationBoundary.toDouble`
-  * and `@computationBoundary` annotation on the enclosing function. No
-  * extension methods — cannot be called as `value.toDouble`, only as
-  * `toDouble(value)`. This makes every Double escape grep-able and code-review
-  * visible.
+  * and `@boundaryEscape` annotation on the enclosing function. No extension
+  * methods — cannot be called as `value.toDouble`, only as `toDouble(value)`.
+  * This makes every Double escape grep-able and code-review visible.
   */
-@scala.annotation.nowarn("msg=differs only in case")
 object ComputationBoundary:
   @targetName("plnToDouble")
   def toDouble(p: PLN): Double         = asDouble(p.toLong)

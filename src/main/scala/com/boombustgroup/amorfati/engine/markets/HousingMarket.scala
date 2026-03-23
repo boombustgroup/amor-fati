@@ -165,7 +165,7 @@ object HousingMarket:
     )
 
   /** Value-weighted aggregation from regional states. */
-  @computationBoundary
+  @boundaryEscape
   private def aggregateFromRegions(
       prev: State,
       regions: Vector[RegionalState],
@@ -191,7 +191,7 @@ object HousingMarket:
   /** Meen model: compute new value, HPI, and monthly return from fundamentals.
     * P* = annualRent / (effectiveRate − expectedGrowth).
     */
-  @computationBoundary
+  @boundaryEscape
   private def meenPriceUpdate(
       prevValue: PLN,
       prevHpi: Double,
@@ -251,7 +251,7 @@ object HousingMarket:
           )
 
   /** Base origination adjusted for rate and income sensitivity. */
-  @computationBoundary
+  @boundaryEscape
   private def computeRawOrigination(prev: State, totalIncome: PLN, mortgageRate: Rate)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     val baseOrigination = toDouble(prev.totalValue) * toDouble(p.housing.originationRate)
@@ -275,9 +275,8 @@ object HousingMarket:
         mortgageStock = reg.mortgageStock + regionalOrig,
         lastOrigination = regionalOrig,
       )
-    val aggOrig        = PLN.fromRaw(updatedRegions.map(_.lastOrigination.toLong).sum)
-    val aggStock       = PLN.fromRaw(updatedRegions.map(_.mortgageStock.toLong).sum)
-    prev.copy(mortgageStock = aggStock, lastOrigination = aggOrig, regions = Some(updatedRegions))
+    // Aggregate uses exact origination (not sum of regional rounded shares)
+    prev.copy(mortgageStock = prev.mortgageStock + origination, lastOrigination = origination, regions = Some(updatedRegions))
 
   // --- Mortgage flows ---
 

@@ -183,7 +183,7 @@ object FirmProcessingStep:
 
   // ---- Entry point ----
 
-  @computationBoundary
+  @boundaryEscape
   def run(in: Input, rng: Random)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val lending                             = prepareLending(in, rng)
@@ -205,7 +205,7 @@ object FirmProcessingStep:
   /** Prepare per-bank rates, lending functions, and world snapshot with updated
     * demand multipliers and wages for firm decision-making.
     */
-  @computationBoundary
+  @boundaryEscape
   private def prepareLending(in: Input, rng: Random)(using p: SimParams): LendingConditions =
     import ComputationBoundary.toDouble
     val bsec    = in.w.bankingSector
@@ -373,7 +373,7 @@ object FirmProcessingStep:
   /** Detect newly bankrupt firms, compute per-bank NPL losses and interest
     * income on pre-step debt stock.
     */
-  @computationBoundary
+  @boundaryEscape
   private def computeNplAndInterest(
       preFirms: Vector[Firm.State],
       postFirms: Vector[Firm.State],
@@ -409,7 +409,7 @@ object FirmProcessingStep:
   // ---- Output assembly ----
 
   /** Assemble final Output from phase results. Pure mapping, no computation. */
-  @computationBoundary
+  @boundaryEscape
   private def assembleOutput(
       fp: FirmProcessingResult,
       bonded: BondAbsorptionResult,

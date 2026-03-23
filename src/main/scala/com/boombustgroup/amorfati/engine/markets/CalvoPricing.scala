@@ -46,7 +46,7 @@ object CalvoPricing:
     *
     * Clamped to [minMarkup, maxMarkup] to prevent extreme pricing.
     */
-  @computationBoundary
+  @boundaryEscape
   private[amorfati] def optimalMarkup(
       sectorDemandMult: Double,
       wageGrowthMonthly: Double,

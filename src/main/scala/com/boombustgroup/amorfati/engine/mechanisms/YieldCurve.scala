@@ -33,7 +33,7 @@ object YieldCurve:
   )
 
   /** Compute term structure from O/N rate, credit stress, and expectations. */
-  @computationBoundary
+  @boundaryEscape
   def compute(
       overnightRate: Rate,
       nplRatio: Share = Share.Zero,

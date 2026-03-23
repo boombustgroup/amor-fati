@@ -489,9 +489,17 @@ object BankUpdateStep:
     val perBankInterbankInt = Banking.interbankInterestFlows(bs.banks, bs.interbankRate)
     val totalWorkers        = in.s5.perBankWorkers.sum
 
+    val workerShares: Vector[Share] =
+      if totalWorkers <= 0 then Vector.fill(bs.banks.length)(Share.Zero)
+      else
+        val n    = bs.banks.length
+        val raw  = (0 until n - 1).map(i => Share.fraction(in.s5.perBankWorkers(i), totalWorkers)).toVector
+        val last = Share.One - raw.foldLeft(Share.Zero)(_ + _)
+        raw :+ last
+
     val updatedBanks = bs.banks.map { b =>
       val bId         = b.id.toInt
-      val workerShare = Share(if totalWorkers > 0 then in.s5.perBankWorkers(bId) / totalWorkers else 0.0)
+      val workerShare = workerShares(bId)
       val hhFlows     = resolvePerBankHhFlows(bId, in.s3.perBankHhFlowsOpt, totalWorkers, in.s5.perBankWorkers, in)
       updateSingleBank(
         b,

@@ -73,7 +73,7 @@ object FiscalRules:
   /** SRW ceiling: previous spending × (1 + monthly inflation + monthly real cap
     * − output gap correction).
     */
-  @computationBoundary
+  @boundaryEscape
   private def computeSrwCeiling(in: Input)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     val monthlyInflation = Multiplier(toDouble(in.inflation.monthly))

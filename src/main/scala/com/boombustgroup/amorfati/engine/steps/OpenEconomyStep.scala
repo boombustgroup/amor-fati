@@ -176,7 +176,7 @@ object OpenEconomyStep:
 
   // --- Sub-methods ---
 
-  @computationBoundary
+  @boundaryEscape
   private def computeSectorOutputs(in: Input)(using p: SimParams): Vector[PLN] =
     import ComputationBoundary.toDouble
     val living = in.s5.ioFirms.filter(Firm.isAlive)
@@ -190,7 +190,7 @@ object OpenEconomyStep:
         )
       .toVector
 
-  @computationBoundary
+  @boundaryEscape
   private def stepGvc(in: Input, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
     import ComputationBoundary.toDouble
     if p.flags.gvc && p.flags.openEcon then
@@ -290,7 +290,7 @@ object OpenEconomyStep:
       fxIntervention = fxResult.fxIntervention,
     )
 
-  @computationBoundary
+  @boundaryEscape
   private def stepRateAndExpectations(in: Input, newForex: OpenEconomy.ForexState)(using p: SimParams): RateExpResult =
     import ComputationBoundary.toDouble
     val exRateChg       = Coefficient((newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0)
@@ -315,7 +315,7 @@ object OpenEconomyStep:
       interbankInterest = Banking.interbankInterestFlows(bsec.banks, bsec.interbankRate).total,
     )
 
-  @computationBoundary
+  @boundaryEscape
   private def stepBondYieldAndQe(
       in: Input,
       newRefRate: Rate,

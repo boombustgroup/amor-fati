@@ -104,7 +104,7 @@ object Macroprudential:
   def withinConcentrationLimit(bankLoans: Double, bankCapital: Double, totalSystemLoans: Double)(using p: SimParams): Boolean =
     guarded(true)(withinConcentrationLimitImpl(bankLoans, bankCapital, totalSystemLoans))
 
-  @computationBoundary
+  @boundaryEscape
   private[engine] def withinConcentrationLimitImpl(
       bankLoans: Double,
       @scala.annotation.unused bankCapital: Double,

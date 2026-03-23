@@ -152,7 +152,7 @@ object Household:
       * NAIRU-fraction of households start as Unemployed(0) so the economy
       * initializes near steady state rather than overheated.
       */
-    @computationBoundary
+    @boundaryEscape
     def create(rng: Random, firms: Vector[Firm.State])(using p: SimParams): Vector[State] =
       import ComputationBoundary.toDouble
       val hhCount     = firms.map(Firm.workerCount).sum
@@ -194,7 +194,7 @@ object Household:
       }
 
     /** Sample attributes for a single household from init distributions. */
-    @computationBoundary
+    @boundaryEscape
     private def sampleHousehold(
         hhId: Int,
         firm: Firm.State,
@@ -244,7 +244,7 @@ object Household:
       )
 
     /** Sample education level and skill for a sector, clamped to edu range. */
-    @computationBoundary
+    @boundaryEscape
     private def sampleEducationAndSkill(sectorIdx: SectorIdx, rng: Random)(using p: SimParams): (Int, Double) =
       import ComputationBoundary.toDouble
       val edu                          = p.social.drawEducation(sectorIdx.toInt, rng)
@@ -265,7 +265,7 @@ object Household:
       *
       * routineness = base(edu) + σ-bonus, clamped to [0.05, 0.95], with noise.
       */
-    @computationBoundary
+    @boundaryEscape
     private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: Random)(using p: SimParams): Share =
       import ComputationBoundary.toDouble
       val eduBase  = toDouble(p.labor.sbtcEduRoutineness(edu))
@@ -849,7 +849,7 @@ object Household:
     * Merges per-HH distribution stats with flow totals from StepTotals in one
     * construction — no intermediate Aggregates + copy overwrite.
     */
-  @computationBoundary
+  @boundaryEscape
   private def computeAggregates(
       households: Vector[State],
       marketWage: PLN,

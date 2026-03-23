@@ -47,7 +47,7 @@ object FirmInit:
     finalize(withFdi)
 
   /** Build network adjacency list from configured topology. */
-  @computationBoundary
+  @boundaryEscape
   private def buildNetwork(rng: Random)(using p: SimParams): Array[Array[Int]] =
     import ComputationBoundary.toDouble
     p.topology match
@@ -57,7 +57,7 @@ object FirmInit:
       case Topology.Lattice => Network.lattice(p.pop.firmsCount, p.firm.networkK)
 
   /** Assign sectors to firm slots based on GUS structural shares, shuffled. */
-  @computationBoundary
+  @boundaryEscape
   private def assignSectors(rng: Random)(using p: SimParams): Vector[Int] =
     import ComputationBoundary.toDouble
     val perSector  = p.sectorDefs.map(s => (toDouble(s.share) * p.pop.firmsCount).toInt)
@@ -68,7 +68,7 @@ object FirmInit:
     rng.shuffle(padded)
 
   /** Create initial firm states with stochastic attributes (cash, size, DR). */
-  @computationBoundary
+  @boundaryEscape
   private def buildSkeleton(
       adjList: Array[Array[Int]],
       sectorAssignments: Vector[Int],
@@ -120,7 +120,7 @@ object FirmInit:
   /** Assign physical capital stock and bank relationship (rng: bank
     * assignment).
     */
-  @computationBoundary
+  @boundaryEscape
   private def assignCapitalAndBank(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
     import ComputationBoundary.toDouble
     firms.map: f =>
@@ -163,7 +163,7 @@ object FirmInit:
     else f
 
   /** Set initial green capital stock from sector-specific green K/L ratio. */
-  @computationBoundary
+  @boundaryEscape
   private def initGreenCapital(f: Firm.State)(using p: SimParams): Firm.State =
     import ComputationBoundary.toDouble
     if p.flags.energy then

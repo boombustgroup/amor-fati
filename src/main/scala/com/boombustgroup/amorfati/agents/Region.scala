@@ -60,7 +60,7 @@ object Region:
   val count: Int = all.length
 
   /** Sample a region from population share CDF (inverse transform). */
-  @computationBoundary
+  @boundaryEscape
   def cdfSample(rng: scala.util.Random): Region =
     val r   = rng.nextDouble()
     val cdf = all.iterator.scanLeft(0.0)((acc, reg) => acc + ComputationBoundary.toDouble(reg.populationShare)).drop(1)
@@ -90,7 +90,7 @@ object Region:
     * Workers only migrate if destination wages justify the housing cost
     * increase.
     */
-  @computationBoundary
+  @boundaryEscape
   def migrationProbability(
       from: Region,
       to: Region,

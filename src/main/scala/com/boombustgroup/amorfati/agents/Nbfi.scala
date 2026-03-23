@@ -83,12 +83,12 @@ object Nbfi:
   // ---------------------------------------------------------------------------
 
   /** Bank credit tightness signal: 0 at NPL ≤ 3%, rises linearly, 1.0 at 6%. */
-  @computationBoundary
+  @boundaryEscape
   def bankTightness(bankNplRatio: Share): Share =
     Share((ComputationBoundary.toDouble(bankNplRatio) - NplTightnessFloor) / NplTightnessRange).clamp(Share.Zero, Share.One)
 
   /** TFI net inflow: proportional to wage bill, modulated by excess returns. */
-  @computationBoundary
+  @boundaryEscape
   def tfiInflow(employed: Int, wage: PLN, equityReturn: Rate, govBondYield: Rate, depositRate: Rate)(using
       p: SimParams,
   ): PLN =

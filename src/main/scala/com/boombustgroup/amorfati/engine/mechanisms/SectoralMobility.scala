@@ -77,7 +77,7 @@ object SectoralMobility:
   /** Probabilistic target sector selection (gravity model). score(to) =
     * wage(to) × (vacancies(to) + 1)^vacancyWeight × (1 − friction(from,to)).
     */
-  @computationBoundary
+  @boundaryEscape
   def selectTargetSector(
       from: Int,
       wages: Vector[PLN],
@@ -92,7 +92,7 @@ object SectoralMobility:
     else rouletteSelect(scores, from, rng.nextDouble() * total)
 
   /** Gravity-model attractiveness score per destination sector. */
-  @computationBoundary
+  @boundaryEscape
   private def gravityScores(
       from: Int,
       wages: Vector[PLN],
@@ -147,7 +147,7 @@ object SectoralMobility:
     (Share.One - friction * MaxWagePenalty).toMultiplier
 
   /** Friction-adjusted success probability for retraining. */
-  @computationBoundary
+  @boundaryEscape
   def frictionAdjustedSuccess(baseProb: Double, friction: Share): Double =
     import ComputationBoundary.toDouble
     baseProb * (1.0 - toDouble(friction * FrictionSuccessDiscount))

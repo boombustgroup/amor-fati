@@ -79,7 +79,7 @@ object EquityMarket:
       firmProfits: PLN,
   )
 
-  @computationBoundary
+  @boundaryEscape
   def step(in: StepInput)(using p: SimParams): State =
     import ComputationBoundary.toDouble
     if !p.flags.gpw then zero

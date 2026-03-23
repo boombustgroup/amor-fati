@@ -50,7 +50,7 @@ object EclStaging:
     * migrationRate = sensitivity × max(0, unemployment − nairu) +
     * gdpSensitivity × max(0, −gdpGrowth) Clamped to [0, maxMigration].
     */
-  @computationBoundary
+  @boundaryEscape
   private[amorfati] def migrationRate(
       unemployment: Share,
       gdpGrowthMonthly: Double,

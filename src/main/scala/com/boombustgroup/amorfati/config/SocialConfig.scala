@@ -98,7 +98,7 @@ case class SocialConfig(
     SocialConfig.cdfSample(shares, rng)
 
   /** Draw education tier for an immigrant worker. */
-  @computationBoundary
+  @boundaryEscape
   def drawImmigrantEducation(rng: scala.util.Random): Int =
     import ComputationBoundary.toDouble
     SocialConfig.cdfSample(eduImmigShares.map(s => toDouble(s)), rng)

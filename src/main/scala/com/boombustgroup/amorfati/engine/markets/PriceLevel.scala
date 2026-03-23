@@ -32,7 +32,7 @@ object PriceLevel:
   /** Result of a monthly price-level update. */
   case class Result(inflation: Rate, priceLevel: Double)
 
-  @computationBoundary
+  @boundaryEscape
   def update(
       prevInflation: Rate,
       prevPrice: Double,

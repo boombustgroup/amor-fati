@@ -93,7 +93,7 @@ object DemandStep:
       result.copy(constrainedGovPurchases = withFloor)
 
   /** Per-sector nominal production capacity: sum of firm capacities. */
-  @computationBoundary
+  @boundaryEscape
   private def computeSectorCapacity(in: Input)(using p: SimParams): Vector[Double] =
     import ComputationBoundary.toDouble
     (0 until p.sectorDefs.length)
@@ -120,7 +120,7 @@ object DemandStep:
   /** Per-sector total demand: consumption + gov purchases + investment +
     * exports, allocated via flow-of-funds weights.
     */
-  @computationBoundary
+  @boundaryEscape
   private def computeSectorDemand(
       in: Input,
       govPurchases: PLN,
@@ -172,7 +172,7 @@ object DemandStep:
     * Uses post-spillover sector multipliers (capped at 1.0 per sector) weighted
     * by sector capacity — consistent with the demand firms actually see.
     */
-  @computationBoundary
+  @boundaryEscape
   private def computeAvgDemandMult(
       sectorMults: Vector[Double],
       sectorCap: Vector[Double],

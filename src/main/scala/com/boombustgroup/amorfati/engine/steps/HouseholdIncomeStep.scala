@@ -40,7 +40,7 @@ object HouseholdIncomeStep:
       aggUnempBenefit: PLN,                           // aggregate unemployment benefit payments
   )
 
-  @computationBoundary
+  @boundaryEscape
   def run(in: Input, rng: Random)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val importAdj = toDouble(p.forex.importPropensity) *

@@ -42,7 +42,7 @@ object Expectations:
   /** Monthly update: forecast error → adaptive learning → anchoring →
     * credibility → FG.
     */
-  @computationBoundary
+  @boundaryEscape
   def step(prev: State, realizedInflation: Double, currentRate: Double, unemployment: Double)(using p: SimParams): State =
     import ComputationBoundary.toDouble
     val target = toDouble(p.monetary.targetInfl)
@@ -76,7 +76,7 @@ object Expectations:
   /** Asymmetric credibility update: builds via (1−κ) scaling, erodes via κ
     * scaling.
     */
-  @computationBoundary
+  @boundaryEscape
   private def updateCredibility(cred: Double, realizedInflation: Double, target: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
     val absDeviation = Math.abs(realizedInflation - target)
@@ -88,7 +88,7 @@ object Expectations:
     Math.max(MinCredibility, Math.min(1.0, raw))
 
   /** Taylor-rule forward guidance: r_fg = r* + α(πᵉ − π*) − δ·gap. */
-  @computationBoundary
+  @boundaryEscape
   private def forwardGuidance(expected: Double, target: Double, unemployment: Double, currentRate: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
     if !p.flags.nbpForwardGuidance then currentRate

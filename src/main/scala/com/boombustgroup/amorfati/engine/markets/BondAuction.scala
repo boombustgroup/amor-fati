@@ -44,7 +44,7 @@ object BondAuction:
     * capital. Depreciation (positive = PLN weakening) deters via currency risk.
     * Clamped to [0, maxForeignShare] to prevent unrealistic extremes.
     */
-  @computationBoundary
+  @boundaryEscape
   private[amorfati] def foreignDemandShare(
       marketYield: Rate,
       erChange: Coefficient,

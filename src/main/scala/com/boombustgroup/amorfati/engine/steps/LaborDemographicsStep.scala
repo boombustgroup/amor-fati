@@ -37,7 +37,7 @@ object LaborDemographicsStep:
       regionalWages: Map[Region, PLN],                   // per-region wages from regional clearing
   )
 
-  @computationBoundary
+  @boundaryEscape
   def run(in: Input)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val living      = in.firms.filter(Firm.isAlive)

@@ -29,13 +29,13 @@ object EuFunds:
     else totalPln * betaPdf(t, p.fiscal.euFundsAlpha, p.fiscal.euFundsBeta) / T
 
   /** Domestic co-financing from gov budget: cofin = eu × rate / (1 − rate). */
-  @computationBoundary
+  @boundaryEscape
   def cofinancing(euMonthly: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
     euMonthly * toDouble(p.fiscal.euCofinanceRate) / (1.0 - toDouble(p.fiscal.euCofinanceRate))
 
   /** Capital portion of total EU project spending (EU + cofin). */
-  @computationBoundary
+  @boundaryEscape
   def capitalInvestment(euMonthly: Double, cofin: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
     (euMonthly + cofin) * toDouble(p.fiscal.euCapitalShare)

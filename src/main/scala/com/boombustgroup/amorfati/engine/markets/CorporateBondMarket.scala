@@ -22,7 +22,7 @@ object CorporateBondMarket:
   private val NplSensitivity      = Multiplier(5.0) // spread multiplier per unit NPL ratio
   private val MaxSpread           = Rate(0.10)      // spread cap (1000 bps)
   private val MinYield            = Rate(0.01)      // yield floor (100 bps)
-  private val MinAbsorption       = 0.3             // absorption floor (Double — used in @computationBoundary)
+  private val MinAbsorption       = 0.3             // absorption floor (Double — used in @boundaryEscape)
   private val CarBufferZone       = 0.02            // 200 bps CAR ramp zone above minCar
   private val SpreadAbsorptionCap = 0.10            // excess spread at which absorption hits floor
 
@@ -120,7 +120,7 @@ object CorporateBondMarket:
     * @return
     *   absorption rate in [0.3, 1.0]
     */
-  @computationBoundary
+  @boundaryEscape
   def computeAbsorption(state: State, tentativeIssuance: PLN, aggBankCar: Multiplier, minCar: Multiplier)(using
       p: SimParams,
   ): Share =

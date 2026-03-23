@@ -118,7 +118,7 @@ object SimParams:
     * Formula:
     * `(firmsCount * avgWorkers / workersPerFirm * baseRevenue * 12) / realGdp`
     */
-  @computationBoundary
+  @boundaryEscape
   def computeGdpRatio(pop: PopulationConfig, baseRevenue: PLN): Double =
     import ComputationBoundary.toDouble
     val expectedAvgWorkers = pop.firmSizeDist match
@@ -202,7 +202,7 @@ object SimParams:
 object FirmSizeDistribution:
   import scala.util.Random
 
-  @computationBoundary
+  @boundaryEscape
   def draw(rng: Random)(using p: SimParams): Int =
     import ComputationBoundary.toDouble
     p.pop.firmSizeDist match

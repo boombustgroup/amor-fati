@@ -38,7 +38,7 @@ object IntermediateMarket:
     */
   case class Result(firms: Vector[Firm.State], totalPaid: PLN)
 
-  @computationBoundary
+  @boundaryEscape
   def process(in: Input)(using SimParams): Result =
     import ComputationBoundary.toDouble
     val nSectors = in.ioMatrix.size

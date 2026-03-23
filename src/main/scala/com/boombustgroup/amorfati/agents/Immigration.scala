@@ -23,7 +23,7 @@ object Immigration:
   /** Monthly immigration inflow. Exogenous: fixed rate × basePop. Endogenous:
     * responds to (domesticWage / foreignWage − 1) × elasticity.
     */
-  @computationBoundary
+  @boundaryEscape
   def computeInflow(wage: PLN, unempRate: Double)(using p: SimParams): Int =
     import ComputationBoundary.toDouble
     if !p.flags.immigration then 0
@@ -71,7 +71,7 @@ object Immigration:
   /** Spawn new immigrant households. Start as Unemployed(0) — matched in next
     * jobSearch round.
     */
-  @computationBoundary
+  @boundaryEscape
   def spawnImmigrants(count: Int, startId: Int, rng: Random)(using p: SimParams): Vector[Household.State] =
     import ComputationBoundary.toDouble
     (0 until count).map { i =>

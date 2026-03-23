@@ -42,7 +42,7 @@ object FirmEntry:
       births: Int,               // number of new entrants spawned this step
   )
 
-  @computationBoundary
+  @boundaryEscape
   def process(
       firms: Vector[Firm.State],
       automationRatio: Share,
@@ -71,7 +71,7 @@ object FirmEntry:
       else f
     Result(result, births)
 
-  @computationBoundary
+  @boundaryEscape
   private def computeProfitSignals(living: Vector[Firm.State])(using p: SimParams): Vector[Double] =
     import ComputationBoundary.toDouble
     val bySector      = living.groupBy(_.sector.toInt)
@@ -83,7 +83,7 @@ object FirmEntry:
         Math.max(ProfitClampMin, Math.min(ProfitClampMax, (c - globalAvgCash) / Math.max(1.0, Math.abs(globalAvgCash))))
       .toVector
 
-  @computationBoundary
+  @boundaryEscape
   private def computeSectorWeights(profitSignals: Vector[Double])(using p: SimParams): Vector[Double] =
     import ComputationBoundary.toDouble
     p.sectorDefs.indices
@@ -91,7 +91,7 @@ object FirmEntry:
         Math.max(MinSectorWeight, (1.0 + profitSignals(s) * toDouble(p.firm.entryProfitSens)) * toDouble(p.firm.entrySectorBarriers(s)))
       .toVector
 
-  @computationBoundary
+  @boundaryEscape
   private def createNewFirm(
       slotId: FirmId,
       totalWeight: Double,
@@ -137,7 +137,7 @@ object FirmEntry:
     * automation; conventional entrants use Traditional (workers hired via labor
     * market in subsequent steps).
     */
-  @computationBoundary
+  @boundaryEscape
   private def chooseTechnology(isAiNative: Boolean, firmSize: Int, sector: Int, rng: Random)(using
       p: SimParams,
   ): TechState =
@@ -151,7 +151,7 @@ object FirmEntry:
     * conventional entrants draw from sector baseline with Gaussian noise,
     * clamped to the feasible range for non-digital firms.
     */
-  @computationBoundary
+  @boundaryEscape
   private def drawDigitalReadiness(isAiNative: Boolean, sector: Int, rng: Random)(using p: SimParams): Share =
     import ComputationBoundary.toDouble
     if isAiNative then Share(rng.between(AiNativeMinDr, AiNativeMaxDr))
@@ -167,7 +167,7 @@ object FirmEntry:
 
   /** Initial physical capital stock from sector-specific capital-labor ratio.
     */
-  @computationBoundary
+  @boundaryEscape
   private def initCapitalStock(firmSize: Int, sector: Int)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     if p.flags.physCap then PLN(toDouble(p.capital.klRatios(sector)) * firmSize)
@@ -182,7 +182,7 @@ object FirmEntry:
     else PLN.Zero
 
   /** Initial green capital stock from sector-specific green K/L ratio. */
-  @computationBoundary
+  @boundaryEscape
   private def initGreenCapital(firmSize: Int, sector: Int)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     if p.flags.energy then PLN(toDouble(p.climate.greenKLRatios(sector)) * firmSize) * p.climate.greenInitRatio

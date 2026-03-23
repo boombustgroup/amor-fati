@@ -183,7 +183,7 @@ object Nbp:
     * sale drains PLN. The PLN injection feeds into the liquidity-aware
     * interbank rate (#9) via bank reservesAtNbp.
     */
-  @computationBoundary
+  @boundaryEscape
   def fxIntervention(
       prevER: Double,
       reserves: Double,

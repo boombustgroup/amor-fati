@@ -75,7 +75,7 @@ object OpenEconomy:
   private val FdiNfaDampening      = 0.5
   private val ValuationPassThrough = 0.3
 
-  @computationBoundary
+  @boundaryEscape
   def updateForeign(
       prev: ForexState,
       importConsumption: PLN,
@@ -183,7 +183,7 @@ object OpenEconomy:
 
   // --- Private helpers ---
 
-  @computationBoundary
+  @boundaryEscape
   private def computeExports(in: StepInput)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     in.gvcExports.getOrElse:
@@ -192,7 +192,7 @@ object OpenEconomy:
       val realExRate       = realExchangeRateEffect(in.prevForex.exchangeRate, in.priceLevel)
       p.openEcon.exportBase * Multiplier(foreignGdpFactor * realExRate * ulcEffect)
 
-  @computationBoundary
+  @boundaryEscape
   private def computeImportedIntermediates(in: StepInput)(using p: SimParams): Vector[PLN] =
     import ComputationBoundary.toDouble
     in.gvcIntermImports.getOrElse:
@@ -210,7 +210,7 @@ object OpenEconomy:
     val ca              = tradeBalance + primaryIncome + secondaryIncome
     CurrentAccountResult(ca, primaryIncome, secondaryIncome)
 
-  @computationBoundary
+  @boundaryEscape
   private def computeCapitalAccount(in: StepInput)(using p: SimParams): CapitalAccountResult =
     import ComputationBoundary.toDouble
     val annualGdp         = in.gdp * Multiplier(MonthsPerYear)
@@ -235,14 +235,14 @@ object OpenEconomy:
     val adjustedPortfolio = portfolioFlows + capitalFlight.totalAdjustment
     CapitalAccountResult(fdi + adjustedPortfolio, fdi, adjustedPortfolio, capitalFlight.newCarryState.stock)
 
-  @computationBoundary
+  @boundaryEscape
   private def realExchangeRateEffect(exchangeRate: Double, priceLevel: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
     val nominalER = exchangeRate / p.forex.baseExRate
     val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER else 1.0
     Math.pow(1.0 / Math.max(MinRealPrice, realPrice), toDouble(p.openEcon.exportPriceElasticity))
 
-  @computationBoundary
+  @boundaryEscape
   private def computeExchangeRate(
       in: StepInput,
       ca: PLN,
@@ -258,7 +258,7 @@ object OpenEconomy:
     val erChange    = toDouble(p.forex.exRateAdjSpeed) * (-bopGdpRatio + nfaRisk) + fxErEffect + pppDrift
     Math.max(p.openEcon.erFloor, Math.min(p.openEcon.erCeiling, in.prevForex.exchangeRate * (1.0 + erChange)))
 
-  @computationBoundary
+  @boundaryEscape
   private def computeValuationEffect(prevBop: BopState, prevExRate: Double, newExRate: Double): PLN =
     import ComputationBoundary.toDouble
     val erChange = (newExRate - prevExRate) / prevExRate

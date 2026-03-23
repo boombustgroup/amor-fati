@@ -35,7 +35,7 @@ object HouseholdFinancialStep:
       consumerPrincipal: PLN,   // consumer loan principal repayment
   )
 
-  @computationBoundary
+  @boundaryEscape
   def run(in: Input)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val hhDebtService       = in.s3.hhAgg.totalDebtService

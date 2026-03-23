@@ -26,7 +26,7 @@ object FiscalConstraintStep:
       lendingBaseRate: Rate,            // blended base rate for bank lending (interbank + expectations)
   )
 
-  @computationBoundary
+  @boundaryEscape
   def run(in: Input)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val w = in.w

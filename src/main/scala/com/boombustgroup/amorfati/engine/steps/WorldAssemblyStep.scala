@@ -93,28 +93,33 @@ object WorldAssemblyStep:
       lastDividendTax = in.s7.dividendTax,
     )
 
-  /** Flow-of-funds residual: total firm revenue minus adjusted demand. */
-  @computationBoundary
+  /** Flow-of-funds residual: total firm revenue minus adjusted demand. Both
+    * sides computed via the same PLN path to avoid Long↔Double rounding
+    * mismatch.
+    */
   private def computeFofResidual(in: Input)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
-    val totalFirmRev   = (0 until p.sectorDefs.length)
-      .map: s =>
-        in.s2.living
-          .filter(_.sector.toInt == s)
-          .map(f => toDouble(Firm.computeCapacity(f) * Multiplier(in.s4.sectorMults(s) * in.w.priceLevel)))
-          .sum
-      .sum
-    val adjustedDemand = in.s4.sectorMults.indices
-      .map: s =>
-        in.s4.sectorCap(s) * in.s4.sectorMults(s) * in.w.priceLevel
-      .sum
-    PLN(totalFirmRev - adjustedDemand)
+    val nSectors       = p.sectorDefs.length
+    val sectorCapPln   = (0 until nSectors).map: s =>
+      PLN.fromRaw(in.s2.living.filter(_.sector.toInt == s).map(f => Firm.computeCapacity(f).toLong).sum)
+    val totalFirmRev   = PLN.fromRaw(
+      (0 until nSectors)
+        .map: s =>
+          (sectorCapPln(s) * Multiplier(in.s4.sectorMults(s) * in.w.priceLevel)).toLong
+        .sum,
+    )
+    val adjustedDemand = PLN.fromRaw(
+      (0 until nSectors)
+        .map: s =>
+          (PLN(in.s4.sectorCap(s)) * Multiplier(in.s4.sectorMults(s) * in.w.priceLevel)).toLong
+        .sum,
+    )
+    totalFirmRev - adjustedDemand
 
   /** Informal economy: four-channel tax evasion (CIT, VAT, PIT, excise),
     * estimated informal employment, and smoothed cyclical adjustment for the
     * counter-cyclical shadow economy share.
     */
-  @computationBoundary
+  @boundaryEscape
   private def computeInformalEconomy(in: Input)(using p: SimParams): InformalResult =
     import ComputationBoundary.toDouble
     if !p.flags.informal then return InformalResult(PLN.Zero, 0.0, 0.0, 0.0)
@@ -141,7 +146,7 @@ object WorldAssemblyStep:
     InformalResult(taxEvasionLoss, informalEmployed, cyclicalAdj, effectiveShadowShare)
 
   /** Pre-compute observable values surfaced on World for SimOutput. */
-  @computationBoundary
+  @boundaryEscape
   private def computeObservables(in: Input)(using p: SimParams): Observables =
     import ComputationBoundary.toDouble
     val aliveBanks           = in.s9.finalBankingSector.banks.filterNot(_.failed)
@@ -164,7 +169,7 @@ object WorldAssemblyStep:
     Observables(depositFacilityUsage, etsPrice, tourismSeasonalFactor)
 
   /** Construct the new World state from all step outputs. */
-  @computationBoundary
+  @boundaryEscape
   private def assembleWorld(
       in: Input,
       equityAfterStep: EquityMarket.State,
@@ -244,7 +249,7 @@ object WorldAssemblyStep:
     )
 
   /** Construct the FlowState for this step. */
-  @computationBoundary
+  @boundaryEscape
   private def buildFlowState(in: Input, informal: InformalResult): FlowState =
     import ComputationBoundary.toDouble
     FlowState(
@@ -277,7 +282,7 @@ object WorldAssemblyStep:
     Sfc.validate(prevSnap, currSnap, flows)
 
   /** Construct Sfc.MonthlyFlows from all step outputs. */
-  @computationBoundary
+  @boundaryEscape
   private def buildMonthlyFlows(in: Input, fofResidual: PLN)(using p: SimParams): Sfc.MonthlyFlows =
     Sfc.MonthlyFlows(
       govSpending = in.s9.newGovWithYield.unempBenefitSpend

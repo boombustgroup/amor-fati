@@ -13,7 +13,7 @@ import scala.util.Random
 object WorldInit:
 
   /** Initialize a complete simulation world from a seed. */
-  @computationBoundary
+  @boundaryEscape
   def initialize(seed: Long)(using p: SimParams): InitResult =
     import ComputationBoundary.toDouble
     val rng = new Random(seed)

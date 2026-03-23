@@ -223,7 +223,7 @@ object Firm:
     * CES: Y = A × [α·K^ρ + (1-α)·L^ρ]^(1/ρ) where ρ = (σ-1)/σ. High-σ sectors
     * (BPO=50) substitute K/L easily; low-σ (Public=1) resist.
     */
-  @computationBoundary
+  @boundaryEscape
   def computeCapacity(f: State)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     val sec       = p.sectorDefs(f.sector.toInt)
@@ -245,7 +245,7 @@ object Firm:
   /** CES aggregator: [α·K^ρ + (1-α)·L^ρ]^(1/ρ). Degrades gracefully: σ→1 ≈
     * Cobb-Douglas, σ→∞ ≈ linear (perfect substitutes).
     */
-  @computationBoundary
+  @boundaryEscape
   private[amorfati] def cesOutput(alpha: Share, k: Multiplier, l: Multiplier, sigma: Double): Multiplier =
     import ComputationBoundary.toDouble
     if sigma <= 1.001 then // near-Leontief/Cobb-Douglas boundary — use Cobb-Douglas
@@ -262,7 +262,7 @@ object Firm:
     * cost more (wage) than the revenue gained (∂capacity × demand × price).
     * Bounded by [minWorkersRetained, 3 × initialSize].
     */
-  @computationBoundary
+  @boundaryEscape
   private def optimalWorkers(f: State, w: World)(using p: SimParams): Int =
     import ComputationBoundary.toDouble
     val demandMult = w.flows.sectorDemandMult(f.sector.toInt)
@@ -284,7 +284,7 @@ object Firm:
   /** Effective AI CAPEX for sector — sublinear in firm size (exponent 0.6),
     * digital readiness discount.
     */
-  @computationBoundary
+  @boundaryEscape
   def computeAiCapex(f: State)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     val sizeFactor   = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, CapexSizeExponent)
@@ -294,7 +294,7 @@ object Firm:
   /** Hybrid upgrade CAPEX — same scaling as AI CAPEX but using hybrid
     * multipliers.
     */
-  @computationBoundary
+  @boundaryEscape
   def computeHybridCapex(f: State)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     val sizeFactor   = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, CapexSizeExponent)
@@ -374,7 +374,7 @@ object Firm:
     * costs. Target = break-even headcount from P&L. If adjustment insufficient
     * to restore solvency, escalates to bankruptcy.
     */
-  @computationBoundary
+  @boundaryEscape
   private[amorfati] def attemptDownsize(
       firm: State,
       pnl: PnL,
@@ -411,7 +411,7 @@ object Firm:
     * Used by `decideHybrid` and `decideTraditional` to compare current costs
     * against upgrade costs.
     */
-  @computationBoundary
+  @boundaryEscape
   private def estimateMonthlyCost(
       firm: State,
       opex: PLN,
@@ -452,7 +452,7 @@ object Firm:
     else Decision.Survive(pnl, nc)
 
   /** Hybrid firm: attempt full-AI upgrade, else survive/downsize/bankrupt. */
-  @computationBoundary
+  @boundaryEscape
   private def decideHybrid(
       firm: State,
       w: World,
@@ -520,7 +520,7 @@ object Firm:
     def feasible: Boolean = profitable && canPay && ready && bankOk
 
   /** Evaluate full-AI upgrade feasibility for a traditional firm. */
-  @computationBoundary
+  @boundaryEscape
   private def evaluateFullAi(
       firm: State,
       pnl: PnL,
@@ -545,7 +545,7 @@ object Firm:
     )
 
   /** Evaluate hybrid upgrade feasibility for a traditional firm. */
-  @computationBoundary
+  @boundaryEscape
   private def evaluateHybrid(
       firm: State,
       pnl: PnL,
@@ -574,7 +574,7 @@ object Firm:
   /** Compute adoption probabilities for full-AI and hybrid upgrades. Blends
     * network mimetic pressure, desperation, and uncertainty discount.
     */
-  @computationBoundary
+  @boundaryEscape
   private def adoptionProbabilities(
       firm: State,
       pnl: PnL,
@@ -611,7 +611,7 @@ object Firm:
   /** Roll for full-AI upgrade: success (with random efficiency) or
     * implementation failure.
     */
-  @computationBoundary
+  @boundaryEscape
   private def rollFullAiUpgrade(firm: State, pnl: PnL, ai: UpgradeCandidate, rng: Random): Decision =
     import ComputationBoundary.toDouble
     val failRate = FullAiBaseFailRate + toDouble(Share.One - firm.digitalReadiness) * FullAiFailDrSens
@@ -624,7 +624,7 @@ object Firm:
   /** Roll for hybrid upgrade: catastrophic failure, partial failure (bad
     * efficiency), or success (good efficiency).
     */
-  @computationBoundary
+  @boundaryEscape
   private def rollHybridUpgrade(firm: State, pnl: PnL, hyb: UpgradeCandidate, hWkrs: Int, rng: Random): Decision =
     import ComputationBoundary.toDouble
     val failRate = HybridBaseFailRate + toDouble(Share.One - firm.digitalReadiness) * HybridFailDrSens
@@ -648,7 +648,7 @@ object Firm:
   /** Try upsize, digital readiness investment, downsize, or survive — fallback
     * when neither full-AI nor hybrid upgrade was chosen.
     */
-  @computationBoundary
+  @boundaryEscape
   private def fallbackDecision(
       firm: State,
       pnl: PnL,
@@ -844,7 +844,7 @@ object Firm:
   /** Residual "other" operating costs — base scaled by price and firm size,
     * reduced when physical capital, energy, or inventory costs are explicit.
     */
-  @computationBoundary
+  @boundaryEscape
   private def otherCosts(firm: State, domesticPrice: PriceIndex)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     val sizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
@@ -856,7 +856,7 @@ object Firm:
   /** AI/hybrid maintenance opex — domestic + imported split, sublinear in firm
     * size.
     */
-  @computationBoundary
+  @boundaryEscape
   private def aiMaintenanceCost(firm: State, domesticPrice: PriceIndex, importPrice: PriceIndex)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     val opexSizeFactor = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, OpexSizeExponent)
@@ -869,7 +869,7 @@ object Firm:
   /** Energy cost including EU ETS carbon surcharge, net of green capital
     * discount.
     */
-  @computationBoundary
+  @boundaryEscape
   private def energyAndEtsCost(firm: State, revenue: PLN, month: Int, commodityPrice: PriceIndex)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
     if !p.flags.energy then return PLN.Zero
@@ -884,7 +884,7 @@ object Firm:
     PLN(toDouble(baseEnergy) * (1.0 + Math.max(0.0, carbonSurcharge)) * toDouble(Share.One - greenDiscount) * toDouble(commodityPrice))
 
   /** Monthly P&L: revenue minus all cost categories, CIT on positive profit. */
-  @computationBoundary
+  @boundaryEscape
   private def computePnL(
       firm: State,
       wage: PLN,

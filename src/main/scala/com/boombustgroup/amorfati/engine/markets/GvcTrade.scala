@@ -49,7 +49,7 @@ object GvcTrade:
 
   def zero: State = State(Vector.empty)
 
-  @computationBoundary
+  @boundaryEscape
   def initial(using p: SimParams): State =
     import ComputationBoundary.toDouble
     val euShare       = toDouble(p.gvc.euTradeShare)
@@ -87,7 +87,7 @@ object GvcTrade:
       rng: scala.util.Random,
   )
 
-  @computationBoundary
+  @boundaryEscape
   def step(in: StepInput)(using p: SimParams): State =
     import ComputationBoundary.toDouble
     val nSectors            = in.prev.sectorExports.size
@@ -130,7 +130,7 @@ object GvcTrade:
   /** Evolve foreign firms: apply demand shock, recover disruptions, update
     * price.
     */
-  @computationBoundary
+  @boundaryEscape
   private def evolveFirms(
       firms: Vector[ForeignFirm],
       monthlyInflation: Double,
@@ -151,7 +151,7 @@ object GvcTrade:
       )
 
   /** Real exchange rate effect on exports (Marshall-Lerner). */
-  @computationBoundary
+  @boundaryEscape
   private def realExchangeRateEffect(priceLevel: Double, exchangeRate: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
     val nominalER = exchangeRate / p.forex.baseExRate
@@ -159,7 +159,7 @@ object GvcTrade:
     Math.pow(1.0 / Math.max(MinErEffect, realPrice), toDouble(p.openEcon.exportPriceElasticity))
 
   /** Per-sector export demand. */
-  @computationBoundary
+  @boundaryEscape
   private def computeSectorExports(
       firms: Vector[ForeignFirm],
       nSectors: Int,
@@ -179,7 +179,7 @@ object GvcTrade:
 
   /** Per-sector intermediate import demand with differentiated ER pass-through.
     */
-  @computationBoundary
+  @boundaryEscape
   private def computeSectorImports(
       firms: Vector[ForeignFirm],
       nSectors: Int,
@@ -201,7 +201,7 @@ object GvcTrade:
       .toVector
 
   /** Weighted ER pass-through across EU/non-EU partners for a sector. */
-  @computationBoundary
+  @boundaryEscape
   private def partnerWeightedErEffect(sectorFirms: Vector[ForeignFirm], erDeviation: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
     val totalSupply = sectorFirms.map(ff => toDouble(ff.baseImportSupply)).sum
@@ -213,14 +213,14 @@ object GvcTrade:
     else 1.0
 
   /** Average disruption across firms in a sector. */
-  @computationBoundary
+  @boundaryEscape
   private def avgSectorDisruption(sectorFirms: Vector[ForeignFirm]): Double =
     import ComputationBoundary.toDouble
     if sectorFirms.nonEmpty then sectorFirms.map(ff => toDouble(ff.disruption)).sum / sectorFirms.length
     else 0.0
 
   /** Demand-weighted disruption index across all firms. */
-  @computationBoundary
+  @boundaryEscape
   private def weightedDisruption(firms: Vector[ForeignFirm]): Share =
     import ComputationBoundary.toDouble
     if firms.isEmpty then Share.Zero

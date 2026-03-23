@@ -104,7 +104,7 @@ object SocialSecurity:
   /** Compute demographics monthly step. Monthly retirements reduce labor
     * supply; working-age population declines.
     */
-  @computationBoundary
+  @boundaryEscape
   def demographicsStep(prev: DemographicsState, employed: Int, netMigration: Int)(using p: SimParams): DemographicsState =
     if !p.flags.demographics then prev.copy(monthlyRetirements = 0)
     else

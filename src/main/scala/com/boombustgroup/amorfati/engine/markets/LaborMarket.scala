@@ -34,7 +34,7 @@ object LaborMarket:
   /** Logistic labor supply curve: fraction of population willing to work at
     * given wage. Steepness controlled by p.household.laborSupplySteepness.
     */
-  @computationBoundary
+  @boundaryEscape
   private def laborSupplyRatio(wage: PLN, resWage: PLN)(using p: SimParams): Share =
     import ComputationBoundary.toDouble
     val x = toDouble(p.household.laborSupplySteepness) * (wage / resWage - 1.0)
