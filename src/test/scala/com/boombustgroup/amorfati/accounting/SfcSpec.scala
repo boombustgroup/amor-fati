@@ -324,12 +324,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         bankCapital = PLN(200000),
         bankDeposits = PLN(1000000),
       )
-    // Bug: hhDebtService=3000 should add 900 to bank capital, but bank unchanged
+    // Bug: hhDebtService=20000 should add 6000 to bank capital, but bank unchanged
     val curr   = prev.copy(bankCapital = prev.bankCapital)
-    val flows  = zeroFlows.copy(hhDebtService = PLN(3000))
+    val flows  = zeroFlows.copy(hhDebtService = PLN(20000))
     val result = Sfc.validate(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe -900.0 +- 0.01 // actual=0, expected=+900
+    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe -6000.0 +- 0.01 // actual=0, expected=+6000
   }
 
   // ---- Identity 2: Bank deposits ----
@@ -459,8 +459,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "pass when error is below tolerance" in {
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    // Bank capital off by 0.005 (below default tolerance of 0.01)
-    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(0.005))
+    // Bank capital off by 500 (below default tolerance of 1000)
+    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(500.0))
     val result = Sfc.validate(prev, curr, zeroFlows)
     result shouldBe Right(())
   }
@@ -468,8 +468,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "fail when error exceeds tolerance" in {
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    // Bank capital off by 0.02 (above default tolerance of 0.01)
-    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(0.02))
+    // Bank capital off by 5000 (above default tolerance of 1000)
+    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(5000.0))
     val result = Sfc.validate(prev, curr, zeroFlows)
     result shouldBe a[Left[?, ?]]
   }
@@ -477,11 +477,11 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "respect custom tolerance parameter" in {
     val prev =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    val curr = prev.copy(bankCapital = prev.bankCapital + PLN(5.0))
-    // Default tolerance (0.01): fails
+    val curr = prev.copy(bankCapital = prev.bankCapital + PLN(5000.0))
+    // Default tolerance (1000): fails
     Sfc.validate(prev, curr, zeroFlows) shouldBe a[Left[?, ?]]
-    // Loose tolerance (10.0): passes
-    Sfc.validate(prev, curr, zeroFlows, tolerance = PLN(10.0)) shouldBe Right(())
+    // Loose tolerance (10000): passes
+    Sfc.validate(prev, curr, zeroFlows, tolerance = PLN(10000.0)) shouldBe Right(())
   }
 
   // ---- Identity 5: Bond clearing ----
@@ -868,10 +868,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
     // Bug: deposits unchanged despite NBFI drain
     val curr   = prev.copy(bankDeposits = prev.bankDeposits)
-    val flows  = zeroFlows.copy(nbfiDepositDrain = PLN(-1000.0))
+    val flows  = zeroFlows.copy(nbfiDepositDrain = PLN(-5000.0))
     val result = Sfc.validate(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe 1000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe 5000.0 +- 0.01
   }
 
   // ---- Identity 5 with TFI gov bond holdings (#42) ----

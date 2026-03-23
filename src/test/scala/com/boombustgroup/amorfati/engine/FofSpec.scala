@@ -212,7 +212,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "fail when fofResidual exceeds tolerance" in {
-    val flows  = zeroFlows.copy(fofResidual = PLN(1.0))
+    val flows  = zeroFlows.copy(fofResidual = PLN(5000.0))
     val snap   = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
     val result = Sfc.validate(snap, snap, flows)
     result shouldBe a[Left[?, ?]]
@@ -222,7 +222,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
         .find(_.identity == Sfc.SfcIdentity.FlowOfFunds)
         .get
         .actual,
-    ) shouldBe 1.0 +- 0.01
+    ) shouldBe 5000.0 +- 0.01
   }
 
   // --- helpers ---
