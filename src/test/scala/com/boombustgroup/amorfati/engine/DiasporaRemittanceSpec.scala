@@ -12,25 +12,26 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // ==========================================================================
   // Config defaults
   // ==========================================================================
 
   "RemittancePerCapita" should "default to 40.0" in {
-    p.remittance.perCapita.toDouble shouldBe 40.0
+    td.toDouble(p.remittance.perCapita) shouldBe 40.0
   }
 
   "RemittanceErElasticity" should "default to 0.5" in {
-    p.remittance.erElasticity shouldBe 0.5
+    td.toDouble(p.remittance.erElasticity) shouldBe 0.5
   }
 
   "RemittanceGrowthRate" should "default to 0.02" in {
-    p.remittance.growthRate.toDouble shouldBe 0.02
+    td.toDouble(p.remittance.growthRate) shouldBe 0.02
   }
 
   "RemittanceCyclicalSens" should "default to 0.3" in {
-    p.remittance.cyclicalSens.toDouble shouldBe 0.3
+    td.toDouble(p.remittance.cyclicalSens) shouldBe 0.3
   }
 
   // ==========================================================================
@@ -39,7 +40,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "Per-capita base" should "be positive for positive WAP" in {
     val wap  = 1000
-    val base = p.remittance.perCapita.toDouble * wap.toDouble
+    val base = td.toDouble(p.remittance.perCapita) * wap.toDouble
     base should be > 0.0
   }
 
@@ -49,13 +50,13 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "ER adjustment" should "increase inflow when PLN weakens" in {
     val weakerER = p.forex.baseExRate * 1.2 // PLN weaker → higher exchange rate number
-    val erAdj    = Math.pow(weakerER / p.forex.baseExRate, p.remittance.erElasticity)
+    val erAdj    = Math.pow(weakerER / p.forex.baseExRate, td.toDouble(p.remittance.erElasticity))
     erAdj should be > 1.0
   }
 
   it should "decrease inflow when PLN strengthens" in {
     val strongerER = p.forex.baseExRate * 0.8
-    val erAdj      = Math.pow(strongerER / p.forex.baseExRate, p.remittance.erElasticity)
+    val erAdj      = Math.pow(strongerER / p.forex.baseExRate, td.toDouble(p.remittance.erElasticity))
     erAdj should be < 1.0
   }
 
@@ -73,15 +74,15 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Trend adjustment" should "equal 1.0 at month 0" in {
-    val trendAdj = Math.pow(1.0 + p.remittance.growthRate.toDouble / 12.0, 0.0)
+    val trendAdj = Math.pow(1.0 + td.toDouble(p.remittance.growthRate) / 12.0, 0.0)
     trendAdj shouldBe 1.0
   }
 
   it should "grow over time" in {
-    val trend12 = Math.pow(1.0 + p.remittance.growthRate.toDouble / 12.0, 12.0)
+    val trend12 = Math.pow(1.0 + td.toDouble(p.remittance.growthRate) / 12.0, 12.0)
     trend12 should be > 1.0
     // ~2% annual growth
-    trend12 shouldBe (1.0 + p.remittance.growthRate.toDouble) +- 0.001
+    trend12 shouldBe (1.0 + td.toDouble(p.remittance.growthRate)) +- 0.001
   }
 
   // ==========================================================================
@@ -90,18 +91,18 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "Cyclical adjustment" should "increase with unemployment above 5%" in {
     val highUnemp = 0.10
-    val adj       = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, highUnemp - 0.05)
+    val adj       = 1.0 + td.toDouble(p.remittance.cyclicalSens) * Math.max(0.0, highUnemp - 0.05)
     adj should be > 1.0
   }
 
   it should "be neutral at unemployment = 5%" in {
-    val adj = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, 0.05 - 0.05)
+    val adj = 1.0 + td.toDouble(p.remittance.cyclicalSens) * Math.max(0.0, 0.05 - 0.05)
     adj shouldBe 1.0
   }
 
   it should "be neutral at unemployment < 5%" in {
     val lowUnemp = 0.03
-    val adj      = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, lowUnemp - 0.05)
+    val adj      = 1.0 + td.toDouble(p.remittance.cyclicalSens) * Math.max(0.0, lowUnemp - 0.05)
     adj shouldBe 1.0
   }
 
@@ -115,10 +116,10 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
     val unemp = 0.08
     val er    = p.forex.baseExRate * 1.1
 
-    val base        = p.remittance.perCapita.toDouble * wap.toDouble
-    val erAdj       = Math.pow(er / p.forex.baseExRate, p.remittance.erElasticity)
-    val trendAdj    = Math.pow(1.0 + p.remittance.growthRate.toDouble / 12.0, month.toDouble)
-    val cyclicalAdj = 1.0 + p.remittance.cyclicalSens.toDouble * Math.max(0.0, unemp - 0.05)
+    val base        = td.toDouble(p.remittance.perCapita) * wap.toDouble
+    val erAdj       = Math.pow(er / p.forex.baseExRate, td.toDouble(p.remittance.erElasticity))
+    val trendAdj    = Math.pow(1.0 + td.toDouble(p.remittance.growthRate) / 12.0, month.toDouble)
+    val cyclicalAdj = 1.0 + td.toDouble(p.remittance.cyclicalSens) * Math.max(0.0, unemp - 0.05)
     val result      = base * erAdj * trendAdj * cyclicalAdj
 
     result should be > 0.0
@@ -140,14 +141,14 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "secondaryIncome" should "include diasporaInflow as credit" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN(p.forex.exportBase.toDouble), PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN(td.toDouble(p.forex.exportBase)), PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,
       prevForex = prevForex,
       importCons = PLN.Zero,
       techImports = PLN.Zero,
-      autoRatio = Ratio.Zero,
+      autoRatio = Share.Zero,
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
       priceLevel = 1.0,
@@ -162,14 +163,14 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   it should "net outflow and inflow" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN(p.forex.exportBase.toDouble), PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN(td.toDouble(p.forex.exportBase)), PLN.Zero, PLN.Zero)
 
     val base   = OpenEconomy.StepInput(
       prevBop = prevBop,
       prevForex = prevForex,
       importCons = PLN.Zero,
       techImports = PLN.Zero,
-      autoRatio = Ratio.Zero,
+      autoRatio = Share.Zero,
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
       priceLevel = 1.0,
@@ -202,7 +203,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,
-      currentSigmas = Vector.fill(6)(0.1),
+      currentSigmas = Vector.fill(6)(Sigma(0.1)),
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
@@ -220,12 +221,12 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
         importConsumption = PLN.Zero,
         marketWage = PLN(5000),
         reservationWage = PLN(4000),
-        giniIndividual = Ratio.Zero,
-        giniWealth = Ratio.Zero,
+        giniIndividual = Share.Zero,
+        giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
         medianSavings = PLN.Zero,
-        povertyRate50 = Ratio.Zero,
-        bankruptcyRate = Ratio.Zero,
+        povertyRate50 = Share.Zero,
+        bankruptcyRate = Share.Zero,
         meanSkill = 0.0,
         meanHealthPenalty = 0.0,
         retrainingAttempts = 0,
@@ -234,14 +235,14 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
         meanMonthsToRuin = 0.0,
-        povertyRate30 = Ratio.Zero,
+        povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
         totalUnempBenefits = PLN.Zero,
         totalDepositInterest = PLN.Zero,
         crossSectorHires = 0,
         voluntaryQuits = 0,
-        sectorMobilityRate = Ratio.Zero,
+        sectorMobilityRate = Share.Zero,
         totalRemittances = PLN.Zero,
         totalPit = PLN.Zero,
         totalSocialTransfers = PLN.Zero,

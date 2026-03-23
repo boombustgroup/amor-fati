@@ -23,8 +23,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
+  private val td = ComputationBoundary
+
   private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): Double =
-    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => (e.actual - e.expected).toDouble).getOrElse(0.0)
+    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0)
 
   private def makeWorld(
       bankCapital: Double = 500000.0,
@@ -56,12 +58,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         importConsumption = PLN.Zero,
         marketWage = PLN(8266.0),
         reservationWage = PLN(4666.0),
-        giniIndividual = Ratio.Zero,
-        giniWealth = Ratio.Zero,
+        giniIndividual = Share.Zero,
+        giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
         medianSavings = PLN.Zero,
-        povertyRate50 = Ratio.Zero,
-        bankruptcyRate = Ratio.Zero,
+        povertyRate50 = Share.Zero,
+        bankruptcyRate = Share.Zero,
         meanSkill = 0.0,
         meanHealthPenalty = 0.0,
         retrainingAttempts = 0,
@@ -70,14 +72,14 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
         meanMonthsToRuin = 0.0,
-        povertyRate30 = Ratio.Zero,
+        povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
         totalUnempBenefits = PLN.Zero,
         totalDepositInterest = PLN.Zero,
         crossSectorHires = 0,
         voluntaryQuits = 0,
-        sectorMobilityRate = Ratio.Zero,
+        sectorMobilityRate = Share.Zero,
         totalRemittances = PLN.Zero,
         totalPit = PLN.Zero,
         totalSocialTransfers = PLN.Zero,
@@ -102,9 +104,9 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         PLN(cash),
         PLN(debt),
         TechState.Traditional(10),
-        Ratio(0.5),
+        Share(0.5),
         1.0,
-        Ratio(0.3),
+        Share(0.3),
         SectorIdx(0),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -127,9 +129,9 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         PLN(savings),
         PLN(debt),
         PLN(1800.0),
-        Ratio(0.8),
-        Ratio(0.0),
-        Ratio(0.82),
+        Share(0.8),
+        Share(0.0),
+        Share(0.82),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -139,8 +141,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       )
     }.toVector
 
@@ -246,8 +248,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val w     = makeWorld()
     val firms = makeFirms(5, cash = 10000.0, debt = 5000.0)
     val snap  = Sfc.snapshot(w, firms, Vector.empty)
-    snap.firmCash.toDouble shouldBe 50000.0 +- 0.01
-    snap.firmDebt.toDouble shouldBe 25000.0 +- 0.01
+    td.toDouble(snap.firmCash) shouldBe 50000.0 +- 0.01
+    td.toDouble(snap.firmDebt) shouldBe 25000.0 +- 0.01
   }
 
   it should "correctly sum household savings and debt" in {
@@ -255,8 +257,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val firms = makeFirms(1)
     val hhs   = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
     val snap  = Sfc.snapshot(w, firms, hhs)
-    snap.hhSavings.toDouble shouldBe 200000.0 +- 0.01
-    snap.hhDebt.toDouble shouldBe 50000.0 +- 0.01
+    td.toDouble(snap.hhSavings) shouldBe 200000.0 +- 0.01
+    td.toDouble(snap.hhDebt) shouldBe 50000.0 +- 0.01
   }
 
   it should "return zero HH values with empty household vector" in {
@@ -305,7 +307,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
     // Bug: 50% of interest goes to bank instead of 30%
-    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(10000) * 0.5)
+    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(10000) * Share(0.5))
     val flows  = zeroFlows.copy(interestIncome = PLN(10000))
     val result = Sfc.validate(prev, curr, flows)
     // actual change = +5000, expected = +3000, error = 2000
@@ -322,12 +324,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         bankCapital = PLN(200000),
         bankDeposits = PLN(1000000),
       )
-    // Bug: hhDebtService=3000 should add 900 to bank capital, but bank unchanged
+    // Bug: hhDebtService=20000 should add 6000 to bank capital, but bank unchanged
     val curr   = prev.copy(bankCapital = prev.bankCapital)
-    val flows  = zeroFlows.copy(hhDebtService = PLN(3000))
+    val flows  = zeroFlows.copy(hhDebtService = PLN(20000))
     val result = Sfc.validate(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe -900.0 +- 0.01 // actual=0, expected=+900
+    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe -6000.0 +- 0.01 // actual=0, expected=+6000
   }
 
   // ---- Identity 2: Bank deposits ----
@@ -457,8 +459,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "pass when error is below tolerance" in {
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    // Bank capital off by 0.005 (below default tolerance of 0.01)
-    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(0.005))
+    // Bank capital off by 500 (below default tolerance of 1000)
+    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(500.0))
     val result = Sfc.validate(prev, curr, zeroFlows)
     result shouldBe Right(())
   }
@@ -466,8 +468,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "fail when error exceeds tolerance" in {
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    // Bank capital off by 0.02 (above default tolerance of 0.01)
-    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(0.02))
+    // Bank capital off by 5000 (above default tolerance of 1000)
+    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(5000.0))
     val result = Sfc.validate(prev, curr, zeroFlows)
     result shouldBe a[Left[?, ?]]
   }
@@ -475,11 +477,11 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "respect custom tolerance parameter" in {
     val prev =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    val curr = prev.copy(bankCapital = prev.bankCapital + PLN(5.0))
-    // Default tolerance (0.01): fails
+    val curr = prev.copy(bankCapital = prev.bankCapital + PLN(5000.0))
+    // Default tolerance (1000): fails
     Sfc.validate(prev, curr, zeroFlows) shouldBe a[Left[?, ?]]
-    // Loose tolerance (10.0): passes
-    Sfc.validate(prev, curr, zeroFlows, tolerance = PLN(10.0)) shouldBe Right(())
+    // Loose tolerance (10000): passes
+    Sfc.validate(prev, curr, zeroFlows, tolerance = PLN(10000.0)) shouldBe Right(())
   }
 
   // ---- Identity 5: Bond clearing ----
@@ -866,10 +868,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
     // Bug: deposits unchanged despite NBFI drain
     val curr   = prev.copy(bankDeposits = prev.bankDeposits)
-    val flows  = zeroFlows.copy(nbfiDepositDrain = PLN(-1000.0))
+    val flows  = zeroFlows.copy(nbfiDepositDrain = PLN(-5000.0))
     val result = Sfc.validate(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe 1000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe 5000.0 +- 0.01
   }
 
   // ---- Identity 5 with TFI gov bond holdings (#42) ----

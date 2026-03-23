@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.montecarlo.McRunner.runSingle
 import com.boombustgroup.amorfati.montecarlo.SimOutput
 import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
+import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -11,6 +12,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // Single shared run — all tests read from this result
   private lazy val result = runSingle(42).fold(e => fail(e.toString), identity)
@@ -87,10 +89,10 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   it should "have Gini coefficients in [0, 1]" in {
     val agg = result.terminalState.world.hhAgg
-    agg.giniIndividual.toDouble should be >= 0.0
-    agg.giniIndividual.toDouble should be <= 1.0
-    agg.giniWealth.toDouble should be >= 0.0
-    agg.giniWealth.toDouble should be <= 1.0
+    td.toDouble(agg.giniIndividual) should be >= 0.0
+    td.toDouble(agg.giniIndividual) should be <= 1.0
+    td.toDouble(agg.giniWealth) should be >= 0.0
+    td.toDouble(agg.giniWealth) should be <= 1.0
   }
 
   // --- Bond market ---

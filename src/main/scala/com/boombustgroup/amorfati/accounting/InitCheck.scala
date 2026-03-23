@@ -2,7 +2,6 @@ package com.boombustgroup.amorfati.accounting
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Pure init-time stock validation.
   *
@@ -23,9 +22,10 @@ object InitCheck:
   )
 
   class InitValidationException(val errors: Vector[InitCheckResult])
-      extends RuntimeException(
-        errors.map(e => f"${e.identity}: expected=${e.expected.toDouble}%.2f actual=${e.actual.toDouble}%.2f").mkString("; "),
-      )
+      extends RuntimeException({
+        import ComputationBoundary.toDouble
+        errors.map(e => f"${e.identity}: expected=${toDouble(e.expected)}%.2f actual=${toDouble(e.actual)}%.2f").mkString("; ")
+      })
 
   /** Validate initial stock identities. Returns only the failing checks (empty =
     * all pass).
@@ -95,7 +95,7 @@ object InitCheck:
 
     // --- Aggregate cross-checks ---
 
-    val aggDeposits     = PLN(banks.kahanSumBy(_.deposits.toDouble))
+    val aggDeposits     = PLN.fromRaw(banks.map(_.deposits.toLong).sum)
     val aggDepositCheck = check(
       "Aggregate deposits",
       expected = aggDeposits,
@@ -103,7 +103,7 @@ object InitCheck:
       levelTol,
     )
 
-    val aggLoans     = PLN(banks.kahanSumBy(_.loans.toDouble))
+    val aggLoans     = PLN.fromRaw(banks.map(_.loans.toLong).sum)
     val aggLoanCheck = check(
       "Aggregate loans",
       expected = aggLoans,

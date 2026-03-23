@@ -18,40 +18,40 @@ import com.boombustgroup.amorfati.types.*
   */
 enum Region(
     val label: String,
-    val wageMultiplier: Ratio,
-    val baseUnemployment: Ratio,
-    val housingCostIndex: Double,
-    val populationShare: Ratio,
+    val wageMultiplier: Multiplier,
+    val baseUnemployment: Share,
+    val housingCostIndex: Multiplier,
+    val populationShare: Share,
 ):
   /** Centralny: Warszawa + mazowieckie. Highest wages, lowest unemployment,
     * most expensive housing. Services/BPO hub.
     */
-  case Central extends Region("Centralny", Ratio(1.35), Ratio(0.03), 1.80, Ratio(0.21))
+  case Central extends Region("Centralny", Multiplier(1.35), Share(0.03), Multiplier(1.80), Share(0.21))
 
   /** Południowy: Śląsk + Małopolska. Industry + services mix. Kraków tech hub.
     * Mining restrukturyzacja in Śląsk.
     */
-  case South extends Region("Poludniowy", Ratio(1.10), Ratio(0.05), 1.20, Ratio(0.21))
+  case South extends Region("Poludniowy", Multiplier(1.10), Share(0.05), Multiplier(1.20), Share(0.21))
 
   /** Wschodni: Lubelskie, Podkarpackie, Podlaskie, Świętokrzyskie. Highest
     * unemployment, lowest wages. Agriculture-heavy. "Ściana wschodnia".
     */
-  case East extends Region("Wschodni", Ratio(0.80), Ratio(0.09), 0.65, Ratio(0.14))
+  case East extends Region("Wschodni", Multiplier(0.80), Share(0.09), Multiplier(0.65), Share(0.14))
 
   /** Północno-zachodni: Wielkopolskie, Zachodniopomorskie, Lubuskie. Balanced
     * economy, Poznań as regional center, moderate wages.
     */
-  case Northwest extends Region("Polnocno-zachodni", Ratio(1.00), Ratio(0.05), 0.90, Ratio(0.16))
+  case Northwest extends Region("Polnocno-zachodni", Multiplier(1.00), Share(0.05), Multiplier(0.90), Share(0.16))
 
   /** Południowo-zachodni: Dolnośląskie, Opolskie. Wrocław tech hub. Growing
     * services sector, moderate housing costs.
     */
-  case Southwest extends Region("Poludniowo-zachodni", Ratio(1.05), Ratio(0.05), 1.00, Ratio(0.12))
+  case Southwest extends Region("Poludniowo-zachodni", Multiplier(1.05), Share(0.05), Multiplier(1.00), Share(0.12))
 
   /** Północny: Kujawsko-pomorskie, Warmińsko-mazurskie, Pomorskie.
     * Gdańsk/Gdynia port economy. Warmia high unemployment.
     */
-  case North extends Region("Polnocny", Ratio(0.95), Ratio(0.07), 0.85, Ratio(0.16))
+  case North extends Region("Polnocny", Multiplier(0.95), Share(0.07), Multiplier(0.85), Share(0.16))
 
 object Region:
 
@@ -60,9 +60,10 @@ object Region:
   val count: Int = all.length
 
   /** Sample a region from population share CDF (inverse transform). */
+  @boundaryEscape
   def cdfSample(rng: scala.util.Random): Region =
     val r   = rng.nextDouble()
-    val cdf = all.iterator.scanLeft(0.0)(_ + _.populationShare.toDouble).drop(1)
+    val cdf = all.iterator.scanLeft(0.0)((acc, reg) => acc + ComputationBoundary.toDouble(reg.populationShare)).drop(1)
     all.zip(cdf).find((_, cum) => r < cum).map(_._1).getOrElse(all.last)
 
   /** Migration friction matrix: `friction(from)(to)` ∈ [0,1]. 0 = no friction
@@ -89,29 +90,30 @@ object Region:
     * Workers only migrate if destination wages justify the housing cost
     * increase.
     */
+  @boundaryEscape
   def migrationProbability(
       from: Region,
       to: Region,
-      wageDiffRatio: Ratio,
-      housingThreshold: Double,
-  ): Ratio =
-    if from == to then Ratio.Zero
+      wageDiffRatio: Multiplier,
+      housingThreshold: Share,
+  ): Share =
+    if from == to then Share.Zero
     else
       val friction       = frictionMatrix(from.ordinal)(to.ordinal)
-      val wagePull       = (wageDiffRatio - Ratio.One).max(Ratio.Zero).toDouble
-      val housingBarrier = Math.max(0.0, 1.0 - to.housingCostIndex / from.housingCostIndex * housingThreshold)
-      Ratio(((1.0 - friction) * wagePull * housingBarrier).max(0.0).min(1.0))
+      val wagePull       = Math.max(0.0, ComputationBoundary.toDouble(wageDiffRatio) - 1.0)
+      val housingBarrier = Math.max(0.0, 1.0 - to.housingCostIndex / from.housingCostIndex * ComputationBoundary.toDouble(housingThreshold))
+      Share(((1.0 - friction) * wagePull * housingBarrier).max(0.0).min(1.0))
 
   /** Sector composition by region (6 sectors × 6 regions). Rows = regions
     * (Central..North), columns = sectors (BPO..Agri). GUS employment by section
     * and voivodeship 2024.
     */
-  val sectorComposition: Vector[Vector[Ratio]] = Vector(
+  val sectorComposition: Vector[Vector[Share]] = Vector(
     // BPO    Mfg    Retail  Health  Public  Agri
-    Vector(Ratio(0.08), Ratio(0.12), Ratio(0.48), Ratio(0.06), Ratio(0.20), Ratio(0.06)), // Central
-    Vector(Ratio(0.04), Ratio(0.25), Ratio(0.40), Ratio(0.06), Ratio(0.18), Ratio(0.07)), // South
-    Vector(Ratio(0.01), Ratio(0.15), Ratio(0.30), Ratio(0.06), Ratio(0.23), Ratio(0.25)), // East
-    Vector(Ratio(0.03), Ratio(0.22), Ratio(0.38), Ratio(0.06), Ratio(0.20), Ratio(0.11)), // Northwest
-    Vector(Ratio(0.04), Ratio(0.22), Ratio(0.40), Ratio(0.06), Ratio(0.19), Ratio(0.09)), // Southwest
-    Vector(Ratio(0.02), Ratio(0.18), Ratio(0.35), Ratio(0.06), Ratio(0.22), Ratio(0.17)), // North
+    Vector(Share(0.08), Share(0.12), Share(0.48), Share(0.06), Share(0.20), Share(0.06)), // Central
+    Vector(Share(0.04), Share(0.25), Share(0.40), Share(0.06), Share(0.18), Share(0.07)), // South
+    Vector(Share(0.01), Share(0.15), Share(0.30), Share(0.06), Share(0.23), Share(0.25)), // East
+    Vector(Share(0.03), Share(0.22), Share(0.38), Share(0.06), Share(0.20), Share(0.11)), // Northwest
+    Vector(Share(0.04), Share(0.22), Share(0.40), Share(0.06), Share(0.19), Share(0.09)), // Southwest
+    Vector(Share(0.02), Share(0.18), Share(0.35), Share(0.06), Share(0.22), Share(0.17)), // North
   )

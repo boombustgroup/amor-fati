@@ -5,12 +5,14 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -90,7 +92,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     forAll(genAliveFirm, Gen.choose(1.0, 3.0)) { (firm: Firm.State, factor: Double) =>
       val f1 = firm.copy(innovationCostFactor = 1.0)
       val f2 = firm.copy(innovationCostFactor = factor)
-      Firm.computeAiCapex(f2).toDouble shouldBe (Firm.computeAiCapex(f1).toDouble * factor +- 0.01)
+      td.toDouble(Firm.computeAiCapex(f2)) shouldBe (td.toDouble(Firm.computeAiCapex(f1)) * factor +- 0.01)
     }
 
   // --- capacity(Traditional) scales linearly with workers/initialSize ---
@@ -103,9 +105,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(4),
-        Ratio(0.5),
+        Share(0.5),
         innov,
-        Ratio(digiR),
+        Share(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -123,9 +125,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(16),
-        Ratio(0.5),
+        Share(0.5),
         innov,
-        Ratio(digiR),
+        Share(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -149,9 +151,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(10),
-        Ratio(0.5),
+        Share(0.5),
         innov,
-        Ratio(digiR),
+        Share(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -169,9 +171,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(25),
-        Ratio(0.5),
+        Share(0.5),
         innov,
-        Ratio(digiR),
+        Share(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -198,9 +200,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN(100000),
         PLN.Zero,
         tech,
-        Ratio(0.5),
+        Share(0.5),
         1.0,
-        Ratio(0.4),
+        Share(0.4),
         SectorIdx(0),
         (0 until 10).filter(_ != i).map(FirmId(_)).toVector,
         bankId = BankId(0),
@@ -226,9 +228,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       PLN(100000),
       PLN.Zero,
       TechState.Traditional(10),
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(0.4),
+      Share(0.4),
       SectorIdx(0),
       Vector.empty[FirmId],
       bankId = BankId(0),

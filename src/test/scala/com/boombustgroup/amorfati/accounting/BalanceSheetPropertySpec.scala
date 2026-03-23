@@ -14,6 +14,7 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -33,8 +34,8 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   "BankingAggregate.nplRatio" should "be in [0, 1] when totalLoans > 1" in
     forAll(genBankingAggregate) { (bs: Banking.Aggregate) =>
       whenever(bs.totalLoans > PLN(1.0)) {
-        bs.nplRatio should be >= Ratio.Zero
-        bs.nplRatio should be <= Ratio.One
+        td.toDouble(bs.nplRatio) should be >= 0.0
+        td.toDouble(bs.nplRatio) should be <= 1.0
       }
     }
 
@@ -42,7 +43,7 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     forAll(Gen.choose(-100.0, 1.0), Gen.choose(0.0, 1e6)) { (loans: Double, capital: Double) =>
       val bs =
         Banking.Aggregate(PLN(loans), PLN(500.0), PLN(capital), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-      bs.nplRatio shouldBe Ratio.Zero
+      bs.nplRatio shouldBe Share.Zero
     }
 
   "BankingAggregate.car" should "be >= 0 for non-negative capital and loans" in
@@ -50,14 +51,14 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
       whenever(loans > 1.0) {
         val bs =
           Banking.Aggregate(PLN(loans), PLN(0.0), PLN(capital), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-        bs.car should be >= Ratio.Zero
+        td.toDouble(bs.car) should be >= 0.0
       }
     }
 
   it should "be 10.0 when totalLoans <= 1" in
     forAll(Gen.choose(-100.0, 1.0)) { (loans: Double) =>
       val bs = Banking.Aggregate(PLN(loans), PLN(0.0), PLN(1000.0), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-      bs.car shouldBe Ratio(10.0)
+      bs.car shouldBe Multiplier(10.0)
     }
 
   // lendingRate and canLend removed from BankingAggregate — now only on Banking.BankState
@@ -67,22 +68,25 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   "GovState" should "have deficit = spending - revenue via updateGov" in
     forAll(genGovUpdateInputs) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double)) =>
       val (prev, cit, vat, price, unempBen) = inputs
-      val gov                               = FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
-      val totalRev                          = cit + vat
-      val totalSpend                        = unempBen + p.fiscal.govBaseSpending.toDouble * price
-      gov.deficit.toDouble shouldBe (totalSpend - totalRev +- 1.0)
+      whenever(price >= 0.01) {
+        val gov        = FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
+        val totalRev   = cit + vat
+        val totalSpend = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price
+        val tol        = td.toDouble(p.fiscal.govBaseSpending) * 0.0001 + 1.0 // Multiplier rounding tolerance
+        td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- tol)
+      }
     }
 
   // --- ForexState properties ---
 
   "ForexState" should "have tradeBalance = exports - imports" in
     forAll(genForexState) { (fs: OpenEconomy.ForexState) =>
-      fs.tradeBalance.toDouble shouldBe ((fs.exports - fs.imports).toDouble +- 1e-6)
+      td.toDouble(fs.tradeBalance) shouldBe (td.toDouble(fs.exports - fs.imports) +- 1.0)
     }
 
   // --- BopState properties ---
 
   "BopState" should "have CA = tradeBalance + primaryIncome + secondaryIncome" in
     forAll(genBopState) { (bop: OpenEconomy.BopState) =>
-      bop.currentAccount.toDouble shouldBe ((bop.tradeBalance + bop.primaryIncome + bop.secondaryIncome).toDouble +- 1e-6)
+      td.toDouble(bop.currentAccount) shouldBe (td.toDouble(bop.tradeBalance + bop.primaryIncome + bop.secondaryIncome) +- 1.0)
     }

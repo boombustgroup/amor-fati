@@ -10,10 +10,12 @@ class BalanceSheetSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
+  private val td = ComputationBoundary
+
   "BankingAggregate.nplRatio" should "equal nplAmount / totalLoans when totalLoans > 1" in {
     val b =
       Banking.Aggregate(PLN(1000000), PLN(50000), PLN(200000), PLN(500000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    b.nplRatio.toDouble shouldBe 0.05 +- 0.001
+    td.toDouble(b.nplRatio) shouldBe 0.05 +- 0.001
   }
 
   it should "return 0.0 when totalLoans <= 1" in {
@@ -29,7 +31,7 @@ class BalanceSheetSpec extends AnyFlatSpec with Matchers:
         PLN.Zero,
         PLN.Zero,
       )
-      .nplRatio shouldBe Ratio.Zero
+      .nplRatio shouldBe Share.Zero
     Banking
       .Aggregate(
         PLN(1),
@@ -42,12 +44,12 @@ class BalanceSheetSpec extends AnyFlatSpec with Matchers:
         PLN.Zero,
         PLN.Zero,
       )
-      .nplRatio shouldBe Ratio.Zero
+      .nplRatio shouldBe Share.Zero
   }
 
   "BankingAggregate.car" should "equal capital / totalLoans when totalLoans > 1" in {
     val b = Banking.Aggregate(PLN(1000000), PLN.Zero, PLN(200000), PLN(500000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    b.car.toDouble shouldBe 0.2 +- 0.001
+    td.toDouble(b.car) shouldBe 0.2 +- 0.001
   }
 
   it should "return 10.0 when totalLoans <= 1" in {
@@ -63,7 +65,7 @@ class BalanceSheetSpec extends AnyFlatSpec with Matchers:
         PLN.Zero,
         PLN.Zero,
       )
-      .car shouldBe Ratio(10.0)
+      .car shouldBe Multiplier(10.0)
   }
 
   // lendingRate and canLend removed from BankingAggregate — now only on Banking.BankState

@@ -10,21 +10,22 @@ import scala.util.Random
 class RegionSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   "Region" should "have 6 macroregions" in {
     Region.all.length shouldBe 6
   }
 
   it should "have population shares summing to ~1.0" in {
-    Region.all.map(_.populationShare.toDouble).sum shouldBe 1.0 +- 0.01
+    Region.all.map(r => td.toDouble(r.populationShare)).sum shouldBe 1.0 +- 0.01
   }
 
   it should "have Central with highest wages" in {
-    Region.Central.wageMultiplier.toDouble should be > Region.all.map(_.wageMultiplier.toDouble).sum / 6
+    td.toDouble(Region.Central.wageMultiplier) should be > Region.all.map(r => td.toDouble(r.wageMultiplier)).sum / 6
   }
 
   it should "have East with highest base unemployment" in {
-    Region.East.baseUnemployment.toDouble should be > Region.Central.baseUnemployment.toDouble
+    td.toDouble(Region.East.baseUnemployment) should be > td.toDouble(Region.Central.baseUnemployment)
   }
 
   "frictionMatrix" should "have zero diagonal" in {
@@ -37,26 +38,26 @@ class RegionSpec extends AnyFlatSpec with Matchers:
   }
 
   "migrationProbability" should "be zero for same region" in {
-    Region.migrationProbability(Region.Central, Region.Central, Ratio(1.5), 0.7) shouldBe Ratio.Zero
+    Region.migrationProbability(Region.Central, Region.Central, Multiplier(1.5), Share(0.7)) shouldBe Share.Zero
   }
 
   it should "increase with wage differential" in {
     // East→Northwest: similar housing cost (0.65→0.90), migration not blocked
-    val low  = Region.migrationProbability(Region.East, Region.Northwest, Ratio(1.1), 0.7)
-    val high = Region.migrationProbability(Region.East, Region.Northwest, Ratio(1.5), 0.7)
-    high.toDouble should be > low.toDouble
+    val low  = Region.migrationProbability(Region.East, Region.Northwest, Multiplier(1.1), Share(0.7))
+    val high = Region.migrationProbability(Region.East, Region.Northwest, Multiplier(1.5), Share(0.7))
+    td.toDouble(high) should be > td.toDouble(low)
   }
 
   it should "be zero when destination wages are lower" in {
-    Region.migrationProbability(Region.Central, Region.East, Ratio(0.8), 0.7) shouldBe Ratio.Zero
+    Region.migrationProbability(Region.Central, Region.East, Multiplier(0.8), Share(0.7)) shouldBe Share.Zero
   }
 
   "sectorComposition" should "sum to ~1.0 per region" in {
-    for r <- 0 until Region.count do Region.sectorComposition(r).map(_.toDouble).sum shouldBe 1.0 +- 0.01
+    for r <- 0 until Region.count do Region.sectorComposition(r).map(s => td.toDouble(s)).sum shouldBe 1.0 +- 0.01
   }
 
   it should "have high agriculture in East" in {
-    Region.sectorComposition(Region.East.ordinal)(5).toDouble should be > 0.20
+    td.toDouble(Region.sectorComposition(Region.East.ordinal)(5)) should be > 0.20
   }
 
   "RegionalMigration" should "not move employed workers" in {
@@ -82,9 +83,9 @@ class RegionSpec extends AnyFlatSpec with Matchers:
       savings = PLN(50000.0),
       debt = PLN.Zero,
       monthlyRent = PLN.Zero,
-      skill = Ratio(0.5),
-      healthPenalty = Ratio.Zero,
-      mpc = Ratio(0.7),
+      skill = Share(0.5),
+      healthPenalty = Share.Zero,
+      mpc = Share(0.7),
       status = status,
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(0),
@@ -94,7 +95,7 @@ class RegionSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
       region = region,
     )

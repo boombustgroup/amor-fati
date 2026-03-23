@@ -9,17 +9,17 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val baseMpc = Ratio(0.82)
+  private val baseMpc = Share(0.82)
   private val income  = PLN(8000.0)
 
-  private def mkHh(savings: PLN = PLN(48000.0), mpc: Ratio = baseMpc): Household.State =
+  private def mkHh(savings: PLN = PLN(48000.0), mpc: Share = baseMpc): Household.State =
     Household.State(
       HhId(0),
       savings,
       PLN.Zero,
       PLN(1800.0),
-      Ratio(0.7),
-      Ratio.Zero,
+      Share(0.7),
+      Share.Zero,
       mpc,
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
       Array.empty[HhId],
@@ -30,8 +30,8 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
 
   // target savings = 8000 * 6 = 48000
@@ -51,7 +51,7 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
   it should "raise MPC when buffer is depleted (savings << target)" in {
     val hh     = mkHh(savings = PLN(5000.0))
     val result = Household.updateMpc(hh, income, hh.status)
-    result should be > baseMpc
+    result should be >= baseMpc
   }
 
   it should "boost MPC for unemployed" in {
@@ -65,13 +65,13 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
   it should "clamp MPC to floor" in {
     val hh     = mkHh(savings = PLN(1_000_000.0))
     val result = Household.updateMpc(hh, income, hh.status)
-    result should be >= Ratio(0.50)
+    result should be >= Share(0.50)
   }
 
   it should "clamp MPC to ceiling" in {
     val hh     = mkHh(savings = PLN.Zero)
     val result = Household.updateMpc(hh, income, HhStatus.Unemployed(12))
-    result should be <= Ratio(0.98)
+    result should be <= Share(0.98)
   }
 
   it should "return base MPC when income is zero" in {

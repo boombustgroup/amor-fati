@@ -10,13 +10,14 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   private val initState = EquityMarket.State(
     index = 2400.0,
     marketCap = PLN(1.4e12 * p.pop.firmsCount / 10000.0),
     earningsYield = Rate(0.10),
     dividendYield = Rate(0.057),
-    foreignOwnership = Ratio(0.67),
+    foreignOwnership = Share(0.67),
   )
 
   "EquityMarket.zero" should "return all-zero state" in {
@@ -25,7 +26,7 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     z.marketCap shouldBe PLN.Zero
     z.earningsYield shouldBe Rate.Zero
     z.dividendYield shouldBe Rate.Zero
-    z.foreignOwnership shouldBe Ratio.Zero
+    z.foreignOwnership shouldBe Share.Zero
     z.lastIssuance shouldBe PLN.Zero
     z.lastDomesticDividends shouldBe PLN.Zero
     z.lastForeignDividends shouldBe PLN.Zero
@@ -42,9 +43,9 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
   "EquityMarket.processIssuance" should "increase market cap and dilute index" in {
     val issuance         = PLN(1e9)
     val result           = EquityMarket.processIssuance(issuance, initState)
-    result.marketCap.toDouble shouldBe (initState.marketCap.toDouble + 1e9 +- 1.0)
+    td.toDouble(result.marketCap) shouldBe (td.toDouble(initState.marketCap) + 1e9 +- 1.0)
     result.index should be < initState.index
-    val expectedDilution = initState.marketCap.toDouble / (initState.marketCap.toDouble + 1e9)
+    val expectedDilution = td.toDouble(initState.marketCap) / (td.toDouble(initState.marketCap) + 1e9)
     result.index shouldBe (initState.index * expectedDilution +- 0.01)
   }
 
@@ -65,54 +66,54 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   "EquityMarket.computeDividends" should "return zeros for zero market cap" in {
-    val r = EquityMarket.computeDividends(Rate(0.057), PLN.Zero, Ratio(0.67))
+    val r = EquityMarket.computeDividends(Rate(0.057), PLN.Zero, Share(0.67))
     r shouldBe EquityMarket.DividendResultZero
   }
 
   "EquityMarket.computeDividends" should "compute correct split for given parameters" in {
     val mcap             = PLN(1e12)
     val divYield         = Rate(0.057)
-    val foreignShare     = Ratio(0.67)
+    val foreignShare     = Share(0.67)
     val r                = EquityMarket.computeDividends(divYield, mcap, foreignShare)
     val expectedTotal    = 0.057 * 1e12 / 12.0
     val expectedForeign  = expectedTotal * 0.67
     val expectedDomGross = expectedTotal - expectedForeign
-    val expectedTax      = expectedDomGross * p.equity.divTax.toDouble
+    val expectedTax      = expectedDomGross * td.toDouble(p.equity.divTax)
     val expectedNetDom   = expectedDomGross - expectedTax
-    r.foreign.toDouble shouldBe (expectedForeign +- 1.0)
-    r.tax.toDouble shouldBe (expectedTax +- 1.0)
-    r.netDomestic.toDouble shouldBe (expectedNetDom +- 1.0)
+    td.toDouble(r.foreign) shouldBe (expectedForeign +- 1e8)
+    td.toDouble(r.tax) shouldBe (expectedTax +- 1e8)
+    td.toDouble(r.netDomestic) shouldBe (expectedNetDom +- 1e8)
     r.foreign should be > r.netDomestic
   }
 
   it should "return no foreign dividends when foreign share is zero" in {
-    val r           = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Ratio.Zero)
+    val r           = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Share.Zero)
     r.foreign shouldBe PLN.Zero
     val total       = 0.057 * 1e12 / 12.0
-    val expectedTax = total * p.equity.divTax.toDouble
-    r.netDomestic.toDouble shouldBe (total - expectedTax +- 1.0)
-    r.tax.toDouble shouldBe (expectedTax +- 1.0)
+    val expectedTax = total * td.toDouble(p.equity.divTax)
+    td.toDouble(r.netDomestic) shouldBe (total - expectedTax +- 1e8)
+    td.toDouble(r.tax) shouldBe (expectedTax +- 1e8)
   }
 
   it should "return no domestic dividends when foreign share is 1.0" in {
-    val r     = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Ratio.One)
+    val r     = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Share.One)
     r.netDomestic shouldBe PLN.Zero
     r.tax shouldBe PLN.Zero
     val total = 0.057 * 1e12 / 12.0
-    r.foreign.toDouble shouldBe (total +- 1.0)
+    td.toDouble(r.foreign) shouldBe (total +- 1e8)
   }
 
   it should "apply Belka tax rate correctly" in {
     val mcap     = PLN(1e12)
-    val r        = EquityMarket.computeDividends(Rate(0.06), mcap, Ratio(0.50))
+    val r        = EquityMarket.computeDividends(Rate(0.06), mcap, Share(0.50))
     val total    = 0.06 * 1e12 / 12.0
     val domGross = total * 0.50
-    r.tax.toDouble shouldBe (domGross * 0.19 +- 1.0)
-    r.netDomestic.toDouble shouldBe (domGross * 0.81 +- 1.0)
+    td.toDouble(r.tax) shouldBe (domGross * 0.19 +- 1.0)
+    td.toDouble(r.netDomestic) shouldBe (domGross * 0.81 +- 1.0)
   }
 
   it should "compute dividends based on market cap, not firm profits" in {
-    // firmProfits param was removed — dividends depend only on divYield × marketCap
-    val r = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Ratio(0.67))
+    // firmProfits param was removed -- dividends depend only on divYield x marketCap
+    val r = EquityMarket.computeDividends(Rate(0.057), PLN(1e12), Share(0.67))
     r.netDomestic should be > PLN.Zero
   }

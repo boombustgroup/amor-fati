@@ -10,6 +10,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   // =========================================================================
   // ZUS
@@ -64,7 +65,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
     val ppk      = SocialSecurity.PpkState(bondHoldings = PLN.Zero, contributions = PLN(1e6))
     // Default bondAlloc = 0.60
     val purchase = SocialSecurity.ppkBondPurchase(ppk)
-    purchase.toDouble shouldBe (1e6 * 0.60 +- 0.01)
+    td.toDouble(purchase) shouldBe (1e6 * 0.60 +- 0.01)
   }
 
   "SocialSecurity.PpkState.zero" should "have all zero fields" in {

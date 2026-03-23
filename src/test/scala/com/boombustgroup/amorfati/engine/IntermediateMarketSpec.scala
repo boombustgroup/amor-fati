@@ -4,12 +4,14 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
 import com.boombustgroup.amorfati.engine.markets.IntermediateMarket
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   private val defaultMatrix = Vector(
     Vector(0.05, 0.03, 0.04, 0.02, 0.03, 0.01),
@@ -37,9 +39,9 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       PLN(cash),
       PLN.Zero,
       tech,
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(0.3),
+      Share(0.3),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -72,8 +74,8 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   "IntermediateMarket.process" should "produce zero-sum cash adjustments" in {
     val firms           = makeFirmsAllSectors(20)
     val result          = IntermediateMarket.process(baseInput(firms))
-    val totalCashBefore = firms.map(_.cash.toDouble).sum
-    val totalCashAfter  = result.firms.map(_.cash.toDouble).sum
+    val totalCashBefore = firms.map(f => td.toDouble(f.cash)).sum
+    val totalCashAfter  = result.firms.map(f => td.toDouble(f.cash)).sum
     totalCashAfter shouldBe totalCashBefore +- 1.0
   }
 
@@ -84,14 +86,14 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val firms       = (0 until 6).map(s => makeFirm(s, s)).toVector
     val result      = IntermediateMarket.process(baseInput(firms))
     // Firm in sector 0 (BPO): should pay columnSum(0) of its gross output
-    val bpoOutput   = Firm.computeCapacity(firms(0)).toDouble * 1.0 * 1.0
+    val bpoOutput   = td.toDouble(Firm.computeCapacity(firms(0))) * 1.0 * 1.0
     val bpoCost     = bpoOutput * defaultColSums(0)
     // BPO revenue: sum over j of a_0j * sectorOutput_j
     val bpoRevenue  = (0 until 6).map { j =>
-      defaultMatrix(0)(j) * Firm.computeCapacity(firms(j)).toDouble * 1.0 * 1.0
+      defaultMatrix(0)(j) * td.toDouble(Firm.computeCapacity(firms(j))) * 1.0 * 1.0
     }.sum
     val expectedAdj = bpoRevenue - bpoCost
-    val actualAdj   = (result.firms(0).cash - firms(0).cash).toDouble
+    val actualAdj   = td.toDouble(result.firms(0).cash - firms(0).cash)
     actualAdj shouldBe expectedAdj +- 0.01
   }
 
@@ -106,19 +108,19 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     )
     val result       = IntermediateMarket.process(baseInput(firms))
     // Bankrupt firm's cash should not change
-    result.firms(1).cash.toDouble shouldBe firms(1).cash.toDouble
+    td.toDouble(result.firms(1).cash) shouldBe td.toDouble(firms(1).cash)
     // Still zero-sum among living firms
-    val livingBefore = firms.filter(f => Firm.isAlive(f)).map(_.cash.toDouble).sum
-    val livingAfter  = result.firms.filter(f => Firm.isAlive(f)).map(_.cash.toDouble).sum
+    val livingBefore = firms.filter(f => Firm.isAlive(f)).map(f => td.toDouble(f.cash)).sum
+    val livingAfter  = result.firms.filter(f => Firm.isAlive(f)).map(f => td.toDouble(f.cash)).sum
     livingAfter shouldBe livingBefore +- 1.0
   }
 
-  // ---- Test 4: Zero matrix → no changes ----
+  // ---- Test 4: Zero matrix -> no changes ----
 
   it should "leave firms unchanged when A matrix is zero" in {
     val firms  = makeFirmsAllSectors(10)
     val result = IntermediateMarket.process(baseInput(firms).copy(ioMatrix = zeroMatrix, columnSums = zeroColSums))
-    for i <- firms.indices do result.firms(i).cash.toDouble shouldBe firms(i).cash.toDouble
+    for i <- firms.indices do td.toDouble(result.firms(i).cash) shouldBe td.toDouble(firms(i).cash)
     result.totalPaid shouldBe PLN.Zero
   }
 
@@ -128,13 +130,13 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val firms       = (0 until 10).map(i => makeFirm(i, 0)).toVector
     val result      = IntermediateMarket.process(baseInput(firms))
     // Zero-sum still holds
-    val totalBefore = firms.map(_.cash.toDouble).sum
-    val totalAfter  = result.firms.map(_.cash.toDouble).sum
+    val totalBefore = firms.map(f => td.toDouble(f.cash)).sum
+    val totalAfter  = result.firms.map(f => td.toDouble(f.cash)).sum
     totalAfter shouldBe totalBefore +- 1.0
     // With only sector 0 firms: effective colSum(0) = a_00 (only sector 0 has suppliers)
-    // cost = a_00 × output, revenue = a_00 × output → net = 0 for each firm
+    // cost = a_00 x output, revenue = a_00 x output -> net = 0 for each firm
     for i <- firms.indices do
-      val actualNet = (result.firms(i).cash - firms(i).cash).toDouble
+      val actualNet = td.toDouble(result.firms(i).cash - firms(i).cash)
       actualNet shouldBe 0.0 +- 0.01
   }
 
@@ -154,8 +156,8 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val r1        = result.firms.find(_.id == FirmId(100)).get
     val r2        = result.firms.find(_.id == FirmId(101)).get
     // Higher capacity firm receives more I-O revenue, so net cash gain is higher
-    val delta1    = r1.cash.toDouble - firm1.cash.toDouble
-    val delta2    = r2.cash.toDouble - firm2.cash.toDouble
+    val delta1    = td.toDouble(r1.cash) - td.toDouble(firm1.cash)
+    val delta2    = td.toDouble(r2.cash) - td.toDouble(firm2.cash)
     delta1 should be > delta2
     result.totalPaid should be > PLN.Zero
   }
@@ -175,5 +177,5 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val base    = IntermediateMarket.process(baseInput(firms))
     val doubled = IntermediateMarket.process(baseInput(firms).copy(sectorMults = Vector.fill(6)(2.0)))
     // Doubling demand should double total I-O flows
-    doubled.totalPaid.toDouble shouldBe (base.totalPaid.toDouble * 2.0) +- (base.totalPaid.toDouble * 0.01)
+    td.toDouble(doubled.totalPaid) shouldBe (td.toDouble(base.totalPaid) * 2.0) +- (td.toDouble(base.totalPaid) * 0.01)
   }

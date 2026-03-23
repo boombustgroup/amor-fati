@@ -45,16 +45,16 @@ import com.boombustgroup.amorfati.types.*
   */
 case class NbfiConfig(
     tfiInitAum: PLN = PLN(380e9),      // raw — scaled by gdpRatio
-    tfiGovBondShare: Ratio = Ratio(0.40),
-    tfiCorpBondShare: Ratio = Ratio(0.10),
-    tfiEquityShare: Ratio = Ratio(0.10),
-    tfiInflowRate: Ratio = Ratio(0.001),
-    tfiRebalanceSpeed: Ratio = Ratio(0.05),
+    tfiGovBondShare: Share = Share(0.40),
+    tfiCorpBondShare: Share = Share(0.10),
+    tfiEquityShare: Share = Share(0.10),
+    tfiInflowRate: Share = Share(0.001),
+    tfiRebalanceSpeed: Coefficient = Coefficient(0.05),
     creditInitStock: PLN = PLN(231e9), // raw — scaled by gdpRatio
-    creditBaseRate: Ratio = Ratio(0.005),
+    creditBaseRate: Share = Share(0.005),
     creditRate: Rate = Rate(0.10),
-    countercyclical: Double = 2.0,
+    countercyclical: Coefficient = Coefficient(2.0),
     creditMaturity: Double = 36.0,
-    defaultBase: Ratio = Ratio(0.002),
-    defaultUnempSens: Double = 3.0,
+    defaultBase: Share = Share(0.002),
+    defaultUnempSens: Coefficient = Coefficient(3.0),
 )

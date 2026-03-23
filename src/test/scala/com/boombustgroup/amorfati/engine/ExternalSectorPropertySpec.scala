@@ -13,6 +13,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
@@ -32,7 +33,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   "GvcTrade.step" should "always have non-negative total exports" in
     forAll(genExchangeRate, genPrice, genFraction, Gen.choose(1, 120)) { (er: Double, price: Double, autoR: Double, month: Int) =>
       val r = runStep(er, price, autoR, month)
-      r.totalExports.toDouble should be >= 0.0
+      td.toDouble(r.totalExports) should be >= 0.0
     }
 
   // --- Imports always non-negative ---
@@ -40,7 +41,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "always have non-negative total intermediate imports" in
     forAll(genExchangeRate, genPrice) { (er: Double, price: Double) =>
       val r = runStep(er, price)
-      r.totalIntermImports.toDouble should be >= 0.0
+      td.toDouble(r.totalIntermImports) should be >= 0.0
     }
 
   // --- Foreign price always >= 1.0 ---
@@ -48,7 +49,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "always have foreign price index >= 1.0" in
     forAll(Gen.choose(1, 120)) { (month: Int) =>
       val r = runStep(month = month)
-      r.foreignPriceIndex.toDouble should be >= 1.0
+      td.toDouble(r.foreignPriceIndex) should be >= 1.0
     }
 
   // --- Disruption in [0, 1] ---
@@ -56,8 +57,8 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "keep disruption index in [0, 1]" in
     forAll(genExchangeRate, genFraction, Gen.choose(1, 120)) { (er: Double, autoR: Double, month: Int) =>
       val r = runStep(er, autoR = autoR, month = month)
-      r.disruptionIndex.toDouble should be >= 0.0
-      r.disruptionIndex.toDouble should be <= 1.0
+      td.toDouble(r.disruptionIndex) should be >= 0.0
+      td.toDouble(r.disruptionIndex) should be <= 1.0
     }
 
   // --- Sector vectors have length 6 ---
@@ -74,8 +75,8 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "have trade concentration HHI in (0, 1]" in
     forAll(genExchangeRate) { (er: Double) =>
       val r = runStep(er)
-      r.tradeConcentration.toDouble should be > 0.0
-      r.tradeConcentration.toDouble should be <= 1.0
+      td.toDouble(r.tradeConcentration) should be > 0.0
+      td.toDouble(r.tradeConcentration) should be <= 1.0
     }
 
   // --- Import cost index >= 1 ---
@@ -83,5 +84,5 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "have import cost index >= 1.0" in
     forAll(Gen.choose(1, 120)) { (month: Int) =>
       val r = runStep(month = month)
-      r.importCostIndex.toDouble should be >= 1.0
+      td.toDouble(r.importCostIndex) should be >= 1.0
     }

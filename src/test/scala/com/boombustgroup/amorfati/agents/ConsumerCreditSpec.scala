@@ -4,6 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 /** Consumer credit unit tests. */
@@ -11,47 +12,48 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   "Config defaults" should "have sensible consumer credit parameters" in {
     p.household.ccSpread shouldBe Rate(0.04)
-    p.household.ccMaxDti shouldBe Ratio(0.40)
+    p.household.ccMaxDti shouldBe Share(0.40)
     p.household.ccMaxLoan shouldBe PLN(50000.0)
     p.household.ccAmortRate shouldBe Rate(0.025)
-    p.household.ccNplRecovery shouldBe Ratio(0.15)
-    p.household.ccEligRate shouldBe Ratio(0.30)
+    p.household.ccNplRecovery shouldBe Share(0.15)
+    p.household.ccEligRate shouldBe Share(0.30)
   }
 
-  "DTI limit" should "cap loan at headroom × income" in {
-    // HH with income 8000, existing DTI = 0.20 → headroom = (0.40 - 0.20) × 8000 = 1600
+  "DTI limit" should "cap loan at headroom x income" in {
+    // HH with income 8000, existing DTI = 0.20 -> headroom = (0.40 - 0.20) x 8000 = 1600
     val income      = 8000.0
     val existingDti = 0.20
-    val headroom    = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income
+    val headroom    = Math.max(0.0, td.toDouble(p.household.ccMaxDti) - existingDti) * income
     headroom shouldBe 1600.0 +- 0.01
-    headroom should be < p.household.ccMaxLoan.toDouble // 1600 < 50000
+    headroom should be < td.toDouble(p.household.ccMaxLoan) // 1600 < 50000
   }
 
   it should "produce zero loan when at max DTI" in {
     val income      = 8000.0
     val existingDti = 0.40
-    val headroom    = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income
+    val headroom    = Math.max(0.0, td.toDouble(p.household.ccMaxDti) - existingDti) * income
     headroom shouldBe 0.0
   }
 
   "Loan size" should "not exceed CcMaxLoan" in {
-    // HH with high income, low DTI → headroom > CcMaxLoan → capped
+    // HH with high income, low DTI -> headroom > CcMaxLoan -> capped
     val income      = 200000.0
     val existingDti = 0.0
-    val headroom    = Math.max(0.0, p.household.ccMaxDti.toDouble - existingDti) * income
-    val desired     = Math.min(headroom, p.household.ccMaxLoan.toDouble)
-    desired shouldBe p.household.ccMaxLoan.toDouble
+    val headroom    = Math.max(0.0, td.toDouble(p.household.ccMaxDti) - existingDti) * income
+    val desired     = Math.min(headroom, td.toDouble(p.household.ccMaxLoan))
+    desired shouldBe td.toDouble(p.household.ccMaxLoan)
   }
 
   "Consumer debt service" should "include both amortization and interest" in {
     val consumerDebt = 10000.0
     val refRate      = 0.0575
-    val rate         = refRate + p.household.ccSpread.toDouble
-    val debtService  = consumerDebt * (p.household.ccAmortRate.toDouble + rate / 12.0)
-    // 10000 × (0.025 + (0.0575 + 0.04) / 12) = 10000 × (0.025 + 0.008125) = 331.25
+    val rate         = refRate + td.toDouble(p.household.ccSpread)
+    val debtService  = consumerDebt * (td.toDouble(p.household.ccAmortRate) + rate / 12.0)
+    // 10000 x (0.025 + (0.0575 + 0.04) / 12) = 10000 x (0.025 + 0.008125) = 331.25
     debtService shouldBe 331.25 +- 0.01
     debtService should be > 0.0
   }
@@ -69,7 +71,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   "Consumer spread" should "be applied on top of reference rate" in {
     val refRate      = 0.0575
-    val consumerRate = refRate + p.household.ccSpread.toDouble
+    val consumerRate = refRate + td.toDouble(p.household.ccSpread)
     consumerRate shouldBe 0.0975 +- 0.001
     // Annualized consumer rate ~9.75% (NBP MIR consumer ~9-10%)
   }
@@ -80,9 +82,9 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       savings = PLN(-5000.0),
       debt = PLN(1000.0),
       monthlyRent = PLN(1000.0),
-      skill = Ratio(0.8),
-      healthPenalty = Ratio(0.0),
-      mpc = Ratio(0.82),
+      skill = Share(0.8),
+      healthPenalty = Share(0.0),
+      mpc = Share(0.82),
       status = HhStatus.Bankrupt,
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(0),
@@ -92,22 +94,22 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN(5000.0),
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
-    // Bankrupt HH should have consumer debt → NPL
+    // Bankrupt HH should have consumer debt -> NPL
     hh.consumerDebt shouldBe PLN(5000.0)
-    // NPL loss = consumerDebt × (1 - recovery)
-    val nplLoss = hh.consumerDebt.toDouble * (1.0 - p.household.ccNplRecovery.toDouble)
+    // NPL loss = consumerDebt * (1 - recovery)
+    val nplLoss = td.toDouble(hh.consumerDebt) * (1.0 - td.toDouble(p.household.ccNplRecovery))
     nplLoss shouldBe 4250.0 +- 0.01
   }
 
   "Bank capital" should "absorb consumer NPL loss with CcNplRecovery" in {
     val defaultAmount = 10000.0
-    val nplLoss       = defaultAmount * (1.0 - p.household.ccNplRecovery.toDouble)
+    val nplLoss       = defaultAmount * (1.0 - td.toDouble(p.household.ccNplRecovery))
     nplLoss shouldBe 8500.0 +- 0.01
-    // Lower recovery (15%) than firm NPL (30%) → higher bank capital impact
-    val firmNplLoss   = defaultAmount * (1.0 - p.banking.loanRecovery.toDouble)
+    // Lower recovery (15%) than firm NPL (30%) -> higher bank capital impact
+    val firmNplLoss   = defaultAmount * (1.0 - td.toDouble(p.banking.loanRecovery))
     nplLoss should be > firmNplLoss
   }
 
@@ -115,9 +117,9 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     val prevStock      = 100000.0
     val origination    = 5000.0
     val refRate        = 0.0575
-    val totalRate      = p.household.ccAmortRate.toDouble + (refRate + p.household.ccSpread.toDouble) / 12.0
+    val totalRate      = td.toDouble(p.household.ccAmortRate) + (refRate + td.toDouble(p.household.ccSpread)) / 12.0
     val debtService    = prevStock * totalRate
-    val principal      = debtService * (p.household.ccAmortRate.toDouble / totalRate)
+    val principal      = debtService * (td.toDouble(p.household.ccAmortRate) / totalRate)
     val defaultAmt     = 1000.0
     val newStock       = prevStock + origination - principal - defaultAmt
     val expectedChange = origination - principal - defaultAmt
@@ -146,12 +148,12 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       importConsumption = PLN.Zero,
       marketWage = PLN.Zero,
       reservationWage = PLN.Zero,
-      giniIndividual = Ratio.Zero,
-      giniWealth = Ratio.Zero,
+      giniIndividual = Share.Zero,
+      giniWealth = Share.Zero,
       meanSavings = PLN.Zero,
       medianSavings = PLN.Zero,
-      povertyRate50 = Ratio.Zero,
-      bankruptcyRate = Ratio.Zero,
+      povertyRate50 = Share.Zero,
+      bankruptcyRate = Share.Zero,
       meanSkill = 0,
       meanHealthPenalty = 0,
       retrainingAttempts = 0,
@@ -160,14 +162,14 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       consumptionP50 = PLN.Zero,
       consumptionP90 = PLN.Zero,
       meanMonthsToRuin = 0,
-      povertyRate30 = Ratio.Zero,
+      povertyRate30 = Share.Zero,
       totalRent = PLN.Zero,
       totalDebtService = PLN.Zero,
       totalUnempBenefits = PLN.Zero,
       totalDepositInterest = PLN.Zero,
       crossSectorHires = 0,
       voluntaryQuits = 0,
-      sectorMobilityRate = Ratio.Zero,
+      sectorMobilityRate = Share.Zero,
       totalRemittances = PLN.Zero,
       totalPit = PLN.Zero,
       totalSocialTransfers = PLN.Zero,
@@ -187,9 +189,9 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       savings = PLN(10000.0),
       debt = PLN.Zero,
       monthlyRent = PLN(1000.0),
-      skill = Ratio(0.8),
-      healthPenalty = Ratio(0.0),
-      mpc = Ratio(0.82),
+      skill = Share(0.8),
+      healthPenalty = Share(0.0),
+      mpc = Share(0.82),
       status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266.0)),
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(0),
@@ -199,8 +201,8 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
     hh.consumerDebt shouldBe PLN.Zero
   }
@@ -215,11 +217,11 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     val bank     =
       Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN(1000.0), PLN.Zero, PLN.Zero)
     // CAR = capital / (totalLoans + consumerLoans) = 500 / 2000 = 0.25
-    bank.car.toDouble shouldBe 0.25 +- 0.01
+    td.toDouble(bank.car) shouldBe 0.25 +- 0.01
     // Without consumer loans: CAR = 500 / 1000 = 0.50
     val bankNoCc =
       Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    bankNoCc.car.toDouble shouldBe 0.50 +- 0.01
+    td.toDouble(bankNoCc.car) shouldBe 0.50 +- 0.01
     bank.car should be < bankNoCc.car
   }
 

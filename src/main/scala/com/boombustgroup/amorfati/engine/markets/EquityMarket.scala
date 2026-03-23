@@ -40,7 +40,7 @@ object EquityMarket:
       marketCap: PLN,
       earningsYield: Rate,
       dividendYield: Rate,
-      foreignOwnership: Ratio,
+      foreignOwnership: Share,
       lastIssuance: PLN = PLN.Zero,
       lastDomesticDividends: PLN = PLN.Zero,
       lastForeignDividends: PLN = PLN.Zero,
@@ -55,7 +55,7 @@ object EquityMarket:
     marketCap = PLN.Zero,
     earningsYield = Rate.Zero,
     dividendYield = Rate.Zero,
-    foreignOwnership = Ratio.Zero,
+    foreignOwnership = Share.Zero,
   )
 
   def initial(using p: SimParams): State = State(
@@ -79,15 +79,17 @@ object EquityMarket:
       firmProfits: PLN,
   )
 
+  @boundaryEscape
   def step(in: StepInput)(using p: SimParams): State =
+    import ComputationBoundary.toDouble
     if !p.flags.gpw then zero
     else
-      val discountRate   = Math.max(MinDiscountRate, in.refRate.toDouble + EquityRiskPremium)
+      val discountRate   = Math.max(MinDiscountRate, toDouble(in.refRate) + EquityRiskPremium)
       val growthCap      = discountRate - GordonSingularityGuard
       val expectedGrowth = Math.max(GrowthFloor, Math.min(growthCap, in.gdpGrowth * MonthsPerYear))
 
       // Gordon growth fundamental value
-      val dividend    = in.prev.dividendYield.toDouble * in.prev.index
+      val dividend    = toDouble(in.prev.dividendYield) * in.prev.index
       val denominator = discountRate - expectedGrowth
       val gordonIndex =
         if denominator > GordonSingularityGuard then dividend / denominator
@@ -97,22 +99,22 @@ object EquityMarket:
 
       // Market cap scales with index
       val indexReturn  = if in.prev.index > 0 then newIndex / in.prev.index else 1.0
-      val newMarketCap = (in.prev.marketCap * indexReturn).max(PLN.Zero)
+      val newMarketCap = (in.prev.marketCap * Multiplier(indexReturn)).max(PLN.Zero)
 
       // Earnings yield from firm profits and market cap
-      val annualProfits    = in.firmProfits * MonthsPerYear
+      val annualProfits    = in.firmProfits * Multiplier(MonthsPerYear)
       val newEarningsYield = Rate(
-        if newMarketCap > PLN.Zero then Math.max(EarningsYieldFloor, Math.min(EarningsYieldCap, annualProfits.toDouble / newMarketCap.toDouble))
-        else in.prev.earningsYield.toDouble,
+        if newMarketCap > PLN.Zero then Math.max(EarningsYieldFloor, Math.min(EarningsYieldCap, annualProfits / newMarketCap))
+        else toDouble(in.prev.earningsYield),
       )
 
       // Dividend yield: payout ratio x earnings yield (mean-reverting to calibrated)
-      val impliedDivYield = newEarningsYield.toDouble * PayoutRatio
-      val newDivYield     = in.prev.dividendYield * (1.0 - DivYieldSmoothing) + Rate(impliedDivYield * DivYieldSmoothing)
+      val impliedDivYield = toDouble(newEarningsYield) * PayoutRatio
+      val newDivYield     = in.prev.dividendYield * Multiplier(1.0 - DivYieldSmoothing) + Rate(impliedDivYield * DivYieldSmoothing)
 
       // Foreign ownership: slow-moving, mean-reverting to calibrated share
       val newForeignOwnership =
-        in.prev.foreignOwnership * (1.0 - ForeignReversionSpeed) + p.equity.foreignShare * ForeignReversionSpeed
+        in.prev.foreignOwnership * Share(1.0 - ForeignReversionSpeed) + p.equity.foreignShare * Share(ForeignReversionSpeed)
 
       val mReturn = if in.prev.index > 0 then newIndex / in.prev.index - 1.0 else 0.0
 
@@ -124,7 +126,7 @@ object EquityMarket:
   def processIssuance(amount: PLN, prev: State): State =
     if amount <= PLN.Zero then prev.copy(lastIssuance = PLN.Zero)
     else
-      val dilutionFactor = prev.marketCap.toDouble / (prev.marketCap.toDouble + amount.toDouble)
+      val dilutionFactor = prev.marketCap / (prev.marketCap + amount) // PLN/PLN → Double
       prev.copy(
         marketCap = prev.marketCap + amount,
         index = prev.index * dilutionFactor,
@@ -146,11 +148,11 @@ object EquityMarket:
   def computeDividends(
       divYield: Rate,
       marketCap: PLN,
-      foreignShare: Ratio,
+      foreignShare: Share,
   )(using p: SimParams): DividendResult =
     if marketCap <= PLN.Zero then DividendResultZero
     else
-      val totalDividends   = marketCap * divYield / MonthsPerYear
+      val totalDividends   = marketCap * divYield.monthly
       val foreignDividends = totalDividends * foreignShare
       val domesticGross    = totalDividends - foreignDividends
       val dividendTax      = domesticGross * p.equity.divTax

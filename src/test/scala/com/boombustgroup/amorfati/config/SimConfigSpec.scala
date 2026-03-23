@@ -9,17 +9,18 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   "p.sectorDefs" should "have 6 entries" in {
     p.sectorDefs.length shouldBe 6
   }
 
   it should "have shares summing to ~1.0" in {
-    p.sectorDefs.map(_.share.toDouble).sum shouldBe 1.0 +- 0.01
+    p.sectorDefs.map(s => td.toDouble(s.share)).sum shouldBe 1.0 +- 0.01
   }
 
   it should "have positive sigma for every sector" in {
-    for s <- p.sectorDefs do s.sigma should be > 0.0
+    for s <- p.sectorDefs do td.toDouble(s.sigma) should be > 0.0
   }
 
   it should "have known sector names" in {
@@ -47,8 +48,8 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have positive AI and Hybrid CAPEX" in {
-    p.firm.aiCapex.toDouble should be > 0.0
-    p.firm.hybridCapex.toDouble should be > 0.0
+    td.toDouble(p.firm.aiCapex) should be > 0.0
+    td.toDouble(p.firm.hybridCapex) should be > 0.0
   }
 
   "sigmaThreshold" should "return ~0.91 for sigma=2" in {

@@ -3,7 +3,6 @@ package com.boombustgroup.amorfati.engine.markets
 import com.boombustgroup.amorfati.agents.Firm
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.amorfati.util.KahanSum.*
 
 /** Inter-sectoral intermediate demand via Leontief Input-Output (Leontief
   * 1936).
@@ -29,7 +28,7 @@ object IntermediateMarket:
       price: Double,
       ioMatrix: Vector[Vector[Double]],
       columnSums: Vector[Double],
-      scale: Ratio = Ratio.One,
+      scale: Multiplier = Multiplier.One,
   )
 
   /** @param firms
@@ -39,16 +38,18 @@ object IntermediateMarket:
     */
   case class Result(firms: Vector[Firm.State], totalPaid: PLN)
 
+  @boundaryEscape
   def process(in: Input)(using SimParams): Result =
+    import ComputationBoundary.toDouble
     val nSectors = in.ioMatrix.size
-    val scale    = in.scale.toDouble
+    val scale    = toDouble(in.scale)
     val arr      = in.firms.toArray
 
     // Identify living firms and compute per-firm gross output
     val living      = arr.indices.filter: i =>
       Firm.isAlive(arr(i))
     val grossOutput = new Array[Double](arr.length)
-    for i <- living do grossOutput(i) = Firm.computeCapacity(arr(i)).toDouble * in.sectorMults(arr(i).sector.toInt) * in.price
+    for i <- living do grossOutput(i) = toDouble(Firm.computeCapacity(arr(i))) * in.sectorMults(arr(i).sector.toInt) * in.price
 
     // Total gross output per sector (for revenue distribution)
     val sectorOutput = new Array[Double](nSectors)
@@ -80,7 +81,7 @@ object IntermediateMarket:
       totalPaidAcc += ioCost * scale
 
     // Verify zero-sum (within floating-point tolerance)
-    val totalAdj = cashAdj.kahanSum
+    val totalAdj = cashAdj.sum
     if Math.abs(totalAdj) > 1.0 then System.err.println(f"[IO] WARNING: non-zero-sum cash adjustment: $totalAdj%.2f")
 
     // Apply cash adjustments

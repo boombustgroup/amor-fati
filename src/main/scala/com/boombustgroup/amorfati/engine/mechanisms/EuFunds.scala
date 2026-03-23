@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.mechanisms
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.types.*
 
 /** EU structural funds absorption with Beta-curve timing.
   *
@@ -28,12 +29,16 @@ object EuFunds:
     else totalPln * betaPdf(t, p.fiscal.euFundsAlpha, p.fiscal.euFundsBeta) / T
 
   /** Domestic co-financing from gov budget: cofin = eu × rate / (1 − rate). */
+  @boundaryEscape
   def cofinancing(euMonthly: Double)(using p: SimParams): Double =
-    euMonthly * p.fiscal.euCofinanceRate.toDouble / (1.0 - p.fiscal.euCofinanceRate.toDouble)
+    import ComputationBoundary.toDouble
+    euMonthly * toDouble(p.fiscal.euCofinanceRate) / (1.0 - toDouble(p.fiscal.euCofinanceRate))
 
   /** Capital portion of total EU project spending (EU + cofin). */
+  @boundaryEscape
   def capitalInvestment(euMonthly: Double, cofin: Double)(using p: SimParams): Double =
-    (euMonthly + cofin) * p.fiscal.euCapitalShare.toDouble
+    import ComputationBoundary.toDouble
+    (euMonthly + cofin) * toDouble(p.fiscal.euCapitalShare)
 
   /** Beta probability density function: f(x; a, b) = x^(a-1)(1-x)^(b-1) /
     * B(a,b).

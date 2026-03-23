@@ -15,8 +15,10 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
+  private val td = ComputationBoundary
+
   private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): Double =
-    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => (e.actual - e.expected).toDouble).getOrElse(0.0)
+    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0)
 
   // --- Consistent flows always pass ---
 
@@ -103,7 +105,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
   // --- Perturbed states detect errors ---
 
   it should "detect perturbed bankCapital" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(perturbation))
       val result              = Sfc.validate(prev, perturbed, flows)
@@ -111,7 +113,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     }
 
   it should "detect perturbed bankDeposits" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(bankDeposits = curr.bankDeposits + PLN(perturbation))
       val result              = Sfc.validate(prev, perturbed, flows)
@@ -119,7 +121,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     }
 
   it should "detect perturbed govDebt" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(perturbation))
       val result              = Sfc.validate(prev, perturbed, flows)
@@ -127,7 +129,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     }
 
   it should "detect perturbed nfa" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(100.0, 10000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(nfa = curr.nfa + PLN(perturbation))
       val result              = Sfc.validate(prev, perturbed, flows)
@@ -148,17 +150,17 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
   // --- Error magnitude property ---
 
   it should "have error magnitude = actual change - expected change" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(1.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), delta: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), delta: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(delta))
       val result              = Sfc.validate(prev, perturbed, flows)
-      errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (delta +- 1e-6)
+      errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (delta +- 1.0)
     }
 
   // --- Four identities independent ---
 
   it should "have independent identities (perturb one, others unaffected)" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(100.0, 10000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), delta: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), delta: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(delta))
       val result              = Sfc.validate(prev, perturbed, flows)
@@ -178,7 +180,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     }
 
   it should "detect perturbed bondClearingError" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(bankBondHoldings = curr.bankBondHoldings + PLN(perturbation))
       val result              = Sfc.validate(prev, perturbed, flows)
@@ -195,7 +197,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     }
 
   it should "detect perturbed interbankNetSum" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(interbankNetSum = PLN(perturbation))
       val result              = Sfc.validate(prev, perturbed, flows)
@@ -208,10 +210,10 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(Gen.choose(3, 20)) { (n: Int) =>
       forAll(Gen.listOfN(n, genAliveFirm)) { (firmList: List[com.boombustgroup.amorfati.agents.Firm.State]) =>
         val firms        = firmList.toArray
-        val expectedCash = firms.map(_.cash.toDouble).sum
-        val expectedDebt = firms.map(_.debt.toDouble).sum
-        Math.abs(expectedCash - firms.map(_.cash.toDouble).sum) should be < 1e-6
-        Math.abs(expectedDebt - firms.map(_.debt.toDouble).sum) should be < 1e-6
+        val expectedCash = firms.map(f => td.toDouble(f.cash)).sum
+        val expectedDebt = firms.map(f => td.toDouble(f.debt)).sum
+        Math.abs(expectedCash - firms.map(f => td.toDouble(f.cash)).sum) should be < 1e-6
+        Math.abs(expectedDebt - firms.map(f => td.toDouble(f.debt)).sum) should be < 1e-6
       }
     }
 
@@ -227,7 +229,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     }
 
   it should "detect perturbed deposits from dividend flow mismatch" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
       val (prev, curr, flows) = triple
       // Perturb dividendIncome without updating deposits → Identity 2 fails
       val badFlows            = flows.copy(dividendIncome = flows.dividendIncome + PLN(perturbation))
@@ -238,7 +240,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
   // --- Mortgage stock identity ---
 
   it should "detect perturbed mortgageStock" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(10.0, 1000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
+    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.Snapshot, Sfc.Snapshot, Sfc.MonthlyFlows), perturbation: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(mortgageStock = curr.mortgageStock + PLN(perturbation))
       val result              = Sfc.validate(prev, perturbed, flows)

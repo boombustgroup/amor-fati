@@ -9,6 +9,7 @@ class NfzSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   private val wage     = PLN(8000.0)
   private val employed = 80000
@@ -16,7 +17,7 @@ class NfzSpec extends AnyFlatSpec with Matchers:
   "nfzStep" should "compute contributions as wage × employed × 9%" in {
     assume(p.flags.nfz, "nfz=true required")
     val result   = SocialSecurity.nfzStep(PLN.Zero, employed, wage, 100000, 10000)
-    val expected = wage * p.social.nfzContribRate * employed.toDouble
+    val expected = employed * (wage * p.social.nfzContribRate)
     result.contributions shouldBe expected
   }
 
@@ -64,5 +65,5 @@ class NfzSpec extends AnyFlatSpec with Matchers:
     val workingOnly = SocialSecurity.nfzStep(PLN.Zero, employed, wage, 10000, 0)
     val retiredOnly = SocialSecurity.nfzStep(PLN.Zero, employed, wage, 0, 10000)
     val ratio       = retiredOnly.spending / workingOnly.spending
-    ratio shouldBe p.social.nfzAgingElasticity +- 0.01
+    ratio shouldBe td.toDouble(p.social.nfzAgingElasticity) +- 0.01
   }

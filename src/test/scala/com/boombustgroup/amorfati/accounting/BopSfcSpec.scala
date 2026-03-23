@@ -9,8 +9,10 @@ class BopSfcSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
+  private val td = ComputationBoundary
+
   private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): Double =
-    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => (e.actual - e.expected).toDouble).getOrElse(0.0)
+    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0)
 
   private def zeroSnap: Sfc.Snapshot = Sfc.Snapshot(
     hhSavings = PLN.Zero,

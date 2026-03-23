@@ -10,6 +10,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   import com.boombustgroup.amorfati.accounting.Sfc
 
@@ -148,7 +149,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     val bank     = mkBank(0, reservesAtNbp = PLN(1e8)) // 100M in reserves
     val interest = Banking.reserveInterest(bank, Rate(0.0575))
     // Expected: 100M × 0.0575 × 0.5 / 12 ≈ 239,583
-    interest.toDouble shouldBe (1e8 * 0.0575 * 0.5 / 12.0 +- 1.0)
+    td.toDouble(interest) shouldBe (1e8 * 0.0575 * 0.5 / 12.0 +- 1000.0)
   }
 
   it should "return 0 for failed banks" in {
@@ -168,7 +169,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     )
     val result = Banking.computeReserveInterest(banks, Rate(0.06))
     result.perBank.length shouldBe 2
-    result.total.toDouble shouldBe (result.perBank.map(_.toDouble).sum +- 0.01)
+    td.toDouble(result.total) shouldBe (result.perBank.map(td.toDouble(_)).sum +- 0.01)
     result.total should be > PLN.Zero
   }
 
@@ -182,7 +183,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     val bank            = mkBank(0, reservesAtNbp = PLN(1e8))
     val refRate         = 0.0575
     val depositRate     = Math.max(0.0, refRate - 0.01) // 4.75%
-    val expectedMonthly = bank.reservesAtNbp.toDouble * depositRate / 12.0
+    val expectedMonthly = td.toDouble(bank.reservesAtNbp) * depositRate / 12.0
     // Direct formula check: reservesAtNbp × (refRate − spread) / 12
     expectedMonthly shouldBe (1e8 * 0.0475 / 12.0 +- 1.0)
   }
@@ -219,7 +220,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     result.perBank(0) should be > PLN.Zero // Lender earns
     result.perBank(1) should be < PLN.Zero // Borrower pays
     // Net should be ≈ 0 (closed system)
-    result.total.toDouble shouldBe (0.0 +- 0.01)
+    td.toDouble(result.total) shouldBe (0.0 +- 0.01)
   }
 
   it should "sum to zero for balanced interbank positions" in {
@@ -229,7 +230,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       mkBank(2, interbankNet = PLN(-2e7)),
     )
     val result = Banking.interbankInterestFlows(banks, Rate(0.055))
-    result.total.toDouble shouldBe (0.0 +- 0.01)
+    td.toDouble(result.total) shouldBe (0.0 +- 0.01)
   }
 
   it should "return zeros for zero net positions" in {
@@ -256,7 +257,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     )
     val result1 = Banking.interbankInterestFlows(banks, Rate(0.06))
     val result2 = Banking.interbankInterestFlows(banks, Rate(0.12))
-    result2.perBank(0).toDouble shouldBe (result1.perBank(0).toDouble * 2.0 +- 0.01)
+    td.toDouble(result2.perBank(0)) shouldBe (td.toDouble(result1.perBank(0)) * 2.0 +- 0.01)
   }
 
   // =========================================================================
@@ -266,7 +267,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   "Sfc" should "pass with reserve interest in bank capital" in {
     val prev              = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
     val reserveInt        = PLN(100000.0)
-    val expectedCapChange = reserveInt * 0.3
+    val expectedCapChange = reserveInt * Share(0.3)
     val curr              = prev.copy(bankCapital = prev.bankCapital + expectedCapChange)
     val flows             = zeroFlows.copy(reserveInterest = reserveInt)
     val result            = Sfc.validate(prev, curr, flows)
@@ -276,7 +277,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   it should "pass with standing facility income in bank capital" in {
     val prev              = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
     val sfIncome          = PLN(50000.0)
-    val expectedCapChange = sfIncome * 0.3
+    val expectedCapChange = sfIncome * Share(0.3)
     val curr              = prev.copy(bankCapital = prev.bankCapital + expectedCapChange)
     val flows             = zeroFlows.copy(standingFacilityIncome = sfIncome)
     val result            = Sfc.validate(prev, curr, flows)
@@ -296,7 +297,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   it should "detect mismatch when reserve interest not in flows" in {
     val prev       = zeroSnap.copy(bankCapital = PLN(1e8), bankDeposits = PLN(1e9), bankLoans = PLN(5e8))
     val reserveInt = PLN(100000.0)
-    val curr       = prev.copy(bankCapital = prev.bankCapital + reserveInt * 0.3)
+    val curr       = prev.copy(bankCapital = prev.bankCapital + reserveInt * Share(0.3))
     // Flows do NOT include reserveInterest — should fail
     val flows      = zeroFlows
     val result     = Sfc.validate(prev, curr, flows)
@@ -309,7 +310,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     val resInt            = PLN(200000.0)
     val sfInc             = PLN(50000.0)
     val ibInt             = PLN(-1000.0) // small net from rounding
-    val expectedCapChange = (resInt + sfInc + ibInt) * 0.3
+    val expectedCapChange = (resInt + sfInc + ibInt) * Share(0.3)
     val curr              = prev.copy(bankCapital = prev.bankCapital + expectedCapChange)
     val flows             = zeroFlows.copy(
       reserveInterest = resInt,
@@ -334,10 +335,10 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       termDeposits = PLN(1.6e8),
     )
     val agg = Banking.MonetaryAggregates.compute(Vector(b0, b1), PLN(1e8), PLN(5e7))
-    agg.m0 shouldBe PLN(1e8)                          // sum of reserves
-    agg.m1 shouldBe PLN(6e8)                          // sum of demand deposits
-    agg.m2 shouldBe PLN(1e9)                          // demand + term
-    agg.m3.toDouble shouldBe (1e9 + 1e8 + 5e7 +- 1.0) // M2 + tfiAum + corpBonds
+    agg.m0 shouldBe PLN(1e8)                              // sum of reserves
+    agg.m1 shouldBe PLN(6e8)                              // sum of demand deposits
+    agg.m2 shouldBe PLN(1e9)                              // demand + term
+    td.toDouble(agg.m3) shouldBe (1e9 + 1e8 + 5e7 +- 1.0) // M2 + tfiAum + corpBonds
   }
 
   it should "compute credit multiplier as M2/M0" in {

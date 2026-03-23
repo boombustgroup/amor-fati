@@ -37,16 +37,16 @@ object ContractType:
   /** Per-contract ZUS employer contribution rate. Permanent: full 19.52%,
     * Zlecenie: ~13%, B2B: 0% (self-employed pays own).
     */
-  def zusEmployerRate(ct: ContractType): Ratio = ct match
-    case Permanent => Ratio(0.1952)
-    case Zlecenie  => Ratio(0.13)
-    case B2B       => Ratio.Zero
+  def zusEmployerRate(ct: ContractType): Share = ct match
+    case Permanent => Share(0.1952)
+    case Zlecenie  => Share(0.13)
+    case B2B       => Share.Zero
 
   /** Per-contract FP contribution rate. Permanent: 2.45%, Zlecenie/B2B: 0%.
     */
-  def fpRate(ct: ContractType): Ratio = ct match
-    case Permanent => Ratio(0.0245)
-    case _         => Ratio.Zero
+  def fpRate(ct: ContractType): Share = ct match
+    case Permanent => Share(0.0245)
+    case _         => Share.Zero
 
   /** Firing priority: lower = fired first during downsizing. B2B (0) → Zlecenie
     * (1) → Permanent (2).

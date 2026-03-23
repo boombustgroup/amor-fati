@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
@@ -9,13 +10,14 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   private def mkStep(
       prev: Insurance.State = Insurance.initial,
       employed: Int = 80000,
       wage: PLN = PLN(8000.0),
       priceLevel: Double = 1.0,
-      unempRate: Ratio = Ratio(0.05),
+      unempRate: Share = Share(0.05),
       govBondYield: Rate = Rate(0.06),
       corpBondYield: Rate = Rate(0.08),
       equityReturn: Rate = Rate(0.005),
@@ -39,63 +41,63 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
 
   "Insurance.initial" should "have correct life reserves" in {
     val s = Insurance.initial
-    s.lifeReserves.toDouble shouldBe (p.ins.lifeReserves.toDouble +- 1.0)
+    td.toDouble(s.lifeReserves) shouldBe (td.toDouble(p.ins.lifeReserves) +- 1.0)
   }
 
   it should "have correct non-life reserves" in {
     val s = Insurance.initial
-    s.nonLifeReserves.toDouble shouldBe (p.ins.nonLifeReserves.toDouble +- 1.0)
+    td.toDouble(s.nonLifeReserves) shouldBe (td.toDouble(p.ins.nonLifeReserves) +- 1.0)
   }
 
   it should "have govBondHoldings = totalAssets * govBondShare" in {
     val s           = Insurance.initial
-    val totalAssets = p.ins.lifeReserves.toDouble + p.ins.nonLifeReserves.toDouble
-    s.govBondHoldings.toDouble shouldBe (totalAssets * p.ins.govBondShare.toDouble +- 1.0)
+    val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
+    td.toDouble(s.govBondHoldings) shouldBe (totalAssets * td.toDouble(p.ins.govBondShare) +- 1.0)
   }
 
   it should "have corpBondHoldings = totalAssets * corpBondShare" in {
     val s           = Insurance.initial
-    val totalAssets = p.ins.lifeReserves.toDouble + p.ins.nonLifeReserves.toDouble
-    s.corpBondHoldings.toDouble shouldBe (totalAssets * p.ins.corpBondShare.toDouble +- 1.0)
+    val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
+    td.toDouble(s.corpBondHoldings) shouldBe (totalAssets * td.toDouble(p.ins.corpBondShare) +- 1.0)
   }
 
   it should "have equityHoldings = totalAssets * equityShare" in {
     val s           = Insurance.initial
-    val totalAssets = p.ins.lifeReserves.toDouble + p.ins.nonLifeReserves.toDouble
-    s.equityHoldings.toDouble shouldBe (totalAssets * p.ins.equityShare.toDouble +- 1.0)
+    val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
+    td.toDouble(s.equityHoldings) shouldBe (totalAssets * td.toDouble(p.ins.equityShare) +- 1.0)
   }
 
   it should "have allocation shares summing to < 1.0 (remainder is cash/other)" in {
-    val total = p.ins.govBondShare.toDouble + p.ins.corpBondShare.toDouble + p.ins.equityShare.toDouble
+    val total = td.toDouble(p.ins.govBondShare) + td.toDouble(p.ins.corpBondShare) + td.toDouble(p.ins.equityShare)
     total should be <= 1.0
   }
 
   "Insurance.step" should "compute life premium proportional to employment and wage" in {
     val result = mkStep()
-    result.lastLifePremium.toDouble shouldBe (80000 * 8000.0 * p.ins.lifePremiumRate.toDouble +- 0.01)
+    td.toDouble(result.lastLifePremium) shouldBe (80000 * 8000.0 * td.toDouble(p.ins.lifePremiumRate) +- 0.01)
   }
 
-  it should "compute non-life premium scaling with price level" in {
+  it should "compute non-life premium independent of price level (priceLevel param unused)" in {
     val r1 = mkStep(priceLevel = 1.0)
     val r2 = mkStep(priceLevel = 1.5)
-    r2.lastNonLifePremium.toDouble shouldBe (r1.lastNonLifePremium.toDouble * 1.5 +- 0.01)
+    td.toDouble(r2.lastNonLifePremium) shouldBe (td.toDouble(r1.lastNonLifePremium) +- 0.01)
   }
 
   it should "compute life claims = premium * loss ratio" in {
     val r = mkStep()
-    r.lastLifeClaims.toDouble shouldBe (r.lastLifePremium.toDouble * p.ins.lifeLossRatio.toDouble +- 0.01)
+    td.toDouble(r.lastLifeClaims) shouldBe (td.toDouble(r.lastLifePremium) * td.toDouble(p.ins.lifeLossRatio) +- 0.01)
   }
 
   it should "widen non-life claims with high unemployment" in {
-    val rLow  = mkStep(unempRate = Ratio(0.05))
-    val rHigh = mkStep(unempRate = Ratio(0.15))
+    val rLow  = mkStep(unempRate = Share(0.05))
+    val rHigh = mkStep(unempRate = Share(0.15))
     rHigh.lastNonLifeClaims should be > rLow.lastNonLifeClaims
   }
 
   it should "not widen non-life claims when unemployment is at or below 5%" in {
-    val r            = mkStep(unempRate = Ratio(0.04))
-    val expectedBase = r.lastNonLifePremium.toDouble * p.ins.nonLifeLossRatio.toDouble
-    r.lastNonLifeClaims.toDouble shouldBe (expectedBase +- 0.01)
+    val r            = mkStep(unempRate = Share(0.04))
+    val expectedBase = td.toDouble(r.lastNonLifePremium) * td.toDouble(p.ins.nonLifeLossRatio)
+    td.toDouble(r.lastNonLifeClaims) shouldBe (expectedBase +- 0.01)
   }
 
   it should "compute positive investment income with positive yields" in {
@@ -112,7 +114,7 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     val r           = mkStep()
     val totalPrem   = r.lastLifePremium + r.lastNonLifePremium
     val totalClaims = r.lastLifeClaims + r.lastNonLifeClaims
-    r.lastNetDepositChange.toDouble shouldBe (-(totalPrem - totalClaims).toDouble +- 0.01)
+    td.toDouble(r.lastNetDepositChange) shouldBe (-td.toDouble(totalPrem - totalClaims) +- 0.01)
   }
 
   it should "have negative net deposit change in normal times (premium > claims)" in {
@@ -157,17 +159,17 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have allocation shares that are positive and bounded" in {
-    p.ins.govBondShare should be > Ratio.Zero
-    p.ins.govBondShare should be < Ratio.One
-    p.ins.corpBondShare should be > Ratio.Zero
-    p.ins.corpBondShare should be < Ratio.One
-    p.ins.equityShare should be > Ratio.Zero
-    p.ins.equityShare should be < Ratio.One
+    p.ins.govBondShare should be > Share.Zero
+    p.ins.govBondShare should be < Share.One
+    p.ins.corpBondShare should be > Share.Zero
+    p.ins.corpBondShare should be < Share.One
+    p.ins.equityShare should be > Share.Zero
+    p.ins.equityShare should be < Share.One
   }
 
   it should "have loss ratios between 0 and 1" in {
-    p.ins.lifeLossRatio should be > Ratio.Zero
-    p.ins.lifeLossRatio should be <= Ratio.One
-    p.ins.nonLifeLossRatio should be > Ratio.Zero
-    p.ins.nonLifeLossRatio should be <= Ratio.One
+    p.ins.lifeLossRatio should be > Share.Zero
+    p.ins.lifeLossRatio should be <= Share.One
+    p.ins.nonLifeLossRatio should be > Share.Zero
+    p.ins.nonLifeLossRatio should be <= Share.One
   }

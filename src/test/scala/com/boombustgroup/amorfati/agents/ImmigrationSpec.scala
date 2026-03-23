@@ -20,9 +20,9 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         PLN(5000.0),
         PLN(0.0),
         PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
+        Share(0.5),
+        Share(0.0),
+        Share(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(1), PLN(6000.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -32,8 +32,8 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       ),
     )
     Immigration.computeRemittances(hhs) shouldBe PLN.Zero
@@ -79,8 +79,8 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
     val rng        = new Random(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
-      h.skill should be >= Ratio(0.15)
-      h.skill should be <= Ratio(0.95)
+      h.skill should be >= Share(0.15)
+      h.skill should be <= Share(0.95)
     }
   }
 
@@ -88,8 +88,8 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
     val rng        = new Random(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
-      h.mpc should be >= Ratio(0.7)
-      h.mpc should be <= Ratio(0.98)
+      h.mpc should be >= Share(0.7)
+      h.mpc should be <= Share(0.98)
     }
   }
 
@@ -117,9 +117,9 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         PLN(1000.0),
         PLN.Zero,
         PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
+        Share(0.5),
+        Share(0.0),
+        Share(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -129,17 +129,17 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       ),
       Household.State(
         HhId(1),
         PLN(1000.0),
         PLN.Zero,
         PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
+        Share(0.5),
+        Share(0.0),
+        Share(0.85),
         HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(5000.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -149,17 +149,17 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       ),
       Household.State(
         HhId(2),
         PLN(1000.0),
         PLN.Zero,
         PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
+        Share(0.5),
+        Share(0.0),
+        Share(0.85),
         HhStatus.Employed(FirmId(2), SectorIdx(0), PLN(5000.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -169,17 +169,17 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       ),
       Household.State(
         HhId(3),
         PLN(1000.0),
         PLN.Zero,
         PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
+        Share(0.5),
+        Share(0.0),
+        Share(0.85),
         HhStatus.Employed(FirmId(3), SectorIdx(0), PLN(5000.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -189,8 +189,8 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       ),
     )
     val result = Immigration.removeReturnMigrants(hhs, 2)
@@ -208,9 +208,9 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         PLN(1000.0),
         PLN.Zero,
         PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
+        Share(0.5),
+        Share(0.0),
+        Share(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -220,17 +220,17 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       ),
       Household.State(
         HhId(1),
         PLN(1000.0),
         PLN.Zero,
         PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
+        Share(0.5),
+        Share(0.0),
+        Share(0.85),
         HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(6000.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -240,8 +240,8 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       ),
     )
     val result = Immigration.removeReturnMigrants(hhs, 5)
@@ -255,9 +255,9 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         PLN(1000.0),
         PLN.Zero,
         PLN(1800.0),
-        Ratio(0.5),
-        Ratio(0.0),
-        Ratio(0.85),
+        Share(0.5),
+        Share(0.0),
+        Share(0.85),
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
         Array.empty[HhId],
         bankId = BankId(0),
@@ -267,8 +267,8 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Ratio(0.5),
-        wageScar = Ratio.Zero,
+        taskRoutineness = Share(0.5),
+        wageScar = Share.Zero,
       ),
     )
     Immigration.removeReturnMigrants(hhs, 0) shouldBe hhs

@@ -39,10 +39,10 @@ case class EquityConfig(
     initMcap: PLN = PLN(1.4e12), // raw — scaled by gdpRatio
     peMean: Double = 10.0,
     divYield: Rate = Rate(0.057),
-    foreignShare: Ratio = Ratio(0.67),
-    issuanceFrac: Ratio = Ratio(0.10),
+    foreignShare: Share = Share(0.67),
+    issuanceFrac: Share = Share(0.10),
     issuanceMinSize: Int = 5,
-    hhEquityFrac: Ratio = Ratio(0.07),
-    wealthEffectMpc: Ratio = Ratio(0.02),
+    hhEquityFrac: Share = Share(0.07),
+    wealthEffectMpc: Share = Share(0.02),
     divTax: Rate = Rate(0.19),
 )

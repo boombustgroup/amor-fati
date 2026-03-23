@@ -13,6 +13,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   private def mkBank(
       id: Int = 0,
@@ -34,8 +35,8 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
       loans = loans,
       capital = capital,
       nplAmount = PLN.Zero,
-      afsBonds = govBonds * 0.40,
-      htmBonds = govBonds * 0.60,
+      afsBonds = govBonds * Share(0.40),
+      htmBonds = govBonds * Share(0.60),
       htmBookYield = Rate(0.055),
       reservesAtNbp = reservesAtNbp,
       interbankNet = PLN.Zero,
@@ -68,12 +69,12 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
     // HQLA = 50M + 200M = 250M
     // Net outflows = 1B × 0.10 = 100M
     // LCR = 250M / 100M = 2.5
-    b.lcr.toDouble shouldBe (2.5 +- 0.01)
+    td.toDouble(b.lcr) shouldBe (2.5 +- 0.01)
   }
 
   it should "return 10.0 when outflows are zero" in {
     val b = mkBank(demandDep = PLN.Zero)
-    b.lcr shouldBe Ratio(10.0)
+    b.lcr shouldBe Multiplier(10.0)
   }
 
   // =========================================================================
@@ -94,12 +95,12 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
     // RSF = 100M×0.50 + 150M×0.65 + 250M×0.85 + 50M×0.05
     //     = 50M + 97.5M + 212.5M + 2.5M = 362.5M
     // NSFR = 1020M / 362.5M ≈ 2.81
-    b.nsfr.toDouble shouldBe (1020e6 / 362.5e6 +- 0.01)
+    td.toDouble(b.nsfr) shouldBe (1020e6 / 362.5e6 +- 0.01)
   }
 
   it should "return 10.0 when RSF is zero" in {
     val b = mkBank(loansS = PLN.Zero, loansM = PLN.Zero, loansL = PLN.Zero, govBonds = PLN.Zero)
-    b.nsfr shouldBe Ratio(10.0)
+    b.nsfr shouldBe Multiplier(10.0)
   }
 
   // =========================================================================
@@ -108,8 +109,8 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
 
   "canLend" should "reject when LCR below minimum (when enabled)" in {
     val b = mkBank(reservesAtNbp = PLN.Zero, govBonds = PLN.Zero, demandDep = PLN(1e9))
-    b.lcr.toDouble shouldBe (0.0 +- 0.01) // zero HQLA → LCR ≈ 0
-    b.lcr should be < Ratio(1.0)          // Below LCR min
+    td.toDouble(b.lcr) shouldBe (0.0 +- 0.01) // zero HQLA → LCR ≈ 0
+    b.lcr should be < Multiplier(1.0)         // Below LCR min
   }
 
   // =========================================================================
@@ -135,6 +136,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
 class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -156,8 +158,8 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
     loans = loans,
     capital = capital,
     nplAmount = PLN.Zero,
-    afsBonds = govBonds * 0.40,
-    htmBonds = govBonds * 0.60,
+    afsBonds = govBonds * Share(0.40),
+    htmBonds = govBonds * Share(0.60),
     htmBookYield = Rate(0.055),
     reservesAtNbp = reservesAtNbp,
     interbankNet = PLN.Zero,
@@ -175,7 +177,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
   "LCR" should "be non-negative" in
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) { (reserves, bonds, demandDep) =>
       val b = mkBank(reservesAtNbp = PLN(reserves), govBonds = PLN(bonds), demandDeposits = PLN(demandDep))
-      b.lcr should be >= Ratio.Zero
+      b.lcr should be >= Multiplier.Zero
     }
 
   "NSFR" should "be non-negative" in
@@ -195,11 +197,11 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
         loansMedium = PLN(loansM),
         loansLong = PLN(loansL),
       )
-      b.nsfr should be >= Ratio.Zero
+      b.nsfr should be >= Multiplier.Zero
     }
 
   "HQLA" should "equal reserves + gov bonds" in
     forAll(Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) { (reserves, bonds) =>
       val b = mkBank(reservesAtNbp = PLN(reserves), govBonds = PLN(bonds))
-      b.hqla.toDouble shouldBe (reserves + bonds +- 0.01)
+      td.toDouble(b.hqla) shouldBe (reserves + bonds +- 0.01)
     }

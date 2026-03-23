@@ -5,6 +5,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -12,6 +13,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -103,10 +105,10 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
         val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)
-        agg.povertyRate30 should be >= Ratio.Zero
-        agg.povertyRate30 should be <= Ratio.One
-        agg.povertyRate50 should be >= Ratio.Zero
-        agg.povertyRate50 should be <= Ratio.One
+        agg.povertyRate30 should be >= Share.Zero
+        agg.povertyRate30 should be <= Share.One
+        agg.povertyRate50 should be >= Share.Zero
+        agg.povertyRate50 should be <= Share.One
       }
     }
 
@@ -115,7 +117,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
         val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)
-        agg.povertyRate30 should be <= Ratio(agg.povertyRate50.toDouble + 1e-10)
+        agg.povertyRate30 should be <= Share(td.toDouble(agg.povertyRate50) + 1e-10)
       }
     }
 
@@ -124,14 +126,14 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
         val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)
-        agg.bankruptcyRate should be >= Ratio.Zero
-        agg.bankruptcyRate should be <= Ratio.One
+        agg.bankruptcyRate should be >= Share.Zero
+        agg.bankruptcyRate should be <= Share.One
       }
     }
 
   it should "have positive meanSavings when all savings are positive" in
     forAll(Gen.choose(5, 30)) { (n: Int) =>
-      val positiveHhGen = genHousehold.map(h => h.copy(savings = PLN(Math.abs(h.savings.toDouble) + 1.0)))
+      val positiveHhGen = genHousehold.map(h => h.copy(savings = PLN(Math.abs(td.toDouble(h.savings)) + 1.0)))
       forAll(Gen.listOfN(n, positiveHhGen)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
         val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)
@@ -149,9 +151,9 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           PLN(-10000.0),
           PLN(5000.0),
           PLN(1800.0),
-          Ratio(0.5),
-          Ratio(0.3),
-          Ratio(0.8),
+          Share(0.5),
+          Share(0.3),
+          Share(0.8),
           HhStatus.Bankrupt,
           Array.empty[HhId],
           bankId = BankId(0),
@@ -161,8 +163,8 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           numDependentChildren = 0,
           consumerDebt = PLN.Zero,
           education = 2,
-          taskRoutineness = Ratio(0.5),
-          wageScar = Ratio.Zero,
+          taskRoutineness = Share(0.5),
+          wageScar = Share.Zero,
         )
       }.toVector
       val agg         = Household.computeAggregates(bankruptHhs, PLN(8266.0), PLN(4666.0), 0.40, 0, 0)

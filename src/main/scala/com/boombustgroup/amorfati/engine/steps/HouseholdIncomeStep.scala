@@ -40,8 +40,10 @@ object HouseholdIncomeStep:
       aggUnempBenefit: PLN,                           // aggregate unemployment benefit payments
   )
 
+  @boundaryEscape
   def run(in: Input, rng: Random)(using p: SimParams): Output =
-    val importAdj = p.forex.importPropensity.toDouble *
+    import ComputationBoundary.toDouble
+    val importAdj = toDouble(p.forex.importPropensity) *
       Math.pow(p.forex.baseExRate / in.w.forex.exchangeRate, ImportErElasticity)
 
     val afterSep           = LaborMarket.separations(in.households, in.firms, in.firms)
@@ -54,7 +56,7 @@ object HouseholdIncomeStep:
         depositRates = bsec.banks.map(_ => Banking.hhDepositRate(in.w.nbp.referenceRate)),
       ),
     )
-    val eqReturn           = in.w.financial.equity.monthlyReturn.toDouble
+    val eqReturn           = in.w.financial.equity.monthlyReturn
     val secWages           = if p.flags.sectoralMobility then Some(SectoralMobility.sectorWages(afterWages)) else None
     val secVacancies       =
       if p.flags.sectoralMobility then Some(SectoralMobility.sectorVacancies(afterWages, in.firms)) else None
@@ -73,7 +75,7 @@ object HouseholdIncomeStep:
     )
 
     val pitRevenue =
-      if p.flags.pit then agg.totalPit.toDouble
+      if p.flags.pit then toDouble(agg.totalPit)
       else 0.0
 
     Output(

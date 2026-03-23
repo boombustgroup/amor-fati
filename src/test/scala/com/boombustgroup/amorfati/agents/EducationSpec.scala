@@ -4,6 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.engine.markets
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -13,6 +14,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // ---- Config helpers ----
 
@@ -49,7 +51,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have Secondary = 1.0 (normalization)" in {
-    p.social.eduWagePremium(2) shouldBe 1.0
+    p.social.eduWagePremium(2) shouldBe Multiplier.One
   }
 
   it should "clamp out-of-range education to valid bounds" in {
@@ -83,7 +85,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have Secondary = 1.0 (normalization)" in {
-    p.social.eduRetrainMultiplier(2) shouldBe 1.0
+    p.social.eduRetrainMultiplier(2) shouldBe Multiplier.One
   }
 
   // ---- Household field ----
@@ -94,9 +96,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       PLN(1000.0),
       PLN.Zero,
       PLN(1800.0),
-      Ratio(0.5),
-      Ratio(0.0),
-      Ratio(0.85),
+      Share(0.5),
+      Share(0.0),
+      Share(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
       Array.empty[HhId],
       bankId = BankId(0),
@@ -106,8 +108,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
     hh.education shouldBe 2
   }
@@ -118,9 +120,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       PLN(1000.0),
       PLN.Zero,
       PLN(1800.0),
-      Ratio(0.5),
-      Ratio(0.0),
-      Ratio(0.85),
+      Share(0.5),
+      Share(0.0),
+      Share(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
       Array.empty[HhId],
       bankId = BankId(0),
@@ -130,8 +132,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 3,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
     val copied = hh.copy(savings = PLN(2000.0))
     copied.education shouldBe 3
@@ -148,9 +150,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       PLN(1000000.0),
       PLN.Zero,
       TechState.Traditional(3),
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(0.5),
+      Share(0.5),
       SectorIdx(0),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -168,9 +170,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       PLN(1000000.0),
       PLN.Zero,
       TechState.Automated(2),
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(0.5),
+      Share(0.5),
       SectorIdx(0),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -189,9 +191,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
-      Ratio(0.5),
-      Ratio(0.0),
-      Ratio(0.85),
+      Share(0.5),
+      Share(0.0),
+      Share(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
       Array.empty[HhId],
       bankId = BankId(0),
@@ -201,17 +203,17 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 0,
-      taskRoutineness = Ratio(0.80),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.80),
+      wageScar = Share.Zero,
     )
     val hhTertiary   = Household.State(
       HhId(1),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
-      Ratio(0.4),
-      Ratio(0.0),
-      Ratio(0.85),
+      Share(0.4),
+      Share(0.0),
+      Share(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5000.0)),
       Array.empty[HhId],
       bankId = BankId(0),
@@ -221,17 +223,17 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 3,
-      taskRoutineness = Ratio(0.25),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.25),
+      wageScar = Share.Zero,
     )
     val hhVocational = Household.State(
       HhId(2),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
-      Ratio(0.6),
-      Ratio(0.0),
-      Ratio(0.85),
+      Share(0.6),
+      Share(0.0),
+      Share(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(5500.0)),
       Array.empty[HhId],
       bankId = BankId(0),
@@ -241,8 +243,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 1,
-      taskRoutineness = Ratio(0.65),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.65),
+      wageScar = Share.Zero,
     )
 
     val result = LaborMarket.separations(
@@ -263,9 +265,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       PLN(1000000.0),
       PLN.Zero,
       TechState.Traditional(3),
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(0.5),
+      Share(0.5),
       SectorIdx(0),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -283,9 +285,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       PLN(1000000.0),
       PLN.Zero,
       TechState.Automated(2),
-      Ratio(0.5),
+      Share(0.5),
       1.0,
-      Ratio(0.5),
+      Share(0.5),
       SectorIdx(0),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -304,9 +306,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
-      Ratio(0.3),
-      Ratio(0.0),
-      Ratio(0.85),
+      Share(0.3),
+      Share(0.0),
+      Share(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
       Array.empty[HhId],
       bankId = BankId(0),
@@ -316,17 +318,17 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
     val hhHighSkill = Household.State(
       HhId(1),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
-      Ratio(0.9),
-      Ratio(0.0),
-      Ratio(0.85),
+      Share(0.9),
+      Share(0.0),
+      Share(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(7000.0)),
       Array.empty[HhId],
       bankId = BankId(0),
@@ -336,17 +338,17 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
     val hhMidSkill  = Household.State(
       HhId(2),
       PLN(5000.0),
       PLN.Zero,
       PLN(1800.0),
-      Ratio(0.5),
-      Ratio(0.0),
-      Ratio(0.85),
+      Share(0.5),
+      Share(0.0),
+      Share(0.85),
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6500.0)),
       Array.empty[HhId],
       bankId = BankId(0),
@@ -356,8 +358,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Ratio(0.5),
-      wageScar = Ratio.Zero,
+      taskRoutineness = Share(0.5),
+      wageScar = Share.Zero,
     )
 
     val result = markets.LaborMarket.separations(
@@ -387,8 +389,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
     val immigrants = Immigration.spawnImmigrants(200, 0, rng)
     immigrants.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
-      h.skill.toDouble should be >= floor
-      h.skill.toDouble should be <= ceil
+      td.toDouble(h.skill) should be >= td.toDouble(floor)
+      td.toDouble(h.skill) should be <= td.toDouble(ceil)
     }
   }
 
@@ -402,9 +404,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
         PLN(1000000.0),
         PLN.Zero,
         TechState.Traditional(w),
-        Ratio(0.5),
+        Share(0.5),
         1.0,
-        Ratio(0.5),
+        Share(0.5),
         SectorIdx(sec),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -434,9 +436,9 @@ class EducationSpec extends AnyFlatSpec with Matchers:
         PLN(1000000.0),
         PLN.Zero,
         TechState.Traditional(10),
-        Ratio(0.5),
+        Share(0.5),
         1.0,
-        Ratio(0.5),
+        Share(0.5),
         SectorIdx(0),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -454,7 +456,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
     val hhs       = Household.Init.initialize(10, firms, socialNet, rng)
     hhs.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
-      h.skill.toDouble should be >= floor
-      h.skill.toDouble should be <= ceil
+      td.toDouble(h.skill) should be >= td.toDouble(floor)
+      td.toDouble(h.skill) should be <= td.toDouble(ceil)
     }
   }

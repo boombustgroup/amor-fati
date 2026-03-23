@@ -32,7 +32,7 @@ object BondAuction:
   case class Result(
       domesticAbsorbed: PLN, // bonds absorbed by domestic banks
       foreignAbsorbed: PLN,  // bonds absorbed by foreign holders
-      bidToCover: Ratio,     // total demand / issuance (< 1 = undersubscribed)
+      bidToCover: Multiplier, // total demand / issuance (< 1 = undersubscribed)
   )
 
   /** Compute foreign demand share as f(yield spread vs Bund, ER change).
@@ -44,15 +44,17 @@ object BondAuction:
     * capital. Depreciation (positive = PLN weakening) deters via currency risk.
     * Clamped to [0, maxForeignShare] to prevent unrealistic extremes.
     */
+  @boundaryEscape
   private[amorfati] def foreignDemandShare(
       marketYield: Rate,
-      erChange: Ratio,
-  )(using p: SimParams): Ratio =
+      erChange: Coefficient,
+  )(using p: SimParams): Share =
+    import ComputationBoundary.toDouble
     val spread      = marketYield - p.fiscal.bundYield
-    val yieldEffect = p.fiscal.foreignYieldSensitivity * spread.toDouble
-    val erEffect    = p.fiscal.foreignErSensitivity * erChange.toDouble
-    val raw         = p.fiscal.baseForeignShare.toDouble * (1.0 + yieldEffect - erEffect)
-    Ratio(raw.max(0.0).min(p.fiscal.maxForeignShare.toDouble))
+    val yieldEffect = toDouble(p.fiscal.foreignYieldSensitivity) * toDouble(spread)
+    val erEffect    = toDouble(p.fiscal.foreignErSensitivity) * toDouble(erChange)
+    val raw         = toDouble(p.fiscal.baseForeignShare) * (1.0 + yieldEffect - erEffect)
+    Share(raw.max(0.0).min(toDouble(p.fiscal.maxForeignShare)))
 
   /** Run the bond auction for this month's issuance.
     *
@@ -71,16 +73,16 @@ object BondAuction:
       newIssuance: PLN,
       bankBondCapacity: PLN,
       marketYield: Rate,
-      erChange: Ratio,
+      erChange: Coefficient,
   )(using p: SimParams): Result =
-    if newIssuance <= PLN.Zero then Result(PLN.Zero, PLN.Zero, Ratio(1.0))
+    if newIssuance <= PLN.Zero then Result(PLN.Zero, PLN.Zero, Multiplier(1.0))
     else
       val foreignShare   = foreignDemandShare(marketYield, erChange)
-      val foreignDemand  = newIssuance * foreignShare.toDouble
+      val foreignDemand  = newIssuance * foreignShare
       val domesticCap    = bankBondCapacity.max(PLN.Zero)
       val domesticDemand = (newIssuance - foreignDemand).min(domesticCap).max(PLN.Zero)
       val totalDemand    = domesticDemand + foreignDemand
-      val coverRatio     = Ratio((totalDemand / newIssuance).min(10.0))
+      val coverRatio     = Multiplier((totalDemand / newIssuance).min(10.0))
       val absorbed       = totalDemand.min(newIssuance)
       val foreignActual  = foreignDemand.min(absorbed)
       val domesticActual = absorbed - foreignActual

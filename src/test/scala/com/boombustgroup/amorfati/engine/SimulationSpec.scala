@@ -11,6 +11,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
   private val totalPop     = p.pop.firmsCount * p.pop.workersPerFirm
 
   // --- updateLaborMarket ---
@@ -24,7 +25,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   it should "keep wage at or above reservation wage" in {
     // Very low demand → wage should still be >= reservation
     val r = LaborMarket.updateLaborMarket(p.household.baseWage, p.household.baseReservationWage, 0, totalPop)
-    r.wage.toDouble should be >= p.household.baseReservationWage.toDouble
+    td.toDouble(r.wage) should be >= td.toDouble(p.household.baseReservationWage)
   }
 
   // --- updateInflation ---
@@ -51,23 +52,23 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
     val r = PriceLevel.update(Rate(-0.10), 1.0, 0.5, -0.05, 0.0, 0.9, 0.0)
     // The soft floor means deflation doesn't accelerate as fast
     // Raw monthly would be very negative; with floor, annualized should be bounded
-    r.inflation.toDouble should be > -1.0 // deflation shouldn't exceed 100% annualized
+    td.toDouble(r.inflation) should be > -1.0 // deflation shouldn't exceed 100% annualized
   }
 
   // --- updateCbRate ---
 
   "Nbp.updateRate" should "increase rate when inflation rises (PLN)" in {
-    val rate1 = Nbp.updateRate(Rate(0.0575), Rate(0.03), Ratio.Zero, totalPop * 95 / 100, totalPop)
-    val rate2 = Nbp.updateRate(Rate(0.0575), Rate(0.10), Ratio.Zero, totalPop * 95 / 100, totalPop)
-    rate2.toDouble should be > rate1.toDouble
+    val rate1 = Nbp.updateRate(Rate(0.0575), Rate(0.03), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    val rate2 = Nbp.updateRate(Rate(0.0575), Rate(0.10), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    td.toDouble(rate2) should be >= td.toDouble(rate1)
   }
 
   it should "bound rate between floor and ceiling" in {
-    val rateLow = Nbp.updateRate(Rate(0.005), Rate(-0.50), Ratio.Zero, totalPop * 95 / 100, totalPop)
-    rateLow.toDouble should be >= p.monetary.rateFloor.toDouble
+    val rateLow = Nbp.updateRate(Rate(0.005), Rate(-0.50), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    td.toDouble(rateLow) should be >= td.toDouble(p.monetary.rateFloor)
 
-    val rateHigh = Nbp.updateRate(Rate(0.25), Rate(1.0), Ratio(0.5), totalPop * 95 / 100, totalPop)
-    rateHigh.toDouble should be <= p.monetary.rateCeiling.toDouble
+    val rateHigh = Nbp.updateRate(Rate(0.25), Rate(1.0), Coefficient(0.5), totalPop * 95 / 100, totalPop)
+    td.toDouble(rateHigh) should be <= td.toDouble(p.monetary.rateCeiling)
   }
 
   // --- updateGov ---
@@ -82,7 +83,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
         vat = PLN(200000),
       ),
     )
-    result.deficit.toDouble shouldBe (p.fiscal.govBaseSpending.toDouble - 300000) +- 1.0
+    td.toDouble(result.deficit) shouldBe (td.toDouble(p.fiscal.govBaseSpending) - 300000) +- 1.0
   }
 
   it should "accumulate debt" in {
@@ -95,5 +96,5 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
         vat = PLN(200000),
       ),
     )
-    result.cumulativeDebt.toDouble shouldBe (1000000 + result.deficit.toDouble) +- 1.0
+    td.toDouble(result.cumulativeDebt) shouldBe (1000000 + td.toDouble(result.deficit)) +- 1.0
   }

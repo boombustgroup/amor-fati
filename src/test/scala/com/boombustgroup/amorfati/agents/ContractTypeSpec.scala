@@ -1,24 +1,27 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class ContractTypeSpec extends AnyFlatSpec with Matchers:
 
+  private val td = ComputationBoundary
+
   "zusEmployerRate" should "be highest for Permanent" in {
-    ContractType.zusEmployerRate(ContractType.Permanent).toDouble should be > ContractType.zusEmployerRate(ContractType.Zlecenie).toDouble
-    ContractType.zusEmployerRate(ContractType.Zlecenie).toDouble should be > ContractType.zusEmployerRate(ContractType.B2B).toDouble
+    td.toDouble(ContractType.zusEmployerRate(ContractType.Permanent)) should be > td.toDouble(ContractType.zusEmployerRate(ContractType.Zlecenie))
+    td.toDouble(ContractType.zusEmployerRate(ContractType.Zlecenie)) should be > td.toDouble(ContractType.zusEmployerRate(ContractType.B2B))
   }
 
   it should "be zero for B2B" in {
-    ContractType.zusEmployerRate(ContractType.B2B) shouldBe Ratio.Zero
+    ContractType.zusEmployerRate(ContractType.B2B) shouldBe Share.Zero
   }
 
   "fpRate" should "be positive only for Permanent" in {
-    ContractType.fpRate(ContractType.Permanent).toDouble should be > 0.0
-    ContractType.fpRate(ContractType.Zlecenie) shouldBe Ratio.Zero
-    ContractType.fpRate(ContractType.B2B) shouldBe Ratio.Zero
+    td.toDouble(ContractType.fpRate(ContractType.Permanent)) should be > 0.0
+    ContractType.fpRate(ContractType.Zlecenie) shouldBe Share.Zero
+    ContractType.fpRate(ContractType.B2B) shouldBe Share.Zero
   }
 
   "firingPriority" should "fire B2B first, Permanent last" in {

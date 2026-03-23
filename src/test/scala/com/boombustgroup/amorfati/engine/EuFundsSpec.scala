@@ -11,6 +11,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   // --- Beta PDF tests ---
 
@@ -45,7 +46,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
 
   "monthlyTransfer" should "return 0 before startMonth" in {
     EuFunds.monthlyTransfer(0) shouldBe 0.0
-    EuFunds.monthlyTransfer(1) shouldBe 0.0 // t=0 → betaPdf(0)=0
+    EuFunds.monthlyTransfer(1) shouldBe 0.0 // t=0 -> betaPdf(0)=0
   }
 
   it should "return 0 after startMonth + periodMonths" in {
@@ -97,7 +98,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     val base      = FiscalBudget.update(baseInput)
     val withEu    = FiscalBudget.update(baseInput.copy(euCofinancing = PLN(50000.0)))
     // Deficit should increase by euCofinancing amount
-    (withEu.deficit - base.deficit).toDouble shouldBe 50000.0 +- 0.01
+    td.toDouble(withEu.deficit - base.deficit) shouldBe 50000.0 +- 0.01
   }
 
   it should "record euCofinancing in GovState" in {
@@ -111,7 +112,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
         euCofinancing = PLN(75000.0),
       ),
     )
-    result.euCofinancing.toDouble shouldBe 75000.0
+    td.toDouble(result.euCofinancing) shouldBe 75000.0
   }
 
   it should "add euProjectCapital to govCapitalSpend" in {
@@ -125,5 +126,5 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
         euProjectCapital = PLN(30000.0),
       ),
     )
-    result.govCapitalSpend.toDouble should be >= 30000.0
+    td.toDouble(result.govCapitalSpend) should be >= 30000.0
   }

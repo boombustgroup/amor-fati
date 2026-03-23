@@ -62,7 +62,7 @@ object QuasiFiscal:
     val issuance: PLN = ((govCapitalSpend + euProjectCapital) * p.quasiFiscal.issuanceShare).max(PLN.Zero)
 
     // Amortization: bonds mature at 1/avgMaturity per month
-    val amortFrac: Ratio  = Ratio.One / p.quasiFiscal.avgMaturityMonths.max(1)
+    val amortFrac: Share  = Share.One / p.quasiFiscal.avgMaturityMonths.max(1)
     val amortization: PLN = prev.bondsOutstanding * amortFrac
 
     // NBP absorption: in crisis mode, NBP buys a share of new issuance
@@ -75,7 +75,7 @@ object QuasiFiscal:
 
     // Lending: fraction of outstanding portfolio directed to subsidized credit
     val lendingGrowth: PLN    = issuance * p.quasiFiscal.lendingShare
-    val loanAmortFrac: Ratio  = Ratio.One / p.quasiFiscal.loanMaturityMonths.max(1)
+    val loanAmortFrac: Share  = Share.One / p.quasiFiscal.loanMaturityMonths.max(1)
     val lendingAmort: PLN     = prev.loanPortfolio * loanAmortFrac
     val newLoanPortfolio: PLN = (prev.loanPortfolio + lendingGrowth - lendingAmort).max(PLN.Zero)
 
@@ -93,14 +93,14 @@ object QuasiFiscal:
     )
 
   /** Bank share of outstanding (for amortization split). */
-  private def bankShareOf(s: State): Ratio =
-    if s.bondsOutstanding > PLN.Zero then Ratio(s.bankHoldings / s.bondsOutstanding).clamp(Ratio.Zero, Ratio.One)
-    else Ratio(0.5)
+  private def bankShareOf(s: State): Share =
+    if s.bondsOutstanding > PLN.Zero then Share(s.bankHoldings / s.bondsOutstanding).clamp(Share.Zero, Share.One)
+    else Share(0.5)
 
   /** NBP share of outstanding (for amortization split). */
-  private def nbpShareOf(s: State): Ratio =
-    if s.bondsOutstanding > PLN.Zero then Ratio(s.nbpHoldings / s.bondsOutstanding).clamp(Ratio.Zero, Ratio.One)
-    else Ratio(0.5)
+  private def nbpShareOf(s: State): Share =
+    if s.bondsOutstanding > PLN.Zero then Share(s.nbpHoldings / s.bondsOutstanding).clamp(Share.Zero, Share.One)
+    else Share(0.5)
 
   /** ESA 2010 debt: MF debt + quasi-fiscal outstanding. */
   def esa2010Debt(govCumulativeDebt: PLN, qfOutstanding: PLN): PLN =

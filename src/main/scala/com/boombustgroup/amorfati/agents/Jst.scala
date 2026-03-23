@@ -44,16 +44,16 @@ object Jst:
       // Revenue sources:
       // 1. PIT share: JST gets ~38.46% of PIT collected
       val jstPitIncome =
-        if p.flags.pit && pitRevenue > PLN.Zero then pitRevenue * p.fiscal.jstPitShare.toDouble
-        else totalWageIncome * (FallbackPitRate * p.fiscal.jstPitShare.toDouble)
+        if p.flags.pit && pitRevenue > PLN.Zero then pitRevenue * p.fiscal.jstPitShare
+        else totalWageIncome * (Share(FallbackPitRate) * p.fiscal.jstPitShare)
       // 2. CIT share: JST gets ~6.71% of CIT
-      val citRevenue   = govTaxRevenue * p.fiscal.jstCitShare.toDouble
+      val citRevenue   = govTaxRevenue * p.fiscal.jstCitShare
       // 3. Property tax: fixed per firm per year
-      val propertyTax  = p.fiscal.jstPropertyTax * nFirms.toDouble / 12.0
+      val propertyTax  = nFirms * p.fiscal.jstPropertyTax / 12L
       // 4. Subwencja oświatowa (education subvention): ~3% of GDP annually
-      val subvention   = gdp * p.fiscal.jstSubventionShare.toDouble / 12.0
+      val subvention   = gdp * p.fiscal.jstSubventionShare / 12L
       // 5. Dotacje celowe (targeted grants): ~1% of GDP annually
-      val dotacje      = gdp * p.fiscal.jstDotacjeShare.toDouble / 12.0
+      val dotacje      = gdp * p.fiscal.jstDotacjeShare / 12L
 
       val totalRevenue  = jstPitIncome + citRevenue + propertyTax + subvention + dotacje
       // JST spending: revenue × spending multiplier (slightly > 1 → deficit bias)

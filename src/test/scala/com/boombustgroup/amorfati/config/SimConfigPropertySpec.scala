@@ -10,6 +10,7 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -17,32 +18,32 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   // --- Sector invariants ---
 
   "p.sectorDefs" should "have shares summing to approximately 1.0" in {
-    val sum = p.sectorDefs.map(_.share.toDouble).sum
+    val sum = p.sectorDefs.map(s => td.toDouble(s.share)).sum
     sum shouldBe (1.0 +- 0.01)
   }
 
   it should "have all sigma > 0" in {
-    for s <- p.sectorDefs do s.sigma should be > 0.0
+    for s <- p.sectorDefs do td.toDouble(s.sigma) should be > 0.0
   }
 
   it should "have all multipliers > 0" in {
     for s <- p.sectorDefs do
-      s.wageMultiplier should be > 0.0
-      s.revenueMultiplier should be > 0.0
-      s.aiCapexMultiplier should be > 0.0
-      s.hybridCapexMultiplier should be > 0.0
+      td.toDouble(s.wageMultiplier) should be > 0.0
+      td.toDouble(s.revenueMultiplier) should be > 0.0
+      td.toDouble(s.aiCapexMultiplier) should be > 0.0
+      td.toDouble(s.hybridCapexMultiplier) should be > 0.0
   }
 
   it should "have hybridRetainFrac in (0, 1]" in {
     for s <- p.sectorDefs do
-      s.hybridRetainFrac.toDouble should be > 0.0
-      s.hybridRetainFrac.toDouble should be <= 1.0
+      td.toDouble(s.hybridRetainFrac) should be > 0.0
+      td.toDouble(s.hybridRetainFrac) should be <= 1.0
   }
 
   it should "have baseDigitalReadiness in [0, 1]" in {
     for s <- p.sectorDefs do
-      s.baseDigitalReadiness.toDouble should be >= 0.0
-      s.baseDigitalReadiness.toDouble should be <= 1.0
+      td.toDouble(s.baseDigitalReadiness) should be >= 0.0
+      td.toDouble(s.baseDigitalReadiness) should be <= 1.0
   }
 
   // --- IoMatrix invariants ---

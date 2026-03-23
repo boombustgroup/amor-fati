@@ -9,7 +9,8 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val p = summon[SimParams]
+  private val p  = summon[SimParams]
+  private val td = ComputationBoundary
 
   // Helper: create a minimal bank state with given interbank net
   private def mkBank(id: Int, interbankNet: Double, capital: Double = 1e9, failed: Boolean = false): Banking.BankState =
@@ -45,8 +46,8 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
     val banks  = Vector(mkBank(0, 100.0), mkBank(1, -60.0), mkBank(2, -40.0))
     val matrix = InterbankContagion.buildExposureMatrix(banks)
     // Bank 0 lends 100, borrower 1 has 60% of deficit, borrower 2 has 40%
-    matrix(0)(1).toDouble shouldBe 60.0 +- 0.01
-    matrix(0)(2).toDouble shouldBe 40.0 +- 0.01
+    td.toDouble(matrix(0)(1)) shouldBe 60.0 +- 0.01
+    td.toDouble(matrix(0)(2)) shouldBe 40.0 +- 0.01
     // Borrowers don't lend
     matrix(1)(0) shouldBe PLN.Zero
     matrix(2)(0) shouldBe PLN.Zero
@@ -65,8 +66,8 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
     val matrix       = InterbankContagion.buildExposureMatrix(banks)
     val after        = InterbankContagion.applyContagionLosses(banks, matrix)
     // Lender loses exposure × (1 - recovery)
-    val expectedLoss = 100.0 * (1.0 - p.banking.interbankRecoveryRate.toDouble)
-    after(0).capital.toDouble shouldBe (1e9 - expectedLoss) +- 0.01
+    val expectedLoss = 100.0 * (1.0 - td.toDouble(p.banking.interbankRecoveryRate))
+    td.toDouble(after(0).capital) shouldBe (1e9 - expectedLoss) +- 0.01
   }
 
   it should "not affect banks with no exposure to failed bank" in {
@@ -76,21 +77,21 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
     val banks    = Vector(safe, borrower, lender)
     val matrix   = InterbankContagion.buildExposureMatrix(banks)
     val after    = InterbankContagion.applyContagionLosses(banks, matrix)
-    after(0).capital.toDouble shouldBe 1e9 +- 0.01 // safe bank untouched
+    td.toDouble(after(0).capital) shouldBe 1e9 +- 0.01 // safe bank untouched
   }
 
   "hoardingFactor" should "be 1.0 when NPL below threshold" in {
-    val factor = InterbankContagion.hoardingFactor(Ratio(0.02))
-    factor.toDouble shouldBe 1.0 +- 0.01
+    val factor = InterbankContagion.hoardingFactor(Share(0.02))
+    td.toDouble(factor) shouldBe 1.0 +- 0.01
   }
 
   it should "decrease when NPL exceeds threshold" in {
-    val factor = InterbankContagion.hoardingFactor(Ratio(0.10))
-    factor.toDouble should be < 1.0
-    factor.toDouble should be >= 0.0
+    val factor = InterbankContagion.hoardingFactor(Share(0.10))
+    td.toDouble(factor) should be < 1.0
+    td.toDouble(factor) should be >= 0.0
   }
 
   it should "be zero (full freeze) at very high NPL" in {
-    val factor = InterbankContagion.hoardingFactor(Ratio(0.50))
-    factor.toDouble shouldBe 0.0 +- 0.01
+    val factor = InterbankContagion.hoardingFactor(Share(0.50))
+    td.toDouble(factor) shouldBe 0.0 +- 0.01
   }

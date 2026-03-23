@@ -15,14 +15,14 @@ enum Topology(val label: String):
   */
 case class SectorDef(
     name: String,
-    share: Ratio,                // Share of firm population (GUS BAEL 2024)
-    sigma: Double,               // CES elasticity of substitution
-    wageMultiplier: Double,      // Sector wage multiplier vs national average
-    revenueMultiplier: Double,
-    aiCapexMultiplier: Double,
-    hybridCapexMultiplier: Double,
-    baseDigitalReadiness: Ratio, // Central tendency of digitalReadiness
-    hybridRetainFrac: Ratio,     // Fraction of workers RETAINED in hybrid mode (0.5 = halve)
+    share: Share,                // Share of firm population (GUS BAEL 2024)
+    sigma: Sigma,                // CES elasticity of substitution
+    wageMultiplier: Multiplier,  // Sector wage multiplier vs national average
+    revenueMultiplier: Multiplier,
+    aiCapexMultiplier: Multiplier,
+    hybridCapexMultiplier: Multiplier,
+    baseDigitalReadiness: Share, // Central tendency of digitalReadiness
+    hybridRetainFrac: Share,     // Fraction of workers RETAINED in hybrid mode (0.5 = halve)
 )
 
 /** Complete parameterization of a 48-mechanism SFC-ABM model of the Polish
@@ -85,7 +85,7 @@ case class SimParams private (
     informal: InformalConfig = InformalConfig(),
     sectorDefs: Vector[SectorDef] = SimParams.DefaultSectorDefs,
     topology: Topology = Topology.Ws,
-    gdpRatio: Double = SimParams.DefaultGdpRatio,
+    gdpRatio: Double = SimParams.DefaultGdpRatio, // scaling coefficient — computation boundary, not SFC flow
 )
 
 object SimParams:
@@ -102,12 +102,12 @@ object SimParams:
     * multiplier, export propensity, and import propensity.
     */
   val DefaultSectorDefs: Vector[SectorDef] = Vector(
-    SectorDef("BPO/SSC", Ratio(0.03), 50.0, 1.35, 1.50, 0.70, 0.70, Ratio(0.50), Ratio(0.50)),
-    SectorDef("Manufacturing", Ratio(0.16), 10.0, 0.94, 1.05, 1.12, 1.05, Ratio(0.45), Ratio(0.60)),
-    SectorDef("Retail/Services", Ratio(0.45), 5.0, 0.79, 0.91, 0.85, 0.80, Ratio(0.40), Ratio(0.65)),
-    SectorDef("Healthcare", Ratio(0.06), 2.0, 0.97, 1.10, 1.38, 1.25, Ratio(0.25), Ratio(0.75)),
-    SectorDef("Public", Ratio(0.22), 1.0, 0.91, 1.08, 3.00, 2.50, Ratio(0.08), Ratio(0.90)),
-    SectorDef("Agriculture", Ratio(0.08), 3.0, 0.67, 0.80, 2.50, 2.00, Ratio(0.12), Ratio(0.85)),
+    SectorDef("BPO/SSC", Share(0.03), Sigma(50.0), Multiplier(1.35), Multiplier(1.50), Multiplier(0.70), Multiplier(0.70), Share(0.50), Share(0.50)),
+    SectorDef("Manufacturing", Share(0.16), Sigma(10.0), Multiplier(0.94), Multiplier(1.05), Multiplier(1.12), Multiplier(1.05), Share(0.45), Share(0.60)),
+    SectorDef("Retail/Services", Share(0.45), Sigma(5.0), Multiplier(0.79), Multiplier(0.91), Multiplier(0.85), Multiplier(0.80), Share(0.40), Share(0.65)),
+    SectorDef("Healthcare", Share(0.06), Sigma(2.0), Multiplier(0.97), Multiplier(1.10), Multiplier(1.38), Multiplier(1.25), Share(0.25), Share(0.75)),
+    SectorDef("Public", Share(0.22), Sigma(1.0), Multiplier(0.91), Multiplier(1.08), Multiplier(3.00), Multiplier(2.50), Share(0.08), Share(0.90)),
+    SectorDef("Agriculture", Share(0.08), Sigma(3.0), Multiplier(0.67), Multiplier(0.80), Multiplier(2.50), Multiplier(2.00), Share(0.12), Share(0.85)),
   )
 
   // ── GdpRatio computation ──
@@ -118,19 +118,21 @@ object SimParams:
     * Formula:
     * `(firmsCount * avgWorkers / workersPerFirm * baseRevenue * 12) / realGdp`
     */
-  def computeGdpRatio(pop: PopulationConfig, baseRevenue: Double): Double =
+  @boundaryEscape
+  def computeGdpRatio(pop: PopulationConfig, baseRevenue: PLN): Double =
+    import ComputationBoundary.toDouble
     val expectedAvgWorkers = pop.firmSizeDist match
       case FirmSizeDist.Gus     =>
         val microMean   = 5.0; val smallMean = 29.5; val mediumMean = 149.5
         val largeMean   = (250.0 + pop.firmSizeLargeMax.toDouble) / 2.0
         val mediumShare =
-          1.0 - pop.firmSizeMicroShare.toDouble - pop.firmSizeSmallShare.toDouble - pop.firmSizeLargeShare.toDouble
-        pop.firmSizeMicroShare.toDouble * microMean + pop.firmSizeSmallShare.toDouble * smallMean +
-          mediumShare * mediumMean + pop.firmSizeLargeShare.toDouble * largeMean
+          1.0 - toDouble(pop.firmSizeMicroShare) - toDouble(pop.firmSizeSmallShare) - toDouble(pop.firmSizeLargeShare)
+        toDouble(pop.firmSizeMicroShare) * microMean + toDouble(pop.firmSizeSmallShare) * smallMean +
+          mediumShare * mediumMean + toDouble(pop.firmSizeLargeShare) * largeMean
       case FirmSizeDist.Uniform => pop.workersPerFirm.toDouble
-    (pop.firmsCount.toDouble * expectedAvgWorkers / pop.workersPerFirm.toDouble * baseRevenue * 12.0) / pop.realGdp.toDouble
+    (pop.firmsCount.toDouble * expectedAvgWorkers / pop.workersPerFirm.toDouble * toDouble(baseRevenue) * 12.0) / toDouble(pop.realGdp)
 
-  private val DefaultGdpRatio: Double = computeGdpRatio(PopulationConfig(), FirmConfig().baseRevenue.toDouble)
+  private val DefaultGdpRatio: Double = computeGdpRatio(PopulationConfig(), FirmConfig().baseRevenue)
 
   /** All hardcoded defaults with gdpRatio-scaled stock variables.
     *
@@ -149,46 +151,46 @@ object SimParams:
       firm = firm,
       household = HouseholdConfig(count = totalPop),
       fiscal = FiscalConfig(
-        govBaseSpending = PLN(58.3e9) * r,
-        initGovDebt = PLN(1600e9) * r,
+        govBaseSpending = PLN(58.3e9 * r),
+        initGovDebt = PLN(1600e9 * r),
       ),
       monetary = MonetaryConfig(
-        qePace = PLN(5e9) * r,
-        fxReserves = PLN(185e9) * r,
+        qePace = PLN(5e9 * r),
+        fxReserves = PLN(185e9 * r),
       ),
       banking = BankingConfig(
-        initCapital = PLN(270e9) * r,
-        initDeposits = PLN(1900e9) * r,
-        initLoans = PLN(700e9) * r,
-        initGovBonds = PLN(400e9) * r,
-        initNbpGovBonds = PLN(300e9) * r,
-        initConsumerLoans = PLN(200e9) * r,
+        initCapital = PLN(270e9 * r),
+        initDeposits = PLN(1900e9 * r),
+        initLoans = PLN(700e9 * r),
+        initGovBonds = PLN(400e9 * r),
+        initNbpGovBonds = PLN(300e9 * r),
+        initConsumerLoans = PLN(200e9 * r),
       ),
       forex = ForexConfig(
-        exportBase = PLN(55.4e9) * r,
+        exportBase = PLN(55.4e9 * r),
       ),
       openEcon = OpenEconConfig(
-        exportBase = PLN(138.5e9) * r,
-        euTransfers = PLN(1.458e9) * r,
-        fdiBase = PLN(583.1e6) * r,
+        exportBase = PLN(138.5e9 * r),
+        euTransfers = PLN(1.458e9 * r),
+        fdiBase = PLN(583.1e6 * r),
       ),
       equity = EquityConfig(
-        initMcap = PLN(1.4e12) * r,
+        initMcap = PLN(1.4e12 * r),
       ),
       corpBond = CorpBondConfig(
-        initStock = PLN(90e9) * r,
+        initStock = PLN(90e9 * r),
       ),
       ins = InsuranceConfig(
-        lifeReserves = PLN(110e9) * r,
-        nonLifeReserves = PLN(90e9) * r,
+        lifeReserves = PLN(110e9 * r),
+        nonLifeReserves = PLN(90e9 * r),
       ),
       nbfi = NbfiConfig(
-        tfiInitAum = PLN(380e9) * r,
-        creditInitStock = PLN(231e9) * r,
+        tfiInitAum = PLN(380e9 * r),
+        creditInitStock = PLN(231e9 * r),
       ),
       housing = HousingConfig(
-        initValue = PLN(3.0e12) * r,
-        initMortgage = PLN(485e9) * r,
+        initValue = PLN(3.0e12 * r),
+        initMortgage = PLN(485e9 * r),
       ),
       social = SocialConfig(demInitialRetirees = 0),
       gdpRatio = r,
@@ -200,11 +202,17 @@ object SimParams:
 object FirmSizeDistribution:
   import scala.util.Random
 
-  def draw(rng: Random)(using p: SimParams): Int = p.pop.firmSizeDist match
-    case FirmSizeDist.Gus     =>
-      val r = rng.nextDouble()
-      if r < p.pop.firmSizeMicroShare.toDouble then rng.between(1, 10)
-      else if r < p.pop.firmSizeMicroShare.toDouble + p.pop.firmSizeSmallShare.toDouble then rng.between(10, 50)
-      else if r < 1.0 - p.pop.firmSizeLargeShare.toDouble then rng.between(50, 250)
-      else rng.between(250, p.pop.firmSizeLargeMax + 1)
-    case FirmSizeDist.Uniform => p.pop.workersPerFirm
+  @boundaryEscape
+  def draw(rng: Random)(using p: SimParams): Int =
+    import ComputationBoundary.toDouble
+    p.pop.firmSizeDist match
+      case FirmSizeDist.Gus     =>
+        val r     = rng.nextDouble()
+        val micro = toDouble(p.pop.firmSizeMicroShare)
+        val small = toDouble(p.pop.firmSizeSmallShare)
+        val large = toDouble(p.pop.firmSizeLargeShare)
+        if r < micro then rng.between(1, 10)
+        else if r < micro + small then rng.between(10, 50)
+        else if r < 1.0 - large then rng.between(50, 250)
+        else rng.between(250, p.pop.firmSizeLargeMax + 1)
+      case FirmSizeDist.Uniform => p.pop.workersPerFirm
