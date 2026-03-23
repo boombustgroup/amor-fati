@@ -68,9 +68,9 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   it should "track repayment and default amounts correctly" in
     forAll(genHousingState, Gen.choose(1.0, 1e6), Gen.choose(1.0, 1e6), Gen.choose(1.0, 1e6)) { (state, principal, defaultAmt, interest) =>
       val result = HousingMarket.applyFlows(state, mkFlows(interest, principal, defaultAmt))
-      td.toDouble(result.lastRepayment) shouldBe principal
-      td.toDouble(result.lastDefault) shouldBe defaultAmt
-      td.toDouble(result.mortgageInterestIncome) shouldBe interest
+      td.toDouble(result.lastRepayment) shouldBe (principal +- 0.0001)
+      td.toDouble(result.lastDefault) shouldBe (defaultAmt +- 0.0001)
+      td.toDouble(result.mortgageInterestIncome) shouldBe (interest +- 0.0001)
     }
 
   // --- processMortgageFlows properties ---

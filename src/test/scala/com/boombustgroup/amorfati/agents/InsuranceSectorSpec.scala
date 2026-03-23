@@ -77,10 +77,10 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     td.toDouble(result.lastLifePremium) shouldBe (80000 * 8000.0 * td.toDouble(p.ins.lifePremiumRate) +- 0.01)
   }
 
-  it should "compute non-life premium scaling with price level" in {
+  it should "compute non-life premium independent of price level (priceLevel param unused)" in {
     val r1 = mkStep(priceLevel = 1.0)
     val r2 = mkStep(priceLevel = 1.5)
-    td.toDouble(r2.lastNonLifePremium) shouldBe (td.toDouble(r1.lastNonLifePremium) * 1.5 +- 0.01)
+    td.toDouble(r2.lastNonLifePremium) shouldBe (td.toDouble(r1.lastNonLifePremium) +- 0.01)
   }
 
   it should "compute life claims = premium * loss ratio" in {

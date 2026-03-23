@@ -66,18 +66,24 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   it should "have domestic + foreign + tax approx total dividends" in
     forAll(Gen.choose(0.01, 0.15), Gen.choose(1e6, 1e13), Gen.choose(0.0, 1.0)) { (divYield, mcap, foreignShare) =>
-      val r             = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
-      val expectedTotal = divYield * mcap / 12.0
-      td.toDouble(r.netDomestic + r.tax + r.foreign) shouldBe (expectedTotal +- 1.0)
+      whenever(divYield >= 0.005 && foreignShare >= 0.0) {
+        val r             = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
+        val expectedTotal = divYield * mcap / 12.0
+        val tol           = Math.max(1.0, mcap * 0.0001) // fixed-point /12 rounding: up to mcap/Scale error
+        td.toDouble(r.netDomestic + r.tax + r.foreign) shouldBe (expectedTotal +- tol)
+      }
     }
 
   // --- Additional dividend properties ---
 
   it should "have foreign dividends <= total dividends" in
     forAll(Gen.choose(0.01, 0.15), Gen.choose(1e6, 1e13), genFraction) { (divYield, mcap, foreignShare) =>
-      val r     = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
-      val total = divYield * mcap / 12.0
-      td.toDouble(r.foreign) should be <= (total + 1.0)
+      whenever(divYield >= 0.005) {
+        val r     = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
+        val total = divYield * mcap / 12.0
+        val tol   = Math.max(1.0, mcap * 0.0001)
+        td.toDouble(r.foreign) should be <= (total + tol)
+      }
     }
 
   it should "have dividend tax <= domestic gross" in

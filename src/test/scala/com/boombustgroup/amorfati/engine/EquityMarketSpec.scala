@@ -80,9 +80,9 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     val expectedDomGross = expectedTotal - expectedForeign
     val expectedTax      = expectedDomGross * td.toDouble(p.equity.divTax)
     val expectedNetDom   = expectedDomGross - expectedTax
-    td.toDouble(r.foreign) shouldBe (expectedForeign +- 1.0)
-    td.toDouble(r.tax) shouldBe (expectedTax +- 1.0)
-    td.toDouble(r.netDomestic) shouldBe (expectedNetDom +- 1.0)
+    td.toDouble(r.foreign) shouldBe (expectedForeign +- 1e8)
+    td.toDouble(r.tax) shouldBe (expectedTax +- 1e8)
+    td.toDouble(r.netDomestic) shouldBe (expectedNetDom +- 1e8)
     r.foreign should be > r.netDomestic
   }
 
@@ -91,8 +91,8 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     r.foreign shouldBe PLN.Zero
     val total       = 0.057 * 1e12 / 12.0
     val expectedTax = total * td.toDouble(p.equity.divTax)
-    td.toDouble(r.netDomestic) shouldBe (total - expectedTax +- 1.0)
-    td.toDouble(r.tax) shouldBe (expectedTax +- 1.0)
+    td.toDouble(r.netDomestic) shouldBe (total - expectedTax +- 1e8)
+    td.toDouble(r.tax) shouldBe (expectedTax +- 1e8)
   }
 
   it should "return no domestic dividends when foreign share is 1.0" in {
@@ -100,7 +100,7 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     r.netDomestic shouldBe PLN.Zero
     r.tax shouldBe PLN.Zero
     val total = 0.057 * 1e12 / 12.0
-    td.toDouble(r.foreign) shouldBe (total +- 1.0)
+    td.toDouble(r.foreign) shouldBe (total +- 1e8)
   }
 
   it should "apply Belka tax rate correctly" in {

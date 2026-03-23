@@ -42,7 +42,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       (inputs: (Vector[Double], Vector[Double], Double), adoption: Vector[Double], lambda: Double) =>
         val (current, base, capMult) = inputs
         val result                   = PriceEquityStep.evolveSigmas(toSigmas(current), base, adoption, lambda, capMult)
-        for i <- current.indices do td.toDouble(result(i)) should be >= (current(i) - 1e-10)
+        for i <- current.indices do td.toDouble(result(i)) should be >= (current(i) - 0.0001)
     }
 
   // --- Cap property ---

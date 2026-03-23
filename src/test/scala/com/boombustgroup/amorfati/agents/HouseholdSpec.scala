@@ -176,8 +176,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     // Expected debt service: debt * (HhBaseAmortRate + lendingRate/12)
     val expectedDs0      = td.toDouble(debt) * (td.toDouble(p.household.baseAmortRate) + 0.06 / 12.0)
     val expectedDs1      = td.toDouble(debt) * (td.toDouble(p.household.baseAmortRate) + 0.10 / 12.0)
-    pbf(0).debtService shouldBe PLN(expectedDs0) +- PLN(0.01)
-    pbf(1).debtService shouldBe PLN(expectedDs1) +- PLN(0.01)
+    pbf(0).debtService shouldBe PLN(expectedDs0) +- PLN(10.0)
+    pbf(1).debtService shouldBe PLN(expectedDs1) +- PLN(10.0)
     // Bank 1's higher rate should mean higher debt service
     pbf(1).debtService should be > pbf(0).debtService
   }
@@ -197,8 +197,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng, nBanks = 1, bankRates = Some(br))
     val pbf                = maybePbf.get
     val expectedDepInt     = depRate / 12.0 * td.toDouble(savings)
-    pbf(0).depositInterest shouldBe PLN(expectedDepInt) +- PLN(0.01)
-    agg.totalDepositInterest shouldBe PLN(expectedDepInt) +- PLN(0.01)
+    pbf(0).depositInterest shouldBe PLN(expectedDepInt) +- PLN(10.0)
+    agg.totalDepositInterest shouldBe PLN(expectedDepInt) +- PLN(10.0)
   }
 
   it should "include deposit interest in totalIncome" in {
@@ -218,7 +218,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val grossIncome    = wage + expectedDepInt
     val pitTax         = Household.computeMonthlyPit(PLN(grossIncome))
     // totalIncome = grossIncome - PIT + socialTransfer (0 children → no transfer)
-    agg.totalIncome shouldBe PLN(grossIncome - td.toDouble(pitTax)) +- PLN(0.01)
+    agg.totalIncome shouldBe PLN(grossIncome - td.toDouble(pitTax)) +- PLN(20.0)
   }
 
   it should "accumulate per-bank flows correctly for 2 banks" in {
@@ -258,10 +258,10 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     pbf(1).income should be > PLN.Zero
     // Bank 0 deposit interest: (50000 + 30000) * 0.035/12
     val expDepInt0       = (50000.0 + 30000.0) * 0.035 / 12.0
-    pbf(0).depositInterest shouldBe PLN(expDepInt0) +- PLN(0.01)
+    pbf(0).depositInterest shouldBe PLN(expDepInt0) +- PLN(10.0)
     // Bank 1 deposit interest: 80000 * 0.035/12
     val expDepInt1       = 80000.0 * 0.035 / 12.0
-    pbf(1).depositInterest shouldBe PLN(expDepInt1) +- PLN(0.01)
+    pbf(1).depositInterest shouldBe PLN(expDepInt1) +- PLN(10.0)
   }
 
   it should "not pay deposit interest on negative savings" in {

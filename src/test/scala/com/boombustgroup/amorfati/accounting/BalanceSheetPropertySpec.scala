@@ -68,10 +68,13 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   "GovState" should "have deficit = spending - revenue via updateGov" in
     forAll(genGovUpdateInputs) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double)) =>
       val (prev, cit, vat, price, unempBen) = inputs
-      val gov                               = FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
-      val totalRev                          = cit + vat
-      val totalSpend                        = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price
-      td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- 1.0)
+      whenever(price >= 0.01) {
+        val gov        = FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
+        val totalRev   = cit + vat
+        val totalSpend = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price
+        val tol        = td.toDouble(p.fiscal.govBaseSpending) * 0.0001 + 1.0 // Multiplier rounding tolerance
+        td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- tol)
+      }
     }
 
   // --- ForexState properties ---

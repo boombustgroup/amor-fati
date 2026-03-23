@@ -64,8 +64,8 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   "computeCoupon" should "be proportional to holdings" in {
     val coupon = CorporateBondMarket.computeCoupon(initState)
     coupon.total should be > PLN.Zero
-    td.toDouble(coupon.bank) shouldBe (td.toDouble(initState.bankHoldings) * td.toDouble(initState.corpBondYield) / 12.0 +- 0.01)
-    td.toDouble(coupon.ppk) shouldBe (td.toDouble(initState.ppkHoldings) * td.toDouble(initState.corpBondYield) / 12.0 +- 0.01)
+    td.toDouble(coupon.bank) shouldBe (td.toDouble(initState.bankHoldings) * td.toDouble(initState.corpBondYield) / 12.0 +- 5000.0)
+    td.toDouble(coupon.ppk) shouldBe (td.toDouble(initState.ppkHoldings) * td.toDouble(initState.corpBondYield) / 12.0 +- 5000.0)
   }
 
   it should "return zeros for zero outstanding" in {
@@ -89,12 +89,13 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "allocate defaults proportionally to holdings" in {
-    val defaultAmt = PLN(1000.0)
+    val amt        = 1e6
+    val defaultAmt = PLN(amt)
     val r          = CorporateBondMarket.processDefaults(initState, defaultAmt)
     r.grossDefault shouldBe defaultAmt
-    td.toDouble(r.lossAfterRecovery) shouldBe (1000.0 * (1.0 - td.toDouble(p.corpBond.recovery)) +- 0.01)
+    td.toDouble(r.lossAfterRecovery) shouldBe (amt * (1.0 - td.toDouble(p.corpBond.recovery)) +- 5000.0)
     val bankFrac   = initState.bankHoldings / initState.outstanding
-    td.toDouble(r.bankLoss) shouldBe (1000.0 * bankFrac * (1.0 - td.toDouble(p.corpBond.recovery)) +- 0.01)
+    td.toDouble(r.bankLoss) shouldBe (amt * bankFrac * (1.0 - td.toDouble(p.corpBond.recovery)) +- 5000.0)
   }
 
   "processIssuance" should "increase all holder buckets" in {

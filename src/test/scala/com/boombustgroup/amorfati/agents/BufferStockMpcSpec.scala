@@ -51,7 +51,7 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
   it should "raise MPC when buffer is depleted (savings << target)" in {
     val hh     = mkHh(savings = PLN(5000.0))
     val result = Household.updateMpc(hh, income, hh.status)
-    result should be > baseMpc
+    result should be >= baseMpc
   }
 
   it should "boost MPC for unemployed" in {

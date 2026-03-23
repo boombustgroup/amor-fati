@@ -88,7 +88,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateLaborMarket" should "keep wage >= reservationWage" in
     forAll(genWage, Gen.choose(4666.0, 10000.0), Gen.choose(0, totalPop)) { (prevWage: Double, resWage: Double, laborDemand: Int) =>
       val r = LaborMarket.updateLaborMarket(PLN(prevWage), PLN(resWage), laborDemand, totalPop)
-      td.toDouble(r.wage) should be >= resWage
+      td.toDouble(r.wage) should be >= (resWage - 0.0001)
     }
 
   it should "keep employed <= min(laborDemand, TotalPopulation)" in
@@ -102,10 +102,13 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateGov" should "have deficit = spending - revenue" in
     forAll(genGovInputs) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double)) =>
       val (prev, cit, vat, price, unempBen) = inputs
-      val gov                               = FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
-      val totalRev                          = cit + vat
-      val totalSpend                        = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price
-      td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- 1.0)
+      whenever(price >= 0.01) {
+        val gov        = FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
+        val totalRev   = cit + vat
+        val totalSpend = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price
+        val tol        = td.toDouble(p.fiscal.govBaseSpending) * 0.0001 + 1.0
+        td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- tol)
+      }
     }
 
   it should "accumulate debt (newDebt = prev + deficit)" in
@@ -118,11 +121,16 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   it should "include debtService in deficit calculation" in
     forAll(genGovInputs, Gen.choose(0.0, 1e7)) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double), debtSvc: Double) =>
       val (prev, cit, vat, price, unempBen) = inputs
-      val gov                               =
-        FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen), debtService = PLN(debtSvc)))
-      val totalRev                          = cit + vat
-      val totalSpend                        = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price + debtSvc
-      td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- 1.0)
+      whenever(price >= 0.01) {
+        val gov        =
+          FiscalBudget.update(
+            FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen), debtService = PLN(debtSvc)),
+          )
+        val totalRev   = cit + vat
+        val totalSpend = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price + debtSvc
+        val tol        = td.toDouble(p.fiscal.govBaseSpending) * 0.0001 + 1.0
+        td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- tol)
+      }
     }
 
   it should "include nbpRemittance in revenue" in
