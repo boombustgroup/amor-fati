@@ -40,14 +40,14 @@ object HouseholdFlows:
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 
-    if input.consumption.toLong > 0L then flows += Flow(HH_ACCOUNT, FIRM_ACCOUNT, input.consumption.toLong, FlowMechanism.HhConsumption.toInt)
-    if input.rent.toLong > 0L then flows += Flow(HH_ACCOUNT, LANDLORD_ACCOUNT, input.rent.toLong, FlowMechanism.HhRent.toInt)
-    if input.pit.toLong > 0L then flows += Flow(HH_ACCOUNT, GOV_ACCOUNT, input.pit.toLong, FlowMechanism.HhPit.toInt)
-    if input.debtService.toLong > 0L then flows += Flow(HH_ACCOUNT, BANK_ACCOUNT, input.debtService.toLong, FlowMechanism.HhDebtService.toInt)
-    if input.depositInterest.toLong > 0L then flows += Flow(BANK_ACCOUNT, HH_ACCOUNT, input.depositInterest.toLong, FlowMechanism.HhDepositInterest.toInt)
-    if input.remittances.toLong > 0L then flows += Flow(HH_ACCOUNT, FOREIGN_ACCOUNT, input.remittances.toLong, FlowMechanism.HhRemittance.toInt)
-    if input.ccOrigination.toLong > 0L then flows += Flow(BANK_ACCOUNT, HH_ACCOUNT, input.ccOrigination.toLong, FlowMechanism.HhCcOrigination.toInt)
-    if input.ccDebtService.toLong > 0L then flows += Flow(HH_ACCOUNT, BANK_ACCOUNT, input.ccDebtService.toLong, FlowMechanism.HhCcDebtService.toInt)
-    if input.ccDefault.toLong > 0L then flows += Flow(HH_ACCOUNT, BANK_ACCOUNT, input.ccDefault.toLong, FlowMechanism.HhCcDefault.toInt)
+    if input.consumption > PLN.Zero then flows += Flow(HH_ACCOUNT, FIRM_ACCOUNT, input.consumption.toLong, FlowMechanism.HhConsumption.toInt)
+    if input.rent > PLN.Zero then flows += Flow(HH_ACCOUNT, LANDLORD_ACCOUNT, input.rent.toLong, FlowMechanism.HhRent.toInt)
+    if input.pit > PLN.Zero then flows += Flow(HH_ACCOUNT, GOV_ACCOUNT, input.pit.toLong, FlowMechanism.HhPit.toInt)
+    if input.debtService > PLN.Zero then flows += Flow(HH_ACCOUNT, BANK_ACCOUNT, input.debtService.toLong, FlowMechanism.HhDebtService.toInt)
+    if input.depositInterest > PLN.Zero then flows += Flow(BANK_ACCOUNT, HH_ACCOUNT, input.depositInterest.toLong, FlowMechanism.HhDepositInterest.toInt)
+    if input.remittances > PLN.Zero then flows += Flow(HH_ACCOUNT, FOREIGN_ACCOUNT, input.remittances.toLong, FlowMechanism.HhRemittance.toInt)
+    if input.ccOrigination > PLN.Zero then flows += Flow(BANK_ACCOUNT, HH_ACCOUNT, input.ccOrigination.toLong, FlowMechanism.HhCcOrigination.toInt)
+    if input.ccDebtService > PLN.Zero then flows += Flow(HH_ACCOUNT, BANK_ACCOUNT, input.ccDebtService.toLong, FlowMechanism.HhCcDebtService.toInt)
+    if input.ccDefault > PLN.Zero then flows += Flow(HH_ACCOUNT, BANK_ACCOUNT, input.ccDefault.toLong, FlowMechanism.HhCcDefault.toInt)
 
     flows.result()

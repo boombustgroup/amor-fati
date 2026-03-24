@@ -40,20 +40,18 @@ object FirmFlows:
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 
-    if input.wages.toLong > 0L then flows += Flow(FIRM_ACCOUNT, HH_ACCOUNT, input.wages.toLong, FlowMechanism.FirmWages.toInt)
-    if input.cit.toLong > 0L then flows += Flow(FIRM_ACCOUNT, GOV_ACCOUNT, input.cit.toLong, FlowMechanism.FirmCit.toInt)
-    if input.loanRepayment.toLong > 0L then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.loanRepayment.toLong, FlowMechanism.FirmLoanRepayment.toInt)
-    if input.newLoans.toLong > 0L then flows += Flow(BANK_ACCOUNT, FIRM_ACCOUNT, input.newLoans.toLong, FlowMechanism.FirmNewLoan.toInt)
-    if input.interestPaid.toLong > 0L then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.interestPaid.toLong, FlowMechanism.FirmInterestPaid.toInt)
-    if input.capex.toLong > 0L then flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.capex.toLong, FlowMechanism.FirmCapex.toInt)
-    if input.equityIssuance.toLong > 0L then flows += Flow(HH_ACCOUNT, FIRM_ACCOUNT, input.equityIssuance.toLong, FlowMechanism.FirmEquityIssuance.toInt)
-    if input.bondIssuance.toLong > 0L then flows += Flow(BONDMARKET_ACCOUNT, FIRM_ACCOUNT, input.bondIssuance.toLong, FlowMechanism.FirmBondIssuance.toInt)
-    if input.ioPayments.toLong > 0L then flows += Flow(FIRM_ACCOUNT, FIRM_ACCOUNT + 100, input.ioPayments.toLong, FlowMechanism.FirmIoPayment.toInt)
-    if input.nplDefault.toLong > 0L then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.nplDefault.toLong, FlowMechanism.FirmNplDefault.toInt)
-    if input.profitShifting.toLong > 0L then flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.profitShifting.toLong, FlowMechanism.FirmProfitShifting.toInt)
-    if input.fdiRepatriation.toLong > 0L then
-      flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.fdiRepatriation.toLong, FlowMechanism.FirmFdiRepatriation.toInt)
-    if input.grossInvestment.toLong > 0L then
-      flows += Flow(FIRM_ACCOUNT, CAPITAL_ACCOUNT, input.grossInvestment.toLong, FlowMechanism.FirmGrossInvestment.toInt)
+    if input.wages > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HH_ACCOUNT, input.wages.toLong, FlowMechanism.FirmWages.toInt)
+    if input.cit > PLN.Zero then flows += Flow(FIRM_ACCOUNT, GOV_ACCOUNT, input.cit.toLong, FlowMechanism.FirmCit.toInt)
+    if input.loanRepayment > PLN.Zero then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.loanRepayment.toLong, FlowMechanism.FirmLoanRepayment.toInt)
+    if input.newLoans > PLN.Zero then flows += Flow(BANK_ACCOUNT, FIRM_ACCOUNT, input.newLoans.toLong, FlowMechanism.FirmNewLoan.toInt)
+    if input.interestPaid > PLN.Zero then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.interestPaid.toLong, FlowMechanism.FirmInterestPaid.toInt)
+    if input.capex > PLN.Zero then flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.capex.toLong, FlowMechanism.FirmCapex.toInt)
+    if input.equityIssuance > PLN.Zero then flows += Flow(HH_ACCOUNT, FIRM_ACCOUNT, input.equityIssuance.toLong, FlowMechanism.FirmEquityIssuance.toInt)
+    if input.bondIssuance > PLN.Zero then flows += Flow(BONDMARKET_ACCOUNT, FIRM_ACCOUNT, input.bondIssuance.toLong, FlowMechanism.FirmBondIssuance.toInt)
+    if input.ioPayments > PLN.Zero then flows += Flow(FIRM_ACCOUNT, FIRM_ACCOUNT + 100, input.ioPayments.toLong, FlowMechanism.FirmIoPayment.toInt)
+    if input.nplDefault > PLN.Zero then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.nplDefault.toLong, FlowMechanism.FirmNplDefault.toInt)
+    if input.profitShifting > PLN.Zero then flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.profitShifting.toLong, FlowMechanism.FirmProfitShifting.toInt)
+    if input.fdiRepatriation > PLN.Zero then flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.fdiRepatriation.toLong, FlowMechanism.FirmFdiRepatriation.toInt)
+    if input.grossInvestment > PLN.Zero then flows += Flow(FIRM_ACCOUNT, CAPITAL_ACCOUNT, input.grossInvestment.toLong, FlowMechanism.FirmGrossInvestment.toInt)
 
     flows.result()

@@ -34,26 +34,26 @@ object OpenEconFlows:
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 
-    if input.exports.toLong > 0L then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.exports.toLong, FlowMechanism.TradeExports.toInt)
-    if input.imports.toLong > 0L then flows += Flow(DOMESTIC_ACCOUNT, FOREIGN_ACCOUNT, input.imports.toLong, FlowMechanism.TradeImports.toInt)
-    if input.tourismExport.toLong > 0L then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.tourismExport.toLong, FlowMechanism.TourismExport.toInt)
-    if input.tourismImport.toLong > 0L then flows += Flow(DOMESTIC_ACCOUNT, FOREIGN_ACCOUNT, input.tourismImport.toLong, FlowMechanism.TourismImport.toInt)
+    if input.exports > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.exports.toLong, FlowMechanism.TradeExports.toInt)
+    if input.imports > PLN.Zero then flows += Flow(DOMESTIC_ACCOUNT, FOREIGN_ACCOUNT, input.imports.toLong, FlowMechanism.TradeImports.toInt)
+    if input.tourismExport > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.tourismExport.toLong, FlowMechanism.TourismExport.toInt)
+    if input.tourismImport > PLN.Zero then flows += Flow(DOMESTIC_ACCOUNT, FOREIGN_ACCOUNT, input.tourismImport.toLong, FlowMechanism.TourismImport.toInt)
 
-    if input.fdi.toLong > 0L then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.fdi.toLong, FlowMechanism.Fdi.toInt)
+    if input.fdi > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.fdi.toLong, FlowMechanism.Fdi.toInt)
 
     // Portfolio flows: positive = inflow (Foreign→Domestic), negative = outflow
-    if input.portfolioFlows.toLong > 0L then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.portfolioFlows.toLong, FlowMechanism.PortfolioFlow.toInt)
-    else if input.portfolioFlows.toLong < 0L then
+    if input.portfolioFlows > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.portfolioFlows.toLong, FlowMechanism.PortfolioFlow.toInt)
+    else if input.portfolioFlows < PLN.Zero then
       flows += Flow(DOMESTIC_ACCOUNT, FOREIGN_ACCOUNT, (-input.portfolioFlows).toLong, FlowMechanism.PortfolioFlow.toInt)
 
     // Primary income: positive = NFA earning (Foreign→Domestic), negative = payment
-    if input.primaryIncome.toLong > 0L then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.primaryIncome.toLong, FlowMechanism.PrimaryIncome.toInt)
-    else if input.primaryIncome.toLong < 0L then
+    if input.primaryIncome > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.primaryIncome.toLong, FlowMechanism.PrimaryIncome.toInt)
+    else if input.primaryIncome < PLN.Zero then
       flows += Flow(DOMESTIC_ACCOUNT, FOREIGN_ACCOUNT, (-input.primaryIncome).toLong, FlowMechanism.PrimaryIncome.toInt)
 
-    if input.euFunds.toLong > 0L then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.euFunds.toLong, FlowMechanism.EuFunds.toInt)
-    if input.diasporaInflow.toLong > 0L then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.diasporaInflow.toLong, FlowMechanism.DiasporaInflow.toInt)
-    if input.capitalFlightOutflow.toLong > 0L then
+    if input.euFunds > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.euFunds.toLong, FlowMechanism.EuFunds.toInt)
+    if input.diasporaInflow > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.diasporaInflow.toLong, FlowMechanism.DiasporaInflow.toInt)
+    if input.capitalFlightOutflow > PLN.Zero then
       flows += Flow(DOMESTIC_ACCOUNT, FOREIGN_ACCOUNT, input.capitalFlightOutflow.toLong, FlowMechanism.CapitalFlight.toInt)
 
     flows.result()

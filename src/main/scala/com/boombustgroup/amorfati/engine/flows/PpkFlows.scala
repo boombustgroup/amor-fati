@@ -27,8 +27,8 @@ object PpkFlows:
 
       val flows = Vector.newBuilder[Flow]
 
-      if contributions.toLong > 0L then flows += Flow(HH_ACCOUNT, PPK_ACCOUNT, contributions.toLong, FlowMechanism.PpkContribution.toInt)
+      if contributions > PLN.Zero then flows += Flow(HH_ACCOUNT, PPK_ACCOUNT, contributions.toLong, FlowMechanism.PpkContribution.toInt)
 
-      if bondPurchase.toLong > 0L then flows += Flow(PPK_ACCOUNT, BOND_MARKET_ACCOUNT, bondPurchase.toLong, FlowMechanism.PpkBondPurchase.toInt)
+      if bondPurchase > PLN.Zero then flows += Flow(PPK_ACCOUNT, BOND_MARKET_ACCOUNT, bondPurchase.toLong, FlowMechanism.PpkBondPurchase.toInt)
 
       flows.result()
