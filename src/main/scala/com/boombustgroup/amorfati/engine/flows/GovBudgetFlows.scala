@@ -41,21 +41,20 @@ object GovBudgetFlows:
     val flows = Vector.newBuilder[Flow]
 
     // Revenue: taxes → GOV
-    if input.taxRevenue.toLong > 0L then flows += Flow(TAXPAYER_ACCOUNT, GOV_ACCOUNT, input.taxRevenue.toLong, FlowMechanism.GovTaxRevenue.toInt)
+    if input.taxRevenue > PLN.Zero then flows += Flow(TAXPAYER_ACCOUNT, GOV_ACCOUNT, input.taxRevenue.toLong, FlowMechanism.GovTaxRevenue.toInt)
 
     // Spending: GOV → various recipients
-    if input.govPurchases.toLong > 0L then flows += Flow(GOV_ACCOUNT, FIRM_ACCOUNT, input.govPurchases.toLong, FlowMechanism.GovPurchases.toInt)
+    if input.govPurchases > PLN.Zero then flows += Flow(GOV_ACCOUNT, FIRM_ACCOUNT, input.govPurchases.toLong, FlowMechanism.GovPurchases.toInt)
 
-    if input.debtService.toLong > 0L then flows += Flow(GOV_ACCOUNT, BONDHOLDER_ACCOUNT, input.debtService.toLong, FlowMechanism.GovDebtService.toInt)
+    if input.debtService > PLN.Zero then flows += Flow(GOV_ACCOUNT, BONDHOLDER_ACCOUNT, input.debtService.toLong, FlowMechanism.GovDebtService.toInt)
 
-    if input.unempBenefitSpend.toLong > 0L then flows += Flow(GOV_ACCOUNT, HH_ACCOUNT, input.unempBenefitSpend.toLong, FlowMechanism.GovUnempBenefit.toInt)
+    if input.unempBenefitSpend > PLN.Zero then flows += Flow(GOV_ACCOUNT, HH_ACCOUNT, input.unempBenefitSpend.toLong, FlowMechanism.GovUnempBenefit.toInt)
 
-    if input.socialTransferSpend.toLong > 0L then
-      flows += Flow(GOV_ACCOUNT, HH_ACCOUNT, input.socialTransferSpend.toLong, FlowMechanism.GovSocialTransfer.toInt)
+    if input.socialTransferSpend > PLN.Zero then flows += Flow(GOV_ACCOUNT, HH_ACCOUNT, input.socialTransferSpend.toLong, FlowMechanism.GovSocialTransfer.toInt)
 
-    if input.euCofinancing.toLong > 0L then flows += Flow(GOV_ACCOUNT, INFRASTRUCTURE_ACCOUNT, input.euCofinancing.toLong, FlowMechanism.GovEuCofin.toInt)
+    if input.euCofinancing > PLN.Zero then flows += Flow(GOV_ACCOUNT, INFRASTRUCTURE_ACCOUNT, input.euCofinancing.toLong, FlowMechanism.GovEuCofin.toInt)
 
-    if input.govCapitalSpend.toLong > 0L then
+    if input.govCapitalSpend > PLN.Zero then
       flows += Flow(GOV_ACCOUNT, INFRASTRUCTURE_ACCOUNT, input.govCapitalSpend.toLong, FlowMechanism.GovCapitalInvestment.toInt)
 
     flows.result()

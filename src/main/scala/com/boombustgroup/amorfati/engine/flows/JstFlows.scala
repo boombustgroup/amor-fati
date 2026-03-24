@@ -40,8 +40,8 @@ object JstFlows:
       val totalSpending = totalRevenue * p.fiscal.jstSpendingMult
 
       val flows = Vector.newBuilder[Flow]
-      if totalRevenue.toLong > 0L then flows += Flow(TAXPAYER_ACCOUNT, JST_ACCOUNT, totalRevenue.toLong, FlowMechanism.JstRevenue.toInt)
-      if totalSpending.toLong > 0L then flows += Flow(JST_ACCOUNT, SERVICES_ACCOUNT, totalSpending.toLong, FlowMechanism.JstSpending.toInt)
+      if totalRevenue > PLN.Zero then flows += Flow(TAXPAYER_ACCOUNT, JST_ACCOUNT, totalRevenue.toLong, FlowMechanism.JstRevenue.toInt)
+      if totalSpending > PLN.Zero then flows += Flow(JST_ACCOUNT, SERVICES_ACCOUNT, totalSpending.toLong, FlowMechanism.JstSpending.toInt)
       flows.result()
 
   private val FallbackPitRate = 0.12

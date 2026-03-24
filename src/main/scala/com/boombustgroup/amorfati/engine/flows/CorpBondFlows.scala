@@ -24,8 +24,8 @@ object CorpBondFlows:
 
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
-    if input.coupon.toLong > 0L then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.coupon.toLong, FlowMechanism.CorpBondCoupon.toInt)
-    if input.defaultLoss.toLong > 0L then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.defaultLoss.toLong, FlowMechanism.CorpBondDefault.toInt)
-    if input.issuance.toLong > 0L then flows += Flow(HOLDER_ACCOUNT, FIRM_ACCOUNT, input.issuance.toLong, FlowMechanism.CorpBondIssuance.toInt)
-    if input.amortization.toLong > 0L then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.amortization.toLong, FlowMechanism.CorpBondAmortization.toInt)
+    if input.coupon > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.coupon.toLong, FlowMechanism.CorpBondCoupon.toInt)
+    if input.defaultLoss > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.defaultLoss.toLong, FlowMechanism.CorpBondDefault.toInt)
+    if input.issuance > PLN.Zero then flows += Flow(HOLDER_ACCOUNT, FIRM_ACCOUNT, input.issuance.toLong, FlowMechanism.CorpBondIssuance.toInt)
+    if input.amortization > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.amortization.toLong, FlowMechanism.CorpBondAmortization.toInt)
     flows.result()

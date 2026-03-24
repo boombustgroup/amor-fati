@@ -38,11 +38,11 @@ object ZusFlows:
 
       val flows = Vector.newBuilder[Flow]
 
-      if contributions.toLong > 0L then
+      if contributions > PLN.Zero then
         flows += Flow(from = HH_ACCOUNT, to = FUS_ACCOUNT, amount = contributions.toLong, mechanism = FlowMechanism.ZusContribution.toInt)
 
-      if pensions.toLong > 0L then flows += Flow(from = FUS_ACCOUNT, to = HH_ACCOUNT, amount = pensions.toLong, mechanism = FlowMechanism.ZusPension.toInt)
+      if pensions > PLN.Zero then flows += Flow(from = FUS_ACCOUNT, to = HH_ACCOUNT, amount = pensions.toLong, mechanism = FlowMechanism.ZusPension.toInt)
 
-      if deficit.toLong > 0L then flows += Flow(from = GOV_ACCOUNT, to = FUS_ACCOUNT, amount = deficit.toLong, mechanism = FlowMechanism.ZusGovSubvention.toInt)
+      if deficit > PLN.Zero then flows += Flow(from = GOV_ACCOUNT, to = FUS_ACCOUNT, amount = deficit.toLong, mechanism = FlowMechanism.ZusGovSubvention.toInt)
 
       flows.result()

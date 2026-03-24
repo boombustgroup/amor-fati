@@ -36,26 +36,26 @@ object EarmarkedFlows:
     val fpSpend   = input.unempBenefitSpend + input.employed * p.earmarked.fpAlmpSpendPerWorker
     val fpDeficit = fpSpend - fpContrib
 
-    if fpContrib.toLong > 0L then flows += Flow(HH_ACCOUNT, FP_ACCOUNT, fpContrib.toLong, FlowMechanism.FpContribution.toInt)
-    if fpSpend.toLong > 0L then flows += Flow(FP_ACCOUNT, SERVICES_ACCOUNT, fpSpend.toLong, FlowMechanism.FpSpending.toInt)
-    if fpDeficit.toLong > 0L then flows += Flow(GOV_ACCOUNT, FP_ACCOUNT, fpDeficit.toLong, FlowMechanism.FpGovSubvention.toInt)
+    if fpContrib > PLN.Zero then flows += Flow(HH_ACCOUNT, FP_ACCOUNT, fpContrib.toLong, FlowMechanism.FpContribution.toInt)
+    if fpSpend > PLN.Zero then flows += Flow(FP_ACCOUNT, SERVICES_ACCOUNT, fpSpend.toLong, FlowMechanism.FpSpending.toInt)
+    if fpDeficit > PLN.Zero then flows += Flow(GOV_ACCOUNT, FP_ACCOUNT, fpDeficit.toLong, FlowMechanism.FpGovSubvention.toInt)
 
     // PFRON: flat levy → disability spending
     val pfronContrib = p.earmarked.pfronMonthlyRevenue
     val pfronSpend   = p.earmarked.pfronMonthlySpending
     val pfronDeficit = pfronSpend - pfronContrib
 
-    if pfronContrib.toLong > 0L then flows += Flow(HH_ACCOUNT, PFRON_ACCOUNT, pfronContrib.toLong, FlowMechanism.PfronContribution.toInt)
-    if pfronSpend.toLong > 0L then flows += Flow(PFRON_ACCOUNT, SERVICES_ACCOUNT, pfronSpend.toLong, FlowMechanism.PfronSpending.toInt)
-    if pfronDeficit.toLong > 0L then flows += Flow(GOV_ACCOUNT, PFRON_ACCOUNT, pfronDeficit.toLong, FlowMechanism.PfronGovSubvention.toInt)
+    if pfronContrib > PLN.Zero then flows += Flow(HH_ACCOUNT, PFRON_ACCOUNT, pfronContrib.toLong, FlowMechanism.PfronContribution.toInt)
+    if pfronSpend > PLN.Zero then flows += Flow(PFRON_ACCOUNT, SERVICES_ACCOUNT, pfronSpend.toLong, FlowMechanism.PfronSpending.toInt)
+    if pfronDeficit > PLN.Zero then flows += Flow(GOV_ACCOUNT, PFRON_ACCOUNT, pfronDeficit.toLong, FlowMechanism.PfronGovSubvention.toInt)
 
     // FGSP: payroll levy → bankruptcy payouts (counter-cyclical)
     val fgspContrib = input.employed * (input.wage * p.earmarked.fgspRate)
     val fgspSpend   = (input.nBankruptFirms * input.avgFirmWorkers) * p.earmarked.fgspPayoutPerWorker
     val fgspDeficit = fgspSpend - fgspContrib
 
-    if fgspContrib.toLong > 0L then flows += Flow(HH_ACCOUNT, FGSP_ACCOUNT, fgspContrib.toLong, FlowMechanism.FgspContribution.toInt)
-    if fgspSpend.toLong > 0L then flows += Flow(FGSP_ACCOUNT, SERVICES_ACCOUNT, fgspSpend.toLong, FlowMechanism.FgspSpending.toInt)
-    if fgspDeficit.toLong > 0L then flows += Flow(GOV_ACCOUNT, FGSP_ACCOUNT, fgspDeficit.toLong, FlowMechanism.FgspGovSubvention.toInt)
+    if fgspContrib > PLN.Zero then flows += Flow(HH_ACCOUNT, FGSP_ACCOUNT, fgspContrib.toLong, FlowMechanism.FgspContribution.toInt)
+    if fgspSpend > PLN.Zero then flows += Flow(FGSP_ACCOUNT, SERVICES_ACCOUNT, fgspSpend.toLong, FlowMechanism.FgspSpending.toInt)
+    if fgspDeficit > PLN.Zero then flows += Flow(GOV_ACCOUNT, FGSP_ACCOUNT, fgspDeficit.toLong, FlowMechanism.FgspGovSubvention.toInt)
 
     flows.result()

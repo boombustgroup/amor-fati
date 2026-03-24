@@ -47,10 +47,10 @@ object InsuranceFlows:
 
     val flows = Vector.newBuilder[Flow]
 
-    if lifePrem.toLong > 0L then flows += Flow(HH_ACCOUNT, INS_ACCOUNT, lifePrem.toLong, FlowMechanism.InsLifePremium.toInt)
-    if nonLifePrem.toLong > 0L then flows += Flow(HH_ACCOUNT, INS_ACCOUNT, nonLifePrem.toLong, FlowMechanism.InsNonLifePremium.toInt)
-    if lifeCl.toLong > 0L then flows += Flow(INS_ACCOUNT, HH_ACCOUNT, lifeCl.toLong, FlowMechanism.InsLifeClaim.toInt)
-    if nonLifeCl.toLong > 0L then flows += Flow(INS_ACCOUNT, HH_ACCOUNT, nonLifeCl.toLong, FlowMechanism.InsNonLifeClaim.toInt)
-    if invIncome.toLong > 0L then flows += Flow(MARKETS_ACCOUNT, INS_ACCOUNT, invIncome.toLong, FlowMechanism.InsInvestmentIncome.toInt)
+    if lifePrem > PLN.Zero then flows += Flow(HH_ACCOUNT, INS_ACCOUNT, lifePrem.toLong, FlowMechanism.InsLifePremium.toInt)
+    if nonLifePrem > PLN.Zero then flows += Flow(HH_ACCOUNT, INS_ACCOUNT, nonLifePrem.toLong, FlowMechanism.InsNonLifePremium.toInt)
+    if lifeCl > PLN.Zero then flows += Flow(INS_ACCOUNT, HH_ACCOUNT, lifeCl.toLong, FlowMechanism.InsLifeClaim.toInt)
+    if nonLifeCl > PLN.Zero then flows += Flow(INS_ACCOUNT, HH_ACCOUNT, nonLifeCl.toLong, FlowMechanism.InsNonLifeClaim.toInt)
+    if invIncome > PLN.Zero then flows += Flow(MARKETS_ACCOUNT, INS_ACCOUNT, invIncome.toLong, FlowMechanism.InsInvestmentIncome.toInt)
 
     flows.result()

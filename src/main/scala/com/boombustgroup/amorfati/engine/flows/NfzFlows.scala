@@ -37,10 +37,10 @@ object NfzFlows:
 
       val flows = Vector.newBuilder[Flow]
 
-      if contributions.toLong > 0L then flows += Flow(HH_ACCOUNT, NFZ_ACCOUNT, contributions.toLong, FlowMechanism.NfzContribution.toInt)
+      if contributions > PLN.Zero then flows += Flow(HH_ACCOUNT, NFZ_ACCOUNT, contributions.toLong, FlowMechanism.NfzContribution.toInt)
 
-      if spending.toLong > 0L then flows += Flow(NFZ_ACCOUNT, HEALTHCARE_ACCOUNT, spending.toLong, FlowMechanism.NfzSpending.toInt)
+      if spending > PLN.Zero then flows += Flow(NFZ_ACCOUNT, HEALTHCARE_ACCOUNT, spending.toLong, FlowMechanism.NfzSpending.toInt)
 
-      if deficit.toLong > 0L then flows += Flow(GOV_ACCOUNT, NFZ_ACCOUNT, deficit.toLong, FlowMechanism.NfzGovSubvention.toInt)
+      if deficit > PLN.Zero then flows += Flow(GOV_ACCOUNT, NFZ_ACCOUNT, deficit.toLong, FlowMechanism.NfzGovSubvention.toInt)
 
       flows.result()
