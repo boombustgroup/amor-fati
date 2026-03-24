@@ -118,11 +118,11 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-  "Multi-month flow verification (12 months)" should "preserve SFC at 0L every month" in {
+  "Multi-month flow verification (120 months)" should "preserve SFC at 0L every month" in {
     val init  = WorldInit.initialize(42L)
     var state = Simulation.SimState(init.world, init.firms, init.households)
 
-    (1 to 12).foreach { month =>
+    (1 to 120).foreach { month =>
       val result = Simulation.step(state, 42L, month)
       state = result.state
 
@@ -140,7 +140,7 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
     var state   = Simulation.SimState(init.world, init.firms, init.households)
     var volumes = Vector.empty[Long]
 
-    (1 to 12).foreach { month =>
+    (1 to 120).foreach { month =>
       val result = Simulation.step(state, 42L, month)
       state = result.state
       val flows  = extractFlows(state)
