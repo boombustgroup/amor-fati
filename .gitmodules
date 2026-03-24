@@ -1,0 +1,3 @@
+[submodule "modules/ledger"]
+	path = modules/ledger
+	url = https://github.com/boombustgroup/amor-fati-ledger-poc.git

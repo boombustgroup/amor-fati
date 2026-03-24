@@ -1,5 +1,8 @@
+lazy val ledger = ProjectRef(file("modules/ledger"), "root")
+
 lazy val root = project
   .in(file("."))
+  .dependsOn(ledger)
   .settings(
     organization               := "com.boombustgroup",
     name                       := "amor-fati",
