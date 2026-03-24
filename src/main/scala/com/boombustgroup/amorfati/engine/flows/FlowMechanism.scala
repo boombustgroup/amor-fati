@@ -35,3 +35,9 @@ object FlowMechanism:
   val GovUnempBenefit: MechanismId      = MechanismId(24)
   val GovSocialTransfer: MechanismId    = MechanismId(25)
   val GovEuCofin: MechanismId           = MechanismId(26)
+  // Insurance
+  val InsLifePremium: MechanismId       = MechanismId(27)
+  val InsNonLifePremium: MechanismId    = MechanismId(28)
+  val InsLifeClaim: MechanismId         = MechanismId(29)
+  val InsNonLifeClaim: MechanismId      = MechanismId(30)
+  val InsInvestmentIncome: MechanismId  = MechanismId(31)
