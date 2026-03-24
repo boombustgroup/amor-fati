@@ -12,3 +12,5 @@ object FlowMechanism:
   val NfzContribution: MechanismId  = MechanismId(4)
   val NfzSpending: MechanismId      = MechanismId(5)
   val NfzGovSubvention: MechanismId = MechanismId(6)
+  val PpkContribution: MechanismId  = MechanismId(7)
+  val PpkBondPurchase: MechanismId  = MechanismId(8)
