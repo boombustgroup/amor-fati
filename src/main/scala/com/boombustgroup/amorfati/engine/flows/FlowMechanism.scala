@@ -65,3 +65,18 @@ object FlowMechanism:
   val FirmProfitShifting: MechanismId   = MechanismId(51)
   val FirmFdiRepatriation: MechanismId  = MechanismId(52)
   val FirmGrossInvestment: MechanismId  = MechanismId(53)
+  // Equity market (GPW)
+  val EquityDomDividend: MechanismId    = MechanismId(54)
+  val EquityForDividend: MechanismId    = MechanismId(55)
+  val EquityDividendTax: MechanismId    = MechanismId(56)
+  val EquityIssuance: MechanismId       = MechanismId(57)
+  // Corporate bonds
+  val CorpBondCoupon: MechanismId       = MechanismId(58)
+  val CorpBondDefault: MechanismId      = MechanismId(59)
+  val CorpBondIssuance: MechanismId     = MechanismId(60)
+  val CorpBondAmortization: MechanismId = MechanismId(61)
+  // Housing / mortgages
+  val MortgageOrigination: MechanismId  = MechanismId(62)
+  val MortgageRepayment: MechanismId    = MechanismId(63)
+  val MortgageInterest: MechanismId     = MechanismId(64)
+  val MortgageDefault: MechanismId      = MechanismId(65)
