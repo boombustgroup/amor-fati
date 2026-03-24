@@ -74,3 +74,21 @@ object StateAdapter:
       corpBondYield = w.financial.corporateBonds.corpBondYield,
       equityReturn = w.financial.equity.monthlyReturn,
     )
+
+  /** Build Firm flow input from FirmEconomics result. */
+  def firmInput(firm: FirmEconomics.Result, totalIncome: PLN): FirmFlows.Input =
+    FirmFlows.Input(
+      wages = totalIncome,
+      cit = firm.tax,
+      loanRepayment = firm.firmPrincipal,
+      newLoans = firm.newLoans,
+      interestPaid = firm.intIncome,
+      capex = firm.capex,
+      equityIssuance = firm.equityIssuance,
+      bondIssuance = firm.actualBondIssuance,
+      ioPayments = firm.ioPayments,
+      nplDefault = firm.nplLoss,
+      profitShifting = firm.profitShifting,
+      fdiRepatriation = firm.fdiRepatriation,
+      grossInvestment = firm.grossInvestment,
+    )
