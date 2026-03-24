@@ -41,3 +41,13 @@ object FlowMechanism:
   val InsLifeClaim: MechanismId         = MechanismId(29)
   val InsNonLifeClaim: MechanismId      = MechanismId(30)
   val InsInvestmentIncome: MechanismId  = MechanismId(31)
+  // Household
+  val HhConsumption: MechanismId        = MechanismId(32)
+  val HhRent: MechanismId               = MechanismId(33)
+  val HhPit: MechanismId                = MechanismId(34)
+  val HhDebtService: MechanismId        = MechanismId(35)
+  val HhDepositInterest: MechanismId    = MechanismId(36)
+  val HhRemittance: MechanismId         = MechanismId(37)
+  val HhCcOrigination: MechanismId      = MechanismId(38)
+  val HhCcDebtService: MechanismId      = MechanismId(39)
+  val HhCcDefault: MechanismId          = MechanismId(40)
