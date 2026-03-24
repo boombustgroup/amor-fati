@@ -1,0 +1,64 @@
+package com.boombustgroup.amorfati.engine.flows
+
+import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
+
+  private val baseInput = GovBudgetFlows.Input(
+    taxRevenue = PLN(5000000.0),
+    govPurchases = PLN(2000000.0),
+    debtService = PLN(500000.0),
+    unempBenefitSpend = PLN(800000.0),
+    socialTransferSpend = PLN(1200000.0),
+    euCofinancing = PLN(300000.0),
+    govCapitalSpend = PLN(400000.0),
+  )
+
+  "GovBudgetFlows" should "preserve total wealth at exactly 0L" in {
+    val flows    = GovBudgetFlows.emit(baseInput)
+    val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
+    Interpreter.totalWealth(balances) shouldBe 0L
+  }
+
+  it should "have GOV balance = revenue - total spending" in {
+    val flows    = GovBudgetFlows.emit(baseInput)
+    val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
+
+    val totalSpending = baseInput.govPurchases + baseInput.debtService +
+      baseInput.unempBenefitSpend + baseInput.socialTransferSpend +
+      baseInput.euCofinancing + baseInput.govCapitalSpend
+
+    val expectedGovBalance = baseInput.taxRevenue - totalSpending
+    balances(GovBudgetFlows.GOV_ACCOUNT) shouldBe expectedGovBalance.toLong
+  }
+
+  it should "have deficit when spending > revenue" in {
+    val flows    = GovBudgetFlows.emit(baseInput)
+    val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
+    balances(GovBudgetFlows.GOV_ACCOUNT) should be < 0L
+  }
+
+  it should "have surplus when revenue > spending" in {
+    val surplus  = baseInput.copy(taxRevenue = PLN(50000000.0))
+    val flows    = GovBudgetFlows.emit(surplus)
+    val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
+    balances(GovBudgetFlows.GOV_ACCOUNT) should be > 0L
+  }
+
+  it should "skip zero-amount flows" in {
+    val minimal = GovBudgetFlows.Input(PLN(1000000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val flows   = GovBudgetFlows.emit(minimal)
+    flows.length shouldBe 1
+    flows.head.mechanism shouldBe FlowMechanism.GovTaxRevenue.toInt
+  }
+
+  it should "preserve SFC across 120 months" in {
+    var balances = Map.empty[Int, Long]
+    (1 to 120).foreach { _ =>
+      balances = Interpreter.applyAll(balances, GovBudgetFlows.emit(baseInput))
+      Interpreter.totalWealth(balances) shouldBe 0L
+    }
+  }
