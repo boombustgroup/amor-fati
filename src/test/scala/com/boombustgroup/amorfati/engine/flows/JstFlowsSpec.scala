@@ -1,0 +1,47 @@
+package com.boombustgroup.amorfati.engine.flows
+
+import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+class JstFlowsSpec extends AnyFlatSpec with Matchers:
+
+  private given p: SimParams = SimParams.defaults
+
+  "JstFlows" should "preserve total wealth at exactly 0L" in {
+    val flows    = JstFlows.emit(JstFlows.Input(PLN(5000000.0), PLN(50000000.0), PLN(100000000.0), 9000, PLN(3000000.0)))
+    val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
+    Interpreter.totalWealth(balances) shouldBe 0L
+  }
+
+  it should "match old Jst.step revenue and spending" in {
+    val govTax = PLN(5000000.0); val wageIncome = PLN(50000000.0)
+    val gdp    = PLN(100000000.0); val nFirms   = 9000; val pit = PLN(3000000.0)
+
+    val oldJst = com.boombustgroup.amorfati.agents.Jst.step(
+      com.boombustgroup.amorfati.agents.Jst.State.zero,
+      govTax,
+      wageIncome,
+      gdp,
+      nFirms,
+      pit,
+    )
+    val flows  = JstFlows.emit(JstFlows.Input(govTax, wageIncome, gdp, nFirms, pit))
+
+    val newRevenue  = flows.filter(_.mechanism == FlowMechanism.JstRevenue.toInt).map(_.amount).sum
+    val newSpending = flows.filter(_.mechanism == FlowMechanism.JstSpending.toInt).map(_.amount).sum
+
+    newRevenue shouldBe oldJst.state.revenue.toLong
+    newSpending shouldBe oldJst.state.spending.toLong
+  }
+
+  it should "preserve SFC across 120 months" in {
+    val input    = JstFlows.Input(PLN(5000000.0), PLN(50000000.0), PLN(100000000.0), 9000, PLN(3000000.0))
+    var balances = Map.empty[Int, Long]
+    (1 to 120).foreach { _ =>
+      balances = Interpreter.applyAll(balances, JstFlows.emit(input))
+      Interpreter.totalWealth(balances) shouldBe 0L
+    }
+  }
