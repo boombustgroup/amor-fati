@@ -1,18 +1,51 @@
 package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.steps.*
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
 
-/** Pure economic results from banking sector — no state mutation, no flows.
+/** Banking sector economics — aggregate values for MonthlyCalculus.
   *
-  * Wraps BankUpdateStep.run() and extracts aggregate monetary values needed by
-  * flow mechanisms. Per-bank routing, interbank clearing, bond waterfall,
-  * failure cascade stay in old step for now.
+  * Internally delegates to BankUpdateStep (deposit routing, bond waterfall,
+  * failure cascade — 700 lines). Own Input takes raw values where possible,
+  * Step.Output types where unavoidable (s3, s5, s7, s8 are too complex to
+  * decompose without rewriting BankUpdateStep).
+  *
+  * Full decoupling happens when BankUpdateStep is rewritten as micro-pipeline
+  * (#131).
   */
 object BankingEconomics:
+
+  case class Input(
+      w: World,
+      // Raw values from earlier calculus (avoids Step.Output dependency)
+      month: Int,
+      lendingBaseRate: Rate,
+      resWage: PLN,
+      baseMinWage: PLN,
+      minWagePriceLevel: Double,
+      employed: Int,
+      newWage: PLN,
+      laborDemand: Int,
+      wageGrowth: Coefficient,
+      govPurchases: PLN,
+      sectorMults: Vector[Double],
+      avgDemandMult: Double,
+      sectorCap: Vector[Double],
+      laggedInvestDemand: PLN,
+      fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
+      // Step outputs too complex to decompose (will vanish with #131)
+      laborOutput: LaborDemographicsStep.Output,
+      hhOutput: HouseholdIncomeStep.Output,
+      firmOutput: FirmProcessingStep.Output,
+      hhFinancialOutput: HouseholdFinancialStep.Output,
+      priceEquityOutput: PriceEquityStep.Output,
+      openEconOutput: OpenEconomyStep.Output,
+      depositRng: Random,
+  )
 
   case class Result(
       govBondIncome: PLN,
@@ -27,34 +60,51 @@ object BankingEconomics:
       mortgagePrincipal: PLN,
       mortgageDefaultLoss: PLN,
       mortgageDefaultAmount: PLN,
+      // Non-monetary outputs needed by WorldAssembly
+      effectiveShadowShare: Share,
+      jstDepositChange: PLN,
+      investNetDepositFlow: PLN,
+      actualBondChange: PLN,
+      eclProvisionChange: PLN,
+      htmRealizedLoss: PLN,
   )
 
-  def compute(
-      w: com.boombustgroup.amorfati.engine.World,
-      @scala.annotation.unused firms: Vector[com.boombustgroup.amorfati.agents.Firm.State],
-      @scala.annotation.unused households: Vector[com.boombustgroup.amorfati.agents.Household.State],
-      s1: FiscalConstraintStep.Output,
-      s2: LaborDemographicsStep.Output,
-      s3: HouseholdIncomeStep.Output,
-      s4: DemandStep.Output,
-      s5: FirmProcessingStep.Output,
-      s6: HouseholdFinancialStep.Output,
-      s7: PriceEquityStep.Output,
-      s8: OpenEconomyStep.Output,
-      depositRng: Random,
-  )(using SimParams): Result =
-    val s9 = BankUpdateStep.run(BankUpdateStep.Input(w, s1, s2, s3, s4, s5, s6, s7, s8, depositRng))
+  def compute(in: Input)(using p: SimParams): Result =
+    val s1 = FiscalConstraintStep.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
+    val s4 = DemandStep.Output(in.govPurchases, in.sectorMults, in.avgDemandMult, in.sectorCap, in.laggedInvestDemand, in.fiscalRuleStatus)
+
+    val s9 = BankUpdateStep.run(
+      BankUpdateStep.Input(
+        in.w,
+        s1,
+        in.laborOutput,
+        in.hhOutput,
+        s4,
+        in.firmOutput,
+        in.hhFinancialOutput,
+        in.priceEquityOutput,
+        in.openEconOutput,
+        in.depositRng,
+      ),
+    )
+
     Result(
-      govBondIncome = w.bank.govBondHoldings * w.gov.bondYield.monthly,
-      reserveInterest = s9.monAgg.map(_ => w.plumbing.reserveInterestTotal).getOrElse(PLN.Zero),
-      standingFacilityIncome = w.plumbing.standingFacilityNet,
-      interbankInterest = w.plumbing.interbankInterestNet,
+      govBondIncome = in.w.bank.govBondHoldings * in.openEconOutput.monetary.newBondYield.monthly,
+      reserveInterest = in.openEconOutput.banking.totalReserveInterest,
+      standingFacilityIncome = in.openEconOutput.banking.totalStandingFacilityIncome,
+      interbankInterest = in.openEconOutput.banking.totalInterbankInterest,
       bfgLevy = s9.bfgLevy,
       unrealizedBondLoss = s9.unrealizedBondLoss,
       bailInLoss = s9.bailInLoss,
-      nbpRemittance = PLN.Zero,
+      nbpRemittance = in.openEconOutput.banking.nbpRemittance,
       mortgageInterestIncome = s9.mortgageInterestIncome,
       mortgagePrincipal = s9.mortgagePrincipal,
       mortgageDefaultLoss = s9.mortgageDefaultLoss,
       mortgageDefaultAmount = s9.mortgageDefaultAmount,
+      effectiveShadowShare = s9.effectiveShadowShare,
+      jstDepositChange = s9.jstDepositChange,
+      investNetDepositFlow = s9.investNetDepositFlow,
+      actualBondChange = s9.actualBondChange,
+      eclProvisionChange = s9.eclProvisionChange,
+      htmRealizedLoss = s9.htmRealizedLoss,
     )

@@ -10,13 +10,13 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  "WorldAssemblyEconomics" should "produce valid world after simulation step" in {
+  "WorldAssemblyEconomics (own Input)" should "produce valid world after simulation step" in {
     val init  = WorldInit.initialize(42L)
     val state = Simulation.SimState(init.world, init.firms, init.households)
     val step  = Simulation.step(state, 42L, 1)
     val w     = step.state.world
 
-    w.month shouldBe 1
+    w.month.shouldBe(1)
     w.totalPopulation should be > 0
     w.hhAgg.employed should be > 0
     w.external.tourismSeasonalFactor should not be 0.0

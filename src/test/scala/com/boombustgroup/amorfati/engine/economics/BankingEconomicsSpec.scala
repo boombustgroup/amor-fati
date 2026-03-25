@@ -12,20 +12,47 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  "BankingEconomics" should "produce flows that close at SFC == 0L" in {
+  "BankingEconomics (own Input)" should "produce flows that close at SFC == 0L" in {
     val init = WorldInit.initialize(42L)
     val w    = init.world
     val rng  = new scala.util.Random(42)
 
-    val s1  = FiscalConstraintStep.run(FiscalConstraintStep.Input(w))
-    val s2  = LaborDemographicsStep.run(LaborDemographicsStep.Input(w, init.firms, init.households, s1))
-    val s3  = HouseholdIncomeStep.run(HouseholdIncomeStep.Input(w, init.firms, init.households, s1, s2), rng)
-    val s4  = DemandStep.run(DemandStep.Input(w, s2, s3))
-    val s5  = FirmProcessingStep.run(FirmProcessingStep.Input(w, init.firms, init.households, s1, s2, s3, s4), rng)
-    val s6  = HouseholdFinancialStep.run(HouseholdFinancialStep.Input(w, s1, s2, s3))
-    val s7  = PriceEquityStep.run(PriceEquityStep.Input(w, s1, s2, s3, s4, s5), rng)
-    val s8  = OpenEconomyStep.run(OpenEconomyStep.Input(w, s1, s2, s3, s4, s5, s6, s7, rng))
-    val res = BankingEconomics.compute(w, init.firms, init.households, s1, s2, s3, s4, s5, s6, s7, s8, rng)
+    val s1 = FiscalConstraintStep.run(FiscalConstraintStep.Input(w))
+    val s2 = LaborDemographicsStep.run(LaborDemographicsStep.Input(w, init.firms, init.households, s1))
+    val s3 = HouseholdIncomeStep.run(HouseholdIncomeStep.Input(w, init.firms, init.households, s1, s2), rng)
+    val s4 = DemandStep.run(DemandStep.Input(w, s2, s3))
+    val s5 = FirmProcessingStep.run(FirmProcessingStep.Input(w, init.firms, init.households, s1, s2, s3, s4), rng)
+    val s6 = HouseholdFinancialStep.run(HouseholdFinancialStep.Input(w, s1, s2, s3))
+    val s7 = PriceEquityStep.run(PriceEquityStep.Input(w, s1, s2, s3, s4, s5), rng)
+    val s8 = OpenEconomyStep.run(OpenEconomyStep.Input(w, s1, s2, s3, s4, s5, s6, s7, rng))
+
+    val res = BankingEconomics.compute(
+      BankingEconomics.Input(
+        w = w,
+        month = s1.m,
+        lendingBaseRate = s1.lendingBaseRate,
+        resWage = s1.resWage,
+        baseMinWage = s1.baseMinWage,
+        minWagePriceLevel = s1.updatedMinWagePriceLevel,
+        employed = s2.employed,
+        newWage = s2.newWage,
+        laborDemand = s2.laborDemand,
+        wageGrowth = s2.wageGrowth,
+        govPurchases = s4.govPurchases,
+        sectorMults = s4.sectorMults,
+        avgDemandMult = s4.avgDemandMult,
+        sectorCap = s4.sectorCap,
+        laggedInvestDemand = s4.laggedInvestDemand,
+        fiscalRuleStatus = s4.fiscalRuleStatus,
+        laborOutput = s2,
+        hhOutput = s3,
+        firmOutput = s5,
+        hhFinancialOutput = s6,
+        priceEquityOutput = s7,
+        openEconOutput = s8,
+        depositRng = rng,
+      ),
+    )
 
     val flows = BankingFlows.emit(
       BankingFlows.Input(
@@ -40,5 +67,5 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)) shouldBe 0L
+    Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
   }
