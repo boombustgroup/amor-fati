@@ -74,13 +74,20 @@ object McRunner:
     if errors.nonEmpty then Left(SimError.Init(errors))
     else Right(Simulation.SimState(init.world, init.firms, init.households))
 
-  private def stepMonth(state: Simulation.SimState, seed: Long, month: Int)(using SimParams) =
-    val step = Simulation.step(state, seed, month)
-    step.sfcCheck match
-      case Left(errors) => Left(SimError.SfcViolation(month + 1, errors))
-      case Right(())    =>
-        val monthData = SimOutput.compute(month, step.state.world, step.state.firms, step.state.households)
-        Right((step.state, monthData))
+  private def stepMonth(state: Simulation.SimState, seed: Long, month: Int)(using p: SimParams) =
+    val rng    = new scala.util.Random(seed * 10000 + month)
+    val result = engine.flows.FlowSimulation.step(state.world, state.firms, state.households, rng)
+    // SFC verification: flows through verified interpreter should always be 0L
+    val wealth = com.boombustgroup.ledger.Interpreter.totalWealth(
+      com.boombustgroup.ledger.Interpreter.applyAll(Map.empty[Int, Long], result.flows),
+    )
+    if wealth != 0L then
+      val err = Sfc.SfcIdentityError(Sfc.SfcIdentity.FlowOfFunds, s"Flow SFC: totalWealth=$wealth", PLN.fromRaw(wealth), PLN.Zero)
+      Left(SimError.SfcViolation(month + 1, Vector(err)))
+    else
+      val newState  = Simulation.SimState(result.newWorld, result.newFirms, result.newHouseholds)
+      val monthData = SimOutput.compute(month, result.newWorld, result.newFirms, result.newHouseholds)
+      Right((newState, monthData))
 
   @scala.annotation.tailrec
   private def loop(
