@@ -26,9 +26,9 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
 
       (1 to months).foreach { month =>
         state = Simulation.step(state, seed, month).state
-        val rng        = new scala.util.Random(seed * 1000 + month)
-        val (_, flows) = FlowSimulation.step(state.world, state.firms, state.households, rng)
-        val wealth     = Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows))
+        val rng    = new scala.util.Random(seed * 1000 + month)
+        val result = FlowSimulation.step(state.world, state.firms, state.households, rng)
+        val wealth = Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], result.flows))
         withClue(s"Seed $seed, month $month: ") {
           wealth.shouldBe(0L)
         }
@@ -61,12 +61,12 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
 
   it should "emit 30+ mechanism IDs for all seeds" in
     seeds.foreach { seed =>
-      val init       = WorldInit.initialize(seed)
-      val state      = Simulation.step(Simulation.SimState(init.world, init.firms, init.households), seed, 1).state
-      val rng        = new scala.util.Random(seed)
-      val (_, flows) = FlowSimulation.step(state.world, state.firms, state.households, rng)
+      val init   = WorldInit.initialize(seed)
+      val state  = Simulation.step(Simulation.SimState(init.world, init.firms, init.households), seed, 1).state
+      val rng    = new scala.util.Random(seed)
+      val result = FlowSimulation.step(state.world, state.firms, state.households, rng)
 
       withClue(s"Seed $seed mechanisms: ") {
-        flows.map(_.mechanism).toSet.size should be > 30
+        result.flows.map(_.mechanism).toSet.size should be > 30
       }
     }
