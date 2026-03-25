@@ -1,8 +1,14 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.steps.*
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
+
+import scala.util.Random
 
 /** New flow-based simulation pipeline.
   *
@@ -212,3 +218,191 @@ object FlowSimulation:
         ),
       ),
     )
+
+  /** Compute MonthlyCalculus by chaining all Economics. Uses old pipeline steps
+    * for HH/Demand/Firm/PriceEquity (pure calculus). Uses self-contained
+    * OpenEconEconomics for monetary/external. Uses BankingEconomics (delegates
+    * to BankUpdateStep) for banking.
+    */
+  def computeCalculus(
+      w: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      rng: Random,
+  )(using p: SimParams): MonthlyCalculus =
+    val fiscal   = FiscalConstraintEconomics.compute(w)
+    val s1       = FiscalConstraintStep.Output(fiscal.month, fiscal.baseMinWage, fiscal.updatedMinWagePriceLevel, fiscal.resWage, fiscal.lendingBaseRate)
+    val labor    = LaborEconomics.compute(w, firms, households, s1)
+    val s2       = LaborDemographicsStep.Output(
+      labor.wage,
+      labor.employed,
+      labor.laborDemand,
+      labor.wageGrowth,
+      labor.immigration,
+      labor.netMigration,
+      labor.demographics,
+      SocialSecurity.ZusState.zero,
+      SocialSecurity.NfzState.zero,
+      SocialSecurity.PpkState.zero,
+      PLN.Zero,
+      EarmarkedFunds.State.zero,
+      labor.living,
+      labor.regionalWages,
+    )
+    val s3       = HouseholdIncomeStep.run(HouseholdIncomeStep.Input(w, firms, households, s1, s2), rng)
+    val s4       = DemandStep.run(DemandStep.Input(w, s2, s3))
+    val s5       = FirmProcessingStep.run(FirmProcessingStep.Input(w, firms, households, s1, s2, s3, s4), rng)
+    val s6       = HouseholdFinancialStep.run(HouseholdFinancialStep.Input(w, s1, s2, s3))
+    val s7       = PriceEquityStep.run(PriceEquityStep.Input(w, s1, s2, s3, s4, s5), rng)
+    val openEcon = OpenEconEconomics.compute(
+      OpenEconEconomics.Input(
+        w = w,
+        employed = labor.employed,
+        newWage = labor.wage,
+        domesticConsumption = s3.domesticCons,
+        importConsumption = s3.importCons,
+        totalTechAndInvImports = s5.sumTechImp,
+        gdp = s7.gdp,
+        newInflation = s7.newInfl,
+        autoRatio = s7.autoR,
+        govPurchases = s4.govPurchases,
+        sectorMults = s4.sectorMults,
+        livingFirms = s5.ioFirms,
+        totalBondDefault = s5.totalBondDefault,
+        actualBondIssuance = s5.actualBondIssuance,
+        corpBondAbsorption = s5.corpBondAbsorption,
+        euMonthly = s7.euMonthly,
+        remittanceOutflow = s6.remittanceOutflow,
+        diasporaInflow = s6.diasporaInflow,
+        tourismExport = s6.tourismExport,
+        tourismImport = s6.tourismImport,
+        equityReturn = w.financial.equity.monthlyReturn,
+        investmentImports = s7.investmentImports,
+        profitShifting = s5.sumProfitShifting,
+        fdiRepatriation = s5.sumFdiRepatriation,
+        foreignDividendOutflow = s7.foreignDividendOutflow,
+        month = fiscal.month,
+        commodityRng = rng,
+      ),
+    )
+    val s8       = OpenEconomyStep.run(OpenEconomyStep.Input(w, s1, s2, s3, s4, s5, s6, s7, rng))
+    val banking  = BankingEconomics.compute(
+      BankingEconomics.Input(
+        w = w,
+        month = fiscal.month,
+        lendingBaseRate = fiscal.lendingBaseRate,
+        resWage = fiscal.resWage,
+        baseMinWage = fiscal.baseMinWage,
+        minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
+        employed = labor.employed,
+        newWage = labor.wage,
+        laborDemand = labor.laborDemand,
+        wageGrowth = labor.wageGrowth,
+        govPurchases = s4.govPurchases,
+        sectorMults = s4.sectorMults,
+        avgDemandMult = s4.avgDemandMult,
+        sectorCap = s4.sectorCap,
+        laggedInvestDemand = s4.laggedInvestDemand,
+        fiscalRuleStatus = s4.fiscalRuleStatus,
+        laborOutput = s2,
+        hhOutput = s3,
+        firmOutput = s5,
+        hhFinancialOutput = s6,
+        priceEquityOutput = s7,
+        openEconOutput = s8,
+        depositRng = rng,
+      ),
+    )
+    val agg      = s3.hhAgg
+    val eq       = w.financial.equity
+    val h        = w.real.housing
+    MonthlyCalculus(
+      month = fiscal.month,
+      resWage = fiscal.resWage,
+      lendingBaseRate = fiscal.lendingBaseRate,
+      baseMinWage = fiscal.baseMinWage,
+      minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
+      wage = labor.wage,
+      employed = labor.employed,
+      laborDemand = labor.laborDemand,
+      retirees = labor.demographics.retirees,
+      workingAgePop = labor.demographics.workingAgePop,
+      nBankruptFirms = labor.nBankruptFirms,
+      avgFirmWorkers = labor.avgFirmWorkers,
+      totalIncome = s3.totalIncome,
+      consumption = agg.consumption,
+      domesticConsumption = s3.domesticCons,
+      importConsumption = s3.importCons,
+      totalRent = agg.totalRent,
+      totalPit = agg.totalPit,
+      totalDebtService = agg.totalDebtService,
+      totalDepositInterest = agg.totalDepositInterest,
+      totalRemittances = agg.totalRemittances,
+      totalUnempBenefits = agg.totalUnempBenefits,
+      totalSocialTransfers = agg.totalSocialTransfers,
+      totalCcOrigination = agg.totalConsumerOrigination,
+      totalCcDebtService = agg.totalConsumerDebtService,
+      totalCcDefault = agg.totalConsumerDefault,
+      govPurchases = s4.govPurchases,
+      firmTax = s5.sumTax,
+      firmNewLoans = s5.sumNewLoans,
+      firmPrincipal = s5.sumFirmPrincipal,
+      firmInterestIncome = s5.intIncome,
+      firmCapex = s5.sumCapex,
+      firmEquityIssuance = s5.sumEquityIssuance,
+      firmBondIssuance = s5.actualBondIssuance,
+      firmIoPayments = s5.totalIoPaid,
+      firmNplLoss = s5.nplLoss,
+      firmProfitShifting = s5.sumProfitShifting,
+      firmFdiRepatriation = s5.sumFdiRepatriation,
+      firmGrossInvestment = s5.sumGrossInvestment,
+      gdp = s7.gdp,
+      inflation = s7.newInfl,
+      equityDomDividends = eq.lastDomesticDividends,
+      equityForDividends = eq.lastForeignDividends,
+      equityDivTax = eq.lastDividendTax,
+      equityIssuance = eq.lastIssuance,
+      equityReturn = eq.monthlyReturn,
+      exports = openEcon.exports,
+      totalImports = openEcon.totalImports,
+      tourismExport = s6.tourismExport,
+      tourismImport = s6.tourismImport,
+      fdi = openEcon.fdi,
+      portfolioFlows = openEcon.portfolioFlows,
+      primaryIncome = openEcon.primaryIncome,
+      euFunds = openEcon.euFunds,
+      diasporaInflow = s6.diasporaInflow,
+      corpBondCoupon = openEcon.corpBondCoupon,
+      corpBondDefaultLoss = openEcon.corpBondDefaultLoss,
+      corpBondIssuance = openEcon.corpBondIssuance,
+      corpBondAmortization = openEcon.corpBondAmortization,
+      mortgageOrigination = h.lastOrigination,
+      mortgageRepayment = h.lastRepayment,
+      mortgageInterest = h.mortgageInterestIncome,
+      mortgageDefault = h.lastDefault,
+      bankGovBondIncome = banking.govBondIncome,
+      bankReserveInterest = banking.reserveInterest,
+      bankStandingFacility = banking.standingFacilityIncome,
+      bankInterbankInterest = banking.interbankInterest,
+      bankBfgLevy = banking.bfgLevy,
+      bankUnrealizedLoss = banking.unrealizedBondLoss,
+      bankBailIn = banking.bailInLoss,
+      bankNbpRemittance = banking.nbpRemittance,
+      govTaxRevenue = w.gov.taxRevenue,
+      govDebtService = w.gov.debtServiceSpend,
+      govEuCofinancing = w.gov.euCofinancing,
+      govCapitalSpend = w.gov.govCapitalSpend,
+      insurancePrevGovBonds = w.financial.insurance.govBondHoldings,
+      insurancePrevCorpBonds = w.financial.insurance.corpBondHoldings,
+      insurancePrevEquity = w.financial.insurance.equityHoldings,
+      govBondYield = openEcon.newBondYield,
+      corpBondYield = openEcon.corpBondYield,
+    )
+
+  /** Full step: compute calculus, emit flows, return both. */
+  def step(w: World, firms: Vector[Firm.State], households: Vector[Household.State], rng: Random)(using
+      p: SimParams,
+  ): (MonthlyCalculus, Vector[Flow]) =
+    val calc  = computeCalculus(w, firms, households, rng)
+    val flows = emitAllFlows(calc)
+    (calc, flows)
