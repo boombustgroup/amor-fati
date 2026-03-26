@@ -229,17 +229,37 @@ object FlowSimulation:
       ),
     )
 
+  /** All intermediate step outputs needed for both MonthlyCalculus and
+    * WorldAssembly. Computed once per step — eliminates the double-computation
+    * bug where s1–s9 ran twice with diverging RNG state.
+    */
+  private case class FullComputation(
+      calculus: MonthlyCalculus,
+      fiscal: FiscalConstraintEconomics.Result,
+      s2: LaborDemographicsStep.Output,
+      s3: HouseholdIncomeStep.Output,
+      s4: DemandStep.Output,
+      s5: FirmProcessingStep.Output,
+      s6: HouseholdFinancialStep.Output,
+      s7: PriceEquityStep.Output,
+      s8: OpenEconomyStep.Output,
+      s9: BankUpdateStep.Output,
+  )
+
   /** Compute MonthlyCalculus by chaining all Economics. Uses old pipeline steps
     * for HH/Demand/Firm/PriceEquity (pure calculus). Uses self-contained
     * OpenEconEconomics for monetary/external. Uses BankingEconomics (delegates
     * to BankUpdateStep) for banking.
+    *
+    * Returns FullComputation with both calculus AND step outputs for
+    * WorldAssembly.
     */
-  def computeCalculus(
+  private def computeAll(
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       rng: Random,
-  )(using p: SimParams): MonthlyCalculus =
+  )(using p: SimParams): FullComputation =
     val fiscal   = FiscalConstraintEconomics.compute(w)
     val s1       = FiscalConstraintStep.Output(fiscal.month, fiscal.baseMinWage, fiscal.updatedMinWagePriceLevel, fiscal.resWage, fiscal.lendingBaseRate)
     val labor    = LaborEconomics.compute(w, firms, households, s1)
@@ -323,10 +343,11 @@ object FlowSimulation:
         depositRng = rng,
       ),
     )
+    val s9       = BankUpdateStep.run(BankUpdateStep.Input(w, s1, s2, s3, s4, s5, s6, s7, s8, rng))
     val agg      = s3.hhAgg
     val eq       = w.financial.equity
     val h        = w.real.housing
-    MonthlyCalculus(
+    val calc     = MonthlyCalculus(
       month = fiscal.month,
       resWage = fiscal.resWage,
       lendingBaseRate = fiscal.lendingBaseRate,
@@ -408,6 +429,17 @@ object FlowSimulation:
       govBondYield = openEcon.newBondYield,
       corpBondYield = openEcon.corpBondYield,
     )
+    FullComputation(calc, fiscal, s2, s3, s4, s5, s6, s7, s8, s9)
+
+  /** Public API: compute calculus only (for tests that need MonthlyCalculus).
+    */
+  def computeCalculus(
+      w: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      rng: Random,
+  )(using p: SimParams): MonthlyCalculus =
+    computeAll(w, firms, households, rng).calculus
 
   case class StepResult(
       calculus: MonthlyCalculus,
@@ -419,70 +451,42 @@ object FlowSimulation:
 
   /** Full step: compute calculus → emit flows → assemble new World.
     *
-    * This is the new pipeline entry point. Produces both flows (for SFC
-    * verification) and new state (for next month). Can run autonomously without
-    * old Simulation.step().
+    * This is the pipeline entry point. Runs s1–s9 exactly once via
+    * computeAll(), then feeds both MonthlyCalculus (for flows) and step outputs
+    * (for WorldAssembly) from that single computation.
     */
   def step(w: World, firms: Vector[Firm.State], households: Vector[Household.State], rng: Random)(using
       p: SimParams,
   ): StepResult =
-    val calc  = computeCalculus(w, firms, households, rng)
-    val flows = emitAllFlows(calc)
-
-    // Assemble new World via WorldAssemblyEconomics (delegates to old WorldAssemblyStep internally)
-    val fiscal = FiscalConstraintEconomics.compute(w)
-    val s1     = FiscalConstraintStep.Output(fiscal.month, fiscal.baseMinWage, fiscal.updatedMinWagePriceLevel, fiscal.resWage, fiscal.lendingBaseRate)
-    val labor  = LaborEconomics.compute(w, firms, households, s1)
-    val s2     = LaborDemographicsStep.Output(
-      labor.wage,
-      labor.employed,
-      labor.laborDemand,
-      labor.wageGrowth,
-      labor.immigration,
-      labor.netMigration,
-      labor.demographics,
-      SocialSecurity.ZusState.zero,
-      SocialSecurity.NfzState.zero,
-      SocialSecurity.PpkState.zero,
-      PLN.Zero,
-      EarmarkedFunds.State.zero,
-      labor.living,
-      labor.regionalWages,
-    )
-    val s3     = HouseholdIncomeStep.run(HouseholdIncomeStep.Input(w, firms, households, s1, s2), rng)
-    val s4     = DemandStep.run(DemandStep.Input(w, s2, s3))
-    val s5     = FirmProcessingStep.run(FirmProcessingStep.Input(w, firms, households, s1, s2, s3, s4), rng)
-    val s6     = HouseholdFinancialStep.run(HouseholdFinancialStep.Input(w, s1, s2, s3))
-    val s7     = PriceEquityStep.run(PriceEquityStep.Input(w, s1, s2, s3, s4, s5), rng)
-    val s8     = OpenEconomyStep.run(OpenEconomyStep.Input(w, s1, s2, s3, s4, s5, s6, s7, rng))
-    val s9     = BankUpdateStep.run(BankUpdateStep.Input(w, s1, s2, s3, s4, s5, s6, s7, s8, rng))
+    val full  = computeAll(w, firms, households, rng)
+    val flows = emitAllFlows(full.calculus)
 
     val assembled = WorldAssemblyEconomics.compute(
       WorldAssemblyEconomics.Input(
         w = w,
         firms = firms,
         households = households,
-        month = fiscal.month,
-        lendingBaseRate = fiscal.lendingBaseRate,
-        resWage = fiscal.resWage,
-        baseMinWage = fiscal.baseMinWage,
-        minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-        govPurchases = s4.govPurchases,
-        sectorMults = s4.sectorMults,
-        avgDemandMult = s4.avgDemandMult,
-        sectorCap = s4.sectorCap,
-        laggedInvestDemand = s4.laggedInvestDemand,
-        fiscalRuleStatus = s4.fiscalRuleStatus,
-        laborOutput = s2,
-        hhOutput = s3,
-        firmOutput = s5,
-        hhFinancialOutput = s6,
-        priceEquityOutput = s7,
-        openEconOutput = s8,
-        bankOutput = s9,
+        month = full.fiscal.month,
+        lendingBaseRate = full.fiscal.lendingBaseRate,
+        resWage = full.fiscal.resWage,
+        baseMinWage = full.fiscal.baseMinWage,
+        minWagePriceLevel = full.fiscal.updatedMinWagePriceLevel,
+        govPurchases = full.s4.govPurchases,
+        sectorMults = full.s4.sectorMults,
+        avgDemandMult = full.s4.avgDemandMult,
+        sectorCap = full.s4.sectorCap,
+        laggedInvestDemand = full.s4.laggedInvestDemand,
+        fiscalRuleStatus = full.s4.fiscalRuleStatus,
+        laborOutput = full.s2,
+        hhOutput = full.s3,
+        firmOutput = full.s5,
+        hhFinancialOutput = full.s6,
+        priceEquityOutput = full.s7,
+        openEconOutput = full.s8,
+        bankOutput = full.s9,
         rng = rng,
         migRng = rng,
       ),
     )
 
-    StepResult(calc, flows, assembled.world, assembled.firms, assembled.households)
+    StepResult(full.calculus, flows, assembled.world, assembled.firms, assembled.households)
