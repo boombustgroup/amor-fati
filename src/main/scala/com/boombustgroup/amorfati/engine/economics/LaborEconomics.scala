@@ -4,7 +4,6 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.markets.{LaborMarket, RegionalClearing}
-import com.boombustgroup.amorfati.engine.steps.FiscalConstraintStep
 import com.boombustgroup.amorfati.types.*
 
 /** Pure economic logic for labor market — no state mutation, no flows.
@@ -30,12 +29,30 @@ object LaborEconomics:
       avgFirmWorkers: Int,
   )
 
+  /** Bridge type — same fields as the deleted LaborDemographicsStep.Output. */
+  case class Output(
+      newWage: PLN,
+      employed: Int,
+      laborDemand: Int,
+      wageGrowth: Coefficient,
+      newImmig: Immigration.State,
+      netMigration: Int,
+      newDemographics: SocialSecurity.DemographicsState,
+      newZus: SocialSecurity.ZusState,
+      newNfz: SocialSecurity.NfzState,
+      newPpk: SocialSecurity.PpkState,
+      rawPpkBondPurchase: PLN,
+      newEarmarked: EarmarkedFunds.State,
+      living: Vector[Firm.State],
+      regionalWages: Map[Region, PLN],
+  )
+
   @boundaryEscape
   def compute(
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
-      s1: FiscalConstraintStep.Output,
+      s1: FiscalConstraintEconomics.Output,
   )(using p: SimParams): Result =
     import ComputationBoundary.toDouble
     val living      = firms.filter(Firm.isAlive)

@@ -22,7 +22,7 @@ import com.boombustgroup.amorfati.types.*
   *      reduces available liquidity, amplifying stress.
   *
   * Pure functions — no mutable state. Called from `processInterbankAndFailures`
-  * in BankUpdateStep.
+  * in BankingEconomics.
   *
   * Calibration: NBP Financial Stability Report, KNF interbank exposure data.
   */

@@ -1,19 +1,16 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.steps.*
+import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Full month: run old pipeline, extract flows from every step, verify SFC ==
-  * 0L.
-  *
-  * Proves ALL 14 flow mechanisms can be fed with real data from a full
-  * simulation month. The old pipeline provides the economic computations; flow
-  * mechanisms provide the accounting. Both must close at 0L.
+/** Full month: run pipeline via Economics objects, extract flows from every
+  * step, verify SFC == 0L.
   */
 class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
 
@@ -23,19 +20,35 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
   private val w          = initResult.world
   private val rng        = new scala.util.Random(42)
 
-  /** Run old pipeline for one month, then extract ALL flows from step outputs.
-    */
+  /** Run pipeline for one month using Economics objects. */
   private def runFullMonth: Vector[Flow] =
-    val s1 = FiscalConstraintStep.run(FiscalConstraintStep.Input(w))
-    val s2 = LaborDemographicsStep.run(LaborDemographicsStep.Input(w, initResult.firms, initResult.households, s1))
-    val s3 = HouseholdIncomeStep.run(HouseholdIncomeStep.Input(w, initResult.firms, initResult.households, s1, s2), rng)
-    val s4 = DemandStep.run(DemandStep.Input(w, s2, s3))
-    val s5 = FirmProcessingStep.run(FirmProcessingStep.Input(w, initResult.firms, initResult.households, s1, s2, s3, s4), rng)
+    val fiscal = FiscalConstraintEconomics.compute(w)
+    val s1     = FiscalConstraintEconomics.toOutput(fiscal)
+    val labor  = LaborEconomics.compute(w, initResult.firms, initResult.households, s1)
+    val s2     = LaborEconomics.Output(
+      labor.wage,
+      labor.employed,
+      labor.laborDemand,
+      labor.wageGrowth,
+      labor.immigration,
+      labor.netMigration,
+      labor.demographics,
+      SocialSecurity.ZusState.zero,
+      SocialSecurity.NfzState.zero,
+      SocialSecurity.PpkState.zero,
+      PLN.Zero,
+      EarmarkedFunds.State.zero,
+      labor.living,
+      labor.regionalWages,
+    )
+    val s3     = HouseholdIncomeEconomics.compute(w, initResult.firms, initResult.households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+    val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
+    val s5     = FirmEconomics.runStep(w, initResult.firms, initResult.households, s1, s2, s3, s4, rng)
     @annotation.unused
-    val s6 = HouseholdFinancialStep.run(HouseholdFinancialStep.Input(w, s1, s2, s3))
+    val s6     = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
 
     Vector.concat(
-      // Tier 1: Social funds (from LaborDemographics output)
+      // Tier 1: Social funds (from LaborEconomics output)
       ZusFlows.emit(ZusFlows.ZusInput(s2.employed, s2.newWage, s2.newDemographics.retirees)),
       NfzFlows.emit(NfzFlows.NfzInput(s2.employed, s2.newWage, s2.newDemographics.workingAgePop, s2.newDemographics.retirees)),
       PpkFlows.emit(PpkFlows.PpkInput(s2.employed, s2.newWage)),
@@ -82,7 +95,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
       InsuranceFlows.emit(
         StateAdapter.insuranceInput(
           w,
-          com.boombustgroup.amorfati.engine.economics.LaborEconomics.Result(
+          LaborEconomics.Result(
             s2.newWage,
             s2.employed,
             s2.laborDemand,
@@ -131,7 +144,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-  "Full month (old pipeline + flow extraction)" should "preserve SFC at 0L" in {
+  "Full month (pipeline + flow extraction)" should "preserve SFC at 0L" in {
     val flows    = runFullMonth
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L

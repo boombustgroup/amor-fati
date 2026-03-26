@@ -39,7 +39,7 @@ object Nbp:
 
   /** Result of monthly QE execution. */
   /** QE purchase request — NBP state without bond update + requested amount.
-    * Actual purchase happens in the bond waterfall (BankUpdateStep).
+    * Actual purchase happens in the bond waterfall (BankingEconomics).
     */
   case class QeRequest(
       nbpState: State,       // NBP state (govBondHoldings NOT yet updated)
@@ -163,8 +163,8 @@ object Nbp:
     inflation > p.monetary.targetInfl
 
   /** Compute QE purchase request. Does NOT update govBondHoldings — the bond
-    * waterfall in BankUpdateStep handles the actual transfer so that SFC clears
-    * by construction (actualSold from banks = actualSold to NBP).
+    * waterfall in BankingEconomics handles the actual transfer so that SFC
+    * clears by construction (actualSold from banks = actualSold to NBP).
     */
   def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN)(using p: SimParams): QeRequest =
     if !nbp.qeActive then QeRequest(nbp, PLN.Zero)

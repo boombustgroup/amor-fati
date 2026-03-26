@@ -19,7 +19,7 @@ import com.boombustgroup.amorfati.types.*
   *      household vector.
   *   2. '''MonthlyFlows''' — assemble every flow that occurred during the
   *      month, using the exact same values that were applied to balance sheet
-  *      updates in Simulation.step / WorldAssemblyStep.
+  *      updates in Simulation.step / WorldAssemblyEconomics.
   *   3. '''validate''' — for each of the 13 identities, check that Δstock =
   *      Σflows within tolerance.
   *
@@ -74,7 +74,7 @@ object Sfc:
 
   /** All monetary flows observed during a single simulated month.
     *
-    * These values are assembled in WorldAssemblyStep from the intermediate
+    * These values are assembled in WorldAssemblyEconomics from the intermediate
     * results of Simulation.step. They must match the '''exact''' values used in
     * balance sheet updates — any discrepancy will cause validate to report an
     * SfcIdentityError. Flows for disabled mechanisms are simply zero, so the

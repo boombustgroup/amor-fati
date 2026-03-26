@@ -4,7 +4,6 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.steps.*
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -236,20 +235,20 @@ object FlowSimulation:
   private case class FullComputation(
       calculus: MonthlyCalculus,
       fiscal: FiscalConstraintEconomics.Result,
-      s2: LaborDemographicsStep.Output,
-      s3: HouseholdIncomeStep.Output,
-      s4: DemandStep.Output,
-      s5: FirmProcessingStep.Output,
-      s6: HouseholdFinancialStep.Output,
-      s7: PriceEquityStep.Output,
-      s8: OpenEconomyStep.Output,
-      s9: BankUpdateStep.Output,
+      s2: LaborEconomics.Output,
+      s3: HouseholdIncomeEconomics.Output,
+      s4: DemandEconomics.Output,
+      s5: FirmEconomics.StepOutput,
+      s6: HouseholdFinancialEconomics.Output,
+      s7: PriceEquityEconomics.Output,
+      s8: OpenEconEconomics.StepOutput,
+      s9: BankingEconomics.StepOutput,
   )
 
   /** Compute MonthlyCalculus by chaining all Economics. Uses old pipeline steps
     * for HH/Demand/Firm/PriceEquity (pure calculus). Uses self-contained
     * OpenEconEconomics for monetary/external. Uses BankingEconomics (delegates
-    * to BankUpdateStep) for banking.
+    * to BankingEconomics.runStep) for banking.
     *
     * Returns FullComputation with both calculus AND step outputs for
     * WorldAssembly.
@@ -261,9 +260,9 @@ object FlowSimulation:
       rng: Random,
   )(using p: SimParams): FullComputation =
     val fiscal   = FiscalConstraintEconomics.compute(w)
-    val s1       = FiscalConstraintStep.Output(fiscal.month, fiscal.baseMinWage, fiscal.updatedMinWagePriceLevel, fiscal.resWage, fiscal.lendingBaseRate)
+    val s1       = FiscalConstraintEconomics.toOutput(fiscal)
     val labor    = LaborEconomics.compute(w, firms, households, s1)
-    val s2       = LaborDemographicsStep.Output(
+    val s2       = LaborEconomics.Output(
       labor.wage,
       labor.employed,
       labor.laborDemand,
@@ -279,11 +278,14 @@ object FlowSimulation:
       labor.living,
       labor.regionalWages,
     )
-    val s3       = HouseholdIncomeStep.run(HouseholdIncomeStep.Input(w, firms, households, s1, s2), rng)
-    val s4       = DemandStep.run(DemandStep.Input(w, s2, s3))
-    val s5       = FirmProcessingStep.run(FirmProcessingStep.Input(w, firms, households, s1, s2, s3, s4), rng)
-    val s6       = HouseholdFinancialStep.run(HouseholdFinancialStep.Input(w, s1, s2, s3))
-    val s7       = PriceEquityStep.run(PriceEquityStep.Input(w, s1, s2, s3, s4, s5), rng)
+    val s3       = HouseholdIncomeEconomics.compute(w, firms, households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+    val s4       = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
+    val s5       = FirmEconomics.runStep(w, firms, households, s1, s2, s3, s4, rng)
+    val s6       = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
+    val s7       = PriceEquityEconomics.compute(
+      PriceEquityEconomics.Input(w, s1.m, s2.newWage, s2.employed, s2.wageGrowth, s3.domesticCons, s4.avgDemandMult, s4.sectorMults, s5),
+      rng,
+    )
     val openEcon = OpenEconEconomics.compute(
       OpenEconEconomics.Input(
         w = w,
@@ -315,7 +317,7 @@ object FlowSimulation:
         commodityRng = rng,
       ),
     )
-    val s8       = OpenEconomyStep.run(OpenEconomyStep.Input(w, s1, s2, s3, s4, s5, s6, s7, rng))
+    val s8       = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, rng))
     val banking  = BankingEconomics.compute(
       BankingEconomics.Input(
         w = w,
@@ -343,7 +345,7 @@ object FlowSimulation:
         depositRng = rng,
       ),
     )
-    val s9       = BankUpdateStep.run(BankUpdateStep.Input(w, s1, s2, s3, s4, s5, s6, s7, s8, rng))
+    val s9       = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, rng))
     val agg      = s3.hhAgg
     val eq       = w.financial.equity
     val h        = w.real.housing

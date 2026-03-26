@@ -2,19 +2,14 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.steps.FiscalConstraintStep
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Flow Pipeline integration test: real World → Economics → Flows →
+/** Flow Pipeline integration test: real World -> Economics -> Flows ->
   * Interpreter.
-  *
-  * First end-to-end test of the new pipeline with real initialized state.
-  * Proves that Economics + StateAdapter + Flow mechanisms + Interpreter compose
-  * correctly on production data.
   */
 class FlowPipelineSpec extends AnyFlatSpec with Matchers:
 
@@ -22,21 +17,15 @@ class FlowPipelineSpec extends AnyFlatSpec with Matchers:
   private val init           = WorldInit.initialize(42L)
   private val w              = init.world
 
-  /** Run one month through the new flow pipeline (partial — Steps 1-2 economics
-    * + all fund flows).
+  /** Run one month through the new flow pipeline (partial -- Steps 1-2
+    * economics + all fund flows).
     */
   private def runOneMonth: (Map[Int, Long], LaborEconomics.Result) =
     // Step 1: Fiscal constraints (pure calculus)
     val fiscal = FiscalConstraintEconomics.compute(w)
 
     // Step 2: Labor economics (pure calculus)
-    val s1    = FiscalConstraintStep.Output(
-      m = fiscal.month,
-      baseMinWage = fiscal.baseMinWage,
-      updatedMinWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-      resWage = fiscal.resWage,
-      lendingBaseRate = fiscal.lendingBaseRate,
-    )
+    val s1    = FiscalConstraintEconomics.toOutput(fiscal)
     val labor = LaborEconomics.compute(w, init.firms, init.households, s1)
 
     // Emit flows from fund mechanisms using adapter
@@ -71,13 +60,7 @@ class FlowPipelineSpec extends AnyFlatSpec with Matchers:
 
   it should "emit non-trivial fund flows" in {
     val fiscal = FiscalConstraintEconomics.compute(w)
-    val s1     = FiscalConstraintStep.Output(
-      m = fiscal.month,
-      baseMinWage = fiscal.baseMinWage,
-      updatedMinWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-      resWage = fiscal.resWage,
-      lendingBaseRate = fiscal.lendingBaseRate,
-    )
+    val s1     = FiscalConstraintEconomics.toOutput(fiscal)
     val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
 
     val flows = Vector.concat(

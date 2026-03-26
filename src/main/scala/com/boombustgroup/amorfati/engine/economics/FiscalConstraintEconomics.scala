@@ -23,6 +23,18 @@ object FiscalConstraintEconomics:
       lendingBaseRate: Rate,
   )
 
+  /** Bridge type — same fields as the deleted FiscalConstraintStep.Output. */
+  case class Output(
+      m: Int,
+      baseMinWage: PLN,
+      updatedMinWagePriceLevel: Double,
+      resWage: PLN,
+      lendingBaseRate: Rate,
+  )
+
+  def toOutput(r: Result): Output =
+    Output(r.month, r.baseMinWage, r.updatedMinWagePriceLevel, r.resWage, r.lendingBaseRate)
+
   @boundaryEscape
   def compute(w: World)(using p: SimParams): Result =
     import ComputationBoundary.toDouble
