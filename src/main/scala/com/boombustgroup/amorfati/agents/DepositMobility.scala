@@ -22,7 +22,7 @@ import scala.util.Random
   * Deposit switching is a zero-sum operation: total system deposits unchanged,
   * only distribution across banks changes.
   *
-  * Pure function — no mutable state. Called from BankUpdateStep after failure
+  * Pure function — no mutable state. Called from BankingEconomics after failure
   * resolution.
   *
   * Calibration: BFG deposit guarantee data, KNF deposit concentration, NBP

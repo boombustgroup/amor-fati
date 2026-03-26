@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.steps.FiscalConstraintStep
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,13 +12,18 @@ class FiscalConstraintEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private val world = WorldInit.initialize(42L).world
 
-  "FiscalConstraintEconomics.compute" should "match old FiscalConstraintStep" in {
-    val oldResult = FiscalConstraintStep.run(FiscalConstraintStep.Input(world))
-    val newResult = FiscalConstraintEconomics.compute(world)
+  "FiscalConstraintEconomics.compute" should "produce consistent result and output" in {
+    val result = FiscalConstraintEconomics.compute(world)
+    val output = FiscalConstraintEconomics.toOutput(result)
 
-    newResult.month shouldBe oldResult.m
-    newResult.baseMinWage shouldBe oldResult.baseMinWage
-    newResult.resWage shouldBe oldResult.resWage
-    newResult.lendingBaseRate shouldBe oldResult.lendingBaseRate
-    newResult.updatedMinWagePriceLevel shouldBe oldResult.updatedMinWagePriceLevel
+    output.m shouldBe result.month
+    output.baseMinWage shouldBe result.baseMinWage
+    output.resWage shouldBe result.resWage
+    output.lendingBaseRate shouldBe result.lendingBaseRate
+    output.updatedMinWagePriceLevel shouldBe result.updatedMinWagePriceLevel
+  }
+
+  it should "advance month by 1" in {
+    val result = FiscalConstraintEconomics.compute(world)
+    result.month shouldBe world.month + 1
   }

@@ -100,7 +100,7 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
     val nbp      = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
     val qeResult = Nbp.executeQe(nbp, PLN(1e12), PLN(1e12))
     td.toDouble(qeResult.requestedPurchase) should be > 0.0
-    // executeQe no longer updates cumulative; that happens in BankUpdateStep
+    // executeQe no longer updates cumulative; that happens in BankingEconomics
     qeResult.nbpState.qeCumulative shouldBe nbp.qeCumulative
   }
 

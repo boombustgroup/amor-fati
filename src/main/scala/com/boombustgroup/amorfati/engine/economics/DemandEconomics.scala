@@ -1,4 +1,4 @@
-package com.boombustgroup.amorfati.engine.steps
+package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
@@ -6,21 +6,26 @@ import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.markets.FiscalRules
 import com.boombustgroup.amorfati.types.*
 
-/** Aggregate demand formation: allocates household consumption, government
-  * purchases, investment, and export demand across sectors via flow-of-funds
-  * weights. Excess demand in capacity-constrained sectors spills over to
-  * sectors with slack.
+/** Pure economic logic for aggregate demand formation — no state mutation, no
+  * flows.
+  *
+  * Allocates household consumption, government purchases, investment, and
+  * export demand across sectors via flow-of-funds weights. Excess demand in
+  * capacity-constrained sectors spills over to sectors with slack.
+  *
+  * Extracted from DemandStep (Calculus vs Accounting split).
   */
-object DemandStep:
+object DemandEconomics:
 
   // ---- Calibration constants ----
   private val GovSpendingFloor   = 0.98 // gov spending cannot drop below 98% of previous period
   private val RealRateElasticity = 0.02 // demand sensitivity to real interest rate gap
 
   case class Input(
-      w: World,                         // current world state
-      s2: LaborDemographicsStep.Output, // labor/demographics (employment, living firms)
-      s3: HouseholdIncomeStep.Output,   // household income (domestic consumption)
+      w: World,                   // current world state
+      employed: Int,              // employment count
+      living: Vector[Firm.State], // living firm population
+      domesticCons: PLN,          // domestic component of household consumption
   )
 
   case class Output(
@@ -32,7 +37,7 @@ object DemandStep:
       fiscalRuleStatus: FiscalRules.RuleStatus, // fiscal rule compliance diagnostics
   )
 
-  def run(in: Input)(using p: SimParams): Output =
+  def compute(in: Input)(using p: SimParams): Output =
     val rawGovPurchases    = computeGovPurchases(in)
     val fiscalResult       = applyFiscalRules(in, rawGovPurchases)
     val govPurchases       = fiscalResult.constrainedGovPurchases
@@ -44,15 +49,15 @@ object DemandStep:
     val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCap, in)
     Output(govPurchases, sectorMults, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
 
-  /** Government purchases: base spending × price level + fiscal recycling (tax
-    * revenue + ZUS surplus) + automatic fiscal stimulus (unemployment gap ×
+  /** Government purchases: base spending x price level + fiscal recycling (tax
+    * revenue + ZUS surplus) + automatic fiscal stimulus (unemployment gap x
     * multiplier). Floored at 98% of previous period.
     */
   private def computeGovPurchases(in: Input)(using p: SimParams): PLN =
     val zusNetSurplus =
       if p.flags.zus then (in.w.social.zus.contributions - in.w.social.zus.pensionPayments).max(PLN.Zero)
       else PLN.Zero
-    val unempRate     = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation)
+    val unempRate     = Share.One - Share.fraction(in.employed, in.w.totalPopulation)
     val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
     val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
     val target        = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, in.w.priceLevel)) +
@@ -64,7 +69,7 @@ object DemandStep:
     */
   private def applyFiscalRules(in: Input, rawTarget: PLN)(using p: SimParams): FiscalRules.Output =
     val prevGovSpend = in.w.gov.govCurrentSpend + in.w.gov.govCapitalSpend
-    val unempRate    = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation)
+    val unempRate    = Share.One - Share.fraction(in.employed, in.w.totalPopulation)
     val outputGap    = Coefficient((unempRate - p.monetary.nairu) / p.monetary.nairu)
 
     val floored =
@@ -98,7 +103,7 @@ object DemandStep:
     import ComputationBoundary.toDouble
     (0 until p.sectorDefs.length)
       .map: s =>
-        in.s2.living.filter(_.sector.toInt == s).map(f => toDouble(Firm.computeCapacity(f))).sum
+        in.living.filter(_.sector.toInt == s).map(f => toDouble(Firm.computeCapacity(f))).sum
       .toVector
 
   /** Per-sector export demand: from GVC foreign firms when enabled, otherwise
@@ -131,7 +136,7 @@ object DemandStep:
     (0 until p.sectorDefs.length)
       .map: s =>
         toDouble(
-          p.fiscal.fofConsWeights(s) * in.s3.domesticCons +
+          p.fiscal.fofConsWeights(s) * in.domesticCons +
             p.fiscal.fofGovWeights(s) * govPurchases +
             p.fiscal.fofInvestWeights(s) * laggedInvestDemand +
             sectorExports(s),
