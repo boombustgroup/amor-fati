@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>AMOR FATI</strong><br>
+  <h1>AMOR FATI</h1>
   <em>Stock-Flow Consistent Agent-Based Macroeconomic Engine</em>
 </p>
 
