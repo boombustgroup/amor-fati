@@ -1,9 +1,5 @@
+<h1 align="center">AMOR FATI</h1>
 <p align="center">
-  <img src="assets/logo.png" width="400" alt="Amor Fati — Rota Fortunae">
-</p>
-
-<p align="center">
-  <strong>AMOR FATI</strong><br>
   <em>Stock-Flow Consistent Agent-Based Macroeconomic Engine</em>
 </p>
 
@@ -13,7 +9,6 @@
   <a href="https://github.com/boombustgroup/amor-fati/actions"><img src="https://github.com/boombustgroup/amor-fati/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://codecov.io/gh/boombustgroup/amor-fati"><img src="https://codecov.io/gh/boombustgroup/amor-fati/graph/badge.svg" alt="Coverage"></a>
   <img src="https://img.shields.io/badge/scala-3.8.2-red.svg" alt="Scala 3.8.2">
-  <img src="https://img.shields.io/badge/mechanisms-55-blue.svg" alt="55 mechanisms">
   <img src="https://img.shields.io/badge/SFC_identities-14-orange.svg" alt="14 SFC identities">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue.svg" alt="Apache 2.0"></a>
 </p>
