@@ -1,4 +1,4 @@
-package com.boombustgroup.amorfati.engine.steps
+package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.{FirmSizeDistribution, SimParams}
@@ -9,11 +9,16 @@ import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
 
-/** Price level dynamics, GPW equity market, GDP computation, macroprudential
-  * policy, Arthur-style sigma evolution, and network rewiring for bankrupt firm
-  * replacement. Integrates real-side aggregates with financial market state.
+/** Pure economic logic for price level dynamics, GPW equity market, GDP
+  * computation, macroprudential policy, Arthur-style sigma evolution, and
+  * network rewiring for bankrupt firm replacement — no state mutation, no
+  * flows.
+  *
+  * Integrates real-side aggregates with financial market state.
+  *
+  * Extracted from PriceEquityStep (Calculus vs Accounting split).
   */
-object PriceEquityStep:
+object PriceEquityEconomics:
 
   // ---- Calibration constants ----
   private val StartupCashMin    = 10000.0 // minimum startup cash for rewired entrant (PLN)
@@ -29,12 +34,15 @@ object PriceEquityStep:
   private val AiMaintNomShare   = 0.40    // nominal (price-sensitive) share of AI/hybrid maintenance cost
 
   case class Input(
-      w: World,                         // current world state
-      s1: FiscalConstraintStep.Output,  // fiscal constraint (month counter)
-      s2: LaborDemographicsStep.Output, // labor/demographics (employment, wage, living firms)
-      s3: HouseholdIncomeStep.Output,   // household income (domestic consumption)
-      s4: DemandStep.Output,            // demand (sector multipliers, gov purchases)
-      s5: FirmProcessingStep.Output,    // firm processing (I-O firms, equity issuance, investment)
+      w: World,                    // current world state
+      month: Int,                  // month counter
+      newWage: PLN,                // new wage from labor market
+      employed: Int,               // employment count
+      wageGrowth: Coefficient,     // wage growth coefficient
+      domesticCons: PLN,           // domestic component of household consumption
+      avgDemandMult: Double,       // economy-wide average demand multiplier
+      sectorMults: Vector[Double], // per-sector demand multipliers
+      s5: FirmEconomics.StepOutput, // firm processing output
   )
 
   case class Output(
@@ -107,7 +115,7 @@ object PriceEquityStep:
     * @return
     *   updated sigma vector (never decreasing — ratchet)
     */
-  private[steps] def evolveSigmas(
+  private[economics] def evolveSigmas(
       currentSigmas: Vector[Sigma],
       baseSigmas: Vector[Double],
       sectorAdoption: Vector[Double],
@@ -128,7 +136,7 @@ object PriceEquityStep:
   // ---------------------------------------------------------------------------
 
   @boundaryEscape
-  private[steps] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: Random)(using p: SimParams): Vector[Firm.State] =
+  private[economics] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: Random)(using p: SimParams): Vector[Firm.State] =
     import ComputationBoundary.toDouble
     if rho == 0.0 then return firms
 
@@ -203,11 +211,11 @@ object PriceEquityStep:
     }.toVector
 
   // ---------------------------------------------------------------------------
-  // Main step logic
+  // Main compute logic
   // ---------------------------------------------------------------------------
 
   @boundaryEscape
-  def run(in: Input, rng: Random)(using p: SimParams): Output =
+  def compute(in: Input, rng: Random)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val living2           = in.s5.ioFirms.filter(Firm.isAlive)
     val nLiving           = living2.length.toDouble
@@ -217,7 +225,7 @@ object PriceEquityStep:
     val aggGreenCapital   = if p.flags.energy then PLN.fromRaw(living2.map(_.greenCapital.toLong).sum) else PLN.Zero
 
     val euMonthly =
-      if p.flags.euFunds then EuFunds.monthlyTransfer(in.s1.m)
+      if p.flags.euFunds then EuFunds.monthlyTransfer(in.month)
       else toDouble(p.openEcon.euTransfers)
 
     val govGdpContribution =
@@ -244,7 +252,7 @@ object PriceEquityStep:
         (if p.flags.energy then toDouble(in.s5.sumGreenInvestment) * toDouble(p.climate.greenImportShare) else 0.0)
     val aggInventoryChange = if p.flags.inventory then toDouble(in.s5.sumInventoryChange) else 0.0
     val gdp                =
-      toDouble(in.s3.domesticCons) + govGdpContribution + euGdpContribution + toDouble(in.w.forex.exports) + domesticGFCF + aggInventoryChange
+      toDouble(in.domesticCons) + govGdpContribution + euGdpContribution + toDouble(in.w.forex.exports) + domesticGFCF + aggInventoryChange
 
     val totalSystemLoans = PLN.fromRaw(in.w.bankingSector.banks.map(_.loans.toLong).sum)
     val newMacropru      = Macroprudential.step(in.w.mechanisms.macropru, totalSystemLoans, PLN(gdp))
@@ -267,8 +275,8 @@ object PriceEquityStep:
     val priceUpd = PriceLevel.update(
       in.w.inflation,
       in.w.priceLevel,
-      in.s4.avgDemandMult,
-      toDouble(in.s2.wageGrowth),
+      in.avgDemandMult,
+      toDouble(in.wageGrowth),
       exDev,
       autoR,
       hybR,
@@ -278,8 +286,8 @@ object PriceEquityStep:
     val newPrice = priceUpd.priceLevel * (1.0 + toDouble(in.s5.markupInflation.monthly))
 
     val firmProfits = living2.map { f =>
-      val rev      = toDouble(Firm.computeCapacity(f)) * in.s4.sectorMults(f.sector.toInt) * newPrice
-      val labor    = Firm.workerCount(f) * toDouble(in.s2.newWage) * toDouble(p.sectorDefs(f.sector.toInt).wageMultiplier)
+      val rev      = toDouble(Firm.computeCapacity(f)) * in.sectorMults(f.sector.toInt) * newPrice
+      val labor    = Firm.workerCount(f) * toDouble(in.newWage) * toDouble(p.sectorDefs(f.sector.toInt).wageMultiplier)
       val other    = toDouble(p.firm.otherCosts) * newPrice
       val aiMaint  = f.tech match
         case _: TechState.Automated => toDouble(p.firm.aiOpex) * (AiMaintRealShare + AiMaintNomShare * newPrice)

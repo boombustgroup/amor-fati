@@ -1,9 +1,10 @@
 package com.boombustgroup.amorfati.engine.economics
 
+import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.engine.steps.*
 import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -17,14 +18,34 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val w    = init.world
     val rng  = new scala.util.Random(42)
 
-    val s1 = FiscalConstraintStep.run(FiscalConstraintStep.Input(w))
-    val s2 = LaborDemographicsStep.run(LaborDemographicsStep.Input(w, init.firms, init.households, s1))
-    val s3 = HouseholdIncomeStep.run(HouseholdIncomeStep.Input(w, init.firms, init.households, s1, s2), rng)
-    val s4 = DemandStep.run(DemandStep.Input(w, s2, s3))
-    val s5 = FirmProcessingStep.run(FirmProcessingStep.Input(w, init.firms, init.households, s1, s2, s3, s4), rng)
-    val s6 = HouseholdFinancialStep.run(HouseholdFinancialStep.Input(w, s1, s2, s3))
-    val s7 = PriceEquityStep.run(PriceEquityStep.Input(w, s1, s2, s3, s4, s5), rng)
-    val s8 = OpenEconomyStep.run(OpenEconomyStep.Input(w, s1, s2, s3, s4, s5, s6, s7, rng))
+    val fiscal = FiscalConstraintEconomics.compute(w)
+    val s1     = FiscalConstraintEconomics.toOutput(fiscal)
+    val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
+    val s2     = LaborEconomics.Output(
+      labor.wage,
+      labor.employed,
+      labor.laborDemand,
+      labor.wageGrowth,
+      labor.immigration,
+      labor.netMigration,
+      labor.demographics,
+      SocialSecurity.ZusState.zero,
+      SocialSecurity.NfzState.zero,
+      SocialSecurity.PpkState.zero,
+      PLN.Zero,
+      EarmarkedFunds.State.zero,
+      labor.living,
+      labor.regionalWages,
+    )
+    val s3     = HouseholdIncomeEconomics.compute(w, init.firms, init.households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+    val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
+    val s5     = FirmEconomics.runStep(w, init.firms, init.households, s1, s2, s3, s4, rng)
+    val s6     = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
+    val s7     = PriceEquityEconomics.compute(
+      PriceEquityEconomics.Input(w, s1.m, s2.newWage, s2.employed, s2.wageGrowth, s3.domesticCons, s4.avgDemandMult, s4.sectorMults, s5),
+      rng,
+    )
+    val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, rng))
 
     val res = BankingEconomics.compute(
       BankingEconomics.Input(

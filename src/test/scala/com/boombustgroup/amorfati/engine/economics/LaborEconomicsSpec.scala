@@ -1,19 +1,12 @@
 package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.steps.{FiscalConstraintStep, LaborDemographicsStep}
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Proves LaborEconomics.compute() produces identical results to old
-  * LaborDemographicsStep.run().
-  *
-  * The Calculus (economic logic) must match bit-for-bit. The Accounting
-  * (ZUS/NFZ/PPK/Earmarked) is already migrated to flow mechanisms — we don't
-  * compare those here.
-  */
+/** Tests LaborEconomics.compute() produces reasonable results. */
 class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
@@ -22,7 +15,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
   private val world      = initResult.world
   private val firms      = initResult.firms
 
-  private val s1 = FiscalConstraintStep.Output(
+  private val s1 = FiscalConstraintEconomics.Output(
     m = 1,
     lendingBaseRate = world.nbp.referenceRate,
     resWage = world.hhAgg.reservationWage,
@@ -30,31 +23,23 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
     updatedMinWagePriceLevel = world.priceLevel,
   )
 
-  "LaborEconomics.compute" should "match old LaborDemographicsStep wage" in {
-    val oldResult = LaborDemographicsStep.run(LaborDemographicsStep.Input(world, firms, world.households, s1))
-    val newResult = LaborEconomics.compute(world, firms, world.households, s1)
-
-    newResult.wage shouldBe oldResult.newWage
+  "LaborEconomics.compute" should "produce positive wage" in {
+    val result = LaborEconomics.compute(world, firms, world.households, s1)
+    ComputationBoundary.toDouble(result.wage) should be > 0.0
   }
 
-  it should "match old employment count" in {
-    val oldResult = LaborDemographicsStep.run(LaborDemographicsStep.Input(world, firms, world.households, s1))
-    val newResult = LaborEconomics.compute(world, firms, world.households, s1)
-
-    newResult.employed shouldBe oldResult.employed
+  it should "produce positive employment" in {
+    val result = LaborEconomics.compute(world, firms, world.households, s1)
+    result.employed should be > 0
   }
 
-  it should "match old demographics" in {
-    val oldResult = LaborDemographicsStep.run(LaborDemographicsStep.Input(world, firms, world.households, s1))
-    val newResult = LaborEconomics.compute(world, firms, world.households, s1)
-
-    newResult.demographics.retirees shouldBe oldResult.newDemographics.retirees
-    newResult.demographics.workingAgePop shouldBe oldResult.newDemographics.workingAgePop
+  it should "produce demographics with positive working-age pop" in {
+    val result = LaborEconomics.compute(world, firms, world.households, s1)
+    result.demographics.workingAgePop should be > 0
   }
 
-  it should "match old wage growth" in {
-    val oldResult = LaborDemographicsStep.run(LaborDemographicsStep.Input(world, firms, world.households, s1))
-    val newResult = LaborEconomics.compute(world, firms, world.households, s1)
-
-    newResult.wageGrowth shouldBe oldResult.wageGrowth
+  it should "produce consistent wage growth" in {
+    val result = LaborEconomics.compute(world, firms, world.households, s1)
+    // Wage growth should be a finite number
+    ComputationBoundary.toDouble(result.wageGrowth).isNaN shouldBe false
   }

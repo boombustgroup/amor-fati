@@ -826,8 +826,9 @@ object Household:
         i += 1
       Share.fraction(count, hh.socialNeighbors.length)
 
-  /** Public entry point for aggregate stats (used by BankUpdateStep and tests).
-    * Flow totals default to zero — only distribution stats are computed.
+  /** Public entry point for aggregate stats (used by BankingEconomics and
+    * tests). Flow totals default to zero — only distribution stats are
+    * computed.
     */
   def computeAggregates(
       households: Vector[State],

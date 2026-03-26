@@ -1,8 +1,8 @@
 package com.boombustgroup.amorfati.engine.economics
 
+import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.engine.steps.*
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -17,13 +17,30 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private val w    = init.world
   private val rng  = new scala.util.Random(42)
 
-  private val s1 = FiscalConstraintStep.run(FiscalConstraintStep.Input(w))
-  private val s2 = LaborDemographicsStep.run(LaborDemographicsStep.Input(w, init.firms, init.households, s1))
-  private val s3 = HouseholdIncomeStep.run(HouseholdIncomeStep.Input(w, init.firms, init.households, s1, s2), rng)
-  private val s4 = DemandStep.run(DemandStep.Input(w, s2, s3))
+  private val fiscal = FiscalConstraintEconomics.compute(w)
+  private val s1     = FiscalConstraintEconomics.toOutput(fiscal)
+  private val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
+  private val s2     = LaborEconomics.Output(
+    labor.wage,
+    labor.employed,
+    labor.laborDemand,
+    labor.wageGrowth,
+    labor.immigration,
+    labor.netMigration,
+    labor.demographics,
+    SocialSecurity.ZusState.zero,
+    SocialSecurity.NfzState.zero,
+    SocialSecurity.PpkState.zero,
+    PLN.Zero,
+    EarmarkedFunds.State.zero,
+    labor.living,
+    labor.regionalWages,
+  )
+  private val s3     = HouseholdIncomeEconomics.compute(w, init.firms, init.households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+  private val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
 
   private val rng2  = new scala.util.Random(42)
-  private val oldS5 = FirmProcessingStep.run(FirmProcessingStep.Input(w, init.firms, init.households, s1, s2, s3, s4), rng2)
+  private val oldS5 = FirmEconomics.runStep(w, init.firms, init.households, s1, s2, s3, s4, rng2)
 
   private val rng3   = new scala.util.Random(42)
   private val result = FirmEconomics.compute(
@@ -61,16 +78,18 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     ),
   )
 
+  private val resultR = FirmEconomics.toResult(result)
+
   "FirmEconomics (self-contained Input)" should "match old step tax" in
-    result.tax.shouldBe(oldS5.sumTax)
+    result.sumTax.shouldBe(oldS5.sumTax)
 
   it should "match old step loans and NPL" in {
-    result.newLoans.shouldBe(oldS5.sumNewLoans)
+    result.sumNewLoans.shouldBe(oldS5.sumNewLoans)
     result.nplLoss.shouldBe(oldS5.nplLoss)
     result.intIncome.shouldBe(oldS5.intIncome)
   }
 
   it should "produce flows that close at SFC == 0L" in {
-    val flows = FirmFlows.emit(StateAdapter.firmInput(result, s3.totalIncome))
+    val flows = FirmFlows.emit(StateAdapter.firmInput(resultR, s3.totalIncome))
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
   }

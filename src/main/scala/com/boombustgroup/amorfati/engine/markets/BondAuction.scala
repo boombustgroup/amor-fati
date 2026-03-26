@@ -18,7 +18,7 @@ import com.boombustgroup.amorfati.types.*
   *      not all bonds are placed, unfunded deficit accumulates as floating
   *      debt. This is the fiscal crisis trigger (cf. Italy 2011, Greece 2010).
   *
-  * Pure function — no state, no side effects. Called from BankUpdateStep
+  * Pure function — no state, no side effects. Called from BankingEconomics
   * waterfall to determine how new bond issuance is distributed between domestic
   * holders (banks acting as DSPW primary dealers and final holders) and
   * non-resident investors.
