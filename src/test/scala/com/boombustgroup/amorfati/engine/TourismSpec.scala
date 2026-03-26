@@ -195,7 +195,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "OpenEconomy exports" should "include tourismExport" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN(td.toDouble(p.forex.exportBase)), PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -217,7 +217,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "OpenEconomy imports" should "include tourismImport" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN(td.toDouble(p.forex.exportBase)), PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,

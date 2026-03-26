@@ -38,16 +38,6 @@ class ExciseCustomsSpec extends AnyFlatSpec with Matchers:
     td.toDouble(p.fiscal.customsNonEuShare) should be <= 1.0
   }
 
-  "Customs revenue" should "be zero when OPEN_ECON=false" in {
-    // When OeEnabled is false, customs duty = 0 regardless of imports
-    if !p.flags.openEcon then
-      val imports = 1000000.0
-      val customs =
-        if p.flags.openEcon then imports * td.toDouble(p.fiscal.customsNonEuShare) * td.toDouble(p.fiscal.customsDutyRate)
-        else 0.0
-      customs shouldBe 0.0
-  }
-
   "Excise" should "always be positive for positive consumption" in {
     val consumption = 1000000.0
     val excise      = consumption * p.fiscal.fofConsWeights

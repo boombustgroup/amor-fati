@@ -7,7 +7,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
 import com.boombustgroup.amorfati.agents.Nbp
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, LaborMarket, OpenEconomy, PriceLevel}
+import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, LaborMarket, PriceLevel}
 import com.boombustgroup.amorfati.types.*
 
 class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -141,14 +141,4 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
       val govWithRemit                      = FiscalBudget.update(base.copy(nbpRemittance = PLN(nbpRemit)))
       // nbpRemittance reduces deficit
       td.toDouble(govWithRemit.deficit) shouldBe (td.toDouble(govNoRemit.deficit) - nbpRemit +- 1.0)
-    }
-
-  // --- updateForeign properties ---
-
-  "updateForeign" should "keep exchange rate in [3.0, 8.0]" in
-    forAll(genForexState, Gen.choose(0.0, 1e8), Gen.choose(0.0, 1e7), genFraction, genRate, Gen.choose(1e6, 1e10)) {
-      (prev: OpenEconomy.ForexState, importCons: Double, techImp: Double, autoR: Double, rate: Double, gdp: Double) =>
-        val fx = OpenEconomy.updateForeign(prev, PLN(importCons), PLN(techImp), Share(autoR), Rate(rate), PLN(gdp))
-        fx.exchangeRate should be >= 3.0
-        fx.exchangeRate should be <= 8.0
     }

@@ -141,7 +141,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "secondaryIncome" should "include diasporaInflow as credit" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN(td.toDouble(p.forex.exportBase)), PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -163,7 +163,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   it should "net outflow and inflow" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN(td.toDouble(p.forex.exportBase)), PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base   = OpenEconomy.StepInput(
       prevBop = prevBop,

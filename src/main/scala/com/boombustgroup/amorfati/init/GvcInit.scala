@@ -7,5 +7,5 @@ import com.boombustgroup.amorfati.engine.markets.GvcTrade
 object GvcInit:
 
   def create()(using p: SimParams): GvcTrade.State =
-    if p.flags.gvc && p.flags.openEcon then GvcTrade.initial
+    if p.flags.gvc then GvcTrade.initial
     else GvcTrade.zero

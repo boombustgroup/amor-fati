@@ -75,29 +75,6 @@ object OpenEconomy:
   private val FdiNfaDampening      = 0.5
   private val ValuationPassThrough = 0.3
 
-  @boundaryEscape
-  def updateForeign(
-      prev: ForexState,
-      importConsumption: PLN,
-      techImports: PLN,
-      autoRatio: Share,
-      domesticRate: Rate,
-      gdp: PLN,
-  )(using p: SimParams): ForexState =
-    import ComputationBoundary.toDouble
-    val techComp  = 1.0 + toDouble(autoRatio) * toDouble(p.forex.exportAutoBoost)
-    val totalImp  = importConsumption + techImports
-    val exComp    = prev.exchangeRate / p.forex.baseExRate
-    val exports   = p.forex.exportBase * Multiplier(exComp * techComp)
-    val tradeBal  = exports - totalImp
-    val rateDiff  = toDouble(domesticRate - p.forex.foreignRate)
-    val capAcct   = PLN(toDouble(gdp) * rateDiff * toDouble(p.forex.irpSensitivity))
-    val bop       = tradeBal + capAcct
-    val bopRatio  = if gdp > PLN.Zero then bop / gdp else 0.0
-    val exRateChg = -toDouble(p.forex.exRateAdjSpeed) * bopRatio
-    val newRate   = Math.max(3.0, Math.min(8.0, prev.exchangeRate * (1.0 + exRateChg)))
-    ForexState(newRate, totalImp, exports, tradeBal, techImports)
-
   case class Result(
       forex: ForexState,
       bop: BopState,
