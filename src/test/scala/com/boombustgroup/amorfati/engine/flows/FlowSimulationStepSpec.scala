@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.Simulation
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -19,17 +18,21 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.calculus.employed should be > 0
   }
 
-  it should "produce SFC == 0L across 12 months (old pipeline drives state)" in {
+  it should "produce SFC == 0L across 12 months (autonomous driving)" in {
     val init  = WorldInit.initialize(42L)
-    var state = Simulation.SimState(init.world, init.firms, init.households)
+    var w     = init.world
+    var firms = init.firms
+    var hh    = init.households
 
     (1 to 12).foreach { month =>
-      state = Simulation.step(state, 42L, month).state
-      val rng    = new scala.util.Random(42L + month)
-      val result = FlowSimulation.step(state.world, state.firms, state.households, rng)
+      val rng    = new scala.util.Random(42L * 1000 + month)
+      val result = FlowSimulation.step(w, firms, hh, rng)
       withClue(s"Month $month: ") {
         Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], result.flows)).shouldBe(0L)
       }
+      w = result.newWorld
+      firms = result.newFirms
+      hh = result.newHouseholds
     }
   }
 

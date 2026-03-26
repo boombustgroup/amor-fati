@@ -25,6 +25,16 @@ import scala.util.Random
   */
 object FlowSimulation:
 
+  /** Bundles the three mutable components of the simulation: the World state,
+    * the firm vector, and the household vector. These always travel together
+    * between simulation steps and the main loop.
+    */
+  case class SimState(
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+  )
+
   /** All calculus results needed to feed flow mechanisms. */
   case class MonthlyCalculus(
       // Stage 1: Fiscal constraint

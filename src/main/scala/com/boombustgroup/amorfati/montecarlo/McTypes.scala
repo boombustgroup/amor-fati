@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.montecarlo
 
 import com.boombustgroup.amorfati.accounting.{InitCheck, Sfc}
-import com.boombustgroup.amorfati.engine.Simulation
+import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 
 /** Zero-cost typed wrappers for Monte Carlo simulation output. */
@@ -20,7 +20,7 @@ object SimError:
 /** Result of a single simulation run. */
 case class RunResult(
     timeSeries: TimeSeries,
-    terminalState: Simulation.SimState,
+    terminalState: FlowSimulation.SimState,
 )
 
 // ---------------------------------------------------------------------------
