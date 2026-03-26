@@ -9,7 +9,6 @@ emission via ledger), **markets** (clearing mechanisms), and **mechanisms**
 ```
 engine/
 ├── World.scala             # Immutable global state container (7 nested types)
-├── StepSeeds.scala         # Per-component RNG isolation
 ├── economics/              # 9-stage computation pipeline (calculus, no flows)
 ├── flows/                  # SFC flow emission via verified ledger
 ├── markets/                # Market clearing & price formation
@@ -21,7 +20,6 @@ engine/
 | File | Responsibility |
 |------|----------------|
 | `World.scala` | Case class holding all macro state, decomposed into 7 nested types: `SocialState`, `FinancialMarketsState`, `ExternalState`, `RealState`, `MechanismsState`, `MonetaryPlumbingState`, `FlowState`. |
-| `StepSeeds.scala` | Per-component RNG isolation. Each pipeline stage receives its own deterministic `Random` derived from `(masterSeed, month, componentId)`, so adding stochastic draws in one stage never shifts the sequence of another. |
 
 ## economics/
 
