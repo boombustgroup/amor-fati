@@ -4,7 +4,7 @@ area:monetary:
 
 area:banking:
   - changed-files:
-      - any-glob-to-any-file: ['src/**/Banking.scala', 'src/**/BankUpdateStep.scala', 'src/**/BankInit.scala', 'src/**/Macroprudential.scala', 'src/**/BankingConfig.scala']
+      - any-glob-to-any-file: ['src/**/Banking.scala', 'src/**/BankingEconomics.scala', 'src/**/BankInit.scala', 'src/**/Macroprudential.scala', 'src/**/BankingConfig.scala']
 
 area:fiscal:
   - changed-files:

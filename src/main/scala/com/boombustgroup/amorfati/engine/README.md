@@ -74,8 +74,8 @@ pure function `Input → Output` with typed case classes — no hidden state.
 | 6 | `HouseholdFinancialStep` | Consumer credit, mortgages, remittances, diaspora, tourism |
 | 7 | `PriceEquityStep` | Inflation, GPW equity, sigma dynamics, network rewiring, GDP, EU funds |
 | 8 | `OpenEconomyStep` | BoP/forex, GVC, Taylor rule, bond yields, QE, insurance, NBFI |
-| 9 | `BankUpdateStep` | Bank P&L, provisioning, CAR, interbank, BFG levy, bail-in |
-| 10 | `WorldAssemblyStep` | Final state assembly, household reassignment, 14-identity SFC check |
+| 9 | `BankingEconomics` | Bank P&L, provisioning, CAR, interbank, BFG levy, bail-in |
+| 10 | `WorldAssemblyEconomics` | Final state assembly, household reassignment, 14-identity SFC check |
 
 Steps reference each other via explicit `s1: Step1.Output, s2: Step2.Output, ...`
 fields in their `Input` case classes. This makes data flow visible and

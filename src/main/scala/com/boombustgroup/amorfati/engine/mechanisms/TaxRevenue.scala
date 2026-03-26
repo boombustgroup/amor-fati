@@ -6,8 +6,8 @@ import com.boombustgroup.amorfati.types.*
 /** Tax revenue computation: VAT, excise, customs, and informal-economy evasion
   * adjustments.
   *
-  * Extracted from BankUpdateStep to separate fiscal revenue logic from banking
-  * balance-sheet updates. All flows are monthly, in PLN.
+  * Extracted from BankingEconomics to separate fiscal revenue logic from
+  * banking balance-sheet updates. All flows are monthly, in PLN.
   */
 object TaxRevenue:
 

@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.agents.Banking.BankState
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 import com.boombustgroup.amorfati.types.*
@@ -20,7 +21,7 @@ import java.util.concurrent.TimeUnit
 object McRunner:
 
   /** Single month snapshot emitted by [[seedStream]]. */
-  private case class MonthSnapshot(month: Int, state: Simulation.SimState, monthData: Array[Double])
+  private case class MonthSnapshot(month: Int, state: FlowSimulation.SimState, monthData: Array[Double])
 
   /** Run N seeds in parallel, each streaming months via [[seedStream]]. Writes
     * per-seed CSV + aggregated HH/bank CSVs. Fails with [[SimError]].
@@ -58,7 +59,7 @@ object McRunner:
   private def seedStream(seed: Long)(using SimParams) =
     ZStream.unwrap(ZIO.fromEither(initSeed(seed)).map(simulateMonths(seed, _)))
 
-  private def simulateMonths(seed: Long, initState: Simulation.SimState)(using p: SimParams) =
+  private def simulateMonths(seed: Long, initState: FlowSimulation.SimState)(using p: SimParams) =
     ZStream.unfoldZIO((initState, 0)):
       case (_, month) if month >= p.timeline.duration => ZIO.none
       case (state, month)                             =>
@@ -72,9 +73,9 @@ object McRunner:
     val snapshot = Sfc.snapshot(init.world, init.firms, init.households)
     val errors   = InitCheck.validate(snapshot, init.world.bankingSector, init.firms, init.households)
     if errors.nonEmpty then Left(SimError.Init(errors))
-    else Right(Simulation.SimState(init.world, init.firms, init.households))
+    else Right(FlowSimulation.SimState(init.world, init.firms, init.households))
 
-  private def stepMonth(state: Simulation.SimState, seed: Long, month: Int)(using p: SimParams) =
+  private def stepMonth(state: FlowSimulation.SimState, seed: Long, month: Int)(using p: SimParams) =
     val rng    = new scala.util.Random(seed * 10000 + month)
     val result = engine.flows.FlowSimulation.step(state.world, state.firms, state.households, rng)
     // SFC verification: flows through verified interpreter should always be 0L
@@ -85,13 +86,13 @@ object McRunner:
       val err = Sfc.SfcIdentityError(Sfc.SfcIdentity.FlowOfFunds, s"Flow SFC: totalWealth=$wealth", PLN.fromRaw(wealth), PLN.Zero)
       Left(SimError.SfcViolation(month + 1, Vector(err)))
     else
-      val newState  = Simulation.SimState(result.newWorld, result.newFirms, result.newHouseholds)
+      val newState  = FlowSimulation.SimState(result.newWorld, result.newFirms, result.newHouseholds)
       val monthData = SimOutput.compute(month, result.newWorld, result.newFirms, result.newHouseholds)
       Right((newState, monthData))
 
   @scala.annotation.tailrec
   private def loop(
-      state: Simulation.SimState,
+      state: FlowSimulation.SimState,
       seed: Long,
       month: Int,
       monthSeries: Vector[Array[Double]],
@@ -107,7 +108,7 @@ object McRunner:
   private def materializeSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
     seedStream(seed)
       .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.month, p.timeline.duration)))
-      .runFold((Option.empty[Simulation.SimState], Vector.empty[Array[Double]])):
+      .runFold((Option.empty[FlowSimulation.SimState], Vector.empty[Array[Double]])):
         case ((_, series), snapshot) => (Some(snapshot.state), series :+ snapshot.monthData)
       .flatMap:
         case (Some(state), series) => ZIO.succeed(RunResult(TimeSeries.wrap(series.toArray), state))

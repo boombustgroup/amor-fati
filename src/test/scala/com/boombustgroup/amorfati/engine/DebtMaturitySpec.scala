@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
-import com.boombustgroup.amorfati.engine.steps.OpenEconomyStep
+import com.boombustgroup.amorfati.engine.economics.OpenEconEconomics
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -15,7 +15,7 @@ import org.scalatest.matchers.should.Matchers
 class DebtMaturitySpec extends AnyFlatSpec with Matchers:
 
   private val td     = ComputationBoundary
-  private val update = OpenEconomyStep.updateWeightedCoupon
+  private val update = OpenEconEconomics.updateWeightedCouponPublic
   private val bonds  = PLN(100e9)
 
   "updateWeightedCoupon" should "not reprice instantly after a yield shock" in {

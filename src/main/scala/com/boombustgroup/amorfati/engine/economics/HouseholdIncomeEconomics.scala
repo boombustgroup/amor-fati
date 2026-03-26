@@ -1,31 +1,28 @@
-package com.boombustgroup.amorfati.engine.steps
+package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
 
-/** Household income determination: computes individual household income,
-  * consumption, saving, and portfolio decisions. Integrates labor market
-  * separations, wage updates, bank-specific lending/deposit rates, equity
-  * returns, and sectoral mobility signals into household-level state updates.
+/** Pure economic logic for household income determination — no state mutation,
+  * no flows.
+  *
+  * Computes individual household income, consumption, saving, and portfolio
+  * decisions. Integrates labor market separations, wage updates, bank-specific
+  * lending/deposit rates, equity returns, and sectoral mobility signals into
+  * household-level state updates.
+  *
+  * Extracted from HouseholdIncomeStep (Calculus vs Accounting split).
   */
-object HouseholdIncomeStep:
+object HouseholdIncomeEconomics:
 
   // ---- Calibration constants ----
   private val ImportErElasticity = 0.5 // exchange rate elasticity of import propensity
-
-  case class Input(
-      w: World,                            // current world state
-      firms: Vector[Firm.State],           // pre-step firm population
-      households: Vector[Household.State], // pre-step household population
-      s1: FiscalConstraintStep.Output,     // fiscal constraint (reservation wage, lending base rate)
-      s2: LaborDemographicsStep.Output,    // labor/demographics (new wage)
-  )
 
   case class Output(
       totalIncome: PLN,                               // aggregate household income (wages + benefits + transfers)
@@ -41,30 +38,38 @@ object HouseholdIncomeStep:
   )
 
   @boundaryEscape
-  def run(in: Input, rng: Random)(using p: SimParams): Output =
+  def compute(
+      w: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      lendingBaseRate: Rate,
+      resWage: PLN,
+      newWage: PLN,
+      rng: Random,
+  )(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val importAdj = toDouble(p.forex.importPropensity) *
-      Math.pow(p.forex.baseExRate / in.w.forex.exchangeRate, ImportErElasticity)
+      Math.pow(p.forex.baseExRate / w.forex.exchangeRate, ImportErElasticity)
 
-    val afterSep           = LaborMarket.separations(in.households, in.firms, in.firms)
-    val afterWages         = LaborMarket.updateWages(afterSep, in.firms, in.s2.newWage)
-    val bsec               = in.w.bankingSector
+    val afterSep           = LaborMarket.separations(households, firms, firms)
+    val afterWages         = LaborMarket.updateWages(afterSep, firms, newWage)
+    val bsec               = w.bankingSector
     val nBanksHh           = bsec.banks.length
     val hhBankRates        = Some(
       BankRates(
-        lendingRates = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield)),
-        depositRates = bsec.banks.map(_ => Banking.hhDepositRate(in.w.nbp.referenceRate)),
+        lendingRates = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, lendingBaseRate, w.gov.bondYield)),
+        depositRates = bsec.banks.map(_ => Banking.hhDepositRate(w.nbp.referenceRate)),
       ),
     )
-    val eqReturn           = in.w.financial.equity.monthlyReturn
+    val eqReturn           = w.financial.equity.monthlyReturn
     val secWages           = if p.flags.sectoralMobility then Some(SectoralMobility.sectorWages(afterWages)) else None
     val secVacancies       =
-      if p.flags.sectoralMobility then Some(SectoralMobility.sectorVacancies(afterWages, in.firms)) else None
+      if p.flags.sectoralMobility then Some(SectoralMobility.sectorVacancies(afterWages, firms)) else None
     val (newHhs, agg, pbf) = Household.step(
       afterWages,
-      in.w,
-      in.s2.newWage,
-      in.s1.resWage,
+      w,
+      newWage,
+      resWage,
       importAdj,
       rng,
       nBanksHh,
