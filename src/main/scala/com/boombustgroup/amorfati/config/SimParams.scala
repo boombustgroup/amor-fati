@@ -166,9 +166,7 @@ object SimParams:
         initNbpGovBonds = PLN(300e9 * r),
         initConsumerLoans = PLN(200e9 * r),
       ),
-      forex = ForexConfig(
-        exportBase = PLN(55.4e9 * r),
-      ),
+      forex = ForexConfig(),
       openEcon = OpenEconConfig(
         exportBase = PLN(138.5e9 * r),
         euTransfers = PLN(1.458e9 * r),

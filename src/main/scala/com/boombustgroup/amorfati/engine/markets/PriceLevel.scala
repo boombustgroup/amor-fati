@@ -46,9 +46,7 @@ object PriceLevel:
     val demandPull    = (demandMult - 1.0) * DemandPullWeight
     val costPush      = wageGrowth * CostPushWeight
     val rawImportPush = Math.max(0.0, exRateDeviation) * toDouble(p.forex.importPropensity) * ImportPushWeight
-    val importPush    =
-      if p.flags.openEcon then Math.min(rawImportPush, toDouble(p.openEcon.importPushCap))
-      else rawImportPush
+    val importPush    = Math.min(rawImportPush, toDouble(p.openEcon.importPushCap))
     val techDeflation = autoRatio * AutoDeflation + hybridRatio * HybridDeflation
 
     val rawMonthly = demandPull + costPush + importPush - techDeflation

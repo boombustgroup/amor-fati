@@ -170,7 +170,7 @@ object OpenEconEconomics:
 
     // 2. GVC trade
     val newGvc =
-      if p.flags.gvc && p.flags.openEcon then
+      if p.flags.gvc then
         GvcTrade.step(
           GvcTrade.StepInput(
             in.w.external.gvc,
@@ -185,37 +185,33 @@ object OpenEconEconomics:
       else in.w.external.gvc
 
     // 3. Forex / BoP
-    val (gvcExp, gvcImp) = if p.flags.gvc && p.flags.openEcon then (Some(newGvc.totalExports), Some(newGvc.sectorImports)) else (None, None)
+    val (gvcExp, gvcImp) = if p.flags.gvc then (Some(newGvc.totalExports), Some(newGvc.sectorImports)) else (None, None)
     val totalTechImp     = in.totalTechAndInvImports + in.investmentImports
 
-    val (forex, bop, valEffect, fxResult) = if p.flags.openEcon then
-      val oe = OpenEconomy.step(
-        OpenEconomy.StepInput(
-          prevBop = in.w.bop,
-          prevForex = in.w.forex,
-          importCons = in.importConsumption,
-          techImports = totalTechImp,
-          autoRatio = in.autoRatio,
-          domesticRate = in.w.nbp.referenceRate,
-          gdp = in.gdp,
-          priceLevel = in.w.priceLevel,
-          sectorOutputs = sectorOutputs,
-          month = in.month,
-          inflation = in.w.inflation,
-          nbpFxReserves = in.w.nbp.fxReserves,
-          gvcExports = gvcExp,
-          gvcIntermImports = gvcImp,
-          remittanceOutflow = in.remittanceOutflow,
-          euFundsMonthly = in.euMonthly,
-          diasporaInflow = in.diasporaInflow,
-          tourismExport = in.tourismExport,
-          tourismImport = in.tourismImport,
-        ),
-      )
-      (oe.forex, oe.bop, oe.valuationEffect, oe.fxIntervention)
-    else
-      val fx = OpenEconomy.updateForeign(in.w.forex, in.importConsumption, totalTechImp, in.autoRatio, in.w.nbp.referenceRate, in.gdp)
-      (fx, in.w.bop, PLN.Zero, Nbp.FxInterventionResult(0.0, PLN.Zero, in.w.nbp.fxReserves, PLN.Zero))
+    val oe                                = OpenEconomy.step(
+      OpenEconomy.StepInput(
+        prevBop = in.w.bop,
+        prevForex = in.w.forex,
+        importCons = in.importConsumption,
+        techImports = totalTechImp,
+        autoRatio = in.autoRatio,
+        domesticRate = in.w.nbp.referenceRate,
+        gdp = in.gdp,
+        priceLevel = in.w.priceLevel,
+        sectorOutputs = sectorOutputs,
+        month = in.month,
+        inflation = in.w.inflation,
+        nbpFxReserves = in.w.nbp.fxReserves,
+        gvcExports = gvcExp,
+        gvcIntermImports = gvcImp,
+        remittanceOutflow = in.remittanceOutflow,
+        euFundsMonthly = in.euMonthly,
+        diasporaInflow = in.diasporaInflow,
+        tourismExport = in.tourismExport,
+        tourismImport = in.tourismImport,
+      ),
+    )
+    val (forex, bop, valEffect, fxResult) = (oe.forex, oe.bop, oe.valuationEffect, oe.fxIntervention)
 
     // Adjust BoP for FDI and dividends
     val fdiCitLoss = in.profitShifting * p.fiscal.citRate
@@ -476,7 +472,7 @@ object OpenEconEconomics:
   @boundaryEscape
   private def runStepGvc(in: StepInput, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
     import ComputationBoundary.toDouble
-    if p.flags.gvc && p.flags.openEcon then
+    if p.flags.gvc then
       GvcTrade.step(
         GvcTrade.StepInput(
           prev = in.w.external.gvc,
@@ -492,49 +488,38 @@ object OpenEconEconomics:
 
   private def runStepForex(in: StepInput, sectorOutputs: Vector[PLN], newGvc: GvcTrade.State)(using p: SimParams): ForexResult =
     val (gvcExp, gvcImp) =
-      if p.flags.gvc && p.flags.openEcon then (Some(newGvc.totalExports), Some(newGvc.sectorImports))
+      if p.flags.gvc then (Some(newGvc.totalExports), Some(newGvc.sectorImports))
       else (None, None)
 
     val totalTechAndInvImports = in.s5.sumTechImp + in.s7.investmentImports
-    if p.flags.openEcon then
-      val oeResult = OpenEconomy.step(
-        OpenEconomy.StepInput(
-          prevBop = in.w.bop,
-          prevForex = in.w.forex,
-          importCons = in.s3.importCons,
-          techImports = totalTechAndInvImports,
-          autoRatio = in.s7.autoR,
-          domesticRate = in.w.nbp.referenceRate,
-          gdp = in.s7.gdp,
-          inflation = in.w.inflation,
-          priceLevel = in.w.priceLevel,
-          sectorOutputs = sectorOutputs,
-          month = in.s1.m,
-          nbpFxReserves = in.w.nbp.fxReserves,
-          gvcExports = gvcExp,
-          gvcIntermImports = gvcImp,
-          remittanceOutflow = in.s6.remittanceOutflow,
-          euFundsMonthly = in.s7.euMonthly,
-          diasporaInflow = in.s6.diasporaInflow,
-          tourismExport = in.s6.tourismExport,
-          tourismImport = in.s6.tourismImport,
-        ),
-      )
-      ForexResult(oeResult.forex, oeResult.bop, oeResult.valuationEffect, oeResult.fxIntervention)
-    else
-      val fx = OpenEconomy.updateForeign(
-        in.w.forex,
-        in.s3.importCons,
-        totalTechAndInvImports,
-        in.s7.autoR,
-        in.w.nbp.referenceRate,
-        in.s7.gdp,
-      )
-      ForexResult(fx, in.w.bop, PLN.Zero, Nbp.FxInterventionResult(0.0, PLN.Zero, in.w.nbp.fxReserves, PLN.Zero))
+    val oeResult               = OpenEconomy.step(
+      OpenEconomy.StepInput(
+        prevBop = in.w.bop,
+        prevForex = in.w.forex,
+        importCons = in.s3.importCons,
+        techImports = totalTechAndInvImports,
+        autoRatio = in.s7.autoR,
+        domesticRate = in.w.nbp.referenceRate,
+        gdp = in.s7.gdp,
+        inflation = in.w.inflation,
+        priceLevel = in.w.priceLevel,
+        sectorOutputs = sectorOutputs,
+        month = in.s1.m,
+        nbpFxReserves = in.w.nbp.fxReserves,
+        gvcExports = gvcExp,
+        gvcIntermImports = gvcImp,
+        remittanceOutflow = in.s6.remittanceOutflow,
+        euFundsMonthly = in.s7.euMonthly,
+        diasporaInflow = in.s6.diasporaInflow,
+        tourismExport = in.s6.tourismExport,
+        tourismImport = in.s6.tourismImport,
+      ),
+    )
+    ForexResult(oeResult.forex, oeResult.bop, oeResult.valuationEffect, oeResult.fxIntervention)
 
   private def runStepAdjustBop(in: StepInput, bop0: OpenEconomy.BopState)(using p: SimParams): (OpenEconomy.BopState, PLN) =
     val bop1             =
-      if in.s7.foreignDividendOutflow > PLN.Zero && p.flags.openEcon then
+      if in.s7.foreignDividendOutflow > PLN.Zero then
         bop0.copy(
           currentAccount = bop0.currentAccount - in.s7.foreignDividendOutflow,
           nfa = bop0.nfa - in.s7.foreignDividendOutflow,
@@ -542,7 +527,7 @@ object OpenEconEconomics:
       else bop0
     val fdiTotalBopDebit = in.s5.sumProfitShifting + in.s5.sumFdiRepatriation
     val bop2             =
-      if fdiTotalBopDebit > PLN.Zero && p.flags.fdi && p.flags.openEcon then
+      if fdiTotalBopDebit > PLN.Zero && p.flags.fdi then
         bop1.copy(
           currentAccount = bop1.currentAccount - fdiTotalBopDebit,
           nfa = bop1.nfa - fdiTotalBopDebit,

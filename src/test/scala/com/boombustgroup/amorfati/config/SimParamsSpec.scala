@@ -54,10 +54,6 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
 
   // ── External sector sub-configs ──
 
-  "ForexConfig" should "have gdpRatio-scaled exportBase" in {
-    td.toDouble(p.forex.exportBase) shouldBe (55.4e9 * p.gdpRatio) +- 1.0
-  }
-
   "OpenEconConfig" should "have gdpRatio-scaled values" in {
     td.toDouble(p.openEcon.exportBase) shouldBe (138.5e9 * p.gdpRatio) +- 1.0
     td.toDouble(p.openEcon.euTransfers) shouldBe (1.458e9 * p.gdpRatio) +- 1.0
@@ -93,7 +89,6 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
 
   "Config delegation" should "match SimParams for all key external paths" in {
     p.forex.baseExRate shouldBe p.forex.baseExRate
-    td.toDouble(p.forex.exportBase) shouldBe td.toDouble(p.forex.exportBase)
     td.toDouble(p.openEcon.exportBase) shouldBe td.toDouble(p.openEcon.exportBase)
     td.toDouble(p.gvc.euTradeShare) shouldBe td.toDouble(p.gvc.euTradeShare)
     p.fdi.foreignShares.map(s => td.toDouble(s)) shouldBe p.fdi.foreignShares.map(s => td.toDouble(s))

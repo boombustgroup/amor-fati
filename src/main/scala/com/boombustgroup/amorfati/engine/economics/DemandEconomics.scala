@@ -111,7 +111,7 @@ object DemandEconomics:
     * aggregate split when GVC sector exports are zero (init month).
     */
   private def computeSectorExports(in: Input)(using p: SimParams): Vector[PLN] =
-    if p.flags.gvc && p.flags.openEcon then
+    if p.flags.gvc then
       val gvcExports = in.w.external.gvc.sectorExports
       if gvcExports.exists(_ > PLN.Zero) then gvcExports
       else p.fiscal.fofExportShares.map(_ * in.w.forex.exports)

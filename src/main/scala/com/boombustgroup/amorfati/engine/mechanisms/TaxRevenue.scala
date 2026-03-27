@@ -40,8 +40,7 @@ object TaxRevenue:
     val exciseRevenue = in.consumption * weights.zip(excRates).map((w, r) => w * r).sum
 
     val customsDutyRevenue =
-      if p.flags.openEcon then in.totalImports * toDouble(p.fiscal.customsNonEuShare) * toDouble(p.fiscal.customsDutyRate)
-      else 0.0
+      in.totalImports * toDouble(p.fiscal.customsNonEuShare) * toDouble(p.fiscal.customsDutyRate)
 
     // Informal economy: aggregate tax evasion
     val effectiveShadowShare =

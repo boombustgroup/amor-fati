@@ -26,7 +26,7 @@ package com.boombustgroup.amorfati.config
   * '''Markets:''' `io`, `gpw`, `gpwEquityIssuance`, `gpwHhEquity`,
   * `gpwDividends`
   *
-  * '''External:''' `openEcon`, `gvc`, `immigration`, `immigEndogenous`, `fdi`,
+  * '''External:''' `gvc`, `immigration`, `immigEndogenous`, `fdi`,
   * `remittance`, `tourism`
   *
   * '''Financial:''' `insurance`, `nbfi`, `re`, `reMortgage`, `reHhHousing`,
@@ -77,7 +77,6 @@ case class FeatureFlags(
     gpwHhEquity: Boolean = true,
     gpwDividends: Boolean = true,
     // External
-    openEcon: Boolean = true,
     gvc: Boolean = true,
     immigration: Boolean = true,
     immigEndogenous: Boolean = true,
