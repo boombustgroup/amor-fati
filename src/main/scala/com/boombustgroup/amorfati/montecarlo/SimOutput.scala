@@ -449,6 +449,8 @@ object SimOutput:
     ColumnDef("FirmDeaths", ctx => ctx.world.flows.firmDeaths.toDouble),
     ColumnDef("NetEntry", ctx => (ctx.world.flows.firmBirths - ctx.world.flows.firmDeaths).toDouble),
     ColumnDef("LivingFirmCount", ctx => ctx.nLiving),
+    ColumnDef("NetFirmBirths", ctx => ctx.world.flows.netFirmBirths.toDouble),
+    ColumnDef("TotalFirmCount", ctx => ctx.firms.length.toDouble),
     // Informal Economy
     ColumnDef("EffectiveShadowShare", ctx => ctx.world.mechanisms.effectiveShadowShare),
     ColumnDef("TaxEvasionLoss", ctx => td.toDouble(ctx.world.flows.taxEvasionLoss)),

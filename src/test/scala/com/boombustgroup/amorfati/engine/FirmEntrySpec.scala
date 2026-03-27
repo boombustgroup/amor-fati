@@ -6,6 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.agents.{Banking, Firm, TechState}
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.mechanisms.FirmEntry
 import com.boombustgroup.amorfati.types.*
 
 class FirmEntrySpec extends AnyFlatSpec with Matchers:
@@ -347,4 +348,87 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     }
     // Retail (1.2) should have higher prob than Public (0.1)
     probs(2) should be > probs(4) // Retail > Public
+  }
+
+  // ==========================================================================
+  // Net firm creation
+  // ==========================================================================
+
+  private def mkFirms(n: Int): Vector[Firm.State] =
+    (0 until n).map: i =>
+      Firm.State(
+        id = FirmId(i),
+        cash = PLN(100000.0),
+        debt = PLN.Zero,
+        tech = TechState.Traditional(5),
+        riskProfile = Share(0.5),
+        innovationCostFactor = 1.0,
+        digitalReadiness = Share(0.1),
+        sector = SectorIdx(i % 6),
+        neighbors = Vector.empty[FirmId],
+        bankId = BankId(0),
+        equityRaised = PLN.Zero,
+        initialSize = 5,
+        capitalStock = PLN.Zero,
+        bondDebt = PLN.Zero,
+        foreignOwned = false,
+        inventory = PLN.Zero,
+        greenCapital = PLN.Zero,
+        accumulatedLoss = PLN.Zero,
+      )
+
+  "Net creation" should "produce zero new firms when unemployment <= NAIRU" in {
+    val firms  = mkFirms(100)
+    val rng    = new scala.util.Random(42)
+    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.04, rng) // below NAIRU 0.05
+    result.netBirths shouldBe 0
+    result.firms.length shouldBe firms.length
+  }
+
+  it should "produce firms when unemployment > NAIRU" in {
+    val firms  = mkFirms(100)
+    val rng    = new scala.util.Random(42)
+    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.15, rng) // 10% above NAIRU
+    result.netBirths should be > 0
+    result.firms.length should be > firms.length
+  }
+
+  it should "respect hard cap" in {
+    val firms  = mkFirms(10000)
+    val rng    = new scala.util.Random(42)
+    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.50, rng) // extreme unemployment
+    result.netBirths should be <= p.firm.netEntryMaxMonthly
+  }
+
+  it should "assign sequential FirmIds" in {
+    val firms    = mkFirms(100)
+    val rng      = new scala.util.Random(42)
+    val result   = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    val newFirms = result.firms.drop(firms.length)
+    newFirms.zipWithIndex.foreach: (f, i) =>
+      f.id.toInt shouldBe firms.length + i
+  }
+
+  it should "create firms with GUS size distribution" in {
+    val firms    = mkFirms(100)
+    val rng      = new scala.util.Random(42)
+    val result   = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    val newFirms = result.firms.drop(firms.length)
+    newFirms.foreach: f =>
+      f.initialSize should be >= 1
+  }
+
+  it should "preserve existing firms unchanged" in {
+    val firms  = mkFirms(100)
+    val rng    = new scala.util.Random(42)
+    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    result.firms.take(firms.length).map(_.id) shouldBe firms.map(_.id)
+  }
+
+  "NetEntryRate" should "default to 0.06" in {
+    p.firm.netEntryRate shouldBe Share(0.06)
+  }
+
+  "NetEntryMaxMonthly" should "default to 100" in {
+    p.firm.netEntryMaxMonthly shouldBe 100
   }

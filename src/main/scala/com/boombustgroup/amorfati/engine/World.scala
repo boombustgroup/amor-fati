@@ -156,8 +156,9 @@ case class FlowState(
     aggInventoryStock: PLN = PLN.Zero,                                                       // aggregate firm inventory stock
     aggInventoryChange: PLN = PLN.Zero,                                                      // ΔInventories (enters GDP)
     aggEnergyCost: PLN = PLN.Zero,                                                           // aggregate energy + CO₂ costs
-    firmBirths: Int = 0,                                                                     // new firms (recycled bankrupt slots)
+    firmBirths: Int = 0,                                                                     // new firms (recycled + net new)
     firmDeaths: Int = 0,                                                                     // firms bankrupt this step
+    netFirmBirths: Int = 0,                                                                  // net new firms appended to vector
     taxEvasionLoss: PLN = PLN.Zero,                                                          // tax lost to 4-channel evasion (CIT+VAT+PIT+excise)
     informalEmployed: Double = 0.0,                                                          // estimated informal employment count
     bailInLoss: PLN = PLN.Zero,                                                              // bail-in capital loss on bank creditors
