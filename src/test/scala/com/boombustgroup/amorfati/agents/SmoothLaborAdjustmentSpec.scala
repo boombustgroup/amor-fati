@@ -64,10 +64,19 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
       case other                                          => fail(s"Expected Downsize or GoBankrupt, got $other")
   }
 
-  it should "go bankrupt when at minWorkersRetained already" in {
+  it should "allow a small temporary cash shortfall at minWorkersRetained when profit stays positive" in {
     val min    = summon[SimParams].firm.minWorkersRetained
-    val firm   = mkFirm(workers = min, cash = PLN(1000.0))
-    val pnl    = mkPnl(revenue = PLN(100.0), costs = PLN(50000.0))
+    val pnl    = mkPnl(revenue = PLN(5000.0), costs = PLN(1200.0))
+    val firm   = mkFirm(workers = min, cash = -pnl.netAfterTax + PLN(-100.0))
+    val nc     = firm.cash + pnl.netAfterTax
+    val result = Firm.attemptDownsize(firm, pnl, nc, min, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency)
+    result shouldBe a[Firm.Decision.Survive]
+  }
+
+  it should "still go bankrupt at minWorkersRetained when the liquidity gap is too large" in {
+    val min    = summon[SimParams].firm.minWorkersRetained
+    val firm   = mkFirm(workers = min, cash = PLN(-10000.0))
+    val pnl    = mkPnl(revenue = PLN(5000.0), costs = PLN(1200.0))
     val nc     = firm.cash + pnl.netAfterTax
     val result = Firm.attemptDownsize(firm, pnl, nc, min, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency)
     result shouldBe a[Firm.Decision.GoBankrupt]

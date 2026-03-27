@@ -90,6 +90,7 @@ object Firm:
 
   // Labor adjustment: firm converges toward MR=MC optimal headcount
   private val LaborAdjustFrac = 0.10 // fraction of gap closed per month (smooth, no overshoot)
+  private val WorkingCapitalGraceMonths = 1.5 // tolerate short-lived cash gaps for otherwise profitable firms
 
   // Capacity blend: hybrid production = labor share + AI share
   private val HybridLaborCapShare = 0.4
@@ -388,7 +389,7 @@ object Firm:
     import ComputationBoundary.toDouble
     val minRetained         = p.firm.minWorkersRetained
     if workers <= minRetained then
-      return if firm.stateOwned then Decision.Survive(pnl, nc, drUpdate = drUpdate) else Decision.GoBankrupt(pnl, nc, reason)
+      return if hasWorkingCapitalGrace(firm, pnl, nc) then Decision.Survive(pnl, nc, drUpdate = drUpdate) else Decision.GoBankrupt(pnl, nc, reason)
     val laborPerWorker: PLN = wage * effectiveWageMult(firm.sector)
     // Target headcount: workers needed for revenue to cover non-labor costs
     val nonLaborCost: PLN   = (pnl.costs - workers * laborPerWorker).max(PLN.Zero)
@@ -411,8 +412,15 @@ object Firm:
     val revRatio: Share     = Share.fraction(newWkrs, workers).sqrt
     val revLost: PLN        = pnl.revenue * (Share.One - revRatio)
     val adjustedNc          = nc + laborSaved - revLost - severancePay
-    if adjustedNc >= PLN.Zero || firm.stateOwned then Decision.Downsize(pnl, newWkrs, adjustedNc, newTech(newWkrs), drUpdate = drUpdate)
+    if adjustedNc >= PLN.Zero || hasWorkingCapitalGrace(firm, pnl, adjustedNc) then
+      Decision.Downsize(pnl, newWkrs, adjustedNc, newTech(newWkrs), drUpdate = drUpdate)
     else Decision.GoBankrupt(pnl, nc, reason)
+
+  private def hasWorkingCapitalGrace(firm: State, pnl: PnL, cashAfterDecision: PLN): Boolean =
+    firm.stateOwned ||
+      (cashAfterDecision < PLN.Zero &&
+        pnl.netAfterTax > PLN.Zero &&
+        cashAfterDecision.abs <= pnl.netAfterTax * Multiplier(WorkingCapitalGraceMonths))
 
   /** Estimate monthly operating cost for a hypothetical tech configuration.
     * Used by `decideHybrid` and `decideTraditional` to compare current costs

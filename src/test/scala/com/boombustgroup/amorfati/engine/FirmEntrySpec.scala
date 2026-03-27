@@ -376,6 +376,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
         greenCapital = PLN.Zero,
         accumulatedLoss = PLN.Zero,
       )
+    .toVector
 
   "Net creation" should "produce zero new firms when unemployment <= NAIRU" in {
     val firms  = mkFirms(100)
