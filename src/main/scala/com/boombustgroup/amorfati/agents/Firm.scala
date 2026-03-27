@@ -387,15 +387,22 @@ object Firm:
   )(using p: SimParams): Decision =
     import ComputationBoundary.toDouble
     val minRetained         = p.firm.minWorkersRetained
-    if workers <= minRetained then return Decision.GoBankrupt(pnl, nc, reason)
+    if workers <= minRetained then
+      return if firm.stateOwned then Decision.Survive(pnl, nc, drUpdate = drUpdate) else Decision.GoBankrupt(pnl, nc, reason)
     val laborPerWorker: PLN = wage * effectiveWageMult(firm.sector)
     // Target headcount: workers needed for revenue to cover non-labor costs
     val nonLaborCost: PLN   = (pnl.costs - workers * laborPerWorker).max(PLN.Zero)
     val revenuePerWorker    = if workers > 0 then pnl.revenue / workers else PLN.Zero
-    val targetWorkers       = if revenuePerWorker > PLN.Zero then Math.ceil(nonLaborCost / revenuePerWorker).toInt else minRetained
+    val contributionMargin  = (revenuePerWorker - laborPerWorker).max(PLN.Zero)
+    val targetWorkers       =
+      if contributionMargin > PLN.Zero then Math.ceil(nonLaborCost / contributionMargin).toInt
+      else minRetained
     // Smooth adjustment: cut λ of the gap, not the entire excess
     val gap                 = workers - Math.max(minRetained, targetWorkers)
-    val cut                 = Math.max(1, (gap * toDouble(p.firm.laborAdjustSpeed)).toInt)
+    val cutSpeed            =
+      if firm.stateOwned then toDouble(p.firm.laborAdjustSpeed * StateOwned.firingReduction)
+      else toDouble(p.firm.laborAdjustSpeed)
+    val cut                 = Math.max(1, (gap * cutSpeed).toInt)
     val newWkrs             = Math.max(minRetained, workers - cut)
     // Severance cost = fired workers × wage × severanceMonths
     val fired               = workers - newWkrs
@@ -404,7 +411,7 @@ object Firm:
     val revRatio: Share     = Share.fraction(newWkrs, workers).sqrt
     val revLost: PLN        = pnl.revenue * (Share.One - revRatio)
     val adjustedNc          = nc + laborSaved - revLost - severancePay
-    if adjustedNc >= PLN.Zero then Decision.Downsize(pnl, newWkrs, adjustedNc, newTech(newWkrs), drUpdate = drUpdate)
+    if adjustedNc >= PLN.Zero || firm.stateOwned then Decision.Downsize(pnl, newWkrs, adjustedNc, newTech(newWkrs), drUpdate = drUpdate)
     else Decision.GoBankrupt(pnl, nc, reason)
 
   /** Estimate monthly operating cost for a hypothetical tech configuration.

@@ -44,7 +44,8 @@ object FirmInit:
     val skeleton          = buildSkeleton(adjList, sectorAssignments, rng)
     val withCapAndBank    = assignCapitalAndBank(skeleton, rng)
     val withFdi           = assignForeignOwnership(withCapAndBank, rng)
-    finalize(withFdi)
+    val withSoe           = assignStateOwnership(withFdi, rng)
+    finalize(withSoe)
 
   /** Build network adjacency list from configured topology. */
   @boundaryEscape
@@ -138,6 +139,12 @@ object FirmInit:
         if p.fdi.foreignShares(f.sector.toInt).sampleBelow(rng) then f.copy(foreignOwned = true)
         else f
     else firms
+
+  /** Mark firms as state-owned based on sector-specific SOE shares. */
+  private def assignStateOwnership(firms: Vector[Firm.State], rng: Random): Vector[Firm.State] =
+    firms.map: f =>
+      if StateOwned.sectorSoeShare(f.sector.toInt).sampleBelow(rng) then f.copy(stateOwned = true)
+      else f
 
   /** Deterministic final pass: inventory, green capital, cash/debt
     * distribution. No RNG calls — safe to combine into one pass without
