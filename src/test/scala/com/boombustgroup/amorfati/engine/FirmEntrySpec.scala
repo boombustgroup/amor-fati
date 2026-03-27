@@ -426,10 +426,10 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     result.firms.take(firms.length).map(_.id) shouldBe firms.map(_.id)
   }
 
-  "NetEntryRate" should "default to 0.005" in {
-    p.firm.netEntryRate shouldBe Share(0.005)
+  "NetEntryRate" should "default to 0.06" in {
+    p.firm.netEntryRate shouldBe Share(0.06)
   }
 
-  "NetEntryMaxMonthly" should "default to 50" in {
-    p.firm.netEntryMaxMonthly shouldBe 50
+  "NetEntryMaxMonthly" should "default to 100" in {
+    p.firm.netEntryMaxMonthly shouldBe 100
   }
