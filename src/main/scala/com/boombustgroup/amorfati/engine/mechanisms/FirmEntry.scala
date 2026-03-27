@@ -7,19 +7,20 @@ import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
 
-/** Endogenous firm entry: recycles bankrupt firm slots by spawning new entrants
-  * whose sector choice is weighted by relative profitability signals across
-  * sectors. Firms in more profitable sectors attract more entrants, subject to
-  * sector-specific regulatory barriers (GUS CEIDG/KRS 2024 calibration).
+  /** Endogenous firm entry: replaces a share of bankrupt firm slots and may also
+    * append net new firms when unemployment exceeds NAIRU. Sector choice is
+    * weighted by relative profitability signals across sectors. Firms in more
+    * profitable sectors attract more entrants, subject to sector-specific
+    * regulatory barriers (GUS CEIDG/KRS 2024 calibration).
   *
   * New entrants may be AI-native (hybrid technology with partial automation)
   * when the economy-wide technology adoption rate exceeds a maturity threshold,
   * reflecting the observed pattern of digitally-born startups in mature digital
   * ecosystems (OECD Digital Economy Outlook 2023).
   *
-  * Entry probability per vacant slot: entryRate × sectorBarrier × profitSignal,
-  * where profitSignal is normalized relative sector cash-to-global-average.
-  */
+  * Expansionary net entry activates only above NAIRU. Replacement entry is a
+  * separate, faster channel intended to rebuild the firm base after exit waves.
+    */
 object FirmEntry:
 
   // ---- Calibration constants ----
@@ -50,30 +51,49 @@ object FirmEntry:
       unemploymentRate: Double,
       rng: Random,
   )(using p: SimParams): Result =
-    import ComputationBoundary.toDouble
     val living        = firms.filter(Firm.isAlive)
     val profitSignals = computeProfitSignals(living)
     val sectorWeights = computeSectorWeights(profitSignals)
     val totalWeight   = sectorWeights.sum
 
-    val totalAdoption = automationRatio + hybridRatio
-    val livingIds     = living.map(_.id.toInt)
-    var recycled      = 0
-
-    val afterRecycling = firms.map: f =>
-      if !Firm.isAlive(f) then
-        val slotSector = f.sector.toInt
-        val entryProb  = toDouble(p.firm.entryRate) * toDouble(p.firm.entrySectorBarriers(slotSector)) *
-          Math.max(0.0, 1.0 + profitSignals(slotSector) * toDouble(p.firm.entryProfitSens))
-        if rng.nextDouble() < entryProb then
-          recycled += 1
-          createNewFirm(f.id, totalWeight, sectorWeights, totalAdoption, livingIds, rng)
-        else f
-      else f
+    val totalAdoption   = automationRatio + hybridRatio
+    val livingIds       = living.map(_.id.toInt)
+    val afterRecycling = recycleDeadSlots(firms, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
+    val recycledBirths = afterRecycling.count { case (before, after) => !Firm.isAlive(before) && Firm.isAlive(after) }
+    val recycledFirms  = afterRecycling.map(_._2)
 
     val (finalFirms, netBirths) =
-      netCreation(afterRecycling, living.length, unemploymentRate, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
-    Result(finalFirms, recycled + netBirths, netBirths)
+      netCreation(recycledFirms, living.length, unemploymentRate, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
+    Result(finalFirms, recycledBirths + netBirths, netBirths)
+
+  @boundaryEscape
+  private def recycleDeadSlots(
+      firms: Vector[Firm.State],
+      totalAdoption: Share,
+      livingIds: Vector[Int],
+      sectorWeights: Vector[Double],
+      totalWeight: Double,
+      rng: Random,
+  )(using p: SimParams): Vector[(Firm.State, Firm.State)] =
+    import ComputationBoundary.toDouble
+    val deadSlots = firms.filterNot(Firm.isAlive)
+    if deadSlots.isEmpty then return firms.map(f => (f, f))
+
+    val rawCount = Math.ceil(deadSlots.length * toDouble(p.firm.replacementEntryRate)).toInt
+    val boundedCount =
+      Math.max(
+        if deadSlots.nonEmpty then p.firm.replacementEntryMinMonthly else 0,
+        Math.min(rawCount, p.firm.replacementEntryMaxMonthly),
+      )
+    val replacementCount = Math.min(deadSlots.length, boundedCount)
+    if replacementCount <= 0 then return firms.map(f => (f, f))
+
+    val replacementIds = rng.shuffle(deadSlots.map(_.id).toList).take(replacementCount).toSet
+    firms.map: f =>
+      if !Firm.isAlive(f) && replacementIds.contains(f.id) then
+        val entrant = createNewFirm(f.id, totalWeight, sectorWeights, totalAdoption, livingIds, rng)
+        (f, entrant)
+      else (f, f)
 
   /** Append net new firms when unemployment exceeds NAIRU. Birth count is
     * proportional to the gap, capped to prevent vector explosion. New firms get
@@ -95,7 +115,7 @@ object FirmEntry:
     val gap = unemploymentRate - toDouble(p.monetary.nairu)
     if gap <= 0.0 then return (firms, 0)
 
-    val rawCount = (gap * toDouble(p.firm.netEntryRate) * livingCount).toInt
+    val rawCount = Math.ceil(gap * toDouble(p.firm.netEntryRate) * livingCount).toInt
     val count    = Math.max(0, Math.min(rawCount, p.firm.netEntryMaxMonthly))
     if count <= 0 then return (firms, 0)
 

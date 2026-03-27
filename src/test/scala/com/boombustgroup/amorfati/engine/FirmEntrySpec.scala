@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
-import com.boombustgroup.amorfati.agents.{Banking, Firm, TechState}
+import com.boombustgroup.amorfati.agents.{Banking, BankruptReason, Firm, TechState}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.FirmEntry
 import com.boombustgroup.amorfati.types.*
@@ -48,6 +48,18 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   "FirmEntryStartupCash" should "default to 50000.0" in {
     p.firm.entryStartupCash shouldBe PLN(50000.0)
+  }
+
+  "ReplacementEntryRate" should "default to 0.35" in {
+    p.firm.replacementEntryRate shouldBe Share(0.35)
+  }
+
+  "ReplacementEntryMinMonthly" should "default to 1" in {
+    p.firm.replacementEntryMinMonthly shouldBe 1
+  }
+
+  "ReplacementEntryMaxMonthly" should "default to 250" in {
+    p.firm.replacementEntryMaxMonthly shouldBe 250
   }
 
   // ==========================================================================
@@ -378,12 +390,61 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       )
     .toVector
 
+  private def mkDeadFirm(id: Int, sector: Int = 2): Firm.State =
+    Firm.State(
+      id = FirmId(id),
+      cash = PLN(-1.0),
+      debt = PLN.Zero,
+      tech = TechState.Bankrupt(BankruptReason.Other("test")),
+      riskProfile = Share(0.5),
+      innovationCostFactor = 1.0,
+      digitalReadiness = Share(0.1),
+      sector = SectorIdx(sector),
+      neighbors = Vector.empty[FirmId],
+      bankId = BankId(0),
+      equityRaised = PLN.Zero,
+      initialSize = 0,
+      capitalStock = PLN.Zero,
+      bondDebt = PLN.Zero,
+      foreignOwned = false,
+      inventory = PLN.Zero,
+      greenCapital = PLN.Zero,
+      accumulatedLoss = PLN.Zero,
+    )
+
   "Net creation" should "produce zero new firms when unemployment <= NAIRU" in {
     val firms  = mkFirms(100)
     val rng    = new scala.util.Random(42)
     val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.04, rng) // below NAIRU 0.05
     result.netBirths shouldBe 0
     result.firms.length shouldBe firms.length
+  }
+
+  "Replacement entry" should "recreate some dead firms even when unemployment <= NAIRU" in {
+    val firms  = mkFirms(20) ++ Vector(mkDeadFirm(20), mkDeadFirm(21), mkDeadFirm(22), mkDeadFirm(23))
+    val rng    = new scala.util.Random(42)
+    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.04, rng)
+    result.netBirths shouldBe 0
+    result.births should be > 0
+    result.firms.length shouldBe firms.length
+    result.firms.count(Firm.isAlive) should be > firms.count(Firm.isAlive)
+  }
+
+  it should "preserve vector length when only replacements occur" in {
+    val firms  = mkFirms(20) ++ Vector(mkDeadFirm(20), mkDeadFirm(21))
+    val rng    = new scala.util.Random(42)
+    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.04, rng)
+    result.netBirths shouldBe 0
+    result.firms.length shouldBe firms.length
+  }
+
+  it should "count only appended firms as netBirths" in {
+    val firms  = mkFirms(100) ++ Vector(mkDeadFirm(100), mkDeadFirm(101), mkDeadFirm(102))
+    val rng    = new scala.util.Random(42)
+    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    result.births should be >= result.netBirths
+    result.netBirths should be > 0
+    result.firms.length shouldBe firms.length + result.netBirths
   }
 
   it should "produce firms when unemployment > NAIRU" in {
