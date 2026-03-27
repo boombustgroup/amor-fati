@@ -162,7 +162,7 @@ object WorldInit:
       ),
       plumbing = MonetaryPlumbingState.zero,
       flows = FlowState.zero,
-      regionalWages = Region.all.map(r => r -> (p.household.baseWage * r.wageMultiplier)).toMap,
+      regionalWages = Region.all.map(r => r -> (p.household.baseWage * Region.normalizedWageMultiplier(r))).toMap,
     )
 
     InitResult(world, firms, households)

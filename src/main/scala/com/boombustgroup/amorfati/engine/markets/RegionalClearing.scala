@@ -36,10 +36,11 @@ object RegionalClearing:
     import ComputationBoundary.toDouble
     val regionalWages = Region.all
       .map: region =>
-        val prevWage    = prevRegionalWages.getOrElse(region, resWage * region.wageMultiplier)
+        val regWageMult = Region.normalizedWageMultiplier(region)
+        val prevWage    = prevRegionalWages.getOrElse(region, resWage * regWageMult)
         val regDemand   = (laborDemand * toDouble(region.populationShare)).toInt
         val regPop      = (totalPopulation * toDouble(region.populationShare)).toInt.max(1)
-        val regResWage  = resWage * region.wageMultiplier
+        val regResWage  = resWage * regWageMult
         val clearResult = LaborMarket.updateLaborMarket(prevWage, regResWage, regDemand, regPop)
         region -> clearResult.wage
       .toMap

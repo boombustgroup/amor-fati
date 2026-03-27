@@ -24,6 +24,11 @@ class RegionSpec extends AnyFlatSpec with Matchers:
     td.toDouble(Region.Central.wageMultiplier) should be > Region.all.map(r => td.toDouble(r.wageMultiplier)).sum / 6
   }
 
+  it should "normalize regional wage multipliers to national mean 1.0" in {
+    val weightedMean = Region.all.map(r => td.toDouble(Region.normalizedWageMultiplier(r)) * td.toDouble(r.populationShare)).sum
+    weightedMean shouldBe 1.0 +- 0.0001
+  }
+
   it should "have East with highest base unemployment" in {
     td.toDouble(Region.East.baseUnemployment) should be > td.toDouble(Region.Central.baseUnemployment)
   }
