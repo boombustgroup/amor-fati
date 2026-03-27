@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.mechanisms
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.Region
-import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.config.{FirmSizeDistribution, SimParams}
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -26,7 +26,6 @@ object FirmEntry:
   private val ProfitClampMin      = -1.0 // floor for normalized sector profit signal
   private val ProfitClampMax      = 2.0  // ceiling for normalized sector profit signal
   private val MinSectorWeight     = 0.01 // floor so no sector has zero entry probability
-  private val MaxEntrantSize      = 10   // upper bound on initial workforce draw
   private val MaxNeighbors        = 6    // network degree for new entrants
   private val AiNativeMinDr       = 0.50 // digital readiness floor for AI-native entrants
   private val AiNativeMaxDr       = 0.90 // digital readiness ceiling for AI-native entrants
@@ -135,7 +134,7 @@ object FirmEntry:
       rng: Random,
   )(using p: SimParams): Firm.State =
     val newSector    = pickSector(totalWeight, sectorWeights, rng)
-    val firmSize     = Math.max(1, rng.between(1, MaxEntrantSize))
+    val firmSize     = FirmSizeDistribution.draw(rng)
     val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm
     val isAiNative   = totalAdoption > p.firm.entryAiThreshold &&
       p.firm.entryAiProb.sampleBelow(rng)

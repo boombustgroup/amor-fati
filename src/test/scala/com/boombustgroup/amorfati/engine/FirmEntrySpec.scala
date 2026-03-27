@@ -409,14 +409,13 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       f.id.toInt shouldBe firms.length + i
   }
 
-  it should "create small firms (1-10 workers)" in {
+  it should "create firms with GUS size distribution" in {
     val firms    = mkFirms(100)
     val rng      = new scala.util.Random(42)
     val result   = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
     val newFirms = result.firms.drop(firms.length)
     newFirms.foreach: f =>
       f.initialSize should be >= 1
-      f.initialSize should be <= 10
   }
 
   it should "preserve existing firms unchanged" in {
