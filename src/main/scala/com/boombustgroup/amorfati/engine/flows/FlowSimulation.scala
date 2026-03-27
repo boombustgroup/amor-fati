@@ -262,7 +262,7 @@ object FlowSimulation:
     val fiscal   = FiscalConstraintEconomics.compute(w)
     val s1       = FiscalConstraintEconomics.toOutput(fiscal)
     val labor    = LaborEconomics.compute(w, firms, households, s1)
-    val s2       = LaborEconomics.Output(
+    val s2Pre    = LaborEconomics.Output(
       labor.wage,
       labor.employed,
       labor.laborDemand,
@@ -278,9 +278,18 @@ object FlowSimulation:
       labor.living,
       labor.regionalWages,
     )
-    val s3       = HouseholdIncomeEconomics.compute(w, firms, households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
-    val s4       = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
-    val s5       = FirmEconomics.runStep(w, firms, households, s1, s2, s3, s4, rng)
+    val s3       = HouseholdIncomeEconomics.compute(w, firms, households, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
+    val s4       = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
+    val s5       = FirmEconomics.runStep(w, firms, households, s1, s2Pre, s3, s4, rng)
+    val postLivingFirms = s5.ioFirms.filter(Firm.isAlive)
+    val s2        = s2Pre.copy(
+      employed = s5.households.count(hh => hh.status match
+        case HhStatus.Employed(_, _, _) => true
+        case _                          => false
+      ),
+      laborDemand = postLivingFirms.map(Firm.workerCount).sum,
+      living = postLivingFirms,
+    )
     val s6       = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
     val s7       = PriceEquityEconomics.compute(
       PriceEquityEconomics.Input(w, s1.m, s2.newWage, s2.employed, s2.wageGrowth, s3.domesticCons, s4.avgDemandMult, s4.sectorMults, s5),
@@ -289,8 +298,8 @@ object FlowSimulation:
     val openEcon = OpenEconEconomics.compute(
       OpenEconEconomics.Input(
         w = w,
-        employed = labor.employed,
-        newWage = labor.wage,
+        employed = s2.employed,
+        newWage = s2.newWage,
         domesticConsumption = s3.domesticCons,
         importConsumption = s3.importCons,
         totalTechAndInvImports = s5.sumTechImp,
@@ -326,10 +335,10 @@ object FlowSimulation:
         resWage = fiscal.resWage,
         baseMinWage = fiscal.baseMinWage,
         minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-        employed = labor.employed,
-        newWage = labor.wage,
-        laborDemand = labor.laborDemand,
-        wageGrowth = labor.wageGrowth,
+        employed = s2.employed,
+        newWage = s2.newWage,
+        laborDemand = s2.laborDemand,
+        wageGrowth = s2.wageGrowth,
         govPurchases = s4.govPurchases,
         sectorMults = s4.sectorMults,
         avgDemandMult = s4.avgDemandMult,
@@ -355,13 +364,13 @@ object FlowSimulation:
       lendingBaseRate = fiscal.lendingBaseRate,
       baseMinWage = fiscal.baseMinWage,
       minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-      wage = labor.wage,
-      employed = labor.employed,
-      laborDemand = labor.laborDemand,
+      wage = s2.newWage,
+      employed = s2.employed,
+      laborDemand = s2.laborDemand,
       retirees = labor.demographics.retirees,
       workingAgePop = labor.demographics.workingAgePop,
       nBankruptFirms = labor.nBankruptFirms,
-      avgFirmWorkers = labor.avgFirmWorkers,
+      avgFirmWorkers = if s2.living.nonEmpty then s2.laborDemand / s2.living.length else 0,
       totalIncome = s3.totalIncome,
       consumption = agg.consumption,
       domesticConsumption = s3.domesticCons,

@@ -91,6 +91,8 @@ object Firm:
   // Labor adjustment: firm converges toward MR=MC optimal headcount
   private val LaborAdjustFrac = 0.10 // fraction of gap closed per month (smooth, no overshoot)
   private val WorkingCapitalGraceMonths = 1.5 // tolerate short-lived cash gaps for otherwise profitable firms
+  private val HiringWorkingCapitalMonths = 1.0 // allow modest short-term hiring financed by one wage-month buffer
+  private val MicroFirmHiringThreshold = 1 // micro firms should react to a +1 worker gap
 
   // Capacity blend: hybrid production = labor share + AI share
   private val HybridLaborCapShare = 0.4
@@ -271,7 +273,7 @@ object Firm:
   @boundaryEscape
   private def optimalWorkers(f: State, w: World)(using p: SimParams): Int =
     import ComputationBoundary.toDouble
-    val demandMult = w.flows.sectorDemandMult(f.sector.toInt)
+    val demandMult = Math.max(w.flows.sectorDemandMult(f.sector.toInt), w.flows.sectorDemandPressure(f.sector.toInt))
     val price      = w.priceLevel
     val wage       = toDouble(w.hhAgg.marketWage) * toDouble(effectiveWageMult(f.sector))
     val maxW       = f.initialSize * 3
@@ -686,10 +688,14 @@ object Firm:
     // digi-invest and other decisions for trivial headcount differences.
     val optW          = optimalWorkers(firm, w)
     val gap           = optW - workers
-    if Math.abs(gap) >= Math.max(2, (workers * 0.10).toInt) then
+    val hiringThresh  = if workers <= 5 then MicroFirmHiringThreshold else Math.max(2, (workers * 0.10).toInt)
+    val firingThresh  = Math.max(2, (workers * 0.10).toInt)
+    val shouldAdjust  = if gap > 0 then gap >= hiringThresh else -gap >= firingThresh
+    if shouldAdjust then
       val adj     = Math.max(1, (Math.abs(gap) * LaborAdjustFrac).toInt) * (if gap > 0 then 1 else -1)
       val newWkrs = (workers + adj).max(p.firm.minWorkersRetained)
-      if newWkrs > workers && nc > PLN.Zero then return Decision.Upsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
+      if newWkrs > workers && canFundUpsize(firm, pnl, nc, newWkrs - workers, w.hhAgg.marketWage) then
+        return Decision.Upsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
       else if newWkrs < workers then return Decision.Downsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
     val digiCost: PLN = computeDigiInvestCost(firm)
     val canAfford     = nc > digiCost * Multiplier(DigiInvestCashMult)
@@ -703,6 +709,18 @@ object Firm:
       Decision.DigiInvest(pnl, digiCost, newDR)
     else if nc < PLN.Zero then attemptDownsize(firm, pnl, nc, workers, TechState.Traditional(_), w.hhAgg.marketWage, BankruptReason.LaborCostInsolvency)
     else Decision.Survive(pnl, nc)
+
+  private def canFundUpsize(
+      firm: State,
+      pnl: PnL,
+      cashAfterDecision: PLN,
+      addedWorkers: Int,
+      marketWage: PLN,
+  )(using p: SimParams): Boolean =
+    cashAfterDecision >= PLN.Zero ||
+      firm.stateOwned ||
+      (pnl.netAfterTax >= PLN.Zero &&
+        cashAfterDecision.abs <= addedWorkers * (marketWage * effectiveWageMult(firm.sector)) * Multiplier(HiringWorkingCapitalMonths))
 
   /** Traditional firm: evaluate full-AI, hybrid, downsize, digital invest, or
     * survive/bankrupt. Dispatches to sub-evaluators.

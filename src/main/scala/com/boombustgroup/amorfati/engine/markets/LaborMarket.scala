@@ -23,6 +23,9 @@ import scala.util.Random
   */
 object LaborMarket:
 
+  private val MaxMonthlyWageIncrease = 0.03
+  private val MaxMonthlyWageDecrease = -0.02
+
   /** Aggregate wage clearing result. */
   case class WageResult(wage: PLN, employed: Int)
 
@@ -47,9 +50,12 @@ object LaborMarket:
   def updateLaborMarket(prevWage: PLN, resWage: PLN, laborDemand: Int, totalPopulation: Int)(using
       p: SimParams,
   ): WageResult =
+    import ComputationBoundary.toDouble
     val supplyAtPrev   = (totalPopulation * laborSupplyRatio(prevWage, resWage)).toInt
     val excessDemand   = (laborDemand - supplyAtPrev).toDouble / totalPopulation
-    val wageGrowthMult = Multiplier.One + (Coefficient(excessDemand) * p.household.wageAdjSpeed).toMultiplier
+    val rawWageAdj     = toDouble(Coefficient(excessDemand) * p.household.wageAdjSpeed)
+    val boundedWageAdj = rawWageAdj.max(MaxMonthlyWageDecrease).min(MaxMonthlyWageIncrease)
+    val wageGrowthMult = Multiplier.One + Multiplier(boundedWageAdj)
     val newWage        = resWage.max(prevWage * wageGrowthMult)
     val newSupply      = (totalPopulation * laborSupplyRatio(newWage, resWage)).toInt
     val employed       = Math.min(laborDemand, newSupply)

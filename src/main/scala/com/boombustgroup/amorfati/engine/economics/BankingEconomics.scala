@@ -263,7 +263,15 @@ object BankingEconomics:
 
   def compute(in: Input)(using p: SimParams): Result =
     val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-    val s4 = DemandEconomics.Output(in.govPurchases, in.sectorMults, in.avgDemandMult, in.sectorCap, in.laggedInvestDemand, in.fiscalRuleStatus)
+    val s4 = DemandEconomics.Output(
+      in.govPurchases,
+      in.sectorMults,
+      in.w.flows.sectorDemandPressure,
+      in.avgDemandMult,
+      in.sectorCap,
+      in.laggedInvestDemand,
+      in.fiscalRuleStatus,
+    )
 
     val s9 = runStep(
       StepInput(

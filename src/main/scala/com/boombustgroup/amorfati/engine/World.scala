@@ -164,6 +164,7 @@ case class FlowState(
     bailInLoss: PLN = PLN.Zero,                                                              // bail-in capital loss on bank creditors
     bfgLevyTotal: Double = 0.0,                                                              // BFG resolution levy from all banks
     sectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // per-sector demand multipliers from S4
+    sectorDemandPressure: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // uncapped demand/capacity ratios for hiring
     fiscalRuleSeverity: Int = 0,                                                             // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
     govSpendingCutRatio: Share = Share.Zero,                                                 // fraction of raw spending cut by fiscal rules
 )
