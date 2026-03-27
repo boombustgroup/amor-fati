@@ -20,7 +20,7 @@ object Expectations:
 
   // ---- Calibration constants ----
   private val MinCredibility = 0.01 // floor on credibility index
-  private val OutputGapClamp = 0.30 // ±30% clamp on output gap
+  private val OutputGapClamp = 0.05 // ±5 pp unemployment gap clamp
   private val FgBlendWeight  = 0.6  // weight on forward guidance in expected rate
 
   case class State(
@@ -94,7 +94,7 @@ object Expectations:
     if !p.flags.nbpForwardGuidance then currentRate
     else
       val nairu        = toDouble(p.monetary.nairu)
-      val rawOutputGap = (unemployment - nairu) / nairu
+      val rawOutputGap = unemployment - nairu
       val outputGap    = Math.max(-OutputGapClamp, Math.min(OutputGapClamp, rawOutputGap))
       val rawFg        = toDouble(p.monetary.neutralRate) + toDouble(p.monetary.taylorAlpha) * (expected - target) - toDouble(p.monetary.taylorDelta) * outputGap
       Math.max(toDouble(p.monetary.rateFloor), Math.min(toDouble(p.monetary.rateCeiling), rawFg))
