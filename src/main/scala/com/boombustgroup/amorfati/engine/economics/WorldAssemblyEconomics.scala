@@ -141,9 +141,13 @@ object WorldAssemblyEconomics:
     val newW      = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
     val sfcResult = validateSfc(in, newW, fofResidual)
 
-    val postFdiFirms                        = applyFdiMa(in.s9.reassignedFirms, rng)
-    val updatedPop                          = in.w.totalPopulation + in.s5.netMigration
-    val unemploymentRate                    = if updatedPop > 0 then 1.0 - in.s2.employed.toDouble / updatedPop else 0.0
+    val postFdiFirms    = applyFdiMa(in.s9.reassignedFirms, rng)
+    val updatedPop      = in.w.totalPopulation + in.s5.netMigration
+    val postFirmEmployed = in.s9.reassignedHouseholds.count: hh =>
+      hh.status match
+        case HhStatus.Employed(_, _, _) => true
+        case _                          => false
+    val unemploymentRate = if updatedPop > 0 then 1.0 - postFirmEmployed.toDouble / updatedPop else 0.0
     val (finalFirms, firmBirths, netBirths) =
       if p.flags.firmEntry then
         val r = FirmEntry.process(postFdiFirms, newW.real.automationRatio, newW.real.hybridRatio, unemploymentRate, rng)
