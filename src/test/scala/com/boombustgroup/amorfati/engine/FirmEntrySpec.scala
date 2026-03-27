@@ -480,6 +480,18 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       f.initialSize should be >= 1
   }
 
+  it should "initialize entrants with startup ramp-up state" in {
+    val firms    = mkFirms(100)
+    val rng      = new scala.util.Random(42)
+    val result   = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    val newFirms = result.firms.drop(firms.length)
+    newFirms.foreach: f =>
+      f.startupMonthsLeft should be > 0
+      f.startupTargetWorkers should be >= 1
+      f.startupFilledWorkers shouldBe 0
+      Firm.workerCount(f) shouldBe f.startupTargetWorkers
+  }
+
   it should "preserve existing firms unchanged" in {
     val firms  = mkFirms(100)
     val rng    = new scala.util.Random(42)

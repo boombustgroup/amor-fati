@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.markets.EquityMarket
+import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
 
@@ -63,6 +63,20 @@ object WorldAssemblyEconomics:
       depositFacilityUsage: PLN,
       etsPrice: Double,
       tourismSeasonalFactor: Double,
+  )
+
+  private case class EntryStepResult(
+      firms: Vector[Firm.State],
+      firmBirths: Int,
+      netBirths: Int,
+      entrantIds: Set[FirmId],
+  )
+
+  private case class StartupStaffingResult(
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      hhAgg: Household.Aggregates,
+      crossSectorHires: Int,
   )
 
   // ---------------------------------------------------------------------------
@@ -148,19 +162,29 @@ object WorldAssemblyEconomics:
         case HhStatus.Employed(_, _, _) => true
         case _                          => false
     val unemploymentRate = if updatedPop > 0 then 1.0 - postFirmEmployed.toDouble / updatedPop else 0.0
-    val (finalFirms, firmBirths, netBirths) =
+    val entryStep =
       if p.flags.firmEntry then
         val r = FirmEntry.process(postFdiFirms, newW.real.automationRatio, newW.real.hybridRatio, unemploymentRate, rng)
-        (r.firms, r.births, r.netBirths)
-      else (postFdiFirms, 0, 0)
+        EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
+      else EntryStepResult(postFdiFirms, 0, 0, Set.empty)
+
+    val startupStaffing = applyStartupStaffing(in, entryStep.firms, entryStep.entrantIds, in.s9.reassignedHouseholds, rng)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
     val postMigHh =
-      if p.flags.regionalLabor then RegionalMigration(in.s9.reassignedHouseholds, in.s2.regionalWages, migRng).households
-      else in.s9.reassignedHouseholds
+      if p.flags.regionalLabor then RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
+      else startupStaffing.households
+    val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
 
     val finalW = newW
-      .updateFlows(_.copy(firmBirths = firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = netBirths))
+      .updateFlows(_.copy(firmBirths = entryStep.firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths))
+      .updateReal: r =>
+        r.copy(
+          sectoralMobility = r.sectoralMobility.copy(
+            crossSectorHires = r.sectoralMobility.crossSectorHires + startupStaffing.crossSectorHires,
+          ),
+        )
+      .copy(hhAgg = startupStaffing.hhAgg, households = postMigHh)
       .copy(regionalWages = in.s2.regionalWages)
     StepOutput(finalW, finalFirms, postMigHh, sfcResult)
 
@@ -253,6 +277,44 @@ object WorldAssemblyEconomics:
       1.0 + toDouble(p.tourism.seasonality) * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
 
     Observables(depositFacilityUsage, etsPrice, tourismSeasonalFactor)
+
+  private def applyStartupStaffing(
+      in: StepInput,
+      firms: Vector[Firm.State],
+      entrantIds: Set[FirmId],
+      households: Vector[Household.State],
+      rng: Random,
+  )(using p: SimParams): StartupStaffingResult =
+    if entrantIds.isEmpty then
+      StartupStaffingResult(syncStartupStaffing(firms, households), households, in.s9.finalHhAgg, 0)
+    else
+      val searchResult = LaborMarket.jobSearch(households, firms, in.s2.newWage, rng, in.s2.regionalWages, entrantIds)
+      val postWages    = LaborMarket.updateWages(searchResult.households, firms, in.s2.newWage)
+      val staffedFirms = syncStartupStaffing(firms, postWages)
+      val hhAgg        = Household.computeAggregates(
+        postWages,
+        in.s2.newWage,
+        in.s1.resWage,
+        in.s3.importAdj,
+        in.s3.hhAgg.retrainingAttempts,
+        in.s3.hhAgg.retrainingSuccesses,
+      )
+      StartupStaffingResult(staffedFirms, postWages, hhAgg, searchResult.crossSectorHires)
+
+  private def syncStartupStaffing(
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+  ): Vector[Firm.State] =
+    val staffedCounts = households
+      .flatMap: hh =>
+        hh.status match
+          case HhStatus.Employed(fid, _, _) => Some(fid)
+          case _                            => None
+      .groupMapReduce(identity)(_ => 1)(_ + _)
+    firms.map: firm =>
+      if Firm.isInStartup(firm) then
+        firm.copy(startupFilledWorkers = staffedCounts.getOrElse(firm.id, 0).min(firm.startupTargetWorkers))
+      else firm
 
   /** Construct the new World state from all step outputs. */
   @boundaryEscape

@@ -91,8 +91,9 @@ object LaborMarket:
       marketWage: PLN,
       @scala.annotation.unused rng: Random,
       regionalWages: Map[Region, PLN] = Map.empty,
+      eligibleFirmIds: Set[FirmId] = Set.empty,
   )(using p: SimParams): JobSearchResult =
-    val vacancies = computeVacancies(households, firms)
+    val vacancies = computeVacancies(households, firms, eligibleFirmIds)
     if vacancies.isEmpty then JobSearchResult(households, 0)
     else if p.flags.regionalLabor && regionalWages.nonEmpty then matchWorkersRegional(households, firms, vacancies, marketWage, regionalWages)
     else matchWorkers(households, firms, vacancies, marketWage)
@@ -206,6 +207,7 @@ object LaborMarket:
   private def computeVacancies(
       households: Vector[Household.State],
       firms: Vector[Firm.State],
+      eligibleFirmIds: Set[FirmId],
   )(using SimParams): Map[FirmId, Int] =
     val workerCounts: Map[FirmId, Int] = households
       .flatMap: hh =>
@@ -215,6 +217,7 @@ object LaborMarket:
       .groupMapReduce(identity)(_ => 1)(_ + _)
     firms
       .filter(Firm.isAlive)
+      .filter(f => eligibleFirmIds.isEmpty || eligibleFirmIds.contains(f.id))
       .flatMap: f =>
         val needed = Firm.workerCount(f) - workerCounts.getOrElse(f.id, 0)
         if needed > 0 then Some(f.id -> needed) else None

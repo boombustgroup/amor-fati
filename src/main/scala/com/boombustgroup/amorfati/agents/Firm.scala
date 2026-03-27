@@ -138,6 +138,9 @@ object Firm:
       accumulatedLoss: PLN,                // CIT loss carryforward stock (Art. 7 ustawy o CIT)
       markup: Multiplier = Multiplier.One, // Calvo pricing: firm-specific markup over marginal cost
       region: Region = Region.Central,     // NUTS-1 macroregion
+      startupMonthsLeft: Int = 0,          // startup grace/ramp-up window for new entrants
+      startupTargetWorkers: Int = 0,       // small team size targeted during startup phase
+      startupFilledWorkers: Int = 0,       // employed workers currently filling the startup team
   )
 
   /** Output of `process` for one firm in one month — updated state + flow
@@ -211,6 +214,8 @@ object Firm:
   /** Skeleton crew for automated firms — scales with firm size. */
   def skeletonCrew(f: State)(using p: SimParams): Int =
     Math.max(p.firm.autoSkeletonCrew, (f.initialSize * SkeletonCrewFrac).toInt)
+
+  def isInStartup(f: State): Boolean = f.startupMonthsLeft > 0
 
   /** Effective wage multiplier including union wage premium. */
   def effectiveWageMult(sectorIdx: SectorIdx)(using p: SimParams): Multiplier =
@@ -416,11 +421,14 @@ object Firm:
       Decision.Downsize(pnl, newWkrs, adjustedNc, newTech(newWkrs), drUpdate = drUpdate)
     else Decision.GoBankrupt(pnl, nc, reason)
 
-  private def hasWorkingCapitalGrace(firm: State, pnl: PnL, cashAfterDecision: PLN): Boolean =
+  private def hasWorkingCapitalGrace(firm: State, pnl: PnL, cashAfterDecision: PLN)(using p: SimParams): Boolean =
     firm.stateOwned ||
       (cashAfterDecision < PLN.Zero &&
         pnl.netAfterTax > PLN.Zero &&
-        cashAfterDecision.abs <= pnl.netAfterTax * Multiplier(WorkingCapitalGraceMonths))
+        cashAfterDecision.abs <= pnl.netAfterTax * Multiplier(WorkingCapitalGraceMonths)) ||
+      (isInStartup(firm) &&
+        cashAfterDecision < PLN.Zero &&
+        cashAfterDecision.abs <= p.firm.entryStartupCash * Multiplier(0.20))
 
   /** Estimate monthly operating cost for a hypothetical tech configuration.
     * Used by `decideHybrid` and `decideTraditional` to compare current costs
@@ -796,7 +804,7 @@ object Firm:
       newLoan: PLN = PLN.Zero,
   ): Result =
     Result(
-      firm = firm.copy(accumulatedLoss = pnl.newAccumulatedLoss),
+      firm = advanceStartupLifecycle(firm.copy(accumulatedLoss = pnl.newAccumulatedLoss)),
       taxPaid = pnl.tax,
       capexSpent = capex,
       techImports = techImports,
@@ -812,6 +820,10 @@ object Firm:
       greenInvestment = PLN.Zero,
       principalRepaid = PLN.Zero,
     )
+
+  private def advanceStartupLifecycle(firm: State): State =
+    if isAlive(firm) && firm.startupMonthsLeft > 0 then firm.copy(startupMonthsLeft = firm.startupMonthsLeft - 1)
+    else firm
 
   // ---- Post-processing pipeline ----
 

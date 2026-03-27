@@ -36,11 +36,15 @@ object FirmEntry:
   private val MinAiProductivity   = 0.5  // AI productivity floor for hybrid entrants
   private val AiProductivityRange = 0.3  // AI productivity range above floor
   private val HybridMinWorkers    = 1    // minimum viable hybrid workforce
+  private val StartupMonths       = 4    // short entrant startup ramp-up window
+  private val StartupMinWorkers   = 1    // minimum planned startup team
+  private val StartupMaxWorkers   = 4    // entrant startup team cap
 
   case class Result(
       firms: Vector[Firm.State], // post-entry firm population (may be longer than input if net creation occurred)
       births: Int,               // total new entrants (recycled + net new)
       netBirths: Int,            // net new firms appended to vector
+      entrantIds: Set[FirmId],   // firms born this step (recycled + net new)
   )
 
   @boundaryEscape
@@ -56,15 +60,15 @@ object FirmEntry:
     val sectorWeights = computeSectorWeights(profitSignals)
     val totalWeight   = sectorWeights.sum
 
-    val totalAdoption   = automationRatio + hybridRatio
-    val livingIds       = living.map(_.id.toInt)
-    val afterRecycling = recycleDeadSlots(firms, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
-    val recycledBirths = afterRecycling.count { case (before, after) => !Firm.isAlive(before) && Firm.isAlive(after) }
-    val recycledFirms  = afterRecycling.map(_._2)
+    val totalAdoption              = automationRatio + hybridRatio
+    val livingIds                  = living.map(_.id.toInt)
+    val (recycledFirms, recycledIds) =
+      recycleDeadSlots(firms, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
+    val recycledBirths             = recycledIds.size
 
-    val (finalFirms, netBirths) =
+    val (finalFirms, netBirths, netIds) =
       netCreation(recycledFirms, living.length, unemploymentRate, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
-    Result(finalFirms, recycledBirths + netBirths, netBirths)
+    Result(finalFirms, recycledBirths + netBirths, netBirths, recycledIds ++ netIds)
 
   @boundaryEscape
   private def recycleDeadSlots(
@@ -74,10 +78,10 @@ object FirmEntry:
       sectorWeights: Vector[Double],
       totalWeight: Double,
       rng: Random,
-  )(using p: SimParams): Vector[(Firm.State, Firm.State)] =
+  )(using p: SimParams): (Vector[Firm.State], Set[FirmId]) =
     import ComputationBoundary.toDouble
     val deadSlots = firms.filterNot(Firm.isAlive)
-    if deadSlots.isEmpty then return firms.map(f => (f, f))
+    if deadSlots.isEmpty then return (firms, Set.empty)
 
     val rawCount = Math.ceil(deadSlots.length * toDouble(p.firm.replacementEntryRate)).toInt
     val boundedCount =
@@ -86,14 +90,15 @@ object FirmEntry:
         Math.min(rawCount, p.firm.replacementEntryMaxMonthly),
       )
     val replacementCount = Math.min(deadSlots.length, boundedCount)
-    if replacementCount <= 0 then return firms.map(f => (f, f))
+    if replacementCount <= 0 then return (firms, Set.empty)
 
     val replacementIds = rng.shuffle(deadSlots.map(_.id).toList).take(replacementCount).toSet
-    firms.map: f =>
-      if !Firm.isAlive(f) && replacementIds.contains(f.id) then
-        val entrant = createNewFirm(f.id, totalWeight, sectorWeights, totalAdoption, livingIds, rng)
-        (f, entrant)
-      else (f, f)
+    (
+      firms.map: f =>
+        if !Firm.isAlive(f) && replacementIds.contains(f.id) then createNewFirm(f.id, totalWeight, sectorWeights, totalAdoption, livingIds, rng)
+        else f,
+      replacementIds,
+    )
 
   /** Append net new firms when unemployment exceeds NAIRU. Birth count is
     * proportional to the gap, capped to prevent vector explosion. New firms get
@@ -110,19 +115,19 @@ object FirmEntry:
       sectorWeights: Vector[Double],
       totalWeight: Double,
       rng: Random,
-  )(using p: SimParams): (Vector[Firm.State], Int) =
+  )(using p: SimParams): (Vector[Firm.State], Int, Set[FirmId]) =
     import ComputationBoundary.toDouble
     val gap = unemploymentRate - toDouble(p.monetary.nairu)
-    if gap <= 0.0 then return (firms, 0)
+    if gap <= 0.0 then return (firms, 0, Set.empty)
 
     val rawCount = Math.ceil(gap * toDouble(p.firm.netEntryRate) * livingCount).toInt
     val count    = Math.max(0, Math.min(rawCount, p.firm.netEntryMaxMonthly))
-    if count <= 0 then return (firms, 0)
+    if count <= 0 then return (firms, 0, Set.empty)
 
     val baseId   = firms.length
     val newFirms = (0 until count).map: i =>
       createNewFirm(FirmId(baseId + i), totalWeight, sectorWeights, totalAdoption, livingIds, rng)
-    (firms ++ newFirms, count)
+    (firms ++ newFirms, count, newFirms.map(_.id).toSet)
 
   @boundaryEscape
   private def computeProfitSignals(living: Vector[Firm.State])(using p: SimParams): Vector[Double] =
@@ -155,10 +160,11 @@ object FirmEntry:
   )(using p: SimParams): Firm.State =
     val newSector    = pickSector(totalWeight, sectorWeights, rng)
     val firmSize     = FirmSizeDistribution.draw(rng)
+    val startupTeam  = drawStartupTargetWorkers(firmSize, rng)
     val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm
     val isAiNative   = totalAdoption > p.firm.entryAiThreshold &&
       p.firm.entryAiProb.sampleBelow(rng)
-    val tech         = chooseTechnology(isAiNative, firmSize, newSector, rng)
+    val tech         = chooseTechnology(isAiNative, startupTeam, newSector, rng)
     val dr           = drawDigitalReadiness(isAiNative, newSector, rng)
     val newNeighbors = assignNeighbors(livingIds, rng)
     val newBankId    = Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, rng)
@@ -184,6 +190,9 @@ object FirmEntry:
       accumulatedLoss = PLN.Zero,
       markup = p.pricing.baseMarkup,
       region = Region.cdfSample(rng),
+      startupMonthsLeft = StartupMonths,
+      startupTargetWorkers = startupTeam,
+      startupFilledWorkers = 0,
     )
 
   /** Select technology regime: AI-native entrants start as Hybrid with partial
@@ -247,3 +256,8 @@ object FirmEntry:
     cumuls.indexWhere(_ > roll) match
       case -1 => sectorWeights.length - 1
       case i  => i
+
+  private def drawStartupTargetWorkers(firmSize: Int, rng: Random): Int =
+    val lower = Math.min(firmSize, StartupMinWorkers.max(Math.min(2, firmSize)))
+    val upper = Math.min(firmSize, StartupMaxWorkers).max(lower)
+    rng.between(lower, upper + 1)
