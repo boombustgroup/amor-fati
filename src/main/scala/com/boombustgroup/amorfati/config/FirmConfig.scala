@@ -88,6 +88,9 @@ case class FirmConfig(
     entryAiThreshold: Share = Share(0.15),
     entryAiProb: Share = Share(0.20),
     entryStartupCash: PLN = PLN(50000.0),
+    // Net entry (dynamic vector growth when unemployment > NAIRU)
+    netEntryRate: Share = Share(0.005),                // max monthly net births as fraction of living firms
+    netEntryMaxMonthly: Int = 50,                      // hard cap on net births per month (prevents vector explosion)
     // Digitalization
     digiDrift: Share = Share(0.001),
     digiInvestCost: PLN = PLN(50000.0),

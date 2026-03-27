@@ -141,12 +141,14 @@ object WorldAssemblyEconomics:
     val newW      = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
     val sfcResult = validateSfc(in, newW, fofResidual)
 
-    val postFdiFirms             = applyFdiMa(in.s9.reassignedFirms, rng)
-    val (finalFirms, firmBirths) =
+    val postFdiFirms                        = applyFdiMa(in.s9.reassignedFirms, rng)
+    val updatedPop                          = in.w.totalPopulation + in.s5.netMigration
+    val unemploymentRate                    = if updatedPop > 0 then 1.0 - in.s2.employed.toDouble / updatedPop else 0.0
+    val (finalFirms, firmBirths, netBirths) =
       if p.flags.firmEntry then
-        val r = FirmEntry.process(postFdiFirms, newW.real.automationRatio, newW.real.hybridRatio, rng)
-        (r.firms, r.births)
-      else (postFdiFirms, 0)
+        val r = FirmEntry.process(postFdiFirms, newW.real.automationRatio, newW.real.hybridRatio, unemploymentRate, rng)
+        (r.firms, r.births, r.netBirths)
+      else (postFdiFirms, 0, 0)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
     val postMigHh =
@@ -154,7 +156,7 @@ object WorldAssemblyEconomics:
       else in.s9.reassignedHouseholds
 
     val finalW = newW
-      .updateFlows(_.copy(firmBirths = firmBirths, firmDeaths = in.s5.firmDeaths))
+      .updateFlows(_.copy(firmBirths = firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = netBirths))
       .copy(regionalWages = in.s2.regionalWages)
     StepOutput(finalW, finalFirms, postMigHh, sfcResult)
 

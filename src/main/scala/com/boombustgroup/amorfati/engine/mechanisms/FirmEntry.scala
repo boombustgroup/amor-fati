@@ -38,8 +38,9 @@ object FirmEntry:
   private val HybridMinWorkers    = 1    // minimum viable hybrid workforce
 
   case class Result(
-      firms: Vector[Firm.State], // post-entry firm population (same length as input)
-      births: Int,               // number of new entrants spawned this step
+      firms: Vector[Firm.State], // post-entry firm population (may be longer than input if net creation occurred)
+      births: Int,               // total new entrants (recycled + net new)
+      netBirths: Int,            // net new firms appended to vector
   )
 
   @boundaryEscape
@@ -47,6 +48,7 @@ object FirmEntry:
       firms: Vector[Firm.State],
       automationRatio: Share,
       hybridRatio: Share,
+      unemploymentRate: Double,
       rng: Random,
   )(using p: SimParams): Result =
     import ComputationBoundary.toDouble
@@ -57,19 +59,51 @@ object FirmEntry:
 
     val totalAdoption = automationRatio + hybridRatio
     val livingIds     = living.map(_.id.toInt)
-    var births        = 0
+    var recycled      = 0
 
-    val result = firms.map: f =>
+    val afterRecycling = firms.map: f =>
       if !Firm.isAlive(f) then
         val slotSector = f.sector.toInt
         val entryProb  = toDouble(p.firm.entryRate) * toDouble(p.firm.entrySectorBarriers(slotSector)) *
           Math.max(0.0, 1.0 + profitSignals(slotSector) * toDouble(p.firm.entryProfitSens))
         if rng.nextDouble() < entryProb then
-          births += 1
+          recycled += 1
           createNewFirm(f.id, totalWeight, sectorWeights, totalAdoption, livingIds, rng)
         else f
       else f
-    Result(result, births)
+
+    val (finalFirms, netBirths) =
+      netCreation(afterRecycling, living.length, unemploymentRate, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
+    Result(finalFirms, recycled + netBirths, netBirths)
+
+  /** Append net new firms when unemployment exceeds NAIRU. Birth count is
+    * proportional to the gap, capped to prevent vector explosion. New firms get
+    * sequential FirmIds starting at `firms.length` to maintain the FirmId ==
+    * vector index invariant.
+    */
+  @boundaryEscape
+  private def netCreation(
+      firms: Vector[Firm.State],
+      livingCount: Int,
+      unemploymentRate: Double,
+      totalAdoption: Share,
+      livingIds: Vector[Int],
+      sectorWeights: Vector[Double],
+      totalWeight: Double,
+      rng: Random,
+  )(using p: SimParams): (Vector[Firm.State], Int) =
+    import ComputationBoundary.toDouble
+    val gap = unemploymentRate - toDouble(p.monetary.nairu)
+    if gap <= 0.0 then return (firms, 0)
+
+    val rawCount = (gap * toDouble(p.firm.netEntryRate) * livingCount).toInt
+    val count    = Math.max(0, Math.min(rawCount, p.firm.netEntryMaxMonthly))
+    if count <= 0 then return (firms, 0)
+
+    val baseId   = firms.length
+    val newFirms = (0 until count).map: i =>
+      createNewFirm(FirmId(baseId + i), totalWeight, sectorWeights, totalAdoption, livingIds, rng)
+    (firms ++ newFirms, count)
 
   @boundaryEscape
   private def computeProfitSignals(living: Vector[Firm.State])(using p: SimParams): Vector[Double] =
