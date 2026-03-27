@@ -61,6 +61,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         wageGrowth = s2.wageGrowth,
         govPurchases = s4.govPurchases,
         sectorMults = s4.sectorMults,
+        rawSectorMults = s4.rawSectorMults,
         avgDemandMult = s4.avgDemandMult,
         sectorCap = s4.sectorCap,
         laggedInvestDemand = s4.laggedInvestDemand,

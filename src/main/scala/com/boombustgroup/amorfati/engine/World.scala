@@ -146,25 +146,26 @@ object MonetaryPlumbingState:
   * identities.
   */
 case class FlowState(
-    ioFlows: PLN = PLN.Zero,                                                                 // I-O intermediate payments between sectors
-    fdiProfitShifting: PLN = PLN.Zero,                                                       // intangible imports booked abroad (profit shifting)
-    fdiRepatriation: PLN = PLN.Zero,                                                         // dividend repatriation by foreign-owned firms
-    fdiCitLoss: PLN = PLN.Zero,                                                              // CIT lost to profit shifting
-    diasporaRemittanceInflow: PLN = PLN.Zero,                                                // diaspora remittance inflow
-    tourismExport: PLN = PLN.Zero,                                                           // inbound tourism services export
-    tourismImport: PLN = PLN.Zero,                                                           // outbound tourism services import
-    aggInventoryStock: PLN = PLN.Zero,                                                       // aggregate firm inventory stock
-    aggInventoryChange: PLN = PLN.Zero,                                                      // ΔInventories (enters GDP)
-    aggEnergyCost: PLN = PLN.Zero,                                                           // aggregate energy + CO₂ costs
-    firmBirths: Int = 0,                                                                     // new firms (recycled bankrupt slots)
-    firmDeaths: Int = 0,                                                                     // firms bankrupt this step
-    taxEvasionLoss: PLN = PLN.Zero,                                                          // tax lost to 4-channel evasion (CIT+VAT+PIT+excise)
-    informalEmployed: Double = 0.0,                                                          // estimated informal employment count
-    bailInLoss: PLN = PLN.Zero,                                                              // bail-in capital loss on bank creditors
-    bfgLevyTotal: Double = 0.0,                                                              // BFG resolution levy from all banks
-    sectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // per-sector demand multipliers from S4
-    fiscalRuleSeverity: Int = 0,                                                             // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
-    govSpendingCutRatio: Share = Share.Zero,                                                 // fraction of raw spending cut by fiscal rules
+    ioFlows: PLN = PLN.Zero,                                                                    // I-O intermediate payments between sectors
+    fdiProfitShifting: PLN = PLN.Zero,                                                          // intangible imports booked abroad (profit shifting)
+    fdiRepatriation: PLN = PLN.Zero,                                                            // dividend repatriation by foreign-owned firms
+    fdiCitLoss: PLN = PLN.Zero,                                                                 // CIT lost to profit shifting
+    diasporaRemittanceInflow: PLN = PLN.Zero,                                                   // diaspora remittance inflow
+    tourismExport: PLN = PLN.Zero,                                                              // inbound tourism services export
+    tourismImport: PLN = PLN.Zero,                                                              // outbound tourism services import
+    aggInventoryStock: PLN = PLN.Zero,                                                          // aggregate firm inventory stock
+    aggInventoryChange: PLN = PLN.Zero,                                                         // ΔInventories (enters GDP)
+    aggEnergyCost: PLN = PLN.Zero,                                                              // aggregate energy + CO₂ costs
+    firmBirths: Int = 0,                                                                        // new firms (recycled bankrupt slots)
+    firmDeaths: Int = 0,                                                                        // firms bankrupt this step
+    taxEvasionLoss: PLN = PLN.Zero,                                                             // tax lost to 4-channel evasion (CIT+VAT+PIT+excise)
+    informalEmployed: Double = 0.0,                                                             // estimated informal employment count
+    bailInLoss: PLN = PLN.Zero,                                                                 // bail-in capital loss on bank creditors
+    bfgLevyTotal: Double = 0.0,                                                                 // BFG resolution levy from all banks
+    sectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0),    // per-sector demand multipliers from S4 (capped ≤ 1.0)
+    rawSectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // uncapped demand/capacity — hiring signal for optimalWorkers
+    fiscalRuleSeverity: Int = 0,                                                                // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
+    govSpendingCutRatio: Share = Share.Zero,                                                    // fraction of raw spending cut by fiscal rules
 )
 object FlowState:
   val zero: FlowState = FlowState()

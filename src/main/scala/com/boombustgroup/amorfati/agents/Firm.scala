@@ -265,7 +265,7 @@ object Firm:
   @boundaryEscape
   private def optimalWorkers(f: State, w: World)(using p: SimParams): Int =
     import ComputationBoundary.toDouble
-    val demandMult = w.flows.sectorDemandMult(f.sector.toInt)
+    val demandMult = w.flows.rawSectorDemandMult(f.sector.toInt) // uncapped: firms see excess demand as hiring signal
     val price      = w.priceLevel
     val wage       = toDouble(w.hhAgg.marketWage) * toDouble(effectiveWageMult(f.sector))
     val maxW       = f.initialSize * 3

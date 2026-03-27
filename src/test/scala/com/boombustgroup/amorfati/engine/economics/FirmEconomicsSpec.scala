@@ -69,6 +69,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
       regionalWages = s2.regionalWages,
       hhOutput = s3,
       sectorMults = s4.sectorMults,
+      rawSectorMults = s4.rawSectorMults,
       avgDemandMult = s4.avgDemandMult,
       sectorCap = s4.sectorCap,
       govPurchases = s4.govPurchases,
