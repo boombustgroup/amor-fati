@@ -30,8 +30,7 @@ object DemandEconomics:
 
   case class Output(
       govPurchases: PLN,                       // total government purchases this month
-      sectorMults: Vector[Double],             // per-sector demand multiplier (0 = no demand, 1 = full capacity), capped at 1.0
-      rawSectorMults: Vector[Double],          // uncapped demand/capacity ratio — hiring signal for optimalWorkers
+      sectorMults: Vector[Double],             // per-sector demand multiplier (0 = no demand, 1 = full capacity)
       avgDemandMult: Double,                   // economy-wide average demand multiplier
       sectorCap: Vector[Double],               // per-sector nominal production capacity
       laggedInvestDemand: PLN,                 // lagged investment demand for deposit flow calculation
@@ -46,9 +45,9 @@ object DemandEconomics:
     val sectorExports      = computeSectorExports(in)
     val laggedInvestDemand = computeLaggedInvestDemand(in)
     val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
-    val spillover          = applySpillover(sectorDemand, sectorCap, in.w.priceLevel)
-    val avgDemandMult      = computeAvgDemandMult(spillover.capped, sectorCap, in)
-    Output(govPurchases, spillover.capped, spillover.raw, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
+    val sectorMults        = applySpillover(sectorDemand, sectorCap, in.w.priceLevel)
+    val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCap, in)
+    Output(govPurchases, sectorMults, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
 
   /** Government purchases: base spending x price level + fiscal recycling (tax
     * revenue + ZUS surplus) + automatic fiscal stimulus (unemployment gap x
@@ -144,12 +143,6 @@ object DemandEconomics:
         )
       .toVector
 
-  /** Raw and capped demand multipliers. Raw = demand/capacity (uncapped, hiring
-    * signal for optimalWorkers). Capped = spillover-adjusted, ≤ 1.0 (for PnL /
-    * actual revenue).
-    */
-  private case class SpilloverResult(raw: Vector[Double], capped: Vector[Double])
-
   /** Redistribute excess demand from capacity-constrained sectors to sectors
     * with slack. Sectors above capacity are capped at 1.0; their excess flows
     * proportionally into below-capacity sectors.
@@ -158,7 +151,7 @@ object DemandEconomics:
       sectorDemand: Vector[Double],
       sectorCap: Vector[Double],
       priceLevel: Double,
-  ): SpilloverResult =
+  ): Vector[Double] =
     val rawMults        = sectorDemand.indices
       .map: s =>
         if sectorCap(s) > 0 then sectorDemand(s) / (sectorCap(s) * priceLevel) else 0.0
@@ -172,12 +165,11 @@ object DemandEconomics:
         if rawMults(s) < 1.0 then (1.0 - rawMults(s)) * sectorCap(s) * priceLevel else 0.0
       .sum
     val spilloverFrac   = if deficitCapacity > 0 then Math.min(1.0, excessDemand / deficitCapacity) else 0.0
-    val capped          = rawMults.indices
+    rawMults.indices
       .map: s =>
         if rawMults(s) > 1.0 then 1.0
         else rawMults(s) + spilloverFrac * (1.0 - rawMults(s))
       .toVector
-    SpilloverResult(rawMults, capped)
 
   /** Economy-wide average demand multiplier, adjusted for real rate effect when
     * expectations mechanism is active.

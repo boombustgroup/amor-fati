@@ -81,7 +81,6 @@ object WorldAssemblyEconomics:
       minWagePriceLevel: Double,
       govPurchases: PLN,
       sectorMults: Vector[Double],
-      rawSectorMults: Vector[Double],
       avgDemandMult: Double,
       sectorCap: Vector[Double],
       laggedInvestDemand: PLN,
@@ -106,8 +105,7 @@ object WorldAssemblyEconomics:
 
   def compute(in: Input)(using SimParams): Result =
     val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-    val s4 =
-      DemandEconomics.Output(in.govPurchases, in.sectorMults, in.rawSectorMults, in.avgDemandMult, in.sectorCap, in.laggedInvestDemand, in.fiscalRuleStatus)
+    val s4 = DemandEconomics.Output(in.govPurchases, in.sectorMults, in.avgDemandMult, in.sectorCap, in.laggedInvestDemand, in.fiscalRuleStatus)
 
     val s10 = runStep(
       StepInput(
@@ -352,7 +350,6 @@ object WorldAssemblyEconomics:
       bailInLoss = in.s9.bailInLoss,
       bfgLevyTotal = toDouble(in.s9.bfgLevy),
       sectorDemandMult = in.s4.sectorMults,
-      rawSectorDemandMult = in.s4.rawSectorMults,
       fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
       govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
     )
