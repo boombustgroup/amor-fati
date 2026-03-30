@@ -172,7 +172,16 @@ object WorldAssemblyEconomics:
     val unemploymentRate = if updatedPop > 0 then 1.0 - postFirmEmployed.toDouble / updatedPop else 0.0
     val entryStep =
       if p.flags.firmEntry then
-        val r = FirmEntry.process(postFdiFirms, newW.real.automationRatio, newW.real.hybridRatio, unemploymentRate, rng)
+        val r = FirmEntry.process(
+          postFdiFirms,
+          newW.real.automationRatio,
+          newW.real.hybridRatio,
+          unemploymentRate,
+          in.s2.aggregateHiringSlack,
+          newW.inflation,
+          newW.mechanisms.expectations.expectedInflation,
+          rng,
+        )
         EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
       else EntryStepResult(postFdiFirms, 0, 0, Set.empty)
 
@@ -321,7 +330,12 @@ object WorldAssemblyEconomics:
       .groupMapReduce(identity)(_ => 1)(_ + _)
     firms.map: firm =>
       if Firm.isInStartup(firm) then
-        firm.copy(startupFilledWorkers = staffedCounts.getOrElse(firm.id, 0).min(firm.startupTargetWorkers))
+        val filled = staffedCounts.getOrElse(firm.id, 0).min(firm.startupTargetWorkers)
+        val syncedTech = firm.tech match
+          case TechState.Traditional(_) => TechState.Traditional(Math.max(1, filled))
+          case TechState.Hybrid(_, eff) => TechState.Hybrid(Math.max(1, filled), eff)
+          case other                    => other
+        firm.copy(startupFilledWorkers = filled, tech = syncedTech)
       else firm
 
   /** Construct the new World state from all step outputs. */
