@@ -77,6 +77,7 @@ object WorldAssemblyEconomics:
       households: Vector[Household.State],
       hhAgg: Household.Aggregates,
       crossSectorHires: Int,
+      startupAbsorptionRate: Double,
   )
 
   // ---------------------------------------------------------------------------
@@ -123,6 +124,7 @@ object WorldAssemblyEconomics:
       in.govPurchases,
       in.sectorMults,
       in.w.flows.sectorDemandPressure,
+      in.w.flows.sectorHiringSignal,
       in.avgDemandMult,
       in.sectorCap,
       in.laggedInvestDemand,
@@ -180,12 +182,13 @@ object WorldAssemblyEconomics:
           in.s2.aggregateHiringSlack,
           newW.inflation,
           newW.mechanisms.expectations.expectedInflation,
+          in.w.flows.startupAbsorptionRate,
           rng,
         )
         EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
       else EntryStepResult(postFdiFirms, 0, 0, Set.empty)
 
-    val startupStaffing = applyStartupStaffing(in, entryStep.firms, entryStep.entrantIds, in.s9.reassignedHouseholds, rng)
+    val startupStaffing = applyStartupStaffing(in, entryStep.firms, in.s9.reassignedHouseholds, rng)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
     val postMigHh =
@@ -194,7 +197,14 @@ object WorldAssemblyEconomics:
     val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
 
     val finalW = newW
-      .updateFlows(_.copy(firmBirths = entryStep.firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths))
+      .updateFlows(
+        _.copy(
+          firmBirths = entryStep.firmBirths,
+          firmDeaths = in.s5.firmDeaths,
+          netFirmBirths = entryStep.netBirths,
+          startupAbsorptionRate = startupStaffing.startupAbsorptionRate,
+        ),
+      )
       .updateReal: r =>
         r.copy(
           sectoralMobility = r.sectoralMobility.copy(
@@ -298,16 +308,29 @@ object WorldAssemblyEconomics:
   private def applyStartupStaffing(
       in: StepInput,
       firms: Vector[Firm.State],
-      entrantIds: Set[FirmId],
       households: Vector[Household.State],
       rng: Random,
   )(using p: SimParams): StartupStaffingResult =
-    if entrantIds.isEmpty then
-      StartupStaffingResult(syncStartupStaffing(firms, households), households, in.s9.finalHhAgg, 0)
+    val startupIds = firms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.id).toSet
+    if startupIds.isEmpty then
+      StartupStaffingResult(syncStartupStaffing(firms, households), households, in.s9.finalHhAgg, 0, 1.0)
     else
-      val searchResult = LaborMarket.jobSearch(households, firms, in.s2.newWage, rng, in.s2.regionalWages, entrantIds)
+      val startupOpeningsBefore = firms
+        .filter(f => Firm.isAlive(f) && Firm.isInStartup(f))
+        .map(f => Math.max(0, f.startupTargetWorkers - f.startupFilledWorkers))
+        .sum
+      val startupFilledBefore   = firms
+        .filter(f => Firm.isAlive(f) && Firm.isInStartup(f))
+        .map(_.startupFilledWorkers)
+        .sum
+      val searchResult = LaborMarket.jobSearch(households, firms, in.s2.newWage, rng, in.s2.regionalWages, startupIds)
       val postWages    = LaborMarket.updateWages(searchResult.households, firms, in.s2.newWage)
       val staffedFirms = syncStartupStaffing(firms, postWages)
+      val startupFilled  = staffedFirms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.startupFilledWorkers).sum
+      val startupHires   = Math.max(0, startupFilled - startupFilledBefore)
+      val startupAbsorptionRate =
+        if startupOpeningsBefore > 0 then startupHires.toDouble / startupOpeningsBefore
+        else 1.0
       val hhAgg        = Household.computeAggregates(
         postWages,
         in.s2.newWage,
@@ -316,7 +339,7 @@ object WorldAssemblyEconomics:
         in.s3.hhAgg.retrainingAttempts,
         in.s3.hhAgg.retrainingSuccesses,
       )
-      StartupStaffingResult(staffedFirms, postWages, hhAgg, searchResult.crossSectorHires)
+      StartupStaffingResult(staffedFirms, postWages, hhAgg, searchResult.crossSectorHires, startupAbsorptionRate)
 
   private def syncStartupStaffing(
       firms: Vector[Firm.State],
@@ -441,6 +464,7 @@ object WorldAssemblyEconomics:
       bfgLevyTotal = toDouble(in.s9.bfgLevy),
       sectorDemandMult = in.s4.sectorMults,
       sectorDemandPressure = in.s4.sectorDemandPressure,
+      sectorHiringSignal = in.s4.sectorHiringSignal,
       fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
       govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
     )

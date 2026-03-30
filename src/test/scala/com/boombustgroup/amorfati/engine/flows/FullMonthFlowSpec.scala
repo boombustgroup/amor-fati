@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.flows
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -30,6 +31,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
       labor.employed,
       labor.laborDemand,
       labor.wageGrowth,
+      labor.aggregateHiringSlack,
       labor.immigration,
       labor.netMigration,
       labor.demographics,
@@ -44,24 +46,37 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
     val s3     = HouseholdIncomeEconomics.compute(w, initResult.firms, initResult.households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
     val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
     val s5     = FirmEconomics.runStep(w, initResult.firms, initResult.households, s1, s2, s3, s4, rng)
+    val postLivingFirms = s5.ioFirms.filter(Firm.isAlive)
+    val postLaborDemand = postLivingFirms.map(Firm.workerCount).sum
+    val postAvailableLabor = LaborMarket.laborSupplyAtWage(s2.newWage, s1.resWage, w.totalPopulation)
+    val s2Post = s2.copy(
+      employed = s5.households.count(hh =>
+        hh.status match
+          case HhStatus.Employed(_, _, _) => true
+          case _                          => false,
+      ),
+      laborDemand = postLaborDemand,
+      aggregateHiringSlack = LaborEconomics.aggregateHiringSlackFactor(postLaborDemand, postAvailableLabor),
+      living = postLivingFirms,
+    )
     @annotation.unused
-    val s6     = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
+    val s6     = HouseholdFinancialEconomics.compute(w, s1.m, s2Post.employed, s3.hhAgg, rng)
 
     Vector.concat(
       // Tier 1: Social funds (from LaborEconomics output)
-      ZusFlows.emit(ZusFlows.ZusInput(s2.employed, s2.newWage, s2.newDemographics.retirees)),
-      NfzFlows.emit(NfzFlows.NfzInput(s2.employed, s2.newWage, s2.newDemographics.workingAgePop, s2.newDemographics.retirees)),
-      PpkFlows.emit(PpkFlows.PpkInput(s2.employed, s2.newWage)),
+      ZusFlows.emit(ZusFlows.ZusInput(s2Post.employed, s2Post.newWage, s2Post.newDemographics.retirees)),
+      NfzFlows.emit(NfzFlows.NfzInput(s2Post.employed, s2Post.newWage, s2Post.newDemographics.workingAgePop, s2Post.newDemographics.retirees)),
+      PpkFlows.emit(PpkFlows.PpkInput(s2Post.employed, s2Post.newWage)),
       EarmarkedFlows.emit(
         EarmarkedFlows.Input(
-          s2.employed,
-          s2.newWage,
+          s2Post.employed,
+          s2Post.newWage,
           PLN.Zero,
-          initResult.firms.length - s2.living.length,
-          if s2.living.nonEmpty then s2.laborDemand / s2.living.length else 0,
+          initResult.firms.length - s2Post.living.length,
+          if s2Post.living.nonEmpty then s2Post.laborDemand / s2Post.living.length else 0,
         ),
       ),
-      JstFlows.emit(JstFlows.Input(w.gov.taxRevenue, s3.totalIncome, PLN(w.gdpProxy), s2.living.length, s3.pitRevenue)),
+      JstFlows.emit(JstFlows.Input(w.gov.taxRevenue, s3.totalIncome, PLN(w.gdpProxy), s2Post.living.length, s3.pitRevenue)),
       // Tier 2: Agents
       HouseholdFlows.emit(StateAdapter.hhInput(s3.hhAgg)),
       FirmFlows.emit(
@@ -97,16 +112,17 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
           w,
           LaborEconomics.Result(
             s2.newWage,
-            s2.employed,
-            s2.laborDemand,
-            s2.wageGrowth,
-            s2.newDemographics,
-            s2.newImmig,
-            s2.netMigration,
-            s2.living,
-            s2.regionalWages,
-            initResult.firms.length - s2.living.length,
-            if s2.living.nonEmpty then s2.laborDemand / s2.living.length else 0,
+            s2Post.employed,
+            s2Post.laborDemand,
+            s2Post.wageGrowth,
+            s2Post.aggregateHiringSlack,
+            s2Post.newDemographics,
+            s2Post.newImmig,
+            s2Post.netMigration,
+            s2Post.living,
+            s2Post.regionalWages,
+            initResult.firms.length - s2Post.living.length,
+            if s2Post.living.nonEmpty then s2Post.laborDemand / s2Post.living.length else 0,
           ),
         ),
       ),

@@ -105,6 +105,25 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     result(9).status shouldBe a[HhStatus.Employed]
   }
 
+  it should "let startup firms keep hiring up to startupTargetWorkers during startup" in {
+    val rng   = new Random(42)
+    val firms = Vector(
+      mkFirms(1)(0).copy(
+        tech = TechState.Traditional(1),
+        startupMonthsLeft = 3,
+        startupTargetWorkers = 4,
+        startupFilledWorkers = 1,
+      ),
+    )
+    val hhs   = Vector(
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
+      mkHousehold(1, HhStatus.Unemployed(1), skill = 0.9),
+      mkHousehold(2, HhStatus.Unemployed(1), skill = 0.8),
+    )
+    val result = LaborMarket.jobSearch(hhs, firms, PLN(8000.0), rng, Map.empty, Set(FirmId(0))).households
+    result.count(_.status.isInstanceOf[HhStatus.Employed]) should be >= 2
+  }
+
   // --- updateWages ---
 
   "LaborMarket.updateWages" should "produce mean wage = marketWage for employed" in {

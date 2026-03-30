@@ -26,6 +26,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       labor.employed,
       labor.laborDemand,
       labor.wageGrowth,
+      labor.aggregateHiringSlack,
       labor.immigration,
       labor.netMigration,
       labor.demographics,

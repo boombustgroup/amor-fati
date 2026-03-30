@@ -22,6 +22,7 @@ object DemandEconomics:
   private val RealRateElasticity     = 0.02 // demand sensitivity to real interest rate gap
   private val PressureMaxBoost       = 0.75 // hiring signal can rise above 1.0, but only moderately
   private val PressureSaturationRate = 1.25 // how quickly excess-demand pressure saturates above capacity
+  private val HiringSignalSmoothing  = 0.65 // persistence in sector hiring plans; avoids month-to-month whipsaw
 
   case class Input(
       w: World,                   // current world state
@@ -34,6 +35,7 @@ object DemandEconomics:
       govPurchases: PLN,                       // total government purchases this month
       sectorMults: Vector[Double],             // per-sector demand multiplier (0 = no demand, 1 = full capacity)
       sectorDemandPressure: Vector[Double],    // uncapped demand/capacity ratios used for hiring pressure
+      sectorHiringSignal: Vector[Double],      // smoothed sector hiring signal used by firm labor planning
       avgDemandMult: Double,                   // economy-wide average demand multiplier
       sectorCap: Vector[Double],               // per-sector nominal production capacity
       laggedInvestDemand: PLN,                 // lagged investment demand for deposit flow calculation
@@ -50,9 +52,10 @@ object DemandEconomics:
     val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
     val rawPressure        = computeRawDemandPressure(sectorDemand, sectorCap, in.w.priceLevel)
     val sectorPressure     = stabilizeDemandPressure(rawPressure)
+    val sectorHiringSignal = smoothHiringSignal(in.w.flows.sectorHiringSignal, sectorPressure)
     val sectorMults        = applySpillover(rawPressure, sectorCap, in.w.priceLevel)
     val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCap, in)
-    Output(govPurchases, sectorMults, sectorPressure, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
+    Output(govPurchases, sectorMults, sectorPressure, sectorHiringSignal, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
 
   /** Government purchases: base spending x price level + fiscal recycling (tax
     * revenue + ZUS surplus) + automatic fiscal stimulus (unemployment gap x
@@ -164,6 +167,13 @@ object DemandEconomics:
 
   private def stabilizeDemandPressure(rawPressure: Vector[Double]): Vector[Double] =
     rawPressure.map(stabilizedPressure)
+
+  private def smoothHiringSignal(prevSignal: Vector[Double], currentSignal: Vector[Double]): Vector[Double] =
+    currentSignal.indices
+      .map: i =>
+        val prev = prevSignal.lift(i).getOrElse(1.0)
+        prev * HiringSignalSmoothing + currentSignal(i) * (1.0 - HiringSignalSmoothing)
+      .toVector
 
   private def stabilizedPressure(raw: Double): Double =
     if raw <= 1.0 then raw

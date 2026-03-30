@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -267,6 +268,7 @@ object FlowSimulation:
       labor.employed,
       labor.laborDemand,
       labor.wageGrowth,
+      labor.aggregateHiringSlack,
       labor.immigration,
       labor.netMigration,
       labor.demographics,
@@ -282,12 +284,15 @@ object FlowSimulation:
     val s4       = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
     val s5       = FirmEconomics.runStep(w, firms, households, s1, s2Pre, s3, s4, rng)
     val postLivingFirms = s5.ioFirms.filter(Firm.isAlive)
+    val postLaborDemand = postLivingFirms.map(Firm.workerCount).sum
+    val postAvailableLabor = LaborMarket.laborSupplyAtWage(s2Pre.newWage, s1.resWage, w.totalPopulation)
     val s2        = s2Pre.copy(
       employed = s5.households.count(hh => hh.status match
         case HhStatus.Employed(_, _, _) => true
         case _                          => false
       ),
-      laborDemand = postLivingFirms.map(Firm.workerCount).sum,
+      laborDemand = postLaborDemand,
+      aggregateHiringSlack = LaborEconomics.aggregateHiringSlackFactor(postLaborDemand, postAvailableLabor),
       living = postLivingFirms,
     )
     val s6       = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)

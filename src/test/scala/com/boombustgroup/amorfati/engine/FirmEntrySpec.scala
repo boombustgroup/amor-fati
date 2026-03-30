@@ -494,9 +494,16 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   it should "dampen net entry when aggregate hiring slack is tight" in {
     val firms        = mkFirms(1000)
-    val looseResult  = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate.Zero, Rate.Zero, new scala.util.Random(42))
-    val tightResult  = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 0.5, Rate.Zero, Rate.Zero, new scala.util.Random(42))
+    val looseResult  = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate.Zero, Rate.Zero, 1.0, new scala.util.Random(42))
+    val tightResult  = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 0.5, Rate.Zero, Rate.Zero, 1.0, new scala.util.Random(42))
     tightResult.netBirths.should(be < looseResult.netBirths)
+  }
+
+  it should "dampen net entry when startup absorption is weak" in {
+    val firms           = mkFirms(1000)
+    val strongAbsorb    = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate(0.03), Rate(0.025), 1.0, new scala.util.Random(42))
+    val weakAbsorb      = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate(0.03), Rate(0.025), 0.25, new scala.util.Random(42))
+    weakAbsorb.netBirths should be < strongAbsorb.netBirths
   }
 
   it should "suppress expansionary net entry under deflation and negative expectations" in {
@@ -509,9 +516,10 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       1.0,
       Rate(-0.02),
       Rate(-0.01),
+      1.0,
       new scala.util.Random(42),
     )
-    result.netBirths shouldBe 0
+    result.netBirths.shouldBe(0)
   }
 
   it should "allow expansionary net entry when labor slack is high and nominal conditions are positive" in {
@@ -524,9 +532,10 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       1.0,
       Rate(0.03),
       Rate(0.025),
+      1.0,
       new scala.util.Random(42),
     )
-    result.netBirths should be > 0
+    result.netBirths.should(be > 0)
   }
 
   it should "preserve existing firms unchanged" in {

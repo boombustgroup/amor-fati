@@ -165,8 +165,11 @@ case class FlowState(
     bfgLevyTotal: Double = 0.0,                                                              // BFG resolution levy from all banks
     sectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // per-sector demand multipliers from S4
     sectorDemandPressure: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // uncapped demand/capacity ratios for hiring
+    sectorHiringSignal: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // smoothed sector hiring signal used by firm labor planning
     fiscalRuleSeverity: Int = 0,                                                             // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
     govSpendingCutRatio: Share = Share.Zero,                                                 // fraction of raw spending cut by fiscal rules
+    aggregateHiringSlack: Double = 1.0,                                                      // economy-wide compression of firm labor targets when plans exceed supply
+    startupAbsorptionRate: Double = 1.0,                                                     // share of startup hiring targets filled across active startup firms
 )
 object FlowState:
   val zero: FlowState = FlowState()

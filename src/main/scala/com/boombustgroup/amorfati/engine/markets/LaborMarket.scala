@@ -61,6 +61,18 @@ object LaborMarket:
     val employed       = Math.min(laborDemand, newSupply)
     WageResult(newWage, employed)
 
+  /** Employment implied by an already-cleared wage. Used when another block has
+    * already updated wages and we only need the matching employment level.
+    */
+  def employmentAtWage(wage: PLN, resWage: PLN, laborDemand: Int, totalPopulation: Int)(using
+      p: SimParams,
+  ): Int =
+    val supply = laborSupplyAtWage(wage, resWage, totalPopulation)
+    Math.min(laborDemand, supply)
+
+  def laborSupplyAtWage(wage: PLN, resWage: PLN, totalPopulation: Int)(using p: SimParams): Int =
+    (totalPopulation * laborSupplyRatio(wage, resWage)).toInt
+
   // --- Separations ---
 
   /** Separate workers from firms that automated or went bankrupt this step.
@@ -225,7 +237,10 @@ object LaborMarket:
       .filter(Firm.isAlive)
       .filter(f => eligibleFirmIds.isEmpty || eligibleFirmIds.contains(f.id))
       .flatMap: f =>
-        val needed = Firm.workerCount(f) - workerCounts.getOrElse(f.id, 0)
+        val targetWorkers =
+          if Firm.isInStartup(f) then Math.max(Firm.workerCount(f), f.startupTargetWorkers)
+          else Firm.workerCount(f)
+        val needed = targetWorkers - workerCounts.getOrElse(f.id, 0)
         if needed > 0 then Some(f.id -> needed) else None
       .toMap
 

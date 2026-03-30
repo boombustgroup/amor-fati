@@ -267,6 +267,7 @@ object BankingEconomics:
       in.govPurchases,
       in.sectorMults,
       in.w.flows.sectorDemandPressure,
+      in.w.flows.sectorHiringSignal,
       in.avgDemandMult,
       in.sectorCap,
       in.laggedInvestDemand,

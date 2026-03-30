@@ -52,6 +52,7 @@ object FirmEntry:
       aggregateHiringSlack: Double,
       inflation: Double,
       expectedInflation: Double,
+      startupAbsorptionRate: Double,
   )
 
   def process(
@@ -61,7 +62,7 @@ object FirmEntry:
       unemploymentRate: Double,
       rng: Random,
   )(using p: SimParams): Result =
-    process(firms, automationRatio, hybridRatio, unemploymentRate, 1.0, Rate.Zero, Rate.Zero, rng)
+    process(firms, automationRatio, hybridRatio, unemploymentRate, 1.0, Rate.Zero, Rate.Zero, 1.0, rng)
 
   @boundaryEscape
   def process(
@@ -72,6 +73,7 @@ object FirmEntry:
       aggregateHiringSlack: Double = 1.0,
       inflation: Rate = Rate.Zero,
       expectedInflation: Rate = Rate.Zero,
+      startupAbsorptionRate: Double = 1.0,
       rng: Random,
   )(using p: SimParams): Result =
     val living        = firms.filter(Firm.isAlive)
@@ -90,6 +92,7 @@ object FirmEntry:
       aggregateHiringSlack = aggregateHiringSlack,
       inflation = ComputationBoundary.toDouble(inflation),
       expectedInflation = ComputationBoundary.toDouble(expectedInflation),
+      startupAbsorptionRate = startupAbsorptionRate,
     )
     val (finalFirms, netBirths, netIds) =
       netCreation(recycledFirms, living.length, conditions, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
@@ -161,7 +164,8 @@ object FirmEntry:
       else if c.inflation < 0.0 || c.expectedInflation < 0.0 then 0.35
       else 1.0
     val hiringSignal    = c.aggregateHiringSlack.max(0.0).min(1.0)
-    laborSlack * nominalSignal * hiringSignal
+    val absorptionSignal = c.startupAbsorptionRate.max(0.0).min(1.0)
+    laborSlack * nominalSignal * hiringSignal * absorptionSignal
 
   @boundaryEscape
   private def computeProfitSignals(living: Vector[Firm.State])(using p: SimParams): Vector[Double] =
