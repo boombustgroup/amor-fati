@@ -43,3 +43,11 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
     // Wage growth should be a finite number
     ComputationBoundary.toDouble(result.wageGrowth).isNaN shouldBe false
   }
+
+  it should "compress aggregate hiring plans when labor demand exceeds available labor" in {
+    LaborEconomics.aggregateHiringSlackFactor(laborDemand = 120000, availableLabor = 80000) should be < 1.0
+  }
+
+  it should "leave hiring plans unchanged when labor demand fits available labor" in {
+    LaborEconomics.aggregateHiringSlackFactor(laborDemand = 60000, availableLabor = 80000) shouldBe (1.0 +- 1e-9)
+  }

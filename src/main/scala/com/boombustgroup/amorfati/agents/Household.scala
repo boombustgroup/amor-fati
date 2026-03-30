@@ -211,7 +211,7 @@ object Household:
       val rent: PLN     = if p.flags.regionalLabor then baseRent * firm.region.housingCostIndex else baseRent
       val mpc           = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
       val (edu, skill)  = sampleEducationAndSkill(sectorIdx, rng)
-      val wage: PLN     = p.household.baseWage * firm.region.wageMultiplier * p.sectorDefs(sectorIdx.toInt).wageMultiplier * Share(skill)
+      val wage: PLN     = p.household.baseWage * Region.normalizedWageMultiplier(firm.region) * p.sectorDefs(sectorIdx.toInt).wageMultiplier * Share(skill)
       val eqWealth: PLN =
         if p.flags.gpwHhEquity && p.equity.hhEquityFrac.sampleBelow(rng) then savings * Share(GpwEquityInitFrac)
         else PLN.Zero

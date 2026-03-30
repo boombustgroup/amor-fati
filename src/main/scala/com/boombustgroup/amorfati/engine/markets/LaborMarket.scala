@@ -23,6 +23,9 @@ import scala.util.Random
   */
 object LaborMarket:
 
+  private val MaxMonthlyWageIncrease = 0.03
+  private val MaxMonthlyWageDecrease = -0.02
+
   /** Aggregate wage clearing result. */
   case class WageResult(wage: PLN, employed: Int)
 
@@ -47,13 +50,28 @@ object LaborMarket:
   def updateLaborMarket(prevWage: PLN, resWage: PLN, laborDemand: Int, totalPopulation: Int)(using
       p: SimParams,
   ): WageResult =
+    import ComputationBoundary.toDouble
     val supplyAtPrev   = (totalPopulation * laborSupplyRatio(prevWage, resWage)).toInt
     val excessDemand   = (laborDemand - supplyAtPrev).toDouble / totalPopulation
-    val wageGrowthMult = Multiplier.One + (Coefficient(excessDemand) * p.household.wageAdjSpeed).toMultiplier
+    val rawWageAdj     = toDouble(Coefficient(excessDemand) * p.household.wageAdjSpeed)
+    val boundedWageAdj = rawWageAdj.max(MaxMonthlyWageDecrease).min(MaxMonthlyWageIncrease)
+    val wageGrowthMult = Multiplier.One + Multiplier(boundedWageAdj)
     val newWage        = resWage.max(prevWage * wageGrowthMult)
     val newSupply      = (totalPopulation * laborSupplyRatio(newWage, resWage)).toInt
     val employed       = Math.min(laborDemand, newSupply)
     WageResult(newWage, employed)
+
+  /** Employment implied by an already-cleared wage. Used when another block has
+    * already updated wages and we only need the matching employment level.
+    */
+  def employmentAtWage(wage: PLN, resWage: PLN, laborDemand: Int, totalPopulation: Int)(using
+      p: SimParams,
+  ): Int =
+    val supply = laborSupplyAtWage(wage, resWage, totalPopulation)
+    Math.min(laborDemand, supply)
+
+  def laborSupplyAtWage(wage: PLN, resWage: PLN, totalPopulation: Int)(using p: SimParams): Int =
+    (totalPopulation * laborSupplyRatio(wage, resWage)).toInt
 
   // --- Separations ---
 
@@ -91,8 +109,9 @@ object LaborMarket:
       marketWage: PLN,
       @scala.annotation.unused rng: Random,
       regionalWages: Map[Region, PLN] = Map.empty,
+      eligibleFirmIds: Set[FirmId] = Set.empty,
   )(using p: SimParams): JobSearchResult =
-    val vacancies = computeVacancies(households, firms)
+    val vacancies = computeVacancies(households, firms, eligibleFirmIds)
     if vacancies.isEmpty then JobSearchResult(households, 0)
     else if p.flags.regionalLabor && regionalWages.nonEmpty then matchWorkersRegional(households, firms, vacancies, marketWage, regionalWages)
     else matchWorkers(households, firms, vacancies, marketWage)
@@ -206,6 +225,7 @@ object LaborMarket:
   private def computeVacancies(
       households: Vector[Household.State],
       firms: Vector[Firm.State],
+      eligibleFirmIds: Set[FirmId],
   )(using SimParams): Map[FirmId, Int] =
     val workerCounts: Map[FirmId, Int] = households
       .flatMap: hh =>
@@ -215,8 +235,12 @@ object LaborMarket:
       .groupMapReduce(identity)(_ => 1)(_ + _)
     firms
       .filter(Firm.isAlive)
+      .filter(f => eligibleFirmIds.isEmpty || eligibleFirmIds.contains(f.id))
       .flatMap: f =>
-        val needed = Firm.workerCount(f) - workerCounts.getOrElse(f.id, 0)
+        val targetWorkers =
+          if Firm.isInStartup(f) then Math.max(Firm.workerCount(f), f.startupTargetWorkers)
+          else Firm.workerCount(f)
+        val needed        = targetWorkers - workerCounts.getOrElse(f.id, 0)
         if needed > 0 then Some(f.id -> needed) else None
       .toMap
 

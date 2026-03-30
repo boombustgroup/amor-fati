@@ -15,11 +15,19 @@ import com.boombustgroup.amorfati.types.*
   */
 object LaborEconomics:
 
+  private[amorfati] def aggregateHiringSlackFactor(laborDemand: Int, availableLabor: Int)(using p: SimParams): Double =
+    if laborDemand <= 0 then 1.0
+    else
+      val buffered = availableLabor.toDouble * ComputationBoundary.toDouble(p.firm.aggregateLaborSlackBuffer)
+      val raw      = buffered / laborDemand.toDouble
+      raw.max(ComputationBoundary.toDouble(p.firm.aggregateLaborSlackFloor)).min(1.0)
+
   case class Result(
       wage: PLN,
       employed: Int,
       laborDemand: Int,
       wageGrowth: Coefficient,
+      aggregateHiringSlack: Double = 1.0,
       demographics: SocialSecurity.DemographicsState,
       immigration: Immigration.State,
       netMigration: Int,
@@ -35,6 +43,7 @@ object LaborEconomics:
       employed: Int,
       laborDemand: Int,
       wageGrowth: Coefficient,
+      aggregateHiringSlack: Double = 1.0,
       newImmig: Immigration.State,
       netMigration: Int,
       newDemographics: SocialSecurity.DemographicsState,
@@ -61,9 +70,9 @@ object LaborEconomics:
     // Regional clearing: 6 independent Phillips curves → national aggregate
     val (rawWage, rawEmployed, regWages) =
       if p.flags.regionalLabor then
-        val rc        = RegionalClearing.clear(w.regionalWages, s1.resWage, laborDemand, w.totalPopulation)
-        val natResult = LaborMarket.updateLaborMarket(rc.nationalWage, s1.resWage, laborDemand, w.totalPopulation)
-        (toDouble(rc.nationalWage), natResult.employed, rc.regionalWages)
+        val rc          = RegionalClearing.clear(w.regionalWages, s1.resWage, laborDemand, w.totalPopulation)
+        val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, s1.resWage, laborDemand, w.totalPopulation)
+        (toDouble(rc.nationalWage), natEmployed, rc.regionalWages)
       else
         val wageResult = LaborMarket.updateLaborMarket(w.hhAgg.marketWage, s1.resWage, laborDemand, w.totalPopulation)
         (toDouble(wageResult.wage), wageResult.employed, w.regionalWages)
@@ -89,6 +98,9 @@ object LaborEconomics:
       if p.flags.demographics then Math.min(rawEmployed, w.social.demographics.workingAgePop)
       else rawEmployed
 
+    val availableLabor       = LaborMarket.laborSupplyAtWage(PLN(newWage), s1.resWage, w.totalPopulation)
+    val aggregateHiringSlack = aggregateHiringSlackFactor(laborDemand, availableLabor)
+
     // Immigration
     val unempRateForImmig = 1.0 - employed.toDouble / w.totalPopulation
     val newImmig          = Immigration.step(w.external.immigration, households, PLN(newWage), unempRateForImmig)
@@ -108,6 +120,7 @@ object LaborEconomics:
       employed = employed,
       laborDemand = laborDemand,
       wageGrowth = Coefficient(wageGrowth),
+      aggregateHiringSlack = aggregateHiringSlack,
       demographics = newDemographics,
       immigration = newImmig,
       netMigration = netMigration,

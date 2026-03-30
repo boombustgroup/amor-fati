@@ -10,7 +10,7 @@ object Nbp:
   // Named constants
   // ---------------------------------------------------------------------------
 
-  private val OutputGapCap          = Coefficient(0.30) // ±cap on output gap in Taylor rule (Svensson 2003)
+  private val OutputGapCap          = Coefficient(0.05) // ±5 pp unemployment gap cap in Taylor rule
   private val DebtThreshold         = Share(0.40)       // debt-to-GDP threshold for fiscal risk premium
   private val FiscalRiskCap         = Rate(0.10)        // maximum fiscal risk premium
   private val CredPremiumCap        = Rate(0.05)        // max credibility premium (5pp, ~Turkey 2018)
@@ -71,11 +71,12 @@ object Nbp:
       employed: Int,
       totalPopulation: Int,
   )(using p: SimParams): Rate =
+    import ComputationBoundary.toDouble
     val infGap    = inflation - p.monetary.targetInfl
     val unempRate = Share.One - Share.fraction(employed, totalPopulation)
     val nairu     = p.monetary.nairu
     if p.flags.nbpSymmetric then
-      val rawOutputGap = Coefficient((unempRate - nairu) / nairu)
+      val rawOutputGap = Coefficient(toDouble(unempRate - nairu))
       val outputGap    = rawOutputGap.max(-OutputGapCap).min(OutputGapCap)
       p.monetary.neutralRate +
         infGap * p.monetary.taylorAlpha -

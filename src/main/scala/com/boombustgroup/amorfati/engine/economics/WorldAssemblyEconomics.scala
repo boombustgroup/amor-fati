@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.markets.EquityMarket
+import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
 
@@ -65,6 +65,21 @@ object WorldAssemblyEconomics:
       tourismSeasonalFactor: Double,
   )
 
+  private case class EntryStepResult(
+      firms: Vector[Firm.State],
+      firmBirths: Int,
+      netBirths: Int,
+      entrantIds: Set[FirmId],
+  )
+
+  private case class StartupStaffingResult(
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      hhAgg: Household.Aggregates,
+      crossSectorHires: Int,
+      startupAbsorptionRate: Double,
+  )
+
   // ---------------------------------------------------------------------------
   // Economics-level Input / Result (existing)
   // ---------------------------------------------------------------------------
@@ -105,7 +120,16 @@ object WorldAssemblyEconomics:
 
   def compute(in: Input)(using SimParams): Result =
     val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-    val s4 = DemandEconomics.Output(in.govPurchases, in.sectorMults, in.avgDemandMult, in.sectorCap, in.laggedInvestDemand, in.fiscalRuleStatus)
+    val s4 = DemandEconomics.Output(
+      in.govPurchases,
+      in.sectorMults,
+      in.w.flows.sectorDemandPressure,
+      in.w.flows.sectorHiringSignal,
+      in.avgDemandMult,
+      in.sectorCap,
+      in.laggedInvestDemand,
+      in.fiscalRuleStatus,
+    )
 
     val s10 = runStep(
       StepInput(
@@ -141,20 +165,53 @@ object WorldAssemblyEconomics:
     val newW      = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
     val sfcResult = validateSfc(in, newW, fofResidual)
 
-    val postFdiFirms             = applyFdiMa(in.s9.reassignedFirms, rng)
-    val (finalFirms, firmBirths) =
+    val postFdiFirms     = applyFdiMa(in.s9.reassignedFirms, rng)
+    val updatedPop       = in.w.totalPopulation + in.s5.netMigration
+    val postFirmEmployed = in.s9.reassignedHouseholds.count: hh =>
+      hh.status match
+        case HhStatus.Employed(_, _, _) => true
+        case _                          => false
+    val unemploymentRate = if updatedPop > 0 then 1.0 - postFirmEmployed.toDouble / updatedPop else 0.0
+    val entryStep        =
       if p.flags.firmEntry then
-        val r = FirmEntry.process(postFdiFirms, newW.real.automationRatio, newW.real.hybridRatio, rng)
-        (r.firms, r.births)
-      else (postFdiFirms, 0)
+        val r = FirmEntry.process(
+          postFdiFirms,
+          newW.real.automationRatio,
+          newW.real.hybridRatio,
+          unemploymentRate,
+          in.s2.aggregateHiringSlack,
+          newW.inflation,
+          newW.mechanisms.expectations.expectedInflation,
+          in.w.flows.startupAbsorptionRate,
+          rng,
+        )
+        EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
+      else EntryStepResult(postFdiFirms, 0, 0, Set.empty)
+
+    val startupStaffing = applyStartupStaffing(in, entryStep.firms, in.s9.reassignedHouseholds, rng)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
-    val postMigHh =
-      if p.flags.regionalLabor then RegionalMigration(in.s9.reassignedHouseholds, in.s2.regionalWages, migRng).households
-      else in.s9.reassignedHouseholds
+    val postMigHh  =
+      if p.flags.regionalLabor then RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
+      else startupStaffing.households
+    val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
 
     val finalW = newW
-      .updateFlows(_.copy(firmBirths = firmBirths, firmDeaths = in.s5.firmDeaths))
+      .updateFlows(
+        _.copy(
+          firmBirths = entryStep.firmBirths,
+          firmDeaths = in.s5.firmDeaths,
+          netFirmBirths = entryStep.netBirths,
+          startupAbsorptionRate = startupStaffing.startupAbsorptionRate,
+        ),
+      )
+      .updateReal: r =>
+        r.copy(
+          sectoralMobility = r.sectoralMobility.copy(
+            crossSectorHires = r.sectoralMobility.crossSectorHires + startupStaffing.crossSectorHires,
+          ),
+        )
+      .copy(hhAgg = startupStaffing.hhAgg, households = postMigHh)
       .copy(regionalWages = in.s2.regionalWages)
     StepOutput(finalW, finalFirms, postMigHh, sfcResult)
 
@@ -247,6 +304,61 @@ object WorldAssemblyEconomics:
       1.0 + toDouble(p.tourism.seasonality) * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
 
     Observables(depositFacilityUsage, etsPrice, tourismSeasonalFactor)
+
+  private def applyStartupStaffing(
+      in: StepInput,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      rng: Random,
+  )(using p: SimParams): StartupStaffingResult =
+    val startupIds = firms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.id).toSet
+    if startupIds.isEmpty then StartupStaffingResult(syncStartupStaffing(firms, households), households, in.s9.finalHhAgg, 0, 1.0)
+    else
+      val startupOpeningsBefore = firms
+        .filter(f => Firm.isAlive(f) && Firm.isInStartup(f))
+        .map(f => Math.max(0, f.startupTargetWorkers - f.startupFilledWorkers))
+        .sum
+      val startupFilledBefore   = firms
+        .filter(f => Firm.isAlive(f) && Firm.isInStartup(f))
+        .map(_.startupFilledWorkers)
+        .sum
+      val searchResult          = LaborMarket.jobSearch(households, firms, in.s2.newWage, rng, in.s2.regionalWages, startupIds)
+      val postWages             = LaborMarket.updateWages(searchResult.households, firms, in.s2.newWage)
+      val staffedFirms          = syncStartupStaffing(firms, postWages)
+      val startupFilled         = staffedFirms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.startupFilledWorkers).sum
+      val startupHires          = Math.max(0, startupFilled - startupFilledBefore)
+      val startupAbsorptionRate =
+        if startupOpeningsBefore > 0 then startupHires.toDouble / startupOpeningsBefore
+        else 1.0
+      val hhAgg                 = Household.computeAggregates(
+        postWages,
+        in.s2.newWage,
+        in.s1.resWage,
+        in.s3.importAdj,
+        in.s3.hhAgg.retrainingAttempts,
+        in.s3.hhAgg.retrainingSuccesses,
+      )
+      StartupStaffingResult(staffedFirms, postWages, hhAgg, searchResult.crossSectorHires, startupAbsorptionRate)
+
+  private def syncStartupStaffing(
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+  ): Vector[Firm.State] =
+    val staffedCounts = households
+      .flatMap: hh =>
+        hh.status match
+          case HhStatus.Employed(fid, _, _) => Some(fid)
+          case _                            => None
+      .groupMapReduce(identity)(_ => 1)(_ + _)
+    firms.map: firm =>
+      if Firm.isInStartup(firm) then
+        val filled     = staffedCounts.getOrElse(firm.id, 0).min(firm.startupTargetWorkers)
+        val syncedTech = firm.tech match
+          case TechState.Traditional(_) => TechState.Traditional(Math.max(1, filled))
+          case TechState.Hybrid(_, eff) => TechState.Hybrid(Math.max(1, filled), eff)
+          case other                    => other
+        firm.copy(startupFilledWorkers = filled, tech = syncedTech)
+      else firm
 
   /** Construct the new World state from all step outputs. */
   @boundaryEscape
@@ -350,6 +462,8 @@ object WorldAssemblyEconomics:
       bailInLoss = in.s9.bailInLoss,
       bfgLevyTotal = toDouble(in.s9.bfgLevy),
       sectorDemandMult = in.s4.sectorMults,
+      sectorDemandPressure = in.s4.sectorDemandPressure,
+      sectorHiringSignal = in.s4.sectorHiringSignal,
       fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
       govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
     )

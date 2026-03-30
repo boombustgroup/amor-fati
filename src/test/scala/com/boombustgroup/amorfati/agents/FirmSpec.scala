@@ -54,6 +54,100 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     Firm.workerCount(mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))) shouldBe 0
   }
 
+  "Firm.applyAggregateHiringSlack" should "compress worker targets when aggregate labor plans exceed supply" in {
+    Firm.applyAggregateHiringSlack(rawTarget = 24, minWorkers = 3, slackFactor = 0.5) shouldBe 12
+  }
+
+  it should "respect the workforce floor when compression is severe" in {
+    Firm.applyAggregateHiringSlack(rawTarget = 4, minWorkers = 3, slackFactor = 0.25) shouldBe 3
+  }
+
+  "Firm.hiringDiagnostics" should "delay non-micro hiring until demand persists" in {
+    val world       = mkWorld().copy(
+      flows = FlowState.zero.copy(
+        sectorDemandMult = Vector.fill(p.sectorDefs.length)(1.0),
+        sectorDemandPressure = Vector.fill(p.sectorDefs.length)(1.75),
+        sectorHiringSignal = Vector.fill(p.sectorDefs.length)(1.75),
+        aggregateHiringSlack = 1.0,
+      ),
+    )
+    val firstSignal = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3), world)
+    firstSignal.desiredWorkers should be > firstSignal.workers
+    firstSignal.feasibleWorkers shouldBe firstSignal.workers
+    firstSignal.signalMonths shouldBe 1
+    firstSignal.requiredSignalMonths shouldBe 2
+
+    val persistedSignal = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3).copy(hiringSignalMonths = 1), world)
+    persistedSignal.desiredWorkers should be > persistedSignal.workers
+    persistedSignal.feasibleWorkers should be > persistedSignal.workers
+    persistedSignal.signalMonths shouldBe 2
+  }
+
+  it should "allow micro firms to react on the first sustained positive gap" in {
+    val world = mkWorld().copy(
+      flows = FlowState.zero.copy(
+        sectorDemandMult = Vector.fill(p.sectorDefs.length)(1.0),
+        sectorDemandPressure = Vector.fill(p.sectorDefs.length)(1.75),
+        sectorHiringSignal = Vector.fill(p.sectorDefs.length)(1.75),
+        aggregateHiringSlack = 1.0,
+      ),
+    )
+    val diag  = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(4), sector = 3), world)
+    diag.desiredWorkers should be > diag.workers
+    diag.feasibleWorkers should be > diag.workers
+    diag.requiredSignalMonths shouldBe 1
+  }
+
+  it should "keep startup firms on their startup staffing target even under weak demand" in {
+    val world   = mkWorld().copy(
+      flows = FlowState.zero.copy(
+        sectorDemandMult = Vector.fill(p.sectorDefs.length)(0.8),
+        sectorDemandPressure = Vector.fill(p.sectorDefs.length)(0.8),
+        sectorHiringSignal = Vector.fill(p.sectorDefs.length)(0.8),
+        aggregateHiringSlack = 1.0,
+      ),
+    )
+    val startup = mkFirm(TechState.Traditional(1), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 3)
+    val diag    = Firm.hiringDiagnostics(startup, world)
+    diag.desiredWorkers shouldBe 3
+    diag.feasibleWorkers shouldBe 2
+    diag.signalMonths shouldBe 1
+  }
+
+  "Firm.hasWorkingCapitalGrace" should "give startups a larger temporary liquidity runway" in {
+    val startup   = mkFirm(TechState.Traditional(2), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 3)
+    val incumbent = mkFirm(TechState.Traditional(2), sector = 3)
+    val pnl       = Firm.PnL(
+      revenue = PLN(1000.0),
+      costs = PLN(900.0),
+      tax = PLN.Zero,
+      netAfterTax = PLN(100.0),
+      profitShiftCost = PLN.Zero,
+      energyCost = PLN.Zero,
+      newAccumulatedLoss = PLN.Zero,
+    )
+    val cashGap   = PLN(-15000.0)
+    Firm.hasWorkingCapitalGrace(startup, pnl, cashGap) shouldBe true
+    Firm.hasWorkingCapitalGrace(incumbent, pnl, cashGap) shouldBe false
+  }
+
+  "Firm.canFundUpsize" should "let startups hire against their startup runway" in {
+    val startup         = mkFirm(TechState.Traditional(2), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 4)
+    val incumbent       = mkFirm(TechState.Traditional(2), sector = 3)
+    val pnl             = Firm.PnL(
+      revenue = PLN(1000.0),
+      costs = PLN(1000.0),
+      tax = PLN.Zero,
+      netAfterTax = PLN.Zero,
+      profitShiftCost = PLN.Zero,
+      energyCost = PLN.Zero,
+      newAccumulatedLoss = PLN.Zero,
+    )
+    val cashAfterHiring = PLN(-12000.0)
+    Firm.canFundUpsize(startup, pnl, cashAfterHiring, addedWorkers = 1, marketWage = p.household.baseWage) shouldBe true
+    Firm.canFundUpsize(incumbent, pnl, cashAfterHiring, addedWorkers = 1, marketWage = p.household.baseWage) shouldBe false
+  }
+
   // --- Firm.capacity ---
 
   "Firm.computeCapacity" should "be positive for alive firms" in {

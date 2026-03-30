@@ -59,6 +59,22 @@ object Region:
 
   val count: Int = all.length
 
+  /** Population-weighted mean regional wage multiplier.
+    *
+    * Regional wage multipliers express relative wages around the national
+    * average, so their population-weighted mean should be normalized to 1.0
+    * whenever they are applied to aggregate wages.
+    */
+  val weightedMeanWageMultiplier: Multiplier =
+    Multiplier(all.map(r => ComputationBoundary.toDouble(r.wageMultiplier) * ComputationBoundary.toDouble(r.populationShare)).sum)
+
+  /** Regional wage multiplier normalized to preserve the national average wage.
+    */
+  @boundaryEscape
+  def normalizedWageMultiplier(region: Region): Multiplier =
+    import ComputationBoundary.toDouble
+    region.wageMultiplier * Multiplier(1.0 / toDouble(weightedMeanWageMultiplier))
+
   /** Sample a region from population share CDF (inverse transform). */
   @boundaryEscape
   def cdfSample(rng: scala.util.Random): Region =

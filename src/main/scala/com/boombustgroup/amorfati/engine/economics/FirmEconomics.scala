@@ -302,6 +302,7 @@ object FirmEconomics:
       in.employed,
       in.laborDemand,
       in.wageGrowth,
+      in.w.flows.aggregateHiringSlack,
       in.immigration,
       in.netMigration,
       in.demographics,
@@ -313,7 +314,16 @@ object FirmEconomics:
       in.living,
       in.regionalWages,
     )
-    val s4 = DemandEconomics.Output(in.govPurchases, in.sectorMults, in.avgDemandMult, in.sectorCap, in.laggedInvestDemand, in.fiscalRuleStatus)
+    val s4 = DemandEconomics.Output(
+      in.govPurchases,
+      in.sectorMults,
+      in.w.flows.sectorDemandPressure,
+      in.w.flows.sectorHiringSignal,
+      in.avgDemandMult,
+      in.sectorCap,
+      in.laggedInvestDemand,
+      in.fiscalRuleStatus,
+    )
 
     val stepIn = StepInput(in.w, in.firms, in.households, s1, s2, in.hhOutput, s4)
     runInternal(stepIn, in.rng)
@@ -364,7 +374,11 @@ object FirmEconomics:
     val canLend = (bankId: Int, amt: PLN) => Banking.canLend(bsec.banks(bankId), amt, rng, ccyb)
     val world   = in.w.copy(
       month = in.s1.m,
-      flows = in.w.flows.copy(sectorDemandMult = in.s4.sectorMults),
+      flows = in.w.flows.copy(
+        sectorDemandMult = in.s4.sectorMults,
+        sectorDemandPressure = in.s4.sectorDemandPressure,
+        aggregateHiringSlack = in.s2.aggregateHiringSlack,
+      ),
       hhAgg = in.w.hhAgg.copy(marketWage = in.s2.newWage, reservationWage = in.s1.resWage),
     )
     LendingConditions(world, rates, rates.map(toDouble(_)), canLend, nBanks)

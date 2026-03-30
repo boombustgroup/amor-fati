@@ -43,6 +43,19 @@ import com.boombustgroup.amorfati.types.*
   *   probability that an entrant in a high-DR sector is AI-native (hybrid)
   * @param entryStartupCash
   *   initial cash endowment for new entrants (PLN)
+  * @param replacementEntryRate
+  *   share of dead firm slots replaced monthly, independent of unemployment
+  *   trigger
+  * @param replacementEntryMinMonthly
+  *   minimum replacement count when at least one dead slot exists
+  * @param replacementEntryMaxMonthly
+  *   hard cap on replacement births per month
+  * @param aggregateLaborSlackBuffer
+  *   small buffer above contemporaneous labor supply before aggregate hiring
+  *   plans are compressed
+  * @param aggregateLaborSlackFloor
+  *   lower bound on aggregate hiring slack factor, preventing total freeze of
+  *   labor adjustment in overheated states
   * @param digiDrift
   *   monthly exogenous DR drift for all firms
   * @param digiInvestCost
@@ -88,6 +101,14 @@ case class FirmConfig(
     entryAiThreshold: Share = Share(0.15),
     entryAiProb: Share = Share(0.20),
     entryStartupCash: PLN = PLN(50000.0),
+    replacementEntryRate: Share = Share(0.35),
+    replacementEntryMinMonthly: Int = 1,
+    replacementEntryMaxMonthly: Int = 250,
+    aggregateLaborSlackBuffer: Share = Share(1.05),
+    aggregateLaborSlackFloor: Share = Share(0.50),
+    // Net entry (dynamic vector growth when unemployment > NAIRU)
+    netEntryRate: Share = Share(0.06),                 // monthly net births as fraction of living firms, scaled by unemployment gap
+    netEntryMaxMonthly: Int = 100,                     // hard cap on net births per month (prevents vector explosion)
     // Digitalization
     digiDrift: Share = Share(0.001),
     digiInvestCost: PLN = PLN(50000.0),

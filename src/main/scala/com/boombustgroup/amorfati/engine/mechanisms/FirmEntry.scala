@@ -2,23 +2,24 @@ package com.boombustgroup.amorfati.engine.mechanisms
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.Region
-import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.config.{FirmSizeDistribution, SimParams}
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
 
-/** Endogenous firm entry: recycles bankrupt firm slots by spawning new entrants
-  * whose sector choice is weighted by relative profitability signals across
-  * sectors. Firms in more profitable sectors attract more entrants, subject to
-  * sector-specific regulatory barriers (GUS CEIDG/KRS 2024 calibration).
+/** Endogenous firm entry: replaces a share of bankrupt firm slots and may also
+  * append net new firms when unemployment exceeds NAIRU. Sector choice is
+  * weighted by relative profitability signals across sectors. Firms in more
+  * profitable sectors attract more entrants, subject to sector-specific
+  * regulatory barriers (GUS CEIDG/KRS 2024 calibration).
   *
   * New entrants may be AI-native (hybrid technology with partial automation)
   * when the economy-wide technology adoption rate exceeds a maturity threshold,
   * reflecting the observed pattern of digitally-born startups in mature digital
   * ecosystems (OECD Digital Economy Outlook 2023).
   *
-  * Entry probability per vacant slot: entryRate × sectorBarrier × profitSignal,
-  * where profitSignal is normalized relative sector cash-to-global-average.
+  * Expansionary net entry activates only above NAIRU. Replacement entry is a
+  * separate, faster channel intended to rebuild the firm base after exit waves.
   */
 object FirmEntry:
 
@@ -26,7 +27,6 @@ object FirmEntry:
   private val ProfitClampMin      = -1.0 // floor for normalized sector profit signal
   private val ProfitClampMax      = 2.0  // ceiling for normalized sector profit signal
   private val MinSectorWeight     = 0.01 // floor so no sector has zero entry probability
-  private val MaxEntrantSize      = 10   // upper bound on initial workforce draw
   private val MaxNeighbors        = 6    // network degree for new entrants
   private val AiNativeMinDr       = 0.50 // digital readiness floor for AI-native entrants
   private val AiNativeMaxDr       = 0.90 // digital readiness ceiling for AI-native entrants
@@ -36,40 +36,136 @@ object FirmEntry:
   private val MinAiProductivity   = 0.5  // AI productivity floor for hybrid entrants
   private val AiProductivityRange = 0.3  // AI productivity range above floor
   private val HybridMinWorkers    = 1    // minimum viable hybrid workforce
+  private val StartupMonths       = 4    // short entrant startup ramp-up window
+  private val StartupMinWorkers   = 1    // minimum planned startup team
+  private val StartupMaxWorkers   = 4    // entrant startup team cap
 
   case class Result(
-      firms: Vector[Firm.State], // post-entry firm population (same length as input)
-      births: Int,               // number of new entrants spawned this step
+      firms: Vector[Firm.State], // post-entry firm population (may be longer than input if net creation occurred)
+      births: Int,               // total new entrants (recycled + net new)
+      netBirths: Int,            // net new firms appended to vector
+      entrantIds: Set[FirmId],   // firms born this step (recycled + net new)
   )
+
+  private case class EntryConditions(
+      unemploymentRate: Double,
+      aggregateHiringSlack: Double,
+      inflation: Double,
+      expectedInflation: Double,
+      startupAbsorptionRate: Double,
+  )
+
+  def process(
+      firms: Vector[Firm.State],
+      automationRatio: Share,
+      hybridRatio: Share,
+      unemploymentRate: Double,
+      rng: Random,
+  )(using p: SimParams): Result =
+    process(firms, automationRatio, hybridRatio, unemploymentRate, 1.0, Rate.Zero, Rate.Zero, 1.0, rng)
 
   @boundaryEscape
   def process(
       firms: Vector[Firm.State],
       automationRatio: Share,
       hybridRatio: Share,
+      unemploymentRate: Double,
+      aggregateHiringSlack: Double = 1.0,
+      inflation: Rate = Rate.Zero,
+      expectedInflation: Rate = Rate.Zero,
+      startupAbsorptionRate: Double = 1.0,
       rng: Random,
   )(using p: SimParams): Result =
-    import ComputationBoundary.toDouble
     val living        = firms.filter(Firm.isAlive)
     val profitSignals = computeProfitSignals(living)
     val sectorWeights = computeSectorWeights(profitSignals)
     val totalWeight   = sectorWeights.sum
 
-    val totalAdoption = automationRatio + hybridRatio
-    val livingIds     = living.map(_.id.toInt)
-    var births        = 0
+    val totalAdoption                = automationRatio + hybridRatio
+    val livingIds                    = living.map(_.id.toInt)
+    val (recycledFirms, recycledIds) =
+      recycleDeadSlots(firms, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
+    val recycledBirths               = recycledIds.size
 
-    val result = firms.map: f =>
-      if !Firm.isAlive(f) then
-        val slotSector = f.sector.toInt
-        val entryProb  = toDouble(p.firm.entryRate) * toDouble(p.firm.entrySectorBarriers(slotSector)) *
-          Math.max(0.0, 1.0 + profitSignals(slotSector) * toDouble(p.firm.entryProfitSens))
-        if rng.nextDouble() < entryProb then
-          births += 1
-          createNewFirm(f.id, totalWeight, sectorWeights, totalAdoption, livingIds, rng)
-        else f
-      else f
-    Result(result, births)
+    val conditions                      = EntryConditions(
+      unemploymentRate = unemploymentRate,
+      aggregateHiringSlack = aggregateHiringSlack,
+      inflation = ComputationBoundary.toDouble(inflation),
+      expectedInflation = ComputationBoundary.toDouble(expectedInflation),
+      startupAbsorptionRate = startupAbsorptionRate,
+    )
+    val (finalFirms, netBirths, netIds) =
+      netCreation(recycledFirms, living.length, conditions, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
+    Result(finalFirms, recycledBirths + netBirths, netBirths, recycledIds ++ netIds)
+
+  @boundaryEscape
+  private def recycleDeadSlots(
+      firms: Vector[Firm.State],
+      totalAdoption: Share,
+      livingIds: Vector[Int],
+      sectorWeights: Vector[Double],
+      totalWeight: Double,
+      rng: Random,
+  )(using p: SimParams): (Vector[Firm.State], Set[FirmId]) =
+    import ComputationBoundary.toDouble
+    val deadSlots = firms.filterNot(Firm.isAlive)
+    if deadSlots.isEmpty then return (firms, Set.empty)
+
+    val rawCount         = Math.ceil(deadSlots.length * toDouble(p.firm.replacementEntryRate)).toInt
+    val boundedCount     =
+      Math.max(
+        if deadSlots.nonEmpty then p.firm.replacementEntryMinMonthly else 0,
+        Math.min(rawCount, p.firm.replacementEntryMaxMonthly),
+      )
+    val replacementCount = Math.min(deadSlots.length, boundedCount)
+    if replacementCount <= 0 then return (firms, Set.empty)
+
+    val replacementIds = rng.shuffle(deadSlots.map(_.id).toList).take(replacementCount).toSet
+    (
+      firms.map: f =>
+        if !Firm.isAlive(f) && replacementIds.contains(f.id) then createNewFirm(f.id, totalWeight, sectorWeights, totalAdoption, livingIds, rng)
+        else f,
+      replacementIds,
+    )
+
+  /** Append net new firms when unemployment exceeds NAIRU. Birth count is
+    * proportional to the gap, capped to prevent vector explosion. New firms get
+    * sequential FirmIds starting at `firms.length` to maintain the FirmId ==
+    * vector index invariant.
+    */
+  @boundaryEscape
+  private def netCreation(
+      firms: Vector[Firm.State],
+      livingCount: Int,
+      conditions: EntryConditions,
+      totalAdoption: Share,
+      livingIds: Vector[Int],
+      sectorWeights: Vector[Double],
+      totalWeight: Double,
+      rng: Random,
+  )(using p: SimParams): (Vector[Firm.State], Int, Set[FirmId]) =
+    val signal   = expansionaryEntrySignal(conditions)
+    if signal <= 0.0 then return (firms, 0, Set.empty)
+    val rawCount = Math.ceil(signal * ComputationBoundary.toDouble(p.firm.netEntryRate) * livingCount).toInt
+    val count    = Math.max(0, Math.min(rawCount, p.firm.netEntryMaxMonthly))
+    if count <= 0 then return (firms, 0, Set.empty)
+
+    val baseId   = firms.length
+    val newFirms = (0 until count).map: i =>
+      createNewFirm(FirmId(baseId + i), totalWeight, sectorWeights, totalAdoption, livingIds, rng)
+    (firms ++ newFirms, count, newFirms.map(_.id).toSet)
+
+  private def expansionaryEntrySignal(c: EntryConditions)(using p: SimParams): Double =
+    val nairu            = ComputationBoundary.toDouble(p.monetary.nairu)
+    val laborSlack       = Math.max(0.0, c.unemploymentRate - nairu)
+    if laborSlack <= 0.0 then return 0.0
+    val nominalSignal    =
+      if c.inflation < 0.0 && c.expectedInflation < 0.0 then 0.0
+      else if c.inflation < 0.0 || c.expectedInflation < 0.0 then 0.35
+      else 1.0
+    val hiringSignal     = c.aggregateHiringSlack.max(0.0).min(1.0)
+    val absorptionSignal = c.startupAbsorptionRate.max(0.0).min(1.0)
+    laborSlack * nominalSignal * hiringSignal * absorptionSignal
 
   @boundaryEscape
   private def computeProfitSignals(living: Vector[Firm.State])(using p: SimParams): Vector[Double] =
@@ -101,11 +197,12 @@ object FirmEntry:
       rng: Random,
   )(using p: SimParams): Firm.State =
     val newSector    = pickSector(totalWeight, sectorWeights, rng)
-    val firmSize     = Math.max(1, rng.between(1, MaxEntrantSize))
+    val firmSize     = FirmSizeDistribution.draw(rng)
+    val startupTeam  = drawStartupTargetWorkers(firmSize, rng)
     val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm
     val isAiNative   = totalAdoption > p.firm.entryAiThreshold &&
       p.firm.entryAiProb.sampleBelow(rng)
-    val tech         = chooseTechnology(isAiNative, firmSize, newSector, rng)
+    val tech         = chooseTechnology(isAiNative, startupTeam, rng)
     val dr           = drawDigitalReadiness(isAiNative, newSector, rng)
     val newNeighbors = assignNeighbors(livingIds, rng)
     val newBankId    = Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, rng)
@@ -131,6 +228,9 @@ object FirmEntry:
       accumulatedLoss = PLN.Zero,
       markup = p.pricing.baseMarkup,
       region = Region.cdfSample(rng),
+      startupMonthsLeft = StartupMonths,
+      startupTargetWorkers = startupTeam,
+      startupFilledWorkers = 0,
     )
 
   /** Select technology regime: AI-native entrants start as Hybrid with partial
@@ -138,12 +238,9 @@ object FirmEntry:
     * market in subsequent steps).
     */
   @boundaryEscape
-  private def chooseTechnology(isAiNative: Boolean, firmSize: Int, sector: Int, rng: Random)(using
-      p: SimParams,
-  ): TechState =
-    import ComputationBoundary.toDouble
+  private def chooseTechnology(isAiNative: Boolean, firmSize: Int, rng: Random): TechState =
     if isAiNative then
-      val hybridWorkers = Math.max(HybridMinWorkers, (firmSize * toDouble(p.sectorDefs(sector).hybridRetainFrac)).toInt)
+      val hybridWorkers = Math.max(HybridMinWorkers, firmSize)
       TechState.Hybrid(hybridWorkers, MinAiProductivity + rng.nextDouble() * AiProductivityRange)
     else TechState.Traditional(firmSize)
 
@@ -194,3 +291,8 @@ object FirmEntry:
     cumuls.indexWhere(_ > roll) match
       case -1 => sectorWeights.length - 1
       case i  => i
+
+  private def drawStartupTargetWorkers(firmSize: Int, rng: Random): Int =
+    val lower = Math.min(firmSize, StartupMinWorkers.max(Math.min(2, firmSize)))
+    val upper = Math.min(firmSize, StartupMaxWorkers).max(lower)
+    rng.between(lower, upper + 1)

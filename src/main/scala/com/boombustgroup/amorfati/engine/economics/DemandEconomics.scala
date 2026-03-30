@@ -18,8 +18,11 @@ import com.boombustgroup.amorfati.types.*
 object DemandEconomics:
 
   // ---- Calibration constants ----
-  private val GovSpendingFloor   = 0.98 // gov spending cannot drop below 98% of previous period
-  private val RealRateElasticity = 0.02 // demand sensitivity to real interest rate gap
+  private val GovSpendingFloor       = 0.98 // gov spending cannot drop below 98% of previous period
+  private val RealRateElasticity     = 0.02 // demand sensitivity to real interest rate gap
+  private val PressureMaxBoost       = 0.75 // hiring signal can rise above 1.0, but only moderately
+  private val PressureSaturationRate = 1.25 // how quickly excess-demand pressure saturates above capacity
+  private val HiringSignalSmoothing  = 0.65 // persistence in sector hiring plans; avoids month-to-month whipsaw
 
   case class Input(
       w: World,                   // current world state
@@ -31,6 +34,8 @@ object DemandEconomics:
   case class Output(
       govPurchases: PLN,                       // total government purchases this month
       sectorMults: Vector[Double],             // per-sector demand multiplier (0 = no demand, 1 = full capacity)
+      sectorDemandPressure: Vector[Double],    // uncapped demand/capacity ratios used for hiring pressure
+      sectorHiringSignal: Vector[Double],      // smoothed sector hiring signal used by firm labor planning
       avgDemandMult: Double,                   // economy-wide average demand multiplier
       sectorCap: Vector[Double],               // per-sector nominal production capacity
       laggedInvestDemand: PLN,                 // lagged investment demand for deposit flow calculation
@@ -45,9 +50,12 @@ object DemandEconomics:
     val sectorExports      = computeSectorExports(in)
     val laggedInvestDemand = computeLaggedInvestDemand(in)
     val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
-    val sectorMults        = applySpillover(sectorDemand, sectorCap, in.w.priceLevel)
+    val rawPressure        = computeRawDemandPressure(sectorDemand, sectorCap, in.w.priceLevel)
+    val sectorPressure     = stabilizeDemandPressure(rawPressure)
+    val sectorHiringSignal = smoothHiringSignal(in.w.flows.sectorHiringSignal, sectorPressure)
+    val sectorMults        = applySpillover(rawPressure, sectorCap, in.w.priceLevel)
     val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCap, in)
-    Output(govPurchases, sectorMults, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
+    Output(govPurchases, sectorMults, sectorPressure, sectorHiringSignal, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
 
   /** Government purchases: base spending x price level + fiscal recycling (tax
     * revenue + ZUS surplus) + automatic fiscal stimulus (unemployment gap x
@@ -147,15 +155,35 @@ object DemandEconomics:
     * with slack. Sectors above capacity are capped at 1.0; their excess flows
     * proportionally into below-capacity sectors.
     */
-  private def applySpillover(
+  private def computeRawDemandPressure(
       sectorDemand: Vector[Double],
       sectorCap: Vector[Double],
       priceLevel: Double,
   ): Vector[Double] =
-    val rawMults        = sectorDemand.indices
+    sectorDemand.indices
       .map: s =>
         if sectorCap(s) > 0 then sectorDemand(s) / (sectorCap(s) * priceLevel) else 0.0
       .toVector
+
+  private def stabilizeDemandPressure(rawPressure: Vector[Double]): Vector[Double] =
+    rawPressure.map(stabilizedPressure)
+
+  private def smoothHiringSignal(prevSignal: Vector[Double], currentSignal: Vector[Double]): Vector[Double] =
+    currentSignal.indices
+      .map: i =>
+        val prev = prevSignal.lift(i).getOrElse(1.0)
+        prev * HiringSignalSmoothing + currentSignal(i) * (1.0 - HiringSignalSmoothing)
+      .toVector
+
+  private def stabilizedPressure(raw: Double): Double =
+    if raw <= 1.0 then raw
+    else 1.0 + PressureMaxBoost * (1.0 - Math.exp(-PressureSaturationRate * (raw - 1.0)))
+
+  private def applySpillover(
+      rawMults: Vector[Double],
+      sectorCap: Vector[Double],
+      priceLevel: Double,
+  ): Vector[Double] =
     val excessDemand    = rawMults.indices
       .map: s =>
         if rawMults(s) > 1.0 then (rawMults(s) - 1.0) * sectorCap(s) * priceLevel else 0.0

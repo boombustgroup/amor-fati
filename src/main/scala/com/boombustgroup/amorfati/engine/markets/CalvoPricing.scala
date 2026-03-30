@@ -33,6 +33,9 @@ import scala.util.Random
   */
 object CalvoPricing:
 
+  private val MaxDemandMarkupLift = 0.10
+  private val MaxCostMarkupLift   = 0.02
+
   /** Per-firm markup update result. */
   case class FirmMarkupResult(
       newMarkup: Multiplier,
@@ -52,9 +55,11 @@ object CalvoPricing:
       wageGrowthMonthly: Double,
   )(using p: SimParams): Multiplier =
     import ComputationBoundary.toDouble
-    val demandPressure = sectorDemandMult - 1.0
-    val costPressure   = wageGrowthMonthly * toDouble(p.pricing.costPassthrough)
-    val raw            = toDouble(p.pricing.baseMarkup) * (1.0 + demandPressure * toDouble(p.pricing.demandSensitivity) + costPressure)
+    val demandPressure = Math.max(0.0, sectorDemandMult - 1.0) * toDouble(p.pricing.demandSensitivity)
+    val costPressure   = Math.max(0.0, wageGrowthMonthly) * toDouble(p.pricing.costPassthrough)
+    val boundedDemand  = Math.min(MaxDemandMarkupLift, demandPressure)
+    val boundedCost    = Math.min(MaxCostMarkupLift, costPressure)
+    val raw            = toDouble(p.pricing.baseMarkup) * (1.0 + boundedDemand + boundedCost)
     Multiplier(raw.max(toDouble(p.pricing.minMarkup)).min(toDouble(p.pricing.maxMarkup)))
 
   /** Update a single firm's markup via Calvo lottery.

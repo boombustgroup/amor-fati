@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -259,14 +260,15 @@ object FlowSimulation:
       households: Vector[Household.State],
       rng: Random,
   )(using p: SimParams): FullComputation =
-    val fiscal   = FiscalConstraintEconomics.compute(w)
-    val s1       = FiscalConstraintEconomics.toOutput(fiscal)
-    val labor    = LaborEconomics.compute(w, firms, households, s1)
-    val s2       = LaborEconomics.Output(
+    val fiscal             = FiscalConstraintEconomics.compute(w)
+    val s1                 = FiscalConstraintEconomics.toOutput(fiscal)
+    val labor              = LaborEconomics.compute(w, firms, households, s1)
+    val s2Pre              = LaborEconomics.Output(
       labor.wage,
       labor.employed,
       labor.laborDemand,
       labor.wageGrowth,
+      labor.aggregateHiringSlack,
       labor.immigration,
       labor.netMigration,
       labor.demographics,
@@ -278,19 +280,32 @@ object FlowSimulation:
       labor.living,
       labor.regionalWages,
     )
-    val s3       = HouseholdIncomeEconomics.compute(w, firms, households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
-    val s4       = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
-    val s5       = FirmEconomics.runStep(w, firms, households, s1, s2, s3, s4, rng)
-    val s6       = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
-    val s7       = PriceEquityEconomics.compute(
+    val s3                 = HouseholdIncomeEconomics.compute(w, firms, households, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
+    val s4                 = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
+    val s5                 = FirmEconomics.runStep(w, firms, households, s1, s2Pre, s3, s4, rng)
+    val postLivingFirms    = s5.ioFirms.filter(Firm.isAlive)
+    val postLaborDemand    = postLivingFirms.map(Firm.workerCount).sum
+    val postAvailableLabor = LaborMarket.laborSupplyAtWage(s2Pre.newWage, s1.resWage, w.totalPopulation)
+    val s2                 = s2Pre.copy(
+      employed = s5.households.count(hh =>
+        hh.status match
+          case HhStatus.Employed(_, _, _) => true
+          case _                          => false,
+      ),
+      laborDemand = postLaborDemand,
+      aggregateHiringSlack = LaborEconomics.aggregateHiringSlackFactor(postLaborDemand, postAvailableLabor),
+      living = postLivingFirms,
+    )
+    val s6                 = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
+    val s7                 = PriceEquityEconomics.compute(
       PriceEquityEconomics.Input(w, s1.m, s2.newWage, s2.employed, s2.wageGrowth, s3.domesticCons, s4.avgDemandMult, s4.sectorMults, s5),
       rng,
     )
-    val openEcon = OpenEconEconomics.compute(
+    val openEcon           = OpenEconEconomics.compute(
       OpenEconEconomics.Input(
         w = w,
-        employed = labor.employed,
-        newWage = labor.wage,
+        employed = s2.employed,
+        newWage = s2.newWage,
         domesticConsumption = s3.domesticCons,
         importConsumption = s3.importCons,
         totalTechAndInvImports = s5.sumTechImp,
@@ -317,8 +332,8 @@ object FlowSimulation:
         commodityRng = rng,
       ),
     )
-    val s8       = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, rng))
-    val banking  = BankingEconomics.compute(
+    val s8                 = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, rng))
+    val banking            = BankingEconomics.compute(
       BankingEconomics.Input(
         w = w,
         month = fiscal.month,
@@ -326,10 +341,10 @@ object FlowSimulation:
         resWage = fiscal.resWage,
         baseMinWage = fiscal.baseMinWage,
         minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-        employed = labor.employed,
-        newWage = labor.wage,
-        laborDemand = labor.laborDemand,
-        wageGrowth = labor.wageGrowth,
+        employed = s2.employed,
+        newWage = s2.newWage,
+        laborDemand = s2.laborDemand,
+        wageGrowth = s2.wageGrowth,
         govPurchases = s4.govPurchases,
         sectorMults = s4.sectorMults,
         avgDemandMult = s4.avgDemandMult,
@@ -345,23 +360,23 @@ object FlowSimulation:
         depositRng = rng,
       ),
     )
-    val s9       = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, rng))
-    val agg      = s3.hhAgg
-    val eq       = w.financial.equity
-    val h        = w.real.housing
-    val calc     = MonthlyCalculus(
+    val s9                 = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, rng))
+    val agg                = s3.hhAgg
+    val eq                 = w.financial.equity
+    val h                  = w.real.housing
+    val calc               = MonthlyCalculus(
       month = fiscal.month,
       resWage = fiscal.resWage,
       lendingBaseRate = fiscal.lendingBaseRate,
       baseMinWage = fiscal.baseMinWage,
       minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-      wage = labor.wage,
-      employed = labor.employed,
-      laborDemand = labor.laborDemand,
+      wage = s2.newWage,
+      employed = s2.employed,
+      laborDemand = s2.laborDemand,
       retirees = labor.demographics.retirees,
       workingAgePop = labor.demographics.workingAgePop,
       nBankruptFirms = labor.nBankruptFirms,
-      avgFirmWorkers = labor.avgFirmWorkers,
+      avgFirmWorkers = if s2.living.nonEmpty then s2.laborDemand / s2.living.length else 0,
       totalIncome = s3.totalIncome,
       consumption = agg.consumption,
       domesticConsumption = s3.domesticCons,
