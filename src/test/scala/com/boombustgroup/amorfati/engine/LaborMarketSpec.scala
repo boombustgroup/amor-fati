@@ -106,8 +106,8 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "let startup firms keep hiring up to startupTargetWorkers during startup" in {
-    val rng   = new Random(42)
-    val firms = Vector(
+    val rng    = new Random(42)
+    val firms  = Vector(
       mkFirms(1)(0).copy(
         tech = TechState.Traditional(1),
         startupMonthsLeft = 3,
@@ -115,7 +115,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
         startupFilledWorkers = 1,
       ),
     )
-    val hhs   = Vector(
+    val hhs    = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
       mkHousehold(1, HhStatus.Unemployed(1), skill = 0.9),
       mkHousehold(2, HhStatus.Unemployed(1), skill = 0.8),

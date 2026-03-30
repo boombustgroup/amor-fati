@@ -367,28 +367,29 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   private def mkFirms(n: Int): Vector[Firm.State] =
-    (0 until n).map: i =>
-      Firm.State(
-        id = FirmId(i),
-        cash = PLN(100000.0),
-        debt = PLN.Zero,
-        tech = TechState.Traditional(5),
-        riskProfile = Share(0.5),
-        innovationCostFactor = 1.0,
-        digitalReadiness = Share(0.1),
-        sector = SectorIdx(i % 6),
-        neighbors = Vector.empty[FirmId],
-        bankId = BankId(0),
-        equityRaised = PLN.Zero,
-        initialSize = 5,
-        capitalStock = PLN.Zero,
-        bondDebt = PLN.Zero,
-        foreignOwned = false,
-        inventory = PLN.Zero,
-        greenCapital = PLN.Zero,
-        accumulatedLoss = PLN.Zero,
-      )
-    .toVector
+    (0 until n)
+      .map: i =>
+        Firm.State(
+          id = FirmId(i),
+          cash = PLN(100000.0),
+          debt = PLN.Zero,
+          tech = TechState.Traditional(5),
+          riskProfile = Share(0.5),
+          innovationCostFactor = 1.0,
+          digitalReadiness = Share(0.1),
+          sector = SectorIdx(i % 6),
+          neighbors = Vector.empty[FirmId],
+          bankId = BankId(0),
+          equityRaised = PLN.Zero,
+          initialSize = 5,
+          capitalStock = PLN.Zero,
+          bondDebt = PLN.Zero,
+          foreignOwned = false,
+          inventory = PLN.Zero,
+          greenCapital = PLN.Zero,
+          accumulatedLoss = PLN.Zero,
+        )
+      .toVector
 
   private def mkDeadFirm(id: Int, sector: Int = 2): Firm.State =
     Firm.State(
@@ -493,16 +494,16 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "dampen net entry when aggregate hiring slack is tight" in {
-    val firms        = mkFirms(1000)
-    val looseResult  = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate.Zero, Rate.Zero, 1.0, new scala.util.Random(42))
-    val tightResult  = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 0.5, Rate.Zero, Rate.Zero, 1.0, new scala.util.Random(42))
+    val firms       = mkFirms(1000)
+    val looseResult = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate.Zero, Rate.Zero, 1.0, new scala.util.Random(42))
+    val tightResult = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 0.5, Rate.Zero, Rate.Zero, 1.0, new scala.util.Random(42))
     tightResult.netBirths.should(be < looseResult.netBirths)
   }
 
   it should "dampen net entry when startup absorption is weak" in {
-    val firms           = mkFirms(1000)
-    val strongAbsorb    = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate(0.03), Rate(0.025), 1.0, new scala.util.Random(42))
-    val weakAbsorb      = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate(0.03), Rate(0.025), 0.25, new scala.util.Random(42))
+    val firms        = mkFirms(1000)
+    val strongAbsorb = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate(0.03), Rate(0.025), 1.0, new scala.util.Random(42))
+    val weakAbsorb   = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate(0.03), Rate(0.025), 0.25, new scala.util.Random(42))
     weakAbsorb.netBirths should be < strongAbsorb.netBirths
   }
 

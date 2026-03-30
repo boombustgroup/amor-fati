@@ -240,7 +240,7 @@ object LaborMarket:
         val targetWorkers =
           if Firm.isInStartup(f) then Math.max(Firm.workerCount(f), f.startupTargetWorkers)
           else Firm.workerCount(f)
-        val needed = targetWorkers - workerCounts.getOrElse(f.id, 0)
+        val needed        = targetWorkers - workerCounts.getOrElse(f.id, 0)
         if needed > 0 then Some(f.id -> needed) else None
       .toMap
 

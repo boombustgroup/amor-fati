@@ -104,21 +104,21 @@ object Firm:
   private val GoodHybridDrBlend  = 0.5  // DR contribution weight in good hybrid efficiency
 
   // Labor adjustment: firm converges toward MR=MC optimal headcount
-  private val LaborAdjustFrac = 0.10 // fraction of gap closed per month (smooth, no overshoot)
-  private val WorkingCapitalGraceMonths = 1.5 // tolerate short-lived cash gaps for otherwise profitable firms
-  private val HiringWorkingCapitalMonths = 1.0 // allow modest short-term hiring financed by one wage-month buffer
-  private val StartupHiringWorkingCapitalMonths = 2.0 // startups get a slightly longer hiring runway while staffing up
-  private val StartupRunwayCashShare = 0.35 // entrants may burn part of startup cash during the startup window
-  private val StartupDownsizeSpeedMultiplier = 0.5 // startups should cut headcount more cautiously than incumbents
-  private val StartupRunwayMonths = 4 // should match entrant startup ramp-up window
-  private val StartupCostFloor = 0.50 // entrants ramp operating overhead in gradually
-  private val MicroFirmHiringThreshold = 1 // micro firms should react to a +1 worker gap
-  private val HiringSignalPersistenceMonths = 2 // non-micro firms require sustained demand before hiring
-  private val SmallFirmDesiredAddCap = 1 // firms up to 10 workers plan at most +1 worker per month
-  private val MidFirmDesiredAddCap = 2 // firms up to 25 workers plan at most +2 workers per month
-  private val LargeFirmDesiredGrowthShare = 0.05 // larger firms expand plans gradually rather than jumping to MR=MC headcount
-  private val HiringPressureBlend = 0.35 // uncapped sector pressure is informative but should not dominate planning
-  private val NegativeCashHiringPenalty = 0.5 // cash-negative but profitable firms scale back desired hiring materially
+  private val LaborAdjustFrac                   = 0.10 // fraction of gap closed per month (smooth, no overshoot)
+  private val WorkingCapitalGraceMonths         = 1.5  // tolerate short-lived cash gaps for otherwise profitable firms
+  private val HiringWorkingCapitalMonths        = 1.0  // allow modest short-term hiring financed by one wage-month buffer
+  private val StartupHiringWorkingCapitalMonths = 2.0  // startups get a slightly longer hiring runway while staffing up
+  private val StartupRunwayCashShare            = 0.35 // entrants may burn part of startup cash during the startup window
+  private val StartupDownsizeSpeedMultiplier    = 0.5  // startups should cut headcount more cautiously than incumbents
+  private val StartupRunwayMonths               = 4    // should match entrant startup ramp-up window
+  private val StartupCostFloor                  = 0.50 // entrants ramp operating overhead in gradually
+  private val MicroFirmHiringThreshold          = 1    // micro firms should react to a +1 worker gap
+  private val HiringSignalPersistenceMonths     = 2    // non-micro firms require sustained demand before hiring
+  private val SmallFirmDesiredAddCap            = 1    // firms up to 10 workers plan at most +1 worker per month
+  private val MidFirmDesiredAddCap              = 2    // firms up to 25 workers plan at most +2 workers per month
+  private val LargeFirmDesiredGrowthShare       = 0.05 // larger firms expand plans gradually rather than jumping to MR=MC headcount
+  private val HiringPressureBlend               = 0.35 // uncapped sector pressure is informative but should not dominate planning
+  private val NegativeCashHiringPenalty         = 0.5  // cash-negative but profitable firms scale back desired hiring materially
 
   // Capacity blend: hybrid production = labor share + AI share
   private val HybridLaborCapShare = 0.4
@@ -305,11 +305,11 @@ object Firm:
     import ComputationBoundary.toDouble
     val sectorDemand = w.flows.sectorDemandMult(f.sector.toInt)
     val hiringSignal = w.flows.sectorHiringSignal(f.sector.toInt)
-    val demandMult = sectorDemand + (hiringSignal - sectorDemand).max(0.0) * HiringPressureBlend
-    val price      = w.priceLevel
-    val wage       = toDouble(w.hhAgg.marketWage) * toDouble(effectiveWageMult(f.sector))
-    val minW       = p.firm.minWorkersRetained
-    val maxW       = f.initialSize * 3
+    val demandMult   = sectorDemand + (hiringSignal - sectorDemand).max(0.0) * HiringPressureBlend
+    val price        = w.priceLevel
+    val wage         = toDouble(w.hhAgg.marketWage) * toDouble(effectiveWageMult(f.sector))
+    val minW         = p.firm.minWorkersRetained
+    val maxW         = f.initialSize * 3
 
     // Binary search: find largest w where marginal revenue > marginal cost
     var lo = minW; var hi = maxW
@@ -342,13 +342,13 @@ object Firm:
   )(using p: SimParams): Int =
     if desired <= workers then desired
     else
-      val signalMonths = nextHiringSignalMonths(firm, desired, workers)
+      val signalMonths  = nextHiringSignalMonths(firm, desired, workers)
       val persistenceOk = signalMonths >= requiredHiringSignalMonths(workers) || isInStartup(firm)
       if !persistenceOk then workers
       else
-        val headroom = monthlyHiringHeadroom(workers)
+        val headroom                = monthlyHiringHeadroom(workers)
         val structurallyConstrained = Math.min(desired, workers + headroom)
-        val liquidityConstrained =
+        val liquidityConstrained    =
           if firm.stateOwned || cashAfterDecision >= PLN.Zero then structurallyConstrained
           else if isInStartup(firm) && cashAfterDecision.abs <= startupRunwayLimit(firm) then structurallyConstrained
           else if pnl.netAfterTax > PLN.Zero then workers + Math.max(1, Math.floor(headroom * NegativeCashHiringPenalty).toInt)
@@ -359,16 +359,16 @@ object Firm:
     Math.max(minWorkers, Math.ceil(rawTarget * slackFactor.max(0.0).min(1.0)).toInt)
 
   private[amorfati] def hiringDiagnostics(firm: State, w: World)(using p: SimParams): HiringDiagnostics =
-    val workers        = workerCount(firm)
-    val desiredW       = desiredWorkers(firm, w)
-    val nc             = firm.cash
-    val feasibleW      = feasibleWorkers(firm, workers, desiredW, PnL.zero, nc)
-    val desiredGap     = desiredW - workers
-    val feasibleGap    = feasibleW - workers
-    val hiringThresh   = if workers <= 5 then MicroFirmHiringThreshold else Math.max(2, (workers * 0.10).toInt)
-    val firingThresh   = Math.max(2, (workers * 0.10).toInt)
-    val shouldAdjust   = if feasibleGap > 0 then feasibleGap >= hiringThresh else -feasibleGap >= firingThresh
-    val proposedAdjust =
+    val workers         = workerCount(firm)
+    val desiredW        = desiredWorkers(firm, w)
+    val nc              = firm.cash
+    val feasibleW       = feasibleWorkers(firm, workers, desiredW, PnL.zero, nc)
+    val desiredGap      = desiredW - workers
+    val feasibleGap     = feasibleW - workers
+    val hiringThresh    = if workers <= 5 then MicroFirmHiringThreshold else Math.max(2, (workers * 0.10).toInt)
+    val firingThresh    = Math.max(2, (workers * 0.10).toInt)
+    val shouldAdjust    = if feasibleGap > 0 then feasibleGap >= hiringThresh else -feasibleGap >= firingThresh
+    val proposedAdjust  =
       if shouldAdjust then Math.max(1, (Math.abs(feasibleGap) * LaborAdjustFrac).toInt) * (if feasibleGap > 0 then 1 else -1)
       else 0
     val proposedWorkers = (workers + proposedAdjust).max(p.firm.minWorkersRetained)
@@ -613,8 +613,7 @@ object Firm:
     )
     val ready2 = (firm.digitalReadiness + Share(HybridMonthlyDrDrift)).min(Share.One)
 
-    if isInStartup(firm) then
-      return startupFallbackDecision(firm, pnl, workers, w => TechState.Hybrid(w, aiEff), w.hhAgg.marketWage)
+    if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, w => TechState.Hybrid(w, aiEff), w.hhAgg.marketWage)
 
     val upCapex    = computeAiCapex(firm) * Share(HybridToFullCapexMul)
     val upLoan     = upCapex * Share(FullAiLoanShare)
@@ -835,8 +834,7 @@ object Firm:
   )(using p: SimParams): Decision =
     val nc            = firm.cash + pnl.netAfterTax
     val targetWorkers = Math.max(currentWorkers, firm.startupTargetWorkers)
-    if currentWorkers < targetWorkers && canFundUpsize(firm, pnl, nc, 1, wage) then
-      Decision.Upsize(pnl, currentWorkers + 1, nc, nextTech(currentWorkers + 1))
+    if currentWorkers < targetWorkers && canFundUpsize(firm, pnl, nc, 1, wage) then Decision.Upsize(pnl, currentWorkers + 1, nc, nextTech(currentWorkers + 1))
     else if nc < PLN.Zero then
       if hasWorkingCapitalGrace(firm, pnl, nc) then Decision.Survive(pnl, nc)
       else attemptDownsize(firm, pnl, nc, currentWorkers, nextTech, wage, BankruptReason.LaborCostInsolvency)
@@ -853,7 +851,7 @@ object Firm:
       firm.stateOwned ||
       (isInStartup(firm) &&
         cashAfterDecision.abs <= startupRunwayLimit(firm) +
-          addedWorkers * (marketWage * effectiveWageMult(firm.sector)) * Multiplier(StartupHiringWorkingCapitalMonths)) ||
+        addedWorkers * (marketWage * effectiveWageMult(firm.sector)) * Multiplier(StartupHiringWorkingCapitalMonths)) ||
       (pnl.netAfterTax >= PLN.Zero &&
         cashAfterDecision.abs <= addedWorkers * (marketWage * effectiveWageMult(firm.sector)) * Multiplier(HiringWorkingCapitalMonths))
 
@@ -879,8 +877,7 @@ object Firm:
       lendRate,
       w.month,
     )
-    if isInStartup(firm) then
-      return startupFallbackDecision(firm, pnl, workers, TechState.Traditional(_), w.hhAgg.marketWage)
+    if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, TechState.Traditional(_), w.hhAgg.marketWage)
     val ai            = evaluateFullAi(firm, pnl, w, lendRate, bankCanLend)
     val (hyb, hWkrs)  = evaluateHybrid(firm, pnl, workers, w, lendRate, bankCanLend)
     val (pFull, pHyb) = adoptionProbabilities(firm, pnl, ai, hyb, w, allFirms)
@@ -1041,7 +1038,7 @@ object Firm:
     val raw: PLN   = p.firm.otherCosts * Multiplier(toDouble(domesticPrice) * sizeFactor)
     val afterCap   = if p.flags.physCap then raw * (Share.One - p.capital.costReplace) else raw
     val afterEnerg = if p.flags.energy then afterCap * (Share.One - p.climate.energyCostReplace) else afterCap
-    val adjusted = if p.flags.inventory then afterEnerg * (Share.One - p.capital.inventoryCostReplace) else afterEnerg
+    val adjusted   = if p.flags.inventory then afterEnerg * (Share.One - p.capital.inventoryCostReplace) else afterEnerg
     adjusted * startupCostMultiplier(firm)
 
   /** AI/hybrid maintenance opex — domestic + imported split, sublinear in firm

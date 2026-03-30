@@ -7,11 +7,11 @@ import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
 
-  /** Endogenous firm entry: replaces a share of bankrupt firm slots and may also
-    * append net new firms when unemployment exceeds NAIRU. Sector choice is
-    * weighted by relative profitability signals across sectors. Firms in more
-    * profitable sectors attract more entrants, subject to sector-specific
-    * regulatory barriers (GUS CEIDG/KRS 2024 calibration).
+/** Endogenous firm entry: replaces a share of bankrupt firm slots and may also
+  * append net new firms when unemployment exceeds NAIRU. Sector choice is
+  * weighted by relative profitability signals across sectors. Firms in more
+  * profitable sectors attract more entrants, subject to sector-specific
+  * regulatory barriers (GUS CEIDG/KRS 2024 calibration).
   *
   * New entrants may be AI-native (hybrid technology with partial automation)
   * when the economy-wide technology adoption rate exceeds a maturity threshold,
@@ -20,7 +20,7 @@ import scala.util.Random
   *
   * Expansionary net entry activates only above NAIRU. Replacement entry is a
   * separate, faster channel intended to rebuild the firm base after exit waves.
-    */
+  */
 object FirmEntry:
 
   // ---- Calibration constants ----
@@ -81,13 +81,13 @@ object FirmEntry:
     val sectorWeights = computeSectorWeights(profitSignals)
     val totalWeight   = sectorWeights.sum
 
-    val totalAdoption              = automationRatio + hybridRatio
-    val livingIds                  = living.map(_.id.toInt)
+    val totalAdoption                = automationRatio + hybridRatio
+    val livingIds                    = living.map(_.id.toInt)
     val (recycledFirms, recycledIds) =
       recycleDeadSlots(firms, totalAdoption, livingIds, sectorWeights, totalWeight, rng)
-    val recycledBirths             = recycledIds.size
+    val recycledBirths               = recycledIds.size
 
-    val conditions = EntryConditions(
+    val conditions                      = EntryConditions(
       unemploymentRate = unemploymentRate,
       aggregateHiringSlack = aggregateHiringSlack,
       inflation = ComputationBoundary.toDouble(inflation),
@@ -111,8 +111,8 @@ object FirmEntry:
     val deadSlots = firms.filterNot(Firm.isAlive)
     if deadSlots.isEmpty then return (firms, Set.empty)
 
-    val rawCount = Math.ceil(deadSlots.length * toDouble(p.firm.replacementEntryRate)).toInt
-    val boundedCount =
+    val rawCount         = Math.ceil(deadSlots.length * toDouble(p.firm.replacementEntryRate)).toInt
+    val boundedCount     =
       Math.max(
         if deadSlots.nonEmpty then p.firm.replacementEntryMinMonthly else 0,
         Math.min(rawCount, p.firm.replacementEntryMaxMonthly),
@@ -156,14 +156,14 @@ object FirmEntry:
     (firms ++ newFirms, count, newFirms.map(_.id).toSet)
 
   private def expansionaryEntrySignal(c: EntryConditions)(using p: SimParams): Double =
-    val nairu           = ComputationBoundary.toDouble(p.monetary.nairu)
-    val laborSlack      = Math.max(0.0, c.unemploymentRate - nairu)
+    val nairu            = ComputationBoundary.toDouble(p.monetary.nairu)
+    val laborSlack       = Math.max(0.0, c.unemploymentRate - nairu)
     if laborSlack <= 0.0 then return 0.0
-    val nominalSignal   =
+    val nominalSignal    =
       if c.inflation < 0.0 && c.expectedInflation < 0.0 then 0.0
       else if c.inflation < 0.0 || c.expectedInflation < 0.0 then 0.35
       else 1.0
-    val hiringSignal    = c.aggregateHiringSlack.max(0.0).min(1.0)
+    val hiringSignal     = c.aggregateHiringSlack.max(0.0).min(1.0)
     val absorptionSignal = c.startupAbsorptionRate.max(0.0).min(1.0)
     laborSlack * nominalSignal * hiringSignal * absorptionSignal
 

@@ -165,14 +165,14 @@ object WorldAssemblyEconomics:
     val newW      = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
     val sfcResult = validateSfc(in, newW, fofResidual)
 
-    val postFdiFirms    = applyFdiMa(in.s9.reassignedFirms, rng)
-    val updatedPop      = in.w.totalPopulation + in.s5.netMigration
+    val postFdiFirms     = applyFdiMa(in.s9.reassignedFirms, rng)
+    val updatedPop       = in.w.totalPopulation + in.s5.netMigration
     val postFirmEmployed = in.s9.reassignedHouseholds.count: hh =>
       hh.status match
         case HhStatus.Employed(_, _, _) => true
         case _                          => false
     val unemploymentRate = if updatedPop > 0 then 1.0 - postFirmEmployed.toDouble / updatedPop else 0.0
-    val entryStep =
+    val entryStep        =
       if p.flags.firmEntry then
         val r = FirmEntry.process(
           postFdiFirms,
@@ -191,7 +191,7 @@ object WorldAssemblyEconomics:
     val startupStaffing = applyStartupStaffing(in, entryStep.firms, in.s9.reassignedHouseholds, rng)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
-    val postMigHh =
+    val postMigHh  =
       if p.flags.regionalLabor then RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
       else startupStaffing.households
     val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
@@ -312,8 +312,7 @@ object WorldAssemblyEconomics:
       rng: Random,
   )(using p: SimParams): StartupStaffingResult =
     val startupIds = firms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.id).toSet
-    if startupIds.isEmpty then
-      StartupStaffingResult(syncStartupStaffing(firms, households), households, in.s9.finalHhAgg, 0, 1.0)
+    if startupIds.isEmpty then StartupStaffingResult(syncStartupStaffing(firms, households), households, in.s9.finalHhAgg, 0, 1.0)
     else
       val startupOpeningsBefore = firms
         .filter(f => Firm.isAlive(f) && Firm.isInStartup(f))
@@ -323,15 +322,15 @@ object WorldAssemblyEconomics:
         .filter(f => Firm.isAlive(f) && Firm.isInStartup(f))
         .map(_.startupFilledWorkers)
         .sum
-      val searchResult = LaborMarket.jobSearch(households, firms, in.s2.newWage, rng, in.s2.regionalWages, startupIds)
-      val postWages    = LaborMarket.updateWages(searchResult.households, firms, in.s2.newWage)
-      val staffedFirms = syncStartupStaffing(firms, postWages)
-      val startupFilled  = staffedFirms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.startupFilledWorkers).sum
-      val startupHires   = Math.max(0, startupFilled - startupFilledBefore)
+      val searchResult          = LaborMarket.jobSearch(households, firms, in.s2.newWage, rng, in.s2.regionalWages, startupIds)
+      val postWages             = LaborMarket.updateWages(searchResult.households, firms, in.s2.newWage)
+      val staffedFirms          = syncStartupStaffing(firms, postWages)
+      val startupFilled         = staffedFirms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.startupFilledWorkers).sum
+      val startupHires          = Math.max(0, startupFilled - startupFilledBefore)
       val startupAbsorptionRate =
         if startupOpeningsBefore > 0 then startupHires.toDouble / startupOpeningsBefore
         else 1.0
-      val hhAgg        = Household.computeAggregates(
+      val hhAgg                 = Household.computeAggregates(
         postWages,
         in.s2.newWage,
         in.s1.resWage,
@@ -353,7 +352,7 @@ object WorldAssemblyEconomics:
       .groupMapReduce(identity)(_ => 1)(_ + _)
     firms.map: firm =>
       if Firm.isInStartup(firm) then
-        val filled = staffedCounts.getOrElse(firm.id, 0).min(firm.startupTargetWorkers)
+        val filled     = staffedCounts.getOrElse(firm.id, 0).min(firm.startupTargetWorkers)
         val syncedTech = firm.tech match
           case TechState.Traditional(_) => TechState.Traditional(Math.max(1, filled))
           case TechState.Hybrid(_, eff) => TechState.Hybrid(Math.max(1, filled), eff)

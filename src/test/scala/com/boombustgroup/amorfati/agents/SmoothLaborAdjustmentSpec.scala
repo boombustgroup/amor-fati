@@ -129,7 +129,7 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
     (resultLow, resultHigh) match
       case (Firm.Decision.Downsize(_, w1, _, _, _), Firm.Decision.Downsize(_, w2, _, _, _)) =>
         w2 should be >= w1
-      case _ => succeed // one might bankrupt, that's fine
+      case _                                                                                => succeed // one might bankrupt, that's fine
   }
 
   it should "not force immediate labor-cost bankruptcy for state-owned firms" in {

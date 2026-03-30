@@ -63,7 +63,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   "Firm.hiringDiagnostics" should "delay non-micro hiring until demand persists" in {
-    val world = mkWorld().copy(
+    val world       = mkWorld().copy(
       flows = FlowState.zero.copy(
         sectorDemandMult = Vector.fill(p.sectorDefs.length)(1.0),
         sectorDemandPressure = Vector.fill(p.sectorDefs.length)(1.75),
@@ -92,14 +92,14 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         aggregateHiringSlack = 1.0,
       ),
     )
-    val diag = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(4), sector = 3), world)
+    val diag  = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(4), sector = 3), world)
     diag.desiredWorkers should be > diag.workers
     diag.feasibleWorkers should be > diag.workers
     diag.requiredSignalMonths shouldBe 1
   }
 
   it should "keep startup firms on their startup staffing target even under weak demand" in {
-    val world = mkWorld().copy(
+    val world   = mkWorld().copy(
       flows = FlowState.zero.copy(
         sectorDemandMult = Vector.fill(p.sectorDefs.length)(0.8),
         sectorDemandPressure = Vector.fill(p.sectorDefs.length)(0.8),
@@ -108,16 +108,16 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       ),
     )
     val startup = mkFirm(TechState.Traditional(1), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 3)
-    val diag = Firm.hiringDiagnostics(startup, world)
+    val diag    = Firm.hiringDiagnostics(startup, world)
     diag.desiredWorkers shouldBe 3
     diag.feasibleWorkers shouldBe 2
     diag.signalMonths shouldBe 1
   }
 
   "Firm.hasWorkingCapitalGrace" should "give startups a larger temporary liquidity runway" in {
-    val startup = mkFirm(TechState.Traditional(2), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 3)
+    val startup   = mkFirm(TechState.Traditional(2), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 3)
     val incumbent = mkFirm(TechState.Traditional(2), sector = 3)
-    val pnl = Firm.PnL(
+    val pnl       = Firm.PnL(
       revenue = PLN(1000.0),
       costs = PLN(900.0),
       tax = PLN.Zero,
@@ -126,15 +126,15 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       energyCost = PLN.Zero,
       newAccumulatedLoss = PLN.Zero,
     )
-    val cashGap = PLN(-15000.0)
+    val cashGap   = PLN(-15000.0)
     Firm.hasWorkingCapitalGrace(startup, pnl, cashGap) shouldBe true
     Firm.hasWorkingCapitalGrace(incumbent, pnl, cashGap) shouldBe false
   }
 
   "Firm.canFundUpsize" should "let startups hire against their startup runway" in {
-    val startup = mkFirm(TechState.Traditional(2), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 4)
-    val incumbent = mkFirm(TechState.Traditional(2), sector = 3)
-    val pnl = Firm.PnL(
+    val startup         = mkFirm(TechState.Traditional(2), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 4)
+    val incumbent       = mkFirm(TechState.Traditional(2), sector = 3)
+    val pnl             = Firm.PnL(
       revenue = PLN(1000.0),
       costs = PLN(1000.0),
       tax = PLN.Zero,

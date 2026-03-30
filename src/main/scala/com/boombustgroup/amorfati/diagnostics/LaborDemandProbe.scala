@@ -45,22 +45,23 @@ object LaborDemandProbe:
   )
 
   private def sectorSnapshots(firms: Vector[Firm.State])(using p: SimParams): Vector[SectorSnapshot] =
-    (0 until p.sectorDefs.length).map: s =>
-      val sectorFirms = firms.filter(f => Firm.isAlive(f) && f.sector.toInt == s)
-      val startups    = sectorFirms.filter(Firm.isInStartup)
-      SectorSnapshot(
-        workers = sectorFirms.map(Firm.workerCount).sum,
-        firms = sectorFirms.length,
-        startups = startups.length,
-        startupWorkers = startups.map(Firm.workerCount).sum,
-      )
-    .toVector
+    (0 until p.sectorDefs.length)
+      .map: s =>
+        val sectorFirms = firms.filter(f => Firm.isAlive(f) && f.sector.toInt == s)
+        val startups    = sectorFirms.filter(Firm.isInStartup)
+        SectorSnapshot(
+          workers = sectorFirms.map(Firm.workerCount).sum,
+          firms = sectorFirms.length,
+          startups = startups.length,
+          startupWorkers = startups.map(Firm.workerCount).sum,
+        )
+      .toVector
 
   private def printSectorTable(label: String, prev: Vector[SectorSnapshot], next: Vector[SectorSnapshot])(using p: SimParams): Unit =
     println(label)
     p.sectorDefs.zipWithIndex.foreach { case (sec, i) =>
-      val a = prev(i)
-      val b = next(i)
+      val a  = prev(i)
+      val b  = next(i)
       val dw = b.workers - a.workers
       val df = b.firms - a.firms
       val ds = b.startups - a.startups
@@ -71,24 +72,27 @@ object LaborDemandProbe:
 
   private def sectorChangeSummaries(prev: Vector[Firm.State], next: Vector[Firm.State])(using p: SimParams): Vector[SectorChangeSummary] =
     val prevById = prev.map(f => f.id -> f).toMap
-    (0 until p.sectorDefs.length).map: s =>
-      val deltas = next
-        .filter(f => Firm.isAlive(f) && f.sector.toInt == s)
-        .flatMap: f =>
-          prevById.get(f.id).map: pf =>
-            Firm.workerCount(f) - Firm.workerCount(pf)
-        .filter(_ > 0)
-        .sorted
-      val median =
-        if deltas.isEmpty then 0
-        else deltas(deltas.length / 2)
-      SectorChangeSummary(
-        upsizeFirms = deltas.length,
-        totalWorkersAdded = deltas.sum,
-        medianAddedWorkers = median,
-        maxAddedWorkers = deltas.lastOption.getOrElse(0),
-      )
-    .toVector
+    (0 until p.sectorDefs.length)
+      .map: s =>
+        val deltas = next
+          .filter(f => Firm.isAlive(f) && f.sector.toInt == s)
+          .flatMap: f =>
+            prevById
+              .get(f.id)
+              .map: pf =>
+                Firm.workerCount(f) - Firm.workerCount(pf)
+          .filter(_ > 0)
+          .sorted
+        val median =
+          if deltas.isEmpty then 0
+          else deltas(deltas.length / 2)
+        SectorChangeSummary(
+          upsizeFirms = deltas.length,
+          totalWorkersAdded = deltas.sum,
+          medianAddedWorkers = median,
+          maxAddedWorkers = deltas.lastOption.getOrElse(0),
+        )
+      .toVector
 
   private def printChangeSummaries(label: String, summaries: Vector[SectorChangeSummary])(using p: SimParams): Unit =
     println(label)
@@ -100,38 +104,39 @@ object LaborDemandProbe:
     }
 
   private def hiringSummaries(world: com.boombustgroup.amorfati.engine.World, firms: Vector[Firm.State])(using p: SimParams): Vector[HiringSummary] =
-    (0 until p.sectorDefs.length).map: s =>
-      val ds = firms
-        .filter(f => Firm.isAlive(f) && f.sector.toInt == s)
-        .map(Firm.hiringDiagnostics(_, world))
-      val positiveDesired = ds.filter(_.desiredGap > 0)
-      val desiredGaps = positiveDesired.map(_.desiredGap).sorted
-      val feasibleGaps = positiveDesired.map(_.feasibleGap).sorted
-      val desiredTargets = positiveDesired.map(_.desiredWorkers).sorted
-      val feasibleTargets = positiveDesired.map(_.feasibleWorkers).sorted
-      val candidateAdds = positiveDesired.map(d => d.proposedWorkers - d.workers).sorted
-      val signalMonths = positiveDesired.map(_.signalMonths).sorted
-      def median(xs: Vector[Int]): Int = if xs.isEmpty then 0 else xs(xs.length / 2)
-      HiringSummary(
-        firms = ds.length,
-        upsizeCandidates = ds.count(_.shouldAdjust),
-        totalDesiredGap = desiredGaps.sum,
-        medianDesiredGap = median(desiredGaps),
-        maxDesiredGap = desiredGaps.lastOption.getOrElse(0),
-        totalFeasibleGap = feasibleGaps.sum,
-        medianFeasibleGap = median(feasibleGaps),
-        maxFeasibleGap = feasibleGaps.lastOption.getOrElse(0),
-        medianDesiredTarget = median(desiredTargets),
-        maxDesiredTarget = desiredTargets.lastOption.getOrElse(0),
-        medianFeasibleTarget = median(feasibleTargets),
-        maxFeasibleTarget = feasibleTargets.lastOption.getOrElse(0),
-        medianProposedAdd = median(candidateAdds),
-        maxProposedAdd = candidateAdds.lastOption.getOrElse(0),
-        medianSignalMonths = median(signalMonths),
-        maxSignalMonths = signalMonths.lastOption.getOrElse(0),
-        requiredSignalMonths = positiveDesired.headOption.map(_.requiredSignalMonths).getOrElse(0),
-      )
-    .toVector
+    (0 until p.sectorDefs.length)
+      .map: s =>
+        val ds                           = firms
+          .filter(f => Firm.isAlive(f) && f.sector.toInt == s)
+          .map(Firm.hiringDiagnostics(_, world))
+        val positiveDesired              = ds.filter(_.desiredGap > 0)
+        val desiredGaps                  = positiveDesired.map(_.desiredGap).sorted
+        val feasibleGaps                 = positiveDesired.map(_.feasibleGap).sorted
+        val desiredTargets               = positiveDesired.map(_.desiredWorkers).sorted
+        val feasibleTargets              = positiveDesired.map(_.feasibleWorkers).sorted
+        val candidateAdds                = positiveDesired.map(d => d.proposedWorkers - d.workers).sorted
+        val signalMonths                 = positiveDesired.map(_.signalMonths).sorted
+        def median(xs: Vector[Int]): Int = if xs.isEmpty then 0 else xs(xs.length / 2)
+        HiringSummary(
+          firms = ds.length,
+          upsizeCandidates = ds.count(_.shouldAdjust),
+          totalDesiredGap = desiredGaps.sum,
+          medianDesiredGap = median(desiredGaps),
+          maxDesiredGap = desiredGaps.lastOption.getOrElse(0),
+          totalFeasibleGap = feasibleGaps.sum,
+          medianFeasibleGap = median(feasibleGaps),
+          maxFeasibleGap = feasibleGaps.lastOption.getOrElse(0),
+          medianDesiredTarget = median(desiredTargets),
+          maxDesiredTarget = desiredTargets.lastOption.getOrElse(0),
+          medianFeasibleTarget = median(feasibleTargets),
+          maxFeasibleTarget = feasibleTargets.lastOption.getOrElse(0),
+          medianProposedAdd = median(candidateAdds),
+          maxProposedAdd = candidateAdds.lastOption.getOrElse(0),
+          medianSignalMonths = median(signalMonths),
+          maxSignalMonths = signalMonths.lastOption.getOrElse(0),
+          requiredSignalMonths = positiveDesired.headOption.map(_.requiredSignalMonths).getOrElse(0),
+        )
+      .toVector
 
   private def printHiringSummaries(label: String, summaries: Vector[HiringSummary])(using p: SimParams): Unit =
     println(label)
@@ -190,7 +195,9 @@ object LaborDemandProbe:
 
       val afterFirm = sectorSnapshots(s5.ioFirms)
       val changes   = sectorChangeSummaries(firms, s5.ioFirms)
-      println(s"m=$month preLaborDemand=${labor.laborDemand} postFirmDemand=${s5.ioFirms.filter(Firm.isAlive).map(Firm.workerCount).sum} employedPre=${labor.employed}")
+      println(
+        s"m=$month preLaborDemand=${labor.laborDemand} postFirmDemand=${s5.ioFirms.filter(Firm.isAlive).map(Firm.workerCount).sum} employedPre=${labor.employed}",
+      )
       printHiringSummaries("  pre-step hiring diagnostics:", hiring)
       printSectorTable("  sector deltas after FirmEconomics:", beforeAll, afterFirm)
       printChangeSummaries("  firm-level positive worker changes:", changes)

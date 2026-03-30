@@ -31,9 +31,14 @@ object InflationProbe:
     (totalPopulation * ratio).toInt
 
   private def topPressures(pressures: Vector[Double])(using p: SimParams): String =
-    p.sectorDefs.zip(pressures).sortBy(-_._2).take(3).map { case (sec, v) =>
-      s"${sec.name}=${"%.2f".formatLocal(java.util.Locale.US, v)}"
-    }.mkString(", ")
+    p.sectorDefs
+      .zip(pressures)
+      .sortBy(-_._2)
+      .take(3)
+      .map { case (sec, v) =>
+        s"${sec.name}=${"%.2f".formatLocal(java.util.Locale.US, v)}"
+      }
+      .mkString(", ")
 
   @main def runInflationProbe(seed: Long = 1L, months: Int = 12): Unit =
     given SimParams = SimParams.defaults
@@ -47,24 +52,23 @@ object InflationProbe:
     println(s"seed=$seed months=$months")
 
     (1 to months).foreach: month =>
-      val rng    = new Random(seed * 1000 + month)
-      val fiscal = FiscalConstraintEconomics.compute(world)
-      val s1     = FiscalConstraintEconomics.toOutput(fiscal)
-      val labor  = LaborEconomics.compute(world, firms, hhs, s1)
-      val prevWage = toDouble(world.hhAgg.marketWage)
-      val rawLaborWage =
+      val rng               = new Random(seed * 1000 + month)
+      val fiscal            = FiscalConstraintEconomics.compute(world)
+      val s1                = FiscalConstraintEconomics.toOutput(fiscal)
+      val labor             = LaborEconomics.compute(world, firms, hhs, s1)
+      val prevWage          = toDouble(world.hhAgg.marketWage)
+      val rawLaborWage      =
         if summon[SimParams].flags.regionalLabor then
           toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, world.totalPopulation).nationalWage)
-        else
-          toDouble(LaborMarket.updateLaborMarket(world.hhAgg.marketWage, s1.resWage, labor.laborDemand, world.totalPopulation).wage)
-      val target          = toDouble(summon[SimParams].monetary.targetInfl)
-      val expWagePressure =
+        else toDouble(LaborMarket.updateLaborMarket(world.hhAgg.marketWage, s1.resWage, labor.laborDemand, world.totalPopulation).wage)
+      val target            = toDouble(summon[SimParams].monetary.targetInfl)
+      val expWagePressure   =
         if summon[SimParams].flags.expectations then
           toDouble(summon[SimParams].labor.expWagePassthrough) *
             Math.max(0.0, toDouble(world.mechanisms.expectations.expectedInflation) - target) / 12.0
         else 0.0
-      val wageAfterExp    = Math.max(toDouble(s1.resWage), rawLaborWage * (1.0 + expWagePressure))
-      val aggUnionDensity =
+      val wageAfterExp      = Math.max(toDouble(s1.resWage), rawLaborWage * (1.0 + expWagePressure))
+      val aggUnionDensity   =
         summon[SimParams].sectorDefs.zipWithIndex
           .map((s, i) => toDouble(s.share) * toDouble(summon[SimParams].labor.unionDensity(i)))
           .sum
@@ -73,13 +77,13 @@ object InflationProbe:
           val decline = prevWage - wageAfterExp
           Math.max(toDouble(s1.resWage), wageAfterExp + decline * toDouble(summon[SimParams].labor.unionRigidity) * aggUnionDensity)
         else wageAfterExp
-      val supplyAtPrev    = laborSupplyCount(world.hhAgg.marketWage, s1.resWage, world.totalPopulation)
-      val newSupply       = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, world.totalPopulation)
-      val excessDemand    = (labor.laborDemand - supplyAtPrev).toDouble / world.totalPopulation
-      val phillipsGrowth  = if prevWage > 0.0 then rawLaborWage / prevWage - 1.0 else 0.0
-      val expGrowth       = if rawLaborWage > 0.0 then wageAfterExp / rawLaborWage - 1.0 else 0.0
-      val unionGrowth     = if wageAfterExp > 0.0 then unionAdjustedWage / wageAfterExp - 1.0 else 0.0
-      val s2Pre  = LaborEconomics.Output(
+      val supplyAtPrev      = laborSupplyCount(world.hhAgg.marketWage, s1.resWage, world.totalPopulation)
+      val newSupply         = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, world.totalPopulation)
+      val excessDemand      = (labor.laborDemand - supplyAtPrev).toDouble / world.totalPopulation
+      val phillipsGrowth    = if prevWage > 0.0 then rawLaborWage / prevWage - 1.0 else 0.0
+      val expGrowth         = if rawLaborWage > 0.0 then wageAfterExp / rawLaborWage - 1.0 else 0.0
+      val unionGrowth       = if wageAfterExp > 0.0 then unionAdjustedWage / wageAfterExp - 1.0 else 0.0
+      val s2Pre             = LaborEconomics.Output(
         labor.wage,
         labor.employed,
         labor.laborDemand,
@@ -96,25 +100,26 @@ object InflationProbe:
         labor.living,
         labor.regionalWages,
       )
-      val s3     = HouseholdIncomeEconomics.compute(world, firms, hhs, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
-      val s4     = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
-      val s5     = FirmEconomics.runStep(world, firms, hhs, s1, s2Pre, s3, s4, rng)
-      val living = s5.ioFirms.filter(Firm.isAlive)
-      val s2     = s2Pre.copy(
-        employed = s5.households.count(hh => hh.status match
-          case HhStatus.Employed(_, _, _) => true
-          case _                          => false
+      val s3                = HouseholdIncomeEconomics.compute(world, firms, hhs, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
+      val s4                = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
+      val s5                = FirmEconomics.runStep(world, firms, hhs, s1, s2Pre, s3, s4, rng)
+      val living            = s5.ioFirms.filter(Firm.isAlive)
+      val s2                = s2Pre.copy(
+        employed = s5.households.count(hh =>
+          hh.status match
+            case HhStatus.Employed(_, _, _) => true
+            case _                          => false,
         ),
         laborDemand = living.map(Firm.workerCount).sum,
         living = living,
       )
-      val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, rng)
-      val s7     = PriceEquityEconomics.compute(
+      val s6                = HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, rng)
+      val s7                = PriceEquityEconomics.compute(
         PriceEquityEconomics.Input(world, s1.m, s2.newWage, s2.employed, s2.wageGrowth, s3.domesticCons, s4.avgDemandMult, s4.sectorMults, s5),
         rng,
       )
-      val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, rng))
-      val s9     = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, rng))
+      val s8                = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, rng))
+      val s9                = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, rng))
 
       val exDev         = (world.forex.exchangeRate / summon[SimParams].forex.baseExRate) - 1.0
       val demandPullM   = (s4.avgDemandMult - 1.0) * DemandPullWeight
