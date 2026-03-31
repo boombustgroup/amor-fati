@@ -53,6 +53,18 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
     td.toDouble(r.expectedInflation) should be > 0.06
   }
 
+  it should "keep expected inflation meaningfully anchored under deflation when credibility is high" in {
+    val prev = Expectations.initial.copy(credibility = Share(0.90))
+    val r    = Expectations.step(prev, -0.10, 0.0100, 0.10)
+    td.toDouble(r.expectedInflation) should be > 0.015
+  }
+
+  it should "bound downward de-anchoring even when credibility is low" in {
+    val prev = Expectations.initial.copy(credibility = Share(0.05), expectedInflation = Rate(0.01))
+    val r    = Expectations.step(prev, -0.20, 0.0100, 0.12)
+    td.toDouble(r.expectedInflation) should be >= -0.005
+  }
+
   // --- Credibility dynamics ---
 
   it should "build credibility when inflation is near target" in {
@@ -66,6 +78,15 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
     // 10% inflation -> well above 2pp threshold
     val r    = Expectations.step(prev, 0.10, 0.0575, 0.05)
     td.toDouble(r.credibility) should be < 0.8
+  }
+
+  it should "erode credibility less under equal undershooting than overshooting" in {
+    val prev          = Expectations.initial.copy(credibility = Share(0.8))
+    val target        = td.toDouble(p.monetary.targetInfl)
+    val sameDeviation = 0.05
+    val low           = Expectations.step(prev, target - sameDeviation, 0.0575, 0.08)
+    val high          = Expectations.step(prev, target + sameDeviation, 0.0575, 0.05)
+    td.toDouble(low.credibility) should be > td.toDouble(high.credibility)
   }
 
   it should "bound credibility in [0.01, 1.0]" in {
@@ -113,4 +134,10 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
     td.toDouble(s.credibility) should be > 0.9
     td.toDouble(s.expectedInflation) shouldBe td.toDouble(p.monetary.targetInfl) +- 0.005
     td.toDouble(s.forecastError) shouldBe 0.0 +- 0.005
+  }
+
+  it should "avoid free-fall expected inflation under repeated deflation" in {
+    var s = Expectations.initial.copy(credibility = Share(0.2))
+    for _ <- 0 until 24 do s = Expectations.step(s, -0.10, 0.0100, 0.12)
+    td.toDouble(s.expectedInflation) should be >= -0.005
   }

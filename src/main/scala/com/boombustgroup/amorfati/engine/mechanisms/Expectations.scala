@@ -19,9 +19,12 @@ import com.boombustgroup.amorfati.types.*
 object Expectations:
 
   // ---- Calibration constants ----
-  private val MinCredibility = 0.01 // floor on credibility index
-  private val OutputGapClamp = 0.05 // ±5 pp unemployment gap clamp
-  private val FgBlendWeight  = 0.6  // weight on forward guidance in expected rate
+  private val MinCredibility             = 0.01 // floor on credibility index
+  private val OutputGapClamp             = 0.05 // ±5 pp unemployment gap clamp
+  private val FgBlendWeight              = 0.6  // weight on forward guidance in expected rate
+  private val UndershootLearningWeight   = 0.35 // below-target inflation updates expectations more slowly
+  private val UndershootCredibilityScale = 0.35 // below-target inflation erodes credibility less than overshooting
+  private val MaxTargetUndershoot        = 0.03 // expectations can drift at most 3pp below target at zero credibility
 
   case class State(
       expectedInflation: Rate,  // πᵉ: anchored inflation expectation
@@ -45,18 +48,20 @@ object Expectations:
   @boundaryEscape
   def step(prev: State, realizedInflation: Double, currentRate: Double, unemployment: Double)(using p: SimParams): State =
     import ComputationBoundary.toDouble
-    val target = toDouble(p.monetary.targetInfl)
-    val lambda = toDouble(p.labor.expLambda)
+    val target          = toDouble(p.monetary.targetInfl)
+    val lambda          = toDouble(p.labor.expLambda)
+    val prevCredibility = toDouble(prev.credibility)
 
     // Adaptive learning: πᵉ_adaptive = πᵉₜ₋₁ + λ(πₜ − πᵉₜ₋₁)
-    val error    = realizedInflation - toDouble(prev.expectedInflation)
-    val adaptive = toDouble(prev.expectedInflation) + lambda * error
+    val error          = realizedInflation - toDouble(prev.expectedInflation)
+    val learningWeight = if realizedInflation < target then UndershootLearningWeight else 1.0
+    val adaptive       = toDouble(prev.expectedInflation) + lambda * learningWeight * error
 
     // Anchoring: blend target with adaptive based on credibility
-    val cred     = toDouble(prev.credibility)
-    val expected = cred * target + (1.0 - cred) * adaptive
+    val anchored = prevCredibility * target + (1.0 - prevCredibility) * adaptive
+    val expected = lowerAnchor(anchored, target, prevCredibility)
 
-    val newCred = updateCredibility(cred, realizedInflation, target)
+    val newCred = updateCredibility(prevCredibility, realizedInflation, target)
     val fgRate  = forwardGuidance(expected, target, unemployment, currentRate)
 
     // Expected rate: adaptive learning on policy rate, blended with FG when enabled
@@ -84,8 +89,18 @@ object Expectations:
     val speed        = toDouble(p.labor.expCredibilitySpeed)
     val raw          =
       if absDeviation <= threshold then cred + speed * (1.0 - cred) * (threshold - absDeviation) / threshold
-      else cred - speed * cred * (absDeviation - threshold) / threshold
+      else
+        val erosionScale = if realizedInflation < target then UndershootCredibilityScale else 1.0
+        cred - speed * cred * erosionScale * (absDeviation - threshold) / threshold
     Math.max(MinCredibility, Math.min(1.0, raw))
+
+  /** Keep disinflationary episodes from fully de-anchoring expectations in the
+    * baseline regime. Low credibility can pull expectations below target, but
+    * only within a bounded undershoot band.
+    */
+  private def lowerAnchor(expected: Double, target: Double, credibility: Double): Double =
+    val lowerBound = target - (1.0 - credibility) * MaxTargetUndershoot
+    Math.max(lowerBound, expected)
 
   /** Taylor-rule forward guidance: r_fg = r* + α(πᵉ − π*) − δ·gap. */
   @boundaryEscape
