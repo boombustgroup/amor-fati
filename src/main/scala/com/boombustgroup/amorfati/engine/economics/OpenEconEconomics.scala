@@ -250,11 +250,11 @@ object OpenEconEconomics:
 
     // QE
     val qeActive  =
-      if Nbp.shouldActivateQe(newRefRate, in.newInflation) then true
-      else if Nbp.shouldTaperQe(in.newInflation) then false
+      if Nbp.shouldActivateQe(newRefRate, in.newInflation, newExp.expectedInflation) then true
+      else if Nbp.shouldTaperQe(in.newInflation, newExp.expectedInflation) then false
       else in.w.nbp.qeActive
     val preQeNbp  = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
-    val qeRequest = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, annualGdp)
+    val qeRequest = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, annualGdp, in.newInflation, newExp.expectedInflation)
 
     // 7. Corporate bonds
     val corpBondAmort = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
@@ -416,7 +416,7 @@ object OpenEconEconomics:
     val external      = runStepExternalSector(in, sectorOutputs)
     val rateAndExp    = runStepRateAndExpectations(in, external.newForex)
     val interbank     = runStepInterbankFlows(in.w)
-    val bondQe        = runStepBondYieldAndQe(in, rateAndExp.refRate, external.fxIntervention, interbank)
+    val bondQe        = runStepBondYieldAndQe(in, rateAndExp.refRate, rateAndExp.expectations, external.fxIntervention, interbank)
     val corpBonds     = runStepCorporateBonds(in, bondQe.marketYield)
     val insurance     = runStepInsurance(in, bondQe.marketYield)
     val nbfi          = runStepNbfi(in, bondQe.postFxNbp, bondQe.marketYield)
@@ -584,6 +584,7 @@ object OpenEconEconomics:
   private def runStepBondYieldAndQe(
       in: StepInput,
       newRefRate: Rate,
+      newExp: Expectations.State,
       fxResult: Nbp.FxInterventionResult,
       interbank: InterbankResult,
   )(using p: SimParams): BondQeResult =
@@ -612,14 +613,14 @@ object OpenEconEconomics:
     val nbpBondIncome      = in.w.nbp.govBondHoldings * marketYield.monthly
     val nbpRemittance      = nbpBondIncome - interbank.reserveInterest - interbank.standingFacilityIncome
 
-    val qeActivate       = Nbp.shouldActivateQe(newRefRate, in.s7.newInfl)
-    val qeTaper          = Nbp.shouldTaperQe(in.s7.newInfl)
+    val qeActivate       = Nbp.shouldActivateQe(newRefRate, in.s7.newInfl, newExp.expectedInflation)
+    val qeTaper          = Nbp.shouldTaperQe(in.s7.newInfl, newExp.expectedInflation)
     val qeActive         =
       if qeActivate then true
       else if qeTaper then false
       else in.w.nbp.qeActive
     val preQeNbp         = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
-    val qeRequest        = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, annualGdpForBonds)
+    val qeRequest        = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, annualGdpForBonds, in.s7.newInfl, newExp.expectedInflation)
     val qePurchaseAmount = qeRequest.requestedPurchase
     val postFxNbp        = qeRequest.nbpState.copy(fxReserves = fxResult.newReserves, lastFxTraded = fxResult.eurTraded)
 

@@ -54,27 +54,27 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   "Nbp.executeQe" should "always return purchase >= 0" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
-      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
+      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
       qeResult.requestedPurchase should be >= PLN.Zero
     }
 
   it should "not exceed bankBondHoldings" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
-      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
+      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
       td.toDouble(qeResult.requestedPurchase) should be <= (bankBonds + 1.0)
     }
 
   it should "not exceed max GDP share limit when active" in
     forAll(Gen.choose(0.0, 0.25), Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (rate: Double, bankBonds: Double, gdp: Double) =>
       val nbp      = Nbp.State(Rate(rate), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
-      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
+      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
       // executeQe returns a request; bond update happens in BankingEconomics
       td.toDouble(qeResult.requestedPurchase + nbp.govBondHoldings) should be <= (td.toDouble(p.monetary.qeMaxGdpShare) * gdp + 1e-6)
     }
 
   it should "not modify nbpState.govBondHoldings (deferred to BankingEconomics)" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
-      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp))
+      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
       // executeQe returns a request; bond update happens in BankingEconomics waterfall
       qeResult.nbpState.govBondHoldings shouldBe nbp.govBondHoldings
       qeResult.requestedPurchase should be >= PLN.Zero
@@ -84,14 +84,16 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   // --- shouldActivateQe properties ---
 
   "Nbp.shouldActivateQe" should "imply rate near floor when true" in
-    forAll(genRate, genInflation) { (refRate: Double, inflation: Double) =>
-      if Nbp.shouldActivateQe(Rate(refRate), Rate(inflation)) then refRate should be <= (td.toDouble(p.monetary.rateFloor) + 0.0025)
+    forAll(genRate, genInflation, genInflation) { (refRate: Double, inflation: Double, expInflation: Double) =>
+      if Nbp.shouldActivateQe(Rate(refRate), Rate(inflation), Rate(expInflation)) then refRate should be <= (td.toDouble(p.monetary.rateFloor) + 0.0026)
     }
 
   // --- shouldTaperQe properties ---
 
   "Nbp.shouldTaperQe" should "be consistent with inflation vs target" in
-    forAll(genInflation) { (inflation: Double) =>
-      val shouldTaper = Nbp.shouldTaperQe(Rate(inflation))
-      if shouldTaper then inflation should be > td.toDouble(p.monetary.targetInfl)
+    forAll(genInflation, genInflation) { (inflation: Double, expInflation: Double) =>
+      val shouldTaper = Nbp.shouldTaperQe(Rate(inflation), Rate(expInflation))
+      if shouldTaper then
+        inflation should be > td.toDouble(p.monetary.targetInfl)
+        expInflation should be > td.toDouble(p.monetary.targetInfl)
     }

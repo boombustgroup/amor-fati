@@ -19,6 +19,8 @@ object Nbp:
   private val ForeignDemandDiscount = Rate(0.005)       // yield discount when NFA > 0
   private val QeActivationSlack     = Rate(0.0025)      // rate proximity to floor for QE activation
   private val QeDeflationThreshold  = Rate(0.01)        // inflation must be this much below target for QE
+  private val ZlbExitBuffer         = Rate(0.0025)      // expectations/inflation should clear target by this margin to exit ZLB mode
+  private val ZlbQeMaxMultiplier    = 3.0               // QE pace can scale up to 3x in a lower-bound regime
 
   // ---------------------------------------------------------------------------
   // State
@@ -153,27 +155,50 @@ object Nbp:
   // QE
   // ---------------------------------------------------------------------------
 
-  /** Should NBP activate QE? Rate near floor + inflation well below target. */
-  def shouldActivateQe(refRate: Rate, inflation: Rate)(using p: SimParams): Boolean =
-    p.flags.nbpQe &&
-      refRate <= p.monetary.rateFloor + QeActivationSlack &&
-      inflation < p.monetary.targetInfl - QeDeflationThreshold
+  /** Lower-bound regime: policy rate at/near floor and nominal conditions still
+    * materially below target.
+    */
+  def inLowerBoundRegime(refRate: Rate, inflation: Rate, expectedInflation: Rate)(using p: SimParams): Boolean =
+    refRate <= p.monetary.rateFloor + QeActivationSlack &&
+      (inflation < p.monetary.targetInfl - QeDeflationThreshold ||
+        expectedInflation < p.monetary.targetInfl - QeDeflationThreshold)
 
-  /** Should NBP taper QE? Inflation returned above target. */
-  def shouldTaperQe(inflation: Rate)(using p: SimParams): Boolean =
-    inflation > p.monetary.targetInfl
+  /** Should NBP activate QE? Rate near floor + realized or expected inflation
+    * well below target.
+    */
+  def shouldActivateQe(refRate: Rate, inflation: Rate, expectedInflation: Rate)(using p: SimParams): Boolean =
+    p.flags.nbpQe &&
+      inLowerBoundRegime(refRate, inflation, expectedInflation)
+
+  /** Should NBP taper QE? Exit only after both realized and expected inflation
+    * have recovered above target.
+    */
+  def shouldTaperQe(inflation: Rate, expectedInflation: Rate)(using p: SimParams): Boolean =
+    inflation > p.monetary.targetInfl + ZlbExitBuffer &&
+      expectedInflation > p.monetary.targetInfl
 
   /** Compute QE purchase request. Does NOT update govBondHoldings — the bond
     * waterfall in BankingEconomics handles the actual transfer so that SFC
     * clears by construction (actualSold from banks = actualSold to NBP).
     */
-  def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN)(using p: SimParams): QeRequest =
+  def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN, inflation: Rate, expectedInflation: Rate)(using p: SimParams): QeRequest =
     if !nbp.qeActive then QeRequest(nbp, PLN.Zero)
     else
       val maxByGdp  = (annualGdp * p.monetary.qeMaxGdpShare - nbp.govBondHoldings).max(PLN.Zero)
       val available = bankBondHoldings
-      val purchase  = PLN.Zero.max(maxByGdp.min(available).min(p.monetary.qePace))
+      val pace      = qePurchasePace(nbp.referenceRate, inflation, expectedInflation)
+      val purchase  = PLN.Zero.max(maxByGdp.min(available).min(pace))
       QeRequest(nbp, purchase)
+
+  private def qePurchasePace(refRate: Rate, inflation: Rate, expectedInflation: Rate)(using p: SimParams): PLN =
+    import ComputationBoundary.toDouble
+    if !inLowerBoundRegime(refRate, inflation, expectedInflation) then p.monetary.qePace
+    else
+      val realizedShortfall = Math.max(0.0, toDouble(p.monetary.targetInfl - inflation))
+      val expectedShortfall = Math.max(0.0, toDouble(p.monetary.targetInfl - expectedInflation))
+      val severity          = Math.max(realizedShortfall, expectedShortfall)
+      val multiplier        = Math.min(ZlbQeMaxMultiplier, 1.0 + severity / Math.max(1e-9, toDouble(QeDeflationThreshold)))
+      p.monetary.qePace * Multiplier(multiplier)
 
   // ---------------------------------------------------------------------------
   // FX intervention
