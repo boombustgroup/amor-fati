@@ -14,8 +14,6 @@ object InflationProbe:
   private val DemandPullWeight = 0.15
   private val CostPushWeight   = 0.25
   private val ImportPushWeight = 0.25
-  private val AutoDeflation    = 0.060
-  private val HybridDeflation  = 0.018
   private val DeflationFloor   = -0.015
   private val FloorPassThrough = 0.3
   private val SmoothingLambda  = 0.3
@@ -126,8 +124,7 @@ object InflationProbe:
       val costPushM     = toDouble(s2.wageGrowth) * CostPushWeight
       val rawImportPush = Math.max(0.0, exDev) * toDouble(summon[SimParams].forex.importPropensity) * ImportPushWeight
       val importPushM   = Math.min(rawImportPush, toDouble(summon[SimParams].openEcon.importPushCap))
-      val techDeflM     = toDouble(s7.autoR) * AutoDeflation + toDouble(s7.hybR) * HybridDeflation
-      val rawMonthly    = demandPullM + costPushM + importPushM - techDeflM
+      val rawMonthly    = demandPullM + costPushM + importPushM
       val flooredM      = softFloor(rawMonthly)
       val baseAnnual    = toDouble(world.inflation) * (1.0 - SmoothingLambda) + (flooredM * 12.0) * SmoothingLambda
       val totalInfl     = toDouble(s7.newInfl)
@@ -153,7 +150,7 @@ object InflationProbe:
         f"m=$month%2d u=${unemp * 100.0}%.2f%% pi=${totalInfl * 100.0}%.2f%% wage=${toDouble(s2.newWage)}%.0f wg=${toDouble(s2.wageGrowth) * 100.0}%.2f%% demand=${s4.avgDemandMult}%.3f markup=${markupAnnual * 100.0}%.2f%%",
       )
       println(
-        f"  channels monthly: demand=${demandPullM * 100.0}%.2fpp cost=${costPushM * 100.0}%.2fpp import=${importPushM * 100.0}%.2fpp tech=-${techDeflM * 100.0}%.2fpp raw=${rawMonthly * 100.0}%.2fpp floor=${flooredM * 100.0}%.2fpp",
+        f"  channels monthly: demand=${demandPullM * 100.0}%.2fpp cost=${costPushM * 100.0}%.2fpp import=${importPushM * 100.0}%.2fpp raw=${rawMonthly * 100.0}%.2fpp floor=${flooredM * 100.0}%.2fpp",
       )
       println(
         f"  annualized: base=${baseAnnual * 100.0}%.2f%% markup=${markupAnnual * 100.0}%.2f%% total=${totalInfl * 100.0}%.2f%% exDev=${exDev * 100.0}%.2f%% importCost=${toDouble(world.external.gvc.importCostIndex)}%.3f commodity=${toDouble(world.external.gvc.commodityPriceIndex)}%.3f",

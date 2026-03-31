@@ -65,22 +65,22 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
 
   "updateInflation" should "keep price >= 0.30 floor" in
     forAll(genInflInputs) { (inputs: (Double, Double, Double, Double, Double, Double, Double)) =>
-      val (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, autoR, hybR) = inputs
-      val r                                                                     = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exRateDev, autoR, hybR)
+      val (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, _, _) = inputs
+      val r                                                              = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exRateDev)
       r.priceLevel should be >= 0.30
     }
 
   it should "apply soft deflation floor (price >= 0.30)" in {
-    val r = PriceLevel.update(Rate(-0.30), 1.0, 0.5, -0.10, 0.0, 0.80, 0.15)
+    val r = PriceLevel.update(Rate(-0.30), 1.0, 0.5, -0.10, 0.0)
     r.priceLevel should be >= 0.30
   }
 
-  it should "produce lower inflation with more automation" in
-    forAll(genInflation, genPrice, Gen.choose(0.8, 1.2), Gen.choose(-0.02, 0.02)) {
-      (prevInfl: Double, prevPrice: Double, demandMult: Double, wageGrowth: Double) =>
-        val r1 = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, 0.0, 0.05, 0.0)
-        val r2 = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, 0.0, 0.50, 0.0)
-        td.toDouble(r2.inflation) should be <= (td.toDouble(r1.inflation) + 1e-10)
+  it should "produce higher inflation with more import pressure" in
+    forAll(genInflation, genPrice, Gen.choose(0.8, 1.2), Gen.choose(-0.02, 0.02), Gen.choose(0.0, 0.15), Gen.choose(0.16, 0.40)) {
+      (prevInfl: Double, prevPrice: Double, demandMult: Double, wageGrowth: Double, exLow: Double, exHigh: Double) =>
+        val r1 = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exLow)
+        val r2 = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exHigh)
+        td.toDouble(r2.inflation) should be >= (td.toDouble(r1.inflation) - 1e-10)
     }
 
   // --- updateLaborMarket properties ---

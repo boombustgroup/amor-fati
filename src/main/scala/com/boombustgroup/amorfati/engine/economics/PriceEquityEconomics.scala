@@ -278,8 +278,6 @@ object PriceEquityEconomics:
       in.avgDemandMult,
       toDouble(in.wageGrowth),
       exDev,
-      autoR,
-      hybR,
     )
     // Calvo markup contribution (already annualized Rate from FirmProcessingStep)
     val newInfl  = toDouble(priceUpd.inflation + in.s5.markupInflation)
