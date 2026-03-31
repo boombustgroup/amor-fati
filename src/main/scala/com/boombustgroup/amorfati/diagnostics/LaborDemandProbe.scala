@@ -187,7 +187,18 @@ object LaborDemandProbe:
       val s5     = FirmEconomics.runStep(world, firms, hhs, s1, s2Pre, s3, s4, rng)
       val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2Pre.employed, s3.hhAgg, rng)
       val s7     = PriceEquityEconomics.compute(
-        PriceEquityEconomics.Input(world, s1.m, s2Pre.newWage, s2Pre.employed, s2Pre.wageGrowth, s3.domesticCons, s4.avgDemandMult, s4.sectorMults, s5),
+        PriceEquityEconomics.Input(
+          world,
+          s1.m,
+          s2Pre.newWage,
+          s2Pre.employed,
+          s2Pre.wageGrowth,
+          s3.domesticCons,
+          s4.govPurchases,
+          s4.avgDemandMult,
+          s4.sectorMults,
+          s5,
+        ),
         rng,
       )
       val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2Pre, s3, s4, s5, s6, s7, rng))

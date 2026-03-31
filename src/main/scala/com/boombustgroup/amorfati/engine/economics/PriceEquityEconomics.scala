@@ -40,6 +40,7 @@ object PriceEquityEconomics:
       employed: Int,               // employment count
       wageGrowth: Coefficient,     // wage growth coefficient
       domesticCons: PLN,           // domestic component of household consumption
+      govPurchases: PLN,           // constrained government purchases from demand formation
       avgDemandMult: Double,       // economy-wide average demand multiplier
       sectorMults: Vector[Double], // per-sector demand multipliers
       s5: FirmEconomics.StepOutput, // firm processing output
@@ -210,6 +211,14 @@ object PriceEquityEconomics:
         else firms(i)
     }.toVector
 
+  @boundaryEscape
+  private[economics] def governmentDemandContribution(govPurchases: PLN)(using p: SimParams): Double =
+    import ComputationBoundary.toDouble
+    if p.flags.govInvest then
+      toDouble(govPurchases) * (1.0 - toDouble(p.fiscal.govInvestShare)) * toDouble(p.fiscal.govCurrentMultiplier) +
+        toDouble(govPurchases) * toDouble(p.fiscal.govInvestShare) * toDouble(p.fiscal.govCapitalMultiplier)
+    else toDouble(govPurchases)
+
   // ---------------------------------------------------------------------------
   // Main compute logic
   // ---------------------------------------------------------------------------
@@ -228,11 +237,7 @@ object PriceEquityEconomics:
       if p.flags.euFunds then EuFunds.monthlyTransfer(in.month)
       else toDouble(p.openEcon.euTransfers)
 
-    val govGdpContribution =
-      if p.flags.govInvest then
-        toDouble(p.fiscal.govBaseSpending) * (1.0 - toDouble(p.fiscal.govInvestShare)) * toDouble(p.fiscal.govCurrentMultiplier) +
-          toDouble(p.fiscal.govBaseSpending) * toDouble(p.fiscal.govInvestShare) * toDouble(p.fiscal.govCapitalMultiplier)
-      else toDouble(p.fiscal.govBaseSpending)
+    val govGdpContribution = governmentDemandContribution(in.govPurchases)
     val euCofin            = if p.flags.euFunds then EuFunds.cofinancing(euMonthly) else 0.0
     val euProjectCapital   =
       if p.flags.euFunds && p.flags.govInvest then EuFunds.capitalInvestment(euMonthly, euCofin)
