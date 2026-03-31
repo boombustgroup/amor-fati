@@ -43,7 +43,18 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val s5     = FirmEconomics.runStep(w, init.firms, init.households, s1, s2, s3, s4, rng)
     val s6     = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
     val s7     = PriceEquityEconomics.compute(
-      PriceEquityEconomics.Input(w, s1.m, s2.newWage, s2.employed, s2.wageGrowth, s3.domesticCons, s4.avgDemandMult, s4.sectorMults, s5),
+      PriceEquityEconomics.Input(
+        w,
+        s1.m,
+        s2.newWage,
+        s2.employed,
+        s2.wageGrowth,
+        s3.domesticCons,
+        s4.govPurchases,
+        s4.avgDemandMult,
+        s4.sectorMults,
+        s5,
+      ),
       rng,
     )
     val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, rng))

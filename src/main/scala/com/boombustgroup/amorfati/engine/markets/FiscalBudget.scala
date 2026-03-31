@@ -28,9 +28,12 @@ object FiscalBudget:
     * Updated monthly by [[update]]. Revenue fields (`taxRevenue`,
     * `exciseRevenue`, `customsDutyRevenue`) and spending fields
     * (`unempBenefitSpend`, `debtServiceSpend`, `socialTransferSpend`,
-    * `govCurrentSpend`, `govCapitalSpend`, `euCofinancing`) are single-month
-    * flows. Stock fields (`cumulativeDebt`, `bondsOutstanding`,
-    * `publicCapitalStock`) accumulate across months.
+    * `govCurrentSpend`, `govCapitalSpend`, `euProjectCapital`, `euCofinancing`)
+    * are single-month flows. `govCapitalSpend` is only the domestic
+    * budget-financed capital outlay. `euProjectCapital` is the capital portion
+    * of the total EU project envelope (EU transfer + domestic co-financing).
+    * Stock fields (`cumulativeDebt`, `bondsOutstanding`, `publicCapitalStock`)
+    * accumulate across months.
     *
     * `deficit` = totalSpend − totalRevenue (positive = deficit, negative =
     * surplus). `cumulativeDebt` += deficit each month.
@@ -58,15 +61,24 @@ object FiscalBudget:
       weightedCoupon: Rate = Rate.Zero,    // portfolio-weighted average coupon (WAM rolling model)
       debtServiceSpend: PLN = PLN.Zero,    // interest payments on public debt this month
       socialTransferSpend: PLN = PLN.Zero, // social transfers (800+, family benefits) this month
-      publicCapitalStock: PLN = PLN.Zero,  // public capital stock (roads, infrastructure) — GOV_INVEST
-      govCurrentSpend: PLN = PLN.Zero,     // current government purchases (1 − investShare) × base
-      govCapitalSpend: PLN = PLN.Zero,     // capital government investment (investShare × base + EU capital)
-      euCofinancing: PLN = PLN.Zero,       // EU co-financing expenditure this month
+      publicCapitalStock: PLN = PLN.Zero,  // public capital stock accumulated from domestic capex and EU project capital
+      govCurrentSpend: PLN = PLN.Zero,     // domestic current government purchases (1 − investShare) × base
+      govCapitalSpend: PLN = PLN.Zero,     // domestic budget-financed capital government investment only
+      euProjectCapital: PLN = PLN.Zero,    // capital share of the total EU project envelope (EU funds + domestic co-financing)
+      euCofinancing: PLN = PLN.Zero,       // domestic co-financing outlay booked separately from project-envelope value
       exciseRevenue: PLN = PLN.Zero,       // excise duty revenue this month (akcyza)
       customsDutyRevenue: PLN = PLN.Zero,  // customs duty revenue this month (cło)
       minWageLevel: PLN = PLN(4666.0),     // statutory minimum wage (PLN/month, GUS 2024)
       minWagePriceLevel: Double = 1.0,     // price level at last minimum wage adjustment
-  )
+  ):
+    /** Domestic budget-financed demand anchor used by fiscal-demand rules. */
+    def domesticBudgetDemand: PLN = govCurrentSpend + govCapitalSpend
+
+    /** Central-budget outlays before separate social-fund subventions are added
+      * in SFC/world assembly. Excludes the total EU project envelope.
+      */
+    def domesticBudgetOutlays: PLN =
+      unempBenefitSpend + socialTransferSpend + govCurrentSpend + govCapitalSpend + debtServiceSpend + euCofinancing
 
   // ---------------------------------------------------------------------------
   // Budget update
@@ -134,7 +146,8 @@ object FiscalBudget:
       socialTransferSpend = in.socialTransferSpend,
       publicCapitalStock = newCapitalStock,
       govCurrentSpend = govCurrent,
-      govCapitalSpend = govCapital + in.euProjectCapital,
+      govCapitalSpend = govCapital,
+      euProjectCapital = in.euProjectCapital,
       euCofinancing = in.euCofinancing,
       exciseRevenue = in.exciseRevenue,
       customsDutyRevenue = in.customsDutyRevenue,

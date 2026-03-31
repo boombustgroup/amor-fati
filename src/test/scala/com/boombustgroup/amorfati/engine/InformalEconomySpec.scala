@@ -312,7 +312,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "GDP formula" should "not include tax evasion (evasion doesn't change GDP)" in {
-    // GDP = domesticCons + govGdpContribution + euGdpContribution + exports + domesticGFCF + inventoryChange
+    // GDP = domesticCons + runtime gov contribution + euGdpContribution + exports + domesticGFCF + inventoryChange
     // Tax evasion only reduces government revenue, not GDP
     // This is a design test: GDP computation doesn't use taxEvasionLoss
     true shouldBe true // Verified by code inspection

@@ -298,7 +298,18 @@ object FlowSimulation:
     )
     val s6                 = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
     val s7                 = PriceEquityEconomics.compute(
-      PriceEquityEconomics.Input(w, s1.m, s2.newWage, s2.employed, s2.wageGrowth, s3.domesticCons, s4.avgDemandMult, s4.sectorMults, s5),
+      PriceEquityEconomics.Input(
+        w,
+        s1.m,
+        s2.newWage,
+        s2.employed,
+        s2.wageGrowth,
+        s3.domesticCons,
+        s4.govPurchases,
+        s4.avgDemandMult,
+        s4.sectorMults,
+        s5,
+      ),
       rng,
     )
     val openEcon           = OpenEconEconomics.compute(

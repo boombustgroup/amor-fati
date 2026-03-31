@@ -479,10 +479,8 @@ object WorldAssemblyEconomics:
   @boundaryEscape
   private def buildMonthlyFlows(in: StepInput, fofResidual: PLN)(using p: SimParams): Sfc.MonthlyFlows =
     Sfc.MonthlyFlows(
-      govSpending = in.s9.newGovWithYield.unempBenefitSpend
-        + in.s9.newGovWithYield.socialTransferSpend
-        + in.s4.govPurchases + in.s8.banking.monthlyDebtService + in.s2.newZus.govSubvention
-        + in.s2.newNfz.govSubvention + in.s2.newEarmarked.totalGovSubvention + in.s7.euCofin,
+      govSpending =
+        in.s9.newGovWithYield.domesticBudgetOutlays + in.s2.newZus.govSubvention + in.s2.newNfz.govSubvention + in.s2.newEarmarked.totalGovSubvention,
       govRevenue =
         in.s5.sumTax + in.s7.dividendTax + in.s9.pitAfterEvasion + in.s9.vatAfterEvasion + in.s8.banking.nbpRemittance + in.s9.exciseAfterEvasion + in.s9.customsDutyRevenue,
       nplLoss = in.s5.nplLoss,

@@ -15,6 +15,7 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
     g.publicCapitalStock shouldBe PLN.Zero
     g.govCurrentSpend shouldBe PLN.Zero
     g.govCapitalSpend shouldBe PLN.Zero
+    g.euProjectCapital shouldBe PLN.Zero
   }
 
   // --- Formula verification (independent of p.flags.govInvest) ---

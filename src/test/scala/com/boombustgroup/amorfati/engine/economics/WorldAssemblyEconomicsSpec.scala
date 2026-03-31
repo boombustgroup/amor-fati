@@ -21,3 +21,23 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     w.hhAgg.employed should be > 0
     w.external.tourismSeasonalFactor should not be 0.0
   }
+
+  it should "preserve public-spending semantic aggregates on the assembled world" in {
+    val init   = WorldInit.initialize(42L)
+    val rng    = new scala.util.Random(42)
+    val result = FlowSimulation.step(init.world, init.firms, init.households, rng)
+    val w      = result.newWorld
+
+    w.gov.domesticBudgetDemand shouldBe (w.gov.govCurrentSpend + w.gov.govCapitalSpend)
+    w.gov.domesticBudgetOutlays shouldBe (
+      w.gov.unempBenefitSpend
+        + w.gov.socialTransferSpend
+        + w.gov.govCurrentSpend
+        + w.gov.govCapitalSpend
+        + w.gov.debtServiceSpend
+        + w.gov.euCofinancing
+    )
+
+    w.gov.domesticBudgetDemand shouldBe result.calculus.govPurchases
+    w.gov.domesticBudgetOutlays should be >= w.gov.domesticBudgetDemand
+  }
