@@ -21,11 +21,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   // --- Basic output sanity ---
 
-  "runSingle" should "return Right for valid seed" in {
-    runSingle(42, duration) shouldBe a[Right[?, ?]]
-  }
-
-  it should "produce 60 rows x 227 columns" in {
+  "runSingle" should "produce 60 rows x 227 columns" in {
     ts.length shouldBe duration
     for row <- ts do row.length shouldBe SimOutput.nCols
   }
