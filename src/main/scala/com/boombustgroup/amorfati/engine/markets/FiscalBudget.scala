@@ -70,7 +70,15 @@ object FiscalBudget:
       customsDutyRevenue: PLN = PLN.Zero,  // customs duty revenue this month (cło)
       minWageLevel: PLN = PLN(4666.0),     // statutory minimum wage (PLN/month, GUS 2024)
       minWagePriceLevel: Double = 1.0,     // price level at last minimum wage adjustment
-  )
+  ):
+    /** Domestic budget-financed demand anchor used by fiscal-demand rules. */
+    def domesticBudgetDemand: PLN = govCurrentSpend + govCapitalSpend
+
+    /** Central-budget outlays before separate social-fund subventions are added
+      * in SFC/world assembly. Excludes the total EU project envelope.
+      */
+    def domesticBudgetOutlays: PLN =
+      unempBenefitSpend + socialTransferSpend + govCurrentSpend + govCapitalSpend + debtServiceSpend + euCofinancing
 
   // ---------------------------------------------------------------------------
   // Budget update
