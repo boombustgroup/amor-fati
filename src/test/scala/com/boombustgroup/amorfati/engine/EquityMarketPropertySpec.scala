@@ -57,19 +57,19 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   // --- computeDividends properties ---
 
   "EquityMarket.computeDividends" should "have non-negative outputs for positive inputs" in
-    forAll(Gen.choose(0.01, 0.15), Gen.choose(1e6, 1e13), genFraction) { (divYield, mcap, foreignShare) =>
-      val r = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
+    forAll(Gen.choose(1e6, 1e13), genFraction) { (profits, foreignShare) =>
+      val r = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
       r.netDomestic should be >= PLN.Zero
       r.foreign should be >= PLN.Zero
       r.tax should be >= PLN.Zero
     }
 
-  it should "have domestic + foreign + tax approx total dividends" in
-    forAll(Gen.choose(0.01, 0.15), Gen.choose(1e6, 1e13), Gen.choose(0.0, 1.0)) { (divYield, mcap, foreignShare) =>
-      whenever(divYield >= 0.005 && foreignShare >= 0.0) {
-        val r             = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
-        val expectedTotal = divYield * mcap / 12.0
-        val tol           = Math.max(1.0, mcap * 0.0001) // fixed-point /12 rounding: up to mcap/Scale error
+  it should "have domestic + foreign + tax approx payout-scaled profits" in
+    forAll(Gen.choose(1e6, 1e13), Gen.choose(0.0, 1.0)) { (profits, foreignShare) =>
+      whenever(foreignShare >= 0.0) {
+        val r             = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
+        val expectedTotal = profits * 0.57
+        val tol           = Math.max(1.0, profits * 0.0001)
         td.toDouble(r.netDomestic + r.tax + r.foreign) shouldBe (expectedTotal +- tol)
       }
     }
@@ -77,27 +77,25 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   // --- Additional dividend properties ---
 
   it should "have foreign dividends <= total dividends" in
-    forAll(Gen.choose(0.01, 0.15), Gen.choose(1e6, 1e13), genFraction) { (divYield, mcap, foreignShare) =>
-      whenever(divYield >= 0.005) {
-        val r     = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
-        val total = divYield * mcap / 12.0
-        val tol   = Math.max(1.0, mcap * 0.0001)
-        td.toDouble(r.foreign) should be <= (total + tol)
-      }
+    forAll(Gen.choose(1e6, 1e13), genFraction) { (profits, foreignShare) =>
+      val r     = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
+      val total = profits * 0.57
+      val tol   = Math.max(1.0, profits * 0.0001)
+      td.toDouble(r.foreign) should be <= (total + tol)
     }
 
   it should "have dividend tax <= domestic gross" in
-    forAll(Gen.choose(0.01, 0.15), Gen.choose(1e6, 1e13), genFraction) { (divYield, mcap, foreignShare) =>
-      val r        = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
-      val total    = divYield * mcap / 12.0
+    forAll(Gen.choose(1e6, 1e13), genFraction) { (profits, foreignShare) =>
+      val r        = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
+      val total    = profits * 0.57
       val domGross = total * (1.0 - foreignShare)
       td.toDouble(r.tax) should be <= (domGross + 1.0)
     }
 
-  it should "scale dividends linearly with market cap" in
-    forAll(Gen.choose(1e6, 1e12), Gen.choose(0.01, 0.15), genFraction) { (mcap, divYield, foreignShare) =>
-      val r1 = EquityMarket.computeDividends(Rate(divYield), PLN(mcap), Share(foreignShare))
-      val r2 = EquityMarket.computeDividends(Rate(divYield), PLN(mcap * 2.0), Share(foreignShare))
+  it should "scale dividends linearly with realized profits" in
+    forAll(Gen.choose(1e6, 1e12), genFraction) { (profits, foreignShare) =>
+      val r1 = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
+      val r2 = EquityMarket.computeDividends(PLN(profits * 2.0), Share(foreignShare))
       whenever(r1.netDomestic > PLN(1e-6) && r1.foreign > PLN(1e-6) && r1.tax > PLN(1e-6)) {
         (td.toDouble(r2.netDomestic) / td.toDouble(r1.netDomestic)) shouldBe (2.0 +- 1e-6)
         (td.toDouble(r2.foreign) / td.toDouble(r1.foreign)) shouldBe (2.0 +- 1e-6)
