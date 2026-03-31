@@ -74,6 +74,11 @@ object DemandEconomics:
 
   /** Apply fiscal rules to raw government purchases. The 98% floor is applied
     * only when no Art. 216/86 rule is binding.
+    *
+    * `prevGovSpend` intentionally tracks only domestic budget-financed demand
+    * anchors: current spending + domestic capital spending. It excludes the
+    * separate domestic co-financing outlay and the total EU project envelope,
+    * which are reported separately on `GovState`.
     */
   private def applyFiscalRules(in: Input, rawTarget: PLN)(using p: SimParams): FiscalRules.Output =
     val prevGovSpend = in.w.gov.govCurrentSpend + in.w.gov.govCapitalSpend

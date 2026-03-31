@@ -28,9 +28,12 @@ object FiscalBudget:
     * Updated monthly by [[update]]. Revenue fields (`taxRevenue`,
     * `exciseRevenue`, `customsDutyRevenue`) and spending fields
     * (`unempBenefitSpend`, `debtServiceSpend`, `socialTransferSpend`,
-    * `govCurrentSpend`, `govCapitalSpend`, `euCofinancing`) are single-month
-    * flows. Stock fields (`cumulativeDebt`, `bondsOutstanding`,
-    * `publicCapitalStock`) accumulate across months.
+    * `govCurrentSpend`, `govCapitalSpend`, `euProjectCapital`, `euCofinancing`)
+    * are single-month flows. `govCapitalSpend` is only the domestic
+    * budget-financed capital outlay. `euProjectCapital` is the capital portion
+    * of the total EU project envelope (EU transfer + domestic co-financing).
+    * Stock fields (`cumulativeDebt`, `bondsOutstanding`, `publicCapitalStock`)
+    * accumulate across months.
     *
     * `deficit` = totalSpend − totalRevenue (positive = deficit, negative =
     * surplus). `cumulativeDebt` += deficit each month.
@@ -58,11 +61,11 @@ object FiscalBudget:
       weightedCoupon: Rate = Rate.Zero,    // portfolio-weighted average coupon (WAM rolling model)
       debtServiceSpend: PLN = PLN.Zero,    // interest payments on public debt this month
       socialTransferSpend: PLN = PLN.Zero, // social transfers (800+, family benefits) this month
-      publicCapitalStock: PLN = PLN.Zero,  // public capital stock (roads, infrastructure) — GOV_INVEST
-      govCurrentSpend: PLN = PLN.Zero,     // current government purchases (1 − investShare) × base
-      govCapitalSpend: PLN = PLN.Zero,     // domestic budget-financed capital government investment
-      euProjectCapital: PLN = PLN.Zero,    // capital portion of total EU project value (EU funds + domestic co-financing)
-      euCofinancing: PLN = PLN.Zero,       // EU co-financing expenditure this month
+      publicCapitalStock: PLN = PLN.Zero,  // public capital stock accumulated from domestic capex and EU project capital
+      govCurrentSpend: PLN = PLN.Zero,     // domestic current government purchases (1 − investShare) × base
+      govCapitalSpend: PLN = PLN.Zero,     // domestic budget-financed capital government investment only
+      euProjectCapital: PLN = PLN.Zero,    // capital share of the total EU project envelope (EU funds + domestic co-financing)
+      euCofinancing: PLN = PLN.Zero,       // domestic co-financing outlay booked separately from project-envelope value
       exciseRevenue: PLN = PLN.Zero,       // excise duty revenue this month (akcyza)
       customsDutyRevenue: PLN = PLN.Zero,  // customs duty revenue this month (cło)
       minWageLevel: PLN = PLN(4666.0),     // statutory minimum wage (PLN/month, GUS 2024)
