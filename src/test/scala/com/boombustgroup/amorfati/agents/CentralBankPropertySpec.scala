@@ -85,8 +85,7 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   "Nbp.shouldActivateQe" should "imply rate near floor when true" in
     forAll(genRate, genInflation, genInflation) { (refRate: Double, inflation: Double, expInflation: Double) =>
-      if Nbp.shouldActivateQe(Rate(refRate), Rate(inflation), Rate(expInflation)) then
-        refRate should be <= (td.toDouble(p.monetary.rateFloor) + 0.0026)
+      if Nbp.shouldActivateQe(Rate(refRate), Rate(inflation), Rate(expInflation)) then refRate should be <= (td.toDouble(p.monetary.rateFloor) + 0.0026)
     }
 
   // --- shouldTaperQe properties ---
