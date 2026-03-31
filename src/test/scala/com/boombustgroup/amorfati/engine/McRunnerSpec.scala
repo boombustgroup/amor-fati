@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.montecarlo.McRunConfig
 import com.boombustgroup.amorfati.montecarlo.McRunner.runSingle
 import com.boombustgroup.amorfati.montecarlo.SimOutput
 import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
@@ -14,24 +13,24 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
-  private val duration     = McRunConfig.DefaultRunDuration
+  private val duration     = 60 // months
 
   // Single shared run — all tests read from this result
-  private lazy val result = runSingle(42).fold(e => fail(e.toString), identity)
+  private lazy val result = runSingle(42, duration).fold(e => fail(e.toString), identity)
   private def ts          = result.timeSeries
 
   // --- Basic output sanity ---
 
   "runSingle" should "return Right for valid seed" in {
-    runSingle(42) shouldBe a[Right[?, ?]]
+    runSingle(42, duration) shouldBe a[Right[?, ?]]
   }
 
-  it should "produce 120 rows x 227 columns" in {
+  it should "produce 60 rows x 227 columns" in {
     ts.length shouldBe duration
     for row <- ts do row.length shouldBe SimOutput.nCols
   }
 
-  it should "have Month column = 1..120" in {
+  it should "have Month column = 1..60" in {
     for t <- 0 until duration do ts(t)(Col.Month.ordinal) shouldBe (t + 1).toDouble
   }
 
@@ -73,7 +72,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   // --- Reproducibility ---
 
   it should "be reproducible with the same seed" in {
-    val r2 = runSingle(42).fold(e => fail(e.toString), identity)
+    val r2 = runSingle(42, duration).fold(e => fail(e.toString), identity)
     for t <- 0 until duration; c <- 0 until SimOutput.nCols do ts(t)(c) shouldBe r2.timeSeries(t)(c)
   }
 
