@@ -149,6 +149,8 @@ object InflationProbe:
       val govPurchases  = toDouble(s4.govPurchases)
       val govCurrent    = toDouble(s9.newGovWithYield.govCurrentSpend)
       val govCapital    = toDouble(s9.newGovWithYield.govCapitalSpend)
+      val euProjectCap  = toDouble(s9.newGovWithYield.euProjectCapital)
+      val euCofin       = toDouble(s9.newGovWithYield.euCofinancing)
       val deficit       = toDouble(s9.newGovWithYield.deficit)
       val debtToGdp     =
         if s7.gdp > PLN.Zero then (toDouble(s9.newGovWithYield.cumulativeDebt) / toDouble(s7.gdp)) / 12.0 * 100.0
@@ -176,7 +178,7 @@ object InflationProbe:
         f"  labor: demand=${labor.laborDemand}%d supplyPrev=${supplyAtPrev}%d supplyNew=${newSupply}%d excess=${excessDemand * 100.0}%.2f%% employedPre=${labor.employed}%d employedPost=${s2.employed}%d",
       )
       println(
-        f"  fiscal: govPurch=${govPurchases}%.0f govCur=${govCurrent}%.0f govCap=${govCapital}%.0f def=${deficit}%.0f def/gdp=${deficitToGdp}%.2f%% debt/gdp=${debtToGdp}%.2f%% rule=${s4.fiscalRuleStatus.bindingRule} cut=${toDouble(s4.fiscalRuleStatus.spendingCutRatio) * 100.0}%.2f%%",
+        f"  fiscal: govPurch=${govPurchases}%.0f govCur=${govCurrent}%.0f govCapDom=${govCapital}%.0f euProjCap=${euProjectCap}%.0f euCofinDom=${euCofin}%.0f def=${deficit}%.0f def/gdp=${deficitToGdp}%.2f%% debt/gdp=${debtToGdp}%.2f%% rule=${s4.fiscalRuleStatus.bindingRule} cut=${toDouble(s4.fiscalRuleStatus.spendingCutRatio) * 100.0}%.2f%%",
       )
       println(s"  top pressure: ${topPressures(s4.sectorDemandPressure)}")
 

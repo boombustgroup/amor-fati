@@ -81,7 +81,7 @@ object Sfc:
     * corresponding identity holds trivially.
     */
   case class MonthlyFlows(
-      govSpending: PLN,             // total gov expenditure (benefits + transfers + debt service + ZUS subvention)
+      govSpending: PLN,             // total budget expenditure (benefits + transfers + current spend + domestic capital spend + debt service + subventions + domestic EU co-financing)
       govRevenue: PLN,              // total gov revenue (CIT + PIT + VAT + excise + customs + dividend tax + NBP remittance)
       nplLoss: PLN,                 // bank NPL write-off loss (firm loans, after recovery)
       interestIncome: PLN,          // bank interest income from firm loans
