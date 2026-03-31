@@ -144,15 +144,16 @@ object EquityMarket:
 
   val DividendResultZero: DividendResult = DividendResult(PLN.Zero, PLN.Zero, PLN.Zero)
 
-  /** Compute dividends from market cap and yields. */
+  /** Compute cash dividends from realized profits, not directly from market
+    * valuation.
+    */
   def computeDividends(
-      divYield: Rate,
-      marketCap: PLN,
+      realizedProfits: PLN,
       foreignShare: Share,
   )(using p: SimParams): DividendResult =
-    if marketCap <= PLN.Zero then DividendResultZero
+    if realizedProfits <= PLN.Zero then DividendResultZero
     else
-      val totalDividends   = marketCap * divYield.monthly
+      val totalDividends   = realizedProfits * Share(PayoutRatio)
       val foreignDividends = totalDividends * foreignShare
       val domesticGross    = totalDividends - foreignDividends
       val dividendTax      = domesticGross * p.equity.divTax

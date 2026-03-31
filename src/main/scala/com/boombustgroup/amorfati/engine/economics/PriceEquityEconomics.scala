@@ -318,8 +318,7 @@ object PriceEquityEconomics:
     val dividends              =
       if p.flags.gpw && p.flags.gpwDividends then
         EquityMarket.computeDividends(
-          equityAfterIssuance.dividendYield,
-          equityAfterIssuance.marketCap,
+          PLN(firmProfits),
           equityAfterIssuance.foreignOwnership,
         )
       else EquityMarket.DividendResultZero
