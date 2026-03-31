@@ -76,9 +76,9 @@ object Firm:
   private val DesperationBonus     = 0.2   // bonus prob when firm is loss-making
   private val StrategicAdoptBase   = 0.005 // strategic adoption when AI not yet profitable
 
-  // Uncertainty discount: linearly increasing willingness over simulation horizon
-  private val UncertaintyBase  = 0.15 // initial discount (month 0)
-  private val UncertaintySlope = 0.15 // additional discount at end of simulation
+  // Baseline willingness ramp for automation adoption.
+  private val UncertaintyBase  = 0.15 // initial willingness multiplier
+  private val UncertaintySlope = 0.15 // additional willingness after ramp saturation
 
   // Implementation failure rates
   private val FullAiBaseFailRate   = 0.05 // base failure prob for full-AI upgrade
@@ -733,20 +733,30 @@ object Firm:
         toDouble(firm.riskProfile) * toDouble(firm.digitalReadiness) * StrategicAdoptBase
       else 0.0
 
-    val baseDiscount        = UncertaintyBase + UncertaintySlope * (w.month.toDouble / p.timeline.duration.toDouble)
-    val demoBoost           =
-      if localAuto > toDouble(p.firm.demoEffectThresh) then toDouble(p.firm.demoEffectBoost) * (localAuto - toDouble(p.firm.demoEffectThresh))
-      else 0.0
-    val uncertaintyDiscount = Math.min(1.0, baseDiscount + demoBoost)
+    val willingnessMultiplier = adoptionWillingnessMultiplier(w.month, localAuto)
 
-    val pFull = uncertaintyDiscount *
+    val rawFull = willingnessMultiplier *
       (if fullAi.feasible then (toDouble(firm.riskProfile) * RiskWeightFullAi + panic + desper) * toDouble(firm.digitalReadiness)
        else strat)
-    val pHyb  = uncertaintyDiscount *
+    val rawHyb  = willingnessMultiplier *
       (if hybrid.feasible then
          (toDouble(firm.riskProfile) * RiskWeightHybrid + panic * HybridPanicDiscount + desper * HybridPanicDiscount) * toDouble(firm.digitalReadiness)
        else 0.0)
+
+    val pFull = Math.min(1.0, rawFull)
+    val pHyb  = Math.min(1.0 - pFull, rawHyb)
     (pFull, pHyb)
+
+  @boundaryEscape
+  private[amorfati] def adoptionWillingnessMultiplier(month: Int, localAuto: Double)(using p: SimParams): Double =
+    import ComputationBoundary.toDouble
+    val rampMonths = p.firm.adoptionRampMonths.toDouble
+    val rampFrac   = Math.min(1.0, Math.max(0.0, month.toDouble / rampMonths))
+    val baseLevel  = UncertaintyBase + UncertaintySlope * rampFrac
+    val demoBoost  =
+      if localAuto > toDouble(p.firm.demoEffectThresh) then toDouble(p.firm.demoEffectBoost) * (localAuto - toDouble(p.firm.demoEffectThresh))
+      else 0.0
+    Math.min(1.0, baseLevel + demoBoost)
 
   /** Roll for full-AI upgrade: success (with random efficiency) or
     * implementation failure.

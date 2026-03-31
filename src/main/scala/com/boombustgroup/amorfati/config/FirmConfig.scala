@@ -74,6 +74,8 @@ import com.boombustgroup.amorfati.types.*
   *   fraction of neighbors automated before demonstration effect triggers
   * @param demoEffectBoost
   *   adoption probability boost from demonstration effect
+  * @param adoptionRampMonths
+  *   months needed for the baseline adoption willingness ramp to saturate
   * @param sigmaLambda
   *   Poisson arrival rate for aggregate technology shocks (0 = off)
   * @param sigmaCapMult
@@ -124,8 +126,10 @@ case class FirmConfig(
     networkRewireP: Share = Share(0.10),
     demoEffectThresh: Share = Share(0.40),
     demoEffectBoost: Share = Share(0.15),
+    adoptionRampMonths: Int = 36,
     sigmaLambda: Double = 0.0,
     sigmaCapMult: Multiplier = Multiplier(3.0),
     rewireRho: Share = Share(0.0),
 ):
   require(entrySectorBarriers.length == 6, s"entrySectorBarriers must have 6 sectors: ${entrySectorBarriers.length}")
+  require(adoptionRampMonths > 0, s"adoptionRampMonths must be positive: $adoptionRampMonths")

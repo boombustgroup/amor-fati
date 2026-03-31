@@ -221,6 +221,22 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     Firm.computeLocalAutoRatio(firms(0), firms) shouldBe (2.0 / 3.0 +- 0.001)
   }
 
+  "Firm.adoptionWillingnessMultiplier" should "increase with local demonstration effects above threshold" in {
+    val below = Firm.adoptionWillingnessMultiplier(month = 12, localAuto = 0.30)
+    val above = Firm.adoptionWillingnessMultiplier(month = 12, localAuto = 0.80)
+
+    above should be > below
+  }
+
+  it should "increase over time until the ramp saturates" in {
+    val early = Firm.adoptionWillingnessMultiplier(month = 0, localAuto = 0.0)
+    val mid   = Firm.adoptionWillingnessMultiplier(month = 18, localAuto = 0.0)
+    val late  = Firm.adoptionWillingnessMultiplier(month = 72, localAuto = 0.0)
+
+    mid should be > early
+    late should be >= mid
+  }
+
   it should "return 0.0 for firm with no neighbors" in {
     val firms = Vector(mkFirmWithNeighbors(0, TechState.Traditional(10), Vector.empty[FirmId]))
     Firm.computeLocalAutoRatio(firms(0), firms) shouldBe 0.0
