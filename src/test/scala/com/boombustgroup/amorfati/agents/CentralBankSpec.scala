@@ -59,24 +59,28 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
 
   "Nbp.shouldActivateQe" should "be true at ZLB with deflation" in {
     // p.flags.nbpQe defaults to true (NBP March 2020 precedent)
-    Nbp.shouldActivateQe(p.monetary.rateFloor, Rate(-0.05)) shouldBe true
+    Nbp.shouldActivateQe(p.monetary.rateFloor, Rate(-0.05), Rate(-0.02)) shouldBe true
+  }
+
+  it should "be true at ZLB when expectations remain deeply below target" in {
+    Nbp.shouldActivateQe(p.monetary.rateFloor, Rate(0.015), Rate(-0.02)) shouldBe true
   }
 
   // --- shouldTaperQe ---
 
   "Nbp.shouldTaperQe" should "be true when inflation exceeds target" in {
-    Nbp.shouldTaperQe(Rate(td.toDouble(p.monetary.targetInfl) + 0.01)) shouldBe true
+    Nbp.shouldTaperQe(Rate(td.toDouble(p.monetary.targetInfl) + 0.01), Rate(td.toDouble(p.monetary.targetInfl) + 0.005)) shouldBe true
   }
 
-  it should "be false when inflation below target" in {
-    Nbp.shouldTaperQe(Rate(td.toDouble(p.monetary.targetInfl) - 0.01)) shouldBe false
+  it should "be false when expectations remain below target" in {
+    Nbp.shouldTaperQe(Rate(td.toDouble(p.monetary.targetInfl) + 0.01), Rate(td.toDouble(p.monetary.targetInfl) - 0.01)) shouldBe false
   }
 
   // --- executeQe ---
 
   "Nbp.executeQe" should "return 0 purchase when not active" in {
     val nbp      = Nbp.State(Rate(0.05), PLN(1000.0), false, PLN.Zero, PLN.Zero, PLN.Zero)
-    val qeResult = Nbp.executeQe(nbp, PLN(5000.0), PLN(1e10))
+    val qeResult = Nbp.executeQe(nbp, PLN(5000.0), PLN(1e10), Rate(-0.05), Rate(-0.02))
     qeResult.requestedPurchase shouldBe PLN.Zero
     qeResult.nbpState.govBondHoldings shouldBe nbp.govBondHoldings
   }
@@ -84,7 +88,7 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
   it should "not exceed available bank bond holdings" in {
     val nbp       = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
     val bankBonds = PLN(100.0)
-    val qeResult  = Nbp.executeQe(nbp, bankBonds, PLN(1e12))
+    val qeResult  = Nbp.executeQe(nbp, bankBonds, PLN(1e12), Rate(-0.05), Rate(-0.02))
     td.toDouble(qeResult.requestedPurchase) should be <= td.toDouble(bankBonds)
   }
 
@@ -92,16 +96,25 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
     val nbp       = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
     val annualGdp = PLN(1000.0)
     val maxByGdp  = td.toDouble(p.monetary.qeMaxGdpShare) * td.toDouble(annualGdp)
-    val qeResult  = Nbp.executeQe(nbp, PLN(1e12), annualGdp)
+    val qeResult  = Nbp.executeQe(nbp, PLN(1e12), annualGdp, Rate(-0.05), Rate(-0.02))
     td.toDouble(qeResult.requestedPurchase) should be <= maxByGdp
   }
 
   it should "return positive purchase when active with available bonds" in {
     val nbp      = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
-    val qeResult = Nbp.executeQe(nbp, PLN(1e12), PLN(1e12))
+    val qeResult = Nbp.executeQe(nbp, PLN(1e12), PLN(1e12), Rate(-0.05), Rate(-0.02))
     td.toDouble(qeResult.requestedPurchase) should be > 0.0
     // executeQe no longer updates cumulative; that happens in BankingEconomics
     qeResult.nbpState.qeCumulative shouldBe nbp.qeCumulative
+  }
+
+  it should "scale QE more aggressively in a lower-bound regime" in {
+    val zlbNbp    = Nbp.State(p.monetary.rateFloor, PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
+    val normalNbp = Nbp.State(Rate(0.03), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
+    val annualGdp = PLN(1e12)
+    val zlbQe     = Nbp.executeQe(zlbNbp, PLN(1e12), annualGdp, Rate(-0.05), Rate(-0.02))
+    val normalQe  = Nbp.executeQe(normalNbp, PLN(1e12), annualGdp, Rate(0.015), Rate(0.02))
+    td.toDouble(zlbQe.requestedPurchase) should be > td.toDouble(normalQe.requestedPurchase)
   }
 
   // --- NbpState defaults ---
