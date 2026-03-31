@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.diagnostics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.engine.markets.{LaborMarket, RegionalClearing}
 import com.boombustgroup.amorfati.init.WorldInit
@@ -37,6 +38,26 @@ object InflationProbe:
         s"${sec.name}=${"%.2f".formatLocal(java.util.Locale.US, v)}"
       }
       .mkString(", ")
+
+  private case class GovPurchasesBreakdown(
+      zusNetSurplus: PLN,
+      unempGap: Share,
+      base: PLN,
+      recycleCounterfactual: PLN,
+      stimulus: PLN,
+      rawTarget: PLN,
+  )
+
+  private def govPurchasesBreakdown(world: World, employed: Int)(using p: SimParams): GovPurchasesBreakdown =
+    val zusNetSurplus =
+      if p.flags.zus then (world.social.zus.contributions - world.social.zus.pensionPayments).max(PLN.Zero)
+      else PLN.Zero
+    val unempRate     = Share.One - Share.fraction(employed, world.totalPopulation)
+    val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
+    val base          = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, world.priceLevel))
+    val recycling     = (world.gov.taxRevenue + zusNetSurplus) * p.fiscal.govFiscalRecyclingRate
+    val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
+    GovPurchasesBreakdown(zusNetSurplus, unempGap, base, recycling, stimulus, base + stimulus)
 
   @main def runInflationProbe(seed: Long = 1L, months: Int = 12): Unit =
     given SimParams = SimParams.defaults
@@ -147,6 +168,7 @@ object InflationProbe:
       val fwdGuidance   = toDouble(s8.monetary.newExp.forwardGuidanceRate)
       val realRate      = refRate - expInfl
       val govPurchases  = toDouble(s4.govPurchases)
+      val govBreakdown  = govPurchasesBreakdown(world, s2Pre.employed)
       val govCurrent    = toDouble(s9.newGovWithYield.govCurrentSpend)
       val govCapital    = toDouble(s9.newGovWithYield.govCapitalSpend)
       val euProjectCap  = toDouble(s9.newGovWithYield.euProjectCapital)
@@ -179,6 +201,9 @@ object InflationProbe:
       )
       println(
         f"  fiscal: govPurch=${govPurchases}%.0f govCur=${govCurrent}%.0f govCapDom=${govCapital}%.0f euProjCap=${euProjectCap}%.0f euCofinDom=${euCofin}%.0f def=${deficit}%.0f def/gdp=${deficitToGdp}%.2f%% debt/gdp=${debtToGdp}%.2f%% rule=${s4.fiscalRuleStatus.bindingRule} cut=${toDouble(s4.fiscalRuleStatus.spendingCutRatio) * 100.0}%.2f%%",
+      )
+      println(
+        f"  gov raw target: base=${toDouble(govBreakdown.base)}%.0f recycleCf=${toDouble(govBreakdown.recycleCounterfactual)}%.0f stimulus=${toDouble(govBreakdown.stimulus)}%.0f raw=${toDouble(govBreakdown.rawTarget)}%.0f zusSurplus=${toDouble(govBreakdown.zusNetSurplus)}%.0f unempGap=${toDouble(govBreakdown.unempGap) * 100.0}%.2f%%",
       )
       println(s"  top pressure: ${topPressures(s4.sectorDemandPressure)}")
 

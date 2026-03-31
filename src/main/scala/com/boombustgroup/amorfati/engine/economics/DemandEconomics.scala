@@ -18,7 +18,6 @@ import com.boombustgroup.amorfati.types.*
 object DemandEconomics:
 
   // ---- Calibration constants ----
-  private val GovSpendingFloor       = 0.98 // gov spending cannot drop below 98% of previous period
   private val RealRateElasticity     = 0.02 // demand sensitivity to real interest rate gap
   private val PressureMaxBoost       = 0.75 // hiring signal can rise above 1.0, but only moderately
   private val PressureSaturationRate = 1.25 // how quickly excess-demand pressure saturates above capacity
@@ -57,23 +56,18 @@ object DemandEconomics:
     val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCap, in)
     Output(govPurchases, sectorMults, sectorPressure, sectorHiringSignal, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
 
-  /** Government purchases: base spending x price level + fiscal recycling (tax
-    * revenue + ZUS surplus) + automatic fiscal stimulus (unemployment gap x
-    * multiplier). Floored at 98% of previous period.
+  /** Government purchases: base spending x price level plus a small automatic
+    * stabilizer tied to labor-market slack. Revenue windfalls are not
+    * mechanically recycled back into demand.
     */
   private def computeGovPurchases(in: Input)(using p: SimParams): PLN =
-    val zusNetSurplus =
-      if p.flags.zus then (in.w.social.zus.contributions - in.w.social.zus.pensionPayments).max(PLN.Zero)
-      else PLN.Zero
-    val unempRate     = Share.One - Share.fraction(in.employed, in.w.totalPopulation)
-    val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
-    val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
-    val target        = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, in.w.priceLevel)) +
-      (in.w.gov.taxRevenue + zusNetSurplus) * p.fiscal.govFiscalRecyclingRate + stimulus
+    val unempRate = Share.One - Share.fraction(in.employed, in.w.totalPopulation)
+    val unempGap  = (unempRate - p.monetary.nairu).max(Share.Zero)
+    val stimulus  = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
+    val target    = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, in.w.priceLevel)) + stimulus
     target
 
-  /** Apply fiscal rules to raw government purchases. The 98% floor is applied
-    * only when no Art. 216/86 rule is binding.
+  /** Apply fiscal rules to raw government purchases.
     *
     * `prevGovSpend` intentionally tracks only `GovState.domesticBudgetDemand`.
     * This excludes the separate domestic co-financing outlay and the total EU
@@ -84,13 +78,9 @@ object DemandEconomics:
     val unempRate    = Share.One - Share.fraction(in.employed, in.w.totalPopulation)
     val outputGap    = Coefficient((unempRate - p.monetary.nairu) / p.monetary.nairu)
 
-    val floored =
-      if prevGovSpend > PLN.Zero then rawTarget.max(prevGovSpend * Share(GovSpendingFloor))
-      else rawTarget
-
-    val result = FiscalRules.constrain(
+    FiscalRules.constrain(
       FiscalRules.Input(
-        rawGovPurchases = floored,
+        rawGovPurchases = rawTarget,
         prevGovSpend = prevGovSpend,
         cumulativeDebt = in.w.gov.cumulativeDebt,
         monthlyGdp = PLN(in.w.gdpProxy),
@@ -100,14 +90,6 @@ object DemandEconomics:
         outputGap = outputGap,
       ),
     )
-
-    // When Art. 216/86 is binding, override the 98% floor — fiscal rules take precedence
-    if result.status.bindingRule >= 3 then result
-    else
-      val withFloor = result.constrainedGovPurchases.max(
-        if prevGovSpend > PLN.Zero then prevGovSpend * Share(GovSpendingFloor) else PLN.Zero,
-      )
-      result.copy(constrainedGovPurchases = withFloor)
 
   /** Per-sector nominal production capacity: sum of firm capacities. */
   @boundaryEscape
