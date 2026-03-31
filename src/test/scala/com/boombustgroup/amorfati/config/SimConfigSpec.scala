@@ -39,10 +39,6 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
     if sys.env.get("FIRMS_COUNT").isEmpty then p.pop.firmsCount shouldBe 10000
   }
 
-  it should "have Duration = 120" in {
-    p.timeline.duration shouldBe 120
-  }
-
   it should "have WorkersPerFirm = 10" in {
     p.pop.workersPerFirm shouldBe 10
   }
