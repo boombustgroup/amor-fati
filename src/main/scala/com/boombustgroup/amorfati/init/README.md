@@ -19,5 +19,3 @@ pure `create`/`initialize` methods — no mutable fields.
 | `NbfiInit.scala` | `NbfiInit` | Seeds TFI fund AUM as a parallel credit channel alongside the banking sector |
 | `ExpectationsInit.scala` | `ExpectationsInit` | Seeds the forward-looking expectation state used in firm investment and HH saving decisions |
 | `HousingInit.scala` | `HousingInit` | Seeds residential housing stock, price level, and mortgage debt |
-
-`WorldInit` is the single entry point called from `McRunner.runSingle`.
