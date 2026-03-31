@@ -115,8 +115,16 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     td.toDouble(result.euCofinancing) shouldBe 75000.0
   }
 
-  it should "add euProjectCapital to govCapitalSpend" in {
+  it should "track euProjectCapital separately from budget-financed govCapitalSpend" in {
     val prev   = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val base   = FiscalBudget.update(
+      FiscalBudget.Input(
+        prev,
+        priceLevel = 1.0,
+        citPaid = PLN(100000),
+        vat = PLN(200000),
+      ),
+    )
     val result = FiscalBudget.update(
       FiscalBudget.Input(
         prev,
@@ -126,5 +134,6 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
         euProjectCapital = PLN(30000.0),
       ),
     )
-    td.toDouble(result.govCapitalSpend) should be >= 30000.0
+    td.toDouble(result.govCapitalSpend) shouldBe td.toDouble(base.govCapitalSpend) +- 0.01
+    td.toDouble(result.euProjectCapital) shouldBe 30000.0 +- 0.01
   }

@@ -60,7 +60,8 @@ object FiscalBudget:
       socialTransferSpend: PLN = PLN.Zero, // social transfers (800+, family benefits) this month
       publicCapitalStock: PLN = PLN.Zero,  // public capital stock (roads, infrastructure) — GOV_INVEST
       govCurrentSpend: PLN = PLN.Zero,     // current government purchases (1 − investShare) × base
-      govCapitalSpend: PLN = PLN.Zero,     // capital government investment (investShare × base + EU capital)
+      govCapitalSpend: PLN = PLN.Zero,     // domestic budget-financed capital government investment
+      euProjectCapital: PLN = PLN.Zero,    // capital portion of total EU project value (EU funds + domestic co-financing)
       euCofinancing: PLN = PLN.Zero,       // EU co-financing expenditure this month
       exciseRevenue: PLN = PLN.Zero,       // excise duty revenue this month (akcyza)
       customsDutyRevenue: PLN = PLN.Zero,  // customs duty revenue this month (cło)
@@ -134,7 +135,8 @@ object FiscalBudget:
       socialTransferSpend = in.socialTransferSpend,
       publicCapitalStock = newCapitalStock,
       govCurrentSpend = govCurrent,
-      govCapitalSpend = govCapital + in.euProjectCapital,
+      govCapitalSpend = govCapital,
+      euProjectCapital = in.euProjectCapital,
       euCofinancing = in.euCofinancing,
       exciseRevenue = in.exciseRevenue,
       customsDutyRevenue = in.customsDutyRevenue,

@@ -172,6 +172,7 @@ object SimOutput:
     ColumnDef("SocialTransferSpend", ctx => td.toDouble(ctx.world.gov.socialTransferSpend)),
     ColumnDef("GovCurrentSpend", ctx => td.toDouble(ctx.world.gov.govCurrentSpend)),
     ColumnDef("GovCapitalSpend", ctx => td.toDouble(ctx.world.gov.govCapitalSpend)),
+    ColumnDef("EuProjectCapital", ctx => td.toDouble(ctx.world.gov.euProjectCapital)),
     ColumnDef("PublicCapitalStock", ctx => td.toDouble(ctx.world.gov.publicCapitalStock)),
     ColumnDef("EuCofinancing", ctx => td.toDouble(ctx.world.gov.euCofinancing)),
     ColumnDef("EuFundsMonthly", ctx => td.toDouble(ctx.world.bop.euFundsMonthly)),
