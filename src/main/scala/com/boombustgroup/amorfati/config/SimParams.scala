@@ -34,7 +34,7 @@ case class SectorDef(
   *
   * Sub-configs are grouped by economic domain:
   *   - `flags` — 50 mechanism toggles
-  *   - `pop`, `timeline` — simulation structure
+  *   - `pop` — simulation structure
   *   - `firm`, `household` — agent parameters
   *   - `fiscal`, `monetary`, `banking` — government, central bank, commercial
   *     banks
@@ -54,7 +54,6 @@ case class SectorDef(
 case class SimParams private (
     flags: FeatureFlags = FeatureFlags(),
     pop: PopulationConfig = PopulationConfig(),
-    timeline: TimelineConfig = TimelineConfig(),
     firm: FirmConfig = FirmConfig(),
     household: HouseholdConfig = HouseholdConfig(),
     fiscal: FiscalConfig = FiscalConfig(),

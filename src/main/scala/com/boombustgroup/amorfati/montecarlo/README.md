@@ -9,7 +9,7 @@ schema, summary statistics, and CSV I/O. It is the only consumer of
 | File | Object | Role |
 |------|--------|------|
 | `McRunner.scala` | `McRunner` | MC loop: runs N seeds, collects results, writes CSV, prints summary |
-| `McRunConfig.scala` | `McRunConfig` | Runtime config from CLI args: `nSeeds`, `outputPrefix` |
+| `McRunConfig.scala` | `McRunConfig` | Runtime config from CLI args: `nSeeds`, `outputPrefix`, `runDurationMonths`, `runId` |
 | `SimOutput.scala` | `SimOutput` | 197-column output schema — typed `Col` definitions, `compute` function |
 | `McTypes.scala` | `RunResult`, `TimeSeries`, `DescriptiveStats`, `McResults` | Zero-cost typed wrappers for simulation output and summary statistics |
 
@@ -30,3 +30,7 @@ Main ──→ McRunner.run(rc)
 `McRunner.runSingle` is the only bridge between this package and the
 engine — it calls `WorldInit.initialize` and `Simulation.step`, then
 maps the resulting state through `SimOutput.compute`.
+
+`runDurationMonths` is a Monte Carlo/runtime concern. It controls how
+many monthly snapshots the runner materializes, but it is not part of
+`SimParams` and should not leak into economic decision rules.

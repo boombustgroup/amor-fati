@@ -29,27 +29,33 @@ object Main extends ZIOAppDefault:
        |  SFC-ABM  |  commit: $commit
        |
        |  N=${rc.nSeeds} seeds  |  PLN (NBP)  |  HH=${p.household.count}  |  BANK=multi (7)
-       |  $firms firms x 6 sectors (GUS 2024) x ${p.topology.label} x ${p.timeline.duration}m
+       |  $firms firms x 6 sectors (GUS 2024) x ${p.topology.label} x ${rc.runDurationMonths}m
        |
        |  Apache 2.0 | Copyright 2026 BoomBustGroup | www.boombustgroup.com
        |""".stripMargin
 
   private def parseArgs(args: Chunk[String]): ZIO[Any, IllegalArgumentException, McRunConfig] =
-    val usage = "Usage: amor-fati <nSeeds> <prefix> [--run-id <id>]"
+    val usage = "Usage: amor-fati <nSeeds> <prefix> [--duration <months>] [--run-id <id>]"
 
     def findFlag(name: String): Option[String] =
       val idx = args.indexOf(name)
       if idx >= 0 && idx + 1 < args.length then Some(args(idx + 1)) else None
 
+    def parsePositiveInt(value: String, flag: String): Either[String, Int] =
+      scala.util.Try(value.toInt).toOption.filter(_ > 0).toRight(s"$flag must be a positive integer")
+
     ZIO
-      .fromOption(for
-        _      <- Option.when(args.length >= 2)(())
-        nSeeds <- args.headOption.flatMap(s => scala.util.Try(s.toInt).toOption)
-        prefix <- args.lift(1)
+      .fromEither(for
+        _           <- Either.cond(args.length >= 2, (), usage)
+        nSeeds      <- args.headOption.flatMap(s => scala.util.Try(s.toInt).toOption).filter(_ > 0).toRight(usage)
+        prefix      <- args.lift(1).toRight(usage)
+        runDuration <- findFlag("--duration") match
+          case Some(value) => parsePositiveInt(value, "--duration")
+          case None        => Right(McRunConfig.DefaultRunDuration)
       yield
         val runId = findFlag("--run-id")
         runId match
-          case Some(id) => McRunConfig(nSeeds, prefix, id)
-          case None     => McRunConfig(nSeeds, prefix))
-      .mapError(_ => new IllegalArgumentException(usage))
+          case Some(id) => McRunConfig(nSeeds, prefix, runDuration, id)
+          case None     => McRunConfig(nSeeds, prefix, runDuration))
+      .mapError(err => new IllegalArgumentException(if err == usage then usage else s"$err\n$usage"))
 // $COVERAGE-ON$

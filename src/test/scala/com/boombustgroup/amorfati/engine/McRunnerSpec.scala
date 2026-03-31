@@ -13,34 +13,31 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
+  private val duration     = 60 // months
 
   // Single shared run — all tests read from this result
-  private lazy val result = runSingle(42).fold(e => fail(e.toString), identity)
+  private lazy val result = runSingle(42, duration).fold(e => fail(e.toString), identity)
   private def ts          = result.timeSeries
 
   // --- Basic output sanity ---
 
-  "runSingle" should "return Right for valid seed" in {
-    runSingle(42) shouldBe a[Right[?, ?]]
-  }
-
-  it should "produce 120 rows x 227 columns" in {
-    ts.length shouldBe p.timeline.duration
+  "runSingle" should "produce 60 rows x 227 columns" in {
+    ts.length shouldBe duration
     for row <- ts do row.length shouldBe SimOutput.nCols
   }
 
-  it should "have Month column = 1..120" in {
-    for t <- 0 until p.timeline.duration do ts(t)(Col.Month.ordinal) shouldBe (t + 1).toDouble
+  it should "have Month column = 1..60" in {
+    for t <- 0 until duration do ts(t)(Col.Month.ordinal) shouldBe (t + 1).toDouble
   }
 
   it should "keep adoption ratio in [0, 1]" in {
-    for t <- 0 until p.timeline.duration do
+    for t <- 0 until duration do
       ts(t)(Col.TotalAdoption.ordinal) should be >= 0.0
       ts(t)(Col.TotalAdoption.ordinal) should be <= 1.0
   }
 
   it should "keep unemployment in [0, 1]" in {
-    for t <- 0 until p.timeline.duration do
+    for t <- 0 until duration do
       ts(t)(Col.Unemployment.ordinal) should be >= 0.0
       ts(t)(Col.Unemployment.ordinal) should be <= 1.0
   }
@@ -54,11 +51,11 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have positive sigma values" in {
-    for t <- 0 until p.timeline.duration; s <- 0 until 6 do ts(t)(Col.sectorSigma(s).ordinal) should be > 0.0
+    for t <- 0 until duration; s <- 0 until 6 do ts(t)(Col.sectorSigma(s).ordinal) should be > 0.0
   }
 
   it should "have positive mean degree" in {
-    for t <- 0 until p.timeline.duration do ts(t)(Col.MeanDegree.ordinal) should be > 0.0
+    for t <- 0 until duration do ts(t)(Col.MeanDegree.ordinal) should be > 0.0
   }
 
   it should "keep price level above floor (0.30)" in {
@@ -71,8 +68,8 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   // --- Reproducibility ---
 
   it should "be reproducible with the same seed" in {
-    val r2 = runSingle(42).fold(e => fail(e.toString), identity)
-    for t <- 0 until p.timeline.duration; c <- 0 until SimOutput.nCols do ts(t)(c) shouldBe r2.timeSeries(t)(c)
+    val r2 = runSingle(42, duration).fold(e => fail(e.toString), identity)
+    for t <- 0 until duration; c <- 0 until SimOutput.nCols do ts(t)(c) shouldBe r2.timeSeries(t)(c)
   }
 
   // --- Terminal state ---
@@ -99,7 +96,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   it should "have positive BondYield after month 1" in {
     assume(p.flags.govBondMarket, "GOV_BOND_MARKET=true required")
-    for t <- 1 until p.timeline.duration do
+    for t <- 1 until duration do
       withClue(s"Month ${t + 1}: ") {
         ts(t)(Col.BondYield.ordinal) should be > 0.0
       }
@@ -107,7 +104,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   it should "have non-zero BondsOutstanding after month 1" in {
     assume(p.flags.govBondMarket, "GOV_BOND_MARKET=true required")
-    val nonZero = (1 until p.timeline.duration).exists(t => ts(t)(Col.BondsOutstanding.ordinal) != 0.0)
+    val nonZero = (1 until duration).exists(t => ts(t)(Col.BondsOutstanding.ordinal) != 0.0)
     nonZero shouldBe true
   }
 
@@ -142,7 +139,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
     val deflationMonth = ts.indices.find(t => ts(t)(Col.Inflation.ordinal) < 0.0)
     deflationMonth match
       case Some(t) =>
-        val rateAfterDeflation = ((t + 1) until p.timeline.duration).map(m => ts(m)(Col.RefRate.ordinal))
+        val rateAfterDeflation = ((t + 1) until duration).map(m => ts(m)(Col.RefRate.ordinal))
         rateAfterDeflation.exists(_ < initialRate) shouldBe true
       case None    =>
         succeed

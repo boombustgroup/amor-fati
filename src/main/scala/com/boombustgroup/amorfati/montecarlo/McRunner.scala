@@ -52,17 +52,17 @@ object McRunner:
     yield ()
 
   /** Pure simulation — returns Either, no side effects. For tests. */
-  def runSingle(seed: Long)(using p: SimParams): Either[SimError, RunResult] =
-    initSeed(seed).flatMap(loop(_, seed, 0, Vector.empty))
+  def runSingle(seed: Long, durationMonths: Int = McRunConfig.DefaultRunDuration)(using p: SimParams): Either[SimError, RunResult] =
+    initSeed(seed).flatMap(loop(_, seed, 0, Vector.empty, durationMonths))
 
   /** Streaming simulation — emits one [[MonthSnapshot]] per month. */
-  private def seedStream(seed: Long)(using SimParams) =
-    ZStream.unwrap(ZIO.fromEither(initSeed(seed)).map(simulateMonths(seed, _)))
+  private def seedStream(seed: Long, durationMonths: Int)(using SimParams) =
+    ZStream.unwrap(ZIO.fromEither(initSeed(seed)).map(simulateMonths(seed, _, durationMonths)))
 
-  private def simulateMonths(seed: Long, initState: FlowSimulation.SimState)(using p: SimParams) =
+  private def simulateMonths(seed: Long, initState: FlowSimulation.SimState, durationMonths: Int)(using p: SimParams) =
     ZStream.unfoldZIO((initState, 0)):
-      case (_, month) if month >= p.timeline.duration => ZIO.none
-      case (state, month)                             =>
+      case (_, month) if month >= durationMonths => ZIO.none
+      case (state, month)                        =>
         ZIO
           .fromEither(stepMonth(state, seed, month))
           .map: (newState, monthData) =>
@@ -96,18 +96,19 @@ object McRunner:
       seed: Long,
       month: Int,
       monthSeries: Vector[Array[Double]],
+      durationMonths: Int,
   )(using p: SimParams): Either[SimError, RunResult] =
-    if month >= p.timeline.duration then Right(RunResult(TimeSeries.wrap(monthSeries.toArray), state))
+    if month >= durationMonths then Right(RunResult(TimeSeries.wrap(monthSeries.toArray), state))
     else
       stepMonth(state, seed, month) match
         case Left(err)                    => Left(err)
         case Right((newState, monthData)) =>
-          loop(newState, seed, month + 1, monthSeries :+ monthData)
+          loop(newState, seed, month + 1, monthSeries :+ monthData, durationMonths)
 
   /** Consume a seed stream into RunResult, collecting monthly data. */
   private def materializeSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
-    seedStream(seed)
-      .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.month, p.timeline.duration)))
+    seedStream(seed, rc.runDurationMonths)
+      .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.month, rc.runDurationMonths)))
       .runFold((Option.empty[FlowSimulation.SimState], Vector.empty[Array[Double]])):
         case ((_, series), snapshot) => (Some(snapshot.state), series :+ snapshot.monthData)
       .flatMap:
@@ -119,13 +120,13 @@ object McRunner:
   // ---------------------------------------------------------------------------
 
   // $COVERAGE-OFF$ I/O: CSV writers, progress, banner
-  private def filePrefix(rc: McRunConfig)(using p: SimParams) =
-    s"${rc.outputPrefix}_${rc.runId}_${p.timeline.duration}m"
+  private def filePrefix(rc: McRunConfig) =
+    s"${rc.outputPrefix}_${rc.runId}_${rc.runDurationMonths}m"
 
-  private def seedFileName(seed: Long, rc: McRunConfig)(using SimParams) =
+  private def seedFileName(seed: Long, rc: McRunConfig) =
     f"${filePrefix(rc)}_seed${seed}%03d.csv"
 
-  private def writeSeedCsv(seed: Long, rc: McRunConfig, result: RunResult)(using SimParams) =
+  private def writeSeedCsv(seed: Long, rc: McRunConfig, result: RunResult) =
     ZIO.attemptBlocking:
       val nCols    = SimOutput.nCols
       val colNames = SimOutput.colNames
@@ -170,7 +171,7 @@ object McRunner:
 
   private val hhHeader = "Seed;" + hhSchema.map(_._1).mkString(";")
 
-  private def writeHhCsv(rc: McRunConfig, results: zio.Chunk[(Long, RunResult)])(using SimParams) =
+  private def writeHhCsv(rc: McRunConfig, results: zio.Chunk[(Long, RunResult)]) =
     ZIO.attemptBlocking:
       val rows = results.map: (seed, r) =>
         val agg = r.terminalState.world.hhAgg
@@ -191,7 +192,7 @@ object McRunner:
 
   private val bankHeader = "Seed;" + bankSchema.map(_._1).mkString(";")
 
-  private def writeBankCsv(rc: McRunConfig, results: zio.Chunk[(Long, RunResult)])(using SimParams) =
+  private def writeBankCsv(rc: McRunConfig, results: zio.Chunk[(Long, RunResult)]) =
     ZIO.attemptBlocking:
       val rows = results.flatMap: (seed, r) =>
         r.terminalState.world.bankingSector.banks.map: b =>
@@ -225,7 +226,7 @@ object McRunner:
       )
       .orDie
 
-  private def printSavedZIO(rc: McRunConfig)(using SimParams) =
+  private def printSavedZIO(rc: McRunConfig) =
     val seedFiles = (1L to rc.nSeeds.toLong).map(s => s"mc/${seedFileName(s, rc)}")
     ZIO.foreachDiscard(seedFiles)(f => Console.printLine(s"Saved: $f")) *>
       Console.printLine(s"Saved: mc/${filePrefix(rc)}_hh.csv") *>
