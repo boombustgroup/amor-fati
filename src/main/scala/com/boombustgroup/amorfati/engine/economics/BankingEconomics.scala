@@ -43,8 +43,8 @@ object BankingEconomics:
 
   case class StepOutput(
       resolvedBank: Banking.Aggregate,               // aggregate bank balance sheet after resolution
-      finalBanks: Vector[Banking.BankState],         // explicit post-step bank population
-      finalBankingMarket: Banking.MarketState,       // banking market wrapper after interbank clearing
+      banks: Vector[Banking.BankState],              // explicit post-step bank population
+      bankingMarket: Banking.MarketState,            // banking market wrapper after interbank clearing
       reassignedFirms: Vector[Firm.State],           // firms with bankId reassigned after bank failure
       reassignedHouseholds: Vector[Household.State], // HH with bankId reassigned after bank failure
       finalNbp: Nbp.State,                           // NBP state after QE bond purchase (waterfall)
@@ -217,8 +217,8 @@ object BankingEconomics:
 
     StepOutput(
       resolvedBank = multi.resolvedBank,
-      finalBanks = multi.finalBanks,
-      finalBankingMarket = multi.finalBankingMarket,
+      banks = multi.finalBanks,
+      bankingMarket = multi.finalBankingMarket,
       reassignedFirms = multi.reassignedFirms,
       reassignedHouseholds = multi.reassignedHouseholds,
       finalNbp = multi.finalNbp,
