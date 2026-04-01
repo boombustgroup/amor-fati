@@ -233,9 +233,9 @@ object OpenEconEconomics:
     val interbankInterest = Banking.interbankInterestFlows(in.banks, bsec.interbankRate).total
 
     // 6. Bond yield, debt service, QE
-    val annualGdp         = toDouble(in.gdp) * 12.0
-    val debtToGdp         = if annualGdp > 0.0 then Share(toDouble(in.w.gov.cumulativeDebt) / annualGdp) else Share.Zero
-    val nbpBondGdpShare   = if annualGdp > 0.0 then Share(toDouble(in.w.nbp.qeCumulative) / annualGdp) else Share.Zero
+    val annualGdp         = in.gdp * 12
+    val debtToGdp         = if annualGdp > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdp)) else Share.Zero
+    val nbpBondGdpShare   = if annualGdp > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdp)) else Share.Zero
     val credPremium       = if p.flags.expectations then
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
         Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
@@ -594,9 +594,9 @@ object OpenEconEconomics:
       interbank: InterbankResult,
   )(using p: SimParams): BondQeResult =
     import ComputationBoundary.toDouble
-    val annualGdpForBonds = toDouble(in.s7.gdp) * 12.0
-    val debtToGdp         = if annualGdpForBonds > 0.0 then Share(toDouble(in.w.gov.cumulativeDebt) / annualGdpForBonds) else Share.Zero
-    val nbpBondGdpShare   = if annualGdpForBonds > 0.0 then Share(toDouble(in.w.nbp.qeCumulative) / annualGdpForBonds) else Share.Zero
+    val annualGdpForBonds = in.s7.gdp * 12
+    val debtToGdp         = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdpForBonds)) else Share.Zero
+    val nbpBondGdpShare   = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdpForBonds)) else Share.Zero
     val credPremium       = if p.flags.expectations then
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
         Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
