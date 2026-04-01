@@ -627,7 +627,10 @@ object OpenEconEconomics:
     val preQeNbp         = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
     val qeRequest        = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, annualGdpForBonds, in.s7.newInfl, newExp.expectedInflation)
     val qePurchaseAmount = qeRequest.requestedPurchase
-    val postFxNbp        = qeRequest.nbpState.copy(fxReserves = fxResult.newReserves, lastFxTraded = fxResult.eurTraded)
+    val postFxNbp        = qeRequest.nbpState.copy(
+      balance = qeRequest.nbpState.balance.copy(fxReserves = fxResult.newReserves),
+      monthly = qeRequest.nbpState.monthly.copy(lastFxTraded = fxResult.eurTraded),
+    )
 
     BondQeResult(marketYield, newWeightedCoupon, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp)
 

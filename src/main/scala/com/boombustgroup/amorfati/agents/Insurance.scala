@@ -11,12 +11,18 @@ object Insurance:
   // Unemployment threshold below which non-life claims have no cyclical add-on
   private val NonLifeUnempThreshold = 0.05
 
-  case class State(
-      lifeReserves: PLN,         // life insurance technical reserves
-      nonLifeReserves: PLN,      // non-life insurance technical reserves
-      govBondHoldings: PLN,      // government bond allocation
-      corpBondHoldings: PLN,     // corporate bond allocation
-      equityHoldings: PLN,       // equity allocation (GPW)
+  case class ReserveState(
+      lifeReserves: PLN,   // life insurance technical reserves
+      nonLifeReserves: PLN, // non-life insurance technical reserves
+  )
+
+  case class PortfolioState(
+      govBondHoldings: PLN,  // government bond allocation
+      corpBondHoldings: PLN, // corporate bond allocation
+      equityHoldings: PLN,   // equity allocation (GPW)
+  )
+
+  case class MonthlyFlowState(
       lastLifePremium: PLN,      // life premium collected this month
       lastNonLifePremium: PLN,   // non-life premium collected this month
       lastLifeClaims: PLN,       // life claims paid this month
@@ -25,7 +31,50 @@ object Insurance:
       lastNetDepositChange: PLN, // net deposit effect: −(premiums − claims)
   )
 
+  case class State(
+      reserves: ReserveState,
+      portfolio: PortfolioState,
+      monthly: MonthlyFlowState,
+  ):
+    def lifeReserves: PLN         = reserves.lifeReserves
+    def nonLifeReserves: PLN      = reserves.nonLifeReserves
+    def govBondHoldings: PLN      = portfolio.govBondHoldings
+    def corpBondHoldings: PLN     = portfolio.corpBondHoldings
+    def equityHoldings: PLN       = portfolio.equityHoldings
+    def lastLifePremium: PLN      = monthly.lastLifePremium
+    def lastNonLifePremium: PLN   = monthly.lastNonLifePremium
+    def lastLifeClaims: PLN       = monthly.lastLifeClaims
+    def lastNonLifeClaims: PLN    = monthly.lastNonLifeClaims
+    def lastInvestmentIncome: PLN = monthly.lastInvestmentIncome
+    def lastNetDepositChange: PLN = monthly.lastNetDepositChange
+
   object State:
+    def apply(
+        lifeReserves: PLN,
+        nonLifeReserves: PLN,
+        govBondHoldings: PLN,
+        corpBondHoldings: PLN,
+        equityHoldings: PLN,
+        lastLifePremium: PLN,
+        lastNonLifePremium: PLN,
+        lastLifeClaims: PLN,
+        lastNonLifeClaims: PLN,
+        lastInvestmentIncome: PLN,
+        lastNetDepositChange: PLN,
+    ): State =
+      State(
+        reserves = ReserveState(lifeReserves, nonLifeReserves),
+        portfolio = PortfolioState(govBondHoldings, corpBondHoldings, equityHoldings),
+        monthly = MonthlyFlowState(
+          lastLifePremium,
+          lastNonLifePremium,
+          lastLifeClaims,
+          lastNonLifeClaims,
+          lastInvestmentIncome,
+          lastNetDepositChange,
+        ),
+      )
+
     val zero: State = State(
       PLN.Zero,
       PLN.Zero,

@@ -26,14 +26,47 @@ object Nbp:
   // State
   // ---------------------------------------------------------------------------
 
-  case class State(
-      referenceRate: Rate,  // NBP reference rate (annualised)
+  case class PolicyState(
+      referenceRate: Rate, // NBP reference rate (annualised)
+      qeActive: Boolean,   // whether QE programme is currently active
+  )
+
+  case class BalanceState(
       govBondHoldings: PLN, // NBP bond portfolio (QE + open market)
-      qeActive: Boolean,    // whether QE programme is currently active
       qeCumulative: PLN,    // cumulative QE purchases since activation
       fxReserves: PLN,      // EUR-equivalent total reserves (multi-currency)
-      lastFxTraded: PLN,    // monthly FX intervention amount (EUR, +bought/−sold)
   )
+
+  case class MonthlyOpsState(
+      lastFxTraded: PLN, // monthly FX intervention amount (EUR, +bought/−sold)
+  )
+
+  case class State(
+      policy: PolicyState,
+      balance: BalanceState,
+      monthly: MonthlyOpsState,
+  ):
+    def referenceRate: Rate  = policy.referenceRate
+    def qeActive: Boolean    = policy.qeActive
+    def govBondHoldings: PLN = balance.govBondHoldings
+    def qeCumulative: PLN    = balance.qeCumulative
+    def fxReserves: PLN      = balance.fxReserves
+    def lastFxTraded: PLN    = monthly.lastFxTraded
+
+  object State:
+    def apply(
+        referenceRate: Rate,
+        govBondHoldings: PLN,
+        qeActive: Boolean,
+        qeCumulative: PLN,
+        fxReserves: PLN,
+        lastFxTraded: PLN,
+    ): State =
+      State(
+        policy = PolicyState(referenceRate, qeActive),
+        balance = BalanceState(govBondHoldings, qeCumulative, fxReserves),
+        monthly = MonthlyOpsState(lastFxTraded),
+      )
 
   // ---------------------------------------------------------------------------
   // QE result type

@@ -23,16 +23,19 @@ object Nbfi:
   // State
   // ---------------------------------------------------------------------------
 
-  case class State(
-      // TFI component
-      tfiAum: PLN,                 // total assets under management
-      tfiGovBondHoldings: PLN,     // gov bonds (target share)
-      tfiCorpBondHoldings: PLN,    // corp bonds (target share)
-      tfiEquityHoldings: PLN,      // equities (target share)
-      tfiCashHoldings: PLN,        // cash/money market (residual)
-      // NBFI credit component (leasing + fintech)
-      nbfiLoanStock: PLN,          // outstanding NBFI loans
-      // Flow tracking
+  case class TfiState(
+      tfiAum: PLN,              // total assets under management
+      tfiGovBondHoldings: PLN,  // gov bonds (target share)
+      tfiCorpBondHoldings: PLN, // corp bonds (target share)
+      tfiEquityHoldings: PLN,   // equities (target share)
+      tfiCashHoldings: PLN,     // cash/money market (residual)
+  )
+
+  case class CreditState(
+      nbfiLoanStock: PLN, // outstanding NBFI loans
+  )
+
+  case class FlowState(
       lastTfiNetInflow: PLN,       // HH net fund purchases this month
       lastNbfiOrigination: PLN,    // monthly new NBFI credit
       lastNbfiRepayment: PLN,      // monthly principal repaid
@@ -42,7 +45,55 @@ object Nbfi:
       lastDepositDrain: PLN,       // net deposit outflow (TFI inflow)
   )
 
+  case class State(
+      tfi: TfiState,
+      credit: CreditState,
+      monthly: FlowState,
+  ):
+    def tfiAum: PLN                 = tfi.tfiAum
+    def tfiGovBondHoldings: PLN     = tfi.tfiGovBondHoldings
+    def tfiCorpBondHoldings: PLN    = tfi.tfiCorpBondHoldings
+    def tfiEquityHoldings: PLN      = tfi.tfiEquityHoldings
+    def tfiCashHoldings: PLN        = tfi.tfiCashHoldings
+    def nbfiLoanStock: PLN          = credit.nbfiLoanStock
+    def lastTfiNetInflow: PLN       = monthly.lastTfiNetInflow
+    def lastNbfiOrigination: PLN    = monthly.lastNbfiOrigination
+    def lastNbfiRepayment: PLN      = monthly.lastNbfiRepayment
+    def lastNbfiDefaultAmount: PLN  = monthly.lastNbfiDefaultAmount
+    def lastNbfiInterestIncome: PLN = monthly.lastNbfiInterestIncome
+    def lastBankTightness: Share    = monthly.lastBankTightness
+    def lastDepositDrain: PLN       = monthly.lastDepositDrain
+
   object State:
+    def apply(
+        tfiAum: PLN,
+        tfiGovBondHoldings: PLN,
+        tfiCorpBondHoldings: PLN,
+        tfiEquityHoldings: PLN,
+        tfiCashHoldings: PLN,
+        nbfiLoanStock: PLN,
+        lastTfiNetInflow: PLN,
+        lastNbfiOrigination: PLN,
+        lastNbfiRepayment: PLN,
+        lastNbfiDefaultAmount: PLN,
+        lastNbfiInterestIncome: PLN,
+        lastBankTightness: Share,
+        lastDepositDrain: PLN,
+    ): State =
+      State(
+        tfi = TfiState(tfiAum, tfiGovBondHoldings, tfiCorpBondHoldings, tfiEquityHoldings, tfiCashHoldings),
+        credit = CreditState(nbfiLoanStock),
+        monthly = FlowState(
+          lastTfiNetInflow,
+          lastNbfiOrigination,
+          lastNbfiRepayment,
+          lastNbfiDefaultAmount,
+          lastNbfiInterestIncome,
+          lastBankTightness,
+          lastDepositDrain,
+        ),
+      )
+
     val zero: State = State(
       PLN.Zero,
       PLN.Zero,
