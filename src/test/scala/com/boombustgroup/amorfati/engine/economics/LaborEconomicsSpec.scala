@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.economics
 
+import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
@@ -50,4 +51,33 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
 
   it should "leave hiring plans unchanged when labor demand fits available labor" in {
     LaborEconomics.aggregateHiringSlackFactor(laborDemand = 60000, availableLabor = 80000) shouldBe (1.0 +- 1e-9)
+  }
+
+  it should "reconcile post-firm labor demand and realized employment from post-step state" in {
+    val pre   = LaborEconomics.compute(world, firms, world.households, s1)
+    val s2Pre = LaborEconomics.Output(
+      pre.wage,
+      pre.employed,
+      pre.laborDemand,
+      pre.wageGrowth,
+      pre.aggregateHiringSlack,
+      pre.immigration,
+      pre.netMigration,
+      pre.demographics,
+      SocialSecurity.ZusState.zero,
+      SocialSecurity.NfzState.zero,
+      SocialSecurity.PpkState.zero,
+      PLN.Zero,
+      EarmarkedFunds.State.zero,
+      pre.living,
+      pre.regionalWages,
+    )
+
+    val postLiving = firms.take(10).filter(Firm.isAlive)
+    val postHh     = world.households.map(_.copy(status = HhStatus.Unemployed(0)))
+    val post       = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, postLiving, postHh)
+
+    post.laborDemand shouldBe postLiving.map(Firm.workerCount).sum
+    post.employed shouldBe 0
+    ComputationBoundary.toDouble(post.newWage) should be >= ComputationBoundary.toDouble(s1.resWage)
   }
