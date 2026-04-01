@@ -20,13 +20,14 @@ object BankruptcyProbe:
     var world = init.world
     var firms = init.firms
     var hhs   = init.households
+    var banks = init.banks
 
     println(s"seed=$seed months=$months")
 
     (1 to months).foreach: month =>
       val rng          = new Random(seed * 1000 + month)
       val prevById     = firms.map(f => f.id -> f).toMap
-      val result       = FlowSimulation.step(world, firms, hhs, rng)
+      val result       = FlowSimulation.step(world, firms, hhs, banks, rng)
       val newBankrupts = result.newFirms.flatMap: f =>
         bankruptReason(f).flatMap: reason =>
           prevById.get(f.id).flatMap(bankruptReason) match
@@ -48,3 +49,4 @@ object BankruptcyProbe:
       world = result.newWorld
       firms = result.newFirms
       hhs = result.newHouseholds
+      banks = result.newBanks

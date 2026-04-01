@@ -24,10 +24,11 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
       var w     = init.world
       var firms = init.firms
       var hh    = init.households
+      var banks = init.banks
 
       (1 to months).foreach { month =>
         val rng    = new scala.util.Random(seed * 1000 + month)
-        val result = FlowSimulation.step(w, firms, hh, rng)
+        val result = FlowSimulation.step(w, firms, hh, banks, rng)
         val wealth = Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], result.flows))
         withClue(s"Seed $seed, month $month: ") {
           wealth.shouldBe(0L)
@@ -35,6 +36,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
         w = result.newWorld
         firms = result.newFirms
         hh = result.newHouseholds
+        banks = result.newBanks
       }
     }
 
@@ -44,12 +46,14 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
       var w     = init.world
       var firms = init.firms
       var hh    = init.households
+      var banks = init.banks
       (1 to months).foreach { m =>
         val rng    = new scala.util.Random(seed * 1000 + m)
-        val result = FlowSimulation.step(w, firms, hh, rng)
+        val result = FlowSimulation.step(w, firms, hh, banks, rng)
         w = result.newWorld
         firms = result.newFirms
         hh = result.newHouseholds
+        banks = result.newBanks
       }
 
       val unemp = w.hhAgg.unemploymentRate(w.totalPopulation)
@@ -65,12 +69,14 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
       var w     = init.world
       var firms = init.firms
       var hh    = init.households
+      var banks = init.banks
       (1 to months).foreach { m =>
         val rng    = new scala.util.Random(seed * 1000 + m)
-        val result = FlowSimulation.step(w, firms, hh, rng)
+        val result = FlowSimulation.step(w, firms, hh, banks, rng)
         w = result.newWorld
         firms = result.newFirms
         hh = result.newHouseholds
+        banks = result.newBanks
       }
 
       withClue(s"Seed $seed GDP: ") {
@@ -82,7 +88,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
     seeds.foreach { seed =>
       val init   = WorldInit.initialize(seed)
       val rng    = new scala.util.Random(seed)
-      val result = FlowSimulation.step(init.world, init.firms, init.households, rng)
+      val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
 
       withClue(s"Seed $seed mechanisms: ") {
         result.flows.map(_.mechanism).toSet.size should be > 30

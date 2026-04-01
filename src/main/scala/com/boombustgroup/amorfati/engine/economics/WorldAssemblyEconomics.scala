@@ -28,6 +28,7 @@ object WorldAssemblyEconomics:
       w: World,                               // current world state
       firms: Vector[Firm.State],              // pre-step firm population
       households: Vector[Household.State],    // pre-step household population
+      banks: Vector[Banking.BankState],       // pre-step bank population
       s1: FiscalConstraintEconomics.Output,   // fiscal constraint (month, reservation wage, lending base rate)
       s2: LaborEconomics.Output,              // labor/demographics (wage, employment, ZUS, PPK)
       s3: HouseholdIncomeEconomics.Output,    // household income (consumption, PIT, import propensity)
@@ -43,6 +44,7 @@ object WorldAssemblyEconomics:
       newWorld: World,
       finalFirms: Vector[Firm.State],
       reassignedHouseholds: Vector[Household.State],
+      banks: Vector[Banking.BankState],
       sfcResult: Sfc.SfcResult,
   )
 
@@ -88,6 +90,7 @@ object WorldAssemblyEconomics:
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
       // Raw values
       month: Int,
       lendingBaseRate: Rate,
@@ -116,6 +119,7 @@ object WorldAssemblyEconomics:
       world: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
   )
 
   def compute(in: Input)(using SimParams): Result =
@@ -136,6 +140,7 @@ object WorldAssemblyEconomics:
         in.w,
         in.firms,
         in.households,
+        in.banks,
         s1,
         in.laborOutput,
         in.hhOutput,
@@ -150,7 +155,7 @@ object WorldAssemblyEconomics:
       in.migRng,
     )
 
-    Result(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds)
+    Result(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds, s10.banks)
 
   // ---------------------------------------------------------------------------
   // runStep — migrated from WorldAssemblyStep.run
@@ -213,7 +218,7 @@ object WorldAssemblyEconomics:
         )
       .copy(hhAgg = startupStaffing.hhAgg)
       .copy(regionalWages = in.s2.regionalWages)
-    StepOutput(finalW, finalFirms, postMigHh, sfcResult)
+    StepOutput(finalW, finalFirms, postMigHh, in.s9.banks, sfcResult)
 
   // ---------------------------------------------------------------------------
   // Private helpers — migrated from WorldAssemblyStep
@@ -286,7 +291,7 @@ object WorldAssemblyEconomics:
   @boundaryEscape
   private def computeObservables(in: StepInput)(using p: SimParams): Observables =
     import ComputationBoundary.toDouble
-    val aliveBanks           = in.s9.finalBankingSector.banks.filterNot(_.failed)
+    val aliveBanks           = in.s9.banks.filterNot(_.failed)
     val depositFacilityUsage = PLN.fromRaw(
       aliveBanks
         .filter(_.reservesAtNbp > PLN.Zero)
@@ -383,7 +388,7 @@ object WorldAssemblyEconomics:
       ),
       nbp = in.s9.finalNbp,
       bank = in.s9.resolvedBank,
-      bankingSector = in.s9.finalBankingSector,
+      bankingSector = in.s9.bankingMarket,
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
       hhAgg = in.s9.finalHhAgg,
@@ -469,8 +474,8 @@ object WorldAssemblyEconomics:
 
   /** Run SFC validation against previous and current snapshots. */
   private def validateSfc(in: StepInput, newW: World, fofResidual: PLN)(using p: SimParams): Sfc.SfcResult =
-    val prevSnap = Sfc.snapshot(in.w, in.firms, in.households)
-    val currSnap = Sfc.snapshot(newW, in.s9.reassignedFirms, in.s9.reassignedHouseholds)
+    val prevSnap = Sfc.snapshot(in.w, in.firms, in.households, in.banks)
+    val currSnap = Sfc.snapshot(newW, in.s9.reassignedFirms, in.s9.reassignedHouseholds, in.s9.banks)
     val flows    = buildMonthlyFlows(in, fofResidual)
     Sfc.validate(prevSnap, currSnap, flows)
 

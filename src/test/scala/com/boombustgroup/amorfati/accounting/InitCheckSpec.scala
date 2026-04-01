@@ -12,44 +12,41 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
 
   "InitCheck" should "pass for default init" in:
     val result = WorldInit.initialize(42L)
-    val snap   = Sfc.snapshot(result.world, result.firms, result.households)
-    val errors = InitCheck.validate(snap, result.world.bankingSector, result.firms, result.households)
+    val snap   = Sfc.snapshot(result.world, result.firms, result.households, result.banks)
+    val errors = InitCheck.validate(snap, result.banks, result.firms, result.households)
     errors shouldBe empty
 
   it should "detect tampered bondsOutstanding" in:
     val result   = WorldInit.initialize(42L)
-    val snap     = Sfc.snapshot(result.world, result.firms, result.households)
+    val snap     = Sfc.snapshot(result.world, result.firms, result.households, result.banks)
     val tampered = snap.copy(bondsOutstanding = snap.bondsOutstanding + PLN(1000.0))
-    val errors   = InitCheck.validate(tampered, result.world.bankingSector, result.firms, result.households)
+    val errors   = InitCheck.validate(tampered, result.banks, result.firms, result.households)
     errors should not be empty
     errors.exists(_.identity == "Bond clearing") shouldBe true
 
   it should "detect tampered bank deposits" in:
-    val result         = WorldInit.initialize(42L)
-    val snap           = Sfc.snapshot(result.world, result.firms, result.households)
-    val banks          = result.world.bankingSector.banks
-    val tamperedBank0  = banks.updated(0, banks(0).copy(deposits = banks(0).deposits + PLN(5000.0)))
-    val tamperedSector = result.world.bankingSector.copy(banks = tamperedBank0)
-    val errors         = InitCheck.validate(snap, tamperedSector, result.firms, result.households)
+    val result        = WorldInit.initialize(42L)
+    val snap          = Sfc.snapshot(result.world, result.firms, result.households, result.banks)
+    val banks         = result.banks
+    val tamperedBank0 = banks.updated(0, banks(0).copy(deposits = banks(0).deposits + PLN(5000.0)))
+    val errors        = InitCheck.validate(snap, tamperedBank0, result.firms, result.households)
     errors should not be empty
     errors.exists(_.identity.startsWith("Deposit consistency")) shouldBe true
 
   it should "detect tampered firm debt" in:
-    val result         = WorldInit.initialize(42L)
-    val snap           = Sfc.snapshot(result.world, result.firms, result.households)
-    val banks          = result.world.bankingSector.banks
-    val tamperedBank0  = banks.updated(0, banks(0).copy(loans = banks(0).loans + PLN(5000.0)))
-    val tamperedSector = result.world.bankingSector.copy(banks = tamperedBank0)
-    val errors         = InitCheck.validate(snap, tamperedSector, result.firms, result.households)
+    val result        = WorldInit.initialize(42L)
+    val snap          = Sfc.snapshot(result.world, result.firms, result.households, result.banks)
+    val banks         = result.banks
+    val tamperedBank0 = banks.updated(0, banks(0).copy(loans = banks(0).loans + PLN(5000.0)))
+    val errors        = InitCheck.validate(snap, tamperedBank0, result.firms, result.households)
     errors should not be empty
     errors.exists(_.identity.startsWith("Corp loan consistency")) shouldBe true
 
   it should "detect tampered consumer loans" in:
-    val result         = WorldInit.initialize(42L)
-    val snap           = Sfc.snapshot(result.world, result.firms, result.households)
-    val banks          = result.world.bankingSector.banks
-    val tamperedBank0  = banks.updated(0, banks(0).copy(consumerLoans = banks(0).consumerLoans + PLN(5000.0)))
-    val tamperedSector = result.world.bankingSector.copy(banks = tamperedBank0)
-    val errors         = InitCheck.validate(snap, tamperedSector, result.firms, result.households)
+    val result        = WorldInit.initialize(42L)
+    val snap          = Sfc.snapshot(result.world, result.firms, result.households, result.banks)
+    val banks         = result.banks
+    val tamperedBank0 = banks.updated(0, banks(0).copy(consumerLoans = banks(0).consumerLoans + PLN(5000.0)))
+    val errors        = InitCheck.validate(snap, tamperedBank0, result.firms, result.households)
     errors should not be empty
     errors.exists(_.identity.startsWith("Consumer loan consistency")) shouldBe true

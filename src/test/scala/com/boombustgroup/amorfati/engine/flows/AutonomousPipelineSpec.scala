@@ -20,10 +20,11 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
     var w     = init.world
     var firms = init.firms
     var hh    = init.households
+    var banks = init.banks
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(w, firms, hh, rng)
+      val result = FlowSimulation.step(w, firms, hh, banks, rng)
       val wealth = Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], result.flows))
 
       withClue(s"Month $month: ") {
@@ -33,6 +34,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
       w = result.newWorld
       firms = result.newFirms
       hh = result.newHouseholds
+      banks = result.newBanks
     }
   }
 
@@ -41,14 +43,16 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
     var w     = init.world
     var firms = init.firms
     var hh    = init.households
+    var banks = init.banks
     val gdps  = scala.collection.mutable.ArrayBuffer[Double]()
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(w, firms, hh, rng)
+      val result = FlowSimulation.step(w, firms, hh, banks, rng)
       w = result.newWorld
       firms = result.newFirms
       hh = result.newHouseholds
+      banks = result.newBanks
       gdps += w.gdpProxy
     }
 
@@ -61,13 +65,15 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
     var w     = init.world
     var firms = init.firms
     var hh    = init.households
+    var banks = init.banks
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(w, firms, hh, rng)
+      val result = FlowSimulation.step(w, firms, hh, banks, rng)
       w = result.newWorld
       firms = result.newFirms
       hh = result.newHouseholds
+      banks = result.newBanks
 
       withClue(s"Month $month: ") {
         w.hhAgg.employed should be > 0

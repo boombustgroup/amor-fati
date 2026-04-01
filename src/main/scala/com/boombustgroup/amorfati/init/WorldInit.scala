@@ -80,7 +80,7 @@ object WorldInit:
         lastFxTraded = PLN.Zero,
       ),
       bank = initBankingSector.aggregate,
-      bankingSector = initBankingSector,
+      bankingSector = initBankingSector.marketState,
       forex = OpenEconomy.ForexState(
         exchangeRate = p.forex.baseExRate,
         imports = PLN.Zero,
@@ -165,6 +165,11 @@ object WorldInit:
       regionalWages = Region.all.map(r => r -> (p.household.baseWage * Region.normalizedWageMultiplier(r))).toMap,
     )
 
-    InitResult(world, firms, households)
+    InitResult(world, firms, households, initBankingSector.banks)
 
-  case class InitResult(world: World, firms: Vector[Firm.State], households: Vector[Household.State])
+  case class InitResult(
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  )

@@ -252,7 +252,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
       bank = Banking.Aggregate(PLN.Zero, PLN.Zero, PLN(100), PLN(1000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      bankingSector = Generators.testBankingSector(),
+      bankingSector = Generators.testBankingSector().marketState,
       forex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
         employed = 100,

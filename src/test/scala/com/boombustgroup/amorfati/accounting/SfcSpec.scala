@@ -45,7 +45,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN(govDebt), PLN.Zero),
       nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
       bank = Banking.Aggregate(PLN(bankLoans), PLN(bankNpl), PLN(bankCapital), PLN(bankDeposits), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      bankingSector = Generators.testBankingSector(),
+      bankingSector = Generators.testBankingSector().marketState,
       forex = OpenEconomy.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = Household.Aggregates(
         employed = 100,
@@ -247,7 +247,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   "Sfc.snapshot" should "correctly sum firm cash and debt" in {
     val w     = makeWorld()
     val firms = makeFirms(5, cash = 10000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty)
     td.toDouble(snap.firmCash) shouldBe 50000.0 +- 0.01
     td.toDouble(snap.firmDebt) shouldBe 25000.0 +- 0.01
   }
@@ -256,7 +256,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val w     = makeWorld()
     val firms = makeFirms(1)
     val hhs   = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, hhs)
+    val snap  = Sfc.snapshot(w, firms, hhs, Vector.empty)
     td.toDouble(snap.hhSavings) shouldBe 200000.0 +- 0.01
     td.toDouble(snap.hhDebt) shouldBe 50000.0 +- 0.01
   }
@@ -264,7 +264,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "return zero HH values with empty household vector" in {
     val w     = makeWorld()
     val firms = makeFirms(1)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty)
     snap.hhSavings shouldBe PLN.Zero
     snap.hhDebt shouldBe PLN.Zero
   }
@@ -272,7 +272,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "capture bank state from World" in {
     val w     = makeWorld(bankCapital = 123456.0, bankDeposits = 789012.0, bankLoans = 50000.0, govDebt = 100000.0)
     val firms = makeFirms(1)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty)
     snap.bankCapital shouldBe PLN(123456.0)
     snap.bankDeposits shouldBe PLN(789012.0)
     snap.bankLoans shouldBe PLN(50000.0)

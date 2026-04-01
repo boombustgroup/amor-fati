@@ -133,6 +133,7 @@ object OpenEconEconomics:
   /** Input: everything needed from previous stages. */
   case class Input(
       w: World,
+      banks: Vector[Banking.BankState],
       employed: Int,
       newWage: PLN,
       domesticConsumption: PLN,
@@ -226,9 +227,9 @@ object OpenEconEconomics:
 
     // 5. Interbank
     val bsec              = in.w.bankingSector
-    val reserveInterest   = Banking.computeReserveInterest(bsec.banks, in.w.nbp.referenceRate).total
-    val standingFacility  = Banking.computeStandingFacilities(bsec.banks, in.w.nbp.referenceRate).total
-    val interbankInterest = Banking.interbankInterestFlows(bsec.banks, bsec.interbankRate).total
+    val reserveInterest   = Banking.computeReserveInterest(in.banks, in.w.nbp.referenceRate).total
+    val standingFacility  = Banking.computeStandingFacilities(in.banks, in.w.nbp.referenceRate).total
+    val interbankInterest = Banking.interbankInterestFlows(in.banks, bsec.interbankRate).total
 
     // 6. Bond yield, debt service, QE
     val annualGdp         = PLN(in.w.gdpProxy * 12.0)
@@ -365,6 +366,7 @@ object OpenEconEconomics:
       s5: FirmEconomics.StepOutput,
       s6: HouseholdFinancialEconomics.Output,
       s7: PriceEquityEconomics.Output,
+      banks: Vector[Banking.BankState],
       commodityRng: Random,
   )
 
@@ -415,7 +417,7 @@ object OpenEconEconomics:
     val sectorOutputs = runStepSectorOutputs(in)
     val external      = runStepExternalSector(in, sectorOutputs)
     val rateAndExp    = runStepRateAndExpectations(in, external.newForex)
-    val interbank     = runStepInterbankFlows(in.w)
+    val interbank     = runStepInterbankFlows(in.w, in.banks)
     val bondQe        = runStepBondYieldAndQe(in, rateAndExp.refRate, rateAndExp.expectations, external.fxIntervention, interbank)
     val corpBonds     = runStepCorporateBonds(in, bondQe.marketYield)
     val insurance     = runStepInsurance(in, bondQe.marketYield)
@@ -572,12 +574,12 @@ object OpenEconEconomics:
       else in.w.mechanisms.expectations
     RateExpResult(newRefRate, newExp)
 
-  private def runStepInterbankFlows(w: World)(using SimParams): InterbankResult =
+  private def runStepInterbankFlows(w: World, banks: Vector[Banking.BankState])(using SimParams): InterbankResult =
     val bsec = w.bankingSector
     InterbankResult(
-      reserveInterest = Banking.computeReserveInterest(bsec.banks, w.nbp.referenceRate).total,
-      standingFacilityIncome = Banking.computeStandingFacilities(bsec.banks, w.nbp.referenceRate).total,
-      interbankInterest = Banking.interbankInterestFlows(bsec.banks, bsec.interbankRate).total,
+      reserveInterest = Banking.computeReserveInterest(banks, w.nbp.referenceRate).total,
+      standingFacilityIncome = Banking.computeStandingFacilities(banks, w.nbp.referenceRate).total,
+      interbankInterest = Banking.interbankInterestFlows(banks, bsec.interbankRate).total,
     )
 
   @boundaryEscape

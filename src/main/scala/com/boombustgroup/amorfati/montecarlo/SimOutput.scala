@@ -30,6 +30,7 @@ object SimOutput:
       val world: World,
       val firms: Vector[Firm.State],
       val households: Vector[Household.State],
+      val banks: Vector[Banking.BankState],
       val living: Vector[Firm.State],
       val nLiving: Double,
       val aliveBanks: Vector[Banking.BankState],
@@ -79,7 +80,7 @@ object SimOutput:
     ColumnDef("ExRate", ctx => ctx.world.forex.exchangeRate),
     ColumnDef("MarketWage", ctx => td.toDouble(ctx.world.hhAgg.marketWage)),
     ColumnDef("GovDebt", ctx => td.toDouble(ctx.world.gov.cumulativeDebt)),
-    ColumnDef("NPL", ctx => td.toDouble(ctx.world.bankingSector.aggregate.nplRatio)),
+    ColumnDef("NPL", ctx => td.toDouble(ctx.world.bank.nplRatio)),
     ColumnDef("RefRate", ctx => td.toDouble(ctx.world.nbp.referenceRate)),
     ColumnDef("PriceLevel", ctx => ctx.world.priceLevel),
     ColumnDef("AutoRatio", ctx => td.toDouble(ctx.world.real.automationRatio)),
@@ -225,7 +226,7 @@ object SimOutput:
     ColumnDef("InterbankRate", ctx => td.toDouble(ctx.world.bankingSector.interbankRate)),
     ColumnDef("MinBankCAR", ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.car).min)),
     ColumnDef("MaxBankNPL", ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.nplRatio).max)),
-    ColumnDef("BankFailures", ctx => ctx.world.bankingSector.banks.count(_.failed).toDouble),
+    ColumnDef("BankFailures", ctx => ctx.banks.count(_.failed).toDouble),
     // LCR/NSFR
     ColumnDef(
       "MinBankLCR",
@@ -316,9 +317,9 @@ object SimOutput:
     ColumnDef("BankAfsBonds", ctx => td.toDouble(ctx.world.bank.afsBonds)),
     ColumnDef("BankHtmBonds", ctx => td.toDouble(ctx.world.bank.htmBonds)),
     // IFRS 9 ECL staging (aggregate across banks)
-    ColumnDef("EclStage1", ctx => ctx.world.bankingSector.banks.map(b => td.toDouble(b.eclStaging.stage1)).sum),
-    ColumnDef("EclStage2", ctx => ctx.world.bankingSector.banks.map(b => td.toDouble(b.eclStaging.stage2)).sum),
-    ColumnDef("EclStage3", ctx => ctx.world.bankingSector.banks.map(b => td.toDouble(b.eclStaging.stage3)).sum),
+    ColumnDef("EclStage1", ctx => ctx.banks.map(b => td.toDouble(b.eclStaging.stage1)).sum),
+    ColumnDef("EclStage2", ctx => ctx.banks.map(b => td.toDouble(b.eclStaging.stage2)).sum),
+    ColumnDef("EclStage3", ctx => ctx.banks.map(b => td.toDouble(b.eclStaging.stage3)).sum),
     // KNF/BFG
     ColumnDef("BfgLevyTotal", ctx => ctx.world.flows.bfgLevyTotal),
     ColumnDef("BfgFundBalance", ctx => td.toDouble(ctx.world.mechanisms.bfgFundBalance)),
@@ -597,10 +598,11 @@ object SimOutput:
       world: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
   )(using p: SimParams): Array[Double] =
     val living     = firms.filter(Firm.isAlive)
-    val aliveBanks = world.bankingSector.banks.filterNot(_.failed).toVector
-    val ctx        = Ctx(t, world, firms, households, living, living.length.toDouble, aliveBanks, p)
+    val aliveBanks = banks.filterNot(_.failed).toVector
+    val ctx        = Ctx(t, world, firms, households, banks, living, living.length.toDouble, aliveBanks, p)
     val result     = new Array[Double](schema.length)
     var i          = 0
     while i < schema.length do

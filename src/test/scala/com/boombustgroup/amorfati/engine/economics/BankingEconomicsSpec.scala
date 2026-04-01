@@ -38,9 +38,9 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       labor.living,
       labor.regionalWages,
     )
-    val s3     = HouseholdIncomeEconomics.compute(w, init.firms, init.households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+    val s3     = HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
     val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
-    val s5     = FirmEconomics.runStep(w, init.firms, init.households, s1, s2, s3, s4, rng)
+    val s5     = FirmEconomics.runStep(w, init.firms, init.households, init.banks, s1, s2, s3, s4, rng)
     val s6     = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
     val s7     = PriceEquityEconomics.compute(
       PriceEquityEconomics.Input(
@@ -53,11 +53,12 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         s4.govPurchases,
         s4.avgDemandMult,
         s4.sectorMults,
+        init.banks,
         s5,
       ),
       rng,
     )
-    val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, rng))
+    val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, init.banks, rng))
 
     val res = BankingEconomics.compute(
       BankingEconomics.Input(
@@ -83,6 +84,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         hhFinancialOutput = s6,
         priceEquityOutput = s7,
         openEconOutput = s8,
+        banks = init.banks,
         depositRng = rng,
       ),
     )

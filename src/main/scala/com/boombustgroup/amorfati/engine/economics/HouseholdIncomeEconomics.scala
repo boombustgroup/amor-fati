@@ -42,6 +42,7 @@ object HouseholdIncomeEconomics:
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
       lendingBaseRate: Rate,
       resWage: PLN,
       newWage: PLN,
@@ -54,11 +55,11 @@ object HouseholdIncomeEconomics:
     val afterSep           = LaborMarket.separations(households, firms, firms)
     val afterWages         = LaborMarket.updateWages(afterSep, firms, newWage)
     val bsec               = w.bankingSector
-    val nBanksHh           = bsec.banks.length
+    val nBanksHh           = banks.length
     val hhBankRates        = Some(
       BankRates(
-        lendingRates = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, lendingBaseRate, w.gov.bondYield)),
-        depositRates = bsec.banks.map(_ => Banking.hhDepositRate(w.nbp.referenceRate)),
+        lendingRates = banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, lendingBaseRate, w.gov.bondYield)),
+        depositRates = banks.map(_ => Banking.hhDepositRate(w.nbp.referenceRate)),
       ),
     )
     val eqReturn           = w.financial.equity.monthlyReturn

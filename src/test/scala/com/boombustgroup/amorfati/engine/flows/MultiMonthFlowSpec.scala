@@ -20,10 +20,11 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
     var w     = init.world
     var firms = init.firms
     var hh    = init.households
+    var banks = init.banks
 
     (1 to 120).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(w, firms, hh, rng)
+      val result = FlowSimulation.step(w, firms, hh, banks, rng)
       val wealth = Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], result.flows))
 
       withClue(s"SFC violated at month $month: ") {
@@ -33,6 +34,7 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
       w = result.newWorld
       firms = result.newFirms
       hh = result.newHouseholds
+      banks = result.newBanks
     }
   }
 
@@ -41,16 +43,18 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
     var w       = init.world
     var firms   = init.firms
     var hh      = init.households
+    var banks   = init.banks
     var volumes = Vector.empty[Long]
 
     (1 to 120).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(w, firms, hh, rng)
+      val result = FlowSimulation.step(w, firms, hh, banks, rng)
       volumes = volumes :+ result.flows.map(_.amount).sum
 
       w = result.newWorld
       firms = result.newFirms
       hh = result.newHouseholds
+      banks = result.newBanks
     }
 
     volumes.last should be > volumes.head

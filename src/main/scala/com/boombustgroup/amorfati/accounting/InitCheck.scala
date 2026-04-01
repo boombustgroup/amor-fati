@@ -32,13 +32,12 @@ object InitCheck:
     */
   def validate(
       snapshot: Sfc.Snapshot,
-      bankingSector: Banking.State,
+      banks: Vector[Banking.BankState],
       firms: Vector[Firm.State],
       households: Vector[Household.State],
   ): Vector[InitCheckResult] =
     val levelTol   = PLN(0.01)
     val perBankTol = PLN(1.0)
-    val banks      = bankingSector.banks
 
     // --- Level checks (reuse Sfc formulas) ---
 
