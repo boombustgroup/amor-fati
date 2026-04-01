@@ -304,7 +304,7 @@ object FirmEconomics:
       in.employed,
       in.laborDemand,
       in.wageGrowth,
-      in.w.flows.aggregateHiringSlack,
+      in.w.pipeline.aggregateHiringSlack,
       in.immigration,
       in.netMigration,
       in.demographics,
@@ -319,8 +319,8 @@ object FirmEconomics:
     val s4 = DemandEconomics.Output(
       in.govPurchases,
       in.sectorMults,
-      in.w.flows.sectorDemandPressure,
-      in.w.flows.sectorHiringSignal,
+      in.w.pipeline.sectorDemandPressure,
+      in.w.pipeline.sectorHiringSignal,
       in.avgDemandMult,
       in.sectorCap,
       in.laggedInvestDemand,
@@ -377,7 +377,7 @@ object FirmEconomics:
     val canLend = (bankId: Int, amt: PLN) => Banking.canLend(in.banks(bankId), amt, rng, ccyb)
     val world   = in.w.copy(
       month = in.s1.m,
-      flows = in.w.flows.copy(
+      pipeline = in.w.pipeline.copy(
         sectorDemandMult = in.s4.sectorMults,
         sectorDemandPressure = in.s4.sectorDemandPressure,
         aggregateHiringSlack = in.s2.aggregateHiringSlack,

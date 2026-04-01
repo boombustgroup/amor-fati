@@ -64,12 +64,13 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   "Firm.hiringDiagnostics" should "delay non-micro hiring until demand persists" in {
     val world       = mkWorld().copy(
-      flows = FlowState.zero.copy(
+      pipeline = PipelineState(
         sectorDemandMult = Vector.fill(p.sectorDefs.length)(1.0),
         sectorDemandPressure = Vector.fill(p.sectorDefs.length)(1.75),
         sectorHiringSignal = Vector.fill(p.sectorDefs.length)(1.75),
         aggregateHiringSlack = 1.0,
       ),
+      flows = FlowState.zero,
     )
     val firstSignal = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3), world)
     firstSignal.desiredWorkers should be > firstSignal.workers
@@ -85,12 +86,13 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   it should "allow micro firms to react on the first sustained positive gap" in {
     val world = mkWorld().copy(
-      flows = FlowState.zero.copy(
+      pipeline = PipelineState(
         sectorDemandMult = Vector.fill(p.sectorDefs.length)(1.0),
         sectorDemandPressure = Vector.fill(p.sectorDefs.length)(1.75),
         sectorHiringSignal = Vector.fill(p.sectorDefs.length)(1.75),
         aggregateHiringSlack = 1.0,
       ),
+      flows = FlowState.zero,
     )
     val diag  = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(4), sector = 3), world)
     diag.desiredWorkers should be > diag.workers
@@ -100,12 +102,13 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   it should "keep startup firms on their startup staffing target even under weak demand" in {
     val world   = mkWorld().copy(
-      flows = FlowState.zero.copy(
+      pipeline = PipelineState(
         sectorDemandMult = Vector.fill(p.sectorDefs.length)(0.8),
         sectorDemandPressure = Vector.fill(p.sectorDefs.length)(0.8),
         sectorHiringSignal = Vector.fill(p.sectorDefs.length)(0.8),
         aggregateHiringSlack = 1.0,
       ),
+      flows = FlowState.zero,
     )
     val startup = mkFirm(TechState.Traditional(1), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 3)
     val diag    = Firm.hiringDiagnostics(startup, world)
@@ -261,7 +264,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   it should "bankrupt an Automated firm with negative cash when P&L is negative" in {
     // Very low cash + high price level = deep losses → bankrupt
     val f      = mkFirm(TechState.Automated(0.1)).copy(cash = PLN(-500000.0), debt = PLN(5000000.0))
-    val w      = mkWorld().copy(priceLevel = 0.3, flows = mkWorld().flows.copy(sectorDemandMult = Vector.fill(6)(0.1)))
+    val w      = mkWorld().copy(priceLevel = 0.3, pipeline = mkWorld().pipeline.copy(sectorDemandMult = Vector.fill(6)(0.1)))
     val result = Firm.process(f, w, Rate(0.20), _ => true, Vector(f), new Random(42))
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }
