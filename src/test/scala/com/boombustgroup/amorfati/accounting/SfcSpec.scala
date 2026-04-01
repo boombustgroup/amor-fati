@@ -29,10 +29,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0)
 
   private def makeWorld(
-      bankCapital: Double = 500000.0,
-      bankDeposits: Double = 1000000.0,
-      bankLoans: Double = 0.0,
-      bankNpl: Double = 0.0,
       govDebt: Double = 0.0,
   ): World =
     World(
@@ -44,7 +40,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN(govDebt), PLN.Zero),
       nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bank = Banking.Aggregate(PLN(bankLoans), PLN(bankNpl), PLN(bankCapital), PLN(bankDeposits), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Generators.testBankingSector().marketState,
       forex = OpenEconomy.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = Household.Aggregates(
@@ -269,10 +264,33 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     snap.hhDebt shouldBe PLN.Zero
   }
 
-  it should "capture bank state from World" in {
-    val w     = makeWorld(bankCapital = 123456.0, bankDeposits = 789012.0, bankLoans = 50000.0, govDebt = 100000.0)
+  it should "capture bank state from explicit banks" in {
+    val w     = makeWorld(govDebt = 100000.0)
     val firms = makeFirms(1)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty)
+    val banks = Vector(
+      Banking.BankState(
+        id = BankId(0),
+        loans = PLN(50000.0),
+        nplAmount = PLN.Zero,
+        capital = PLN(123456.0),
+        deposits = PLN(789012.0),
+        afsBonds = PLN.Zero,
+        htmBonds = PLN.Zero,
+        htmBookYield = Rate.Zero,
+        reservesAtNbp = PLN.Zero,
+        interbankNet = PLN.Zero,
+        status = Banking.BankStatus.Active(0),
+        demandDeposits = PLN(789012.0),
+        termDeposits = PLN.Zero,
+        loansShort = PLN(50000.0),
+        loansMedium = PLN.Zero,
+        loansLong = PLN.Zero,
+        consumerLoans = PLN.Zero,
+        consumerNpl = PLN.Zero,
+        corpBondHoldings = PLN.Zero,
+      ),
+    )
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, banks)
     snap.bankCapital shouldBe PLN(123456.0)
     snap.bankDeposits shouldBe PLN(789012.0)
     snap.bankLoans shouldBe PLN(50000.0)

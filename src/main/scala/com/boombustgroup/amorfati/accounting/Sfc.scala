@@ -193,20 +193,21 @@ object Sfc:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
   ): Snapshot =
-    val hhS   = PLN.fromRaw(households.map(_.savings.toLong).sum)
-    val hhD   = PLN.fromRaw(households.map(_.debt.toLong).sum)
-    val ibNet = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
+    val hhS     = PLN.fromRaw(households.map(_.savings.toLong).sum)
+    val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
+    val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
+    val bankAgg = Banking.aggregateFromBanks(banks)
     Snapshot(
       hhSavings = hhS,
       hhDebt = hhD,
       firmCash = PLN.fromRaw(firms.map(_.cash.toLong).sum),
       firmDebt = PLN.fromRaw(firms.map(_.debt.toLong).sum),
-      bankCapital = w.bank.capital,
-      bankDeposits = w.bank.deposits,
-      bankLoans = w.bank.totalLoans,
+      bankCapital = bankAgg.capital,
+      bankDeposits = bankAgg.deposits,
+      bankLoans = bankAgg.totalLoans,
       govDebt = w.gov.cumulativeDebt,
       nfa = w.bop.nfa,
-      bankBondHoldings = w.bank.govBondHoldings,
+      bankBondHoldings = bankAgg.govBondHoldings,
       nbpBondHoldings = w.nbp.govBondHoldings,
       bondsOutstanding = w.gov.bondsOutstanding,
       interbankNetSum = ibNet,
@@ -217,7 +218,7 @@ object Sfc:
       foreignBondHoldings = w.gov.foreignBondHoldings,
       ppkBondHoldings = w.social.ppk.bondHoldings,
       mortgageStock = w.real.housing.mortgageStock,
-      consumerLoans = w.bank.consumerLoans,
+      consumerLoans = bankAgg.consumerLoans,
       corpBondsOutstanding = w.financial.corporateBonds.outstanding,
       insuranceGovBondHoldings = w.financial.insurance.govBondHoldings,
       tfiGovBondHoldings = w.financial.nbfi.tfiGovBondHoldings,

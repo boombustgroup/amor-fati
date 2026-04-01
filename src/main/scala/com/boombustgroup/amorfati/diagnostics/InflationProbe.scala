@@ -73,7 +73,7 @@ object InflationProbe:
 
     (1 to months).foreach: month =>
       val rng               = new Random(seed * 1000 + month)
-      val fiscal            = FiscalConstraintEconomics.compute(world)
+      val fiscal            = FiscalConstraintEconomics.compute(world, banks)
       val s1                = FiscalConstraintEconomics.toOutput(fiscal)
       val labor             = LaborEconomics.compute(world, firms, hhs, s1)
       val prevWage          = toDouble(world.hhAgg.marketWage)

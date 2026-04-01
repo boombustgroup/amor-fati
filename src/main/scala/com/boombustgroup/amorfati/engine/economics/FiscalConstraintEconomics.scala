@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.economics
 
+import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.mechanisms.YieldCurve
@@ -36,9 +37,10 @@ object FiscalConstraintEconomics:
     Output(r.month, r.baseMinWage, r.updatedMinWagePriceLevel, r.resWage, r.lendingBaseRate)
 
   @boundaryEscape
-  def compute(w: World)(using p: SimParams): Result =
+  def compute(w: World, banks: Vector[Banking.BankState])(using p: SimParams): Result =
     import ComputationBoundary.toDouble
-    val m = w.month + 1
+    val m       = w.month + 1
+    val bankAgg = Banking.aggregateFromBanks(banks)
 
     val (baseMinWage, updatedMinWagePriceLevel) = if p.flags.minWage then
       val isAdjustMonth = m > 0 && m % p.fiscal.minWageAdjustMonths == 0
@@ -63,7 +65,7 @@ object FiscalConstraintEconomics:
         val exp = w.mechanisms.expectations
         toDouble(
           YieldCurve
-            .compute(w.bankingSector.interbankRate, w.bank.nplRatio, exp.credibility, exp.expectedInflation, p.monetary.targetInfl)
+            .compute(w.bankingSector.interbankRate, bankAgg.nplRatio, exp.credibility, exp.expectedInflation, p.monetary.targetInfl)
             .wibor3m,
         )
       else toDouble(w.nbp.referenceRate)

@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
-import com.boombustgroup.amorfati.agents.{Banking, BankruptReason, Firm, TechState}
+import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
 import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
@@ -85,7 +85,6 @@ class InventorySpec extends AnyFlatSpec with Matchers:
     totalPopulation = 100,
     gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
     nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-    bank = Banking.Aggregate(PLN.Zero, PLN.Zero, PLN(1e9), PLN(1e9), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
     bankingSector = Generators.testBankingSector().marketState,
     forex = OpenEconomy.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
     hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(

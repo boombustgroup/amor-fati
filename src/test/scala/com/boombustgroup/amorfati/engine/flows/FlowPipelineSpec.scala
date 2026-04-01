@@ -22,7 +22,7 @@ class FlowPipelineSpec extends AnyFlatSpec with Matchers:
     */
   private def runOneMonth: (Map[Int, Long], LaborEconomics.Result) =
     // Step 1: Fiscal constraints (pure calculus)
-    val fiscal = FiscalConstraintEconomics.compute(w)
+    val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
 
     // Step 2: Labor economics (pure calculus)
     val s1    = FiscalConstraintEconomics.toOutput(fiscal)
@@ -59,7 +59,7 @@ class FlowPipelineSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "emit non-trivial fund flows" in {
-    val fiscal = FiscalConstraintEconomics.compute(w)
+    val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
     val s1     = FiscalConstraintEconomics.toOutput(fiscal)
     val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
 

@@ -165,6 +165,7 @@ object OpenEconEconomics:
   @boundaryEscape
   def compute(in: Input)(using p: SimParams): Result =
     import ComputationBoundary.toDouble
+    val bankAgg = Banking.aggregateFromBanks(in.banks)
 
     // 1. Sector outputs (capacity × demand × price)
     val sectorOutputs = computeSectorOutputs(in)
@@ -245,7 +246,7 @@ object OpenEconEconomics:
       updateWeightedCoupon(in.w.gov.weightedCoupon, marketYield, in.w.gov.bondsOutstanding, in.w.gov.deficit, p.fiscal.govAvgMaturityMonths)
     val rawDebtService    = in.w.gov.bondsOutstanding * newWeightedCoupon.monthly
     val debtService       = rawDebtService.min(PLN(in.w.gdpProxy * MaxDebtServiceGdpShare))
-    val bankBondIncome    = in.w.bank.govBondHoldings * marketYield.monthly
+    val bankBondIncome    = bankAgg.govBondHoldings * marketYield.monthly
     val nbpBondIncome     = in.w.nbp.govBondHoldings * marketYield.monthly
     val nbpRemittance     = nbpBondIncome - reserveInterest - standingFacility
 
@@ -255,7 +256,7 @@ object OpenEconEconomics:
       else if Nbp.shouldTaperQe(in.newInflation, newExp.expectedInflation) then false
       else in.w.nbp.qeActive
     val preQeNbp  = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
-    val qeRequest = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, annualGdp, in.newInflation, newExp.expectedInflation)
+    val qeRequest = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, annualGdp, in.newInflation, newExp.expectedInflation)
 
     // 7. Corporate bonds
     val corpBondAmort = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
@@ -263,7 +264,7 @@ object OpenEconEconomics:
       CorporateBondMarket.StepInput(
         in.w.financial.corporateBonds,
         marketYield,
-        in.w.bank.nplRatio,
+        bankAgg.nplRatio,
         in.totalBondDefault,
         in.actualBondIssuance,
       ),
@@ -414,14 +415,15 @@ object OpenEconEconomics:
   private case class NbfiResult(state: Nbfi.State)
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
+    val bankAgg       = Banking.aggregateFromBanks(in.banks)
     val sectorOutputs = runStepSectorOutputs(in)
     val external      = runStepExternalSector(in, sectorOutputs)
     val rateAndExp    = runStepRateAndExpectations(in, external.newForex)
     val interbank     = runStepInterbankFlows(in.w, in.banks)
-    val bondQe        = runStepBondYieldAndQe(in, rateAndExp.refRate, rateAndExp.expectations, external.fxIntervention, interbank)
-    val corpBonds     = runStepCorporateBonds(in, bondQe.marketYield)
+    val bondQe        = runStepBondYieldAndQe(in, bankAgg, rateAndExp.refRate, rateAndExp.expectations, external.fxIntervention, interbank)
+    val corpBonds     = runStepCorporateBonds(in, bankAgg, bondQe.marketYield)
     val insurance     = runStepInsurance(in, bondQe.marketYield)
-    val nbfi          = runStepNbfi(in, bondQe.postFxNbp, bondQe.marketYield)
+    val nbfi          = runStepNbfi(in, bankAgg, bondQe.postFxNbp, bondQe.marketYield)
 
     StepOutput(
       monetary = MonetaryPolicy(
@@ -585,6 +587,7 @@ object OpenEconEconomics:
   @boundaryEscape
   private def runStepBondYieldAndQe(
       in: StepInput,
+      bankAgg: Banking.Aggregate,
       newRefRate: Rate,
       newExp: Expectations.State,
       fxResult: Nbp.FxInterventionResult,
@@ -611,7 +614,7 @@ object OpenEconEconomics:
 
     val rawDebtService     = in.w.gov.bondsOutstanding * newWeightedCoupon.monthly
     val monthlyDebtService = rawDebtService.min(PLN(in.w.gdpProxy * MaxDebtServiceGdpShare))
-    val bankBondIncome     = in.w.bank.govBondHoldings * marketYield.monthly
+    val bankBondIncome     = bankAgg.govBondHoldings * marketYield.monthly
     val nbpBondIncome      = in.w.nbp.govBondHoldings * marketYield.monthly
     val nbpRemittance      = nbpBondIncome - interbank.reserveInterest - interbank.standingFacilityIncome
 
@@ -622,20 +625,20 @@ object OpenEconEconomics:
       else if qeTaper then false
       else in.w.nbp.qeActive
     val preQeNbp         = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
-    val qeRequest        = Nbp.executeQe(preQeNbp, in.w.bank.govBondHoldings, annualGdpForBonds, in.s7.newInfl, newExp.expectedInflation)
+    val qeRequest        = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, annualGdpForBonds, in.s7.newInfl, newExp.expectedInflation)
     val qePurchaseAmount = qeRequest.requestedPurchase
     val postFxNbp        = qeRequest.nbpState.copy(fxReserves = fxResult.newReserves, lastFxTraded = fxResult.eurTraded)
 
     BondQeResult(marketYield, newWeightedCoupon, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp)
 
-  private def runStepCorporateBonds(in: StepInput, newBondYield: Rate)(using SimParams): CorporateBonds =
+  private def runStepCorporateBonds(in: StepInput, bankAgg: Banking.Aggregate, newBondYield: Rate)(using SimParams): CorporateBonds =
     val corpBondAmort    = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
     val newCorpBonds     = CorporateBondMarket
       .step(
         CorporateBondMarket.StepInput(
           prev = in.w.financial.corporateBonds,
           govBondYield = newBondYield,
-          nplRatio = in.w.bank.nplRatio,
+          nplRatio = bankAgg.nplRatio,
           totalBondDefault = in.s5.totalBondDefault,
           totalBondIssuance = in.s5.actualBondIssuance,
         ),
@@ -667,7 +670,7 @@ object OpenEconEconomics:
       else in.w.financial.insurance
     InsuranceResult(newInsurance)
 
-  private def runStepNbfi(in: StepInput, postFxNbp: Nbp.State, newBondYield: Rate)(using p: SimParams): NbfiResult =
+  private def runStepNbfi(in: StepInput, bankAgg: Banking.Aggregate, postFxNbp: Nbp.State, newBondYield: Rate)(using p: SimParams): NbfiResult =
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
     val nbfiUnempRate   = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation)
     val newNbfi         =
@@ -678,7 +681,7 @@ object OpenEconEconomics:
           in.s2.newWage,
           in.w.priceLevel,
           nbfiUnempRate,
-          in.w.bank.nplRatio,
+          bankAgg.nplRatio,
           newBondYield,
           in.w.financial.corporateBonds.corpBondYield,
           in.w.financial.equity.monthlyReturn,

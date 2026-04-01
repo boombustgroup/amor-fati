@@ -18,7 +18,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val w    = init.world
     val rng  = new scala.util.Random(42)
 
-    val fiscal = FiscalConstraintEconomics.compute(w)
+    val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
     val s1     = FiscalConstraintEconomics.toOutput(fiscal)
     val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
     val s2     = LaborEconomics.Output(

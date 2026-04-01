@@ -8,32 +8,30 @@ import com.boombustgroup.amorfati.types.*
 
 /** Immutable snapshot of the entire simulation state at the end of one month.
   *
-  * Fields with defaults (`monetaryAgg`, `bop`) are populated during the step
-  * pipeline and do not need to be provided at init.
+  * Fields with defaults (`bop`) are populated during the step pipeline and do
+  * not need to be provided at init.
   */
 case class World(
-    month: Int,                                             // simulation month (1-indexed)
-    inflation: Rate,                                        // CPI YoY inflation
-    priceLevel: Double,                                     // cumulative CPI index (base = 1.0)
-    gdpProxy: Double,                                       // monthly GDP proxy
-    currentSigmas: Vector[Sigma],                           // per-sector σ (Arthur increasing returns)
-    totalPopulation: Int,                                   // employed + immigrants + retirees
-    gov: FiscalBudget.GovState,                             // government budget & debt
-    nbp: Nbp.State,                                         // central bank: rate, bonds, FX, QE
-    bank: Banking.Aggregate,                                // consolidated banking balance sheet
-    bankingSector: Banking.MarketState,                     // banking macro state: interbank conditions, configs, term structure
-    forex: OpenEconomy.ForexState,                          // EUR/PLN, exports, imports, trade balance
-    bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,  // balance of payments: NFA, CA, KA, FDI
-    hhAgg: Household.Aggregates,                            // household aggregates (employment, wages, consumption)
-    monetaryAgg: Option[Banking.MonetaryAggregates] = None, // M1, monetary base, credit multiplier (CREDIT_DIAGNOSTICS)
-    social: SocialState,                                    // JST, ZUS, PPK, demographics
-    financial: FinancialMarketsState,                       // equity, corporate bonds, insurance, TFI
-    external: ExternalState,                                // GVC, immigration, tourism
-    real: RealState,                                        // housing, mobility, investment, energy, automation
-    mechanisms: MechanismsState,                            // macropru, expectations, BFG, informal economy
-    plumbing: MonetaryPlumbingState,                        // reserve corridor, standing facilities, interbank
-    flows: FlowState,                                       // single-step flows → SFC identities
-    regionalWages: Map[Region, PLN] = Map.empty,            // per-region wage levels (NUTS-1)
+    month: Int,                                            // simulation month (1-indexed)
+    inflation: Rate,                                       // CPI YoY inflation
+    priceLevel: Double,                                    // cumulative CPI index (base = 1.0)
+    gdpProxy: Double,                                      // monthly GDP proxy
+    currentSigmas: Vector[Sigma],                          // per-sector σ (Arthur increasing returns)
+    totalPopulation: Int,                                  // employed + immigrants + retirees
+    gov: FiscalBudget.GovState,                            // government budget & debt
+    nbp: Nbp.State,                                        // central bank: rate, bonds, FX, QE
+    bankingSector: Banking.MarketState,                    // banking macro state: interbank conditions, configs, term structure
+    forex: OpenEconomy.ForexState,                         // EUR/PLN, exports, imports, trade balance
+    bop: OpenEconomy.BopState = OpenEconomy.BopState.zero, // balance of payments: NFA, CA, KA, FDI
+    hhAgg: Household.Aggregates,                           // household aggregates (employment, wages, consumption)
+    social: SocialState,                                   // JST, ZUS, PPK, demographics
+    financial: FinancialMarketsState,                      // equity, corporate bonds, insurance, TFI
+    external: ExternalState,                               // GVC, immigration, tourism
+    real: RealState,                                       // housing, mobility, investment, energy, automation
+    mechanisms: MechanismsState,                           // macropru, expectations, BFG, informal economy
+    plumbing: MonetaryPlumbingState,                       // reserve corridor, standing facilities, interbank
+    flows: FlowState,                                      // single-step flows → SFC identities
+    regionalWages: Map[Region, PLN] = Map.empty,           // per-region wage levels (NUTS-1)
 ):
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
   def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))

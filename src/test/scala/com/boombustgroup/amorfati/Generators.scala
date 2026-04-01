@@ -305,7 +305,6 @@ object Generators:
     price    <- genPrice
     gov      <- genGovState
     rate     <- genRate
-    bank     <- genBankingAggregate
     forex    <- genForexState
     employed <- Gen.choose(0, p.pop.firmsCount * p.pop.workersPerFirm)
     wage     <- genWage
@@ -322,7 +321,6 @@ object Generators:
     totalPopulation = employed,
     gov = gov,
     nbp = Nbp.State(Rate(rate), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-    bank = bank,
     bankingSector = testBankingSector().marketState,
     forex = forex,
     hhAgg = Household.Aggregates(
