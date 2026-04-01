@@ -188,6 +188,7 @@ object BankingEconomics:
   // ---- Public API ----
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
+    val prevBankAgg          = Banking.aggregateFromBanks(in.banks)
     val govJst               = computeGovAndJst(in)
     val housing              = computeHousingFlows(in)
     val bfgLevy              =
@@ -249,7 +250,7 @@ object BankingEconomics:
       actualBondChange = multi.actualBondChange,
       unrealizedBondLoss = {
         val yieldChange = in.s8.monetary.newBondYield - in.w.gov.bondYield
-        if yieldChange > Rate.Zero then in.w.bank.afsBonds * yieldChange * Multiplier(p.banking.govBondDuration) else PLN.Zero
+        if yieldChange > Rate.Zero then prevBankAgg.afsBonds * yieldChange * Multiplier(p.banking.govBondDuration) else PLN.Zero
       },
       htmRealizedLoss = multi.htmRealizedLoss,
       eclProvisionChange = PLN.fromRaw:
@@ -298,8 +299,9 @@ object BankingEconomics:
     toResult(s9, in)
 
   private def toResult(s9: StepOutput, in: Input): Result =
+    val prevBankAgg = Banking.aggregateFromBanks(in.banks)
     Result(
-      govBondIncome = in.w.bank.govBondHoldings * in.openEconOutput.monetary.newBondYield.monthly,
+      govBondIncome = prevBankAgg.govBondHoldings * in.openEconOutput.monetary.newBondYield.monthly,
       reserveInterest = in.openEconOutput.banking.totalReserveInterest,
       standingFacilityIncome = in.openEconOutput.banking.totalStandingFacilityIncome,
       interbankInterest = in.openEconOutput.banking.totalInterbankInterest,
@@ -389,7 +391,7 @@ object BankingEconomics:
         YieldCurve
           .compute(
             in.w.bankingSector.interbankRate,
-            nplRatio = in.w.bank.nplRatio,
+            nplRatio = Banking.aggregateFromBanks(in.banks).nplRatio,
             credibility = exp.credibility,
             expectedInflation = exp.expectedInflation,
             targetInflation = p.monetary.targetInfl,
@@ -641,9 +643,10 @@ object BankingEconomics:
       bs: Banking.State,
       wf: BondWaterfallInputs,
   )(using p: SimParams): MultiBankResult =
+    val prevBankAgg      = Banking.aggregateFromBanks(in.banks)
     val ibRate           = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
     // Liquidity hoarding: reduce interbank lending when system NPL is high
-    val hoarding         = InterbankContagion.hoardingFactor(in.w.bank.nplRatio)
+    val hoarding         = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
     val afterInterbank   = Banking.clearInterbank(updatedBanks, bs.configs, hoarding)
     val afterFxInjection = distributeFxInjection(afterInterbank, in.s8.monetary.fxPlnInjection)
     // HTM forced reclassification: LCR-stressed banks reclassify HTM→AFS, realizing hidden losses
@@ -719,7 +722,7 @@ object BankingEconomics:
         Some(
           YieldCurve.compute(
             ibRate,
-            nplRatio = in.w.bank.nplRatio,
+            nplRatio = prevBankAgg.nplRatio,
             credibility = exp.credibility,
             expectedInflation = exp.expectedInflation,
             targetInflation = p.monetary.targetInfl,

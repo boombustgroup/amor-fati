@@ -19,7 +19,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   private val rng  = new scala.util.Random(42)
 
   // Run pipeline through Economics objects
-  private val fiscal = FiscalConstraintEconomics.compute(w)
+  private val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
   private val s1     = FiscalConstraintEconomics.toOutput(fiscal)
   private val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s2     = LaborEconomics.Output(

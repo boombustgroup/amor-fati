@@ -36,8 +36,12 @@ object SimOutput:
       val aliveBanks: Vector[Banking.BankState],
       val p: SimParams,
   ):
-    given SimParams                         = p
-    lazy val sectorAuto: IndexedSeq[Double] = p.sectorDefs.indices.map { s =>
+    given SimParams                                          = p
+    lazy val bankAgg: Banking.Aggregate                      = Banking.aggregateFromBanks(banks)
+    lazy val monetaryAgg: Option[Banking.MonetaryAggregates] =
+      if p.flags.creditDiagnostics then Some(Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding))
+      else None
+    lazy val sectorAuto: IndexedSeq[Double]                  = p.sectorDefs.indices.map { s =>
       val secFirms = living.filter(_.sector.toInt == s)
       if secFirms.isEmpty then 0.0
       else
@@ -80,7 +84,7 @@ object SimOutput:
     ColumnDef("ExRate", ctx => ctx.world.forex.exchangeRate),
     ColumnDef("MarketWage", ctx => td.toDouble(ctx.world.hhAgg.marketWage)),
     ColumnDef("GovDebt", ctx => td.toDouble(ctx.world.gov.cumulativeDebt)),
-    ColumnDef("NPL", ctx => td.toDouble(ctx.world.bank.nplRatio)),
+    ColumnDef("NPL", ctx => td.toDouble(ctx.bankAgg.nplRatio)),
     ColumnDef("RefRate", ctx => td.toDouble(ctx.world.nbp.referenceRate)),
     ColumnDef("PriceLevel", ctx => ctx.world.priceLevel),
     ColumnDef("AutoRatio", ctx => td.toDouble(ctx.world.real.automationRatio)),
@@ -201,7 +205,7 @@ object SimOutput:
     ColumnDef("BondYield", ctx => td.toDouble(ctx.world.gov.bondYield)),
     ColumnDef("WeightedCoupon", ctx => td.toDouble(ctx.world.gov.weightedCoupon)),
     ColumnDef("BondsOutstanding", ctx => td.toDouble(ctx.world.gov.bondsOutstanding)),
-    ColumnDef("BankBondHoldings", ctx => td.toDouble(ctx.world.bank.govBondHoldings)),
+    ColumnDef("BankBondHoldings", ctx => td.toDouble(ctx.bankAgg.govBondHoldings)),
     ColumnDef("ForeignBondHoldings", ctx => td.toDouble(ctx.world.gov.foreignBondHoldings)),
     ColumnDef("NbpBondHoldings", ctx => td.toDouble(ctx.world.nbp.govBondHoldings)),
     ColumnDef("QeActive", ctx => if ctx.world.nbp.qeActive then 1.0 else 0.0),
@@ -213,11 +217,11 @@ object SimOutput:
     ColumnDef("DepositFacilityUsage", ctx => td.toDouble(ctx.world.plumbing.depositFacilityUsage)),
     ColumnDef("InterbankInterestNet", ctx => td.toDouble(ctx.world.plumbing.interbankInterestNet)),
     // Monetary aggregates
-    ColumnDef("M0", ctx => ctx.world.monetaryAgg.map(a => td.toDouble(a.m0)).getOrElse(0.0)),
-    ColumnDef("M1", ctx => ctx.world.monetaryAgg.map(a => td.toDouble(a.m1)).getOrElse(td.toDouble(ctx.world.bank.deposits))),
-    ColumnDef("M2", ctx => ctx.world.monetaryAgg.map(a => td.toDouble(a.m2)).getOrElse(td.toDouble(ctx.world.bank.deposits))),
-    ColumnDef("M3", ctx => ctx.world.monetaryAgg.map(a => td.toDouble(a.m3)).getOrElse(td.toDouble(ctx.world.bank.deposits))),
-    ColumnDef("CreditMultiplier", ctx => ctx.world.monetaryAgg.map(_.creditMultiplier).getOrElse(0.0)),
+    ColumnDef("M0", ctx => ctx.monetaryAgg.map(a => td.toDouble(a.m0)).getOrElse(0.0)),
+    ColumnDef("M1", ctx => ctx.monetaryAgg.map(a => td.toDouble(a.m1)).getOrElse(td.toDouble(ctx.bankAgg.deposits))),
+    ColumnDef("M2", ctx => ctx.monetaryAgg.map(a => td.toDouble(a.m2)).getOrElse(td.toDouble(ctx.bankAgg.deposits))),
+    ColumnDef("M3", ctx => ctx.monetaryAgg.map(a => td.toDouble(a.m3)).getOrElse(td.toDouble(ctx.bankAgg.deposits))),
+    ColumnDef("CreditMultiplier", ctx => ctx.monetaryAgg.map(_.creditMultiplier).getOrElse(0.0)),
     ColumnDef("FofResidual", ctx => td.toDouble(ctx.world.plumbing.fofResidual)),
   )
 
@@ -247,11 +251,11 @@ object SimOutput:
     ColumnDef("WIBOR_3M", ctx => ctx.world.bankingSector.interbankCurve.map(c => td.toDouble(c.wibor3m)).getOrElse(0.0)),
     ColumnDef("WIBOR_6M", ctx => ctx.world.bankingSector.interbankCurve.map(c => td.toDouble(c.wibor6m)).getOrElse(0.0)),
     // Consumer Credit
-    ColumnDef("ConsumerLoans", ctx => td.toDouble(ctx.world.bank.consumerLoans)),
+    ColumnDef("ConsumerLoans", ctx => td.toDouble(ctx.bankAgg.consumerLoans)),
     ColumnDef(
       "ConsumerNplRatio",
       ctx =>
-        if ctx.world.bank.consumerLoans > PLN.Zero then ctx.world.bank.consumerNpl / ctx.world.bank.consumerLoans
+        if ctx.bankAgg.consumerLoans > PLN.Zero then ctx.bankAgg.consumerNpl / ctx.bankAgg.consumerLoans
         else 0.0,
     ),
     ColumnDef("ConsumerOrigination", ctx => td.toDouble(ctx.world.hhAgg.totalConsumerOrigination)),
@@ -314,8 +318,8 @@ object SimOutput:
     ),
     ColumnDef("NbfiDepositDrain", ctx => td.toDouble(ctx.world.financial.nbfi.lastDepositDrain)),
     // AFS/HTM bond portfolio split
-    ColumnDef("BankAfsBonds", ctx => td.toDouble(ctx.world.bank.afsBonds)),
-    ColumnDef("BankHtmBonds", ctx => td.toDouble(ctx.world.bank.htmBonds)),
+    ColumnDef("BankAfsBonds", ctx => td.toDouble(ctx.bankAgg.afsBonds)),
+    ColumnDef("BankHtmBonds", ctx => td.toDouble(ctx.bankAgg.htmBonds)),
     // IFRS 9 ECL staging (aggregate across banks)
     ColumnDef("EclStage1", ctx => ctx.banks.map(b => td.toDouble(b.eclStaging.stage1)).sum),
     ColumnDef("EclStage2", ctx => ctx.banks.map(b => td.toDouble(b.eclStaging.stage2)).sum),

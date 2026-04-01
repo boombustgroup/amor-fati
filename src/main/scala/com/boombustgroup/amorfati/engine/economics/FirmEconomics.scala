@@ -337,7 +337,7 @@ object FirmEconomics:
     import ComputationBoundary.toDouble
     val lending                             = prepareLending(stepIn, rng)
     val fp                                  = processFirms(stepIn.firms, lending, rng)
-    val bonded                              = applyBondAbsorption(fp, stepIn.w)
+    val bonded                              = applyBondAbsorption(fp, stepIn.w, stepIn.banks)
     val (ioFirms, totalIoPaid)              = applyIntermediateMarket(bonded.firms, stepIn)
     // Calvo staggered pricing: per-firm markup update
     val calvoFirms                          = ioFirms.map: f =>
@@ -465,9 +465,11 @@ object FirmEconomics:
   private def applyBondAbsorption(
       result: FirmProcessingResult,
       w: World,
+      banks: Vector[Banking.BankState],
   )(using p: SimParams): BondAbsorptionResult =
+    val bankAgg            = Banking.aggregateFromBanks(banks)
     val absorption         = CorporateBondMarket
-      .computeAbsorption(w.financial.corporateBonds, result.flows.bondIssuance, w.bank.car, p.banking.minCar)
+      .computeAbsorption(w.financial.corporateBonds, result.flows.bondIssuance, bankAgg.car, p.banking.minCar)
     val actualBondIssuance = result.flows.bondIssuance * absorption
     val revertShare        = Share.One - absorption
 

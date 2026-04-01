@@ -23,7 +23,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   /** Run pipeline for one month using Economics objects. */
   private def runFullMonth: Vector[Flow] =
-    val fiscal             = FiscalConstraintEconomics.compute(w)
+    val fiscal             = FiscalConstraintEconomics.compute(w, initResult.banks)
     val s1                 = FiscalConstraintEconomics.toOutput(fiscal)
     val labor              = LaborEconomics.compute(w, initResult.firms, initResult.households, s1)
     val s2                 = LaborEconomics.Output(

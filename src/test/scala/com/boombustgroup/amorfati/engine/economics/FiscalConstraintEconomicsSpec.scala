@@ -10,10 +10,11 @@ class FiscalConstraintEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  private val world = WorldInit.initialize(42L).world
+  private val init  = WorldInit.initialize(42L)
+  private val world = init.world
 
   "FiscalConstraintEconomics.compute" should "produce consistent result and output" in {
-    val result = FiscalConstraintEconomics.compute(world)
+    val result = FiscalConstraintEconomics.compute(world, init.banks)
     val output = FiscalConstraintEconomics.toOutput(result)
 
     output.m shouldBe result.month
@@ -24,6 +25,6 @@ class FiscalConstraintEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "advance month by 1" in {
-    val result = FiscalConstraintEconomics.compute(world)
+    val result = FiscalConstraintEconomics.compute(world, init.banks)
     result.month shouldBe world.month + 1
   }

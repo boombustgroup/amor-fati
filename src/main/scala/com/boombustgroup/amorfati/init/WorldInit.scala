@@ -79,7 +79,6 @@ object WorldInit:
         fxReserves = p.monetary.fxReserves,
         lastFxTraded = PLN.Zero,
       ),
-      bank = initBankingSector.aggregate,
       bankingSector = initBankingSector.marketState,
       forex = OpenEconomy.ForexState(
         exchangeRate = p.forex.baseExRate,

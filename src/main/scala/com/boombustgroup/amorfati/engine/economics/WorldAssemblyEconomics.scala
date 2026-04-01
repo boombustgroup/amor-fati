@@ -387,12 +387,10 @@ object WorldAssemblyEconomics:
         minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
       ),
       nbp = in.s9.finalNbp,
-      bank = in.s9.resolvedBank,
       bankingSector = in.s9.bankingMarket,
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
       hhAgg = in.s9.finalHhAgg,
-      monetaryAgg = in.s9.monAgg,
       social = SocialState(
         jst = in.s9.newJst,
         zus = in.s2.newZus,

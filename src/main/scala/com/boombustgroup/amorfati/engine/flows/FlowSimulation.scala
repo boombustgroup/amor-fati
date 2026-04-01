@@ -261,7 +261,7 @@ object FlowSimulation:
       banks: Vector[Banking.BankState],
       rng: Random,
   )(using p: SimParams): FullComputation =
-    val fiscal          = FiscalConstraintEconomics.compute(w)
+    val fiscal          = FiscalConstraintEconomics.compute(w, banks)
     val s1              = FiscalConstraintEconomics.toOutput(fiscal)
     val labor           = LaborEconomics.compute(w, firms, households, s1)
     val s2Pre           = LaborEconomics.Output(

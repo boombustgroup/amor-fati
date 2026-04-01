@@ -207,7 +207,6 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bank = Banking.Aggregate(PLN.Zero, PLN.Zero, PLN(100000), PLN(500000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Generators.testBankingSector().marketState,
       forex = OpenEconomy.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
