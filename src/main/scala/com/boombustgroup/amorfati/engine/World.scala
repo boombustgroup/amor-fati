@@ -8,8 +8,8 @@ import com.boombustgroup.amorfati.types.*
 
 /** Immutable snapshot of the entire simulation state at the end of one month.
   *
-  * Fields with defaults (`hhAgg`, `households`, `monetaryAgg`, `bop`) are
-  * populated during the step pipeline and do not need to be provided at init.
+  * Fields with defaults (`hhAgg`, `monetaryAgg`, `bop`) are populated during
+  * the step pipeline and do not need to be provided at init.
   */
 case class World(
     month: Int,                                             // simulation month (1-indexed)
@@ -25,7 +25,6 @@ case class World(
     forex: OpenEconomy.ForexState,                          // EUR/PLN, exports, imports, trade balance
     bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,  // balance of payments: NFA, CA, KA, FDI
     hhAgg: Household.Aggregates,                            // household aggregates (employment, wages, consumption)
-    households: Vector[Household.State] = Vector.empty,     // individual household states
     monetaryAgg: Option[Banking.MonetaryAggregates] = None, // M1, monetary base, credit multiplier (CREDIT_DIAGNOSTICS)
     social: SocialState,                                    // JST, ZUS, PPK, demographics
     financial: FinancialMarketsState,                       // equity, corporate bonds, insurance, TFI

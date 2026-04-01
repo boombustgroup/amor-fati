@@ -15,6 +15,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
   private val initResult = WorldInit.initialize(42L)
   private val world      = initResult.world
   private val firms      = initResult.firms
+  private val households = initResult.households
 
   private val s1 = FiscalConstraintEconomics.Output(
     m = 1,
@@ -25,22 +26,22 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
   )
 
   "LaborEconomics.compute" should "produce positive wage" in {
-    val result = LaborEconomics.compute(world, firms, world.households, s1)
+    val result = LaborEconomics.compute(world, firms, households, s1)
     ComputationBoundary.toDouble(result.wage) should be > 0.0
   }
 
   it should "produce positive employment" in {
-    val result = LaborEconomics.compute(world, firms, world.households, s1)
+    val result = LaborEconomics.compute(world, firms, households, s1)
     result.employed should be > 0
   }
 
   it should "produce demographics with positive working-age pop" in {
-    val result = LaborEconomics.compute(world, firms, world.households, s1)
+    val result = LaborEconomics.compute(world, firms, households, s1)
     result.demographics.workingAgePop should be > 0
   }
 
   it should "produce consistent wage growth" in {
-    val result = LaborEconomics.compute(world, firms, world.households, s1)
+    val result = LaborEconomics.compute(world, firms, households, s1)
     // Wage growth should be a finite number
     ComputationBoundary.toDouble(result.wageGrowth).isNaN shouldBe false
   }
@@ -54,7 +55,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "reconcile post-firm labor demand and realized employment from post-step state" in {
-    val pre   = LaborEconomics.compute(world, firms, world.households, s1)
+    val pre   = LaborEconomics.compute(world, firms, households, s1)
     val s2Pre = LaborEconomics.Output(
       pre.wage,
       pre.employed,
@@ -74,7 +75,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
     )
 
     val postLiving = firms.take(10).filter(Firm.isAlive)
-    val postHh     = world.households.map(_.copy(status = HhStatus.Unemployed(0)))
+    val postHh     = households.map(_.copy(status = HhStatus.Unemployed(0)))
     val post       = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, postLiving, postHh)
 
     post.laborDemand shouldBe postLiving.map(Firm.workerCount).sum
