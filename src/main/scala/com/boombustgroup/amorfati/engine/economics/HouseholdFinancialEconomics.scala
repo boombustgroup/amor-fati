@@ -49,11 +49,11 @@ object HouseholdFinancialEconomics:
 
     // Diaspora remittance inflow (#46)
     val diasporaInflow = if p.flags.remittance then
-      val wap           = if p.flags.demographics then w.social.demographics.workingAgePop else w.totalPopulation
+      val wap           = if p.flags.demographics then w.social.demographics.workingAgePop else w.derivedTotalPopulation
       val base          = toDouble(p.remittance.perCapita) * wap.toDouble
       val erAdj         = Math.pow(w.forex.exchangeRate / p.forex.baseExRate, toDouble(p.remittance.erElasticity))
       val trendAdj      = Math.pow(1.0 + toDouble(p.remittance.growthRate) / 12.0, month.toDouble)
-      val unempForRemit = 1.0 - employed.toDouble / w.totalPopulation
+      val unempForRemit = 1.0 - employed.toDouble / w.derivedTotalPopulation
       val cyclicalAdj   = 1.0 + toDouble(p.remittance.cyclicalSens) * Math.max(0.0, unempForRemit - DiasporaUnempThreshold)
       PLN(base * erAdj * trendAdj * cyclicalAdj)
     else PLN.Zero
@@ -74,7 +74,7 @@ object HouseholdFinancialEconomics:
           )
         else 0.0
       val shockFactor    = 1.0 - disruption
-      val baseGdp        = Math.max(0.0, w.gdpProxy)
+      val baseGdp        = Math.max(0.0, w.cachedMonthlyGdpProxy)
       val inbound        = Math.max(
         0.0,
         baseGdp * toDouble(p.tourism.inboundShare) *

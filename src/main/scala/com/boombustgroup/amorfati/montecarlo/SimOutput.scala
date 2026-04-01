@@ -41,6 +41,7 @@ object SimOutput:
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates] =
       if p.flags.creditDiagnostics then Some(Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding))
       else None
+    lazy val monthlyGdp: Double                              = world.cachedMonthlyGdpProxy
     lazy val sectorAuto: IndexedSeq[Double]                  = p.sectorDefs.indices.map { s =>
       val secFirms = living.filter(_.sector.toInt == s)
       if secFirms.isEmpty then 0.0
@@ -50,7 +51,7 @@ object SimOutput:
           .toDouble / secFirms.length
     }
 
-    inline def unemployPct: Double = world.hhAgg.unemploymentRate(world.totalPopulation)
+    inline def unemployPct: Double = world.hhAgg.unemploymentRate(world.derivedTotalPopulation)
 
   // -------------------------------------------------------------------------
   //  Schema groups — composed with ++
@@ -110,7 +111,7 @@ object SimOutput:
     ColumnDef("IoFlows", ctx => td.toDouble(ctx.world.flows.ioFlows)),
     ColumnDef(
       "IoGdpRatio",
-      ctx => if ctx.world.gdpProxy > 0 then td.toDouble(ctx.world.flows.ioFlows) / ctx.world.gdpProxy else 0.0,
+      ctx => if ctx.monthlyGdp > 0 then td.toDouble(ctx.world.flows.ioFlows) / ctx.monthlyGdp else 0.0,
     ),
   )
 
@@ -190,11 +191,11 @@ object SimOutput:
     // Fiscal rules
     ColumnDef(
       "DebtToGdp",
-      ctx => if ctx.world.gdpProxy > 0 then td.toDouble(ctx.world.gov.cumulativeDebt) / (ctx.world.gdpProxy * 12.0) else 0.0,
+      ctx => if ctx.monthlyGdp > 0 then td.toDouble(ctx.world.gov.cumulativeDebt) / (ctx.monthlyGdp * 12.0) else 0.0,
     ),
     ColumnDef(
       "DeficitToGdp",
-      ctx => if ctx.world.gdpProxy > 0 then td.toDouble(ctx.world.gov.deficit) / (ctx.world.gdpProxy * 12.0) else 0.0,
+      ctx => if ctx.monthlyGdp > 0 then td.toDouble(ctx.world.gov.deficit) / (ctx.monthlyGdp * 12.0) else 0.0,
     ),
     ColumnDef("FiscalRuleBinding", ctx => ctx.world.pipeline.fiscalRuleSeverity.toDouble),
     ColumnDef("GovSpendingCutRatio", ctx => td.toDouble(ctx.world.pipeline.govSpendingCutRatio)),
@@ -312,7 +313,7 @@ object SimOutput:
     ColumnDef(
       "Esa2010DebtToGdp",
       ctx =>
-        val annualGdp = ctx.world.gdpProxy * 12.0
+        val annualGdp = ctx.monthlyGdp * 12.0
         if annualGdp > 0 then td.toDouble(QuasiFiscal.esa2010Debt(ctx.world.gov.cumulativeDebt, ctx.world.financial.quasiFiscal.bondsOutstanding)) / annualGdp
         else 0.0,
     ),
@@ -345,8 +346,8 @@ object SimOutput:
     ColumnDef(
       "MortgageToGdp",
       ctx =>
-        if ctx.world.gdpProxy > 0 && ctx.world.real.housing.mortgageStock > PLN.Zero
-        then td.toDouble(ctx.world.real.housing.mortgageStock) / (ctx.world.gdpProxy * 12.0)
+        if ctx.monthlyGdp > 0 && ctx.world.real.housing.mortgageStock > PLN.Zero
+        then td.toDouble(ctx.world.real.housing.mortgageStock) / (ctx.monthlyGdp * 12.0)
         else 0.0,
     ),
     // Regional Housing Market
@@ -375,13 +376,13 @@ object SimOutput:
     ColumnDef("InventoryChange", ctx => td.toDouble(ctx.world.flows.aggInventoryChange)),
     ColumnDef(
       "InventoryToGdp",
-      ctx => if ctx.world.gdpProxy > 0 then td.toDouble(ctx.world.flows.aggInventoryStock) / ctx.world.gdpProxy else 0.0,
+      ctx => if ctx.monthlyGdp > 0 then td.toDouble(ctx.world.flows.aggInventoryStock) / ctx.monthlyGdp else 0.0,
     ),
     // Energy / Climate
     ColumnDef("AggEnergyCost", ctx => td.toDouble(ctx.world.flows.aggEnergyCost)),
     ColumnDef(
       "EnergyCostToGdp",
-      ctx => if ctx.world.gdpProxy > 0 then td.toDouble(ctx.world.flows.aggEnergyCost) / ctx.world.gdpProxy else 0.0,
+      ctx => if ctx.monthlyGdp > 0 then td.toDouble(ctx.world.flows.aggEnergyCost) / ctx.monthlyGdp else 0.0,
     ),
     ColumnDef("EtsPrice", ctx => ctx.world.real.etsPrice),
     ColumnDef("AggGreenCapital", ctx => td.toDouble(ctx.world.real.aggGreenCapital)),
@@ -465,7 +466,7 @@ object SimOutput:
     ColumnDef("InformalEmployment", ctx => ctx.world.flows.informalEmployed),
     ColumnDef(
       "EvasionToGdpRatio",
-      ctx => if ctx.world.gdpProxy > 0 then td.toDouble(ctx.world.flows.taxEvasionLoss) / ctx.world.gdpProxy else 0.0,
+      ctx => if ctx.monthlyGdp > 0 then td.toDouble(ctx.world.flows.taxEvasionLoss) / ctx.monthlyGdp else 0.0,
     ),
   )
 

@@ -34,6 +34,12 @@ case class World(
     flows: FlowState,                                      // single-step derived flow outputs → SFC identities
     regionalWages: Map[Region, PLN] = Map.empty,           // per-region wage levels (NUTS-1)
 ):
+  def derivedTotalPopulation(using p: SimParams): Int =
+    if p.flags.demographics then social.demographics.workingAgePop + social.demographics.retirees
+    else totalPopulation
+
+  def cachedMonthlyGdpProxy: Double = gdpProxy
+
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
   def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))
   def updateExternal(f: ExternalState => ExternalState): World                  = copy(external = f(external))

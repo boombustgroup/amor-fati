@@ -61,7 +61,7 @@ object DemandEconomics:
     * mechanically recycled back into demand.
     */
   private def computeGovPurchases(in: Input)(using p: SimParams): PLN =
-    val unempRate = Share.One - Share.fraction(in.employed, in.w.totalPopulation)
+    val unempRate = Share.One - Share.fraction(in.employed, in.w.derivedTotalPopulation)
     val unempGap  = (unempRate - p.monetary.nairu).max(Share.Zero)
     val stimulus  = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
     val target    = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, in.w.priceLevel)) + stimulus
@@ -75,7 +75,7 @@ object DemandEconomics:
     */
   private def applyFiscalRules(in: Input, rawTarget: PLN)(using p: SimParams): FiscalRules.Output =
     val prevGovSpend = in.w.gov.domesticBudgetDemand
-    val unempRate    = Share.One - Share.fraction(in.employed, in.w.totalPopulation)
+    val unempRate    = Share.One - Share.fraction(in.employed, in.w.derivedTotalPopulation)
     val outputGap    = Coefficient((unempRate - p.monetary.nairu) / p.monetary.nairu)
 
     FiscalRules.constrain(
@@ -83,7 +83,7 @@ object DemandEconomics:
         rawGovPurchases = rawTarget,
         prevGovSpend = prevGovSpend,
         cumulativeDebt = in.w.gov.cumulativeDebt,
-        monthlyGdp = PLN(in.w.gdpProxy),
+        monthlyGdp = PLN(in.w.cachedMonthlyGdpProxy),
         prevRevenue = in.w.gov.taxRevenue,
         prevDeficit = in.w.gov.deficit,
         inflation = in.w.inflation,

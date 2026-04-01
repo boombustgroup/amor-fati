@@ -171,7 +171,7 @@ object WorldAssemblyEconomics:
     val sfcResult = validateSfc(in, newW, fofResidual)
 
     val postFdiFirms     = applyFdiMa(in.s9.reassignedFirms, rng)
-    val updatedPop       = in.w.totalPopulation + in.s5.netMigration
+    val updatedPop       = in.w.derivedTotalPopulation + in.s5.netMigration
     val postFirmEmployed = in.s9.reassignedHouseholds.count: hh =>
       hh.status match
         case HhStatus.Employed(_, _, _) => true
@@ -267,7 +267,7 @@ object WorldAssemblyEconomics:
 
     val informalEmployed = in.s2.employed.toDouble * toDouble(in.s9.effectiveShadowShare)
 
-    val unemp       = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+    val unemp       = 1.0 - in.s2.employed.toDouble / in.w.derivedTotalPopulation.max(1)
     val target      = Math.max(0.0, unemp - toDouble(p.informal.unempThreshold)) * toDouble(p.informal.cyclicalSens)
     val cyclicalAdj = in.w.mechanisms.informalCyclicalAdj * toDouble(p.informal.smoothing) +
       target * (1.0 - toDouble(p.informal.smoothing))
@@ -367,7 +367,7 @@ object WorldAssemblyEconomics:
       fofResidual: PLN,
       informal: InformalResult,
       obs: Observables,
-  ): World =
+  )(using p: SimParams): World =
     import ComputationBoundary.toDouble
     World(
       month = in.s1.m,
@@ -375,7 +375,7 @@ object WorldAssemblyEconomics:
       priceLevel = in.s7.newPrice,
       gdpProxy = toDouble(in.s7.gdp),
       currentSigmas = in.s7.newSigmas,
-      totalPopulation = in.w.totalPopulation + in.s5.netMigration,
+      totalPopulation = in.w.derivedTotalPopulation + in.s5.netMigration,
       gov = in.s9.newGovWithYield.copy(
         policy = in.s9.newGovWithYield.policy.copy(
           minWageLevel = in.s1.baseMinWage,
