@@ -17,7 +17,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     val w      = result.newWorld
 
     w.month.shouldBe(1)
-    w.totalPopulation should be > 0
+    w.derivedTotalPopulation should be > 0
     w.hhAgg.employed should be > 0
     w.external.tourismSeasonalFactor should not be 0.0
   }

@@ -15,9 +15,9 @@ case class World(
     month: Int,                                            // simulation month (1-indexed)
     inflation: Rate,                                       // CPI YoY inflation
     priceLevel: Double,                                    // cumulative CPI index (base = 1.0)
-    gdpProxy: Double,                                      // monthly GDP proxy
+    gdpProxy: Double,                                      // cached monthly GDP proxy; prefer current-step GDP or cachedMonthlyGdpProxy accessor
     currentSigmas: Vector[Sigma],                          // per-sector σ (Arthur increasing returns)
-    totalPopulation: Int,                                  // employed + immigrants + retirees
+    totalPopulation: Int,                                  // cached population snapshot; prefer derivedTotalPopulation accessor
     gov: FiscalBudget.GovState,                            // government budget & debt
     nbp: Nbp.State,                                        // central bank: rate, bonds, FX, QE
     bankingSector: Banking.MarketState,                    // banking macro state: interbank conditions, configs, term structure

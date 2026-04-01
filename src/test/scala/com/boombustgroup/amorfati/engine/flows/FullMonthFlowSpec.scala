@@ -48,7 +48,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
     val s5                 = FirmEconomics.runStep(w, initResult.firms, initResult.households, initResult.banks, s1, s2, s3, s4, rng)
     val postLivingFirms    = s5.ioFirms.filter(Firm.isAlive)
     val postLaborDemand    = postLivingFirms.map(Firm.workerCount).sum
-    val postAvailableLabor = LaborMarket.laborSupplyAtWage(s2.newWage, s1.resWage, w.totalPopulation)
+    val postAvailableLabor = LaborMarket.laborSupplyAtWage(s2.newWage, s1.resWage, w.derivedTotalPopulation)
     val s2Post             = s2.copy(
       employed = s5.households.count(hh =>
         hh.status match
@@ -76,7 +76,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
           if s2Post.living.nonEmpty then s2Post.laborDemand / s2Post.living.length else 0,
         ),
       ),
-      JstFlows.emit(JstFlows.Input(w.gov.taxRevenue, s3.totalIncome, PLN(w.gdpProxy), s2Post.living.length, s3.pitRevenue)),
+      JstFlows.emit(JstFlows.Input(w.gov.taxRevenue, s3.totalIncome, PLN(w.cachedMonthlyGdpProxy), s2Post.living.length, s3.pitRevenue)),
       // Tier 2: Agents
       HouseholdFlows.emit(StateAdapter.hhInput(s3.hhAgg)),
       FirmFlows.emit(
