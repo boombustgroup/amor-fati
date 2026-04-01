@@ -574,7 +574,9 @@ object Household:
     val credit              = processConsumerCredit(hh, income, disposablePreCredit, thisDebtService, world, bankRates, rng)
     val fullObligations     = obligations + credit.debtService
     val disposable          = (income - fullObligations).max(PLN.Zero)
-    val consumption         = (disposable + credit.newLoan) * hh.mpc
+    val savingsDrawdown     = computeSavingsDrawdown(hh, income, newStatus)
+    val consumptionBudget   = disposable + credit.newLoan + savingsDrawdown
+    val consumption         = consumptionBudget * hh.mpc
 
     // Social network precautionary effect
     val neighborDistress = neighborDistressRatioFast(hh, distressedIds)
@@ -814,6 +816,26 @@ object Household:
         case _: HhStatus.Unemployed => Share.One + p.household.mpcUnemployedBoost
         case _                      => Share.One
       (baseMpc * bufferAdj * unemployedAdj).clamp(Share(MpcFloor), Share(MpcCeiling))
+
+  /** Controlled drawdown from liquid savings buffers.
+    *
+    * Employed households only draw from savings above their target buffer.
+    * Stressed households may also draw from the lower half of the buffer, but
+    * still keep a protected floor.
+    */
+  private[amorfati] def computeSavingsDrawdown(
+      hh: State,
+      cashOnHand: PLN,
+      status: HhStatus,
+  )(using p: SimParams): PLN =
+    val targetIncome  = cashOnHand.max(p.household.baseReservationWage)
+    val targetSavings = targetIncome * Multiplier(p.household.bufferTargetMonths)
+    val protectedBuff = targetSavings * p.household.bufferProtectedShare
+    status match
+      case _: HhStatus.Unemployed | _: HhStatus.Retraining =>
+        (hh.savings - protectedBuff).max(PLN.Zero) * p.household.bufferStressDrawdownRate
+      case _: HhStatus.Employed | HhStatus.Bankrupt        =>
+        (hh.savings - targetSavings).max(PLN.Zero) * p.household.bufferExcessDrawdownRate
 
   /** Fraction of social neighbors in distress (BitSet, O(k) per HH). */
   private def neighborDistressRatioFast(hh: State, distressedIds: java.util.BitSet): Share =
