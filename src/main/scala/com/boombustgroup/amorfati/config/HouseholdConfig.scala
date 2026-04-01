@@ -133,6 +133,7 @@ case class HouseholdConfig(
     retrainingEnabled: Boolean = true,
     // Bankruptcy
     bankruptcyThreshold: Double = -3.0,
+    bankruptcyDistressMonths: Int = 3,
     // Social network
     socialK: Int = 10,
     socialP: Share = Share(0.15),

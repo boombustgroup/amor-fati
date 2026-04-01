@@ -130,11 +130,37 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     updated(0).healthPenalty should be > Share.Zero
   }
 
-  it should "bankrupt household when savings fall below threshold" in {
+  it should "not bankrupt household after a single month of deep distress" in {
     val rng             = new Random(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(-10000.0), rent = PLN(1800.0))
     val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    updated(0).status should not be HhStatus.Bankrupt
+    updated(0).financialDistressMonths shouldBe 1
+  }
+
+  it should "bankrupt household after persistent deep distress" in {
+    val rng             = new Random(42)
+    val hh              = mkHousehold(
+      0,
+      HhStatus.Unemployed(1),
+      savings = PLN(-10000.0),
+      rent = PLN(1800.0),
+    ).copy(financialDistressMonths = p.household.bankruptcyDistressMonths - 1)
+    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
     updated(0).status shouldBe HhStatus.Bankrupt
+  }
+
+  it should "reset financial distress months after recovery" in {
+    val rng             = new Random(42)
+    val hh              = mkHousehold(
+      0,
+      HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
+      savings = PLN(20000.0),
+      rent = PLN(1800.0),
+    ).copy(financialDistressMonths = 2)
+    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    updated(0).status shouldBe a[HhStatus.Employed]
+    updated(0).financialDistressMonths shouldBe 0
   }
 
   it should "return None for perBankHhFlows when bankRates not provided" in {

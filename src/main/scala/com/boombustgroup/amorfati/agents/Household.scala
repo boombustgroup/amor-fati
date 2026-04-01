@@ -96,6 +96,7 @@ object Household:
       education: Int,                                      // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
       taskRoutineness: Share,                              // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
       wageScar: Share,                                     // persistent wage penalty from unemployment spell (Jacobson et al. 1993)
+      financialDistressMonths: Int = 0,                    // consecutive months of deep financial distress
       contractType: ContractType = ContractType.Permanent, // employment contract type (Kodeks Pracy / umowa zlecenie / B2B)
       region: Region = Region.Central,                     // NUTS-1 macroregion (geographic labor market)
   )
@@ -538,6 +539,10 @@ object Household:
       neighborDistress: Share,
   )
 
+  private def bankruptcyFloor(f: MonthlyFlows)(using p: SimParams): PLN =
+    val essentialOutflows = (f.hh.monthlyRent + f.debtService + f.credit.debtService).max(f.hh.monthlyRent)
+    essentialOutflows * Multiplier(p.household.bankruptcyThreshold)
+
   /** Per-HH monthly pipeline: income → tax → credit → consumption → equity. */
   private def computeMonthlyFlows(
       hh: State,
@@ -622,12 +627,14 @@ object Household:
       sectorVacancies: Option[Vector[Int]],
       distressedIds: java.util.BitSet,
   )(using p: SimParams): HhMonthlyResult =
-    val f = computeMonthlyFlows(hh, world, rng, bankRates, equityIndexReturn, distressedIds)
-    if f.newSavings < hh.monthlyRent * Multiplier(p.household.bankruptcyThreshold) then resolveBankruptcy(f)
-    else resolveSurvival(f, sectorWages, sectorVacancies, rng)
+    val f              = computeMonthlyFlows(hh, world, rng, bankRates, equityIndexReturn, distressedIds)
+    val distressMonths =
+      if f.newSavings < bankruptcyFloor(f) then hh.financialDistressMonths + 1 else 0
+    if distressMonths >= p.household.bankruptcyDistressMonths then resolveBankruptcy(f, distressMonths)
+    else resolveSurvival(f, sectorWages, sectorVacancies, rng, distressMonths)
 
   /** Bankruptcy branch: write off consumer debt, zero equity. */
-  private def resolveBankruptcy(f: MonthlyFlows)(using p: SimParams): HhMonthlyResult =
+  private def resolveBankruptcy(f: MonthlyFlows, distressMonths: Int)(using p: SimParams): HhMonthlyResult =
     val ccDefaultAmt  = f.hh.consumerDebt * (Rate(1.0) - p.household.ccAmortRate) + f.credit.newLoan
     val creditWithDef = f.credit.copy(defaultAmt = ccDefaultAmt, updatedDebt = PLN.Zero)
     HhMonthlyResult(
@@ -637,6 +644,7 @@ object Household:
         consumerDebt = PLN.Zero,
         status = HhStatus.Bankrupt,
         equityWealth = PLN.Zero,
+        financialDistressMonths = distressMonths,
       ),
       income = f.income,
       benefit = f.benefit,
@@ -660,6 +668,7 @@ object Household:
       sectorWages: Option[Vector[PLN]],
       sectorVacancies: Option[Vector[Int]],
       rng: Random,
+      distressMonths: Int,
   )(using p: SimParams): HhMonthlyResult =
     val afterSkill    = applySkillDecay(f.hh, f.newStatus)
     val afterHealth   = applyHealthScarring(f.hh, f.newStatus)
@@ -689,6 +698,7 @@ object Household:
         mpc = afterMpc,
         status = finalStatus,
         equityWealth = f.newEquityWealth,
+        financialDistressMonths = distressMonths,
       ),
       income = f.income,
       benefit = f.benefit,
