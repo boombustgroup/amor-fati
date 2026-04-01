@@ -113,6 +113,9 @@ case class HouseholdConfig(
     bufferTargetMonths: Double = 6.0,                  // target savings = 6 months of income
     bufferSensitivity: Coefficient = Coefficient(0.4), // MPC adjustment strength (0 = static, 1 = fully responsive)
     mpcUnemployedBoost: Share = Share(0.10),           // MPC uplift when unemployed (desperate spending)
+    bufferProtectedShare: Share = Share(0.50),         // protected share of target buffer under stress
+    bufferExcessDrawdownRate: Share = Share(0.20),     // monthly drawdown rate for savings above target buffer
+    bufferStressDrawdownRate: Share = Share(0.35),     // monthly drawdown rate for savings above protected buffer under stress
     // Skill decay & scarring
     skillDecayRate: Share = Share(0.02),
     scarringRate: Share = Share(0.02),

@@ -89,3 +89,24 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
         mpcs(i) should be >= mpcs(i + 1)
       }
   }
+
+  "computeSavingsDrawdown" should "draw only excess savings for employed households" in {
+    val hh       = mkHh(savings = PLN(120000.0))
+    val drawdown = Household.computeSavingsDrawdown(hh, income, hh.status)
+
+    drawdown shouldBe PLN(14400.0)
+  }
+
+  it should "allow stressed households to draw below the full target buffer but above the protected floor" in {
+    val hh       = mkHh(savings = PLN(30000.0)).copy(status = HhStatus.Unemployed(4))
+    val drawdown = Household.computeSavingsDrawdown(hh, income, hh.status)
+
+    drawdown shouldBe PLN(2100.0)
+  }
+
+  it should "return zero when savings are already below the protected floor under stress" in {
+    val hh       = mkHh(savings = PLN(10000.0)).copy(status = HhStatus.Unemployed(4))
+    val drawdown = Household.computeSavingsDrawdown(hh, income, hh.status)
+
+    drawdown shouldBe PLN.Zero
+  }

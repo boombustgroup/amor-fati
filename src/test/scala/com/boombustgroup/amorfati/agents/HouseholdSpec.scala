@@ -144,6 +144,15 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     pbf shouldBe None
   }
 
+  it should "let unemployed households smooth consumption by drawing down savings" in {
+    val rng               = new Random(42)
+    val hh                = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(30000.0), rent = PLN(1800.0))
+    val (updated, agg, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+
+    agg.consumption should be > PLN.Zero
+    updated(0).savings should be < hh.savings
+  }
+
   // --- Variable-rate debt service + deposit interest ---
 
   "Household.step with bankRates" should "use variable lending rate for debt service" in {
