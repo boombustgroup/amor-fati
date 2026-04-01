@@ -211,7 +211,7 @@ object WorldAssemblyEconomics:
             crossSectorHires = r.sectoralMobility.crossSectorHires + startupStaffing.crossSectorHires,
           ),
         )
-      .copy(hhAgg = startupStaffing.hhAgg, households = postMigHh)
+      .copy(hhAgg = startupStaffing.hhAgg)
       .copy(regionalWages = in.s2.regionalWages)
     StepOutput(finalW, finalFirms, postMigHh, sfcResult)
 
@@ -387,7 +387,6 @@ object WorldAssemblyEconomics:
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
       hhAgg = in.s9.finalHhAgg,
-      households = in.s9.reassignedHouseholds,
       monetaryAgg = in.s9.monAgg,
       social = SocialState(
         jst = in.s9.newJst,
@@ -470,7 +469,7 @@ object WorldAssemblyEconomics:
 
   /** Run SFC validation against previous and current snapshots. */
   private def validateSfc(in: StepInput, newW: World, fofResidual: PLN)(using p: SimParams): Sfc.SfcResult =
-    val prevSnap = Sfc.snapshot(in.w, in.firms, in.w.households)
+    val prevSnap = Sfc.snapshot(in.w, in.firms, in.households)
     val currSnap = Sfc.snapshot(newW, in.s9.reassignedFirms, in.s9.reassignedHouseholds)
     val flows    = buildMonthlyFlows(in, fofResidual)
     Sfc.validate(prevSnap, currSnap, flows)
