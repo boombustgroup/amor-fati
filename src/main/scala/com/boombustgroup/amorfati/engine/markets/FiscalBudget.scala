@@ -50,27 +50,59 @@ object FiscalBudget:
     * Calibration: MF budgetary law structure 2024, GUS public finance
     * statistics, NBP government securities data.
     */
-  case class GovState(
+  case class GovFinancialState(
+      cumulativeDebt: PLN,                // cumulative public debt stock (Σ deficits since t = 0)
+      bondsOutstanding: PLN = PLN.Zero,   // government bond stock (skarbowe papiery wartościowe)
+      foreignBondHoldings: PLN = PLN.Zero, // non-resident SPW holdings (~35%, NBP)
+  )
+
+  case class GovPolicyState(
+      bondYield: Rate = Rate.Zero,        // lagged market yield (for lending rates)
+      weightedCoupon: Rate = Rate.Zero,   // portfolio-weighted average coupon (WAM rolling model)
+      publicCapitalStock: PLN = PLN.Zero, // public capital stock accumulated from domestic capex and EU project capital
+      minWageLevel: PLN = PLN(4666.0),    // statutory minimum wage (PLN/month, GUS 2024)
+      minWagePriceLevel: Double = 1.0,    // price level at last minimum wage adjustment
+  )
+
+  case class GovFlowState(
       taxRevenue: PLN,                     // total tax revenue this month (CIT + VAT + excise + customs + NBP remittance)
       deficit: PLN,                        // monthly budget deficit (positive) or surplus (negative)
-      cumulativeDebt: PLN,                 // cumulative public debt stock (Σ deficits since t = 0)
       unempBenefitSpend: PLN,              // unemployment benefit payments this month
-      bondsOutstanding: PLN = PLN.Zero,    // government bond stock (skarbowe papiery wartościowe)
-      foreignBondHoldings: PLN = PLN.Zero, // non-resident SPW holdings (~35%, NBP)
-      bondYield: Rate = Rate.Zero,         // lagged market yield (for lending rates)
-      weightedCoupon: Rate = Rate.Zero,    // portfolio-weighted average coupon (WAM rolling model)
       debtServiceSpend: PLN = PLN.Zero,    // interest payments on public debt this month
       socialTransferSpend: PLN = PLN.Zero, // social transfers (800+, family benefits) this month
-      publicCapitalStock: PLN = PLN.Zero,  // public capital stock accumulated from domestic capex and EU project capital
       govCurrentSpend: PLN = PLN.Zero,     // domestic current government purchases (1 − investShare) × base
       govCapitalSpend: PLN = PLN.Zero,     // domestic budget-financed capital government investment only
       euProjectCapital: PLN = PLN.Zero,    // capital share of the total EU project envelope (EU funds + domestic co-financing)
       euCofinancing: PLN = PLN.Zero,       // domestic co-financing outlay booked separately from project-envelope value
       exciseRevenue: PLN = PLN.Zero,       // excise duty revenue this month (akcyza)
       customsDutyRevenue: PLN = PLN.Zero,  // customs duty revenue this month (cło)
-      minWageLevel: PLN = PLN(4666.0),     // statutory minimum wage (PLN/month, GUS 2024)
-      minWagePriceLevel: Double = 1.0,     // price level at last minimum wage adjustment
+  )
+
+  case class GovState(
+      financial: GovFinancialState,
+      policy: GovPolicyState,
+      monthly: GovFlowState,
   ):
+    def taxRevenue: PLN           = monthly.taxRevenue
+    def deficit: PLN              = monthly.deficit
+    def cumulativeDebt: PLN       = financial.cumulativeDebt
+    def unempBenefitSpend: PLN    = monthly.unempBenefitSpend
+    def bondsOutstanding: PLN     = financial.bondsOutstanding
+    def foreignBondHoldings: PLN  = financial.foreignBondHoldings
+    def bondYield: Rate           = policy.bondYield
+    def weightedCoupon: Rate      = policy.weightedCoupon
+    def debtServiceSpend: PLN     = monthly.debtServiceSpend
+    def socialTransferSpend: PLN  = monthly.socialTransferSpend
+    def publicCapitalStock: PLN   = policy.publicCapitalStock
+    def govCurrentSpend: PLN      = monthly.govCurrentSpend
+    def govCapitalSpend: PLN      = monthly.govCapitalSpend
+    def euProjectCapital: PLN     = monthly.euProjectCapital
+    def euCofinancing: PLN        = monthly.euCofinancing
+    def exciseRevenue: PLN        = monthly.exciseRevenue
+    def customsDutyRevenue: PLN   = monthly.customsDutyRevenue
+    def minWageLevel: PLN         = policy.minWageLevel
+    def minWagePriceLevel: Double = policy.minWagePriceLevel
+
     /** Domestic budget-financed demand anchor used by fiscal-demand rules. */
     def domesticBudgetDemand: PLN = govCurrentSpend + govCapitalSpend
 
@@ -79,6 +111,46 @@ object FiscalBudget:
       */
     def domesticBudgetOutlays: PLN =
       unempBenefitSpend + socialTransferSpend + govCurrentSpend + govCapitalSpend + debtServiceSpend + euCofinancing
+
+  object GovState:
+    def apply(
+        taxRevenue: PLN,
+        deficit: PLN,
+        cumulativeDebt: PLN,
+        unempBenefitSpend: PLN,
+        bondsOutstanding: PLN = PLN.Zero,
+        foreignBondHoldings: PLN = PLN.Zero,
+        bondYield: Rate = Rate.Zero,
+        weightedCoupon: Rate = Rate.Zero,
+        debtServiceSpend: PLN = PLN.Zero,
+        socialTransferSpend: PLN = PLN.Zero,
+        publicCapitalStock: PLN = PLN.Zero,
+        govCurrentSpend: PLN = PLN.Zero,
+        govCapitalSpend: PLN = PLN.Zero,
+        euProjectCapital: PLN = PLN.Zero,
+        euCofinancing: PLN = PLN.Zero,
+        exciseRevenue: PLN = PLN.Zero,
+        customsDutyRevenue: PLN = PLN.Zero,
+        minWageLevel: PLN = PLN(4666.0),
+        minWagePriceLevel: Double = 1.0,
+    ): GovState =
+      GovState(
+        financial = GovFinancialState(cumulativeDebt, bondsOutstanding, foreignBondHoldings),
+        policy = GovPolicyState(bondYield, weightedCoupon, publicCapitalStock, minWageLevel, minWagePriceLevel),
+        monthly = GovFlowState(
+          taxRevenue,
+          deficit,
+          unempBenefitSpend,
+          debtServiceSpend,
+          socialTransferSpend,
+          govCurrentSpend,
+          govCapitalSpend,
+          euProjectCapital,
+          euCofinancing,
+          exciseRevenue,
+          customsDutyRevenue,
+        ),
+      )
 
   // ---------------------------------------------------------------------------
   // Budget update

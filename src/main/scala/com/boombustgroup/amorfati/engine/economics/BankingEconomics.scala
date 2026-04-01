@@ -226,7 +226,9 @@ object BankingEconomics:
       finalPpk = multi.finalPpk,
       finalInsurance = multi.finalInsurance,
       finalNbfi = multi.finalNbfi,
-      newGovWithYield = govJst.newGovWithYield.copy(foreignBondHoldings = multi.foreignBondHoldings),
+      newGovWithYield = govJst.newGovWithYield.copy(
+        financial = govJst.newGovWithYield.financial.copy(foreignBondHoldings = multi.foreignBondHoldings),
+      ),
       newJst = govJst.newJst,
       housingAfterFlows = housing.housingAfterFlows,
       bfgLevy = bfgLevy,
@@ -361,7 +363,12 @@ object BankingEconomics:
         govPurchasesActual = in.s4.govPurchases,
       ),
     )
-    val newGovWithYield = newGov.copy(bondYield = in.s8.monetary.newBondYield, weightedCoupon = in.s8.monetary.newWeightedCoupon)
+    val newGovWithYield = newGov.copy(
+      policy = newGov.policy.copy(
+        bondYield = in.s8.monetary.newBondYield,
+        weightedCoupon = in.s8.monetary.newWeightedCoupon,
+      ),
+    )
 
     val nLivingFirms = in.s5.ioFirms.count(Firm.isAlive)
     val jstResult    =
@@ -674,8 +681,10 @@ object BankingEconomics:
 
     // Buyer holdings: old + actualSold (single source of truth)
     val finalNbp                 = in.s8.monetary.postFxNbp.copy(
-      govBondHoldings = in.s8.monetary.postFxNbp.govBondHoldings + qeSale.actualSold,
-      qeCumulative = in.s8.monetary.postFxNbp.qeCumulative + qeSale.actualSold,
+      balance = in.s8.monetary.postFxNbp.balance.copy(
+        govBondHoldings = in.s8.monetary.postFxNbp.govBondHoldings + qeSale.actualSold,
+        qeCumulative = in.s8.monetary.postFxNbp.qeCumulative + qeSale.actualSold,
+      ),
     )
     val finalPpk                 = in.s2.newPpk.copy(bondHoldings = in.w.social.ppk.bondHoldings + ppkSale.actualSold)
     val finalInsurance           = in.s8.nonBank.newInsurance.copy(govBondHoldings = in.w.financial.insurance.govBondHoldings + insSale.actualSold)

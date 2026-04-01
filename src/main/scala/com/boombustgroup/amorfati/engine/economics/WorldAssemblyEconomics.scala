@@ -377,8 +377,10 @@ object WorldAssemblyEconomics:
       currentSigmas = in.s7.newSigmas,
       totalPopulation = in.w.totalPopulation + in.s5.netMigration,
       gov = in.s9.newGovWithYield.copy(
-        minWageLevel = in.s1.baseMinWage,
-        minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
+        policy = in.s9.newGovWithYield.policy.copy(
+          minWageLevel = in.s1.baseMinWage,
+          minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
+        ),
       ),
       nbp = in.s9.finalNbp,
       bankingSector = in.s9.bankingMarket,
