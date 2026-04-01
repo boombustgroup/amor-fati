@@ -30,7 +30,8 @@ case class World(
     real: RealState,                                       // housing, mobility, investment, energy, automation
     mechanisms: MechanismsState,                           // macropru, expectations, BFG, informal economy
     plumbing: MonetaryPlumbingState,                       // reserve corridor, standing facilities, interbank
-    flows: FlowState,                                      // single-step flows → SFC identities
+    pipeline: PipelineState = PipelineState.zero,          // inter-step demand / hiring / fiscal signals
+    flows: FlowState,                                      // single-step derived flow outputs → SFC identities
     regionalWages: Map[Region, PLN] = Map.empty,           // per-region wage levels (NUTS-1)
 ):
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
@@ -39,6 +40,7 @@ case class World(
   def updateReal(f: RealState => RealState): World                              = copy(real = f(real))
   def updateMechanisms(f: MechanismsState => MechanismsState): World            = copy(mechanisms = f(mechanisms))
   def updatePlumbing(f: MonetaryPlumbingState => MonetaryPlumbingState): World  = copy(plumbing = f(plumbing))
+  def updatePipeline(f: PipelineState => PipelineState): World                  = copy(pipeline = f(pipeline))
   def updateFlows(f: FlowState => FlowState): World                             = copy(flows = f(flows))
 
 // ---------------------------------------------------------------------------
@@ -139,27 +141,8 @@ case class MonetaryPlumbingState(
 object MonetaryPlumbingState:
   val zero: MonetaryPlumbingState = MonetaryPlumbingState()
 
-/** Single-step flow outputs — recomputed each step, zero at init. Feed into SFC
-  * identities.
-  */
-case class FlowState(
-    ioFlows: PLN = PLN.Zero,                                                                     // I-O intermediate payments between sectors
-    fdiProfitShifting: PLN = PLN.Zero,                                                           // intangible imports booked abroad (profit shifting)
-    fdiRepatriation: PLN = PLN.Zero,                                                             // dividend repatriation by foreign-owned firms
-    fdiCitLoss: PLN = PLN.Zero,                                                                  // CIT lost to profit shifting
-    diasporaRemittanceInflow: PLN = PLN.Zero,                                                    // diaspora remittance inflow
-    tourismExport: PLN = PLN.Zero,                                                               // inbound tourism services export
-    tourismImport: PLN = PLN.Zero,                                                               // outbound tourism services import
-    aggInventoryStock: PLN = PLN.Zero,                                                           // aggregate firm inventory stock
-    aggInventoryChange: PLN = PLN.Zero,                                                          // ΔInventories (enters GDP)
-    aggEnergyCost: PLN = PLN.Zero,                                                               // aggregate energy + CO₂ costs
-    firmBirths: Int = 0,                                                                         // new firms (recycled + net new)
-    firmDeaths: Int = 0,                                                                         // firms bankrupt this step
-    netFirmBirths: Int = 0,                                                                      // net new firms appended to vector
-    taxEvasionLoss: PLN = PLN.Zero,                                                              // tax lost to 4-channel evasion (CIT+VAT+PIT+excise)
-    informalEmployed: Double = 0.0,                                                              // estimated informal employment count
-    bailInLoss: PLN = PLN.Zero,                                                                  // bail-in capital loss on bank creditors
-    bfgLevyTotal: Double = 0.0,                                                                  // BFG resolution levy from all banks
+/** Inter-step pipeline signals carried into the next month. */
+case class PipelineState(
     sectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0),     // per-sector demand multipliers from S4
     sectorDemandPressure: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // uncapped demand/capacity ratios for hiring
     sectorHiringSignal: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0),   // smoothed sector hiring signal used by firm labor planning
@@ -167,6 +150,31 @@ case class FlowState(
     govSpendingCutRatio: Share = Share.Zero,                                                     // fraction of raw spending cut by fiscal rules
     aggregateHiringSlack: Double = 1.0,                                                          // economy-wide compression of firm labor targets when plans exceed supply
     startupAbsorptionRate: Double = 1.0,                                                         // share of startup hiring targets filled across active startup firms
+)
+object PipelineState:
+  val zero: PipelineState = PipelineState()
+
+/** Single-step derived flow outputs — recomputed each step, zero at init. Feed
+  * into SFC identities and output columns.
+  */
+case class FlowState(
+    ioFlows: PLN = PLN.Zero,                  // I-O intermediate payments between sectors
+    fdiProfitShifting: PLN = PLN.Zero,        // intangible imports booked abroad (profit shifting)
+    fdiRepatriation: PLN = PLN.Zero,          // dividend repatriation by foreign-owned firms
+    fdiCitLoss: PLN = PLN.Zero,               // CIT lost to profit shifting
+    diasporaRemittanceInflow: PLN = PLN.Zero, // diaspora remittance inflow
+    tourismExport: PLN = PLN.Zero,            // inbound tourism services export
+    tourismImport: PLN = PLN.Zero,            // outbound tourism services import
+    aggInventoryStock: PLN = PLN.Zero,        // aggregate firm inventory stock
+    aggInventoryChange: PLN = PLN.Zero,       // ΔInventories (enters GDP)
+    aggEnergyCost: PLN = PLN.Zero,            // aggregate energy + CO₂ costs
+    firmBirths: Int = 0,                      // new firms (recycled + net new)
+    firmDeaths: Int = 0,                      // firms bankrupt this step
+    netFirmBirths: Int = 0,                   // net new firms appended to vector
+    taxEvasionLoss: PLN = PLN.Zero,           // tax lost to 4-channel evasion (CIT+VAT+PIT+excise)
+    informalEmployed: Double = 0.0,           // estimated informal employment count
+    bailInLoss: PLN = PLN.Zero,               // bail-in capital loss on bank creditors
+    bfgLevyTotal: Double = 0.0,               // BFG resolution levy from all banks
 )
 object FlowState:
   val zero: FlowState = FlowState()

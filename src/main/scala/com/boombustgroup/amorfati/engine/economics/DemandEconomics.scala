@@ -51,7 +51,7 @@ object DemandEconomics:
     val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
     val rawPressure        = computeRawDemandPressure(sectorDemand, sectorCap, in.w.priceLevel)
     val sectorPressure     = stabilizeDemandPressure(rawPressure)
-    val sectorHiringSignal = smoothHiringSignal(in.w.flows.sectorHiringSignal, sectorPressure)
+    val sectorHiringSignal = smoothHiringSignal(in.w.pipeline.sectorHiringSignal, sectorPressure)
     val sectorMults        = applySpillover(rawPressure, sectorCap, in.w.priceLevel)
     val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCap, in)
     Output(govPurchases, sectorMults, sectorPressure, sectorHiringSignal, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)

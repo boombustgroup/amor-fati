@@ -160,6 +160,7 @@ object WorldInit:
         expectations = ExpectationsInit.create(),
       ),
       plumbing = MonetaryPlumbingState.zero,
+      pipeline = PipelineState.zero,
       flows = FlowState.zero,
       regionalWages = Region.all.map(r => r -> (p.household.baseWage * Region.normalizedWageMultiplier(r))).toMap,
     )

@@ -127,8 +127,8 @@ object WorldAssemblyEconomics:
     val s4 = DemandEconomics.Output(
       in.govPurchases,
       in.sectorMults,
-      in.w.flows.sectorDemandPressure,
-      in.w.flows.sectorHiringSignal,
+      in.w.pipeline.sectorDemandPressure,
+      in.w.pipeline.sectorHiringSignal,
       in.avgDemandMult,
       in.sectorCap,
       in.laggedInvestDemand,
@@ -187,7 +187,7 @@ object WorldAssemblyEconomics:
           in.s2.aggregateHiringSlack,
           newW.inflation,
           newW.mechanisms.expectations.expectedInflation,
-          in.w.flows.startupAbsorptionRate,
+          in.w.pipeline.startupAbsorptionRate,
           rng,
         )
         EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
@@ -202,14 +202,8 @@ object WorldAssemblyEconomics:
     val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
 
     val finalW = newW
-      .updateFlows(
-        _.copy(
-          firmBirths = entryStep.firmBirths,
-          firmDeaths = in.s5.firmDeaths,
-          netFirmBirths = entryStep.netBirths,
-          startupAbsorptionRate = startupStaffing.startupAbsorptionRate,
-        ),
-      )
+      .updateFlows(_.copy(firmBirths = entryStep.firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths))
+      .updatePipeline(_.copy(startupAbsorptionRate = startupStaffing.startupAbsorptionRate))
       .updateReal: r =>
         r.copy(
           sectoralMobility = r.sectoralMobility.copy(
@@ -439,7 +433,18 @@ object WorldAssemblyEconomics:
         depositFacilityUsage = obs.depositFacilityUsage,
         fofResidual = fofResidual,
       ),
+      pipeline = buildPipelineState(in),
       flows = buildFlowState(in, informal),
+    )
+
+  private def buildPipelineState(in: StepInput): PipelineState =
+    PipelineState(
+      sectorDemandMult = in.s4.sectorMults,
+      sectorDemandPressure = in.s4.sectorDemandPressure,
+      sectorHiringSignal = in.s4.sectorHiringSignal,
+      fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
+      govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
+      aggregateHiringSlack = in.s2.aggregateHiringSlack,
     )
 
   /** Construct the FlowState for this step. */
@@ -463,11 +468,6 @@ object WorldAssemblyEconomics:
       informalEmployed = informal.informalEmployed,
       bailInLoss = in.s9.bailInLoss,
       bfgLevyTotal = toDouble(in.s9.bfgLevy),
-      sectorDemandMult = in.s4.sectorMults,
-      sectorDemandPressure = in.s4.sectorDemandPressure,
-      sectorHiringSignal = in.s4.sectorHiringSignal,
-      fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
-      govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
     )
 
   /** Run SFC validation against previous and current snapshots. */

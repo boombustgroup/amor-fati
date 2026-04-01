@@ -196,8 +196,8 @@ object SimOutput:
       "DeficitToGdp",
       ctx => if ctx.world.gdpProxy > 0 then td.toDouble(ctx.world.gov.deficit) / (ctx.world.gdpProxy * 12.0) else 0.0,
     ),
-    ColumnDef("FiscalRuleBinding", ctx => ctx.world.flows.fiscalRuleSeverity.toDouble),
-    ColumnDef("GovSpendingCutRatio", ctx => td.toDouble(ctx.world.flows.govSpendingCutRatio)),
+    ColumnDef("FiscalRuleBinding", ctx => ctx.world.pipeline.fiscalRuleSeverity.toDouble),
+    ColumnDef("GovSpendingCutRatio", ctx => td.toDouble(ctx.world.pipeline.govSpendingCutRatio)),
   )
 
   private def monetaryGroup: Vector[ColumnDef] = Vector(
