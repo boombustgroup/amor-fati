@@ -56,7 +56,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
         banks = result.newBanks
       }
 
-      val unemp = w.hhAgg.unemploymentRate(w.totalPopulation)
+      val unemp = w.hhAgg.unemploymentRate(w.derivedTotalPopulation)
       withClue(s"Seed $seed unemployment=$unemp: ") {
         unemp should be >= 0.03
         unemp should be <= 0.97
@@ -80,7 +80,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
       }
 
       withClue(s"Seed $seed GDP: ") {
-        w.gdpProxy should be > 0.0
+        w.cachedMonthlyGdpProxy should be > 0.0
       }
     }
 

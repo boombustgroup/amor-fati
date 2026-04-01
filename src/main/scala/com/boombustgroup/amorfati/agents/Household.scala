@@ -594,7 +594,7 @@ object Household:
     val equityBoost           =
       if p.flags.gpwHhEquity && equityGain > PLN.Zero then equityGain * p.equity.wealthEffectMpc
       else PLN.Zero
-    val housingBoost          = world.real.housing.lastWealthEffect / world.totalPopulation.toLong.max(1L)
+    val housingBoost          = world.real.housing.lastWealthEffect / world.derivedTotalPopulation.toLong.max(1L)
     val consumptionWithWealth = consumptionAdj + equityBoost + housingBoost
 
     MonthlyFlows(

@@ -53,7 +53,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
       firms = result.newFirms
       hh = result.newHouseholds
       banks = result.newBanks
-      gdps += w.gdpProxy
+      gdps += w.cachedMonthlyGdpProxy
     }
 
     gdps.last should not be gdps.head

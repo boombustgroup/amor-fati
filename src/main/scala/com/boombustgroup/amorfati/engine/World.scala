@@ -15,9 +15,9 @@ case class World(
     month: Int,                                            // simulation month (1-indexed)
     inflation: Rate,                                       // CPI YoY inflation
     priceLevel: Double,                                    // cumulative CPI index (base = 1.0)
-    gdpProxy: Double,                                      // monthly GDP proxy
+    gdpProxy: Double,                                      // cached monthly GDP proxy; prefer current-step GDP or cachedMonthlyGdpProxy accessor
     currentSigmas: Vector[Sigma],                          // per-sector σ (Arthur increasing returns)
-    totalPopulation: Int,                                  // employed + immigrants + retirees
+    totalPopulation: Int,                                  // cached population snapshot; prefer derivedTotalPopulation accessor
     gov: FiscalBudget.GovState,                            // government budget & debt
     nbp: Nbp.State,                                        // central bank: rate, bonds, FX, QE
     bankingSector: Banking.MarketState,                    // banking macro state: interbank conditions, configs, term structure
@@ -34,6 +34,12 @@ case class World(
     flows: FlowState,                                      // single-step derived flow outputs → SFC identities
     regionalWages: Map[Region, PLN] = Map.empty,           // per-region wage levels (NUTS-1)
 ):
+  def derivedTotalPopulation(using p: SimParams): Int =
+    if p.flags.demographics then social.demographics.workingAgePop + social.demographics.retirees
+    else totalPopulation
+
+  def cachedMonthlyGdpProxy: Double = gdpProxy
+
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
   def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))
   def updateExternal(f: ExternalState => ExternalState): World                  = copy(external = f(external))

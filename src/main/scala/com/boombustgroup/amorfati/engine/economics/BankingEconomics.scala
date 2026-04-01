@@ -390,7 +390,8 @@ object BankingEconomics:
 
   /** Housing market: price step, origination, mortgage flows. */
   private def computeHousingFlows(in: StepInput)(using p: SimParams): HousingResult =
-    val unempRate              = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+    val population             = in.w.derivedTotalPopulation.max(1)
+    val unempRate              = 1.0 - in.s2.employed.toDouble / population
     val prevMortgageRate       = in.w.real.housing.avgMortgageRate
     val mortgageBaseRate: Rate =
       if p.flags.interbankTermStructure then
@@ -577,8 +578,9 @@ object BankingEconomics:
     )
 
     // IFRS 9 ECL staging: provision change hits capital
-    val unemployment = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation.max(1))
-    val gdpGrowth    = if in.w.gdpProxy > 0 then (ComputationBoundary.toDouble(in.s7.gdp) - in.w.gdpProxy) / in.w.gdpProxy else 0.0
+    val unemployment = Share.One - Share.fraction(in.s2.employed, in.w.derivedTotalPopulation.max(1))
+    val prevGdp      = in.w.cachedMonthlyGdpProxy
+    val gdpGrowth    = if prevGdp > 0 then (ComputationBoundary.toDouble(in.s7.gdp) - prevGdp) / prevGdp else 0.0
     val eclResult    = EclStaging.step(b.eclStaging, newLoansTotal + b.consumerLoans, bankNplNew, unemployment, gdpGrowth)
 
     b.copy(

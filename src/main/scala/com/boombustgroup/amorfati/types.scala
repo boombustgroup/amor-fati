@@ -34,6 +34,10 @@ object types:
 
   // --- PLN × typed ---
   extension (p: PLN)
+    @targetName("plnTimesInt")
+    def *(n: Int): PLN         = PLN.fromRaw((BigInt(p.toLong) * BigInt(n.toLong)).toLong)
+    @targetName("plnTimesLong")
+    def *(n: Long): PLN        = PLN.fromRaw((BigInt(p.toLong) * BigInt(n)).toLong)
     @targetName("plnTimesRate")
     def *(r: Rate): PLN        = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(r.toLong)))
     @targetName("plnTimesShare")

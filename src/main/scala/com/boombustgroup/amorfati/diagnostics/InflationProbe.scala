@@ -52,7 +52,7 @@ object InflationProbe:
     val zusNetSurplus =
       if p.flags.zus then (world.social.zus.contributions - world.social.zus.pensionPayments).max(PLN.Zero)
       else PLN.Zero
-    val unempRate     = Share.One - Share.fraction(employed, world.totalPopulation)
+    val unempRate     = Share.One - Share.fraction(employed, world.derivedTotalPopulation)
     val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
     val base          = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, world.priceLevel))
     val recycling     = (world.gov.taxRevenue + zusNetSurplus) * p.fiscal.govFiscalRecyclingRate
@@ -72,6 +72,7 @@ object InflationProbe:
     println(s"seed=$seed months=$months")
 
     (1 to months).foreach: month =>
+      val population        = world.derivedTotalPopulation.max(1)
       val rng               = new Random(seed * 1000 + month)
       val fiscal            = FiscalConstraintEconomics.compute(world, banks)
       val s1                = FiscalConstraintEconomics.toOutput(fiscal)
@@ -79,8 +80,8 @@ object InflationProbe:
       val prevWage          = toDouble(world.hhAgg.marketWage)
       val rawLaborWage      =
         if summon[SimParams].flags.regionalLabor then
-          toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, world.totalPopulation).nationalWage)
-        else toDouble(LaborMarket.updateLaborMarket(world.hhAgg.marketWage, s1.resWage, labor.laborDemand, world.totalPopulation).wage)
+          toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
+        else toDouble(LaborMarket.updateLaborMarket(world.hhAgg.marketWage, s1.resWage, labor.laborDemand, population).wage)
       val target            = toDouble(summon[SimParams].monetary.targetInfl)
       val expWagePressure   =
         if summon[SimParams].flags.expectations then
@@ -97,9 +98,9 @@ object InflationProbe:
           val decline = prevWage - wageAfterExp
           Math.max(toDouble(s1.resWage), wageAfterExp + decline * toDouble(summon[SimParams].labor.unionRigidity) * aggUnionDensity)
         else wageAfterExp
-      val supplyAtPrev      = laborSupplyCount(world.hhAgg.marketWage, s1.resWage, world.totalPopulation)
-      val newSupply         = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, world.totalPopulation)
-      val excessDemand      = (labor.laborDemand - supplyAtPrev).toDouble / world.totalPopulation
+      val supplyAtPrev      = laborSupplyCount(world.hhAgg.marketWage, s1.resWage, population)
+      val newSupply         = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, population)
+      val excessDemand      = (labor.laborDemand - supplyAtPrev).toDouble / population
       val phillipsGrowth    = if prevWage > 0.0 then rawLaborWage / prevWage - 1.0 else 0.0
       val expGrowth         = if rawLaborWage > 0.0 then wageAfterExp / rawLaborWage - 1.0 else 0.0
       val unionGrowth       = if wageAfterExp > 0.0 then unionAdjustedWage / wageAfterExp - 1.0 else 0.0
@@ -155,7 +156,7 @@ object InflationProbe:
       val baseAnnual    = toDouble(world.inflation) * (1.0 - SmoothingLambda) + (flooredM * 12.0) * SmoothingLambda
       val totalInfl     = toDouble(s7.newInfl)
       val markupAnnual  = toDouble(s5.markupInflation)
-      val unemp         = 1.0 - s2.employed.toDouble / world.totalPopulation.toDouble
+      val unemp         = 1.0 - s2.employed.toDouble / population.toDouble
       val refRate       = toDouble(s8.monetary.newRefRate)
       val expInfl       = toDouble(s8.monetary.newExp.expectedInflation)
       val credibility   = toDouble(s8.monetary.newExp.credibility)

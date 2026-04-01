@@ -72,11 +72,11 @@ object LaborEconomics:
     val living               = firms.filter(Firm.isAlive)
     val laborDemand          = living.map(f => Firm.workerCount(f)).sum
     val cleared              = clearLaborMarket(w, s1.resWage, laborDemand)
-    val availableLabor       = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.totalPopulation)
+    val availableLabor       = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.derivedTotalPopulation)
     val aggregateHiringSlack = aggregateHiringSlackFactor(laborDemand, availableLabor)
 
     // Immigration
-    val unempRateForImmig = 1.0 - cleared.employed.toDouble / w.totalPopulation
+    val unempRateForImmig = 1.0 - cleared.employed.toDouble / w.derivedTotalPopulation
     val newImmig          = Immigration.step(w.external.immigration, households, cleared.wage, unempRateForImmig)
     val netMigration      = newImmig.monthlyInflow - newImmig.monthlyOutflow
 
@@ -125,7 +125,7 @@ object LaborEconomics:
     val employedCap        =
       if p.flags.demographics then Math.min(realizedEmployment, pre.newDemographics.workingAgePop)
       else realizedEmployment
-    val postAvailableLabor = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.totalPopulation)
+    val postAvailableLabor = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.derivedTotalPopulation)
     pre.copy(
       newWage = cleared.wage,
       employed = employedCap,
@@ -145,11 +145,11 @@ object LaborEconomics:
     import ComputationBoundary.toDouble
     val (rawWage, rawEmployed, regWages) =
       if p.flags.regionalLabor then
-        val rc          = RegionalClearing.clear(w.regionalWages, resWage, laborDemand, w.totalPopulation)
-        val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, resWage, laborDemand, w.totalPopulation)
+        val rc          = RegionalClearing.clear(w.regionalWages, resWage, laborDemand, w.derivedTotalPopulation)
+        val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, resWage, laborDemand, w.derivedTotalPopulation)
         (toDouble(rc.nationalWage), natEmployed, rc.regionalWages)
       else
-        val wageResult = LaborMarket.updateLaborMarket(w.hhAgg.marketWage, resWage, laborDemand, w.totalPopulation)
+        val wageResult = LaborMarket.updateLaborMarket(w.hhAgg.marketWage, resWage, laborDemand, w.derivedTotalPopulation)
         (toDouble(wageResult.wage), wageResult.employed, w.regionalWages)
 
     val wageAfterExp =

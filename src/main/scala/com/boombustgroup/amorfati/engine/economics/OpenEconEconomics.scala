@@ -22,7 +22,7 @@ import scala.util.Random
   */
 object OpenEconEconomics:
 
-  private val MaxDebtServiceGdpShare = 0.50
+  private val MaxDebtServiceGdpShare = Share(0.50)
 
   /** Everything the new pipeline needs from open economy + monetary + financial
     * sector.
@@ -220,8 +220,8 @@ object OpenEconEconomics:
 
     // 4. Monetary policy (Taylor rule + expectations)
     val exRateChg   = Coefficient((forex.exchangeRate / in.w.forex.exchangeRate) - 1.0)
-    val newRefRate  = Nbp.updateRate(in.w.nbp.referenceRate, in.newInflation, exRateChg, in.employed, in.w.totalPopulation)
-    val unempForExp = 1.0 - in.employed.toDouble / in.w.totalPopulation
+    val newRefRate  = Nbp.updateRate(in.w.nbp.referenceRate, in.newInflation, exRateChg, in.employed, in.w.derivedTotalPopulation)
+    val unempForExp = 1.0 - in.employed.toDouble / in.w.derivedTotalPopulation
     val newExp      =
       if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, toDouble(in.newInflation), toDouble(newRefRate), unempForExp)
       else in.w.mechanisms.expectations
@@ -233,9 +233,9 @@ object OpenEconEconomics:
     val interbankInterest = Banking.interbankInterestFlows(in.banks, bsec.interbankRate).total
 
     // 6. Bond yield, debt service, QE
-    val annualGdp         = PLN(in.w.gdpProxy * 12.0)
-    val debtToGdp         = if annualGdp > PLN.Zero then Share(in.w.gov.cumulativeDebt / annualGdp) else Share.Zero
-    val nbpBondGdpShare   = if annualGdp > PLN.Zero then Share(in.w.nbp.qeCumulative / annualGdp) else Share.Zero
+    val annualGdp         = in.gdp * 12
+    val debtToGdp         = if annualGdp > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdp)) else Share.Zero
+    val nbpBondGdpShare   = if annualGdp > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdp)) else Share.Zero
     val credPremium       = if p.flags.expectations then
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
         Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
@@ -245,7 +245,7 @@ object OpenEconEconomics:
     val newWeightedCoupon =
       updateWeightedCoupon(in.w.gov.weightedCoupon, marketYield, in.w.gov.bondsOutstanding, in.w.gov.deficit, p.fiscal.govAvgMaturityMonths)
     val rawDebtService    = in.w.gov.bondsOutstanding * newWeightedCoupon.monthly
-    val debtService       = rawDebtService.min(PLN(in.w.gdpProxy * MaxDebtServiceGdpShare))
+    val debtService       = rawDebtService.min(in.gdp * MaxDebtServiceGdpShare)
     val bankBondIncome    = bankAgg.govBondHoldings * marketYield.monthly
     val nbpBondIncome     = in.w.nbp.govBondHoldings * marketYield.monthly
     val nbpRemittance     = nbpBondIncome - reserveInterest - standingFacility
@@ -256,7 +256,7 @@ object OpenEconEconomics:
       else if Nbp.shouldTaperQe(in.newInflation, newExp.expectedInflation) then false
       else in.w.nbp.qeActive
     val preQeNbp  = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
-    val qeRequest = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, annualGdp, in.newInflation, newExp.expectedInflation)
+    val qeRequest = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.gdp, in.newInflation, newExp.expectedInflation)
 
     // 7. Corporate bonds
     val corpBondAmort = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
@@ -273,7 +273,7 @@ object OpenEconEconomics:
     val corpDefaults  = CorporateBondMarket.processDefaults(in.w.financial.corporateBonds, in.totalBondDefault)
 
     // 8. Insurance
-    val unempRate    = Share.One - Share.fraction(in.employed, in.w.totalPopulation)
+    val unempRate    = Share.One - Share.fraction(in.employed, in.w.derivedTotalPopulation)
     val newInsurance =
       if p.flags.insurance then
         Insurance.step(in.w.financial.insurance, in.employed, in.newWage, in.w.priceLevel, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
@@ -568,9 +568,9 @@ object OpenEconEconomics:
       in.s7.newInfl,
       exRateChg,
       in.s2.employed,
-      in.w.totalPopulation,
+      in.w.derivedTotalPopulation,
     )
-    val unempRateForExp = 1.0 - in.s2.employed.toDouble / in.w.totalPopulation
+    val unempRateForExp = 1.0 - in.s2.employed.toDouble / in.w.derivedTotalPopulation
     val newExp          =
       if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, toDouble(in.s7.newInfl), toDouble(newRefRate), unempRateForExp)
       else in.w.mechanisms.expectations
@@ -594,9 +594,9 @@ object OpenEconEconomics:
       interbank: InterbankResult,
   )(using p: SimParams): BondQeResult =
     import ComputationBoundary.toDouble
-    val annualGdpForBonds = PLN(in.w.gdpProxy * 12.0)
-    val debtToGdp         = if annualGdpForBonds > PLN.Zero then Share(in.w.gov.cumulativeDebt / annualGdpForBonds) else Share.Zero
-    val nbpBondGdpShare   = if annualGdpForBonds > PLN.Zero then Share(in.w.nbp.qeCumulative / annualGdpForBonds) else Share.Zero
+    val annualGdpForBonds = in.s7.gdp * 12
+    val debtToGdp         = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdpForBonds)) else Share.Zero
+    val nbpBondGdpShare   = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdpForBonds)) else Share.Zero
     val credPremium       = if p.flags.expectations then
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
         Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
@@ -613,7 +613,7 @@ object OpenEconEconomics:
     )
 
     val rawDebtService     = in.w.gov.bondsOutstanding * newWeightedCoupon.monthly
-    val monthlyDebtService = rawDebtService.min(PLN(in.w.gdpProxy * MaxDebtServiceGdpShare))
+    val monthlyDebtService = rawDebtService.min(in.s7.gdp * MaxDebtServiceGdpShare)
     val bankBondIncome     = bankAgg.govBondHoldings * marketYield.monthly
     val nbpBondIncome      = in.w.nbp.govBondHoldings * marketYield.monthly
     val nbpRemittance      = nbpBondIncome - interbank.reserveInterest - interbank.standingFacilityIncome
@@ -625,7 +625,7 @@ object OpenEconEconomics:
       else if qeTaper then false
       else in.w.nbp.qeActive
     val preQeNbp         = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
-    val qeRequest        = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, annualGdpForBonds, in.s7.newInfl, newExp.expectedInflation)
+    val qeRequest        = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.s7.gdp, in.s7.newInfl, newExp.expectedInflation)
     val qePurchaseAmount = qeRequest.requestedPurchase
     val postFxNbp        = qeRequest.nbpState.copy(
       balance = qeRequest.nbpState.balance.copy(fxReserves = fxResult.newReserves),
@@ -657,7 +657,7 @@ object OpenEconEconomics:
     )
 
   private def runStepInsurance(in: StepInput, newBondYield: Rate)(using p: SimParams): InsuranceResult =
-    val unempRate    = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation)
+    val unempRate    = Share.One - Share.fraction(in.s2.employed, in.w.derivedTotalPopulation)
     val newInsurance =
       if p.flags.insurance then
         Insurance.step(
@@ -675,7 +675,7 @@ object OpenEconEconomics:
 
   private def runStepNbfi(in: StepInput, bankAgg: Banking.Aggregate, postFxNbp: Nbp.State, newBondYield: Rate)(using p: SimParams): NbfiResult =
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
-    val nbfiUnempRate   = Share.One - Share.fraction(in.s2.employed, in.w.totalPopulation)
+    val nbfiUnempRate   = Share.One - Share.fraction(in.s2.employed, in.w.derivedTotalPopulation)
     val newNbfi         =
       if p.flags.nbfi then
         Nbfi.step(
