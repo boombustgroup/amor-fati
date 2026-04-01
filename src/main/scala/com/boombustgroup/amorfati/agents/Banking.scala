@@ -103,6 +103,19 @@ object Banking:
       val totalRwa = totalLoans + consumerLoans + corpBondHoldings * Share(0.50)
       if totalRwa > PLN(1.0) then Multiplier(capital / totalRwa) else Multiplier(10.0)
 
+  def aggregateFromBanks(banks: Vector[BankState]): Aggregate =
+    Aggregate(
+      totalLoans = PLN.fromRaw(banks.map(_.loans.toLong).sum),
+      nplAmount = PLN.fromRaw(banks.map(_.nplAmount.toLong).sum),
+      capital = PLN.fromRaw(banks.map(_.capital.toLong).sum),
+      deposits = PLN.fromRaw(banks.map(_.deposits.toLong).sum),
+      afsBonds = PLN.fromRaw(banks.map(_.afsBonds.toLong).sum),
+      htmBonds = PLN.fromRaw(banks.map(_.htmBonds.toLong).sum),
+      consumerLoans = PLN.fromRaw(banks.map(_.consumerLoans.toLong).sum),
+      consumerNpl = PLN.fromRaw(banks.map(_.consumerNpl.toLong).sum),
+      corpBondHoldings = PLN.fromRaw(banks.map(_.corpBondHoldings.toLong).sum),
+    )
+
   // ---------------------------------------------------------------------------
   // Monetary aggregates (diagnostic, not SFC-relevant)
   // ---------------------------------------------------------------------------
@@ -259,18 +272,7 @@ object Banking:
       configs: Vector[Config],
       interbankCurve: Option[YieldCurve.State],
   ):
-    def aggregate: Aggregate =
-      Aggregate(
-        totalLoans = PLN.fromRaw(banks.map(_.loans.toLong).sum),
-        nplAmount = PLN.fromRaw(banks.map(_.nplAmount.toLong).sum),
-        capital = PLN.fromRaw(banks.map(_.capital.toLong).sum),
-        deposits = PLN.fromRaw(banks.map(_.deposits.toLong).sum),
-        afsBonds = PLN.fromRaw(banks.map(_.afsBonds.toLong).sum),
-        htmBonds = PLN.fromRaw(banks.map(_.htmBonds.toLong).sum),
-        consumerLoans = PLN.fromRaw(banks.map(_.consumerLoans.toLong).sum),
-        consumerNpl = PLN.fromRaw(banks.map(_.consumerNpl.toLong).sum),
-        corpBondHoldings = PLN.fromRaw(banks.map(_.corpBondHoldings.toLong).sum),
-      )
+    def aggregate: Aggregate = aggregateFromBanks(banks)
 
     def marketState: MarketState =
       MarketState(
