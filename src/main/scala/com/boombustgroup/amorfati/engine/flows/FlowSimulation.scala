@@ -32,6 +32,7 @@ object FlowSimulation:
       world: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
   )
 
   /** All calculus results needed to feed flow mechanisms. */
@@ -257,6 +258,7 @@ object FlowSimulation:
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
       rng: Random,
   )(using p: SimParams): FullComputation =
     val fiscal          = FiscalConstraintEconomics.compute(w)
@@ -279,9 +281,9 @@ object FlowSimulation:
       labor.living,
       labor.regionalWages,
     )
-    val s3              = HouseholdIncomeEconomics.compute(w, firms, households, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
+    val s3              = HouseholdIncomeEconomics.compute(w, firms, households, banks, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
     val s4              = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
-    val s5              = FirmEconomics.runStep(w, firms, households, s1, s2Pre, s3, s4, rng)
+    val s5              = FirmEconomics.runStep(w, firms, households, banks, s1, s2Pre, s3, s4, rng)
     val postLivingFirms = s5.ioFirms.filter(Firm.isAlive)
     val s2              = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
     val s6              = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
@@ -296,6 +298,7 @@ object FlowSimulation:
         s4.govPurchases,
         s4.avgDemandMult,
         s4.sectorMults,
+        banks,
         s5,
       ),
       rng,
@@ -327,11 +330,12 @@ object FlowSimulation:
         profitShifting = s5.sumProfitShifting,
         fdiRepatriation = s5.sumFdiRepatriation,
         foreignDividendOutflow = s7.foreignDividendOutflow,
+        banks = banks,
         month = fiscal.month,
         commodityRng = rng,
       ),
     )
-    val s8              = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, rng))
+    val s8              = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, rng))
     val banking         = BankingEconomics.compute(
       BankingEconomics.Input(
         w = w,
@@ -356,10 +360,11 @@ object FlowSimulation:
         hhFinancialOutput = s6,
         priceEquityOutput = s7,
         openEconOutput = s8,
+        banks = banks,
         depositRng = rng,
       ),
     )
-    val s9              = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, rng))
+    val s9              = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
     val agg             = s3.hhAgg
     val eq              = w.financial.equity
     val h               = w.real.housing
@@ -453,9 +458,10 @@ object FlowSimulation:
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
       rng: Random,
   )(using p: SimParams): MonthlyCalculus =
-    computeAll(w, firms, households, rng).calculus
+    computeAll(w, firms, households, banks, rng).calculus
 
   case class StepResult(
       calculus: MonthlyCalculus,
@@ -463,6 +469,7 @@ object FlowSimulation:
       newWorld: World,
       newFirms: Vector[Firm.State],
       newHouseholds: Vector[Household.State],
+      newBanks: Vector[Banking.BankState],
   )
 
   /** Full step: compute calculus → emit flows → assemble new World.
@@ -471,10 +478,10 @@ object FlowSimulation:
     * computeAll(), then feeds both MonthlyCalculus (for flows) and step outputs
     * (for WorldAssembly) from that single computation.
     */
-  def step(w: World, firms: Vector[Firm.State], households: Vector[Household.State], rng: Random)(using
+  def step(w: World, firms: Vector[Firm.State], households: Vector[Household.State], banks: Vector[Banking.BankState], rng: Random)(using
       p: SimParams,
   ): StepResult =
-    val full  = computeAll(w, firms, households, rng)
+    val full  = computeAll(w, firms, households, banks, rng)
     val flows = emitAllFlows(full.calculus)
 
     val assembled = WorldAssemblyEconomics.compute(
@@ -500,9 +507,10 @@ object FlowSimulation:
         priceEquityOutput = full.s7,
         openEconOutput = full.s8,
         bankOutput = full.s9,
+        banks = banks,
         rng = rng,
         migRng = rng,
       ),
     )
 
-    StepResult(full.calculus, flows, assembled.world, assembled.firms, assembled.households)
+    StepResult(full.calculus, flows, assembled.world, assembled.firms, assembled.households, assembled.banks)

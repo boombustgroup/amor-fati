@@ -34,16 +34,17 @@ object PriceEquityEconomics:
   private val AiMaintNomShare   = 0.40    // nominal (price-sensitive) share of AI/hybrid maintenance cost
 
   case class Input(
-      w: World,                    // current world state
-      month: Int,                  // month counter
-      newWage: PLN,                // new wage from labor market
-      employed: Int,               // employment count
-      wageGrowth: Coefficient,     // wage growth coefficient
-      domesticCons: PLN,           // domestic component of household consumption
-      govPurchases: PLN,           // constrained government purchases from demand formation
-      avgDemandMult: Double,       // economy-wide average demand multiplier
-      sectorMults: Vector[Double], // per-sector demand multipliers
-      s5: FirmEconomics.StepOutput, // firm processing output
+      w: World,                         // current world state
+      month: Int,                       // month counter
+      newWage: PLN,                     // new wage from labor market
+      employed: Int,                    // employment count
+      wageGrowth: Coefficient,          // wage growth coefficient
+      domesticCons: PLN,                // domestic component of household consumption
+      govPurchases: PLN,                // constrained government purchases from demand formation
+      avgDemandMult: Double,            // economy-wide average demand multiplier
+      sectorMults: Vector[Double],      // per-sector demand multipliers
+      banks: Vector[Banking.BankState], // explicit bank population
+      s5: FirmEconomics.StepOutput,     // firm processing output
   )
 
   case class Output(
@@ -259,7 +260,7 @@ object PriceEquityEconomics:
     val gdp                =
       toDouble(in.domesticCons) + govGdpContribution + euGdpContribution + toDouble(in.w.forex.exports) + domesticGFCF + aggInventoryChange
 
-    val totalSystemLoans = PLN.fromRaw(in.w.bankingSector.banks.map(_.loans.toLong).sum)
+    val totalSystemLoans = PLN.fromRaw(in.banks.map(_.loans.toLong).sum)
     val newMacropru      = Macroprudential.step(in.w.mechanisms.macropru, totalSystemLoans, PLN(gdp))
 
     val sectorAdoption = p.sectorDefs.indices.map { s =>

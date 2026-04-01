@@ -70,14 +70,14 @@ object McRunner:
 
   private def initSeed(seed: Long)(using p: SimParams) =
     val init     = WorldInit.initialize(seed)
-    val snapshot = Sfc.snapshot(init.world, init.firms, init.households)
-    val errors   = InitCheck.validate(snapshot, init.world.bankingSector, init.firms, init.households)
+    val snapshot = Sfc.snapshot(init.world, init.firms, init.households, init.banks)
+    val errors   = InitCheck.validate(snapshot, init.banks, init.firms, init.households)
     if errors.nonEmpty then Left(SimError.Init(errors))
-    else Right(FlowSimulation.SimState(init.world, init.firms, init.households))
+    else Right(FlowSimulation.SimState(init.world, init.firms, init.households, init.banks))
 
   private def stepMonth(state: FlowSimulation.SimState, seed: Long, month: Int)(using p: SimParams) =
     val rng    = new scala.util.Random(seed * 10000 + month)
-    val result = engine.flows.FlowSimulation.step(state.world, state.firms, state.households, rng)
+    val result = engine.flows.FlowSimulation.step(state.world, state.firms, state.households, state.banks, rng)
     // SFC verification: flows through verified interpreter should always be 0L
     val wealth = com.boombustgroup.ledger.Interpreter.totalWealth(
       com.boombustgroup.ledger.Interpreter.applyAll(Map.empty[Int, Long], result.flows),
@@ -86,8 +86,8 @@ object McRunner:
       val err = Sfc.SfcIdentityError(Sfc.SfcIdentity.FlowOfFunds, s"Flow SFC: totalWealth=$wealth", PLN.fromRaw(wealth), PLN.Zero)
       Left(SimError.SfcViolation(month + 1, Vector(err)))
     else
-      val newState  = FlowSimulation.SimState(result.newWorld, result.newFirms, result.newHouseholds)
-      val monthData = SimOutput.compute(month, result.newWorld, result.newFirms, result.newHouseholds)
+      val newState  = FlowSimulation.SimState(result.newWorld, result.newFirms, result.newHouseholds, result.newBanks)
+      val monthData = SimOutput.compute(month, result.newWorld, result.newFirms, result.newHouseholds, result.newBanks)
       Right((newState, monthData))
 
   @scala.annotation.tailrec
@@ -195,7 +195,7 @@ object McRunner:
   private def writeBankCsv(rc: McRunConfig, results: zio.Chunk[(Long, RunResult)]) =
     ZIO.attemptBlocking:
       val rows = results.flatMap: (seed, r) =>
-        r.terminalState.world.bankingSector.banks.map: b =>
+        r.terminalState.banks.map: b =>
           s"$seed;" + bankSchema.map(_._2(b)).mkString(";")
       CsvWriter.write(new File("mc", s"${filePrefix(rc)}_banks.csv"), bankHeader, rows)(identity)
 

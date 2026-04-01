@@ -37,11 +37,13 @@ object BankingEconomics:
       s6: HouseholdFinancialEconomics.Output, // household financial (remittances, tourism, consumer credit)
       s7: PriceEquityEconomics.Output,        // price/equity (inflation, GDP, equity state, macropru)
       s8: OpenEconEconomics.StepOutput,       // open economy (NBP rate, bond yield, QE, FX, BoP)
+      banks: Vector[Banking.BankState],       // explicit bank population
       depositRng: scala.util.Random,          // deterministic RNG for deposit flight decisions
   )
 
   case class StepOutput(
       resolvedBank: Banking.Aggregate,               // aggregate bank balance sheet after resolution
+      finalBanks: Vector[Banking.BankState],         // explicit post-step bank population
       finalBankingSector: Banking.State,             // full banking sector state (per-bank + interbank)
       reassignedFirms: Vector[Firm.State],           // firms with bankId reassigned after bank failure
       reassignedHouseholds: Vector[Household.State], // HH with bankId reassigned after bank failure
@@ -156,6 +158,7 @@ object BankingEconomics:
       hhFinancialOutput: HouseholdFinancialEconomics.Output,
       priceEquityOutput: PriceEquityEconomics.Output,
       openEconOutput: OpenEconEconomics.StepOutput,
+      banks: Vector[Banking.BankState],
       depositRng: Random,
   )
 
@@ -187,7 +190,7 @@ object BankingEconomics:
     val govJst               = computeGovAndJst(in)
     val housing              = computeHousingFlows(in)
     val bfgLevy              =
-      if p.flags.bankFailure then Banking.computeBfgLevy(in.w.bankingSector.banks).total
+      if p.flags.bankFailure then Banking.computeBfgLevy(in.banks).total
       else PLN.Zero
     val investNetDepositFlow = computeInvestNetDepositFlow(in)
     val finalHhAgg           = computeHhAgg(in)
@@ -213,6 +216,7 @@ object BankingEconomics:
 
     StepOutput(
       resolvedBank = multi.resolvedBank,
+      finalBanks = multi.finalBankingSector.banks,
       finalBankingSector = multi.finalBankingSector,
       reassignedFirms = multi.reassignedFirms,
       reassignedHouseholds = multi.reassignedHouseholds,
@@ -249,7 +253,7 @@ object BankingEconomics:
       htmRealizedLoss = multi.htmRealizedLoss,
       eclProvisionChange = PLN.fromRaw:
         multi.finalBankingSector.banks
-          .zip(in.w.bankingSector.banks)
+          .zip(in.banks)
           .map: (curr, prev) =>
             val currProv =
               curr.eclStaging.stage1 * p.banking.eclRate1 + curr.eclStaging.stage2 * p.banking.eclRate2 + curr.eclStaging.stage3 * p.banking.eclRate3
@@ -285,6 +289,7 @@ object BankingEconomics:
         in.hhFinancialOutput,
         in.priceEquityOutput,
         in.openEconOutput,
+        in.banks,
         in.depositRng,
       ),
     )
@@ -592,7 +597,7 @@ object BankingEconomics:
       mortgageFlows: HousingMarket.MortgageFlows,
       wf: BondWaterfallInputs,
   )(using p: SimParams): MultiBankResult =
-    val bs                  = in.w.bankingSector
+    val bs                  = in.w.bankingSector.withBanks(in.banks)
     val perBankReserveInt   = Banking.computeReserveInterest(bs.banks, in.w.nbp.referenceRate)
     val perBankStandingFac  = Banking.computeStandingFacilities(bs.banks, in.w.nbp.referenceRate)
     val perBankInterbankInt = Banking.interbankInterestFlows(bs.banks, bs.interbankRate)

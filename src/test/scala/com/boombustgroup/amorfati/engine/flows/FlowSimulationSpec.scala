@@ -20,7 +20,7 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
   "FlowSimulation.emitAllFlows" should "preserve SFC at 0L" in {
     val init   = WorldInit.initialize(42L)
     val rng    = new scala.util.Random(42)
-    val result = FlowSimulation.step(init.world, init.firms, init.households, rng)
+    val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
     val flows  = FlowSimulation.emitAllFlows(result.calculus)
 
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)) shouldBe 0L
@@ -31,10 +31,11 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
     var w     = init.world
     var firms = init.firms
     var hh    = init.households
+    var banks = init.banks
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(w, firms, hh, rng)
+      val result = FlowSimulation.step(w, firms, hh, banks, rng)
       val flows  = FlowSimulation.emitAllFlows(result.calculus)
 
       withClue(s"Month $month: ") {
@@ -44,13 +45,14 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
       w = result.newWorld
       firms = result.newFirms
       hh = result.newHouseholds
+      banks = result.newBanks
     }
   }
 
   it should "emit 30+ mechanism IDs" in {
     val init   = WorldInit.initialize(42L)
     val rng    = new scala.util.Random(42)
-    val result = FlowSimulation.step(init.world, init.firms, init.households, rng)
+    val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
     val flows  = FlowSimulation.emitAllFlows(result.calculus)
 
     flows.map(_.mechanism).toSet.size should be > 30

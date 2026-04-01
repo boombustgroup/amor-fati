@@ -141,6 +141,7 @@ object FirmEconomics:
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
       // From FiscalConstraint
       month: Int,
       lendingBaseRate: Rate,
@@ -282,13 +283,14 @@ object FirmEconomics:
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
       s1: FiscalConstraintEconomics.Output,
       s2: LaborEconomics.Output,
       s3: HouseholdIncomeEconomics.Output,
       s4: DemandEconomics.Output,
       rng: Random,
   )(using p: SimParams): StepOutput =
-    val stepIn = StepInput(w, firms, households, s1, s2, s3, s4)
+    val stepIn = StepInput(w, firms, households, banks, s1, s2, s3, s4)
     runInternal(stepIn, rng)
 
   // ---- Entry point (from raw values, used by MonthlyCalculus) ----
@@ -325,7 +327,7 @@ object FirmEconomics:
       in.fiscalRuleStatus,
     )
 
-    val stepIn = StepInput(in.w, in.firms, in.households, s1, s2, in.hhOutput, s4)
+    val stepIn = StepInput(in.w, in.firms, in.households, in.banks, s1, s2, in.hhOutput, s4)
     runInternal(stepIn, in.rng)
 
   // ---- Core pipeline (shared by compute + runStep) ----
@@ -353,6 +355,7 @@ object FirmEconomics:
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
       s1: FiscalConstraintEconomics.Output,
       s2: LaborEconomics.Output,
       s3: HouseholdIncomeEconomics.Output,
@@ -368,10 +371,10 @@ object FirmEconomics:
   private def prepareLending(in: StepInput, rng: Random)(using p: SimParams): LendingConditions =
     import ComputationBoundary.toDouble
     val bsec    = in.w.bankingSector
-    val nBanks  = bsec.banks.length
+    val nBanks  = in.banks.length
     val ccyb    = in.w.mechanisms.macropru.ccyb
-    val rates   = bsec.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield))
-    val canLend = (bankId: Int, amt: PLN) => Banking.canLend(bsec.banks(bankId), amt, rng, ccyb)
+    val rates   = in.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield))
+    val canLend = (bankId: Int, amt: PLN) => Banking.canLend(in.banks(bankId), amt, rng, ccyb)
     val world   = in.w.copy(
       month = in.s1.m,
       flows = in.w.flows.copy(

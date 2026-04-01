@@ -37,11 +37,11 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     labor.living,
     labor.regionalWages,
   )
-  private val s3     = HouseholdIncomeEconomics.compute(w, init.firms, init.households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+  private val s3     = HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
   private val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
 
   private val rng2  = new scala.util.Random(42)
-  private val oldS5 = FirmEconomics.runStep(w, init.firms, init.households, s1, s2, s3, s4, rng2)
+  private val oldS5 = FirmEconomics.runStep(w, init.firms, init.households, init.banks, s1, s2, s3, s4, rng2)
 
   private val rng3   = new scala.util.Random(42)
   private val result = FirmEconomics.compute(
@@ -49,6 +49,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
       w = w,
       firms = init.firms,
       households = init.households,
+      banks = init.banks,
       month = s1.m,
       lendingBaseRate = s1.lendingBaseRate,
       resWage = s1.resWage,

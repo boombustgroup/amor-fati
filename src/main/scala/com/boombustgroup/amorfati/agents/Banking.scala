@@ -272,6 +272,29 @@ object Banking:
         corpBondHoldings = PLN.fromRaw(banks.map(_.corpBondHoldings.toLong).sum),
       )
 
+    def marketState: MarketState =
+      MarketState(
+        interbankRate = interbankRate,
+        configs = configs,
+        interbankCurve = interbankCurve,
+      )
+
+  /** Banking-sector state that belongs to macro/market runtime state, without
+    * the explicit bank population.
+    */
+  case class MarketState(
+      interbankRate: Rate,
+      configs: Vector[Config],
+      interbankCurve: Option[YieldCurve.State],
+  ):
+    def withBanks(banks: Vector[BankState]): State =
+      State(
+        banks = banks,
+        interbankRate = interbankRate,
+        configs = configs,
+        interbankCurve = interbankCurve,
+      )
+
   // ---------------------------------------------------------------------------
   // Default configs (7 Polish banks, KNF 2024)
   // ---------------------------------------------------------------------------

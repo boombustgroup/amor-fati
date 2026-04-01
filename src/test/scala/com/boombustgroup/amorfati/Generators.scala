@@ -323,7 +323,7 @@ object Generators:
     gov = gov,
     nbp = Nbp.State(Rate(rate), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
     bank = bank,
-    bankingSector = testBankingSector(),
+    bankingSector = testBankingSector().marketState,
     forex = forex,
     hhAgg = Household.Aggregates(
       employed = employed,

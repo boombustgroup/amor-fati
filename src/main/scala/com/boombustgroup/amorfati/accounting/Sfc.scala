@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.accounting
 
-import com.boombustgroup.amorfati.agents.{Firm, Household}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
@@ -187,10 +187,15 @@ object Sfc:
   /** Build a Snapshot from the current simulation state by aggregating all
     * agent-level stocks.
     */
-  def snapshot(w: World, firms: Vector[Firm.State], households: Vector[Household.State]): Snapshot =
+  def snapshot(
+      w: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  ): Snapshot =
     val hhS   = PLN.fromRaw(households.map(_.savings.toLong).sum)
     val hhD   = PLN.fromRaw(households.map(_.debt.toLong).sum)
-    val ibNet = PLN.fromRaw(w.bankingSector.banks.map(_.interbankNet.toLong).sum)
+    val ibNet = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
     Snapshot(
       hhSavings = hhS,
       hhDebt = hhD,

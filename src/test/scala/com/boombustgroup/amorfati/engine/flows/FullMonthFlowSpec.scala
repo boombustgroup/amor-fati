@@ -43,9 +43,9 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
       labor.living,
       labor.regionalWages,
     )
-    val s3                 = HouseholdIncomeEconomics.compute(w, initResult.firms, initResult.households, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+    val s3                 = HouseholdIncomeEconomics.compute(w, initResult.firms, initResult.households, initResult.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
     val s4                 = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
-    val s5                 = FirmEconomics.runStep(w, initResult.firms, initResult.households, s1, s2, s3, s4, rng)
+    val s5                 = FirmEconomics.runStep(w, initResult.firms, initResult.households, initResult.banks, s1, s2, s3, s4, rng)
     val postLivingFirms    = s5.ioFirms.filter(Firm.isAlive)
     val postLaborDemand    = postLivingFirms.map(Firm.workerCount).sum
     val postAvailableLabor = LaborMarket.laborSupplyAtWage(s2.newWage, s1.resWage, w.totalPopulation)

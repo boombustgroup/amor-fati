@@ -67,6 +67,7 @@ object InflationProbe:
     var world = init.world
     var firms = init.firms
     var hhs   = init.households
+    var banks = init.banks
 
     println(s"seed=$seed months=$months")
 
@@ -119,9 +120,9 @@ object InflationProbe:
         labor.living,
         labor.regionalWages,
       )
-      val s3                = HouseholdIncomeEconomics.compute(world, firms, hhs, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
+      val s3                = HouseholdIncomeEconomics.compute(world, firms, hhs, banks, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
       val s4                = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
-      val s5                = FirmEconomics.runStep(world, firms, hhs, s1, s2Pre, s3, s4, rng)
+      val s5                = FirmEconomics.runStep(world, firms, hhs, banks, s1, s2Pre, s3, s4, rng)
       val living            = s5.ioFirms.filter(Firm.isAlive)
       val s2                = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, living, s5.households)
       val s6                = HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, rng)
@@ -136,12 +137,13 @@ object InflationProbe:
           s4.govPurchases,
           s4.avgDemandMult,
           s4.sectorMults,
+          banks,
           s5,
         ),
         rng,
       )
-      val s8                = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, rng))
-      val s9                = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, rng))
+      val s8                = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, banks, rng))
+      val s9                = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
 
       val exDev         = (world.forex.exchangeRate / summon[SimParams].forex.baseExRate) - 1.0
       val demandPullM   = (s4.avgDemandMult - 1.0) * DemandPullWeight
@@ -204,6 +206,7 @@ object InflationProbe:
           w = world,
           firms = firms,
           households = hhs,
+          banks = banks,
           month = fiscal.month,
           lendingBaseRate = fiscal.lendingBaseRate,
           resWage = fiscal.resWage,
@@ -230,3 +233,4 @@ object InflationProbe:
       world = assembled.world
       firms = assembled.firms
       hhs = assembled.households
+      banks = assembled.banks
