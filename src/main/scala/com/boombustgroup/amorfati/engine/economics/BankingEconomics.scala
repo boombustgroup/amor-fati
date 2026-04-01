@@ -687,8 +687,12 @@ object BankingEconomics:
       ),
     )
     val finalPpk                 = in.s2.newPpk.copy(bondHoldings = in.w.social.ppk.bondHoldings + ppkSale.actualSold)
-    val finalInsurance           = in.s8.nonBank.newInsurance.copy(govBondHoldings = in.w.financial.insurance.govBondHoldings + insSale.actualSold)
-    val finalNbfi                = in.s8.nonBank.newNbfi.copy(tfiGovBondHoldings = in.w.financial.nbfi.tfiGovBondHoldings + tfiSale.actualSold)
+    val finalInsurance           = in.s8.nonBank.newInsurance.copy(
+      portfolio = in.s8.nonBank.newInsurance.portfolio.copy(govBondHoldings = in.w.financial.insurance.govBondHoldings + insSale.actualSold),
+    )
+    val finalNbfi                = in.s8.nonBank.newNbfi.copy(
+      tfi = in.s8.nonBank.newNbfi.tfi.copy(tfiGovBondHoldings = in.w.financial.nbfi.tfiGovBondHoldings + tfiSale.actualSold),
+    )
     val finalForeignBondHoldings = in.w.gov.foreignBondHoldings + foreignSale.actualSold
 
     val failResult =

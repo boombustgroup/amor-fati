@@ -28,19 +28,47 @@ import com.boombustgroup.amorfati.types.*
 object EarmarkedFunds:
 
   /** State of all three earmarked funds. */
-  case class State(
-      fpBalance: PLN,          // Fundusz Pracy cumulative balance
-      fpContributions: PLN,    // FP contributions this month
-      fpSpending: PLN,         // FP spending this month (unemp benefits + ALMP)
-      pfronBalance: PLN,       // PFRON cumulative balance
-      pfronContributions: PLN, // PFRON levy this month
-      pfronSpending: PLN,      // PFRON disability spending this month
-      fgspBalance: PLN,        // FGŚP cumulative balance
-      fgspContributions: PLN,  // FGŚP contributions this month
-      fgspSpending: PLN,       // FGŚP bankruptcy payouts this month
-      totalGovSubvention: PLN, // government covers combined deficit
+  case class FundState(
+      balance: PLN,
+      contributions: PLN,
+      spending: PLN,
   )
+
+  case class State(
+      fp: FundState,
+      pfron: FundState,
+      fgsp: FundState,
+      totalGovSubvention: PLN, // government covers combined deficit
+  ):
+    def fpBalance: PLN          = fp.balance
+    def fpContributions: PLN    = fp.contributions
+    def fpSpending: PLN         = fp.spending
+    def pfronBalance: PLN       = pfron.balance
+    def pfronContributions: PLN = pfron.contributions
+    def pfronSpending: PLN      = pfron.spending
+    def fgspBalance: PLN        = fgsp.balance
+    def fgspContributions: PLN  = fgsp.contributions
+    def fgspSpending: PLN       = fgsp.spending
   object State:
+    def apply(
+        fpBalance: PLN,
+        fpContributions: PLN,
+        fpSpending: PLN,
+        pfronBalance: PLN,
+        pfronContributions: PLN,
+        pfronSpending: PLN,
+        fgspBalance: PLN,
+        fgspContributions: PLN,
+        fgspSpending: PLN,
+        totalGovSubvention: PLN,
+    ): State =
+      State(
+        fp = FundState(fpBalance, fpContributions, fpSpending),
+        pfron = FundState(pfronBalance, pfronContributions, pfronSpending),
+        fgsp = FundState(fgspBalance, fgspContributions, fgspSpending),
+        totalGovSubvention = totalGovSubvention,
+      )
+
     val zero: State = State(
       PLN.Zero,
       PLN.Zero,

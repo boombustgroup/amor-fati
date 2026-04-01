@@ -129,13 +129,13 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "move govBondHoldings towards target allocation" in {
-    val prev = Insurance.initial.copy(govBondHoldings = PLN.Zero)
+    val prev = Insurance.initial.copy(portfolio = Insurance.initial.portfolio.copy(govBondHoldings = PLN.Zero))
     val r    = mkStep(prev = prev)
     r.govBondHoldings should be > PLN.Zero
   }
 
   it should "move equityHoldings towards target allocation" in {
-    val prev = Insurance.initial.copy(equityHoldings = PLN.Zero)
+    val prev = Insurance.initial.copy(portfolio = Insurance.initial.portfolio.copy(equityHoldings = PLN.Zero))
     val r    = mkStep(prev = prev)
     r.equityHoldings should be > PLN.Zero
   }
