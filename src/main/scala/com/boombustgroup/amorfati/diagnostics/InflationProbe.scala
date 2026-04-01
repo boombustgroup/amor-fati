@@ -123,15 +123,7 @@ object InflationProbe:
       val s4                = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
       val s5                = FirmEconomics.runStep(world, firms, hhs, s1, s2Pre, s3, s4, rng)
       val living            = s5.ioFirms.filter(Firm.isAlive)
-      val s2                = s2Pre.copy(
-        employed = s5.households.count(hh =>
-          hh.status match
-            case HhStatus.Employed(_, _, _) => true
-            case _                          => false,
-        ),
-        laborDemand = living.map(Firm.workerCount).sum,
-        living = living,
-      )
+      val s2                = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, living, s5.households)
       val s6                = HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, rng)
       val s7                = PriceEquityEconomics.compute(
         PriceEquityEconomics.Input(

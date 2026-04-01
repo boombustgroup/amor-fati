@@ -185,14 +185,15 @@ object LaborDemandProbe:
       val s3     = HouseholdIncomeEconomics.compute(world, firms, hhs, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
       val s4     = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
       val s5     = FirmEconomics.runStep(world, firms, hhs, s1, s2Pre, s3, s4, rng)
-      val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2Pre.employed, s3.hhAgg, rng)
+      val s2Post = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, s5.ioFirms.filter(Firm.isAlive), s5.households)
+      val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2Post.employed, s3.hhAgg, rng)
       val s7     = PriceEquityEconomics.compute(
         PriceEquityEconomics.Input(
           world,
           s1.m,
-          s2Pre.newWage,
-          s2Pre.employed,
-          s2Pre.wageGrowth,
+          s2Post.newWage,
+          s2Post.employed,
+          s2Post.wageGrowth,
           s3.domesticCons,
           s4.govPurchases,
           s4.avgDemandMult,
@@ -201,8 +202,8 @@ object LaborDemandProbe:
         ),
         rng,
       )
-      val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2Pre, s3, s4, s5, s6, s7, rng))
-      val s9     = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2Pre, s3, s4, s5, s6, s7, s8, rng))
+      val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2Post, s3, s4, s5, s6, s7, rng))
+      val s9     = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2Post, s3, s4, s5, s6, s7, s8, rng))
 
       val afterFirm = sectorSnapshots(s5.ioFirms)
       val changes   = sectorChangeSummaries(firms, s5.ioFirms)
@@ -229,7 +230,7 @@ object LaborDemandProbe:
           sectorCap = s4.sectorCap,
           laggedInvestDemand = s4.laggedInvestDemand,
           fiscalRuleStatus = s4.fiscalRuleStatus,
-          laborOutput = s2Pre,
+          laborOutput = s2Post,
           hhOutput = s3,
           firmOutput = s5,
           hhFinancialOutput = s6,

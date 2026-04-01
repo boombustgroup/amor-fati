@@ -37,6 +37,12 @@ object LaborEconomics:
       avgFirmWorkers: Int,
   )
 
+  private case class ClearedLaborMarket(
+      wage: PLN,
+      employed: Int,
+      regionalWages: Map[Region, PLN],
+  )
+
   /** Bridge type — same fields as the deleted LaborDemographicsStep.Output. */
   case class Output(
       newWage: PLN,
@@ -63,61 +69,29 @@ object LaborEconomics:
       households: Vector[Household.State],
       s1: FiscalConstraintEconomics.Output,
   )(using p: SimParams): Result =
-    import ComputationBoundary.toDouble
-    val living      = firms.filter(Firm.isAlive)
-    val laborDemand = living.map(f => Firm.workerCount(f)).sum
-
-    // Regional clearing: 6 independent Phillips curves → national aggregate
-    val (rawWage, rawEmployed, regWages) =
-      if p.flags.regionalLabor then
-        val rc          = RegionalClearing.clear(w.regionalWages, s1.resWage, laborDemand, w.totalPopulation)
-        val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, s1.resWage, laborDemand, w.totalPopulation)
-        (toDouble(rc.nationalWage), natEmployed, rc.regionalWages)
-      else
-        val wageResult = LaborMarket.updateLaborMarket(w.hhAgg.marketWage, s1.resWage, laborDemand, w.totalPopulation)
-        (toDouble(wageResult.wage), wageResult.employed, w.regionalWages)
-
-    // Channel 1: Expectations-augmented wage Phillips curve
-    val wageAfterExp = if p.flags.expectations then
-      val target          = toDouble(p.monetary.targetInfl)
-      val expWagePressure = toDouble(p.labor.expWagePassthrough) *
-        Math.max(0.0, toDouble(w.mechanisms.expectations.expectedInflation) - target) / 12.0
-      Math.max(toDouble(s1.resWage), rawWage * (1.0 + expWagePressure))
-    else rawWage
-
-    // Union downward wage rigidity
-    val newWage = if p.flags.unions && wageAfterExp < toDouble(w.hhAgg.marketWage) then
-      val aggDensity =
-        p.sectorDefs.zipWithIndex.map((s, i) => toDouble(s.share) * toDouble(p.labor.unionDensity(i))).sum
-      val decline    = toDouble(w.hhAgg.marketWage) - wageAfterExp
-      Math.max(toDouble(s1.resWage), wageAfterExp + decline * toDouble(p.labor.unionRigidity) * aggDensity)
-    else wageAfterExp
-
-    // Demographics caps employment
-    val employed =
-      if p.flags.demographics then Math.min(rawEmployed, w.social.demographics.workingAgePop)
-      else rawEmployed
-
-    val availableLabor       = LaborMarket.laborSupplyAtWage(PLN(newWage), s1.resWage, w.totalPopulation)
+    val living               = firms.filter(Firm.isAlive)
+    val laborDemand          = living.map(f => Firm.workerCount(f)).sum
+    val cleared              = clearLaborMarket(w, s1.resWage, laborDemand)
+    val availableLabor       = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.totalPopulation)
     val aggregateHiringSlack = aggregateHiringSlackFactor(laborDemand, availableLabor)
 
     // Immigration
-    val unempRateForImmig = 1.0 - employed.toDouble / w.totalPopulation
-    val newImmig          = Immigration.step(w.external.immigration, households, PLN(newWage), unempRateForImmig)
+    val unempRateForImmig = 1.0 - cleared.employed.toDouble / w.totalPopulation
+    val newImmig          = Immigration.step(w.external.immigration, households, cleared.wage, unempRateForImmig)
     val netMigration      = newImmig.monthlyInflow - newImmig.monthlyOutflow
 
     // Demographics
-    val newDemographics = SocialSecurity.demographicsStep(w.social.demographics, employed, netMigration)
+    val newDemographics = SocialSecurity.demographicsStep(w.social.demographics, cleared.employed, netMigration)
 
     // Wage growth
-    val wageGrowth = if toDouble(w.hhAgg.marketWage) > 0 then newWage / toDouble(w.hhAgg.marketWage) - 1.0 else 0.0
+    val wageGrowth = wageGrowthFrom(w.hhAgg.marketWage, cleared.wage)
 
     val nBankrupt  = firms.length - living.length
     val avgWorkers = if living.nonEmpty then laborDemand / living.length else 0
 
     Result(
-      wage = PLN(newWage),
-      employed = employed,
+      wage = cleared.wage,
+      employed = cleared.employed,
       laborDemand = laborDemand,
       wageGrowth = Coefficient(wageGrowth),
       aggregateHiringSlack = aggregateHiringSlack,
@@ -125,7 +99,81 @@ object LaborEconomics:
       immigration = newImmig,
       netMigration = netMigration,
       living = living,
-      regionalWages = regWages,
+      regionalWages = cleared.regionalWages,
       nBankruptFirms = nBankrupt,
       avgFirmWorkers = avgWorkers,
     )
+
+  /** Reconcile labor outputs after firm-side separations and matching so
+    * downstream blocks use effective post-firm labor demand rather than stale
+    * inherited headcount.
+    */
+  @boundaryEscape
+  def reconcilePostFirmStep(
+      w: World,
+      s1: FiscalConstraintEconomics.Output,
+      pre: Output,
+      postLiving: Vector[Firm.State],
+      postHouseholds: Vector[Household.State],
+  )(using p: SimParams): Output =
+    val postLaborDemand    = postLiving.map(Firm.workerCount).sum
+    val cleared            = clearLaborMarket(w, s1.resWage, postLaborDemand)
+    val realizedEmployment = postHouseholds.count:
+      _.status match
+        case HhStatus.Employed(_, _, _) => true
+        case _                          => false
+    val employedCap        =
+      if p.flags.demographics then Math.min(realizedEmployment, pre.newDemographics.workingAgePop)
+      else realizedEmployment
+    val postAvailableLabor = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.totalPopulation)
+    pre.copy(
+      newWage = cleared.wage,
+      employed = employedCap,
+      laborDemand = postLaborDemand,
+      wageGrowth = Coefficient(wageGrowthFrom(w.hhAgg.marketWage, cleared.wage)),
+      aggregateHiringSlack = aggregateHiringSlackFactor(postLaborDemand, postAvailableLabor),
+      living = postLiving,
+      regionalWages = cleared.regionalWages,
+    )
+
+  @boundaryEscape
+  private def clearLaborMarket(
+      w: World,
+      resWage: PLN,
+      laborDemand: Int,
+  )(using p: SimParams): ClearedLaborMarket =
+    import ComputationBoundary.toDouble
+    val (rawWage, rawEmployed, regWages) =
+      if p.flags.regionalLabor then
+        val rc          = RegionalClearing.clear(w.regionalWages, resWage, laborDemand, w.totalPopulation)
+        val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, resWage, laborDemand, w.totalPopulation)
+        (toDouble(rc.nationalWage), natEmployed, rc.regionalWages)
+      else
+        val wageResult = LaborMarket.updateLaborMarket(w.hhAgg.marketWage, resWage, laborDemand, w.totalPopulation)
+        (toDouble(wageResult.wage), wageResult.employed, w.regionalWages)
+
+    val wageAfterExp =
+      if p.flags.expectations then
+        val target          = toDouble(p.monetary.targetInfl)
+        val expWagePressure = toDouble(p.labor.expWagePassthrough) *
+          Math.max(0.0, toDouble(w.mechanisms.expectations.expectedInflation) - target) / 12.0
+        Math.max(toDouble(resWage), rawWage * (1.0 + expWagePressure))
+      else rawWage
+
+    val newWage =
+      if p.flags.unions && wageAfterExp < toDouble(w.hhAgg.marketWage) then
+        val aggDensity =
+          p.sectorDefs.zipWithIndex.map((s, i) => toDouble(s.share) * toDouble(p.labor.unionDensity(i))).sum
+        val decline    = toDouble(w.hhAgg.marketWage) - wageAfterExp
+        Math.max(toDouble(resWage), wageAfterExp + decline * toDouble(p.labor.unionRigidity) * aggDensity)
+      else wageAfterExp
+
+    val employed =
+      if p.flags.demographics then Math.min(rawEmployed, w.social.demographics.workingAgePop)
+      else rawEmployed
+
+    ClearedLaborMarket(PLN(newWage), employed, regWages)
+
+  private def wageGrowthFrom(prevWage: PLN, newWage: PLN): Double =
+    import ComputationBoundary.toDouble
+    if toDouble(prevWage) > 0 then toDouble(newWage) / toDouble(prevWage) - 1.0 else 0.0
