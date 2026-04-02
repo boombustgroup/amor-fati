@@ -21,7 +21,7 @@
 
 A closed-economy simulation where **every monetary flow is accounted for**. Firms produce, households consume, banks lend, the central bank sets policy, the government taxes and spends — and the books must balance. Always.
 
-Amor Fati is a **stock-flow consistent** (SFC) **agent-based model** (ABM) that simulates the Polish economy at the level of individual households, heterogeneous firms, and a realistic multi-bank financial system. The engine enforces 14 accounting identities each month — if a single zloty goes missing, the simulation fails.
+Amor Fati is a **stock-flow consistent** (SFC) **agent-based model** (ABM) that simulates the Polish economy at the level of individual households, heterogeneous firms, and a realistic multi-bank financial system. The engine enforces 13 accounting identities each month — if a single zloty goes missing, the simulation fails.
 
 The key design principle is simple:
 
@@ -33,17 +33,63 @@ This engine is built on top of the separately verified [amor-fati-ledger](https:
 
 That is the hard floor under every experiment in the model. Behavioral rules, policy heuristics, and long-horizon dynamics can be revised, recalibrated, or replaced. The accounting layer cannot silently drift.
 
+## Table of Contents
+
+- [Why](#why)
+- [What Is Technically Distinctive](#what-is-technically-distinctive)
+- [Core Invariants](#core-invariants)
+- [State Ontology](#state-ontology)
+- [Verified Ledger](#verified-ledger)
+- [Tech Stack](#tech-stack)
+- [License](#license)
+
 ## Why
 
 Standard macro models (DSGE) assume representative agents and rational expectations. Reality has neither. Amor Fati models the economy from the bottom up: thousands of heterogeneous agents making bounded decisions, interacting through markets, generating emergent macro dynamics.
 
 **Counterfactual analysis through code.** Want to test a policy hypothesis? Fork the repo, modify the mechanism, run the simulation, compare. The model is the experiment.
 
+## What Is Technically Distinctive
+
+Amor Fati is not just an ABM with accounting checks bolted on afterwards. The project combines several layers that are rarely pushed into one executable research engine:
+
+- heterodox macroeconomics and SFC discipline
+- heterogeneous-agent ABM microstructure
+- a runtime ledger execution layer backed by formal verification work
+- a data-oriented mutable execution substrate for performance
+- explicit state ontology separating behavioral state, macro state, and financial state
+
+The result is a model where macro dynamics, institutional behavior, and monetary plumbing are all first-class parts of the implementation rather than separate narratives.
+
+## Core Invariants
+
+The project is built around a few non-negotiable invariants:
+
+- executed financial flows must conserve value exactly at runtime
+- SFC validation must preserve 13 semantic accounting identities
+- financial execution must not depend on ad hoc mutable bookkeeping outside the ledger path
+- behavioral rules may change, but accounting consistency must remain hard-constrained
+
+This is the core philosophy of the engine: theories may evolve, but broken plumbing is not an acceptable macro result.
+
+## State Ontology
+
+Amor Fati uses a hybrid runtime ontology rather than a single undifferentiated world object:
+
+- behavioral populations
+  - households, firms, and banks carry heterogeneous agent state and decision logic
+- macro and market state
+  - prices, policy, external conditions, and inter-step signals live in the macro runtime layer
+- ledger-owned financial state
+  - balances and executed financial transfers are projected onto the ledger runtime
+
+This split is intentional. It keeps rich agent behavior where object-level modeling is useful, while moving accounting-critical execution into a stricter ledger substrate.
+
 ## Verified Ledger
 
 Most macro models treat accounting consistency as a secondary validation step. Amor Fati does not.
 
-The simulation pipeline is anchored to a verified ledger layer that enforces the project’s stock-flow constraints at runtime. In other words:
+The simulation pipeline is anchored to the verified [amor-fati-ledger](https://github.com/boombustgroup/amor-fati-ledger-poc) layer that enforces the project’s stock-flow constraints at runtime. In other words:
 
 - macro behavior is experimental
 - agent rules are revisable
