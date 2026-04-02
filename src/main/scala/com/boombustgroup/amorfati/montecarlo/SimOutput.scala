@@ -31,6 +31,7 @@ object SimOutput:
       val firms: Vector[Firm.State],
       val households: Vector[Household.State],
       val banks: Vector[Banking.BankState],
+      val householdAggregates: Household.Aggregates,
       val living: Vector[Firm.State],
       val nLiving: Double,
       val aliveBanks: Vector[Banking.BankState],
@@ -38,7 +39,7 @@ object SimOutput:
   ):
     given SimParams                                          = p
     lazy val bankAgg: Banking.Aggregate                      = Banking.aggregateFromBanks(banks)
-    lazy val hhAgg: Household.Aggregates                     = world.cachedHouseholdAggregates
+    lazy val hhAgg: Household.Aggregates                     = householdAggregates
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates] =
       if p.flags.creditDiagnostics then Some(Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding))
       else None
@@ -605,10 +606,11 @@ object SimOutput:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      householdAggregates: Household.Aggregates,
   )(using p: SimParams): Array[Double] =
     val living     = firms.filter(Firm.isAlive)
     val aliveBanks = banks.filterNot(_.failed).toVector
-    val ctx        = Ctx(t, world, firms, households, banks, living, living.length.toDouble, aliveBanks, p)
+    val ctx        = Ctx(t, world, firms, households, banks, householdAggregates, living, living.length.toDouble, aliveBanks, p)
     val result     = new Array[Double](schema.length)
     var i          = 0
     while i < schema.length do

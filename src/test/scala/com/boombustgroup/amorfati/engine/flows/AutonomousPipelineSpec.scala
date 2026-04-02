@@ -76,7 +76,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
       banks = result.newBanks
 
       withClue(s"Month $month: ") {
-        w.cachedHouseholdAggregates.employed should be > 0
+        result.householdAggregates.employed should be > 0
       }
     }
   }

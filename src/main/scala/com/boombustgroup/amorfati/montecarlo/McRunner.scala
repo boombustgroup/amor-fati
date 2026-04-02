@@ -73,7 +73,7 @@ object McRunner:
     val snapshot = Sfc.snapshot(init.world, init.firms, init.households, init.banks)
     val errors   = InitCheck.validate(snapshot, init.banks, init.firms, init.households)
     if errors.nonEmpty then Left(SimError.Init(errors))
-    else Right(FlowSimulation.SimState(init.world, init.firms, init.households, init.banks))
+    else Right(FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates))
 
   private def stepMonth(state: FlowSimulation.SimState, seed: Long, month: Int)(using p: SimParams) =
     val rng    = new scala.util.Random(seed * 10000 + month)
@@ -86,8 +86,8 @@ object McRunner:
       val err = Sfc.SfcIdentityError(Sfc.SfcIdentity.FlowOfFunds, s"Flow SFC: totalWealth=$wealth", PLN.fromRaw(wealth), PLN.Zero)
       Left(SimError.SfcViolation(month + 1, Vector(err)))
     else
-      val newState  = FlowSimulation.SimState(result.newWorld, result.newFirms, result.newHouseholds, result.newBanks)
-      val monthData = SimOutput.compute(month, result.newWorld, result.newFirms, result.newHouseholds, result.newBanks)
+      val newState  = FlowSimulation.SimState(result.newWorld, result.newFirms, result.newHouseholds, result.newBanks, result.householdAggregates)
+      val monthData = SimOutput.compute(month, result.newWorld, result.newFirms, result.newHouseholds, result.newBanks, result.householdAggregates)
       Right((newState, monthData))
 
   @scala.annotation.tailrec
@@ -174,7 +174,7 @@ object McRunner:
   private def writeHhCsv(rc: McRunConfig, results: zio.Chunk[(Long, RunResult)]) =
     ZIO.attemptBlocking:
       val rows = results.map: (seed, r) =>
-        val agg = r.terminalState.world.cachedHouseholdAggregates
+        val agg = r.terminalState.householdAggregates
         s"$seed;" + hhSchema.map(_._2(agg)).mkString(";")
       CsvWriter.write(new File("mc", s"${filePrefix(rc)}_hh.csv"), hhHeader, rows)(identity)
 

@@ -45,6 +45,7 @@ object WorldAssemblyEconomics:
       finalFirms: Vector[Firm.State],
       reassignedHouseholds: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      householdAggregates: Household.Aggregates,
       sfcResult: Sfc.SfcResult,
   )
 
@@ -120,6 +121,7 @@ object WorldAssemblyEconomics:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      householdAggregates: Household.Aggregates,
   )
 
   def compute(in: Input)(using SimParams): Result =
@@ -155,7 +157,7 @@ object WorldAssemblyEconomics:
       in.migRng,
     )
 
-    Result(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds, s10.banks)
+    Result(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds, s10.banks, s10.householdAggregates)
 
   // ---------------------------------------------------------------------------
   // runStep — migrated from WorldAssemblyStep.run
@@ -210,9 +212,8 @@ object WorldAssemblyEconomics:
             crossSectorHires = r.sectoralMobility.crossSectorHires + startupStaffing.crossSectorHires,
           ),
         )
-      .copy(hhAgg = startupStaffing.hhAgg)
       .copy(regionalWages = in.s2.regionalWages)
-    StepOutput(finalW, finalFirms, postMigHh, in.s9.banks, sfcResult)
+    StepOutput(finalW, finalFirms, postMigHh, in.s9.banks, startupStaffing.hhAgg, sfcResult)
 
   // ---------------------------------------------------------------------------
   // Private helpers — migrated from WorldAssemblyStep
@@ -387,7 +388,6 @@ object WorldAssemblyEconomics:
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
       householdMarket = HouseholdMarketState.fromAggregates(in.s9.finalHhAgg),
-      hhAgg = in.s9.finalHhAgg,
       social = SocialState(
         jst = in.s9.newJst,
         zus = in.s2.newZus,

@@ -24,7 +24,6 @@ case class World(
     forex: OpenEconomy.ForexState,                                     // EUR/PLN, exports, imports, trade balance
     bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,             // balance of payments: NFA, CA, KA, FDI
     householdMarket: HouseholdMarketState = HouseholdMarketState.zero, // explicit household wage-market state used in hot paths
-    hhAgg: Household.Aggregates,                                       // cached household aggregates; not the primary source of household-market truth
     social: SocialState,                                               // JST, ZUS, PPK, demographics
     financial: FinancialMarketsState,                                  // equity, corporate bonds, insurance, TFI
     external: ExternalState,                                           // GVC, immigration, tourism
@@ -39,8 +38,7 @@ case class World(
     if p.flags.demographics then social.demographics.workingAgePop + social.demographics.retirees
     else totalPopulation
 
-  def cachedMonthlyGdpProxy: Double                   = gdpProxy
-  def cachedHouseholdAggregates: Household.Aggregates = hhAgg
+  def cachedMonthlyGdpProxy: Double = gdpProxy
 
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
   def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))
@@ -73,6 +71,51 @@ object SocialState:
     demographics = SocialSecurity.DemographicsState.zero,
     earmarked = EarmarkedFunds.State.zero,
   )
+
+object World:
+  def apply(
+      month: Int,
+      inflation: Rate,
+      priceLevel: Double,
+      gdpProxy: Double,
+      currentSigmas: Vector[Sigma],
+      totalPopulation: Int,
+      gov: FiscalBudget.GovState,
+      nbp: Nbp.State,
+      bankingSector: Banking.MarketState,
+      forex: OpenEconomy.ForexState,
+      hhAgg: Household.Aggregates,
+      social: SocialState,
+      financial: FinancialMarketsState,
+      external: ExternalState,
+      real: RealState,
+      mechanisms: MechanismsState,
+      plumbing: MonetaryPlumbingState,
+      flows: FlowState,
+  ): World =
+    new World(
+      month = month,
+      inflation = inflation,
+      priceLevel = priceLevel,
+      gdpProxy = gdpProxy,
+      currentSigmas = currentSigmas,
+      totalPopulation = totalPopulation,
+      gov = gov,
+      nbp = nbp,
+      bankingSector = bankingSector,
+      forex = forex,
+      bop = OpenEconomy.BopState.zero,
+      householdMarket = HouseholdMarketState.fromAggregates(hhAgg),
+      social = social,
+      financial = financial,
+      external = external,
+      real = real,
+      mechanisms = mechanisms,
+      plumbing = plumbing,
+      pipeline = PipelineState.zero,
+      flows = flows,
+      regionalWages = Map.empty,
+    )
 
 /** Explicit household labor-market state carried outside aggregate caches. */
 case class HouseholdMarketState(

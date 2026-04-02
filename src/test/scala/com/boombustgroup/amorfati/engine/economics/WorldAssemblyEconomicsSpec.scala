@@ -18,7 +18,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
     w.month.shouldBe(1)
     w.derivedTotalPopulation should be > 0
-    w.cachedHouseholdAggregates.employed should be > 0
+    result.householdAggregates.employed should be > 0
     w.external.tourismSeasonalFactor should not be 0.0
   }
 
