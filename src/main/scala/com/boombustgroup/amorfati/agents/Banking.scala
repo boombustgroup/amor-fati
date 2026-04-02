@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.ledger.Distribute
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.{Macroprudential, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -586,31 +587,52 @@ object Banking:
   // Bond allocation
   // ---------------------------------------------------------------------------
 
-  /** Allocate bond issuance/redemption to banks proportional to deposits. Last
-    * alive bank absorbs the residual for exact SFC closure. New issuance is
-    * split between HTM and AFS per `htmShare`; redemption reduces both
-    * proportionally. HTM book yield is updated as a weighted average on
-    * issuance.
+  /** Allocate new bond issuance to banks proportional to deposits using
+    * `ledger.Distribute` for exact residual closure.
     */
-  def allocateBonds(banks: Vector[BankState], deficit: PLN, currentYield: Rate)(using p: SimParams): Vector[BankState] =
-    if deficit == PLN.Zero then return banks
-    val aliveBanks  = banks.filterNot(_.failed)
-    val nAlive      = aliveBanks.length
-    if nAlive == 0 then return banks
-    val totalDep    = PLN.fromRaw(aliveBanks.map(_.deposits.toLong).sum)
-    val lastAliveId = aliveBanks.last.id
-    val (result, _) = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):
-      case ((acc, allocated), b) =>
-        if b.failed then (acc :+ b, allocated)
-        else
-          val amount  =
-            if b.id == lastAliveId then deficit - allocated
-            else
-              val share = if totalDep > PLN.Zero then Share(b.deposits / totalDep) else Share(1.0 / nAlive)
-              deficit * share
-          val updated = applyBondAllocation(b, amount, currentYield)
-          (acc :+ updated, allocated + amount)
-    result
+  def allocateBondIssuance(banks: Vector[BankState], issuance: PLN, currentYield: Rate)(using p: SimParams): Vector[BankState] =
+    if issuance <= PLN.Zero then return banks
+    allocateBondChange(banks, issuance, currentYield)
+
+  /** Allocate bond redemptions to banks proportional to deposits using
+    * `ledger.Distribute` for exact residual closure.
+    */
+  def allocateBondRedemption(banks: Vector[BankState], redemption: PLN, currentYield: Rate)(using p: SimParams): Vector[BankState] =
+    if redemption <= PLN.Zero then return banks
+    allocateBondChange(banks, PLN.fromRaw(-redemption.toLong), currentYield)
+
+  /** Compat wrapper for signed net issuance.
+    *
+    *   - `netIssuance > 0` means new bond issuance
+    *   - `netIssuance < 0` means bond redemption
+    */
+  def allocateBonds(banks: Vector[BankState], netIssuance: PLN, currentYield: Rate)(using p: SimParams): Vector[BankState] =
+    if netIssuance > PLN.Zero then allocateBondIssuance(banks, netIssuance, currentYield)
+    else if netIssuance < PLN.Zero then allocateBondRedemption(banks, PLN.fromRaw(-netIssuance.toLong), currentYield)
+    else banks
+
+  private def allocateBondChange(banks: Vector[BankState], signedChange: PLN, currentYield: Rate)(using p: SimParams): Vector[BankState] =
+    if signedChange == PLN.Zero then return banks
+    val aliveBanks = banks.filterNot(_.failed)
+    if aliveBanks.isEmpty then return banks
+
+    val weights =
+      val totalDep = aliveBanks.foldLeft(0L)(_ + _.deposits.toLong)
+      if totalDep > 0L then aliveBanks.map(_.deposits.toLong).toArray
+      else Array.fill(aliveBanks.length)(1L)
+
+    val magnitudes = Distribute.distribute(math.abs(signedChange.toLong), weights)
+    val signedById = aliveBanks
+      .zip(magnitudes.iterator)
+      .map { case (b, amount) =>
+        val signedAmount = if signedChange.toLong > 0L then PLN.fromRaw(amount) else PLN.fromRaw(-amount)
+        b.id -> signedAmount
+      }
+      .toMap
+
+    banks.map { b =>
+      signedById.get(b.id).fold(b)(amount => applyBondAllocation(b, amount, currentYield))
+    }
 
   private def applyBondAllocation(b: BankState, amount: PLN, currentYield: Rate)(using p: SimParams): BankState =
     if amount > PLN.Zero then
@@ -648,20 +670,25 @@ object Banking:
       val totalBonds = PLN.fromRaw(eligible.map(_.govBondHoldings.toLong).sum)
       if totalBonds <= PLN.Zero then BondSaleResult(banks, PLN.Zero)
       else
-        val lastEligibleId   = eligible.last.id
-        val (result, actual) = banks.foldLeft((Vector.empty[BankState], PLN.Zero)):
-          case ((acc, allocated), b) =>
-            if b.failed || b.govBondHoldings <= PLN.Zero then (acc :+ b, allocated)
-            else
-              val sold      =
-                if b.id == lastEligibleId then b.govBondHoldings.min(requested - allocated)
-                else
-                  val share = Share(b.govBondHoldings / totalBonds)
-                  b.govBondHoldings.min(requested * share)
-              val afsReduce = sold.min(b.afsBonds)
-              val htmReduce = sold - afsReduce
-              (acc :+ b.copy(afsBonds = (b.afsBonds - afsReduce).max(PLN.Zero), htmBonds = (b.htmBonds - htmReduce).max(PLN.Zero)), allocated + sold)
-        BondSaleResult(result, actual)
+        val requestedSale  = requested.min(totalBonds)
+        val soldMagnitudes = Distribute.distribute(requestedSale.toLong, eligible.map(_.govBondHoldings.toLong).toArray)
+        val soldById       = eligible
+          .zip(soldMagnitudes.iterator)
+          .map { case (b, sold) =>
+            b.id -> PLN.fromRaw(sold)
+          }
+          .toMap
+        val result         = banks.map { b =>
+          soldById.get(b.id).fold(b) { sold =>
+            val afsReduce = sold.min(b.afsBonds)
+            val htmReduce = sold - afsReduce
+            b.copy(
+              afsBonds = (b.afsBonds - afsReduce).max(PLN.Zero),
+              htmBonds = (b.htmBonds - htmReduce).max(PLN.Zero),
+            )
+          }
+        }
+        BondSaleResult(result, requestedSale)
 
   // ---------------------------------------------------------------------------
   // HTM forced reclassification (interest rate risk)

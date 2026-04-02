@@ -225,6 +225,16 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     regDefaultSum shouldBe (5000.0 +- 0.01)
   }
 
+  it should "preserve exact regional repayment and default sums under residual rounding" in {
+    val state         = makeRegionalState(1e9, 4e8)
+    val principal     = PLN(2.0)
+    val defaultAmount = PLN(2.0)
+    val result        = HousingMarket.applyFlows(state, HousingMarket.MortgageFlows(PLN.Zero, principal, defaultAmount, PLN.Zero))
+
+    result.regions.get.map(_.lastRepayment.toLong).sum shouldBe principal.toLong
+    result.regions.get.map(_.lastDefault.toLong).sum shouldBe defaultAmount.toLong
+  }
+
   "Mortgage stock identity with regions" should "hold per-region" in {
     val state          = makeRegionalState(1e9, 4e8)
     val origAmount     = 5000.0
@@ -250,4 +260,21 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     // Regional stocks should sum to aggregate
     val regSum = result.regions.get.map(r => td.toDouble(r.mortgageStock)).sum
     regSum shouldBe (td.toDouble(result.mortgageStock) +- 1.0)
+  }
+
+  "step with regions" should "preserve exact regional origination sum under residual rounding" in {
+    val state  = makeRegionalState(1e9, 4e8)
+    val result = HousingMarket.step(
+      HousingMarket.StepInput(
+        prev = state,
+        mortgageRate = Rate(0.08),
+        inflation = Rate.Zero,
+        incomeGrowth = Rate.Zero,
+        employed = 1,
+        prevMortgageRate = Rate(0.08),
+      ),
+    )
+
+    val regOriginationSum = result.regions.get.map(_.lastOrigination.toLong).sum
+    regOriginationSum shouldBe result.lastOrigination.toLong
   }

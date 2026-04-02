@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.markets
 
+import com.boombustgroup.ledger.Distribute
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
@@ -267,14 +268,17 @@ object HousingMarket:
       regs: Vector[RegionalState],
       origination: PLN,
   )(using p: SimParams): State =
-    val updatedRegions = regs.zipWithIndex.map: (reg, r) =>
-      val regionalRaw      = origination * p.housing.regionalValueShares(r)
-      val regionalHeadroom = (reg.totalValue * p.housing.ltvMax - reg.mortgageStock).max(PLN.Zero)
-      val regionalOrig     = regionalRaw.min(regionalHeadroom)
-      reg.copy(
-        mortgageStock = reg.mortgageStock + regionalOrig,
-        lastOrigination = regionalOrig,
-      )
+    val distributed    = Distribute.distribute(origination.toLong, p.housing.regionalValueShares.map(_.toLong).toArray)
+    val updatedRegions = regs
+      .zip(distributed.iterator)
+      .map: (reg, allocatedRaw) =>
+        val regionalRaw      = PLN.fromRaw(allocatedRaw)
+        val regionalHeadroom = (reg.totalValue * p.housing.ltvMax - reg.mortgageStock).max(PLN.Zero)
+        val regionalOrig     = regionalRaw.min(regionalHeadroom)
+        reg.copy(
+          mortgageStock = reg.mortgageStock + regionalOrig,
+          lastOrigination = regionalOrig,
+        )
     // Aggregate uses exact origination (not sum of regional rounded shares)
     prev.copy(mortgageStock = prev.mortgageStock + origination, lastOrigination = origination, regions = Some(updatedRegions))
 
@@ -331,13 +335,16 @@ object HousingMarket:
   ): Vector[RegionalState] =
     if totalPrevStock <= PLN.Zero then regs
     else
-      regs.map: reg =>
-        val share      = Share(reg.mortgageStock / totalPrevStock) // PLN/PLN → Double → Share
-        val rPrincipal = flows.principal * share
-        val rDefault   = flows.defaultAmount * share
+      val weights         = regs.map(_.mortgageStock.toLong).toArray
+      val distributedPrin = Distribute.distribute(flows.principal.toLong, weights)
+      val distributedDef  = Distribute.distribute(flows.defaultAmount.toLong, weights)
+      regs.zip(distributedPrin.iterator).zip(distributedDef.iterator).map { case ((reg, principalRaw), defaultRaw) =>
+        val rPrincipal = PLN.fromRaw(principalRaw)
+        val rDefault   = PLN.fromRaw(defaultRaw)
         val rStock     = (reg.mortgageStock - rPrincipal - rDefault).max(PLN.Zero)
         reg.copy(
           mortgageStock = rStock,
           lastRepayment = rPrincipal,
           lastDefault = rDefault,
         )
+      }

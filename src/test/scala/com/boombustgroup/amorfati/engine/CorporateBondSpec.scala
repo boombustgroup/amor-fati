@@ -107,6 +107,16 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     result.lastIssuance shouldBe issuance
   }
 
+  it should "allocate issuance with exact holder sums under residual rounding" in {
+    val issuance = PLN(2.0)
+    val result   = CorporateBondMarket.processIssuance(initState, issuance)
+    val deltaSum =
+      (result.bankHoldings - initState.bankHoldings).toLong +
+        (result.ppkHoldings - initState.ppkHoldings).toLong +
+        (result.otherHoldings - initState.otherHoldings).toLong
+    deltaSum shouldBe issuance.toLong
+  }
+
   it should "not change state for zero issuance" in {
     val result = CorporateBondMarket.processIssuance(initState, PLN.Zero)
     result.outstanding shouldBe initState.outstanding
@@ -118,6 +128,21 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     val result          = CorporateBondMarket.step(CorporateBondMarket.StepInput(initState, Rate(0.06), Share.Zero, PLN.Zero, PLN.Zero))
     val amort           = td.toDouble(prevOutstanding) / p.corpBond.maturity
     td.toDouble(result.outstanding) shouldBe (td.toDouble(prevOutstanding) - amort +- 1.0)
+  }
+
+  it should "preserve exact holder reduction sum under residual rounding" in {
+    val prev            = initState.copy(
+      outstanding = PLN(3000.0),
+      bankHoldings = PLN(1000.0),
+      ppkHoldings = PLN(1000.0),
+      otherHoldings = PLN(1000.0),
+    )
+    val result          = CorporateBondMarket.step(CorporateBondMarket.StepInput(prev, Rate(0.06), Share.Zero, PLN.Zero, PLN.Zero))
+    val holderReduction =
+      (prev.bankHoldings - result.bankHoldings).toLong +
+        (prev.ppkHoldings - result.ppkHoldings).toLong +
+        (prev.otherHoldings - result.otherHoldings).toLong
+    holderReduction shouldBe (prev.outstanding - result.outstanding).toLong
   }
 
   it should "satisfy SFC Identity 12: delta = issuance - amort - default" in {

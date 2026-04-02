@@ -236,6 +236,16 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     td.toDouble(result(1).govBondHoldings) shouldBe 0.0 +- 0.01    // 2000 + (-4000 * 0.5)
   }
 
+  it should "support explicit positive redemption API" in {
+    val banks  = Vector(
+      mkBank(id = 0, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(8000.0)),
+      mkBank(id = 1, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(2000.0)),
+    )
+    val result = Banking.allocateBondRedemption(banks, PLN(4000.0), Rate(0.05))
+    td.toDouble(result(0).govBondHoldings) shouldBe 6000.0 +- 0.01
+    td.toDouble(result(1).govBondHoldings) shouldBe 0.0 +- 0.01
+  }
+
   it should "have per-bank deltas summing to exactly deficit (residual-based)" in {
     // 7 banks with irrational deposit ratios -> FP rounding inevitable without residual
     val banks   = (0 until 7)
@@ -274,6 +284,18 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     val result = Banking.sellToBuyer(banks, PLN(5000.0)).banks
     td.toDouble(result(0).govBondHoldings) shouldBe 3000.0 +- 0.01 // 6000 - 5000*0.6
     td.toDouble(result(1).govBondHoldings) shouldBe 2000.0 +- 0.01 // 4000 - 5000*0.4
+  }
+
+  it should "sell exact requested amount when rounded shares leave residual" in {
+    val banks     = Vector(
+      mkBank(id = 0, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(1000.0)),
+      mkBank(id = 1, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(1000.0)),
+      mkBank(id = 2, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(1000.0)),
+    )
+    val sale      = Banking.sellToBuyer(banks, PLN(2.0))
+    sale.actualSold shouldBe PLN(2.0)
+    val remaining = sale.banks.map(_.govBondHoldings.toLong).sum
+    remaining shouldBe banks.map(_.govBondHoldings.toLong).sum - PLN(2.0).toLong
   }
 
   it should "not change banks when qeTotal is zero" in {

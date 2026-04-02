@@ -662,7 +662,10 @@ object BankingEconomics:
     val htmResult        = Banking.processHtmForcedSale(afterFxInjection, in.s8.monetary.newBondYield)
     val afterHtm         = htmResult.banks
     val afterBonds       =
-      if p.flags.govBondMarket then Banking.allocateBonds(afterHtm, wf.actualBondChange, in.s8.monetary.newBondYield)
+      if !p.flags.govBondMarket then afterHtm
+      else if wf.actualBondChange > PLN.Zero then Banking.allocateBondIssuance(afterHtm, wf.actualBondChange, in.s8.monetary.newBondYield)
+      else if wf.actualBondChange < PLN.Zero then
+        Banking.allocateBondRedemption(afterHtm, PLN.fromRaw(-wf.actualBondChange.toLong), in.s8.monetary.newBondYield)
       else afterHtm
 
     // ---- Bond waterfall: single pass, SFC by construction ----
