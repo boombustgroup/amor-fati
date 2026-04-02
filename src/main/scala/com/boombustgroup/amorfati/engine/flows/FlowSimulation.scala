@@ -36,6 +36,11 @@ object FlowSimulation:
       householdAggregates: Household.Aggregates,
   )
 
+  case class ExecutionResult(
+      snapshot: Map[(EntitySector, AssetType, Int), Long],
+      totalWealth: Long,
+  )
+
   /** All calculus results needed to feed flow mechanisms. */
   case class MonthlyCalculus(
       // Stage 1: Fiscal constraint
@@ -470,12 +475,24 @@ object FlowSimulation:
   case class StepResult(
       calculus: MonthlyCalculus,
       flows: Vector[BatchedFlow],
+      execution: ExecutionResult,
       newWorld: World,
       newFirms: Vector[Firm.State],
       newHouseholds: Vector[Household.State],
       newBanks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
   )
+
+  private def executeBatches(flows: Vector[BatchedFlow]): Either[String, ExecutionResult] =
+    val state = AggregateBatchContract.emptyExecutionState()
+    ImperativeInterpreter
+      .planAndApplyAll(state, flows)
+      .map: _ =>
+        val snapshot = state.snapshot
+        ExecutionResult(
+          snapshot = snapshot,
+          totalWealth = AggregateBatchContract.totalWealth(snapshot),
+        )
 
   /** Full step: compute calculus → emit flows → assemble new World.
     *
@@ -486,8 +503,12 @@ object FlowSimulation:
   def step(w: World, firms: Vector[Firm.State], households: Vector[Household.State], banks: Vector[Banking.BankState], rng: Random)(using
       p: SimParams,
   ): StepResult =
-    val full  = computeAll(w, firms, households, banks, rng)
-    val flows = emitAllBatches(full.calculus)
+    val full      = computeAll(w, firms, households, banks, rng)
+    val flows     = emitAllBatches(full.calculus)
+    val execution = executeBatches(flows).fold(
+      err => throw IllegalStateException(s"Ledger batch execution failed: $err"),
+      identity,
+    )
 
     val assembled = WorldAssemblyEconomics.compute(
       WorldAssemblyEconomics.Input(
@@ -518,4 +539,4 @@ object FlowSimulation:
       ),
     )
 
-    StepResult(full.calculus, flows, assembled.world, assembled.firms, assembled.households, assembled.banks, assembled.householdAggregates)
+    StepResult(full.calculus, flows, execution, assembled.world, assembled.firms, assembled.households, assembled.banks, assembled.householdAggregates)

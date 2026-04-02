@@ -139,5 +139,5 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
     result.flows should not be empty
     result.flows.forall(_.isInstanceOf[BatchedFlow]) shouldBe true
     batchedMechanismTotals(result.flows) shouldBe legacyMechanismTotals(legacy)
-    Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], legacy)) shouldBe 0L
+    result.execution.totalWealth shouldBe 0L
   }

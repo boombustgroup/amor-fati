@@ -2,7 +2,6 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
-import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -25,10 +24,9 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
     (1 to 120).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
       val result = FlowSimulation.step(w, firms, hh, banks, rng)
-      val wealth = Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(result.flows)))
 
       withClue(s"SFC violated at month $month: ") {
-        wealth shouldBe 0L
+        result.execution.totalWealth shouldBe 0L
       }
 
       w = result.newWorld
