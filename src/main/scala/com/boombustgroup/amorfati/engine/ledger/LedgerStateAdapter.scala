@@ -171,39 +171,54 @@ object LedgerStateAdapter:
       EntitySector.Foreign    -> ForeignSectorSize,
     )
 
+  def sectorSizes(supported: SupportedFinancialSnapshot): Map[EntitySector, Int] =
+    Map(
+      EntitySector.Households -> supported.households.size,
+      EntitySector.Firms      -> supported.firms.size,
+      EntitySector.Banks      -> supported.banks.size,
+      EntitySector.Government -> SingletonSectorSize,
+      EntitySector.NBP        -> SingletonSectorSize,
+      EntitySector.Insurance  -> SingletonSectorSize,
+      EntitySector.Funds      -> FundIndex.Count,
+      EntitySector.Foreign    -> ForeignSectorSize,
+    )
+
+  def householdBalances(h: Household.State): HouseholdBalances =
+    HouseholdBalances(
+      demandDeposit = h.savings,
+      mortgageLoan = h.debt,
+      consumerLoan = h.consumerDebt,
+      equity = h.equityWealth,
+    )
+
+  def firmBalances(f: Firm.State): FirmBalances =
+    FirmBalances(
+      cash = f.cash,
+      firmLoan = f.debt,
+      corpBond = f.bondDebt,
+      equity = f.equityRaised,
+    )
+
+  def bankBalances(b: Banking.BankState): BankBalances =
+    BankBalances(
+      totalDeposits = b.deposits,
+      demandDeposit = bankDemandDeposits(b),
+      termDeposit = bankTermDeposits(b),
+      firmLoan = b.loans,
+      consumerLoan = b.consumerLoans,
+      govBondAfs = b.afsBonds,
+      govBondHtm = b.htmBonds,
+      reserve = b.reservesAtNbp,
+      interbankLoan = b.interbankNet,
+      corpBond = b.corpBondHoldings,
+    )
+
   /** Pure supported-slice read from runtime state. */
   def supportedSnapshot(sim: FlowSimulation.SimState): SupportedFinancialSnapshot =
     SupportedFinancialSnapshot(
-      households = sim.households.map(h =>
-        HouseholdBalances(
-          demandDeposit = h.savings,
-          mortgageLoan = h.debt,
-          consumerLoan = h.consumerDebt,
-          equity = h.equityWealth,
-        ),
-      ),
-      firms = sim.firms.map(f =>
-        FirmBalances(
-          cash = f.cash,
-          firmLoan = f.debt,
-          corpBond = f.bondDebt,
-          equity = f.equityRaised,
-        ),
-      ),
-      banks = sim.banks.map(b =>
-        BankBalances(
-          totalDeposits = b.deposits,
-          demandDeposit = bankDemandDeposits(b),
-          termDeposit = bankTermDeposits(b),
-          firmLoan = b.loans,
-          consumerLoan = b.consumerLoans,
-          govBondAfs = b.afsBonds,
-          govBondHtm = b.htmBonds,
-          reserve = b.reservesAtNbp,
-          interbankLoan = b.interbankNet,
-          corpBond = b.corpBondHoldings,
-        ),
-      ),
+      households = sim.households.map(householdBalances),
+      firms = sim.firms.map(firmBalances),
+      banks = sim.banks.map(bankBalances),
       government = GovernmentBalances(
         govBondOutstanding = sim.world.gov.bondsOutstanding,
       ),
@@ -285,8 +300,16 @@ object LedgerStateAdapter:
     populate(state, sim)
     state
 
+  def toMutableWorldState(supported: SupportedFinancialSnapshot): MutableWorldState =
+    val state = new MutableWorldState(sectorSizes(supported))
+    populate(state, supported)
+    state
+
   def roundTripSupported(sim: FlowSimulation.SimState): SupportedFinancialSnapshot =
     readSupported(toMutableWorldState(sim))
+
+  def roundTripSupported(supported: SupportedFinancialSnapshot): SupportedFinancialSnapshot =
+    readSupported(toMutableWorldState(supported))
 
   def roundTripSupported(
       world: World,
@@ -299,6 +322,9 @@ object LedgerStateAdapter:
 
   def populate(state: MutableWorldState, sim: FlowSimulation.SimState): Unit =
     val supported = supportedSnapshot(sim)
+    populate(state, supported)
+
+  def populate(state: MutableWorldState, supported: SupportedFinancialSnapshot): Unit =
 
     supported.households.zipWithIndex.foreach { (hh, idx) =>
       set(state, EntitySector.Households, AssetType.DemandDeposit, idx, hh.demandDeposit)

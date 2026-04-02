@@ -16,8 +16,6 @@ import scala.util.Random
   *
   * Own Input takes raw values where possible, Step.Output types where
   * unavoidable. Returns assembled World + updated agents.
-  *
-  * Full decoupling happens when World is replaced by MutableWorldState (#131).
   */
 object WorldAssemblyEconomics:
 
@@ -371,6 +369,7 @@ object WorldAssemblyEconomics:
       obs: Observables,
   )(using p: SimParams): World =
     import ComputationBoundary.toDouble
+    val ledgerSupported  = buildLedgerSupportedSnapshot(in)
     val provisionalWorld = World(
       month = in.s1.m,
       inflation = in.s7.newInfl,
@@ -379,30 +378,55 @@ object WorldAssemblyEconomics:
       currentSigmas = in.s7.newSigmas,
       totalPopulation = in.w.derivedTotalPopulation + in.s5.netMigration,
       gov = in.s9.newGovWithYield.copy(
+        financial = in.s9.newGovWithYield.financial.copy(
+          bondsOutstanding = in.w.gov.bondsOutstanding,
+          foreignBondHoldings = in.w.gov.foreignBondHoldings,
+        ),
         policy = in.s9.newGovWithYield.policy.copy(
           minWageLevel = in.s1.baseMinWage,
           minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
         ),
       ),
-      nbp = in.s9.finalNbp,
+      nbp = in.s9.finalNbp.copy(
+        balance = in.s9.finalNbp.balance.copy(
+          govBondHoldings = in.w.nbp.govBondHoldings,
+          fxReserves = in.w.nbp.fxReserves,
+        ),
+      ),
       bankingSector = in.s9.bankingMarket,
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
       householdMarket = HouseholdMarketState.fromAggregates(in.s9.finalHhAgg),
       social = SocialState(
         jst = in.s9.newJst,
-        zus = in.s2.newZus,
-        nfz = in.s2.newNfz,
-        ppk = in.s9.finalPpk,
+        zus = in.s2.newZus.copy(fusBalance = in.w.social.zus.fusBalance),
+        nfz = in.s2.newNfz.copy(balance = in.w.social.nfz.balance),
+        ppk = in.s9.finalPpk.copy(bondHoldings = in.w.social.ppk.bondHoldings),
         demographics = in.s2.newDemographics,
-        earmarked = in.s2.newEarmarked,
+        earmarked = in.s2.newEarmarked.copy(
+          fp = in.s2.newEarmarked.fp.copy(balance = in.w.social.earmarked.fpBalance),
+          pfron = in.s2.newEarmarked.pfron.copy(balance = in.w.social.earmarked.pfronBalance),
+          fgsp = in.s2.newEarmarked.fgsp.copy(balance = in.w.social.earmarked.fgspBalance),
+        ),
       ),
       financial = FinancialMarketsState(
         equity = equityAfterStep,
-        corporateBonds = in.s8.corpBonds.newCorpBonds,
-        insurance = in.s9.finalInsurance,
-        nbfi = in.s9.finalNbfi,
-        quasiFiscal = in.s9.newQuasiFiscal,
+        corporateBonds = in.s8.corpBonds.newCorpBonds.copy(
+          bankHoldings = in.w.financial.corporateBonds.bankHoldings,
+          ppkHoldings = in.w.financial.corporateBonds.ppkHoldings,
+        ),
+        insurance = in.s9.finalInsurance.copy(
+          reserves = in.w.financial.insurance.reserves,
+          portfolio = in.w.financial.insurance.portfolio,
+        ),
+        nbfi = in.s9.finalNbfi.copy(
+          tfi = in.w.financial.nbfi.tfi,
+          credit = in.w.financial.nbfi.credit,
+        ),
+        quasiFiscal = in.s9.newQuasiFiscal.copy(
+          bondsOutstanding = in.w.financial.quasiFiscal.bondsOutstanding,
+          loanPortfolio = in.w.financial.quasiFiscal.loanPortfolio,
+        ),
       ),
       external = ExternalState(
         gvc = in.s8.external.newGvc,
@@ -440,14 +464,52 @@ object WorldAssemblyEconomics:
       pipeline = buildPipelineState(in),
       flows = buildFlowState(in, informal),
     )
-    val ledgerSupported  = LedgerStateAdapter.roundTripSupported(
-      world = provisionalWorld,
-      firms = in.s9.reassignedFirms,
-      households = in.s9.reassignedHouseholds,
-      banks = in.s9.banks,
-      householdAggregates = in.s9.finalHhAgg,
+    withLedgerSupportedFinancialState(provisionalWorld, LedgerStateAdapter.roundTripSupported(ledgerSupported))
+
+  private def buildLedgerSupportedSnapshot(in: StepInput): LedgerStateAdapter.SupportedFinancialSnapshot =
+    LedgerStateAdapter.SupportedFinancialSnapshot(
+      households = in.s9.reassignedHouseholds.map(LedgerStateAdapter.householdBalances),
+      firms = in.s9.reassignedFirms.map(LedgerStateAdapter.firmBalances),
+      banks = in.s9.banks.map(LedgerStateAdapter.bankBalances),
+      government = LedgerStateAdapter.GovernmentBalances(
+        govBondOutstanding = in.s9.newGovWithYield.bondsOutstanding,
+      ),
+      foreign = LedgerStateAdapter.ForeignBalances(
+        govBondHoldings = in.s9.newGovWithYield.foreignBondHoldings,
+      ),
+      nbp = LedgerStateAdapter.NbpBalances(
+        govBondHoldings = in.s9.finalNbp.govBondHoldings,
+        foreignAssets = in.s9.finalNbp.fxReserves,
+      ),
+      insurance = LedgerStateAdapter.InsuranceBalances(
+        lifeReserve = in.s9.finalInsurance.lifeReserves,
+        nonLifeReserve = in.s9.finalInsurance.nonLifeReserves,
+        govBondHoldings = in.s9.finalInsurance.govBondHoldings,
+        corpBondHoldings = in.s9.finalInsurance.corpBondHoldings,
+        equityHoldings = in.s9.finalInsurance.equityHoldings,
+      ),
+      funds = LedgerStateAdapter.FundBalances(
+        zusCash = in.s2.newZus.fusBalance,
+        nfzCash = in.s2.newNfz.balance,
+        ppkGovBondHoldings = in.s9.finalPpk.bondHoldings,
+        ppkCorpBondHoldings = in.s8.corpBonds.newCorpBonds.ppkHoldings,
+        fpCash = in.s2.newEarmarked.fpBalance,
+        pfronCash = in.s2.newEarmarked.pfronBalance,
+        fgspCash = in.s2.newEarmarked.fgspBalance,
+        nbfi = LedgerStateAdapter.NbfiFundBalances(
+          tfiUnit = in.s9.finalNbfi.tfiAum,
+          govBondHoldings = in.s9.finalNbfi.tfiGovBondHoldings,
+          corpBondHoldings = in.s9.finalNbfi.tfiCorpBondHoldings,
+          equityHoldings = in.s9.finalNbfi.tfiEquityHoldings,
+          cashHoldings = in.s9.finalNbfi.tfiCashHoldings,
+          nbfiLoanStock = in.s9.finalNbfi.nbfiLoanStock,
+        ),
+        quasiFiscal = LedgerStateAdapter.QuasiFiscalBalances(
+          bondsOutstanding = in.s9.newQuasiFiscal.bondsOutstanding,
+          loanPortfolio = in.s9.newQuasiFiscal.loanPortfolio,
+        ),
+      ),
     )
-    withLedgerSupportedFinancialState(provisionalWorld, ledgerSupported)
 
   private[economics] def withLedgerSupportedFinancialState(
       world: World,
