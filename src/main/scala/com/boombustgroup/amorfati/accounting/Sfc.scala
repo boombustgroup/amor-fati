@@ -281,9 +281,10 @@ object Sfc:
     *   13. NBFI credit stock: Δ nbfiLoanStock = origination - repayment -
     *       defaultAmount
     *
-    * These catch: mis-routed flows (e.g. rent subtracted from HH but not added
-    * to bank/consumption), refactoring errors in balance sheet updates, and any
-    * new flow that modifies a stock without updating the counterpart.
+    * These catch semantic stock-flow mismatches: mis-routed flows, refactoring
+    * errors in stock updates, and any new flow that changes a tracked stock
+    * without updating the corresponding SFC flow projection. Exact global
+    * conservation is enforced separately by ledger execution.
     */
   private case class IdentitySpec(id: SfcIdentity, msg: String, expected: PLN, actual: PLN, tolerance: PLN)
 
