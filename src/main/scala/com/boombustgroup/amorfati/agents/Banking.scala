@@ -428,30 +428,36 @@ object Banking:
         if b.failed then PLN.Zero
         else b.deposits * (Share.One - p.banking.reserveReq) - b.loans - b.govBondHoldings
 
-    val totalLending   = PLN.fromRaw(excess.filter(_ > PLN.Zero).map(_.toLong).sum) * hoarding
-    val totalBorrowing = PLN.fromRaw(excess.filter(_ < PLN.Zero).map(p => (-p).toLong).sum)
+    val lenderIdxs     = excess.indices.filter(i => excess(i) > PLN.Zero && !banks(i).failed).toVector
+    val borrowerIdxs   = excess.indices.filter(i => excess(i) < PLN.Zero && !banks(i).failed).toVector
+    val lenderCaps     = lenderIdxs.map(i => (excess(i) * hoarding).toLong.max(0L))
+    val borrowerNeeds  = borrowerIdxs.map(i => (-excess(i)).toLong)
+    val totalLending   = lenderCaps.sum
+    val totalBorrowing = borrowerNeeds.sum
 
-    if totalLending <= PLN.Zero || totalBorrowing <= PLN.Zero then banks.map(_.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero))
+    if totalLending <= 0L || totalBorrowing <= 0L then banks.map(_.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero))
     else
-      val lendRatio   = Share(Math.min(1.0, totalBorrowing / totalLending))
-      val borrowRatio = Share(Math.min(1.0, totalLending / totalBorrowing))
-      val result      = banks
-        .zip(excess)
-        .map: (b, ex) =>
-          if b.failed then b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)
-          else if ex > PLN.Zero then
-            val lent = ex * hoarding * lendRatio
-            b.copy(interbankNet = lent, reservesAtNbp = ex - lent)
-          else if ex < PLN.Zero then
-            val borrowed = (-ex) * borrowRatio
-            b.copy(interbankNet = -borrowed, reservesAtNbp = PLN.Zero)
-          else b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)
-      // Plug rounding residual into largest lender so Σ interbankNet ≡ 0
-      val residual    = PLN.fromRaw(result.map(_.interbankNet.toLong).sum)
-      if residual == PLN.Zero then result
-      else
-        val maxIdx = result.indices.maxBy(i => result(i).interbankNet.toLong)
-        result.updated(maxIdx, result(maxIdx).copy(interbankNet = result(maxIdx).interbankNet - residual))
+      val matched        = math.min(totalLending, totalBorrowing)
+      val lenderLoans    = Distribute.distribute(matched, lenderCaps.toArray)
+      val borrowerLoans  = Distribute.distribute(matched, borrowerNeeds.toArray)
+      val lenderLoanById = lenderIdxs.zip(lenderLoans.iterator).toMap
+      val borrowerById   = borrowerIdxs.zip(borrowerLoans.iterator).toMap
+
+      banks.indices.map { i =>
+        val b = banks(i)
+        if b.failed then b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)
+        else lenderLoanById
+          .get(i)
+          .fold {
+            borrowerById
+              .get(i)
+              .fold(b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)) { borrowed =>
+                b.copy(interbankNet = PLN.fromRaw(-borrowed), reservesAtNbp = PLN.Zero)
+              }
+          } { lent =>
+            b.copy(interbankNet = PLN.fromRaw(lent), reservesAtNbp = excess(i) - PLN.fromRaw(lent))
+          }
+      }.toVector
 
   // ---------------------------------------------------------------------------
   // Failure detection and resolution

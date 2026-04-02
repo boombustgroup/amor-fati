@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.Distribute
 
 /** Interbank contagion: bilateral exposures, counterparty losses, liquidity
   * hoarding.
@@ -44,16 +45,18 @@ object InterbankContagion:
   def buildExposureMatrix(banks: Vector[Banking.BankState]): ExposureMatrix =
     val n        = banks.length
     val nets     = banks.map(_.interbankNet)
-    val totalBor = PLN.fromRaw(nets.filter(_ < PLN.Zero).map(p => (-p).toLong).sum)
-    if totalBor <= PLN.Zero then Vector.fill(n)(Vector.fill(n)(PLN.Zero))
+    val borrowers = nets.indices.filter(i => nets(i) < PLN.Zero).toVector
+    val weights   = borrowers.map(i => (-nets(i)).toLong)
+    if borrowers.isEmpty then Vector.fill(n)(Vector.fill(n)(PLN.Zero))
     else
       Vector.tabulate(n): i =>
-        Vector.tabulate(n): j =>
-          if i == j then PLN.Zero
-          else if nets(i) > PLN.Zero && nets(j) < PLN.Zero then
-            // exposure(i→j) = lender_i × (borrower_j / totalBorrowing)
-            nets(i) * Share((-nets(j)) / totalBor)
-          else PLN.Zero
+        if nets(i) <= PLN.Zero then Vector.fill(n)(PLN.Zero)
+        else
+          val allocations = Distribute.distribute(nets(i).toLong, weights.toArray)
+          val byBorrower  = borrowers.zip(allocations.iterator).toMap
+          Vector.tabulate(n): j =>
+            if i == j then PLN.Zero
+            else byBorrower.get(j).fold(PLN.Zero)(PLN.fromRaw)
 
   /** Apply contagion losses from failed banks to their interbank
     * counterparties.

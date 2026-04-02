@@ -167,6 +167,17 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     netSum shouldBe 0.0 +- 0.01
   }
 
+  it should "produce exact zero interbankNet sum in raw PLN units" in {
+    val banks   = Vector(
+      mkBank(id = 0, deposits = PLN(900001.0), loans = PLN(100000.0), capital = PLN(1e5)),
+      mkBank(id = 1, deposits = PLN(500000.0), loans = PLN(850000.0), capital = PLN(1e5)),
+      mkBank(id = 2, deposits = PLN(700000.0), loans = PLN(250000.0), capital = PLN(1e5)),
+      mkBank(id = 3, deposits = PLN(600000.0), loans = PLN(950000.0), capital = PLN(1e5)),
+    )
+    val cleared = Banking.clearInterbank(banks, configs.take(4))
+    cleared.map(_.interbankNet.toLong).sum shouldBe 0L
+  }
+
   it should "set failed banks' interbankNet to zero" in {
     val banks   = Vector(
       mkBank(id = 0, loans = PLN(3e5)),
