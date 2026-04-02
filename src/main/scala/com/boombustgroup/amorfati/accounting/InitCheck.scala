@@ -34,7 +34,7 @@ object InitCheck:
     validate(Sfc.snapshot(state), state.banks, state.firms, state.households)
 
   def validate(
-      snapshot: Sfc.Snapshot,
+      snapshot: Sfc.StockState,
       banks: Vector[Banking.BankState],
       firms: Vector[Firm.State],
       households: Vector[Household.State],

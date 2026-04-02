@@ -44,5 +44,5 @@ SFC accounting check (see `com.boombustgroup.amorfati.accounting.Sfc`).
 4. Add state field to `World.scala`.
 5. Wire `step` call into the appropriate economics stage.
 6. If the agent emits monetary flows — add `FlowMechanism` entries and a `*Flows.scala`.
-7. If flows affect monetary stocks — add to `Sfc.MonthlyFlows` and verify
+7. If flows affect monetary stocks — add to the SFC semantic flow projection and verify
    the relevant SFC identity passes.

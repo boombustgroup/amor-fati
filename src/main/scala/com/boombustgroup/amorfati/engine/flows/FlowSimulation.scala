@@ -504,8 +504,8 @@ object FlowSimulation:
   ): Sfc.RuntimeState =
     Sfc.RuntimeState(w, firms, households, banks)
 
-  private def buildSfcFlows(full: FullComputation, fofResidual: PLN)(using p: SimParams): Sfc.MonthlyFlows =
-    Sfc.MonthlyFlows(
+  private def buildSfcFlows(full: FullComputation, fofResidual: PLN)(using p: SimParams): Sfc.SemanticFlows =
+    Sfc.SemanticFlows(
       govSpending =
         full.s9.newGovWithYield.domesticBudgetOutlays + full.s2.newZus.govSubvention + full.s2.newNfz.govSubvention + full.s2.newEarmarked.totalGovSubvention,
       govRevenue =

@@ -15,12 +15,11 @@ import com.boombustgroup.ledger.BatchedFlow
   * every simulated month.
   *
   * The verification works in three steps:
-  *   1. '''Snapshot''' — capture all monetary stocks (deposits, loans, debt,
-  *      bonds, NFA, …) from the current World state, firm array, and optional
-  *      household vector.
-  *   2. '''MonthlyFlows''' — assemble every flow that occurred during the
+  *   1. '''StockState''' — capture all monetary stocks (deposits, loans, debt,
+  *      bonds, NFA, …) from the current runtime state.
+  *   2. '''SemanticFlows''' — assemble every flow that occurred during the
   *      month, using the exact same values that were applied to balance sheet
-  *      updates in Simulation.step / WorldAssemblyEconomics.
+  *      updates in Simulation.step.
   *   3. '''validate''' — for each of the 13 identities, check that Δstock =
   *      Σflows within tolerance.
   *
@@ -33,8 +32,8 @@ import com.boombustgroup.ledger.BatchedFlow
   *
   * '''When to update this file:''' any new mechanism that modifies a monetary
   * stock (bank capital, deposits, government debt, NFA, bond holdings, or
-  * interbank positions) MUST have its flow reflected in MonthlyFlows and
-  * checked in validate — otherwise the check will fail at runtime.
+  * interbank positions) MUST have its semantic flow reflected here and checked
+  * in validate — otherwise the check will fail at runtime.
   */
 object Sfc:
 
@@ -80,8 +79,6 @@ object Sfc:
       tfiGovBondHoldings: PLN,       // TFI gov bond holdings
       nbfiLoanStock: PLN,            // NBFI credit stock
   )
-
-  type Snapshot = StockState
 
   /** Semantic monthly flow evidence used by the SFC oracle.
     *
@@ -159,200 +156,6 @@ object Sfc:
       eclProvisionChange: PLN,      // IFRS 9 ECL provision change (positive = additional provision → capital hit)
   )
 
-  type MonthlyFlows = SemanticFlows
-
-  object Snapshot:
-    def apply(
-        hhSavings: PLN,
-        hhDebt: PLN,
-        firmCash: PLN,
-        firmDebt: PLN,
-        bankCapital: PLN,
-        bankDeposits: PLN,
-        bankLoans: PLN,
-        govDebt: PLN,
-        nfa: PLN,
-        bankBondHoldings: PLN,
-        nbpBondHoldings: PLN,
-        bondsOutstanding: PLN,
-        interbankNetSum: PLN,
-        jstDeposits: PLN,
-        jstDebt: PLN,
-        fusBalance: PLN,
-        nfzBalance: PLN,
-        foreignBondHoldings: PLN,
-        ppkBondHoldings: PLN,
-        mortgageStock: PLN,
-        consumerLoans: PLN,
-        corpBondsOutstanding: PLN,
-        insuranceGovBondHoldings: PLN,
-        tfiGovBondHoldings: PLN,
-        nbfiLoanStock: PLN,
-    ): Snapshot =
-      StockState(
-        hhSavings,
-        hhDebt,
-        firmCash,
-        firmDebt,
-        bankCapital,
-        bankDeposits,
-        bankLoans,
-        govDebt,
-        nfa,
-        bankBondHoldings,
-        nbpBondHoldings,
-        bondsOutstanding,
-        interbankNetSum,
-        jstDeposits,
-        jstDebt,
-        fusBalance,
-        nfzBalance,
-        foreignBondHoldings,
-        ppkBondHoldings,
-        mortgageStock,
-        consumerLoans,
-        corpBondsOutstanding,
-        insuranceGovBondHoldings,
-        tfiGovBondHoldings,
-        nbfiLoanStock,
-      )
-
-  object MonthlyFlows:
-    def apply(
-        govSpending: PLN,
-        govRevenue: PLN,
-        nplLoss: PLN,
-        interestIncome: PLN,
-        hhDebtService: PLN,
-        totalIncome: PLN,
-        totalConsumption: PLN,
-        newLoans: PLN,
-        nplRecovery: PLN,
-        currentAccount: PLN,
-        valuationEffect: PLN,
-        bankBondIncome: PLN,
-        qePurchase: PLN,
-        newBondIssuance: PLN,
-        depositInterestPaid: PLN,
-        reserveInterest: PLN,
-        standingFacilityIncome: PLN,
-        interbankInterest: PLN,
-        jstDepositChange: PLN,
-        jstSpending: PLN,
-        jstRevenue: PLN,
-        zusContributions: PLN,
-        zusPensionPayments: PLN,
-        zusGovSubvention: PLN,
-        nfzContributions: PLN,
-        nfzSpending: PLN,
-        nfzGovSubvention: PLN,
-        dividendIncome: PLN,
-        foreignDividendOutflow: PLN,
-        dividendTax: PLN,
-        mortgageInterestIncome: PLN,
-        mortgageNplLoss: PLN,
-        mortgageOrigination: PLN,
-        mortgagePrincipalRepaid: PLN,
-        mortgageDefaultAmount: PLN,
-        remittanceOutflow: PLN,
-        fofResidual: PLN,
-        consumerDebtService: PLN,
-        consumerNplLoss: PLN,
-        consumerOrigination: PLN,
-        consumerPrincipalRepaid: PLN,
-        consumerDefaultAmount: PLN,
-        corpBondCouponIncome: PLN,
-        corpBondDefaultLoss: PLN,
-        corpBondIssuance: PLN,
-        corpBondAmortization: PLN,
-        corpBondDefaultAmount: PLN,
-        insNetDepositChange: PLN,
-        nbfiDepositDrain: PLN,
-        nbfiOrigination: PLN,
-        nbfiRepayment: PLN,
-        nbfiDefaultAmount: PLN,
-        fdiProfitShifting: PLN,
-        fdiRepatriation: PLN,
-        diasporaInflow: PLN,
-        tourismExport: PLN,
-        tourismImport: PLN,
-        bfgLevy: PLN,
-        bailInLoss: PLN,
-        bankCapitalDestruction: PLN,
-        investNetDepositFlow: PLN,
-        firmPrincipalRepaid: PLN,
-        unrealizedBondLoss: PLN,
-        htmRealizedLoss: PLN,
-        eclProvisionChange: PLN,
-    ): MonthlyFlows =
-      SemanticFlows(
-        govSpending,
-        govRevenue,
-        nplLoss,
-        interestIncome,
-        hhDebtService,
-        totalIncome,
-        totalConsumption,
-        newLoans,
-        nplRecovery,
-        currentAccount,
-        valuationEffect,
-        bankBondIncome,
-        qePurchase,
-        newBondIssuance,
-        depositInterestPaid,
-        reserveInterest,
-        standingFacilityIncome,
-        interbankInterest,
-        jstDepositChange,
-        jstSpending,
-        jstRevenue,
-        zusContributions,
-        zusPensionPayments,
-        zusGovSubvention,
-        nfzContributions,
-        nfzSpending,
-        nfzGovSubvention,
-        dividendIncome,
-        foreignDividendOutflow,
-        dividendTax,
-        mortgageInterestIncome,
-        mortgageNplLoss,
-        mortgageOrigination,
-        mortgagePrincipalRepaid,
-        mortgageDefaultAmount,
-        remittanceOutflow,
-        fofResidual,
-        consumerDebtService,
-        consumerNplLoss,
-        consumerOrigination,
-        consumerPrincipalRepaid,
-        consumerDefaultAmount,
-        corpBondCouponIncome,
-        corpBondDefaultLoss,
-        corpBondIssuance,
-        corpBondAmortization,
-        corpBondDefaultAmount,
-        insNetDepositChange,
-        nbfiDepositDrain,
-        nbfiOrigination,
-        nbfiRepayment,
-        nbfiDefaultAmount,
-        fdiProfitShifting,
-        fdiRepatriation,
-        diasporaInflow,
-        tourismExport,
-        tourismImport,
-        bfgLevy,
-        bailInLoss,
-        bankCapitalDestruction,
-        investNetDepositFlow,
-        firmPrincipalRepaid,
-        unrealizedBondLoss,
-        htmRealizedLoss,
-        eclProvisionChange,
-      )
-
   /** Enumeration of the 13 balance-sheet identities checked each month. Used as
     * a discriminator in SfcIdentityError so callers can programmatically
     * identify which identity was violated.
@@ -389,7 +192,7 @@ object Sfc:
     */
   type SfcResult = Either[Vector[SfcIdentityError], Unit]
 
-  /** Build a Snapshot from the current simulation state by aggregating all
+  /** Build stock state from the current simulation state by aggregating all
     * agent-level stocks.
     */
   def snapshot(
@@ -397,12 +200,12 @@ object Sfc:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
-  ): Snapshot =
+  ): StockState =
     val hhS     = PLN.fromRaw(households.map(_.savings.toLong).sum)
     val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
     val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
     val bankAgg = Banking.aggregateFromBanks(banks)
-    Snapshot(
+    StockState(
       hhSavings = hhS,
       hhDebt = hhD,
       firmCash = PLN.fromRaw(firms.map(_.cash.toLong).sum),
@@ -430,7 +233,7 @@ object Sfc:
       nbfiLoanStock = w.financial.nbfi.nbfiLoanStock,
     )
 
-  def snapshot(state: RuntimeState): Snapshot =
+  def snapshot(state: RuntimeState): StockState =
     snapshot(state.world, state.firms, state.households, state.banks)
 
   /** Validate 13 exact balance-sheet identities. Returns `Right(())` if all
@@ -485,9 +288,9 @@ object Sfc:
   private case class IdentitySpec(id: SfcIdentity, msg: String, expected: PLN, actual: PLN, tolerance: PLN)
 
   def validate(
-      prev: Snapshot,                 // stocks at the beginning of the month (before Simulation.step)
-      curr: Snapshot,                 // stocks at the end of the month (after Simulation.step)
-      flows: MonthlyFlows,            // all flows that occurred during the month
+      prev: StockState,               // stocks at the beginning of the month (before Simulation.step)
+      curr: StockState,               // stocks at the end of the month (after Simulation.step)
+      flows: SemanticFlows,           // all flows that occurred during the month
       tolerance: PLN = PLN(1000.0),   // Long rounding residual from per-bank PLN*Share distribution
       nfaTolerance: PLN = PLN(1000.0), // NFA (BoP valuation + rounding)
   )(using p: SimParams): SfcResult =
@@ -637,7 +440,7 @@ object Sfc:
   def validate(
       prev: RuntimeState,
       curr: RuntimeState,
-      flows: MonthlyFlows,
+      flows: SemanticFlows,
       batches: Vector[BatchedFlow],
       totalWealth: Long,
       tolerance: PLN,

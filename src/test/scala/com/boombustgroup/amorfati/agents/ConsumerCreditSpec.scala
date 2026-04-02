@@ -225,7 +225,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     bank.car should be < bankNoCc.car
   }
 
-  private def zeroSnap: Sfc.Snapshot = Sfc.Snapshot(
+  private def zeroSnap: Sfc.StockState = Sfc.StockState(
     hhSavings = PLN.Zero,
     hhDebt = PLN.Zero,
     firmCash = PLN.Zero,
@@ -253,7 +253,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     nbfiLoanStock = PLN.Zero,
   )
 
-  private def zeroFlows: Sfc.MonthlyFlows = Sfc.MonthlyFlows(
+  private def zeroFlows: Sfc.SemanticFlows = Sfc.SemanticFlows(
     govSpending = PLN.Zero,
     govRevenue = PLN.Zero,
     nplLoss = PLN.Zero,

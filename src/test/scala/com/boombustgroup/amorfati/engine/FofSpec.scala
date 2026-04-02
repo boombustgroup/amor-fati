@@ -13,7 +13,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
 
-  private def zeroSnap: Sfc.Snapshot = Sfc.Snapshot(
+  private def zeroSnap: Sfc.StockState = Sfc.StockState(
     hhSavings = PLN.Zero,
     hhDebt = PLN.Zero,
     firmCash = PLN.Zero,
@@ -41,7 +41,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
     nbfiLoanStock = PLN.Zero,
   )
 
-  private def zeroFlows: Sfc.MonthlyFlows = Sfc.MonthlyFlows(
+  private def zeroFlows: Sfc.SemanticFlows = Sfc.SemanticFlows(
     govSpending = PLN.Zero,
     govRevenue = PLN.Zero,
     nplLoss = PLN.Zero,
