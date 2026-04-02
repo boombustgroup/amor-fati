@@ -75,17 +75,17 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   // --- Terminal state ---
 
   it should "return terminalState with valid hhAgg" in {
-    result.terminalState.world.hhAgg.employed should be >= 0
+    result.terminalState.householdAggregates.employed should be >= 0
   }
 
   it should "have employment counts covering all households" in {
-    val agg   = result.terminalState.world.hhAgg
+    val agg   = result.terminalState.householdAggregates
     val total = agg.employed + agg.unemployed + agg.retraining + agg.bankrupt
     total should be > 0
   }
 
   it should "have Gini coefficients in [0, 1]" in {
-    val agg = result.terminalState.world.hhAgg
+    val agg = result.terminalState.householdAggregates
     td.toDouble(agg.giniIndividual) should be >= 0.0
     td.toDouble(agg.giniIndividual) should be <= 1.0
     td.toDouble(agg.giniWealth) should be >= 0.0

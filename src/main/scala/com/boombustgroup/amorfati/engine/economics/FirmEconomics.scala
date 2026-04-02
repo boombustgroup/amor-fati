@@ -382,7 +382,10 @@ object FirmEconomics:
         sectorDemandPressure = in.s4.sectorDemandPressure,
         aggregateHiringSlack = in.s2.aggregateHiringSlack,
       ),
-      hhAgg = in.w.hhAgg.copy(marketWage = in.s2.newWage, reservationWage = in.s1.resWage),
+      householdMarket = in.w.householdMarket.copy(
+        marketWage = in.s2.newWage,
+        reservationWage = in.s1.resWage,
+      ),
     )
     LendingConditions(world, rates, rates.map(toDouble(_)), canLend, nBanks)
 

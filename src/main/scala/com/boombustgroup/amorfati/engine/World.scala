@@ -12,27 +12,27 @@ import com.boombustgroup.amorfati.types.*
   * not need to be provided at init.
   */
 case class World(
-    month: Int,                                            // simulation month (1-indexed)
-    inflation: Rate,                                       // CPI YoY inflation
-    priceLevel: Double,                                    // cumulative CPI index (base = 1.0)
-    gdpProxy: Double,                                      // cached monthly GDP proxy; prefer current-step GDP or cachedMonthlyGdpProxy accessor
-    currentSigmas: Vector[Sigma],                          // per-sector σ (Arthur increasing returns)
-    totalPopulation: Int,                                  // cached population snapshot; prefer derivedTotalPopulation accessor
-    gov: FiscalBudget.GovState,                            // government budget & debt
-    nbp: Nbp.State,                                        // central bank: rate, bonds, FX, QE
-    bankingSector: Banking.MarketState,                    // banking macro state: interbank conditions, configs, term structure
-    forex: OpenEconomy.ForexState,                         // EUR/PLN, exports, imports, trade balance
-    bop: OpenEconomy.BopState = OpenEconomy.BopState.zero, // balance of payments: NFA, CA, KA, FDI
-    hhAgg: Household.Aggregates,                           // household aggregates (employment, wages, consumption)
-    social: SocialState,                                   // JST, ZUS, PPK, demographics
-    financial: FinancialMarketsState,                      // equity, corporate bonds, insurance, TFI
-    external: ExternalState,                               // GVC, immigration, tourism
-    real: RealState,                                       // housing, mobility, investment, energy, automation
-    mechanisms: MechanismsState,                           // macropru, expectations, BFG, informal economy
-    plumbing: MonetaryPlumbingState,                       // reserve corridor, standing facilities, interbank
-    pipeline: PipelineState = PipelineState.zero,          // inter-step demand / hiring / fiscal signals
-    flows: FlowState,                                      // single-step derived flow outputs → SFC identities
-    regionalWages: Map[Region, PLN] = Map.empty,           // per-region wage levels (NUTS-1)
+    month: Int,                                                        // simulation month (1-indexed)
+    inflation: Rate,                                                   // CPI YoY inflation
+    priceLevel: Double,                                                // cumulative CPI index (base = 1.0)
+    gdpProxy: Double,                                                  // cached monthly GDP proxy; prefer current-step GDP or cachedMonthlyGdpProxy accessor
+    currentSigmas: Vector[Sigma],                                      // per-sector σ (Arthur increasing returns)
+    totalPopulation: Int,                                              // cached population snapshot; prefer derivedTotalPopulation accessor
+    gov: FiscalBudget.GovState,                                        // government budget & debt
+    nbp: Nbp.State,                                                    // central bank: rate, bonds, FX, QE
+    bankingSector: Banking.MarketState,                                // banking macro state: interbank conditions, configs, term structure
+    forex: OpenEconomy.ForexState,                                     // EUR/PLN, exports, imports, trade balance
+    bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,             // balance of payments: NFA, CA, KA, FDI
+    householdMarket: HouseholdMarketState = HouseholdMarketState.zero, // explicit household wage-market state used in hot paths
+    social: SocialState,                                               // JST, ZUS, PPK, demographics
+    financial: FinancialMarketsState,                                  // equity, corporate bonds, insurance, TFI
+    external: ExternalState,                                           // GVC, immigration, tourism
+    real: RealState,                                                   // housing, mobility, investment, energy, automation
+    mechanisms: MechanismsState,                                       // macropru, expectations, BFG, informal economy
+    plumbing: MonetaryPlumbingState,                                   // reserve corridor, standing facilities, interbank
+    pipeline: PipelineState = PipelineState.zero,                      // inter-step demand / hiring / fiscal signals
+    flows: FlowState,                                                  // single-step derived flow outputs → SFC identities
+    regionalWages: Map[Region, PLN] = Map.empty,                       // per-region wage levels (NUTS-1)
 ):
   def derivedTotalPopulation(using p: SimParams): Int =
     if p.flags.demographics then social.demographics.workingAgePop + social.demographics.retirees
@@ -71,6 +71,65 @@ object SocialState:
     demographics = SocialSecurity.DemographicsState.zero,
     earmarked = EarmarkedFunds.State.zero,
   )
+
+object World:
+  def apply(
+      month: Int,
+      inflation: Rate,
+      priceLevel: Double,
+      gdpProxy: Double,
+      currentSigmas: Vector[Sigma],
+      totalPopulation: Int,
+      gov: FiscalBudget.GovState,
+      nbp: Nbp.State,
+      bankingSector: Banking.MarketState,
+      forex: OpenEconomy.ForexState,
+      hhAgg: Household.Aggregates,
+      social: SocialState,
+      financial: FinancialMarketsState,
+      external: ExternalState,
+      real: RealState,
+      mechanisms: MechanismsState,
+      plumbing: MonetaryPlumbingState,
+      flows: FlowState,
+  ): World =
+    new World(
+      month = month,
+      inflation = inflation,
+      priceLevel = priceLevel,
+      gdpProxy = gdpProxy,
+      currentSigmas = currentSigmas,
+      totalPopulation = totalPopulation,
+      gov = gov,
+      nbp = nbp,
+      bankingSector = bankingSector,
+      forex = forex,
+      bop = OpenEconomy.BopState.zero,
+      householdMarket = HouseholdMarketState.fromAggregates(hhAgg),
+      social = social,
+      financial = financial,
+      external = external,
+      real = real,
+      mechanisms = mechanisms,
+      plumbing = plumbing,
+      pipeline = PipelineState.zero,
+      flows = flows,
+      regionalWages = Map.empty,
+    )
+
+/** Explicit household labor-market state carried outside aggregate caches. */
+case class HouseholdMarketState(
+    marketWage: PLN,
+    reservationWage: PLN,
+)
+object HouseholdMarketState:
+  val zero: HouseholdMarketState = HouseholdMarketState(PLN.Zero, PLN.Zero)
+
+  def fromAggregates(agg: Household.Aggregates): HouseholdMarketState =
+    HouseholdMarketState(
+      marketWage = agg.marketWage,
+      reservationWage = agg.reservationWage,
+    )
 
 /** Non-bank financial sector state. */
 case class FinancialMarketsState(

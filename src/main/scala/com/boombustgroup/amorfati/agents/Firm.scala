@@ -307,7 +307,7 @@ object Firm:
     val hiringSignal = w.pipeline.sectorHiringSignal(f.sector.toInt)
     val demandMult   = sectorDemand + (hiringSignal - sectorDemand).max(0.0) * HiringPressureBlend
     val price        = w.priceLevel
-    val wage         = toDouble(w.hhAgg.marketWage) * toDouble(effectiveWageMult(f.sector))
+    val wage         = toDouble(w.householdMarket.marketWage) * toDouble(effectiveWageMult(f.sector))
     val minW         = p.firm.minWorkersRetained
     val maxW         = f.initialSize * 3
 
@@ -577,7 +577,7 @@ object Firm:
   )(using p: SimParams): Decision =
     val pnl = computePnL(
       firm,
-      w.hhAgg.marketWage,
+      w.householdMarket.marketWage,
       w.pipeline.sectorDemandMult(firm.sector.toInt),
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
@@ -603,7 +603,7 @@ object Firm:
     import ComputationBoundary.toDouble
     val pnl    = computePnL(
       firm,
-      w.hhAgg.marketWage,
+      w.householdMarket.marketWage,
       w.pipeline.sectorDemandMult(firm.sector.toInt),
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
@@ -613,7 +613,7 @@ object Firm:
     )
     val ready2 = (firm.digitalReadiness + Share(HybridMonthlyDrDrift)).min(Share.One)
 
-    if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, w => TechState.Hybrid(w, aiEff), w.hhAgg.marketWage)
+    if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, w => TechState.Hybrid(w, aiEff), w.householdMarket.marketWage)
 
     val upCapex    = computeAiCapex(firm) * Share(HybridToFullCapexMul)
     val upLoan     = upCapex * Share(FullAiLoanShare)
@@ -623,7 +623,7 @@ object Firm:
       p.firm.aiOpex,
       skeletonCrew(firm),
       upLoan,
-      w.hhAgg.marketWage,
+      w.householdMarket.marketWage,
       lendRate,
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
@@ -644,7 +644,16 @@ object Firm:
     else
       val nc = firm.cash + pnl.netAfterTax
       if nc < PLN.Zero then
-        attemptDownsize(firm, pnl, nc, workers, w => TechState.Hybrid(w, aiEff), w.hhAgg.marketWage, BankruptReason.HybridInsolvency, drUpdate = Some(ready2))
+        attemptDownsize(
+          firm,
+          pnl,
+          nc,
+          workers,
+          w => TechState.Hybrid(w, aiEff),
+          w.householdMarket.marketWage,
+          BankruptReason.HybridInsolvency,
+          drUpdate = Some(ready2),
+        )
       else Decision.Survive(pnl, nc, drUpdate = Some(ready2))
 
   /** Upgrade feasibility for one tech path (full-AI or hybrid). */
@@ -673,7 +682,16 @@ object Firm:
     val loan  = capex * Share(FullAiLoanShare)
     val down  = capex * Share(FullAiDownShare)
     val cost  =
-      estimateMonthlyCost(firm, p.firm.aiOpex, skeletonCrew(firm), loan, w.hhAgg.marketWage, lendRate, PriceIndex(w.priceLevel), w.external.gvc.importCostIndex)
+      estimateMonthlyCost(
+        firm,
+        p.firm.aiOpex,
+        skeletonCrew(firm),
+        loan,
+        w.householdMarket.marketWage,
+        lendRate,
+        PriceIndex(w.priceLevel),
+        w.external.gvc.importCostIndex,
+      )
     UpgradeCandidate(
       capex,
       loan,
@@ -699,7 +717,16 @@ object Firm:
     val loan  = capex * Share(HybridLoanShare)
     val down  = capex * Share(HybridDownShare)
     val hWkrs = Math.max(3, (workers * toDouble(p.sectorDefs(firm.sector.toInt).hybridRetainFrac)).toInt)
-    val cost  = estimateMonthlyCost(firm, p.firm.hybridOpex, hWkrs, loan, w.hhAgg.marketWage, lendRate, PriceIndex(w.priceLevel), w.external.gvc.importCostIndex)
+    val cost  = estimateMonthlyCost(
+      firm,
+      p.firm.hybridOpex,
+      hWkrs,
+      loan,
+      w.householdMarket.marketWage,
+      lendRate,
+      PriceIndex(w.priceLevel),
+      w.external.gvc.importCostIndex,
+    )
     val cand  = UpgradeCandidate(
       capex,
       loan,
@@ -819,7 +846,7 @@ object Firm:
     if shouldAdjust then
       val adj     = Math.max(1, (Math.abs(gap) * LaborAdjustFrac).toInt) * (if gap > 0 then 1 else -1)
       val newWkrs = (workers + adj).max(p.firm.minWorkersRetained)
-      if newWkrs > workers && canFundUpsize(firm, pnl, nc, newWkrs - workers, w.hhAgg.marketWage) then
+      if newWkrs > workers && canFundUpsize(firm, pnl, nc, newWkrs - workers, w.householdMarket.marketWage) then
         return Decision.Upsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
       else if newWkrs < workers then return Decision.Downsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
     val digiCost: PLN = computeDigiInvestCost(firm)
@@ -832,7 +859,8 @@ object Firm:
       val boost = toDouble(p.firm.digiInvestBoost) * diminishing
       val newDR = (firm.digitalReadiness + Share(boost)).min(Share.One)
       Decision.DigiInvest(pnl, digiCost, newDR)
-    else if nc < PLN.Zero then attemptDownsize(firm, pnl, nc, workers, TechState.Traditional(_), w.hhAgg.marketWage, BankruptReason.LaborCostInsolvency)
+    else if nc < PLN.Zero then
+      attemptDownsize(firm, pnl, nc, workers, TechState.Traditional(_), w.householdMarket.marketWage, BankruptReason.LaborCostInsolvency)
     else Decision.Survive(pnl, nc)
 
   private def startupFallbackDecision(
@@ -879,7 +907,7 @@ object Firm:
   )(using p: SimParams): Decision =
     val pnl           = computePnL(
       firm,
-      w.hhAgg.marketWage,
+      w.householdMarket.marketWage,
       w.pipeline.sectorDemandMult(firm.sector.toInt),
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
@@ -887,7 +915,7 @@ object Firm:
       lendRate,
       w.month,
     )
-    if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, TechState.Traditional(_), w.hhAgg.marketWage)
+    if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, TechState.Traditional(_), w.householdMarket.marketWage)
     val ai            = evaluateFullAi(firm, pnl, w, lendRate, bankCanLend)
     val (hyb, hWkrs)  = evaluateHybrid(firm, pnl, workers, w, lendRate, bankCanLend)
     val (pFull, pHyb) = adoptionProbabilities(firm, pnl, ai, hyb, w, allFirms)

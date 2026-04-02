@@ -33,6 +33,7 @@ object FlowSimulation:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      householdAggregates: Household.Aggregates,
   )
 
   /** All calculus results needed to feed flow mechanisms. */
@@ -470,6 +471,7 @@ object FlowSimulation:
       newFirms: Vector[Firm.State],
       newHouseholds: Vector[Household.State],
       newBanks: Vector[Banking.BankState],
+      householdAggregates: Household.Aggregates,
   )
 
   /** Full step: compute calculus → emit flows → assemble new World.
@@ -513,4 +515,4 @@ object FlowSimulation:
       ),
     )
 
-    StepResult(full.calculus, flows, assembled.world, assembled.firms, assembled.households, assembled.banks)
+    StepResult(full.calculus, flows, assembled.world, assembled.firms, assembled.households, assembled.banks, assembled.householdAggregates)

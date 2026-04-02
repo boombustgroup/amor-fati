@@ -31,6 +31,7 @@ object SimOutput:
       val firms: Vector[Firm.State],
       val households: Vector[Household.State],
       val banks: Vector[Banking.BankState],
+      val householdAggregates: Household.Aggregates,
       val living: Vector[Firm.State],
       val nLiving: Double,
       val aliveBanks: Vector[Banking.BankState],
@@ -38,6 +39,7 @@ object SimOutput:
   ):
     given SimParams                                          = p
     lazy val bankAgg: Banking.Aggregate                      = Banking.aggregateFromBanks(banks)
+    lazy val hhAgg: Household.Aggregates                     = householdAggregates
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates] =
       if p.flags.creditDiagnostics then Some(Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding))
       else None
@@ -51,7 +53,7 @@ object SimOutput:
           .toDouble / secFirms.length
     }
 
-    inline def unemployPct: Double = world.hhAgg.unemploymentRate(world.derivedTotalPopulation)
+    inline def unemployPct: Double = hhAgg.unemploymentRate(world.derivedTotalPopulation)
 
   // -------------------------------------------------------------------------
   //  Schema groups — composed with ++
@@ -64,26 +66,26 @@ object SimOutput:
     ColumnDef(
       "PermanentShare",
       ctx =>
-        val total = ctx.world.hhAgg.employed.toDouble
+        val total = ctx.hhAgg.employed.toDouble
         if total > 0 then ctx.households.count(h => h.contractType == ContractType.Permanent && h.status.isInstanceOf[HhStatus.Employed]).toDouble / total
         else 0.0,
     ),
     ColumnDef(
       "ZlecenieShare",
       ctx =>
-        val total = ctx.world.hhAgg.employed.toDouble
+        val total = ctx.hhAgg.employed.toDouble
         if total > 0 then ctx.households.count(h => h.contractType == ContractType.Zlecenie && h.status.isInstanceOf[HhStatus.Employed]).toDouble / total
         else 0.0,
     ),
     ColumnDef(
       "B2BShare",
       ctx =>
-        val total = ctx.world.hhAgg.employed.toDouble
+        val total = ctx.hhAgg.employed.toDouble
         if total > 0 then ctx.households.count(h => h.contractType == ContractType.B2B && h.status.isInstanceOf[HhStatus.Employed]).toDouble / total else 0.0,
     ),
     ColumnDef("TotalAdoption", ctx => td.toDouble(ctx.world.real.automationRatio + ctx.world.real.hybridRatio)),
     ColumnDef("ExRate", ctx => ctx.world.forex.exchangeRate),
-    ColumnDef("MarketWage", ctx => td.toDouble(ctx.world.hhAgg.marketWage)),
+    ColumnDef("MarketWage", ctx => td.toDouble(ctx.world.householdMarket.marketWage)),
     ColumnDef("GovDebt", ctx => td.toDouble(ctx.world.gov.cumulativeDebt)),
     ColumnDef("NPL", ctx => td.toDouble(ctx.bankAgg.nplRatio)),
     ColumnDef("RefRate", ctx => td.toDouble(ctx.world.nbp.referenceRate)),
@@ -170,7 +172,7 @@ object SimOutput:
     ColumnDef(
       "EffectivePitRate",
       ctx => {
-        val agg   = ctx.world.hhAgg
+        val agg   = ctx.hhAgg
         val gross = agg.totalIncome + agg.totalPit
         if gross > PLN.Zero then agg.totalPit / gross else 0.0
       },
@@ -259,8 +261,8 @@ object SimOutput:
         if ctx.bankAgg.consumerLoans > PLN.Zero then ctx.bankAgg.consumerNpl / ctx.bankAgg.consumerLoans
         else 0.0,
     ),
-    ColumnDef("ConsumerOrigination", ctx => td.toDouble(ctx.world.hhAgg.totalConsumerOrigination)),
-    ColumnDef("ConsumerDebtService", ctx => td.toDouble(ctx.world.hhAgg.totalConsumerDebtService)),
+    ColumnDef("ConsumerOrigination", ctx => td.toDouble(ctx.hhAgg.totalConsumerOrigination)),
+    ColumnDef("ConsumerDebtService", ctx => td.toDouble(ctx.hhAgg.totalConsumerDebtService)),
     // GPW Equity Market
     ColumnDef("GpwIndex", ctx => ctx.world.financial.equity.index),
     ColumnDef("GpwMarketCap", ctx => td.toDouble(ctx.world.financial.equity.marketCap)),
@@ -604,10 +606,11 @@ object SimOutput:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      householdAggregates: Household.Aggregates,
   )(using p: SimParams): Array[Double] =
     val living     = firms.filter(Firm.isAlive)
     val aliveBanks = banks.filterNot(_.failed).toVector
-    val ctx        = Ctx(t, world, firms, households, banks, living, living.length.toDouble, aliveBanks, p)
+    val ctx        = Ctx(t, world, firms, households, banks, householdAggregates, living, living.length.toDouble, aliveBanks, p)
     val result     = new Array[Double](schema.length)
     var i          = 0
     while i < schema.length do
