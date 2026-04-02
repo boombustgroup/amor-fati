@@ -26,6 +26,38 @@ object NfzFlows:
       nRetirees: Int,
   )
 
+  def emitBatches(input: NfzInput)(using p: SimParams): Vector[BatchedFlow] =
+    if !p.flags.nfz then Vector.empty
+    else
+      import AggregateBatchContract.*
+      val contributions = input.employed * (input.wage * p.social.nfzContribRate)
+      val spending      =
+        input.workingAge * p.social.nfzPerCapitaCost +
+          input.nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
+      val deficit       = spending - contributions
+      Vector.concat(
+        AggregateBatchedEmission.transfer(
+          EntitySector.Households,
+          HouseholdIndex.Aggregate,
+          EntitySector.Funds,
+          FundIndex.Nfz,
+          contributions,
+          AssetType.Cash,
+          FlowMechanism.NfzContribution,
+        ),
+        AggregateBatchedEmission
+          .transfer(EntitySector.Funds, FundIndex.Nfz, EntitySector.Firms, FirmIndex.Services, spending, AssetType.Cash, FlowMechanism.NfzSpending),
+        AggregateBatchedEmission.transfer(
+          EntitySector.Government,
+          GovernmentIndex.Budget,
+          EntitySector.Funds,
+          FundIndex.Nfz,
+          deficit,
+          AssetType.Cash,
+          FlowMechanism.NfzGovSubvention,
+        ),
+      )
+
   def emit(input: NfzInput)(using p: SimParams): Vector[Flow] =
     if !p.flags.nfz then Vector.empty
     else

@@ -24,6 +24,47 @@ object EquityFlows:
       issuance: PLN,
   )
 
+  def emitBatches(input: Input): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Households,
+        HouseholdIndex.Investors,
+        input.netDomesticDividends,
+        AssetType.Cash,
+        FlowMechanism.EquityDomDividend,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        input.foreignDividends,
+        AssetType.Cash,
+        FlowMechanism.EquityForDividend,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Investors,
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        input.dividendTax,
+        AssetType.Cash,
+        FlowMechanism.EquityDividendTax,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Investors,
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        input.issuance,
+        AssetType.Equity,
+        FlowMechanism.EquityIssuance,
+      ),
+    )
+
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
     if input.netDomesticDividends > PLN.Zero then

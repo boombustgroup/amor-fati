@@ -29,7 +29,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
       (1 to months).foreach { month =>
         val rng    = new scala.util.Random(seed * 1000 + month)
         val result = FlowSimulation.step(w, firms, hh, banks, rng)
-        val wealth = Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], result.flows))
+        val wealth = Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(result.flows)))
         withClue(s"Seed $seed, month $month: ") {
           wealth.shouldBe(0L)
         }

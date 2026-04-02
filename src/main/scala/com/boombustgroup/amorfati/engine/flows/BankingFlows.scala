@@ -34,6 +34,95 @@ object BankingFlows:
       nbpRemittance: PLN,
   )
 
+  def emitBatches(input: Input): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.govBondIncome,
+        AssetType.Cash,
+        FlowMechanism.BankGovBondIncome,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.NBP,
+        NbpIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.reserveInterest,
+        AssetType.Cash,
+        FlowMechanism.BankReserveInterest,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.NBP,
+        NbpIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.standingFacilityIncome,
+        AssetType.Cash,
+        FlowMechanism.BankStandingFacility,
+      ),
+      if input.interbankInterest > PLN.Zero then
+        AggregateBatchedEmission.transfer(
+          EntitySector.NBP,
+          NbpIndex.Aggregate,
+          EntitySector.Banks,
+          BankIndex.Aggregate,
+          input.interbankInterest,
+          AssetType.Cash,
+          FlowMechanism.BankInterbankInterest,
+        )
+      else if input.interbankInterest < PLN.Zero then
+        AggregateBatchedEmission.transfer(
+          EntitySector.Banks,
+          BankIndex.Aggregate,
+          EntitySector.NBP,
+          NbpIndex.Aggregate,
+          -input.interbankInterest,
+          AssetType.Cash,
+          FlowMechanism.BankInterbankInterest,
+        )
+      else Vector.empty,
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        input.bfgLevy,
+        AssetType.Cash,
+        FlowMechanism.BankBfgLevy,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        input.unrealizedBondLoss,
+        AssetType.Cash,
+        FlowMechanism.BankUnrealizedLoss,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Depositors,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.bailInLoss,
+        AssetType.DemandDeposit,
+        FlowMechanism.BankBailIn,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        input.nbpRemittance,
+        AssetType.Cash,
+        FlowMechanism.BankNbpRemittance,
+      ),
+    )
+
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 

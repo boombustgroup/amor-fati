@@ -31,6 +31,69 @@ object InsuranceFlows:
       equityReturn: Rate,
   )
 
+  def emitBatches(input: Input)(using p: SimParams): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    val lifePrem    = input.employed * (input.wage * p.ins.lifePremiumRate)
+    val nonLifePrem = input.employed * (input.wage * p.ins.nonLifePremiumRate)
+
+    val lifeCl      = lifePrem * p.ins.lifeLossRatio
+    val nonLifeBase = nonLifePrem * p.ins.nonLifeLossRatio
+    val stressGap   = (input.unempRate - Share(NonLifeUnempThreshold)).max(Share.Zero)
+    val stressAdj   = (stressGap * p.ins.nonLifeUnempSens).toMultiplier
+    val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
+
+    val invIncome = input.prevGovBondHoldings * input.govBondYield.monthly +
+      input.prevCorpBondHoldings * input.corpBondYield.monthly +
+      input.prevEquityHoldings * input.equityReturn
+
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Insurance,
+        InsuranceIndex.Aggregate,
+        lifePrem,
+        AssetType.LifeReserve,
+        FlowMechanism.InsLifePremium,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Insurance,
+        InsuranceIndex.Aggregate,
+        nonLifePrem,
+        AssetType.NonLifeReserve,
+        FlowMechanism.InsNonLifePremium,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Insurance,
+        InsuranceIndex.Aggregate,
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        lifeCl,
+        AssetType.LifeReserve,
+        FlowMechanism.InsLifeClaim,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Insurance,
+        InsuranceIndex.Aggregate,
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        nonLifeCl,
+        AssetType.NonLifeReserve,
+        FlowMechanism.InsNonLifeClaim,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Funds,
+        FundIndex.Markets,
+        EntitySector.Insurance,
+        InsuranceIndex.Aggregate,
+        invIncome,
+        AssetType.Cash,
+        FlowMechanism.InsInvestmentIncome,
+      ),
+    )
+
   def emit(input: Input)(using p: SimParams): Vector[Flow] =
     val lifePrem    = input.employed * (input.wage * p.ins.lifePremiumRate)
     val nonLifePrem = input.employed * (input.wage * p.ins.nonLifePremiumRate)

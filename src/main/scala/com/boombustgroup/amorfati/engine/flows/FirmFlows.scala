@@ -37,6 +37,114 @@ object FirmFlows:
       grossInvestment: PLN,
   )
 
+  def emitBatches(input: Input): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        input.wages,
+        AssetType.Cash,
+        FlowMechanism.FirmWages,
+      ),
+      AggregateBatchedEmission
+        .transfer(EntitySector.Firms, FirmIndex.Aggregate, EntitySector.Government, GovernmentIndex.Budget, input.cit, AssetType.Cash, FlowMechanism.FirmCit),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.loanRepayment,
+        AssetType.FirmLoan,
+        FlowMechanism.FirmLoanRepayment,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        input.newLoans,
+        AssetType.FirmLoan,
+        FlowMechanism.FirmNewLoan,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.interestPaid,
+        AssetType.Cash,
+        FlowMechanism.FirmInterestPaid,
+      ),
+      AggregateBatchedEmission
+        .transfer(EntitySector.Firms, FirmIndex.Aggregate, EntitySector.Firms, FirmIndex.CapitalGoods, input.capex, AssetType.Cash, FlowMechanism.FirmCapex),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Investors,
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        input.equityIssuance,
+        AssetType.Equity,
+        FlowMechanism.FirmEquityIssuance,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Funds,
+        FundIndex.BondMarket,
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        input.bondIssuance,
+        AssetType.CorpBond,
+        FlowMechanism.FirmBondIssuance,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Firms,
+        FirmIndex.IoCounterparty,
+        input.ioPayments,
+        AssetType.Cash,
+        FlowMechanism.FirmIoPayment,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.nplDefault,
+        AssetType.FirmLoan,
+        FlowMechanism.FirmNplDefault,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        input.profitShifting,
+        AssetType.Cash,
+        FlowMechanism.FirmProfitShifting,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        input.fdiRepatriation,
+        AssetType.Cash,
+        FlowMechanism.FirmFdiRepatriation,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Firms,
+        FirmIndex.CapitalGoods,
+        input.grossInvestment,
+        AssetType.Cash,
+        FlowMechanism.FirmGrossInvestment,
+      ),
+    )
+
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 

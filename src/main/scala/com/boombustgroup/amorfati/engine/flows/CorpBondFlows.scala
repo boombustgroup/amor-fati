@@ -22,6 +22,47 @@ object CorpBondFlows:
       amortization: PLN,
   )
 
+  def emitBatches(input: Input): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Funds,
+        FundIndex.Bondholders,
+        input.coupon,
+        AssetType.Cash,
+        FlowMechanism.CorpBondCoupon,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Funds,
+        FundIndex.Bondholders,
+        input.defaultLoss,
+        AssetType.CorpBond,
+        FlowMechanism.CorpBondDefault,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Funds,
+        FundIndex.BondMarket,
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        input.issuance,
+        AssetType.CorpBond,
+        FlowMechanism.CorpBondIssuance,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Funds,
+        FundIndex.Bondholders,
+        input.amortization,
+        AssetType.CorpBond,
+        FlowMechanism.CorpBondAmortization,
+      ),
+    )
+
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
     if input.coupon > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.coupon.toLong, FlowMechanism.CorpBondCoupon.toInt)

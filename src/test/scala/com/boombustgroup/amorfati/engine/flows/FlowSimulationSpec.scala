@@ -6,24 +6,24 @@ import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Tests FlowSimulation.emitAllFlows with MonthlyCalculus from
+/** Tests FlowSimulation.emitAllBatches with MonthlyCalculus from
   * FlowSimulation.computeCalculus.
   *
   * Proves that the Contract-First pipeline design (MonthlyCalculus →
-  * emitAllFlows → Interpreter) closes at SFC == 0L when fed with real
-  * simulation data.
+  * emitAllBatches → batch bridge → Interpreter) closes at SFC == 0L when fed
+  * with real simulation data.
   */
 class FlowSimulationSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  "FlowSimulation.emitAllFlows" should "preserve SFC at 0L" in {
+  "FlowSimulation.emitAllBatches" should "preserve SFC at 0L" in {
     val init   = WorldInit.initialize(42L)
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
-    val flows  = FlowSimulation.emitAllFlows(result.calculus)
+    val flows  = FlowSimulation.emitAllBatches(result.calculus)
 
-    Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)) shouldBe 0L
+    Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(flows))) shouldBe 0L
   }
 
   it should "preserve SFC across 12 months" in {
@@ -36,10 +36,10 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
       val result = FlowSimulation.step(w, firms, hh, banks, rng)
-      val flows  = FlowSimulation.emitAllFlows(result.calculus)
+      val flows  = FlowSimulation.emitAllBatches(result.calculus)
 
       withClue(s"Month $month: ") {
-        Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)) shouldBe 0L
+        Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(flows))) shouldBe 0L
       }
 
       w = result.newWorld
@@ -53,7 +53,7 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
     val init   = WorldInit.initialize(42L)
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
-    val flows  = FlowSimulation.emitAllFlows(result.calculus)
+    val flows  = FlowSimulation.emitAllBatches(result.calculus)
 
     flows.map(_.mechanism).toSet.size should be > 30
   }

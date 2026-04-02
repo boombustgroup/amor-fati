@@ -135,16 +135,16 @@ object FlowSimulation:
   /** Emit ALL flows from calculus results. Pure translation — no economics
     * here.
     */
-  def emitAllFlows(c: MonthlyCalculus)(using p: SimParams): Vector[Flow] =
+  def emitAllBatches(c: MonthlyCalculus)(using p: SimParams): Vector[BatchedFlow] =
     Vector.concat(
       // Tier 1: Social funds
-      ZusFlows.emit(ZusFlows.ZusInput(c.employed, c.wage, c.retirees)),
-      NfzFlows.emit(NfzFlows.NfzInput(c.employed, c.wage, c.workingAgePop, c.retirees)),
-      PpkFlows.emit(PpkFlows.PpkInput(c.employed, c.wage)),
-      EarmarkedFlows.emit(EarmarkedFlows.Input(c.employed, c.wage, c.totalUnempBenefits, c.nBankruptFirms, c.avgFirmWorkers)),
-      JstFlows.emit(JstFlows.Input(c.govTaxRevenue, c.totalIncome, c.gdp, c.laborDemand, c.totalPit)),
+      ZusFlows.emitBatches(ZusFlows.ZusInput(c.employed, c.wage, c.retirees)),
+      NfzFlows.emitBatches(NfzFlows.NfzInput(c.employed, c.wage, c.workingAgePop, c.retirees)),
+      PpkFlows.emitBatches(PpkFlows.PpkInput(c.employed, c.wage)),
+      EarmarkedFlows.emitBatches(EarmarkedFlows.Input(c.employed, c.wage, c.totalUnempBenefits, c.nBankruptFirms, c.avgFirmWorkers)),
+      JstFlows.emitBatches(JstFlows.Input(c.govTaxRevenue, c.totalIncome, c.gdp, c.laborDemand, c.totalPit)),
       // Tier 2: Agents
-      HouseholdFlows.emit(
+      HouseholdFlows.emitBatches(
         HouseholdFlows.Input(
           c.consumption,
           c.totalRent,
@@ -157,7 +157,7 @@ object FlowSimulation:
           c.totalCcDefault,
         ),
       ),
-      FirmFlows.emit(
+      FirmFlows.emitBatches(
         FirmFlows.Input(
           c.totalIncome,
           c.firmTax,
@@ -174,7 +174,7 @@ object FlowSimulation:
           c.firmGrossInvestment,
         ),
       ),
-      GovBudgetFlows.emit(
+      GovBudgetFlows.emitBatches(
         GovBudgetFlows.Input(
           c.govTaxRevenue,
           c.govPurchases,
@@ -185,7 +185,7 @@ object FlowSimulation:
           c.govCapitalSpend,
         ),
       ),
-      InsuranceFlows.emit(
+      InsuranceFlows.emitBatches(
         InsuranceFlows.Input(
           c.employed,
           c.wage,
@@ -199,10 +199,10 @@ object FlowSimulation:
         ),
       ),
       // Tier 3: Financial markets
-      EquityFlows.emit(EquityFlows.Input(c.equityDomDividends, c.equityForDividends, c.equityDivTax, c.equityIssuance)),
-      CorpBondFlows.emit(CorpBondFlows.Input(c.corpBondCoupon, c.corpBondDefaultLoss, c.corpBondIssuance, c.corpBondAmortization)),
-      MortgageFlows.emit(MortgageFlows.Input(c.mortgageOrigination, c.mortgageRepayment, c.mortgageInterest, c.mortgageDefault)),
-      OpenEconFlows.emit(
+      EquityFlows.emitBatches(EquityFlows.Input(c.equityDomDividends, c.equityForDividends, c.equityDivTax, c.equityIssuance)),
+      CorpBondFlows.emitBatches(CorpBondFlows.Input(c.corpBondCoupon, c.corpBondDefaultLoss, c.corpBondIssuance, c.corpBondAmortization)),
+      MortgageFlows.emitBatches(MortgageFlows.Input(c.mortgageOrigination, c.mortgageRepayment, c.mortgageInterest, c.mortgageDefault)),
+      OpenEconFlows.emitBatches(
         OpenEconFlows.Input(
           c.exports,
           c.totalImports,
@@ -216,7 +216,7 @@ object FlowSimulation:
           PLN.Zero,
         ),
       ),
-      BankingFlows.emit(
+      BankingFlows.emitBatches(
         BankingFlows.Input(
           c.bankGovBondIncome,
           c.bankReserveInterest,
@@ -229,6 +229,9 @@ object FlowSimulation:
         ),
       ),
     )
+
+  def emitAllFlows(c: MonthlyCalculus)(using p: SimParams): Vector[Flow] =
+    AggregateBatchContract.toLegacyFlows(emitAllBatches(c))
 
   /** All intermediate step outputs needed for both MonthlyCalculus and
     * WorldAssembly. Computed once per step — eliminates the double-computation
@@ -466,7 +469,7 @@ object FlowSimulation:
 
   case class StepResult(
       calculus: MonthlyCalculus,
-      flows: Vector[Flow],
+      flows: Vector[BatchedFlow],
       newWorld: World,
       newFirms: Vector[Firm.State],
       newHouseholds: Vector[Household.State],
@@ -484,7 +487,7 @@ object FlowSimulation:
       p: SimParams,
   ): StepResult =
     val full  = computeAll(w, firms, households, banks, rng)
-    val flows = emitAllFlows(full.calculus)
+    val flows = emitAllBatches(full.calculus)
 
     val assembled = WorldAssemblyEconomics.compute(
       WorldAssemblyEconomics.Input(
