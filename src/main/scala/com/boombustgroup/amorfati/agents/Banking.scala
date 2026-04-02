@@ -443,22 +443,20 @@ object Banking:
       val lenderLoanById = lenderIdxs.zip(lenderLoans.iterator).toMap
       val borrowerById   = borrowerIdxs.zip(borrowerLoans.iterator).toMap
 
-      banks.indices.map { i =>
+      banks.indices.map: i =>
         val b = banks(i)
         if b.failed then b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)
         else
           lenderLoanById
             .get(i)
-            .fold {
+            .fold:
               borrowerById
                 .get(i)
-                .fold(b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)) { borrowed =>
+                .fold(b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)): borrowed =>
                   b.copy(interbankNet = PLN.fromRaw(-borrowed), reservesAtNbp = PLN.Zero)
-                }
-            } { lent =>
+            : lent =>
               b.copy(interbankNet = PLN.fromRaw(lent), reservesAtNbp = excess(i) - PLN.fromRaw(lent))
-            }
-      }.toVector
+      .toVector
 
   // ---------------------------------------------------------------------------
   // Failure detection and resolution
