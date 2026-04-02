@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.markets
 
+import com.boombustgroup.ledger.Distribute
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
@@ -139,12 +140,17 @@ object CorporateBondMarket:
   def processIssuance(state: State, issuance: PLN)(using p: SimParams): State =
     if issuance <= PLN.Zero then state.copy(lastIssuance = PLN.Zero)
     else
-      val otherSh = Share.One - p.corpBond.bankShare - p.corpBond.ppkShare
+      val holderWeights = Array(
+        p.corpBond.bankShare.toLong,
+        p.corpBond.ppkShare.toLong,
+        (Share.One - p.corpBond.bankShare - p.corpBond.ppkShare).toLong,
+      )
+      val allocations   = Distribute.distribute(issuance.toLong, holderWeights)
       state.copy(
         outstanding = state.outstanding + issuance,
-        bankHoldings = state.bankHoldings + issuance * p.corpBond.bankShare,
-        ppkHoldings = state.ppkHoldings + issuance * p.corpBond.ppkShare,
-        otherHoldings = state.otherHoldings + issuance * otherSh,
+        bankHoldings = state.bankHoldings + PLN.fromRaw(allocations(0)),
+        ppkHoldings = state.ppkHoldings + PLN.fromRaw(allocations(1)),
+        otherHoldings = state.otherHoldings + PLN.fromRaw(allocations(2)),
         lastIssuance = issuance,
       )
 
@@ -158,19 +164,25 @@ object CorporateBondMarket:
   )
 
   def step(in: StepInput)(using p: SimParams): State =
-    val newYield       = computeYield(in.govBondYield, in.nplRatio)
-    val coupon         = computeCoupon(in.prev)
-    val amort          = amortization(in.prev)
-    val defaults       = processDefaults(in.prev, in.totalBondDefault)
-    val reduction      = amort + defaults.grossDefault
-    val reductionFrac  =
-      if in.prev.outstanding > PLN.Zero then Share(reduction / in.prev.outstanding).min(Share.One)
-      else Share.Zero
-    val afterReduction = in.prev.copy(
-      outstanding = (in.prev.outstanding - reduction).max(PLN.Zero),
-      bankHoldings = (in.prev.bankHoldings - in.prev.bankHoldings * reductionFrac).max(PLN.Zero),
-      ppkHoldings = (in.prev.ppkHoldings - in.prev.ppkHoldings * reductionFrac).max(PLN.Zero),
-      otherHoldings = (in.prev.otherHoldings - in.prev.otherHoldings * reductionFrac).max(PLN.Zero),
+    val newYield        = computeYield(in.govBondYield, in.nplRatio)
+    val coupon          = computeCoupon(in.prev)
+    val amort           = amortization(in.prev)
+    val defaults        = processDefaults(in.prev, in.totalBondDefault)
+    val reduction       = amort + defaults.grossDefault
+    val actualReduction =
+      reduction.min(in.prev.outstanding).max(PLN.Zero)
+    val reductions      =
+      if in.prev.outstanding > PLN.Zero then
+        Distribute.distribute(
+          actualReduction.toLong,
+          Array(in.prev.bankHoldings.toLong, in.prev.ppkHoldings.toLong, in.prev.otherHoldings.toLong),
+        )
+      else Array(0L, 0L, 0L)
+    val afterReduction  = in.prev.copy(
+      outstanding = in.prev.outstanding - actualReduction,
+      bankHoldings = (in.prev.bankHoldings - PLN.fromRaw(reductions(0))).max(PLN.Zero),
+      ppkHoldings = (in.prev.ppkHoldings - PLN.fromRaw(reductions(1))).max(PLN.Zero),
+      otherHoldings = (in.prev.otherHoldings - PLN.fromRaw(reductions(2))).max(PLN.Zero),
       corpBondYield = newYield,
       creditSpread = (newYield - in.govBondYield).max(Rate.Zero),
       lastAmortization = amort,
