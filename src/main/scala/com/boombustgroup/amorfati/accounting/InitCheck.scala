@@ -30,6 +30,9 @@ object InitCheck:
   /** Validate initial stock identities. Returns only the failing checks (empty =
     * all pass).
     */
+  def validate(state: Sfc.RuntimeState): Vector[InitCheckResult] =
+    validate(Sfc.snapshot(state), state.banks, state.firms, state.households)
+
   def validate(
       snapshot: Sfc.Snapshot,
       banks: Vector[Banking.BankState],

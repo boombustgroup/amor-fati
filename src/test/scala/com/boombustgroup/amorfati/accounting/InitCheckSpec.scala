@@ -12,8 +12,8 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
 
   "InitCheck" should "pass for default init" in:
     val result = WorldInit.initialize(42L)
-    val snap   = Sfc.snapshot(result.world, result.firms, result.households, result.banks)
-    val errors = InitCheck.validate(snap, result.banks, result.firms, result.households)
+    val state  = Sfc.RuntimeState(result.world, result.firms, result.households, result.banks)
+    val errors = InitCheck.validate(state)
     errors shouldBe empty
 
   it should "detect tampered bondsOutstanding" in:

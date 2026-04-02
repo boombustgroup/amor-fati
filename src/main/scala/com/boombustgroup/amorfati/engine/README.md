@@ -120,9 +120,9 @@ don't clear markets themselves.
 1. Add a case to the `FlowMechanism` enum in `FlowMechanism.scala`.
 2. Create or extend the appropriate `*Flows.scala` to emit the flow.
 3. Wire the emission call in `FlowSimulation.emitAllFlows()`.
-4. Update `Sfc.MonthlyFlows` / `Sfc.Snapshot` so the 14-identity check covers the new flow.
+4. Update the SFC validation projection so the 14-identity check covers the new flow.
 
 **SFC rule:** Any flow that modifies bank capital, deposits, government
 debt, NFA, bond holdings, or interbank positions **must** be reflected in
-`Sfc.MonthlyFlows` / `Sfc.Snapshot`. The 14-identity check runs
-every month and will fail at runtime if the accounting is broken.
+the SFC validation projection. The 14-identity check runs every month and will
+fail at runtime if the accounting is broken.

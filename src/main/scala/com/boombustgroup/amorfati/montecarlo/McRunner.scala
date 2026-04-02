@@ -69,9 +69,9 @@ object McRunner:
             Some((MonthSnapshot(month + 1, newState, monthData), (newState, month + 1)))
 
   private def initSeed(seed: Long)(using p: SimParams) =
-    val init     = WorldInit.initialize(seed)
-    val snapshot = Sfc.snapshot(init.world, init.firms, init.households, init.banks)
-    val errors   = InitCheck.validate(snapshot, init.banks, init.firms, init.households)
+    val init    = WorldInit.initialize(seed)
+    val runtime = Sfc.RuntimeState(init.world, init.firms, init.households, init.banks)
+    val errors  = InitCheck.validate(runtime)
     if errors.nonEmpty then Left(SimError.Init(errors))
     else Right(FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates))
 
