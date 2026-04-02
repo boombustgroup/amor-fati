@@ -617,8 +617,9 @@ object Banking:
     if aliveBanks.isEmpty then return banks
 
     val weights =
-      val totalDep = aliveBanks.foldLeft(0L)(_ + _.deposits.toLong)
-      if totalDep > 0L then aliveBanks.map(_.deposits.toLong).toArray
+      val nonNegativeDeposits = aliveBanks.map(b => b.deposits.toLong.max(0L))
+      val totalDep            = nonNegativeDeposits.sum
+      if totalDep > 0L then nonNegativeDeposits.toArray
       else Array.fill(aliveBanks.length)(1L)
 
     val magnitudes = Distribute.distribute(math.abs(signedChange.toLong), weights)

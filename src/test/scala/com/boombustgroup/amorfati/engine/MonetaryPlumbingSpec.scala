@@ -14,7 +14,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.accounting.Sfc
 
-  private def zeroSnap: Sfc.Snapshot = Sfc.Snapshot(
+  private def zeroSnap: Sfc.StockState = Sfc.StockState(
     hhSavings = PLN.Zero,
     hhDebt = PLN.Zero,
     firmCash = PLN.Zero,
@@ -42,7 +42,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     nbfiLoanStock = PLN.Zero,
   )
 
-  private def zeroFlows: Sfc.MonthlyFlows = Sfc.MonthlyFlows(
+  private def zeroFlows: Sfc.SemanticFlows = Sfc.SemanticFlows(
     govSpending = PLN.Zero,
     govRevenue = PLN.Zero,
     nplLoss = PLN.Zero,

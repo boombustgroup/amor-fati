@@ -27,24 +27,24 @@ The 9-stage computation pipeline, executed in fixed order each month. Each
 module is a pure function producing calculus (quantities, rates, decisions)
 without emitting monetary flows. `FlowSimulation` wires them together.
 
-| File | Stage | Domain |
-|------|-------|--------|
-| `FiscalConstraintEconomics.scala` | s1 | Minimum wage indexation, reservation wage, lending base rate |
-| `LaborEconomics.scala` | s2 | Phillips curve + expectations + union rigidity wages, employment, demographics, immigration |
+| File | Stage | Domain                                                                                                                                        |
+|------|-------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| `FiscalConstraintEconomics.scala` | s1 | Minimum wage indexation, reservation wage, lending base rate                                                                                  |
+| `LaborEconomics.scala` | s2 | Phillips curve + expectations + union rigidity wages, employment, demographics, immigration                                                   |
 | `HouseholdIncomeEconomics.scala` | s3 | Individual HH income, consumption, saving, portfolio; labor separations, wage updates, bank-specific rates, equity returns, sectoral mobility |
-| `DemandEconomics.scala` | s4 | Sector demand allocation: HH consumption, government purchases, investment, exports; capacity constraints and spillover |
-| `FirmEconomics.scala` | s5 | Production, I-O intermediate market, CAPEX, financing splits (equity/bonds/loans), labor matching, NPL detection |
-| `HouseholdFinancialEconomics.scala` | s6 | Mortgage debt service, deposit interest, diaspora remittances, tourism, consumer credit aggregation |
-| `PriceEquityEconomics.scala` | s7 | Inflation, GPW equity, sigma dynamics, network rewiring, GDP, macroprudential, EU funds |
-| `OpenEconEconomics.scala` | s8 | BoP/forex, GVC trade, Taylor rule, bond yields, interbank, corporate bonds, insurance, NBFI |
-| `BankingEconomics.scala` | s9 | Bank P&L, provisioning, CAR, multi-bank resolution, bail-in, interbank, BFG levy, monetary aggregates (M1/M2/M3) |
-| `WorldAssemblyEconomics.scala` | final | Aggregation, informal economy, observables; assembles final World state + updated agents, 14-identity SFC check |
+| `DemandEconomics.scala` | s4 | Sector demand allocation: HH consumption, government purchases, investment, exports; capacity constraints and spillover                       |
+| `FirmEconomics.scala` | s5 | Production, I-O intermediate market, CAPEX, financing splits (equity/bonds/loans), labor matching, NPL detection                              |
+| `HouseholdFinancialEconomics.scala` | s6 | Mortgage debt service, deposit interest, diaspora remittances, tourism, consumer credit aggregation                                           |
+| `PriceEquityEconomics.scala` | s7 | Inflation, GPW equity, sigma dynamics, network rewiring, GDP, macroprudential, EU funds                                                       |
+| `OpenEconEconomics.scala` | s8 | BoP/forex, GVC trade, Taylor rule, bond yields, interbank, corporate bonds, insurance, NBFI                                                   |
+| `BankingEconomics.scala` | s9 | Bank P&L, provisioning, CAR, multi-bank resolution, bail-in, interbank, BFG levy, monetary aggregates (M1/M2/M3)                              |
+| `WorldAssemblyEconomics.scala` | final | Aggregation, informal economy, observables; assembles final World state + updated agents, 13-identity SFC check                                |
 
 ## flows/
 
 SFC-verified monetary flow emission. Every PLN flow is recorded via the
 `amor-fati-ledger` (formally verified with Stainless/Z3) and checked
-against 14 accounting identities each month.
+against 13 accounting identities each month.
 
 | File | Responsibility |
 |------|----------------|
@@ -120,9 +120,9 @@ don't clear markets themselves.
 1. Add a case to the `FlowMechanism` enum in `FlowMechanism.scala`.
 2. Create or extend the appropriate `*Flows.scala` to emit the flow.
 3. Wire the emission call in `FlowSimulation.emitAllFlows()`.
-4. Update `Sfc.MonthlyFlows` / `Sfc.Snapshot` so the 14-identity check covers the new flow.
+4. Update the SFC validation projection so the 13-identity check covers the new flow.
 
 **SFC rule:** Any flow that modifies bank capital, deposits, government
 debt, NFA, bond holdings, or interbank positions **must** be reflected in
-`Sfc.MonthlyFlows` / `Sfc.Snapshot`. The 14-identity check runs
-every month and will fail at runtime if the accounting is broken.
+the SFC validation projection. The 13-identity check runs every month and will
+fail at runtime if the accounting is broken.

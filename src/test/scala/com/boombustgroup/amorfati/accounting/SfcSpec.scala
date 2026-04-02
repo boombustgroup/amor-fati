@@ -141,7 +141,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       )
     }.toVector
 
-  private val zeroSnap = Sfc.Snapshot(
+  private val zeroSnap = Sfc.StockState(
     hhSavings = PLN.Zero,
     hhDebt = PLN.Zero,
     firmCash = PLN.Zero,
@@ -169,7 +169,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     nbfiLoanStock = PLN.Zero,
   )
 
-  private val zeroFlows = Sfc.MonthlyFlows(
+  private val zeroFlows = Sfc.SemanticFlows(
     govSpending = PLN.Zero,
     govRevenue = PLN.Zero,
     nplLoss = PLN.Zero,

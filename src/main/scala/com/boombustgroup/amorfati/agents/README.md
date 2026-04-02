@@ -4,8 +4,8 @@ The agents package contains every autonomous agent in the SFC-ABM model.
 Each agent is an `object` with a nested `case class State` and pure functions
 that transform state. No mutable fields — state transitions produce new immutable instances.
 
-All agents that modify monetary stocks participate in the 14-identity
-SFC accounting check (see `com.boombustgroup.amorfati.accounting.Sfc`).
+All agents that modify monetary stocks participate in the 13-identity
+SFC accounting check.
 
 ## Agents
 
@@ -44,5 +44,5 @@ SFC accounting check (see `com.boombustgroup.amorfati.accounting.Sfc`).
 4. Add state field to `World.scala`.
 5. Wire `step` call into the appropriate economics stage.
 6. If the agent emits monetary flows — add `FlowMechanism` entries and a `*Flows.scala`.
-7. If flows affect monetary stocks — add to `Sfc.MonthlyFlows` and verify
+7. If flows affect monetary stocks — add to the SFC semantic flow projection and verify
    the relevant SFC identity passes.

@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.BatchedFlow
 
 /** Stock-flow consistent (SFC) accounting framework for the simulation.
   *
@@ -14,12 +15,11 @@ import com.boombustgroup.amorfati.types.*
   * every simulated month.
   *
   * The verification works in three steps:
-  *   1. '''Snapshot''' — capture all monetary stocks (deposits, loans, debt,
-  *      bonds, NFA, …) from the current World state, firm array, and optional
-  *      household vector.
-  *   2. '''MonthlyFlows''' — assemble every flow that occurred during the
+  *   1. '''StockState''' — capture all monetary stocks (deposits, loans, debt,
+  *      bonds, NFA, …) from the current runtime state.
+  *   2. '''SemanticFlows''' — assemble every flow that occurred during the
   *      month, using the exact same values that were applied to balance sheet
-  *      updates in Simulation.step / WorldAssemblyEconomics.
+  *      updates in Simulation.step.
   *   3. '''validate''' — for each of the 13 identities, check that Δstock =
   *      Σflows within tolerance.
   *
@@ -32,19 +32,27 @@ import com.boombustgroup.amorfati.types.*
   *
   * '''When to update this file:''' any new mechanism that modifies a monetary
   * stock (bank capital, deposits, government debt, NFA, bond holdings, or
-  * interbank positions) MUST have its flow reflected in MonthlyFlows and
-  * checked in validate — otherwise the check will fail at runtime.
+  * interbank positions) MUST have its semantic flow reflected here and checked
+  * in validate — otherwise the check will fail at runtime.
   */
 object Sfc:
 
-  /** Point-in-time snapshot of all monetary stocks in the economy.
+  /** Minimal runtime view needed for stock-side SFC validation. */
+  case class RuntimeState(
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  )
+
+  /** Point-in-time stock state for SFC validation.
     *
     * Captured twice per month (before and after Simulation.step) so that
     * validate can compute Δstock = curr - prev for each identity. Fields
     * corresponding to disabled mechanisms are simply zero — the identity holds
     * trivially in that case.
     */
-  case class Snapshot(
+  case class StockState(
       hhSavings: PLN,                // Σ household savings (individual mode only, 0 in aggregate)
       hhDebt: PLN,                   // Σ household debt (individual mode only, 0 in aggregate)
       firmCash: PLN,                 // Σ firm cash holdings
@@ -72,7 +80,7 @@ object Sfc:
       nbfiLoanStock: PLN,            // NBFI credit stock
   )
 
-  /** All monetary flows observed during a single simulated month.
+  /** Semantic monthly flow evidence used by the SFC oracle.
     *
     * These values are assembled in WorldAssemblyEconomics from the intermediate
     * results of Simulation.step. They must match the '''exact''' values used in
@@ -80,7 +88,7 @@ object Sfc:
     * SfcIdentityError. Flows for disabled mechanisms are simply zero, so the
     * corresponding identity holds trivially.
     */
-  case class MonthlyFlows(
+  case class SemanticFlows(
       govSpending: PLN,             // total budget expenditure (benefits + transfers + current spend + domestic capital spend + debt service + subventions + domestic EU co-financing)
       govRevenue: PLN,              // total gov revenue (CIT + PIT + VAT + excise + customs + dividend tax + NBP remittance)
       nplLoss: PLN,                 // bank NPL write-off loss (firm loans, after recovery)
@@ -184,7 +192,7 @@ object Sfc:
     */
   type SfcResult = Either[Vector[SfcIdentityError], Unit]
 
-  /** Build a Snapshot from the current simulation state by aggregating all
+  /** Build stock state from the current simulation state by aggregating all
     * agent-level stocks.
     */
   def snapshot(
@@ -192,12 +200,12 @@ object Sfc:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
-  ): Snapshot =
+  ): StockState =
     val hhS     = PLN.fromRaw(households.map(_.savings.toLong).sum)
     val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
     val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
     val bankAgg = Banking.aggregateFromBanks(banks)
-    Snapshot(
+    StockState(
       hhSavings = hhS,
       hhDebt = hhD,
       firmCash = PLN.fromRaw(firms.map(_.cash.toLong).sum),
@@ -224,6 +232,9 @@ object Sfc:
       tfiGovBondHoldings = w.financial.nbfi.tfiGovBondHoldings,
       nbfiLoanStock = w.financial.nbfi.nbfiLoanStock,
     )
+
+  def snapshot(state: RuntimeState): StockState =
+    snapshot(state.world, state.firms, state.households, state.banks)
 
   /** Validate 13 exact balance-sheet identities. Returns `Right(())` if all
     * pass, or `Left(errors)` with every violated identity and its
@@ -270,17 +281,18 @@ object Sfc:
     *   13. NBFI credit stock: Δ nbfiLoanStock = origination - repayment -
     *       defaultAmount
     *
-    * These catch: mis-routed flows (e.g. rent subtracted from HH but not added
-    * to bank/consumption), refactoring errors in balance sheet updates, and any
-    * new flow that modifies a stock without updating the counterpart.
+    * These catch semantic stock-flow mismatches: mis-routed flows, refactoring
+    * errors in stock updates, and any new flow that changes a tracked stock
+    * without updating the corresponding SFC flow projection. Exact global
+    * conservation is enforced separately by ledger execution.
     */
   private case class IdentitySpec(id: SfcIdentity, msg: String, expected: PLN, actual: PLN, tolerance: PLN)
 
   def validate(
-      prev: Snapshot,                 // stocks at the beginning of the month (before Simulation.step)
-      curr: Snapshot,                 // stocks at the end of the month (after Simulation.step)
-      flows: MonthlyFlows,            // all flows that occurred during the month
-      tolerance: PLN = PLN(1000.0),   // Long rounding residual from per-bank PLN*Share distribution
+      prev: StockState,               // stocks at the beginning of the month (before Simulation.step)
+      curr: StockState,               // stocks at the end of the month (after Simulation.step)
+      flows: SemanticFlows,           // all flows that occurred during the month
+      tolerance: PLN = PLN(1000.0),   // Residual rounding / stock-flow projection differences
       nfaTolerance: PLN = PLN(1000.0), // NFA (BoP valuation + rounding)
   )(using p: SimParams): SfcResult =
     import SfcIdentity.*
@@ -417,7 +429,43 @@ object Sfc:
     )
 
     val errors = identities.collect:
-      case IdentitySpec(id, msg, expected, actual, tol) if (actual - expected).abs >= tol =>
+      case IdentitySpec(id, msg, expected, actual, tol) if (actual - expected).abs > tol =>
         SfcIdentityError(id, msg, expected, actual)
 
     if errors.isEmpty then Right(()) else Left(errors)
+
+  /** Preferred production API: project stocks from runtime state and combine
+    * them with explicit flow semantics plus independent ledger execution
+    * conservation.
+    */
+  def validate(
+      prev: RuntimeState,
+      curr: RuntimeState,
+      flows: SemanticFlows,
+      batches: Vector[BatchedFlow],
+      totalWealth: Long,
+      tolerance: PLN,
+      nfaTolerance: PLN,
+  )(using p: SimParams): SfcResult =
+    // In the runtime API, Flow-of-Funds is checked from executed ledger
+    // batches. Keep the stock-side identities from the legacy oracle, but
+    // neutralize the old hand-assembled residual to avoid double-counting the
+    // same concept through two different channels.
+    val baseResult    = validate(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance)
+    val runtimeErrors =
+      if totalWealth == 0L then Vector.empty
+      else
+        Vector(
+          SfcIdentityError(
+            SfcIdentity.FlowOfFunds,
+            s"ledger execution totalWealth=$totalWealth across ${batches.size} batches",
+            expected = PLN.Zero,
+            actual = PLN.fromRaw(totalWealth),
+          ),
+        )
+    merge(baseResult, runtimeErrors)
+
+  private def merge(base: SfcResult, extra: Vector[SfcIdentityError]): SfcResult =
+    val combined = base.left.toOption.getOrElse(Vector.empty) ++ extra
+    if combined.isEmpty then Right(())
+    else Left(combined)

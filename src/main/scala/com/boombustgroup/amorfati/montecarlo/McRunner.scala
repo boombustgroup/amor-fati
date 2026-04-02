@@ -69,23 +69,22 @@ object McRunner:
             Some((MonthSnapshot(month + 1, newState, monthData), (newState, month + 1)))
 
   private def initSeed(seed: Long)(using p: SimParams) =
-    val init     = WorldInit.initialize(seed)
-    val snapshot = Sfc.snapshot(init.world, init.firms, init.households, init.banks)
-    val errors   = InitCheck.validate(snapshot, init.banks, init.firms, init.households)
+    val init    = WorldInit.initialize(seed)
+    val runtime = Sfc.RuntimeState(init.world, init.firms, init.households, init.banks)
+    val errors  = InitCheck.validate(runtime)
     if errors.nonEmpty then Left(SimError.Init(errors))
     else Right(FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates))
 
   private def stepMonth(state: FlowSimulation.SimState, seed: Long, month: Int)(using p: SimParams) =
     val rng    = new scala.util.Random(seed * 10000 + month)
     val result = engine.flows.FlowSimulation.step(state.world, state.firms, state.households, state.banks, rng)
-    val wealth = result.execution.totalWealth
-    if wealth != 0L then
-      val err = Sfc.SfcIdentityError(Sfc.SfcIdentity.FlowOfFunds, s"Flow SFC: totalWealth=$wealth", PLN.fromRaw(wealth), PLN.Zero)
-      Left(SimError.SfcViolation(month + 1, Vector(err)))
-    else
-      val newState  = FlowSimulation.SimState(result.newWorld, result.newFirms, result.newHouseholds, result.newBanks, result.householdAggregates)
-      val monthData = SimOutput.compute(month, result.newWorld, result.newFirms, result.newHouseholds, result.newBanks, result.householdAggregates)
-      Right((newState, monthData))
+    result.sfcResult match
+      case Left(errors) =>
+        Left(SimError.SfcViolation(month + 1, errors))
+      case Right(())    =>
+        val newState  = FlowSimulation.SimState(result.newWorld, result.newFirms, result.newHouseholds, result.newBanks, result.householdAggregates)
+        val monthData = SimOutput.compute(month, result.newWorld, result.newFirms, result.newHouseholds, result.newBanks, result.householdAggregates)
+        Right((newState, monthData))
 
   @scala.annotation.tailrec
   private def loop(
