@@ -5,6 +5,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
@@ -370,7 +371,7 @@ object WorldAssemblyEconomics:
       obs: Observables,
   )(using p: SimParams): World =
     import ComputationBoundary.toDouble
-    World(
+    val provisionalWorld = World(
       month = in.s1.m,
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
@@ -438,6 +439,78 @@ object WorldAssemblyEconomics:
       ),
       pipeline = buildPipelineState(in),
       flows = buildFlowState(in, informal),
+    )
+    val ledgerSupported  = LedgerStateAdapter.roundTripSupported(
+      world = provisionalWorld,
+      firms = in.s9.reassignedFirms,
+      households = in.s9.reassignedHouseholds,
+      banks = in.s9.banks,
+      householdAggregates = in.s9.finalHhAgg,
+    )
+    withLedgerSupportedFinancialState(provisionalWorld, ledgerSupported)
+
+  private[economics] def withLedgerSupportedFinancialState(
+      world: World,
+      supported: LedgerStateAdapter.SupportedFinancialSnapshot,
+  ): World =
+    val bankCorpBondHoldings = supported.banks.foldLeft(PLN.Zero): (acc, bank) =>
+      acc + bank.corpBond
+    world.copy(
+      gov = world.gov.copy(
+        financial = world.gov.financial.copy(
+          bondsOutstanding = supported.government.govBondOutstanding,
+          foreignBondHoldings = supported.foreign.govBondHoldings,
+        ),
+      ),
+      nbp = world.nbp.copy(
+        balance = world.nbp.balance.copy(
+          govBondHoldings = supported.nbp.govBondHoldings,
+          fxReserves = supported.nbp.foreignAssets,
+        ),
+      ),
+      social = world.social.copy(
+        zus = world.social.zus.copy(fusBalance = supported.funds.zusCash),
+        nfz = world.social.nfz.copy(balance = supported.funds.nfzCash),
+        ppk = world.social.ppk.copy(bondHoldings = supported.funds.ppkGovBondHoldings),
+        earmarked = world.social.earmarked.copy(
+          fp = world.social.earmarked.fp.copy(balance = supported.funds.fpCash),
+          pfron = world.social.earmarked.pfron.copy(balance = supported.funds.pfronCash),
+          fgsp = world.social.earmarked.fgsp.copy(balance = supported.funds.fgspCash),
+        ),
+      ),
+      financial = world.financial.copy(
+        corporateBonds = world.financial.corporateBonds.copy(
+          bankHoldings = bankCorpBondHoldings,
+          ppkHoldings = supported.funds.ppkCorpBondHoldings,
+        ),
+        insurance = world.financial.insurance.copy(
+          reserves = world.financial.insurance.reserves.copy(
+            lifeReserves = supported.insurance.lifeReserve,
+            nonLifeReserves = supported.insurance.nonLifeReserve,
+          ),
+          portfolio = world.financial.insurance.portfolio.copy(
+            govBondHoldings = supported.insurance.govBondHoldings,
+            corpBondHoldings = supported.insurance.corpBondHoldings,
+            equityHoldings = supported.insurance.equityHoldings,
+          ),
+        ),
+        nbfi = world.financial.nbfi.copy(
+          tfi = world.financial.nbfi.tfi.copy(
+            tfiAum = supported.funds.nbfi.tfiUnit,
+            tfiGovBondHoldings = supported.funds.nbfi.govBondHoldings,
+            tfiCorpBondHoldings = supported.funds.nbfi.corpBondHoldings,
+            tfiEquityHoldings = supported.funds.nbfi.equityHoldings,
+            tfiCashHoldings = supported.funds.nbfi.cashHoldings,
+          ),
+          credit = world.financial.nbfi.credit.copy(
+            nbfiLoanStock = supported.funds.nbfi.nbfiLoanStock,
+          ),
+        ),
+        quasiFiscal = world.financial.quasiFiscal.copy(
+          bondsOutstanding = supported.funds.quasiFiscal.bondsOutstanding,
+          loanPortfolio = supported.funds.quasiFiscal.loanPortfolio,
+        ),
+      ),
     )
 
   private def buildPipelineState(in: StepInput): PipelineState =
