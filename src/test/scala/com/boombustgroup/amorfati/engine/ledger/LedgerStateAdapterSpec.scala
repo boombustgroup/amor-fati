@@ -23,15 +23,24 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
       gov = base.world.gov.copy(
         financial = base.world.gov.financial.copy(
           bondsOutstanding = PLN(777e6),
+          foreignBondHoldings = PLN(778e6),
         ),
       ),
       nbp = base.world.nbp.copy(
         balance = base.world.nbp.balance.copy(
           govBondHoldings = PLN(88e6),
+          qeCumulative = PLN(89e6),
           fxReserves = PLN(99e6),
         ),
       ),
       social = base.world.social.copy(
+        jst = Jst.State(
+          deposits = PLN(10e6),
+          debt = PLN(11e6),
+          revenue = PLN.Zero,
+          spending = PLN.Zero,
+          deficit = PLN.Zero,
+        ),
         zus = SocialSecurity.ZusState(PLN(11e6), PLN.Zero, PLN.Zero, PLN.Zero),
         nfz = SocialSecurity.NfzState(PLN(12e6), PLN.Zero, PLN.Zero, PLN.Zero),
         ppk = SocialSecurity.PpkState(PLN(13e6), PLN.Zero),
@@ -49,6 +58,11 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       financial = base.world.financial.copy(
+        corporateBonds = base.world.financial.corporateBonds.copy(
+          outstanding = PLN(32e6),
+          ppkHoldings = PLN(33e6),
+          otherHoldings = PLN(34e6),
+        ),
         insurance = Insurance.State(
           lifeReserves = PLN(17e6),
           nonLifeReserves = PLN(18e6),
@@ -112,6 +126,7 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
     val banks = base.banks.updated(
       0,
       base.banks.head.copy(
+        deposits = PLN(603e6),
         demandDeposits = PLN(301e6),
         termDeposits = PLN(302e6),
         loans = PLN(303e6),
@@ -150,6 +165,28 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
     LedgerStateAdapter.readSupported(ledger) shouldBe expected
   }
 
+  it should "preserve bank total deposits and extended holder mappings in the supported slice" in {
+    val runtime   = enrichedSimState()
+    val supported = LedgerStateAdapter.supportedSnapshot(runtime)
+
+    supported.banks.head.totalDeposits shouldBe PLN(603e6)
+    supported.banks.head.demandDeposit + supported.banks.head.termDeposit shouldBe supported.banks.head.totalDeposits
+    supported.foreign.govBondHoldings shouldBe PLN(778e6)
+    supported.funds.ppkCorpBondHoldings shouldBe PLN(33e6)
+  }
+
+  it should "expose unsupported financial fields explicitly instead of forcing them into the ledger slice" in {
+    val runtime     = enrichedSimState()
+    val unsupported = LedgerStateAdapter.unsupportedSnapshot(runtime)
+
+    unsupported.government.cumulativeDebt shouldBe runtime.world.gov.cumulativeDebt
+    unsupported.nbp.qeCumulative shouldBe PLN(89e6)
+    unsupported.social.jstDeposits shouldBe PLN(10e6)
+    unsupported.corporateBonds.outstanding shouldBe PLN(32e6)
+    unsupported.quasiFiscal.bankHoldings shouldBe PLN(29e6)
+    unsupported.banks.head.capital shouldBe PLN(310e6)
+  }
+
   it should "leave unsupported physical and mixed fields out of ledger balances" in {
     val runtime = enrichedSimState()
     val ledger  = LedgerStateAdapter.toMutableWorldState(runtime)
@@ -162,4 +199,5 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
     ledger.snapshot.keySet should not contain ((EntitySector.Firms, AssetType.Capital, 0))
     ledger.snapshot.keySet should not contain ((EntitySector.Banks, AssetType.Cash, 0))
     ledger.snapshot.keySet should not contain ((EntitySector.Funds, AssetType.Reserve, LedgerStateAdapter.FundIndex.QuasiFiscal))
+    ledger.snapshot.keySet should not contain ((EntitySector.Funds, AssetType.Cash, LedgerStateAdapter.FundIndex.QuasiFiscal))
   }

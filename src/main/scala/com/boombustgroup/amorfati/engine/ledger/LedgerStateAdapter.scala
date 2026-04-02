@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
+import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector, MutableWorldState}
@@ -45,6 +46,7 @@ object LedgerStateAdapter:
   )
 
   case class BankBalances(
+      totalDeposits: PLN,
       demandDeposit: PLN,
       termDeposit: PLN,
       firmLoan: PLN,
@@ -58,6 +60,10 @@ object LedgerStateAdapter:
 
   case class GovernmentBalances(
       govBondOutstanding: PLN,
+  )
+
+  case class ForeignBalances(
+      govBondHoldings: PLN,
   )
 
   case class NbpBalances(
@@ -91,6 +97,7 @@ object LedgerStateAdapter:
       zusCash: PLN,
       nfzCash: PLN,
       ppkGovBondHoldings: PLN,
+      ppkCorpBondHoldings: PLN,
       fpCash: PLN,
       pfronCash: PLN,
       fgspCash: PLN,
@@ -103,9 +110,51 @@ object LedgerStateAdapter:
       firms: Vector[FirmBalances],
       banks: Vector[BankBalances],
       government: GovernmentBalances,
+      foreign: ForeignBalances,
       nbp: NbpBalances,
       insurance: InsuranceBalances,
       funds: FundBalances,
+  )
+
+  case class UnsupportedBankBalances(
+      capital: PLN,
+      nplAmount: PLN,
+      consumerNpl: PLN,
+      loansShort: PLN,
+      loansMedium: PLN,
+      loansLong: PLN,
+  )
+
+  case class UnsupportedGovernmentBalances(
+      cumulativeDebt: PLN,
+  )
+
+  case class UnsupportedNbpBalances(
+      qeCumulative: PLN,
+  )
+
+  case class UnsupportedQuasiFiscalBalances(
+      bankHoldings: PLN,
+      nbpHoldings: PLN,
+  )
+
+  case class UnsupportedCorporateBondBalances(
+      outstanding: PLN,
+      otherHoldings: PLN,
+  )
+
+  case class UnsupportedSocialBalances(
+      jstDeposits: PLN,
+      jstDebt: PLN,
+  )
+
+  case class UnsupportedFinancialSnapshot(
+      banks: Vector[UnsupportedBankBalances],
+      government: UnsupportedGovernmentBalances,
+      nbp: UnsupportedNbpBalances,
+      social: UnsupportedSocialBalances,
+      corporateBonds: UnsupportedCorporateBondBalances,
+      quasiFiscal: UnsupportedQuasiFiscalBalances,
   )
 
   /** Deterministic ledger sector sizes for the current runtime state. */
@@ -142,8 +191,9 @@ object LedgerStateAdapter:
       ),
       banks = sim.banks.map(b =>
         BankBalances(
-          demandDeposit = b.demandDeposits,
-          termDeposit = b.termDeposits,
+          totalDeposits = b.deposits,
+          demandDeposit = bankDemandDeposits(b),
+          termDeposit = bankTermDeposits(b),
           firmLoan = b.loans,
           consumerLoan = b.consumerLoans,
           govBondAfs = b.afsBonds,
@@ -155,6 +205,9 @@ object LedgerStateAdapter:
       ),
       government = GovernmentBalances(
         govBondOutstanding = sim.world.gov.bondsOutstanding,
+      ),
+      foreign = ForeignBalances(
+        govBondHoldings = sim.world.gov.foreignBondHoldings,
       ),
       nbp = NbpBalances(
         govBondHoldings = sim.world.nbp.govBondHoldings,
@@ -171,6 +224,7 @@ object LedgerStateAdapter:
         zusCash = sim.world.social.zus.fusBalance,
         nfzCash = sim.world.social.nfz.balance,
         ppkGovBondHoldings = sim.world.social.ppk.bondHoldings,
+        ppkCorpBondHoldings = sim.world.financial.corporateBonds.ppkHoldings,
         fpCash = sim.world.social.earmarked.fpBalance,
         pfronCash = sim.world.social.earmarked.pfronBalance,
         fgspCash = sim.world.social.earmarked.fgspBalance,
@@ -186,6 +240,42 @@ object LedgerStateAdapter:
           bondsOutstanding = sim.world.financial.quasiFiscal.bondsOutstanding,
           loanPortfolio = sim.world.financial.quasiFiscal.loanPortfolio,
         ),
+      ),
+    )
+
+  /** Financial fields intentionally left outside current ledger mapping because
+    * the public `EntitySector` / `AssetType` API does not yet name them
+    * cleanly.
+    */
+  def unsupportedSnapshot(sim: FlowSimulation.SimState): UnsupportedFinancialSnapshot =
+    UnsupportedFinancialSnapshot(
+      banks = sim.banks.map(b =>
+        UnsupportedBankBalances(
+          capital = b.capital,
+          nplAmount = b.nplAmount,
+          consumerNpl = b.consumerNpl,
+          loansShort = b.loansShort,
+          loansMedium = b.loansMedium,
+          loansLong = b.loansLong,
+        ),
+      ),
+      government = UnsupportedGovernmentBalances(
+        cumulativeDebt = sim.world.gov.cumulativeDebt,
+      ),
+      nbp = UnsupportedNbpBalances(
+        qeCumulative = sim.world.nbp.qeCumulative,
+      ),
+      social = UnsupportedSocialBalances(
+        jstDeposits = sim.world.social.jst.deposits,
+        jstDebt = sim.world.social.jst.debt,
+      ),
+      corporateBonds = UnsupportedCorporateBondBalances(
+        outstanding = sim.world.financial.corporateBonds.outstanding,
+        otherHoldings = sim.world.financial.corporateBonds.otherHoldings,
+      ),
+      quasiFiscal = UnsupportedQuasiFiscalBalances(
+        bankHoldings = sim.world.financial.quasiFiscal.bankHoldings,
+        nbpHoldings = sim.world.financial.quasiFiscal.nbpHoldings,
       ),
     )
 
@@ -224,6 +314,7 @@ object LedgerStateAdapter:
     }
 
     set(state, EntitySector.Government, AssetType.GovBondHTM, 0, supported.government.govBondOutstanding)
+    set(state, EntitySector.Foreign, AssetType.GovBondHTM, 0, supported.foreign.govBondHoldings)
     set(state, EntitySector.NBP, AssetType.GovBondHTM, 0, supported.nbp.govBondHoldings)
     set(state, EntitySector.NBP, AssetType.ForeignAsset, 0, supported.nbp.foreignAssets)
     set(state, EntitySector.Insurance, AssetType.LifeReserve, 0, supported.insurance.lifeReserve)
@@ -235,6 +326,7 @@ object LedgerStateAdapter:
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Zus, supported.funds.zusCash)
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Nfz, supported.funds.nfzCash)
     set(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Ppk, supported.funds.ppkGovBondHoldings)
+    set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.Ppk, supported.funds.ppkCorpBondHoldings)
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fp, supported.funds.fpCash)
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Pfron, supported.funds.pfronCash)
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fgsp, supported.funds.fgspCash)
@@ -267,6 +359,8 @@ object LedgerStateAdapter:
       ),
       banks = Vector.tabulate(state.sectorSize(EntitySector.Banks))(idx =>
         BankBalances(
+          totalDeposits = pln(state, EntitySector.Banks, AssetType.DemandDeposit, idx) +
+            pln(state, EntitySector.Banks, AssetType.TermDeposit, idx),
           demandDeposit = pln(state, EntitySector.Banks, AssetType.DemandDeposit, idx),
           termDeposit = pln(state, EntitySector.Banks, AssetType.TermDeposit, idx),
           firmLoan = pln(state, EntitySector.Banks, AssetType.FirmLoan, idx),
@@ -280,6 +374,9 @@ object LedgerStateAdapter:
       ),
       government = GovernmentBalances(
         govBondOutstanding = pln(state, EntitySector.Government, AssetType.GovBondHTM, 0),
+      ),
+      foreign = ForeignBalances(
+        govBondHoldings = pln(state, EntitySector.Foreign, AssetType.GovBondHTM, 0),
       ),
       nbp = NbpBalances(
         govBondHoldings = pln(state, EntitySector.NBP, AssetType.GovBondHTM, 0),
@@ -296,6 +393,7 @@ object LedgerStateAdapter:
         zusCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Zus),
         nfzCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Nfz),
         ppkGovBondHoldings = pln(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Ppk),
+        ppkCorpBondHoldings = pln(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.Ppk),
         fpCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fp),
         pfronCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Pfron),
         fgspCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fgsp),
@@ -322,3 +420,11 @@ object LedgerStateAdapter:
 
   private def pln(state: MutableWorldState, sector: EntitySector, asset: AssetType, index: Int): PLN =
     PLN.fromRaw(state.balance(sector, asset, index))
+
+  private def bankDemandDeposits(bank: Banking.BankState): PLN =
+    if bank.demandDeposits == PLN.Zero && bank.termDeposits == PLN.Zero then bank.deposits
+    else bank.demandDeposits
+
+  private def bankTermDeposits(bank: Banking.BankState): PLN =
+    if bank.demandDeposits == PLN.Zero && bank.termDeposits == PLN.Zero then PLN.Zero
+    else bank.termDeposits
