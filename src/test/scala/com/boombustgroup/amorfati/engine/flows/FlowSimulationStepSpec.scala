@@ -15,6 +15,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
     result.execution.totalWealth shouldBe 0L
+    result.sfcResult shouldBe Right(())
     result.calculus.employed should be > 0
   }
 
@@ -30,6 +31,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       val result = FlowSimulation.step(w, firms, hh, banks, rng)
       withClue(s"Month $month: ") {
         result.execution.totalWealth shouldBe 0L
+        result.sfcResult shouldBe Right(())
       }
       w = result.newWorld
       firms = result.newFirms

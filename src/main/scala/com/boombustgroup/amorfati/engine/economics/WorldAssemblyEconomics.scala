@@ -1,6 +1,5 @@
 package com.boombustgroup.amorfati.engine.economics
 
-import com.boombustgroup.amorfati.accounting.*
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
@@ -45,7 +44,6 @@ object WorldAssemblyEconomics:
       reassignedHouseholds: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
-      sfcResult: Sfc.SfcResult,
   )
 
   // ---------------------------------------------------------------------------
@@ -168,8 +166,7 @@ object WorldAssemblyEconomics:
     val informal        = computeInformalEconomy(in)
     val obs             = computeObservables(in)
 
-    val newW      = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
-    val sfcResult = validateSfc(in, newW, fofResidual)
+    val newW = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
 
     val postFdiFirms     = applyFdiMa(in.s9.reassignedFirms, rng)
     val updatedPop       = in.w.derivedTotalPopulation + in.s5.netMigration
@@ -212,7 +209,7 @@ object WorldAssemblyEconomics:
           ),
         )
       .copy(regionalWages = in.s2.regionalWages)
-    StepOutput(finalW, finalFirms, postMigHh, in.s9.banks, startupStaffing.hhAgg, sfcResult)
+    StepOutput(finalW, finalFirms, postMigHh, in.s9.banks, startupStaffing.hhAgg)
 
   // ---------------------------------------------------------------------------
   // Private helpers — migrated from WorldAssemblyStep
@@ -606,86 +603,6 @@ object WorldAssemblyEconomics:
       informalEmployed = informal.informalEmployed,
       bailInLoss = in.s9.bailInLoss,
       bfgLevyTotal = toDouble(in.s9.bfgLevy),
-    )
-
-  /** Run SFC validation against previous and current snapshots. */
-  private def validateSfc(in: StepInput, newW: World, fofResidual: PLN)(using p: SimParams): Sfc.SfcResult =
-    val prevSnap = Sfc.snapshot(in.w, in.firms, in.households, in.banks)
-    val currSnap = Sfc.snapshot(newW, in.s9.reassignedFirms, in.s9.reassignedHouseholds, in.s9.banks)
-    val flows    = buildMonthlyFlows(in, fofResidual)
-    Sfc.validate(prevSnap, currSnap, flows)
-
-  /** Construct Sfc.MonthlyFlows from all step outputs. */
-  @boundaryEscape
-  private def buildMonthlyFlows(in: StepInput, fofResidual: PLN)(using p: SimParams): Sfc.MonthlyFlows =
-    Sfc.MonthlyFlows(
-      govSpending =
-        in.s9.newGovWithYield.domesticBudgetOutlays + in.s2.newZus.govSubvention + in.s2.newNfz.govSubvention + in.s2.newEarmarked.totalGovSubvention,
-      govRevenue =
-        in.s5.sumTax + in.s7.dividendTax + in.s9.pitAfterEvasion + in.s9.vatAfterEvasion + in.s8.banking.nbpRemittance + in.s9.exciseAfterEvasion + in.s9.customsDutyRevenue,
-      nplLoss = in.s5.nplLoss,
-      interestIncome = in.s5.intIncome,
-      hhDebtService = in.s6.hhDebtService,
-      totalIncome = in.s3.totalIncome,
-      totalConsumption = in.s3.consumption,
-      newLoans = in.s5.sumNewLoans,
-      nplRecovery = in.s5.nplNew * p.banking.loanRecovery,
-      currentAccount = in.s8.external.newBop.currentAccount,
-      valuationEffect = in.s8.external.oeValuationEffect,
-      bankBondIncome = in.s8.banking.bankBondIncome,
-      qePurchase = in.s8.monetary.qePurchaseAmount,
-      newBondIssuance = if p.flags.govBondMarket then in.s9.actualBondChange else PLN.Zero,
-      depositInterestPaid = in.s6.depositInterestPaid,
-      reserveInterest = in.s8.banking.totalReserveInterest,
-      standingFacilityIncome = in.s8.banking.totalStandingFacilityIncome,
-      interbankInterest = in.s8.banking.totalInterbankInterest,
-      jstDepositChange = in.s9.jstDepositChange,
-      jstSpending = in.s9.newJst.spending,
-      jstRevenue = in.s9.newJst.revenue,
-      zusContributions = in.s2.newZus.contributions,
-      zusPensionPayments = in.s2.newZus.pensionPayments,
-      zusGovSubvention = in.s2.newZus.govSubvention,
-      nfzContributions = in.s2.newNfz.contributions,
-      nfzSpending = in.s2.newNfz.spending,
-      nfzGovSubvention = in.s2.newNfz.govSubvention,
-      dividendIncome = in.s7.netDomesticDividends,
-      foreignDividendOutflow = in.s7.foreignDividendOutflow,
-      dividendTax = in.s7.dividendTax,
-      mortgageInterestIncome = in.s9.mortgageInterestIncome,
-      mortgageNplLoss = in.s9.mortgageDefaultLoss,
-      mortgageOrigination = in.s9.housingAfterFlows.lastOrigination,
-      mortgagePrincipalRepaid = in.s9.mortgagePrincipal,
-      mortgageDefaultAmount = in.s9.mortgageDefaultAmount,
-      remittanceOutflow = in.s6.remittanceOutflow,
-      fofResidual = fofResidual,
-      consumerDebtService = in.s6.consumerDebtService,
-      consumerNplLoss = in.s6.consumerNplLoss,
-      consumerOrigination = in.s6.consumerOrigination,
-      consumerPrincipalRepaid = in.s6.consumerPrincipal,
-      consumerDefaultAmount = in.s6.consumerDefaultAmt,
-      corpBondCouponIncome = in.s8.corpBonds.corpBondBankCoupon,
-      corpBondDefaultLoss = in.s8.corpBonds.corpBondBankDefaultLoss,
-      corpBondIssuance = in.s5.actualBondIssuance,
-      corpBondAmortization = in.s8.corpBonds.corpBondAmort,
-      corpBondDefaultAmount = in.s5.totalBondDefault,
-      insNetDepositChange = in.s8.nonBank.insNetDepositChange,
-      nbfiDepositDrain = in.s8.nonBank.nbfiDepositDrain,
-      nbfiOrigination = in.s9.finalNbfi.lastNbfiOrigination,
-      nbfiRepayment = in.s9.finalNbfi.lastNbfiRepayment,
-      nbfiDefaultAmount = in.s9.finalNbfi.lastNbfiDefaultAmount,
-      fdiProfitShifting = in.s5.sumProfitShifting,
-      fdiRepatriation = in.s5.sumFdiRepatriation,
-      diasporaInflow = in.s6.diasporaInflow,
-      tourismExport = in.s6.tourismExport,
-      tourismImport = in.s6.tourismImport,
-      bfgLevy = in.s9.bfgLevy,
-      bailInLoss = in.s9.bailInLoss,
-      bankCapitalDestruction = in.s9.multiCapDestruction,
-      investNetDepositFlow = in.s9.investNetDepositFlow,
-      firmPrincipalRepaid = in.s5.sumFirmPrincipal,
-      unrealizedBondLoss = in.s9.unrealizedBondLoss,
-      htmRealizedLoss = in.s9.htmRealizedLoss,
-      eclProvisionChange = in.s9.eclProvisionChange,
     )
 
   /** FDI M&A: monthly stochastic conversion of domestic firms to foreign

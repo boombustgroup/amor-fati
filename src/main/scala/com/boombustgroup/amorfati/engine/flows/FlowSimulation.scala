@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
@@ -19,8 +20,8 @@ import scala.util.Random
   *   2. TRANSLATION — map calculus results to flow mechanism inputs
   *   3. PLUMBING — emit flows, apply through verified interpreter
   *
-  * SFC == 0L by construction (verified interpreter). No post-hoc validation
-  * needed.
+  * Ledger execution guarantees exact conservation; SFC remains as a semantic
+  * validation oracle over stocks and declared monthly flows.
   */
 object FlowSimulation:
 
@@ -476,6 +477,7 @@ object FlowSimulation:
       calculus: MonthlyCalculus,
       flows: Vector[BatchedFlow],
       execution: ExecutionResult,
+      sfcResult: Sfc.SfcResult,
       newWorld: World,
       newFirms: Vector[Firm.State],
       newHouseholds: Vector[Household.State],
@@ -493,6 +495,85 @@ object FlowSimulation:
           snapshot = snapshot,
           totalWealth = AggregateBatchContract.totalWealth(snapshot),
         )
+
+  private def runtimeState(
+      w: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  ): Sfc.RuntimeState =
+    Sfc.RuntimeState(w, firms, households, banks)
+
+  private def buildSfcFlows(full: FullComputation, fofResidual: PLN)(using p: SimParams): Sfc.MonthlyFlows =
+    Sfc.MonthlyFlows(
+      govSpending =
+        full.s9.newGovWithYield.domesticBudgetOutlays + full.s2.newZus.govSubvention + full.s2.newNfz.govSubvention + full.s2.newEarmarked.totalGovSubvention,
+      govRevenue =
+        full.s5.sumTax + full.s7.dividendTax + full.s9.pitAfterEvasion + full.s9.vatAfterEvasion + full.s8.banking.nbpRemittance + full.s9.exciseAfterEvasion + full.s9.customsDutyRevenue,
+      nplLoss = full.s5.nplLoss,
+      interestIncome = full.s5.intIncome,
+      hhDebtService = full.s6.hhDebtService,
+      totalIncome = full.s3.totalIncome,
+      totalConsumption = full.s3.consumption,
+      newLoans = full.s5.sumNewLoans,
+      nplRecovery = full.s5.nplNew * p.banking.loanRecovery,
+      currentAccount = full.s8.external.newBop.currentAccount,
+      valuationEffect = full.s8.external.oeValuationEffect,
+      bankBondIncome = full.s8.banking.bankBondIncome,
+      qePurchase = full.s8.monetary.qePurchaseAmount,
+      newBondIssuance = if p.flags.govBondMarket then full.s9.actualBondChange else PLN.Zero,
+      depositInterestPaid = full.s6.depositInterestPaid,
+      reserveInterest = full.s8.banking.totalReserveInterest,
+      standingFacilityIncome = full.s8.banking.totalStandingFacilityIncome,
+      interbankInterest = full.s8.banking.totalInterbankInterest,
+      jstDepositChange = full.s9.jstDepositChange,
+      jstSpending = full.s9.newJst.spending,
+      jstRevenue = full.s9.newJst.revenue,
+      zusContributions = full.s2.newZus.contributions,
+      zusPensionPayments = full.s2.newZus.pensionPayments,
+      zusGovSubvention = full.s2.newZus.govSubvention,
+      nfzContributions = full.s2.newNfz.contributions,
+      nfzSpending = full.s2.newNfz.spending,
+      nfzGovSubvention = full.s2.newNfz.govSubvention,
+      dividendIncome = full.s7.netDomesticDividends,
+      foreignDividendOutflow = full.s7.foreignDividendOutflow,
+      dividendTax = full.s7.dividendTax,
+      mortgageInterestIncome = full.s9.mortgageInterestIncome,
+      mortgageNplLoss = full.s9.mortgageDefaultLoss,
+      mortgageOrigination = full.s9.housingAfterFlows.lastOrigination,
+      mortgagePrincipalRepaid = full.s9.mortgagePrincipal,
+      mortgageDefaultAmount = full.s9.mortgageDefaultAmount,
+      remittanceOutflow = full.s6.remittanceOutflow,
+      fofResidual = fofResidual,
+      consumerDebtService = full.s6.consumerDebtService,
+      consumerNplLoss = full.s6.consumerNplLoss,
+      consumerOrigination = full.s6.consumerOrigination,
+      consumerPrincipalRepaid = full.s6.consumerPrincipal,
+      consumerDefaultAmount = full.s6.consumerDefaultAmt,
+      corpBondCouponIncome = full.s8.corpBonds.corpBondBankCoupon,
+      corpBondDefaultLoss = full.s8.corpBonds.corpBondBankDefaultLoss,
+      corpBondIssuance = full.s5.actualBondIssuance,
+      corpBondAmortization = full.s8.corpBonds.corpBondAmort,
+      corpBondDefaultAmount = full.s5.totalBondDefault,
+      insNetDepositChange = full.s8.nonBank.insNetDepositChange,
+      nbfiDepositDrain = full.s8.nonBank.nbfiDepositDrain,
+      nbfiOrigination = full.s9.finalNbfi.lastNbfiOrigination,
+      nbfiRepayment = full.s9.finalNbfi.lastNbfiRepayment,
+      nbfiDefaultAmount = full.s9.finalNbfi.lastNbfiDefaultAmount,
+      fdiProfitShifting = full.s5.sumProfitShifting,
+      fdiRepatriation = full.s5.sumFdiRepatriation,
+      diasporaInflow = full.s6.diasporaInflow,
+      tourismExport = full.s6.tourismExport,
+      tourismImport = full.s6.tourismImport,
+      bfgLevy = full.s9.bfgLevy,
+      bailInLoss = full.s9.bailInLoss,
+      bankCapitalDestruction = full.s9.multiCapDestruction,
+      investNetDepositFlow = full.s9.investNetDepositFlow,
+      firmPrincipalRepaid = full.s5.sumFirmPrincipal,
+      unrealizedBondLoss = full.s9.unrealizedBondLoss,
+      htmRealizedLoss = full.s9.htmRealizedLoss,
+      eclProvisionChange = full.s9.eclProvisionChange,
+    )
 
   /** Full step: compute calculus → emit flows → assemble new World.
     *
@@ -538,5 +619,25 @@ object FlowSimulation:
         migRng = rng,
       ),
     )
+    val sfcFlows  = buildSfcFlows(full, assembled.world.plumbing.fofResidual)
+    val sfcResult = Sfc.validate(
+      prev = runtimeState(w, firms, households, banks),
+      curr = runtimeState(assembled.world, assembled.firms, assembled.households, assembled.banks),
+      flows = sfcFlows,
+      batches = flows,
+      totalWealth = execution.totalWealth,
+      tolerance = PLN(1000.0),
+      nfaTolerance = PLN(1000.0),
+    )
 
-    StepResult(full.calculus, flows, execution, assembled.world, assembled.firms, assembled.households, assembled.banks, assembled.householdAggregates)
+    StepResult(
+      full.calculus,
+      flows,
+      execution,
+      sfcResult,
+      assembled.world,
+      assembled.firms,
+      assembled.households,
+      assembled.banks,
+      assembled.householdAggregates,
+    )

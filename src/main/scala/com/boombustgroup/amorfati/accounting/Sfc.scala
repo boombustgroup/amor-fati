@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.BatchedFlow
 
 /** Stock-flow consistent (SFC) accounting framework for the simulation.
   *
@@ -36,6 +37,14 @@ import com.boombustgroup.amorfati.types.*
   * checked in validate — otherwise the check will fail at runtime.
   */
 object Sfc:
+
+  /** Minimal runtime view needed for stock-side SFC validation. */
+  case class RuntimeState(
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  )
 
   /** Point-in-time snapshot of all monetary stocks in the economy.
     *
@@ -224,6 +233,9 @@ object Sfc:
       tfiGovBondHoldings = w.financial.nbfi.tfiGovBondHoldings,
       nbfiLoanStock = w.financial.nbfi.nbfiLoanStock,
     )
+
+  def snapshot(state: RuntimeState): Snapshot =
+    snapshot(state.world, state.firms, state.households, state.banks)
 
   /** Validate 13 exact balance-sheet identities. Returns `Right(())` if all
     * pass, or `Left(errors)` with every violated identity and its
@@ -421,3 +433,39 @@ object Sfc:
         SfcIdentityError(id, msg, expected, actual)
 
     if errors.isEmpty then Right(()) else Left(errors)
+
+  /** Preferred production API: project stocks from runtime state and combine
+    * them with explicit flow semantics plus independent ledger execution
+    * conservation.
+    */
+  def validate(
+      prev: RuntimeState,
+      curr: RuntimeState,
+      flows: MonthlyFlows,
+      batches: Vector[BatchedFlow],
+      totalWealth: Long,
+      tolerance: PLN,
+      nfaTolerance: PLN,
+  )(using p: SimParams): SfcResult =
+    // In the runtime API, Flow-of-Funds is checked from executed ledger
+    // batches. Keep the stock-side identities from the legacy oracle, but
+    // neutralize the old hand-assembled residual to avoid double-counting the
+    // same concept through two different channels.
+    val baseResult    = validate(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance)
+    val runtimeErrors =
+      if totalWealth == 0L then Vector.empty
+      else
+        Vector(
+          SfcIdentityError(
+            SfcIdentity.FlowOfFunds,
+            s"ledger execution totalWealth=$totalWealth across ${batches.size} batches",
+            expected = PLN.Zero,
+            actual = PLN.fromRaw(totalWealth),
+          ),
+        )
+    merge(baseResult, runtimeErrors)
+
+  private def merge(base: SfcResult, extra: Vector[SfcIdentityError]): SfcResult =
+    val combined = base.left.toOption.getOrElse(Vector.empty) ++ extra
+    if combined.isEmpty then Right(())
+    else Left(combined)
