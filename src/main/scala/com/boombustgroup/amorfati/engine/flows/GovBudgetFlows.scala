@@ -37,6 +37,74 @@ object GovBudgetFlows:
       govCapitalSpend: PLN,
   )
 
+  def emitBatches(input: Input): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.TaxpayerPool,
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        input.taxRevenue,
+        AssetType.Cash,
+        FlowMechanism.GovTaxRevenue,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        input.govPurchases,
+        AssetType.Cash,
+        FlowMechanism.GovPurchases,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Funds,
+        FundIndex.Bondholders,
+        input.debtService,
+        AssetType.Cash,
+        FlowMechanism.GovDebtService,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        input.unempBenefitSpend,
+        AssetType.Cash,
+        FlowMechanism.GovUnempBenefit,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        input.socialTransferSpend,
+        AssetType.Cash,
+        FlowMechanism.GovSocialTransfer,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Firms,
+        FirmIndex.CapitalGoods,
+        input.euCofinancing,
+        AssetType.Cash,
+        FlowMechanism.GovEuCofin,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Firms,
+        FirmIndex.CapitalGoods,
+        input.govCapitalSpend,
+        AssetType.Cash,
+        FlowMechanism.GovCapitalInvestment,
+      ),
+    )
+
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 

@@ -80,7 +80,7 @@ object McRunner:
     val result = engine.flows.FlowSimulation.step(state.world, state.firms, state.households, state.banks, rng)
     // SFC verification: flows through verified interpreter should always be 0L
     val wealth = com.boombustgroup.ledger.Interpreter.totalWealth(
-      com.boombustgroup.ledger.Interpreter.applyAll(Map.empty[Int, Long], result.flows),
+      com.boombustgroup.ledger.Interpreter.applyAll(Map.empty[Int, Long], engine.flows.AggregateBatchContract.toLegacyFlows(result.flows)),
     )
     if wealth != 0L then
       val err = Sfc.SfcIdentityError(Sfc.SfcIdentity.FlowOfFunds, s"Flow SFC: totalWealth=$wealth", PLN.fromRaw(wealth), PLN.Zero)

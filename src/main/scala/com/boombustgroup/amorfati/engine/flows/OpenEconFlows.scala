@@ -31,6 +31,118 @@ object OpenEconFlows:
       capitalFlightOutflow: PLN,
   )
 
+  def emitBatches(input: Input): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        EntitySector.Firms,
+        FirmIndex.DomesticDemand,
+        input.exports,
+        AssetType.Cash,
+        FlowMechanism.TradeExports,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.DomesticDemand,
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        input.imports,
+        AssetType.Cash,
+        FlowMechanism.TradeImports,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        EntitySector.Firms,
+        FirmIndex.DomesticDemand,
+        input.tourismExport,
+        AssetType.Cash,
+        FlowMechanism.TourismExport,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.DomesticDemand,
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        input.tourismImport,
+        AssetType.Cash,
+        FlowMechanism.TourismImport,
+      ),
+      AggregateBatchedEmission
+        .transfer(EntitySector.Foreign, ForeignIndex.Aggregate, EntitySector.Firms, FirmIndex.Aggregate, input.fdi, AssetType.Cash, FlowMechanism.Fdi),
+      if input.portfolioFlows > PLN.Zero then
+        AggregateBatchedEmission.transfer(
+          EntitySector.Foreign,
+          ForeignIndex.Aggregate,
+          EntitySector.Firms,
+          FirmIndex.Aggregate,
+          input.portfolioFlows,
+          AssetType.Cash,
+          FlowMechanism.PortfolioFlow,
+        )
+      else if input.portfolioFlows < PLN.Zero then
+        AggregateBatchedEmission.transfer(
+          EntitySector.Firms,
+          FirmIndex.Aggregate,
+          EntitySector.Foreign,
+          ForeignIndex.Aggregate,
+          -input.portfolioFlows,
+          AssetType.Cash,
+          FlowMechanism.PortfolioFlow,
+        )
+      else Vector.empty,
+      if input.primaryIncome > PLN.Zero then
+        AggregateBatchedEmission.transfer(
+          EntitySector.Foreign,
+          ForeignIndex.Aggregate,
+          EntitySector.Firms,
+          FirmIndex.Aggregate,
+          input.primaryIncome,
+          AssetType.Cash,
+          FlowMechanism.PrimaryIncome,
+        )
+      else if input.primaryIncome < PLN.Zero then
+        AggregateBatchedEmission.transfer(
+          EntitySector.Firms,
+          FirmIndex.Aggregate,
+          EntitySector.Foreign,
+          ForeignIndex.Aggregate,
+          -input.primaryIncome,
+          AssetType.Cash,
+          FlowMechanism.PrimaryIncome,
+        )
+      else Vector.empty,
+      AggregateBatchedEmission.transfer(
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        input.euFunds,
+        AssetType.Cash,
+        FlowMechanism.EuFunds,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        input.diasporaInflow,
+        AssetType.Cash,
+        FlowMechanism.DiasporaInflow,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        input.capitalFlightOutflow,
+        AssetType.Cash,
+        FlowMechanism.CapitalFlight,
+      ),
+    )
+
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 

@@ -22,6 +22,47 @@ object MortgageFlows:
       defaultAmount: PLN,
   )
 
+  def emitBatches(input: Input): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        input.origination,
+        AssetType.MortgageLoan,
+        FlowMechanism.MortgageOrigination,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.principalRepayment,
+        AssetType.MortgageLoan,
+        FlowMechanism.MortgageRepayment,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.interest,
+        AssetType.Cash,
+        FlowMechanism.MortgageInterest,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.defaultAmount,
+        AssetType.MortgageLoan,
+        FlowMechanism.MortgageDefault,
+      ),
+    )
+
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
     if input.origination > PLN.Zero then flows += Flow(BANK_ACCOUNT, HH_ACCOUNT, input.origination.toLong, FlowMechanism.MortgageOrigination.toInt)

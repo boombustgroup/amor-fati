@@ -28,6 +28,69 @@ object EarmarkedFlows:
       avgFirmWorkers: Int,
   )
 
+  def emitBatches(input: Input)(using p: SimParams): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    val fpContrib = input.employed * (input.wage * p.earmarked.fpRate)
+    val fpSpend   = input.unempBenefitSpend + input.employed * p.earmarked.fpAlmpSpendPerWorker
+    val fpDeficit = fpSpend - fpContrib
+
+    val pfronContrib = p.earmarked.pfronMonthlyRevenue
+    val pfronSpend   = p.earmarked.pfronMonthlySpending
+    val pfronDeficit = pfronSpend - pfronContrib
+
+    val fgspContrib = input.employed * (input.wage * p.earmarked.fgspRate)
+    val fgspSpend   = (input.nBankruptFirms * input.avgFirmWorkers) * p.earmarked.fgspPayoutPerWorker
+    val fgspDeficit = fgspSpend - fgspContrib
+
+    Vector.concat(
+      AggregateBatchedEmission
+        .transfer(EntitySector.Households, HouseholdIndex.Aggregate, EntitySector.Funds, FundIndex.Fp, fpContrib, AssetType.Cash, FlowMechanism.FpContribution),
+      AggregateBatchedEmission
+        .transfer(EntitySector.Funds, FundIndex.Fp, EntitySector.Firms, FirmIndex.Services, fpSpend, AssetType.Cash, FlowMechanism.FpSpending),
+      AggregateBatchedEmission
+        .transfer(EntitySector.Government, GovernmentIndex.Budget, EntitySector.Funds, FundIndex.Fp, fpDeficit, AssetType.Cash, FlowMechanism.FpGovSubvention),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Funds,
+        FundIndex.Pfron,
+        pfronContrib,
+        AssetType.Cash,
+        FlowMechanism.PfronContribution,
+      ),
+      AggregateBatchedEmission
+        .transfer(EntitySector.Funds, FundIndex.Pfron, EntitySector.Firms, FirmIndex.Services, pfronSpend, AssetType.Cash, FlowMechanism.PfronSpending),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Funds,
+        FundIndex.Pfron,
+        pfronDeficit,
+        AssetType.Cash,
+        FlowMechanism.PfronGovSubvention,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Funds,
+        FundIndex.Fgsp,
+        fgspContrib,
+        AssetType.Cash,
+        FlowMechanism.FgspContribution,
+      ),
+      AggregateBatchedEmission
+        .transfer(EntitySector.Funds, FundIndex.Fgsp, EntitySector.Firms, FirmIndex.Services, fgspSpend, AssetType.Cash, FlowMechanism.FgspSpending),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Funds,
+        FundIndex.Fgsp,
+        fgspDeficit,
+        AssetType.Cash,
+        FlowMechanism.FgspGovSubvention,
+      ),
+    )
+
   def emit(input: Input)(using p: SimParams): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 

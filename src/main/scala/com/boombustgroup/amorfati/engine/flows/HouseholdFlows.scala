@@ -37,6 +37,92 @@ object HouseholdFlows:
       ccDefault: PLN,
   )
 
+  def emitBatches(input: Input): Vector[BatchedFlow] =
+    import AggregateBatchContract.*
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        input.consumption,
+        AssetType.Cash,
+        FlowMechanism.HhConsumption,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Households,
+        HouseholdIndex.Landlords,
+        input.rent,
+        AssetType.Cash,
+        FlowMechanism.HhRent,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        input.pit,
+        AssetType.Cash,
+        FlowMechanism.HhPit,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.debtService,
+        AssetType.Cash,
+        FlowMechanism.HhDebtService,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        input.depositInterest,
+        AssetType.Cash,
+        FlowMechanism.HhDepositInterest,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Foreign,
+        ForeignIndex.Aggregate,
+        input.remittances,
+        AssetType.Cash,
+        FlowMechanism.HhRemittance,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        input.ccOrigination,
+        AssetType.ConsumerLoan,
+        FlowMechanism.HhCcOrigination,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.ccDebtService,
+        AssetType.ConsumerLoan,
+        FlowMechanism.HhCcDebtService,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.ccDefault,
+        AssetType.ConsumerLoan,
+        FlowMechanism.HhCcDefault,
+      ),
+    )
+
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 
