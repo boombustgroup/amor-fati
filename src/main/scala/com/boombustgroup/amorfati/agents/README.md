@@ -4,8 +4,8 @@ The agents package contains every autonomous agent in the SFC-ABM model.
 Each agent is an `object` with a nested `case class State` and pure functions
 that transform state. No mutable fields — state transitions produce new immutable instances.
 
-All agents that modify monetary stocks participate in the 14-identity
-SFC accounting check (see `com.boombustgroup.amorfati.accounting.Sfc`).
+All agents that modify monetary stocks participate in the 13-identity
+SFC accounting check.
 
 ## Agents
 

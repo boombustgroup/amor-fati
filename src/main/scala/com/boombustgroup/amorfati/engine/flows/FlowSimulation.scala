@@ -12,9 +12,6 @@ import scala.util.Random
 
 /** New flow-based simulation pipeline.
   *
-  * Contract-First Design: shaped by the 14 flow mechanism Input contracts, not
-  * by old step code.
-  *
   * Three stages per month:
   *   1. CALCULUS — pure economics (CES, Phillips, Taylor, Meen, Calvo)
   *   2. TRANSLATION — map calculus results to flow mechanism inputs
