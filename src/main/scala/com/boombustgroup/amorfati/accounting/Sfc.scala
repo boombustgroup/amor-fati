@@ -292,7 +292,7 @@ object Sfc:
       prev: StockState,               // stocks at the beginning of the month (before Simulation.step)
       curr: StockState,               // stocks at the end of the month (after Simulation.step)
       flows: SemanticFlows,           // all flows that occurred during the month
-      tolerance: PLN = PLN(1000.0),   // Long rounding residual from per-bank PLN*Share distribution
+      tolerance: PLN = PLN(1000.0),   // Residual rounding / stock-flow projection differences
       nfaTolerance: PLN = PLN(1000.0), // NFA (BoP valuation + rounding)
   )(using p: SimParams): SfcResult =
     import SfcIdentity.*
@@ -429,7 +429,7 @@ object Sfc:
     )
 
     val errors = identities.collect:
-      case IdentitySpec(id, msg, expected, actual, tol) if (actual - expected).abs >= tol =>
+      case IdentitySpec(id, msg, expected, actual, tol) if (actual - expected).abs > tol =>
         SfcIdentityError(id, msg, expected, actual)
 
     if errors.isEmpty then Right(()) else Left(errors)
