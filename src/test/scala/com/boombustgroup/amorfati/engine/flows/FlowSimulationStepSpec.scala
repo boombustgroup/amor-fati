@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
-import com.boombustgroup.ledger.*
+import com.boombustgroup.ledger.{ImperativeInterpreter, Interpreter}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -14,7 +14,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val init   = WorldInit.initialize(42L)
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
-    Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(result.flows))).shouldBe(0L)
+    result.execution.totalWealth shouldBe 0L
     result.calculus.employed should be > 0
   }
 
@@ -29,7 +29,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       val rng    = new scala.util.Random(42L * 1000 + month)
       val result = FlowSimulation.step(w, firms, hh, banks, rng)
       withClue(s"Month $month: ") {
-        Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(result.flows))).shouldBe(0L)
+        result.execution.totalWealth shouldBe 0L
       }
       w = result.newWorld
       firms = result.newFirms
@@ -43,4 +43,16 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
     result.flows.map(_.mechanism).toSet.size should be > 30
+  }
+
+  it should "match the legacy pure interpreter on aggregate execution balances" in {
+    val init   = WorldInit.initialize(42L)
+    val rng    = new scala.util.Random(42L)
+    val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
+    val state  = AggregateBatchContract.emptyExecutionState()
+
+    ImperativeInterpreter.planAndApplyAll(state, result.flows) shouldBe Right(())
+    AggregateBatchContract.totalWealth(state) shouldBe Interpreter.totalWealth(
+      Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(result.flows)),
+    )
   }

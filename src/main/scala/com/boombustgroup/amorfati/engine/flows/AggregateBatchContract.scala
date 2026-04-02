@@ -84,6 +84,15 @@ object AggregateBatchContract:
         case ((acc, next), sector) => (acc.updated(sector, next), next + sectorSizes(sector))
       ._1
 
+  def emptyExecutionState(): MutableWorldState =
+    new MutableWorldState(sectorSizes)
+
+  def totalWealth(snapshot: Map[(EntitySector, AssetType, Int), Long]): Long =
+    snapshot.valuesIterator.sum
+
+  def totalWealth(state: MutableWorldState): Long =
+    totalWealth(state.snapshot)
+
   def toLegacyFlows(batches: Vector[BatchedFlow]): Vector[Flow] =
     batches.flatMap(toLegacyFlows)
 

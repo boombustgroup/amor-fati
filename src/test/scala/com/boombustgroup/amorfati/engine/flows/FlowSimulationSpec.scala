@@ -2,7 +2,6 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
-import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -23,7 +22,8 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
     val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
     val flows  = FlowSimulation.emitAllBatches(result.calculus)
 
-    Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(flows))) shouldBe 0L
+    result.execution.totalWealth shouldBe 0L
+    AggregateBatchContract.totalTransferred(flows) should be > 0L
   }
 
   it should "preserve SFC across 12 months" in {
@@ -39,7 +39,8 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
       val flows  = FlowSimulation.emitAllBatches(result.calculus)
 
       withClue(s"Month $month: ") {
-        Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(flows))) shouldBe 0L
+        result.execution.totalWealth shouldBe 0L
+        AggregateBatchContract.totalTransferred(flows) should be > 0L
       }
 
       w = result.newWorld
@@ -55,5 +56,6 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
     val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
     val flows  = FlowSimulation.emitAllBatches(result.calculus)
 
+    result.execution.totalWealth shouldBe 0L
     flows.map(_.mechanism).toSet.size should be > 30
   }

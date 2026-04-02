@@ -78,10 +78,7 @@ object McRunner:
   private def stepMonth(state: FlowSimulation.SimState, seed: Long, month: Int)(using p: SimParams) =
     val rng    = new scala.util.Random(seed * 10000 + month)
     val result = engine.flows.FlowSimulation.step(state.world, state.firms, state.households, state.banks, rng)
-    // SFC verification: flows through verified interpreter should always be 0L
-    val wealth = com.boombustgroup.ledger.Interpreter.totalWealth(
-      com.boombustgroup.ledger.Interpreter.applyAll(Map.empty[Int, Long], engine.flows.AggregateBatchContract.toLegacyFlows(result.flows)),
-    )
+    val wealth = result.execution.totalWealth
     if wealth != 0L then
       val err = Sfc.SfcIdentityError(Sfc.SfcIdentity.FlowOfFunds, s"Flow SFC: totalWealth=$wealth", PLN.fromRaw(wealth), PLN.Zero)
       Left(SimError.SfcViolation(month + 1, Vector(err)))
