@@ -386,6 +386,7 @@ object WorldAssemblyEconomics:
       bankingSector = in.s9.bankingMarket,
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
+      householdMarket = HouseholdMarketState.fromAggregates(in.s9.finalHhAgg),
       hhAgg = in.s9.finalHhAgg,
       social = SocialState(
         jst = in.s9.newJst,

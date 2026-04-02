@@ -84,7 +84,7 @@ object LaborEconomics:
     val newDemographics = SocialSecurity.demographicsStep(w.social.demographics, cleared.employed, netMigration)
 
     // Wage growth
-    val wageGrowth = wageGrowthFrom(w.hhAgg.marketWage, cleared.wage)
+    val wageGrowth = wageGrowthFrom(w.householdMarket.marketWage, cleared.wage)
 
     val nBankrupt  = firms.length - living.length
     val avgWorkers = if living.nonEmpty then laborDemand / living.length else 0
@@ -130,7 +130,7 @@ object LaborEconomics:
       newWage = cleared.wage,
       employed = employedCap,
       laborDemand = postLaborDemand,
-      wageGrowth = Coefficient(wageGrowthFrom(w.hhAgg.marketWage, cleared.wage)),
+      wageGrowth = Coefficient(wageGrowthFrom(w.householdMarket.marketWage, cleared.wage)),
       aggregateHiringSlack = aggregateHiringSlackFactor(postLaborDemand, postAvailableLabor),
       living = postLiving,
       regionalWages = cleared.regionalWages,
@@ -149,7 +149,7 @@ object LaborEconomics:
         val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, resWage, laborDemand, w.derivedTotalPopulation)
         (toDouble(rc.nationalWage), natEmployed, rc.regionalWages)
       else
-        val wageResult = LaborMarket.updateLaborMarket(w.hhAgg.marketWage, resWage, laborDemand, w.derivedTotalPopulation)
+        val wageResult = LaborMarket.updateLaborMarket(w.householdMarket.marketWage, resWage, laborDemand, w.derivedTotalPopulation)
         (toDouble(wageResult.wage), wageResult.employed, w.regionalWages)
 
     val wageAfterExp =
@@ -161,10 +161,10 @@ object LaborEconomics:
       else rawWage
 
     val newWage =
-      if p.flags.unions && wageAfterExp < toDouble(w.hhAgg.marketWage) then
+      if p.flags.unions && wageAfterExp < toDouble(w.householdMarket.marketWage) then
         val aggDensity =
           p.sectorDefs.zipWithIndex.map((s, i) => toDouble(s.share) * toDouble(p.labor.unionDensity(i))).sum
-        val decline    = toDouble(w.hhAgg.marketWage) - wageAfterExp
+        val decline    = toDouble(w.householdMarket.marketWage) - wageAfterExp
         Math.max(toDouble(resWage), wageAfterExp + decline * toDouble(p.labor.unionRigidity) * aggDensity)
       else wageAfterExp
 

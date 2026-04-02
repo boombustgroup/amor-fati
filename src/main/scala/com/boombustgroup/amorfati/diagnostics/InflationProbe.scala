@@ -77,11 +77,11 @@ object InflationProbe:
       val fiscal            = FiscalConstraintEconomics.compute(world, banks)
       val s1                = FiscalConstraintEconomics.toOutput(fiscal)
       val labor             = LaborEconomics.compute(world, firms, hhs, s1)
-      val prevWage          = toDouble(world.hhAgg.marketWage)
+      val prevWage          = toDouble(world.householdMarket.marketWage)
       val rawLaborWage      =
         if summon[SimParams].flags.regionalLabor then
           toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
-        else toDouble(LaborMarket.updateLaborMarket(world.hhAgg.marketWage, s1.resWage, labor.laborDemand, population).wage)
+        else toDouble(LaborMarket.updateLaborMarket(world.householdMarket.marketWage, s1.resWage, labor.laborDemand, population).wage)
       val target            = toDouble(summon[SimParams].monetary.targetInfl)
       val expWagePressure   =
         if summon[SimParams].flags.expectations then
@@ -98,7 +98,7 @@ object InflationProbe:
           val decline = prevWage - wageAfterExp
           Math.max(toDouble(s1.resWage), wageAfterExp + decline * toDouble(summon[SimParams].labor.unionRigidity) * aggUnionDensity)
         else wageAfterExp
-      val supplyAtPrev      = laborSupplyCount(world.hhAgg.marketWage, s1.resWage, population)
+      val supplyAtPrev      = laborSupplyCount(world.householdMarket.marketWage, s1.resWage, population)
       val newSupply         = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, population)
       val excessDemand      = (labor.laborDemand - supplyAtPrev).toDouble / population
       val phillipsGrowth    = if prevWage > 0.0 then rawLaborWage / prevWage - 1.0 else 0.0

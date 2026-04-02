@@ -87,6 +87,10 @@ object WorldInit:
         tradeBalance = PLN.Zero,
         techImports = PLN.Zero,
       ),
+      householdMarket = HouseholdMarketState(
+        marketWage = p.household.baseWage,
+        reservationWage = p.household.baseReservationWage,
+      ),
       hhAgg = Household.Aggregates(
         employed = initEmployed,
         unemployed = initUnemployed,

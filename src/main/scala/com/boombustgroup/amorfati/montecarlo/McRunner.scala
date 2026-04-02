@@ -174,7 +174,7 @@ object McRunner:
   private def writeHhCsv(rc: McRunConfig, results: zio.Chunk[(Long, RunResult)]) =
     ZIO.attemptBlocking:
       val rows = results.map: (seed, r) =>
-        val agg = r.terminalState.world.hhAgg
+        val agg = r.terminalState.world.cachedHouseholdAggregates
         s"$seed;" + hhSchema.map(_._2(agg)).mkString(";")
       CsvWriter.write(new File("mc", s"${filePrefix(rc)}_hh.csv"), hhHeader, rows)(identity)
 

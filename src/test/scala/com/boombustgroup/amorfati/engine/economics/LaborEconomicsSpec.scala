@@ -20,7 +20,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
   private val s1 = FiscalConstraintEconomics.Output(
     m = 1,
     lendingBaseRate = world.nbp.referenceRate,
-    resWage = world.hhAgg.reservationWage,
+    resWage = world.householdMarket.reservationWage,
     baseMinWage = world.gov.minWageLevel,
     updatedMinWagePriceLevel = world.priceLevel,
   )

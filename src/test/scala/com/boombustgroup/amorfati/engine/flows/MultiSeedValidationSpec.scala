@@ -56,7 +56,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
         banks = result.newBanks
       }
 
-      val unemp = w.hhAgg.unemploymentRate(w.derivedTotalPopulation)
+      val unemp = w.cachedHouseholdAggregates.unemploymentRate(w.derivedTotalPopulation)
       withClue(s"Seed $seed unemployment=$unemp: ") {
         unemp should be >= 0.03
         unemp should be <= 0.97

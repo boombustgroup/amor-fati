@@ -49,7 +49,7 @@ object FiscalConstraintEconomics:
           if p.fiscal.minWageInflationIndex && w.gov.minWagePriceLevel > 0 then w.priceLevel / w.gov.minWagePriceLevel - 1.0
           else 0.0
         val inflIndexed = toDouble(w.gov.minWageLevel) * (1.0 + Math.max(0.0, cumInfl))
-        val target      = toDouble(w.hhAgg.marketWage) * toDouble(p.fiscal.minWageTargetRatio)
+        val target      = toDouble(w.householdMarket.marketWage) * toDouble(p.fiscal.minWageTargetRatio)
         val gap         = target - inflIndexed
         val adjusted    =
           if gap > 0 then inflIndexed + gap * toDouble(p.fiscal.minWageConvergenceSpeed)
