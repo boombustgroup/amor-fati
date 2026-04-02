@@ -43,8 +43,8 @@ object InterbankContagion:
     * borrower.
     */
   def buildExposureMatrix(banks: Vector[Banking.BankState]): ExposureMatrix =
-    val n        = banks.length
-    val nets     = banks.map(_.interbankNet)
+    val n         = banks.length
+    val nets      = banks.map(_.interbankNet)
     val borrowers = nets.indices.filter(i => nets(i) < PLN.Zero).toVector
     val weights   = borrowers.map(i => (-nets(i)).toLong)
     if borrowers.isEmpty then Vector.fill(n)(Vector.fill(n)(PLN.Zero))
