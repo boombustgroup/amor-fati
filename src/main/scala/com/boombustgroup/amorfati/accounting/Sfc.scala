@@ -46,14 +46,14 @@ object Sfc:
       banks: Vector[Banking.BankState],
   )
 
-  /** Point-in-time snapshot of all monetary stocks in the economy.
+  /** Point-in-time stock state for SFC validation.
     *
     * Captured twice per month (before and after Simulation.step) so that
     * validate can compute Δstock = curr - prev for each identity. Fields
     * corresponding to disabled mechanisms are simply zero — the identity holds
     * trivially in that case.
     */
-  case class Snapshot(
+  case class StockState(
       hhSavings: PLN,                // Σ household savings (individual mode only, 0 in aggregate)
       hhDebt: PLN,                   // Σ household debt (individual mode only, 0 in aggregate)
       firmCash: PLN,                 // Σ firm cash holdings
@@ -81,7 +81,9 @@ object Sfc:
       nbfiLoanStock: PLN,            // NBFI credit stock
   )
 
-  /** All monetary flows observed during a single simulated month.
+  type Snapshot = StockState
+
+  /** Semantic monthly flow evidence used by the SFC oracle.
     *
     * These values are assembled in WorldAssemblyEconomics from the intermediate
     * results of Simulation.step. They must match the '''exact''' values used in
@@ -89,7 +91,7 @@ object Sfc:
     * SfcIdentityError. Flows for disabled mechanisms are simply zero, so the
     * corresponding identity holds trivially.
     */
-  case class MonthlyFlows(
+  case class SemanticFlows(
       govSpending: PLN,             // total budget expenditure (benefits + transfers + current spend + domestic capital spend + debt service + subventions + domestic EU co-financing)
       govRevenue: PLN,              // total gov revenue (CIT + PIT + VAT + excise + customs + dividend tax + NBP remittance)
       nplLoss: PLN,                 // bank NPL write-off loss (firm loans, after recovery)
@@ -156,6 +158,200 @@ object Sfc:
       htmRealizedLoss: PLN,         // realized loss from HTM forced reclassification (HTM reclassification channel)
       eclProvisionChange: PLN,      // IFRS 9 ECL provision change (positive = additional provision → capital hit)
   )
+
+  type MonthlyFlows = SemanticFlows
+
+  object Snapshot:
+    def apply(
+        hhSavings: PLN,
+        hhDebt: PLN,
+        firmCash: PLN,
+        firmDebt: PLN,
+        bankCapital: PLN,
+        bankDeposits: PLN,
+        bankLoans: PLN,
+        govDebt: PLN,
+        nfa: PLN,
+        bankBondHoldings: PLN,
+        nbpBondHoldings: PLN,
+        bondsOutstanding: PLN,
+        interbankNetSum: PLN,
+        jstDeposits: PLN,
+        jstDebt: PLN,
+        fusBalance: PLN,
+        nfzBalance: PLN,
+        foreignBondHoldings: PLN,
+        ppkBondHoldings: PLN,
+        mortgageStock: PLN,
+        consumerLoans: PLN,
+        corpBondsOutstanding: PLN,
+        insuranceGovBondHoldings: PLN,
+        tfiGovBondHoldings: PLN,
+        nbfiLoanStock: PLN,
+    ): Snapshot =
+      StockState(
+        hhSavings,
+        hhDebt,
+        firmCash,
+        firmDebt,
+        bankCapital,
+        bankDeposits,
+        bankLoans,
+        govDebt,
+        nfa,
+        bankBondHoldings,
+        nbpBondHoldings,
+        bondsOutstanding,
+        interbankNetSum,
+        jstDeposits,
+        jstDebt,
+        fusBalance,
+        nfzBalance,
+        foreignBondHoldings,
+        ppkBondHoldings,
+        mortgageStock,
+        consumerLoans,
+        corpBondsOutstanding,
+        insuranceGovBondHoldings,
+        tfiGovBondHoldings,
+        nbfiLoanStock,
+      )
+
+  object MonthlyFlows:
+    def apply(
+        govSpending: PLN,
+        govRevenue: PLN,
+        nplLoss: PLN,
+        interestIncome: PLN,
+        hhDebtService: PLN,
+        totalIncome: PLN,
+        totalConsumption: PLN,
+        newLoans: PLN,
+        nplRecovery: PLN,
+        currentAccount: PLN,
+        valuationEffect: PLN,
+        bankBondIncome: PLN,
+        qePurchase: PLN,
+        newBondIssuance: PLN,
+        depositInterestPaid: PLN,
+        reserveInterest: PLN,
+        standingFacilityIncome: PLN,
+        interbankInterest: PLN,
+        jstDepositChange: PLN,
+        jstSpending: PLN,
+        jstRevenue: PLN,
+        zusContributions: PLN,
+        zusPensionPayments: PLN,
+        zusGovSubvention: PLN,
+        nfzContributions: PLN,
+        nfzSpending: PLN,
+        nfzGovSubvention: PLN,
+        dividendIncome: PLN,
+        foreignDividendOutflow: PLN,
+        dividendTax: PLN,
+        mortgageInterestIncome: PLN,
+        mortgageNplLoss: PLN,
+        mortgageOrigination: PLN,
+        mortgagePrincipalRepaid: PLN,
+        mortgageDefaultAmount: PLN,
+        remittanceOutflow: PLN,
+        fofResidual: PLN,
+        consumerDebtService: PLN,
+        consumerNplLoss: PLN,
+        consumerOrigination: PLN,
+        consumerPrincipalRepaid: PLN,
+        consumerDefaultAmount: PLN,
+        corpBondCouponIncome: PLN,
+        corpBondDefaultLoss: PLN,
+        corpBondIssuance: PLN,
+        corpBondAmortization: PLN,
+        corpBondDefaultAmount: PLN,
+        insNetDepositChange: PLN,
+        nbfiDepositDrain: PLN,
+        nbfiOrigination: PLN,
+        nbfiRepayment: PLN,
+        nbfiDefaultAmount: PLN,
+        fdiProfitShifting: PLN,
+        fdiRepatriation: PLN,
+        diasporaInflow: PLN,
+        tourismExport: PLN,
+        tourismImport: PLN,
+        bfgLevy: PLN,
+        bailInLoss: PLN,
+        bankCapitalDestruction: PLN,
+        investNetDepositFlow: PLN,
+        firmPrincipalRepaid: PLN,
+        unrealizedBondLoss: PLN,
+        htmRealizedLoss: PLN,
+        eclProvisionChange: PLN,
+    ): MonthlyFlows =
+      SemanticFlows(
+        govSpending,
+        govRevenue,
+        nplLoss,
+        interestIncome,
+        hhDebtService,
+        totalIncome,
+        totalConsumption,
+        newLoans,
+        nplRecovery,
+        currentAccount,
+        valuationEffect,
+        bankBondIncome,
+        qePurchase,
+        newBondIssuance,
+        depositInterestPaid,
+        reserveInterest,
+        standingFacilityIncome,
+        interbankInterest,
+        jstDepositChange,
+        jstSpending,
+        jstRevenue,
+        zusContributions,
+        zusPensionPayments,
+        zusGovSubvention,
+        nfzContributions,
+        nfzSpending,
+        nfzGovSubvention,
+        dividendIncome,
+        foreignDividendOutflow,
+        dividendTax,
+        mortgageInterestIncome,
+        mortgageNplLoss,
+        mortgageOrigination,
+        mortgagePrincipalRepaid,
+        mortgageDefaultAmount,
+        remittanceOutflow,
+        fofResidual,
+        consumerDebtService,
+        consumerNplLoss,
+        consumerOrigination,
+        consumerPrincipalRepaid,
+        consumerDefaultAmount,
+        corpBondCouponIncome,
+        corpBondDefaultLoss,
+        corpBondIssuance,
+        corpBondAmortization,
+        corpBondDefaultAmount,
+        insNetDepositChange,
+        nbfiDepositDrain,
+        nbfiOrigination,
+        nbfiRepayment,
+        nbfiDefaultAmount,
+        fdiProfitShifting,
+        fdiRepatriation,
+        diasporaInflow,
+        tourismExport,
+        tourismImport,
+        bfgLevy,
+        bailInLoss,
+        bankCapitalDestruction,
+        investNetDepositFlow,
+        firmPrincipalRepaid,
+        unrealizedBondLoss,
+        htmRealizedLoss,
+        eclProvisionChange,
+      )
 
   /** Enumeration of the 13 balance-sheet identities checked each month. Used as
     * a discriminator in SfcIdentityError so callers can programmatically
