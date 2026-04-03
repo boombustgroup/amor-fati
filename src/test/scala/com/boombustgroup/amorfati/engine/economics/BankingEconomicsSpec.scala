@@ -106,28 +106,28 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   "BankingEconomics.distributeFxInjection" should "distribute exact positive injection by non-negative deposit weights" in {
-    val banks   = Vector(
+    val banks  = Vector(
       initBank(0, deposits = PLN(600.0), reserves = PLN(10.0)),
       initBank(1, deposits = PLN(400.0), reserves = PLN(20.0)),
     )
-    val result  = BankingEconomics.distributeFxInjection(banks, PLN(101.0))
-    val delta0  = result(0).reservesAtNbp - banks(0).reservesAtNbp
-    val delta1  = result(1).reservesAtNbp - banks(1).reservesAtNbp
+    val result = BankingEconomics.distributeFxInjection(banks, PLN(101.0))
+    val delta0 = result(0).reservesAtNbp - banks(0).reservesAtNbp
+    val delta1 = result(1).reservesAtNbp - banks(1).reservesAtNbp
     delta0.toLong + delta1.toLong shouldBe PLN(101.0).toLong
     delta0 shouldBe PLN(60.6)
     delta1 shouldBe PLN(40.4)
   }
 
   it should "treat negative deposits as zero weight during PLN drain" in {
-    val banks   = Vector(
+    val banks  = Vector(
       initBank(0, deposits = PLN(-50.0), reserves = PLN(30.0)),
       initBank(1, deposits = PLN(100.0), reserves = PLN(50.0)),
       initBank(2, deposits = PLN(300.0), reserves = PLN(90.0)),
     )
-    val result  = BankingEconomics.distributeFxInjection(banks, PLN(-40.0))
-    val delta0  = result(0).reservesAtNbp - banks(0).reservesAtNbp
-    val delta1  = result(1).reservesAtNbp - banks(1).reservesAtNbp
-    val delta2  = result(2).reservesAtNbp - banks(2).reservesAtNbp
+    val result = BankingEconomics.distributeFxInjection(banks, PLN(-40.0))
+    val delta0 = result(0).reservesAtNbp - banks(0).reservesAtNbp
+    val delta1 = result(1).reservesAtNbp - banks(1).reservesAtNbp
+    val delta2 = result(2).reservesAtNbp - banks(2).reservesAtNbp
     delta0 shouldBe PLN.Zero
     delta1.toLong + delta2.toLong shouldBe PLN(-40.0).toLong
     delta1 shouldBe PLN(-10.0)
