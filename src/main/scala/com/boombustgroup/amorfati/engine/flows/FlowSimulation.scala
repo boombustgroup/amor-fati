@@ -574,7 +574,7 @@ object FlowSimulation:
       foreignDividendOutflow = full.s7.foreignDividendOutflow,
       dividendTax = full.s7.dividendTax,
       mortgageInterestIncome = evidence.amount(FlowMechanism.MortgageInterest),
-      mortgageNplLoss = full.s9.mortgageDefaultLoss,
+      mortgageNplLoss = evidence.amount(FlowMechanism.MortgageDefault) * (Share.One - p.housing.mortgageRecovery),
       mortgageOrigination = evidence.amount(FlowMechanism.MortgageOrigination),
       mortgagePrincipalRepaid = evidence.amount(FlowMechanism.MortgageRepayment),
       mortgageDefaultAmount = evidence.amount(FlowMechanism.MortgageDefault),
