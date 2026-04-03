@@ -337,8 +337,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   "Banking.State.aggregate" should "sum all individual bank values" in {
     val bs  = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
     val agg = bs.aggregate
-    td.toDouble(agg.deposits) shouldBe 1000000.0 +- 0.01
-    td.toDouble(agg.capital) shouldBe 100000.0 +- 0.01
+    agg.deposits shouldBe PLN(1000000.0)
+    agg.capital shouldBe PLN(100000.0)
     agg.totalLoans shouldBe PLN.Zero
   }
 
@@ -346,9 +346,9 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   "BankState.govBondHoldings" should "equal afsBonds + htmBonds" in {
     val b = mkBank(govBondHoldings = PLN(10000.0))
-    td.toDouble(b.govBondHoldings) shouldBe 10000.0 +- 0.01
-    td.toDouble(b.afsBonds) shouldBe 4000.0 +- 0.01
-    td.toDouble(b.htmBonds) shouldBe 6000.0 +- 0.01
+    b.govBondHoldings shouldBe PLN(10000.0)
+    b.afsBonds shouldBe PLN(4000.0)
+    b.htmBonds shouldBe PLN(6000.0)
   }
 
   "allocateBonds" should "split new issuance per htmShare" in {
@@ -506,7 +506,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     val yieldGap     = 0.08 - 0.04
     val duration     = 4.5
     val expectedLoss = reclassified * duration * yieldGap // 1e7 * 4.5 * 0.04 = 1.8e6
-    td.toDouble(result.totalRealizedLoss) shouldBe expectedLoss +- 1.0
+    result.totalRealizedLoss shouldBe PLN(expectedLoss)
     // Total govBondHoldings unchanged
     td.toDouble(result.banks(0).govBondHoldings) shouldBe td.toDouble(stressedBank.govBondHoldings) +- 0.01
     // HTM decreased, AFS increased
