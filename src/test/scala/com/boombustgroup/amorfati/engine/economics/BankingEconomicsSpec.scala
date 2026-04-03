@@ -129,7 +129,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val delta1 = result(1).reservesAtNbp - banks(1).reservesAtNbp
     val delta2 = result(2).reservesAtNbp - banks(2).reservesAtNbp
     delta0 shouldBe PLN.Zero
-    delta1.toLong + delta2.toLong shouldBe PLN(-40.0).toLong
+    delta1 + delta2 shouldBe PLN(-40.0)
     delta1 shouldBe PLN(-10.0)
     delta2 shouldBe PLN(-30.0)
   }
