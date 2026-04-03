@@ -160,17 +160,18 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
         fpCash = PLN(214),
         pfronCash = PLN(215),
         fgspCash = PLN(216),
+        jstCash = PLN(217),
         nbfi = LedgerStateAdapter.NbfiFundBalances(
-          tfiUnit = PLN(217),
-          govBondHoldings = PLN(218),
-          corpBondHoldings = PLN(219),
-          equityHoldings = PLN(220),
-          cashHoldings = PLN(221),
-          nbfiLoanStock = PLN(222),
+          tfiUnit = PLN(218),
+          govBondHoldings = PLN(219),
+          corpBondHoldings = PLN(220),
+          equityHoldings = PLN(221),
+          cashHoldings = PLN(222),
+          nbfiLoanStock = PLN(223),
         ),
         quasiFiscal = LedgerStateAdapter.QuasiFiscalBalances(
-          bondsOutstanding = PLN(223),
-          loanPortfolio = PLN(224),
+          bondsOutstanding = PLN(224),
+          loanPortfolio = PLN(225),
         ),
       ),
     )
@@ -185,13 +186,13 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     updated.nbp.fxReserves shouldBe PLN(204)
     updated.nbp.qeCumulative shouldBe PLN(105)
 
+    updated.social.jst.deposits shouldBe PLN(217)
     updated.social.zus.fusBalance shouldBe PLN(210)
     updated.social.nfz.balance shouldBe PLN(211)
     updated.social.ppk.bondHoldings shouldBe PLN(212)
     updated.social.earmarked.fpBalance shouldBe PLN(214)
     updated.social.earmarked.pfronBalance shouldBe PLN(215)
     updated.social.earmarked.fgspBalance shouldBe PLN(216)
-    updated.social.jst.deposits shouldBe PLN(107)
     updated.social.jst.debt shouldBe PLN(108)
 
     updated.financial.corporateBonds.bankHoldings shouldBe PLN(18)
@@ -205,15 +206,15 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     updated.financial.insurance.corpBondHoldings shouldBe PLN(208)
     updated.financial.insurance.equityHoldings shouldBe PLN(209)
 
-    updated.financial.nbfi.tfiAum shouldBe PLN(217)
-    updated.financial.nbfi.tfiGovBondHoldings shouldBe PLN(218)
-    updated.financial.nbfi.tfiCorpBondHoldings shouldBe PLN(219)
-    updated.financial.nbfi.tfiEquityHoldings shouldBe PLN(220)
-    updated.financial.nbfi.tfiCashHoldings shouldBe PLN(221)
-    updated.financial.nbfi.nbfiLoanStock shouldBe PLN(222)
+    updated.financial.nbfi.tfiAum shouldBe PLN(218)
+    updated.financial.nbfi.tfiGovBondHoldings shouldBe PLN(219)
+    updated.financial.nbfi.tfiCorpBondHoldings shouldBe PLN(220)
+    updated.financial.nbfi.tfiEquityHoldings shouldBe PLN(221)
+    updated.financial.nbfi.tfiCashHoldings shouldBe PLN(222)
+    updated.financial.nbfi.nbfiLoanStock shouldBe PLN(223)
 
-    updated.financial.quasiFiscal.bondsOutstanding shouldBe PLN(223)
-    updated.financial.quasiFiscal.loanPortfolio shouldBe PLN(224)
+    updated.financial.quasiFiscal.bondsOutstanding shouldBe PLN(224)
+    updated.financial.quasiFiscal.loanPortfolio shouldBe PLN(225)
     updated.financial.quasiFiscal.bankHoldings shouldBe PLN(131)
     updated.financial.quasiFiscal.nbpHoldings shouldBe PLN(132)
   }

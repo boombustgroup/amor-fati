@@ -4,7 +4,9 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
 /** Local government (JST / samorządy). JST receives PIT/CIT shares, property
-  * tax, subventions/dotacje. JST deposits sit in commercial banks.
+  * tax, subventions/dotacje. JST deposits sit in commercial banks and are
+  * ledger-coverable cash balances; JST debt remains a cumulative fiscal metric
+  * in the current model.
   */
 object Jst:
 
@@ -12,8 +14,8 @@ object Jst:
   private val FallbackPitRate = 0.12
 
   case class State(
-      deposits: PLN, // JST deposits in commercial banks
-      debt: PLN,     // cumulative JST debt
+      deposits: PLN, // JST deposits in commercial banks (ledger-coverable cash balance)
+      debt: PLN,     // cumulative JST debt metric (not yet represented as a holder-tracked instrument)
       revenue: PLN,  // this month's revenue
       spending: PLN, // this month's spending
       deficit: PLN,  // spending − revenue (positive = deficit)
