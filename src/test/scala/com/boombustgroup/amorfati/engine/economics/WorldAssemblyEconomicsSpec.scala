@@ -112,7 +112,20 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     )
     val supported = LedgerStateAdapter.SupportedFinancialSnapshot(
       households = Vector.empty,
-      firms = Vector.empty,
+      firms = Vector(
+        LedgerStateAdapter.FirmBalances(
+          cash = PLN.Zero,
+          firmLoan = PLN.Zero,
+          corpBond = PLN(301),
+          equity = PLN.Zero,
+        ),
+        LedgerStateAdapter.FirmBalances(
+          cash = PLN.Zero,
+          firmLoan = PLN.Zero,
+          corpBond = PLN(302),
+          equity = PLN.Zero,
+        ),
+      ),
       banks = Vector(
         LedgerStateAdapter.BankBalances(
           totalDeposits = PLN.Zero,
@@ -161,17 +174,18 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
         pfronCash = PLN(215),
         fgspCash = PLN(216),
         jstCash = PLN(217),
+        corpBondOtherHoldings = PLN(218),
         nbfi = LedgerStateAdapter.NbfiFundBalances(
-          tfiUnit = PLN(218),
-          govBondHoldings = PLN(219),
-          corpBondHoldings = PLN(220),
-          equityHoldings = PLN(221),
-          cashHoldings = PLN(222),
-          nbfiLoanStock = PLN(223),
+          tfiUnit = PLN(219),
+          govBondHoldings = PLN(220),
+          corpBondHoldings = PLN(221),
+          equityHoldings = PLN(222),
+          cashHoldings = PLN(223),
+          nbfiLoanStock = PLN(224),
         ),
         quasiFiscal = LedgerStateAdapter.QuasiFiscalBalances(
-          bondsOutstanding = PLN(224),
-          loanPortfolio = PLN(225),
+          bondsOutstanding = PLN(225),
+          loanPortfolio = PLN(226),
         ),
       ),
     )
@@ -197,8 +211,8 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
     updated.financial.corporateBonds.bankHoldings shouldBe PLN(18)
     updated.financial.corporateBonds.ppkHoldings shouldBe PLN(213)
-    updated.financial.corporateBonds.outstanding shouldBe PLN(115)
-    updated.financial.corporateBonds.otherHoldings shouldBe PLN(118)
+    updated.financial.corporateBonds.outstanding shouldBe PLN(603)
+    updated.financial.corporateBonds.otherHoldings shouldBe PLN(218)
 
     updated.financial.insurance.lifeReserves shouldBe PLN(205)
     updated.financial.insurance.nonLifeReserves shouldBe PLN(206)
@@ -206,15 +220,15 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     updated.financial.insurance.corpBondHoldings shouldBe PLN(208)
     updated.financial.insurance.equityHoldings shouldBe PLN(209)
 
-    updated.financial.nbfi.tfiAum shouldBe PLN(218)
-    updated.financial.nbfi.tfiGovBondHoldings shouldBe PLN(219)
-    updated.financial.nbfi.tfiCorpBondHoldings shouldBe PLN(220)
-    updated.financial.nbfi.tfiEquityHoldings shouldBe PLN(221)
-    updated.financial.nbfi.tfiCashHoldings shouldBe PLN(222)
-    updated.financial.nbfi.nbfiLoanStock shouldBe PLN(223)
+    updated.financial.nbfi.tfiAum shouldBe PLN(219)
+    updated.financial.nbfi.tfiGovBondHoldings shouldBe PLN(220)
+    updated.financial.nbfi.tfiCorpBondHoldings shouldBe PLN(221)
+    updated.financial.nbfi.tfiEquityHoldings shouldBe PLN(222)
+    updated.financial.nbfi.tfiCashHoldings shouldBe PLN(223)
+    updated.financial.nbfi.nbfiLoanStock shouldBe PLN(224)
 
-    updated.financial.quasiFiscal.bondsOutstanding shouldBe PLN(224)
-    updated.financial.quasiFiscal.loanPortfolio shouldBe PLN(225)
+    updated.financial.quasiFiscal.bondsOutstanding shouldBe PLN(225)
+    updated.financial.quasiFiscal.loanPortfolio shouldBe PLN(226)
     updated.financial.quasiFiscal.bankHoldings shouldBe PLN(131)
     updated.financial.quasiFiscal.nbpHoldings shouldBe PLN(132)
   }

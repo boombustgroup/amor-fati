@@ -494,6 +494,7 @@ object WorldAssemblyEconomics:
         pfronCash = in.s2.newEarmarked.pfronBalance,
         fgspCash = in.s2.newEarmarked.fgspBalance,
         jstCash = in.s9.newJst.deposits,
+        corpBondOtherHoldings = in.s8.corpBonds.newCorpBonds.otherHoldings,
         nbfi = LedgerStateAdapter.NbfiFundBalances(
           tfiUnit = in.s9.finalNbfi.tfiAum,
           govBondHoldings = in.s9.finalNbfi.tfiGovBondHoldings,
@@ -513,8 +514,7 @@ object WorldAssemblyEconomics:
       world: World,
       supported: LedgerStateAdapter.SupportedFinancialSnapshot,
   ): World =
-    val bankCorpBondHoldings = supported.banks.foldLeft(PLN.Zero): (acc, bank) =>
-      acc + bank.corpBond
+    val corpBonds = LedgerStateAdapter.corporateBondCircuit(supported)
     world.copy(
       gov = world.gov.copy(
         financial = world.gov.financial.copy(
@@ -541,8 +541,10 @@ object WorldAssemblyEconomics:
       ),
       financial = world.financial.copy(
         corporateBonds = world.financial.corporateBonds.copy(
-          bankHoldings = bankCorpBondHoldings,
-          ppkHoldings = supported.funds.ppkCorpBondHoldings,
+          outstanding = corpBonds.outstanding,
+          bankHoldings = corpBonds.bankHoldings,
+          ppkHoldings = corpBonds.ppkHoldings,
+          otherHoldings = corpBonds.otherHoldings,
         ),
         insurance = world.financial.insurance.copy(
           reserves = world.financial.insurance.reserves.copy(

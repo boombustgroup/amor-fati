@@ -18,17 +18,18 @@ import com.boombustgroup.ledger.{AssetType, EntitySector, MutableWorldState}
 object LedgerStateAdapter:
 
   object FundIndex:
-    val Zus: Int         = 0
-    val Nfz: Int         = 1
-    val Ppk: Int         = 2
-    val Fp: Int          = 3
-    val Pfron: Int       = 4
-    val Fgsp: Int        = 5
-    val Jst: Int         = 6
-    val Nbfi: Int        = 7
-    val QuasiFiscal: Int = 8
+    val Zus: Int           = 0
+    val Nfz: Int           = 1
+    val Ppk: Int           = 2
+    val Fp: Int            = 3
+    val Pfron: Int         = 4
+    val Fgsp: Int          = 5
+    val Jst: Int           = 6
+    val CorpBondOther: Int = 7
+    val Nbfi: Int          = 8
+    val QuasiFiscal: Int   = 9
 
-    val Count: Int = 9
+    val Count: Int = 10
 
   private val SingletonSectorSize = 1
   private val ForeignSectorSize   = 1
@@ -76,6 +77,17 @@ object LedgerStateAdapter:
     def totalHoldings: PLN =
       bankHoldings + foreignHoldings + nbpHoldings + insuranceHoldings + ppkHoldings + tfiHoldings
 
+  case class CorporateBondCircuit(
+      outstanding: PLN,
+      bankHoldings: PLN,
+      ppkHoldings: PLN,
+      insuranceHoldings: PLN,
+      tfiHoldings: PLN,
+      otherHoldings: PLN,
+  ):
+    def totalHoldings: PLN =
+      bankHoldings + ppkHoldings + insuranceHoldings + tfiHoldings + otherHoldings
+
   case class ForeignBalances(
       govBondHoldings: PLN,
   )
@@ -116,6 +128,7 @@ object LedgerStateAdapter:
       pfronCash: PLN,
       fgspCash: PLN,
       jstCash: PLN,
+      corpBondOtherHoldings: PLN,
       nbfi: NbfiFundBalances,
       quasiFiscal: QuasiFiscalBalances,
   )
@@ -153,11 +166,6 @@ object LedgerStateAdapter:
       nbpHoldings: PLN,
   )
 
-  case class UnsupportedCorporateBondBalances(
-      outstanding: PLN,
-      otherHoldings: PLN,
-  )
-
   case class UnsupportedJstBalances(
       jstDebt: PLN,
   )
@@ -167,7 +175,6 @@ object LedgerStateAdapter:
       government: UnsupportedGovernmentBalances,
       nbp: UnsupportedNbpBalances,
       jst: UnsupportedJstBalances,
-      corporateBonds: UnsupportedCorporateBondBalances,
       quasiFiscal: UnsupportedQuasiFiscalBalances,
   )
 
@@ -255,6 +262,34 @@ object LedgerStateAdapter:
       tfiHoldings = supported.funds.nbfi.govBondHoldings,
     )
 
+  def corporateBondCircuit(
+      world: World,
+      firms: Vector[Firm.State],
+      banks: Vector[Banking.BankState],
+  ): CorporateBondCircuit =
+    val bankAgg = Banking.aggregateFromBanks(banks)
+    CorporateBondCircuit(
+      outstanding = PLN.fromRaw(firms.map(_.bondDebt.toLong).sum),
+      bankHoldings = bankAgg.corpBondHoldings,
+      ppkHoldings = world.financial.corporateBonds.ppkHoldings,
+      insuranceHoldings = world.financial.insurance.corpBondHoldings,
+      tfiHoldings = world.financial.nbfi.tfiCorpBondHoldings,
+      otherHoldings = world.financial.corporateBonds.otherHoldings,
+    )
+
+  def corporateBondCircuit(
+      supported: SupportedFinancialSnapshot,
+  ): CorporateBondCircuit =
+    val bankCorpBondHoldings = supported.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond)
+    CorporateBondCircuit(
+      outstanding = PLN.fromRaw(supported.firms.map(_.corpBond.toLong).sum),
+      bankHoldings = bankCorpBondHoldings,
+      ppkHoldings = supported.funds.ppkCorpBondHoldings,
+      insuranceHoldings = supported.insurance.corpBondHoldings,
+      tfiHoldings = supported.funds.nbfi.corpBondHoldings,
+      otherHoldings = supported.funds.corpBondOtherHoldings,
+    )
+
   /** Pure supported-slice read from runtime state. */
   def supportedSnapshot(sim: FlowSimulation.SimState): SupportedFinancialSnapshot =
     SupportedFinancialSnapshot(
@@ -287,6 +322,7 @@ object LedgerStateAdapter:
         pfronCash = sim.world.social.earmarked.pfronBalance,
         fgspCash = sim.world.social.earmarked.fgspBalance,
         jstCash = sim.world.social.jst.deposits,
+        corpBondOtherHoldings = sim.world.financial.corporateBonds.otherHoldings,
         nbfi = NbfiFundBalances(
           tfiUnit = sim.world.financial.nbfi.tfiAum,
           govBondHoldings = sim.world.financial.nbfi.tfiGovBondHoldings,
@@ -327,10 +363,6 @@ object LedgerStateAdapter:
       ),
       jst = UnsupportedJstBalances(
         jstDebt = sim.world.social.jst.debt,
-      ),
-      corporateBonds = UnsupportedCorporateBondBalances(
-        outstanding = sim.world.financial.corporateBonds.outstanding,
-        otherHoldings = sim.world.financial.corporateBonds.otherHoldings,
       ),
       quasiFiscal = UnsupportedQuasiFiscalBalances(
         bankHoldings = sim.world.financial.quasiFiscal.bankHoldings,
@@ -413,6 +445,7 @@ object LedgerStateAdapter:
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Pfron, supported.funds.pfronCash)
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fgsp, supported.funds.fgspCash)
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Jst, supported.funds.jstCash)
+    set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.CorpBondOther, supported.funds.corpBondOtherHoldings)
     set(state, EntitySector.Funds, AssetType.TfiUnit, FundIndex.Nbfi, supported.funds.nbfi.tfiUnit)
     set(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Nbfi, supported.funds.nbfi.govBondHoldings)
     set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.Nbfi, supported.funds.nbfi.corpBondHoldings)
@@ -481,6 +514,7 @@ object LedgerStateAdapter:
         pfronCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Pfron),
         fgspCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fgsp),
         jstCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Jst),
+        corpBondOtherHoldings = pln(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.CorpBondOther),
         nbfi = NbfiFundBalances(
           tfiUnit = pln(state, EntitySector.Funds, AssetType.TfiUnit, FundIndex.Nbfi),
           govBondHoldings = pln(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Nbfi),
