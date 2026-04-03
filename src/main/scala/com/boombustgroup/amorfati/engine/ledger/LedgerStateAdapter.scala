@@ -127,7 +127,7 @@ object LedgerStateAdapter:
   )
 
   case class UnsupportedGovernmentBalances(
-      cumulativeDebt: PLN,
+      fiscalCumulativeDebt: PLN,
   )
 
   case class UnsupportedNbpBalances(
@@ -261,7 +261,8 @@ object LedgerStateAdapter:
 
   /** Financial fields intentionally left outside current ledger mapping because
     * the public `EntitySector` / `AssetType` API does not yet name them
-    * cleanly.
+    * cleanly, or because they are fiscal/accounting metrics rather than
+    * holder-tracked instruments.
     */
   def unsupportedSnapshot(sim: FlowSimulation.SimState): UnsupportedFinancialSnapshot =
     UnsupportedFinancialSnapshot(
@@ -276,7 +277,7 @@ object LedgerStateAdapter:
         ),
       ),
       government = UnsupportedGovernmentBalances(
-        cumulativeDebt = sim.world.gov.cumulativeDebt,
+        fiscalCumulativeDebt = sim.world.gov.cumulativeDebt,
       ),
       nbp = UnsupportedNbpBalances(
         qeCumulative = sim.world.nbp.qeCumulative,

@@ -60,7 +60,7 @@ object Sfc:
       bankCapital: PLN,              // aggregate bank equity capital (retained earnings)
       bankDeposits: PLN,             // aggregate bank deposits (HH + firm + JST)
       bankLoans: PLN,                // aggregate bank loan book
-      govDebt: PLN,                  // cumulative government debt (deficit accumulation)
+      govDebt: PLN,                  // fiscal debt metric from deficit accumulation, distinct from holder-tracked bond stock
       nfa: PLN,                      // net foreign assets (BoP cumulative)
       bankBondHoldings: PLN,         // bank holdings of government bonds
       nbpBondHoldings: PLN,          // NBP holdings of government bonds (QE)
