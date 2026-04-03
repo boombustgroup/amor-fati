@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.accounting
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.BatchedFlow
 
@@ -205,6 +206,7 @@ object Sfc:
     val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
     val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
     val bankAgg = Banking.aggregateFromBanks(banks)
+    val bonds   = LedgerStateAdapter.governmentBondCircuit(w, banks)
     StockState(
       hhSavings = hhS,
       hhDebt = hhD,
@@ -215,21 +217,21 @@ object Sfc:
       bankLoans = bankAgg.totalLoans,
       govDebt = w.gov.cumulativeDebt,
       nfa = w.bop.nfa,
-      bankBondHoldings = bankAgg.govBondHoldings,
-      nbpBondHoldings = w.nbp.govBondHoldings,
-      bondsOutstanding = w.gov.bondsOutstanding,
+      bankBondHoldings = bonds.bankHoldings,
+      nbpBondHoldings = bonds.nbpHoldings,
+      bondsOutstanding = bonds.outstanding,
       interbankNetSum = ibNet,
       jstDeposits = w.social.jst.deposits,
       jstDebt = w.social.jst.debt,
       fusBalance = w.social.zus.fusBalance,
       nfzBalance = w.social.nfz.balance,
-      foreignBondHoldings = w.gov.foreignBondHoldings,
-      ppkBondHoldings = w.social.ppk.bondHoldings,
+      foreignBondHoldings = bonds.foreignHoldings,
+      ppkBondHoldings = bonds.ppkHoldings,
       mortgageStock = w.real.housing.mortgageStock,
       consumerLoans = bankAgg.consumerLoans,
       corpBondsOutstanding = w.financial.corporateBonds.outstanding,
-      insuranceGovBondHoldings = w.financial.insurance.govBondHoldings,
-      tfiGovBondHoldings = w.financial.nbfi.tfiGovBondHoldings,
+      insuranceGovBondHoldings = bonds.insuranceHoldings,
+      tfiGovBondHoldings = bonds.tfiHoldings,
       nbfiLoanStock = w.financial.nbfi.nbfiLoanStock,
     )
 
