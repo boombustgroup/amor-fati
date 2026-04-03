@@ -211,7 +211,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
     updated.financial.corporateBonds.bankHoldings shouldBe PLN(18)
     updated.financial.corporateBonds.ppkHoldings shouldBe PLN(213)
-    updated.financial.corporateBonds.outstanding shouldBe PLN(603)
+    updated.financial.corporateBonds.outstanding shouldBe PLN(115)
     updated.financial.corporateBonds.otherHoldings shouldBe PLN(218)
 
     updated.financial.insurance.lifeReserves shouldBe PLN(205)

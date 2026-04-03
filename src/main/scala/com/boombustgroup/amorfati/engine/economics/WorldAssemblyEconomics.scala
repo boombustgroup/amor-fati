@@ -541,7 +541,6 @@ object WorldAssemblyEconomics:
       ),
       financial = world.financial.copy(
         corporateBonds = world.financial.corporateBonds.copy(
-          outstanding = corpBonds.outstanding,
           bankHoldings = corpBonds.bankHoldings,
           ppkHoldings = corpBonds.ppkHoldings,
           otherHoldings = corpBonds.otherHoldings,
