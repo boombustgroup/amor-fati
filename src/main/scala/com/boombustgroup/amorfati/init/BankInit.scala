@@ -19,34 +19,40 @@ object BankInit:
 
     val totalCapital  = p.banking.initCapital
     val totalGovBonds = p.banking.initGovBonds
+    val bondAlloc     = com.boombustgroup.ledger.Distribute.distribute(
+      totalGovBonds.toLong,
+      Banking.DefaultConfigs.map(_.initMarketShare.toLong).toArray,
+    )
 
-    val banks = Banking.DefaultConfigs.map: cfg =>
-      val bId          = cfg.id.toInt
-      val corpLoans    = perBankCorpLoans.getOrElse(bId, PLN.Zero)
-      val consLoans    = perBankConsLoans.getOrElse(bId, PLN.Zero)
-      val firmDeposits = perBankCash.getOrElse(bId, PLN.Zero)
-      val hhDeposits   = perBankHhDeposits.getOrElse(bId, PLN.Zero)
-      val bankBonds    = totalGovBonds * cfg.initMarketShare
-      Banking.BankState(
-        id = cfg.id,
-        deposits = firmDeposits + hhDeposits,
-        loans = corpLoans,
-        capital = totalCapital * cfg.initMarketShare,
-        nplAmount = PLN.Zero,
-        afsBonds = bankBonds * (Share.One - p.banking.htmShare),
-        htmBonds = bankBonds * p.banking.htmShare,
-        htmBookYield = p.banking.initHtmBookYield,
-        reservesAtNbp = PLN.Zero,
-        interbankNet = PLN.Zero,
-        status = Banking.BankStatus.Active(0),
-        demandDeposits = PLN.Zero,
-        termDeposits = PLN.Zero,
-        loansShort = PLN.Zero,
-        loansMedium = PLN.Zero,
-        loansLong = PLN.Zero,
-        consumerLoans = consLoans,
-        consumerNpl = PLN.Zero,
-        corpBondHoldings = PLN.Zero,
-      )
+    val banks = Banking.DefaultConfigs
+      .zip(bondAlloc)
+      .map: (cfg, bankBondRaw) =>
+        val bId          = cfg.id.toInt
+        val corpLoans    = perBankCorpLoans.getOrElse(bId, PLN.Zero)
+        val consLoans    = perBankConsLoans.getOrElse(bId, PLN.Zero)
+        val firmDeposits = perBankCash.getOrElse(bId, PLN.Zero)
+        val hhDeposits   = perBankHhDeposits.getOrElse(bId, PLN.Zero)
+        val bankBonds    = PLN.fromRaw(bankBondRaw)
+        Banking.BankState(
+          id = cfg.id,
+          deposits = firmDeposits + hhDeposits,
+          loans = corpLoans,
+          capital = totalCapital * cfg.initMarketShare,
+          nplAmount = PLN.Zero,
+          afsBonds = bankBonds * (Share.One - p.banking.htmShare),
+          htmBonds = bankBonds * p.banking.htmShare,
+          htmBookYield = p.banking.initHtmBookYield,
+          reservesAtNbp = PLN.Zero,
+          interbankNet = PLN.Zero,
+          status = Banking.BankStatus.Active(0),
+          demandDeposits = PLN.Zero,
+          termDeposits = PLN.Zero,
+          loansShort = PLN.Zero,
+          loansMedium = PLN.Zero,
+          loansLong = PLN.Zero,
+          consumerLoans = consLoans,
+          consumerNpl = PLN.Zero,
+          corpBondHoldings = PLN.Zero,
+        )
 
     Banking.State(banks, Rate.Zero, Banking.DefaultConfigs, None)

@@ -16,6 +16,15 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     val errors = InitCheck.validate(state)
     errors shouldBe empty
 
+  it should "have exact bond clearing at raw-unit precision for default init" in:
+    val result   = WorldInit.initialize(42L)
+    val snapshot = Sfc.snapshot(result.world, result.firms, result.households, result.banks)
+    val holdings =
+      snapshot.bankBondHoldings + snapshot.nbpBondHoldings + snapshot.foreignBondHoldings +
+        snapshot.ppkBondHoldings + snapshot.insuranceGovBondHoldings + snapshot.tfiGovBondHoldings
+
+    holdings shouldBe snapshot.bondsOutstanding
+
   it should "detect tampered bondsOutstanding" in:
     val result   = WorldInit.initialize(42L)
     val snap     = Sfc.snapshot(result.world, result.firms, result.households, result.banks)
