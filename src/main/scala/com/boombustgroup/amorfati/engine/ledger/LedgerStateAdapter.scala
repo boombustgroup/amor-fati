@@ -24,10 +24,11 @@ object LedgerStateAdapter:
     val Fp: Int          = 3
     val Pfron: Int       = 4
     val Fgsp: Int        = 5
-    val Nbfi: Int        = 6
-    val QuasiFiscal: Int = 7
+    val Jst: Int         = 6
+    val Nbfi: Int        = 7
+    val QuasiFiscal: Int = 8
 
-    val Count: Int = 8
+    val Count: Int = 9
 
   private val SingletonSectorSize = 1
   private val ForeignSectorSize   = 1
@@ -114,6 +115,7 @@ object LedgerStateAdapter:
       fpCash: PLN,
       pfronCash: PLN,
       fgspCash: PLN,
+      jstCash: PLN,
       nbfi: NbfiFundBalances,
       quasiFiscal: QuasiFiscalBalances,
   )
@@ -156,8 +158,7 @@ object LedgerStateAdapter:
       otherHoldings: PLN,
   )
 
-  case class UnsupportedSocialBalances(
-      jstDeposits: PLN,
+  case class UnsupportedJstBalances(
       jstDebt: PLN,
   )
 
@@ -165,7 +166,7 @@ object LedgerStateAdapter:
       banks: Vector[UnsupportedBankBalances],
       government: UnsupportedGovernmentBalances,
       nbp: UnsupportedNbpBalances,
-      social: UnsupportedSocialBalances,
+      jst: UnsupportedJstBalances,
       corporateBonds: UnsupportedCorporateBondBalances,
       quasiFiscal: UnsupportedQuasiFiscalBalances,
   )
@@ -285,6 +286,7 @@ object LedgerStateAdapter:
         fpCash = sim.world.social.earmarked.fpBalance,
         pfronCash = sim.world.social.earmarked.pfronBalance,
         fgspCash = sim.world.social.earmarked.fgspBalance,
+        jstCash = sim.world.social.jst.deposits,
         nbfi = NbfiFundBalances(
           tfiUnit = sim.world.financial.nbfi.tfiAum,
           govBondHoldings = sim.world.financial.nbfi.tfiGovBondHoldings,
@@ -323,8 +325,7 @@ object LedgerStateAdapter:
       nbp = UnsupportedNbpBalances(
         qeCumulativePurchases = sim.world.nbp.qeCumulative,
       ),
-      social = UnsupportedSocialBalances(
-        jstDeposits = sim.world.social.jst.deposits,
+      jst = UnsupportedJstBalances(
         jstDebt = sim.world.social.jst.debt,
       ),
       corporateBonds = UnsupportedCorporateBondBalances(
@@ -411,6 +412,7 @@ object LedgerStateAdapter:
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fp, supported.funds.fpCash)
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Pfron, supported.funds.pfronCash)
     set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fgsp, supported.funds.fgspCash)
+    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Jst, supported.funds.jstCash)
     set(state, EntitySector.Funds, AssetType.TfiUnit, FundIndex.Nbfi, supported.funds.nbfi.tfiUnit)
     set(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Nbfi, supported.funds.nbfi.govBondHoldings)
     set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.Nbfi, supported.funds.nbfi.corpBondHoldings)
@@ -478,6 +480,7 @@ object LedgerStateAdapter:
         fpCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fp),
         pfronCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Pfron),
         fgspCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fgsp),
+        jstCash = pln(state, EntitySector.Funds, AssetType.Cash, FundIndex.Jst),
         nbfi = NbfiFundBalances(
           tfiUnit = pln(state, EntitySector.Funds, AssetType.TfiUnit, FundIndex.Nbfi),
           govBondHoldings = pln(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Nbfi),

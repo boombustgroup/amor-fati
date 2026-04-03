@@ -173,6 +173,7 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
     supported.banks.head.demandDeposit + supported.banks.head.termDeposit shouldBe supported.banks.head.totalDeposits
     supported.foreign.govBondHoldings shouldBe PLN(778e6)
     supported.funds.ppkCorpBondHoldings shouldBe PLN(33e6)
+    supported.funds.jstCash shouldBe PLN(10e6)
   }
 
   it should "expose unsupported financial fields explicitly instead of forcing them into the ledger slice" in {
@@ -181,7 +182,7 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
 
     unsupported.government.fiscalCumulativeDebt shouldBe runtime.world.gov.cumulativeDebt
     unsupported.nbp.qeCumulativePurchases shouldBe PLN(89e6)
-    unsupported.social.jstDeposits shouldBe PLN(10e6)
+    unsupported.jst.jstDebt shouldBe PLN(11e6)
     unsupported.corporateBonds.outstanding shouldBe PLN(32e6)
     unsupported.quasiFiscal.bankHoldings shouldBe PLN(29e6)
     unsupported.banks.head.capital shouldBe PLN(310e6)

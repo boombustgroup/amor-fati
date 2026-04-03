@@ -493,6 +493,7 @@ object WorldAssemblyEconomics:
         fpCash = in.s2.newEarmarked.fpBalance,
         pfronCash = in.s2.newEarmarked.pfronBalance,
         fgspCash = in.s2.newEarmarked.fgspBalance,
+        jstCash = in.s9.newJst.deposits,
         nbfi = LedgerStateAdapter.NbfiFundBalances(
           tfiUnit = in.s9.finalNbfi.tfiAum,
           govBondHoldings = in.s9.finalNbfi.tfiGovBondHoldings,
@@ -528,6 +529,7 @@ object WorldAssemblyEconomics:
         ),
       ),
       social = world.social.copy(
+        jst = world.social.jst.copy(deposits = supported.funds.jstCash),
         zus = world.social.zus.copy(fusBalance = supported.funds.zusCash),
         nfz = world.social.nfz.copy(balance = supported.funds.nfzCash),
         ppk = world.social.ppk.copy(bondHoldings = supported.funds.ppkGovBondHoldings),
