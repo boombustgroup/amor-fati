@@ -33,7 +33,9 @@ object FiscalBudget:
     * budget-financed capital outlay. `euProjectCapital` is the capital portion
     * of the total EU project envelope (EU transfer + domestic co-financing).
     * Stock fields (`cumulativeDebt`, `bondsOutstanding`, `publicCapitalStock`)
-    * accumulate across months.
+    * accumulate across months. `bondsOutstanding` is the holder-tracked market
+    * debt instrument stock. `cumulativeDebt` is a broader fiscal debt metric (Σ
+    * deficits), not a separate tradable instrument.
     *
     * `deficit` = totalSpend − totalRevenue (positive = deficit, negative =
     * surplus). `cumulativeDebt` += deficit each month.
@@ -51,8 +53,8 @@ object FiscalBudget:
     * statistics, NBP government securities data.
     */
   case class GovFinancialState(
-      cumulativeDebt: PLN,                // cumulative public debt stock (Σ deficits since t = 0)
-      bondsOutstanding: PLN = PLN.Zero,   // government bond stock (skarbowe papiery wartościowe)
+      cumulativeDebt: PLN,                // fiscal debt metric (Σ deficits since t = 0), not a separate holder-tracked instrument
+      bondsOutstanding: PLN = PLN.Zero,   // government bond stock (skarbowe papiery wartościowe), i.e. the market debt instrument covered by ledger
       foreignBondHoldings: PLN = PLN.Zero, // non-resident SPW holdings (~35%, NBP)
   )
 

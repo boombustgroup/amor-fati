@@ -63,6 +63,18 @@ object LedgerStateAdapter:
       govBondOutstanding: PLN,
   )
 
+  case class GovernmentBondCircuit(
+      outstanding: PLN,
+      bankHoldings: PLN,
+      foreignHoldings: PLN,
+      nbpHoldings: PLN,
+      insuranceHoldings: PLN,
+      ppkHoldings: PLN,
+      tfiHoldings: PLN,
+  ):
+    def totalHoldings: PLN =
+      bankHoldings + foreignHoldings + nbpHoldings + insuranceHoldings + ppkHoldings + tfiHoldings
+
   case class ForeignBalances(
       govBondHoldings: PLN,
   )
@@ -127,7 +139,7 @@ object LedgerStateAdapter:
   )
 
   case class UnsupportedGovernmentBalances(
-      cumulativeDebt: PLN,
+      fiscalCumulativeDebt: PLN,
   )
 
   case class UnsupportedNbpBalances(
@@ -213,6 +225,35 @@ object LedgerStateAdapter:
       corpBond = b.corpBondHoldings,
     )
 
+  def governmentBondCircuit(
+      world: World,
+      banks: Vector[Banking.BankState],
+  ): GovernmentBondCircuit =
+    val bankAgg = Banking.aggregateFromBanks(banks)
+    GovernmentBondCircuit(
+      outstanding = world.gov.bondsOutstanding,
+      bankHoldings = bankAgg.govBondHoldings,
+      foreignHoldings = world.gov.foreignBondHoldings,
+      nbpHoldings = world.nbp.govBondHoldings,
+      insuranceHoldings = world.financial.insurance.govBondHoldings,
+      ppkHoldings = world.social.ppk.bondHoldings,
+      tfiHoldings = world.financial.nbfi.tfiGovBondHoldings,
+    )
+
+  def governmentBondCircuit(
+      supported: SupportedFinancialSnapshot,
+  ): GovernmentBondCircuit =
+    val bankGovBondHoldings = supported.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
+    GovernmentBondCircuit(
+      outstanding = supported.government.govBondOutstanding,
+      bankHoldings = bankGovBondHoldings,
+      foreignHoldings = supported.foreign.govBondHoldings,
+      nbpHoldings = supported.nbp.govBondHoldings,
+      insuranceHoldings = supported.insurance.govBondHoldings,
+      ppkHoldings = supported.funds.ppkGovBondHoldings,
+      tfiHoldings = supported.funds.nbfi.govBondHoldings,
+    )
+
   /** Pure supported-slice read from runtime state. */
   def supportedSnapshot(sim: FlowSimulation.SimState): SupportedFinancialSnapshot =
     SupportedFinancialSnapshot(
@@ -261,7 +302,8 @@ object LedgerStateAdapter:
 
   /** Financial fields intentionally left outside current ledger mapping because
     * the public `EntitySector` / `AssetType` API does not yet name them
-    * cleanly.
+    * cleanly, or because they are fiscal/accounting metrics rather than
+    * holder-tracked instruments.
     */
   def unsupportedSnapshot(sim: FlowSimulation.SimState): UnsupportedFinancialSnapshot =
     UnsupportedFinancialSnapshot(
@@ -276,7 +318,7 @@ object LedgerStateAdapter:
         ),
       ),
       government = UnsupportedGovernmentBalances(
-        cumulativeDebt = sim.world.gov.cumulativeDebt,
+        fiscalCumulativeDebt = sim.world.gov.cumulativeDebt,
       ),
       nbp = UnsupportedNbpBalances(
         qeCumulative = sim.world.nbp.qeCumulative,

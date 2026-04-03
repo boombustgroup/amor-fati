@@ -179,7 +179,7 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
     val runtime     = enrichedSimState()
     val unsupported = LedgerStateAdapter.unsupportedSnapshot(runtime)
 
-    unsupported.government.cumulativeDebt shouldBe runtime.world.gov.cumulativeDebt
+    unsupported.government.fiscalCumulativeDebt shouldBe runtime.world.gov.cumulativeDebt
     unsupported.nbp.qeCumulative shouldBe PLN(89e6)
     unsupported.social.jstDeposits shouldBe PLN(10e6)
     unsupported.corporateBonds.outstanding shouldBe PLN(32e6)
