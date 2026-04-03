@@ -53,6 +53,21 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
     matrix(2)(0) shouldBe PLN.Zero
   }
 
+  it should "preserve each lender row sum exactly" in {
+    val banks  = Vector(mkBank(0, 101.0), mkBank(1, -60.0), mkBank(2, -41.0))
+    val matrix = InterbankContagion.buildExposureMatrix(banks)
+    matrix(0).map(_.toLong).sum shouldBe PLN(101.0).toLong
+  }
+
+  it should "match borrower deficits exactly when interbank market clears exactly" in {
+    val banks  = Vector(mkBank(0, 101.0), mkBank(1, 99.0), mkBank(2, -60.0), mkBank(3, -140.0))
+    val matrix = InterbankContagion.buildExposureMatrix(banks)
+    val col2   = matrix.map(_(2).toLong).sum
+    val col3   = matrix.map(_(3).toLong).sum
+    col2 shouldBe PLN(60.0).toLong
+    col3 shouldBe PLN(140.0).toLong
+  }
+
   it should "return zero matrix when no borrowing" in {
     val banks  = Vector(mkBank(0, 100.0), mkBank(1, 50.0))
     val matrix = InterbankContagion.buildExposureMatrix(banks)
