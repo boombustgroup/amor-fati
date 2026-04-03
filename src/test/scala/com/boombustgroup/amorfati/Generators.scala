@@ -392,33 +392,37 @@ object Generators:
     fusBal    <- Gen.choose(-1e10, 1e10)
     ppkBonds  <- Gen.choose(0.0, 1e9)
     mortStock <- Gen.choose(0.0, 1e12)
-  yield Sfc.StockState(
-    hhSavings = PLN(hhS),
-    hhDebt = PLN(hhD),
-    firmCash = PLN(fCash),
-    firmDebt = PLN(fDebt),
-    bankCapital = PLN(bCap),
-    bankDeposits = PLN(bDep),
-    bankLoans = PLN(bLoans),
-    govDebt = PLN(govDebt),
-    nfa = PLN(nfa),
-    bankBondHoldings = PLN(bankBonds),
-    nbpBondHoldings = PLN(nbpBonds),
-    bondsOutstanding = PLN(bankBonds + nbpBonds + ppkBonds),
-    interbankNetSum = PLN.Zero,
-    jstDeposits = PLN(jstDep),
-    jstDebt = PLN(jstDebt),
-    fusBalance = PLN(fusBal),
-    nfzBalance = PLN.Zero,
-    foreignBondHoldings = PLN.Zero,
-    ppkBondHoldings = PLN(ppkBonds),
-    mortgageStock = PLN(mortStock),
-    consumerLoans = PLN.Zero,
-    corpBondsOutstanding = PLN.Zero,
-    insuranceGovBondHoldings = PLN.Zero,
-    tfiGovBondHoldings = PLN.Zero,
-    nbfiLoanStock = PLN.Zero,
-  )
+  yield
+    val bankBondHoldings = PLN(bankBonds)
+    val nbpBondHoldings  = PLN(nbpBonds)
+    val ppkBondHoldings  = PLN(ppkBonds)
+    Sfc.StockState(
+      hhSavings = PLN(hhS),
+      hhDebt = PLN(hhD),
+      firmCash = PLN(fCash),
+      firmDebt = PLN(fDebt),
+      bankCapital = PLN(bCap),
+      bankDeposits = PLN(bDep),
+      bankLoans = PLN(bLoans),
+      govDebt = PLN(govDebt),
+      nfa = PLN(nfa),
+      bankBondHoldings = bankBondHoldings,
+      nbpBondHoldings = nbpBondHoldings,
+      bondsOutstanding = bankBondHoldings + nbpBondHoldings + ppkBondHoldings,
+      interbankNetSum = PLN.Zero,
+      jstDeposits = PLN(jstDep),
+      jstDebt = PLN(jstDebt),
+      fusBalance = PLN(fusBal),
+      nfzBalance = PLN.Zero,
+      foreignBondHoldings = PLN.Zero,
+      ppkBondHoldings = ppkBondHoldings,
+      mortgageStock = PLN(mortStock),
+      consumerLoans = PLN.Zero,
+      corpBondsOutstanding = PLN.Zero,
+      insuranceGovBondHoldings = PLN.Zero,
+      tfiGovBondHoldings = PLN.Zero,
+      nbfiLoanStock = PLN.Zero,
+    )
 
   val genMonthlyFlows: Gen[Sfc.SemanticFlows] = for
     govSpend     <- Gen.choose(0.0, 1e9)
