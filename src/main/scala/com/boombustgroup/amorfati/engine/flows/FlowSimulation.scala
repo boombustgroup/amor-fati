@@ -374,7 +374,7 @@ object FlowSimulation:
     val s9              = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
     val agg             = s3.hhAgg
     val eq              = w.financial.equity
-    val h               = w.real.housing
+    val h               = s9.housingAfterFlows
     val calc            = MonthlyCalculus(
       month = fiscal.month,
       resWage = fiscal.resWage,
@@ -573,11 +573,11 @@ object FlowSimulation:
       dividendIncome = full.s7.netDomesticDividends,
       foreignDividendOutflow = full.s7.foreignDividendOutflow,
       dividendTax = full.s7.dividendTax,
-      mortgageInterestIncome = full.s9.mortgageInterestIncome,
+      mortgageInterestIncome = evidence.amount(FlowMechanism.MortgageInterest),
       mortgageNplLoss = full.s9.mortgageDefaultLoss,
-      mortgageOrigination = full.s9.housingAfterFlows.lastOrigination,
-      mortgagePrincipalRepaid = full.s9.mortgagePrincipal,
-      mortgageDefaultAmount = full.s9.mortgageDefaultAmount,
+      mortgageOrigination = evidence.amount(FlowMechanism.MortgageOrigination),
+      mortgagePrincipalRepaid = evidence.amount(FlowMechanism.MortgageRepayment),
+      mortgageDefaultAmount = evidence.amount(FlowMechanism.MortgageDefault),
       remittanceOutflow = evidence.amount(FlowMechanism.HhRemittance),
       fofResidual = fofResidual,
       consumerDebtService = evidence.amount(FlowMechanism.HhCcDebtService),
