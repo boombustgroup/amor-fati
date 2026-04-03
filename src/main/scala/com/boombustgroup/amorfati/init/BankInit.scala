@@ -19,14 +19,18 @@ object BankInit:
 
     val totalCapital  = p.banking.initCapital
     val totalGovBonds = p.banking.initGovBonds
+    val bondAlloc     = com.boombustgroup.ledger.Distribute.distribute(
+      totalGovBonds.toLong,
+      Banking.DefaultConfigs.map(_.initMarketShare.toLong).toArray,
+    )
 
-    val banks = Banking.DefaultConfigs.map: cfg =>
+    val banks = Banking.DefaultConfigs.zip(bondAlloc).map: (cfg, bankBondRaw) =>
       val bId          = cfg.id.toInt
       val corpLoans    = perBankCorpLoans.getOrElse(bId, PLN.Zero)
       val consLoans    = perBankConsLoans.getOrElse(bId, PLN.Zero)
       val firmDeposits = perBankCash.getOrElse(bId, PLN.Zero)
       val hhDeposits   = perBankHhDeposits.getOrElse(bId, PLN.Zero)
-      val bankBonds    = totalGovBonds * cfg.initMarketShare
+      val bankBonds    = PLN.fromRaw(bankBondRaw)
       Banking.BankState(
         id = cfg.id,
         deposits = firmDeposits + hhDeposits,
