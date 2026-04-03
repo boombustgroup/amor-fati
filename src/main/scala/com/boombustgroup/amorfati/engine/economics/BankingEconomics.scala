@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.Distribute
 
 import scala.util.Random
 
@@ -810,12 +811,15 @@ object BankingEconomics:
     * deposit market share, adjusting reservesAtNbp. EUR purchase → PLN injected
     * into banking system; EUR sale → PLN drained.
     */
-  private def distributeFxInjection(banks: Vector[Banking.BankState], injection: PLN): Vector[Banking.BankState] =
+  private[amorfati] def distributeFxInjection(banks: Vector[Banking.BankState], injection: PLN): Vector[Banking.BankState] =
     if injection == PLN.Zero then banks
     else
-      val totalDeposits = PLN.fromRaw(banks.map(_.deposits.toLong).sum)
-      if totalDeposits <= PLN.Zero then banks
+      val weights = banks.map(_.deposits.toLong.max(0L)).toArray
+      if weights.sum <= 0L then banks
       else
-        banks.map: b =>
-          val share = Share(b.deposits / totalDeposits)
-          b.copy(reservesAtNbp = (b.reservesAtNbp + injection * share).max(PLN.Zero))
+        val distributed = Distribute.distribute(math.abs(injection.toLong), weights)
+        banks
+          .zip(distributed.iterator)
+          .map: (b, rawAllocated) =>
+            val allocated = if injection >= PLN.Zero then PLN.fromRaw(rawAllocated) else PLN.fromRaw(-rawAllocated)
+            b.copy(reservesAtNbp = (b.reservesAtNbp + allocated).max(PLN.Zero))

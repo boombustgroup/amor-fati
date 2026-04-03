@@ -104,3 +104,55 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
 
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
   }
+
+  "BankingEconomics.distributeFxInjection" should "distribute exact positive injection by non-negative deposit weights" in {
+    val banks  = Vector(
+      initBank(0, deposits = PLN(600.0), reserves = PLN(10.0)),
+      initBank(1, deposits = PLN(400.0), reserves = PLN(20.0)),
+    )
+    val result = BankingEconomics.distributeFxInjection(banks, PLN(101.0))
+    val delta0 = result(0).reservesAtNbp - banks(0).reservesAtNbp
+    val delta1 = result(1).reservesAtNbp - banks(1).reservesAtNbp
+    delta0.toLong + delta1.toLong shouldBe PLN(101.0).toLong
+    delta0 shouldBe PLN(60.6)
+    delta1 shouldBe PLN(40.4)
+  }
+
+  it should "treat negative deposits as zero weight during PLN drain" in {
+    val banks  = Vector(
+      initBank(0, deposits = PLN(-50.0), reserves = PLN(30.0)),
+      initBank(1, deposits = PLN(100.0), reserves = PLN(50.0)),
+      initBank(2, deposits = PLN(300.0), reserves = PLN(90.0)),
+    )
+    val result = BankingEconomics.distributeFxInjection(banks, PLN(-40.0))
+    val delta0 = result(0).reservesAtNbp - banks(0).reservesAtNbp
+    val delta1 = result(1).reservesAtNbp - banks(1).reservesAtNbp
+    val delta2 = result(2).reservesAtNbp - banks(2).reservesAtNbp
+    delta0 shouldBe PLN.Zero
+    delta1 + delta2 shouldBe PLN(-40.0)
+    delta1 shouldBe PLN(-10.0)
+    delta2 shouldBe PLN(-30.0)
+  }
+
+  private def initBank(id: Int, deposits: PLN, reserves: PLN): Banking.BankState =
+    Banking.BankState(
+      id = BankId(id),
+      deposits = deposits,
+      loans = PLN.Zero,
+      capital = PLN(100.0),
+      nplAmount = PLN.Zero,
+      afsBonds = PLN.Zero,
+      htmBonds = PLN.Zero,
+      htmBookYield = Rate.Zero,
+      reservesAtNbp = reserves,
+      interbankNet = PLN.Zero,
+      status = Banking.BankStatus.Active(0),
+      demandDeposits = deposits.max(PLN.Zero),
+      termDeposits = PLN.Zero,
+      loansShort = PLN.Zero,
+      loansMedium = PLN.Zero,
+      loansLong = PLN.Zero,
+      consumerLoans = PLN.Zero,
+      consumerNpl = PLN.Zero,
+      corpBondHoldings = PLN.Zero,
+    )
