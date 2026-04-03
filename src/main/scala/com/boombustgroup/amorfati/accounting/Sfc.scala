@@ -354,7 +354,7 @@ object Sfc:
         expected = curr.bondsOutstanding,
         actual = curr.bankBondHoldings + curr.nbpBondHoldings + curr.foreignBondHoldings +
           curr.ppkBondHoldings + curr.insuranceGovBondHoldings + curr.tfiGovBondHoldings,
-        tolerance,
+        PLN.Zero,
       ),
       // 6. Interbank netting: Σ net positions = 0
       IdentitySpec(
