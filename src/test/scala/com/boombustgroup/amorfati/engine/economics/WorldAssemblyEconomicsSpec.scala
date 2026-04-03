@@ -44,7 +44,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     w.gov.domesticBudgetOutlays should be >= w.gov.domesticBudgetDemand
   }
 
-  it should "overwrite only supported financial slice from ledger snapshot" in {
+  it should "overwrite only supported financial slice from ledger snapshot while preserving unsupported QE metrics" in {
     val init      = WorldInit.initialize(42L)
     val base      = init.world.copy(
       gov = init.world.gov.copy(
