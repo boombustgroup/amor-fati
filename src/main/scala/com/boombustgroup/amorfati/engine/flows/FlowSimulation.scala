@@ -501,18 +501,56 @@ object FlowSimulation:
   ): Sfc.RuntimeState =
     Sfc.RuntimeState(w, firms, households, banks)
 
-  private def buildSfcFlows(full: FullComputation, fofResidual: PLN)(using p: SimParams): Sfc.SemanticFlows =
+  private case class ExecutedBatchEvidence(
+      totals: Map[MechanismId, Long],
+      signedTotals: Map[MechanismId, Long],
+  ):
+    def amount(mechanism: MechanismId): PLN =
+      PLN.fromRaw(totals.getOrElse(mechanism, 0L))
+
+    def signedAmount(mechanism: MechanismId): PLN =
+      PLN.fromRaw(signedTotals.getOrElse(mechanism, 0L))
+
+    def sum(mechanisms: MechanismId*): PLN =
+      PLN.fromRaw(mechanisms.iterator.map(m => totals.getOrElse(m, 0L)).sum)
+
+  private object ExecutedBatchEvidence:
+    def from(batches: Vector[BatchedFlow]): ExecutedBatchEvidence =
+      val (totals, signedTotals) =
+        batches.foldLeft(
+          Map.empty[MechanismId, Long].withDefaultValue(0L),
+          Map.empty[MechanismId, Long].withDefaultValue(0L),
+        ):
+          case ((totalsAcc, signedAcc), batch) =>
+            val amount       = AggregateBatchContract.totalTransferred(batch)
+            val signedAmount =
+              if batch.mechanism == FlowMechanism.BankInterbankInterest then
+                (batch.from, batch.to) match
+                  case (EntitySector.NBP, EntitySector.Banks) => amount
+                  case (EntitySector.Banks, EntitySector.NBP) => -amount
+                  case _                                      => amount
+              else amount
+
+            (
+              totalsAcc.updated(batch.mechanism, totalsAcc(batch.mechanism) + amount),
+              signedAcc.updated(batch.mechanism, signedAcc(batch.mechanism) + signedAmount),
+            )
+
+      ExecutedBatchEvidence(totals, signedTotals)
+
+  private def buildSfcFlows(full: FullComputation, batches: Vector[BatchedFlow], fofResidual: PLN)(using p: SimParams): Sfc.SemanticFlows =
+    val evidence = ExecutedBatchEvidence.from(batches)
     Sfc.SemanticFlows(
       govSpending =
         full.s9.newGovWithYield.domesticBudgetOutlays + full.s2.newZus.govSubvention + full.s2.newNfz.govSubvention + full.s2.newEarmarked.totalGovSubvention,
       govRevenue =
         full.s5.sumTax + full.s7.dividendTax + full.s9.pitAfterEvasion + full.s9.vatAfterEvasion + full.s8.banking.nbpRemittance + full.s9.exciseAfterEvasion + full.s9.customsDutyRevenue,
       nplLoss = full.s5.nplLoss,
-      interestIncome = full.s5.intIncome,
+      interestIncome = evidence.amount(FlowMechanism.FirmInterestPaid),
       hhDebtService = full.s6.hhDebtService,
       totalIncome = full.s3.totalIncome,
-      totalConsumption = full.s3.consumption,
-      newLoans = full.s5.sumNewLoans,
+      totalConsumption = evidence.amount(FlowMechanism.HhConsumption),
+      newLoans = evidence.amount(FlowMechanism.FirmNewLoan),
       nplRecovery = full.s5.nplNew * p.banking.loanRecovery,
       currentAccount = full.s8.external.newBop.currentAccount,
       valuationEffect = full.s8.external.oeValuationEffect,
@@ -557,11 +595,11 @@ object FlowSimulation:
       nbfiOrigination = full.s9.finalNbfi.lastNbfiOrigination,
       nbfiRepayment = full.s9.finalNbfi.lastNbfiRepayment,
       nbfiDefaultAmount = full.s9.finalNbfi.lastNbfiDefaultAmount,
-      fdiProfitShifting = full.s5.sumProfitShifting,
-      fdiRepatriation = full.s5.sumFdiRepatriation,
-      diasporaInflow = full.s6.diasporaInflow,
-      tourismExport = full.s6.tourismExport,
-      tourismImport = full.s6.tourismImport,
+      fdiProfitShifting = evidence.amount(FlowMechanism.FirmProfitShifting),
+      fdiRepatriation = evidence.amount(FlowMechanism.FirmFdiRepatriation),
+      diasporaInflow = evidence.amount(FlowMechanism.DiasporaInflow),
+      tourismExport = evidence.amount(FlowMechanism.TourismExport),
+      tourismImport = evidence.amount(FlowMechanism.TourismImport),
       bfgLevy = full.s9.bfgLevy,
       bailInLoss = full.s9.bailInLoss,
       bankCapitalDestruction = full.s9.multiCapDestruction,
@@ -616,7 +654,7 @@ object FlowSimulation:
         migRng = rng,
       ),
     )
-    val sfcFlows  = buildSfcFlows(full, assembled.world.plumbing.fofResidual)
+    val sfcFlows  = buildSfcFlows(full, flows, assembled.world.plumbing.fofResidual)
     val sfcResult = Sfc.validate(
       prev = runtimeState(w, firms, households, banks),
       curr = runtimeState(assembled.world, assembled.firms, assembled.households, assembled.banks),
