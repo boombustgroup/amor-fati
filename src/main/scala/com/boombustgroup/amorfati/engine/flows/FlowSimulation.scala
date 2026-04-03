@@ -524,7 +524,7 @@ object FlowSimulation:
           case ((totalsAcc, signedAcc), batch) =>
             val amount       = AggregateBatchContract.totalTransferred(batch)
             val signedAmount =
-              if batch.mechanism == FlowMechanism.BankInterbankInterest then
+              if batch.mechanism == FlowMechanism.BankInterbankInterest || batch.mechanism == FlowMechanism.BankStandingFacility then
                 (batch.from, batch.to) match
                   case (EntitySector.NBP, EntitySector.Banks) => amount
                   case (EntitySector.Banks, EntitySector.NBP) => -amount
@@ -558,9 +558,9 @@ object FlowSimulation:
       qePurchase = full.s8.monetary.qePurchaseAmount,
       newBondIssuance = if p.flags.govBondMarket then full.s9.actualBondChange else PLN.Zero,
       depositInterestPaid = evidence.amount(FlowMechanism.HhDepositInterest),
-      reserveInterest = full.s8.banking.totalReserveInterest,
-      standingFacilityIncome = full.s8.banking.totalStandingFacilityIncome,
-      interbankInterest = full.s8.banking.totalInterbankInterest,
+      reserveInterest = evidence.amount(FlowMechanism.BankReserveInterest),
+      standingFacilityIncome = evidence.signedAmount(FlowMechanism.BankStandingFacility),
+      interbankInterest = evidence.signedAmount(FlowMechanism.BankInterbankInterest),
       jstDepositChange = full.s9.jstDepositChange,
       jstSpending = full.s9.newJst.spending,
       jstRevenue = full.s9.newJst.revenue,
@@ -585,8 +585,8 @@ object FlowSimulation:
       consumerOrigination = evidence.amount(FlowMechanism.HhCcOrigination),
       consumerPrincipalRepaid = full.s6.consumerPrincipal,
       consumerDefaultAmount = evidence.amount(FlowMechanism.HhCcDefault),
-      corpBondCouponIncome = full.s8.corpBonds.corpBondBankCoupon,
-      corpBondDefaultLoss = full.s8.corpBonds.corpBondBankDefaultLoss,
+      corpBondCouponIncome = evidence.amount(FlowMechanism.CorpBondCoupon),
+      corpBondDefaultLoss = evidence.amount(FlowMechanism.CorpBondDefault),
       corpBondIssuance = evidence.amount(FlowMechanism.CorpBondIssuance),
       corpBondAmortization = evidence.amount(FlowMechanism.CorpBondAmortization),
       corpBondDefaultAmount = evidence.amount(FlowMechanism.CorpBondDefault),
@@ -605,7 +605,7 @@ object FlowSimulation:
       bankCapitalDestruction = full.s9.multiCapDestruction,
       investNetDepositFlow = full.s9.investNetDepositFlow,
       firmPrincipalRepaid = evidence.amount(FlowMechanism.FirmLoanRepayment),
-      unrealizedBondLoss = full.s9.unrealizedBondLoss,
+      unrealizedBondLoss = evidence.amount(FlowMechanism.BankUnrealizedLoss),
       htmRealizedLoss = full.s9.htmRealizedLoss,
       eclProvisionChange = full.s9.eclProvisionChange,
     )
