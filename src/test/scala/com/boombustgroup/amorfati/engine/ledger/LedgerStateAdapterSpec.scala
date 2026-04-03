@@ -180,7 +180,7 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
     val unsupported = LedgerStateAdapter.unsupportedSnapshot(runtime)
 
     unsupported.government.fiscalCumulativeDebt shouldBe runtime.world.gov.cumulativeDebt
-    unsupported.nbp.qeCumulative shouldBe PLN(89e6)
+    unsupported.nbp.qeCumulativePurchases shouldBe PLN(89e6)
     unsupported.social.jstDeposits shouldBe PLN(10e6)
     unsupported.corporateBonds.outstanding shouldBe PLN(32e6)
     unsupported.quasiFiscal.bankHoldings shouldBe PLN(29e6)

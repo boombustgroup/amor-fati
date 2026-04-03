@@ -143,7 +143,7 @@ object LedgerStateAdapter:
   )
 
   case class UnsupportedNbpBalances(
-      qeCumulative: PLN,
+      qeCumulativePurchases: PLN,
   )
 
   case class UnsupportedQuasiFiscalBalances(
@@ -321,7 +321,7 @@ object LedgerStateAdapter:
         fiscalCumulativeDebt = sim.world.gov.cumulativeDebt,
       ),
       nbp = UnsupportedNbpBalances(
-        qeCumulative = sim.world.nbp.qeCumulative,
+        qeCumulativePurchases = sim.world.nbp.qeCumulative,
       ),
       social = UnsupportedSocialBalances(
         jstDeposits = sim.world.social.jst.deposits,

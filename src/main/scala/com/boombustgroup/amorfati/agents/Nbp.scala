@@ -32,8 +32,8 @@ object Nbp:
   )
 
   case class BalanceState(
-      govBondHoldings: PLN, // NBP bond portfolio (QE + open market)
-      qeCumulative: PLN,    // cumulative QE purchases since activation
+      govBondHoldings: PLN, // current NBP government bond position (QE + open market), i.e. the ledger-coverable stock
+      qeCumulative: PLN,    // cumulative purchases executed under the QE regime; accounting/policy metric, not a separate ledger asset
       fxReserves: PLN,      // EUR-equivalent total reserves (multi-currency)
   )
 
@@ -213,6 +213,10 @@ object Nbp:
   /** Compute QE purchase request. Does NOT update govBondHoldings — the bond
     * waterfall in BankingEconomics handles the actual transfer so that SFC
     * clears by construction (actualSold from banks = actualSold to NBP).
+    *
+    * `qeCumulative` is intentionally distinct from current `govBondHoldings`:
+    * it tracks purchases attributed to the QE regime, not the full NBP bond
+    * stock.
     */
   def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN, inflation: Rate, expectedInflation: Rate)(using p: SimParams): QeRequest =
     if !nbp.qeActive then QeRequest(nbp, PLN.Zero)
