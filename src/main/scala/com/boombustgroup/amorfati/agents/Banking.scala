@@ -448,15 +448,15 @@ object Banking:
           val b = banks(i)
           if b.failed then b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)
           else
-            lenderLoanById
-              .get(i)
-              .fold:
-                borrowerById
-                  .get(i)
-                  .fold(b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)): borrowed =>
-                    b.copy(interbankNet = PLN.fromRaw(-borrowed), reservesAtNbp = PLN.Zero)
-              : lent =>
+            lenderLoanById.get(i) match
+              case Some(lent) =>
                 b.copy(interbankNet = PLN.fromRaw(lent), reservesAtNbp = excess(i) - PLN.fromRaw(lent))
+              case None       =>
+                borrowerById.get(i) match
+                  case Some(borrowed) =>
+                    b.copy(interbankNet = PLN.fromRaw(-borrowed), reservesAtNbp = PLN.Zero)
+                  case None           =>
+                    b.copy(interbankNet = PLN.Zero, reservesAtNbp = PLN.Zero)
         .toVector
 
   // ---------------------------------------------------------------------------
