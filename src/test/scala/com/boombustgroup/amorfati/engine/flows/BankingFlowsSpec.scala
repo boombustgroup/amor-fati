@@ -45,6 +45,16 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
     ibFlow.from shouldBe BankingFlows.BANK_ACCOUNT
   }
 
+  it should "handle negative standing facility income (net cost)" in {
+    val netCost  = baseInput.copy(standingFacilityIncome = PLN(-250000.0))
+    val flows    = BankingFlows.emit(netCost)
+    val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
+    Interpreter.totalWealth(balances) shouldBe 0L
+
+    val sfFlow = flows.filter(_.mechanism == FlowMechanism.BankStandingFacility.toInt).head
+    sfFlow.from shouldBe BankingFlows.BANK_ACCOUNT
+  }
+
   it should "handle bail-in (depositor loss)" in {
     val withBailIn = baseInput.copy(bailInLoss = PLN(5000000.0))
     val flows      = BankingFlows.emit(withBailIn)

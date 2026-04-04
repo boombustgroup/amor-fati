@@ -374,7 +374,7 @@ object FlowSimulation:
     val s9              = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
     val agg             = s3.hhAgg
     val eq              = w.financial.equity
-    val h               = w.real.housing
+    val h               = s9.housingAfterFlows
     val calc            = MonthlyCalculus(
       month = fiscal.month,
       resWage = fiscal.resWage,
@@ -501,28 +501,66 @@ object FlowSimulation:
   ): Sfc.RuntimeState =
     Sfc.RuntimeState(w, firms, households, banks)
 
-  private def buildSfcFlows(full: FullComputation, fofResidual: PLN)(using p: SimParams): Sfc.SemanticFlows =
+  private case class ExecutedBatchEvidence(
+      totals: Map[MechanismId, Long],
+      signedTotals: Map[MechanismId, Long],
+  ):
+    def amount(mechanism: MechanismId): PLN =
+      PLN.fromRaw(totals.getOrElse(mechanism, 0L))
+
+    def signedAmount(mechanism: MechanismId): PLN =
+      PLN.fromRaw(signedTotals.getOrElse(mechanism, 0L))
+
+    def sum(mechanisms: MechanismId*): PLN =
+      PLN.fromRaw(mechanisms.iterator.map(m => totals.getOrElse(m, 0L)).sum)
+
+  private object ExecutedBatchEvidence:
+    def from(batches: Vector[BatchedFlow]): ExecutedBatchEvidence =
+      val (totals, signedTotals) =
+        batches.foldLeft(
+          Map.empty[MechanismId, Long].withDefaultValue(0L),
+          Map.empty[MechanismId, Long].withDefaultValue(0L),
+        ):
+          case ((totalsAcc, signedAcc), batch) =>
+            val amount       = AggregateBatchContract.totalTransferred(batch)
+            val signedAmount =
+              if batch.mechanism == FlowMechanism.BankInterbankInterest || batch.mechanism == FlowMechanism.BankStandingFacility then
+                (batch.from, batch.to) match
+                  case (EntitySector.NBP, EntitySector.Banks) => amount
+                  case (EntitySector.Banks, EntitySector.NBP) => -amount
+                  case _                                      => amount
+              else amount
+
+            (
+              totalsAcc.updated(batch.mechanism, totalsAcc(batch.mechanism) + amount),
+              signedAcc.updated(batch.mechanism, signedAcc(batch.mechanism) + signedAmount),
+            )
+
+      ExecutedBatchEvidence(totals, signedTotals)
+
+  private def buildSfcFlows(full: FullComputation, batches: Vector[BatchedFlow], fofResidual: PLN)(using p: SimParams): Sfc.SemanticFlows =
+    val evidence = ExecutedBatchEvidence.from(batches)
     Sfc.SemanticFlows(
       govSpending =
         full.s9.newGovWithYield.domesticBudgetOutlays + full.s2.newZus.govSubvention + full.s2.newNfz.govSubvention + full.s2.newEarmarked.totalGovSubvention,
       govRevenue =
         full.s5.sumTax + full.s7.dividendTax + full.s9.pitAfterEvasion + full.s9.vatAfterEvasion + full.s8.banking.nbpRemittance + full.s9.exciseAfterEvasion + full.s9.customsDutyRevenue,
       nplLoss = full.s5.nplLoss,
-      interestIncome = full.s5.intIncome,
-      hhDebtService = full.s6.hhDebtService,
+      interestIncome = evidence.amount(FlowMechanism.FirmInterestPaid),
+      hhDebtService = evidence.amount(FlowMechanism.HhDebtService),
       totalIncome = full.s3.totalIncome,
-      totalConsumption = full.s3.consumption,
-      newLoans = full.s5.sumNewLoans,
+      totalConsumption = evidence.amount(FlowMechanism.HhConsumption),
+      newLoans = evidence.amount(FlowMechanism.FirmNewLoan),
       nplRecovery = full.s5.nplNew * p.banking.loanRecovery,
       currentAccount = full.s8.external.newBop.currentAccount,
       valuationEffect = full.s8.external.oeValuationEffect,
-      bankBondIncome = full.s8.banking.bankBondIncome,
+      bankBondIncome = evidence.amount(FlowMechanism.BankGovBondIncome),
       qePurchase = full.s8.monetary.qePurchaseAmount,
       newBondIssuance = if p.flags.govBondMarket then full.s9.actualBondChange else PLN.Zero,
-      depositInterestPaid = full.s6.depositInterestPaid,
-      reserveInterest = full.s8.banking.totalReserveInterest,
-      standingFacilityIncome = full.s8.banking.totalStandingFacilityIncome,
-      interbankInterest = full.s8.banking.totalInterbankInterest,
+      depositInterestPaid = evidence.amount(FlowMechanism.HhDepositInterest),
+      reserveInterest = evidence.amount(FlowMechanism.BankReserveInterest),
+      standingFacilityIncome = evidence.signedAmount(FlowMechanism.BankStandingFacility),
+      interbankInterest = evidence.signedAmount(FlowMechanism.BankInterbankInterest),
       jstDepositChange = full.s9.jstDepositChange,
       jstSpending = full.s9.newJst.spending,
       jstRevenue = full.s9.newJst.revenue,
@@ -535,39 +573,39 @@ object FlowSimulation:
       dividendIncome = full.s7.netDomesticDividends,
       foreignDividendOutflow = full.s7.foreignDividendOutflow,
       dividendTax = full.s7.dividendTax,
-      mortgageInterestIncome = full.s9.mortgageInterestIncome,
-      mortgageNplLoss = full.s9.mortgageDefaultLoss,
-      mortgageOrigination = full.s9.housingAfterFlows.lastOrigination,
-      mortgagePrincipalRepaid = full.s9.mortgagePrincipal,
-      mortgageDefaultAmount = full.s9.mortgageDefaultAmount,
-      remittanceOutflow = full.s6.remittanceOutflow,
+      mortgageInterestIncome = evidence.amount(FlowMechanism.MortgageInterest),
+      mortgageNplLoss = evidence.amount(FlowMechanism.MortgageDefault) * (Share.One - p.housing.mortgageRecovery),
+      mortgageOrigination = evidence.amount(FlowMechanism.MortgageOrigination),
+      mortgagePrincipalRepaid = evidence.amount(FlowMechanism.MortgageRepayment),
+      mortgageDefaultAmount = evidence.amount(FlowMechanism.MortgageDefault),
+      remittanceOutflow = evidence.amount(FlowMechanism.HhRemittance),
       fofResidual = fofResidual,
-      consumerDebtService = full.s6.consumerDebtService,
+      consumerDebtService = evidence.amount(FlowMechanism.HhCcDebtService),
       consumerNplLoss = full.s6.consumerNplLoss,
-      consumerOrigination = full.s6.consumerOrigination,
+      consumerOrigination = evidence.amount(FlowMechanism.HhCcOrigination),
       consumerPrincipalRepaid = full.s6.consumerPrincipal,
-      consumerDefaultAmount = full.s6.consumerDefaultAmt,
-      corpBondCouponIncome = full.s8.corpBonds.corpBondBankCoupon,
-      corpBondDefaultLoss = full.s8.corpBonds.corpBondBankDefaultLoss,
-      corpBondIssuance = full.s5.actualBondIssuance,
-      corpBondAmortization = full.s8.corpBonds.corpBondAmort,
-      corpBondDefaultAmount = full.s5.totalBondDefault,
+      consumerDefaultAmount = evidence.amount(FlowMechanism.HhCcDefault),
+      corpBondCouponIncome = evidence.amount(FlowMechanism.CorpBondCoupon),
+      corpBondDefaultLoss = evidence.amount(FlowMechanism.CorpBondDefault),
+      corpBondIssuance = evidence.amount(FlowMechanism.CorpBondIssuance),
+      corpBondAmortization = evidence.amount(FlowMechanism.CorpBondAmortization),
+      corpBondDefaultAmount = evidence.amount(FlowMechanism.CorpBondDefault),
       insNetDepositChange = full.s8.nonBank.insNetDepositChange,
       nbfiDepositDrain = full.s8.nonBank.nbfiDepositDrain,
       nbfiOrigination = full.s9.finalNbfi.lastNbfiOrigination,
       nbfiRepayment = full.s9.finalNbfi.lastNbfiRepayment,
       nbfiDefaultAmount = full.s9.finalNbfi.lastNbfiDefaultAmount,
-      fdiProfitShifting = full.s5.sumProfitShifting,
-      fdiRepatriation = full.s5.sumFdiRepatriation,
-      diasporaInflow = full.s6.diasporaInflow,
-      tourismExport = full.s6.tourismExport,
-      tourismImport = full.s6.tourismImport,
-      bfgLevy = full.s9.bfgLevy,
-      bailInLoss = full.s9.bailInLoss,
+      fdiProfitShifting = evidence.amount(FlowMechanism.FirmProfitShifting),
+      fdiRepatriation = evidence.amount(FlowMechanism.FirmFdiRepatriation),
+      diasporaInflow = evidence.amount(FlowMechanism.DiasporaInflow),
+      tourismExport = evidence.amount(FlowMechanism.TourismExport),
+      tourismImport = evidence.amount(FlowMechanism.TourismImport),
+      bfgLevy = evidence.amount(FlowMechanism.BankBfgLevy),
+      bailInLoss = evidence.amount(FlowMechanism.BankBailIn),
       bankCapitalDestruction = full.s9.multiCapDestruction,
       investNetDepositFlow = full.s9.investNetDepositFlow,
-      firmPrincipalRepaid = full.s5.sumFirmPrincipal,
-      unrealizedBondLoss = full.s9.unrealizedBondLoss,
+      firmPrincipalRepaid = evidence.amount(FlowMechanism.FirmLoanRepayment),
+      unrealizedBondLoss = evidence.amount(FlowMechanism.BankUnrealizedLoss),
       htmRealizedLoss = full.s9.htmRealizedLoss,
       eclProvisionChange = full.s9.eclProvisionChange,
     )
@@ -616,7 +654,7 @@ object FlowSimulation:
         migRng = rng,
       ),
     )
-    val sfcFlows  = buildSfcFlows(full, assembled.world.plumbing.fofResidual)
+    val sfcFlows  = buildSfcFlows(full, flows, assembled.world.plumbing.fofResidual)
     val sfcResult = Sfc.validate(
       prev = runtimeState(w, firms, households, banks),
       curr = runtimeState(assembled.world, assembled.firms, assembled.households, assembled.banks),

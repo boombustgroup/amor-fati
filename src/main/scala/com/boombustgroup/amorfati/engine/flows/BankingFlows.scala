@@ -55,7 +55,7 @@ object BankingFlows:
         AssetType.Cash,
         FlowMechanism.BankReserveInterest,
       ),
-      AggregateBatchedEmission.transfer(
+      AggregateBatchedEmission.signedTransfer(
         EntitySector.NBP,
         NbpIndex.Aggregate,
         EntitySector.Banks,
@@ -131,6 +131,8 @@ object BankingFlows:
     if input.reserveInterest > PLN.Zero then flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.reserveInterest.toLong, FlowMechanism.BankReserveInterest.toInt)
     if input.standingFacilityIncome > PLN.Zero then
       flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.standingFacilityIncome.toLong, FlowMechanism.BankStandingFacility.toInt)
+    else if input.standingFacilityIncome < PLN.Zero then
+      flows += Flow(BANK_ACCOUNT, NBP_ACCOUNT, (-input.standingFacilityIncome).toLong, FlowMechanism.BankStandingFacility.toInt)
 
     // Interbank: signed — positive = net income, negative = net cost
     if input.interbankInterest > PLN.Zero then
