@@ -1008,7 +1008,11 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     )
     val snapshot = Sfc.ExecutionSnapshot(
       Map(
-        (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(60.0).toLong,
+        Sfc.ExecutionBalanceKey(
+          EntitySector.Government,
+          AssetType.Cash,
+          Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+        ) -> PLN(60.0),
       ),
     )
     val result   = Sfc.validate(
@@ -1052,7 +1056,11 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       batches = batches,
       executionSnapshot = Sfc.ExecutionSnapshot(
         Map(
-          (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(55.0).toLong,
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Government,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+          ) -> PLN(55.0),
         ),
       ),
       totalWealth = 0L,
@@ -1093,7 +1101,11 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       batches = batches,
       executionSnapshot = Sfc.ExecutionSnapshot(
         Map(
-          (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(60.0).toLong,
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Government,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+          ) -> PLN(60.0),
         ),
       ),
       totalWealth = 0L,
@@ -1185,10 +1197,26 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       batches = batches,
       executionSnapshot = Sfc.ExecutionSnapshot(
         Map(
-          (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(-50.0).toLong,
-          (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Jst)               -> PLN(60.0).toLong,
-          (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Zus)               -> PLN(50.0).toLong,
-          (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Nfz)               -> PLN(10.0).toLong,
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Government,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+          ) -> PLN(-50.0),
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Funds,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Jst),
+          ) -> PLN(60.0),
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Funds,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Zus),
+          ) -> PLN(50.0),
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Funds,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Nfz),
+          ) -> PLN(10.0),
         ),
       ),
       totalWealth = 0L,
@@ -1243,8 +1271,16 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       batches = batches,
       executionSnapshot = Sfc.ExecutionSnapshot(
         Map(
-          (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(-20.0).toLong,
-          (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Zus)               -> PLN(49.0).toLong,
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Government,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+          ) -> PLN(-20.0),
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Funds,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Zus),
+          ) -> PLN(49.0),
         ),
       ),
       totalWealth = 0L,

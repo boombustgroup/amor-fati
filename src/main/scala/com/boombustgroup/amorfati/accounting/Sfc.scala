@@ -39,12 +39,31 @@ import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
   */
 object Sfc:
 
+  opaque type ExecutionIndex = Int
+  object ExecutionIndex:
+    def apply(value: Int): ExecutionIndex            = value
+    extension (index: ExecutionIndex) def value: Int = index
+
+  case class ExecutionBalanceKey(
+      sector: EntitySector,
+      asset: AssetType,
+      index: ExecutionIndex,
+  )
+
   case class ExecutionSnapshot(
-      balances: Map[(EntitySector, AssetType, Int), Long],
+      balances: Map[ExecutionBalanceKey, PLN],
   ):
-    def balance(sector: EntitySector, asset: AssetType, index: Int): PLN =
-      PLN.fromRaw(
-        balances.getOrElse((sector, asset, index), 0L),
+    def balance(key: ExecutionBalanceKey): PLN =
+      balances.getOrElse(key, PLN.Zero)
+
+  object ExecutionSnapshot:
+    def fromRaw(
+        balances: Map[(EntitySector, AssetType, Int), Long],
+    ): ExecutionSnapshot =
+      ExecutionSnapshot(
+        balances.iterator.map { case ((sector, asset, index), amount) =>
+          ExecutionBalanceKey(sector, asset, ExecutionIndex(index)) -> PLN.fromRaw(amount)
+        }.toMap,
       )
 
   /** Minimal runtime view needed for stock-side SFC validation. */
@@ -491,28 +510,28 @@ object Sfc:
       runtimeCashIdentity(
         SfcIdentity.GovBudgetCash,
         "government budget cash",
-        AccountRef(EntitySector.Government, AggregateBatchContract.GovernmentIndex.Budget),
+        AccountRef(EntitySector.Government, ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget)),
         batches,
         executionSnapshot,
       ) ++
         runtimeCashIdentity(
           SfcIdentity.JstCash,
           "JST cash",
-          AccountRef(EntitySector.Funds, AggregateBatchContract.FundIndex.Jst),
+          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Jst)),
           batches,
           executionSnapshot,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.ZusCash,
           "ZUS cash",
-          AccountRef(EntitySector.Funds, AggregateBatchContract.FundIndex.Zus),
+          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Zus)),
           batches,
           executionSnapshot,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.NfzCash,
           "NFZ cash",
-          AccountRef(EntitySector.Funds, AggregateBatchContract.FundIndex.Nfz),
+          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Nfz)),
           batches,
           executionSnapshot,
         )
@@ -534,7 +553,7 @@ object Sfc:
     if combined.isEmpty then Right(())
     else Left(combined)
 
-  private case class AccountRef(sector: EntitySector, index: Int)
+  private case class AccountRef(sector: EntitySector, index: ExecutionIndex)
 
   private def runtimeCashIdentity(
       identity: SfcIdentity,
@@ -560,7 +579,9 @@ object Sfc:
       account: AccountRef,
       executionSnapshot: ExecutionSnapshot,
   ): PLN =
-    executionSnapshot.balance(account.sector, AssetType.Cash, account.index)
+    executionSnapshot.balance(
+      ExecutionBalanceKey(account.sector, AssetType.Cash, account.index),
+    )
 
   private def cashAccountNetFlow(account: AccountRef, batches: Vector[BatchedFlow]): PLN =
     PLN.fromRaw(
@@ -591,4 +612,4 @@ object Sfc:
         case _                                                                                       => 0L
 
   private def isAccount(sector: EntitySector, index: Int, account: AccountRef): Boolean =
-    sector == account.sector && index == account.index
+    sector == account.sector && index == ExecutionIndex.value(account.index)

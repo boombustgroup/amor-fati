@@ -660,7 +660,7 @@ object FlowSimulation:
       curr = runtimeState(assembled.world, assembled.firms, assembled.households, assembled.banks),
       flows = sfcFlows,
       batches = flows,
-      executionSnapshot = Sfc.ExecutionSnapshot(execution.snapshot),
+      executionSnapshot = Sfc.ExecutionSnapshot.fromRaw(execution.snapshot),
       totalWealth = execution.totalWealth,
       tolerance = PLN(1000.0),
       nfaTolerance = PLN(1000.0),
