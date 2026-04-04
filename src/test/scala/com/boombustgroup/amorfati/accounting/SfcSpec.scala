@@ -377,9 +377,9 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe -18000.0 +- 0.01
   }
 
-  // ---- Identity 3: Government debt ----
+  // ---- Public-sector metric diagnostics: Government debt ----
 
-  "Sfc.validate (gov debt)" should "pass when change matches deficit" in {
+  "Sfc.metricDiagnostics (gov debt)" should "pass when change matches deficit" in {
     val prev   =
       zeroSnap.copy(
         firmCash = PLN(500000),
@@ -390,8 +390,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     // govSpending=30000, govRevenue=20000 -> deficit=10000
     val curr   = prev.copy(govDebt = prev.govDebt + PLN(10000))
     val flows  = zeroFlows.copy(govSpending = PLN(30000), govRevenue = PLN(20000))
-    val result = Sfc.validate(prev, curr, flows)
-    result shouldBe Right(())
+    val result = Sfc.metricDiagnostics(prev, curr, flows)
+    result shouldBe Vector.empty
   }
 
   it should "pass with government surplus (negative deficit)" in {
@@ -405,8 +405,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     // govSpending=15000, govRevenue=25000 -> deficit=-10000 (surplus)
     val curr   = prev.copy(govDebt = prev.govDebt - PLN(10000))
     val flows  = zeroFlows.copy(govSpending = PLN(15000), govRevenue = PLN(25000))
-    val result = Sfc.validate(prev, curr, flows)
-    result shouldBe Right(())
+    val result = Sfc.metricDiagnostics(prev, curr, flows)
+    result shouldBe Vector.empty
   }
 
   it should "detect error when debt doesn't match deficit" in {
@@ -420,9 +420,9 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     // Bug: debt doesn't change despite deficit
     val curr   = prev.copy(govDebt = prev.govDebt)
     val flows  = zeroFlows.copy(govSpending = PLN(30000), govRevenue = PLN(20000))
-    val result = Sfc.validate(prev, curr, flows)
-    result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.GovDebt) shouldBe -10000.0 +- 0.01
+    val result = Sfc.metricDiagnostics(prev, curr, flows)
+    result.map(_.identity) should contain(Sfc.SfcIdentity.GovDebt)
+    result.find(_.identity == Sfc.SfcIdentity.GovDebt).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0) shouldBe -10000.0 +- 0.01
   }
 
   // ---- Zero-flow identity ----
@@ -444,8 +444,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   // ---- Combined flows ----
 
-  it should "pass when all three identities hold simultaneously" in {
-    val prev   = zeroSnap.copy(
+  it should "pass when exact and metric identities both hold" in {
+    val prev         = zeroSnap.copy(
       hhSavings = PLN(100000),
       hhDebt = PLN(5000),
       firmCash = PLN(500000),
@@ -457,13 +457,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     )
     // Bank capital: -2000 nplLoss + 6000*0.3 intIncome + 1000*0.3 hhDebtSvc = -2000 + 1800 + 300 = 100
     // Deposits: totalIncome(50000) - consumption(41000) = 9000
-    // Gov debt: spending(30000) - revenue(25000) = 5000
-    val curr   = prev.copy(
+    val curr         = prev.copy(
       bankCapital = prev.bankCapital + PLN(100),
       bankDeposits = prev.bankDeposits + PLN(9000),
       govDebt = prev.govDebt + PLN(5000),
     )
-    val flows  = zeroFlows.copy(
+    val flows        = zeroFlows.copy(
       govSpending = PLN(30000),
       govRevenue = PLN(25000),
       nplLoss = PLN(2000),
@@ -472,8 +471,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       totalIncome = PLN(50000),
       totalConsumption = PLN(41000),
     )
-    val result = Sfc.validate(prev, curr, flows)
-    result shouldBe Right(())
+    val exactResult  = Sfc.validate(prev, curr, flows)
+    val metricResult = Sfc.metricDiagnostics(prev, curr, flows)
+    exactResult shouldBe Right(())
+    metricResult shouldBe Vector.empty
   }
 
   // ---- Tolerance ----
@@ -618,7 +619,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   // ---- Unemployment benefit SFC flow ----
 
-  "Sfc.validate (gov debt with benefits)" should "pass when benefits included in govSpending" in {
+  "Sfc.metricDiagnostics (gov debt with benefits)" should "pass when benefits included in govSpending" in {
     val prev            =
       zeroSnap.copy(
         firmCash = PLN(500000),
@@ -633,8 +634,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val expectedDeficit = totalGovSpend - govRevenue  // 20000
     val curr            = prev.copy(govDebt = prev.govDebt + expectedDeficit)
     val flows           = zeroFlows.copy(govSpending = totalGovSpend, govRevenue = govRevenue)
-    val result          = Sfc.validate(prev, curr, flows)
-    result shouldBe Right(())
+    val result          = Sfc.metricDiagnostics(prev, curr, flows)
+    result shouldBe Vector.empty
   }
 
   // ---- Identity 1 with deposit interest ----
