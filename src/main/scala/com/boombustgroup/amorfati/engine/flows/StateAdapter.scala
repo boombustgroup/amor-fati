@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.agents.Household
-import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.types.*
@@ -62,7 +61,7 @@ object StateAdapter:
     )
 
   /** Build Insurance flow input from world state. */
-  def insuranceInput(w: World, labor: LaborEconomics.Result)(using p: SimParams): InsuranceFlows.Input =
+  def insuranceInput(w: World, labor: LaborEconomics.Result): InsuranceFlows.Input =
     val ins = w.financial.insurance
     InsuranceFlows.Input(
       employed = labor.employed,

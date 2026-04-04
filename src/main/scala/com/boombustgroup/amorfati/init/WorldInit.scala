@@ -103,9 +103,7 @@ object WorldInit:
       month = 0,
       inflation = Rate(0.02),
       priceLevel = 1.0,
-      gdpProxy = toDouble(p.firm.baseRevenue) * p.pop.firmsCount,
       currentSigmas = p.sectorDefs.map(_.sigma),
-      totalPopulation = totalPop,
       gov = FiscalBudget.GovState(
         taxRevenue = PLN.Zero,
         deficit = PLN.Zero,
@@ -166,7 +164,7 @@ object WorldInit:
       ),
       plumbing = MonetaryPlumbingState.zero,
       pipeline = PipelineState.zero,
-      flows = FlowState.zero,
+      flows = FlowState(monthlyGdpProxy = toDouble(p.firm.baseRevenue) * p.pop.firmsCount),
       regionalWages = Region.all.map(r => r -> (p.household.baseWage * Region.normalizedWageMultiplier(r))).toMap,
     )
 
