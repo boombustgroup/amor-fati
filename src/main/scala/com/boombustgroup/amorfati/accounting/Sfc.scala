@@ -23,7 +23,7 @@ import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
   *      month, using the exact same values that were applied to balance sheet
   *      updates in Simulation.step.
   *   3. '''validate''' — for each of the 13 identities, check that Δstock =
-  *      Σflows within tolerance.
+  *      Σflows exactly.
   *
   * Together these 13 identities cover every financial instrument in the model
   * (deposits, loans, government bonds, corporate bonds, mortgages, consumer
@@ -313,14 +313,12 @@ object Sfc:
     * without updating the corresponding SFC flow projection. Exact global
     * conservation is enforced separately by ledger execution.
     */
-  private case class IdentitySpec(id: SfcIdentity, msg: String, expected: PLN, actual: PLN, tolerance: PLN)
+  private case class IdentitySpec(id: SfcIdentity, msg: String, expected: PLN, actual: PLN)
 
   def validateStockExactness(
-      prev: StockState,            // stocks at the beginning of the month (before Simulation.step)
-      curr: StockState,            // stocks at the end of the month (after Simulation.step)
-      flows: SemanticFlows,        // all flows that occurred during the month
-      tolerance: PLN = PLN.Zero,   // Exact stock-flow identities outside explicit exceptions
-      nfaTolerance: PLN = PLN.Zero, // Probe exact NFA semantics; keep explicit override if needed
+      prev: StockState,    // stocks at the beginning of the month (before Simulation.step)
+      curr: StockState,    // stocks at the end of the month (after Simulation.step)
+      flows: SemanticFlows, // all flows that occurred during the month
   )(using p: SimParams): SfcResult =
     import SfcIdentity.*
 
@@ -341,7 +339,6 @@ object Sfc:
           -losses + grossIncome * p.banking.profitRetention
         },
         actual = curr.bankCapital - prev.bankCapital,
-        tolerance,
       ),
       // 2. Bank deposits: HH income − consumption + all deposit-affecting flows
       //    PLN is Long-based — addition is exact, no Kahan needed
@@ -354,15 +351,13 @@ object Sfc:
           flows.tourismImport - flows.bailInLoss + flows.newLoans - flows.firmPrincipalRepaid +
           flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain,
         actual = curr.bankDeposits - prev.bankDeposits,
-        tolerance,
       ),
-      // 3. NFA: current account + valuation (wider tolerance for FP cancellation)
+      // 3. NFA: current account + valuation
       IdentitySpec(
         Nfa,
         "NFA change (current account + valuation)",
         expected = flows.currentAccount + flows.valuationEffect,
         actual = curr.nfa - prev.nfa,
-        nfaTolerance,
       ),
       // 4. Bond clearing: holders = outstanding (level, not delta)
       IdentitySpec(
@@ -371,7 +366,6 @@ object Sfc:
         expected = curr.bondsOutstanding,
         actual = curr.bankBondHoldings + curr.nbpBondHoldings + curr.foreignBondHoldings +
           curr.ppkBondHoldings + curr.insuranceGovBondHoldings + curr.tfiGovBondHoldings,
-        PLN.Zero,
       ),
       // 5. Interbank netting: Σ net positions = 0
       IdentitySpec(
@@ -379,7 +373,6 @@ object Sfc:
         "interbank netting (should be zero)",
         expected = PLN.Zero,
         actual = curr.interbankNetSum,
-        tolerance,
       ),
       // 6. Mortgage stock: origination − repayment − default
       IdentitySpec(
@@ -387,7 +380,6 @@ object Sfc:
         "mortgage stock change",
         expected = flows.mortgageOrigination - flows.mortgagePrincipalRepaid - flows.mortgageDefaultAmount,
         actual = curr.mortgageStock - prev.mortgageStock,
-        tolerance,
       ),
       // 7. Flow-of-funds: residual = 0 (closes by construction)
       IdentitySpec(
@@ -395,7 +387,6 @@ object Sfc:
         "flow-of-funds residual",
         expected = PLN.Zero,
         actual = flows.fofResidual,
-        tolerance,
       ),
       // 8. Consumer credit: origination − debtService − default (debtSvc = P+I reduces stock)
       IdentitySpec(
@@ -403,7 +394,6 @@ object Sfc:
         "consumer credit stock change",
         expected = flows.consumerOrigination - flows.consumerDebtService - flows.consumerDefaultAmount,
         actual = curr.consumerLoans - prev.consumerLoans,
-        tolerance,
       ),
       // 9. Corporate bond stock: issuance − amortization − default
       IdentitySpec(
@@ -411,7 +401,6 @@ object Sfc:
         "corporate bond stock change",
         expected = flows.corpBondIssuance - flows.corpBondAmortization - flows.corpBondDefaultAmount,
         actual = curr.corpBondsOutstanding - prev.corpBondsOutstanding,
-        tolerance,
       ),
       // 10. NBFI credit: origination − repayment − default
       IdentitySpec(
@@ -419,12 +408,11 @@ object Sfc:
         "NBFI credit stock change",
         expected = flows.nbfiOrigination - flows.nbfiRepayment - flows.nbfiDefaultAmount,
         actual = curr.nbfiLoanStock - prev.nbfiLoanStock,
-        tolerance,
       ),
     )
 
     val errors = identities.collect:
-      case IdentitySpec(id, msg, expected, actual, tol) if (actual - expected).abs > tol =>
+      case IdentitySpec(id, msg, expected, actual) if actual != expected =>
         SfcIdentityError(id, msg, expected, actual)
 
     if errors.isEmpty then Right(()) else Left(errors)
@@ -433,7 +421,6 @@ object Sfc:
       prev: StockState,
       curr: StockState,
       flows: SemanticFlows,
-      tolerance: PLN = PLN(1000.0),
   ): Vector[SfcIdentityError] =
     Vector(
       IdentitySpec(
@@ -441,31 +428,27 @@ object Sfc:
         "government debt change",
         expected = flows.govSpending - flows.govRevenue,
         actual = curr.govDebt - prev.govDebt,
-        tolerance,
       ),
       IdentitySpec(
         SfcIdentity.JstDebt,
         "JST debt change",
         expected = flows.jstSpending - flows.jstRevenue,
         actual = curr.jstDebt - prev.jstDebt,
-        tolerance,
       ),
       IdentitySpec(
         SfcIdentity.FusBalance,
         "FUS balance change (contributions - pensions)",
         expected = flows.zusContributions - flows.zusPensionPayments,
         actual = curr.fusBalance - prev.fusBalance,
-        tolerance,
       ),
       IdentitySpec(
         SfcIdentity.NfzBalance,
         "NFZ balance change (contributions - spending)",
         expected = flows.nfzContributions - flows.nfzSpending,
         actual = curr.nfzBalance - prev.nfzBalance,
-        tolerance,
       ),
     ).collect:
-      case IdentitySpec(id, msg, expected, actual, tol) if (actual - expected).abs > tol =>
+      case IdentitySpec(id, msg, expected, actual) if actual != expected =>
         SfcIdentityError(id, msg, expected, actual)
 
   /** Preferred production API: project stocks from runtime state and combine
@@ -479,8 +462,6 @@ object Sfc:
       batches: Vector[BatchedFlow],
       executionSnapshot: ExecutionSnapshot,
       totalWealth: Long,
-      tolerance: PLN,
-      nfaTolerance: PLN,
   )(using p: SimParams): SfcResult =
     // In the runtime API, Flow-of-Funds is checked from executed ledger
     // batches. Keep the stock-side identities from the legacy oracle, but
@@ -492,7 +473,7 @@ object Sfc:
     // execution; public-sector metric identities are available separately via
     // `metricDiagnostics`.
     val baseErrors    =
-      validateStockExactness(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance).left.toOption.getOrElse(Vector.empty)
+      validateStockExactness(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero)).left.toOption.getOrElse(Vector.empty)
     val runtimeErrors = runtimeIdentityErrors(batches, executionSnapshot, totalWealth)
     merge(baseErrors ++ runtimeErrors)
 
