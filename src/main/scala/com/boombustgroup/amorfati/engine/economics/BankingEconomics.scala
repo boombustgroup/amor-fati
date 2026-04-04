@@ -133,6 +133,11 @@ object BankingEconomics:
       bidToCover: Multiplier,                        // bond auction bid-to-cover ratio
   )
 
+  private case class AggregateReconciliation(
+      depositsResidual: PLN,
+      capitalResidual: PLN,
+  )
+
   // ---- Economics-level types (for MonthlyCalculus) ----
 
   case class Input(
@@ -642,7 +647,7 @@ object BankingEconomics:
       )
     }
 
-    processInterbankAndFailures(in, updatedBanks, bs, wf)
+    processInterbankAndFailures(in, updatedBanks, bs, wf, jstDepositChange, investNetDepositFlow, mortgageFlows)
 
   /** Interbank clearing, bond allocation, QE, failure check, bail-in,
     * resolution, reassignment.
@@ -652,6 +657,9 @@ object BankingEconomics:
       updatedBanks: Vector[Banking.BankState],
       bs: Banking.State,
       wf: BondWaterfallInputs,
+      jstDepositChange: PLN,
+      investNetDepositFlow: PLN,
+      mortgageFlows: HousingMarket.MortgageFlows,
   )(using p: SimParams): MultiBankResult =
     val prevBankAgg      = Banking.aggregateFromBanks(in.banks)
     val ibRate           = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
@@ -773,15 +781,26 @@ object BankingEconomics:
     // Deposit flows take effect next month when HH income/consumption routes
     // to new bankId. No immediate balance sheet transfer — consistent with
     // 1-month account transfer lag and avoids SFC flow mismatch.
+    val reconciled = reconcileAggregateExactness(
+      banks = afterResolve,
+      prevBankAgg = prevBankAgg,
+      in = in,
+      jstDepositChange = jstDepositChange,
+      investNetDepositFlow = investNetDepositFlow,
+      mortgageFlows = mortgageFlows,
+      bailInLoss = bailInResult.totalLoss,
+      multiCapDestruction = multiCapDest,
+      htmRealizedLoss = htmResult.totalRealizedLoss,
+    )
 
     MultiBankResult(
-      finalBanks = afterResolve,
+      finalBanks = reconciled,
       finalBankingMarket = finalBankingMarket,
       reassignedFirms = reassignedFirms,
       reassignedHouseholds = reassignedHouseholds,
       bailInLoss = bailInResult.totalLoss,
       multiCapDestruction = multiCapDest,
-      resolvedBank = Banking.aggregateFromBanks(afterResolve),
+      resolvedBank = Banking.aggregateFromBanks(reconciled),
       htmRealizedLoss = htmResult.totalRealizedLoss,
       finalNbp = finalNbp,
       finalPpk = finalPpk,
@@ -790,6 +809,102 @@ object BankingEconomics:
       actualBondChange = wf.actualBondChange,
       foreignBondHoldings = finalForeignBondHoldings,
       bidToCover = auctionResult.bidToCover,
+    )
+
+  private def reconcileAggregateExactness(
+      banks: Vector[Banking.BankState],
+      prevBankAgg: Banking.Aggregate,
+      in: StepInput,
+      jstDepositChange: PLN,
+      investNetDepositFlow: PLN,
+      mortgageFlows: HousingMarket.MortgageFlows,
+      bailInLoss: PLN,
+      multiCapDestruction: PLN,
+      htmRealizedLoss: PLN,
+  )(using p: SimParams): Vector[Banking.BankState] =
+    if banks.isEmpty then banks
+    else
+      val target         = aggregateReconciliationTarget(
+        prevBankAgg = prevBankAgg,
+        finalBanks = banks,
+        in = in,
+        jstDepositChange = jstDepositChange,
+        investNetDepositFlow = investNetDepositFlow,
+        mortgageFlows = mortgageFlows,
+        bailInLoss = bailInLoss,
+        multiCapDestruction = multiCapDestruction,
+        htmRealizedLoss = htmRealizedLoss,
+      )
+      val actualDeposits = PLN.fromRaw(banks.iterator.map(_.deposits.toLong).sum)
+      val actualCapital  = PLN.fromRaw(banks.iterator.map(_.capital.toLong).sum)
+      val depResidual    = target.depositsResidual - actualDeposits
+      val capResidual    = target.capitalResidual - actualCapital
+      if depResidual == PLN.Zero && capResidual == PLN.Zero then banks
+      else
+        val targetIdx = banks.lastIndexWhere(!_.failed) match
+          case -1 => banks.indices.last
+          case i  => i
+        banks.updated(
+          targetIdx,
+          reconcileSingleBank(banks(targetIdx), depResidual, capResidual),
+        )
+
+  private def aggregateReconciliationTarget(
+      prevBankAgg: Banking.Aggregate,
+      finalBanks: Vector[Banking.BankState],
+      in: StepInput,
+      jstDepositChange: PLN,
+      investNetDepositFlow: PLN,
+      mortgageFlows: HousingMarket.MortgageFlows,
+      bailInLoss: PLN,
+      multiCapDestruction: PLN,
+      htmRealizedLoss: PLN,
+  )(using p: SimParams): AggregateReconciliation =
+    val yieldChange        = in.s8.monetary.newBondYield - in.w.gov.bondYield
+    val unrealizedBondLoss =
+      if yieldChange > Rate.Zero then prevBankAgg.afsBonds * yieldChange * Multiplier(p.banking.govBondDuration)
+      else PLN.Zero
+    val eclProvisionChange = PLN.fromRaw:
+      finalBanks
+        .zip(in.banks)
+        .map: (curr, prev) =>
+          val currProv =
+            curr.eclStaging.stage1 * p.banking.eclRate1 + curr.eclStaging.stage2 * p.banking.eclRate2 + curr.eclStaging.stage3 * p.banking.eclRate3
+          val prevProv =
+            prev.eclStaging.stage1 * p.banking.eclRate1 + prev.eclStaging.stage2 * p.banking.eclRate2 + prev.eclStaging.stage3 * p.banking.eclRate3
+          (currProv - prevProv).toLong
+        .sum
+    val capitalLosses      = in.s5.nplLoss + mortgageFlows.defaultLoss + in.s6.consumerNplLoss +
+      in.s8.corpBonds.corpBondBankDefaultLoss + Banking.computeBfgLevy(in.banks).total +
+      unrealizedBondLoss + htmRealizedLoss + eclProvisionChange + multiCapDestruction
+    val capitalGrossIncome = in.s5.intIncome + in.s6.hhDebtService +
+      prevBankAgg.govBondHoldings * in.s8.monetary.newBondYield.monthly -
+      in.s6.depositInterestPaid + in.s8.banking.totalReserveInterest +
+      in.s8.banking.totalStandingFacilityIncome + in.s8.banking.totalInterbankInterest +
+      mortgageFlows.interest + in.s6.consumerDebtService + in.s8.corpBonds.corpBondBankCoupon
+    val targetCapital      = prevBankAgg.capital - capitalLosses + capitalGrossIncome * p.banking.profitRetention
+    val targetDeposits     = prevBankAgg.deposits + in.s3.totalIncome - in.s3.consumption +
+      investNetDepositFlow + jstDepositChange + in.s7.netDomesticDividends -
+      in.s7.foreignDividendOutflow - in.s6.remittanceOutflow + in.s6.diasporaInflow +
+      in.s6.tourismExport - in.s6.tourismImport - bailInLoss + in.s5.sumNewLoans -
+      in.s5.sumFirmPrincipal + in.s6.consumerOrigination + in.s8.nonBank.insNetDepositChange +
+      in.s8.nonBank.nbfiDepositDrain
+    AggregateReconciliation(
+      depositsResidual = targetDeposits,
+      capitalResidual = targetCapital,
+    )
+
+  private def reconcileSingleBank(
+      bank: Banking.BankState,
+      depositResidual: PLN,
+      capitalResidual: PLN,
+  )(using p: SimParams): Banking.BankState =
+    val newDeposits = bank.deposits + depositResidual
+    bank.copy(
+      deposits = newDeposits,
+      demandDeposits = newDeposits * (Share.One - p.banking.termDepositFrac),
+      termDeposits = newDeposits * p.banking.termDepositFrac,
+      capital = bank.capital + capitalResidual,
     )
 
   /** Monetary aggregates (M0/M1/M2/M3) when credit diagnostics enabled. */
