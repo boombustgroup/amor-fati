@@ -303,7 +303,7 @@ object PriceEquityEconomics:
       Math.max(0.0, gross - tax)
     }.sum
 
-    val prevGdp             = if in.w.cachedMonthlyGdpProxy > 0 then in.w.cachedMonthlyGdpProxy else 1.0
+    val prevGdp             = math.max(1.0, toDouble(in.w.cachedMonthlyGdpProxy))
     val gdpGrowthForEquity  = (gdp - prevGdp) / prevGdp
     val equityAfterIndex    = EquityMarket.step(
       EquityMarket.StepInput(

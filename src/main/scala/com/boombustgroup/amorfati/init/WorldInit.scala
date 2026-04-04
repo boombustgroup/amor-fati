@@ -164,7 +164,7 @@ object WorldInit:
       ),
       plumbing = MonetaryPlumbingState.zero,
       pipeline = PipelineState.zero,
-      flows = FlowState(monthlyGdpProxy = toDouble(p.firm.baseRevenue) * p.pop.firmsCount),
+      flows = FlowState(monthlyGdpProxy = PLN(toDouble(p.firm.baseRevenue) * p.pop.firmsCount)),
       regionalWages = Region.all.map(r => r -> (p.household.baseWage * Region.normalizedWageMultiplier(r))).toMap,
     )
 

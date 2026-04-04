@@ -35,7 +35,7 @@ case class World(
   def derivedTotalPopulation: Int =
     social.demographics.workingAgePop + social.demographics.retirees
 
-  def cachedMonthlyGdpProxy: Double = flows.monthlyGdpProxy
+  def cachedMonthlyGdpProxy: PLN = flows.monthlyGdpProxy
 
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
   def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))
@@ -95,7 +95,7 @@ object World:
       then social.demographics.copy(workingAgePop = totalPopulation)
       else social.demographics
     val compatFlows        =
-      if flows.monthlyGdpProxy == 0.0 && gdpProxy > 0.0 then flows.copy(monthlyGdpProxy = gdpProxy)
+      if flows.monthlyGdpProxy == PLN.Zero && gdpProxy > 0.0 then flows.copy(monthlyGdpProxy = PLN(gdpProxy))
       else flows
     new World(
       month = month,
@@ -225,7 +225,7 @@ object PipelineState:
   * into SFC identities and output columns.
   */
 case class FlowState(
-    monthlyGdpProxy: Double = 0.0,            // cached monthly GDP proxy for diagnostics / output ratios
+    monthlyGdpProxy: PLN = PLN.Zero,          // cached monthly GDP proxy for diagnostics / output ratios
     ioFlows: PLN = PLN.Zero,                  // I-O intermediate payments between sectors
     fdiProfitShifting: PLN = PLN.Zero,        // intangible imports booked abroad (profit shifting)
     fdiRepatriation: PLN = PLN.Zero,          // dividend repatriation by foreign-owned firms

@@ -74,7 +74,7 @@ object HouseholdFinancialEconomics:
           )
         else 0.0
       val shockFactor    = 1.0 - disruption
-      val baseGdp        = Math.max(0.0, w.cachedMonthlyGdpProxy)
+      val baseGdp        = Math.max(0.0, toDouble(w.cachedMonthlyGdpProxy))
       val inbound        = Math.max(
         0.0,
         baseGdp * toDouble(p.tourism.inboundShare) *

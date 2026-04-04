@@ -83,7 +83,7 @@ object DemandEconomics:
         rawGovPurchases = rawTarget,
         prevGovSpend = prevGovSpend,
         cumulativeDebt = in.w.gov.cumulativeDebt,
-        monthlyGdp = PLN(in.w.cachedMonthlyGdpProxy),
+        monthlyGdp = in.w.cachedMonthlyGdpProxy,
         prevRevenue = in.w.gov.taxRevenue,
         prevDeficit = in.w.gov.deficit,
         inflation = in.w.inflation,
