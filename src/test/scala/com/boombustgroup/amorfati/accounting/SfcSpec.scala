@@ -1290,3 +1290,180 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     result.shouldBe(a[Left[?, ?]])
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.ZusCash).shouldBe(true)
   }
+
+  it should "pass when earmarked-fund cash balances match executed batches" in {
+    val batches = Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        AggregateBatchContract.HouseholdIndex.Aggregate,
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Fp,
+        PLN(100.0),
+        AssetType.Cash,
+        FlowMechanism.FpContribution,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Fp,
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Services,
+        PLN(70.0),
+        AssetType.Cash,
+        FlowMechanism.FpSpending,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Fp,
+        PLN(20.0),
+        AssetType.Cash,
+        FlowMechanism.FpGovSubvention,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        AggregateBatchContract.HouseholdIndex.Aggregate,
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Pfron,
+        PLN(30.0),
+        AssetType.Cash,
+        FlowMechanism.PfronContribution,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Pfron,
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Services,
+        PLN(40.0),
+        AssetType.Cash,
+        FlowMechanism.PfronSpending,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Pfron,
+        PLN(15.0),
+        AssetType.Cash,
+        FlowMechanism.PfronGovSubvention,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        AggregateBatchContract.HouseholdIndex.Aggregate,
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Fgsp,
+        PLN(50.0),
+        AssetType.Cash,
+        FlowMechanism.FgspContribution,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Fgsp,
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Services,
+        PLN(60.0),
+        AssetType.Cash,
+        FlowMechanism.FgspSpending,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Fgsp,
+        PLN(25.0),
+        AssetType.Cash,
+        FlowMechanism.FgspGovSubvention,
+      ),
+    )
+    val result  = Sfc.validate(
+      prev = zeroRuntime,
+      curr = zeroRuntime,
+      flows = zeroFlows,
+      batches = batches,
+      executionSnapshot = Sfc.ExecutionSnapshot(
+        Map(
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Government,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+          ) -> PLN(-60.0),
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Funds,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Fp),
+          ) -> PLN(50.0),
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Funds,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Pfron),
+          ) -> PLN(5.0),
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Funds,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Fgsp),
+          ) -> PLN(15.0),
+        ),
+      ),
+      totalWealth = 0L,
+      tolerance = PLN(1000.0),
+      nfaTolerance = PLN(1000.0),
+    )
+    result.shouldBe(Right(()))
+  }
+
+  it should "detect mismatch in FGSP runtime cash identity" in {
+    val batches = Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        AggregateBatchContract.HouseholdIndex.Aggregate,
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Fgsp,
+        PLN(50.0),
+        AssetType.Cash,
+        FlowMechanism.FgspContribution,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Fgsp,
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Services,
+        PLN(60.0),
+        AssetType.Cash,
+        FlowMechanism.FgspSpending,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        EntitySector.Funds,
+        AggregateBatchContract.FundIndex.Fgsp,
+        PLN(25.0),
+        AssetType.Cash,
+        FlowMechanism.FgspGovSubvention,
+      ),
+    )
+    val result  = Sfc.validate(
+      prev = zeroRuntime,
+      curr = zeroRuntime,
+      flows = zeroFlows,
+      batches = batches,
+      executionSnapshot = Sfc.ExecutionSnapshot(
+        Map(
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Government,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+          ) -> PLN(-25.0),
+          Sfc.ExecutionBalanceKey(
+            EntitySector.Funds,
+            AssetType.Cash,
+            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Fgsp),
+          ) -> PLN(14.0),
+        ),
+      ),
+      totalWealth = 0L,
+      tolerance = PLN(1000.0),
+      nfaTolerance = PLN(1000.0),
+    )
+    result.shouldBe(a[Left[?, ?]])
+    result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.FgspCash).shouldBe(true)
+  }

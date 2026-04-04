@@ -191,7 +191,7 @@ object Sfc:
     */
   enum SfcIdentity:
     case BankCapital, BankDeposits, GovDebt, GovBudgetCash, JstCash, ZusCash,
-      NfzCash, Nfa, BondClearing, InterbankNetting, JstDebt, FusBalance,
+      NfzCash, FpCash, PfronCash, FgspCash, Nfa, BondClearing, InterbankNetting, JstDebt, FusBalance,
       NfzBalance, MortgageStock,
       FlowOfFunds, ConsumerCredit, CorpBondStock, NbfiCredit
 
@@ -532,6 +532,27 @@ object Sfc:
           SfcIdentity.NfzCash,
           "NFZ cash",
           AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Nfz)),
+          batches,
+          executionSnapshot,
+        ) ++
+        runtimeCashIdentity(
+          SfcIdentity.FpCash,
+          "FP cash",
+          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Fp)),
+          batches,
+          executionSnapshot,
+        ) ++
+        runtimeCashIdentity(
+          SfcIdentity.PfronCash,
+          "PFRON cash",
+          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Pfron)),
+          batches,
+          executionSnapshot,
+        ) ++
+        runtimeCashIdentity(
+          SfcIdentity.FgspCash,
+          "FGSP cash",
+          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Fgsp)),
           batches,
           executionSnapshot,
         )
