@@ -16,7 +16,9 @@ import com.boombustgroup.amorfati.engine.{
   World,
 }
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.engine.flows.{AggregateBatchContract, AggregateBatchedEmission, FlowMechanism}
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.{AssetType, EntitySector}
 
 class SfcSpec extends AnyFlatSpec with Matchers:
 
@@ -140,6 +142,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         wageScar = Share.Zero,
       )
     }.toVector
+
+  private val zeroRuntime = Sfc.RuntimeState(makeWorld(), Vector.empty, Vector.empty, Vector.empty)
 
   private val zeroSnap = Sfc.StockState(
     hhSavings = PLN.Zero,
@@ -976,5 +980,119 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val curr   = prev.copy(nbfiLoanStock = PLN(96800.0))
     val flows  = zeroFlows.copy(nbfiOrigination = PLN(1000), nbfiRepayment = PLN(4000), nbfiDefaultAmount = PLN(200))
     val result = Sfc.validate(prev, curr, flows)
+    result shouldBe Right(())
+  }
+
+  // ---- Runtime-only public cash identity ----
+
+  "Sfc.validate (runtime government budget cash)" should "pass when execution budget cash matches batch net flow" in {
+    val batches  = Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Aggregate,
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        PLN(100.0),
+        AssetType.Cash,
+        FlowMechanism.FirmCit,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Services,
+        PLN(40.0),
+        AssetType.Cash,
+        FlowMechanism.GovPurchases,
+      ),
+    )
+    val snapshot = Map(
+      (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(60.0).toLong,
+    )
+    val result   = Sfc.validate(
+      prev = zeroRuntime,
+      curr = zeroRuntime,
+      flows = zeroFlows,
+      batches = batches,
+      executionSnapshot = snapshot,
+      totalWealth = 0L,
+      tolerance = PLN(1000.0),
+      nfaTolerance = PLN(1000.0),
+    )
+    result shouldBe Right(())
+  }
+
+  it should "detect mismatch between budget cash batches and execution snapshot" in {
+    val batches = Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Aggregate,
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        PLN(100.0),
+        AssetType.Cash,
+        FlowMechanism.FirmCit,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Services,
+        PLN(40.0),
+        AssetType.Cash,
+        FlowMechanism.GovPurchases,
+      ),
+    )
+    val result  = Sfc.validate(
+      prev = zeroRuntime,
+      curr = zeroRuntime,
+      flows = zeroFlows,
+      batches = batches,
+      executionSnapshot = Map(
+        (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(55.0).toLong,
+      ),
+      totalWealth = 0L,
+      tolerance = PLN(1000.0),
+      nfaTolerance = PLN(1000.0),
+    )
+    result shouldBe a[Left[?, ?]]
+    result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.GovBudgetCash) shouldBe true
+  }
+
+  it should "ignore legacy GovDebt mismatch in runtime exactness when budget cash is correct" in {
+    val prevRuntime = zeroRuntime.copy(world = makeWorld(govDebt = 100.0))
+    val currRuntime = zeroRuntime.copy(world = makeWorld(govDebt = 999.0))
+    val batches     = Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Aggregate,
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        PLN(100.0),
+        AssetType.Cash,
+        FlowMechanism.FirmCit,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        AggregateBatchContract.GovernmentIndex.Budget,
+        EntitySector.Firms,
+        AggregateBatchContract.FirmIndex.Services,
+        PLN(40.0),
+        AssetType.Cash,
+        FlowMechanism.GovPurchases,
+      ),
+    )
+    val result      = Sfc.validate(
+      prev = prevRuntime,
+      curr = currRuntime,
+      flows = zeroFlows.copy(govSpending = PLN(10_000.0), govRevenue = PLN.Zero),
+      batches = batches,
+      executionSnapshot = Map(
+        (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(60.0).toLong,
+      ),
+      totalWealth = 0L,
+      tolerance = PLN(1000.0),
+      nfaTolerance = PLN(1000.0),
+    )
     result shouldBe Right(())
   }

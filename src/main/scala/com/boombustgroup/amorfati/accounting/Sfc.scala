@@ -3,9 +3,10 @@ package com.boombustgroup.amorfati.accounting
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.flows.AggregateBatchContract
 import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.ledger.BatchedFlow
+import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
 
 /** Stock-flow consistent (SFC) accounting framework for the simulation.
   *
@@ -162,7 +163,7 @@ object Sfc:
     * identify which identity was violated.
     */
   enum SfcIdentity:
-    case BankCapital, BankDeposits, GovDebt, Nfa, BondClearing,
+    case BankCapital, BankDeposits, GovDebt, GovBudgetCash, Nfa, BondClearing,
       InterbankNetting, JstDebt, FusBalance, NfzBalance, MortgageStock,
       FlowOfFunds, ConsumerCredit, CorpBondStock, NbfiCredit
 
@@ -259,8 +260,8 @@ object Sfc:
     *      foreignDividendOutflow - remittanceOutflow + diasporaInflow +
     *      tourismExport - tourismImport - bailInLoss + consumerOrigination +
     *      insNetDepositChange + nbfiDepositDrain
-    *   3. Gov debt: Δ = govSpending - govRevenue (govRevenue includes
-    *      dividendTax + zusGovSubvention)
+    *   3. Gov debt: legacy stock-only metric identity Δ = govSpending -
+    *      govRevenue (govRevenue includes dividendTax + zusGovSubvention)
     *   4. NFA: Δ = currentAccount + valuationEffect (currentAccount includes
     *      -foreignDividendOutflow, -fdiProfitShifting, -fdiRepatriation,
     *      +diasporaInflow)
@@ -445,6 +446,7 @@ object Sfc:
       curr: RuntimeState,
       flows: SemanticFlows,
       batches: Vector[BatchedFlow],
+      executionSnapshot: Map[(EntitySector, AssetType, Int), Long],
       totalWealth: Long,
       tolerance: PLN,
       nfaTolerance: PLN,
@@ -453,8 +455,37 @@ object Sfc:
     // batches. Keep the stock-side identities from the legacy oracle, but
     // neutralize the old hand-assembled residual to avoid double-counting the
     // same concept through two different channels.
-    val baseResult    = validate(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance)
-    val runtimeErrors =
+    //
+    // Public-sector note:
+    // `GovDebt` compares cash-budget expectations against a fiscal metric
+    // (`cumulativeDebt`). That is not an honest exact runtime identity.
+    // Runtime exactness should instead use the executed government budget cash
+    // account from ledger execution.
+    val baseErrors    =
+      validate(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance).left.toOption.getOrElse(Vector.empty)
+    val filteredBase  = baseErrors.filterNot(_.identity == SfcIdentity.GovDebt)
+    val runtimeErrors = runtimeIdentityErrors(batches, executionSnapshot, totalWealth)
+    merge(filteredBase ++ runtimeErrors)
+
+  private def runtimeIdentityErrors(
+      batches: Vector[BatchedFlow],
+      executionSnapshot: Map[(EntitySector, AssetType, Int), Long],
+      totalWealth: Long,
+  ): Vector[SfcIdentityError] =
+    val govBudgetExpected = governmentBudgetCashNetFlow(batches)
+    val govBudgetActual   = governmentBudgetCashBalance(executionSnapshot)
+    val govBudgetErrors   =
+      if govBudgetActual != govBudgetExpected then
+        Vector(
+          SfcIdentityError(
+            SfcIdentity.GovBudgetCash,
+            s"government budget cash [expected net=${govBudgetExpected}, actual closing=${govBudgetActual}]",
+            expected = govBudgetExpected,
+            actual = govBudgetActual,
+          ),
+        )
+      else Vector.empty
+    val fofErrors         =
       if totalWealth == 0L then Vector.empty
       else
         Vector(
@@ -465,9 +496,50 @@ object Sfc:
             actual = PLN.fromRaw(totalWealth),
           ),
         )
-    merge(baseResult, runtimeErrors)
+    govBudgetErrors ++ fofErrors
 
-  private def merge(base: SfcResult, extra: Vector[SfcIdentityError]): SfcResult =
-    val combined = base.left.toOption.getOrElse(Vector.empty) ++ extra
+  private def merge(errors: Vector[SfcIdentityError]): SfcResult =
+    val combined = errors
     if combined.isEmpty then Right(())
     else Left(combined)
+
+  private def governmentBudgetCashBalance(
+      executionSnapshot: Map[(EntitySector, AssetType, Int), Long],
+  ): PLN =
+    PLN.fromRaw(
+      executionSnapshot.getOrElse(
+        (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget),
+        0L,
+      ),
+    )
+
+  private def governmentBudgetCashNetFlow(batches: Vector[BatchedFlow]): PLN =
+    PLN.fromRaw(
+      batches.iterator.map(governmentBudgetCashDelta).sum,
+    )
+
+  private def governmentBudgetCashDelta(batch: BatchedFlow): Long =
+    if batch.asset != AssetType.Cash then 0L
+    else
+      batch match
+        case broadcast: BatchedFlow.Broadcast if isGovernmentBudget(batch.from, broadcast.fromIndex) =>
+          -broadcast.amounts.iterator.sum
+        case broadcast: BatchedFlow.Broadcast if batch.to == EntitySector.Government                 =>
+          broadcast.amounts.indices.iterator
+            .filter(i => broadcast.targetIndices(i) == AggregateBatchContract.GovernmentIndex.Budget)
+            .map(i => broadcast.amounts(i))
+            .sum
+        case scatter: BatchedFlow.Scatter if batch.from == EntitySector.Government                   =>
+          scatter.amounts.indices.iterator
+            .filter(i => i == AggregateBatchContract.GovernmentIndex.Budget)
+            .map(i => -scatter.amounts(i))
+            .sum
+        case scatter: BatchedFlow.Scatter if batch.to == EntitySector.Government                     =>
+          scatter.amounts.indices.iterator
+            .filter(i => scatter.targetIndices(i) == AggregateBatchContract.GovernmentIndex.Budget)
+            .map(i => scatter.amounts(i))
+            .sum
+        case _                                                                                       => 0L
+
+  private def isGovernmentBudget(sector: EntitySector, index: Int): Boolean =
+    sector == EntitySector.Government && index == AggregateBatchContract.GovernmentIndex.Budget
