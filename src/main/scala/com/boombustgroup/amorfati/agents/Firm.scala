@@ -1211,9 +1211,7 @@ object Firm:
     )
 
   /** Effective shadow share for a sector — base share + cyclical adjustment,
-    * clamped to [0, 1]. The adjustment consumed here is the carried world-state
-    * input for the current step, not the newly computed next-step
-    * shadow-economy state.
+    * clamped to [0, 1].
     */
   private def effectiveShadowShare(sector: SectorIdx, carriedInformalAdj: Double)(using p: SimParams): Share =
     (p.informal.sectorShares(sector.toInt) + Share(carriedInformalAdj)).min(Share.One)
