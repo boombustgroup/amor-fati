@@ -39,6 +39,14 @@ import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
   */
 object Sfc:
 
+  case class ExecutionSnapshot(
+      balances: Map[(EntitySector, AssetType, Int), Long],
+  ):
+    def balance(sector: EntitySector, asset: AssetType, index: Int): PLN =
+      PLN.fromRaw(
+        balances.getOrElse((sector, asset, index), 0L),
+      )
+
   /** Minimal runtime view needed for stock-side SFC validation. */
   case class RuntimeState(
       world: World,
@@ -449,7 +457,7 @@ object Sfc:
       curr: RuntimeState,
       flows: SemanticFlows,
       batches: Vector[BatchedFlow],
-      executionSnapshot: Map[(EntitySector, AssetType, Int), Long],
+      executionSnapshot: ExecutionSnapshot,
       totalWealth: Long,
       tolerance: PLN,
       nfaTolerance: PLN,
@@ -476,7 +484,7 @@ object Sfc:
 
   private def runtimeIdentityErrors(
       batches: Vector[BatchedFlow],
-      executionSnapshot: Map[(EntitySector, AssetType, Int), Long],
+      executionSnapshot: ExecutionSnapshot,
       totalWealth: Long,
   ): Vector[SfcIdentityError] =
     val publicCashErrors =
@@ -533,7 +541,7 @@ object Sfc:
       label: String,
       account: AccountRef,
       batches: Vector[BatchedFlow],
-      executionSnapshot: Map[(EntitySector, AssetType, Int), Long],
+      executionSnapshot: ExecutionSnapshot,
   ): Vector[SfcIdentityError] =
     val expected = cashAccountNetFlow(account, batches)
     val actual   = cashAccountBalance(account, executionSnapshot)
@@ -550,14 +558,9 @@ object Sfc:
 
   private def cashAccountBalance(
       account: AccountRef,
-      executionSnapshot: Map[(EntitySector, AssetType, Int), Long],
+      executionSnapshot: ExecutionSnapshot,
   ): PLN =
-    PLN.fromRaw(
-      executionSnapshot.getOrElse(
-        (account.sector, AssetType.Cash, account.index),
-        0L,
-      ),
-    )
+    executionSnapshot.balance(account.sector, AssetType.Cash, account.index)
 
   private def cashAccountNetFlow(account: AccountRef, batches: Vector[BatchedFlow]): PLN =
     PLN.fromRaw(

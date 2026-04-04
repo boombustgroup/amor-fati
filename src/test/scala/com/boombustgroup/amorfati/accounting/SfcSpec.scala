@@ -1006,8 +1006,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         FlowMechanism.GovPurchases,
       ),
     )
-    val snapshot = Map(
-      (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(60.0).toLong,
+    val snapshot = Sfc.ExecutionSnapshot(
+      Map(
+        (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(60.0).toLong,
+      ),
     )
     val result   = Sfc.validate(
       prev = zeroRuntime,
@@ -1048,8 +1050,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       curr = zeroRuntime,
       flows = zeroFlows,
       batches = batches,
-      executionSnapshot = Map(
-        (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(55.0).toLong,
+      executionSnapshot = Sfc.ExecutionSnapshot(
+        Map(
+          (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(55.0).toLong,
+        ),
       ),
       totalWealth = 0L,
       tolerance = PLN(1000.0),
@@ -1087,8 +1091,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       curr = currRuntime,
       flows = zeroFlows.copy(govSpending = PLN(10_000.0), govRevenue = PLN.Zero),
       batches = batches,
-      executionSnapshot = Map(
-        (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(60.0).toLong,
+      executionSnapshot = Sfc.ExecutionSnapshot(
+        Map(
+          (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(60.0).toLong,
+        ),
       ),
       totalWealth = 0L,
       tolerance = PLN(1000.0),
@@ -1177,11 +1183,13 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       curr = zeroRuntime,
       flows = zeroFlows,
       batches = batches,
-      executionSnapshot = Map(
-        (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(-50.0).toLong,
-        (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Jst)               -> PLN(60.0).toLong,
-        (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Zus)               -> PLN(50.0).toLong,
-        (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Nfz)               -> PLN(10.0).toLong,
+      executionSnapshot = Sfc.ExecutionSnapshot(
+        Map(
+          (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(-50.0).toLong,
+          (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Jst)               -> PLN(60.0).toLong,
+          (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Zus)               -> PLN(50.0).toLong,
+          (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Nfz)               -> PLN(10.0).toLong,
+        ),
       ),
       totalWealth = 0L,
       tolerance = PLN(1000.0),
@@ -1233,9 +1241,11 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
       flows = zeroFlows.copy(zusContributions = PLN.Zero, zusPensionPayments = PLN(9999.0)),
       batches = batches,
-      executionSnapshot = Map(
-        (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(-20.0).toLong,
-        (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Zus)               -> PLN(49.0).toLong,
+      executionSnapshot = Sfc.ExecutionSnapshot(
+        Map(
+          (EntitySector.Government, AssetType.Cash, AggregateBatchContract.GovernmentIndex.Budget) -> PLN(-20.0).toLong,
+          (EntitySector.Funds, AssetType.Cash, AggregateBatchContract.FundIndex.Zus)               -> PLN(49.0).toLong,
+        ),
       ),
       totalWealth = 0L,
       tolerance = PLN(1000.0),
