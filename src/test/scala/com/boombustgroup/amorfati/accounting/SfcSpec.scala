@@ -479,12 +479,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   // ---- Tolerance ----
 
-  it should "pass when error is below tolerance" in {
+  it should "pass when error is below an explicit custom tolerance" in {
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    // Bank capital off by 500 (below default tolerance of 1000)
+    // Bank capital off by 500; exact path fails, but explicit tolerance can still allow it.
     val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(500.0))
-    val result = Sfc.validateStockExactness(prev, curr, zeroFlows)
+    val result = Sfc.validateStockExactness(prev, curr, zeroFlows, tolerance = PLN(1000.0))
     result shouldBe Right(())
   }
 
@@ -1023,7 +1023,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       batches = batches,
       executionSnapshot = snapshot,
       totalWealth = 0L,
-      tolerance = PLN(1000.0),
+      tolerance = PLN.Zero,
       nfaTolerance = PLN(1000.0),
     )
     result shouldBe Right(())
@@ -1065,7 +1065,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN(1000.0),
+      tolerance = PLN.Zero,
       nfaTolerance = PLN(1000.0),
     )
     result shouldBe a[Left[?, ?]]
@@ -1110,7 +1110,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN(1000.0),
+      tolerance = PLN.Zero,
       nfaTolerance = PLN(1000.0),
     )
     result shouldBe Right(())
@@ -1221,7 +1221,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN(1000.0),
+      tolerance = PLN.Zero,
       nfaTolerance = PLN(1000.0),
     )
     result shouldBe Right(())
@@ -1285,7 +1285,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN(1000.0),
+      tolerance = PLN.Zero,
       nfaTolerance = PLN(1000.0),
     )
     result.shouldBe(a[Left[?, ?]])
@@ -1406,7 +1406,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN(1000.0),
+      tolerance = PLN.Zero,
       nfaTolerance = PLN(1000.0),
     )
     result.shouldBe(Right(()))
@@ -1462,7 +1462,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN(1000.0),
+      tolerance = PLN.Zero,
       nfaTolerance = PLN(1000.0),
     )
     result.shouldBe(a[Left[?, ?]])
