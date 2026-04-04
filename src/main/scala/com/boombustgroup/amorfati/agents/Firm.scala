@@ -1213,17 +1213,19 @@ object Firm:
   /** Effective shadow share for a sector — base share + cyclical adjustment,
     * clamped to [0, 1].
     */
-  private def effectiveShadowShare(sector: SectorIdx, cyclicalAdj: Double)(using p: SimParams): Share =
-    (p.informal.sectorShares(sector.toInt) + Share(cyclicalAdj)).min(Share.One)
+  private def effectiveShadowShare(sector: SectorIdx, carriedInformalAdj: Double)(using p: SimParams): Share =
+    (p.informal.sectorShares(sector.toInt) + Share(carriedInformalAdj)).min(Share.One)
 
   /** CIT evasion fraction for a sector — shadow share × CIT evasion rate. */
-  private def citEvasionFrac(sector: SectorIdx, cyclicalAdj: Double)(using p: SimParams): Share =
-    effectiveShadowShare(sector, cyclicalAdj) * p.informal.citEvasion
+  private def citEvasionFrac(sector: SectorIdx, carriedInformalAdj: Double)(using p: SimParams): Share =
+    effectiveShadowShare(sector, carriedInformalAdj) * p.informal.citEvasion
 
-  /** Apply informal CIT evasion — firm keeps evaded tax. */
-  private def applyInformalCitEvasion(r: Result, cyclicalAdj: Double)(using p: SimParams): Result =
+  /** Apply informal CIT evasion using the carried current-step shadow-economy
+    * adjustment from world state.
+    */
+  private def applyInformalCitEvasion(r: Result, carriedInformalAdj: Double)(using p: SimParams): Result =
     if !p.flags.informal || !isAlive(r.firm) || r.taxPaid <= PLN.Zero then return r
-    val evaded = r.taxPaid * citEvasionFrac(r.firm.sector, cyclicalAdj)
+    val evaded = r.taxPaid * citEvasionFrac(r.firm.sector, carriedInformalAdj)
     r.copy(
       firm = r.firm.copy(cash = r.firm.cash + evaded),
       taxPaid = r.taxPaid - evaded,
