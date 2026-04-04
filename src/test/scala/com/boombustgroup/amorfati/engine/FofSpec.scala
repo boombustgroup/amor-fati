@@ -207,14 +207,14 @@ class FofSpec extends AnyFlatSpec with Matchers:
     // All flows zero except fofResidual — all deltas are 0 = 0
     val flows  = zeroFlows
     val snap   = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
-    val result = Sfc.validate(snap, snap, flows)
+    val result = Sfc.validateStockExactness(snap, snap, flows)
     result shouldBe Right(())
   }
 
   it should "fail when fofResidual exceeds tolerance" in {
     val flows  = zeroFlows.copy(fofResidual = PLN(5000.0))
     val snap   = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
-    val result = Sfc.validate(snap, snap, flows)
+    val result = Sfc.validateStockExactness(snap, snap, flows)
     result shouldBe a[Left[?, ?]]
     td.toDouble(
       result.swap
