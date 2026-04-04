@@ -269,6 +269,27 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }
 
+  it should "use the carried informal adjustment from world state for CIT evasion" in {
+    val firm       = mkFirm(TechState.Traditional(10), sector = 2).copy(cash = PLN(500000.0))
+    val baseWorld  =
+      mkWorld().copy(
+        pipeline = mkWorld().pipeline.copy(
+          sectorDemandMult = Vector.fill(p.sectorDefs.length)(2.5),
+          sectorDemandPressure = Vector.fill(p.sectorDefs.length)(2.5),
+          sectorHiringSignal = Vector.fill(p.sectorDefs.length)(2.5),
+        ),
+      )
+    val lowAdj     = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.0))
+    val highAdj    = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.4))
+    val lowResult  = Firm.process(firm, lowAdj, Rate(0.07), _ => true, Vector(firm), new Random(42))
+    val highResult =
+      Firm.process(firm, highAdj, Rate(0.07), _ => true, Vector(firm), new Random(42))
+
+    lowResult.taxPaid should be > PLN.Zero
+    highResult.taxPaid should be > PLN.Zero
+    highResult.citEvasion should be > lowResult.citEvasion
+  }
+
   // --- helpers ---
 
   private def mkFirmWithNeighbors(id: Int, tech: TechState, neighbors: Vector[FirmId]): Firm.State =
