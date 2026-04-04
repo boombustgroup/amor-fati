@@ -31,9 +31,11 @@ object TaxRevenue:
   @boundaryEscape
   def compute(in: Input)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
-    val weights  = p.fiscal.fofConsWeights.map(toDouble(_))
-    val vatRates = p.fiscal.vatRates.map(toDouble(_))
-    val excRates = p.fiscal.exciseRates.map(toDouble(_))
+    val weights              = p.fiscal.fofConsWeights.map(toDouble(_))
+    val vatRates             = p.fiscal.vatRates.map(toDouble(_))
+    val excRates             = p.fiscal.exciseRates.map(toDouble(_))
+    val effectiveShadowShare = InformalEconomy.aggregateTaxShadowShare(Share(in.informalCyclicalAdj))
+    val effectiveShadowFrac  = toDouble(effectiveShadowShare)
 
     val vat = in.consumption * weights.zip(vatRates).map((w, r) => w * r).sum
 
@@ -42,25 +44,15 @@ object TaxRevenue:
     val customsDutyRevenue =
       in.totalImports * toDouble(p.fiscal.customsNonEuShare) * toDouble(p.fiscal.customsDutyRate)
 
-    // Informal economy: aggregate tax evasion
-    val effectiveShadowShare =
-      if p.flags.informal then
-        val sectorShares = p.informal.sectorShares.map(toDouble(_))
-        weights
-          .zip(sectorShares)
-          .map((cw, ss) => cw * Math.min(1.0, ss + in.informalCyclicalAdj))
-          .sum
-      else 0.0
-
     val vatAfterEvasion =
-      if p.flags.informal then vat * (1.0 - effectiveShadowShare * toDouble(p.informal.vatEvasion)) else vat
+      if p.flags.informal then vat * (1.0 - effectiveShadowFrac * toDouble(p.informal.vatEvasion)) else vat
 
     val exciseAfterEvasion =
-      if p.flags.informal then exciseRevenue * (1.0 - effectiveShadowShare * toDouble(p.informal.exciseEvasion))
+      if p.flags.informal then exciseRevenue * (1.0 - effectiveShadowFrac * toDouble(p.informal.exciseEvasion))
       else exciseRevenue
 
     val pitAfterEvasion =
-      if p.flags.informal then in.pitRevenue * (1.0 - effectiveShadowShare * toDouble(p.informal.pitEvasion))
+      if p.flags.informal then in.pitRevenue * (1.0 - effectiveShadowFrac * toDouble(p.informal.pitEvasion))
       else in.pitRevenue
 
     Output(
@@ -70,5 +62,5 @@ object TaxRevenue:
       exciseRevenue = exciseRevenue,
       exciseAfterEvasion = exciseAfterEvasion,
       customsDutyRevenue = customsDutyRevenue,
-      effectiveShadowShare = effectiveShadowShare,
+      effectiveShadowShare = effectiveShadowFrac,
     )
