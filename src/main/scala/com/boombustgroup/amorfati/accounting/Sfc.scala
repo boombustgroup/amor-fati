@@ -74,12 +74,12 @@ object Sfc:
       banks: Vector[Banking.BankState],
   )
 
-  /** Point-in-time stock state for SFC validation.
+  /** Point-in-time stock state for stock-side diagnostics and exactness checks.
     *
     * Captured twice per month (before and after Simulation.step) so that
-    * validate can compute Δstock = curr - prev for each identity. Fields
-    * corresponding to disabled mechanisms are simply zero — the identity holds
-    * trivially in that case.
+    * stock-side validation can compute Δstock = curr - prev for each identity.
+    * Some fields remain here only for legacy diagnostics; they are not part of
+    * the narrowed exact stock-only contract.
     */
   case class StockState(
       hhSavings: PLN,                // Σ household savings (individual mode only, 0 in aggregate)
@@ -186,9 +186,10 @@ object Sfc:
   )
 
   /** Enumeration of exact runtime identities plus legacy diagnostic metric
-    * identities. The public-sector metric identities remain here so callers can
-    * inspect them explicitly, but they are no longer part of the exact core
-    * validation path.
+    * identities. The stock-only exact API is deliberately narrower than this
+    * full set: runtime public cash identities and legacy public-sector metric
+    * identities remain available for explicit callers, but they are not part of
+    * the narrowed stock-only exact validation surface.
     */
   enum SfcIdentity:
     case BankCapital, BankDeposits, GovDebt, GovBudgetCash, JstCash, ZusCash,
@@ -314,7 +315,7 @@ object Sfc:
     */
   private case class IdentitySpec(id: SfcIdentity, msg: String, expected: PLN, actual: PLN, tolerance: PLN)
 
-  def validate(
+  def validateStockExactness(
       prev: StockState,               // stocks at the beginning of the month (before Simulation.step)
       curr: StockState,               // stocks at the end of the month (after Simulation.step)
       flows: SemanticFlows,           // all flows that occurred during the month
@@ -491,7 +492,7 @@ object Sfc:
     // execution; public-sector metric identities are available separately via
     // `metricDiagnostics`.
     val baseErrors    =
-      validate(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance).left.toOption.getOrElse(Vector.empty)
+      validateStockExactness(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance).left.toOption.getOrElse(Vector.empty)
     val runtimeErrors = runtimeIdentityErrors(batches, executionSnapshot, totalWealth)
     merge(baseErrors ++ runtimeErrors)
 
