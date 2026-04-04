@@ -66,7 +66,7 @@ object BankingEconomics:
       exciseRevenue: PLN,                            // gross excise revenue
       exciseAfterEvasion: PLN,                       // excise after informal evasion
       customsDutyRevenue: PLN,                       // customs duty revenue
-      effectiveShadowShare: Share,                   // effective shadow economy share
+      realizedTaxShadowShare: Share,                 // current-period realized aggregate tax-side shadow share
       mortgageInterestIncome: PLN,                   // mortgage interest income (bank share)
       mortgagePrincipal: PLN,                        // mortgage principal repaid
       mortgageDefaultLoss: PLN,                      // mortgage default loss (bank share)
@@ -183,7 +183,7 @@ object BankingEconomics:
       mortgageDefaultLoss: PLN,
       mortgageDefaultAmount: PLN,
       // Non-monetary outputs needed by WorldAssembly
-      effectiveShadowShare: Share,
+      realizedTaxShadowShare: Share,
       jstDepositChange: PLN,
       investNetDepositFlow: PLN,
       actualBondChange: PLN,
@@ -248,7 +248,7 @@ object BankingEconomics:
       exciseRevenue = PLN(govJst.tax.exciseRevenue),
       exciseAfterEvasion = PLN(govJst.tax.exciseAfterEvasion),
       customsDutyRevenue = PLN(govJst.tax.customsDutyRevenue),
-      effectiveShadowShare = Share(govJst.tax.effectiveShadowShare),
+      realizedTaxShadowShare = Share(govJst.tax.realizedTaxShadowShare),
       mortgageInterestIncome = housing.mortgageFlows.interest,
       mortgagePrincipal = housing.mortgageFlows.principal,
       mortgageDefaultLoss = housing.mortgageFlows.defaultLoss,
@@ -321,7 +321,7 @@ object BankingEconomics:
       mortgagePrincipal = s9.mortgagePrincipal,
       mortgageDefaultLoss = s9.mortgageDefaultLoss,
       mortgageDefaultAmount = s9.mortgageDefaultAmount,
-      effectiveShadowShare = s9.effectiveShadowShare,
+      realizedTaxShadowShare = s9.realizedTaxShadowShare,
       jstDepositChange = s9.jstDepositChange,
       investNetDepositFlow = s9.investNetDepositFlow,
       actualBondChange = s9.actualBondChange,

@@ -187,7 +187,7 @@ case class MechanismsState(
     expectations: Expectations.State,  // inflation forecast, credibility, forward guidance
     bfgFundBalance: PLN = PLN.Zero,    // cumulative BFG resolution fund
     informalCyclicalAdj: Double = 0.0, // smoothed cyclical shadow-economy adjustment
-    effectiveShadowShare: Double = 0.0, // consumption-weighted shadow share
+    nextTaxShadowShare: Double = 0.0,  // next-period smoothed tax-side shadow share
 )
 object MechanismsState:
   def zero(using SimParams): MechanismsState = MechanismsState(
@@ -240,6 +240,7 @@ case class FlowState(
     firmDeaths: Int = 0,                      // firms bankrupt this step
     netFirmBirths: Int = 0,                   // net new firms appended to vector
     taxEvasionLoss: PLN = PLN.Zero,           // tax lost to 4-channel evasion (CIT+VAT+PIT+excise)
+    realizedTaxShadowShare: Double = 0.0,     // current-period realized aggregate tax-side shadow share
     informalEmployed: Double = 0.0,           // estimated informal employment count
     bailInLoss: PLN = PLN.Zero,               // bail-in capital loss on bank creditors
     bfgLevyTotal: Double = 0.0,               // BFG resolution levy from all banks

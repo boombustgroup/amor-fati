@@ -134,9 +134,19 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     w.mechanisms.informalCyclicalAdj shouldBe 0.0
   }
 
+  it should "have nextTaxShadowShare defaulting to 0.0" in {
+    val w = mkMinimalWorld()
+    w.mechanisms.nextTaxShadowShare shouldBe 0.0
+  }
+
   it should "have taxEvasionLoss defaulting to 0.0" in {
     val w = mkMinimalWorld()
     w.flows.taxEvasionLoss shouldBe PLN.Zero
+  }
+
+  it should "have realizedTaxShadowShare defaulting to 0.0" in {
+    val w = mkMinimalWorld()
+    w.flows.realizedTaxShadowShare shouldBe 0.0
   }
 
   it should "have informalEmployed defaulting to 0.0" in {
