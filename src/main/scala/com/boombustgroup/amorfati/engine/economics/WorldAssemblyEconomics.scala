@@ -53,9 +53,10 @@ object WorldAssemblyEconomics:
   /** Intermediate result for informal economy computations. */
   private case class InformalResult(
       taxEvasionLoss: PLN,
+      realizedTaxShadowShare: Double,
       informalEmployed: Double,
       cyclicalAdj: Double,
-      effectiveShadowShare: Double,
+      nextTaxShadowShare: Double,
   )
 
   /** Intermediate result for observable values surfaced on World. */
@@ -255,23 +256,24 @@ object WorldAssemblyEconomics:
   @boundaryEscape
   private def computeInformalEconomy(in: StepInput)(using p: SimParams): InformalResult =
     import ComputationBoundary.toDouble
-    if !p.flags.informal then return InformalResult(PLN.Zero, 0.0, 0.0, 0.0)
+    if !p.flags.informal then return InformalResult(PLN.Zero, 0.0, 0.0, 0.0, 0.0)
 
     val taxEvasionLoss =
       in.s5.sumCitEvasion + (in.s9.vat - in.s9.vatAfterEvasion) +
         (in.s3.pitRevenue - in.s9.pitAfterEvasion) +
         (in.s9.exciseRevenue - in.s9.exciseAfterEvasion)
 
-    val informalEmployed = in.s2.employed.toDouble * toDouble(in.s9.effectiveShadowShare)
+    val realizedTaxShadowShare = toDouble(in.s9.realizedTaxShadowShare)
+    val informalEmployed       = in.s2.employed.toDouble * realizedTaxShadowShare
 
     val unemp       = 1.0 - in.s2.employed.toDouble / in.w.derivedTotalPopulation.max(1)
     val target      = Math.max(0.0, unemp - toDouble(p.informal.unempThreshold)) * toDouble(p.informal.cyclicalSens)
     val cyclicalAdj = in.w.mechanisms.informalCyclicalAdj * toDouble(p.informal.smoothing) +
       target * (1.0 - toDouble(p.informal.smoothing))
 
-    val effectiveShadowShare = toDouble(InformalEconomy.aggregateTaxShadowShare(Share(cyclicalAdj)))
+    val nextTaxShadowShare = toDouble(InformalEconomy.aggregateTaxShadowShare(Share(cyclicalAdj)))
 
-    InformalResult(taxEvasionLoss, informalEmployed, cyclicalAdj, effectiveShadowShare)
+    InformalResult(taxEvasionLoss, realizedTaxShadowShare, informalEmployed, cyclicalAdj, nextTaxShadowShare)
 
   /** Pre-compute observable values surfaced on World for SimOutput. */
   @boundaryEscape
@@ -441,7 +443,7 @@ object WorldAssemblyEconomics:
         expectations = in.s8.monetary.newExp,
         bfgFundBalance = in.w.mechanisms.bfgFundBalance + in.s9.bfgLevy,
         informalCyclicalAdj = informal.cyclicalAdj,
-        effectiveShadowShare = informal.effectiveShadowShare,
+        nextTaxShadowShare = informal.nextTaxShadowShare,
       ),
       plumbing = MonetaryPlumbingState(
         reserveInterestTotal = in.s8.banking.totalReserveInterest,
@@ -596,6 +598,7 @@ object WorldAssemblyEconomics:
       firmBirths = 0,
       firmDeaths = 0,
       taxEvasionLoss = informal.taxEvasionLoss,
+      realizedTaxShadowShare = informal.realizedTaxShadowShare,
       informalEmployed = informal.informalEmployed,
       bailInLoss = in.s9.bailInLoss,
       bfgLevyTotal = toDouble(in.s9.bfgLevy),

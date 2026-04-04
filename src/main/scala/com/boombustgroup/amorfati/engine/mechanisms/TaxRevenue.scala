@@ -19,23 +19,23 @@ object TaxRevenue:
   )
 
   case class Output(
-      vat: Double,                 // gross VAT revenue (sector-weighted effective rates)
-      vatAfterEvasion: Double,     // net VAT revenue after informal economy evasion
-      pitAfterEvasion: Double,     // net PIT revenue after informal economy evasion
-      exciseRevenue: Double,       // gross excise tax revenue (sector-weighted rates)
-      exciseAfterEvasion: Double,  // net excise revenue after informal economy evasion
-      customsDutyRevenue: Double,  // customs duty on non-EU imports
-      effectiveShadowShare: Double, // consumption-weighted aggregate shadow economy share
+      vat: Double,                   // gross VAT revenue (sector-weighted effective rates)
+      vatAfterEvasion: Double,       // net VAT revenue after informal economy evasion
+      pitAfterEvasion: Double,       // net PIT revenue after informal economy evasion
+      exciseRevenue: Double,         // gross excise tax revenue (sector-weighted rates)
+      exciseAfterEvasion: Double,    // net excise revenue after informal economy evasion
+      customsDutyRevenue: Double,    // customs duty on non-EU imports
+      realizedTaxShadowShare: Double, // current-period realized aggregate tax-side shadow share
   )
 
   @boundaryEscape
   def compute(in: Input)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
-    val weights              = p.fiscal.fofConsWeights.map(toDouble(_))
-    val vatRates             = p.fiscal.vatRates.map(toDouble(_))
-    val excRates             = p.fiscal.exciseRates.map(toDouble(_))
-    val effectiveShadowShare = InformalEconomy.aggregateTaxShadowShare(Share(in.informalCyclicalAdj))
-    val effectiveShadowFrac  = toDouble(effectiveShadowShare)
+    val weights                = p.fiscal.fofConsWeights.map(toDouble(_))
+    val vatRates               = p.fiscal.vatRates.map(toDouble(_))
+    val excRates               = p.fiscal.exciseRates.map(toDouble(_))
+    val realizedTaxShadowShare = InformalEconomy.aggregateTaxShadowShare(Share(in.informalCyclicalAdj))
+    val realizedTaxShadowFrac  = toDouble(realizedTaxShadowShare)
 
     val vat = in.consumption * weights.zip(vatRates).map((w, r) => w * r).sum
 
@@ -45,14 +45,14 @@ object TaxRevenue:
       in.totalImports * toDouble(p.fiscal.customsNonEuShare) * toDouble(p.fiscal.customsDutyRate)
 
     val vatAfterEvasion =
-      if p.flags.informal then vat * (1.0 - effectiveShadowFrac * toDouble(p.informal.vatEvasion)) else vat
+      if p.flags.informal then vat * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.vatEvasion)) else vat
 
     val exciseAfterEvasion =
-      if p.flags.informal then exciseRevenue * (1.0 - effectiveShadowFrac * toDouble(p.informal.exciseEvasion))
+      if p.flags.informal then exciseRevenue * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.exciseEvasion))
       else exciseRevenue
 
     val pitAfterEvasion =
-      if p.flags.informal then in.pitRevenue * (1.0 - effectiveShadowFrac * toDouble(p.informal.pitEvasion))
+      if p.flags.informal then in.pitRevenue * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.pitEvasion))
       else in.pitRevenue
 
     Output(
@@ -62,5 +62,5 @@ object TaxRevenue:
       exciseRevenue = exciseRevenue,
       exciseAfterEvasion = exciseAfterEvasion,
       customsDutyRevenue = customsDutyRevenue,
-      effectiveShadowShare = effectiveShadowFrac,
+      realizedTaxShadowShare = realizedTaxShadowFrac,
     )
