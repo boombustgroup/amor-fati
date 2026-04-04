@@ -364,16 +364,13 @@ object WorldAssemblyEconomics:
       fofResidual: PLN,
       informal: InformalResult,
       obs: Observables,
-  )(using p: SimParams): World =
-    import ComputationBoundary.toDouble
+  ): World =
     val ledgerSupported  = buildLedgerSupportedSnapshot(in)
     val provisionalWorld = World(
       month = in.s1.m,
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
-      gdpProxy = toDouble(in.s7.gdp),
       currentSigmas = in.s7.newSigmas,
-      totalPopulation = in.w.derivedTotalPopulation + in.s5.netMigration,
       gov = in.s9.newGovWithYield.copy(
         financial = in.s9.newGovWithYield.financial.copy(
           bondsOutstanding = in.w.gov.bondsOutstanding,
@@ -590,6 +587,7 @@ object WorldAssemblyEconomics:
   private def buildFlowState(in: StepInput, informal: InformalResult): FlowState =
     import ComputationBoundary.toDouble
     FlowState(
+      monthlyGdpProxy = in.s7.gdp,
       ioFlows = in.s5.totalIoPaid,
       fdiProfitShifting = in.s5.sumProfitShifting,
       fdiRepatriation = in.s5.sumFdiRepatriation,

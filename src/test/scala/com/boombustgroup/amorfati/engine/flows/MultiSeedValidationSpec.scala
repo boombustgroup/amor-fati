@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -79,7 +80,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
       }
 
       withClue(s"Seed $seed GDP: ") {
-        w.cachedMonthlyGdpProxy should be > 0.0
+        (w.cachedMonthlyGdpProxy > PLN.Zero) shouldBe true
       }
     }
 

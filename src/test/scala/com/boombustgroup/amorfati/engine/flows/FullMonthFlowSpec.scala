@@ -76,7 +76,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
           if s2Post.living.nonEmpty then s2Post.laborDemand / s2Post.living.length else 0,
         ),
       ),
-      JstFlows.emit(JstFlows.Input(w.gov.taxRevenue, s3.totalIncome, PLN(w.cachedMonthlyGdpProxy), s2Post.living.length, s3.pitRevenue)),
+      JstFlows.emit(JstFlows.Input(w.gov.taxRevenue, s3.totalIncome, w.cachedMonthlyGdpProxy, s2Post.living.length, s3.pitRevenue)),
       // Tier 2: Agents
       HouseholdFlows.emit(StateAdapter.hhInput(s3.hhAgg)),
       FirmFlows.emit(

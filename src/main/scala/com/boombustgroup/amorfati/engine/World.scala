@@ -15,9 +15,7 @@ case class World(
     month: Int,                                                        // simulation month (1-indexed)
     inflation: Rate,                                                   // CPI YoY inflation
     priceLevel: Double,                                                // cumulative CPI index (base = 1.0)
-    gdpProxy: Double,                                                  // cached monthly GDP proxy; prefer current-step GDP or cachedMonthlyGdpProxy accessor
     currentSigmas: Vector[Sigma],                                      // per-sector σ (Arthur increasing returns)
-    totalPopulation: Int,                                              // cached population snapshot; prefer derivedTotalPopulation accessor
     gov: FiscalBudget.GovState,                                        // government budget & debt
     nbp: Nbp.State,                                                    // central bank: rate, bonds, FX, QE
     bankingSector: Banking.MarketState,                                // banking macro state: interbank conditions, configs, term structure
@@ -34,11 +32,10 @@ case class World(
     flows: FlowState,                                                  // single-step derived flow outputs → SFC identities
     regionalWages: Map[Region, PLN] = Map.empty,                       // per-region wage levels (NUTS-1)
 ):
-  def derivedTotalPopulation(using p: SimParams): Int =
-    if p.flags.demographics then social.demographics.workingAgePop + social.demographics.retirees
-    else totalPopulation
+  def derivedTotalPopulation: Int =
+    social.demographics.workingAgePop + social.demographics.retirees
 
-  def cachedMonthlyGdpProxy: Double = gdpProxy
+  def cachedMonthlyGdpProxy: PLN = flows.monthlyGdpProxy
 
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
   def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))
@@ -93,27 +90,32 @@ object World:
       plumbing: MonetaryPlumbingState,
       flows: FlowState,
   ): World =
+    val compatDemographics =
+      if social.demographics == SocialSecurity.DemographicsState.zero && totalPopulation > 0
+      then social.demographics.copy(workingAgePop = totalPopulation)
+      else social.demographics
+    val compatFlows        =
+      if flows.monthlyGdpProxy == PLN.Zero && gdpProxy > 0.0 then flows.copy(monthlyGdpProxy = PLN(gdpProxy))
+      else flows
     new World(
       month = month,
       inflation = inflation,
       priceLevel = priceLevel,
-      gdpProxy = gdpProxy,
       currentSigmas = currentSigmas,
-      totalPopulation = totalPopulation,
       gov = gov,
       nbp = nbp,
       bankingSector = bankingSector,
       forex = forex,
       bop = OpenEconomy.BopState.zero,
       householdMarket = HouseholdMarketState.fromAggregates(hhAgg),
-      social = social,
+      social = social.copy(demographics = compatDemographics),
       financial = financial,
       external = external,
       real = real,
       mechanisms = mechanisms,
       plumbing = plumbing,
       pipeline = PipelineState.zero,
-      flows = flows,
+      flows = compatFlows,
       regionalWages = Map.empty,
     )
 
@@ -223,6 +225,7 @@ object PipelineState:
   * into SFC identities and output columns.
   */
 case class FlowState(
+    monthlyGdpProxy: PLN = PLN.Zero,          // cached monthly GDP proxy for diagnostics / output ratios
     ioFlows: PLN = PLN.Zero,                  // I-O intermediate payments between sectors
     fdiProfitShifting: PLN = PLN.Zero,        // intangible imports booked abroad (profit shifting)
     fdiRepatriation: PLN = PLN.Zero,          // dividend repatriation by foreign-owned firms

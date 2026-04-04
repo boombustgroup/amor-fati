@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.fp.ComputationBoundary
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -13,6 +14,7 @@ import org.scalatest.matchers.should.Matchers
 class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
+  private val td             = ComputationBoundary
 
   "FlowSimulation (autonomous)" should "run 12 months with SFC == 0L" in {
     val init  = WorldInit.initialize(42L)
@@ -51,7 +53,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
       firms = result.newFirms
       hh = result.newHouseholds
       banks = result.newBanks
-      gdps += w.cachedMonthlyGdpProxy
+      gdps += td.toDouble(w.cachedMonthlyGdpProxy)
     }
 
     gdps.last should not be gdps.head
