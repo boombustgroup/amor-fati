@@ -21,8 +21,9 @@ object SocialSecurity:
     val zero: ZusState = ZusState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   /** Compute ZUS monthly flows. Contributions from employed workers, pensions
-    * to retirees. FUS deficit covered by government subvention (Identity 3).
-    * fusBalance tracks raw surplus/deficit (Identity 8).
+    * to retirees. FUS deficit covered by government subvention. `fusBalance` is
+    * the operational fund balance used by SFC cash identities; it should not be
+    * conflated with government debt metrics.
     */
   def zusStep(prevBalance: PLN, employed: Int, wage: PLN, nRetirees: Int)(using p: SimParams): ZusState =
     if !p.flags.zus then ZusState(prevBalance, PLN.Zero, PLN.Zero, PLN.Zero)
@@ -51,7 +52,8 @@ object SocialSecurity:
   /** Compute NFZ monthly flows. 9% składka zdrowotna from employed workers.
     * Spending = per-capita cost × (working-age + retirees × aging elasticity).
     * Aging drives cost pressure: retirees consume ~2.5× more healthcare.
-    * Deficit covered by government subvention (flows into GovDebt identity).
+    * Deficit covered by government subvention. This belongs to public cash
+    * identity semantics rather than to government debt metrics.
     */
   def nfzStep(prevBalance: PLN, employed: Int, wage: PLN, workingAge: Int, nRetirees: Int)(using p: SimParams): NfzState =
     if !p.flags.nfz then NfzState(prevBalance, PLN.Zero, PLN.Zero, PLN.Zero)

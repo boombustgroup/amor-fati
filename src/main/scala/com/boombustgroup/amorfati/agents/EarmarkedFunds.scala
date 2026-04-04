@@ -20,8 +20,8 @@ import com.boombustgroup.amorfati.types.*
   *      during COVID (Tarcze). Calibration: FGŚP annual reports.
   *
   * Each fund: contributions from payroll → spending on purpose →
-  * surplus/deficit. Deficit covered by government subvention (flows into
-  * GovDebt identity).
+  * surplus/deficit. Deficit covered by government subvention. These balances
+  * belong to public cash-identity semantics, not to government debt metrics.
   *
   * Pure functions. Called from LaborDemographicsStep alongside ZUS/NFZ.
   */

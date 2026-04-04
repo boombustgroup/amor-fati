@@ -3,9 +3,10 @@ package com.boombustgroup.amorfati.accounting
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.flows.AggregateBatchContract
 import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.ledger.BatchedFlow
+import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
 
 /** Stock-flow consistent (SFC) accounting framework for the simulation.
   *
@@ -37,6 +38,33 @@ import com.boombustgroup.ledger.BatchedFlow
   * in validate — otherwise the check will fail at runtime.
   */
 object Sfc:
+
+  opaque type ExecutionIndex = Int
+  object ExecutionIndex:
+    def apply(value: Int): ExecutionIndex            = value
+    extension (index: ExecutionIndex) def value: Int = index
+
+  case class ExecutionBalanceKey(
+      sector: EntitySector,
+      asset: AssetType,
+      index: ExecutionIndex,
+  )
+
+  case class ExecutionSnapshot(
+      balances: Map[ExecutionBalanceKey, PLN],
+  ):
+    def balance(key: ExecutionBalanceKey): PLN =
+      balances.getOrElse(key, PLN.Zero)
+
+  object ExecutionSnapshot:
+    def fromRaw(
+        balances: Map[(EntitySector, AssetType, Int), Long],
+    ): ExecutionSnapshot =
+      ExecutionSnapshot(
+        balances.iterator.map { case ((sector, asset, index), amount) =>
+          ExecutionBalanceKey(sector, asset, ExecutionIndex(index)) -> PLN.fromRaw(amount)
+        }.toMap,
+      )
 
   /** Minimal runtime view needed for stock-side SFC validation. */
   case class RuntimeState(
@@ -162,8 +190,9 @@ object Sfc:
     * identify which identity was violated.
     */
   enum SfcIdentity:
-    case BankCapital, BankDeposits, GovDebt, Nfa, BondClearing,
-      InterbankNetting, JstDebt, FusBalance, NfzBalance, MortgageStock,
+    case BankCapital, BankDeposits, GovDebt, GovBudgetCash, JstCash, ZusCash,
+      NfzCash, Nfa, BondClearing, InterbankNetting, JstDebt, FusBalance,
+      NfzBalance, MortgageStock,
       FlowOfFunds, ConsumerCredit, CorpBondStock, NbfiCredit
 
   /** A single identity violation, carrying the identity that failed, a
@@ -259,8 +288,8 @@ object Sfc:
     *      foreignDividendOutflow - remittanceOutflow + diasporaInflow +
     *      tourismExport - tourismImport - bailInLoss + consumerOrigination +
     *      insNetDepositChange + nbfiDepositDrain
-    *   3. Gov debt: Δ = govSpending - govRevenue (govRevenue includes
-    *      dividendTax + zusGovSubvention)
+    *   3. Gov debt: legacy stock-only metric identity Δ = govSpending -
+    *      govRevenue (govRevenue includes dividendTax + zusGovSubvention)
     *   4. NFA: Δ = currentAccount + valuationEffect (currentAccount includes
     *      -foreignDividendOutflow, -fdiProfitShifting, -fdiRepatriation,
     *      +diasporaInflow)
@@ -268,19 +297,21 @@ object Sfc:
     *      insuranceGovBondHoldings + tfiGovBondHoldings = bondsOutstanding
     *   6. Interbank netting: Σ interbankNet_i = 0 (trivially 0 in single-bank
     *      mode)
-    *   7. JST debt: Δ = jstSpending - jstRevenue (trivially 0 when JST
-    *      disabled)
-    *   8. FUS balance: Δ = zusContributions - zusPensionPayments (trivially 0
-    *      when ZUS disabled)
-    *   9. Mortgage stock: Δ = origination - principalRepaid - defaultAmount
-    *      (trivially 0 when RE disabled)
-    *   10. Flow-of-funds: Σ firmRevenue = domesticCons + govPurchases +
+    *   7. JST debt: legacy stock-only metric identity Δ = jstSpending -
+    *      jstRevenue (trivially 0 when JST disabled)
+    *   8. FUS balance: legacy stock-only metric identity Δ = zusContributions -
+    *      zusPensionPayments (trivially 0 when ZUS disabled)
+    *   9. NFZ balance: legacy stock-only metric identity Δ = nfzContributions
+    *      - nfzSpending
+    *   10. Mortgage stock: Δ = origination - principalRepaid - defaultAmount
+    *       (trivially 0 when RE disabled)
+    *   11. Flow-of-funds: Σ firmRevenue = domesticCons + govPurchases +
     *       investDemand + exports (closes by construction)
-    *   11. Consumer credit: Δ consumerLoans = origination - principalRepaid -
+    *   12. Consumer credit: Δ consumerLoans = origination - principalRepaid -
     *       defaultAmount
-    *   12. Corp bond stock: Δ corpBondsOutstanding = issuance - amortization -
+    *   13. Corp bond stock: Δ corpBondsOutstanding = issuance - amortization -
     *       defaultAmount
-    *   13. NBFI credit stock: Δ nbfiLoanStock = origination - repayment -
+    *   14. NBFI credit stock: Δ nbfiLoanStock = origination - repayment -
     *       defaultAmount
     *
     * These catch semantic stock-flow mismatches: mis-routed flows, refactoring
@@ -445,6 +476,7 @@ object Sfc:
       curr: RuntimeState,
       flows: SemanticFlows,
       batches: Vector[BatchedFlow],
+      executionSnapshot: ExecutionSnapshot,
       totalWealth: Long,
       tolerance: PLN,
       nfaTolerance: PLN,
@@ -453,8 +485,57 @@ object Sfc:
     // batches. Keep the stock-side identities from the legacy oracle, but
     // neutralize the old hand-assembled residual to avoid double-counting the
     // same concept through two different channels.
-    val baseResult    = validate(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance)
-    val runtimeErrors =
+    //
+    // Public-sector note:
+    // `GovDebt`, `JstDebt`, `FusBalance`, and `NfzBalance` compare cash-budget
+    // expectations against stock metrics carried in `World`. Those are not
+    // honest exact runtime identities. Runtime exactness should instead use the
+    // executed public cash accounts from ledger execution.
+    val baseErrors    =
+      validate(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance).left.toOption.getOrElse(Vector.empty)
+    val filteredBase  = baseErrors.filterNot: err =>
+      err.identity == SfcIdentity.GovDebt ||
+        err.identity == SfcIdentity.JstDebt ||
+        err.identity == SfcIdentity.FusBalance ||
+        err.identity == SfcIdentity.NfzBalance
+    val runtimeErrors = runtimeIdentityErrors(batches, executionSnapshot, totalWealth)
+    merge(filteredBase ++ runtimeErrors)
+
+  private def runtimeIdentityErrors(
+      batches: Vector[BatchedFlow],
+      executionSnapshot: ExecutionSnapshot,
+      totalWealth: Long,
+  ): Vector[SfcIdentityError] =
+    val publicCashErrors =
+      runtimeCashIdentity(
+        SfcIdentity.GovBudgetCash,
+        "government budget cash",
+        AccountRef(EntitySector.Government, ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget)),
+        batches,
+        executionSnapshot,
+      ) ++
+        runtimeCashIdentity(
+          SfcIdentity.JstCash,
+          "JST cash",
+          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Jst)),
+          batches,
+          executionSnapshot,
+        ) ++
+        runtimeCashIdentity(
+          SfcIdentity.ZusCash,
+          "ZUS cash",
+          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Zus)),
+          batches,
+          executionSnapshot,
+        ) ++
+        runtimeCashIdentity(
+          SfcIdentity.NfzCash,
+          "NFZ cash",
+          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Nfz)),
+          batches,
+          executionSnapshot,
+        )
+    val fofErrors        =
       if totalWealth == 0L then Vector.empty
       else
         Vector(
@@ -465,9 +546,70 @@ object Sfc:
             actual = PLN.fromRaw(totalWealth),
           ),
         )
-    merge(baseResult, runtimeErrors)
+    publicCashErrors ++ fofErrors
 
-  private def merge(base: SfcResult, extra: Vector[SfcIdentityError]): SfcResult =
-    val combined = base.left.toOption.getOrElse(Vector.empty) ++ extra
+  private def merge(errors: Vector[SfcIdentityError]): SfcResult =
+    val combined = errors
     if combined.isEmpty then Right(())
     else Left(combined)
+
+  private case class AccountRef(sector: EntitySector, index: ExecutionIndex)
+
+  private def runtimeCashIdentity(
+      identity: SfcIdentity,
+      label: String,
+      account: AccountRef,
+      batches: Vector[BatchedFlow],
+      executionSnapshot: ExecutionSnapshot,
+  ): Vector[SfcIdentityError] =
+    val expected = cashAccountNetFlow(account, batches)
+    val actual   = cashAccountBalance(account, executionSnapshot)
+    if actual != expected then
+      Vector(
+        SfcIdentityError(
+          identity,
+          s"$label [expected net=$expected, actual closing=$actual]",
+          expected = expected,
+          actual = actual,
+        ),
+      )
+    else Vector.empty
+
+  private def cashAccountBalance(
+      account: AccountRef,
+      executionSnapshot: ExecutionSnapshot,
+  ): PLN =
+    executionSnapshot.balance(
+      ExecutionBalanceKey(account.sector, AssetType.Cash, account.index),
+    )
+
+  private def cashAccountNetFlow(account: AccountRef, batches: Vector[BatchedFlow]): PLN =
+    PLN.fromRaw(
+      batches.iterator.map(batch => cashAccountDelta(account, batch)).sum,
+    )
+
+  private def cashAccountDelta(account: AccountRef, batch: BatchedFlow): Long =
+    if batch.asset != AssetType.Cash then 0L
+    else
+      batch match
+        case broadcast: BatchedFlow.Broadcast if isAccount(batch.from, broadcast.fromIndex, account) =>
+          -broadcast.amounts.iterator.sum
+        case broadcast: BatchedFlow.Broadcast if batch.to == account.sector                          =>
+          broadcast.amounts.indices.iterator
+            .filter(i => broadcast.targetIndices(i) == account.index)
+            .map(i => broadcast.amounts(i))
+            .sum
+        case scatter: BatchedFlow.Scatter if batch.from == account.sector                            =>
+          scatter.amounts.indices.iterator
+            .filter(i => i == account.index)
+            .map(i => -scatter.amounts(i))
+            .sum
+        case scatter: BatchedFlow.Scatter if batch.to == account.sector                              =>
+          scatter.amounts.indices.iterator
+            .filter(i => scatter.targetIndices(i) == account.index)
+            .map(i => scatter.amounts(i))
+            .sum
+        case _                                                                                       => 0L
+
+  private def isAccount(sector: EntitySector, index: Int, account: AccountRef): Boolean =
+    sector == account.sector && index == ExecutionIndex.value(account.index)
