@@ -185,9 +185,10 @@ object Sfc:
       eclProvisionChange: PLN,      // IFRS 9 ECL provision change (positive = additional provision → capital hit)
   )
 
-  /** Enumeration of the 13 balance-sheet identities checked each month. Used as
-    * a discriminator in SfcIdentityError so callers can programmatically
-    * identify which identity was violated.
+  /** Enumeration of exact runtime identities plus legacy diagnostic metric
+    * identities. The public-sector metric identities remain here so callers can
+    * inspect them explicitly, but they are no longer part of the exact core
+    * validation path.
     */
   enum SfcIdentity:
     case BankCapital, BankDeposits, GovDebt, GovBudgetCash, JstCash, ZusCash,
@@ -267,11 +268,11 @@ object Sfc:
   def snapshot(state: RuntimeState): StockState =
     snapshot(state.world, state.firms, state.households, state.banks)
 
-  /** Validate 13 exact balance-sheet identities. Returns `Right(())` if all
-    * pass, or `Left(errors)` with every violated identity and its
-    * expected/actual values.
+  /** Validate exact balance-sheet identities. Returns `Right(())` if all pass,
+    * or `Left(errors)` with every violated identity and its expected/actual
+    * values.
     *
-    * Together these 13 identities ensure that every financial asset has a
+    * Together these exact identities ensure that every financial asset has a
     * matching liability, which implies the Godley sectoral balances rule
     * (S−I)+(G−T)+(X−M)=0 by construction.
     *
@@ -288,30 +289,22 @@ object Sfc:
     *      foreignDividendOutflow - remittanceOutflow + diasporaInflow +
     *      tourismExport - tourismImport - bailInLoss + consumerOrigination +
     *      insNetDepositChange + nbfiDepositDrain
-    *   3. Gov debt: legacy stock-only metric identity Δ = govSpending -
-    *      govRevenue (govRevenue includes dividendTax + zusGovSubvention)
-    *   4. NFA: Δ = currentAccount + valuationEffect (currentAccount includes
+    *   3. NFA: Δ = currentAccount + valuationEffect (currentAccount includes
     *      -foreignDividendOutflow, -fdiProfitShifting, -fdiRepatriation,
     *      +diasporaInflow)
-    *   5. Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings +
+    *   4. Bond clearing: bankBondHoldings + nbpBondHoldings + ppkBondHoldings +
     *      insuranceGovBondHoldings + tfiGovBondHoldings = bondsOutstanding
-    *   6. Interbank netting: Σ interbankNet_i = 0 (trivially 0 in single-bank
+    *   5. Interbank netting: Σ interbankNet_i = 0 (trivially 0 in single-bank
     *      mode)
-    *   7. JST debt: legacy stock-only metric identity Δ = jstSpending -
-    *      jstRevenue (trivially 0 when JST disabled)
-    *   8. FUS balance: legacy stock-only metric identity Δ = zusContributions -
-    *      zusPensionPayments (trivially 0 when ZUS disabled)
-    *   9. NFZ balance: legacy stock-only metric identity Δ = nfzContributions
-    *      - nfzSpending
-    *   10. Mortgage stock: Δ = origination - principalRepaid - defaultAmount
-    *       (trivially 0 when RE disabled)
-    *   11. Flow-of-funds: Σ firmRevenue = domesticCons + govPurchases +
-    *       investDemand + exports (closes by construction)
-    *   12. Consumer credit: Δ consumerLoans = origination - principalRepaid -
-    *       defaultAmount
-    *   13. Corp bond stock: Δ corpBondsOutstanding = issuance - amortization -
-    *       defaultAmount
-    *   14. NBFI credit stock: Δ nbfiLoanStock = origination - repayment -
+    *   6. Mortgage stock: Δ = origination - principalRepaid - defaultAmount
+    *      (trivially 0 when RE disabled)
+    *   7. Flow-of-funds: Σ firmRevenue = domesticCons + govPurchases +
+    *      investDemand + exports (closes by construction)
+    *   8. Consumer credit: Δ consumerLoans = origination - principalRepaid -
+    *      defaultAmount
+    *   9. Corp bond stock: Δ corpBondsOutstanding = issuance - amortization -
+    *      defaultAmount
+    *   10. NBFI credit stock: Δ nbfiLoanStock = origination - repayment -
     *       defaultAmount
     *
     * These catch semantic stock-flow mismatches: mis-routed flows, refactoring
@@ -362,15 +355,7 @@ object Sfc:
         actual = curr.bankDeposits - prev.bankDeposits,
         tolerance,
       ),
-      // 3. Government debt: deficit = spending − revenue
-      IdentitySpec(
-        GovDebt,
-        "government debt change",
-        expected = flows.govSpending - flows.govRevenue,
-        actual = curr.govDebt - prev.govDebt,
-        tolerance,
-      ),
-      // 4. NFA: current account + valuation (wider tolerance for FP cancellation)
+      // 3. NFA: current account + valuation (wider tolerance for FP cancellation)
       IdentitySpec(
         Nfa,
         "NFA change (current account + valuation)",
@@ -378,7 +363,7 @@ object Sfc:
         actual = curr.nfa - prev.nfa,
         nfaTolerance,
       ),
-      // 5. Bond clearing: holders = outstanding (level, not delta)
+      // 4. Bond clearing: holders = outstanding (level, not delta)
       IdentitySpec(
         BondClearing,
         s"bond clearing [bank=${curr.bankBondHoldings}, nbp=${curr.nbpBondHoldings}, foreign=${curr.foreignBondHoldings}, ppk=${curr.ppkBondHoldings}, ins=${curr.insuranceGovBondHoldings}, tfi=${curr.tfiGovBondHoldings}, outstanding=${curr.bondsOutstanding}]",
@@ -387,7 +372,7 @@ object Sfc:
           curr.ppkBondHoldings + curr.insuranceGovBondHoldings + curr.tfiGovBondHoldings,
         PLN.Zero,
       ),
-      // 6. Interbank netting: Σ net positions = 0
+      // 5. Interbank netting: Σ net positions = 0
       IdentitySpec(
         InterbankNetting,
         "interbank netting (should be zero)",
@@ -395,31 +380,7 @@ object Sfc:
         actual = curr.interbankNetSum,
         tolerance,
       ),
-      // 7. JST debt: spending − revenue
-      IdentitySpec(
-        JstDebt,
-        "JST debt change",
-        expected = flows.jstSpending - flows.jstRevenue,
-        actual = curr.jstDebt - prev.jstDebt,
-        tolerance,
-      ),
-      // 8. FUS balance: contributions − pensions
-      IdentitySpec(
-        FusBalance,
-        "FUS balance change (contributions - pensions)",
-        expected = flows.zusContributions - flows.zusPensionPayments,
-        actual = curr.fusBalance - prev.fusBalance,
-        tolerance,
-      ),
-      // 9. NFZ balance: contributions − spending
-      IdentitySpec(
-        NfzBalance,
-        "NFZ balance change (contributions - spending)",
-        expected = flows.nfzContributions - flows.nfzSpending,
-        actual = curr.nfzBalance - prev.nfzBalance,
-        tolerance,
-      ),
-      // 10. Mortgage stock: origination − repayment − default
+      // 6. Mortgage stock: origination − repayment − default
       IdentitySpec(
         MortgageStock,
         "mortgage stock change",
@@ -427,7 +388,7 @@ object Sfc:
         actual = curr.mortgageStock - prev.mortgageStock,
         tolerance,
       ),
-      // 10. Flow-of-funds: residual = 0 (closes by construction)
+      // 7. Flow-of-funds: residual = 0 (closes by construction)
       IdentitySpec(
         FlowOfFunds,
         "flow-of-funds residual",
@@ -435,7 +396,7 @@ object Sfc:
         actual = flows.fofResidual,
         tolerance,
       ),
-      // 11. Consumer credit: origination − debtService − default (debtSvc = P+I reduces stock)
+      // 8. Consumer credit: origination − debtService − default (debtSvc = P+I reduces stock)
       IdentitySpec(
         ConsumerCredit,
         "consumer credit stock change",
@@ -443,7 +404,7 @@ object Sfc:
         actual = curr.consumerLoans - prev.consumerLoans,
         tolerance,
       ),
-      // 12. Corporate bond stock: issuance − amortization − default
+      // 9. Corporate bond stock: issuance − amortization − default
       IdentitySpec(
         CorpBondStock,
         "corporate bond stock change",
@@ -451,7 +412,7 @@ object Sfc:
         actual = curr.corpBondsOutstanding - prev.corpBondsOutstanding,
         tolerance,
       ),
-      // 13. NBFI credit: origination − repayment − default
+      // 10. NBFI credit: origination − repayment − default
       IdentitySpec(
         NbfiCredit,
         "NBFI credit stock change",
@@ -466,6 +427,45 @@ object Sfc:
         SfcIdentityError(id, msg, expected, actual)
 
     if errors.isEmpty then Right(()) else Left(errors)
+
+  def metricDiagnostics(
+      prev: StockState,
+      curr: StockState,
+      flows: SemanticFlows,
+      tolerance: PLN = PLN(1000.0),
+  ): Vector[SfcIdentityError] =
+    Vector(
+      IdentitySpec(
+        SfcIdentity.GovDebt,
+        "government debt change",
+        expected = flows.govSpending - flows.govRevenue,
+        actual = curr.govDebt - prev.govDebt,
+        tolerance,
+      ),
+      IdentitySpec(
+        SfcIdentity.JstDebt,
+        "JST debt change",
+        expected = flows.jstSpending - flows.jstRevenue,
+        actual = curr.jstDebt - prev.jstDebt,
+        tolerance,
+      ),
+      IdentitySpec(
+        SfcIdentity.FusBalance,
+        "FUS balance change (contributions - pensions)",
+        expected = flows.zusContributions - flows.zusPensionPayments,
+        actual = curr.fusBalance - prev.fusBalance,
+        tolerance,
+      ),
+      IdentitySpec(
+        SfcIdentity.NfzBalance,
+        "NFZ balance change (contributions - spending)",
+        expected = flows.nfzContributions - flows.nfzSpending,
+        actual = curr.nfzBalance - prev.nfzBalance,
+        tolerance,
+      ),
+    ).collect:
+      case IdentitySpec(id, msg, expected, actual, tol) if (actual - expected).abs > tol =>
+        SfcIdentityError(id, msg, expected, actual)
 
   /** Preferred production API: project stocks from runtime state and combine
     * them with explicit flow semantics plus independent ledger execution
@@ -487,19 +487,13 @@ object Sfc:
     // same concept through two different channels.
     //
     // Public-sector note:
-    // `GovDebt`, `JstDebt`, `FusBalance`, and `NfzBalance` compare cash-budget
-    // expectations against stock metrics carried in `World`. Those are not
-    // honest exact runtime identities. Runtime exactness should instead use the
-    // executed public cash accounts from ledger execution.
+    // exact runtime validation uses executed public cash accounts from ledger
+    // execution; public-sector metric identities are available separately via
+    // `metricDiagnostics`.
     val baseErrors    =
       validate(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero), tolerance, nfaTolerance).left.toOption.getOrElse(Vector.empty)
-    val filteredBase  = baseErrors.filterNot: err =>
-      err.identity == SfcIdentity.GovDebt ||
-        err.identity == SfcIdentity.JstDebt ||
-        err.identity == SfcIdentity.FusBalance ||
-        err.identity == SfcIdentity.NfzBalance
     val runtimeErrors = runtimeIdentityErrors(batches, executionSnapshot, totalWealth)
-    merge(filteredBase ++ runtimeErrors)
+    merge(baseErrors ++ runtimeErrors)
 
   private def runtimeIdentityErrors(
       batches: Vector[BatchedFlow],

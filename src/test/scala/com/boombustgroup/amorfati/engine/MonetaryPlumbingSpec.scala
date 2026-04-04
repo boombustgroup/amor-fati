@@ -420,7 +420,6 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     // JST debt goes up by 5000 but flows say zero
     val curr   = prev.copy(jstDebt = prev.jstDebt + PLN(5000.0))
     val flows  = zeroFlows
-    val result = Sfc.validate(prev, curr, flows)
-    result shouldBe a[Left[?, ?]]
-    result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.JstDebt) shouldBe true
+    val result = Sfc.metricDiagnostics(prev, curr, flows)
+    result.exists(_.identity == Sfc.SfcIdentity.JstDebt) shouldBe true
   }

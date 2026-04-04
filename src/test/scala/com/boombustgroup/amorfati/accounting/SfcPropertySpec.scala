@@ -124,8 +124,8 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(perturbation))
-      val result              = Sfc.validate(prev, perturbed, flows)
-      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.GovDebt) shouldBe true
+      val result              = Sfc.metricDiagnostics(prev, perturbed, flows)
+      result.exists(_.identity == Sfc.SfcIdentity.GovDebt) shouldBe true
     }
 
   it should "detect perturbed nfa" in
@@ -163,11 +163,10 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), delta: Double) =>
       val (prev, curr, flows) = triple
       val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(delta))
-      val result              = Sfc.validate(prev, perturbed, flows)
-      result shouldBe a[Left[?, ?]]
-      result.swap.getOrElse(Vector.empty).map(_.identity) should contain(Sfc.SfcIdentity.GovDebt)
-      result.swap.getOrElse(Vector.empty).exists(e => e.identity == Sfc.SfcIdentity.BankCapital) shouldBe false
-      result.swap.getOrElse(Vector.empty).exists(e => e.identity == Sfc.SfcIdentity.BankDeposits) shouldBe false
+      val result              = Sfc.metricDiagnostics(prev, perturbed, flows)
+      result.map(_.identity) should contain(Sfc.SfcIdentity.GovDebt)
+      result.exists(e => e.identity == Sfc.SfcIdentity.BankCapital) shouldBe false
+      result.exists(e => e.identity == Sfc.SfcIdentity.BankDeposits) shouldBe false
     }
 
   // --- Bond clearing identity ---
