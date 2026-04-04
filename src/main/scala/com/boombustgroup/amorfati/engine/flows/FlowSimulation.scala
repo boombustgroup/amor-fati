@@ -663,7 +663,7 @@ object FlowSimulation:
       executionSnapshot = Sfc.ExecutionSnapshot.fromRaw(execution.snapshot),
       totalWealth = execution.totalWealth,
       tolerance = PLN.Zero,
-      nfaTolerance = PLN(1000.0),
+      nfaTolerance = PLN.Zero,
     )
 
     StepResult(

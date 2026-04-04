@@ -316,11 +316,11 @@ object Sfc:
   private case class IdentitySpec(id: SfcIdentity, msg: String, expected: PLN, actual: PLN, tolerance: PLN)
 
   def validateStockExactness(
-      prev: StockState,               // stocks at the beginning of the month (before Simulation.step)
-      curr: StockState,               // stocks at the end of the month (after Simulation.step)
-      flows: SemanticFlows,           // all flows that occurred during the month
-      tolerance: PLN = PLN.Zero,      // Exact stock-flow identities outside explicit exceptions
-      nfaTolerance: PLN = PLN(1000.0), // NFA (BoP valuation + rounding)
+      prev: StockState,            // stocks at the beginning of the month (before Simulation.step)
+      curr: StockState,            // stocks at the end of the month (after Simulation.step)
+      flows: SemanticFlows,        // all flows that occurred during the month
+      tolerance: PLN = PLN.Zero,   // Exact stock-flow identities outside explicit exceptions
+      nfaTolerance: PLN = PLN.Zero, // Probe exact NFA semantics; keep explicit override if needed
   )(using p: SimParams): SfcResult =
     import SfcIdentity.*
 
