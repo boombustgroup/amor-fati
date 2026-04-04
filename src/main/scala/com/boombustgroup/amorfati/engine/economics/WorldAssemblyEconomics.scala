@@ -266,9 +266,10 @@ object WorldAssemblyEconomics:
     val realizedTaxShadowShare = toDouble(in.s9.realizedTaxShadowShare)
     val informalEmployed       = in.s2.employed.toDouble * realizedTaxShadowShare
 
-    val unemp       = 1.0 - in.s2.employed.toDouble / in.w.derivedTotalPopulation.max(1)
-    val target      = Math.max(0.0, unemp - toDouble(p.informal.unempThreshold)) * toDouble(p.informal.cyclicalSens)
-    val cyclicalAdj = in.w.mechanisms.informalCyclicalAdj * toDouble(p.informal.smoothing) +
+    val laborPopulation = in.w.social.demographics.workingAgePop.max(1)
+    val unemp           = 1.0 - in.s2.employed.toDouble / laborPopulation
+    val target          = Math.max(0.0, unemp - toDouble(p.informal.unempThreshold)) * toDouble(p.informal.cyclicalSens)
+    val cyclicalAdj     = in.w.mechanisms.informalCyclicalAdj * toDouble(p.informal.smoothing) +
       target * (1.0 - toDouble(p.informal.smoothing))
 
     val nextTaxShadowShare = toDouble(InformalEconomy.aggregateTaxShadowShare(Share(cyclicalAdj)))
