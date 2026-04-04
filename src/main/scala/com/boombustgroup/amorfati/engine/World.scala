@@ -33,8 +33,7 @@ case class World(
     regionalWages: Map[Region, PLN] = Map.empty,                       // per-region wage levels (NUTS-1)
 ):
   def derivedTotalPopulation: Int =
-    val demographicPopulation = social.demographics.workingAgePop + social.demographics.retirees
-    if demographicPopulation > 0 then demographicPopulation else 0
+    social.demographics.workingAgePop + social.demographics.retirees
 
   def cachedMonthlyGdpProxy: Double = flows.monthlyGdpProxy
 
