@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
-import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, SectoralMobility}
+import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, InformalEconomy, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -269,12 +269,7 @@ object WorldAssemblyEconomics:
     val cyclicalAdj = in.w.mechanisms.informalCyclicalAdj * toDouble(p.informal.smoothing) +
       target * (1.0 - toDouble(p.informal.smoothing))
 
-    val effectiveShadowShare =
-      p.fiscal.fofConsWeights
-        .map(toDouble(_))
-        .zip(p.informal.sectorShares.map(toDouble(_)))
-        .map((cw, ss) => cw * Math.min(1.0, ss + cyclicalAdj))
-        .sum: Double
+    val effectiveShadowShare = toDouble(InformalEconomy.aggregateTaxShadowShare(Share(cyclicalAdj)))
 
     InformalResult(taxEvasionLoss, informalEmployed, cyclicalAdj, effectiveShadowShare)
 
