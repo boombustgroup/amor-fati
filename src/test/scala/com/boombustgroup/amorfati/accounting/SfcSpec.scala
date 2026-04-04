@@ -477,34 +477,15 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     metricResult shouldBe Vector.empty
   }
 
-  // ---- Tolerance ----
+  // ---- Exactness ----
 
-  it should "pass when error is below an explicit custom tolerance" in {
+  it should "fail when exact stock-flow identities do not match" in {
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    // Bank capital off by 500; exact path fails, but explicit tolerance can still allow it.
-    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(500.0))
-    val result = Sfc.validateStockExactness(prev, curr, zeroFlows, tolerance = PLN(1000.0))
-    result shouldBe Right(())
-  }
-
-  it should "fail when error exceeds tolerance" in {
-    val prev   =
-      zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    // Bank capital off by 5000 (above default tolerance of 1000)
+    // Bank capital off by 5000 -> exact path must fail.
     val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(5000.0))
     val result = Sfc.validateStockExactness(prev, curr, zeroFlows)
     result shouldBe a[Left[?, ?]]
-  }
-
-  it should "respect custom tolerance parameter" in {
-    val prev =
-      zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    val curr = prev.copy(bankCapital = prev.bankCapital + PLN(5000.0))
-    // Default tolerance (1000): fails
-    Sfc.validateStockExactness(prev, curr, zeroFlows) shouldBe a[Left[?, ?]]
-    // Loose tolerance (10000): passes
-    Sfc.validateStockExactness(prev, curr, zeroFlows, tolerance = PLN(10000.0)) shouldBe Right(())
   }
 
   // ---- Identity 5: Bond clearing ----
@@ -1023,8 +1004,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       batches = batches,
       executionSnapshot = snapshot,
       totalWealth = 0L,
-      tolerance = PLN.Zero,
-      nfaTolerance = PLN(1000.0),
     )
     result shouldBe Right(())
   }
@@ -1065,8 +1044,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN.Zero,
-      nfaTolerance = PLN(1000.0),
     )
     result shouldBe a[Left[?, ?]]
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.GovBudgetCash) shouldBe true
@@ -1110,8 +1087,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN.Zero,
-      nfaTolerance = PLN(1000.0),
     )
     result shouldBe Right(())
   }
@@ -1221,8 +1196,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN.Zero,
-      nfaTolerance = PLN(1000.0),
     )
     result shouldBe Right(())
   }
@@ -1285,8 +1258,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN.Zero,
-      nfaTolerance = PLN(1000.0),
     )
     result.shouldBe(a[Left[?, ?]])
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.ZusCash).shouldBe(true)
@@ -1406,8 +1377,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN.Zero,
-      nfaTolerance = PLN(1000.0),
     )
     result.shouldBe(Right(()))
   }
@@ -1462,8 +1431,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       totalWealth = 0L,
-      tolerance = PLN.Zero,
-      nfaTolerance = PLN(1000.0),
     )
     result.shouldBe(a[Left[?, ?]])
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.FgspCash).shouldBe(true)

@@ -662,8 +662,6 @@ object FlowSimulation:
       batches = flows,
       executionSnapshot = Sfc.ExecutionSnapshot.fromRaw(execution.snapshot),
       totalWealth = execution.totalWealth,
-      tolerance = PLN.Zero,
-      nfaTolerance = PLN.Zero,
     )
 
     StepResult(

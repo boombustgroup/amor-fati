@@ -136,17 +136,6 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
       result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.Nfa) shouldBe true
     }
 
-  // --- Tolerance monotonicity ---
-
-  it should "have tolerance monotonicity (pass at t implies pass at t' > t)" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(0.01, 5.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(perturbation))
-      val strictResult        = Sfc.validateStockExactness(prev, perturbed, flows, tolerance = PLN(perturbation))
-      val looseResult         = Sfc.validateStockExactness(prev, perturbed, flows, tolerance = PLN(perturbation * 10))
-      if strictResult.isRight then looseResult shouldBe Right(())
-    }
-
   // --- Error magnitude property ---
 
   it should "have error magnitude = actual change - expected change" in
