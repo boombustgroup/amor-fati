@@ -466,7 +466,6 @@ object SimOutput:
     ColumnDef("RealizedTaxShadowShare", ctx => ctx.world.flows.realizedTaxShadowShare),
     ColumnDef("NextTaxShadowShare", ctx => ctx.world.mechanisms.nextTaxShadowShare),
     ColumnDef("TaxEvasionLoss", ctx => td.toDouble(ctx.world.flows.taxEvasionLoss)),
-    ColumnDef("InformalEmployment", ctx => ctx.world.flows.informalEmployed),
     ColumnDef(
       "EvasionToGdpRatio",
       ctx => if ctx.monthlyGdp > PLN.Zero then td.toDouble(ctx.world.flows.taxEvasionLoss) / td.toDouble(ctx.monthlyGdp) else 0.0,
