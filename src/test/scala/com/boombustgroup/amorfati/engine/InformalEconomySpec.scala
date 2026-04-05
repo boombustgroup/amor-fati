@@ -3,8 +3,11 @@ package com.boombustgroup.amorfati.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.engine.flows.FlowSimulation
+import com.boombustgroup.amorfati.engine.mechanisms.InformalEconomy
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
+import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 
 class InformalEconomySpec extends AnyFlatSpec with Matchers:
@@ -243,6 +246,13 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     shares.foreach(_ shouldBe 1.0)
   }
 
+  it should "keep the baseline aggregate tax shadow share inside the Schneider target band" in {
+    val baseline = td.toDouble(InformalEconomy.aggregateTaxShadowShare(Share.Zero))
+    baseline should be >= 0.20
+    baseline should be <= 0.25
+    baseline shouldBe (0.2414 +- 0.01)
+  }
+
   // ==========================================================================
   // VAT evasion
   // ==========================================================================
@@ -320,4 +330,35 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     // Tax evasion only reduces government revenue, not GDP
     // This is a design test: GDP computation doesn't use taxEvasionLoss
     true shouldBe true // Verified by code inspection
+  }
+
+  "Informal calibration" should "keep default runtime ratios in a plausible envelope over 12 months" in {
+    val init  = WorldInit.initialize(42L)
+    var w     = init.world
+    var firms = init.firms
+    var hh    = init.households
+    var banks = init.banks
+
+    val realizedShares = collection.mutable.ArrayBuffer.empty[Double]
+    val evasionRatios  = collection.mutable.ArrayBuffer.empty[Double]
+
+    (1 to 12).foreach: month =>
+      val result     = FlowSimulation.step(w, firms, hh, banks, new scala.util.Random(42L * 1000 + month))
+      realizedShares += result.newWorld.flows.realizedTaxShadowShare
+      val monthlyGdp = td.toDouble(result.newWorld.cachedMonthlyGdpProxy)
+      val ratio      =
+        if monthlyGdp > 0.0 then td.toDouble(result.newWorld.flows.taxEvasionLoss) / monthlyGdp else 0.0
+      evasionRatios += ratio
+      w = result.newWorld
+      firms = result.newFirms
+      hh = result.newHouseholds
+      banks = result.newBanks
+
+    val avgShare = realizedShares.sum / realizedShares.size
+    val avgRatio = evasionRatios.sum / evasionRatios.size
+
+    avgShare should be >= 0.24
+    avgShare should be <= 0.30
+    avgRatio should be >= 0.003
+    avgRatio should be <= 0.02
   }
