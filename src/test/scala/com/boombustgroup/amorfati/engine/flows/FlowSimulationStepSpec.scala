@@ -40,6 +40,24 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     }
   }
 
+  it should "propagate informal-economy pressure into fiscal outputs without breaking SFC" in {
+    val init          = WorldInit.initialize(42L)
+    val lowShadowW    = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.0))
+    val highShadowW   = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.4))
+    val lowShadowRun  = FlowSimulation.step(lowShadowW, init.firms, init.households, init.banks, new scala.util.Random(42L))
+    val highShadowRun = FlowSimulation.step(highShadowW, init.firms, init.households, init.banks, new scala.util.Random(42L))
+
+    lowShadowRun.execution.totalWealth shouldBe 0L
+    highShadowRun.execution.totalWealth shouldBe 0L
+    lowShadowRun.sfcResult shouldBe Right(())
+    highShadowRun.sfcResult shouldBe Right(())
+
+    highShadowRun.newWorld.flows.realizedTaxShadowShare should be > lowShadowRun.newWorld.flows.realizedTaxShadowShare
+    highShadowRun.newWorld.flows.taxEvasionLoss should be > lowShadowRun.newWorld.flows.taxEvasionLoss
+    highShadowRun.newWorld.gov.taxRevenue should be < lowShadowRun.newWorld.gov.taxRevenue
+    highShadowRun.newWorld.gov.deficit should be > lowShadowRun.newWorld.gov.deficit
+  }
+
   it should "produce 30+ mechanism IDs" in {
     val init   = WorldInit.initialize(42L)
     val rng    = new scala.util.Random(42)
