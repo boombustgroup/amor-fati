@@ -220,8 +220,8 @@ object OpenEconEconomics:
 
     // 4. Monetary policy (Taylor rule + expectations)
     val exRateChg   = Coefficient((forex.exchangeRate / in.w.forex.exchangeRate) - 1.0)
-    val newRefRate  = Nbp.updateRate(in.w.nbp.referenceRate, in.newInflation, exRateChg, in.employed, in.w.derivedTotalPopulation)
-    val unempForExp = 1.0 - in.employed.toDouble / in.w.derivedTotalPopulation
+    val newRefRate  = Nbp.updateRate(in.w.nbp.referenceRate, in.newInflation, exRateChg, in.employed, in.w.laborForcePopulation)
+    val unempForExp = toDouble(in.w.unemploymentRate(in.employed))
     val newExp      =
       if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, toDouble(in.newInflation), toDouble(newRefRate), unempForExp)
       else in.w.mechanisms.expectations
@@ -273,7 +273,7 @@ object OpenEconEconomics:
     val corpDefaults  = CorporateBondMarket.processDefaults(in.w.financial.corporateBonds, in.totalBondDefault)
 
     // 8. Insurance
-    val unempRate    = Share.One - Share.fraction(in.employed, in.w.derivedTotalPopulation)
+    val unempRate    = in.w.unemploymentRate(in.employed)
     val newInsurance =
       if p.flags.insurance then
         Insurance.step(in.w.financial.insurance, in.employed, in.newWage, in.w.priceLevel, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
@@ -568,9 +568,9 @@ object OpenEconEconomics:
       in.s7.newInfl,
       exRateChg,
       in.s2.employed,
-      in.w.derivedTotalPopulation,
+      in.w.laborForcePopulation,
     )
-    val unempRateForExp = 1.0 - in.s2.employed.toDouble / in.w.derivedTotalPopulation
+    val unempRateForExp = toDouble(in.w.unemploymentRate(in.s2.employed))
     val newExp          =
       if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, toDouble(in.s7.newInfl), toDouble(newRefRate), unempRateForExp)
       else in.w.mechanisms.expectations
@@ -657,7 +657,7 @@ object OpenEconEconomics:
     )
 
   private def runStepInsurance(in: StepInput, newBondYield: Rate)(using p: SimParams): InsuranceResult =
-    val unempRate    = Share.One - Share.fraction(in.s2.employed, in.w.derivedTotalPopulation)
+    val unempRate    = in.w.unemploymentRate(in.s2.employed)
     val newInsurance =
       if p.flags.insurance then
         Insurance.step(
@@ -675,7 +675,7 @@ object OpenEconEconomics:
 
   private def runStepNbfi(in: StepInput, bankAgg: Banking.Aggregate, postFxNbp: Nbp.State, newBondYield: Rate)(using p: SimParams): NbfiResult =
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
-    val nbfiUnempRate   = Share.One - Share.fraction(in.s2.employed, in.w.derivedTotalPopulation)
+    val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
     val newNbfi         =
       if p.flags.nbfi then
         Nbfi.step(
