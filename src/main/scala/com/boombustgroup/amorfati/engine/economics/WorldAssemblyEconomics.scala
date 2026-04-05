@@ -54,7 +54,6 @@ object WorldAssemblyEconomics:
   private case class InformalResult(
       taxEvasionLoss: PLN,
       realizedTaxShadowShare: Double,
-      informalEmployed: Double,
       cyclicalAdj: Double,
       nextTaxShadowShare: Double,
   )
@@ -256,7 +255,7 @@ object WorldAssemblyEconomics:
   @boundaryEscape
   private def computeInformalEconomy(in: StepInput)(using p: SimParams): InformalResult =
     import ComputationBoundary.toDouble
-    if !p.flags.informal then return InformalResult(PLN.Zero, 0.0, 0.0, 0.0, 0.0)
+    if !p.flags.informal then return InformalResult(PLN.Zero, 0.0, 0.0, 0.0)
 
     val taxEvasionLoss =
       in.s5.sumCitEvasion + (in.s9.vat - in.s9.vatAfterEvasion) +
@@ -264,7 +263,6 @@ object WorldAssemblyEconomics:
         (in.s9.exciseRevenue - in.s9.exciseAfterEvasion)
 
     val realizedTaxShadowShare = toDouble(in.s9.realizedTaxShadowShare)
-    val informalEmployed       = in.s2.employed.toDouble * realizedTaxShadowShare
 
     val laborPopulation = in.w.social.demographics.workingAgePop.max(1)
     val unemp           = 1.0 - in.s2.employed.toDouble / laborPopulation
@@ -274,7 +272,7 @@ object WorldAssemblyEconomics:
 
     val nextTaxShadowShare = toDouble(InformalEconomy.aggregateTaxShadowShare(Share(cyclicalAdj)))
 
-    InformalResult(taxEvasionLoss, realizedTaxShadowShare, informalEmployed, cyclicalAdj, nextTaxShadowShare)
+    InformalResult(taxEvasionLoss, realizedTaxShadowShare, cyclicalAdj, nextTaxShadowShare)
 
   /** Pre-compute observable values surfaced on World for SimOutput. */
   @boundaryEscape
@@ -600,7 +598,6 @@ object WorldAssemblyEconomics:
       firmDeaths = 0,
       taxEvasionLoss = informal.taxEvasionLoss,
       realizedTaxShadowShare = informal.realizedTaxShadowShare,
-      informalEmployed = informal.informalEmployed,
       bailInLoss = in.s9.bailInLoss,
       bfgLevyTotal = toDouble(in.s9.bfgLevy),
     )

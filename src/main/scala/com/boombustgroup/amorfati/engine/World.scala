@@ -241,7 +241,6 @@ case class FlowState(
     netFirmBirths: Int = 0,                   // net new firms appended to vector
     taxEvasionLoss: PLN = PLN.Zero,           // tax lost to 4-channel evasion (CIT+VAT+PIT+excise)
     realizedTaxShadowShare: Double = 0.0,     // current-period realized aggregate tax-side shadow share
-    informalEmployed: Double = 0.0,           // estimated informal employment count
     bailInLoss: PLN = PLN.Zero,               // bail-in capital loss on bank creditors
     bfgLevyTotal: Double = 0.0,               // BFG resolution levy from all banks
 )

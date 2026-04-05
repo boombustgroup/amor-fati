@@ -149,11 +149,6 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     w.flows.realizedTaxShadowShare shouldBe 0.0
   }
 
-  it should "have informalEmployed defaulting to 0.0" in {
-    val w = mkMinimalWorld()
-    w.flows.informalEmployed shouldBe 0.0
-  }
-
   // ==========================================================================
   // Firm.Result citEvasion
   // ==========================================================================
