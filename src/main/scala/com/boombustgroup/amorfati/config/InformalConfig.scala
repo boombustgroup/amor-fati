@@ -10,10 +10,9 @@ import com.boombustgroup.amorfati.types.*
   * counter-cyclical — rises with unemployment (lagged, smoothed). Affects SFC
   * Identity 3 (government budget).
   *
-  * The defaults below were intentionally kept after the 2026 semantic cleanup:
-  * the baseline aggregate tax-side shadow share remains near the middle of the
-  * stated 20-25% target band, and the cyclical uplift stays moderate in the
-  * default runtime path.
+  * The defaults below place the baseline aggregate tax-side shadow share near
+  * the middle of the stated 20-25% target band, while keeping the cyclical
+  * uplift moderate in the default runtime path.
   *
   * @param sectorShares
   *   per-sector shadow economy share of output (6 sectors, Schneider 2023: Agri
