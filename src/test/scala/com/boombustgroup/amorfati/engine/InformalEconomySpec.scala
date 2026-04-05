@@ -3,8 +3,11 @@ package com.boombustgroup.amorfati.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.engine.flows.FlowSimulation
+import com.boombustgroup.amorfati.engine.mechanisms.InformalEconomy
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
+import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 
 class InformalEconomySpec extends AnyFlatSpec with Matchers:
@@ -13,6 +16,9 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
+
+  private def cyclicalAdj(unemployment: Rate): Share =
+    Share(Math.max(0.0, td.toDouble(unemployment) - td.toDouble(p.informal.unempThreshold)) * td.toDouble(p.informal.cyclicalSens))
 
   // ==========================================================================
   // Config defaults
@@ -23,9 +29,9 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have all values in [0,1]" in
-    p.informal.sectorShares.map(td.toDouble).foreach { s =>
-      s should be >= 0.0
-      s should be <= 1.0
+    p.informal.sectorShares.foreach { s =>
+      s should be >= Share.Zero
+      s should be <= Share.One
     }
 
   it should "have Agri highest" in {
@@ -153,10 +159,10 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // Firm.Result citEvasion
   // ==========================================================================
 
-  private def mkFirm(tech: TechState = TechState.Traditional(10), cash: Double = 50000.0): Firm.State =
+  private def mkFirm(tech: TechState = TechState.Traditional(10), cash: PLN = PLN(50000.0)): Firm.State =
     Firm.State(
       FirmId(0),
-      PLN(cash),
+      cash,
       PLN.Zero,
       tech,
       Share(0.5),
@@ -185,7 +191,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "CIT evasion" should "be zero for bankrupt firms" in {
-    val r = Firm.Result.zero(mkFirm(TechState.Bankrupt(BankruptReason.Other("test")), cash = 0.0))
+    val r = Firm.Result.zero(mkFirm(TechState.Bankrupt(BankruptReason.Other("test")), cash = PLN.Zero))
     r.citEvasion shouldBe PLN.Zero
   }
 
@@ -199,21 +205,18 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Counter-cyclical adjustment" should "be 0 when unemployment <= threshold" in {
-    // unemp = 0.04 < threshold 0.05
-    val adj = Math.max(0.0, 0.04 - td.toDouble(p.informal.unempThreshold)) * td.toDouble(p.informal.cyclicalSens)
-    adj shouldBe 0.0
+    cyclicalAdj(Rate(0.04)) shouldBe Share.Zero
   }
 
   it should "be positive when unemployment > threshold" in {
-    // unemp = 0.10 > threshold 0.05
-    val adj = Math.max(0.0, 0.10 - td.toDouble(p.informal.unempThreshold)) * td.toDouble(p.informal.cyclicalSens)
-    adj should be > 0.0
-    adj shouldBe (0.05 * 0.50 +- 1e-10)
+    val adj = cyclicalAdj(Rate(0.10))
+    adj should be > Share.Zero
+    adj shouldBe Share(0.025)
   }
 
   it should "increase with unemployment" in {
-    val adj1 = Math.max(0.0, 0.08 - td.toDouble(p.informal.unempThreshold)) * td.toDouble(p.informal.cyclicalSens)
-    val adj2 = Math.max(0.0, 0.15 - td.toDouble(p.informal.unempThreshold)) * td.toDouble(p.informal.cyclicalSens)
+    val adj1 = cyclicalAdj(Rate(0.08))
+    val adj2 = cyclicalAdj(Rate(0.15))
     adj2 should be > adj1
   }
 
@@ -222,25 +225,25 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Effective shadow share" should "be weighted by FofConsWeights" in {
-    val cyclicalAdj = 0.0
-    val ess         =
-      p.fiscal.fofConsWeights
-        .map(td.toDouble)
-        .zip(p.informal.sectorShares.map(td.toDouble))
-        .map((cw, ss) => cw * Math.min(1.0, ss + cyclicalAdj))
-        .sum
-    // Weighted average of sector shares: should be between min and max
-    ess should be > 0.0
-    ess should be < 1.0
+    val ess = InformalEconomy.aggregateTaxShadowShare(Share.Zero)
+    ess should be > Share.Zero
+    ess should be < Share.One
     // BPO=0.02*0.05, Mfg=0.22*0.15, Ret=0.53*0.30, Hlt=0.06*0.20, Pub=0.07*0.02, Agr=0.10*0.35
     // = 0.001 + 0.033 + 0.159 + 0.012 + 0.0014 + 0.035 = ~0.2414
-    ess shouldBe (0.2414 +- 0.01)
+    ess shouldBe Share(0.2414)
   }
 
   it should "be capped at 1.0 per sector" in {
-    val cyclicalAdj = 2.0 // very high
-    val shares      = p.informal.sectorShares.map(td.toDouble).map(ss => Math.min(1.0, ss + cyclicalAdj))
-    shares.foreach(_ shouldBe 1.0)
+    val cyclicalAdj = Share(2.0)
+    val shares      = p.informal.sectorShares.map(ss => (ss + cyclicalAdj).min(Share.One))
+    shares.foreach(_ shouldBe Share.One)
+  }
+
+  it should "keep the baseline aggregate tax shadow share inside the Schneider target band" in {
+    val baseline = InformalEconomy.aggregateTaxShadowShare(Share.Zero)
+    baseline should be >= Share(0.20)
+    baseline should be <= Share(0.25)
+    baseline shouldBe Share(0.2414)
   }
 
   // ==========================================================================
@@ -248,11 +251,12 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "VAT evasion" should "reduce VAT proportionally" in {
-    val vat      = 1000.0
-    val ess      = 0.20
-    val vatAfter = vat * (1.0 - ess * td.toDouble(p.informal.vatEvasion))
+    val vat         = PLN(1000.0)
+    val ess         = Share(0.20)
+    val evasionFrac = Share(td.toDouble(ess) * td.toDouble(p.informal.vatEvasion))
+    val vatAfter    = vat * (Share.One - evasionFrac)
     vatAfter should be < vat
-    vatAfter should be > 0.0
+    vatAfter should be > PLN.Zero
   }
 
   // ==========================================================================
@@ -260,11 +264,12 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "PIT evasion" should "reduce PIT proportionally" in {
-    val pit      = 500.0
-    val ess      = 0.20
-    val pitAfter = pit * (1.0 - ess * td.toDouble(p.informal.pitEvasion))
+    val pit         = PLN(500.0)
+    val ess         = Share(0.20)
+    val evasionFrac = Share(td.toDouble(ess) * td.toDouble(p.informal.pitEvasion))
+    val pitAfter    = pit * (Share.One - evasionFrac)
     pitAfter should be < pit
-    pitAfter should be > 0.0
+    pitAfter should be > PLN.Zero
   }
 
   // ==========================================================================
@@ -272,11 +277,12 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Excise evasion" should "reduce excise proportionally" in {
-    val excise      = 300.0
-    val ess         = 0.20
-    val exciseAfter = excise * (1.0 - ess * td.toDouble(p.informal.exciseEvasion))
+    val excise      = PLN(300.0)
+    val ess         = Share(0.20)
+    val evasionFrac = Share(td.toDouble(ess) * td.toDouble(p.informal.exciseEvasion))
+    val exciseAfter = excise * (Share.One - evasionFrac)
     exciseAfter should be < excise
-    exciseAfter should be > 0.0
+    exciseAfter should be > PLN.Zero
   }
 
   // ==========================================================================
@@ -284,12 +290,12 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "TaxEvasionLoss" should "be sum of all channels" in {
-    val citEvasion = 100.0
-    val vatDiff    = 200.0
-    val pitDiff    = 150.0
-    val exciseDiff = 50.0
+    val citEvasion = PLN(100.0)
+    val vatDiff    = PLN(200.0)
+    val pitDiff    = PLN(150.0)
+    val exciseDiff = PLN(50.0)
     val total      = citEvasion + vatDiff + pitDiff + exciseDiff
-    total shouldBe 500.0
+    total shouldBe PLN(500.0)
   }
 
   // ==========================================================================
@@ -297,17 +303,17 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "EvasionToGdpRatio" should "be positive when evasion > 0 and GDP > 0" in {
-    val evasion = 100.0
-    val gdp     = 1000.0
-    val ratio   = evasion / gdp
+    val evasion = PLN(100.0)
+    val gdp     = PLN(1000.0)
+    val ratio   = td.toDouble(evasion) / td.toDouble(gdp)
     ratio should be > 0.0
     ratio shouldBe 0.1
   }
 
   it should "be zero when GDP is zero" in {
-    val evasion = 100.0
-    val gdp     = 0.0
-    val ratio   = if gdp > 0 then evasion / gdp else 0.0
+    val evasion = PLN(100.0)
+    val gdp     = PLN.Zero
+    val ratio   = if gdp > PLN.Zero then td.toDouble(evasion) / td.toDouble(gdp) else 0.0
     ratio shouldBe 0.0
   }
 
@@ -320,4 +326,35 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     // Tax evasion only reduces government revenue, not GDP
     // This is a design test: GDP computation doesn't use taxEvasionLoss
     true shouldBe true // Verified by code inspection
+  }
+
+  "Informal calibration" should "keep default runtime ratios in a plausible envelope over 12 months" in {
+    val init  = WorldInit.initialize(42L)
+    var w     = init.world
+    var firms = init.firms
+    var hh    = init.households
+    var banks = init.banks
+
+    val realizedShares = collection.mutable.ArrayBuffer.empty[Share]
+    val evasionRatios  = collection.mutable.ArrayBuffer.empty[Share]
+
+    (1 to 12).foreach: month =>
+      val result     = FlowSimulation.step(w, firms, hh, banks, new scala.util.Random(42L * 1000 + month))
+      realizedShares += Share(result.newWorld.flows.realizedTaxShadowShare)
+      val monthlyGdp = result.newWorld.cachedMonthlyGdpProxy
+      val ratio      =
+        if monthlyGdp > PLN.Zero then Share(td.toDouble(result.newWorld.flows.taxEvasionLoss) / td.toDouble(monthlyGdp)) else Share.Zero
+      evasionRatios += ratio
+      w = result.newWorld
+      firms = result.newFirms
+      hh = result.newHouseholds
+      banks = result.newBanks
+
+    val avgShare = Share(realizedShares.map(td.toDouble).sum / realizedShares.size)
+    val avgRatio = Share(evasionRatios.map(td.toDouble).sum / evasionRatios.size)
+
+    avgShare should be >= Share(0.24)
+    avgShare should be <= Share(0.30)
+    avgRatio should be >= Share(0.003)
+    avgRatio should be <= Share(0.02)
   }
