@@ -35,6 +35,12 @@ case class World(
   def derivedTotalPopulation: Int =
     social.demographics.workingAgePop + social.demographics.retirees
 
+  def laborForcePopulation: Int =
+    social.demographics.workingAgePop.max(1)
+
+  def unemploymentRate(employed: Int): Share =
+    Share.One - Share.fraction(employed, laborForcePopulation)
+
   def cachedMonthlyGdpProxy: PLN = flows.monthlyGdpProxy
 
   def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))

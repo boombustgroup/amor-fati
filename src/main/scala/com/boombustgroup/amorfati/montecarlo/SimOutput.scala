@@ -53,7 +53,7 @@ object SimOutput:
           .toDouble / secFirms.length
     }
 
-    inline def unemployPct: Double = hhAgg.unemploymentRate(world.derivedTotalPopulation)
+    inline def unemployPct: Double = td.toDouble(world.unemploymentRate(hhAgg.employed))
 
   // -------------------------------------------------------------------------
   //  Schema groups — composed with ++

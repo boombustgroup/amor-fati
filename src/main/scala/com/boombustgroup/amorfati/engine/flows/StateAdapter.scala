@@ -66,7 +66,7 @@ object StateAdapter:
     InsuranceFlows.Input(
       employed = labor.employed,
       wage = labor.wage,
-      unempRate = Share.One - Share.fraction(labor.employed, w.derivedTotalPopulation.max(1)),
+      unempRate = w.unemploymentRate(labor.employed),
       prevGovBondHoldings = ins.govBondHoldings,
       prevCorpBondHoldings = ins.corpBondHoldings,
       prevEquityHoldings = ins.equityHoldings,

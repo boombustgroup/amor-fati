@@ -53,7 +53,7 @@ object HouseholdFinancialEconomics:
       val base          = toDouble(p.remittance.perCapita) * wap.toDouble
       val erAdj         = Math.pow(w.forex.exchangeRate / p.forex.baseExRate, toDouble(p.remittance.erElasticity))
       val trendAdj      = Math.pow(1.0 + toDouble(p.remittance.growthRate) / 12.0, month.toDouble)
-      val unempForRemit = 1.0 - employed.toDouble / w.derivedTotalPopulation
+      val unempForRemit = toDouble(w.unemploymentRate(employed))
       val cyclicalAdj   = 1.0 + toDouble(p.remittance.cyclicalSens) * Math.max(0.0, unempForRemit - DiasporaUnempThreshold)
       PLN(base * erAdj * trendAdj * cyclicalAdj)
     else PLN.Zero
