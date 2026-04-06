@@ -128,8 +128,8 @@ object OpenEconomy:
     val deltaReserves       = -(caResult.ca + kaResult.total)
     val fxResult            = Nbp.fxIntervention(
       in.prevForex.exchangeRate,
-      ComputationBoundary.toDouble(in.nbpFxReserves),
-      ComputationBoundary.toDouble(in.gdp),
+      in.nbpFxReserves,
+      in.gdp,
       true,
     )
     val newExRate           = computeExchangeRate(in, caResult.ca, kaResult.total, fxResult.erEffect)

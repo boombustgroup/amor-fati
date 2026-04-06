@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 import com.boombustgroup.amorfati.types.*
 
 /** National Bank of Poland: Taylor rule, bond yield, QE, FX intervention. */
@@ -240,24 +241,26 @@ object Nbp:
   @boundaryEscape
   def fxIntervention(
       prevER: Double,
-      reserves: Double,
-      gdp: Double,
+      reserves: PLN,
+      gdp: PLN,
       enabled: Boolean,
   )(using p: SimParams): FxInterventionResult =
-    if !enabled then FxInterventionResult(0.0, PLN.Zero, PLN(reserves), PLN.Zero)
+    val reservesD = reserves.toLong.toDouble / ScaleD
+    val gdpD      = gdp.toLong.toDouble / ScaleD
+    if !enabled then FxInterventionResult(0.0, PLN.Zero, reserves, PLN.Zero)
     else
       val erDev = (prevER - p.forex.baseExRate) / p.forex.baseExRate
-      if Math.abs(erDev) <= ComputationBoundary.toDouble(p.monetary.fxBand) then FxInterventionResult(0.0, PLN.Zero, PLN(reserves), PLN.Zero)
+      if Math.abs(erDev) <= p.monetary.fxBand.toLong.toDouble / ScaleD then FxInterventionResult(0.0, PLN.Zero, reserves, PLN.Zero)
       else
         val direction     = -Math.signum(erDev)
-        val maxByReserves = reserves * ComputationBoundary.toDouble(p.monetary.fxMaxMonthly)
+        val maxByReserves = reservesD * (p.monetary.fxMaxMonthly.toLong.toDouble / ScaleD)
         val magnitude     =
-          if direction < 0 then Math.min(maxByReserves, reserves)
+          if direction < 0 then Math.min(maxByReserves, reservesD)
           else maxByReserves
         val eurTraded     = magnitude * direction
-        val newReserves   = reserves + eurTraded
-        val gdpEffect     = if gdp > 0 then Math.abs(eurTraded) * p.forex.baseExRate / gdp else 0.0
-        val erEffect      = direction * gdpEffect * ComputationBoundary.toDouble(p.monetary.fxStrength)
+        val newReserves   = reservesD + eurTraded
+        val gdpEffect     = if gdp > PLN.Zero then Math.abs(eurTraded) * p.forex.baseExRate / gdpD else 0.0
+        val erEffect      = direction * gdpEffect * (p.monetary.fxStrength.toLong.toDouble / ScaleD)
         // PLN injection: EUR purchase → NBP pays PLN to banks (+), EUR sale → banks pay PLN to NBP (−)
         val plnInjection  = PLN(eurTraded * p.forex.baseExRate)
         FxInterventionResult(erEffect, PLN(eurTraded), PLN(newReserves).max(PLN.Zero), plnInjection)
