@@ -26,6 +26,9 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
 
+  private inline def shareValue(s: Share): Double =
+    s.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+
   // --- HouseholdInit ---
 
   "Household.Init.initialize" should "create correct number of households" in {
@@ -92,7 +95,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       mkHousehold(0, HhStatus.Bankrupt, savings = PLN(0.0)),
       mkHousehold(1, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0)),
     )
-    val (updated, _, _) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (updated, _, _) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).status shouldBe HhStatus.Bankrupt
   }
 
@@ -101,7 +104,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val hhs             = Vector(
       mkHousehold(0, HhStatus.Unemployed(3), savings = PLN(50000.0)),
     )
-    val (updated, _, _) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (updated, _, _) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).status match
       case HhStatus.Unemployed(m)       => m should be >= 4
       case HhStatus.Retraining(_, _, _) => succeed // may enter retraining
@@ -112,28 +115,28 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   it should "apply skill decay after scarring onset" in {
     val rng             = new Random(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), skill = 0.8)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).skill should be < Share(0.8)
   }
 
   it should "not decay skill before scarring onset" in {
     val rng             = new Random(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(100000.0), skill = 0.8)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).skill shouldBe Share(0.8)
   }
 
   it should "apply health scarring after onset" in {
     val rng             = new Random(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), healthPenalty = 0.0)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).healthPenalty should be > Share.Zero
   }
 
   it should "not bankrupt household after a single month of deep distress" in {
     val rng             = new Random(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(-10000.0), rent = PLN(1800.0))
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).status should not be HhStatus.Bankrupt
     updated(0).financialDistressMonths shouldBe 1
   }
@@ -146,7 +149,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       savings = PLN(-10000.0),
       rent = PLN(1800.0),
     ).copy(financialDistressMonths = p.household.bankruptcyDistressMonths - 1)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).status shouldBe HhStatus.Bankrupt
   }
 
@@ -158,7 +161,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       savings = PLN(20000.0),
       rent = PLN(1800.0),
     ).copy(financialDistressMonths = 2)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).status shouldBe a[HhStatus.Employed]
     updated(0).financialDistressMonths shouldBe 0
   }
@@ -166,14 +169,14 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   it should "return None for perBankHhFlows when bankRates not provided" in {
     val rng         = new Random(42)
     val hhs         = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0)))
-    val (_, _, pbf) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (_, _, pbf) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     pbf shouldBe None
   }
 
   it should "let unemployed households smooth consumption by drawing down savings" in {
     val rng               = new Random(42)
     val hh                = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(30000.0), rent = PLN(1800.0))
-    val (updated, agg, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng)
+    val (updated, agg, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
 
     agg.consumption should be > PLN.Zero
     updated(0).savings should be < hh.savings
@@ -206,7 +209,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       depositRates = Vector(Rate(0.04), Rate(0.04)),
     )
     val (_, _, maybePbf) =
-      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng, nBanks = 2, bankRates = Some(br))
+      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 2, bankRates = Some(br))
     val pbf              = maybePbf.get
     // Expected debt service: debt * (HhBaseAmortRate + lendingRate/12)
     val expectedDs0      = td.toDouble(debt) * (td.toDouble(p.household.baseAmortRate) + 0.06 / 12.0)
@@ -229,7 +232,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       depositRates = Vector(Rate(depRate)),
     )
     val (_, agg, maybePbf) =
-      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng, nBanks = 1, bankRates = Some(br))
+      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 1, bankRates = Some(br))
     val pbf                = maybePbf.get
     val expectedDepInt     = depRate / 12.0 * td.toDouble(savings)
     pbf(0).depositInterest shouldBe PLN(expectedDepInt) +- PLN(10.0)
@@ -248,7 +251,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       lendingRates = Vector(Rate(0.07)),
       depositRates = Vector(Rate(depRate)),
     )
-    val (_, agg, _)    = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), 0.4, rng, nBanks = 1, bankRates = Some(br))
+    val (_, agg, _)    = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), Share(0.4), rng, nBanks = 1, bankRates = Some(br))
     val expectedDepInt = depRate / 12.0 * td.toDouble(savings)
     val grossIncome    = wage + expectedDepInt
     val pitTax         = Household.computeMonthlyPit(PLN(grossIncome))
@@ -286,7 +289,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       depositRates = Vector(Rate(0.035), Rate(0.035)),
     )
     val (_, _, maybePbf) =
-      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng, nBanks = 2, bankRates = Some(br))
+      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 2, bankRates = Some(br))
     val pbf              = maybePbf.get
     // Bank 0 has HH 0 and 1: income should include both
     pbf(0).income should be > PLN.Zero
@@ -309,7 +312,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       depositRates = Vector(Rate(0.04)),
     )
     val (_, agg, maybePbf) =
-      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), 0.4, rng, nBanks = 1, bankRates = Some(br))
+      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 1, bankRates = Some(br))
     val pbf                = maybePbf.get
     // Deposit interest on negative savings is floored at 0
     pbf(0).depositInterest shouldBe PLN.Zero
@@ -325,30 +328,30 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(wage)), savings = PLN(50000.0))
         .copy(isImmigrant = false),
     )
-    val (_, agg, _) = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), 0.4, rng)
+    val (_, agg, _) = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), Share(0.4), rng)
     agg.totalRemittances shouldBe PLN.Zero
   }
 
   // --- Household.giniSorted ---
 
   "Household.giniSorted" should "return 0 for equal values" in {
-    Household.giniSorted(Array(100.0, 100.0, 100.0, 100.0)) shouldBe 0.0 +- 0.001
+    shareValue(Household.giniSorted(Array(100L, 100L, 100L, 100L))) shouldBe (0.0 +- 0.001)
   }
 
   it should "return 0 for single element" in {
-    Household.giniSorted(Array(42.0)) shouldBe 0.0
+    Household.giniSorted(Array(42L)) shouldBe Share.Zero
   }
 
   it should "return value in [0, 1] for typical distribution" in {
-    val values = Array(1000.0, 2000.0, 3000.0, 5000.0, 10000.0, 50000.0)
+    val values = Array(1000L, 2000L, 3000L, 5000L, 10000L, 50000L)
     val g      = Household.giniSorted(values)
-    g should be >= 0.0
-    g should be <= 1.0
+    g should be >= Share.Zero
+    g should be <= Share.One
   }
 
   it should "increase with more inequality" in {
-    val equal   = Array(1000.0, 1000.0, 1000.0, 1000.0)
-    val unequal = Array(0.0, 0.0, 0.0, 4000.0)
+    val equal   = Array(1000L, 1000L, 1000L, 1000L)
+    val unequal = Array(0L, 0L, 0L, 4000L)
     Household.giniSorted(unequal) should be > Household.giniSorted(equal)
   }
 
@@ -362,7 +365,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       mkHousehold(3, HhStatus.Retraining(4, SectorIdx(1), PLN(5000.0))),
       mkHousehold(4, HhStatus.Bankrupt),
     )
-    val agg = Household.computeAggregates(hhs, PLN(8000.0), PLN(4666.0), 0.4, 0, 0)
+    val agg = Household.computeAggregates(hhs, PLN(8000.0), PLN(4666.0), Share(0.4), 0, 0)
     agg.employed shouldBe 2
     agg.unemployed shouldBe 1
     agg.retraining shouldBe 1
@@ -457,14 +460,14 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         medianSavings = PLN.Zero,
         povertyRate50 = Share.Zero,
         bankruptcyRate = Share.Zero,
-        meanSkill = 0.0,
-        meanHealthPenalty = 0.0,
+        meanSkill = Share.Zero,
+        meanHealthPenalty = Share.Zero,
         retrainingAttempts = 0,
         retrainingSuccesses = 0,
         consumptionP10 = PLN.Zero,
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = 0.0,
+        meanMonthsToRuin = Scalar.Zero,
         povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
