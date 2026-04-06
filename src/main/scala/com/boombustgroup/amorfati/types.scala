@@ -8,9 +8,6 @@ import scala.annotation.targetName
   * Provider object — inside that object, only its own opaque type is
   * transparent. Cross-type operations are defined here where ALL types are
   * opaque, so the compiler prevents PLN + Rate, Share + Coefficient, etc.
-  *
-  * No `.toDouble` in public API. Use `ComputationBoundary.toDouble(value)` +
-  * `@boundaryEscape` annotation for CES/CSV escape points.
   */
 object types:
   // Re-export all types and their companions
@@ -24,10 +21,11 @@ object types:
   export com.boombustgroup.amorfati.fp.PriceIndexProvider.{PriceIndex, given}
   export com.boombustgroup.amorfati.fp.SigmaProvider.{Sigma, given}
 
-  // Re-export boundary tools
+  // Transitional compatibility only. Boundary escapes are being removed from
+  // the typed algebra and should not be treated as part of the target API.
   export com.boombustgroup.amorfati.fp.{boundaryEscape, ComputationBoundary}
 
-  import com.boombustgroup.amorfati.fp.FixedPointBase.{asDouble, bankerRound}
+  import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 
   private inline def scaledDiv(numerator: Long, denominator: Long): Long =
     if denominator == 0L then 0L
@@ -64,20 +62,20 @@ object types:
     @targetName("plnTimesCoefficient")
     def *(c: Coefficient): PLN      = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
     @targetName("plnDivShare")
-    def /(s: Share): PLN            = if s.toLong != 0L then PLN(asDouble(p.toLong) / asDouble(s.toLong)) else PLN.Zero
+    def /(s: Share): PLN            = PLN.fromRaw(scaledDiv(p.toLong, s.toLong))
     @targetName("plnDivMultiplier")
-    def /(m: Multiplier): PLN       = if m.toLong != 0L then PLN(asDouble(p.toLong) / asDouble(m.toLong)) else PLN.Zero
+    def /(m: Multiplier): PLN       = PLN.fromRaw(scaledDiv(p.toLong, m.toLong))
     @targetName("plnRatioToPln")
     def ratioTo(other: PLN): Scalar = Scalar.fromRaw(scaledDiv(p.toLong, other.toLong))
 
   // --- Rate × typed ---
   extension (r: Rate)
     @targetName("rateTimesMultiplier")
-    def *(m: Multiplier): Rate       = Rate(asDouble(r.toLong) * asDouble(m.toLong))
+    def *(m: Multiplier): Rate       = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(m.toLong)))
     @targetName("rateTimesShare")
-    def *(s: Share): Rate            = Rate(asDouble(r.toLong) * asDouble(s.toLong))
+    def *(s: Share): Rate            = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(s.toLong)))
     @targetName("rateTimesCoefficient")
-    def *(c: Coefficient): Rate      = Rate(asDouble(r.toLong) * asDouble(c.toLong))
+    def *(c: Coefficient): Rate      = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(c.toLong)))
     @targetName("rateToMultiplier")
     def toMultiplier: Multiplier     = Multiplier.fromRaw(r.toLong)
     @targetName("rateRatioToRate")
@@ -88,11 +86,11 @@ object types:
     @targetName("shareTimesMultiplier")
     def *(m: Multiplier): Multiplier   = Multiplier.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(m.toLong)))
     @targetName("shareTimesCoefficient")
-    def *(c: Coefficient): Coefficient = Coefficient(asDouble(s.toLong) * asDouble(c.toLong))
+    def *(c: Coefficient): Coefficient = Coefficient.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(c.toLong)))
     @targetName("shareTimesPln")
     def *(p: PLN): PLN                 = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(s.toLong)))
     @targetName("shareToRate")
-    def toRate: Rate                   = Rate(asDouble(s.toLong))
+    def toRate: Rate                   = Rate.fromRaw(s.toLong)
     @targetName("shareToMultiplier")
     def toMultiplier: Multiplier       = Multiplier.fromRaw(s.toLong)
     @targetName("shareRatioToShare")
@@ -123,16 +121,16 @@ object types:
     @targetName("multTimesPln")
     def *(p: PLN): PLN          = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(m.toLong)))
     @targetName("multToRate")
-    def toRate: Rate            = Rate(asDouble(m.toLong))
+    def toRate: Rate            = Rate.fromRaw(m.toLong)
     @targetName("multToShare")
-    def toShare: Share          = Share(asDouble(m.toLong))
+    def toShare: Share          = Share.fromRaw(m.toLong)
 
   // --- Coefficient × typed ---
   extension (c: Coefficient)
     @targetName("coefTimesShare")
-    def *(s: Share): Coefficient = Coefficient(asDouble(c.toLong) * asDouble(s.toLong))
+    def *(s: Share): Coefficient = Coefficient.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(s.toLong)))
     @targetName("coefTimesMultiplier")
-    def *(m: Multiplier): Share  = Share(asDouble(c.toLong) * asDouble(m.toLong))
+    def *(m: Multiplier): Share  = Share.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(m.toLong)))
     @targetName("coefTimesPln")
     def *(p: PLN): PLN           = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
     @targetName("coefToMultiplier")
@@ -141,8 +139,8 @@ object types:
   // --- PriceIndex × typed ---
   extension (pi: PriceIndex)
     @targetName("priceIdxTimesRate")
-    def *(r: Rate): PriceIndex       = PriceIndex(asDouble(pi.toLong) * asDouble(r.toLong))
+    def *(r: Rate): PriceIndex       = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(r.toLong)))
     @targetName("priceIdxTimesMultiplier")
-    def *(m: Multiplier): PriceIndex = PriceIndex(asDouble(pi.toLong) * asDouble(m.toLong))
+    def *(m: Multiplier): PriceIndex = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(m.toLong)))
     @targetName("priceIdxTimesPln")
     def *(p: PLN): PLN               = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(pi.toLong)))
