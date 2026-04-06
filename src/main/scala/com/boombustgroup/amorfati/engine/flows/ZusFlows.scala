@@ -30,49 +30,45 @@ object ZusFlows:
   )
 
   def emitBatches(input: ZusInput)(using p: SimParams): Vector[BatchedFlow] =
-    if !p.flags.zus then Vector.empty
-    else
-      import AggregateBatchContract.*
-      val contributions = input.employed * (input.wage * p.social.zusContribRate * p.social.zusScale)
-      val pensions      = input.nRetirees * p.social.zusBasePension
-      val deficit       = pensions - contributions
-      Vector.concat(
-        AggregateBatchedEmission.transfer(
-          EntitySector.Households,
-          HouseholdIndex.Aggregate,
-          EntitySector.Funds,
-          FundIndex.Zus,
-          contributions,
-          AssetType.Cash,
-          FlowMechanism.ZusContribution,
-        ),
-        AggregateBatchedEmission
-          .transfer(EntitySector.Funds, FundIndex.Zus, EntitySector.Households, HouseholdIndex.Aggregate, pensions, AssetType.Cash, FlowMechanism.ZusPension),
-        AggregateBatchedEmission.transfer(
-          EntitySector.Government,
-          GovernmentIndex.Budget,
-          EntitySector.Funds,
-          FundIndex.Zus,
-          deficit,
-          AssetType.Cash,
-          FlowMechanism.ZusGovSubvention,
-        ),
-      )
+    import AggregateBatchContract.*
+    val contributions = input.employed * (input.wage * p.social.zusContribRate * p.social.zusScale)
+    val pensions      = input.nRetirees * p.social.zusBasePension
+    val deficit       = pensions - contributions
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Funds,
+        FundIndex.Zus,
+        contributions,
+        AssetType.Cash,
+        FlowMechanism.ZusContribution,
+      ),
+      AggregateBatchedEmission
+        .transfer(EntitySector.Funds, FundIndex.Zus, EntitySector.Households, HouseholdIndex.Aggregate, pensions, AssetType.Cash, FlowMechanism.ZusPension),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Funds,
+        FundIndex.Zus,
+        deficit,
+        AssetType.Cash,
+        FlowMechanism.ZusGovSubvention,
+      ),
+    )
 
   def emit(input: ZusInput)(using p: SimParams): Vector[Flow] =
-    if !p.flags.zus then Vector.empty
-    else
-      val contributions = input.employed * (input.wage * p.social.zusContribRate * p.social.zusScale)
-      val pensions      = input.nRetirees * p.social.zusBasePension
-      val deficit       = pensions - contributions
+    val contributions = input.employed * (input.wage * p.social.zusContribRate * p.social.zusScale)
+    val pensions      = input.nRetirees * p.social.zusBasePension
+    val deficit       = pensions - contributions
 
-      val flows = Vector.newBuilder[Flow]
+    val flows = Vector.newBuilder[Flow]
 
-      if contributions > PLN.Zero then
-        flows += Flow(from = HH_ACCOUNT, to = FUS_ACCOUNT, amount = contributions.toLong, mechanism = FlowMechanism.ZusContribution.toInt)
+    if contributions > PLN.Zero then
+      flows += Flow(from = HH_ACCOUNT, to = FUS_ACCOUNT, amount = contributions.toLong, mechanism = FlowMechanism.ZusContribution.toInt)
 
-      if pensions > PLN.Zero then flows += Flow(from = FUS_ACCOUNT, to = HH_ACCOUNT, amount = pensions.toLong, mechanism = FlowMechanism.ZusPension.toInt)
+    if pensions > PLN.Zero then flows += Flow(from = FUS_ACCOUNT, to = HH_ACCOUNT, amount = pensions.toLong, mechanism = FlowMechanism.ZusPension.toInt)
 
-      if deficit > PLN.Zero then flows += Flow(from = GOV_ACCOUNT, to = FUS_ACCOUNT, amount = deficit.toLong, mechanism = FlowMechanism.ZusGovSubvention.toInt)
+    if deficit > PLN.Zero then flows += Flow(from = GOV_ACCOUNT, to = FUS_ACCOUNT, amount = deficit.toLong, mechanism = FlowMechanism.ZusGovSubvention.toInt)
 
-      flows.result()
+    flows.result()

@@ -82,43 +82,41 @@ object EquityMarket:
   @boundaryEscape
   def step(in: StepInput)(using p: SimParams): State =
     import ComputationBoundary.toDouble
-    if !p.flags.gpw then zero
-    else
-      val discountRate   = Math.max(MinDiscountRate, toDouble(in.refRate) + EquityRiskPremium)
-      val growthCap      = discountRate - GordonSingularityGuard
-      val expectedGrowth = Math.max(GrowthFloor, Math.min(growthCap, in.gdpGrowth * MonthsPerYear))
+    val discountRate   = Math.max(MinDiscountRate, toDouble(in.refRate) + EquityRiskPremium)
+    val growthCap      = discountRate - GordonSingularityGuard
+    val expectedGrowth = Math.max(GrowthFloor, Math.min(growthCap, in.gdpGrowth * MonthsPerYear))
 
-      // Gordon growth fundamental value
-      val dividend    = toDouble(in.prev.dividendYield) * in.prev.index
-      val denominator = discountRate - expectedGrowth
-      val gordonIndex =
-        if denominator > GordonSingularityGuard then dividend / denominator
-        else in.prev.index
+    // Gordon growth fundamental value
+    val dividend    = toDouble(in.prev.dividendYield) * in.prev.index
+    val denominator = discountRate - expectedGrowth
+    val gordonIndex =
+      if denominator > GordonSingularityGuard then dividend / denominator
+      else in.prev.index
 
-      val newIndex = Math.max(MinIndex, in.prev.index + AdjustmentSpeed * (gordonIndex - in.prev.index))
+    val newIndex = Math.max(MinIndex, in.prev.index + AdjustmentSpeed * (gordonIndex - in.prev.index))
 
-      // Market cap scales with index
-      val indexReturn  = if in.prev.index > 0 then newIndex / in.prev.index else 1.0
-      val newMarketCap = (in.prev.marketCap * Multiplier(indexReturn)).max(PLN.Zero)
+    // Market cap scales with index
+    val indexReturn  = if in.prev.index > 0 then newIndex / in.prev.index else 1.0
+    val newMarketCap = (in.prev.marketCap * Multiplier(indexReturn)).max(PLN.Zero)
 
-      // Earnings yield from firm profits and market cap
-      val annualProfits    = in.firmProfits * Multiplier(MonthsPerYear)
-      val newEarningsYield = Rate(
-        if newMarketCap > PLN.Zero then Math.max(EarningsYieldFloor, Math.min(EarningsYieldCap, annualProfits / newMarketCap))
-        else toDouble(in.prev.earningsYield),
-      )
+    // Earnings yield from firm profits and market cap
+    val annualProfits    = in.firmProfits * Multiplier(MonthsPerYear)
+    val newEarningsYield = Rate(
+      if newMarketCap > PLN.Zero then Math.max(EarningsYieldFloor, Math.min(EarningsYieldCap, annualProfits / newMarketCap))
+      else toDouble(in.prev.earningsYield),
+    )
 
-      // Dividend yield: payout ratio x earnings yield (mean-reverting to calibrated)
-      val impliedDivYield = toDouble(newEarningsYield) * PayoutRatio
-      val newDivYield     = in.prev.dividendYield * Multiplier(1.0 - DivYieldSmoothing) + Rate(impliedDivYield * DivYieldSmoothing)
+    // Dividend yield: payout ratio x earnings yield (mean-reverting to calibrated)
+    val impliedDivYield = toDouble(newEarningsYield) * PayoutRatio
+    val newDivYield     = in.prev.dividendYield * Multiplier(1.0 - DivYieldSmoothing) + Rate(impliedDivYield * DivYieldSmoothing)
 
-      // Foreign ownership: slow-moving, mean-reverting to calibrated share
-      val newForeignOwnership =
-        in.prev.foreignOwnership * Share(1.0 - ForeignReversionSpeed) + p.equity.foreignShare * Share(ForeignReversionSpeed)
+    // Foreign ownership: slow-moving, mean-reverting to calibrated share
+    val newForeignOwnership =
+      in.prev.foreignOwnership * Share(1.0 - ForeignReversionSpeed) + p.equity.foreignShare * Share(ForeignReversionSpeed)
 
-      val mReturn = if in.prev.index > 0 then newIndex / in.prev.index - 1.0 else 0.0
+    val mReturn = if in.prev.index > 0 then newIndex / in.prev.index - 1.0 else 0.0
 
-      State(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership, monthlyReturn = Rate(mReturn))
+    State(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership, monthlyReturn = Rate(mReturn))
 
   /** Process equity issuance: firm raises CAPEX via equity, increasing market
     * cap. Index diluted by supply effect.

@@ -172,22 +172,20 @@ object OpenEconEconomics:
 
     // 2. GVC trade
     val newGvc =
-      if p.flags.gvc then
-        GvcTrade.step(
-          GvcTrade.StepInput(
-            in.w.external.gvc,
-            sectorOutputs.map(toDouble(_)),
-            in.w.priceLevel,
-            in.w.forex.exchangeRate,
-            toDouble(in.autoRatio),
-            in.month,
-            in.commodityRng,
-          ),
-        )
-      else in.w.external.gvc
+      GvcTrade.step(
+        GvcTrade.StepInput(
+          in.w.external.gvc,
+          sectorOutputs.map(toDouble(_)),
+          in.w.priceLevel,
+          in.w.forex.exchangeRate,
+          toDouble(in.autoRatio),
+          in.month,
+          in.commodityRng,
+        ),
+      )
 
     // 3. Forex / BoP
-    val (gvcExp, gvcImp) = if p.flags.gvc then (Some(newGvc.totalExports), Some(newGvc.sectorImports)) else (None, None)
+    val (gvcExp, gvcImp) = (Some(newGvc.totalExports), Some(newGvc.sectorImports))
     val totalTechImp     = in.totalTechAndInvImports + in.investmentImports
 
     val oe                                = OpenEconomy.step(
@@ -223,8 +221,7 @@ object OpenEconEconomics:
     val newRefRate  = Nbp.updateRate(in.w.nbp.referenceRate, in.newInflation, exRateChg, in.employed, in.w.laborForcePopulation)
     val unempForExp = toDouble(in.w.unemploymentRate(in.employed))
     val newExp      =
-      if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, toDouble(in.newInflation), toDouble(newRefRate), unempForExp)
-      else in.w.mechanisms.expectations
+      Expectations.step(in.w.mechanisms.expectations, toDouble(in.newInflation), toDouble(newRefRate), unempForExp)
 
     // 5. Interbank
     val bsec              = in.w.bankingSector
@@ -236,11 +233,10 @@ object OpenEconEconomics:
     val annualGdp         = in.gdp * 12
     val debtToGdp         = if annualGdp > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdp)) else Share.Zero
     val nbpBondGdpShare   = if annualGdp > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdp)) else Share.Zero
-    val credPremium       = if p.flags.expectations then
+    val credPremium       =
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
         Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
       Rate(toDouble(deAnchor) * toDouble(p.labor.expBondSensitivity))
-    else Rate.Zero
     val marketYield       = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
     val newWeightedCoupon =
       updateWeightedCoupon(in.w.gov.weightedCoupon, marketYield, in.w.gov.bondsOutstanding, in.w.gov.deficit, p.fiscal.govAvgMaturityMonths)
@@ -275,9 +271,7 @@ object OpenEconEconomics:
     // 8. Insurance
     val unempRate    = in.w.unemploymentRate(in.employed)
     val newInsurance =
-      if p.flags.insurance then
-        Insurance.step(in.w.financial.insurance, in.employed, in.newWage, in.w.priceLevel, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
-      else in.w.financial.insurance
+      Insurance.step(in.w.financial.insurance, in.employed, in.newWage, in.w.priceLevel, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
 
     Result(
       exports = bop.exports,
@@ -476,24 +470,20 @@ object OpenEconEconomics:
   @boundaryEscape
   private def runStepGvc(in: StepInput, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
     import ComputationBoundary.toDouble
-    if p.flags.gvc then
-      GvcTrade.step(
-        GvcTrade.StepInput(
-          prev = in.w.external.gvc,
-          sectorOutputs = sectorOutputs.map(toDouble(_)),
-          priceLevel = in.w.priceLevel,
-          exchangeRate = in.w.forex.exchangeRate,
-          autoRatio = toDouble(in.s7.autoR),
-          month = in.s1.m,
-          rng = in.commodityRng,
-        ),
-      )
-    else in.w.external.gvc
+    GvcTrade.step(
+      GvcTrade.StepInput(
+        prev = in.w.external.gvc,
+        sectorOutputs = sectorOutputs.map(toDouble(_)),
+        priceLevel = in.w.priceLevel,
+        exchangeRate = in.w.forex.exchangeRate,
+        autoRatio = toDouble(in.s7.autoR),
+        month = in.s1.m,
+        rng = in.commodityRng,
+      ),
+    )
 
   private def runStepForex(in: StepInput, sectorOutputs: Vector[PLN], newGvc: GvcTrade.State)(using p: SimParams): ForexResult =
-    val (gvcExp, gvcImp) =
-      if p.flags.gvc then (Some(newGvc.totalExports), Some(newGvc.sectorImports))
-      else (None, None)
+    val (gvcExp, gvcImp) = (Some(newGvc.totalExports), Some(newGvc.sectorImports))
 
     val totalTechAndInvImports = in.s5.sumTechImp + in.s7.investmentImports
     val oeResult               = OpenEconomy.step(
@@ -531,7 +521,7 @@ object OpenEconEconomics:
       else bop0
     val fdiTotalBopDebit = in.s5.sumProfitShifting + in.s5.sumFdiRepatriation
     val bop2             =
-      if fdiTotalBopDebit > PLN.Zero && p.flags.fdi then
+      if fdiTotalBopDebit > PLN.Zero then
         bop1.copy(
           currentAccount = bop1.currentAccount - fdiTotalBopDebit,
           nfa = bop1.nfa - fdiTotalBopDebit,
@@ -572,8 +562,7 @@ object OpenEconEconomics:
     )
     val unempRateForExp = toDouble(in.w.unemploymentRate(in.s2.employed))
     val newExp          =
-      if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, toDouble(in.s7.newInfl), toDouble(newRefRate), unempRateForExp)
-      else in.w.mechanisms.expectations
+      Expectations.step(in.w.mechanisms.expectations, toDouble(in.s7.newInfl), toDouble(newRefRate), unempRateForExp)
     RateExpResult(newRefRate, newExp)
 
   private def runStepInterbankFlows(w: World, banks: Vector[Banking.BankState])(using SimParams): InterbankResult =
@@ -597,11 +586,10 @@ object OpenEconEconomics:
     val annualGdpForBonds = in.s7.gdp * 12
     val debtToGdp         = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdpForBonds)) else Share.Zero
     val nbpBondGdpShare   = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdpForBonds)) else Share.Zero
-    val credPremium       = if p.flags.expectations then
+    val credPremium       =
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
         Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
       Rate(toDouble(deAnchor) * toDouble(p.labor.expBondSensitivity))
-    else Rate.Zero
     val marketYield       = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
 
     val newWeightedCoupon = updateWeightedCouponPublic(
@@ -659,37 +647,33 @@ object OpenEconEconomics:
   private def runStepInsurance(in: StepInput, newBondYield: Rate)(using p: SimParams): InsuranceResult =
     val unempRate    = in.w.unemploymentRate(in.s2.employed)
     val newInsurance =
-      if p.flags.insurance then
-        Insurance.step(
-          in.w.financial.insurance,
-          in.s2.employed,
-          in.s2.newWage,
-          in.w.priceLevel,
-          unempRate,
-          newBondYield,
-          in.w.financial.corporateBonds.corpBondYield,
-          in.w.financial.equity.monthlyReturn,
-        )
-      else in.w.financial.insurance
+      Insurance.step(
+        in.w.financial.insurance,
+        in.s2.employed,
+        in.s2.newWage,
+        in.w.priceLevel,
+        unempRate,
+        newBondYield,
+        in.w.financial.corporateBonds.corpBondYield,
+        in.w.financial.equity.monthlyReturn,
+      )
     InsuranceResult(newInsurance)
 
   private def runStepNbfi(in: StepInput, bankAgg: Banking.Aggregate, postFxNbp: Nbp.State, newBondYield: Rate)(using p: SimParams): NbfiResult =
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
     val newNbfi         =
-      if p.flags.nbfi then
-        Nbfi.step(
-          in.w.financial.nbfi,
-          in.s2.employed,
-          in.s2.newWage,
-          in.w.priceLevel,
-          nbfiUnempRate,
-          bankAgg.nplRatio,
-          newBondYield,
-          in.w.financial.corporateBonds.corpBondYield,
-          in.w.financial.equity.monthlyReturn,
-          nbfiDepositRate,
-          in.s3.domesticCons,
-        )
-      else in.w.financial.nbfi
+      Nbfi.step(
+        in.w.financial.nbfi,
+        in.s2.employed,
+        in.s2.newWage,
+        in.w.priceLevel,
+        nbfiUnempRate,
+        bankAgg.nplRatio,
+        newBondYield,
+        in.w.financial.corporateBonds.corpBondYield,
+        in.w.financial.equity.monthlyReturn,
+        nbfiDepositRate,
+        in.s3.domesticCons,
+      )
     NbfiResult(newNbfi)

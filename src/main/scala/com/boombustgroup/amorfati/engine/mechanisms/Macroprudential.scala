@@ -38,17 +38,13 @@ object Macroprudential:
   object State:
     val zero: State = State(Multiplier.Zero, Coefficient.Zero, Multiplier.Zero)
 
-  /** Run `body` only when macropru is enabled, otherwise return `fallback`. */
-  private inline def guarded[A](fallback: A)(body: => A)(using p: SimParams): A =
-    if !p.flags.macropru then fallback else body
-
   // ---- O-SII buffer ----
 
   /** O-SII buffer for a specific bank. PKO BP (id=0): 1.0%, Pekao (id=1): 0.5%,
     * others: 0%.
     */
   def osiiBuffer(bankId: Int)(using p: SimParams): Multiplier =
-    guarded(Multiplier.Zero)(osiiBufferImpl(bankId))
+    osiiBufferImpl(bankId)
 
   private[engine] def osiiBufferImpl(bankId: Int)(using p: SimParams): Multiplier = bankId match
     case 0 => p.banking.osiiPkoBp
@@ -59,7 +55,7 @@ object Macroprudential:
 
   /** Effective minimum CAR = base + CCyB + O-SII + P2R. */
   def effectiveMinCar(bankId: Int, ccyb: Multiplier)(using p: SimParams): Multiplier =
-    guarded(p.banking.minCar)(effectiveMinCarImpl(bankId, ccyb))
+    effectiveMinCarImpl(bankId, ccyb)
 
   private[engine] def effectiveMinCarImpl(bankId: Int, ccyb: Multiplier)(using p: SimParams): Multiplier =
     p.banking.minCar + ccyb + osiiBufferImpl(bankId) + p2rAddon(bankId)
@@ -76,7 +72,7 @@ object Macroprudential:
 
   /** Monthly CCyB update: credit-to-GDP gap → build / release / hold. */
   def step(prev: State, totalLoans: PLN, gdp: PLN)(using p: SimParams): State =
-    guarded(prev)(stepImpl(prev, totalLoans, gdp))
+    stepImpl(prev, totalLoans, gdp)
 
   private[engine] def stepImpl(prev: State, totalLoans: PLN, gdp: PLN)(using p: SimParams): State =
     val annualGdp   = (gdp * Multiplier(AnnualizeFactor)).max(PLN(1.0))
@@ -102,7 +98,7 @@ object Macroprudential:
 
   /** Returns true if bank's loan share is within the concentration limit. */
   def withinConcentrationLimit(bankLoans: Double, bankCapital: Double, totalSystemLoans: Double)(using p: SimParams): Boolean =
-    guarded(true)(withinConcentrationLimitImpl(bankLoans, bankCapital, totalSystemLoans))
+    withinConcentrationLimitImpl(bankLoans, bankCapital, totalSystemLoans)
 
   @boundaryEscape
   private[engine] def withinConcentrationLimitImpl(

@@ -209,14 +209,14 @@ object Household:
         if rng.nextDouble() < toDouble(p.household.debtFraction) then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()))
         else PLN.Zero
       val baseRent: PLN = PLN((toDouble(p.household.rentMean) + toDouble(p.household.rentStd) * rng.nextGaussian()).max(toDouble(p.household.rentFloor)))
-      val rent: PLN     = if p.flags.regionalLabor then baseRent * firm.region.housingCostIndex else baseRent
+      val rent: PLN     = baseRent * firm.region.housingCostIndex
       val mpc           = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
       val (edu, skill)  = sampleEducationAndSkill(sectorIdx, rng)
       val wage: PLN     = p.household.baseWage * Region.normalizedWageMultiplier(firm.region) * p.sectorDefs(sectorIdx.toInt).wageMultiplier * Share(skill)
       val eqWealth: PLN =
-        if p.flags.gpwHhEquity && p.equity.hhEquityFrac.sampleBelow(rng) then savings * Share(GpwEquityInitFrac)
+        if p.equity.hhEquityFrac.sampleBelow(rng) then savings * Share(GpwEquityInitFrac)
         else PLN.Zero
-      val numChildren   = if p.flags.social800 then Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng) else 0
+      val numChildren   = Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
       val consDebt: PLN =
         if p.household.debtFraction.sampleBelow(rng) then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()) * ConsumerDebtInitFrac)
         else PLN.Zero
@@ -388,7 +388,7 @@ object Household:
     * base = gross income − ZUS employee contribution (Art. 26 ustawy o PIT).
     */
   def computeMonthlyPit(monthlyIncome: PLN)(using p: SimParams): PLN =
-    if !p.flags.pit || monthlyIncome <= PLN.Zero then PLN.Zero
+    if monthlyIncome <= PLN.Zero then PLN.Zero
     else
       val afterZus   = monthlyIncome - monthlyIncome * p.social.zusEmployeeRate
       val annualized = afterZus * Multiplier(12.0)
@@ -401,13 +401,12 @@ object Household:
 
   /** Compute 800+ social transfer (PIT-exempt, lump-sum per child ≤ 18). */
   def computeSocialTransfer(numChildren: Int)(using p: SimParams): PLN =
-    if !p.flags.social800 || numChildren <= 0 then PLN.Zero
+    if numChildren <= 0 then PLN.Zero
     else numChildren * p.fiscal.social800Rate
 
   /** Unemployment benefit (zasilek): 1500 PLN m1-3, 1200 PLN m4-6, 0 after. */
   def computeBenefit(monthsUnemployed: Int)(using p: SimParams): PLN =
-    if !p.flags.govUnempBenefit then PLN.Zero
-    else if monthsUnemployed <= p.fiscal.govBenefitDuration / 2 then p.fiscal.govBenefitM1to3
+    if monthsUnemployed <= p.fiscal.govBenefitDuration / 2 then p.fiscal.govBenefitM1to3
     else if monthsUnemployed <= p.fiscal.govBenefitDuration then p.fiscal.govBenefitM4to6
     else PLN.Zero
 
@@ -419,7 +418,7 @@ object Household:
       sectorVacancies: Vector[Int],
       rng: Random,
   )(using p: SimParams): (HhStatus, Int) =
-    if !p.flags.sectoralMobility || !p.labor.voluntarySearchProb.sampleBelow(rng) then return (status, 0)
+    if !p.labor.voluntarySearchProb.sampleBelow(rng) then return (status, 0)
     val targetSector      =
       SectoralMobility.selectTargetSector(status.sectorIdx.toInt, sectorWages, sectorVacancies, p.labor.frictionMatrix, p.labor.vacancyWeight, rng)
     val targetAvgWage     = sectorWages(targetSector)
@@ -446,7 +445,7 @@ object Household:
         val retrainProb = p.household.retrainingProb +
           (if neighborDistress > NeighborDistressThreshold then NeighborDistressRetrainBoost else Share.Zero)
         if hh.savings > p.household.retrainingCost && retrainProb.sampleBelow(rng) then
-          if p.flags.sectoralMobility && sectorWages.isDefined then
+          if sectorWages.isDefined then
             val sw           = sectorWages.get
             val sv           = sectorVacancies.get
             val fromSector   = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt else 0
@@ -468,11 +467,10 @@ object Household:
           val skillHealthProb = p.household.retrainingBaseSuccess * afterSkill * (Share.One - afterHealth)
           val eduMult         = p.social.eduRetrainMultiplier(hh.education)
           val baseSuccessProb = (skillHealthProb * eduMult).toShare // Multiplier → Share (probability)
-          val successProb     = if p.flags.sectoralMobility then
+          val successProb     =
             val fromSector = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt else 0
             val friction   = p.labor.frictionMatrix(fromSector)(targetSector.toInt)
             baseSuccessProb * (Share.One - friction * SectoralMobility.FrictionSuccessDiscount)
-          else baseSuccessProb
           if successProb.sampleBelow(rng) then (HhStatus.Unemployed(0), 0, 1)
           else (HhStatus.Unemployed(PostFailedRetrainingMonths), 0, 0)
         else (HhStatus.Retraining(monthsLeft - 1, targetSector, cost), 0, 0)
@@ -571,7 +569,7 @@ object Household:
     val thisDebtService = hh.debt * debtSvcRate
 
     val remittance =
-      if hh.isImmigrant && p.flags.immigration then income * p.immigration.remitRate
+      if hh.isImmigrant then income * p.immigration.remitRate
       else PLN.Zero
 
     val obligations         = hh.monthlyRent + thisDebtService + remittance
@@ -592,7 +590,7 @@ object Household:
     val newEquityWealth       = (hh.equityWealth * (Multiplier.One + equityIndexReturn.toMultiplier)).max(PLN.Zero)
     val equityGain            = newEquityWealth - hh.equityWealth
     val equityBoost           =
-      if p.flags.gpwHhEquity && equityGain > PLN.Zero then equityGain * p.equity.wealthEffectMpc
+      if equityGain > PLN.Zero then equityGain * p.equity.wealthEffectMpc
       else PLN.Zero
     val housingBoost          = world.real.housing.lastWealthEffect / world.derivedTotalPopulation.toLong.max(1L)
     val consumptionWithWealth = consumptionAdj + equityBoost + housingBoost
@@ -758,8 +756,7 @@ object Household:
 
   /** Sector mobility rate: fraction of employed in different sector than last.
     */
-  private def sectorMobilityRate(updated: Vector[State])(using p: SimParams): Share =
-    if !p.flags.sectoralMobility then return Share.Zero
+  private def sectorMobilityRate(updated: Vector[State]): Share =
     val employed    = updated.flatMap: hh =>
       hh.status match
         case HhStatus.Employed(_, sec, _) => Some((hh.lastSectorIdx, sec))

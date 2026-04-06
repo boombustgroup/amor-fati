@@ -125,20 +125,16 @@ object FirmInit:
   private def assignCapitalAndBank(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
     import ComputationBoundary.toDouble
     firms.map: f =>
-      val withCap =
-        if p.flags.physCap then f.copy(capitalStock = PLN(toDouble(p.capital.klRatios(f.sector.toInt)) * Firm.workerCount(f)))
-        else f
+      val withCap = f.copy(capitalStock = PLN(toDouble(p.capital.klRatios(f.sector.toInt)) * Firm.workerCount(f)))
       withCap.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng))
 
   /** Mark firms as foreign-owned based on per-sector FDI shares (rng: ownership
     * draw).
     */
   private def assignForeignOwnership(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
-    if p.flags.fdi then
-      firms.map: f =>
-        if p.fdi.foreignShares(f.sector.toInt).sampleBelow(rng) then f.copy(foreignOwned = true)
-        else f
-    else firms
+    firms.map: f =>
+      if p.fdi.foreignShares(f.sector.toInt).sampleBelow(rng) then f.copy(foreignOwned = true)
+      else f
 
   /** Mark firms as state-owned based on sector-specific SOE shares. */
   private def assignStateOwnership(firms: Vector[Firm.State], rng: Random): Vector[Firm.State] =
@@ -163,17 +159,13 @@ object FirmInit:
     * capacity.
     */
   private def initInventory(f: Firm.State)(using p: SimParams): Firm.State =
-    if p.flags.inventory then
-      val capacity  = Firm.computeCapacity(f)
-      val targetInv = capacity * p.capital.inventoryTargetRatios(f.sector.toInt)
-      f.copy(inventory = targetInv * p.capital.inventoryInitRatio)
-    else f
+    val capacity  = Firm.computeCapacity(f)
+    val targetInv = capacity * p.capital.inventoryTargetRatios(f.sector.toInt)
+    f.copy(inventory = targetInv * p.capital.inventoryInitRatio)
 
   /** Set initial green capital stock from sector-specific green K/L ratio. */
   @boundaryEscape
   private def initGreenCapital(f: Firm.State)(using p: SimParams): Firm.State =
     import ComputationBoundary.toDouble
-    if p.flags.energy then
-      val targetGK = PLN(toDouble(p.climate.greenKLRatios(f.sector.toInt)) * Firm.workerCount(f))
-      f.copy(greenCapital = targetGK * p.climate.greenInitRatio)
-    else f
+    val targetGK = PLN(toDouble(p.climate.greenKLRatios(f.sector.toInt)) * Firm.workerCount(f))
+    f.copy(greenCapital = targetGK * p.climate.greenInitRatio)

@@ -10,9 +10,7 @@ object InformalEconomy:
     * aggregate tax channels (VAT, PIT, excise).
     */
   def aggregateTaxShadowShare(cyclicalAdj: Share)(using p: SimParams): Share =
-    if !p.flags.informal then Share.Zero
-    else
-      p.fiscal.fofConsWeights
-        .zip(p.informal.sectorShares)
-        .map((cw, ss) => cw * (ss + cyclicalAdj).min(Share.One))
-        .foldLeft(Share.Zero)(_ + _)
+    p.fiscal.fofConsWeights
+      .zip(p.informal.sectorShares)
+      .map((cw, ss) => cw * (ss + cyclicalAdj).min(Share.One))
+      .foldLeft(Share.Zero)(_ + _)

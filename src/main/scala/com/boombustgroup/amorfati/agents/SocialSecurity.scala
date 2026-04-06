@@ -26,14 +26,12 @@ object SocialSecurity:
     * conflated with government debt metrics.
     */
   def zusStep(prevBalance: PLN, employed: Int, wage: PLN, nRetirees: Int)(using p: SimParams): ZusState =
-    if !p.flags.zus then ZusState(prevBalance, PLN.Zero, PLN.Zero, PLN.Zero)
-    else
-      val contributions = employed * (wage * p.social.zusContribRate * p.social.zusScale)
-      val pensions      = nRetirees * p.social.zusBasePension
-      val monthlyFlow   = contributions - pensions
-      val govSubvention = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
-      val newBalance    = prevBalance + monthlyFlow
-      ZusState(newBalance, contributions, pensions, govSubvention)
+    val contributions = employed * (wage * p.social.zusContribRate * p.social.zusScale)
+    val pensions      = nRetirees * p.social.zusBasePension
+    val monthlyFlow   = contributions - pensions
+    val govSubvention = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
+    val newBalance    = prevBalance + monthlyFlow
+    ZusState(newBalance, contributions, pensions, govSubvention)
 
   // ---------------------------------------------------------------------------
   // NFZ (Narodowy Fundusz Zdrowia — National Health Fund)
@@ -56,13 +54,11 @@ object SocialSecurity:
     * identity semantics rather than to government debt metrics.
     */
   def nfzStep(prevBalance: PLN, employed: Int, wage: PLN, workingAge: Int, nRetirees: Int)(using p: SimParams): NfzState =
-    if !p.flags.nfz then NfzState(prevBalance, PLN.Zero, PLN.Zero, PLN.Zero)
-    else
-      val contributions = employed * (wage * p.social.nfzContribRate)
-      val spending      = workingAge * p.social.nfzPerCapitaCost + nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
-      val monthlyFlow   = contributions - spending
-      val govSubvention = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
-      NfzState(prevBalance + monthlyFlow, contributions, spending, govSubvention)
+    val contributions = employed * (wage * p.social.nfzContribRate)
+    val spending      = workingAge * p.social.nfzPerCapitaCost + nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
+    val monthlyFlow   = contributions - spending
+    val govSubvention = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
+    NfzState(prevBalance + monthlyFlow, contributions, spending, govSubvention)
 
   // ---------------------------------------------------------------------------
   // PPK
@@ -81,10 +77,8 @@ object SocialSecurity:
     * a pass-through bond market participant).
     */
   def ppkStep(prevHoldings: PLN, employed: Int, wage: PLN)(using p: SimParams): PpkState =
-    if !p.flags.ppk then PpkState(prevHoldings, PLN.Zero)
-    else
-      val contributions = employed * (wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
-      PpkState(prevHoldings, contributions)
+    val contributions = employed * (wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
+    PpkState(prevHoldings, contributions)
 
   /** PPK bond purchase this month: contributions × bond allocation. */
   def ppkBondPurchase(ppk: PpkState)(using p: SimParams): PLN =
@@ -108,15 +102,13 @@ object SocialSecurity:
     */
   @boundaryEscape
   def demographicsStep(prev: DemographicsState, employed: Int, netMigration: Int)(using p: SimParams): DemographicsState =
-    if !p.flags.demographics then prev.copy(monthlyRetirements = 0)
-    else
-      val retirements       = Math.max(0, (employed.toDouble * ComputationBoundary.toDouble(p.social.demRetirementRate)).toInt)
-      val workingAgeDecline =
-        Math.max(0, (prev.workingAgePop.toDouble * ComputationBoundary.toDouble(p.social.demWorkingAgeDecline) / 12.0).toInt)
-      DemographicsState(
-        retirees = prev.retirees + retirements,
-        workingAgePop = Math.max(0, prev.workingAgePop - retirements - workingAgeDecline + netMigration),
-        monthlyRetirements = retirements,
-      )
+    val retirements       = Math.max(0, (employed.toDouble * ComputationBoundary.toDouble(p.social.demRetirementRate)).toInt)
+    val workingAgeDecline =
+      Math.max(0, (prev.workingAgePop.toDouble * ComputationBoundary.toDouble(p.social.demWorkingAgeDecline) / 12.0).toInt)
+    DemographicsState(
+      retirees = prev.retirees + retirements,
+      workingAgePop = Math.max(0, prev.workingAgePop - retirements - workingAgeDecline + netMigration),
+      monthlyRetirements = retirements,
+    )
 
   // BGK stub removed — replaced by QuasiFiscal agent (PR #10)

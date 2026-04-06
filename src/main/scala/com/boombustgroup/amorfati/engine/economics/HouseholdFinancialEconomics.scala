@@ -48,18 +48,17 @@ object HouseholdFinancialEconomics:
     val remittanceOutflow   = hhAgg.totalRemittances
 
     // Diaspora remittance inflow (#46)
-    val diasporaInflow = if p.flags.remittance then
-      val wap           = if p.flags.demographics then w.social.demographics.workingAgePop else w.derivedTotalPopulation
+    val diasporaInflow =
+      val wap           = w.social.demographics.workingAgePop
       val base          = toDouble(p.remittance.perCapita) * wap.toDouble
       val erAdj         = Math.pow(w.forex.exchangeRate / p.forex.baseExRate, toDouble(p.remittance.erElasticity))
       val trendAdj      = Math.pow(1.0 + toDouble(p.remittance.growthRate) / 12.0, month.toDouble)
       val unempForRemit = toDouble(w.unemploymentRate(employed))
       val cyclicalAdj   = 1.0 + toDouble(p.remittance.cyclicalSens) * Math.max(0.0, unempForRemit - DiasporaUnempThreshold)
       PLN(base * erAdj * trendAdj * cyclicalAdj)
-    else PLN.Zero
 
     // Tourism services export/import (#47)
-    val (tourismExport, tourismImport) = if p.flags.tourism then
+    val (tourismExport, tourismImport) =
       val monthInYear    = (month % 12) + 1
       val seasonalFactor = 1.0 + toDouble(p.tourism.seasonality) *
         Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
@@ -86,7 +85,6 @@ object HouseholdFinancialEconomics:
           seasonalFactor * outboundErAdj * trendAdj * shockFactor,
       )
       (PLN(inbound), PLN(outbound))
-    else (PLN.Zero, PLN.Zero)
 
     // Consumer credit flows
     val consumerDebtService = hhAgg.totalConsumerDebtService

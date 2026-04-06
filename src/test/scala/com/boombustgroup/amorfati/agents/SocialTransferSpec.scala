@@ -22,7 +22,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
     Household.computeSocialTransfer(-1) shouldBe PLN.Zero
   }
 
-  // --- Formula verification (independent of p.flags.social800) ---
+  // --- Formula verification ---
 
   "Social transfer formula" should "compute rate * children" in {
     // 2 children × 800 PLN = 1600 PLN/month

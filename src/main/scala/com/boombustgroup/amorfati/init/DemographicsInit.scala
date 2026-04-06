@@ -7,6 +7,4 @@ import com.boombustgroup.amorfati.config.SimParams
 object DemographicsInit:
 
   def create(totalPop: Int)(using p: SimParams): SocialSecurity.DemographicsState =
-    if p.flags.demographics then SocialSecurity.DemographicsState(p.social.demInitialRetirees, totalPop, 0)
-    else if p.flags.zus && p.social.demInitialRetirees > 0 then SocialSecurity.DemographicsState(p.social.demInitialRetirees, totalPop, 0)
-    else SocialSecurity.DemographicsState.zero
+    SocialSecurity.DemographicsState(p.social.demInitialRetirees, totalPop, 0)

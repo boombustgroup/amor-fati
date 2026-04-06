@@ -10,10 +10,9 @@ import org.scalatest.matchers.should.Matchers
 
 class McRunnerSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams          = SimParams.defaults
-  private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
-  private val duration     = 60 // months
+  given SimParams      = SimParams.defaults
+  private val td       = ComputationBoundary
+  private val duration = 60 // months
 
   // Single shared run — all tests read from this result
   private lazy val result = runSingle(42, duration).fold(e => fail(e.toString), identity)
@@ -95,7 +94,6 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   // --- Bond market ---
 
   it should "have positive BondYield after month 1" in {
-    assume(p.flags.govBondMarket, "GOV_BOND_MARKET=true required")
     for t <- 1 until duration do
       withClue(s"Month ${t + 1}: ") {
         ts(t)(Col.BondYield.ordinal) should be > 0.0
@@ -103,13 +101,11 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have non-zero BondsOutstanding after month 1" in {
-    assume(p.flags.govBondMarket, "GOV_BOND_MARKET=true required")
     val nonZero = (1 until duration).exists(t => ts(t)(Col.BondsOutstanding.ordinal) != 0.0)
     nonZero shouldBe true
   }
 
   it should "satisfy bond clearing identity at every month" in {
-    assume(p.flags.govBondMarket, "GOV_BOND_MARKET=true required")
     for t <- ts.indices do
       val outstanding = ts(t)(Col.BondsOutstanding.ordinal)
       val holders     = ts(t)(Col.BankBondHoldings.ordinal) + ts(t)(Col.ForeignBondHoldings.ordinal) + ts(t)(Col.NbpBondHoldings.ordinal) +
@@ -134,7 +130,6 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "cut NBP rate when inflation is negative (symmetric Taylor)" in {
-    assume(p.flags.nbpSymmetric, "NBP_SYMMETRIC=true required")
     val initialRate    = 0.0575
     val deflationMonth = ts.indices.find(t => ts(t)(Col.Inflation.ordinal) < 0.0)
     deflationMonth match

@@ -105,10 +105,8 @@ object DemandEconomics:
     * aggregate split when GVC sector exports are zero (init month).
     */
   private def computeSectorExports(in: Input)(using p: SimParams): Vector[PLN] =
-    if p.flags.gvc then
-      val gvcExports = in.w.external.gvc.sectorExports
-      if gvcExports.exists(_ > PLN.Zero) then gvcExports
-      else p.fiscal.fofExportShares.map(_ * in.w.forex.exports)
+    val gvcExports = in.w.external.gvc.sectorExports
+    if gvcExports.exists(_ > PLN.Zero) then gvcExports
     else p.fiscal.fofExportShares.map(_ * in.w.forex.exports)
 
   /** Lagged domestic investment demand (net of import content). */
@@ -196,15 +194,11 @@ object DemandEconomics:
       sectorMults: Vector[Double],
       sectorCap: Vector[Double],
       in: Input,
-  )(using p: SimParams): Double =
+  ): Double =
     import ComputationBoundary.toDouble
     val totalCapacity = sectorCap.sum
     val baseMult      =
       if totalCapacity > 0 then sectorMults.indices.map(s => sectorMults(s) * sectorCap(s)).sum / totalCapacity
       else 1.0
-    val realRateAdj   =
-      if p.flags.expectations then
-        val realRate = toDouble(in.w.nbp.referenceRate - in.w.mechanisms.expectations.expectedInflation)
-        -realRate * RealRateElasticity
-      else 0.0
-    baseMult + realRateAdj
+    val realRate      = toDouble(in.w.nbp.referenceRate - in.w.mechanisms.expectations.expectedInflation)
+    baseMult + (-realRate * RealRateElasticity)

@@ -7,5 +7,4 @@ import com.boombustgroup.amorfati.engine.markets.HousingMarket
 object HousingInit:
 
   def create()(using p: SimParams): HousingMarket.State =
-    if p.flags.re then HousingMarket.initial
-    else HousingMarket.zero
+    HousingMarket.initial

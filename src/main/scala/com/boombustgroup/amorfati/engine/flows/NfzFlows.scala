@@ -27,52 +27,48 @@ object NfzFlows:
   )
 
   def emitBatches(input: NfzInput)(using p: SimParams): Vector[BatchedFlow] =
-    if !p.flags.nfz then Vector.empty
-    else
-      import AggregateBatchContract.*
-      val contributions = input.employed * (input.wage * p.social.nfzContribRate)
-      val spending      =
-        input.workingAge * p.social.nfzPerCapitaCost +
-          input.nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
-      val deficit       = spending - contributions
-      Vector.concat(
-        AggregateBatchedEmission.transfer(
-          EntitySector.Households,
-          HouseholdIndex.Aggregate,
-          EntitySector.Funds,
-          FundIndex.Nfz,
-          contributions,
-          AssetType.Cash,
-          FlowMechanism.NfzContribution,
-        ),
-        AggregateBatchedEmission
-          .transfer(EntitySector.Funds, FundIndex.Nfz, EntitySector.Firms, FirmIndex.Services, spending, AssetType.Cash, FlowMechanism.NfzSpending),
-        AggregateBatchedEmission.transfer(
-          EntitySector.Government,
-          GovernmentIndex.Budget,
-          EntitySector.Funds,
-          FundIndex.Nfz,
-          deficit,
-          AssetType.Cash,
-          FlowMechanism.NfzGovSubvention,
-        ),
-      )
+    import AggregateBatchContract.*
+    val contributions = input.employed * (input.wage * p.social.nfzContribRate)
+    val spending      =
+      input.workingAge * p.social.nfzPerCapitaCost +
+        input.nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
+    val deficit       = spending - contributions
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Funds,
+        FundIndex.Nfz,
+        contributions,
+        AssetType.Cash,
+        FlowMechanism.NfzContribution,
+      ),
+      AggregateBatchedEmission
+        .transfer(EntitySector.Funds, FundIndex.Nfz, EntitySector.Firms, FirmIndex.Services, spending, AssetType.Cash, FlowMechanism.NfzSpending),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        EntitySector.Funds,
+        FundIndex.Nfz,
+        deficit,
+        AssetType.Cash,
+        FlowMechanism.NfzGovSubvention,
+      ),
+    )
 
   def emit(input: NfzInput)(using p: SimParams): Vector[Flow] =
-    if !p.flags.nfz then Vector.empty
-    else
-      val contributions = input.employed * (input.wage * p.social.nfzContribRate)
-      val spending      =
-        input.workingAge * p.social.nfzPerCapitaCost +
-          input.nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
-      val deficit       = spending - contributions
+    val contributions = input.employed * (input.wage * p.social.nfzContribRate)
+    val spending      =
+      input.workingAge * p.social.nfzPerCapitaCost +
+        input.nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
+    val deficit       = spending - contributions
 
-      val flows = Vector.newBuilder[Flow]
+    val flows = Vector.newBuilder[Flow]
 
-      if contributions > PLN.Zero then flows += Flow(HH_ACCOUNT, NFZ_ACCOUNT, contributions.toLong, FlowMechanism.NfzContribution.toInt)
+    if contributions > PLN.Zero then flows += Flow(HH_ACCOUNT, NFZ_ACCOUNT, contributions.toLong, FlowMechanism.NfzContribution.toInt)
 
-      if spending > PLN.Zero then flows += Flow(NFZ_ACCOUNT, HEALTHCARE_ACCOUNT, spending.toLong, FlowMechanism.NfzSpending.toInt)
+    if spending > PLN.Zero then flows += Flow(NFZ_ACCOUNT, HEALTHCARE_ACCOUNT, spending.toLong, FlowMechanism.NfzSpending.toInt)
 
-      if deficit > PLN.Zero then flows += Flow(GOV_ACCOUNT, NFZ_ACCOUNT, deficit.toLong, FlowMechanism.NfzGovSubvention.toInt)
+    if deficit > PLN.Zero then flows += Flow(GOV_ACCOUNT, NFZ_ACCOUNT, deficit.toLong, FlowMechanism.NfzGovSubvention.toInt)
 
-      flows.result()
+    flows.result()

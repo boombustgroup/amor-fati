@@ -26,38 +26,31 @@ object Immigration:
   @boundaryEscape
   def computeInflow(wage: PLN, unempRate: Double)(using p: SimParams): Int =
     import ComputationBoundary.toDouble
-    if !p.flags.immigration then 0
-    else
-      val basePop = p.pop.firmsCount * p.pop.workersPerFirm
-      if p.flags.immigEndogenous then
-        val wageGap = (wage / p.immigration.foreignWage - 1.0).max(0.0)
-        val pull    = wageGap * toDouble(p.immigration.wageElasticity)
-        val push    = (1.0 - unempRate).max(0.0)
-        val rate    = toDouble(p.immigration.monthlyRate) * (0.5 + 0.5 * pull * push)
-        (basePop * rate).toInt.max(0)
-      else (basePop * toDouble(p.immigration.monthlyRate)).toInt.max(0)
+    val basePop = p.pop.firmsCount * p.pop.workersPerFirm
+    val wageGap = (wage / p.immigration.foreignWage - 1.0).max(0.0)
+    val pull    = wageGap * toDouble(p.immigration.wageElasticity)
+    val push    = (1.0 - unempRate).max(0.0)
+    val rate    = toDouble(p.immigration.monthlyRate) * (0.5 + 0.5 * pull * push)
+    (basePop * rate).toInt.max(0)
 
   /** Monthly return migration (outflow). */
   def computeOutflow(immigrantStock: Int)(using p: SimParams): Int =
-    if !p.flags.immigration then 0
-    else (immigrantStock.toLong * p.immigration.returnRate.toLong / 10000L).toInt.max(0)
+    (immigrantStock.toLong * p.immigration.returnRate.toLong / 10000L).toInt.max(0)
 
   /** Total remittance outflow from immigrant HH. Remittances = employed
     * immigrant wages × remittance rate.
     */
   def computeRemittances(immigrantHH: Iterable[Household.State])(using p: SimParams): PLN =
-    if !p.flags.immigration then PLN.Zero
-    else
-      PLN.fromRaw(
-        immigrantHH
-          .filter(_.isImmigrant)
-          .map { h =>
-            h.status match
-              case HhStatus.Employed(_, _, wage) => (wage * p.immigration.remitRate).toLong
-              case _                             => 0L
-          }
-          .sum,
-      )
+    PLN.fromRaw(
+      immigrantHH
+        .filter(_.isImmigrant)
+        .map { h =>
+          h.status match
+            case HhStatus.Employed(_, _, wage) => (wage * p.immigration.remitRate).toLong
+            case _                             => 0L
+        }
+        .sum,
+    )
 
   /** Choose sector for new immigrant (weighted by sectorShares). */
   def chooseSector(rng: Random)(using p: SimParams): SectorIdx =
@@ -82,12 +75,11 @@ object Immigration:
       val clampedSkill                 = skill.max(toDouble(skillFloorS)).min(toDouble(skillCeilingS))
       val savings                      = rng.nextDouble() * 5000.0
       val mpc                          = 0.85 + rng.nextGaussian() * 0.05
-      val region                       = if p.flags.regionalLabor then Region.cdfSample(rng) else Region.Central
+      val region                       = Region.cdfSample(rng)
       val baseRent                     = toDouble(p.household.rentMean) + rng.nextGaussian() * toDouble(p.household.rentStd)
-      val rent                         = if p.flags.regionalLabor then baseRent * toDouble(region.housingCostIndex) else baseRent
+      val rent                         = baseRent * toDouble(region.housingCostIndex)
       val numChildren                  =
-        if p.flags.social800 && p.flags.social800ImmigEligible then Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
-        else 0
+        Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
       Household.State(
         id = HhId(startId + i),
         savings = PLN(savings),

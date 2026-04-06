@@ -39,30 +39,28 @@ object Jst:
       totalWageIncome: PLN, // total wage income (for PIT proxy)
       gdp: PLN,             // GDP proxy for subvention/dotacje
       nFirms: Int,          // number of living firms (for property tax)
-      pitRevenue: PLN,      // PIT revenue (zero when PIT mechanism disabled)
+      pitRevenue: PLN,
   )(using p: SimParams): StepResult =
-    if !p.flags.jst then StepResult(prev, PLN.Zero)
-    else
-      // Revenue sources:
-      // 1. PIT share: JST gets ~38.46% of PIT collected
-      val jstPitIncome =
-        if p.flags.pit && pitRevenue > PLN.Zero then pitRevenue * p.fiscal.jstPitShare
-        else totalWageIncome * (Share(FallbackPitRate) * p.fiscal.jstPitShare)
-      // 2. CIT share: JST gets ~6.71% of CIT
-      val citRevenue   = govTaxRevenue * p.fiscal.jstCitShare
-      // 3. Property tax: fixed per firm per year
-      val propertyTax  = nFirms * p.fiscal.jstPropertyTax / 12L
-      // 4. Subwencja oświatowa (education subvention): ~3% of GDP annually
-      val subvention   = gdp * p.fiscal.jstSubventionShare / 12L
-      // 5. Dotacje celowe (targeted grants): ~1% of GDP annually
-      val dotacje      = gdp * p.fiscal.jstDotacjeShare / 12L
+    // Revenue sources:
+    // 1. PIT share: JST gets ~38.46% of PIT collected
+    val jstPitIncome =
+      if pitRevenue > PLN.Zero then pitRevenue * p.fiscal.jstPitShare
+      else totalWageIncome * (Share(FallbackPitRate) * p.fiscal.jstPitShare)
+    // 2. CIT share: JST gets ~6.71% of CIT
+    val citRevenue   = govTaxRevenue * p.fiscal.jstCitShare
+    // 3. Property tax: fixed per firm per year
+    val propertyTax  = nFirms * p.fiscal.jstPropertyTax / 12L
+    // 4. Subwencja oświatowa (education subvention): ~3% of GDP annually
+    val subvention   = gdp * p.fiscal.jstSubventionShare / 12L
+    // 5. Dotacje celowe (targeted grants): ~1% of GDP annually
+    val dotacje      = gdp * p.fiscal.jstDotacjeShare / 12L
 
-      val totalRevenue  = jstPitIncome + citRevenue + propertyTax + subvention + dotacje
-      // JST spending: revenue × spending multiplier (slightly > 1 → deficit bias)
-      val totalSpending = totalRevenue * p.fiscal.jstSpendingMult
-      val deficit       = totalSpending - totalRevenue
-      val depositChange = totalRevenue - totalSpending // negative when deficit
-      val newDeposits   = prev.deposits + depositChange
-      val newDebt       = prev.debt + deficit
+    val totalRevenue  = jstPitIncome + citRevenue + propertyTax + subvention + dotacje
+    // JST spending: revenue × spending multiplier (slightly > 1 → deficit bias)
+    val totalSpending = totalRevenue * p.fiscal.jstSpendingMult
+    val deficit       = totalSpending - totalRevenue
+    val depositChange = totalRevenue - totalSpending // negative when deficit
+    val newDeposits   = prev.deposits + depositChange
+    val newDebt       = prev.debt + deficit
 
-      StepResult(State(newDeposits, newDebt, totalRevenue, totalSpending, deficit), depositChange)
+    StepResult(State(newDeposits, newDebt, totalRevenue, totalSpending, deficit), depositChange)
