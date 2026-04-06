@@ -199,7 +199,7 @@ object PriceEquityEconomics:
           bankId = BankId(0),
           equityRaised = PLN.Zero,
           initialSize = newSize,
-          capitalStock = if true then PLN(toDouble(p.capital.klRatios(sec.toInt)) * newSize) else PLN.Zero,
+          capitalStock = PLN(toDouble(p.capital.klRatios(sec.toInt)) * newSize),
           bondDebt = PLN.Zero,
           foreignOwned = false,
           inventory = PLN.Zero,
@@ -215,10 +215,8 @@ object PriceEquityEconomics:
   @boundaryEscape
   private[economics] def governmentDemandContribution(govPurchases: PLN)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
-    if true then
-      toDouble(govPurchases) * (1.0 - toDouble(p.fiscal.govInvestShare)) * toDouble(p.fiscal.govCurrentMultiplier) +
-        toDouble(govPurchases) * toDouble(p.fiscal.govInvestShare) * toDouble(p.fiscal.govCapitalMultiplier)
-    else toDouble(govPurchases)
+    toDouble(govPurchases) * (1.0 - toDouble(p.fiscal.govInvestShare)) * toDouble(p.fiscal.govCurrentMultiplier) +
+      toDouble(govPurchases) * toDouble(p.fiscal.govInvestShare) * toDouble(p.fiscal.govCapitalMultiplier)
 
   // ---------------------------------------------------------------------------
   // Main compute logic
@@ -231,32 +229,25 @@ object PriceEquityEconomics:
     val nLiving           = living2.length.toDouble
     val autoR             = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]) / nLiving else 0.0
     val hybR              = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]) / nLiving else 0.0
-    val aggInventoryStock = if true then PLN.fromRaw(living2.map(_.inventory.toLong).sum) else PLN.Zero
-    val aggGreenCapital   = if true then PLN.fromRaw(living2.map(_.greenCapital.toLong).sum) else PLN.Zero
+    val aggInventoryStock = PLN.fromRaw(living2.map(_.inventory.toLong).sum)
+    val aggGreenCapital   = PLN.fromRaw(living2.map(_.greenCapital.toLong).sum)
 
-    val euMonthly =
-      if true then EuFunds.monthlyTransfer(in.month)
-      else toDouble(p.openEcon.euTransfers)
+    val euMonthly = EuFunds.monthlyTransfer(in.month)
 
     val govGdpContribution = governmentDemandContribution(in.govPurchases)
-    val euCofin            = if true then EuFunds.cofinancing(euMonthly) else 0.0
-    val euProjectCapital   =
-      if true && true then EuFunds.capitalInvestment(euMonthly, euCofin)
-      else 0.0
+    val euCofin            = EuFunds.cofinancing(euMonthly)
+    val euProjectCapital   = EuFunds.capitalInvestment(euMonthly, euCofin)
     val euGdpContribution  =
-      if true && true then
-        euProjectCapital * toDouble(p.fiscal.govCapitalMultiplier) +
-          (euCofin - euProjectCapital).max(0.0) * toDouble(p.fiscal.govCurrentMultiplier)
-      else if true then euCofin
-      else 0.0
+      euProjectCapital * toDouble(p.fiscal.govCapitalMultiplier) +
+        (euCofin - euProjectCapital).max(0.0) * toDouble(p.fiscal.govCurrentMultiplier)
     val greenDomesticGFCF  =
-      if true then toDouble(in.s5.sumGreenInvestment) * (1.0 - toDouble(p.climate.greenImportShare)) else 0.0
-    val domesticGFCF       = (if true then toDouble(in.s5.sumGrossInvestment) * (1.0 - toDouble(p.capital.importShare))
-                        else 0.0) + greenDomesticGFCF
+      toDouble(in.s5.sumGreenInvestment) * (1.0 - toDouble(p.climate.greenImportShare))
+    val domesticGFCF       =
+      toDouble(in.s5.sumGrossInvestment) * (1.0 - toDouble(p.capital.importShare)) + greenDomesticGFCF
     val investmentImports  =
-      (if true then toDouble(in.s5.sumGrossInvestment) * toDouble(p.capital.importShare) else 0.0) +
-        (if true then toDouble(in.s5.sumGreenInvestment) * toDouble(p.climate.greenImportShare) else 0.0)
-    val aggInventoryChange = if true then toDouble(in.s5.sumInventoryChange) else 0.0
+      toDouble(in.s5.sumGrossInvestment) * toDouble(p.capital.importShare) +
+        toDouble(in.s5.sumGreenInvestment) * toDouble(p.climate.greenImportShare)
+    val aggInventoryChange = toDouble(in.s5.sumInventoryChange)
     val gdp                =
       toDouble(in.domesticCons) + govGdpContribution + euGdpContribution + toDouble(in.w.forex.exports) + domesticGFCF + aggInventoryChange
 
@@ -317,12 +308,10 @@ object PriceEquityEconomics:
     val equityAfterIssuance = EquityMarket.processIssuance(in.s5.sumEquityIssuance, equityAfterIndex)
 
     val dividends              =
-      if true && true then
-        EquityMarket.computeDividends(
-          PLN(firmProfits),
-          equityAfterIssuance.foreignOwnership,
-        )
-      else EquityMarket.DividendResultZero
+      EquityMarket.computeDividends(
+        PLN(firmProfits),
+        equityAfterIssuance.foreignOwnership,
+      )
     val netDomesticDividends   = dividends.netDomestic
     val foreignDividendOutflow = dividends.foreign
     val dividendTax            = dividends.tax

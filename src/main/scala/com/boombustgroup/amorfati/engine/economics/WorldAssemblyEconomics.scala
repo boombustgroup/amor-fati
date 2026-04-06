@@ -176,27 +176,23 @@ object WorldAssemblyEconomics:
         case _                          => false
     val unemploymentRate = if updatedPop > 0 then 1.0 - postFirmEmployed.toDouble / updatedPop else 0.0
     val entryStep        =
-      if true then
-        val r = FirmEntry.process(
-          postFdiFirms,
-          newW.real.automationRatio,
-          newW.real.hybridRatio,
-          unemploymentRate,
-          in.s2.aggregateHiringSlack,
-          newW.inflation,
-          newW.mechanisms.expectations.expectedInflation,
-          in.w.pipeline.startupAbsorptionRate,
-          rng,
-        )
-        EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
-      else EntryStepResult(postFdiFirms, 0, 0, Set.empty)
+      val r = FirmEntry.process(
+        postFdiFirms,
+        newW.real.automationRatio,
+        newW.real.hybridRatio,
+        unemploymentRate,
+        in.s2.aggregateHiringSlack,
+        newW.inflation,
+        newW.mechanisms.expectations.expectedInflation,
+        in.w.pipeline.startupAbsorptionRate,
+        rng,
+      )
+      EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
 
     val startupStaffing = applyStartupStaffing(in, entryStep.firms, in.s9.reassignedHouseholds, rng)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
-    val postMigHh  =
-      if true then RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
-      else startupStaffing.households
+    val postMigHh  = RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
     val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
 
     val finalW = newW
@@ -286,13 +282,10 @@ object WorldAssemblyEconomics:
     )
 
     val monthsPerYear = 12.0
-    val etsPrice      =
-      if true then p.climate.etsBasePrice * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, in.s1.m.toDouble)
-      else 0.0
+    val etsPrice      = p.climate.etsBasePrice * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, in.s1.m.toDouble)
 
     val monthInYear           = ((in.s1.m - 1) % 12) + 1
-    val tourismSeasonalFactor =
-      1.0 + toDouble(p.tourism.seasonality) * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
+    val tourismSeasonalFactor = 1.0 + toDouble(p.tourism.seasonality) * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
 
     Observables(depositFacilityUsage, etsPrice, tourismSeasonalFactor)
 
@@ -605,7 +598,7 @@ object WorldAssemblyEconomics:
     * ownership, representing cross-border mergers and acquisitions.
     */
   private def applyFdiMa(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
-    if true && p.fdi.maProb > Share.Zero then
+    if p.fdi.maProb > Share.Zero then
       firms.map: f =>
         if Firm.isAlive(f) && !f.foreignOwned &&
           f.initialSize >= p.fdi.maSizeMin &&

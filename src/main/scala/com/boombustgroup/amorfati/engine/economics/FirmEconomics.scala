@@ -440,7 +440,7 @@ object FirmEconomics:
   private def splitFinancing(r: Firm.Result)(using p: SimParams): FinancingSplit =
     // Channel 1: GPW equity issuance (large firms only)
     val (afterEquityLoan, equityAmt, afterEquityFirm) =
-      if true && true && r.newLoan > PLN.Zero &&
+      if r.newLoan > PLN.Zero &&
         Firm.workerCount(r.firm) >= p.equity.issuanceMinSize
       then
         val eq  = r.newLoan * p.equity.issuanceFrac
@@ -501,19 +501,18 @@ object FirmEconomics:
       firms: Vector[Firm.State],
       in: StepInput,
   )(using p: SimParams): (Vector[Firm.State], PLN) =
-    if true then
-      val r = IntermediateMarket.process(
-        IntermediateMarket.Input(
-          firms = firms,
-          sectorMults = in.s4.sectorMults,
-          price = in.w.priceLevel,
-          ioMatrix = p.io.matrix,
-          columnSums = p.io.columnSums,
-          scale = p.io.scale,
-        ),
-      )
-      (r.firms, r.totalPaid)
-    else (firms, PLN.Zero)
+
+    val r = IntermediateMarket.process(
+      IntermediateMarket.Input(
+        firms = firms,
+        sectorMults = in.s4.sectorMults,
+        price = in.w.priceLevel,
+        ioMatrix = p.io.matrix,
+        columnSums = p.io.columnSums,
+        scale = p.io.scale,
+      ),
+    )
+    (r.firms, r.totalPaid)
 
   // ---- Phase 5: Labor market + immigration ----
 
@@ -530,12 +529,10 @@ object FirmEconomics:
     val postWages    = LaborMarket.updateWages(searchResult.households, ioFirms, in.s2.newWage)
 
     val finalHouseholds =
-      if true then
-        val afterRemoval  = Immigration.removeReturnMigrants(postWages, in.s2.newImmig.monthlyOutflow)
-        val startId       = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
-        val newImmigrants = Immigration.spawnImmigrants(in.s2.newImmig.monthlyInflow, startId, rng)
-        afterRemoval ++ newImmigrants
-      else postWages
+      val afterRemoval  = Immigration.removeReturnMigrants(postWages, in.s2.newImmig.monthlyOutflow)
+      val startId       = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
+      val newImmigrants = Immigration.spawnImmigrants(in.s2.newImmig.monthlyInflow, startId, rng)
+      afterRemoval ++ newImmigrants
 
     (finalHouseholds, searchResult.crossSectorHires)
 

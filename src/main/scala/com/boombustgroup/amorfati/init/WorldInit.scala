@@ -49,12 +49,8 @@ object WorldInit:
       initInsurance.govBondHoldings + initNbfi.tfiGovBondHoldings
 
     // --- Steady-state gross investment ---
-    val initGrossInvestment =
-      if true then PLN.fromRaw(firms.map(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toLong).sum)
-      else PLN.Zero
-    val initGreenInvestment =
-      if true then PLN.fromRaw(firms.map(f => (f.greenCapital * p.climate.greenDepRate.monthly).toLong).sum)
-      else PLN.Zero
+    val initGrossInvestment = PLN.fromRaw(firms.map(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toLong).sum)
+    val initGreenInvestment = PLN.fromRaw(firms.map(f => (f.greenCapital * p.climate.greenDepRate.monthly).toLong).sum)
 
     // --- World assembly ---
     val initHhAgg = Household.Aggregates(
@@ -148,9 +144,7 @@ object WorldInit:
       ),
       external = ExternalState(
         gvc = GvcInit.create(),
-        immigration =
-          if true then Immigration.State(p.immigration.initStock, 0, 0, PLN.Zero)
-          else Immigration.State.zero,
+        immigration = Immigration.State(p.immigration.initStock, 0, 0, PLN.Zero),
       ),
       real = RealState(
         housing = HousingInit.create(),

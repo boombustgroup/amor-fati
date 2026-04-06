@@ -122,9 +122,7 @@ object LaborEconomics:
       _.status match
         case HhStatus.Employed(_, _, _) => true
         case _                          => false
-    val employedCap        =
-      if true then Math.min(realizedEmployment, pre.newDemographics.workingAgePop)
-      else realizedEmployment
+    val employedCap        = Math.min(realizedEmployment, pre.newDemographics.workingAgePop)
     val postAvailableLabor = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.derivedTotalPopulation)
     pre.copy(
       newWage = cleared.wage,
@@ -144,33 +142,23 @@ object LaborEconomics:
   )(using p: SimParams): ClearedLaborMarket =
     import ComputationBoundary.toDouble
     val (rawWage, rawEmployed, regWages) =
-      if true then
-        val rc          = RegionalClearing.clear(w.regionalWages, resWage, laborDemand, w.derivedTotalPopulation)
-        val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, resWage, laborDemand, w.derivedTotalPopulation)
-        (toDouble(rc.nationalWage), natEmployed, rc.regionalWages)
-      else
-        val wageResult = LaborMarket.updateLaborMarket(w.householdMarket.marketWage, resWage, laborDemand, w.derivedTotalPopulation)
-        (toDouble(wageResult.wage), wageResult.employed, w.regionalWages)
+      val rc          = RegionalClearing.clear(w.regionalWages, resWage, laborDemand, w.derivedTotalPopulation)
+      val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, resWage, laborDemand, w.derivedTotalPopulation)
+      (toDouble(rc.nationalWage), natEmployed, rc.regionalWages)
 
     val wageAfterExp =
-      if true then
-        val target          = toDouble(p.monetary.targetInfl)
-        val expWagePressure = toDouble(p.labor.expWagePassthrough) *
-          Math.max(0.0, toDouble(w.mechanisms.expectations.expectedInflation) - target) / 12.0
-        Math.max(toDouble(resWage), rawWage * (1.0 + expWagePressure))
-      else rawWage
+      val target          = toDouble(p.monetary.targetInfl)
+      val expWagePressure = toDouble(p.labor.expWagePassthrough) *
+        Math.max(0.0, toDouble(w.mechanisms.expectations.expectedInflation) - target) / 12.0
+      Math.max(toDouble(resWage), rawWage * (1.0 + expWagePressure))
 
     val newWage =
-      if true && wageAfterExp < toDouble(w.householdMarket.marketWage) then
-        val aggDensity =
-          p.sectorDefs.zipWithIndex.map((s, i) => toDouble(s.share) * toDouble(p.labor.unionDensity(i))).sum
-        val decline    = toDouble(w.householdMarket.marketWage) - wageAfterExp
-        Math.max(toDouble(resWage), wageAfterExp + decline * toDouble(p.labor.unionRigidity) * aggDensity)
-      else wageAfterExp
+      val aggDensity =
+        p.sectorDefs.zipWithIndex.map((s, i) => toDouble(s.share) * toDouble(p.labor.unionDensity(i))).sum
+      val decline    = toDouble(w.householdMarket.marketWage) - wageAfterExp
+      Math.max(toDouble(resWage), wageAfterExp + decline * toDouble(p.labor.unionRigidity) * aggDensity)
 
-    val employed =
-      if true then Math.min(rawEmployed, w.social.demographics.workingAgePop)
-      else rawEmployed
+    val employed = Math.min(rawEmployed, w.social.demographics.workingAgePop)
 
     ClearedLaborMarket(PLN(newWage), employed, regWages)
 

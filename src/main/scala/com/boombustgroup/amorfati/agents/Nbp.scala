@@ -110,17 +110,13 @@ object Nbp:
     val infGap    = inflation - p.monetary.targetInfl
     val unempRate = Share.One - Share.fraction(employed, totalPopulation)
     val nairu     = p.monetary.nairu
-    if true then
-      val rawOutputGap = Coefficient(toDouble(unempRate - nairu))
-      val outputGap    = rawOutputGap.max(-OutputGapCap).min(OutputGapCap)
-      p.monetary.neutralRate +
-        infGap * p.monetary.taylorAlpha -
-        (outputGap * p.monetary.taylorDelta).toMultiplier.toRate + // Coefficient × Coefficient → Rate
-        (exRateChange * p.monetary.taylorBeta).toMultiplier.toRate // Coefficient × Coefficient → Rate
-    else
-      p.monetary.neutralRate +
-        infGap.max(Rate.Zero) * p.monetary.taylorAlpha +
-        (exRateChange.max(Coefficient.Zero) * p.monetary.taylorBeta).toMultiplier.toRate
+
+    val rawOutputGap = Coefficient(toDouble(unempRate - nairu))
+    val outputGap    = rawOutputGap.max(-OutputGapCap).min(OutputGapCap)
+    p.monetary.neutralRate +
+      infGap * p.monetary.taylorAlpha -
+      (outputGap * p.monetary.taylorDelta).toMultiplier.toRate + // Coefficient × Coefficient → Rate
+      (exRateChange * p.monetary.taylorBeta).toMultiplier.toRate // Coefficient × Coefficient → Rate
 
   /** Inertia smoothing + max rate change clamping. */
   private def smoothAndClamp(prevRate: Rate, taylor: Rate)(using p: SimParams): Rate =
@@ -196,8 +192,7 @@ object Nbp:
     * well below target.
     */
   def shouldActivateQe(refRate: Rate, inflation: Rate, expectedInflation: Rate)(using p: SimParams): Boolean =
-    true &&
-      inLowerBoundRegime(refRate, inflation, expectedInflation)
+    inLowerBoundRegime(refRate, inflation, expectedInflation)
 
   /** Should NBP taper QE? Exit only after both realized and expected inflation
     * have recovered above target.

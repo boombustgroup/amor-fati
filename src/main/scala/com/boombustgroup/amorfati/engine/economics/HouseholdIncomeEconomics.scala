@@ -63,9 +63,8 @@ object HouseholdIncomeEconomics:
       ),
     )
     val eqReturn           = w.financial.equity.monthlyReturn
-    val secWages           = if true then Some(SectoralMobility.sectorWages(afterWages)) else None
-    val secVacancies       =
-      if true then Some(SectoralMobility.sectorVacancies(afterWages, firms)) else None
+    val secWages           = Some(SectoralMobility.sectorWages(afterWages))
+    val secVacancies       = Some(SectoralMobility.sectorVacancies(afterWages, firms))
     val (newHhs, agg, pbf) = Household.step(
       afterWages,
       w,
@@ -80,9 +79,7 @@ object HouseholdIncomeEconomics:
       secVacancies,
     )
 
-    val pitRevenue =
-      if true then toDouble(agg.totalPit)
-      else 0.0
+    val pitRevenue = toDouble(agg.totalPit)
 
     Output(
       agg.totalIncome,

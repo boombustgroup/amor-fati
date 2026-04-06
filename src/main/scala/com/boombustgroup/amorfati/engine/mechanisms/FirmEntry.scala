@@ -222,7 +222,7 @@ object FirmEntry:
       initialSize = firmSize,
       capitalStock = initCapitalStock(firmSize, newSector),
       bondDebt = PLN.Zero,
-      foreignOwned = true && p.fdi.foreignShares(newSector).sampleBelow(rng),
+      foreignOwned = p.fdi.foreignShares(newSector).sampleBelow(rng),
       inventory = initInventory(firmSize, newSector),
       greenCapital = initGreenCapital(firmSize, newSector),
       accumulatedLoss = PLN.Zero,
@@ -267,23 +267,19 @@ object FirmEntry:
   @boundaryEscape
   private def initCapitalStock(firmSize: Int, sector: Int)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
-    if true then PLN(toDouble(p.capital.klRatios(sector)) * firmSize)
-    else PLN.Zero
+    PLN(toDouble(p.capital.klRatios(sector)) * firmSize)
 
   /** Initial inventory from sector target ratio, scaled to firm capacity. */
   private def initInventory(firmSize: Int, sector: Int)(using p: SimParams): PLN =
-    if true then
-      val cap = p.firm.baseRevenue * Multiplier(firmSize.toDouble / p.pop.workersPerFirm) *
-        p.sectorDefs(sector).revenueMultiplier
-      cap * p.capital.inventoryTargetRatios(sector) * p.capital.inventoryInitRatio
-    else PLN.Zero
+    val cap = p.firm.baseRevenue * Multiplier(firmSize.toDouble / p.pop.workersPerFirm) *
+      p.sectorDefs(sector).revenueMultiplier
+    cap * p.capital.inventoryTargetRatios(sector) * p.capital.inventoryInitRatio
 
   /** Initial green capital stock from sector-specific green K/L ratio. */
   @boundaryEscape
   private def initGreenCapital(firmSize: Int, sector: Int)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
-    if true then PLN(toDouble(p.climate.greenKLRatios(sector)) * firmSize) * p.climate.greenInitRatio
-    else PLN.Zero
+    PLN(toDouble(p.climate.greenKLRatios(sector)) * firmSize) * p.climate.greenInitRatio
 
   private def pickSector(totalWeight: Double, sectorWeights: Vector[Double], rng: Random): Int =
     val roll   = rng.nextDouble() * totalWeight

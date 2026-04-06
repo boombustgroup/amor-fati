@@ -7,5 +7,4 @@ import com.boombustgroup.amorfati.config.SimParams
 object NbfiInit:
 
   def create()(using p: SimParams): Nbfi.State =
-    if true then Nbfi.initial
-    else Nbfi.State.zero
+    Nbfi.initial

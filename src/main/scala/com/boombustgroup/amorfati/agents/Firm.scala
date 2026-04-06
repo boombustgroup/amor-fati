@@ -249,8 +249,7 @@ object Firm:
   /** Effective wage multiplier including union wage premium. */
   def effectiveWageMult(sectorIdx: SectorIdx)(using p: SimParams): Multiplier =
     val base = p.sectorDefs(sectorIdx.toInt).wageMultiplier
-    if true then base + base * (p.labor.unionWagePremium * p.labor.unionDensity(sectorIdx.toInt))
-    else base
+    base + base * (p.labor.unionWagePremium * p.labor.unionDensity(sectorIdx.toInt))
 
   /** Monthly production capacity in PLN. Scales with tech, sector, firm size;
     * augmented by physical capital via CES production function when enabled.
@@ -269,7 +268,7 @@ object Firm:
       case TechState.Automated(eff) => Multiplier(eff)
       case _: TechState.Bankrupt    => Multiplier.Zero
     val tfp       = sizeScale * sec.revenueMultiplier
-    if true && f.capitalStock > PLN.Zero && laborEff > Multiplier.Zero then
+    if f.capitalStock > PLN.Zero && laborEff > Multiplier.Zero then
       val targetK: PLN  = workerCount(f) * p.capital.klRatios(f.sector.toInt)
       val k: Multiplier = Multiplier(if targetK > PLN.Zero then f.capitalStock / targetK else 1.0).clamp(Multiplier(0.1), Multiplier(2.0))
       val alpha: Share  = p.capital.prodElast
@@ -1073,9 +1072,9 @@ object Firm:
     import ComputationBoundary.toDouble
     val sizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
     val raw: PLN   = p.firm.otherCosts * Multiplier(toDouble(domesticPrice) * sizeFactor)
-    val afterCap   = if true then raw * (Share.One - p.capital.costReplace) else raw
-    val afterEnerg = if true then afterCap * (Share.One - p.climate.energyCostReplace) else afterCap
-    val adjusted   = if true then afterEnerg * (Share.One - p.capital.inventoryCostReplace) else afterEnerg
+    val afterCap   = raw * (Share.One - p.capital.costReplace)
+    val afterEnerg = afterCap * (Share.One - p.climate.energyCostReplace)
+    val adjusted   = afterEnerg * (Share.One - p.capital.inventoryCostReplace)
     adjusted * startupCostMultiplier(firm)
 
   /** AI/hybrid maintenance opex — domestic + imported split, sublinear in firm
@@ -1122,18 +1121,15 @@ object Firm:
     import ComputationBoundary.toDouble
     val revenue: PLN         = computeCapacity(firm) * Multiplier(sectorDemandMult * toDouble(domesticPrice))
     val labor: PLN           = PLN(toDouble(wage) * workerCount(firm) * toDouble(effectiveWageMult(firm.sector)))
-    val depnCost: PLN        =
-      if true then firm.capitalStock * p.capital.depRates(firm.sector.toInt).monthly
-      else PLN.Zero
+    val depnCost: PLN        = firm.capitalStock * p.capital.depRates(firm.sector.toInt).monthly
     val interest: PLN        = (firm.debt + firm.bondDebt) * lendRate.monthly
-    val inventoryCost: PLN   =
-      if true then firm.inventory * p.capital.inventoryCarryingCost.monthly else PLN.Zero
+    val inventoryCost: PLN   = firm.inventory * p.capital.inventoryCarryingCost.monthly
     val energyCost: PLN      = energyAndEtsCost(firm, revenue, month, commodityPrice)
     val prePsCosts           =
       labor + otherCosts(firm, domesticPrice) + depnCost + aiMaintenanceCost(firm, domesticPrice, importPrice) + interest + inventoryCost + energyCost
     val grossProfit          = revenue - prePsCosts
     val profitShiftCost: PLN =
-      if true && firm.foreignOwned then grossProfit.max(PLN.Zero) * p.fdi.profitShiftRate
+      if firm.foreignOwned then grossProfit.max(PLN.Zero) * p.fdi.profitShiftRate
       else PLN.Zero
     val costs                = prePsCosts + profitShiftCost
     val profit               = revenue - costs

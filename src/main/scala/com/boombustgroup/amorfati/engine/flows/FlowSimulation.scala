@@ -556,7 +556,7 @@ object FlowSimulation:
       valuationEffect = full.s8.external.oeValuationEffect,
       bankBondIncome = evidence.amount(FlowMechanism.BankGovBondIncome),
       qePurchase = full.s8.monetary.qePurchaseAmount,
-      newBondIssuance = if true then full.s9.actualBondChange else PLN.Zero,
+      newBondIssuance = full.s9.actualBondChange,
       depositInterestPaid = evidence.amount(FlowMechanism.HhDepositInterest),
       reserveInterest = evidence.amount(FlowMechanism.BankReserveInterest),
       standingFacilityIncome = evidence.signedAmount(FlowMechanism.BankStandingFacility),

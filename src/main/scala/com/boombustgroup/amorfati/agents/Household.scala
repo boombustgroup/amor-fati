@@ -209,14 +209,14 @@ object Household:
         if rng.nextDouble() < toDouble(p.household.debtFraction) then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()))
         else PLN.Zero
       val baseRent: PLN = PLN((toDouble(p.household.rentMean) + toDouble(p.household.rentStd) * rng.nextGaussian()).max(toDouble(p.household.rentFloor)))
-      val rent: PLN     = if true then baseRent * firm.region.housingCostIndex else baseRent
+      val rent: PLN     = baseRent * firm.region.housingCostIndex
       val mpc           = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
       val (edu, skill)  = sampleEducationAndSkill(sectorIdx, rng)
       val wage: PLN     = p.household.baseWage * Region.normalizedWageMultiplier(firm.region) * p.sectorDefs(sectorIdx.toInt).wageMultiplier * Share(skill)
       val eqWealth: PLN =
-        if true && p.equity.hhEquityFrac.sampleBelow(rng) then savings * Share(GpwEquityInitFrac)
+        if p.equity.hhEquityFrac.sampleBelow(rng) then savings * Share(GpwEquityInitFrac)
         else PLN.Zero
-      val numChildren   = if true then Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng) else 0
+      val numChildren   = Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
       val consDebt: PLN =
         if p.household.debtFraction.sampleBelow(rng) then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()) * ConsumerDebtInitFrac)
         else PLN.Zero
@@ -445,7 +445,7 @@ object Household:
         val retrainProb = p.household.retrainingProb +
           (if neighborDistress > NeighborDistressThreshold then NeighborDistressRetrainBoost else Share.Zero)
         if hh.savings > p.household.retrainingCost && retrainProb.sampleBelow(rng) then
-          if true && sectorWages.isDefined then
+          if sectorWages.isDefined then
             val sw           = sectorWages.get
             val sv           = sectorVacancies.get
             val fromSector   = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt else 0
@@ -467,11 +467,10 @@ object Household:
           val skillHealthProb = p.household.retrainingBaseSuccess * afterSkill * (Share.One - afterHealth)
           val eduMult         = p.social.eduRetrainMultiplier(hh.education)
           val baseSuccessProb = (skillHealthProb * eduMult).toShare // Multiplier → Share (probability)
-          val successProb     = if true then
+          val successProb     =
             val fromSector = if hh.lastSectorIdx.toInt >= 0 then hh.lastSectorIdx.toInt else 0
             val friction   = p.labor.frictionMatrix(fromSector)(targetSector.toInt)
             baseSuccessProb * (Share.One - friction * SectoralMobility.FrictionSuccessDiscount)
-          else baseSuccessProb
           if successProb.sampleBelow(rng) then (HhStatus.Unemployed(0), 0, 1)
           else (HhStatus.Unemployed(PostFailedRetrainingMonths), 0, 0)
         else (HhStatus.Retraining(monthsLeft - 1, targetSector, cost), 0, 0)
@@ -570,7 +569,7 @@ object Household:
     val thisDebtService = hh.debt * debtSvcRate
 
     val remittance =
-      if hh.isImmigrant && true then income * p.immigration.remitRate
+      if hh.isImmigrant then income * p.immigration.remitRate
       else PLN.Zero
 
     val obligations         = hh.monthlyRent + thisDebtService + remittance
@@ -591,7 +590,7 @@ object Household:
     val newEquityWealth       = (hh.equityWealth * (Multiplier.One + equityIndexReturn.toMultiplier)).max(PLN.Zero)
     val equityGain            = newEquityWealth - hh.equityWealth
     val equityBoost           =
-      if true && equityGain > PLN.Zero then equityGain * p.equity.wealthEffectMpc
+      if equityGain > PLN.Zero then equityGain * p.equity.wealthEffectMpc
       else PLN.Zero
     val housingBoost          = world.real.housing.lastWealthEffect / world.derivedTotalPopulation.toLong.max(1L)
     val consumptionWithWealth = consumptionAdj + equityBoost + housingBoost

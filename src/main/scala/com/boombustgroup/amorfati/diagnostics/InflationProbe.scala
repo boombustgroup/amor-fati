@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.markets.{LaborMarket, RegionalClearing}
+import com.boombustgroup.amorfati.engine.markets.RegionalClearing
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 
@@ -49,9 +49,7 @@ object InflationProbe:
   )
 
   private def govPurchasesBreakdown(world: World, employed: Int)(using p: SimParams): GovPurchasesBreakdown =
-    val zusNetSurplus =
-      if true then (world.social.zus.contributions - world.social.zus.pensionPayments).max(PLN.Zero)
-      else PLN.Zero
+    val zusNetSurplus = (world.social.zus.contributions - world.social.zus.pensionPayments).max(PLN.Zero)
     val unempRate     = Share.One - Share.fraction(employed, world.derivedTotalPopulation)
     val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
     val base          = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, world.priceLevel))
@@ -78,22 +76,17 @@ object InflationProbe:
       val s1                = FiscalConstraintEconomics.toOutput(fiscal)
       val labor             = LaborEconomics.compute(world, firms, hhs, s1)
       val prevWage          = toDouble(world.householdMarket.marketWage)
-      val rawLaborWage      =
-        if true then toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
-        else toDouble(LaborMarket.updateLaborMarket(world.householdMarket.marketWage, s1.resWage, labor.laborDemand, population).wage)
+      val rawLaborWage      = toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
       val target            = toDouble(summon[SimParams].monetary.targetInfl)
       val expWagePressure   =
-        if true then
-          toDouble(summon[SimParams].labor.expWagePassthrough) *
-            Math.max(0.0, toDouble(world.mechanisms.expectations.expectedInflation) - target) / 12.0
-        else 0.0
+        toDouble(summon[SimParams].labor.expWagePassthrough) * Math.max(0.0, toDouble(world.mechanisms.expectations.expectedInflation) - target) / 12.0
       val wageAfterExp      = Math.max(toDouble(s1.resWage), rawLaborWage * (1.0 + expWagePressure))
       val aggUnionDensity   =
         summon[SimParams].sectorDefs.zipWithIndex
           .map((s, i) => toDouble(s.share) * toDouble(summon[SimParams].labor.unionDensity(i)))
           .sum
       val unionAdjustedWage =
-        if true && wageAfterExp < prevWage then
+        if wageAfterExp < prevWage then
           val decline = prevWage - wageAfterExp
           Math.max(toDouble(s1.resWage), wageAfterExp + decline * toDouble(summon[SimParams].labor.unionRigidity) * aggUnionDensity)
         else wageAfterExp

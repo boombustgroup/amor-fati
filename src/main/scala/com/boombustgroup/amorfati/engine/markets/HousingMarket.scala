@@ -105,7 +105,7 @@ object HousingMarket:
       lastWealthEffect = PLN.Zero,
       monthlyReturn = Rate.Zero,
       mortgageInterestIncome = PLN.Zero,
-      regions = if true then Some(initRegions) else None,
+      regions = Some(initRegions),
     )
 
   private def initRegions(using p: SimParams): Vector[RegionalState] =
@@ -311,7 +311,7 @@ object HousingMarket:
     val newHhWealth  = prev.totalValue - newStock
     val wealthChange = newHhWealth - prev.hhHousingWealth
     val wealthEffect =
-      if true && wealthChange > PLN.Zero then wealthChange * p.housing.wealthMpc
+      if wealthChange > PLN.Zero then wealthChange * p.housing.wealthMpc
       else PLN.Zero
     prev.copy(
       mortgageStock = newStock,

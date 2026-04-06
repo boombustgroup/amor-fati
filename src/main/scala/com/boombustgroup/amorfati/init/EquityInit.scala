@@ -8,10 +8,5 @@ import com.boombustgroup.amorfati.types.*
 object EquityInit:
 
   def create(totalPop: Int)(using p: SimParams): EquityMarket.State =
-    if true then
-      val initHhEq =
-        if true
-        then PLN(totalPop.toDouble * Math.exp(p.household.savingsMu) * 0.05) * p.equity.hhEquityFrac
-        else PLN.Zero
-      EquityMarket.initial.copy(hhEquityWealth = initHhEq)
-    else EquityMarket.zero
+    val initHhEq = PLN(totalPop.toDouble * Math.exp(p.household.savingsMu) * 0.05) * p.equity.hhEquityFrac
+    EquityMarket.initial.copy(hhEquityWealth = initHhEq)

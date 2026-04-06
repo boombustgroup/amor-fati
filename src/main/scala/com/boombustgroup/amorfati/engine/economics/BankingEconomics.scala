@@ -197,9 +197,7 @@ object BankingEconomics:
     val prevBankAgg          = Banking.aggregateFromBanks(in.banks)
     val govJst               = computeGovAndJst(in)
     val housing              = computeHousingFlows(in)
-    val bfgLevy              =
-      if true then Banking.computeBfgLevy(in.banks).total
-      else PLN.Zero
+    val bfgLevy              = Banking.computeBfgLevy(in.banks).total
     val investNetDepositFlow = computeInvestNetDepositFlow(in)
     val finalHhAgg           = computeHhAgg(in)
     val wf                   = computeWaterfallInputs(in, govJst.newGovWithYield)
@@ -213,14 +211,12 @@ object BankingEconomics:
     val monAgg               = computeMonetaryAggregates(multi.finalBanks, in)
 
     val newQuasiFiscal =
-      if true then
-        QuasiFiscal.step(
-          in.w.financial.quasiFiscal,
-          govJst.newGovWithYield.govCapitalSpend,
-          govJst.newGovWithYield.euCofinancing,
-          in.w.nbp.qeActive,
-        )
-      else in.w.financial.quasiFiscal
+      QuasiFiscal.step(
+        in.w.financial.quasiFiscal,
+        govJst.newGovWithYield.govCapitalSpend,
+        govJst.newGovWithYield.euCofinancing,
+        in.w.nbp.qeActive,
+      )
 
     StepOutput(
       resolvedBank = multi.resolvedBank,
@@ -345,9 +341,7 @@ object BankingEconomics:
     )
 
     val unempBenefitSpend   = in.s3.hhAgg.totalUnempBenefits
-    val socialTransferSpend =
-      if true then in.s3.hhAgg.totalSocialTransfers
-      else PLN.Zero
+    val socialTransferSpend = in.s3.hhAgg.totalSocialTransfers
 
     val newGov          = FiscalBudget.update(
       FiscalBudget.Input(
@@ -399,18 +393,16 @@ object BankingEconomics:
     val unempRate              = in.w.unemploymentRate(in.s2.employed)
     val prevMortgageRate       = in.w.real.housing.avgMortgageRate
     val mortgageBaseRate: Rate =
-      if true then
-        val exp = in.w.mechanisms.expectations
-        YieldCurve
-          .compute(
-            in.w.bankingSector.interbankRate,
-            nplRatio = Banking.aggregateFromBanks(in.banks).nplRatio,
-            credibility = exp.credibility,
-            expectedInflation = exp.expectedInflation,
-            targetInflation = p.monetary.targetInfl,
-          )
-          .wibor3m
-      else in.w.nbp.referenceRate
+      val exp = in.w.mechanisms.expectations
+      YieldCurve
+        .compute(
+          in.w.bankingSector.interbankRate,
+          nplRatio = Banking.aggregateFromBanks(in.banks).nplRatio,
+          credibility = exp.credibility,
+          expectedInflation = exp.expectedInflation,
+          targetInflation = p.monetary.targetInfl,
+        )
+        .wibor3m
     val mortgageRate           = mortgageBaseRate + p.housing.mortgageSpread
     val housingAfterPrice      = HousingMarket.step(
       HousingMarket.StepInput(
@@ -553,7 +545,7 @@ object BankingEconomics:
     val bankCorpBondCoupon        = in.s8.corpBonds.corpBondBankCoupon * workerShare
     val bankCorpBondDefaultLoss   = in.s8.corpBonds.corpBondBankDefaultLoss * workerShare
     val bankBfgLevy               =
-      if true && !b.failed then b.deposits * p.banking.bfgLevyRate.monthly
+      if !b.failed then b.deposits * p.banking.bfgLevyRate.monthly
       else PLN.Zero
 
     // Per-bank mark-to-market loss on AFS bonds only (HTM losses hidden until forced reclassification)
@@ -743,18 +735,16 @@ object BankingEconomics:
         )
       else PLN.Zero
     val curve              =
-      if true then
-        val exp = in.w.mechanisms.expectations
-        Some(
-          YieldCurve.compute(
-            ibRate,
-            nplRatio = prevBankAgg.nplRatio,
-            credibility = exp.credibility,
-            expectedInflation = exp.expectedInflation,
-            targetInflation = p.monetary.targetInfl,
-          ),
-        )
-      else None
+      val exp = in.w.mechanisms.expectations
+      Some(
+        YieldCurve.compute(
+          ibRate,
+          nplRatio = prevBankAgg.nplRatio,
+          credibility = exp.credibility,
+          expectedInflation = exp.expectedInflation,
+          targetInflation = p.monetary.targetInfl,
+        ),
+      )
     val finalBankingMarket = Banking.MarketState(
       interbankRate = ibRate,
       configs = bs.configs,

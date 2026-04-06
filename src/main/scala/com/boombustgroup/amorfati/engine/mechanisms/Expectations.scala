@@ -67,8 +67,7 @@ object Expectations:
     // Expected rate: adaptive learning on policy rate, blended with FG when enabled
     val adaptiveRate = toDouble(prev.expectedRate) + lambda * (currentRate - toDouble(prev.expectedRate))
     val expRate      =
-      if true then FgBlendWeight * fgRate + (1.0 - FgBlendWeight) * adaptiveRate
-      else adaptiveRate
+      FgBlendWeight * fgRate + (1.0 - FgBlendWeight) * adaptiveRate
 
     State(
       expectedInflation = Rate(expected),

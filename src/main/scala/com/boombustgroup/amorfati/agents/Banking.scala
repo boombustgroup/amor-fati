@@ -404,8 +404,8 @@ object Banking:
       val projectedCar = if projectedRwa > PLN(1.0) then Multiplier(bank.capital / projectedRwa) else Multiplier(10.0)
       val minCar       = Macroprudential.effectiveMinCar(bank.id.toInt, ccyb)
       val carOk        = projectedCar >= minCar
-      val lcrOk        = if true then bank.lcr >= p.banking.lcrMin else true
-      val nsfrOk       = if true then bank.nsfr >= p.banking.nsfrMin else true
+      val lcrOk        = bank.lcr >= p.banking.lcrMin
+      val nsfrOk       = bank.nsfr >= p.banking.nsfrMin
       val nplPenalty   = bank.nplRatio * NplApprovalPenalty // Share * Multiplier → Multiplier
       val freeReserves = bank.deposits * (Share.One - p.banking.reserveReq) - bank.loans - bank.govBondHoldings
       val resPenalty   = if freeReserves > PLN.Zero then Share.Zero else ReserveDeficitPenalty
@@ -488,7 +488,7 @@ object Banking:
           val consec    = b.consecutiveLowCar
           val minCar    = Macroprudential.effectiveMinCar(b.id.toInt, ccyb)
           val lowCar    = b.car < minCar
-          val lcrBreach = true && b.lcr < p.banking.lcrMin * Share(0.5)
+          val lcrBreach = b.lcr < p.banking.lcrMin * Share(0.5)
           val newConsec = if lowCar then consec + 1 else 0
           if newConsec >= 3 || lcrBreach then b.copy(status = BankStatus.Failed(month), capital = PLN.Zero)
           else b.copy(status = BankStatus.Active(newConsec))

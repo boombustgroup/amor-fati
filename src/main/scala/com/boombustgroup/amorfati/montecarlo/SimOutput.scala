@@ -40,9 +40,9 @@ object SimOutput:
     given SimParams                                          = p
     lazy val bankAgg: Banking.Aggregate                      = Banking.aggregateFromBanks(banks)
     lazy val hhAgg: Household.Aggregates                     = householdAggregates
-    lazy val monetaryAgg: Option[Banking.MonetaryAggregates] =
-      if true then Some(Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding))
-      else None
+    lazy val monetaryAgg: Option[Banking.MonetaryAggregates] = Some(
+      Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding),
+    )
     lazy val monthlyGdp: PLN                                 = world.cachedMonthlyGdpProxy
     lazy val sectorAuto: IndexedSeq[Double]                  = p.sectorDefs.indices.map { s =>
       val secFirms = living.filter(_.sector.toInt == s)
@@ -367,12 +367,7 @@ object SimOutput:
     // Physical Capital
     ColumnDef("AggCapitalStock", ctx => ctx.living.map(f => td.toDouble(f.capitalStock)).sum),
     ColumnDef("GrossInvestment", ctx => td.toDouble(ctx.world.real.grossInvestment)),
-    ColumnDef(
-      "CapitalDepreciation",
-      ctx =>
-        if true then ctx.living.map(f => td.toDouble(f.capitalStock) * td.toDouble(ctx.p.capital.depRates(f.sector.toInt).monthly)).sum
-        else 0.0,
-    ),
+    ColumnDef("CapitalDepreciation", ctx => ctx.living.map(f => td.toDouble(f.capitalStock) * td.toDouble(ctx.p.capital.depRates(f.sector.toInt).monthly)).sum),
     // Inventories
     ColumnDef("AggInventoryStock", ctx => td.toDouble(ctx.world.flows.aggInventoryStock)),
     ColumnDef("InventoryChange", ctx => td.toDouble(ctx.world.flows.aggInventoryChange)),

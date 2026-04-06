@@ -113,7 +113,7 @@ object LaborMarket:
   )(using p: SimParams): JobSearchResult =
     val vacancies = computeVacancies(households, firms, eligibleFirmIds)
     if vacancies.isEmpty then JobSearchResult(households, 0)
-    else if true && regionalWages.nonEmpty then matchWorkersRegional(households, firms, vacancies, marketWage, regionalWages)
+    else if regionalWages.nonEmpty then matchWorkersRegional(households, firms, vacancies, marketWage, regionalWages)
     else matchWorkers(households, firms, vacancies, marketWage)
 
   // --- Wage updating ---
@@ -402,7 +402,7 @@ object LaborMarket:
   )(using p: SimParams): PLN =
     val sectorMult = Firm.effectiveWageMult(firm.sector)
     val penalty    =
-      if true && isCrossSector
+      if isCrossSector
       then SectoralMobility.crossSectorWagePenalty(p.labor.frictionMatrix(prevSector.toInt)(firm.sector.toInt))
       else Multiplier.One
     val scarMult   = (Share.One - hh.wageScar).toMultiplier
@@ -415,7 +415,7 @@ object LaborMarket:
   private def rawRelativeWage(hh: Household.State, firms: Vector[Firm.State])(using p: SimParams): Multiplier =
     hh.status match
       case HhStatus.Employed(firmId, sectorIdx, _) =>
-        val immigrantMult = if hh.isImmigrant && true then (Share.One - p.immigration.wageDiscount).toMultiplier else Multiplier.One
+        val immigrantMult = if hh.isImmigrant then (Share.One - p.immigration.wageDiscount).toMultiplier else Multiplier.One
         val aiMult        = aiComplementFactor(hh, firms(firmId.toInt))
         val scarMult      = (Share.One - hh.wageScar).toMultiplier
         Firm.effectiveWageMult(sectorIdx) * effectiveSkill(hh) * immigrantMult *
