@@ -20,33 +20,33 @@ object ShareProvider:
     def +(other: Share): Share             = s + other
     def -(other: Share): Share             = s - other
     def *(other: Share): Share             = bankerRound(BigInt(s) * BigInt(other))
-    def /(n: Int): Share                   = Share(asDouble(s) / n)
+    def /(n: Int): Share                   = Share.fromRaw(s / n.toLong)
     def /(other: Share): Double            = if other != 0L then s.toDouble / other.toDouble else 0.0
     def max(other: Share): Share           = math.max(s, other)
     def min(other: Share): Share           = math.min(s, other)
     def clamp(lo: Share, hi: Share): Share = math.max(lo, math.min(hi, s))
-    def monthly: Share                     = Share(asDouble(s) / 12.0)
-    def sqrt: Share                        = Share(math.sqrt(asDouble(s)))
+    def monthly: Share                     = Share.fromRaw(s / 12L)
+    def sqrt: Share                        = Share(math.sqrt(s.toDouble / ScaleD))
     def >(other: Share): Boolean           = s > other
     def <(other: Share): Boolean           = s < other
     def >=(other: Share): Boolean          = s >= other
     def <=(other: Share): Boolean          = s <= other
 
     /** True if rng.nextDouble() < this share. For probability sampling. */
-    def sampleBelow(rng: scala.util.Random): Boolean = rng.nextDouble() < asDouble(s)
+    def sampleBelow(rng: scala.util.Random): Boolean = rng.nextInt(Scale.toInt) < s
 
-  extension (n: Int) def *(s: Share): Double = n.toDouble * asDouble(s)
+  extension (n: Int) def *(s: Share): Double = n.toDouble * (s.toDouble / ScaleD)
 
   given Ordering[Share] = Ordering.Long
   given Numeric[Share] with
     def plus(x: Share, y: Share): Share         = x + y
     def minus(x: Share, y: Share): Share        = x - y
     def times(x: Share, y: Share): Share        = x * y
-    def negate(x: Share): Share                 = Share(-asDouble(x))
+    def negate(x: Share): Share                 = Share.fromRaw(-x)
     def fromInt(x: Int): Share                  = Share(x.toDouble)
     def parseString(str: String): Option[Share] = str.toDoubleOption.map(Share(_))
     def toInt(x: Share): Int                    = (x / Scale).toInt
     def toLong(x: Share): Long                  = x / Scale
-    def toFloat(x: Share): Float                = asDouble(x).toFloat
-    def toDouble(x: Share): Double              = asDouble(x)
+    def toFloat(x: Share): Float                = (x.toDouble / ScaleD).toFloat
+    def toDouble(x: Share): Double              = x.toDouble / ScaleD
     def compare(x: Share, y: Share): Int        = java.lang.Long.compare(x, y)

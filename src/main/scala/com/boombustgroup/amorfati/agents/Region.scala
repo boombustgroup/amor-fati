@@ -66,7 +66,7 @@ object Region:
     * whenever they are applied to aggregate wages.
     */
   val weightedMeanWageMultiplier: Multiplier =
-    Multiplier(all.map(r => ComputationBoundary.toDouble(r.wageMultiplier) * ComputationBoundary.toDouble(r.populationShare)).sum)
+    all.foldLeft(Multiplier.Zero)((acc, r) => acc + (r.populationShare * r.wageMultiplier))
 
   /** Regional wage multiplier normalized to preserve the national average wage.
     */
@@ -76,11 +76,12 @@ object Region:
     region.wageMultiplier * Multiplier(1.0 / toDouble(weightedMeanWageMultiplier))
 
   /** Sample a region from population share CDF (inverse transform). */
-  @boundaryEscape
   def cdfSample(rng: scala.util.Random): Region =
-    val r   = rng.nextDouble()
-    val cdf = all.iterator.scanLeft(0.0)((acc, reg) => acc + ComputationBoundary.toDouble(reg.populationShare)).drop(1)
-    all.zip(cdf).find((_, cum) => r < cum).map(_._1).getOrElse(all.last)
+    val shares = all.map(_.populationShare.toLong)
+    val total  = shares.sum
+    val draw   = (rng.nextDouble() * total).toLong
+    val cumul  = shares.scanLeft(0L)(_ + _).tail
+    all.zip(cumul).find((_, cum) => draw < cum).map(_._1).getOrElse(all.last)
 
   /** Migration friction matrix: `friction(from)(to)` ∈ [0,1]. 0 = no friction
     * (same region), 1 = maximum friction. Asymmetric: easier to move TO Central
@@ -116,8 +117,8 @@ object Region:
     if from == to then Share.Zero
     else
       val friction       = frictionMatrix(from.ordinal)(to.ordinal)
-      val wagePull       = Math.max(0.0, ComputationBoundary.toDouble(wageDiffRatio) - 1.0)
-      val housingBarrier = Math.max(0.0, 1.0 - to.housingCostIndex / from.housingCostIndex * ComputationBoundary.toDouble(housingThreshold))
+      val wagePull       = Math.max(0.0, wageDiffRatio / Multiplier.One - 1.0)
+      val housingBarrier = Math.max(0.0, 1.0 - to.housingCostIndex / from.housingCostIndex * (housingThreshold / Share.One))
       Share(((1.0 - friction) * wagePull * housingBarrier).max(0.0).min(1.0))
 
   /** Sector composition by region (6 sectors × 6 regions). Rows = regions

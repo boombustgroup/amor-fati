@@ -20,8 +20,8 @@ object RateProvider:
     def max(other: Rate): Rate          = math.max(r, other)
     def min(other: Rate): Rate          = math.min(r, other)
     def clamp(lo: Rate, hi: Rate): Rate = math.max(lo, math.min(hi, r))
-    def monthly: Rate                   = Rate(asDouble(r) / 12.0)
-    def annualize: Rate                 = Rate(asDouble(r) * 12.0)
+    def monthly: Rate                   = Rate.fromRaw(r / 12L)
+    def annualize: Rate                 = Rate.fromRaw(r * 12L)
     def /(other: Rate): Double          = if other != 0L then r.toDouble / other.toDouble else 0.0
     def >(other: Rate): Boolean         = r > other
     def <(other: Rate): Boolean         = r < other
@@ -32,12 +32,12 @@ object RateProvider:
   given Numeric[Rate] with
     def plus(x: Rate, y: Rate): Rate           = x + y
     def minus(x: Rate, y: Rate): Rate          = x - y
-    def times(x: Rate, y: Rate): Rate          = Rate(asDouble(x) * asDouble(y))
+    def times(x: Rate, y: Rate): Rate          = Rate.fromRaw(bankerRound(BigInt(x) * BigInt(y)))
     def negate(x: Rate): Rate                  = -x
     def fromInt(x: Int): Rate                  = Rate(x.toDouble)
     def parseString(str: String): Option[Rate] = str.toDoubleOption.map(Rate(_))
     def toInt(x: Rate): Int                    = (x / Scale).toInt
     def toLong(x: Rate): Long                  = x / Scale
-    def toFloat(x: Rate): Float                = asDouble(x).toFloat
-    def toDouble(x: Rate): Double              = asDouble(x)
+    def toFloat(x: Rate): Float                = (x.toDouble / ScaleD).toFloat
+    def toDouble(x: Rate): Double              = x.toDouble / ScaleD
     def compare(x: Rate, y: Rate): Int         = java.lang.Long.compare(x, y)

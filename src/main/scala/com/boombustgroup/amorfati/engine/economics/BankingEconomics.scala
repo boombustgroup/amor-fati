@@ -238,13 +238,13 @@ object BankingEconomics:
       multiCapDestruction = multi.multiCapDestruction,
       monAgg = monAgg,
       finalHhAgg = finalHhAgg,
-      vat = PLN(govJst.tax.vat),
-      vatAfterEvasion = PLN(govJst.tax.vatAfterEvasion),
-      pitAfterEvasion = PLN(govJst.tax.pitAfterEvasion),
-      exciseRevenue = PLN(govJst.tax.exciseRevenue),
-      exciseAfterEvasion = PLN(govJst.tax.exciseAfterEvasion),
-      customsDutyRevenue = PLN(govJst.tax.customsDutyRevenue),
-      realizedTaxShadowShare = Share(govJst.tax.realizedTaxShadowShare),
+      vat = govJst.tax.vat,
+      vatAfterEvasion = govJst.tax.vatAfterEvasion,
+      pitAfterEvasion = govJst.tax.pitAfterEvasion,
+      exciseRevenue = govJst.tax.exciseRevenue,
+      exciseAfterEvasion = govJst.tax.exciseAfterEvasion,
+      customsDutyRevenue = govJst.tax.customsDutyRevenue,
+      realizedTaxShadowShare = govJst.tax.realizedTaxShadowShare,
       mortgageInterestIncome = housing.mortgageFlows.interest,
       mortgagePrincipal = housing.mortgageFlows.principal,
       mortgageDefaultLoss = housing.mortgageFlows.defaultLoss,
@@ -333,9 +333,9 @@ object BankingEconomics:
   private def computeGovAndJst(in: StepInput)(using p: SimParams): GovJstResult =
     val tax = TaxRevenue.compute(
       TaxRevenue.Input(
-        consumption = ComputationBoundary.toDouble(in.s3.consumption),
-        pitRevenue = ComputationBoundary.toDouble(in.s3.pitRevenue),
-        totalImports = ComputationBoundary.toDouble(in.s8.external.newBop.totalImports),
+        consumption = in.s3.consumption,
+        pitRevenue = in.s3.pitRevenue,
+        totalImports = in.s8.external.newBop.totalImports,
         informalCyclicalAdj = in.w.mechanisms.informalCyclicalAdj,
       ),
     )
@@ -347,11 +347,11 @@ object BankingEconomics:
       FiscalBudget.Input(
         prev = in.w.gov,
         priceLevel = in.s7.newPrice,
-        citPaid = in.s5.sumTax + in.s7.dividendTax + PLN(tax.pitAfterEvasion),
-        vat = PLN(tax.vatAfterEvasion),
+        citPaid = in.s5.sumTax + in.s7.dividendTax + tax.pitAfterEvasion,
+        vat = tax.vatAfterEvasion,
         nbpRemittance = in.s8.banking.nbpRemittance,
-        exciseRevenue = PLN(tax.exciseAfterEvasion),
-        customsDutyRevenue = PLN(tax.customsDutyRevenue),
+        exciseRevenue = tax.exciseAfterEvasion,
+        customsDutyRevenue = tax.customsDutyRevenue,
         unempBenefitSpend = unempBenefitSpend,
         debtService = in.s8.banking.monthlyDebtService,
         zusGovSubvention = in.s2.newZus.govSubvention,
@@ -378,7 +378,7 @@ object BankingEconomics:
         in.s3.totalIncome,
         in.s7.gdp,
         nLivingFirms,
-        PLN(tax.pitAfterEvasion),
+        tax.pitAfterEvasion,
       )
 
     GovJstResult(
@@ -578,7 +578,7 @@ object BankingEconomics:
     val unemployment = in.w.unemploymentRate(in.s2.employed)
     val prevGdp      = in.w.cachedMonthlyGdpProxy
     val gdpGrowth    =
-      if prevGdp > PLN.Zero then ComputationBoundary.toDouble(in.s7.gdp - prevGdp) / ComputationBoundary.toDouble(prevGdp) else 0.0
+      if prevGdp > PLN.Zero then (in.s7.gdp - prevGdp) / prevGdp else 0.0
     val eclResult    = EclStaging.step(b.eclStaging, newLoansTotal + b.consumerLoans, bankNplNew, unemployment, gdpGrowth)
 
     b.copy(

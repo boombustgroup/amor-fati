@@ -119,6 +119,7 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
     shareValue(s * Share(0.2)) shouldBe 0.3 +- 1e-9
     multiplierValue(s * Multiplier(2.0)) shouldBe 3.0 +- 1e-9
     coefficientValue(s * Coefficient(-2.0)) shouldBe -3.0 +- 1e-9
+    shareValue(s.toShare) shouldBe 1.5 +- 1e-9
     multiplierValue(s.toMultiplier) shouldBe 1.5 +- 1e-9
     coefficientValue(s.toCoefficient) shouldBe 1.5 +- 1e-9
   }

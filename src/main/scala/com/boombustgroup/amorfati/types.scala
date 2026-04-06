@@ -109,6 +109,8 @@ object types:
     def *(m: Multiplier): Multiplier   = Multiplier.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(m.toLong)))
     @targetName("scalarTimesCoefficient")
     def *(c: Coefficient): Coefficient = Coefficient.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(c.toLong)))
+    @targetName("scalarToShare")
+    def toShare: Share                 = Share.fromRaw(s.toLong)
     @targetName("scalarToMultiplier")
     def toMultiplier: Multiplier       = Multiplier.fromRaw(s.toLong)
     @targetName("scalarToCoefficient")

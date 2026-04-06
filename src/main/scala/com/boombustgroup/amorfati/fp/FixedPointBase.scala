@@ -14,6 +14,3 @@ object FixedPointBase:
     else if remainder > HalfScale then (quotient + product.signum).toLong
     else if quotient % 2 == 0 then quotient.toLong
     else (quotient + product.signum).toLong
-
-  /** Internal: raw Long → real Double. NOT public API. */
-  inline def asDouble(raw: Long): Double = raw.toDouble / ScaleD

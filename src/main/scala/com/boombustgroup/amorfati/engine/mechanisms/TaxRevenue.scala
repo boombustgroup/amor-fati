@@ -12,46 +12,35 @@ import com.boombustgroup.amorfati.types.*
 object TaxRevenue:
 
   case class Input(
-      consumption: Double,        // aggregate household consumption (VAT/excise tax base)
-      pitRevenue: Double,         // gross PIT revenue before informal evasion
-      totalImports: Double,       // total imports (customs duty tax base)
+      consumption: PLN,           // aggregate household consumption (VAT/excise tax base)
+      pitRevenue: PLN,            // gross PIT revenue before informal evasion
+      totalImports: PLN,          // total imports (customs duty tax base)
       informalCyclicalAdj: Double, // lagged cyclical adjustment for shadow economy share
   )
 
   case class Output(
-      vat: Double,                   // gross VAT revenue (sector-weighted effective rates)
-      vatAfterEvasion: Double,       // net VAT revenue after informal economy evasion
-      pitAfterEvasion: Double,       // net PIT revenue after informal economy evasion
-      exciseRevenue: Double,         // gross excise tax revenue (sector-weighted rates)
-      exciseAfterEvasion: Double,    // net excise revenue after informal economy evasion
-      customsDutyRevenue: Double,    // customs duty on non-EU imports
-      realizedTaxShadowShare: Double, // current-period realized aggregate tax-side shadow share
+      vat: PLN,                     // gross VAT revenue (sector-weighted effective rates)
+      vatAfterEvasion: PLN,         // net VAT revenue after informal economy evasion
+      pitAfterEvasion: PLN,         // net PIT revenue after informal economy evasion
+      exciseRevenue: PLN,           // gross excise revenue (sector-weighted rates)
+      exciseAfterEvasion: PLN,      // net excise revenue after informal economy evasion
+      customsDutyRevenue: PLN,      // customs duty on non-EU imports
+      realizedTaxShadowShare: Share, // current-period realized aggregate tax-side shadow share
   )
 
-  @boundaryEscape
   def compute(in: Input)(using p: SimParams): Output =
-    import ComputationBoundary.toDouble
-    val weights                = p.fiscal.fofConsWeights.map(toDouble(_))
-    val vatRates               = p.fiscal.vatRates.map(toDouble(_))
-    val excRates               = p.fiscal.exciseRates.map(toDouble(_))
     val realizedTaxShadowShare = InformalEconomy.aggregateTaxShadowShare(Share(in.informalCyclicalAdj))
-    val realizedTaxShadowFrac  = toDouble(realizedTaxShadowShare)
-
-    val vat = in.consumption * weights.zip(vatRates).map((w, r) => w * r).sum
-
-    val exciseRevenue = in.consumption * weights.zip(excRates).map((w, r) => w * r).sum
-
-    val customsDutyRevenue =
-      in.totalImports * toDouble(p.fiscal.customsNonEuShare) * toDouble(p.fiscal.customsDutyRate)
-
-    val vatAfterEvasion =
-      vat * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.vatEvasion))
-
-    val exciseAfterEvasion =
-      exciseRevenue * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.exciseEvasion))
-
-    val pitAfterEvasion =
-      in.pitRevenue * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.pitEvasion))
+    val effectiveVatRate       = p.fiscal.fofConsWeights.zip(p.fiscal.vatRates).map((w, r) => r * w).foldLeft(Rate.Zero)(_ + _)
+    val effectiveExciseRate    = p.fiscal.fofConsWeights.zip(p.fiscal.exciseRates).map((w, r) => r * w).foldLeft(Rate.Zero)(_ + _)
+    val vat                    = in.consumption * effectiveVatRate
+    val exciseRevenue          = in.consumption * effectiveExciseRate
+    val customsDutyRevenue     = in.totalImports * p.fiscal.customsNonEuShare * p.fiscal.customsDutyRate
+    val vatRetention           = Share.One - (realizedTaxShadowShare * p.informal.vatEvasion)
+    val exciseRetention        = Share.One - (realizedTaxShadowShare * p.informal.exciseEvasion)
+    val pitRetention           = Share.One - (realizedTaxShadowShare * p.informal.pitEvasion)
+    val vatAfterEvasion        = vat * vatRetention
+    val exciseAfterEvasion     = exciseRevenue * exciseRetention
+    val pitAfterEvasion        = in.pitRevenue * pitRetention
 
     Output(
       vat = vat,
@@ -60,5 +49,5 @@ object TaxRevenue:
       exciseRevenue = exciseRevenue,
       exciseAfterEvasion = exciseAfterEvasion,
       customsDutyRevenue = customsDutyRevenue,
-      realizedTaxShadowShare = realizedTaxShadowFrac,
+      realizedTaxShadowShare = realizedTaxShadowShare,
     )
