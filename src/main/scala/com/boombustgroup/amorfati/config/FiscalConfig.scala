@@ -131,7 +131,7 @@ import com.boombustgroup.amorfati.types.*
   *   annual tax credit / free amount (PLN, kwota wolna)
   * @param pitEffectiveRate
   *   effective average PIT rate applied in simplified monthly calculation
-  * @param social800Rate
+  * @param social800
   *   monthly 800+ benefit per child (PLN, Dz.U. 2023)
   * @param social800ChildrenPerHh
   *   average number of eligible children per household (GUS 2024)
@@ -216,7 +216,7 @@ case class FiscalConfig(
     pitTaxCreditAnnual: PLN = PLN(3600.0),
     pitEffectiveRate: Rate = Rate(0.09),
     // Social 800+ (Dz.U. 2023)
-    social800Rate: PLN = PLN(800.0),
+    social800: PLN = PLN(800.0),
     social800ChildrenPerHh: Double = 0.35,
 ):
   require(citRate >= Rate.Zero && citRate <= Rate(1.0), s"citRate must be in [0,1]: $citRate")
