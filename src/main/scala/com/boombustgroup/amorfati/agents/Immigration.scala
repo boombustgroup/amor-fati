@@ -9,6 +9,13 @@ import scala.util.Random
 /** Immigration: tracks immigrant stock, flows, remittances, spawning/removal.
   */
 object Immigration:
+  private val MaxInitSavings = PLN(5000.0)
+  private val MinInitRent    = PLN(800.0)
+  private val ImmigrantMpcMu = Share(0.85)
+  private val ImmigrantMpcLo = Share(0.7)
+  private val ImmigrantMpcHi = Share(0.98)
+  private val SkillNoiseStd  = 0.15
+  private val MpcNoiseStd    = 0.05
 
   case class State(
       immigrantStock: Int,   // total immigrant workers currently in economy
@@ -23,19 +30,19 @@ object Immigration:
   /** Monthly immigration inflow. Exogenous: fixed rate × basePop. Endogenous:
     * responds to (domesticWage / foreignWage − 1) × elasticity.
     */
-  @boundaryEscape
-  def computeInflow(wage: PLN, unempRate: Double)(using p: SimParams): Int =
-    import ComputationBoundary.toDouble
+  private val HalfShare = Share(0.5)
+
+  def computeInflow(wage: PLN, unempRate: Share)(using p: SimParams): Int =
     val basePop = p.pop.firmsCount * p.pop.workersPerFirm
-    val wageGap = (wage / p.immigration.foreignWage - 1.0).max(0.0)
-    val pull    = wageGap * toDouble(p.immigration.wageElasticity)
-    val push    = (1.0 - unempRate).max(0.0)
-    val rate    = toDouble(p.immigration.monthlyRate) * (0.5 + 0.5 * pull * push)
-    (basePop * rate).toInt.max(0)
+    val wageGap = (wage.ratioTo(p.immigration.foreignWage) - Scalar.One).max(Scalar.Zero)
+    val pull    = p.immigration.wageElasticity * wageGap.toMultiplier
+    val push    = (Share.One - unempRate).max(Share.Zero)
+    val rate    = p.immigration.monthlyRate * (HalfShare + (HalfShare * pull * push))
+    rate.applyTo(basePop).max(0)
 
   /** Monthly return migration (outflow). */
   def computeOutflow(immigrantStock: Int)(using p: SimParams): Int =
-    (immigrantStock.toLong * p.immigration.returnRate.toLong / 10000L).toInt.max(0)
+    p.immigration.returnRate.applyTo(immigrantStock).max(0)
 
   /** Total remittance outflow from immigrant HH. Remittances = employed
     * immigrant wages × remittance rate.
@@ -56,7 +63,7 @@ object Immigration:
   def chooseSector(rng: Random)(using p: SimParams): SectorIdx =
     val shares = p.immigration.sectorShares.map(_.toLong)
     val total  = shares.sum
-    val r      = (rng.nextDouble() * total).toLong
+    val r      = rng.nextLong(total.max(1L))
     val cumul  = shares.scanLeft(0L)(_ + _).tail
     val picked = cumul.indexWhere(_ > r)
     SectorIdx(if picked >= 0 then picked else p.sectorDefs.length - 1)
@@ -66,28 +73,29 @@ object Immigration:
     */
   @boundaryEscape
   def spawnImmigrants(count: Int, startId: Int, rng: Random)(using p: SimParams): Vector[Household.State] =
-    import ComputationBoundary.toDouble
     (0 until count).map { i =>
+      inline def gaussianNoiseRaw(std: Double): Long =
+        math.round(rng.nextGaussian() * std * com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD)
+
       val sector                       = chooseSector(rng)
       val edu                          = p.social.drawImmigrantEducation(rng)
-      val skill                        = toDouble(p.immigration.skillMean) + (rng.nextGaussian() * 0.15)
       val (skillFloorS, skillCeilingS) = p.social.eduSkillRange(edu)
-      val clampedSkill                 = skill.max(toDouble(skillFloorS)).min(toDouble(skillCeilingS))
-      val savings                      = rng.nextDouble() * 5000.0
-      val mpc                          = 0.85 + rng.nextGaussian() * 0.05
+      val skill                        = Share.fromRaw((p.immigration.skillMean.toLong + gaussianNoiseRaw(SkillNoiseStd)).max(skillFloorS.toLong).min(skillCeilingS.toLong))
+      val savings                      = PLN.fromRaw(rng.nextLong(MaxInitSavings.toLong.max(1L)))
+      val mpc                          = Share.fromRaw((ImmigrantMpcMu.toLong + gaussianNoiseRaw(MpcNoiseStd)).max(ImmigrantMpcLo.toLong).min(ImmigrantMpcHi.toLong))
       val region                       = Region.cdfSample(rng)
-      val baseRent                     = toDouble(p.household.rentMean) + rng.nextGaussian() * toDouble(p.household.rentStd)
-      val rent                         = baseRent * toDouble(region.housingCostIndex)
+      val baseRent                     = PLN.fromRaw((p.household.rentMean.toLong + math.round(p.household.rentStd.toLong.toDouble * rng.nextGaussian())).max(MinInitRent.toLong))
+      val rent                         = (baseRent * region.housingCostIndex).max(MinInitRent)
       val numChildren                  =
         Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
       Household.State(
         id = HhId(startId + i),
-        savings = PLN(savings),
+        savings = savings,
         debt = PLN.Zero,
-        monthlyRent = PLN(rent.max(800.0)),
-        skill = Share(clampedSkill),
+        monthlyRent = rent,
+        skill = skill,
         healthPenalty = Share.Zero,
-        mpc = Share(mpc.max(0.7).min(0.98)),
+        mpc = mpc,
         status = HhStatus.Unemployed(0),
         socialNeighbors = Array.empty[HhId],
         bankId = BankId(0),
@@ -117,7 +125,7 @@ object Immigration:
       prev: State,
       households: Vector[Household.State],
       wage: PLN,
-      unempRate: Double,
+      unempRate: Share,
   )(using SimParams): State =
     val inflow      = computeInflow(wage, unempRate)
     val outflow     = computeOutflow(prev.immigrantStock)

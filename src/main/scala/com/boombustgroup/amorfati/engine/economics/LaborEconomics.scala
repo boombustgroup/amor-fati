@@ -76,7 +76,7 @@ object LaborEconomics:
     val aggregateHiringSlack = aggregateHiringSlackFactor(laborDemand, availableLabor)
 
     // Immigration
-    val unempRateForImmig = 1.0 - cleared.employed.toDouble / w.derivedTotalPopulation
+    val unempRateForImmig = w.unemploymentRate(cleared.employed)
     val newImmig          = Immigration.step(w.external.immigration, households, cleared.wage, unempRateForImmig)
     val netMigration      = newImmig.monthlyInflow - newImmig.monthlyOutflow
 

@@ -15,7 +15,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
     val rng = new Random(42)
     for _ <- 0 until 100 do
       val wage   = PLN(rng.nextDouble() * 20000)
-      val unemp  = rng.nextDouble()
+      val unemp  = Share(rng.nextDouble())
       val result = Immigration.computeInflow(wage, unemp)
       result should be >= 0
   }
@@ -73,7 +73,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
     for _ <- 0 until 100 do
       val prevStock = rng.nextInt(5000)
       val prev      = Immigration.State(prevStock, 0, 0, PLN.Zero)
-      val result    = Immigration.step(prev, Vector.empty, PLN(8000.0), 0.05)
+      val result    = Immigration.step(prev, Vector.empty, PLN(8000.0), Share(0.05))
       result.immigrantStock should be >= 0
   }
 
