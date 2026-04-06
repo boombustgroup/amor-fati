@@ -91,7 +91,7 @@ object FirmInit:
         val tech         =
           if isHybridInit then
             val hybW = Math.max(1, (firmSize * toDouble(sec.hybridRetainFrac)).toInt)
-            val eff  = 1.0 + rng.nextDouble() * 0.3
+            val eff  = Multiplier(1.0 + rng.nextDouble() * 0.3)
             TechState.Hybrid(hybW, eff)
           else TechState.Traditional(firmSize)
         Firm.State(
@@ -100,7 +100,7 @@ object FirmInit:
           debt = PLN.Zero,
           tech = tech,
           riskProfile = Share(rng.between(RiskProfileMin, RiskProfileMax)),
-          innovationCostFactor = rng.between(InnovCostMin, InnovCostMax),
+          innovationCostFactor = Multiplier(rng.between(InnovCostMin, InnovCostMax)),
           digitalReadiness = dr,
           sector = SectorIdx(sectorAssignments(i)),
           neighbors = adjList(i).iterator.map(FirmId(_)).toVector,

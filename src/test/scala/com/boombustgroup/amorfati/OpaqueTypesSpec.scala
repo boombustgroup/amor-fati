@@ -89,6 +89,7 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
     Share(1.2).clamp(Share.Zero, Share.One) shouldBe Share.One
     Share.Zero shouldBe Share(0.0)
     shareValue(Share.One) shouldBe 1.0 +- 1e-9
+    shareValue(Share.random(new scala.util.Random(0L))) should (be >= 0.0 and be < 1.0)
   }
 
   it should "bridge to other semantic types and counts" in {
@@ -113,6 +114,11 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
     s.max(Scalar.One) shouldBe s
     Scalar(2.5).clamp(Scalar.Zero, Scalar.One) shouldBe Scalar.One
     scalarValue(s / 3) shouldBe 0.5 +- 1e-9
+    scalarValue(Scalar.fraction(3, 4)) shouldBe 0.75 +- 1e-9
+    scalarValue(Scalar(4.0).reciprocal) shouldBe 0.25 +- 1e-4
+    scalarValue(Scalar(2.0).ratioTo(Scalar(8.0))) shouldBe 0.25 +- 1e-9
+    scalarValue(Scalar(100.0).log10) shouldBe 2.0 +- 1e-4
+    scalarValue(Scalar(9.0).pow(Scalar(0.5))) shouldBe 3.0 +- 1e-4
 
     (s * PLN(200.0)) shouldBe PLN(300.0)
     rateValue(s * Rate(0.1)) shouldBe 0.15 +- 1e-9
@@ -130,10 +136,12 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
     multiplierValue(m + Multiplier(0.5)) shouldBe 2.0 +- 1e-9
     multiplierValue(m - Multiplier(0.5)) shouldBe 1.0 +- 1e-9
     multiplierValue(m * Multiplier(2.0)) shouldBe 3.0 +- 1e-9
+    multiplierValue(Multiplier(9.0).pow(Scalar(0.5))) shouldBe 3.0 +- 1e-4
     multiplierValue(m * Share(0.2)) shouldBe 0.3 +- 1e-9
     (m * PLN(200.0)) shouldBe PLN(300.0)
     rateValue(m.toRate) shouldBe 1.5 +- 1e-9
     shareValue(m.toShare) shouldBe 1.5 +- 1e-9
+    scalarValue(m.toScalar) shouldBe 1.5 +- 1e-9
   }
 
   "Coefficient" should "support signed behavioral arithmetic" in {
@@ -163,4 +171,5 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
     sigma > Sigma(4.0) shouldBe true
     sigma >= Sigma(5.0) shouldBe true
     sigma < Sigma(6.0) shouldBe true
+    scalarValue(sigma.toScalar) shouldBe 5.0 +- 1e-9
   }

@@ -7,11 +7,26 @@ object ShareProvider:
   opaque type Share = Long
 
   object Share:
-    val Zero: Share                         = 0L
-    val One: Share                          = Scale
-    def apply(d: Double): Share             = Math.round(d * Scale)
-    def fraction(num: Int, den: Int): Share = Math.round(num.toDouble / den.toDouble * Scale)
-    def fromRaw(raw: Long): Share           = raw
+    val Zero: Share                           = 0L
+    val One: Share                            = Scale
+    def apply(d: Double): Share               = Math.round(d * Scale)
+    def fraction(num: Int, den: Int): Share   =
+      if den == 0 then Zero
+      else
+        val scaled         = BigInt(num.toLong) * BigInt(Scale)
+        val denominator    = BigInt(den.toLong)
+        val quotient       = scaled / denominator
+        val remainder      = (scaled % denominator).abs
+        val denominatorAbs = denominator.abs
+        val twiceRemainder = remainder * 2
+        if twiceRemainder < denominatorAbs then quotient.toLong
+        else
+          val resultSign = scaled.signum * denominator.signum
+          if twiceRemainder > denominatorAbs then (quotient + resultSign).toLong
+          else if quotient % 2 == 0 then quotient.toLong
+          else (quotient + resultSign).toLong
+    def fromRaw(raw: Long): Share             = raw
+    def random(rng: scala.util.Random): Share = Share.fromRaw(rng.nextInt(Scale.toInt).toLong)
 
   extension (s: Share)
     inline def toLong: Long                = s

@@ -78,6 +78,8 @@ object types:
     def *(c: Coefficient): Rate      = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(c.toLong)))
     @targetName("rateToMultiplier")
     def toMultiplier: Multiplier     = Multiplier.fromRaw(r.toLong)
+    @targetName("rateToScalar")
+    def toScalar: Scalar             = Scalar.fromRaw(r.toLong)
     @targetName("rateRatioToRate")
     def ratioTo(other: Rate): Scalar = Scalar.fromRaw(scaledDiv(r.toLong, other.toLong))
 
@@ -97,6 +99,8 @@ object types:
     def ratioTo(other: Share): Scalar  = Scalar.fromRaw(scaledDiv(s.toLong, other.toLong))
     @targetName("shareApplyToInt")
     def applyTo(n: Int): Int           = bankerRound(BigInt(n.toLong) * BigInt(s.toLong)).toInt
+    @targetName("shareToScalar")
+    def toScalar: Scalar               = Scalar.fromRaw(s.toLong)
 
   extension (s: Scalar)
     @targetName("scalarTimesPln")
@@ -109,6 +113,8 @@ object types:
     def *(m: Multiplier): Multiplier   = Multiplier.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(m.toLong)))
     @targetName("scalarTimesCoefficient")
     def *(c: Coefficient): Coefficient = Coefficient.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(c.toLong)))
+    @targetName("scalarScaledByShare")
+    def *(sh: Share): Scalar           = Scalar.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(sh.toLong)))
     @targetName("scalarToShare")
     def toShare: Share                 = Share.fromRaw(s.toLong)
     @targetName("scalarToMultiplier")
@@ -126,6 +132,8 @@ object types:
     def toRate: Rate            = Rate.fromRaw(m.toLong)
     @targetName("multToShare")
     def toShare: Share          = Share.fromRaw(m.toLong)
+    @targetName("multToScalar")
+    def toScalar: Scalar        = Scalar.fromRaw(m.toLong)
 
   // --- Coefficient × typed ---
   extension (c: Coefficient)
@@ -146,3 +154,9 @@ object types:
     def *(m: Multiplier): PriceIndex = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(m.toLong)))
     @targetName("priceIdxTimesPln")
     def *(p: PLN): PLN               = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(pi.toLong)))
+    @targetName("priceIdxToMultiplier")
+    def toMultiplier: Multiplier     = Multiplier.fromRaw(pi.toLong)
+
+  extension (s: Sigma)
+    @targetName("sigmaToScalar")
+    def toScalar: Scalar = Scalar.fromRaw(s.toLong)

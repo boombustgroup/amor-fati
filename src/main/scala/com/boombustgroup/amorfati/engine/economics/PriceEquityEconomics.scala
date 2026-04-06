@@ -188,7 +188,7 @@ object PriceEquityEconomics:
           debt = PLN.Zero,
           tech = TechState.Traditional(newSize),
           riskProfile = Share(rng.between(RiskProfileMin, RiskProfileMax)),
-          innovationCostFactor = rng.between(InnovCostMin, InnovCostMax),
+          innovationCostFactor = Multiplier(rng.between(InnovCostMin, InnovCostMax)),
           digitalReadiness = Share(
             Math.max(
               DigitalReadyFloor,

@@ -20,6 +20,7 @@ object MultiplierProvider:
     def -(other: Multiplier): Multiplier                  = m - other
     def *(other: Multiplier): Multiplier                  = bankerRound(BigInt(m) * BigInt(other))
     def /(other: Multiplier): Double                      = if other != 0L then m.toDouble / other.toDouble else 0.0
+    def pow(exponent: ScalarProvider.Scalar): Multiplier  = Multiplier(math.pow(m.toDouble / ScaleD, exponent.toLong.toDouble / ScaleD))
     def max(other: Multiplier): Multiplier                = math.max(m, other)
     def min(other: Multiplier): Multiplier                = math.min(m, other)
     def clamp(lo: Multiplier, hi: Multiplier): Multiplier = math.max(lo, math.min(hi, m))

@@ -55,11 +55,12 @@ object EclStaging:
       unemployment: Share,
       gdpGrowthMonthly: Double,
   )(using p: SimParams): Share =
-    import ComputationBoundary.toDouble
-    val unempExcess    = toDouble((unemployment - p.monetary.nairu).max(Share.Zero))
-    val gdpContraction = Math.max(0.0, -gdpGrowthMonthly)
-    val raw            = toDouble(p.banking.eclMigrationSensitivity) * unempExcess + toDouble(p.banking.eclGdpSensitivity) * gdpContraction
-    Share(raw.min(toDouble(p.banking.eclMaxMigration)).max(0.0))
+    inline def shareRaw(s: Share): Double             = s.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+    inline def coefficientRaw(c: Coefficient): Double = c.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+    val unempExcess                                   = shareRaw((unemployment - p.monetary.nairu).max(Share.Zero))
+    val gdpContraction                                = Math.max(0.0, -gdpGrowthMonthly)
+    val raw                                           = coefficientRaw(p.banking.eclMigrationSensitivity) * unempExcess + coefficientRaw(p.banking.eclGdpSensitivity) * gdpContraction
+    Share(raw.min(shareRaw(p.banking.eclMaxMigration)).max(0.0))
 
   /** Monthly ECL staging step for a single bank.
     *

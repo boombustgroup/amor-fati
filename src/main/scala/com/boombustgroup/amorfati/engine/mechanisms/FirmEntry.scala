@@ -212,7 +212,7 @@ object FirmEntry:
       debt = PLN.Zero,
       tech = tech,
       riskProfile = Share(rng.between(0.1, 0.9)),
-      innovationCostFactor = rng.between(0.8, 1.5),
+      innovationCostFactor = Multiplier(rng.between(0.8, 1.5)),
       digitalReadiness = dr,
       sector = SectorIdx(newSector),
       neighbors = newNeighbors,
@@ -240,7 +240,7 @@ object FirmEntry:
   private def chooseTechnology(isAiNative: Boolean, firmSize: Int, rng: Random): TechState =
     if isAiNative then
       val hybridWorkers = Math.max(HybridMinWorkers, firmSize)
-      TechState.Hybrid(hybridWorkers, MinAiProductivity + rng.nextDouble() * AiProductivityRange)
+      TechState.Hybrid(hybridWorkers, Multiplier(MinAiProductivity + rng.nextDouble() * AiProductivityRange))
     else TechState.Traditional(firmSize)
 
   /** Draw digital readiness score: AI-native firms get high DR (0.50-0.90);
