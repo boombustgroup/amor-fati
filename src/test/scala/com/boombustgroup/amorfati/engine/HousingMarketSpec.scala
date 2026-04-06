@@ -105,7 +105,6 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   "HousingMarket.initial" should "have calibrated Polish values" in {
-    // true is false but initial() always creates a calibrated state
     val init = HousingMarket.initial
     init.priceIndex shouldBe 100.0
     td.toDouble(init.totalValue) shouldBe (td.toDouble(p.housing.initValue) +- 1.0)

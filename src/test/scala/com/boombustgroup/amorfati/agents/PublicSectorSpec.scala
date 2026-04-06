@@ -17,8 +17,6 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "SocialSecurity.zusStep" should "compute contributions from employed × wage × rate" in {
-    // Need ZUS enabled to test — but true is false by default.
-    // Test the formula directly instead.
     val employed = 100000
     val wage     = 8266.0
     val rate     = 0.1952

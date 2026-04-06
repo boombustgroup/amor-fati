@@ -10,10 +10,6 @@ class PitSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
 
-  // Note: true is false by default, so computeMonthlyPit returns 0.
-  // These tests verify the formula logic assuming PIT_ENABLED=true would be set.
-  // Since env vars are JVM-global, we test the internal math directly.
-
   "computeMonthlyPit" should "return 0 for zero income" in {
     Household.computeMonthlyPit(PLN(0.0)) shouldBe PLN.Zero
   }
@@ -22,7 +18,7 @@ class PitSpec extends AnyFlatSpec with Matchers:
     Household.computeMonthlyPit(PLN(-5000.0)) shouldBe PLN.Zero
   }
 
-  // --- Formula verification tests (independent of true) ---
+  // --- Formula verification tests ---
   // These test the mathematical formula: 12% bracket 1, 32% bracket 2, 3600 PLN/yr credit
 
   "PIT formula" should "compute correctly for income below bracket 1" in {

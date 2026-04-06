@@ -18,7 +18,7 @@ class PublicInvestmentSpec extends AnyFlatSpec with Matchers:
     g.euProjectCapital shouldBe PLN.Zero
   }
 
-  // --- Formula verification (independent of true) ---
+  // --- Formula verification ---
 
   "spending split formula" should "sum to total when share=0.20" in {
     val base    = 100000000.0
