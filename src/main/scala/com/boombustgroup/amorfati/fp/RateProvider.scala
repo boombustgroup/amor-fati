@@ -7,8 +7,9 @@ object RateProvider:
   opaque type Rate = Long
 
   object Rate:
-    val Zero: Rate             = 0L
-    def apply(d: Double): Rate = Math.round(d * Scale)
+    val Zero: Rate               = 0L
+    def apply(d: Double): Rate   = Math.round(d * Scale)
+    def fromRaw(raw: Long): Rate = raw
 
   extension (r: Rate)
     inline def toLong: Long             = r

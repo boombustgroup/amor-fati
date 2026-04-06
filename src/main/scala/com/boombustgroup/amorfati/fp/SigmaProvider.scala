@@ -7,8 +7,9 @@ object SigmaProvider:
   opaque type Sigma = Long
 
   object Sigma:
-    val Zero: Sigma             = 0L
-    def apply(d: Double): Sigma = Math.round(d * Scale)
+    val Zero: Sigma               = 0L
+    def apply(d: Double): Sigma   = Math.round(d * Scale)
+    def fromRaw(raw: Long): Sigma = raw
 
   extension (s: Sigma)
     inline def toLong: Long       = s

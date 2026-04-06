@@ -18,6 +18,7 @@ object types:
   export com.boombustgroup.amorfati.fp.PLNProvider.{PLN, given}
   export com.boombustgroup.amorfati.fp.RateProvider.{Rate, given}
   export com.boombustgroup.amorfati.fp.ShareProvider.{Share, given}
+  export com.boombustgroup.amorfati.fp.ScalarProvider.{Scalar, given}
   export com.boombustgroup.amorfati.fp.MultiplierProvider.{Multiplier, given}
   export com.boombustgroup.amorfati.fp.CoefficientProvider.{Coefficient, given}
   export com.boombustgroup.amorfati.fp.PriceIndexProvider.{PriceIndex, given}
@@ -28,6 +29,22 @@ object types:
 
   import com.boombustgroup.amorfati.fp.FixedPointBase.{asDouble, bankerRound}
 
+  private inline def scaledDiv(numerator: Long, denominator: Long): Long =
+    if denominator == 0L then 0L
+    else
+      val scaled         = BigInt(numerator) * BigInt(com.boombustgroup.amorfati.fp.FixedPointBase.Scale)
+      val den            = BigInt(denominator)
+      val quotient       = scaled / den
+      val remainder      = (scaled % den).abs
+      val denominatorAbs = den.abs
+      val twiceRemainder = remainder * 2
+      if twiceRemainder < denominatorAbs then quotient.toLong
+      else
+        val resultSign = scaled.signum * den.signum
+        if twiceRemainder > denominatorAbs then (quotient + resultSign).toLong
+        else if quotient % 2 == 0 then quotient.toLong
+        else (quotient + resultSign).toLong
+
   // === Cross-type operations ===
   // Defined HERE where all types are opaque — compiler enforces type safety.
   // Each operation explicitly uses .toLong to access the raw value.
@@ -35,32 +52,36 @@ object types:
   // --- PLN × typed ---
   extension (p: PLN)
     @targetName("plnTimesInt")
-    def *(n: Int): PLN         = PLN.fromRaw((BigInt(p.toLong) * BigInt(n.toLong)).toLong)
+    def *(n: Int): PLN              = PLN.fromRaw((BigInt(p.toLong) * BigInt(n.toLong)).toLong)
     @targetName("plnTimesLong")
-    def *(n: Long): PLN        = PLN.fromRaw((BigInt(p.toLong) * BigInt(n)).toLong)
+    def *(n: Long): PLN             = PLN.fromRaw((BigInt(p.toLong) * BigInt(n)).toLong)
     @targetName("plnTimesRate")
-    def *(r: Rate): PLN        = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(r.toLong)))
+    def *(r: Rate): PLN             = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(r.toLong)))
     @targetName("plnTimesShare")
-    def *(s: Share): PLN       = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(s.toLong)))
+    def *(s: Share): PLN            = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(s.toLong)))
     @targetName("plnTimesMultiplier")
-    def *(m: Multiplier): PLN  = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): PLN       = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(m.toLong)))
     @targetName("plnTimesCoefficient")
-    def *(c: Coefficient): PLN = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
+    def *(c: Coefficient): PLN      = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
     @targetName("plnDivShare")
-    def /(s: Share): PLN       = if s.toLong != 0L then PLN(asDouble(p.toLong) / asDouble(s.toLong)) else PLN.Zero
+    def /(s: Share): PLN            = if s.toLong != 0L then PLN(asDouble(p.toLong) / asDouble(s.toLong)) else PLN.Zero
     @targetName("plnDivMultiplier")
-    def /(m: Multiplier): PLN  = if m.toLong != 0L then PLN(asDouble(p.toLong) / asDouble(m.toLong)) else PLN.Zero
+    def /(m: Multiplier): PLN       = if m.toLong != 0L then PLN(asDouble(p.toLong) / asDouble(m.toLong)) else PLN.Zero
+    @targetName("plnRatioToPln")
+    def ratioTo(other: PLN): Scalar = Scalar.fromRaw(scaledDiv(p.toLong, other.toLong))
 
   // --- Rate × typed ---
   extension (r: Rate)
     @targetName("rateTimesMultiplier")
-    def *(m: Multiplier): Rate   = Rate(asDouble(r.toLong) * asDouble(m.toLong))
+    def *(m: Multiplier): Rate       = Rate(asDouble(r.toLong) * asDouble(m.toLong))
     @targetName("rateTimesShare")
-    def *(s: Share): Rate        = Rate(asDouble(r.toLong) * asDouble(s.toLong))
+    def *(s: Share): Rate            = Rate(asDouble(r.toLong) * asDouble(s.toLong))
     @targetName("rateTimesCoefficient")
-    def *(c: Coefficient): Rate  = Rate(asDouble(r.toLong) * asDouble(c.toLong))
+    def *(c: Coefficient): Rate      = Rate(asDouble(r.toLong) * asDouble(c.toLong))
     @targetName("rateToMultiplier")
-    def toMultiplier: Multiplier = Multiplier.fromRaw(r.toLong)
+    def toMultiplier: Multiplier     = Multiplier.fromRaw(r.toLong)
+    @targetName("rateRatioToRate")
+    def ratioTo(other: Rate): Scalar = Scalar.fromRaw(scaledDiv(r.toLong, other.toLong))
 
   // --- Share × typed ---
   extension (s: Share)
@@ -74,6 +95,26 @@ object types:
     def toRate: Rate                   = Rate(asDouble(s.toLong))
     @targetName("shareToMultiplier")
     def toMultiplier: Multiplier       = Multiplier.fromRaw(s.toLong)
+    @targetName("shareRatioToShare")
+    def ratioTo(other: Share): Scalar  = Scalar.fromRaw(scaledDiv(s.toLong, other.toLong))
+    @targetName("shareApplyToInt")
+    def applyTo(n: Int): Int           = bankerRound(BigInt(n.toLong) * BigInt(s.toLong)).toInt
+
+  extension (s: Scalar)
+    @targetName("scalarTimesPln")
+    def *(p: PLN): PLN                 = PLN.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(p.toLong)))
+    @targetName("scalarTimesRate")
+    def *(r: Rate): Rate               = Rate.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(r.toLong)))
+    @targetName("scalarTimesShare")
+    def *(sh: Share): Share            = Share.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(sh.toLong)))
+    @targetName("scalarTimesMultiplier")
+    def *(m: Multiplier): Multiplier   = Multiplier.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(m.toLong)))
+    @targetName("scalarTimesCoefficient")
+    def *(c: Coefficient): Coefficient = Coefficient.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(c.toLong)))
+    @targetName("scalarToMultiplier")
+    def toMultiplier: Multiplier       = Multiplier.fromRaw(s.toLong)
+    @targetName("scalarToCoefficient")
+    def toCoefficient: Coefficient     = Coefficient.fromRaw(s.toLong)
 
   // --- Multiplier × typed ---
   extension (m: Multiplier)

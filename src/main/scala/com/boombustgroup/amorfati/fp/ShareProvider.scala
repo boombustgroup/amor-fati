@@ -11,6 +11,7 @@ object ShareProvider:
     val One: Share                          = Scale
     def apply(d: Double): Share             = Math.round(d * Scale)
     def fraction(num: Int, den: Int): Share = Math.round(num.toDouble / den.toDouble * Scale)
+    def fromRaw(raw: Long): Share           = raw
 
   extension (s: Share)
     inline def toLong: Long                = s

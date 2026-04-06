@@ -7,8 +7,9 @@ object PriceIndexProvider:
   opaque type PriceIndex = Long
 
   object PriceIndex:
-    val Base: PriceIndex             = Scale
-    def apply(d: Double): PriceIndex = Math.round(d * Scale)
+    val Base: PriceIndex               = Scale
+    def apply(d: Double): PriceIndex   = Math.round(d * Scale)
+    def fromRaw(raw: Long): PriceIndex = raw
 
   extension (p: PriceIndex)
     inline def toLong: Long              = p
