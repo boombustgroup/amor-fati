@@ -50,7 +50,7 @@ object InflationProbe:
 
   private def govPurchasesBreakdown(world: World, employed: Int)(using p: SimParams): GovPurchasesBreakdown =
     val zusNetSurplus =
-      if p.flags.zus then (world.social.zus.contributions - world.social.zus.pensionPayments).max(PLN.Zero)
+      if true then (world.social.zus.contributions - world.social.zus.pensionPayments).max(PLN.Zero)
       else PLN.Zero
     val unempRate     = Share.One - Share.fraction(employed, world.derivedTotalPopulation)
     val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
@@ -79,12 +79,11 @@ object InflationProbe:
       val labor             = LaborEconomics.compute(world, firms, hhs, s1)
       val prevWage          = toDouble(world.householdMarket.marketWage)
       val rawLaborWage      =
-        if summon[SimParams].flags.regionalLabor then
-          toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
+        if true then toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
         else toDouble(LaborMarket.updateLaborMarket(world.householdMarket.marketWage, s1.resWage, labor.laborDemand, population).wage)
       val target            = toDouble(summon[SimParams].monetary.targetInfl)
       val expWagePressure   =
-        if summon[SimParams].flags.expectations then
+        if true then
           toDouble(summon[SimParams].labor.expWagePassthrough) *
             Math.max(0.0, toDouble(world.mechanisms.expectations.expectedInflation) - target) / 12.0
         else 0.0
@@ -94,7 +93,7 @@ object InflationProbe:
           .map((s, i) => toDouble(s.share) * toDouble(summon[SimParams].labor.unionDensity(i)))
           .sum
       val unionAdjustedWage =
-        if summon[SimParams].flags.unions && wageAfterExp < prevWage then
+        if true && wageAfterExp < prevWage then
           val decline = prevWage - wageAfterExp
           Math.max(toDouble(s1.resWage), wageAfterExp + decline * toDouble(summon[SimParams].labor.unionRigidity) * aggUnionDensity)
         else wageAfterExp

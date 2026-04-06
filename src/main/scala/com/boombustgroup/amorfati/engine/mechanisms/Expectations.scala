@@ -67,7 +67,7 @@ object Expectations:
     // Expected rate: adaptive learning on policy rate, blended with FG when enabled
     val adaptiveRate = toDouble(prev.expectedRate) + lambda * (currentRate - toDouble(prev.expectedRate))
     val expRate      =
-      if p.flags.nbpForwardGuidance then FgBlendWeight * fgRate + (1.0 - FgBlendWeight) * adaptiveRate
+      if true then FgBlendWeight * fgRate + (1.0 - FgBlendWeight) * adaptiveRate
       else adaptiveRate
 
     State(
@@ -106,10 +106,9 @@ object Expectations:
   @boundaryEscape
   private def forwardGuidance(expected: Double, target: Double, unemployment: Double, currentRate: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
-    if !p.flags.nbpForwardGuidance then currentRate
-    else
-      val nairu        = toDouble(p.monetary.nairu)
-      val rawOutputGap = unemployment - nairu
-      val outputGap    = Math.max(-OutputGapClamp, Math.min(OutputGapClamp, rawOutputGap))
-      val rawFg        = toDouble(p.monetary.neutralRate) + toDouble(p.monetary.taylorAlpha) * (expected - target) - toDouble(p.monetary.taylorDelta) * outputGap
-      Math.max(toDouble(p.monetary.rateFloor), Math.min(toDouble(p.monetary.rateCeiling), rawFg))
+    val _            = currentRate
+    val nairu        = toDouble(p.monetary.nairu)
+    val rawOutputGap = unemployment - nairu
+    val outputGap    = Math.max(-OutputGapClamp, Math.min(OutputGapClamp, rawOutputGap))
+    val rawFg        = toDouble(p.monetary.neutralRate) + toDouble(p.monetary.taylorAlpha) * (expected - target) - toDouble(p.monetary.taylorDelta) * outputGap
+    Math.max(toDouble(p.monetary.rateFloor), Math.min(toDouble(p.monetary.rateCeiling), rawFg))

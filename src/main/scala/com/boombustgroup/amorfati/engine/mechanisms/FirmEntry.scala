@@ -222,7 +222,7 @@ object FirmEntry:
       initialSize = firmSize,
       capitalStock = initCapitalStock(firmSize, newSector),
       bondDebt = PLN.Zero,
-      foreignOwned = p.flags.fdi && p.fdi.foreignShares(newSector).sampleBelow(rng),
+      foreignOwned = true && p.fdi.foreignShares(newSector).sampleBelow(rng),
       inventory = initInventory(firmSize, newSector),
       greenCapital = initGreenCapital(firmSize, newSector),
       accumulatedLoss = PLN.Zero,
@@ -267,12 +267,12 @@ object FirmEntry:
   @boundaryEscape
   private def initCapitalStock(firmSize: Int, sector: Int)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
-    if p.flags.physCap then PLN(toDouble(p.capital.klRatios(sector)) * firmSize)
+    if true then PLN(toDouble(p.capital.klRatios(sector)) * firmSize)
     else PLN.Zero
 
   /** Initial inventory from sector target ratio, scaled to firm capacity. */
   private def initInventory(firmSize: Int, sector: Int)(using p: SimParams): PLN =
-    if p.flags.inventory then
+    if true then
       val cap = p.firm.baseRevenue * Multiplier(firmSize.toDouble / p.pop.workersPerFirm) *
         p.sectorDefs(sector).revenueMultiplier
       cap * p.capital.inventoryTargetRatios(sector) * p.capital.inventoryInitRatio
@@ -282,7 +282,7 @@ object FirmEntry:
   @boundaryEscape
   private def initGreenCapital(firmSize: Int, sector: Int)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
-    if p.flags.energy then PLN(toDouble(p.climate.greenKLRatios(sector)) * firmSize) * p.climate.greenInitRatio
+    if true then PLN(toDouble(p.climate.greenKLRatios(sector)) * firmSize) * p.climate.greenInitRatio
     else PLN.Zero
 
   private def pickSector(totalWeight: Double, sectorWeights: Vector[Double], rng: Random): Int =

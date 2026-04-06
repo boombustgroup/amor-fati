@@ -45,14 +45,14 @@ object TaxRevenue:
       in.totalImports * toDouble(p.fiscal.customsNonEuShare) * toDouble(p.fiscal.customsDutyRate)
 
     val vatAfterEvasion =
-      if p.flags.informal then vat * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.vatEvasion)) else vat
+      if true then vat * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.vatEvasion)) else vat
 
     val exciseAfterEvasion =
-      if p.flags.informal then exciseRevenue * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.exciseEvasion))
+      if true then exciseRevenue * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.exciseEvasion))
       else exciseRevenue
 
     val pitAfterEvasion =
-      if p.flags.informal then in.pitRevenue * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.pitEvasion))
+      if true then in.pitRevenue * (1.0 - realizedTaxShadowFrac * toDouble(p.informal.pitEvasion))
       else in.pitRevenue
 
     Output(

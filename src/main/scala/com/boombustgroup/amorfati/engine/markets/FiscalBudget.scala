@@ -187,7 +187,7 @@ object FiscalBudget:
       else p.fiscal.govBaseSpending * Multiplier(in.priceLevel)
 
     val (govCurrent, govCapital): (PLN, PLN) =
-      if p.flags.govInvest then
+      if true then
         val capShare = p.fiscal.govInvestShare
         (govBaseRaw * (Share.One - capShare), govBaseRaw * capShare)
       else (govBaseRaw, PLN.Zero)
@@ -199,11 +199,11 @@ object FiscalBudget:
     val deficit    = totalSpend - totalRev
 
     val newBondsOutstanding =
-      if p.flags.govBondMarket then (in.prev.bondsOutstanding + deficit).max(PLN.Zero)
+      if true then (in.prev.bondsOutstanding + deficit).max(PLN.Zero)
       else in.prev.bondsOutstanding
 
     val newCapitalStock =
-      if p.flags.govInvest then
+      if true then
         val monthlyDeprecShare = p.fiscal.govDepreciationRate.monthly.toMultiplier.toShare
         in.prev.publicCapitalStock * (Share.One - monthlyDeprecShare) + govCapital + in.euProjectCapital
       else PLN.Zero

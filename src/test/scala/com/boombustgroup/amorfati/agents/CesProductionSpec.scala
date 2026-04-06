@@ -8,9 +8,8 @@ import org.scalatest.matchers.should.Matchers
 
 class CesProductionSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams          = SimParams.defaults
-  private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
+  given SimParams = SimParams.defaults
+  private val td  = ComputationBoundary
 
   private val alpha = Share(0.30)
   private val tol   = 1e-3
@@ -108,7 +107,6 @@ class CesProductionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase capacity with more capital" in {
-    assume(p.flags.physCap, "physCap=true required")
     val poor = Firm.computeCapacity(mkFirm(capitalStock = PLN(100_000.0)))
     val rich = Firm.computeCapacity(mkFirm(capitalStock = PLN(5_000_000.0)))
     rich should be > poor

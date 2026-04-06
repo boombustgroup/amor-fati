@@ -176,7 +176,7 @@ object WorldAssemblyEconomics:
         case _                          => false
     val unemploymentRate = if updatedPop > 0 then 1.0 - postFirmEmployed.toDouble / updatedPop else 0.0
     val entryStep        =
-      if p.flags.firmEntry then
+      if true then
         val r = FirmEntry.process(
           postFdiFirms,
           newW.real.automationRatio,
@@ -195,7 +195,7 @@ object WorldAssemblyEconomics:
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
     val postMigHh  =
-      if p.flags.regionalLabor then RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
+      if true then RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
       else startupStaffing.households
     val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
 
@@ -255,7 +255,6 @@ object WorldAssemblyEconomics:
   @boundaryEscape
   private def computeInformalEconomy(in: StepInput)(using p: SimParams): InformalResult =
     import ComputationBoundary.toDouble
-    if !p.flags.informal then return InformalResult(PLN.Zero, 0.0, 0.0, 0.0)
 
     val taxEvasionLoss =
       in.s5.sumCitEvasion + (in.s9.vat - in.s9.vatAfterEvasion) +
@@ -288,7 +287,7 @@ object WorldAssemblyEconomics:
 
     val monthsPerYear = 12.0
     val etsPrice      =
-      if p.flags.energy then p.climate.etsBasePrice * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, in.s1.m.toDouble)
+      if true then p.climate.etsBasePrice * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, in.s1.m.toDouble)
       else 0.0
 
     val monthInYear           = ((in.s1.m - 1) % 12) + 1
@@ -606,7 +605,7 @@ object WorldAssemblyEconomics:
     * ownership, representing cross-border mergers and acquisitions.
     */
   private def applyFdiMa(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
-    if p.flags.fdi && p.fdi.maProb > Share.Zero then
+    if true && p.fdi.maProb > Share.Zero then
       firms.map: f =>
         if Firm.isAlive(f) && !f.foreignOwned &&
           f.initialSize >= p.fdi.maSizeMin &&

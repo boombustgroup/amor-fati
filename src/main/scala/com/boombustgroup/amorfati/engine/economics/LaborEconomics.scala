@@ -123,7 +123,7 @@ object LaborEconomics:
         case HhStatus.Employed(_, _, _) => true
         case _                          => false
     val employedCap        =
-      if p.flags.demographics then Math.min(realizedEmployment, pre.newDemographics.workingAgePop)
+      if true then Math.min(realizedEmployment, pre.newDemographics.workingAgePop)
       else realizedEmployment
     val postAvailableLabor = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.derivedTotalPopulation)
     pre.copy(
@@ -144,7 +144,7 @@ object LaborEconomics:
   )(using p: SimParams): ClearedLaborMarket =
     import ComputationBoundary.toDouble
     val (rawWage, rawEmployed, regWages) =
-      if p.flags.regionalLabor then
+      if true then
         val rc          = RegionalClearing.clear(w.regionalWages, resWage, laborDemand, w.derivedTotalPopulation)
         val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, resWage, laborDemand, w.derivedTotalPopulation)
         (toDouble(rc.nationalWage), natEmployed, rc.regionalWages)
@@ -153,7 +153,7 @@ object LaborEconomics:
         (toDouble(wageResult.wage), wageResult.employed, w.regionalWages)
 
     val wageAfterExp =
-      if p.flags.expectations then
+      if true then
         val target          = toDouble(p.monetary.targetInfl)
         val expWagePressure = toDouble(p.labor.expWagePassthrough) *
           Math.max(0.0, toDouble(w.mechanisms.expectations.expectedInflation) - target) / 12.0
@@ -161,7 +161,7 @@ object LaborEconomics:
       else rawWage
 
     val newWage =
-      if p.flags.unions && wageAfterExp < toDouble(w.householdMarket.marketWage) then
+      if true && wageAfterExp < toDouble(w.householdMarket.marketWage) then
         val aggDensity =
           p.sectorDefs.zipWithIndex.map((s, i) => toDouble(s.share) * toDouble(p.labor.unionDensity(i))).sum
         val decline    = toDouble(w.householdMarket.marketWage) - wageAfterExp
@@ -169,7 +169,7 @@ object LaborEconomics:
       else wageAfterExp
 
     val employed =
-      if p.flags.demographics then Math.min(rawEmployed, w.social.demographics.workingAgePop)
+      if true then Math.min(rawEmployed, w.social.demographics.workingAgePop)
       else rawEmployed
 
     ClearedLaborMarket(PLN(newWage), employed, regWages)

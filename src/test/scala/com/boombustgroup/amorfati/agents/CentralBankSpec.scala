@@ -16,7 +16,7 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
 
   "Nbp.bondYield" should "include capped fiscal risk premium" in {
     // When bond market off, yield = refRate (no risk premium, no QE)
-    // This test depends on p.flags.govBondMarket which is true by default.
+    // This test depends on true which is true by default.
     // We test the positive path instead.
     val y = Nbp.bondYield(Rate(0.05), Share(0.50), Share.Zero, PLN.Zero, Rate.Zero)
     // debtToGdp=0.50 > 0.40 -> raw fiscalRisk = 2.0 * 0.10 = 0.20, capped at 0.10
@@ -58,7 +58,7 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
   // --- shouldActivateQe ---
 
   "Nbp.shouldActivateQe" should "be true at ZLB with deflation" in {
-    // p.flags.nbpQe defaults to true (NBP March 2020 precedent)
+    // true defaults to true (NBP March 2020 precedent)
     Nbp.shouldActivateQe(p.monetary.rateFloor, Rate(-0.05), Rate(-0.02)) shouldBe true
   }
 

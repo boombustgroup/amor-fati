@@ -105,7 +105,7 @@ object HousingMarket:
       lastWealthEffect = PLN.Zero,
       monthlyReturn = Rate.Zero,
       mortgageInterestIncome = PLN.Zero,
-      regions = if p.flags.reRegional then Some(initRegions) else None,
+      regions = if true then Some(initRegions) else None,
     )
 
   private def initRegions(using p: SimParams): Vector[RegionalState] =
@@ -128,12 +128,10 @@ object HousingMarket:
     * when housing module is disabled.
     */
   def step(in: StepInput)(using p: SimParams): State =
-    if !p.flags.re then zero
-    else
-      val rateChange = in.mortgageRate - in.prevMortgageRate
-      in.prev.regions match
-        case Some(regs) => stepRegional(in, regs, rateChange)
-        case None       => stepAggregate(in, rateChange)
+    val rateChange = in.mortgageRate - in.prevMortgageRate
+    in.prev.regions match
+      case Some(regs) => stepRegional(in, regs, rateChange)
+      case None       => stepAggregate(in, rateChange)
 
   /** Regional mode: apply Meen model per region, then aggregate. */
   private def stepRegional(
@@ -234,7 +232,7 @@ object HousingMarket:
     * value (KNF Recommendation S).
     */
   def processOrigination(prev: State, totalIncome: PLN, mortgageRate: Rate, bankCapacity: Boolean)(using p: SimParams): State =
-    if !p.flags.re || !p.flags.reMortgage || !bankCapacity then
+    if !bankCapacity then
       prev.copy(
         lastOrigination = PLN.Zero,
         regions = prev.regions.map(_.map(_.copy(lastOrigination = PLN.Zero))),
@@ -290,7 +288,7 @@ object HousingMarket:
     * (after recovery, for bank P&L).
     */
   def processMortgageFlows(prev: State, mortgageRate: Rate, unemploymentRate: Share)(using p: SimParams): MortgageFlows =
-    if !p.flags.re || prev.mortgageStock <= PLN.Zero
+    if prev.mortgageStock <= PLN.Zero
     then MortgageFlows(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     else
       val stock         = prev.mortgageStock
@@ -313,7 +311,7 @@ object HousingMarket:
     val newHhWealth  = prev.totalValue - newStock
     val wealthChange = newHhWealth - prev.hhHousingWealth
     val wealthEffect =
-      if p.flags.reHhHousing && wealthChange > PLN.Zero then wealthChange * p.housing.wealthMpc
+      if true && wealthChange > PLN.Zero then wealthChange * p.housing.wealthMpc
       else PLN.Zero
     prev.copy(
       mortgageStock = newStock,

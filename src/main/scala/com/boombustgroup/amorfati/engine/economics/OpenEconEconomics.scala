@@ -172,7 +172,7 @@ object OpenEconEconomics:
 
     // 2. GVC trade
     val newGvc =
-      if p.flags.gvc then
+      if true then
         GvcTrade.step(
           GvcTrade.StepInput(
             in.w.external.gvc,
@@ -187,7 +187,7 @@ object OpenEconEconomics:
       else in.w.external.gvc
 
     // 3. Forex / BoP
-    val (gvcExp, gvcImp) = if p.flags.gvc then (Some(newGvc.totalExports), Some(newGvc.sectorImports)) else (None, None)
+    val (gvcExp, gvcImp) = if true then (Some(newGvc.totalExports), Some(newGvc.sectorImports)) else (None, None)
     val totalTechImp     = in.totalTechAndInvImports + in.investmentImports
 
     val oe                                = OpenEconomy.step(
@@ -223,7 +223,7 @@ object OpenEconEconomics:
     val newRefRate  = Nbp.updateRate(in.w.nbp.referenceRate, in.newInflation, exRateChg, in.employed, in.w.laborForcePopulation)
     val unempForExp = toDouble(in.w.unemploymentRate(in.employed))
     val newExp      =
-      if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, toDouble(in.newInflation), toDouble(newRefRate), unempForExp)
+      if true then Expectations.step(in.w.mechanisms.expectations, toDouble(in.newInflation), toDouble(newRefRate), unempForExp)
       else in.w.mechanisms.expectations
 
     // 5. Interbank
@@ -236,7 +236,7 @@ object OpenEconEconomics:
     val annualGdp         = in.gdp * 12
     val debtToGdp         = if annualGdp > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdp)) else Share.Zero
     val nbpBondGdpShare   = if annualGdp > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdp)) else Share.Zero
-    val credPremium       = if p.flags.expectations then
+    val credPremium       = if true then
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
         Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
       Rate(toDouble(deAnchor) * toDouble(p.labor.expBondSensitivity))
@@ -275,7 +275,7 @@ object OpenEconEconomics:
     // 8. Insurance
     val unempRate    = in.w.unemploymentRate(in.employed)
     val newInsurance =
-      if p.flags.insurance then
+      if true then
         Insurance.step(in.w.financial.insurance, in.employed, in.newWage, in.w.priceLevel, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
       else in.w.financial.insurance
 
@@ -476,7 +476,7 @@ object OpenEconEconomics:
   @boundaryEscape
   private def runStepGvc(in: StepInput, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
     import ComputationBoundary.toDouble
-    if p.flags.gvc then
+    if true then
       GvcTrade.step(
         GvcTrade.StepInput(
           prev = in.w.external.gvc,
@@ -492,7 +492,7 @@ object OpenEconEconomics:
 
   private def runStepForex(in: StepInput, sectorOutputs: Vector[PLN], newGvc: GvcTrade.State)(using p: SimParams): ForexResult =
     val (gvcExp, gvcImp) =
-      if p.flags.gvc then (Some(newGvc.totalExports), Some(newGvc.sectorImports))
+      if true then (Some(newGvc.totalExports), Some(newGvc.sectorImports))
       else (None, None)
 
     val totalTechAndInvImports = in.s5.sumTechImp + in.s7.investmentImports
@@ -531,7 +531,7 @@ object OpenEconEconomics:
       else bop0
     val fdiTotalBopDebit = in.s5.sumProfitShifting + in.s5.sumFdiRepatriation
     val bop2             =
-      if fdiTotalBopDebit > PLN.Zero && p.flags.fdi then
+      if fdiTotalBopDebit > PLN.Zero && true then
         bop1.copy(
           currentAccount = bop1.currentAccount - fdiTotalBopDebit,
           nfa = bop1.nfa - fdiTotalBopDebit,
@@ -572,7 +572,7 @@ object OpenEconEconomics:
     )
     val unempRateForExp = toDouble(in.w.unemploymentRate(in.s2.employed))
     val newExp          =
-      if p.flags.expectations then Expectations.step(in.w.mechanisms.expectations, toDouble(in.s7.newInfl), toDouble(newRefRate), unempRateForExp)
+      if true then Expectations.step(in.w.mechanisms.expectations, toDouble(in.s7.newInfl), toDouble(newRefRate), unempRateForExp)
       else in.w.mechanisms.expectations
     RateExpResult(newRefRate, newExp)
 
@@ -597,7 +597,7 @@ object OpenEconEconomics:
     val annualGdpForBonds = in.s7.gdp * 12
     val debtToGdp         = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdpForBonds)) else Share.Zero
     val nbpBondGdpShare   = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdpForBonds)) else Share.Zero
-    val credPremium       = if p.flags.expectations then
+    val credPremium       = if true then
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
         Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
       Rate(toDouble(deAnchor) * toDouble(p.labor.expBondSensitivity))
@@ -659,7 +659,7 @@ object OpenEconEconomics:
   private def runStepInsurance(in: StepInput, newBondYield: Rate)(using p: SimParams): InsuranceResult =
     val unempRate    = in.w.unemploymentRate(in.s2.employed)
     val newInsurance =
-      if p.flags.insurance then
+      if true then
         Insurance.step(
           in.w.financial.insurance,
           in.s2.employed,
@@ -677,7 +677,7 @@ object OpenEconEconomics:
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
     val newNbfi         =
-      if p.flags.nbfi then
+      if true then
         Nbfi.step(
           in.w.financial.nbfi,
           in.s2.employed,

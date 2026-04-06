@@ -20,42 +20,38 @@ object PpkFlows:
   case class PpkInput(employed: Int, wage: PLN)
 
   def emitBatches(input: PpkInput)(using p: SimParams): Vector[BatchedFlow] =
-    if !p.flags.ppk then Vector.empty
-    else
-      import AggregateBatchContract.*
-      val contributions = input.employed * (input.wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
-      val bondPurchase  = contributions * p.social.ppkBondAlloc
-      Vector.concat(
-        AggregateBatchedEmission.transfer(
-          EntitySector.Households,
-          HouseholdIndex.Aggregate,
-          EntitySector.Funds,
-          FundIndex.Ppk,
-          contributions,
-          AssetType.Cash,
-          FlowMechanism.PpkContribution,
-        ),
-        AggregateBatchedEmission.transfer(
-          EntitySector.Funds,
-          FundIndex.Ppk,
-          EntitySector.Funds,
-          FundIndex.BondMarket,
-          bondPurchase,
-          AssetType.GovBondHTM,
-          FlowMechanism.PpkBondPurchase,
-        ),
-      )
+    import AggregateBatchContract.*
+    val contributions = input.employed * (input.wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
+    val bondPurchase  = contributions * p.social.ppkBondAlloc
+    Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Households,
+        HouseholdIndex.Aggregate,
+        EntitySector.Funds,
+        FundIndex.Ppk,
+        contributions,
+        AssetType.Cash,
+        FlowMechanism.PpkContribution,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Funds,
+        FundIndex.Ppk,
+        EntitySector.Funds,
+        FundIndex.BondMarket,
+        bondPurchase,
+        AssetType.GovBondHTM,
+        FlowMechanism.PpkBondPurchase,
+      ),
+    )
 
   def emit(input: PpkInput)(using p: SimParams): Vector[Flow] =
-    if !p.flags.ppk then Vector.empty
-    else
-      val contributions = input.employed * (input.wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
-      val bondPurchase  = contributions * p.social.ppkBondAlloc
+    val contributions = input.employed * (input.wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
+    val bondPurchase  = contributions * p.social.ppkBondAlloc
 
-      val flows = Vector.newBuilder[Flow]
+    val flows = Vector.newBuilder[Flow]
 
-      if contributions > PLN.Zero then flows += Flow(HH_ACCOUNT, PPK_ACCOUNT, contributions.toLong, FlowMechanism.PpkContribution.toInt)
+    if contributions > PLN.Zero then flows += Flow(HH_ACCOUNT, PPK_ACCOUNT, contributions.toLong, FlowMechanism.PpkContribution.toInt)
 
-      if bondPurchase > PLN.Zero then flows += Flow(PPK_ACCOUNT, BOND_MARKET_ACCOUNT, bondPurchase.toLong, FlowMechanism.PpkBondPurchase.toInt)
+    if bondPurchase > PLN.Zero then flows += Flow(PPK_ACCOUNT, BOND_MARKET_ACCOUNT, bondPurchase.toLong, FlowMechanism.PpkBondPurchase.toInt)
 
-      flows.result()
+    flows.result()

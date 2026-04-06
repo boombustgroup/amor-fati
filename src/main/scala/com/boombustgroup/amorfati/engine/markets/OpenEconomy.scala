@@ -130,7 +130,7 @@ object OpenEconomy:
       in.prevForex.exchangeRate,
       ComputationBoundary.toDouble(in.nbpFxReserves),
       ComputationBoundary.toDouble(in.gdp),
-      p.flags.nbpFxIntervention,
+      true,
     )
     val newExRate           = computeExchangeRate(in, caResult.ca, kaResult.total, fxResult.erEffect)
     val valEffect           = computeValuationEffect(in.prevBop, in.prevForex.exchangeRate, newExRate)

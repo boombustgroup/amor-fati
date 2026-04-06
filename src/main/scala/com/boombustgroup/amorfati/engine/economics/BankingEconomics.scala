@@ -198,7 +198,7 @@ object BankingEconomics:
     val govJst               = computeGovAndJst(in)
     val housing              = computeHousingFlows(in)
     val bfgLevy              =
-      if p.flags.bankFailure then Banking.computeBfgLevy(in.banks).total
+      if true then Banking.computeBfgLevy(in.banks).total
       else PLN.Zero
     val investNetDepositFlow = computeInvestNetDepositFlow(in)
     val finalHhAgg           = computeHhAgg(in)
@@ -213,7 +213,7 @@ object BankingEconomics:
     val monAgg               = computeMonetaryAggregates(multi.finalBanks, in)
 
     val newQuasiFiscal =
-      if p.flags.quasiFiscal then
+      if true then
         QuasiFiscal.step(
           in.w.financial.quasiFiscal,
           govJst.newGovWithYield.govCapitalSpend,
@@ -346,7 +346,7 @@ object BankingEconomics:
 
     val unempBenefitSpend   = in.s3.hhAgg.totalUnempBenefits
     val socialTransferSpend =
-      if p.flags.social800 then in.s3.hhAgg.totalSocialTransfers
+      if true then in.s3.hhAgg.totalSocialTransfers
       else PLN.Zero
 
     val newGov          = FiscalBudget.update(
@@ -399,7 +399,7 @@ object BankingEconomics:
     val unempRate              = in.w.unemploymentRate(in.s2.employed)
     val prevMortgageRate       = in.w.real.housing.avgMortgageRate
     val mortgageBaseRate: Rate =
-      if p.flags.interbankTermStructure then
+      if true then
         val exp = in.w.mechanisms.expectations
         YieldCurve
           .compute(
@@ -553,7 +553,7 @@ object BankingEconomics:
     val bankCorpBondCoupon        = in.s8.corpBonds.corpBondBankCoupon * workerShare
     val bankCorpBondDefaultLoss   = in.s8.corpBonds.corpBondBankDefaultLoss * workerShare
     val bankBfgLevy               =
-      if p.flags.bankFailure && !b.failed then b.deposits * p.banking.bfgLevyRate.monthly
+      if true && !b.failed then b.deposits * p.banking.bfgLevyRate.monthly
       else PLN.Zero
 
     // Per-bank mark-to-market loss on AFS bonds only (HTM losses hidden until forced reclassification)
@@ -671,8 +671,7 @@ object BankingEconomics:
     val htmResult        = Banking.processHtmForcedSale(afterFxInjection, in.s8.monetary.newBondYield)
     val afterHtm         = htmResult.banks
     val afterBonds       =
-      if !p.flags.govBondMarket then afterHtm
-      else if wf.actualBondChange > PLN.Zero then Banking.allocateBondIssuance(afterHtm, wf.actualBondChange, in.s8.monetary.newBondYield)
+      if wf.actualBondChange > PLN.Zero then Banking.allocateBondIssuance(afterHtm, wf.actualBondChange, in.s8.monetary.newBondYield)
       else if wf.actualBondChange < PLN.Zero then
         Banking.allocateBondRedemption(afterHtm, PLN.fromRaw(-wf.actualBondChange.toLong), in.s8.monetary.newBondYield)
       else afterHtm
@@ -710,7 +709,7 @@ object BankingEconomics:
     val finalForeignBondHoldings = in.w.gov.foreignBondHoldings + foreignSale.actualSold
 
     val failResult =
-      Banking.checkFailures(tfiSale.banks, in.s1.m, p.flags.bankFailure, in.s7.newMacropru.ccyb)
+      Banking.checkFailures(tfiSale.banks, in.s1.m, true, in.s7.newMacropru.ccyb)
 
     // Interbank contagion: failed banks impose losses on counterparties
     val exposures      = InterbankContagion.buildExposureMatrix(tfiSale.banks)
@@ -718,7 +717,7 @@ object BankingEconomics:
       if failResult.anyFailed then InterbankContagion.applyContagionLosses(failResult.banks, exposures)
       else failResult.banks
     // Re-check for secondary failures triggered by contagion losses
-    val secondaryFail  = Banking.checkFailures(afterContagion, in.s1.m, p.flags.bankFailure, in.s7.newMacropru.ccyb)
+    val secondaryFail  = Banking.checkFailures(afterContagion, in.s1.m, true, in.s7.newMacropru.ccyb)
     val afterFailCheck = secondaryFail.banks
     val anyFailed      = failResult.anyFailed || secondaryFail.anyFailed
 
@@ -744,7 +743,7 @@ object BankingEconomics:
         )
       else PLN.Zero
     val curve              =
-      if p.flags.interbankTermStructure then
+      if true then
         val exp = in.w.mechanisms.expectations
         Some(
           YieldCurve.compute(
@@ -911,16 +910,14 @@ object BankingEconomics:
   private def computeMonetaryAggregates(
       finalBanks: Vector[Banking.BankState],
       in: StepInput,
-  )(using p: SimParams): Option[Banking.MonetaryAggregates] =
-    if p.flags.creditDiagnostics then
-      Some(
-        Banking.MonetaryAggregates.compute(
-          finalBanks,
-          in.w.financial.nbfi.tfiAum,
-          in.w.financial.corporateBonds.outstanding,
-        ),
-      )
-    else None
+  ): Option[Banking.MonetaryAggregates] =
+    Some(
+      Banking.MonetaryAggregates.compute(
+        finalBanks,
+        in.w.financial.nbfi.tfiAum,
+        in.w.financial.corporateBonds.outstanding,
+      ),
+    )
 
   /** Distribute FX intervention PLN injection across banks proportional to
     * deposit market share, adjusting reservesAtNbp. EUR purchase → PLN injected

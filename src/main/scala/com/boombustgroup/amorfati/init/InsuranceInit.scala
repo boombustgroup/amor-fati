@@ -7,5 +7,5 @@ import com.boombustgroup.amorfati.config.SimParams
 object InsuranceInit:
 
   def create()(using p: SimParams): Insurance.State =
-    if p.flags.insurance then Insurance.initial
+    if true then Insurance.initial
     else Insurance.State.zero

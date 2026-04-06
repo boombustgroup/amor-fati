@@ -33,7 +33,6 @@ case class SectorDef(
   * `SimParams.defaults`.
   *
   * Sub-configs are grouped by economic domain:
-  *   - `flags` — 50 mechanism toggles
   *   - `pop` — simulation structure
   *   - `firm`, `household` — agent parameters
   *   - `fiscal`, `monetary`, `banking` — government, central bank, commercial
@@ -52,7 +51,6 @@ case class SectorDef(
   */
 @annotation.nowarn("msg=unused private member") // Scala 3.8 false positive: defaults used via copy()
 case class SimParams private (
-    flags: FeatureFlags = FeatureFlags(),
     pop: PopulationConfig = PopulationConfig(),
     firm: FirmConfig = FirmConfig(),
     household: HouseholdConfig = HouseholdConfig(),

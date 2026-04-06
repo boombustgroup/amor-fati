@@ -48,8 +48,8 @@ object HouseholdFinancialEconomics:
     val remittanceOutflow   = hhAgg.totalRemittances
 
     // Diaspora remittance inflow (#46)
-    val diasporaInflow = if p.flags.remittance then
-      val wap           = if p.flags.demographics then w.social.demographics.workingAgePop else w.derivedTotalPopulation
+    val diasporaInflow = if true then
+      val wap           = if true then w.social.demographics.workingAgePop else w.derivedTotalPopulation
       val base          = toDouble(p.remittance.perCapita) * wap.toDouble
       val erAdj         = Math.pow(w.forex.exchangeRate / p.forex.baseExRate, toDouble(p.remittance.erElasticity))
       val trendAdj      = Math.pow(1.0 + toDouble(p.remittance.growthRate) / 12.0, month.toDouble)
@@ -59,7 +59,7 @@ object HouseholdFinancialEconomics:
     else PLN.Zero
 
     // Tourism services export/import (#47)
-    val (tourismExport, tourismImport) = if p.flags.tourism then
+    val (tourismExport, tourismImport) = if true then
       val monthInYear    = (month % 12) + 1
       val seasonalFactor = 1.0 + toDouble(p.tourism.seasonality) *
         Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)

@@ -404,8 +404,8 @@ object Banking:
       val projectedCar = if projectedRwa > PLN(1.0) then Multiplier(bank.capital / projectedRwa) else Multiplier(10.0)
       val minCar       = Macroprudential.effectiveMinCar(bank.id.toInt, ccyb)
       val carOk        = projectedCar >= minCar
-      val lcrOk        = if p.flags.bankLcr then bank.lcr >= p.banking.lcrMin else true
-      val nsfrOk       = if p.flags.bankLcr then bank.nsfr >= p.banking.nsfrMin else true
+      val lcrOk        = if true then bank.lcr >= p.banking.lcrMin else true
+      val nsfrOk       = if true then bank.nsfr >= p.banking.nsfrMin else true
       val nplPenalty   = bank.nplRatio * NplApprovalPenalty // Share * Multiplier → Multiplier
       val freeReserves = bank.deposits * (Share.One - p.banking.reserveReq) - bank.loans - bank.govBondHoldings
       val resPenalty   = if freeReserves > PLN.Zero then Share.Zero else ReserveDeficitPenalty
@@ -488,7 +488,7 @@ object Banking:
           val consec    = b.consecutiveLowCar
           val minCar    = Macroprudential.effectiveMinCar(b.id.toInt, ccyb)
           val lowCar    = b.car < minCar
-          val lcrBreach = p.flags.bankLcr && b.lcr < p.banking.lcrMin * Share(0.5)
+          val lcrBreach = true && b.lcr < p.banking.lcrMin * Share(0.5)
           val newConsec = if lowCar then consec + 1 else 0
           if newConsec >= 3 || lcrBreach then b.copy(status = BankStatus.Failed(month), capital = PLN.Zero)
           else b.copy(status = BankStatus.Active(newConsec))
@@ -506,19 +506,17 @@ object Banking:
     PerBankAmounts(perBank, PLN.fromRaw(perBank.map(_.toLong).sum))
 
   /** Bail-in: haircut uninsured deposits on failed banks. Deposits below
-    * bfgDepositGuarantee are protected. No-op when flags.bailIn is false.
+    * bfgDepositGuarantee are protected.
     */
   def applyBailIn(banks: Vector[BankState])(using p: SimParams): BailInResult =
-    if !p.flags.bailIn then BailInResult(banks, PLN.Zero)
-    else
-      val withHaircut = banks.map: b =>
-        if b.failed && b.deposits > PLN.Zero then
-          val guaranteed = b.deposits.min(p.banking.bfgDepositGuarantee)
-          val uninsured  = b.deposits - guaranteed
-          val haircut    = uninsured * p.banking.bailInDepositHaircut
-          (b.copy(deposits = b.deposits - haircut), haircut)
-        else (b, PLN.Zero)
-      BailInResult(withHaircut.map(_._1), PLN.fromRaw(withHaircut.map(_._2.toLong).sum))
+    val withHaircut = banks.map: b =>
+      if b.failed && b.deposits > PLN.Zero then
+        val guaranteed = b.deposits.min(p.banking.bfgDepositGuarantee)
+        val uninsured  = b.deposits - guaranteed
+        val haircut    = uninsured * p.banking.bailInDepositHaircut
+        (b.copy(deposits = b.deposits - haircut), haircut)
+      else (b, PLN.Zero)
+    BailInResult(withHaircut.map(_._1), PLN.fromRaw(withHaircut.map(_._2.toLong).sum))
 
   /** BFG P&A resolution: transfer deposits, bonds, performing loans, consumer
     * loans from failed banks to the healthiest surviving bank.

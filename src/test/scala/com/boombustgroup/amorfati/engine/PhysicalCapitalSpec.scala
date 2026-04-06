@@ -153,7 +153,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
   // --- Capacity augmented in FirmOps ---
 
   "Firm.computeCapacity" should "return positive for firm with capitalStock" in {
-    if p.flags.physCap then
+    if true then
       val f = mkFirm(sector = 1, workers = 10, capitalStock = 2500000.0)
       Firm.computeCapacity(f) should be > PLN.Zero
   }
@@ -208,7 +208,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
     )
     val r = Firm.Result.zero(f)
     // When PhysCapEnabled, applyInvestment should zero K for bankrupt
-    if p.flags.physCap then
+    if true then
       // Call process on a bankrupt firm -- capitalStock should be 0
       td.toDouble(r.firm.capitalStock) shouldBe 2500000.0 // before applyInvestment
   }

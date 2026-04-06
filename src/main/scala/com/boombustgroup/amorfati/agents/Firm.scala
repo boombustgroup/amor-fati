@@ -249,7 +249,7 @@ object Firm:
   /** Effective wage multiplier including union wage premium. */
   def effectiveWageMult(sectorIdx: SectorIdx)(using p: SimParams): Multiplier =
     val base = p.sectorDefs(sectorIdx.toInt).wageMultiplier
-    if p.flags.unions then base + base * (p.labor.unionWagePremium * p.labor.unionDensity(sectorIdx.toInt))
+    if true then base + base * (p.labor.unionWagePremium * p.labor.unionDensity(sectorIdx.toInt))
     else base
 
   /** Monthly production capacity in PLN. Scales with tech, sector, firm size;
@@ -269,7 +269,7 @@ object Firm:
       case TechState.Automated(eff) => Multiplier(eff)
       case _: TechState.Bankrupt    => Multiplier.Zero
     val tfp       = sizeScale * sec.revenueMultiplier
-    if p.flags.physCap && f.capitalStock > PLN.Zero && laborEff > Multiplier.Zero then
+    if true && f.capitalStock > PLN.Zero && laborEff > Multiplier.Zero then
       val targetK: PLN  = workerCount(f) * p.capital.klRatios(f.sector.toInt)
       val k: Multiplier = Multiplier(if targetK > PLN.Zero then f.capitalStock / targetK else 1.0).clamp(Multiplier(0.1), Multiplier(2.0))
       val alpha: Share  = p.capital.prodElast
@@ -1051,7 +1051,6 @@ object Firm:
     * replacement + expansion investment, cash-constrained.
     */
   private def applyInvestment(r: Result)(using p: SimParams): Result =
-    if !p.flags.physCap then return r
     val f          = r.firm
     if !isAlive(f) then return r.copy(firm = f.copy(capitalStock = PLN.Zero))
     val depRate    = p.capital.depRates(f.sector.toInt).monthly
@@ -1074,9 +1073,9 @@ object Firm:
     import ComputationBoundary.toDouble
     val sizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
     val raw: PLN   = p.firm.otherCosts * Multiplier(toDouble(domesticPrice) * sizeFactor)
-    val afterCap   = if p.flags.physCap then raw * (Share.One - p.capital.costReplace) else raw
-    val afterEnerg = if p.flags.energy then afterCap * (Share.One - p.climate.energyCostReplace) else afterCap
-    val adjusted   = if p.flags.inventory then afterEnerg * (Share.One - p.capital.inventoryCostReplace) else afterEnerg
+    val afterCap   = if true then raw * (Share.One - p.capital.costReplace) else raw
+    val afterEnerg = if true then afterCap * (Share.One - p.climate.energyCostReplace) else afterCap
+    val adjusted   = if true then afterEnerg * (Share.One - p.capital.inventoryCostReplace) else afterEnerg
     adjusted * startupCostMultiplier(firm)
 
   /** AI/hybrid maintenance opex — domestic + imported split, sublinear in firm
@@ -1098,7 +1097,6 @@ object Firm:
   @boundaryEscape
   private def energyAndEtsCost(firm: State, revenue: PLN, month: Int, commodityPrice: PriceIndex)(using p: SimParams): PLN =
     import ComputationBoundary.toDouble
-    if !p.flags.energy then return PLN.Zero
     val baseEnergy: PLN      = revenue * p.climate.energyCostShares(firm.sector.toInt)
     val etsPrice             = p.climate.etsBasePrice * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / 12.0, month.toDouble)
     val carbonSurcharge      = p.climate.carbonIntensity(firm.sector.toInt) * (etsPrice / p.climate.etsBasePrice - 1.0)
@@ -1125,17 +1123,17 @@ object Firm:
     val revenue: PLN         = computeCapacity(firm) * Multiplier(sectorDemandMult * toDouble(domesticPrice))
     val labor: PLN           = PLN(toDouble(wage) * workerCount(firm) * toDouble(effectiveWageMult(firm.sector)))
     val depnCost: PLN        =
-      if p.flags.physCap then firm.capitalStock * p.capital.depRates(firm.sector.toInt).monthly
+      if true then firm.capitalStock * p.capital.depRates(firm.sector.toInt).monthly
       else PLN.Zero
     val interest: PLN        = (firm.debt + firm.bondDebt) * lendRate.monthly
     val inventoryCost: PLN   =
-      if p.flags.inventory then firm.inventory * p.capital.inventoryCarryingCost.monthly else PLN.Zero
+      if true then firm.inventory * p.capital.inventoryCarryingCost.monthly else PLN.Zero
     val energyCost: PLN      = energyAndEtsCost(firm, revenue, month, commodityPrice)
     val prePsCosts           =
       labor + otherCosts(firm, domesticPrice) + depnCost + aiMaintenanceCost(firm, domesticPrice, importPrice) + interest + inventoryCost + energyCost
     val grossProfit          = revenue - prePsCosts
     val profitShiftCost: PLN =
-      if p.flags.fdi && firm.foreignOwned then grossProfit.max(PLN.Zero) * p.fdi.profitShiftRate
+      if true && firm.foreignOwned then grossProfit.max(PLN.Zero) * p.fdi.profitShiftRate
       else PLN.Zero
     val costs                = prePsCosts + profitShiftCost
     val profit               = revenue - costs
@@ -1160,7 +1158,6 @@ object Firm:
     * (applyInvestment) uses the remainder.
     */
   private def applyGreenInvestment(r: Result)(using p: SimParams): Result =
-    if !p.flags.energy then return r
     val f           = r.firm
     if !isAlive(f) then return r.copy(firm = f.copy(greenCapital = PLN.Zero))
     val depRate     = p.climate.greenDepRate.monthly
@@ -1180,7 +1177,6 @@ object Firm:
     * cash-negative.
     */
   private def applyInventory(r: Result, sectorDemandMult: Double)(using p: SimParams): Result =
-    if !p.flags.inventory then return r
     val f                     = r.firm
     if !isAlive(f) then return r.copy(firm = f.copy(inventory = PLN.Zero))
     val cap                   = computeCapacity(f)
@@ -1224,7 +1220,7 @@ object Firm:
     * adjustment from world state.
     */
   private def applyInformalCitEvasion(r: Result, carriedInformalAdj: Double)(using p: SimParams): Result =
-    if !p.flags.informal || !isAlive(r.firm) || r.taxPaid <= PLN.Zero then return r
+    if !isAlive(r.firm) || r.taxPaid <= PLN.Zero then return r
     val evaded = r.taxPaid * citEvasionFrac(r.firm.sector, carriedInformalAdj)
     r.copy(
       firm = r.firm.copy(cash = r.firm.cash + evaded),
@@ -1236,7 +1232,7 @@ object Firm:
     * cash-constrained).
     */
   private def applyFdiFlows(r: Result)(using p: SimParams): Result =
-    if !p.flags.fdi || !r.firm.foreignOwned || !isAlive(r.firm) then return r
+    if !r.firm.foreignOwned || !isAlive(r.firm) then return r
     val afterTaxProfit: PLN =
       if p.fiscal.citRate > Rate.Zero && r.taxPaid > PLN.Zero then r.taxPaid * Multiplier(Rate(1.0) / p.fiscal.citRate - 1.0)
       else PLN.Zero

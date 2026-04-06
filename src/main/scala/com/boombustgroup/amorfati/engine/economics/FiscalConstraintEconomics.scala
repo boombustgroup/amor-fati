@@ -42,7 +42,7 @@ object FiscalConstraintEconomics:
     val m       = w.month + 1
     val bankAgg = Banking.aggregateFromBanks(banks)
 
-    val (baseMinWage, updatedMinWagePriceLevel) = if p.flags.minWage then
+    val (baseMinWage, updatedMinWagePriceLevel) = if true then
       val isAdjustMonth = m > 0 && m % p.fiscal.minWageAdjustMonths == 0
       if isAdjustMonth then
         val cumInfl     =
@@ -61,7 +61,7 @@ object FiscalConstraintEconomics:
     val resWage = baseMinWage
 
     val rawLendingBaseRate: Double =
-      if p.flags.interbankTermStructure then
+      if true then
         val exp = w.mechanisms.expectations
         toDouble(
           YieldCurve
@@ -71,8 +71,7 @@ object FiscalConstraintEconomics:
       else toDouble(w.nbp.referenceRate)
 
     val lendingBaseRate =
-      if p.flags.expectations then
-        ExpectationsBlendWeight * rawLendingBaseRate + (1.0 - ExpectationsBlendWeight) * toDouble(w.mechanisms.expectations.expectedRate)
+      if true then ExpectationsBlendWeight * rawLendingBaseRate + (1.0 - ExpectationsBlendWeight) * toDouble(w.mechanisms.expectations.expectedRate)
       else rawLendingBaseRate
 
     Result(m, PLN(baseMinWage), updatedMinWagePriceLevel, PLN(resWage), Rate(lendingBaseRate))

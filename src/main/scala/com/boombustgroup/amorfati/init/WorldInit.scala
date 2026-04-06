@@ -50,10 +50,10 @@ object WorldInit:
 
     // --- Steady-state gross investment ---
     val initGrossInvestment =
-      if p.flags.physCap then PLN.fromRaw(firms.map(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toLong).sum)
+      if true then PLN.fromRaw(firms.map(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toLong).sum)
       else PLN.Zero
     val initGreenInvestment =
-      if p.flags.energy then PLN.fromRaw(firms.map(f => (f.greenCapital * p.climate.greenDepRate.monthly).toLong).sum)
+      if true then PLN.fromRaw(firms.map(f => (f.greenCapital * p.climate.greenDepRate.monthly).toLong).sum)
       else PLN.Zero
 
     // --- World assembly ---
@@ -149,7 +149,7 @@ object WorldInit:
       external = ExternalState(
         gvc = GvcInit.create(),
         immigration =
-          if p.flags.immigration then Immigration.State(p.immigration.initStock, 0, 0, PLN.Zero)
+          if true then Immigration.State(p.immigration.initStock, 0, 0, PLN.Zero)
           else Immigration.State.zero,
       ),
       real = RealState(

@@ -440,7 +440,7 @@ object FirmEconomics:
   private def splitFinancing(r: Firm.Result)(using p: SimParams): FinancingSplit =
     // Channel 1: GPW equity issuance (large firms only)
     val (afterEquityLoan, equityAmt, afterEquityFirm) =
-      if p.flags.gpw && p.flags.gpwEquityIssuance && r.newLoan > PLN.Zero &&
+      if true && true && r.newLoan > PLN.Zero &&
         Firm.workerCount(r.firm) >= p.equity.issuanceMinSize
       then
         val eq  = r.newLoan * p.equity.issuanceFrac
@@ -501,7 +501,7 @@ object FirmEconomics:
       firms: Vector[Firm.State],
       in: StepInput,
   )(using p: SimParams): (Vector[Firm.State], PLN) =
-    if p.flags.io then
+    if true then
       val r = IntermediateMarket.process(
         IntermediateMarket.Input(
           firms = firms,
@@ -530,7 +530,7 @@ object FirmEconomics:
     val postWages    = LaborMarket.updateWages(searchResult.households, ioFirms, in.s2.newWage)
 
     val finalHouseholds =
-      if p.flags.immigration then
+      if true then
         val afterRemoval  = Immigration.removeReturnMigrants(postWages, in.s2.newImmig.monthlyOutflow)
         val startId       = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
         val newImmigrants = Immigration.spawnImmigrants(in.s2.newImmig.monthlyInflow, startId, rng)
