@@ -194,7 +194,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "OpenEconomy exports" should "include tourismExport" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -217,7 +217,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "OpenEconomy imports" should "include tourismImport" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -253,7 +253,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Generators.testBankingSector().marketState,
-      forex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      forex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
         employed = 100,
         unemployed = 0,

@@ -442,7 +442,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       gov = FiscalBudget.GovState(PLN(0.0), PLN(0.0), PLN(0.0), PLN(0.0)),
       nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Generators.testBankingSector().marketState,
-      forex = OpenEconomy.ForexState(4.33, PLN(0.0), PLN(190000000), PLN(0.0), PLN(0.0)),
+      forex = OpenEconomy.ForexState(ExchangeRate(4.33), PLN(0.0), PLN(190000000), PLN(0.0), PLN(0.0)),
       hhAgg = Household.Aggregates(
         employed = 100000,
         unemployed = 0,

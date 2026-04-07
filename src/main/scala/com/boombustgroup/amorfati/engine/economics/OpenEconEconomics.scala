@@ -22,7 +22,9 @@ import scala.util.Random
   */
 object OpenEconEconomics:
 
-  private val MaxDebtServiceGdpShare = Share(0.50)
+  private val MaxDebtServiceGdpShare                      = Share(0.50)
+  private def exchangeRateValue(er: ExchangeRate): Double =
+    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 
   /** Everything the new pipeline needs from open economy + monetary + financial
     * sector.
@@ -35,7 +37,7 @@ object OpenEconEconomics:
       portfolioFlows: PLN,
       primaryIncome: PLN,
       euFunds: PLN,
-      newExchangeRate: Double,
+      newExchangeRate: ExchangeRate,
       valuationEffect: PLN,
       fdiCitLoss: PLN,
       // Monetary policy
@@ -177,7 +179,7 @@ object OpenEconEconomics:
           in.w.external.gvc,
           sectorOutputs.map(toDouble(_)),
           in.w.priceLevel,
-          in.w.forex.exchangeRate,
+          exchangeRateValue(in.w.forex.exchangeRate),
           toDouble(in.autoRatio),
           in.month,
           in.commodityRng,
@@ -217,7 +219,7 @@ object OpenEconEconomics:
     val fdiCitLoss = in.profitShifting * p.fiscal.citRate
 
     // 4. Monetary policy (Taylor rule + expectations)
-    val exRateChg   = Coefficient((forex.exchangeRate / in.w.forex.exchangeRate) - 1.0)
+    val exRateChg   = forex.exchangeRate.deviationFrom(in.w.forex.exchangeRate).toCoefficient
     val newRefRate  = Nbp.updateRate(in.w.nbp.referenceRate, in.newInflation, exRateChg, in.employed, in.w.laborForcePopulation)
     val unempForExp = toDouble(in.w.unemploymentRate(in.employed))
     val newExp      =
@@ -475,7 +477,7 @@ object OpenEconEconomics:
         prev = in.w.external.gvc,
         sectorOutputs = sectorOutputs.map(toDouble(_)),
         priceLevel = in.w.priceLevel,
-        exchangeRate = in.w.forex.exchangeRate,
+        exchangeRate = exchangeRateValue(in.w.forex.exchangeRate),
         autoRatio = toDouble(in.s7.autoR),
         month = in.s1.m,
         rng = in.commodityRng,
@@ -552,7 +554,7 @@ object OpenEconEconomics:
   @boundaryEscape
   private def runStepRateAndExpectations(in: StepInput, newForex: OpenEconomy.ForexState)(using p: SimParams): RateExpResult =
     import ComputationBoundary.toDouble
-    val exRateChg       = Coefficient((newForex.exchangeRate / in.w.forex.exchangeRate) - 1.0)
+    val exRateChg       = newForex.exchangeRate.deviationFrom(in.w.forex.exchangeRate).toCoefficient
     val newRefRate      = Nbp.updateRate(
       in.w.nbp.referenceRate,
       in.s7.newInfl,

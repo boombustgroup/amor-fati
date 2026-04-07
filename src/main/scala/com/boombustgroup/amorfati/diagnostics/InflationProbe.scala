@@ -12,12 +12,14 @@ import scala.util.Random
 
 object InflationProbe:
 
-  private val DemandPullWeight = 0.15
-  private val CostPushWeight   = 0.25
-  private val ImportPushWeight = 0.25
-  private val DeflationFloor   = -0.015
-  private val FloorPassThrough = 0.3
-  private val SmoothingLambda  = 0.3
+  private val DemandPullWeight                            = 0.15
+  private val CostPushWeight                              = 0.25
+  private val ImportPushWeight                            = 0.25
+  private val DeflationFloor                              = -0.015
+  private val FloorPassThrough                            = 0.3
+  private val SmoothingLambda                             = 0.3
+  private def exchangeRateValue(er: ExchangeRate): Double =
+    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 
   private def softFloor(raw: Double): Double =
     if raw >= DeflationFloor then raw
@@ -138,7 +140,7 @@ object InflationProbe:
       val s8                = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, banks, rng))
       val s9                = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
 
-      val exDev         = (world.forex.exchangeRate / summon[SimParams].forex.baseExRate) - 1.0
+      val exDev         = exchangeRateValue(world.forex.exchangeRate) / summon[SimParams].forex.baseExRate - 1.0
       val demandPullM   = (s4.avgDemandMult - 1.0) * DemandPullWeight
       val costPushM     = toDouble(s2.wageGrowth) * CostPushWeight
       val rawImportPush = Math.max(0.0, exDev) * toDouble(summon[SimParams].forex.importPropensity) * ImportPushWeight

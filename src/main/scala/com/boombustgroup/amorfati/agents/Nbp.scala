@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 import com.boombustgroup.amorfati.types.*
 
 /** National Bank of Poland: Taylor rule, bond yield, QE, FX intervention. */
@@ -21,7 +21,7 @@ object Nbp:
   private val QeActivationSlack     = Rate(0.0025)      // rate proximity to floor for QE activation
   private val QeDeflationThreshold  = Rate(0.01)        // inflation must be this much below target for QE
   private val ZlbExitBuffer         = Rate(0.0025)      // expectations/inflation should clear target by this margin to exit ZLB mode
-  private val ZlbQeMaxMultiplier    = 3.0               // QE pace can scale up to 3x in a lower-bound regime
+  private val ZlbQeMaxMultiplier    = Multiplier(3.0)   // QE pace can scale up to 3x in a lower-bound regime
 
   // ---------------------------------------------------------------------------
   // State
@@ -88,10 +88,10 @@ object Nbp:
 
   /** FX intervention result. */
   case class FxInterventionResult(
-      erEffect: Double, // dimensionless ER change added to erChange in OpenEconomy
-      eurTraded: PLN,   // positive = bought EUR (weakened PLN), negative = sold EUR
-      newReserves: PLN, // updated NBP FX reserve level (EUR)
-      plnInjection: PLN, // PLN injected (+) or drained (−) from banking system reserves
+      erShock: ExchangeRateShock, // signed exchange-rate shock injected into OpenEconomy
+      eurTraded: PLN,             // positive = bought EUR (weakened PLN), negative = sold EUR
+      newReserves: PLN,           // updated NBP FX reserve level (EUR)
+      plnInjection: PLN,          // PLN injected (+) or drained (−) from banking system reserves
   )
 
   // ---------------------------------------------------------------------------
@@ -224,7 +224,7 @@ object Nbp:
       val realizedShortfall = (p.monetary.targetInfl - inflation).max(Rate.Zero)
       val expectedShortfall = (p.monetary.targetInfl - expectedInflation).max(Rate.Zero)
       val severity          = realizedShortfall.max(expectedShortfall)
-      val multiplier        = (Multiplier.One + severity.ratioTo(QeDeflationThreshold).toMultiplier).min(Multiplier(ZlbQeMaxMultiplier))
+      val multiplier        = (Multiplier.One + severity.ratioTo(QeDeflationThreshold).toMultiplier).min(ZlbQeMaxMultiplier)
       p.monetary.qePace * multiplier
 
   // ---------------------------------------------------------------------------
@@ -236,29 +236,27 @@ object Nbp:
     * sale drains PLN. The PLN injection feeds into the liquidity-aware
     * interbank rate (#9) via bank reservesAtNbp.
     */
-  @boundaryEscape
   def fxIntervention(
-      prevER: Double,
+      prevER: ExchangeRate,
       reserves: PLN,
       gdp: PLN,
       enabled: Boolean,
   )(using p: SimParams): FxInterventionResult =
-    val reservesD = reserves.toLong.toDouble / ScaleD
-    val gdpD      = gdp.toLong.toDouble / ScaleD
-    if !enabled then FxInterventionResult(0.0, PLN.Zero, reserves, PLN.Zero)
+    val baseRate = ExchangeRate(p.forex.baseExRate)
+    if !enabled then FxInterventionResult(ExchangeRateShock.Zero, PLN.Zero, reserves, PLN.Zero)
     else
-      val erDev = (prevER - p.forex.baseExRate) / p.forex.baseExRate
-      if Math.abs(erDev) <= p.monetary.fxBand.toLong.toDouble / ScaleD then FxInterventionResult(0.0, PLN.Zero, reserves, PLN.Zero)
+      val erDeviation = prevER.deviationFrom(baseRate)
+      if erDeviation.abs.toScalar <= p.monetary.fxBand.toScalar then FxInterventionResult(ExchangeRateShock.Zero, PLN.Zero, reserves, PLN.Zero)
       else
-        val direction     = -Math.signum(erDev)
-        val maxByReserves = reservesD * (p.monetary.fxMaxMonthly.toLong.toDouble / ScaleD)
-        val magnitude     =
-          if direction < 0 then Math.min(maxByReserves, reservesD)
-          else maxByReserves
-        val eurTraded     = magnitude * direction
-        val newReserves   = reservesD + eurTraded
-        val gdpEffect     = if gdp > PLN.Zero then Math.abs(eurTraded) * p.forex.baseExRate / gdpD else 0.0
-        val erEffect      = direction * gdpEffect * (p.monetary.fxStrength.toLong.toDouble / ScaleD)
+        val direction      = -erDeviation.sign
+        val maxByReserves  = reserves * p.monetary.fxMaxMonthly
+        val tradeMagnitude = if direction < 0 then maxByReserves.min(reserves) else maxByReserves
+        val eurTraded      = if direction < 0 then -tradeMagnitude else tradeMagnitude
+        val newReserves    = (reserves + eurTraded).max(PLN.Zero)
+        val tradedPlnValue = PLN.fromRaw(bankerRound(BigInt(eurTraded.abs.toLong) * BigInt(prevER.toLong)))
+        val gdpEffect      = if gdp > PLN.Zero then tradedPlnValue.ratioTo(gdp) else Scalar.Zero
+        val unsignedShock  = ExchangeRateShock.fromRaw((gdpEffect * p.monetary.fxStrength).toLong)
+        val erShock        = if direction < 0 then -unsignedShock else unsignedShock
         // PLN injection: EUR purchase → NBP pays PLN to banks (+), EUR sale → banks pay PLN to NBP (−)
-        val plnInjection  = PLN(eurTraded * p.forex.baseExRate)
-        FxInterventionResult(erEffect, PLN(eurTraded), PLN(newReserves).max(PLN.Zero), plnInjection)
+        val plnInjection   = PLN.fromRaw(bankerRound(BigInt(eurTraded.toLong) * BigInt(prevER.toLong)))
+        FxInterventionResult(erShock, eurTraded, newReserves, plnInjection)

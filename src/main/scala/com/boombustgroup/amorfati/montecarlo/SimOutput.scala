@@ -15,7 +15,8 @@ import com.boombustgroup.amorfati.agents.Region
   */
 object SimOutput:
 
-  private val td = ComputationBoundary
+  private val td                                          = ComputationBoundary
+  private def exchangeRateValue(er: ExchangeRate): Double = er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 
   // -------------------------------------------------------------------------
   //  ColumnDef + Ctx
@@ -84,7 +85,7 @@ object SimOutput:
         if total > 0 then ctx.households.count(h => h.contractType == ContractType.B2B && h.status.isInstanceOf[HhStatus.Employed]).toDouble / total else 0.0,
     ),
     ColumnDef("TotalAdoption", ctx => td.toDouble(ctx.world.real.automationRatio + ctx.world.real.hybridRatio)),
-    ColumnDef("ExRate", ctx => ctx.world.forex.exchangeRate),
+    ColumnDef("ExRate", ctx => exchangeRateValue(ctx.world.forex.exchangeRate)),
     ColumnDef("MarketWage", ctx => td.toDouble(ctx.world.householdMarket.marketWage)),
     ColumnDef("GovDebt", ctx => td.toDouble(ctx.world.gov.cumulativeDebt)),
     ColumnDef("NPL", ctx => td.toDouble(ctx.bankAgg.nplRatio)),

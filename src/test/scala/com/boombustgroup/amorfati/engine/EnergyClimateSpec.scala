@@ -179,7 +179,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
     gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
     nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
     bankingSector = Generators.testBankingSector().marketState,
-    forex = OpenEconomy.ForexState(4.33, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+    forex = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
     hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
       employed = 100000,
       unemployed = 0,

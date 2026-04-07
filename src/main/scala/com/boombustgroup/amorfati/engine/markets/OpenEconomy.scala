@@ -18,13 +18,15 @@ import com.boombustgroup.amorfati.types.*
   * Calibration: NBP BoP statistics 2024, GUS national accounts.
   */
 object OpenEconomy:
+  private def exchangeRateValue(er: ExchangeRate): Double =
+    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 
   // ---------------------------------------------------------------------------
   // State types
   // ---------------------------------------------------------------------------
 
   case class ForexState(
-      exchangeRate: Double,
+      exchangeRate: ExchangeRate,
       imports: PLN,
       exports: PLN,
       tradeBalance: PLN,
@@ -80,7 +82,7 @@ object OpenEconomy:
       bop: BopState,
       importedIntermediates: Vector[PLN],
       valuationEffect: PLN,
-      fxIntervention: Nbp.FxInterventionResult = Nbp.FxInterventionResult(0.0, PLN.Zero, PLN.Zero, PLN.Zero),
+      fxIntervention: Nbp.FxInterventionResult = Nbp.FxInterventionResult(ExchangeRateShock.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
   )
 
   case class StepInput(
@@ -132,7 +134,7 @@ object OpenEconomy:
       in.gdp,
       true,
     )
-    val newExRate           = computeExchangeRate(in, caResult.ca, kaResult.total, fxResult.erEffect)
+    val newExRate           = computeExchangeRate(in, caResult.ca, kaResult.total, fxResult.erShock)
     val valEffect           = computeValuationEffect(in.prevBop, in.prevForex.exchangeRate, newExRate)
     val newNfa              = in.prevBop.nfa + caResult.ca + valEffect
 
@@ -174,7 +176,7 @@ object OpenEconomy:
     import ComputationBoundary.toDouble
     in.gvcIntermImports.getOrElse:
       val nSectors    = p.sectorDefs.length
-      val erNetEffect = Math.pow(in.prevForex.exchangeRate / p.forex.baseExRate, 1.0 - toDouble(p.openEcon.erElasticity))
+      val erNetEffect = Math.pow(exchangeRateValue(in.prevForex.exchangeRate) / p.forex.baseExRate, 1.0 - toDouble(p.openEcon.erElasticity))
       (0 until nSectors)
         .map: s =>
           val realOutput = if in.priceLevel > 0 then PLN(toDouble(in.sectorOutputs(s)) / in.priceLevel) else in.sectorOutputs(s)
@@ -213,9 +215,9 @@ object OpenEconomy:
     CapitalAccountResult(fdi + adjustedPortfolio, fdi, adjustedPortfolio, capitalFlight.newCarryState.stock)
 
   @boundaryEscape
-  private def realExchangeRateEffect(exchangeRate: Double, priceLevel: Double)(using p: SimParams): Double =
+  private def realExchangeRateEffect(exchangeRate: ExchangeRate, priceLevel: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
-    val nominalER = exchangeRate / p.forex.baseExRate
+    val nominalER = exchangeRateValue(exchangeRate) / p.forex.baseExRate
     val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER else 1.0
     Math.pow(1.0 / Math.max(MinRealPrice, realPrice), toDouble(p.openEcon.exportPriceElasticity))
 
@@ -224,19 +226,21 @@ object OpenEconomy:
       in: StepInput,
       ca: PLN,
       capitalAccount: PLN,
-      fxErEffect: Double,
-  )(using p: SimParams): Double =
+      fxErShock: ExchangeRateShock,
+  )(using p: SimParams): ExchangeRate =
     import ComputationBoundary.toDouble
     val annualGdp   = in.gdp * Multiplier(MonthsPerYear)
     val nfaGdpRatio = if in.gdp > PLN.Zero then in.prevBop.nfa / annualGdp else 0.0
     val bopGdpRatio = if in.gdp > PLN.Zero then (ca + capitalAccount) / in.gdp else 0.0
     val nfaRisk     = toDouble(p.openEcon.riskPremiumSensitivity) * Math.min(0.0, nfaGdpRatio)
     val pppDrift    = toDouble(((in.inflation - p.gvc.foreignInflation) * p.openEcon.pppSpeed).monthly)
-    val erChange    = toDouble(p.forex.exRateAdjSpeed) * (-bopGdpRatio + nfaRisk) + fxErEffect + pppDrift
-    Math.max(p.openEcon.erFloor, Math.min(p.openEcon.erCeiling, in.prevForex.exchangeRate * (1.0 + erChange)))
+    val fxShock     = fxErShock.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+    val erChange    = toDouble(p.forex.exRateAdjSpeed) * (-bopGdpRatio + nfaRisk) + fxShock + pppDrift
+    ExchangeRate(exchangeRateValue(in.prevForex.exchangeRate) * (1.0 + erChange))
+      .clamp(ExchangeRate(p.openEcon.erFloor), ExchangeRate(p.openEcon.erCeiling))
 
   @boundaryEscape
-  private def computeValuationEffect(prevBop: BopState, prevExRate: Double, newExRate: Double): PLN =
+  private def computeValuationEffect(prevBop: BopState, prevExRate: ExchangeRate, newExRate: ExchangeRate): PLN =
     import ComputationBoundary.toDouble
-    val erChange = (newExRate - prevExRate) / prevExRate
+    val erChange = newExRate.deviationFrom(prevExRate).toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
     PLN(toDouble(prevBop.foreignAssets) * erChange * ValuationPassThrough)

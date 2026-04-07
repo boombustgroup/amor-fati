@@ -24,7 +24,7 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
 
   // Helper: call with enabled=true
   private def fxEnabled(er: Double, reserves: Double, gdp: Double) =
-    Nbp.fxIntervention(er, PLN(reserves), PLN(gdp), enabled = true)
+    Nbp.fxIntervention(ExchangeRate(er), PLN(reserves), PLN(gdp), enabled = true)
 
   "Nbp.fxIntervention (enabled)" should "never produce negative reserves" in
     forAll(genER, genReserves, genGdp) { (er, reserves, gdp) =>
@@ -40,14 +40,11 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
       result.eurTraded.abs.should(be <= PLN(reserves + 1e-6))
     }
 
-  it should "have erEffect opposing deviation when outside band" in
+  it should "have erShock opposing deviation when outside band" in
     forAll(genER, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)
-      val erDev  = (er - p.forex.baseExRate) / p.forex.baseExRate
-      if Math.abs(erDev) > shareValue(p.monetary.fxBand) && reserves > 0 && gdp > 0 then
-        // erEffect should oppose the deviation
-        if erDev > 0 then result.erEffect.should(be <= 0.0)
-        else result.erEffect.should(be >= 0.0)
+      val erDev  = ExchangeRate(er).deviationFrom(ExchangeRate(p.forex.baseExRate))
+      if erDev.abs.toScalar > p.monetary.fxBand.toScalar && result.erShock != ExchangeRateShock.Zero then result.erShock.sign.shouldBe(-erDev.sign)
     }
 
   "Nbp.fxIntervention (enabled)" should "return zero effect when ER within band" in {
@@ -58,7 +55,7 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
     )
     forAll(genERInBand, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)
-      result.erEffect.shouldBe(0.0)
+      result.erShock.shouldBe(ExchangeRateShock.Zero)
       result.eurTraded.shouldBe(PLN.Zero)
     }
   }

@@ -117,7 +117,7 @@ object WorldInit:
       ),
       bankingSector = initBankingSector.marketState,
       forex = OpenEconomy.ForexState(
-        exchangeRate = p.forex.baseExRate,
+        exchangeRate = ExchangeRate(p.forex.baseExRate),
         imports = PLN.Zero,
         exports = p.openEcon.exportBase,
         tradeBalance = PLN.Zero,

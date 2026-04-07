@@ -22,17 +22,18 @@ import scala.util.Random
 object PriceEquityEconomics:
 
   // ---- Calibration constants ----
-  private val StartupCashMin    = 10000.0 // minimum startup cash for rewired entrant (PLN)
-  private val StartupCashMax    = 80000.0 // maximum startup cash for rewired entrant (PLN)
-  private val RiskProfileMin    = 0.1     // minimum risk profile draw for new entrant
-  private val RiskProfileMax    = 0.9     // maximum risk profile draw for new entrant
-  private val InnovCostMin      = 0.8     // minimum innovation cost factor draw
-  private val InnovCostMax      = 1.5     // maximum innovation cost factor draw
-  private val DigitalReadyFloor = 0.02    // minimum digital readiness for rewired entrant
-  private val DigitalReadyCap   = 0.98    // maximum digital readiness for rewired entrant
-  private val DigitalReadyNoise = 0.20    // std dev of Gaussian noise on sector base DR
-  private val AiMaintRealShare  = 0.60    // real (price-insensitive) share of AI/hybrid maintenance cost
-  private val AiMaintNomShare   = 0.40    // nominal (price-sensitive) share of AI/hybrid maintenance cost
+  private val StartupCashMin                              = 10000.0 // minimum startup cash for rewired entrant (PLN)
+  private val StartupCashMax                              = 80000.0 // maximum startup cash for rewired entrant (PLN)
+  private val RiskProfileMin                              = 0.1     // minimum risk profile draw for new entrant
+  private val RiskProfileMax                              = 0.9     // maximum risk profile draw for new entrant
+  private val InnovCostMin                                = 0.8     // minimum innovation cost factor draw
+  private val InnovCostMax                                = 1.5     // maximum innovation cost factor draw
+  private def exchangeRateValue(er: ExchangeRate): Double = er.toLong.toDouble / ScaleD
+  private val DigitalReadyFloor                           = 0.02    // minimum digital readiness for rewired entrant
+  private val DigitalReadyCap                             = 0.98    // maximum digital readiness for rewired entrant
+  private val DigitalReadyNoise                           = 0.20    // std dev of Gaussian noise on sector base DR
+  private val AiMaintRealShare                            = 0.60    // real (price-insensitive) share of AI/hybrid maintenance cost
+  private val AiMaintNomShare                             = 0.40    // nominal (price-sensitive) share of AI/hybrid maintenance cost
 
   case class Input(
       w: World,                         // current world state
@@ -269,7 +270,7 @@ object PriceEquityEconomics:
 
     val rewiredFirms = rewireFirms(in.s5.ioFirms, toDouble(p.firm.rewireRho), rng)
 
-    val exDev    = (in.w.forex.exchangeRate / p.forex.baseExRate) - 1.0
+    val exDev    = exchangeRateValue(in.w.forex.exchangeRate) / p.forex.baseExRate - 1.0
     val priceUpd = PriceLevel.update(
       in.w.inflation,
       in.w.priceLevel,
