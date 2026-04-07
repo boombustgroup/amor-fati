@@ -30,21 +30,13 @@ object RegionalMigration:
   /** Monthly migration step: unemployed HH may relocate to a better region.
     * Employed workers are tied to their firm's region and do not migrate.
     */
-  def apply(
-      households: Vector[Household.State],
-      regionalWages: Map[Region, PLN],
-      rng: Random,
-  )(using p: SimParams): Result =
+  def apply(households: Vector[Household.State], regionalWages: Map[Region, PLN], rng: Random)(using p: SimParams): Result =
     Result(households.map(considerMigration(_, regionalWages, rng)))
 
   /** Evaluate migration for a single household. Only unemployed workers
     * consider relocation.
     */
-  private def considerMigration(
-      hh: Household.State,
-      regionalWages: Map[Region, PLN],
-      rng: Random,
-  )(using p: SimParams): Household.State =
+  private def considerMigration(hh: Household.State, regionalWages: Map[Region, PLN], rng: Random)(using p: SimParams) =
     hh.status match
       case HhStatus.Unemployed(_) => tryRelocate(hh, regionalWages, rng)
       case _                      => hh
@@ -53,43 +45,32 @@ object RegionalMigration:
     * region (highest migration probability), then rolls the dice to decide
     * whether to move.
     */
-  private def tryRelocate(
-      hh: Household.State,
-      regionalWages: Map[Region, PLN],
-      rng: Random,
-  )(using p: SimParams): Household.State =
+  private def tryRelocate(hh: Household.State, regionalWages: Map[Region, PLN], rng: Random)(using p: SimParams) =
     val currentWage = regionalWages.getOrElse(hh.region, PLN.Zero)
-    findBestTarget(hh.region, currentWage, regionalWages) match
-      case Some((target, prob)) =>
-        val effectiveProb = prob * p.regional.baseMigrationRate
-        if effectiveProb.sampleBelow(rng) then hh.copy(region = target)
-        else hh
-      case None                 => hh
+    findBestTarget(hh.region, currentWage, regionalWages).fold(hh): (target, targetScore) =>
+      val moveProbability = targetScore * p.regional.baseMigrationRate
+      if moveProbability.sampleBelow(rng) then hh.copy(region = target)
+      else hh
 
   /** Find the destination region with highest migration probability. Returns
     * None if no viable target exists (all blocked by housing barrier or wage
     * differential).
     */
-  private def findBestTarget(
-      origin: Region,
-      originWage: PLN,
-      regionalWages: Map[Region, PLN],
-  )(using p: SimParams): Option[(Region, Share)] =
+  private def findBestTarget(origin: Region, originWage: PLN, regionalWages: Map[Region, PLN])(using p: SimParams) =
+    candidateTargets(origin, originWage, regionalWages).maxByOption(_._2.toLong)
+
+  /** Score all viable destination regions for a migrant from the origin region.
+    */
+  private def candidateTargets(origin: Region, originWage: PLN, regionalWages: Map[Region, PLN])(using p: SimParams) =
     Region.all
       .filter(_ != origin)
-      .map(target => (target, migrationProb(origin, target, originWage, regionalWages)))
-      .filter(_._2 > Share.Zero)
-      .maxByOption(_._2.toLong)
+      .map(target => (target, destinationScore(origin, target, originWage, regionalWages)))
+      .filter((_, score) => score > Share.Zero)
 
-  /** Compute migration probability from origin to a specific target. Wraps
+  /** Compute migration score from origin to a specific target. Wraps
     * Region.migrationProbability with wage ratio computation.
     */
-  private def migrationProb(
-      origin: Region,
-      target: Region,
-      originWage: PLN,
-      regionalWages: Map[Region, PLN],
-  )(using p: SimParams): Share =
+  private def destinationScore(origin: Region, target: Region, originWage: PLN, regionalWages: Map[Region, PLN])(using p: SimParams) =
     val targetWage = regionalWages.getOrElse(target, PLN.Zero)
-    val wageRatio  = if originWage > PLN.Zero then Multiplier(targetWage / originWage) else Multiplier.One
+    val wageRatio  = if originWage > PLN.Zero then targetWage.ratioTo(originWage).toMultiplier else Multiplier.One
     Region.migrationProbability(origin, target, wageRatio, p.regional.housingBarrierThreshold)
