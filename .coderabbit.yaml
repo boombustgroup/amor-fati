@@ -3,7 +3,7 @@ language: "en-US"
 early_access: false
 
 reviews:
-  profile: "critical"
+  profile: "assertive"
   request_changes_workflow: true
   high_level_summary: true
   poem: false # Disabling the annoying poem at the end of the PR summary
