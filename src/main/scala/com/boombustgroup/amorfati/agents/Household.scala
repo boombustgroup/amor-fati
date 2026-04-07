@@ -171,20 +171,18 @@ object Household:
       * NAIRU-fraction of households start as Unemployed(0) so the economy
       * initializes near steady state rather than overheated.
       */
-    @boundaryEscape
     def create(rng: Random, firms: Vector[Firm.State])(using p: SimParams): Vector[State] =
-      inline def shareRaw(s: Share): Double = s.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-      val hhCount                           = firms.map(Firm.workerCount).sum
-      val hhNetwork                         = Network.wattsStrogatz(hhCount, p.household.socialK, shareRaw(p.household.socialP), rng)
-      val hhs                               = initialize(hhCount, firms, hhNetwork, rng)
+      val hhCount     = firms.map(Firm.workerCount).sum
+      val hhNetwork   = Network.wattsStrogatz(hhCount, p.household.socialK, p.household.socialP, rng)
+      val hhs         = initialize(hhCount, firms, hhNetwork, rng)
       // Assign households to same bank as their employer
-      val banked                            = hhs.map: h =>
+      val banked      = hhs.map: h =>
         h.status match
           case HhStatus.Employed(fid, _, _) if fid.toInt < firms.length => h.copy(bankId = firms(fid.toInt).bankId)
           case _                                                        => h
       // Set NAIRU fraction as unemployed — prevents overheated init
-      val nUnemployed                       = (hhCount.toLong * p.monetary.nairu.toLong / 10000L).toInt
-      val toUnemploy                        = rng.shuffle(banked.indices.toVector).take(nUnemployed).toSet
+      val nUnemployed = p.monetary.nairu.applyTo(hhCount)
+      val toUnemploy  = rng.shuffle(banked.indices.toVector).take(nUnemployed).toSet
       banked.zipWithIndex.map: (h, i) =>
         if toUnemploy.contains(i) then
           h.status match
@@ -213,7 +211,6 @@ object Household:
       }
 
     /** Sample attributes for a single household from init distributions. */
-    @boundaryEscape
     private def sampleHousehold(
         hhId: Int,
         firm: Firm.State,
@@ -221,24 +218,19 @@ object Household:
         socialNetwork: Array[Array[Int]],
         rng: Random,
     )(using p: SimParams): State =
-      inline def plnRaw(amount: PLN): Double = amount.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-      val savings: PLN                       = PLN(Math.exp(p.household.savingsMu + p.household.savingsSigma * rng.nextGaussian()))
-      val debt: PLN                          =
-        if p.household.debtFraction.sampleBelow(rng) then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian()))
-        else PLN.Zero
-      val baseRent: PLN                      = PLN((plnRaw(p.household.rentMean) + plnRaw(p.household.rentStd) * rng.nextGaussian()).max(plnRaw(p.household.rentFloor)))
-      val rent: PLN                          = baseRent * firm.region.housingCostIndex
-      val mpc                                = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
-      val (edu, skill)                       = sampleEducationAndSkill(sectorIdx, rng)
-      val wage: PLN                          = p.household.baseWage * Region.normalizedWageMultiplier(firm.region) * p.sectorDefs(sectorIdx.toInt).wageMultiplier * skill
-      val eqWealth: PLN                      =
-        if p.equity.hhEquityFrac.sampleBelow(rng) then savings * GpwEquityInitFrac
-        else PLN.Zero
-      val numChildren                        = Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
-      val consDebt: PLN                      =
-        if p.household.debtFraction.sampleBelow(rng) then PLN(Math.exp(p.household.debtMu + p.household.debtSigma * rng.nextGaussian())) * ConsumerDebtInitFrac
-        else PLN.Zero
-      val routineness                        = sampleTaskRoutineness(edu, sectorIdx, rng)
+      val savings: PLN  = Distributions.lognormalPln(p.household.savingsMu, p.household.savingsSigma, rng)
+      val hasDebt       = p.household.debtFraction.sampleBelow(rng)
+      val debt: PLN     = if hasDebt then Distributions.lognormalPln(p.household.debtMu, p.household.debtSigma, rng) else PLN.Zero
+      val baseRent: PLN = Distributions.gaussianPlnAtLeast(p.household.rentMean, p.household.rentStd, p.household.rentFloor, rng)
+      val rent: PLN     = baseRent * firm.region.housingCostIndex
+      val mpc           = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
+      val (edu, skill)  = sampleEducationAndSkill(sectorIdx, rng)
+      val wage: PLN     = p.household.baseWage * Region.normalizedWageMultiplier(firm.region) * p.sectorDefs(sectorIdx.toInt).wageMultiplier * skill
+      val eqWealth: PLN = if p.equity.hhEquityFrac.sampleBelow(rng) then savings * GpwEquityInitFrac else PLN.Zero
+      val numChildren   = Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
+      val consDebt: PLN = if hasDebt then Distributions.lognormalPln(p.household.debtMu, p.household.debtSigma, rng) * ConsumerDebtInitFrac else PLN.Zero
+      val routineness   = sampleTaskRoutineness(edu, sectorIdx, rng)
+
       State(
         id = HhId(hhId),
         savings = savings,
@@ -248,8 +240,7 @@ object Household:
         healthPenalty = Share.Zero,
         mpc = Share(mpc).clamp(MpcFloor, MpcCeiling),
         status = HhStatus.Employed(firm.id, sectorIdx, wage),
-        socialNeighbors =
-          if hhId < socialNetwork.length then socialNetwork(hhId).map(HhId(_)) else Array.empty[HhId],
+        socialNeighbors = if hhId < socialNetwork.length then socialNetwork(hhId).map(HhId(_)) else Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = eqWealth,
         lastSectorIdx = sectorIdx,
@@ -263,22 +254,13 @@ object Household:
       )
 
     /** Sample education level and skill for a sector, clamped to edu range. */
-    @boundaryEscape
     private def sampleEducationAndSkill(sectorIdx: SectorIdx, rng: Random)(using p: SimParams): (Int, Share) =
-      inline def shareRaw(s: Share): Double = s.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-      inline def sigmaRaw(s: Sigma): Double = s.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-      val edu                               = p.social.drawEducation(sectorIdx.toInt, rng)
-      val (skillFloorS, skillCeilingS)      = p.social.eduSkillRange(edu)
-      val skillFloor                        = shareRaw(skillFloorS)
-      val skillCeiling                      = shareRaw(skillCeilingS)
-      val sectorSigma                       = sigmaRaw(p.sectorDefs(sectorIdx.toInt).sigma)
-      val baseSkill                         = skillFloor + (skillCeiling - skillFloor) * rng.nextDouble()
-      val sectorBonus                       = Math.min(
-        SectorSkillBonusMax.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD,
-        (SectorSkillBonusCoeff * Scalar(Math.log(sectorSigma))).toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD,
-      )
-      val skill                             = Math.max(skillFloor, Math.min(skillCeiling, baseSkill + sectorBonus))
-      (edu, Share(skill))
+      val edu                          = p.social.drawEducation(sectorIdx.toInt, rng)
+      val (skillFloorS, skillCeilingS) = p.social.eduSkillRange(edu)
+      val baseSkill                    = Distributions.randomShareBetween(skillFloorS, skillCeilingS, rng)
+      val sectorBonus                  = (SectorSkillBonusCoeff * p.sectorDefs(sectorIdx.toInt).sigma.toScalar.log10).min(SectorSkillBonusMax).toShare
+      val skill                        = (baseSkill + sectorBonus).clamp(skillFloorS, skillCeilingS)
+      (edu, skill)
 
     /** Sample task routineness based on education and sector sigma.
       *
@@ -288,15 +270,11 @@ object Household:
       *
       * routineness = base(edu) + σ-bonus, clamped to [0.05, 0.95], with noise.
       */
-    @boundaryEscape
     private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: Random)(using p: SimParams): Share =
-      inline def shareRaw(s: Share): Double = s.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-      inline def sigmaRaw(s: Sigma): Double = s.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-      val eduBase                           = shareRaw(p.labor.sbtcEduRoutineness(edu))
-      val sigma                             = sigmaRaw(p.sectorDefs(sectorIdx.toInt).sigma)
-      val sigmaAdj                          = 0.05 * Math.log(sigma) / Math.log(10.0)
-      val noise                             = 0.05 * (rng.nextDouble() - 0.5)
-      Share(eduBase + sigmaAdj + noise).clamp(Share(0.05), Share(0.95))
+      val eduBase  = p.labor.sbtcEduRoutineness(edu)
+      val sigmaAdj = (Scalar(0.05) * p.sectorDefs(sectorIdx.toInt).sigma.toScalar.log10).toShare
+      val noise    = Scalar.randomBetween(Scalar(-0.025), Scalar(0.025), rng).toShare
+      (eduBase + sigmaAdj + noise).clamp(Share(0.05), Share(0.95))
 
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 

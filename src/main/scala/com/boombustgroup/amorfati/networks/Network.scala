@@ -1,5 +1,8 @@
 package com.boombustgroup.amorfati.networks
 
+import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+import com.boombustgroup.amorfati.types.Share
+
 import scala.util.Random
 
 /** Graph generation algorithms for agent interaction networks.
@@ -79,6 +82,10 @@ object Network:
           adj(newTarget) += i
 
     adj.map(_.toArray)
+
+  /** Typed overload for household rewiring probability. */
+  def wattsStrogatz(n: Int, k: Int, p: Share, rng: Random): Array[Array[Int]] =
+    wattsStrogatz(n, k, p.toLong.toDouble / ScaleD, rng)
 
   /** Generate an Erdős–Rényi G(n,p) random graph with target average degree.
     *

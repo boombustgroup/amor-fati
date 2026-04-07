@@ -23,6 +23,11 @@ object Distributions:
       i += 1
     shares.length - 1
 
+  /** Sample a share uniformly from [lo, hi]. */
+  def randomShareBetween(lo: Share, hi: Share, rng: Random): Share =
+    if hi <= lo then lo
+    else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
+
   /** Sample from Poisson(lambda) using Knuth algorithm (small λ). */
   def poissonSample(lambda: Double, rng: Random): Int =
     if lambda <= 0 then 0
@@ -77,6 +82,10 @@ object Distributions:
   /** Sample a PLN value around mean with Gaussian noise and clamp to floor. */
   def gaussianPlnAtLeast(mean: PLN, std: PLN, floor: PLN, rng: Random): PLN =
     PLN.fromRaw((mean.toLong + math.round(std.toLong.toDouble * rng.nextGaussian())).max(floor.toLong))
+
+  /** Sample a PLN value from a lognormal distribution. */
+  def lognormalPln(mu: Double, sigma: Double, rng: Random): PLN =
+    PLN(Math.exp(mu + sigma * rng.nextGaussian()))
 
   /** Sample a PLN value uniformly from [0, maxExclusive). */
   def randomPlnBelow(maxExclusive: PLN, rng: Random): PLN =
