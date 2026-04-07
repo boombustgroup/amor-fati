@@ -12,11 +12,11 @@ object Nbfi:
   // Named constants
   // ---------------------------------------------------------------------------
 
-  private val NplTightnessFloor     = 0.03 // NPL ratio below which bank tightness = 0
-  private val NplTightnessRange     = 0.03 // NPL range over which tightness rises from 0 → 1
-  private val UnempDefaultThreshold = 0.05 // unemployment rate below which no cyclical default add-on
-  private val ExcessReturnSens      = 5.0  // TFI inflow sensitivity to excess fund vs deposit return
-  private val ExcessReturnCap       = 0.05 // cap on absolute excess return signal
+  private val NplTightnessFloor: Share      = Share(0.03)      // NPL ratio below which bank tightness = 0
+  private val NplTightnessRange: Share      = Share(0.03)      // NPL range over which tightness rises from 0 → 1
+  private val UnempDefaultThreshold: Share  = Share(0.05)      // unemployment rate below which no cyclical default add-on
+  private val ExcessReturnSens: Coefficient = Coefficient(5.0) // TFI inflow sensitivity to excess fund vs deposit return
+  private val ExcessReturnCap: Rate         = Rate(0.05)       // cap on absolute excess return signal
 
   // ---------------------------------------------------------------------------
   // State
@@ -134,8 +134,8 @@ object Nbfi:
 
   /** Bank credit tightness signal: 0 at NPL ≤ 3%, rises linearly, 1.0 at 6%. */
   def bankTightness(bankNplRatio: Share): Share =
-    val nplExcess = (bankNplRatio - Share(NplTightnessFloor)).max(Share.Zero)
-    nplExcess.ratioTo(Share(NplTightnessRange)).toShare.clamp(Share.Zero, Share.One)
+    val nplExcess = (bankNplRatio - NplTightnessFloor).max(Share.Zero)
+    nplExcess.ratioTo(NplTightnessRange).toShare.clamp(Share.Zero, Share.One)
 
   /** TFI net inflow: proportional to wage bill, modulated by excess returns. */
   def tfiInflow(employed: Int, wage: PLN, equityReturn: Rate, govBondYield: Rate, depositRate: Rate)(using
@@ -147,8 +147,8 @@ object Nbfi:
     val fundReturn = govBondYield * p.nbfi.tfiGovBondShare +
       equityReturn.annualize * p.nbfi.tfiEquityShare +
       govBondYield * p.nbfi.tfiCorpBondShare // proxy: corp ~ gov yield
-    val excessReturn = (fundReturn - depositRate).clamp(Rate(-ExcessReturnCap), Rate(ExcessReturnCap))
-    base * (Multiplier.One + (excessReturn * Coefficient(ExcessReturnSens)).toMultiplier)
+    val excessReturn = (fundReturn - depositRate).clamp(-ExcessReturnCap, ExcessReturnCap)
+    base * (Multiplier.One + (excessReturn * ExcessReturnSens).toMultiplier)
 
   /** NBFI credit origination: counter-cyclical to bank tightness. */
   def nbfiOrigination(domesticCons: PLN, bankNplRatio: Share)(using p: SimParams): PLN =
@@ -162,7 +162,7 @@ object Nbfi:
 
   /** NBFI defaults: base rate widening with unemployment. */
   def nbfiDefaults(loanStock: PLN, unempRate: Share)(using p: SimParams): PLN =
-    val unempExcess = (unempRate - Share(UnempDefaultThreshold)).max(Share.Zero)
+    val unempExcess = (unempRate - UnempDefaultThreshold).max(Share.Zero)
     val cyclicalAdj = Multiplier.One + (p.nbfi.defaultUnempSens * unempExcess).toMultiplier
     loanStock * p.nbfi.defaultBase * cyclicalAdj
 
