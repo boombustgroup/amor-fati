@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.flows
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.fp.ComputationBoundary
+import com.boombustgroup.amorfati.tags.Heavy
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -11,6 +12,7 @@ import org.scalatest.matchers.should.Matchers
   * No old Simulation.step() in the loop. FlowSimulation produces new World,
   * which feeds into next month's FlowSimulation.step().
   */
+@Heavy
 class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults

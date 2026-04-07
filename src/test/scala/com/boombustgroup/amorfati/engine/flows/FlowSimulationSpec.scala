@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.tags.Heavy
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -12,6 +13,7 @@ import org.scalatest.matchers.should.Matchers
   * emitAllBatches → batch bridge → Interpreter) closes at SFC == 0L when fed
   * with real simulation data.
   */
+@Heavy
 class FlowSimulationSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
