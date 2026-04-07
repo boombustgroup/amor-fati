@@ -225,7 +225,7 @@ object SimOutput:
     ColumnDef("M1", ctx => ctx.monetaryAgg.map(a => td.toDouble(a.m1)).getOrElse(td.toDouble(ctx.bankAgg.deposits))),
     ColumnDef("M2", ctx => ctx.monetaryAgg.map(a => td.toDouble(a.m2)).getOrElse(td.toDouble(ctx.bankAgg.deposits))),
     ColumnDef("M3", ctx => ctx.monetaryAgg.map(a => td.toDouble(a.m3)).getOrElse(td.toDouble(ctx.bankAgg.deposits))),
-    ColumnDef("CreditMultiplier", ctx => ctx.monetaryAgg.map(_.creditMultiplier).getOrElse(0.0)),
+    ColumnDef("CreditMultiplier", ctx => ctx.monetaryAgg.map(a => td.toDouble(a.creditMultiplier)).getOrElse(0.0)),
     ColumnDef("FofResidual", ctx => td.toDouble(ctx.world.plumbing.fofResidual)),
   )
 

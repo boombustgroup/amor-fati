@@ -14,22 +14,22 @@ object Banking:
   // ---------------------------------------------------------------------------
 
   /** Corp bond risk weight (Basel III, BBB bucket). */
-  private val CorpBondRiskWeight = 0.50
+  private val CorpBondRiskWeight: Share = Share(0.50)
 
   /** Well-capitalised floor for CAR/LCR/NSFR when denominator ≤ threshold. */
-  private val SafeRatioFloor = Multiplier(10.0)
+  private val SafeRatioFloor: Multiplier = Multiplier(10.0)
 
   /** Minimum balance threshold to avoid division by zero. */
-  private val MinBalanceThreshold = 1.0
+  private val MinBalanceThreshold: PLN = PLN(1.0)
 
   // NSFR weights (Basel III §6)
-  private val AsfTermWeight   = 0.95
-  private val AsfDemandWeight = 0.90
-  private val RsfShort        = 0.50
-  private val RsfMedium       = 0.65
-  private val RsfLong         = 0.85
-  private val RsfGovBond      = 0.05
-  private val RsfCorpBond     = 0.50
+  private val AsfTermWeight: Share   = Share(0.95)
+  private val AsfDemandWeight: Share = Share(0.90)
+  private val RsfShort: Share        = Share(0.50)
+  private val RsfMedium: Share       = Share(0.65)
+  private val RsfLong: Share         = Share(0.85)
+  private val RsfGovBond: Share      = Share(0.05)
+  private val RsfCorpBond: Share     = Share(0.50)
 
   // Lending rate components
   private val FailedBankSpread: Rate           = Rate(0.50)      // 500 bps penalty spread for failed banks
@@ -93,7 +93,7 @@ object Banking:
     /** Non-performing loan ratio: nplAmount / totalLoans. Returns Share.Zero
       * when loan book is empty.
       */
-    def nplRatio: Share = if totalLoans > PLN(1.0) then Share(nplAmount / totalLoans) else Share.Zero
+    def nplRatio: Share = if totalLoans > MinBalanceThreshold then nplAmount.ratioTo(totalLoans).toShare else Share.Zero
 
     /** Capital adequacy ratio: capital / risk-weighted assets. Corporate bonds
       * carry 50% risk weight (Basel III, BBB bucket). Returns Multiplier(10.0)
@@ -101,20 +101,20 @@ object Banking:
       * by zero.
       */
     def car: Multiplier =
-      val totalRwa = totalLoans + consumerLoans + corpBondHoldings * Share(0.50)
-      if totalRwa > PLN(1.0) then Multiplier(capital / totalRwa) else Multiplier(10.0)
+      val totalRwa = totalLoans + consumerLoans + corpBondHoldings * CorpBondRiskWeight
+      if totalRwa > MinBalanceThreshold then capital.ratioTo(totalRwa).toMultiplier else SafeRatioFloor
 
   def aggregateFromBanks(banks: Vector[BankState]): Aggregate =
     Aggregate(
-      totalLoans = PLN.fromRaw(banks.map(_.loans.toLong).sum),
-      nplAmount = PLN.fromRaw(banks.map(_.nplAmount.toLong).sum),
-      capital = PLN.fromRaw(banks.map(_.capital.toLong).sum),
-      deposits = PLN.fromRaw(banks.map(_.deposits.toLong).sum),
-      afsBonds = PLN.fromRaw(banks.map(_.afsBonds.toLong).sum),
-      htmBonds = PLN.fromRaw(banks.map(_.htmBonds.toLong).sum),
-      consumerLoans = PLN.fromRaw(banks.map(_.consumerLoans.toLong).sum),
-      consumerNpl = PLN.fromRaw(banks.map(_.consumerNpl.toLong).sum),
-      corpBondHoldings = PLN.fromRaw(banks.map(_.corpBondHoldings.toLong).sum),
+      totalLoans = banks.foldLeft(PLN.Zero)(_ + _.loans),
+      nplAmount = banks.foldLeft(PLN.Zero)(_ + _.nplAmount),
+      capital = banks.foldLeft(PLN.Zero)(_ + _.capital),
+      deposits = banks.foldLeft(PLN.Zero)(_ + _.deposits),
+      afsBonds = banks.foldLeft(PLN.Zero)(_ + _.afsBonds),
+      htmBonds = banks.foldLeft(PLN.Zero)(_ + _.htmBonds),
+      consumerLoans = banks.foldLeft(PLN.Zero)(_ + _.consumerLoans),
+      consumerNpl = banks.foldLeft(PLN.Zero)(_ + _.consumerNpl),
+      corpBondHoldings = banks.foldLeft(PLN.Zero)(_ + _.corpBondHoldings),
     )
 
   // ---------------------------------------------------------------------------
@@ -128,14 +128,14 @@ object Banking:
     * short-term corporate bonds (money market instruments)
     */
   case class MonetaryAggregates(
-      m0: PLN,                 // monetary base: reserves at NBP
-      m1: PLN,                 // narrow money: demand deposits
-      m2: PLN,                 // intermediate: M1 + term deposits
-      m3: PLN,                 // broad money: M2 + TFI AUM + corp bonds
-      creditMultiplier: Double, // m2 / m0 (broad deposit multiplier)
+      m0: PLN,                     // monetary base: reserves at NBP
+      m1: PLN,                     // narrow money: demand deposits
+      m2: PLN,                     // intermediate: M1 + term deposits
+      m3: PLN,                     // broad money: M2 + TFI AUM + corp bonds
+      creditMultiplier: Multiplier, // m2 / m0 (broad deposit multiplier)
   )
   object MonetaryAggregates:
-    val zero: MonetaryAggregates = MonetaryAggregates(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, 0)
+    val zero: MonetaryAggregates = MonetaryAggregates(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Multiplier.Zero)
 
     def compute(banks: Vector[BankState], tfiAum: PLN, corpBondOutstanding: PLN): MonetaryAggregates =
       val alive  = banks.filterNot(_.failed)
@@ -145,7 +145,7 @@ object Banking:
       val m1     = demand
       val m2     = demand + term
       val m3     = m2 + tfiAum + corpBondOutstanding
-      MonetaryAggregates(m0, m1, m2, m3, m2 / m0.max(PLN(1.0)))
+      MonetaryAggregates(m0, m1, m2, m3, m2.ratioTo(m0.max(MinBalanceThreshold)).toMultiplier)
 
   // ---------------------------------------------------------------------------
   // Named result types
@@ -233,15 +233,15 @@ object Banking:
       * book is empty.
       */
     def nplRatio: Share =
-      if loans > PLN(MinBalanceThreshold) then Share(nplAmount / loans) else Share.Zero
+      if loans > MinBalanceThreshold then nplAmount.ratioTo(loans).toShare else Share.Zero
 
     /** Capital adequacy ratio: capital / risk-weighted assets (Basel III). Corp
       * bonds carry [[CorpBondRiskWeight]] risk weight (BBB bucket). Returns
       * [[SafeRatioFloor]] when RWA ≤ [[MinBalanceThreshold]].
       */
     def car: Multiplier =
-      val totalRwa = loans + consumerLoans + corpBondHoldings * Share(CorpBondRiskWeight)
-      if totalRwa > PLN(MinBalanceThreshold) then Multiplier(capital / totalRwa) else SafeRatioFloor
+      val totalRwa = loans + consumerLoans + corpBondHoldings * CorpBondRiskWeight
+      if totalRwa > MinBalanceThreshold then capital.ratioTo(totalRwa).toMultiplier else SafeRatioFloor
 
     /** High-quality liquid assets: reserves + gov bonds (Basel III Level 1). */
     def hqla: PLN = reservesAtNbp + govBondHoldings
@@ -251,20 +251,20 @@ object Banking:
 
     /** Liquidity Coverage Ratio = HQLA / net cash outflows (Basel III). */
     def lcr(using p: SimParams): Multiplier =
-      if netCashOutflows > PLN(MinBalanceThreshold) then Multiplier(hqla / netCashOutflows)
+      if netCashOutflows > MinBalanceThreshold then hqla.ratioTo(netCashOutflows).toMultiplier
       else SafeRatioFloor
 
     /** Available Stable Funding (Basel III NSFR numerator). */
-    def asf: PLN = capital + termDeposits * Share(AsfTermWeight) + demandDeposits * Share(AsfDemandWeight)
+    def asf: PLN = capital + termDeposits * AsfTermWeight + demandDeposits * AsfDemandWeight
 
     /** Required Stable Funding (Basel III NSFR denominator). */
     def rsf: PLN =
-      loansShort * Share(RsfShort) + loansMedium * Share(RsfMedium) + loansLong * Share(RsfLong) +
-        govBondHoldings * Share(RsfGovBond) + corpBondHoldings * Share(RsfCorpBond)
+      loansShort * RsfShort + loansMedium * RsfMedium + loansLong * RsfLong +
+        govBondHoldings * RsfGovBond + corpBondHoldings * RsfCorpBond
 
     /** Net Stable Funding Ratio = ASF / RSF. */
     def nsfr: Multiplier =
-      if rsf > PLN(MinBalanceThreshold) then Multiplier(asf / rsf) else SafeRatioFloor
+      if rsf > MinBalanceThreshold then asf.ratioTo(rsf).toMultiplier else SafeRatioFloor
 
   /** State of the entire banking sector. */
   case class State(
@@ -370,14 +370,14 @@ object Banking:
     val aggReserves = PLN.fromRaw(alive.map(_.reservesAtNbp.toLong).sum)
 
     // Credit stress: NPL ratio relative to stress threshold (0 = healthy, 1 = max stress)
-    val aggNplShare  = if aggLoans > PLN(MinBalanceThreshold) then Share(aggNpl / aggLoans) else Share.Zero
-    val creditStress = Share(aggNplShare / p.banking.stressThreshold).clamp(Share.Zero, Share.One)
+    val aggNplShare  = if aggLoans > MinBalanceThreshold then aggNpl.ratioTo(aggLoans).toShare else Share.Zero
+    val creditStress = aggNplShare.ratioTo(p.banking.stressThreshold).toShare.clamp(Share.Zero, Share.One)
 
     // Liquidity position: excess reserves relative to required (0 = scarce, 1 = abundant)
     val requiredReserves = aggDeposits * p.banking.reserveReq
     val excessReserves   = aggReserves - requiredReserves
     val liquidityRatio   =
-      if requiredReserves > PLN.Zero then Share(excessReserves / requiredReserves).clamp(Share.Zero, Share.One)
+      if requiredReserves > PLN.Zero then excessReserves.ratioTo(requiredReserves).toShare.clamp(Share.Zero, Share.One)
       else Share.One
 
     val depositRate  = Rate.Zero.max(refRate - DepositSpreadFromRef)
@@ -400,8 +400,8 @@ object Banking:
   def canLend(bank: BankState, amount: PLN, rng: Random, ccyb: Multiplier)(using p: SimParams): Boolean =
     if bank.failed then false
     else
-      val projectedRwa = bank.loans + bank.consumerLoans + bank.corpBondHoldings * Share(CorpBondRiskWeight) + amount
-      val projectedCar = if projectedRwa > PLN(1.0) then Multiplier(bank.capital / projectedRwa) else Multiplier(10.0)
+      val projectedRwa = bank.loans + bank.consumerLoans + bank.corpBondHoldings * CorpBondRiskWeight + amount
+      val projectedCar = if projectedRwa > MinBalanceThreshold then bank.capital.ratioTo(projectedRwa).toMultiplier else SafeRatioFloor
       val minCar       = Macroprudential.effectiveMinCar(bank.id.toInt, ccyb)
       val carOk        = projectedCar >= minCar
       val lcrOk        = bank.lcr >= p.banking.lcrMin
@@ -654,7 +654,7 @@ object Banking:
       val total = b.govBondHoldings
       if total <= PLN.Zero then b.copy(afsBonds = b.afsBonds + amount * Share(0.5), htmBonds = b.htmBonds + amount * Share(0.5))
       else
-        val afsFrac   = Share(b.afsBonds / total)
+        val afsFrac   = b.afsBonds.ratioTo(total).toShare
         val afsReduce = amount * afsFrac
         val htmReduce = amount - afsReduce
         b.copy(afsBonds = b.afsBonds + afsReduce, htmBonds = b.htmBonds + htmReduce)

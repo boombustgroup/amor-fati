@@ -347,7 +347,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       termDeposits = PLN(1.8e9),
     )
     val agg = Banking.MonetaryAggregates.compute(Vector(b), PLN.Zero, PLN.Zero)
-    agg.creditMultiplier shouldBe (4.5 +- 0.01)
+    agg.creditMultiplier shouldBe Multiplier(4.5)
   }
 
   it should "handle zero reserves with floor" in {
@@ -356,7 +356,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       termDeposits = PLN(4e8),
     )
     val agg = Banking.MonetaryAggregates.compute(Vector(b), PLN.Zero, PLN.Zero)
-    agg.creditMultiplier shouldBe (1e9 +- 1.0) // m2 / max(PLN(1.0), PLN.Zero)
+    agg.creditMultiplier shouldBe Multiplier(1e9) // m2 / max(PLN(1.0), PLN.Zero)
   }
 
   "MonetaryAggregates.zero" should "have all zero values" in {
@@ -364,7 +364,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     Banking.MonetaryAggregates.zero.m1 shouldBe PLN.Zero
     Banking.MonetaryAggregates.zero.m2 shouldBe PLN.Zero
     Banking.MonetaryAggregates.zero.m3 shouldBe PLN.Zero
-    Banking.MonetaryAggregates.zero.creditMultiplier shouldBe 0.0
+    Banking.MonetaryAggregates.zero.creditMultiplier shouldBe Multiplier.Zero
   }
 
   // =========================================================================
