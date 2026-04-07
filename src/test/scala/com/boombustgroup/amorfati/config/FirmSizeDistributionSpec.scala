@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.config
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.types.*
@@ -10,7 +11,6 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   "FirmSizeDistribution.draw" should "return values in valid ranges for Gus distribution" in {
     val rng        = new Random(42)
@@ -76,9 +76,9 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
   it should "give same per-worker revenue at full employment regardless of size" in {
     val f5           = mkFirm(TechState.Traditional(5), sector = 2, size = 5)
     val f100         = mkFirm(TechState.Traditional(100), sector = 2, size = 100)
-    val perWorker5   = td.toDouble(Firm.computeCapacity(f5)) / 5.0
-    val perWorker100 = td.toDouble(Firm.computeCapacity(f100)) / 100.0
-    perWorker5 shouldBe (perWorker100 +- 0.01)
+    val perWorker5   = Firm.computeCapacity(f5).bd / 5
+    val perWorker100 = Firm.computeCapacity(f100).bd / 100
+    perWorker5 shouldBe (perWorker100 +- BigDecimal("0.01"))
   }
 
   // --- CAPEX scaling ---

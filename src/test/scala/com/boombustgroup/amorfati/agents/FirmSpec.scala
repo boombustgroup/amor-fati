@@ -1,12 +1,12 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -15,7 +15,6 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   // --- Firm.isAlive ---
 
@@ -190,8 +189,8 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   it should "be bounded in [0, 1]" in {
     for s <- p.sectorDefs do
       val t = Firm.sigmaThreshold(s.sigma)
-      td.toDouble(t) should be >= 0.0
-      td.toDouble(t) should be <= 1.0
+      t.bd should be >= BigDecimal(0)
+      t.bd should be <= BigDecimal("1.0")
   }
 
   // --- Firm.localAutoRatio ---
@@ -221,7 +220,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       mkFirmWithNeighbors(2, TechState.Hybrid(5, Multiplier.One), Vector(FirmId(0))),
       mkFirmWithNeighbors(3, TechState.Traditional(10), Vector(FirmId(0))),
     )
-    td.toDouble(Firm.computeLocalAutoRatio(firms(0), firms)) shouldBe (2.0 / 3.0 +- 0.001)
+    Firm.computeLocalAutoRatio(firms(0), firms).bd shouldBe (BigDecimal(2) / 3 +- BigDecimal("0.001"))
   }
 
   "Firm.adoptionWillingnessMultiplier" should "increase with local demonstration effects above threshold" in {

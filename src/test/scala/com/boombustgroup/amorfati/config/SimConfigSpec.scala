@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.config
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.Firm
@@ -9,18 +10,17 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   "p.sectorDefs" should "have 6 entries" in {
     p.sectorDefs.length shouldBe 6
   }
 
   it should "have shares summing to ~1.0" in {
-    p.sectorDefs.map(s => td.toDouble(s.share)).sum shouldBe 1.0 +- 0.01
+    p.sectorDefs.map(_.share.bd).sum shouldBe (BigDecimal("1.0") +- BigDecimal("0.01"))
   }
 
   it should "have positive sigma for every sector" in {
-    for s <- p.sectorDefs do td.toDouble(s.sigma) should be > 0.0
+    for s <- p.sectorDefs do s.sigma.bd should be > BigDecimal(0)
   }
 
   it should "have known sector names" in {
@@ -44,20 +44,20 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have positive AI and Hybrid CAPEX" in {
-    td.toDouble(p.firm.aiCapex) should be > 0.0
-    td.toDouble(p.firm.hybridCapex) should be > 0.0
+    p.firm.aiCapex.bd should be > BigDecimal(0)
+    p.firm.hybridCapex.bd should be > BigDecimal(0)
   }
 
   "sigmaThreshold" should "return ~0.91 for sigma=2" in
-    td.toDouble(Firm.sigmaThreshold(Sigma(2.0))).shouldBe(0.9026 +- 0.01)
+    Firm.sigmaThreshold(Sigma(2.0)).bd.shouldBe(BigDecimal("0.9026") +- BigDecimal("0.01"))
 
   it should "return ~0.955 for sigma=5" in
-    td.toDouble(Firm.sigmaThreshold(Sigma(5.0))).shouldBe(0.9324 +- 0.01)
+    Firm.sigmaThreshold(Sigma(5.0)).bd.shouldBe(BigDecimal("0.9324") +- BigDecimal("0.01"))
 
   it should "return ~0.955 for sigma=10" in
-    td.toDouble(Firm.sigmaThreshold(Sigma(10.0))).shouldBe(0.955 +- 0.01)
+    Firm.sigmaThreshold(Sigma(10.0)).bd.shouldBe(BigDecimal("0.955") +- BigDecimal("0.01"))
 
   it should "be capped at 1.0 for sigma=50" in {
-    td.toDouble(Firm.sigmaThreshold(Sigma(50.0))).should(be <= 1.0)
-    td.toDouble(Firm.sigmaThreshold(Sigma(50.0))).shouldBe(1.0 +- 0.01)
+    Firm.sigmaThreshold(Sigma(50.0)).bd.should(be <= BigDecimal("1.0"))
+    Firm.sigmaThreshold(Sigma(50.0)).bd.shouldBe(BigDecimal("1.0") +- BigDecimal("0.01"))
   }

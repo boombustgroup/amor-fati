@@ -1,18 +1,17 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
-  private val td  = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -59,21 +58,21 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   "Firm.sigmaThreshold" should "be in [0, 1]" in
     forAll(genSigma) { (sigma: Double) =>
       val t = Firm.sigmaThreshold(Sigma(sigma))
-      td.toDouble(t) should be >= 0.0
-      td.toDouble(t) should be <= 1.0
+      t.bd should be >= BigDecimal(0)
+      t.bd should be <= BigDecimal("1.0")
     }
 
   it should "be monotonic in sigma" in
     forAll(genSigma) { (sigma: Double) =>
       whenever(sigma > 0.1 && sigma < 99.0) {
-        val t1 = td.toDouble(Firm.sigmaThreshold(Sigma(sigma)))
-        val t2 = td.toDouble(Firm.sigmaThreshold(Sigma(sigma * 2)))
-        t2 should be >= (t1 - 1e-10)
+        val t1 = Firm.sigmaThreshold(Sigma(sigma)).bd
+        val t2 = Firm.sigmaThreshold(Sigma(sigma * 2)).bd
+        t2 should be >= t1
       }
     }
 
   it should "be 1.0 for very large sigma" in {
-    td.toDouble(Firm.sigmaThreshold(Sigma(1000.0))) shouldBe 1.0
+    Firm.sigmaThreshold(Sigma(1000.0)).bd shouldBe BigDecimal("1.0")
   }
 
   // --- aiCapex properties ---
@@ -90,9 +89,10 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   "Firm.computeAiCapex" should "scale with innovationCostFactor" in
     forAll(genAliveFirm, Gen.choose(1.0, 3.0)) { (firm: Firm.State, factor: Double) =>
-      val f1 = firm.copy(innovationCostFactor = Multiplier.One)
-      val f2 = firm.copy(innovationCostFactor = Multiplier(factor))
-      td.toDouble(Firm.computeAiCapex(f2)) shouldBe (td.toDouble(Firm.computeAiCapex(f1)) * factor +- 0.01)
+      val scaledFactor = Multiplier(factor)
+      val f1           = firm.copy(innovationCostFactor = Multiplier.One)
+      val f2           = firm.copy(innovationCostFactor = scaledFactor)
+      Firm.computeAiCapex(f2).bd shouldBe (Firm.computeAiCapex(f1).bd * scaledFactor.bd +- BigDecimal("0.01"))
     }
 
   // --- capacity(Traditional) scales linearly with workers/initialSize ---

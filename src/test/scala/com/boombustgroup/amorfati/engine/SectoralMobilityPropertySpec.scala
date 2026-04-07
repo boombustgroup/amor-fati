@@ -1,12 +1,12 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -15,24 +15,22 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
-  private val td  = ComputationBoundary
-
   // --- Friction matrix properties ---
 
   "DefaultFrictionMatrix" should "have all off-diagonal elements in (0, 1)" in {
     val m = SectoralMobility.DefaultFrictionMatrix
     for i <- 0 until 6; j <- 0 until 6 if i != j do
-      td.toDouble(m(i)(j)) should be > 0.0
-      td.toDouble(m(i)(j)) should be < 1.0
+      m(i)(j).bd should be > BigDecimal(0)
+      m(i)(j).bd should be < BigDecimal("1.0")
   }
 
   // --- crossSectorWagePenalty ---
 
   "crossSectorWagePenalty" should "be in [0.7, 1.0] for friction in [0, 1]" in
     forAll(Gen.choose(0.0, 1.0)) { friction =>
-      val p = td.toDouble(SectoralMobility.crossSectorWagePenalty(Share(friction)))
-      p should be >= 0.7
-      p should be <= 1.0
+      val p = SectoralMobility.crossSectorWagePenalty(Share(friction)).bd
+      p should be >= BigDecimal("0.7")
+      p should be <= BigDecimal("1.0")
     }
 
   // --- frictionAdjustedSuccess ---
@@ -116,7 +114,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
       )
       .toVector
     val wages = SectoralMobility.sectorWages(hhs)
-    wages.foreach(w => td.toDouble(w) should be >= 0.0)
+    wages.foreach(w => w.bd should be >= BigDecimal(0))
   }
 
   // --- frictionAdjustedParams ---
@@ -126,5 +124,5 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
       val rp1 = SectoralMobility.frictionAdjustedParams(Share(friction), Multiplier(durMult), Share(costMult))
       val rp2 = SectoralMobility.frictionAdjustedParams(Share(friction + 0.01), Multiplier(durMult), Share(costMult))
       rp2.duration should be >= rp1.duration
-      td.toDouble(rp2.cost) should be >= td.toDouble(rp1.cost)
+      rp2.cost.bd should be >= rp1.cost.bd
     }

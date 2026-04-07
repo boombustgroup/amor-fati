@@ -1,10 +1,10 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.engine.markets
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -14,7 +14,6 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   // ---- Config helpers ----
 
@@ -389,8 +388,8 @@ class EducationSpec extends AnyFlatSpec with Matchers:
     val immigrants = Immigration.spawnImmigrants(200, 0, rng)
     immigrants.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
-      td.toDouble(h.skill) should be >= td.toDouble(floor)
-      td.toDouble(h.skill) should be <= td.toDouble(ceil)
+      h.skill.bd should be >= floor.bd
+      h.skill.bd should be <= ceil.bd
     }
   }
 
@@ -456,7 +455,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
     val hhs       = Household.Init.initialize(10, firms, socialNet, rng)
     hhs.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
-      td.toDouble(h.skill) should be >= td.toDouble(floor)
-      td.toDouble(h.skill) should be <= td.toDouble(ceil)
+      h.skill.bd should be >= floor.bd
+      h.skill.bd should be <= ceil.bd
     }
   }
