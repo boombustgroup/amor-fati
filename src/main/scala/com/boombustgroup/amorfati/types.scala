@@ -153,6 +153,8 @@ object types:
     def toShare: Share           = Share.fromRaw(c.toLong)
     @targetName("coefToMultiplier")
     def toMultiplier: Multiplier = Multiplier.fromRaw(c.toLong)
+    @targetName("coefToScalar")
+    def toScalar: Scalar         = Scalar.fromRaw(c.toLong)
 
   // --- PriceIndex × typed ---
   extension (pi: PriceIndex)
