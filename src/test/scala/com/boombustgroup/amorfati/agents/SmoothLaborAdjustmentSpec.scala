@@ -18,7 +18,7 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       TechState.Traditional(workers),
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.5),
       SectorIdx(2),
       Vector.empty[FirmId],

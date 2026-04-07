@@ -107,12 +107,11 @@ object Nbp:
       employed: Int,
       totalPopulation: Int,
   )(using p: SimParams): Rate =
-    import ComputationBoundary.toDouble
     val infGap    = inflation - p.monetary.targetInfl
     val unempRate = Share.One - Share.fraction(employed, totalPopulation)
     val nairu     = p.monetary.nairu
 
-    val rawOutputGap = Coefficient(toDouble(unempRate - nairu))
+    val rawOutputGap = Coefficient.fromRaw((unempRate - nairu).toLong)
     val outputGap    = rawOutputGap.max(-OutputGapCap).min(OutputGapCap)
     p.monetary.neutralRate +
       infGap * p.monetary.taylorAlpha -
@@ -220,14 +219,13 @@ object Nbp:
       QeRequest(nbp, purchase)
 
   private def qePurchasePace(refRate: Rate, inflation: Rate, expectedInflation: Rate)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
     if !inLowerBoundRegime(refRate, inflation, expectedInflation) then p.monetary.qePace
     else
-      val realizedShortfall = Math.max(0.0, toDouble(p.monetary.targetInfl - inflation))
-      val expectedShortfall = Math.max(0.0, toDouble(p.monetary.targetInfl - expectedInflation))
-      val severity          = Math.max(realizedShortfall, expectedShortfall)
-      val multiplier        = Math.min(ZlbQeMaxMultiplier, 1.0 + severity / Math.max(1e-9, toDouble(QeDeflationThreshold)))
-      p.monetary.qePace * Multiplier(multiplier)
+      val realizedShortfall = (p.monetary.targetInfl - inflation).max(Rate.Zero)
+      val expectedShortfall = (p.monetary.targetInfl - expectedInflation).max(Rate.Zero)
+      val severity          = realizedShortfall.max(expectedShortfall)
+      val multiplier        = (Multiplier.One + severity.ratioTo(QeDeflationThreshold).toMultiplier).min(Multiplier(ZlbQeMaxMultiplier))
+      p.monetary.qePace * multiplier
 
   // ---------------------------------------------------------------------------
   // FX intervention

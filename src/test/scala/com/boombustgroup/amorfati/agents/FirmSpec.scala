@@ -24,11 +24,11 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return true for Hybrid" in {
-    Firm.isAlive(mkFirm(TechState.Hybrid(5, 1.2))) shouldBe true
+    Firm.isAlive(mkFirm(TechState.Hybrid(5, Multiplier(1.2)))) shouldBe true
   }
 
   it should "return true for Automated" in {
-    Firm.isAlive(mkFirm(TechState.Automated(1.5))) shouldBe true
+    Firm.isAlive(mkFirm(TechState.Automated(Multiplier(1.5)))) shouldBe true
   }
 
   it should "return false for Bankrupt" in {
@@ -42,11 +42,11 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return workers for Hybrid" in {
-    Firm.workerCount(mkFirm(TechState.Hybrid(7, 1.0))) shouldBe 7
+    Firm.workerCount(mkFirm(TechState.Hybrid(7, Multiplier.One))) shouldBe 7
   }
 
   it should "return skeletonCrew for Automated" in {
-    val f = mkFirm(TechState.Automated(1.5))
+    val f = mkFirm(TechState.Automated(Multiplier(1.5)))
     Firm.workerCount(f) shouldBe Firm.skeletonCrew(f)
   }
 
@@ -55,11 +55,11 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   "Firm.applyAggregateHiringSlack" should "compress worker targets when aggregate labor plans exceed supply" in {
-    Firm.applyAggregateHiringSlack(rawTarget = 24, minWorkers = 3, slackFactor = 0.5) shouldBe 12
+    Firm.applyAggregateHiringSlack(rawTarget = 24, minWorkers = 3, slackFactor = Multiplier(0.5)) shouldBe 12
   }
 
   it should "respect the workforce floor when compression is severe" in {
-    Firm.applyAggregateHiringSlack(rawTarget = 4, minWorkers = 3, slackFactor = 0.25) shouldBe 3
+    Firm.applyAggregateHiringSlack(rawTarget = 4, minWorkers = 3, slackFactor = Multiplier(0.25)) shouldBe 3
   }
 
   "Firm.hiringDiagnostics" should "delay non-micro hiring until demand persists" in {
@@ -155,8 +155,8 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   "Firm.computeCapacity" should "be positive for alive firms" in {
     Firm.computeCapacity(mkFirm(TechState.Traditional(10))) should be > PLN.Zero
-    Firm.computeCapacity(mkFirm(TechState.Hybrid(5, 1.2))) should be > PLN.Zero
-    Firm.computeCapacity(mkFirm(TechState.Automated(1.5))) should be > PLN.Zero
+    Firm.computeCapacity(mkFirm(TechState.Hybrid(5, Multiplier(1.2)))) should be > PLN.Zero
+    Firm.computeCapacity(mkFirm(TechState.Automated(Multiplier(1.5)))) should be > PLN.Zero
   }
 
   it should "be 0 for Bankrupt" in {
@@ -169,7 +169,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     val f  = mkFirm(TechState.Traditional(10))
     Firm.computeAiCapex(f) should be > PLN.Zero
     // With higher innovationCostFactor → higher capex
-    val f2 = f.copy(innovationCostFactor = 1.5)
+    val f2 = f.copy(innovationCostFactor = Multiplier(1.5))
     Firm.computeAiCapex(f2) should be > Firm.computeAiCapex(f)
   }
 
@@ -183,15 +183,15 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   "Firm.sigmaThreshold" should "be monotonically increasing with sigma" in {
     // Sectors ordered by sigma: Public(1.0) < Healthcare(2.0) < Agriculture(3.0) < Retail(5.0) < Manuf(10.0) < BPO(50.0)
     val sigmasOrdered = Vector(1.0, 2.0, 3.0, 5.0, 10.0, 50.0)
-    val thresholds    = sigmasOrdered.map(Firm.sigmaThreshold)
+    val thresholds    = sigmasOrdered.map(s => Firm.sigmaThreshold(Sigma(s)))
     for i <- 0 until thresholds.length - 1 do thresholds(i) should be <= thresholds(i + 1)
   }
 
   it should "be bounded in [0, 1]" in {
     for s <- p.sectorDefs do
-      val t = Firm.sigmaThreshold(td.toDouble(s.sigma))
-      t should be >= 0.0
-      t should be <= 1.0
+      val t = Firm.sigmaThreshold(s.sigma)
+      td.toDouble(t) should be >= 0.0
+      td.toDouble(t) should be <= 1.0
   }
 
   // --- Firm.localAutoRatio ---
@@ -202,39 +202,39 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       mkFirmWithNeighbors(1, TechState.Traditional(10), Vector(FirmId(0))),
       mkFirmWithNeighbors(2, TechState.Traditional(10), Vector(FirmId(0))),
     )
-    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe 0.0
+    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe Share.Zero
   }
 
   it should "return 1.0 when all neighbors are Automated" in {
     val firms = Vector(
       mkFirmWithNeighbors(0, TechState.Traditional(10), Vector(FirmId(1), FirmId(2))),
-      mkFirmWithNeighbors(1, TechState.Automated(1.2), Vector(FirmId(0))),
-      mkFirmWithNeighbors(2, TechState.Automated(1.1), Vector(FirmId(0))),
+      mkFirmWithNeighbors(1, TechState.Automated(Multiplier(1.2)), Vector(FirmId(0))),
+      mkFirmWithNeighbors(2, TechState.Automated(Multiplier(1.1)), Vector(FirmId(0))),
     )
-    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe 1.0
+    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe Share.One
   }
 
   it should "count Hybrid as automated in ratio" in {
     val firms = Vector(
       mkFirmWithNeighbors(0, TechState.Traditional(10), Vector(FirmId(1), FirmId(2), FirmId(3))),
-      mkFirmWithNeighbors(1, TechState.Automated(1.2), Vector(FirmId(0))),
-      mkFirmWithNeighbors(2, TechState.Hybrid(5, 1.0), Vector(FirmId(0))),
+      mkFirmWithNeighbors(1, TechState.Automated(Multiplier(1.2)), Vector(FirmId(0))),
+      mkFirmWithNeighbors(2, TechState.Hybrid(5, Multiplier.One), Vector(FirmId(0))),
       mkFirmWithNeighbors(3, TechState.Traditional(10), Vector(FirmId(0))),
     )
-    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe (2.0 / 3.0 +- 0.001)
+    td.toDouble(Firm.computeLocalAutoRatio(firms(0), firms)) shouldBe (2.0 / 3.0 +- 0.001)
   }
 
   "Firm.adoptionWillingnessMultiplier" should "increase with local demonstration effects above threshold" in {
-    val below = Firm.adoptionWillingnessMultiplier(month = 12, localAuto = 0.30)
-    val above = Firm.adoptionWillingnessMultiplier(month = 12, localAuto = 0.80)
+    val below = Firm.adoptionWillingnessMultiplier(month = 12, localAuto = Share(0.30))
+    val above = Firm.adoptionWillingnessMultiplier(month = 12, localAuto = Share(0.80))
 
     above should be > below
   }
 
   it should "increase over time until the ramp saturates" in {
-    val early = Firm.adoptionWillingnessMultiplier(month = 0, localAuto = 0.0)
-    val mid   = Firm.adoptionWillingnessMultiplier(month = 18, localAuto = 0.0)
-    val late  = Firm.adoptionWillingnessMultiplier(month = 72, localAuto = 0.0)
+    val early = Firm.adoptionWillingnessMultiplier(month = 0, localAuto = Share.Zero)
+    val mid   = Firm.adoptionWillingnessMultiplier(month = 18, localAuto = Share.Zero)
+    val late  = Firm.adoptionWillingnessMultiplier(month = 72, localAuto = Share.Zero)
 
     mid should be > early
     late should be >= mid
@@ -242,7 +242,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   it should "return 0.0 for firm with no neighbors" in {
     val firms = Vector(mkFirmWithNeighbors(0, TechState.Traditional(10), Vector.empty[FirmId]))
-    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe 0.0
+    Firm.computeLocalAutoRatio(firms(0), firms) shouldBe Share.Zero
   }
 
   // --- Firm.process ---
@@ -256,14 +256,14 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep an Automated firm alive with large cash" in {
-    val f      = mkFirm(TechState.Automated(1.5)).copy(cash = PLN(10000000.0))
+    val f      = mkFirm(TechState.Automated(Multiplier(1.5))).copy(cash = PLN(10000000.0))
     val result = Firm.process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), new Random(42))
     Firm.isAlive(result.firm) shouldBe true
   }
 
   it should "bankrupt an Automated firm with negative cash when P&L is negative" in {
     // Very low cash + high price level = deep losses → bankrupt
-    val f      = mkFirm(TechState.Automated(0.1)).copy(cash = PLN(-500000.0), debt = PLN(5000000.0))
+    val f      = mkFirm(TechState.Automated(Multiplier(0.1))).copy(cash = PLN(-500000.0), debt = PLN(5000000.0))
     val w      = mkWorld().copy(priceLevel = 0.3, pipeline = mkWorld().pipeline.copy(sectorDemandMult = Vector.fill(6)(0.1)))
     val result = Firm.process(f, w, Rate(0.20), _ => true, Vector(f), new Random(42))
     result.firm.tech shouldBe a[TechState.Bankrupt]
@@ -299,7 +299,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       tech,
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.5),
       SectorIdx(0),
       neighbors,
@@ -321,7 +321,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       tech,
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.5),
       SectorIdx(sector),
       Vector.empty[FirmId],

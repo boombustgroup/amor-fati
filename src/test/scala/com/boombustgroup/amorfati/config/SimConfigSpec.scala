@@ -48,19 +48,16 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
     td.toDouble(p.firm.hybridCapex) should be > 0.0
   }
 
-  "sigmaThreshold" should "return ~0.91 for sigma=2" in {
-    Firm.sigmaThreshold(2.0) shouldBe 0.9026 +- 0.01
-  }
+  "sigmaThreshold" should "return ~0.91 for sigma=2" in
+    td.toDouble(Firm.sigmaThreshold(Sigma(2.0))).shouldBe(0.9026 +- 0.01)
 
-  it should "return ~0.955 for sigma=5" in {
-    Firm.sigmaThreshold(5.0) shouldBe 0.9324 +- 0.01
-  }
+  it should "return ~0.955 for sigma=5" in
+    td.toDouble(Firm.sigmaThreshold(Sigma(5.0))).shouldBe(0.9324 +- 0.01)
 
-  it should "return ~0.955 for sigma=10" in {
-    Firm.sigmaThreshold(10.0) shouldBe 0.955 +- 0.01
-  }
+  it should "return ~0.955 for sigma=10" in
+    td.toDouble(Firm.sigmaThreshold(Sigma(10.0))).shouldBe(0.955 +- 0.01)
 
   it should "be capped at 1.0 for sigma=50" in {
-    Firm.sigmaThreshold(50.0) should be <= 1.0
-    Firm.sigmaThreshold(50.0) shouldBe 1.0 +- 0.01
+    td.toDouble(Firm.sigmaThreshold(Sigma(50.0))).should(be <= 1.0)
+    td.toDouble(Firm.sigmaThreshold(Sigma(50.0))).shouldBe(1.0 +- 0.01)
   }

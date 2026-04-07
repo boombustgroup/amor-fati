@@ -32,7 +32,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
         PLN.Zero,
         TechState.Traditional(10),
         Share(0.5),
-        1.0,
+        Multiplier.One,
         Share(0.4),
         SectorIdx(sector),
         Vector.empty[FirmId],
@@ -130,13 +130,13 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   }
 
   it should "distribute revenue proportionally within sector" in {
-    def mkF(id: Int, sec: Int) = Firm.State(
+    def mkF(id: Int, sec: Int): Firm.State = Firm.State(
       FirmId(id),
       PLN(500000.0),
       PLN.Zero,
       TechState.Traditional(10),
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.4),
       SectorIdx(sec),
       Vector.empty[FirmId],
@@ -150,12 +150,12 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
-    val f1                     = mkF(0, 0)
-    val f2                     = mkF(1, 0)
-    val f3                     = mkF(2, 1)
-    val firms                  = Vector(f1, f2, f3)
-    val r                      = IntermediateMarket.process(baseInput(firms))
-    val adj1                   = td.toDouble(r.firms(0).cash - firms(0).cash)
-    val adj2                   = td.toDouble(r.firms(1).cash - firms(1).cash)
-    adj1 shouldBe (adj2 +- 1e-6)
+    val f1                                 = mkF(0, 0)
+    val f2                                 = mkF(1, 0)
+    val f3                                 = mkF(2, 1)
+    val firms                              = Vector(f1, f2, f3)
+    val r                                  = IntermediateMarket.process(baseInput(firms))
+    val adj1                               = td.toDouble(r.firms(0).cash - firms(0).cash)
+    val adj2                               = td.toDouble(r.firms(1).cash - firms(1).cash)
+    adj1.shouldBe(adj2 +- 1e-6)
   }

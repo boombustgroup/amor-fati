@@ -383,7 +383,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         PLN(0.0),
         TechState.Traditional(10),
         Share(0.5),
-        1.0,
+        Multiplier.One,
         Share(0.5),
         SectorIdx(i % p.sectorDefs.length),
         Vector.empty[FirmId],

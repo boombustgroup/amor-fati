@@ -102,7 +102,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         PLN(debt),
         TechState.Traditional(10),
         Share(0.5),
-        1.0,
+        Multiplier.One,
         Share(0.3),
         SectorIdx(0),
         Vector.empty[FirmId],

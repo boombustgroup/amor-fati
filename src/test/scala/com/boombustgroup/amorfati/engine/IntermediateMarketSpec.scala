@@ -40,7 +40,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       tech,
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.3),
       SectorIdx(sector),
       Vector.empty[FirmId],
@@ -149,8 +149,8 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       (0 until 10).map(i => makeFirm(s * 10 + i, s))
     }.toVector
     // Replace two sector-1 firms with our test subjects
-    val firm1     = makeFirm(100, 1, tech = TechState.Automated(1.5)) // High capacity Mfg
-    val firm2     = makeFirm(101, 1)                                  // Normal capacity Mfg
+    val firm1     = makeFirm(100, 1, tech = TechState.Automated(Multiplier(1.5))) // High capacity Mfg
+    val firm2     = makeFirm(101, 1)                                              // Normal capacity Mfg
     val firms     = baseFirms.filter(_.sector.toInt != 1) ++ Vector(firm1, firm2)
     val result    = IntermediateMarket.process(baseInput(firms))
     val r1        = result.firms.find(_.id == FirmId(100)).get

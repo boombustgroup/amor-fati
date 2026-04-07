@@ -68,7 +68,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
         PLN.Zero,
         TechState.Traditional(10),
         Share(0.5),
-        1.0,
+        Multiplier.One,
         Share(0.5),
         SectorIdx(2),
         Vector.empty[FirmId],
