@@ -1,9 +1,27 @@
 package com.boombustgroup.amorfati.util
 
+import com.boombustgroup.amorfati.types.*
+
 import scala.util.Random
 
 /** Sampling helpers for standard distributions (Poisson, Beta, Gamma). */
 object Distributions:
+
+  /** Sample a categorical index from non-negative fixed-point weights. */
+  private[amorfati] def cdfSample(shares: Vector[Share], rng: Random): Int =
+    require(shares.nonEmpty, "shares must be non-empty")
+    require(shares.forall(_ >= Share.Zero), s"shares must be non-negative: $shares")
+    val total = shares.foldLeft(Share.Zero)(_ + _)
+    require(total > Share.Zero, s"shares must contain at least one positive weight: $shares")
+
+    val draw       = Share.random(rng) * total
+    var cumulative = Share.Zero
+    var i          = 0
+    while i < shares.length - 1 do
+      cumulative = cumulative + shares(i)
+      if draw < cumulative then return i
+      i += 1
+    shares.length - 1
 
   /** Sample from Poisson(lambda) using Knuth algorithm (small λ). */
   def poissonSample(lambda: Double, rng: Random): Int =
@@ -46,3 +64,20 @@ object Distributions:
           result = d * v
           done = true
       result
+
+  /** Sample a raw fixed-point Gaussian perturbation with dimensionless stddev.
+    */
+  def gaussianNoiseRaw(std: Scalar, rng: Random): Long =
+    math.round(rng.nextGaussian() * std.toLong)
+
+  /** Sample a share around mean with Gaussian noise and clamp to bounds. */
+  def gaussianShare(mean: Share, std: Scalar, lo: Share, hi: Share, rng: Random): Share =
+    Share.fromRaw((mean.toLong + gaussianNoiseRaw(std, rng)).max(lo.toLong).min(hi.toLong))
+
+  /** Sample a PLN value around mean with Gaussian noise and clamp to floor. */
+  def gaussianPlnAtLeast(mean: PLN, std: PLN, floor: PLN, rng: Random): PLN =
+    PLN.fromRaw((mean.toLong + math.round(std.toLong.toDouble * rng.nextGaussian())).max(floor.toLong))
+
+  /** Sample a PLN value uniformly from [0, maxExclusive). */
+  def randomPlnBelow(maxExclusive: PLN, rng: Random): PLN =
+    PLN.fromRaw(rng.nextLong(maxExclusive.toLong.max(1L)))

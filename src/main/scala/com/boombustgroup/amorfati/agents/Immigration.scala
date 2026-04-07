@@ -14,8 +14,8 @@ object Immigration:
   private val ImmigrantMpcMu = Share(0.85)
   private val ImmigrantMpcLo = Share(0.7)
   private val ImmigrantMpcHi = Share(0.98)
-  private val SkillNoiseStd  = 0.15
-  private val MpcNoiseStd    = 0.05
+  private val SkillNoiseStd  = Scalar(0.15)
+  private val MpcNoiseStd    = Scalar(0.05)
 
   case class State(
       immigrantStock: Int,   // total immigrant workers currently in economy
@@ -48,46 +48,33 @@ object Immigration:
     * immigrant wages × remittance rate.
     */
   def computeRemittances(immigrantHH: Iterable[Household.State])(using p: SimParams): PLN =
-    PLN.fromRaw(
-      immigrantHH
-        .filter(_.isImmigrant)
-        .map { h =>
-          h.status match
-            case HhStatus.Employed(_, _, wage) => (wage * p.immigration.remitRate).toLong
-            case _                             => 0L
-        }
-        .sum,
-    )
+    immigrantHH.foldLeft(PLN.Zero): (acc, h) =>
+      if !h.isImmigrant then acc
+      else
+        h.status match
+          case HhStatus.Employed(_, _, wage) => acc + (wage * p.immigration.remitRate)
+          case _                             => acc
 
   /** Choose sector for new immigrant (weighted by sectorShares). */
   def chooseSector(rng: Random)(using p: SimParams): SectorIdx =
-    val shares = p.immigration.sectorShares.map(_.toLong)
-    val total  = shares.sum
-    val r      = rng.nextLong(total.max(1L))
-    val cumul  = shares.scanLeft(0L)(_ + _).tail
-    val picked = cumul.indexWhere(_ > r)
-    SectorIdx(if picked >= 0 then picked else p.sectorDefs.length - 1)
+    SectorIdx(Distributions.cdfSample(p.immigration.sectorShares, rng))
 
   /** Spawn new immigrant households. Start as Unemployed(0) — matched in next
     * jobSearch round.
     */
-  @boundaryEscape
   def spawnImmigrants(count: Int, startId: Int, rng: Random)(using p: SimParams): Vector[Household.State] =
     (0 until count).map { i =>
-      inline def gaussianNoiseRaw(std: Double): Long =
-        math.round(rng.nextGaussian() * std * com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD)
-
       val sector                       = chooseSector(rng)
       val edu                          = p.social.drawImmigrantEducation(rng)
       val (skillFloorS, skillCeilingS) = p.social.eduSkillRange(edu)
-      val skill                        = Share.fromRaw((p.immigration.skillMean.toLong + gaussianNoiseRaw(SkillNoiseStd)).max(skillFloorS.toLong).min(skillCeilingS.toLong))
-      val savings                      = PLN.fromRaw(rng.nextLong(MaxInitSavings.toLong.max(1L)))
-      val mpc                          = Share.fromRaw((ImmigrantMpcMu.toLong + gaussianNoiseRaw(MpcNoiseStd)).max(ImmigrantMpcLo.toLong).min(ImmigrantMpcHi.toLong))
+      val skill                        = Distributions.gaussianShare(p.immigration.skillMean, SkillNoiseStd, skillFloorS, skillCeilingS, rng)
+      val savings                      = Distributions.randomPlnBelow(MaxInitSavings, rng)
+      val mpc                          = Distributions.gaussianShare(ImmigrantMpcMu, MpcNoiseStd, ImmigrantMpcLo, ImmigrantMpcHi, rng)
       val region                       = Region.cdfSample(rng)
-      val baseRent                     = PLN.fromRaw((p.household.rentMean.toLong + math.round(p.household.rentStd.toLong.toDouble * rng.nextGaussian())).max(MinInitRent.toLong))
+      val baseRent                     = Distributions.gaussianPlnAtLeast(p.household.rentMean, p.household.rentStd, MinInitRent, rng)
       val rent                         = (baseRent * region.housingCostIndex).max(MinInitRent)
-      val numChildren                  =
-        Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
+      val numChildren                  = Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
+
       Household.State(
         id = HhId(startId + i),
         savings = savings,
