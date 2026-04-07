@@ -87,14 +87,14 @@ object Region:
     * (same region), 1 = maximum friction. Asymmetric: easier to move TO Central
     * (jobs pull) than FROM Central. Based on GUS internal migration data 2024.
     */
-  val frictionMatrix: Vector[Vector[Double]] = Vector(
+  val frictionMatrix: Vector[Vector[Share]] = Vector(
     //          Central  South  East   NW     SW     North
-    Vector(0.00, 0.40, 0.60, 0.45, 0.45, 0.50), // from Central
-    Vector(0.30, 0.00, 0.50, 0.40, 0.30, 0.45), // from South
-    Vector(0.25, 0.45, 0.00, 0.55, 0.55, 0.50), // from East (easier to Central)
-    Vector(0.35, 0.40, 0.55, 0.00, 0.35, 0.30), // from Northwest
-    Vector(0.35, 0.30, 0.55, 0.35, 0.00, 0.40), // from Southwest
-    Vector(0.30, 0.40, 0.50, 0.30, 0.40, 0.00), // from North
+    Vector(Share(0.00), Share(0.40), Share(0.60), Share(0.45), Share(0.45), Share(0.50)), // from Central
+    Vector(Share(0.30), Share(0.00), Share(0.50), Share(0.40), Share(0.30), Share(0.45)), // from South
+    Vector(Share(0.25), Share(0.45), Share(0.00), Share(0.55), Share(0.55), Share(0.50)), // from East (easier to Central)
+    Vector(Share(0.35), Share(0.40), Share(0.55), Share(0.00), Share(0.35), Share(0.30)), // from Northwest
+    Vector(Share(0.35), Share(0.30), Share(0.55), Share(0.35), Share(0.00), Share(0.40)), // from Southwest
+    Vector(Share(0.30), Share(0.40), Share(0.50), Share(0.30), Share(0.40), Share(0.00)), // from North
   )
 
   /** Migration probability: inverse of friction × wage differential × housing
@@ -107,7 +107,6 @@ object Region:
     * Workers only migrate if destination wages justify the housing cost
     * increase.
     */
-  @boundaryEscape
   def migrationProbability(
       from: Region,
       to: Region,
@@ -117,9 +116,9 @@ object Region:
     if from == to then Share.Zero
     else
       val friction       = frictionMatrix(from.ordinal)(to.ordinal)
-      val wagePull       = Math.max(0.0, wageDiffRatio / Multiplier.One - 1.0)
-      val housingBarrier = Math.max(0.0, 1.0 - to.housingCostIndex / from.housingCostIndex * (housingThreshold / Share.One))
-      Share(((1.0 - friction) * wagePull * housingBarrier).max(0.0).min(1.0))
+      val wagePull       = (wageDiffRatio.toScalar - Scalar.One).max(Scalar.Zero)
+      val housingBarrier = (Share.One - to.housingCostIndex.ratioTo(from.housingCostIndex).toShare * housingThreshold).max(Share.Zero)
+      ((Share.One - friction) * wagePull.toShare * housingBarrier).clamp(Share.Zero, Share.One)
 
   /** Sector composition by region (6 sectors × 6 regions). Rows = regions
     * (Central..North), columns = sectors (BPO..Agri). GUS employment by section

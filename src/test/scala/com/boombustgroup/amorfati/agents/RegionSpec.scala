@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -10,31 +11,30 @@ import scala.util.Random
 class RegionSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
-  private val td  = ComputationBoundary
 
   "Region" should "have 6 macroregions" in {
     Region.all.length shouldBe 6
   }
 
   it should "have population shares summing to ~1.0" in {
-    Region.all.map(r => td.toDouble(r.populationShare)).sum shouldBe 1.0 +- 0.01
+    Region.all.map(_.populationShare.bd).sum shouldBe BigDecimal("1.0") +- BigDecimal("0.01")
   }
 
   it should "have Central with highest wages" in {
-    td.toDouble(Region.Central.wageMultiplier) should be > Region.all.map(r => td.toDouble(r.wageMultiplier)).sum / 6
+    Region.Central.wageMultiplier.bd should be > (Region.all.map(_.wageMultiplier.bd).sum / BigDecimal(6))
   }
 
   it should "normalize regional wage multipliers to national mean 1.0" in {
-    val weightedMean = Region.all.map(r => td.toDouble(Region.normalizedWageMultiplier(r)) * td.toDouble(r.populationShare)).sum
-    weightedMean shouldBe 1.0 +- 0.0001
+    val weightedMean = Region.all.map(r => Region.normalizedWageMultiplier(r).bd * r.populationShare.bd).sum
+    weightedMean shouldBe BigDecimal("1.0") +- BigDecimal("0.0001")
   }
 
   it should "have East with highest base unemployment" in {
-    td.toDouble(Region.East.baseUnemployment) should be > td.toDouble(Region.Central.baseUnemployment)
+    Region.East.baseUnemployment should be > Region.Central.baseUnemployment
   }
 
   "frictionMatrix" should "have zero diagonal" in {
-    for i <- 0 until Region.count do Region.frictionMatrix(i)(i) shouldBe 0.0
+    for i <- 0 until Region.count do Region.frictionMatrix(i)(i) shouldBe Share.Zero
   }
 
   it should "be asymmetric (easier to Central from East than reverse)" in {
@@ -50,7 +50,7 @@ class RegionSpec extends AnyFlatSpec with Matchers:
     // East→Northwest: similar housing cost (0.65→0.90), migration not blocked
     val low  = Region.migrationProbability(Region.East, Region.Northwest, Multiplier(1.1), Share(0.7))
     val high = Region.migrationProbability(Region.East, Region.Northwest, Multiplier(1.5), Share(0.7))
-    td.toDouble(high) should be > td.toDouble(low)
+    high should be > low
   }
 
   it should "be zero when destination wages are lower" in {
@@ -58,11 +58,11 @@ class RegionSpec extends AnyFlatSpec with Matchers:
   }
 
   "sectorComposition" should "sum to ~1.0 per region" in {
-    for r <- 0 until Region.count do Region.sectorComposition(r).map(s => td.toDouble(s)).sum shouldBe 1.0 +- 0.01
+    for r <- 0 until Region.count do Region.sectorComposition(r).map(_.bd).sum shouldBe BigDecimal("1.0") +- BigDecimal("0.01")
   }
 
   it should "have high agriculture in East" in {
-    td.toDouble(Region.sectorComposition(Region.East.ordinal)(5)) should be > 0.20
+    Region.sectorComposition(Region.East.ordinal)(5).bd should be > BigDecimal("0.20")
   }
 
   "RegionalMigration" should "not move employed workers" in {

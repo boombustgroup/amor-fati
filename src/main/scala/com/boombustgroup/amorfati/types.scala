@@ -127,15 +127,17 @@ object types:
   // --- Multiplier × typed ---
   extension (m: Multiplier)
     @targetName("multTimesShare")
-    def *(s: Share): Multiplier = Multiplier.fromRaw(bankerRound(BigInt(m.toLong) * BigInt(s.toLong)))
+    def *(s: Share): Multiplier            = Multiplier.fromRaw(bankerRound(BigInt(m.toLong) * BigInt(s.toLong)))
     @targetName("multTimesPln")
-    def *(p: PLN): PLN          = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(m.toLong)))
+    def *(p: PLN): PLN                     = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(m.toLong)))
+    @targetName("multRatio")
+    def ratioTo(other: Multiplier): Scalar = Scalar.fromRaw(scaledDiv(m.toLong, other.toLong))
     @targetName("multToRate")
-    def toRate: Rate            = Rate.fromRaw(m.toLong)
+    def toRate: Rate                       = Rate.fromRaw(m.toLong)
     @targetName("multToShare")
-    def toShare: Share          = Share.fromRaw(m.toLong)
+    def toShare: Share                     = Share.fromRaw(m.toLong)
     @targetName("multToScalar")
-    def toScalar: Scalar        = Scalar.fromRaw(m.toLong)
+    def toScalar: Scalar                   = Scalar.fromRaw(m.toLong)
 
   // --- Coefficient × typed ---
   extension (c: Coefficient)
