@@ -54,7 +54,7 @@ object EclStaging:
     val unempExcess: Share          = (unemployment - p.monetary.nairu).max(Share.Zero)
     val gdpContraction: Coefficient = (-gdpGrowthMonthly).max(Coefficient.Zero)
     val rawMigration: Coefficient   = p.banking.eclMigrationSensitivity * unempExcess + p.banking.eclGdpSensitivity * gdpContraction
-    Share.fromRaw(rawMigration.toLong.min(p.banking.eclMaxMigration.toLong).max(0L))
+    rawMigration.max(Coefficient.Zero).min(p.banking.eclMaxMigration.toCoefficient).toShare
 
   /** Monthly ECL staging step for a single bank.
     *

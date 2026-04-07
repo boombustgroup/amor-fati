@@ -97,6 +97,8 @@ object types:
     def toRate: Rate                   = Rate.fromRaw(s.toLong)
     @targetName("shareToMultiplier")
     def toMultiplier: Multiplier       = Multiplier.fromRaw(s.toLong)
+    @targetName("shareToCoefficient")
+    def toCoefficient: Coefficient     = Coefficient.fromRaw(s.toLong)
     @targetName("shareRatioToShare")
     def ratioTo(other: Share): Scalar  = Scalar.fromRaw(scaledDiv(s.toLong, other.toLong))
     @targetName("shareApplyToInt")
@@ -143,6 +145,8 @@ object types:
     def *(m: Multiplier): Share  = Share.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(m.toLong)))
     @targetName("coefTimesPln")
     def *(p: PLN): PLN           = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
+    @targetName("coefToShare")
+    def toShare: Share           = Share.fromRaw(c.toLong)
     @targetName("coefToMultiplier")
     def toMultiplier: Multiplier = Multiplier.fromRaw(c.toLong)
 
