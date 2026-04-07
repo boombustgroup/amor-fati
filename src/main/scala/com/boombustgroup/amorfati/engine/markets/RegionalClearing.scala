@@ -26,27 +26,25 @@ object RegionalClearing:
     * regional excess demand via the Phillips curve. The national wage is the
     * population-weighted mean of regional wages (exact Long summation).
     */
-  @boundaryEscape
   def clear(
       prevRegionalWages: Map[Region, PLN],
       resWage: PLN,
       laborDemand: Int,
       totalPopulation: Int,
   )(using p: SimParams): Result =
-    import ComputationBoundary.toDouble
-    val regionalWages = Region.all
+    val regionalWages: Map[Region, PLN] = Region.all
       .map: region =>
-        val regWageMult = Region.normalizedWageMultiplier(region)
-        val prevWage    = prevRegionalWages.getOrElse(region, resWage * regWageMult)
-        val regDemand   = (laborDemand * toDouble(region.populationShare)).toInt
-        val regPop      = (totalPopulation * toDouble(region.populationShare)).toInt.max(1)
-        val regResWage  = resWage * regWageMult
-        val clearResult = LaborMarket.updateLaborMarket(prevWage, regResWage, regDemand, regPop)
+        val regWageMult: Multiplier = Region.normalizedWageMultiplier(region)
+        val prevWage: PLN           = prevRegionalWages.getOrElse(region, resWage * regWageMult)
+        val regDemand: Int          = region.populationShare.applyTo(laborDemand)
+        val regPop: Int             = region.populationShare.applyTo(totalPopulation).max(1)
+        val regResWage: PLN         = resWage * regWageMult
+        val clearResult             = LaborMarket.updateLaborMarket(prevWage, regResWage, regDemand, regPop)
         region -> clearResult.wage
       .toMap
 
-    val nationalWage = PLN(
-      Region.all.map(r => toDouble(regionalWages(r)) * toDouble(r.populationShare)).sum,
-    )
+    val nationalWage: PLN =
+      Region.all.foldLeft(PLN.Zero): (acc, region) =>
+        acc + (regionalWages(region) * region.populationShare)
 
     Result(regionalWages, nationalWage)
