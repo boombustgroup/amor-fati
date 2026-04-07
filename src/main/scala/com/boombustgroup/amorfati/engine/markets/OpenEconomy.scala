@@ -95,7 +95,7 @@ object OpenEconomy:
       sectorOutputs: Vector[PLN],
       month: Int,
       inflation: Rate = Rate.Zero,
-      nbpFxReserves: PLN = PLN.Zero,
+      nbpFxReserves: PLN,
       gvcExports: Option[PLN] = None,
       gvcIntermImports: Option[Vector[PLN]] = None,
       remittanceOutflow: PLN = PLN.Zero,
@@ -128,8 +128,8 @@ object OpenEconomy:
     val deltaReserves       = -(caResult.ca + kaResult.total)
     val fxResult            = Nbp.fxIntervention(
       in.prevForex.exchangeRate,
-      ComputationBoundary.toDouble(in.nbpFxReserves),
-      ComputationBoundary.toDouble(in.gdp),
+      in.nbpFxReserves,
+      in.gdp,
       true,
     )
     val newExRate           = computeExchangeRate(in, caResult.ca, kaResult.total, fxResult.erEffect)

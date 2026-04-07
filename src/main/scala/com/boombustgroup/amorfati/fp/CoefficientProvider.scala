@@ -7,9 +7,10 @@ object CoefficientProvider:
   opaque type Coefficient = Long
 
   object Coefficient:
-    val Zero: Coefficient             = 0L
-    val One: Coefficient              = Scale
-    def apply(d: Double): Coefficient = Math.round(d * Scale)
+    val Zero: Coefficient               = 0L
+    val One: Coefficient                = Scale
+    def apply(d: Double): Coefficient   = Math.round(d * Scale)
+    def fromRaw(raw: Long): Coefficient = raw
 
   extension (c: Coefficient)
     inline def toLong: Long                  = c

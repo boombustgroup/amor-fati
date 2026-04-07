@@ -1,10 +1,10 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -14,8 +14,6 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
-
   // --- Default friction matrix ---
 
   "DefaultFrictionMatrix" should "be 6x6" in {
@@ -34,8 +32,8 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   it should "have values in [0, 1]" in {
     for row <- SectoralMobility.DefaultFrictionMatrix; v <- row do
-      td.toDouble(v) should be >= 0.0
-      td.toDouble(v) should be <= 1.0
+      v.bd should be >= BigDecimal(0)
+      v.bd should be <= BigDecimal("1.0")
   }
 
   // --- sectorVacancies ---
@@ -66,9 +64,9 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
       mkHousehold(3, HhStatus.Unemployed(1)),
     )
     val wages = SectoralMobility.sectorWages(hhs)
-    td.toDouble(wages(0)) shouldBe 11000.0 +- 0.01 // (10000+12000)/2
-    td.toDouble(wages(2)) shouldBe 8000.0
-    td.toDouble(wages(1)) shouldBe 0.0             // no employed in sector 1
+    wages(0).bd shouldBe (BigDecimal("11000.0") +- BigDecimal("0.01")) // (10000+12000)/2
+    wages(2).bd shouldBe BigDecimal("8000.0")
+    wages(1) shouldBe PLN.Zero                                         // no employed in sector 1
   }
 
   // --- selectTargetSector ---
@@ -115,29 +113,29 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     val rp0 = SectoralMobility.frictionAdjustedParams(Share(0.0), Multiplier(1.0), Share(0.5))
     val rp9 = SectoralMobility.frictionAdjustedParams(Share(0.9), Multiplier(1.0), Share(0.5))
     rp9.duration should be > rp0.duration
-    td.toDouble(rp9.cost) should be > td.toDouble(rp0.cost)
+    rp9.cost.bd should be > rp0.cost.bd
   }
 
   it should "return base values at zero friction" in {
     val rp = SectoralMobility.frictionAdjustedParams(Share(0.0), Multiplier(1.0), Share(0.5))
     rp.duration shouldBe p.household.retrainingDuration
-    td.toDouble(rp.cost) shouldBe td.toDouble(p.household.retrainingCost) +- 0.01
+    rp.cost.bd shouldBe (p.household.retrainingCost.bd +- BigDecimal("0.01"))
   }
 
   // --- crossSectorWagePenalty ---
 
   "crossSectorWagePenalty" should "return 1.0 at zero friction" in {
-    td.toDouble(SectoralMobility.crossSectorWagePenalty(Share(0.0))) shouldBe 1.0
+    SectoralMobility.crossSectorWagePenalty(Share(0.0)).bd shouldBe BigDecimal("1.0")
   }
 
   it should "return 0.7 at friction 1.0" in {
-    td.toDouble(SectoralMobility.crossSectorWagePenalty(Share(1.0))) shouldBe 0.7 +- 0.001
+    SectoralMobility.crossSectorWagePenalty(Share(1.0)).bd shouldBe (BigDecimal("0.7") +- BigDecimal("0.001"))
   }
 
   it should "decrease monotonically with friction" in {
     for f <- 1 to 10 do
-      val low  = td.toDouble(SectoralMobility.crossSectorWagePenalty(Share(f * 0.1 - 0.1)))
-      val high = td.toDouble(SectoralMobility.crossSectorWagePenalty(Share(f * 0.1)))
+      val low  = SectoralMobility.crossSectorWagePenalty(Share(f * 0.1 - 0.1)).bd
+      val high = SectoralMobility.crossSectorWagePenalty(Share(f * 0.1)).bd
       high should be <= low
   }
 
@@ -173,7 +171,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       tech,
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.5),
       SectorIdx(sector),
       Vector.empty[FirmId],

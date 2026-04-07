@@ -197,17 +197,18 @@ object SimParams:
 object FirmSizeDistribution:
   import scala.util.Random
 
-  @boundaryEscape
   def draw(rng: Random)(using p: SimParams): Int =
-    import ComputationBoundary.toDouble
     p.pop.firmSizeDist match
       case FirmSizeDist.Gus     =>
-        val r     = rng.nextDouble()
-        val micro = toDouble(p.pop.firmSizeMicroShare)
-        val small = toDouble(p.pop.firmSizeSmallShare)
-        val large = toDouble(p.pop.firmSizeLargeShare)
-        if r < micro then rng.between(1, 10)
-        else if r < micro + small then rng.between(10, 50)
-        else if r < 1.0 - large then rng.between(50, 250)
+        val micro    = p.pop.firmSizeMicroShare.toLong
+        val small    = p.pop.firmSizeSmallShare.toLong
+        val large    = p.pop.firmSizeLargeShare.toLong
+        val draw     = (rng.nextDouble() * Share.One.toLong).toLong
+        val microCut = micro
+        val smallCut = micro + small
+        val largeCut = Share.One.toLong - large
+        if draw < microCut then rng.between(1, 10)
+        else if draw < smallCut then rng.between(10, 50)
+        else if draw < largeCut then rng.between(50, 250)
         else rng.between(250, p.pop.firmSizeLargeMax + 1)
       case FirmSizeDist.Uniform => p.pop.workersPerFirm

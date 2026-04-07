@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 import com.boombustgroup.amorfati.types.*
 
 /** Social security and demographics: ZUS/FUS, PPK, demographics, BGK. */
@@ -100,11 +101,9 @@ object SocialSecurity:
   /** Compute demographics monthly step. Monthly retirements reduce labor
     * supply; working-age population declines.
     */
-  @boundaryEscape
   def demographicsStep(prev: DemographicsState, employed: Int, netMigration: Int)(using p: SimParams): DemographicsState =
-    val retirements       = Math.max(0, (employed.toDouble * ComputationBoundary.toDouble(p.social.demRetirementRate)).toInt)
-    val workingAgeDecline =
-      Math.max(0, (prev.workingAgePop.toDouble * ComputationBoundary.toDouble(p.social.demWorkingAgeDecline) / 12.0).toInt)
+    val retirements       = bankerRound(BigInt(employed.toLong) * BigInt(p.social.demRetirementRate.toLong)).toInt
+    val workingAgeDecline = bankerRound(BigInt(prev.workingAgePop.toLong) * BigInt(p.social.demWorkingAgeDecline.monthly.toLong)).toInt
     DemographicsState(
       retirees = prev.retirees + retirements,
       workingAgePop = Math.max(0, prev.workingAgePop - retirements - workingAgeDecline + netMigration),

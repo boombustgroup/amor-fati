@@ -64,8 +64,8 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   "computeCoupon" should "be proportional to holdings" in {
     val coupon = CorporateBondMarket.computeCoupon(initState)
     coupon.total should be > PLN.Zero
-    td.toDouble(coupon.bank) shouldBe (td.toDouble(initState.bankHoldings) * td.toDouble(initState.corpBondYield) / 12.0 +- 5000.0)
-    td.toDouble(coupon.ppk) shouldBe (td.toDouble(initState.ppkHoldings) * td.toDouble(initState.corpBondYield) / 12.0 +- 5000.0)
+    coupon.bank shouldBe (initState.bankHoldings * initState.corpBondYield.monthly)
+    coupon.ppk shouldBe (initState.ppkHoldings * initState.corpBondYield.monthly)
   }
 
   it should "return zeros for zero outstanding" in {

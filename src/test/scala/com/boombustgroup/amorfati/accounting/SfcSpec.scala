@@ -1,20 +1,12 @@
 package com.boombustgroup.amorfati.accounting
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.{
-  ExternalState,
-  FinancialMarketsState,
-  FlowState,
-  MechanismsState,
-  MonetaryPlumbingState,
-  RealState,
-  SocialState,
-  World,
-}
+import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.engine.flows.{AggregateBatchContract, AggregateBatchedEmission, FlowMechanism}
 import com.boombustgroup.amorfati.types.*
@@ -25,10 +17,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  private val td = ComputationBoundary
-
-  private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): Double =
-    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0)
+  private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): BigDecimal =
+    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => (e.actual - e.expected).bd).getOrElse(BigDecimal(0))
 
   private def makeWorld(
       govDebt: Double = 0.0,
@@ -61,14 +51,14 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         medianSavings = PLN.Zero,
         povertyRate50 = Share.Zero,
         bankruptcyRate = Share.Zero,
-        meanSkill = 0.0,
-        meanHealthPenalty = 0.0,
+        meanSkill = Share.Zero,
+        meanHealthPenalty = Share.Zero,
         retrainingAttempts = 0,
         retrainingSuccesses = 0,
         consumptionP10 = PLN.Zero,
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = 0.0,
+        meanMonthsToRuin = Scalar.Zero,
         povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
@@ -102,7 +92,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         PLN(debt),
         TechState.Traditional(10),
         Share(0.5),
-        1.0,
+        Multiplier.One,
         Share(0.3),
         SectorIdx(0),
         Vector.empty[FirmId],
@@ -247,8 +237,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val w     = makeWorld()
     val firms = makeFirms(5, cash = 10000.0, debt = 5000.0)
     val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty)
-    td.toDouble(snap.firmCash) shouldBe 50000.0 +- 0.01
-    td.toDouble(snap.firmDebt) shouldBe 25000.0 +- 0.01
+    snap.firmCash.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
+    snap.firmDebt.bd shouldBe (BigDecimal("25000.0") +- BigDecimal("0.01"))
   }
 
   it should "correctly sum household savings and debt" in {
@@ -256,8 +246,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val firms = makeFirms(1)
     val hhs   = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
     val snap  = Sfc.snapshot(w, firms, hhs, Vector.empty)
-    td.toDouble(snap.hhSavings) shouldBe 200000.0 +- 0.01
-    td.toDouble(snap.hhDebt) shouldBe 50000.0 +- 0.01
+    snap.hhSavings.bd shouldBe (BigDecimal("200000.0") +- BigDecimal("0.01"))
+    snap.hhDebt.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
   }
 
   it should "return zero HH values with empty household vector" in {
@@ -322,7 +312,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val flows  = zeroFlows.copy(nplLoss = PLN(5000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe 5000.0 +- 0.01 // actual=0, expected=-5000
+    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (BigDecimal("5000.0") +- BigDecimal("0.01")) // actual=0, expected=-5000
   }
 
   it should "detect error when interest income routing is wrong" in {
@@ -334,7 +324,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val result = Sfc.validateStockExactness(prev, curr, flows)
     // actual change = +5000, expected = +3000, error = 2000
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe 2000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (BigDecimal("2000.0") +- BigDecimal("0.01"))
   }
 
   it should "detect error when debt service is not routed to bank" in {
@@ -351,7 +341,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val flows  = zeroFlows.copy(hhDebtService = PLN(20000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe -6000.0 +- 0.01 // actual=0, expected=+6000
+    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (BigDecimal("-6000.0") +- BigDecimal("0.01")) // actual=0, expected=+6000
   }
 
   // ---- Identity 2: Bank deposits ----
@@ -374,7 +364,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val flows  = zeroFlows.copy(totalIncome = PLN(100000), totalConsumption = PLN(82000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe -18000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe (BigDecimal("-18000.0") +- BigDecimal("0.01"))
   }
 
   // ---- Public-sector metric diagnostics: Government debt ----
@@ -422,7 +412,9 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val flows  = zeroFlows.copy(govSpending = PLN(30000), govRevenue = PLN(20000))
     val result = Sfc.metricDiagnostics(prev, curr, flows)
     result.map(_.identity) should contain(Sfc.SfcIdentity.GovDebt)
-    result.find(_.identity == Sfc.SfcIdentity.GovDebt).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0) shouldBe -10000.0 +- 0.01
+    result.find(_.identity == Sfc.SfcIdentity.GovDebt).map(e => (e.actual - e.expected).bd).getOrElse(BigDecimal(0)) shouldBe (BigDecimal(
+      "-10000.0",
+    ) +- BigDecimal("0.01"))
   }
 
   // ---- Zero-flow identity ----
@@ -514,7 +506,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     )
     val result = Sfc.validateStockExactness(prev, prev, zeroFlows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BondClearing) shouldBe -2000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BondClearing) shouldBe (BigDecimal("-2000.0") +- BigDecimal("0.01"))
   }
 
   it should "pass trivially when all bond fields are zero" in {
@@ -567,7 +559,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val curr   = prev.copy(interbankNetSum = PLN(5000.0))
     val result = Sfc.validateStockExactness(prev, curr, zeroFlows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.InterbankNetting) shouldBe 5000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.InterbankNetting) shouldBe (BigDecimal("5000.0") +- BigDecimal("0.01"))
   }
 
   it should "pass trivially in single-bank mode (interbankNetSum=0)" in {
@@ -656,7 +648,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val result = Sfc.validateStockExactness(prev, curr, flows)
     // actual=0, expected=-5000*0.3=-1500, error=0-(-1500)=1500
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe 1500.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (BigDecimal("1500.0") +- BigDecimal("0.01"))
   }
 
   // ---- Identity 2 with dividend flows ----
@@ -705,7 +697,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val flows  = zeroFlows.copy(dividendIncome = PLN(10000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe -10000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe (BigDecimal("-10000.0") +- BigDecimal("0.01"))
   }
 
   // ---- Identity 1 with mortgage flows ----
@@ -749,7 +741,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val result = Sfc.validateStockExactness(prev, curr, flows)
     // actual=0, expected=+1800, error=-1800
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe -1800.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (BigDecimal("-1800.0") +- BigDecimal("0.01"))
   }
 
   // ---- Identity 9: Mortgage stock ----
@@ -791,7 +783,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val flows  = zeroFlows.copy(mortgageOrigination = PLN(15000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.MortgageStock) shouldBe -15000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.MortgageStock) shouldBe (BigDecimal("-15000.0") +- BigDecimal("0.01"))
   }
 
   it should "handle net reduction in stock (repayment > origination)" in {
@@ -844,7 +836,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val result = Sfc.validateStockExactness(prev, curr, flows)
     // actual=0, expected=-8000, error=0-(-8000)=8000
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe 8000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe (BigDecimal("8000.0") +- BigDecimal("0.01"))
   }
 
   it should "pass trivially when remittance is zero (immigration disabled)" in {
@@ -875,7 +867,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val flows  = zeroFlows.copy(nbfiDepositDrain = PLN(-5000.0))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe 5000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe (BigDecimal("5000.0") +- BigDecimal("0.01"))
   }
 
   // ---- Identity 5 with TFI gov bond holdings (#42) ----
@@ -910,7 +902,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val result = Sfc.validateStockExactness(prev, prev, zeroFlows)
     // 4000 + 3000 + 0 + 2000 + 5000 = 14000 vs 10000 = +4000 error
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.BondClearing) shouldBe 4000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.BondClearing) shouldBe (BigDecimal("4000.0") +- BigDecimal("0.01"))
   }
 
   // ---- Identity 13: NBFI credit stock (#42) ----
@@ -948,7 +940,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val flows  = zeroFlows.copy(nbfiOrigination = PLN(8000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.NbfiCredit) shouldBe -8000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.NbfiCredit) shouldBe (BigDecimal("-8000.0") +- BigDecimal("0.01"))
   }
 
   it should "handle net reduction in NBFI stock (repayment > origination)" in {

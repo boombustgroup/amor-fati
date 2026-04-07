@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
@@ -12,8 +13,6 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
-
   // --- Config defaults ---
 
   "FdiForeignShares" should "have 6 values" in {
@@ -22,20 +21,20 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   it should "have all values in [0, 1]" in
     p.fdi.foreignShares.foreach { s =>
-      td.toDouble(s) should be >= 0.0
-      td.toDouble(s) should be <= 1.0
+      s.bd should be >= BigDecimal(0)
+      s.bd should be <= BigDecimal("1.0")
     }
 
   "FdiProfitShiftRate" should "default to 0.15" in {
-    td.toDouble(p.fdi.profitShiftRate) shouldBe 0.15
+    p.fdi.profitShiftRate.bd shouldBe BigDecimal("0.15")
   }
 
   "FdiRepatriationRate" should "default to 0.70" in {
-    td.toDouble(p.fdi.repatriationRate) shouldBe 0.70
+    p.fdi.repatriationRate.bd shouldBe BigDecimal("0.70")
   }
 
   "FdiMaProb" should "default to 0.001" in {
-    td.toDouble(p.fdi.maProb) shouldBe 0.001
+    p.fdi.maProb.bd shouldBe BigDecimal("0.001")
   }
 
   "FdiMaSizeMin" should "default to 50" in {
@@ -60,8 +59,8 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   "Firm.Result" should "default profitShiftCost and fdiRepatriation to 0" in {
     val r = Firm.Result.zero(mkFirm(TechState.Traditional(10)))
-    td.toDouble(r.profitShiftCost) shouldBe 0.0
-    td.toDouble(r.fdiRepatriation) shouldBe 0.0
+    r.profitShiftCost shouldBe PLN.Zero
+    r.fdiRepatriation shouldBe PLN.Zero
   }
 
   // --- calcPnL: profit shifting ---
@@ -70,7 +69,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = false)
     val w = mkWorld()
     val r = Firm.process(f, w, Rate(0.06), _ => true, Vector(f), new scala.util.Random(42))
-    td.toDouble(r.profitShiftCost) shouldBe 0.0
+    r.profitShiftCost shouldBe PLN.Zero
   }
 
   // --- applyFdiFlows ---
@@ -80,13 +79,13 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     val r = Firm.Result.zero(f).copy(taxPaid = PLN(1000.0))
     // applyFdiFlows is private, but tested through Firm.process
     // Domestic firm should have 0 repatriation regardless
-    td.toDouble(r.fdiRepatriation) shouldBe 0.0
+    r.fdiRepatriation shouldBe PLN.Zero
   }
 
   it should "not repatriate from bankrupt firm" in {
     val f = mkFirm(TechState.Bankrupt(BankruptReason.Other("test"))).copy(foreignOwned = true, cash = PLN(100000.0))
     val r = Firm.Result.zero(f).copy(taxPaid = PLN(1000.0))
-    td.toDouble(r.fdiRepatriation) shouldBe 0.0
+    r.fdiRepatriation shouldBe PLN.Zero
   }
 
   // --- Automated foreign firm ---
@@ -95,9 +94,9 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   "World" should "have FDI fields defaulting to 0" in {
     val w = mkWorld()
-    td.toDouble(w.flows.fdiProfitShifting) shouldBe 0.0
-    td.toDouble(w.flows.fdiRepatriation) shouldBe 0.0
-    td.toDouble(w.flows.fdiCitLoss) shouldBe 0.0
+    w.flows.fdiProfitShifting shouldBe PLN.Zero
+    w.flows.fdiRepatriation shouldBe PLN.Zero
+    w.flows.fdiCitLoss shouldBe PLN.Zero
   }
 
   // --- Repatriation cash constraint ---
@@ -122,17 +121,17 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   // --- FDI foreign shares calibration ---
 
   "FDI foreign shares" should "have Manufacturing as highest share" in {
-    val shares = p.fdi.foreignShares.map(td.toDouble)
+    val shares = p.fdi.foreignShares.map(_.bd)
     shares(1) should be >= shares(0) // Mfg >= BPO
     shares(1) should be >= shares(2) // Mfg >= Retail
   }
 
   it should "have Public sector at 0%" in {
-    td.toDouble(p.fdi.foreignShares(4)) shouldBe 0.0
+    p.fdi.foreignShares(4) shouldBe Share.Zero
   }
 
   it should "have Healthcare low (3%)" in {
-    td.toDouble(p.fdi.foreignShares(3)) shouldBe 0.03
+    p.fdi.foreignShares(3).bd shouldBe BigDecimal("0.03")
   }
 
   // --- helpers ---
@@ -144,7 +143,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       tech,
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.5),
       SectorIdx(sector),
       Vector.empty[FirmId],
@@ -180,22 +179,22 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
         consumption = PLN.Zero,
         domesticConsumption = PLN.Zero,
         importConsumption = PLN.Zero,
-        marketWage = PLN(td.toDouble(p.household.baseWage)),
-        reservationWage = PLN(td.toDouble(p.household.baseReservationWage)),
+        marketWage = p.household.baseWage,
+        reservationWage = p.household.baseReservationWage,
         giniIndividual = Share.Zero,
         giniWealth = Share.Zero,
         meanSavings = PLN.Zero,
         medianSavings = PLN.Zero,
         povertyRate50 = Share.Zero,
         bankruptcyRate = Share.Zero,
-        meanSkill = 0.0,
-        meanHealthPenalty = 0.0,
+        meanSkill = Share.Zero,
+        meanHealthPenalty = Share.Zero,
         retrainingAttempts = 0,
         retrainingSuccesses = 0,
         consumptionP10 = PLN.Zero,
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = 0.0,
+        meanMonthsToRuin = Scalar.Zero,
         povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,

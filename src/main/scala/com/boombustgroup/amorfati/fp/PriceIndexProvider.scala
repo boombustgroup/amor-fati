@@ -7,11 +7,14 @@ object PriceIndexProvider:
   opaque type PriceIndex = Long
 
   object PriceIndex:
-    val Base: PriceIndex             = Scale
-    def apply(d: Double): PriceIndex = Math.round(d * Scale)
+    val Base: PriceIndex               = Scale
+    def apply(d: Double): PriceIndex   = Math.round(d * Scale)
+    def fromRaw(raw: Long): PriceIndex = raw
 
   extension (p: PriceIndex)
     inline def toLong: Long              = p
+    def +(other: PriceIndex): PriceIndex = p + other
+    def -(other: PriceIndex): PriceIndex = p - other
     def *(other: PriceIndex): PriceIndex = bankerRound(BigInt(p) * BigInt(other))
     def /(other: PriceIndex): Double     = if other != 0L then p.toDouble / other.toDouble else 0.0
     def >(other: PriceIndex): Boolean    = p > other

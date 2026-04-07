@@ -33,7 +33,7 @@ object HouseholdIncomeEconomics:
       hhAgg: Household.Aggregates,                    // household-level aggregates (employment, savings, etc.)
       perBankHhFlowsOpt: Option[Vector[PerBankFlow]], // per-bank household flow breakdown (multi-bank mode)
       pitRevenue: PLN,                                // personal income tax collected from households
-      importAdj: Double,                              // ER-adjusted import propensity (base * ER elasticity)
+      importAdj: Share,                               // ER-adjusted import propensity (base * ER elasticity)
       aggUnempBenefit: PLN,                           // aggregate unemployment benefit payments
   )
 
@@ -49,8 +49,10 @@ object HouseholdIncomeEconomics:
       rng: Random,
   )(using p: SimParams): Output =
     import ComputationBoundary.toDouble
-    val importAdj = toDouble(p.forex.importPropensity) *
-      Math.pow(p.forex.baseExRate / w.forex.exchangeRate, ImportErElasticity)
+    val importAdj = Share(
+      toDouble(p.forex.importPropensity) *
+        Math.pow(p.forex.baseExRate / w.forex.exchangeRate, ImportErElasticity),
+    )
 
     val afterSep           = LaborMarket.separations(households, firms, firms)
     val afterWages         = LaborMarket.updateWages(afterSep, firms, newWage)
@@ -79,8 +81,6 @@ object HouseholdIncomeEconomics:
       secVacancies,
     )
 
-    val pitRevenue = toDouble(agg.totalPit)
-
     Output(
       agg.totalIncome,
       agg.consumption,
@@ -89,7 +89,7 @@ object HouseholdIncomeEconomics:
       newHhs,
       agg,
       pbf,
-      PLN(pitRevenue),
+      agg.totalPit,
       importAdj,
       aggUnempBenefit = PLN.Zero,
     )

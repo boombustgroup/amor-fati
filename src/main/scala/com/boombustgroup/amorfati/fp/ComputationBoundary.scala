@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.fp
 
 import scala.annotation.targetName
-import FixedPointBase.asDouble
+import FixedPointBase.ScaleD
 import PLNProvider.PLN
 import RateProvider.Rate
 import ShareProvider.Share
@@ -23,16 +23,16 @@ class boundaryEscape extends scala.annotation.StaticAnnotation
   */
 object ComputationBoundary:
   @targetName("plnToDouble")
-  def toDouble(p: PLN): Double         = asDouble(p.toLong)
+  def toDouble(p: PLN): Double         = p.toLong.toDouble / ScaleD
   @targetName("rateToDouble")
-  def toDouble(r: Rate): Double        = asDouble(r.toLong)
+  def toDouble(r: Rate): Double        = r.toLong.toDouble / ScaleD
   @targetName("shareToDouble")
-  def toDouble(s: Share): Double       = asDouble(s.toLong)
+  def toDouble(s: Share): Double       = s.toLong.toDouble / ScaleD
   @targetName("multiplierToDouble")
-  def toDouble(m: Multiplier): Double  = asDouble(m.toLong)
+  def toDouble(m: Multiplier): Double  = m.toLong.toDouble / ScaleD
   @targetName("coefficientToDouble")
-  def toDouble(c: Coefficient): Double = asDouble(c.toLong)
+  def toDouble(c: Coefficient): Double = c.toLong.toDouble / ScaleD
   @targetName("priceIndexToDouble")
-  def toDouble(p: PriceIndex): Double  = asDouble(p.toLong)
+  def toDouble(p: PriceIndex): Double  = p.toLong.toDouble / ScaleD
   @targetName("sigmaToDouble")
-  def toDouble(s: Sigma): Double       = asDouble(s.toLong)
+  def toDouble(s: Sigma): Double       = s.toLong.toDouble / ScaleD

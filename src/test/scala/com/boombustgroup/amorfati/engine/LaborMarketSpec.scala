@@ -41,7 +41,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   it should "make workers unemployed when firm automates" in {
     val prevFirms = mkFirms(2)
-    val newFirms  = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Automated(1.5)))
+    val newFirms  = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Automated(Multiplier(1.5))))
 
     val hhs        = (0 until 5).map(i => mkHousehold(i, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)))).toVector
     val result     = LaborMarket.separations(hhs, prevFirms, newFirms)
@@ -49,8 +49,8 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     val skCrew     = Firm.skeletonCrew(newFirms(0))
     val employed   = result.count(_.status.isInstanceOf[HhStatus.Employed])
     val unemployed = result.count(_.status == HhStatus.Unemployed(0))
-    employed shouldBe skCrew
-    unemployed shouldBe (5 - skCrew)
+    employed.shouldBe(skCrew)
+    unemployed.shouldBe(5 - skCrew)
   }
 
   it should "not affect already unemployed households" in {
@@ -168,7 +168,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
         PLN.Zero,
         TechState.Traditional(10),
         Share(0.5),
-        1.0,
+        Multiplier.One,
         Share(0.5),
         SectorIdx(2),
         Vector.empty[FirmId],

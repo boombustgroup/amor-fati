@@ -37,12 +37,12 @@ object PLNProvider:
   given Numeric[PLN] with
     def plus(x: PLN, y: PLN): PLN             = x + y
     def minus(x: PLN, y: PLN): PLN            = x - y
-    def times(x: PLN, y: PLN): PLN            = PLN(asDouble(x) * asDouble(y))
+    def times(x: PLN, y: PLN): PLN            = PLN.fromRaw(bankerRound(BigInt(x) * BigInt(y)))
     def negate(x: PLN): PLN                   = -x
     def fromInt(x: Int): PLN                  = PLN(x.toDouble)
     def parseString(str: String): Option[PLN] = str.toDoubleOption.map(PLN(_))
     def toInt(x: PLN): Int                    = (x / Scale).toInt
     def toLong(x: PLN): Long                  = x / Scale
-    def toFloat(x: PLN): Float                = asDouble(x).toFloat
-    def toDouble(x: PLN): Double              = asDouble(x)
+    def toFloat(x: PLN): Float                = (x.toDouble / ScaleD).toFloat
+    def toDouble(x: PLN): Double              = x.toDouble / ScaleD
     def compare(x: PLN, y: PLN): Int          = java.lang.Long.compare(x, y)

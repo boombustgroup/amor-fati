@@ -18,9 +18,9 @@ object LaborEconomics:
   private[amorfati] def aggregateHiringSlackFactor(laborDemand: Int, availableLabor: Int)(using p: SimParams): Double =
     if laborDemand <= 0 then 1.0
     else
-      val buffered = availableLabor.toDouble * ComputationBoundary.toDouble(p.firm.aggregateLaborSlackBuffer)
+      val buffered = availableLabor.toDouble * (p.firm.aggregateLaborSlackBuffer / Share.One)
       val raw      = buffered / laborDemand.toDouble
-      raw.max(ComputationBoundary.toDouble(p.firm.aggregateLaborSlackFloor)).min(1.0)
+      raw.max(p.firm.aggregateLaborSlackFloor / Share.One).min(1.0)
 
   case class Result(
       wage: PLN,
@@ -76,7 +76,7 @@ object LaborEconomics:
     val aggregateHiringSlack = aggregateHiringSlackFactor(laborDemand, availableLabor)
 
     // Immigration
-    val unempRateForImmig = 1.0 - cleared.employed.toDouble / w.derivedTotalPopulation
+    val unempRateForImmig = w.unemploymentRate(cleared.employed)
     val newImmig          = Immigration.step(w.external.immigration, households, cleared.wage, unempRateForImmig)
     val netMigration      = newImmig.monthlyInflow - newImmig.monthlyOutflow
 

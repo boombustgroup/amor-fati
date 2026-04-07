@@ -5,6 +5,7 @@ import com.boombustgroup.amorfati.config.{FirmSizeDistribution, SimParams}
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, PriceLevel}
 import com.boombustgroup.amorfati.engine.mechanisms.{EuFunds, Macroprudential}
+import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -127,7 +128,7 @@ object PriceEquityEconomics:
     if lambda == 0.0 then currentSigmas
     else
       currentSigmas.zip(baseSigmas).zip(sectorAdoption).map { case ((sig, base), adopt) =>
-        val s     = ComputationBoundary.toDouble(sig)
+        val s     = sig.toLong.toDouble / ScaleD
         val cap   = base * capMult
         val delta = lambda * s * adopt * (1.0 - s / cap)
         Sigma(Math.min(cap, Math.max(s, s + delta)))
@@ -187,7 +188,7 @@ object PriceEquityEconomics:
           debt = PLN.Zero,
           tech = TechState.Traditional(newSize),
           riskProfile = Share(rng.between(RiskProfileMin, RiskProfileMax)),
-          innovationCostFactor = rng.between(InnovCostMin, InnovCostMax),
+          innovationCostFactor = Multiplier(rng.between(InnovCostMin, InnovCostMax)),
           digitalReadiness = Share(
             Math.max(
               DigitalReadyFloor,

@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -25,10 +26,10 @@ object BankruptReason:
   */
 sealed trait TechState
 object TechState:
-  case class Traditional(workers: Int)                  extends TechState
-  case class Hybrid(workers: Int, aiEfficiency: Double) extends TechState
-  case class Automated(efficiency: Double)              extends TechState
-  case class Bankrupt(reason: BankruptReason)           extends TechState
+  case class Traditional(workers: Int)                      extends TechState
+  case class Hybrid(workers: Int, aiEfficiency: Multiplier) extends TechState
+  case class Automated(efficiency: Multiplier)              extends TechState
+  case class Bankrupt(reason: BankruptReason)               extends TechState
 
 /** Firm agent: stateless functions operating on `State`. Entry point:
   * `process`.
@@ -150,7 +151,7 @@ object Firm:
       debt: PLN,                           // Outstanding bank loan debt
       tech: TechState,                     // Current technology regime
       riskProfile: Share,                  // Propensity to invest / adopt technology [0,1]
-      innovationCostFactor: Double,        // Firm-specific CAPEX multiplier (drawn at creation)
+      innovationCostFactor: Multiplier,    // Firm-specific CAPEX multiplier (drawn at creation)
       digitalReadiness: Share,             // Digital readiness score [0,1], gates tech upgrades
       sector: SectorIdx,                   // Index into p.sectorDefs
       neighbors: Vector[FirmId],           // Network adjacency (firm IDs)
@@ -257,38 +258,35 @@ object Firm:
     * CES: Y = A × [α·K^ρ + (1-α)·L^ρ]^(1/ρ) where ρ = (σ-1)/σ. High-σ sectors
     * (BPO=50) substitute K/L easily; low-σ (Public=1) resist.
     */
-  @boundaryEscape
   def computeCapacity(f: State)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
     val sec       = p.sectorDefs(f.sector.toInt)
-    val sizeScale = Multiplier(f.initialSize.toDouble / p.pop.workersPerFirm)
+    val sizeScale = Scalar.fraction(f.initialSize, p.pop.workersPerFirm).toMultiplier
     val laborEff  = f.tech match
-      case TechState.Traditional(w) => Multiplier(w.toDouble / f.initialSize)
-      case TechState.Hybrid(w, eff) => Multiplier(HybridLaborCapShare * (w.toDouble / f.initialSize) + HybridAiCapShare * eff)
-      case TechState.Automated(eff) => Multiplier(eff)
+      case TechState.Traditional(w) => Scalar.fraction(w, f.initialSize).toMultiplier
+      case TechState.Hybrid(w, eff) =>
+        Share(HybridLaborCapShare).toMultiplier * Scalar.fraction(w, f.initialSize).toMultiplier + Share(HybridAiCapShare).toMultiplier * eff
+      case TechState.Automated(eff) => eff
       case _: TechState.Bankrupt    => Multiplier.Zero
     val tfp       = sizeScale * sec.revenueMultiplier
     if f.capitalStock > PLN.Zero && laborEff > Multiplier.Zero then
       val targetK: PLN  = workerCount(f) * p.capital.klRatios(f.sector.toInt)
-      val k: Multiplier = Multiplier(if targetK > PLN.Zero then f.capitalStock / targetK else 1.0).clamp(Multiplier(0.1), Multiplier(2.0))
+      val k: Multiplier =
+        (if targetK > PLN.Zero then f.capitalStock.ratioTo(targetK).toMultiplier else Multiplier.One).clamp(Multiplier(0.1), Multiplier(2.0))
       val alpha: Share  = p.capital.prodElast
-      val sigma: Double = toDouble(sec.sigma)
-      p.firm.baseRevenue * tfp * cesOutput(alpha, k, laborEff, sigma)
+      p.firm.baseRevenue * tfp * cesOutput(alpha, k, laborEff, sec.sigma)
     else p.firm.baseRevenue * tfp * laborEff
 
   /** CES aggregator: [α·K^ρ + (1-α)·L^ρ]^(1/ρ). Degrades gracefully: σ→1 ≈
     * Cobb-Douglas, σ→∞ ≈ linear (perfect substitutes).
     */
-  @boundaryEscape
-  private[amorfati] def cesOutput(alpha: Share, k: Multiplier, l: Multiplier, sigma: Double): Multiplier =
-    import ComputationBoundary.toDouble
-    if sigma <= 1.001 then // near-Leontief/Cobb-Douglas boundary — use Cobb-Douglas
-      Multiplier(Math.pow(toDouble(k), toDouble(alpha)) * Math.pow(toDouble(l), 1.0 - toDouble(alpha)))
+  private[amorfati] def cesOutput(alpha: Share, k: Multiplier, l: Multiplier, sigma: Sigma): Multiplier =
+    if !(sigma > Sigma(1.001)) then // near-Leontief/Cobb-Douglas boundary — use Cobb-Douglas
+      k.pow(alpha.toScalar) * l.pow((Share.One - alpha).toScalar)
     else
-      val rho   = (sigma - 1.0) / sigma
-      val kTerm = toDouble(alpha) * Math.pow(toDouble(k), rho)
-      val lTerm = (1.0 - toDouble(alpha)) * Math.pow(toDouble(l), rho)
-      Multiplier(Math.pow(kTerm + lTerm, 1.0 / rho))
+      val rho   = (sigma.toScalar - Scalar.One).ratioTo(sigma.toScalar)
+      val kTerm = alpha * k.pow(rho)
+      val lTerm = (Share.One - alpha) * l.pow(rho)
+      (kTerm + lTerm).pow(rho.reciprocal)
 
   /** Desired worker count from a one-period MR≈MC comparison.
     *
@@ -298,15 +296,13 @@ object Firm:
     * economy-wide labor-slack factor when aggregate plans exceed available
     * labor supply.
     */
-  @boundaryEscape
   private def desiredWorkers(f: State, w: World)(using p: SimParams): Int =
     if isInStartup(f) then return Math.max(workerCount(f), f.startupTargetWorkers)
-    import ComputationBoundary.toDouble
     val sectorDemand = w.pipeline.sectorDemandMult(f.sector.toInt)
     val hiringSignal = w.pipeline.sectorHiringSignal(f.sector.toInt)
     val demandMult   = sectorDemand + (hiringSignal - sectorDemand).max(0.0) * HiringPressureBlend
     val price        = w.priceLevel
-    val wage         = toDouble(w.householdMarket.marketWage) * toDouble(effectiveWageMult(f.sector))
+    val wage         = w.householdMarket.marketWage * effectiveWageMult(f.sector)
     val minW         = p.firm.minWorkersRetained
     val maxW         = f.initialSize * 3
 
@@ -316,9 +312,9 @@ object Firm:
       val mid     = (lo + hi + 1) / 2
       val capMid  = computeCapacity(f.copy(tech = TechState.Traditional(mid)))
       val capPrev = computeCapacity(f.copy(tech = TechState.Traditional(mid - 1)))
-      val mr      = toDouble(capMid - capPrev) * demandMult * price
+      val mr      = (capMid - capPrev) * Multiplier(demandMult * price)
       if mr > wage then lo = mid else hi = mid - 1
-    applyAggregateHiringSlack(lo, minW, w.pipeline.aggregateHiringSlack)
+    applyAggregateHiringSlack(lo, minW, Multiplier(w.pipeline.aggregateHiringSlack))
 
   private def monthlyHiringHeadroom(workers: Int): Int =
     if workers <= 5 then 1
@@ -354,8 +350,8 @@ object Firm:
           else workers
         Math.max(workers, liquidityConstrained)
 
-  private[amorfati] def applyAggregateHiringSlack(rawTarget: Int, minWorkers: Int, slackFactor: Double): Int =
-    Math.max(minWorkers, Math.ceil(rawTarget * slackFactor.max(0.0).min(1.0)).toInt)
+  private[amorfati] def applyAggregateHiringSlack(rawTarget: Int, minWorkers: Int, slackFactor: Multiplier): Int =
+    Math.max(minWorkers, bankerRound(BigInt(rawTarget.toLong) * BigInt(slackFactor.clamp(Multiplier.Zero, Multiplier.One).toLong)).toInt)
 
   private[amorfati] def hiringDiagnostics(firm: State, w: World)(using p: SimParams): HiringDiagnostics =
     val workers         = workerCount(firm)
@@ -389,27 +385,23 @@ object Firm:
   /** Effective AI CAPEX for sector — sublinear in firm size (exponent 0.6),
     * digital readiness discount.
     */
-  @boundaryEscape
   def computeAiCapex(f: State)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
-    val sizeFactor   = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, CapexSizeExponent)
-    val digiDiscount = toDouble(Share.One - p.firm.digiCapexDiscount * f.digitalReadiness)
-    PLN(toDouble(p.firm.aiCapex) * toDouble(p.sectorDefs(f.sector.toInt).aiCapexMultiplier) * f.innovationCostFactor * sizeFactor * digiDiscount)
+    val sizeFactor   = Scalar.fraction(f.initialSize, p.pop.workersPerFirm).pow(Scalar(CapexSizeExponent)).toMultiplier
+    val digiDiscount = Share.One - p.firm.digiCapexDiscount * f.digitalReadiness
+    p.firm.aiCapex * p.sectorDefs(f.sector.toInt).aiCapexMultiplier * digiDiscount * (f.innovationCostFactor * sizeFactor)
 
   /** Hybrid upgrade CAPEX — same scaling as AI CAPEX but using hybrid
     * multipliers.
     */
-  @boundaryEscape
   def computeHybridCapex(f: State)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
-    val sizeFactor   = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, CapexSizeExponent)
-    val digiDiscount = toDouble(Share.One - p.firm.digiCapexDiscount * f.digitalReadiness)
-    PLN(toDouble(p.firm.hybridCapex) * toDouble(p.sectorDefs(f.sector.toInt).hybridCapexMultiplier) * f.innovationCostFactor * sizeFactor * digiDiscount)
+    val sizeFactor   = Scalar.fraction(f.initialSize, p.pop.workersPerFirm).pow(Scalar(CapexSizeExponent)).toMultiplier
+    val digiDiscount = Share.One - p.firm.digiCapexDiscount * f.digitalReadiness
+    p.firm.hybridCapex * p.sectorDefs(f.sector.toInt).hybridCapexMultiplier * digiDiscount * (f.innovationCostFactor * sizeFactor)
 
   /** Digital investment cost — sublinear in firm size (exponent 0.5). */
   def computeDigiInvestCost(f: State)(using p: SimParams): PLN =
-    val sizeFactor = Math.pow(f.initialSize.toDouble / p.pop.workersPerFirm, OpexSizeExponent)
-    p.firm.digiInvestCost * Multiplier(sizeFactor)
+    val sizeFactor = Scalar.fraction(f.initialSize, p.pop.workersPerFirm).pow(Scalar(OpexSizeExponent)).toMultiplier
+    p.firm.digiInvestCost * sizeFactor
 
   /** Fraction of a firm's network neighbors that have adopted automation
     * (Automated or Hybrid tech).
@@ -418,13 +410,13 @@ object Firm:
     * face stronger competitive pressure to digitalize (network externality /
     * peer effect). Returns 0.0 for firms with no neighbors (isolates).
     */
-  def computeLocalAutoRatio(firm: Firm.State, firms: Vector[Firm.State]): Double =
+  def computeLocalAutoRatio(firm: Firm.State, firms: Vector[Firm.State]): Share =
     val neighbors = firm.neighbors
-    if neighbors.isEmpty then return 0.0
+    if neighbors.isEmpty then return Share.Zero
     val autoCount = neighbors.count: nid =>
       val nf = firms(nid.toInt)
       nf.tech.isInstanceOf[TechState.Automated] || nf.tech.isInstanceOf[TechState.Hybrid]
-    autoCount.toDouble / neighbors.length
+    Share.fraction(autoCount, neighbors.length)
 
   /** sigma-based threshold modifier: high sigma sectors find automation
     * profitable at lower cost gap. Only used for profitability threshold, NOT
@@ -432,8 +424,8 @@ object Firm:
     * sigma=10->0.98, sigma=50->1.00 At equilibrium P~1.1: Manufacturing
     * marginal, Healthcare blocked.
     */
-  def sigmaThreshold(sigma: Double): Double =
-    Math.min(1.0, SigmaThreshBase + SigmaThreshScale * Math.log(sigma) / Math.log(10.0))
+  def sigmaThreshold(sigma: Sigma): Multiplier =
+    (Multiplier(SigmaThreshBase) + Multiplier(SigmaThreshScale) * sigma.toScalar.log10.toMultiplier).min(Multiplier.One)
 
   // ---- Entry point ----
 
@@ -454,9 +446,9 @@ object Firm:
     val r1       = applyGreenInvestment(r0a)
     val r2       = applyInvestment(r1)
     val r3       = applyDigitalDrift(r2)
-    val r4       = applyInventory(r3, sectorDemandMult = w.pipeline.sectorDemandMult(firm.sector.toInt))
+    val r4       = applyInventory(r3, sectorDemandMult = Multiplier(w.pipeline.sectorDemandMult(firm.sector.toInt)))
     val r5       = applyFdiFlows(r4)
-    applyInformalCitEvasion(r5, w.mechanisms.informalCyclicalAdj)
+    applyInformalCitEvasion(r5, Share(w.mechanisms.informalCyclicalAdj))
 
   // ---- Decide (all match logic + Random rolls) ----
 
@@ -479,7 +471,6 @@ object Firm:
     * costs. Target = break-even headcount from P&L. If adjustment insufficient
     * to restore solvency, escalates to bankruptcy.
     */
-  @boundaryEscape
   private[amorfati] def attemptDownsize(
       firm: State,
       pnl: PnL,
@@ -490,7 +481,6 @@ object Firm:
       reason: BankruptReason,
       drUpdate: Option[Share] = None,
   )(using p: SimParams): Decision =
-    import ComputationBoundary.toDouble
     val minRetained         = p.firm.minWorkersRetained
     if workers <= minRetained then
       return if hasWorkingCapitalGrace(firm, pnl, nc) then Decision.Survive(pnl, nc, drUpdate = drUpdate) else Decision.GoBankrupt(pnl, nc, reason)
@@ -504,11 +494,11 @@ object Firm:
       else minRetained
     // Smooth adjustment: cut λ of the gap, not the entire excess
     val gap                 = workers - Math.max(minRetained, targetWorkers)
-    val cutSpeed            =
-      if firm.stateOwned then toDouble(p.firm.laborAdjustSpeed * StateOwned.firingReduction)
-      else if isInStartup(firm) then toDouble(p.firm.laborAdjustSpeed * Multiplier(StartupDownsizeSpeedMultiplier))
-      else toDouble(p.firm.laborAdjustSpeed)
-    val cut                 = Math.max(1, (gap * cutSpeed).toInt)
+    val cutSpeedRaw         =
+      if firm.stateOwned then (p.firm.laborAdjustSpeed * StateOwned.firingReduction).toLong
+      else if isInStartup(firm) then (p.firm.laborAdjustSpeed * Multiplier(StartupDownsizeSpeedMultiplier)).toLong
+      else p.firm.laborAdjustSpeed.toLong
+    val cut                 = Math.max(1, bankerRound(BigInt(gap.toLong) * BigInt(cutSpeedRaw)).toInt)
     val newWkrs             = Math.max(minRetained, workers - cut)
     // Severance cost = fired workers × wage × severanceMonths
     val fired               = workers - newWkrs
@@ -524,16 +514,16 @@ object Firm:
   private[amorfati] def startupRunwayLimit(firm: State)(using p: SimParams): PLN =
     if !isInStartup(firm) then PLN.Zero
     else
-      val remainingShare = firm.startupMonthsLeft.toDouble / StartupRunwayMonths.toDouble
-      p.firm.entryStartupCash * Share(StartupRunwayCashShare * remainingShare.max(0.0).min(1.0))
+      val remainingShare = Share.fraction(firm.startupMonthsLeft, StartupRunwayMonths).clamp(Share.Zero, Share.One)
+      p.firm.entryStartupCash * (Multiplier(StartupRunwayCashShare) * remainingShare)
 
-  private def startupProgress(firm: State): Double =
-    if !isInStartup(firm) then 1.0
-    else 1.0 - (firm.startupMonthsLeft.toDouble / StartupRunwayMonths.toDouble).max(0.0).min(1.0)
+  private def startupProgress(firm: State): Share =
+    if !isInStartup(firm) then Share.One
+    else Share.One - Share.fraction(firm.startupMonthsLeft, StartupRunwayMonths).clamp(Share.Zero, Share.One)
 
   private def startupCostMultiplier(firm: State): Multiplier =
     if !isInStartup(firm) then Multiplier.One
-    else Multiplier(StartupCostFloor + (1.0 - StartupCostFloor) * startupProgress(firm))
+    else Multiplier(StartupCostFloor) + (Multiplier.One - Multiplier(StartupCostFloor)) * startupProgress(firm).toMultiplier
 
   private[amorfati] def hasWorkingCapitalGrace(firm: State, pnl: PnL, cashAfterDecision: PLN)(using p: SimParams): Boolean =
     firm.stateOwned ||
@@ -548,7 +538,6 @@ object Firm:
     * Used by `decideHybrid` and `decideTraditional` to compare current costs
     * against upgrade costs.
     */
-  @boundaryEscape
   private def estimateMonthlyCost(
       firm: State,
       opex: PLN,
@@ -559,14 +548,13 @@ object Firm:
       domesticPrice: PriceIndex,
       importPrice: PriceIndex,
   )(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
-    val opexSizeFactor  = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, OpexSizeExponent)
-    val otherSizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
+    val opexSizeFactor  = Scalar.fraction(firm.initialSize, p.pop.workersPerFirm).pow(Scalar(OpexSizeExponent)).toMultiplier
+    val otherSizeFactor = Scalar.fraction(firm.initialSize, p.pop.workersPerFirm).toMultiplier
     val wMult           = effectiveWageMult(firm.sector)
-    opex * Multiplier((OpexDomesticShare * toDouble(domesticPrice) + OpexImportShare * toDouble(importPrice)) * opexSizeFactor) +
+    opex * ((domesticPrice * Multiplier(OpexDomesticShare) + importPrice * Multiplier(OpexImportShare)).toMultiplier * opexSizeFactor) +
       (firm.debt + additionalDebt) * lendRate.monthly +
-      PLN(toDouble(wage) * toDouble(wMult) * laborWorkers) +
-      p.firm.otherCosts * Multiplier(toDouble(domesticPrice) * otherSizeFactor)
+      laborWorkers * (wage * wMult) +
+      p.firm.otherCosts * (domesticPrice.toMultiplier * otherSizeFactor)
 
   /** Automated firm: compute PnL, survive or go bankrupt (AI debt trap). */
   private def decideAutomated(
@@ -577,7 +565,7 @@ object Firm:
     val pnl = computePnL(
       firm,
       w.householdMarket.marketWage,
-      w.pipeline.sectorDemandMult(firm.sector.toInt),
+      Multiplier(w.pipeline.sectorDemandMult(firm.sector.toInt)),
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
@@ -589,21 +577,19 @@ object Firm:
     else Decision.Survive(pnl, nc)
 
   /** Hybrid firm: attempt full-AI upgrade, else survive/downsize/bankrupt. */
-  @boundaryEscape
   private def decideHybrid(
       firm: State,
       w: World,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       workers: Int,
-      aiEff: Double,
+      aiEff: Multiplier,
       rng: Random,
   )(using p: SimParams): Decision =
-    import ComputationBoundary.toDouble
     val pnl    = computePnL(
       firm,
       w.householdMarket.marketWage,
-      w.pipeline.sectorDemandMult(firm.sector.toInt),
+      Multiplier(w.pipeline.sectorDemandMult(firm.sector.toInt)),
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
@@ -632,13 +618,13 @@ object Firm:
     val ready      = firm.digitalReadiness >= p.firm.fullAiReadinessMin
     val bankOk     = bankCanLend(upLoan)
 
-    val prob =
+    val prob: Share =
       if profitable && canPay && ready && bankOk then
-        (toDouble(firm.riskProfile) * RiskWeightHybUpgrade + toDouble(w.real.automationRatio) * AutoRatioWeight) * toDouble(firm.digitalReadiness)
-      else 0.0
+        ((firm.riskProfile * Share(RiskWeightHybUpgrade)) + (w.real.automationRatio * Share(AutoRatioWeight))) * firm.digitalReadiness
+      else Share.Zero
 
-    if rng.nextDouble() < prob then
-      val eff = 1.0 + rng.between(HybToFullEffMin, HybToFullEffMax) * toDouble(firm.digitalReadiness)
+    if prob.sampleBelow(rng) then
+      val eff = Multiplier.One + (Scalar.randomBetween(Scalar(HybToFullEffMin), Scalar(HybToFullEffMax), rng) * firm.digitalReadiness.toScalar).toMultiplier
       Decision.Upgrade(pnl, TechState.Automated(eff), upCapex, upLoan, upDown, drUpdate = Some(ready2))
     else
       val nc = firm.cash + pnl.netAfterTax
@@ -668,7 +654,6 @@ object Firm:
     def feasible: Boolean = profitable && canPay && ready && bankOk
 
   /** Evaluate full-AI upgrade feasibility for a traditional firm. */
-  @boundaryEscape
   private def evaluateFullAi(
       firm: State,
       pnl: PnL,
@@ -676,7 +661,6 @@ object Firm:
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
   )(using p: SimParams): UpgradeCandidate =
-    import ComputationBoundary.toDouble
     val capex = computeAiCapex(firm)
     val loan  = capex * Share(FullAiLoanShare)
     val down  = capex * Share(FullAiDownShare)
@@ -695,14 +679,13 @@ object Firm:
       capex,
       loan,
       down,
-      profitable = pnl.costs > cost * Multiplier(FullAiProfitMargin / sigmaThreshold(toDouble(w.currentSigmas(firm.sector.toInt)))),
+      profitable = pnl.costs > (cost * Multiplier(FullAiProfitMargin)) / sigmaThreshold(w.currentSigmas(firm.sector.toInt)),
       canPay = firm.cash > down,
       ready = firm.digitalReadiness >= p.firm.fullAiReadinessMin,
       bankOk = bankCanLend(loan),
     )
 
   /** Evaluate hybrid upgrade feasibility for a traditional firm. */
-  @boundaryEscape
   private def evaluateHybrid(
       firm: State,
       pnl: PnL,
@@ -711,11 +694,10 @@ object Firm:
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
   )(using p: SimParams): (UpgradeCandidate, Int) =
-    import ComputationBoundary.toDouble
     val capex = computeHybridCapex(firm)
     val loan  = capex * Share(HybridLoanShare)
     val down  = capex * Share(HybridDownShare)
-    val hWkrs = Math.max(3, (workers * toDouble(p.sectorDefs(firm.sector.toInt).hybridRetainFrac)).toInt)
+    val hWkrs = Math.max(3, p.sectorDefs(firm.sector.toInt).hybridRetainFrac.applyTo(workers))
     val cost  = estimateMonthlyCost(
       firm,
       p.firm.hybridOpex,
@@ -730,7 +712,7 @@ object Firm:
       capex,
       loan,
       down,
-      profitable = pnl.costs > cost * Multiplier(HybridProfitMargin / sigmaThreshold(toDouble(w.currentSigmas(firm.sector.toInt)))),
+      profitable = pnl.costs > (cost * Multiplier(HybridProfitMargin)) / sigmaThreshold(w.currentSigmas(firm.sector.toInt)),
       canPay = firm.cash > down,
       ready = firm.digitalReadiness >= p.firm.hybridReadinessMin,
       bankOk = bankCanLend(loan),
@@ -740,7 +722,6 @@ object Firm:
   /** Compute adoption probabilities for full-AI and hybrid upgrades. Blends
     * network mimetic pressure, desperation, and uncertainty discount.
     */
-  @boundaryEscape
   private def adoptionProbabilities(
       firm: State,
       pnl: PnL,
@@ -748,64 +729,55 @@ object Firm:
       hybrid: UpgradeCandidate,
       w: World,
       allFirms: Vector[State],
-  )(using p: SimParams): (Double, Double) =
-    import ComputationBoundary.toDouble
+  )(using p: SimParams): (Share, Share) =
     val localAuto   = computeLocalAutoRatio(firm, allFirms)
-    val globalPanic = (toDouble(w.real.automationRatio) + toDouble(w.real.hybridRatio) * HybridPanicDiscount) * HybridPanicDiscount
-    val panic       = localAuto * LocalPanicWeight + globalPanic * GlobalPanicWeight
-    val desper      = if pnl.netAfterTax < PLN.Zero then DesperationBonus else 0.0
+    val globalPanic = (w.real.automationRatio + w.real.hybridRatio * Share(HybridPanicDiscount)) * Share(HybridPanicDiscount)
+    val panic       = localAuto * Share(LocalPanicWeight) + globalPanic * Share(GlobalPanicWeight)
+    val desper      = if pnl.netAfterTax < PLN.Zero then Share(DesperationBonus) else Share.Zero
     val strat       =
-      if !fullAi.profitable && fullAi.canPay && fullAi.ready && fullAi.bankOk then
-        toDouble(firm.riskProfile) * toDouble(firm.digitalReadiness) * StrategicAdoptBase
-      else 0.0
+      if !fullAi.profitable && fullAi.canPay && fullAi.ready && fullAi.bankOk then firm.riskProfile * firm.digitalReadiness * Share(StrategicAdoptBase)
+      else Share.Zero
 
     val willingnessMultiplier = adoptionWillingnessMultiplier(w.month, localAuto)
 
     val rawFull = willingnessMultiplier *
-      (if fullAi.feasible then (toDouble(firm.riskProfile) * RiskWeightFullAi + panic + desper) * toDouble(firm.digitalReadiness)
+      (if fullAi.feasible then (firm.riskProfile * Share(RiskWeightFullAi) + panic + desper) * firm.digitalReadiness
        else strat)
     val rawHyb  = willingnessMultiplier *
       (if hybrid.feasible then
-         (toDouble(firm.riskProfile) * RiskWeightHybrid + panic * HybridPanicDiscount + desper * HybridPanicDiscount) * toDouble(firm.digitalReadiness)
-       else 0.0)
+         (firm.riskProfile * Share(RiskWeightHybrid) + panic * Share(HybridPanicDiscount) + desper * Share(HybridPanicDiscount)) * firm.digitalReadiness
+       else Share.Zero)
 
-    val pFull = Math.min(1.0, rawFull)
-    val pHyb  = Math.min(1.0 - pFull, rawHyb)
+    val pFull = rawFull.min(Share.One)
+    val pHyb  = rawHyb.min(Share.One - pFull)
     (pFull, pHyb)
 
-  @boundaryEscape
-  private[amorfati] def adoptionWillingnessMultiplier(month: Int, localAuto: Double)(using p: SimParams): Double =
-    import ComputationBoundary.toDouble
-    val rampMonths = p.firm.adoptionRampMonths.toDouble
-    val rampFrac   = Math.min(1.0, Math.max(0.0, month.toDouble / rampMonths))
-    val baseLevel  = UncertaintyBase + UncertaintySlope * rampFrac
-    val demoBoost  =
-      if localAuto > toDouble(p.firm.demoEffectThresh) then toDouble(p.firm.demoEffectBoost) * (localAuto - toDouble(p.firm.demoEffectThresh))
-      else 0.0
-    Math.min(1.0, baseLevel + demoBoost)
+  private[amorfati] def adoptionWillingnessMultiplier(month: Int, localAuto: Share)(using p: SimParams): Share =
+    val rampFrac  = Scalar.fraction(month, p.firm.adoptionRampMonths).clamp(Scalar.Zero, Scalar.One).toShare
+    val baseLevel = Share(UncertaintyBase) + Share(UncertaintySlope) * rampFrac
+    val demoBoost =
+      if localAuto > p.firm.demoEffectThresh then p.firm.demoEffectBoost * (localAuto - p.firm.demoEffectThresh)
+      else Share.Zero
+    (baseLevel + demoBoost).min(Share.One)
 
   /** Roll for full-AI upgrade: success (with random efficiency) or
     * implementation failure.
     */
-  @boundaryEscape
   private def rollFullAiUpgrade(firm: State, pnl: PnL, ai: UpgradeCandidate, rng: Random): Decision =
-    import ComputationBoundary.toDouble
-    val failRate = FullAiBaseFailRate + toDouble(Share.One - firm.digitalReadiness) * FullAiFailDrSens
-    if rng.nextDouble() < failRate then
+    val failRate = Share(FullAiBaseFailRate) + (Share.One - firm.digitalReadiness) * Share(FullAiFailDrSens)
+    if failRate.sampleBelow(rng) then
       Decision.UpgradeFailed(pnl, BankruptReason.AiImplFailure, ai.capex * Share(FailCapexFrac), ai.loan * Share(FailLoanFrac), ai.down * Share(FailDownFrac))
     else
-      val eff = 1.0 + rng.between(TradToFullEffMin, TradToFullEffMax) * toDouble(firm.digitalReadiness)
+      val eff = Multiplier.One + (Scalar.randomBetween(Scalar(TradToFullEffMin), Scalar(TradToFullEffMax), rng) * firm.digitalReadiness.toScalar).toMultiplier
       Decision.Upgrade(pnl, TechState.Automated(eff), ai.capex, ai.loan, ai.down)
 
   /** Roll for hybrid upgrade: catastrophic failure, partial failure (bad
     * efficiency), or success (good efficiency).
     */
-  @boundaryEscape
   private def rollHybridUpgrade(firm: State, pnl: PnL, hyb: UpgradeCandidate, hWkrs: Int, rng: Random): Decision =
-    import ComputationBoundary.toDouble
-    val failRate = HybridBaseFailRate + toDouble(Share.One - firm.digitalReadiness) * HybridFailDrSens
-    val ir       = rng.nextDouble()
-    if ir < failRate * CatastrophicFailFrac then
+    val failRate = Share(HybridBaseFailRate) + (Share.One - firm.digitalReadiness) * Share(HybridFailDrSens)
+    val draw     = Share.random(rng)
+    if draw < failRate * Share(CatastrophicFailFrac) then
       Decision.UpgradeFailed(
         pnl,
         BankruptReason.HybridImplFailure,
@@ -813,18 +785,18 @@ object Firm:
         hyb.loan * Share(FailLoanFrac),
         hyb.down * Share(FailDownFrac),
       )
-    else if ir < failRate then
-      val badEff = BadHybridEffBase + rng.between(0.0, BadHybridEffRange)
+    else if draw < failRate then
+      val badEff = Multiplier(BadHybridEffBase) + Scalar.randomBetween(Scalar.Zero, Scalar(BadHybridEffRange), rng).toMultiplier
       Decision.Upgrade(pnl, TechState.Hybrid(hWkrs, badEff), hyb.capex, hyb.loan, hyb.down)
     else
-      val goodEff = 1.0 + (GoodHybridEffBase + rng.between(0.0, GoodHybridEffRange)) *
-        (GoodHybridDrBlend + toDouble(firm.digitalReadiness) * GoodHybridDrBlend)
+      val goodEff = Multiplier.One +
+        (Scalar(GoodHybridEffBase) + Scalar.randomBetween(Scalar.Zero, Scalar(GoodHybridEffRange), rng)) *
+        (Share(GoodHybridDrBlend) + firm.digitalReadiness * Share(GoodHybridDrBlend)).toScalar.toMultiplier
       Decision.Upgrade(pnl, TechState.Hybrid(hWkrs, goodEff), hyb.capex, hyb.loan, hyb.down)
 
   /** Try upsize, digital readiness investment, downsize, or survive — fallback
     * when neither full-AI nor hybrid upgrade was chosen.
     */
-  @boundaryEscape
   private def fallbackDecision(
       firm: State,
       pnl: PnL,
@@ -832,7 +804,6 @@ object Firm:
       workers: Int,
       rng: Random,
   )(using p: SimParams): Decision =
-    import ComputationBoundary.toDouble
     val nc            = firm.cash + pnl.netAfterTax
     // Firms now distinguish between a one-period desired workforce target,
     // a feasible near-term target, and the actual monthly adjustment.
@@ -850,13 +821,12 @@ object Firm:
       else if newWkrs < workers then return Decision.Downsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
     val digiCost: PLN = computeDigiInvestCost(firm)
     val canAfford     = nc > digiCost * Multiplier(DigiInvestCashMult)
-    val competitive   = toDouble(w.real.automationRatio) + toDouble(w.real.hybridRatio) * 0.5
-    val diminishing   = toDouble(Share.One - firm.digitalReadiness)
-    val digiProb      = toDouble(p.firm.digiInvestBaseProb * firm.riskProfile) *
-      diminishing * (0.5 + competitive)
-    if canAfford && rng.nextDouble() < digiProb then
-      val boost = toDouble(p.firm.digiInvestBoost) * diminishing
-      val newDR = (firm.digitalReadiness + Share(boost)).min(Share.One)
+    val competitive   = w.real.automationRatio + w.real.hybridRatio * Share(0.5)
+    val diminishing   = Share.One - firm.digitalReadiness
+    val digiProb      = (p.firm.digiInvestBaseProb * firm.riskProfile * diminishing * (Share(0.5) + competitive)).min(Share.One)
+    if canAfford && digiProb.sampleBelow(rng) then
+      val boost = p.firm.digiInvestBoost * diminishing
+      val newDR = (firm.digitalReadiness + boost).min(Share.One)
       Decision.DigiInvest(pnl, digiCost, newDR)
     else if nc < PLN.Zero then
       attemptDownsize(firm, pnl, nc, workers, TechState.Traditional(_), w.householdMarket.marketWage, BankruptReason.LaborCostInsolvency)
@@ -907,7 +877,7 @@ object Firm:
     val pnl           = computePnL(
       firm,
       w.householdMarket.marketWage,
-      w.pipeline.sectorDemandMult(firm.sector.toInt),
+      Multiplier(w.pipeline.sectorDemandMult(firm.sector.toInt)),
       PriceIndex(w.priceLevel),
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
@@ -918,7 +888,7 @@ object Firm:
     val ai            = evaluateFullAi(firm, pnl, w, lendRate, bankCanLend)
     val (hyb, hWkrs)  = evaluateHybrid(firm, pnl, workers, w, lendRate, bankCanLend)
     val (pFull, pHyb) = adoptionProbabilities(firm, pnl, ai, hyb, w, allFirms)
-    val roll          = rng.nextDouble()
+    val roll          = Share.random(rng)
 
     if roll < pFull then rollFullAiUpgrade(firm, pnl, ai, rng)
     else if roll < pFull + pHyb then rollHybridUpgrade(firm, pnl, hyb, hWkrs, rng)
@@ -1067,11 +1037,9 @@ object Firm:
   /** Residual "other" operating costs — base scaled by price and firm size,
     * reduced when physical capital, energy, or inventory costs are explicit.
     */
-  @boundaryEscape
   private def otherCosts(firm: State, domesticPrice: PriceIndex)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
-    val sizeFactor = firm.initialSize.toDouble / p.pop.workersPerFirm
-    val raw: PLN   = p.firm.otherCosts * Multiplier(toDouble(domesticPrice) * sizeFactor)
+    val sizeFactor = Scalar.fraction(firm.initialSize, p.pop.workersPerFirm).toMultiplier
+    val raw: PLN   = (domesticPrice * p.firm.otherCosts) * sizeFactor
     val afterCap   = raw * (Share.One - p.capital.costReplace)
     val afterEnerg = afterCap * (Share.One - p.climate.energyCostReplace)
     val adjusted   = afterEnerg * (Share.One - p.capital.inventoryCostReplace)
@@ -1080,47 +1048,42 @@ object Firm:
   /** AI/hybrid maintenance opex — domestic + imported split, sublinear in firm
     * size.
     */
-  @boundaryEscape
   private def aiMaintenanceCost(firm: State, domesticPrice: PriceIndex, importPrice: PriceIndex)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
-    val opexSizeFactor = Math.pow(firm.initialSize.toDouble / p.pop.workersPerFirm, OpexSizeExponent)
-    val priceFactor    = OpexDomesticShare * toDouble(domesticPrice) + OpexImportShare * toDouble(importPrice)
+    val opexSizeFactor = Scalar.fraction(firm.initialSize, p.pop.workersPerFirm).pow(Scalar(OpexSizeExponent)).toMultiplier
+    val priceFactor    = (domesticPrice * Multiplier(OpexDomesticShare) + importPrice * Multiplier(OpexImportShare)).toMultiplier
     firm.tech match
-      case _: TechState.Automated => p.firm.aiOpex * Multiplier(priceFactor * opexSizeFactor) * startupCostMultiplier(firm)
-      case _: TechState.Hybrid    => p.firm.hybridOpex * Multiplier(priceFactor * opexSizeFactor) * startupCostMultiplier(firm)
+      case _: TechState.Automated => p.firm.aiOpex * priceFactor * opexSizeFactor * startupCostMultiplier(firm)
+      case _: TechState.Hybrid    => p.firm.hybridOpex * priceFactor * opexSizeFactor * startupCostMultiplier(firm)
       case _                      => PLN.Zero
 
   /** Energy cost including EU ETS carbon surcharge, net of green capital
     * discount.
     */
-  @boundaryEscape
   private def energyAndEtsCost(firm: State, revenue: PLN, month: Int, commodityPrice: PriceIndex)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
     val baseEnergy: PLN      = revenue * p.climate.energyCostShares(firm.sector.toInt)
-    val etsPrice             = p.climate.etsBasePrice * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / 12.0, month.toDouble)
-    val carbonSurcharge      = p.climate.carbonIntensity(firm.sector.toInt) * (etsPrice / p.climate.etsBasePrice - 1.0)
+    val etsGrowth            = (Scalar.One + p.climate.etsPriceDrift.monthly.toScalar).pow(month)
+    val carbonSurcharge      = Scalar(p.climate.carbonIntensity(firm.sector.toInt)) * (etsGrowth - Scalar.One)
     val greenDiscount: Share = if firm.greenCapital > PLN.Zero then
       val targetGK = workerCount(firm) * p.climate.greenKLRatios(firm.sector.toInt)
-      if targetGK > PLN.Zero then p.climate.greenMaxDiscount * Share(Math.min(1.0, firm.greenCapital / targetGK))
+      if targetGK > PLN.Zero then p.climate.greenMaxDiscount * firm.greenCapital.ratioTo(targetGK).toShare.clamp(Share.Zero, Share.One)
       else Share.Zero
     else Share.Zero
-    PLN(toDouble(baseEnergy) * (1.0 + Math.max(0.0, carbonSurcharge)) * toDouble(Share.One - greenDiscount) * toDouble(commodityPrice))
+    val discountedEnergy     = commodityPrice * (baseEnergy * (Share.One - greenDiscount))
+    discountedEnergy * (Multiplier.One + carbonSurcharge.max(Scalar.Zero).toMultiplier)
 
   /** Monthly P&L: revenue minus all cost categories, CIT on positive profit. */
-  @boundaryEscape
   private def computePnL(
       firm: State,
       wage: PLN,
-      sectorDemandMult: Double,
+      sectorDemandMult: Multiplier,
       domesticPrice: PriceIndex,
       importPrice: PriceIndex,
       commodityPrice: PriceIndex,
       lendRate: Rate,
       month: Int,
   )(using p: SimParams): PnL =
-    import ComputationBoundary.toDouble
-    val revenue: PLN         = computeCapacity(firm) * Multiplier(sectorDemandMult * toDouble(domesticPrice))
-    val labor: PLN           = PLN(toDouble(wage) * workerCount(firm) * toDouble(effectiveWageMult(firm.sector)))
+    val revenue: PLN         = (domesticPrice * computeCapacity(firm)) * sectorDemandMult
+    val labor: PLN           = workerCount(firm) * (wage * effectiveWageMult(firm.sector))
     val depnCost: PLN        = firm.capitalStock * p.capital.depRates(firm.sector.toInt).monthly
     val interest: PLN        = (firm.debt + firm.bondDebt) * lendRate.monthly
     val inventoryCost: PLN   = firm.inventory * p.capital.inventoryCarryingCost.monthly
@@ -1144,7 +1107,7 @@ object Firm:
         val maxOffset = profit * p.fiscal.citCarryforwardMaxShare
         val offset    = maxOffset.min(firm.accumulatedLoss)
         val taxable   = profit - offset
-        val remaining = (firm.accumulatedLoss - offset) * Share(1.0 - toDouble(p.fiscal.citCarryforwardDecay))
+        val remaining = (firm.accumulatedLoss - offset) * (Multiplier.One - p.fiscal.citCarryforwardDecay.toMultiplier)
         (taxable * p.fiscal.citRate, remaining.max(PLN.Zero))
 
     PnL(revenue, costs, tax, profit - tax, profitShiftCost, energyCost, newAccLoss)
@@ -1172,18 +1135,18 @@ object Firm:
     * level, and stress liquidation at a discount when the firm is
     * cash-negative.
     */
-  private def applyInventory(r: Result, sectorDemandMult: Double)(using p: SimParams): Result =
+  private def applyInventory(r: Result, sectorDemandMult: Multiplier)(using p: SimParams): Result =
     val f                     = r.firm
     if !isAlive(f) then return r.copy(firm = f.copy(inventory = PLN.Zero))
     val cap                   = computeCapacity(f)
     val productionValue       = cap * p.capital.inventoryCostFraction
-    val salesValue            = productionValue * Share(Math.min(1.0, sectorDemandMult))
+    val salesValue            = productionValue * sectorDemandMult.toShare.clamp(Share.Zero, Share.One)
     val unsoldValue           = (productionValue - salesValue).max(PLN.Zero)
     // Spoilage
     val spoilRate             = p.capital.inventorySpoilageRates(f.sector.toInt).monthly
     val postSpoilage          = f.inventory - f.inventory * spoilRate
     // Target-based adjustment
-    val revenue               = cap * Multiplier(sectorDemandMult)
+    val revenue               = cap * sectorDemandMult
     val targetInv             = revenue * p.capital.inventoryTargetRatios(f.sector.toInt)
     val desired               = (targetInv - postSpoilage) * p.capital.inventoryAdjustSpeed
     // Accumulate unsold + adjust toward target
@@ -1205,17 +1168,17 @@ object Firm:
   /** Effective shadow share for a sector — base share + cyclical adjustment,
     * clamped to [0, 1].
     */
-  private def effectiveShadowShare(sector: SectorIdx, carriedInformalAdj: Double)(using p: SimParams): Share =
-    (p.informal.sectorShares(sector.toInt) + Share(carriedInformalAdj)).min(Share.One)
+  private def effectiveShadowShare(sector: SectorIdx, carriedInformalAdj: Share)(using p: SimParams): Share =
+    (p.informal.sectorShares(sector.toInt) + carriedInformalAdj).min(Share.One)
 
   /** CIT evasion fraction for a sector — shadow share × CIT evasion rate. */
-  private def citEvasionFrac(sector: SectorIdx, carriedInformalAdj: Double)(using p: SimParams): Share =
+  private def citEvasionFrac(sector: SectorIdx, carriedInformalAdj: Share)(using p: SimParams): Share =
     effectiveShadowShare(sector, carriedInformalAdj) * p.informal.citEvasion
 
   /** Apply informal CIT evasion using the carried current-step shadow-economy
     * adjustment from world state.
     */
-  private def applyInformalCitEvasion(r: Result, carriedInformalAdj: Double)(using p: SimParams): Result =
+  private def applyInformalCitEvasion(r: Result, carriedInformalAdj: Share)(using p: SimParams): Result =
     if !isAlive(r.firm) || r.taxPaid <= PLN.Zero then return r
     val evaded = r.taxPaid * citEvasionFrac(r.firm.sector, carriedInformalAdj)
     r.copy(

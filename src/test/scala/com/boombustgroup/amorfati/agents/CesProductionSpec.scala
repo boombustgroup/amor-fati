@@ -19,7 +19,7 @@ class CesProductionSpec extends AnyFlatSpec with Matchers:
   "cesOutput" should "return 1.0 when K=1 and L=1 for any sigma" in {
     for sigma <- Seq(1.0, 2.0, 5.0, 50.0, 1000.0) do
       withClue(s"sigma=$sigma: ") {
-        td.toDouble(Firm.cesOutput(alpha, Multiplier.One, Multiplier.One, sigma)) shouldBe 1.0 +- tol
+        td.toDouble(Firm.cesOutput(alpha, Multiplier.One, Multiplier.One, Sigma(sigma))).shouldBe(1.0 +- tol)
       }
   }
 
@@ -27,40 +27,40 @@ class CesProductionSpec extends AnyFlatSpec with Matchers:
     val k        = Multiplier(1.5)
     val l        = Multiplier(0.8)
     val expected = Math.pow(td.toDouble(k), td.toDouble(alpha)) * Math.pow(td.toDouble(l), 1.0 - td.toDouble(alpha))
-    td.toDouble(Firm.cesOutput(alpha, k, l, 1.0)) shouldBe expected +- tol
+    td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(1.0))).shouldBe(expected +- tol)
   }
 
   it should "approach linear when sigma is very large" in {
     val k      = Multiplier(2.0)
     val l      = Multiplier(0.5)
     val linear = td.toDouble(alpha) * td.toDouble(k) + (1.0 - td.toDouble(alpha)) * td.toDouble(l)
-    val result = td.toDouble(Firm.cesOutput(alpha, k, l, 10000.0))
-    result shouldBe linear +- 0.01
+    val result = td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(10000.0)))
+    result.shouldBe(linear +- 0.01)
   }
 
   it should "produce higher output for high-sigma with K>L (easier substitution)" in {
     val k         = Multiplier(2.0)
     val l         = Multiplier(0.5)
-    val lowSigma  = td.toDouble(Firm.cesOutput(alpha, k, l, 2.0))
-    val highSigma = td.toDouble(Firm.cesOutput(alpha, k, l, 50.0))
-    highSigma should be > lowSigma
+    val lowSigma  = td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(2.0)))
+    val highSigma = td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(50.0)))
+    highSigma.should(be > lowSigma)
   }
 
   it should "be symmetric: swapping K/L with alpha/(1-alpha) gives same result" in {
     val k       = Multiplier(1.5)
     val l       = Multiplier(0.8)
-    val normal  = td.toDouble(Firm.cesOutput(alpha, k, l, 5.0))
-    val swapped = td.toDouble(Firm.cesOutput(Share(1.0 - td.toDouble(alpha)), l, k, 5.0))
-    normal shouldBe swapped +- tol
+    val normal  = td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(5.0)))
+    val swapped = td.toDouble(Firm.cesOutput(Share(1.0 - td.toDouble(alpha)), l, k, Sigma(5.0)))
+    normal.shouldBe(swapped +- tol)
   }
 
   it should "be monotonic in K" in {
     val l     = Multiplier(1.0)
-    val kLow  = td.toDouble(Firm.cesOutput(alpha, Multiplier(0.5), l, 5.0))
-    val kMid  = td.toDouble(Firm.cesOutput(alpha, Multiplier(1.0), l, 5.0))
-    val kHigh = td.toDouble(Firm.cesOutput(alpha, Multiplier(1.5), l, 5.0))
-    kLow should be < kMid
-    kMid should be < kHigh
+    val kLow  = td.toDouble(Firm.cesOutput(alpha, Multiplier(0.5), l, Sigma(5.0)))
+    val kMid  = td.toDouble(Firm.cesOutput(alpha, Multiplier(1.0), l, Sigma(5.0)))
+    val kHigh = td.toDouble(Firm.cesOutput(alpha, Multiplier(1.5), l, Sigma(5.0)))
+    kLow.should(be < kMid)
+    kMid.should(be < kHigh)
   }
 
   // --- computeCapacity integration ---
@@ -76,7 +76,7 @@ class CesProductionSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       tech,
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.3),
       SectorIdx(sector),
       Vector.empty[FirmId],

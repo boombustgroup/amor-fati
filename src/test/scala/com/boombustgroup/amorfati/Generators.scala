@@ -82,8 +82,8 @@ object Generators:
     for
       w   <- Gen.choose(1, 15)
       eff <- Gen.choose(0.5, 2.0)
-    yield TechState.Hybrid(w, eff),
-    Gen.choose(0.5, 3.0).map(e => TechState.Automated(e)),
+    yield TechState.Hybrid(w, Multiplier(eff)),
+    Gen.choose(0.5, 3.0).map(e => TechState.Automated(Multiplier(e))),
     Gen.const(TechState.Bankrupt(BankruptReason.Other("test"))),
   )
 
@@ -92,8 +92,8 @@ object Generators:
     for
       w   <- Gen.choose(1, 15)
       eff <- Gen.choose(0.5, 2.0)
-    yield TechState.Hybrid(w, eff),
-    Gen.choose(0.5, 3.0).map(e => TechState.Automated(e)),
+    yield TechState.Hybrid(w, Multiplier(eff)),
+    Gen.choose(0.5, 3.0).map(e => TechState.Automated(Multiplier(e))),
   )
 
   // --- Firm generators ---
@@ -116,7 +116,7 @@ object Generators:
     PLN(debt),
     tech,
     Share(risk),
-    innov,
+    Multiplier(innov),
     Share(digiR),
     SectorIdx(sector),
     Vector.empty[FirmId],
@@ -149,7 +149,7 @@ object Generators:
     PLN(debt),
     tech,
     Share(risk),
-    innov,
+    Multiplier(innov),
     Share(digiR),
     SectorIdx(sector),
     Vector.empty[FirmId],
@@ -340,14 +340,14 @@ object Generators:
       medianSavings = PLN.Zero,
       povertyRate50 = Share.Zero,
       bankruptcyRate = Share.Zero,
-      meanSkill = 0.0,
-      meanHealthPenalty = 0.0,
+      meanSkill = Share.Zero,
+      meanHealthPenalty = Share.Zero,
       retrainingAttempts = 0,
       retrainingSuccesses = 0,
       consumptionP10 = PLN.Zero,
       consumptionP50 = PLN.Zero,
       consumptionP90 = PLN.Zero,
-      meanMonthsToRuin = 0.0,
+      meanMonthsToRuin = Scalar.Zero,
       povertyRate30 = Share.Zero,
       totalRent = PLN.Zero,
       totalDebtService = PLN.Zero,

@@ -94,14 +94,14 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       medianSavings = PLN.Zero,
       povertyRate50 = Share.Zero,
       bankruptcyRate = Share.Zero,
-      meanSkill = 0.0,
-      meanHealthPenalty = 0.0,
+      meanSkill = Share.Zero,
+      meanHealthPenalty = Share.Zero,
       retrainingAttempts = 0,
       retrainingSuccesses = 0,
       consumptionP10 = PLN.Zero,
       consumptionP50 = PLN.Zero,
       consumptionP90 = PLN.Zero,
-      meanMonthsToRuin = 0.0,
+      meanMonthsToRuin = Scalar.Zero,
       povertyRate30 = Share.Zero,
       totalRent = PLN.Zero,
       totalDebtService = PLN.Zero,
@@ -157,7 +157,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       debt = PLN.Zero,
       tech = TechState.Traditional(5),
       riskProfile = Share(0.5),
-      innovationCostFactor = 1.0,
+      innovationCostFactor = Multiplier.One,
       digitalReadiness = Share(0.15),
       sector = SectorIdx(2),
       neighbors = Vector.empty[FirmId],
@@ -187,7 +187,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       debt = PLN.Zero,
       tech = TechState.Traditional(5),
       riskProfile = Share(0.5),
-      innovationCostFactor = 1.0,
+      innovationCostFactor = Multiplier.One,
       digitalReadiness = Share(0.15),
       sector = SectorIdx(2),
       neighbors = Vector.empty[FirmId],
@@ -209,7 +209,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "AI-native entrant" should "have Hybrid tech state" in {
-    val tech = TechState.Hybrid(3, 0.65)
+    val tech = TechState.Hybrid(3, Multiplier(0.65))
     tech shouldBe a[TechState.Hybrid]
   }
 
@@ -298,7 +298,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
         debt = PLN.Zero,
         tech = tech,
         riskProfile = Share(0.5),
-        innovationCostFactor = 1.0,
+        innovationCostFactor = Multiplier.One,
         digitalReadiness = Share(0.15),
         sector = SectorIdx(0),
         neighbors = Vector.empty[FirmId],
@@ -374,7 +374,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
           debt = PLN.Zero,
           tech = TechState.Traditional(5),
           riskProfile = Share(0.5),
-          innovationCostFactor = 1.0,
+          innovationCostFactor = Multiplier.One,
           digitalReadiness = Share(0.1),
           sector = SectorIdx(i % 6),
           neighbors = Vector.empty[FirmId],
@@ -397,7 +397,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       debt = PLN.Zero,
       tech = TechState.Bankrupt(BankruptReason.Other("test")),
       riskProfile = Share(0.5),
-      innovationCostFactor = 1.0,
+      innovationCostFactor = Multiplier.One,
       digitalReadiness = Share(0.1),
       sector = SectorIdx(sector),
       neighbors = Vector.empty[FirmId],

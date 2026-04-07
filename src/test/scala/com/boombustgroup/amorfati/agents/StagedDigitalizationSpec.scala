@@ -23,7 +23,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       tech,
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(dr),
       SectorIdx(sector),
       Vector.empty[FirmId],
@@ -67,14 +67,14 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
         medianSavings = PLN.Zero,
         povertyRate50 = Share.Zero,
         bankruptcyRate = Share.Zero,
-        meanSkill = 0.0,
-        meanHealthPenalty = 0.0,
+        meanSkill = Share.Zero,
+        meanHealthPenalty = Share.Zero,
         retrainingAttempts = 0,
         retrainingSuccesses = 0,
         consumptionP10 = PLN.Zero,
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = 0.0,
+        meanMonthsToRuin = Scalar.Zero,
         povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,
@@ -220,7 +220,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   // ---- Hybrid learning + drift (1 test) ----
 
   "Hybrid firm" should "gain at least 0.005 + drift in DR per month" in {
-    val f      = mkFirm(TechState.Hybrid(5, 1.1), dr = 0.40)
+    val f      = mkFirm(TechState.Hybrid(5, Multiplier(1.1)), dr = 0.40)
     val w      = mkWorld()
     val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), new scala.util.Random(42))
     if Firm.isAlive(result.firm) then

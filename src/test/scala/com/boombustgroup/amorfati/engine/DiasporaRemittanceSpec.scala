@@ -153,6 +153,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       priceLevel = 1.0,
       sectorOutputs = Vector.fill(6)(PLN(1e8)),
       month = 1,
+      nbpFxReserves = prevBop.reserves,
     )
     val resultWith    = OpenEconomy.step(base.copy(diasporaInflow = PLN(1000.0)))
     val resultWithout = OpenEconomy.step(base.copy(diasporaInflow = PLN.Zero))
@@ -175,6 +176,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       priceLevel = 1.0,
       sectorOutputs = Vector.fill(6)(PLN(1e8)),
       month = 1,
+      nbpFxReserves = prevBop.reserves,
     )
     val result = OpenEconomy.step(base.copy(remittanceOutflow = PLN(500.0), diasporaInflow = PLN(800.0)))
 
@@ -225,14 +227,14 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
         medianSavings = PLN.Zero,
         povertyRate50 = Share.Zero,
         bankruptcyRate = Share.Zero,
-        meanSkill = 0.0,
-        meanHealthPenalty = 0.0,
+        meanSkill = Share.Zero,
+        meanHealthPenalty = Share.Zero,
         retrainingAttempts = 0,
         retrainingSuccesses = 0,
         consumptionP10 = PLN.Zero,
         consumptionP50 = PLN.Zero,
         consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = 0.0,
+        meanMonthsToRuin = Scalar.Zero,
         povertyRate30 = Share.Zero,
         totalRent = PLN.Zero,
         totalDebtService = PLN.Zero,

@@ -279,7 +279,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
   "Immigration.step" should "maintain non-negative immigrant stock" in {
     // Even with large outflow, stock should not go negative
     val prev   = Immigration.State(2, 0, 0, PLN.Zero)
-    val result = Immigration.step(prev, Vector.empty, PLN(8000.0), 0.05)
+    val result = Immigration.step(prev, Vector.empty, PLN(8000.0), Share(0.05))
     result.immigrantStock should be >= 0
   }
 

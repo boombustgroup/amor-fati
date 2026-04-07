@@ -234,7 +234,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       tech,
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.5),
       SectorIdx(sector),
       Vector.empty[FirmId],

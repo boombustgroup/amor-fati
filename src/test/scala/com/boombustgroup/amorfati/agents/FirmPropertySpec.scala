@@ -1,18 +1,17 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
-  private val td  = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -58,22 +57,22 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   "Firm.sigmaThreshold" should "be in [0, 1]" in
     forAll(genSigma) { (sigma: Double) =>
-      val t = Firm.sigmaThreshold(sigma)
-      t should be >= 0.0
-      t should be <= 1.0
+      val t = Firm.sigmaThreshold(Sigma(sigma))
+      t.bd should be >= BigDecimal(0)
+      t.bd should be <= BigDecimal("1.0")
     }
 
   it should "be monotonic in sigma" in
     forAll(genSigma) { (sigma: Double) =>
       whenever(sigma > 0.1 && sigma < 99.0) {
-        val t1 = Firm.sigmaThreshold(sigma)
-        val t2 = Firm.sigmaThreshold(sigma * 2)
-        t2 should be >= (t1 - 1e-10)
+        val t1 = Firm.sigmaThreshold(Sigma(sigma)).bd
+        val t2 = Firm.sigmaThreshold(Sigma(sigma * 2)).bd
+        t2 should be >= t1
       }
     }
 
   it should "be 1.0 for very large sigma" in {
-    Firm.sigmaThreshold(1000.0) shouldBe 1.0
+    Firm.sigmaThreshold(Sigma(1000.0)).bd shouldBe BigDecimal("1.0")
   }
 
   // --- aiCapex properties ---
@@ -90,9 +89,12 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   "Firm.computeAiCapex" should "scale with innovationCostFactor" in
     forAll(genAliveFirm, Gen.choose(1.0, 3.0)) { (firm: Firm.State, factor: Double) =>
-      val f1 = firm.copy(innovationCostFactor = 1.0)
-      val f2 = firm.copy(innovationCostFactor = factor)
-      td.toDouble(Firm.computeAiCapex(f2)) shouldBe (td.toDouble(Firm.computeAiCapex(f1)) * factor +- 0.01)
+      val scaledFactor = Multiplier(factor)
+      val f1           = firm.copy(innovationCostFactor = Multiplier.One)
+      val f2           = firm.copy(innovationCostFactor = scaledFactor)
+      val expected     = Firm.computeAiCapex(f1).bd * scaledFactor.bd
+      val tolerance    = (expected * BigDecimal("0.03")).max(BigDecimal("0.01"))
+      Firm.computeAiCapex(f2).bd shouldBe (expected +- tolerance)
     }
 
   // --- capacity(Traditional) scales linearly with workers/initialSize ---
@@ -106,7 +108,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         TechState.Traditional(4),
         Share(0.5),
-        innov,
+        Multiplier(innov),
         Share(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
@@ -126,7 +128,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         TechState.Traditional(16),
         Share(0.5),
-        innov,
+        Multiplier(innov),
         Share(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
@@ -152,7 +154,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         TechState.Traditional(10),
         Share(0.5),
-        innov,
+        Multiplier(innov),
         Share(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
@@ -172,7 +174,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         TechState.Traditional(25),
         Share(0.5),
-        innov,
+        Multiplier(innov),
         Share(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
@@ -194,14 +196,14 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   "Firm.computeLocalAutoRatio" should "be in [0, 1]" in {
     val firms = (0 until 10).map { i =>
-      val tech = if i < 3 then TechState.Automated(1.0) else TechState.Traditional(10)
+      val tech = if i < 3 then TechState.Automated(Multiplier.One) else TechState.Traditional(10)
       Firm.State(
         FirmId(i),
         PLN(100000),
         PLN.Zero,
         tech,
         Share(0.5),
-        1.0,
+        Multiplier.One,
         Share(0.4),
         SectorIdx(0),
         (0 until 10).filter(_ != i).map(FirmId(_)).toVector,
@@ -218,8 +220,8 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     }.toVector
     for f <- firms do
       val r = Firm.computeLocalAutoRatio(f, firms)
-      r should be >= 0.0
-      r should be <= 1.0
+      r should be >= Share.Zero
+      r should be <= Share.One
   }
 
   it should "be 0 when no neighbors" in {
@@ -229,7 +231,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       PLN.Zero,
       TechState.Traditional(10),
       Share(0.5),
-      1.0,
+      Multiplier.One,
       Share(0.4),
       SectorIdx(0),
       Vector.empty[FirmId],
@@ -244,5 +246,5 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       accumulatedLoss = PLN.Zero,
     )
     val firms = Vector(firm)
-    Firm.computeLocalAutoRatio(firm, firms) shouldBe 0.0
+    Firm.computeLocalAutoRatio(firm, firms) shouldBe Share.Zero
   }
