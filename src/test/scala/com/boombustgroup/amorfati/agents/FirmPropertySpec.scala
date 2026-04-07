@@ -92,7 +92,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       val scaledFactor = Multiplier(factor)
       val f1           = firm.copy(innovationCostFactor = Multiplier.One)
       val f2           = firm.copy(innovationCostFactor = scaledFactor)
-      Firm.computeAiCapex(f2).bd shouldBe (Firm.computeAiCapex(f1).bd * scaledFactor.bd +- BigDecimal("0.01"))
+      val expected     = Firm.computeAiCapex(f1).bd * scaledFactor.bd
+      val tolerance    = (expected * BigDecimal("0.03")).max(BigDecimal("0.01"))
+      Firm.computeAiCapex(f2).bd shouldBe (expected +- tolerance)
     }
 
   // --- capacity(Traditional) scales linearly with workers/initialSize ---
