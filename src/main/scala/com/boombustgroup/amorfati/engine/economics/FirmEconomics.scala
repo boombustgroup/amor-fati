@@ -334,19 +334,18 @@ object FirmEconomics:
 
   @boundaryEscape
   private def runInternal(stepIn: StepInput, rng: Random)(using p: SimParams): StepOutput =
-    import ComputationBoundary.toDouble
     val lending                             = prepareLending(stepIn, rng)
     val fp                                  = processFirms(stepIn.firms, lending, rng)
     val bonded                              = applyBondAbsorption(fp, stepIn.w, stepIn.banks)
     val (ioFirms, totalIoPaid)              = applyIntermediateMarket(bonded.firms, stepIn)
     // Calvo staggered pricing: per-firm markup update
     val calvoFirms                          = ioFirms.map: f =>
-      val sectorMult = stepIn.s4.sectorMults(f.sector.toInt)
-      val calvo      = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, toDouble(stepIn.s2.wageGrowth), rng)
+      val sectorMult = Multiplier(stepIn.s4.sectorMults(f.sector.toInt))
+      val calvo      = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, stepIn.s2.wageGrowth, rng)
       f.copy(markup = calvo.newMarkup)
     val (finalHouseholds, crossSectorHires) = processLaborMarket(calvoFirms, stepIn, rng)
     val npl                                 = computeNplAndInterest(stepIn.firms, calvoFirms, lending)
-    val markupInfl                          = Rate(CalvoPricing.aggregateMarkupInflation(calvoFirms, ioFirms)).annualize
+    val markupInfl                          = CalvoPricing.aggregateMarkupInflation(calvoFirms, ioFirms).annualize
     assembleOutput(fp, bonded, calvoFirms, totalIoPaid, finalHouseholds, crossSectorHires, npl, stepIn, lending, markupInfl)
 
   // ---- Internal step input (mirrors old FirmProcessingStep.Input) ----
