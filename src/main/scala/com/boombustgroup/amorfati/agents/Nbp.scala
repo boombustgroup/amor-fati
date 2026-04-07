@@ -21,7 +21,7 @@ object Nbp:
   private val QeActivationSlack     = Rate(0.0025)      // rate proximity to floor for QE activation
   private val QeDeflationThreshold  = Rate(0.01)        // inflation must be this much below target for QE
   private val ZlbExitBuffer         = Rate(0.0025)      // expectations/inflation should clear target by this margin to exit ZLB mode
-  private val ZlbQeMaxMultiplier    = 3.0               // QE pace can scale up to 3x in a lower-bound regime
+  private val ZlbQeMaxMultiplier    = Multiplier(3.0)   // QE pace can scale up to 3x in a lower-bound regime
 
   // ---------------------------------------------------------------------------
   // State
@@ -224,7 +224,7 @@ object Nbp:
       val realizedShortfall = (p.monetary.targetInfl - inflation).max(Rate.Zero)
       val expectedShortfall = (p.monetary.targetInfl - expectedInflation).max(Rate.Zero)
       val severity          = realizedShortfall.max(expectedShortfall)
-      val multiplier        = (Multiplier.One + severity.ratioTo(QeDeflationThreshold).toMultiplier).min(Multiplier(ZlbQeMaxMultiplier))
+      val multiplier        = (Multiplier.One + severity.ratioTo(QeDeflationThreshold).toMultiplier).min(ZlbQeMaxMultiplier)
       p.monetary.qePace * multiplier
 
   // ---------------------------------------------------------------------------
