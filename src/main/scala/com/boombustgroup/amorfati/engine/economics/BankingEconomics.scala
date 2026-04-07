@@ -452,7 +452,7 @@ object BankingEconomics:
     val tfiRequested     = (in.s8.nonBank.newNbfi.tfiGovBondHoldings - in.w.financial.nbfi.tfiGovBondHoldings).max(PLN.Zero)
     val prevEr           = in.w.forex.exchangeRate
     val currEr           = in.s8.external.newForex.exchangeRate
-    val erChange         = if prevEr > 0.0 then Coefficient((currEr - prevEr) / prevEr) else Coefficient.Zero
+    val erChange         = if prevEr > ExchangeRate.Zero then currEr.deviationFrom(prevEr).toCoefficient else Coefficient.Zero
     BondWaterfallInputs(
       actualBondChange = actualBondChange,
       qeRequested = in.s8.monetary.qePurchaseAmount,

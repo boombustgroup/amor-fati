@@ -10,12 +10,14 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private def rateValue(r: Rate): Double               = r.toLong.toDouble / ScaleD
-  private def shareValue(s: Share): Double             = s.toLong.toDouble / ScaleD
-  private def scalarValue(s: Scalar): Double           = s.toLong.toDouble / ScaleD
-  private def multiplierValue(m: Multiplier): Double   = m.toLong.toDouble / ScaleD
-  private def coefficientValue(c: Coefficient): Double = c.toLong.toDouble / ScaleD
-  private def priceIndexValue(pi: PriceIndex): Double  = pi.toLong.toDouble / ScaleD
+  private def rateValue(r: Rate): Double                               = r.toLong.toDouble / ScaleD
+  private def shareValue(s: Share): Double                             = s.toLong.toDouble / ScaleD
+  private def scalarValue(s: Scalar): Double                           = s.toLong.toDouble / ScaleD
+  private def multiplierValue(m: Multiplier): Double                   = m.toLong.toDouble / ScaleD
+  private def coefficientValue(c: Coefficient): Double                 = c.toLong.toDouble / ScaleD
+  private def priceIndexValue(pi: PriceIndex): Double                  = pi.toLong.toDouble / ScaleD
+  private def exchangeRateValue(er: ExchangeRate): Double              = er.toLong.toDouble / ScaleD
+  private def exchangeRateShockValue(shock: ExchangeRateShock): Double = shock.toLong.toDouble / ScaleD
 
   "Entity ids" should "wrap and unwrap domain identifiers" in {
     BankId(5).toInt shouldBe 5
@@ -172,4 +174,13 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
     sigma >= Sigma(5.0) shouldBe true
     sigma < Sigma(6.0) shouldBe true
     scalarValue(sigma.toScalar) shouldBe 5.0 +- 1e-9
+  }
+
+  "ExchangeRate" should "support relative FX semantics" in {
+    val base  = ExchangeRate(4.0)
+    val rate  = ExchangeRate(4.4)
+    val shock = rate.deviationFrom(base)
+
+    exchangeRateShockValue(shock) shouldBe 0.1 +- 1e-9
+    exchangeRateValue(base.applyShock(shock)) shouldBe 4.4 +- 1e-4
   }

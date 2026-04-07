@@ -20,6 +20,8 @@ object types:
   export com.boombustgroup.amorfati.fp.CoefficientProvider.{Coefficient, given}
   export com.boombustgroup.amorfati.fp.PriceIndexProvider.{PriceIndex, given}
   export com.boombustgroup.amorfati.fp.SigmaProvider.{Sigma, given}
+  export com.boombustgroup.amorfati.fp.ExchangeRateProvider.{ExchangeRate, given}
+  export com.boombustgroup.amorfati.fp.ExchangeRateShockProvider.{ExchangeRateShock, given}
 
   // Transitional compatibility only. Boundary escapes are being removed from
   // the typed algebra and should not be treated as part of the target API.
@@ -158,3 +160,20 @@ object types:
   extension (s: Sigma)
     @targetName("sigmaToScalar")
     def toScalar: Scalar = Scalar.fromRaw(s.toLong)
+
+  // --- ExchangeRate / ExchangeRateShock ---
+  extension (rate: ExchangeRate)
+    @targetName("exchangeRateDeviationFrom")
+    def deviationFrom(base: ExchangeRate): ExchangeRateShock =
+      ExchangeRateShock.fromRaw(scaledDiv(rate.toLong - base.toLong, base.toLong))
+    @targetName("exchangeRateApplyShock")
+    def applyShock(shock: ExchangeRateShock): ExchangeRate   =
+      ExchangeRate.fromRaw(
+        bankerRound(BigInt(rate.toLong) * BigInt(com.boombustgroup.amorfati.fp.FixedPointBase.Scale + shock.toLong)),
+      )
+
+  extension (shock: ExchangeRateShock)
+    @targetName("exchangeRateShockToScalar")
+    def toScalar: Scalar           = Scalar.fromRaw(shock.toLong)
+    @targetName("exchangeRateShockToCoefficient")
+    def toCoefficient: Coefficient = Coefficient.fromRaw(shock.toLong)

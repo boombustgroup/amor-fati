@@ -140,7 +140,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "secondaryIncome" should "include diasporaInflow as credit" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -163,7 +163,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   it should "net outflow and inflow" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base   = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -209,7 +209,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Generators.testBankingSector().marketState,
-      forex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      forex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
         employed = 100,
         unemployed = 0,

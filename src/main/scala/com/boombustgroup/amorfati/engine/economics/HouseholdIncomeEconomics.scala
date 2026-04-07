@@ -22,7 +22,9 @@ import scala.util.Random
 object HouseholdIncomeEconomics:
 
   // ---- Calibration constants ----
-  private val ImportErElasticity = 0.5 // exchange rate elasticity of import propensity
+  private val ImportErElasticity                          = 0.5 // exchange rate elasticity of import propensity
+  private def exchangeRateValue(er: ExchangeRate): Double =
+    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 
   case class Output(
       totalIncome: PLN,                               // aggregate household income (wages + benefits + transfers)
@@ -51,7 +53,7 @@ object HouseholdIncomeEconomics:
     import ComputationBoundary.toDouble
     val importAdj = Share(
       toDouble(p.forex.importPropensity) *
-        Math.pow(p.forex.baseExRate / w.forex.exchangeRate, ImportErElasticity),
+        Math.pow(p.forex.baseExRate / exchangeRateValue(w.forex.exchangeRate), ImportErElasticity),
     )
 
     val afterSep           = LaborMarket.separations(households, firms, firms)

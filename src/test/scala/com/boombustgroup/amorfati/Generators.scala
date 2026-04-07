@@ -210,7 +210,7 @@ object Generators:
     imports <- Gen.choose(0.0, 1e9)
     exports <- Gen.choose(0.0, 1e9)
     techImp <- Gen.choose(0.0, 1e8)
-  yield OpenEconomy.ForexState(er, PLN(imports), PLN(exports), PLN(exports - imports), PLN(techImp))
+  yield OpenEconomy.ForexState(ExchangeRate(er), PLN(imports), PLN(exports), PLN(exports - imports), PLN(techImp))
 
   val genBopState: Gen[OpenEconomy.BopState] = for
     nfa     <- Gen.choose(-1e10, 1e10)
