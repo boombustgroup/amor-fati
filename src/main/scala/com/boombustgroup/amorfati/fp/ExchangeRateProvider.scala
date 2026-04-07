@@ -7,9 +7,12 @@ object ExchangeRateProvider:
   opaque type ExchangeRate = Long
 
   object ExchangeRate:
-    val Zero: ExchangeRate               = 0L
-    def apply(d: Double): ExchangeRate   = Math.round(d * Scale)
-    def fromRaw(raw: Long): ExchangeRate = raw
+    def apply(d: Double): ExchangeRate                     =
+      require(d.isFinite && d > 0.0, s"ExchangeRate must be finite and > 0, got: $d")
+      Math.round(d * Scale)
+    private[amorfati] def fromRaw(raw: Long): ExchangeRate =
+      require(raw > 0L, s"ExchangeRate raw value must be > 0, got: $raw")
+      raw
 
   extension (er: ExchangeRate)
     inline def toLong: Long                                     = er
