@@ -7,6 +7,22 @@ import scala.util.Random
 /** Sampling helpers for standard distributions (Poisson, Beta, Gamma). */
 object Distributions:
 
+  /** Sample a categorical index from non-negative fixed-point weights. */
+  private[amorfati] def cdfSample(shares: Vector[Share], rng: Random): Int =
+    require(shares.nonEmpty, "shares must be non-empty")
+    require(shares.forall(_ >= Share.Zero), s"shares must be non-negative: $shares")
+    val total = shares.foldLeft(Share.Zero)(_ + _)
+    require(total > Share.Zero, s"shares must contain at least one positive weight: $shares")
+
+    val draw       = Share.random(rng) * total
+    var cumulative = Share.Zero
+    var i          = 0
+    while i < shares.length - 1 do
+      cumulative = cumulative + shares(i)
+      if draw < cumulative then return i
+      i += 1
+    shares.length - 1
+
   /** Sample from Poisson(lambda) using Knuth algorithm (small λ). */
   def poissonSample(lambda: Double, rng: Random): Int =
     if lambda <= 0 then 0

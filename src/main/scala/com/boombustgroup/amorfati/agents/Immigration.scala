@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.config.SocialConfig
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
 
@@ -49,16 +48,16 @@ object Immigration:
     * immigrant wages × remittance rate.
     */
   def computeRemittances(immigrantHH: Iterable[Household.State])(using p: SimParams): PLN =
-    immigrantHH
-      .filter(_.isImmigrant)
-      .foldLeft(PLN.Zero): (acc, h) =>
+    immigrantHH.foldLeft(PLN.Zero): (acc, h) =>
+      if !h.isImmigrant then acc
+      else
         h.status match
           case HhStatus.Employed(_, _, wage) => acc + (wage * p.immigration.remitRate)
           case _                             => acc
 
   /** Choose sector for new immigrant (weighted by sectorShares). */
   def chooseSector(rng: Random)(using p: SimParams): SectorIdx =
-    SectorIdx(SocialConfig.cdfSample(p.immigration.sectorShares, rng))
+    SectorIdx(Distributions.cdfSample(p.immigration.sectorShares, rng))
 
   /** Spawn new immigrant households. Start as Unemployed(0) — matched in next
     * jobSearch round.
