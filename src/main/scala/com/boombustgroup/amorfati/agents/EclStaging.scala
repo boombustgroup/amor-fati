@@ -50,17 +50,11 @@ object EclStaging:
     * migrationRate = sensitivity × max(0, unemployment − nairu) +
     * gdpSensitivity × max(0, −gdpGrowth) Clamped to [0, maxMigration].
     */
-  @boundaryEscape
-  private[amorfati] def migrationRate(
-      unemployment: Share,
-      gdpGrowthMonthly: Double,
-  )(using p: SimParams): Share =
-    inline def shareRaw(s: Share): Double             = s.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-    inline def coefficientRaw(c: Coefficient): Double = c.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-    val unempExcess                                   = shareRaw((unemployment - p.monetary.nairu).max(Share.Zero))
-    val gdpContraction                                = Math.max(0.0, -gdpGrowthMonthly)
-    val raw                                           = coefficientRaw(p.banking.eclMigrationSensitivity) * unempExcess + coefficientRaw(p.banking.eclGdpSensitivity) * gdpContraction
-    Share(raw.min(shareRaw(p.banking.eclMaxMigration)).max(0.0))
+  private[amorfati] def migrationRate(unemployment: Share, gdpGrowthMonthly: Coefficient)(using p: SimParams): Share =
+    val unempExcess: Share          = (unemployment - p.monetary.nairu).max(Share.Zero)
+    val gdpContraction: Coefficient = (-gdpGrowthMonthly).max(Coefficient.Zero)
+    val rawMigration: Coefficient   = p.banking.eclMigrationSensitivity * unempExcess + p.banking.eclGdpSensitivity * gdpContraction
+    rawMigration.max(Coefficient.Zero).min(p.banking.eclMaxMigration.toCoefficient).toShare
 
   /** Monthly ECL staging step for a single bank.
     *
@@ -80,25 +74,25 @@ object EclStaging:
       totalLoans: PLN,
       nplNew: PLN,
       unemployment: Share,
-      gdpGrowthMonthly: Double,
+      gdpGrowthMonthly: Coefficient,
   )(using p: SimParams): StepResult =
-    val migration = migrationRate(unemployment, gdpGrowthMonthly)
+    val migration: Share = migrationRate(unemployment, gdpGrowthMonthly)
 
     // Stage transitions
-    val s1ToS2 = prev.stage1 * migration             // macro-driven migration
-    val s2ToS3 = nplNew                              // actual defaults enter S3
-    val s3Cure = prev.stage3 * p.banking.eclCureRate // some S3 loans recover
+    val s1ToS2: PLN = prev.stage1 * migration             // macro-driven migration
+    val s2ToS3: PLN = nplNew                              // actual defaults enter S3
+    val s3Cure: PLN = prev.stage3 * p.banking.eclCureRate // some S3 loans recover
 
     // Updated stages
-    val newS3 = (prev.stage3 + s2ToS3 - s3Cure).max(PLN.Zero)
-    val newS2 = (prev.stage2 + s1ToS2 - s2ToS3 + s3Cure).max(PLN.Zero)
-    val newS1 = (totalLoans - newS2 - newS3).max(PLN.Zero)
+    val newS3: PLN = (prev.stage3 + s2ToS3 - s3Cure).max(PLN.Zero)
+    val newS2: PLN = (prev.stage2 + s1ToS2 - s2ToS3 + s3Cure).max(PLN.Zero)
+    val newS1: PLN = (totalLoans - newS2 - newS3).max(PLN.Zero)
 
-    val newStaging = State(newS1, newS2, newS3)
+    val newStaging: State = State(newS1, newS2, newS3)
 
     // Provision = Σ(stage × eclRate) — change vs previous month
-    val prevProvision   = prev.stage1 * p.banking.eclRate1 + prev.stage2 * p.banking.eclRate2 + prev.stage3 * p.banking.eclRate3
-    val newProvision    = newS1 * p.banking.eclRate1 + newS2 * p.banking.eclRate2 + newS3 * p.banking.eclRate3
-    val provisionChange = newProvision - prevProvision
+    val prevProvision: PLN   = prev.stage1 * p.banking.eclRate1 + prev.stage2 * p.banking.eclRate2 + prev.stage3 * p.banking.eclRate3
+    val newProvision: PLN    = newS1 * p.banking.eclRate1 + newS2 * p.banking.eclRate2 + newS3 * p.banking.eclRate3
+    val provisionChange: PLN = newProvision - prevProvision
 
     StepResult(newStaging, provisionChange)

@@ -575,11 +575,11 @@ object BankingEconomics:
     )
 
     // IFRS 9 ECL staging: provision change hits capital
-    val unemployment = in.w.unemploymentRate(in.s2.employed)
-    val prevGdp      = in.w.cachedMonthlyGdpProxy
-    val gdpGrowth    =
-      if prevGdp > PLN.Zero then (in.s7.gdp - prevGdp) / prevGdp else 0.0
-    val eclResult    = EclStaging.step(b.eclStaging, newLoansTotal + b.consumerLoans, bankNplNew, unemployment, gdpGrowth)
+    val unemployment: Share              = in.w.unemploymentRate(in.s2.employed)
+    val prevGdp: PLN                     = in.w.cachedMonthlyGdpProxy
+    val gdpGrowth: Coefficient           =
+      if prevGdp > PLN.Zero then (in.s7.gdp.ratioTo(prevGdp) - Scalar.One).toCoefficient else Coefficient.Zero
+    val eclResult: EclStaging.StepResult = EclStaging.step(b.eclStaging, newLoansTotal + b.consumerLoans, bankNplNew, unemployment, gdpGrowth)
 
     b.copy(
       loans = newLoansTotal,
