@@ -5,6 +5,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,6 +14,7 @@ import org.scalatest.matchers.should.Matchers
 /** Full month: run pipeline via Economics objects, extract flows from every
   * step, verify SFC == 0L.
   */
+@Heavy
 class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults

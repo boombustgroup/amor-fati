@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.tags.Heavy
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -10,6 +11,7 @@ import org.scalatest.matchers.should.Matchers
   *
   * Runs 120 months via FlowSimulation.step(). At each month verifies SFC == 0L.
   */
+@Heavy
 class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults

@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -11,6 +12,7 @@ import org.scalatest.matchers.should.Matchers
   * Acceptance test for the pipeline. Proves SFC == 0L and economic sanity
   * across diverse random trajectories.
   */
+@Heavy
 class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults

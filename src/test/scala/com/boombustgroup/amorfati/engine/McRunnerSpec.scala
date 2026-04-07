@@ -4,10 +4,12 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.montecarlo.McRunner.runSingle
 import com.boombustgroup.amorfati.montecarlo.SimOutput
 import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
+import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+@Heavy
 class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   given SimParams      = SimParams.defaults

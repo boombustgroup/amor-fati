@@ -38,4 +38,17 @@ lazy val root = project
       "dev.zio"           %% "zio-test-sbt"    % "2.1.16"   % Test,
       "com.github.lalyos"  % "jfiglet"         % "0.0.9",
     ),
+    Test / testOptions ++= {
+      val heavyTag         = "com.boombustgroup.amorfati.tags.Heavy"
+      // Local `sbt test` skips @Heavy suites by default.
+      // Run the full suite locally with: `sbt -DamorFati.includeHeavyTests=true test`
+      val includeHeavy     = sys.props.get("amorFati.includeHeavyTests").exists { value =>
+        val normalized = value.trim.toLowerCase
+        normalized == "true" || normalized == "1" || normalized == "yes"
+      }
+      val runningOnCi      = sys.env.get("CI").contains("true") || sys.env.get("GITHUB_ACTIONS").contains("true")
+      val excludeHeavyByDefault = !includeHeavy && !runningOnCi
+      if (excludeHeavyByDefault) Seq(Tests.Argument(TestFrameworks.ScalaTest, "-l", heavyTag))
+      else Nil
+    },
   )

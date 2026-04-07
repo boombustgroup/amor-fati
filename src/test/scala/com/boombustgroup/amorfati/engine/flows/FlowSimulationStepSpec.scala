@@ -2,10 +2,12 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.ledger.{ImperativeInterpreter, Interpreter}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+@Heavy
 class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
