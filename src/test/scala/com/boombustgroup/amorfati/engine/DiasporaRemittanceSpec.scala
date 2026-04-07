@@ -153,6 +153,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       priceLevel = 1.0,
       sectorOutputs = Vector.fill(6)(PLN(1e8)),
       month = 1,
+      nbpFxReserves = prevBop.reserves,
     )
     val resultWith    = OpenEconomy.step(base.copy(diasporaInflow = PLN(1000.0)))
     val resultWithout = OpenEconomy.step(base.copy(diasporaInflow = PLN.Zero))
@@ -175,6 +176,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       priceLevel = 1.0,
       sectorOutputs = Vector.fill(6)(PLN(1e8)),
       month = 1,
+      nbpFxReserves = prevBop.reserves,
     )
     val result = OpenEconomy.step(base.copy(remittanceOutflow = PLN(500.0), diasporaInflow = PLN(800.0)))
 

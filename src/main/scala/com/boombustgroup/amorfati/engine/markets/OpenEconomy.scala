@@ -95,7 +95,7 @@ object OpenEconomy:
       sectorOutputs: Vector[PLN],
       month: Int,
       inflation: Rate = Rate.Zero,
-      nbpFxReserves: PLN = PLN.Zero,
+      nbpFxReserves: PLN,
       gvcExports: Option[PLN] = None,
       gvcIntermImports: Option[Vector[PLN]] = None,
       remittanceOutflow: PLN = PLN.Zero,

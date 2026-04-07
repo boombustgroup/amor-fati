@@ -35,12 +35,12 @@ object ShareProvider:
     def +(other: Share): Share             = s + other
     def -(other: Share): Share             = s - other
     def *(other: Share): Share             = bankerRound(BigInt(s) * BigInt(other))
-    def /(n: Int): Share                   = Share.fromRaw(s / n.toLong)
+    def /(n: Int): Share                   = Share.fromRaw(divideRaw(s, n.toLong))
     def /(other: Share): Double            = if other != 0L then s.toDouble / other.toDouble else 0.0
     def max(other: Share): Share           = math.max(s, other)
     def min(other: Share): Share           = math.min(s, other)
     def clamp(lo: Share, hi: Share): Share = math.max(lo, math.min(hi, s))
-    def monthly: Share                     = Share.fromRaw(s / 12L)
+    def monthly: Share                     = Share.fromRaw(divideRaw(s, 12L))
     def sqrt: Share                        = Share(math.sqrt(s.toDouble / ScaleD))
     def >(other: Share): Boolean           = s > other
     def <(other: Share): Boolean           = s < other

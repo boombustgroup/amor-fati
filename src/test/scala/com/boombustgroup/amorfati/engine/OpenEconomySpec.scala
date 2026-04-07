@@ -32,6 +32,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
     priceLevel = 1.0,
     sectorOutputs = baseSectorOutputs,
     month = month,
+    nbpFxReserves = prevBop.reserves,
   )
 
   // ---- Export tests ----

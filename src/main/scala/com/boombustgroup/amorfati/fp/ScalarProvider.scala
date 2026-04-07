@@ -37,7 +37,7 @@ object ScalarProvider:
     def +(other: Scalar): Scalar              = s + other
     def -(other: Scalar): Scalar              = s - other
     def *(other: Scalar): Scalar              = bankerRound(BigInt(s) * BigInt(other))
-    def /(n: Int): Scalar                     = Scalar.fromRaw(s / n.toLong)
+    def /(n: Int): Scalar                     = Scalar.fromRaw(divideRaw(s, n.toLong))
     def ratioTo(other: Scalar): Scalar        =
       if other == 0L then Scalar.Zero
       else
