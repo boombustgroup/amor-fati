@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 import com.boombustgroup.amorfati.types.*
 
 /** Social security and demographics: ZUS/FUS, PPK, demographics, BGK. */
@@ -102,12 +101,10 @@ object SocialSecurity:
     * supply; working-age population declines.
     */
   def demographicsStep(prev: DemographicsState, employed: Int, netMigration: Int)(using p: SimParams): DemographicsState =
-    val retirements       = bankerRound(BigInt(employed.toLong) * BigInt(p.social.demRetirementRate.toLong)).toInt
-    val workingAgeDecline = bankerRound(BigInt(prev.workingAgePop.toLong) * BigInt(p.social.demWorkingAgeDecline.monthly.toLong)).toInt
+    val retirements       = p.social.demRetirementRate.applyTo(employed)
+    val workingAgeDecline = p.social.demWorkingAgeDecline.monthly.applyTo(prev.workingAgePop)
     DemographicsState(
       retirees = prev.retirees + retirements,
       workingAgePop = Math.max(0, prev.workingAgePop - retirements - workingAgeDecline + netMigration),
       monthlyRetirements = retirements,
     )
-
-  // BGK stub removed — replaced by QuasiFiscal agent (PR #10)

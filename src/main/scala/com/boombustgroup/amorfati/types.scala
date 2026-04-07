@@ -78,6 +78,8 @@ object types:
     def *(s: Share): Rate            = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(s.toLong)))
     @targetName("rateTimesCoefficient")
     def *(c: Coefficient): Rate      = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(c.toLong)))
+    @targetName("rateApplyToCount")
+    def applyTo(n: Int): Int         = bankerRound(BigInt(n.toLong) * BigInt(r.toLong)).toInt
     @targetName("rateToMultiplier")
     def toMultiplier: Multiplier     = Multiplier.fromRaw(r.toLong)
     @targetName("rateToScalar")

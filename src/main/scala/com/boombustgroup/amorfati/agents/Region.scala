@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.amorfati.util.Distributions
 
 /** NUTS-1 macroregions of Poland for regional labor market dynamics.
   *
@@ -65,23 +66,17 @@ object Region:
     * average, so their population-weighted mean should be normalized to 1.0
     * whenever they are applied to aggregate wages.
     */
-  val weightedMeanWageMultiplier: Multiplier =
+  private val weightedMeanWageMultiplier: Multiplier =
     all.foldLeft(Multiplier.Zero)((acc, r) => acc + (r.populationShare * r.wageMultiplier))
 
   /** Regional wage multiplier normalized to preserve the national average wage.
     */
-  @boundaryEscape
   def normalizedWageMultiplier(region: Region): Multiplier =
-    import ComputationBoundary.toDouble
-    region.wageMultiplier * Multiplier(1.0 / toDouble(weightedMeanWageMultiplier))
+    region.wageMultiplier.ratioTo(weightedMeanWageMultiplier).toMultiplier
 
   /** Sample a region from population share CDF (inverse transform). */
   def cdfSample(rng: scala.util.Random): Region =
-    val shares = all.map(_.populationShare.toLong)
-    val total  = shares.sum
-    val draw   = (rng.nextDouble() * total).toLong
-    val cumul  = shares.scanLeft(0L)(_ + _).tail
-    all.zip(cumul).find((_, cum) => draw < cum).map(_._1).getOrElse(all.last)
+    all(Distributions.cdfSample(all.map(_.populationShare), rng))
 
   /** Migration friction matrix: `friction(from)(to)` ∈ [0,1]. 0 = no friction
     * (same region), 1 = maximum friction. Asymmetric: easier to move TO Central
