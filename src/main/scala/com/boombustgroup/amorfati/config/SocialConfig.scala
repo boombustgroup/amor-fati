@@ -95,13 +95,11 @@ case class SocialConfig(
   /** Draw education tier for a worker in given sector using CDF sampling. */
   def drawEducation(sectorIdx: Int, rng: scala.util.Random): Int =
     val shares = eduSectorShares.getOrElse(defaultEduSectorShares)(sectorIdx.max(0).min(5))
-    SocialConfig.cdfSample(shares, rng)
+    SocialConfig.cdfSample(shares.map(Share(_)), rng)
 
   /** Draw education tier for an immigrant worker. */
-  @boundaryEscape
   def drawImmigrantEducation(rng: scala.util.Random): Int =
-    import ComputationBoundary.toDouble
-    SocialConfig.cdfSample(eduImmigShares.map(s => toDouble(s)), rng)
+    SocialConfig.cdfSample(eduImmigShares, rng)
 
   /** Wage premium multiplier for given education tier (0-3). */
   def eduWagePremium(education: Int): Multiplier =
@@ -117,19 +115,20 @@ case class SocialConfig(
     (eduSkillFloors(idx), eduSkillCeilings(idx))
 
 object SocialConfig:
+
   /** Sample a categorical index from a probability vector using the inverse CDF
     * method.
     *
     * Builds a cumulative distribution from `shares`, draws a uniform random
     * number, and returns the first index whose cumulative probability exceeds
-    * the draw. The last category absorbs any floating-point residual.
+    * the draw. The last category absorbs any fixed-point residual.
     */
-  private[config] def cdfSample(shares: Vector[Double], rng: scala.util.Random): Int =
-    val r   = rng.nextDouble()
-    var cum = 0.0
-    var i   = 0
+  private[amorfati] def cdfSample(shares: Vector[Share], rng: scala.util.Random): Int =
+    val draw       = Share.random(rng)
+    var cumulative = Share.Zero
+    var i          = 0
     while i < shares.length - 1 do
-      cum += shares(i)
-      if r < cum then return i
+      cumulative = cumulative + shares(i)
+      if draw < cumulative then return i
       i += 1
     shares.length - 1

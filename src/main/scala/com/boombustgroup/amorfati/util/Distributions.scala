@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.util
 
+import com.boombustgroup.amorfati.types.*
+
 import scala.util.Random
 
 /** Sampling helpers for standard distributions (Poisson, Beta, Gamma). */
@@ -46,3 +48,20 @@ object Distributions:
           result = d * v
           done = true
       result
+
+  /** Sample a raw fixed-point Gaussian perturbation with dimensionless stddev.
+    */
+  def gaussianNoiseRaw(std: Scalar, rng: Random): Long =
+    math.round(rng.nextGaussian() * std.toLong)
+
+  /** Sample a share around mean with Gaussian noise and clamp to bounds. */
+  def gaussianShare(mean: Share, std: Scalar, lo: Share, hi: Share, rng: Random): Share =
+    Share.fromRaw((mean.toLong + gaussianNoiseRaw(std, rng)).max(lo.toLong).min(hi.toLong))
+
+  /** Sample a PLN value around mean with Gaussian noise and clamp to floor. */
+  def gaussianPlnAtLeast(mean: PLN, std: PLN, floor: PLN, rng: Random): PLN =
+    PLN.fromRaw((mean.toLong + math.round(std.toLong.toDouble * rng.nextGaussian())).max(floor.toLong))
+
+  /** Sample a PLN value uniformly from [0, maxExclusive). */
+  def randomPlnBelow(maxExclusive: PLN, rng: Random): PLN =
+    PLN.fromRaw(rng.nextLong(maxExclusive.toLong.max(1L)))
