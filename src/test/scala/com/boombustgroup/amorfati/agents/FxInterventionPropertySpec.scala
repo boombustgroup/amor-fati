@@ -10,11 +10,10 @@ import com.boombustgroup.amorfati.types.*
 class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
   import com.boombustgroup.amorfati.config.SimParams
-  given SimParams                                      = SimParams.defaults
-  private val p: SimParams                             = summon[SimParams]
-  private def plnValue(x: PLN): Double                 = x.toLong.toDouble / ScaleD
-  private def shareValue(x: Share): Double             = x.toLong.toDouble / ScaleD
-  private def shockValue(x: ExchangeRateShock): Double = x.toLong.toDouble / ScaleD
+  given SimParams                          = SimParams.defaults
+  private val p: SimParams                 = summon[SimParams]
+  private def plnValue(x: PLN): Double     = x.toLong.toDouble / ScaleD
+  private def shareValue(x: Share): Double = x.toLong.toDouble / ScaleD
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -44,11 +43,8 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "have erShock opposing deviation when outside band" in
     forAll(genER, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)
-      val erDev  = (er - p.forex.baseExRate) / p.forex.baseExRate
-      if Math.abs(erDev) > shareValue(p.monetary.fxBand) && reserves > 0 && gdp > 0 then
-        // erShock should oppose the deviation
-        if erDev > 0 then shockValue(result.erShock).should(be <= 0.0)
-        else shockValue(result.erShock).should(be >= 0.0)
+      val erDev  = ExchangeRate(er).deviationFrom(ExchangeRate(p.forex.baseExRate))
+      if erDev.abs.toScalar > p.monetary.fxBand.toScalar && result.erShock != ExchangeRateShock.Zero then result.erShock.sign.shouldBe(-erDev.sign)
     }
 
   "Nbp.fxIntervention (enabled)" should "return zero effect when ER within band" in {
