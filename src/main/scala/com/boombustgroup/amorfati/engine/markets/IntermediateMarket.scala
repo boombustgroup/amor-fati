@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.markets
 import com.boombustgroup.amorfati.agents.Firm
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.Distribute
 
 /** Inter-sectoral intermediate demand via Leontief Input-Output (Leontief
   * 1936).
@@ -53,29 +54,42 @@ object IntermediateMarket:
     for i <- living do sectorOutput(arr(i).sector.toInt) += grossOutput(i)
 
     // Firms can only buy from sectors that have living suppliers.
-    // Effective column sum for sector j = Sum_{i: hasFirms(i)} a_ij
-    val hasFirms         = (0 until nSectors).map: i =>
+    val hasFirms = (0 until nSectors).map: i =>
       sectorOutput(i) > PLN.Zero
-    val effectiveColSums = (0 until nSectors).map: j =>
-      (0 until nSectors).collect { case i if hasFirms(i) => in.ioMatrix(i)(j) }.foldLeft(Share.Zero)(_ + _)
 
-    // Revenue for sector i = Sum_j a_ij * sectorOutput_j (only from sectors with firms)
-    val cashAdj = Array.fill(arr.length)(PLN.Zero)
+    val cashAdj     = Array.fill(arr.length)(PLN.Zero)
+    val sectorCosts = Array.fill(nSectors)(PLN.Zero)
 
+    // Compute exact sector-to-sector flows once, then distribute by sector.
+    // This keeps global costs and revenues aligned in raw PLN before firm-level allocation.
     val sectorRevenue = Array.fill(nSectors)(PLN.Zero)
-    for i <- 0 until nSectors if hasFirms(i) do for j <- 0 until nSectors do sectorRevenue(i) += in.ioMatrix(i)(j) * sectorOutput(j)
+    for
+      i <- 0 until nSectors
+      if hasFirms(i)
+      j <- 0 until nSectors
+    do
+      val flow = (sectorOutput(j) * in.ioMatrix(i)(j)) * in.scale
+      sectorRevenue(i) += flow
+      sectorCosts(j) += flow
 
-    // Distribute costs and revenues to individual firms
-    var totalPaidAcc = PLN.Zero
-    for idx <- living do
-      val f         = arr(idx)
-      val j         = f.sector.toInt
-      val ioCost    = (grossOutput(idx) * effectiveColSums(j)) * in.scale
-      val ioRevenue =
-        if sectorOutput(j) > PLN.Zero then sectorRevenue(j) * grossOutput(idx).ratioTo(sectorOutput(j)).toShare * in.scale
-        else PLN.Zero
-      cashAdj(idx) = ioRevenue - ioCost
-      totalPaidAcc += ioCost
+    val sectorMembers = (0 until nSectors).map: sector =>
+      living.filter(idx => arr(idx).sector.toInt == sector).toArray
+
+    for j <- 0 until nSectors do
+      val members = sectorMembers(j)
+      if members.nonEmpty && sectorCosts(j) > PLN.Zero then
+        val weights     = members.map(idx => grossOutput(idx).distributeRaw)
+        val allocations = Distribute.distribute(sectorCosts(j).distributeRaw, weights)
+        members.indices.foreach: pos =>
+          cashAdj(members(pos)) -= PLN.fromRaw(allocations(pos))
+
+    for i <- 0 until nSectors do
+      val members = sectorMembers(i)
+      if members.nonEmpty && sectorRevenue(i) > PLN.Zero then
+        val weights     = members.map(idx => grossOutput(idx).distributeRaw)
+        val allocations = Distribute.distribute(sectorRevenue(i).distributeRaw, weights)
+        members.indices.foreach: pos =>
+          cashAdj(members(pos)) += PLN.fromRaw(allocations(pos))
 
     // Verify zero-sum (within floating-point tolerance)
     val totalAdj = cashAdj.sum
@@ -87,4 +101,4 @@ object IntermediateMarket:
       val f = newFirms(idx)
       newFirms(idx) = f.copy(cash = f.cash + cashAdj(idx))
 
-    Result(newFirms.toVector, totalPaidAcc)
+    Result(newFirms.toVector, sectorCosts.foldLeft(PLN.Zero)(_ + _))
