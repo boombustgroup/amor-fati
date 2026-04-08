@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.types.{PLN, Scalar}
 object EuFundsMath:
 
   def totalEnvelopePln(totalEur: Double, baseExRate: Double, firmsCount: Int, referenceEconomy: Int): PLN =
-    require(referenceEconomy != 0, "referenceEconomy must be non-zero")
+    require(referenceEconomy > 0, s"referenceEconomy must be positive: $referenceEconomy")
     require(totalEur.isFinite, s"totalEur must be finite: $totalEur")
     require(baseExRate.isFinite, s"baseExRate must be finite: $baseExRate")
     PLN(totalEur * baseExRate * firmsCount.toDouble / referenceEconomy)
@@ -20,7 +20,6 @@ object EuFundsMath:
     else Scalar(betaPdf(t, alpha, beta) / periodMonths)
 
   private def monthOffset(month: Int, startMonth: Int, periodMonths: Int): Double =
-    require(periodMonths != 0, "periodMonths must be non-zero")
     (month - startMonth).toDouble / periodMonths
 
   private def betaPdf(x: Double, alpha: Double, beta: Double): Double =
@@ -33,8 +32,8 @@ object EuFundsMath:
     require(logGammaAlpha.isFinite, s"lnGamma(alpha) must be finite: $logGammaAlpha")
     require(logGammaBeta.isFinite, s"lnGamma(beta) must be finite: $logGammaBeta")
     require(logGammaSum.isFinite, s"lnGamma(alpha + beta) must be finite: $logGammaSum")
-    val logB = logGammaAlpha + logGammaBeta - logGammaSum
-    val pdf  = Math.exp((alpha - 1.0) * Math.log(x) + (beta - 1.0) * Math.log(1.0 - x) - logB)
+    val logB          = logGammaAlpha + logGammaBeta - logGammaSum
+    val pdf           = Math.exp((alpha - 1.0) * Math.log(x) + (beta - 1.0) * Math.log(1.0 - x) - logB)
     require(pdf.isFinite, s"betaPdf must be finite for x=$x, alpha=$alpha, beta=$beta")
     pdf
 

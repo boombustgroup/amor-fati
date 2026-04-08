@@ -76,10 +76,18 @@ object types:
     def /(n: Int): PLN              = PLN.fromRaw(FixedPointBase.divideRaw(p.toLong, n.toLong))
     @targetName("plnRatioToPln")
     def ratioTo(other: PLN): Scalar = Scalar.fromRaw(scaledDiv(p.toLong, other.toLong))
+
+    /** Divides this amount by a count using [[FixedPointBase.divideRaw]] on raw
+      * fixed-point values.
+      *
+      * `divideRaw` returns `0L` when `count` is zero, so `divideBy` gracefully
+      * returns `PLN.fromRaw(0)` in that case. Callers should guard against a
+      * zero divisor themselves if silent zero is not the desired behavior.
+      */
     @targetName("plnDivideByCount")
-    def divideBy(count: Int): PLN   = PLN.fromRaw(FixedPointBase.divideRaw(p.toLong, count.toLong))
+    def divideBy(count: Int): PLN = PLN.fromRaw(FixedPointBase.divideRaw(p.toLong, count.toLong))
     @targetName("plnToDistributeRaw")
-    def distributeRaw: Long         = p.toLong
+    def distributeRaw: Long       = p.toLong
 
   // --- Rate × typed ---
   extension (r: Rate)
@@ -254,7 +262,9 @@ object types:
       if hi <= lo then lo else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
 
     def withGaussianNoise(base: Share, stddev: Share, rng: Random): Share =
-      Share.fromRaw(base.toLong + scala.math.round(rng.nextGaussian() * stddev.toLong))
+      val raw        = base.toLong + scala.math.round(rng.nextGaussian() * stddev.toLong)
+      val clampedRaw = scala.math.max(Share.Zero.toLong, scala.math.min(Share.One.toLong, raw))
+      Share.fromRaw(clampedRaw)
 
     @targetName("randomMultiplierBetween")
     def randomBetween(lo: Multiplier, hi: Multiplier, rng: Random): Multiplier =
@@ -264,11 +274,9 @@ object types:
     def choose(weights: Vector[Multiplier], rng: Random): Int =
       if weights.isEmpty then return -1
       weights.foreach: weight =>
-        if weight < Multiplier.Zero then
-          throw IllegalArgumentException(s"WeightedSelection requires non-negative weights, got: $weight")
+        if weight < Multiplier.Zero then throw IllegalArgumentException(s"WeightedSelection requires non-negative weights, got: $weight")
       val total = weights.foldLeft(0L)(_ + _.toLong)
-      if total == 0L then
-        throw IllegalArgumentException("WeightedSelection requires at least one positive weight")
+      if total == 0L then throw IllegalArgumentException("WeightedSelection requires at least one positive weight")
       else
         val threshold = rng.between(0L, total)
         weights.indices
