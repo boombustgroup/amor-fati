@@ -336,7 +336,7 @@ object SimOutput:
 
   private def realGroup: Vector[ColumnDef] = Vector(
     // Housing Market
-    ColumnDef("HousingPriceIndex", ctx => ctx.world.real.housing.priceIndex),
+    ColumnDef("HousingPriceIndex", ctx => td.toDouble(ctx.world.real.housing.priceIndex)),
     ColumnDef("HousingMarketValue", ctx => td.toDouble(ctx.world.real.housing.totalValue)),
     ColumnDef("MortgageStock", ctx => td.toDouble(ctx.world.real.housing.mortgageStock)),
     ColumnDef("AvgMortgageRate", ctx => td.toDouble(ctx.world.real.housing.avgMortgageRate)),
@@ -354,13 +354,13 @@ object SimOutput:
         else 0.0,
     ),
     // Regional Housing Market
-    ColumnDef("WawHpi", ctx => ctx.world.real.housing.regions.map(_(0).priceIndex).getOrElse(0.0)),
-    ColumnDef("KrkHpi", ctx => ctx.world.real.housing.regions.map(_(1).priceIndex).getOrElse(0.0)),
-    ColumnDef("WroHpi", ctx => ctx.world.real.housing.regions.map(_(2).priceIndex).getOrElse(0.0)),
-    ColumnDef("GdnHpi", ctx => ctx.world.real.housing.regions.map(_(3).priceIndex).getOrElse(0.0)),
-    ColumnDef("LdzHpi", ctx => ctx.world.real.housing.regions.map(_(4).priceIndex).getOrElse(0.0)),
-    ColumnDef("PozHpi", ctx => ctx.world.real.housing.regions.map(_(5).priceIndex).getOrElse(0.0)),
-    ColumnDef("RestHpi", ctx => ctx.world.real.housing.regions.map(_(6).priceIndex).getOrElse(0.0)),
+    ColumnDef("WawHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(0).priceIndex)).getOrElse(0.0)),
+    ColumnDef("KrkHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(1).priceIndex)).getOrElse(0.0)),
+    ColumnDef("WroHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(2).priceIndex)).getOrElse(0.0)),
+    ColumnDef("GdnHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(3).priceIndex)).getOrElse(0.0)),
+    ColumnDef("LdzHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(4).priceIndex)).getOrElse(0.0)),
+    ColumnDef("PozHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(5).priceIndex)).getOrElse(0.0)),
+    ColumnDef("RestHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(6).priceIndex)).getOrElse(0.0)),
     // Sectoral Labor Mobility
     ColumnDef("SectorMobilityRate", ctx => td.toDouble(ctx.world.real.sectoralMobility.sectorMobilityRate)),
     ColumnDef("CrossSectorHires", ctx => ctx.world.real.sectoralMobility.crossSectorHires.toDouble),

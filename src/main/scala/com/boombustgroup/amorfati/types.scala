@@ -67,8 +67,12 @@ object types:
     def /(s: Share): PLN            = PLN.fromRaw(scaledDiv(p.toLong, s.toLong))
     @targetName("plnDivMultiplier")
     def /(m: Multiplier): PLN       = PLN.fromRaw(scaledDiv(p.toLong, m.toLong))
+    @targetName("plnDivInt")
+    def /(n: Int): PLN              = PLN.fromRaw(com.boombustgroup.amorfati.fp.FixedPointBase.divideRaw(p.toLong, n.toLong))
     @targetName("plnRatioToPln")
     def ratioTo(other: PLN): Scalar = Scalar.fromRaw(scaledDiv(p.toLong, other.toLong))
+    @targetName("plnToDistributeRaw")
+    def distributeRaw: Long         = p.toLong
 
   // --- Rate × typed ---
   extension (r: Rate)
@@ -111,6 +115,8 @@ object types:
     def applyTo(n: Int): Int           = bankerRound(BigInt(n.toLong) * BigInt(s.toLong)).toInt
     @targetName("shareToScalar")
     def toScalar: Scalar               = Scalar.fromRaw(s.toLong)
+    @targetName("shareToDistributeRaw")
+    def distributeRaw: Long            = s.toLong
 
   extension (s: Scalar)
     @targetName("scalarTimesPln")
@@ -148,6 +154,8 @@ object types:
     def toCoefficient: Coefficient         = Coefficient.fromRaw(m.toLong)
     @targetName("multToScalar")
     def toScalar: Scalar                   = Scalar.fromRaw(m.toLong)
+    @targetName("multToPriceIndex")
+    def toPriceIndex: PriceIndex           = PriceIndex.fromRaw(m.toLong)
     @targetName("multDeviationFromOne")
     def deviationFromOne: Coefficient      = Coefficient.fromRaw(m.toLong - Multiplier.One.toLong)
 
@@ -169,6 +177,9 @@ object types:
     def toRate: Rate                           = Rate.fromRaw(c.toLong)
     @targetName("coefToExchangeRateShock")
     def toExchangeRateShock: ExchangeRateShock = ExchangeRateShock.fromRaw(c.toLong)
+    @targetName("coefDivInt")
+    def /(n: Int): Coefficient                 =
+      Coefficient.fromRaw(com.boombustgroup.amorfati.fp.FixedPointBase.divideRaw(c.toLong, n.toLong))
     @targetName("coefGrowthMultiplier")
     def growthMultiplier: Multiplier           =
       Multiplier.fromRaw(com.boombustgroup.amorfati.fp.FixedPointBase.Scale + c.toLong)
