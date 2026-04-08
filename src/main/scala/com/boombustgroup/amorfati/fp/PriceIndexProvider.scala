@@ -23,3 +23,5 @@ object PriceIndexProvider:
     def <(other: PriceIndex): Boolean      = p < other
     def >=(other: PriceIndex): Boolean     = p >= other
     def <=(other: PriceIndex): Boolean     = p <= other
+
+  given Ordering[PriceIndex] = Ordering.Long

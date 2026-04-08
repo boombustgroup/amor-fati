@@ -20,10 +20,10 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
   ) =
     GvcTrade.StepInput(
       prev = prev,
-      sectorOutputs = Vector.fill(6)(100000.0),
+      sectorOutputs = Vector.fill(6)(PLN(100000.0)),
       priceLevel = PriceIndex.Base,
-      exchangeRate = 4.33,
-      autoRatio = 0.0,
+      exchangeRate = ExchangeRate(4.33),
+      autoRatio = Share.Zero,
       month = month,
       rng = new Random(seed * 31 + month),
     )
@@ -39,7 +39,7 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
     val init  = GvcTrade.initial
     val after = GvcTrade.step(mkInput(init, month = 1))
     // With default drift 2%/yr = ~0.17%/month, commodity should change
-    after.commodityPriceIndex should not be PriceIndex.Base
+    after.commodityPriceIndex.should(not(be(PriceIndex.Base)))
   }
 
   it should "compute importCostIndex as foreignPrice × commodity" in {
@@ -53,7 +53,7 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
     val init   = GvcTrade.initial
     val after1 = GvcTrade.step(mkInput(init, month = 1, seed = 1L))
     val after2 = GvcTrade.step(mkInput(init, month = 1, seed = 999L))
-    after1.commodityPriceIndex.bd.toDouble should not be after2.commodityPriceIndex.bd.toDouble
+    after1.commodityPriceIndex.bd.toDouble.should(not(be(after2.commodityPriceIndex.bd.toDouble)))
   }
 
   it should "keep commodity close to 1.0 after 1 month with default params" in {
