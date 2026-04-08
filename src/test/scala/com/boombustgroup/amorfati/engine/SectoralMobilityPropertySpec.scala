@@ -1,20 +1,23 @@
 package com.boombustgroup.amorfati.engine
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
+import com.boombustgroup.amorfati.agents.*
+import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
+import com.boombustgroup.amorfati.types.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import com.boombustgroup.amorfati.agents.*
-import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
-import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
 
 class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
-  import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
+
+  private def adjustedSuccess(base: Double, friction: Double): Double =
+    ComputationBoundary.toDouble(SectoralMobility.frictionAdjustedSuccess(Share(base), Share(friction)))
   // --- Friction matrix properties ---
 
   "DefaultFrictionMatrix" should "have all off-diagonal elements in (0, 1)" in {
@@ -37,7 +40,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   "frictionAdjustedSuccess" should "be in [0, base] for friction in [0, 1]" in
     forAll(Gen.choose(0.0, 1.0), Gen.choose(0.0, 1.0)) { (base, friction) =>
-      val s = SectoralMobility.frictionAdjustedSuccess(base, Share(friction))
+      val s = adjustedSuccess(base, friction)
       s should be >= 0.0
       s should be <= base + 1e-10
     }

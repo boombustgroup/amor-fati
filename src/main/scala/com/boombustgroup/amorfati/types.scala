@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati
 import com.boombustgroup.amorfati.fp.FixedPointBase
 
 import scala.annotation.targetName
+import scala.util.Random
 
 /** Fixed-point type system for SFC-ABM engine.
   *
@@ -65,6 +66,8 @@ object types:
     def *(m: Multiplier): PLN       = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(m.toLong)))
     @targetName("plnTimesCoefficient")
     def *(c: Coefficient): PLN      = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
+    @targetName("plnTimesScalar")
+    def *(s: Scalar): PLN           = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(s.toLong)))
     @targetName("plnDivShare")
     def /(s: Share): PLN            = PLN.fromRaw(scaledDiv(p.toLong, s.toLong))
     @targetName("plnDivMultiplier")
@@ -73,6 +76,8 @@ object types:
     def /(n: Int): PLN              = PLN.fromRaw(FixedPointBase.divideRaw(p.toLong, n.toLong))
     @targetName("plnRatioToPln")
     def ratioTo(other: PLN): Scalar = Scalar.fromRaw(scaledDiv(p.toLong, other.toLong))
+    @targetName("plnDivideByCount")
+    def divideBy(count: Int): PLN   = PLN.fromRaw(FixedPointBase.divideRaw(p.toLong, count.toLong))
     @targetName("plnToDistributeRaw")
     def distributeRaw: Long         = p.toLong
 
@@ -115,8 +120,15 @@ object types:
     def ratioTo(other: Share): Scalar  = Scalar.fromRaw(scaledDiv(s.toLong, other.toLong))
     @targetName("shareApplyToInt")
     def applyTo(n: Int): Int           = bankerRound(BigInt(n.toLong) * BigInt(s.toLong)).toInt
+    @targetName("shareCeilApplyToInt")
+    def ceilApplyTo(n: Int): Int       =
+      ((BigInt(n.toLong) * BigInt(s.toLong) + BigInt(FixedPointBase.Scale) - 1) / BigInt(FixedPointBase.Scale)).toInt
     @targetName("shareToScalar")
     def toScalar: Scalar               = Scalar.fromRaw(s.toLong)
+    @targetName("shareToMultiplierExact")
+    def exactMultiplier: Multiplier    = Multiplier.fromRaw(s.toLong)
+    @targetName("shareToComplement")
+    def complement: Share              = Share.One - s
     @targetName("shareToDistributeRaw")
     def distributeRaw: Long            = s.toLong
 
@@ -139,6 +151,8 @@ object types:
     def toMultiplier: Multiplier       = Multiplier.fromRaw(s.toLong)
     @targetName("scalarToCoefficient")
     def toCoefficient: Coefficient     = Coefficient.fromRaw(s.toLong)
+    @targetName("scalarClampToShare")
+    def clampToShare: Share            = Share.fromRaw(scala.math.max(Share.Zero.toLong, scala.math.min(Share.One.toLong, s.toLong)))
 
   // --- Multiplier × typed ---
   extension (m: Multiplier)
@@ -162,29 +176,34 @@ object types:
     def deviationFromOne: Coefficient      = Coefficient.fromRaw(m.toLong - Multiplier.One.toLong)
     @targetName("multDivideByInt")
     def divideBy(n: Int): Multiplier       = Multiplier.fromRaw(FixedPointBase.divideRaw(m.toLong, n.toLong))
+    @targetName("multApplyToCount")
+    def applyTo(n: Int): Int               = bankerRound(BigInt(n.toLong) * BigInt(m.toLong)).toInt
 
   // --- Coefficient × typed ---
   extension (c: Coefficient)
     @targetName("coefTimesShare")
-    def *(s: Share): Coefficient               = Coefficient.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(s.toLong)))
+    def *(s: Share): Coefficient                             = Coefficient.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(s.toLong)))
     @targetName("coefTimesMultiplier")
-    def *(m: Multiplier): Share                = Share.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): Share                              = Share.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(m.toLong)))
     @targetName("coefTimesPln")
-    def *(p: PLN): PLN                         = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
+    def *(p: PLN): PLN                                       = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
     @targetName("coefToShare")
-    def toShare: Share                         = Share.fromRaw(c.toLong)
+    def toShare: Share                                       = Share.fromRaw(c.toLong)
     @targetName("coefToMultiplier")
-    def toMultiplier: Multiplier               = Multiplier.fromRaw(c.toLong)
+    def toMultiplier: Multiplier                             = Multiplier.fromRaw(c.toLong)
     @targetName("coefToScalar")
-    def toScalar: Scalar                       = Scalar.fromRaw(c.toLong)
+    def toScalar: Scalar                                     = Scalar.fromRaw(c.toLong)
     @targetName("coefToRate")
-    def toRate: Rate                           = Rate.fromRaw(c.toLong)
+    def toRate: Rate                                         = Rate.fromRaw(c.toLong)
     @targetName("coefToExchangeRateShock")
-    def toExchangeRateShock: ExchangeRateShock = ExchangeRateShock.fromRaw(c.toLong)
+    def toExchangeRateShock: ExchangeRateShock               = ExchangeRateShock.fromRaw(c.toLong)
     @targetName("coefDivInt")
-    def /(n: Int): Coefficient                 = Coefficient.fromRaw(FixedPointBase.divideRaw(c.toLong, n.toLong))
+    def /(n: Int): Coefficient                               = Coefficient.fromRaw(FixedPointBase.divideRaw(c.toLong, n.toLong))
     @targetName("coefGrowthMultiplier")
-    def growthMultiplier: Multiplier           = Multiplier.fromRaw(FixedPointBase.Scale + c.toLong)
+    def growthMultiplier: Multiplier                         = Multiplier.fromRaw(FixedPointBase.Scale + c.toLong)
+    @targetName("coefClamp")
+    def clamp(lo: Coefficient, hi: Coefficient): Coefficient =
+      Coefficient.fromRaw(scala.math.max(lo.toLong, scala.math.min(hi.toLong, c.toLong)))
 
   // --- PriceIndex × typed ---
   extension (pi: PriceIndex)
@@ -228,3 +247,31 @@ object types:
   extension (n: Int)
     @targetName("intRatioToInt")
     def ratioTo(denominator: Int): Scalar = Scalar.fromRaw(scaledDiv(n.toLong, denominator.toLong))
+
+  object TypedRandom:
+    @targetName("randomShareBetween")
+    def randomBetween(lo: Share, hi: Share, rng: Random): Share =
+      if hi <= lo then lo else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
+
+    def withGaussianNoise(base: Share, stddev: Share, rng: Random): Share =
+      Share.fromRaw(base.toLong + scala.math.round(rng.nextGaussian() * stddev.toLong))
+
+    @targetName("randomMultiplierBetween")
+    def randomBetween(lo: Multiplier, hi: Multiplier, rng: Random): Multiplier =
+      if hi <= lo then lo else Multiplier.fromRaw(rng.between(lo.toLong, hi.toLong))
+
+  object WeightedSelection:
+    def choose(weights: Vector[Multiplier], rng: Random): Int =
+      val total = weights.foldLeft(0L)(_ + _.toLong)
+      if total <= 0L then 0
+      else
+        val threshold = rng.between(0L, total)
+        weights.indices
+          .foldLeft((-1, 0L)) { case ((picked, cumulative), idx) =>
+            if picked >= 0 then (picked, cumulative)
+            else
+              val next = cumulative + weights(idx).toLong
+              if next > threshold then (idx, next) else (-1, next)
+          } match
+          case (idx, _) if idx >= 0 => idx
+          case _                    => weights.length - 1

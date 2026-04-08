@@ -72,12 +72,11 @@ object SectoralMobility:
           (sums.updated(s, sums(s) + wage), counts.updated(s, counts(s) + 1))
         case _                                     => (sums, counts)
     }
-    (0 until NumSectors).map(s => if counts(s) > 0 then sums(s) / counts(s).toLong else PLN.Zero).toVector
+    (0 until NumSectors).map(s => if counts(s) > 0 then sums(s).divideBy(counts(s)) else PLN.Zero).toVector
 
   /** Probabilistic target sector selection (gravity model). score(to) =
     * wage(to) × (vacancies(to) + 1)^vacancyWeight × (1 − friction(from,to)).
     */
-  @boundaryEscape
   def selectTargetSector(
       from: Int,
       wages: Vector[PLN],
@@ -87,42 +86,34 @@ object SectoralMobility:
       rng: Random,
   )(using @unused p: SimParams): Int =
     val scores = gravityScores(from, wages, vacancies, matrix, vacancyWeight)
-    val total  = scores.sum
-    if total <= 0.0 then uniformFallback(from, rng)
-    else rouletteSelect(scores, from, rng.nextDouble() * total)
+    if scores.forall(_ <= Multiplier.Zero) then uniformFallback(from, rng)
+    else
+      val picked = WeightedSelection.choose(scores, rng)
+      if picked != from then picked else firstNonZeroSector(scores, from)
 
   /** Gravity-model attractiveness score per destination sector. */
-  @boundaryEscape
   private def gravityScores(
       from: Int,
       wages: Vector[PLN],
       vacancies: Vector[Int],
       matrix: Vector[Vector[Share]],
       vacancyWeight: Coefficient,
-  ): Vector[Double] =
-    import ComputationBoundary.toDouble
+  ): Vector[Multiplier] =
     (0 until NumSectors).map { to =>
-      if to == from then 0.0
+      if to == from then Multiplier.Zero
       else
-        toDouble(wages(to).max(PLN.Zero)) *
-          Math.pow(vacancies(to).toDouble + 1.0, toDouble(vacancyWeight)) *
-          (1.0 - toDouble(matrix(from)(to)))
+        val wageScore    = wages(to).max(PLN.Zero).ratioTo(PLN(1.0)).toMultiplier
+        val vacancyScore = Scalar(vacancies(to) + 1).pow(vacancyWeight.toScalar).toMultiplier
+        wageScore * vacancyScore * matrix(from)(to).complement
     }.toVector
 
-  /** Roulette-wheel selection over non-zero scores (pure, no vars). */
-  private def rouletteSelect(scores: Vector[Double], from: Int, threshold: Double): Int =
-    val cumulative = scores.scanLeft(0.0)(_ + _).tail // cumulative sums, length = NumSectors
-    cumulative.indexWhere(_ >= threshold) match
-      case idx if idx >= 0 && idx != from => idx
-      case _                              => firstNonZeroSector(scores, from)
-
   /** First sector with positive score, excluding `from`. Defensive fallback —
-    * should only trigger on floating-point edge cases since rouletteSelect is
-    * called only when total > 0.
+    * should only trigger on degenerate weighting edge cases since weighted
+    * selection is called only when some score is positive.
     */
-  private def firstNonZeroSector(scores: Vector[Double], from: Int): Int =
+  private def firstNonZeroSector(scores: Vector[Multiplier], from: Int): Int =
     scores.indices
-      .find(i => i != from && scores(i) > 0)
+      .find(i => i != from && scores(i) > Multiplier.Zero)
       .getOrElse(scores.indices.find(_ != from).get)
 
   /** Uniform random fallback when all scores are zero. */
@@ -137,7 +128,7 @@ object SectoralMobility:
   def frictionAdjustedParams(friction: Share, durationMult: Multiplier, costMult: Share)(using p: SimParams): RetrainingParams =
     val frictionDurAdj = friction * durationMult                             // Share × Multiplier → Multiplier
     val totalDurMult   = Multiplier.One + frictionDurAdj                     // Multiplier + Multiplier
-    val adjDuration    = ((p.household.retrainingDuration.toLong * totalDurMult.toLong + 5000L) / 10000L).toInt
+    val adjDuration    = totalDurMult.applyTo(p.household.retrainingDuration)
     val costAdj        = Multiplier.One + (friction * costMult).toMultiplier // Share × Share → Share → Multiplier
     val adjCost        = p.household.retrainingCost * costAdj
     RetrainingParams(adjDuration, adjCost)
@@ -147,7 +138,5 @@ object SectoralMobility:
     (Share.One - friction * MaxWagePenalty).toMultiplier
 
   /** Friction-adjusted success probability for retraining. */
-  @boundaryEscape
-  def frictionAdjustedSuccess(baseProb: Double, friction: Share): Double =
-    import ComputationBoundary.toDouble
-    baseProb * (1.0 - toDouble(friction * FrictionSuccessDiscount))
+  def frictionAdjustedSuccess(baseProb: Share, friction: Share): Share =
+    baseProb * (Share.One - friction * FrictionSuccessDiscount)

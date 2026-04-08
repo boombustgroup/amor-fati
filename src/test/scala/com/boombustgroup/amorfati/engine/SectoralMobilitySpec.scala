@@ -1,19 +1,22 @@
 package com.boombustgroup.amorfati.engine
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.*
+import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.types.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.Random
 
 class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
-  import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+
+  private def adjustedSuccess(base: Double, friction: Double): Double =
+    ComputationBoundary.toDouble(SectoralMobility.frictionAdjustedSuccess(Share(base), Share(friction)))
   // --- Default friction matrix ---
 
   "DefaultFrictionMatrix" should "be 6x6" in {
@@ -143,9 +146,9 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   "frictionAdjustedSuccess" should "reduce success probability with friction" in {
     val base = 0.6
-    SectoralMobility.frictionAdjustedSuccess(base, Share(0.0)) shouldBe base
-    SectoralMobility.frictionAdjustedSuccess(base, Share(0.5)) shouldBe (base * 0.75) +- 0.001
-    SectoralMobility.frictionAdjustedSuccess(base, Share(1.0)) shouldBe (base * 0.5) +- 0.001
+    adjustedSuccess(base, 0.0).shouldBe(base)
+    adjustedSuccess(base, 0.5).shouldBe((base * 0.75) +- 0.001)
+    adjustedSuccess(base, 1.0).shouldBe((base * 0.5) +- 0.001)
   }
 
   // --- SectoralMobility.State ---

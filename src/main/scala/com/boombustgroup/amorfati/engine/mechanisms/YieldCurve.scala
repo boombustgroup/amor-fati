@@ -21,9 +21,9 @@ object YieldCurve:
   private val CreditSensitivity6M: Rate = Rate(0.015) // 150bp per 10% NPL
 
   // Sensitivity to de-anchored expectations: premium += (1 − κ) × |πᵉ − π*| × sensitivity
-  private val ExpSensitivity1M: Double = 0.10 // 10bp per 1pp de-anchoring gap
-  private val ExpSensitivity3M: Double = 0.20 // 20bp per 1pp de-anchoring gap
-  private val ExpSensitivity6M: Double = 0.30 // 30bp per 1pp de-anchoring gap
+  private val ExpSensitivity1M: Coefficient = Coefficient(0.10) // 10bp per 1pp de-anchoring gap
+  private val ExpSensitivity3M: Coefficient = Coefficient(0.20) // 20bp per 1pp de-anchoring gap
+  private val ExpSensitivity6M: Coefficient = Coefficient(0.30) // 30bp per 1pp de-anchoring gap
 
   case class State(
       overnight: Rate, // O/N rate (WIRON)
@@ -33,7 +33,6 @@ object YieldCurve:
   )
 
   /** Compute term structure from O/N rate, credit stress, and expectations. */
-  @boundaryEscape
   def compute(
       overnightRate: Rate,
       nplRatio: Share = Share.Zero,
@@ -41,16 +40,15 @@ object YieldCurve:
       expectedInflation: Rate = Rate(0.025),
       targetInflation: Rate = Rate(0.025),
   ): State =
-    import ComputationBoundary.toDouble
     val creditAdj1M = CreditSensitivity1M * nplRatio
     val creditAdj3M = CreditSensitivity3M * nplRatio
     val creditAdj6M = CreditSensitivity6M * nplRatio
 
     val expGap   = (expectedInflation - targetInflation).abs
-    val deAnchor = toDouble(Share.One - credibility)
-    val expAdj1M = Rate(deAnchor * toDouble(expGap) * ExpSensitivity1M)
-    val expAdj3M = Rate(deAnchor * toDouble(expGap) * ExpSensitivity3M)
-    val expAdj6M = Rate(deAnchor * toDouble(expGap) * ExpSensitivity6M)
+    val deAnchor = credibility.complement
+    val expAdj1M = expGap * deAnchor * ExpSensitivity1M
+    val expAdj3M = expGap * deAnchor * ExpSensitivity3M
+    val expAdj6M = expGap * deAnchor * ExpSensitivity6M
 
     State(
       overnight = overnightRate,

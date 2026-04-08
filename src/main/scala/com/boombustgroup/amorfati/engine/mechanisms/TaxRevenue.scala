@@ -12,10 +12,10 @@ import com.boombustgroup.amorfati.types.*
 object TaxRevenue:
 
   case class Input(
-      consumption: PLN,           // aggregate household consumption (VAT/excise tax base)
-      pitRevenue: PLN,            // gross PIT revenue before informal evasion
-      totalImports: PLN,          // total imports (customs duty tax base)
-      informalCyclicalAdj: Double, // lagged cyclical adjustment for shadow economy share
+      consumption: PLN,          // aggregate household consumption (VAT/excise tax base)
+      pitRevenue: PLN,           // gross PIT revenue before informal evasion
+      totalImports: PLN,         // total imports (customs duty tax base)
+      informalCyclicalAdj: Share, // lagged cyclical adjustment for shadow economy share
   )
 
   case class Output(
@@ -29,7 +29,7 @@ object TaxRevenue:
   )
 
   def compute(in: Input)(using p: SimParams): Output =
-    val realizedTaxShadowShare = InformalEconomy.aggregateTaxShadowShare(Share(in.informalCyclicalAdj))
+    val realizedTaxShadowShare = InformalEconomy.aggregateTaxShadowShare(in.informalCyclicalAdj)
     val effectiveVatRate       = p.fiscal.fofConsWeights.zip(p.fiscal.vatRates).map((w, r) => r * w).foldLeft(Rate.Zero)(_ + _)
     val effectiveExciseRate    = p.fiscal.fofConsWeights.zip(p.fiscal.exciseRates).map((w, r) => r * w).foldLeft(Rate.Zero)(_ + _)
     val vat                    = in.consumption * effectiveVatRate

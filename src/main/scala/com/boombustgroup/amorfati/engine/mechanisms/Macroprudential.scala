@@ -27,7 +27,7 @@ object Macroprudential:
   // ---- Calibration constants ----
   private val TrendSmoothing: Share     = Share(0.05)            // EWM λ for credit-to-GDP trend (≈ HP 1600 quarterly)
   private val CcybBuildRate: Multiplier = Multiplier(0.0025 / 3) // ~0.25pp per quarter ÷ 3 months
-  private val AnnualizeFactor           = 12.0                   // monthly GDP → annual
+  private val AnnualizeFactor           = 12                     // monthly GDP → annual
 
   case class State(
       ccyb: Multiplier,            // countercyclical capital buffer
@@ -75,7 +75,7 @@ object Macroprudential:
     stepImpl(prev, totalLoans, gdp)
 
   private[engine] def stepImpl(prev: State, totalLoans: PLN, gdp: PLN)(using p: SimParams): State =
-    val annualGdp   = (gdp * Multiplier(AnnualizeFactor)).max(PLN(1.0))
+    val annualGdp   = (gdp * AnnualizeFactor).max(PLN(1.0))
     val creditToGdp = Multiplier(totalLoans / annualGdp)
 
     // Exponential smoothing of trend (proxy for HP filter)
@@ -97,15 +97,13 @@ object Macroprudential:
   // ---- Concentration limit ----
 
   /** Returns true if bank's loan share is within the concentration limit. */
-  def withinConcentrationLimit(bankLoans: Double, bankCapital: Double, totalSystemLoans: Double)(using p: SimParams): Boolean =
+  def withinConcentrationLimit(bankLoans: PLN, bankCapital: PLN, totalSystemLoans: PLN)(using p: SimParams): Boolean =
     withinConcentrationLimitImpl(bankLoans, bankCapital, totalSystemLoans)
 
-  @boundaryEscape
   private[engine] def withinConcentrationLimitImpl(
-      bankLoans: Double,
-      @scala.annotation.unused bankCapital: Double,
-      totalSystemLoans: Double,
+      bankLoans: PLN,
+      @scala.annotation.unused bankCapital: PLN,
+      totalSystemLoans: PLN,
   )(using p: SimParams): Boolean =
-    import ComputationBoundary.toDouble
-    if totalSystemLoans <= 0 then true
-    else (bankLoans / totalSystemLoans) <= toDouble(p.banking.concentrationLimit)
+    if totalSystemLoans <= PLN.Zero then true
+    else bankLoans.ratioTo(totalSystemLoans).clampToShare <= p.banking.concentrationLimit
