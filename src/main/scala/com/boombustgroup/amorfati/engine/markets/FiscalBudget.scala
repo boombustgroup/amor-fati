@@ -134,11 +134,11 @@ object FiscalBudget:
         exciseRevenue: PLN = PLN.Zero,
         customsDutyRevenue: PLN = PLN.Zero,
         minWageLevel: PLN = PLN(4666.0),
-        minWagePriceLevel: Double = 1.0,
+        minWagePriceLevel: PriceIndex = PriceIndex.Base,
     ): GovState =
       GovState(
         financial = GovFinancialState(cumulativeDebt, bondsOutstanding, foreignBondHoldings),
-        policy = GovPolicyState(bondYield, weightedCoupon, publicCapitalStock, minWageLevel, PriceIndex(minWagePriceLevel)),
+        policy = GovPolicyState(bondYield, weightedCoupon, publicCapitalStock, minWageLevel, minWagePriceLevel),
         monthly = GovFlowState(
           taxRevenue,
           deficit,
