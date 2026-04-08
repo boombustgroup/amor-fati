@@ -263,11 +263,11 @@ object PriceEquityEconomics:
     }.toVector
     val baseSigmas     = p.sectorDefs.map(sd => toDouble(sd.sigma)).toVector
     val newSigmas      =
-      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, toDouble(p.firm.sigmaCapMult))
+      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, toDouble(p.firm.sigmaLambda), toDouble(p.firm.sigmaCapMult))
 
     val rewiredFirms = rewireFirms(in.s5.ioFirms, toDouble(p.firm.rewireRho), rng)
 
-    val exDev    = in.w.forex.exchangeRate.deviationFrom(ExchangeRate(p.forex.baseExRate))
+    val exDev    = in.w.forex.exchangeRate.deviationFrom(p.forex.baseExRate)
     val priceUpd = PriceLevel.update(
       in.w.inflation,
       in.w.priceLevel,

@@ -33,7 +33,7 @@ object WorldInit:
     // --- Banking sector ---
     // Steady-state consumption estimate: employed × wage × MPC × domestic share
     val initWageBill     = initEmployed.toDouble * toDouble(p.household.baseWage)
-    val initMpc          = p.household.mpcAlpha / (p.household.mpcAlpha + p.household.mpcBeta) // Beta mean
+    val initMpc          = toDouble(p.household.mpcAlpha) / (toDouble(p.household.mpcAlpha) + toDouble(p.household.mpcBeta)) // Beta mean
     val initConsumption  = PLN(initWageBill * initMpc)
     val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(toDouble(_)).max)
     val initImportCons   = initConsumption - initDomesticCons
@@ -117,7 +117,7 @@ object WorldInit:
       ),
       bankingSector = initBankingSector.marketState,
       forex = OpenEconomy.ForexState(
-        exchangeRate = ExchangeRate(p.forex.baseExRate),
+        exchangeRate = p.forex.baseExRate,
         imports = PLN.Zero,
         exports = p.openEcon.exportBase,
         tradeBalance = PLN.Zero,

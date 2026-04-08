@@ -11,12 +11,13 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+  private val td           = ComputationBoundary
 
   private val sectorOutputs = Vector(PLN(30000.0), PLN(160000.0), PLN(450000.0), PLN(60000.0), PLN(220000.0), PLN(80000.0))
 
   private def baseInput(
       prev: GvcTrade.State = GvcTrade.initial,
-      er: Double = p.forex.baseExRate,
+      er: Double = td.toDouble(p.forex.baseExRate),
       price: Double = 1.0,
       autoR: Double = 0.0,
       month: Int = 30,

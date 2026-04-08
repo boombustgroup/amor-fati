@@ -7,6 +7,8 @@ import com.boombustgroup.amorfati.types.*
 /** Factory for equity market state initialization. */
 object EquityInit:
 
+  @boundaryEscape
   def create(totalPop: Int)(using p: SimParams): EquityMarket.State =
-    val initHhEq = PLN(totalPop.toDouble * Math.exp(p.household.savingsMu) * 0.05) * p.equity.hhEquityFrac
+    import ComputationBoundary.toDouble
+    val initHhEq = PLN(totalPop.toDouble * Math.exp(toDouble(p.household.savingsMu)) * 0.05) * p.equity.hhEquityFrac
     EquityMarket.initial.copy(hhEquityWealth = initHhEq)

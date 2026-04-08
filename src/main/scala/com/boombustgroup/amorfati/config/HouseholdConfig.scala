@@ -96,21 +96,21 @@ case class HouseholdConfig(
     // Household count (defaults to totalPopulation — set in SimParams.defaults)
     count: Int = 100000,
     // Savings distribution
-    savingsMu: Double = 9.6,
-    savingsSigma: Double = 1.2,
+    savingsMu: Coefficient = Coefficient(9.6),
+    savingsSigma: Coefficient = Coefficient(1.2),
     // Debt
     debtFraction: Share = Share(0.40),
-    debtMu: Double = 10.5,
-    debtSigma: Double = 1.5,
+    debtMu: Coefficient = Coefficient(10.5),
+    debtSigma: Coefficient = Coefficient(1.5),
     // Rent
     rentMean: PLN = PLN(1800.0),
     rentStd: PLN = PLN(400.0),
     rentFloor: PLN = PLN(800.0),
     // MPC distribution
-    mpcAlpha: Double = 8.2,
-    mpcBeta: Double = 1.8,
+    mpcAlpha: Coefficient = Coefficient(8.2),
+    mpcBeta: Coefficient = Coefficient(1.8),
     // State-dependent MPC (Carroll 1997 buffer-stock)
-    bufferTargetMonths: Double = 6.0,                  // target savings = 6 months of income
+    bufferTargetMonths: Multiplier = Multiplier(6.0),  // target savings = 6 months of income
     bufferSensitivity: Coefficient = Coefficient(0.4), // MPC adjustment strength (0 = static, 1 = fully responsive)
     mpcUnemployedBoost: Share = Share(0.10),           // MPC uplift when unemployed (desperate spending)
     bufferProtectedShare: Share = Share(0.50),         // protected share of target buffer under stress
@@ -132,7 +132,7 @@ case class HouseholdConfig(
     retrainingProb: Share = Share(0.15),
     retrainingEnabled: Boolean = true,
     // Bankruptcy
-    bankruptcyThreshold: Double = -3.0,
+    bankruptcyThreshold: Coefficient = Coefficient(-3.0),
     bankruptcyDistressMonths: Int = 3,
     // Social network
     socialK: Int = 10,

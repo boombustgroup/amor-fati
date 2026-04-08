@@ -21,6 +21,7 @@ object EuFunds:
 
   private val ReferenceEconomy = 10000 // baseline firm count for calibration scaling
 
+  @boundaryEscape
   /** Monthly EU transfer in PLN, following a Beta(α,β) absorption curve. */
   def monthlyTransfer(month: Int)(using p: SimParams): PLN =
     val totalPln = EuFundsMath.totalEnvelopePln(

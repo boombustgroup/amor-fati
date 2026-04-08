@@ -520,7 +520,7 @@ object Firm:
     val newWkrs             = Math.max(minRetained, workers - cut)
     // Severance cost = fired workers × wage × severanceMonths
     val fired               = workers - newWkrs
-    val severancePay: PLN   = fired * laborPerWorker * Multiplier(p.firm.severanceMonths)
+    val severancePay: PLN   = fired * laborPerWorker * p.firm.severanceMonths
     val laborSaved: PLN     = fired * laborPerWorker
     val revRatio: Share     = Share.fraction(newWkrs, workers).sqrt
     val revLost: PLN        = pnl.revenue * (Share.One - revRatio)
@@ -1081,7 +1081,7 @@ object Firm:
   private def energyAndEtsCost(firm: State, revenue: PLN, month: Int, commodityPrice: PriceIndex)(using p: SimParams): PLN =
     val baseEnergy: PLN      = revenue * p.climate.energyCostShares(firm.sector.toInt)
     val etsGrowth            = (Scalar.One + p.climate.etsPriceDrift.monthly.toScalar).pow(month)
-    val carbonSurcharge      = Scalar(p.climate.carbonIntensity(firm.sector.toInt)) * (etsGrowth - Scalar.One)
+    val carbonSurcharge      = p.climate.carbonIntensity(firm.sector.toInt) * (etsGrowth - Scalar.One)
     val greenDiscount: Share = if firm.greenCapital > PLN.Zero then
       val targetGK = workerCount(firm) * p.climate.greenKLRatios(firm.sector.toInt)
       if targetGK > PLN.Zero then p.climate.greenMaxDiscount * firm.greenCapital.ratioTo(targetGK).toShare.clamp(Share.Zero, Share.One)

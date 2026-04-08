@@ -137,7 +137,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   // ---- nbfiRepayment ----
 
   "Nbfi.nbfiRepayment" should "equal stock / maturity" in {
-    td.toDouble(Nbfi.nbfiRepayment(PLN(360000.0))) shouldBe (360000.0 / p.nbfi.creditMaturity) +- 0.01
+    td.toDouble(Nbfi.nbfiRepayment(PLN(360000.0))) shouldBe (360000.0 / td.toDouble(p.nbfi.creditMaturity)) +- 0.01
   }
 
   it should "be zero for zero stock" in {

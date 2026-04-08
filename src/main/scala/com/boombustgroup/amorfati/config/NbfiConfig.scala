@@ -54,7 +54,7 @@ case class NbfiConfig(
     creditBaseRate: Share = Share(0.005),
     creditRate: Rate = Rate(0.10),
     countercyclical: Coefficient = Coefficient(2.0),
-    creditMaturity: Double = 36.0,
+    creditMaturity: Scalar = Scalar(36.0),
     defaultBase: Share = Share(0.002),
     defaultUnempSens: Coefficient = Coefficient(3.0),
 )

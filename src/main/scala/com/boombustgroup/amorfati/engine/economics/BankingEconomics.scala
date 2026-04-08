@@ -254,7 +254,7 @@ object BankingEconomics:
       actualBondChange = multi.actualBondChange,
       unrealizedBondLoss = {
         val yieldChange = in.s8.monetary.newBondYield - in.w.gov.bondYield
-        if yieldChange > Rate.Zero then prevBankAgg.afsBonds * yieldChange * Multiplier(p.banking.govBondDuration) else PLN.Zero
+        if yieldChange > Rate.Zero then prevBankAgg.afsBonds * yieldChange * p.banking.govBondDuration else PLN.Zero
       },
       htmRealizedLoss = multi.htmRealizedLoss,
       eclProvisionChange = PLN.fromRaw:
@@ -550,7 +550,7 @@ object BankingEconomics:
 
     // Per-bank mark-to-market loss on AFS bonds only (HTM losses hidden until forced reclassification)
     val bankYieldChange    = in.s8.monetary.newBondYield - in.w.gov.bondYield
-    val bankUnrealizedLoss = if bankYieldChange > Rate.Zero then b.afsBonds * bankYieldChange * Multiplier(p.banking.govBondDuration) else PLN.Zero
+    val bankUnrealizedLoss = if bankYieldChange > Rate.Zero then b.afsBonds * bankYieldChange * p.banking.govBondDuration else PLN.Zero
 
     val capitalPnl = Banking.computeCapitalDelta(
       Banking.CapitalPnlInput(
@@ -851,7 +851,7 @@ object BankingEconomics:
   )(using p: SimParams): AggregateReconciliation =
     val yieldChange        = in.s8.monetary.newBondYield - in.w.gov.bondYield
     val unrealizedBondLoss =
-      if yieldChange > Rate.Zero then prevBankAgg.afsBonds * yieldChange * Multiplier(p.banking.govBondDuration)
+      if yieldChange > Rate.Zero then prevBankAgg.afsBonds * yieldChange * p.banking.govBondDuration
       else PLN.Zero
     val eclProvisionChange = PLN.fromRaw:
       finalBanks

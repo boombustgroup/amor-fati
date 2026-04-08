@@ -40,7 +40,7 @@ import com.boombustgroup.amorfati.types.*
   *   portfolio outflow sensitivity to auction undersubscription
   */
 case class ForexConfig(
-    baseExRate: Double = 4.33,
+    baseExRate: ExchangeRate = ExchangeRate(4.33),
     foreignRate: Rate = Rate(0.04),
     importPropensity: Share = Share(0.22),
     techImportShare: Share = Share(0.40),
@@ -56,7 +56,7 @@ case class ForexConfig(
     auctionConfidenceThreshold: Share = Share(0.90),
     auctionOutflowSensitivity: Coefficient = Coefficient(2.0),
 ):
-  require(baseExRate > 0, s"baseExRate must be positive: $baseExRate")
+  require(baseExRate > ExchangeRate(0.0001), s"baseExRate must be positive: $baseExRate")
   require(
     importPropensity >= Share.Zero && importPropensity <= Share.One,
     s"importPropensity must be in [0,1]: $importPropensity",

@@ -12,7 +12,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
 
-  private val baseForex         = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
+  private val baseForex         = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
   private val baseSectorOutputs = Vector(30000.0, 160000.0, 450000.0, 60000.0, 220000.0, 80000.0).map(PLN(_))
   private val gdp               = PLN(1e9)
 
@@ -112,8 +112,8 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
 
   it should "keep exchange rate within floor and ceiling" in {
     val r = OpenEconomy.step(baseInput())
-    r.forex.exchangeRate should be >= ExchangeRate(p.openEcon.erFloor)
-    r.forex.exchangeRate should be <= ExchangeRate(p.openEcon.erCeiling)
+    r.forex.exchangeRate should be >= p.openEcon.erFloor
+    r.forex.exchangeRate should be <= p.openEcon.erCeiling
   }
 
   // ---- PPP drift ----

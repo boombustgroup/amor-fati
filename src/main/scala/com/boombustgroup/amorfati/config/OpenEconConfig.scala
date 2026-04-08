@@ -50,8 +50,8 @@ import com.boombustgroup.amorfati.types.*
   */
 case class OpenEconConfig(
     importContent: Vector[Share] = Vector(Share(0.15), Share(0.50), Share(0.20), Share(0.15), Share(0.05), Share(0.12)),
-    erFloor: Double = 2.5,
-    erCeiling: Double = 10.0,
+    erFloor: ExchangeRate = ExchangeRate(2.5),
+    erCeiling: ExchangeRate = ExchangeRate(10.0),
     exportBase: PLN = PLN(138.5e9),           // raw — scaled by gdpRatio
     importPushCap: Share = Share(0.03),
     foreignGdpGrowth: Rate = Rate(0.015),
@@ -66,6 +66,6 @@ case class OpenEconConfig(
     riskPremiumSensitivity: Coefficient = Coefficient(0.10),
     pppSpeed: Coefficient = Coefficient(0.10), // annual convergence speed toward PPP equilibrium (Rogoff 1996: 3-5yr half-life)
 ):
-  require(erFloor > 0, s"erFloor must be positive: $erFloor")
+  require(erFloor > ExchangeRate(0.0001), s"erFloor must be positive: $erFloor")
   require(erFloor < erCeiling, s"erFloor ($erFloor) must be < erCeiling ($erCeiling)")
   require(importContent.length == 6, s"importContent must have 6 sectors: ${importContent.length}")

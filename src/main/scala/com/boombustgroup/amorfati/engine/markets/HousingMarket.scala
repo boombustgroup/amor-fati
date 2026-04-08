@@ -85,7 +85,7 @@ object HousingMarket:
 
   def initial(using p: SimParams): State =
     State(
-      priceIndex = PriceIndex(p.housing.initHpi),
+      priceIndex = p.housing.initHpi,
       totalValue = p.housing.initValue,
       mortgageStock = p.housing.initMortgage,
       avgMortgageRate = p.monetary.initialRate + p.housing.mortgageSpread,
@@ -103,7 +103,7 @@ object HousingMarket:
     (0 until NRegions)
       .map: r =>
         RegionalState(
-          priceIndex = PriceIndex(p.housing.regionalHpi(r)),
+          priceIndex = p.housing.regionalHpi(r),
           totalValue = p.housing.initValue * p.housing.regionalValueShares(r),
           mortgageStock = p.housing.initMortgage * p.housing.regionalMortgageShares(r),
           lastOrigination = PLN.Zero,

@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.math
 
-import com.boombustgroup.amorfati.types.{PLN, Scalar}
+import com.boombustgroup.amorfati.types.{boundaryEscape, ComputationBoundary, ExchangeRate, Multiplier, PLN, Scalar}
 
 /** Numeric helpers for EU-funds timing and envelope scaling.
   *
@@ -18,32 +18,38 @@ object EuFundsMath:
   )
 
   /** Scales the total EU envelope into PLN for the simulated economy size. */
-  def totalEnvelopePln(totalEur: Double, baseExRate: Double, firmsCount: Int, referenceEconomy: Int): PLN =
+  @boundaryEscape
+  def totalEnvelopePln(totalEur: Multiplier, baseExRate: ExchangeRate, firmsCount: Int, referenceEconomy: Int): PLN =
+    import ComputationBoundary.toDouble
     require(referenceEconomy > 0, s"referenceEconomy must be positive: $referenceEconomy")
-    require(totalEur.isFinite, s"totalEur must be finite: $totalEur")
-    require(totalEur >= 0.0, s"totalEur must be non-negative: $totalEur")
-    require(baseExRate.isFinite, s"baseExRate must be finite: $baseExRate")
-    require(baseExRate > 0.0, s"baseExRate must be positive: $baseExRate")
+    require(toDouble(totalEur).isFinite, s"totalEur must be finite: $totalEur")
+    require(toDouble(totalEur) >= 0.0, s"totalEur must be non-negative: $totalEur")
+    require(toDouble(baseExRate).isFinite, s"baseExRate must be finite: $baseExRate")
+    require(toDouble(baseExRate) > 0.0, s"baseExRate must be positive: $baseExRate")
     require(firmsCount > 0, s"firmsCount must be positive: $firmsCount")
-    val envelope = totalEur * baseExRate * firmsCount.toDouble / referenceEconomy
+    val envelope = toDouble(totalEur) * toDouble(baseExRate) * firmsCount.toDouble / referenceEconomy
     require(envelope.isFinite, s"envelope computation must be finite: $envelope")
     PLN(envelope)
 
   /** Returns the normalized monthly absorption weight from a Beta(alpha, beta)
     * draw-down profile.
     */
-  def monthlyWeight(month: Int, startMonth: Int, periodMonths: Int, alpha: Double, beta: Double): Scalar =
+  @boundaryEscape
+  def monthlyWeight(month: Int, startMonth: Int, periodMonths: Int, alpha: Scalar, beta: Scalar): Scalar =
+    import ComputationBoundary.toDouble
+    val alphaValue = toDouble(alpha)
+    val betaValue  = toDouble(beta)
     require(periodMonths > 0, s"periodMonths must be positive: $periodMonths")
-    require(alpha > 0.0 && alpha.isFinite, s"alpha must be finite and positive: $alpha")
-    require(beta > 0.0 && beta.isFinite, s"beta must be finite and positive: $beta")
-    val t = monthOffset(month, startMonth, periodMonths)
+    require(alphaValue > 0.0 && alphaValue.isFinite, s"alpha must be finite and positive: $alpha")
+    require(betaValue > 0.0 && betaValue.isFinite, s"beta must be finite and positive: $beta")
+    val t          = monthOffset(month, startMonth, periodMonths)
     require(t.isFinite, s"monthOffset must be finite for month=$month, startMonth=$startMonth, periodMonths=$periodMonths")
     if t < 0.0 || t >= 1.0 then Scalar.Zero
     else
       val width      = 1.0 / periodMonths
       val rawWeights = (0 until periodMonths).map: idx =>
         val start = monthOffset(startMonth + idx, startMonth, periodMonths)
-        betaIntervalMass(start, start + width, alpha, beta)
+        betaIntervalMass(start, start + width, alphaValue, betaValue)
       val totalMass  = rawWeights.sum
       require(totalMass.isFinite && totalMass > 0.0, s"monthlyWeight normalization mass must be finite and positive: $totalMass")
       val monthIndex = month - startMonth

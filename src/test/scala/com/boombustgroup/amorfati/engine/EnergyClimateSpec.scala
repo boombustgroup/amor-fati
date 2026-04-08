@@ -45,21 +45,21 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have all values in [0,1]" in
-    p.climate.carbonIntensity.foreach { r =>
+    p.climate.carbonIntensity.map(td.toDouble(_)).foreach { r =>
       r should be >= 0.0
       r should be <= 1.0
     }
 
   it should "have Mfg highest" in {
-    p.climate.carbonIntensity(1) shouldBe p.climate.carbonIntensity.max
+    p.climate.carbonIntensity.map(td.toDouble(_))(1) shouldBe p.climate.carbonIntensity.map(td.toDouble(_)).max
   }
 
   it should "match expected defaults" in {
-    p.climate.carbonIntensity shouldBe Vector(0.01, 0.08, 0.02, 0.01, 0.02, 0.04)
+    p.climate.carbonIntensity.map(td.toDouble(_)) shouldBe Vector(0.01, 0.08, 0.02, 0.01, 0.02, 0.04)
   }
 
   "EtsBasePrice" should "default to 80.0" in {
-    p.climate.etsBasePrice shouldBe 80.0
+    td.toDouble(p.climate.etsBasePrice) shouldBe 80.0
   }
 
   "EtsPriceDrift" should "default to 0.03" in {
@@ -111,13 +111,13 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
 
   "ETS price" should "increase over time with positive drift" in {
     val month    = 12
-    val etsPrice = p.climate.etsBasePrice * Math.pow(1.0 + td.toDouble(p.climate.etsPriceDrift) / 12.0, month.toDouble)
-    etsPrice should be > p.climate.etsBasePrice
+    val etsPrice = td.toDouble(p.climate.etsBasePrice) * Math.pow(1.0 + td.toDouble(p.climate.etsPriceDrift) / 12.0, month.toDouble)
+    etsPrice should be > td.toDouble(p.climate.etsBasePrice)
   }
 
   it should "equal base price at month 0" in {
-    val etsPrice = p.climate.etsBasePrice * Math.pow(1.0 + td.toDouble(p.climate.etsPriceDrift) / 12.0, 0.0)
-    etsPrice shouldBe p.climate.etsBasePrice
+    val etsPrice = td.toDouble(p.climate.etsBasePrice) * Math.pow(1.0 + td.toDouble(p.climate.etsPriceDrift) / 12.0, 0.0)
+    etsPrice shouldBe td.toDouble(p.climate.etsBasePrice)
   }
 
   // ==========================================================================
@@ -262,8 +262,8 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
     val sector            = 1 // Mfg
     val baseEnergy        = revenue * td.toDouble(p.climate.energyCostShares(sector))
     val month             = 60
-    val etsPrice          = p.climate.etsBasePrice * Math.pow(1.0 + td.toDouble(p.climate.etsPriceDrift) / 12.0, month.toDouble)
-    val carbonSurcharge   = p.climate.carbonIntensity(sector) * (etsPrice / p.climate.etsBasePrice - 1.0)
+    val etsPrice          = td.toDouble(p.climate.etsBasePrice) * Math.pow(1.0 + td.toDouble(p.climate.etsPriceDrift) / 12.0, month.toDouble)
+    val carbonSurcharge   = td.toDouble(p.climate.carbonIntensity(sector)) * (etsPrice / td.toDouble(p.climate.etsBasePrice) - 1.0)
     carbonSurcharge should be > 0.0
     val costWithSurcharge = baseEnergy * (1.0 + carbonSurcharge)
     costWithSurcharge should be > baseEnergy

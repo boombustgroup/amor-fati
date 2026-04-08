@@ -158,7 +158,7 @@ object Nbfi:
 
   /** NBFI loan repayment: stock / maturity. */
   def nbfiRepayment(loanStock: PLN)(using p: SimParams): PLN =
-    loanStock / p.nbfi.creditMaturity.toLong.max(1L)
+    loanStock / math.max(1, p.nbfi.creditMaturity.toLong.toInt / 10000)
 
   /** NBFI defaults: base rate widening with unemployment. */
   def nbfiDefaults(loanStock: PLN, unempRate: Share)(using p: SimParams): PLN =

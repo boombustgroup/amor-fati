@@ -63,6 +63,7 @@ object Immigration:
     * jobSearch round.
     */
   def spawnImmigrants(count: Int, startId: Int, rng: Random)(using p: SimParams): Vector[Household.State] =
+    import ComputationBoundary.toDouble
     (0 until count).map { i =>
       val sector                       = chooseSector(rng)
       val edu                          = p.social.drawImmigrantEducation(rng)
@@ -73,7 +74,7 @@ object Immigration:
       val region                       = Region.cdfSample(rng)
       val baseRent                     = Distributions.gaussianPlnAtLeast(p.household.rentMean, p.household.rentStd, MinInitRent, rng)
       val rent                         = (baseRent * region.housingCostIndex).max(MinInitRent)
-      val numChildren                  = Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
+      val numChildren                  = Distributions.poissonSample(toDouble(p.fiscal.social800ChildrenPerHh), rng)
 
       Household.State(
         id = HhId(startId + i),

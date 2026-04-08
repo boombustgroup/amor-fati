@@ -163,7 +163,7 @@ object OpenEconomy:
   private def computeImportedIntermediates(in: StepInput)(using p: SimParams): Vector[PLN] =
     in.gvcIntermImports.getOrElse:
       val nSectors    = p.sectorDefs.length
-      val nominalER   = in.prevForex.exchangeRate.ratioTo(ExchangeRate(p.forex.baseExRate))
+      val nominalER   = in.prevForex.exchangeRate.ratioTo(p.forex.baseExRate)
       val erNetEffect = nominalER.pow((Coefficient.One - p.openEcon.erElasticity).toScalar)
       (0 until nSectors)
         .map: s =>
@@ -202,7 +202,7 @@ object OpenEconomy:
     CapitalAccountResult(fdi + adjustedPortfolio, fdi, adjustedPortfolio, capitalFlight.newCarryState.stock)
 
   private def realExchangeRateEffect(exchangeRate: ExchangeRate, priceLevel: PriceIndex)(using p: SimParams): Scalar =
-    val nominalER = exchangeRate.ratioTo(ExchangeRate(p.forex.baseExRate))
+    val nominalER = exchangeRate.ratioTo(p.forex.baseExRate)
     val realPrice = priceLevel.toMultiplier.ratioTo(nominalER).max(MinRealPrice.toScalar)
     realPrice.reciprocal.pow(p.openEcon.exportPriceElasticity.toScalar)
 
@@ -221,7 +221,7 @@ object OpenEconomy:
       .max(MinErShock)
     in.prevForex.exchangeRate
       .applyShock(erChange)
-      .clamp(ExchangeRate(p.openEcon.erFloor), ExchangeRate(p.openEcon.erCeiling))
+      .clamp(p.openEcon.erFloor, p.openEcon.erCeiling)
 
   private def computeValuationEffect(prevBop: BopState, prevExRate: ExchangeRate, newExRate: ExchangeRate): PLN =
     val erChange = newExRate.deviationFrom(prevExRate).toCoefficient

@@ -218,17 +218,19 @@ object Household:
         socialNetwork: Array[Array[Int]],
         rng: Random,
     )(using p: SimParams): State =
-      val savings: PLN  = Distributions.lognormalPln(p.household.savingsMu, p.household.savingsSigma, rng)
+      import ComputationBoundary.toDouble
+      val savings: PLN  = Distributions.lognormalPln(toDouble(p.household.savingsMu), toDouble(p.household.savingsSigma), rng)
       val hasDebt       = p.household.debtFraction.sampleBelow(rng)
-      val debt: PLN     = if hasDebt then Distributions.lognormalPln(p.household.debtMu, p.household.debtSigma, rng) else PLN.Zero
+      val debt: PLN     = if hasDebt then Distributions.lognormalPln(toDouble(p.household.debtMu), toDouble(p.household.debtSigma), rng) else PLN.Zero
       val baseRent: PLN = Distributions.gaussianPlnAtLeast(p.household.rentMean, p.household.rentStd, p.household.rentFloor, rng)
       val rent: PLN     = baseRent * firm.region.housingCostIndex
-      val mpc           = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
+      val mpc           = Distributions.betaSample(toDouble(p.household.mpcAlpha), toDouble(p.household.mpcBeta), rng)
       val (edu, skill)  = sampleEducationAndSkill(sectorIdx, rng)
       val wage: PLN     = p.household.baseWage * Region.normalizedWageMultiplier(firm.region) * p.sectorDefs(sectorIdx.toInt).wageMultiplier * skill
       val eqWealth: PLN = if p.equity.hhEquityFrac.sampleBelow(rng) then savings * GpwEquityInitFrac else PLN.Zero
-      val numChildren   = Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
-      val consDebt: PLN = if hasDebt then Distributions.lognormalPln(p.household.debtMu, p.household.debtSigma, rng) * ConsumerDebtInitFrac else PLN.Zero
+      val numChildren   = Distributions.poissonSample(toDouble(p.fiscal.social800ChildrenPerHh), rng)
+      val consDebt: PLN =
+        if hasDebt then Distributions.lognormalPln(toDouble(p.household.debtMu), toDouble(p.household.debtSigma), rng) * ConsumerDebtInitFrac else PLN.Zero
       val routineness   = sampleTaskRoutineness(edu, sectorIdx, rng)
 
       State(
@@ -540,7 +542,7 @@ object Household:
 
   private def bankruptcyFloor(f: MonthlyFlows)(using p: SimParams): PLN =
     val essentialOutflows = (f.hh.monthlyRent + f.debtService + f.credit.debtService).max(f.hh.monthlyRent)
-    essentialOutflows * Multiplier(p.household.bankruptcyThreshold)
+    essentialOutflows * p.household.bankruptcyThreshold.toMultiplier
 
   /** Per-HH monthly pipeline: income → tax → credit → consumption → equity. */
   private def computeMonthlyFlows(
@@ -815,7 +817,7 @@ object Household:
     val baseMpc = hh.mpc
     if income <= PLN.Zero then baseMpc
     else
-      val targetSavings = income * Multiplier(p.household.bufferTargetMonths)
+      val targetSavings = income * p.household.bufferTargetMonths
       val bufferRatio   = hh.savings.ratioTo(targetSavings).toMultiplier
       val deviation     = bufferRatio - Multiplier.One              // >0 = fat, <0 = depleted
       val adjustment    = p.household.bufferSensitivity * deviation // Coefficient × Multiplier → Share
@@ -837,7 +839,7 @@ object Household:
       status: HhStatus,
   )(using p: SimParams): PLN =
     val targetIncome  = cashOnHand.max(p.household.baseReservationWage)
-    val targetSavings = targetIncome * Multiplier(p.household.bufferTargetMonths)
+    val targetSavings = targetIncome * p.household.bufferTargetMonths
     val protectedBuff = targetSavings * p.household.bufferProtectedShare
     status match
       case _: HhStatus.Unemployed | _: HhStatus.Retraining =>

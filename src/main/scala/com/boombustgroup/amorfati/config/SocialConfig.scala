@@ -76,7 +76,7 @@ case class SocialConfig(
     demInitialRetirees: Int = 0,
     // Education (GUS LFS 2024)
     eduShares: Vector[Share] = Vector(Share(0.08), Share(0.25), Share(0.30), Share(0.37)),
-    eduSectorShares: Option[Vector[Vector[Double]]] = None,
+    eduSectorShares: Option[Vector[Vector[Share]]] = None,
     eduWagePreemia: Vector[Multiplier] = Vector(Multiplier(0.70), Multiplier(0.85), Multiplier(1.00), Multiplier(1.30)),
     eduRetrainMult: Vector[Multiplier] = Vector(Multiplier(0.67), Multiplier(0.83), Multiplier(1.00), Multiplier(1.25)),
     eduSkillFloors: Vector[Share] = Vector(Share(0.30), Share(0.35), Share(0.45), Share(0.55)),
@@ -84,19 +84,19 @@ case class SocialConfig(
     eduImmigShares: Vector[Share] = Vector(Share(0.15), Share(0.40), Share(0.35), Share(0.10)),
 ):
 
-  private val defaultEduSectorShares: Vector[Vector[Double]] = Vector(
-    Vector(0.02, 0.10, 0.28, 0.60),
-    Vector(0.08, 0.40, 0.32, 0.20),
-    Vector(0.06, 0.22, 0.38, 0.34),
-    Vector(0.02, 0.15, 0.23, 0.60),
-    Vector(0.03, 0.08, 0.25, 0.64),
-    Vector(0.15, 0.45, 0.30, 0.10),
+  private val defaultEduSectorShares: Vector[Vector[Share]] = Vector(
+    Vector(Share(0.02), Share(0.10), Share(0.28), Share(0.60)),
+    Vector(Share(0.08), Share(0.40), Share(0.32), Share(0.20)),
+    Vector(Share(0.06), Share(0.22), Share(0.38), Share(0.34)),
+    Vector(Share(0.02), Share(0.15), Share(0.23), Share(0.60)),
+    Vector(Share(0.03), Share(0.08), Share(0.25), Share(0.64)),
+    Vector(Share(0.15), Share(0.45), Share(0.30), Share(0.10)),
   )
 
   /** Draw education tier for a worker in given sector using CDF sampling. */
   def drawEducation(sectorIdx: Int, rng: scala.util.Random): Int =
     val shares = eduSectorShares.getOrElse(defaultEduSectorShares)(sectorIdx.max(0).min(5))
-    Distributions.cdfSample(shares.map(Share(_)), rng)
+    Distributions.cdfSample(shares, rng)
 
   /** Draw education tier for an immigrant worker. */
   def drawImmigrantEducation(rng: scala.util.Random): Int =

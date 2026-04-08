@@ -21,7 +21,7 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   private val defaultSectorOutputs = Vector.fill(6)(PLN(1e8))
 
   @annotation.nowarn("msg=unused private member") // default used by callers
-  private def makeForex(er: Double = p.forex.baseExRate): OpenEconomy.ForexState =
+  private def makeForex(er: Double = td.toDouble(p.forex.baseExRate)): OpenEconomy.ForexState =
     OpenEconomy.ForexState(ExchangeRate(er), PLN(1e8), PLN(1e8), PLN.Zero, PLN(1e7))
 
   private def makeBop(nfa: Double = 0.0, fAssets: Double = 1e9): OpenEconomy.BopState =
@@ -44,7 +44,7 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   private def baseInput(
       prevBop: OpenEconomy.BopState = makeBop(),
-      er: Double = p.forex.baseExRate,
+      er: Double = td.toDouble(p.forex.baseExRate),
       importCons: Double = 1e7,
       techImp: Double = 1e6,
       autoR: Double = 0.1,
@@ -85,8 +85,8 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
     forAll(genOeInputs) { case (er, importCons, techImp, autoR, rate, gdp, price, month) =>
       val r =
         OpenEconomy.step(baseInput(er = er, importCons = importCons, techImp = techImp, autoR = autoR, rate = rate, gdp = gdp, price = price, month = month))
-      r.forex.exchangeRate should be >= ExchangeRate(p.openEcon.erFloor)
-      r.forex.exchangeRate should be <= ExchangeRate(p.openEcon.erCeiling)
+      r.forex.exchangeRate should be >= p.openEcon.erFloor
+      r.forex.exchangeRate should be <= p.openEcon.erCeiling
     }
 
   // --- Exports >= 0 ---

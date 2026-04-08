@@ -716,7 +716,7 @@ object Banking:
       else
         val reclassified = b.htmBonds * p.banking.htmForcedSaleRate
         val yieldGap     = (currentYield - b.htmBookYield).max(Rate.Zero)
-        val loss         = reclassified * yieldGap * Multiplier(p.banking.govBondDuration)
+        val loss         = reclassified * yieldGap * p.banking.govBondDuration
         totalLoss = totalLoss + loss
         b.copy(
           htmBonds = b.htmBonds - reclassified,

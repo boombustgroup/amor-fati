@@ -44,8 +44,8 @@ import com.boombustgroup.amorfati.types.*
   */
 case class ClimateConfig(
     energyCostShares: Vector[Share] = Vector(Share(0.02), Share(0.10), Share(0.04), Share(0.05), Share(0.03), Share(0.06)),
-    carbonIntensity: Vector[Double] = Vector(0.01, 0.08, 0.02, 0.01, 0.02, 0.04), // tCO2/PLN, computation-only
-    etsBasePrice: Double = 80.0,
+    carbonIntensity: Vector[Scalar] = Vector(Scalar(0.01), Scalar(0.08), Scalar(0.02), Scalar(0.01), Scalar(0.02), Scalar(0.04)), // tCO2/PLN, computation-only
+    etsBasePrice: Multiplier = Multiplier(80.0),
     etsPriceDrift: Rate = Rate(0.03),
     greenKLRatios: Vector[PLN] = Vector(PLN(5000.0), PLN(30000.0), PLN(10000.0), PLN(15000.0), PLN(8000.0), PLN(20000.0)),
     greenDepRate: Rate = Rate(0.04),

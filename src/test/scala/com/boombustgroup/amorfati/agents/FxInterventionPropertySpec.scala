@@ -12,6 +12,8 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams                          = SimParams.defaults
   private val p: SimParams                 = summon[SimParams]
+  private val td                           = ComputationBoundary
+  private val baseEr                       = td.toDouble(p.forex.baseExRate)
   private def plnValue(x: PLN): Double     = x.toLong.toDouble / ScaleD
   private def shareValue(x: Share): Double = x.toLong.toDouble / ScaleD
 
@@ -43,15 +45,15 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "have erShock opposing deviation when outside band" in
     forAll(genER, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)
-      val erDev  = ExchangeRate(er).deviationFrom(ExchangeRate(p.forex.baseExRate))
-      if erDev.abs.toScalar > p.monetary.fxBand.toScalar && result.erShock != ExchangeRateShock.Zero then result.erShock.sign.shouldBe(-erDev.sign)
+      val erDev  = ExchangeRate(er).deviationFrom(p.forex.baseExRate)
+      if erDev.abs.toScalar > p.monetary.fxBand.toScalar && result.erShock != ExchangeRateShock.Zero then result.erShock.sign shouldBe (-erDev.sign)
     }
 
   "Nbp.fxIntervention (enabled)" should "return zero effect when ER within band" in {
     // Generate ER strictly inside band (0.5% margin avoids FP boundary issues)
     val genERInBand = Gen.choose(
-      p.forex.baseExRate * (1.0 - shareValue(p.monetary.fxBand) + 0.005),
-      p.forex.baseExRate * (1.0 + shareValue(p.monetary.fxBand) - 0.005),
+      baseEr * (1.0 - shareValue(p.monetary.fxBand) + 0.005),
+      baseEr * (1.0 + shareValue(p.monetary.fxBand) - 0.005),
     )
     forAll(genERInBand, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)

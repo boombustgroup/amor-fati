@@ -242,7 +242,7 @@ object Nbp:
       gdp: PLN,
       enabled: Boolean,
   )(using p: SimParams): FxInterventionResult =
-    val baseRate = ExchangeRate(p.forex.baseExRate)
+    val baseRate = p.forex.baseExRate
     if !enabled then FxInterventionResult(ExchangeRateShock.Zero, PLN.Zero, reserves, PLN.Zero)
     else
       val erDeviation = prevER.deviationFrom(baseRate)

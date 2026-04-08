@@ -53,7 +53,7 @@ object HouseholdIncomeEconomics:
     import ComputationBoundary.toDouble
     val importAdj = Share(
       toDouble(p.forex.importPropensity) *
-        Math.pow(p.forex.baseExRate / exchangeRateValue(w.forex.exchangeRate), ImportErElasticity),
+        Math.pow(toDouble(p.forex.baseExRate) / exchangeRateValue(w.forex.exchangeRate), ImportErElasticity),
     )
 
     val afterSep           = LaborMarket.separations(households, firms, firms)

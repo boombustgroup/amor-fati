@@ -154,7 +154,7 @@ object GvcTrade:
       )
 
   private def realExchangeRateEffect(priceLevel: PriceIndex, exchangeRate: ExchangeRate)(using p: SimParams): Scalar =
-    val nominalER = exchangeRate.ratioTo(ExchangeRate(p.forex.baseExRate))
+    val nominalER = exchangeRate.ratioTo(p.forex.baseExRate)
     val realPrice = priceLevel.toMultiplier.ratioTo(nominalER).max(MinErEffect.toScalar)
     realPrice.reciprocal.pow(p.openEcon.exportPriceElasticity.toScalar)
 
@@ -181,7 +181,7 @@ object GvcTrade:
       priceLevel: PriceIndex,
       exchangeRate: ExchangeRate,
   )(using p: SimParams): Vector[PLN] =
-    val erDeviation = exchangeRate.deviationFrom(ExchangeRate(p.forex.baseExRate)).toCoefficient
+    val erDeviation = exchangeRate.deviationFrom(p.forex.baseExRate).toCoefficient
     (0 until nSectors)
       .map: s =>
         val realOutput  = sectorOutputs(s) / priceLevel.toMultiplier

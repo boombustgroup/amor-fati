@@ -12,6 +12,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
+  private val baseEr       = td.toDouble(p.forex.baseExRate)
 
   // ==========================================================================
   // Config defaults
@@ -48,21 +49,21 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "ER adjustment" should "increase inflow when PLN weakens" in {
-    val weakerER = p.forex.baseExRate * 1.2 // PLN weaker → higher exchange rate number
-    val erAdj    = Math.pow(weakerER / p.forex.baseExRate, td.toDouble(p.remittance.erElasticity))
+    val weakerER = baseEr * 1.2 // PLN weaker → higher exchange rate number
+    val erAdj    = Math.pow(weakerER / baseEr, td.toDouble(p.remittance.erElasticity))
     erAdj should be > 1.0
   }
 
   it should "decrease inflow when PLN strengthens" in {
-    val strongerER = p.forex.baseExRate * 0.8
-    val erAdj      = Math.pow(strongerER / p.forex.baseExRate, td.toDouble(p.remittance.erElasticity))
+    val strongerER = baseEr * 0.8
+    val erAdj      = Math.pow(strongerER / baseEr, td.toDouble(p.remittance.erElasticity))
     erAdj should be < 1.0
   }
 
   it should "apply partial pass-through (exponent = 0.5)" in {
     // 20% depreciation → sqrt(1.2) ≈ 1.095 (not full 1.2)
-    val weakerER = p.forex.baseExRate * 1.2
-    val erAdj    = Math.pow(weakerER / p.forex.baseExRate, 0.5)
+    val weakerER = baseEr * 1.2
+    val erAdj    = Math.pow(weakerER / baseEr, 0.5)
     erAdj should be > 1.0
     erAdj should be < 1.2
     erAdj shouldBe Math.sqrt(1.2) +- 1e-10
@@ -113,10 +114,10 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
     val wap   = 1000
     val month = 12
     val unemp = 0.08
-    val er    = p.forex.baseExRate * 1.1
+    val er    = baseEr * 1.1
 
     val base        = td.toDouble(p.remittance.perCapita) * wap.toDouble
-    val erAdj       = Math.pow(er / p.forex.baseExRate, td.toDouble(p.remittance.erElasticity))
+    val erAdj       = Math.pow(er / baseEr, td.toDouble(p.remittance.erElasticity))
     val trendAdj    = Math.pow(1.0 + td.toDouble(p.remittance.growthRate) / 12.0, month.toDouble)
     val cyclicalAdj = 1.0 + td.toDouble(p.remittance.cyclicalSens) * Math.max(0.0, unemp - 0.05)
     val result      = base * erAdj * trendAdj * cyclicalAdj
@@ -140,7 +141,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "secondaryIncome" should "include diasporaInflow as credit" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -163,7 +164,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   it should "net outflow and inflow" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base   = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -209,7 +210,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Generators.testBankingSector().marketState,
-      forex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      forex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
         employed = 100,
         unemployed = 0,

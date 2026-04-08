@@ -21,7 +21,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   private val defaultSectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(1e8))
 
   private def runStep(
-      er: Double = p.forex.baseExRate,
+      er: Double = td.toDouble(p.forex.baseExRate),
       price: Double = 1.0,
       autoR: Double = 0.0,
       month: Int = 30,

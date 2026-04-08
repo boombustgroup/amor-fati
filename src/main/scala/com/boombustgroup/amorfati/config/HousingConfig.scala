@@ -62,7 +62,7 @@ import com.boombustgroup.amorfati.types.*
   *   regional income multiplier vs. national average (GUS wage surveys 2024)
   */
 case class HousingConfig(
-    initHpi: Double = 100.0,
+    initHpi: PriceIndex = PriceIndex(100.0),
     initValue: PLN = PLN(3.0e12),   // raw — scaled by gdpRatio
     initMortgage: PLN = PLN(485e9), // raw — scaled by gdpRatio
     priceIncomeElast: Coefficient = Coefficient(1.2),
@@ -78,7 +78,8 @@ case class HousingConfig(
     wealthMpc: Share = Share(0.05),
     rentalYield: Rate = Rate(0.045),
     // Regional housing (7 regions: Warsaw, Krakow, Wroclaw, Gdansk, Poznan, Lodz, rest)
-    regionalHpi: Vector[Double] = Vector(230.0, 190.0, 170.0, 175.0, 110.0, 140.0, 100.0),
+    regionalHpi: Vector[PriceIndex] =
+      Vector(PriceIndex(230.0), PriceIndex(190.0), PriceIndex(170.0), PriceIndex(175.0), PriceIndex(110.0), PriceIndex(140.0), PriceIndex(100.0)),
     regionalValueShares: Vector[Share] = Vector(Share(0.25), Share(0.08), Share(0.07), Share(0.08), Share(0.04), Share(0.05), Share(0.43)),
     regionalMortgageShares: Vector[Share] = Vector(Share(0.30), Share(0.10), Share(0.08), Share(0.09), Share(0.04), Share(0.06), Share(0.33)),
     regionalGammas: Vector[Coefficient] =

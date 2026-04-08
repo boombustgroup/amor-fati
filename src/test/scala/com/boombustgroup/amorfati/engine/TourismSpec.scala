@@ -12,6 +12,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
+  private val baseEr       = td.toDouble(p.forex.baseExRate)
 
   // ==========================================================================
   // Config defaults (10 tests)
@@ -86,20 +87,20 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "ER adjustment" should "increase inbound tourism when PLN weakens" in {
-    val weakerER     = p.forex.baseExRate * 1.2
-    val inboundErAdj = Math.pow(weakerER / p.forex.baseExRate, td.toDouble(p.tourism.erElasticity))
+    val weakerER     = baseEr * 1.2
+    val inboundErAdj = Math.pow(weakerER / baseEr, td.toDouble(p.tourism.erElasticity))
     inboundErAdj should be > 1.0
   }
 
   it should "decrease outbound tourism when PLN weakens" in {
-    val weakerER      = p.forex.baseExRate * 1.2
-    val outboundErAdj = Math.pow(p.forex.baseExRate / weakerER, td.toDouble(p.tourism.erElasticity))
+    val weakerER      = baseEr * 1.2
+    val outboundErAdj = Math.pow(baseEr / weakerER, td.toDouble(p.tourism.erElasticity))
     outboundErAdj should be < 1.0
   }
 
   it should "apply partial pass-through (exponent = 0.6)" in {
-    val weakerER     = p.forex.baseExRate * 1.2
-    val inboundErAdj = Math.pow(weakerER / p.forex.baseExRate, 0.6)
+    val weakerER     = baseEr * 1.2
+    val inboundErAdj = Math.pow(weakerER / baseEr, 0.6)
     inboundErAdj should be > 1.0
     inboundErAdj should be < 1.2 // partial, not full pass-through
   }
@@ -163,12 +164,12 @@ class TourismSpec extends AnyFlatSpec with Matchers:
     val baseGdp     = 1e9
     val monthInYear = 7 // peak month
     val m           = 12
-    val er          = p.forex.baseExRate * 1.1
+    val er          = baseEr * 1.1
 
     val seasonalFactor = 1.0 + td.toDouble(p.tourism.seasonality) *
       Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
-    val inboundErAdj   = Math.pow(er / p.forex.baseExRate, td.toDouble(p.tourism.erElasticity))
-    val outboundErAdj  = Math.pow(p.forex.baseExRate / er, td.toDouble(p.tourism.erElasticity))
+    val inboundErAdj   = Math.pow(er / baseEr, td.toDouble(p.tourism.erElasticity))
+    val outboundErAdj  = Math.pow(baseEr / er, td.toDouble(p.tourism.erElasticity))
     val trendAdj       = Math.pow(1.0 + td.toDouble(p.tourism.growthRate) / 12.0, m.toDouble)
     val shockFactor    = 1.0 // no shock
 
@@ -194,7 +195,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "OpenEconomy exports" should "include tourismExport" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -217,7 +218,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "OpenEconomy imports" should "include tourismImport" in {
     val prevBop   = OpenEconomy.BopState.zero
-    val prevForex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
+    val prevForex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
 
     val base          = OpenEconomy.StepInput(
       prevBop = prevBop,
@@ -253,7 +254,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
       bankingSector = Generators.testBankingSector().marketState,
-      forex = OpenEconomy.ForexState(ExchangeRate(p.forex.baseExRate), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      forex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
         employed = 100,
         unemployed = 0,

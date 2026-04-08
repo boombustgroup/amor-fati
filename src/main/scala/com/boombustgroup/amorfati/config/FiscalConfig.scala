@@ -156,11 +156,11 @@ case class FiscalConfig(
     govDepreciationRate: Rate = Rate(0.06),
     govInitCapital: PLN = PLN(0.0),
     // EU Funds
-    euFundsTotalEur: Double = 76e9,
+    euFundsTotalEur: Multiplier = Multiplier(76e9),
     euFundsPeriodMonths: Int = 84,
     euFundsStartMonth: Int = 1,
-    euFundsAlpha: Double = 2.0,
-    euFundsBeta: Double = 5.0,
+    euFundsAlpha: Scalar = Scalar(2.0),
+    euFundsBeta: Scalar = Scalar(5.0),
     euCofinanceRate: Share = Share(0.15),
     euCapitalShare: Share = Share(0.60),
     // Minimum wage
@@ -217,7 +217,7 @@ case class FiscalConfig(
     pitEffectiveRate: Rate = Rate(0.09),
     // Social 800+ (Dz.U. 2023)
     social800: PLN = PLN(800.0),
-    social800ChildrenPerHh: Double = 0.35,
+    social800ChildrenPerHh: Scalar = Scalar(0.35),
 ):
   require(citRate >= Rate.Zero && citRate <= Rate(1.0), s"citRate must be in [0,1]: $citRate")
   require(govBaseSpending >= PLN.Zero, s"govBaseSpending must be non-negative: $govBaseSpending")

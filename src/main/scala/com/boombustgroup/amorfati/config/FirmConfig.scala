@@ -119,7 +119,7 @@ case class FirmConfig(
     digiInvestBaseProb: Share = Share(0.08),
     // Labor adjustment (smooth hiring/firing)
     laborAdjustSpeed: Coefficient = Coefficient(0.15), // monthly partial adjustment toward target (λ)
-    severanceMonths: Double = 2.0,                     // months of wage per fired worker (Kodeks Pracy)
+    severanceMonths: Multiplier = Multiplier(2.0),     // months of wage per fired worker (Kodeks Pracy)
     minWorkersRetained: Int = 3,                       // hard floor on workforce
     // Network / demonstration effects
     networkK: Int = 6,
@@ -127,7 +127,7 @@ case class FirmConfig(
     demoEffectThresh: Share = Share(0.40),
     demoEffectBoost: Share = Share(0.15),
     adoptionRampMonths: Int = 36,
-    sigmaLambda: Double = 0.0,
+    sigmaLambda: Coefficient = Coefficient(0.0),
     sigmaCapMult: Multiplier = Multiplier(3.0),
     rewireRho: Share = Share(0.0),
 ):

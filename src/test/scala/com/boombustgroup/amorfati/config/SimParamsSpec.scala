@@ -12,12 +12,13 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
+  private val gdpRatio     = td.toDouble(p.gdpRatio)
 
   // ── GdpRatio ──
 
   "SimParams.defaults.gdpRatio" should "match GdpRatio for Gus size distribution" in {
     val expected = SimParams.computeGdpRatio(p.pop, p.firm.baseRevenue)
-    p.gdpRatio shouldBe expected +- 1e-12
+    gdpRatio shouldBe td.toDouble(expected) +- 1e-12
   }
 
   // ── Population ──
@@ -30,11 +31,11 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
   // ── Fiscal ──
 
   "FiscalConfig" should "have gdpRatio-scaled govBaseSpending" in {
-    td.toDouble(p.fiscal.govBaseSpending) shouldBe (58.3e9 * p.gdpRatio) +- 1.0
+    td.toDouble(p.fiscal.govBaseSpending) shouldBe (58.3e9 * gdpRatio) +- 1.0
   }
 
   it should "have gdpRatio-scaled initGovDebt" in {
-    td.toDouble(p.fiscal.initGovDebt) shouldBe (1600e9 * p.gdpRatio) +- 1.0
+    td.toDouble(p.fiscal.initGovDebt) shouldBe (1600e9 * gdpRatio) +- 1.0
   }
 
   "p.fiscal.initGovDebt" should "delegate to fiscal.initGovDebt" in {
@@ -44,45 +45,45 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
   // ── Banking ──
 
   "BankingConfig" should "have gdpRatio-scaled values" in {
-    td.toDouble(p.banking.initCapital) shouldBe (270e9 * p.gdpRatio) +- 1.0
-    td.toDouble(p.banking.initDeposits) shouldBe (1900e9 * p.gdpRatio) +- 1.0
-    td.toDouble(p.banking.initLoans) shouldBe (700e9 * p.gdpRatio) +- 1.0
-    td.toDouble(p.banking.initGovBonds) shouldBe (400e9 * p.gdpRatio) +- 1.0
-    td.toDouble(p.banking.initNbpGovBonds) shouldBe (300e9 * p.gdpRatio) +- 1.0
-    td.toDouble(p.banking.initConsumerLoans) shouldBe (200e9 * p.gdpRatio) +- 1.0
+    td.toDouble(p.banking.initCapital) shouldBe (270e9 * gdpRatio) +- 1.0
+    td.toDouble(p.banking.initDeposits) shouldBe (1900e9 * gdpRatio) +- 1.0
+    td.toDouble(p.banking.initLoans) shouldBe (700e9 * gdpRatio) +- 1.0
+    td.toDouble(p.banking.initGovBonds) shouldBe (400e9 * gdpRatio) +- 1.0
+    td.toDouble(p.banking.initNbpGovBonds) shouldBe (300e9 * gdpRatio) +- 1.0
+    td.toDouble(p.banking.initConsumerLoans) shouldBe (200e9 * gdpRatio) +- 1.0
   }
 
   // ── External sector sub-configs ──
 
   "OpenEconConfig" should "have gdpRatio-scaled values" in {
-    td.toDouble(p.openEcon.exportBase) shouldBe (138.5e9 * p.gdpRatio) +- 1.0
-    td.toDouble(p.openEcon.euTransfers) shouldBe (1.458e9 * p.gdpRatio) +- 1.0
-    td.toDouble(p.openEcon.fdiBase) shouldBe (583.1e6 * p.gdpRatio) +- 1.0
+    td.toDouble(p.openEcon.exportBase) shouldBe (138.5e9 * gdpRatio) +- 1.0
+    td.toDouble(p.openEcon.euTransfers) shouldBe (1.458e9 * gdpRatio) +- 1.0
+    td.toDouble(p.openEcon.fdiBase) shouldBe (583.1e6 * gdpRatio) +- 1.0
   }
 
   // ── Financial sub-configs ──
 
   "EquityConfig" should "have gdpRatio-scaled initMcap" in {
-    td.toDouble(p.equity.initMcap) shouldBe (1.4e12 * p.gdpRatio) +- 1.0
+    td.toDouble(p.equity.initMcap) shouldBe (1.4e12 * gdpRatio) +- 1.0
   }
 
   "CorpBondConfig" should "have gdpRatio-scaled initStock" in {
-    td.toDouble(p.corpBond.initStock) shouldBe (90e9 * p.gdpRatio) +- 1.0
+    td.toDouble(p.corpBond.initStock) shouldBe (90e9 * gdpRatio) +- 1.0
   }
 
   "InsuranceConfig" should "have gdpRatio-scaled reserves" in {
-    td.toDouble(p.ins.lifeReserves) shouldBe (110e9 * p.gdpRatio) +- 1.0
-    td.toDouble(p.ins.nonLifeReserves) shouldBe (90e9 * p.gdpRatio) +- 1.0
+    td.toDouble(p.ins.lifeReserves) shouldBe (110e9 * gdpRatio) +- 1.0
+    td.toDouble(p.ins.nonLifeReserves) shouldBe (90e9 * gdpRatio) +- 1.0
   }
 
   "NbfiConfig" should "have gdpRatio-scaled values" in {
-    td.toDouble(p.nbfi.tfiInitAum) shouldBe (380e9 * p.gdpRatio) +- 1.0
-    td.toDouble(p.nbfi.creditInitStock) shouldBe (231e9 * p.gdpRatio) +- 1.0
+    td.toDouble(p.nbfi.tfiInitAum) shouldBe (380e9 * gdpRatio) +- 1.0
+    td.toDouble(p.nbfi.creditInitStock) shouldBe (231e9 * gdpRatio) +- 1.0
   }
 
   "HousingConfig" should "have gdpRatio-scaled values" in {
-    td.toDouble(p.housing.initValue) shouldBe (3.0e12 * p.gdpRatio) +- 1.0
-    td.toDouble(p.housing.initMortgage) shouldBe (485e9 * p.gdpRatio) +- 1.0
+    td.toDouble(p.housing.initValue) shouldBe (3.0e12 * gdpRatio) +- 1.0
+    td.toDouble(p.housing.initMortgage) shouldBe (485e9 * gdpRatio) +- 1.0
   }
 
   // ── Delegation consistency ──

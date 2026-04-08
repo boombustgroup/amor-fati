@@ -140,7 +140,7 @@ object InflationProbe:
       val s8                = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, banks, rng))
       val s9                = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
 
-      val exDev         = exchangeRateValue(world.forex.exchangeRate) / summon[SimParams].forex.baseExRate - 1.0
+      val exDev         = exchangeRateValue(world.forex.exchangeRate) / exchangeRateValue(summon[SimParams].forex.baseExRate) - 1.0
       val demandPullM   = toDouble((s4.avgDemandMult.deviationFromOne.toScalar * Scalar(DemandPullWeight)).toCoefficient)
       val costPushM     = toDouble(s2.wageGrowth) * CostPushWeight
       val rawImportPush = Math.max(0.0, exDev) * toDouble(summon[SimParams].forex.importPropensity) * ImportPushWeight
