@@ -19,24 +19,23 @@ import com.boombustgroup.amorfati.types.*
 object EquityMarket:
 
   // --- Named constants ---
-  private val EquityRiskPremium      = 0.05  // GPW historical average
-  private val MinDiscountRate        = 0.02  // floor to avoid near-zero discount
-  private val GrowthFloor            = -0.10 // max annualized contraction
-  private val GordonSingularityGuard = 0.005 // min denominator (r - g) to avoid explosion
-  private val AdjustmentSpeed        = 0.15  // monthly partial adjustment to fundamental
-  private val MinIndex               = 100.0 // index floor
-  private val MonthsPerYear          = 12.0  // annual-to-monthly conversion
-  private val EarningsYieldFloor     = 0.01  // E/P floor (P/E = 100)
-  private val EarningsYieldCap       = 0.50  // E/P cap (P/E = 2)
-  private val PayoutRatio            = 0.57  // GPW average payout ratio
-  private val DivYieldSmoothing      = 0.10  // weight on implied div yield (1-α on prev)
-  private val ForeignReversionSpeed  = 0.01  // monthly mean-reversion speed
+  private val EquityRiskPremium      = Rate(0.05)        // GPW historical average
+  private val MinDiscountRate        = Rate(0.02)        // floor to avoid near-zero discount
+  private val GrowthFloor            = Rate(-0.10)       // max annualized contraction
+  private val GordonSingularityGuard = Rate(0.005)       // min denominator (r - g) to avoid explosion
+  private val AdjustmentSpeed        = Share(0.15)       // monthly partial adjustment to fundamental
+  private val MinIndex               = PriceIndex(100.0) // index floor
+  private val EarningsYieldFloor     = Rate(0.01)        // E/P floor (P/E = 100)
+  private val EarningsYieldCap       = Rate(0.50)        // E/P cap (P/E = 2)
+  private val PayoutRatio            = Share(0.57)       // GPW average payout ratio
+  private val DivYieldSmoothing      = Share(0.10)       // weight on implied div yield (1-α on prev)
+  private val ForeignReversionSpeed  = Share(0.01)       // monthly mean-reversion speed
 
   /** GPW equity market state: aggregate index, market cap, yields, foreign
     * ownership.
     */
   case class State(
-      index: Double,
+      index: PriceIndex,
       marketCap: PLN,
       earningsYield: Rate,
       dividendYield: Rate,
@@ -51,7 +50,7 @@ object EquityMarket:
   )
 
   def zero: State = State(
-    index = 0.0,
+    index = PriceIndex.Zero,
     marketCap = PLN.Zero,
     earningsYield = Rate.Zero,
     dividendYield = Rate.Zero,
@@ -61,7 +60,7 @@ object EquityMarket:
   def initial(using p: SimParams): State = State(
     index = p.equity.initIndex,
     marketCap = p.equity.initMcap,
-    earningsYield = Rate(1.0 / p.equity.peMean),
+    earningsYield = p.equity.peMean.reciprocal.toRate,
     dividendYield = p.equity.divYield,
     foreignOwnership = p.equity.foreignShare,
   )
@@ -75,48 +74,48 @@ object EquityMarket:
       prev: State,
       refRate: Rate,
       inflation: Rate,
-      gdpGrowth: Double,
+      gdpGrowth: Coefficient,
       firmProfits: PLN,
   )
 
-  @boundaryEscape
   def step(in: StepInput)(using p: SimParams): State =
-    import ComputationBoundary.toDouble
-    val discountRate   = Math.max(MinDiscountRate, toDouble(in.refRate) + EquityRiskPremium)
+    val discountRate   = (in.refRate + EquityRiskPremium).max(MinDiscountRate)
     val growthCap      = discountRate - GordonSingularityGuard
-    val expectedGrowth = Math.max(GrowthFloor, Math.min(growthCap, in.gdpGrowth * MonthsPerYear))
+    val expectedGrowth = in.gdpGrowth.toRate.annualize.clamp(GrowthFloor, growthCap)
 
     // Gordon growth fundamental value
-    val dividend    = toDouble(in.prev.dividendYield) * in.prev.index
+    val dividend    = in.prev.index * in.prev.dividendYield
     val denominator = discountRate - expectedGrowth
     val gordonIndex =
       if denominator > GordonSingularityGuard then dividend / denominator
       else in.prev.index
 
-    val newIndex = Math.max(MinIndex, in.prev.index + AdjustmentSpeed * (gordonIndex - in.prev.index))
+    val retainedWeight = Share.One - AdjustmentSpeed
+    val newIndex       =
+      ((in.prev.index * retainedWeight.toMultiplier) + (gordonIndex * AdjustmentSpeed.toMultiplier)).max(MinIndex)
 
     // Market cap scales with index
-    val indexReturn  = if in.prev.index > 0 then newIndex / in.prev.index else 1.0
-    val newMarketCap = (in.prev.marketCap * Multiplier(indexReturn)).max(PLN.Zero)
+    val indexReturn  = if in.prev.index > PriceIndex.Zero then newIndex.ratioTo(in.prev.index).toMultiplier else Multiplier.One
+    val newMarketCap = (in.prev.marketCap * indexReturn).max(PLN.Zero)
 
     // Earnings yield from firm profits and market cap
-    val annualProfits    = in.firmProfits * Multiplier(MonthsPerYear)
-    val newEarningsYield = Rate(
-      if newMarketCap > PLN.Zero then Math.max(EarningsYieldFloor, Math.min(EarningsYieldCap, annualProfits / newMarketCap))
-      else toDouble(in.prev.earningsYield),
-    )
+    val annualProfits    = in.firmProfits * 12
+    val newEarningsYield =
+      if newMarketCap > PLN.Zero then annualProfits.ratioTo(newMarketCap).toRate.clamp(EarningsYieldFloor, EarningsYieldCap)
+      else in.prev.earningsYield
 
     // Dividend yield: payout ratio x earnings yield (mean-reverting to calibrated)
-    val impliedDivYield = toDouble(newEarningsYield) * PayoutRatio
-    val newDivYield     = in.prev.dividendYield * Multiplier(1.0 - DivYieldSmoothing) + Rate(impliedDivYield * DivYieldSmoothing)
+    val impliedDivYield = newEarningsYield * PayoutRatio
+    val newDivYield     =
+      (in.prev.dividendYield * (Share.One - DivYieldSmoothing).toMultiplier) + (impliedDivYield * DivYieldSmoothing)
 
     // Foreign ownership: slow-moving, mean-reverting to calibrated share
     val newForeignOwnership =
-      in.prev.foreignOwnership * Share(1.0 - ForeignReversionSpeed) + p.equity.foreignShare * Share(ForeignReversionSpeed)
+      (in.prev.foreignOwnership * (Share.One - ForeignReversionSpeed)) + (p.equity.foreignShare * ForeignReversionSpeed)
 
-    val mReturn = if in.prev.index > 0 then newIndex / in.prev.index - 1.0 else 0.0
+    val mReturn = if in.prev.index > PriceIndex.Zero then newIndex.ratioTo(in.prev.index).toMultiplier.deviationFromOne.toRate else Rate.Zero
 
-    State(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership, monthlyReturn = Rate(mReturn))
+    State(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership, monthlyReturn = mReturn)
 
   /** Process equity issuance: firm raises CAPEX via equity, increasing market
     * cap. Index diluted by supply effect.
@@ -124,7 +123,7 @@ object EquityMarket:
   def processIssuance(amount: PLN, prev: State): State =
     if amount <= PLN.Zero then prev.copy(lastIssuance = PLN.Zero)
     else
-      val dilutionFactor = prev.marketCap / (prev.marketCap + amount) // PLN/PLN → Double
+      val dilutionFactor = prev.marketCap.ratioTo(prev.marketCap + amount).toMultiplier
       prev.copy(
         marketCap = prev.marketCap + amount,
         index = prev.index * dilutionFactor,
@@ -151,7 +150,7 @@ object EquityMarket:
   )(using p: SimParams): DividendResult =
     if realizedProfits <= PLN.Zero then DividendResultZero
     else
-      val totalDividends   = realizedProfits * Share(PayoutRatio)
+      val totalDividends   = realizedProfits * PayoutRatio
       val foreignDividends = totalDividends * foreignShare
       val domesticGross    = totalDividends - foreignDividends
       val dividendTax      = domesticGross * p.equity.divTax

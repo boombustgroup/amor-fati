@@ -17,6 +17,7 @@ object SimOutput:
 
   private val td                                          = ComputationBoundary
   private def exchangeRateValue(er: ExchangeRate): Double = er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+  private def priceIndexValue(pi: PriceIndex): Double     = pi.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 
   // -------------------------------------------------------------------------
   //  ColumnDef + Ctx
@@ -265,7 +266,7 @@ object SimOutput:
     ColumnDef("ConsumerOrigination", ctx => td.toDouble(ctx.hhAgg.totalConsumerOrigination)),
     ColumnDef("ConsumerDebtService", ctx => td.toDouble(ctx.hhAgg.totalConsumerDebtService)),
     // GPW Equity Market
-    ColumnDef("GpwIndex", ctx => ctx.world.financial.equity.index),
+    ColumnDef("GpwIndex", ctx => priceIndexValue(ctx.world.financial.equity.index)),
     ColumnDef("GpwMarketCap", ctx => td.toDouble(ctx.world.financial.equity.marketCap)),
     ColumnDef(
       "GpwPE",
