@@ -270,8 +270,7 @@ object OpenEconEconomics:
 
     // 8. Insurance
     val unempRate    = in.w.unemploymentRate(in.employed)
-    val newInsurance =
-      Insurance.step(in.w.financial.insurance, in.employed, in.newWage, in.w.priceLevel, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
+    val newInsurance = Insurance.step(in.w.financial.insurance, in.employed, in.newWage, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
 
     Result(
       exports = bop.exports,
@@ -649,7 +648,6 @@ object OpenEconEconomics:
         in.w.financial.insurance,
         in.s2.employed,
         in.s2.newWage,
-        in.w.priceLevel,
         unempRate,
         newBondYield,
         in.w.financial.corporateBonds.corpBondYield,

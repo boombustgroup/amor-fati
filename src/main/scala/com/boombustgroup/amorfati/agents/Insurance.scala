@@ -111,17 +111,16 @@ object Insurance:
   /** Full monthly step: premiums, claims, investment income, rebalancing. */
   def step(
       prev: State,
-      employed: Int,                                   // employed workers (premium base)
-      wage: PLN,                                       // average monthly wage
-      @scala.annotation.unused priceLevel: PriceIndex, // CPI price level (non-life premium scaling)
-      unempRate: Share,                                // unemployment rate (non-life claim cyclicality)
-      govBondYield: Rate,                              // government bond yield (annualised)
-      corpBondYield: Rate,                             // corporate bond yield (annualised)
-      equityReturn: Rate,                              // equity monthly return
+      employed: Int,       // employed workers (premium base)
+      wage: PLN,           // average monthly wage
+      unempRate: Share,    // unemployment rate (non-life claim cyclicality)
+      govBondYield: Rate,  // government bond yield (annualised)
+      corpBondYield: Rate, // corporate bond yield (annualised)
+      equityReturn: Rate,  // equity monthly return
   )(using p: SimParams): State =
     // Premiums: proportional to wage bill
     val lifePrem    = employed * (wage * p.ins.lifePremiumRate)
-    val nonLifePrem = employed * (wage * p.ins.nonLifePremiumRate) // TODO: × priceLevel (needs PriceIndex param)
+    val nonLifePrem = employed * (wage * p.ins.nonLifePremiumRate)
 
     // Claims: life steady, non-life widens with unemployment stress
     val lifeCl      = lifePrem * p.ins.lifeLossRatio
