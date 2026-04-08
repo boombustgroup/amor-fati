@@ -26,7 +26,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
       autoR: Double = 0.0,
       month: Int = 30,
   ): GvcTrade.State =
-    GvcTrade.step(GvcTrade.StepInput(GvcTrade.initial, defaultSectorOutputs, price, er, autoR, month, rng = new scala.util.Random(42)))
+    GvcTrade.step(GvcTrade.StepInput(GvcTrade.initial, defaultSectorOutputs, PriceIndex(price), er, autoR, month, rng = new scala.util.Random(42)))
 
   // --- Exports always non-negative ---
 

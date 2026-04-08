@@ -90,7 +90,7 @@ object SimOutput:
     ColumnDef("GovDebt", ctx => td.toDouble(ctx.world.gov.cumulativeDebt)),
     ColumnDef("NPL", ctx => td.toDouble(ctx.bankAgg.nplRatio)),
     ColumnDef("RefRate", ctx => td.toDouble(ctx.world.nbp.referenceRate)),
-    ColumnDef("PriceLevel", ctx => ctx.world.priceLevel),
+    ColumnDef("PriceLevel", ctx => td.toDouble(ctx.world.priceLevel)),
     ColumnDef("AutoRatio", ctx => td.toDouble(ctx.world.real.automationRatio)),
     ColumnDef("HybridRatio", ctx => td.toDouble(ctx.world.real.hybridRatio)),
   )

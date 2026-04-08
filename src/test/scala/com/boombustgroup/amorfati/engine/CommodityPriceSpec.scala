@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.markets.GvcTrade
 import com.boombustgroup.amorfati.types.*
@@ -12,8 +13,6 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val td = ComputationBoundary
-
   private def mkInput(
       prev: GvcTrade.State,
       month: Int,
@@ -22,7 +21,7 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
     GvcTrade.StepInput(
       prev = prev,
       sectorOutputs = Vector.fill(6)(100000.0),
-      priceLevel = 1.0,
+      priceLevel = PriceIndex.Base,
       exchangeRate = 4.33,
       autoRatio = 0.0,
       month = month,
@@ -47,37 +46,37 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
     val init     = GvcTrade.initial
     val after    = GvcTrade.step(mkInput(init, month = 1))
     val expected = after.foreignPriceIndex * after.commodityPriceIndex
-    td.toDouble(after.importCostIndex) shouldBe td.toDouble(expected) +- 1e-10
+    after.importCostIndex.bd.toDouble shouldBe (expected.bd.toDouble +- 1e-10)
   }
 
   it should "evolve commodity differently with different seeds (stochastic)" in {
     val init   = GvcTrade.initial
     val after1 = GvcTrade.step(mkInput(init, month = 1, seed = 1L))
     val after2 = GvcTrade.step(mkInput(init, month = 1, seed = 999L))
-    td.toDouble(after1.commodityPriceIndex) should not be td.toDouble(after2.commodityPriceIndex)
+    after1.commodityPriceIndex.bd.toDouble should not be after2.commodityPriceIndex.bd.toDouble
   }
 
   it should "keep commodity close to 1.0 after 1 month with default params" in {
     val init  = GvcTrade.initial
     val after = GvcTrade.step(mkInput(init, month = 1))
     // Default drift is small (~2%/yr), so after 1 month commodity stays near base
-    td.toDouble(after.commodityPriceIndex) shouldBe 1.0 +- 0.1
+    after.commodityPriceIndex.bd.toDouble shouldBe (1.0 +- 0.1)
   }
 
   "PriceIndex" should "multiply two indices" in {
     val a = PriceIndex(1.5)
     val b = PriceIndex(2.0)
-    td.toDouble(a * b) shouldBe 3.0 +- 1e-10
+    (a * b).bd.toDouble shouldBe (3.0 +- 1e-10)
   }
 
   it should "multiply with PLN" in {
     val idx  = PriceIndex(1.5)
     val cost = PLN(1000.0)
-    td.toDouble(idx * cost) shouldBe 1500.0 +- 1e-10
+    (idx * cost).bd.toDouble shouldBe (1500.0 +- 1e-10)
   }
 
   it should "divide two indices to get ratio" in {
     val a = PriceIndex(3.0)
     val b = PriceIndex(1.5)
-    (a / b) shouldBe 2.0 +- 1e-10
+    a.ratioTo(b).bd.toDouble shouldBe (2.0 +- 1e-10)
   }

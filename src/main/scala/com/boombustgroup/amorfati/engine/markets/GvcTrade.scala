@@ -23,6 +23,9 @@ object GvcTrade:
   private val AutomationExportBoost = 0.15 // export uplift per unit automation ratio
   private val MinErEffect           = 0.1  // floor on ER pass-through multiplier
 
+  private def priceLevelValue(priceLevel: PriceIndex): Double =
+    priceLevel.toMultiplier / Multiplier.One
+
   case class ForeignFirm(
       id: Int,
       sectorId: Int,
@@ -80,7 +83,7 @@ object GvcTrade:
   case class StepInput(
       prev: State,
       sectorOutputs: Vector[Double],
-      priceLevel: Double,
+      priceLevel: PriceIndex,
       exchangeRate: Double,
       autoRatio: Double,
       month: Int,
@@ -152,10 +155,11 @@ object GvcTrade:
 
   /** Real exchange rate effect on exports (Marshall-Lerner). */
   @boundaryEscape
-  private def realExchangeRateEffect(priceLevel: Double, exchangeRate: Double)(using p: SimParams): Double =
+  private def realExchangeRateEffect(priceLevel: PriceIndex, exchangeRate: Double)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
     val nominalER = exchangeRate / p.forex.baseExRate
-    val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER else 1.0
+    val price     = priceLevelValue(priceLevel)
+    val realPrice = if price > 0 && nominalER > 0 then price / nominalER else 1.0
     Math.pow(1.0 / Math.max(MinErEffect, realPrice), toDouble(p.openEcon.exportPriceElasticity))
 
   /** Per-sector export demand. */
@@ -184,15 +188,16 @@ object GvcTrade:
       firms: Vector[ForeignFirm],
       nSectors: Int,
       sectorOutputs: Vector[Double],
-      priceLevel: Double,
+      priceLevel: PriceIndex,
       exchangeRate: Double,
   )(using p: SimParams): Vector[PLN] =
     import ComputationBoundary.toDouble
     val depths      = p.gvc.depth.map(s => toDouble(s))
     val erDeviation = exchangeRate / p.forex.baseExRate - 1.0
+    val price       = priceLevelValue(priceLevel)
     (0 until nSectors)
       .map: s =>
-        val realOutput  = if priceLevel > 0 then sectorOutputs(s) / priceLevel else sectorOutputs(s)
+        val realOutput  = if price > 0 then sectorOutputs(s) / price else sectorOutputs(s)
         val baseDemand  = realOutput * depths(s)
         val sectorFirms = firms.filter(_.sectorId == s)
         val erEffect    = partnerWeightedErEffect(sectorFirms, erDeviation)

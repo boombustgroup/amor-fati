@@ -46,7 +46,7 @@ object FlowSimulation:
       resWage: PLN,
       lendingBaseRate: Rate,
       baseMinWage: PLN,
-      minWagePriceLevel: Double,
+      minWagePriceLevel: PriceIndex,
       // Stage 2: Labor market
       wage: PLN,
       employed: Int,

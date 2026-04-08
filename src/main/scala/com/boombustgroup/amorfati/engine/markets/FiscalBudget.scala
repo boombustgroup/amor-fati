@@ -59,11 +59,11 @@ object FiscalBudget:
   )
 
   case class GovPolicyState(
-      bondYield: Rate = Rate.Zero,        // lagged market yield (for lending rates)
-      weightedCoupon: Rate = Rate.Zero,   // portfolio-weighted average coupon (WAM rolling model)
-      publicCapitalStock: PLN = PLN.Zero, // public capital stock accumulated from domestic capex and EU project capital
-      minWageLevel: PLN = PLN(4666.0),    // statutory minimum wage (PLN/month, GUS 2024)
-      minWagePriceLevel: Double = 1.0,    // price level at last minimum wage adjustment
+      bondYield: Rate = Rate.Zero,                    // lagged market yield (for lending rates)
+      weightedCoupon: Rate = Rate.Zero,               // portfolio-weighted average coupon (WAM rolling model)
+      publicCapitalStock: PLN = PLN.Zero,             // public capital stock accumulated from domestic capex and EU project capital
+      minWageLevel: PLN = PLN(4666.0),                // statutory minimum wage (PLN/month, GUS 2024)
+      minWagePriceLevel: PriceIndex = PriceIndex.Base, // price level at last minimum wage adjustment
   )
 
   case class GovFlowState(
@@ -85,25 +85,25 @@ object FiscalBudget:
       policy: GovPolicyState,
       monthly: GovFlowState,
   ):
-    def taxRevenue: PLN           = monthly.taxRevenue
-    def deficit: PLN              = monthly.deficit
-    def cumulativeDebt: PLN       = financial.cumulativeDebt
-    def unempBenefitSpend: PLN    = monthly.unempBenefitSpend
-    def bondsOutstanding: PLN     = financial.bondsOutstanding
-    def foreignBondHoldings: PLN  = financial.foreignBondHoldings
-    def bondYield: Rate           = policy.bondYield
-    def weightedCoupon: Rate      = policy.weightedCoupon
-    def debtServiceSpend: PLN     = monthly.debtServiceSpend
-    def socialTransferSpend: PLN  = monthly.socialTransferSpend
-    def publicCapitalStock: PLN   = policy.publicCapitalStock
-    def govCurrentSpend: PLN      = monthly.govCurrentSpend
-    def govCapitalSpend: PLN      = monthly.govCapitalSpend
-    def euProjectCapital: PLN     = monthly.euProjectCapital
-    def euCofinancing: PLN        = monthly.euCofinancing
-    def exciseRevenue: PLN        = monthly.exciseRevenue
-    def customsDutyRevenue: PLN   = monthly.customsDutyRevenue
-    def minWageLevel: PLN         = policy.minWageLevel
-    def minWagePriceLevel: Double = policy.minWagePriceLevel
+    def taxRevenue: PLN               = monthly.taxRevenue
+    def deficit: PLN                  = monthly.deficit
+    def cumulativeDebt: PLN           = financial.cumulativeDebt
+    def unempBenefitSpend: PLN        = monthly.unempBenefitSpend
+    def bondsOutstanding: PLN         = financial.bondsOutstanding
+    def foreignBondHoldings: PLN      = financial.foreignBondHoldings
+    def bondYield: Rate               = policy.bondYield
+    def weightedCoupon: Rate          = policy.weightedCoupon
+    def debtServiceSpend: PLN         = monthly.debtServiceSpend
+    def socialTransferSpend: PLN      = monthly.socialTransferSpend
+    def publicCapitalStock: PLN       = policy.publicCapitalStock
+    def govCurrentSpend: PLN          = monthly.govCurrentSpend
+    def govCapitalSpend: PLN          = monthly.govCapitalSpend
+    def euProjectCapital: PLN         = monthly.euProjectCapital
+    def euCofinancing: PLN            = monthly.euCofinancing
+    def exciseRevenue: PLN            = monthly.exciseRevenue
+    def customsDutyRevenue: PLN       = monthly.customsDutyRevenue
+    def minWageLevel: PLN             = policy.minWageLevel
+    def minWagePriceLevel: PriceIndex = policy.minWagePriceLevel
 
     /** Domestic budget-financed demand anchor used by fiscal-demand rules. */
     def domesticBudgetDemand: PLN = govCurrentSpend + govCapitalSpend
@@ -138,7 +138,7 @@ object FiscalBudget:
     ): GovState =
       GovState(
         financial = GovFinancialState(cumulativeDebt, bondsOutstanding, foreignBondHoldings),
-        policy = GovPolicyState(bondYield, weightedCoupon, publicCapitalStock, minWageLevel, minWagePriceLevel),
+        policy = GovPolicyState(bondYield, weightedCoupon, publicCapitalStock, minWageLevel, PriceIndex(minWagePriceLevel)),
         monthly = GovFlowState(
           taxRevenue,
           deficit,
@@ -161,7 +161,7 @@ object FiscalBudget:
   /** Monthly fiscal inputs — all monetary fields in PLN. */
   case class Input(
       prev: GovState,
-      priceLevel: Double,
+      priceLevel: PriceIndex,
       // Revenue
       citPaid: PLN = PLN.Zero,
       vat: PLN = PLN.Zero,
@@ -184,7 +184,7 @@ object FiscalBudget:
   def update(in: Input)(using p: SimParams): GovState =
     val govBaseRaw: PLN =
       if in.govPurchasesActual > PLN.Zero then in.govPurchasesActual
-      else p.fiscal.govBaseSpending * Multiplier(in.priceLevel)
+      else p.fiscal.govBaseSpending * in.priceLevel.toMultiplier
 
     val (govCurrent, govCapital): (PLN, PLN) =
       val capShare = p.fiscal.govInvestShare

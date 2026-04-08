@@ -145,7 +145,7 @@ object OpenEconEconomics:
       newInflation: Rate,
       autoRatio: Share,
       govPurchases: PLN,
-      sectorMults: Vector[Double],
+      sectorMults: Vector[Multiplier],
       livingFirms: Vector[Firm.State],
       totalBondDefault: PLN,
       actualBondIssuance: PLN,
@@ -318,11 +318,13 @@ object OpenEconEconomics:
 
   @boundaryEscape
   private def computeSectorOutputs(in: Input)(using p: SimParams): Vector[PLN] =
-    import ComputationBoundary.toDouble
     val living = in.livingFirms.filter(Firm.isAlive)
     (0 until p.sectorDefs.length)
       .map: s =>
-        PLN(living.filter(_.sector.toInt == s).map(f => toDouble(Firm.computeCapacity(f)) * in.sectorMults(f.sector.toInt) * in.w.priceLevel).sum)
+        living
+          .filter(_.sector.toInt == s)
+          .foldLeft(PLN.Zero): (acc, f) =>
+            acc + (in.w.priceLevel * (Firm.computeCapacity(f) * in.sectorMults(f.sector.toInt)))
       .toVector
 
   @boundaryEscape
@@ -457,16 +459,13 @@ object OpenEconEconomics:
 
   @boundaryEscape
   private def runStepSectorOutputs(in: StepInput)(using p: SimParams): Vector[PLN] =
-    import ComputationBoundary.toDouble
     val living = in.s5.ioFirms.filter(Firm.isAlive)
     (0 until p.sectorDefs.length)
       .map: s =>
-        PLN(
-          living
-            .filter(_.sector.toInt == s)
-            .map(f => toDouble(Firm.computeCapacity(f)) * in.s4.sectorMults(f.sector.toInt) * in.w.priceLevel)
-            .sum,
-        )
+        living
+          .filter(_.sector.toInt == s)
+          .foldLeft(PLN.Zero): (acc, f) =>
+            acc + (in.w.priceLevel * (Firm.computeCapacity(f) * in.s4.sectorMults(f.sector.toInt)))
       .toVector
 
   @boundaryEscape

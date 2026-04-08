@@ -60,7 +60,7 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
     autoRatio = Share(autoR),
     domesticRate = Rate(rate),
     gdp = PLN(gdp),
-    priceLevel = price,
+    priceLevel = PriceIndex(price),
     sectorOutputs = defaultSectorOutputs,
     month = month,
     nbpFxReserves = prevBop.reserves,

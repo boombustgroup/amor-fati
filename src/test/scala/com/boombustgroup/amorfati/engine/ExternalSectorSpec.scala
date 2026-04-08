@@ -20,7 +20,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
       price: Double = 1.0,
       autoR: Double = 0.0,
       month: Int = 30,
-  ) = GvcTrade.StepInput(prev, sectorOutputs, price, er, autoR, month, rng = new scala.util.Random(42))
+  ) = GvcTrade.StepInput(prev, sectorOutputs, PriceIndex(price), er, autoR, month, rng = new scala.util.Random(42))
 
   // ---- Initialization ----
 

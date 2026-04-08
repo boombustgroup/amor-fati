@@ -19,7 +19,7 @@ object FiscalConstraintEconomics:
   case class Result(
       month: Int,
       baseMinWage: PLN,
-      updatedMinWagePriceLevel: Double,
+      updatedMinWagePriceLevel: PriceIndex,
       resWage: PLN,
       lendingBaseRate: Rate,
   )
@@ -28,7 +28,7 @@ object FiscalConstraintEconomics:
   case class Output(
       m: Int,
       baseMinWage: PLN,
-      updatedMinWagePriceLevel: Double,
+      updatedMinWagePriceLevel: PriceIndex,
       resWage: PLN,
       lendingBaseRate: Rate,
   )
@@ -46,7 +46,7 @@ object FiscalConstraintEconomics:
       val isAdjustMonth = m > 0 && m % p.fiscal.minWageAdjustMonths == 0
       if isAdjustMonth then
         val cumInfl     =
-          if p.fiscal.minWageInflationIndex && w.gov.minWagePriceLevel > 0 then w.priceLevel / w.gov.minWagePriceLevel - 1.0
+          if p.fiscal.minWageInflationIndex then toDouble(w.priceLevel) / toDouble(w.gov.minWagePriceLevel) - 1.0
           else 0.0
         val inflIndexed = toDouble(w.gov.minWageLevel) * (1.0 + Math.max(0.0, cumInfl))
         val target      = toDouble(w.householdMarket.marketWage) * toDouble(p.fiscal.minWageTargetRatio)

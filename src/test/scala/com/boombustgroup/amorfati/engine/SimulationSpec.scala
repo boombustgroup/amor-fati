@@ -31,24 +31,24 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateInflation ---
 
   "PriceLevel.update" should "produce higher inflation with higher demand" in {
-    val r1 = PriceLevel.update(Rate(0.02), 1.0, 1.0, 0.0, 0.0)
-    val r2 = PriceLevel.update(Rate(0.02), 1.0, 1.5, 0.0, 0.0)
+    val r1 = PriceLevel.update(Rate(0.02), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val r2 = PriceLevel.update(Rate(0.02), PriceIndex.Base, Multiplier(1.5), Coefficient.Zero, ExchangeRateShock.Zero)
     r2.inflation should be > r1.inflation
   }
 
   it should "produce higher inflation with FX import pressure" in {
-    val r1 = PriceLevel.update(Rate(0.02), 1.0, 1.0, 0.0, 0.0)
-    val r2 = PriceLevel.update(Rate(0.02), 1.0, 1.0, 0.0, 0.2)
+    val r1 = PriceLevel.update(Rate(0.02), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val r2 = PriceLevel.update(Rate(0.02), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock(0.2))
     r2.inflation should be > r1.inflation
   }
 
   it should "enforce price floor at 0.30" in {
-    val r = PriceLevel.update(Rate(-0.50), 0.31, 0.5, -0.1, 0.0)
-    r.priceLevel should be >= 0.30
+    val r = PriceLevel.update(Rate(-0.50), PriceIndex(0.31), Multiplier(0.5), Coefficient(-0.1), ExchangeRateShock.Zero)
+    td.toDouble(r.priceLevel) should be >= 0.30
   }
 
   it should "apply soft deflation floor at -1.5%/mo" in {
-    val r = PriceLevel.update(Rate(-0.10), 1.0, 0.5, -0.05, 0.0)
+    val r = PriceLevel.update(Rate(-0.10), PriceIndex.Base, Multiplier(0.5), Coefficient(-0.05), ExchangeRateShock.Zero)
     // The soft floor means deflation doesn't accelerate as fast
     // Raw monthly would be very negative; with floor, annualized should be bounded
     td.toDouble(r.inflation) should be > -1.0 // deflation shouldn't exceed 100% annualized
@@ -77,7 +77,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
     val result = FiscalBudget.update(
       FiscalBudget.Input(
         prev,
-        priceLevel = 1.0,
+        priceLevel = PriceIndex.Base,
         citPaid = PLN(100000),
         vat = PLN(200000),
       ),
@@ -90,7 +90,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
     val result = FiscalBudget.update(
       FiscalBudget.Input(
         prev,
-        priceLevel = 1.0,
+        priceLevel = PriceIndex.Base,
         citPaid = PLN(100000),
         vat = PLN(200000),
       ),

@@ -47,7 +47,12 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       )
     }.toVector
 
-  private def baseInput(firms: Vector[Firm.State], scale: Multiplier = Multiplier.One, price: Double = 1.0, demandMult: Double = 1.0) =
+  private def baseInput(
+      firms: Vector[Firm.State],
+      scale: Multiplier = Multiplier.One,
+      price: PriceIndex = PriceIndex.Base,
+      demandMult: Multiplier = Multiplier.One,
+  ) =
     IntermediateMarket.Input(
       firms = firms,
       sectorMults = Vector.fill(6)(demandMult),
@@ -62,7 +67,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   "IntermediateMarket.process" should "be zero-sum within tolerance" in
     forAll(Gen.choose(0.8, 1.5), genPrice) { (demandMult: Double, price: Double) =>
       val firms    = makeFirms(60)
-      val r        = IntermediateMarket.process(baseInput(firms, price = price, demandMult = demandMult))
+      val r        = IntermediateMarket.process(baseInput(firms, price = PriceIndex(price), demandMult = Multiplier(demandMult)))
       val totalAdj = r.firms.zip(firms).map((nf, of) => (nf.cash - of.cash).bd).sum
       totalAdj.abs should be < BigDecimal("1.0")
     }
@@ -71,7 +76,8 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     val zeroMatrix  = Vector.fill(6)(Vector.fill(6)(0.0))
     val zeroColSums = Vector.fill(6)(0.0)
     val firms       = makeFirms(30)
-    val r           = IntermediateMarket.process(IntermediateMarket.Input(firms, Vector.fill(6)(1.0), 1.0, zeroMatrix, zeroColSums))
+    val r           =
+      IntermediateMarket.process(IntermediateMarket.Input(firms, Vector.fill(6)(Multiplier.One), PriceIndex.Base, zeroMatrix, zeroColSums))
     for i <- firms.indices do r.firms(i).cash shouldBe firms(i).cash
     r.totalPaid shouldBe PLN.Zero
   }
@@ -103,21 +109,22 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   it should "scale with sectorMults" in {
     val firms = makeFirms(60)
     val r1    = IntermediateMarket.process(baseInput(firms))
-    val r2    = IntermediateMarket.process(baseInput(firms, demandMult = 2.0))
+    val r2    = IntermediateMarket.process(baseInput(firms, demandMult = Multiplier(2.0)))
     if r1.totalPaid > PLN.Zero then r2.totalPaid should be > r1.totalPaid
   }
 
   it should "scale with price" in {
     val firms = makeFirms(60)
     val r1    = IntermediateMarket.process(baseInput(firms))
-    val r2    = IntermediateMarket.process(baseInput(firms, price = 2.0))
+    val r2    = IntermediateMarket.process(baseInput(firms, price = PriceIndex(2.0)))
     if r1.totalPaid > PLN.Zero then r2.totalPaid should be > r1.totalPaid
   }
 
   it should "produce non-negative totalPaid" in
     forAll(Gen.choose(0.5, 2.0), genPrice, Gen.choose(0.0, 1.0)) { (dm: Double, price: Double, scale: Double) =>
       val firms = makeFirms(30)
-      val r     = IntermediateMarket.process(baseInput(firms, scale = Multiplier(scale), price = price, demandMult = dm))
+      val r     =
+        IntermediateMarket.process(baseInput(firms, scale = Multiplier(scale), price = PriceIndex(price), demandMult = Multiplier(dm)))
       r.totalPaid should be >= PLN.Zero
     }
 

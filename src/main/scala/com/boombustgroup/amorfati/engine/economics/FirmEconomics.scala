@@ -147,7 +147,7 @@ object FirmEconomics:
       lendingBaseRate: Rate,
       resWage: PLN,
       baseMinWage: PLN,
-      minWagePriceLevel: Double,
+      minWagePriceLevel: PriceIndex,
       // From Labor
       newWage: PLN,
       employed: Int,
@@ -166,9 +166,9 @@ object FirmEconomics:
       // From HouseholdIncome
       hhOutput: HouseholdIncomeEconomics.Output,
       // From Demand
-      sectorMults: Vector[Double],
-      avgDemandMult: Double,
-      sectorCap: Vector[Double],
+      sectorMults: Vector[Multiplier],
+      avgDemandMult: Multiplier,
+      sectorCap: Vector[PLN],
       govPurchases: PLN,
       laggedInvestDemand: PLN,
       fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
@@ -340,7 +340,7 @@ object FirmEconomics:
     val (ioFirms, totalIoPaid)              = applyIntermediateMarket(bonded.firms, stepIn)
     // Calvo staggered pricing: per-firm markup update
     val calvoFirms                          = ioFirms.map: f =>
-      val sectorMult = Multiplier(stepIn.s4.sectorMults(f.sector.toInt))
+      val sectorMult = stepIn.s4.sectorMults(f.sector.toInt)
       val calvo      = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, stepIn.s2.wageGrowth, rng)
       f.copy(markup = calvo.newMarkup)
     val (finalHouseholds, crossSectorHires) = processLaborMarket(calvoFirms, stepIn, rng)

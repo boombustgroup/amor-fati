@@ -94,7 +94,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
 
   "updateGov" should "include euCofinancing in deficit" in {
     val prev      = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    val baseInput = FiscalBudget.Input(prev, priceLevel = 1.0, citPaid = PLN(100000), vat = PLN(200000))
+    val baseInput = FiscalBudget.Input(prev, priceLevel = PriceIndex.Base, citPaid = PLN(100000), vat = PLN(200000))
     val base      = FiscalBudget.update(baseInput)
     val withEu    = FiscalBudget.update(baseInput.copy(euCofinancing = PLN(50000.0)))
     // Deficit should increase by euCofinancing amount
@@ -106,7 +106,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     val result = FiscalBudget.update(
       FiscalBudget.Input(
         prev,
-        priceLevel = 1.0,
+        priceLevel = PriceIndex.Base,
         citPaid = PLN(100000),
         vat = PLN(200000),
         euCofinancing = PLN(75000.0),
@@ -120,7 +120,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     val base   = FiscalBudget.update(
       FiscalBudget.Input(
         prev,
-        priceLevel = 1.0,
+        priceLevel = PriceIndex.Base,
         citPaid = PLN(100000),
         vat = PLN(200000),
       ),
@@ -128,7 +128,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     val result = FiscalBudget.update(
       FiscalBudget.Input(
         prev,
-        priceLevel = 1.0,
+        priceLevel = PriceIndex.Base,
         citPaid = PLN(100000),
         vat = PLN(200000),
         euProjectCapital = PLN(30000.0),

@@ -31,13 +31,13 @@ object InflationProbe:
     val ratio = 1.0 / (1.0 + Math.exp(-x))
     (totalPopulation * ratio).toInt
 
-  private def topPressures(pressures: Vector[Double])(using p: SimParams): String =
+  private def topPressures(pressures: Vector[Multiplier])(using p: SimParams): String =
     p.sectorDefs
       .zip(pressures)
-      .sortBy(-_._2)
+      .sortBy { case (_, v) => -(v / Multiplier.One) }
       .take(3)
       .map { case (sec, v) =>
-        s"${sec.name}=${"%.2f".formatLocal(java.util.Locale.US, v)}"
+        s"${sec.name}=${"%.2f".formatLocal(java.util.Locale.US, v / Multiplier.One)}"
       }
       .mkString(", ")
 
@@ -54,7 +54,7 @@ object InflationProbe:
     val zusNetSurplus = (world.social.zus.contributions - world.social.zus.pensionPayments).max(PLN.Zero)
     val unempRate     = Share.One - Share.fraction(employed, world.derivedTotalPopulation)
     val unempGap      = (unempRate - p.monetary.nairu).max(Share.Zero)
-    val base          = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, world.priceLevel))
+    val base          = p.fiscal.govBaseSpending * world.priceLevel.toMultiplier.max(Multiplier.One)
     val recycling     = (world.gov.taxRevenue + zusNetSurplus) * p.fiscal.govFiscalRecyclingRate
     val stimulus      = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
     GovPurchasesBreakdown(zusNetSurplus, unempGap, base, recycling, stimulus, base + stimulus)
@@ -141,7 +141,7 @@ object InflationProbe:
       val s9                = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
 
       val exDev         = exchangeRateValue(world.forex.exchangeRate) / summon[SimParams].forex.baseExRate - 1.0
-      val demandPullM   = (s4.avgDemandMult - 1.0) * DemandPullWeight
+      val demandPullM   = toDouble((s4.avgDemandMult.deviationFromOne.toScalar * Scalar(DemandPullWeight)).toCoefficient)
       val costPushM     = toDouble(s2.wageGrowth) * CostPushWeight
       val rawImportPush = Math.max(0.0, exDev) * toDouble(summon[SimParams].forex.importPropensity) * ImportPushWeight
       val importPushM   = Math.min(rawImportPush, toDouble(summon[SimParams].openEcon.importPushCap))
@@ -171,7 +171,7 @@ object InflationProbe:
         else 0.0
 
       println(
-        f"m=$month%2d u=${unemp * 100.0}%.2f%% pi=${totalInfl * 100.0}%.2f%% wage=${toDouble(s2.newWage)}%.0f wg=${toDouble(s2.wageGrowth) * 100.0}%.2f%% demand=${s4.avgDemandMult}%.3f markup=${markupAnnual * 100.0}%.2f%%",
+        f"m=$month%2d u=${unemp * 100.0}%.2f%% pi=${totalInfl * 100.0}%.2f%% wage=${toDouble(s2.newWage)}%.0f wg=${toDouble(s2.wageGrowth) * 100.0}%.2f%% demand=${s4.avgDemandMult / Multiplier.One}%.3f markup=${markupAnnual * 100.0}%.2f%%",
       )
       println(
         f"  channels monthly: demand=${demandPullM * 100.0}%.2fpp cost=${costPushM * 100.0}%.2fpp import=${importPushM * 100.0}%.2fpp raw=${rawMonthly * 100.0}%.2fpp floor=${flooredM * 100.0}%.2fpp",

@@ -98,7 +98,7 @@ object WorldInit:
     val world = World(
       month = 0,
       inflation = Rate(0.02),
-      priceLevel = 1.0,
+      priceLevel = PriceIndex(1.0),
       currentSigmas = p.sectorDefs.map(_.sigma),
       gov = FiscalBudget.GovState(
         taxRevenue = PLN.Zero,

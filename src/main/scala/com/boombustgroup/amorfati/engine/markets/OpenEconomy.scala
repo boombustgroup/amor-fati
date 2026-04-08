@@ -18,8 +18,10 @@ import com.boombustgroup.amorfati.types.*
   * Calibration: NBP BoP statistics 2024, GUS national accounts.
   */
 object OpenEconomy:
-  private def exchangeRateValue(er: ExchangeRate): Double =
+  private def exchangeRateValue(er: ExchangeRate): Double     =
     er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+  private def priceLevelValue(priceLevel: PriceIndex): Double =
+    priceLevel.toMultiplier / Multiplier.One
 
   // ---------------------------------------------------------------------------
   // State types
@@ -93,7 +95,7 @@ object OpenEconomy:
       autoRatio: Share,
       domesticRate: Rate,
       gdp: PLN,
-      priceLevel: Double,
+      priceLevel: PriceIndex,
       sectorOutputs: Vector[PLN],
       month: Int,
       inflation: Rate = Rate.Zero,
@@ -177,9 +179,10 @@ object OpenEconomy:
     in.gvcIntermImports.getOrElse:
       val nSectors    = p.sectorDefs.length
       val erNetEffect = Math.pow(exchangeRateValue(in.prevForex.exchangeRate) / p.forex.baseExRate, 1.0 - toDouble(p.openEcon.erElasticity))
+      val priceLevel  = priceLevelValue(in.priceLevel)
       (0 until nSectors)
         .map: s =>
-          val realOutput = if in.priceLevel > 0 then PLN(toDouble(in.sectorOutputs(s)) / in.priceLevel) else in.sectorOutputs(s)
+          val realOutput = if priceLevel > 0 then PLN(toDouble(in.sectorOutputs(s)) / priceLevel) else in.sectorOutputs(s)
           realOutput * p.openEcon.importContent(s) * Multiplier(erNetEffect)
         .toVector
 
@@ -215,10 +218,11 @@ object OpenEconomy:
     CapitalAccountResult(fdi + adjustedPortfolio, fdi, adjustedPortfolio, capitalFlight.newCarryState.stock)
 
   @boundaryEscape
-  private def realExchangeRateEffect(exchangeRate: ExchangeRate, priceLevel: Double)(using p: SimParams): Double =
+  private def realExchangeRateEffect(exchangeRate: ExchangeRate, priceLevel: PriceIndex)(using p: SimParams): Double =
     import ComputationBoundary.toDouble
     val nominalER = exchangeRateValue(exchangeRate) / p.forex.baseExRate
-    val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER else 1.0
+    val price     = priceLevelValue(priceLevel)
+    val realPrice = if price > 0 && nominalER > 0 then price / nominalER else 1.0
     Math.pow(1.0 / Math.max(MinRealPrice, realPrice), toDouble(p.openEcon.exportPriceElasticity))
 
   @boundaryEscape

@@ -62,8 +62,8 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   private def baseInput(firms: Vector[Firm.State]) = IntermediateMarket.Input(
     firms = firms,
-    sectorMults = Vector.fill(6)(1.0),
-    price = 1.0,
+    sectorMults = Vector.fill(6)(Multiplier.One),
+    price = PriceIndex.Base,
     ioMatrix = defaultMatrix,
     columnSums = defaultColSums,
   )
@@ -174,7 +174,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   it should "scale I-O flows with demandMult and price" in {
     val firms   = makeFirmsAllSectors(5)
     val base    = IntermediateMarket.process(baseInput(firms))
-    val doubled = IntermediateMarket.process(baseInput(firms).copy(sectorMults = Vector.fill(6)(2.0)))
+    val doubled = IntermediateMarket.process(baseInput(firms).copy(sectorMults = Vector.fill(6)(Multiplier(2.0))))
     // Doubling demand should double total I-O flows
     doubled.totalPaid.bd shouldBe ((base.totalPaid.bd * 2) +- (base.totalPaid.bd * BigDecimal("0.01")))
   }

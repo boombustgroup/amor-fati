@@ -14,7 +14,7 @@ import com.boombustgroup.amorfati.types.*
 case class World(
     month: Int,                                                        // simulation month (1-indexed)
     inflation: Rate,                                                   // CPI YoY inflation
-    priceLevel: Double,                                                // cumulative CPI index (base = 1.0)
+    priceLevel: PriceIndex,                                            // cumulative CPI index (base = 1.0)
     currentSigmas: Vector[Sigma],                                      // per-sector σ (Arthur increasing returns)
     gov: FiscalBudget.GovState,                                        // government budget & debt
     nbp: Nbp.State,                                                    // central bank: rate, bonds, FX, QE
@@ -106,7 +106,7 @@ object World:
     new World(
       month = month,
       inflation = inflation,
-      priceLevel = priceLevel,
+      priceLevel = PriceIndex(priceLevel),
       currentSigmas = currentSigmas,
       gov = gov,
       nbp = nbp,
@@ -216,13 +216,14 @@ object MonetaryPlumbingState:
 
 /** Inter-step pipeline signals carried into the next month. */
 case class PipelineState(
-    sectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0),     // per-sector demand multipliers from S4
-    sectorDemandPressure: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // uncapped demand/capacity ratios for hiring
-    sectorHiringSignal: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0),   // smoothed sector hiring signal used by firm labor planning
-    fiscalRuleSeverity: Int = 0,                                                                 // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
-    govSpendingCutRatio: Share = Share.Zero,                                                     // fraction of raw spending cut by fiscal rules
-    aggregateHiringSlack: Double = 1.0,                                                          // economy-wide compression of firm labor targets when plans exceed supply
-    startupAbsorptionRate: Double = 1.0,                                                         // share of startup hiring targets filled across active startup firms
+    sectorDemandMult: Vector[Multiplier] = Vector.fill(SimParams.DefaultSectorDefs.length)(Multiplier.One),     // per-sector demand multipliers from S4
+    sectorDemandPressure: Vector[Multiplier] = Vector.fill(SimParams.DefaultSectorDefs.length)(Multiplier.One), // uncapped demand/capacity ratios for hiring
+    sectorHiringSignal: Vector[Multiplier] =
+      Vector.fill(SimParams.DefaultSectorDefs.length)(Multiplier.One),                                          // smoothed sector hiring signal used by firm labor planning
+    fiscalRuleSeverity: Int = 0,                                                                                // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
+    govSpendingCutRatio: Share = Share.Zero,                                                                    // fraction of raw spending cut by fiscal rules
+    aggregateHiringSlack: Double = 1.0,                                                                         // economy-wide compression of firm labor targets when plans exceed supply
+    startupAbsorptionRate: Double = 1.0,                                                                        // share of startup hiring targets filled across active startup firms
 )
 object PipelineState:
   val zero: PipelineState = PipelineState()

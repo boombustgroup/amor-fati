@@ -84,6 +84,8 @@ object types:
     def toMultiplier: Multiplier     = Multiplier.fromRaw(r.toLong)
     @targetName("rateToScalar")
     def toScalar: Scalar             = Scalar.fromRaw(r.toLong)
+    @targetName("rateToCoefficient")
+    def toCoefficient: Coefficient   = Coefficient.fromRaw(r.toLong)
     @targetName("rateRatioToRate")
     def ratioTo(other: Rate): Scalar = Scalar.fromRaw(scaledDiv(r.toLong, other.toLong))
 
@@ -140,8 +142,12 @@ object types:
     def toRate: Rate                       = Rate.fromRaw(m.toLong)
     @targetName("multToShare")
     def toShare: Share                     = Share.fromRaw(m.toLong)
+    @targetName("multToCoefficient")
+    def toCoefficient: Coefficient         = Coefficient.fromRaw(m.toLong)
     @targetName("multToScalar")
     def toScalar: Scalar                   = Scalar.fromRaw(m.toLong)
+    @targetName("multDeviationFromOne")
+    def deviationFromOne: Coefficient      = Coefficient.fromRaw(m.toLong - Multiplier.One.toLong)
 
   // --- Coefficient × typed ---
   extension (c: Coefficient)
@@ -157,17 +163,26 @@ object types:
     def toMultiplier: Multiplier = Multiplier.fromRaw(c.toLong)
     @targetName("coefToScalar")
     def toScalar: Scalar         = Scalar.fromRaw(c.toLong)
+    @targetName("coefToRate")
+    def toRate: Rate             = Rate.fromRaw(c.toLong)
 
   // --- PriceIndex × typed ---
   extension (pi: PriceIndex)
     @targetName("priceIdxTimesRate")
-    def *(r: Rate): PriceIndex       = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(r.toLong)))
+    def *(r: Rate): PriceIndex                       = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(r.toLong)))
     @targetName("priceIdxTimesMultiplier")
-    def *(m: Multiplier): PriceIndex = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): PriceIndex                 = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(m.toLong)))
     @targetName("priceIdxTimesPln")
-    def *(p: PLN): PLN               = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(pi.toLong)))
+    def *(p: PLN): PLN                               = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(pi.toLong)))
     @targetName("priceIdxToMultiplier")
-    def toMultiplier: Multiplier     = Multiplier.fromRaw(pi.toLong)
+    def toMultiplier: Multiplier                     = Multiplier.fromRaw(pi.toLong)
+    @targetName("priceIdxRatioToPriceIdx")
+    def ratioTo(other: PriceIndex): Scalar           = Scalar.fromRaw(scaledDiv(pi.toLong, other.toLong))
+    @targetName("priceIdxApplyGrowth")
+    def applyGrowth(growth: Coefficient): PriceIndex =
+      PriceIndex.fromRaw(
+        bankerRound(BigInt(pi.toLong) * BigInt(com.boombustgroup.amorfati.fp.FixedPointBase.Scale + growth.toLong)),
+      )
 
   extension (s: Sigma)
     @targetName("sigmaToScalar")

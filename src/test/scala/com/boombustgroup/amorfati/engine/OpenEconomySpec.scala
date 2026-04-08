@@ -29,7 +29,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
     autoRatio = Share(autoRatio),
     domesticRate = p.monetary.initialRate,
     gdp = gdp,
-    priceLevel = 1.0,
+    priceLevel = PriceIndex.Base,
     sectorOutputs = baseSectorOutputs,
     month = month,
     nbpFxReserves = prevBop.reserves,

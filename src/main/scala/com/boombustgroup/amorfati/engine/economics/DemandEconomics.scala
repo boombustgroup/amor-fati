@@ -18,10 +18,10 @@ import com.boombustgroup.amorfati.types.*
 object DemandEconomics:
 
   // ---- Calibration constants ----
-  private val RealRateElasticity     = 0.02 // demand sensitivity to real interest rate gap
-  private val PressureMaxBoost       = 0.75 // hiring signal can rise above 1.0, but only moderately
-  private val PressureSaturationRate = 1.25 // how quickly excess-demand pressure saturates above capacity
-  private val HiringSignalSmoothing  = 0.65 // persistence in sector hiring plans; avoids month-to-month whipsaw
+  private val RealRateElasticity     = Scalar(0.02)     // demand sensitivity to real interest rate gap
+  private val PressureMaxBoost       = Multiplier(0.75) // hiring signal can rise above 1.0, but only moderately
+  private val PressureSaturationRate = Scalar(1.25)     // how quickly excess-demand pressure saturates above capacity
+  private val HiringSignalSmoothing  = Share(0.65)      // persistence in sector hiring plans; avoids month-to-month whipsaw
 
   case class Input(
       w: World,                   // current world state
@@ -31,13 +31,13 @@ object DemandEconomics:
   )
 
   case class Output(
-      govPurchases: PLN,                       // total government purchases this month
-      sectorMults: Vector[Double],             // per-sector demand multiplier (0 = no demand, 1 = full capacity)
-      sectorDemandPressure: Vector[Double],    // uncapped demand/capacity ratios used for hiring pressure
-      sectorHiringSignal: Vector[Double],      // smoothed sector hiring signal used by firm labor planning
-      avgDemandMult: Double,                   // economy-wide average demand multiplier
-      sectorCap: Vector[Double],               // per-sector nominal production capacity
-      laggedInvestDemand: PLN,                 // lagged investment demand for deposit flow calculation
+      govPurchases: PLN,                        // total government purchases this month
+      sectorMults: Vector[Multiplier],          // per-sector demand multiplier (0 = no demand, 1 = full capacity)
+      sectorDemandPressure: Vector[Multiplier], // uncapped demand/capacity ratios used for hiring pressure
+      sectorHiringSignal: Vector[Multiplier],   // smoothed sector hiring signal used by firm labor planning
+      avgDemandMult: Multiplier,                // economy-wide average demand multiplier
+      sectorCap: Vector[PLN],                   // per-sector nominal production capacity
+      laggedInvestDemand: PLN,                  // lagged investment demand for deposit flow calculation
       fiscalRuleStatus: FiscalRules.RuleStatus, // fiscal rule compliance diagnostics
   )
 
@@ -64,7 +64,7 @@ object DemandEconomics:
     val unempRate = Share.One - Share.fraction(in.employed, in.w.derivedTotalPopulation)
     val unempGap  = (unempRate - p.monetary.nairu).max(Share.Zero)
     val stimulus  = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
-    val target    = p.fiscal.govBaseSpending * Multiplier(Math.max(1.0, in.w.priceLevel)) + stimulus
+    val target    = p.fiscal.govBaseSpending * in.w.priceLevel.toMultiplier.max(Multiplier.One) + stimulus
     target
 
   /** Apply fiscal rules to raw government purchases.
@@ -92,12 +92,13 @@ object DemandEconomics:
     )
 
   /** Per-sector nominal production capacity: sum of firm capacities. */
-  @boundaryEscape
-  private def computeSectorCapacity(in: Input)(using p: SimParams): Vector[Double] =
-    import ComputationBoundary.toDouble
+  private def computeSectorCapacity(in: Input)(using p: SimParams): Vector[PLN] =
     (0 until p.sectorDefs.length)
       .map: s =>
-        in.living.filter(_.sector.toInt == s).map(f => toDouble(Firm.computeCapacity(f))).sum
+        in.living
+          .filter(_.sector.toInt == s)
+          .foldLeft(PLN.Zero): (acc, f) =>
+            acc + Firm.computeCapacity(f)
       .toVector
 
   /** Per-sector export demand: from GVC foreign firms when enabled, otherwise
@@ -117,22 +118,18 @@ object DemandEconomics:
   /** Per-sector total demand: consumption + gov purchases + investment +
     * exports, allocated via flow-of-funds weights.
     */
-  @boundaryEscape
   private def computeSectorDemand(
       in: Input,
       govPurchases: PLN,
       sectorExports: Vector[PLN],
       laggedInvestDemand: PLN,
-  )(using p: SimParams): Vector[Double] =
-    import ComputationBoundary.toDouble
+  )(using p: SimParams): Vector[PLN] =
     (0 until p.sectorDefs.length)
       .map: s =>
-        toDouble(
-          p.fiscal.fofConsWeights(s) * in.domesticCons +
-            p.fiscal.fofGovWeights(s) * govPurchases +
-            p.fiscal.fofInvestWeights(s) * laggedInvestDemand +
-            sectorExports(s),
-        )
+        p.fiscal.fofConsWeights(s) * in.domesticCons +
+          p.fiscal.fofGovWeights(s) * govPurchases +
+          p.fiscal.fofInvestWeights(s) * laggedInvestDemand +
+          sectorExports(s)
       .toVector
 
   /** Redistribute excess demand from capacity-constrained sectors to sectors
@@ -140,47 +137,53 @@ object DemandEconomics:
     * proportionally into below-capacity sectors.
     */
   private def computeRawDemandPressure(
-      sectorDemand: Vector[Double],
-      sectorCap: Vector[Double],
-      priceLevel: Double,
-  ): Vector[Double] =
+      sectorDemand: Vector[PLN],
+      sectorCap: Vector[PLN],
+      priceLevel: PriceIndex,
+  ): Vector[Multiplier] =
     sectorDemand.indices
       .map: s =>
-        if sectorCap(s) > 0 then sectorDemand(s) / (sectorCap(s) * priceLevel) else 0.0
+        val nominalCap = sectorCap(s) * priceLevel.toMultiplier
+        if nominalCap > PLN.Zero then sectorDemand(s).ratioTo(nominalCap).toMultiplier else Multiplier.Zero
       .toVector
 
-  private def stabilizeDemandPressure(rawPressure: Vector[Double]): Vector[Double] =
+  private def stabilizeDemandPressure(rawPressure: Vector[Multiplier]): Vector[Multiplier] =
     rawPressure.map(stabilizedPressure)
 
-  private def smoothHiringSignal(prevSignal: Vector[Double], currentSignal: Vector[Double]): Vector[Double] =
+  private def smoothHiringSignal(prevSignal: Vector[Multiplier], currentSignal: Vector[Multiplier]): Vector[Multiplier] =
     currentSignal.indices
       .map: i =>
-        val prev = prevSignal.lift(i).getOrElse(1.0)
-        prev * HiringSignalSmoothing + currentSignal(i) * (1.0 - HiringSignalSmoothing)
+        val prev = prevSignal.lift(i).getOrElse(Multiplier.One)
+        prev * HiringSignalSmoothing + currentSignal(i) * (Share.One - HiringSignalSmoothing)
       .toVector
 
-  private def stabilizedPressure(raw: Double): Double =
-    if raw <= 1.0 then raw
-    else 1.0 + PressureMaxBoost * (1.0 - Math.exp(-PressureSaturationRate * (raw - 1.0)))
+  private def stabilizedPressure(raw: Multiplier): Multiplier =
+    if raw <= Multiplier.One then raw
+    else
+      val excess = raw.deviationFromOne.max(Coefficient.Zero)
+      Multiplier.One + (PressureMaxBoost * (Multiplier.One - (-(excess.toScalar * PressureSaturationRate)).toCoefficient.exp))
 
   private def applySpillover(
-      rawMults: Vector[Double],
-      sectorCap: Vector[Double],
-      priceLevel: Double,
-  ): Vector[Double] =
-    val excessDemand    = rawMults.indices
+      rawMults: Vector[Multiplier],
+      sectorCap: Vector[PLN],
+      priceLevel: PriceIndex,
+  ): Vector[Multiplier] =
+    val nominalCapBySector = sectorCap.map(_ * priceLevel.toMultiplier)
+    val excessDemand       = rawMults.indices
       .map: s =>
-        if rawMults(s) > 1.0 then (rawMults(s) - 1.0) * sectorCap(s) * priceLevel else 0.0
-      .sum
-    val deficitCapacity = rawMults.indices
+        if rawMults(s) > Multiplier.One then nominalCapBySector(s) * rawMults(s).deviationFromOne else PLN.Zero
+      .foldLeft(PLN.Zero)(_ + _)
+    val deficitCapacity    = rawMults.indices
       .map: s =>
-        if rawMults(s) < 1.0 then (1.0 - rawMults(s)) * sectorCap(s) * priceLevel else 0.0
-      .sum
-    val spilloverFrac   = if deficitCapacity > 0 then Math.min(1.0, excessDemand / deficitCapacity) else 0.0
+        if rawMults(s) < Multiplier.One then nominalCapBySector(s) * (Multiplier.One - rawMults(s)).toCoefficient else PLN.Zero
+      .foldLeft(PLN.Zero)(_ + _)
+    val spilloverFrac      =
+      if deficitCapacity > PLN.Zero then excessDemand.ratioTo(deficitCapacity).toShare.clamp(Share.Zero, Share.One)
+      else Share.Zero
     rawMults.indices
       .map: s =>
-        if rawMults(s) > 1.0 then 1.0
-        else rawMults(s) + spilloverFrac * (1.0 - rawMults(s))
+        if rawMults(s) > Multiplier.One then Multiplier.One
+        else rawMults(s) + spilloverFrac * (Multiplier.One - rawMults(s))
       .toVector
 
   /** Economy-wide average demand multiplier, adjusted for real rate effect when
@@ -189,16 +192,19 @@ object DemandEconomics:
     * Uses post-spillover sector multipliers (capped at 1.0 per sector) weighted
     * by sector capacity — consistent with the demand firms actually see.
     */
-  @boundaryEscape
   private def computeAvgDemandMult(
-      sectorMults: Vector[Double],
-      sectorCap: Vector[Double],
+      sectorMults: Vector[Multiplier],
+      sectorCap: Vector[PLN],
       in: Input,
-  ): Double =
-    import ComputationBoundary.toDouble
-    val totalCapacity = sectorCap.sum
+  ): Multiplier =
+    val totalCapacity = sectorCap.foldLeft(PLN.Zero)(_ + _)
     val baseMult      =
-      if totalCapacity > 0 then sectorMults.indices.map(s => sectorMults(s) * sectorCap(s)).sum / totalCapacity
-      else 1.0
-    val realRate      = toDouble(in.w.nbp.referenceRate - in.w.mechanisms.expectations.expectedInflation)
-    baseMult + (-realRate * RealRateElasticity)
+      if totalCapacity > PLN.Zero then
+        sectorMults.indices.foldLeft(PLN.Zero): (acc, s) =>
+          acc + (sectorCap(s) * sectorMults(s))
+      else PLN.Zero
+    val weightedBase  =
+      if totalCapacity > PLN.Zero then baseMult.ratioTo(totalCapacity).toMultiplier
+      else Multiplier.One
+    val realRateAdj   = ((in.w.nbp.referenceRate - in.w.mechanisms.expectations.expectedInflation).toScalar * RealRateElasticity).toCoefficient
+    (Coefficient.One + weightedBase.deviationFromOne - realRateAdj).toMultiplier

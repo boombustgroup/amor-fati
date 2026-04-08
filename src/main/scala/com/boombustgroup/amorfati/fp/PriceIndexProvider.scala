@@ -12,11 +12,14 @@ object PriceIndexProvider:
     def fromRaw(raw: Long): PriceIndex = raw
 
   extension (p: PriceIndex)
-    inline def toLong: Long              = p
-    def +(other: PriceIndex): PriceIndex = p + other
-    def -(other: PriceIndex): PriceIndex = p - other
-    def *(other: PriceIndex): PriceIndex = bankerRound(BigInt(p) * BigInt(other))
-    def /(other: PriceIndex): Double     = if other != 0L then p.toDouble / other.toDouble else 0.0
-    def >(other: PriceIndex): Boolean    = p > other
-    def <(other: PriceIndex): Boolean    = p < other
-    def >=(other: PriceIndex): Boolean   = p >= other
+    inline def toLong: Long                = p
+    def +(other: PriceIndex): PriceIndex   = p + other
+    def -(other: PriceIndex): PriceIndex   = p - other
+    def *(other: PriceIndex): PriceIndex   = bankerRound(BigInt(p) * BigInt(other))
+    def /(other: PriceIndex): Double       = if other != 0L then p.toDouble / other.toDouble else 0.0
+    def max(other: PriceIndex): PriceIndex = math.max(p, other)
+    def min(other: PriceIndex): PriceIndex = math.min(p, other)
+    def >(other: PriceIndex): Boolean      = p > other
+    def <(other: PriceIndex): Boolean      = p < other
+    def >=(other: PriceIndex): Boolean     = p >= other
+    def <=(other: PriceIndex): Boolean     = p <= other

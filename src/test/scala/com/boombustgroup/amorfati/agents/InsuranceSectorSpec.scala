@@ -16,7 +16,7 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
       prev: Insurance.State = Insurance.initial,
       employed: Int = 80000,
       wage: PLN = PLN(8000.0),
-      priceLevel: Double = 1.0,
+      priceLevel: PriceIndex = PriceIndex.Base,
       unempRate: Share = Share(0.05),
       govBondYield: Rate = Rate(0.06),
       corpBondYield: Rate = Rate(0.08),
@@ -78,8 +78,8 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "compute non-life premium independent of price level (priceLevel param unused)" in {
-    val r1 = mkStep(priceLevel = 1.0)
-    val r2 = mkStep(priceLevel = 1.5)
+    val r1 = mkStep(priceLevel = PriceIndex.Base)
+    val r2 = mkStep(priceLevel = PriceIndex(1.5))
     td.toDouble(r2.lastNonLifePremium) shouldBe (td.toDouble(r1.lastNonLifePremium) +- 0.01)
   }
 

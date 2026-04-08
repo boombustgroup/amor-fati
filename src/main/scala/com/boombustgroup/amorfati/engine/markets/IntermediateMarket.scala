@@ -24,8 +24,8 @@ object IntermediateMarket:
 
   case class Input(
       firms: Vector[Firm.State],
-      sectorMults: Vector[Double],
-      price: Double,
+      sectorMults: Vector[Multiplier],
+      price: PriceIndex,
       ioMatrix: Vector[Vector[Double]],
       columnSums: Vector[Double],
       scale: Multiplier = Multiplier.One,
@@ -43,13 +43,14 @@ object IntermediateMarket:
     import ComputationBoundary.toDouble
     val nSectors = in.ioMatrix.size
     val scale    = toDouble(in.scale)
+    val price    = toDouble(in.price.toMultiplier)
     val arr      = in.firms.toArray
 
     // Identify living firms and compute per-firm gross output
     val living      = arr.indices.filter: i =>
       Firm.isAlive(arr(i))
     val grossOutput = new Array[Double](arr.length)
-    for i <- living do grossOutput(i) = toDouble(Firm.computeCapacity(arr(i))) * in.sectorMults(arr(i).sector.toInt) * in.price
+    for i <- living do grossOutput(i) = toDouble(Firm.computeCapacity(arr(i))) * toDouble(in.sectorMults(arr(i).sector.toInt)) * price
 
     // Total gross output per sector (for revenue distribution)
     val sectorOutput = new Array[Double](nSectors)
