@@ -15,6 +15,27 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
 
+  private def runEntry(
+      firms: Vector[Firm.State],
+      unemploymentRate: Double,
+      rng: scala.util.Random,
+      aggregateHiringSlack: Double = 1.0,
+      inflation: Rate = Rate.Zero,
+      expectedInflation: Rate = Rate.Zero,
+      startupAbsorptionRate: Double = 1.0,
+  ): FirmEntry.Result =
+    FirmEntry.process(
+      firms,
+      Share.Zero,
+      Share.Zero,
+      Share(unemploymentRate),
+      Share(aggregateHiringSlack),
+      inflation,
+      expectedInflation,
+      Share(startupAbsorptionRate),
+      rng,
+    )
+
   // ==========================================================================
   // Config defaults
   // ==========================================================================
@@ -415,7 +436,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   "Net creation" should "produce zero new firms when unemployment <= NAIRU" in {
     val firms  = mkFirms(100)
     val rng    = new scala.util.Random(42)
-    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.04, rng) // below NAIRU 0.05
+    val result = runEntry(firms, 0.04, rng)
     result.netBirths shouldBe 0
     result.firms.length shouldBe firms.length
   }
@@ -423,7 +444,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   "Replacement entry" should "recreate some dead firms even when unemployment <= NAIRU" in {
     val firms  = mkFirms(20) ++ Vector(mkDeadFirm(20), mkDeadFirm(21), mkDeadFirm(22), mkDeadFirm(23))
     val rng    = new scala.util.Random(42)
-    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.04, rng)
+    val result = runEntry(firms, 0.04, rng)
     result.netBirths shouldBe 0
     result.births should be > 0
     result.firms.length shouldBe firms.length
@@ -433,7 +454,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "preserve vector length when only replacements occur" in {
     val firms  = mkFirms(20) ++ Vector(mkDeadFirm(20), mkDeadFirm(21))
     val rng    = new scala.util.Random(42)
-    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.04, rng)
+    val result = runEntry(firms, 0.04, rng)
     result.netBirths shouldBe 0
     result.firms.length shouldBe firms.length
   }
@@ -441,7 +462,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "count only appended firms as netBirths" in {
     val firms  = mkFirms(100) ++ Vector(mkDeadFirm(100), mkDeadFirm(101), mkDeadFirm(102))
     val rng    = new scala.util.Random(42)
-    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    val result = runEntry(firms, 0.20, rng)
     result.births should be >= result.netBirths
     result.netBirths should be > 0
     result.firms.length shouldBe firms.length + result.netBirths
@@ -450,7 +471,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "produce firms when unemployment > NAIRU" in {
     val firms  = mkFirms(100)
     val rng    = new scala.util.Random(42)
-    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.15, rng) // 10% above NAIRU
+    val result = runEntry(firms, 0.15, rng)
     result.netBirths should be > 0
     result.firms.length should be > firms.length
   }
@@ -458,14 +479,14 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "respect hard cap" in {
     val firms  = mkFirms(10000)
     val rng    = new scala.util.Random(42)
-    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.50, rng) // extreme unemployment
+    val result = runEntry(firms, 0.50, rng)
     result.netBirths should be <= p.firm.netEntryMaxMonthly
   }
 
   it should "assign sequential FirmIds" in {
     val firms    = mkFirms(100)
     val rng      = new scala.util.Random(42)
-    val result   = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    val result   = runEntry(firms, 0.20, rng)
     val newFirms = result.firms.drop(firms.length)
     newFirms.zipWithIndex.foreach: (f, i) =>
       f.id.toInt shouldBe firms.length + i
@@ -474,7 +495,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "create firms with GUS size distribution" in {
     val firms    = mkFirms(100)
     val rng      = new scala.util.Random(42)
-    val result   = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    val result   = runEntry(firms, 0.20, rng)
     val newFirms = result.firms.drop(firms.length)
     newFirms.foreach: f =>
       f.initialSize should be >= 1
@@ -483,7 +504,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "initialize entrants with startup ramp-up state" in {
     val firms    = mkFirms(100)
     val rng      = new scala.util.Random(42)
-    val result   = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    val result   = runEntry(firms, 0.20, rng)
     val newFirms = result.firms.drop(firms.length)
     newFirms.foreach: f =>
       f.startupMonthsLeft should be > 0
@@ -494,54 +515,35 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   it should "dampen net entry when aggregate hiring slack is tight" in {
     val firms       = mkFirms(1000)
-    val looseResult = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate.Zero, Rate.Zero, 1.0, new scala.util.Random(42))
-    val tightResult = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 0.5, Rate.Zero, Rate.Zero, 1.0, new scala.util.Random(42))
+    val looseResult = runEntry(firms, 0.20, new scala.util.Random(42))
+    val tightResult = runEntry(firms, 0.20, new scala.util.Random(42), aggregateHiringSlack = 0.5)
     tightResult.netBirths.should(be < looseResult.netBirths)
   }
 
   it should "dampen net entry when startup absorption is weak" in {
     val firms        = mkFirms(1000)
-    val strongAbsorb = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate(0.03), Rate(0.025), 1.0, new scala.util.Random(42))
-    val weakAbsorb   = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, 1.0, Rate(0.03), Rate(0.025), 0.25, new scala.util.Random(42))
+    val strongAbsorb = runEntry(firms, 0.20, new scala.util.Random(42), inflation = Rate(0.03), expectedInflation = Rate(0.025))
+    val weakAbsorb   =
+      runEntry(firms, 0.20, new scala.util.Random(42), inflation = Rate(0.03), expectedInflation = Rate(0.025), startupAbsorptionRate = 0.25)
     weakAbsorb.netBirths should be < strongAbsorb.netBirths
   }
 
   it should "suppress expansionary net entry under deflation and negative expectations" in {
     val firms  = mkFirms(1000)
-    val result = FirmEntry.process(
-      firms,
-      Share.Zero,
-      Share.Zero,
-      0.20,
-      1.0,
-      Rate(-0.02),
-      Rate(-0.01),
-      1.0,
-      new scala.util.Random(42),
-    )
+    val result = runEntry(firms, 0.20, new scala.util.Random(42), inflation = Rate(-0.02), expectedInflation = Rate(-0.01))
     result.netBirths.shouldBe(0)
   }
 
   it should "allow expansionary net entry when labor slack is high and nominal conditions are positive" in {
     val firms  = mkFirms(1000)
-    val result = FirmEntry.process(
-      firms,
-      Share.Zero,
-      Share.Zero,
-      0.20,
-      1.0,
-      Rate(0.03),
-      Rate(0.025),
-      1.0,
-      new scala.util.Random(42),
-    )
+    val result = runEntry(firms, 0.20, new scala.util.Random(42), inflation = Rate(0.03), expectedInflation = Rate(0.025))
     result.netBirths.should(be > 0)
   }
 
   it should "preserve existing firms unchanged" in {
     val firms  = mkFirms(100)
     val rng    = new scala.util.Random(42)
-    val result = FirmEntry.process(firms, Share.Zero, Share.Zero, 0.20, rng)
+    val result = runEntry(firms, 0.20, rng)
     result.firms.take(firms.length).map(_.id) shouldBe firms.map(_.id)
   }
 

@@ -1,14 +1,14 @@
 package com.boombustgroup.amorfati.engine
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
 import com.boombustgroup.amorfati.types.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /** Unit tests for macroprudential instruments. */
 class MacroprudentialSpec extends AnyFlatSpec with Matchers:
 
-  import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
@@ -126,16 +126,13 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   // withinConcentrationLimitImpl
   // ==========================================================================
 
-  "withinConcentrationLimitImpl" should "return true when loan share is below limit" in {
+  "withinConcentrationLimitImpl" should "return true when loan share is below limit" in
     // 100/1000 = 10% < 25%
-    Macroprudential.withinConcentrationLimitImpl(100.0, 500.0, 1000.0) shouldBe true
-  }
+    Macroprudential.withinConcentrationLimitImpl(PLN(100.0), PLN(500.0), PLN(1000.0)).shouldBe(true)
 
-  it should "return false when loan share exceeds limit" in {
+  it should "return false when loan share exceeds limit" in
     // 300/1000 = 30% > 25% concentration limit
-    Macroprudential.withinConcentrationLimitImpl(300.0, 500.0, 1000.0) shouldBe false
-  }
+    Macroprudential.withinConcentrationLimitImpl(PLN(300.0), PLN(500.0), PLN(1000.0)).shouldBe(false)
 
-  it should "return true when total system loans is zero" in {
-    Macroprudential.withinConcentrationLimitImpl(100.0, 500.0, 0.0) shouldBe true
-  }
+  it should "return true when total system loans is zero" in
+    Macroprudential.withinConcentrationLimitImpl(PLN(100.0), PLN(500.0), PLN.Zero).shouldBe(true)

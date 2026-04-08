@@ -19,12 +19,12 @@ import com.boombustgroup.amorfati.types.*
 object Expectations:
 
   // ---- Calibration constants ----
-  private val MinCredibility             = 0.01 // floor on credibility index
-  private val OutputGapClamp             = 0.05 // ±5 pp unemployment gap clamp
-  private val FgBlendWeight              = 0.6  // weight on forward guidance in expected rate
-  private val UndershootLearningWeight   = 0.35 // below-target inflation updates expectations more slowly
-  private val UndershootCredibilityScale = 0.35 // below-target inflation erodes credibility less than overshooting
-  private val MaxTargetUndershoot        = 0.03 // expectations can drift at most 3pp below target at zero credibility
+  private val MinCredibility             = Share(0.01)       // floor on credibility index
+  private val OutputGapClamp             = Coefficient(0.05) // ±5 pp unemployment gap clamp
+  private val FgBlendWeight              = Share(0.6)        // weight on forward guidance in expected rate
+  private val UndershootLearningWeight   = Coefficient(0.35) // below-target inflation updates expectations more slowly
+  private val UndershootCredibilityScale = Share(0.35)       // below-target inflation erodes credibility less than overshooting
+  private val MaxTargetUndershoot        = Rate(0.03)        // expectations can drift at most 3pp below target at zero credibility
 
   case class State(
       expectedInflation: Rate,  // πᵉ: anchored inflation expectation
@@ -45,69 +45,67 @@ object Expectations:
   /** Monthly update: forecast error → adaptive learning → anchoring →
     * credibility → FG.
     */
-  @boundaryEscape
-  def step(prev: State, realizedInflation: Double, currentRate: Double, unemployment: Double)(using p: SimParams): State =
-    import ComputationBoundary.toDouble
-    val target          = toDouble(p.monetary.targetInfl)
-    val lambda          = toDouble(p.labor.expLambda)
-    val prevCredibility = toDouble(prev.credibility)
+  def step(prev: State, realizedInflation: Rate, currentRate: Rate, unemployment: Share)(using p: SimParams): State =
+    val target          = p.monetary.targetInfl
+    val lambda          = p.labor.expLambda
+    val prevCredibility = prev.credibility
 
     // Adaptive learning: πᵉ_adaptive = πᵉₜ₋₁ + λ(πₜ − πᵉₜ₋₁)
-    val error          = realizedInflation - toDouble(prev.expectedInflation)
-    val learningWeight = if realizedInflation < target then UndershootLearningWeight else 1.0
-    val adaptive       = toDouble(prev.expectedInflation) + lambda * learningWeight * error
+    val error          = realizedInflation - prev.expectedInflation
+    val learningWeight = if realizedInflation < target then UndershootLearningWeight else Coefficient.One
+    val adaptive       = prev.expectedInflation + error * lambda * learningWeight
 
     // Anchoring: blend target with adaptive based on credibility
-    val anchored = prevCredibility * target + (1.0 - prevCredibility) * adaptive
+    val anchored = target * prevCredibility + adaptive * prevCredibility.complement
     val expected = lowerAnchor(anchored, target, prevCredibility)
 
     val newCred = updateCredibility(prevCredibility, realizedInflation, target)
     val fgRate  = forwardGuidance(expected, target, unemployment, currentRate)
 
     // Expected rate: adaptive learning on policy rate, blended with FG when enabled
-    val adaptiveRate = toDouble(prev.expectedRate) + lambda * (currentRate - toDouble(prev.expectedRate))
-    val expRate      =
-      FgBlendWeight * fgRate + (1.0 - FgBlendWeight) * adaptiveRate
+    val adaptiveRate = prev.expectedRate + (currentRate - prev.expectedRate) * lambda
+    val expRate      = fgRate * FgBlendWeight + adaptiveRate * FgBlendWeight.complement
 
     State(
-      expectedInflation = Rate(expected),
-      expectedRate = Rate(expRate),
-      credibility = Share(newCred),
-      forecastError = Rate(error),
-      forwardGuidanceRate = Rate(fgRate),
+      expectedInflation = expected,
+      expectedRate = expRate,
+      credibility = newCred,
+      forecastError = error,
+      forwardGuidanceRate = fgRate,
     )
 
   /** Asymmetric credibility update: builds via (1−κ) scaling, erodes via κ
     * scaling.
     */
-  @boundaryEscape
-  private def updateCredibility(cred: Double, realizedInflation: Double, target: Double)(using p: SimParams): Double =
-    import ComputationBoundary.toDouble
-    val absDeviation = Math.abs(realizedInflation - target)
-    val threshold    = toDouble(p.labor.expCredibilityThreshold)
-    val speed        = toDouble(p.labor.expCredibilitySpeed)
+  private def updateCredibility(cred: Share, realizedInflation: Rate, target: Rate)(using p: SimParams): Share =
+    val absDeviation = (realizedInflation - target).abs
+    val threshold    = p.labor.expCredibilityThreshold
+    val speed        = p.labor.expCredibilitySpeed.toShare
     val raw          =
-      if absDeviation <= threshold then cred + speed * (1.0 - cred) * (threshold - absDeviation) / threshold
+      if absDeviation <= threshold then
+        val improvement = speed * (threshold - absDeviation).ratioTo(threshold).clampToShare * cred.complement
+        cred + improvement
       else
-        val erosionScale = if realizedInflation < target then UndershootCredibilityScale else 1.0
-        cred - speed * cred * erosionScale * (absDeviation - threshold) / threshold
-    Math.max(MinCredibility, Math.min(1.0, raw))
+        val erosionScale = if realizedInflation < target then UndershootCredibilityScale else Share.One
+        val erosion      = speed * (absDeviation - threshold).ratioTo(threshold).clampToShare * cred * erosionScale
+        cred - erosion
+    raw.clamp(MinCredibility, Share.One)
 
   /** Keep disinflationary episodes from fully de-anchoring expectations in the
     * baseline regime. Low credibility can pull expectations below target, but
     * only within a bounded undershoot band.
     */
-  private def lowerAnchor(expected: Double, target: Double, credibility: Double): Double =
-    val lowerBound = target - (1.0 - credibility) * MaxTargetUndershoot
-    Math.max(lowerBound, expected)
+  private def lowerAnchor(expected: Rate, target: Rate, credibility: Share): Rate =
+    val lowerBound = target - MaxTargetUndershoot * credibility.complement
+    expected.max(lowerBound)
 
   /** Taylor-rule forward guidance: r_fg = r* + α(πᵉ − π*) − δ·gap. */
-  @boundaryEscape
-  private def forwardGuidance(expected: Double, target: Double, unemployment: Double, currentRate: Double)(using p: SimParams): Double =
-    import ComputationBoundary.toDouble
+  private def forwardGuidance(expected: Rate, target: Rate, unemployment: Share, currentRate: Rate)(using p: SimParams): Rate =
     val _            = currentRate
-    val nairu        = toDouble(p.monetary.nairu)
-    val rawOutputGap = unemployment - nairu
-    val outputGap    = Math.max(-OutputGapClamp, Math.min(OutputGapClamp, rawOutputGap))
-    val rawFg        = toDouble(p.monetary.neutralRate) + toDouble(p.monetary.taylorAlpha) * (expected - target) - toDouble(p.monetary.taylorDelta) * outputGap
-    Math.max(toDouble(p.monetary.rateFloor), Math.min(toDouble(p.monetary.rateCeiling), rawFg))
+    val rawOutputGap = unemployment.toCoefficient - p.monetary.nairu.toCoefficient
+    val outputGap    = rawOutputGap.clamp(-OutputGapClamp, OutputGapClamp)
+    val rawFg        =
+      p.monetary.neutralRate +
+        (expected - target) * p.monetary.taylorAlpha -
+        (p.monetary.taylorDelta * outputGap).toRate
+    rawFg.clamp(p.monetary.rateFloor, p.monetary.rateCeiling)

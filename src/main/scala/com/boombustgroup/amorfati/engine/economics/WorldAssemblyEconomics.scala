@@ -174,17 +174,17 @@ object WorldAssemblyEconomics:
       hh.status match
         case HhStatus.Employed(_, _, _) => true
         case _                          => false
-    val unemploymentRate = if updatedPop > 0 then 1.0 - postFirmEmployed.toDouble / updatedPop else 0.0
+    val unemploymentRate = if updatedPop > 0 then Share.One - Share.fraction(postFirmEmployed, updatedPop) else Share.Zero
     val entryStep        =
       val r = FirmEntry.process(
         postFdiFirms,
         newW.real.automationRatio,
         newW.real.hybridRatio,
         unemploymentRate,
-        in.s2.aggregateHiringSlack,
+        Share(in.s2.aggregateHiringSlack),
         newW.inflation,
         newW.mechanisms.expectations.expectedInflation,
-        in.w.pipeline.startupAbsorptionRate,
+        Share(in.w.pipeline.startupAbsorptionRate),
         rng,
       )
       EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)

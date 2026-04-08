@@ -336,7 +336,7 @@ object BankingEconomics:
         consumption = in.s3.consumption,
         pitRevenue = in.s3.pitRevenue,
         totalImports = in.s8.external.newBop.totalImports,
-        informalCyclicalAdj = in.w.mechanisms.informalCyclicalAdj,
+        informalCyclicalAdj = Share(in.w.mechanisms.informalCyclicalAdj),
       ),
     )
 

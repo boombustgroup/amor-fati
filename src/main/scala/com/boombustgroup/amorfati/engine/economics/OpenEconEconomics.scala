@@ -219,9 +219,8 @@ object OpenEconEconomics:
     // 4. Monetary policy (Taylor rule + expectations)
     val exRateChg   = forex.exchangeRate.deviationFrom(in.w.forex.exchangeRate).toCoefficient
     val newRefRate  = Nbp.updateRate(in.w.nbp.referenceRate, in.newInflation, exRateChg, in.employed, in.w.laborForcePopulation)
-    val unempForExp = toDouble(in.w.unemploymentRate(in.employed))
-    val newExp      =
-      Expectations.step(in.w.mechanisms.expectations, toDouble(in.newInflation), toDouble(newRefRate), unempForExp)
+    val unempForExp = in.w.unemploymentRate(in.employed)
+    val newExp      = Expectations.step(in.w.mechanisms.expectations, in.newInflation, newRefRate, unempForExp)
 
     // 5. Interbank
     val bsec              = in.w.bankingSector
@@ -547,7 +546,6 @@ object OpenEconEconomics:
 
   @boundaryEscape
   private def runStepRateAndExpectations(in: StepInput, newForex: OpenEconomy.ForexState)(using p: SimParams): RateExpResult =
-    import ComputationBoundary.toDouble
     val exRateChg       = newForex.exchangeRate.deviationFrom(in.w.forex.exchangeRate).toCoefficient
     val newRefRate      = Nbp.updateRate(
       in.w.nbp.referenceRate,
@@ -556,9 +554,9 @@ object OpenEconEconomics:
       in.s2.employed,
       in.w.laborForcePopulation,
     )
-    val unempRateForExp = toDouble(in.w.unemploymentRate(in.s2.employed))
+    val unempRateForExp = in.w.unemploymentRate(in.s2.employed)
     val newExp          =
-      Expectations.step(in.w.mechanisms.expectations, toDouble(in.s7.newInfl), toDouble(newRefRate), unempRateForExp)
+      Expectations.step(in.w.mechanisms.expectations, in.s7.newInfl, newRefRate, unempRateForExp)
     RateExpResult(newRefRate, newExp)
 
   private def runStepInterbankFlows(w: World, banks: Vector[Banking.BankState])(using SimParams): InterbankResult =

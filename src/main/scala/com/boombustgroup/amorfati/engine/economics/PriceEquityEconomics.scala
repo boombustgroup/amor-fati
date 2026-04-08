@@ -237,8 +237,8 @@ object PriceEquityEconomics:
     val euCofin            = EuFunds.cofinancing(euMonthly)
     val euProjectCapital   = EuFunds.capitalInvestment(euMonthly, euCofin)
     val euGdpContribution  =
-      euProjectCapital * toDouble(p.fiscal.govCapitalMultiplier) +
-        (euCofin - euProjectCapital).max(0.0) * toDouble(p.fiscal.govCurrentMultiplier)
+      toDouble(euProjectCapital) * toDouble(p.fiscal.govCapitalMultiplier) +
+        toDouble((euCofin - euProjectCapital).max(PLN.Zero)) * toDouble(p.fiscal.govCurrentMultiplier)
     val greenDomesticGFCF  =
       toDouble(in.s5.sumGreenInvestment) * (1.0 - toDouble(p.climate.greenImportShare))
     val domesticGFCF       =
@@ -308,9 +308,9 @@ object PriceEquityEconomics:
       Share(hybR),
       aggInventoryStock,
       aggGreenCapital,
-      PLN(euMonthly),
-      PLN(euCofin),
-      PLN(euProjectCapital),
+      euMonthly,
+      euCofin,
+      euProjectCapital,
       PLN(gdp),
       newMacropru,
       newSigmas,
