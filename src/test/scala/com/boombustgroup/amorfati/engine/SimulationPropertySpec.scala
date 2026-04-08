@@ -66,21 +66,36 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateInflation" should "keep price >= 0.30 floor" in
     forAll(genInflInputs) { (inputs: (Double, Double, Double, Double, Double, Double, Double)) =>
       val (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, _, _) = inputs
-      val r                                                              = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exRateDev)
-      r.priceLevel should be >= 0.30
+      val r                                                              =
+        PriceLevel.update(Rate(prevInfl), PriceIndex(prevPrice), Multiplier(demandMult), Coefficient(wageGrowth), ExchangeRateShock(exRateDev))
+      td.toDouble(r.priceLevel).should(be >= 0.30)
     }
 
   it should "apply soft deflation floor (price >= 0.30)" in {
-    val r = PriceLevel.update(Rate(-0.30), 1.0, 0.5, -0.10, 0.0)
-    r.priceLevel should be >= 0.30
+    val r = PriceLevel.update(Rate(-0.30), PriceIndex.Base, Multiplier(0.5), Coefficient(-0.10), ExchangeRateShock.Zero)
+    td.toDouble(r.priceLevel).should(be >= 0.30)
   }
 
   it should "produce higher inflation with more import pressure" in
     forAll(genInflation, genPrice, Gen.choose(0.8, 1.2), Gen.choose(-0.02, 0.02), Gen.choose(0.0, 0.15), Gen.choose(0.16, 0.40)) {
       (prevInfl: Double, prevPrice: Double, demandMult: Double, wageGrowth: Double, exLow: Double, exHigh: Double) =>
-        val r1 = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exLow)
-        val r2 = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exHigh)
-        td.toDouble(r2.inflation) should be >= (td.toDouble(r1.inflation) - 1e-10)
+        val r1 =
+          PriceLevel.update(
+            Rate(prevInfl),
+            PriceIndex(prevPrice),
+            Multiplier(demandMult),
+            Coefficient(wageGrowth),
+            ExchangeRateShock(exLow),
+          )
+        val r2 =
+          PriceLevel.update(
+            Rate(prevInfl),
+            PriceIndex(prevPrice),
+            Multiplier(demandMult),
+            Coefficient(wageGrowth),
+            ExchangeRateShock(exHigh),
+          )
+        td.toDouble(r2.inflation).should(be >= (td.toDouble(r1.inflation) - 1e-10))
     }
 
   // --- updateLaborMarket properties ---

@@ -158,7 +158,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
     val resultWith    = OpenEconomy.step(base.copy(diasporaInflow = PLN(1000.0)))
     val resultWithout = OpenEconomy.step(base.copy(diasporaInflow = PLN.Zero))
 
-    resultWith.bop.secondaryIncome shouldBe resultWithout.bop.secondaryIncome + PLN(1000.0)
+    resultWith.bop.secondaryIncome.shouldBe(resultWithout.bop.secondaryIncome + PLN(1000.0))
   }
 
   it should "net outflow and inflow" in {
@@ -181,7 +181,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
     val result = OpenEconomy.step(base.copy(remittanceOutflow = PLN(500.0), diasporaInflow = PLN(800.0)))
 
     // secondaryIncome = euFunds(0) - outflow(500) + inflow(800) = 300
-    result.bop.secondaryIncome shouldBe PLN(300.0)
+    result.bop.secondaryIncome.shouldBe(PLN(300.0))
   }
 
   // ==========================================================================
@@ -191,7 +191,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
   "Net remittances" should "be inflow minus outflow" in {
     val inflow  = 1000.0
     val outflow = 400.0
-    (inflow - outflow) shouldBe 600.0
+    (inflow - outflow).shouldBe(600.0)
   }
 
   // ==========================================================================
@@ -259,5 +259,5 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       plumbing = MonetaryPlumbingState.zero,
       flows = FlowState.zero,
     )
-    w.flows.diasporaRemittanceInflow shouldBe PLN.Zero
+    w.flows.diasporaRemittanceInflow.shouldBe(PLN.Zero)
   }
