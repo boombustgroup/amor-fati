@@ -23,8 +23,8 @@ import scala.util.Random
   */
 object LaborMarket:
 
-  private val MaxMonthlyWageIncrease = 0.03
-  private val MaxMonthlyWageDecrease = -0.02
+  private val MaxMonthlyWageIncrease = Coefficient.fromRaw(300L)
+  private val MaxMonthlyWageDecrease = Coefficient.fromRaw(-200L)
 
   /** Aggregate wage clearing result. */
   case class WageResult(wage: PLN, employed: Int)
@@ -37,11 +37,11 @@ object LaborMarket:
   /** Logistic labor supply curve: fraction of population willing to work at
     * given wage. Steepness controlled by p.household.laborSupplySteepness.
     */
-  @boundaryEscape
   private def laborSupplyRatio(wage: PLN, resWage: PLN)(using p: SimParams): Share =
-    import ComputationBoundary.toDouble
-    val x = toDouble(p.household.laborSupplySteepness) * (wage / resWage - 1.0)
-    Share(1.0 / (1.0 + Math.exp(-x)))
+    val wageGap     = wage.ratioTo(resWage).toCoefficient - Coefficient.One
+    val slope       = p.household.laborSupplySteepness * wageGap
+    val denominator = Multiplier.One + (-slope).exp
+    Multiplier.One.ratioTo(denominator).toShare
 
   /** Aggregate wage clearing: adjust market wage via excess demand, then
     * compute employment. New wage = max(reservationWage, prevWage × (1 +
@@ -50,12 +50,11 @@ object LaborMarket:
   def updateLaborMarket(prevWage: PLN, resWage: PLN, laborDemand: Int, totalPopulation: Int)(using
       p: SimParams,
   ): WageResult =
-    import ComputationBoundary.toDouble
     val supplyAtPrev   = (totalPopulation * laborSupplyRatio(prevWage, resWage)).toInt
-    val excessDemand   = (laborDemand - supplyAtPrev).toDouble / totalPopulation
-    val rawWageAdj     = toDouble(Coefficient(excessDemand) * p.household.wageAdjSpeed)
+    val excessDemand   = (laborDemand - supplyAtPrev).ratioTo(totalPopulation).toCoefficient
+    val rawWageAdj     = excessDemand * p.household.wageAdjSpeed
     val boundedWageAdj = rawWageAdj.max(MaxMonthlyWageDecrease).min(MaxMonthlyWageIncrease)
-    val wageGrowthMult = Multiplier.One + Multiplier(boundedWageAdj)
+    val wageGrowthMult = boundedWageAdj.growthMultiplier
     val newWage        = resWage.max(prevWage * wageGrowthMult)
     val newSupply      = (totalPopulation * laborSupplyRatio(newWage, resWage)).toInt
     val employed       = Math.min(laborDemand, newSupply)
@@ -128,7 +127,7 @@ object LaborMarket:
   ): Vector[Household.State] =
     val rawWages = households.map(rawRelativeWage(_, firms))
     val rawMean  = employedMeanRawWage(households, rawWages)
-    val scale    = if rawMean > Multiplier.Zero then Multiplier(1.0 / (rawMean / Multiplier.One)) else Multiplier.One
+    val scale    = if rawMean > Multiplier.Zero then Multiplier.One.ratioTo(rawMean).toMultiplier else Multiplier.One
     applyNormalizedWages(households, rawWages, marketWage, scale)
 
   // --- Shared helpers ---
@@ -199,7 +198,11 @@ object LaborMarket:
       .groupMap(_._1)(_._2)
       .map: (firmId, indices) =>
         val sorted    = // Low routineness = cognitive = retained; high routineness = routine = displaced
-          indices.sortBy(i => (households(i).taskRoutineness.toLong, -households(i).skill.toLong))
+          indices.sortWith: (left, right) =>
+            val leftHh  = households(left)
+            val rightHh = households(right)
+            (leftHh.taskRoutineness < rightHh.taskRoutineness) ||
+            (leftHh.taskRoutineness == rightHh.taskRoutineness && leftHh.skill > rightHh.skill)
         val maxRetain = counts.getOrElse(firmId, 0)
         firmId -> sorted.take(maxRetain).toSet
 
@@ -259,7 +262,7 @@ object LaborMarket:
   )(using p: SimParams): JobSearchResult =
     val ranked          = rankUnemployed(households)
     val firmsBySector   = vacancies.keys.groupBy(fid => firms(fid.toInt).sector)
-    val firmsByPriority = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma.toLong)
+    val firmsByPriority = vacancies.keys.toVector.sortBy(fid => p.sectorDefs(firms(fid.toInt).sector.toInt).sigma)(using summon[Ordering[Sigma]].reverse)
 
     val init   = MatchState(Map.empty, vacancies, 0)
     val result = ranked.foldLeft(init): (st, idx) =>
@@ -286,7 +289,8 @@ object LaborMarket:
       vacancies.keys.toVector.groupBy(fid => (firms(fid.toInt).sector, firms(fid.toInt).region))
     val firmsByRegion: Map[Region, Vector[FirmId]]                    =
       vacancies.keys.toVector.groupBy(fid => firms(fid.toInt).region)
-    val firmsByPriority                                               = vacancies.keys.toVector.sortBy(fid => -p.sectorDefs(firms(fid.toInt).sector.toInt).sigma.toLong)
+    val firmsByPriority                                               =
+      vacancies.keys.toVector.sortBy(fid => p.sectorDefs(firms(fid.toInt).sector.toInt).sigma)(using summon[Ordering[Sigma]].reverse)
 
     val init   = MatchState(Map.empty, vacancies, 0)
     val result = ranked.foldLeft(init): (st, idx) =>
@@ -350,7 +354,7 @@ object LaborMarket:
         hh.status match
           case _: HhStatus.Unemployed => Some(idx)
           case _                      => None
-      .sortBy(i => -effectiveSkill(households(i)))
+      .sortBy(i => effectiveSkill(households(i)))(using summon[Ordering[Share]].reverse)
 
   /** Try hiring one unemployed household into a vacancy. */
   private def tryHire(
@@ -443,7 +447,7 @@ object LaborMarket:
         case _: HhStatus.Employed => Some(i)
         case _                    => None
     if employedIndices.nonEmpty
-    then Multiplier.fromRaw(employedIndices.map(i => rawWages(i).toLong).sum / employedIndices.length)
+    then employedIndices.foldLeft(Multiplier.Zero)((acc, i) => acc + rawWages(i)).divideBy(employedIndices.length)
     else Multiplier.One
 
   /** Apply normalized wages: each employed gets marketWage × (rawWeight ×

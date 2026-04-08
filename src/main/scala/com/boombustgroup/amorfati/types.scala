@@ -158,6 +158,9 @@ object types:
     def toPriceIndex: PriceIndex           = PriceIndex.fromRaw(m.toLong)
     @targetName("multDeviationFromOne")
     def deviationFromOne: Coefficient      = Coefficient.fromRaw(m.toLong - Multiplier.One.toLong)
+    @targetName("multDivideByInt")
+    def divideBy(n: Int): Multiplier       =
+      Multiplier.fromRaw(com.boombustgroup.amorfati.fp.FixedPointBase.divideRaw(m.toLong, n.toLong))
 
   // --- Coefficient × typed ---
   extension (c: Coefficient)
@@ -227,3 +230,8 @@ object types:
     def toScalar: Scalar           = Scalar.fromRaw(shock.toLong)
     @targetName("exchangeRateShockToCoefficient")
     def toCoefficient: Coefficient = Coefficient.fromRaw(shock.toLong)
+
+  extension (n: Int)
+    @targetName("intRatioToInt")
+    def ratioTo(denominator: Int): Scalar =
+      Scalar.fromRaw(scaledDiv(n.toLong, denominator.toLong))
