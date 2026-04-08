@@ -232,9 +232,7 @@ object HousingMarket:
         .clamp(Multiplier(0.3), Multiplier(2.0))
     val incomeBase      =
       if prev.totalValue >= MinHousingValueForIncomeRatio then prev.totalValue
-      else
-        System.err.println("[Housing] WARNING: totalValue below income-ratio floor; clamping denominator")
-        MinHousingValueForIncomeRatio
+      else MinHousingValueForIncomeRatio
     val incomeAdj       =
       (totalIncome.ratioTo(incomeBase).toCoefficient * Coefficient(10.0)).growthMultiplier
         .clamp(Multiplier(0.5), Multiplier(1.5))

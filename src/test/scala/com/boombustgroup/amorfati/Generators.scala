@@ -594,21 +594,33 @@ object Generators:
 
   // --- I-O matrix generator ---
 
+  private def genIoColumn(cellsLeft: Int, remaining: Long): Gen[Vector[Long]] =
+    if cellsLeft <= 1 then Gen.const(Vector(remaining))
+    else
+      for
+        head <- Gen.chooseNum[Long](0L, remaining)
+        tail <- genIoColumn(cellsLeft - 1, remaining - head)
+      yield head +: tail
+
+  private def shareSafeDouble(raw: Long, scale: Long): Double =
+    if raw <= 0L then 0.0
+    else (raw.toDouble - 0.1) / scale.toDouble
+
   val genIoMatrix: Gen[Vector[Vector[Double]]] =
-    val scale = 100000L
+    val scale       = Share.One.toLong
+    val sectorCount = p.io.matrix.length
     Gen
       .sequence[Vector[Vector[Long]], Vector[Long]](
-        0.until(6).map { _ =>
-          Gen.sequence[Vector[Long], Long](
-            0.until(6).map(_ => Gen.chooseNum[Long](0L, 14000L)),
-          )
-        },
+        0.until(sectorCount)
+          .map: _ =>
+            for
+              columnBudget <- Gen.chooseNum[Long](0L, scale - 1L)
+              column       <- genIoColumn(sectorCount, columnBudget)
+            yield column,
       )
-      .suchThat: m =>
-        (0 until 6).forall: j =>
-          m.map(_(j)).sum < scale
-      .map: m =>
-        m.map(_.map(_.toDouble / scale))
+      .map: columns =>
+        Vector.tabulate(sectorCount, sectorCount): (i, j) =>
+          shareSafeDouble(columns(j)(i), scale)
 
   // --- Banking sector generators ---
 

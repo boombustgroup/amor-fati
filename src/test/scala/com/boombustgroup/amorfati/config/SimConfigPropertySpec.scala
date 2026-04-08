@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.config
 
 import com.boombustgroup.amorfati.Generators.*
 import com.boombustgroup.amorfati.types.*
+import org.scalacheck.Shrink
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -18,7 +19,7 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
 
   "p.sectorDefs" should "have shares summing to approximately 1.0" in {
     val sum = p.sectorDefs.map(_.share).foldLeft(Share.Zero)(_ + _)
-    (sum - Share.One).abs should be <= Share(0.01)
+    sum shouldBe Share.One
   }
 
   it should "have all sigma > 0" in {
@@ -55,20 +56,23 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   }
 
   it should "have column sums < 1.0" in {
-    for j <- 0 until 6 do
+    val sectorCount = p.io.matrix.head.length
+    for j <- 0 until sectorCount do
       val colSum = p.io.matrix.map(_(j)).sum
       colSum should be < Share.One
   }
 
   "p.io.columnSums" should "match IoMatrix computation" in {
-    for j <- 0 until 6 do
+    val sectorCount = p.io.columnSums.length
+    for j <- 0 until sectorCount do
       val expected = p.io.matrix.map(_(j)).sum
       p.io.columnSums(j) shouldBe expected
   }
 
   // --- Generated IoMatrix properties ---
 
-  "Generated IoMatrix" should "have non-negative entries and column sums < 1.0" in
+  "Generated IoMatrix" should "have non-negative entries and column sums < 1.0" in {
+    given Shrink[Vector[Vector[Double]]] = Shrink.shrinkAny
     forAll(genIoMatrix): (m: Vector[Vector[Double]]) =>
       val typed       = m.map(_.map(Share(_)))
       val sectorCount = typed.length
@@ -80,3 +84,4 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       for j <- 0 until sectorCount do typed.map(_(j)).foldLeft(Share.Zero)(_ + _) should be < Share.One
       IoConfig(matrix = typed).columnSums shouldBe
         (0 until sectorCount).map(j => typed.map(_(j)).foldLeft(Share.Zero)(_ + _)).toVector
+  }

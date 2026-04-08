@@ -94,7 +94,15 @@ object GvcTrade:
   )
 
   def step(in: StepInput)(using p: SimParams): State =
-    val nSectors         = in.prev.sectorExports.size
+    val nSectors         = in.sectorOutputs.length
+    require(
+      in.prev.sectorExports.lengthCompare(nSectors) == 0,
+      s"GvcTrade prev.sectorExports length ${in.prev.sectorExports.length} must match sectorOutputs length $nSectors",
+    )
+    require(
+      in.prev.sectorImports.lengthCompare(nSectors) == 0,
+      s"GvcTrade prev.sectorImports length ${in.prev.sectorImports.length} must match sectorOutputs length $nSectors",
+    )
     val monthlyInflation = p.gvc.foreignInflation.monthly
     val newForeignPrice  = in.prev.foreignPriceIndex.applyGrowth(monthlyInflation.toCoefficient)
     val commodityDrift   = p.gvc.commodityDrift.monthly.toCoefficient
