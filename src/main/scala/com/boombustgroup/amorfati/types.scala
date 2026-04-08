@@ -130,7 +130,10 @@ object types:
     def applyTo(n: Int): Int           = bankerRound(BigInt(n.toLong) * BigInt(s.toLong)).toInt
     @targetName("shareCeilApplyToInt")
     def ceilApplyTo(n: Int): Int       =
-      ((BigInt(n.toLong) * BigInt(s.toLong) + BigInt(FixedPointBase.Scale) - 1) / BigInt(FixedPointBase.Scale)).toInt
+      val product = BigInt(n.toLong) * BigInt(s.toLong)
+      val scale   = BigInt(FixedPointBase.Scale)
+      if product >= 0 then ((product + scale - 1) / scale).toInt
+      else (product / scale).toInt
     @targetName("shareToScalar")
     def toScalar: Scalar               = Scalar.fromRaw(s.toLong)
     @targetName("shareToMultiplierExact")
@@ -211,6 +214,7 @@ object types:
     def growthMultiplier: Multiplier                         = Multiplier.fromRaw(FixedPointBase.Scale + c.toLong)
     @targetName("coefClamp")
     def clamp(lo: Coefficient, hi: Coefficient): Coefficient =
+      require(lo.toLong <= hi.toLong, s"Coefficient.clamp requires lo <= hi, got lo=$lo hi=$hi")
       Coefficient.fromRaw(scala.math.max(lo.toLong, scala.math.min(hi.toLong, c.toLong)))
 
   // --- PriceIndex × typed ---
@@ -259,7 +263,9 @@ object types:
   object TypedRandom:
     @targetName("randomShareBetween")
     def randomBetween(lo: Share, hi: Share, rng: Random): Share =
-      if hi <= lo then lo else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
+      if hi < lo then throw IllegalArgumentException(s"Share.randomBetween requires lo <= hi, got lo=$lo hi=$hi")
+      else if hi == lo then lo
+      else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
 
     def withGaussianNoise(base: Share, stddev: Share, rng: Random): Share =
       val raw        = base.toLong + scala.math.round(rng.nextGaussian() * stddev.toLong)
@@ -268,7 +274,9 @@ object types:
 
     @targetName("randomMultiplierBetween")
     def randomBetween(lo: Multiplier, hi: Multiplier, rng: Random): Multiplier =
-      if hi <= lo then lo else Multiplier.fromRaw(rng.between(lo.toLong, hi.toLong))
+      if hi < lo then throw IllegalArgumentException(s"Multiplier.randomBetween requires lo <= hi, got lo=$lo hi=$hi")
+      else if hi == lo then lo
+      else Multiplier.fromRaw(rng.between(lo.toLong, hi.toLong))
 
   object WeightedSelection:
     def choose(weights: Vector[Multiplier], rng: Random): Int =
