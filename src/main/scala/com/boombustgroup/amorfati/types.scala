@@ -139,8 +139,8 @@ object types:
     def ceilApplyTo(n: Int): Int       =
       val product = BigInt(n.toLong) * BigInt(s.toLong)
       val scale   = BigInt(FixedPointBase.Scale)
-      if product >= 0 then ((product + scale - 1) / scale).toInt
-      else (product / scale).toInt
+      if product >= 0 then checkedInt(((product + scale - 1) / scale).toLong, "Share.ceilApplyTo")
+      else checkedInt((product / scale).toLong, "Share.ceilApplyTo")
     @targetName("shareToScalar")
     def toScalar: Scalar               = Scalar.fromRaw(s.toLong)
     @targetName("shareToComplement")

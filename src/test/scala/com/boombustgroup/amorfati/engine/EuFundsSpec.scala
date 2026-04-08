@@ -17,10 +17,11 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   // --- monthlyTransfer tests ---
   // Note: monthlyTransfer depends on Config env vars. Default: start=1, period=84
 
-  "monthlyTransfer" should "return 0 before startMonth" in {
+  "monthlyTransfer" should "return 0 before startMonth" in
     EuFunds.monthlyTransfer(0).shouldBe(PLN.Zero)
-    EuFunds.monthlyTransfer(1).shouldBe(PLN.Zero)
-  }
+
+  it should "return positive value at startMonth" in
+    EuFunds.monthlyTransfer(p.fiscal.euFundsStartMonth).should(be > PLN.Zero)
 
   it should "return 0 after startMonth + periodMonths" in {
     val afterEnd = p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths + 1

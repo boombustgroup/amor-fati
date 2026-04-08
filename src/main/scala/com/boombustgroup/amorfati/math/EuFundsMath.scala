@@ -38,7 +38,7 @@ object EuFundsMath:
     require(beta > 0.0 && beta.isFinite, s"beta must be finite and positive: $beta")
     val t = monthOffset(month, startMonth, periodMonths)
     require(t.isFinite, s"monthOffset must be finite for month=$month, startMonth=$startMonth, periodMonths=$periodMonths")
-    if t <= 0.0 || t >= 1.0 then Scalar.Zero
+    if t < 0.0 || t >= 1.0 then Scalar.Zero
     else
       val width      = 1.0 / periodMonths
       val rawWeights = (0 until periodMonths).map: idx =>
