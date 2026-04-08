@@ -1,18 +1,18 @@
 package com.boombustgroup.amorfati.engine
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
+import com.boombustgroup.amorfati.Generators.*
+import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
+import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.markets.IntermediateMarket
+import com.boombustgroup.amorfati.types.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import com.boombustgroup.amorfati.Generators.*
-import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
-import com.boombustgroup.amorfati.engine.markets.IntermediateMarket
-import com.boombustgroup.amorfati.types.*
 
 class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
-  import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
@@ -73,8 +73,8 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     }
 
   it should "produce no changes with zero matrix" in {
-    val zeroMatrix  = Vector.fill(6)(Vector.fill(6)(0.0))
-    val zeroColSums = Vector.fill(6)(0.0)
+    val zeroMatrix  = Vector.fill(6)(Vector.fill(6)(Share.Zero))
+    val zeroColSums = Vector.fill(6)(Share.Zero)
     val firms       = makeFirms(30)
     val r           =
       IntermediateMarket.process(IntermediateMarket.Input(firms, Vector.fill(6)(Multiplier.One), PriceIndex.Base, zeroMatrix, zeroColSums))
