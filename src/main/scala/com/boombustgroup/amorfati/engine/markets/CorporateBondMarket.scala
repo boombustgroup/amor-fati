@@ -1,8 +1,8 @@
 package com.boombustgroup.amorfati.engine.markets
 
-import com.boombustgroup.ledger.Distribute
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.Distribute
 
 /** Corporate bond market: Catalyst + non-public issuance (GPW Catalyst 2024).
   *
@@ -20,12 +20,12 @@ import com.boombustgroup.amorfati.types.*
 object CorporateBondMarket:
 
   // --- Named constants ---
-  private val NplSensitivity      = Multiplier(5.0) // spread multiplier per unit NPL ratio
-  private val MaxSpread           = Rate(0.10)      // spread cap (1000 bps)
-  private val MinYield            = Rate(0.01)      // yield floor (100 bps)
-  private val MinAbsorption       = 0.3             // absorption floor (Double — used in @boundaryEscape)
-  private val CarBufferZone       = 0.02            // 200 bps CAR ramp zone above minCar
-  private val SpreadAbsorptionCap = 0.10            // excess spread at which absorption hits floor
+  private val NplSensitivity      = Multiplier(5.0)  // spread multiplier per unit NPL ratio
+  private val MaxSpread           = Rate(0.10)       // spread cap (1000 bps)
+  private val MinYield            = Rate(0.01)       // yield floor (100 bps)
+  private val MinAbsorption       = Share(0.3)       // absorption floor
+  private val CarBufferZone       = Multiplier(0.02) // 200 bps CAR ramp zone above minCar
+  private val SpreadAbsorptionCap = Rate(0.10)       // excess spread at which absorption hits floor
 
   /** Corporate bond market state: Catalyst + non-public issuance. */
   case class State(
@@ -100,7 +100,7 @@ object CorporateBondMarket:
   def processDefaults(state: State, totalBondDefault: PLN)(using p: SimParams): DefaultResult =
     if totalBondDefault <= PLN.Zero || state.outstanding <= PLN.Zero then DefaultResultZero
     else
-      val defaultFrac = Share(totalBondDefault / state.outstanding) // PLN/PLN → Double → Share
+      val defaultFrac = totalBondDefault.ratioTo(state.outstanding).toShare.clamp(Share.Zero, Share.One)
       val lossRate    = Share.One - p.corpBond.recovery
       DefaultResult(
         grossDefault = totalBondDefault,
@@ -111,7 +111,7 @@ object CorporateBondMarket:
 
   /** Monthly amortization: outstanding / maturity. */
   def amortization(state: State)(using p: SimParams): PLN =
-    state.outstanding / Math.max(1.0, p.corpBond.maturity).toLong
+    state.outstanding / math.max(1, p.corpBond.maturity)
 
   /** Compute market absorption rate for new bond issuance.
     *
@@ -121,31 +121,30 @@ object CorporateBondMarket:
     * @return
     *   absorption rate in [0.3, 1.0]
     */
-  @boundaryEscape
-  def computeAbsorption(state: State, tentativeIssuance: PLN, aggBankCar: Multiplier, minCar: Multiplier)(using
-      p: SimParams,
-  ): Share =
-    import ComputationBoundary.toDouble
+  def computeAbsorption(state: State, tentativeIssuance: PLN, aggBankCar: Multiplier, minCar: Multiplier)(using p: SimParams): Share =
     if tentativeIssuance <= PLN.Zero then Share.One
     else
-      val excessSpread     = Math.max(0.0, toDouble(state.creditSpread) - toDouble(p.corpBond.spread))
-      val spreadAbsorption = Math.max(MinAbsorption, 1.0 - excessSpread / SpreadAbsorptionCap)
+      val spreadHeadroom   = (state.creditSpread - p.corpBond.spread).max(Rate.Zero)
+      val spreadPenalty    = spreadHeadroom.ratioTo(SpreadAbsorptionCap).clamp(Scalar.Zero, Scalar.One)
+      val spreadAbsorption = Share.One - (spreadPenalty * (Share.One - MinAbsorption))
       val carAbsorption    =
         if aggBankCar <= minCar then MinAbsorption
-        else if toDouble(aggBankCar) >= toDouble(minCar) + CarBufferZone then 1.0
-        else MinAbsorption + (1.0 - MinAbsorption) * (toDouble(aggBankCar) - toDouble(minCar)) / CarBufferZone
-      Share(spreadAbsorption * carAbsorption).clamp(Share(MinAbsorption), Share.One)
+        else
+          val headroom = (aggBankCar - minCar).max(Multiplier.Zero)
+          val ramp     = headroom.ratioTo(CarBufferZone).clamp(Scalar.Zero, Scalar.One)
+          MinAbsorption + (ramp * (Share.One - MinAbsorption))
+      spreadAbsorption.min(carAbsorption).clamp(MinAbsorption, Share.One)
 
   /** Process new issuance: allocate to holders proportionally. */
   def processIssuance(state: State, issuance: PLN)(using p: SimParams): State =
     if issuance <= PLN.Zero then state.copy(lastIssuance = PLN.Zero)
     else
       val holderWeights = Array(
-        p.corpBond.bankShare.toLong,
-        p.corpBond.ppkShare.toLong,
-        (Share.One - p.corpBond.bankShare - p.corpBond.ppkShare).toLong,
+        p.corpBond.bankShare.distributeRaw,
+        p.corpBond.ppkShare.distributeRaw,
+        (Share.One - p.corpBond.bankShare - p.corpBond.ppkShare).distributeRaw,
       )
-      val allocations   = Distribute.distribute(issuance.toLong, holderWeights)
+      val allocations   = Distribute.distribute(issuance.distributeRaw, holderWeights)
       state.copy(
         outstanding = state.outstanding + issuance,
         bankHoldings = state.bankHoldings + PLN.fromRaw(allocations(0)),
@@ -169,13 +168,12 @@ object CorporateBondMarket:
     val amort           = amortization(in.prev)
     val defaults        = processDefaults(in.prev, in.totalBondDefault)
     val reduction       = amort + defaults.grossDefault
-    val actualReduction =
-      reduction.min(in.prev.outstanding).max(PLN.Zero)
+    val actualReduction = reduction.min(in.prev.outstanding).max(PLN.Zero)
     val reductions      =
       if in.prev.outstanding > PLN.Zero then
         Distribute.distribute(
-          actualReduction.toLong,
-          Array(in.prev.bankHoldings.toLong, in.prev.ppkHoldings.toLong, in.prev.otherHoldings.toLong),
+          actualReduction.distributeRaw,
+          Array(in.prev.bankHoldings.distributeRaw, in.prev.ppkHoldings.distributeRaw, in.prev.otherHoldings.distributeRaw),
         )
       else Array(0L, 0L, 0L)
     val afterReduction  = in.prev.copy(
