@@ -168,7 +168,7 @@ object FirmEconomics:
       // From Demand
       sectorMults: Vector[Multiplier],
       avgDemandMult: Multiplier,
-      sectorCap: Vector[PLN],
+      sectorCapReal: Vector[PLN],
       govPurchases: PLN,
       laggedInvestDemand: PLN,
       fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
@@ -322,7 +322,7 @@ object FirmEconomics:
       in.w.pipeline.sectorDemandPressure,
       in.w.pipeline.sectorHiringSignal,
       in.avgDemandMult,
-      in.sectorCap,
+      in.sectorCapReal,
       in.laggedInvestDemand,
       in.fiscalRuleStatus,
     )

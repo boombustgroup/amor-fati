@@ -46,7 +46,7 @@ object FiscalConstraintEconomics:
       val isAdjustMonth = m > 0 && m % p.fiscal.minWageAdjustMonths == 0
       if isAdjustMonth then
         val cumInfl     =
-          if p.fiscal.minWageInflationIndex then toDouble(w.priceLevel) / toDouble(w.gov.minWagePriceLevel) - 1.0
+          if p.fiscal.minWageInflationIndex && w.gov.minWagePriceLevel > PriceIndex.Zero then toDouble(w.priceLevel) / toDouble(w.gov.minWagePriceLevel) - 1.0
           else 0.0
         val inflIndexed = toDouble(w.gov.minWageLevel) * (1.0 + Math.max(0.0, cumInfl))
         val target      = toDouble(w.householdMarket.marketWage) * toDouble(p.fiscal.minWageTargetRatio)

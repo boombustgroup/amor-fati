@@ -23,11 +23,21 @@ case class IoConfig(
     matrix: Vector[Vector[Share]] = IoConfig.DefaultMatrix,
     scale: Multiplier = Multiplier(1.0),
 ):
+  require(matrix.nonEmpty, "IoConfig.matrix must be non-empty")
+
+  private val rowCount = matrix.length
+  private val colCount = matrix.head.length
+
+  require(matrix.forall(_.length == colCount), "IoConfig.matrix must have rows of equal length")
+  require(rowCount == colCount, "IoConfig.matrix must be square")
+  require(matrix.flatten.forall(_ >= Share.Zero), "IoConfig.matrix entries must be non-negative")
+
   /** Pre-computed column sums of the technical coefficients matrix (used in
     * intermediate demand calculation).
     */
   val columnSums: Vector[Share] =
-    (0 until 6).map(j => matrix.map(_(j)).foldLeft(Share.Zero)(_ + _)).toVector
+    (0 until colCount).map(j => matrix.map(_(j)).foldLeft(Share.Zero)(_ + _)).toVector
+  require(columnSums.forall(_ < Share.One), "IoConfig matrix column sums must be < 1.0")
 
 object IoConfig:
   /** Default 6x6 I-O technical coefficients matrix (GUS supply-use tables

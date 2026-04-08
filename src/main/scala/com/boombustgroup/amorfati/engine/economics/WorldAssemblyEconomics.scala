@@ -98,7 +98,7 @@ object WorldAssemblyEconomics:
       govPurchases: PLN,
       sectorMults: Vector[Multiplier],
       avgDemandMult: Multiplier,
-      sectorCap: Vector[PLN],
+      sectorCapReal: Vector[PLN],
       laggedInvestDemand: PLN,
       fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
       // Step outputs (too complex to decompose)
@@ -129,7 +129,7 @@ object WorldAssemblyEconomics:
       in.w.pipeline.sectorDemandPressure,
       in.w.pipeline.sectorHiringSignal,
       in.avgDemandMult,
-      in.sectorCap,
+      in.sectorCapReal,
       in.laggedInvestDemand,
       in.fiscalRuleStatus,
     )
@@ -237,7 +237,7 @@ object WorldAssemblyEconomics:
     val totalFirmRev   = (0 until nSectors).foldLeft(PLN.Zero): (acc, s) =>
       acc + (sectorCapPln(s) * in.s4.sectorMults(s) * priceMult)
     val adjustedDemand = (0 until nSectors).foldLeft(PLN.Zero): (acc, s) =>
-      acc + (in.s4.sectorCap(s) * in.s4.sectorMults(s) * priceMult)
+      acc + (in.s4.sectorCapReal(s) * in.s4.sectorMults(s) * priceMult)
     totalFirmRev - adjustedDemand
 
   /** Informal economy: four-channel tax evasion (CIT, VAT, PIT, excise),

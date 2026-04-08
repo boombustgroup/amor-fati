@@ -38,10 +38,12 @@ object LaborMarket:
     * given wage. Steepness controlled by p.household.laborSupplySteepness.
     */
   private def laborSupplyRatio(wage: PLN, resWage: PLN)(using p: SimParams): Share =
-    val wageGap     = wage.ratioTo(resWage).toCoefficient - Coefficient.One
-    val slope       = p.household.laborSupplySteepness * wageGap
-    val denominator = Multiplier.One + (-slope).exp
-    Multiplier.One.ratioTo(denominator).toShare
+    if resWage <= PLN.Zero then if wage > PLN.Zero then Share.One else Share.Zero
+    else
+      val wageGap     = wage.ratioTo(resWage).toCoefficient - Coefficient.One
+      val slope       = p.household.laborSupplySteepness * wageGap
+      val denominator = Multiplier.One + (-slope).exp
+      Multiplier.One.ratioTo(denominator).toShare
 
   /** Aggregate wage clearing: adjust market wage via excess demand, then
     * compute employment. New wage = max(reservationWage, prevWage × (1 +
@@ -50,6 +52,7 @@ object LaborMarket:
   def updateLaborMarket(prevWage: PLN, resWage: PLN, laborDemand: Int, totalPopulation: Int)(using
       p: SimParams,
   ): WageResult =
+    if totalPopulation <= 0 then return WageResult(prevWage.max(resWage), 0)
     val supplyAtPrev   = (totalPopulation * laborSupplyRatio(prevWage, resWage)).toInt
     val excessDemand   = (laborDemand - supplyAtPrev).ratioTo(totalPopulation).toCoefficient
     val rawWageAdj     = excessDemand * p.household.wageAdjSpeed

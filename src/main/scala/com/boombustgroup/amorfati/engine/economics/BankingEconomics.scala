@@ -155,7 +155,7 @@ object BankingEconomics:
       govPurchases: PLN,
       sectorMults: Vector[Multiplier],
       avgDemandMult: Multiplier,
-      sectorCap: Vector[PLN],
+      sectorCapReal: Vector[PLN],
       laggedInvestDemand: PLN,
       fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
       // Step outputs too complex to decompose (will vanish with #131)
@@ -279,7 +279,7 @@ object BankingEconomics:
       in.w.pipeline.sectorDemandPressure,
       in.w.pipeline.sectorHiringSignal,
       in.avgDemandMult,
-      in.sectorCap,
+      in.sectorCapReal,
       in.laggedInvestDemand,
       in.fiscalRuleStatus,
     )

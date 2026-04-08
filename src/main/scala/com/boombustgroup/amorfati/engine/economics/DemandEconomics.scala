@@ -36,7 +36,7 @@ object DemandEconomics:
       sectorDemandPressure: Vector[Multiplier], // uncapped demand/capacity ratios used for hiring pressure
       sectorHiringSignal: Vector[Multiplier],   // smoothed sector hiring signal used by firm labor planning
       avgDemandMult: Multiplier,                // economy-wide average demand multiplier
-      sectorCap: Vector[PLN],                   // per-sector nominal production capacity
+      sectorCapReal: Vector[PLN],               // per-sector real production capacity before price-level repricing
       laggedInvestDemand: PLN,                  // lagged investment demand for deposit flow calculation
       fiscalRuleStatus: FiscalRules.RuleStatus, // fiscal rule compliance diagnostics
   )
@@ -45,16 +45,16 @@ object DemandEconomics:
     val rawGovPurchases    = computeGovPurchases(in)
     val fiscalResult       = applyFiscalRules(in, rawGovPurchases)
     val govPurchases       = fiscalResult.constrainedGovPurchases
-    val sectorCap          = computeSectorCapacity(in)
+    val sectorCapReal      = computeSectorCapacity(in)
     val sectorExports      = computeSectorExports(in)
     val laggedInvestDemand = computeLaggedInvestDemand(in)
     val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
-    val rawPressure        = computeRawDemandPressure(sectorDemand, sectorCap, in.w.priceLevel)
+    val rawPressure        = computeRawDemandPressure(sectorDemand, sectorCapReal, in.w.priceLevel)
     val sectorPressure     = stabilizeDemandPressure(rawPressure)
     val sectorHiringSignal = smoothHiringSignal(in.w.pipeline.sectorHiringSignal, sectorPressure)
-    val sectorMults        = applySpillover(rawPressure, sectorCap, in.w.priceLevel)
-    val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCap, in)
-    Output(govPurchases, sectorMults, sectorPressure, sectorHiringSignal, avgDemandMult, sectorCap, laggedInvestDemand, fiscalResult.status)
+    val sectorMults        = applySpillover(rawPressure, sectorCapReal, in.w.priceLevel)
+    val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCapReal, in)
+    Output(govPurchases, sectorMults, sectorPressure, sectorHiringSignal, avgDemandMult, sectorCapReal, laggedInvestDemand, fiscalResult.status)
 
   /** Government purchases: base spending x price level plus a small automatic
     * stabilizer tied to labor-market slack. Revenue windfalls are not
@@ -91,15 +91,13 @@ object DemandEconomics:
       ),
     )
 
-  /** Per-sector nominal production capacity: sum of firm capacities. */
+  /** Per-sector real production capacity before repricing by CPI. */
   private def computeSectorCapacity(in: Input)(using p: SimParams): Vector[PLN] =
-    (0 until p.sectorDefs.length)
-      .map: s =>
-        in.living
-          .filter(_.sector.toInt == s)
-          .foldLeft(PLN.Zero): (acc, f) =>
-            acc + Firm.computeCapacity(f)
-      .toVector
+    val caps = Array.fill(p.sectorDefs.length)(PLN.Zero)
+    in.living.foreach: f =>
+      val s = f.sector.toInt
+      caps(s) = caps(s) + Firm.computeCapacity(f)
+    caps.toVector
 
   /** Per-sector export demand: from GVC foreign firms when enabled, otherwise
     * from lagged aggregate exports split by fixed shares. Falls back to
@@ -138,12 +136,12 @@ object DemandEconomics:
     */
   private def computeRawDemandPressure(
       sectorDemand: Vector[PLN],
-      sectorCap: Vector[PLN],
+      sectorCapReal: Vector[PLN],
       priceLevel: PriceIndex,
   ): Vector[Multiplier] =
     sectorDemand.indices
       .map: s =>
-        val nominalCap = sectorCap(s) * priceLevel.toMultiplier
+        val nominalCap = sectorCapReal(s) * priceLevel.toMultiplier
         if nominalCap > PLN.Zero then sectorDemand(s).ratioTo(nominalCap).toMultiplier else Multiplier.Zero
       .toVector
 
@@ -165,10 +163,10 @@ object DemandEconomics:
 
   private def applySpillover(
       rawMults: Vector[Multiplier],
-      sectorCap: Vector[PLN],
+      sectorCapReal: Vector[PLN],
       priceLevel: PriceIndex,
   ): Vector[Multiplier] =
-    val nominalCapBySector = sectorCap.map(_ * priceLevel.toMultiplier)
+    val nominalCapBySector = sectorCapReal.map(_ * priceLevel.toMultiplier)
     val excessDemand       = rawMults.indices
       .map: s =>
         if rawMults(s) > Multiplier.One then nominalCapBySector(s) * rawMults(s).deviationFromOne else PLN.Zero
@@ -194,14 +192,14 @@ object DemandEconomics:
     */
   private def computeAvgDemandMult(
       sectorMults: Vector[Multiplier],
-      sectorCap: Vector[PLN],
+      sectorCapReal: Vector[PLN],
       in: Input,
   ): Multiplier =
-    val totalCapacity = sectorCap.foldLeft(PLN.Zero)(_ + _)
+    val totalCapacity = sectorCapReal.foldLeft(PLN.Zero)(_ + _)
     val baseMult      =
       if totalCapacity > PLN.Zero then
         sectorMults.indices.foldLeft(PLN.Zero): (acc, s) =>
-          acc + (sectorCap(s) * sectorMults(s))
+          acc + (sectorCapReal(s) * sectorMults(s))
       else PLN.Zero
     val weightedBase  =
       if totalCapacity > PLN.Zero then baseMult.ratioTo(totalCapacity).toMultiplier

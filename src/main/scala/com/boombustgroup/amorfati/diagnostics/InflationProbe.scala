@@ -210,7 +210,7 @@ object InflationProbe:
           govPurchases = s4.govPurchases,
           sectorMults = s4.sectorMults,
           avgDemandMult = s4.avgDemandMult,
-          sectorCap = s4.sectorCap,
+          sectorCapReal = s4.sectorCapReal,
           laggedInvestDemand = s4.laggedInvestDemand,
           fiscalRuleStatus = s4.fiscalRuleStatus,
           laborOutput = s2,
