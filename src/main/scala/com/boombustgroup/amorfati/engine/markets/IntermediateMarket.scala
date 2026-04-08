@@ -63,8 +63,7 @@ object IntermediateMarket:
     val cashAdj = Array.fill(arr.length)(PLN.Zero)
 
     val sectorRevenue = Array.fill(nSectors)(PLN.Zero)
-    for i <- 0 until nSectors if hasFirms(i) do
-      for j <- 0 until nSectors do sectorRevenue(i) += in.ioMatrix(i)(j) * sectorOutput(j)
+    for i <- 0 until nSectors if hasFirms(i) do for j <- 0 until nSectors do sectorRevenue(i) += in.ioMatrix(i)(j) * sectorOutput(j)
 
     // Distribute costs and revenues to individual firms
     var totalPaidAcc = PLN.Zero

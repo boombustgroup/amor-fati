@@ -68,7 +68,7 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
 
   // --- Generated IoMatrix properties ---
 
-  "Generated IoMatrix" should "have non-negative entries and column sums < 1.0" in {
+  "Generated IoMatrix" should "have non-negative entries and column sums < 1.0" in
     forAll(genIoMatrix): (m: Vector[Vector[Double]]) =>
       for
         i <- 0 until 6
@@ -76,4 +76,3 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       do m(i)(j) should be >= 0.0
 
       for j <- 0 until 6 do m.map(_(j)).sum should be < 1.0
-  }
