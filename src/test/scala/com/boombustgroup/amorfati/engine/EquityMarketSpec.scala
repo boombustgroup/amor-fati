@@ -105,8 +105,8 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     val r        = EquityMarket.computeDividends(profits, Share(0.50))
     val total    = profits * Share(0.57)
     val domGross = total * Share(0.50)
-    r.tax shouldBe (domGross * Rate(0.19))
-    r.netDomestic shouldBe (domGross - (domGross * Rate(0.19)))
+    r.tax shouldBe (domGross * p.equity.divTax)
+    r.netDomestic shouldBe (domGross - (domGross * p.equity.divTax))
   }
 
   it should "compute dividends based on realized profits" in {

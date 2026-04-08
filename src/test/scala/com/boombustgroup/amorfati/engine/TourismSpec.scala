@@ -246,7 +246,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
     val w = World(
       month = 0,
       inflation = Rate(0.02),
-      priceLevel = 1.0,
+      priceLevel = PriceIndex.Base,
       gdpProxy = 1e9,
       currentSigmas = Vector.fill(6)(Sigma(0.1)),
       totalPopulation = 100,

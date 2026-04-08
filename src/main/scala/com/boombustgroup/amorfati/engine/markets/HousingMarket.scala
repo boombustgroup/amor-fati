@@ -21,6 +21,8 @@ import com.boombustgroup.ledger.Distribute
   */
 object HousingMarket:
 
+  private val MinHousingValueForIncomeRatio = PLN.fromLong(1000)
+
   val NRegions = 7
 
   case class RegionalState(
@@ -228,8 +230,13 @@ object HousingMarket:
     val rateAdj         =
       (-(mortgageRate - Rate(0.06)).toCoefficient * Coefficient(0.5)).growthMultiplier
         .clamp(Multiplier(0.3), Multiplier(2.0))
+    val incomeBase      =
+      if prev.totalValue >= MinHousingValueForIncomeRatio then prev.totalValue
+      else
+        System.err.println("[Housing] WARNING: totalValue below income-ratio floor; clamping denominator")
+        MinHousingValueForIncomeRatio
     val incomeAdj       =
-      (totalIncome.ratioTo(prev.totalValue.max(PLN.fromLong(1))).toCoefficient * Coefficient(10.0)).growthMultiplier
+      (totalIncome.ratioTo(incomeBase).toCoefficient * Coefficient(10.0)).growthMultiplier
         .clamp(Multiplier(0.5), Multiplier(1.5))
     (baseOrigination * rateAdj) * incomeAdj
 

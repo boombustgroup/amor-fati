@@ -30,7 +30,12 @@ object IntermediateMarket:
       ioMatrix: Vector[Vector[Share]],
       columnSums: Vector[Share],
       scale: Multiplier = Multiplier.One,
-  )
+  ):
+    require(scale >= Multiplier.Zero, "IntermediateMarket.Input.scale must be non-negative")
+    require(
+      columnSums == ioMatrix.indices.map(j => ioMatrix.map(_(j)).foldLeft(Share.Zero)(_ + _)).toVector,
+      "IntermediateMarket.Input.columnSums must match ioMatrix",
+    )
 
   /** @param firms
     *   firms with cash adjusted for intermediate purchases/sales (zero-sum)

@@ -1072,7 +1072,7 @@ object Firm:
     discountedEnergy * (Multiplier.One + carbonSurcharge.max(Scalar.Zero).toMultiplier)
 
   /** Monthly P&L: revenue minus all cost categories, CIT on positive profit. */
-  private def computePnL(
+  private[amorfati] def computePnL(
       firm: State,
       wage: PLN,
       sectorDemandMult: Multiplier,
@@ -1111,6 +1111,27 @@ object Firm:
         (taxable * p.fiscal.citRate, remaining.max(PLN.Zero))
 
     PnL(revenue, costs, tax, profit - tax, profitShiftCost, energyCost, newAccLoss)
+
+  private[amorfati] def realizedPostTaxProfit(
+      firm: State,
+      wage: PLN,
+      sectorDemandMult: Multiplier,
+      domesticPrice: PriceIndex,
+      importPrice: PriceIndex,
+      commodityPrice: PriceIndex,
+      lendRate: Rate,
+      month: Int,
+  )(using p: SimParams): PLN =
+    computePnL(
+      firm,
+      wage,
+      sectorDemandMult,
+      domesticPrice,
+      importPrice,
+      commodityPrice,
+      lendRate,
+      month,
+    ).netAfterTax.max(PLN.Zero)
 
   /** Apply green capital investment — separate cash pool. Firms earmark
     * GreenBudgetShare of cash for green investment; physical capital

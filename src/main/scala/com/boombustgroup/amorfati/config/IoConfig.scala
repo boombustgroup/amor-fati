@@ -31,6 +31,7 @@ case class IoConfig(
   require(matrix.forall(_.length == colCount), "IoConfig.matrix must have rows of equal length")
   require(rowCount == colCount, "IoConfig.matrix must be square")
   require(matrix.flatten.forall(_ >= Share.Zero), "IoConfig.matrix entries must be non-negative")
+  require(scale >= Multiplier.Zero, "IoConfig.scale must be non-negative")
 
   /** Pre-computed column sums of the technical coefficients matrix (used in
     * intermediate demand calculation).

@@ -152,7 +152,7 @@ object GvcTrade:
       .map: s =>
         val sectorFirms = firms.filter(_.sectorId == s)
         val demand      = sumPln(sectorFirms.map(_.baseExportDemand)) * foreignGdpFactor
-        val disruption  = avgSectorDisruption(sectorFirms)
+        val disruption  = weightedSectorDisruption(sectorFirms, _.baseExportDemand)
         ((erEffect * demand) * autoBoost) * (Share.One - disruption)
       .toVector
 
@@ -170,7 +170,7 @@ object GvcTrade:
         val baseDemand  = realOutput * p.gvc.depth(s)
         val sectorFirms = firms.filter(_.sectorId == s)
         val erEffect    = partnerWeightedErEffect(sectorFirms, erDeviation)
-        val disruption  = avgSectorDisruption(sectorFirms)
+        val disruption  = weightedSectorDisruption(sectorFirms, _.baseImportSupply)
         (baseDemand * erEffect.max(MinErEffect)) * (Share.One - disruption)
       .toVector
 
@@ -184,8 +184,12 @@ object GvcTrade:
       (passthrough * erDeviation).growthMultiplier
     else Multiplier.One
 
-  private def avgSectorDisruption(sectorFirms: Vector[ForeignFirm]): Share =
-    if sectorFirms.nonEmpty then sectorFirms.map(_.disruption).foldLeft(Share.Zero)(_ + _) / sectorFirms.length
+  private def weightedSectorDisruption(
+      sectorFirms: Vector[ForeignFirm],
+      weight: ForeignFirm => PLN,
+  ): Share =
+    val totalWeight = sumPln(sectorFirms.map(weight))
+    if totalWeight > PLN.Zero then sumPln(sectorFirms.map(ff => ff.disruption * weight(ff))).ratioTo(totalWeight).toShare
     else Share.Zero
 
   private def weightedDisruption(firms: Vector[ForeignFirm]): Share =

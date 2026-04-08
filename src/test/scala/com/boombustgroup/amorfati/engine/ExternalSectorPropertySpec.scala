@@ -18,7 +18,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
 
-  private val defaultSectorOutputs = Vector.fill(6)(PLN(1e8))
+  private val defaultSectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(1e8))
 
   private def runStep(
       er: Double = p.forex.baseExRate,
@@ -71,13 +71,13 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
       td.toDouble(r.disruptionIndex).should(be <= 1.0)
     }
 
-  // --- Sector vectors have length 6 ---
+  // --- Sector vectors have expected length ---
 
-  it should "always have sector vectors of length 6" in
+  it should "always have sector vectors matching sector count" in
     forAll(genExchangeRate, genPrice) { (er: Double, price: Double) =>
       val r = runStep(er, price)
-      r.sectorExports.length shouldBe 6
-      r.sectorImports.length shouldBe 6
+      r.sectorExports.length shouldBe p.sectorDefs.length
+      r.sectorImports.length shouldBe p.sectorDefs.length
     }
 
   // --- Trade concentration in (0, 1] ---

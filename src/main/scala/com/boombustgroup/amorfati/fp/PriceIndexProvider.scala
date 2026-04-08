@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.fp
 
 import FixedPointBase.*
+import com.boombustgroup.amorfati.types.Scalar
 
 /** Price indices (CPI, HPI, ETS), base = 1.0. */
 object PriceIndexProvider:
@@ -17,7 +18,7 @@ object PriceIndexProvider:
     def +(other: PriceIndex): PriceIndex   = p + other
     def -(other: PriceIndex): PriceIndex   = p - other
     def *(other: PriceIndex): PriceIndex   = bankerRound(BigInt(p) * BigInt(other))
-    def /(other: PriceIndex): Double       = if other != 0L then p.toDouble / other.toDouble else 0.0
+    def /(other: PriceIndex): Scalar       = if other != 0L then Scalar.fromRaw(divideRaw(p, other)) else Scalar.Zero
     def max(other: PriceIndex): PriceIndex = math.max(p, other)
     def min(other: PriceIndex): PriceIndex = math.min(p, other)
     def >(other: PriceIndex): Boolean      = p > other

@@ -83,6 +83,10 @@ object CalvoPricing:
       firms: Vector[Firm.State],
       prevFirms: Vector[Firm.State],
   )(using SimParams): Rate =
+    require(
+      firms.lengthCompare(prevFirms.length) == 0,
+      "firms and prevFirms must have the same length",
+    )
     if firms.isEmpty then Rate.Zero
     else
       val totalRevenue = firms.foldLeft(PLN.Zero)((acc, f) => acc + Firm.computeCapacity(f))

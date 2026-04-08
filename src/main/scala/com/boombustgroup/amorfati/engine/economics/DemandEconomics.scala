@@ -52,7 +52,7 @@ object DemandEconomics:
     val rawPressure        = computeRawDemandPressure(sectorDemand, sectorCapReal, in.w.priceLevel)
     val sectorPressure     = stabilizeDemandPressure(rawPressure)
     val sectorHiringSignal = smoothHiringSignal(in.w.pipeline.sectorHiringSignal, sectorPressure)
-    val sectorMults        = applySpillover(rawPressure, sectorCapReal, in.w.priceLevel)
+    val sectorMults        = applySpillover(sectorDemand, rawPressure, sectorCapReal, in.w.priceLevel)
     val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCapReal, in)
     Output(govPurchases, sectorMults, sectorPressure, sectorHiringSignal, avgDemandMult, sectorCapReal, laggedInvestDemand, fiscalResult.status)
 
@@ -162,6 +162,7 @@ object DemandEconomics:
       Multiplier.One + (PressureMaxBoost * (Multiplier.One - (-(excess.toScalar * PressureSaturationRate)).toCoefficient.exp))
 
   private def applySpillover(
+      sectorDemand: Vector[PLN],
       rawMults: Vector[Multiplier],
       sectorCapReal: Vector[PLN],
       priceLevel: PriceIndex,
@@ -169,7 +170,9 @@ object DemandEconomics:
     val nominalCapBySector = sectorCapReal.map(_ * priceLevel.toMultiplier)
     val excessDemand       = rawMults.indices
       .map: s =>
-        if rawMults(s) > Multiplier.One then nominalCapBySector(s) * rawMults(s).deviationFromOne else PLN.Zero
+        if nominalCapBySector(s) <= PLN.Zero then sectorDemand(s)
+        else if rawMults(s) > Multiplier.One then nominalCapBySector(s) * rawMults(s).deviationFromOne
+        else PLN.Zero
       .foldLeft(PLN.Zero)(_ + _)
     val deficitCapacity    = rawMults.indices
       .map: s =>

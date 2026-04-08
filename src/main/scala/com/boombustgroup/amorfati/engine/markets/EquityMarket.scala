@@ -92,7 +92,8 @@ object EquityMarket:
 
     val retainedWeight = Share.One - AdjustmentSpeed
     val newIndex       =
-      ((in.prev.index * retainedWeight.toMultiplier) + (gordonIndex * AdjustmentSpeed.toMultiplier)).max(MinIndex)
+      if in.prev.marketCap > PLN.Zero then ((in.prev.index * retainedWeight.toMultiplier) + (gordonIndex * AdjustmentSpeed.toMultiplier)).max(MinIndex)
+      else PriceIndex.Zero
 
     // Market cap scales with index
     val indexReturn  = if in.prev.index > PriceIndex.Zero then newIndex.ratioTo(in.prev.index).toMultiplier else Multiplier.One
@@ -122,6 +123,12 @@ object EquityMarket:
     */
   def processIssuance(amount: PLN, prev: State): State =
     if amount <= PLN.Zero then prev.copy(lastIssuance = PLN.Zero)
+    else if prev.marketCap <= PLN.Zero then
+      prev.copy(
+        marketCap = amount,
+        index = prev.index.max(MinIndex),
+        lastIssuance = amount,
+      )
     else
       val dilutionFactor = prev.marketCap.ratioTo(prev.marketCap + amount).toMultiplier
       prev.copy(

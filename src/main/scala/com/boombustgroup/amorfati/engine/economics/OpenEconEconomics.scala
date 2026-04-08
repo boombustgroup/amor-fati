@@ -315,14 +315,7 @@ object OpenEconEconomics:
 
   @boundaryEscape
   private def computeSectorOutputs(in: Input)(using p: SimParams): Vector[PLN] =
-    val living = in.livingFirms.filter(Firm.isAlive)
-    (0 until p.sectorDefs.length)
-      .map: s =>
-        living
-          .filter(_.sector.toInt == s)
-          .foldLeft(PLN.Zero): (acc, f) =>
-            acc + (in.w.priceLevel * (Firm.computeCapacity(f) * in.sectorMults(f.sector.toInt)))
-      .toVector
+    aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.livingFirms, in.sectorMults.apply)
 
   @boundaryEscape
   private def updateWeightedCoupon(prevCoupon: Rate, marketYield: Rate, bondsOutstanding: PLN, deficit: PLN, avgMaturityMonths: Int)(using
@@ -456,14 +449,20 @@ object OpenEconEconomics:
 
   @boundaryEscape
   private def runStepSectorOutputs(in: StepInput)(using p: SimParams): Vector[PLN] =
-    val living = in.s5.ioFirms.filter(Firm.isAlive)
-    (0 until p.sectorDefs.length)
-      .map: s =>
-        living
-          .filter(_.sector.toInt == s)
-          .foldLeft(PLN.Zero): (acc, f) =>
-            acc + (in.w.priceLevel * (Firm.computeCapacity(f) * in.s4.sectorMults(f.sector.toInt)))
-      .toVector
+    aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.s5.ioFirms, in.s4.sectorMults.apply)
+
+  private def aggregateSectorOutputs(
+      priceLevel: PriceIndex,
+      sectorCount: Int,
+      firms: Vector[Firm.State],
+      sectorMultiplier: Int => Multiplier,
+  )(using p: SimParams): Vector[PLN] =
+    val livingBySector = firms.iterator.filter(Firm.isAlive).toVector.groupBy(_.sector.toInt)
+    Vector.tabulate(sectorCount): s =>
+      livingBySector
+        .getOrElse(s, Vector.empty)
+        .foldLeft(PLN.Zero): (acc, f) =>
+          acc + (priceLevel * (Firm.computeCapacity(f) * sectorMultiplier(f.sector.toInt)))
 
   @boundaryEscape
   private def runStepGvc(in: StepInput, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =

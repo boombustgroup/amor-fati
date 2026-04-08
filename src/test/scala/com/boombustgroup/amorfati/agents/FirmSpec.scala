@@ -339,7 +339,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     World(
       month = 31,
       inflation = Rate(0.02),
-      priceLevel = 1.0,
+      priceLevel = PriceIndex.Base,
       gdpProxy = 1e9,
       currentSigmas = p.sectorDefs.map(_.sigma).toVector,
       totalPopulation = 100000,

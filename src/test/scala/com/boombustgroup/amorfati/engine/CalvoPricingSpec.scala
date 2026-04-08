@@ -42,9 +42,11 @@ class CalvoPricingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep markup unchanged when not selected" in {
-    val rng    = new Random(42)
+    val rng    = new Random:
+      override def nextInt(n: Int): Int = n - 1
     val result = CalvoPricing.updateFirmMarkup(Multiplier(1.2), Multiplier.One, Coefficient.Zero, rng)
-    if !result.priceChanged then result.newMarkup.bd shouldBe BigDecimal("1.2") +- BigDecimal("0.001")
+    result.priceChanged shouldBe false
+    result.newMarkup.bd shouldBe BigDecimal("1.2") +- BigDecimal("0.001")
   }
 
   it should "be deterministic with same seed" in {
