@@ -17,6 +17,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
   private def adjustedSuccess(base: Double, friction: Double): Double =
     ComputationBoundary.toDouble(SectoralMobility.frictionAdjustedSuccess(Share(base), Share(friction)))
+
   // --- Default friction matrix ---
 
   "DefaultFrictionMatrix" should "be 6x6" in {

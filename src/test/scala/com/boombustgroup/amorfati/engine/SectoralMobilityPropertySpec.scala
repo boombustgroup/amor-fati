@@ -18,6 +18,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   private def adjustedSuccess(base: Double, friction: Double): Double =
     ComputationBoundary.toDouble(SectoralMobility.frictionAdjustedSuccess(Share(base), Share(friction)))
+
   // --- Friction matrix properties ---
 
   "DefaultFrictionMatrix" should "have all off-diagonal elements in (0, 1)" in {

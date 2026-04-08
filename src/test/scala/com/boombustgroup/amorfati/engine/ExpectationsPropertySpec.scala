@@ -22,6 +22,9 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   private def step(prev: Expectations.State, infl: Double, rate: Double, unemp: Double): Expectations.State =
     Expectations.step(prev, Rate(infl), Rate(rate), Share(unemp))
 
+  private def step(prev: Expectations.State, infl: Rate, rate: Rate, unemp: Share): Expectations.State =
+    Expectations.step(prev, infl, rate, unemp)
+
   "Expectations.step" should "always bound credibility in [0.01, 1.0]" in
     forAll(inflationGen, rateGen, credGen, unempGen) { (infl: Double, rate: Double, cred: Double, unemp: Double) =>
       val prev = Expectations.initial.copy(credibility = Share(cred))
@@ -91,7 +94,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   "step with no change" should "preserve stability at target" in {
     val prev = Expectations.initial
-    val r    = Expectations.step(prev, p.monetary.targetInfl, p.monetary.initialRate, Share(0.05))
+    val r    = step(prev, p.monetary.targetInfl, p.monetary.initialRate, Share(0.05))
     // Expectations should stay near initial values
     Math.abs(td.toDouble(r.expectedInflation) - td.toDouble(p.monetary.targetInfl)).should(be < 0.01)
     td.toDouble(r.credibility).should(be >= td.toDouble(prev.credibility))

@@ -262,8 +262,13 @@ object types:
 
   object WeightedSelection:
     def choose(weights: Vector[Multiplier], rng: Random): Int =
+      if weights.isEmpty then return -1
+      weights.foreach: weight =>
+        if weight < Multiplier.Zero then
+          throw IllegalArgumentException(s"WeightedSelection requires non-negative weights, got: $weight")
       val total = weights.foldLeft(0L)(_ + _.toLong)
-      if total <= 0L then 0
+      if total == 0L then
+        throw IllegalArgumentException("WeightedSelection requires at least one positive weight")
       else
         val threshold = rng.between(0L, total)
         weights.indices
