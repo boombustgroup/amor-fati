@@ -18,13 +18,9 @@ import com.boombustgroup.amorfati.types.*
   */
 object GvcTrade:
 
-  // --- Named constants ---
   private val NumPartners           = 2
-  private val AutomationExportBoost = 0.15 // export uplift per unit automation ratio
-  private val MinErEffect           = 0.1  // floor on ER pass-through multiplier
-
-  private def priceLevelValue(priceLevel: PriceIndex): Double =
-    priceLevel.toMultiplier / Multiplier.One
+  private val AutomationExportBoost = Coefficient(0.15)
+  private val MinErEffect           = Multiplier(0.1)
 
   case class ForeignFirm(
       id: Int,
@@ -32,7 +28,7 @@ object GvcTrade:
       partnerId: Int, // 0=EU, 1=Non-EU
       baseExportDemand: PLN,
       baseImportSupply: PLN,
-      priceIndex: Double,
+      priceIndex: PriceIndex,
       disruption: Share,
   )
 
@@ -52,29 +48,26 @@ object GvcTrade:
 
   def zero: State = State(Vector.empty)
 
-  @boundaryEscape
   def initial(using p: SimParams): State =
-    import ComputationBoundary.toDouble
-    val euShare       = toDouble(p.gvc.euTradeShare)
-    val nonEuShare    = 1.0 - euShare
+    val euShare       = p.gvc.euTradeShare
+    val nonEuShare    = Share.One - euShare
     val partnerShares = Vector(euShare, nonEuShare)
-    val exportBase    = toDouble(p.openEcon.exportBase)
-    val exportShares  = p.gvc.exportShares.map(s => toDouble(s))
-    val depths        = p.gvc.depth.map(s => toDouble(s))
+    val exportBase    = p.openEcon.exportBase
+    val exportShares  = p.gvc.exportShares
+    val depths        = p.gvc.depth
 
-    val nSectors = exportShares.size
-    val firms    = for
-      s  <- (0 until nSectors).toVector
+    val firms = for
+      s  <- exportShares.indices.toVector
       pi <- (0 until NumPartners).toVector
     yield
-      val ps = partnerShares(pi)
+      val partnerShare = partnerShares(pi)
       ForeignFirm(
         id = s * NumPartners + pi,
         sectorId = s,
         partnerId = pi,
-        baseExportDemand = PLN(exportBase * exportShares(s) * ps),
-        baseImportSupply = PLN(exportBase * depths(s) * ps),
-        priceIndex = 1.0,
+        baseExportDemand = (exportBase * exportShares(s)) * partnerShare,
+        baseImportSupply = (exportBase * depths(s)) * partnerShare,
+        priceIndex = PriceIndex.Base,
         disruption = Share.Zero,
       )
 
@@ -82,37 +75,33 @@ object GvcTrade:
 
   case class StepInput(
       prev: State,
-      sectorOutputs: Vector[Double],
+      sectorOutputs: Vector[PLN],
       priceLevel: PriceIndex,
-      exchangeRate: Double,
-      autoRatio: Double,
+      exchangeRate: ExchangeRate,
+      autoRatio: Share,
       month: Int,
       rng: scala.util.Random,
   )
 
-  @boundaryEscape
   def step(in: StepInput)(using p: SimParams): State =
-    import ComputationBoundary.toDouble
-    val nSectors            = in.prev.sectorExports.size
-    val monthlyInflationRaw = toDouble(p.gvc.foreignInflation.monthly)
-    val newForeignPrice     = in.prev.foreignPriceIndex * Multiplier(monthlyInflationRaw + 1.0)
-    // Commodity price: GBM drift + volatility + optional shock
-    val commodityDrift      = toDouble(p.gvc.commodityDrift.monthly)
-    val commodityNoise      = toDouble(p.gvc.commodityVolatility) * in.rng.nextGaussian()
-    val commodityShock      =
-      if p.gvc.commodityShockMonth > 0 && in.month == p.gvc.commodityShockMonth then toDouble(p.gvc.commodityShockMag)
-      else 0.0
-    val commodityGrowth     = Multiplier(commodityShock + commodityDrift + 1.0 + commodityNoise)
-    val newCommodity        = in.prev.commodityPriceIndex * commodityGrowth
-    val newImportCost       = newForeignPrice * newCommodity
-    val shockActive         = p.gvc.demandShockMonth > 0 && in.month >= p.gvc.demandShockMonth
-    val shockMag            = if shockActive then p.gvc.demandShockSize else Share.Zero
-    val updatedFirms        = evolveFirms(in.prev.foreignFirms, monthlyInflationRaw, shockActive, in.month)
-    val foreignGdpFactor    = Math.pow(1.0 + toDouble(p.gvc.foreignGdpGrowth.monthly), in.month.toDouble)
-    val erEffect            = realExchangeRateEffect(in.priceLevel, in.exchangeRate)
-    val exports             = computeSectorExports(updatedFirms, nSectors, foreignGdpFactor, erEffect, in.autoRatio)
-    val imports             = computeSectorImports(updatedFirms, nSectors, in.sectorOutputs, in.priceLevel, in.exchangeRate)
-    val euShare             = toDouble(p.gvc.euTradeShare)
+    val nSectors         = in.prev.sectorExports.size
+    val monthlyInflation = p.gvc.foreignInflation.monthly
+    val newForeignPrice  = in.prev.foreignPriceIndex.applyGrowth(monthlyInflation.toCoefficient)
+    val commodityDrift   = p.gvc.commodityDrift.monthly.toCoefficient
+    val commodityNoise   = Coefficient(in.rng.nextGaussian()) * p.gvc.commodityVolatility.toCoefficient
+    val commodityShock   =
+      if p.gvc.commodityShockMonth > 0 && in.month == p.gvc.commodityShockMonth then p.gvc.commodityShockMag.toCoefficient
+      else Coefficient.Zero
+    val commodityGrowth  = (commodityShock + commodityDrift + commodityNoise).growthMultiplier
+    val newCommodity     = in.prev.commodityPriceIndex * commodityGrowth
+    val newImportCost    = newForeignPrice * newCommodity
+    val shockActive      = p.gvc.demandShockMonth > 0 && in.month >= p.gvc.demandShockMonth
+    val shockMag         = if shockActive then p.gvc.demandShockSize else Share.Zero
+    val updatedFirms     = evolveFirms(in.prev.foreignFirms, monthlyInflation, shockActive, in.month)
+    val foreignGdpFactor = compoundedGrowth(p.gvc.foreignGdpGrowth.monthly.growthMultiplier, in.month)
+    val erEffect         = realExchangeRateEffect(in.priceLevel, in.exchangeRate)
+    val exports          = computeSectorExports(updatedFirms, nSectors, foreignGdpFactor, erEffect, in.autoRatio)
+    val imports          = computeSectorImports(updatedFirms, nSectors, in.sectorOutputs, in.priceLevel, in.exchangeRate)
 
     State(
       foreignFirms = updatedFirms,
@@ -122,26 +111,19 @@ object GvcTrade:
       sectorImports = imports,
       disruptionIndex = weightedDisruption(updatedFirms),
       foreignPriceIndex = newForeignPrice,
-      tradeConcentration = hhi(euShare),
+      tradeConcentration = hhi(p.gvc.euTradeShare),
       exportDemandShockMag = shockMag,
       importCostIndex = newImportCost,
       commodityPriceIndex = newCommodity,
     )
 
-  // --- Private helpers ---
-
-  /** Evolve foreign firms: apply demand shock, recover disruptions, update
-    * price.
-    */
-  @boundaryEscape
   private def evolveFirms(
       firms: Vector[ForeignFirm],
-      monthlyInflation: Double,
+      monthlyInflation: Rate,
       shockActive: Boolean,
       month: Int,
   )(using p: SimParams): Vector[ForeignFirm] =
-    import ComputationBoundary.toDouble
-    val recoveryRate = toDouble(p.gvc.disruptionRecovery)
+    val recoveryRate = p.gvc.disruptionRecovery
     firms.map: ff =>
       val afterShock =
         if shockActive && month == p.gvc.demandShockMonth &&
@@ -149,95 +131,76 @@ object GvcTrade:
         then ff.copy(baseExportDemand = ff.baseExportDemand * (Share.One - p.gvc.demandShockSize))
         else ff
       afterShock.copy(
-        disruption = Share(toDouble(afterShock.disruption) * (1.0 - recoveryRate)),
-        priceIndex = afterShock.priceIndex * (1.0 + monthlyInflation),
+        disruption = afterShock.disruption * (Share.One - recoveryRate),
+        priceIndex = afterShock.priceIndex.applyGrowth(monthlyInflation.toCoefficient),
       )
 
-  /** Real exchange rate effect on exports (Marshall-Lerner). */
-  @boundaryEscape
-  private def realExchangeRateEffect(priceLevel: PriceIndex, exchangeRate: Double)(using p: SimParams): Double =
-    import ComputationBoundary.toDouble
-    val nominalER = exchangeRate / p.forex.baseExRate
-    val price     = priceLevelValue(priceLevel)
-    val realPrice = if price > 0 && nominalER > 0 then price / nominalER else 1.0
-    Math.pow(1.0 / Math.max(MinErEffect, realPrice), toDouble(p.openEcon.exportPriceElasticity))
+  private def realExchangeRateEffect(priceLevel: PriceIndex, exchangeRate: ExchangeRate)(using p: SimParams): Scalar =
+    val nominalER = exchangeRate.ratioTo(ExchangeRate(p.forex.baseExRate))
+    val realPrice = priceLevel.toMultiplier.ratioTo(nominalER).max(MinErEffect.toScalar)
+    realPrice.reciprocal.pow(p.openEcon.exportPriceElasticity.toScalar)
 
-  /** Per-sector export demand. */
-  @boundaryEscape
   private def computeSectorExports(
       firms: Vector[ForeignFirm],
       nSectors: Int,
-      foreignGdpFactor: Double,
-      erEffect: Double,
-      autoRatio: Double,
+      foreignGdpFactor: Multiplier,
+      erEffect: Scalar,
+      autoRatio: Share,
   ): Vector[PLN] =
-    import ComputationBoundary.toDouble
-    val autoBoost = 1.0 + autoRatio * AutomationExportBoost
+    val autoBoost = (autoRatio * AutomationExportBoost).growthMultiplier
     (0 until nSectors)
       .map: s =>
         val sectorFirms = firms.filter(_.sectorId == s)
-        val demand      = sectorFirms.map(ff => toDouble(ff.baseExportDemand)).sum * foreignGdpFactor
+        val demand      = sumPln(sectorFirms.map(_.baseExportDemand)) * foreignGdpFactor
         val disruption  = avgSectorDisruption(sectorFirms)
-        PLN(demand * erEffect * autoBoost * (1.0 - disruption))
+        ((erEffect * demand) * autoBoost) * (Share.One - disruption)
       .toVector
 
-  /** Per-sector intermediate import demand with differentiated ER pass-through.
-    */
-  @boundaryEscape
   private def computeSectorImports(
       firms: Vector[ForeignFirm],
       nSectors: Int,
-      sectorOutputs: Vector[Double],
+      sectorOutputs: Vector[PLN],
       priceLevel: PriceIndex,
-      exchangeRate: Double,
+      exchangeRate: ExchangeRate,
   )(using p: SimParams): Vector[PLN] =
-    import ComputationBoundary.toDouble
-    val depths      = p.gvc.depth.map(s => toDouble(s))
-    val erDeviation = exchangeRate / p.forex.baseExRate - 1.0
-    val price       = priceLevelValue(priceLevel)
+    val erDeviation = exchangeRate.deviationFrom(ExchangeRate(p.forex.baseExRate)).toCoefficient
     (0 until nSectors)
       .map: s =>
-        val realOutput  = if price > 0 then sectorOutputs(s) / price else sectorOutputs(s)
-        val baseDemand  = realOutput * depths(s)
+        val realOutput  = sectorOutputs(s) / priceLevel.toMultiplier
+        val baseDemand  = realOutput * p.gvc.depth(s)
         val sectorFirms = firms.filter(_.sectorId == s)
         val erEffect    = partnerWeightedErEffect(sectorFirms, erDeviation)
         val disruption  = avgSectorDisruption(sectorFirms)
-        PLN(baseDemand * Math.max(MinErEffect, erEffect) * (1.0 - disruption))
+        (baseDemand * erEffect.max(MinErEffect)) * (Share.One - disruption)
       .toVector
 
-  /** Weighted ER pass-through across EU/non-EU partners for a sector. */
-  @boundaryEscape
-  private def partnerWeightedErEffect(sectorFirms: Vector[ForeignFirm], erDeviation: Double)(using p: SimParams): Double =
-    import ComputationBoundary.toDouble
-    val totalSupply = sectorFirms.map(ff => toDouble(ff.baseImportSupply)).sum
-    if totalSupply > 0 then
-      val euWeight    = sectorFirms.filter(_.partnerId == 0).map(ff => toDouble(ff.baseImportSupply)).sum / totalSupply
-      val nonEuWeight = 1.0 - euWeight
-      1.0 + euWeight * erDeviation * toDouble(p.gvc.euErPassthrough) +
-        nonEuWeight * erDeviation * toDouble(p.gvc.erPassthrough)
-    else 1.0
+  private def partnerWeightedErEffect(sectorFirms: Vector[ForeignFirm], erDeviation: Coefficient)(using p: SimParams): Multiplier =
+    val totalSupply = sumPln(sectorFirms.map(_.baseImportSupply))
+    if totalSupply > PLN.Zero then
+      val euSupply    = sumPln(sectorFirms.filter(_.partnerId == 0).map(_.baseImportSupply))
+      val euWeight    = euSupply.ratioTo(totalSupply).toShare
+      val nonEuWeight = Share.One - euWeight
+      val passthrough = (euWeight * p.gvc.euErPassthrough) + (nonEuWeight * p.gvc.erPassthrough)
+      (passthrough * erDeviation).growthMultiplier
+    else Multiplier.One
 
-  /** Average disruption across firms in a sector. */
-  @boundaryEscape
-  private def avgSectorDisruption(sectorFirms: Vector[ForeignFirm]): Double =
-    import ComputationBoundary.toDouble
-    if sectorFirms.nonEmpty then sectorFirms.map(ff => toDouble(ff.disruption)).sum / sectorFirms.length
-    else 0.0
+  private def avgSectorDisruption(sectorFirms: Vector[ForeignFirm]): Share =
+    if sectorFirms.nonEmpty then sectorFirms.map(_.disruption).foldLeft(Share.Zero)(_ + _) / sectorFirms.length
+    else Share.Zero
 
-  /** Demand-weighted disruption index across all firms. */
-  @boundaryEscape
   private def weightedDisruption(firms: Vector[ForeignFirm]): Share =
-    import ComputationBoundary.toDouble
     if firms.isEmpty then Share.Zero
     else
-      val totalDemand = firms.map(ff => toDouble(ff.baseExportDemand)).sum
-      if totalDemand > 0 then Share(firms.map(ff => toDouble(ff.disruption) * toDouble(ff.baseExportDemand)).sum / totalDemand)
+      val totalDemand = sumPln(firms.map(_.baseExportDemand))
+      if totalDemand > PLN.Zero then sumPln(firms.map(ff => ff.disruption * ff.baseExportDemand)).ratioTo(totalDemand).toShare
       else Share.Zero
 
-  /** Herfindahl-Hirschman Index for two-partner concentration. */
-  private def hhi(euShare: Double): Share =
-    Share(euShare * euShare + (1.0 - euShare) * (1.0 - euShare))
+  private def hhi(euShare: Share): Share =
+    (euShare * euShare) + ((Share.One - euShare) * (Share.One - euShare))
 
-  /** Sum a vector of PLN values (exact Long addition). */
+  private def compoundedGrowth(monthlyFactor: Multiplier, periods: Int): Multiplier =
+    if periods <= 0 then Multiplier.One
+    else Iterator.fill(periods)(monthlyFactor).foldLeft(Multiplier.One)(_ * _)
+
   private def sumPln(vs: Vector[PLN]): PLN =
-    PLN.fromRaw(vs.map(_.toLong).sum)
+    vs.foldLeft(PLN.Zero)(_ + _)

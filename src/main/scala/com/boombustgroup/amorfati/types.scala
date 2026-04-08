@@ -86,6 +86,8 @@ object types:
     def toScalar: Scalar             = Scalar.fromRaw(r.toLong)
     @targetName("rateToCoefficient")
     def toCoefficient: Coefficient   = Coefficient.fromRaw(r.toLong)
+    @targetName("rateGrowthMultiplier")
+    def growthMultiplier: Multiplier = Multiplier.fromRaw(com.boombustgroup.amorfati.fp.FixedPointBase.Scale + r.toLong)
     @targetName("rateRatioToRate")
     def ratioTo(other: Rate): Scalar = Scalar.fromRaw(scaledDiv(r.toLong, other.toLong))
 
@@ -152,19 +154,22 @@ object types:
   // --- Coefficient × typed ---
   extension (c: Coefficient)
     @targetName("coefTimesShare")
-    def *(s: Share): Coefficient = Coefficient.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(s.toLong)))
+    def *(s: Share): Coefficient     = Coefficient.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(s.toLong)))
     @targetName("coefTimesMultiplier")
-    def *(m: Multiplier): Share  = Share.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): Share      = Share.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(m.toLong)))
     @targetName("coefTimesPln")
-    def *(p: PLN): PLN           = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
+    def *(p: PLN): PLN               = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
     @targetName("coefToShare")
-    def toShare: Share           = Share.fromRaw(c.toLong)
+    def toShare: Share               = Share.fromRaw(c.toLong)
     @targetName("coefToMultiplier")
-    def toMultiplier: Multiplier = Multiplier.fromRaw(c.toLong)
+    def toMultiplier: Multiplier     = Multiplier.fromRaw(c.toLong)
     @targetName("coefToScalar")
-    def toScalar: Scalar         = Scalar.fromRaw(c.toLong)
+    def toScalar: Scalar             = Scalar.fromRaw(c.toLong)
     @targetName("coefToRate")
-    def toRate: Rate             = Rate.fromRaw(c.toLong)
+    def toRate: Rate                 = Rate.fromRaw(c.toLong)
+    @targetName("coefGrowthMultiplier")
+    def growthMultiplier: Multiplier =
+      Multiplier.fromRaw(com.boombustgroup.amorfati.fp.FixedPointBase.Scale + c.toLong)
 
   // --- PriceIndex × typed ---
   extension (pi: PriceIndex)
@@ -186,13 +191,18 @@ object types:
 
   extension (s: Sigma)
     @targetName("sigmaToScalar")
-    def toScalar: Scalar = Scalar.fromRaw(s.toLong)
+    def toScalar: Scalar           = Scalar.fromRaw(s.toLong)
+    @targetName("sigmaToCoefficient")
+    def toCoefficient: Coefficient = Coefficient.fromRaw(s.toLong)
 
   // --- ExchangeRate / ExchangeRateShock ---
   extension (rate: ExchangeRate)
     @targetName("exchangeRateDeviationFrom")
     def deviationFrom(base: ExchangeRate): ExchangeRateShock =
       ExchangeRateShock.fromRaw(scaledDiv(rate.toLong - base.toLong, base.toLong))
+    @targetName("exchangeRateRatioTo")
+    def ratioTo(base: ExchangeRate): Multiplier              =
+      Multiplier.fromRaw(scaledDiv(rate.toLong, base.toLong))
     @targetName("exchangeRateApplyShock")
     def applyShock(shock: ExchangeRateShock): ExchangeRate   =
       ExchangeRate.fromRaw(

@@ -22,9 +22,7 @@ import scala.util.Random
   */
 object OpenEconEconomics:
 
-  private val MaxDebtServiceGdpShare                      = Share(0.50)
-  private def exchangeRateValue(er: ExchangeRate): Double =
-    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+  private val MaxDebtServiceGdpShare = Share(0.50)
 
   /** Everything the new pipeline needs from open economy + monetary + financial
     * sector.
@@ -177,10 +175,10 @@ object OpenEconEconomics:
       GvcTrade.step(
         GvcTrade.StepInput(
           in.w.external.gvc,
-          sectorOutputs.map(toDouble(_)),
+          sectorOutputs,
           in.w.priceLevel,
-          exchangeRateValue(in.w.forex.exchangeRate),
-          toDouble(in.autoRatio),
+          in.w.forex.exchangeRate,
+          in.autoRatio,
           in.month,
           in.commodityRng,
         ),
@@ -470,14 +468,13 @@ object OpenEconEconomics:
 
   @boundaryEscape
   private def runStepGvc(in: StepInput, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
-    import ComputationBoundary.toDouble
     GvcTrade.step(
       GvcTrade.StepInput(
         prev = in.w.external.gvc,
-        sectorOutputs = sectorOutputs.map(toDouble(_)),
+        sectorOutputs = sectorOutputs,
         priceLevel = in.w.priceLevel,
-        exchangeRate = exchangeRateValue(in.w.forex.exchangeRate),
-        autoRatio = toDouble(in.s7.autoR),
+        exchangeRate = in.w.forex.exchangeRate,
+        autoRatio = in.s7.autoR,
         month = in.s1.m,
         rng = in.commodityRng,
       ),
