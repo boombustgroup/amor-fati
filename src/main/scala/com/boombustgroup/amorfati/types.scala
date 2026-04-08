@@ -48,6 +48,13 @@ object types:
         else if quotient % 2 == 0 then quotient.toLong
         else (quotient + resultSign).toLong
 
+  private inline def checkedInt(result: Long, operation: String): Int =
+    require(
+      result >= Int.MinValue.toLong && result <= Int.MaxValue.toLong,
+      s"overflow in $operation: $result",
+    )
+    result.toInt
+
   // === Cross-type operations ===
   // Defined HERE where all types are opaque — compiler enforces type safety.
   // Each operation explicitly uses .toLong to access the raw value.
@@ -98,7 +105,7 @@ object types:
     @targetName("rateTimesCoefficient")
     def *(c: Coefficient): Rate      = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(c.toLong)))
     @targetName("rateApplyToCount")
-    def applyTo(n: Int): Int         = bankerRound(BigInt(n.toLong) * BigInt(r.toLong)).toInt
+    def applyTo(n: Int): Int         = checkedInt(bankerRound(BigInt(n.toLong) * BigInt(r.toLong)), "Rate.applyTo")
     @targetName("rateToMultiplier")
     def toMultiplier: Multiplier     = Multiplier.fromRaw(r.toLong)
     @targetName("rateToScalar")
@@ -127,7 +134,7 @@ object types:
     @targetName("shareRatioToShare")
     def ratioTo(other: Share): Scalar  = Scalar.fromRaw(scaledDiv(s.toLong, other.toLong))
     @targetName("shareApplyToInt")
-    def applyTo(n: Int): Int           = bankerRound(BigInt(n.toLong) * BigInt(s.toLong)).toInt
+    def applyTo(n: Int): Int           = checkedInt(bankerRound(BigInt(n.toLong) * BigInt(s.toLong)), "Share.applyTo")
     @targetName("shareCeilApplyToInt")
     def ceilApplyTo(n: Int): Int       =
       val product = BigInt(n.toLong) * BigInt(s.toLong)
@@ -136,8 +143,6 @@ object types:
       else (product / scale).toInt
     @targetName("shareToScalar")
     def toScalar: Scalar               = Scalar.fromRaw(s.toLong)
-    @targetName("shareToMultiplierExact")
-    def exactMultiplier: Multiplier    = Multiplier.fromRaw(s.toLong)
     @targetName("shareToComplement")
     def complement: Share              = Share.One - s
     @targetName("shareToDistributeRaw")
@@ -188,7 +193,7 @@ object types:
     @targetName("multDivideByInt")
     def divideBy(n: Int): Multiplier       = Multiplier.fromRaw(FixedPointBase.divideRaw(m.toLong, n.toLong))
     @targetName("multApplyToCount")
-    def applyTo(n: Int): Int               = bankerRound(BigInt(n.toLong) * BigInt(m.toLong)).toInt
+    def applyTo(n: Int): Int               = checkedInt(bankerRound(BigInt(n.toLong) * BigInt(m.toLong)), "Multiplier.applyTo")
 
   // --- Coefficient × typed ---
   extension (c: Coefficient)

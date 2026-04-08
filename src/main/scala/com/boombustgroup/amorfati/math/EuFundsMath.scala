@@ -8,6 +8,8 @@ import com.boombustgroup.amorfati.types.{PLN, Scalar}
   * mechanisms package while returning typed fixed-point results to callers.
   */
 object EuFundsMath:
+  private val IntervalIntegrationSteps = 64
+
   /** Lanczos coefficients used by [[lnGamma]] for the Beta density
     * normalization term.
     */
@@ -23,7 +25,9 @@ object EuFundsMath:
     require(baseExRate.isFinite, s"baseExRate must be finite: $baseExRate")
     require(baseExRate > 0.0, s"baseExRate must be positive: $baseExRate")
     require(firmsCount > 0, s"firmsCount must be positive: $firmsCount")
-    PLN(totalEur * baseExRate * firmsCount.toDouble / referenceEconomy)
+    val envelope = totalEur * baseExRate * firmsCount.toDouble / referenceEconomy
+    require(envelope.isFinite, s"envelope computation must be finite: $envelope")
+    PLN(envelope)
 
   /** Returns the normalized monthly absorption weight from a Beta(alpha, beta)
     * draw-down profile.
@@ -35,7 +39,15 @@ object EuFundsMath:
     val t = monthOffset(month, startMonth, periodMonths)
     require(t.isFinite, s"monthOffset must be finite for month=$month, startMonth=$startMonth, periodMonths=$periodMonths")
     if t <= 0.0 || t >= 1.0 then Scalar.Zero
-    else Scalar(betaPdf(t, alpha, beta) / periodMonths)
+    else
+      val width      = 1.0 / periodMonths
+      val rawWeights = (0 until periodMonths).map: idx =>
+        val start = monthOffset(startMonth + idx, startMonth, periodMonths)
+        betaIntervalMass(start, start + width, alpha, beta)
+      val totalMass  = rawWeights.sum
+      require(totalMass.isFinite && totalMass > 0.0, s"monthlyWeight normalization mass must be finite and positive: $totalMass")
+      val monthIndex = month - startMonth
+      Scalar(rawWeights(monthIndex) / totalMass)
 
   /** Converts a simulation month into a [0, 1] position within the programming
     * period.
@@ -58,6 +70,23 @@ object EuFundsMath:
     val pdf           = Math.exp((alpha - 1.0) * Math.log(x) + (beta - 1.0) * Math.log(1.0 - x) - logB)
     require(pdf.isFinite, s"betaPdf must be finite for x=$x, alpha=$alpha, beta=$beta")
     pdf
+
+  /** Numerically integrates Beta density over a monthly interval to obtain
+    * discrete probability mass instead of a point sample.
+    */
+  private def betaIntervalMass(start: Double, end: Double, alpha: Double, beta: Double): Double =
+    val lo = start.max(0.0)
+    val hi = end.min(1.0)
+    if hi <= lo then 0.0
+    else
+      val width = hi - lo
+      val step  = width / IntervalIntegrationSteps
+      val mass  = (0 until IntervalIntegrationSteps).foldLeft(0.0) { (acc, idx) =>
+        val midpoint = lo + (idx + 0.5) * step
+        acc + betaPdf(midpoint, alpha, beta)
+      } * step
+      require(mass.isFinite && mass >= 0.0, s"beta interval mass must be finite and non-negative: $mass")
+      mass
 
   /** Log-gamma via Lanczos approximation, used for the Beta normalization
     * constant.
