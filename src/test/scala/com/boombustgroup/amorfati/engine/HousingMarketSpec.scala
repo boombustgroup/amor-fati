@@ -1,21 +1,22 @@
 package com.boombustgroup.amorfati.engine
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.markets.HousingMarket
 import com.boombustgroup.amorfati.types.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 class HousingMarketSpec extends AnyFlatSpec with Matchers:
 
-  import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val onePln       = PLN.fromLong(1)
 
-  private def pln(units: Long): PLN = PLN.fromLong(units)
-  private def rateBps(bps: Long): Rate = Rate.fromRaw(bps)
-  private def priceIndex(points: Long): PriceIndex = PriceIndex.fromRaw(points * 10000L)
-  private def shouldBeClosePln(actual: PLN, expected: PLN, tolerance: PLN): Unit =
+  private val onePln = PLN.fromLong(1)
+
+  private def pln(units: Long): PLN                                                  = PLN.fromLong(units)
+  private def rateBps(bps: Long): Rate                                               = Rate.fromRaw(bps)
+  private def priceIndex(points: Long): PriceIndex                                   = PriceIndex.fromRaw(points * 10000L)
+  private def shouldBeClosePln(actual: PLN, expected: PLN, tolerance: PLN): Unit     =
     (actual - expected).abs should be <= tolerance
   private def shouldBeCloseRate(actual: Rate, expected: Rate, tolerance: Rate): Unit =
     (actual - expected).abs should be <= tolerance
@@ -141,8 +142,24 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
   // --- Regional Housing Market tests ---
 
   private def makeRegionalState(aggValue: PLN, aggMortgage: PLN): HousingMarket.State =
-    val valueShares    = Vector(Share.fraction(25, 100), Share.fraction(8, 100), Share.fraction(7, 100), Share.fraction(8, 100), Share.fraction(4, 100), Share.fraction(5, 100), Share.fraction(43, 100))
-    val mortgageShares = Vector(Share.fraction(30, 100), Share.fraction(10, 100), Share.fraction(8, 100), Share.fraction(9, 100), Share.fraction(4, 100), Share.fraction(6, 100), Share.fraction(33, 100))
+    val valueShares    = Vector(
+      Share.fraction(25, 100),
+      Share.fraction(8, 100),
+      Share.fraction(7, 100),
+      Share.fraction(8, 100),
+      Share.fraction(4, 100),
+      Share.fraction(5, 100),
+      Share.fraction(43, 100),
+    )
+    val mortgageShares = Vector(
+      Share.fraction(30, 100),
+      Share.fraction(10, 100),
+      Share.fraction(8, 100),
+      Share.fraction(9, 100),
+      Share.fraction(4, 100),
+      Share.fraction(6, 100),
+      Share.fraction(33, 100),
+    )
     val hpis           = Vector(230L, 190L, 170L, 175L, 110L, 140L, 100L)
     val regions        = (0 until 7).map { r =>
       HousingMarket.RegionalState(
@@ -229,7 +246,15 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
   "Mortgage stock identity with regions" should "hold per-region" in {
     val state          = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
     val origAmount     = pln(5_000)
-    val shares         = Vector(Share.fraction(25, 100), Share.fraction(8, 100), Share.fraction(7, 100), Share.fraction(8, 100), Share.fraction(4, 100), Share.fraction(5, 100), Share.fraction(43, 100))
+    val shares         = Vector(
+      Share.fraction(25, 100),
+      Share.fraction(8, 100),
+      Share.fraction(7, 100),
+      Share.fraction(8, 100),
+      Share.fraction(4, 100),
+      Share.fraction(5, 100),
+      Share.fraction(43, 100),
+    )
     val updatedRegs    = state.regions.get.zipWithIndex.map { (r, i) =>
       val rOrig = shares(i) * origAmount
       r.copy(mortgageStock = r.mortgageStock + rOrig, lastOrigination = rOrig)
