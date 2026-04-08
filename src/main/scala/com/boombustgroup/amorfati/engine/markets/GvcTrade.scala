@@ -71,7 +71,17 @@ object GvcTrade:
         disruption = Share.Zero,
       )
 
-    State(firms, foreignPriceIndex = PriceIndex.Base, tradeConcentration = hhi(euShare))
+    State(
+      foreignFirms = firms,
+      totalExports = sumPln(exportShares.map(_ * exportBase)),
+      totalIntermImports = sumPln(depths.map(_ * exportBase)),
+      sectorExports = exportShares.map(_ * exportBase),
+      sectorImports = depths.map(_ * exportBase),
+      foreignPriceIndex = PriceIndex.Base,
+      tradeConcentration = hhi(euShare),
+      importCostIndex = PriceIndex.Base,
+      commodityPriceIndex = PriceIndex.Base,
+    )
 
   case class StepInput(
       prev: State,

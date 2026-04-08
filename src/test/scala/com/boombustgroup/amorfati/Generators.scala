@@ -595,18 +595,20 @@ object Generators:
   // --- I-O matrix generator ---
 
   val genIoMatrix: Gen[Vector[Vector[Double]]] =
+    val scale = 100000L
     Gen
-      .sequence[Vector[Vector[Double]], Vector[Double]](
+      .sequence[Vector[Vector[Long]], Vector[Long]](
         0.until(6).map { _ =>
-          Gen.sequence[Vector[Double], Double](
-            0.until(6).map(_ => Gen.choose(0.0, 0.15)),
+          Gen.sequence[Vector[Long], Long](
+            0.until(6).map(_ => Gen.chooseNum[Long](0L, 14000L)),
           )
         },
       )
-      .suchThat { m =>
-        // column sums must be < 1.0
-        0.until(6).forall(j => m.map(_(j)).sum < 1.0)
-      }
+      .suchThat: m =>
+        (0 until 6).forall: j =>
+          m.map(_(j)).sum < scale
+      .map: m =>
+        m.map(_.map(_.toDouble / scale))
 
   // --- Banking sector generators ---
 

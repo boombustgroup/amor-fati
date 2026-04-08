@@ -96,7 +96,11 @@ object DemandEconomics:
     val caps = Array.fill(p.sectorDefs.length)(PLN.Zero)
     in.living.foreach: f =>
       val s = f.sector.toInt
-      caps(s) = caps(s) + Firm.computeCapacity(f)
+      if 0 <= s && s < caps.length then caps(s) = caps(s) + Firm.computeCapacity(f)
+      else
+        throw IllegalArgumentException(
+          s"Invalid sector id ${f.sector.toInt} for firm ${f.id.toInt}; expected 0 until ${caps.length}",
+        )
     caps.toVector
 
   /** Per-sector export demand: from GVC foreign firms when enabled, otherwise

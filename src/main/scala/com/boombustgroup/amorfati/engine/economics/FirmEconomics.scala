@@ -92,6 +92,7 @@ object FirmEconomics:
   private case class FirmOutcome(
       firm: Firm.State,    // updated firm state after decision + financing
       flows: FirmFlows,    // monetary flows from this firm
+      realizedPostTaxProfit: PLN, // realized monthly profit after tax, floored at zero
       bankId: BankId,      // relationship bank (for per-bank aggregation)
       finalLoan: PLN,      // bank loan after equity/bond splits
       bondAmt: PLN,        // corporate bond issuance (pre-absorption)
@@ -210,6 +211,7 @@ object FirmEconomics:
       lendingRates: Vector[Double],        // per-bank lending rates
       postFirmCrossSectorHires: Int,       // cross-sector hires in labor matching
       markupInflation: Rate,               // Calvo: annualized revenue-weighted avg markup change
+      sumRealizedPostTaxProfit: PLN,       // aggregate realized post-tax profits from Firm.process
   )
 
   case class Result(
@@ -241,6 +243,7 @@ object FirmEconomics:
       inventoryChange: PLN,
       citEvasion: PLN,
       perBankWorkers: Vector[Int],
+      realizedPostTaxProfit: PLN,
   )
 
   def toResult(s5: StepOutput): Result = Result(
@@ -271,6 +274,7 @@ object FirmEconomics:
     inventoryChange = s5.sumInventoryChange,
     citEvasion = s5.sumCitEvasion,
     perBankWorkers = s5.perBankWorkers,
+    realizedPostTaxProfit = s5.sumRealizedPostTaxProfit,
   )
 
   // ---- Entry point (from step outputs, used by FlowSimulation) ----
@@ -422,6 +426,7 @@ object FirmEconomics:
           greenInvestment = r.greenInvestment,
           principalRepaid = r.principalRepaid,
         ),
+        realizedPostTaxProfit = r.realizedPostTaxProfit,
         bankId = f.bankId,
         finalLoan = fin.bankLoan,
         bondAmt = fin.bonds,
@@ -646,4 +651,5 @@ object FirmEconomics:
       lendingRates = lending.lendingRates,
       postFirmCrossSectorHires = crossSectorHires,
       markupInflation = markupInflation,
+      sumRealizedPostTaxProfit = fp.outcomes.foldLeft(PLN.Zero)(_ + _.realizedPostTaxProfit),
     )

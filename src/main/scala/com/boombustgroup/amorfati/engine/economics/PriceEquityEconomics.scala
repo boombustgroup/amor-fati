@@ -279,18 +279,7 @@ object PriceEquityEconomics:
     val newInfl  = priceUpd.inflation + in.s5.markupInflation
     val newPrice = priceUpd.priceLevel.applyGrowth(in.s5.markupInflation.monthly.toCoefficient)
 
-    val firmProfitsPnl = living2.foldLeft(PLN.Zero): (acc, f) =>
-      val lendRate = in.s5.lendingRates.lift(f.bankId.toInt).map(Rate(_)).getOrElse(in.w.nbp.referenceRate)
-      acc + Firm.realizedPostTaxProfit(
-        f,
-        in.newWage,
-        in.sectorMults(f.sector.toInt),
-        newPrice,
-        in.w.external.gvc.importCostIndex,
-        in.w.external.gvc.commodityPriceIndex,
-        lendRate,
-        in.month,
-      )
+    val firmProfitsPnl = in.s5.sumRealizedPostTaxProfit
 
     val prevGdp             = in.w.cachedMonthlyGdpProxy.max(PLN(1.0))
     val gdpGrowthForEquity  = PLN(gdp).ratioTo(prevGdp).toMultiplier.deviationFromOne

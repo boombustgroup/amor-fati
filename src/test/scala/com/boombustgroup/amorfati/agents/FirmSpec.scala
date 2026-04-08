@@ -263,7 +263,13 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   it should "bankrupt an Automated firm with negative cash when P&L is negative" in {
     // Very low cash + high price level = deep losses → bankrupt
     val f      = mkFirm(TechState.Automated(Multiplier(0.1))).copy(cash = PLN(-500000.0), debt = PLN(5000000.0))
-    val w      = mkWorld().copy(priceLevel = PriceIndex(0.3), pipeline = mkWorld().pipeline.copy(sectorDemandMult = Vector.fill(6)(Multiplier(0.1))))
+    val baseW  = mkWorld()
+    val w      = baseW.copy(
+      priceLevel = PriceIndex(0.3),
+      pipeline = baseW.pipeline.copy(
+        sectorDemandMult = Vector.fill(baseW.pipeline.sectorDemandMult.length)(Multiplier(0.1)),
+      ),
+    )
     val result = Firm.process(f, w, Rate(0.20), _ => true, Vector(f), new Random(42))
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }

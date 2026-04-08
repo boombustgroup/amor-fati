@@ -205,7 +205,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
       priceLevel = PriceIndex.Base,
-      sectorOutputs = Vector.fill(6)(PLN(1e8)),
+      sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(1e8)),
       month = 1,
       nbpFxReserves = prevBop.reserves,
     )
@@ -228,7 +228,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
       priceLevel = PriceIndex.Base,
-      sectorOutputs = Vector.fill(6)(PLN(1e8)),
+      sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(1e8)),
       month = 1,
       nbpFxReserves = prevBop.reserves,
     )
@@ -248,7 +248,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       inflation = Rate(0.02),
       priceLevel = PriceIndex.Base,
       gdpProxy = 1e9,
-      currentSigmas = Vector.fill(6)(Sigma(0.1)),
+      currentSigmas = Vector.fill(p.sectorDefs.length)(Sigma(0.1)),
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),

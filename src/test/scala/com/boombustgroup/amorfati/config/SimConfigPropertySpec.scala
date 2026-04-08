@@ -71,11 +71,12 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   "Generated IoMatrix" should "have non-negative entries and column sums < 1.0" in
     forAll(genIoMatrix): (m: Vector[Vector[Double]]) =>
       val typed = m.map(_.map(Share(_)))
+      val sectorCount = typed.length
       for
-        i <- 0 until 6
-        j <- 0 until 6
+        i <- 0 until sectorCount
+        j <- 0 until sectorCount
       do typed(i)(j) should be >= Share.Zero
 
-      for j <- 0 until 6 do typed.map(_(j)).foldLeft(Share.Zero)(_ + _) should be < Share.One
+      for j <- 0 until sectorCount do typed.map(_(j)).foldLeft(Share.Zero)(_ + _) should be < Share.One
       IoConfig(matrix = typed).columnSums shouldBe
-        (0 until 6).map(j => typed.map(_(j)).foldLeft(Share.Zero)(_ + _)).toVector
+        (0 until sectorCount).map(j => typed.map(_(j)).foldLeft(Share.Zero)(_ + _)).toVector

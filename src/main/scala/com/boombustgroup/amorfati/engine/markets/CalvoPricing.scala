@@ -76,7 +76,7 @@ object CalvoPricing:
 
   /** Compute aggregate inflation adjustment from markup dynamics.
     *
-    * Returns monthly inflation contribution = revenue-weighted average markup
+    * Returns monthly inflation contribution = capacity-weighted average markup
     * change across all firms that changed prices this month.
     */
   def aggregateMarkupInflation(

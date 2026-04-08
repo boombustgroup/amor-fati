@@ -256,7 +256,12 @@ object HousingMarket:
           mortgageStock = reg.mortgageStock + regionalOrig,
           lastOrigination = regionalOrig,
         )
-    prev.copy(mortgageStock = prev.mortgageStock + origination, lastOrigination = origination, regions = Some(updatedRegions))
+    val realizedOrigination = updatedRegions.foldLeft(PLN.Zero)(_ + _.lastOrigination)
+    prev.copy(
+      mortgageStock = prev.mortgageStock + realizedOrigination,
+      lastOrigination = realizedOrigination,
+      regions = Some(updatedRegions),
+    )
 
   def processMortgageFlows(prev: State, mortgageRate: Rate, unemploymentRate: Share)(using p: SimParams): MortgageFlows =
     if prev.mortgageStock <= PLN.Zero

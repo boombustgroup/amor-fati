@@ -179,6 +179,7 @@ object Firm:
   case class Result(
       firm: State,          // Updated firm state after this month
       taxPaid: PLN,         // CIT actually paid (after informal evasion)
+      realizedPostTaxProfit: PLN, // realized monthly profit after tax, floored at zero for payout logic
       capexSpent: PLN,      // Technology upgrade CAPEX (AI or hybrid)
       techImports: PLN,     // Import content of CAPEX (forex demand)
       newLoan: PLN,         // New bank loan taken for upgrade
@@ -196,7 +197,7 @@ object Firm:
   object Result:
     /** Convenience factory for tests — all flow fields set to `PLN.Zero`. */
     def zero(firm: State): Result =
-      Result(firm, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+      Result(firm, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   /** Monthly profit-and-loss breakdown, computed by `computePnL`. */
   case class PnL(
@@ -965,6 +966,7 @@ object Firm:
     Result(
       firm = advanceStartupLifecycle(firm.copy(accumulatedLoss = pnl.newAccumulatedLoss)),
       taxPaid = pnl.tax,
+      realizedPostTaxProfit = pnl.netAfterTax.max(PLN.Zero),
       capexSpent = capex,
       techImports = techImports,
       newLoan = newLoan,
