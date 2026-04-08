@@ -90,12 +90,13 @@ object FirmEconomics:
 
   /** Per-firm processing outcome — immutable, one per firm. */
   private case class FirmOutcome(
-      firm: Firm.State,    // updated firm state after decision + financing
-      flows: FirmFlows,    // monetary flows from this firm
-      bankId: BankId,      // relationship bank (for per-bank aggregation)
-      finalLoan: PLN,      // bank loan after equity/bond splits
-      bondAmt: PLN,        // corporate bond issuance (pre-absorption)
-      principalRepaid: PLN, // scheduled loan principal repaid this month
+      firm: Firm.State,           // updated firm state after decision + financing
+      flows: FirmFlows,           // monetary flows from this firm
+      realizedPostTaxProfit: PLN, // realized monthly profit after tax, floored at zero
+      bankId: BankId,             // relationship bank (for per-bank aggregation)
+      finalLoan: PLN,             // bank loan after equity/bond splits
+      bondAmt: PLN,               // corporate bond issuance (pre-absorption)
+      principalRepaid: PLN,       // scheduled loan principal repaid this month
   )
 
   /** Result of per-firm processing (phase 2). */
@@ -147,7 +148,7 @@ object FirmEconomics:
       lendingBaseRate: Rate,
       resWage: PLN,
       baseMinWage: PLN,
-      minWagePriceLevel: Double,
+      minWagePriceLevel: PriceIndex,
       // From Labor
       newWage: PLN,
       employed: Int,
@@ -166,9 +167,9 @@ object FirmEconomics:
       // From HouseholdIncome
       hhOutput: HouseholdIncomeEconomics.Output,
       // From Demand
-      sectorMults: Vector[Double],
-      avgDemandMult: Double,
-      sectorCap: Vector[Double],
+      sectorMults: Vector[Multiplier],
+      avgDemandMult: Multiplier,
+      sectorCapReal: Vector[PLN],
       govPurchases: PLN,
       laggedInvestDemand: PLN,
       fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
@@ -210,6 +211,7 @@ object FirmEconomics:
       lendingRates: Vector[Double],        // per-bank lending rates
       postFirmCrossSectorHires: Int,       // cross-sector hires in labor matching
       markupInflation: Rate,               // Calvo: annualized revenue-weighted avg markup change
+      sumRealizedPostTaxProfit: PLN,       // aggregate realized post-tax profits from Firm.process
   )
 
   case class Result(
@@ -241,6 +243,7 @@ object FirmEconomics:
       inventoryChange: PLN,
       citEvasion: PLN,
       perBankWorkers: Vector[Int],
+      realizedPostTaxProfit: PLN,
   )
 
   def toResult(s5: StepOutput): Result = Result(
@@ -271,6 +274,7 @@ object FirmEconomics:
     inventoryChange = s5.sumInventoryChange,
     citEvasion = s5.sumCitEvasion,
     perBankWorkers = s5.perBankWorkers,
+    realizedPostTaxProfit = s5.sumRealizedPostTaxProfit,
   )
 
   // ---- Entry point (from step outputs, used by FlowSimulation) ----
@@ -322,7 +326,7 @@ object FirmEconomics:
       in.w.pipeline.sectorDemandPressure,
       in.w.pipeline.sectorHiringSignal,
       in.avgDemandMult,
-      in.sectorCap,
+      in.sectorCapReal,
       in.laggedInvestDemand,
       in.fiscalRuleStatus,
     )
@@ -334,7 +338,6 @@ object FirmEconomics:
 
   @boundaryEscape
   private def runInternal(stepIn: StepInput, rng: Random)(using p: SimParams): StepOutput =
-    import ComputationBoundary.toDouble
     val lending                             = prepareLending(stepIn, rng)
     val fp                                  = processFirms(stepIn.firms, lending, rng)
     val bonded                              = applyBondAbsorption(fp, stepIn.w, stepIn.banks)
@@ -342,11 +345,11 @@ object FirmEconomics:
     // Calvo staggered pricing: per-firm markup update
     val calvoFirms                          = ioFirms.map: f =>
       val sectorMult = stepIn.s4.sectorMults(f.sector.toInt)
-      val calvo      = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, toDouble(stepIn.s2.wageGrowth), rng)
+      val calvo      = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, stepIn.s2.wageGrowth, rng)
       f.copy(markup = calvo.newMarkup)
     val (finalHouseholds, crossSectorHires) = processLaborMarket(calvoFirms, stepIn, rng)
     val npl                                 = computeNplAndInterest(stepIn.firms, calvoFirms, lending)
-    val markupInfl                          = Rate(CalvoPricing.aggregateMarkupInflation(calvoFirms, ioFirms)).annualize
+    val markupInfl                          = CalvoPricing.aggregateMarkupInflation(calvoFirms, ioFirms).annualize
     assembleOutput(fp, bonded, calvoFirms, totalIoPaid, finalHouseholds, crossSectorHires, npl, stepIn, lending, markupInfl)
 
   // ---- Internal step input (mirrors old FirmProcessingStep.Input) ----
@@ -423,6 +426,7 @@ object FirmEconomics:
           greenInvestment = r.greenInvestment,
           principalRepaid = r.principalRepaid,
         ),
+        realizedPostTaxProfit = r.realizedPostTaxProfit,
         bankId = f.bankId,
         finalLoan = fin.bankLoan,
         bondAmt = fin.bonds,
@@ -647,4 +651,5 @@ object FirmEconomics:
       lendingRates = lending.lendingRates,
       postFirmCrossSectorHires = crossSectorHires,
       markupInflation = markupInflation,
+      sumRealizedPostTaxProfit = fp.outcomes.foldLeft(PLN.Zero)(_ + _.realizedPostTaxProfit),
     )

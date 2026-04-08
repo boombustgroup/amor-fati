@@ -42,8 +42,9 @@ object FiscalRules:
   /** Apply fiscal rules in order of severity, taking the most restrictive. */
   def constrain(in: Input)(using p: SimParams): Output =
     val annualGdp    = in.monthlyGdp * Multiplier(12.0)
-    val debtToGdp    = if annualGdp > PLN.Zero then Share(in.cumulativeDebt / annualGdp) else Share.Zero
-    val deficitToGdp = if annualGdp > PLN.Zero then Share(in.prevDeficit / in.monthlyGdp) else Share.Zero // monthly deficit / monthly GDP = annualized ratio
+    val debtToGdp    = if annualGdp > PLN.Zero then in.cumulativeDebt.ratioTo(annualGdp).toShare else Share.Zero
+    val deficitToGdp =
+      if annualGdp > PLN.Zero then in.prevDeficit.ratioTo(in.monthlyGdp).toShare else Share.Zero // monthly deficit / monthly GDP = annualized ratio
 
     // 1. SRW: expenditure growth ceiling with convergence blending
     val srwCeiling = computeSrwCeiling(in)
@@ -62,7 +63,7 @@ object FiscalRules:
     val constrained = afterArt216
     val bindingRule = determineBindingRule(in.rawGovPurchases, afterSrw, afterSgp, afterArt86, afterArt216)
     val cutRatio    =
-      if in.rawGovPurchases > PLN.Zero then Share(((in.rawGovPurchases - constrained) / in.rawGovPurchases).max(0.0))
+      if in.rawGovPurchases > PLN.Zero then (in.rawGovPurchases - constrained).ratioTo(in.rawGovPurchases).toShare.max(Share.Zero)
       else Share.Zero
 
     Output(
@@ -73,12 +74,10 @@ object FiscalRules:
   /** SRW ceiling: previous spending × (1 + monthly inflation + monthly real cap
     * − output gap correction).
     */
-  @boundaryEscape
   private def computeSrwCeiling(in: Input)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
-    val monthlyInflation = Multiplier(toDouble(in.inflation.monthly))
-    val monthlyRealCap   = Multiplier(toDouble(p.fiscal.srwRealGrowthCap.monthly))
-    val gapCorrection    = Multiplier(toDouble(in.outputGap * p.fiscal.srwOutputGapSensitivity) / 12.0)
+    val monthlyInflation = in.inflation.monthly.toMultiplier
+    val monthlyRealCap   = p.fiscal.srwRealGrowthCap.monthly.toMultiplier
+    val gapCorrection    = ((in.outputGap * p.fiscal.srwOutputGapSensitivity).toScalar / 12).toMultiplier
     in.prevGovSpend * (Multiplier.One + monthlyInflation + monthlyRealCap - gapCorrection)
 
   /** Blend raw spending toward SRW ceiling at convergence speed. */

@@ -35,9 +35,9 @@ import com.boombustgroup.amorfati.types.*
   *   dividend withholding tax rate (Belka tax, Ustawa o PIT Art. 30a: 19%)
   */
 case class EquityConfig(
-    initIndex: Double = 2400.0,
+    initIndex: PriceIndex = PriceIndex(2400.0),
     initMcap: PLN = PLN(1.4e12), // raw — scaled by gdpRatio
-    peMean: Double = 10.0,
+    peMean: Scalar = Scalar(10.0),
     divYield: Rate = Rate(0.057),
     foreignShare: Share = Share(0.67),
     issuanceFrac: Share = Share(0.10),

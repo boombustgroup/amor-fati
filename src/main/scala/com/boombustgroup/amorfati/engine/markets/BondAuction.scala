@@ -44,17 +44,15 @@ object BondAuction:
     * capital. Depreciation (positive = PLN weakening) deters via currency risk.
     * Clamped to [0, maxForeignShare] to prevent unrealistic extremes.
     */
-  @boundaryEscape
   private[amorfati] def foreignDemandShare(
       marketYield: Rate,
       erChange: Coefficient,
   )(using p: SimParams): Share =
-    import ComputationBoundary.toDouble
-    val spread      = marketYield - p.fiscal.bundYield
-    val yieldEffect = toDouble(p.fiscal.foreignYieldSensitivity) * toDouble(spread)
-    val erEffect    = toDouble(p.fiscal.foreignErSensitivity) * toDouble(erChange)
-    val raw         = toDouble(p.fiscal.baseForeignShare) * (1.0 + yieldEffect - erEffect)
-    Share(raw.max(0.0).min(toDouble(p.fiscal.maxForeignShare)))
+    val spread           = marketYield - p.fiscal.bundYield
+    val yieldEffect      = (spread * p.fiscal.foreignYieldSensitivity).toScalar.toCoefficient
+    val erEffect         = erChange * p.fiscal.foreignErSensitivity
+    val demandAdjustment = (Coefficient.One + yieldEffect - erEffect).max(Coefficient.Zero)
+    (p.fiscal.baseForeignShare.toCoefficient * demandAdjustment.toMultiplier).clamp(Share.Zero, p.fiscal.maxForeignShare)
 
   /** Run the bond auction for this month's issuance.
     *
@@ -82,7 +80,7 @@ object BondAuction:
       val domesticCap    = bankBondCapacity.max(PLN.Zero)
       val domesticDemand = (newIssuance - foreignDemand).min(domesticCap).max(PLN.Zero)
       val totalDemand    = domesticDemand + foreignDemand
-      val coverRatio     = Multiplier((totalDemand / newIssuance).min(10.0))
+      val coverRatio     = totalDemand.ratioTo(newIssuance).toMultiplier.min(Multiplier(10.0))
       val absorbed       = totalDemand.min(newIssuance)
       val foreignActual  = foreignDemand.min(absorbed)
       val domesticActual = absorbed - foreignActual

@@ -22,18 +22,15 @@ import scala.util.Random
 object PriceEquityEconomics:
 
   // ---- Calibration constants ----
-  private val StartupCashMin                              = 10000.0 // minimum startup cash for rewired entrant (PLN)
-  private val StartupCashMax                              = 80000.0 // maximum startup cash for rewired entrant (PLN)
-  private val RiskProfileMin                              = 0.1     // minimum risk profile draw for new entrant
-  private val RiskProfileMax                              = 0.9     // maximum risk profile draw for new entrant
-  private val InnovCostMin                                = 0.8     // minimum innovation cost factor draw
-  private val InnovCostMax                                = 1.5     // maximum innovation cost factor draw
-  private def exchangeRateValue(er: ExchangeRate): Double = er.toLong.toDouble / ScaleD
-  private val DigitalReadyFloor                           = 0.02    // minimum digital readiness for rewired entrant
-  private val DigitalReadyCap                             = 0.98    // maximum digital readiness for rewired entrant
-  private val DigitalReadyNoise                           = 0.20    // std dev of Gaussian noise on sector base DR
-  private val AiMaintRealShare                            = 0.60    // real (price-insensitive) share of AI/hybrid maintenance cost
-  private val AiMaintNomShare                             = 0.40    // nominal (price-sensitive) share of AI/hybrid maintenance cost
+  private val StartupCashMin    = 10000.0 // minimum startup cash for rewired entrant (PLN)
+  private val StartupCashMax    = 80000.0 // maximum startup cash for rewired entrant (PLN)
+  private val RiskProfileMin    = 0.1     // minimum risk profile draw for new entrant
+  private val RiskProfileMax    = 0.9     // maximum risk profile draw for new entrant
+  private val InnovCostMin      = 0.8     // minimum innovation cost factor draw
+  private val InnovCostMax      = 1.5     // maximum innovation cost factor draw
+  private val DigitalReadyFloor = 0.02    // minimum digital readiness for rewired entrant
+  private val DigitalReadyCap   = 0.98    // maximum digital readiness for rewired entrant
+  private val DigitalReadyNoise = 0.20    // std dev of Gaussian noise on sector base DR
 
   case class Input(
       w: World,                         // current world state
@@ -43,8 +40,8 @@ object PriceEquityEconomics:
       wageGrowth: Coefficient,          // wage growth coefficient
       domesticCons: PLN,                // domestic component of household consumption
       govPurchases: PLN,                // constrained government purchases from demand formation
-      avgDemandMult: Double,            // economy-wide average demand multiplier
-      sectorMults: Vector[Double],      // per-sector demand multipliers
+      avgDemandMult: Multiplier,        // economy-wide average demand multiplier
+      sectorMults: Vector[Multiplier],  // per-sector demand multipliers
       banks: Vector[Banking.BankState], // explicit bank population
       s5: FirmEconomics.StepOutput,     // firm processing output
   )
@@ -62,7 +59,7 @@ object PriceEquityEconomics:
       newSigmas: Vector[Sigma],
       rewiredFirms: Vector[Firm.State],
       newInfl: Rate,
-      newPrice: Double,
+      newPrice: PriceIndex,
       equityAfterIssuance: EquityMarket.State,
       netDomesticDividends: PLN,
       foreignDividendOutflow: PLN,
@@ -270,48 +267,36 @@ object PriceEquityEconomics:
 
     val rewiredFirms = rewireFirms(in.s5.ioFirms, toDouble(p.firm.rewireRho), rng)
 
-    val exDev    = exchangeRateValue(in.w.forex.exchangeRate) / p.forex.baseExRate - 1.0
+    val exDev    = in.w.forex.exchangeRate.deviationFrom(ExchangeRate(p.forex.baseExRate))
     val priceUpd = PriceLevel.update(
       in.w.inflation,
       in.w.priceLevel,
       in.avgDemandMult,
-      toDouble(in.wageGrowth),
+      in.wageGrowth,
       exDev,
     )
     // Calvo markup contribution (already annualized Rate from FirmProcessingStep)
-    val newInfl  = toDouble(priceUpd.inflation + in.s5.markupInflation)
-    val newPrice = priceUpd.priceLevel * (1.0 + toDouble(in.s5.markupInflation.monthly))
+    val newInfl  = priceUpd.inflation + in.s5.markupInflation
+    val newPrice = priceUpd.priceLevel.applyGrowth(in.s5.markupInflation.monthly.toCoefficient)
 
-    val firmProfits = living2.map { f =>
-      val rev      = toDouble(Firm.computeCapacity(f)) * in.sectorMults(f.sector.toInt) * newPrice
-      val labor    = Firm.workerCount(f) * toDouble(in.newWage) * toDouble(p.sectorDefs(f.sector.toInt).wageMultiplier)
-      val other    = toDouble(p.firm.otherCosts) * newPrice
-      val aiMaint  = f.tech match
-        case _: TechState.Automated => toDouble(p.firm.aiOpex) * (AiMaintRealShare + AiMaintNomShare * newPrice)
-        case _: TechState.Hybrid    => toDouble(p.firm.hybridOpex) * (AiMaintRealShare + AiMaintNomShare * newPrice)
-        case _                      => 0.0
-      val interest = toDouble(f.debt) * in.s5.lendingRates(f.bankId.toInt) / 12.0
-      val gross    = rev - labor - other - aiMaint - interest
-      val tax      = Math.max(0.0, gross) * toDouble(p.fiscal.citRate)
-      Math.max(0.0, gross - tax)
-    }.sum
+    val firmProfitsPnl = in.s5.sumRealizedPostTaxProfit
 
-    val prevGdp             = math.max(1.0, toDouble(in.w.cachedMonthlyGdpProxy))
-    val gdpGrowthForEquity  = (gdp - prevGdp) / prevGdp
+    val prevGdp             = in.w.cachedMonthlyGdpProxy.max(PLN(1.0))
+    val gdpGrowthForEquity  = PLN(gdp).ratioTo(prevGdp).toMultiplier.deviationFromOne
     val equityAfterIndex    = EquityMarket.step(
       EquityMarket.StepInput(
         prev = in.w.financial.equity,
         refRate = in.w.nbp.referenceRate,
-        inflation = Rate(newInfl),
+        inflation = newInfl,
         gdpGrowth = gdpGrowthForEquity,
-        firmProfits = PLN(firmProfits),
+        firmProfits = firmProfitsPnl,
       ),
     )
     val equityAfterIssuance = EquityMarket.processIssuance(in.s5.sumEquityIssuance, equityAfterIndex)
 
     val dividends              =
       EquityMarket.computeDividends(
-        PLN(firmProfits),
+        firmProfitsPnl,
         equityAfterIssuance.foreignOwnership,
       )
     val netDomesticDividends   = dividends.netDomestic
@@ -330,13 +315,13 @@ object PriceEquityEconomics:
       newMacropru,
       newSigmas,
       rewiredFirms,
-      Rate(newInfl),
+      newInfl,
       newPrice,
       equityAfterIssuance,
       netDomesticDividends,
       foreignDividendOutflow,
       dividendTax,
-      PLN(firmProfits),
+      firmProfitsPnl,
       PLN(domesticGFCF),
       PLN(investmentImports),
       PLN(aggInventoryChange),

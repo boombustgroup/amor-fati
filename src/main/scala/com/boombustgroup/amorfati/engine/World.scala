@@ -12,25 +12,25 @@ import com.boombustgroup.amorfati.types.*
   * not need to be provided at init.
   */
 case class World(
-    month: Int,                                                        // simulation month (1-indexed)
-    inflation: Rate,                                                   // CPI YoY inflation
-    priceLevel: Double,                                                // cumulative CPI index (base = 1.0)
-    currentSigmas: Vector[Sigma],                                      // per-sector σ (Arthur increasing returns)
-    gov: FiscalBudget.GovState,                                        // government budget & debt
-    nbp: Nbp.State,                                                    // central bank: rate, bonds, FX, QE
-    bankingSector: Banking.MarketState,                                // banking macro state: interbank conditions, configs, term structure
-    forex: OpenEconomy.ForexState,                                     // EUR/PLN, exports, imports, trade balance
-    bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,             // balance of payments: NFA, CA, KA, FDI
-    householdMarket: HouseholdMarketState = HouseholdMarketState.zero, // explicit household wage-market state used in hot paths
-    social: SocialState,                                               // JST, ZUS, PPK, demographics
-    financial: FinancialMarketsState,                                  // equity, corporate bonds, insurance, TFI
-    external: ExternalState,                                           // GVC, immigration, tourism
-    real: RealState,                                                   // housing, mobility, investment, energy, automation
-    mechanisms: MechanismsState,                                       // macropru, expectations, BFG, informal economy
-    plumbing: MonetaryPlumbingState,                                   // reserve corridor, standing facilities, interbank
-    pipeline: PipelineState = PipelineState.zero,                      // inter-step demand / hiring / fiscal signals
-    flows: FlowState,                                                  // single-step derived flow outputs → SFC identities
-    regionalWages: Map[Region, PLN] = Map.empty,                       // per-region wage levels (NUTS-1)
+    month: Int,                                                                       // simulation month (1-indexed)
+    inflation: Rate,                                                                  // CPI YoY inflation
+    priceLevel: PriceIndex,                                                           // cumulative CPI index (base = 1.0)
+    currentSigmas: Vector[Sigma],                                                     // per-sector σ (Arthur increasing returns)
+    gov: FiscalBudget.GovState,                                                       // government budget & debt
+    nbp: Nbp.State,                                                                   // central bank: rate, bonds, FX, QE
+    bankingSector: Banking.MarketState,                                               // banking macro state: interbank conditions, configs, term structure
+    forex: OpenEconomy.ForexState,                                                    // EUR/PLN, exports, imports, trade balance
+    bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,                            // balance of payments: NFA, CA, KA, FDI
+    householdMarket: HouseholdMarketState = HouseholdMarketState.zero,                // explicit household wage-market state used in hot paths
+    social: SocialState,                                                              // JST, ZUS, PPK, demographics
+    financial: FinancialMarketsState,                                                 // equity, corporate bonds, insurance, TFI
+    external: ExternalState,                                                          // GVC, immigration, tourism
+    real: RealState,                                                                  // housing, mobility, investment, energy, automation
+    mechanisms: MechanismsState,                                                      // macropru, expectations, BFG, informal economy
+    plumbing: MonetaryPlumbingState,                                                  // reserve corridor, standing facilities, interbank
+    pipeline: PipelineState = PipelineState.zero(SimParams.DefaultSectorDefs.length), // inter-step demand / hiring / fiscal signals
+    flows: FlowState,                                                                 // single-step derived flow outputs → SFC identities
+    regionalWages: Map[Region, PLN] = Map.empty,                                      // per-region wage levels (NUTS-1)
 ):
   def derivedTotalPopulation: Int =
     social.demographics.workingAgePop + social.demographics.retirees
@@ -79,7 +79,7 @@ object World:
   def apply(
       month: Int,
       inflation: Rate,
-      priceLevel: Double,
+      priceLevel: PriceIndex,
       gdpProxy: Double,
       currentSigmas: Vector[Sigma],
       totalPopulation: Int,
@@ -120,7 +120,56 @@ object World:
       real = real,
       mechanisms = mechanisms,
       plumbing = plumbing,
-      pipeline = PipelineState.zero,
+      pipeline = PipelineState.zero(currentSigmas.length),
+      flows = compatFlows,
+      regionalWages = Map.empty,
+    )
+
+  def apply(
+      month: Int,
+      inflation: Rate,
+      priceLevel: Double,
+      gdpProxy: Double,
+      currentSigmas: Vector[Sigma],
+      totalPopulation: Int,
+      gov: FiscalBudget.GovState,
+      nbp: Nbp.State,
+      bankingSector: Banking.MarketState,
+      forex: OpenEconomy.ForexState,
+      hhAgg: Household.Aggregates,
+      social: SocialState,
+      financial: FinancialMarketsState,
+      external: ExternalState,
+      real: RealState,
+      mechanisms: MechanismsState,
+      plumbing: MonetaryPlumbingState,
+      flows: FlowState,
+  ): World =
+    val compatDemographics =
+      if social.demographics == SocialSecurity.DemographicsState.zero && totalPopulation > 0
+      then social.demographics.copy(workingAgePop = totalPopulation)
+      else social.demographics
+    val compatFlows        =
+      if flows.monthlyGdpProxy == PLN.Zero && gdpProxy > 0.0 then flows.copy(monthlyGdpProxy = PLN(gdpProxy))
+      else flows
+    new World(
+      month = month,
+      inflation = inflation,
+      priceLevel = PriceIndex(priceLevel),
+      currentSigmas = currentSigmas,
+      gov = gov,
+      nbp = nbp,
+      bankingSector = bankingSector,
+      forex = forex,
+      bop = OpenEconomy.BopState.zero,
+      householdMarket = HouseholdMarketState.fromAggregates(hhAgg),
+      social = social.copy(demographics = compatDemographics),
+      financial = financial,
+      external = external,
+      real = real,
+      mechanisms = mechanisms,
+      plumbing = plumbing,
+      pipeline = PipelineState.zero(currentSigmas.length),
       flows = compatFlows,
       regionalWages = Map.empty,
     )
@@ -216,16 +265,23 @@ object MonetaryPlumbingState:
 
 /** Inter-step pipeline signals carried into the next month. */
 case class PipelineState(
-    sectorDemandMult: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0),     // per-sector demand multipliers from S4
-    sectorDemandPressure: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0), // uncapped demand/capacity ratios for hiring
-    sectorHiringSignal: Vector[Double] = Vector.fill(SimParams.DefaultSectorDefs.length)(1.0),   // smoothed sector hiring signal used by firm labor planning
-    fiscalRuleSeverity: Int = 0,                                                                 // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
-    govSpendingCutRatio: Share = Share.Zero,                                                     // fraction of raw spending cut by fiscal rules
-    aggregateHiringSlack: Double = 1.0,                                                          // economy-wide compression of firm labor targets when plans exceed supply
-    startupAbsorptionRate: Double = 1.0,                                                         // share of startup hiring targets filled across active startup firms
+    sectorDemandMult: Vector[Multiplier],     // per-sector demand multipliers from S4
+    sectorDemandPressure: Vector[Multiplier], // uncapped demand/capacity ratios for hiring
+    sectorHiringSignal: Vector[Multiplier],   // smoothed sector hiring signal used by firm labor planning
+    fiscalRuleSeverity: Int = 0,              // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
+    govSpendingCutRatio: Share = Share.Zero,  // fraction of raw spending cut by fiscal rules
+    aggregateHiringSlack: Double = 1.0,       // economy-wide compression of firm labor targets when plans exceed supply
+    startupAbsorptionRate: Double = 1.0,      // share of startup hiring targets filled across active startup firms
 )
 object PipelineState:
-  val zero: PipelineState = PipelineState()
+  def zero(sectorCount: Int): PipelineState =
+    PipelineState(
+      sectorDemandMult = Vector.fill(sectorCount)(Multiplier.One),
+      sectorDemandPressure = Vector.fill(sectorCount)(Multiplier.One),
+      sectorHiringSignal = Vector.fill(sectorCount)(Multiplier.One),
+    )
+
+  def zero(using p: SimParams): PipelineState = zero(p.sectorDefs.length)
 
 /** Single-step derived flow outputs — recomputed each step, zero at init. Feed
   * into SFC identities and output columns.

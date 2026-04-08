@@ -18,12 +18,12 @@ import com.boombustgroup.amorfati.types.*
   * Calibration: NBP BoP statistics 2024, GUS national accounts.
   */
 object OpenEconomy:
-  private def exchangeRateValue(er: ExchangeRate): Double =
-    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-
-  // ---------------------------------------------------------------------------
-  // State types
-  // ---------------------------------------------------------------------------
+  private val MonthsPerYear        = 12
+  private val MinRealPrice         = Multiplier(0.1)
+  private val FdiAutoBoost         = Coefficient(0.3)
+  private val FdiNfaDampening      = Coefficient(0.5)
+  private val ValuationPassThrough = Coefficient(0.3)
+  private val MinErShock           = ExchangeRateShock(-0.9999)
 
   case class ForexState(
       exchangeRate: ExchangeRate,
@@ -70,13 +70,6 @@ object OpenEconomy:
       PLN.Zero,
     )
 
-  // --- Named constants ---
-  private val MonthsPerYear        = 12.0
-  private val MinRealPrice         = 0.1
-  private val FdiAutoBoost         = 0.3
-  private val FdiNfaDampening      = 0.5
-  private val ValuationPassThrough = 0.3
-
   case class Result(
       forex: ForexState,
       bop: BopState,
@@ -93,7 +86,7 @@ object OpenEconomy:
       autoRatio: Share,
       domesticRate: Rate,
       gdp: PLN,
-      priceLevel: Double,
+      priceLevel: PriceIndex,
       sectorOutputs: Vector[PLN],
       month: Int,
       inflation: Rate = Rate.Zero,
@@ -122,7 +115,7 @@ object OpenEconomy:
     val exports             = computeExports(in)
     val totalExportsIncTour = exports + in.tourismExport
     val importedInterm      = computeImportedIntermediates(in)
-    val totalImportedInterm = PLN.fromRaw(importedInterm.map(_.toLong).sum)
+    val totalImportedInterm = sumPln(importedInterm)
     val totalImports        = in.importCons + in.techImports + totalImportedInterm + in.tourismImport
     val tradeBalance        = totalExportsIncTour - totalImports
     val caResult            = computeCurrentAccount(in, tradeBalance)
@@ -160,27 +153,22 @@ object OpenEconomy:
 
     Result(newForex, newBop, importedInterm, valEffect, fxResult)
 
-  // --- Private helpers ---
-
-  @boundaryEscape
   private def computeExports(in: StepInput)(using p: SimParams): PLN =
-    import ComputationBoundary.toDouble
     in.gvcExports.getOrElse:
-      val foreignGdpFactor = Math.pow(1.0 + toDouble(p.openEcon.foreignGdpGrowth) / MonthsPerYear, in.month.toDouble)
-      val ulcEffect        = 1.0 + toDouble(in.autoRatio) * toDouble(p.openEcon.ulcExportBoost)
+      val foreignGdpFactor = compoundedGrowth(p.openEcon.foreignGdpGrowth.monthly.growthMultiplier, in.month)
+      val ulcEffect        = (in.autoRatio * p.openEcon.ulcExportBoost).growthMultiplier
       val realExRate       = realExchangeRateEffect(in.prevForex.exchangeRate, in.priceLevel)
-      p.openEcon.exportBase * Multiplier(foreignGdpFactor * realExRate * ulcEffect)
+      ((realExRate * p.openEcon.exportBase) * foreignGdpFactor) * ulcEffect
 
-  @boundaryEscape
   private def computeImportedIntermediates(in: StepInput)(using p: SimParams): Vector[PLN] =
-    import ComputationBoundary.toDouble
     in.gvcIntermImports.getOrElse:
       val nSectors    = p.sectorDefs.length
-      val erNetEffect = Math.pow(exchangeRateValue(in.prevForex.exchangeRate) / p.forex.baseExRate, 1.0 - toDouble(p.openEcon.erElasticity))
+      val nominalER   = in.prevForex.exchangeRate.ratioTo(ExchangeRate(p.forex.baseExRate))
+      val erNetEffect = nominalER.pow((Coefficient.One - p.openEcon.erElasticity).toScalar)
       (0 until nSectors)
         .map: s =>
-          val realOutput = if in.priceLevel > 0 then PLN(toDouble(in.sectorOutputs(s)) / in.priceLevel) else in.sectorOutputs(s)
-          realOutput * p.openEcon.importContent(s) * Multiplier(erNetEffect)
+          val realOutput = in.sectorOutputs(s) / in.priceLevel.toMultiplier
+          (realOutput * p.openEcon.importContent(s)) * erNetEffect
         .toVector
 
   private def computeCurrentAccount(in: StepInput, tradeBalance: PLN)(using p: SimParams): CurrentAccountResult =
@@ -189,58 +177,59 @@ object OpenEconomy:
     val ca              = tradeBalance + primaryIncome + secondaryIncome
     CurrentAccountResult(ca, primaryIncome, secondaryIncome)
 
-  @boundaryEscape
   private def computeCapitalAccount(in: StepInput)(using p: SimParams): CapitalAccountResult =
-    import ComputationBoundary.toDouble
-    val annualGdp         = in.gdp * Multiplier(MonthsPerYear)
-    val nfaGdpRatio       = if in.gdp > PLN.Zero then in.prevBop.nfa / annualGdp else 0.0
-    val fdi               = p.openEcon.fdiBase * Multiplier(
-      (1.0 + toDouble(in.autoRatio) * FdiAutoBoost) *
-        (1.0 - Math.max(0.0, -nfaGdpRatio) * FdiNfaDampening),
-    )
+    val annualGdp         = in.gdp * MonthsPerYear
+    val nfaGdpRatio       = if in.gdp > PLN.Zero then in.prevBop.nfa.ratioTo(annualGdp).toCoefficient else Coefficient.Zero
+    val autoBoost         = (in.autoRatio * FdiAutoBoost).growthMultiplier
+    val negativeNfaRatio  = (-nfaGdpRatio).max(Coefficient.Zero)
+    val nfaDampening      = (-(negativeNfaRatio * FdiNfaDampening)).growthMultiplier
+    val fdi               = (p.openEcon.fdiBase * autoBoost) * nfaDampening
     val portfolioFlows    =
-      val rateDiff    = toDouble(in.domesticRate - p.forex.foreignRate)
-      val riskPremium = -toDouble(p.openEcon.riskPremiumSensitivity) * nfaGdpRatio
-      val monthlyGdp  = if in.gdp > PLN.Zero then in.gdp else PLN(1.0)
-      PLN(toDouble(monthlyGdp) * (rateDiff + riskPremium) * toDouble(p.openEcon.portfolioSensitivity))
+      val rateDiff      = (in.domesticRate - p.forex.foreignRate).toCoefficient
+      val riskPremium   = -(p.openEcon.riskPremiumSensitivity * nfaGdpRatio)
+      val monthlyGdp    = if in.gdp > PLN.Zero then in.gdp else PLN.fromLong(1)
+      val portfolioRate = (rateDiff + riskPremium) * p.openEcon.portfolioSensitivity
+      monthlyGdp * portfolioRate
     val yieldSpread       = in.bondYield - p.forex.foreignRate
     val capitalFlight     = CapitalFlows.compute(
       month = in.month,
       yieldSpread = yieldSpread,
       bidToCover = in.prevBidToCover,
       prevCarry = CapitalFlows.CarryState(in.prevBop.carryTradeStock),
-      monthlyGdp = if in.gdp > PLN.Zero then in.gdp else PLN(1.0),
+      monthlyGdp = if in.gdp > PLN.Zero then in.gdp else PLN.fromLong(1),
     )
     val adjustedPortfolio = portfolioFlows + capitalFlight.totalAdjustment
     CapitalAccountResult(fdi + adjustedPortfolio, fdi, adjustedPortfolio, capitalFlight.newCarryState.stock)
 
-  @boundaryEscape
-  private def realExchangeRateEffect(exchangeRate: ExchangeRate, priceLevel: Double)(using p: SimParams): Double =
-    import ComputationBoundary.toDouble
-    val nominalER = exchangeRateValue(exchangeRate) / p.forex.baseExRate
-    val realPrice = if priceLevel > 0 && nominalER > 0 then priceLevel / nominalER else 1.0
-    Math.pow(1.0 / Math.max(MinRealPrice, realPrice), toDouble(p.openEcon.exportPriceElasticity))
+  private def realExchangeRateEffect(exchangeRate: ExchangeRate, priceLevel: PriceIndex)(using p: SimParams): Scalar =
+    val nominalER = exchangeRate.ratioTo(ExchangeRate(p.forex.baseExRate))
+    val realPrice = priceLevel.toMultiplier.ratioTo(nominalER).max(MinRealPrice.toScalar)
+    realPrice.reciprocal.pow(p.openEcon.exportPriceElasticity.toScalar)
 
-  @boundaryEscape
   private def computeExchangeRate(
       in: StepInput,
       ca: PLN,
       capitalAccount: PLN,
       fxErShock: ExchangeRateShock,
   )(using p: SimParams): ExchangeRate =
-    import ComputationBoundary.toDouble
-    val annualGdp   = in.gdp * Multiplier(MonthsPerYear)
-    val nfaGdpRatio = if in.gdp > PLN.Zero then in.prevBop.nfa / annualGdp else 0.0
-    val bopGdpRatio = if in.gdp > PLN.Zero then (ca + capitalAccount) / in.gdp else 0.0
-    val nfaRisk     = toDouble(p.openEcon.riskPremiumSensitivity) * Math.min(0.0, nfaGdpRatio)
-    val pppDrift    = toDouble(((in.inflation - p.gvc.foreignInflation) * p.openEcon.pppSpeed).monthly)
-    val fxShock     = fxErShock.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-    val erChange    = toDouble(p.forex.exRateAdjSpeed) * (-bopGdpRatio + nfaRisk) + fxShock + pppDrift
-    ExchangeRate(exchangeRateValue(in.prevForex.exchangeRate) * (1.0 + erChange))
+    val annualGdp   = in.gdp * MonthsPerYear
+    val nfaGdpRatio = if in.gdp > PLN.Zero then in.prevBop.nfa.ratioTo(annualGdp).toCoefficient else Coefficient.Zero
+    val bopGdpRatio = if in.gdp > PLN.Zero then (ca + capitalAccount).ratioTo(in.gdp).toCoefficient else Coefficient.Zero
+    val nfaRisk     = p.openEcon.riskPremiumSensitivity * (-nfaGdpRatio).max(Coefficient.Zero)
+    val pppDrift    = ((in.inflation - p.gvc.foreignInflation) * p.openEcon.pppSpeed).monthly.toCoefficient
+    val erChange    = ((p.forex.exRateAdjSpeed * (-bopGdpRatio + nfaRisk)) + fxErShock.toCoefficient + pppDrift).toExchangeRateShock
+      .max(MinErShock)
+    in.prevForex.exchangeRate
+      .applyShock(erChange)
       .clamp(ExchangeRate(p.openEcon.erFloor), ExchangeRate(p.openEcon.erCeiling))
 
-  @boundaryEscape
   private def computeValuationEffect(prevBop: BopState, prevExRate: ExchangeRate, newExRate: ExchangeRate): PLN =
-    import ComputationBoundary.toDouble
-    val erChange = newExRate.deviationFrom(prevExRate).toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-    PLN(toDouble(prevBop.foreignAssets) * erChange * ValuationPassThrough)
+    val erChange = newExRate.deviationFrom(prevExRate).toCoefficient
+    prevBop.foreignAssets * (erChange * ValuationPassThrough)
+
+  private def compoundedGrowth(monthlyFactor: Multiplier, periods: Int): Multiplier =
+    if periods <= 0 then Multiplier.One
+    else Iterator.fill(periods)(monthlyFactor).foldLeft(Multiplier.One)(_ * _)
+
+  private def sumPln(values: Vector[PLN]): PLN =
+    values.foldLeft(PLN.Zero)(_ + _)

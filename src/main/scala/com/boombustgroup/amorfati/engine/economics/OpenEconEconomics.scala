@@ -22,9 +22,7 @@ import scala.util.Random
   */
 object OpenEconEconomics:
 
-  private val MaxDebtServiceGdpShare                      = Share(0.50)
-  private def exchangeRateValue(er: ExchangeRate): Double =
-    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+  private val MaxDebtServiceGdpShare = Share(0.50)
 
   /** Everything the new pipeline needs from open economy + monetary + financial
     * sector.
@@ -145,7 +143,7 @@ object OpenEconEconomics:
       newInflation: Rate,
       autoRatio: Share,
       govPurchases: PLN,
-      sectorMults: Vector[Double],
+      sectorMults: Vector[Multiplier],
       livingFirms: Vector[Firm.State],
       totalBondDefault: PLN,
       actualBondIssuance: PLN,
@@ -177,10 +175,10 @@ object OpenEconEconomics:
       GvcTrade.step(
         GvcTrade.StepInput(
           in.w.external.gvc,
-          sectorOutputs.map(toDouble(_)),
+          sectorOutputs,
           in.w.priceLevel,
-          exchangeRateValue(in.w.forex.exchangeRate),
-          toDouble(in.autoRatio),
+          in.w.forex.exchangeRate,
+          in.autoRatio,
           in.month,
           in.commodityRng,
         ),
@@ -272,8 +270,7 @@ object OpenEconEconomics:
 
     // 8. Insurance
     val unempRate    = in.w.unemploymentRate(in.employed)
-    val newInsurance =
-      Insurance.step(in.w.financial.insurance, in.employed, in.newWage, in.w.priceLevel, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
+    val newInsurance = Insurance.step(in.w.financial.insurance, in.employed, in.newWage, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
 
     Result(
       exports = bop.exports,
@@ -318,12 +315,7 @@ object OpenEconEconomics:
 
   @boundaryEscape
   private def computeSectorOutputs(in: Input)(using p: SimParams): Vector[PLN] =
-    import ComputationBoundary.toDouble
-    val living = in.livingFirms.filter(Firm.isAlive)
-    (0 until p.sectorDefs.length)
-      .map: s =>
-        PLN(living.filter(_.sector.toInt == s).map(f => toDouble(Firm.computeCapacity(f)) * in.sectorMults(f.sector.toInt) * in.w.priceLevel).sum)
-      .toVector
+    aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.livingFirms, in.sectorMults.apply)
 
   @boundaryEscape
   private def updateWeightedCoupon(prevCoupon: Rate, marketYield: Rate, bondsOutstanding: PLN, deficit: PLN, avgMaturityMonths: Int)(using
@@ -457,28 +449,30 @@ object OpenEconEconomics:
 
   @boundaryEscape
   private def runStepSectorOutputs(in: StepInput)(using p: SimParams): Vector[PLN] =
-    import ComputationBoundary.toDouble
-    val living = in.s5.ioFirms.filter(Firm.isAlive)
-    (0 until p.sectorDefs.length)
-      .map: s =>
-        PLN(
-          living
-            .filter(_.sector.toInt == s)
-            .map(f => toDouble(Firm.computeCapacity(f)) * in.s4.sectorMults(f.sector.toInt) * in.w.priceLevel)
-            .sum,
-        )
-      .toVector
+    aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.s5.ioFirms, in.s4.sectorMults.apply)
+
+  private def aggregateSectorOutputs(
+      priceLevel: PriceIndex,
+      sectorCount: Int,
+      firms: Vector[Firm.State],
+      sectorMultiplier: Int => Multiplier,
+  )(using p: SimParams): Vector[PLN] =
+    val livingBySector = firms.iterator.filter(Firm.isAlive).toVector.groupBy(_.sector.toInt)
+    Vector.tabulate(sectorCount): s =>
+      livingBySector
+        .getOrElse(s, Vector.empty)
+        .foldLeft(PLN.Zero): (acc, f) =>
+          acc + (priceLevel * (Firm.computeCapacity(f) * sectorMultiplier(f.sector.toInt)))
 
   @boundaryEscape
   private def runStepGvc(in: StepInput, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
-    import ComputationBoundary.toDouble
     GvcTrade.step(
       GvcTrade.StepInput(
         prev = in.w.external.gvc,
-        sectorOutputs = sectorOutputs.map(toDouble(_)),
+        sectorOutputs = sectorOutputs,
         priceLevel = in.w.priceLevel,
-        exchangeRate = exchangeRateValue(in.w.forex.exchangeRate),
-        autoRatio = toDouble(in.s7.autoR),
+        exchangeRate = in.w.forex.exchangeRate,
+        autoRatio = in.s7.autoR,
         month = in.s1.m,
         rng = in.commodityRng,
       ),
@@ -653,7 +647,6 @@ object OpenEconEconomics:
         in.w.financial.insurance,
         in.s2.employed,
         in.s2.newWage,
-        in.w.priceLevel,
         unempRate,
         newBondYield,
         in.w.financial.corporateBonds.corpBondYield,

@@ -1,31 +1,31 @@
 package com.boombustgroup.amorfati.engine
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
+import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.markets.IntermediateMarket
 import com.boombustgroup.amorfati.types.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
-  import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
 
   private val defaultMatrix = Vector(
-    Vector(0.05, 0.03, 0.04, 0.02, 0.03, 0.01),
-    Vector(0.04, 0.35, 0.12, 0.15, 0.05, 0.18),
-    Vector(0.15, 0.10, 0.12, 0.08, 0.07, 0.08),
-    Vector(0.01, 0.00, 0.01, 0.05, 0.02, 0.01),
-    Vector(0.01, 0.01, 0.01, 0.01, 0.03, 0.01),
-    Vector(0.00, 0.08, 0.05, 0.01, 0.01, 0.12),
+    Vector(Share(0.05), Share(0.03), Share(0.04), Share(0.02), Share(0.03), Share(0.01)),
+    Vector(Share(0.04), Share(0.35), Share(0.12), Share(0.15), Share(0.05), Share(0.18)),
+    Vector(Share(0.15), Share(0.10), Share(0.12), Share(0.08), Share(0.07), Share(0.08)),
+    Vector(Share(0.01), Share.Zero, Share(0.01), Share(0.05), Share(0.02), Share(0.01)),
+    Vector(Share(0.01), Share(0.01), Share(0.01), Share(0.01), Share(0.03), Share(0.01)),
+    Vector(Share.Zero, Share(0.08), Share(0.05), Share(0.01), Share(0.01), Share(0.12)),
   )
 
   private val defaultColSums =
-    (0 until 6).map(j => defaultMatrix.map(_(j)).sum).toVector
+    (0 until 6).map(j => defaultMatrix.map(_(j)).foldLeft(Share.Zero)(_ + _)).toVector
 
-  private val zeroMatrix  = Vector.fill(6)(Vector.fill(6)(0.0))
-  private val zeroColSums = Vector.fill(6)(0.0)
+  private val zeroMatrix  = Vector.fill(6)(Vector.fill(6)(Share.Zero))
+  private val zeroColSums = Vector.fill(6)(Share.Zero)
 
   private def makeFirm(
       id: Int,
@@ -62,8 +62,8 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
 
   private def baseInput(firms: Vector[Firm.State]) = IntermediateMarket.Input(
     firms = firms,
-    sectorMults = Vector.fill(6)(1.0),
-    price = 1.0,
+    sectorMults = Vector.fill(6)(Multiplier.One),
+    price = PriceIndex.Base,
     ioMatrix = defaultMatrix,
     columnSums = defaultColSums,
   )
@@ -86,10 +86,10 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val result      = IntermediateMarket.process(baseInput(firms))
     // Firm in sector 0 (BPO): should pay columnSum(0) of its gross output
     val bpoOutput   = Firm.computeCapacity(firms(0)).bd
-    val bpoCost     = bpoOutput * defaultColSums(0)
+    val bpoCost     = bpoOutput * defaultColSums(0).bd
     // BPO revenue: sum over j of a_0j * sectorOutput_j
     val bpoRevenue  = (0 until 6).map { j =>
-      BigDecimal.decimal(defaultMatrix(0)(j)) * Firm.computeCapacity(firms(j)).bd
+      defaultMatrix(0)(j).bd * Firm.computeCapacity(firms(j)).bd
     }.sum
     val expectedAdj = bpoRevenue - bpoCost
     val actualAdj   = (result.firms(0).cash - firms(0).cash).bd
@@ -174,7 +174,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   it should "scale I-O flows with demandMult and price" in {
     val firms   = makeFirmsAllSectors(5)
     val base    = IntermediateMarket.process(baseInput(firms))
-    val doubled = IntermediateMarket.process(baseInput(firms).copy(sectorMults = Vector.fill(6)(2.0)))
+    val doubled = IntermediateMarket.process(baseInput(firms).copy(sectorMults = Vector.fill(6)(Multiplier(2.0))))
     // Doubling demand should double total I-O flows
     doubled.totalPaid.bd shouldBe ((base.totalPaid.bd * 2) +- (base.totalPaid.bd * BigDecimal("0.01")))
   }

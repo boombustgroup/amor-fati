@@ -177,26 +177,44 @@ object Firm:
     * variables.
     */
   case class Result(
-      firm: State,          // Updated firm state after this month
-      taxPaid: PLN,         // CIT actually paid (after informal evasion)
-      capexSpent: PLN,      // Technology upgrade CAPEX (AI or hybrid)
-      techImports: PLN,     // Import content of CAPEX (forex demand)
-      newLoan: PLN,         // New bank loan taken for upgrade
-      equityIssuance: PLN,  // GPW equity raised this month (filled by S4)
-      grossInvestment: PLN, // Physical capital investment this month
-      bondIssuance: PLN,    // Corporate bond issuance (filled by S4)
-      profitShiftCost: PLN, // FDI profit shifting outflow
-      fdiRepatriation: PLN, // FDI dividend repatriation outflow
-      inventoryChange: PLN, // Net inventory change (+ accumulation, - drawdown)
-      citEvasion: PLN,      // CIT evaded via informal economy
-      energyCost: PLN,      // Total energy + ETS cost this month
-      greenInvestment: PLN, // Green capital investment this month
-      principalRepaid: PLN, // Monthly firm loan principal repayment
+      firm: State,                // Updated firm state after this month
+      taxPaid: PLN,               // CIT actually paid (after informal evasion)
+      realizedPostTaxProfit: PLN, // realized monthly profit after tax, floored at zero for payout logic
+      capexSpent: PLN,            // Technology upgrade CAPEX (AI or hybrid)
+      techImports: PLN,           // Import content of CAPEX (forex demand)
+      newLoan: PLN,               // New bank loan taken for upgrade
+      equityIssuance: PLN,        // GPW equity raised this month (filled by S4)
+      grossInvestment: PLN,       // Physical capital investment this month
+      bondIssuance: PLN,          // Corporate bond issuance (filled by S4)
+      profitShiftCost: PLN,       // FDI profit shifting outflow
+      fdiRepatriation: PLN,       // FDI dividend repatriation outflow
+      inventoryChange: PLN,       // Net inventory change (+ accumulation, - drawdown)
+      citEvasion: PLN,            // CIT evaded via informal economy
+      energyCost: PLN,            // Total energy + ETS cost this month
+      greenInvestment: PLN,       // Green capital investment this month
+      principalRepaid: PLN,       // Monthly firm loan principal repayment
   )
   object Result:
     /** Convenience factory for tests — all flow fields set to `PLN.Zero`. */
     def zero(firm: State): Result =
-      Result(firm, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+      Result(
+        firm,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+      )
 
   /** Monthly profit-and-loss breakdown, computed by `computePnL`. */
   case class PnL(
@@ -300,8 +318,8 @@ object Firm:
     if isInStartup(f) then return Math.max(workerCount(f), f.startupTargetWorkers)
     val sectorDemand = w.pipeline.sectorDemandMult(f.sector.toInt)
     val hiringSignal = w.pipeline.sectorHiringSignal(f.sector.toInt)
-    val demandMult   = sectorDemand + (hiringSignal - sectorDemand).max(0.0) * HiringPressureBlend
-    val price        = w.priceLevel
+    val demandMult   = sectorDemand + (hiringSignal - sectorDemand).max(Multiplier.Zero) * Share(HiringPressureBlend)
+    val price        = w.priceLevel.toMultiplier
     val wage         = w.householdMarket.marketWage * effectiveWageMult(f.sector)
     val minW         = p.firm.minWorkersRetained
     val maxW         = f.initialSize * 3
@@ -312,7 +330,7 @@ object Firm:
       val mid     = (lo + hi + 1) / 2
       val capMid  = computeCapacity(f.copy(tech = TechState.Traditional(mid)))
       val capPrev = computeCapacity(f.copy(tech = TechState.Traditional(mid - 1)))
-      val mr      = (capMid - capPrev) * Multiplier(demandMult * price)
+      val mr      = (capMid - capPrev) * (demandMult * price)
       if mr > wage then lo = mid else hi = mid - 1
     applyAggregateHiringSlack(lo, minW, Multiplier(w.pipeline.aggregateHiringSlack))
 
@@ -446,7 +464,7 @@ object Firm:
     val r1       = applyGreenInvestment(r0a)
     val r2       = applyInvestment(r1)
     val r3       = applyDigitalDrift(r2)
-    val r4       = applyInventory(r3, sectorDemandMult = Multiplier(w.pipeline.sectorDemandMult(firm.sector.toInt)))
+    val r4       = applyInventory(r3, sectorDemandMult = w.pipeline.sectorDemandMult(firm.sector.toInt))
     val r5       = applyFdiFlows(r4)
     applyInformalCitEvasion(r5, Share(w.mechanisms.informalCyclicalAdj))
 
@@ -565,8 +583,8 @@ object Firm:
     val pnl = computePnL(
       firm,
       w.householdMarket.marketWage,
-      Multiplier(w.pipeline.sectorDemandMult(firm.sector.toInt)),
-      PriceIndex(w.priceLevel),
+      w.pipeline.sectorDemandMult(firm.sector.toInt),
+      w.priceLevel,
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
       lendRate,
@@ -589,8 +607,8 @@ object Firm:
     val pnl    = computePnL(
       firm,
       w.householdMarket.marketWage,
-      Multiplier(w.pipeline.sectorDemandMult(firm.sector.toInt)),
-      PriceIndex(w.priceLevel),
+      w.pipeline.sectorDemandMult(firm.sector.toInt),
+      w.priceLevel,
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
       lendRate,
@@ -610,7 +628,7 @@ object Firm:
       upLoan,
       w.householdMarket.marketWage,
       lendRate,
-      PriceIndex(w.priceLevel),
+      w.priceLevel,
       w.external.gvc.importCostIndex,
     )
     val profitable = pnl.costs > upCost * Multiplier(FullAiProfitMargin)
@@ -672,7 +690,7 @@ object Firm:
         loan,
         w.householdMarket.marketWage,
         lendRate,
-        PriceIndex(w.priceLevel),
+        w.priceLevel,
         w.external.gvc.importCostIndex,
       )
     UpgradeCandidate(
@@ -705,7 +723,7 @@ object Firm:
       loan,
       w.householdMarket.marketWage,
       lendRate,
-      PriceIndex(w.priceLevel),
+      w.priceLevel,
       w.external.gvc.importCostIndex,
     )
     val cand  = UpgradeCandidate(
@@ -877,8 +895,8 @@ object Firm:
     val pnl           = computePnL(
       firm,
       w.householdMarket.marketWage,
-      Multiplier(w.pipeline.sectorDemandMult(firm.sector.toInt)),
-      PriceIndex(w.priceLevel),
+      w.pipeline.sectorDemandMult(firm.sector.toInt),
+      w.priceLevel,
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
       lendRate,
@@ -965,6 +983,7 @@ object Firm:
     Result(
       firm = advanceStartupLifecycle(firm.copy(accumulatedLoss = pnl.newAccumulatedLoss)),
       taxPaid = pnl.tax,
+      realizedPostTaxProfit = pnl.netAfterTax.max(PLN.Zero),
       capexSpent = capex,
       techImports = techImports,
       newLoan = newLoan,
@@ -1072,7 +1091,7 @@ object Firm:
     discountedEnergy * (Multiplier.One + carbonSurcharge.max(Scalar.Zero).toMultiplier)
 
   /** Monthly P&L: revenue minus all cost categories, CIT on positive profit. */
-  private def computePnL(
+  private[amorfati] def computePnL(
       firm: State,
       wage: PLN,
       sectorDemandMult: Multiplier,
@@ -1111,6 +1130,27 @@ object Firm:
         (taxable * p.fiscal.citRate, remaining.max(PLN.Zero))
 
     PnL(revenue, costs, tax, profit - tax, profitShiftCost, energyCost, newAccLoss)
+
+  private[amorfati] def realizedPostTaxProfit(
+      firm: State,
+      wage: PLN,
+      sectorDemandMult: Multiplier,
+      domesticPrice: PriceIndex,
+      importPrice: PriceIndex,
+      commodityPrice: PriceIndex,
+      lendRate: Rate,
+      month: Int,
+  )(using p: SimParams): PLN =
+    computePnL(
+      firm,
+      wage,
+      sectorDemandMult,
+      domesticPrice,
+      importPrice,
+      commodityPrice,
+      lendRate,
+      month,
+    ).netAfterTax.max(PLN.Zero)
 
   /** Apply green capital investment — separate cash pool. Firms earmark
     * GreenBudgetShare of cash for green investment; physical capital

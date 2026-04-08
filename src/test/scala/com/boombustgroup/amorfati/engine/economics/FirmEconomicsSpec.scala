@@ -72,7 +72,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
       hhOutput = s3,
       sectorMults = s4.sectorMults,
       avgDemandMult = s4.avgDemandMult,
-      sectorCap = s4.sectorCap,
+      sectorCapReal = s4.sectorCapReal,
       govPurchases = s4.govPurchases,
       laggedInvestDemand = s4.laggedInvestDemand,
       fiscalRuleStatus = s4.fiscalRuleStatus,

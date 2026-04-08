@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.fp
 
 import FixedPointBase.*
+import MultiplierProvider.Multiplier
 
 /** (-∞,∞) behavioral parameters (sensitivity, elasticity, gap). */
 object CoefficientProvider:
@@ -21,6 +22,7 @@ object CoefficientProvider:
     def *(other: Coefficient): Coefficient   = bankerRound(BigInt(c) * BigInt(other))
     def max(other: Coefficient): Coefficient = math.max(c, other)
     def min(other: Coefficient): Coefficient = math.min(c, other)
+    def exp: Multiplier                      = Multiplier(math.exp(c.toDouble / ScaleD))
     def >(other: Coefficient): Boolean       = c > other
     def <(other: Coefficient): Boolean       = c < other
     def >=(other: Coefficient): Boolean      = c >= other

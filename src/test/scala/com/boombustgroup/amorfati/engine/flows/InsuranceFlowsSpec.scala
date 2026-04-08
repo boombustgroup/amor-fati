@@ -43,7 +43,7 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "match old Insurance.step premium and claim amounts" in {
     val prev   = Insurance.initial
-    val oldIns = Insurance.step(prev, 80000, PLN(7000.0), 1.0, Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01))
+    val oldIns = Insurance.step(prev, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01))
     val flows  = InsuranceFlows.emit(baseInput)
 
     val newLifePrem    = flows.filter(_.mechanism == FlowMechanism.InsLifePremium.toInt).map(_.amount).sum
@@ -51,10 +51,10 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
     val newLifeCl      = flows.filter(_.mechanism == FlowMechanism.InsLifeClaim.toInt).map(_.amount).sum
     val newNonLifeCl   = flows.filter(_.mechanism == FlowMechanism.InsNonLifeClaim.toInt).map(_.amount).sum
 
-    newLifePrem shouldBe oldIns.lastLifePremium.toLong
-    newNonLifePrem shouldBe oldIns.lastNonLifePremium.toLong
-    newLifeCl shouldBe oldIns.lastLifeClaims.toLong
-    newNonLifeCl shouldBe oldIns.lastNonLifeClaims.toLong
+    PLN.fromRaw(newLifePrem) shouldBe oldIns.lastLifePremium
+    PLN.fromRaw(newNonLifePrem) shouldBe oldIns.lastNonLifePremium
+    PLN.fromRaw(newLifeCl) shouldBe oldIns.lastLifeClaims
+    PLN.fromRaw(newNonLifeCl) shouldBe oldIns.lastNonLifeClaims
   }
 
   it should "preserve SFC across 120 months" in {

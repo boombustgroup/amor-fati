@@ -204,15 +204,15 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       autoRatio = Share.Zero,
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
-      priceLevel = 1.0,
-      sectorOutputs = Vector.fill(6)(PLN(1e8)),
+      priceLevel = PriceIndex.Base,
+      sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(1e8)),
       month = 1,
       nbpFxReserves = prevBop.reserves,
     )
     val resultWith    = OpenEconomy.step(base.copy(tourismExport = PLN(1000.0)))
     val resultWithout = OpenEconomy.step(base.copy(tourismExport = PLN.Zero))
 
-    resultWith.bop.exports shouldBe resultWithout.bop.exports + PLN(1000.0)
+    resultWith.bop.exports.shouldBe(resultWithout.bop.exports + PLN(1000.0))
   }
 
   "OpenEconomy imports" should "include tourismImport" in {
@@ -227,15 +227,15 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       autoRatio = Share.Zero,
       domesticRate = Rate(0.05),
       gdp = PLN(1e9),
-      priceLevel = 1.0,
-      sectorOutputs = Vector.fill(6)(PLN(1e8)),
+      priceLevel = PriceIndex.Base,
+      sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(1e8)),
       month = 1,
       nbpFxReserves = prevBop.reserves,
     )
     val resultWith    = OpenEconomy.step(base.copy(tourismImport = PLN(500.0)))
     val resultWithout = OpenEconomy.step(base.copy(tourismImport = PLN.Zero))
 
-    resultWith.bop.totalImports shouldBe resultWithout.bop.totalImports + PLN(500.0)
+    resultWith.bop.totalImports.shouldBe(resultWithout.bop.totalImports + PLN(500.0))
   }
 
   // ==========================================================================
@@ -246,9 +246,9 @@ class TourismSpec extends AnyFlatSpec with Matchers:
     val w = World(
       month = 0,
       inflation = Rate(0.02),
-      priceLevel = 1.0,
+      priceLevel = PriceIndex.Base,
       gdpProxy = 1e9,
-      currentSigmas = Vector.fill(6)(Sigma(0.1)),
+      currentSigmas = Vector.fill(p.sectorDefs.length)(Sigma(0.1)),
       totalPopulation = 100,
       gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
@@ -303,6 +303,6 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       plumbing = MonetaryPlumbingState.zero,
       flows = FlowState.zero,
     )
-    w.flows.tourismExport shouldBe PLN.Zero
-    w.flows.tourismImport shouldBe PLN.Zero
+    w.flows.tourismExport.shouldBe(PLN.Zero)
+    w.flows.tourismImport.shouldBe(PLN.Zero)
   }

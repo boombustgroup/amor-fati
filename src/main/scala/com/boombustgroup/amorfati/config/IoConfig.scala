@@ -20,14 +20,25 @@ import com.boombustgroup.amorfati.types.*
   *   analysis)
   */
 case class IoConfig(
-    matrix: Vector[Vector[Double]] = IoConfig.DefaultMatrix,
+    matrix: Vector[Vector[Share]] = IoConfig.DefaultMatrix,
     scale: Multiplier = Multiplier(1.0),
 ):
+  require(matrix.nonEmpty, "IoConfig.matrix must be non-empty")
+
+  private val rowCount = matrix.length
+  private val colCount = matrix.head.length
+
+  require(matrix.forall(_.length == colCount), "IoConfig.matrix must have rows of equal length")
+  require(rowCount == colCount, "IoConfig.matrix must be square")
+  require(matrix.flatten.forall(_ >= Share.Zero), "IoConfig.matrix entries must be non-negative")
+  require(scale >= Multiplier.Zero, "IoConfig.scale must be non-negative")
+
   /** Pre-computed column sums of the technical coefficients matrix (used in
     * intermediate demand calculation).
     */
-  val columnSums: Vector[Double] =
-    (0 until 6).map(j => matrix.map(_(j)).sum).toVector
+  val columnSums: Vector[Share] =
+    (0 until colCount).map(j => matrix.map(_(j)).foldLeft(Share.Zero)(_ + _)).toVector
+  require(columnSums.forall(_ < Share.One), "IoConfig matrix column sums must be < 1.0")
 
 object IoConfig:
   /** Default 6x6 I-O technical coefficients matrix (GUS supply-use tables
@@ -36,11 +47,11 @@ object IoConfig:
     * Rows/columns: BPO/SSC, Manufacturing, Retail/Services, Healthcare, Public,
     * Agriculture.
     */
-  val DefaultMatrix: Vector[Vector[Double]] = Vector(
-    Vector(0.05, 0.03, 0.04, 0.02, 0.03, 0.01),
-    Vector(0.04, 0.35, 0.12, 0.15, 0.05, 0.18),
-    Vector(0.15, 0.10, 0.12, 0.08, 0.07, 0.08),
-    Vector(0.01, 0.00, 0.01, 0.05, 0.02, 0.01),
-    Vector(0.01, 0.01, 0.01, 0.01, 0.03, 0.01),
-    Vector(0.00, 0.08, 0.05, 0.01, 0.01, 0.12),
+  val DefaultMatrix: Vector[Vector[Share]] = Vector(
+    Vector(Share(0.05), Share(0.03), Share(0.04), Share(0.02), Share(0.03), Share(0.01)),
+    Vector(Share(0.04), Share(0.35), Share(0.12), Share(0.15), Share(0.05), Share(0.18)),
+    Vector(Share(0.15), Share(0.10), Share(0.12), Share(0.08), Share(0.07), Share(0.08)),
+    Vector(Share(0.01), Share.Zero, Share(0.01), Share(0.05), Share(0.02), Share(0.01)),
+    Vector(Share(0.01), Share(0.01), Share(0.01), Share(0.01), Share(0.03), Share(0.01)),
+    Vector(Share.Zero, Share(0.08), Share(0.05), Share(0.01), Share(0.01), Share(0.12)),
   )

@@ -94,11 +94,11 @@ object WorldAssemblyEconomics:
       lendingBaseRate: Rate,
       resWage: PLN,
       baseMinWage: PLN,
-      minWagePriceLevel: Double,
+      minWagePriceLevel: PriceIndex,
       govPurchases: PLN,
-      sectorMults: Vector[Double],
-      avgDemandMult: Double,
-      sectorCap: Vector[Double],
+      sectorMults: Vector[Multiplier],
+      avgDemandMult: Multiplier,
+      sectorCapReal: Vector[PLN],
       laggedInvestDemand: PLN,
       fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
       // Step outputs (too complex to decompose)
@@ -129,7 +129,7 @@ object WorldAssemblyEconomics:
       in.w.pipeline.sectorDemandPressure,
       in.w.pipeline.sectorHiringSignal,
       in.avgDemandMult,
-      in.sectorCap,
+      in.sectorCapReal,
       in.laggedInvestDemand,
       in.fiscalRuleStatus,
     )
@@ -229,19 +229,15 @@ object WorldAssemblyEconomics:
   private def computeFofResidual(in: StepInput)(using p: SimParams): PLN =
     val nSectors       = p.sectorDefs.length
     val sectorCapPln   = (0 until nSectors).map: s =>
-      PLN.fromRaw(in.s2.living.filter(_.sector.toInt == s).map(f => Firm.computeCapacity(f).toLong).sum)
-    val totalFirmRev   = PLN.fromRaw(
-      (0 until nSectors)
-        .map: s =>
-          (sectorCapPln(s) * Multiplier(in.s4.sectorMults(s) * in.w.priceLevel)).toLong
-        .sum,
-    )
-    val adjustedDemand = PLN.fromRaw(
-      (0 until nSectors)
-        .map: s =>
-          (PLN(in.s4.sectorCap(s)) * Multiplier(in.s4.sectorMults(s) * in.w.priceLevel)).toLong
-        .sum,
-    )
+      in.s2.living
+        .filter(_.sector.toInt == s)
+        .foldLeft(PLN.Zero): (acc, f) =>
+          acc + Firm.computeCapacity(f)
+    val priceMult      = in.w.priceLevel.toMultiplier
+    val totalFirmRev   = (0 until nSectors).foldLeft(PLN.Zero): (acc, s) =>
+      acc + (sectorCapPln(s) * in.s4.sectorMults(s) * priceMult)
+    val adjustedDemand = (0 until nSectors).foldLeft(PLN.Zero): (acc, s) =>
+      acc + (in.s4.sectorCapReal(s) * in.s4.sectorMults(s) * priceMult)
     totalFirmRev - adjustedDemand
 
   /** Informal economy: four-channel tax evasion (CIT, VAT, PIT, excise),

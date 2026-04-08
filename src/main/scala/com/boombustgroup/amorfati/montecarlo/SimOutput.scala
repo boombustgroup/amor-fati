@@ -17,6 +17,7 @@ object SimOutput:
 
   private val td                                          = ComputationBoundary
   private def exchangeRateValue(er: ExchangeRate): Double = er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+  private def priceIndexValue(pi: PriceIndex): Double     = pi.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 
   // -------------------------------------------------------------------------
   //  ColumnDef + Ctx
@@ -90,7 +91,7 @@ object SimOutput:
     ColumnDef("GovDebt", ctx => td.toDouble(ctx.world.gov.cumulativeDebt)),
     ColumnDef("NPL", ctx => td.toDouble(ctx.bankAgg.nplRatio)),
     ColumnDef("RefRate", ctx => td.toDouble(ctx.world.nbp.referenceRate)),
-    ColumnDef("PriceLevel", ctx => ctx.world.priceLevel),
+    ColumnDef("PriceLevel", ctx => td.toDouble(ctx.world.priceLevel)),
     ColumnDef("AutoRatio", ctx => td.toDouble(ctx.world.real.automationRatio)),
     ColumnDef("HybridRatio", ctx => td.toDouble(ctx.world.real.hybridRatio)),
   )
@@ -265,7 +266,7 @@ object SimOutput:
     ColumnDef("ConsumerOrigination", ctx => td.toDouble(ctx.hhAgg.totalConsumerOrigination)),
     ColumnDef("ConsumerDebtService", ctx => td.toDouble(ctx.hhAgg.totalConsumerDebtService)),
     // GPW Equity Market
-    ColumnDef("GpwIndex", ctx => ctx.world.financial.equity.index),
+    ColumnDef("GpwIndex", ctx => priceIndexValue(ctx.world.financial.equity.index)),
     ColumnDef("GpwMarketCap", ctx => td.toDouble(ctx.world.financial.equity.marketCap)),
     ColumnDef(
       "GpwPE",
@@ -336,7 +337,7 @@ object SimOutput:
 
   private def realGroup: Vector[ColumnDef] = Vector(
     // Housing Market
-    ColumnDef("HousingPriceIndex", ctx => ctx.world.real.housing.priceIndex),
+    ColumnDef("HousingPriceIndex", ctx => td.toDouble(ctx.world.real.housing.priceIndex)),
     ColumnDef("HousingMarketValue", ctx => td.toDouble(ctx.world.real.housing.totalValue)),
     ColumnDef("MortgageStock", ctx => td.toDouble(ctx.world.real.housing.mortgageStock)),
     ColumnDef("AvgMortgageRate", ctx => td.toDouble(ctx.world.real.housing.avgMortgageRate)),
@@ -354,13 +355,13 @@ object SimOutput:
         else 0.0,
     ),
     // Regional Housing Market
-    ColumnDef("WawHpi", ctx => ctx.world.real.housing.regions.map(_(0).priceIndex).getOrElse(0.0)),
-    ColumnDef("KrkHpi", ctx => ctx.world.real.housing.regions.map(_(1).priceIndex).getOrElse(0.0)),
-    ColumnDef("WroHpi", ctx => ctx.world.real.housing.regions.map(_(2).priceIndex).getOrElse(0.0)),
-    ColumnDef("GdnHpi", ctx => ctx.world.real.housing.regions.map(_(3).priceIndex).getOrElse(0.0)),
-    ColumnDef("LdzHpi", ctx => ctx.world.real.housing.regions.map(_(4).priceIndex).getOrElse(0.0)),
-    ColumnDef("PozHpi", ctx => ctx.world.real.housing.regions.map(_(5).priceIndex).getOrElse(0.0)),
-    ColumnDef("RestHpi", ctx => ctx.world.real.housing.regions.map(_(6).priceIndex).getOrElse(0.0)),
+    ColumnDef("WawHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(0).priceIndex)).getOrElse(0.0)),
+    ColumnDef("KrkHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(1).priceIndex)).getOrElse(0.0)),
+    ColumnDef("WroHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(2).priceIndex)).getOrElse(0.0)),
+    ColumnDef("GdnHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(3).priceIndex)).getOrElse(0.0)),
+    ColumnDef("LdzHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(4).priceIndex)).getOrElse(0.0)),
+    ColumnDef("PozHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(5).priceIndex)).getOrElse(0.0)),
+    ColumnDef("RestHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(6).priceIndex)).getOrElse(0.0)),
     // Sectoral Labor Mobility
     ColumnDef("SectorMobilityRate", ctx => td.toDouble(ctx.world.real.sectoralMobility.sectorMobilityRate)),
     ColumnDef("CrossSectorHires", ctx => ctx.world.real.sectoralMobility.crossSectorHires.toDouble),

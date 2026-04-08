@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.accounting
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -14,7 +15,6 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -34,8 +34,8 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   "BankingAggregate.nplRatio" should "be in [0, 1] when totalLoans > 1" in
     forAll(genBankingAggregate) { (bs: Banking.Aggregate) =>
       whenever(bs.totalLoans > PLN(1.0)) {
-        td.toDouble(bs.nplRatio) should be >= 0.0
-        td.toDouble(bs.nplRatio) should be <= 1.0
+        bs.nplRatio.bd should be >= BigDecimal(0.0)
+        bs.nplRatio.bd should be <= BigDecimal(1.0)
       }
     }
 
@@ -51,7 +51,7 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
       whenever(loans > 1.0) {
         val bs =
           Banking.Aggregate(PLN(loans), PLN(0.0), PLN(capital), PLN(1000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-        td.toDouble(bs.car) should be >= 0.0
+        bs.car.bd should be >= BigDecimal(0.0)
       }
     }
 
@@ -69,11 +69,12 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     forAll(genGovUpdateInputs) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double)) =>
       val (prev, cit, vat, price, unempBen) = inputs
       whenever(price >= 0.01) {
-        val gov        = FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
+        val gov        =
+          FiscalBudget.update(FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
         val totalRev   = cit + vat
-        val totalSpend = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price
-        val tol        = td.toDouble(p.fiscal.govBaseSpending) * 0.0001 + 1.0 // Multiplier rounding tolerance
-        td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- tol)
+        val totalSpend = unempBen + p.fiscal.govBaseSpending.bd.toDouble * price
+        val tol        = p.fiscal.govBaseSpending.bd.toDouble * 0.0001 + 1.0 // fixed-point rounding tolerance
+        gov.deficit.bd.toDouble shouldBe (totalSpend - totalRev +- tol)
       }
     }
 
@@ -81,12 +82,12 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   "ForexState" should "have tradeBalance = exports - imports" in
     forAll(genForexState) { (fs: OpenEconomy.ForexState) =>
-      td.toDouble(fs.tradeBalance) shouldBe (td.toDouble(fs.exports - fs.imports) +- 1.0)
+      fs.tradeBalance.bd.toDouble shouldBe ((fs.exports - fs.imports).bd.toDouble +- 1.0)
     }
 
   // --- BopState properties ---
 
   "BopState" should "have CA = tradeBalance + primaryIncome + secondaryIncome" in
     forAll(genBopState) { (bop: OpenEconomy.BopState) =>
-      td.toDouble(bop.currentAccount) shouldBe (td.toDouble(bop.tradeBalance + bop.primaryIncome + bop.secondaryIncome) +- 1.0)
+      bop.currentAccount.bd.toDouble shouldBe ((bop.tradeBalance + bop.primaryIncome + bop.secondaryIncome).bd.toDouble +- 1.0)
     }

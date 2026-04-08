@@ -1,23 +1,32 @@
 package com.boombustgroup.amorfati.engine
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.markets.HousingMarket
 import com.boombustgroup.amorfati.types.*
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 class HousingMarketSpec extends AnyFlatSpec with Matchers:
 
-  import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
+
+  private val onePln = PLN.fromLong(1)
+
+  private def pln(units: Long): PLN                                                  = PLN.fromLong(units)
+  private def rateBps(bps: Long): Rate                                               = Rate.fromRaw(bps)
+  private def priceIndex(points: Long): PriceIndex                                   = PriceIndex.fromRaw(points * 10000L)
+  private def shouldBeClosePln(actual: PLN, expected: PLN, tolerance: PLN): Unit     =
+    (actual - expected).abs should be <= tolerance
+  private def shouldBeCloseRate(actual: Rate, expected: Rate, tolerance: Rate): Unit =
+    (actual - expected).abs should be <= tolerance
 
   private val initState = HousingMarket.State(
-    priceIndex = 100.0,
-    totalValue = PLN(3.0e12 * p.pop.firmsCount / 10000.0),
-    mortgageStock = PLN(485e9 * p.pop.firmsCount / 10000.0),
-    avgMortgageRate = Rate(0.0575 + 0.025),
-    hhHousingWealth = PLN((3.0e12 - 485e9) * p.pop.firmsCount / 10000.0),
+    priceIndex = priceIndex(100),
+    totalValue = p.housing.initValue,
+    mortgageStock = p.housing.initMortgage,
+    avgMortgageRate = p.monetary.initialRate + p.housing.mortgageSpread,
+    hhHousingWealth = p.housing.initValue - p.housing.initMortgage,
     lastOrigination = PLN.Zero,
     lastRepayment = PLN.Zero,
     lastDefault = PLN.Zero,
@@ -28,89 +37,86 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
 
   @annotation.nowarn("msg=unused private member") // defaults used by callers
   private def mkFlows(
-      interest: Double = 0.0,
-      principal: Double = 0.0,
-      defaultAmount: Double = 0.0,
-      defaultLoss: Double = 0.0,
+      interest: PLN = PLN.Zero,
+      principal: PLN = PLN.Zero,
+      defaultAmount: PLN = PLN.Zero,
+      defaultLoss: PLN = PLN.Zero,
   ): HousingMarket.MortgageFlows =
-    HousingMarket.MortgageFlows(PLN(interest), PLN(principal), PLN(defaultAmount), PLN(defaultLoss))
+    HousingMarket.MortgageFlows(interest, principal, defaultAmount, defaultLoss)
 
   "HousingMarket.zero" should "return all-zero state" in {
     val z = HousingMarket.zero
-    z.priceIndex shouldBe 0.0
+    z.priceIndex shouldBe PriceIndex.Zero
     z.totalValue shouldBe PLN.Zero
     z.mortgageStock shouldBe PLN.Zero
-    td.toDouble(z.avgMortgageRate) shouldBe 0.0
+    z.avgMortgageRate shouldBe Rate.Zero
     z.hhHousingWealth shouldBe PLN.Zero
     z.lastOrigination shouldBe PLN.Zero
     z.lastRepayment shouldBe PLN.Zero
     z.lastDefault shouldBe PLN.Zero
     z.lastWealthEffect shouldBe PLN.Zero
-    td.toDouble(z.monthlyReturn) shouldBe 0.0
+    z.monthlyReturn shouldBe Rate.Zero
     z.mortgageInterestIncome shouldBe PLN.Zero
     z.regions shouldBe None
   }
 
   "HousingMarket.processMortgageFlows" should "return zeros for zero mortgage stock" in {
     val zeroStock = initState.copy(mortgageStock = PLN.Zero)
-    val flows     = HousingMarket.processMortgageFlows(zeroStock, Rate(0.0825), Share(0.05))
+    val flows     = HousingMarket.processMortgageFlows(zeroStock, rateBps(825), Share.fraction(1, 20))
     flows.interest shouldBe PLN.Zero
     flows.principal shouldBe PLN.Zero
     flows.defaultLoss shouldBe PLN.Zero
   }
 
   "HousingMarket.applyFlows" should "reduce mortgage stock by principal + defaults" in {
-    val stock0 = 1000000.0
-    val state  = initState.copy(mortgageStock = PLN(stock0), totalValue = PLN(2000000.0))
-    val flows  = mkFlows(interest = 6000.0, principal = 5000.0, defaultAmount = 2000.0)
+    val stock0 = pln(1_000_000)
+    val state  = initState.copy(mortgageStock = stock0, totalValue = pln(2_000_000))
+    val flows  = mkFlows(interest = pln(6_000), principal = pln(5_000), defaultAmount = pln(2_000))
     val result = HousingMarket.applyFlows(state, flows)
-    td.toDouble(result.mortgageStock) shouldBe (stock0 - 5000.0 - 2000.0 +- 0.01)
-    result.lastRepayment shouldBe PLN(5000.0)
-    result.lastDefault shouldBe PLN(2000.0)
-    result.mortgageInterestIncome shouldBe PLN(6000.0)
+    result.mortgageStock shouldBe stock0 - pln(5_000) - pln(2_000)
+    result.lastRepayment shouldBe pln(5_000)
+    result.lastDefault shouldBe pln(2_000)
+    result.mortgageInterestIncome shouldBe pln(6_000)
   }
 
   it should "floor mortgage stock at zero" in {
-    val state  = initState.copy(mortgageStock = PLN(100.0), totalValue = PLN(2000000.0))
-    val result = HousingMarket.applyFlows(state, mkFlows(principal = 50.0, defaultAmount = 60.0))
+    val state  = initState.copy(mortgageStock = pln(100), totalValue = pln(2_000_000))
+    val result = HousingMarket.applyFlows(state, mkFlows(principal = pln(50), defaultAmount = pln(60)))
     result.mortgageStock shouldBe PLN.Zero
   }
 
   it should "compute housing wealth as value minus mortgage" in {
     val state  = initState.copy(
-      mortgageStock = PLN(400000.0),
-      totalValue = PLN(1000000.0),
-      hhHousingWealth = PLN(600000.0),
+      mortgageStock = pln(400_000),
+      totalValue = pln(1_000_000),
+      hhHousingWealth = pln(600_000),
     )
-    val result = HousingMarket.applyFlows(state, mkFlows(principal = 10000.0))
-    // new stock = 390000, new wealth = 1000000 - 390000 = 610000
-    td.toDouble(result.hhHousingWealth) shouldBe (610000.0 +- 0.01)
+    val result = HousingMarket.applyFlows(state, mkFlows(principal = pln(10_000)))
+    result.hhHousingWealth shouldBe pln(610_000)
   }
 
   "HousingMarket.processMortgageFlows" should "compute interest as stock × rate / 12" in {
-    val stock = 1e9
-    val rate  = 0.08
-    val state = initState.copy(mortgageStock = PLN(stock))
-    val flows = HousingMarket.processMortgageFlows(state, Rate(rate), Share(0.05))
-    // re=true by default: interest = stock * rate / 12
-    td.toDouble(flows.interest) shouldBe (stock * rate / 12.0 +- 100000.0)
+    val stock = pln(1_000_000_000)
+    val rate  = rateBps(800)
+    val state = initState.copy(mortgageStock = stock)
+    val flows = HousingMarket.processMortgageFlows(state, rate, Share.fraction(1, 20))
+    shouldBeClosePln(flows.interest, stock * rate / 12, pln(100_000))
   }
 
   it should "increase default rate with unemployment" in {
-    val state  = initState.copy(mortgageStock = PLN(1e9))
-    val flows1 = HousingMarket.processMortgageFlows(state, Rate(0.08), Share(0.04))
-    val flows2 = HousingMarket.processMortgageFlows(state, Rate(0.08), Share(0.15))
-    // Higher unemployment → higher default losses
-    td.toDouble(flows2.defaultLoss) should be > td.toDouble(flows1.defaultLoss)
+    val state  = initState.copy(mortgageStock = pln(1_000_000_000))
+    val flows1 = HousingMarket.processMortgageFlows(state, rateBps(800), Share.fromRaw(400))
+    val flows2 = HousingMarket.processMortgageFlows(state, rateBps(800), Share.fromRaw(1500))
+    flows2.defaultLoss should be > flows1.defaultLoss
   }
 
   "HousingMarket.initial" should "have calibrated Polish values" in {
     val init = HousingMarket.initial
-    init.priceIndex shouldBe 100.0
-    td.toDouble(init.totalValue) shouldBe (td.toDouble(p.housing.initValue) +- 1.0)
-    td.toDouble(init.mortgageStock) shouldBe (td.toDouble(p.housing.initMortgage) +- 1.0)
-    td.toDouble(init.avgMortgageRate) shouldBe (td.toDouble(p.monetary.initialRate) + td.toDouble(p.housing.mortgageSpread) +- 0.001)
-    td.toDouble(init.hhHousingWealth) shouldBe (td.toDouble(p.housing.initValue) - td.toDouble(p.housing.initMortgage) +- 1.0)
+    init.priceIndex shouldBe priceIndex(100)
+    shouldBeClosePln(init.totalValue, p.housing.initValue, onePln)
+    shouldBeClosePln(init.mortgageStock, p.housing.initMortgage, onePln)
+    shouldBeCloseRate(init.avgMortgageRate, p.monetary.initialRate + p.housing.mortgageSpread, Rate.fromRaw(10))
+    shouldBeClosePln(init.hhHousingWealth, p.housing.initValue - p.housing.initMortgage, onePln)
   }
 
   it should "have regions when RE_REGIONAL is true" in {
@@ -120,31 +126,46 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   "Mortgage stock identity" should "hold: Δstock = origination - principal - default" in {
-    val stock0         = 500000.0
-    val state          = initState.copy(mortgageStock = PLN(stock0), totalValue = PLN(1000000.0))
-    val origination    = 20000.0
+    val stock0         = pln(500_000)
+    val state          = initState.copy(mortgageStock = stock0, totalValue = pln(1_000_000))
+    val origination    = pln(20_000)
     val stateAfterOrig = state.copy(
-      mortgageStock = PLN(stock0 + origination),
-      lastOrigination = PLN(origination),
+      mortgageStock = stock0 + origination,
+      lastOrigination = origination,
     )
-    val principal      = 3000.0
-    val defaultAmt     = 1000.0
-    val result         = HousingMarket.applyFlows(stateAfterOrig, mkFlows(interest = 5000.0, principal = principal, defaultAmount = defaultAmt))
-    val expectedStock  = stock0 + origination - principal - defaultAmt
-    td.toDouble(result.mortgageStock) shouldBe (expectedStock +- 0.01)
+    val principal      = pln(3_000)
+    val defaultAmt     = pln(1_000)
+    val result         = HousingMarket.applyFlows(stateAfterOrig, mkFlows(interest = pln(5_000), principal = principal, defaultAmount = defaultAmt))
+    result.mortgageStock shouldBe stock0 + origination - principal - defaultAmt
   }
 
   // --- Regional Housing Market tests ---
 
-  private def makeRegionalState(aggValue: Double, aggMortgage: Double): HousingMarket.State =
-    val valueShares    = Vector(0.25, 0.08, 0.07, 0.08, 0.04, 0.05, 0.43)
-    val mortgageShares = Vector(0.30, 0.10, 0.08, 0.09, 0.04, 0.06, 0.33)
-    val hpis           = Vector(230.0, 190.0, 170.0, 175.0, 110.0, 140.0, 100.0)
+  private def makeRegionalState(aggValue: PLN, aggMortgage: PLN): HousingMarket.State =
+    val valueShares    = Vector(
+      Share.fraction(25, 100),
+      Share.fraction(8, 100),
+      Share.fraction(7, 100),
+      Share.fraction(8, 100),
+      Share.fraction(4, 100),
+      Share.fraction(5, 100),
+      Share.fraction(43, 100),
+    )
+    val mortgageShares = Vector(
+      Share.fraction(30, 100),
+      Share.fraction(10, 100),
+      Share.fraction(8, 100),
+      Share.fraction(9, 100),
+      Share.fraction(4, 100),
+      Share.fraction(6, 100),
+      Share.fraction(33, 100),
+    )
+    val hpis           = Vector(230L, 190L, 170L, 175L, 110L, 140L, 100L)
     val regions        = (0 until 7).map { r =>
       HousingMarket.RegionalState(
-        priceIndex = hpis(r),
-        totalValue = PLN(aggValue * valueShares(r)),
-        mortgageStock = PLN(aggMortgage * mortgageShares(r)),
+        priceIndex = priceIndex(hpis(r)),
+        totalValue = valueShares(r) * aggValue,
+        mortgageStock = mortgageShares(r) * aggMortgage,
         lastOrigination = PLN.Zero,
         lastRepayment = PLN.Zero,
         lastDefault = PLN.Zero,
@@ -152,11 +173,11 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
       )
     }.toVector
     HousingMarket.State(
-      priceIndex = 100.0,
-      totalValue = PLN(aggValue),
-      mortgageStock = PLN(aggMortgage),
-      avgMortgageRate = Rate(0.08),
-      hhHousingWealth = PLN(aggValue - aggMortgage),
+      priceIndex = priceIndex(100),
+      totalValue = aggValue,
+      mortgageStock = aggMortgage,
+      avgMortgageRate = rateBps(800),
+      hhHousingWealth = aggValue - aggMortgage,
       lastOrigination = PLN.Zero,
       lastRepayment = PLN.Zero,
       lastDefault = PLN.Zero,
@@ -167,113 +188,101 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     )
 
   "HousingMarket.RegionalState" should "have 7 entries" in {
-    val state = makeRegionalState(1e9, 4e8)
+    val state = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
     state.regions.get.length shouldBe 7
   }
 
   it should "have regional values summing to aggregate" in {
-    val aggValue = 1e9
-    val state    = makeRegionalState(aggValue, 4e8)
-    val regSum   = state.regions.get.map(r => td.toDouble(r.totalValue)).sum
-    regSum shouldBe (aggValue +- 1.0)
+    val aggValue = pln(1_000_000_000)
+    val state    = makeRegionalState(aggValue, pln(400_000_000))
+    state.regions.get.map(_.totalValue).sum shouldBe aggValue
   }
 
   it should "have regional mortgages summing to aggregate" in {
-    val aggMortgage = 4e8
-    val state       = makeRegionalState(1e9, aggMortgage)
-    val regSum      = state.regions.get.map(r => td.toDouble(r.mortgageStock)).sum
-    regSum shouldBe (aggMortgage +- 1.0)
+    val aggMortgage = pln(400_000_000)
+    val state       = makeRegionalState(pln(1_000_000_000), aggMortgage)
+    state.regions.get.map(_.mortgageStock).sum shouldBe aggMortgage
   }
 
   it should "have Warszawa HPI > Rest HPI" in {
-    val state = makeRegionalState(1e9, 4e8)
+    val state = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
     val regs  = state.regions.get
     regs(0).priceIndex should be > regs(6).priceIndex
   }
 
   "applyFlows with regions" should "distribute flows proportionally to mortgage stock" in {
-    val state  = makeRegionalState(1e9, 4e8)
-    val result = HousingMarket.applyFlows(state, mkFlows(interest = 3000.0, principal = 10000.0, defaultAmount = 5000.0))
-
-    // Regional stocks should sum to aggregate
-    val regStockSum = result.regions.get.map(r => td.toDouble(r.mortgageStock)).sum
-    regStockSum shouldBe (td.toDouble(result.mortgageStock) +- 1.0)
+    val state  = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
+    val result = HousingMarket.applyFlows(state, mkFlows(interest = pln(3_000), principal = pln(10_000), defaultAmount = pln(5_000)))
+    shouldBeClosePln(result.regions.get.map(_.mortgageStock).sum, result.mortgageStock, onePln)
   }
 
   it should "reduce each region's stock proportionally" in {
-    val state  = makeRegionalState(1e9, 4e8)
-    val result = HousingMarket.applyFlows(state, mkFlows(interest = 3000.0, principal = 10000.0, defaultAmount = 5000.0))
+    val state  = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
+    val result = HousingMarket.applyFlows(state, mkFlows(interest = pln(3_000), principal = pln(10_000), defaultAmount = pln(5_000)))
 
-    // Warszawa (30% of mortgage) should have largest reduction
-    val wawReduction  = td.toDouble(state.regions.get(0).mortgageStock - result.regions.get(0).mortgageStock)
-    val restReduction = td.toDouble(state.regions.get(6).mortgageStock - result.regions.get(6).mortgageStock)
-    // Waw mortgage share (0.30) vs Rest (0.33), so rest slightly larger
-    wawReduction should be > 0.0
-    restReduction should be > 0.0
+    val wawReduction  = state.regions.get(0).mortgageStock - result.regions.get(0).mortgageStock
+    val restReduction = state.regions.get(6).mortgageStock - result.regions.get(6).mortgageStock
+    wawReduction should be > PLN.Zero
+    restReduction should be > PLN.Zero
   }
 
   it should "preserve regional repayment and default tracking" in {
-    val state  = makeRegionalState(1e9, 4e8)
-    val result = HousingMarket.applyFlows(state, mkFlows(interest = 3000.0, principal = 10000.0, defaultAmount = 5000.0))
-
-    // Regional repayments should sum to aggregate
-    val regRepaySum = result.regions.get.map(r => td.toDouble(r.lastRepayment)).sum
-    regRepaySum shouldBe (10000.0 +- 0.01)
-
-    val regDefaultSum = result.regions.get.map(r => td.toDouble(r.lastDefault)).sum
-    regDefaultSum shouldBe (5000.0 +- 0.01)
+    val state  = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
+    val result = HousingMarket.applyFlows(state, mkFlows(interest = pln(3_000), principal = pln(10_000), defaultAmount = pln(5_000)))
+    result.regions.get.map(_.lastRepayment).sum shouldBe pln(10_000)
+    result.regions.get.map(_.lastDefault).sum shouldBe pln(5_000)
   }
 
   it should "preserve exact regional repayment and default sums under residual rounding" in {
-    val state         = makeRegionalState(1e9, 4e8)
-    val principal     = PLN(2.0)
-    val defaultAmount = PLN(2.0)
+    val state         = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
+    val principal     = pln(2)
+    val defaultAmount = pln(2)
     val result        = HousingMarket.applyFlows(state, HousingMarket.MortgageFlows(PLN.Zero, principal, defaultAmount, PLN.Zero))
 
-    result.regions.get.map(_.lastRepayment.toLong).sum shouldBe principal.toLong
-    result.regions.get.map(_.lastDefault.toLong).sum shouldBe defaultAmount.toLong
+    result.regions.get.map(_.lastRepayment).sum shouldBe principal
+    result.regions.get.map(_.lastDefault).sum shouldBe defaultAmount
   }
 
   "Mortgage stock identity with regions" should "hold per-region" in {
-    val state          = makeRegionalState(1e9, 4e8)
-    val origAmount     = 5000.0
-    // Simulate origination by bumping each region's stock
-    val shares         = Vector(0.25, 0.08, 0.07, 0.08, 0.04, 0.05, 0.43)
+    val state          = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
+    val origAmount     = pln(5_000)
+    val shares         = Vector(
+      Share.fraction(25, 100),
+      Share.fraction(8, 100),
+      Share.fraction(7, 100),
+      Share.fraction(8, 100),
+      Share.fraction(4, 100),
+      Share.fraction(5, 100),
+      Share.fraction(43, 100),
+    )
     val updatedRegs    = state.regions.get.zipWithIndex.map { (r, i) =>
-      val rOrig = PLN(origAmount * shares(i))
+      val rOrig = shares(i) * origAmount
       r.copy(mortgageStock = r.mortgageStock + rOrig, lastOrigination = rOrig)
     }
     val stateAfterOrig = state.copy(
-      mortgageStock = state.mortgageStock + PLN(origAmount),
-      lastOrigination = PLN(origAmount),
+      mortgageStock = state.mortgageStock + origAmount,
+      lastOrigination = origAmount,
       regions = Some(updatedRegs),
     )
-    val principal      = 2000.0
-    val defaultAmt     = 1000.0
-    val result         = HousingMarket.applyFlows(stateAfterOrig, mkFlows(interest = 1000.0, principal = principal, defaultAmount = defaultAmt))
-
-    // Aggregate identity
-    val expectedAggStock = td.toDouble(state.mortgageStock) + origAmount - principal - defaultAmt
-    td.toDouble(result.mortgageStock) shouldBe (expectedAggStock +- 1.0)
-
-    // Regional stocks should sum to aggregate
-    val regSum = result.regions.get.map(r => td.toDouble(r.mortgageStock)).sum
-    regSum shouldBe (td.toDouble(result.mortgageStock) +- 1.0)
+    val principal      = pln(2_000)
+    val defaultAmt     = pln(1_000)
+    val result         = HousingMarket.applyFlows(stateAfterOrig, mkFlows(interest = pln(1_000), principal = principal, defaultAmount = defaultAmt))
+    result.mortgageStock shouldBe state.mortgageStock + origAmount - principal - defaultAmt
+    shouldBeClosePln(result.regions.get.map(_.mortgageStock).sum, result.mortgageStock, onePln)
   }
 
   "step with regions" should "preserve exact regional origination sum under residual rounding" in {
-    val state  = makeRegionalState(1e9, 4e8)
+    val state  = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
     val result = HousingMarket.step(
       HousingMarket.StepInput(
         prev = state,
-        mortgageRate = Rate(0.08),
+        mortgageRate = rateBps(800),
         inflation = Rate.Zero,
         incomeGrowth = Rate.Zero,
         employed = 1,
-        prevMortgageRate = Rate(0.08),
+        prevMortgageRate = rateBps(800),
       ),
     )
 
-    val regOriginationSum = result.regions.get.map(_.lastOrigination.toLong).sum
-    regOriginationSum shouldBe result.lastOrigination.toLong
+    result.regions.get.map(_.lastOrigination).sum shouldBe result.lastOrigination
   }

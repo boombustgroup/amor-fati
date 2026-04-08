@@ -19,39 +19,38 @@ import com.boombustgroup.amorfati.types.*
 object PriceLevel:
 
   // ---- Calibration constants ----
-  private val DemandPullWeight = 0.15   // sensitivity of inflation to demand gap
-  private val CostPushWeight   = 0.25   // wage growth pass-through to prices
-  private val ImportPushWeight = 0.25   // FX depreciation pass-through
-  private val DeflationFloor   = -0.015 // soft floor: −1.5%/month
-  private val FloorPassThrough = 0.3    // beyond floor, 30% pass-through
-  private val SmoothingLambda  = 0.3    // EWM weight on new observation
-  private val MinPriceLevel    = 0.30   // absolute floor on price index
+  private val DemandPullWeight = Coefficient(0.15)   // sensitivity of inflation to demand gap
+  private val CostPushWeight   = Coefficient(0.25)   // wage growth pass-through to prices
+  private val ImportPushWeight = Coefficient(0.25)   // FX depreciation pass-through
+  private val DeflationFloor   = Coefficient(-0.015) // soft floor: −1.5%/month
+  private val FloorPassThrough = Coefficient(0.3)    // beyond floor, 30% pass-through
+  private val SmoothingLambda  = Share(0.3)          // EWM weight on new observation
+  private val MinPriceLevel    = PriceIndex(0.30)    // absolute floor on price index
 
   /** Result of a monthly price-level update. */
-  case class Result(inflation: Rate, priceLevel: Double)
+  case class Result(inflation: Rate, priceLevel: PriceIndex)
 
-  @boundaryEscape
   def update(
       prevInflation: Rate,
-      prevPrice: Double,
-      demandMult: Double,
-      wageGrowth: Double,
-      exRateDeviation: Double,
+      prevPrice: PriceIndex,
+      demandMult: Multiplier,
+      wageGrowth: Coefficient,
+      exRateDeviation: ExchangeRateShock,
   )(using p: SimParams): Result =
-    import ComputationBoundary.toDouble
-    val demandPull    = (demandMult - 1.0) * DemandPullWeight
-    val costPush      = wageGrowth * CostPushWeight
-    val rawImportPush = Math.max(0.0, exRateDeviation) * toDouble(p.forex.importPropensity) * ImportPushWeight
-    val importPush    = Math.min(rawImportPush, toDouble(p.openEcon.importPushCap))
+    val demandPull: Coefficient    = demandMult.deviationFromOne * DemandPullWeight
+    val costPush: Coefficient      = wageGrowth * CostPushWeight
+    val rawImportPush: Coefficient =
+      exRateDeviation.max(ExchangeRateShock.Zero).toCoefficient * p.forex.importPropensity * ImportPushWeight
+    val importPush: Coefficient    = rawImportPush.min(p.openEcon.importPushCap.toCoefficient)
 
-    val rawMonthly = demandPull + costPush + importPush
-    val monthly    = softFloor(rawMonthly)
-    val annualized = monthly * 12.0
-    val smoothed   = toDouble(prevInflation) * (1.0 - SmoothingLambda) + annualized * SmoothingLambda
-    val newPrice   = Math.max(MinPriceLevel, prevPrice * (1.0 + monthly))
-    Result(Rate(smoothed), newPrice)
+    val rawMonthly: Coefficient = demandPull + costPush + importPush
+    val monthly: Coefficient    = softFloor(rawMonthly)
+    val annualized: Rate        = monthly.toRate.annualize
+    val smoothed: Rate          = prevInflation * (Share.One - SmoothingLambda) + annualized * SmoothingLambda
+    val newPrice: PriceIndex    = prevPrice.applyGrowth(monthly).max(MinPriceLevel)
+    Result(smoothed, newPrice)
 
   /** Soft deflation floor: beyond −1.5%/month, only 30% passes through. */
-  private def softFloor(raw: Double): Double =
+  private def softFloor(raw: Coefficient): Coefficient =
     if raw >= DeflationFloor then raw
     else DeflationFloor + (raw - DeflationFloor) * FloorPassThrough

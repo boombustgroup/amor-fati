@@ -40,5 +40,5 @@ case class CorpBondConfig(
     bankShare: Share = Share(0.30),
     ppkShare: Share = Share(0.15),
     recovery: Share = Share(0.30),
-    maturity: Double = 60.0,
+    maturity: Int = 60,
 )

@@ -66,21 +66,36 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateInflation" should "keep price >= 0.30 floor" in
     forAll(genInflInputs) { (inputs: (Double, Double, Double, Double, Double, Double, Double)) =>
       val (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, _, _) = inputs
-      val r                                                              = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exRateDev)
-      r.priceLevel should be >= 0.30
+      val r                                                              =
+        PriceLevel.update(Rate(prevInfl), PriceIndex(prevPrice), Multiplier(demandMult), Coefficient(wageGrowth), ExchangeRateShock(exRateDev))
+      td.toDouble(r.priceLevel).should(be >= 0.30)
     }
 
   it should "apply soft deflation floor (price >= 0.30)" in {
-    val r = PriceLevel.update(Rate(-0.30), 1.0, 0.5, -0.10, 0.0)
-    r.priceLevel should be >= 0.30
+    val r = PriceLevel.update(Rate(-0.30), PriceIndex.Base, Multiplier(0.5), Coefficient(-0.10), ExchangeRateShock.Zero)
+    td.toDouble(r.priceLevel).should(be >= 0.30)
   }
 
   it should "produce higher inflation with more import pressure" in
     forAll(genInflation, genPrice, Gen.choose(0.8, 1.2), Gen.choose(-0.02, 0.02), Gen.choose(0.0, 0.15), Gen.choose(0.16, 0.40)) {
       (prevInfl: Double, prevPrice: Double, demandMult: Double, wageGrowth: Double, exLow: Double, exHigh: Double) =>
-        val r1 = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exLow)
-        val r2 = PriceLevel.update(Rate(prevInfl), prevPrice, demandMult, wageGrowth, exHigh)
-        td.toDouble(r2.inflation) should be >= (td.toDouble(r1.inflation) - 1e-10)
+        val r1 =
+          PriceLevel.update(
+            Rate(prevInfl),
+            PriceIndex(prevPrice),
+            Multiplier(demandMult),
+            Coefficient(wageGrowth),
+            ExchangeRateShock(exLow),
+          )
+        val r2 =
+          PriceLevel.update(
+            Rate(prevInfl),
+            PriceIndex(prevPrice),
+            Multiplier(demandMult),
+            Coefficient(wageGrowth),
+            ExchangeRateShock(exHigh),
+          )
+        td.toDouble(r2.inflation).should(be >= (td.toDouble(r1.inflation) - 1e-10))
     }
 
   // --- updateLaborMarket properties ---
@@ -103,7 +118,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genGovInputs) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double)) =>
       val (prev, cit, vat, price, unempBen) = inputs
       whenever(price >= 0.01) {
-        val gov        = FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
+        val gov        = FiscalBudget.update(FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
         val totalRev   = cit + vat
         val totalSpend = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price
         val tol        = td.toDouble(p.fiscal.govBaseSpending) * 0.0001 + 1.0
@@ -114,7 +129,8 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   it should "accumulate debt (newDebt = prev + deficit)" in
     forAll(genGovInputs) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double)) =>
       val (prev, cit, vat, price, unempBen) = inputs
-      val gov                               = FiscalBudget.update(FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
+      val gov                               =
+        FiscalBudget.update(FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
       td.toDouble(gov.cumulativeDebt) shouldBe (td.toDouble(prev.cumulativeDebt) + td.toDouble(gov.deficit) +- 1.0)
     }
 
@@ -124,7 +140,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
       whenever(price >= 0.01) {
         val gov        =
           FiscalBudget.update(
-            FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen), debtService = PLN(debtSvc)),
+            FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen), debtService = PLN(debtSvc)),
           )
         val totalRev   = cit + vat
         val totalSpend = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price + debtSvc
@@ -136,7 +152,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   it should "include nbpRemittance in revenue" in
     forAll(genGovInputs, Gen.choose(0.0, 1e7)) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double), nbpRemit: Double) =>
       val (prev, cit, vat, price, unempBen) = inputs
-      val base                              = FiscalBudget.Input(prev, price, citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen))
+      val base                              = FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen))
       val govNoRemit                        = FiscalBudget.update(base)
       val govWithRemit                      = FiscalBudget.update(base.copy(nbpRemittance = PLN(nbpRemit)))
       // nbpRemittance reduces deficit

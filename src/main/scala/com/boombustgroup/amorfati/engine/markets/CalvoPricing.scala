@@ -33,8 +33,8 @@ import scala.util.Random
   */
 object CalvoPricing:
 
-  private val MaxDemandMarkupLift = 0.10
-  private val MaxCostMarkupLift   = 0.02
+  private val MaxDemandMarkupLift = Coefficient(0.10)
+  private val MaxCostMarkupLift   = Coefficient(0.02)
 
   /** Per-firm markup update result. */
   case class FirmMarkupResult(
@@ -49,18 +49,16 @@ object CalvoPricing:
     *
     * Clamped to [minMarkup, maxMarkup] to prevent extreme pricing.
     */
-  @boundaryEscape
   private[amorfati] def optimalMarkup(
-      sectorDemandMult: Double,
-      wageGrowthMonthly: Double,
+      sectorDemandMult: Multiplier,
+      wageGrowthMonthly: Coefficient,
   )(using p: SimParams): Multiplier =
-    import ComputationBoundary.toDouble
-    val demandPressure = Math.max(0.0, sectorDemandMult - 1.0) * toDouble(p.pricing.demandSensitivity)
-    val costPressure   = Math.max(0.0, wageGrowthMonthly) * toDouble(p.pricing.costPassthrough)
-    val boundedDemand  = Math.min(MaxDemandMarkupLift, demandPressure)
-    val boundedCost    = Math.min(MaxCostMarkupLift, costPressure)
-    val raw            = toDouble(p.pricing.baseMarkup) * (1.0 + boundedDemand + boundedCost)
-    Multiplier(raw.max(toDouble(p.pricing.minMarkup)).min(toDouble(p.pricing.maxMarkup)))
+    val demandPressure = ((sectorDemandMult - Multiplier.One).max(Multiplier.Zero).toScalar * p.pricing.demandSensitivity.toScalar).toCoefficient
+    val costPressure   = (wageGrowthMonthly.max(Coefficient.Zero).toScalar * p.pricing.costPassthrough.toScalar).toCoefficient
+    val boundedDemand  = demandPressure.min(MaxDemandMarkupLift)
+    val boundedCost    = costPressure.min(MaxCostMarkupLift)
+    (p.pricing.baseMarkup * (Coefficient.One + boundedDemand + boundedCost).toMultiplier)
+      .clamp(p.pricing.minMarkup, p.pricing.maxMarkup)
 
   /** Update a single firm's markup via Calvo lottery.
     *
@@ -69,8 +67,8 @@ object CalvoPricing:
     */
   def updateFirmMarkup(
       currentMarkup: Multiplier,
-      sectorDemandMult: Double,
-      wageGrowthMonthly: Double,
+      sectorDemandMult: Multiplier,
+      wageGrowthMonthly: Coefficient,
       rng: Random,
   )(using p: SimParams): FirmMarkupResult =
     if p.pricing.calvoTheta.sampleBelow(rng) then FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly), priceChanged = true)
@@ -78,23 +76,25 @@ object CalvoPricing:
 
   /** Compute aggregate inflation adjustment from markup dynamics.
     *
-    * Returns monthly inflation contribution = revenue-weighted average markup
+    * Returns monthly inflation contribution = capacity-weighted average markup
     * change across all firms that changed prices this month.
     */
   def aggregateMarkupInflation(
       firms: Vector[Firm.State],
       prevFirms: Vector[Firm.State],
-  )(using SimParams): Double =
-    if firms.isEmpty then 0.0
+  )(using SimParams): Rate =
+    require(
+      firms.lengthCompare(prevFirms.length) == 0,
+      "firms and prevFirms must have the same length",
+    )
+    if firms.isEmpty then Rate.Zero
     else
-      val totalRevenue = PLN.fromRaw(firms.map(f => Firm.computeCapacity(f).toLong).sum)
-      if totalRevenue <= PLN.Zero then 0.0
+      val totalRevenue = firms.foldLeft(PLN.Zero)((acc, f) => acc + Firm.computeCapacity(f))
+      if totalRevenue <= PLN.Zero then Rate.Zero
       else
-        val weightedChange = PLN.fromRaw(
-          firms
-            .zip(prevFirms)
-            .map: (curr, prev) =>
-              (Firm.computeCapacity(curr) * (curr.markup - prev.markup)).toLong
-            .sum,
-        )
-        weightedChange / totalRevenue
+        val weightedChange = firms
+          .zip(prevFirms)
+          .foldLeft(PLN.Zero): (acc, pair) =>
+            val (curr, prev) = pair
+            acc + (Firm.computeCapacity(curr) * (curr.markup - prev.markup))
+        weightedChange.ratioTo(totalRevenue).toRate

@@ -15,7 +15,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       prev: Nbfi.State = Nbfi.initial,
       employed: Int = 50000,
       wage: PLN = PLN(8000.0),
-      priceLevel: Double = 1.0,
+      priceLevel: PriceIndex = PriceIndex.Base,
       unempRate: Share = Share(0.05),
       bankNplRatio: Share = Share(0.02),
       govBondYield: Rate = Rate(0.05),
