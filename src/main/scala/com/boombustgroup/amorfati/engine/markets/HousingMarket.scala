@@ -245,8 +245,8 @@ object HousingMarket:
       regs: Vector[RegionalState],
       origination: PLN,
   )(using p: SimParams): State =
-    val distributed    = Distribute.distribute(origination.distributeRaw, p.housing.regionalValueShares.map(_.distributeRaw).toArray)
-    val updatedRegions = regs
+    val distributed         = Distribute.distribute(origination.distributeRaw, p.housing.regionalValueShares.map(_.distributeRaw).toArray)
+    val updatedRegions      = regs
       .zip(distributed.iterator)
       .map: (reg, allocatedRaw) =>
         val regionalRaw      = PLN.fromRaw(allocatedRaw)

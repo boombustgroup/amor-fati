@@ -177,27 +177,44 @@ object Firm:
     * variables.
     */
   case class Result(
-      firm: State,          // Updated firm state after this month
-      taxPaid: PLN,         // CIT actually paid (after informal evasion)
+      firm: State,                // Updated firm state after this month
+      taxPaid: PLN,               // CIT actually paid (after informal evasion)
       realizedPostTaxProfit: PLN, // realized monthly profit after tax, floored at zero for payout logic
-      capexSpent: PLN,      // Technology upgrade CAPEX (AI or hybrid)
-      techImports: PLN,     // Import content of CAPEX (forex demand)
-      newLoan: PLN,         // New bank loan taken for upgrade
-      equityIssuance: PLN,  // GPW equity raised this month (filled by S4)
-      grossInvestment: PLN, // Physical capital investment this month
-      bondIssuance: PLN,    // Corporate bond issuance (filled by S4)
-      profitShiftCost: PLN, // FDI profit shifting outflow
-      fdiRepatriation: PLN, // FDI dividend repatriation outflow
-      inventoryChange: PLN, // Net inventory change (+ accumulation, - drawdown)
-      citEvasion: PLN,      // CIT evaded via informal economy
-      energyCost: PLN,      // Total energy + ETS cost this month
-      greenInvestment: PLN, // Green capital investment this month
-      principalRepaid: PLN, // Monthly firm loan principal repayment
+      capexSpent: PLN,            // Technology upgrade CAPEX (AI or hybrid)
+      techImports: PLN,           // Import content of CAPEX (forex demand)
+      newLoan: PLN,               // New bank loan taken for upgrade
+      equityIssuance: PLN,        // GPW equity raised this month (filled by S4)
+      grossInvestment: PLN,       // Physical capital investment this month
+      bondIssuance: PLN,          // Corporate bond issuance (filled by S4)
+      profitShiftCost: PLN,       // FDI profit shifting outflow
+      fdiRepatriation: PLN,       // FDI dividend repatriation outflow
+      inventoryChange: PLN,       // Net inventory change (+ accumulation, - drawdown)
+      citEvasion: PLN,            // CIT evaded via informal economy
+      energyCost: PLN,            // Total energy + ETS cost this month
+      greenInvestment: PLN,       // Green capital investment this month
+      principalRepaid: PLN,       // Monthly firm loan principal repayment
   )
   object Result:
     /** Convenience factory for tests — all flow fields set to `PLN.Zero`. */
     def zero(firm: State): Result =
-      Result(firm, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+      Result(
+        firm,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+        PLN.Zero,
+      )
 
   /** Monthly profit-and-loss breakdown, computed by `computePnL`. */
   case class PnL(

@@ -90,13 +90,13 @@ object FirmEconomics:
 
   /** Per-firm processing outcome — immutable, one per firm. */
   private case class FirmOutcome(
-      firm: Firm.State,    // updated firm state after decision + financing
-      flows: FirmFlows,    // monetary flows from this firm
+      firm: Firm.State,           // updated firm state after decision + financing
+      flows: FirmFlows,           // monetary flows from this firm
       realizedPostTaxProfit: PLN, // realized monthly profit after tax, floored at zero
-      bankId: BankId,      // relationship bank (for per-bank aggregation)
-      finalLoan: PLN,      // bank loan after equity/bond splits
-      bondAmt: PLN,        // corporate bond issuance (pre-absorption)
-      principalRepaid: PLN, // scheduled loan principal repaid this month
+      bankId: BankId,             // relationship bank (for per-bank aggregation)
+      finalLoan: PLN,             // bank loan after equity/bond splits
+      bondAmt: PLN,               // corporate bond issuance (pre-absorption)
+      principalRepaid: PLN,       // scheduled loan principal repaid this month
   )
 
   /** Result of per-firm processing (phase 2). */
