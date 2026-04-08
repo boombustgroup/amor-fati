@@ -1,13 +1,13 @@
 package com.boombustgroup.amorfati.agents
 
-import org.scalacheck.Gen
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
+import org.scalacheck.Gen
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
@@ -66,10 +66,11 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   it should "not exceed max GDP share limit when active" in
     forAll(Gen.choose(0.0, 0.25), Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (rate: Double, bankBonds: Double, gdp: Double) =>
-      val nbp      = Nbp.State(Rate(rate), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
-      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
+      val nbp         = Nbp.State(Rate(rate), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
+      val qeResult    = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
       // executeQe returns a request; bond update happens in BankingEconomics
-      td.toDouble(qeResult.requestedPurchase + nbp.govBondHoldings) should be <= (td.toDouble(p.monetary.qeMaxGdpShare) * gdp + 1e-6)
+      val maxHoldings = (PLN(gdp) * p.monetary.qeMaxGdpShare).max(PLN.Zero)
+      qeResult.requestedPurchase + nbp.govBondHoldings should be <= maxHoldings
     }
 
   it should "not modify nbpState.govBondHoldings (deferred to BankingEconomics)" in
