@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.OperationalSignals
 import com.boombustgroup.amorfati.engine.flows.*
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
@@ -59,7 +60,6 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
       employed = s2.employed,
       laborDemand = s2.laborDemand,
       wageGrowth = s2.wageGrowth,
-      operationalHiringSlack = s2.operationalHiringSlack,
       immigration = s2.newImmig,
       netMigration = s2.netMigration,
       demographics = s2.newDemographics,
@@ -71,7 +71,12 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
       living = s2.living,
       regionalWages = s2.regionalWages,
       hhOutput = s3,
-      sectorMults = s4.sectorMults,
+      operationalSignals = OperationalSignals(
+        sectorDemandMult = s4.sectorMults,
+        sectorDemandPressure = s4.sectorDemandPressure,
+        sectorHiringSignal = s4.sectorHiringSignal,
+        operationalHiringSlack = s2.operationalHiringSlack,
+      ),
       avgDemandMult = s4.avgDemandMult,
       sectorCapReal = s4.sectorCapReal,
       govPurchases = s4.govPurchases,

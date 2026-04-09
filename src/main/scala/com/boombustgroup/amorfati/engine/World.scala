@@ -277,7 +277,11 @@ case class MonetaryPlumbingState(
 object MonetaryPlumbingState:
   val zero: MonetaryPlumbingState = MonetaryPlumbingState()
 
-/** Explicit informational surface available at the start of a month. */
+/** Explicit informational surface available at the start of a month.
+  *
+  * This is the persisted `pre` side of the timing contract. Same-month
+  * operational artifacts belong on [[OperationalSignals]], not here.
+  */
 case class DecisionSignals(
     unemploymentRate: Share,
     inflation: Rate,
@@ -305,6 +309,8 @@ object DecisionSignals:
   *
   * This remains the persisted substrate, while [[World.seedIn]] exposes the
   * narrower decision-oriented surface consumed by timing-sensitive blocks.
+  * Same-month operational consumers should prefer [[OperationalSignals]]
+  * instead of reading directly from this structure.
   */
 case class PipelineState(
     sectorDemandMult: Vector[Multiplier],       // per-sector demand multipliers from S4
@@ -313,7 +319,7 @@ case class PipelineState(
     fiscalRuleSeverity: Int = 0,                // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
     govSpendingCutRatio: Share = Share.Zero,    // fraction of raw spending cut by fiscal rules
     laggedHiringSlack: Share = Share.One,       // month t labor-tightness signal carried into month t+1 macro decisions
-    operationalHiringSlack: Share = Share.One,  // same-month labor compression used by incumbent firm processing
+    operationalHiringSlack: Share = Share.One,  // persisted snapshot of month-t labor compression for observability / compatibility
     startupAbsorptionRate: Share = Share.One,   // share of startup hiring targets filled across active startup firms
     laggedUnemploymentRate: Share = Share.Zero, // end-of-month unemployment extracted for next-month decisions
     laggedInflation: Rate = Rate.Zero,          // realized inflation lagged into next month

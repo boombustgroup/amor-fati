@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.{OperationalSignals, World}
 import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 import com.boombustgroup.amorfati.types.*
 
@@ -314,11 +314,10 @@ object Firm:
     * economy-wide labor-slack factor when aggregate plans exceed available
     * labor supply.
     */
-  private def desiredWorkers(f: State, w: World)(using p: SimParams): Int =
+  private def desiredWorkers(f: State, w: World, operationalSignals: OperationalSignals)(using p: SimParams): Int =
     if isInStartup(f) then return Math.max(workerCount(f), f.startupTargetWorkers)
-    val seedIn       = w.seedIn
-    val sectorDemand = seedIn.sectorDemandMult(f.sector.toInt)
-    val hiringSignal = seedIn.sectorHiringSignal(f.sector.toInt)
+    val sectorDemand = operationalSignals.sectorDemandMult(f.sector.toInt)
+    val hiringSignal = operationalSignals.sectorHiringSignal(f.sector.toInt)
     val demandMult   = sectorDemand + (hiringSignal - sectorDemand).max(Multiplier.Zero) * Share(HiringPressureBlend)
     val price        = w.priceLevel.toMultiplier
     val wage         = w.householdMarket.marketWage * effectiveWageMult(f.sector)
@@ -333,7 +332,7 @@ object Firm:
       val capPrev = computeCapacity(f.copy(tech = TechState.Traditional(mid - 1)))
       val mr      = (capMid - capPrev) * (demandMult * price)
       if mr > wage then lo = mid else hi = mid - 1
-    applyOperationalHiringSlack(lo, minW, w.pipeline.operationalHiringSlack.toMultiplier)
+    applyOperationalHiringSlack(lo, minW, operationalSignals.operationalHiringSlack.toMultiplier)
 
   private def monthlyHiringHeadroom(workers: Int): Int =
     if workers <= 5 then 1
@@ -372,9 +371,9 @@ object Firm:
   private[amorfati] def applyOperationalHiringSlack(rawTarget: Int, minWorkers: Int, slackFactor: Multiplier): Int =
     Math.max(minWorkers, bankerRound(BigInt(rawTarget.toLong) * BigInt(slackFactor.clamp(Multiplier.Zero, Multiplier.One).toLong)).toInt)
 
-  private[amorfati] def hiringDiagnostics(firm: State, w: World)(using p: SimParams): HiringDiagnostics =
+  private[amorfati] def hiringDiagnostics(firm: State, w: World, operationalSignals: OperationalSignals)(using p: SimParams): HiringDiagnostics =
     val workers         = workerCount(firm)
-    val desiredW        = desiredWorkers(firm, w)
+    val desiredW        = desiredWorkers(firm, w, operationalSignals)
     val nc              = firm.cash
     val feasibleW       = feasibleWorkers(firm, workers, desiredW, PnL.zero, nc)
     val desiredGap      = desiredW - workers
@@ -400,6 +399,9 @@ object Firm:
       signalMonths = nextHiringSignalMonths(firm, desiredW, workers),
       requiredSignalMonths = requiredHiringSignalMonths(workers),
     )
+
+  private[amorfati] def hiringDiagnostics(firm: State, w: World)(using p: SimParams): HiringDiagnostics =
+    hiringDiagnostics(firm, w, OperationalSignals.fromBridgedWorld(w))
 
   /** Effective AI CAPEX for sector — sublinear in firm size (exponent 0.6),
     * digital readiness discount.
@@ -454,20 +456,31 @@ object Firm:
   def process(
       firm: State,
       w: World,
+      operationalSignals: OperationalSignals,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       rng: Random,
   )(using p: SimParams): Result =
-    val decision = decide(firm, w, lendRate, bankCanLend, allFirms, rng)
-    val r0       = updateHiringSignalState(execute(firm, decision), firm, w)
+    val decision = decide(firm, w, operationalSignals, lendRate, bankCanLend, allFirms, rng)
+    val r0       = updateHiringSignalState(execute(firm, decision), firm, w, operationalSignals)
     val r0a      = applyLoanAmortization(r0)
     val r1       = applyGreenInvestment(r0a)
     val r2       = applyInvestment(r1)
     val r3       = applyDigitalDrift(r2)
-    val r4       = applyInventory(r3, sectorDemandMult = w.seedIn.sectorDemandMult(firm.sector.toInt))
+    val r4       = applyInventory(r3, sectorDemandMult = operationalSignals.sectorDemandMult(firm.sector.toInt))
     val r5       = applyFdiFlows(r4)
     applyInformalCitEvasion(r5, Share(w.mechanisms.informalCyclicalAdj))
+
+  def process(
+      firm: State,
+      w: World,
+      lendRate: Rate,
+      bankCanLend: PLN => Boolean,
+      allFirms: Vector[State],
+      rng: Random,
+  )(using p: SimParams): Result =
+    process(firm, w, OperationalSignals.fromBridgedWorld(w), lendRate, bankCanLend, allFirms, rng)
 
   // ---- Decide (all match logic + Random rolls) ----
 
@@ -475,6 +488,7 @@ object Firm:
   private def decide(
       firm: State,
       w: World,
+      operationalSignals: OperationalSignals,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
@@ -482,9 +496,9 @@ object Firm:
   )(using p: SimParams): Decision =
     firm.tech match
       case _: TechState.Bankrupt         => Decision.StayBankrupt
-      case _: TechState.Automated        => decideAutomated(firm, w, lendRate)
-      case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, lendRate, bankCanLend, wkrs, aiEff, rng)
-      case TechState.Traditional(wkrs)   => decideTraditional(firm, w, lendRate, bankCanLend, allFirms, wkrs, rng)
+      case _: TechState.Automated        => decideAutomated(firm, w, operationalSignals, lendRate)
+      case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, operationalSignals, lendRate, bankCanLend, wkrs, aiEff, rng)
+      case TechState.Traditional(wkrs)   => decideTraditional(firm, w, operationalSignals, lendRate, bankCanLend, allFirms, wkrs, rng)
 
   /** Smooth labor adjustment: Δworkers = λ × (target − current), with severance
     * costs. Target = break-even headcount from P&L. If adjustment insufficient
@@ -579,12 +593,13 @@ object Firm:
   private def decideAutomated(
       firm: State,
       w: World,
+      operationalSignals: OperationalSignals,
       lendRate: Rate,
   )(using p: SimParams): Decision =
     val pnl = computePnL(
       firm,
       w.householdMarket.marketWage,
-      w.seedIn.sectorDemandMult(firm.sector.toInt),
+      operationalSignals.sectorDemandMult(firm.sector.toInt),
       w.priceLevel,
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
@@ -599,6 +614,7 @@ object Firm:
   private def decideHybrid(
       firm: State,
       w: World,
+      operationalSignals: OperationalSignals,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       workers: Int,
@@ -608,7 +624,7 @@ object Firm:
     val pnl    = computePnL(
       firm,
       w.householdMarket.marketWage,
-      w.seedIn.sectorDemandMult(firm.sector.toInt),
+      operationalSignals.sectorDemandMult(firm.sector.toInt),
       w.priceLevel,
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
@@ -820,13 +836,14 @@ object Firm:
       firm: State,
       pnl: PnL,
       w: World,
+      operationalSignals: OperationalSignals,
       workers: Int,
       rng: Random,
   )(using p: SimParams): Decision =
     val nc            = firm.cash + pnl.netAfterTax
     // Firms now distinguish between a one-period desired workforce target,
     // a feasible near-term target, and the actual monthly adjustment.
-    val desiredW      = desiredWorkers(firm, w)
+    val desiredW      = desiredWorkers(firm, w, operationalSignals)
     val feasibleW     = feasibleWorkers(firm, workers, desiredW, pnl, nc)
     val gap           = feasibleW - workers
     val hiringThresh  = if workers <= 5 then MicroFirmHiringThreshold else Math.max(2, (workers * 0.10).toInt)
@@ -887,6 +904,7 @@ object Firm:
   private def decideTraditional(
       firm: State,
       w: World,
+      operationalSignals: OperationalSignals,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
@@ -896,7 +914,7 @@ object Firm:
     val pnl           = computePnL(
       firm,
       w.householdMarket.marketWage,
-      w.seedIn.sectorDemandMult(firm.sector.toInt),
+      operationalSignals.sectorDemandMult(firm.sector.toInt),
       w.priceLevel,
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
@@ -911,7 +929,7 @@ object Firm:
 
     if roll < pFull then rollFullAiUpgrade(firm, pnl, ai, rng)
     else if roll < pFull + pHyb then rollHybridUpgrade(firm, pnl, hyb, hWkrs, rng)
-    else fallbackDecision(firm, pnl, w, workers, rng)
+    else fallbackDecision(firm, pnl, w, operationalSignals, workers, rng)
 
   // ---- Execute (pure dispatch, zero Random calls) ----
 
@@ -1004,11 +1022,11 @@ object Firm:
     if isAlive(firm) && firm.startupMonthsLeft > 0 then firm.copy(startupMonthsLeft = firm.startupMonthsLeft - 1)
     else firm
 
-  private def updateHiringSignalState(result: Result, prior: State, w: World)(using p: SimParams): Result =
+  private def updateHiringSignalState(result: Result, prior: State, w: World, operationalSignals: OperationalSignals)(using p: SimParams): Result =
     if !isAlive(result.firm) then result
     else
       val currentWorkers = workerCount(prior)
-      val desired        = desiredWorkers(prior, w)
+      val desired        = desiredWorkers(prior, w, operationalSignals)
       val nextSignal     = nextHiringSignalMonths(prior, desired, currentWorkers)
       result.copy(firm = result.firm.copy(hiringSignalMonths = nextSignal))
 

@@ -343,6 +343,12 @@ object FlowSimulation:
       ),
     )
     val s8              = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, rng))
+    val operational     = OperationalSignals(
+      sectorDemandMult = s4.sectorMults,
+      sectorDemandPressure = s4.sectorDemandPressure,
+      sectorHiringSignal = s4.sectorHiringSignal,
+      operationalHiringSlack = s2.operationalHiringSlack,
+    )
     val banking         = BankingEconomics.compute(
       BankingEconomics.Input(
         w = w,
@@ -356,12 +362,12 @@ object FlowSimulation:
         laborDemand = s2.laborDemand,
         wageGrowth = s2.wageGrowth,
         govPurchases = s4.govPurchases,
-        sectorMults = s4.sectorMults,
         avgDemandMult = s4.avgDemandMult,
         sectorCapReal = s4.sectorCapReal,
         laggedInvestDemand = s4.laggedInvestDemand,
         fiscalRuleStatus = s4.fiscalRuleStatus,
         laborOutput = s2,
+        operationalSignals = operational,
         hhOutput = s3,
         firmOutput = s5,
         hhFinancialOutput = s6,
