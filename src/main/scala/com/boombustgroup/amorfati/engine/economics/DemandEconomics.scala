@@ -42,6 +42,7 @@ object DemandEconomics:
   )
 
   def compute(in: Input)(using p: SimParams): Output =
+    val seedIn             = in.w.seedIn
     val rawGovPurchases    = computeGovPurchases(in)
     val fiscalResult       = applyFiscalRules(in, rawGovPurchases)
     val govPurchases       = fiscalResult.constrainedGovPurchases
@@ -51,7 +52,7 @@ object DemandEconomics:
     val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
     val rawPressure        = computeRawDemandPressure(sectorDemand, sectorCapReal, in.w.priceLevel)
     val sectorPressure     = stabilizeDemandPressure(rawPressure)
-    val sectorHiringSignal = smoothHiringSignal(in.w.pipeline.sectorHiringSignal, sectorPressure)
+    val sectorHiringSignal = smoothHiringSignal(seedIn.sectorHiringSignal, sectorPressure)
     val sectorMults        = applySpillover(sectorDemand, rawPressure, sectorCapReal, in.w.priceLevel)
     val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCapReal, in)
     Output(govPurchases, sectorMults, sectorPressure, sectorHiringSignal, avgDemandMult, sectorCapReal, laggedInvestDemand, fiscalResult.status)

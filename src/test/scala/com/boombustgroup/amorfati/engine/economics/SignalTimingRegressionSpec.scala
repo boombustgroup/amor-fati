@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.{DecisionSignals, World}
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -150,12 +150,20 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       if idx < unemployedCount then hh.copy(status = HhStatus.Unemployed(1))
       else hh
 
+  private def withSeedSignals(world: World, f: DecisionSignals => DecisionSignals): World =
+    world.copy(pipeline = world.pipeline.withDecisionSignals(f(world.seedIn)))
+
   private def entrySensitiveInput: WorldAssemblyEconomics.StepInput =
     val base = baseStepInput
     base.copy(
-      w = base.w.copy(
-        pipeline = base.w.pipeline.copy(
-          startupAbsorptionRate = 1.0,
+      w = withSeedSignals(
+        base.w,
+        _.copy(
+          unemploymentRate = Share(0.15),
+          inflation = Rate(0.03),
+          expectedInflation = Rate(0.025),
+          aggregateHiringSlack = Share.One,
+          startupAbsorptionRate = Share.One,
         ),
       ),
       s2 = base.s2.copy(aggregateHiringSlack = 1.0),
@@ -173,59 +181,101 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
   private def netBirths(in: WorldAssemblyEconomics.StepInput): Int =
     WorldAssemblyEconomics.runStep(in, new scala.util.Random(1234L), new scala.util.Random(5678L)).newWorld.flows.netFirmBirths
 
-  "WorldAssemblyEconomics.runStep" should "currently let entry react to post-firm unemployment" in {
-    val base      = entrySensitiveInput
-    val lowUnemp  = base.copy(
+  "WorldAssemblyEconomics.extractSignals" should "derive next-month decision inputs through one explicit post-to-pre boundary" in {
+    val base            = entrySensitiveInput
+    val finalHouseholds = withUnemploymentShare(base.s9.reassignedHouseholds, base.s9.reassignedFirms, base.s2.newWage, 0.22)
+    val finalWorld      = base.w.copy(
+      social = base.w.social.copy(demographics = base.s2.newDemographics),
+      inflation = Rate(-0.01),
+      mechanisms = base.w.mechanisms.copy(
+        expectations = base.w.mechanisms.expectations.copy(expectedInflation = Rate(0.04)),
+      ),
+    )
+    val extracted       = WorldAssemblyEconomics.extractSignals(base, finalWorld, finalHouseholds, 0.35)
+
+    extracted.unemploymentRate shouldBe finalWorld.unemploymentRate(finalHouseholds.count(_.status.isInstanceOf[HhStatus.Employed]))
+    extracted.inflation shouldBe Rate(-0.01)
+    extracted.expectedInflation shouldBe Rate(0.04)
+    extracted.aggregateHiringSlack shouldBe Share.One
+    extracted.startupAbsorptionRate shouldBe Share(0.35)
+    extracted.sectorDemandMult shouldBe base.s4.sectorMults
+    extracted.sectorDemandPressure shouldBe base.s4.sectorDemandPressure
+    extracted.sectorHiringSignal shouldBe base.s4.sectorHiringSignal
+  }
+
+  "WorldAssemblyEconomics.runStep" should "derive entry unemployment from lagged decision signals instead of post-firm households" in {
+    val base       = entrySensitiveInput
+    val lowUnemp   = base.copy(
       s9 = base.s9.copy(
         reassignedHouseholds = withUnemploymentShare(base.s9.reassignedHouseholds, base.s9.reassignedFirms, base.s2.newWage, 0.04),
       ),
     )
-    val highUnemp = base.copy(
+    val highUnemp  = base.copy(
       s9 = base.s9.copy(
         reassignedHouseholds = withUnemploymentShare(base.s9.reassignedHouseholds, base.s9.reassignedFirms, base.s2.newWage, 0.15),
       ),
     )
+    val lowLagged  = base.copy(
+      w = withSeedSignals(base.w, _.copy(unemploymentRate = Share(0.04))),
+    )
+    val highLagged = base.copy(
+      w = withSeedSignals(base.w, _.copy(unemploymentRate = Share(0.15))),
+    )
 
-    netBirths(highUnemp) should be > netBirths(lowUnemp)
+    netBirths(highUnemp) shouldBe netBirths(lowUnemp)
+    netBirths(highLagged) should be > netBirths(lowLagged)
   }
 
-  it should "currently let entry react to assembled month-t inflation" in {
-    val base      = entrySensitiveInput
-    val deflation = base.copy(s7 = base.s7.copy(newInfl = Rate(-0.02)))
-    val positive  = base.copy(s7 = base.s7.copy(newInfl = Rate(0.03)))
+  it should "ignore assembled month-t inflation when entry uses lagged nominal signals" in {
+    val base           = entrySensitiveInput
+    val deflation      = base.copy(s7 = base.s7.copy(newInfl = Rate(-0.02)))
+    val positive       = base.copy(s7 = base.s7.copy(newInfl = Rate(0.03)))
+    val negativeLagged = base.copy(w = withSeedSignals(base.w, _.copy(inflation = Rate(-0.02))))
+    val positiveLagged = base.copy(w = withSeedSignals(base.w, _.copy(inflation = Rate(0.03))))
 
-    netBirths(positive) should be > netBirths(deflation)
+    netBirths(positive) shouldBe netBirths(deflation)
+    netBirths(positiveLagged) should be > netBirths(negativeLagged)
   }
 
-  it should "currently let entry react to assembled month-t expected inflation" in {
-    val base        = entrySensitiveInput
-    val negativeExp = base.copy(
+  it should "ignore assembled month-t expected inflation when entry uses lagged nominal signals" in {
+    val base           = entrySensitiveInput
+    val negativeExp    = base.copy(
       s8 = base.s8.copy(
         monetary = base.s8.monetary.copy(
           newExp = base.s8.monetary.newExp.copy(expectedInflation = Rate(-0.01)),
         ),
       ),
     )
-    val positiveExp = base.copy(
+    val positiveExp    = base.copy(
       s8 = base.s8.copy(
         monetary = base.s8.monetary.copy(
           newExp = base.s8.monetary.newExp.copy(expectedInflation = Rate(0.025)),
         ),
       ),
     )
+    val laggedNegative = base.copy(
+      w = withSeedSignals(base.w, _.copy(expectedInflation = Rate(-0.01))),
+    )
+    val laggedPositive = base.copy(
+      w = withSeedSignals(base.w, _.copy(expectedInflation = Rate(0.025))),
+    )
 
-    netBirths(positiveExp) should be > netBirths(negativeExp)
+    netBirths(positiveExp) shouldBe netBirths(negativeExp)
+    netBirths(laggedPositive) should be > netBirths(laggedNegative)
   }
 
-  it should "currently let entry react to refreshed same-month hiring slack" in {
-    val base  = entrySensitiveInput
-    val tight = base.copy(s2 = base.s2.copy(aggregateHiringSlack = 0.10))
-    val loose = base.copy(s2 = base.s2.copy(aggregateHiringSlack = 1.0))
+  it should "derive entry labor tightness from lagged decision signals instead of refreshed same-month slack" in {
+    val base        = entrySensitiveInput
+    val tight       = base.copy(s2 = base.s2.copy(aggregateHiringSlack = 0.10))
+    val loose       = base.copy(s2 = base.s2.copy(aggregateHiringSlack = 1.0))
+    val tightLagged = base.copy(w = withSeedSignals(base.w, _.copy(aggregateHiringSlack = Share(0.10))))
+    val looseLagged = base.copy(w = withSeedSignals(base.w, _.copy(aggregateHiringSlack = Share.One)))
 
-    netBirths(loose) should be > netBirths(tight)
+    netBirths(loose) shouldBe netBirths(tight)
+    netBirths(looseLagged) should be > netBirths(tightLagged)
   }
 
-  it should "currently source startup absorption from lagged pipeline state" in {
+  it should "source startup absorption from lagged decision signals" in {
     val base   = entrySensitiveInput
     val weak   = base.copy(w = base.w.copy(pipeline = base.w.pipeline.copy(startupAbsorptionRate = 0.10)))
     val strong = base.copy(w = base.w.copy(pipeline = base.w.pipeline.copy(startupAbsorptionRate = 1.0)))
@@ -233,12 +283,13 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     netBirths(strong) should be > netBirths(weak)
   }
 
-  it should "currently persist refreshed same-month hiring slack into pipeline state" in {
+  it should "persist extracted same-month hiring slack into next-month decision signals" in {
     val input  = entrySensitiveInput
     val base   = input.copy(s2 = input.s2.copy(aggregateHiringSlack = 0.21))
     val result = WorldAssemblyEconomics.runStep(base, new scala.util.Random(1234L), new scala.util.Random(5678L))
 
     result.newWorld.pipeline.aggregateHiringSlack shouldBe (0.21 +- 1e-9)
+    result.newWorld.seedIn.aggregateHiringSlack shouldBe Share(0.21)
   }
 
   "WorldAssemblyEconomics.compute" should "persist demand and hiring signals from current demand output in the bridge path" in {
@@ -258,15 +309,3 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     assembled.world.pipeline.sectorDemandPressure should not be stalePressure
     assembled.world.pipeline.sectorHiringSignal should not be staleHiring
   }
-
-  "Signal timing target contract" should "eventually derive entry unemployment from lagged decision signals instead of post-firm households" in
-    pending
-
-  it should "eventually ignore assembled month-t inflation when entry uses lagged nominal signals" in
-    pending
-
-  it should "eventually ignore assembled month-t expected inflation when entry uses lagged nominal signals" in
-    pending
-
-  it should "eventually derive entry labor tightness from lagged decision signals instead of refreshed same-month slack" in
-    pending
