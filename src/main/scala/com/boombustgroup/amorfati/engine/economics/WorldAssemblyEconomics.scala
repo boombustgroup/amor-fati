@@ -77,7 +77,7 @@ object WorldAssemblyEconomics:
       households: Vector[Household.State],
       hhAgg: Household.Aggregates,
       crossSectorHires: Int,
-      startupAbsorptionRate: Double,
+      startupAbsorptionRate: Share,
   )
 
   // ---------------------------------------------------------------------------
@@ -167,11 +167,7 @@ object WorldAssemblyEconomics:
         postFdiFirms,
         newW.real.automationRatio,
         newW.real.hybridRatio,
-        seedIn.unemploymentRate,
-        seedIn.laggedHiringSlack,
-        seedIn.inflation,
-        seedIn.expectedInflation,
-        seedIn.startupAbsorptionRate,
+        FirmEntry.LaggedEntrySignals.fromDecisionSignals(seedIn),
         rng,
       )
       EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
@@ -292,7 +288,7 @@ object WorldAssemblyEconomics:
       rng: Random,
   )(using p: SimParams): StartupStaffingResult =
     val startupIds = firms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.id).toSet
-    if startupIds.isEmpty then StartupStaffingResult(syncStartupStaffing(firms, households), households, in.s9.finalHhAgg, 0, 1.0)
+    if startupIds.isEmpty then StartupStaffingResult(syncStartupStaffing(firms, households), households, in.s9.finalHhAgg, 0, Share.One)
     else
       val startupOpeningsBefore = firms
         .filter(f => Firm.isAlive(f) && Firm.isInStartup(f))
@@ -308,8 +304,8 @@ object WorldAssemblyEconomics:
       val startupFilled         = staffedFirms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.startupFilledWorkers).sum
       val startupHires          = Math.max(0, startupFilled - startupFilledBefore)
       val startupAbsorptionRate =
-        if startupOpeningsBefore > 0 then startupHires.toDouble / startupOpeningsBefore
-        else 1.0
+        if startupOpeningsBefore > 0 then Share.fraction(startupHires, startupOpeningsBefore)
+        else Share.One
       val hhAgg                 = Household.computeAggregates(
         postWages,
         in.s2.newWage,
@@ -560,7 +556,7 @@ object WorldAssemblyEconomics:
       in: StepInput,
       assembledWorld: World,
       finalHouseholds: Vector[Household.State],
-      startupAbsorptionRate: Double,
+      startupAbsorptionRate: Share,
   ): DecisionSignals =
     val employed = finalHouseholds.count: hh =>
       hh.status match
@@ -571,7 +567,7 @@ object WorldAssemblyEconomics:
       inflation = assembledWorld.inflation,
       expectedInflation = assembledWorld.mechanisms.expectations.expectedInflation,
       laggedHiringSlack = in.s2.operationalHiringSlack,
-      startupAbsorptionRate = Share(startupAbsorptionRate),
+      startupAbsorptionRate = startupAbsorptionRate,
       sectorDemandMult = in.s4.sectorMults,
       sectorDemandPressure = in.s4.sectorDemandPressure,
       sectorHiringSignal = in.s4.sectorHiringSignal,

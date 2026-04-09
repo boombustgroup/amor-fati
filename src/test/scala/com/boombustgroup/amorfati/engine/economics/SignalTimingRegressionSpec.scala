@@ -191,7 +191,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         expectations = base.w.mechanisms.expectations.copy(expectedInflation = Rate(0.04)),
       ),
     )
-    val extracted       = WorldAssemblyEconomics.extractSignals(base, finalWorld, finalHouseholds, 0.35)
+    val extracted       = WorldAssemblyEconomics.extractSignals(base, finalWorld, finalHouseholds, Share(0.35))
 
     extracted.unemploymentRate shouldBe finalWorld.unemploymentRate(finalHouseholds.count(_.status.isInstanceOf[HhStatus.Employed]))
     extracted.inflation shouldBe Rate(-0.01)
@@ -277,8 +277,8 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
   it should "source startup absorption from lagged decision signals" in {
     val base   = entrySensitiveInput
-    val weak   = base.copy(w = base.w.copy(pipeline = base.w.pipeline.copy(startupAbsorptionRate = 0.10)))
-    val strong = base.copy(w = base.w.copy(pipeline = base.w.pipeline.copy(startupAbsorptionRate = 1.0)))
+    val weak   = base.copy(w = base.w.copy(pipeline = base.w.pipeline.copy(startupAbsorptionRate = Share(0.10))))
+    val strong = base.copy(w = base.w.copy(pipeline = base.w.pipeline.copy(startupAbsorptionRate = Share.One)))
 
     netBirths(strong) should be > netBirths(weak)
   }

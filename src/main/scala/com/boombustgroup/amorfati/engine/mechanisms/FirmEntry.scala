@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.mechanisms
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.Region
 import com.boombustgroup.amorfati.config.{FirmSizeDistribution, SimParams}
+import com.boombustgroup.amorfati.engine.DecisionSignals
 import com.boombustgroup.amorfati.types.*
 
 import scala.util.Random
@@ -47,23 +48,28 @@ object FirmEntry:
       entrantIds: Set[FirmId],   // firms born this step (recycled + net new)
   )
 
-  private case class EntryConditions(
+  case class LaggedEntrySignals(
       unemploymentRate: Share,
-      laggedHiringSlack: Share,
       inflation: Rate,
       expectedInflation: Rate,
+      laggedHiringSlack: Share,
       startupAbsorptionRate: Share,
   )
+  object LaggedEntrySignals:
+    def fromDecisionSignals(signals: DecisionSignals): LaggedEntrySignals =
+      LaggedEntrySignals(
+        unemploymentRate = signals.unemploymentRate,
+        inflation = signals.inflation,
+        expectedInflation = signals.expectedInflation,
+        laggedHiringSlack = signals.laggedHiringSlack,
+        startupAbsorptionRate = signals.startupAbsorptionRate,
+      )
 
   def process(
       firms: Vector[Firm.State],
       automationRatio: Share,
       hybridRatio: Share,
-      unemploymentRate: Share,
-      laggedHiringSlack: Share,
-      inflation: Rate,
-      expectedInflation: Rate,
-      startupAbsorptionRate: Share,
+      laggedSignals: LaggedEntrySignals,
       rng: Random,
   )(using p: SimParams): Result =
     val living        = firms.filter(Firm.isAlive)
@@ -76,15 +82,8 @@ object FirmEntry:
       recycleDeadSlots(firms, totalAdoption, livingIds, sectorWeights, rng)
     val recycledBirths               = recycledIds.size
 
-    val conditions                      = EntryConditions(
-      unemploymentRate = unemploymentRate,
-      laggedHiringSlack = laggedHiringSlack,
-      inflation = inflation,
-      expectedInflation = expectedInflation,
-      startupAbsorptionRate = startupAbsorptionRate,
-    )
     val (finalFirms, netBirths, netIds) =
-      netCreation(recycledFirms, living.length, conditions, totalAdoption, livingIds, sectorWeights, rng)
+      netCreation(recycledFirms, living.length, laggedSignals, totalAdoption, livingIds, sectorWeights, rng)
     Result(finalFirms, recycledBirths + netBirths, netBirths, recycledIds ++ netIds)
 
   private def recycleDeadSlots(
@@ -122,13 +121,13 @@ object FirmEntry:
   private def netCreation(
       firms: Vector[Firm.State],
       livingCount: Int,
-      conditions: EntryConditions,
+      laggedSignals: LaggedEntrySignals,
       totalAdoption: Share,
       livingIds: Vector[Int],
       sectorWeights: Vector[Multiplier],
       rng: Random,
   )(using p: SimParams): (Vector[Firm.State], Int, Set[FirmId]) =
-    val signal   = expansionaryEntrySignal(conditions)
+    val signal   = expansionaryEntrySignal(laggedSignals)
     if signal <= Share.Zero then return (firms, 0, Set.empty)
     val rawCount = (signal * p.firm.netEntryRate).ceilApplyTo(livingCount)
     val count    = Math.max(0, Math.min(rawCount, p.firm.netEntryMaxMonthly))
@@ -139,7 +138,7 @@ object FirmEntry:
       createNewFirm(FirmId(baseId + i), sectorWeights, totalAdoption, livingIds, rng)
     (firms ++ newFirms, count, newFirms.map(_.id).toSet)
 
-  private def expansionaryEntrySignal(c: EntryConditions)(using p: SimParams): Share =
+  private def expansionaryEntrySignal(c: LaggedEntrySignals)(using p: SimParams): Share =
     val laborSlack    = (c.unemploymentRate - p.monetary.nairu).max(Share.Zero)
     if laborSlack <= Share.Zero then return Share.Zero
     val nominalSignal =

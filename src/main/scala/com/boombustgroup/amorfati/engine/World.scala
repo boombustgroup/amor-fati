@@ -314,7 +314,7 @@ case class PipelineState(
     govSpendingCutRatio: Share = Share.Zero,    // fraction of raw spending cut by fiscal rules
     laggedHiringSlack: Share = Share.One,       // month t labor-tightness signal carried into month t+1 macro decisions
     operationalHiringSlack: Share = Share.One,  // same-month labor compression used by incumbent firm processing
-    startupAbsorptionRate: Double = 1.0,        // share of startup hiring targets filled across active startup firms
+    startupAbsorptionRate: Share = Share.One,   // share of startup hiring targets filled across active startup firms
     laggedUnemploymentRate: Share = Share.Zero, // end-of-month unemployment extracted for next-month decisions
     laggedInflation: Rate = Rate.Zero,          // realized inflation lagged into next month
     laggedExpectedInflation: Rate = Rate.Zero,  // expected inflation lagged into next month
@@ -325,7 +325,7 @@ case class PipelineState(
       inflation = laggedInflation,
       expectedInflation = laggedExpectedInflation,
       laggedHiringSlack = laggedHiringSlack,
-      startupAbsorptionRate = Share(startupAbsorptionRate),
+      startupAbsorptionRate = startupAbsorptionRate,
       sectorDemandMult = sectorDemandMult,
       sectorDemandPressure = sectorDemandPressure,
       sectorHiringSignal = sectorHiringSignal,
@@ -337,7 +337,7 @@ case class PipelineState(
       sectorDemandPressure = signals.sectorDemandPressure,
       sectorHiringSignal = signals.sectorHiringSignal,
       laggedHiringSlack = signals.laggedHiringSlack,
-      startupAbsorptionRate = ComputationBoundary.toDouble(signals.startupAbsorptionRate),
+      startupAbsorptionRate = signals.startupAbsorptionRate,
       laggedUnemploymentRate = signals.unemploymentRate,
       laggedInflation = signals.inflation,
       laggedExpectedInflation = signals.expectedInflation,
