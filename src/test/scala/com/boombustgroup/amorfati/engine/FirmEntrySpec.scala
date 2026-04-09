@@ -22,17 +22,19 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       laggedHiringSlack: Share = Share.One,
       inflation: Rate = Rate.Zero,
       expectedInflation: Rate = Rate.Zero,
-      startupAbsorptionRate: Double = 1.0,
+      startupAbsorptionRate: Share = Share.One,
   ): FirmEntry.Result =
     FirmEntry.process(
       firms,
       Share.Zero,
       Share.Zero,
-      Share(unemploymentRate),
-      laggedHiringSlack,
-      inflation,
-      expectedInflation,
-      Share(startupAbsorptionRate),
+      FirmEntry.LaggedEntrySignals(
+        unemploymentRate = Share(unemploymentRate),
+        inflation = inflation,
+        expectedInflation = expectedInflation,
+        laggedHiringSlack = laggedHiringSlack,
+        startupAbsorptionRate = startupAbsorptionRate,
+      ),
       rng,
     )
 
@@ -524,7 +526,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     val firms        = mkFirms(1000)
     val strongAbsorb = runEntry(firms, 0.20, new scala.util.Random(42), inflation = Rate(0.03), expectedInflation = Rate(0.025))
     val weakAbsorb   =
-      runEntry(firms, 0.20, new scala.util.Random(42), inflation = Rate(0.03), expectedInflation = Rate(0.025), startupAbsorptionRate = 0.25)
+      runEntry(firms, 0.20, new scala.util.Random(42), inflation = Rate(0.03), expectedInflation = Rate(0.025), startupAbsorptionRate = Share(0.25))
     weakAbsorb.netBirths should be < strongAbsorb.netBirths
   }
 
