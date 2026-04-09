@@ -24,6 +24,24 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.calculus.employed should be > 0
   }
 
+  it should "expose the month boundary as SimState -> StepOutput -> (trace, nextState)" in {
+    val init        = WorldInit.initialize(42L)
+    val state       = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val stateRng    = new scala.util.Random(42L)
+    val legacyRng   = new scala.util.Random(42L)
+    val stateResult = FlowSimulation.step(state, stateRng)
+    val legacy      = FlowSimulation.step(init.world, init.firms, init.households, init.banks, legacyRng)
+
+    stateResult.stateIn shouldBe state
+    stateResult.transition shouldBe ((stateResult.monthTrace, stateResult.nextState))
+    stateResult.nextState.world shouldBe legacy.newWorld
+    stateResult.nextState.firms shouldBe legacy.newFirms
+    stateResult.nextState.households.map(_.status) shouldBe legacy.newHouseholds.map(_.status)
+    stateResult.nextState.banks shouldBe legacy.newBanks
+    stateResult.nextState.householdAggregates shouldBe legacy.householdAggregates
+    stateResult.monthTrace shouldBe legacy.monthTrace
+  }
+
   it should "produce SFC == 0L across 12 months (autonomous driving)" in {
     val init  = WorldInit.initialize(42L)
     var w     = init.world

@@ -77,14 +77,20 @@ object McRunner:
 
   private def stepMonth(state: FlowSimulation.SimState, seed: Long, month: Int)(using p: SimParams) =
     val rng    = new scala.util.Random(seed * 10000 + month)
-    val result = engine.flows.FlowSimulation.step(state.world, state.firms, state.households, state.banks, rng)
+    val result = engine.flows.FlowSimulation.step(state, rng)
     result.sfcResult match
       case Left(errors) =>
         Left(SimError.SfcViolation(month + 1, errors))
       case Right(())    =>
-        val newState  = FlowSimulation.SimState(result.newWorld, result.newFirms, result.newHouseholds, result.newBanks, result.householdAggregates)
-        val monthData = SimOutput.compute(month, result.newWorld, result.newFirms, result.newHouseholds, result.newBanks, result.householdAggregates)
-        Right((newState, monthData))
+        val monthData = SimOutput.compute(
+          month,
+          result.nextState.world,
+          result.nextState.firms,
+          result.nextState.households,
+          result.nextState.banks,
+          result.nextState.householdAggregates,
+        )
+        Right((result.nextState, monthData))
 
   @scala.annotation.tailrec
   private def loop(

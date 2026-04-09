@@ -158,5 +158,6 @@ The following blocks define the current same-month or boundary surfaces.
   transport details ad hoc.
 - `#312` should lock the resulting contract with regression coverage beyond the
   original `FirmEntry` path.
-- `#313` remains the top-level owner of the eventual unfold-shaped monthly
-  `step(state) -> (trace, next)` boundary.
+- `#313` is the top-level owner of the unfold-shaped monthly boundary now
+  surfaced as `FlowSimulation.step(state, rng): StepOutput` with emitted
+  `(trace, nextState)` transition semantics.
