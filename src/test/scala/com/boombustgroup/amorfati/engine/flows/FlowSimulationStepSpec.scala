@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.{MonthTimingEnvelopeKey, MonthTimingPayload, MonthTraceStage}
+import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthTimingEnvelopeKey, MonthTimingPayload, MonthTraceStage}
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
@@ -118,6 +118,32 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     trace.validations.head.passed shouldBe true
     trace.validations.head.failures shouldBe empty
     result.sfcResult shouldBe Right(())
+  }
+
+  it should "keep MonthTrace seed transitions consistent with timing envelopes and end-of-month boundary data" in {
+    val init   = WorldInit.initialize(42L)
+    val rng    = new scala.util.Random(42L)
+    val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
+    val trace  = result.monthTrace
+
+    trace.seedTransition.seedOut shouldBe DecisionSignals(
+      unemploymentRate = trace.boundary.endSnapshot.unemploymentRate,
+      inflation = trace.timing.nominalSignals.realizedInflation,
+      expectedInflation = trace.timing.nominalSignals.expectedInflation,
+      laggedHiringSlack = trace.timing.laborSignals.operationalHiringSlack,
+      startupAbsorptionRate = trace.timing.firmDynamics.startupAbsorptionRate,
+      sectorDemandMult = trace.timing.demandSignals.sectorDemandMult,
+      sectorDemandPressure = trace.timing.demandSignals.sectorDemandPressure,
+      sectorHiringSignal = trace.timing.demandSignals.sectorHiringSignal,
+    )
+    trace.seedTransition.provenance.unemploymentRate.value shouldBe trace.boundary.endSnapshot.unemploymentRate
+    trace.seedTransition.provenance.inflation.value shouldBe trace.timing.nominalSignals.realizedInflation
+    trace.seedTransition.provenance.expectedInflation.value shouldBe trace.timing.nominalSignals.expectedInflation
+    trace.seedTransition.provenance.laggedHiringSlack.value shouldBe trace.timing.laborSignals.operationalHiringSlack
+    trace.seedTransition.provenance.startupAbsorptionRate.value shouldBe trace.timing.firmDynamics.startupAbsorptionRate
+    trace.seedTransition.provenance.sectorDemandMult.value shouldBe trace.timing.demandSignals.sectorDemandMult
+    trace.seedTransition.provenance.sectorDemandPressure.value shouldBe trace.timing.demandSignals.sectorDemandPressure
+    trace.seedTransition.provenance.sectorHiringSignal.value shouldBe trace.timing.demandSignals.sectorHiringSignal
   }
 
   it should "match the legacy pure interpreter on aggregate execution balances" in {
