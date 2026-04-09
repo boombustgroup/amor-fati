@@ -60,19 +60,10 @@ object FirmEntry:
       automationRatio: Share,
       hybridRatio: Share,
       unemploymentRate: Share,
-      rng: Random,
-  )(using p: SimParams): Result =
-    process(firms, automationRatio, hybridRatio, unemploymentRate, Share.One, Rate.Zero, Rate.Zero, Share.One, rng)
-
-  def process(
-      firms: Vector[Firm.State],
-      automationRatio: Share,
-      hybridRatio: Share,
-      unemploymentRate: Share,
-      laggedHiringSlack: Share = Share.One,
-      inflation: Rate = Rate.Zero,
-      expectedInflation: Rate = Rate.Zero,
-      startupAbsorptionRate: Share = Share.One,
+      laggedHiringSlack: Share,
+      inflation: Rate,
+      expectedInflation: Rate,
+      startupAbsorptionRate: Share,
       rng: Random,
   )(using p: SimParams): Result =
     val living        = firms.filter(Firm.isAlive)

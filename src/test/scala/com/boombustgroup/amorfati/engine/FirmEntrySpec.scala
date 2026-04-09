@@ -513,7 +513,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       Firm.workerCount(f) shouldBe f.startupTargetWorkers
   }
 
-  it should "dampen net entry when aggregate hiring slack is tight" in {
+  it should "dampen net entry when lagged hiring slack is tight" in {
     val firms       = mkFirms(1000)
     val looseResult = runEntry(firms, 0.20, new scala.util.Random(42))
     val tightResult = runEntry(firms, 0.20, new scala.util.Random(42), laggedHiringSlack = Share(0.5))

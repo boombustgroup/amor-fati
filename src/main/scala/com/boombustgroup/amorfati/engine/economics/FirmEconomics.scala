@@ -385,6 +385,7 @@ object FirmEconomics:
       pipeline = in.w.pipeline.copy(
         sectorDemandMult = in.s4.sectorMults,
         sectorDemandPressure = in.s4.sectorDemandPressure,
+        sectorHiringSignal = in.s4.sectorHiringSignal,
         operationalHiringSlack = in.s2.operationalHiringSlack,
       ),
       householdMarket = in.w.householdMarket.copy(
