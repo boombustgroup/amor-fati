@@ -47,11 +47,11 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "compress aggregate hiring plans when labor demand exceeds available labor" in {
-    LaborEconomics.aggregateHiringSlackFactor(laborDemand = 120000, availableLabor = 80000) should be < 1.0
+    LaborEconomics.operationalHiringSlackFactor(laborDemand = 120000, availableLabor = 80000) should be < Share.One
   }
 
   it should "leave hiring plans unchanged when labor demand fits available labor" in {
-    LaborEconomics.aggregateHiringSlackFactor(laborDemand = 60000, availableLabor = 80000) shouldBe (1.0 +- 1e-9)
+    LaborEconomics.operationalHiringSlackFactor(laborDemand = 60000, availableLabor = 80000) shouldBe Share.One
   }
 
   it should "reconcile post-firm labor demand and realized employment from post-step state" in {
@@ -61,7 +61,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
       pre.employed,
       pre.laborDemand,
       pre.wageGrowth,
-      pre.aggregateHiringSlack,
+      pre.operationalHiringSlack,
       pre.immigration,
       pre.netMigration,
       pre.demographics,

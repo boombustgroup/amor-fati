@@ -154,6 +154,7 @@ object FirmEconomics:
       employed: Int,
       laborDemand: Int,
       wageGrowth: Coefficient,
+      operationalHiringSlack: Share,
       immigration: Immigration.State,
       netMigration: Int,
       demographics: SocialSecurity.DemographicsState,
@@ -309,7 +310,7 @@ object FirmEconomics:
       in.employed,
       in.laborDemand,
       in.wageGrowth,
-      ComputationBoundary.toDouble(seedIn.aggregateHiringSlack),
+      in.operationalHiringSlack,
       in.immigration,
       in.netMigration,
       in.demographics,
@@ -384,7 +385,7 @@ object FirmEconomics:
       pipeline = in.w.pipeline.copy(
         sectorDemandMult = in.s4.sectorMults,
         sectorDemandPressure = in.s4.sectorDemandPressure,
-        aggregateHiringSlack = in.s2.aggregateHiringSlack,
+        operationalHiringSlack = in.s2.operationalHiringSlack,
       ),
       householdMarket = in.w.householdMarket.copy(
         marketWage = in.s2.newWage,

@@ -282,7 +282,7 @@ case class DecisionSignals(
     unemploymentRate: Share,
     inflation: Rate,
     expectedInflation: Rate,
-    aggregateHiringSlack: Share,
+    laggedHiringSlack: Share,
     startupAbsorptionRate: Share,
     sectorDemandMult: Vector[Multiplier],
     sectorDemandPressure: Vector[Multiplier],
@@ -294,7 +294,7 @@ object DecisionSignals:
       unemploymentRate = Share.Zero,
       inflation = Rate.Zero,
       expectedInflation = Rate.Zero,
-      aggregateHiringSlack = Share.One,
+      laggedHiringSlack = Share.One,
       startupAbsorptionRate = Share.One,
       sectorDemandMult = Vector.fill(sectorCount)(Multiplier.One),
       sectorDemandPressure = Vector.fill(sectorCount)(Multiplier.One),
@@ -312,7 +312,8 @@ case class PipelineState(
     sectorHiringSignal: Vector[Multiplier],     // smoothed sector hiring signal used by firm labor planning
     fiscalRuleSeverity: Int = 0,                // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
     govSpendingCutRatio: Share = Share.Zero,    // fraction of raw spending cut by fiscal rules
-    aggregateHiringSlack: Double = 1.0,         // economy-wide compression of firm labor targets when plans exceed supply
+    laggedHiringSlack: Share = Share.One,       // month t labor-tightness signal carried into month t+1 macro decisions
+    operationalHiringSlack: Share = Share.One,  // same-month labor compression used by incumbent firm processing
     startupAbsorptionRate: Double = 1.0,        // share of startup hiring targets filled across active startup firms
     laggedUnemploymentRate: Share = Share.Zero, // end-of-month unemployment extracted for next-month decisions
     laggedInflation: Rate = Rate.Zero,          // realized inflation lagged into next month
@@ -323,7 +324,7 @@ case class PipelineState(
       unemploymentRate = laggedUnemploymentRate,
       inflation = laggedInflation,
       expectedInflation = laggedExpectedInflation,
-      aggregateHiringSlack = Share(aggregateHiringSlack),
+      laggedHiringSlack = laggedHiringSlack,
       startupAbsorptionRate = Share(startupAbsorptionRate),
       sectorDemandMult = sectorDemandMult,
       sectorDemandPressure = sectorDemandPressure,
@@ -335,7 +336,7 @@ case class PipelineState(
       sectorDemandMult = signals.sectorDemandMult,
       sectorDemandPressure = signals.sectorDemandPressure,
       sectorHiringSignal = signals.sectorHiringSignal,
-      aggregateHiringSlack = ComputationBoundary.toDouble(signals.aggregateHiringSlack),
+      laggedHiringSlack = signals.laggedHiringSlack,
       startupAbsorptionRate = ComputationBoundary.toDouble(signals.startupAbsorptionRate),
       laggedUnemploymentRate = signals.unemploymentRate,
       laggedInflation = signals.inflation,

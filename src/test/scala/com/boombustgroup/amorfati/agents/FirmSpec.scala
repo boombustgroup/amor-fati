@@ -53,12 +53,12 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     Firm.workerCount(mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))) shouldBe 0
   }
 
-  "Firm.applyAggregateHiringSlack" should "compress worker targets when aggregate labor plans exceed supply" in {
-    Firm.applyAggregateHiringSlack(rawTarget = 24, minWorkers = 3, slackFactor = Multiplier(0.5)) shouldBe 12
+  "Firm.applyOperationalHiringSlack" should "compress worker targets when aggregate labor plans exceed supply" in {
+    Firm.applyOperationalHiringSlack(rawTarget = 24, minWorkers = 3, slackFactor = Multiplier(0.5)) shouldBe 12
   }
 
   it should "respect the workforce floor when compression is severe" in {
-    Firm.applyAggregateHiringSlack(rawTarget = 4, minWorkers = 3, slackFactor = Multiplier(0.25)) shouldBe 3
+    Firm.applyOperationalHiringSlack(rawTarget = 4, minWorkers = 3, slackFactor = Multiplier(0.25)) shouldBe 3
   }
 
   "Firm.hiringDiagnostics" should "delay non-micro hiring until demand persists" in {
@@ -67,7 +67,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         sectorDemandMult = Vector.fill(p.sectorDefs.length)(Multiplier.One),
         sectorDemandPressure = Vector.fill(p.sectorDefs.length)(Multiplier(1.75)),
         sectorHiringSignal = Vector.fill(p.sectorDefs.length)(Multiplier(1.75)),
-        aggregateHiringSlack = 1.0,
+        operationalHiringSlack = Share.One,
       ),
       flows = FlowState.zero,
     )
@@ -89,7 +89,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         sectorDemandMult = Vector.fill(p.sectorDefs.length)(Multiplier.One),
         sectorDemandPressure = Vector.fill(p.sectorDefs.length)(Multiplier(1.75)),
         sectorHiringSignal = Vector.fill(p.sectorDefs.length)(Multiplier(1.75)),
-        aggregateHiringSlack = 1.0,
+        operationalHiringSlack = Share.One,
       ),
       flows = FlowState.zero,
     )
@@ -105,7 +105,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         sectorDemandMult = Vector.fill(p.sectorDefs.length)(Multiplier(0.8)),
         sectorDemandPressure = Vector.fill(p.sectorDefs.length)(Multiplier(0.8)),
         sectorHiringSignal = Vector.fill(p.sectorDefs.length)(Multiplier(0.8)),
-        aggregateHiringSlack = 1.0,
+        operationalHiringSlack = Share.One,
       ),
       flows = FlowState.zero,
     )

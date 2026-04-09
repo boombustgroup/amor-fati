@@ -19,7 +19,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       firms: Vector[Firm.State],
       unemploymentRate: Double,
       rng: scala.util.Random,
-      aggregateHiringSlack: Double = 1.0,
+      laggedHiringSlack: Share = Share.One,
       inflation: Rate = Rate.Zero,
       expectedInflation: Rate = Rate.Zero,
       startupAbsorptionRate: Double = 1.0,
@@ -29,7 +29,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       Share.Zero,
       Share.Zero,
       Share(unemploymentRate),
-      Share(aggregateHiringSlack),
+      laggedHiringSlack,
       inflation,
       expectedInflation,
       Share(startupAbsorptionRate),
@@ -516,7 +516,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "dampen net entry when aggregate hiring slack is tight" in {
     val firms       = mkFirms(1000)
     val looseResult = runEntry(firms, 0.20, new scala.util.Random(42))
-    val tightResult = runEntry(firms, 0.20, new scala.util.Random(42), aggregateHiringSlack = 0.5)
+    val tightResult = runEntry(firms, 0.20, new scala.util.Random(42), laggedHiringSlack = Share(0.5))
     tightResult.netBirths.should(be < looseResult.netBirths)
   }
 

@@ -43,7 +43,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       labor.employed,
       labor.laborDemand,
       labor.wageGrowth,
-      labor.aggregateHiringSlack,
+      labor.operationalHiringSlack,
       labor.immigration,
       labor.netMigration,
       labor.demographics,
@@ -162,11 +162,11 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
           unemploymentRate = Share(0.15),
           inflation = Rate(0.03),
           expectedInflation = Rate(0.025),
-          aggregateHiringSlack = Share.One,
+          laggedHiringSlack = Share.One,
           startupAbsorptionRate = Share.One,
         ),
       ),
-      s2 = base.s2.copy(aggregateHiringSlack = 1.0),
+      s2 = base.s2.copy(operationalHiringSlack = Share.One),
       s7 = base.s7.copy(newInfl = Rate(0.03)),
       s8 = base.s8.copy(
         monetary = base.s8.monetary.copy(
@@ -196,7 +196,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     extracted.unemploymentRate shouldBe finalWorld.unemploymentRate(finalHouseholds.count(_.status.isInstanceOf[HhStatus.Employed]))
     extracted.inflation shouldBe Rate(-0.01)
     extracted.expectedInflation shouldBe Rate(0.04)
-    extracted.aggregateHiringSlack shouldBe Share.One
+    extracted.laggedHiringSlack shouldBe Share.One
     extracted.startupAbsorptionRate shouldBe Share(0.35)
     extracted.sectorDemandMult shouldBe base.s4.sectorMults
     extracted.sectorDemandPressure shouldBe base.s4.sectorDemandPressure
@@ -266,10 +266,10 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
   it should "derive entry labor tightness from lagged decision signals instead of refreshed same-month slack" in {
     val base        = entrySensitiveInput
-    val tight       = base.copy(s2 = base.s2.copy(aggregateHiringSlack = 0.10))
-    val loose       = base.copy(s2 = base.s2.copy(aggregateHiringSlack = 1.0))
-    val tightLagged = base.copy(w = withSeedSignals(base.w, _.copy(aggregateHiringSlack = Share(0.10))))
-    val looseLagged = base.copy(w = withSeedSignals(base.w, _.copy(aggregateHiringSlack = Share.One)))
+    val tight       = base.copy(s2 = base.s2.copy(operationalHiringSlack = Share(0.10)))
+    val loose       = base.copy(s2 = base.s2.copy(operationalHiringSlack = Share.One))
+    val tightLagged = base.copy(w = withSeedSignals(base.w, _.copy(laggedHiringSlack = Share(0.10))))
+    val looseLagged = base.copy(w = withSeedSignals(base.w, _.copy(laggedHiringSlack = Share.One)))
 
     netBirths(loose) shouldBe netBirths(tight)
     netBirths(looseLagged) should be > netBirths(tightLagged)
@@ -285,11 +285,12 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
   it should "persist extracted same-month hiring slack into next-month decision signals" in {
     val input  = entrySensitiveInput
-    val base   = input.copy(s2 = input.s2.copy(aggregateHiringSlack = 0.21))
+    val base   = input.copy(s2 = input.s2.copy(operationalHiringSlack = Share(0.21)))
     val result = WorldAssemblyEconomics.runStep(base, new scala.util.Random(1234L), new scala.util.Random(5678L))
 
-    result.newWorld.pipeline.aggregateHiringSlack shouldBe (0.21 +- 1e-9)
-    result.newWorld.seedIn.aggregateHiringSlack shouldBe Share(0.21)
+    result.newWorld.pipeline.operationalHiringSlack shouldBe Share(0.21)
+    result.newWorld.pipeline.laggedHiringSlack shouldBe Share(0.21)
+    result.newWorld.seedIn.laggedHiringSlack shouldBe Share(0.21)
   }
 
   "WorldAssemblyEconomics.compute" should "persist demand and hiring signals from current demand output in the bridge path" in {

@@ -333,7 +333,7 @@ object Firm:
       val capPrev = computeCapacity(f.copy(tech = TechState.Traditional(mid - 1)))
       val mr      = (capMid - capPrev) * (demandMult * price)
       if mr > wage then lo = mid else hi = mid - 1
-    applyAggregateHiringSlack(lo, minW, seedIn.aggregateHiringSlack.toMultiplier)
+    applyOperationalHiringSlack(lo, minW, w.pipeline.operationalHiringSlack.toMultiplier)
 
   private def monthlyHiringHeadroom(workers: Int): Int =
     if workers <= 5 then 1
@@ -369,7 +369,7 @@ object Firm:
           else workers
         Math.max(workers, liquidityConstrained)
 
-  private[amorfati] def applyAggregateHiringSlack(rawTarget: Int, minWorkers: Int, slackFactor: Multiplier): Int =
+  private[amorfati] def applyOperationalHiringSlack(rawTarget: Int, minWorkers: Int, slackFactor: Multiplier): Int =
     Math.max(minWorkers, bankerRound(BigInt(rawTarget.toLong) * BigInt(slackFactor.clamp(Multiplier.Zero, Multiplier.One).toLong)).toInt)
 
   private[amorfati] def hiringDiagnostics(firm: State, w: World)(using p: SimParams): HiringDiagnostics =
