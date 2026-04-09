@@ -209,6 +209,8 @@ object InflationProbe:
           minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
           govPurchases = s4.govPurchases,
           sectorMults = s4.sectorMults,
+          sectorDemandPressure = s4.sectorDemandPressure,
+          sectorHiringSignal = s4.sectorHiringSignal,
           avgDemandMult = s4.avgDemandMult,
           sectorCapReal = s4.sectorCapReal,
           laggedInvestDemand = s4.laggedInvestDemand,

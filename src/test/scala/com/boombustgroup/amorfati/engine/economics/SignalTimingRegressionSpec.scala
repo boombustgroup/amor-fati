@@ -112,6 +112,8 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       minWagePriceLevel = baseline.s1.updatedMinWagePriceLevel,
       govPurchases = baseline.s4.govPurchases,
       sectorMults = baseline.s4.sectorMults,
+      sectorDemandPressure = baseline.s4.sectorDemandPressure,
+      sectorHiringSignal = baseline.s4.sectorHiringSignal,
       avgDemandMult = baseline.s4.avgDemandMult,
       sectorCapReal = baseline.s4.sectorCapReal,
       laggedInvestDemand = baseline.s4.laggedInvestDemand,
@@ -239,7 +241,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     result.newWorld.pipeline.aggregateHiringSlack shouldBe (0.21 +- 1e-9)
   }
 
-  "WorldAssemblyEconomics.compute" should "currently persist demand and hiring signals from inherited pipeline state in the bridge path" in {
+  "WorldAssemblyEconomics.compute" should "persist demand and hiring signals from current demand output in the bridge path" in {
     val stalePressure = Vector.fill(p.sectorDefs.length)(Multiplier(0.33))
     val staleHiring   = Vector.fill(p.sectorDefs.length)(Multiplier(1.77))
     val staleWorld    = baseline.world.copy(
@@ -251,10 +253,10 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
     val assembled = WorldAssemblyEconomics.compute(baseComputeInput(staleWorld))
 
-    assembled.world.pipeline.sectorDemandPressure shouldBe stalePressure
-    assembled.world.pipeline.sectorHiringSignal shouldBe staleHiring
-    assembled.world.pipeline.sectorDemandPressure should not be baseline.s4.sectorDemandPressure
-    assembled.world.pipeline.sectorHiringSignal should not be baseline.s4.sectorHiringSignal
+    assembled.world.pipeline.sectorDemandPressure shouldBe baseline.s4.sectorDemandPressure
+    assembled.world.pipeline.sectorHiringSignal shouldBe baseline.s4.sectorHiringSignal
+    assembled.world.pipeline.sectorDemandPressure should not be stalePressure
+    assembled.world.pipeline.sectorHiringSignal should not be staleHiring
   }
 
   "Signal timing target contract" should "eventually derive entry unemployment from lagged decision signals instead of post-firm households" in
@@ -267,7 +269,4 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     pending
 
   it should "eventually derive entry labor tightness from lagged decision signals instead of refreshed same-month slack" in
-    pending
-
-  it should "eventually persist next-month demand and hiring signals from current demand output instead of inherited pipeline state" in
     pending

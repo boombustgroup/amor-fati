@@ -97,6 +97,8 @@ object WorldAssemblyEconomics:
       minWagePriceLevel: PriceIndex,
       govPurchases: PLN,
       sectorMults: Vector[Multiplier],
+      sectorDemandPressure: Vector[Multiplier],
+      sectorHiringSignal: Vector[Multiplier],
       avgDemandMult: Multiplier,
       sectorCapReal: Vector[PLN],
       laggedInvestDemand: PLN,
@@ -123,16 +125,6 @@ object WorldAssemblyEconomics:
 
   def compute(in: Input)(using SimParams): Result =
     val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-    val s4 = DemandEconomics.Output(
-      in.govPurchases,
-      in.sectorMults,
-      in.w.pipeline.sectorDemandPressure,
-      in.w.pipeline.sectorHiringSignal,
-      in.avgDemandMult,
-      in.sectorCapReal,
-      in.laggedInvestDemand,
-      in.fiscalRuleStatus,
-    )
 
     val s10 = runStep(
       StepInput(
@@ -143,7 +135,7 @@ object WorldAssemblyEconomics:
         s1,
         in.laborOutput,
         in.hhOutput,
-        s4,
+        buildDemandOutput(in),
         in.firmOutput,
         in.hhFinancialOutput,
         in.priceEquityOutput,
@@ -220,6 +212,18 @@ object WorldAssemblyEconomics:
       lastDomesticDividends = in.s7.netDomesticDividends,
       lastForeignDividends = in.s7.foreignDividendOutflow,
       lastDividendTax = in.s7.dividendTax,
+    )
+
+  private def buildDemandOutput(in: Input): DemandEconomics.Output =
+    DemandEconomics.Output(
+      in.govPurchases,
+      in.sectorMults,
+      in.sectorDemandPressure,
+      in.sectorHiringSignal,
+      in.avgDemandMult,
+      in.sectorCapReal,
+      in.laggedInvestDemand,
+      in.fiscalRuleStatus,
     )
 
   /** Flow-of-funds residual: total firm revenue minus adjusted demand. Both
