@@ -45,6 +45,7 @@ object WorldInit:
     val initInsurance    = InsuranceInit.create()
     val initNbfi         = NbfiInit.create()
     val initExpectations = ExpectationsInit.create()
+    val initInflation    = p.monetary.targetInfl
 
     val initBondsOutstanding = p.banking.initGovBonds + p.banking.initNbpGovBonds +
       initInsurance.govBondHoldings + initNbfi.tfiGovBondHoldings
@@ -98,7 +99,7 @@ object WorldInit:
 
     val world = World(
       month = 0,
-      inflation = Rate(0.02),
+      inflation = initInflation,
       priceLevel = PriceIndex(1.0),
       currentSigmas = p.sectorDefs.map(_.sigma),
       gov = FiscalBudget.GovState(
@@ -161,7 +162,7 @@ object WorldInit:
       pipeline = PipelineState.bootstrap(
         p.sectorDefs.length,
         if initDemographics.workingAgePop > 0 then Share.One - Share.fraction(initEmployed, initDemographics.workingAgePop) else Share.Zero,
-        Rate(0.02),
+        initInflation,
         initExpectations.expectedInflation,
       ),
       flows = FlowState(monthlyGdpProxy = PLN(toDouble(p.firm.baseRevenue) * p.pop.firmsCount)),
