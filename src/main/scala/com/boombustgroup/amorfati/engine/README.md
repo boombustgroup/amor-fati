@@ -48,7 +48,7 @@ against 13 accounting identities each month.
 
 | File | Responsibility |
 |------|----------------|
-| `FlowSimulation.scala` | Sole pipeline entry point. `step()` runs the 9-stage `computeAll()`, then `emitAllFlows()` to record all monetary flows. Produces `StepResult(world, firms, households)`. |
+| `FlowSimulation.scala` | Sole pipeline entry point. `step()` runs the 9-stage `computeAll()`, then `emitAllFlows()` to record all monetary flows. Produces `StepResult(world, firms, households, monthTrace)` with an inspectable month-boundary audit artifact. |
 | `FlowMechanism.scala` | Enum of ~80 named flow mechanisms (e.g. `FirmWages`, `HhConsumption`, `BankBfgLevy`). Each flow in the system maps to exactly one mechanism. |
 | `StateAdapter.scala` | Bridges computation outputs to flow inputs: extracts ZUS, NFZ, PPK, earmarked, HH, insurance, and firm flow parameters from `FullComputation`. |
 | `ZusFlows.scala` | ZUS/FUS pensions: contributions (HH → FUS), pensions (FUS → HH), gov subvention covering deficit |
