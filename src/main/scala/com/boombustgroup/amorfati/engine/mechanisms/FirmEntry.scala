@@ -49,7 +49,7 @@ object FirmEntry:
 
   private case class EntryConditions(
       unemploymentRate: Share,
-      aggregateHiringSlack: Share,
+      laggedHiringSlack: Share,
       inflation: Rate,
       expectedInflation: Rate,
       startupAbsorptionRate: Share,
@@ -60,19 +60,10 @@ object FirmEntry:
       automationRatio: Share,
       hybridRatio: Share,
       unemploymentRate: Share,
-      rng: Random,
-  )(using p: SimParams): Result =
-    process(firms, automationRatio, hybridRatio, unemploymentRate, Share.One, Rate.Zero, Rate.Zero, Share.One, rng)
-
-  def process(
-      firms: Vector[Firm.State],
-      automationRatio: Share,
-      hybridRatio: Share,
-      unemploymentRate: Share,
-      aggregateHiringSlack: Share = Share.One,
-      inflation: Rate = Rate.Zero,
-      expectedInflation: Rate = Rate.Zero,
-      startupAbsorptionRate: Share = Share.One,
+      laggedHiringSlack: Share,
+      inflation: Rate,
+      expectedInflation: Rate,
+      startupAbsorptionRate: Share,
       rng: Random,
   )(using p: SimParams): Result =
     val living        = firms.filter(Firm.isAlive)
@@ -87,7 +78,7 @@ object FirmEntry:
 
     val conditions                      = EntryConditions(
       unemploymentRate = unemploymentRate,
-      aggregateHiringSlack = aggregateHiringSlack,
+      laggedHiringSlack = laggedHiringSlack,
       inflation = inflation,
       expectedInflation = expectedInflation,
       startupAbsorptionRate = startupAbsorptionRate,
@@ -155,7 +146,7 @@ object FirmEntry:
       if c.inflation < Rate.Zero && c.expectedInflation < Rate.Zero then 0.0
       else if c.inflation < Rate.Zero || c.expectedInflation < Rate.Zero then 0.35
       else 1.0
-    laborSlack * Share(nominalSignal) * c.aggregateHiringSlack.clamp(Share.Zero, Share.One) * c.startupAbsorptionRate.clamp(Share.Zero, Share.One)
+    laborSlack * Share(nominalSignal) * c.laggedHiringSlack.clamp(Share.Zero, Share.One) * c.startupAbsorptionRate.clamp(Share.Zero, Share.One)
 
   private def computeProfitSignals(living: Vector[Firm.State])(using p: SimParams): Vector[Coefficient] =
     val bySector      = living.groupBy(_.sector.toInt)

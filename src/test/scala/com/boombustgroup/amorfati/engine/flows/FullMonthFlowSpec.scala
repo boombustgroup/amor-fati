@@ -33,7 +33,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
       labor.employed,
       labor.laborDemand,
       labor.wageGrowth,
-      labor.aggregateHiringSlack,
+      labor.operationalHiringSlack,
       labor.immigration,
       labor.netMigration,
       labor.demographics,
@@ -58,7 +58,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
           case _                          => false,
       ),
       laborDemand = postLaborDemand,
-      aggregateHiringSlack = LaborEconomics.aggregateHiringSlackFactor(postLaborDemand, postAvailableLabor),
+      operationalHiringSlack = LaborEconomics.operationalHiringSlackFactor(postLaborDemand, postAvailableLabor),
       living = postLivingFirms,
     )
     @annotation.unused
@@ -117,7 +117,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
             s2Post.employed,
             s2Post.laborDemand,
             s2Post.wageGrowth,
-            s2Post.aggregateHiringSlack,
+            s2Post.operationalHiringSlack,
             s2Post.newDemographics,
             s2Post.newImmig,
             s2Post.netMigration,

@@ -15,19 +15,19 @@ import com.boombustgroup.amorfati.types.*
   */
 object LaborEconomics:
 
-  private[amorfati] def aggregateHiringSlackFactor(laborDemand: Int, availableLabor: Int)(using p: SimParams): Double =
-    if laborDemand <= 0 then 1.0
+  private[amorfati] def operationalHiringSlackFactor(laborDemand: Int, availableLabor: Int)(using p: SimParams): Share =
+    if laborDemand <= 0 then Share.One
     else
       val buffered = availableLabor.toDouble * (p.firm.aggregateLaborSlackBuffer / Share.One)
       val raw      = buffered / laborDemand.toDouble
-      raw.max(p.firm.aggregateLaborSlackFloor / Share.One).min(1.0)
+      Share(raw.max(p.firm.aggregateLaborSlackFloor / Share.One).min(1.0))
 
   case class Result(
       wage: PLN,
       employed: Int,
       laborDemand: Int,
       wageGrowth: Coefficient,
-      aggregateHiringSlack: Double = 1.0,
+      operationalHiringSlack: Share = Share.One,
       demographics: SocialSecurity.DemographicsState,
       immigration: Immigration.State,
       netMigration: Int,
@@ -49,7 +49,7 @@ object LaborEconomics:
       employed: Int,
       laborDemand: Int,
       wageGrowth: Coefficient,
-      aggregateHiringSlack: Double = 1.0,
+      operationalHiringSlack: Share = Share.One,
       newImmig: Immigration.State,
       netMigration: Int,
       newDemographics: SocialSecurity.DemographicsState,
@@ -69,11 +69,11 @@ object LaborEconomics:
       households: Vector[Household.State],
       s1: FiscalConstraintEconomics.Output,
   )(using p: SimParams): Result =
-    val living               = firms.filter(Firm.isAlive)
-    val laborDemand          = living.map(f => Firm.workerCount(f)).sum
-    val cleared              = clearLaborMarket(w, s1.resWage, laborDemand)
-    val availableLabor       = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.derivedTotalPopulation)
-    val aggregateHiringSlack = aggregateHiringSlackFactor(laborDemand, availableLabor)
+    val living                 = firms.filter(Firm.isAlive)
+    val laborDemand            = living.map(f => Firm.workerCount(f)).sum
+    val cleared                = clearLaborMarket(w, s1.resWage, laborDemand)
+    val availableLabor         = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.derivedTotalPopulation)
+    val operationalHiringSlack = operationalHiringSlackFactor(laborDemand, availableLabor)
 
     // Immigration
     val unempRateForImmig = w.unemploymentRate(cleared.employed)
@@ -94,7 +94,7 @@ object LaborEconomics:
       employed = cleared.employed,
       laborDemand = laborDemand,
       wageGrowth = Coefficient(wageGrowth),
-      aggregateHiringSlack = aggregateHiringSlack,
+      operationalHiringSlack = operationalHiringSlack,
       demographics = newDemographics,
       immigration = newImmig,
       netMigration = netMigration,
@@ -129,7 +129,7 @@ object LaborEconomics:
       employed = employedCap,
       laborDemand = postLaborDemand,
       wageGrowth = Coefficient(wageGrowthFrom(w.householdMarket.marketWage, cleared.wage)),
-      aggregateHiringSlack = aggregateHiringSlackFactor(postLaborDemand, postAvailableLabor),
+      operationalHiringSlack = operationalHiringSlackFactor(postLaborDemand, postAvailableLabor),
       living = postLiving,
       regionalWages = cleared.regionalWages,
     )

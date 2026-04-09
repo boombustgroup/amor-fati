@@ -168,7 +168,7 @@ object WorldAssemblyEconomics:
         newW.real.automationRatio,
         newW.real.hybridRatio,
         seedIn.unemploymentRate,
-        seedIn.aggregateHiringSlack,
+        seedIn.laggedHiringSlack,
         seedIn.inflation,
         seedIn.expectedInflation,
         seedIn.startupAbsorptionRate,
@@ -570,7 +570,7 @@ object WorldAssemblyEconomics:
       unemploymentRate = assembledWorld.unemploymentRate(employed),
       inflation = assembledWorld.inflation,
       expectedInflation = assembledWorld.mechanisms.expectations.expectedInflation,
-      aggregateHiringSlack = Share(in.s2.aggregateHiringSlack),
+      laggedHiringSlack = in.s2.operationalHiringSlack,
       startupAbsorptionRate = Share(startupAbsorptionRate),
       sectorDemandMult = in.s4.sectorMults,
       sectorDemandPressure = in.s4.sectorDemandPressure,
@@ -581,6 +581,7 @@ object WorldAssemblyEconomics:
     in.w.pipeline
       .withDecisionSignals(signals)
       .copy(
+        operationalHiringSlack = in.s2.operationalHiringSlack,
         fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
         govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
       )
