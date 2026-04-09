@@ -44,6 +44,8 @@ object WorldInit:
     val initDemographics = DemographicsInit.create(totalPop)
     val initInsurance    = InsuranceInit.create()
     val initNbfi         = NbfiInit.create()
+    val initExpectations = ExpectationsInit.create()
+    val initInflation    = p.monetary.targetInfl
 
     val initBondsOutstanding = p.banking.initGovBonds + p.banking.initNbpGovBonds +
       initInsurance.govBondHoldings + initNbfi.tfiGovBondHoldings
@@ -97,7 +99,7 @@ object WorldInit:
 
     val world = World(
       month = 0,
-      inflation = Rate(0.02),
+      inflation = initInflation,
       priceLevel = PriceIndex(1.0),
       currentSigmas = p.sectorDefs.map(_.sigma),
       gov = FiscalBudget.GovState(
@@ -154,10 +156,15 @@ object WorldInit:
       ),
       mechanisms = MechanismsState(
         macropru = Macroprudential.State.zero,
-        expectations = ExpectationsInit.create(),
+        expectations = initExpectations,
       ),
       plumbing = MonetaryPlumbingState.zero,
-      pipeline = PipelineState.zero,
+      pipeline = PipelineState.bootstrap(
+        p.sectorDefs.length,
+        if initDemographics.workingAgePop > 0 then Share.One - Share.fraction(initEmployed, initDemographics.workingAgePop) else Share.Zero,
+        initInflation,
+        initExpectations.expectedInflation,
+      ),
       flows = FlowState(monthlyGdpProxy = PLN(toDouble(p.firm.baseRevenue) * p.pop.firmsCount)),
       regionalWages = Region.all.map(r => r -> (p.household.baseWage * Region.normalizedWageMultiplier(r))).toMap,
     )

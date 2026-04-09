@@ -32,6 +32,8 @@ case class World(
     flows: FlowState,                                                                 // single-step derived flow outputs → SFC identities
     regionalWages: Map[Region, PLN] = Map.empty,                                      // per-region wage levels (NUTS-1)
 ):
+  def seedIn: DecisionSignals = pipeline.seedIn
+
   def derivedTotalPopulation: Int =
     social.demographics.workingAgePop + social.demographics.retirees
 
@@ -103,6 +105,12 @@ object World:
     val compatFlows        =
       if flows.monthlyGdpProxy == PLN.Zero && gdpProxy > 0.0 then flows.copy(monthlyGdpProxy = PLN(gdpProxy))
       else flows
+    val compatPipeline     = PipelineState.bootstrap(
+      currentSigmas.length,
+      if totalPopulation > 0 then Share.One - Share.fraction(hhAgg.employed, totalPopulation) else Share.Zero,
+      inflation,
+      mechanisms.expectations.expectedInflation,
+    )
     new World(
       month = month,
       inflation = inflation,
@@ -120,7 +128,7 @@ object World:
       real = real,
       mechanisms = mechanisms,
       plumbing = plumbing,
-      pipeline = PipelineState.zero(currentSigmas.length),
+      pipeline = compatPipeline,
       flows = compatFlows,
       regionalWages = Map.empty,
     )
@@ -152,6 +160,12 @@ object World:
     val compatFlows        =
       if flows.monthlyGdpProxy == PLN.Zero && gdpProxy > 0.0 then flows.copy(monthlyGdpProxy = PLN(gdpProxy))
       else flows
+    val compatPipeline     = PipelineState.bootstrap(
+      currentSigmas.length,
+      if totalPopulation > 0 then Share.One - Share.fraction(hhAgg.employed, totalPopulation) else Share.Zero,
+      inflation,
+      mechanisms.expectations.expectedInflation,
+    )
     new World(
       month = month,
       inflation = inflation,
@@ -169,7 +183,7 @@ object World:
       real = real,
       mechanisms = mechanisms,
       plumbing = plumbing,
-      pipeline = PipelineState.zero(currentSigmas.length),
+      pipeline = compatPipeline,
       flows = compatFlows,
       regionalWages = Map.empty,
     )
@@ -263,22 +277,89 @@ case class MonetaryPlumbingState(
 object MonetaryPlumbingState:
   val zero: MonetaryPlumbingState = MonetaryPlumbingState()
 
-/** Inter-step pipeline signals carried into the next month. */
-case class PipelineState(
-    sectorDemandMult: Vector[Multiplier],     // per-sector demand multipliers from S4
-    sectorDemandPressure: Vector[Multiplier], // uncapped demand/capacity ratios for hiring
-    sectorHiringSignal: Vector[Multiplier],   // smoothed sector hiring signal used by firm labor planning
-    fiscalRuleSeverity: Int = 0,              // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
-    govSpendingCutRatio: Share = Share.Zero,  // fraction of raw spending cut by fiscal rules
-    aggregateHiringSlack: Double = 1.0,       // economy-wide compression of firm labor targets when plans exceed supply
-    startupAbsorptionRate: Double = 1.0,      // share of startup hiring targets filled across active startup firms
+/** Explicit informational surface available at the start of a month. */
+case class DecisionSignals(
+    unemploymentRate: Share,
+    inflation: Rate,
+    expectedInflation: Rate,
+    aggregateHiringSlack: Share,
+    startupAbsorptionRate: Share,
+    sectorDemandMult: Vector[Multiplier],
+    sectorDemandPressure: Vector[Multiplier],
+    sectorHiringSignal: Vector[Multiplier],
 )
+object DecisionSignals:
+  def zero(sectorCount: Int): DecisionSignals =
+    DecisionSignals(
+      unemploymentRate = Share.Zero,
+      inflation = Rate.Zero,
+      expectedInflation = Rate.Zero,
+      aggregateHiringSlack = Share.One,
+      startupAbsorptionRate = Share.One,
+      sectorDemandMult = Vector.fill(sectorCount)(Multiplier.One),
+      sectorDemandPressure = Vector.fill(sectorCount)(Multiplier.One),
+      sectorHiringSignal = Vector.fill(sectorCount)(Multiplier.One),
+    )
+
+/** Inter-step pipeline signals carried into the next month.
+  *
+  * This remains the persisted substrate, while [[World.seedIn]] exposes the
+  * narrower decision-oriented surface consumed by timing-sensitive blocks.
+  */
+case class PipelineState(
+    sectorDemandMult: Vector[Multiplier],       // per-sector demand multipliers from S4
+    sectorDemandPressure: Vector[Multiplier],   // uncapped demand/capacity ratios for hiring
+    sectorHiringSignal: Vector[Multiplier],     // smoothed sector hiring signal used by firm labor planning
+    fiscalRuleSeverity: Int = 0,                // 0=none, 1=SRW, 2=SGP, 3=Art86_55, 4=Art216_60
+    govSpendingCutRatio: Share = Share.Zero,    // fraction of raw spending cut by fiscal rules
+    aggregateHiringSlack: Double = 1.0,         // economy-wide compression of firm labor targets when plans exceed supply
+    startupAbsorptionRate: Double = 1.0,        // share of startup hiring targets filled across active startup firms
+    laggedUnemploymentRate: Share = Share.Zero, // end-of-month unemployment extracted for next-month decisions
+    laggedInflation: Rate = Rate.Zero,          // realized inflation lagged into next month
+    laggedExpectedInflation: Rate = Rate.Zero,  // expected inflation lagged into next month
+):
+  def seedIn: DecisionSignals =
+    DecisionSignals(
+      unemploymentRate = laggedUnemploymentRate,
+      inflation = laggedInflation,
+      expectedInflation = laggedExpectedInflation,
+      aggregateHiringSlack = Share(aggregateHiringSlack),
+      startupAbsorptionRate = Share(startupAbsorptionRate),
+      sectorDemandMult = sectorDemandMult,
+      sectorDemandPressure = sectorDemandPressure,
+      sectorHiringSignal = sectorHiringSignal,
+    )
+
+  def withDecisionSignals(signals: DecisionSignals): PipelineState =
+    copy(
+      sectorDemandMult = signals.sectorDemandMult,
+      sectorDemandPressure = signals.sectorDemandPressure,
+      sectorHiringSignal = signals.sectorHiringSignal,
+      aggregateHiringSlack = ComputationBoundary.toDouble(signals.aggregateHiringSlack),
+      startupAbsorptionRate = ComputationBoundary.toDouble(signals.startupAbsorptionRate),
+      laggedUnemploymentRate = signals.unemploymentRate,
+      laggedInflation = signals.inflation,
+      laggedExpectedInflation = signals.expectedInflation,
+    )
+
 object PipelineState:
   def zero(sectorCount: Int): PipelineState =
     PipelineState(
       sectorDemandMult = Vector.fill(sectorCount)(Multiplier.One),
       sectorDemandPressure = Vector.fill(sectorCount)(Multiplier.One),
       sectorHiringSignal = Vector.fill(sectorCount)(Multiplier.One),
+    )
+
+  def bootstrap(
+      sectorCount: Int,
+      unemploymentRate: Share,
+      inflation: Rate,
+      expectedInflation: Rate,
+  ): PipelineState =
+    zero(sectorCount).copy(
+      laggedUnemploymentRate = unemploymentRate,
+      laggedInflation = inflation,
+      laggedExpectedInflation = expectedInflation,
     )
 
   def zero(using p: SimParams): PipelineState = zero(p.sectorDefs.length)

@@ -301,14 +301,15 @@ object FirmEconomics:
 
   @boundaryEscape
   def compute(in: Input)(using p: SimParams): StepOutput =
+    val seedIn = in.w.seedIn
     // Construct bridge types from raw values
-    val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-    val s2 = LaborEconomics.Output(
+    val s1     = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
+    val s2     = LaborEconomics.Output(
       in.newWage,
       in.employed,
       in.laborDemand,
       in.wageGrowth,
-      in.w.pipeline.aggregateHiringSlack,
+      ComputationBoundary.toDouble(seedIn.aggregateHiringSlack),
       in.immigration,
       in.netMigration,
       in.demographics,
@@ -320,11 +321,11 @@ object FirmEconomics:
       in.living,
       in.regionalWages,
     )
-    val s4 = DemandEconomics.Output(
+    val s4     = DemandEconomics.Output(
       in.govPurchases,
       in.sectorMults,
-      in.w.pipeline.sectorDemandPressure,
-      in.w.pipeline.sectorHiringSignal,
+      seedIn.sectorDemandPressure,
+      seedIn.sectorHiringSignal,
       in.avgDemandMult,
       in.sectorCapReal,
       in.laggedInvestDemand,

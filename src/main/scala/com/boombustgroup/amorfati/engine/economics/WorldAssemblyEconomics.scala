@@ -157,26 +157,21 @@ object WorldAssemblyEconomics:
     val fofResidual     = computeFofResidual(in)
     val informal        = computeInformalEconomy(in)
     val obs             = computeObservables(in)
+    val seedIn          = in.w.seedIn
 
     val newW = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
 
-    val postFdiFirms     = applyFdiMa(in.s9.reassignedFirms, rng)
-    val updatedPop       = in.w.derivedTotalPopulation + in.s5.netMigration
-    val postFirmEmployed = in.s9.reassignedHouseholds.count: hh =>
-      hh.status match
-        case HhStatus.Employed(_, _, _) => true
-        case _                          => false
-    val unemploymentRate = if updatedPop > 0 then Share.One - Share.fraction(postFirmEmployed, updatedPop) else Share.Zero
-    val entryStep        =
+    val postFdiFirms = applyFdiMa(in.s9.reassignedFirms, rng)
+    val entryStep    =
       val r = FirmEntry.process(
         postFdiFirms,
         newW.real.automationRatio,
         newW.real.hybridRatio,
-        unemploymentRate,
-        Share(in.s2.aggregateHiringSlack),
-        newW.inflation,
-        newW.mechanisms.expectations.expectedInflation,
-        Share(in.w.pipeline.startupAbsorptionRate),
+        seedIn.unemploymentRate,
+        seedIn.aggregateHiringSlack,
+        seedIn.inflation,
+        seedIn.expectedInflation,
+        seedIn.startupAbsorptionRate,
         rng,
       )
       EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
@@ -186,10 +181,11 @@ object WorldAssemblyEconomics:
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
     val postMigHh  = RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
     val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
+    val seedOut    = extractSignals(in, newW, postMigHh, startupStaffing.startupAbsorptionRate)
 
     val finalW = newW
+      .updatePipeline(_ => buildPipelineState(in, seedOut))
       .updateFlows(_.copy(firmBirths = entryStep.firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths))
-      .updatePipeline(_.copy(startupAbsorptionRate = startupStaffing.startupAbsorptionRate))
       .updateReal: r =>
         r.copy(
           sectoralMobility = r.sectoralMobility.copy(
@@ -443,7 +439,7 @@ object WorldAssemblyEconomics:
         depositFacilityUsage = obs.depositFacilityUsage,
         fofResidual = fofResidual,
       ),
-      pipeline = buildPipelineState(in),
+      pipeline = in.w.pipeline,
       flows = buildFlowState(in, informal),
     )
     withLedgerSupportedFinancialState(provisionalWorld, LedgerStateAdapter.roundTripSupported(ledgerSupported))
@@ -560,15 +556,34 @@ object WorldAssemblyEconomics:
       ),
     )
 
-  private def buildPipelineState(in: StepInput): PipelineState =
-    PipelineState(
+  private[economics] def extractSignals(
+      in: StepInput,
+      assembledWorld: World,
+      finalHouseholds: Vector[Household.State],
+      startupAbsorptionRate: Double,
+  ): DecisionSignals =
+    val employed = finalHouseholds.count: hh =>
+      hh.status match
+        case HhStatus.Employed(_, _, _) => true
+        case _                          => false
+    DecisionSignals(
+      unemploymentRate = assembledWorld.unemploymentRate(employed),
+      inflation = assembledWorld.inflation,
+      expectedInflation = assembledWorld.mechanisms.expectations.expectedInflation,
+      aggregateHiringSlack = Share(in.s2.aggregateHiringSlack),
+      startupAbsorptionRate = Share(startupAbsorptionRate),
       sectorDemandMult = in.s4.sectorMults,
       sectorDemandPressure = in.s4.sectorDemandPressure,
       sectorHiringSignal = in.s4.sectorHiringSignal,
-      fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
-      govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
-      aggregateHiringSlack = in.s2.aggregateHiringSlack,
     )
+
+  private def buildPipelineState(in: StepInput, signals: DecisionSignals): PipelineState =
+    in.w.pipeline
+      .withDecisionSignals(signals)
+      .copy(
+        fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,
+        govSpendingCutRatio = in.s4.fiscalRuleStatus.spendingCutRatio,
+      )
 
   /** Construct the FlowState for this step. */
   @boundaryEscape

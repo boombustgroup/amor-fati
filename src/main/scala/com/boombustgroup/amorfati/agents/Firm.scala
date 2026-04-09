@@ -316,8 +316,9 @@ object Firm:
     */
   private def desiredWorkers(f: State, w: World)(using p: SimParams): Int =
     if isInStartup(f) then return Math.max(workerCount(f), f.startupTargetWorkers)
-    val sectorDemand = w.pipeline.sectorDemandMult(f.sector.toInt)
-    val hiringSignal = w.pipeline.sectorHiringSignal(f.sector.toInt)
+    val seedIn       = w.seedIn
+    val sectorDemand = seedIn.sectorDemandMult(f.sector.toInt)
+    val hiringSignal = seedIn.sectorHiringSignal(f.sector.toInt)
     val demandMult   = sectorDemand + (hiringSignal - sectorDemand).max(Multiplier.Zero) * Share(HiringPressureBlend)
     val price        = w.priceLevel.toMultiplier
     val wage         = w.householdMarket.marketWage * effectiveWageMult(f.sector)
@@ -332,7 +333,7 @@ object Firm:
       val capPrev = computeCapacity(f.copy(tech = TechState.Traditional(mid - 1)))
       val mr      = (capMid - capPrev) * (demandMult * price)
       if mr > wage then lo = mid else hi = mid - 1
-    applyAggregateHiringSlack(lo, minW, Multiplier(w.pipeline.aggregateHiringSlack))
+    applyAggregateHiringSlack(lo, minW, seedIn.aggregateHiringSlack.toMultiplier)
 
   private def monthlyHiringHeadroom(workers: Int): Int =
     if workers <= 5 then 1
@@ -464,7 +465,7 @@ object Firm:
     val r1       = applyGreenInvestment(r0a)
     val r2       = applyInvestment(r1)
     val r3       = applyDigitalDrift(r2)
-    val r4       = applyInventory(r3, sectorDemandMult = w.pipeline.sectorDemandMult(firm.sector.toInt))
+    val r4       = applyInventory(r3, sectorDemandMult = w.seedIn.sectorDemandMult(firm.sector.toInt))
     val r5       = applyFdiFlows(r4)
     applyInformalCitEvasion(r5, Share(w.mechanisms.informalCyclicalAdj))
 
@@ -583,7 +584,7 @@ object Firm:
     val pnl = computePnL(
       firm,
       w.householdMarket.marketWage,
-      w.pipeline.sectorDemandMult(firm.sector.toInt),
+      w.seedIn.sectorDemandMult(firm.sector.toInt),
       w.priceLevel,
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
@@ -607,7 +608,7 @@ object Firm:
     val pnl    = computePnL(
       firm,
       w.householdMarket.marketWage,
-      w.pipeline.sectorDemandMult(firm.sector.toInt),
+      w.seedIn.sectorDemandMult(firm.sector.toInt),
       w.priceLevel,
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
@@ -895,7 +896,7 @@ object Firm:
     val pnl           = computePnL(
       firm,
       w.householdMarket.marketWage,
-      w.pipeline.sectorDemandMult(firm.sector.toInt),
+      w.seedIn.sectorDemandMult(firm.sector.toInt),
       w.priceLevel,
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
