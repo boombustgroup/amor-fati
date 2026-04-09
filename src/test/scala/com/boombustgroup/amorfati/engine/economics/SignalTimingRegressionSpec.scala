@@ -232,7 +232,8 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "currently persist refreshed same-month hiring slack into pipeline state" in {
-    val base   = entrySensitiveInput.copy(s2 = entrySensitiveInput.s2.copy(aggregateHiringSlack = 0.21))
+    val input  = entrySensitiveInput
+    val base   = input.copy(s2 = input.s2.copy(aggregateHiringSlack = 0.21))
     val result = WorldAssemblyEconomics.runStep(base, new scala.util.Random(1234L), new scala.util.Random(5678L))
 
     result.newWorld.pipeline.aggregateHiringSlack shouldBe (0.21 +- 1e-9)
