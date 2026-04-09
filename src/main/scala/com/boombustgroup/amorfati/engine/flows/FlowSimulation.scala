@@ -638,6 +638,8 @@ object FlowSimulation:
         minWagePriceLevel = full.fiscal.updatedMinWagePriceLevel,
         govPurchases = full.s4.govPurchases,
         sectorMults = full.s4.sectorMults,
+        sectorDemandPressure = full.s4.sectorDemandPressure,
+        sectorHiringSignal = full.s4.sectorHiringSignal,
         avgDemandMult = full.s4.avgDemandMult,
         sectorCapReal = full.s4.sectorCapReal,
         laggedInvestDemand = full.s4.laggedInvestDemand,
