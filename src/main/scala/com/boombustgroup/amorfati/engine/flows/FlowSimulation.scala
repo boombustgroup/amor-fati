@@ -508,50 +508,6 @@ object FlowSimulation:
   ): Sfc.RuntimeState =
     Sfc.RuntimeState(w, firms, households, banks)
 
-  private def buildSeedOutProvenance(seedOut: DecisionSignals): SeedOutProvenance =
-    SeedOutProvenance(
-      unemploymentRate = SignalProvenance(
-        seedOut.unemploymentRate,
-        MonthTraceStage.WorldAssemblyEconomics,
-        "finalHouseholds employment count -> assembledWorld.unemploymentRate",
-      ),
-      inflation = SignalProvenance(
-        seedOut.inflation,
-        MonthTraceStage.PriceEquityEconomics,
-        "s7.newInfl -> assembledWorld.inflation",
-      ),
-      expectedInflation = SignalProvenance(
-        seedOut.expectedInflation,
-        MonthTraceStage.OpenEconEconomics,
-        "s8.monetary.newExp.expectedInflation -> assembledWorld.mechanisms.expectations.expectedInflation",
-      ),
-      laggedHiringSlack = SignalProvenance(
-        seedOut.laggedHiringSlack,
-        MonthTraceStage.LaborEconomics,
-        "s2.operationalHiringSlack",
-      ),
-      startupAbsorptionRate = SignalProvenance(
-        seedOut.startupAbsorptionRate,
-        MonthTraceStage.StartupStaffing,
-        "WorldAssemblyEconomics.applyStartupStaffing.startupAbsorptionRate",
-      ),
-      sectorDemandMult = SignalProvenance(
-        seedOut.sectorDemandMult,
-        MonthTraceStage.DemandEconomics,
-        "s4.sectorMults",
-      ),
-      sectorDemandPressure = SignalProvenance(
-        seedOut.sectorDemandPressure,
-        MonthTraceStage.DemandEconomics,
-        "s4.sectorDemandPressure",
-      ),
-      sectorHiringSignal = SignalProvenance(
-        seedOut.sectorHiringSignal,
-        MonthTraceStage.DemandEconomics,
-        "s4.sectorHiringSignal",
-      ),
-    )
-
   private case class ExecutedBatchEvidence(
       totals: Map[MechanismId, Long],
       signedTotals: Map[MechanismId, Long],
@@ -716,7 +672,7 @@ object FlowSimulation:
       executionSnapshot = Sfc.ExecutionSnapshot.fromRaw(execution.snapshot),
       totalWealth = execution.totalWealth,
     )
-    val seedOut    = assembled.world.seedIn
+    val seedOut    = assembled.signalExtraction.seedOut
     val monthTrace =
       MonthTrace(
         month = assembled.world.month,
@@ -729,7 +685,7 @@ object FlowSimulation:
           sectorHiringSignal = full.s4.sectorHiringSignal,
           realizedInflation = full.s7.newInfl,
           expectedInflation = full.s8.monetary.newExp.expectedInflation,
-          startupAbsorptionRate = seedOut.startupAbsorptionRate,
+          startupAbsorptionRate = assembled.signalExtraction.seedOut.startupAbsorptionRate,
           firmBirths = assembled.world.flows.firmBirths,
           firmDeaths = assembled.world.flows.firmDeaths,
           netFirmBirths = assembled.world.flows.netFirmBirths,
@@ -737,7 +693,7 @@ object FlowSimulation:
         executedFlows = sfcFlows,
         endSnapshot = MonthBoundarySnapshot.capture(assembled.world, assembled.firms, assembled.households, assembled.banks),
         seedOut = seedOut,
-        seedOutProvenance = buildSeedOutProvenance(seedOut),
+        seedOutProvenance = assembled.signalExtraction.provenance,
         validations = Vector(MonthValidation.fromSfcResult(sfcResult)),
       )
 

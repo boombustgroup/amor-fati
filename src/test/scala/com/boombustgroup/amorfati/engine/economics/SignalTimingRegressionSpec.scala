@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.{DecisionSignals, World}
+import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthTraceStage, SignalExtraction, World}
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -181,7 +181,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
   private def netBirths(in: WorldAssemblyEconomics.StepInput): Int =
     WorldAssemblyEconomics.runStep(in, new scala.util.Random(1234L), new scala.util.Random(5678L)).newWorld.flows.netFirmBirths
 
-  "WorldAssemblyEconomics.extractSignals" should "derive next-month decision inputs through one explicit post-to-pre boundary" in {
+  "SignalExtraction.compute" should "derive next-month decision inputs through one explicit post-to-pre boundary" in {
     val base            = entrySensitiveInput
     val finalHouseholds = withUnemploymentShare(base.s9.reassignedHouseholds, base.s9.reassignedFirms, base.s2.newWage, 0.22)
     val finalWorld      = base.w.copy(
@@ -191,16 +191,35 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         expectations = base.w.mechanisms.expectations.copy(expectedInflation = Rate(0.04)),
       ),
     )
-    val extracted       = WorldAssemblyEconomics.extractSignals(base, finalWorld, finalHouseholds, Share(0.35))
+    val extracted       = SignalExtraction.compute(
+      SignalExtraction.Input(
+        labor = SignalExtraction.LaborOutcomes(
+          unemploymentRate = finalWorld.unemploymentRate(finalHouseholds.count(_.status.isInstanceOf[HhStatus.Employed])),
+          laggedHiringSlack = Share.One,
+          startupAbsorptionRate = Share(0.35),
+        ),
+        nominal = SignalExtraction.NominalOutcomes(
+          inflation = finalWorld.inflation,
+          expectedInflation = finalWorld.mechanisms.expectations.expectedInflation,
+        ),
+        demand = SignalExtraction.DemandOutcomes(
+          sectorDemandMult = base.s4.sectorMults,
+          sectorDemandPressure = base.s4.sectorDemandPressure,
+          sectorHiringSignal = base.s4.sectorHiringSignal,
+        ),
+      ),
+    )
 
-    extracted.unemploymentRate shouldBe finalWorld.unemploymentRate(finalHouseholds.count(_.status.isInstanceOf[HhStatus.Employed]))
-    extracted.inflation shouldBe Rate(-0.01)
-    extracted.expectedInflation shouldBe Rate(0.04)
-    extracted.laggedHiringSlack shouldBe Share.One
-    extracted.startupAbsorptionRate shouldBe Share(0.35)
-    extracted.sectorDemandMult shouldBe base.s4.sectorMults
-    extracted.sectorDemandPressure shouldBe base.s4.sectorDemandPressure
-    extracted.sectorHiringSignal shouldBe base.s4.sectorHiringSignal
+    extracted.seedOut.unemploymentRate shouldBe finalWorld.unemploymentRate(finalHouseholds.count(_.status.isInstanceOf[HhStatus.Employed]))
+    extracted.seedOut.inflation shouldBe Rate(-0.01)
+    extracted.seedOut.expectedInflation shouldBe Rate(0.04)
+    extracted.seedOut.laggedHiringSlack shouldBe Share.One
+    extracted.seedOut.startupAbsorptionRate shouldBe Share(0.35)
+    extracted.seedOut.sectorDemandMult shouldBe base.s4.sectorMults
+    extracted.seedOut.sectorDemandPressure shouldBe base.s4.sectorDemandPressure
+    extracted.seedOut.sectorHiringSignal shouldBe base.s4.sectorHiringSignal
+    extracted.provenance.unemploymentRate.stage shouldBe MonthTraceStage.WorldAssemblyEconomics
+    extracted.provenance.startupAbsorptionRate.stage shouldBe MonthTraceStage.StartupStaffing
   }
 
   "WorldAssemblyEconomics.runStep" should "derive entry unemployment from lagged decision signals instead of post-firm households" in {

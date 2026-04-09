@@ -77,34 +77,6 @@ case class MonthStageTrace(
     netFirmBirths: Int,
 )
 
-/** Provenance stage tags for the extracted seed-out fields. */
-enum MonthTraceStage:
-  case LaborEconomics
-  case DemandEconomics
-  case PriceEquityEconomics
-  case OpenEconEconomics
-  case WorldAssemblyEconomics
-  case StartupStaffing
-
-/** Typed provenance for one extracted next-month signal. */
-case class SignalProvenance[A](
-    value: A,
-    stage: MonthTraceStage,
-    source: String,
-)
-
-/** Minimal provenance view for the fields persisted into the next month. */
-case class SeedOutProvenance(
-    unemploymentRate: SignalProvenance[Share],
-    inflation: SignalProvenance[Rate],
-    expectedInflation: SignalProvenance[Rate],
-    laggedHiringSlack: SignalProvenance[Share],
-    startupAbsorptionRate: SignalProvenance[Share],
-    sectorDemandMult: SignalProvenance[Vector[Multiplier]],
-    sectorDemandPressure: SignalProvenance[Vector[Multiplier]],
-    sectorHiringSignal: SignalProvenance[Vector[Multiplier]],
-)
-
 enum MonthValidationKind:
   case Sfc
 

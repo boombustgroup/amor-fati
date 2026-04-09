@@ -30,9 +30,10 @@ already visible:
 1. `FlowSimulation.computeAll(...)` computes `s2Pre`, `s3`, `s4`, `s5`,
    post-firm `s2`, then `s6`-`s9`.
 2. `WorldAssemblyEconomics.runStep(...)` assembles the month-`t` world, runs
-   `FirmEntry`, runs same-month startup staffing, then extracts `seedOut`.
-3. `WorldAssemblyEconomics.buildPipelineState(...)` persists `seedOut` plus a
-   few observability fields on `PipelineState`.
+   `FirmEntry`, runs same-month startup staffing, then hands realized outcomes
+   to `SignalExtraction.compute(...)`.
+3. `WorldAssemblyEconomics.buildPipelineState(...)` persists extracted
+   `seedOut` plus a few observability fields on `PipelineState`.
 4. `FlowSimulation.step(...)` emits `MonthTrace` from the month boundary.
 
 Execution order and information ownership are still partially different. The
@@ -63,8 +64,7 @@ In practice this means:
 - `World.seedIn` should stay the narrow persisted decision surface.
 - the same-month bridge currently hidden inside `pipeline.copy(...)` belongs in
   a future `OperationalSignals`-style surface.
-- `WorldAssemblyEconomics.extractSignals(...)` should remain the canonical
-  extraction owner.
+- `SignalExtraction.compute(...)` should remain the canonical extraction owner.
 - `MonthTrace` should observe boundaries, not substitute for them.
 
 ## Current `seedIn` Consumers
@@ -125,8 +125,8 @@ The following blocks define the current same-month or boundary surfaces.
 | `DemandEconomics.compute(...)` | `s4` (`sectorMults`, `sectorDemandPressure`, `sectorHiringSignal`, fiscal-rule status) | `same-month` | `FirmEconomics.runStep(...)`, `PriceEquityEconomics`, `OpenEconEconomics`, `BankingEconomics.runStep(...)`, extraction | same-month demand surface |
 | `FirmEconomics.prepareLending(...)` | copied `World` with `pipeline.copy(...)` carrying `s4` plus `s2.operationalHiringSlack` | `transitional` | `Firm.process(...)` only | remove bridge; replace with explicit operational surface |
 | `LaborEconomics.reconcilePostFirmStep(...)` | post-firm `s2` | `same-month` | `s6`, `s7`, `s8`, `s9`, extraction of `laggedHiringSlack`, startup staffing context | post-firm operational / realization surface |
-| `WorldAssemblyEconomics.applyStartupStaffing(...)` | `startupAbsorptionRate`, startup HH aggregates, startup hires | `same-month` | `extractSignals(...)`, final world assembly | startup-staffing operational surface |
-| `WorldAssemblyEconomics.extractSignals(...)` | `seedOut: DecisionSignals` | `post` boundary | `buildPipelineState(...)`, next month `w.seedIn`, `MonthTrace` | extraction boundary |
+| `WorldAssemblyEconomics.applyStartupStaffing(...)` | `startupAbsorptionRate`, startup HH aggregates, startup hires | `same-month` | `SignalExtraction.compute(...)`, final world assembly | startup-staffing operational surface |
+| `SignalExtraction.compute(...)` | `seedOut: DecisionSignals` plus typed provenance | `post` boundary | `buildPipelineState(...)`, next month `w.seedIn`, `MonthTrace` | extraction boundary |
 | `WorldAssemblyEconomics.buildPipelineState(...)` | persisted `PipelineState` for month `t+1` plus observability fields | `post` boundary | next month `World.seedIn`, diagnostics, MC output | persistence boundary |
 | `FlowSimulation.step(...)` | `MonthTrace` | tracing boundary | tests, debugging, audit | tracing boundary |
 
@@ -137,8 +137,8 @@ The following blocks define the current same-month or boundary surfaces.
    `FirmEconomics.prepareLending(...).pipeline.copy(...)`.
 2. `seedIn` is already a good persisted owner for macro decision inputs, but it
    is still being used as an intra-month transport for incumbent firm logic.
-3. `WorldAssemblyEconomics.extractSignals(...)` is already the architectural
-   choke point for `post -> pre` conversion and should remain singular.
+3. `SignalExtraction.compute(...)` is the architectural choke point for
+   `post -> pre` conversion and should remain singular.
 4. There is only one remaining direct `pipeline.*` read in timing-sensitive
    engine code, but there are multiple transitional `seedIn` reads caused by
    the same hidden same-month bridge.
@@ -149,7 +149,7 @@ The following blocks define the current same-month or boundary surfaces.
 
 - `#309` should introduce the explicit same-month operational surface that
   replaces the `pipeline.copy(...)` bridge used by incumbent firm processing.
-- `#310` should isolate `extractSignals(...)` and persistence as the formal
+- `#310` should isolate `SignalExtraction.compute(...)` and persistence as the formal
   `post -> pre` boundary of the monthly step.
 - `#311` should make `MonthTrace` follow these boundaries instead of tracking
   transitional transport details ad hoc.
