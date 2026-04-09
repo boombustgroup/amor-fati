@@ -676,24 +676,50 @@ object FlowSimulation:
     val monthTrace =
       MonthTrace(
         month = assembled.world.month,
-        startSnapshot = MonthBoundarySnapshot.capture(w, firms, households, banks),
-        seedIn = w.seedIn,
-        stages = MonthStageTrace(
-          operationalHiringSlack = full.s2.operationalHiringSlack,
-          sectorDemandMult = full.s4.sectorMults,
-          sectorDemandPressure = full.s4.sectorDemandPressure,
-          sectorHiringSignal = full.s4.sectorHiringSignal,
-          realizedInflation = full.s7.newInfl,
-          expectedInflation = full.s8.monetary.newExp.expectedInflation,
-          startupAbsorptionRate = assembled.signalExtraction.seedOut.startupAbsorptionRate,
-          firmBirths = assembled.world.flows.firmBirths,
-          firmDeaths = assembled.world.flows.firmDeaths,
-          netFirmBirths = assembled.world.flows.netFirmBirths,
+        boundary = MonthBoundaryTrace(
+          startSnapshot = MonthBoundarySnapshot.capture(w, firms, households, banks),
+          endSnapshot = MonthBoundarySnapshot.capture(assembled.world, assembled.firms, assembled.households, assembled.banks),
+        ),
+        seedTransition = SeedTransitionTrace(
+          seedIn = w.seedIn,
+          seedOut = seedOut,
+          provenance = assembled.signalExtraction.provenance,
+        ),
+        timing = MonthTimingTrace(
+          Vector(
+            MonthTrace.timingEnvelope(
+              MonthTimingEnvelopeKey.LaborSignals,
+              MonthTimingPayload.LaborSignals(
+                operationalHiringSlack = full.s2.operationalHiringSlack,
+              ),
+            ),
+            MonthTrace.timingEnvelope(
+              MonthTimingEnvelopeKey.DemandSignals,
+              MonthTimingPayload.DemandSignals(
+                sectorDemandMult = full.s4.sectorMults,
+                sectorDemandPressure = full.s4.sectorDemandPressure,
+                sectorHiringSignal = full.s4.sectorHiringSignal,
+              ),
+            ),
+            MonthTrace.timingEnvelope(
+              MonthTimingEnvelopeKey.NominalSignals,
+              MonthTimingPayload.NominalSignals(
+                realizedInflation = full.s7.newInfl,
+                expectedInflation = full.s8.monetary.newExp.expectedInflation,
+              ),
+            ),
+            MonthTrace.timingEnvelope(
+              MonthTimingEnvelopeKey.FirmDynamics,
+              MonthTimingPayload.FirmDynamics(
+                startupAbsorptionRate = assembled.signalExtraction.seedOut.startupAbsorptionRate,
+                firmBirths = assembled.world.flows.firmBirths,
+                firmDeaths = assembled.world.flows.firmDeaths,
+                netFirmBirths = assembled.world.flows.netFirmBirths,
+              ),
+            ),
+          ),
         ),
         executedFlows = sfcFlows,
-        endSnapshot = MonthBoundarySnapshot.capture(assembled.world, assembled.firms, assembled.households, assembled.banks),
-        seedOut = seedOut,
-        seedOutProvenance = assembled.signalExtraction.provenance,
         validations = Vector(MonthValidation.fromSfcResult(sfcResult)),
       )
 

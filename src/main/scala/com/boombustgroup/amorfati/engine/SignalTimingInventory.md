@@ -34,7 +34,8 @@ already visible:
    to `SignalExtraction.compute(...)`.
 3. `WorldAssemblyEconomics.buildPipelineState(...)` persists extracted
    `seedOut` plus a few observability fields on `PipelineState`.
-4. `FlowSimulation.step(...)` emits `MonthTrace` from the month boundary.
+4. `FlowSimulation.step(...)` emits `MonthTrace` as a stable boundary core plus
+   typed timing envelopes.
 
 Execution order and information ownership are still partially different. The
 main transitional hotspot is that `FirmEconomics.prepareLending(...)` copies
@@ -65,7 +66,8 @@ In practice this means:
 - the same-month bridge currently hidden inside `pipeline.copy(...)` belongs in
   a future `OperationalSignals`-style surface.
 - `SignalExtraction.compute(...)` should remain the canonical extraction owner.
-- `MonthTrace` should observe boundaries, not substitute for them.
+- `MonthTrace` should observe boundaries through a stable core and keep
+  same-month detail in extensible typed envelopes.
 
 ## Current `seedIn` Consumers
 
@@ -151,8 +153,9 @@ The following blocks define the current same-month or boundary surfaces.
   replaces the `pipeline.copy(...)` bridge used by incumbent firm processing.
 - `#310` should isolate `SignalExtraction.compute(...)` and persistence as the formal
   `post -> pre` boundary of the monthly step.
-- `#311` should make `MonthTrace` follow these boundaries instead of tracking
-  transitional transport details ad hoc.
+- `#311` should make `MonthTrace` follow these boundaries through stable core
+  artifacts plus typed timing envelopes, instead of tracking transitional
+  transport details ad hoc.
 - `#312` should lock the resulting contract with regression coverage beyond the
   original `FirmEntry` path.
 - `#313` remains the top-level owner of the eventual unfold-shaped monthly
