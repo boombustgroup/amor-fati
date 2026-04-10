@@ -271,11 +271,18 @@ object FlowSimulation:
       firmDynamics: MonthTimingPayload.FirmDynamics,
   )
 
+  /** Post-assembly view of month `t`: assembled world plus the narrow payload
+    * needed to build [[MonthTrace]].
+    */
   case class PostMonth(
       assembled: WorldAssemblyEconomics.PostResult,
       traceInputs: TraceInputs,
   )
 
+  /** Full typed boundary carried through one step: pre-step seed, same-month
+    * operational view, post-month assembly, then the extracted seed for
+    * `t + 1`.
+    */
   case class MonthOutcome(
       operational: MonthSemantics.Operational,
       stages: MonthSemantics.StageView,
@@ -729,6 +736,7 @@ object FlowSimulation:
         migRng = rng,
       ),
     )
+    // This stays at month `t`: the boundary seed is still `seedIn` here.
     MonthSemantics.At[PostMonth, MonthSemantics.Post](PostMonth(assembled, buildTraceInputs(stageView, assembled)))
 
   private def extractSeedOut(
@@ -743,6 +751,8 @@ object FlowSimulation:
     MonthSemantics.At[SignalExtraction.Output, MonthSemantics.NextPre](
       SignalExtraction.compute(
         SignalExtraction.Input(
+          // Seed extraction is the only place that derives the next boundary
+          // signal from realized month-`t` outcomes.
           labor = SignalExtraction.LaborOutcomes(
             unemploymentRate = assembled.world.unemploymentRate(employed),
             laggedHiringSlack = stages.labor.operationalHiringSlack,
@@ -765,6 +775,8 @@ object FlowSimulation:
       input: StepInput,
       rng: Random,
   )(using p: SimParams): MonthOutcome =
+    // Keep the month-step pipeline explicit:
+    // `seedIn/pre -> same-month stages -> post-month assembly -> seedOut/next-pre`.
     val stageView   = MonthSemantics.At[StageOutputs, MonthSemantics.SameMonth](computeStageOutputs(input, rng))
     val operational = buildOperationalSignals(stageView)
     val post        = assemblePostMonth(input, stageView, rng)
@@ -786,6 +798,8 @@ object FlowSimulation:
     val nextSeed  = seedOut.value.seedOut
     val nextWorld = assembled.world.updatePipeline(_.withDecisionSignals(nextSeed))
 
+    // `advanceState` is the only legal `post -> next-pre` transition:
+    // post-month assembly still sees the old seed, next state applies `seedOut`.
     require(input.seedIn.value == input.stateIn.world.seedIn, "StepInput seedIn must match stateIn.world.seedIn")
     require(assembled.world.seedIn == input.seedIn.value, "PostMonth world must remain on the pre-step seed until advanceState runs")
     require(nextWorld.seedIn == nextSeed, "advanceState must be the transition that applies SeedOut to the next boundary")
