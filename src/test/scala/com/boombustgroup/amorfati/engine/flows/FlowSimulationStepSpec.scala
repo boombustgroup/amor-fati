@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.engine.flows
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthTimingEnvelopeKey, MonthTimingPayload, MonthTraceStage}
+import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthSemantics, MonthTimingEnvelopeKey, MonthTimingPayload, MonthTraceStage}
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
@@ -50,6 +50,20 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     stateResult.nextState.banks shouldBe repeated.nextState.banks
     stateResult.nextState.householdAggregates shouldBe repeated.nextState.householdAggregates
     stateResult.trace shouldBe repeated.trace
+  }
+
+  it should "keep explicit pre and next-pre seed wrappers aligned with step outputs" in {
+    val init    = WorldInit.initialize(42L)
+    val state   = FlowSimulation.SimState.fromInit(init)
+    val seedIn  = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](state.world.seedIn)
+    val result  = FlowSimulation.step(state, new scala.util.Random(42L))
+    val seedOut = MonthSemantics.At[com.boombustgroup.amorfati.engine.SignalExtraction.Output, MonthSemantics.NextPre](result.signalExtraction)
+
+    seedIn.value shouldBe state.world.seedIn
+    seedOut.value shouldBe result.signalExtraction
+    seedOut.value.seedOut shouldBe result.nextState.world.seedIn
+    result.trace.seedTransition.seedIn shouldBe seedIn.value
+    result.trace.seedTransition.seedOut shouldBe seedOut.value.seedOut
   }
 
   it should "produce SFC == 0L across 12 months (autonomous driving)" in {

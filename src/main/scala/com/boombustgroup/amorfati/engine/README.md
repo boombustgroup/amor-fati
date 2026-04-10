@@ -20,6 +20,7 @@ engine/
 | File | Responsibility |
 |------|----------------|
 | `World.scala` | Case class holding all macro state, decomposed into 7 nested types: `SocialState`, `FinancialMarketsState`, `ExternalState`, `RealState`, `MechanismsState`, `MonetaryPlumbingState`, `FlowState`. |
+| `MonthSemantics.scala` | Tiny typed phase markers for the internal month step: pre-seed, same-month operational state, post-assembly state, and next pre-seed extraction. |
 | `OperationalSignals.scala` | Explicit same-month signal surface for month-`t` operational execution, kept distinct from persisted start-of-month `DecisionSignals`. |
 | `SignalExtraction.scala` | Explicit post-to-pre boundary: derives next-month `DecisionSignals` and typed seed provenance from realized month-`t` outcomes. |
 | `MonthTrace.scala` | Boundary-focused audit artifact with a stable month core (`boundary`, `seedTransition`, validations) plus extensible typed timing envelopes. |
@@ -30,6 +31,7 @@ The top-level engine shape is now explicit:
 
 ```scala
 case class SimState(...)
+case class MonthOutcome(...)
 case class StepOutput(
   stateIn: SimState,
   operationalSignals: OperationalSignals,
@@ -45,6 +47,7 @@ def step(state: SimState, rng: Random): StepOutput
 Read it as a month transition:
 
 - `stateIn.world.seedIn` is the persisted `pre` input surface.
+- `MonthOutcome` is the internal bridge from same-month computation to post-month assembly.
 - `operationalSignals` is the explicit same-month surface created inside the step.
 - `signalExtraction` is the dedicated `post -> pre` boundary.
 - `trace` is the emitted audit artifact for month `t`.
@@ -77,9 +80,9 @@ against 13 accounting identities each month.
 
 | File | Responsibility |
 |------|----------------|
-| `FlowSimulation.scala` | Sole pipeline entry point. `step(state, rng)` is the explicit month boundary: it runs `computeAll()`, records monetary flows, emits `MonthTrace`, and returns typed `nextState` for month `t+1`. |
+| `FlowSimulation.scala` | Sole pipeline entry point. `step(state, rng)` is the explicit month boundary: it computes typed `StageOutputs`, narrows them into `MonthOutcome`, records monetary flows, emits `MonthTrace`, and returns typed `nextState` for month `t+1`. |
 | `FlowMechanism.scala` | Enum of ~80 named flow mechanisms (e.g. `FirmWages`, `HhConsumption`, `BankBfgLevy`). Each flow in the system maps to exactly one mechanism. |
-| `StateAdapter.scala` | Bridges computation outputs to flow inputs: extracts ZUS, NFZ, PPK, earmarked, HH, insurance, and firm flow parameters from `FullComputation`. |
+| `StateAdapter.scala` | Legacy bridge from economics/world state into specific flow inputs. Kept only as transitional adapter code around the newer pipeline. |
 | `ZusFlows.scala` | ZUS/FUS pensions: contributions (HH → FUS), pensions (FUS → HH), gov subvention covering deficit |
 | `NfzFlows.scala` | NFZ (National Health Fund): 9% składka zdrowotna, healthcare spending, gov subvention |
 | `PpkFlows.scala` | PPK (Pracownicze Plany Kapitałowe): employee + employer contributions, bond purchases |

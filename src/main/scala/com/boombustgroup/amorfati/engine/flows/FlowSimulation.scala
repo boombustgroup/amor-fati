@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.MonthSemantics.At.*
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -241,21 +242,52 @@ object FlowSimulation:
   def emitAllFlows(c: MonthlyCalculus)(using p: SimParams): Vector[Flow] =
     AggregateBatchContract.toLegacyFlows(emitAllBatches(c))
 
-  /** All intermediate step outputs needed for both MonthlyCalculus and
-    * WorldAssembly. Computed once per step — eliminates the double-computation
-    * bug where s1–s9 ran twice with diverging RNG state.
+  /** Typed month-`t` boundary input used internally by [[step]]. */
+  case class StepInput(
+      stateIn: SimState,
+      seedIn: MonthSemantics.SeedIn,
+  )
+
+  /** Same-month stage outputs computed exactly once and reused by every
+    * downstream boundary.
     */
-  private case class FullComputation(
-      calculus: MonthlyCalculus,
+  case class StageOutputs(
       fiscal: FiscalConstraintEconomics.Result,
-      s2: LaborEconomics.Output,
-      s3: HouseholdIncomeEconomics.Output,
-      s4: DemandEconomics.Output,
-      s5: FirmEconomics.StepOutput,
-      s6: HouseholdFinancialEconomics.Output,
-      s7: PriceEquityEconomics.Output,
-      s8: OpenEconEconomics.StepOutput,
-      s9: BankingEconomics.StepOutput,
+      labor: LaborEconomics.Output,
+      hhIncome: HouseholdIncomeEconomics.Output,
+      demand: DemandEconomics.Output,
+      firms: FirmEconomics.StepOutput,
+      hhFinancial: HouseholdFinancialEconomics.Output,
+      prices: PriceEquityEconomics.Output,
+      openEcon: OpenEconEconomics.StepOutput,
+      banking: BankingEconomics.StepOutput,
+      calculus: MonthlyCalculus,
+  )
+
+  case class TraceInputs(
+      labor: MonthTimingPayload.LaborSignals,
+      demand: MonthTimingPayload.DemandSignals,
+      nominal: MonthTimingPayload.NominalSignals,
+      firmDynamics: MonthTimingPayload.FirmDynamics,
+  )
+
+  /** Post-assembly view of month `t`: assembled world plus the narrow payload
+    * needed to build [[MonthTrace]].
+    */
+  case class PostMonth(
+      assembled: WorldAssemblyEconomics.PostResult,
+      traceInputs: TraceInputs,
+  )
+
+  /** Full typed boundary carried through one step: pre-step seed, same-month
+    * operational view, post-month assembly, then the extracted seed for
+    * `t + 1`.
+    */
+  case class MonthOutcome(
+      operational: MonthSemantics.Operational,
+      stages: MonthSemantics.StageView,
+      post: MonthSemantics.PostAssembly,
+      seedOut: MonthSemantics.SeedOut,
   )
 
   /** Compute MonthlyCalculus by chaining all Economics. Uses old pipeline steps
@@ -264,16 +296,18 @@ object FlowSimulation:
     * once, then derives both the aggregate banking result and the step output
     * used by WorldAssembly from that single execution.
     *
-    * Returns FullComputation with both calculus AND step outputs for
-    * WorldAssembly.
+    * Returns typed [[StageOutputs]] so later boundaries do not depend on one
+    * broad transport bag.
     */
-  private def computeAll(
-      w: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
+  private def computeStageOutputs(
+      input: StepInput,
       rng: Random,
-  )(using p: SimParams): FullComputation =
+  )(using p: SimParams): StageOutputs =
+    val stateIn         = input.stateIn
+    val w               = stateIn.world
+    val firms           = stateIn.firms
+    val households      = stateIn.households
+    val banks           = stateIn.banks
     val fiscal          = FiscalConstraintEconomics.compute(w, banks)
     val s1              = FiscalConstraintEconomics.toOutput(fiscal)
     val labor           = LaborEconomics.compute(w, firms, households, s1)
@@ -349,7 +383,7 @@ object FlowSimulation:
       ),
     )
     val s8              = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, rng))
-    val operational     = extractOperationalSignals(s2, s4)
+    val operational     = operationalSignals(s2, s4)
     val bankingInput    = BankingEconomics.Input(
       w = w,
       month = fiscal.month,
@@ -463,12 +497,18 @@ object FlowSimulation:
       govBondYield = openEcon.newBondYield,
       corpBondYield = openEcon.corpBondYield,
     )
-    FullComputation(calc, fiscal, s2, s3, s4, s5, s6, s7, s8, s9)
+    StageOutputs(fiscal, s2, s3, s4, s5, s6, s7, s8, s9, calc)
 
   /** Public API: compute calculus only (for tests that need MonthlyCalculus).
     */
   def computeCalculus(state: SimState, rng: Random)(using p: SimParams): MonthlyCalculus =
-    computeAll(state.world, state.firms, state.households, state.banks, rng).calculus
+    computeStageOutputs(
+      StepInput(
+        stateIn = state,
+        seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](state.world.seedIn),
+      ),
+      rng,
+    ).calculus
 
   /** Full month-step contract.
     *
@@ -546,41 +586,42 @@ object FlowSimulation:
 
       ExecutedBatchEvidence(totals, signedTotals)
 
-  private def buildSfcFlows(full: FullComputation, batches: Vector[BatchedFlow], fofResidual: PLN)(using p: SimParams): Sfc.SemanticFlows =
+  private def buildSfcFlows(stageView: MonthSemantics.StageView, batches: Vector[BatchedFlow], fofResidual: PLN)(using p: SimParams): Sfc.SemanticFlows =
+    val stages   = stageView.value
     val evidence = ExecutedBatchEvidence.from(batches)
     Sfc.SemanticFlows(
       govSpending =
-        full.s9.newGovWithYield.domesticBudgetOutlays + full.s2.newZus.govSubvention + full.s2.newNfz.govSubvention + full.s2.newEarmarked.totalGovSubvention,
+        stages.banking.newGovWithYield.domesticBudgetOutlays + stages.labor.newZus.govSubvention + stages.labor.newNfz.govSubvention + stages.labor.newEarmarked.totalGovSubvention,
       govRevenue =
-        full.s5.sumTax + full.s7.dividendTax + full.s9.pitAfterEvasion + full.s9.vatAfterEvasion + full.s8.banking.nbpRemittance + full.s9.exciseAfterEvasion + full.s9.customsDutyRevenue,
-      nplLoss = full.s5.nplLoss,
+        stages.firms.sumTax + stages.prices.dividendTax + stages.banking.pitAfterEvasion + stages.banking.vatAfterEvasion + stages.openEcon.banking.nbpRemittance + stages.banking.exciseAfterEvasion + stages.banking.customsDutyRevenue,
+      nplLoss = stages.firms.nplLoss,
       interestIncome = evidence.amount(FlowMechanism.FirmInterestPaid),
       hhDebtService = evidence.amount(FlowMechanism.HhDebtService),
-      totalIncome = full.s3.totalIncome,
+      totalIncome = stages.hhIncome.totalIncome,
       totalConsumption = evidence.amount(FlowMechanism.HhConsumption),
       newLoans = evidence.amount(FlowMechanism.FirmNewLoan),
-      nplRecovery = full.s5.nplNew * p.banking.loanRecovery,
-      currentAccount = full.s8.external.newBop.currentAccount,
-      valuationEffect = full.s8.external.oeValuationEffect,
+      nplRecovery = stages.firms.nplNew * p.banking.loanRecovery,
+      currentAccount = stages.openEcon.external.newBop.currentAccount,
+      valuationEffect = stages.openEcon.external.oeValuationEffect,
       bankBondIncome = evidence.amount(FlowMechanism.BankGovBondIncome),
-      qePurchase = full.s8.monetary.qePurchaseAmount,
-      newBondIssuance = full.s9.actualBondChange,
+      qePurchase = stages.openEcon.monetary.qePurchaseAmount,
+      newBondIssuance = stages.banking.actualBondChange,
       depositInterestPaid = evidence.amount(FlowMechanism.HhDepositInterest),
       reserveInterest = evidence.amount(FlowMechanism.BankReserveInterest),
       standingFacilityIncome = evidence.signedAmount(FlowMechanism.BankStandingFacility),
       interbankInterest = evidence.signedAmount(FlowMechanism.BankInterbankInterest),
-      jstDepositChange = full.s9.jstDepositChange,
-      jstSpending = full.s9.newJst.spending,
-      jstRevenue = full.s9.newJst.revenue,
-      zusContributions = full.s2.newZus.contributions,
-      zusPensionPayments = full.s2.newZus.pensionPayments,
-      zusGovSubvention = full.s2.newZus.govSubvention,
-      nfzContributions = full.s2.newNfz.contributions,
-      nfzSpending = full.s2.newNfz.spending,
-      nfzGovSubvention = full.s2.newNfz.govSubvention,
-      dividendIncome = full.s7.netDomesticDividends,
-      foreignDividendOutflow = full.s7.foreignDividendOutflow,
-      dividendTax = full.s7.dividendTax,
+      jstDepositChange = stages.banking.jstDepositChange,
+      jstSpending = stages.banking.newJst.spending,
+      jstRevenue = stages.banking.newJst.revenue,
+      zusContributions = stages.labor.newZus.contributions,
+      zusPensionPayments = stages.labor.newZus.pensionPayments,
+      zusGovSubvention = stages.labor.newZus.govSubvention,
+      nfzContributions = stages.labor.newNfz.contributions,
+      nfzSpending = stages.labor.newNfz.spending,
+      nfzGovSubvention = stages.labor.newNfz.govSubvention,
+      dividendIncome = stages.prices.netDomesticDividends,
+      foreignDividendOutflow = stages.prices.foreignDividendOutflow,
+      dividendTax = stages.prices.dividendTax,
       mortgageInterestIncome = evidence.amount(FlowMechanism.MortgageInterest),
       mortgageNplLoss = evidence.amount(FlowMechanism.MortgageDefault) * (Share.One - p.housing.mortgageRecovery),
       mortgageOrigination = evidence.amount(FlowMechanism.MortgageOrigination),
@@ -589,20 +630,20 @@ object FlowSimulation:
       remittanceOutflow = evidence.amount(FlowMechanism.HhRemittance),
       fofResidual = fofResidual,
       consumerDebtService = evidence.amount(FlowMechanism.HhCcDebtService),
-      consumerNplLoss = full.s6.consumerNplLoss,
+      consumerNplLoss = stages.hhFinancial.consumerNplLoss,
       consumerOrigination = evidence.amount(FlowMechanism.HhCcOrigination),
-      consumerPrincipalRepaid = full.s6.consumerPrincipal,
+      consumerPrincipalRepaid = stages.hhFinancial.consumerPrincipal,
       consumerDefaultAmount = evidence.amount(FlowMechanism.HhCcDefault),
       corpBondCouponIncome = evidence.amount(FlowMechanism.CorpBondCoupon),
       corpBondDefaultLoss = evidence.amount(FlowMechanism.CorpBondDefault),
       corpBondIssuance = evidence.amount(FlowMechanism.CorpBondIssuance),
       corpBondAmortization = evidence.amount(FlowMechanism.CorpBondAmortization),
       corpBondDefaultAmount = evidence.amount(FlowMechanism.CorpBondDefault),
-      insNetDepositChange = full.s8.nonBank.insNetDepositChange,
-      nbfiDepositDrain = full.s8.nonBank.nbfiDepositDrain,
-      nbfiOrigination = full.s9.finalNbfi.lastNbfiOrigination,
-      nbfiRepayment = full.s9.finalNbfi.lastNbfiRepayment,
-      nbfiDefaultAmount = full.s9.finalNbfi.lastNbfiDefaultAmount,
+      insNetDepositChange = stages.openEcon.nonBank.insNetDepositChange,
+      nbfiDepositDrain = stages.openEcon.nonBank.nbfiDepositDrain,
+      nbfiOrigination = stages.banking.finalNbfi.lastNbfiOrigination,
+      nbfiRepayment = stages.banking.finalNbfi.lastNbfiRepayment,
+      nbfiDefaultAmount = stages.banking.finalNbfi.lastNbfiDefaultAmount,
       fdiProfitShifting = evidence.amount(FlowMechanism.FirmProfitShifting),
       fdiRepatriation = evidence.amount(FlowMechanism.FirmFdiRepatriation),
       diasporaInflow = evidence.amount(FlowMechanism.DiasporaInflow),
@@ -610,79 +651,188 @@ object FlowSimulation:
       tourismImport = evidence.amount(FlowMechanism.TourismImport),
       bfgLevy = evidence.amount(FlowMechanism.BankBfgLevy),
       bailInLoss = evidence.amount(FlowMechanism.BankBailIn),
-      bankCapitalDestruction = full.s9.multiCapDestruction,
-      investNetDepositFlow = full.s9.investNetDepositFlow,
+      bankCapitalDestruction = stages.banking.multiCapDestruction,
+      investNetDepositFlow = stages.banking.investNetDepositFlow,
       firmPrincipalRepaid = evidence.amount(FlowMechanism.FirmLoanRepayment),
       unrealizedBondLoss = evidence.amount(FlowMechanism.BankUnrealizedLoss),
-      htmRealizedLoss = full.s9.htmRealizedLoss,
-      eclProvisionChange = full.s9.eclProvisionChange,
+      htmRealizedLoss = stages.banking.htmRealizedLoss,
+      eclProvisionChange = stages.banking.eclProvisionChange,
     )
 
-  private def extractOperationalSignals(
-      s2: LaborEconomics.Output,
-      s4: DemandEconomics.Output,
+  private def operationalSignals(
+      labor: LaborEconomics.Output,
+      demand: DemandEconomics.Output,
   ): OperationalSignals =
     OperationalSignals(
-      sectorDemandMult = s4.sectorMults,
-      sectorDemandPressure = s4.sectorDemandPressure,
-      sectorHiringSignal = s4.sectorHiringSignal,
-      operationalHiringSlack = s2.operationalHiringSlack,
+      sectorDemandMult = demand.sectorMults,
+      sectorDemandPressure = demand.sectorDemandPressure,
+      sectorHiringSignal = demand.sectorHiringSignal,
+      operationalHiringSlack = labor.operationalHiringSlack,
     )
 
-  private def extractOperationalSignals(full: FullComputation): OperationalSignals =
-    extractOperationalSignals(full.s2, full.s4)
+  private def buildOperationalSignals(stageView: MonthSemantics.StageView): MonthSemantics.Operational =
+    val stages = stageView.value
+    MonthSemantics.At[OperationalSignals, MonthSemantics.SameMonth](operationalSignals(stages.labor, stages.demand))
+
+  private def buildTraceInputs(
+      stageView: MonthSemantics.StageView,
+      assembled: WorldAssemblyEconomics.PostResult,
+  ): TraceInputs =
+    val stages = stageView.value
+    TraceInputs(
+      labor = MonthTimingPayload.LaborSignals(
+        operationalHiringSlack = stages.labor.operationalHiringSlack,
+      ),
+      demand = MonthTimingPayload.DemandSignals(
+        sectorDemandMult = stages.demand.sectorMults,
+        sectorDemandPressure = stages.demand.sectorDemandPressure,
+        sectorHiringSignal = stages.demand.sectorHiringSignal,
+      ),
+      nominal = MonthTimingPayload.NominalSignals(
+        realizedInflation = stages.prices.newInfl,
+        expectedInflation = stages.openEcon.monetary.newExp.expectedInflation,
+      ),
+      firmDynamics = MonthTimingPayload.FirmDynamics(
+        startupAbsorptionRate = assembled.startupAbsorptionRate,
+        firmBirths = assembled.world.flows.firmBirths,
+        firmDeaths = assembled.world.flows.firmDeaths,
+        netFirmBirths = assembled.world.flows.netFirmBirths,
+      ),
+    )
+
+  private def assemblePostMonth(
+      input: StepInput,
+      stageView: MonthSemantics.StageView,
+      rng: Random,
+  )(using p: SimParams): MonthSemantics.PostAssembly =
+    val stages    = stageView.value
+    // Keep migration draws on an independent RNG stream.
+    val migRng    = new Random(rng.nextLong())
+    val assembled = WorldAssemblyEconomics.computePostMonth(
+      WorldAssemblyEconomics.Input(
+        w = input.stateIn.world,
+        firms = input.stateIn.firms,
+        households = input.stateIn.households,
+        month = stages.fiscal.month,
+        lendingBaseRate = stages.fiscal.lendingBaseRate,
+        resWage = stages.fiscal.resWage,
+        baseMinWage = stages.fiscal.baseMinWage,
+        minWagePriceLevel = stages.fiscal.updatedMinWagePriceLevel,
+        govPurchases = stages.demand.govPurchases,
+        sectorMults = stages.demand.sectorMults,
+        sectorDemandPressure = stages.demand.sectorDemandPressure,
+        sectorHiringSignal = stages.demand.sectorHiringSignal,
+        avgDemandMult = stages.demand.avgDemandMult,
+        sectorCapReal = stages.demand.sectorCapReal,
+        laggedInvestDemand = stages.demand.laggedInvestDemand,
+        fiscalRuleStatus = stages.demand.fiscalRuleStatus,
+        laborOutput = stages.labor,
+        hhOutput = stages.hhIncome,
+        firmOutput = stages.firms,
+        hhFinancialOutput = stages.hhFinancial,
+        priceEquityOutput = stages.prices,
+        openEconOutput = stages.openEcon,
+        bankOutput = stages.banking,
+        banks = input.stateIn.banks,
+        rng = rng,
+        migRng = migRng,
+      ),
+    )
+    // This stays at month `t`: the boundary seed is still `seedIn` here.
+    MonthSemantics.At[PostMonth, MonthSemantics.Post](PostMonth(assembled, buildTraceInputs(stageView, assembled)))
+
+  private def extractSeedOut(
+      stageView: MonthSemantics.StageView,
+      post: MonthSemantics.PostAssembly,
+  ): MonthSemantics.SeedOut =
+    val assembled = post.value.assembled
+    val employed  = Household.countEmployed(assembled.households)
+    val stages    = stageView.value
+
+    MonthSemantics.At[SignalExtraction.Output, MonthSemantics.NextPre](
+      SignalExtraction.compute(
+        // Seed extraction is the only place that derives the next boundary
+        // signal from realized month-`t` outcomes.
+        SignalExtraction.inputFromRealizedOutcomes(
+          unemploymentRate = assembled.world.unemploymentRate(employed),
+          laggedHiringSlack = stages.labor.operationalHiringSlack,
+          startupAbsorptionRate = assembled.startupAbsorptionRate,
+          inflation = assembled.world.inflation,
+          expectedInflation = assembled.world.mechanisms.expectations.expectedInflation,
+          sectorDemandMult = stages.demand.sectorMults,
+          sectorDemandPressure = stages.demand.sectorDemandPressure,
+          sectorHiringSignal = stages.demand.sectorHiringSignal,
+        ),
+      ),
+    )
+
+  private def computeMonthOutcome(
+      input: StepInput,
+      rng: Random,
+  )(using p: SimParams): MonthOutcome =
+    // Keep the month-step pipeline explicit:
+    // `seedIn/pre -> same-month stages -> post-month assembly -> seedOut/next-pre`.
+    val stageView   = MonthSemantics.At[StageOutputs, MonthSemantics.SameMonth](computeStageOutputs(input, rng))
+    val operational = buildOperationalSignals(stageView)
+    val post        = assemblePostMonth(input, stageView, rng)
+    val seedOut     = extractSeedOut(stageView, post)
+
+    MonthOutcome(
+      operational = operational,
+      stages = stageView,
+      post = post,
+      seedOut = seedOut,
+    )
+
+  private def advanceState(
+      input: StepInput,
+      post: MonthSemantics.PostAssembly,
+      seedOut: MonthSemantics.SeedOut,
+  ): SimState =
+    val assembled = post.value.assembled
+    val nextSeed  = seedOut.value.seedOut
+    val nextWorld = assembled.world.updatePipeline(_.withDecisionSignals(nextSeed))
+
+    // `advanceState` is the only legal `post -> next-pre` transition:
+    // post-month assembly still sees the old seed, next state applies `seedOut`.
+    require(input.seedIn.value == input.stateIn.world.seedIn, "StepInput seedIn must match stateIn.world.seedIn")
+    require(assembled.world.seedIn == input.seedIn.value, "PostMonth world must remain on the pre-step seed until advanceState runs")
+    require(nextWorld.seedIn == nextSeed, "advanceState must be the transition that applies SeedOut to the next boundary")
+
+    SimState(
+      world = nextWorld,
+      firms = assembled.firms,
+      households = assembled.households,
+      banks = assembled.banks,
+      householdAggregates = assembled.householdAggregates,
+    )
 
   private def buildMonthTrace(
-      stateIn: SimState,
-      full: FullComputation,
+      input: StepInput,
+      outcome: MonthOutcome,
       nextState: SimState,
       executedFlows: Sfc.SemanticFlows,
       sfcResult: Sfc.SfcResult,
-      signalExtraction: SignalExtraction.Output,
   ): MonthTrace =
+    val traceInputs = outcome.post.value.traceInputs
+    val seedOut     = outcome.seedOut.value
     MonthTrace(
       month = nextState.world.month,
       boundary = MonthBoundaryTrace(
-        startSnapshot = MonthBoundarySnapshot.capture(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
+        startSnapshot = MonthBoundarySnapshot.capture(input.stateIn.world, input.stateIn.firms, input.stateIn.households, input.stateIn.banks),
         endSnapshot = MonthBoundarySnapshot.capture(nextState.world, nextState.firms, nextState.households, nextState.banks),
       ),
       seedTransition = SeedTransitionTrace(
-        seedIn = stateIn.world.seedIn,
-        seedOut = signalExtraction.seedOut,
-        provenance = signalExtraction.provenance,
+        seedIn = input.seedIn.value,
+        seedOut = seedOut.seedOut,
+        provenance = seedOut.provenance,
       ),
       timing = MonthTimingTrace(
         Vector(
-          MonthTrace.timingEnvelope(
-            MonthTimingEnvelopeKey.LaborSignals,
-            MonthTimingPayload.LaborSignals(
-              operationalHiringSlack = full.s2.operationalHiringSlack,
-            ),
-          ),
-          MonthTrace.timingEnvelope(
-            MonthTimingEnvelopeKey.DemandSignals,
-            MonthTimingPayload.DemandSignals(
-              sectorDemandMult = full.s4.sectorMults,
-              sectorDemandPressure = full.s4.sectorDemandPressure,
-              sectorHiringSignal = full.s4.sectorHiringSignal,
-            ),
-          ),
-          MonthTrace.timingEnvelope(
-            MonthTimingEnvelopeKey.NominalSignals,
-            MonthTimingPayload.NominalSignals(
-              realizedInflation = full.s7.newInfl,
-              expectedInflation = full.s8.monetary.newExp.expectedInflation,
-            ),
-          ),
-          MonthTrace.timingEnvelope(
-            MonthTimingEnvelopeKey.FirmDynamics,
-            MonthTimingPayload.FirmDynamics(
-              startupAbsorptionRate = signalExtraction.seedOut.startupAbsorptionRate,
-              firmBirths = nextState.world.flows.firmBirths,
-              firmDeaths = nextState.world.flows.firmDeaths,
-              netFirmBirths = nextState.world.flows.netFirmBirths,
-            ),
-          ),
+          MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.LaborSignals, traceInputs.labor),
+          MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.DemandSignals, traceInputs.demand),
+          MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.NominalSignals, traceInputs.nominal),
+          MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.FirmDynamics, traceInputs.firmDynamics),
         ),
       ),
       executedFlows = executedFlows,
@@ -691,79 +841,40 @@ object FlowSimulation:
 
   /** Full step: compute calculus → emit flows → assemble new World.
     *
-    * This is the pipeline entry point. Runs s1–s9 exactly once via
-    * computeAll(), then feeds both MonthlyCalculus (for flows) and step outputs
-    * (for WorldAssembly) from that single computation.
+    * The internal month-step shape is now explicit:
+    * `stateIn -> StepInput -> MonthOutcome -> nextState`.
     */
   def step(stateIn: SimState, rng: Random)(using p: SimParams): StepOutput =
-    val full               = computeAll(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks, rng)
-    val flows              = emitAllBatches(full.calculus)
-    val execution          = executeBatches(flows).fold(
+    val input      = StepInput(stateIn, MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn))
+    val outcome    = computeMonthOutcome(input, rng)
+    val flows      = emitAllBatches(outcome.stages.value.calculus)
+    val execution  = executeBatches(flows).fold(
       err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
       identity,
     )
-    val operationalSignals = extractOperationalSignals(full)
-
-    val assembled  = WorldAssemblyEconomics.compute(
-      WorldAssemblyEconomics.Input(
-        w = stateIn.world,
-        firms = stateIn.firms,
-        households = stateIn.households,
-        month = full.fiscal.month,
-        lendingBaseRate = full.fiscal.lendingBaseRate,
-        resWage = full.fiscal.resWage,
-        baseMinWage = full.fiscal.baseMinWage,
-        minWagePriceLevel = full.fiscal.updatedMinWagePriceLevel,
-        govPurchases = full.s4.govPurchases,
-        sectorMults = full.s4.sectorMults,
-        sectorDemandPressure = full.s4.sectorDemandPressure,
-        sectorHiringSignal = full.s4.sectorHiringSignal,
-        avgDemandMult = full.s4.avgDemandMult,
-        sectorCapReal = full.s4.sectorCapReal,
-        laggedInvestDemand = full.s4.laggedInvestDemand,
-        fiscalRuleStatus = full.s4.fiscalRuleStatus,
-        laborOutput = full.s2,
-        hhOutput = full.s3,
-        firmOutput = full.s5,
-        hhFinancialOutput = full.s6,
-        priceEquityOutput = full.s7,
-        openEconOutput = full.s8,
-        bankOutput = full.s9,
-        banks = stateIn.banks,
-        rng = rng,
-        migRng = rng,
-      ),
-    )
-    val nextState  = SimState(
-      world = assembled.world,
-      firms = assembled.firms,
-      households = assembled.households,
-      banks = assembled.banks,
-      householdAggregates = assembled.householdAggregates,
-    )
-    val sfcFlows   = buildSfcFlows(full, flows, nextState.world.plumbing.fofResidual)
+    val nextState  = advanceState(input, outcome.post, outcome.seedOut)
+    val sfcFlows   = buildSfcFlows(outcome.stages, flows, nextState.world.plumbing.fofResidual)
     val sfcResult  = Sfc.validate(
       prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
-      curr = runtimeState(assembled.world, assembled.firms, assembled.households, assembled.banks),
+      curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks),
       flows = sfcFlows,
       batches = flows,
       executionSnapshot = Sfc.ExecutionSnapshot.fromRaw(execution.snapshot),
       totalWealth = execution.totalWealth,
     )
     val monthTrace = buildMonthTrace(
-      stateIn = stateIn,
-      full = full,
+      input = input,
+      outcome = outcome,
       nextState = nextState,
       executedFlows = sfcFlows,
       sfcResult = sfcResult,
-      signalExtraction = assembled.signalExtraction,
     )
 
     StepOutput(
       stateIn = stateIn,
-      calculus = full.calculus,
-      operationalSignals = operationalSignals,
-      signalExtraction = assembled.signalExtraction,
+      calculus = outcome.stages.value.calculus,
+      operationalSignals = outcome.operational.value,
+      signalExtraction = outcome.seedOut.value,
       flows,
       execution,
       sfcResult,
