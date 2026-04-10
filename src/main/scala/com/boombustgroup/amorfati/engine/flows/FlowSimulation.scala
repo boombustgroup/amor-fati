@@ -35,6 +35,10 @@ object FlowSimulation:
       householdAggregates: Household.Aggregates,
   )
 
+  object SimState:
+    def fromInit(init: com.boombustgroup.amorfati.init.WorldInit.InitResult): SimState =
+      SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+
   case class ExecutionResult(
       snapshot: Map[(EntitySector, AssetType, Int), Long],
       totalWealth: Long,

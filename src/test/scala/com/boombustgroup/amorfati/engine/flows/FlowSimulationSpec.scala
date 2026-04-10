@@ -20,7 +20,7 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
 
   "FlowSimulation.emitAllBatches" should "preserve SFC at 0L" in {
     val init   = WorldInit.initialize(42L)
-    val state  = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val state  = FlowSimulation.SimState.fromInit(init)
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(state, rng)
     val flows  = FlowSimulation.emitAllBatches(result.calculus)
@@ -31,7 +31,7 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
 
   it should "preserve SFC across 12 months" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
@@ -49,7 +49,7 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
 
   it should "emit 30+ mechanism IDs" in {
     val init   = WorldInit.initialize(42L)
-    val state  = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val state  = FlowSimulation.SimState.fromInit(init)
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(state, rng)
     val flows  = FlowSimulation.emitAllBatches(result.calculus)

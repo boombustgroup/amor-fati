@@ -14,7 +14,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
   "WorldAssemblyEconomics (own Input)" should "produce valid world after simulation step" in {
     val init   = WorldInit.initialize(42L)
-    val state  = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val state  = FlowSimulation.SimState.fromInit(init)
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(state, rng)
     val w      = result.nextState.world
@@ -27,7 +27,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
   it should "preserve public-spending semantic aggregates on the assembled world" in {
     val init   = WorldInit.initialize(42L)
-    val state  = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val state  = FlowSimulation.SimState.fromInit(init)
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(state, rng)
     val w      = result.nextState.world

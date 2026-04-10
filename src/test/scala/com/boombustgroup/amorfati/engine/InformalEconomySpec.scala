@@ -330,7 +330,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
   "Informal calibration" should "keep default runtime ratios in a plausible envelope over 12 months" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     val realizedShares = collection.mutable.ArrayBuffer.empty[Share]
     val evasionRatios  = collection.mutable.ArrayBuffer.empty[Share]

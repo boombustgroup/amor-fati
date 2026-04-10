@@ -17,7 +17,7 @@ object BankruptcyProbe:
     given SimParams = SimParams.defaults
 
     val init  = WorldInit.initialize(seed)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     println(s"seed=$seed months=$months")
 

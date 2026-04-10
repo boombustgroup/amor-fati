@@ -23,7 +23,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
   "FlowSimulation.step (multi-seed)" should "produce SFC == 0L for all seeds × months" in
     seeds.foreach { seed =>
       val init  = WorldInit.initialize(seed)
-      var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+      var state = FlowSimulation.SimState.fromInit(init)
 
       (1 to months).foreach { month =>
         val rng    = new scala.util.Random(seed * 1000 + month)
@@ -38,7 +38,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
   it should "produce realistic employment (3-97%) for all seeds at month 12" in
     seeds.foreach { seed =>
       val init  = WorldInit.initialize(seed)
-      var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+      var state = FlowSimulation.SimState.fromInit(init)
       (1 to months).foreach { m =>
         val rng    = new scala.util.Random(seed * 1000 + m)
         val result = FlowSimulation.step(state, rng)
@@ -56,7 +56,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
   it should "produce positive GDP for all seeds" in
     seeds.foreach { seed =>
       val init  = WorldInit.initialize(seed)
-      var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+      var state = FlowSimulation.SimState.fromInit(init)
       (1 to months).foreach { m =>
         val rng    = new scala.util.Random(seed * 1000 + m)
         val result = FlowSimulation.step(state, rng)
@@ -71,7 +71,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
   it should "emit 30+ mechanism IDs for all seeds" in
     seeds.foreach { seed =>
       val init   = WorldInit.initialize(seed)
-      val state  = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+      val state  = FlowSimulation.SimState.fromInit(init)
       val rng    = new scala.util.Random(seed)
       val result = FlowSimulation.step(state, rng)
 

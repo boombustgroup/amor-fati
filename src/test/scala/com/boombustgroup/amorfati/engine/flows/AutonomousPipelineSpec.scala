@@ -20,7 +20,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
 
   "FlowSimulation (autonomous)" should "run 12 months with SFC == 0L" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
@@ -36,7 +36,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
 
   it should "produce evolving economy (GDP changes)" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
     val gdps  = scala.collection.mutable.ArrayBuffer[Double]()
 
     (1 to 12).foreach { month =>
@@ -52,7 +52,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
 
   it should "maintain positive employment throughout" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)

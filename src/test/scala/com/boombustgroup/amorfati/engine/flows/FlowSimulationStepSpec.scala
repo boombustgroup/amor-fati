@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.accounting.Sfc
+import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthTimingEnvelopeKey, MonthTimingPayload, MonthTraceStage}
 import com.boombustgroup.amorfati.init.WorldInit
@@ -15,9 +16,17 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
+  private def canonicalHouseholds(households: Vector[Household.State]): Vector[Vector[Any]] =
+    households.map: hh =>
+      hh.productIterator
+        .map:
+          case arr: Array[?] => arr.toIndexedSeq
+          case value         => value
+        .toVector
+
   "FlowSimulation.step" should "produce SFC == 0L on real World" in {
     val init   = WorldInit.initialize(42L)
-    val state  = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val state  = FlowSimulation.SimState.fromInit(init)
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(state, rng)
     result.execution.totalWealth shouldBe 0L
@@ -27,7 +36,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   it should "expose the month boundary as SimState -> StepOutput -> (trace, nextState)" in {
     val init        = WorldInit.initialize(42L)
-    val state       = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val state       = FlowSimulation.SimState.fromInit(init)
     val stateRng    = new scala.util.Random(42L)
     val rerunRng    = new scala.util.Random(42L)
     val stateResult = FlowSimulation.step(state, stateRng)
@@ -37,7 +46,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     stateResult.transition shouldBe ((stateResult.trace, stateResult.nextState))
     stateResult.nextState.world shouldBe repeated.nextState.world
     stateResult.nextState.firms shouldBe repeated.nextState.firms
-    stateResult.nextState.households.map(_.status) shouldBe repeated.nextState.households.map(_.status)
+    canonicalHouseholds(stateResult.nextState.households) shouldBe canonicalHouseholds(repeated.nextState.households)
     stateResult.nextState.banks shouldBe repeated.nextState.banks
     stateResult.nextState.householdAggregates shouldBe repeated.nextState.householdAggregates
     stateResult.trace shouldBe repeated.trace
@@ -45,7 +54,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   it should "produce SFC == 0L across 12 months (autonomous driving)" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
@@ -84,7 +93,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   it should "produce 30+ mechanism IDs" in {
     val init   = WorldInit.initialize(42L)
-    val state  = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val state  = FlowSimulation.SimState.fromInit(init)
     val rng    = new scala.util.Random(42)
     val result = FlowSimulation.step(state, rng)
     result.flows.map(_.mechanism).toSet.size should be > 30
@@ -92,7 +101,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   it should "emit a typed MonthTrace with stable boundaries and typed timing envelopes" in {
     val init   = WorldInit.initialize(42L)
-    val state  = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val state  = FlowSimulation.SimState.fromInit(init)
     val rng    = new scala.util.Random(42L)
     val result = FlowSimulation.step(state, rng)
     val trace  = result.trace
@@ -148,7 +157,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   it should "keep MonthTrace seed transitions consistent with timing envelopes and end-of-month boundary data" in {
     val init   = WorldInit.initialize(42L)
-    val state  = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val state  = FlowSimulation.SimState.fromInit(init)
     val rng    = new scala.util.Random(42L)
     val result = FlowSimulation.step(state, rng)
     val trace  = result.trace
@@ -175,7 +184,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   it should "match the legacy pure interpreter on aggregate execution balances" in {
     val init      = WorldInit.initialize(42L)
-    val initState = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val initState = FlowSimulation.SimState.fromInit(init)
     val rng       = new scala.util.Random(42L)
     val result    = FlowSimulation.step(initState, rng)
     val state     = AggregateBatchContract.emptyExecutionState()
