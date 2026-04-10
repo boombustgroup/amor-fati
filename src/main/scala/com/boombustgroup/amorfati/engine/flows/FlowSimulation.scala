@@ -345,12 +345,7 @@ object FlowSimulation:
       ),
     )
     val s8              = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, rng))
-    val operational     = OperationalSignals(
-      sectorDemandMult = s4.sectorMults,
-      sectorDemandPressure = s4.sectorDemandPressure,
-      sectorHiringSignal = s4.sectorHiringSignal,
-      operationalHiringSlack = s2.operationalHiringSlack,
-    )
+    val operational     = extractOperationalSignals(s2, s4)
     val bankingInput    = BankingEconomics.Input(
       w = w,
       month = fiscal.month,
@@ -665,13 +660,19 @@ object FlowSimulation:
       eclProvisionChange = full.s9.eclProvisionChange,
     )
 
-  private def explicitOperationalSignals(full: FullComputation): OperationalSignals =
+  private def extractOperationalSignals(
+      s2: LaborEconomics.Output,
+      s4: DemandEconomics.Output,
+  ): OperationalSignals =
     OperationalSignals(
-      sectorDemandMult = full.s4.sectorMults,
-      sectorDemandPressure = full.s4.sectorDemandPressure,
-      sectorHiringSignal = full.s4.sectorHiringSignal,
-      operationalHiringSlack = full.s2.operationalHiringSlack,
+      sectorDemandMult = s4.sectorMults,
+      sectorDemandPressure = s4.sectorDemandPressure,
+      sectorHiringSignal = s4.sectorHiringSignal,
+      operationalHiringSlack = s2.operationalHiringSlack,
     )
+
+  private def extractOperationalSignals(full: FullComputation): OperationalSignals =
+    extractOperationalSignals(full.s2, full.s4)
 
   private def buildMonthTrace(
       stateIn: SimState,
@@ -767,7 +768,7 @@ object FlowSimulation:
       err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
       identity,
     )
-    val operationalSignals = explicitOperationalSignals(full)
+    val operationalSignals = extractOperationalSignals(full)
 
     val assembled  = WorldAssemblyEconomics.compute(
       WorldAssemblyEconomics.Input(
