@@ -466,18 +466,6 @@ object FlowSimulation:
   def computeCalculus(state: SimState, rng: Random)(using p: SimParams): MonthlyCalculus =
     computeAll(state.world, state.firms, state.households, state.banks, rng).calculus
 
-  def computeCalculus(
-      w: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-      rng: Random,
-  )(using p: SimParams): MonthlyCalculus =
-    computeCalculus(
-      legacyInputState(w, firms, households, banks),
-      rng,
-    )
-
   /** Full month-step contract.
     *
     * `stateIn -> StepOutput(nextState, trace)` is the explicit monthly
@@ -496,41 +484,7 @@ object FlowSimulation:
       trace: MonthTrace,
       nextState: SimState,
   ):
-    def monthTrace: MonthTrace                    = trace
-    def newWorld: World                           = nextState.world
-    def newFirms: Vector[Firm.State]              = nextState.firms
-    def newHouseholds: Vector[Household.State]    = nextState.households
-    def newBanks: Vector[Banking.BankState]       = nextState.banks
-    def householdAggregates: Household.Aggregates = nextState.householdAggregates
-    def transition: (MonthTrace, SimState)        = (trace, nextState)
-
-  object StepOutput:
-    def apply(
-        stateIn: SimState,
-        calculus: MonthlyCalculus,
-        operationalSignals: OperationalSignals,
-        signalExtraction: SignalExtraction.Output,
-        flows: Vector[BatchedFlow],
-        execution: ExecutionResult,
-        sfcResult: Sfc.SfcResult,
-        trace: MonthTrace,
-        nextWorld: World,
-        nextFirms: Vector[Firm.State],
-        nextHouseholds: Vector[Household.State],
-        nextBanks: Vector[Banking.BankState],
-        nextHouseholdAggregates: Household.Aggregates,
-    ): StepOutput =
-      StepOutput(
-        stateIn = stateIn,
-        calculus = calculus,
-        operationalSignals = operationalSignals,
-        signalExtraction = signalExtraction,
-        flows = flows,
-        execution = execution,
-        sfcResult = sfcResult,
-        trace = trace,
-        nextState = SimState(nextWorld, nextFirms, nextHouseholds, nextBanks, nextHouseholdAggregates),
-      )
+    def transition: (MonthTrace, SimState) = (trace, nextState)
 
   private def executeBatches(flows: Vector[BatchedFlow]): Either[String, ExecutionResult] =
     val state = AggregateBatchContract.emptyExecutionState()
@@ -731,30 +685,6 @@ object FlowSimulation:
       validations = Vector(MonthValidation.fromSfcResult(sfcResult)),
     )
 
-  private def inferBoundaryAggregates(world: World, households: Vector[Household.State])(using p: SimParams): Household.Aggregates =
-    Household.computeAggregates(
-      households,
-      marketWage = world.householdMarket.marketWage,
-      reservationWage = world.householdMarket.reservationWage,
-      importAdj = p.forex.importPropensity,
-      retrainingAttempts = 0,
-      retrainingSuccesses = 0,
-    )
-
-  private def legacyInputState(
-      w: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-  )(using p: SimParams): SimState =
-    SimState(
-      world = w,
-      firms = firms,
-      households = households,
-      banks = banks,
-      householdAggregates = inferBoundaryAggregates(w, households),
-    )
-
   /** Full step: compute calculus → emit flows → assemble new World.
     *
     * This is the pipeline entry point. Runs s1–s9 exactly once via
@@ -835,12 +765,4 @@ object FlowSimulation:
       sfcResult,
       trace = monthTrace,
       nextState = nextState,
-    )
-
-  def step(w: World, firms: Vector[Firm.State], households: Vector[Household.State], banks: Vector[Banking.BankState], rng: Random)(using
-      p: SimParams,
-  ): StepOutput =
-    step(
-      legacyInputState(w, firms, households, banks),
-      rng,
     )

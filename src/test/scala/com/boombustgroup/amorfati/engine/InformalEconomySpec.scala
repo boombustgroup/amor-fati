@@ -330,25 +330,19 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
   "Informal calibration" should "keep default runtime ratios in a plausible envelope over 12 months" in {
     val init  = WorldInit.initialize(42L)
-    var w     = init.world
-    var firms = init.firms
-    var hh    = init.households
-    var banks = init.banks
+    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
 
     val realizedShares = collection.mutable.ArrayBuffer.empty[Share]
     val evasionRatios  = collection.mutable.ArrayBuffer.empty[Share]
 
     (1 to 12).foreach: month =>
-      val result     = FlowSimulation.step(w, firms, hh, banks, new scala.util.Random(42L * 1000 + month))
-      realizedShares += Share(result.newWorld.flows.realizedTaxShadowShare)
-      val monthlyGdp = result.newWorld.cachedMonthlyGdpProxy
+      val result     = FlowSimulation.step(state, new scala.util.Random(42L * 1000 + month))
+      realizedShares += Share(result.nextState.world.flows.realizedTaxShadowShare)
+      val monthlyGdp = result.nextState.world.cachedMonthlyGdpProxy
       val ratio      =
-        if monthlyGdp > PLN.Zero then Share(td.toDouble(result.newWorld.flows.taxEvasionLoss) / td.toDouble(monthlyGdp)) else Share.Zero
+        if monthlyGdp > PLN.Zero then Share(td.toDouble(result.nextState.world.flows.taxEvasionLoss) / td.toDouble(monthlyGdp)) else Share.Zero
       evasionRatios += ratio
-      w = result.newWorld
-      firms = result.newFirms
-      hh = result.newHouseholds
-      banks = result.newBanks
+      state = result.nextState
 
     val avgShare = Share(realizedShares.map(td.toDouble).sum / realizedShares.size)
     val avgRatio = Share(evasionRatios.map(td.toDouble).sum / evasionRatios.size)

@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 
 /** Autonomous pipeline: FlowSimulation.step() drives its own state.
   *
-  * No old Simulation.step() in the loop. FlowSimulation produces new World,
+  * No old Simulation.step() in the loop. FlowSimulation produces nextState,
   * which feeds into next month's FlowSimulation.step().
   */
 @Heavy
@@ -60,7 +60,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
       state = result.nextState
 
       withClue(s"Month $month: ") {
-        result.householdAggregates.employed should be > 0
+        result.nextState.householdAggregates.employed should be > 0
       }
     }
   }
