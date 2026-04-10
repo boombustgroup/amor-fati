@@ -65,6 +65,36 @@ object SignalExtraction:
       demand: DemandOutcomes,
   )
 
+  /** Canonical builder used by both world assembly and typed month-boundary
+    * code so seed extraction always reads the same realized fields.
+    */
+  private[engine] def inputFromRealizedOutcomes(
+      unemploymentRate: Share,
+      laggedHiringSlack: Share,
+      startupAbsorptionRate: Share,
+      inflation: Rate,
+      expectedInflation: Rate,
+      sectorDemandMult: Vector[Multiplier],
+      sectorDemandPressure: Vector[Multiplier],
+      sectorHiringSignal: Vector[Multiplier],
+  ): Input =
+    Input(
+      labor = LaborOutcomes(
+        unemploymentRate = unemploymentRate,
+        laggedHiringSlack = laggedHiringSlack,
+        startupAbsorptionRate = startupAbsorptionRate,
+      ),
+      nominal = NominalOutcomes(
+        inflation = inflation,
+        expectedInflation = expectedInflation,
+      ),
+      demand = DemandOutcomes(
+        sectorDemandMult = sectorDemandMult,
+        sectorDemandPressure = sectorDemandPressure,
+        sectorHiringSignal = sectorHiringSignal,
+      ),
+    )
+
   /** Extraction result: persisted seed plus typed provenance for audit/trace.
     */
   case class Output(

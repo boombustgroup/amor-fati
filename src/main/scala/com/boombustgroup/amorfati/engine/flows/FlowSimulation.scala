@@ -706,6 +706,8 @@ object FlowSimulation:
       rng: Random,
   )(using p: SimParams): MonthSemantics.PostAssembly =
     val stages    = stageView.value
+    // Keep migration draws on an independent RNG stream.
+    val migRng    = new Random(rng.nextLong())
     val assembled = WorldAssemblyEconomics.computePostMonth(
       WorldAssemblyEconomics.Input(
         w = input.stateIn.world,
@@ -733,7 +735,7 @@ object FlowSimulation:
         bankOutput = stages.banking,
         banks = input.stateIn.banks,
         rng = rng,
-        migRng = rng,
+        migRng = migRng,
       ),
     )
     // This stays at month `t`: the boundary seed is still `seedIn` here.
@@ -744,29 +746,22 @@ object FlowSimulation:
       post: MonthSemantics.PostAssembly,
   ): MonthSemantics.SeedOut =
     val assembled = post.value.assembled
-    val trace     = post.value.traceInputs
     val employed  = Household.countEmployed(assembled.households)
     val stages    = stageView.value
 
     MonthSemantics.At[SignalExtraction.Output, MonthSemantics.NextPre](
       SignalExtraction.compute(
-        SignalExtraction.Input(
-          // Seed extraction is the only place that derives the next boundary
-          // signal from realized month-`t` outcomes.
-          labor = SignalExtraction.LaborOutcomes(
-            unemploymentRate = assembled.world.unemploymentRate(employed),
-            laggedHiringSlack = stages.labor.operationalHiringSlack,
-            startupAbsorptionRate = trace.firmDynamics.startupAbsorptionRate,
-          ),
-          nominal = SignalExtraction.NominalOutcomes(
-            inflation = stages.prices.newInfl,
-            expectedInflation = stages.openEcon.monetary.newExp.expectedInflation,
-          ),
-          demand = SignalExtraction.DemandOutcomes(
-            sectorDemandMult = stages.demand.sectorMults,
-            sectorDemandPressure = stages.demand.sectorDemandPressure,
-            sectorHiringSignal = stages.demand.sectorHiringSignal,
-          ),
+        // Seed extraction is the only place that derives the next boundary
+        // signal from realized month-`t` outcomes.
+        SignalExtraction.inputFromRealizedOutcomes(
+          unemploymentRate = assembled.world.unemploymentRate(employed),
+          laggedHiringSlack = stages.labor.operationalHiringSlack,
+          startupAbsorptionRate = assembled.startupAbsorptionRate,
+          inflation = assembled.world.inflation,
+          expectedInflation = assembled.world.mechanisms.expectations.expectedInflation,
+          sectorDemandMult = stages.demand.sectorMults,
+          sectorDemandPressure = stages.demand.sectorDemandPressure,
+          sectorHiringSignal = stages.demand.sectorHiringSignal,
         ),
       ),
     )
