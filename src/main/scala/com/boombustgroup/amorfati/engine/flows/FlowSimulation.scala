@@ -764,7 +764,7 @@ object FlowSimulation:
     val full               = computeAll(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks, rng)
     val flows              = emitAllBatches(full.calculus)
     val execution          = executeBatches(flows).fold(
-      err => throw IllegalStateException(s"Ledger batch execution failed: $err"),
+      err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
       identity,
     )
     val operationalSignals = explicitOperationalSignals(full)

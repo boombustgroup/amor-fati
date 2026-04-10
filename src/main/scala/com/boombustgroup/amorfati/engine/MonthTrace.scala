@@ -145,9 +145,7 @@ case class MonthTimingTrace(
 
   def requirePayload[A <: MonthTimingPayload](key: MonthTimingEnvelopeKey)(using ct: ClassTag[A]): A =
     payload[A](key).getOrElse:
-      throw IllegalStateException(
-        s"MonthTimingTrace missing payload ${ct.runtimeClass.getSimpleName} at envelope $key",
-      )
+      throw new IllegalStateException(s"MonthTimingTrace missing payload ${ct.runtimeClass.getSimpleName} at envelope $key")
 
   def laborSignals: MonthTimingPayload.LaborSignals =
     requirePayload[MonthTimingPayload.LaborSignals](MonthTimingEnvelopeKey.LaborSignals)
