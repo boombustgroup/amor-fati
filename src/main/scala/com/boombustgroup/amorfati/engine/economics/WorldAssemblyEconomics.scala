@@ -47,6 +47,18 @@ object WorldAssemblyEconomics:
       signalExtraction: SignalExtraction.Output,
   )
 
+  /** Internal post-month state before the next-month seed is extracted and
+    * applied to the pipeline boundary.
+    */
+  private[engine] case class PostStepOutput(
+      newWorld: World,
+      finalFirms: Vector[Firm.State],
+      reassignedHouseholds: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+      householdAggregates: Household.Aggregates,
+      startupAbsorptionRate: Share,
+  )
+
   // ---------------------------------------------------------------------------
   // Private intermediate types
   // ---------------------------------------------------------------------------
@@ -125,10 +137,51 @@ object WorldAssemblyEconomics:
       signalExtraction: SignalExtraction.Output,
   )
 
-  def compute(in: Input)(using SimParams): Result =
+  /** Internal post-month result kept distinct from the next-month boundary. */
+  private[engine] case class PostResult(
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+      householdAggregates: Household.Aggregates,
+      startupAbsorptionRate: Share,
+  )
+
+  private def extractSignalExtraction(
+      in: StepInput,
+      post: PostStepOutput,
+  ): SignalExtraction.Output =
+    val employedHouseholds = Household.countEmployed(post.reassignedHouseholds)
+
+    SignalExtraction.compute(
+      SignalExtraction.Input(
+        labor = SignalExtraction.LaborOutcomes(
+          unemploymentRate = post.newWorld.unemploymentRate(employedHouseholds),
+          laggedHiringSlack = in.s2.operationalHiringSlack,
+          startupAbsorptionRate = post.startupAbsorptionRate,
+        ),
+        nominal = SignalExtraction.NominalOutcomes(
+          inflation = post.newWorld.inflation,
+          expectedInflation = post.newWorld.mechanisms.expectations.expectedInflation,
+        ),
+        demand = SignalExtraction.DemandOutcomes(
+          sectorDemandMult = in.s4.sectorMults,
+          sectorDemandPressure = in.s4.sectorDemandPressure,
+          sectorHiringSignal = in.s4.sectorHiringSignal,
+        ),
+      ),
+    )
+
+  private def advanceToBoundaryWorld(
+      postWorld: World,
+      signals: DecisionSignals,
+  ): World =
+    postWorld.updatePipeline(_.withDecisionSignals(signals))
+
+  private[engine] def computePostMonth(in: Input)(using SimParams): PostResult =
     val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
 
-    val s10 = runStep(
+    val s10 = runPostStep(
       StepInput(
         in.w,
         in.firms,
@@ -148,13 +201,47 @@ object WorldAssemblyEconomics:
       in.migRng,
     )
 
-    Result(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds, s10.banks, s10.householdAggregates, s10.signalExtraction)
+    PostResult(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds, s10.banks, s10.householdAggregates, s10.startupAbsorptionRate)
+
+  def compute(in: Input)(using SimParams): Result =
+    val post  = computePostMonth(in)
+    val s1    = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
+    val step  = StepInput(
+      in.w,
+      in.firms,
+      in.households,
+      in.banks,
+      s1,
+      in.laborOutput,
+      in.hhOutput,
+      buildDemandOutput(in),
+      in.firmOutput,
+      in.hhFinancialOutput,
+      in.priceEquityOutput,
+      in.openEconOutput,
+      in.bankOutput,
+    )
+    val postS = PostStepOutput(post.world, post.firms, post.households, post.banks, post.householdAggregates, post.startupAbsorptionRate)
+    val seed  = extractSignalExtraction(step, postS)
+    Result(advanceToBoundaryWorld(post.world, seed.seedOut), post.firms, post.households, post.banks, post.householdAggregates, seed)
 
   // ---------------------------------------------------------------------------
   // runStep — migrated from WorldAssemblyStep.run
   // ---------------------------------------------------------------------------
 
   def runStep(in: StepInput, rng: Random, migRng: Random)(using p: SimParams): StepOutput =
+    val post             = runPostStep(in, rng, migRng)
+    val signalExtraction = extractSignalExtraction(in, post)
+    StepOutput(
+      newWorld = advanceToBoundaryWorld(post.newWorld, signalExtraction.seedOut),
+      finalFirms = post.finalFirms,
+      reassignedHouseholds = post.reassignedHouseholds,
+      banks = post.banks,
+      householdAggregates = post.householdAggregates,
+      signalExtraction = signalExtraction,
+    )
+
+  private[engine] def runPostStep(in: StepInput, rng: Random, migRng: Random)(using p: SimParams): PostStepOutput =
     val equityAfterStep = finalizeEquity(in)
     val fofResidual     = computeFofResidual(in)
     val informal        = computeInformalEconomy(in)
@@ -177,30 +264,10 @@ object WorldAssemblyEconomics:
     val startupStaffing = applyStartupStaffing(in, entryStep.firms, in.s9.reassignedHouseholds, rng)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
-    val postMigHh          = RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
-    val finalFirms         = syncStartupStaffing(startupStaffing.firms, postMigHh)
-    val employedHouseholds = Household.countEmployed(postMigHh)
-    val signalExtraction   = SignalExtraction.compute(
-      SignalExtraction.Input(
-        labor = SignalExtraction.LaborOutcomes(
-          unemploymentRate = newW.unemploymentRate(employedHouseholds),
-          laggedHiringSlack = in.s2.operationalHiringSlack,
-          startupAbsorptionRate = startupStaffing.startupAbsorptionRate,
-        ),
-        nominal = SignalExtraction.NominalOutcomes(
-          inflation = newW.inflation,
-          expectedInflation = newW.mechanisms.expectations.expectedInflation,
-        ),
-        demand = SignalExtraction.DemandOutcomes(
-          sectorDemandMult = in.s4.sectorMults,
-          sectorDemandPressure = in.s4.sectorDemandPressure,
-          sectorHiringSignal = in.s4.sectorHiringSignal,
-        ),
-      ),
-    )
-
-    val finalW = newW
-      .updatePipeline(_ => buildPipelineState(in, signalExtraction.seedOut))
+    val postMigHh  = RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
+    val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
+    val finalW     = newW
+      .updatePipeline(_ => buildPostMonthPipelineState(in))
       .updateFlows(_.copy(firmBirths = entryStep.firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths))
       .updateReal: r =>
         r.copy(
@@ -209,7 +276,7 @@ object WorldAssemblyEconomics:
           ),
         )
       .copy(regionalWages = in.s2.regionalWages)
-    StepOutput(finalW, finalFirms, postMigHh, in.s9.banks, startupStaffing.hhAgg, signalExtraction)
+    PostStepOutput(finalW, finalFirms, postMigHh, in.s9.banks, startupStaffing.hhAgg, startupStaffing.startupAbsorptionRate)
 
   // ---------------------------------------------------------------------------
   // Private helpers — migrated from WorldAssemblyStep
@@ -572,9 +639,8 @@ object WorldAssemblyEconomics:
       ),
     )
 
-  private def buildPipelineState(in: StepInput, signals: DecisionSignals): PipelineState =
+  private def buildPostMonthPipelineState(in: StepInput): PipelineState =
     in.w.pipeline
-      .withDecisionSignals(signals)
       .copy(
         operationalHiringSlack = in.s2.operationalHiringSlack,
         fiscalRuleSeverity = in.s4.fiscalRuleStatus.bindingRule,

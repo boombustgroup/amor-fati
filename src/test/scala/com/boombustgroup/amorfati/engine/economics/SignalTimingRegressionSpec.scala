@@ -452,6 +452,16 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     result.newWorld.seedIn.laggedHiringSlack shouldBe Share(0.21)
   }
 
+  it should "keep post-month assembly distinct from the next-month seed boundary" in {
+    val input = entrySensitiveInput.copy(s2 = entrySensitiveInput.s2.copy(operationalHiringSlack = Share(0.21)))
+    val post  = WorldAssemblyEconomics.runPostStep(input, new scala.util.Random(1234L), new scala.util.Random(5678L))
+
+    post.newWorld.pipeline.operationalHiringSlack shouldBe Share(0.21)
+    post.newWorld.seedIn shouldBe input.w.seedIn
+    post.newWorld.pipeline.sectorDemandPressure shouldBe input.w.pipeline.sectorDemandPressure
+    post.newWorld.pipeline.sectorHiringSignal shouldBe input.w.pipeline.sectorHiringSignal
+  }
+
   it should "keep explicit OperationalSignals aligned with post-reconcile labor slack" in {
     baseOperationalSignals.operationalHiringSlack shouldBe baseline.s2.operationalHiringSlack
   }
