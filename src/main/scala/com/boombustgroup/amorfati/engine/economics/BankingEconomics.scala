@@ -153,13 +153,13 @@ object BankingEconomics:
       laborDemand: Int,
       wageGrowth: Coefficient,
       govPurchases: PLN,
-      sectorMults: Vector[Multiplier],
       avgDemandMult: Multiplier,
       sectorCapReal: Vector[PLN],
       laggedInvestDemand: PLN,
       fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
       // Step outputs too complex to decompose (will vanish with #131)
       laborOutput: LaborEconomics.Output,
+      operationalSignals: OperationalSignals,
       hhOutput: HouseholdIncomeEconomics.Output,
       firmOutput: FirmEconomics.StepOutput,
       hhFinancialOutput: HouseholdFinancialEconomics.Output,
@@ -272,13 +272,12 @@ object BankingEconomics:
     )
 
   def compute(in: Input)(using p: SimParams): Result =
-    val seedIn = in.w.seedIn
-    val s1     = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-    val s4     = DemandEconomics.Output(
+    val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
+    val s4 = DemandEconomics.Output(
       in.govPurchases,
-      in.sectorMults,
-      seedIn.sectorDemandPressure,
-      seedIn.sectorHiringSignal,
+      in.operationalSignals.sectorDemandMult,
+      in.operationalSignals.sectorDemandPressure,
+      in.operationalSignals.sectorHiringSignal,
       in.avgDemandMult,
       in.sectorCapReal,
       in.laggedInvestDemand,
@@ -303,7 +302,7 @@ object BankingEconomics:
 
     toResult(s9, in)
 
-  private def toResult(s9: StepOutput, in: Input): Result =
+  private[engine] def toResult(s9: StepOutput, in: Input): Result =
     val prevBankAgg = Banking.aggregateFromBanks(in.banks)
     Result(
       govBondIncome = prevBankAgg.govBondHoldings * in.openEconOutput.monetary.newBondYield.monthly,

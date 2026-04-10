@@ -17,17 +17,14 @@ object BankruptcyProbe:
     given SimParams = SimParams.defaults
 
     val init  = WorldInit.initialize(seed)
-    var world = init.world
-    var firms = init.firms
-    var hhs   = init.households
-    var banks = init.banks
+    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
 
     println(s"seed=$seed months=$months")
 
     (1 to months).foreach: month =>
       val rng          = new Random(seed * 1000 + month)
-      val prevById     = firms.map(f => f.id -> f).toMap
-      val result       = FlowSimulation.step(world, firms, hhs, banks, rng)
+      val prevById     = state.firms.map(f => f.id -> f).toMap
+      val result       = FlowSimulation.step(state, rng)
       val newBankrupts = result.newFirms.flatMap: f =>
         bankruptReason(f).flatMap: reason =>
           prevById.get(f.id).flatMap(bankruptReason) match
@@ -46,7 +43,4 @@ object BankruptcyProbe:
         println(s"  reasons=${byReason.mkString(", ")}")
         println(s"  sectors=${bySector.mkString(", ")}")
 
-      world = result.newWorld
-      firms = result.newFirms
-      hhs = result.newHouseholds
-      banks = result.newBanks
+      state = result.nextState

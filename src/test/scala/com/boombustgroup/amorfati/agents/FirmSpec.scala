@@ -116,6 +116,30 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     diag.signalMonths shouldBe 1
   }
 
+  it should "prefer explicit OperationalSignals over bridged world signal fields" in {
+    val weakWorld         = mkWorld().copy(
+      pipeline = PipelineState(
+        sectorDemandMult = Vector.fill(p.sectorDefs.length)(Multiplier(0.4)),
+        sectorDemandPressure = Vector.fill(p.sectorDefs.length)(Multiplier(0.4)),
+        sectorHiringSignal = Vector.fill(p.sectorDefs.length)(Multiplier(0.4)),
+        operationalHiringSlack = Share.One,
+      ),
+      flows = FlowState.zero,
+    )
+    val strongOperational = OperationalSignals(
+      sectorDemandMult = Vector.fill(p.sectorDefs.length)(Multiplier(1.75)),
+      sectorDemandPressure = Vector.fill(p.sectorDefs.length)(Multiplier(1.75)),
+      sectorHiringSignal = Vector.fill(p.sectorDefs.length)(Multiplier(1.75)),
+      operationalHiringSlack = Share.One,
+    )
+    val firm              = mkFirm(TechState.Traditional(8), sector = 3).copy(hiringSignalMonths = 1)
+    val bridged           = Firm.hiringDiagnostics(firm, weakWorld)
+    val explicit          = Firm.hiringDiagnostics(firm, weakWorld, strongOperational)
+
+    explicit.desiredWorkers should be > bridged.desiredWorkers
+    explicit.feasibleWorkers should be >= bridged.feasibleWorkers
+  }
+
   "Firm.hasWorkingCapitalGrace" should "give startups a larger temporary liquidity runway" in {
     val startup   = mkFirm(TechState.Traditional(2), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 3)
     val incumbent = mkFirm(TechState.Traditional(2), sector = 3)

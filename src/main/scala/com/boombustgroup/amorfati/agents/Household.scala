@@ -42,6 +42,14 @@ object PerBankFlow:
   val zero: PerBankFlow = PerBankFlow(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
 object Household:
+  def isEmployed(hh: State): Boolean =
+    hh.status match
+      case HhStatus.Employed(_, _, _) => true
+      case _                          => false
+
+  def countEmployed(households: Vector[State]): Int =
+    households.count(isEmployed)
+
   private inline def scaledDivRaw(numerator: BigInt, denominator: BigInt): Long =
     if denominator == 0 then 0L
     else

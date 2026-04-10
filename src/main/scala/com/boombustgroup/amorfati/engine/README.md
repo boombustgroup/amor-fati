@@ -20,6 +20,38 @@ engine/
 | File | Responsibility |
 |------|----------------|
 | `World.scala` | Case class holding all macro state, decomposed into 7 nested types: `SocialState`, `FinancialMarketsState`, `ExternalState`, `RealState`, `MechanismsState`, `MonetaryPlumbingState`, `FlowState`. |
+| `OperationalSignals.scala` | Explicit same-month signal surface for month-`t` operational execution, kept distinct from persisted start-of-month `DecisionSignals`. |
+| `SignalExtraction.scala` | Explicit post-to-pre boundary: derives next-month `DecisionSignals` and typed seed provenance from realized month-`t` outcomes. |
+| `MonthTrace.scala` | Boundary-focused audit artifact with a stable month core (`boundary`, `seedTransition`, validations) plus extensible typed timing envelopes. |
+
+## Month Step Boundary
+
+The top-level engine shape is now explicit:
+
+```scala
+case class SimState(...)
+case class StepOutput(
+  stateIn: SimState,
+  operationalSignals: OperationalSignals,
+  signalExtraction: SignalExtraction.Output,
+  trace: MonthTrace,
+  nextState: SimState,
+  ...
+)
+
+def step(state: SimState, rng: Random): StepOutput
+```
+
+Read it as a month transition:
+
+- `stateIn.world.seedIn` is the persisted `pre` input surface.
+- `operationalSignals` is the explicit same-month surface created inside the step.
+- `signalExtraction` is the dedicated `post -> pre` boundary.
+- `trace` is the emitted audit artifact for month `t`.
+- `nextState` is the typed month `t+1` boundary state.
+
+The old `step(world, firms, households, banks, rng)` entry point remains only as
+a compatibility wrapper around `step(state, rng)`.
 
 ## economics/
 
@@ -48,7 +80,7 @@ against 13 accounting identities each month.
 
 | File | Responsibility |
 |------|----------------|
-| `FlowSimulation.scala` | Sole pipeline entry point. `step()` runs the 9-stage `computeAll()`, then `emitAllFlows()` to record all monetary flows. Produces `StepResult(world, firms, households, monthTrace)` with an inspectable month-boundary audit artifact. |
+| `FlowSimulation.scala` | Sole pipeline entry point. `step(state, rng)` is the explicit month boundary: it runs `computeAll()`, records monetary flows, emits `MonthTrace`, and returns typed `nextState` for month `t+1`. |
 | `FlowMechanism.scala` | Enum of ~80 named flow mechanisms (e.g. `FirmWages`, `HhConsumption`, `BankBfgLevy`). Each flow in the system maps to exactly one mechanism. |
 | `StateAdapter.scala` | Bridges computation outputs to flow inputs: extracts ZUS, NFZ, PPK, earmarked, HH, insurance, and firm flow parameters from `FullComputation`. |
 | `ZusFlows.scala` | ZUS/FUS pensions: contributions (HH → FUS), pensions (FUS → HH), gov subvention covering deficit |

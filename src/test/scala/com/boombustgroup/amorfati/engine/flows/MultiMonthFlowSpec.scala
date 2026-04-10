@@ -18,43 +18,31 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   "Multi-month flow verification (120 months)" should "preserve SFC at 0L every month" in {
     val init  = WorldInit.initialize(42L)
-    var w     = init.world
-    var firms = init.firms
-    var hh    = init.households
-    var banks = init.banks
+    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
 
     (1 to 120).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(w, firms, hh, banks, rng)
+      val result = FlowSimulation.step(state, rng)
 
       withClue(s"SFC violated at month $month: ") {
         result.execution.totalWealth shouldBe 0L
       }
 
-      w = result.newWorld
-      firms = result.newFirms
-      hh = result.newHouseholds
-      banks = result.newBanks
+      state = result.nextState
     }
   }
 
   it should "produce increasing total flow volume over time" in {
     val init    = WorldInit.initialize(42L)
-    var w       = init.world
-    var firms   = init.firms
-    var hh      = init.households
-    var banks   = init.banks
+    var state   = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
     var volumes = Vector.empty[Long]
 
     (1 to 120).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(w, firms, hh, banks, rng)
+      val result = FlowSimulation.step(state, rng)
       volumes = volumes :+ AggregateBatchContract.totalTransferred(result.flows)
 
-      w = result.newWorld
-      firms = result.newFirms
-      hh = result.newHouseholds
-      banks = result.newBanks
+      state = result.nextState
     }
 
     volumes.last should be > volumes.head

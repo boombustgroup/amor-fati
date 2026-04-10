@@ -22,9 +22,10 @@ import scala.util.Random
   */
 object FlowSimulation:
 
-  /** Bundles the three mutable components of the simulation: the World state,
-    * the firm vector, and the household vector. These always travel together
-    * between simulation steps and the main loop.
+  /** Single typed input to one monthly step.
+    *
+    * The simulation loop should treat this as the month-`t` boundary state that
+    * flows into one `step(state, rng)` transition.
     */
   case class SimState(
       world: World,
@@ -255,8 +256,9 @@ object FlowSimulation:
 
   /** Compute MonthlyCalculus by chaining all Economics. Uses old pipeline steps
     * for HH/Demand/Firm/PriceEquity (pure calculus). Uses self-contained
-    * OpenEconEconomics for monetary/external. Uses BankingEconomics (delegates
-    * to BankingEconomics.runStep) for banking.
+    * OpenEconEconomics for monetary/external. Runs BankingEconomics exactly
+    * once, then derives both the aggregate banking result and the step output
+    * used by WorldAssembly from that single execution.
     *
     * Returns FullComputation with both calculus AND step outputs for
     * WorldAssembly.
@@ -343,35 +345,35 @@ object FlowSimulation:
       ),
     )
     val s8              = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, rng))
-    val banking         = BankingEconomics.compute(
-      BankingEconomics.Input(
-        w = w,
-        month = fiscal.month,
-        lendingBaseRate = fiscal.lendingBaseRate,
-        resWage = fiscal.resWage,
-        baseMinWage = fiscal.baseMinWage,
-        minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-        employed = s2.employed,
-        newWage = s2.newWage,
-        laborDemand = s2.laborDemand,
-        wageGrowth = s2.wageGrowth,
-        govPurchases = s4.govPurchases,
-        sectorMults = s4.sectorMults,
-        avgDemandMult = s4.avgDemandMult,
-        sectorCapReal = s4.sectorCapReal,
-        laggedInvestDemand = s4.laggedInvestDemand,
-        fiscalRuleStatus = s4.fiscalRuleStatus,
-        laborOutput = s2,
-        hhOutput = s3,
-        firmOutput = s5,
-        hhFinancialOutput = s6,
-        priceEquityOutput = s7,
-        openEconOutput = s8,
-        banks = banks,
-        depositRng = rng,
-      ),
+    val operational     = extractOperationalSignals(s2, s4)
+    val bankingInput    = BankingEconomics.Input(
+      w = w,
+      month = fiscal.month,
+      lendingBaseRate = fiscal.lendingBaseRate,
+      resWage = fiscal.resWage,
+      baseMinWage = fiscal.baseMinWage,
+      minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
+      employed = s2.employed,
+      newWage = s2.newWage,
+      laborDemand = s2.laborDemand,
+      wageGrowth = s2.wageGrowth,
+      govPurchases = s4.govPurchases,
+      avgDemandMult = s4.avgDemandMult,
+      sectorCapReal = s4.sectorCapReal,
+      laggedInvestDemand = s4.laggedInvestDemand,
+      fiscalRuleStatus = s4.fiscalRuleStatus,
+      laborOutput = s2,
+      operationalSignals = operational,
+      hhOutput = s3,
+      firmOutput = s5,
+      hhFinancialOutput = s6,
+      priceEquityOutput = s7,
+      openEconOutput = s8,
+      banks = banks,
+      depositRng = rng,
     )
     val s9              = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
+    val banking         = BankingEconomics.toResult(s9, bankingInput)
     val agg             = s3.hhAgg
     val eq              = w.financial.equity
     val h               = s9.housingAfterFlows
@@ -461,6 +463,9 @@ object FlowSimulation:
 
   /** Public API: compute calculus only (for tests that need MonthlyCalculus).
     */
+  def computeCalculus(state: SimState, rng: Random)(using p: SimParams): MonthlyCalculus =
+    computeAll(state.world, state.firms, state.households, state.banks, rng).calculus
+
   def computeCalculus(
       w: World,
       firms: Vector[Firm.State],
@@ -468,20 +473,64 @@ object FlowSimulation:
       banks: Vector[Banking.BankState],
       rng: Random,
   )(using p: SimParams): MonthlyCalculus =
-    computeAll(w, firms, households, banks, rng).calculus
+    computeCalculus(
+      legacyInputState(w, firms, households, banks),
+      rng,
+    )
 
-  case class StepResult(
+  /** Full month-step contract.
+    *
+    * `stateIn -> StepOutput(nextState, trace)` is the explicit monthly
+    * boundary. The runtime may still drive this incrementally, but the
+    * architectural shape is a single transition from one [[SimState]] to the
+    * next.
+    */
+  case class StepOutput(
+      stateIn: SimState,
       calculus: MonthlyCalculus,
+      operationalSignals: OperationalSignals,
+      signalExtraction: SignalExtraction.Output,
       flows: Vector[BatchedFlow],
       execution: ExecutionResult,
       sfcResult: Sfc.SfcResult,
-      newWorld: World,
-      newFirms: Vector[Firm.State],
-      newHouseholds: Vector[Household.State],
-      newBanks: Vector[Banking.BankState],
-      householdAggregates: Household.Aggregates,
-      monthTrace: MonthTrace,
-  )
+      trace: MonthTrace,
+      nextState: SimState,
+  ):
+    def monthTrace: MonthTrace                    = trace
+    def newWorld: World                           = nextState.world
+    def newFirms: Vector[Firm.State]              = nextState.firms
+    def newHouseholds: Vector[Household.State]    = nextState.households
+    def newBanks: Vector[Banking.BankState]       = nextState.banks
+    def householdAggregates: Household.Aggregates = nextState.householdAggregates
+    def transition: (MonthTrace, SimState)        = (trace, nextState)
+
+  object StepOutput:
+    def apply(
+        stateIn: SimState,
+        calculus: MonthlyCalculus,
+        operationalSignals: OperationalSignals,
+        signalExtraction: SignalExtraction.Output,
+        flows: Vector[BatchedFlow],
+        execution: ExecutionResult,
+        sfcResult: Sfc.SfcResult,
+        trace: MonthTrace,
+        nextWorld: World,
+        nextFirms: Vector[Firm.State],
+        nextHouseholds: Vector[Household.State],
+        nextBanks: Vector[Banking.BankState],
+        nextHouseholdAggregates: Household.Aggregates,
+    ): StepOutput =
+      StepOutput(
+        stateIn = stateIn,
+        calculus = calculus,
+        operationalSignals = operationalSignals,
+        signalExtraction = signalExtraction,
+        flows = flows,
+        execution = execution,
+        sfcResult = sfcResult,
+        trace = trace,
+        nextState = SimState(nextWorld, nextFirms, nextHouseholds, nextBanks, nextHouseholdAggregates),
+      )
 
   private def executeBatches(flows: Vector[BatchedFlow]): Either[String, ExecutionResult] =
     val state = AggregateBatchContract.emptyExecutionState()
@@ -501,50 +550,6 @@ object FlowSimulation:
       banks: Vector[Banking.BankState],
   ): Sfc.RuntimeState =
     Sfc.RuntimeState(w, firms, households, banks)
-
-  private def buildSeedOutProvenance(seedOut: DecisionSignals): SeedOutProvenance =
-    SeedOutProvenance(
-      unemploymentRate = SignalProvenance(
-        seedOut.unemploymentRate,
-        MonthTraceStage.WorldAssemblyEconomics,
-        "finalHouseholds employment count -> assembledWorld.unemploymentRate",
-      ),
-      inflation = SignalProvenance(
-        seedOut.inflation,
-        MonthTraceStage.PriceEquityEconomics,
-        "s7.newInfl -> assembledWorld.inflation",
-      ),
-      expectedInflation = SignalProvenance(
-        seedOut.expectedInflation,
-        MonthTraceStage.OpenEconEconomics,
-        "s8.monetary.newExp.expectedInflation -> assembledWorld.mechanisms.expectations.expectedInflation",
-      ),
-      laggedHiringSlack = SignalProvenance(
-        seedOut.laggedHiringSlack,
-        MonthTraceStage.LaborEconomics,
-        "s2.operationalHiringSlack",
-      ),
-      startupAbsorptionRate = SignalProvenance(
-        seedOut.startupAbsorptionRate,
-        MonthTraceStage.StartupStaffing,
-        "WorldAssemblyEconomics.applyStartupStaffing.startupAbsorptionRate",
-      ),
-      sectorDemandMult = SignalProvenance(
-        seedOut.sectorDemandMult,
-        MonthTraceStage.DemandEconomics,
-        "s4.sectorMults",
-      ),
-      sectorDemandPressure = SignalProvenance(
-        seedOut.sectorDemandPressure,
-        MonthTraceStage.DemandEconomics,
-        "s4.sectorDemandPressure",
-      ),
-      sectorHiringSignal = SignalProvenance(
-        seedOut.sectorHiringSignal,
-        MonthTraceStage.DemandEconomics,
-        "s4.sectorHiringSignal",
-      ),
-    )
 
   private case class ExecutedBatchEvidence(
       totals: Map[MechanismId, Long],
@@ -655,27 +660,121 @@ object FlowSimulation:
       eclProvisionChange = full.s9.eclProvisionChange,
     )
 
+  private def extractOperationalSignals(
+      s2: LaborEconomics.Output,
+      s4: DemandEconomics.Output,
+  ): OperationalSignals =
+    OperationalSignals(
+      sectorDemandMult = s4.sectorMults,
+      sectorDemandPressure = s4.sectorDemandPressure,
+      sectorHiringSignal = s4.sectorHiringSignal,
+      operationalHiringSlack = s2.operationalHiringSlack,
+    )
+
+  private def extractOperationalSignals(full: FullComputation): OperationalSignals =
+    extractOperationalSignals(full.s2, full.s4)
+
+  private def buildMonthTrace(
+      stateIn: SimState,
+      full: FullComputation,
+      nextState: SimState,
+      executedFlows: Sfc.SemanticFlows,
+      sfcResult: Sfc.SfcResult,
+      signalExtraction: SignalExtraction.Output,
+  ): MonthTrace =
+    MonthTrace(
+      month = nextState.world.month,
+      boundary = MonthBoundaryTrace(
+        startSnapshot = MonthBoundarySnapshot.capture(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
+        endSnapshot = MonthBoundarySnapshot.capture(nextState.world, nextState.firms, nextState.households, nextState.banks),
+      ),
+      seedTransition = SeedTransitionTrace(
+        seedIn = stateIn.world.seedIn,
+        seedOut = signalExtraction.seedOut,
+        provenance = signalExtraction.provenance,
+      ),
+      timing = MonthTimingTrace(
+        Vector(
+          MonthTrace.timingEnvelope(
+            MonthTimingEnvelopeKey.LaborSignals,
+            MonthTimingPayload.LaborSignals(
+              operationalHiringSlack = full.s2.operationalHiringSlack,
+            ),
+          ),
+          MonthTrace.timingEnvelope(
+            MonthTimingEnvelopeKey.DemandSignals,
+            MonthTimingPayload.DemandSignals(
+              sectorDemandMult = full.s4.sectorMults,
+              sectorDemandPressure = full.s4.sectorDemandPressure,
+              sectorHiringSignal = full.s4.sectorHiringSignal,
+            ),
+          ),
+          MonthTrace.timingEnvelope(
+            MonthTimingEnvelopeKey.NominalSignals,
+            MonthTimingPayload.NominalSignals(
+              realizedInflation = full.s7.newInfl,
+              expectedInflation = full.s8.monetary.newExp.expectedInflation,
+            ),
+          ),
+          MonthTrace.timingEnvelope(
+            MonthTimingEnvelopeKey.FirmDynamics,
+            MonthTimingPayload.FirmDynamics(
+              startupAbsorptionRate = signalExtraction.seedOut.startupAbsorptionRate,
+              firmBirths = nextState.world.flows.firmBirths,
+              firmDeaths = nextState.world.flows.firmDeaths,
+              netFirmBirths = nextState.world.flows.netFirmBirths,
+            ),
+          ),
+        ),
+      ),
+      executedFlows = executedFlows,
+      validations = Vector(MonthValidation.fromSfcResult(sfcResult)),
+    )
+
+  private def inferBoundaryAggregates(world: World, households: Vector[Household.State])(using p: SimParams): Household.Aggregates =
+    Household.computeAggregates(
+      households,
+      marketWage = world.householdMarket.marketWage,
+      reservationWage = world.householdMarket.reservationWage,
+      importAdj = p.forex.importPropensity,
+      retrainingAttempts = 0,
+      retrainingSuccesses = 0,
+    )
+
+  private def legacyInputState(
+      w: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  )(using p: SimParams): SimState =
+    SimState(
+      world = w,
+      firms = firms,
+      households = households,
+      banks = banks,
+      householdAggregates = inferBoundaryAggregates(w, households),
+    )
+
   /** Full step: compute calculus → emit flows → assemble new World.
     *
     * This is the pipeline entry point. Runs s1–s9 exactly once via
     * computeAll(), then feeds both MonthlyCalculus (for flows) and step outputs
     * (for WorldAssembly) from that single computation.
     */
-  def step(w: World, firms: Vector[Firm.State], households: Vector[Household.State], banks: Vector[Banking.BankState], rng: Random)(using
-      p: SimParams,
-  ): StepResult =
-    val full      = computeAll(w, firms, households, banks, rng)
-    val flows     = emitAllBatches(full.calculus)
-    val execution = executeBatches(flows).fold(
-      err => throw IllegalStateException(s"Ledger batch execution failed: $err"),
+  def step(stateIn: SimState, rng: Random)(using p: SimParams): StepOutput =
+    val full               = computeAll(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks, rng)
+    val flows              = emitAllBatches(full.calculus)
+    val execution          = executeBatches(flows).fold(
+      err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
       identity,
     )
+    val operationalSignals = extractOperationalSignals(full)
 
     val assembled  = WorldAssemblyEconomics.compute(
       WorldAssemblyEconomics.Input(
-        w = w,
-        firms = firms,
-        households = households,
+        w = stateIn.world,
+        firms = stateIn.firms,
+        households = stateIn.households,
         month = full.fiscal.month,
         lendingBaseRate = full.fiscal.lendingBaseRate,
         resWage = full.fiscal.resWage,
@@ -696,54 +795,52 @@ object FlowSimulation:
         priceEquityOutput = full.s7,
         openEconOutput = full.s8,
         bankOutput = full.s9,
-        banks = banks,
+        banks = stateIn.banks,
         rng = rng,
         migRng = rng,
       ),
     )
-    val sfcFlows   = buildSfcFlows(full, flows, assembled.world.plumbing.fofResidual)
+    val nextState  = SimState(
+      world = assembled.world,
+      firms = assembled.firms,
+      households = assembled.households,
+      banks = assembled.banks,
+      householdAggregates = assembled.householdAggregates,
+    )
+    val sfcFlows   = buildSfcFlows(full, flows, nextState.world.plumbing.fofResidual)
     val sfcResult  = Sfc.validate(
-      prev = runtimeState(w, firms, households, banks),
+      prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
       curr = runtimeState(assembled.world, assembled.firms, assembled.households, assembled.banks),
       flows = sfcFlows,
       batches = flows,
       executionSnapshot = Sfc.ExecutionSnapshot.fromRaw(execution.snapshot),
       totalWealth = execution.totalWealth,
     )
-    val seedOut    = assembled.world.seedIn
-    val monthTrace =
-      MonthTrace(
-        month = assembled.world.month,
-        startSnapshot = MonthBoundarySnapshot.capture(w, firms, households, banks),
-        seedIn = w.seedIn,
-        stages = MonthStageTrace(
-          operationalHiringSlack = full.s2.operationalHiringSlack,
-          sectorDemandMult = full.s4.sectorMults,
-          sectorDemandPressure = full.s4.sectorDemandPressure,
-          sectorHiringSignal = full.s4.sectorHiringSignal,
-          realizedInflation = full.s7.newInfl,
-          expectedInflation = full.s8.monetary.newExp.expectedInflation,
-          startupAbsorptionRate = seedOut.startupAbsorptionRate,
-          firmBirths = assembled.world.flows.firmBirths,
-          firmDeaths = assembled.world.flows.firmDeaths,
-          netFirmBirths = assembled.world.flows.netFirmBirths,
-        ),
-        executedFlows = sfcFlows,
-        endSnapshot = MonthBoundarySnapshot.capture(assembled.world, assembled.firms, assembled.households, assembled.banks),
-        seedOut = seedOut,
-        seedOutProvenance = buildSeedOutProvenance(seedOut),
-        validations = Vector(MonthValidation.fromSfcResult(sfcResult)),
-      )
+    val monthTrace = buildMonthTrace(
+      stateIn = stateIn,
+      full = full,
+      nextState = nextState,
+      executedFlows = sfcFlows,
+      sfcResult = sfcResult,
+      signalExtraction = assembled.signalExtraction,
+    )
 
-    StepResult(
-      full.calculus,
+    StepOutput(
+      stateIn = stateIn,
+      calculus = full.calculus,
+      operationalSignals = operationalSignals,
+      signalExtraction = assembled.signalExtraction,
       flows,
       execution,
       sfcResult,
-      assembled.world,
-      assembled.firms,
-      assembled.households,
-      assembled.banks,
-      assembled.householdAggregates,
-      monthTrace,
+      trace = monthTrace,
+      nextState = nextState,
+    )
+
+  def step(w: World, firms: Vector[Firm.State], households: Vector[Household.State], banks: Vector[Banking.BankState], rng: Random)(using
+      p: SimParams,
+  ): StepOutput =
+    step(
+      legacyInputState(w, firms, households, banks),
+      rng,
     )

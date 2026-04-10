@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.{OperationalSignals, World}
 import com.boombustgroup.amorfati.engine.markets.{CalvoPricing, CorporateBondMarket, IntermediateMarket, LaborMarket}
 import com.boombustgroup.amorfati.types.*
 
@@ -81,11 +81,12 @@ object FirmEconomics:
 
   /** Per-bank lending rates and credit approval, shared across phases. */
   private case class LendingConditions(
-      macro4firms: World,                 // world with updated demand mults + wages
-      rates: Vector[Rate],                // per-bank lending rates
-      lendingRates: Vector[Double],       // rates as Double (for Output)
-      bankCanLend: (Int, PLN) => Boolean, // credit approval: (bankId, amount) => approved?
-      nBanks: Int,                        // number of banks in multi-bank system
+      firmWorld: World,                       // world with current-month wages for firm decision-making
+      operationalSignals: OperationalSignals, // same-month demand / labor surface for incumbent firms
+      rates: Vector[Rate],                    // per-bank lending rates
+      lendingRates: Vector[Double],           // rates as Double (for Output)
+      bankCanLend: (Int, PLN) => Boolean,     // credit approval: (bankId, amount) => approved?
+      nBanks: Int,                            // number of banks in multi-bank system
   )
 
   /** Per-firm processing outcome — immutable, one per firm. */
@@ -154,7 +155,6 @@ object FirmEconomics:
       employed: Int,
       laborDemand: Int,
       wageGrowth: Coefficient,
-      operationalHiringSlack: Share,
       immigration: Immigration.State,
       netMigration: Int,
       demographics: SocialSecurity.DemographicsState,
@@ -167,8 +167,8 @@ object FirmEconomics:
       regionalWages: Map[Region, PLN],
       // From HouseholdIncome
       hhOutput: HouseholdIncomeEconomics.Output,
+      operationalSignals: OperationalSignals,
       // From Demand
-      sectorMults: Vector[Multiplier],
       avgDemandMult: Multiplier,
       sectorCapReal: Vector[PLN],
       govPurchases: PLN,
@@ -302,15 +302,14 @@ object FirmEconomics:
 
   @boundaryEscape
   def compute(in: Input)(using p: SimParams): StepOutput =
-    val seedIn = in.w.seedIn
     // Construct bridge types from raw values
-    val s1     = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-    val s2     = LaborEconomics.Output(
+    val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
+    val s2 = LaborEconomics.Output(
       in.newWage,
       in.employed,
       in.laborDemand,
       in.wageGrowth,
-      in.operationalHiringSlack,
+      in.operationalSignals.operationalHiringSlack,
       in.immigration,
       in.netMigration,
       in.demographics,
@@ -322,11 +321,11 @@ object FirmEconomics:
       in.living,
       in.regionalWages,
     )
-    val s4     = DemandEconomics.Output(
+    val s4 = DemandEconomics.Output(
       in.govPurchases,
-      in.sectorMults,
-      seedIn.sectorDemandPressure,
-      seedIn.sectorHiringSignal,
+      in.operationalSignals.sectorDemandMult,
+      in.operationalSignals.sectorDemandPressure,
+      in.operationalSignals.sectorHiringSignal,
       in.avgDemandMult,
       in.sectorCapReal,
       in.laggedInvestDemand,
@@ -370,30 +369,30 @@ object FirmEconomics:
   // ---- Phase 1: Lending conditions ----
 
   /** Prepare per-bank rates, lending functions, and world snapshot with updated
-    * demand multipliers and wages for firm decision-making.
+    * wages for firm decision-making.
     */
   @boundaryEscape
   private def prepareLending(in: StepInput, rng: Random)(using p: SimParams): LendingConditions =
     import ComputationBoundary.toDouble
-    val bsec    = in.w.bankingSector
-    val nBanks  = in.banks.length
-    val ccyb    = in.w.mechanisms.macropru.ccyb
-    val rates   = in.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield))
-    val canLend = (bankId: Int, amt: PLN) => Banking.canLend(in.banks(bankId), amt, rng, ccyb)
-    val world   = in.w.copy(
+    val bsec               = in.w.bankingSector
+    val nBanks             = in.banks.length
+    val ccyb               = in.w.mechanisms.macropru.ccyb
+    val rates              = in.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield))
+    val canLend            = (bankId: Int, amt: PLN) => Banking.canLend(in.banks(bankId), amt, rng, ccyb)
+    val operationalSignals = OperationalSignals(
+      sectorDemandMult = in.s4.sectorMults,
+      sectorDemandPressure = in.s4.sectorDemandPressure,
+      sectorHiringSignal = in.s4.sectorHiringSignal,
+      operationalHiringSlack = in.s2.operationalHiringSlack,
+    )
+    val world              = in.w.copy(
       month = in.s1.m,
-      pipeline = in.w.pipeline.copy(
-        sectorDemandMult = in.s4.sectorMults,
-        sectorDemandPressure = in.s4.sectorDemandPressure,
-        sectorHiringSignal = in.s4.sectorHiringSignal,
-        operationalHiringSlack = in.s2.operationalHiringSlack,
-      ),
       householdMarket = in.w.householdMarket.copy(
         marketWage = in.s2.newWage,
         reservationWage = in.s1.resWage,
       ),
     )
-    LendingConditions(world, rates, rates.map(toDouble(_)), canLend, nBanks)
+    LendingConditions(world, operationalSignals, rates, rates.map(toDouble(_)), canLend, nBanks)
 
   // ---- Phase 2: Per-firm processing ----
 
@@ -408,7 +407,7 @@ object FirmEconomics:
     val outcomes = firms.map: f =>
       val rate    = lending.rates(f.bankId.toInt)
       val canLend = (amt: PLN) => lending.bankCanLend(f.bankId.toInt, amt)
-      val r       = Firm.process(f, lending.macro4firms, rate, canLend, firms, rng)
+      val r       = Firm.process(f, lending.firmWorld, lending.operationalSignals, rate, canLend, firms, rng)
       val fin     = splitFinancing(r)
 
       FirmOutcome(

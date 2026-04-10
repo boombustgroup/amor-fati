@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthTraceStage
+import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthTimingEnvelopeKey, MonthTimingPayload, MonthTraceStage}
 import com.boombustgroup.amorfati.init.WorldInit
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
@@ -22,6 +22,24 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.execution.totalWealth shouldBe 0L
     result.sfcResult shouldBe Right(())
     result.calculus.employed should be > 0
+  }
+
+  it should "expose the month boundary as SimState -> StepOutput -> (trace, nextState)" in {
+    val init        = WorldInit.initialize(42L)
+    val state       = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    val stateRng    = new scala.util.Random(42L)
+    val legacyRng   = new scala.util.Random(42L)
+    val stateResult = FlowSimulation.step(state, stateRng)
+    val legacy      = FlowSimulation.step(init.world, init.firms, init.households, init.banks, legacyRng)
+
+    stateResult.stateIn shouldBe state
+    stateResult.transition shouldBe ((stateResult.monthTrace, stateResult.nextState))
+    stateResult.nextState.world shouldBe legacy.newWorld
+    stateResult.nextState.firms shouldBe legacy.newFirms
+    stateResult.nextState.households.map(_.status) shouldBe legacy.newHouseholds.map(_.status)
+    stateResult.nextState.banks shouldBe legacy.newBanks
+    stateResult.nextState.householdAggregates shouldBe legacy.householdAggregates
+    stateResult.monthTrace shouldBe legacy.monthTrace
   }
 
   it should "produce SFC == 0L across 12 months (autonomous driving)" in {
@@ -70,46 +88,80 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.flows.map(_.mechanism).toSet.size should be > 30
   }
 
-  it should "emit a typed MonthTrace with boundary snapshots, stage outputs, and seed provenance" in {
+  it should "emit a typed MonthTrace with stable boundaries and typed timing envelopes" in {
     val init   = WorldInit.initialize(42L)
     val rng    = new scala.util.Random(42L)
     val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
     val trace  = result.monthTrace
 
+    val demandSignals = trace.timing.requirePayload[MonthTimingPayload.DemandSignals](MonthTimingEnvelopeKey.DemandSignals)
+
     trace.month shouldBe result.newWorld.month
-    trace.seedIn shouldBe init.world.seedIn
-    trace.seedOut shouldBe result.newWorld.seedIn
-    trace.startSnapshot.stock shouldBe Sfc.snapshot(init.world, init.firms, init.households, init.banks)
-    trace.endSnapshot.stock shouldBe Sfc.snapshot(result.newWorld, result.newFirms, result.newHouseholds, result.newBanks)
-    trace.startSnapshot.inflation shouldBe init.world.inflation
-    trace.endSnapshot.inflation shouldBe result.newWorld.inflation
-    trace.stages.operationalHiringSlack shouldBe result.newWorld.pipeline.operationalHiringSlack
-    trace.stages.sectorDemandMult shouldBe result.newWorld.seedIn.sectorDemandMult
-    trace.stages.sectorDemandPressure shouldBe result.newWorld.seedIn.sectorDemandPressure
-    trace.stages.sectorHiringSignal shouldBe result.newWorld.seedIn.sectorHiringSignal
-    trace.stages.realizedInflation shouldBe result.newWorld.inflation
-    trace.stages.expectedInflation shouldBe result.newWorld.mechanisms.expectations.expectedInflation
-    trace.stages.startupAbsorptionRate shouldBe result.newWorld.seedIn.startupAbsorptionRate
-    trace.stages.firmBirths shouldBe result.newWorld.flows.firmBirths
-    trace.stages.firmDeaths shouldBe result.newWorld.flows.firmDeaths
-    trace.stages.netFirmBirths shouldBe result.newWorld.flows.netFirmBirths
+    trace.seedTransition.seedIn shouldBe init.world.seedIn
+    trace.seedTransition.seedOut shouldBe result.newWorld.seedIn
+    trace.boundary.startSnapshot.stock shouldBe Sfc.snapshot(init.world, init.firms, init.households, init.banks)
+    trace.boundary.endSnapshot.stock shouldBe Sfc.snapshot(result.newWorld, result.newFirms, result.newHouseholds, result.newBanks)
+    trace.boundary.startSnapshot.inflation shouldBe init.world.inflation
+    trace.boundary.endSnapshot.inflation shouldBe result.newWorld.inflation
+    trace.timing.envelopes.map(_.key).toSet shouldBe Set(
+      MonthTimingEnvelopeKey.LaborSignals,
+      MonthTimingEnvelopeKey.DemandSignals,
+      MonthTimingEnvelopeKey.NominalSignals,
+      MonthTimingEnvelopeKey.FirmDynamics,
+    )
+    trace.timing.laborSignals.operationalHiringSlack shouldBe result.newWorld.pipeline.operationalHiringSlack
+    demandSignals.sectorDemandMult shouldBe result.newWorld.seedIn.sectorDemandMult
+    demandSignals.sectorDemandPressure shouldBe result.newWorld.seedIn.sectorDemandPressure
+    demandSignals.sectorHiringSignal shouldBe result.newWorld.seedIn.sectorHiringSignal
+    trace.timing.nominalSignals.realizedInflation shouldBe result.newWorld.inflation
+    trace.timing.nominalSignals.expectedInflation shouldBe result.newWorld.mechanisms.expectations.expectedInflation
+    trace.timing.firmDynamics.startupAbsorptionRate shouldBe result.newWorld.seedIn.startupAbsorptionRate
+    trace.timing.firmDynamics.firmBirths shouldBe result.newWorld.flows.firmBirths
+    trace.timing.firmDynamics.firmDeaths shouldBe result.newWorld.flows.firmDeaths
+    trace.timing.firmDynamics.netFirmBirths shouldBe result.newWorld.flows.netFirmBirths
     trace.executedFlows.totalIncome shouldBe result.calculus.totalIncome
     trace.executedFlows.currentAccount shouldBe result.newWorld.bop.currentAccount
     trace.executedFlows.fofResidual shouldBe result.newWorld.plumbing.fofResidual
-    trace.seedOutProvenance.unemploymentRate.stage shouldBe MonthTraceStage.WorldAssemblyEconomics
-    trace.seedOutProvenance.inflation.stage shouldBe MonthTraceStage.PriceEquityEconomics
-    trace.seedOutProvenance.expectedInflation.stage shouldBe MonthTraceStage.OpenEconEconomics
-    trace.seedOutProvenance.laggedHiringSlack.stage shouldBe MonthTraceStage.LaborEconomics
-    trace.seedOutProvenance.startupAbsorptionRate.stage shouldBe MonthTraceStage.StartupStaffing
-    trace.seedOutProvenance.sectorDemandMult.stage shouldBe MonthTraceStage.DemandEconomics
-    trace.seedOutProvenance.sectorDemandPressure.stage shouldBe MonthTraceStage.DemandEconomics
-    trace.seedOutProvenance.sectorHiringSignal.stage shouldBe MonthTraceStage.DemandEconomics
-    trace.seedOutProvenance.laggedHiringSlack.value shouldBe result.newWorld.seedIn.laggedHiringSlack
-    trace.seedOutProvenance.startupAbsorptionRate.value shouldBe result.newWorld.seedIn.startupAbsorptionRate
+    trace.seedTransition.provenance.unemploymentRate.stage shouldBe MonthTraceStage.WorldAssemblyEconomics
+    trace.seedTransition.provenance.inflation.stage shouldBe MonthTraceStage.PriceEquityEconomics
+    trace.seedTransition.provenance.expectedInflation.stage shouldBe MonthTraceStage.OpenEconEconomics
+    trace.seedTransition.provenance.laggedHiringSlack.stage shouldBe MonthTraceStage.LaborEconomics
+    trace.seedTransition.provenance.startupAbsorptionRate.stage shouldBe MonthTraceStage.StartupStaffing
+    trace.seedTransition.provenance.sectorDemandMult.stage shouldBe MonthTraceStage.DemandEconomics
+    trace.seedTransition.provenance.sectorDemandPressure.stage shouldBe MonthTraceStage.DemandEconomics
+    trace.seedTransition.provenance.sectorHiringSignal.stage shouldBe MonthTraceStage.DemandEconomics
+    trace.seedTransition.provenance.laggedHiringSlack.value shouldBe result.newWorld.seedIn.laggedHiringSlack
+    trace.seedTransition.provenance.startupAbsorptionRate.value shouldBe result.newWorld.seedIn.startupAbsorptionRate
     trace.validations should have size 1
     trace.validations.head.passed shouldBe true
     trace.validations.head.failures shouldBe empty
     result.sfcResult shouldBe Right(())
+  }
+
+  it should "keep MonthTrace seed transitions consistent with timing envelopes and end-of-month boundary data" in {
+    val init   = WorldInit.initialize(42L)
+    val rng    = new scala.util.Random(42L)
+    val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
+    val trace  = result.monthTrace
+
+    trace.seedTransition.seedOut shouldBe DecisionSignals(
+      unemploymentRate = trace.boundary.endSnapshot.unemploymentRate,
+      inflation = trace.timing.nominalSignals.realizedInflation,
+      expectedInflation = trace.timing.nominalSignals.expectedInflation,
+      laggedHiringSlack = trace.timing.laborSignals.operationalHiringSlack,
+      startupAbsorptionRate = trace.timing.firmDynamics.startupAbsorptionRate,
+      sectorDemandMult = trace.timing.demandSignals.sectorDemandMult,
+      sectorDemandPressure = trace.timing.demandSignals.sectorDemandPressure,
+      sectorHiringSignal = trace.timing.demandSignals.sectorHiringSignal,
+    )
+    trace.seedTransition.provenance.unemploymentRate.value shouldBe trace.boundary.endSnapshot.unemploymentRate
+    trace.seedTransition.provenance.inflation.value shouldBe trace.timing.nominalSignals.realizedInflation
+    trace.seedTransition.provenance.expectedInflation.value shouldBe trace.timing.nominalSignals.expectedInflation
+    trace.seedTransition.provenance.laggedHiringSlack.value shouldBe trace.timing.laborSignals.operationalHiringSlack
+    trace.seedTransition.provenance.startupAbsorptionRate.value shouldBe trace.timing.firmDynamics.startupAbsorptionRate
+    trace.seedTransition.provenance.sectorDemandMult.value shouldBe trace.timing.demandSignals.sectorDemandMult
+    trace.seedTransition.provenance.sectorDemandPressure.value shouldBe trace.timing.demandSignals.sectorDemandPressure
+    trace.seedTransition.provenance.sectorHiringSignal.value shouldBe trace.timing.demandSignals.sectorHiringSignal
   }
 
   it should "match the legacy pure interpreter on aggregate execution balances" in {
