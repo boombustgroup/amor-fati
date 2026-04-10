@@ -125,6 +125,17 @@ case class MonthTimingEnvelope(
 case class MonthTimingTrace(
     envelopes: Vector[MonthTimingEnvelope],
 ):
+  private val duplicateKeys =
+    envelopes
+      .groupMapReduce(_.key)(_ => 1)(_ + _)
+      .collect { case (key, count) if count > 1 => key }
+      .toVector
+
+  require(
+    duplicateKeys.isEmpty,
+    s"MonthTimingTrace requires unique envelope keys, found duplicates: ${duplicateKeys.mkString(", ")}",
+  )
+
   def envelope(key: MonthTimingEnvelopeKey): Option[MonthTimingEnvelope] =
     envelopes.find(_.key == key)
 

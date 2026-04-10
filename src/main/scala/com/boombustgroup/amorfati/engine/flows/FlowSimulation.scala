@@ -256,8 +256,9 @@ object FlowSimulation:
 
   /** Compute MonthlyCalculus by chaining all Economics. Uses old pipeline steps
     * for HH/Demand/Firm/PriceEquity (pure calculus). Uses self-contained
-    * OpenEconEconomics for monetary/external. Uses BankingEconomics (delegates
-    * to BankingEconomics.runStep) for banking.
+    * OpenEconEconomics for monetary/external. Runs BankingEconomics exactly
+    * once, then derives both the aggregate banking result and the step output
+    * used by WorldAssembly from that single execution.
     *
     * Returns FullComputation with both calculus AND step outputs for
     * WorldAssembly.
@@ -350,35 +351,34 @@ object FlowSimulation:
       sectorHiringSignal = s4.sectorHiringSignal,
       operationalHiringSlack = s2.operationalHiringSlack,
     )
-    val banking         = BankingEconomics.compute(
-      BankingEconomics.Input(
-        w = w,
-        month = fiscal.month,
-        lendingBaseRate = fiscal.lendingBaseRate,
-        resWage = fiscal.resWage,
-        baseMinWage = fiscal.baseMinWage,
-        minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-        employed = s2.employed,
-        newWage = s2.newWage,
-        laborDemand = s2.laborDemand,
-        wageGrowth = s2.wageGrowth,
-        govPurchases = s4.govPurchases,
-        avgDemandMult = s4.avgDemandMult,
-        sectorCapReal = s4.sectorCapReal,
-        laggedInvestDemand = s4.laggedInvestDemand,
-        fiscalRuleStatus = s4.fiscalRuleStatus,
-        laborOutput = s2,
-        operationalSignals = operational,
-        hhOutput = s3,
-        firmOutput = s5,
-        hhFinancialOutput = s6,
-        priceEquityOutput = s7,
-        openEconOutput = s8,
-        banks = banks,
-        depositRng = rng,
-      ),
+    val bankingInput    = BankingEconomics.Input(
+      w = w,
+      month = fiscal.month,
+      lendingBaseRate = fiscal.lendingBaseRate,
+      resWage = fiscal.resWage,
+      baseMinWage = fiscal.baseMinWage,
+      minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
+      employed = s2.employed,
+      newWage = s2.newWage,
+      laborDemand = s2.laborDemand,
+      wageGrowth = s2.wageGrowth,
+      govPurchases = s4.govPurchases,
+      avgDemandMult = s4.avgDemandMult,
+      sectorCapReal = s4.sectorCapReal,
+      laggedInvestDemand = s4.laggedInvestDemand,
+      fiscalRuleStatus = s4.fiscalRuleStatus,
+      laborOutput = s2,
+      operationalSignals = operational,
+      hhOutput = s3,
+      firmOutput = s5,
+      hhFinancialOutput = s6,
+      priceEquityOutput = s7,
+      openEconOutput = s8,
+      banks = banks,
+      depositRng = rng,
     )
     val s9              = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
+    val banking         = BankingEconomics.toResult(s9, bankingInput)
     val agg             = s3.hhAgg
     val eq              = w.financial.equity
     val h               = s9.housingAfterFlows

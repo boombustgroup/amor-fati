@@ -108,7 +108,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       sectorDemandMult = baseline.s4.sectorMults,
       sectorDemandPressure = baseline.s4.sectorDemandPressure,
       sectorHiringSignal = baseline.s4.sectorHiringSignal,
-      operationalHiringSlack = baseline.s2Pre.operationalHiringSlack,
+      operationalHiringSlack = baseline.s2.operationalHiringSlack,
     )
 
   private def baseFirmComputeInput(world: World, operationalSignals: OperationalSignals, seed: Long): FirmEconomics.Input =
@@ -450,6 +450,10 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     result.newWorld.pipeline.operationalHiringSlack shouldBe Share(0.21)
     result.newWorld.pipeline.laggedHiringSlack shouldBe Share(0.21)
     result.newWorld.seedIn.laggedHiringSlack shouldBe Share(0.21)
+  }
+
+  it should "keep explicit OperationalSignals aligned with post-reconcile labor slack" in {
+    baseOperationalSignals.operationalHiringSlack shouldBe baseline.s2.operationalHiringSlack
   }
 
   "WorldAssemblyEconomics.compute" should "persist demand and hiring signals from current demand output in the bridge path" in {

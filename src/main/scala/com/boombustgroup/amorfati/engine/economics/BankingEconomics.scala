@@ -302,7 +302,7 @@ object BankingEconomics:
 
     toResult(s9, in)
 
-  private def toResult(s9: StepOutput, in: Input): Result =
+  private[engine] def toResult(s9: StepOutput, in: Input): Result =
     val prevBankAgg = Banking.aggregateFromBanks(in.banks)
     Result(
       govBondIncome = prevBankAgg.govBondHoldings * in.openEconOutput.monetary.newBondYield.monthly,
