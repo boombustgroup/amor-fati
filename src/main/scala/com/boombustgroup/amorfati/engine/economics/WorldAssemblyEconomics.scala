@@ -135,6 +135,13 @@ object WorldAssemblyEconomics:
       startupAbsorptionRate: Share,
   )
 
+  private case class SignalExtractionInput(
+      operationalHiringSlack: Share,
+      sectorDemandMult: Vector[Multiplier],
+      sectorDemandPressure: Vector[Multiplier],
+      sectorHiringSignal: Vector[Multiplier],
+  )
+
   private def buildStepInput(in: Input): StepInput =
     val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
 
@@ -154,8 +161,16 @@ object WorldAssemblyEconomics:
       in.bankOutput,
     )
 
+  private def buildSignalExtractionInput(in: StepInput): SignalExtractionInput =
+    SignalExtractionInput(
+      operationalHiringSlack = in.s2.operationalHiringSlack,
+      sectorDemandMult = in.s4.sectorMults,
+      sectorDemandPressure = in.s4.sectorDemandPressure,
+      sectorHiringSignal = in.s4.sectorHiringSignal,
+    )
+
   private def extractSignalExtraction(
-      in: StepInput,
+      signalInput: SignalExtractionInput,
       post: PostResult,
   ): SignalExtraction.Output =
     val employedHouseholds = Household.countEmployed(post.households)
@@ -163,13 +178,13 @@ object WorldAssemblyEconomics:
     SignalExtraction.compute(
       SignalExtraction.inputFromRealizedOutcomes(
         unemploymentRate = post.world.unemploymentRate(employedHouseholds),
-        laggedHiringSlack = in.s2.operationalHiringSlack,
+        laggedHiringSlack = signalInput.operationalHiringSlack,
         startupAbsorptionRate = post.startupAbsorptionRate,
         inflation = post.world.inflation,
         expectedInflation = post.world.mechanisms.expectations.expectedInflation,
-        sectorDemandMult = in.s4.sectorMults,
-        sectorDemandPressure = in.s4.sectorDemandPressure,
-        sectorHiringSignal = in.s4.sectorHiringSignal,
+        sectorDemandMult = signalInput.sectorDemandMult,
+        sectorDemandPressure = signalInput.sectorDemandPressure,
+        sectorHiringSignal = signalInput.sectorHiringSignal,
       ),
     )
 
@@ -194,9 +209,10 @@ object WorldAssemblyEconomics:
     computePostMonth(buildStepInput(in), in.rng, in.migRng)
 
   def compute(in: Input)(using SimParams): Result =
-    val step = buildStepInput(in)
-    val post = computePostMonth(step, in.rng, in.migRng)
-    val seed = extractSignalExtraction(step, post)
+    val step        = buildStepInput(in)
+    val signalInput = buildSignalExtractionInput(step)
+    val post        = computePostMonth(step, in.rng, in.migRng)
+    val seed        = extractSignalExtraction(signalInput, post)
     Result(advanceToBoundaryWorld(post.world, seed.seedOut), post.firms, post.households, post.banks, post.householdAggregates, seed)
 
   // ---------------------------------------------------------------------------
@@ -204,8 +220,9 @@ object WorldAssemblyEconomics:
   // ---------------------------------------------------------------------------
 
   def runStep(in: StepInput, rng: Random, migRng: Random)(using p: SimParams): StepOutput =
+    val signalInput      = buildSignalExtractionInput(in)
     val post             = runPostStep(in, rng, migRng)
-    val signalExtraction = extractSignalExtraction(in, post)
+    val signalExtraction = extractSignalExtraction(signalInput, post)
     StepOutput(
       newWorld = advanceToBoundaryWorld(post.world, signalExtraction.seedOut),
       finalFirms = post.firms,

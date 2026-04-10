@@ -458,6 +458,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
     post.world.pipeline.operationalHiringSlack shouldBe Share(0.21)
     post.world.seedIn shouldBe input.w.seedIn
+    post.world.pipeline.sectorDemandMult shouldBe input.w.pipeline.sectorDemandMult
     post.world.pipeline.sectorDemandPressure shouldBe input.w.pipeline.sectorDemandPressure
     post.world.pipeline.sectorHiringSignal shouldBe input.w.pipeline.sectorHiringSignal
   }
