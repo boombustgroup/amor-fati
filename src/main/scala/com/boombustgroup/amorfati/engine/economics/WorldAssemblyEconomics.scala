@@ -47,18 +47,6 @@ object WorldAssemblyEconomics:
       signalExtraction: SignalExtraction.Output,
   )
 
-  /** Internal post-month state before the next-month seed is extracted and
-    * applied to the pipeline boundary.
-    */
-  private[engine] case class PostStepOutput(
-      newWorld: World,
-      finalFirms: Vector[Firm.State],
-      reassignedHouseholds: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-      householdAggregates: Household.Aggregates,
-      startupAbsorptionRate: Share,
-  )
-
   // ---------------------------------------------------------------------------
   // Private intermediate types
   // ---------------------------------------------------------------------------
@@ -168,17 +156,17 @@ object WorldAssemblyEconomics:
 
   private def extractSignalExtraction(
       in: StepInput,
-      post: PostStepOutput,
+      post: PostResult,
   ): SignalExtraction.Output =
-    val employedHouseholds = Household.countEmployed(post.reassignedHouseholds)
+    val employedHouseholds = Household.countEmployed(post.households)
 
     SignalExtraction.compute(
       SignalExtraction.inputFromRealizedOutcomes(
-        unemploymentRate = post.newWorld.unemploymentRate(employedHouseholds),
+        unemploymentRate = post.world.unemploymentRate(employedHouseholds),
         laggedHiringSlack = in.s2.operationalHiringSlack,
         startupAbsorptionRate = post.startupAbsorptionRate,
-        inflation = post.newWorld.inflation,
-        expectedInflation = post.newWorld.mechanisms.expectations.expectedInflation,
+        inflation = post.world.inflation,
+        expectedInflation = post.world.mechanisms.expectations.expectedInflation,
         sectorDemandMult = in.s4.sectorMults,
         sectorDemandPressure = in.s4.sectorDemandPressure,
         sectorHiringSignal = in.s4.sectorHiringSignal,
@@ -196,22 +184,19 @@ object WorldAssemblyEconomics:
       rng: Random,
       migRng: Random,
   )(using SimParams): PostResult =
-    val s10 = runPostStep(
+    runPostStep(
       step,
       rng,
       migRng,
     )
 
-    PostResult(s10.newWorld, s10.finalFirms, s10.reassignedHouseholds, s10.banks, s10.householdAggregates, s10.startupAbsorptionRate)
-
   private[engine] def computePostMonth(in: Input)(using SimParams): PostResult =
     computePostMonth(buildStepInput(in), in.rng, in.migRng)
 
   def compute(in: Input)(using SimParams): Result =
-    val step  = buildStepInput(in)
-    val post  = computePostMonth(step, in.rng, in.migRng)
-    val postS = PostStepOutput(post.world, post.firms, post.households, post.banks, post.householdAggregates, post.startupAbsorptionRate)
-    val seed  = extractSignalExtraction(step, postS)
+    val step = buildStepInput(in)
+    val post = computePostMonth(step, in.rng, in.migRng)
+    val seed = extractSignalExtraction(step, post)
     Result(advanceToBoundaryWorld(post.world, seed.seedOut), post.firms, post.households, post.banks, post.householdAggregates, seed)
 
   // ---------------------------------------------------------------------------
@@ -222,15 +207,15 @@ object WorldAssemblyEconomics:
     val post             = runPostStep(in, rng, migRng)
     val signalExtraction = extractSignalExtraction(in, post)
     StepOutput(
-      newWorld = advanceToBoundaryWorld(post.newWorld, signalExtraction.seedOut),
-      finalFirms = post.finalFirms,
-      reassignedHouseholds = post.reassignedHouseholds,
+      newWorld = advanceToBoundaryWorld(post.world, signalExtraction.seedOut),
+      finalFirms = post.firms,
+      reassignedHouseholds = post.households,
       banks = post.banks,
       householdAggregates = post.householdAggregates,
       signalExtraction = signalExtraction,
     )
 
-  private[engine] def runPostStep(in: StepInput, rng: Random, migRng: Random)(using p: SimParams): PostStepOutput =
+  private[engine] def runPostStep(in: StepInput, rng: Random, migRng: Random)(using p: SimParams): PostResult =
     val equityAfterStep = finalizeEquity(in)
     val fofResidual     = computeFofResidual(in)
     val informal        = computeInformalEconomy(in)
@@ -265,7 +250,7 @@ object WorldAssemblyEconomics:
           ),
         )
       .copy(regionalWages = in.s2.regionalWages)
-    PostStepOutput(finalW, finalFirms, postMigHh, in.s9.banks, startupStaffing.hhAgg, startupStaffing.startupAbsorptionRate)
+    PostResult(finalW, finalFirms, postMigHh, in.s9.banks, startupStaffing.hhAgg, startupStaffing.startupAbsorptionRate)
 
   // ---------------------------------------------------------------------------
   // Private helpers — migrated from WorldAssemblyStep
