@@ -105,7 +105,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   "assignBank" should "always return valid index in [0, nBanks)" in
     forAll(Gen.choose(0, 5)) { (sector: Int) =>
-      val rng = RandomStream.seeded(42L)
+      val rng = RandomStream.seeded(42L + sector.toLong)
       for _ <- 0 until 50 do
         val bId = Banking.assignBank(SectorIdx(sector), configs, rng)
         bId.toInt should be >= 0
