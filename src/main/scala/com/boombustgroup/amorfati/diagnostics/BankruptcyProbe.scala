@@ -17,7 +17,7 @@ object BankruptcyProbe:
     given SimParams = SimParams.defaults
 
     val init  = WorldInit.initialize(seed)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     println(s"seed=$seed months=$months")
 
@@ -25,7 +25,7 @@ object BankruptcyProbe:
       val rng          = new Random(seed * 1000 + month)
       val prevById     = state.firms.map(f => f.id -> f).toMap
       val result       = FlowSimulation.step(state, rng)
-      val newBankrupts = result.newFirms.flatMap: f =>
+      val newBankrupts = result.nextState.firms.flatMap: f =>
         bankruptReason(f).flatMap: reason =>
           prevById.get(f.id).flatMap(bankruptReason) match
             case Some(_) => None
@@ -33,8 +33,8 @@ object BankruptcyProbe:
 
       val byReason    = newBankrupts.groupMapReduce(_._1)(_ => 1)(_ + _).toVector.sortBy(-_._2)
       val bySector    = newBankrupts.groupMapReduce(_._2)(_ => 1)(_ + _).toVector.sortBy(_._1)
-      val unemp       = result.householdAggregates.unemploymentRate(result.newWorld.derivedTotalPopulation)
-      val demandMults = result.newWorld.pipeline.sectorDemandMult
+      val unemp       = result.nextState.householdAggregates.unemploymentRate(result.nextState.world.derivedTotalPopulation)
+      val demandMults = result.nextState.world.pipeline.sectorDemandMult
 
       println(
         s"month=$month unemp=$unemp deaths=${newBankrupts.size} demand2=${demandMults(2)} demand3=${demandMults(3)} demand4=${demandMults(4)}",

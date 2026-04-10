@@ -18,7 +18,7 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   "Multi-month flow verification (120 months)" should "preserve SFC at 0L every month" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     (1 to 120).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
@@ -34,7 +34,7 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   it should "produce increasing total flow volume over time" in {
     val init    = WorldInit.initialize(42L)
-    var state   = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state   = FlowSimulation.SimState.fromInit(init)
     var volumes = Vector.empty[Long]
 
     (1 to 120).foreach { month =>

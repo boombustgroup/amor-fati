@@ -50,9 +50,6 @@ Read it as a month transition:
 - `trace` is the emitted audit artifact for month `t`.
 - `nextState` is the typed month `t+1` boundary state.
 
-The old `step(world, firms, households, banks, rng)` entry point remains only as
-a compatibility wrapper around `step(state, rng)`.
-
 ## economics/
 
 The 9-stage computation pipeline, executed in fixed order each month. Each

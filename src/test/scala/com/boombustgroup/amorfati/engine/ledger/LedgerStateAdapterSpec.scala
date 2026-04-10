@@ -15,7 +15,7 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
 
   private def simState(seed: Long = 42L): FlowSimulation.SimState =
     val init = WorldInit.initialize(seed)
-    FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    FlowSimulation.SimState.fromInit(init)
 
   private def enrichedSimState(): FlowSimulation.SimState =
     val base  = simState()

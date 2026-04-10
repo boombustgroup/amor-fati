@@ -132,8 +132,9 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
 
   it should "drive FlowSimulation main path through BatchedFlow" in {
     val init   = WorldInit.initialize(42L)
+    val state  = FlowSimulation.SimState.fromInit(init)
     val rng    = new scala.util.Random(42L)
-    val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
+    val result = FlowSimulation.step(state, rng)
     val legacy = AggregateBatchContract.toLegacyFlows(result.flows)
 
     result.flows should not be empty

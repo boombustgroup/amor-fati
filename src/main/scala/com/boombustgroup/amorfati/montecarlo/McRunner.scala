@@ -73,7 +73,7 @@ object McRunner:
     val runtime = Sfc.RuntimeState(init.world, init.firms, init.households, init.banks)
     val errors  = InitCheck.validate(runtime)
     if errors.nonEmpty then Left(SimError.Init(errors))
-    else Right(FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates))
+    else Right(FlowSimulation.SimState.fromInit(init))
 
   private def stepMonth(state: FlowSimulation.SimState, seed: Long, month: Int)(using p: SimParams) =
     val rng    = new scala.util.Random(seed * 10000 + month)

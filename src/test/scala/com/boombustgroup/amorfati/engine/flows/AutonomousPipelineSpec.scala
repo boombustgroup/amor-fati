@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 
 /** Autonomous pipeline: FlowSimulation.step() drives its own state.
   *
-  * No old Simulation.step() in the loop. FlowSimulation produces new World,
+  * No old Simulation.step() in the loop. FlowSimulation produces nextState,
   * which feeds into next month's FlowSimulation.step().
   */
 @Heavy
@@ -20,7 +20,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
 
   "FlowSimulation (autonomous)" should "run 12 months with SFC == 0L" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
@@ -36,7 +36,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
 
   it should "produce evolving economy (GDP changes)" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
     val gdps  = scala.collection.mutable.ArrayBuffer[Double]()
 
     (1 to 12).foreach { month =>
@@ -52,7 +52,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
 
   it should "maintain positive employment throughout" in {
     val init  = WorldInit.initialize(42L)
-    var state = FlowSimulation.SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+    var state = FlowSimulation.SimState.fromInit(init)
 
     (1 to 12).foreach { month =>
       val rng    = new scala.util.Random(42L * 1000 + month)
@@ -60,7 +60,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
       state = result.nextState
 
       withClue(s"Month $month: ") {
-        result.householdAggregates.employed should be > 0
+        result.nextState.householdAggregates.employed should be > 0
       }
     }
   }

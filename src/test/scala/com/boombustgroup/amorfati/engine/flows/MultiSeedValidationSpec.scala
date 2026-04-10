@@ -23,42 +23,30 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
   "FlowSimulation.step (multi-seed)" should "produce SFC == 0L for all seeds × months" in
     seeds.foreach { seed =>
       val init  = WorldInit.initialize(seed)
-      var w     = init.world
-      var firms = init.firms
-      var hh    = init.households
-      var banks = init.banks
+      var state = FlowSimulation.SimState.fromInit(init)
 
       (1 to months).foreach { month =>
         val rng    = new scala.util.Random(seed * 1000 + month)
-        val result = FlowSimulation.step(w, firms, hh, banks, rng)
+        val result = FlowSimulation.step(state, rng)
         withClue(s"Seed $seed, month $month: ") {
           result.execution.totalWealth.shouldBe(0L)
         }
-        w = result.newWorld
-        firms = result.newFirms
-        hh = result.newHouseholds
-        banks = result.newBanks
+        state = result.nextState
       }
     }
 
   it should "produce realistic employment (3-97%) for all seeds at month 12" in
     seeds.foreach { seed =>
       val init  = WorldInit.initialize(seed)
-      var w     = init.world
-      var firms = init.firms
-      var hh    = init.households
-      var banks = init.banks
+      var state = FlowSimulation.SimState.fromInit(init)
       (1 to months).foreach { m =>
         val rng    = new scala.util.Random(seed * 1000 + m)
-        val result = FlowSimulation.step(w, firms, hh, banks, rng)
-        w = result.newWorld
-        firms = result.newFirms
-        hh = result.newHouseholds
-        banks = result.newBanks
+        val result = FlowSimulation.step(state, rng)
+        state = result.nextState
       }
 
-      val employed = hh.count(_.status.isInstanceOf[com.boombustgroup.amorfati.agents.HhStatus.Employed])
-      val unemp    = if w.derivedTotalPopulation > 0 then 1.0 - employed.toDouble / w.derivedTotalPopulation else 0.0
+      val employed = state.households.count(_.status.isInstanceOf[com.boombustgroup.amorfati.agents.HhStatus.Employed])
+      val unemp    = if state.world.derivedTotalPopulation > 0 then 1.0 - employed.toDouble / state.world.derivedTotalPopulation else 0.0
       withClue(s"Seed $seed unemployment=$unemp: ") {
         unemp should be >= 0.03
         unemp should be <= 0.97
@@ -68,29 +56,24 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
   it should "produce positive GDP for all seeds" in
     seeds.foreach { seed =>
       val init  = WorldInit.initialize(seed)
-      var w     = init.world
-      var firms = init.firms
-      var hh    = init.households
-      var banks = init.banks
+      var state = FlowSimulation.SimState.fromInit(init)
       (1 to months).foreach { m =>
         val rng    = new scala.util.Random(seed * 1000 + m)
-        val result = FlowSimulation.step(w, firms, hh, banks, rng)
-        w = result.newWorld
-        firms = result.newFirms
-        hh = result.newHouseholds
-        banks = result.newBanks
+        val result = FlowSimulation.step(state, rng)
+        state = result.nextState
       }
 
       withClue(s"Seed $seed GDP: ") {
-        (w.cachedMonthlyGdpProxy > PLN.Zero) shouldBe true
+        (state.world.cachedMonthlyGdpProxy > PLN.Zero) shouldBe true
       }
     }
 
   it should "emit 30+ mechanism IDs for all seeds" in
     seeds.foreach { seed =>
       val init   = WorldInit.initialize(seed)
+      val state  = FlowSimulation.SimState.fromInit(init)
       val rng    = new scala.util.Random(seed)
-      val result = FlowSimulation.step(init.world, init.firms, init.households, init.banks, rng)
+      val result = FlowSimulation.step(state, rng)
 
       withClue(s"Seed $seed mechanisms: ") {
         result.flows.map(_.mechanism).toSet.size should be > 30
