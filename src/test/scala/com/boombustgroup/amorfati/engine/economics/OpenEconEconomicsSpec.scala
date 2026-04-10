@@ -14,10 +14,11 @@ import org.scalatest.matchers.should.Matchers
 class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
+  private val TestSeed       = 42L
 
-  private val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+  private val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
   private val w    = init.world
-  private val rng  = RandomStream.seeded(42)
+  private val rng  = RandomStream.seeded(TestSeed)
 
   // Run pipeline through Economics objects
   private val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
@@ -90,7 +91,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
       fdiRepatriation = s5.sumFdiRepatriation,
       foreignDividendOutflow = s7.foreignDividendOutflow,
       month = s1.m,
-      commodityRng = RandomStream.seeded(42),
+      commodityRng = RandomStream.seeded(TestSeed),
     ),
   )
 

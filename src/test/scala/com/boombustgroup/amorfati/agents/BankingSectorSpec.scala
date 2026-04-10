@@ -128,8 +128,9 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     // capital=8000, loans=100000, existing CAR=0.08
     // Adding 10000 loan -> projected = 8000/110000 = 0.0727 < 0.08
     val bank    = mkBank(loans = PLN(100000.0), capital = PLN(8000.0))
+    val rng     = RandomStream.seeded(42L)
     // Need to test multiple times since there's a stochastic element
-    val results = (0 until 100).map(_ => Banking.canLend(bank, PLN(10000.0), RandomStream.seeded(42), Multiplier.Zero))
+    val results = (0 until 100).map(_ => Banking.canLend(bank, PLN(10000.0), rng, Multiplier.Zero))
     results.forall(_ == false) shouldBe true
   }
 

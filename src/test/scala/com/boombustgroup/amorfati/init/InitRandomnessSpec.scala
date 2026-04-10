@@ -8,6 +8,7 @@ class InitRandomnessSpec extends AnyFlatSpec with Matchers:
   "InitRandomness.Contract" should "derive stable named streams from one root seed" in {
     val first  = InitRandomness.Contract.fromSeed(1234L)
     val second = InitRandomness.Contract.fromSeed(1234L)
+    val third  = InitRandomness.Contract.fromSeed(4321L)
 
     first shouldBe second
     first.rootSeed shouldBe 1234L
@@ -25,6 +26,7 @@ class InitRandomnessSpec extends AnyFlatSpec with Matchers:
       InitRandomness.StreamKey.InitialImmigrantStock,
     )
     first.all.map(_.seed).distinct should have size first.all.size
+    first.all.map(_.seed) should not equal third.all.map(_.seed)
     first.firms.network.newStream().nextLong() shouldBe second.firms.network.newStream().nextLong()
     first.immigration.initialStock.newStream().nextDouble() shouldBe second.immigration.initialStock.newStream().nextDouble()
   }

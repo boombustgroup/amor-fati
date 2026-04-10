@@ -8,6 +8,7 @@ class MonthRandomnessSpec extends AnyFlatSpec with Matchers:
   "MonthRandomness.Contract" should "derive stable named streams from one root seed" in {
     val first  = MonthRandomness.Contract.fromSeed(1234L)
     val second = MonthRandomness.Contract.fromSeed(1234L)
+    val third  = MonthRandomness.Contract.fromSeed(1235L)
 
     first shouldBe second
     first.rootSeed shouldBe 1234L
@@ -24,6 +25,7 @@ class MonthRandomnessSpec extends AnyFlatSpec with Matchers:
       MonthRandomness.StreamKey.RegionalMigration,
     )
     first.all.map(_.seed).distinct should have size first.all.size
+    first.all.map(_.seed) should not equal third.all.map(_.seed)
     first.stages.openEconEconomics.newStream().nextLong() shouldBe second.stages.openEconEconomics.newStream().nextLong()
     first.assembly.regionalMigration.newStream().nextDouble() shouldBe second.assembly.regionalMigration.newStream().nextDouble()
   }

@@ -301,16 +301,16 @@ object FlowSimulation:
   private def computeStageOutputs(
       input: StepInput,
   )(using p: SimParams): StageOutputs =
-    val randomness      = input.randomness.stages
-    val stateIn         = input.stateIn
-    val w               = stateIn.world
-    val firms           = stateIn.firms
-    val households      = stateIn.households
-    val banks           = stateIn.banks
-    val fiscal          = FiscalConstraintEconomics.compute(w, banks)
-    val s1              = FiscalConstraintEconomics.toOutput(fiscal)
-    val labor           = LaborEconomics.compute(w, firms, households, s1)
-    val s2Pre           = LaborEconomics.Output(
+    val randomness        = input.randomness.stages
+    val stateIn           = input.stateIn
+    val w                 = stateIn.world
+    val firms             = stateIn.firms
+    val households        = stateIn.households
+    val banks             = stateIn.banks
+    val fiscal            = FiscalConstraintEconomics.compute(w, banks)
+    val s1                = FiscalConstraintEconomics.toOutput(fiscal)
+    val labor             = LaborEconomics.compute(w, firms, households, s1)
+    val s2Pre             = LaborEconomics.Output(
       labor.wage,
       labor.employed,
       labor.laborDemand,
@@ -327,7 +327,7 @@ object FlowSimulation:
       labor.living,
       labor.regionalWages,
     )
-    val s3              = HouseholdIncomeEconomics.compute(
+    val s3                = HouseholdIncomeEconomics.compute(
       w,
       firms,
       households,
@@ -337,12 +337,12 @@ object FlowSimulation:
       s2Pre.newWage,
       randomness.householdIncomeEconomics.newStream(),
     )
-    val s4              = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
-    val s5              = FirmEconomics.runStep(w, firms, households, banks, s1, s2Pre, s3, s4, randomness.firmEconomics.newStream())
-    val postLivingFirms = s5.ioFirms.filter(Firm.isAlive)
-    val s2              = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
-    val s6              = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, randomness.householdFinancialEconomics.newStream())
-    val s7              = PriceEquityEconomics.compute(
+    val s4                = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
+    val s5                = FirmEconomics.runStep(w, firms, households, banks, s1, s2Pre, s3, s4, randomness.firmEconomics.newStream())
+    val postLivingFirms   = s5.ioFirms.filter(Firm.isAlive)
+    val s2                = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
+    val s6                = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, randomness.householdFinancialEconomics.newStream())
+    val s7                = PriceEquityEconomics.compute(
       PriceEquityEconomics.Input(
         w,
         s1.m,
@@ -358,7 +358,7 @@ object FlowSimulation:
       ),
       randomness.priceEquityEconomics.newStream(),
     )
-    val openEcon        = OpenEconEconomics.compute(
+    val openEcon          = OpenEconEconomics.compute(
       OpenEconEconomics.Input(
         w = w,
         employed = s2.employed,
@@ -390,11 +390,12 @@ object FlowSimulation:
         commodityRng = randomness.openEconEconomics.newStream(),
       ),
     )
-    val s8              = OpenEconEconomics.runStep(
+    val s8                = OpenEconEconomics.runStep(
       OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, randomness.openEconEconomics.newStream()),
     )
-    val operational     = operationalSignals(s2, s4)
-    val bankingInput    = BankingEconomics.Input(
+    val operational       = operationalSignals(s2, s4)
+    val bankingDepositRng = randomness.bankingEconomics.newStream()
+    val bankingInput      = BankingEconomics.Input(
       w = w,
       month = fiscal.month,
       lendingBaseRate = fiscal.lendingBaseRate,
@@ -418,16 +419,16 @@ object FlowSimulation:
       priceEquityOutput = s7,
       openEconOutput = s8,
       banks = banks,
-      depositRng = randomness.bankingEconomics.newStream(),
+      depositRng = bankingDepositRng,
     )
-    val s9              = BankingEconomics.runStep(
-      BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, randomness.bankingEconomics.newStream()),
+    val s9                = BankingEconomics.runStep(
+      BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, bankingDepositRng),
     )
-    val banking         = BankingEconomics.toResult(s9, bankingInput)
-    val agg             = s3.hhAgg
-    val eq              = w.financial.equity
-    val h               = s9.housingAfterFlows
-    val calc            = MonthlyCalculus(
+    val banking           = BankingEconomics.toResult(s9, bankingInput)
+    val agg               = s3.hhAgg
+    val eq                = w.financial.equity
+    val h                 = s9.housingAfterFlows
+    val calc              = MonthlyCalculus(
       month = fiscal.month,
       resWage = fiscal.resWage,
       lendingBaseRate = fiscal.lendingBaseRate,

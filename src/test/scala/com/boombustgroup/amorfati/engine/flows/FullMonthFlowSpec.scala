@@ -19,13 +19,14 @@ import org.scalatest.matchers.should.Matchers
 class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
+  private val TestSeed       = 42L
 
-  private val initResult = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+  private val initResult = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
   private val w          = initResult.world
-  private val rng        = RandomStream.seeded(42)
 
   /** Run pipeline for one month using Economics objects. */
   private def runFullMonth: Vector[Flow] =
+    val rng                = RandomStream.seeded(TestSeed)
     val fiscal             = FiscalConstraintEconomics.compute(w, initResult.banks)
     val s1                 = FiscalConstraintEconomics.toOutput(fiscal)
     val labor              = LaborEconomics.compute(w, initResult.firms, initResult.households, s1)
