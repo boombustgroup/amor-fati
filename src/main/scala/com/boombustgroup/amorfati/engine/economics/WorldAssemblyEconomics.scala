@@ -179,10 +179,7 @@ object WorldAssemblyEconomics:
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
     val postMigHh          = RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
     val finalFirms         = syncStartupStaffing(startupStaffing.firms, postMigHh)
-    val employedHouseholds = postMigHh.count: hh =>
-      hh.status match
-        case HhStatus.Employed(_, _, _) => true
-        case _                          => false
+    val employedHouseholds = Household.countEmployed(postMigHh)
     val signalExtraction   = SignalExtraction.compute(
       SignalExtraction.Input(
         labor = SignalExtraction.LaborOutcomes(

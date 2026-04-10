@@ -118,10 +118,7 @@ object LaborEconomics:
   )(using p: SimParams): Output =
     val postLaborDemand    = postLiving.map(Firm.workerCount).sum
     val cleared            = clearLaborMarket(w, s1.resWage, postLaborDemand)
-    val realizedEmployment = postHouseholds.count:
-      _.status match
-        case HhStatus.Employed(_, _, _) => true
-        case _                          => false
+    val realizedEmployment = Household.countEmployed(postHouseholds)
     val employedCap        = Math.min(realizedEmployment, pre.newDemographics.workingAgePop)
     val postAvailableLabor = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.derivedTotalPopulation)
     pre.copy(

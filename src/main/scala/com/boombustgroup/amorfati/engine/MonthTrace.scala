@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
 import com.boombustgroup.amorfati.accounting.Sfc
-import com.boombustgroup.amorfati.agents.{Banking, Firm, HhStatus, Household}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.types.*
 
 import scala.reflect.ClassTag
@@ -63,10 +63,7 @@ object MonthBoundarySnapshot:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
   ): MonthBoundarySnapshot =
-    val employedHouseholds = households.count: hh =>
-      hh.status match
-        case HhStatus.Employed(_, _, _) => true
-        case _                          => false
+    val employedHouseholds = Household.countEmployed(households)
 
     MonthBoundarySnapshot(
       stock = Sfc.snapshot(world, firms, households, banks),
