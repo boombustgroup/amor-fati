@@ -1,7 +1,8 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -131,10 +132,9 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "drive FlowSimulation main path through BatchedFlow" in {
-    val init   = WorldInit.initialize(42L)
+    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state  = FlowSimulation.SimState.fromInit(init)
-    val rng    = new scala.util.Random(42L)
-    val result = FlowSimulation.step(state, rng)
+    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val legacy = AggregateBatchContract.toLegacyFlows(result.flows)
 
     result.flows should not be empty

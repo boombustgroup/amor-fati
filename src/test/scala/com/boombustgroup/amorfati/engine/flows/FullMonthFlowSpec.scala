@@ -4,7 +4,8 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -19,9 +20,9 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  private val initResult = WorldInit.initialize(42L)
+  private val initResult = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val w          = initResult.world
-  private val rng        = new scala.util.Random(42)
+  private val rng        = RandomStream.seeded(42)
 
   /** Run pipeline for one month using Economics objects. */
   private def runFullMonth: Vector[Flow] =

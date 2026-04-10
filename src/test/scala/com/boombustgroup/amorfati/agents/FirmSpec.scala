@@ -9,7 +9,7 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class FirmSpec extends AnyFlatSpec with Matchers:
 
@@ -272,7 +272,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   "Firm.process" should "keep a Bankrupt firm bankrupt with zero tax/capex" in {
     val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))
-    val result = Firm.process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), new Random(42))
+    val result = Firm.process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     result.taxPaid shouldBe PLN.Zero
     result.capexSpent shouldBe PLN.Zero
     result.firm.tech shouldBe a[TechState.Bankrupt]
@@ -280,7 +280,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   it should "keep an Automated firm alive with large cash" in {
     val f      = mkFirm(TechState.Automated(Multiplier(1.5))).copy(cash = PLN(10000000.0))
-    val result = Firm.process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), new Random(42))
+    val result = Firm.process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     Firm.isAlive(result.firm) shouldBe true
   }
 
@@ -294,7 +294,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         sectorDemandMult = Vector.fill(baseW.pipeline.sectorDemandMult.length)(Multiplier(0.1)),
       ),
     )
-    val result = Firm.process(f, w, Rate(0.20), _ => true, Vector(f), new Random(42))
+    val result = Firm.process(f, w, Rate(0.20), _ => true, Vector(f), RandomStream.seeded(42))
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }
 
@@ -310,9 +310,9 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       )
     val lowAdj     = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.0))
     val highAdj    = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.4))
-    val lowResult  = Firm.process(firm, lowAdj, Rate(0.07), _ => true, Vector(firm), new Random(42))
+    val lowResult  = Firm.process(firm, lowAdj, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
     val highResult =
-      Firm.process(firm, highAdj, Rate(0.07), _ => true, Vector(firm), new Random(42))
+      Firm.process(firm, highAdj, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
 
     lowResult.taxPaid should be > PLN.Zero
     highResult.taxPaid should be > PLN.Zero

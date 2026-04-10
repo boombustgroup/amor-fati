@@ -3,9 +3,8 @@ package com.boombustgroup.amorfati.init
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.*
 import com.boombustgroup.amorfati.networks.Network
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
-
-import scala.util.Random
 
 /** Initial firm population factory.
   *
@@ -38,18 +37,18 @@ object FirmInit:
   private val InitHybridProb     = 0.08      // ~8% of eligible firms start as Hybrid (OECD 2024: 5-10%)
 
   /** Create firm array with all post-creation enhancements. */
-  def create(rng: Random)(using p: SimParams): Vector[Firm.State] =
-    val adjList           = buildNetwork(rng)
-    val sectorAssignments = assignSectors(rng)
-    val skeleton          = buildSkeleton(adjList, sectorAssignments, rng)
-    val withCapAndBank    = assignCapitalAndBank(skeleton, rng)
-    val withFdi           = assignForeignOwnership(withCapAndBank, rng)
-    val withSoe           = assignStateOwnership(withFdi, rng)
+  def create(randomness: InitRandomness.FirmStreams)(using p: SimParams): Vector[Firm.State] =
+    val adjList           = buildNetwork(randomness.network)
+    val sectorAssignments = assignSectors(randomness.sectorAssignments)
+    val skeleton          = buildSkeleton(adjList, sectorAssignments, randomness.skeleton, randomness.regions)
+    val withCapAndBank    = assignCapitalAndBank(skeleton, randomness.capitalAndBank)
+    val withFdi           = assignForeignOwnership(withCapAndBank, randomness.foreignOwnership)
+    val withSoe           = assignStateOwnership(withFdi, randomness.stateOwnership)
     finalize(withSoe)
 
   /** Build network adjacency list from configured topology. */
   @boundaryEscape
-  private def buildNetwork(rng: Random)(using p: SimParams): Array[Array[Int]] =
+  private def buildNetwork(rng: RandomStream)(using p: SimParams): Array[Array[Int]] =
     import ComputationBoundary.toDouble
     p.topology match
       case Topology.Ws      => Network.wattsStrogatz(p.pop.firmsCount, p.firm.networkK, toDouble(p.firm.networkRewireP), rng)
@@ -59,7 +58,7 @@ object FirmInit:
 
   /** Assign sectors to firm slots based on GUS structural shares, shuffled. */
   @boundaryEscape
-  private def assignSectors(rng: Random)(using p: SimParams): Vector[Int] =
+  private def assignSectors(rng: RandomStream)(using p: SimParams): Vector[Int] =
     import ComputationBoundary.toDouble
     val perSector  = p.sectorDefs.map(s => (toDouble(s.share) * p.pop.firmsCount).toInt)
     val lastSector = p.sectorDefs.length - 1
@@ -73,10 +72,10 @@ object FirmInit:
   private def buildSkeleton(
       adjList: Array[Array[Int]],
       sectorAssignments: Vector[Int],
-      rng: Random,
+      rng: RandomStream,
+      regionRng: RandomStream,
   )(using p: SimParams): Vector[Firm.State] =
     import ComputationBoundary.toDouble
-    val regionRng = new Random(rng.nextLong()) // isolated sub-RNG: one draw from main, then independent
     (0 until p.pop.firmsCount)
       .map: i =>
         val sec          = p.sectorDefs(sectorAssignments(i))
@@ -122,7 +121,7 @@ object FirmInit:
     * assignment).
     */
   @boundaryEscape
-  private def assignCapitalAndBank(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
+  private def assignCapitalAndBank(firms: Vector[Firm.State], rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
     import ComputationBoundary.toDouble
     firms.map: f =>
       val withCap = f.copy(capitalStock = PLN(toDouble(p.capital.klRatios(f.sector.toInt)) * Firm.workerCount(f)))
@@ -131,13 +130,13 @@ object FirmInit:
   /** Mark firms as foreign-owned based on per-sector FDI shares (rng: ownership
     * draw).
     */
-  private def assignForeignOwnership(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
+  private def assignForeignOwnership(firms: Vector[Firm.State], rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
     firms.map: f =>
       if p.fdi.foreignShares(f.sector.toInt).sampleBelow(rng) then f.copy(foreignOwned = true)
       else f
 
   /** Mark firms as state-owned based on sector-specific SOE shares. */
-  private def assignStateOwnership(firms: Vector[Firm.State], rng: Random): Vector[Firm.State] =
+  private def assignStateOwnership(firms: Vector[Firm.State], rng: RandomStream): Vector[Firm.State] =
     firms.map: f =>
       if StateOwned.sectorSoeShare(f.sector.toInt).sampleBelow(rng) then f.copy(stateOwned = true)
       else f

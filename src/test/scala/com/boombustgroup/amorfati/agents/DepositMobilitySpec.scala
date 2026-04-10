@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class DepositMobilitySpec extends AnyFlatSpec with Matchers:
 
@@ -62,14 +62,14 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
   "DepositMobility" should "not move deposits when all banks are healthy" in {
     val banks  = Vector(mkBank(0, 0.15), mkBank(1, 0.14))
     val hhs    = Vector(mkHh(0), mkHh(1))
-    val result = DepositMobility(hhs, banks, anyBankFailed = false, new Random(42))
+    val result = DepositMobility(hhs, banks, anyBankFailed = false, RandomStream.seeded(42))
     result.households.map(_.bankId) shouldBe hhs.map(_.bankId)
   }
 
   it should "trigger flight from weak bank (low CAR)" in {
     val banks    = Vector(mkBank(0, 0.04), mkBank(1, 0.15)) // bank 0 below threshold
     val hhs      = (0 until 100).map(_ => mkHh(0)).toVector
-    val result   = DepositMobility(hhs, banks, anyBankFailed = false, new Random(42))
+    val result   = DepositMobility(hhs, banks, anyBankFailed = false, RandomStream.seeded(42))
     val switched = result.households.count(_.bankId == BankId(1))
     switched should be > 0
   }
@@ -78,7 +78,7 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     // HH at bank 2, bank 1 fails, healthiest is bank 0 → some HH panic-switch to bank 0
     val banks    = Vector(mkBank(0, 0.15), mkBank(1, 0.15, failed = true), mkBank(2, 0.12))
     val hhs      = (0 until 100).map(_ => mkHh(2)).toVector
-    val result   = DepositMobility(hhs, banks, anyBankFailed = true, new Random(42))
+    val result   = DepositMobility(hhs, banks, anyBankFailed = true, RandomStream.seeded(42))
     val switched = result.households.count(_.bankId == BankId(0))
     // With panicRate = 3%, expect ~3 of 100 to switch
     switched should be > 0
@@ -87,14 +87,14 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
   it should "preserve total number of households" in {
     val banks  = Vector(mkBank(0, 0.04), mkBank(1, 0.15))
     val hhs    = (0 until 50).map(i => mkHh(i % 2)).toVector
-    val result = DepositMobility(hhs, banks, anyBankFailed = true, new Random(42))
+    val result = DepositMobility(hhs, banks, anyBankFailed = true, RandomStream.seeded(42))
     result.households.length shouldBe hhs.length
   }
 
   it should "move deposits toward healthiest bank" in {
     val banks   = Vector(mkBank(0, 0.04), mkBank(1, 0.20), mkBank(2, 0.12))
     val hhs     = (0 until 100).map(_ => mkHh(0)).toVector
-    val result  = DepositMobility(hhs, banks, anyBankFailed = false, new Random(42))
+    val result  = DepositMobility(hhs, banks, anyBankFailed = false, RandomStream.seeded(42))
     // Bank 1 is healthiest (CAR 20%) — switchers should go there
     val atBank1 = result.households.count(_.bankId == BankId(1))
     val atBank2 = result.households.count(_.bankId == BankId(2))
@@ -104,7 +104,7 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
   it should "be deterministic with same seed" in {
     val banks = Vector(mkBank(0, 0.04), mkBank(1, 0.15))
     val hhs   = (0 until 100).map(_ => mkHh(0)).toVector
-    val r1    = DepositMobility(hhs, banks, anyBankFailed = true, new Random(42))
-    val r2    = DepositMobility(hhs, banks, anyBankFailed = true, new Random(42))
+    val r1    = DepositMobility(hhs, banks, anyBankFailed = true, RandomStream.seeded(42))
+    val r2    = DepositMobility(hhs, banks, anyBankFailed = true, RandomStream.seeded(42))
     r1.households.map(_.bankId) shouldBe r2.households.map(_.bankId)
   }

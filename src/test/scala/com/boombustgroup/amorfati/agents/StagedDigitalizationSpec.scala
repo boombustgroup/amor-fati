@@ -6,6 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 
 class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
@@ -142,7 +143,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "applyDigitalDrift" should "increase DR for alive firms" in {
     val f      = mkFirm(TechState.Traditional(10), dr = 0.40)
     val w      = mkWorld()
-    val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), new scala.util.Random(42))
+    val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     // DR should be at least initial + drift (could also get digital investment boost)
     td.toDouble(result.firm.digitalReadiness) should be >= (0.40 + td.toDouble(p.firm.digiDrift) - 0.001)
   }
@@ -150,14 +151,14 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   it should "cap digitalReadiness at 1.0" in {
     val f      = mkFirm(TechState.Traditional(10), dr = 0.999)
     val w      = mkWorld()
-    val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), new scala.util.Random(42))
+    val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     td.toDouble(result.firm.digitalReadiness) should be <= 1.0
   }
 
   it should "not change DR for bankrupt firms" in {
     val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")), dr = 0.50)
     val w      = mkWorld()
-    val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), new scala.util.Random(42))
+    val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     td.toDouble(result.firm.digitalReadiness) shouldBe 0.50
   }
 
@@ -170,7 +171,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     val w          = mkWorld(autoRatio = 0.5)
     // With MR=MC labor adjustment, firms adjust headcount AND invest in DR
     // concurrently. Run enough rounds for DR to increase above drift baseline.
-    val rng        = new scala.util.Random(42)
+    val rng        = RandomStream.seeded(42)
     var f1         = f
     for _ <- 0 until 200 do f1 = Firm.process(f1, w, Rate(0.07), _ => false, Vector(f1), rng).firm
     assume(Firm.isAlive(f1), "firm must survive processing")
@@ -186,7 +187,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     val w        = mkWorld(autoRatio = 0.5)
     // Over many trials, no investment should happen (only drift)
     for _ <- 0 until 100 do
-      val result = Firm.process(f, w, Rate(0.07), _ => false, Vector(f), new scala.util.Random(42))
+      val result = Firm.process(f, w, Rate(0.07), _ => false, Vector(f), RandomStream.seeded(42))
       // DR should be at most initial + drift (no investment boost)
       // But net income is added to cash, so firm may become solvent enough
       // Just verify no investment boost beyond drift
@@ -222,7 +223,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "Hybrid firm" should "gain at least 0.005 + drift in DR per month" in {
     val f      = mkFirm(TechState.Hybrid(5, Multiplier(1.1)), dr = 0.40)
     val w      = mkWorld()
-    val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), new scala.util.Random(42))
+    val result = Firm.process(f, w, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     if Firm.isAlive(result.firm) then
       // Hybrid learning (+0.005) + natural drift (+0.001)
       td.toDouble(result.firm.digitalReadiness) should be >= (0.40 + 0.005 + td.toDouble(p.firm.digiDrift) - 0.001)
@@ -236,7 +237,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     val w      = mkWorld()
     // Simulate 10 months — at minimum, drift alone adds 10 × 0.001 = 0.01
     for _ <- 0 until 10 do
-      val result = Firm.process(f, w, Rate(0.07), _ => false, Vector(f), new scala.util.Random(42))
+      val result = Firm.process(f, w, Rate(0.07), _ => false, Vector(f), RandomStream.seeded(42))
       if Firm.isAlive(result.firm) then f = result.firm.copy(cash = PLN(1000000.0)) // reset cash for next round
     td.toDouble(f.digitalReadiness) should be >= (initDR + 10 * td.toDouble(p.firm.digiDrift) - 0.001)
   }

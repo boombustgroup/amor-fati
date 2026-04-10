@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.engine.{OperationalSignals, World}
 import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 // ---- Domain types ----
 
@@ -460,7 +460,7 @@ object Firm:
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Result =
     val decision = decide(firm, w, operationalSignals, lendRate, bankCanLend, allFirms, rng)
     val r0       = updateHiringSignalState(execute(firm, decision), firm, w, operationalSignals)
@@ -478,13 +478,14 @@ object Firm:
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Result =
     process(firm, w, OperationalSignals.fromBridgedWorld(w), lendRate, bankCanLend, allFirms, rng)
 
-  // ---- Decide (all match logic + Random rolls) ----
+  // ---- Decide (all match logic + RandomStream rolls) ----
 
-  /** Dispatch to tech-specific decision logic. Contains all Random calls. */
+  /** Dispatch to tech-specific decision logic. Contains all RandomStream calls.
+    */
   private def decide(
       firm: State,
       w: World,
@@ -492,7 +493,7 @@ object Firm:
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Decision =
     firm.tech match
       case _: TechState.Bankrupt         => Decision.StayBankrupt
@@ -619,7 +620,7 @@ object Firm:
       bankCanLend: PLN => Boolean,
       workers: Int,
       aiEff: Multiplier,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Decision =
     val pnl    = computePnL(
       firm,
@@ -798,7 +799,7 @@ object Firm:
   /** Roll for full-AI upgrade: success (with random efficiency) or
     * implementation failure.
     */
-  private def rollFullAiUpgrade(firm: State, pnl: PnL, ai: UpgradeCandidate, rng: Random): Decision =
+  private def rollFullAiUpgrade(firm: State, pnl: PnL, ai: UpgradeCandidate, rng: RandomStream): Decision =
     val failRate = Share(FullAiBaseFailRate) + (Share.One - firm.digitalReadiness) * Share(FullAiFailDrSens)
     if failRate.sampleBelow(rng) then
       Decision.UpgradeFailed(pnl, BankruptReason.AiImplFailure, ai.capex * Share(FailCapexFrac), ai.loan * Share(FailLoanFrac), ai.down * Share(FailDownFrac))
@@ -809,7 +810,7 @@ object Firm:
   /** Roll for hybrid upgrade: catastrophic failure, partial failure (bad
     * efficiency), or success (good efficiency).
     */
-  private def rollHybridUpgrade(firm: State, pnl: PnL, hyb: UpgradeCandidate, hWkrs: Int, rng: Random): Decision =
+  private def rollHybridUpgrade(firm: State, pnl: PnL, hyb: UpgradeCandidate, hWkrs: Int, rng: RandomStream): Decision =
     val failRate = Share(HybridBaseFailRate) + (Share.One - firm.digitalReadiness) * Share(HybridFailDrSens)
     val draw     = Share.random(rng)
     if draw < failRate * Share(CatastrophicFailFrac) then
@@ -838,7 +839,7 @@ object Firm:
       w: World,
       operationalSignals: OperationalSignals,
       workers: Int,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Decision =
     val nc            = firm.cash + pnl.netAfterTax
     // Firms now distinguish between a one-period desired workforce target,
@@ -909,7 +910,7 @@ object Firm:
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       workers: Int,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Decision =
     val pnl           = computePnL(
       firm,
@@ -931,9 +932,9 @@ object Firm:
     else if roll < pFull + pHyb then rollHybridUpgrade(firm, pnl, hyb, hWkrs, rng)
     else fallbackDecision(firm, pnl, w, operationalSignals, workers, rng)
 
-  // ---- Execute (pure dispatch, zero Random calls) ----
+  // ---- Execute (pure dispatch, zero RandomStream calls) ----
 
-  /** Pure dispatch: map `Decision` → `Result`. No Random calls, no side
+  /** Pure dispatch: map `Decision` → `Result`. No RandomStream calls, no side
     * effects.
     */
   private def execute(firm: State, d: Decision)(using p: SimParams): Result =

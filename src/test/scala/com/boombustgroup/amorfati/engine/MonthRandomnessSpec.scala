@@ -1,0 +1,29 @@
+package com.boombustgroup.amorfati.engine
+
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+class MonthRandomnessSpec extends AnyFlatSpec with Matchers:
+
+  "MonthRandomness.Contract" should "derive stable named streams from one root seed" in {
+    val first  = MonthRandomness.Contract.fromSeed(1234L)
+    val second = MonthRandomness.Contract.fromSeed(1234L)
+
+    first shouldBe second
+    first.rootSeed shouldBe 1234L
+    first.all.map(_.key).toSet shouldBe Set(
+      MonthRandomness.StreamKey.HouseholdIncomeEconomics,
+      MonthRandomness.StreamKey.FirmEconomics,
+      MonthRandomness.StreamKey.HouseholdFinancialEconomics,
+      MonthRandomness.StreamKey.PriceEquityEconomics,
+      MonthRandomness.StreamKey.OpenEconEconomics,
+      MonthRandomness.StreamKey.BankingEconomics,
+      MonthRandomness.StreamKey.FdiMa,
+      MonthRandomness.StreamKey.FirmEntry,
+      MonthRandomness.StreamKey.StartupStaffing,
+      MonthRandomness.StreamKey.RegionalMigration,
+    )
+    first.all.map(_.seed).distinct should have size first.all.size
+    first.stages.openEconEconomics.newStream().nextLong() shouldBe second.stages.openEconEconomics.newStream().nextLong()
+    first.assembly.regionalMigration.newStream().nextDouble() shouldBe second.assembly.regionalMigration.newStream().nextDouble()
+  }

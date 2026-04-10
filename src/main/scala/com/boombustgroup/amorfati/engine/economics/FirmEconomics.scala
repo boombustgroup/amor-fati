@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.engine.{OperationalSignals, World}
 import com.boombustgroup.amorfati.engine.markets.{CalvoPricing, CorporateBondMarket, IntermediateMarket, LaborMarket}
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Firm sector economics — production, I-O intermediate market, CAPEX
   * decisions, financing splits (equity/bonds/bank loans), labor matching, NPL
@@ -174,7 +174,7 @@ object FirmEconomics:
       govPurchases: PLN,
       laggedInvestDemand: PLN,
       fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
-      rng: Random,
+      rng: RandomStream,
   )
 
   /** Full step output — all fields previously in FirmProcessingStep.Output. */
@@ -293,7 +293,7 @@ object FirmEconomics:
       s2: LaborEconomics.Output,
       s3: HouseholdIncomeEconomics.Output,
       s4: DemandEconomics.Output,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): StepOutput =
     val stepIn = StepInput(w, firms, households, banks, s1, s2, s3, s4)
     runInternal(stepIn, rng)
@@ -338,7 +338,7 @@ object FirmEconomics:
   // ---- Core pipeline (shared by compute + runStep) ----
 
   @boundaryEscape
-  private def runInternal(stepIn: StepInput, rng: Random)(using p: SimParams): StepOutput =
+  private def runInternal(stepIn: StepInput, rng: RandomStream)(using p: SimParams): StepOutput =
     val lending                             = prepareLending(stepIn, rng)
     val fp                                  = processFirms(stepIn.firms, lending, rng)
     val bonded                              = applyBondAbsorption(fp, stepIn.w, stepIn.banks)
@@ -372,7 +372,7 @@ object FirmEconomics:
     * wages for firm decision-making.
     */
   @boundaryEscape
-  private def prepareLending(in: StepInput, rng: Random)(using p: SimParams): LendingConditions =
+  private def prepareLending(in: StepInput, rng: RandomStream)(using p: SimParams): LendingConditions =
     import ComputationBoundary.toDouble
     val bsec               = in.w.bankingSector
     val nBanks             = in.banks.length
@@ -402,7 +402,7 @@ object FirmEconomics:
   private def processFirms(
       firms: Vector[Firm.State],
       lending: LendingConditions,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): FirmProcessingResult =
     val outcomes = firms.map: f =>
       val rate    = lending.rates(f.bankId.toInt)
@@ -528,7 +528,7 @@ object FirmEconomics:
   private def processLaborMarket(
       ioFirms: Vector[Firm.State],
       in: StepInput,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): (Vector[Household.State], Int) =
     val afterSep     = LaborMarket.separations(in.s3.updatedHouseholds, in.firms, ioFirms)
     val searchResult = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, rng, in.s2.regionalWages)

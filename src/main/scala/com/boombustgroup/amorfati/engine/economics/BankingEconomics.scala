@@ -8,7 +8,7 @@ import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.Distribute
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Banking sector economics — aggregate values for MonthlyCalculus.
   *
@@ -39,7 +39,7 @@ object BankingEconomics:
       s7: PriceEquityEconomics.Output,        // price/equity (inflation, GDP, equity state, macropru)
       s8: OpenEconEconomics.StepOutput,       // open economy (NBP rate, bond yield, QE, FX, BoP)
       banks: Vector[Banking.BankState],       // explicit bank population
-      depositRng: scala.util.Random,          // deterministic RNG for deposit flight decisions
+      depositRng: RandomStream,               // deterministic RNG for deposit flight decisions
   )
 
   case class StepOutput(
@@ -166,7 +166,7 @@ object BankingEconomics:
       priceEquityOutput: PriceEquityEconomics.Output,
       openEconOutput: OpenEconEconomics.StepOutput,
       banks: Vector[Banking.BankState],
-      depositRng: Random,
+      depositRng: RandomStream,
   )
 
   case class Result(

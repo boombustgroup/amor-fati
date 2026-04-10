@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -12,7 +12,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  private val initResult = WorldInit.initialize(42L)
+  private val initResult = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val world      = initResult.world
   private val firms      = initResult.firms
   private val households = initResult.households

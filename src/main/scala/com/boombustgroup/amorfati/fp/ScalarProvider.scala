@@ -1,17 +1,18 @@
 package com.boombustgroup.amorfati.fp
 
 import FixedPointBase.*
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Dimensionless scalar used for algebraic composition and ratios. */
 object ScalarProvider:
   opaque type Scalar = Long
 
   object Scalar:
-    val Zero: Scalar                                                          = 0L
-    val One: Scalar                                                           = Scale
-    def apply(d: Double): Scalar                                              = Math.round(d * Scale)
-    def fromRaw(raw: Long): Scalar                                            = raw
-    def fraction(num: Int, den: Int): Scalar                                  =
+    val Zero: Scalar                                                     = 0L
+    val One: Scalar                                                      = Scale
+    def apply(d: Double): Scalar                                         = Math.round(d * Scale)
+    def fromRaw(raw: Long): Scalar                                       = raw
+    def fraction(num: Int, den: Int): Scalar                             =
       if den == 0 then Zero
       else
         val scaled         = BigInt(num.toLong) * BigInt(Scale)
@@ -26,7 +27,7 @@ object ScalarProvider:
           if twiceRemainder > denominatorAbs then (quotient + resultSign).toLong
           else if quotient % 2 == 0 then quotient.toLong
           else (quotient + resultSign).toLong
-    def randomBetween(lo: Scalar, hi: Scalar, rng: scala.util.Random): Scalar =
+    def randomBetween(lo: Scalar, hi: Scalar, rng: RandomStream): Scalar =
       if hi <= lo then lo
       else Scalar.fromRaw(rng.between(lo.toLong, hi.toLong))
 

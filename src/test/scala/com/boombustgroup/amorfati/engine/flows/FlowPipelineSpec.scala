@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -14,7 +14,7 @@ import org.scalatest.matchers.should.Matchers
 class FlowPipelineSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
-  private val init           = WorldInit.initialize(42L)
+  private val init           = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val w              = init.world
 
   /** Run one month through the new flow pipeline (partial -- Steps 1-2

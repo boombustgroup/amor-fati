@@ -2,8 +2,9 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthTraceStage, OperationalSignals, SignalExtraction, World}
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthRandomness, MonthTraceStage, OperationalSignals, SignalExtraction, World}
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -32,9 +33,9 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
   private val baseline = buildFixture(42L)
 
   private def buildFixture(seed: Long): PipelineFixture =
-    val init  = WorldInit.initialize(seed)
-    val world = init.world
-    val rng   = new scala.util.Random(seed)
+    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
+    val world    = init.world
+    val contract = MonthRandomness.Contract.fromSeed(seed)
 
     val fiscal = FiscalConstraintEconomics.compute(world, init.banks)
     val s1     = FiscalConstraintEconomics.toOutput(fiscal)
@@ -56,12 +57,22 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       labor.living,
       labor.regionalWages,
     )
-    val s3     = HouseholdIncomeEconomics.compute(world, init.firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
+    val s3     =
+      HouseholdIncomeEconomics.compute(
+        world,
+        init.firms,
+        init.households,
+        init.banks,
+        s1.lendingBaseRate,
+        s1.resWage,
+        s2Pre.newWage,
+        contract.stages.householdIncomeEconomics.newStream(),
+      )
     val s4     = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
-    val s5     = FirmEconomics.runStep(world, init.firms, init.households, init.banks, s1, s2Pre, s3, s4, rng)
+    val s5     = FirmEconomics.runStep(world, init.firms, init.households, init.banks, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
     val living = s5.ioFirms.filter(Firm.isAlive)
     val s2     = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, living, s5.households)
-    val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, rng)
+    val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
     val s7     = PriceEquityEconomics.compute(
       PriceEquityEconomics.Input(
         world,
@@ -76,10 +87,16 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         init.banks,
         s5,
       ),
-      rng,
+      contract.stages.priceEquityEconomics.newStream(),
     )
-    val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, init.banks, rng))
-    val s9     = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, init.banks, rng))
+    val s8     =
+      OpenEconEconomics.runStep(
+        OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, init.banks, contract.stages.openEconEconomics.newStream()),
+      )
+    val s9     =
+      BankingEconomics.runStep(
+        BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, init.banks, contract.stages.bankingEconomics.newStream()),
+      )
 
     PipelineFixture(world, init.firms, init.households, init.banks, s1, s2Pre, s2, s3, s4, s5, s6, s7, s8, s9)
 
@@ -143,7 +160,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       govPurchases = baseline.s4.govPurchases,
       laggedInvestDemand = baseline.s4.laggedInvestDemand,
       fiscalRuleStatus = baseline.s4.fiscalRuleStatus,
-      rng = new scala.util.Random(seed),
+      rng = RandomStream.seeded(seed),
     )
 
   private def baseBankingComputeInput(world: World, operationalSignals: OperationalSignals, seed: Long): BankingEconomics.Input =
@@ -171,7 +188,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       priceEquityOutput = baseline.s7,
       openEconOutput = baseline.s8,
       banks = baseline.banks,
-      depositRng = new scala.util.Random(seed),
+      depositRng = RandomStream.seeded(seed),
     )
 
   private def baseComputeInput(world: World): WorldAssemblyEconomics.Input =
@@ -200,9 +217,11 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       priceEquityOutput = baseline.s7,
       openEconOutput = baseline.s8,
       bankOutput = baseline.s9,
-      rng = new scala.util.Random(42L),
-      migRng = new scala.util.Random(4242L),
+      randomness = MonthRandomness.Contract.fromSeed(42L).assembly.newStreams(),
     )
+
+  private def assemblyRandomness(seed: Long): MonthRandomness.AssemblyStreams =
+    MonthRandomness.Contract.fromSeed(seed).assembly.newStreams()
 
   private def allEmployed(
       households: Vector[Household.State],
@@ -254,7 +273,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     )
 
   private def netBirths(in: WorldAssemblyEconomics.StepInput): Int =
-    WorldAssemblyEconomics.runStep(in, new scala.util.Random(1234L), new scala.util.Random(5678L)).newWorld.flows.netFirmBirths
+    WorldAssemblyEconomics.runStep(in, assemblyRandomness(1234L)).newWorld.flows.netFirmBirths
 
   "DemandEconomics.compute" should "smooth sector hiring plans from lagged decision signals while keeping same-month pressure fixed" in {
     val weakLagged   = withSeedSignals(
@@ -445,7 +464,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
   it should "persist extracted same-month hiring slack into next-month decision signals" in {
     val input  = entrySensitiveInput
     val base   = input.copy(s2 = input.s2.copy(operationalHiringSlack = Share(0.21)))
-    val result = WorldAssemblyEconomics.runStep(base, new scala.util.Random(1234L), new scala.util.Random(5678L))
+    val result = WorldAssemblyEconomics.runStep(base, assemblyRandomness(1234L))
 
     result.newWorld.pipeline.operationalHiringSlack shouldBe Share(0.21)
     result.newWorld.pipeline.laggedHiringSlack shouldBe Share(0.21)
@@ -454,7 +473,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
   it should "keep post-month assembly distinct from the next-month seed boundary" in {
     val input = entrySensitiveInput.copy(s2 = entrySensitiveInput.s2.copy(operationalHiringSlack = Share(0.21)))
-    val post  = WorldAssemblyEconomics.runPostStep(input, new scala.util.Random(1234L), new scala.util.Random(5678L))
+    val post  = WorldAssemblyEconomics.runPostStep(input, assemblyRandomness(1234L))
 
     post.world.pipeline.operationalHiringSlack shouldBe Share(0.21)
     post.world.seedIn shouldBe input.w.seedIn

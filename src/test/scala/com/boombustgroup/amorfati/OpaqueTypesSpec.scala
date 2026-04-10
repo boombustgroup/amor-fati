@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -91,7 +92,7 @@ class OpaqueTypesSpec extends AnyFlatSpec with Matchers:
     Share(1.2).clamp(Share.Zero, Share.One) shouldBe Share.One
     Share.Zero shouldBe Share(0.0)
     shareValue(Share.One) shouldBe 1.0 +- 1e-9
-    shareValue(Share.random(new scala.util.Random(0L))) should (be >= 0.0 and be < 1.0)
+    shareValue(Share.random(RandomStream.seeded(0L))) should (be >= 0.0 and be < 1.0)
   }
 
   it should "bridge to other semantic types and counts" in {

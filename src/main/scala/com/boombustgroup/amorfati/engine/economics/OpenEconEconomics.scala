@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, GvcTrade,
 import com.boombustgroup.amorfati.engine.mechanisms.Expectations
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Self-contained open economy economics — calls market functions directly.
   *
@@ -159,7 +159,7 @@ object OpenEconEconomics:
       fdiRepatriation: PLN,
       foreignDividendOutflow: PLN,
       month: Int,
-      commodityRng: Random,
+      commodityRng: RandomStream,
   )
 
   @boundaryEscape
@@ -355,7 +355,7 @@ object OpenEconEconomics:
       s6: HouseholdFinancialEconomics.Output,
       s7: PriceEquityEconomics.Output,
       banks: Vector[Banking.BankState],
-      commodityRng: Random,
+      commodityRng: RandomStream,
   )
 
   private val NbfiDepositRateSpread = 0.02

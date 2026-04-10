@@ -4,7 +4,8 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.OperationalSignals
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -14,9 +15,9 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  private val init = WorldInit.initialize(42L)
+  private val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val w    = init.world
-  private val rng  = new scala.util.Random(42)
+  private val rng  = RandomStream.seeded(42)
 
   private val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
   private val s1     = FiscalConstraintEconomics.toOutput(fiscal)
@@ -41,10 +42,10 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private val s3     = HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
   private val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
 
-  private val rng2  = new scala.util.Random(42)
+  private val rng2  = RandomStream.seeded(42)
   private val oldS5 = FirmEconomics.runStep(w, init.firms, init.households, init.banks, s1, s2, s3, s4, rng2)
 
-  private val rng3   = new scala.util.Random(42)
+  private val rng3   = RandomStream.seeded(42)
   private val result = FirmEconomics.compute(
     FirmEconomics.Input(
       w = w,

@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.engine.ledger
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -14,7 +14,7 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
   private given SimParams = SimParams.defaults
 
   private def simState(seed: Long = 42L): FlowSimulation.SimState =
-    val init = WorldInit.initialize(seed)
+    val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
     FlowSimulation.SimState.fromInit(init)
 
   private def enrichedSimState(): FlowSimulation.SimState =

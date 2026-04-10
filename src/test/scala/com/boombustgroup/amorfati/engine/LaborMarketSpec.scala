@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
@@ -69,7 +69,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
   // --- jobSearch ---
 
   "LaborMarket.jobSearch" should "employ unemployed when vacancies exist" in {
-    val rng    = new Random(42)
+    val rng    = RandomStream.seeded(42)
     val firms  = mkFirms(3)
     val hhs    = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0))),
@@ -83,7 +83,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "prefer higher-skilled workers" in {
-    val rng    = new Random(42)
+    val rng    = RandomStream.seeded(42)
     val firms  = Vector(mkFirms(1)(0))
     // Only 1 vacancy: Traditional(10) needs 10, but we have 11 workers
     val hhs    = Vector(
@@ -106,7 +106,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "let startup firms keep hiring up to startupTargetWorkers during startup" in {
-    val rng    = new Random(42)
+    val rng    = RandomStream.seeded(42)
     val firms  = Vector(
       mkFirms(1)(0).copy(
         tech = TechState.Traditional(1),

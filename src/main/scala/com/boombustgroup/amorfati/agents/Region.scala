@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
 
@@ -75,7 +76,7 @@ object Region:
     region.wageMultiplier.ratioTo(weightedMeanWageMultiplier).toMultiplier
 
   /** Sample a region from population share CDF (inverse transform). */
-  def cdfSample(rng: scala.util.Random): Region =
+  def cdfSample(rng: RandomStream): Region =
     all(Distributions.cdfSample(all.map(_.populationShare), rng))
 
   /** Migration friction matrix: `friction(from)(to)` ∈ [0,1]. 0 = no friction

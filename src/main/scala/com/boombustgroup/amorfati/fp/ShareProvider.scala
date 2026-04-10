@@ -1,16 +1,17 @@
 package com.boombustgroup.amorfati.fp
 
 import FixedPointBase.*
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Bounded [0,1] fractions, probabilities, proportions. */
 object ShareProvider:
   opaque type Share = Long
 
   object Share:
-    val Zero: Share                           = 0L
-    val One: Share                            = Scale
-    def apply(d: Double): Share               = Math.round(d * Scale)
-    def fraction(num: Int, den: Int): Share   =
+    val Zero: Share                         = 0L
+    val One: Share                          = Scale
+    def apply(d: Double): Share             = Math.round(d * Scale)
+    def fraction(num: Int, den: Int): Share =
       if den == 0 then Zero
       else
         val scaled         = BigInt(num.toLong) * BigInt(Scale)
@@ -25,8 +26,8 @@ object ShareProvider:
           if twiceRemainder > denominatorAbs then (quotient + resultSign).toLong
           else if quotient % 2 == 0 then quotient.toLong
           else (quotient + resultSign).toLong
-    def fromRaw(raw: Long): Share             = raw
-    def random(rng: scala.util.Random): Share = Share.fromRaw(rng.nextInt(Scale.toInt).toLong)
+    def fromRaw(raw: Long): Share           = raw
+    def random(rng: RandomStream): Share    = Share.fromRaw(rng.nextInt(Scale.toInt).toLong)
 
   extension (s: Share)
     inline def toLong: Long                = s
@@ -48,7 +49,7 @@ object ShareProvider:
     def <=(other: Share): Boolean          = s <= other
 
     /** True if rng.nextDouble() < this share. For probability sampling. */
-    def sampleBelow(rng: scala.util.Random): Boolean = rng.nextInt(Scale.toInt) < s
+    def sampleBelow(rng: RandomStream): Boolean = rng.nextInt(Scale.toInt) < s
 
   extension (n: Int) def *(s: Share): Double = n.toDouble * (s.toDouble / ScaleD)
 

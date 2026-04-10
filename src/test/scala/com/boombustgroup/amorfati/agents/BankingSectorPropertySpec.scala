@@ -9,7 +9,7 @@ import com.boombustgroup.amorfati.agents.Banking.BankStatus
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
@@ -105,7 +105,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   "assignBank" should "always return valid index in [0, nBanks)" in
     forAll(Gen.choose(0, 5)) { (sector: Int) =>
-      val rng = new Random()
+      val rng = RandomStream.fresh()
       for _ <- 0 until 50 do
         val bId = Banking.assignBank(SectorIdx(sector), configs, rng)
         bId.toInt should be >= 0

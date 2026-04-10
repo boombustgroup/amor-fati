@@ -4,7 +4,8 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.OperationalSignals
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -15,9 +16,9 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
 
   "BankingEconomics (own Input)" should "produce flows that close at SFC == 0L" in {
-    val init = WorldInit.initialize(42L)
+    val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val w    = init.world
-    val rng  = new scala.util.Random(42)
+    val rng  = RandomStream.seeded(42)
 
     val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
     val s1     = FiscalConstraintEconomics.toOutput(fiscal)

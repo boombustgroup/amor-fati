@@ -3,7 +3,8 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -14,9 +15,9 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  private val init = WorldInit.initialize(42L)
+  private val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val w    = init.world
-  private val rng  = new scala.util.Random(42)
+  private val rng  = RandomStream.seeded(42)
 
   // Run pipeline through Economics objects
   private val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
@@ -89,7 +90,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
       fdiRepatriation = s5.sumFdiRepatriation,
       foreignDividendOutflow = s7.foreignDividendOutflow,
       month = s1.m,
-      commodityRng = new scala.util.Random(42),
+      commodityRng = RandomStream.seeded(42),
     ),
   )
 

@@ -195,9 +195,9 @@ object SimParams:
   * data.
   */
 object FirmSizeDistribution:
-  import scala.util.Random
+  import com.boombustgroup.amorfati.random.RandomStream
 
-  def draw(rng: Random)(using p: SimParams): Int =
+  def draw(rng: RandomStream)(using p: SimParams): Int =
     p.pop.firmSizeDist match
       case FirmSizeDist.Gus     =>
         val micro    = p.pop.firmSizeMicroShare.toLong

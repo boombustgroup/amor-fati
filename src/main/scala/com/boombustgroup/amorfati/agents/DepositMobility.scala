@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.agents
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Deposit mobility: endogenous deposit flight and bank runs.
   *
@@ -68,7 +68,7 @@ object DepositMobility:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       anyBankFailed: Boolean,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Result =
     val healthiest = Banking.healthiestBankId(banks)
     val carByBank  = banks.map(b => b.id.toInt -> b.car).toMap

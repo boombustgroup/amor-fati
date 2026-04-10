@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati
 import com.boombustgroup.amorfati.fp.FixedPointBase
 
 import scala.annotation.targetName
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Fixed-point type system for SFC-ABM engine.
   *
@@ -267,24 +267,24 @@ object types:
 
   object TypedRandom:
     @targetName("randomShareBetween")
-    def randomBetween(lo: Share, hi: Share, rng: Random): Share =
+    def randomBetween(lo: Share, hi: Share, rng: RandomStream): Share =
       if hi < lo then throw IllegalArgumentException(s"Share.randomBetween requires lo <= hi, got lo=$lo hi=$hi")
       else if hi == lo then lo
       else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
 
-    def withGaussianNoise(base: Share, stddev: Share, rng: Random): Share =
+    def withGaussianNoise(base: Share, stddev: Share, rng: RandomStream): Share =
       val raw        = base.toLong + scala.math.round(rng.nextGaussian() * stddev.toLong)
       val clampedRaw = scala.math.max(Share.Zero.toLong, scala.math.min(Share.One.toLong, raw))
       Share.fromRaw(clampedRaw)
 
     @targetName("randomMultiplierBetween")
-    def randomBetween(lo: Multiplier, hi: Multiplier, rng: Random): Multiplier =
+    def randomBetween(lo: Multiplier, hi: Multiplier, rng: RandomStream): Multiplier =
       if hi < lo then throw IllegalArgumentException(s"Multiplier.randomBetween requires lo <= hi, got lo=$lo hi=$hi")
       else if hi == lo then lo
       else Multiplier.fromRaw(rng.between(lo.toLong, hi.toLong))
 
   object WeightedSelection:
-    def choose(weights: Vector[Multiplier], rng: Random): Int =
+    def choose(weights: Vector[Multiplier], rng: RandomStream): Int =
       if weights.isEmpty then return -1
       weights.foreach: weight =>
         if weight < Multiplier.Zero then throw IllegalArgumentException(s"WeightedSelection requires non-negative weights, got: $weight")

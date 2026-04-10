@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Immigration: tracks immigrant stock, flows, remittances, spawning/removal.
   */
@@ -56,13 +56,13 @@ object Immigration:
           case _                             => acc
 
   /** Choose sector for new immigrant (weighted by sectorShares). */
-  def chooseSector(rng: Random)(using p: SimParams): SectorIdx =
+  def chooseSector(rng: RandomStream)(using p: SimParams): SectorIdx =
     SectorIdx(Distributions.cdfSample(p.immigration.sectorShares, rng))
 
   /** Spawn new immigrant households. Start as Unemployed(0) — matched in next
     * jobSearch round.
     */
-  def spawnImmigrants(count: Int, startId: Int, rng: Random)(using p: SimParams): Vector[Household.State] =
+  def spawnImmigrants(count: Int, startId: Int, rng: RandomStream)(using p: SimParams): Vector[Household.State] =
     import ComputationBoundary.toDouble
     (0 until count).map { i =>
       val sector                       = chooseSector(rng)

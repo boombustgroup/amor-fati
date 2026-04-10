@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.engine.markets
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class EducationSpec extends AnyFlatSpec with Matchers:
 
@@ -18,7 +18,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   // ---- Config helpers ----
 
   "p.social.drawEducation" should "return values in [0, 3]" in {
-    val rng = new Random(42)
+    val rng = RandomStream.seeded(42)
     for _ <- 0 until 200 do
       val edu = p.social.drawEducation(0, rng)
       edu should be >= 0
@@ -26,7 +26,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return valid education for all sectors (0-5)" in {
-    val rng = new Random(42)
+    val rng = RandomStream.seeded(42)
     for s <- 0 until 6 do
       for _ <- 0 until 50 do
         val edu = p.social.drawEducation(s, rng)
@@ -35,7 +35,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   "p.social.drawImmigrantEducation" should "return values in [0, 3]" in {
-    val rng = new Random(42)
+    val rng = RandomStream.seeded(42)
     for _ <- 0 until 200 do
       val edu = p.social.drawImmigrantEducation(rng)
       edu should be >= 0
@@ -375,7 +375,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   // ---- Immigrant education ----
 
   "Immigration.spawnImmigrants" should "assign education levels to immigrants" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
       h.education should be >= 0
@@ -384,7 +384,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "clamp immigrant skill within education-specific range" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(200, 0, rng)
     immigrants.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
@@ -396,7 +396,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   // ---- HouseholdInit education ----
 
   "Household.Init.initialize" should "assign education to all households" in {
-    val rng       = new Random(42)
+    val rng       = RandomStream.seeded(42)
     val mkF       = (id: Int, sec: Int, w: Int) =>
       Firm.State(
         FirmId(id),
@@ -428,7 +428,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "clamp skill within education-specific range" in {
-    val rng       = new Random(42)
+    val rng       = RandomStream.seeded(42)
     val firms     = Vector(
       Firm.State(
         FirmId(0),

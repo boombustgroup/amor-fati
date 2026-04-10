@@ -16,6 +16,7 @@ case class MonthTrace(
     month: Int,
     boundary: MonthBoundaryTrace,
     seedTransition: SeedTransitionTrace,
+    randomness: MonthRandomness.Contract,
     timing: MonthTimingTrace,
     executedFlows: Sfc.SemanticFlows,
     validations: Vector[MonthValidation],

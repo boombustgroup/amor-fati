@@ -1,9 +1,10 @@
 package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.PLN
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -13,10 +14,9 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
 
   "WorldAssemblyEconomics (own Input)" should "produce valid world after simulation step" in {
-    val init   = WorldInit.initialize(42L)
+    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state  = FlowSimulation.SimState.fromInit(init)
-    val rng    = new scala.util.Random(42)
-    val result = FlowSimulation.step(state, rng)
+    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val w      = result.nextState.world
 
     w.month.shouldBe(1)
@@ -26,10 +26,9 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "preserve public-spending semantic aggregates on the assembled world" in {
-    val init   = WorldInit.initialize(42L)
+    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state  = FlowSimulation.SimState.fromInit(init)
-    val rng    = new scala.util.Random(42)
-    val result = FlowSimulation.step(state, rng)
+    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val w      = result.nextState.world
 
     w.gov.domesticBudgetDemand shouldBe (w.gov.govCurrentSpend + w.gov.govCapitalSpend)
@@ -47,7 +46,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "overwrite only supported financial slice from ledger snapshot while preserving unsupported QE metrics" in {
-    val init      = WorldInit.initialize(42L)
+    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val base      = init.world.copy(
       gov = init.world.gov.copy(
         financial = init.world.gov.financial.copy(

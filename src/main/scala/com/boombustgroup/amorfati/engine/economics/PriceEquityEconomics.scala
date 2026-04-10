@@ -8,7 +8,7 @@ import com.boombustgroup.amorfati.engine.mechanisms.{EuFunds, Macroprudential}
 import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Pure economic logic for price level dynamics, GPW equity market, GDP
   * computation, macroprudential policy, Arthur-style sigma evolution, and
@@ -137,7 +137,7 @@ object PriceEquityEconomics:
   // ---------------------------------------------------------------------------
 
   @boundaryEscape
-  private[economics] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: Random)(using p: SimParams): Vector[Firm.State] =
+  private[economics] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
     import ComputationBoundary.toDouble
     if rho == 0.0 then return firms
 
@@ -222,7 +222,7 @@ object PriceEquityEconomics:
   // ---------------------------------------------------------------------------
 
   @boundaryEscape
-  def compute(in: Input, rng: Random)(using p: SimParams): Output =
+  def compute(in: Input, rng: RandomStream)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val living2           = in.s5.ioFirms.filter(Firm.isAlive)
     val nLiving           = living2.length.toDouble

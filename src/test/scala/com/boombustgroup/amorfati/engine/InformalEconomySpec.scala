@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.engine.mechanisms.InformalEconomy
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 
 class InformalEconomySpec extends AnyFlatSpec with Matchers:
@@ -329,14 +329,14 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   }
 
   "Informal calibration" should "keep default runtime ratios in a plausible envelope over 12 months" in {
-    val init  = WorldInit.initialize(42L)
+    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     var state = FlowSimulation.SimState.fromInit(init)
 
     val realizedShares = collection.mutable.ArrayBuffer.empty[Share]
     val evasionRatios  = collection.mutable.ArrayBuffer.empty[Share]
 
     (1 to 12).foreach: month =>
-      val result     = FlowSimulation.step(state, new scala.util.Random(42L * 1000 + month))
+      val result     = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
       realizedShares += Share(result.nextState.world.flows.realizedTaxShadowShare)
       val monthlyGdp = result.nextState.world.cachedMonthlyGdpProxy
       val ratio      =

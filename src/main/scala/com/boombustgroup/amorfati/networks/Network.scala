@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.networks
 import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 import com.boombustgroup.amorfati.types.Share
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Graph generation algorithms for agent interaction networks.
   *
@@ -46,7 +46,7 @@ object Network:
     * @return
     *   adjacency lists (symmetric, no self-loops)
     */
-  def wattsStrogatz(n: Int, k: Int, p: Double, rng: Random): Array[Array[Int]] =
+  def wattsStrogatz(n: Int, k: Int, p: Double, rng: RandomStream): Array[Array[Int]] =
     val adj = Array.fill(n)(scala.collection.mutable.Set.empty[Int])
 
     // Ring lattice: connect each node to k/2 nearest neighbors on each side
@@ -84,7 +84,7 @@ object Network:
     adj.map(_.toArray)
 
   /** Typed overload for household rewiring probability. */
-  def wattsStrogatz(n: Int, k: Int, p: Share, rng: Random): Array[Array[Int]] =
+  def wattsStrogatz(n: Int, k: Int, p: Share, rng: RandomStream): Array[Array[Int]] =
     wattsStrogatz(n, k, p.toLong.toDouble / ScaleD, rng)
 
   /** Generate an Erdős–Rényi G(n,p) random graph with target average degree.
@@ -103,7 +103,7 @@ object Network:
     * @return
     *   adjacency lists (symmetric, no self-loops)
     */
-  def erdosRenyi(n: Int, avgDegree: Int, rng: Random): Array[Array[Int]] =
+  def erdosRenyi(n: Int, avgDegree: Int, rng: RandomStream): Array[Array[Int]] =
     val adj = Array.fill(n)(scala.collection.mutable.Set.empty[Int])
     val p   = avgDegree.toDouble / (n - 1)
     for
@@ -132,7 +132,7 @@ object Network:
     * @return
     *   adjacency lists (symmetric, no self-loops)
     */
-  def barabasiAlbert(n: Int, m: Int, rng: Random): Array[Array[Int]] =
+  def barabasiAlbert(n: Int, m: Int, rng: RandomStream): Array[Array[Int]] =
     val adj         = Array.fill(n)(scala.collection.mutable.Set.empty[Int])
     val seedSize    = m + 1
     // Seed: complete graph on first m+1 nodes

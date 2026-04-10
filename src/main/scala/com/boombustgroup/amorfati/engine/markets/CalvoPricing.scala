@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.Firm
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Calvo staggered pricing: micro-founded price stickiness.
   *
@@ -69,7 +69,7 @@ object CalvoPricing:
       currentMarkup: Multiplier,
       sectorDemandMult: Multiplier,
       wageGrowthMonthly: Coefficient,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): FirmMarkupResult =
     if p.pricing.calvoTheta.sampleBelow(rng) then FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly), priceChanged = true)
     else FirmMarkupResult(currentMarkup, priceChanged = false)
