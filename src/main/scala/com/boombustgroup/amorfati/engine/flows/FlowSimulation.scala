@@ -488,7 +488,7 @@ object FlowSimulation:
       trace: MonthTrace,
       nextState: SimState,
   ):
-    def transition: (MonthTrace, SimState) = (trace, nextState)
+    def transition: (SimState, MonthTrace) = (nextState, trace)
 
   private def executeBatches(flows: Vector[BatchedFlow]): Either[String, ExecutionResult] =
     val state = AggregateBatchContract.emptyExecutionState()

@@ -34,7 +34,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.calculus.employed should be > 0
   }
 
-  it should "expose the month boundary as SimState -> StepOutput -> (trace, nextState)" in {
+  it should "expose the month boundary as SimState -> StepOutput -> (nextState, trace)" in {
     val init        = WorldInit.initialize(42L)
     val state       = FlowSimulation.SimState.fromInit(init)
     val stateRng    = new scala.util.Random(42L)
@@ -43,7 +43,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val repeated    = FlowSimulation.step(state, rerunRng)
 
     stateResult.stateIn shouldBe state
-    stateResult.transition shouldBe ((stateResult.trace, stateResult.nextState))
+    stateResult.transition shouldBe ((stateResult.nextState, stateResult.trace))
     stateResult.nextState.world shouldBe repeated.nextState.world
     stateResult.nextState.firms shouldBe repeated.nextState.firms
     canonicalHouseholds(stateResult.nextState.households) shouldBe canonicalHouseholds(repeated.nextState.households)
