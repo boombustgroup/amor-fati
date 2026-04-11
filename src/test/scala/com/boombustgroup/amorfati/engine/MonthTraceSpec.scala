@@ -66,7 +66,7 @@ class MonthTraceSpec extends AnyFlatSpec with Matchers:
   }
 
   "SeedTransitionTrace" should "derive the seed transition from typed month boundaries" in {
-    val seedIn  = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](
+    val seedIn  = MonthSemantics.seedIn(
       DecisionSignals(
         unemploymentRate = Share(0.08),
         inflation = Rate(0.02),
@@ -78,7 +78,7 @@ class MonthTraceSpec extends AnyFlatSpec with Matchers:
         sectorHiringSignal = sectorHiringSignal,
       ),
     )
-    val seedOut = MonthSemantics.At[SignalExtraction.Output, MonthSemantics.NextPre](
+    val seedOut = MonthSemantics.seedOut(
       SignalExtraction.compute(
         SignalExtraction.inputFromRealizedOutcomes(
           unemploymentRate = Share(0.07),
@@ -95,7 +95,7 @@ class MonthTraceSpec extends AnyFlatSpec with Matchers:
 
     val transition = SeedTransitionTrace.from(seedIn, seedOut)
 
-    transition.seedIn shouldBe seedIn.value
-    transition.seedOut shouldBe seedOut.value.seedOut
-    transition.provenance shouldBe seedOut.value.provenance
+    transition.seedIn shouldBe seedIn.decisionSignals
+    transition.seedOut shouldBe seedOut.nextSeed
+    transition.provenance shouldBe seedOut.provenance
   }

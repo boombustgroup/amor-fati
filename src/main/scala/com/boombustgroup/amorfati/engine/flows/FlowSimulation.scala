@@ -4,7 +4,6 @@ import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.MonthSemantics.At.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.types.*
@@ -334,12 +333,12 @@ object FlowSimulation:
   def step(stateIn: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): StepOutput =
     val input      = stepInput(stateIn, randomness)
     val outcome    = computeMonthOutcome(input)
-    val flows      = emitAllBatches(outcome.flowPlan.value)
+    val flows      = emitAllBatches(outcome.flowPlan.calculus)
     val execution  = executeBatches(flows).fold(
       err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
       identity,
     )
-    val nextState  = advanceState(input, outcome.post, outcome.seedOut)
+    val nextState  = advanceState(input, outcome)
     val sfcFlows   = buildSfcFlows(outcome.semanticProjection, flows, nextState.world.plumbing.fofResidual)
     val sfcResult  = Sfc.validate(
       prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
@@ -359,9 +358,9 @@ object FlowSimulation:
     StepOutput(
       stateIn = stateIn,
       executionMonth = input.executionMonth,
-      calculus = outcome.flowPlan.value,
-      operationalSignals = outcome.operational.value,
-      signalExtraction = outcome.seedOut.value,
+      calculus = outcome.flowPlan.calculus,
+      operationalSignals = outcome.operational.operationalSignals,
+      signalExtraction = outcome.seedOut.signalExtraction,
       randomness = randomness,
       flows,
       execution,
@@ -382,7 +381,7 @@ object FlowSimulation:
     StepInput(
       stateIn = stateIn,
       executionMonth = stateIn.completedMonth.next,
-      seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn),
+      seedIn = MonthSemantics.seedIn(stateIn.world.seedIn),
       randomness = randomness,
       boundaryIn = MonthBoundarySnapshot.capture(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
     )
@@ -697,41 +696,47 @@ object FlowSimulation:
       batches: Vector[BatchedFlow],
       fofResidual: PLN,
   )(using p: SimParams): Sfc.SemanticFlows =
-    val stages   = semanticProjection.value
-    val evidence = ExecutedBatchEvidence.from(batches)
+    val labor       = semanticProjection.labor
+    val hhIncome    = semanticProjection.hhIncome
+    val firms       = semanticProjection.firms
+    val hhFinancial = semanticProjection.hhFinancial
+    val prices      = semanticProjection.prices
+    val openEcon    = semanticProjection.openEcon
+    val banking     = semanticProjection.banking
+    val evidence    = ExecutedBatchEvidence.from(batches)
     Sfc.SemanticFlows(
       govSpending =
-        stages.banking.newGovWithYield.domesticBudgetOutlays + stages.labor.newZus.govSubvention + stages.labor.newNfz.govSubvention + stages.labor.newEarmarked.totalGovSubvention,
+        banking.newGovWithYield.domesticBudgetOutlays + labor.newZus.govSubvention + labor.newNfz.govSubvention + labor.newEarmarked.totalGovSubvention,
       govRevenue =
-        stages.firms.sumTax + stages.prices.dividendTax + stages.banking.pitAfterEvasion + stages.banking.vatAfterEvasion + stages.openEcon.banking.nbpRemittance + stages.banking.exciseAfterEvasion + stages.banking.customsDutyRevenue,
-      nplLoss = stages.firms.nplLoss,
+        firms.sumTax + prices.dividendTax + banking.pitAfterEvasion + banking.vatAfterEvasion + openEcon.banking.nbpRemittance + banking.exciseAfterEvasion + banking.customsDutyRevenue,
+      nplLoss = firms.nplLoss,
       interestIncome = evidence.amount(FlowMechanism.FirmInterestPaid),
       hhDebtService = evidence.amount(FlowMechanism.HhDebtService),
-      totalIncome = stages.hhIncome.totalIncome,
+      totalIncome = hhIncome.totalIncome,
       totalConsumption = evidence.amount(FlowMechanism.HhConsumption),
       newLoans = evidence.amount(FlowMechanism.FirmNewLoan),
-      nplRecovery = stages.firms.nplNew * p.banking.loanRecovery,
-      currentAccount = stages.openEcon.external.newBop.currentAccount,
-      valuationEffect = stages.openEcon.external.oeValuationEffect,
+      nplRecovery = firms.nplNew * p.banking.loanRecovery,
+      currentAccount = openEcon.external.newBop.currentAccount,
+      valuationEffect = openEcon.external.oeValuationEffect,
       bankBondIncome = evidence.amount(FlowMechanism.BankGovBondIncome),
-      qePurchase = stages.openEcon.monetary.qePurchaseAmount,
-      newBondIssuance = stages.banking.actualBondChange,
+      qePurchase = openEcon.monetary.qePurchaseAmount,
+      newBondIssuance = banking.actualBondChange,
       depositInterestPaid = evidence.amount(FlowMechanism.HhDepositInterest),
       reserveInterest = evidence.amount(FlowMechanism.BankReserveInterest),
       standingFacilityIncome = evidence.signedAmount(FlowMechanism.BankStandingFacility),
       interbankInterest = evidence.signedAmount(FlowMechanism.BankInterbankInterest),
-      jstDepositChange = stages.banking.jstDepositChange,
-      jstSpending = stages.banking.newJst.spending,
-      jstRevenue = stages.banking.newJst.revenue,
-      zusContributions = stages.labor.newZus.contributions,
-      zusPensionPayments = stages.labor.newZus.pensionPayments,
-      zusGovSubvention = stages.labor.newZus.govSubvention,
-      nfzContributions = stages.labor.newNfz.contributions,
-      nfzSpending = stages.labor.newNfz.spending,
-      nfzGovSubvention = stages.labor.newNfz.govSubvention,
-      dividendIncome = stages.prices.netDomesticDividends,
-      foreignDividendOutflow = stages.prices.foreignDividendOutflow,
-      dividendTax = stages.prices.dividendTax,
+      jstDepositChange = banking.jstDepositChange,
+      jstSpending = banking.newJst.spending,
+      jstRevenue = banking.newJst.revenue,
+      zusContributions = labor.newZus.contributions,
+      zusPensionPayments = labor.newZus.pensionPayments,
+      zusGovSubvention = labor.newZus.govSubvention,
+      nfzContributions = labor.newNfz.contributions,
+      nfzSpending = labor.newNfz.spending,
+      nfzGovSubvention = labor.newNfz.govSubvention,
+      dividendIncome = prices.netDomesticDividends,
+      foreignDividendOutflow = prices.foreignDividendOutflow,
+      dividendTax = prices.dividendTax,
       mortgageInterestIncome = evidence.amount(FlowMechanism.MortgageInterest),
       mortgageNplLoss = evidence.amount(FlowMechanism.MortgageDefault) * (Share.One - p.housing.mortgageRecovery),
       mortgageOrigination = evidence.amount(FlowMechanism.MortgageOrigination),
@@ -740,20 +745,20 @@ object FlowSimulation:
       remittanceOutflow = evidence.amount(FlowMechanism.HhRemittance),
       fofResidual = fofResidual,
       consumerDebtService = evidence.amount(FlowMechanism.HhCcDebtService),
-      consumerNplLoss = stages.hhFinancial.consumerNplLoss,
+      consumerNplLoss = hhFinancial.consumerNplLoss,
       consumerOrigination = evidence.amount(FlowMechanism.HhCcOrigination),
-      consumerPrincipalRepaid = stages.hhFinancial.consumerPrincipal,
+      consumerPrincipalRepaid = hhFinancial.consumerPrincipal,
       consumerDefaultAmount = evidence.amount(FlowMechanism.HhCcDefault),
       corpBondCouponIncome = evidence.amount(FlowMechanism.CorpBondCoupon),
       corpBondDefaultLoss = evidence.amount(FlowMechanism.CorpBondDefault),
       corpBondIssuance = evidence.amount(FlowMechanism.CorpBondIssuance),
       corpBondAmortization = evidence.amount(FlowMechanism.CorpBondAmortization),
       corpBondDefaultAmount = evidence.amount(FlowMechanism.CorpBondDefault),
-      insNetDepositChange = stages.openEcon.nonBank.insNetDepositChange,
-      nbfiDepositDrain = stages.openEcon.nonBank.nbfiDepositDrain,
-      nbfiOrigination = stages.banking.finalNbfi.lastNbfiOrigination,
-      nbfiRepayment = stages.banking.finalNbfi.lastNbfiRepayment,
-      nbfiDefaultAmount = stages.banking.finalNbfi.lastNbfiDefaultAmount,
+      insNetDepositChange = openEcon.nonBank.insNetDepositChange,
+      nbfiDepositDrain = openEcon.nonBank.nbfiDepositDrain,
+      nbfiOrigination = banking.finalNbfi.lastNbfiOrigination,
+      nbfiRepayment = banking.finalNbfi.lastNbfiRepayment,
+      nbfiDefaultAmount = banking.finalNbfi.lastNbfiDefaultAmount,
       fdiProfitShifting = evidence.amount(FlowMechanism.FirmProfitShifting),
       fdiRepatriation = evidence.amount(FlowMechanism.FirmFdiRepatriation),
       diasporaInflow = evidence.amount(FlowMechanism.DiasporaInflow),
@@ -761,12 +766,12 @@ object FlowSimulation:
       tourismImport = evidence.amount(FlowMechanism.TourismImport),
       bfgLevy = evidence.amount(FlowMechanism.BankBfgLevy),
       bailInLoss = evidence.amount(FlowMechanism.BankBailIn),
-      bankCapitalDestruction = stages.banking.multiCapDestruction,
-      investNetDepositFlow = stages.banking.investNetDepositFlow,
+      bankCapitalDestruction = banking.multiCapDestruction,
+      investNetDepositFlow = banking.investNetDepositFlow,
       firmPrincipalRepaid = evidence.amount(FlowMechanism.FirmLoanRepayment),
       unrealizedBondLoss = evidence.amount(FlowMechanism.BankUnrealizedLoss),
-      htmRealizedLoss = stages.banking.htmRealizedLoss,
-      eclProvisionChange = stages.banking.eclProvisionChange,
+      htmRealizedLoss = banking.htmRealizedLoss,
+      eclProvisionChange = banking.eclProvisionChange,
     )
 
   private def operationalSignals(
@@ -781,22 +786,20 @@ object FlowSimulation:
     )
 
   private def buildOperationalSignals(signalView: MonthSemantics.SignalView): MonthSemantics.Operational =
-    val signals = signalView.value
-    MonthSemantics.At[OperationalSignals, MonthSemantics.SameMonth](operationalSignals(signals.labor, signals.demand))
+    MonthSemantics.operational(operationalSignals(signalView.labor, signalView.demand))
 
   private def buildTimingInputs(
       signalView: MonthSemantics.SignalView,
       assembled: WorldAssemblyEconomics.PostResult,
   ): MonthTimingInputs =
-    val signals = signalView.value
     MonthTimingInputs(
       labor = MonthTimingPayload.LaborSignals(
-        operationalHiringSlack = signals.labor.operationalHiringSlack,
+        operationalHiringSlack = signalView.labor.operationalHiringSlack,
       ),
       demand = MonthTimingPayload.DemandSignals(
-        sectorDemandMult = signals.demand.sectorMults,
-        sectorDemandPressure = signals.demand.sectorDemandPressure,
-        sectorHiringSignal = signals.demand.sectorHiringSignal,
+        sectorDemandMult = signalView.demand.sectorMults,
+        sectorDemandPressure = signalView.demand.sectorDemandPressure,
+        sectorHiringSignal = signalView.demand.sectorHiringSignal,
       ),
       nominal = MonthTimingPayload.NominalSignals(
         realizedInflation = assembled.world.inflation,
@@ -815,9 +818,9 @@ object FlowSimulation:
       signalView: MonthSemantics.SignalView,
       randomness: MonthRandomness.AssemblyStreams,
   )(using p: SimParams): MonthSemantics.PostAssembly =
-    val assembled = WorldAssemblyEconomics.computePostMonth(postInputs.value, randomness)
+    val assembled = WorldAssemblyEconomics.computePostMonth(postInputs.assemblyInput, randomness)
     // This stays at month `t`: the boundary seed is still `seedIn` here.
-    MonthSemantics.At[PostMonth, MonthSemantics.Post](
+    MonthSemantics.postAssembly(
       PostMonth(
         assembled = assembled,
         boundaryOut = MonthBoundarySnapshot.capture(assembled.world, assembled.firms, assembled.households, assembled.banks),
@@ -826,23 +829,22 @@ object FlowSimulation:
     )
 
   private def extractSeedOut(signalView: MonthSemantics.SignalView, post: MonthSemantics.PostAssembly): MonthSemantics.SeedOut =
-    val assembled = post.value.assembled
+    val assembled = post.assembled
     val employed  = Household.countEmployed(assembled.households)
-    val signals   = signalView.value
 
-    MonthSemantics.At[SignalExtraction.Output, MonthSemantics.NextPre](
+    MonthSemantics.seedOut(
       SignalExtraction.compute(
         // Seed extraction is the only place that derives the next boundary
         // signal from realized month-`t` outcomes.
         SignalExtraction.inputFromRealizedOutcomes(
           unemploymentRate = assembled.world.unemploymentRate(employed),
-          laggedHiringSlack = signals.labor.operationalHiringSlack,
+          laggedHiringSlack = signalView.labor.operationalHiringSlack,
           startupAbsorptionRate = assembled.startupAbsorptionRate,
           inflation = assembled.world.inflation,
           expectedInflation = assembled.world.mechanisms.expectations.expectedInflation,
-          sectorDemandMult = signals.demand.sectorMults,
-          sectorDemandPressure = signals.demand.sectorDemandPressure,
-          sectorHiringSignal = signals.demand.sectorHiringSignal,
+          sectorDemandMult = signalView.demand.sectorMults,
+          sectorDemandPressure = signalView.demand.sectorDemandPressure,
+          sectorHiringSignal = signalView.demand.sectorHiringSignal,
         ),
       ),
     )
@@ -853,19 +855,19 @@ object FlowSimulation:
       seedOut: MonthSemantics.SeedOut,
   ): MonthTraceCore =
     MonthTraceCore(
-      boundary = MonthBoundaryTrace.from(input.boundaryIn, post.value.boundaryOut),
+      boundary = MonthBoundaryTrace.from(input.boundaryIn, post.boundaryOut),
       seedTransition = SeedTransitionTrace.from(input.seedIn, seedOut),
-      timing = post.value.timing,
+      timing = post.timing,
     )
 
   private def computeMonthOutcome(input: StepInput)(using p: SimParams): MonthOutcome =
     // Keep the month-step pipeline explicit:
     // `seedIn/pre -> same-month groups -> post-month assembly -> seedOut/next-pre`.
     val stageOutputs       = computeStageOutputs(input)
-    val signalView         = MonthSemantics.At[SignalBoundaryInputs, MonthSemantics.SameMonth](stageOutputs.signals)
-    val flowPlan           = MonthSemantics.At[MonthlyCalculus, MonthSemantics.SameMonth](stageOutputs.flowPlan)
-    val postInputs         = MonthSemantics.At[WorldAssemblyEconomics.StepInput, MonthSemantics.SameMonth](stageOutputs.postAssembly)
-    val semanticProjection = MonthSemantics.At[SemanticFlowInputs, MonthSemantics.SameMonth](stageOutputs.semanticProjection)
+    val signalView         = MonthSemantics.signalView(stageOutputs.signals)
+    val flowPlan           = MonthSemantics.flowPlan(stageOutputs.flowPlan)
+    val postInputs         = MonthSemantics.postInputs(stageOutputs.postAssembly)
+    val semanticProjection = MonthSemantics.semanticProjection(stageOutputs.semanticProjection)
     val operational        = buildOperationalSignals(signalView)
     val post               = assemblePostMonth(postInputs, signalView, input.randomness.assembly.newStreams())
     val seedOut            = extractSeedOut(signalView, post)
@@ -882,17 +884,17 @@ object FlowSimulation:
 
   private def advanceState(
       input: StepInput,
-      post: MonthSemantics.PostAssembly,
-      seedOut: MonthSemantics.SeedOut,
+      outcome: MonthOutcome,
   ): SimState =
-    val assembled = post.value.assembled
-    val nextSeed  = seedOut.value.seedOut
-    val nextWorld = assembled.world.updatePipeline(_.withDecisionSignals(nextSeed))
+    val assembled   = outcome.post.assembled
+    val nextSeed    = outcome.seedOut.nextSeed
+    val nextWorld   = assembled.world.updatePipeline(_.withDecisionSignals(nextSeed))
+    val currentSeed = input.seedIn.decisionSignals
 
     // `advanceState` is the only legal `post -> next-pre` transition:
     // post-month assembly still sees the old seed, next state applies `seedOut`.
-    require(input.seedIn.value == input.stateIn.world.seedIn, "StepInput seedIn must match stateIn.world.seedIn")
-    require(assembled.world.seedIn == input.seedIn.value, "PostMonth world must remain on the pre-step seed until advanceState runs")
+    require(currentSeed == input.stateIn.world.seedIn, "StepInput seedIn must match stateIn.world.seedIn")
+    require(assembled.world.seedIn == currentSeed, "PostMonth world must remain on the pre-step seed until advanceState runs")
     require(nextWorld.seedIn == nextSeed, "advanceState must be the transition that applies SeedOut to the next boundary")
 
     SimState(
