@@ -433,7 +433,6 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
 
   private def mkWorld(): World =
     World(
-      month = 31,
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,

@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.montecarlo
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
 import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
@@ -28,7 +29,7 @@ object SimOutput:
 
   /** Shared pre-computed context (computed once per timestep). */
   private class Ctx(
-      val t: Int,
+      val executionMonth: ExecutionMonth,
       val world: World,
       val firms: Vector[Firm.State],
       val households: Vector[Household.State],
@@ -62,7 +63,7 @@ object SimOutput:
   // -------------------------------------------------------------------------
 
   private def coreGroup: Vector[ColumnDef] = Vector(
-    ColumnDef("Month", ctx => (ctx.t + 1).toDouble),
+    ColumnDef("Month", ctx => ctx.executionMonth.toInt.toDouble),
     ColumnDef("Inflation", ctx => td.toDouble(ctx.world.inflation)),
     ColumnDef("Unemployment", ctx => ctx.unemployPct),
     ColumnDef(
@@ -598,7 +599,7 @@ object SimOutput:
 
   /** Compute one row. Returns Array[Double] for MC aggregation. */
   def compute(
-      t: Int,
+      executionMonth: ExecutionMonth,
       world: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
@@ -607,7 +608,7 @@ object SimOutput:
   )(using p: SimParams): Array[Double] =
     val living     = firms.filter(Firm.isAlive)
     val aliveBanks = banks.filterNot(_.failed).toVector
-    val ctx        = Ctx(t, world, firms, households, banks, householdAggregates, living, living.length.toDouble, aliveBanks, p)
+    val ctx        = Ctx(executionMonth, world, firms, households, banks, householdAggregates, living, living.length.toDouble, aliveBanks, p)
     val result     = new Array[Double](schema.length)
     var i          = 0
     while i < schema.length do

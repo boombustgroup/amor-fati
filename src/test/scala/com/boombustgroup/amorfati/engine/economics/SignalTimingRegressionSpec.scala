@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthRandomness, MonthTraceStage, OperationalSignals, SignalExtraction, World}
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.random.RandomStream
@@ -37,7 +38,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     val world    = init.world
     val contract = MonthRandomness.Contract.fromSeed(seed)
 
-    val fiscal = FiscalConstraintEconomics.compute(world, init.banks)
+    val fiscal = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
     val s1     = FiscalConstraintEconomics.toOutput(fiscal)
     val labor  = LaborEconomics.compute(world, init.firms, init.households, s1)
     val s2Pre  = LaborEconomics.Output(

@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.markets
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
 
 /** Capital flight and hot money: risk-off, carry trade, EM sentiment.
@@ -57,7 +58,7 @@ object CapitalFlows:
     *   GDP proxy for scaling
     */
   def compute(
-      month: Int,
+      month: ExecutionMonth,
       yieldSpread: Rate,
       bidToCover: Multiplier,
       prevCarry: CarryState,
@@ -65,13 +66,13 @@ object CapitalFlows:
   )(using p: SimParams): Result =
     // 1. Global risk-off shock: outflow = GDP × magnitude
     val riskOff =
-      if p.forex.riskOffShockMonth > 0 && month == p.forex.riskOffShockMonth then -(monthlyGdp * p.forex.riskOffMagnitude)
+      if p.forex.riskOffShockMonth > 0 && month.toInt == p.forex.riskOffShockMonth then -(monthlyGdp * p.forex.riskOffMagnitude)
       else PLN.Zero
 
     // 2. Carry trade: accumulate when spread > threshold, unwind on risk-off
     val spreadAboveThreshold = (yieldSpread - p.forex.carryThreshold).max(Rate.Zero)
-    val isRiskOff            = p.forex.riskOffShockMonth > 0 && month >= p.forex.riskOffShockMonth &&
-      month < p.forex.riskOffShockMonth + p.forex.riskOffDurationMonths
+    val isRiskOff            = p.forex.riskOffShockMonth > 0 && month.toInt >= p.forex.riskOffShockMonth &&
+      month.toInt < p.forex.riskOffShockMonth + p.forex.riskOffDurationMonths
     val carryAccumulation    =
       if !isRiskOff then monthlyGdp * (spreadAboveThreshold * p.forex.carryAccumulationRate)
       else PLN.Zero

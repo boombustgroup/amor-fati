@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.agents.Banking.BankState
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
@@ -21,7 +22,7 @@ import java.util.concurrent.TimeUnit
 object McRunner:
 
   /** Single month snapshot emitted by [[seedStream]]. */
-  private case class MonthSnapshot(month: Int, state: FlowSimulation.SimState, monthData: Array[Double])
+  private case class MonthSnapshot(executionMonth: ExecutionMonth, state: FlowSimulation.SimState, monthData: Array[Double])
 
   /** Run N seeds in parallel, each streaming months via [[seedStream]]. Writes
     * per-seed CSV + aggregated HH/bank CSVs. Fails with [[SimError]].
@@ -81,22 +82,22 @@ object McRunner:
 
   private def runtimeRootSeed(seed: Long, state: FlowSimulation.SimState): Long =
     // Preserve the runtime month-seed convention used before the shared driver.
-    seed * 10000L + state.world.month.toLong
+    seed * 10000L + state.completedMonth.toLong
 
   private def stepSnapshot(result: FlowSimulation.StepOutput)(using p: SimParams): Either[SimError, MonthSnapshot] =
     result.sfcResult match
       case Left(errors) =>
-        Left(SimError.SfcViolation(result.nextState.world.month, errors))
+        Left(SimError.SfcViolation(result.executionMonth, errors))
       case Right(())    =>
         val monthData = SimOutput.compute(
-          result.stateIn.world.month,
+          result.executionMonth,
           result.nextState.world,
           result.nextState.firms,
           result.nextState.households,
           result.nextState.banks,
           result.nextState.householdAggregates,
         )
-        Right(MonthSnapshot(result.nextState.world.month, result.nextState, monthData))
+        Right(MonthSnapshot(result.executionMonth, result.nextState, monthData))
 
   private def materializeRun(
       initState: FlowSimulation.SimState,
@@ -119,7 +120,7 @@ object McRunner:
   /** Consume a seed stream into RunResult, collecting monthly data. */
   private def materializeSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
     seedStream(seed, rc.runDurationMonths)
-      .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.month, rc.runDurationMonths)))
+      .tap(s => ZIO.succeed(printMonthProgress(seed, rc.nSeeds, s.executionMonth, rc.runDurationMonths)))
       .runFold((Option.empty[FlowSimulation.SimState], Vector.empty[Array[Double]])):
         case ((_, series), snapshot) => (Some(snapshot.state), series :+ snapshot.monthData)
       .flatMap:
@@ -144,11 +145,11 @@ object McRunner:
       CsvWriter.write(
         new File("mc", seedFileName(seed, rc)),
         colNames.mkString(";"),
-        0 until result.timeSeries.nMonths,
-      ): t =>
-        val row = result.timeSeries.monthRow(t)
+        result.timeSeries.executionMonths,
+      ): month =>
+        val row = result.timeSeries.monthRow(month)
         val sb  = new StringBuilder
-        sb.append(f"${row(0)}%.0f")
+        sb.append(month.toInt)
         for c <- 1 until nCols do sb.append(f";${row(c)}%.6f")
         sb.toString
 
@@ -216,12 +217,12 @@ object McRunner:
 
   private val BarWidth = 20
 
-  private def printMonthProgress(seed: Long, total: Int, month: Int, duration: Int): Unit =
-    val frac   = month.toDouble / duration
+  private def printMonthProgress(seed: Long, total: Int, month: ExecutionMonth, duration: Int): Unit =
+    val frac   = month.toInt.toDouble / duration
     val filled = (frac * BarWidth).toInt
     val bar    = "\u2588" * filled + "\u2591" * (BarWidth - filled)
     val pct    = (frac * 100).toInt
-    print(f"\r  Seed $seed%3d/$total [$bar] $month%3d/${duration}m ($pct%3d%%)")
+    print(f"\r  Seed $seed%3d/$total [$bar] ${month.toInt}%3d/${duration}m ($pct%3d%%)")
 
   private def printSeedDone(seed: Long, total: Int, result: RunResult, dt: Long) =
     val last  = result.timeSeries.lastMonth

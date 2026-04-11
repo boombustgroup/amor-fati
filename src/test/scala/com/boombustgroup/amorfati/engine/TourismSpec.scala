@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.types.*
 
@@ -207,7 +208,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       gdp = PLN(1e9),
       priceLevel = PriceIndex.Base,
       sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(1e8)),
-      month = 1,
+      month = ExecutionMonth(1),
       nbpFxReserves = prevBop.reserves,
     )
     val resultWith    = OpenEconomy.step(base.copy(tourismExport = PLN(1000.0)))
@@ -230,7 +231,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       gdp = PLN(1e9),
       priceLevel = PriceIndex.Base,
       sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(1e8)),
-      month = 1,
+      month = ExecutionMonth(1),
       nbpFxReserves = prevBop.reserves,
     )
     val resultWith    = OpenEconomy.step(base.copy(tourismImport = PLN(500.0)))
@@ -245,7 +246,6 @@ class TourismSpec extends AnyFlatSpec with Matchers:
 
   "World" should "default tourismExport and tourismImport to 0.0" in {
     val w = World(
-      month = 0,
       inflation = Rate(0.02),
       priceLevel = PriceIndex.Base,
       gdpProxy = 1e9,

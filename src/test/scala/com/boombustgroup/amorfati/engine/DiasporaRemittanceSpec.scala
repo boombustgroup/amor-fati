@@ -4,6 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.types.*
 
@@ -153,7 +154,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       gdp = PLN(1e9),
       priceLevel = PriceIndex.Base,
       sectorOutputs = Vector.fill(6)(PLN(1e8)),
-      month = 1,
+      month = ExecutionMonth(1),
       nbpFxReserves = prevBop.reserves,
     )
     val resultWith    = OpenEconomy.step(base.copy(diasporaInflow = PLN(1000.0)))
@@ -176,7 +177,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       gdp = PLN(1e9),
       priceLevel = PriceIndex.Base,
       sectorOutputs = Vector.fill(6)(PLN(1e8)),
-      month = 1,
+      month = ExecutionMonth(1),
       nbpFxReserves = prevBop.reserves,
     )
     val result = OpenEconomy.step(base.copy(remittanceOutflow = PLN(500.0), diasporaInflow = PLN(800.0)))
@@ -201,7 +202,6 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "World" should "default diasporaRemittanceInflow to 0.0" in {
     val w = World(
-      month = 0,
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,

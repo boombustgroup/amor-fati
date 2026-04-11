@@ -97,7 +97,6 @@ object WorldInit:
     )
 
     val world = World(
-      month = 0,
       inflation = initInflation,
       priceLevel = PriceIndex(1.0),
       currentSigmas = p.sectorDefs.map(_.sigma),

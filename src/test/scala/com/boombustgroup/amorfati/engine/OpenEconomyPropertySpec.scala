@@ -6,6 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.OpenEconomy
 import com.boombustgroup.amorfati.types.*
 
@@ -62,7 +63,7 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
     gdp = PLN(gdp),
     priceLevel = PriceIndex(price),
     sectorOutputs = defaultSectorOutputs,
-    month = month,
+    month = ExecutionMonth(month),
     nbpFxReserves = prevBop.reserves,
   )
 

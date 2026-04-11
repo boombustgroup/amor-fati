@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
@@ -12,8 +13,9 @@ import com.boombustgroup.amorfati.types.*
 
 class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams          = SimParams.defaults
-  private val p: SimParams = summon[SimParams]
+  given SimParams              = SimParams.defaults
+  private val p: SimParams     = summon[SimParams]
+  private val ExecutionMonth31 = ExecutionMonth(31)
   // --- Config defaults ---
 
   "FdiForeignShares" should "have 6 values" in {
@@ -69,7 +71,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   "calcPnL (via Firm.process)" should "produce profitShiftCost=0 for domestic firm" in {
     val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = false)
     val w = mkWorld()
-    val r = Firm.process(f, w, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42))
+    val r = Firm.process(f, w, ExecutionMonth31, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42))
     r.profitShiftCost shouldBe PLN.Zero
   }
 
@@ -106,7 +108,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     // When FDI is enabled and firm has low cash, repatriation is capped
     val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = true, cash = PLN(100.0))
     val w = mkWorld()
-    val r = Firm.process(f, w, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42))
+    val r = Firm.process(f, w, ExecutionMonth31, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42))
     // Even with FDI enabled, cash should not go below what the base logic sets
     // With FDI disabled (default), just verify firm processes normally
     Firm.isAlive(r.firm) || !Firm.isAlive(r.firm) shouldBe true // always true, no crash
@@ -161,7 +163,6 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   private def mkWorld(): World =
     World(
-      month = 31,
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,

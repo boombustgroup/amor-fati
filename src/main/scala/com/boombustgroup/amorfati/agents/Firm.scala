@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{OperationalSignals, World}
 import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 import com.boombustgroup.amorfati.types.*
@@ -456,13 +457,14 @@ object Firm:
   def process(
       firm: State,
       w: World,
+      executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       rng: RandomStream,
   )(using p: SimParams): Result =
-    val decision = decide(firm, w, operationalSignals, lendRate, bankCanLend, allFirms, rng)
+    val decision = decide(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, rng)
     val r0       = updateHiringSignalState(execute(firm, decision), firm, w, operationalSignals)
     val r0a      = applyLoanAmortization(r0)
     val r1       = applyGreenInvestment(r0a)
@@ -475,12 +477,13 @@ object Firm:
   def process(
       firm: State,
       w: World,
+      executionMonth: ExecutionMonth,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       rng: RandomStream,
   )(using p: SimParams): Result =
-    process(firm, w, OperationalSignals.fromBridgedWorld(w), lendRate, bankCanLend, allFirms, rng)
+    process(firm, w, executionMonth, OperationalSignals.fromBridgedWorld(w), lendRate, bankCanLend, allFirms, rng)
 
   // ---- Decide (all match logic + RandomStream rolls) ----
 
@@ -489,6 +492,7 @@ object Firm:
   private def decide(
       firm: State,
       w: World,
+      executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
@@ -497,9 +501,9 @@ object Firm:
   )(using p: SimParams): Decision =
     firm.tech match
       case _: TechState.Bankrupt         => Decision.StayBankrupt
-      case _: TechState.Automated        => decideAutomated(firm, w, operationalSignals, lendRate)
-      case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, operationalSignals, lendRate, bankCanLend, wkrs, aiEff, rng)
-      case TechState.Traditional(wkrs)   => decideTraditional(firm, w, operationalSignals, lendRate, bankCanLend, allFirms, wkrs, rng)
+      case _: TechState.Automated        => decideAutomated(firm, w, executionMonth, operationalSignals, lendRate)
+      case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, wkrs, aiEff, rng)
+      case TechState.Traditional(wkrs)   => decideTraditional(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, wkrs, rng)
 
   /** Smooth labor adjustment: Δworkers = λ × (target − current), with severance
     * costs. Target = break-even headcount from P&L. If adjustment insufficient
@@ -594,6 +598,7 @@ object Firm:
   private def decideAutomated(
       firm: State,
       w: World,
+      executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
       lendRate: Rate,
   )(using p: SimParams): Decision =
@@ -605,7 +610,7 @@ object Firm:
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
       lendRate,
-      w.month,
+      executionMonth,
     )
     val nc  = firm.cash + pnl.netAfterTax
     if nc < PLN.Zero then Decision.GoBankrupt(pnl, nc, BankruptReason.AiDebtTrap)
@@ -615,6 +620,7 @@ object Firm:
   private def decideHybrid(
       firm: State,
       w: World,
+      executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
@@ -630,7 +636,7 @@ object Firm:
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
       lendRate,
-      w.month,
+      executionMonth,
     )
     val ready2 = (firm.digitalReadiness + Share(HybridMonthlyDrDrift)).min(Share.One)
 
@@ -763,6 +769,7 @@ object Firm:
       pnl: PnL,
       fullAi: UpgradeCandidate,
       hybrid: UpgradeCandidate,
+      executionMonth: ExecutionMonth,
       w: World,
       allFirms: Vector[State],
   )(using p: SimParams): (Share, Share) =
@@ -774,7 +781,7 @@ object Firm:
       if !fullAi.profitable && fullAi.canPay && fullAi.ready && fullAi.bankOk then firm.riskProfile * firm.digitalReadiness * Share(StrategicAdoptBase)
       else Share.Zero
 
-    val willingnessMultiplier = adoptionWillingnessMultiplier(w.month, localAuto)
+    val willingnessMultiplier = adoptionWillingnessMultiplier(executionMonth, localAuto)
 
     val rawFull = willingnessMultiplier *
       (if fullAi.feasible then (firm.riskProfile * Share(RiskWeightFullAi) + panic + desper) * firm.digitalReadiness
@@ -788,10 +795,11 @@ object Firm:
     val pHyb  = rawHyb.min(Share.One - pFull)
     (pFull, pHyb)
 
-  private[amorfati] def adoptionWillingnessMultiplier(month: Int, localAuto: Share)(using p: SimParams): Share =
-    val rampFrac  = Scalar.fraction(month, p.firm.adoptionRampMonths).clamp(Scalar.Zero, Scalar.One).toShare
-    val baseLevel = Share(UncertaintyBase) + Share(UncertaintySlope) * rampFrac
-    val demoBoost =
+  private[amorfati] def adoptionWillingnessMultiplier(month: ExecutionMonth, localAuto: Share)(using p: SimParams): Share =
+    val elapsedMonths = month.toInt - 1
+    val rampFrac      = Scalar.fraction(elapsedMonths, p.firm.adoptionRampMonths).clamp(Scalar.Zero, Scalar.One).toShare
+    val baseLevel     = Share(UncertaintyBase) + Share(UncertaintySlope) * rampFrac
+    val demoBoost     =
       if localAuto > p.firm.demoEffectThresh then p.firm.demoEffectBoost * (localAuto - p.firm.demoEffectThresh)
       else Share.Zero
     (baseLevel + demoBoost).min(Share.One)
@@ -905,6 +913,7 @@ object Firm:
   private def decideTraditional(
       firm: State,
       w: World,
+      executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
       lendRate: Rate,
       bankCanLend: PLN => Boolean,
@@ -920,12 +929,12 @@ object Firm:
       w.external.gvc.importCostIndex,
       w.external.gvc.commodityPriceIndex,
       lendRate,
-      w.month,
+      executionMonth,
     )
     if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, TechState.Traditional(_), w.householdMarket.marketWage)
     val ai            = evaluateFullAi(firm, pnl, w, lendRate, bankCanLend)
     val (hyb, hWkrs)  = evaluateHybrid(firm, pnl, workers, w, lendRate, bankCanLend)
-    val (pFull, pHyb) = adoptionProbabilities(firm, pnl, ai, hyb, w, allFirms)
+    val (pFull, pHyb) = adoptionProbabilities(firm, pnl, ai, hyb, executionMonth, w, allFirms)
     val roll          = Share.random(rng)
 
     if roll < pFull then rollFullAiUpgrade(firm, pnl, ai, rng)
@@ -1098,9 +1107,10 @@ object Firm:
   /** Energy cost including EU ETS carbon surcharge, net of green capital
     * discount.
     */
-  private def energyAndEtsCost(firm: State, revenue: PLN, month: Int, commodityPrice: PriceIndex)(using p: SimParams): PLN =
+  private def energyAndEtsCost(firm: State, revenue: PLN, month: ExecutionMonth, commodityPrice: PriceIndex)(using p: SimParams): PLN =
     val baseEnergy: PLN      = revenue * p.climate.energyCostShares(firm.sector.toInt)
-    val etsGrowth            = (Scalar.One + p.climate.etsPriceDrift.monthly.toScalar).pow(month)
+    val monthsElapsed        = month.previousCompleted
+    val etsGrowth            = (Scalar.One + p.climate.etsPriceDrift.monthly.toScalar).pow(monthsElapsed.toInt)
     val carbonSurcharge      = p.climate.carbonIntensity(firm.sector.toInt) * (etsGrowth - Scalar.One)
     val greenDiscount: Share = if firm.greenCapital > PLN.Zero then
       val targetGK = workerCount(firm) * p.climate.greenKLRatios(firm.sector.toInt)
@@ -1119,7 +1129,7 @@ object Firm:
       importPrice: PriceIndex,
       commodityPrice: PriceIndex,
       lendRate: Rate,
-      month: Int,
+      month: ExecutionMonth,
   )(using p: SimParams): PnL =
     val revenue: PLN         = (domesticPrice * computeCapacity(firm)) * sectorDemandMult
     val labor: PLN           = workerCount(firm) * (wage * effectiveWageMult(firm.sector))
@@ -1159,7 +1169,7 @@ object Firm:
       importPrice: PriceIndex,
       commodityPrice: PriceIndex,
       lendRate: Rate,
-      month: Int,
+      month: ExecutionMonth,
   )(using p: SimParams): PLN =
     computePnL(
       firm,

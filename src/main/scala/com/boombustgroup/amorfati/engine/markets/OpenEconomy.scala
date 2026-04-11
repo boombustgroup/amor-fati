@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.markets
 
 import com.boombustgroup.amorfati.agents.Nbp
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
 
 /** Open economy: trade, BoP, exchange rate, NFA dynamics.
@@ -88,7 +89,7 @@ object OpenEconomy:
       gdp: PLN,
       priceLevel: PriceIndex,
       sectorOutputs: Vector[PLN],
-      month: Int,
+      month: ExecutionMonth,
       inflation: Rate = Rate.Zero,
       nbpFxReserves: PLN,
       gvcExports: Option[PLN] = None,
@@ -155,7 +156,8 @@ object OpenEconomy:
 
   private def computeExports(in: StepInput)(using p: SimParams): PLN =
     in.gvcExports.getOrElse:
-      val foreignGdpFactor = compoundedGrowth(p.openEcon.foreignGdpGrowth.monthly.growthMultiplier, in.month)
+      val elapsedMonths    = (in.month.toInt - 1).max(0)
+      val foreignGdpFactor = compoundedGrowth(p.openEcon.foreignGdpGrowth.monthly.growthMultiplier, elapsedMonths)
       val ulcEffect        = (in.autoRatio * p.openEcon.ulcExportBoost).growthMultiplier
       val realExRate       = realExchangeRateEffect(in.prevForex.exchangeRate, in.priceLevel)
       ((realExRate * p.openEcon.exportBase) * foreignGdpFactor) * ulcEffect

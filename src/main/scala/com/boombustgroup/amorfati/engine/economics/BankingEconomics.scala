@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -143,7 +144,7 @@ object BankingEconomics:
   case class Input(
       w: World,
       // Raw values from earlier calculus (avoids Step.Output dependency)
-      month: Int,
+      month: ExecutionMonth,
       lendingBaseRate: Rate,
       resWage: PLN,
       baseMinWage: PLN,

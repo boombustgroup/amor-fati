@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.diagnostics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.PLN
@@ -162,7 +163,7 @@ object LaborDemandProbe:
       val beforeAll = sectorSnapshots(firms)
       val hiring    = hiringSummaries(world, firms)
 
-      val fiscal = FiscalConstraintEconomics.compute(world, banks)
+      val fiscal = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
       val s1     = FiscalConstraintEconomics.toOutput(fiscal)
       val labor  = LaborEconomics.compute(world, firms, hhs, s1)
       val s2Pre  = LaborEconomics.Output(

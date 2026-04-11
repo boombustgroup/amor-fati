@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.Banking
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
 
 /** Reserve Interest, Standing Facilities, Interbank Interest tests. */
@@ -130,7 +131,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       htmBookYield = Rate.Zero,
       reservesAtNbp = reservesAtNbp,
       interbankNet = interbankNet,
-      status = if failed then Banking.BankStatus.Failed(30) else Banking.BankStatus.Active(0),
+      status = if failed then Banking.BankStatus.Failed(ExecutionMonth(30)) else Banking.BankStatus.Active(0),
       demandDeposits = PLN.Zero,
       termDeposits = PLN.Zero,
       loansShort = PLN.Zero,

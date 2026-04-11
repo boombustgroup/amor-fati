@@ -300,7 +300,6 @@ object Generators:
   // --- World generator ---
 
   val genWorld: Gen[World] = for
-    month    <- Gen.choose(1, 120)
     infl     <- genInflation
     price    <- genPrice
     gov      <- genGovState
@@ -313,7 +312,6 @@ object Generators:
     hybR     <- genFraction
     gdp      <- Gen.choose(1e6, 1e11)
   yield World(
-    month = month,
     inflation = Rate(infl),
     priceLevel = price,
     gdpProxy = gdp,
@@ -657,7 +655,7 @@ object Generators:
       htmBookYield = Rate(bookYld),
       reservesAtNbp = PLN(reserves),
       interbankNet = PLN(ibNet),
-      status = if failed then Banking.BankStatus.Failed(30) else Banking.BankStatus.Active(lowCar),
+      status = if failed then Banking.BankStatus.Failed(SimulationMonth.ExecutionMonth(30)) else Banking.BankStatus.Active(lowCar),
       demandDeposits = PLN.Zero,
       termDeposits = PLN.Zero,
       loansShort = PLN.Zero,

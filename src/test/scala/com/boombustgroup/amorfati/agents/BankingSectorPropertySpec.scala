@@ -7,6 +7,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
 import com.boombustgroup.amorfati.agents.Banking.BankStatus
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
 
 import com.boombustgroup.amorfati.random.RandomStream
@@ -133,7 +134,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   "checkFailures" should "never un-fail a bank" in
     forAll(genBanking.State) { (bs: Banking.State) =>
       val failedBefore = bs.banks.filter(_.failed).map(_.id).toSet
-      val afterCheck   = Banking.checkFailures(bs.banks, 50, enabled = true, Multiplier.Zero)
+      val afterCheck   = Banking.checkFailures(bs.banks, ExecutionMonth(50), enabled = true, Multiplier.Zero)
       val failedAfter  = afterCheck.banks.filter(_.failed).map(_.id).toSet
       failedBefore.subsetOf(failedAfter) shouldBe true
     }

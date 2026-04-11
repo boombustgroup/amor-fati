@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.mechanisms
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.math.EuFundsMath
 import com.boombustgroup.amorfati.types.*
 
@@ -23,7 +24,7 @@ object EuFunds:
 
   @boundaryEscape
   /** Monthly EU transfer in PLN, following a Beta(α,β) absorption curve. */
-  def monthlyTransfer(month: Int)(using p: SimParams): PLN =
+  def monthlyTransfer(month: ExecutionMonth)(using p: SimParams): PLN =
     val totalPln = EuFundsMath.totalEnvelopePln(
       p.fiscal.euFundsTotalEur,
       p.forex.baseExRate,
@@ -31,7 +32,7 @@ object EuFunds:
       ReferenceEconomy,
     )
     totalPln * EuFundsMath.monthlyWeight(
-      month,
+      month.toInt,
       p.fiscal.euFundsStartMonth,
       p.fiscal.euFundsPeriodMonths,
       p.fiscal.euFundsAlpha,

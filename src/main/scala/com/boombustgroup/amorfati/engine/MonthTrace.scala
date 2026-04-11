@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine
 
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
 
 import scala.reflect.ClassTag
@@ -13,7 +14,7 @@ import scala.reflect.ClassTag
   * envelopes.
   */
 case class MonthTrace(
-    month: Int,
+    executionMonth: ExecutionMonth,
     boundary: MonthBoundaryTrace,
     seedTransition: SeedTransitionTrace,
     randomness: MonthRandomness.Contract,

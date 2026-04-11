@@ -5,6 +5,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.MonthSemantics.At.*
+import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -27,6 +28,7 @@ object FlowSimulation:
     * flows into one `step(state, randomness)` transition.
     */
   case class SimState(
+      completedMonth: CompletedMonth,
       world: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
@@ -36,7 +38,7 @@ object FlowSimulation:
 
   object SimState:
     def fromInit(init: com.boombustgroup.amorfati.init.WorldInit.InitResult): SimState =
-      SimState(init.world, init.firms, init.households, init.banks, init.householdAggregates)
+      SimState(CompletedMonth.Zero, init.world, init.firms, init.households, init.banks, init.householdAggregates)
 
   case class ExecutionResult(
       snapshot: Map[(EntitySector, AssetType, Int), Long],
@@ -46,7 +48,7 @@ object FlowSimulation:
   /** All calculus results needed to feed flow mechanisms. */
   case class MonthlyCalculus(
       // Stage 1: Fiscal constraint
-      month: Int,
+      month: ExecutionMonth,
       resWage: PLN,
       lendingBaseRate: Rate,
       baseMinWage: PLN,
@@ -243,6 +245,7 @@ object FlowSimulation:
   /** Typed month-`t` boundary input used internally by [[step]]. */
   case class StepInput(
       stateIn: SimState,
+      executionMonth: ExecutionMonth,
       seedIn: MonthSemantics.SeedIn,
       randomness: MonthRandomness.Contract,
   )
@@ -298,6 +301,7 @@ object FlowSimulation:
     */
   case class StepOutput(
       stateIn: SimState,
+      executionMonth: ExecutionMonth,
       calculus: MonthlyCalculus,
       operationalSignals: OperationalSignals,
       signalExtraction: SignalExtraction.Output,
@@ -318,9 +322,10 @@ object FlowSimulation:
     */
   def step(stateIn: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): StepOutput =
     val input      = StepInput(
-      stateIn,
-      MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn),
-      randomness,
+      stateIn = stateIn,
+      executionMonth = stateIn.completedMonth.next,
+      seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn),
+      randomness = randomness,
     )
     val outcome    = computeMonthOutcome(input)
     val flows      = emitAllBatches(outcome.stages.value.calculus)
@@ -348,6 +353,7 @@ object FlowSimulation:
 
     StepOutput(
       stateIn = stateIn,
+      executionMonth = input.executionMonth,
       calculus = outcome.stages.value.calculus,
       operationalSignals = outcome.operational.value,
       signalExtraction = outcome.seedOut.value,
@@ -365,6 +371,7 @@ object FlowSimulation:
     computeStageOutputs(
       StepInput(
         stateIn = state,
+        executionMonth = state.completedMonth.next,
         seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](state.world.seedIn),
         randomness = randomness,
       ),
@@ -386,7 +393,7 @@ object FlowSimulation:
     val firms             = stateIn.firms
     val households        = stateIn.households
     val banks             = stateIn.banks
-    val fiscal            = FiscalConstraintEconomics.compute(w, banks)
+    val fiscal            = FiscalConstraintEconomics.compute(w, banks, input.executionMonth)
     val s1                = FiscalConstraintEconomics.toOutput(fiscal)
     val labor             = LaborEconomics.compute(w, firms, households, s1)
     val s2Pre             = LaborEconomics.Output(
@@ -848,6 +855,7 @@ object FlowSimulation:
     require(nextWorld.seedIn == nextSeed, "advanceState must be the transition that applies SeedOut to the next boundary")
 
     SimState(
+      completedMonth = input.executionMonth.completed,
       world = nextWorld,
       firms = assembled.firms,
       households = assembled.households,
@@ -865,7 +873,7 @@ object FlowSimulation:
     val traceInputs = outcome.post.value.traceInputs
     val seedOut     = outcome.seedOut.value
     MonthTrace(
-      month = nextState.world.month,
+      executionMonth = input.executionMonth,
       boundary = MonthBoundaryTrace(
         startSnapshot = MonthBoundarySnapshot.capture(input.stateIn.world, input.stateIn.firms, input.stateIn.households, input.stateIn.banks),
         endSnapshot = MonthBoundarySnapshot.capture(nextState.world, nextState.firms, nextState.households, nextState.banks),

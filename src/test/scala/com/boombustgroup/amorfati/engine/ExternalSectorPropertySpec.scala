@@ -6,6 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.Generators.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.GvcTrade
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
@@ -34,7 +35,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
         PriceIndex(price),
         ExchangeRate(er),
         Share(autoR),
-        month,
+        ExecutionMonth(month),
         rng = RandomStream.seeded(42),
       ),
     )

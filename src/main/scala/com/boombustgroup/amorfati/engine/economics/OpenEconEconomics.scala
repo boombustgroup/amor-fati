@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, GvcTrade, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.Expectations
@@ -158,7 +159,7 @@ object OpenEconEconomics:
       profitShifting: PLN,
       fdiRepatriation: PLN,
       foreignDividendOutflow: PLN,
-      month: Int,
+      month: ExecutionMonth,
       commodityRng: RandomStream,
   )
 

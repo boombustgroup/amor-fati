@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.OpenEconomy
 import com.boombustgroup.amorfati.types.*
 
@@ -31,7 +32,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
     gdp = gdp,
     priceLevel = PriceIndex.Base,
     sectorOutputs = baseSectorOutputs,
-    month = month,
+    month = ExecutionMonth(month),
     nbpFxReserves = prevBop.reserves,
   )
 
@@ -40,6 +41,12 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   "OpenEconomy.step" should "produce positive exports" in {
     val r = OpenEconomy.step(baseInput())
     td.toDouble(r.bop.exports) should be > 0.0
+  }
+
+  it should "use zero elapsed foreign GDP growth in the first execution month" in {
+    val r = OpenEconomy.step(baseInput(month = 1))
+
+    td.toDouble(r.bop.exports) shouldBe (td.toDouble(p.openEcon.exportBase) +- 0.01)
   }
 
   it should "increase exports with higher automation (ULC effect)" in {

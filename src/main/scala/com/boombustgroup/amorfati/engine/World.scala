@@ -12,7 +12,6 @@ import com.boombustgroup.amorfati.types.*
   * not need to be provided at init.
   */
 case class World(
-    month: Int,                                                                       // simulation month (1-indexed)
     inflation: Rate,                                                                  // CPI YoY inflation
     priceLevel: PriceIndex,                                                           // cumulative CPI index (base = 1.0)
     currentSigmas: Vector[Sigma],                                                     // per-sector σ (Arthur increasing returns)
@@ -79,7 +78,6 @@ object SocialState:
 
 object World:
   def apply(
-      month: Int,
       inflation: Rate,
       priceLevel: PriceIndex,
       gdpProxy: Double,
@@ -112,7 +110,6 @@ object World:
       mechanisms.expectations.expectedInflation,
     )
     new World(
-      month = month,
       inflation = inflation,
       priceLevel = priceLevel,
       currentSigmas = currentSigmas,
@@ -134,7 +131,6 @@ object World:
     )
 
   def apply(
-      month: Int,
       inflation: Rate,
       priceLevel: Double,
       gdpProxy: Double,
@@ -167,7 +163,6 @@ object World:
       mechanisms.expectations.expectedInflation,
     )
     new World(
-      month = month,
       inflation = inflation,
       priceLevel = PriceIndex(priceLevel),
       currentSigmas = currentSigmas,

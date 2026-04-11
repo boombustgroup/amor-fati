@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{OperationalSignals, World}
 import com.boombustgroup.amorfati.engine.markets.{CalvoPricing, CorporateBondMarket, IntermediateMarket, LaborMarket}
 import com.boombustgroup.amorfati.types.*
@@ -82,6 +83,7 @@ object FirmEconomics:
   /** Per-bank lending rates and credit approval, shared across phases. */
   private case class LendingConditions(
       firmWorld: World,                       // world with current-month wages for firm decision-making
+      executionMonth: ExecutionMonth,         // realized month currently being executed
       operationalSignals: OperationalSignals, // same-month demand / labor surface for incumbent firms
       rates: Vector[Rate],                    // per-bank lending rates
       lendingRates: Vector[Double],           // rates as Double (for Output)
@@ -145,7 +147,7 @@ object FirmEconomics:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       // From FiscalConstraint
-      month: Int,
+      month: ExecutionMonth,
       lendingBaseRate: Rate,
       resWage: PLN,
       baseMinWage: PLN,
@@ -386,13 +388,12 @@ object FirmEconomics:
       operationalHiringSlack = in.s2.operationalHiringSlack,
     )
     val world              = in.w.copy(
-      month = in.s1.m,
       householdMarket = in.w.householdMarket.copy(
         marketWage = in.s2.newWage,
         reservationWage = in.s1.resWage,
       ),
     )
-    LendingConditions(world, operationalSignals, rates, rates.map(toDouble(_)), canLend, nBanks)
+    LendingConditions(world, in.s1.m, operationalSignals, rates, rates.map(toDouble(_)), canLend, nBanks)
 
   // ---- Phase 2: Per-firm processing ----
 
@@ -407,7 +408,7 @@ object FirmEconomics:
     val outcomes = firms.map: f =>
       val rate    = lending.rates(f.bankId.toInt)
       val canLend = (amt: PLN) => lending.bankCanLend(f.bankId.toInt, amt)
-      val r       = Firm.process(f, lending.firmWorld, lending.operationalSignals, rate, canLend, firms, rng)
+      val r       = Firm.process(f, lending.firmWorld, lending.executionMonth, lending.operationalSignals, rate, canLend, firms, rng)
       val fin     = splitFinancing(r)
 
       FirmOutcome(

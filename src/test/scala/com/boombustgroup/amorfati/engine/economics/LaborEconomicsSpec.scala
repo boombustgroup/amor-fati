@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -18,7 +19,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
   private val households = initResult.households
 
   private val s1 = FiscalConstraintEconomics.Output(
-    m = 1,
+    month = ExecutionMonth.First,
     lendingBaseRate = world.nbp.referenceRate,
     resWage = world.householdMarket.reservationWage,
     baseMinWage = world.gov.minWageLevel,
@@ -80,5 +81,5 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
 
     post.laborDemand shouldBe postLiving.map(Firm.workerCount).sum
     post.employed shouldBe 0
-    ComputationBoundary.toDouble(post.newWage) should be >= ComputationBoundary.toDouble(s1.resWage)
+    ComputationBoundary.toDouble(post.newWage).should(be >= ComputationBoundary.toDouble(s1.resWage))
   }
