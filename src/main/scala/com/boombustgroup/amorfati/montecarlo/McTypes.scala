@@ -63,7 +63,7 @@ object TimeSeries:
     /** Zero-based row indices for compatibility with collection-style
       * iteration.
       */
-    inline def indices: Range = ts.indices
+    inline def indices: Range = 0 until ts.length
 
     /** Iterate through raw rows without exposing the backing array type. */
     inline def foreach(f: Array[Double] => Unit): Unit =

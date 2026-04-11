@@ -276,6 +276,25 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     Firm.computeLocalAutoRatio(firms(0), firms) shouldBe Share.Zero
   }
 
+  "Firm.computePnL" should "keep ETS surcharge at baseline in the first execution month" in {
+    val firm         = mkFirm(TechState.Traditional(10), sector = 1)
+    val commodity    = PriceIndex.Base
+    val pnl          = Firm.computePnL(
+      firm = firm,
+      wage = p.household.baseWage,
+      sectorDemandMult = Multiplier.One,
+      domesticPrice = PriceIndex.Base,
+      importPrice = PriceIndex.Base,
+      commodityPrice = commodity,
+      lendRate = Rate.Zero,
+      month = ExecutionMonth.First,
+    )
+    val baseEnergy   = pnl.revenue * p.climate.energyCostShares(firm.sector.toInt)
+    val expectedCost = commodity * baseEnergy
+
+    pnl.energyCost shouldBe expectedCost
+  }
+
   // --- Firm.process ---
 
   "Firm.process" should "keep a Bankrupt firm bankrupt with zero tax/capex" in {

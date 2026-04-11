@@ -1109,7 +1109,8 @@ object Firm:
     */
   private def energyAndEtsCost(firm: State, revenue: PLN, month: ExecutionMonth, commodityPrice: PriceIndex)(using p: SimParams): PLN =
     val baseEnergy: PLN      = revenue * p.climate.energyCostShares(firm.sector.toInt)
-    val etsGrowth            = (Scalar.One + p.climate.etsPriceDrift.monthly.toScalar).pow(month.toInt)
+    val monthsElapsed        = month.previousCompleted
+    val etsGrowth            = (Scalar.One + p.climate.etsPriceDrift.monthly.toScalar).pow(monthsElapsed.toInt)
     val carbonSurcharge      = p.climate.carbonIntensity(firm.sector.toInt) * (etsGrowth - Scalar.One)
     val greenDiscount: Share = if firm.greenCapital > PLN.Zero then
       val targetGK = workerCount(firm) * p.climate.greenKLRatios(firm.sector.toInt)
