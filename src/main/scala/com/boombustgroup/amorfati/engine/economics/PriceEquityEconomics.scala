@@ -232,7 +232,7 @@ object PriceEquityEconomics:
     val aggInventoryStock = PLN.fromRaw(living2.map(_.inventory.toLong).sum)
     val aggGreenCapital   = PLN.fromRaw(living2.map(_.greenCapital.toLong).sum)
 
-    val euMonthly = EuFunds.monthlyTransfer(in.month.toInt)
+    val euMonthly = EuFunds.monthlyTransfer(in.month)
 
     val govGdpContribution = governmentDemandContribution(in.govPurchases)
     val euCofin            = EuFunds.cofinancing(euMonthly)

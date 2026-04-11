@@ -655,7 +655,7 @@ object Generators:
       htmBookYield = Rate(bookYld),
       reservesAtNbp = PLN(reserves),
       interbankNet = PLN(ibNet),
-      status = if failed then Banking.BankStatus.Failed(30) else Banking.BankStatus.Active(lowCar),
+      status = if failed then Banking.BankStatus.Failed(SimulationMonth.ExecutionMonth(30)) else Banking.BankStatus.Active(lowCar),
       demandDeposits = PLN.Zero,
       termDeposits = PLN.Zero,
       loansShort = PLN.Zero,

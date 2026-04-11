@@ -702,7 +702,7 @@ object BankingEconomics:
     val finalForeignBondHoldings = in.w.gov.foreignBondHoldings + foreignSale.actualSold
 
     val failResult =
-      Banking.checkFailures(tfiSale.banks, in.s1.m.toInt, true, in.s7.newMacropru.ccyb)
+      Banking.checkFailures(tfiSale.banks, in.s1.m, true, in.s7.newMacropru.ccyb)
 
     // Interbank contagion: failed banks impose losses on counterparties
     val exposures      = InterbankContagion.buildExposureMatrix(tfiSale.banks)
@@ -710,7 +710,7 @@ object BankingEconomics:
       if failResult.anyFailed then InterbankContagion.applyContagionLosses(failResult.banks, exposures)
       else failResult.banks
     // Re-check for secondary failures triggered by contagion losses
-    val secondaryFail  = Banking.checkFailures(afterContagion, in.s1.m.toInt, true, in.s7.newMacropru.ccyb)
+    val secondaryFail  = Banking.checkFailures(afterContagion, in.s1.m, true, in.s7.newMacropru.ccyb)
     val afterFailCheck = secondaryFail.banks
     val anyFailed      = failResult.anyFailed || secondaryFail.anyFailed
 

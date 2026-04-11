@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -25,7 +26,7 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
       htmBookYield = Rate(0.05),
       reservesAtNbp = PLN.Zero,
       interbankNet = PLN(interbankNet),
-      status = if failed then Banking.BankStatus.Failed(0) else Banking.BankStatus.Active(0),
+      status = if failed then Banking.BankStatus.Failed(ExecutionMonth.First) else Banking.BankStatus.Active(0),
       demandDeposits = PLN(6e9),
       termDeposits = PLN(4e9),
       loansShort = PLN(1.5e9),

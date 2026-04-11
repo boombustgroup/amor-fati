@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.FiscalBudget
 import com.boombustgroup.amorfati.engine.mechanisms.EuFunds
 import com.boombustgroup.amorfati.math.EuFundsMath
@@ -17,26 +18,28 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   // --- monthlyTransfer tests ---
   // Note: monthlyTransfer depends on Config env vars. Default: start=1, period=84
 
-  "monthlyTransfer" should "return 0 before startMonth" in
-    EuFunds.monthlyTransfer(0).shouldBe(PLN.Zero)
+  "monthlyTransfer" should "return 0 before startMonth when the configured start month is after month 1" in {
+    if p.fiscal.euFundsStartMonth > 1 then EuFunds.monthlyTransfer(ExecutionMonth(p.fiscal.euFundsStartMonth - 1)).shouldBe(PLN.Zero)
+    else succeed
+  }
 
   it should "return positive value at startMonth" in
-    EuFunds.monthlyTransfer(p.fiscal.euFundsStartMonth).should(be > PLN.Zero)
+    EuFunds.monthlyTransfer(ExecutionMonth(p.fiscal.euFundsStartMonth)).should(be > PLN.Zero)
 
   it should "return 0 after startMonth + periodMonths" in {
     val afterEnd = p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths + 1
-    EuFunds.monthlyTransfer(afterEnd).shouldBe(PLN.Zero)
+    EuFunds.monthlyTransfer(ExecutionMonth(afterEnd)).shouldBe(PLN.Zero)
   }
 
   it should "return positive value in the middle of the period" in {
     val mid = p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths / 2
-    td.toDouble(EuFunds.monthlyTransfer(mid)).should(be > 0.0)
+    td.toDouble(EuFunds.monthlyTransfer(ExecutionMonth(mid))).should(be > 0.0)
   }
 
   it should "sum to ~totalAllocation over full period" in {
     val totalPln = EuFundsMath.totalEnvelopePln(p.fiscal.euFundsTotalEur, p.forex.baseExRate, p.pop.firmsCount, 10000)
     val sum      = (1 to p.fiscal.euFundsPeriodMonths + p.fiscal.euFundsStartMonth).map { m =>
-      EuFunds.monthlyTransfer(m)
+      EuFunds.monthlyTransfer(ExecutionMonth(m))
     }.sum
     td.toDouble(sum).shouldBe(td.toDouble(totalPln) +- (td.toDouble(totalPln) * 0.02))
   }

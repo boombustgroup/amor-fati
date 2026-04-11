@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.agents.Banking.BankStatus
@@ -126,7 +127,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return zero for failed bank" in {
-    val banks  = Vector(mkBank(deposits = PLN(1200000.0), capital = PLN.Zero, status = BankStatus.Failed(5)))
+    val banks  = Vector(mkBank(deposits = PLN(1200000.0), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
     val result = Banking.computeBfgLevy(banks)
     result.perBank(0) shouldBe PLN.Zero
     result.total shouldBe PLN.Zero
@@ -136,7 +137,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
     val banks    = Vector(
       mkBank(id = 0, deposits = PLN(1000000.0)),
       mkBank(id = 1, deposits = PLN(2000000.0), capital = PLN(200000)),
-      mkBank(id = 2, deposits = PLN(500000.0), capital = PLN(50000), status = BankStatus.Failed(3)),
+      mkBank(id = 2, deposits = PLN(500000.0), capital = PLN(50000), status = BankStatus.Failed(ExecutionMonth(3))),
     )
     val result   = Banking.computeBfgLevy(banks)
     val expected = (1000000.0 + 2000000.0) * td.toDouble(p.banking.bfgLevyRate) / 12.0
@@ -162,7 +163,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "not haircut deposits below guarantee threshold" in {
-    val banks  = Vector(mkBank(deposits = PLN(300000.0), capital = PLN.Zero, status = BankStatus.Failed(5)))
+    val banks  = Vector(mkBank(deposits = PLN(300000.0), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
     val result = Banking.applyBailIn(banks)
     result.banks(0).deposits shouldBe PLN(300000.0)
     result.totalLoss shouldBe PLN.Zero
@@ -181,7 +182,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   it should "apply before resolution (bail-in then resolve)" in {
     val banks        = Vector(
-      mkBank(id = 0, deposits = PLN(1000000.0), loans = PLN(100000), capital = PLN.Zero, nplAmount = PLN(50000), status = BankStatus.Failed(5)),
+      mkBank(id = 0, deposits = PLN(1000000.0), loans = PLN(100000), capital = PLN.Zero, nplAmount = PLN(50000), status = BankStatus.Failed(ExecutionMonth(5))),
       mkBank(id = 1, deposits = PLN(2000000.0), loans = PLN(200000), capital = PLN(200000)),
     )
     val afterBailIn  = Banking.applyBailIn(banks)
@@ -315,7 +316,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         capital = PLN(-10000),
         nplAmount = PLN(50000),
         govBondHoldings = PLN(20e9),
-        status = BankStatus.Failed(3),
+        status = BankStatus.Failed(ExecutionMonth(3)),
       ),
       mkBank(
         id = 1,
@@ -324,7 +325,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         capital = PLN(-5000),
         nplAmount = PLN(30000),
         govBondHoldings = PLN(15e9),
-        status = BankStatus.Failed(3),
+        status = BankStatus.Failed(ExecutionMonth(3)),
       ),
       mkBank(
         id = 2,
@@ -333,7 +334,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         capital = PLN(-20000),
         nplAmount = PLN(20000),
         govBondHoldings = PLN(13.8e9),
-        status = BankStatus.Failed(3),
+        status = BankStatus.Failed(ExecutionMonth(3)),
       ),
     )
     val totalBondsBefore = banks.map(b => td.toDouble(b.govBondHoldings)).sum
@@ -354,7 +355,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         capital = PLN(-5000),
         nplAmount = PLN(50000),
         interbankNet = PLN(1000.0),
-        status = BankStatus.Failed(3),
+        status = BankStatus.Failed(ExecutionMonth(3)),
       ),
       mkBank(
         id = 1,
@@ -363,7 +364,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         capital = PLN(-3000),
         nplAmount = PLN(30000),
         interbankNet = PLN(-600.0),
-        status = BankStatus.Failed(3),
+        status = BankStatus.Failed(ExecutionMonth(3)),
       ),
       mkBank(
         id = 2,
@@ -372,7 +373,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         capital = PLN(-10000),
         nplAmount = PLN(20000),
         interbankNet = PLN(-400.0),
-        status = BankStatus.Failed(3),
+        status = BankStatus.Failed(ExecutionMonth(3)),
       ),
     )
     val result               = Banking.resolveFailures(banks)
@@ -390,7 +391,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         capital = PLN.Zero,
         nplAmount = PLN(50000),
         govBondHoldings = PLN(10e9),
-        status = BankStatus.Failed(3),
+        status = BankStatus.Failed(ExecutionMonth(3)),
       ),
       mkBank(id = 1, deposits = PLN(2000000.0), loans = PLN(200000), capital = PLN(200000), govBondHoldings = PLN(5e9)),
     )
@@ -401,9 +402,9 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "healthiestBankId" should "return bank with highest capital when all fail" in {
     val banks = Vector(
-      mkBank(id = 0, deposits = PLN(500000.0), loans = PLN(100000), capital = PLN(-20000), nplAmount = PLN(50000), status = BankStatus.Failed(3)),
-      mkBank(id = 1, deposits = PLN(300000.0), loans = PLN(80000), capital = PLN(-5000), nplAmount = PLN(30000), status = BankStatus.Failed(3)),
-      mkBank(id = 2, deposits = PLN(200000.0), loans = PLN(60000), capital = PLN(-15000), nplAmount = PLN(20000), status = BankStatus.Failed(3)),
+      mkBank(id = 0, deposits = PLN(500000.0), loans = PLN(100000), capital = PLN(-20000), nplAmount = PLN(50000), status = BankStatus.Failed(ExecutionMonth(3))),
+      mkBank(id = 1, deposits = PLN(300000.0), loans = PLN(80000), capital = PLN(-5000), nplAmount = PLN(30000), status = BankStatus.Failed(ExecutionMonth(3))),
+      mkBank(id = 2, deposits = PLN(200000.0), loans = PLN(60000), capital = PLN(-15000), nplAmount = PLN(20000), status = BankStatus.Failed(ExecutionMonth(3))),
     )
     // Bank 1 has highest (least negative) capital: -5000
     Banking.healthiestBankId(banks) shouldBe BankId(1)

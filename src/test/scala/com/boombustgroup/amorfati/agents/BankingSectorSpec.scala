@@ -5,6 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.Banking.BankStatus
 import com.boombustgroup.amorfati.Generators
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
 
 import com.boombustgroup.amorfati.random.RandomStream
@@ -97,7 +98,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   // ---- lendingRate ----
 
   "Banking.lendingRate" should "return high spread for failed bank" in {
-    val bank = mkBank(status = BankStatus.Failed(30))
+    val bank = mkBank(status = BankStatus.Failed(ExecutionMonth(30)))
     val rate = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero)
     td.toDouble(rate) shouldBe (0.05 + 0.50) +- 0.001
   }
@@ -120,7 +121,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   // ---- canLend ----
 
   "Banking.canLend" should "return false for failed bank" in {
-    val bank = mkBank(capital = PLN(1e5), status = BankStatus.Failed(30))
+    val bank = mkBank(capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30)))
     Banking.canLend(bank, PLN(1000.0), RandomStream.seeded(42), Multiplier.Zero) shouldBe false
   }
 
@@ -182,7 +183,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   it should "set failed banks' interbankNet to zero" in {
     val banks   = Vector(
       mkBank(id = 0, loans = PLN(3e5)),
-      mkBank(id = 1, deposits = PLN(5e5), loans = PLN(8e5), capital = PLN(1e5), status = BankStatus.Failed(30)),
+      mkBank(id = 1, deposits = PLN(5e5), loans = PLN(8e5), capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30))),
     )
     val cleared = Banking.clearInterbank(banks, configs.take(2))
     cleared(1).interbankNet shouldBe PLN.Zero
@@ -194,14 +195,14 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     val banks = Vector(
       mkBank(capital = PLN(1000.0), status = BankStatus.Active(5)), // Very low CAR
     )
-    val result = Banking.checkFailures(banks, 30, enabled = false, Multiplier.Zero)
+    val result = Banking.checkFailures(banks, ExecutionMonth(30), enabled = false, Multiplier.Zero)
     result.anyFailed shouldBe false
     result.banks(0).failed shouldBe false
   }
 
   it should "trigger after 3 consecutive months of low CAR" in {
     val bank   = mkBank(capital = PLN(1000.0), status = BankStatus.Active(2))
-    val result = Banking.checkFailures(Vector(bank), 30, enabled = true, Multiplier.Zero)
+    val result = Banking.checkFailures(Vector(bank), ExecutionMonth(30), enabled = true, Multiplier.Zero)
     result.anyFailed shouldBe true
     result.banks(0).failed shouldBe true
     result.banks(0).capital shouldBe PLN.Zero // Shareholders wiped
@@ -209,7 +210,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   it should "reset consecutive counter when CAR recovers" in {
     val bank   = mkBank(status = BankStatus.Active(2)) // CAR = 0.20 > MinCar
-    val result = Banking.checkFailures(Vector(bank), 30, enabled = true, Multiplier.Zero)
+    val result = Banking.checkFailures(Vector(bank), ExecutionMonth(30), enabled = true, Multiplier.Zero)
     result.anyFailed shouldBe false
     result.banks(0).consecutiveLowCar shouldBe 0
   }
@@ -219,7 +220,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   "Banking.resolveFailures" should "transfer deposits to healthiest bank" in {
     val banks  = Vector(
       mkBank(id = 0, deposits = PLN(500000.0), loans = PLN(100000.0), capital = PLN(50000.0), govBondHoldings = PLN(10000.0)),
-      mkBank(id = 1, deposits = PLN(300000.0), loans = PLN(80000.0), capital = PLN(0.0), govBondHoldings = PLN(5000.0), status = BankStatus.Failed(30)),
+      mkBank(id = 1, deposits = PLN(300000.0), loans = PLN(80000.0), capital = PLN(0.0), govBondHoldings = PLN(5000.0), status = BankStatus.Failed(ExecutionMonth(30))),
     )
     val result = Banking.resolveFailures(banks)
     td.toDouble(result.banks(0).deposits) shouldBe 800000.0 +- 0.01 // absorbed 300k
@@ -328,7 +329,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   it should "route to healthiest bank when current bank failed" in {
     val banks = Vector(
       mkBank(id = 0),
-      mkBank(id = 1, capital = PLN(1e5), status = BankStatus.Failed(30)),
+      mkBank(id = 1, capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30))),
     )
     Banking.reassignBankId(BankId(1), banks) shouldBe BankId(0)
   }

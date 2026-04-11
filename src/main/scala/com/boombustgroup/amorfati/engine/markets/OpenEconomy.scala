@@ -193,7 +193,7 @@ object OpenEconomy:
       monthlyGdp * portfolioRate
     val yieldSpread       = in.bondYield - p.forex.foreignRate
     val capitalFlight     = CapitalFlows.compute(
-      month = in.month.toInt,
+      month = in.month,
       yieldSpread = yieldSpread,
       bidToCover = in.prevBidToCover,
       prevCarry = CapitalFlows.CarryState(in.prevBop.carryTradeStock),

@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.ledger.Distribute
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.mechanisms.{Macroprudential, YieldCurve}
 import com.boombustgroup.amorfati.types.*
 
@@ -61,7 +62,7 @@ object Banking:
     */
   enum BankStatus:
     case Active(consecutiveLowCar: Int)
-    case Failed(month: Int)
+    case Failed(month: ExecutionMonth)
 
   // ---------------------------------------------------------------------------
   // Aggregate balance sheet (sum over all per-bank BankStates)
@@ -219,10 +220,10 @@ object Banking:
       case BankStatus.Failed(_) => true
       case _                    => false
 
-    /** Month of failure, or 0 if active. */
-    def failedMonth: Int = status match
-      case BankStatus.Failed(m) => m
-      case _                    => 0
+    /** Month of failure, if this bank has already been resolved. */
+    def failedMonth: Option[ExecutionMonth] = status match
+      case BankStatus.Failed(m) => Some(m)
+      case _                    => None
 
     /** Consecutive months with CAR below regulatory minimum, or 0 if failed. */
     def consecutiveLowCar: Int = status match
@@ -468,7 +469,7 @@ object Banking:
     */
   def checkFailures(
       banks: Vector[BankState],
-      month: Int,       // simulation month (recorded in BankStatus.Failed)
+      month: ExecutionMonth, // execution month (recorded in BankStatus.Failed)
       enabled: Boolean, // whether failure mechanism is active
       ccyb: Multiplier, // countercyclical capital buffer
   )(using p: SimParams): FailureCheckResult =
