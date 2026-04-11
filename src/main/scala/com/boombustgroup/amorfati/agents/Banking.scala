@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.{Macroprudential, YieldCurve}
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 object Banking:
 
@@ -319,7 +319,7 @@ object Banking:
   // ---------------------------------------------------------------------------
 
   /** Assign a firm to a bank based on sector affinity and market share. */
-  def assignBank(firmSector: SectorIdx, configs: Vector[Config], rng: Random): BankId =
+  def assignBank(firmSector: SectorIdx, configs: Vector[Config], rng: RandomStream): BankId =
     val weights = configs.map(c => c.sectorAffinity(firmSector.toInt) * c.initMarketShare) // Share * Share → Share
     val total   = weights.map(_.toLong).sum
     if total <= 0L then BankId(0)
@@ -397,7 +397,7 @@ object Banking:
     * the bank approaches full reserve utilisation, rather than a hard block
     * (banks can temporarily fund via interbank market).
     */
-  def canLend(bank: BankState, amount: PLN, rng: Random, ccyb: Multiplier)(using p: SimParams): Boolean =
+  def canLend(bank: BankState, amount: PLN, rng: RandomStream, ccyb: Multiplier)(using p: SimParams): Boolean =
     if bank.failed then false
     else
       val projectedRwa = bank.loans + bank.consumerLoans + bank.corpBondHoldings * CorpBondRiskWeight + amount

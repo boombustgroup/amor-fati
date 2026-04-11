@@ -19,7 +19,7 @@ schema, summary statistics, and CSV I/O. It is the only consumer of
 Main ──→ McRunner.run(rc)
            │
            ├── for seed ← 1..N:
-           │     WorldInit.initialize(seed)
+           │     WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
            │     Simulation.step  (no McRunConfig)
            │     SimOutput.compute  → Array[Double]
            │

@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class RegionSpec extends AnyFlatSpec with Matchers:
 
@@ -70,14 +70,14 @@ class RegionSpec extends AnyFlatSpec with Matchers:
       mkHh(HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)), Region.East),
     )
     val wages  = Map(Region.Central -> PLN(10000.0), Region.East -> PLN(6000.0))
-    val result = RegionalMigration(hh, wages, new Random(42))
+    val result = RegionalMigration(hh, wages, RandomStream.seeded(42))
     result.households.head.region shouldBe Region.East
   }
 
   it should "potentially move unemployed toward higher-wage region" in {
     val hhs    = (0 until 100).map(_ => mkHh(HhStatus.Unemployed(3), Region.East)).toVector
     val wages  = Map(Region.Central -> PLN(12000.0), Region.East -> PLN(6000.0))
-    val result = RegionalMigration(hhs, wages, new Random(42))
+    val result = RegionalMigration(hhs, wages, RandomStream.seeded(42))
     val moved  = result.households.count(_.region != Region.East)
     moved should be >= 0 // may be 0 if housing barrier blocks all
   }

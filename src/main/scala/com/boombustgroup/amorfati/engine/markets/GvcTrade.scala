@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.markets
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 
 /** Global Value Chain trade: per-sector exports/imports with partner
@@ -90,7 +91,7 @@ object GvcTrade:
       exchangeRate: ExchangeRate,
       autoRatio: Share,
       month: Int,
-      rng: scala.util.Random,
+      rng: RandomStream,
   )
 
   def step(in: StepInput)(using p: SimParams): State =

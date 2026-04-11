@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -10,7 +10,7 @@ class FiscalConstraintEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  private val init  = WorldInit.initialize(42L)
+  private val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val world = init.world
 
   "FiscalConstraintEconomics.compute" should "produce consistent result and output" in {

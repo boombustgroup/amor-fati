@@ -18,7 +18,7 @@ import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class HouseholdSpec extends AnyFlatSpec with Matchers:
 
@@ -32,7 +32,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   // --- HouseholdInit ---
 
   "Household.Init.initialize" should "create correct number of households" in {
-    val rng     = new Random(42)
+    val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(100)
     val network = Array.fill(1000)(Array.empty[Int])
     val hhs     = Household.Init.initialize(1000, firms, network, rng)
@@ -40,7 +40,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "start all households as Employed" in {
-    val rng     = new Random(42)
+    val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(100)
     val network = Array.fill(500)(Array.empty[Int])
     val hhs     = Household.Init.initialize(500, firms, network, rng)
@@ -50,7 +50,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "assign positive savings to all households" in {
-    val rng     = new Random(42)
+    val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(50)
     val network = Array.fill(200)(Array.empty[Int])
     val hhs     = Household.Init.initialize(200, firms, network, rng)
@@ -58,7 +58,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have MPC in [0.5, 0.98]" in {
-    val rng     = new Random(42)
+    val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(50)
     val network = Array.fill(500)(Array.empty[Int])
     val hhs     = Household.Init.initialize(500, firms, network, rng)
@@ -69,7 +69,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have skill in [0.3, 1.0]" in {
-    val rng     = new Random(42)
+    val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(50)
     val network = Array.fill(500)(Array.empty[Int])
     val hhs     = Household.Init.initialize(500, firms, network, rng)
@@ -80,7 +80,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have rent >= floor" in {
-    val rng     = new Random(42)
+    val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(50)
     val network = Array.fill(500)(Array.empty[Int])
     val hhs     = Household.Init.initialize(500, firms, network, rng)
@@ -90,7 +90,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   // --- Household.step ---
 
   "Household.step" should "not change bankrupt households" in {
-    val rng             = new Random(42)
+    val rng             = RandomStream.seeded(42)
     val hhs             = Vector(
       mkHousehold(0, HhStatus.Bankrupt, savings = PLN(0.0)),
       mkHousehold(1, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0)),
@@ -100,7 +100,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase unemployment months for unemployed" in {
-    val rng             = new Random(42)
+    val rng             = RandomStream.seeded(42)
     val hhs             = Vector(
       mkHousehold(0, HhStatus.Unemployed(3), savings = PLN(50000.0)),
     )
@@ -113,28 +113,28 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "apply skill decay after scarring onset" in {
-    val rng             = new Random(42)
+    val rng             = RandomStream.seeded(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), skill = 0.8)
     val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).skill should be < Share(0.8)
   }
 
   it should "not decay skill before scarring onset" in {
-    val rng             = new Random(42)
+    val rng             = RandomStream.seeded(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(100000.0), skill = 0.8)
     val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).skill shouldBe Share(0.8)
   }
 
   it should "apply health scarring after onset" in {
-    val rng             = new Random(42)
+    val rng             = RandomStream.seeded(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), healthPenalty = 0.0)
     val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).healthPenalty should be > Share.Zero
   }
 
   it should "not bankrupt household after a single month of deep distress" in {
-    val rng             = new Random(42)
+    val rng             = RandomStream.seeded(42)
     val hh              = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(-10000.0), rent = PLN(1800.0))
     val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     updated(0).status should not be HhStatus.Bankrupt
@@ -142,7 +142,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "bankrupt household after persistent deep distress" in {
-    val rng             = new Random(42)
+    val rng             = RandomStream.seeded(42)
     val hh              = mkHousehold(
       0,
       HhStatus.Unemployed(1),
@@ -154,7 +154,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "reset financial distress months after recovery" in {
-    val rng             = new Random(42)
+    val rng             = RandomStream.seeded(42)
     val hh              = mkHousehold(
       0,
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
@@ -167,14 +167,14 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return None for perBankHhFlows when bankRates not provided" in {
-    val rng         = new Random(42)
+    val rng         = RandomStream.seeded(42)
     val hhs         = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0)))
     val (_, _, pbf) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     pbf shouldBe None
   }
 
   it should "let unemployed households smooth consumption by drawing down savings" in {
-    val rng               = new Random(42)
+    val rng               = RandomStream.seeded(42)
     val hh                = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(30000.0), rent = PLN(1800.0))
     val (updated, agg, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
 
@@ -185,7 +185,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   // --- Variable-rate debt service + deposit interest ---
 
   "Household.step with bankRates" should "use variable lending rate for debt service" in {
-    val rng              = new Random(42)
+    val rng              = RandomStream.seeded(42)
     val debt             = PLN(100000.0)
     val hhs              = Vector(
       mkHousehold(
@@ -221,7 +221,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "pay deposit interest to HH with positive savings" in {
-    val rng                = new Random(42)
+    val rng                = RandomStream.seeded(42)
     val savings            = PLN(100000.0)
     val hhs                = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)), savings = savings, bankId = 0),
@@ -240,7 +240,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "include deposit interest in totalIncome" in {
-    val rng            = new Random(42)
+    val rng            = RandomStream.seeded(42)
     val savings        = PLN(200000.0)
     val wage           = 8000.0
     val depRate        = 0.04
@@ -260,7 +260,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "accumulate per-bank flows correctly for 2 banks" in {
-    val rng              = new Random(42)
+    val rng              = RandomStream.seeded(42)
     val hhs              = Vector(
       mkHousehold(
         0,
@@ -303,7 +303,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "not pay deposit interest on negative savings" in {
-    val rng                = new Random(42)
+    val rng                = RandomStream.seeded(42)
     val hhs                = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)), savings = PLN(-5000.0), bankId = 0),
     )
@@ -322,7 +322,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   // --- Immigration: remittance deduction ---
 
   "Household.step" should "not deduct remittances from non-immigrant HH" in {
-    val rng         = new Random(42)
+    val rng         = RandomStream.seeded(42)
     val wage        = 8000.0
     val hhs         = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(wage)), savings = PLN(50000.0))

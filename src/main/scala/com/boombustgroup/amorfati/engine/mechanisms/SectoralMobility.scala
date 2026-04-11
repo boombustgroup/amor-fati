@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
 import scala.annotation.unused
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Cross-sector labour mobility: friction-based transitions, voluntary quits,
   * wage penalties.
@@ -83,7 +83,7 @@ object SectoralMobility:
       vacancies: Vector[Int],
       matrix: Vector[Vector[Share]],
       vacancyWeight: Coefficient,
-      rng: Random,
+      rng: RandomStream,
   )(using @unused p: SimParams): Int =
     val scores = gravityScores(from, wages, vacancies, matrix, vacancyWeight)
     if scores.forall(_ <= Multiplier.Zero) then uniformFallback(from, rng)
@@ -117,7 +117,7 @@ object SectoralMobility:
       .getOrElse(scores.indices.find(_ != from).get)
 
   /** Uniform random fallback when all scores are zero. */
-  private def uniformFallback(from: Int, rng: Random): Int =
+  private def uniformFallback(from: Int, rng: RandomStream): Int =
     val others = (0 until NumSectors).filter(_ != from)
     others(rng.nextInt(others.length))
 

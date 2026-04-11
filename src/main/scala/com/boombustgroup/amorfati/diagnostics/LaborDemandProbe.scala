@@ -2,11 +2,10 @@ package com.boombustgroup.amorfati.diagnostics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.PLN
-
-import scala.util.Random
 
 object LaborDemandProbe:
 
@@ -150,7 +149,7 @@ object LaborDemandProbe:
   @main def runLaborDemandProbe(seed: Long = 1L, months: Int = 2): Unit =
     given SimParams = SimParams.defaults
 
-    val init  = WorldInit.initialize(seed)
+    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
     var world = init.world
     var firms = init.firms
     var hhs   = init.households
@@ -159,7 +158,7 @@ object LaborDemandProbe:
     println(s"seed=$seed months=$months")
 
     (1 to months).foreach: month =>
-      val rng       = new Random(seed * 1000 + month)
+      val contract  = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
       val beforeAll = sectorSnapshots(firms)
       val hiring    = hiringSummaries(world, firms)
 
@@ -183,11 +182,21 @@ object LaborDemandProbe:
         labor.living,
         labor.regionalWages,
       )
-      val s3     = HouseholdIncomeEconomics.compute(world, firms, hhs, banks, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
+      val s3     =
+        HouseholdIncomeEconomics.compute(
+          world,
+          firms,
+          hhs,
+          banks,
+          s1.lendingBaseRate,
+          s1.resWage,
+          s2Pre.newWage,
+          contract.stages.householdIncomeEconomics.newStream(),
+        )
       val s4     = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
-      val s5     = FirmEconomics.runStep(world, firms, hhs, banks, s1, s2Pre, s3, s4, rng)
+      val s5     = FirmEconomics.runStep(world, firms, hhs, banks, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
       val s2Post = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, s5.ioFirms.filter(Firm.isAlive), s5.households)
-      val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2Post.employed, s3.hhAgg, rng)
+      val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2Post.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
       val s7     = PriceEquityEconomics.compute(
         PriceEquityEconomics.Input(
           world,
@@ -202,10 +211,12 @@ object LaborDemandProbe:
           banks,
           s5,
         ),
-        rng,
+        contract.stages.priceEquityEconomics.newStream(),
       )
-      val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2Post, s3, s4, s5, s6, s7, banks, rng))
-      val s9     = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2Post, s3, s4, s5, s6, s7, s8, banks, rng))
+      val s8     =
+        OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2Post, s3, s4, s5, s6, s7, banks, contract.stages.openEconEconomics.newStream()))
+      val s9     =
+        BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2Post, s3, s4, s5, s6, s7, s8, banks, contract.stages.bankingEconomics.newStream()))
 
       val afterFirm = sectorSnapshots(s5.ioFirms)
       val changes   = sectorChangeSummaries(firms, s5.ioFirms)
@@ -242,8 +253,7 @@ object LaborDemandProbe:
           priceEquityOutput = s7,
           openEconOutput = s8,
           bankOutput = s9,
-          rng = rng,
-          migRng = rng,
+          randomness = contract.assembly.newStreams(),
         ),
       )
 

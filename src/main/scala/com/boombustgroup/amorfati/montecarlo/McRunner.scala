@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.CsvWriter
@@ -69,15 +69,15 @@ object McRunner:
             Some((MonthSnapshot(month + 1, newState, monthData), (newState, month + 1)))
 
   private def initSeed(seed: Long)(using p: SimParams) =
-    val init    = WorldInit.initialize(seed)
+    val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
     val runtime = Sfc.RuntimeState(init.world, init.firms, init.households, init.banks)
     val errors  = InitCheck.validate(runtime)
     if errors.nonEmpty then Left(SimError.Init(errors))
     else Right(FlowSimulation.SimState.fromInit(init))
 
   private def stepMonth(state: FlowSimulation.SimState, seed: Long, month: Int)(using p: SimParams) =
-    val rng    = new scala.util.Random(seed * 10000 + month)
-    val result = engine.flows.FlowSimulation.step(state, rng)
+    val stepSeed = seed * 10000 + month
+    val result   = engine.flows.FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(stepSeed))
     result.sfcResult match
       case Left(errors) =>
         Left(SimError.SfcViolation(month + 1, errors))

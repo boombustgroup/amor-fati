@@ -2,9 +2,10 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -18,13 +19,14 @@ import org.scalatest.matchers.should.Matchers
 class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
+  private val TestSeed       = 42L
 
-  private val initResult = WorldInit.initialize(42L)
+  private val initResult = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
   private val w          = initResult.world
-  private val rng        = new scala.util.Random(42)
 
   /** Run pipeline for one month using Economics objects. */
   private def runFullMonth: Vector[Flow] =
+    val stageRandomness    = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams()
     val fiscal             = FiscalConstraintEconomics.compute(w, initResult.banks)
     val s1                 = FiscalConstraintEconomics.toOutput(fiscal)
     val labor              = LaborEconomics.compute(w, initResult.firms, initResult.households, s1)
@@ -45,9 +47,28 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
       labor.living,
       labor.regionalWages,
     )
-    val s3                 = HouseholdIncomeEconomics.compute(w, initResult.firms, initResult.households, initResult.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+    val s3                 = HouseholdIncomeEconomics.compute(
+      w,
+      initResult.firms,
+      initResult.households,
+      initResult.banks,
+      s1.lendingBaseRate,
+      s1.resWage,
+      s2.newWage,
+      stageRandomness.householdIncomeEconomics,
+    )
     val s4                 = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
-    val s5                 = FirmEconomics.runStep(w, initResult.firms, initResult.households, initResult.banks, s1, s2, s3, s4, rng)
+    val s5                 = FirmEconomics.runStep(
+      w,
+      initResult.firms,
+      initResult.households,
+      initResult.banks,
+      s1,
+      s2,
+      s3,
+      s4,
+      stageRandomness.firmEconomics,
+    )
     val postLivingFirms    = s5.ioFirms.filter(Firm.isAlive)
     val postLaborDemand    = postLivingFirms.map(Firm.workerCount).sum
     val postAvailableLabor = LaborMarket.laborSupplyAtWage(s2.newWage, s1.resWage, w.derivedTotalPopulation)
@@ -62,7 +83,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
       living = postLivingFirms,
     )
     @annotation.unused
-    val s6                 = HouseholdFinancialEconomics.compute(w, s1.m, s2Post.employed, s3.hhAgg, rng)
+    val s6                 = HouseholdFinancialEconomics.compute(w, s1.m, s2Post.employed, s3.hhAgg, stageRandomness.householdFinancialEconomics)
 
     Vector.concat(
       // Tier 1: Social funds (from LaborEconomics output)

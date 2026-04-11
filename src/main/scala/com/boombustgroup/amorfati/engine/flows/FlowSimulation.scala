@@ -9,8 +9,6 @@ import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
-import scala.util.Random
-
 /** New flow-based simulation pipeline.
   *
   * Three stages per month:
@@ -26,7 +24,7 @@ object FlowSimulation:
   /** Single typed input to one monthly step.
     *
     * The simulation loop should treat this as the month-`t` boundary state that
-    * flows into one `step(state, rng)` transition.
+    * flows into one `step(state, randomness)` transition.
     */
   case class SimState(
       world: World,
@@ -246,6 +244,7 @@ object FlowSimulation:
   case class StepInput(
       stateIn: SimState,
       seedIn: MonthSemantics.SeedIn,
+      randomness: MonthRandomness.Contract,
   )
 
   /** Same-month stage outputs computed exactly once and reused by every
@@ -301,17 +300,17 @@ object FlowSimulation:
     */
   private def computeStageOutputs(
       input: StepInput,
-      rng: Random,
   )(using p: SimParams): StageOutputs =
-    val stateIn         = input.stateIn
-    val w               = stateIn.world
-    val firms           = stateIn.firms
-    val households      = stateIn.households
-    val banks           = stateIn.banks
-    val fiscal          = FiscalConstraintEconomics.compute(w, banks)
-    val s1              = FiscalConstraintEconomics.toOutput(fiscal)
-    val labor           = LaborEconomics.compute(w, firms, households, s1)
-    val s2Pre           = LaborEconomics.Output(
+    val randomness        = input.randomness.stages
+    val stateIn           = input.stateIn
+    val w                 = stateIn.world
+    val firms             = stateIn.firms
+    val households        = stateIn.households
+    val banks             = stateIn.banks
+    val fiscal            = FiscalConstraintEconomics.compute(w, banks)
+    val s1                = FiscalConstraintEconomics.toOutput(fiscal)
+    val labor             = LaborEconomics.compute(w, firms, households, s1)
+    val s2Pre             = LaborEconomics.Output(
       labor.wage,
       labor.employed,
       labor.laborDemand,
@@ -328,13 +327,22 @@ object FlowSimulation:
       labor.living,
       labor.regionalWages,
     )
-    val s3              = HouseholdIncomeEconomics.compute(w, firms, households, banks, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
-    val s4              = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
-    val s5              = FirmEconomics.runStep(w, firms, households, banks, s1, s2Pre, s3, s4, rng)
-    val postLivingFirms = s5.ioFirms.filter(Firm.isAlive)
-    val s2              = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
-    val s6              = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
-    val s7              = PriceEquityEconomics.compute(
+    val s3                = HouseholdIncomeEconomics.compute(
+      w,
+      firms,
+      households,
+      banks,
+      s1.lendingBaseRate,
+      s1.resWage,
+      s2Pre.newWage,
+      randomness.householdIncomeEconomics.newStream(),
+    )
+    val s4                = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
+    val s5                = FirmEconomics.runStep(w, firms, households, banks, s1, s2Pre, s3, s4, randomness.firmEconomics.newStream())
+    val postLivingFirms   = s5.ioFirms.filter(Firm.isAlive)
+    val s2                = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
+    val s6                = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, randomness.householdFinancialEconomics.newStream())
+    val s7                = PriceEquityEconomics.compute(
       PriceEquityEconomics.Input(
         w,
         s1.m,
@@ -348,9 +356,9 @@ object FlowSimulation:
         banks,
         s5,
       ),
-      rng,
+      randomness.priceEquityEconomics.newStream(),
     )
-    val openEcon        = OpenEconEconomics.compute(
+    val openEcon          = OpenEconEconomics.compute(
       OpenEconEconomics.Input(
         w = w,
         employed = s2.employed,
@@ -379,12 +387,15 @@ object FlowSimulation:
         foreignDividendOutflow = s7.foreignDividendOutflow,
         banks = banks,
         month = fiscal.month,
-        commodityRng = rng,
+        commodityRng = randomness.openEconEconomics.newStream(),
       ),
     )
-    val s8              = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, rng))
-    val operational     = operationalSignals(s2, s4)
-    val bankingInput    = BankingEconomics.Input(
+    val s8                = OpenEconEconomics.runStep(
+      OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, randomness.openEconEconomics.newStream()),
+    )
+    val operational       = operationalSignals(s2, s4)
+    val bankingDepositRng = randomness.bankingEconomics.newStream()
+    val bankingInput      = BankingEconomics.Input(
       w = w,
       month = fiscal.month,
       lendingBaseRate = fiscal.lendingBaseRate,
@@ -408,14 +419,16 @@ object FlowSimulation:
       priceEquityOutput = s7,
       openEconOutput = s8,
       banks = banks,
-      depositRng = rng,
+      depositRng = bankingDepositRng,
     )
-    val s9              = BankingEconomics.runStep(BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
-    val banking         = BankingEconomics.toResult(s9, bankingInput)
-    val agg             = s3.hhAgg
-    val eq              = w.financial.equity
-    val h               = s9.housingAfterFlows
-    val calc            = MonthlyCalculus(
+    val s9                = BankingEconomics.runStep(
+      BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, bankingDepositRng),
+    )
+    val banking           = BankingEconomics.toResult(s9, bankingInput)
+    val agg               = s3.hhAgg
+    val eq                = w.financial.equity
+    val h                 = s9.housingAfterFlows
+    val calc              = MonthlyCalculus(
       month = fiscal.month,
       resWage = fiscal.resWage,
       lendingBaseRate = fiscal.lendingBaseRate,
@@ -501,13 +514,13 @@ object FlowSimulation:
 
   /** Public API: compute calculus only (for tests that need MonthlyCalculus).
     */
-  def computeCalculus(state: SimState, rng: Random)(using p: SimParams): MonthlyCalculus =
+  def computeCalculus(state: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): MonthlyCalculus =
     computeStageOutputs(
       StepInput(
         stateIn = state,
         seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](state.world.seedIn),
+        randomness = randomness,
       ),
-      rng,
     ).calculus
 
   /** Full month-step contract.
@@ -522,6 +535,7 @@ object FlowSimulation:
       calculus: MonthlyCalculus,
       operationalSignals: OperationalSignals,
       signalExtraction: SignalExtraction.Output,
+      randomness: MonthRandomness.Contract,
       flows: Vector[BatchedFlow],
       execution: ExecutionResult,
       sfcResult: Sfc.SfcResult,
@@ -703,11 +717,8 @@ object FlowSimulation:
   private def assemblePostMonth(
       input: StepInput,
       stageView: MonthSemantics.StageView,
-      rng: Random,
   )(using p: SimParams): MonthSemantics.PostAssembly =
     val stages    = stageView.value
-    // Keep migration draws on an independent RNG stream.
-    val migRng    = new Random(rng.nextLong())
     val assembled = WorldAssemblyEconomics.computePostMonth(
       WorldAssemblyEconomics.Input(
         w = input.stateIn.world,
@@ -734,8 +745,7 @@ object FlowSimulation:
         openEconOutput = stages.openEcon,
         bankOutput = stages.banking,
         banks = input.stateIn.banks,
-        rng = rng,
-        migRng = migRng,
+        randomness = input.randomness.assembly.newStreams(),
       ),
     )
     // This stays at month `t`: the boundary seed is still `seedIn` here.
@@ -768,13 +778,12 @@ object FlowSimulation:
 
   private def computeMonthOutcome(
       input: StepInput,
-      rng: Random,
   )(using p: SimParams): MonthOutcome =
     // Keep the month-step pipeline explicit:
     // `seedIn/pre -> same-month stages -> post-month assembly -> seedOut/next-pre`.
-    val stageView   = MonthSemantics.At[StageOutputs, MonthSemantics.SameMonth](computeStageOutputs(input, rng))
+    val stageView   = MonthSemantics.At[StageOutputs, MonthSemantics.SameMonth](computeStageOutputs(input))
     val operational = buildOperationalSignals(stageView)
-    val post        = assemblePostMonth(input, stageView, rng)
+    val post        = assemblePostMonth(input, stageView)
     val seedOut     = extractSeedOut(stageView, post)
 
     MonthOutcome(
@@ -827,6 +836,7 @@ object FlowSimulation:
         seedOut = seedOut.seedOut,
         provenance = seedOut.provenance,
       ),
+      randomness = input.randomness,
       timing = MonthTimingTrace(
         Vector(
           MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.LaborSignals, traceInputs.labor),
@@ -844,9 +854,13 @@ object FlowSimulation:
     * The internal month-step shape is now explicit:
     * `stateIn -> StepInput -> MonthOutcome -> nextState`.
     */
-  def step(stateIn: SimState, rng: Random)(using p: SimParams): StepOutput =
-    val input      = StepInput(stateIn, MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn))
-    val outcome    = computeMonthOutcome(input, rng)
+  def step(stateIn: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): StepOutput =
+    val input      = StepInput(
+      stateIn,
+      MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn),
+      randomness,
+    )
+    val outcome    = computeMonthOutcome(input)
     val flows      = emitAllBatches(outcome.stages.value.calculus)
     val execution  = executeBatches(flows).fold(
       err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
@@ -875,6 +889,7 @@ object FlowSimulation:
       calculus = outcome.stages.value.calculus,
       operationalSignals = outcome.operational.value,
       signalExtraction = outcome.seedOut.value,
+      randomness = randomness,
       flows,
       execution,
       sfcResult,

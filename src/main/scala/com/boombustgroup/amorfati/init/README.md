@@ -1,14 +1,16 @@
 # Initialization
 
 The init package contains factory objects that build the initial simulation
-state from a seed and configuration. All factories are stateless objects with
-pure `create`/`initialize` methods — no mutable fields.
+state from configuration plus an explicit initialization randomness contract.
+All factories are stateless objects with pure `create`/`initialize` methods —
+no mutable fields.
 
 ## Files
 
 | File | Object | Role |
 |------|--------|------|
-| `WorldInit.scala` | `WorldInit` | Orchestrator — calls all sub-factories, assembles `InitResult` |
+| `InitRandomness.scala` | `InitRandomness` | Explicit initialization randomness contract: one root seed split into named streams for firms, households, and initial immigration |
+| `WorldInit.scala` | `WorldInit` | Orchestrator — consumes `InitRandomness.Contract`, calls all sub-factories, assembles `InitResult` |
 | `FirmInit.scala` | `FirmInit` | Creates firm array, assigns network topology, applies sector enhancements |
 | `BankInit.scala` | `BankInit` | Creates 7-bank sector, distributes deposits/loans/bonds across banks |
 | `ImmigrantInit.scala` | `ImmigrantInit` | Establishes the initial immigrant stock in the labour market |

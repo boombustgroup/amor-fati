@@ -5,6 +5,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.markets.GvcTrade
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 
 class ExternalSectorSpec extends AnyFlatSpec with Matchers:
@@ -21,7 +22,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
       price: Double = 1.0,
       autoR: Double = 0.0,
       month: Int = 30,
-  ) = GvcTrade.StepInput(prev, sectorOutputs, PriceIndex(price), ExchangeRate(er), Share(autoR), month, rng = new scala.util.Random(42))
+  ) = GvcTrade.StepInput(prev, sectorOutputs, PriceIndex(price), ExchangeRate(er), Share(autoR), month, rng = RandomStream.seeded(42))
 
   // ---- Initialization ----
 

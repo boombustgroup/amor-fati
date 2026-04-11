@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Labor market: wage determination, separations, job search, wage updating.
   *
@@ -109,7 +109,7 @@ object LaborMarket:
       households: Vector[Household.State],
       firms: Vector[Firm.State],
       marketWage: PLN,
-      @scala.annotation.unused rng: Random,
+      @scala.annotation.unused rng: RandomStream,
       regionalWages: Map[Region, PLN] = Map.empty,
       eligibleFirmIds: Set[FirmId] = Set.empty,
   )(using p: SimParams): JobSearchResult =

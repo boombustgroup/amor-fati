@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class CommodityPriceSpec extends AnyFlatSpec with Matchers:
 
@@ -25,7 +25,7 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
       exchangeRate = ExchangeRate(4.33),
       autoRatio = Share.Zero,
       month = month,
-      rng = new Random(seed * 31 + month),
+      rng = RandomStream.seeded(seed * 31 + month),
     )
 
   "GvcTrade.step" should "initialize with PriceIndex.Base for all price indices" in {

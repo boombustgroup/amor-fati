@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.engine.markets.FiscalBudget
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Social transfers (800+ child benefit) unit tests. */
 class SocialTransferSpec extends AnyFlatSpec with Matchers:
@@ -41,17 +41,17 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
   }
 
   "poissonSample" should "return 0 for lambda=0" in {
-    val rng = new Random(42)
+    val rng = RandomStream.seeded(42)
     Distributions.poissonSample(0.0, rng) shouldBe 0
   }
 
   it should "return 0 for negative lambda" in {
-    val rng = new Random(42)
+    val rng = RandomStream.seeded(42)
     Distributions.poissonSample(-1.0, rng) shouldBe 0
   }
 
   it should "have mean approximately equal to lambda" in {
-    val rng     = new Random(42)
+    val rng     = RandomStream.seeded(42)
     val lambda  = 0.35
     val n       = 10000
     val samples = (0 until n).map(_ => Distributions.poissonSample(lambda, rng))
@@ -60,7 +60,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce non-negative values" in {
-    val rng     = new Random(42)
+    val rng     = RandomStream.seeded(42)
     val samples = (0 until 1000).map(_ => Distributions.poissonSample(0.35, rng))
     all(samples) should be >= 0
   }

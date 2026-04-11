@@ -2,13 +2,12 @@ package com.boombustgroup.amorfati.diagnostics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.engine.markets.RegionalClearing
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
-
-import scala.util.Random
 
 object InflationProbe:
 
@@ -63,7 +62,7 @@ object InflationProbe:
     given SimParams = SimParams.defaults
     import ComputationBoundary.toDouble
 
-    val init  = WorldInit.initialize(seed)
+    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
     var world = init.world
     var firms = init.firms
     var hhs   = init.households
@@ -73,7 +72,7 @@ object InflationProbe:
 
     (1 to months).foreach: month =>
       val population        = world.derivedTotalPopulation.max(1)
-      val rng               = new Random(seed * 1000 + month)
+      val contract          = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
       val fiscal            = FiscalConstraintEconomics.compute(world, banks)
       val s1                = FiscalConstraintEconomics.toOutput(fiscal)
       val labor             = LaborEconomics.compute(world, firms, hhs, s1)
@@ -115,12 +114,23 @@ object InflationProbe:
         labor.living,
         labor.regionalWages,
       )
-      val s3                = HouseholdIncomeEconomics.compute(world, firms, hhs, banks, s1.lendingBaseRate, s1.resWage, s2Pre.newWage, rng)
+      val s3                =
+        HouseholdIncomeEconomics.compute(
+          world,
+          firms,
+          hhs,
+          banks,
+          s1.lendingBaseRate,
+          s1.resWage,
+          s2Pre.newWage,
+          contract.stages.householdIncomeEconomics.newStream(),
+        )
       val s4                = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
-      val s5                = FirmEconomics.runStep(world, firms, hhs, banks, s1, s2Pre, s3, s4, rng)
+      val s5                = FirmEconomics.runStep(world, firms, hhs, banks, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
       val living            = s5.ioFirms.filter(Firm.isAlive)
       val s2                = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, living, s5.households)
-      val s6                = HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, rng)
+      val s6                =
+        HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
       val s7                = PriceEquityEconomics.compute(
         PriceEquityEconomics.Input(
           world,
@@ -135,10 +145,12 @@ object InflationProbe:
           banks,
           s5,
         ),
-        rng,
+        contract.stages.priceEquityEconomics.newStream(),
       )
-      val s8                = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, banks, rng))
-      val s9                = BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, banks, rng))
+      val s8                =
+        OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, banks, contract.stages.openEconEconomics.newStream()))
+      val s9                =
+        BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, banks, contract.stages.bankingEconomics.newStream()))
 
       val exDev         = exchangeRateValue(world.forex.exchangeRate) / exchangeRateValue(summon[SimParams].forex.baseExRate) - 1.0
       val demandPullM   = toDouble((s4.avgDemandMult.deviationFromOne.toScalar * Scalar(DemandPullWeight)).toCoefficient)
@@ -222,8 +234,7 @@ object InflationProbe:
           priceEquityOutput = s7,
           openEconOutput = s8,
           bankOutput = s9,
-          rng = rng,
-          migRng = rng,
+          randomness = contract.assembly.newStreams(),
         ),
       )
 

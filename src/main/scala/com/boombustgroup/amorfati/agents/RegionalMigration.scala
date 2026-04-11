@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.agents
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Internal migration between NUTS-1 macroregions.
   *
@@ -30,13 +30,13 @@ object RegionalMigration:
   /** Monthly migration step: unemployed HH may relocate to a better region.
     * Employed workers are tied to their firm's region and do not migrate.
     */
-  def apply(households: Vector[Household.State], regionalWages: Map[Region, PLN], rng: Random)(using p: SimParams): Result =
+  def apply(households: Vector[Household.State], regionalWages: Map[Region, PLN], rng: RandomStream)(using p: SimParams): Result =
     Result(households.map(considerMigration(_, regionalWages, rng)))
 
   /** Evaluate migration for a single household. Only unemployed workers
     * consider relocation.
     */
-  private def considerMigration(hh: Household.State, regionalWages: Map[Region, PLN], rng: Random)(using p: SimParams) =
+  private def considerMigration(hh: Household.State, regionalWages: Map[Region, PLN], rng: RandomStream)(using p: SimParams) =
     hh.status match
       case HhStatus.Unemployed(_) => tryRelocate(hh, regionalWages, rng)
       case _                      => hh
@@ -45,7 +45,7 @@ object RegionalMigration:
     * region (highest migration probability), then rolls the dice to decide
     * whether to move.
     */
-  private def tryRelocate(hh: Household.State, regionalWages: Map[Region, PLN], rng: Random)(using p: SimParams) =
+  private def tryRelocate(hh: Household.State, regionalWages: Map[Region, PLN], rng: RandomStream)(using p: SimParams) =
     val currentWage = regionalWages.getOrElse(hh.region, PLN.Zero)
     findBestTarget(hh.region, currentWage, regionalWages).fold(hh): (target, targetScore) =>
       val moveProbability = targetScore * p.regional.baseMigrationRate

@@ -3,11 +3,11 @@ package com.boombustgroup.amorfati.agents
 import com.boombustgroup.amorfati.config.*
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
+import com.boombustgroup.amorfati.init.InitRandomness
 import com.boombustgroup.amorfati.networks.Network
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
-
-import scala.util.Random
 
 import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 
@@ -179,10 +179,10 @@ object Household:
       * NAIRU-fraction of households start as Unemployed(0) so the economy
       * initializes near steady state rather than overheated.
       */
-    def create(rng: Random, firms: Vector[Firm.State])(using p: SimParams): Vector[State] =
+    def create(randomness: InitRandomness.HouseholdStreams, firms: Vector[Firm.State])(using p: SimParams): Vector[State] =
       val hhCount     = firms.map(Firm.workerCount).sum
-      val hhNetwork   = Network.wattsStrogatz(hhCount, p.household.socialK, p.household.socialP, rng)
-      val hhs         = initialize(hhCount, firms, hhNetwork, rng)
+      val hhNetwork   = Network.wattsStrogatz(hhCount, p.household.socialK, p.household.socialP, randomness.network)
+      val hhs         = initialize(hhCount, firms, hhNetwork, randomness.attributes)
       // Assign households to same bank as their employer
       val banked      = hhs.map: h =>
         h.status match
@@ -190,7 +190,7 @@ object Household:
           case _                                                        => h
       // Set NAIRU fraction as unemployed — prevents overheated init
       val nUnemployed = p.monetary.nairu.applyTo(hhCount)
-      val toUnemploy  = rng.shuffle(banked.indices.toVector).take(nUnemployed).toSet
+      val toUnemploy  = randomness.initialUnemployment.shuffle(banked.indices.toVector).take(nUnemployed).toSet
       banked.zipWithIndex.map: (h, i) =>
         if toUnemploy.contains(i) then
           h.status match
@@ -205,7 +205,7 @@ object Household:
         nHouseholds: Int,
         firms: Vector[Firm.State],
         socialNetwork: Array[Array[Int]],
-        rng: Random,
+        rng: RandomStream,
     )(using p: SimParams): Vector[State] =
       // Expand alive firms into (firm, sectorIdx) per worker slot, capped at nHouseholds
       val assignments: Vector[(Firm.State, SectorIdx)] =
@@ -224,7 +224,7 @@ object Household:
         firm: Firm.State,
         sectorIdx: SectorIdx,
         socialNetwork: Array[Array[Int]],
-        rng: Random,
+        rng: RandomStream,
     )(using p: SimParams): State =
       import ComputationBoundary.toDouble
       val savings: PLN  = Distributions.lognormalPln(toDouble(p.household.savingsMu), toDouble(p.household.savingsSigma), rng)
@@ -264,7 +264,7 @@ object Household:
       )
 
     /** Sample education level and skill for a sector, clamped to edu range. */
-    private def sampleEducationAndSkill(sectorIdx: SectorIdx, rng: Random)(using p: SimParams): (Int, Share) =
+    private def sampleEducationAndSkill(sectorIdx: SectorIdx, rng: RandomStream)(using p: SimParams): (Int, Share) =
       val edu                          = p.social.drawEducation(sectorIdx.toInt, rng)
       val (skillFloorS, skillCeilingS) = p.social.eduSkillRange(edu)
       val baseSkill                    = Distributions.randomShareBetween(skillFloorS, skillCeilingS, rng)
@@ -280,7 +280,7 @@ object Household:
       *
       * routineness = base(edu) + σ-bonus, clamped to [0.05, 0.95], with noise.
       */
-    private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: Random)(using p: SimParams): Share =
+    private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: RandomStream)(using p: SimParams): Share =
       val eduBase  = p.labor.sbtcEduRoutineness(edu)
       val sigmaAdj = (Scalar(0.05) * p.sectorDefs(sectorIdx.toInt).sigma.toScalar.log10).toShare
       val noise    = Scalar.randomBetween(Scalar(-0.025), Scalar(0.025), rng).toShare
@@ -427,7 +427,7 @@ object Household:
       status: HhStatus.Employed,
       sectorWages: Vector[PLN],
       sectorVacancies: Vector[Int],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): (HhStatus, Int) =
     if !p.labor.voluntarySearchProb.sampleBelow(rng) then return (status, 0)
     val targetSector      =
@@ -449,7 +449,7 @@ object Household:
       neighborDistress: Share,
       sectorWages: Option[Vector[PLN]],
       sectorVacancies: Option[Vector[Int]],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): (HhStatus, Int, Int) =
     status match
       case HhStatus.Unemployed(months) if months > UnemploymentRetrainingThreshold && p.household.retrainingEnabled =>
@@ -496,7 +496,7 @@ object Household:
       debtService: PLN,
       world: World,
       bankRates: Option[BankRates],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): CreditResult =
     val consumerRate: Rate = bankRates match
       case Some(br) => br.lendingRates(hh.bankId.toInt) + p.household.ccSpread
@@ -556,7 +556,7 @@ object Household:
   private def computeMonthlyFlows(
       hh: State,
       world: World,
-      rng: Random,
+      rng: RandomStream,
       bankRates: Option[BankRates],
       equityIndexReturn: Rate,
       distressedIds: java.util.BitSet,
@@ -629,7 +629,7 @@ object Household:
   private def processHousehold(
       hh: State,
       world: World,
-      rng: Random,
+      rng: RandomStream,
       bankRates: Option[BankRates],
       equityIndexReturn: Rate,
       sectorWages: Option[Vector[PLN]],
@@ -676,7 +676,7 @@ object Household:
       f: MonthlyFlows,
       sectorWages: Option[Vector[PLN]],
       sectorVacancies: Option[Vector[Int]],
-      rng: Random,
+      rng: RandomStream,
       distressMonths: Int,
   )(using p: SimParams): HhMonthlyResult =
     val afterSkill    = applySkillDecay(f.hh, f.newStatus)
@@ -732,7 +732,7 @@ object Household:
       marketWage: PLN,
       reservationWage: PLN,
       importAdj: Share,
-      rng: Random,
+      rng: RandomStream,
       nBanks: Int = 1,
       bankRates: Option[BankRates] = None,
       equityIndexReturn: Rate = Rate.Zero,

@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Pure economic logic for household income determination — no state mutation,
   * no flows.
@@ -48,7 +48,7 @@ object HouseholdIncomeEconomics:
       lendingBaseRate: Rate,
       resWage: PLN,
       newWage: PLN,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val importAdj = Share(

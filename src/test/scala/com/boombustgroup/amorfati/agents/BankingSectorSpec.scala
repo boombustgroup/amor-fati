@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.Generators
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
@@ -79,7 +79,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   // ---- assignBank ----
 
   "Banking.assignBank" should "return valid bank index" in {
-    val rng = new Random(42)
+    val rng = RandomStream.seeded(42)
     for _ <- 0 until 100 do
       val bId = Banking.assignBank(SectorIdx(0), configs, rng)
       bId.toInt should be >= 0
@@ -87,7 +87,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "favor BPS/Coop for agriculture firms" in {
-    val rng         = new Random(42)
+    val rng         = RandomStream.seeded(42)
     val assignments = (0 until 10000).map(_ => Banking.assignBank(SectorIdx(5), configs, rng))
     val bpsCount    = assignments.count(_ == BankId(5))
     // BPS has 0.65 agriculture affinity vs others ~0.15, so it should get disproportionate share
@@ -121,15 +121,16 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   "Banking.canLend" should "return false for failed bank" in {
     val bank = mkBank(capital = PLN(1e5), status = BankStatus.Failed(30))
-    Banking.canLend(bank, PLN(1000.0), new Random(42), Multiplier.Zero) shouldBe false
+    Banking.canLend(bank, PLN(1000.0), RandomStream.seeded(42), Multiplier.Zero) shouldBe false
   }
 
   it should "reject when projected CAR too low" in {
     // capital=8000, loans=100000, existing CAR=0.08
     // Adding 10000 loan -> projected = 8000/110000 = 0.0727 < 0.08
     val bank    = mkBank(loans = PLN(100000.0), capital = PLN(8000.0))
+    val rng     = RandomStream.seeded(42L)
     // Need to test multiple times since there's a stochastic element
-    val results = (0 until 100).map(_ => Banking.canLend(bank, PLN(10000.0), new Random(42), Multiplier.Zero))
+    val results = (0 until 100).map(_ => Banking.canLend(bank, PLN(10000.0), rng, Multiplier.Zero))
     results.forall(_ == false) shouldBe true
   }
 

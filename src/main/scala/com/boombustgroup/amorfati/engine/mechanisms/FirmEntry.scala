@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.config.{FirmSizeDistribution, SimParams}
 import com.boombustgroup.amorfati.engine.DecisionSignals
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Endogenous firm entry: replaces a share of bankrupt firm slots and may also
   * append net new firms when unemployment exceeds NAIRU. Sector choice is
@@ -70,7 +70,7 @@ object FirmEntry:
       automationRatio: Share,
       hybridRatio: Share,
       laggedSignals: LaggedEntrySignals,
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Result =
     val living        = firms.filter(Firm.isAlive)
     val profitSignals = computeProfitSignals(living)
@@ -91,7 +91,7 @@ object FirmEntry:
       totalAdoption: Share,
       livingIds: Vector[Int],
       sectorWeights: Vector[Multiplier],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): (Vector[Firm.State], Set[FirmId]) =
     val deadSlots = firms.filterNot(Firm.isAlive)
     if deadSlots.isEmpty then return (firms, Set.empty)
@@ -125,7 +125,7 @@ object FirmEntry:
       totalAdoption: Share,
       livingIds: Vector[Int],
       sectorWeights: Vector[Multiplier],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): (Vector[Firm.State], Int, Set[FirmId]) =
     val signal   = expansionaryEntrySignal(laggedSignals)
     if signal <= Share.Zero then return (firms, 0, Set.empty)
@@ -176,7 +176,7 @@ object FirmEntry:
       sectorWeights: Vector[Multiplier],
       totalAdoption: Share,
       livingIds: Vector[Int],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): Firm.State =
     val newSector    = pickSector(sectorWeights, rng)
     val firmSize     = FirmSizeDistribution.draw(rng)
@@ -219,7 +219,7 @@ object FirmEntry:
     * automation; conventional entrants use Traditional (workers hired via labor
     * market in subsequent steps).
     */
-  private def chooseTechnology(isAiNative: Boolean, firmSize: Int, rng: Random): TechState =
+  private def chooseTechnology(isAiNative: Boolean, firmSize: Int, rng: RandomStream): TechState =
     if isAiNative then
       val hybridWorkers = Math.max(HybridMinWorkers, firmSize)
       TechState.Hybrid(hybridWorkers, TypedRandom.randomBetween(MinAiProductivity, MaxAiProductivity, rng))
@@ -229,7 +229,7 @@ object FirmEntry:
     * conventional entrants draw from sector baseline with Gaussian noise,
     * clamped to the feasible range for non-digital firms.
     */
-  private def drawDigitalReadiness(isAiNative: Boolean, sector: Int, rng: Random)(using p: SimParams): Share =
+  private def drawDigitalReadiness(isAiNative: Boolean, sector: Int, rng: RandomStream)(using p: SimParams): Share =
     if isAiNative then TypedRandom.randomBetween(AiNativeMinDr, AiNativeMaxDr, rng)
     else
       TypedRandom
@@ -237,7 +237,7 @@ object FirmEntry:
         .clamp(ConventionalDrFloor, ConventionalDrCap)
 
   /** Assign network neighbors from the living firm population. */
-  private def assignNeighbors(livingIds: Vector[Int], rng: Random): Vector[FirmId] =
+  private def assignNeighbors(livingIds: Vector[Int], rng: RandomStream): Vector[FirmId] =
     val nNeighbors = Math.min(MaxNeighbors, livingIds.length)
     if nNeighbors > 0 then rng.shuffle(livingIds.toList).take(nNeighbors).map(FirmId(_)).toVector
     else Vector.empty[FirmId]
@@ -257,10 +257,10 @@ object FirmEntry:
   private def initGreenCapital(firmSize: Int, sector: Int)(using p: SimParams): PLN =
     (firmSize * p.climate.greenKLRatios(sector)) * p.climate.greenInitRatio
 
-  private def pickSector(sectorWeights: Vector[Multiplier], rng: Random): Int =
+  private def pickSector(sectorWeights: Vector[Multiplier], rng: RandomStream): Int =
     WeightedSelection.choose(sectorWeights, rng)
 
-  private def drawStartupTargetWorkers(firmSize: Int, rng: Random): Int =
+  private def drawStartupTargetWorkers(firmSize: Int, rng: RandomStream): Int =
     val lower = Math.min(firmSize, StartupMinWorkers.max(Math.min(2, firmSize)))
     val upper = Math.min(firmSize, StartupMaxWorkers).max(lower)
     rng.between(lower, upper + 1)

@@ -7,24 +7,23 @@ import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBud
 import com.boombustgroup.amorfati.engine.mechanisms.{Macroprudential, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
-
 /** Orchestrates all initialization factories and assembles World. */
 object WorldInit:
 
-  /** Initialize a complete simulation world from a seed. */
+  /** Initialize a complete simulation world from an explicit randomness
+    * contract.
+    */
   @boundaryEscape
-  def initialize(seed: Long)(using p: SimParams): InitResult =
+  def initialize(randomness: InitRandomness.Contract)(using p: SimParams): InitResult =
     import ComputationBoundary.toDouble
-    val rng = new Random(seed)
 
     // --- Firms ---
-    val firms = FirmInit.create(rng)
+    val firms = FirmInit.create(randomness.firms.newStreams())
     assert(firms.length == p.pop.firmsCount)
 
     // --- Households ---
-    val households0    = Household.Init.create(rng, firms)
-    val households     = ImmigrantInit.create(rng, households0)
+    val households0    = Household.Init.create(randomness.households.newStreams(), firms)
+    val households     = ImmigrantInit.create(randomness.immigration.newStreams(), households0)
     val totalPop       = households.length
     val initEmployed   = households.count(_.status.isInstanceOf[HhStatus.Employed])
     val initUnemployed = totalPop - initEmployed

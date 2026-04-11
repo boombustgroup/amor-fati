@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.config
 
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
 
@@ -94,12 +95,12 @@ case class SocialConfig(
   )
 
   /** Draw education tier for a worker in given sector using CDF sampling. */
-  def drawEducation(sectorIdx: Int, rng: scala.util.Random): Int =
+  def drawEducation(sectorIdx: Int, rng: RandomStream): Int =
     val shares = eduSectorShares.getOrElse(defaultEduSectorShares)(sectorIdx.max(0).min(5))
     Distributions.cdfSample(shares, rng)
 
   /** Draw education tier for an immigrant worker. */
-  def drawImmigrantEducation(rng: scala.util.Random): Int =
+  def drawImmigrantEducation(rng: RandomStream): Int =
     Distributions.cdfSample(eduImmigShares, rng)
 
   /** Wage premium multiplier for given education tier (0-3). */

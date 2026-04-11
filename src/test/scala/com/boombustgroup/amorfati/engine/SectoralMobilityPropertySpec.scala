@@ -10,7 +10,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
@@ -50,7 +50,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   "selectTargetSector" should "always return a valid sector != from" in
     forAll(Gen.choose(0, 5)) { from =>
-      val rng    = new Random(42)
+      val rng    = RandomStream.seeded(42)
       val wages  = Vector.fill(6)(PLN(10000.0))
       val vac    = Vector.fill(6)(5)
       val target =

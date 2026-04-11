@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 
 /** Pure economic logic for household financial flows — no state mutation, no
@@ -42,7 +43,7 @@ object HouseholdFinancialEconomics:
       month: Int,
       employed: Int,
       hhAgg: Household.Aggregates,
-      @annotation.unused rng: scala.util.Random,
+      @annotation.unused rng: RandomStream,
   )(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val hhDebtService       = hhAgg.totalDebtService

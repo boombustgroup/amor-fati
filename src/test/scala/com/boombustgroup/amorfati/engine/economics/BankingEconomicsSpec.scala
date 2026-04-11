@@ -2,9 +2,9 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.OperationalSignals
+import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals}
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,11 +13,12 @@ import org.scalatest.matchers.should.Matchers
 class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
+  private val TestSeed       = 42L
 
   "BankingEconomics (own Input)" should "produce flows that close at SFC == 0L" in {
-    val init = WorldInit.initialize(42L)
-    val w    = init.world
-    val rng  = new scala.util.Random(42)
+    val init            = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
+    val w               = init.world
+    val stageRandomness = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams()
 
     val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
     val s1     = FiscalConstraintEconomics.toOutput(fiscal)
@@ -39,10 +40,20 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       labor.living,
       labor.regionalWages,
     )
-    val s3     = HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+    val s3     =
+      HouseholdIncomeEconomics.compute(
+        w,
+        init.firms,
+        init.households,
+        init.banks,
+        s1.lendingBaseRate,
+        s1.resWage,
+        s2.newWage,
+        stageRandomness.householdIncomeEconomics,
+      )
     val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
-    val s5     = FirmEconomics.runStep(w, init.firms, init.households, init.banks, s1, s2, s3, s4, rng)
-    val s6     = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
+    val s5     = FirmEconomics.runStep(w, init.firms, init.households, init.banks, s1, s2, s3, s4, stageRandomness.firmEconomics)
+    val s6     = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, stageRandomness.householdFinancialEconomics)
     val s7     = PriceEquityEconomics.compute(
       PriceEquityEconomics.Input(
         w,
@@ -57,9 +68,11 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         init.banks,
         s5,
       ),
-      rng,
+      stageRandomness.priceEquityEconomics,
     )
-    val s8     = OpenEconEconomics.runStep(OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, init.banks, rng))
+    val s8     = OpenEconEconomics.runStep(
+      OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, init.banks, stageRandomness.openEconEconomics),
+    )
 
     val res = BankingEconomics.compute(
       BankingEconomics.Input(
@@ -91,7 +104,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         priceEquityOutput = s7,
         openEconOutput = s8,
         banks = init.banks,
-        depositRng = rng,
+        depositRng = stageRandomness.bankingEconomics,
       ),
     )
 

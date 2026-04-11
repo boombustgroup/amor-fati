@@ -1,7 +1,8 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.init.WorldInit
+import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.tags.Heavy
 import org.scalatest.flatspec.AnyFlatSpec
@@ -19,12 +20,11 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
   private val td             = ComputationBoundary
 
   "FlowSimulation (autonomous)" should "run 12 months with SFC == 0L" in {
-    val init  = WorldInit.initialize(42L)
+    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     var state = FlowSimulation.SimState.fromInit(init)
 
     (1 to 12).foreach { month =>
-      val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(state, rng)
+      val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
 
       withClue(s"Month $month: ") {
         result.execution.totalWealth.shouldBe(0L)
@@ -35,13 +35,12 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce evolving economy (GDP changes)" in {
-    val init  = WorldInit.initialize(42L)
+    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     var state = FlowSimulation.SimState.fromInit(init)
     val gdps  = scala.collection.mutable.ArrayBuffer[Double]()
 
     (1 to 12).foreach { month =>
-      val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(state, rng)
+      val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
       state = result.nextState
       gdps += td.toDouble(state.world.cachedMonthlyGdpProxy)
     }
@@ -51,12 +50,11 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "maintain positive employment throughout" in {
-    val init  = WorldInit.initialize(42L)
+    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     var state = FlowSimulation.SimState.fromInit(init)
 
     (1 to 12).foreach { month =>
-      val rng    = new scala.util.Random(42L * 1000 + month)
-      val result = FlowSimulation.step(state, rng)
+      val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
       state = result.nextState
 
       withClue(s"Month $month: ") {

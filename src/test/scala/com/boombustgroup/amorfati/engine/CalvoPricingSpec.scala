@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class CalvoPricingSpec extends AnyFlatSpec with Matchers:
 
@@ -34,7 +34,7 @@ class CalvoPricingSpec extends AnyFlatSpec with Matchers:
 
   "updateFirmMarkup" should "change markup with high probability (theta)" in {
     // Run 100 times, expect ~15 changes (theta=0.15)
-    val rng     = new Random(42)
+    val rng     = RandomStream.seeded(42)
     val results = (0 until 100).map(_ => CalvoPricing.updateFirmMarkup(Multiplier.One, Multiplier(1.1), Coefficient(0.01), rng))
     val changed = results.count(_.priceChanged)
     changed should be > 5
@@ -42,16 +42,18 @@ class CalvoPricingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep markup unchanged when not selected" in {
-    val rng    = new Random:
-      override def nextInt(n: Int): Int = n - 1
+    val rng    = RandomStream.wrap(
+      new scala.util.Random:
+        override def nextInt(n: Int): Int = n - 1,
+    )
     val result = CalvoPricing.updateFirmMarkup(Multiplier(1.2), Multiplier.One, Coefficient.Zero, rng)
     result.priceChanged shouldBe false
     result.newMarkup.bd shouldBe BigDecimal("1.2") +- BigDecimal("0.001")
   }
 
   it should "be deterministic with same seed" in {
-    val r1 = CalvoPricing.updateFirmMarkup(Multiplier.One, Multiplier(1.1), Coefficient(0.01), new Random(42))
-    val r2 = CalvoPricing.updateFirmMarkup(Multiplier.One, Multiplier(1.1), Coefficient(0.01), new Random(42))
+    val r1 = CalvoPricing.updateFirmMarkup(Multiplier.One, Multiplier(1.1), Coefficient(0.01), RandomStream.seeded(42))
+    val r2 = CalvoPricing.updateFirmMarkup(Multiplier.One, Multiplier(1.1), Coefficient(0.01), RandomStream.seeded(42))
     r1.newMarkup.bd shouldBe r2.newMarkup.bd +- BigDecimal("0.0000000001")
     r1.priceChanged shouldBe r2.priceChanged
   }

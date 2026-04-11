@@ -9,7 +9,7 @@ import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, InformalEconomy, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** WorldAssembly economics: aggregation, informal economy, observables.
   *
@@ -112,8 +112,7 @@ object WorldAssemblyEconomics:
       priceEquityOutput: PriceEquityEconomics.Output,
       openEconOutput: OpenEconEconomics.StepOutput,
       bankOutput: BankingEconomics.StepOutput,
-      rng: Random,
-      migRng: Random,
+      randomness: MonthRandomness.AssemblyStreams,
   )
 
   case class Result(
@@ -196,22 +195,20 @@ object WorldAssemblyEconomics:
 
   private[engine] def computePostMonth(
       step: StepInput,
-      rng: Random,
-      migRng: Random,
+      randomness: MonthRandomness.AssemblyStreams,
   )(using SimParams): PostResult =
     runPostStep(
       step,
-      rng,
-      migRng,
+      randomness,
     )
 
   private[engine] def computePostMonth(in: Input)(using SimParams): PostResult =
-    computePostMonth(buildStepInput(in), in.rng, in.migRng)
+    computePostMonth(buildStepInput(in), in.randomness)
 
   def compute(in: Input)(using SimParams): Result =
     val step        = buildStepInput(in)
     val signalInput = buildSignalExtractionInput(step)
-    val post        = computePostMonth(step, in.rng, in.migRng)
+    val post        = computePostMonth(step, in.randomness)
     val seed        = extractSignalExtraction(signalInput, post)
     Result(advanceToBoundaryWorld(post.world, seed.seedOut), post.firms, post.households, post.banks, post.householdAggregates, seed)
 
@@ -219,9 +216,9 @@ object WorldAssemblyEconomics:
   // runStep — migrated from WorldAssemblyStep.run
   // ---------------------------------------------------------------------------
 
-  def runStep(in: StepInput, rng: Random, migRng: Random)(using p: SimParams): StepOutput =
+  def runStep(in: StepInput, randomness: MonthRandomness.AssemblyStreams)(using p: SimParams): StepOutput =
     val signalInput      = buildSignalExtractionInput(in)
-    val post             = runPostStep(in, rng, migRng)
+    val post             = runPostStep(in, randomness)
     val signalExtraction = extractSignalExtraction(signalInput, post)
     StepOutput(
       newWorld = advanceToBoundaryWorld(post.world, signalExtraction.seedOut),
@@ -232,7 +229,7 @@ object WorldAssemblyEconomics:
       signalExtraction = signalExtraction,
     )
 
-  private[engine] def runPostStep(in: StepInput, rng: Random, migRng: Random)(using p: SimParams): PostResult =
+  private[engine] def runPostStep(in: StepInput, randomness: MonthRandomness.AssemblyStreams)(using p: SimParams): PostResult =
     val equityAfterStep = finalizeEquity(in)
     val fofResidual     = computeFofResidual(in)
     val informal        = computeInformalEconomy(in)
@@ -241,21 +238,21 @@ object WorldAssemblyEconomics:
 
     val newW = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
 
-    val postFdiFirms = applyFdiMa(in.s9.reassignedFirms, rng)
+    val postFdiFirms = applyFdiMa(in.s9.reassignedFirms, randomness.fdiMa)
     val entryStep    =
       val r = FirmEntry.process(
         postFdiFirms,
         newW.real.automationRatio,
         newW.real.hybridRatio,
         FirmEntry.LaggedEntrySignals.fromDecisionSignals(seedIn),
-        rng,
+        randomness.firmEntry,
       )
       EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
 
-    val startupStaffing = applyStartupStaffing(in, entryStep.firms, in.s9.reassignedHouseholds, rng)
+    val startupStaffing = applyStartupStaffing(in, entryStep.firms, in.s9.reassignedHouseholds, randomness.startupStaffing)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
-    val postMigHh  = RegionalMigration(startupStaffing.households, in.s2.regionalWages, migRng).households
+    val postMigHh  = RegionalMigration(startupStaffing.households, in.s2.regionalWages, randomness.regionalMigration).households
     val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
     val finalW     = newW
       .updatePipeline(_ => buildPostMonthPipelineState(in))
@@ -363,7 +360,7 @@ object WorldAssemblyEconomics:
       in: StepInput,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
-      rng: Random,
+      rng: RandomStream,
   )(using p: SimParams): StartupStaffingResult =
     val startupIds = firms.filter(f => Firm.isAlive(f) && Firm.isInStartup(f)).map(_.id).toSet
     if startupIds.isEmpty then StartupStaffingResult(syncStartupStaffing(firms, households), households, in.s9.finalHhAgg, 0, Share.One)
@@ -665,7 +662,7 @@ object WorldAssemblyEconomics:
   /** FDI M&A: monthly stochastic conversion of domestic firms to foreign
     * ownership, representing cross-border mergers and acquisitions.
     */
-  private def applyFdiMa(firms: Vector[Firm.State], rng: Random)(using p: SimParams): Vector[Firm.State] =
+  private def applyFdiMa(firms: Vector[Firm.State], rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
     if p.fdi.maProb > Share.Zero then
       firms.map: f =>
         if Firm.isAlive(f) && !f.foreignOwned &&

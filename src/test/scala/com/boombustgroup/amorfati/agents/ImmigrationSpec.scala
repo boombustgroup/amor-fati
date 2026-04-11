@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
@@ -42,7 +42,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
   // ---- chooseSector ----
 
   "Immigration.chooseSector" should "return valid sector index (0-5)" in {
-    val rng = new Random(42)
+    val rng = RandomStream.seeded(42)
     for _ <- 0 until 100 do
       val sector = Immigration.chooseSector(rng)
       sector.toInt should be >= 0
@@ -52,31 +52,31 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
   // ---- spawnImmigrants ----
 
   "Immigration.spawnImmigrants" should "create correct number of immigrants" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(50, 1000, rng)
     immigrants.length shouldBe 50
   }
 
   it should "set isImmigrant=true on all spawned HH" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(20, 500, rng)
     immigrants.foreach(_.isImmigrant shouldBe true)
   }
 
   it should "assign sequential IDs starting from startId" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(5, 100, rng)
     immigrants.map(_.id) shouldBe Vector(HhId(100), HhId(101), HhId(102), HhId(103), HhId(104))
   }
 
   it should "start all immigrants as Unemployed(0)" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(10, 0, rng)
     immigrants.foreach(_.status shouldBe HhStatus.Unemployed(0))
   }
 
   it should "clamp skill within valid range" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
       h.skill should be >= Share(0.15)
@@ -85,7 +85,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "clamp MPC within valid range" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
       h.mpc should be >= Share(0.7)
@@ -94,7 +94,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "set lastSectorIdx to a valid sector" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
       h.lastSectorIdx.toInt should be >= 0
@@ -103,7 +103,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce zero immigrants when count is 0" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(0, 0, rng)
     immigrants shouldBe empty
   }

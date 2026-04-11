@@ -2,10 +2,9 @@ package com.boombustgroup.amorfati.diagnostics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
-import com.boombustgroup.amorfati.init.WorldInit
-
-import scala.util.Random
+import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 
 object BankruptcyProbe:
 
@@ -16,15 +15,14 @@ object BankruptcyProbe:
   @main def runBankruptcyProbe(seed: Long = 1L, months: Int = 12): Unit =
     given SimParams = SimParams.defaults
 
-    val init  = WorldInit.initialize(seed)
+    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
     var state = FlowSimulation.SimState.fromInit(init)
 
     println(s"seed=$seed months=$months")
 
     (1 to months).foreach: month =>
-      val rng          = new Random(seed * 1000 + month)
       val prevById     = state.firms.map(f => f.id -> f).toMap
-      val result       = FlowSimulation.step(state, rng)
+      val result       = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(seed * 1000 + month))
       val newBankrupts = result.nextState.firms.flatMap: f =>
         bankruptReason(f).flatMap: reason =>
           prevById.get(f.id).flatMap(bankruptReason) match

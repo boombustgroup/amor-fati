@@ -8,7 +8,7 @@ import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
 
@@ -76,7 +76,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   // --- selectTargetSector ---
 
   "selectTargetSector" should "not select the source sector" in {
-    val rng   = new Random(42)
+    val rng   = RandomStream.seeded(42)
     val wages = Vector(PLN(10000.0), PLN(12000.0), PLN(8000.0), PLN(15000.0), PLN(9000.0), PLN(7000.0))
     val vac   = Vector(5, 10, 3, 8, 2, 1)
     for _ <- 0 until 100 do
@@ -86,7 +86,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "prefer high-wage high-vacancy low-friction sectors" in {
-    val rng    = new Random(42)
+    val rng    = RandomStream.seeded(42)
     // Sector 1 (Mfg): high wage, high vacancies
     // Sector 5 (Agr): high friction from BPO (0.9)
     val wages  = Vector(PLN(0.0), PLN(20000.0), PLN(5000.0), PLN(5000.0), PLN(5000.0), PLN(5000.0))
@@ -101,7 +101,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle all-zero wages gracefully" in {
-    val rng    = new Random(42)
+    val rng    = RandomStream.seeded(42)
     val wages  = Vector.fill(6)(PLN.Zero)
     val vac    = Vector.fill(6)(0)
     val target =

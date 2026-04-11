@@ -2,13 +2,13 @@ package com.boombustgroup.amorfati.util
 
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 /** Sampling helpers for standard distributions (Poisson, Beta, Gamma). */
 object Distributions:
 
   /** Sample a categorical index from non-negative fixed-point weights. */
-  private[amorfati] def cdfSample(shares: Vector[Share], rng: Random): Int =
+  private[amorfati] def cdfSample(shares: Vector[Share], rng: RandomStream): Int =
     require(shares.nonEmpty, "shares must be non-empty")
     require(shares.forall(_ >= Share.Zero), s"shares must be non-negative: $shares")
     val total = shares.foldLeft(Share.Zero)(_ + _)
@@ -24,12 +24,12 @@ object Distributions:
     shares.length - 1
 
   /** Sample a share uniformly from [lo, hi]. */
-  def randomShareBetween(lo: Share, hi: Share, rng: Random): Share =
+  def randomShareBetween(lo: Share, hi: Share, rng: RandomStream): Share =
     if hi <= lo then lo
     else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
 
   /** Sample from Poisson(lambda) using Knuth algorithm (small λ). */
-  def poissonSample(lambda: Double, rng: Random): Int =
+  def poissonSample(lambda: Double, rng: RandomStream): Int =
     if lambda <= 0 then 0
     else
       val L = Math.exp(-lambda)
@@ -41,13 +41,13 @@ object Distributions:
       k
 
   /** Sample from Beta(alpha, beta) using two Gamma samples. */
-  def betaSample(alpha: Double, beta: Double, rng: Random): Double =
+  def betaSample(alpha: Double, beta: Double, rng: RandomStream): Double =
     val x = gammaSample(alpha, rng)
     val y = gammaSample(beta, rng)
     if x + y > 0 then x / (x + y) else 0.5
 
   /** Sample from Gamma(shape, 1) using Marsaglia-Tsang method. */
-  def gammaSample(shape: Double, rng: Random): Double =
+  def gammaSample(shape: Double, rng: RandomStream): Double =
     if shape < 1.0 then gammaSample(shape + 1.0, rng) * Math.pow(rng.nextDouble(), 1.0 / shape)
     else
       val d      = shape - 1.0 / 3.0
@@ -72,21 +72,21 @@ object Distributions:
 
   /** Sample a raw fixed-point Gaussian perturbation with dimensionless stddev.
     */
-  def gaussianNoiseRaw(std: Scalar, rng: Random): Long =
+  def gaussianNoiseRaw(std: Scalar, rng: RandomStream): Long =
     math.round(rng.nextGaussian() * std.toLong)
 
   /** Sample a share around mean with Gaussian noise and clamp to bounds. */
-  def gaussianShare(mean: Share, std: Scalar, lo: Share, hi: Share, rng: Random): Share =
+  def gaussianShare(mean: Share, std: Scalar, lo: Share, hi: Share, rng: RandomStream): Share =
     Share.fromRaw((mean.toLong + gaussianNoiseRaw(std, rng)).max(lo.toLong).min(hi.toLong))
 
   /** Sample a PLN value around mean with Gaussian noise and clamp to floor. */
-  def gaussianPlnAtLeast(mean: PLN, std: PLN, floor: PLN, rng: Random): PLN =
+  def gaussianPlnAtLeast(mean: PLN, std: PLN, floor: PLN, rng: RandomStream): PLN =
     PLN.fromRaw((mean.toLong + math.round(std.toLong.toDouble * rng.nextGaussian())).max(floor.toLong))
 
   /** Sample a PLN value from a lognormal distribution. */
-  def lognormalPln(mu: Double, sigma: Double, rng: Random): PLN =
+  def lognormalPln(mu: Double, sigma: Double, rng: RandomStream): PLN =
     PLN(Math.exp(mu + sigma * rng.nextGaussian()))
 
   /** Sample a PLN value uniformly from [0, maxExclusive). */
-  def randomPlnBelow(maxExclusive: PLN, rng: Random): PLN =
+  def randomPlnBelow(maxExclusive: PLN, rng: RandomStream): PLN =
     PLN.fromRaw(rng.nextLong(maxExclusive.toLong.max(1L)))

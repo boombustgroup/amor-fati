@@ -5,7 +5,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.types.*
 
-import scala.util.Random
+import com.boombustgroup.amorfati.random.RandomStream
 
 class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
 
@@ -13,7 +13,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
   private val p: SimParams = summon[SimParams]
 
   "FirmSizeDistribution.draw" should "return values in valid ranges for Gus distribution" in {
-    val rng        = new Random(42)
+    val rng        = RandomStream.seeded(42)
     val sizes      = (0 until 10000).map(_ => FirmSizeDistribution.draw(rng))
     // Gus mode: micro 1-9, small 10-49, medium 50-249, large 250+
     sizes.foreach(s => s should (be >= 1 and be <= p.pop.firmSizeLargeMax))
