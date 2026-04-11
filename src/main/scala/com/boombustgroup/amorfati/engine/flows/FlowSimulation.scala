@@ -251,20 +251,34 @@ object FlowSimulation:
       boundaryIn: MonthBoundarySnapshot,
   )
 
-  /** Same-month stage outputs computed exactly once and reused by every
-    * downstream boundary.
+  /** Same-month signal surface reused by operational, timing, and seed
+    * boundaries.
     */
-  case class StageOutputs(
-      fiscal: FiscalConstraintEconomics.Result,
+  private[engine] case class SignalBoundaryInputs(
+      labor: LaborEconomics.Output,
+      demand: DemandEconomics.Output,
+  )
+
+  /** Same-month payload narrowed for executed-batch -> SFC semantic projection.
+    */
+  private[engine] case class SemanticFlowInputs(
       labor: LaborEconomics.Output,
       hhIncome: HouseholdIncomeEconomics.Output,
-      demand: DemandEconomics.Output,
       firms: FirmEconomics.StepOutput,
       hhFinancial: HouseholdFinancialEconomics.Output,
       prices: PriceEquityEconomics.Output,
       openEcon: OpenEconEconomics.StepOutput,
       banking: BankingEconomics.StepOutput,
-      calculus: MonthlyCalculus,
+  )
+
+  /** Same-month groups computed once, then immediately retyped into
+    * downstream-specific month boundary views.
+    */
+  private case class StageOutputs(
+      flowPlan: MonthlyCalculus,
+      signals: SignalBoundaryInputs,
+      postAssembly: WorldAssemblyEconomics.StepInput,
+      semanticProjection: SemanticFlowInputs,
   )
 
   /** Post-assembly view of month `t`: assembled world plus the narrow payload
@@ -276,13 +290,14 @@ object FlowSimulation:
       timing: MonthTimingTrace,
   )
 
-  /** Full typed boundary carried through one step: pre-step seed, same-month
-    * operational view, post-month assembly, then the extracted seed for
+  /** Full typed boundary carried through one step: pre-step seed, narrow
+    * same-month groups, post-month assembly, then the extracted seed for
     * `t + 1`.
     */
   case class MonthOutcome(
       operational: MonthSemantics.Operational,
-      stages: MonthSemantics.StageView,
+      flowPlan: MonthSemantics.FlowPlan,
+      semanticProjection: MonthSemantics.SemanticProjection,
       post: MonthSemantics.PostAssembly,
       seedOut: MonthSemantics.SeedOut,
       traceCore: MonthTraceCore,
@@ -319,13 +334,13 @@ object FlowSimulation:
   def step(stateIn: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): StepOutput =
     val input      = stepInput(stateIn, randomness)
     val outcome    = computeMonthOutcome(input)
-    val flows      = emitAllBatches(outcome.stages.value.calculus)
+    val flows      = emitAllBatches(outcome.flowPlan.value)
     val execution  = executeBatches(flows).fold(
       err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
       identity,
     )
     val nextState  = advanceState(input, outcome.post, outcome.seedOut)
-    val sfcFlows   = buildSfcFlows(outcome.stages, flows, nextState.world.plumbing.fofResidual)
+    val sfcFlows   = buildSfcFlows(outcome.semanticProjection, flows, nextState.world.plumbing.fofResidual)
     val sfcResult  = Sfc.validate(
       prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
       curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks),
@@ -344,7 +359,7 @@ object FlowSimulation:
     StepOutput(
       stateIn = stateIn,
       executionMonth = input.executionMonth,
-      calculus = outcome.stages.value.calculus,
+      calculus = outcome.flowPlan.value,
       operationalSignals = outcome.operational.value,
       signalExtraction = outcome.seedOut.value,
       randomness = randomness,
@@ -358,7 +373,7 @@ object FlowSimulation:
   /** Public API: compute calculus only (for tests that need MonthlyCalculus).
     */
   def computeCalculus(state: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): MonthlyCalculus =
-    computeStageOutputs(stepInput(state, randomness)).calculus
+    computeStageOutputs(stepInput(state, randomness)).flowPlan
 
   private def stepInput(
       stateIn: SimState,
@@ -372,14 +387,12 @@ object FlowSimulation:
       boundaryIn = MonthBoundarySnapshot.capture(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
     )
 
-  /** Compute MonthlyCalculus by chaining all Economics. Uses old pipeline steps
-    * for HH/Demand/Firm/PriceEquity (pure calculus). Uses self-contained
+  /** Compute same-month groups by chaining all Economics. Uses old pipeline
+    * steps for HH/Demand/Firm/PriceEquity (pure calculus). Uses self-contained
     * OpenEconEconomics for monetary/external. Runs BankingEconomics exactly
-    * once, then derives both the aggregate banking result and the step output
-    * used by WorldAssembly from that single execution.
-    *
-    * Returns typed [[StageOutputs]] so later boundaries do not depend on one
-    * broad transport bag.
+    * once, then narrows the results into flow, signal, post-assembly, and SFC
+    * projection views so later boundaries do not depend on one broad transport
+    * bag.
     */
   private def computeStageOutputs(input: StepInput)(using p: SimParams): StageOutputs =
     val randomness        = input.randomness.stages
@@ -591,7 +604,37 @@ object FlowSimulation:
       govBondYield = openEcon.newBondYield,
       corpBondYield = openEcon.corpBondYield,
     )
-    StageOutputs(fiscal, s2, s3, s4, s5, s6, s7, s8, s9, calc)
+    StageOutputs(
+      flowPlan = calc,
+      signals = SignalBoundaryInputs(
+        labor = s2,
+        demand = s4,
+      ),
+      postAssembly = WorldAssemblyEconomics.StepInput(
+        w = w,
+        firms = firms,
+        households = households,
+        banks = banks,
+        s1 = s1,
+        s2 = s2,
+        s3 = s3,
+        s4 = s4,
+        s5 = s5,
+        s6 = s6,
+        s7 = s7,
+        s8 = s8,
+        s9 = s9,
+      ),
+      semanticProjection = SemanticFlowInputs(
+        labor = s2,
+        hhIncome = s3,
+        firms = s5,
+        hhFinancial = s6,
+        prices = s7,
+        openEcon = s8,
+        banking = s9,
+      ),
+    )
 
   private def executeBatches(flows: Vector[BatchedFlow]): Either[String, ExecutionResult] =
     val state = AggregateBatchContract.emptyExecutionState()
@@ -649,8 +692,12 @@ object FlowSimulation:
 
       ExecutedBatchEvidence(totals, signedTotals)
 
-  private def buildSfcFlows(stageView: MonthSemantics.StageView, batches: Vector[BatchedFlow], fofResidual: PLN)(using p: SimParams): Sfc.SemanticFlows =
-    val stages   = stageView.value
+  private def buildSfcFlows(
+      semanticProjection: MonthSemantics.SemanticProjection,
+      batches: Vector[BatchedFlow],
+      fofResidual: PLN,
+  )(using p: SimParams): Sfc.SemanticFlows =
+    val stages   = semanticProjection.value
     val evidence = ExecutedBatchEvidence.from(batches)
     Sfc.SemanticFlows(
       govSpending =
@@ -733,27 +780,27 @@ object FlowSimulation:
       operationalHiringSlack = labor.operationalHiringSlack,
     )
 
-  private def buildOperationalSignals(stageView: MonthSemantics.StageView): MonthSemantics.Operational =
-    val stages = stageView.value
-    MonthSemantics.At[OperationalSignals, MonthSemantics.SameMonth](operationalSignals(stages.labor, stages.demand))
+  private def buildOperationalSignals(signalView: MonthSemantics.SignalView): MonthSemantics.Operational =
+    val signals = signalView.value
+    MonthSemantics.At[OperationalSignals, MonthSemantics.SameMonth](operationalSignals(signals.labor, signals.demand))
 
   private def buildTimingInputs(
-      stageView: MonthSemantics.StageView,
+      signalView: MonthSemantics.SignalView,
       assembled: WorldAssemblyEconomics.PostResult,
   ): MonthTimingInputs =
-    val stages = stageView.value
+    val signals = signalView.value
     MonthTimingInputs(
       labor = MonthTimingPayload.LaborSignals(
-        operationalHiringSlack = stages.labor.operationalHiringSlack,
+        operationalHiringSlack = signals.labor.operationalHiringSlack,
       ),
       demand = MonthTimingPayload.DemandSignals(
-        sectorDemandMult = stages.demand.sectorMults,
-        sectorDemandPressure = stages.demand.sectorDemandPressure,
-        sectorHiringSignal = stages.demand.sectorHiringSignal,
+        sectorDemandMult = signals.demand.sectorMults,
+        sectorDemandPressure = signals.demand.sectorDemandPressure,
+        sectorHiringSignal = signals.demand.sectorHiringSignal,
       ),
       nominal = MonthTimingPayload.NominalSignals(
-        realizedInflation = stages.prices.newInfl,
-        expectedInflation = stages.openEcon.monetary.newExp.expectedInflation,
+        realizedInflation = assembled.world.inflation,
+        expectedInflation = assembled.world.mechanisms.expectations.expectedInflation,
       ),
       firmDynamics = MonthTimingPayload.FirmDynamics(
         startupAbsorptionRate = assembled.startupAbsorptionRate,
@@ -763,50 +810,25 @@ object FlowSimulation:
       ),
     )
 
-  private def assemblePostMonth(input: StepInput, stageView: MonthSemantics.StageView)(using p: SimParams): MonthSemantics.PostAssembly =
-    val stages    = stageView.value
-    val assembled = WorldAssemblyEconomics.computePostMonth(
-      WorldAssemblyEconomics.Input(
-        w = input.stateIn.world,
-        firms = input.stateIn.firms,
-        households = input.stateIn.households,
-        month = stages.fiscal.month,
-        lendingBaseRate = stages.fiscal.lendingBaseRate,
-        resWage = stages.fiscal.resWage,
-        baseMinWage = stages.fiscal.baseMinWage,
-        minWagePriceLevel = stages.fiscal.updatedMinWagePriceLevel,
-        govPurchases = stages.demand.govPurchases,
-        sectorMults = stages.demand.sectorMults,
-        sectorDemandPressure = stages.demand.sectorDemandPressure,
-        sectorHiringSignal = stages.demand.sectorHiringSignal,
-        avgDemandMult = stages.demand.avgDemandMult,
-        sectorCapReal = stages.demand.sectorCapReal,
-        laggedInvestDemand = stages.demand.laggedInvestDemand,
-        fiscalRuleStatus = stages.demand.fiscalRuleStatus,
-        laborOutput = stages.labor,
-        hhOutput = stages.hhIncome,
-        firmOutput = stages.firms,
-        hhFinancialOutput = stages.hhFinancial,
-        priceEquityOutput = stages.prices,
-        openEconOutput = stages.openEcon,
-        bankOutput = stages.banking,
-        banks = input.stateIn.banks,
-        randomness = input.randomness.assembly.newStreams(),
-      ),
-    )
+  private def assemblePostMonth(
+      postInputs: MonthSemantics.PostInputs,
+      signalView: MonthSemantics.SignalView,
+      randomness: MonthRandomness.AssemblyStreams,
+  )(using p: SimParams): MonthSemantics.PostAssembly =
+    val assembled = WorldAssemblyEconomics.computePostMonth(postInputs.value, randomness)
     // This stays at month `t`: the boundary seed is still `seedIn` here.
     MonthSemantics.At[PostMonth, MonthSemantics.Post](
       PostMonth(
         assembled = assembled,
         boundaryOut = MonthBoundarySnapshot.capture(assembled.world, assembled.firms, assembled.households, assembled.banks),
-        timing = MonthTimingTrace.fromInputs(buildTimingInputs(stageView, assembled)),
+        timing = MonthTimingTrace.fromInputs(buildTimingInputs(signalView, assembled)),
       ),
     )
 
-  private def extractSeedOut(stageView: MonthSemantics.StageView, post: MonthSemantics.PostAssembly): MonthSemantics.SeedOut =
+  private def extractSeedOut(signalView: MonthSemantics.SignalView, post: MonthSemantics.PostAssembly): MonthSemantics.SeedOut =
     val assembled = post.value.assembled
     val employed  = Household.countEmployed(assembled.households)
-    val stages    = stageView.value
+    val signals   = signalView.value
 
     MonthSemantics.At[SignalExtraction.Output, MonthSemantics.NextPre](
       SignalExtraction.compute(
@@ -814,13 +836,13 @@ object FlowSimulation:
         // signal from realized month-`t` outcomes.
         SignalExtraction.inputFromRealizedOutcomes(
           unemploymentRate = assembled.world.unemploymentRate(employed),
-          laggedHiringSlack = stages.labor.operationalHiringSlack,
+          laggedHiringSlack = signals.labor.operationalHiringSlack,
           startupAbsorptionRate = assembled.startupAbsorptionRate,
           inflation = assembled.world.inflation,
           expectedInflation = assembled.world.mechanisms.expectations.expectedInflation,
-          sectorDemandMult = stages.demand.sectorMults,
-          sectorDemandPressure = stages.demand.sectorDemandPressure,
-          sectorHiringSignal = stages.demand.sectorHiringSignal,
+          sectorDemandMult = signals.demand.sectorMults,
+          sectorDemandPressure = signals.demand.sectorDemandPressure,
+          sectorHiringSignal = signals.demand.sectorHiringSignal,
         ),
       ),
     )
@@ -838,16 +860,21 @@ object FlowSimulation:
 
   private def computeMonthOutcome(input: StepInput)(using p: SimParams): MonthOutcome =
     // Keep the month-step pipeline explicit:
-    // `seedIn/pre -> same-month stages -> post-month assembly -> seedOut/next-pre`.
-    val stageView   = MonthSemantics.At[StageOutputs, MonthSemantics.SameMonth](computeStageOutputs(input))
-    val operational = buildOperationalSignals(stageView)
-    val post        = assemblePostMonth(input, stageView)
-    val seedOut     = extractSeedOut(stageView, post)
-    val traceCore   = deriveTraceCore(input, post, seedOut)
+    // `seedIn/pre -> same-month groups -> post-month assembly -> seedOut/next-pre`.
+    val stageOutputs       = computeStageOutputs(input)
+    val signalView         = MonthSemantics.At[SignalBoundaryInputs, MonthSemantics.SameMonth](stageOutputs.signals)
+    val flowPlan           = MonthSemantics.At[MonthlyCalculus, MonthSemantics.SameMonth](stageOutputs.flowPlan)
+    val postInputs         = MonthSemantics.At[WorldAssemblyEconomics.StepInput, MonthSemantics.SameMonth](stageOutputs.postAssembly)
+    val semanticProjection = MonthSemantics.At[SemanticFlowInputs, MonthSemantics.SameMonth](stageOutputs.semanticProjection)
+    val operational        = buildOperationalSignals(signalView)
+    val post               = assemblePostMonth(postInputs, signalView, input.randomness.assembly.newStreams())
+    val seedOut            = extractSeedOut(signalView, post)
+    val traceCore          = deriveTraceCore(input, post, seedOut)
 
     MonthOutcome(
       operational = operational,
-      stages = stageView,
+      flowPlan = flowPlan,
+      semanticProjection = semanticProjection,
       post = post,
       seedOut = seedOut,
       traceCore = traceCore,
