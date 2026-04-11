@@ -79,9 +79,9 @@ object SeedTransitionTrace:
       seedOut: MonthSemantics.SeedOut,
   ): SeedTransitionTrace =
     SeedTransitionTrace(
-      seedIn = seedIn.value,
-      seedOut = seedOut.value.seedOut,
-      provenance = seedOut.value.provenance,
+      seedIn = seedIn.decisionSignals,
+      seedOut = seedOut.nextSeed,
+      provenance = seedOut.provenance,
     )
 
 /** Compact boundary snapshot used at the start and end of a month trace. */

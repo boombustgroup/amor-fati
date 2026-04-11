@@ -62,15 +62,15 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   it should "keep explicit pre and next-pre seed wrappers aligned with step outputs" in {
     val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state   = FlowSimulation.SimState.fromInit(init)
-    val seedIn  = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](state.world.seedIn)
+    val seedIn  = MonthSemantics.seedIn(state.world.seedIn)
     val result  = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
-    val seedOut = MonthSemantics.At[com.boombustgroup.amorfati.engine.SignalExtraction.Output, MonthSemantics.NextPre](result.signalExtraction)
+    val seedOut = MonthSemantics.seedOut(result.signalExtraction)
 
-    seedIn.value shouldBe state.world.seedIn
-    seedOut.value shouldBe result.signalExtraction
-    seedOut.value.seedOut shouldBe result.nextState.world.seedIn
-    result.trace.seedTransition.seedIn shouldBe seedIn.value
-    result.trace.seedTransition.seedOut shouldBe seedOut.value.seedOut
+    seedIn.decisionSignals shouldBe state.world.seedIn
+    seedOut.signalExtraction shouldBe result.signalExtraction
+    seedOut.nextSeed shouldBe result.nextState.world.seedIn
+    result.trace.seedTransition.seedIn shouldBe seedIn.decisionSignals
+    result.trace.seedTransition.seedOut shouldBe seedOut.nextSeed
   }
 
   it should "accept an explicit month-step randomness contract with named stage and assembly streams" in {
