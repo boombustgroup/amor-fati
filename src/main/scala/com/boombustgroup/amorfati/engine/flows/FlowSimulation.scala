@@ -248,6 +248,7 @@ object FlowSimulation:
       executionMonth: ExecutionMonth,
       seedIn: MonthSemantics.SeedIn,
       randomness: MonthRandomness.Contract,
+      boundaryIn: MonthBoundarySnapshot,
   )
 
   /** Same-month stage outputs computed exactly once and reused by every
@@ -266,19 +267,13 @@ object FlowSimulation:
       calculus: MonthlyCalculus,
   )
 
-  case class TraceInputs(
-      labor: MonthTimingPayload.LaborSignals,
-      demand: MonthTimingPayload.DemandSignals,
-      nominal: MonthTimingPayload.NominalSignals,
-      firmDynamics: MonthTimingPayload.FirmDynamics,
-  )
-
   /** Post-assembly view of month `t`: assembled world plus the narrow payload
     * needed to build [[MonthTrace]].
     */
   case class PostMonth(
       assembled: WorldAssemblyEconomics.PostResult,
-      traceInputs: TraceInputs,
+      boundaryOut: MonthBoundarySnapshot,
+      timing: MonthTimingTrace,
   )
 
   /** Full typed boundary carried through one step: pre-step seed, same-month
@@ -290,6 +285,7 @@ object FlowSimulation:
       stages: MonthSemantics.StageView,
       post: MonthSemantics.PostAssembly,
       seedOut: MonthSemantics.SeedOut,
+      traceCore: MonthTraceCore,
   )
 
   /** Full month-step contract.
@@ -321,12 +317,7 @@ object FlowSimulation:
     * one-month contract used by tests, replay, and diagnostics.
     */
   def step(stateIn: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): StepOutput =
-    val input      = StepInput(
-      stateIn = stateIn,
-      executionMonth = stateIn.completedMonth.next,
-      seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn),
-      randomness = randomness,
-    )
+    val input      = stepInput(stateIn, randomness)
     val outcome    = computeMonthOutcome(input)
     val flows      = emitAllBatches(outcome.stages.value.calculus)
     val execution  = executeBatches(flows).fold(
@@ -346,7 +337,6 @@ object FlowSimulation:
     val monthTrace = buildMonthTrace(
       input = input,
       outcome = outcome,
-      nextState = nextState,
       executedFlows = sfcFlows,
       sfcResult = sfcResult,
     )
@@ -368,14 +358,19 @@ object FlowSimulation:
   /** Public API: compute calculus only (for tests that need MonthlyCalculus).
     */
   def computeCalculus(state: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): MonthlyCalculus =
-    computeStageOutputs(
-      StepInput(
-        stateIn = state,
-        executionMonth = state.completedMonth.next,
-        seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](state.world.seedIn),
-        randomness = randomness,
-      ),
-    ).calculus
+    computeStageOutputs(stepInput(state, randomness)).calculus
+
+  private def stepInput(
+      stateIn: SimState,
+      randomness: MonthRandomness.Contract,
+  ): StepInput =
+    StepInput(
+      stateIn = stateIn,
+      executionMonth = stateIn.completedMonth.next,
+      seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn),
+      randomness = randomness,
+      boundaryIn = MonthBoundarySnapshot.capture(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
+    )
 
   /** Compute MonthlyCalculus by chaining all Economics. Uses old pipeline steps
     * for HH/Demand/Firm/PriceEquity (pure calculus). Uses self-contained
@@ -742,12 +737,12 @@ object FlowSimulation:
     val stages = stageView.value
     MonthSemantics.At[OperationalSignals, MonthSemantics.SameMonth](operationalSignals(stages.labor, stages.demand))
 
-  private def buildTraceInputs(
+  private def buildTimingInputs(
       stageView: MonthSemantics.StageView,
       assembled: WorldAssemblyEconomics.PostResult,
-  ): TraceInputs =
+  ): MonthTimingInputs =
     val stages = stageView.value
-    TraceInputs(
+    MonthTimingInputs(
       labor = MonthTimingPayload.LaborSignals(
         operationalHiringSlack = stages.labor.operationalHiringSlack,
       ),
@@ -800,7 +795,13 @@ object FlowSimulation:
       ),
     )
     // This stays at month `t`: the boundary seed is still `seedIn` here.
-    MonthSemantics.At[PostMonth, MonthSemantics.Post](PostMonth(assembled, buildTraceInputs(stageView, assembled)))
+    MonthSemantics.At[PostMonth, MonthSemantics.Post](
+      PostMonth(
+        assembled = assembled,
+        boundaryOut = MonthBoundarySnapshot.capture(assembled.world, assembled.firms, assembled.households, assembled.banks),
+        timing = MonthTimingTrace.fromInputs(buildTimingInputs(stageView, assembled)),
+      ),
+    )
 
   private def extractSeedOut(stageView: MonthSemantics.StageView, post: MonthSemantics.PostAssembly): MonthSemantics.SeedOut =
     val assembled = post.value.assembled
@@ -824,6 +825,17 @@ object FlowSimulation:
       ),
     )
 
+  private def deriveTraceCore(
+      input: StepInput,
+      post: MonthSemantics.PostAssembly,
+      seedOut: MonthSemantics.SeedOut,
+  ): MonthTraceCore =
+    MonthTraceCore(
+      boundary = MonthBoundaryTrace.from(input.boundaryIn, post.value.boundaryOut),
+      seedTransition = SeedTransitionTrace.from(input.seedIn, seedOut),
+      timing = post.value.timing,
+    )
+
   private def computeMonthOutcome(input: StepInput)(using p: SimParams): MonthOutcome =
     // Keep the month-step pipeline explicit:
     // `seedIn/pre -> same-month stages -> post-month assembly -> seedOut/next-pre`.
@@ -831,12 +843,14 @@ object FlowSimulation:
     val operational = buildOperationalSignals(stageView)
     val post        = assemblePostMonth(input, stageView)
     val seedOut     = extractSeedOut(stageView, post)
+    val traceCore   = deriveTraceCore(input, post, seedOut)
 
     MonthOutcome(
       operational = operational,
       stages = stageView,
       post = post,
       seedOut = seedOut,
+      traceCore = traceCore,
     )
 
   private def advanceState(
@@ -866,32 +880,13 @@ object FlowSimulation:
   private def buildMonthTrace(
       input: StepInput,
       outcome: MonthOutcome,
-      nextState: SimState,
       executedFlows: Sfc.SemanticFlows,
       sfcResult: Sfc.SfcResult,
   ): MonthTrace =
-    val traceInputs = outcome.post.value.traceInputs
-    val seedOut     = outcome.seedOut.value
-    MonthTrace(
+    MonthTrace.fromCore(
       executionMonth = input.executionMonth,
-      boundary = MonthBoundaryTrace(
-        startSnapshot = MonthBoundarySnapshot.capture(input.stateIn.world, input.stateIn.firms, input.stateIn.households, input.stateIn.banks),
-        endSnapshot = MonthBoundarySnapshot.capture(nextState.world, nextState.firms, nextState.households, nextState.banks),
-      ),
-      seedTransition = SeedTransitionTrace(
-        seedIn = input.seedIn.value,
-        seedOut = seedOut.seedOut,
-        provenance = seedOut.provenance,
-      ),
       randomness = input.randomness,
-      timing = MonthTimingTrace(
-        Vector(
-          MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.LaborSignals, traceInputs.labor),
-          MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.DemandSignals, traceInputs.demand),
-          MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.NominalSignals, traceInputs.nominal),
-          MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.FirmDynamics, traceInputs.firmDynamics),
-        ),
-      ),
+      core = outcome.traceCore,
       executedFlows = executedFlows,
       validations = Vector(MonthValidation.fromSfcResult(sfcResult)),
     )

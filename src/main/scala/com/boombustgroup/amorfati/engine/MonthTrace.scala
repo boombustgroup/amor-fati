@@ -30,11 +30,41 @@ object MonthTrace:
   ): MonthTimingEnvelope =
     MonthTimingEnvelope(key, payload)
 
+  def fromCore(
+      executionMonth: ExecutionMonth,
+      randomness: MonthRandomness.Contract,
+      core: MonthTraceCore,
+      executedFlows: Sfc.SemanticFlows,
+      validations: Vector[MonthValidation],
+  ): MonthTrace =
+    MonthTrace(
+      executionMonth = executionMonth,
+      boundary = core.boundary,
+      seedTransition = core.seedTransition,
+      randomness = randomness,
+      timing = core.timing,
+      executedFlows = executedFlows,
+      validations = validations,
+    )
+
+case class MonthTraceCore(
+    boundary: MonthBoundaryTrace,
+    seedTransition: SeedTransitionTrace,
+    timing: MonthTimingTrace,
+)
+
 /** Stable start/end month boundary snapshots. */
 case class MonthBoundaryTrace(
     startSnapshot: MonthBoundarySnapshot,
     endSnapshot: MonthBoundarySnapshot,
 )
+
+object MonthBoundaryTrace:
+  def from(
+      startSnapshot: MonthBoundarySnapshot,
+      endSnapshot: MonthBoundarySnapshot,
+  ): MonthBoundaryTrace =
+    MonthBoundaryTrace(startSnapshot, endSnapshot)
 
 /** Explicit post-to-pre boundary observed by the trace. */
 case class SeedTransitionTrace(
@@ -42,6 +72,17 @@ case class SeedTransitionTrace(
     seedOut: DecisionSignals,
     provenance: SeedOutProvenance,
 )
+
+object SeedTransitionTrace:
+  def from(
+      seedIn: MonthSemantics.SeedIn,
+      seedOut: MonthSemantics.SeedOut,
+  ): SeedTransitionTrace =
+    SeedTransitionTrace(
+      seedIn = seedIn.value,
+      seedOut = seedOut.value.seedOut,
+      provenance = seedOut.value.provenance,
+    )
 
 /** Compact boundary snapshot used at the start and end of a month trace. */
 case class MonthBoundarySnapshot(
@@ -114,6 +155,13 @@ object MonthTimingPayload:
       netFirmBirths: Int,
   ) extends MonthTimingPayload
 
+case class MonthTimingInputs(
+    labor: MonthTimingPayload.LaborSignals,
+    demand: MonthTimingPayload.DemandSignals,
+    nominal: MonthTimingPayload.NominalSignals,
+    firmDynamics: MonthTimingPayload.FirmDynamics,
+)
+
 /** One typed timing envelope attached to the month trace interior. */
 case class MonthTimingEnvelope(
     key: MonthTimingEnvelopeKey,
@@ -157,6 +205,17 @@ case class MonthTimingTrace(
 
   def firmDynamics: MonthTimingPayload.FirmDynamics =
     requirePayload[MonthTimingPayload.FirmDynamics](MonthTimingEnvelopeKey.FirmDynamics)
+
+object MonthTimingTrace:
+  def fromInputs(inputs: MonthTimingInputs): MonthTimingTrace =
+    MonthTimingTrace(
+      Vector(
+        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.LaborSignals, inputs.labor),
+        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.DemandSignals, inputs.demand),
+        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.NominalSignals, inputs.nominal),
+        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.FirmDynamics, inputs.firmDynamics),
+      ),
+    )
 
 enum MonthValidationKind:
   case Sfc
