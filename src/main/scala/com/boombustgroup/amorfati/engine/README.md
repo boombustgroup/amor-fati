@@ -54,7 +54,7 @@ Read it as a month transition:
 
 - `stateIn.world.seedIn` is the persisted `pre` input surface.
 - `randomness` is the explicit month-level randomness surface; fixing `stateIn` and `randomness.rootSeed` fixes replay for one step.
-- `MonthOutcome` is the internal bridge from narrow same-month groups (operational signals, flow plan, semantic projection) to post-month assembly, including the typed trace core derived from those boundaries.
+- `MonthOutcome` is the internal bridge across the same-month boundary views `SignalView`, `FlowPlan`, `PostInputs`, and `SemanticProjection`; `operationalSignals` is derived from `SignalView`, and the typed trace core is derived from those boundaries.
 - `operationalSignals` is the explicit same-month surface created inside the step.
 - `signalExtraction` is the dedicated `post -> pre` boundary.
 - `trace` is the emitted audit artifact for month `t`.

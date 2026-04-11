@@ -254,14 +254,14 @@ object FlowSimulation:
   /** Same-month signal surface reused by operational, timing, and seed
     * boundaries.
     */
-  case class SignalBoundaryInputs(
+  private[engine] case class SignalBoundaryInputs(
       labor: LaborEconomics.Output,
       demand: DemandEconomics.Output,
   )
 
   /** Same-month payload narrowed for executed-batch -> SFC semantic projection.
     */
-  case class SemanticFlowInputs(
+  private[engine] case class SemanticFlowInputs(
       labor: LaborEconomics.Output,
       hhIncome: HouseholdIncomeEconomics.Output,
       firms: FirmEconomics.StepOutput,
