@@ -90,7 +90,7 @@ object McRunner:
         Left(SimError.SfcViolation(result.executionMonth, errors))
       case Right(())    =>
         val monthData = SimOutput.compute(
-          result.stateIn.completedMonth.toInt,
+          result.executionMonth,
           result.nextState.world,
           result.nextState.firms,
           result.nextState.households,
