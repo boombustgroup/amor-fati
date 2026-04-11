@@ -118,7 +118,8 @@ object GvcTrade:
     val shockActive      = p.gvc.demandShockMonth > 0 && in.month.toInt >= p.gvc.demandShockMonth
     val shockMag         = if shockActive then p.gvc.demandShockSize else Share.Zero
     val updatedFirms     = evolveFirms(in.prev.foreignFirms, monthlyInflation, shockActive, in.month)
-    val foreignGdpFactor = compoundedGrowth(p.gvc.foreignGdpGrowth.monthly.growthMultiplier, in.month.toInt)
+    val elapsedMonths    = in.month.previousCompleted.toInt
+    val foreignGdpFactor = compoundedGrowth(p.gvc.foreignGdpGrowth.monthly.growthMultiplier, elapsedMonths)
     val erEffect         = realExchangeRateEffect(in.priceLevel, in.exchangeRate)
     val exports          = computeSectorExports(updatedFirms, nSectors, foreignGdpFactor, erEffect, in.autoRatio)
     val imports          = computeSectorImports(updatedFirms, nSectors, in.sectorOutputs, in.priceLevel, in.exchangeRate)

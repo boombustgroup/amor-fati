@@ -55,9 +55,10 @@ object HouseholdFinancialEconomics:
     val diasporaInflow =
       val exchangeRate  = exchangeRateValue(w.forex.exchangeRate)
       val wap           = w.social.demographics.workingAgePop
+      val elapsedMonths = month.previousCompleted.toInt
       val base          = toDouble(p.remittance.perCapita) * wap.toDouble
       val erAdj         = Math.pow(exchangeRate / toDouble(p.forex.baseExRate), toDouble(p.remittance.erElasticity))
-      val trendAdj      = Math.pow(1.0 + toDouble(p.remittance.growthRate) / 12.0, month.toInt.toDouble)
+      val trendAdj      = Math.pow(1.0 + toDouble(p.remittance.growthRate) / 12.0, elapsedMonths.toDouble)
       val unempForRemit = toDouble(w.unemploymentRate(employed))
       val cyclicalAdj   = 1.0 + toDouble(p.remittance.cyclicalSens) * Math.max(0.0, unempForRemit - DiasporaUnempThreshold)
       PLN(base * erAdj * trendAdj * cyclicalAdj)
@@ -66,12 +67,13 @@ object HouseholdFinancialEconomics:
     val (tourismExport, tourismImport) =
       val exchangeRate   = exchangeRateValue(w.forex.exchangeRate)
       val monthInt       = month.toInt
+      val elapsedMonths  = month.previousCompleted.toInt
       val monthInYear    = month.monthInYear
       val seasonalFactor = 1.0 + toDouble(p.tourism.seasonality) *
         Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
       val inboundErAdj   = Math.pow(exchangeRate / toDouble(p.forex.baseExRate), toDouble(p.tourism.erElasticity))
       val outboundErAdj  = Math.pow(toDouble(p.forex.baseExRate) / exchangeRate, toDouble(p.tourism.erElasticity))
-      val trendAdj       = Math.pow(1.0 + toDouble(p.tourism.growthRate) / 12.0, monthInt.toDouble)
+      val trendAdj       = Math.pow(1.0 + toDouble(p.tourism.growthRate) / 12.0, elapsedMonths.toDouble)
       val disruption     =
         if p.tourism.shockMonth > 0 && monthInt >= p.tourism.shockMonth then
           toDouble(p.tourism.shockSize) * Math.pow(

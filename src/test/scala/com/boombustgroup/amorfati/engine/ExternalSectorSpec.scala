@@ -73,6 +73,14 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
     r.totalExports.should(be > PLN.Zero)
   }
 
+  it should "keep export demand at baseline in the first execution month" in {
+    val init = GvcTrade.initial
+    val r    = GvcTrade.step(baseInput(prev = init, month = 1))
+
+    r.totalExports shouldBe init.totalExports
+    r.sectorExports shouldBe init.sectorExports
+  }
+
   it should "produce positive total intermediate imports" in {
     val r = GvcTrade.step(baseInput())
     r.totalIntermImports.should(be > PLN.Zero)

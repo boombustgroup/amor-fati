@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
 import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
-import com.boombustgroup.amorfati.types.PLN
+import com.boombustgroup.amorfati.types.{ComputationBoundary, PLN}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -24,6 +24,15 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     w.derivedTotalPopulation.should(be > 0)
     result.nextState.householdAggregates.employed.should(be > 0)
     w.external.tourismSeasonalFactor.should(not be 0.0)
+  }
+
+  it should "keep ETS observables at the base price in the first execution month" in {
+    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state  = FlowSimulation.SimState.fromInit(init)
+    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val w      = result.nextState.world
+
+    w.real.etsPrice.shouldBe(ComputationBoundary.toDouble(p.climate.etsBasePrice) +- 1e-10)
   }
 
   it should "preserve public-spending semantic aggregates on the assembled world" in {

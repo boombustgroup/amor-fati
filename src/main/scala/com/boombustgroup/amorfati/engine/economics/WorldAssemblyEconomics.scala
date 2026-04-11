@@ -350,7 +350,8 @@ object WorldAssemblyEconomics:
     )
 
     val monthsPerYear = 12.0
-    val etsPrice      = toDouble(p.climate.etsBasePrice) * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, in.s1.m.toInt.toDouble)
+    val elapsedMonths = in.s1.m.previousCompleted.toInt.toDouble
+    val etsPrice      = toDouble(p.climate.etsBasePrice) * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, elapsedMonths)
 
     val monthInYear           = in.s1.m.monthInYear
     val tourismSeasonalFactor = 1.0 + toDouble(p.tourism.seasonality) * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
