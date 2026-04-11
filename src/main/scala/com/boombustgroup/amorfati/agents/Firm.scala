@@ -798,8 +798,8 @@ object Firm:
   private[amorfati] def adoptionWillingnessMultiplier(month: ExecutionMonth, localAuto: Share)(using p: SimParams): Share =
     val elapsedMonths = month.toInt - 1
     val rampFrac      = Scalar.fraction(elapsedMonths, p.firm.adoptionRampMonths).clamp(Scalar.Zero, Scalar.One).toShare
-    val baseLevel = Share(UncertaintyBase) + Share(UncertaintySlope) * rampFrac
-    val demoBoost =
+    val baseLevel     = Share(UncertaintyBase) + Share(UncertaintySlope) * rampFrac
+    val demoBoost     =
       if localAuto > p.firm.demoEffectThresh then p.firm.demoEffectBoost * (localAuto - p.firm.demoEffectThresh)
       else Share.Zero
     (baseLevel + demoBoost).min(Share.One)
