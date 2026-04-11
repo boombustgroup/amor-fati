@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
@@ -40,7 +41,7 @@ object HouseholdFinancialEconomics:
   @boundaryEscape
   def compute(
       w: World,
-      month: Int,
+      month: ExecutionMonth,
       employed: Int,
       hhAgg: Household.Aggregates,
       @annotation.unused rng: RandomStream,
@@ -56,7 +57,7 @@ object HouseholdFinancialEconomics:
       val wap           = w.social.demographics.workingAgePop
       val base          = toDouble(p.remittance.perCapita) * wap.toDouble
       val erAdj         = Math.pow(exchangeRate / toDouble(p.forex.baseExRate), toDouble(p.remittance.erElasticity))
-      val trendAdj      = Math.pow(1.0 + toDouble(p.remittance.growthRate) / 12.0, month.toDouble)
+      val trendAdj      = Math.pow(1.0 + toDouble(p.remittance.growthRate) / 12.0, month.toInt.toDouble)
       val unempForRemit = toDouble(w.unemploymentRate(employed))
       val cyclicalAdj   = 1.0 + toDouble(p.remittance.cyclicalSens) * Math.max(0.0, unempForRemit - DiasporaUnempThreshold)
       PLN(base * erAdj * trendAdj * cyclicalAdj)
@@ -64,17 +65,17 @@ object HouseholdFinancialEconomics:
     // Tourism services export/import (#47)
     val (tourismExport, tourismImport) =
       val exchangeRate   = exchangeRateValue(w.forex.exchangeRate)
-      val monthInYear    = (month % 12) + 1
+      val monthInYear    = month.monthInYear
       val seasonalFactor = 1.0 + toDouble(p.tourism.seasonality) *
         Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
       val inboundErAdj   = Math.pow(exchangeRate / toDouble(p.forex.baseExRate), toDouble(p.tourism.erElasticity))
       val outboundErAdj  = Math.pow(toDouble(p.forex.baseExRate) / exchangeRate, toDouble(p.tourism.erElasticity))
-      val trendAdj       = Math.pow(1.0 + toDouble(p.tourism.growthRate) / 12.0, month.toDouble)
+      val trendAdj       = Math.pow(1.0 + toDouble(p.tourism.growthRate) / 12.0, month.toInt.toDouble)
       val disruption     =
-        if p.tourism.shockMonth > 0 && month >= p.tourism.shockMonth then
+        if p.tourism.shockMonth > 0 && month.toInt >= p.tourism.shockMonth then
           toDouble(p.tourism.shockSize) * Math.pow(
             1.0 - toDouble(p.tourism.shockRecovery),
-            (month - p.tourism.shockMonth).toDouble,
+            (month.toInt - p.tourism.shockMonth).toDouble,
           )
         else 0.0
       val shockFactor    = 1.0 - disruption

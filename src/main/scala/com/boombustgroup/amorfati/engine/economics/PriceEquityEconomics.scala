@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.{FirmSizeDistribution, SimParams}
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, PriceLevel}
 import com.boombustgroup.amorfati.engine.mechanisms.{EuFunds, Macroprudential}
 import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
@@ -34,7 +35,7 @@ object PriceEquityEconomics:
 
   case class Input(
       w: World,                         // current world state
-      month: Int,                       // month counter
+      month: ExecutionMonth,            // realized simulation month
       newWage: PLN,                     // new wage from labor market
       employed: Int,                    // employment count
       wageGrowth: Coefficient,          // wage growth coefficient
@@ -231,7 +232,7 @@ object PriceEquityEconomics:
     val aggInventoryStock = PLN.fromRaw(living2.map(_.inventory.toLong).sum)
     val aggGreenCapital   = PLN.fromRaw(living2.map(_.greenCapital.toLong).sum)
 
-    val euMonthly = EuFunds.monthlyTransfer(in.month)
+    val euMonthly = EuFunds.monthlyTransfer(in.month.toInt)
 
     val govGdpContribution = governmentDemandContribution(in.govPurchases)
     val euCofin            = EuFunds.cofinancing(euMonthly)

@@ -91,7 +91,6 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   private def mkMinimalWorld() = World(
-    month = 0,
     inflation = Rate(0.0),
     priceLevel = 1.0,
     gdpProxy = 1e9,

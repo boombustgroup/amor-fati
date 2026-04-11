@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.OpenEconomy
 import com.boombustgroup.amorfati.types.*
 
@@ -31,7 +32,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
     gdp = gdp,
     priceLevel = PriceIndex.Base,
     sectorOutputs = baseSectorOutputs,
-    month = month,
+    month = ExecutionMonth(month),
     nbpFxReserves = prevBop.reserves,
   )
 

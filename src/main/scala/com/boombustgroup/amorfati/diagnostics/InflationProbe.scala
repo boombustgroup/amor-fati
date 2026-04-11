@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.diagnostics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.engine.markets.RegionalClearing
@@ -73,7 +74,7 @@ object InflationProbe:
     (1 to months).foreach: month =>
       val population        = world.derivedTotalPopulation.max(1)
       val contract          = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
-      val fiscal            = FiscalConstraintEconomics.compute(world, banks)
+      val fiscal            = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
       val s1                = FiscalConstraintEconomics.toOutput(fiscal)
       val labor             = LaborEconomics.compute(world, firms, hhs, s1)
       val prevWage          = toDouble(world.householdMarket.marketWage)

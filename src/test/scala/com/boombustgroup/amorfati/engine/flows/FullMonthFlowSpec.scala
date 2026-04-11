@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.flows
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -27,7 +28,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
   /** Run pipeline for one month using Economics objects. */
   private def runFullMonth: Vector[Flow] =
     val stageRandomness    = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams()
-    val fiscal             = FiscalConstraintEconomics.compute(w, initResult.banks)
+    val fiscal             = FiscalConstraintEconomics.compute(w, initResult.banks, ExecutionMonth.First)
     val s1                 = FiscalConstraintEconomics.toOutput(fiscal)
     val labor              = LaborEconomics.compute(w, initResult.firms, initResult.households, s1)
     val s2                 = LaborEconomics.Output(

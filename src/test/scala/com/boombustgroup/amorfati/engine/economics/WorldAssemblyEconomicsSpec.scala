@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
 import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -19,10 +20,10 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val w      = result.nextState.world
 
-    w.month.shouldBe(1)
-    w.derivedTotalPopulation should be > 0
-    result.nextState.householdAggregates.employed should be > 0
-    w.external.tourismSeasonalFactor should not be 0.0
+    result.nextState.completedMonth shouldBe CompletedMonth(1)
+    w.derivedTotalPopulation.should(be > 0)
+    result.nextState.householdAggregates.employed.should(be > 0)
+    w.external.tourismSeasonalFactor.should(not be 0.0)
   }
 
   it should "preserve public-spending semantic aggregates on the assembled world" in {
@@ -42,7 +43,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     )
 
     w.gov.domesticBudgetDemand shouldBe result.calculus.govPurchases
-    w.gov.domesticBudgetOutlays should be >= w.gov.domesticBudgetDemand
+    w.gov.domesticBudgetOutlays.should(be >= w.gov.domesticBudgetDemand)
   }
 
   it should "overwrite only supported financial slice from ledger snapshot while preserving unsupported QE metrics" in {

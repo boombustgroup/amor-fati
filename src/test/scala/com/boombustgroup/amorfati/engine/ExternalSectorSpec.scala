@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.GvcTrade
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
@@ -22,7 +23,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
       price: Double = 1.0,
       autoR: Double = 0.0,
       month: Int = 30,
-  ) = GvcTrade.StepInput(prev, sectorOutputs, PriceIndex(price), ExchangeRate(er), Share(autoR), month, rng = RandomStream.seeded(42))
+  ) = GvcTrade.StepInput(prev, sectorOutputs, PriceIndex(price), ExchangeRate(er), Share(autoR), ExecutionMonth(month), rng = RandomStream.seeded(42))
 
   // ---- Initialization ----
 
@@ -69,43 +70,43 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
 
   "GvcTrade.step" should "produce positive total exports" in {
     val r = GvcTrade.step(baseInput())
-    r.totalExports should be > PLN.Zero
+    r.totalExports.should(be > PLN.Zero)
   }
 
   it should "produce positive total intermediate imports" in {
     val r = GvcTrade.step(baseInput())
-    r.totalIntermImports should be > PLN.Zero
+    r.totalIntermImports.should(be > PLN.Zero)
   }
 
   it should "evolve foreign price index upward" in {
     val r = GvcTrade.step(baseInput())
-    r.foreignPriceIndex should be > PriceIndex.Base
+    r.foreignPriceIndex.should(be > PriceIndex.Base)
   }
 
   it should "have 6-element sector exports" in {
     val r = GvcTrade.step(baseInput())
-    r.sectorExports.length shouldBe 6
-    r.sectorExports.foreach(e => e should be >= PLN.Zero)
+    r.sectorExports.length.shouldBe(6)
+    r.sectorExports.foreach(e => e.should(be >= PLN.Zero))
   }
 
   it should "have 6-element sector imports" in {
     val r = GvcTrade.step(baseInput())
-    r.sectorImports.length shouldBe 6
-    r.sectorImports.foreach(i => i should be >= PLN.Zero)
+    r.sectorImports.length.shouldBe(6)
+    r.sectorImports.foreach(i => i.should(be >= PLN.Zero))
   }
 
   it should "increase exports with higher automation" in {
     val r0 = GvcTrade.step(baseInput(autoR = 0.0))
     val r1 = GvcTrade.step(baseInput(autoR = 0.5))
-    r1.totalExports should be > r0.totalExports
+    r1.totalExports.should(be > r0.totalExports)
   }
 
   it should "have zero disruption when no shock applied" in {
     val r = GvcTrade.step(baseInput())
-    r.disruptionIndex shouldBe Share.Zero
+    r.disruptionIndex.shouldBe(Share.Zero)
   }
 
   it should "have import cost index >= 1.0 (foreign inflation)" in {
     val r = GvcTrade.step(baseInput())
-    r.importCostIndex should be >= PriceIndex.Base
+    r.importCostIndex.should(be >= PriceIndex.Base)
   }

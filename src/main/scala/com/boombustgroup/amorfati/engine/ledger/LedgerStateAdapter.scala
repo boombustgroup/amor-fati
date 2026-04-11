@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector, MutableWorldState}
@@ -393,7 +394,7 @@ object LedgerStateAdapter:
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
   ): SupportedFinancialSnapshot =
-    roundTripSupported(FlowSimulation.SimState(world, firms, households, banks, householdAggregates))
+    roundTripSupported(FlowSimulation.SimState(CompletedMonth.Zero, world, firms, households, banks, householdAggregates))
 
   def populate(state: MutableWorldState, sim: FlowSimulation.SimState): Unit =
     val supported = supportedSnapshot(sim)

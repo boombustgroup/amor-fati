@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, InformalEconomy, SectoralMobility}
@@ -91,7 +92,7 @@ object WorldAssemblyEconomics:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       // Raw values
-      month: Int,
+      month: ExecutionMonth,
       lendingBaseRate: Rate,
       resWage: PLN,
       baseMinWage: PLN,
@@ -349,9 +350,9 @@ object WorldAssemblyEconomics:
     )
 
     val monthsPerYear = 12.0
-    val etsPrice      = toDouble(p.climate.etsBasePrice) * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, in.s1.m.toDouble)
+    val etsPrice      = toDouble(p.climate.etsBasePrice) * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, in.s1.m.toInt.toDouble)
 
-    val monthInYear           = ((in.s1.m - 1) % 12) + 1
+    val monthInYear           = in.s1.m.monthInYear
     val tourismSeasonalFactor = 1.0 + toDouble(p.tourism.seasonality) * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
 
     Observables(depositFacilityUsage, etsPrice, tourismSeasonalFactor)
@@ -422,7 +423,6 @@ object WorldAssemblyEconomics:
   ): World =
     val ledgerSupported  = buildLedgerSupportedSnapshot(in)
     val provisionalWorld = World(
-      month = in.s1.m,
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
       currentSigmas = in.s7.newSigmas,

@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -14,7 +15,7 @@ class FiscalConstraintEconomicsSpec extends AnyFlatSpec with Matchers:
   private val world = init.world
 
   "FiscalConstraintEconomics.compute" should "produce consistent result and output" in {
-    val result = FiscalConstraintEconomics.compute(world, init.banks)
+    val result = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
     val output = FiscalConstraintEconomics.toOutput(result)
 
     output.m shouldBe result.month
@@ -25,6 +26,7 @@ class FiscalConstraintEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "advance month by 1" in {
-    val result = FiscalConstraintEconomics.compute(world, init.banks)
-    result.month shouldBe world.month + 1
+    val completedMonth = CompletedMonth.Zero
+    val result         = FiscalConstraintEconomics.compute(world, init.banks, completedMonth.next)
+    result.month shouldBe completedMonth.next
   }

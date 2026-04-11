@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.mechanisms.YieldCurve
 import com.boombustgroup.amorfati.types.*
@@ -17,7 +18,7 @@ object FiscalConstraintEconomics:
   private val ExpectationsBlendWeight = 0.5
 
   case class Result(
-      month: Int,
+      month: ExecutionMonth,
       baseMinWage: PLN,
       updatedMinWagePriceLevel: PriceIndex,
       resWage: PLN,
@@ -26,24 +27,24 @@ object FiscalConstraintEconomics:
 
   /** Bridge type — same fields as the deleted FiscalConstraintStep.Output. */
   case class Output(
-      m: Int,
+      month: ExecutionMonth,
       baseMinWage: PLN,
       updatedMinWagePriceLevel: PriceIndex,
       resWage: PLN,
       lendingBaseRate: Rate,
-  )
+  ):
+    def m: ExecutionMonth = month
 
   def toOutput(r: Result): Output =
     Output(r.month, r.baseMinWage, r.updatedMinWagePriceLevel, r.resWage, r.lendingBaseRate)
 
   @boundaryEscape
-  def compute(w: World, banks: Vector[Banking.BankState])(using p: SimParams): Result =
+  def compute(w: World, banks: Vector[Banking.BankState], month: ExecutionMonth)(using p: SimParams): Result =
     import ComputationBoundary.toDouble
-    val m       = w.month + 1
     val bankAgg = Banking.aggregateFromBanks(banks)
 
     val (baseMinWage, updatedMinWagePriceLevel) =
-      val isAdjustMonth = m > 0 && m % p.fiscal.minWageAdjustMonths == 0
+      val isAdjustMonth = month.toInt % p.fiscal.minWageAdjustMonths == 0
       if isAdjustMonth then
         val cumInfl     =
           if p.fiscal.minWageInflationIndex && w.gov.minWagePriceLevel > PriceIndex.Zero then toDouble(w.priceLevel) / toDouble(w.gov.minWagePriceLevel) - 1.0
@@ -70,4 +71,4 @@ object FiscalConstraintEconomics:
     val lendingBaseRate =
       ExpectationsBlendWeight * rawLendingBaseRate + (1.0 - ExpectationsBlendWeight) * toDouble(w.mechanisms.expectations.expectedRate)
 
-    Result(m, PLN(baseMinWage), updatedMinWagePriceLevel, PLN(resWage), Rate(lendingBaseRate))
+    Result(month, PLN(baseMinWage), updatedMinWagePriceLevel, PLN(resWage), Rate(lendingBaseRate))

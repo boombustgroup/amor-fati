@@ -21,10 +21,10 @@ object BankruptcyProbe:
 
     MonthDriver
       .unfoldSteps(initState): state =>
-        Some(MonthRandomness.Contract.fromSeed(seed * 1000L + state.world.month.toLong + 1L))
+        Some(MonthRandomness.Contract.fromSeed(seed * 1000L + state.completedMonth.toLong + 1L))
       .take(months)
       .foreach: result =>
-        val month        = result.nextState.world.month
+        val month        = result.executionMonth
         val prevById     = result.stateIn.firms.map(f => f.id -> f).toMap
         val newBankrupts = result.nextState.firms.flatMap: f =>
           bankruptReason(f).flatMap: reason =>
@@ -38,7 +38,7 @@ object BankruptcyProbe:
         val demandMults = result.nextState.world.pipeline.sectorDemandMult
 
         println(
-          s"month=$month unemp=$unemp deaths=${newBankrupts.size} demand2=${demandMults(2)} demand3=${demandMults(3)} demand4=${demandMults(4)}",
+          s"month=${month.toInt} unemp=$unemp deaths=${newBankrupts.size} demand2=${demandMults(2)} demand3=${demandMults(3)} demand4=${demandMults(4)}",
         )
         if newBankrupts.nonEmpty then
           println(s"  reasons=${byReason.mkString(", ")}")

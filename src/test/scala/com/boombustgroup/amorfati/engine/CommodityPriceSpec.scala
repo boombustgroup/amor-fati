@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.GvcTrade
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -24,7 +25,7 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
       priceLevel = PriceIndex.Base,
       exchangeRate = ExchangeRate(4.33),
       autoRatio = Share.Zero,
-      month = month,
+      month = ExecutionMonth(month),
       rng = RandomStream.seeded(seed * 31 + month),
     )
 

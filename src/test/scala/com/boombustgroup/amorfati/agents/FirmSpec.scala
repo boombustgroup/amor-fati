@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.types.*
 
@@ -13,8 +14,9 @@ import com.boombustgroup.amorfati.random.RandomStream
 
 class FirmSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams          = SimParams.defaults
-  private val p: SimParams = summon[SimParams]
+  given SimParams              = SimParams.defaults
+  private val p: SimParams     = summon[SimParams]
+  private val ExecutionMonth31 = ExecutionMonth(31)
 
   // --- Firm.isAlive ---
 
@@ -248,19 +250,19 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   "Firm.adoptionWillingnessMultiplier" should "increase with local demonstration effects above threshold" in {
-    val below = Firm.adoptionWillingnessMultiplier(month = 12, localAuto = Share(0.30))
-    val above = Firm.adoptionWillingnessMultiplier(month = 12, localAuto = Share(0.80))
+    val below = Firm.adoptionWillingnessMultiplier(month = ExecutionMonth(12), localAuto = Share(0.30))
+    val above = Firm.adoptionWillingnessMultiplier(month = ExecutionMonth(12), localAuto = Share(0.80))
 
-    above should be > below
+    above.should(be > below)
   }
 
   it should "increase over time until the ramp saturates" in {
-    val early = Firm.adoptionWillingnessMultiplier(month = 0, localAuto = Share.Zero)
-    val mid   = Firm.adoptionWillingnessMultiplier(month = 18, localAuto = Share.Zero)
-    val late  = Firm.adoptionWillingnessMultiplier(month = 72, localAuto = Share.Zero)
+    val early = Firm.adoptionWillingnessMultiplier(month = ExecutionMonth.First, localAuto = Share.Zero)
+    val mid   = Firm.adoptionWillingnessMultiplier(month = ExecutionMonth(18), localAuto = Share.Zero)
+    val late  = Firm.adoptionWillingnessMultiplier(month = ExecutionMonth(72), localAuto = Share.Zero)
 
-    mid should be > early
-    late should be >= mid
+    mid.should(be > early)
+    late.should(be >= mid)
   }
 
   it should "return 0.0 for firm with no neighbors" in {
@@ -272,7 +274,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   "Firm.process" should "keep a Bankrupt firm bankrupt with zero tax/capex" in {
     val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))
-    val result = Firm.process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = Firm.process(f, mkWorld(), ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     result.taxPaid shouldBe PLN.Zero
     result.capexSpent shouldBe PLN.Zero
     result.firm.tech shouldBe a[TechState.Bankrupt]
@@ -280,7 +282,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   it should "keep an Automated firm alive with large cash" in {
     val f      = mkFirm(TechState.Automated(Multiplier(1.5))).copy(cash = PLN(10000000.0))
-    val result = Firm.process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = Firm.process(f, mkWorld(), ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     Firm.isAlive(result.firm) shouldBe true
   }
 
@@ -294,7 +296,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         sectorDemandMult = Vector.fill(baseW.pipeline.sectorDemandMult.length)(Multiplier(0.1)),
       ),
     )
-    val result = Firm.process(f, w, Rate(0.20), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = Firm.process(f, w, ExecutionMonth31, Rate(0.20), _ => true, Vector(f), RandomStream.seeded(42))
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }
 
@@ -310,9 +312,9 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       )
     val lowAdj     = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.0))
     val highAdj    = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.4))
-    val lowResult  = Firm.process(firm, lowAdj, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
+    val lowResult  = Firm.process(firm, lowAdj, ExecutionMonth31, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
     val highResult =
-      Firm.process(firm, highAdj, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
+      Firm.process(firm, highAdj, ExecutionMonth31, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
 
     lowResult.taxPaid should be > PLN.Zero
     highResult.taxPaid should be > PLN.Zero
@@ -367,7 +369,6 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   private def mkWorld(): World =
     World(
-      month = 31,
       inflation = Rate(0.02),
       priceLevel = PriceIndex.Base,
       gdpProxy = 1e9,

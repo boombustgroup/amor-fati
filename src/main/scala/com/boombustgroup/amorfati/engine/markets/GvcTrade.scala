@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.markets
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 
@@ -90,7 +91,7 @@ object GvcTrade:
       priceLevel: PriceIndex,
       exchangeRate: ExchangeRate,
       autoRatio: Share,
-      month: Int,
+      month: ExecutionMonth,
       rng: RandomStream,
   )
 
@@ -109,15 +110,15 @@ object GvcTrade:
     val commodityDrift   = p.gvc.commodityDrift.monthly.toCoefficient
     val commodityNoise   = Coefficient(in.rng.nextGaussian()) * p.gvc.commodityVolatility.toCoefficient
     val commodityShock   =
-      if p.gvc.commodityShockMonth > 0 && in.month == p.gvc.commodityShockMonth then p.gvc.commodityShockMag.toCoefficient
+      if p.gvc.commodityShockMonth > 0 && in.month.toInt == p.gvc.commodityShockMonth then p.gvc.commodityShockMag.toCoefficient
       else Coefficient.Zero
     val commodityGrowth  = (commodityShock + commodityDrift + commodityNoise).growthMultiplier
     val newCommodity     = in.prev.commodityPriceIndex * commodityGrowth
     val newImportCost    = newForeignPrice * newCommodity
-    val shockActive      = p.gvc.demandShockMonth > 0 && in.month >= p.gvc.demandShockMonth
+    val shockActive      = p.gvc.demandShockMonth > 0 && in.month.toInt >= p.gvc.demandShockMonth
     val shockMag         = if shockActive then p.gvc.demandShockSize else Share.Zero
     val updatedFirms     = evolveFirms(in.prev.foreignFirms, monthlyInflation, shockActive, in.month)
-    val foreignGdpFactor = compoundedGrowth(p.gvc.foreignGdpGrowth.monthly.growthMultiplier, in.month)
+    val foreignGdpFactor = compoundedGrowth(p.gvc.foreignGdpGrowth.monthly.growthMultiplier, in.month.toInt)
     val erEffect         = realExchangeRateEffect(in.priceLevel, in.exchangeRate)
     val exports          = computeSectorExports(updatedFirms, nSectors, foreignGdpFactor, erEffect, in.autoRatio)
     val imports          = computeSectorImports(updatedFirms, nSectors, in.sectorOutputs, in.priceLevel, in.exchangeRate)
@@ -140,12 +141,12 @@ object GvcTrade:
       firms: Vector[ForeignFirm],
       monthlyInflation: Rate,
       shockActive: Boolean,
-      month: Int,
+      month: ExecutionMonth,
   )(using p: SimParams): Vector[ForeignFirm] =
     val recoveryRate = p.gvc.disruptionRecovery
     firms.map: ff =>
       val afterShock =
-        if shockActive && month == p.gvc.demandShockMonth &&
+        if shockActive && month.toInt == p.gvc.demandShockMonth &&
           p.gvc.demandShockSectors.contains(ff.sectorId)
         then ff.copy(baseExportDemand = ff.baseExportDemand * (Share.One - p.gvc.demandShockSize))
         else ff

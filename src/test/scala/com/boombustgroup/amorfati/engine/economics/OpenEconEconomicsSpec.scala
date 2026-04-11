@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.flows.*
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.random.RandomStream
@@ -21,7 +22,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   private val rng  = RandomStream.seeded(TestSeed)
 
   // Run pipeline through Economics objects
-  private val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
+  private val fiscal = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
   private val s1     = FiscalConstraintEconomics.toOutput(fiscal)
   private val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s2     = LaborEconomics.Output(

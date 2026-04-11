@@ -11,6 +11,7 @@ import com.boombustgroup.amorfati.engine.{
   MonthTimingEnvelopeKey,
   MonthTimingPayload,
   MonthTraceStage,
+  SimulationMonth,
 }
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
@@ -106,13 +107,14 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val state = FlowSimulation.SimState.fromInit(init)
     val steps = MonthDriver
       .unfoldSteps(state): current =>
-        Some(MonthRandomness.Contract.fromSeed(42L * 1000L + current.world.month.toLong + 1L))
+        Some(MonthRandomness.Contract.fromSeed(42L * 1000L + current.completedMonth.toLong + 1L))
       .take(3)
       .toVector
 
     steps should have size 3
-    steps.map(_.stateIn.world.month) shouldBe Vector(0, 1, 2)
-    steps.map(_.nextState.world.month) shouldBe Vector(1, 2, 3)
+    steps.map(_.stateIn.completedMonth.toInt) shouldBe Vector(0, 1, 2)
+    steps.map(_.executionMonth.toInt) shouldBe Vector(1, 2, 3)
+    steps.map(_.nextState.completedMonth.toInt) shouldBe Vector(1, 2, 3)
     steps.foreach(_.sfcResult shouldBe Right(()))
   }
 
@@ -121,11 +123,11 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val state   = FlowSimulation.SimState.fromInit(init)
     val results = MonthDriver
       .unfoldSteps(state): current =>
-        Option.when(current.world.month < 2)(MonthRandomness.Contract.fromSeed(42L * 1000L + current.world.month.toLong + 1L))
+        Option.when(current.completedMonth.toInt < 2)(MonthRandomness.Contract.fromSeed(42L * 1000L + current.completedMonth.toLong + 1L))
       .toVector
 
     results should have size 2
-    results.map(_.nextState.world.month) shouldBe Vector(1, 2)
+    results.map(_.nextState.completedMonth.toInt) shouldBe Vector(1, 2)
   }
 
   it should "produce SFC == 0L across 12 months (autonomous driving)" in {
@@ -133,14 +135,14 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val state   = FlowSimulation.SimState.fromInit(init)
     val results = MonthDriver
       .unfoldSteps(state): current =>
-        Some(MonthRandomness.Contract.fromSeed(42L * 1000L + current.world.month.toLong + 1L))
+        Some(MonthRandomness.Contract.fromSeed(42L * 1000L + current.completedMonth.toLong + 1L))
       .take(12)
       .toVector
 
     results should have size 12
 
     results.foreach { result =>
-      val month = result.nextState.world.month
+      val month = result.executionMonth.toInt
       withClue(s"Month $month: ") {
         result.execution.totalWealth shouldBe 0L
         result.sfcResult shouldBe Right(())
@@ -153,11 +155,11 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val lowShadowW    = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.0))
     val highShadowW   = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.4))
     val lowShadowRun  = FlowSimulation.step(
-      FlowSimulation.SimState(lowShadowW, init.firms, init.households, init.banks, init.householdAggregates),
+      FlowSimulation.SimState(SimulationMonth.CompletedMonth.Zero, lowShadowW, init.firms, init.households, init.banks, init.householdAggregates),
       MonthRandomness.Contract.fromSeed(42L),
     )
     val highShadowRun = FlowSimulation.step(
-      FlowSimulation.SimState(highShadowW, init.firms, init.households, init.banks, init.householdAggregates),
+      FlowSimulation.SimState(SimulationMonth.CompletedMonth.Zero, highShadowW, init.firms, init.households, init.banks, init.householdAggregates),
       MonthRandomness.Contract.fromSeed(42L),
     )
 
@@ -187,7 +189,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
     val demandSignals = trace.timing.requirePayload[MonthTimingPayload.DemandSignals](MonthTimingEnvelopeKey.DemandSignals)
 
-    trace.month shouldBe result.nextState.world.month
+    trace.executionMonth shouldBe result.executionMonth
     trace.seedTransition.seedIn shouldBe init.world.seedIn
     trace.seedTransition.seedOut shouldBe result.nextState.world.seedIn
     trace.randomness shouldBe result.randomness

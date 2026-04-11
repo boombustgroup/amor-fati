@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
@@ -22,7 +23,7 @@ class FlowPipelineSpec extends AnyFlatSpec with Matchers:
     */
   private def runOneMonth: (Map[Int, Long], LaborEconomics.Result) =
     // Step 1: Fiscal constraints (pure calculus)
-    val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
+    val fiscal = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
 
     // Step 2: Labor economics (pure calculus)
     val s1    = FiscalConstraintEconomics.toOutput(fiscal)
@@ -48,18 +49,18 @@ class FlowPipelineSpec extends AnyFlatSpec with Matchers:
   it should "produce realistic wage" in {
     val (_, labor) = runOneMonth
     val td         = ComputationBoundary
-    td.toDouble(labor.wage) should be > 3000.0
-    td.toDouble(labor.wage) should be < 20000.0
+    td.toDouble(labor.wage).should(be > 3000.0)
+    td.toDouble(labor.wage).should(be < 20000.0)
   }
 
   it should "produce realistic employment" in {
     val (_, labor) = runOneMonth
-    labor.employed should be > 50000
-    labor.employed should be < 120000
+    labor.employed.should(be > 50000)
+    labor.employed.should(be < 120000)
   }
 
   it should "emit non-trivial fund flows" in {
-    val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
+    val fiscal = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
     val s1     = FiscalConstraintEconomics.toOutput(fiscal)
     val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
 
@@ -70,6 +71,6 @@ class FlowPipelineSpec extends AnyFlatSpec with Matchers:
       EarmarkedFlows.emit(StateAdapter.earmarkedInput(labor)),
     )
 
-    flows.length should be > 5
-    flows.map(_.amount).sum should be > 0L
+    flows.length.should(be > 5)
+    flows.map(_.amount).sum.should(be > 0L)
   }

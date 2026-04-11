@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals}
 import com.boombustgroup.amorfati.engine.flows.*
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -20,7 +21,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val w               = init.world
     val stageRandomness = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams()
 
-    val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
+    val fiscal = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
     val s1     = FiscalConstraintEconomics.toOutput(fiscal)
     val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
     val s2     = LaborEconomics.Output(

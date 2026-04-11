@@ -199,7 +199,6 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "World" should "default bfgFundBalance=0 and bailInLoss=0" in {
     val w = World(
-      month = 0,
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 100000.0,

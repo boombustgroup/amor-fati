@@ -24,7 +24,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       govDebt: Double = 0.0,
   ): World =
     World(
-      month = 1,
       inflation = Rate(0.02),
       priceLevel = 1.0,
       gdpProxy = 1e9,

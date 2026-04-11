@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.OperationalSignals
 import com.boombustgroup.amorfati.engine.flows.*
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -19,7 +20,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private val w    = init.world
   private val rng  = RandomStream.seeded(42)
 
-  private val fiscal = FiscalConstraintEconomics.compute(w, init.banks)
+  private val fiscal = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
   private val s1     = FiscalConstraintEconomics.toOutput(fiscal)
   private val labor  = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s2     = LaborEconomics.Output(
