@@ -156,7 +156,8 @@ object OpenEconomy:
 
   private def computeExports(in: StepInput)(using p: SimParams): PLN =
     in.gvcExports.getOrElse:
-      val foreignGdpFactor = compoundedGrowth(p.openEcon.foreignGdpGrowth.monthly.growthMultiplier, in.month.toInt)
+      val elapsedMonths    = (in.month.toInt - 1).max(0)
+      val foreignGdpFactor = compoundedGrowth(p.openEcon.foreignGdpGrowth.monthly.growthMultiplier, elapsedMonths)
       val ulcEffect        = (in.autoRatio * p.openEcon.ulcExportBoost).growthMultiplier
       val realExRate       = realExchangeRateEffect(in.prevForex.exchangeRate, in.priceLevel)
       ((realExRate * p.openEcon.exportBase) * foreignGdpFactor) * ulcEffect

@@ -265,6 +265,12 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     late.should(be >= mid)
   }
 
+  it should "start at the documented base willingness in the first execution month" in {
+    val first = Firm.adoptionWillingnessMultiplier(month = ExecutionMonth.First, localAuto = Share.Zero)
+
+    first.shouldBe(Share(0.15))
+  }
+
   it should "return 0.0 for firm with no neighbors" in {
     val firms = Vector(mkFirmWithNeighbors(0, TechState.Traditional(10), Vector.empty[FirmId]))
     Firm.computeLocalAutoRatio(firms(0), firms) shouldBe Share.Zero

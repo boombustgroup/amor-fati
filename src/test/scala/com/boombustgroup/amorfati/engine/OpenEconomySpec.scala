@@ -43,6 +43,12 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
     td.toDouble(r.bop.exports) should be > 0.0
   }
 
+  it should "use zero elapsed foreign GDP growth in the first execution month" in {
+    val r = OpenEconomy.step(baseInput(month = 1))
+
+    td.toDouble(r.bop.exports) shouldBe (td.toDouble(p.openEcon.exportBase) +- 0.01)
+  }
+
   it should "increase exports with higher automation (ULC effect)" in {
     val r0 = OpenEconomy.step(baseInput(autoRatio = 0.0))
     val r1 = OpenEconomy.step(baseInput(autoRatio = 0.5))

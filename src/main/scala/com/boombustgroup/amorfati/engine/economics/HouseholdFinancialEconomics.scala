@@ -65,17 +65,18 @@ object HouseholdFinancialEconomics:
     // Tourism services export/import (#47)
     val (tourismExport, tourismImport) =
       val exchangeRate   = exchangeRateValue(w.forex.exchangeRate)
+      val monthInt       = month.toInt
       val monthInYear    = month.monthInYear
       val seasonalFactor = 1.0 + toDouble(p.tourism.seasonality) *
         Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
       val inboundErAdj   = Math.pow(exchangeRate / toDouble(p.forex.baseExRate), toDouble(p.tourism.erElasticity))
       val outboundErAdj  = Math.pow(toDouble(p.forex.baseExRate) / exchangeRate, toDouble(p.tourism.erElasticity))
-      val trendAdj       = Math.pow(1.0 + toDouble(p.tourism.growthRate) / 12.0, month.toInt.toDouble)
+      val trendAdj       = Math.pow(1.0 + toDouble(p.tourism.growthRate) / 12.0, monthInt.toDouble)
       val disruption     =
-        if p.tourism.shockMonth > 0 && month.toInt >= p.tourism.shockMonth then
+        if p.tourism.shockMonth > 0 && monthInt >= p.tourism.shockMonth then
           toDouble(p.tourism.shockSize) * Math.pow(
             1.0 - toDouble(p.tourism.shockRecovery),
-            (month.toInt - p.tourism.shockMonth).toDouble,
+            (monthInt - p.tourism.shockMonth).toDouble,
           )
         else 0.0
       val shockFactor    = 1.0 - disruption
