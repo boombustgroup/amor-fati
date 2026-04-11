@@ -28,7 +28,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have Month column = 1..60" in {
-    for t <- 0 until duration do ts(t)(Col.Month.ordinal) shouldBe (t + 1).toDouble
+    for month <- ts.executionMonths do ts.at(month, Col.Month) shouldBe month.toInt.toDouble
   }
 
   it should "keep adoption ratio in [0, 1]" in {

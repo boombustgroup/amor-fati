@@ -145,11 +145,11 @@ object McRunner:
       CsvWriter.write(
         new File("mc", seedFileName(seed, rc)),
         colNames.mkString(";"),
-        0 until result.timeSeries.nMonths,
-      ): t =>
-        val row = result.timeSeries.monthRow(t)
+        result.timeSeries.executionMonths,
+      ): month =>
+        val row = result.timeSeries.monthRow(month)
         val sb  = new StringBuilder
-        sb.append(f"${row(0)}%.0f")
+        sb.append(month.toInt)
         for c <- 1 until nCols do sb.append(f";${row(c)}%.6f")
         sb.toString
 

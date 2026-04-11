@@ -33,12 +33,21 @@ opaque type TimeSeries = Array[Array[Double]]
 object TimeSeries:
   inline def wrap(raw: Array[Array[Double]]): TimeSeries = raw
 
+  private def rowIndex(ts: TimeSeries, month: ExecutionMonth): Int =
+    val idx = month.previousCompleted.toInt
+    require(idx < ts.length, s"ExecutionMonth M${month.toInt} outside TimeSeries of ${ts.length} months")
+    idx
+
   extension (ts: TimeSeries)
     /** Type-safe access: `ts.at(month, Col.Inflation)`. */
-    inline def at(month: Int, col: Col): Double = ts(month)(col.ordinal)
+    inline def at(month: ExecutionMonth, col: Col): Double = ts(rowIndex(ts, month))(col.ordinal)
 
-    /** Raw row for a given month. */
-    inline def monthRow(month: Int): Array[Double] = ts(month)
+    /** Raw row for a realized execution month. */
+    inline def monthRow(month: ExecutionMonth): Array[Double] = ts(rowIndex(ts, month))
+
+    /** Execution months materialized in this series, starting from M1. */
+    def executionMonths: Vector[ExecutionMonth] =
+      Vector.tabulate(ts.length)(offset => ExecutionMonth.First.advanceBy(offset))
 
     /** Last row of the series. */
     inline def lastMonth: Array[Double] = ts(ts.length - 1)
