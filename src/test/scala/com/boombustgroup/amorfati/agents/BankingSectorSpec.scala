@@ -220,7 +220,14 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   "Banking.resolveFailures" should "transfer deposits to healthiest bank" in {
     val banks  = Vector(
       mkBank(id = 0, deposits = PLN(500000.0), loans = PLN(100000.0), capital = PLN(50000.0), govBondHoldings = PLN(10000.0)),
-      mkBank(id = 1, deposits = PLN(300000.0), loans = PLN(80000.0), capital = PLN(0.0), govBondHoldings = PLN(5000.0), status = BankStatus.Failed(ExecutionMonth(30))),
+      mkBank(
+        id = 1,
+        deposits = PLN(300000.0),
+        loans = PLN(80000.0),
+        capital = PLN(0.0),
+        govBondHoldings = PLN(5000.0),
+        status = BankStatus.Failed(ExecutionMonth(30)),
+      ),
     )
     val result = Banking.resolveFailures(banks)
     td.toDouble(result.banks(0).deposits) shouldBe 800000.0 +- 0.01 // absorbed 300k

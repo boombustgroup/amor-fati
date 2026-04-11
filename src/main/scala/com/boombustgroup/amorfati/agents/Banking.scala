@@ -470,8 +470,8 @@ object Banking:
   def checkFailures(
       banks: Vector[BankState],
       month: ExecutionMonth, // execution month (recorded in BankStatus.Failed)
-      enabled: Boolean, // whether failure mechanism is active
-      ccyb: Multiplier, // countercyclical capital buffer
+      enabled: Boolean,      // whether failure mechanism is active
+      ccyb: Multiplier,      // countercyclical capital buffer
   )(using p: SimParams): FailureCheckResult =
     if !enabled then
       FailureCheckResult(

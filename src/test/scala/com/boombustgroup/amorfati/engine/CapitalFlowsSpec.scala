@@ -11,9 +11,9 @@ class CapitalFlowsSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val td    = ComputationBoundary
-  private val gdp   = PLN(100e9)
-  private val carry = CapitalFlows.CarryState.zero
+  private val td     = ComputationBoundary
+  private val gdp    = PLN(100e9)
+  private val carry  = CapitalFlows.CarryState.zero
   private val Month1 = ExecutionMonth.First
 
   "CapitalFlows.compute" should "produce zero adjustment when no shock and spread below threshold" in {

@@ -402,7 +402,14 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "healthiestBankId" should "return bank with highest capital when all fail" in {
     val banks = Vector(
-      mkBank(id = 0, deposits = PLN(500000.0), loans = PLN(100000), capital = PLN(-20000), nplAmount = PLN(50000), status = BankStatus.Failed(ExecutionMonth(3))),
+      mkBank(
+        id = 0,
+        deposits = PLN(500000.0),
+        loans = PLN(100000),
+        capital = PLN(-20000),
+        nplAmount = PLN(50000),
+        status = BankStatus.Failed(ExecutionMonth(3)),
+      ),
       mkBank(id = 1, deposits = PLN(300000.0), loans = PLN(80000), capital = PLN(-5000), nplAmount = PLN(30000), status = BankStatus.Failed(ExecutionMonth(3))),
       mkBank(id = 2, deposits = PLN(200000.0), loans = PLN(60000), capital = PLN(-15000), nplAmount = PLN(20000), status = BankStatus.Failed(ExecutionMonth(3))),
     )
