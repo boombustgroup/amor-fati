@@ -289,6 +289,87 @@ object FlowSimulation:
       seedOut: MonthSemantics.SeedOut,
   )
 
+  /** Full month-step contract.
+    *
+    * `stateIn -> StepOutput(nextState, trace)` is the explicit monthly
+    * boundary. The runtime may still drive this incrementally, but the
+    * architectural shape is a single transition from one [[SimState]] to the
+    * next.
+    */
+  case class StepOutput(
+      stateIn: SimState,
+      calculus: MonthlyCalculus,
+      operationalSignals: OperationalSignals,
+      signalExtraction: SignalExtraction.Output,
+      randomness: MonthRandomness.Contract,
+      flows: Vector[BatchedFlow],
+      execution: ExecutionResult,
+      sfcResult: Sfc.SfcResult,
+      trace: MonthTrace,
+      nextState: SimState,
+  ):
+    def transition: (SimState, MonthTrace) = (nextState, trace)
+
+  /** Single-month explicit public boundary.
+    *
+    * [[com.boombustgroup.amorfati.engine.MonthDriver.unfoldSteps]] is the
+    * preferred runtime entrypoint, but `step` remains public as the narrow
+    * one-month contract used by tests, replay, and diagnostics.
+    */
+  def step(stateIn: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): StepOutput =
+    val input      = StepInput(
+      stateIn,
+      MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn),
+      randomness,
+    )
+    val outcome    = computeMonthOutcome(input)
+    val flows      = emitAllBatches(outcome.stages.value.calculus)
+    val execution  = executeBatches(flows).fold(
+      err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
+      identity,
+    )
+    val nextState  = advanceState(input, outcome.post, outcome.seedOut)
+    val sfcFlows   = buildSfcFlows(outcome.stages, flows, nextState.world.plumbing.fofResidual)
+    val sfcResult  = Sfc.validate(
+      prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
+      curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks),
+      flows = sfcFlows,
+      batches = flows,
+      executionSnapshot = Sfc.ExecutionSnapshot.fromRaw(execution.snapshot),
+      totalWealth = execution.totalWealth,
+    )
+    val monthTrace = buildMonthTrace(
+      input = input,
+      outcome = outcome,
+      nextState = nextState,
+      executedFlows = sfcFlows,
+      sfcResult = sfcResult,
+    )
+
+    StepOutput(
+      stateIn = stateIn,
+      calculus = outcome.stages.value.calculus,
+      operationalSignals = outcome.operational.value,
+      signalExtraction = outcome.seedOut.value,
+      randomness = randomness,
+      flows,
+      execution,
+      sfcResult,
+      trace = monthTrace,
+      nextState = nextState,
+    )
+
+  /** Public API: compute calculus only (for tests that need MonthlyCalculus).
+    */
+  def computeCalculus(state: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): MonthlyCalculus =
+    computeStageOutputs(
+      StepInput(
+        stateIn = state,
+        seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](state.world.seedIn),
+        randomness = randomness,
+      ),
+    ).calculus
+
   /** Compute MonthlyCalculus by chaining all Economics. Uses old pipeline steps
     * for HH/Demand/Firm/PriceEquity (pure calculus). Uses self-contained
     * OpenEconEconomics for monetary/external. Runs BankingEconomics exactly
@@ -298,9 +379,7 @@ object FlowSimulation:
     * Returns typed [[StageOutputs]] so later boundaries do not depend on one
     * broad transport bag.
     */
-  private def computeStageOutputs(
-      input: StepInput,
-  )(using p: SimParams): StageOutputs =
+  private def computeStageOutputs(input: StepInput)(using p: SimParams): StageOutputs =
     val randomness        = input.randomness.stages
     val stateIn           = input.stateIn
     val w                 = stateIn.world
@@ -512,38 +591,6 @@ object FlowSimulation:
     )
     StageOutputs(fiscal, s2, s3, s4, s5, s6, s7, s8, s9, calc)
 
-  /** Public API: compute calculus only (for tests that need MonthlyCalculus).
-    */
-  def computeCalculus(state: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): MonthlyCalculus =
-    computeStageOutputs(
-      StepInput(
-        stateIn = state,
-        seedIn = MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](state.world.seedIn),
-        randomness = randomness,
-      ),
-    ).calculus
-
-  /** Full month-step contract.
-    *
-    * `stateIn -> StepOutput(nextState, trace)` is the explicit monthly
-    * boundary. The runtime may still drive this incrementally, but the
-    * architectural shape is a single transition from one [[SimState]] to the
-    * next.
-    */
-  case class StepOutput(
-      stateIn: SimState,
-      calculus: MonthlyCalculus,
-      operationalSignals: OperationalSignals,
-      signalExtraction: SignalExtraction.Output,
-      randomness: MonthRandomness.Contract,
-      flows: Vector[BatchedFlow],
-      execution: ExecutionResult,
-      sfcResult: Sfc.SfcResult,
-      trace: MonthTrace,
-      nextState: SimState,
-  ):
-    def transition: (SimState, MonthTrace) = (nextState, trace)
-
   private def executeBatches(flows: Vector[BatchedFlow]): Either[String, ExecutionResult] =
     val state = AggregateBatchContract.emptyExecutionState()
     ImperativeInterpreter
@@ -714,10 +761,7 @@ object FlowSimulation:
       ),
     )
 
-  private def assemblePostMonth(
-      input: StepInput,
-      stageView: MonthSemantics.StageView,
-  )(using p: SimParams): MonthSemantics.PostAssembly =
+  private def assemblePostMonth(input: StepInput, stageView: MonthSemantics.StageView)(using p: SimParams): MonthSemantics.PostAssembly =
     val stages    = stageView.value
     val assembled = WorldAssemblyEconomics.computePostMonth(
       WorldAssemblyEconomics.Input(
@@ -751,10 +795,7 @@ object FlowSimulation:
     // This stays at month `t`: the boundary seed is still `seedIn` here.
     MonthSemantics.At[PostMonth, MonthSemantics.Post](PostMonth(assembled, buildTraceInputs(stageView, assembled)))
 
-  private def extractSeedOut(
-      stageView: MonthSemantics.StageView,
-      post: MonthSemantics.PostAssembly,
-  ): MonthSemantics.SeedOut =
+  private def extractSeedOut(stageView: MonthSemantics.StageView, post: MonthSemantics.PostAssembly): MonthSemantics.SeedOut =
     val assembled = post.value.assembled
     val employed  = Household.countEmployed(assembled.households)
     val stages    = stageView.value
@@ -776,9 +817,7 @@ object FlowSimulation:
       ),
     )
 
-  private def computeMonthOutcome(
-      input: StepInput,
-  )(using p: SimParams): MonthOutcome =
+  private def computeMonthOutcome(input: StepInput)(using p: SimParams): MonthOutcome =
     // Keep the month-step pipeline explicit:
     // `seedIn/pre -> same-month stages -> post-month assembly -> seedOut/next-pre`.
     val stageView   = MonthSemantics.At[StageOutputs, MonthSemantics.SameMonth](computeStageOutputs(input))
@@ -847,52 +886,4 @@ object FlowSimulation:
       ),
       executedFlows = executedFlows,
       validations = Vector(MonthValidation.fromSfcResult(sfcResult)),
-    )
-
-  /** Full step: compute calculus → emit flows → assemble new World.
-    *
-    * The internal month-step shape is now explicit:
-    * `stateIn -> StepInput -> MonthOutcome -> nextState`.
-    */
-  def step(stateIn: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): StepOutput =
-    val input      = StepInput(
-      stateIn,
-      MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](stateIn.world.seedIn),
-      randomness,
-    )
-    val outcome    = computeMonthOutcome(input)
-    val flows      = emitAllBatches(outcome.stages.value.calculus)
-    val execution  = executeBatches(flows).fold(
-      err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
-      identity,
-    )
-    val nextState  = advanceState(input, outcome.post, outcome.seedOut)
-    val sfcFlows   = buildSfcFlows(outcome.stages, flows, nextState.world.plumbing.fofResidual)
-    val sfcResult  = Sfc.validate(
-      prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
-      curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks),
-      flows = sfcFlows,
-      batches = flows,
-      executionSnapshot = Sfc.ExecutionSnapshot.fromRaw(execution.snapshot),
-      totalWealth = execution.totalWealth,
-    )
-    val monthTrace = buildMonthTrace(
-      input = input,
-      outcome = outcome,
-      nextState = nextState,
-      executedFlows = sfcFlows,
-      sfcResult = sfcResult,
-    )
-
-    StepOutput(
-      stateIn = stateIn,
-      calculus = outcome.stages.value.calculus,
-      operationalSignals = outcome.operational.value,
-      signalExtraction = outcome.seedOut.value,
-      randomness = randomness,
-      flows,
-      execution,
-      sfcResult,
-      trace = monthTrace,
-      nextState = nextState,
     )

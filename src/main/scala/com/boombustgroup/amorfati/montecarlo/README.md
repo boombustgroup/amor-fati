@@ -20,7 +20,7 @@ Main ──→ McRunner.run(rc)
            │
            ├── for seed ← 1..N:
            │     WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
-           │     Simulation.step  (no McRunConfig)
+           │     MonthDriver.unfoldSteps(...).take(runDurationMonths)
            │     SimOutput.compute  → Array[Double]
            │
            ├── McResults.summarize  → DescriptiveStats per column
@@ -28,8 +28,9 @@ Main ──→ McRunner.run(rc)
 ```
 
 `McRunner.runSingle` is the only bridge between this package and the
-engine — it calls `WorldInit.initialize` and `Simulation.step`, then
-maps the resulting state through `SimOutput.compute`.
+engine — it calls `WorldInit.initialize`, drives the shared
+`MonthDriver.unfoldSteps` iterator, then maps each monthly state
+through `SimOutput.compute`.
 
 `runDurationMonths` is a Monte Carlo/runtime concern. It controls how
 many monthly snapshots the runner materializes, but it is not part of
