@@ -26,8 +26,8 @@ class MonthRandomnessSpec extends AnyFlatSpec with Matchers:
     )
     first.all.map(_.seed).distinct should have size first.all.size
     first.all.map(_.seed) should not equal third.all.map(_.seed)
-    first.stages.openEconEconomics.newStream().nextLong() shouldBe second.stages.openEconEconomics.newStream().nextLong()
-    first.stages.openEconEconomics.newStream().nextLong() should not equal third.stages.openEconEconomics.newStream().nextLong()
-    first.assembly.regionalMigration.newStream().nextDouble() shouldBe second.assembly.regionalMigration.newStream().nextDouble()
-    first.assembly.regionalMigration.newStream().nextDouble() should not equal third.assembly.regionalMigration.newStream().nextDouble()
+    first.stages.openEconEconomics.seed shouldBe second.stages.openEconEconomics.seed
+    first.stages.openEconEconomics.seed should not equal third.stages.openEconEconomics.seed
+    first.assembly.regionalMigration.seed shouldBe second.assembly.regionalMigration.seed
+    first.assembly.regionalMigration.seed should not equal third.assembly.regionalMigration.seed
   }
