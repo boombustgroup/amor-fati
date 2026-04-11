@@ -53,20 +53,20 @@ object McRunner:
 
   /** Pure simulation — returns Either, no side effects. For tests. */
   def runSingle(seed: Long, durationMonths: Int = McRunConfig.DefaultRunDuration)(using p: SimParams): Either[SimError, RunResult] =
-    initSeed(seed).flatMap(loop(_, seed, 0, Vector.empty, durationMonths))
+    initSeed(seed).flatMap: initState =>
+      materializeRun(initState, runtimeSteps(seed, initState).take(durationMonths))
 
   /** Streaming simulation — emits one [[MonthSnapshot]] per month. */
   private def seedStream(seed: Long, durationMonths: Int)(using SimParams) =
     ZStream.unwrap(ZIO.fromEither(initSeed(seed)).map(simulateMonths(seed, _, durationMonths)))
 
   private def simulateMonths(seed: Long, initState: FlowSimulation.SimState, durationMonths: Int)(using p: SimParams) =
-    ZStream.unfoldZIO((initState, 0)):
-      case (_, month) if month >= durationMonths => ZIO.none
-      case (state, month)                        =>
-        ZIO
-          .fromEither(stepMonth(state, seed, month))
-          .map: (newState, monthData) =>
-            Some((MonthSnapshot(month + 1, newState, monthData), (newState, month + 1)))
+    val steps = runtimeSteps(seed, initState).take(durationMonths)
+    ZStream
+      .unfold(steps): iterator =>
+        if iterator.hasNext then Some((iterator.next(), iterator))
+        else None
+      .mapZIO(result => ZIO.fromEither(stepSnapshot(result)))
 
   private def initSeed(seed: Long)(using p: SimParams) =
     val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
@@ -75,37 +75,46 @@ object McRunner:
     if errors.nonEmpty then Left(SimError.Init(errors))
     else Right(FlowSimulation.SimState.fromInit(init))
 
-  private def stepMonth(state: FlowSimulation.SimState, seed: Long, month: Int)(using p: SimParams) =
-    val stepSeed = seed * 10000 + month
-    val result   = engine.flows.FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(stepSeed))
+  private def runtimeSteps(seed: Long, initState: FlowSimulation.SimState)(using p: SimParams): Iterator[FlowSimulation.StepOutput] =
+    MonthDriver.unfoldSteps(initState): state =>
+      Some(MonthRandomness.Contract.fromSeed(runtimeRootSeed(seed, state)))
+
+  private def runtimeRootSeed(seed: Long, state: FlowSimulation.SimState): Long =
+    // Preserve the runtime month-seed convention used before the shared driver.
+    seed * 10000L + state.world.month.toLong
+
+  private def stepSnapshot(result: FlowSimulation.StepOutput)(using p: SimParams): Either[SimError, MonthSnapshot] =
     result.sfcResult match
       case Left(errors) =>
-        Left(SimError.SfcViolation(month + 1, errors))
+        Left(SimError.SfcViolation(result.nextState.world.month, errors))
       case Right(())    =>
         val monthData = SimOutput.compute(
-          month,
+          result.stateIn.world.month,
           result.nextState.world,
           result.nextState.firms,
           result.nextState.households,
           result.nextState.banks,
           result.nextState.householdAggregates,
         )
-        Right((result.nextState, monthData))
+        Right(MonthSnapshot(result.nextState.world.month, result.nextState, monthData))
 
-  @scala.annotation.tailrec
-  private def loop(
-      state: FlowSimulation.SimState,
-      seed: Long,
-      month: Int,
-      monthSeries: Vector[Array[Double]],
-      durationMonths: Int,
+  private def materializeRun(
+      initState: FlowSimulation.SimState,
+      steps: Iterator[FlowSimulation.StepOutput],
   )(using p: SimParams): Either[SimError, RunResult] =
-    if month >= durationMonths then Right(RunResult(TimeSeries.wrap(monthSeries.toArray), state))
-    else
-      stepMonth(state, seed, month) match
-        case Left(err)                    => Left(err)
-        case Right((newState, monthData)) =>
-          loop(newState, seed, month + 1, monthSeries :+ monthData, durationMonths)
+    val monthSeries = Vector.newBuilder[Array[Double]]
+
+    @scala.annotation.tailrec
+    def collect(remaining: Iterator[FlowSimulation.StepOutput], terminal: FlowSimulation.SimState): Either[SimError, RunResult] =
+      if !remaining.hasNext then Right(RunResult(TimeSeries.wrap(monthSeries.result().toArray), terminal))
+      else
+        stepSnapshot(remaining.next()) match
+          case Left(err)       => Left(err)
+          case Right(snapshot) =>
+            monthSeries += snapshot.monthData
+            collect(remaining, snapshot.state)
+
+    collect(steps, initState)
 
   /** Consume a seed stream into RunResult, collecting monthly data. */
   private def materializeSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =

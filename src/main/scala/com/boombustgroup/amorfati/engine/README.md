@@ -22,6 +22,7 @@ engine/
 | `World.scala` | Case class holding all macro state, decomposed into 7 nested types: `SocialState`, `FinancialMarketsState`, `ExternalState`, `RealState`, `MechanismsState`, `MonetaryPlumbingState`, `FlowState`. |
 | `MonthSemantics.scala` | Tiny typed phase markers for the internal month step: pre-seed, same-month operational state, post-assembly state, and next pre-seed extraction. |
 | `MonthRandomness.scala` | Explicit month-step randomness contract: one root seed split into named stage and assembly streams for deterministic replay and auditability. |
+| `MonthDriver.scala` | Shared month-by-month unfold driver over the explicit `FlowSimulation.step` boundary. |
 | `OperationalSignals.scala` | Explicit same-month signal surface for month-`t` operational execution, kept distinct from persisted start-of-month `DecisionSignals`. |
 | `SignalExtraction.scala` | Explicit post-to-pre boundary: derives next-month `DecisionSignals` and typed seed provenance from realized month-`t` outcomes. |
 | `MonthTrace.scala` | Boundary-focused audit artifact with a stable month core (`boundary`, `seedTransition`, `randomness`, validations) plus extensible typed timing envelopes. |
@@ -44,6 +45,9 @@ case class StepOutput(
 )
 
 def step(state: SimState, randomness: MonthRandomness.Contract): StepOutput
+object MonthDriver:
+  type RandomnessSchedule = SimState => Option[MonthRandomness.Contract]
+  def unfoldSteps(initialState: SimState)(schedule: RandomnessSchedule): Iterator[StepOutput]
 ```
 
 Read it as a month transition:
@@ -55,6 +59,7 @@ Read it as a month transition:
 - `signalExtraction` is the dedicated `post -> pre` boundary.
 - `trace` is the emitted audit artifact for month `t`.
 - `nextState` is the typed month `t+1` boundary state.
+- `MonthDriver.unfoldSteps` is the first-class month driver: callers own the explicit randomness schedule, while the engine owns the `stateIn -> step -> nextState` unfold.
 
 ## economics/
 
@@ -83,7 +88,7 @@ against 13 accounting identities each month.
 
 | File | Responsibility |
 |------|----------------|
-| `FlowSimulation.scala` | Sole pipeline entry point. `step(state, randomness)` is the explicit month boundary: it computes typed `StageOutputs`, narrows them into `MonthOutcome`, records monetary flows, emits `MonthTrace`, and returns typed `nextState` for month `t+1`. |
+| `FlowSimulation.scala` | Sole pipeline entry point for one month. `step(state, randomness)` is the explicit month boundary: it computes typed `StageOutputs`, narrows them into `MonthOutcome`, records monetary flows, emits `MonthTrace`, and returns typed `nextState` for month `t+1`. |
 | `FlowMechanism.scala` | Enum of ~80 named flow mechanisms (e.g. `FirmWages`, `HhConsumption`, `BankBfgLevy`). Each flow in the system maps to exactly one mechanism. |
 | `StateAdapter.scala` | Legacy bridge from economics/world state into specific flow inputs. Kept only as transitional adapter code around the newer pipeline. |
 | `ZusFlows.scala` | ZUS/FUS pensions: contributions (HH → FUS), pensions (FUS → HH), gov subvention covering deficit |

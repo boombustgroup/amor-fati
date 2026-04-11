@@ -3,7 +3,15 @@ package com.boombustgroup.amorfati.engine.flows
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthRandomness, MonthSemantics, MonthTimingEnvelopeKey, MonthTimingPayload, MonthTraceStage}
+import com.boombustgroup.amorfati.engine.{
+  DecisionSignals,
+  MonthDriver,
+  MonthRandomness,
+  MonthSemantics,
+  MonthTimingEnvelopeKey,
+  MonthTimingPayload,
+  MonthTraceStage,
+}
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
@@ -93,17 +101,50 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     fromSeed.trace shouldBe fromReplay.trace
   }
 
-  it should "produce SFC == 0L across 12 months (autonomous driving)" in {
+  it should "expose a first-class unfold driver over the monthly step boundary" in {
     val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    var state = FlowSimulation.SimState.fromInit(init)
+    val state = FlowSimulation.SimState.fromInit(init)
+    val steps = MonthDriver
+      .unfoldSteps(state): current =>
+        Some(MonthRandomness.Contract.fromSeed(42L * 1000L + current.world.month.toLong + 1L))
+      .take(3)
+      .toVector
 
-    (1 to 12).foreach { month =>
-      val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
+    steps should have size 3
+    steps.map(_.stateIn.world.month) shouldBe Vector(0, 1, 2)
+    steps.map(_.nextState.world.month) shouldBe Vector(1, 2, 3)
+    steps.foreach(_.sfcResult shouldBe Right(()))
+  }
+
+  it should "stop unfolding when the caller closes the randomness schedule" in {
+    val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state   = FlowSimulation.SimState.fromInit(init)
+    val results = MonthDriver
+      .unfoldSteps(state): current =>
+        Option.when(current.world.month < 2)(MonthRandomness.Contract.fromSeed(42L * 1000L + current.world.month.toLong + 1L))
+      .toVector
+
+    results should have size 2
+    results.map(_.nextState.world.month) shouldBe Vector(1, 2)
+  }
+
+  it should "produce SFC == 0L across 12 months (autonomous driving)" in {
+    val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state   = FlowSimulation.SimState.fromInit(init)
+    val results = MonthDriver
+      .unfoldSteps(state): current =>
+        Some(MonthRandomness.Contract.fromSeed(42L * 1000L + current.world.month.toLong + 1L))
+      .take(12)
+      .toVector
+
+    results should have size 12
+
+    results.foreach { result =>
+      val month = result.nextState.world.month
       withClue(s"Month $month: ") {
         result.execution.totalWealth shouldBe 0L
         result.sfcResult shouldBe Right(())
       }
-      state = result.nextState
     }
   }
 
