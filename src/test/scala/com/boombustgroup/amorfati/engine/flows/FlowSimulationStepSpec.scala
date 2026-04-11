@@ -187,7 +187,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val trace  = result.trace
 
-    val demandSignals = trace.timing.requirePayload[MonthTimingPayload.DemandSignals](MonthTimingEnvelopeKey.DemandSignals)
+    val demandSignals = trace.timing.requirePayload[MonthTimingPayload.DemandSignals](MonthTimingEnvelopeKey.Demand)
 
     trace.executionMonth shouldBe result.executionMonth
     trace.seedTransition.seedIn shouldBe init.world.seedIn
@@ -203,10 +203,10 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     trace.boundary.startSnapshot.inflation shouldBe init.world.inflation
     trace.boundary.endSnapshot.inflation shouldBe result.nextState.world.inflation
     trace.timing.envelopes.map(_.key).toSet shouldBe Set(
-      MonthTimingEnvelopeKey.LaborSignals,
-      MonthTimingEnvelopeKey.DemandSignals,
-      MonthTimingEnvelopeKey.NominalSignals,
-      MonthTimingEnvelopeKey.FirmDynamics,
+      MonthTimingEnvelopeKey.Labor,
+      MonthTimingEnvelopeKey.Demand,
+      MonthTimingEnvelopeKey.Nominal,
+      MonthTimingEnvelopeKey.Firm,
     )
     trace.timing.laborSignals.operationalHiringSlack shouldBe result.nextState.world.pipeline.operationalHiringSlack
     demandSignals.sectorDemandMult shouldBe result.nextState.world.seedIn.sectorDemandMult

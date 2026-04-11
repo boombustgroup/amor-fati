@@ -124,10 +124,10 @@ object MonthBoundarySnapshot:
 
 /** Extensible envelope keys for typed same-month timing artifacts. */
 enum MonthTimingEnvelopeKey:
-  case LaborSignals
-  case DemandSignals
-  case NominalSignals
-  case FirmDynamics
+  case Labor
+  case Demand
+  case Nominal
+  case Firm
 
 /** Marker trait for typed same-month timing payloads. */
 sealed trait MonthTimingPayload
@@ -195,25 +195,25 @@ case class MonthTimingTrace(
       throw new IllegalStateException(s"MonthTimingTrace missing payload ${ct.runtimeClass.getSimpleName} at envelope $key")
 
   def laborSignals: MonthTimingPayload.LaborSignals =
-    requirePayload[MonthTimingPayload.LaborSignals](MonthTimingEnvelopeKey.LaborSignals)
+    requirePayload[MonthTimingPayload.LaborSignals](MonthTimingEnvelopeKey.Labor)
 
   def demandSignals: MonthTimingPayload.DemandSignals =
-    requirePayload[MonthTimingPayload.DemandSignals](MonthTimingEnvelopeKey.DemandSignals)
+    requirePayload[MonthTimingPayload.DemandSignals](MonthTimingEnvelopeKey.Demand)
 
   def nominalSignals: MonthTimingPayload.NominalSignals =
-    requirePayload[MonthTimingPayload.NominalSignals](MonthTimingEnvelopeKey.NominalSignals)
+    requirePayload[MonthTimingPayload.NominalSignals](MonthTimingEnvelopeKey.Nominal)
 
   def firmDynamics: MonthTimingPayload.FirmDynamics =
-    requirePayload[MonthTimingPayload.FirmDynamics](MonthTimingEnvelopeKey.FirmDynamics)
+    requirePayload[MonthTimingPayload.FirmDynamics](MonthTimingEnvelopeKey.Firm)
 
 object MonthTimingTrace:
   def fromInputs(inputs: MonthTimingInputs): MonthTimingTrace =
     MonthTimingTrace(
       Vector(
-        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.LaborSignals, inputs.labor),
-        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.DemandSignals, inputs.demand),
-        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.NominalSignals, inputs.nominal),
-        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.FirmDynamics, inputs.firmDynamics),
+        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.Labor, inputs.labor),
+        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.Demand, inputs.demand),
+        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.Nominal, inputs.nominal),
+        MonthTrace.timingEnvelope(MonthTimingEnvelopeKey.Firm, inputs.firmDynamics),
       ),
     )
 

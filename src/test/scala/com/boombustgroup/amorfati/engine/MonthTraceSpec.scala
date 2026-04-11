@@ -14,21 +14,21 @@ class MonthTraceSpec extends AnyFlatSpec with Matchers:
     val err = intercept[IllegalArgumentException]:
       MonthTimingTrace(
         Vector(
-          MonthTimingEnvelope(MonthTimingEnvelopeKey.LaborSignals, MonthTimingPayload.LaborSignals(Share(0.4))),
-          MonthTimingEnvelope(MonthTimingEnvelopeKey.LaborSignals, MonthTimingPayload.LaborSignals(Share(0.6))),
+          MonthTimingEnvelope(MonthTimingEnvelopeKey.Labor, MonthTimingPayload.LaborSignals(Share(0.4))),
+          MonthTimingEnvelope(MonthTimingEnvelopeKey.Labor, MonthTimingPayload.LaborSignals(Share(0.6))),
         ),
       )
 
     err.getMessage should include("unique envelope keys")
-    err.getMessage should include(MonthTimingEnvelopeKey.LaborSignals.toString)
+    err.getMessage should include(MonthTimingEnvelopeKey.Labor.toString)
   }
 
   it should "fail clearly when a required payload is missing" in {
     val err = intercept[IllegalStateException]:
       MonthTimingTrace(Vector.empty).laborSignals
 
-    err.getMessage should include("LaborSignals")
-    err.getMessage should include(MonthTimingEnvelopeKey.LaborSignals.toString)
+    err.getMessage should include("Labor")
+    err.getMessage should include(MonthTimingEnvelopeKey.Labor.toString)
   }
 
   it should "build typed envelopes from timing inputs in a stable order" in {
@@ -54,10 +54,10 @@ class MonthTraceSpec extends AnyFlatSpec with Matchers:
     )
 
     trace.envelopes.map(_.key) shouldBe Vector(
-      MonthTimingEnvelopeKey.LaborSignals,
-      MonthTimingEnvelopeKey.DemandSignals,
-      MonthTimingEnvelopeKey.NominalSignals,
-      MonthTimingEnvelopeKey.FirmDynamics,
+      MonthTimingEnvelopeKey.Labor,
+      MonthTimingEnvelopeKey.Demand,
+      MonthTimingEnvelopeKey.Nominal,
+      MonthTimingEnvelopeKey.Firm,
     )
     trace.laborSignals.operationalHiringSlack shouldBe Share(0.4)
     trace.demandSignals.sectorDemandMult shouldBe sectorDemandMult
