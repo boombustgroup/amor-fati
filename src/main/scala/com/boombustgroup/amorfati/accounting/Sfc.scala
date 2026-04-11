@@ -208,17 +208,6 @@ object Sfc:
       actual: PLN,
   )
 
-  /** Thrown when SFC validation fails — continuing past a broken identity is
-    * meaningless.
-    */
-  class SfcViolationException(val month: Int, val errors: Vector[SfcIdentityError])
-      extends RuntimeException({
-        import ComputationBoundary.toDouble
-        errors
-          .map(e => f"Month $month ${e.identity}: Δ=${toDouble(e.actual - e.expected)}%.2f — ${e.msg}")
-          .mkString("; ")
-      })
-
   /** Result of SFC validation: Right(()) if all identities hold, Left(errors)
     * otherwise.
     */
