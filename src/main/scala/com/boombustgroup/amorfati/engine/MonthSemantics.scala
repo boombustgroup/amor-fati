@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
-import com.boombustgroup.amorfati.engine.flows.FlowSimulation.{PostMonth, StageOutputs}
+import com.boombustgroup.amorfati.engine.economics.WorldAssemblyEconomics
+import com.boombustgroup.amorfati.engine.flows.FlowSimulation.{MonthlyCalculus, PostMonth, SemanticFlowInputs, SignalBoundaryInputs}
 
 /** Tiny type-level timeline for one monthly engine step.
   *
@@ -44,8 +45,19 @@ object MonthSemantics:
   /** Same-month operational signal surface derived inside the step. */
   type Operational = At[OperationalSignals, SameMonth]
 
-  /** Same-month stage bag kept internal to [[FlowSimulation]]. */
-  type StageView = At[StageOutputs, SameMonth]
+  /** Same-month signal boundary reused by operational, timing, and seed
+    * extraction.
+    */
+  type SignalView = At[SignalBoundaryInputs, SameMonth]
+
+  /** Same-month flow translation plan consumed by batch emission. */
+  type FlowPlan = At[MonthlyCalculus, SameMonth]
+
+  /** Same-month payload narrowed for post-month world assembly. */
+  type PostInputs = At[WorldAssemblyEconomics.StepInput, SameMonth]
+
+  /** Same-month payload narrowed for executed-flow semantic projection. */
+  type SemanticProjection = At[SemanticFlowInputs, SameMonth]
 
   /** Realized post-month assembly before extracting the next seed. */
   type PostAssembly = At[PostMonth, Post]
