@@ -696,14 +696,14 @@ object FlowSimulation:
       batches: Vector[BatchedFlow],
       fofResidual: PLN,
   )(using p: SimParams): Sfc.SemanticFlows =
-    val labor    = semanticProjection.labor
-    val hhIncome = semanticProjection.hhIncome
-    val firms    = semanticProjection.firms
+    val labor       = semanticProjection.labor
+    val hhIncome    = semanticProjection.hhIncome
+    val firms       = semanticProjection.firms
     val hhFinancial = semanticProjection.hhFinancial
-    val prices   = semanticProjection.prices
-    val openEcon = semanticProjection.openEcon
-    val banking  = semanticProjection.banking
-    val evidence = ExecutedBatchEvidence.from(batches)
+    val prices      = semanticProjection.prices
+    val openEcon    = semanticProjection.openEcon
+    val banking     = semanticProjection.banking
+    val evidence    = ExecutedBatchEvidence.from(batches)
     Sfc.SemanticFlows(
       govSpending =
         banking.newGovWithYield.domesticBudgetOutlays + labor.newZus.govSubvention + labor.newNfz.govSubvention + labor.newEarmarked.totalGovSubvention,
@@ -886,9 +886,9 @@ object FlowSimulation:
       input: StepInput,
       outcome: MonthOutcome,
   ): SimState =
-    val assembled = outcome.post.assembled
-    val nextSeed  = outcome.seedOut.nextSeed
-    val nextWorld = assembled.world.updatePipeline(_.withDecisionSignals(nextSeed))
+    val assembled   = outcome.post.assembled
+    val nextSeed    = outcome.seedOut.nextSeed
+    val nextWorld   = assembled.world.updatePipeline(_.withDecisionSignals(nextSeed))
     val currentSeed = input.seedIn.decisionSignals
 
     // `advanceState` is the only legal `post -> next-pre` transition:
