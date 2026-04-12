@@ -95,7 +95,7 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
     val err       = intercept[IllegalArgumentException]:
       p.housing.copy(regionalMarkets = malformed)
 
-    err.getMessage.should(include("regionalValueShares must sum to 1.0"))
+    err.getMessage.should(include("regionalMarkets value shares must sum to 1.0"))
   }
 
   it should "reject regional mortgage shares that do not sum to 1.0" in {
@@ -106,7 +106,7 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
     val err       = intercept[IllegalArgumentException]:
       p.housing.copy(regionalMarkets = malformed)
 
-    err.getMessage.should(include("regionalMortgageShares must sum to 1.0"))
+    err.getMessage.should(include("regionalMarkets mortgage shares must sum to 1.0"))
   }
 
   "Config" should "have FirmsCount = 10000 by default" in {

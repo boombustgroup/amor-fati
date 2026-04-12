@@ -53,16 +53,16 @@ object HousingMarket:
     regions.foreach: rs =>
       require(
         rs.length == NRegions,
-        s"HousingMarket.State.regions must have $NRegions entries in order ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${rs.length}",
+        s"HousingMarket.State.regions must contain $NRegions entries covering markets ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${rs.length}",
       )
       val regionMarkets = rs.map(_.market)
       require(
         regionMarkets.distinct.length == rs.length,
-        s"HousingMarket.State.regions must contain unique markets ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${regionMarkets.map(_.label).mkString(" -> ")}",
+        s"HousingMarket.State.regions must contain unique markets covering ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${regionMarkets.map(_.label).mkString(" -> ")}",
       )
       require(
         regionMarkets.toSet == HousingConfig.RegionalMarket.all.toSet,
-        s"HousingMarket.State.regions must cover markets ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${regionMarkets.map(_.label).mkString(" -> ")}",
+        s"HousingMarket.State.regions must cover all markets ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${regionMarkets.map(_.label).mkString(" -> ")}",
       )
 
   case class MortgageFlows(

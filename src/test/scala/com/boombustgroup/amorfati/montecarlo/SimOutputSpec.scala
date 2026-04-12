@@ -320,5 +320,5 @@ class SimOutputSpec extends AnyFlatSpec with Matchers:
     val err     = intercept[IllegalArgumentException]:
       init.world.real.housing.copy(regions = Some(regions.dropRight(1)))
 
-    err.getMessage.should(include("HousingMarket.State.regions must have 7 entries"))
+    err.getMessage.should(include("HousingMarket.State.regions must contain 7 entries covering markets"))
   }

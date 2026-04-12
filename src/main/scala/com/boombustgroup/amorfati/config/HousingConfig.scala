@@ -96,8 +96,8 @@ case class HousingConfig(
   private val regionalValueShareSum    = regionalMarkets.foldLeft(Share.Zero)((acc, market) => acc + market.valueShare)
   private val regionalMortgageShareSum = regionalMarkets.foldLeft(Share.Zero)((acc, market) => acc + market.mortgageShare)
 
-  require(regionalValueShareSum == Share.One, s"regionalValueShares must sum to 1.0, got $regionalValueShareSum")
-  require(regionalMortgageShareSum == Share.One, s"regionalMortgageShares must sum to 1.0, got $regionalMortgageShareSum")
+  require(regionalValueShareSum == Share.One, s"regionalMarkets value shares must sum to 1.0, got $regionalValueShareSum")
+  require(regionalMortgageShareSum == Share.One, s"regionalMarkets mortgage shares must sum to 1.0, got $regionalMortgageShareSum")
 
 object HousingConfig:
 
