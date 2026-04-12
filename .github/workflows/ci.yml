@@ -25,8 +25,11 @@ jobs:
       - name: Check formatting
         run: sbt scalafmtCheckAll
 
-      - name: Run tests with coverage
-        run: sbt coverage test coverageReport
+      - name: Run unit tests with coverage
+        run: sbt coverage "root / Test / test" coverageReport
+
+      - name: Run integration tests
+        run: sbt "integrationTests / Test / test"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5

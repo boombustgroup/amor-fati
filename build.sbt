@@ -1,20 +1,34 @@
 lazy val ledger = ProjectRef(file("modules/ledger"), "root")
 
+lazy val baseScalacOptions = Seq(
+  "-Werror",
+  "-deprecation",
+  "-feature",
+  "-unchecked",
+  "-explain",
+  "-Wunused:all",
+)
+
+lazy val testDeps = Seq(
+  "org.scalatest"     %% "scalatest"       % "3.2.19"   % Test,
+  "org.scalacheck"    %% "scalacheck"      % "1.18.1"   % Test,
+  "org.scalatestplus" %% "scalacheck-1-18" % "3.2.19.0" % Test,
+  "dev.zio"           %% "zio-test"        % "2.1.16"   % Test,
+  "dev.zio"           %% "zio-test-sbt"    % "2.1.16"   % Test,
+)
+
+lazy val commonProjectSettings = Seq(
+  organization := "com.boombustgroup",
+  scalaVersion := "3.8.2",
+  scalacOptions ++= baseScalacOptions,
+)
+
 lazy val root = project
   .in(file("."))
   .dependsOn(ledger)
+  .settings(commonProjectSettings)
   .settings(
-    organization               := "com.boombustgroup",
     name                       := "amor-fati",
-    scalaVersion               := "3.8.2",
-    scalacOptions ++= Seq(
-      "-Werror",
-      "-deprecation",
-      "-feature",
-      "-unchecked",
-      "-explain",
-      "-Wunused:all",
-    ),
     mainClass                  := Some("com.boombustgroup.amorfati.Main"),
     assembly / assemblyJarName := "amor-fati.jar",
     Compile / resourceGenerators += Def.task {
@@ -31,13 +45,8 @@ lazy val root = project
     libraryDependencies ++= Seq(
       "dev.zio"           %% "zio"             % "2.1.16",
       "dev.zio"           %% "zio-streams"     % "2.1.16",
-      "org.scalatest"     %% "scalatest"       % "3.2.19"   % Test,
-      "org.scalacheck"    %% "scalacheck"      % "1.18.1"   % Test,
-      "org.scalatestplus" %% "scalacheck-1-18" % "3.2.19.0" % Test,
-      "dev.zio"           %% "zio-test"        % "2.1.16"   % Test,
-      "dev.zio"           %% "zio-test-sbt"    % "2.1.16"   % Test,
       "com.github.lalyos"  % "jfiglet"         % "0.0.9",
-    ),
+    ) ++ testDeps,
     Test / testOptions ++= {
       val heavyTag         = "com.boombustgroup.amorfati.tags.Heavy"
       // Local `sbt test` skips @Heavy suites by default.
@@ -51,4 +60,13 @@ lazy val root = project
       if (excludeHeavyByDefault) Seq(Tests.Argument(TestFrameworks.ScalaTest, "-l", heavyTag))
       else Nil
     },
+  )
+
+lazy val integrationTests = project
+  .in(file("integration-tests"))
+  .dependsOn(root)
+  .settings(commonProjectSettings)
+  .settings(
+    name := "amor-fati-integration-tests",
+    libraryDependencies ++= testDeps,
   )

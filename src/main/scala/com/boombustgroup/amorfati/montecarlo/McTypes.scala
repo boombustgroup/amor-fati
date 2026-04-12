@@ -18,6 +18,14 @@ object SimError:
     override def toString: String =
       s"SFC violation at M${month.toInt}:\n${errors.map(e => s"  ${e.identity}: ${e.msg} (expected=${e.expected}, actual=${e.actual}, diff=${(e.actual - e.expected).abs})").mkString("\n")}"
 
+  case class RuntimeFailure(operation: String, details: String) extends SimError:
+    override def toString: String =
+      s"Runtime failure during $operation: $details"
+
+  case class OutputFailure(operation: String, path: String, details: String) extends SimError:
+    override def toString: String =
+      s"Output failure during $operation at $path: $details"
+
 /** Result of a single simulation run. */
 case class RunResult(
     timeSeries: TimeSeries,
