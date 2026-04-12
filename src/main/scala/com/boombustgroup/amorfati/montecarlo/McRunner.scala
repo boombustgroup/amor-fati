@@ -7,9 +7,10 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
+import com.boombustgroup.amorfati.montecarlo.McRunnerConsole.Event
 import com.boombustgroup.amorfati.montecarlo.McTimeseriesSchema.Col
 import zio.stream.ZStream
-import zio.{Clock, Console, ZIO}
+import zio.{Clock, ZIO}
 
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -31,7 +32,7 @@ object McRunner:
     val parallelism = scala.math.max(1, scala.math.min(java.lang.Runtime.getRuntime.availableProcessors(), rc.nSeeds))
     for
       _         <- McOutputFiles.prepareOutputDir(outputDir)
-      _         <- Console.printLine(s"  run-id: ${rc.runId}").mapError(runtimeFailure("print run id"))
+      _         <- McRunnerConsole.emit(Event.RunId(rc.runId))
       t0        <- Clock.currentTime(TimeUnit.MILLISECONDS)
       summaries <- ZStream
         .fromIterable(1L to rc.nSeeds.toLong)
@@ -39,10 +40,10 @@ object McRunner:
           runSeed(seed, rc, outputDir)
         .runCollect
       _         <- McTerminalSummaryCsv.writeAll(rc, outputDir, summaries)
-      _         <- Console.printLine("").mapError(runtimeFailure("print separator"))
-      _         <- printSavedZIO(rc, outputDir)
+      _         <- McRunnerConsole.emit(Event.BlankLine)
+      _         <- McRunnerConsole.emitAll(McOutputFiles.savedFiles(outputDir, rc).map(file => Event.SavedFile(file.getPath)))
       t1        <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      _         <- Console.printLine(f"\nTotal time: ${(t1 - t0) / 1000.0}%.1f seconds").mapError(runtimeFailure("print total time"))
+      _         <- McRunnerConsole.emit(Event.TotalTime((t1 - t0) / 1000.0))
     yield ()
 
   /** Pure simulation — returns Either, no side effects. For tests. */
@@ -120,7 +121,7 @@ object McRunner:
       terminal <- McTimeseriesCsv.writeStreaming(
         McOutputFiles.seedFile(outputDir, seed, rc),
         seedStream(seed, rc.runDurationMonths)
-          .tap(snapshot => printMonthProgressZIO(seed, rc.nSeeds, snapshot.executionMonth, rc.runDurationMonths))
+          .tap(snapshot => McRunnerConsole.emit(monthProgressEvent(seed, rc.nSeeds, snapshot.executionMonth, rc.runDurationMonths)))
           .map(snapshot => SeedTerminalSnapshot(snapshot.executionMonth, snapshot.monthData, snapshot.state)),
         McTimeseriesSchema.csvSchema.contramap(snapshot => (snapshot.executionMonth, snapshot.lastMonthData)),
         SimError.RuntimeFailure(
@@ -129,46 +130,18 @@ object McRunner:
         ),
       )
       et       <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      _        <- printSeedDone(seed, rc.nSeeds, terminal.lastMonthData, et - st)
+      _        <- McRunnerConsole.emit(seedDoneEvent(seed, rc.nSeeds, terminal.lastMonthData, et - st))
     yield McTerminalSummarySchema.fromTerminalState(seed, terminal.terminalState)
 
-  // $COVERAGE-OFF$
-  // I/O: CSV writers, progress, banner
-  private def runtimeFailure(operation: String)(err: Throwable): SimError =
-    SimError.RuntimeFailure(operation, Option(err.getMessage).filter(_.nonEmpty).getOrElse(err.getClass.getSimpleName))
+  private def monthProgressEvent(seed: Long, totalSeeds: Int, month: ExecutionMonth, durationMonths: Int): Event =
+    Event.MonthProgress(seed = seed, totalSeeds = totalSeeds, month = month, durationMonths = durationMonths)
 
-  // ---------------------------------------------------------------------------
-  //  Progress
-  // ---------------------------------------------------------------------------
-
-  private val BarWidth = 20
-
-  private def printMonthProgressZIO(seed: Long, total: Int, month: ExecutionMonth, duration: Int): ZIO[Any, SimError, Unit] =
-    ZIO.attempt(printMonthProgress(seed, total, month, duration)).mapError(runtimeFailure("print month progress"))
-
-  private def printMonthProgress(seed: Long, total: Int, month: ExecutionMonth, duration: Int): Unit =
-    val frac   = month.toInt.toDouble / duration
-    val filled = (frac * BarWidth).toInt
-    val bar    = "\u2588" * filled + "\u2591" * (BarWidth - filled)
-    val pct    = (frac * 100).toInt
-    print(f"\r  Seed $seed%3d/$total [$bar] ${month.toInt}%3d/${duration}m ($pct%3d%%)")
-
-  private def printSeedDone(seed: Long, total: Int, last: Array[Double], dt: Long) =
-    val adopt = last(Col.TotalAdoption.ordinal)
-    val pi    = last(Col.Inflation.ordinal)
-    val unemp = last(Col.Unemployment.ordinal)
-    val bar   = "\u2588" * BarWidth
-    Console
-      .printLine(
-        f"\r  Seed $seed%3d/$total [$bar] done (${dt}ms) | " +
-          f"Adopt=${adopt * 100}%5.1f%% | pi=${pi * 100}%5.1f%% | " +
-          f"Unemp=${unemp * 100}%5.1f%%",
-      )
-      .mapError(runtimeFailure("print seed summary"))
-
-  private def printSavedZIO(rc: McRunConfig, outputDir: File) =
-    ZIO
-      .foreachDiscard(McOutputFiles.savedFiles(outputDir, rc))(file => Console.printLine(s"Saved: ${file.getPath}"))
-      .mapError(runtimeFailure("print saved file paths"))
-
-  // $COVERAGE-ON$
+  private def seedDoneEvent(seed: Long, totalSeeds: Int, lastMonthData: Array[Double], elapsedMillis: Long): Event =
+    Event.SeedDone(
+      seed = seed,
+      totalSeeds = totalSeeds,
+      elapsedMillis = elapsedMillis,
+      adoption = lastMonthData(Col.TotalAdoption.ordinal),
+      inflation = lastMonthData(Col.Inflation.ordinal),
+      unemployment = lastMonthData(Col.Unemployment.ordinal),
+    )
