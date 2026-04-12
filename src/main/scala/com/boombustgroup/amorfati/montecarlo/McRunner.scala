@@ -146,7 +146,8 @@ object McRunner:
       .attemptBlocking:
         if outputDir.exists() then
           if !outputDir.isDirectory then throw java.io.IOException(s"path exists but is not a directory: ${outputDir.getPath}")
-        else if !outputDir.mkdirs() then throw java.io.IOException(s"failed to create output directory: ${outputDir.getPath}")
+        else if !outputDir.mkdirs() && (!outputDir.exists() || !outputDir.isDirectory) then
+          throw java.io.IOException(s"failed to create output directory: ${outputDir.getPath}")
       .mapError(outputFailure("prepare output directory", outputDir))
 
   private def filePrefix(rc: McRunConfig) =
