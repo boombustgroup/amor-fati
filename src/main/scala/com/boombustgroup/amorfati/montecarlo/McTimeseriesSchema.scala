@@ -10,12 +10,14 @@ import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.agents.Region
 
-/** Typed column schema for simulation output.
+import java.util.Locale
+
+/** Typed column schema for Monte Carlo timeseries output.
   *
   * Composable: each group is a `Vector[ColumnDef]`, all composed with `++`.
   * Column handles (`Col`) are derived by name lookup — no mutable counter.
   */
-object SimOutput:
+object McTimeseriesSchema:
 
   private val td                                          = ComputationBoundary
   private def exchangeRateValue(er: ExchangeRate): Double = er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
@@ -32,7 +34,7 @@ object SimOutput:
     sectorSchemaPairs.length == SimParams.SchemaSectorCount &&
       sectorSchemaPairs.map(_._1) == SimParams.SchemaSectorNames &&
       sectorSchemaPairs.map(_._2).distinct.length == sectorSchemaPairs.length,
-    s"SimOutput sector schema must define ${SimParams.SchemaSectorCount} unique (name, stem) pairs, got ${sectorSchemaPairs.mkString(", ")}",
+    s"McTimeseriesSchema sector schema must define ${SimParams.SchemaSectorCount} unique (name, stem) pairs, got ${sectorSchemaPairs.mkString(", ")}",
   )
 
   private val sectorColumns: Vector[SectorColumns] =
@@ -60,7 +62,7 @@ object SimOutput:
   ):
     require(
       world.currentSigmas.length == p.sectorDefs.length,
-      s"SimOutput requires world.currentSigmas to have ${p.sectorDefs.length} entries to match sectorDefs, got ${world.currentSigmas.length}",
+      s"McTimeseriesSchema requires world.currentSigmas to have ${p.sectorDefs.length} entries to match sectorDefs, got ${world.currentSigmas.length}",
     )
 
     given SimParams                                                                                 = p
@@ -627,6 +629,16 @@ object SimOutput:
 
   /** Number of columns — derived from schema. */
   val nCols: Int = schema.length
+
+  private[montecarlo] val csvSchema: McCsvSchema[(ExecutionMonth, Array[Double])] =
+    McCsvSchema(
+      header = colNames.mkString(";"),
+      render = (month, row) =>
+        val sb = new StringBuilder
+        sb.append(month.toInt)
+        for c <- 1 until nCols do sb.append(String.format(Locale.US, ";%.6f", Double.box(row(c))))
+        sb.toString,
+    )
 
   /** Compute one row. Returns Array[Double] for MC aggregation. */
   def compute(

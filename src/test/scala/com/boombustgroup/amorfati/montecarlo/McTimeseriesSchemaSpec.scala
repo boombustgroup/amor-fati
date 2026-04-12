@@ -8,7 +8,7 @@ import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class SimOutputSpec extends AnyFlatSpec with Matchers:
+class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
@@ -257,7 +257,7 @@ class SimOutputSpec extends AnyFlatSpec with Matchers:
   )
 
   private def computeRow(world: World): Array[Double] =
-    SimOutput.compute(
+    McTimeseriesSchema.compute(
       executionMonth = ExecutionMonth.First,
       world = world,
       firms = init.firms,
@@ -267,13 +267,13 @@ class SimOutputSpec extends AnyFlatSpec with Matchers:
     )
 
   private def valueAt(row: Array[Double], name: String): Double =
-    val idx = SimOutput.colNames.indexOf(name)
+    val idx = McTimeseriesSchema.colNames.indexOf(name)
     idx.should(be >= 0)
     row(idx)
 
-  "SimOutput" should "expose the stable schema contract" in {
-    SimOutput.nCols shouldBe 239
-    SimOutput.colNames.toVector shouldBe expectedColNames
+  "McTimeseriesSchema" should "expose the stable schema contract" in {
+    McTimeseriesSchema.nCols shouldBe 239
+    McTimeseriesSchema.colNames.toVector shouldBe expectedColNames
   }
 
   it should "fail fast when currentSigmas does not match the sector schema" in {

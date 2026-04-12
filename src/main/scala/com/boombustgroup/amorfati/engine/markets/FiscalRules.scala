@@ -30,7 +30,7 @@ object FiscalRules:
       status: RuleStatus,           // which rules are binding + diagnostics
   )
 
-  /** Rule compliance status for observability (surfaced in SimOutput). */
+  /** Rule compliance status for observability */
   case class RuleStatus(
       debtToGdp: Share,       // current debt/GDP ratio
       deficitToGdp: Share,    // current deficit/GDP ratio (annualized)
