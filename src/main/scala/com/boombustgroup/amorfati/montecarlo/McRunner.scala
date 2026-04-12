@@ -15,7 +15,9 @@ import com.boombustgroup.amorfati.util.CsvWriter
 import zio.stream.ZStream
 import zio.{Clock, Console, ZIO}
 
+import java.io.BufferedWriter
 import java.io.File
+import java.nio.file.{Files, StandardCopyOption}
 import java.util.concurrent.TimeUnit
 
 /** Monte Carlo runner: simulation loop, per-seed CSV output. */
@@ -23,6 +25,14 @@ object McRunner:
 
   /** Single month snapshot emitted by [[seedStream]]. */
   private case class MonthSnapshot(executionMonth: ExecutionMonth, state: FlowSimulation.SimState, monthData: Array[Double])
+  private enum TerminalSummaryCsv:
+    case Household, Banks
+
+  private case class SeedTerminalOutputs(seed: Long, rowsByCsv: Map[TerminalSummaryCsv, Vector[String]]):
+    def rowsFor(csv: TerminalSummaryCsv): Vector[String] =
+      rowsByCsv.getOrElse(csv, Vector.empty)
+
+  private case class SeedTerminalSnapshot(lastMonthData: Array[Double], terminalState: FlowSimulation.SimState)
 
   /** Run N seeds in parallel, each streaming months via [[seedStream]]. Writes
     * per-seed CSV + aggregated HH/bank CSVs. Fails with [[SimError]].
@@ -31,28 +41,22 @@ object McRunner:
     runZIO(rc, new File("mc"))
 
   private[amorfati] def runZIO(rc: McRunConfig, outputDir: File)(using p: SimParams): ZIO[Any, SimError, Unit] =
-    val parallelism = java.lang.Runtime.getRuntime.availableProcessors()
+    val parallelism = scala.math.max(1, scala.math.min(java.lang.Runtime.getRuntime.availableProcessors(), rc.nSeeds))
     for
-      _       <- prepareOutputDir(outputDir)
-      _       <- Console.printLine(s"  run-id: ${rc.runId}").mapError(runtimeFailure("print run id"))
-      t0      <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      results <- ZStream
+      _         <- prepareOutputDir(outputDir)
+      _         <- Console.printLine(s"  run-id: ${rc.runId}").mapError(runtimeFailure("print run id"))
+      t0        <- Clock.currentTime(TimeUnit.MILLISECONDS)
+      summaries <- ZStream
         .fromIterable(1L to rc.nSeeds.toLong)
         .mapZIOPar(parallelism): seed =>
-          for
-            st        <- Clock.currentTime(TimeUnit.MILLISECONDS)
-            runResult <- materializeSeed(seed, rc)
-            et        <- Clock.currentTime(TimeUnit.MILLISECONDS)
-            _         <- printSeedDone(seed, rc.nSeeds, runResult, et - st)
-            _         <- writeSeedCsv(seed, rc, outputDir, runResult)
-          yield (seed, runResult)
+          runSeed(seed, rc, outputDir)
         .runCollect
-      _       <- writeHhCsv(rc, outputDir, results)
-      _       <- writeBankCsv(rc, outputDir, results)
-      _       <- Console.printLine("").mapError(runtimeFailure("print separator"))
-      _       <- printSavedZIO(rc, outputDir)
-      t1      <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      _       <- Console.printLine(f"\nTotal time: ${(t1 - t0) / 1000.0}%.1f seconds").mapError(runtimeFailure("print total time"))
+      _         <- writeHhCsv(rc, outputDir, summaries)
+      _         <- writeBankCsv(rc, outputDir, summaries)
+      _         <- Console.printLine("").mapError(runtimeFailure("print separator"))
+      _         <- printSavedZIO(rc, outputDir)
+      t1        <- Clock.currentTime(TimeUnit.MILLISECONDS)
+      _         <- Console.printLine(f"\nTotal time: ${(t1 - t0) / 1000.0}%.1f seconds").mapError(runtimeFailure("print total time"))
     yield ()
 
   /** Pure simulation — returns Either, no side effects. For tests. */
@@ -121,21 +125,52 @@ object McRunner:
 
     collect(steps, initState)
 
-  /** Consume a seed stream into RunResult, collecting monthly data. */
-  private def materializeSeed(seed: Long, rc: McRunConfig)(using p: SimParams) =
-    seedStream(seed, rc.runDurationMonths)
-      .tap(s => printMonthProgressZIO(seed, rc.nSeeds, s.executionMonth, rc.runDurationMonths))
-      .runFold((Option.empty[FlowSimulation.SimState], Vector.empty[Array[Double]])):
-        case ((_, series), snapshot) => (Some(snapshot.state), series :+ snapshot.monthData)
-      .flatMap:
-        case (Some(state), series) => ZIO.succeed(RunResult(TimeSeries.wrap(series.toArray), state))
-        case _                     =>
-          ZIO.fail(
-            SimError.RuntimeFailure(
-              "materialize seed",
-              s"seed $seed produced no monthly snapshots for duration ${rc.runDurationMonths}",
-            ),
-          )
+  /** Stream a seed directly to its CSV and retain only the terminal summary
+    * slice needed for aggregate outputs.
+    */
+  private def runSeed(seed: Long, rc: McRunConfig, outputDir: File)(using p: SimParams): ZIO[Any, SimError, SeedTerminalOutputs] =
+    val finalOutputFile = new File(outputDir, seedFileName(seed, rc))
+    val tempOutputFile  = new File(outputDir, s"${seedFileName(seed, rc)}.tmp")
+    val operation       = "write per-seed CSV"
+
+    val writeSeedFile = for
+      st       <- Clock.currentTime(TimeUnit.MILLISECONDS)
+      terminal <- ZIO.scoped {
+        for
+          writer        <- openCsvWriter(tempOutputFile, operation)
+          _             <- writeCsvLine(writer, seedCsvHeader, tempOutputFile, operation)
+          maybeTerminal <- seedStream(seed, rc.runDurationMonths)
+            .tap(snapshot => printMonthProgressZIO(seed, rc.nSeeds, snapshot.executionMonth, rc.runDurationMonths))
+            .runFoldZIO(Option.empty[SeedTerminalSnapshot]): (_, snapshot) =>
+              writeCsvLine(
+                writer,
+                renderSeedCsvRow(snapshot.executionMonth, snapshot.monthData),
+                tempOutputFile,
+                operation,
+              ).as(Some(SeedTerminalSnapshot(snapshot.monthData, snapshot.state)))
+          terminal      <- maybeTerminal match
+            case Some(value) => ZIO.succeed(value)
+            case None        =>
+              ZIO.fail(
+                SimError.RuntimeFailure(
+                  "materialize seed",
+                  s"seed $seed produced no monthly snapshots for duration ${rc.runDurationMonths}",
+                ),
+              )
+        yield terminal
+      }
+      _        <- moveOutputFile(tempOutputFile, finalOutputFile, operation)
+      et       <- Clock.currentTime(TimeUnit.MILLISECONDS)
+      _        <- printSeedDone(seed, rc.nSeeds, terminal.lastMonthData, et - st)
+    yield SeedTerminalOutputs(
+      seed,
+      Map(
+        TerminalSummaryCsv.Household -> Vector(renderHouseholdSummaryRow(seed, terminal.terminalState.householdAggregates)),
+        TerminalSummaryCsv.Banks     -> renderBankSummaryRows(seed, terminal.terminalState.banks),
+      ),
+    )
+
+    writeSeedFile.onError(_ => deleteIfExists(tempOutputFile, operation).ignore)
 
   // ---------------------------------------------------------------------------
   //  Per-seed CSV writer
@@ -163,23 +198,40 @@ object McRunner:
   private def seedFileName(seed: Long, rc: McRunConfig) =
     f"${filePrefix(rc)}_seed${seed}%03d.csv"
 
-  private def writeSeedCsv(seed: Long, rc: McRunConfig, outputDir: File, result: RunResult) =
-    val outputFile = new File(outputDir, seedFileName(seed, rc))
+  private val seedCsvHeader = SimOutput.colNames.mkString(";")
+
+  private def openCsvWriter(outputFile: File, operation: String): ZIO[zio.Scope, SimError, BufferedWriter] =
+    ZIO.fromAutoCloseable(
+      ZIO
+        .attemptBlocking(Files.newBufferedWriter(outputFile.toPath))
+        .mapError(outputFailure(s"open $operation writer", outputFile)),
+    )
+
+  private def writeCsvLine(writer: BufferedWriter, line: String, outputFile: File, operation: String): ZIO[Any, SimError, Unit] =
     ZIO
       .attemptBlocking:
-        val nCols    = SimOutput.nCols
-        val colNames = SimOutput.colNames
-        CsvWriter.write(
-          outputFile,
-          colNames.mkString(";"),
-          result.timeSeries.executionMonths,
-        ): month =>
-          val row = result.timeSeries.monthRow(month)
-          val sb  = new StringBuilder
-          sb.append(month.toInt)
-          for c <- 1 until nCols do sb.append(f";${row(c)}%.6f")
-          sb.toString
-      .mapError(outputFailure("write per-seed CSV", outputFile))
+        writer.write(line)
+        writer.newLine()
+      .mapError(outputFailure(operation, outputFile))
+
+  private def moveOutputFile(tempFile: File, outputFile: File, operation: String): ZIO[Any, SimError, Unit] =
+    ZIO
+      .attemptBlocking:
+        Files.move(tempFile.toPath, outputFile.toPath, StandardCopyOption.REPLACE_EXISTING)
+      .unit
+      .mapError(outputFailure(s"finalize $operation", outputFile))
+
+  private def deleteIfExists(file: File, operation: String): ZIO[Any, SimError, Unit] =
+    ZIO
+      .attemptBlocking(Files.deleteIfExists(file.toPath))
+      .unit
+      .mapError(outputFailure(s"cleanup $operation temp file", file))
+
+  private def renderSeedCsvRow(month: ExecutionMonth, row: Array[Double]) =
+    val sb = new StringBuilder
+    sb.append(month.toInt)
+    for c <- 1 until SimOutput.nCols do sb.append(f";${row(c)}%.6f")
+    sb.toString
 
   // ---------------------------------------------------------------------------
   //  HH + Bank CSV writers (from collected results)
@@ -211,13 +263,14 @@ object McRunner:
 
   private val hhHeader = "Seed;" + hhSchema.map(_._1).mkString(";")
 
-  private def writeHhCsv(rc: McRunConfig, outputDir: File, results: zio.Chunk[(Long, RunResult)]) =
+  private def renderHouseholdSummaryRow(seed: Long, agg: Household.Aggregates): String =
+    s"$seed;" + hhSchema.map(_._2(agg)).mkString(";")
+
+  private def writeHhCsv(rc: McRunConfig, outputDir: File, results: zio.Chunk[SeedTerminalOutputs]) =
     val outputFile = new File(outputDir, s"${filePrefix(rc)}_hh.csv")
     ZIO
       .attemptBlocking:
-        val rows = results.map: (seed, r) =>
-          val agg = r.terminalState.householdAggregates
-          s"$seed;" + hhSchema.map(_._2(agg)).mkString(";")
+        val rows = results.sortBy(_.seed).flatMap(_.rowsFor(TerminalSummaryCsv.Household))
         CsvWriter.write(outputFile, hhHeader, rows)(identity)
       .mapError(outputFailure("write household summary CSV", outputFile))
 
@@ -235,13 +288,15 @@ object McRunner:
 
   private val bankHeader = "Seed;" + bankSchema.map(_._1).mkString(";")
 
-  private def writeBankCsv(rc: McRunConfig, outputDir: File, results: zio.Chunk[(Long, RunResult)]) =
+  private def renderBankSummaryRows(seed: Long, banks: Vector[BankState]): Vector[String] =
+    banks.map: b =>
+      s"$seed;" + bankSchema.map(_._2(b)).mkString(";")
+
+  private def writeBankCsv(rc: McRunConfig, outputDir: File, results: zio.Chunk[SeedTerminalOutputs]) =
     val outputFile = new File(outputDir, s"${filePrefix(rc)}_banks.csv")
     ZIO
       .attemptBlocking:
-        val rows = results.flatMap: (seed, r) =>
-          r.terminalState.banks.map: b =>
-            s"$seed;" + bankSchema.map(_._2(b)).mkString(";")
+        val rows = results.sortBy(_.seed).flatMap(_.rowsFor(TerminalSummaryCsv.Banks))
         CsvWriter.write(outputFile, bankHeader, rows)(identity)
       .mapError(outputFailure("write bank summary CSV", outputFile))
 
@@ -261,8 +316,7 @@ object McRunner:
     val pct    = (frac * 100).toInt
     print(f"\r  Seed $seed%3d/$total [$bar] ${month.toInt}%3d/${duration}m ($pct%3d%%)")
 
-  private def printSeedDone(seed: Long, total: Int, result: RunResult, dt: Long) =
-    val last  = result.timeSeries.lastMonth
+  private def printSeedDone(seed: Long, total: Int, last: Array[Double], dt: Long) =
     val adopt = last(Col.TotalAdoption.ordinal)
     val pi    = last(Col.Inflation.ordinal)
     val unemp = last(Col.Unemployment.ordinal)
