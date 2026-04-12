@@ -337,7 +337,6 @@ object WorldAssemblyEconomics:
 
     InformalResult(taxEvasionLoss, realizedTaxShadowShare, cyclicalAdj, nextTaxShadowShare)
 
-  /** Pre-compute observable values surfaced on World for SimOutput. */
   @boundaryEscape
   private def computeObservables(in: StepInput)(using p: SimParams): Observables =
     import ComputationBoundary.toDouble

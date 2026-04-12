@@ -54,9 +54,9 @@ class McRunnerOutputSpec extends AnyFlatSpec with Matchers:
       val row = result.timeSeries.monthRow(month)
       val sb  = new StringBuilder
       sb.append(month.toInt)
-      for c <- 1 until SimOutput.nCols do sb.append(f";${row(c)}%.6f")
+      for c <- 1 until McTimeseriesSchema.nCols do sb.append(f";${row(c)}%.6f")
       sb.toString
-    SimOutput.colNames.mkString(";") +: rows
+    McTimeseriesSchema.colNames.mkString(";") +: rows
 
   private val householdHeader =
     "Seed;HH_Employed;HH_Unemployed;HH_Retraining;HH_Bankrupt;MeanSavings;MedianSavings;Gini_Individual;" +

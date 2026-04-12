@@ -259,9 +259,7 @@ object MechanismsState:
     expectations = Expectations.initial,
   )
 
-/** NBP monetary plumbing — single-step flows from S8/S9, surfaced for
-  * SimOutput.
-  */
+/** NBP monetary plumbing */
 case class MonetaryPlumbingState(
     reserveInterestTotal: PLN = PLN.Zero, // NBP interest on required reserves
     standingFacilityNet: PLN = PLN.Zero,  // net standing facility income (deposit − Lombard)

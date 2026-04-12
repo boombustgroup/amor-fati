@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.montecarlo
 import com.boombustgroup.amorfati.accounting.{InitCheck, Sfc}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
-import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
+import com.boombustgroup.amorfati.montecarlo.McTimeseriesSchema.Col
 
 /** Zero-cost typed wrappers for Monte Carlo simulation output. */
 

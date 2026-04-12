@@ -1,6 +1,5 @@
 package com.boombustgroup.amorfati.montecarlo
 
-import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import zio.stream.ZStream
 import zio.{Scope, ZIO}
 
@@ -8,24 +7,23 @@ import java.io.BufferedWriter
 import java.io.File
 import java.nio.file.{Files, StandardCopyOption}
 
-private[montecarlo] object McSeedCsv:
+private[montecarlo] object McTimeseriesCsv:
 
   private val operation = "write per-seed CSV"
-  private val header    = SimOutput.colNames.mkString(";")
 
   def writeStreaming[A](
       outputFile: File,
       rows: ZStream[Any, SimError, A],
-      render: A => String,
+      schema: McCsvSchema[A],
       emptyError: => SimError,
   ): ZIO[Any, SimError, A] =
     val tempFile  = new File(s"${outputFile.getPath}.tmp")
     val writeFile = ZIO.scoped:
       for
         writer    <- openWriter(tempFile)
-        _         <- writeLine(writer, header, tempFile)
+        _         <- writeLine(writer, schema.header, tempFile)
         maybeLast <- rows.runFoldZIO(Option.empty[A]): (_, row) =>
-          writeLine(writer, render(row), tempFile).as(Some(row))
+          writeLine(writer, schema.render(row), tempFile).as(Some(row))
         last      <- maybeLast match
           case Some(value) => ZIO.succeed(value)
           case None        => ZIO.fail(emptyError)
@@ -34,12 +32,6 @@ private[montecarlo] object McSeedCsv:
     writeFile
       .tap(_ => finalizeFile(tempFile, outputFile))
       .onError(_ => deleteIfExists(tempFile).ignore)
-
-  def renderMonthRow(month: ExecutionMonth, row: Array[Double]): String =
-    val sb = new StringBuilder
-    sb.append(month.toInt)
-    for c <- 1 until SimOutput.nCols do sb.append(f";${row(c)}%.6f")
-    sb.toString
 
   private def openWriter(outputFile: File): ZIO[Scope, SimError, BufferedWriter] =
     ZIO.fromAutoCloseable(

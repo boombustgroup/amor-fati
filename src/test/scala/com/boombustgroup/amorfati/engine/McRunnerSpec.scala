@@ -3,8 +3,8 @@ package com.boombustgroup.amorfati.engine
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.montecarlo.McRunner.runSingle
-import com.boombustgroup.amorfati.montecarlo.SimOutput
-import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
+import com.boombustgroup.amorfati.montecarlo.McTimeseriesSchema
+import com.boombustgroup.amorfati.montecarlo.McTimeseriesSchema.Col
 import com.boombustgroup.amorfati.montecarlo.TimeSeries
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
@@ -37,9 +37,9 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
     negativeDuration.getMessage should include("runDurationMonths must be > 0")
   }
 
-  "runSingle" should s"produce 60 rows x ${SimOutput.nCols} columns" in {
+  "runSingle" should s"produce 60 rows x ${McTimeseriesSchema.nCols} columns" in {
     ts.nMonths shouldBe duration
-    for row <- ts do row.length shouldBe SimOutput.nCols
+    for row <- ts do row.length shouldBe McTimeseriesSchema.nCols
   }
 
   it should "have Month column = 1..60" in {
@@ -85,7 +85,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   it should "be reproducible with the same seed" in {
     val r2 = runSingle(42, duration).fold(e => fail(e.toString), identity)
-    for t <- 0 until duration; c <- 0 until SimOutput.nCols do row(t)(c) shouldBe row(r2.timeSeries, t)(c)
+    for t <- 0 until duration; c <- 0 until McTimeseriesSchema.nCols do row(t)(c) shouldBe row(r2.timeSeries, t)(c)
   }
 
   // --- Terminal state ---

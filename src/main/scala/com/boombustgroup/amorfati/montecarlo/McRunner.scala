@@ -7,7 +7,7 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
-import com.boombustgroup.amorfati.montecarlo.SimOutput.Col
+import com.boombustgroup.amorfati.montecarlo.McTimeseriesSchema.Col
 import zio.stream.ZStream
 import zio.{Clock, Console, ZIO}
 
@@ -83,7 +83,7 @@ object McRunner:
       case Left(errors) =>
         Left(SimError.SfcViolation(result.executionMonth, errors))
       case Right(())    =>
-        val monthData = SimOutput.compute(
+        val monthData = McTimeseriesSchema.compute(
           result.executionMonth,
           result.nextState.world,
           result.nextState.firms,
@@ -114,15 +114,15 @@ object McRunner:
   /** Stream a seed directly to its CSV and retain only the terminal summary
     * slice needed for aggregate outputs.
     */
-  private def runSeed(seed: Long, rc: McRunConfig, outputDir: File)(using p: SimParams): ZIO[Any, SimError, SeedTerminalOutputs] =
+  private def runSeed(seed: Long, rc: McRunConfig, outputDir: File)(using p: SimParams): ZIO[Any, SimError, McTerminalSummaryRows] =
     for
       st       <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      terminal <- McSeedCsv.writeStreaming(
+      terminal <- McTimeseriesCsv.writeStreaming(
         McOutputFiles.seedFile(outputDir, seed, rc),
         seedStream(seed, rc.runDurationMonths)
           .tap(snapshot => printMonthProgressZIO(seed, rc.nSeeds, snapshot.executionMonth, rc.runDurationMonths))
           .map(snapshot => SeedTerminalSnapshot(snapshot.executionMonth, snapshot.monthData, snapshot.state)),
-        snapshot => McSeedCsv.renderMonthRow(snapshot.executionMonth, snapshot.lastMonthData),
+        McTimeseriesSchema.csvSchema.contramap(snapshot => (snapshot.executionMonth, snapshot.lastMonthData)),
         SimError.RuntimeFailure(
           "materialize seed",
           s"seed $seed produced no monthly snapshots for duration ${rc.runDurationMonths}",
@@ -130,7 +130,7 @@ object McRunner:
       )
       et       <- Clock.currentTime(TimeUnit.MILLISECONDS)
       _        <- printSeedDone(seed, rc.nSeeds, terminal.lastMonthData, et - st)
-    yield McTerminalSummaryCsv.fromTerminalState(seed, terminal.terminalState)
+    yield McTerminalSummarySchema.fromTerminalState(seed, terminal.terminalState)
 
   // $COVERAGE-OFF$
   // I/O: CSV writers, progress, banner
