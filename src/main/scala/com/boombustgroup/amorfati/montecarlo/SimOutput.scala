@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.montecarlo
 
 import com.boombustgroup.amorfati.agents.*
-import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
@@ -19,6 +19,20 @@ object SimOutput:
   private val td                                          = ComputationBoundary
   private def exchangeRateValue(er: ExchangeRate): Double = er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
   private def priceIndexValue(pi: PriceIndex): Double     = pi.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+
+  private case class SectorColumns(expectedSectorName: String, columnStem: String):
+    def autoColName: String  = s"${columnStem}_Auto"
+    def sigmaColName: String = s"${columnStem}_Sigma"
+
+  private val sectorColumnStems: Vector[String] = Vector("BPO", "Manuf", "Retail", "Health", "Public", "Agri")
+
+  require(
+    sectorColumnStems.length == SimParams.SchemaSectorCount,
+    s"SimOutput sector schema must define ${SimParams.SchemaSectorCount} column stems, got ${sectorColumnStems.length}",
+  )
+
+  private val sectorColumns: Vector[SectorColumns] =
+    SimParams.SchemaSectorNames.zip(sectorColumnStems).map((sectorName, columnStem) => SectorColumns(sectorName, columnStem))
 
   // -------------------------------------------------------------------------
   //  ColumnDef + Ctx
@@ -40,21 +54,31 @@ object SimOutput:
       val aliveBanks: Vector[Banking.BankState],
       val p: SimParams,
   ):
+    require(
+      world.currentSigmas.length == p.sectorDefs.length,
+      s"SimOutput requires world.currentSigmas to have ${p.sectorDefs.length} entries to match sectorDefs, got ${world.currentSigmas.length}",
+    )
+
     given SimParams                                          = p
+    private val sectorIndexByName: Map[String, Int]          = p.sectorDefs.iterator.map(_.name).zipWithIndex.map((name, idx) => name -> idx).toMap
     lazy val bankAgg: Banking.Aggregate                      = Banking.aggregateFromBanks(banks)
     lazy val hhAgg: Household.Aggregates                     = householdAggregates
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates] = Some(
       Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding),
     )
     lazy val monthlyGdp: PLN                                 = world.cachedMonthlyGdpProxy
-    lazy val sectorAuto: IndexedSeq[Double]                  = p.sectorDefs.indices.map { s =>
-      val secFirms = living.filter(_.sector.toInt == s)
+    lazy val sectorAuto: Vector[Double]                      = sectorColumns.map { sector =>
+      val sectorIdx = sectorIndexByName(sector.expectedSectorName)
+      val secFirms  = living.filter(_.sector.toInt == sectorIdx)
       if secFirms.isEmpty then 0.0
       else
         secFirms
           .count(f => f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid])
           .toDouble / secFirms.length
     }
+
+    def sectorSigma(idx: Int): Double      = td.toDouble(world.currentSigmas(idx))
+    def housingRegionHpi(idx: Int): Double = world.real.housing.regions.map(rs => td.toDouble(rs(idx).priceIndex)).getOrElse(0.0)
 
     inline def unemployPct: Double = td.toDouble(world.unemploymentRate(hhAgg.employed))
 
@@ -97,28 +121,20 @@ object SimOutput:
     ColumnDef("HybridRatio", ctx => td.toDouble(ctx.world.real.hybridRatio)),
   )
 
-  private def sectoralGroup: Vector[ColumnDef] = Vector(
-    // per-sector automation ratios
-    ColumnDef("BPO_Auto", ctx => ctx.sectorAuto(0)),
-    ColumnDef("Manuf_Auto", ctx => ctx.sectorAuto(1)),
-    ColumnDef("Retail_Auto", ctx => ctx.sectorAuto(2)),
-    ColumnDef("Health_Auto", ctx => ctx.sectorAuto(3)),
-    ColumnDef("Public_Auto", ctx => ctx.sectorAuto(4)),
-    ColumnDef("Agri_Auto", ctx => ctx.sectorAuto(5)),
-    // per-sector current sigma
-    ColumnDef("BPO_Sigma", ctx => td.toDouble(ctx.world.currentSigmas(0))),
-    ColumnDef("Manuf_Sigma", ctx => td.toDouble(ctx.world.currentSigmas(1))),
-    ColumnDef("Retail_Sigma", ctx => td.toDouble(ctx.world.currentSigmas(2))),
-    ColumnDef("Health_Sigma", ctx => td.toDouble(ctx.world.currentSigmas(3))),
-    ColumnDef("Public_Sigma", ctx => td.toDouble(ctx.world.currentSigmas(4))),
-    ColumnDef("Agri_Sigma", ctx => td.toDouble(ctx.world.currentSigmas(5))),
-    ColumnDef("MeanDegree", ctx => ctx.firms.map(_.neighbors.length.toDouble).sum / ctx.firms.length),
-    ColumnDef("IoFlows", ctx => td.toDouble(ctx.world.flows.ioFlows)),
-    ColumnDef(
-      "IoGdpRatio",
-      ctx => if ctx.monthlyGdp > PLN.Zero then td.toDouble(ctx.world.flows.ioFlows) / td.toDouble(ctx.monthlyGdp) else 0.0,
-    ),
-  )
+  private def sectoralGroup: Vector[ColumnDef] =
+    val autoColumns  = sectorColumns.zipWithIndex.map: (sector, idx) =>
+      ColumnDef(sector.autoColName, ctx => ctx.sectorAuto(idx))
+    val sigmaColumns = sectorColumns.zipWithIndex.map: (sector, idx) =>
+      ColumnDef(sector.sigmaColName, ctx => ctx.sectorSigma(idx))
+
+    (autoColumns ++ sigmaColumns ++ Vector(
+      ColumnDef("MeanDegree", ctx => ctx.firms.map(_.neighbors.length.toDouble).sum / ctx.firms.length),
+      ColumnDef("IoFlows", ctx => td.toDouble(ctx.world.flows.ioFlows)),
+      ColumnDef(
+        "IoGdpRatio",
+        ctx => if ctx.monthlyGdp > PLN.Zero then td.toDouble(ctx.world.flows.ioFlows) / td.toDouble(ctx.monthlyGdp) else 0.0,
+      ),
+    )).toVector
 
   private def externalGroup: Vector[ColumnDef] = Vector(
     ColumnDef("NFA", ctx => td.toDouble(ctx.world.bop.nfa)),
@@ -336,65 +352,65 @@ object SimOutput:
     ColumnDef("BailInLoss", ctx => td.toDouble(ctx.world.flows.bailInLoss)),
   )
 
-  private def realGroup: Vector[ColumnDef] = Vector(
-    // Housing Market
-    ColumnDef("HousingPriceIndex", ctx => td.toDouble(ctx.world.real.housing.priceIndex)),
-    ColumnDef("HousingMarketValue", ctx => td.toDouble(ctx.world.real.housing.totalValue)),
-    ColumnDef("MortgageStock", ctx => td.toDouble(ctx.world.real.housing.mortgageStock)),
-    ColumnDef("AvgMortgageRate", ctx => td.toDouble(ctx.world.real.housing.avgMortgageRate)),
-    ColumnDef("MortgageOrigination", ctx => td.toDouble(ctx.world.real.housing.lastOrigination)),
-    ColumnDef("MortgageRepayment", ctx => td.toDouble(ctx.world.real.housing.lastRepayment)),
-    ColumnDef("MortgageDefault", ctx => td.toDouble(ctx.world.real.housing.lastDefault)),
-    ColumnDef("MortgageInterestIncome", ctx => td.toDouble(ctx.world.real.housing.mortgageInterestIncome)),
-    ColumnDef("HhHousingWealth", ctx => td.toDouble(ctx.world.real.housing.hhHousingWealth)),
-    ColumnDef("HousingWealthEffect", ctx => td.toDouble(ctx.world.real.housing.lastWealthEffect)),
-    ColumnDef(
-      "MortgageToGdp",
-      ctx =>
-        if ctx.monthlyGdp > PLN.Zero && ctx.world.real.housing.mortgageStock > PLN.Zero
-        then td.toDouble(ctx.world.real.housing.mortgageStock) / (td.toDouble(ctx.monthlyGdp) * 12.0)
-        else 0.0,
-    ),
-    // Regional Housing Market
-    ColumnDef("WawHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(0).priceIndex)).getOrElse(0.0)),
-    ColumnDef("KrkHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(1).priceIndex)).getOrElse(0.0)),
-    ColumnDef("WroHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(2).priceIndex)).getOrElse(0.0)),
-    ColumnDef("GdnHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(3).priceIndex)).getOrElse(0.0)),
-    ColumnDef("LdzHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(4).priceIndex)).getOrElse(0.0)),
-    ColumnDef("PozHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(5).priceIndex)).getOrElse(0.0)),
-    ColumnDef("RestHpi", ctx => ctx.world.real.housing.regions.map(rs => td.toDouble(rs(6).priceIndex)).getOrElse(0.0)),
-    // Sectoral Labor Mobility
-    ColumnDef("SectorMobilityRate", ctx => td.toDouble(ctx.world.real.sectoralMobility.sectorMobilityRate)),
-    ColumnDef("CrossSectorHires", ctx => ctx.world.real.sectoralMobility.crossSectorHires.toDouble),
-    ColumnDef("VoluntaryQuits", ctx => ctx.world.real.sectoralMobility.voluntaryQuits.toDouble),
-    // Physical Capital
-    ColumnDef("AggCapitalStock", ctx => ctx.living.map(f => td.toDouble(f.capitalStock)).sum),
-    ColumnDef("GrossInvestment", ctx => td.toDouble(ctx.world.real.grossInvestment)),
-    ColumnDef("CapitalDepreciation", ctx => ctx.living.map(f => td.toDouble(f.capitalStock) * td.toDouble(ctx.p.capital.depRates(f.sector.toInt).monthly)).sum),
-    // Inventories
-    ColumnDef("AggInventoryStock", ctx => td.toDouble(ctx.world.flows.aggInventoryStock)),
-    ColumnDef("InventoryChange", ctx => td.toDouble(ctx.world.flows.aggInventoryChange)),
-    ColumnDef(
-      "InventoryToGdp",
-      ctx => if ctx.monthlyGdp > PLN.Zero then td.toDouble(ctx.world.flows.aggInventoryStock) / td.toDouble(ctx.monthlyGdp) else 0.0,
-    ),
-    // Energy / Climate
-    ColumnDef("AggEnergyCost", ctx => td.toDouble(ctx.world.flows.aggEnergyCost)),
-    ColumnDef(
-      "EnergyCostToGdp",
-      ctx => if ctx.monthlyGdp > PLN.Zero then td.toDouble(ctx.world.flows.aggEnergyCost) / td.toDouble(ctx.monthlyGdp) else 0.0,
-    ),
-    ColumnDef("EtsPrice", ctx => ctx.world.real.etsPrice),
-    ColumnDef("AggGreenCapital", ctx => td.toDouble(ctx.world.real.aggGreenCapital)),
-    ColumnDef("GreenInvestment", ctx => td.toDouble(ctx.world.real.aggGreenInvestment)),
-    ColumnDef(
-      "GreenCapitalRatio",
-      ctx => {
-        val aggK = ctx.living.map(f => td.toDouble(f.capitalStock)).sum
-        if ctx.world.real.aggGreenCapital > PLN.Zero && aggK > 0 then td.toDouble(ctx.world.real.aggGreenCapital) / aggK else 0.0
-      },
-    ),
-  )
+  private def realGroup: Vector[ColumnDef] =
+    val regionalHousingColumns = HousingConfig.RegionalMarketSchema.zipWithIndex.map: (region, idx) =>
+      ColumnDef(region.hpiColName, ctx => ctx.housingRegionHpi(idx))
+
+    (Vector(
+      // Housing Market
+      ColumnDef("HousingPriceIndex", ctx => td.toDouble(ctx.world.real.housing.priceIndex)),
+      ColumnDef("HousingMarketValue", ctx => td.toDouble(ctx.world.real.housing.totalValue)),
+      ColumnDef("MortgageStock", ctx => td.toDouble(ctx.world.real.housing.mortgageStock)),
+      ColumnDef("AvgMortgageRate", ctx => td.toDouble(ctx.world.real.housing.avgMortgageRate)),
+      ColumnDef("MortgageOrigination", ctx => td.toDouble(ctx.world.real.housing.lastOrigination)),
+      ColumnDef("MortgageRepayment", ctx => td.toDouble(ctx.world.real.housing.lastRepayment)),
+      ColumnDef("MortgageDefault", ctx => td.toDouble(ctx.world.real.housing.lastDefault)),
+      ColumnDef("MortgageInterestIncome", ctx => td.toDouble(ctx.world.real.housing.mortgageInterestIncome)),
+      ColumnDef("HhHousingWealth", ctx => td.toDouble(ctx.world.real.housing.hhHousingWealth)),
+      ColumnDef("HousingWealthEffect", ctx => td.toDouble(ctx.world.real.housing.lastWealthEffect)),
+      ColumnDef(
+        "MortgageToGdp",
+        ctx =>
+          if ctx.monthlyGdp > PLN.Zero && ctx.world.real.housing.mortgageStock > PLN.Zero
+          then td.toDouble(ctx.world.real.housing.mortgageStock) / (td.toDouble(ctx.monthlyGdp) * 12.0)
+          else 0.0,
+      ),
+    ) ++ regionalHousingColumns ++ Vector(
+      // Sectoral Labor Mobility
+      ColumnDef("SectorMobilityRate", ctx => td.toDouble(ctx.world.real.sectoralMobility.sectorMobilityRate)),
+      ColumnDef("CrossSectorHires", ctx => ctx.world.real.sectoralMobility.crossSectorHires.toDouble),
+      ColumnDef("VoluntaryQuits", ctx => ctx.world.real.sectoralMobility.voluntaryQuits.toDouble),
+      // Physical Capital
+      ColumnDef("AggCapitalStock", ctx => ctx.living.map(f => td.toDouble(f.capitalStock)).sum),
+      ColumnDef("GrossInvestment", ctx => td.toDouble(ctx.world.real.grossInvestment)),
+      ColumnDef(
+        "CapitalDepreciation",
+        ctx => ctx.living.map(f => td.toDouble(f.capitalStock) * td.toDouble(ctx.p.capital.depRates(f.sector.toInt).monthly)).sum,
+      ),
+      // Inventories
+      ColumnDef("AggInventoryStock", ctx => td.toDouble(ctx.world.flows.aggInventoryStock)),
+      ColumnDef("InventoryChange", ctx => td.toDouble(ctx.world.flows.aggInventoryChange)),
+      ColumnDef(
+        "InventoryToGdp",
+        ctx => if ctx.monthlyGdp > PLN.Zero then td.toDouble(ctx.world.flows.aggInventoryStock) / td.toDouble(ctx.monthlyGdp) else 0.0,
+      ),
+      // Energy / Climate
+      ColumnDef("AggEnergyCost", ctx => td.toDouble(ctx.world.flows.aggEnergyCost)),
+      ColumnDef(
+        "EnergyCostToGdp",
+        ctx => if ctx.monthlyGdp > PLN.Zero then td.toDouble(ctx.world.flows.aggEnergyCost) / td.toDouble(ctx.monthlyGdp) else 0.0,
+      ),
+      ColumnDef("EtsPrice", ctx => ctx.world.real.etsPrice),
+      ColumnDef("AggGreenCapital", ctx => td.toDouble(ctx.world.real.aggGreenCapital)),
+      ColumnDef("GreenInvestment", ctx => td.toDouble(ctx.world.real.aggGreenInvestment)),
+      ColumnDef(
+        "GreenCapitalRatio",
+        ctx => {
+          val aggK = ctx.living.map(f => td.toDouble(f.capitalStock)).sum
+          if ctx.world.real.aggGreenCapital > PLN.Zero && aggK > 0 then td.toDouble(ctx.world.real.aggGreenCapital) / aggK else 0.0
+        },
+      ),
+    )).toVector
 
   private def socialGroup: Vector[ColumnDef] = Vector(
     // JST
@@ -579,11 +595,17 @@ object SimOutput:
     val DepositFacilityUsage: Col   = lookup("DepositFacilityUsage")
     val InterbankInterestNet: Col   = lookup("InterbankInterestNet")
 
-    private val sectorAutoNames  = Vector("BPO_Auto", "Manuf_Auto", "Retail_Auto", "Health_Auto", "Public_Auto", "Agri_Auto")
-    private val sectorSigmaNames = Vector("BPO_Sigma", "Manuf_Sigma", "Retail_Sigma", "Health_Sigma", "Public_Sigma", "Agri_Sigma")
+    private val sectorAutoNames  = sectorColumns.map(_.autoColName)
+    private val sectorSigmaNames = sectorColumns.map(_.sigmaColName)
 
-    def sectorAuto(s: Int): Col  = lookup(sectorAutoNames(s))
-    def sectorSigma(s: Int): Col = lookup(sectorSigmaNames(s))
+    private def sectorCol(names: Vector[String], sectorIndex: Int, kind: String): Col =
+      names
+        .lift(sectorIndex)
+        .map(lookup)
+        .getOrElse(throw new IndexOutOfBoundsException(s"$kind sector index must be between 0 and ${names.length - 1}, got $sectorIndex"))
+
+    def sectorAuto(s: Int): Col  = sectorCol(sectorAutoNames, s, "sectorAuto")
+    def sectorSigma(s: Int): Col = sectorCol(sectorSigmaNames, s, "sectorSigma")
 
   extension (c: Col) def ordinal: Int = c
 

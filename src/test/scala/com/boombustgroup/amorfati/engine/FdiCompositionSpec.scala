@@ -114,13 +114,6 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     Firm.isAlive(r.firm) || !Firm.isAlive(r.firm) shouldBe true // always true, no crash
   }
 
-  // --- Integration: output column count ---
-
-  "Output columns" should "have 171 entries in colNames" in
-    // Verify the colNames array in Main matches nCols
-    // We test this indirectly through the integration spec (nCols = 171)
-    succeed
-
   // --- FDI foreign shares calibration ---
 
   "FDI foreign shares" should "have Manufacturing as highest share" in {

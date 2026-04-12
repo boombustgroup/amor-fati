@@ -9,7 +9,7 @@ import com.boombustgroup.amorfati.types.*
   * mortgage origination subject to LTV limits (KNF Recommendation S), mortgage
   * default with unemployment sensitivity, housing wealth effects on
   * consumption, and 7-region disaggregation (Warsaw, Krakow, Wroclaw, Gdansk,
-  * Poznan, Lodz, rest-of-Poland). Calibrated to NBP residential price survey
+  * Lodz, Poznan, rest-of-Poland). Calibrated to NBP residential price survey
   * 2024, KNF Recommendation S, and GUS wage surveys 2024.
   *
   * Stock values (`initValue`, `initMortgage`) are in raw PLN — scaled by
@@ -50,8 +50,8 @@ import com.boombustgroup.amorfati.types.*
   * @param rentalYield
   *   annual rental yield as fraction of property value (Otodom/NBP: ~4.5%)
   * @param regionalHpi
-  *   initial HPI by region (7 regions: Warsaw, Krakow, Wroclaw, Gdansk, Poznan,
-  *   Lodz, rest)
+  *   initial HPI by region (7 regions: Warsaw, Krakow, Wroclaw, Gdansk, Lodz,
+  *   Poznan, rest)
   * @param regionalValueShares
   *   share of total housing value by region (NBP/GUS 2024)
   * @param regionalMortgageShares
@@ -77,7 +77,7 @@ case class HousingConfig(
     mortgageRecovery: Share = Share(0.70),
     wealthMpc: Share = Share(0.05),
     rentalYield: Rate = Rate(0.045),
-    // Regional housing (7 regions: Warsaw, Krakow, Wroclaw, Gdansk, Poznan, Lodz, rest)
+    // Regional housing (7 regions: Warsaw, Krakow, Wroclaw, Gdansk, Lodz, Poznan, rest)
     regionalHpi: Vector[PriceIndex] =
       Vector(PriceIndex(230.0), PriceIndex(190.0), PriceIndex(170.0), PriceIndex(175.0), PriceIndex(110.0), PriceIndex(140.0), PriceIndex(100.0)),
     regionalValueShares: Vector[Share] = Vector(Share(0.25), Share(0.08), Share(0.07), Share(0.08), Share(0.04), Share(0.05), Share(0.43)),
@@ -90,3 +90,40 @@ case class HousingConfig(
   require(ltvMax > Share.Zero && ltvMax <= Share.One, s"ltvMax must be in (0,1]: $ltvMax")
   require(mortgageMaturity > 0, s"mortgageMaturity must be positive: $mortgageMaturity")
   require(initValue >= PLN.Zero, s"initValue must be non-negative: $initValue")
+
+  private def requireRegionalShape[A](label: String, values: Vector[A]): Unit =
+    require(
+      values.length == HousingConfig.RegionalMarketCount,
+      s"$label must have ${HousingConfig.RegionalMarketCount} regions in order ${HousingConfig.RegionalMarketLabels.mkString(" -> ")}, got ${values.length}",
+    )
+
+  requireRegionalShape("regionalHpi", regionalHpi)
+  requireRegionalShape("regionalValueShares", regionalValueShares)
+  requireRegionalShape("regionalMortgageShares", regionalMortgageShares)
+  requireRegionalShape("regionalGammas", regionalGammas)
+  requireRegionalShape("regionalIncomeMult", regionalIncomeMult)
+
+  private val regionalValueShareSum    = regionalValueShares.foldLeft(Share.Zero)(_ + _)
+  private val regionalMortgageShareSum = regionalMortgageShares.foldLeft(Share.Zero)(_ + _)
+
+  require(regionalValueShareSum == Share.One, s"regionalValueShares must sum to 1.0, got $regionalValueShareSum")
+  require(regionalMortgageShareSum == Share.One, s"regionalMortgageShares must sum to 1.0, got $regionalMortgageShareSum")
+
+object HousingConfig:
+
+  private[amorfati] final case class RegionalMarket(columnPrefix: String, label: String):
+    def hpiColName: String = s"${columnPrefix}Hpi"
+
+  private[amorfati] val RegionalMarketSchema: Vector[RegionalMarket] =
+    Vector(
+      RegionalMarket("Waw", "Warsaw"),
+      RegionalMarket("Krk", "Krakow"),
+      RegionalMarket("Wro", "Wroclaw"),
+      RegionalMarket("Gdn", "Gdansk"),
+      RegionalMarket("Ldz", "Lodz"),
+      RegionalMarket("Poz", "Poznan"),
+      RegionalMarket("Rest", "Rest of Poland"),
+    )
+
+  private[amorfati] val RegionalMarketCount: Int             = RegionalMarketSchema.length
+  private[amorfati] val RegionalMarketLabels: Vector[String] = RegionalMarketSchema.map(_.label)

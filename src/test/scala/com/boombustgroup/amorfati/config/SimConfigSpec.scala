@@ -34,6 +34,28 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
     )
   }
 
+  it should "reject schema-breaking sector count changes" in {
+    val err = intercept[IllegalArgumentException]:
+      SimParams.validateSectorSchema(p.sectorDefs.dropRight(1))
+
+    err.getMessage.should(include("sectorDefs must have 6 schema sectors"))
+  }
+
+  it should "reject schema-breaking sector reordering" in {
+    val reordered = Vector(p.sectorDefs(1), p.sectorDefs(0)) ++ p.sectorDefs.drop(2)
+    val err       = intercept[IllegalArgumentException]:
+      SimParams.validateSectorSchema(reordered)
+
+    err.getMessage.should(include("sectorDefs must preserve schema order"))
+  }
+
+  "HousingConfig" should "reject malformed regional vectors" in {
+    val err = intercept[IllegalArgumentException]:
+      p.housing.copy(regionalHpi = p.housing.regionalHpi.dropRight(1))
+
+    err.getMessage.should(include("regionalHpi must have 7 regions"))
+  }
+
   "Config" should "have FirmsCount = 10000 by default" in {
     // Only true when FIRMS_COUNT env var is unset
     if sys.env.get("FIRMS_COUNT").isEmpty then p.pop.firmsCount shouldBe 10000

@@ -83,13 +83,36 @@ case class SimParams private (
     sectorDefs: Vector[SectorDef] = SimParams.DefaultSectorDefs,
     topology: Topology = Topology.Ws,
     gdpRatio: Scalar = SimParams.DefaultGdpRatio, // scaling coefficient — computation boundary, not SFC flow
-)
+):
+  SimParams.validateSectorSchema(sectorDefs)
 
 object SimParams:
 
   // ── Sector definitions (6-sector Polish economy, GUS 2024) ──
 
   import com.boombustgroup.amorfati.types.*
+
+  private[amorfati] val SchemaSectorNames: Vector[String] =
+    Vector(
+      "BPO/SSC",
+      "Manufacturing",
+      "Retail/Services",
+      "Healthcare",
+      "Public",
+      "Agriculture",
+    )
+
+  private[amorfati] val SchemaSectorCount: Int = SchemaSectorNames.length
+
+  private[amorfati] def validateSectorSchema(sectorDefs: Vector[SectorDef]): Unit =
+    require(
+      sectorDefs.length == SchemaSectorCount,
+      s"sectorDefs must have $SchemaSectorCount schema sectors in order ${SchemaSectorNames.mkString(" -> ")}, got ${sectorDefs.length}",
+    )
+    require(
+      sectorDefs.map(_.name) == SchemaSectorNames,
+      s"sectorDefs must preserve schema order ${SchemaSectorNames.mkString(" -> ")}, got ${sectorDefs.map(_.name).mkString(" -> ")}",
+    )
 
   /** Default 6-sector definitions calibrated to GUS 2024.
     *

@@ -6,12 +6,12 @@ schema, summary statistics, and CSV I/O. It is the only consumer of
 
 ## Files
 
-| File | Object | Role |
-|------|--------|------|
-| `McRunner.scala` | `McRunner` | MC loop: runs N seeds, collects results, writes CSV, prints summary |
-| `McRunConfig.scala` | `McRunConfig` | Runtime config from CLI args: `nSeeds`, `outputPrefix`, `runDurationMonths`, `runId` |
-| `SimOutput.scala` | `SimOutput` | 197-column output schema — typed `Col` definitions, `compute` function |
-| `McTypes.scala` | `RunResult`, `TimeSeries`, `DescriptiveStats`, `McResults` | Zero-cost typed wrappers for simulation output and summary statistics |
+| File | Object | Role                                                                                                       |
+|------|--------|------------------------------------------------------------------------------------------------------------|
+| `McRunner.scala` | `McRunner` | MC loop: runs N seeds, collects results, writes CSV, prints summary                                        |
+| `McRunConfig.scala` | `McRunConfig` | Runtime config from CLI args: `nSeeds`, `outputPrefix`, `runDurationMonths`, `runId`                       |
+| `SimOutput.scala` | `SimOutput` | 239-column output schema with explicit sector/region contracts — typed `Col` definitions, `compute` function |
+| `McTypes.scala` | `RunResult`, `TimeSeries`, `DescriptiveStats`, `McResults` | Zero-cost typed wrappers for simulation output and summary statistics                                      |
 
 ## Data flow
 

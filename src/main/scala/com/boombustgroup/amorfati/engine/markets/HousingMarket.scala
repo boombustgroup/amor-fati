@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.markets
 
-import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.Distribute
 
@@ -23,7 +23,7 @@ object HousingMarket:
 
   private val MinHousingValueForIncomeRatio = PLN.fromLong(1000)
 
-  val NRegions = 7
+  val NRegions = HousingConfig.RegionalMarketCount
 
   case class RegionalState(
       priceIndex: PriceIndex,
@@ -48,7 +48,12 @@ object HousingMarket:
       monthlyReturn: Rate,
       mortgageInterestIncome: PLN,
       regions: Option[Vector[RegionalState]] = None,
-  )
+  ):
+    regions.foreach: rs =>
+      require(
+        rs.length == NRegions,
+        s"HousingMarket.State.regions must have $NRegions entries in order ${HousingConfig.RegionalMarketLabels.mkString(" -> ")}, got ${rs.length}",
+      )
 
   case class MortgageFlows(
       interest: PLN,
