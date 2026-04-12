@@ -82,7 +82,7 @@ object SimOutput:
     }
     lazy val housingRegionsByMarket: Map[HousingConfig.RegionalMarket, HousingMarket.RegionalState] =
       world.real.housing.regions
-        .map(_.zip(HousingConfig.RegionalMarket.all).map((state, market) => market -> state).toMap)
+        .map(_.iterator.map(state => state.market -> state).toMap)
         .getOrElse(Map.empty)
 
     def sectorSigma(idx: Int): Double                                  = td.toDouble(world.currentSigmas(idx))

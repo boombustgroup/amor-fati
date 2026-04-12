@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.montecarlo
 
-import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -292,11 +292,19 @@ class SimOutputSpec extends AnyFlatSpec with Matchers:
     valueAt(updatedRow, "BPO_Sigma") shouldBe valueAt(computeRow(init.world), "BPO_Sigma")
   }
 
-  it should "map regional HPI columns using the documented Lodz-before-Poznan order" in {
-    val regions    = init.world.real.housing.regions.getOrElse(fail("expected initialized regional housing data"))
-    val updated    = regions.zipWithIndex.map: (region, idx) =>
-      region.copy(priceIndex = PriceIndex(101.0 + idx.toDouble))
-    val updatedRow = computeRow(init.world.copy(real = init.world.real.copy(housing = init.world.real.housing.copy(regions = Some(updated)))))
+  it should "map regional HPI columns by market identity and preserve schema order" in {
+    val regions     = init.world.real.housing.regions.getOrElse(fail("expected initialized regional housing data"))
+    val hpiByMarket = Map(
+      HousingConfig.RegionalMarket.Warsaw       -> 101.0,
+      HousingConfig.RegionalMarket.Krakow       -> 102.0,
+      HousingConfig.RegionalMarket.Wroclaw      -> 103.0,
+      HousingConfig.RegionalMarket.Gdansk       -> 104.0,
+      HousingConfig.RegionalMarket.Lodz         -> 105.0,
+      HousingConfig.RegionalMarket.Poznan       -> 106.0,
+      HousingConfig.RegionalMarket.RestOfPoland -> 107.0,
+    )
+    val updated     = regions.reverse.map(region => region.copy(priceIndex = PriceIndex(hpiByMarket(region.market))))
+    val updatedRow  = computeRow(init.world.copy(real = init.world.real.copy(housing = init.world.real.housing.copy(regions = Some(updated)))))
 
     valueAt(updatedRow, "WawHpi") shouldBe 101.0
     valueAt(updatedRow, "KrkHpi") shouldBe 102.0

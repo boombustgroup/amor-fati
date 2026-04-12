@@ -26,6 +26,7 @@ object HousingMarket:
   val NRegions = HousingConfig.RegionalMarket.count
 
   case class RegionalState(
+      market: HousingConfig.RegionalMarket,
       priceIndex: PriceIndex,
       totalValue: PLN,
       mortgageStock: PLN,
@@ -54,6 +55,15 @@ object HousingMarket:
         rs.length == NRegions,
         s"HousingMarket.State.regions must have $NRegions entries in order ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${rs.length}",
       )
+      val regionMarkets = rs.map(_.market)
+      require(
+        regionMarkets.distinct.length == rs.length,
+        s"HousingMarket.State.regions must contain unique markets ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${regionMarkets.map(_.label).mkString(" -> ")}",
+      )
+      require(
+        regionMarkets.toSet == HousingConfig.RegionalMarket.all.toSet,
+        s"HousingMarket.State.regions must cover markets ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${regionMarkets.map(_.label).mkString(" -> ")}",
+      )
 
   case class MortgageFlows(
       interest: PLN,
@@ -72,6 +82,9 @@ object HousingMarket:
   )
 
   private case class PriceUpdate(value: PLN, hpi: PriceIndex, monthlyReturn: Rate)
+
+  private def regionsByMarket(regs: Vector[RegionalState]): Map[HousingConfig.RegionalMarket, RegionalState] =
+    regs.iterator.map(region => region.market -> region).toMap
 
   def zero: State = State(
     priceIndex = PriceIndex.Zero,
@@ -105,11 +118,12 @@ object HousingMarket:
     )
 
   private def initRegions(using p: SimParams): Vector[RegionalState] =
-    p.housing.regionalMarkets.map: market =>
+    p.housing.regionalMarkets.map: marketConfig =>
       RegionalState(
-        priceIndex = market.initHpi,
-        totalValue = p.housing.initValue * market.valueShare,
-        mortgageStock = p.housing.initMortgage * market.mortgageShare,
+        market = marketConfig.market,
+        priceIndex = marketConfig.initHpi,
+        totalValue = p.housing.initValue * marketConfig.valueShare,
+        mortgageStock = p.housing.initMortgage * marketConfig.mortgageShare,
         lastOrigination = PLN.Zero,
         lastRepayment = PLN.Zero,
         lastDefault = PLN.Zero,
@@ -127,13 +141,13 @@ object HousingMarket:
       regs: Vector[RegionalState],
       rateChange: Rate,
   )(using p: SimParams): State =
-    val updatedRegions = regs
-      .zip(p.housing.regionalMarkets)
-      .map: (reg, market) =>
-        val gamma          = market.gamma
-        val regionalGrowth = in.incomeGrowth * market.incomeMultiplier
-        val update         = meenPriceUpdate(reg.totalValue, reg.priceIndex, gamma, regionalGrowth, rateChange, in.mortgageRate)
-        reg.copy(priceIndex = update.hpi, totalValue = update.value, monthlyReturn = update.monthlyReturn)
+    val priorRegionsByMarket = regionsByMarket(regs)
+    val updatedRegions       = p.housing.regionalMarkets.map: marketConfig =>
+      val reg            = priorRegionsByMarket(marketConfig.market)
+      val gamma          = marketConfig.gamma
+      val regionalGrowth = in.incomeGrowth * marketConfig.incomeMultiplier
+      val update         = meenPriceUpdate(reg.totalValue, reg.priceIndex, gamma, regionalGrowth, rateChange, in.mortgageRate)
+      reg.copy(priceIndex = update.hpi, totalValue = update.value, monthlyReturn = update.monthlyReturn)
     aggregateFromRegions(in.prev, updatedRegions, in.mortgageRate)
 
   private def stepAggregate(in: StepInput, rateChange: Rate)(using p: SimParams): State =
@@ -157,17 +171,16 @@ object HousingMarket:
       regions: Vector[RegionalState],
       mortgageRate: Rate,
   )(using p: SimParams): State =
-    val aggValue  = sumPln(regions.map(_.totalValue))
-    val aggHpi    =
+    val aggValue            = sumPln(regions.map(_.totalValue))
+    val valueSharesByMarket = p.housing.regionalMarkets.iterator.map(marketConfig => marketConfig.market -> marketConfig.valueShare).toMap
+    val aggHpi              =
       if aggValue > PLN.Zero then
         regions
-          .zip(p.housing.regionalMarkets)
-          .foldLeft(Multiplier.Zero): (acc, regMarket) =>
-            val (reg, market) = regMarket
-            acc + (market.valueShare * reg.priceIndex.toMultiplier)
+          .foldLeft(Multiplier.Zero): (acc, reg) =>
+            acc + (valueSharesByMarket(reg.market) * reg.priceIndex.toMultiplier)
           .toPriceIndex
       else prev.priceIndex
-    val aggReturn =
+    val aggReturn           =
       if prev.priceIndex > PriceIndex.Zero then aggHpi.ratioTo(prev.priceIndex).toMultiplier.deviationFromOne.toRate
       else Rate.Zero
     prev.copy(
@@ -249,18 +262,23 @@ object HousingMarket:
       regs: Vector[RegionalState],
       origination: PLN,
   )(using p: SimParams): State =
-    val distributed         = Distribute.distribute(origination.distributeRaw, p.housing.regionalMarkets.map(_.valueShare.distributeRaw).toArray)
-    val updatedRegions      = regs
+    val distributed          = Distribute.distribute(origination.distributeRaw, p.housing.regionalMarkets.map(_.valueShare.distributeRaw).toArray)
+    val priorRegionsByMarket = regionsByMarket(regs)
+    val allocatedByMarket    = p.housing.regionalMarkets.iterator
       .zip(distributed.iterator)
-      .map: (reg, allocatedRaw) =>
-        val regionalRaw      = PLN.fromRaw(allocatedRaw)
-        val regionalHeadroom = (reg.totalValue * p.housing.ltvMax - reg.mortgageStock).max(PLN.Zero)
-        val regionalOrig     = regionalRaw.min(regionalHeadroom)
-        reg.copy(
-          mortgageStock = reg.mortgageStock + regionalOrig,
-          lastOrigination = regionalOrig,
-        )
-    val realizedOrigination = updatedRegions.foldLeft(PLN.Zero)(_ + _.lastOrigination)
+      .map: (marketConfig, allocatedRaw) =>
+        marketConfig.market -> PLN.fromRaw(allocatedRaw)
+      .toMap
+    val updatedRegions       = p.housing.regionalMarkets.map: marketConfig =>
+      val reg              = priorRegionsByMarket(marketConfig.market)
+      val regionalRaw      = allocatedByMarket(marketConfig.market)
+      val regionalHeadroom = (reg.totalValue * p.housing.ltvMax - reg.mortgageStock).max(PLN.Zero)
+      val regionalOrig     = regionalRaw.min(regionalHeadroom)
+      reg.copy(
+        mortgageStock = reg.mortgageStock + regionalOrig,
+        lastOrigination = regionalOrig,
+      )
+    val realizedOrigination  = updatedRegions.foldLeft(PLN.Zero)(_ + _.lastOrigination)
     prev.copy(
       mortgageStock = prev.mortgageStock + realizedOrigination,
       lastOrigination = realizedOrigination,
@@ -308,16 +326,21 @@ object HousingMarket:
       val weights         = regs.map(_.mortgageStock.distributeRaw).toArray
       val distributedPrin = Distribute.distribute(flows.principal.distributeRaw, weights)
       val distributedDef  = Distribute.distribute(flows.defaultAmount.distributeRaw, weights)
-      regs.zip(distributedPrin.iterator).zip(distributedDef.iterator).map { case ((reg, principalRaw), defaultRaw) =>
-        val rPrincipal = PLN.fromRaw(principalRaw)
-        val rDefault   = PLN.fromRaw(defaultRaw)
-        val rStock     = (reg.mortgageStock - rPrincipal - rDefault).max(PLN.Zero)
-        reg.copy(
-          mortgageStock = rStock,
-          lastRepayment = rPrincipal,
-          lastDefault = rDefault,
-        )
-      }
+      val updatedByMarket = regs
+        .zip(distributedPrin.iterator)
+        .zip(distributedDef.iterator)
+        .map { case ((reg, principalRaw), defaultRaw) =>
+          val rPrincipal = PLN.fromRaw(principalRaw)
+          val rDefault   = PLN.fromRaw(defaultRaw)
+          val rStock     = (reg.mortgageStock - rPrincipal - rDefault).max(PLN.Zero)
+          reg.market -> reg.copy(
+            mortgageStock = rStock,
+            lastRepayment = rPrincipal,
+            lastDefault = rDefault,
+          )
+        }
+        .toMap
+      HousingConfig.RegionalMarket.all.map(updatedByMarket)
 
   private def sumPln(values: Vector[PLN]): PLN =
     values.foldLeft(PLN.Zero)(_ + _)

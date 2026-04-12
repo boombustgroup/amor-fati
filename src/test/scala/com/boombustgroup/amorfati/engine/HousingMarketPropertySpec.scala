@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
-import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.markets.HousingMarket
 import com.boombustgroup.amorfati.types.*
 import org.scalacheck.Gen
@@ -147,6 +147,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   private def makeRegionalState(aggValue: PLN, aggMortgage: PLN): HousingMarket.State =
     val regions = (0 until 7).map { r =>
       HousingMarket.RegionalState(
+        market = HousingConfig.RegionalMarket.all(r),
         priceIndex = priceIndex(hpis(r)),
         totalValue = valueShares(r) * aggValue,
         mortgageStock = mortgageShares(r) * aggMortgage,

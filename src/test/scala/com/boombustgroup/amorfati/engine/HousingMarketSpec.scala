@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
-import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.markets.HousingMarket
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -16,10 +16,10 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
   private def pln(units: Long): PLN                                                  = PLN.fromLong(units)
   private def rateBps(bps: Long): Rate                                               = Rate.fromRaw(bps)
   private def priceIndex(points: Long): PriceIndex                                   = PriceIndex.fromRaw(points * 10000L)
-  private def shouldBeClosePln(actual: PLN, expected: PLN, tolerance: PLN): Unit     =
-    (actual - expected).abs should be <= tolerance
-  private def shouldBeCloseRate(actual: Rate, expected: Rate, tolerance: Rate): Unit =
-    (actual - expected).abs should be <= tolerance
+  private def shouldBeClosePln(actual: PLN, expected: PLN, tolerance: PLN): Unit     = (actual - expected).abs should be <= tolerance
+  private def shouldBeCloseRate(actual: Rate, expected: Rate, tolerance: Rate): Unit = (actual - expected).abs should be <= tolerance
+  private def regionsByMarket(state: HousingMarket.State)                            = state.regions.get.iterator.map(region => region.market -> region).toMap
+  private def swapFirstTwo[A](items: Vector[A]): Vector[A]                           = items.updated(0, items(1)).updated(1, items(0))
 
   private val initState = HousingMarket.State(
     priceIndex = priceIndex(100),
@@ -163,6 +163,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     val hpis           = Vector(230L, 190L, 170L, 175L, 110L, 140L, 100L)
     val regions        = (0 until 7).map { r =>
       HousingMarket.RegionalState(
+        market = HousingConfig.RegionalMarket.all(r),
         priceIndex = priceIndex(hpis(r)),
         totalValue = valueShares(r) * aggValue,
         mortgageStock = mortgageShares(r) * aggMortgage,
@@ -285,4 +286,46 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     )
 
     result.regions.get.map(_.lastOrigination).sum shouldBe result.lastOrigination
+  }
+
+  it should "align regional price updates by market identity when input order changes" in {
+    val state         = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
+    val shuffledState = state.copy(regions = Some(swapFirstTwo(state.regions.get)))
+    val input         = HousingMarket.StepInput(
+      prev = state,
+      mortgageRate = rateBps(760),
+      inflation = Rate.Zero,
+      incomeGrowth = rateBps(60),
+      employed = 1,
+      prevMortgageRate = rateBps(800),
+    )
+    val baseline      = HousingMarket.step(input)
+    val shuffled      = HousingMarket.step(input.copy(prev = shuffledState))
+
+    val baselineByMarket = regionsByMarket(baseline)
+    val shuffledByMarket = regionsByMarket(shuffled)
+    HousingConfig.RegionalMarket.all.foreach { market =>
+      shuffledByMarket(market).priceIndex shouldBe baselineByMarket(market).priceIndex
+      shuffledByMarket(market).totalValue shouldBe baselineByMarket(market).totalValue
+      shuffledByMarket(market).monthlyReturn shouldBe baselineByMarket(market).monthlyReturn
+    }
+    shuffled.priceIndex shouldBe baseline.priceIndex
+    shuffled.totalValue shouldBe baseline.totalValue
+  }
+
+  "HousingMarket.processOrigination" should "align regional allocations by market identity when input order changes" in {
+    val state         = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
+    val shuffledState = state.copy(regions = Some(swapFirstTwo(state.regions.get)))
+    val totalIncome   = pln(100_000_000)
+    val baseline      = HousingMarket.processOrigination(state, totalIncome, rateBps(800), bankCapacity = true)
+    val shuffled      = HousingMarket.processOrigination(shuffledState, totalIncome, rateBps(800), bankCapacity = true)
+
+    val baselineByMarket = regionsByMarket(baseline)
+    val shuffledByMarket = regionsByMarket(shuffled)
+    HousingConfig.RegionalMarket.all.foreach { market =>
+      shuffledByMarket(market).lastOrigination shouldBe baselineByMarket(market).lastOrigination
+      shuffledByMarket(market).mortgageStock shouldBe baselineByMarket(market).mortgageStock
+    }
+    shuffled.lastOrigination shouldBe baseline.lastOrigination
+    shuffled.mortgageStock shouldBe baseline.mortgageStock
   }

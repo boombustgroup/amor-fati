@@ -83,6 +83,15 @@ case class HousingConfig(
     regionalMarkets.map(_.market) == HousingConfig.RegionalMarket.all,
     s"regionalMarkets must preserve region order ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${regionalMarkets.map(_.market.label).mkString(" -> ")}",
   )
+  regionalMarkets.foreach: marketConfig =>
+    require(
+      marketConfig.valueShare >= Share.Zero && marketConfig.valueShare <= Share.One,
+      s"regionalMarkets valueShare for ${marketConfig.market.label} must be in [0,1], got ${marketConfig.valueShare}",
+    )
+    require(
+      marketConfig.mortgageShare >= Share.Zero && marketConfig.mortgageShare <= Share.One,
+      s"regionalMarkets mortgageShare for ${marketConfig.market.label} must be in [0,1], got ${marketConfig.mortgageShare}",
+    )
 
   private val regionalValueShareSum    = regionalMarkets.foldLeft(Share.Zero)((acc, market) => acc + market.valueShare)
   private val regionalMortgageShareSum = regionalMarkets.foldLeft(Share.Zero)((acc, market) => acc + market.mortgageShare)
