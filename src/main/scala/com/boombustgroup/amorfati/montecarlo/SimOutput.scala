@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
+import com.boombustgroup.amorfati.engine.markets.HousingMarket
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
 import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
@@ -24,15 +25,18 @@ object SimOutput:
     def autoColName: String  = s"${columnStem}_Auto"
     def sigmaColName: String = s"${columnStem}_Sigma"
 
-  private val sectorColumnStems: Vector[String] = Vector("BPO", "Manuf", "Retail", "Health", "Public", "Agri")
+  private val sectorSchemaPairs: Vector[(String, String)] =
+    SimParams.SchemaSectors.map(schemaSector => schemaSector.name -> schemaSector.outputStem)
 
   require(
-    sectorColumnStems.length == SimParams.SchemaSectorCount,
-    s"SimOutput sector schema must define ${SimParams.SchemaSectorCount} column stems, got ${sectorColumnStems.length}",
+    sectorSchemaPairs.length == SimParams.SchemaSectorCount &&
+      sectorSchemaPairs.map(_._1) == SimParams.SchemaSectorNames &&
+      sectorSchemaPairs.map(_._2).distinct.length == sectorSchemaPairs.length,
+    s"SimOutput sector schema must define ${SimParams.SchemaSectorCount} unique (name, stem) pairs, got ${sectorSchemaPairs.mkString(", ")}",
   )
 
   private val sectorColumns: Vector[SectorColumns] =
-    SimParams.SchemaSectorNames.zip(sectorColumnStems).map((sectorName, columnStem) => SectorColumns(sectorName, columnStem))
+    SimParams.SchemaSectors.map(schemaSector => SectorColumns(schemaSector.name, schemaSector.outputStem))
 
   // -------------------------------------------------------------------------
   //  ColumnDef + Ctx
@@ -76,9 +80,14 @@ object SimOutput:
           .count(f => f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid])
           .toDouble / secFirms.length
     }
+    lazy val housingRegionsByMarket: Map[HousingConfig.RegionalMarket, HousingMarket.RegionalState] =
+      world.real.housing.regions
+        .map(_.zip(HousingConfig.RegionalMarket.all).map((state, market) => market -> state).toMap)
+        .getOrElse(Map.empty)
 
     def sectorSigma(idx: Int): Double      = td.toDouble(world.currentSigmas(idx))
-    def housingRegionHpi(idx: Int): Double = world.real.housing.regions.map(rs => td.toDouble(rs(idx).priceIndex)).getOrElse(0.0)
+    def housingRegionHpi(market: HousingConfig.RegionalMarket): Double =
+      housingRegionsByMarket.get(market).map(regionState => td.toDouble(regionState.priceIndex)).getOrElse(0.0)
 
     inline def unemployPct: Double = td.toDouble(world.unemploymentRate(hhAgg.employed))
 
@@ -353,8 +362,8 @@ object SimOutput:
   )
 
   private def realGroup: Vector[ColumnDef] =
-    val regionalHousingColumns = HousingConfig.RegionalMarketSchema.zipWithIndex.map: (region, idx) =>
-      ColumnDef(region.hpiColName, ctx => ctx.housingRegionHpi(idx))
+    val regionalHousingColumns = HousingConfig.RegionalMarket.all.map: market =>
+      ColumnDef(market.hpiColName, ctx => ctx.housingRegionHpi(market))
 
     (Vector(
       // Housing Market

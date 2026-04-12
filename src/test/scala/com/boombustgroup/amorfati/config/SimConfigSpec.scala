@@ -36,7 +36,7 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
 
   it should "reject schema-breaking sector count changes" in {
     val err = intercept[IllegalArgumentException]:
-      SimParams.validateSectorSchema(p.sectorDefs.dropRight(1))
+      p.copy(sectorDefs = p.sectorDefs.dropRight(1))
 
     err.getMessage.should(include("sectorDefs must have 6 schema sectors"))
   }
@@ -44,16 +44,38 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   it should "reject schema-breaking sector reordering" in {
     val reordered = Vector(p.sectorDefs(1), p.sectorDefs(0)) ++ p.sectorDefs.drop(2)
     val err       = intercept[IllegalArgumentException]:
-      SimParams.validateSectorSchema(reordered)
+      p.copy(sectorDefs = reordered)
 
     err.getMessage.should(include("sectorDefs must preserve schema order"))
   }
 
-  "HousingConfig" should "reject malformed regional vectors" in {
+  "HousingConfig" should "reject malformed regional market vectors" in {
     val err = intercept[IllegalArgumentException]:
-      p.housing.copy(regionalHpi = p.housing.regionalHpi.dropRight(1))
+      p.housing.copy(regionalMarkets = p.housing.regionalMarkets.dropRight(1))
 
-    err.getMessage.should(include("regionalHpi must have 7 regions"))
+    err.getMessage.should(include("regionalMarkets must have 7 regions"))
+  }
+
+  it should "reject regional value shares that do not sum to 1.0" in {
+    val malformed = p.housing.regionalMarkets.updated(
+      0,
+      p.housing.regionalMarkets.head.copy(valueShare = Share(0.20)),
+    )
+    val err       = intercept[IllegalArgumentException]:
+      p.housing.copy(regionalMarkets = malformed)
+
+    err.getMessage.should(include("regionalValueShares must sum to 1.0"))
+  }
+
+  it should "reject regional mortgage shares that do not sum to 1.0" in {
+    val malformed = p.housing.regionalMarkets.updated(
+      0,
+      p.housing.regionalMarkets.head.copy(mortgageShare = Share(0.20)),
+    )
+    val err       = intercept[IllegalArgumentException]:
+      p.housing.copy(regionalMarkets = malformed)
+
+    err.getMessage.should(include("regionalMortgageShares must sum to 1.0"))
   }
 
   "Config" should "have FirmsCount = 10000 by default" in {

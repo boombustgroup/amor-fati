@@ -29,8 +29,8 @@ case class SectorDef(
   * economy.
   *
   * Hierarchical, immutable, and testable configuration threaded via Scala 3
-  * `using` context parameters. Constructor is private — use
-  * `SimParams.defaults`.
+  * `using` context parameters. Constructor remains package-scoped for config
+  * tests; production code should use `SimParams.defaults`.
   *
   * Sub-configs are grouped by economic domain:
   *   - `pop` — simulation structure
@@ -49,8 +49,7 @@ case class SectorDef(
   * Polish GDP (~3.5 bln PLN). Do NOT construct SimParams directly with unscaled
   * values — always start from `defaults` and use `.copy()`.
   */
-@annotation.nowarn("msg=unused private member") // Scala 3.8 false positive: defaults used via copy()
-case class SimParams private (
+case class SimParams private[config] (
     pop: PopulationConfig = PopulationConfig(),
     firm: FirmConfig = FirmConfig(),
     household: HouseholdConfig = HouseholdConfig(),
@@ -92,17 +91,20 @@ object SimParams:
 
   import com.boombustgroup.amorfati.types.*
 
-  private[amorfati] val SchemaSectorNames: Vector[String] =
+  private[amorfati] final case class SchemaSector(name: String, outputStem: String)
+
+  private[amorfati] val SchemaSectors: Vector[SchemaSector] =
     Vector(
-      "BPO/SSC",
-      "Manufacturing",
-      "Retail/Services",
-      "Healthcare",
-      "Public",
-      "Agriculture",
+      SchemaSector("BPO/SSC", "BPO"),
+      SchemaSector("Manufacturing", "Manuf"),
+      SchemaSector("Retail/Services", "Retail"),
+      SchemaSector("Healthcare", "Health"),
+      SchemaSector("Public", "Public"),
+      SchemaSector("Agriculture", "Agri"),
     )
 
-  private[amorfati] val SchemaSectorCount: Int = SchemaSectorNames.length
+  private[amorfati] val SchemaSectorNames: Vector[String] = SchemaSectors.map(_.name)
+  private[amorfati] val SchemaSectorCount: Int            = SchemaSectors.length
 
   private[amorfati] def validateSectorSchema(sectorDefs: Vector[SectorDef]): Unit =
     require(

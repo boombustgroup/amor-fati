@@ -283,6 +283,15 @@ class SimOutputSpec extends AnyFlatSpec with Matchers:
     err.getMessage.should(include("world.currentSigmas"))
   }
 
+  it should "keep sector sigma columns aligned with the schema" in {
+    val updatedSigma = Sigma(17.0)
+    val updatedWorld = init.world.copy(currentSigmas = init.world.currentSigmas.updated(1, updatedSigma))
+    val updatedRow   = computeRow(updatedWorld)
+
+    valueAt(updatedRow, "Manuf_Sigma") shouldBe 17.0
+    valueAt(updatedRow, "BPO_Sigma") shouldBe valueAt(computeRow(init.world), "BPO_Sigma")
+  }
+
   it should "map regional HPI columns using the documented Lodz-before-Poznan order" in {
     val regions    = init.world.real.housing.regions.getOrElse(fail("expected initialized regional housing data"))
     val updated    = regions.zipWithIndex.map: (region, idx) =>
