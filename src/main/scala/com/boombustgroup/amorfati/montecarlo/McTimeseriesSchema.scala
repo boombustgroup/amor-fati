@@ -10,6 +10,8 @@ import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.agents.Region
 
+import java.util.Locale
+
 /** Typed column schema for Monte Carlo timeseries output.
   *
   * Composable: each group is a `Vector[ColumnDef]`, all composed with `++`.
@@ -634,7 +636,7 @@ object McTimeseriesSchema:
       render = (month, row) =>
         val sb = new StringBuilder
         sb.append(month.toInt)
-        for c <- 1 until nCols do sb.append(f";${row(c)}%.6f")
+        for c <- 1 until nCols do sb.append(String.format(Locale.US, ";%.6f", Double.box(row(c))))
         sb.toString,
     )
 

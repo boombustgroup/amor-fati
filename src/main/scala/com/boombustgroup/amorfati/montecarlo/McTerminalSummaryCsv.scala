@@ -8,18 +8,19 @@ import java.io.File
 private[montecarlo] object McTerminalSummaryCsv:
 
   def writeAll(rc: McRunConfig, outputDir: File, results: zio.Chunk[McTerminalSummaryRows]): ZIO[Any, SimError, Unit] =
-    ZIO.foreachDiscard(McTerminalSummarySchema.specs)(spec => writeSummaryCsv(spec, rc, outputDir, results))
+    val sorted = results.sortBy(_.seed)
+    ZIO.foreachDiscard(McTerminalSummarySchema.specs)(spec => writeSummaryCsv(spec, rc, outputDir, sorted))
 
   private def writeSummaryCsv(
       spec: McTerminalSummarySchema.SummarySpec,
       rc: McRunConfig,
       outputDir: File,
-      results: zio.Chunk[McTerminalSummaryRows],
+      sortedResults: zio.Chunk[McTerminalSummaryRows],
   ) =
     val outputFile = spec.outputFile(outputDir, rc)
     ZIO
       .attemptBlocking:
-        val rows = results.sortBy(_.seed).flatMap(_.rowsFor(spec.id))
+        val rows = sortedResults.flatMap(_.rowsFor(spec.id))
         CsvWriter.write(outputFile, spec.csvSchema.header, rows)(spec.csvSchema.render)
       .mapError(outputFailure(s"write ${spec.id.toString.toLowerCase} summary CSV", outputFile))
 

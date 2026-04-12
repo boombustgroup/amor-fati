@@ -59,6 +59,8 @@ private[montecarlo] object McTerminalSummarySchema:
   )
 
   private[montecarlo] val specs = Vector(
+    // SummarySpec rows are pre-formatted by fromTerminalState, so McCsvSchema only
+    // carries the header contract here and render is intentionally identity.
     SummarySpec(
       McTerminalSummaryId.Household,
       McOutputFiles.householdFile,

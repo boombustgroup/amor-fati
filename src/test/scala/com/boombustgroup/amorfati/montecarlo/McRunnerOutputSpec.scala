@@ -52,11 +52,8 @@ class McRunnerOutputSpec extends AnyFlatSpec with Matchers:
   private def expectedSeedLines(result: RunResult): Vector[String] =
     val rows = result.timeSeries.executionMonths.map: month =>
       val row = result.timeSeries.monthRow(month)
-      val sb  = new StringBuilder
-      sb.append(month.toInt)
-      for c <- 1 until McTimeseriesSchema.nCols do sb.append(f";${row(c)}%.6f")
-      sb.toString
-    McTimeseriesSchema.colNames.mkString(";") +: rows
+      McTimeseriesSchema.csvSchema.render((month, row))
+    McTimeseriesSchema.csvSchema.header +: rows
 
   private val householdHeader =
     "Seed;HH_Employed;HH_Unemployed;HH_Retraining;HH_Bankrupt;MeanSavings;MedianSavings;Gini_Individual;" +
