@@ -29,8 +29,8 @@ case class SectorDef(
   * economy.
   *
   * Hierarchical, immutable, and testable configuration threaded via Scala 3
-  * `using` context parameters. Constructor is private — use
-  * `SimParams.defaults`.
+  * `using` context parameters. Constructor remains package-scoped for config
+  * tests; production code should use `SimParams.defaults`.
   *
   * Sub-configs are grouped by economic domain:
   *   - `pop` — simulation structure
@@ -49,8 +49,7 @@ case class SectorDef(
   * Polish GDP (~3.5 bln PLN). Do NOT construct SimParams directly with unscaled
   * values — always start from `defaults` and use `.copy()`.
   */
-@annotation.nowarn("msg=unused private member") // Scala 3.8 false positive: defaults used via copy()
-case class SimParams private (
+case class SimParams private[config] (
     pop: PopulationConfig = PopulationConfig(),
     firm: FirmConfig = FirmConfig(),
     household: HouseholdConfig = HouseholdConfig(),
@@ -83,13 +82,39 @@ case class SimParams private (
     sectorDefs: Vector[SectorDef] = SimParams.DefaultSectorDefs,
     topology: Topology = Topology.Ws,
     gdpRatio: Scalar = SimParams.DefaultGdpRatio, // scaling coefficient — computation boundary, not SFC flow
-)
+):
+  SimParams.validateSectorSchema(sectorDefs)
 
 object SimParams:
 
   // ── Sector definitions (6-sector Polish economy, GUS 2024) ──
 
   import com.boombustgroup.amorfati.types.*
+
+  private[amorfati] final case class SchemaSector(name: String, outputStem: String)
+
+  private[amorfati] val SchemaSectors: Vector[SchemaSector] =
+    Vector(
+      SchemaSector("BPO/SSC", "BPO"),
+      SchemaSector("Manufacturing", "Manuf"),
+      SchemaSector("Retail/Services", "Retail"),
+      SchemaSector("Healthcare", "Health"),
+      SchemaSector("Public", "Public"),
+      SchemaSector("Agriculture", "Agri"),
+    )
+
+  private[amorfati] val SchemaSectorNames: Vector[String] = SchemaSectors.map(_.name)
+  private[amorfati] val SchemaSectorCount: Int            = SchemaSectors.length
+
+  private[amorfati] def validateSectorSchema(sectorDefs: Vector[SectorDef]): Unit =
+    require(
+      sectorDefs.length == SchemaSectorCount,
+      s"sectorDefs must have $SchemaSectorCount schema sectors in order ${SchemaSectorNames.mkString(" -> ")}, got ${sectorDefs.length}",
+    )
+    require(
+      sectorDefs.map(_.name) == SchemaSectorNames,
+      s"sectorDefs must preserve schema order ${SchemaSectorNames.mkString(" -> ")}, got ${sectorDefs.map(_.name).mkString(" -> ")}",
+    )
 
   /** Default 6-sector definitions calibrated to GUS 2024.
     *

@@ -9,7 +9,7 @@ import com.boombustgroup.amorfati.types.*
   * mortgage origination subject to LTV limits (KNF Recommendation S), mortgage
   * default with unemployment sensitivity, housing wealth effects on
   * consumption, and 7-region disaggregation (Warsaw, Krakow, Wroclaw, Gdansk,
-  * Poznan, Lodz, rest-of-Poland). Calibrated to NBP residential price survey
+  * Lodz, Poznan, rest-of-Poland). Calibrated to NBP residential price survey
   * 2024, KNF Recommendation S, and GUS wage surveys 2024.
   *
   * Stock values (`initValue`, `initMortgage`) are in raw PLN — scaled by
@@ -49,17 +49,9 @@ import com.boombustgroup.amorfati.types.*
   *   Shiller 2005)
   * @param rentalYield
   *   annual rental yield as fraction of property value (Otodom/NBP: ~4.5%)
-  * @param regionalHpi
-  *   initial HPI by region (7 regions: Warsaw, Krakow, Wroclaw, Gdansk, Poznan,
-  *   Lodz, rest)
-  * @param regionalValueShares
-  *   share of total housing value by region (NBP/GUS 2024)
-  * @param regionalMortgageShares
-  *   share of total mortgage stock by region (NBP 2024)
-  * @param regionalGammas
-  *   region-specific mean-reversion speeds
-  * @param regionalIncomeMult
-  *   regional income multiplier vs. national average (GUS wage surveys 2024)
+  * @param regionalMarkets
+  *   keyed regional configuration preserving market identity for Warsaw,
+  *   Krakow, Wroclaw, Gdansk, Lodz, Poznan, and rest-of-Poland
   */
 case class HousingConfig(
     initHpi: PriceIndex = PriceIndex(100.0),
@@ -77,16 +69,70 @@ case class HousingConfig(
     mortgageRecovery: Share = Share(0.70),
     wealthMpc: Share = Share(0.05),
     rentalYield: Rate = Rate(0.045),
-    // Regional housing (7 regions: Warsaw, Krakow, Wroclaw, Gdansk, Poznan, Lodz, rest)
-    regionalHpi: Vector[PriceIndex] =
-      Vector(PriceIndex(230.0), PriceIndex(190.0), PriceIndex(170.0), PriceIndex(175.0), PriceIndex(110.0), PriceIndex(140.0), PriceIndex(100.0)),
-    regionalValueShares: Vector[Share] = Vector(Share(0.25), Share(0.08), Share(0.07), Share(0.08), Share(0.04), Share(0.05), Share(0.43)),
-    regionalMortgageShares: Vector[Share] = Vector(Share(0.30), Share(0.10), Share(0.08), Share(0.09), Share(0.04), Share(0.06), Share(0.33)),
-    regionalGammas: Vector[Coefficient] =
-      Vector(Coefficient(0.03), Coefficient(0.04), Coefficient(0.04), Coefficient(0.04), Coefficient(0.06), Coefficient(0.05), Coefficient(0.06)),
-    regionalIncomeMult: Vector[Multiplier] =
-      Vector(Multiplier(1.35), Multiplier(1.15), Multiplier(1.10), Multiplier(1.12), Multiplier(0.95), Multiplier(1.05), Multiplier(0.82)),
+    regionalMarkets: Vector[HousingConfig.RegionalMarketConfig] = HousingConfig.DefaultRegionalMarkets,
 ):
   require(ltvMax > Share.Zero && ltvMax <= Share.One, s"ltvMax must be in (0,1]: $ltvMax")
   require(mortgageMaturity > 0, s"mortgageMaturity must be positive: $mortgageMaturity")
   require(initValue >= PLN.Zero, s"initValue must be non-negative: $initValue")
+
+  require(
+    regionalMarkets.length == HousingConfig.RegionalMarket.count,
+    s"regionalMarkets must have ${HousingConfig.RegionalMarket.count} regions in order ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${regionalMarkets.length}",
+  )
+  require(
+    regionalMarkets.map(_.market) == HousingConfig.RegionalMarket.all,
+    s"regionalMarkets must preserve region order ${HousingConfig.RegionalMarket.labels.mkString(" -> ")}, got ${regionalMarkets.map(_.market.label).mkString(" -> ")}",
+  )
+  regionalMarkets.foreach: marketConfig =>
+    require(
+      marketConfig.valueShare >= Share.Zero && marketConfig.valueShare <= Share.One,
+      s"regionalMarkets valueShare for ${marketConfig.market.label} must be in [0,1], got ${marketConfig.valueShare}",
+    )
+    require(
+      marketConfig.mortgageShare >= Share.Zero && marketConfig.mortgageShare <= Share.One,
+      s"regionalMarkets mortgageShare for ${marketConfig.market.label} must be in [0,1], got ${marketConfig.mortgageShare}",
+    )
+
+  private val regionalValueShareSum    = regionalMarkets.foldLeft(Share.Zero)((acc, market) => acc + market.valueShare)
+  private val regionalMortgageShareSum = regionalMarkets.foldLeft(Share.Zero)((acc, market) => acc + market.mortgageShare)
+
+  require(regionalValueShareSum == Share.One, s"regionalMarkets value shares must sum to 1.0, got $regionalValueShareSum")
+  require(regionalMortgageShareSum == Share.One, s"regionalMarkets mortgage shares must sum to 1.0, got $regionalMortgageShareSum")
+
+object HousingConfig:
+
+  enum RegionalMarket(val columnPrefix: String, val label: String):
+    case Warsaw       extends RegionalMarket("Waw", "Warsaw")
+    case Krakow       extends RegionalMarket("Krk", "Krakow")
+    case Wroclaw      extends RegionalMarket("Wro", "Wroclaw")
+    case Gdansk       extends RegionalMarket("Gdn", "Gdansk")
+    case Lodz         extends RegionalMarket("Ldz", "Lodz")
+    case Poznan       extends RegionalMarket("Poz", "Poznan")
+    case RestOfPoland extends RegionalMarket("Rest", "Rest of Poland")
+
+    def hpiColName: String = s"${columnPrefix}Hpi"
+
+  object RegionalMarket:
+    val all: Vector[RegionalMarket] = values.toVector
+    val count: Int                  = all.length
+    val labels: Vector[String]      = all.map(_.label)
+
+  final case class RegionalMarketConfig(
+      market: RegionalMarket,
+      initHpi: PriceIndex,
+      valueShare: Share,
+      mortgageShare: Share,
+      gamma: Coefficient,
+      incomeMultiplier: Multiplier,
+  )
+
+  private[amorfati] val DefaultRegionalMarkets: Vector[RegionalMarketConfig] =
+    Vector(
+      RegionalMarketConfig(RegionalMarket.Warsaw, PriceIndex(230.0), Share(0.25), Share(0.30), Coefficient(0.03), Multiplier(1.35)),
+      RegionalMarketConfig(RegionalMarket.Krakow, PriceIndex(190.0), Share(0.08), Share(0.10), Coefficient(0.04), Multiplier(1.15)),
+      RegionalMarketConfig(RegionalMarket.Wroclaw, PriceIndex(170.0), Share(0.07), Share(0.08), Coefficient(0.04), Multiplier(1.10)),
+      RegionalMarketConfig(RegionalMarket.Gdansk, PriceIndex(175.0), Share(0.08), Share(0.09), Coefficient(0.04), Multiplier(1.12)),
+      RegionalMarketConfig(RegionalMarket.Lodz, PriceIndex(110.0), Share(0.04), Share(0.04), Coefficient(0.06), Multiplier(0.95)),
+      RegionalMarketConfig(RegionalMarket.Poznan, PriceIndex(140.0), Share(0.05), Share(0.06), Coefficient(0.05), Multiplier(1.05)),
+      RegionalMarketConfig(RegionalMarket.RestOfPoland, PriceIndex(100.0), Share(0.43), Share(0.33), Coefficient(0.06), Multiplier(0.82)),
+    )

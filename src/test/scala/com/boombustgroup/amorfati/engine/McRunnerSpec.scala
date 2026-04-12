@@ -37,7 +37,7 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
     negativeDuration.getMessage should include("runDurationMonths must be > 0")
   }
 
-  "runSingle" should "produce 60 rows x 227 columns" in {
+  "runSingle" should s"produce 60 rows x ${SimOutput.nCols} columns" in {
     ts.nMonths shouldBe duration
     for row <- ts do row.length shouldBe SimOutput.nCols
   }
