@@ -27,6 +27,16 @@ class McRunnerSpec extends AnyFlatSpec with Matchers:
 
   // --- Basic output sanity ---
 
+  "runSingle" should "reject non-positive durations" in {
+    val zeroDuration = intercept[IllegalArgumentException]:
+      runSingle(42, 0)
+    zeroDuration.getMessage should include("runDurationMonths must be > 0")
+
+    val negativeDuration = intercept[IllegalArgumentException]:
+      runSingle(42, -1)
+    negativeDuration.getMessage should include("runDurationMonths must be > 0")
+  }
+
   "runSingle" should "produce 60 rows x 227 columns" in {
     ts.nMonths shouldBe duration
     for row <- ts do row.length shouldBe SimOutput.nCols

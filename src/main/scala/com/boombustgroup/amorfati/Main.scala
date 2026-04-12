@@ -41,21 +41,26 @@ object Main extends ZIOAppDefault:
       val idx = args.indexOf(name)
       if idx >= 0 && idx + 1 < args.length then Some(args(idx + 1)) else None
 
-    def parsePositiveInt(value: String, flag: String): Either[String, Int] =
-      scala.util.Try(value.toInt).toOption.filter(_ > 0).toRight(s"$flag must be a positive integer")
+    def parseInt(value: String, label: String): Either[String, Int] =
+      scala.util.Try(value.toInt).toOption.toRight(s"$label must be an integer")
 
     ZIO
       .fromEither(for
         _           <- Either.cond(args.length >= 2, (), usage)
-        nSeeds      <- args.headOption.flatMap(s => scala.util.Try(s.toInt).toOption).filter(_ > 0).toRight(usage)
+        nSeedsValue <- args.headOption.toRight(usage)
+        nSeeds      <- parseInt(nSeedsValue, "<nSeeds>")
         prefix      <- args.lift(1).toRight(usage)
         runDuration <- findFlag("--duration") match
-          case Some(value) => parsePositiveInt(value, "--duration")
+          case Some(value) => parseInt(value, "--duration")
           case None        => Right(McRunConfig.DefaultRunDuration)
-      yield
-        val runId = findFlag("--run-id")
-        runId match
-          case Some(id) => McRunConfig(nSeeds, prefix, runDuration, id)
-          case None     => McRunConfig(nSeeds, prefix, runDuration))
+        mcRunConfig <- scala.util
+          .Try:
+            findFlag("--run-id") match
+              case Some(id) => McRunConfig(nSeeds, prefix, runDuration, id)
+              case None     => McRunConfig(nSeeds, prefix, runDuration)
+          .toEither
+          .left
+          .map(_.getMessage)
+      yield mcRunConfig)
       .mapError(err => new IllegalArgumentException(if err == usage then usage else s"$err\n$usage"))
 // $COVERAGE-ON$
