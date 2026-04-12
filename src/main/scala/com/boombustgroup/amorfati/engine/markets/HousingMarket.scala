@@ -106,15 +106,15 @@ object HousingMarket:
 
   private def initRegions(using p: SimParams): Vector[RegionalState] =
     p.housing.regionalMarkets.map: market =>
-        RegionalState(
-          priceIndex = market.initHpi,
-          totalValue = p.housing.initValue * market.valueShare,
-          mortgageStock = p.housing.initMortgage * market.mortgageShare,
-          lastOrigination = PLN.Zero,
-          lastRepayment = PLN.Zero,
-          lastDefault = PLN.Zero,
-          monthlyReturn = Rate.Zero,
-        )
+      RegionalState(
+        priceIndex = market.initHpi,
+        totalValue = p.housing.initValue * market.valueShare,
+        mortgageStock = p.housing.initMortgage * market.mortgageShare,
+        lastOrigination = PLN.Zero,
+        lastRepayment = PLN.Zero,
+        lastDefault = PLN.Zero,
+        monthlyReturn = Rate.Zero,
+      )
 
   def step(in: StepInput)(using p: SimParams): State =
     val rateChange = in.mortgageRate - in.prevMortgageRate
@@ -127,11 +127,13 @@ object HousingMarket:
       regs: Vector[RegionalState],
       rateChange: Rate,
   )(using p: SimParams): State =
-    val updatedRegions = regs.zip(p.housing.regionalMarkets).map: (reg, market) =>
-      val gamma          = market.gamma
-      val regionalGrowth = in.incomeGrowth * market.incomeMultiplier
-      val update         = meenPriceUpdate(reg.totalValue, reg.priceIndex, gamma, regionalGrowth, rateChange, in.mortgageRate)
-      reg.copy(priceIndex = update.hpi, totalValue = update.value, monthlyReturn = update.monthlyReturn)
+    val updatedRegions = regs
+      .zip(p.housing.regionalMarkets)
+      .map: (reg, market) =>
+        val gamma          = market.gamma
+        val regionalGrowth = in.incomeGrowth * market.incomeMultiplier
+        val update         = meenPriceUpdate(reg.totalValue, reg.priceIndex, gamma, regionalGrowth, rateChange, in.mortgageRate)
+        reg.copy(priceIndex = update.hpi, totalValue = update.value, monthlyReturn = update.monthlyReturn)
     aggregateFromRegions(in.prev, updatedRegions, in.mortgageRate)
 
   private def stepAggregate(in: StepInput, rateChange: Rate)(using p: SimParams): State =
@@ -158,7 +160,8 @@ object HousingMarket:
     val aggValue  = sumPln(regions.map(_.totalValue))
     val aggHpi    =
       if aggValue > PLN.Zero then
-        regions.zip(p.housing.regionalMarkets)
+        regions
+          .zip(p.housing.regionalMarkets)
           .foldLeft(Multiplier.Zero): (acc, regMarket) =>
             val (reg, market) = regMarket
             acc + (market.valueShare * reg.priceIndex.toMultiplier)

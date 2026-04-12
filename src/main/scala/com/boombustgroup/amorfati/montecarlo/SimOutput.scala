@@ -63,15 +63,15 @@ object SimOutput:
       s"SimOutput requires world.currentSigmas to have ${p.sectorDefs.length} entries to match sectorDefs, got ${world.currentSigmas.length}",
     )
 
-    given SimParams                                          = p
-    private val sectorIndexByName: Map[String, Int]          = p.sectorDefs.iterator.map(_.name).zipWithIndex.map((name, idx) => name -> idx).toMap
-    lazy val bankAgg: Banking.Aggregate                      = Banking.aggregateFromBanks(banks)
-    lazy val hhAgg: Household.Aggregates                     = householdAggregates
-    lazy val monetaryAgg: Option[Banking.MonetaryAggregates] = Some(
+    given SimParams                                                                                 = p
+    private val sectorIndexByName: Map[String, Int]                                                 = p.sectorDefs.iterator.map(_.name).zipWithIndex.map((name, idx) => name -> idx).toMap
+    lazy val bankAgg: Banking.Aggregate                                                             = Banking.aggregateFromBanks(banks)
+    lazy val hhAgg: Household.Aggregates                                                            = householdAggregates
+    lazy val monetaryAgg: Option[Banking.MonetaryAggregates]                                        = Some(
       Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding),
     )
-    lazy val monthlyGdp: PLN                                 = world.cachedMonthlyGdpProxy
-    lazy val sectorAuto: Vector[Double]                      = sectorColumns.map { sector =>
+    lazy val monthlyGdp: PLN                                                                        = world.cachedMonthlyGdpProxy
+    lazy val sectorAuto: Vector[Double]                                                             = sectorColumns.map { sector =>
       val sectorIdx = sectorIndexByName(sector.expectedSectorName)
       val secFirms  = living.filter(_.sector.toInt == sectorIdx)
       if secFirms.isEmpty then 0.0
@@ -85,7 +85,7 @@ object SimOutput:
         .map(_.zip(HousingConfig.RegionalMarket.all).map((state, market) => market -> state).toMap)
         .getOrElse(Map.empty)
 
-    def sectorSigma(idx: Int): Double      = td.toDouble(world.currentSigmas(idx))
+    def sectorSigma(idx: Int): Double                                  = td.toDouble(world.currentSigmas(idx))
     def housingRegionHpi(market: HousingConfig.RegionalMarket): Double =
       housingRegionsByMarket.get(market).map(regionState => td.toDouble(regionState.priceIndex)).getOrElse(0.0)
 

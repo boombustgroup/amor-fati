@@ -93,20 +93,20 @@ case class HousingConfig(
 object HousingConfig:
 
   enum RegionalMarket(val columnPrefix: String, val label: String):
-    case Warsaw        extends RegionalMarket("Waw", "Warsaw")
-    case Krakow        extends RegionalMarket("Krk", "Krakow")
-    case Wroclaw       extends RegionalMarket("Wro", "Wroclaw")
-    case Gdansk        extends RegionalMarket("Gdn", "Gdansk")
-    case Lodz          extends RegionalMarket("Ldz", "Lodz")
-    case Poznan        extends RegionalMarket("Poz", "Poznan")
-    case RestOfPoland  extends RegionalMarket("Rest", "Rest of Poland")
+    case Warsaw       extends RegionalMarket("Waw", "Warsaw")
+    case Krakow       extends RegionalMarket("Krk", "Krakow")
+    case Wroclaw      extends RegionalMarket("Wro", "Wroclaw")
+    case Gdansk       extends RegionalMarket("Gdn", "Gdansk")
+    case Lodz         extends RegionalMarket("Ldz", "Lodz")
+    case Poznan       extends RegionalMarket("Poz", "Poznan")
+    case RestOfPoland extends RegionalMarket("Rest", "Rest of Poland")
 
     def hpiColName: String = s"${columnPrefix}Hpi"
 
   object RegionalMarket:
-    val all: Vector[RegionalMarket]     = values.toVector
-    val count: Int                      = all.length
-    val labels: Vector[String]          = all.map(_.label)
+    val all: Vector[RegionalMarket] = values.toVector
+    val count: Int                  = all.length
+    val labels: Vector[String]      = all.map(_.label)
 
   final case class RegionalMarketConfig(
       market: RegionalMarket,
