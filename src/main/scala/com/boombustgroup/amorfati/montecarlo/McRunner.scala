@@ -57,6 +57,7 @@ object McRunner:
 
   /** Pure simulation — returns Either, no side effects. For tests. */
   def runSingle(seed: Long, durationMonths: Int = McRunConfig.DefaultRunDuration)(using p: SimParams): Either[SimError, RunResult] =
+    McRunConfig.requirePositiveDuration(durationMonths)
     initSeed(seed).flatMap: initState =>
       materializeRun(initState, runtimeSteps(seed, initState).take(durationMonths))
 
@@ -128,7 +129,13 @@ object McRunner:
         case ((_, series), snapshot) => (Some(snapshot.state), series :+ snapshot.monthData)
       .flatMap:
         case (Some(state), series) => ZIO.succeed(RunResult(TimeSeries.wrap(series.toArray), state))
-        case _                     => ZIO.fail(SimError.Init(Vector.empty))
+        case _                     =>
+          ZIO.fail(
+            SimError.RuntimeFailure(
+              "materialize seed",
+              s"seed $seed produced no monthly snapshots for duration ${rc.runDurationMonths}",
+            ),
+          )
 
   // ---------------------------------------------------------------------------
   //  Per-seed CSV writer
