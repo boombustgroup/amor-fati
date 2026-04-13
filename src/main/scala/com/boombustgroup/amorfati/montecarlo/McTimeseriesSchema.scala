@@ -314,6 +314,7 @@ object McTimeseriesSchema:
     ColumnDef("EquityWealthEffect", ctx => td.toDouble(ctx.world.financial.equity.lastWealthEffect)),
     ColumnDef("DomesticDividends", ctx => td.toDouble(ctx.world.financial.equity.lastDomesticDividends)),
     ColumnDef("ForeignDividendOutflow", ctx => td.toDouble(ctx.world.financial.equity.lastForeignDividends)),
+    ColumnDef("GovernmentDividends", ctx => td.toDouble(ctx.world.financial.equity.lastGovernmentDividends)),
     // Corporate Bonds / Catalyst
     ColumnDef("CorpBondOutstanding", ctx => td.toDouble(ctx.world.financial.corporateBonds.outstanding)),
     ColumnDef("CorpBondYield", ctx => td.toDouble(ctx.world.financial.corporateBonds.corpBondYield)),

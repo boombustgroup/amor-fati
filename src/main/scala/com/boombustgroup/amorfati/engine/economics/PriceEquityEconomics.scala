@@ -197,6 +197,7 @@ object PriceEquityEconomics:
         val sec      = firms(i).sector
         val newSize  = FirmSizeDistribution.draw(rng)
         val sizeMult = Scalar.fraction(newSize, p.pop.workersPerFirm).toMultiplier
+        val isSoe    = StateOwned.sectorSoeShare(sec.toInt).sampleBelow(rng)
         Firm.State(
           id = FirmId(i),
           cash = PLN.fromRaw(rng.between(PLN(StartupCashMin).toLong, PLN(StartupCashMax).toLong)) * sizeMult,
@@ -204,10 +205,9 @@ object PriceEquityEconomics:
           tech = TechState.Traditional(newSize),
           riskProfile = TypedRandom.randomBetween(Share(RiskProfileMin), Share(RiskProfileMax), rng),
           innovationCostFactor = TypedRandom.randomBetween(Multiplier(InnovCostMin), Multiplier(InnovCostMax), rng),
-          digitalReadiness =
-            TypedRandom
-              .withGaussianNoise(p.sectorDefs(sec.toInt).baseDigitalReadiness, Share(DigitalReadyNoise), rng)
-              .clamp(Share(DigitalReadyFloor), Share(DigitalReadyCap)),
+          digitalReadiness = TypedRandom
+            .withGaussianNoise(p.sectorDefs(sec.toInt).baseDigitalReadiness, Share(DigitalReadyNoise), rng)
+            .clamp(Share(DigitalReadyFloor), Share(DigitalReadyCap)),
           sector = sec,
           neighbors = adj(i).iterator.map(FirmId(_)).toVector,
           bankId = BankId(0),
@@ -216,6 +216,7 @@ object PriceEquityEconomics:
           capitalStock = p.capital.klRatios(sec.toInt) * newSize,
           bondDebt = PLN.Zero,
           foreignOwned = false,
+          stateOwned = isSoe,
           inventory = PLN.Zero,
           greenCapital = PLN.Zero,
           accumulatedLoss = PLN.Zero,

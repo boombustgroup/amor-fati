@@ -52,7 +52,7 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
       InsuranceFlows.emit(
         InsuranceFlows.Input(80000, PLN(7000.0), Share(0.08), PLN(100000000.0), PLN(50000000.0), PLN(40000000.0), Rate(0.06), Rate(0.08), Rate(0.03)),
       ),
-      EquityFlows.emit(EquityFlows.Input(PLN(500000.0), PLN(200000.0), PLN(100000.0), PLN.Zero, PLN(1000000.0))),
+      EquityFlows.emit(EquityFlows.Input(PLN(500000.0), PLN(200000.0), PLN(100000.0), PLN(50000.0), PLN(1000000.0))),
       CorpBondFlows.emit(CorpBondFlows.Input(PLN(300000.0), PLN(50000.0), PLN(1000000.0), PLN(200000.0))),
       MortgageFlows.emit(MortgageFlows.Input(PLN(5000000.0), PLN(2000000.0), PLN(1500000.0), PLN(300000.0))),
       OpenEconFlows.emit(
@@ -105,7 +105,7 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
       InsuranceFlows.emitBatches(
         InsuranceFlows.Input(80000, PLN(7000.0), Share(0.08), PLN(100000000.0), PLN(50000000.0), PLN(40000000.0), Rate(0.06), Rate(0.08), Rate(0.03)),
       ),
-      EquityFlows.emitBatches(EquityFlows.Input(PLN(500000.0), PLN(200000.0), PLN(100000.0), PLN.Zero, PLN(1000000.0))),
+      EquityFlows.emitBatches(EquityFlows.Input(PLN(500000.0), PLN(200000.0), PLN(100000.0), PLN(50000.0), PLN(1000000.0))),
       CorpBondFlows.emitBatches(CorpBondFlows.Input(PLN(300000.0), PLN(50000.0), PLN(1000000.0), PLN(200000.0))),
       MortgageFlows.emitBatches(MortgageFlows.Input(PLN(5000000.0), PLN(2000000.0), PLN(1500000.0), PLN(300000.0))),
       OpenEconFlows.emitBatches(

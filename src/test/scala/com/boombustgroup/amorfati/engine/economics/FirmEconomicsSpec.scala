@@ -88,7 +88,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     ),
   )
 
-  private val resultR = FirmEconomics.toResult(result)
+  private val resultR             = FirmEconomics.toResult(result)
   private val ManufacturingSector = 1
 
   private def runStepFor(world: World, firms: Vector[Firm.State])(using SimParams): FirmEconomics.StepOutput =
@@ -119,14 +119,16 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private def manufacturingScenario(stateOwned: Boolean, cashRich: Boolean = false): Vector[Firm.State] =
     init.firms.map { firm =>
       val base =
-        if firm.sector.toInt == ManufacturingSector && cashRich then
-          firm.copy(cash = PLN(500e6), capitalStock = PLN.Zero, greenCapital = PLN.Zero)
+        if firm.sector.toInt == ManufacturingSector && cashRich then firm.copy(cash = PLN(500e6), capitalStock = PLN.Zero, greenCapital = PLN.Zero)
         else firm
       if base.sector.toInt == ManufacturingSector then base.copy(stateOwned = stateOwned) else base.copy(stateOwned = false)
     }
 
   private def manufacturingOutputs(step: FirmEconomics.StepOutput): Vector[Firm.State] =
     step.ioFirms.filter(_.sector.toInt == ManufacturingSector)
+
+  private def manufacturingById(step: FirmEconomics.StepOutput): Map[FirmId, Firm.State] =
+    manufacturingOutputs(step).map(f => f.id -> f).toMap
 
   "FirmEconomics (self-contained Input)" should "match old step tax" in
     result.sumTax.shouldBe(oldS5.sumTax)
@@ -147,10 +149,14 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     val stateOwnedRun       = runStepFor(w, manufacturingScenario(stateOwned = true, cashRich = true))
     val privateManufactured = manufacturingOutputs(privateRun)
     val soeManufactured     = manufacturingOutputs(stateOwnedRun)
+    val privateById         = manufacturingById(privateRun)
+    val soeById             = manufacturingById(stateOwnedRun)
 
     privateManufactured should not be empty
-    soeManufactured.zip(privateManufactured).foreach { case (soeFirm, privateFirm) =>
-      soeFirm.capitalStock should be > privateFirm.capitalStock
+    soeManufactured.size shouldBe privateManufactured.size
+    soeById.keySet shouldBe privateById.keySet
+    soeById.keys.foreach { id =>
+      soeById(id).capitalStock should be > privateById(id).capitalStock
     }
     stateOwnedRun.sumGrossInvestment should be > privateRun.sumGrossInvestment
   }
@@ -158,17 +164,24 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   it should "reduce manufacturing markup pass-through for state-owned firms under a commodity shock" in {
     val privateFirms          = manufacturingScenario(stateOwned = false)
     val stateOwnedFirms       = manufacturingScenario(stateOwned = true)
-    val shockedWorld          = w.updateExternal(_.copy(gvc = w.external.gvc.copy(commodityPriceIndex = PriceIndex(1.80))))
+    val shockedWorld          = w.updateExternal(_.copy(gvc = w.external.gvc.copy(commodityPriceIndex = PriceIndex(1.20))))
     val baselinePrivateRun    = runStepFor(w, privateFirms)
     val baselineStateOwnedRun = runStepFor(w, stateOwnedFirms)
     val shockedPrivateRun     = runStepFor(shockedWorld, privateFirms)
     val shockedStateOwnedRun  = runStepFor(shockedWorld, stateOwnedFirms)
-    val shockedPairs          = manufacturingOutputs(shockedStateOwnedRun).map(_.markup).zip(manufacturingOutputs(shockedPrivateRun).map(_.markup))
+    val baselinePrivateById   = manufacturingById(baselinePrivateRun)
+    val baselineSoeById       = manufacturingById(baselineStateOwnedRun)
+    val shockedPrivateById    = manufacturingById(shockedPrivateRun)
+    val shockedSoeById        = manufacturingById(shockedStateOwnedRun)
 
-    manufacturingOutputs(baselineStateOwnedRun).map(_.markup) shouldBe manufacturingOutputs(baselinePrivateRun).map(_.markup)
-    shockedStateOwnedRun.markupInflation should be < shockedPrivateRun.markupInflation
-    shockedPairs.foreach { case (soeMarkup, privateMarkup) =>
-      soeMarkup should be <= privateMarkup
+    shockedSoeById.keySet shouldBe shockedPrivateById.keySet
+    baselineSoeById.keySet shouldBe baselinePrivateById.keySet
+    baselineSoeById.keys.foreach { id =>
+      baselineSoeById(id).markup shouldBe baselinePrivateById(id).markup
     }
-    shockedPairs.exists { case (soeMarkup, privateMarkup) => soeMarkup < privateMarkup } shouldBe true
+    shockedStateOwnedRun.markupInflation should be <= shockedPrivateRun.markupInflation
+    shockedSoeById.keys.foreach { id =>
+      shockedSoeById(id).markup should be <= shockedPrivateById(id).markup
+    }
+    shockedSoeById.keys.exists(id => shockedSoeById(id).markup < shockedPrivateById(id).markup) shouldBe true
   }

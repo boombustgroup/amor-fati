@@ -31,6 +31,7 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     earningsYield = Rate(ey),
     dividendYield = Rate(dy),
     foreignOwnership = Share(foreign),
+    lastGovernmentDividends = PLN.Zero,
   )
 
   "EquityMarket.processIssuance" should "always increase market cap for positive issuance" in
@@ -61,6 +62,7 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
       r.netDomestic should be >= PLN.Zero
       r.foreign should be >= PLN.Zero
       r.tax should be >= PLN.Zero
+      r.gov should be >= PLN.Zero
     }
 
   it should "conserve payout-scaled profits exactly" in
@@ -69,6 +71,21 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
         val r             = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN.Zero, Share.Zero)
         val expectedTotal = PLN(profits) * Share(0.57)
         (r.netDomestic + r.tax + r.foreign) shouldBe expectedTotal
+      }
+    }
+
+  it should "preserve the baseline split while adding a non-negative SOE government leg" in
+    forAll(Gen.choose(1e8, 1e13), genFraction, Gen.choose(0.01, 1.0), Gen.choose(0.04, 0.20)) { (profits, foreignShare, soeShare, deficitToGdp) =>
+      whenever(foreignShare >= 0.0 && foreignShare <= 1.0) {
+        val baseline = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN.Zero, Share.Zero)
+        val withGov  = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN(profits * soeShare), Share(deficitToGdp))
+        val payout   = PLN(profits) * Share(0.57)
+
+        withGov.netDomestic shouldBe baseline.netDomestic
+        withGov.foreign shouldBe baseline.foreign
+        withGov.tax shouldBe baseline.tax
+        (withGov.netDomestic + withGov.tax + withGov.foreign) shouldBe payout
+        withGov.gov should be >= PLN.Zero
       }
     }
 
@@ -105,6 +122,7 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     z.dividendYield shouldBe Rate.Zero
     z.foreignOwnership shouldBe Share.Zero
     z.lastIssuance shouldBe PLN.Zero
+    z.lastGovernmentDividends shouldBe PLN.Zero
     z.hhEquityWealth shouldBe PLN.Zero
     z.lastWealthEffect shouldBe PLN.Zero
   }

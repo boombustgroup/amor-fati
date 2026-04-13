@@ -35,7 +35,8 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
     labor.living,
     labor.regionalWages,
   )
-  private val s3          = HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, RandomStream.seeded(42))
+  private val s3          =
+    HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, RandomStream.seeded(42))
   private val s4          = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
   private val s5          = FirmEconomics.runStep(w, init.firms, init.households, init.banks, s1, s2, s3, s4, RandomStream.seeded(43))
 

@@ -30,6 +30,7 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     z.lastDomesticDividends shouldBe PLN.Zero
     z.lastForeignDividends shouldBe PLN.Zero
     z.lastDividendTax shouldBe PLN.Zero
+    z.lastGovernmentDividends shouldBe PLN.Zero
     z.hhEquityWealth shouldBe PLN.Zero
     z.lastWealthEffect shouldBe PLN.Zero
   }
@@ -112,6 +113,18 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
   it should "compute dividends based on realized profits" in {
     val r = EquityMarket.computeDividends(PLN(1e12), Share(0.67), PLN.Zero, Share.Zero)
     r.netDomestic should be > PLN.Zero
+  }
+
+  it should "add a government SOE dividend leg without changing the baseline split" in {
+    val profits      = PLN(1e12)
+    val foreignShare = Share(0.67)
+    val baseline     = EquityMarket.computeDividends(profits, foreignShare, PLN.Zero, Share.Zero)
+    val r            = EquityMarket.computeDividends(profits, foreignShare, PLN(2e11), Share(0.06))
+
+    r.gov should be > PLN.Zero
+    r.netDomestic shouldBe baseline.netDomestic
+    r.foreign shouldBe baseline.foreign
+    r.tax shouldBe baseline.tax
   }
 
   it should "not depend on market valuation directly" in {

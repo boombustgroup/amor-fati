@@ -164,7 +164,7 @@ object FiscalBudget:
       priceLevel: PriceIndex,
       // Revenue
       citPaid: PLN = PLN.Zero,
-      govDividendRevenue: PLN = PLN.Zero,
+      govDividendRevenue: PLN,
       vat: PLN = PLN.Zero,
       nbpRemittance: PLN = PLN.Zero,
       exciseRevenue: PLN = PLN.Zero,

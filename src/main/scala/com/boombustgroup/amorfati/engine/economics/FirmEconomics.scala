@@ -85,7 +85,6 @@ object FirmEconomics:
       executionMonth: ExecutionMonth,         // realized month currently being executed
       operationalSignals: OperationalSignals, // same-month demand / labor surface for incumbent firms
       rates: Vector[Rate],                    // per-bank lending rates
-      lendingRates: Vector[Rate],             // per-bank lending rates surfaced on Output
       bankCanLend: (Int, PLN) => Boolean,     // credit approval: (bankId, amount) => approved?
       nBanks: Int,                            // number of banks in multi-bank system
   )
@@ -127,14 +126,14 @@ object FirmEconomics:
 
   /** Result of NPL and interest computation (phase 6). */
   private case class NplResult(
-      nplNew: PLN,                      // new NPL volume from bankruptcies
-      nplLoss: PLN,                     // NPL loss net of recovery
-      totalBondDefault: PLN,            // bond default from bankrupt firms
-      firmDeaths: Int,                  // count of newly bankrupt firms
-      intIncome: PLN,                   // aggregate bank interest income
-      perBankNplDebt: Vector[PLN],      // NPL debt by bank index
-      perBankIntIncome: Vector[PLN],    // interest income by bank index
-      perBankWorkers: Vector[Int],      // worker count by bank index
+      nplNew: PLN,                   // new NPL volume from bankruptcies
+      nplLoss: PLN,                  // NPL loss net of recovery
+      totalBondDefault: PLN,         // bond default from bankrupt firms
+      firmDeaths: Int,               // count of newly bankrupt firms
+      intIncome: PLN,                // aggregate bank interest income
+      perBankNplDebt: Vector[PLN],   // NPL debt by bank index
+      perBankIntIncome: Vector[PLN], // interest income by bank index
+      perBankWorkers: Vector[Int],   // worker count by bank index
   )
 
   // ---- Public I/O types ----
@@ -344,8 +343,8 @@ object FirmEconomics:
     val (ioFirms, totalIoPaid)              = applyIntermediateMarket(bonded.firms, stepIn)
     // Calvo staggered pricing: per-firm markup update
     val calvoFirms                          = ioFirms.map: f =>
-      val sectorMult = stepIn.s4.sectorMults(f.sector.toInt)
-      val passthrough =
+      val sectorMult         = stepIn.s4.sectorMults(f.sector.toInt)
+      val passthrough        =
         if f.stateOwned then StateOwned.effectiveEnergyPassthrough(f.sector.toInt)
         else Share.One
       val energyCostPressure =
@@ -354,7 +353,7 @@ object FirmEconomics:
           p.climate.energyCostShares(f.sector.toInt),
           passthrough,
         )
-      val calvo = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, stepIn.s2.wageGrowth, energyCostPressure, rng)
+      val calvo              = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, stepIn.s2.wageGrowth, energyCostPressure, rng)
       f.copy(markup = calvo.newMarkup)
     val (finalHouseholds, crossSectorHires) = processLaborMarket(calvoFirms, stepIn, rng)
     val npl                                 = computeNplAndInterest(stepIn.firms, calvoFirms, lending)
@@ -397,7 +396,7 @@ object FirmEconomics:
         reservationWage = in.s1.resWage,
       ),
     )
-    LendingConditions(world, in.s1.m, operationalSignals, rates, rates, canLend, nBanks)
+    LendingConditions(world, in.s1.m, operationalSignals, rates, canLend, nBanks)
 
   // ---- Phase 2: Per-firm processing ----
 
@@ -564,8 +563,8 @@ object FirmEconomics:
     val totalBondDefault = PLN.fromRaw(newlyDead.map(_.bondDebt.toLong).sum)
 
     // Per-bank aggregation via groupMapReduce (pure, no mutable arrays)
-    val emptyPln     = Vector.fill(lending.nBanks)(PLN.Zero)
-    val emptyInts    = Vector.fill(lending.nBanks)(0)
+    val emptyPln  = Vector.fill(lending.nBanks)(PLN.Zero)
+    val emptyInts = Vector.fill(lending.nBanks)(0)
 
     val perBankNplDebt = newlyDead.foldLeft(emptyPln): (acc, f) =>
       acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + f.debt)
@@ -661,7 +660,7 @@ object FirmEconomics:
       perBankNplDebt = npl.perBankNplDebt,
       perBankIntIncome = npl.perBankIntIncome,
       perBankWorkers = npl.perBankWorkers,
-      lendingRates = lending.lendingRates,
+      lendingRates = lending.rates,
       postFirmCrossSectorHires = crossSectorHires,
       markupInflation = markupInflation,
       sumRealizedPostTaxProfit = fp.outcomes.foldLeft(PLN.Zero)(_ + _.realizedPostTaxProfit),

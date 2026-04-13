@@ -79,6 +79,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
         prev,
         priceLevel = PriceIndex.Base,
         citPaid = PLN(100000),
+        govDividendRevenue = PLN.Zero,
         vat = PLN(200000),
       ),
     )
@@ -92,6 +93,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
         prev,
         priceLevel = PriceIndex.Base,
         citPaid = PLN(100000),
+        govDividendRevenue = PLN.Zero,
         vat = PLN(200000),
       ),
     )

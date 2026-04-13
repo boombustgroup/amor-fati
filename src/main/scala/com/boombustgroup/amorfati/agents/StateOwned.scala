@@ -34,6 +34,23 @@ object StateOwned:
   private val PublicSector        = 4
   private val AgricultureSector   = 5
 
+  private case class SectorSemantics(
+      investmentPriority: Share = Share.Zero,
+      energyBufferExposure: Share = Share.Zero,
+  )
+
+  private val DefaultSectorSemantics = SectorSemantics()
+
+  private val semanticsBySector: Map[Int, SectorSemantics] = Map(
+    ManufacturingSector -> SectorSemantics(investmentPriority = Share.One, energyBufferExposure = Share.One),
+    HealthcareSector    -> SectorSemantics(investmentPriority = Share(0.35)),
+    PublicSector        -> SectorSemantics(investmentPriority = Share.One, energyBufferExposure = Share(0.35)),
+    AgricultureSector   -> SectorSemantics(investmentPriority = Share(0.45)),
+  )
+
+  private def sectorSemantics(sectorIdx: Int): SectorSemantics =
+    semanticsBySector.getOrElse(sectorIdx, DefaultSectorSemantics)
+
   /** SOE dividend extraction: government takes higher dividends when deficit is
     * large. Returns dividend multiplier (>= 1.0 for SOEs).
     */
@@ -58,12 +75,8 @@ object StateOwned:
     * directed SOE investment is modeled as strongest in Manufacturing and
     * Public, with smaller spillovers to Healthcare and Agriculture.
     */
-  def directedInvestmentPriority(sectorIdx: Int): Share = sectorIdx match
-    case ManufacturingSector => Share.One
-    case PublicSector        => Share.One
-    case HealthcareSector    => Share(0.35)
-    case AgricultureSector   => Share(0.45)
-    case _                   => Share.Zero
+  def directedInvestmentPriority(sectorIdx: Int): Share =
+    sectorSemantics(sectorIdx).investmentPriority
 
   /** Effective investment multiplier after applying current sector semantics.
     * Non-strategic SOEs fall back to neutral investment behavior.
@@ -82,10 +95,8 @@ object StateOwned:
     * attached to the parts of Manufacturing and Public where the state today
     * plausibly acts as the price-buffering supplier.
     */
-  def energyBufferExposure(sectorIdx: Int): Share = sectorIdx match
-    case ManufacturingSector => Share.One
-    case PublicSector        => Share(0.35)
-    case _                   => Share.Zero
+  def energyBufferExposure(sectorIdx: Int): Share =
+    sectorSemantics(sectorIdx).energyBufferExposure
 
   /** Effective consumer pass-through after sector semantics are applied.
     * Sectors with no energy-buffer exposure fall back to full pass-through.

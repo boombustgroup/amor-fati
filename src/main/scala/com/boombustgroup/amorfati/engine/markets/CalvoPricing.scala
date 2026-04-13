@@ -57,7 +57,7 @@ object CalvoPricing:
   )(using p: SimParams): Multiplier =
     val demandPressure = ((sectorDemandMult - Multiplier.One).max(Multiplier.Zero).toScalar * p.pricing.demandSensitivity.toScalar).toCoefficient
     val costPressure   = (wageGrowthMonthly.max(Coefficient.Zero).toScalar * p.pricing.costPassthrough.toScalar).toCoefficient
-    val energyMarkup   = (energyPressure.max(Coefficient.Zero).toScalar * p.pricing.costPassthrough.toScalar).toCoefficient
+    val energyMarkup   = energyPressure.max(Coefficient.Zero)
     val boundedDemand  = demandPressure.min(MaxDemandMarkupLift)
     val boundedCost    = costPressure.min(MaxCostMarkupLift)
     val boundedEnergy  = energyMarkup.min(MaxEnergyMarkupLift)
@@ -89,8 +89,7 @@ object CalvoPricing:
       energyPressure: Coefficient,
       rng: RandomStream,
   )(using p: SimParams): FirmMarkupResult =
-    if p.pricing.calvoTheta.sampleBelow(rng) then
-      FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly, energyPressure), priceChanged = true)
+    if p.pricing.calvoTheta.sampleBelow(rng) then FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly, energyPressure), priceChanged = true)
     else FirmMarkupResult(currentMarkup, priceChanged = false)
 
   /** Compute aggregate inflation adjustment from markup dynamics.

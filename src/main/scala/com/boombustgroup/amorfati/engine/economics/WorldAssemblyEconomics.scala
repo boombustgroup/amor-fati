@@ -280,6 +280,7 @@ object WorldAssemblyEconomics:
       lastDomesticDividends = in.s7.netDomesticDividends,
       lastForeignDividends = in.s7.foreignDividendOutflow,
       lastDividendTax = in.s7.dividendTax,
+      lastGovernmentDividends = in.s7.stateOwnedGovDividends,
     )
 
   private def buildDemandOutput(in: Input): DemandEconomics.Output =
