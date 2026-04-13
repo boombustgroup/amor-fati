@@ -575,7 +575,7 @@ object FlowSimulation:
       equityDomDividends = eq.lastDomesticDividends,
       equityForDividends = eq.lastForeignDividends,
       equityDivTax = eq.lastDividendTax,
-      equityGovDividends = eq.lastGovernmentDividends,
+      equityGovDividends = w.gov.govDividendRevenue,
       equityIssuance = eq.lastIssuance,
       equityReturn = eq.monthlyReturn,
       exports = openEcon.exports,

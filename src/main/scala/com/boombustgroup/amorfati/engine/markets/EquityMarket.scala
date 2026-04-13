@@ -45,7 +45,6 @@ object EquityMarket:
       lastDomesticDividends: PLN = PLN.Zero,
       lastForeignDividends: PLN = PLN.Zero,
       lastDividendTax: PLN = PLN.Zero,
-      lastGovernmentDividends: PLN = PLN.Zero,
       hhEquityWealth: PLN = PLN.Zero,
       lastWealthEffect: PLN = PLN.Zero,
       monthlyReturn: Rate = Rate.Zero,
@@ -118,7 +117,14 @@ object EquityMarket:
 
     val mReturn = if in.prev.index > PriceIndex.Zero then newIndex.ratioTo(in.prev.index).toMultiplier.deviationFromOne.toRate else Rate.Zero
 
-    State(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership, monthlyReturn = mReturn)
+    State(
+      index = newIndex,
+      marketCap = newMarketCap,
+      earningsYield = newEarningsYield,
+      dividendYield = newDivYield,
+      foreignOwnership = newForeignOwnership,
+      monthlyReturn = mReturn,
+    )
 
   /** Process equity issuance: firm raises CAPEX via equity, increasing market
     * cap. Index diluted by supply effect.

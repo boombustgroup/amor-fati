@@ -30,7 +30,6 @@ class EquityMarketSpec extends AnyFlatSpec with Matchers:
     z.lastDomesticDividends shouldBe PLN.Zero
     z.lastForeignDividends shouldBe PLN.Zero
     z.lastDividendTax shouldBe PLN.Zero
-    z.lastGovernmentDividends shouldBe PLN.Zero
     z.hhEquityWealth shouldBe PLN.Zero
     z.lastWealthEffect shouldBe PLN.Zero
   }
