@@ -16,7 +16,7 @@ import com.boombustgroup.amorfati.engine.{
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.ledger.{ImperativeInterpreter, Interpreter}
+import com.boombustgroup.ledger.{BatchedFlow, ImperativeInterpreter, Interpreter, MechanismId}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -24,6 +24,14 @@ import org.scalatest.matchers.should.Matchers
 class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
+
+  private def mechanismTotal(batches: Vector[BatchedFlow], mechanism: MechanismId): PLN =
+    PLN.fromRaw(
+      batches.iterator
+        .filter(_.mechanism == mechanism)
+        .map(AggregateBatchContract.totalTransferred)
+        .sum,
+    )
 
   private def canonicalHouseholds(households: Vector[Household.State]): Vector[Vector[Any]] =
     households.map: hh =>
@@ -172,6 +180,29 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     highShadowRun.nextState.world.flows.taxEvasionLoss should be > lowShadowRun.nextState.world.flows.taxEvasionLoss
     highShadowRun.nextState.world.gov.taxRevenue should be < lowShadowRun.nextState.world.gov.taxRevenue
     highShadowRun.nextState.world.gov.deficit should be > lowShadowRun.nextState.world.gov.deficit
+  }
+
+  it should "align semantic gov revenue with the emitted SOE dividend batch at the month boundary" in {
+    val init             = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val boundaryDividend = PLN(25e6)
+    val lowState         = FlowSimulation.SimState.fromInit(init)
+    val highState        = lowState.copy(
+      world = lowState.world.copy(
+        gov = lowState.world.gov.copy(
+          monthly = lowState.world.gov.monthly.copy(govDividendRevenue = boundaryDividend),
+        ),
+      ),
+    )
+    val lowResult        = FlowSimulation.step(lowState, MonthRandomness.Contract.fromSeed(42L))
+    val highResult       = FlowSimulation.step(highState, MonthRandomness.Contract.fromSeed(42L))
+    val lowGovDividend   = mechanismTotal(lowResult.flows, FlowMechanism.EquityGovDividend)
+    val highGovDividend  = mechanismTotal(highResult.flows, FlowMechanism.EquityGovDividend)
+
+    lowResult.sfcResult shouldBe Right(())
+    highResult.sfcResult shouldBe Right(())
+    lowGovDividend shouldBe PLN.Zero
+    highGovDividend shouldBe boundaryDividend
+    highResult.trace.executedFlows.govRevenue - lowResult.trace.executedFlows.govRevenue shouldBe boundaryDividend
   }
 
   it should "produce 30+ mechanism IDs" in {

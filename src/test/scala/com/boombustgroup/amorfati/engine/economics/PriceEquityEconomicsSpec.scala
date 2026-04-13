@@ -78,8 +78,9 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
 
   "PriceEquityEconomics.compute" should "increase direct SOE dividend extraction when the fiscal deficit is higher" in {
     val prevGdp           = w.cachedMonthlyGdpProxy.max(PLN(1.0))
-    val lowDeficitWorld   = w.copy(gov = w.gov.copy(monthly = w.gov.monthly.copy(deficit = prevGdp * Share(0.01))))
-    val highDeficitWorld  = w.copy(gov = w.gov.copy(monthly = w.gov.monthly.copy(deficit = prevGdp * Share(0.10))))
+    val thresholdDeficit  = prevGdp * summon[SimParams].soe.dividendFiscalThreshold
+    val lowDeficitWorld   = w.copy(gov = w.gov.copy(monthly = w.gov.monthly.copy(deficit = thresholdDeficit * Multiplier(0.9))))
+    val highDeficitWorld  = w.copy(gov = w.gov.copy(monthly = w.gov.monthly.copy(deficit = thresholdDeficit * Multiplier(1.1))))
     val dividendSensitive = s5.copy(
       sumRealizedPostTaxProfit = PLN(200e6),
       sumStateOwnedPostTaxProfit = PLN(100e6),

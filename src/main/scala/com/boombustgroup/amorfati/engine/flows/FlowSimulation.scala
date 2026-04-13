@@ -717,8 +717,9 @@ object FlowSimulation:
     Sfc.SemanticFlows(
       govSpending =
         banking.newGovWithYield.domesticBudgetOutlays + labor.newZus.govSubvention + labor.newNfz.govSubvention + labor.newEarmarked.totalGovSubvention,
-      govRevenue =
-        firms.sumTax + prices.dividendTax + prices.stateOwnedGovDividends + banking.pitAfterEvasion + banking.vatAfterEvasion + openEcon.banking.nbpRemittance + banking.exciseAfterEvasion + banking.customsDutyRevenue,
+      govRevenue = firms.sumTax + prices.dividendTax + evidence.amount(
+        FlowMechanism.EquityGovDividend,
+      ) + banking.pitAfterEvasion + banking.vatAfterEvasion + openEcon.banking.nbpRemittance + banking.exciseAfterEvasion + banking.customsDutyRevenue,
       nplLoss = firms.nplLoss,
       interestIncome = evidence.amount(FlowMechanism.FirmInterestPaid),
       hhDebtService = evidence.amount(FlowMechanism.HhDebtService),
