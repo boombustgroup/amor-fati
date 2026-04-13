@@ -1075,7 +1075,8 @@ object Firm:
     val postDepK   = f.capitalStock - depn
     val targetK    = workerCount(f) * p.capital.klRatios(f.sector.toInt)
     val gap        = (targetK - postDepK).max(PLN.Zero)
-    val desiredInv = depn + gap * p.capital.adjustSpeed
+    val invMult    = if f.stateOwned then StateOwned.directedInvestmentMultiplier(f.sector.toInt) else Multiplier.One
+    val desiredInv = depn + (gap * p.capital.adjustSpeed * invMult)
     val actualInv  = desiredInv.min(f.cash.max(PLN.Zero))
     val newK       = postDepK + actualInv
     r.copy(firm = f.copy(cash = f.cash - actualInv, capitalStock = newK), grossInvestment = actualInv)
@@ -1194,7 +1195,8 @@ object Firm:
     val postDepGK   = f.greenCapital - depn
     val targetGK    = workerCount(f) * p.climate.greenKLRatios(f.sector.toInt)
     val gap         = (targetGK - postDepGK).max(PLN.Zero)
-    val desiredInv  = depn + gap * p.climate.greenAdjustSpeed
+    val invMult     = if f.stateOwned then StateOwned.directedInvestmentMultiplier(f.sector.toInt) else Multiplier.One
+    val desiredInv  = depn + (gap * p.climate.greenAdjustSpeed * invMult)
     val greenBudget = f.cash.max(PLN.Zero) * p.climate.greenBudgetShare
     val actualInv   = desiredInv.min(greenBudget)
     val newGK       = postDepGK + actualInv

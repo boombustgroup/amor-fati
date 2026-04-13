@@ -35,6 +35,7 @@ object CalvoPricing:
 
   private val MaxDemandMarkupLift = Coefficient(0.10)
   private val MaxCostMarkupLift   = Coefficient(0.02)
+  private val MaxEnergyMarkupLift = Coefficient(0.03)
 
   /** Per-firm markup update result. */
   case class FirmMarkupResult(
@@ -52,13 +53,29 @@ object CalvoPricing:
   private[amorfati] def optimalMarkup(
       sectorDemandMult: Multiplier,
       wageGrowthMonthly: Coefficient,
+      energyPressure: Coefficient,
   )(using p: SimParams): Multiplier =
     val demandPressure = ((sectorDemandMult - Multiplier.One).max(Multiplier.Zero).toScalar * p.pricing.demandSensitivity.toScalar).toCoefficient
     val costPressure   = (wageGrowthMonthly.max(Coefficient.Zero).toScalar * p.pricing.costPassthrough.toScalar).toCoefficient
+    val energyMarkup   = (energyPressure.max(Coefficient.Zero).toScalar * p.pricing.costPassthrough.toScalar).toCoefficient
     val boundedDemand  = demandPressure.min(MaxDemandMarkupLift)
     val boundedCost    = costPressure.min(MaxCostMarkupLift)
-    (p.pricing.baseMarkup * (Coefficient.One + boundedDemand + boundedCost).toMultiplier)
+    val boundedEnergy  = energyMarkup.min(MaxEnergyMarkupLift)
+    (p.pricing.baseMarkup * (Coefficient.One + boundedDemand + boundedCost + boundedEnergy).toMultiplier)
       .clamp(p.pricing.minMarkup, p.pricing.maxMarkup)
+
+  /** Commodity-cost pressure translated into markup pressure.
+    *
+    * Pressure rises with the level of the commodity price index relative to
+    * base, sector energy intensity, and the fraction of the shock firms are
+    * allowed to pass through to prices.
+    */
+  private[amorfati] def energyCostPressure(
+      commodityPrice: PriceIndex,
+      energyCostShare: Share,
+      passthrough: Share,
+  ): Coefficient =
+    commodityPrice.toMultiplier.deviationFromOne.max(Coefficient.Zero) * energyCostShare.toCoefficient * passthrough.toCoefficient
 
   /** Update a single firm's markup via Calvo lottery.
     *
@@ -69,9 +86,11 @@ object CalvoPricing:
       currentMarkup: Multiplier,
       sectorDemandMult: Multiplier,
       wageGrowthMonthly: Coefficient,
+      energyPressure: Coefficient,
       rng: RandomStream,
   )(using p: SimParams): FirmMarkupResult =
-    if p.pricing.calvoTheta.sampleBelow(rng) then FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly), priceChanged = true)
+    if p.pricing.calvoTheta.sampleBelow(rng) then
+      FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly, energyPressure), priceChanged = true)
     else FirmMarkupResult(currentMarkup, priceChanged = false)
 
   /** Compute aggregate inflation adjustment from markup dynamics.

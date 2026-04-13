@@ -6,7 +6,6 @@ import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, PriceLevel}
 import com.boombustgroup.amorfati.engine.mechanisms.{EuFunds, Macroprudential}
-import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 import com.boombustgroup.amorfati.types.*
 
 import com.boombustgroup.amorfati.random.RandomStream
@@ -65,6 +64,7 @@ object PriceEquityEconomics:
       netDomesticDividends: PLN,
       foreignDividendOutflow: PLN,
       dividendTax: PLN,
+      stateOwnedGovDividends: PLN,
       firmProfits: PLN,
       domesticGFCF: PLN,
       investmentImports: PLN,
@@ -119,33 +119,49 @@ object PriceEquityEconomics:
     */
   private[economics] def evolveSigmas(
       currentSigmas: Vector[Sigma],
+      baseSigmas: Vector[Sigma],
+      sectorAdoption: Vector[Share],
+      lambda: Coefficient,
+      capMult: Multiplier,
+  ): Vector[Sigma] =
+    if lambda == Coefficient.Zero then currentSigmas
+    else
+      currentSigmas.zip(baseSigmas).zip(sectorAdoption).map { case ((sigma, base), adoption) =>
+        val sigmaLevel    = sigma.toCoefficient
+        val cap           = Sigma.fromRaw((base.toScalar * capMult).toLong)
+        val saturationGap = (Coefficient.One - sigma.toScalar.ratioTo(cap.toScalar).toCoefficient).max(Coefficient.Zero)
+        val delta         = sigma.toCoefficient * lambda.max(Coefficient.Zero) * adoption.toCoefficient * saturationGap
+        val upperBound    = cap.toCoefficient.max(sigmaLevel)
+        val candidate     = (sigmaLevel + delta).max(sigmaLevel).min(upperBound)
+        Sigma.fromRaw(candidate.toLong)
+      }
+
+  private[economics] def evolveSigmas(
+      currentSigmas: Vector[Sigma],
       baseSigmas: Vector[Double],
       sectorAdoption: Vector[Double],
       lambda: Double,
       capMult: Double,
   ): Vector[Sigma] =
-    if lambda == 0.0 then currentSigmas
-    else
-      currentSigmas.zip(baseSigmas).zip(sectorAdoption).map { case ((sig, base), adopt) =>
-        val s     = sig.toLong.toDouble / ScaleD
-        val cap   = base * capMult
-        val delta = lambda * s * adopt * (1.0 - s / cap)
-        Sigma(Math.min(cap, Math.max(s, s + delta)))
-      }
+    evolveSigmas(
+      currentSigmas,
+      baseSigmas.map(Sigma(_)),
+      sectorAdoption.map(Share(_)),
+      Coefficient(lambda),
+      Multiplier(capMult),
+    )
 
   // ---------------------------------------------------------------------------
   // Dynamic network rewiring — bankrupt firm replacement with preferential attachment
   // ---------------------------------------------------------------------------
 
-  @boundaryEscape
-  private[economics] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
-    import ComputationBoundary.toDouble
-    if rho == 0.0 then return firms
+  private[economics] def rewireFirms(firms: Vector[Firm.State], rho: Share, rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
+    if rho <= Share.Zero then return firms
 
     val n = firms.length
     val k = p.firm.networkK
 
-    val toReplace = (0 until n).filter(i => !Firm.isAlive(firms(i)) && rng.nextDouble() < rho).toSet
+    val toReplace = (0 until n).filter(i => !Firm.isAlive(firms(i)) && rho.sampleBelow(rng)).toSet
     if toReplace.isEmpty then return firms
 
     val adj = Array.tabulate(n)(i => scala.collection.mutable.Set.from(firms(i).neighbors.map(_.toInt)))
@@ -180,26 +196,24 @@ object PriceEquityEconomics:
       if toReplace.contains(i) then
         val sec      = firms(i).sector
         val newSize  = FirmSizeDistribution.draw(rng)
-        val sizeMult = newSize.toDouble / p.pop.workersPerFirm
+        val sizeMult = Scalar.fraction(newSize, p.pop.workersPerFirm).toMultiplier
         Firm.State(
           id = FirmId(i),
-          cash = PLN(rng.between(StartupCashMin, StartupCashMax) * sizeMult),
+          cash = PLN.fromRaw(rng.between(PLN(StartupCashMin).toLong, PLN(StartupCashMax).toLong)) * sizeMult,
           debt = PLN.Zero,
           tech = TechState.Traditional(newSize),
-          riskProfile = Share(rng.between(RiskProfileMin, RiskProfileMax)),
-          innovationCostFactor = Multiplier(rng.between(InnovCostMin, InnovCostMax)),
-          digitalReadiness = Share(
-            Math.max(
-              DigitalReadyFloor,
-              Math.min(DigitalReadyCap, toDouble(p.sectorDefs(sec.toInt).baseDigitalReadiness) + (rng.nextGaussian() * DigitalReadyNoise)),
-            ),
-          ),
+          riskProfile = TypedRandom.randomBetween(Share(RiskProfileMin), Share(RiskProfileMax), rng),
+          innovationCostFactor = TypedRandom.randomBetween(Multiplier(InnovCostMin), Multiplier(InnovCostMax), rng),
+          digitalReadiness =
+            TypedRandom
+              .withGaussianNoise(p.sectorDefs(sec.toInt).baseDigitalReadiness, Share(DigitalReadyNoise), rng)
+              .clamp(Share(DigitalReadyFloor), Share(DigitalReadyCap)),
           sector = sec,
           neighbors = adj(i).iterator.map(FirmId(_)).toVector,
           bankId = BankId(0),
           equityRaised = PLN.Zero,
           initialSize = newSize,
-          capitalStock = PLN(toDouble(p.capital.klRatios(sec.toInt)) * newSize),
+          capitalStock = p.capital.klRatios(sec.toInt) * newSize,
           bondDebt = PLN.Zero,
           foreignOwned = false,
           inventory = PLN.Zero,
@@ -212,23 +226,30 @@ object PriceEquityEconomics:
         else firms(i)
     }.toVector
 
-  @boundaryEscape
-  private[economics] def governmentDemandContribution(govPurchases: PLN)(using p: SimParams): Double =
-    import ComputationBoundary.toDouble
-    toDouble(govPurchases) * (1.0 - toDouble(p.fiscal.govInvestShare)) * toDouble(p.fiscal.govCurrentMultiplier) +
-      toDouble(govPurchases) * toDouble(p.fiscal.govInvestShare) * toDouble(p.fiscal.govCapitalMultiplier)
+  private[economics] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
+    rewireFirms(firms, Share(rho), rng)
+
+  private[economics] def governmentDemandContribution(govPurchases: PLN)(using p: SimParams): PLN =
+    govPurchases * (Share.One - p.fiscal.govInvestShare) * p.fiscal.govCurrentMultiplier +
+      govPurchases * p.fiscal.govInvestShare * p.fiscal.govCapitalMultiplier
+
+  private[economics] def fiscalDeficitToGdp(deficit: PLN, monthlyGdp: PLN): Share =
+    if deficit > PLN.Zero && monthlyGdp > PLN.Zero then deficit.ratioTo(monthlyGdp).toShare.clamp(Share.Zero, Share.One)
+    else Share.Zero
 
   // ---------------------------------------------------------------------------
   // Main compute logic
   // ---------------------------------------------------------------------------
 
-  @boundaryEscape
   def compute(in: Input, rng: RandomStream)(using p: SimParams): Output =
-    import ComputationBoundary.toDouble
     val living2           = in.s5.ioFirms.filter(Firm.isAlive)
-    val nLiving           = living2.length.toDouble
-    val autoR             = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]) / nLiving else 0.0
-    val hybR              = if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]) / nLiving else 0.0
+    val nLiving           = living2.length
+    val autoR             =
+      if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]).ratioTo(nLiving).toShare
+      else Share.Zero
+    val hybR              =
+      if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]).ratioTo(nLiving).toShare
+      else Share.Zero
     val aggInventoryStock = PLN.fromRaw(living2.map(_.inventory.toLong).sum)
     val aggGreenCapital   = PLN.fromRaw(living2.map(_.greenCapital.toLong).sum)
 
@@ -238,35 +259,32 @@ object PriceEquityEconomics:
     val euCofin            = EuFunds.cofinancing(euMonthly)
     val euProjectCapital   = EuFunds.capitalInvestment(euMonthly, euCofin)
     val euGdpContribution  =
-      toDouble(euProjectCapital) * toDouble(p.fiscal.govCapitalMultiplier) +
-        toDouble((euCofin - euProjectCapital).max(PLN.Zero)) * toDouble(p.fiscal.govCurrentMultiplier)
-    val greenDomesticGFCF  =
-      toDouble(in.s5.sumGreenInvestment) * (1.0 - toDouble(p.climate.greenImportShare))
-    val domesticGFCF       =
-      toDouble(in.s5.sumGrossInvestment) * (1.0 - toDouble(p.capital.importShare)) + greenDomesticGFCF
-    val investmentImports  =
-      toDouble(in.s5.sumGrossInvestment) * toDouble(p.capital.importShare) +
-        toDouble(in.s5.sumGreenInvestment) * toDouble(p.climate.greenImportShare)
-    val aggInventoryChange = toDouble(in.s5.sumInventoryChange)
+      euProjectCapital * p.fiscal.govCapitalMultiplier +
+        (euCofin - euProjectCapital).max(PLN.Zero) * p.fiscal.govCurrentMultiplier
+    val greenDomesticGFCF  = in.s5.sumGreenInvestment * (Share.One - p.climate.greenImportShare)
+    val domesticGFCF       = in.s5.sumGrossInvestment * (Share.One - p.capital.importShare) + greenDomesticGFCF
+    val investmentImports  = in.s5.sumGrossInvestment * p.capital.importShare + in.s5.sumGreenInvestment * p.climate.greenImportShare
+    val aggInventoryChange = in.s5.sumInventoryChange
     val gdp                =
-      toDouble(in.domesticCons) + govGdpContribution + euGdpContribution + toDouble(in.w.forex.exports) + domesticGFCF + aggInventoryChange
+      in.domesticCons + govGdpContribution + euGdpContribution + in.w.forex.exports + domesticGFCF + aggInventoryChange
 
     val totalSystemLoans = PLN.fromRaw(in.banks.map(_.loans.toLong).sum)
-    val newMacropru      = Macroprudential.step(in.w.mechanisms.macropru, totalSystemLoans, PLN(gdp))
+    val newMacropru      = Macroprudential.step(in.w.mechanisms.macropru, totalSystemLoans, gdp)
 
     val sectorAdoption = p.sectorDefs.indices.map { s =>
       val secFirms = living2.filter(_.sector.toInt == s)
-      if secFirms.isEmpty then 0.0
+      if secFirms.isEmpty then Share.Zero
       else
         secFirms
           .count(f => f.tech.isInstanceOf[TechState.Automated] || f.tech.isInstanceOf[TechState.Hybrid])
-          .toDouble / secFirms.length
+          .ratioTo(secFirms.length)
+          .toShare
     }.toVector
-    val baseSigmas     = p.sectorDefs.map(sd => toDouble(sd.sigma)).toVector
+    val baseSigmas     = p.sectorDefs.map(_.sigma).toVector
     val newSigmas      =
-      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, toDouble(p.firm.sigmaLambda), toDouble(p.firm.sigmaCapMult))
+      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
 
-    val rewiredFirms = rewireFirms(in.s5.ioFirms, toDouble(p.firm.rewireRho), rng)
+    val rewiredFirms = rewireFirms(in.s5.ioFirms, p.firm.rewireRho, rng)
 
     val exDev    = in.w.forex.exchangeRate.deviationFrom(p.forex.baseExRate)
     val priceUpd = PriceLevel.update(
@@ -280,10 +298,10 @@ object PriceEquityEconomics:
     val newInfl  = priceUpd.inflation + in.s5.markupInflation
     val newPrice = priceUpd.priceLevel.applyGrowth(in.s5.markupInflation.monthly.toCoefficient)
 
-    val firmProfitsPnl = in.s5.sumRealizedPostTaxProfit
-
     val prevGdp             = in.w.cachedMonthlyGdpProxy.max(PLN(1.0))
-    val gdpGrowthForEquity  = PLN(gdp).ratioTo(prevGdp).toMultiplier.deviationFromOne
+    val deficitToGdp        = fiscalDeficitToGdp(in.w.gov.deficit.max(PLN.Zero), prevGdp)
+    val firmProfitsPnl      = in.s5.sumRealizedPostTaxProfit
+    val gdpGrowthForEquity  = gdp.ratioTo(prevGdp).toMultiplier.deviationFromOne
     val equityAfterIndex    = EquityMarket.step(
       EquityMarket.StepInput(
         prev = in.w.financial.equity,
@@ -299,20 +317,23 @@ object PriceEquityEconomics:
       EquityMarket.computeDividends(
         firmProfitsPnl,
         equityAfterIssuance.foreignOwnership,
+        stateOwnedProfits = in.s5.sumStateOwnedPostTaxProfit,
+        deficitToGdp = deficitToGdp,
       )
     val netDomesticDividends   = dividends.netDomestic
     val foreignDividendOutflow = dividends.foreign
     val dividendTax            = dividends.tax
+    val stateOwnedGovDividends = dividends.gov
 
     Output(
-      Share(autoR),
-      Share(hybR),
+      autoR,
+      hybR,
       aggInventoryStock,
       aggGreenCapital,
       euMonthly,
       euCofin,
       euProjectCapital,
-      PLN(gdp),
+      gdp,
       newMacropru,
       newSigmas,
       rewiredFirms,
@@ -322,8 +343,9 @@ object PriceEquityEconomics:
       netDomesticDividends,
       foreignDividendOutflow,
       dividendTax,
+      stateOwnedGovDividends,
       firmProfitsPnl,
-      PLN(domesticGFCF),
-      PLN(investmentImports),
-      PLN(aggInventoryChange),
+      domesticGFCF,
+      investmentImports,
+      aggInventoryChange,
     )

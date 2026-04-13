@@ -164,6 +164,7 @@ object FiscalBudget:
       priceLevel: PriceIndex,
       // Revenue
       citPaid: PLN = PLN.Zero,
+      govDividendRevenue: PLN = PLN.Zero,
       vat: PLN = PLN.Zero,
       nbpRemittance: PLN = PLN.Zero,
       exciseRevenue: PLN = PLN.Zero,
@@ -192,7 +193,7 @@ object FiscalBudget:
 
     val totalSpend = in.unempBenefitSpend + in.socialTransferSpend +
       govCurrent + govCapital + in.debtService + in.zusGovSubvention + in.nfzGovSubvention + in.earmarkedGovSubvention + in.euCofinancing
-    val totalRev   = in.citPaid + in.vat + in.nbpRemittance +
+    val totalRev   = in.citPaid + in.govDividendRevenue + in.vat + in.nbpRemittance +
       in.exciseRevenue + in.customsDutyRevenue
     val deficit    = totalSpend - totalRev
 

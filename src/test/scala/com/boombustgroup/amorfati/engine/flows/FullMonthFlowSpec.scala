@@ -151,7 +151,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       // Tier 3: Financial markets
-      EquityFlows.emit(EquityFlows.Input(PLN.Zero, PLN.Zero, PLN.Zero, s5.sumEquityIssuance)),
+      EquityFlows.emit(EquityFlows.Input(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, s5.sumEquityIssuance)),
       CorpBondFlows.emit(CorpBondFlows.Input(PLN.Zero, PLN.Zero, s5.actualBondIssuance, PLN.Zero)),
       MortgageFlows.emit(MortgageFlows.Input(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)),
       // OpenEcon: simplified

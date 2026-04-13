@@ -20,7 +20,6 @@ object FirmEconomics:
 
   // ---- Calibration constants ----
   private val BondRevertThreshold = 0.001 // minimum revert ratio to trigger bond-to-loan reversion
-  private val MonthsPerYear       = 12.0  // annual-to-monthly rate conversion
 
   // ---- Accumulated flows (monoid on PLN) ----
 
@@ -86,7 +85,7 @@ object FirmEconomics:
       executionMonth: ExecutionMonth,         // realized month currently being executed
       operationalSignals: OperationalSignals, // same-month demand / labor surface for incumbent firms
       rates: Vector[Rate],                    // per-bank lending rates
-      lendingRates: Vector[Double],           // rates as Double (for Output)
+      lendingRates: Vector[Rate],             // per-bank lending rates surfaced on Output
       bankCanLend: (Int, PLN) => Boolean,     // credit approval: (bankId, amount) => approved?
       nBanks: Int,                            // number of banks in multi-bank system
   )
@@ -133,8 +132,8 @@ object FirmEconomics:
       totalBondDefault: PLN,            // bond default from bankrupt firms
       firmDeaths: Int,                  // count of newly bankrupt firms
       intIncome: PLN,                   // aggregate bank interest income
-      perBankNplDebt: Vector[Double],   // NPL debt by bank index
-      perBankIntIncome: Vector[Double], // interest income by bank index
+      perBankNplDebt: Vector[PLN],      // NPL debt by bank index
+      perBankIntIncome: Vector[PLN],    // interest income by bank index
       perBankWorkers: Vector[Int],      // worker count by bank index
   )
 
@@ -208,13 +207,14 @@ object FirmEconomics:
       perBankNewLoans: Vector[PLN],        // new loans by bank index
       sumFirmPrincipal: PLN,               // aggregate firm loan principal repaid
       perBankFirmPrincipal: Vector[PLN],   // firm principal repaid by bank index
-      perBankNplDebt: Vector[Double],      // NPL debt by bank index
-      perBankIntIncome: Vector[Double],    // interest income by bank index
+      perBankNplDebt: Vector[PLN],         // NPL debt by bank index
+      perBankIntIncome: Vector[PLN],       // interest income by bank index
       perBankWorkers: Vector[Int],         // worker count by bank index
-      lendingRates: Vector[Double],        // per-bank lending rates
+      lendingRates: Vector[Rate],          // per-bank lending rates
       postFirmCrossSectorHires: Int,       // cross-sector hires in labor matching
       markupInflation: Rate,               // Calvo: annualized revenue-weighted avg markup change
       sumRealizedPostTaxProfit: PLN,       // aggregate realized post-tax profits from Firm.process
+      sumStateOwnedPostTaxProfit: PLN,     // aggregate realized post-tax profits of SOEs
   )
 
   case class Result(
@@ -285,7 +285,6 @@ object FirmEconomics:
   /** Run the full firm processing pipeline from step-level inputs. This is the
     * direct replacement for FirmProcessingStep.run().
     */
-  @boundaryEscape
   def runStep(
       w: World,
       firms: Vector[Firm.State],
@@ -302,7 +301,6 @@ object FirmEconomics:
 
   // ---- Entry point (from raw values, used by MonthlyCalculus) ----
 
-  @boundaryEscape
   def compute(in: Input)(using p: SimParams): StepOutput =
     // Construct bridge types from raw values
     val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
@@ -339,7 +337,6 @@ object FirmEconomics:
 
   // ---- Core pipeline (shared by compute + runStep) ----
 
-  @boundaryEscape
   private def runInternal(stepIn: StepInput, rng: RandomStream)(using p: SimParams): StepOutput =
     val lending                             = prepareLending(stepIn, rng)
     val fp                                  = processFirms(stepIn.firms, lending, rng)
@@ -348,7 +345,16 @@ object FirmEconomics:
     // Calvo staggered pricing: per-firm markup update
     val calvoFirms                          = ioFirms.map: f =>
       val sectorMult = stepIn.s4.sectorMults(f.sector.toInt)
-      val calvo      = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, stepIn.s2.wageGrowth, rng)
+      val passthrough =
+        if f.stateOwned then StateOwned.effectiveEnergyPassthrough(f.sector.toInt)
+        else Share.One
+      val energyCostPressure =
+        CalvoPricing.energyCostPressure(
+          stepIn.w.external.gvc.commodityPriceIndex,
+          p.climate.energyCostShares(f.sector.toInt),
+          passthrough,
+        )
+      val calvo = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, stepIn.s2.wageGrowth, energyCostPressure, rng)
       f.copy(markup = calvo.newMarkup)
     val (finalHouseholds, crossSectorHires) = processLaborMarket(calvoFirms, stepIn, rng)
     val npl                                 = computeNplAndInterest(stepIn.firms, calvoFirms, lending)
@@ -373,9 +379,7 @@ object FirmEconomics:
   /** Prepare per-bank rates, lending functions, and world snapshot with updated
     * wages for firm decision-making.
     */
-  @boundaryEscape
   private def prepareLending(in: StepInput, rng: RandomStream)(using p: SimParams): LendingConditions =
-    import ComputationBoundary.toDouble
     val bsec               = in.w.bankingSector
     val nBanks             = in.banks.length
     val ccyb               = in.w.mechanisms.macropru.ccyb
@@ -393,7 +397,7 @@ object FirmEconomics:
         reservationWage = in.s1.resWage,
       ),
     )
-    LendingConditions(world, in.s1.m, operationalSignals, rates, rates.map(toDouble(_)), canLend, nBanks)
+    LendingConditions(world, in.s1.m, operationalSignals, rates, rates, canLend, nBanks)
 
   // ---- Phase 2: Per-firm processing ----
 
@@ -548,13 +552,11 @@ object FirmEconomics:
   /** Detect newly bankrupt firms, compute per-bank NPL losses and interest
     * income on pre-step debt stock.
     */
-  @boundaryEscape
   private def computeNplAndInterest(
       preFirms: Vector[Firm.State],
       postFirms: Vector[Firm.State],
       lending: LendingConditions,
   )(using p: SimParams): NplResult =
-    import ComputationBoundary.toDouble
     val prevAlive        = preFirms.filter(Firm.isAlive).map(_.id).toSet
     val newlyDead        = postFirms.filter(f => !Firm.isAlive(f) && prevAlive.contains(f.id))
     val nplNew           = PLN.fromRaw(newlyDead.map(_.debt.toLong).sum)
@@ -562,16 +564,16 @@ object FirmEconomics:
     val totalBondDefault = PLN.fromRaw(newlyDead.map(_.bondDebt.toLong).sum)
 
     // Per-bank aggregation via groupMapReduce (pure, no mutable arrays)
-    val emptyDoubles = Vector.fill(lending.nBanks)(0.0)
+    val emptyPln     = Vector.fill(lending.nBanks)(PLN.Zero)
     val emptyInts    = Vector.fill(lending.nBanks)(0)
 
-    val perBankNplDebt = newlyDead.foldLeft(emptyDoubles): (acc, f) =>
-      acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + toDouble(f.debt))
+    val perBankNplDebt = newlyDead.foldLeft(emptyPln): (acc, f) =>
+      acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + f.debt)
 
     val perBankIntIncome = preFirms
       .filter(Firm.isAlive)
-      .foldLeft(emptyDoubles): (acc, f) =>
-        val interest = toDouble(f.debt) * toDouble(lending.rates(f.bankId.toInt)) / MonthsPerYear
+      .foldLeft(emptyPln): (acc, f) =>
+        val interest = f.debt * lending.rates(f.bankId.toInt).monthly
         acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + interest)
 
     val perBankWorkers = postFirms
@@ -579,14 +581,22 @@ object FirmEconomics:
       .foldLeft(emptyInts): (acc, f) =>
         acc.updated(f.bankId.toInt, acc(f.bankId.toInt) + Firm.workerCount(f))
 
-    NplResult(nplNew, nplLoss, totalBondDefault, newlyDead.length, PLN(perBankIntIncome.sum), perBankNplDebt, perBankIntIncome, perBankWorkers)
+    NplResult(
+      nplNew,
+      nplLoss,
+      totalBondDefault,
+      newlyDead.length,
+      perBankIntIncome.foldLeft(PLN.Zero)(_ + _),
+      perBankNplDebt,
+      perBankIntIncome,
+      perBankWorkers,
+    )
 
   // ---- Output assembly ----
 
   /** Assemble final StepOutput from phase results. Pure mapping, no
     * computation.
     */
-  @boundaryEscape
   private def assembleOutput(
       fp: FirmProcessingResult,
       bonded: BondAbsorptionResult,
@@ -655,4 +665,5 @@ object FirmEconomics:
       postFirmCrossSectorHires = crossSectorHires,
       markupInflation = markupInflation,
       sumRealizedPostTaxProfit = fp.outcomes.foldLeft(PLN.Zero)(_ + _.realizedPostTaxProfit),
+      sumStateOwnedPostTaxProfit = fp.outcomes.filter(_.firm.stateOwned).foldLeft(PLN.Zero)((acc, o) => acc + o.realizedPostTaxProfit),
     )
