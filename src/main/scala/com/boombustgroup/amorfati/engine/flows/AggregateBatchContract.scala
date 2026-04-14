@@ -54,7 +54,11 @@ object AggregateBatchContract:
     val Healthcare  = 10
 
   object ForeignIndex:
-    val Aggregate = 0
+    val GovBondHolder      = 0
+    val TradeSettlement    = 1
+    val IncomeSettlement   = 2
+    val CapitalSettlement  = 3
+    val TransferSettlement = 4
 
   val sectorSizes: Map[EntitySector, Int] = Map(
     EntitySector.Households -> 4,
@@ -64,7 +68,7 @@ object AggregateBatchContract:
     EntitySector.NBP        -> 1,
     EntitySector.Insurance  -> 1,
     EntitySector.Funds      -> 11,
-    EntitySector.Foreign    -> 1,
+    EntitySector.Foreign    -> 5,
   )
 
   private val sectorOrder: Vector[EntitySector] = Vector(

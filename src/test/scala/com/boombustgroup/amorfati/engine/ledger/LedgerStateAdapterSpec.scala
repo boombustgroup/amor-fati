@@ -20,7 +20,7 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
       EntitySector.NBP        -> 1,
       EntitySector.Insurance  -> 1,
       EntitySector.Funds      -> LedgerStateAdapter.FundIndex.Count,
-      EntitySector.Foreign    -> 1,
+      EntitySector.Foreign    -> 5,
     )
   }
 

@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
+import com.boombustgroup.amorfati.engine.ledger.ForeignRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -90,7 +91,7 @@ object HouseholdFlows:
         EntitySector.Households,
         HouseholdIndex.Aggregate,
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.TransferSettlement.index,
         input.remittances,
         AssetType.Cash,
         FlowMechanism.HhRemittance,

@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
-import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
+import com.boombustgroup.amorfati.engine.ledger.{ForeignRuntimeContract, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -37,7 +37,7 @@ object OpenEconFlows:
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.TradeSettlement.index,
         EntitySector.Firms,
         FirmIndex.DomesticDemand,
         input.exports,
@@ -48,14 +48,14 @@ object OpenEconFlows:
         EntitySector.Firms,
         FirmIndex.DomesticDemand,
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.TradeSettlement.index,
         input.imports,
         AssetType.Cash,
         FlowMechanism.TradeImports,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.TradeSettlement.index,
         EntitySector.Firms,
         FirmIndex.DomesticDemand,
         input.tourismExport,
@@ -66,17 +66,25 @@ object OpenEconFlows:
         EntitySector.Firms,
         FirmIndex.DomesticDemand,
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.TradeSettlement.index,
         input.tourismImport,
         AssetType.Cash,
         FlowMechanism.TourismImport,
       ),
       AggregateBatchedEmission
-        .transfer(EntitySector.Foreign, ForeignIndex.Aggregate, EntitySector.Firms, FirmIndex.Aggregate, input.fdi, AssetType.Cash, FlowMechanism.Fdi),
+        .transfer(
+          EntitySector.Foreign,
+          ForeignRuntimeContract.CapitalSettlement.index,
+          EntitySector.Firms,
+          FirmIndex.Aggregate,
+          input.fdi,
+          AssetType.Cash,
+          FlowMechanism.Fdi,
+        ),
       if input.portfolioFlows > PLN.Zero then
         AggregateBatchedEmission.transfer(
           EntitySector.Foreign,
-          ForeignIndex.Aggregate,
+          ForeignRuntimeContract.CapitalSettlement.index,
           EntitySector.Firms,
           FirmIndex.Aggregate,
           input.portfolioFlows,
@@ -88,7 +96,7 @@ object OpenEconFlows:
           EntitySector.Firms,
           FirmIndex.Aggregate,
           EntitySector.Foreign,
-          ForeignIndex.Aggregate,
+          ForeignRuntimeContract.CapitalSettlement.index,
           -input.portfolioFlows,
           AssetType.Cash,
           FlowMechanism.PortfolioFlow,
@@ -97,7 +105,7 @@ object OpenEconFlows:
       if input.primaryIncome > PLN.Zero then
         AggregateBatchedEmission.transfer(
           EntitySector.Foreign,
-          ForeignIndex.Aggregate,
+          ForeignRuntimeContract.IncomeSettlement.index,
           EntitySector.Firms,
           FirmIndex.Aggregate,
           input.primaryIncome,
@@ -109,7 +117,7 @@ object OpenEconFlows:
           EntitySector.Firms,
           FirmIndex.Aggregate,
           EntitySector.Foreign,
-          ForeignIndex.Aggregate,
+          ForeignRuntimeContract.IncomeSettlement.index,
           -input.primaryIncome,
           AssetType.Cash,
           FlowMechanism.PrimaryIncome,
@@ -117,7 +125,7 @@ object OpenEconFlows:
       else Vector.empty,
       AggregateBatchedEmission.transfer(
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.TransferSettlement.index,
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.euFunds,
@@ -126,7 +134,7 @@ object OpenEconFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.TransferSettlement.index,
         EntitySector.Households,
         HouseholdIndex.Aggregate,
         input.diasporaInflow,
@@ -137,7 +145,7 @@ object OpenEconFlows:
         EntitySector.Firms,
         FirmIndex.Aggregate,
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.CapitalSettlement.index,
         input.capitalFlightOutflow,
         AssetType.Cash,
         FlowMechanism.CapitalFlight,
