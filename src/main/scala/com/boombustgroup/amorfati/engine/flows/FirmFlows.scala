@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
-import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
+import com.boombustgroup.amorfati.engine.ledger.{ForeignRuntimeContract, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -129,7 +129,7 @@ object FirmFlows:
         EntitySector.Firms,
         FirmIndex.Aggregate,
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.IncomeSettlement.index,
         input.profitShifting,
         AssetType.Cash,
         FlowMechanism.FirmProfitShifting,
@@ -138,7 +138,7 @@ object FirmFlows:
         EntitySector.Firms,
         FirmIndex.Aggregate,
         EntitySector.Foreign,
-        ForeignIndex.Aggregate,
+        ForeignRuntimeContract.IncomeSettlement.index,
         input.fdiRepatriation,
         AssetType.Cash,
         FlowMechanism.FirmFdiRepatriation,

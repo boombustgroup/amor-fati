@@ -433,8 +433,26 @@ object AssetOwnershipContract:
     ),
     RuntimeShell(
       EntitySector.Foreign,
-      AggregateBatchContract.ForeignIndex.Aggregate,
-      "Foreign.Aggregate",
+      ForeignRuntimeContract.TradeSettlement.index,
+      ForeignRuntimeContract.TradeSettlement.name,
+      RuntimeShellCategory.SettlementShell,
+    ),
+    RuntimeShell(
+      EntitySector.Foreign,
+      ForeignRuntimeContract.IncomeSettlement.index,
+      ForeignRuntimeContract.IncomeSettlement.name,
+      RuntimeShellCategory.SettlementShell,
+    ),
+    RuntimeShell(
+      EntitySector.Foreign,
+      ForeignRuntimeContract.CapitalSettlement.index,
+      ForeignRuntimeContract.CapitalSettlement.name,
+      RuntimeShellCategory.SettlementShell,
+    ),
+    RuntimeShell(
+      EntitySector.Foreign,
+      ForeignRuntimeContract.TransferSettlement.index,
+      ForeignRuntimeContract.TransferSettlement.name,
       RuntimeShellCategory.SettlementShell,
     ),
   )
