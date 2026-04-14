@@ -139,6 +139,16 @@ object BankingEconomics:
       capitalResidual: PLN,
   )
 
+  private[amorfati] case class ReserveSettlementResult(
+      banks: Vector[Banking.BankState],
+      residual: PLN,
+  )
+
+  private case class FxSettlementAllocation(
+      allocations: Vector[PLN],
+      residual: PLN,
+  )
+
   // ---- Economics-level types (for MonthlyCalculus) ----
 
   case class Input(
@@ -669,22 +679,26 @@ object BankingEconomics:
       investNetDepositFlow: PLN,
       mortgageFlows: HousingMarket.MortgageFlows,
   )(using p: SimParams): MultiBankResult =
-    val prevBankAgg        = Banking.aggregateFromBanks(in.banks)
-    val ibRate             = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
+    val prevBankAgg    = Banking.aggregateFromBanks(in.banks)
+    val ibRate         = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
     // Liquidity hoarding: reduce interbank lending when system NPL is high
-    val hoarding           = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
-    val afterInterbank     = Banking.clearInterbank(updatedBanks, bs.configs, hoarding)
-    val afterNbpSettlement = applyNbpReserveSettlement(
+    val hoarding       = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
+    val afterInterbank = Banking.clearInterbank(updatedBanks, bs.configs, hoarding)
+    val nbpSettlement  = applyNbpReserveSettlement(
       afterInterbank,
       perBankReserveInt,
       perBankStandingFac,
       perBankInterbankInt,
       in.s8.monetary.fxPlnInjection,
     )
+    if nbpSettlement.residual != PLN.Zero then
+      throw IllegalStateException(
+        s"NBP reserve settlement left residual ${nbpSettlement.residual} after reserve-side settlement.",
+      )
     // HTM forced reclassification: LCR-stressed banks reclassify HTM→AFS, realizing hidden losses
-    val htmResult          = Banking.processHtmForcedSale(afterNbpSettlement, in.s8.monetary.newBondYield)
-    val afterHtm           = htmResult.banks
-    val afterBonds         =
+    val htmResult      = Banking.processHtmForcedSale(nbpSettlement.banks, in.s8.monetary.newBondYield)
+    val afterHtm       = htmResult.banks
+    val afterBonds     =
       if wf.actualBondChange > PLN.Zero then Banking.allocateBondIssuance(afterHtm, wf.actualBondChange, in.s8.monetary.newBondYield)
       else if wf.actualBondChange < PLN.Zero then
         Banking.allocateBondRedemption(afterHtm, PLN.fromRaw(-wf.actualBondChange.toLong), in.s8.monetary.newBondYield)
@@ -935,7 +949,8 @@ object BankingEconomics:
     *
     * Reserve remuneration, standing-facility settlement, interbank settlement
     * routed via NBP, and FX intervention PLN injection/drain all land on the
-    * same reserve-side settlement channel.
+    * same reserve-side settlement channel. If a drain would push a bank below
+    * zero reserves, the unclamped shortfall is surfaced as `residual`.
     */
   private[amorfati] def applyNbpReserveSettlement(
       banks: Vector[Banking.BankState],
@@ -943,25 +958,37 @@ object BankingEconomics:
       standingFacilityIncome: Banking.PerBankAmounts,
       interbankInterest: Banking.PerBankAmounts,
       fxInjection: PLN,
-  ): Vector[Banking.BankState] =
+  ): ReserveSettlementResult =
     val distributedFx = distributeFxInjectionByDeposits(banks, fxInjection)
-    banks.zipWithIndex.map { (bank, idx) =>
-      val delta =
-        reserveInterest.perBank(idx) +
-          standingFacilityIncome.perBank(idx) +
-          interbankInterest.perBank(idx) +
-          distributedFx(idx)
-      bank.copy(reservesAtNbp = (bank.reservesAtNbp + delta).max(PLN.Zero))
-    }
+    val updatedBanks  = Vector.newBuilder[Banking.BankState]
+    val residual      =
+      banks.zipWithIndex.foldLeft(distributedFx.residual) { (accResidual, bankAndIdx) =>
+        val (bank, idx) = bankAndIdx
+        val delta       =
+          reserveInterest.perBank(idx) +
+            standingFacilityIncome.perBank(idx) +
+            interbankInterest.perBank(idx) +
+            distributedFx.allocations(idx)
+        val updated     = bank.reservesAtNbp + delta
+        if updated >= PLN.Zero then
+          updatedBanks += bank.copy(reservesAtNbp = updated)
+          accResidual
+        else
+          updatedBanks += bank.copy(reservesAtNbp = PLN.Zero)
+          accResidual + updated
+      }
+
+    ReserveSettlementResult(updatedBanks.result(), residual)
 
   /** Distribute FX intervention PLN injection across banks proportional to
     * deposit market share, adjusting reservesAtNbp. EUR purchase → PLN injected
-    * into banking system; EUR sale → PLN drained.
+    * into banking system; EUR sale → PLN drained. Any amount that cannot be
+    * allocated is surfaced via `residual`.
     */
   private[amorfati] def distributeFxInjection(
       banks: Vector[Banking.BankState],
       injection: PLN,
-  ): Vector[Banking.BankState] =
+  ): ReserveSettlementResult =
     val zeros = Banking.PerBankAmounts(Vector.fill(banks.size)(PLN.Zero), PLN.Zero)
     applyNbpReserveSettlement(
       banks,
@@ -974,16 +1001,20 @@ object BankingEconomics:
   private def distributeFxInjectionByDeposits(
       banks: Vector[Banking.BankState],
       injection: PLN,
-  ): Vector[PLN] =
-    if injection == PLN.Zero then Vector.fill(banks.size)(PLN.Zero)
+  ): FxSettlementAllocation =
+    if injection == PLN.Zero then FxSettlementAllocation(Vector.fill(banks.size)(PLN.Zero), PLN.Zero)
     else
       val weights = banks.map(_.deposits.toLong.max(0L)).toArray
-      if weights.sum <= 0L then Vector.fill(banks.size)(PLN.Zero)
+      if weights.sum <= 0L then FxSettlementAllocation(Vector.fill(banks.size)(PLN.Zero), injection)
       else
-        Distribute
+        val allocations = Distribute
           .distribute(math.abs(injection.toLong), weights)
           .iterator
           .map { rawAllocated =>
             if injection >= PLN.Zero then PLN.fromRaw(rawAllocated) else PLN.fromRaw(-rawAllocated)
           }
           .toVector
+        FxSettlementAllocation(
+          allocations = allocations,
+          residual = injection - allocations.foldLeft(PLN.Zero)(_ + _),
+        )

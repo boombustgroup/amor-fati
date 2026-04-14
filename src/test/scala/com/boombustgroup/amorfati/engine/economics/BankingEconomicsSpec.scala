@@ -131,8 +131,9 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       initBank(1, deposits = PLN(400.0), reserves = PLN(20.0)),
     )
     val result = BankingEconomics.distributeFxInjection(banks, PLN(101.0))
-    val delta0 = result(0).reservesAtNbp - banks(0).reservesAtNbp
-    val delta1 = result(1).reservesAtNbp - banks(1).reservesAtNbp
+    val delta0 = result.banks(0).reservesAtNbp - banks(0).reservesAtNbp
+    val delta1 = result.banks(1).reservesAtNbp - banks(1).reservesAtNbp
+    result.residual shouldBe PLN.Zero
     delta0.toLong + delta1.toLong shouldBe PLN(101.0).toLong
     delta0 shouldBe PLN(60.6)
     delta1 shouldBe PLN(40.4)
@@ -145,13 +146,25 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       initBank(2, deposits = PLN(300.0), reserves = PLN(90.0)),
     )
     val result = BankingEconomics.distributeFxInjection(banks, PLN(-40.0))
-    val delta0 = result(0).reservesAtNbp - banks(0).reservesAtNbp
-    val delta1 = result(1).reservesAtNbp - banks(1).reservesAtNbp
-    val delta2 = result(2).reservesAtNbp - banks(2).reservesAtNbp
+    val delta0 = result.banks(0).reservesAtNbp - banks(0).reservesAtNbp
+    val delta1 = result.banks(1).reservesAtNbp - banks(1).reservesAtNbp
+    val delta2 = result.banks(2).reservesAtNbp - banks(2).reservesAtNbp
+    result.residual shouldBe PLN.Zero
     delta0 shouldBe PLN.Zero
     delta1 + delta2 shouldBe PLN(-40.0)
     delta1 shouldBe PLN(-10.0)
     delta2 shouldBe PLN(-30.0)
+  }
+
+  it should "surface the full residual when no bank has positive deposit weight" in {
+    val banks  = Vector(
+      initBank(0, deposits = PLN.Zero, reserves = PLN(30.0)),
+      initBank(1, deposits = PLN(-10.0), reserves = PLN(40.0)),
+    )
+    val result = BankingEconomics.distributeFxInjection(banks, PLN(-25.0))
+
+    result.banks shouldBe banks
+    result.residual shouldBe PLN(-25.0)
   }
 
   "BankingEconomics.applyNbpReserveSettlement" should "apply reserve-side monetary settlement and FX injection to reserves" in {
@@ -164,11 +177,22 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val ib      = Banking.PerBankAmounts(Vector(PLN(-2.0), PLN(2.0)), PLN.Zero)
     val result  = BankingEconomics.applyNbpReserveSettlement(banks, reserve, sf, ib, PLN(100.0))
 
-    val delta0 = result(0).reservesAtNbp - banks(0).reservesAtNbp
-    val delta1 = result(1).reservesAtNbp - banks(1).reservesAtNbp
+    val delta0 = result.banks(0).reservesAtNbp - banks(0).reservesAtNbp
+    val delta1 = result.banks(1).reservesAtNbp - banks(1).reservesAtNbp
 
+    result.residual shouldBe PLN.Zero
     delta0 shouldBe PLN(67.0)
     delta1 shouldBe PLN(45.0)
+  }
+
+  it should "surface reserve drain residual instead of silently dropping it" in {
+    val banks  = Vector(initBank(0, deposits = PLN(100.0), reserves = PLN(10.0)))
+    val zeros  = Banking.PerBankAmounts(Vector(PLN.Zero), PLN.Zero)
+    val drain  = Banking.PerBankAmounts(Vector(PLN(-15.0)), PLN(-15.0))
+    val result = BankingEconomics.applyNbpReserveSettlement(banks, zeros, drain, zeros, PLN.Zero)
+
+    result.banks.head.reservesAtNbp shouldBe PLN.Zero
+    result.residual shouldBe PLN(-5.0)
   }
 
   private def initBank(id: Int, deposits: PLN, reserves: PLN): Banking.BankState =
