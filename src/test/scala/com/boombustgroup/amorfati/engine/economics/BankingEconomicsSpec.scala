@@ -154,6 +154,23 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     delta2 shouldBe PLN(-30.0)
   }
 
+  "BankingEconomics.applyNbpReserveSettlement" should "apply reserve-side monetary settlement and FX injection to reserves" in {
+    val banks   = Vector(
+      initBank(0, deposits = PLN(600.0), reserves = PLN(10.0)),
+      initBank(1, deposits = PLN(400.0), reserves = PLN(20.0)),
+    )
+    val reserve = Banking.PerBankAmounts(Vector(PLN(6.0), PLN(4.0)), PLN(10.0))
+    val sf      = Banking.PerBankAmounts(Vector(PLN(3.0), PLN(-1.0)), PLN(2.0))
+    val ib      = Banking.PerBankAmounts(Vector(PLN(-2.0), PLN(2.0)), PLN.Zero)
+    val result  = BankingEconomics.applyNbpReserveSettlement(banks, reserve, sf, ib, PLN(100.0))
+
+    val delta0 = result(0).reservesAtNbp - banks(0).reservesAtNbp
+    val delta1 = result(1).reservesAtNbp - banks(1).reservesAtNbp
+
+    delta0 shouldBe PLN(67.0)
+    delta1 shouldBe PLN(45.0)
+  }
+
   private def initBank(id: Int, deposits: PLN, reserves: PLN): Banking.BankState =
     Banking.BankState(
       id = BankId(id),

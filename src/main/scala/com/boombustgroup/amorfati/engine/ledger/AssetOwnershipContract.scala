@@ -131,7 +131,7 @@ object AssetOwnershipContract:
       AssetType.Reserve,
       PublicAssetStatus.SupportedPersistedStock,
       Set(dynamic(EntitySector.Banks)),
-      "Bank reserve asset; the NBP-side settlement liability is not a supported stock yet.",
+      "Bank reserve asset; the NBP-side reserve settlement liability remains a delta-only runtime shell.",
     ),
     PublicAssetContract(
       AssetType.StandingFacility,
@@ -396,9 +396,9 @@ object AssetOwnershipContract:
       RuntimeShellCategory.SettlementShell,
     ),
     RuntimeShell(
-      EntitySector.NBP,
-      AggregateBatchContract.NbpIndex.Aggregate,
-      "NBP.Aggregate",
+      NbpRuntimeContract.ReserveSettlementLiability.sector,
+      NbpRuntimeContract.ReserveSettlementLiability.index,
+      NbpRuntimeContract.ReserveSettlementLiability.name,
       RuntimeShellCategory.SettlementShell,
     ),
     RuntimeShell(

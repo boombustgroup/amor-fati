@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.engine.ledger.NbpRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -62,6 +63,39 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(balances) shouldBe 0L
 
     balances(BankingFlows.DEPOSITOR_ACCOUNT) should be < 0L
+  }
+
+  it should "emit NBP reserve-side settlement on the reserve asset contract" in {
+    val batches              = BankingFlows.emitBatches(baseInput)
+    val nbpReserveMechanisms = Set(
+      FlowMechanism.BankReserveInterest,
+      FlowMechanism.BankStandingFacility,
+      FlowMechanism.BankInterbankInterest,
+    )
+
+    val reserveBatches = batches.filter(batch => nbpReserveMechanisms.contains(batch.mechanism))
+    reserveBatches should not be empty
+    all(reserveBatches.map(_.asset)) shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
+    all(reserveBatches.collect { case broadcast: BatchedFlow.Broadcast => broadcast.fromIndex }) shouldBe NbpRuntimeContract.ReserveSettlementLiability.index
+  }
+
+  it should "emit signed FX reserve settlement through the same NBP shell" in {
+    val injection = BankingFlows
+      .emitBatches(baseInput.copy(fxReserveSettlement = PLN(125000.0)))
+      .find(_.mechanism == FlowMechanism.NbpFxSettlement)
+      .get
+    val drain     = BankingFlows
+      .emitBatches(baseInput.copy(fxReserveSettlement = PLN(-90000.0)))
+      .find(_.mechanism == FlowMechanism.NbpFxSettlement)
+      .get
+
+    injection.asset shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
+    injection.from shouldBe EntitySector.NBP
+    injection.to shouldBe EntitySector.Banks
+
+    drain.asset shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
+    drain.from shouldBe EntitySector.Banks
+    drain.to shouldBe EntitySector.NBP
   }
 
   it should "preserve SFC across 120 months" in {

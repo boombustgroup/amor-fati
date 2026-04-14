@@ -641,7 +641,18 @@ object BankingEconomics:
       )
     }
 
-    processInterbankAndFailures(in, updatedBanks, bs, wf, jstDepositChange, investNetDepositFlow, mortgageFlows)
+    processInterbankAndFailures(
+      in,
+      updatedBanks,
+      bs,
+      wf,
+      perBankReserveInt,
+      perBankStandingFac,
+      perBankInterbankInt,
+      jstDepositChange,
+      investNetDepositFlow,
+      mortgageFlows,
+    )
 
   /** Interbank clearing, bond allocation, QE, failure check, bail-in,
     * resolution, reassignment.
@@ -651,20 +662,29 @@ object BankingEconomics:
       updatedBanks: Vector[Banking.BankState],
       bs: Banking.State,
       wf: BondWaterfallInputs,
+      perBankReserveInt: Banking.PerBankAmounts,
+      perBankStandingFac: Banking.PerBankAmounts,
+      perBankInterbankInt: Banking.PerBankAmounts,
       jstDepositChange: PLN,
       investNetDepositFlow: PLN,
       mortgageFlows: HousingMarket.MortgageFlows,
   )(using p: SimParams): MultiBankResult =
-    val prevBankAgg      = Banking.aggregateFromBanks(in.banks)
-    val ibRate           = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
+    val prevBankAgg        = Banking.aggregateFromBanks(in.banks)
+    val ibRate             = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
     // Liquidity hoarding: reduce interbank lending when system NPL is high
-    val hoarding         = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
-    val afterInterbank   = Banking.clearInterbank(updatedBanks, bs.configs, hoarding)
-    val afterFxInjection = distributeFxInjection(afterInterbank, in.s8.monetary.fxPlnInjection)
+    val hoarding           = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
+    val afterInterbank     = Banking.clearInterbank(updatedBanks, bs.configs, hoarding)
+    val afterNbpSettlement = applyNbpReserveSettlement(
+      afterInterbank,
+      perBankReserveInt,
+      perBankStandingFac,
+      perBankInterbankInt,
+      in.s8.monetary.fxPlnInjection,
+    )
     // HTM forced reclassification: LCR-stressed banks reclassify HTM→AFS, realizing hidden losses
-    val htmResult        = Banking.processHtmForcedSale(afterFxInjection, in.s8.monetary.newBondYield)
-    val afterHtm         = htmResult.banks
-    val afterBonds       =
+    val htmResult          = Banking.processHtmForcedSale(afterNbpSettlement, in.s8.monetary.newBondYield)
+    val afterHtm           = htmResult.banks
+    val afterBonds         =
       if wf.actualBondChange > PLN.Zero then Banking.allocateBondIssuance(afterHtm, wf.actualBondChange, in.s8.monetary.newBondYield)
       else if wf.actualBondChange < PLN.Zero then
         Banking.allocateBondRedemption(afterHtm, PLN.fromRaw(-wf.actualBondChange.toLong), in.s8.monetary.newBondYield)
@@ -911,19 +931,59 @@ object BankingEconomics:
       ),
     )
 
+  /** Apply NBP-side reserve settlement deltas to bank reserve balances.
+    *
+    * Reserve remuneration, standing-facility settlement, interbank settlement
+    * routed via NBP, and FX intervention PLN injection/drain all land on the
+    * same reserve-side settlement channel.
+    */
+  private[amorfati] def applyNbpReserveSettlement(
+      banks: Vector[Banking.BankState],
+      reserveInterest: Banking.PerBankAmounts,
+      standingFacilityIncome: Banking.PerBankAmounts,
+      interbankInterest: Banking.PerBankAmounts,
+      fxInjection: PLN,
+  ): Vector[Banking.BankState] =
+    val distributedFx = distributeFxInjectionByDeposits(banks, fxInjection)
+    banks.zipWithIndex.map { (bank, idx) =>
+      val delta =
+        reserveInterest.perBank(idx) +
+          standingFacilityIncome.perBank(idx) +
+          interbankInterest.perBank(idx) +
+          distributedFx(idx)
+      bank.copy(reservesAtNbp = (bank.reservesAtNbp + delta).max(PLN.Zero))
+    }
+
   /** Distribute FX intervention PLN injection across banks proportional to
     * deposit market share, adjusting reservesAtNbp. EUR purchase → PLN injected
     * into banking system; EUR sale → PLN drained.
     */
-  private[amorfati] def distributeFxInjection(banks: Vector[Banking.BankState], injection: PLN): Vector[Banking.BankState] =
-    if injection == PLN.Zero then banks
+  private[amorfati] def distributeFxInjection(
+      banks: Vector[Banking.BankState],
+      injection: PLN,
+  ): Vector[Banking.BankState] =
+    val zeros = Banking.PerBankAmounts(Vector.fill(banks.size)(PLN.Zero), PLN.Zero)
+    applyNbpReserveSettlement(
+      banks,
+      reserveInterest = zeros,
+      standingFacilityIncome = zeros,
+      interbankInterest = zeros,
+      fxInjection = injection,
+    )
+
+  private def distributeFxInjectionByDeposits(
+      banks: Vector[Banking.BankState],
+      injection: PLN,
+  ): Vector[PLN] =
+    if injection == PLN.Zero then Vector.fill(banks.size)(PLN.Zero)
     else
       val weights = banks.map(_.deposits.toLong.max(0L)).toArray
-      if weights.sum <= 0L then banks
+      if weights.sum <= 0L then Vector.fill(banks.size)(PLN.Zero)
       else
-        val distributed = Distribute.distribute(math.abs(injection.toLong), weights)
-        banks
-          .zip(distributed.iterator)
-          .map: (b, rawAllocated) =>
-            val allocated = if injection >= PLN.Zero then PLN.fromRaw(rawAllocated) else PLN.fromRaw(-rawAllocated)
-            b.copy(reservesAtNbp = (b.reservesAtNbp + allocated).max(PLN.Zero))
+        Distribute
+          .distribute(math.abs(injection.toLong), weights)
+          .iterator
+          .map { rawAllocated =>
+            if injection >= PLN.Zero then PLN.fromRaw(rawAllocated) else PLN.fromRaw(-rawAllocated)
+          }
+          .toVector

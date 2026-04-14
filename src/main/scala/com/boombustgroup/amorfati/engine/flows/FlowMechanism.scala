@@ -106,3 +106,4 @@ object FlowMechanism:
   val BankBailIn: MechanismId            = MechanismId(87)
   val BankNbpRemittance: MechanismId     = MechanismId(88)
   val EquityGovDividend: MechanismId     = MechanismId(89)
+  val NbpFxSettlement: MechanismId       = MechanismId(90)
