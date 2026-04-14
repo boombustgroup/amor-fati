@@ -10,12 +10,12 @@ import com.boombustgroup.ledger.{AssetType, EntitySector, MutableWorldState}
 /** Narrow bridge between runtime simulation state and ledger-owned financial
   * storage.
   *
-  * This adapter intentionally supports only the current "clean" financial
-  * slice defined by [[AssetOwnershipContract]]: balances with a defensible
-  * mapping onto existing ledger [[AssetType]]s. Unsupported state such as
-  * physical capital, bank capital, or mixed monthly operational flows is left
-  * out on purpose rather than forced into the ledger abstraction under a
-  * misleading asset name.
+  * This adapter intentionally supports only the current "clean" financial slice
+  * defined by [[AssetOwnershipContract]]: balances with a defensible mapping
+  * onto existing ledger [[AssetType]]s. Unsupported state such as physical
+  * capital, bank capital, or mixed monthly operational flows is left out on
+  * purpose rather than forced into the ledger abstraction under a misleading
+  * asset name.
   */
 object LedgerStateAdapter:
 
