@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -47,7 +48,7 @@ object NfzFlows:
         .transfer(EntitySector.Funds, FundIndex.Nfz, EntitySector.Firms, FirmIndex.Services, spending, AssetType.Cash, FlowMechanism.NfzSpending),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
         FundIndex.Nfz,
         deficit,

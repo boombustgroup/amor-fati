@@ -384,15 +384,15 @@ object AssetOwnershipContract:
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
-      EntitySector.Government,
-      AggregateBatchContract.GovernmentIndex.Budget,
-      "Government.Budget",
+      TreasuryRuntimeContract.TreasuryBudgetSettlement.sector,
+      TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+      TreasuryRuntimeContract.TreasuryBudgetSettlement.name,
       RuntimeShellCategory.SettlementShell,
     ),
     RuntimeShell(
-      EntitySector.Government,
-      AggregateBatchContract.GovernmentIndex.TaxpayerPool,
-      "Government.TaxpayerPool",
+      TreasuryRuntimeContract.TaxpayerCollection.sector,
+      TreasuryRuntimeContract.TaxpayerCollection.index,
+      TreasuryRuntimeContract.TaxpayerCollection.name,
       RuntimeShellCategory.SettlementShell,
     ),
     RuntimeShell(

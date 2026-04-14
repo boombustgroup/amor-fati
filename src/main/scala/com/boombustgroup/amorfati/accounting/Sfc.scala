@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.flows.AggregateBatchContract
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
+import com.boombustgroup.amorfati.engine.ledger.{LedgerStateAdapter, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
 
@@ -480,8 +480,11 @@ object Sfc:
     val publicCashErrors =
       runtimeCashIdentity(
         SfcIdentity.GovBudgetCash,
-        "government budget cash",
-        AccountRef(EntitySector.Government, ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget)),
+        "treasury budget settlement cash",
+        AccountRef(
+          TreasuryRuntimeContract.TreasuryBudgetSettlement.sector,
+          ExecutionIndex(TreasuryRuntimeContract.TreasuryBudgetSettlement.index),
+        ),
         batches,
         executionDeltaLedger,
       ) ++
