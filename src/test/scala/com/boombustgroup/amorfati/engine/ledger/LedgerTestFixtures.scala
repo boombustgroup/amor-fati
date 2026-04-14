@@ -19,6 +19,7 @@ object LedgerTestFixtures:
     val world = base.world.copy(
       gov = base.world.gov.copy(
         financial = base.world.gov.financial.copy(
+          cumulativeDebt = PLN(776e6),
           bondsOutstanding = PLN(777e6),
           foreignBondHoldings = PLN(778e6),
         ),

@@ -15,10 +15,32 @@ import com.boombustgroup.ledger.{AssetType, EntitySector}
   */
 object AssetOwnershipContract:
 
+  enum SectorId:
+    case Dynamic(sector: EntitySector)
+    case Fixed(sector: EntitySector, index: Int)
+
+    def entitySector: EntitySector =
+      this match
+        case Dynamic(sector)  => sector
+        case Fixed(sector, _) => sector
+
+    def matches(
+        sector: EntitySector,
+        index: Int,
+    ): Boolean =
+      this match
+        case Dynamic(ownerSector)         => ownerSector == sector
+        case Fixed(ownerSector, ownerIdx) => ownerSector == sector && ownerIdx == index
+
   case class SupportedPair(
-      sector: EntitySector,
+      owner: SectorId,
       asset: AssetType,
-  )
+  ):
+    def matches(
+        sector: EntitySector,
+        index: Int,
+    ): Boolean =
+      owner.matches(sector, index)
 
   enum PublicAssetStatus:
     case SupportedPersistedStock
@@ -27,70 +49,88 @@ object AssetOwnershipContract:
   case class PublicAssetContract(
       asset: AssetType,
       status: PublicAssetStatus,
-      supportedSectors: Set[EntitySector],
+      supportedSlots: Set[SectorId],
       note: String,
   )
+
+  private def dynamic(sector: EntitySector): SectorId =
+    SectorId.Dynamic(sector)
+
+  private def singleton(sector: EntitySector): SectorId =
+    SectorId.Fixed(sector, 0)
+
+  private def fund(index: Int): SectorId =
+    SectorId.Fixed(EntitySector.Funds, index)
 
   val publicAssets: Vector[PublicAssetContract] = Vector(
     PublicAssetContract(
       AssetType.DemandDeposit,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Households, EntitySector.Banks),
+      Set(dynamic(EntitySector.Households), dynamic(EntitySector.Banks)),
       "Household savings and bank demand-deposit liabilities.",
     ),
     PublicAssetContract(
       AssetType.TermDeposit,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Banks),
+      Set(dynamic(EntitySector.Banks)),
       "Bank term-deposit liabilities.",
     ),
     PublicAssetContract(
       AssetType.FirmLoan,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Firms, EntitySector.Banks),
+      Set(dynamic(EntitySector.Firms), dynamic(EntitySector.Banks)),
       "Firm debt mirrored by bank loan assets.",
     ),
     PublicAssetContract(
       AssetType.ConsumerLoan,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Households, EntitySector.Banks),
+      Set(dynamic(EntitySector.Households), dynamic(EntitySector.Banks)),
       "Household consumer debt mirrored by bank loan assets.",
     ),
     PublicAssetContract(
       AssetType.MortgageLoan,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Households),
+      Set(dynamic(EntitySector.Households)),
       "Currently only the household-side mortgage liability is in the supported slice.",
     ),
     PublicAssetContract(
       AssetType.GovBondAFS,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Banks),
+      Set(dynamic(EntitySector.Banks)),
       "Bank-only AFS government-bond holdings.",
     ),
     PublicAssetContract(
       AssetType.GovBondHTM,
       PublicAssetStatus.SupportedPersistedStock,
       Set(
-        EntitySector.Banks,
-        EntitySector.Government,
-        EntitySector.Foreign,
-        EntitySector.NBP,
-        EntitySector.Insurance,
-        EntitySector.Funds,
+        dynamic(EntitySector.Banks),
+        singleton(EntitySector.Government),
+        singleton(EntitySector.Foreign),
+        singleton(EntitySector.NBP),
+        singleton(EntitySector.Insurance),
+        fund(LedgerStateAdapter.FundIndex.Ppk),
+        fund(LedgerStateAdapter.FundIndex.Nbfi),
+        fund(LedgerStateAdapter.FundIndex.QuasiFiscal),
       ),
       "Issuer outstanding plus holder stocks across supported sectors.",
     ),
     PublicAssetContract(
       AssetType.CorpBond,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Firms, EntitySector.Banks, EntitySector.Insurance, EntitySector.Funds),
+      Set(
+        dynamic(EntitySector.Firms),
+        dynamic(EntitySector.Banks),
+        singleton(EntitySector.Insurance),
+        fund(LedgerStateAdapter.FundIndex.Ppk),
+        fund(LedgerStateAdapter.FundIndex.CorpBondOther),
+        fund(LedgerStateAdapter.FundIndex.Nbfi),
+      ),
       "Firm bond liabilities plus supported holder stocks.",
     ),
     PublicAssetContract(
       AssetType.Reserve,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Banks),
+      Set(dynamic(EntitySector.Banks)),
       "Bank reserve asset; the NBP-side settlement liability is not a supported stock yet.",
     ),
     PublicAssetContract(
@@ -102,43 +142,60 @@ object AssetOwnershipContract:
     PublicAssetContract(
       AssetType.InterbankLoan,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Banks),
+      Set(dynamic(EntitySector.Banks)),
       "Aggregate net interbank position per bank.",
     ),
     PublicAssetContract(
       AssetType.Equity,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Households, EntitySector.Firms, EntitySector.Insurance, EntitySector.Funds),
+      Set(
+        dynamic(EntitySector.Households),
+        dynamic(EntitySector.Firms),
+        singleton(EntitySector.Insurance),
+        fund(LedgerStateAdapter.FundIndex.Nbfi),
+      ),
       "Supported stock family despite separate timing-cleanup work for equity flows.",
     ),
     PublicAssetContract(
       AssetType.LifeReserve,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Insurance),
+      Set(singleton(EntitySector.Insurance)),
       "Insurance-side life reserve stock.",
     ),
     PublicAssetContract(
       AssetType.NonLifeReserve,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Insurance),
+      Set(singleton(EntitySector.Insurance)),
       "Insurance-side non-life reserve stock.",
     ),
     PublicAssetContract(
       AssetType.TfiUnit,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Funds),
+      Set(fund(LedgerStateAdapter.FundIndex.Nbfi)),
       "TFI AUM proxy inside the NBFI fund bucket.",
     ),
     PublicAssetContract(
       AssetType.NbfiLoan,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Funds),
+      Set(
+        fund(LedgerStateAdapter.FundIndex.Nbfi),
+        fund(LedgerStateAdapter.FundIndex.QuasiFiscal),
+      ),
       "Used for both NBFI credit and quasi-fiscal loan portfolio inside the Funds sector.",
     ),
     PublicAssetContract(
       AssetType.Cash,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.Firms, EntitySector.Funds),
+      Set(
+        dynamic(EntitySector.Firms),
+        fund(LedgerStateAdapter.FundIndex.Zus),
+        fund(LedgerStateAdapter.FundIndex.Nfz),
+        fund(LedgerStateAdapter.FundIndex.Fp),
+        fund(LedgerStateAdapter.FundIndex.Pfron),
+        fund(LedgerStateAdapter.FundIndex.Fgsp),
+        fund(LedgerStateAdapter.FundIndex.Jst),
+        fund(LedgerStateAdapter.FundIndex.Nbfi),
+      ),
       "Supported only for firm cash and selected fund buckets; not a universal settlement cash asset.",
     ),
     PublicAssetContract(
@@ -150,23 +207,31 @@ object AssetOwnershipContract:
     PublicAssetContract(
       AssetType.ForeignAsset,
       PublicAssetStatus.SupportedPersistedStock,
-      Set(EntitySector.NBP),
+      Set(singleton(EntitySector.NBP)),
       "NBP FX reserve stock.",
     ),
   )
 
-  private val publicAssetsByAsset = publicAssets.map(contract => contract.asset -> contract).toMap
+  private val publicAssetGroups = publicAssets.groupBy(_.asset)
 
   require(
-    publicAssets.map(_.asset).toSet == AssetType.values.toSet,
+    publicAssetGroups.keySet == AssetType.values.toSet,
     "AssetOwnershipContract must classify every public AssetType.",
   )
 
+  require(
+    publicAssetGroups.values.forall(_.size == 1),
+    "AssetOwnershipContract must define exactly one PublicAssetContract per AssetType.",
+  )
+
+  private val publicAssetsByAsset =
+    publicAssetGroups.view.mapValues(_.head).toMap
+
   val supportedPairs: Set[SupportedPair] =
-    publicAssets.iterator
+    publicAssetsByAsset.valuesIterator
       .filter(_.status == PublicAssetStatus.SupportedPersistedStock)
       .flatMap: contract =>
-        contract.supportedSectors.iterator.map(sector => SupportedPair(sector, contract.asset))
+        contract.supportedSlots.iterator.map(slot => SupportedPair(slot, contract.asset))
       .toSet
 
   val orphanPublicAssets: Set[AssetType] =
@@ -380,17 +445,21 @@ object AssetOwnershipContract:
   def isSupportedPersistedPair(
       sector: EntitySector,
       asset: AssetType,
+      index: Int,
   ): Boolean =
-    supportedPairs.contains(SupportedPair(sector, asset))
+    supportedPairs.iterator
+      .filter(_.asset == asset)
+      .exists(_.matches(sector, index))
 
   def requireSupportedPersistedPair(
       sector: EntitySector,
       asset: AssetType,
+      index: Int,
       context: String,
   ): Unit =
     require(
-      isSupportedPersistedPair(sector, asset),
-      s"$context attempted to use unsupported ledger pair ($sector, $asset).",
+      isSupportedPersistedPair(sector, asset, index),
+      s"$context attempted to use unsupported ledger pair ($sector, $asset, $index).",
     )
 
 end AssetOwnershipContract

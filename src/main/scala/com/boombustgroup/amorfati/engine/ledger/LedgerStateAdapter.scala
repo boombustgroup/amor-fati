@@ -533,14 +533,14 @@ object LedgerStateAdapter:
     )
 
   private def set(state: MutableWorldState, sector: EntitySector, asset: AssetType, index: Int, value: PLN): Unit =
-    AssetOwnershipContract.requireSupportedPersistedPair(sector, asset, "LedgerStateAdapter.set")
+    AssetOwnershipContract.requireSupportedPersistedPair(sector, asset, index, "LedgerStateAdapter.set")
     state.setBalance(sector, asset, index, value.toLong) match
       case Right(_)  => ()
       case Left(err) =>
         throw new IllegalStateException(s"LedgerStateAdapter failed to populate ($sector, $asset, $index): $err")
 
   private def pln(state: MutableWorldState, sector: EntitySector, asset: AssetType, index: Int): PLN =
-    AssetOwnershipContract.requireSupportedPersistedPair(sector, asset, "LedgerStateAdapter.pln")
+    AssetOwnershipContract.requireSupportedPersistedPair(sector, asset, index, "LedgerStateAdapter.pln")
     PLN.fromRaw(state.balance(sector, asset, index))
 
   private def bankDemandDeposits(bank: Banking.BankState): PLN =

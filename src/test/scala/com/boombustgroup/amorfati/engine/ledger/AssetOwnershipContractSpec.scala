@@ -10,18 +10,27 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
   import LedgerTestFixtures.enrichedSimState
 
   "AssetOwnershipContract" should "classify every public ledger asset exactly once" in {
-    publicAssets.map(_.asset).toSet shouldBe AssetType.values.toSet
+    val grouped = publicAssets.groupBy(_.asset)
+
+    grouped.keySet shouldBe AssetType.values.toSet
+    grouped.values.foreach(_ should have size 1)
   }
 
-  it should "match the supported persisted pairs materialized by LedgerStateAdapter" in {
+  it should "accept every materialized adapter balance and preserve fund-slot granularity" in {
     val runtime = enrichedSimState()
     val ledger  = LedgerStateAdapter.toMutableWorldState(runtime)
 
-    val materializedPairs = ledger.snapshot.keySet.map { case (sector, asset, _) =>
-      SupportedPair(sector, asset)
+    ledger.snapshot.keySet.foreach { case (sector, asset, index) =>
+      isSupportedPersistedPair(sector, asset, index) shouldBe true
     }
 
-    materializedPairs shouldBe supportedPairs
+    supportedPairs should contain(SupportedPair(SectorId.Fixed(EntitySector.Funds, LedgerStateAdapter.FundIndex.Zus), AssetType.Cash))
+    supportedPairs should not contain SupportedPair(
+      SectorId.Fixed(EntitySector.Funds, LedgerStateAdapter.FundIndex.QuasiFiscal),
+      AssetType.Cash,
+    )
+    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, LedgerStateAdapter.FundIndex.Zus) shouldBe true
+    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, LedgerStateAdapter.FundIndex.QuasiFiscal) shouldBe false
   }
 
   it should "track currently unsupported persisted families explicitly" in {
