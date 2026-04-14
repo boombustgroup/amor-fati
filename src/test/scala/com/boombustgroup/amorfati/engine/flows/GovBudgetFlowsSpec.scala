@@ -26,13 +26,14 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "emit non-overlapping VAT, excise, and customs revenue legs" in {
-    val mechanisms = GovBudgetFlows.emit(baseInput).take(3).map(_.mechanism)
+    val emittedMechanisms         = GovBudgetFlows.emit(baseInput).map(_.mechanism).toVector
+    val expectedRevenueMechanisms =
+      GovBudgetFlows.DirectTreasuryRevenueMechanisms.map(_.toInt).toSet
+    val revenueMechanisms         =
+      emittedMechanisms.filter(expectedRevenueMechanisms.contains)
 
-    mechanisms shouldBe Vector(
-      FlowMechanism.GovVatRevenue.toInt,
-      FlowMechanism.GovExciseRevenue.toInt,
-      FlowMechanism.GovCustomsDutyRevenue.toInt,
-    )
+    revenueMechanisms.toSet shouldBe expectedRevenueMechanisms
+    emittedMechanisms should not contain FlowMechanism.GovTaxRevenue.toInt
   }
 
   it should "have GOV balance = revenue - total spending" in {

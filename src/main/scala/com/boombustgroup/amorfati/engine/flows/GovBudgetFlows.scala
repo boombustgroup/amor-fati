@@ -32,6 +32,22 @@ object GovBudgetFlows:
   val HH_ACCOUNT: Int             = 4
   val INFRASTRUCTURE_ACCOUNT: Int = 5
 
+  val DirectTreasuryRevenueMechanisms: Vector[MechanismId] = Vector(
+    FlowMechanism.GovVatRevenue,
+    FlowMechanism.GovExciseRevenue,
+    FlowMechanism.GovCustomsDutyRevenue,
+  )
+
+  val CentralGovernmentRevenueMechanisms: Vector[MechanismId] =
+    Vector(
+      FlowMechanism.FirmCit,
+      FlowMechanism.HhPit,
+      FlowMechanism.EquityDividendTax,
+      FlowMechanism.EquityGovDividend,
+    ) ++ DirectTreasuryRevenueMechanisms ++ Vector(
+      FlowMechanism.BankNbpRemittance,
+    )
+
   case class Input(
       vatRevenue: PLN,
       exciseRevenue: PLN,
@@ -44,113 +60,139 @@ object GovBudgetFlows:
       govCapitalSpend: PLN,
   )
 
-  def emitBatches(input: Input): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
-    Vector.concat(
-      AggregateBatchedEmission.transfer(
-        EntitySector.Government,
-        TreasuryRuntimeContract.TaxpayerCollection.index,
-        EntitySector.Government,
-        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        input.vatRevenue,
-        AssetType.Cash,
-        FlowMechanism.GovVatRevenue,
+  private case class FlowLeg(
+      fromSector: EntitySector,
+      fromIndex: Int,
+      toSector: EntitySector,
+      toIndex: Int,
+      legacyFrom: Int,
+      legacyTo: Int,
+      amount: PLN,
+      asset: AssetType,
+      mechanism: MechanismId,
+  )
+
+  private def flowLegs(input: Input): Vector[FlowLeg] =
+    Vector(
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TaxpayerCollection.index,
+        toSector = EntitySector.Government,
+        toIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        legacyFrom = TAXPAYER_ACCOUNT,
+        legacyTo = GOV_ACCOUNT,
+        amount = input.vatRevenue,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovVatRevenue,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Government,
-        TreasuryRuntimeContract.TaxpayerCollection.index,
-        EntitySector.Government,
-        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        input.exciseRevenue,
-        AssetType.Cash,
-        FlowMechanism.GovExciseRevenue,
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TaxpayerCollection.index,
+        toSector = EntitySector.Government,
+        toIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        legacyFrom = TAXPAYER_ACCOUNT,
+        legacyTo = GOV_ACCOUNT,
+        amount = input.exciseRevenue,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovExciseRevenue,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Government,
-        TreasuryRuntimeContract.TaxpayerCollection.index,
-        EntitySector.Government,
-        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        input.customsDutyRevenue,
-        AssetType.Cash,
-        FlowMechanism.GovCustomsDutyRevenue,
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TaxpayerCollection.index,
+        toSector = EntitySector.Government,
+        toIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        legacyFrom = TAXPAYER_ACCOUNT,
+        legacyTo = GOV_ACCOUNT,
+        amount = input.customsDutyRevenue,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovCustomsDutyRevenue,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Government,
-        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        EntitySector.Firms,
-        FirmIndex.Aggregate,
-        input.govPurchases,
-        AssetType.Cash,
-        FlowMechanism.GovPurchases,
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Firms,
+        toIndex = AggregateBatchContract.FirmIndex.Aggregate,
+        legacyFrom = GOV_ACCOUNT,
+        legacyTo = FIRM_ACCOUNT,
+        amount = input.govPurchases,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovPurchases,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Government,
-        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        EntitySector.Funds,
-        FundIndex.Bondholders,
-        input.debtService,
-        AssetType.Cash,
-        FlowMechanism.GovDebtService,
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Funds,
+        toIndex = AggregateBatchContract.FundIndex.Bondholders,
+        legacyFrom = GOV_ACCOUNT,
+        legacyTo = BONDHOLDER_ACCOUNT,
+        amount = input.debtService,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovDebtService,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Government,
-        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        EntitySector.Households,
-        HouseholdIndex.Aggregate,
-        input.unempBenefitSpend,
-        AssetType.Cash,
-        FlowMechanism.GovUnempBenefit,
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Households,
+        toIndex = AggregateBatchContract.HouseholdIndex.Aggregate,
+        legacyFrom = GOV_ACCOUNT,
+        legacyTo = HH_ACCOUNT,
+        amount = input.unempBenefitSpend,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovUnempBenefit,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Government,
-        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        EntitySector.Households,
-        HouseholdIndex.Aggregate,
-        input.socialTransferSpend,
-        AssetType.Cash,
-        FlowMechanism.GovSocialTransfer,
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Households,
+        toIndex = AggregateBatchContract.HouseholdIndex.Aggregate,
+        legacyFrom = GOV_ACCOUNT,
+        legacyTo = HH_ACCOUNT,
+        amount = input.socialTransferSpend,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovSocialTransfer,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Government,
-        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        EntitySector.Firms,
-        FirmIndex.CapitalGoods,
-        input.euCofinancing,
-        AssetType.Cash,
-        FlowMechanism.GovEuCofin,
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Firms,
+        toIndex = AggregateBatchContract.FirmIndex.CapitalGoods,
+        legacyFrom = GOV_ACCOUNT,
+        legacyTo = INFRASTRUCTURE_ACCOUNT,
+        amount = input.euCofinancing,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovEuCofin,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Government,
-        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        EntitySector.Firms,
-        FirmIndex.CapitalGoods,
-        input.govCapitalSpend,
-        AssetType.Cash,
-        FlowMechanism.GovCapitalInvestment,
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Firms,
+        toIndex = AggregateBatchContract.FirmIndex.CapitalGoods,
+        legacyFrom = GOV_ACCOUNT,
+        legacyTo = INFRASTRUCTURE_ACCOUNT,
+        amount = input.govCapitalSpend,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovCapitalInvestment,
       ),
     )
 
+  def emitBatches(input: Input): Vector[BatchedFlow] =
+    flowLegs(input).flatMap: leg =>
+      AggregateBatchedEmission.transfer(
+        leg.fromSector,
+        leg.fromIndex,
+        leg.toSector,
+        leg.toIndex,
+        leg.amount,
+        leg.asset,
+        leg.mechanism,
+      )
+
   def emit(input: Input): Vector[Flow] =
-    val flows = Vector.newBuilder[Flow]
-
-    // Revenue: taxpayer collection shell -> GOV
-    if input.vatRevenue > PLN.Zero then flows += Flow(TAXPAYER_ACCOUNT, GOV_ACCOUNT, input.vatRevenue.toLong, FlowMechanism.GovVatRevenue.toInt)
-    if input.exciseRevenue > PLN.Zero then flows += Flow(TAXPAYER_ACCOUNT, GOV_ACCOUNT, input.exciseRevenue.toLong, FlowMechanism.GovExciseRevenue.toInt)
-    if input.customsDutyRevenue > PLN.Zero then
-      flows += Flow(TAXPAYER_ACCOUNT, GOV_ACCOUNT, input.customsDutyRevenue.toLong, FlowMechanism.GovCustomsDutyRevenue.toInt)
-
-    // Spending: GOV → various recipients
-    if input.govPurchases > PLN.Zero then flows += Flow(GOV_ACCOUNT, FIRM_ACCOUNT, input.govPurchases.toLong, FlowMechanism.GovPurchases.toInt)
-
-    if input.debtService > PLN.Zero then flows += Flow(GOV_ACCOUNT, BONDHOLDER_ACCOUNT, input.debtService.toLong, FlowMechanism.GovDebtService.toInt)
-
-    if input.unempBenefitSpend > PLN.Zero then flows += Flow(GOV_ACCOUNT, HH_ACCOUNT, input.unempBenefitSpend.toLong, FlowMechanism.GovUnempBenefit.toInt)
-
-    if input.socialTransferSpend > PLN.Zero then flows += Flow(GOV_ACCOUNT, HH_ACCOUNT, input.socialTransferSpend.toLong, FlowMechanism.GovSocialTransfer.toInt)
-
-    if input.euCofinancing > PLN.Zero then flows += Flow(GOV_ACCOUNT, INFRASTRUCTURE_ACCOUNT, input.euCofinancing.toLong, FlowMechanism.GovEuCofin.toInt)
-
-    if input.govCapitalSpend > PLN.Zero then
-      flows += Flow(GOV_ACCOUNT, INFRASTRUCTURE_ACCOUNT, input.govCapitalSpend.toLong, FlowMechanism.GovCapitalInvestment.toInt)
-
-    flows.result()
+    flowLegs(input).collect:
+      case leg if leg.amount > PLN.Zero =>
+        Flow(
+          leg.legacyFrom,
+          leg.legacyTo,
+          leg.amount.toLong,
+          leg.mechanism.toInt,
+        )

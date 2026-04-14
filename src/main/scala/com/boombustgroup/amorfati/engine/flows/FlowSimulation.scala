@@ -196,15 +196,15 @@ object FlowSimulation:
       ),
       GovBudgetFlows.emitBatches(
         GovBudgetFlows.Input(
-          c.govVatRevenue,
-          c.govExciseRevenue,
-          c.govCustomsDutyRevenue,
-          c.govPurchases,
-          c.govDebtService,
-          c.totalUnempBenefits,
-          c.totalSocialTransfers,
-          c.govEuCofinancing,
-          c.govCapitalSpend,
+          vatRevenue = c.govVatRevenue,
+          exciseRevenue = c.govExciseRevenue,
+          customsDutyRevenue = c.govCustomsDutyRevenue,
+          govPurchases = c.govPurchases,
+          debtService = c.govDebtService,
+          unempBenefitSpend = c.totalUnempBenefits,
+          socialTransferSpend = c.totalSocialTransfers,
+          euCofinancing = c.govEuCofinancing,
+          govCapitalSpend = c.govCapitalSpend,
         ),
       ),
       InsuranceFlows.emitBatches(
@@ -737,16 +737,7 @@ object FlowSimulation:
     Sfc.SemanticFlows(
       govSpending =
         banking.newGovWithYield.domesticBudgetOutlays + labor.newZus.govSubvention + labor.newNfz.govSubvention + labor.newEarmarked.totalGovSubvention,
-      govRevenue = evidence.sum(
-        FlowMechanism.FirmCit,
-        FlowMechanism.HhPit,
-        FlowMechanism.EquityDividendTax,
-        FlowMechanism.EquityGovDividend,
-        FlowMechanism.GovVatRevenue,
-        FlowMechanism.GovExciseRevenue,
-        FlowMechanism.GovCustomsDutyRevenue,
-        FlowMechanism.BankNbpRemittance,
-      ),
+      govRevenue = evidence.sum(GovBudgetFlows.CentralGovernmentRevenueMechanisms*),
       nplLoss = firms.nplLoss,
       interestIncome = evidence.amount(FlowMechanism.FirmInterestPaid),
       hhDebtService = evidence.amount(FlowMechanism.HhDebtService),
