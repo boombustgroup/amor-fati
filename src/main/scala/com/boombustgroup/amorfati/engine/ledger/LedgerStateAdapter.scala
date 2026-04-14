@@ -11,10 +11,11 @@ import com.boombustgroup.ledger.{AssetType, EntitySector, MutableWorldState}
   * storage.
   *
   * This adapter intentionally supports only the current "clean" financial
-  * slice: balances with a defensible mapping onto existing ledger
-  * [[AssetType]]s. Unsupported state such as physical capital, bank capital, or
-  * mixed monthly operational flows is left out on purpose rather than forced
-  * into the ledger abstraction under a misleading asset name.
+  * slice defined by [[AssetOwnershipContract]]: balances with a defensible
+  * mapping onto existing ledger [[AssetType]]s. Unsupported state such as
+  * physical capital, bank capital, or mixed monthly operational flows is left
+  * out on purpose rather than forced into the ledger abstraction under a
+  * misleading asset name.
   */
 object LedgerStateAdapter:
 
@@ -532,12 +533,14 @@ object LedgerStateAdapter:
     )
 
   private def set(state: MutableWorldState, sector: EntitySector, asset: AssetType, index: Int, value: PLN): Unit =
+    AssetOwnershipContract.requireSupportedPersistedPair(sector, asset, "LedgerStateAdapter.set")
     state.setBalance(sector, asset, index, value.toLong) match
       case Right(_)  => ()
       case Left(err) =>
         throw new IllegalStateException(s"LedgerStateAdapter failed to populate ($sector, $asset, $index): $err")
 
   private def pln(state: MutableWorldState, sector: EntitySector, asset: AssetType, index: Int): PLN =
+    AssetOwnershipContract.requireSupportedPersistedPair(sector, asset, "LedgerStateAdapter.pln")
     PLN.fromRaw(state.balance(sector, asset, index))
 
   private def bankDemandDeposits(bank: Banking.BankState): PLN =
