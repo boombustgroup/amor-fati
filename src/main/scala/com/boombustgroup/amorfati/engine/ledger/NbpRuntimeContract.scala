@@ -18,6 +18,7 @@ object NbpRuntimeContract:
     case GovBondAssetStock
     case FxReserveAssetStock
     case ReserveSettlementLiabilityShell
+    case StandingFacilityBackstopShell
 
   case class RuntimeNode(
       name: String,
@@ -56,6 +57,16 @@ object NbpRuntimeContract:
       role = RuntimeRole.ReserveSettlementLiabilityShell,
       persistedAsStock = false,
       asset = AssetType.Reserve,
+    )
+
+  val StandingFacilityBackstop: RuntimeNode =
+    RuntimeNode(
+      name = "NBP.StandingFacilityBackstop",
+      sector = EntitySector.NBP,
+      index = AggregateBatchContract.NbpIndex.Aggregate,
+      role = RuntimeRole.StandingFacilityBackstopShell,
+      persistedAsStock = false,
+      asset = AssetType.StandingFacility,
     )
 
 end NbpRuntimeContract

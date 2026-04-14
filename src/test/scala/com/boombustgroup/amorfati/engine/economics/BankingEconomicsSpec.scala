@@ -119,6 +119,8 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         res.unrealizedBondLoss,
         res.bailInLoss,
         res.nbpRemittance,
+        PLN.Zero,
+        res.standingFacilityBackstop,
       ),
     )
 
@@ -133,6 +135,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val result = BankingEconomics.distributeFxInjection(banks, PLN(101.0))
     val delta0 = result.banks(0).reservesAtNbp - banks(0).reservesAtNbp
     val delta1 = result.banks(1).reservesAtNbp - banks(1).reservesAtNbp
+    result.standingFacilityBackstop shouldBe PLN.Zero
     result.residual shouldBe PLN.Zero
     delta0.toLong + delta1.toLong shouldBe PLN(101.0).toLong
     delta0 shouldBe PLN(60.6)
@@ -149,6 +152,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val delta0 = result.banks(0).reservesAtNbp - banks(0).reservesAtNbp
     val delta1 = result.banks(1).reservesAtNbp - banks(1).reservesAtNbp
     val delta2 = result.banks(2).reservesAtNbp - banks(2).reservesAtNbp
+    result.standingFacilityBackstop shouldBe PLN.Zero
     result.residual shouldBe PLN.Zero
     delta0 shouldBe PLN.Zero
     delta1 + delta2 shouldBe PLN(-40.0)
@@ -164,6 +168,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val result = BankingEconomics.distributeFxInjection(banks, PLN(-25.0))
 
     result.banks shouldBe banks
+    result.standingFacilityBackstop shouldBe PLN.Zero
     result.residual shouldBe PLN(-25.0)
   }
 
@@ -180,19 +185,21 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val delta0 = result.banks(0).reservesAtNbp - banks(0).reservesAtNbp
     val delta1 = result.banks(1).reservesAtNbp - banks(1).reservesAtNbp
 
+    result.standingFacilityBackstop shouldBe PLN.Zero
     result.residual shouldBe PLN.Zero
     delta0 shouldBe PLN(67.0)
     delta1 shouldBe PLN(45.0)
   }
 
-  it should "surface reserve drain residual instead of silently dropping it" in {
+  it should "convert reserve drain shortfall into explicit standing-facility backstop" in {
     val banks  = Vector(initBank(0, deposits = PLN(100.0), reserves = PLN(10.0)))
     val zeros  = Banking.PerBankAmounts(Vector(PLN.Zero), PLN.Zero)
     val drain  = Banking.PerBankAmounts(Vector(PLN(-15.0)), PLN(-15.0))
     val result = BankingEconomics.applyNbpReserveSettlement(banks, zeros, drain, zeros, PLN.Zero)
 
     result.banks.head.reservesAtNbp shouldBe PLN.Zero
-    result.residual shouldBe PLN(-5.0)
+    result.standingFacilityBackstop shouldBe PLN(5.0)
+    result.residual shouldBe PLN.Zero
   }
 
   private def initBank(id: Int, deposits: PLN, reserves: PLN): Banking.BankState =

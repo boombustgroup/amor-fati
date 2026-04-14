@@ -17,6 +17,9 @@ class NbpRuntimeContractSpec extends AnyFlatSpec with Matchers:
 
     NbpRuntimeContract.ReserveSettlementLiability.persistedAsStock shouldBe false
     NbpRuntimeContract.ReserveSettlementLiability.asset shouldBe AssetType.Reserve
+
+    NbpRuntimeContract.StandingFacilityBackstop.persistedAsStock shouldBe false
+    NbpRuntimeContract.StandingFacilityBackstop.asset shouldBe AssetType.StandingFacility
   }
 
   it should "align with the engine ownership contract" in {
@@ -36,6 +39,12 @@ class NbpRuntimeContractSpec extends AnyFlatSpec with Matchers:
       NbpRuntimeContract.ReserveSettlementLiability.sector,
       NbpRuntimeContract.ReserveSettlementLiability.asset,
       NbpRuntimeContract.ReserveSettlementLiability.index,
+    ) shouldBe false
+
+    AssetOwnershipContract.isSupportedPersistedPair(
+      NbpRuntimeContract.StandingFacilityBackstop.sector,
+      NbpRuntimeContract.StandingFacilityBackstop.asset,
+      NbpRuntimeContract.StandingFacilityBackstop.index,
     ) shouldBe false
 
     AssetOwnershipContract.nonPersistedRuntimeShells should contain(

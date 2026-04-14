@@ -129,6 +129,7 @@ object FlowSimulation:
       bankGovBondIncome: PLN,
       bankReserveInterest: PLN,
       bankStandingFacility: PLN,
+      bankStandingFacilityBackstop: PLN,
       bankInterbankInterest: PLN,
       bankFxReserveSettlement: PLN,
       bankBfgLevy: PLN,
@@ -251,6 +252,7 @@ object FlowSimulation:
           c.bankBailIn,
           c.bankNbpRemittance,
           c.bankFxReserveSettlement,
+          c.bankStandingFacilityBackstop,
         ),
       ),
     )
@@ -606,6 +608,7 @@ object FlowSimulation:
       bankGovBondIncome = banking.govBondIncome,
       bankReserveInterest = banking.reserveInterest,
       bankStandingFacility = banking.standingFacilityIncome,
+      bankStandingFacilityBackstop = banking.standingFacilityBackstop,
       bankInterbankInterest = banking.interbankInterest,
       bankFxReserveSettlement = openEcon.fxPlnInjection,
       bankBfgLevy = banking.bfgLevy,

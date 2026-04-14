@@ -33,7 +33,8 @@ object BankingFlows:
       unrealizedBondLoss: PLN,
       bailInLoss: PLN,
       nbpRemittance: PLN,
-      fxReserveSettlement: PLN = PLN.Zero,
+      fxReserveSettlement: PLN,
+      standingFacilityBackstop: PLN,
   )
 
   def emitBatches(input: Input): Vector[BatchedFlow] =
@@ -97,6 +98,15 @@ object BankingFlows:
         FlowMechanism.NbpFxSettlement,
       ),
       AggregateBatchedEmission.transfer(
+        EntitySector.NBP,
+        NbpRuntimeContract.StandingFacilityBackstop.index,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.standingFacilityBackstop,
+        NbpRuntimeContract.StandingFacilityBackstop.asset,
+        FlowMechanism.BankStandingFacilityBackstop,
+      ),
+      AggregateBatchedEmission.transfer(
         EntitySector.Banks,
         BankIndex.Aggregate,
         EntitySector.Government,
@@ -153,6 +163,8 @@ object BankingFlows:
     if input.fxReserveSettlement > PLN.Zero then flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.fxReserveSettlement.toLong, FlowMechanism.NbpFxSettlement.toInt)
     else if input.fxReserveSettlement < PLN.Zero then
       flows += Flow(BANK_ACCOUNT, NBP_ACCOUNT, (-input.fxReserveSettlement).toLong, FlowMechanism.NbpFxSettlement.toInt)
+    if input.standingFacilityBackstop > PLN.Zero then
+      flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.standingFacilityBackstop.toLong, FlowMechanism.BankStandingFacilityBackstop.toInt)
 
     // Losses / outflows
     if input.bfgLevy > PLN.Zero then flows += Flow(BANK_ACCOUNT, GOV_ACCOUNT, input.bfgLevy.toLong, FlowMechanism.BankBfgLevy.toInt)

@@ -180,6 +180,8 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
           PLN.Zero,
           PLN.Zero,
           PLN.Zero,
+          PLN.Zero,
+          PLN.Zero,
         ),
       ),
     )

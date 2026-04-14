@@ -137,7 +137,7 @@ object AssetOwnershipContract:
       AssetType.StandingFacility,
       PublicAssetStatus.PublicAssetWithoutEngineContract,
       Set.empty,
-      "The engine uses standing-facility flow mechanisms but does not persist this as a stock pair.",
+      "The engine uses standing-facility mechanisms as a delta-only NBP backstop channel, but does not persist this as a stock pair.",
     ),
     PublicAssetContract(
       AssetType.InterbankLoan,

@@ -75,6 +75,7 @@ object BankingEconomics:
       jstDepositChange: PLN,                         // JST deposit flow (Identity 2)
       investNetDepositFlow: PLN,                     // investment demand net deposit flow
       actualBondChange: PLN,                         // net change in gov bonds outstanding
+      standingFacilityBackstop: PLN,                 // reserve shortfall funded by explicit NBP standing-facility backstop
       unrealizedBondLoss: PLN,                       // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
       eclProvisionChange: PLN,                       // aggregate IFRS 9 ECL provision change
@@ -130,6 +131,7 @@ object BankingEconomics:
       finalInsurance: Insurance.State,               // insurance after bond purchase
       finalNbfi: Nbfi.State,                         // NBFI/TFI after bond purchase
       actualBondChange: PLN,                         // net change in gov bonds outstanding
+      standingFacilityBackstop: PLN,                 // reserve shortfall funded by explicit NBP standing-facility backstop
       foreignBondHoldings: PLN,                      // non-resident holdings after auction
       bidToCover: Multiplier,                        // bond auction bid-to-cover ratio
   )
@@ -141,6 +143,7 @@ object BankingEconomics:
 
   private[amorfati] case class ReserveSettlementResult(
       banks: Vector[Banking.BankState],
+      standingFacilityBackstop: PLN,
       residual: PLN,
   )
 
@@ -184,6 +187,7 @@ object BankingEconomics:
       govBondIncome: PLN,
       reserveInterest: PLN,
       standingFacilityIncome: PLN,
+      standingFacilityBackstop: PLN,
       interbankInterest: PLN,
       bfgLevy: PLN,
       unrealizedBondLoss: PLN,
@@ -263,6 +267,7 @@ object BankingEconomics:
       jstDepositChange = govJst.jstDepositChange,
       investNetDepositFlow = investNetDepositFlow,
       actualBondChange = multi.actualBondChange,
+      standingFacilityBackstop = multi.standingFacilityBackstop,
       unrealizedBondLoss = {
         val yieldChange = in.s8.monetary.newBondYield - in.w.gov.bondYield
         if yieldChange > Rate.Zero then prevBankAgg.afsBonds * yieldChange * p.banking.govBondDuration else PLN.Zero
@@ -319,6 +324,7 @@ object BankingEconomics:
       govBondIncome = prevBankAgg.govBondHoldings * in.openEconOutput.monetary.newBondYield.monthly,
       reserveInterest = in.openEconOutput.banking.totalReserveInterest,
       standingFacilityIncome = in.openEconOutput.banking.totalStandingFacilityIncome,
+      standingFacilityBackstop = s9.standingFacilityBackstop,
       interbankInterest = in.openEconOutput.banking.totalInterbankInterest,
       bfgLevy = s9.bfgLevy,
       unrealizedBondLoss = s9.unrealizedBondLoss,
@@ -693,7 +699,7 @@ object BankingEconomics:
     )
     if nbpSettlement.residual != PLN.Zero then
       throw IllegalStateException(
-        s"NBP reserve settlement left residual ${nbpSettlement.residual} after reserve-side settlement.",
+        s"NBP reserve settlement left unallocated FX residual ${nbpSettlement.residual} after reserve-side settlement.",
       )
     // HTM forced reclassification: LCR-stressed banks reclassify HTM→AFS, realizing hidden losses
     val htmResult      = Banking.processHtmForcedSale(nbpSettlement.banks, in.s8.monetary.newBondYield)
@@ -832,6 +838,7 @@ object BankingEconomics:
       finalInsurance = finalInsurance,
       finalNbfi = finalNbfi,
       actualBondChange = wf.actualBondChange,
+      standingFacilityBackstop = nbpSettlement.standingFacilityBackstop,
       foreignBondHoldings = finalForeignBondHoldings,
       bidToCover = auctionResult.bidToCover,
     )
@@ -950,7 +957,8 @@ object BankingEconomics:
     * Reserve remuneration, standing-facility settlement, interbank settlement
     * routed via NBP, and FX intervention PLN injection/drain all land on the
     * same reserve-side settlement channel. If a drain would push a bank below
-    * zero reserves, the unclamped shortfall is surfaced as `residual`.
+    * zero reserves, the shortfall is converted into explicit standing-facility
+    * borrowing while reserve balances stay non-negative.
     */
   private[amorfati] def applyNbpReserveSettlement(
       banks: Vector[Banking.BankState],
@@ -959,26 +967,27 @@ object BankingEconomics:
       interbankInterest: Banking.PerBankAmounts,
       fxInjection: PLN,
   ): ReserveSettlementResult =
-    val distributedFx = distributeFxInjectionByDeposits(banks, fxInjection)
-    val updatedBanks  = Vector.newBuilder[Banking.BankState]
-    val residual      =
-      banks.zipWithIndex.foldLeft(distributedFx.residual) { (accResidual, bankAndIdx) =>
-        val (bank, idx) = bankAndIdx
-        val delta       =
+    val distributedFx                        = distributeFxInjectionByDeposits(banks, fxInjection)
+    val updatedBanks                         = Vector.newBuilder[Banking.BankState]
+    val (standingFacilityBackstop, residual) =
+      banks.zipWithIndex.foldLeft((PLN.Zero, distributedFx.residual)) { (acc, bankAndIdx) =>
+        val (accBackstop, accResidual) = acc
+        val (bank, idx)                = bankAndIdx
+        val delta                      =
           reserveInterest.perBank(idx) +
             standingFacilityIncome.perBank(idx) +
             interbankInterest.perBank(idx) +
             distributedFx.allocations(idx)
-        val updated     = bank.reservesAtNbp + delta
+        val updated                    = bank.reservesAtNbp + delta
         if updated >= PLN.Zero then
           updatedBanks += bank.copy(reservesAtNbp = updated)
-          accResidual
+          (accBackstop, accResidual)
         else
           updatedBanks += bank.copy(reservesAtNbp = PLN.Zero)
-          accResidual + updated
+          (accBackstop - updated, accResidual)
       }
 
-    ReserveSettlementResult(updatedBanks.result(), residual)
+    ReserveSettlementResult(updatedBanks.result(), standingFacilityBackstop, residual)
 
   /** Distribute FX intervention PLN injection across banks proportional to
     * deposit market share, adjusting reservesAtNbp. EUR purchase → PLN injected

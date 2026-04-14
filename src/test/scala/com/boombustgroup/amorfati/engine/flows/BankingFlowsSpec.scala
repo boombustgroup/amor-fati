@@ -17,6 +17,8 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
     unrealizedBondLoss = PLN(150000.0),
     bailInLoss = PLN.Zero,
     nbpRemittance = PLN(800000.0),
+    fxReserveSettlement = PLN.Zero,
+    standingFacilityBackstop = PLN.Zero,
   )
 
   "BankingFlows" should "preserve total wealth at exactly 0L" in {
@@ -96,6 +98,17 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
     drain.asset shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
     drain.from shouldBe EntitySector.Banks
     drain.to shouldBe EntitySector.NBP
+  }
+
+  it should "emit explicit standing-facility backstop on the dedicated NBP contract" in {
+    val backstop = BankingFlows
+      .emitBatches(baseInput.copy(standingFacilityBackstop = PLN(175000.0)))
+      .find(_.mechanism == FlowMechanism.BankStandingFacilityBackstop)
+      .get
+
+    backstop.asset shouldBe NbpRuntimeContract.StandingFacilityBackstop.asset
+    backstop.from shouldBe EntitySector.NBP
+    backstop.to shouldBe EntitySector.Banks
   }
 
   it should "preserve SFC across 120 months" in {

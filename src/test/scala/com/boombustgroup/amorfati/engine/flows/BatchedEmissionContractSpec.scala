@@ -69,7 +69,20 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
           PLN(150000.0),
         ),
       ),
-      BankingFlows.emit(BankingFlows.Input(PLN(600000.0), PLN(200000.0), PLN(100000.0), PLN(-50000.0), PLN(80000.0), PLN(40000.0), PLN(30000.0), PLN(50000.0))),
+      BankingFlows.emit(
+        BankingFlows.Input(
+          PLN(600000.0),
+          PLN(200000.0),
+          PLN(100000.0),
+          PLN(-50000.0),
+          PLN(80000.0),
+          PLN(40000.0),
+          PLN(30000.0),
+          PLN(50000.0),
+          PLN.Zero,
+          PLN.Zero,
+        ),
+      ),
     )
 
     val batchedFlows = Vector.concat(
@@ -123,7 +136,18 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       BankingFlows.emitBatches(
-        BankingFlows.Input(PLN(600000.0), PLN(200000.0), PLN(100000.0), PLN(-50000.0), PLN(80000.0), PLN(40000.0), PLN(30000.0), PLN(50000.0)),
+        BankingFlows.Input(
+          PLN(600000.0),
+          PLN(200000.0),
+          PLN(100000.0),
+          PLN(-50000.0),
+          PLN(80000.0),
+          PLN(40000.0),
+          PLN(30000.0),
+          PLN(50000.0),
+          PLN.Zero,
+          PLN.Zero,
+        ),
       ),
     )
 
