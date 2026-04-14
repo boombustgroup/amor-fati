@@ -25,7 +25,7 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
       val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
 
       withClue(s"SFC violated at month $month: ") {
-        result.execution.totalWealth shouldBe 0L
+        result.execution.netDelta shouldBe 0L
       }
 
       state = result.nextState

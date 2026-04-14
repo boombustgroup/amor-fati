@@ -25,7 +25,7 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val flows  = FlowSimulation.emitAllBatches(result.calculus)
 
-    result.execution.totalWealth shouldBe 0L
+    result.execution.netDelta shouldBe 0L
     AggregateBatchContract.totalTransferred(flows) should be > 0L
   }
 
@@ -38,7 +38,7 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
       val flows  = FlowSimulation.emitAllBatches(result.calculus)
 
       withClue(s"Month $month: ") {
-        result.execution.totalWealth shouldBe 0L
+        result.execution.netDelta shouldBe 0L
         AggregateBatchContract.totalTransferred(flows) should be > 0L
       }
 
@@ -52,6 +52,6 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val flows  = FlowSimulation.emitAllBatches(result.calculus)
 
-    result.execution.totalWealth shouldBe 0L
+    result.execution.netDelta shouldBe 0L
     flows.map(_.mechanism).toSet.size should be > 30
   }

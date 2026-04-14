@@ -50,17 +50,23 @@ object Sfc:
       index: ExecutionIndex,
   )
 
-  case class ExecutionSnapshot(
+  /** Executed batch deltas accumulated on the empty aggregate runtime ledger.
+    *
+    * This is not a closing stock state. Each stored value is the net month
+    * delta for one synthetic `(sector, asset, index)` slot after executing the
+    * emitted batches against an empty aggregate state.
+    */
+  case class ExecutionDeltaLedger(
       balances: Map[ExecutionBalanceKey, PLN],
   ):
-    def balance(key: ExecutionBalanceKey): PLN =
+    def delta(key: ExecutionBalanceKey): PLN =
       balances.getOrElse(key, PLN.Zero)
 
-  object ExecutionSnapshot:
+  object ExecutionDeltaLedger:
     def fromRaw(
         balances: Map[(EntitySector, AssetType, Int), Long],
-    ): ExecutionSnapshot =
-      ExecutionSnapshot(
+    ): ExecutionDeltaLedger =
+      ExecutionDeltaLedger(
         balances.iterator.map { case ((sector, asset, index), amount) =>
           ExecutionBalanceKey(sector, asset, ExecutionIndex(index)) -> PLN.fromRaw(amount)
         }.toMap,
@@ -449,8 +455,8 @@ object Sfc:
       curr: RuntimeState,
       flows: SemanticFlows,
       batches: Vector[BatchedFlow],
-      executionSnapshot: ExecutionSnapshot,
-      totalWealth: Long,
+      executionDeltaLedger: ExecutionDeltaLedger,
+      deltaLedgerNet: Long,
   )(using p: SimParams): SfcResult =
     // In the runtime API, Flow-of-Funds is checked from executed ledger
     // batches. Keep the stock-side identities from the legacy oracle, but
@@ -463,13 +469,13 @@ object Sfc:
     // `metricDiagnostics`.
     val baseErrors    =
       validateStockExactness(snapshot(prev), snapshot(curr), flows.copy(fofResidual = PLN.Zero)).left.toOption.getOrElse(Vector.empty)
-    val runtimeErrors = runtimeIdentityErrors(batches, executionSnapshot, totalWealth)
+    val runtimeErrors = runtimeIdentityErrors(batches, executionDeltaLedger, deltaLedgerNet)
     merge(baseErrors ++ runtimeErrors)
 
   private def runtimeIdentityErrors(
       batches: Vector[BatchedFlow],
-      executionSnapshot: ExecutionSnapshot,
-      totalWealth: Long,
+      executionDeltaLedger: ExecutionDeltaLedger,
+      deltaLedgerNet: Long,
   ): Vector[SfcIdentityError] =
     val publicCashErrors =
       runtimeCashIdentity(
@@ -477,59 +483,59 @@ object Sfc:
         "government budget cash",
         AccountRef(EntitySector.Government, ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget)),
         batches,
-        executionSnapshot,
+        executionDeltaLedger,
       ) ++
         runtimeCashIdentity(
           SfcIdentity.JstCash,
           "JST cash",
           AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Jst)),
           batches,
-          executionSnapshot,
+          executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.ZusCash,
           "ZUS cash",
           AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Zus)),
           batches,
-          executionSnapshot,
+          executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.NfzCash,
           "NFZ cash",
           AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Nfz)),
           batches,
-          executionSnapshot,
+          executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.FpCash,
           "FP cash",
           AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Fp)),
           batches,
-          executionSnapshot,
+          executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.PfronCash,
           "PFRON cash",
           AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Pfron)),
           batches,
-          executionSnapshot,
+          executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.FgspCash,
           "FGSP cash",
           AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Fgsp)),
           batches,
-          executionSnapshot,
+          executionDeltaLedger,
         )
     val fofErrors        =
-      if totalWealth == 0L then Vector.empty
+      if deltaLedgerNet == 0L then Vector.empty
       else
         Vector(
           SfcIdentityError(
             SfcIdentity.FlowOfFunds,
-            s"ledger execution totalWealth=$totalWealth across ${batches.size} batches",
+            s"ledger execution delta-ledger net=$deltaLedgerNet across ${batches.size} batches",
             expected = PLN.Zero,
-            actual = PLN.fromRaw(totalWealth),
+            actual = PLN.fromRaw(deltaLedgerNet),
           ),
         )
     publicCashErrors ++ fofErrors
@@ -546,26 +552,26 @@ object Sfc:
       label: String,
       account: AccountRef,
       batches: Vector[BatchedFlow],
-      executionSnapshot: ExecutionSnapshot,
+      executionDeltaLedger: ExecutionDeltaLedger,
   ): Vector[SfcIdentityError] =
     val expected = cashAccountNetFlow(account, batches)
-    val actual   = cashAccountBalance(account, executionSnapshot)
+    val actual   = cashAccountDelta(account, executionDeltaLedger)
     if actual != expected then
       Vector(
         SfcIdentityError(
           identity,
-          s"$label [expected net=$expected, actual closing=$actual]",
+          s"$label [expected net delta=$expected, actual delta-ledger=$actual]",
           expected = expected,
           actual = actual,
         ),
       )
     else Vector.empty
 
-  private def cashAccountBalance(
+  private def cashAccountDelta(
       account: AccountRef,
-      executionSnapshot: ExecutionSnapshot,
+      executionDeltaLedger: ExecutionDeltaLedger,
   ): PLN =
-    executionSnapshot.balance(
+    executionDeltaLedger.delta(
       ExecutionBalanceKey(account.sector, AssetType.Cash, account.index),
     )
 

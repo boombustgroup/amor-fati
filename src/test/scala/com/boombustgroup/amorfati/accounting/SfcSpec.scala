@@ -956,10 +956,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     result shouldBe Right(())
   }
 
-  // ---- Runtime-only public cash identity ----
+  // ---- Runtime-only public cash delta-ledger identity ----
 
-  "Sfc.validate (runtime government budget cash)" should "pass when execution budget cash matches batch net flow" in {
-    val batches  = Vector.concat(
+  "Sfc.validate (runtime government budget cash delta ledger)" should "pass when execution budget cash delta matches batch net flow" in {
+    val batches     = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
         AggregateBatchContract.FirmIndex.Aggregate,
@@ -979,7 +979,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         FlowMechanism.GovPurchases,
       ),
     )
-    val snapshot = Sfc.ExecutionSnapshot(
+    val deltaLedger = Sfc.ExecutionDeltaLedger(
       Map(
         Sfc.ExecutionBalanceKey(
           EntitySector.Government,
@@ -988,18 +988,18 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ) -> PLN(60.0),
       ),
     )
-    val result   = Sfc.validate(
+    val result      = Sfc.validate(
       prev = zeroRuntime,
       curr = zeroRuntime,
       flows = zeroFlows,
       batches = batches,
-      executionSnapshot = snapshot,
-      totalWealth = 0L,
+      executionDeltaLedger = deltaLedger,
+      deltaLedgerNet = 0L,
     )
     result shouldBe Right(())
   }
 
-  it should "detect mismatch between budget cash batches and execution snapshot" in {
+  it should "detect mismatch between budget cash batches and execution delta ledger" in {
     val batches = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
@@ -1025,7 +1025,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       curr = zeroRuntime,
       flows = zeroFlows,
       batches = batches,
-      executionSnapshot = Sfc.ExecutionSnapshot(
+      executionDeltaLedger = Sfc.ExecutionDeltaLedger(
         Map(
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
@@ -1034,7 +1034,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           ) -> PLN(55.0),
         ),
       ),
-      totalWealth = 0L,
+      deltaLedgerNet = 0L,
     )
     result shouldBe a[Left[?, ?]]
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.GovBudgetCash) shouldBe true
@@ -1068,7 +1068,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       curr = currRuntime,
       flows = zeroFlows.copy(govSpending = PLN(10_000.0), govRevenue = PLN.Zero),
       batches = batches,
-      executionSnapshot = Sfc.ExecutionSnapshot(
+      executionDeltaLedger = Sfc.ExecutionDeltaLedger(
         Map(
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
@@ -1077,7 +1077,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           ) -> PLN(60.0),
         ),
       ),
-      totalWealth = 0L,
+      deltaLedgerNet = 0L,
     )
     result shouldBe Right(())
   }
@@ -1162,7 +1162,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       curr = zeroRuntime,
       flows = zeroFlows,
       batches = batches,
-      executionSnapshot = Sfc.ExecutionSnapshot(
+      executionDeltaLedger = Sfc.ExecutionDeltaLedger(
         Map(
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
@@ -1186,7 +1186,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           ) -> PLN(10.0),
         ),
       ),
-      totalWealth = 0L,
+      deltaLedgerNet = 0L,
     )
     result shouldBe Right(())
   }
@@ -1234,7 +1234,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
       flows = zeroFlows.copy(zusContributions = PLN.Zero, zusPensionPayments = PLN(9999.0)),
       batches = batches,
-      executionSnapshot = Sfc.ExecutionSnapshot(
+      executionDeltaLedger = Sfc.ExecutionDeltaLedger(
         Map(
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
@@ -1248,7 +1248,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           ) -> PLN(49.0),
         ),
       ),
-      totalWealth = 0L,
+      deltaLedgerNet = 0L,
     )
     result.shouldBe(a[Left[?, ?]])
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.ZusCash).shouldBe(true)
@@ -1343,7 +1343,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       curr = zeroRuntime,
       flows = zeroFlows,
       batches = batches,
-      executionSnapshot = Sfc.ExecutionSnapshot(
+      executionDeltaLedger = Sfc.ExecutionDeltaLedger(
         Map(
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
@@ -1367,7 +1367,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           ) -> PLN(15.0),
         ),
       ),
-      totalWealth = 0L,
+      deltaLedgerNet = 0L,
     )
     result.shouldBe(Right(()))
   }
@@ -1407,7 +1407,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       curr = zeroRuntime,
       flows = zeroFlows,
       batches = batches,
-      executionSnapshot = Sfc.ExecutionSnapshot(
+      executionDeltaLedger = Sfc.ExecutionDeltaLedger(
         Map(
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
@@ -1421,7 +1421,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           ) -> PLN(14.0),
         ),
       ),
-      totalWealth = 0L,
+      deltaLedgerNet = 0L,
     )
     result.shouldBe(a[Left[?, ?]])
     result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.FgspCash).shouldBe(true)

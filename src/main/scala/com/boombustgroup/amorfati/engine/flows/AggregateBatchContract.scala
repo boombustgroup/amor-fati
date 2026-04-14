@@ -87,11 +87,12 @@ object AggregateBatchContract:
   def emptyExecutionState(): MutableWorldState =
     new MutableWorldState(sectorSizes)
 
-  def totalWealth(snapshot: Map[(EntitySector, AssetType, Int), Long]): Long =
+  /** Net delta across the executed aggregate runtime ledger. */
+  def netDelta(snapshot: Map[(EntitySector, AssetType, Int), Long]): Long =
     snapshot.valuesIterator.sum
 
-  def totalWealth(state: MutableWorldState): Long =
-    totalWealth(state.snapshot)
+  def netDelta(state: MutableWorldState): Long =
+    netDelta(state.snapshot)
 
   def toLegacyFlows(batches: Vector[BatchedFlow]): Vector[Flow] =
     batches.flatMap(toLegacyFlows)

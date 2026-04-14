@@ -39,9 +39,15 @@ object FlowSimulation:
     def fromInit(init: com.boombustgroup.amorfati.init.WorldInit.InitResult): SimState =
       SimState(CompletedMonth.Zero, init.world, init.firms, init.households, init.banks, init.householdAggregates)
 
+  /** Executed aggregate batch deltas on top of an empty runtime ledger shell.
+    *
+    * This is not a closing stock snapshot. `deltaLedger` stores the net monthly
+    * delta per synthetic runtime slot, and `netDelta` is the conservation check
+    * over that delta space.
+    */
   case class ExecutionResult(
-      snapshot: Map[(EntitySector, AssetType, Int), Long],
-      totalWealth: Long,
+      deltaLedger: Map[(EntitySector, AssetType, Int), Long],
+      netDelta: Long,
   )
 
   /** All calculus results needed to feed flow mechanisms. */
@@ -354,8 +360,8 @@ object FlowSimulation:
       curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks),
       flows = sfcFlows,
       batches = flows,
-      executionSnapshot = Sfc.ExecutionSnapshot.fromRaw(execution.snapshot),
-      totalWealth = execution.totalWealth,
+      executionDeltaLedger = Sfc.ExecutionDeltaLedger.fromRaw(execution.deltaLedger),
+      deltaLedgerNet = execution.netDelta,
     )
     val monthTrace = buildMonthTrace(
       input = input,
@@ -650,10 +656,10 @@ object FlowSimulation:
     ImperativeInterpreter
       .planAndApplyAll(state, flows)
       .map: _ =>
-        val snapshot = state.snapshot
+        val deltaLedger = state.snapshot
         ExecutionResult(
-          snapshot = snapshot,
-          totalWealth = AggregateBatchContract.totalWealth(snapshot),
+          deltaLedger = deltaLedger,
+          netDelta = AggregateBatchContract.netDelta(deltaLedger),
         )
 
   private def runtimeState(
