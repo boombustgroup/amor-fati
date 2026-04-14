@@ -27,7 +27,7 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
       val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
 
       withClue(s"Month $month: ") {
-        result.execution.totalWealth.shouldBe(0L)
+        result.execution.netDelta.shouldBe(0L)
       }
 
       state = result.nextState

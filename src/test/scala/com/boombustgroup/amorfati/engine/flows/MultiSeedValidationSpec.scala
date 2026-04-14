@@ -29,7 +29,7 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
       (1 to months).foreach { month =>
         val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(seed * 1000 + month))
         withClue(s"Seed $seed, month $month: ") {
-          result.execution.totalWealth.shouldBe(0L)
+          result.execution.netDelta.shouldBe(0L)
         }
         state = result.nextState
       }

@@ -45,7 +45,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state  = FlowSimulation.SimState.fromInit(init)
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
-    result.execution.totalWealth shouldBe 0L
+    result.execution.netDelta shouldBe 0L
     result.sfcResult shouldBe Right(())
     result.calculus.employed should be > 0
   }
@@ -152,7 +152,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     results.foreach { result =>
       val month = result.executionMonth.toInt
       withClue(s"Month $month: ") {
-        result.execution.totalWealth shouldBe 0L
+        result.execution.netDelta shouldBe 0L
         result.sfcResult shouldBe Right(())
       }
     }
@@ -171,8 +171,8 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       MonthRandomness.Contract.fromSeed(42L),
     )
 
-    lowShadowRun.execution.totalWealth shouldBe 0L
-    highShadowRun.execution.totalWealth shouldBe 0L
+    lowShadowRun.execution.netDelta shouldBe 0L
+    highShadowRun.execution.netDelta shouldBe 0L
     lowShadowRun.sfcResult shouldBe Right(())
     highShadowRun.sfcResult shouldBe Right(())
 
@@ -294,14 +294,14 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     trace.seedTransition.provenance.sectorHiringSignal.value shouldBe trace.timing.demandSignals.sectorHiringSignal
   }
 
-  it should "match the legacy pure interpreter on aggregate execution balances" in {
+  it should "match the legacy pure interpreter on aggregate execution deltas" in {
     val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val initState = FlowSimulation.SimState.fromInit(init)
     val result    = FlowSimulation.step(initState, MonthRandomness.Contract.fromSeed(42L))
     val state     = AggregateBatchContract.emptyExecutionState()
 
     ImperativeInterpreter.planAndApplyAll(state, result.flows) shouldBe Right(())
-    AggregateBatchContract.totalWealth(state) shouldBe Interpreter.totalWealth(
+    AggregateBatchContract.netDelta(state) shouldBe Interpreter.totalWealth(
       Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(result.flows)),
     )
   }
