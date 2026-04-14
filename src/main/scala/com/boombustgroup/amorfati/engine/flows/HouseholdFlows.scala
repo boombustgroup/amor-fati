@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -62,7 +63,7 @@ object HouseholdFlows:
         EntitySector.Households,
         HouseholdIndex.Aggregate,
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.pit,
         AssetType.Cash,
         FlowMechanism.HhPit,

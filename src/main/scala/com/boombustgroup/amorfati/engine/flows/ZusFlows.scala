@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -48,7 +49,7 @@ object ZusFlows:
         .transfer(EntitySector.Funds, FundIndex.Zus, EntitySector.Households, HouseholdIndex.Aggregate, pensions, AssetType.Cash, FlowMechanism.ZusPension),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
         FundIndex.Zus,
         deficit,

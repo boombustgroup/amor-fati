@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -39,7 +40,7 @@ object BankingFlows:
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Banks,
         BankIndex.Aggregate,
         input.govBondIncome,
@@ -89,7 +90,7 @@ object BankingFlows:
         EntitySector.Banks,
         BankIndex.Aggregate,
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.bfgLevy,
         AssetType.Cash,
         FlowMechanism.BankBfgLevy,
@@ -98,7 +99,7 @@ object BankingFlows:
         EntitySector.Banks,
         BankIndex.Aggregate,
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.unrealizedBondLoss,
         AssetType.Cash,
         FlowMechanism.BankUnrealizedLoss,
@@ -116,7 +117,7 @@ object BankingFlows:
         EntitySector.Banks,
         BankIndex.Aggregate,
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.nbpRemittance,
         AssetType.Cash,
         FlowMechanism.BankNbpRemittance,

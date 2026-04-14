@@ -9,6 +9,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.engine.flows.{AggregateBatchContract, AggregateBatchedEmission, FlowMechanism}
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
@@ -16,6 +17,9 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
+
+  private val treasuryBudgetIndex     = TreasuryRuntimeContract.TreasuryBudgetSettlement.index
+  private val taxpayerCollectionIndex = TreasuryRuntimeContract.TaxpayerCollection.index
 
   private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): BigDecimal =
     result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => (e.actual - e.expected).bd).getOrElse(BigDecimal(0))
@@ -964,14 +968,14 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Firms,
         AggregateBatchContract.FirmIndex.Aggregate,
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         PLN(100.0),
         AssetType.Cash,
         FlowMechanism.FirmCit,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Firms,
         AggregateBatchContract.FirmIndex.Services,
         PLN(40.0),
@@ -984,7 +988,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         Sfc.ExecutionBalanceKey(
           EntitySector.Government,
           AssetType.Cash,
-          Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+          Sfc.ExecutionIndex(treasuryBudgetIndex),
         ) -> PLN(60.0),
       ),
     )
@@ -1005,14 +1009,14 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Firms,
         AggregateBatchContract.FirmIndex.Aggregate,
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         PLN(100.0),
         AssetType.Cash,
         FlowMechanism.FirmCit,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Firms,
         AggregateBatchContract.FirmIndex.Services,
         PLN(40.0),
@@ -1030,7 +1034,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+            Sfc.ExecutionIndex(treasuryBudgetIndex),
           ) -> PLN(55.0),
         ),
       ),
@@ -1048,14 +1052,14 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Firms,
         AggregateBatchContract.FirmIndex.Aggregate,
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         PLN(100.0),
         AssetType.Cash,
         FlowMechanism.FirmCit,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Firms,
         AggregateBatchContract.FirmIndex.Services,
         PLN(40.0),
@@ -1073,7 +1077,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+            Sfc.ExecutionIndex(treasuryBudgetIndex),
           ) -> PLN(60.0),
         ),
       ),
@@ -1086,7 +1090,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val batches = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.TaxpayerPool,
+        taxpayerCollectionIndex,
         EntitySector.Funds,
         AggregateBatchContract.FundIndex.Jst,
         PLN(100.0),
@@ -1122,7 +1126,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Funds,
         AggregateBatchContract.FundIndex.Zus,
         PLN(20.0),
@@ -1149,7 +1153,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Funds,
         AggregateBatchContract.FundIndex.Nfz,
         PLN(30.0),
@@ -1167,7 +1171,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+            Sfc.ExecutionIndex(treasuryBudgetIndex),
           ) -> PLN(-50.0),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
@@ -1195,7 +1199,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val batches = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Funds,
         AggregateBatchContract.FundIndex.Zus,
         PLN(20.0),
@@ -1239,7 +1243,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+            Sfc.ExecutionIndex(treasuryBudgetIndex),
           ) -> PLN(-20.0),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
@@ -1276,7 +1280,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Funds,
         AggregateBatchContract.FundIndex.Fp,
         PLN(20.0),
@@ -1303,7 +1307,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Funds,
         AggregateBatchContract.FundIndex.Pfron,
         PLN(15.0),
@@ -1330,7 +1334,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Funds,
         AggregateBatchContract.FundIndex.Fgsp,
         PLN(25.0),
@@ -1348,7 +1352,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+            Sfc.ExecutionIndex(treasuryBudgetIndex),
           ) -> PLN(-60.0),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
@@ -1394,7 +1398,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        AggregateBatchContract.GovernmentIndex.Budget,
+        treasuryBudgetIndex,
         EntitySector.Funds,
         AggregateBatchContract.FundIndex.Fgsp,
         PLN(25.0),
@@ -1412,7 +1416,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Government,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.GovernmentIndex.Budget),
+            Sfc.ExecutionIndex(treasuryBudgetIndex),
           ) -> PLN(-25.0),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,

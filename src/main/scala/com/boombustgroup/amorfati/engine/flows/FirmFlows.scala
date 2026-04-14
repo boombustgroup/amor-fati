@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -50,7 +51,15 @@ object FirmFlows:
         FlowMechanism.FirmWages,
       ),
       AggregateBatchedEmission
-        .transfer(EntitySector.Firms, FirmIndex.Aggregate, EntitySector.Government, GovernmentIndex.Budget, input.cit, AssetType.Cash, FlowMechanism.FirmCit),
+        .transfer(
+          EntitySector.Firms,
+          FirmIndex.Aggregate,
+          EntitySector.Government,
+          TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+          input.cit,
+          AssetType.Cash,
+          FlowMechanism.FirmCit,
+        ),
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
         FirmIndex.Aggregate,

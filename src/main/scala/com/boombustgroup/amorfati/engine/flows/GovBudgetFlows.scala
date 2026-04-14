@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -42,16 +43,16 @@ object GovBudgetFlows:
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.TaxpayerPool,
+        TreasuryRuntimeContract.TaxpayerCollection.index,
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.taxRevenue,
         AssetType.Cash,
         FlowMechanism.GovTaxRevenue,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Firms,
         FirmIndex.Aggregate,
         input.govPurchases,
@@ -60,7 +61,7 @@ object GovBudgetFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
         FundIndex.Bondholders,
         input.debtService,
@@ -69,7 +70,7 @@ object GovBudgetFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Households,
         HouseholdIndex.Aggregate,
         input.unempBenefitSpend,
@@ -78,7 +79,7 @@ object GovBudgetFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Households,
         HouseholdIndex.Aggregate,
         input.socialTransferSpend,
@@ -87,7 +88,7 @@ object GovBudgetFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Firms,
         FirmIndex.CapitalGoods,
         input.euCofinancing,
@@ -96,7 +97,7 @@ object GovBudgetFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Firms,
         FirmIndex.CapitalGoods,
         input.govCapitalSpend,

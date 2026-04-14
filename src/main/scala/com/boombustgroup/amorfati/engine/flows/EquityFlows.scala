@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -50,7 +51,7 @@ object EquityFlows:
         EntitySector.Households,
         HouseholdIndex.Investors,
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.dividendTax,
         AssetType.Cash,
         FlowMechanism.EquityDividendTax,
@@ -59,7 +60,7 @@ object EquityFlows:
         EntitySector.Firms,
         FirmIndex.Aggregate,
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.govDividends,
         AssetType.Cash,
         FlowMechanism.EquityGovDividend,

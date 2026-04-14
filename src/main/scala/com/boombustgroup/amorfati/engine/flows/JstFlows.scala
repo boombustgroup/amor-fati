@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -39,7 +40,7 @@ object JstFlows:
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.TaxpayerPool,
+        TreasuryRuntimeContract.TaxpayerCollection.index,
         EntitySector.Funds,
         FundIndex.Jst,
         totalRevenue,

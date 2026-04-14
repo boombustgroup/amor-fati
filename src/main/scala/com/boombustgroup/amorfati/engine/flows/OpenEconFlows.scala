@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -118,7 +119,7 @@ object OpenEconFlows:
         EntitySector.Foreign,
         ForeignIndex.Aggregate,
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.euFunds,
         AssetType.Cash,
         FlowMechanism.EuFunds,

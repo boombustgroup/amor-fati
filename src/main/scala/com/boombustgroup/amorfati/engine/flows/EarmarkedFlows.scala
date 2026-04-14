@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -48,7 +49,15 @@ object EarmarkedFlows:
       AggregateBatchedEmission
         .transfer(EntitySector.Funds, FundIndex.Fp, EntitySector.Firms, FirmIndex.Services, fpSpend, AssetType.Cash, FlowMechanism.FpSpending),
       AggregateBatchedEmission
-        .transfer(EntitySector.Government, GovernmentIndex.Budget, EntitySector.Funds, FundIndex.Fp, fpDeficit, AssetType.Cash, FlowMechanism.FpGovSubvention),
+        .transfer(
+          EntitySector.Government,
+          TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+          EntitySector.Funds,
+          FundIndex.Fp,
+          fpDeficit,
+          AssetType.Cash,
+          FlowMechanism.FpGovSubvention,
+        ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
         HouseholdIndex.Aggregate,
@@ -62,7 +71,7 @@ object EarmarkedFlows:
         .transfer(EntitySector.Funds, FundIndex.Pfron, EntitySector.Firms, FirmIndex.Services, pfronSpend, AssetType.Cash, FlowMechanism.PfronSpending),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
         FundIndex.Pfron,
         pfronDeficit,
@@ -82,7 +91,7 @@ object EarmarkedFlows:
         .transfer(EntitySector.Funds, FundIndex.Fgsp, EntitySector.Firms, FirmIndex.Services, fgspSpend, AssetType.Cash, FlowMechanism.FgspSpending),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
-        GovernmentIndex.Budget,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
         FundIndex.Fgsp,
         fgspDeficit,
