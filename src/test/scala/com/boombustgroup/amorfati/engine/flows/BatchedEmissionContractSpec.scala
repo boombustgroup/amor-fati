@@ -47,7 +47,17 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       GovBudgetFlows.emit(
-        GovBudgetFlows.Input(PLN(15000000.0), PLN(10000000.0), PLN(4000000.0), PLN(2000000.0), PLN(3000000.0), PLN(1500000.0), PLN(2500000.0)),
+        GovBudgetFlows.Input(
+          vatRevenue = PLN(9000000.0),
+          exciseRevenue = PLN(3500000.0),
+          customsDutyRevenue = PLN(2500000.0),
+          govPurchases = PLN(10000000.0),
+          debtService = PLN(4000000.0),
+          unempBenefitSpend = PLN(2000000.0),
+          socialTransferSpend = PLN(3000000.0),
+          euCofinancing = PLN(1500000.0),
+          govCapitalSpend = PLN(2500000.0),
+        ),
       ),
       InsuranceFlows.emit(
         InsuranceFlows.Input(80000, PLN(7000.0), Share(0.08), PLN(100000000.0), PLN(50000000.0), PLN(40000000.0), Rate(0.06), Rate(0.08), Rate(0.03)),
@@ -113,7 +123,17 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       GovBudgetFlows.emitBatches(
-        GovBudgetFlows.Input(PLN(15000000.0), PLN(10000000.0), PLN(4000000.0), PLN(2000000.0), PLN(3000000.0), PLN(1500000.0), PLN(2500000.0)),
+        GovBudgetFlows.Input(
+          vatRevenue = PLN(9000000.0),
+          exciseRevenue = PLN(3500000.0),
+          customsDutyRevenue = PLN(2500000.0),
+          govPurchases = PLN(10000000.0),
+          debtService = PLN(4000000.0),
+          unempBenefitSpend = PLN(2000000.0),
+          socialTransferSpend = PLN(3000000.0),
+          euCofinancing = PLN(1500000.0),
+          govCapitalSpend = PLN(2500000.0),
+        ),
       ),
       InsuranceFlows.emitBatches(
         InsuranceFlows.Input(80000, PLN(7000.0), Share(0.08), PLN(100000000.0), PLN(50000000.0), PLN(40000000.0), Rate(0.06), Rate(0.08), Rate(0.03)),

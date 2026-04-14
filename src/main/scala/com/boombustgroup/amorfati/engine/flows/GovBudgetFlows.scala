@@ -6,11 +6,15 @@ import com.boombustgroup.ledger.*
 
 /** Government budget mechanism emitting flows.
   *
-  * Same logic as FiscalBudget.update. Revenue from taxes, spending on
+  * Same logic as FiscalBudget.update. This emitter only handles the treasury
+  * revenue legs that do not already have their own explicit runtime mechanism
+  * elsewhere: VAT, excise, and customs. Spending covers
   * purchases/benefits/transfers/debt service/investment.
   *
   * ZUS/NFZ/Earmarked subventions are NOT emitted here — those are already
   * emitted by their respective flow mechanisms. This avoids double-counting.
+  * Firm CIT, household PIT, dividend tax, NBP remittance, and SOE dividends are
+  * also emitted elsewhere with their own mechanism IDs.
   *
   * Per-HH unemployment benefits and 800+ transfers will become
   * BatchedFlow.Broadcast when Household is migrated (#121). For now: aggregate
@@ -29,7 +33,9 @@ object GovBudgetFlows:
   val INFRASTRUCTURE_ACCOUNT: Int = 5
 
   case class Input(
-      taxRevenue: PLN,
+      vatRevenue: PLN,
+      exciseRevenue: PLN,
+      customsDutyRevenue: PLN,
       govPurchases: PLN,
       debtService: PLN,
       unempBenefitSpend: PLN,
@@ -46,9 +52,27 @@ object GovBudgetFlows:
         TreasuryRuntimeContract.TaxpayerCollection.index,
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        input.taxRevenue,
+        input.vatRevenue,
         AssetType.Cash,
-        FlowMechanism.GovTaxRevenue,
+        FlowMechanism.GovVatRevenue,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        TreasuryRuntimeContract.TaxpayerCollection.index,
+        EntitySector.Government,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        input.exciseRevenue,
+        AssetType.Cash,
+        FlowMechanism.GovExciseRevenue,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Government,
+        TreasuryRuntimeContract.TaxpayerCollection.index,
+        EntitySector.Government,
+        TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        input.customsDutyRevenue,
+        AssetType.Cash,
+        FlowMechanism.GovCustomsDutyRevenue,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
@@ -109,8 +133,11 @@ object GovBudgetFlows:
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 
-    // Revenue: taxes → GOV
-    if input.taxRevenue > PLN.Zero then flows += Flow(TAXPAYER_ACCOUNT, GOV_ACCOUNT, input.taxRevenue.toLong, FlowMechanism.GovTaxRevenue.toInt)
+    // Revenue: taxpayer collection shell -> GOV
+    if input.vatRevenue > PLN.Zero then flows += Flow(TAXPAYER_ACCOUNT, GOV_ACCOUNT, input.vatRevenue.toLong, FlowMechanism.GovVatRevenue.toInt)
+    if input.exciseRevenue > PLN.Zero then flows += Flow(TAXPAYER_ACCOUNT, GOV_ACCOUNT, input.exciseRevenue.toLong, FlowMechanism.GovExciseRevenue.toInt)
+    if input.customsDutyRevenue > PLN.Zero then
+      flows += Flow(TAXPAYER_ACCOUNT, GOV_ACCOUNT, input.customsDutyRevenue.toLong, FlowMechanism.GovCustomsDutyRevenue.toInt)
 
     // Spending: GOV → various recipients
     if input.govPurchases > PLN.Zero then flows += Flow(GOV_ACCOUNT, FIRM_ACCOUNT, input.govPurchases.toLong, FlowMechanism.GovPurchases.toInt)

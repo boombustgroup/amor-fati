@@ -8,7 +8,9 @@ import org.scalatest.matchers.should.Matchers
 class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
 
   private val baseInput = GovBudgetFlows.Input(
-    taxRevenue = PLN(5000000.0),
+    vatRevenue = PLN(3000000.0),
+    exciseRevenue = PLN(1200000.0),
+    customsDutyRevenue = PLN(800000.0),
     govPurchases = PLN(2000000.0),
     debtService = PLN(500000.0),
     unempBenefitSpend = PLN(800000.0),
@@ -23,15 +25,26 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(balances) shouldBe 0L
   }
 
+  it should "emit non-overlapping VAT, excise, and customs revenue legs" in {
+    val mechanisms = GovBudgetFlows.emit(baseInput).take(3).map(_.mechanism)
+
+    mechanisms shouldBe Vector(
+      FlowMechanism.GovVatRevenue.toInt,
+      FlowMechanism.GovExciseRevenue.toInt,
+      FlowMechanism.GovCustomsDutyRevenue.toInt,
+    )
+  }
+
   it should "have GOV balance = revenue - total spending" in {
     val flows    = GovBudgetFlows.emit(baseInput)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
 
+    val totalRevenue  = baseInput.vatRevenue + baseInput.exciseRevenue + baseInput.customsDutyRevenue
     val totalSpending = baseInput.govPurchases + baseInput.debtService +
       baseInput.unempBenefitSpend + baseInput.socialTransferSpend +
       baseInput.euCofinancing + baseInput.govCapitalSpend
 
-    val expectedGovBalance = baseInput.taxRevenue - totalSpending
+    val expectedGovBalance = totalRevenue - totalSpending
     balances(GovBudgetFlows.GOV_ACCOUNT) shouldBe expectedGovBalance.toLong
   }
 
@@ -42,17 +55,27 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have surplus when revenue > spending" in {
-    val surplus  = baseInput.copy(taxRevenue = PLN(50000000.0))
+    val surplus  = baseInput.copy(vatRevenue = PLN(47000000.0))
     val flows    = GovBudgetFlows.emit(surplus)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     balances(GovBudgetFlows.GOV_ACCOUNT) should be > 0L
   }
 
   it should "skip zero-amount flows" in {
-    val minimal = GovBudgetFlows.Input(PLN(1000000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val minimal = GovBudgetFlows.Input(
+      vatRevenue = PLN(1000000.0),
+      exciseRevenue = PLN.Zero,
+      customsDutyRevenue = PLN.Zero,
+      govPurchases = PLN.Zero,
+      debtService = PLN.Zero,
+      unempBenefitSpend = PLN.Zero,
+      socialTransferSpend = PLN.Zero,
+      euCofinancing = PLN.Zero,
+      govCapitalSpend = PLN.Zero,
+    )
     val flows   = GovBudgetFlows.emit(minimal)
     flows.length shouldBe 1
-    flows.head.mechanism shouldBe FlowMechanism.GovTaxRevenue.toInt
+    flows.head.mechanism shouldBe FlowMechanism.GovVatRevenue.toInt
   }
 
   it should "preserve SFC across 120 months" in {

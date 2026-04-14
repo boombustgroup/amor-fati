@@ -17,18 +17,18 @@ class JstFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "match old Jst.step revenue and spending" in {
-    val govTax = PLN(5000000.0); val wageIncome = PLN(50000000.0)
-    val gdp    = PLN(100000000.0); val nFirms   = 9000; val pit = PLN(3000000.0)
+    val centralCitRevenue = PLN(5000000.0); val wageIncome = PLN(50000000.0)
+    val gdp               = PLN(100000000.0); val nFirms   = 9000; val pit = PLN(3000000.0)
 
     val oldJst = com.boombustgroup.amorfati.agents.Jst.step(
       com.boombustgroup.amorfati.agents.Jst.State.zero,
-      govTax,
+      centralCitRevenue,
       wageIncome,
       gdp,
       nFirms,
       pit,
     )
-    val flows  = JstFlows.emit(JstFlows.Input(govTax, wageIncome, gdp, nFirms, pit))
+    val flows  = JstFlows.emit(JstFlows.Input(centralCitRevenue, wageIncome, gdp, nFirms, pit))
 
     val newRevenue  = flows.filter(_.mechanism == FlowMechanism.JstRevenue.toInt).map(_.amount).sum
     val newSpending = flows.filter(_.mechanism == FlowMechanism.JstSpending.toInt).map(_.amount).sum

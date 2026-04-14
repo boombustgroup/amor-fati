@@ -61,13 +61,15 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
       ),
       GovBudgetFlows.emit(
         GovBudgetFlows.Input(
-          PLN(5000000.0),
-          PLN(2000000.0),
-          PLN(500000.0),
-          PLN(800000.0),
-          PLN(1200000.0),
-          PLN(300000.0),
-          PLN(400000.0),
+          vatRevenue = PLN(3000000.0),
+          exciseRevenue = PLN(1200000.0),
+          customsDutyRevenue = PLN(800000.0),
+          govPurchases = PLN(2000000.0),
+          debtService = PLN(500000.0),
+          unempBenefitSpend = PLN(800000.0),
+          socialTransferSpend = PLN(1200000.0),
+          euCofinancing = PLN(300000.0),
+          govCapitalSpend = PLN(400000.0),
         ),
       ),
       InsuranceFlows.emit(
