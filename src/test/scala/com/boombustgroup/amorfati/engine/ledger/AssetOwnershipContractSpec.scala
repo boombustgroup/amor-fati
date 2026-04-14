@@ -54,7 +54,7 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
     settlementShells shouldBe Set(
       (EntitySector.Government, TreasuryRuntimeContract.TreasuryBudgetSettlement.name),
       (EntitySector.Government, TreasuryRuntimeContract.TaxpayerCollection.name),
-      (EntitySector.NBP, "NBP.Aggregate"),
+      (EntitySector.NBP, NbpRuntimeContract.ReserveSettlementLiability.name),
       (EntitySector.Foreign, "Foreign.Aggregate"),
     )
     nonPersistedRuntimeShells.map(shell => (shell.sector, shell.index)).toSet.size shouldBe nonPersistedRuntimeShells.size

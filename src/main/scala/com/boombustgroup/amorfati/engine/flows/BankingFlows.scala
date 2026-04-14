@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
-import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
+import com.boombustgroup.amorfati.engine.ledger.{NbpRuntimeContract, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -33,6 +33,8 @@ object BankingFlows:
       unrealizedBondLoss: PLN,
       bailInLoss: PLN,
       nbpRemittance: PLN,
+      fxReserveSettlement: PLN,
+      standingFacilityBackstop: PLN,
   )
 
   def emitBatches(input: Input): Vector[BatchedFlow] =
@@ -49,30 +51,30 @@ object BankingFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.NBP,
-        NbpIndex.Aggregate,
+        NbpRuntimeContract.ReserveSettlementLiability.index,
         EntitySector.Banks,
         BankIndex.Aggregate,
         input.reserveInterest,
-        AssetType.Cash,
+        NbpRuntimeContract.ReserveSettlementLiability.asset,
         FlowMechanism.BankReserveInterest,
       ),
       AggregateBatchedEmission.signedTransfer(
         EntitySector.NBP,
-        NbpIndex.Aggregate,
+        NbpRuntimeContract.ReserveSettlementLiability.index,
         EntitySector.Banks,
         BankIndex.Aggregate,
         input.standingFacilityIncome,
-        AssetType.Cash,
+        NbpRuntimeContract.ReserveSettlementLiability.asset,
         FlowMechanism.BankStandingFacility,
       ),
       if input.interbankInterest > PLN.Zero then
         AggregateBatchedEmission.transfer(
           EntitySector.NBP,
-          NbpIndex.Aggregate,
+          NbpRuntimeContract.ReserveSettlementLiability.index,
           EntitySector.Banks,
           BankIndex.Aggregate,
           input.interbankInterest,
-          AssetType.Cash,
+          NbpRuntimeContract.ReserveSettlementLiability.asset,
           FlowMechanism.BankInterbankInterest,
         )
       else if input.interbankInterest < PLN.Zero then
@@ -80,12 +82,30 @@ object BankingFlows:
           EntitySector.Banks,
           BankIndex.Aggregate,
           EntitySector.NBP,
-          NbpIndex.Aggregate,
+          NbpRuntimeContract.ReserveSettlementLiability.index,
           -input.interbankInterest,
-          AssetType.Cash,
+          NbpRuntimeContract.ReserveSettlementLiability.asset,
           FlowMechanism.BankInterbankInterest,
         )
       else Vector.empty,
+      AggregateBatchedEmission.signedTransfer(
+        EntitySector.NBP,
+        NbpRuntimeContract.ReserveSettlementLiability.index,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.fxReserveSettlement,
+        NbpRuntimeContract.ReserveSettlementLiability.asset,
+        FlowMechanism.NbpFxSettlement,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.NBP,
+        NbpRuntimeContract.StandingFacilityBackstop.index,
+        EntitySector.Banks,
+        BankIndex.Aggregate,
+        input.standingFacilityBackstop,
+        NbpRuntimeContract.StandingFacilityBackstop.asset,
+        FlowMechanism.BankStandingFacilityBackstop,
+      ),
       AggregateBatchedEmission.transfer(
         EntitySector.Banks,
         BankIndex.Aggregate,
@@ -140,6 +160,11 @@ object BankingFlows:
       flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.interbankInterest.toLong, FlowMechanism.BankInterbankInterest.toInt)
     else if input.interbankInterest < PLN.Zero then
       flows += Flow(BANK_ACCOUNT, NBP_ACCOUNT, (-input.interbankInterest).toLong, FlowMechanism.BankInterbankInterest.toInt)
+    if input.fxReserveSettlement > PLN.Zero then flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.fxReserveSettlement.toLong, FlowMechanism.NbpFxSettlement.toInt)
+    else if input.fxReserveSettlement < PLN.Zero then
+      flows += Flow(BANK_ACCOUNT, NBP_ACCOUNT, (-input.fxReserveSettlement).toLong, FlowMechanism.NbpFxSettlement.toInt)
+    if input.standingFacilityBackstop > PLN.Zero then
+      flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.standingFacilityBackstop.toLong, FlowMechanism.BankStandingFacilityBackstop.toInt)
 
     // Losses / outflows
     if input.bfgLevy > PLN.Zero then flows += Flow(BANK_ACCOUNT, GOV_ACCOUNT, input.bfgLevy.toLong, FlowMechanism.BankBfgLevy.toInt)

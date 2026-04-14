@@ -75,6 +75,7 @@ object BankingEconomics:
       jstDepositChange: PLN,                         // JST deposit flow (Identity 2)
       investNetDepositFlow: PLN,                     // investment demand net deposit flow
       actualBondChange: PLN,                         // net change in gov bonds outstanding
+      standingFacilityBackstop: PLN,                 // reserve shortfall funded by explicit NBP standing-facility backstop
       unrealizedBondLoss: PLN,                       // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
       eclProvisionChange: PLN,                       // aggregate IFRS 9 ECL provision change
@@ -130,6 +131,7 @@ object BankingEconomics:
       finalInsurance: Insurance.State,               // insurance after bond purchase
       finalNbfi: Nbfi.State,                         // NBFI/TFI after bond purchase
       actualBondChange: PLN,                         // net change in gov bonds outstanding
+      standingFacilityBackstop: PLN,                 // reserve shortfall funded by explicit NBP standing-facility backstop
       foreignBondHoldings: PLN,                      // non-resident holdings after auction
       bidToCover: Multiplier,                        // bond auction bid-to-cover ratio
   )
@@ -137,6 +139,17 @@ object BankingEconomics:
   private case class AggregateReconciliation(
       depositsResidual: PLN,
       capitalResidual: PLN,
+  )
+
+  private[amorfati] case class ReserveSettlementResult(
+      banks: Vector[Banking.BankState],
+      standingFacilityBackstop: PLN,
+      residual: PLN,
+  )
+
+  private case class FxSettlementAllocation(
+      allocations: Vector[PLN],
+      residual: PLN,
   )
 
   // ---- Economics-level types (for MonthlyCalculus) ----
@@ -174,6 +187,7 @@ object BankingEconomics:
       govBondIncome: PLN,
       reserveInterest: PLN,
       standingFacilityIncome: PLN,
+      standingFacilityBackstop: PLN,
       interbankInterest: PLN,
       bfgLevy: PLN,
       unrealizedBondLoss: PLN,
@@ -253,6 +267,7 @@ object BankingEconomics:
       jstDepositChange = govJst.jstDepositChange,
       investNetDepositFlow = investNetDepositFlow,
       actualBondChange = multi.actualBondChange,
+      standingFacilityBackstop = multi.standingFacilityBackstop,
       unrealizedBondLoss = {
         val yieldChange = in.s8.monetary.newBondYield - in.w.gov.bondYield
         if yieldChange > Rate.Zero then prevBankAgg.afsBonds * yieldChange * p.banking.govBondDuration else PLN.Zero
@@ -309,6 +324,7 @@ object BankingEconomics:
       govBondIncome = prevBankAgg.govBondHoldings * in.openEconOutput.monetary.newBondYield.monthly,
       reserveInterest = in.openEconOutput.banking.totalReserveInterest,
       standingFacilityIncome = in.openEconOutput.banking.totalStandingFacilityIncome,
+      standingFacilityBackstop = s9.standingFacilityBackstop,
       interbankInterest = in.openEconOutput.banking.totalInterbankInterest,
       bfgLevy = s9.bfgLevy,
       unrealizedBondLoss = s9.unrealizedBondLoss,
@@ -641,7 +657,18 @@ object BankingEconomics:
       )
     }
 
-    processInterbankAndFailures(in, updatedBanks, bs, wf, jstDepositChange, investNetDepositFlow, mortgageFlows)
+    processInterbankAndFailures(
+      in,
+      updatedBanks,
+      bs,
+      wf,
+      perBankReserveInt,
+      perBankStandingFac,
+      perBankInterbankInt,
+      jstDepositChange,
+      investNetDepositFlow,
+      mortgageFlows,
+    )
 
   /** Interbank clearing, bond allocation, QE, failure check, bail-in,
     * resolution, reassignment.
@@ -651,20 +678,33 @@ object BankingEconomics:
       updatedBanks: Vector[Banking.BankState],
       bs: Banking.State,
       wf: BondWaterfallInputs,
+      perBankReserveInt: Banking.PerBankAmounts,
+      perBankStandingFac: Banking.PerBankAmounts,
+      perBankInterbankInt: Banking.PerBankAmounts,
       jstDepositChange: PLN,
       investNetDepositFlow: PLN,
       mortgageFlows: HousingMarket.MortgageFlows,
   )(using p: SimParams): MultiBankResult =
-    val prevBankAgg      = Banking.aggregateFromBanks(in.banks)
-    val ibRate           = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
+    val prevBankAgg    = Banking.aggregateFromBanks(in.banks)
+    val ibRate         = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
     // Liquidity hoarding: reduce interbank lending when system NPL is high
-    val hoarding         = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
-    val afterInterbank   = Banking.clearInterbank(updatedBanks, bs.configs, hoarding)
-    val afterFxInjection = distributeFxInjection(afterInterbank, in.s8.monetary.fxPlnInjection)
+    val hoarding       = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
+    val afterInterbank = Banking.clearInterbank(updatedBanks, bs.configs, hoarding)
+    val nbpSettlement  = applyNbpReserveSettlement(
+      afterInterbank,
+      perBankReserveInt,
+      perBankStandingFac,
+      perBankInterbankInt,
+      in.s8.monetary.fxPlnInjection,
+    )
+    if nbpSettlement.residual != PLN.Zero then
+      throw IllegalStateException(
+        s"NBP reserve settlement left unallocated FX residual ${nbpSettlement.residual} after reserve-side settlement.",
+      )
     // HTM forced reclassification: LCR-stressed banks reclassify HTM→AFS, realizing hidden losses
-    val htmResult        = Banking.processHtmForcedSale(afterFxInjection, in.s8.monetary.newBondYield)
-    val afterHtm         = htmResult.banks
-    val afterBonds       =
+    val htmResult      = Banking.processHtmForcedSale(nbpSettlement.banks, in.s8.monetary.newBondYield)
+    val afterHtm       = htmResult.banks
+    val afterBonds     =
       if wf.actualBondChange > PLN.Zero then Banking.allocateBondIssuance(afterHtm, wf.actualBondChange, in.s8.monetary.newBondYield)
       else if wf.actualBondChange < PLN.Zero then
         Banking.allocateBondRedemption(afterHtm, PLN.fromRaw(-wf.actualBondChange.toLong), in.s8.monetary.newBondYield)
@@ -798,6 +838,7 @@ object BankingEconomics:
       finalInsurance = finalInsurance,
       finalNbfi = finalNbfi,
       actualBondChange = wf.actualBondChange,
+      standingFacilityBackstop = nbpSettlement.standingFacilityBackstop,
       foreignBondHoldings = finalForeignBondHoldings,
       bidToCover = auctionResult.bidToCover,
     )
@@ -911,19 +952,78 @@ object BankingEconomics:
       ),
     )
 
+  /** Apply NBP-side reserve settlement deltas to bank reserve balances.
+    *
+    * Reserve remuneration, standing-facility settlement, interbank settlement
+    * routed via NBP, and FX intervention PLN injection/drain all land on the
+    * same reserve-side settlement channel. If a drain would push a bank below
+    * zero reserves, the shortfall is converted into explicit standing-facility
+    * borrowing while reserve balances stay non-negative.
+    */
+  private[amorfati] def applyNbpReserveSettlement(
+      banks: Vector[Banking.BankState],
+      reserveInterest: Banking.PerBankAmounts,
+      standingFacilityIncome: Banking.PerBankAmounts,
+      interbankInterest: Banking.PerBankAmounts,
+      fxInjection: PLN,
+  ): ReserveSettlementResult =
+    val distributedFx                        = distributeFxInjectionByDeposits(banks, fxInjection)
+    val updatedBanks                         = Vector.newBuilder[Banking.BankState]
+    val (standingFacilityBackstop, residual) =
+      banks.zipWithIndex.foldLeft((PLN.Zero, distributedFx.residual)) { (acc, bankAndIdx) =>
+        val (accBackstop, accResidual) = acc
+        val (bank, idx)                = bankAndIdx
+        val delta                      =
+          reserveInterest.perBank(idx) +
+            standingFacilityIncome.perBank(idx) +
+            interbankInterest.perBank(idx) +
+            distributedFx.allocations(idx)
+        val updated                    = bank.reservesAtNbp + delta
+        if updated >= PLN.Zero then
+          updatedBanks += bank.copy(reservesAtNbp = updated)
+          (accBackstop, accResidual)
+        else
+          updatedBanks += bank.copy(reservesAtNbp = PLN.Zero)
+          (accBackstop - updated, accResidual)
+      }
+
+    ReserveSettlementResult(updatedBanks.result(), standingFacilityBackstop, residual)
+
   /** Distribute FX intervention PLN injection across banks proportional to
     * deposit market share, adjusting reservesAtNbp. EUR purchase → PLN injected
-    * into banking system; EUR sale → PLN drained.
+    * into banking system; EUR sale → PLN drained. Any amount that cannot be
+    * allocated is surfaced via `residual`.
     */
-  private[amorfati] def distributeFxInjection(banks: Vector[Banking.BankState], injection: PLN): Vector[Banking.BankState] =
-    if injection == PLN.Zero then banks
+  private[amorfati] def distributeFxInjection(
+      banks: Vector[Banking.BankState],
+      injection: PLN,
+  ): ReserveSettlementResult =
+    val zeros = Banking.PerBankAmounts(Vector.fill(banks.size)(PLN.Zero), PLN.Zero)
+    applyNbpReserveSettlement(
+      banks,
+      reserveInterest = zeros,
+      standingFacilityIncome = zeros,
+      interbankInterest = zeros,
+      fxInjection = injection,
+    )
+
+  private def distributeFxInjectionByDeposits(
+      banks: Vector[Banking.BankState],
+      injection: PLN,
+  ): FxSettlementAllocation =
+    if injection == PLN.Zero then FxSettlementAllocation(Vector.fill(banks.size)(PLN.Zero), PLN.Zero)
     else
       val weights = banks.map(_.deposits.toLong.max(0L)).toArray
-      if weights.sum <= 0L then banks
+      if weights.sum <= 0L then FxSettlementAllocation(Vector.fill(banks.size)(PLN.Zero), injection)
       else
-        val distributed = Distribute.distribute(math.abs(injection.toLong), weights)
-        banks
-          .zip(distributed.iterator)
-          .map: (b, rawAllocated) =>
-            val allocated = if injection >= PLN.Zero then PLN.fromRaw(rawAllocated) else PLN.fromRaw(-rawAllocated)
-            b.copy(reservesAtNbp = (b.reservesAtNbp + allocated).max(PLN.Zero))
+        val allocations = Distribute
+          .distribute(math.abs(injection.toLong), weights)
+          .iterator
+          .map { rawAllocated =>
+            if injection >= PLN.Zero then PLN.fromRaw(rawAllocated) else PLN.fromRaw(-rawAllocated)
+          }
+          .toVector
+        FxSettlementAllocation(
+          allocations = allocations,
+          residual = injection - allocations.foldLeft(PLN.Zero)(_ + _),
+        )
