@@ -29,6 +29,28 @@ import com.boombustgroup.amorfati.types.*
   */
 object StateOwned:
 
+  private val ManufacturingSector = 1
+  private val HealthcareSector    = 3
+  private val PublicSector        = 4
+  private val AgricultureSector   = 5
+
+  private case class SectorSemantics(
+      investmentPriority: Share = Share.Zero,
+      energyBufferExposure: Share = Share.Zero,
+  )
+
+  private val DefaultSectorSemantics = SectorSemantics()
+
+  private val semanticsBySector: Map[Int, SectorSemantics] = Map(
+    ManufacturingSector -> SectorSemantics(investmentPriority = Share.One, energyBufferExposure = Share.One),
+    HealthcareSector    -> SectorSemantics(investmentPriority = Share(0.35)),
+    PublicSector        -> SectorSemantics(investmentPriority = Share.One, energyBufferExposure = Share(0.35)),
+    AgricultureSector   -> SectorSemantics(investmentPriority = Share(0.45)),
+  )
+
+  private def sectorSemantics(sectorIdx: Int): SectorSemantics =
+    semanticsBySector.getOrElse(sectorIdx, DefaultSectorSemantics)
+
   /** SOE dividend extraction: government takes higher dividends when deficit is
     * large. Returns dividend multiplier (>= 1.0 for SOEs).
     */
@@ -47,10 +69,40 @@ object StateOwned:
     */
   def investmentMultiplier(using p: SimParams): Multiplier = p.soe.investmentMultiplier
 
+  /** Strategic-investment priority of an SOE in a given sector.
+    *
+    * The current 6-sector schema does not have a dedicated utilities bucket, so
+    * directed SOE investment is modeled as strongest in Manufacturing and
+    * Public, with smaller spillovers to Healthcare and Agriculture.
+    */
+  def directedInvestmentPriority(sectorIdx: Int): Share =
+    sectorSemantics(sectorIdx).investmentPriority
+
+  /** Effective investment multiplier after applying current sector semantics.
+    * Non-strategic SOEs fall back to neutral investment behavior.
+    */
+  def directedInvestmentMultiplier(sectorIdx: Int)(using p: SimParams): Multiplier =
+    Multiplier.One + (investmentMultiplier.deviationFromOne * directedInvestmentPriority(sectorIdx)).toMultiplier
+
   /** SOE energy price absorption: energy SOEs absorb price shocks. Returns
     * fraction of commodity price shock passed to consumers.
     */
   def energyPassthrough(using p: SimParams): Share = p.soe.energyPassthrough
+
+  /** Sector exposure to administered energy-price buffering.
+    *
+    * With no explicit Energy/Utilities sector in the schema, the behavior is
+    * attached to the parts of Manufacturing and Public where the state today
+    * plausibly acts as the price-buffering supplier.
+    */
+  def energyBufferExposure(sectorIdx: Int): Share =
+    sectorSemantics(sectorIdx).energyBufferExposure
+
+  /** Effective consumer pass-through after sector semantics are applied.
+    * Sectors with no energy-buffer exposure fall back to full pass-through.
+    */
+  def effectiveEnergyPassthrough(sectorIdx: Int)(using p: SimParams): Share =
+    Share.One - (energyBufferExposure(sectorIdx) * (Share.One - energyPassthrough))
 
   /** Probability that a firm in given sector is state-owned at initialization.
     * Based on actual SOE presence per sector (GUS/GPW 2024).

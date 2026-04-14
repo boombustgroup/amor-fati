@@ -349,6 +349,7 @@ object BankingEconomics:
         prev = in.w.gov,
         priceLevel = in.s7.newPrice,
         citPaid = in.s5.sumTax + in.s7.dividendTax + tax.pitAfterEvasion,
+        govDividendRevenue = in.s7.stateOwnedGovDividends,
         vat = tax.vatAfterEvasion,
         nbpRemittance = in.s8.banking.nbpRemittance,
         exciseRevenue = tax.exciseAfterEvasion,
@@ -511,9 +512,9 @@ object BankingEconomics:
       in: StepInput,
   )(using p: SimParams): Banking.BankState =
     val bId           = b.id.toInt
-    val bankNplNew    = PLN(in.s5.perBankNplDebt(bId))
+    val bankNplNew    = in.s5.perBankNplDebt(bId)
     val bankNplLoss   = bankNplNew * (Share.One - p.banking.loanRecovery)
-    val bankIntIncome = PLN(in.s5.perBankIntIncome(bId))
+    val bankIntIncome = in.s5.perBankIntIncome(bId)
     val bankBondInc   = b.govBondHoldings * in.s8.monetary.newBondYield.monthly
     val bankResInt    = perBankReserveInt.perBank(bId)
     val bankSfInc     = perBankStandingFac.perBank(bId)

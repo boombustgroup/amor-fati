@@ -84,7 +84,7 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       // Tier 3: Financial markets + external
-      EquityFlows.emit(EquityFlows.Input(PLN(500000.0), PLN(200000.0), PLN(100000.0), PLN(1000000.0))),
+      EquityFlows.emit(EquityFlows.Input(PLN(500000.0), PLN(200000.0), PLN(100000.0), PLN(50000.0), PLN(1000000.0))),
       CorpBondFlows.emit(CorpBondFlows.Input(PLN(300000.0), PLN(50000.0), PLN(1000000.0), PLN(200000.0))),
       MortgageFlows.emit(MortgageFlows.Input(PLN(5000000.0), PLN(2000000.0), PLN(1500000.0), PLN(300000.0))),
       OpenEconFlows.emit(

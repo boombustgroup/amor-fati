@@ -70,7 +70,9 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
       val (prev, cit, vat, price, unempBen) = inputs
       whenever(price >= 0.01) {
         val gov        =
-          FiscalBudget.update(FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), vat = PLN(vat), unempBenefitSpend = PLN(unempBen)))
+          FiscalBudget.update(
+            FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), govDividendRevenue = PLN.Zero, vat = PLN(vat), unempBenefitSpend = PLN(unempBen)),
+          )
         val totalRev   = cit + vat
         val totalSpend = unempBen + p.fiscal.govBaseSpending.bd.toDouble * price
         val tol        = p.fiscal.govBaseSpending.bd.toDouble * 0.0001 + 1.0 // fixed-point rounding tolerance

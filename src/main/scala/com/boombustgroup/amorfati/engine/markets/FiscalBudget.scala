@@ -6,9 +6,9 @@ import com.boombustgroup.amorfati.types.*
 /** Government budget reconciliation: monthly revenue, spending, deficit, debt.
   *
   * Revenue: CIT + dividend tax (PIT Belka 19%), VAT, excise, customs, NBP
-  * remittance. Spending: current government purchases, capital investment,
-  * unemployment benefits, social transfers (800+), ZUS subvention, EU
-  * co-financing, debt service.
+  * remittance, plus separately tracked SOE dividend extraction. Spending:
+  * current government purchases, capital investment, unemployment benefits,
+  * social transfers (800+), ZUS subvention, EU co-financing, debt service.
   *
   * When GOV_INVEST is enabled, base spending splits into current (1 − share)
   * and capital (share) components; public capital stock depreciates monthly.
@@ -67,7 +67,7 @@ object FiscalBudget:
   )
 
   case class GovFlowState(
-      taxRevenue: PLN,                     // total tax revenue this month (CIT + VAT + excise + customs + NBP remittance)
+      taxRevenue: PLN,                     // budget revenue this month excluding direct SOE dividend extraction
       deficit: PLN,                        // monthly budget deficit (positive) or surplus (negative)
       unempBenefitSpend: PLN,              // unemployment benefit payments this month
       debtServiceSpend: PLN = PLN.Zero,    // interest payments on public debt this month
@@ -78,6 +78,7 @@ object FiscalBudget:
       euCofinancing: PLN = PLN.Zero,       // domestic co-financing outlay booked separately from project-envelope value
       exciseRevenue: PLN = PLN.Zero,       // excise duty revenue this month (akcyza)
       customsDutyRevenue: PLN = PLN.Zero,  // customs duty revenue this month (cło)
+      govDividendRevenue: PLN = PLN.Zero,  // direct SOE dividend extraction booked separately from aggregate budget revenue
   )
 
   case class GovState(
@@ -86,6 +87,8 @@ object FiscalBudget:
       monthly: GovFlowState,
   ):
     def taxRevenue: PLN               = monthly.taxRevenue
+    def govDividendRevenue: PLN       = monthly.govDividendRevenue
+    def totalRevenue: PLN             = monthly.taxRevenue + monthly.govDividendRevenue
     def deficit: PLN                  = monthly.deficit
     def cumulativeDebt: PLN           = financial.cumulativeDebt
     def unempBenefitSpend: PLN        = monthly.unempBenefitSpend
@@ -133,6 +136,7 @@ object FiscalBudget:
         euCofinancing: PLN = PLN.Zero,
         exciseRevenue: PLN = PLN.Zero,
         customsDutyRevenue: PLN = PLN.Zero,
+        govDividendRevenue: PLN = PLN.Zero,
         minWageLevel: PLN = PLN(4666.0),
         minWagePriceLevel: PriceIndex = PriceIndex.Base,
     ): GovState =
@@ -151,6 +155,7 @@ object FiscalBudget:
           euCofinancing,
           exciseRevenue,
           customsDutyRevenue,
+          govDividendRevenue,
         ),
       )
 
@@ -164,6 +169,7 @@ object FiscalBudget:
       priceLevel: PriceIndex,
       // Revenue
       citPaid: PLN = PLN.Zero,
+      govDividendRevenue: PLN,
       vat: PLN = PLN.Zero,
       nbpRemittance: PLN = PLN.Zero,
       exciseRevenue: PLN = PLN.Zero,
@@ -192,8 +198,8 @@ object FiscalBudget:
 
     val totalSpend = in.unempBenefitSpend + in.socialTransferSpend +
       govCurrent + govCapital + in.debtService + in.zusGovSubvention + in.nfzGovSubvention + in.earmarkedGovSubvention + in.euCofinancing
-    val totalRev   = in.citPaid + in.vat + in.nbpRemittance +
-      in.exciseRevenue + in.customsDutyRevenue
+    val taxRev     = in.citPaid + in.vat + in.nbpRemittance + in.exciseRevenue + in.customsDutyRevenue
+    val totalRev   = taxRev + in.govDividendRevenue
     val deficit    = totalSpend - totalRev
 
     val newBondsOutstanding =
@@ -204,7 +210,7 @@ object FiscalBudget:
       in.prev.publicCapitalStock * (Share.One - monthlyDeprecShare) + govCapital + in.euProjectCapital
 
     GovState(
-      taxRevenue = totalRev,
+      taxRevenue = taxRev,
       deficit = deficit,
       cumulativeDebt = in.prev.cumulativeDebt + deficit,
       unempBenefitSpend = in.unempBenefitSpend,
@@ -220,4 +226,5 @@ object FiscalBudget:
       euCofinancing = in.euCofinancing,
       exciseRevenue = in.exciseRevenue,
       customsDutyRevenue = in.customsDutyRevenue,
+      govDividendRevenue = in.govDividendRevenue,
     )

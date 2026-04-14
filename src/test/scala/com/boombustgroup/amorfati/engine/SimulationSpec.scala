@@ -79,6 +79,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
         prev,
         priceLevel = PriceIndex.Base,
         citPaid = PLN(100000),
+        govDividendRevenue = PLN.Zero,
         vat = PLN(200000),
       ),
     )
@@ -92,8 +93,26 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
         prev,
         priceLevel = PriceIndex.Base,
         citPaid = PLN(100000),
+        govDividendRevenue = PLN.Zero,
         vat = PLN(200000),
       ),
     )
     td.toDouble(result.cumulativeDebt).shouldBe((1000000 + td.toDouble(result.deficit)) +- 1.0)
+  }
+
+  it should "track SOE dividends separately from tax revenue" in {
+    val prev   = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val result = FiscalBudget.update(
+      FiscalBudget.Input(
+        prev,
+        priceLevel = PriceIndex.Base,
+        citPaid = PLN(100000),
+        govDividendRevenue = PLN(50000),
+        vat = PLN(200000),
+      ),
+    )
+
+    result.taxRevenue shouldBe PLN(300000)
+    result.govDividendRevenue shouldBe PLN(50000)
+    result.totalRevenue shouldBe PLN(350000)
   }

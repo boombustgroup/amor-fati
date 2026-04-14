@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.markets
 
+import com.boombustgroup.amorfati.agents.StateOwned
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
@@ -116,7 +117,14 @@ object EquityMarket:
 
     val mReturn = if in.prev.index > PriceIndex.Zero then newIndex.ratioTo(in.prev.index).toMultiplier.deviationFromOne.toRate else Rate.Zero
 
-    State(newIndex, newMarketCap, newEarningsYield, newDivYield, newForeignOwnership, monthlyReturn = mReturn)
+    State(
+      index = newIndex,
+      marketCap = newMarketCap,
+      earningsYield = newEarningsYield,
+      dividendYield = newDivYield,
+      foreignOwnership = newForeignOwnership,
+      monthlyReturn = mReturn,
+    )
 
   /** Process equity issuance: firm raises CAPEX via equity, increasing market
     * cap. Index diluted by supply effect.
@@ -143,10 +151,12 @@ object EquityMarket:
     *   foreign dividend outflow
     * @param tax
     *   Belka tax on domestic dividends (19% PIT)
+    * @param gov
+    *   extra direct SOE dividend extraction flowing to government
     */
-  case class DividendResult(netDomestic: PLN, foreign: PLN, tax: PLN)
+  case class DividendResult(netDomestic: PLN, foreign: PLN, tax: PLN, gov: PLN)
 
-  val DividendResultZero: DividendResult = DividendResult(PLN.Zero, PLN.Zero, PLN.Zero)
+  val DividendResultZero: DividendResult = DividendResult(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   /** Compute cash dividends from realized profits, not directly from market
     * valuation.
@@ -154,6 +164,8 @@ object EquityMarket:
   def computeDividends(
       realizedProfits: PLN,
       foreignShare: Share,
+      stateOwnedProfits: PLN,
+      deficitToGdp: Share,
   )(using p: SimParams): DividendResult =
     if realizedProfits <= PLN.Zero then DividendResultZero
     else
@@ -161,8 +173,15 @@ object EquityMarket:
       val foreignDividends = totalDividends * foreignShare
       val domesticGross    = totalDividends - foreignDividends
       val dividendTax      = domesticGross * p.equity.divTax
+      val govDividends     =
+        if stateOwnedProfits <= PLN.Zero then PLN.Zero
+        else
+          val adjustedPayout = (PayoutRatio * StateOwned.dividendMultiplier(deficitToGdp)).toShare.clamp(Share.Zero, Share.One)
+          val extraPayout    = (adjustedPayout - PayoutRatio).max(Share.Zero)
+          stateOwnedProfits.min(realizedProfits) * extraPayout
       DividendResult(
         netDomestic = domesticGross - dividendTax,
         foreign = foreignDividends,
         tax = dividendTax,
+        gov = govDividends,
       )

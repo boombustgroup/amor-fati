@@ -96,6 +96,7 @@ object FlowSimulation:
       equityDomDividends: PLN,
       equityForDividends: PLN,
       equityDivTax: PLN,
+      equityGovDividends: PLN,
       equityIssuance: PLN,
       equityReturn: Rate,
       // Stage 8: Open economy
@@ -207,7 +208,15 @@ object FlowSimulation:
         ),
       ),
       // Tier 3: Financial markets
-      EquityFlows.emitBatches(EquityFlows.Input(c.equityDomDividends, c.equityForDividends, c.equityDivTax, c.equityIssuance)),
+      EquityFlows.emitBatches(
+        EquityFlows.Input(
+          c.equityDomDividends,
+          c.equityForDividends,
+          c.equityDivTax,
+          c.equityGovDividends,
+          c.equityIssuance,
+        ),
+      ),
       CorpBondFlows.emitBatches(CorpBondFlows.Input(c.corpBondCoupon, c.corpBondDefaultLoss, c.corpBondIssuance, c.corpBondAmortization)),
       MortgageFlows.emitBatches(MortgageFlows.Input(c.mortgageOrigination, c.mortgageRepayment, c.mortgageInterest, c.mortgageDefault)),
       OpenEconFlows.emitBatches(
@@ -566,6 +575,7 @@ object FlowSimulation:
       equityDomDividends = eq.lastDomesticDividends,
       equityForDividends = eq.lastForeignDividends,
       equityDivTax = eq.lastDividendTax,
+      equityGovDividends = w.gov.govDividendRevenue,
       equityIssuance = eq.lastIssuance,
       equityReturn = eq.monthlyReturn,
       exports = openEcon.exports,
@@ -707,8 +717,9 @@ object FlowSimulation:
     Sfc.SemanticFlows(
       govSpending =
         banking.newGovWithYield.domesticBudgetOutlays + labor.newZus.govSubvention + labor.newNfz.govSubvention + labor.newEarmarked.totalGovSubvention,
-      govRevenue =
-        firms.sumTax + prices.dividendTax + banking.pitAfterEvasion + banking.vatAfterEvasion + openEcon.banking.nbpRemittance + banking.exciseAfterEvasion + banking.customsDutyRevenue,
+      govRevenue = firms.sumTax + prices.dividendTax + evidence.amount(
+        FlowMechanism.EquityGovDividend,
+      ) + banking.pitAfterEvasion + banking.vatAfterEvasion + openEcon.banking.nbpRemittance + banking.exciseAfterEvasion + banking.customsDutyRevenue,
       nplLoss = firms.nplLoss,
       interestIncome = evidence.amount(FlowMechanism.FirmInterestPaid),
       hhDebtService = evidence.amount(FlowMechanism.HhDebtService),

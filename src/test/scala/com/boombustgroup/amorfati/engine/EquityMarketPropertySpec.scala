@@ -57,24 +57,40 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   "EquityMarket.computeDividends" should "have non-negative outputs for positive inputs" in
     forAll(Gen.choose(1e6, 1e13), genFraction) { (profits, foreignShare) =>
-      val r = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
+      val r = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN.Zero, Share.Zero)
       r.netDomestic should be >= PLN.Zero
       r.foreign should be >= PLN.Zero
       r.tax should be >= PLN.Zero
+      r.gov should be >= PLN.Zero
     }
 
   it should "conserve payout-scaled profits exactly" in
     forAll(Gen.choose(1e6, 1e13), Gen.choose(0.0, 1.0)) { (profits, foreignShare) =>
       whenever(foreignShare >= 0.0) {
-        val r             = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
+        val r             = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN.Zero, Share.Zero)
         val expectedTotal = PLN(profits) * Share(0.57)
         (r.netDomestic + r.tax + r.foreign) shouldBe expectedTotal
       }
     }
 
+  it should "preserve the baseline split while adding a non-negative SOE government leg" in
+    forAll(Gen.choose(1e8, 1e13), genFraction, Gen.choose(0.01, 1.0), Gen.choose(0.04, 0.20)) { (profits, foreignShare, soeShare, deficitToGdp) =>
+      whenever(foreignShare >= 0.0 && foreignShare <= 1.0) {
+        val baseline = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN.Zero, Share.Zero)
+        val withGov  = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN(profits * soeShare), Share(deficitToGdp))
+        val payout   = PLN(profits) * Share(0.57)
+
+        withGov.netDomestic shouldBe baseline.netDomestic
+        withGov.foreign shouldBe baseline.foreign
+        withGov.tax shouldBe baseline.tax
+        (withGov.netDomestic + withGov.tax + withGov.foreign) shouldBe payout
+        withGov.gov should be >= PLN.Zero
+      }
+    }
+
   it should "have foreign dividends <= total dividends" in
     forAll(Gen.choose(1e6, 1e13), genFraction) { (profits, foreignShare) =>
-      val r     = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
+      val r     = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN.Zero, Share.Zero)
       val total = PLN(profits) * Share(0.57)
       r.foreign should be <= total
     }
@@ -82,14 +98,14 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   it should "have dividend tax <= domestic gross" in
     forAll(Gen.choose(1e6, 1e13), genFraction) { (profits, foreignShare) =>
       val gross = PLN(profits) * Share(0.57) * (Share.One - Share(foreignShare))
-      val r     = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
+      val r     = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN.Zero, Share.Zero)
       r.tax should be <= gross
     }
 
   it should "scale dividends linearly with realized profits up to rounding" in
     forAll(Gen.choose(1e6, 1e12), genFraction) { (profits, foreignShare) =>
-      val r1 = EquityMarket.computeDividends(PLN(profits), Share(foreignShare))
-      val r2 = EquityMarket.computeDividends(PLN(profits * 2.0), Share(foreignShare))
+      val r1 = EquityMarket.computeDividends(PLN(profits), Share(foreignShare), PLN.Zero, Share.Zero)
+      val r2 = EquityMarket.computeDividends(PLN(profits * 2.0), Share(foreignShare), PLN.Zero, Share.Zero)
       whenever(r1.netDomestic > PLN.Zero && r1.foreign > PLN.Zero && r1.tax > PLN.Zero) {
         shouldBeClosePln(r2.netDomestic, r1.netDomestic * 2, PLN(1.0))
         shouldBeClosePln(r2.foreign, r1.foreign * 2, PLN(1.0))

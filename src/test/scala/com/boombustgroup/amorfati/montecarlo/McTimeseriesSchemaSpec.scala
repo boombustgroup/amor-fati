@@ -135,6 +135,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     "EquityWealthEffect",
     "DomesticDividends",
     "ForeignDividendOutflow",
+    "GovernmentDividends",
     "CorpBondOutstanding",
     "CorpBondYield",
     "CorpBondIssuance",
@@ -272,7 +273,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     row(idx)
 
   "McTimeseriesSchema" should "expose the stable schema contract" in {
-    McTimeseriesSchema.nCols shouldBe 239
+    McTimeseriesSchema.nCols shouldBe 240
     McTimeseriesSchema.colNames.toVector shouldBe expectedColNames
   }
 

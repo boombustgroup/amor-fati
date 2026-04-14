@@ -21,6 +21,7 @@ object EquityFlows:
       netDomesticDividends: PLN,
       foreignDividends: PLN,
       dividendTax: PLN,
+      govDividends: PLN,
       issuance: PLN,
   )
 
@@ -55,6 +56,15 @@ object EquityFlows:
         FlowMechanism.EquityDividendTax,
       ),
       AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        FirmIndex.Aggregate,
+        EntitySector.Government,
+        GovernmentIndex.Budget,
+        input.govDividends,
+        AssetType.Cash,
+        FlowMechanism.EquityGovDividend,
+      ),
+      AggregateBatchedEmission.transfer(
         EntitySector.Households,
         HouseholdIndex.Investors,
         EntitySector.Firms,
@@ -71,5 +81,6 @@ object EquityFlows:
       flows += Flow(FIRM_ACCOUNT, HH_ACCOUNT, input.netDomesticDividends.toLong, FlowMechanism.EquityDomDividend.toInt)
     if input.foreignDividends > PLN.Zero then flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.foreignDividends.toLong, FlowMechanism.EquityForDividend.toInt)
     if input.dividendTax > PLN.Zero then flows += Flow(HH_ACCOUNT, GOV_ACCOUNT, input.dividendTax.toLong, FlowMechanism.EquityDividendTax.toInt)
+    if input.govDividends > PLN.Zero then flows += Flow(FIRM_ACCOUNT, GOV_ACCOUNT, input.govDividends.toLong, FlowMechanism.EquityGovDividend.toInt)
     if input.issuance > PLN.Zero then flows += Flow(HH_ACCOUNT, FIRM_ACCOUNT, input.issuance.toLong, FlowMechanism.EquityIssuance.toInt)
     flows.result()

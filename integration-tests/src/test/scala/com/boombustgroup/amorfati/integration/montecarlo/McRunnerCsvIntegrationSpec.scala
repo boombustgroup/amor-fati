@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.integration.montecarlo
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.fp.{ComputationBoundary, FixedPointBase}
-import com.boombustgroup.amorfati.montecarlo.{McRunConfig, McRunner, RunResult, SimError, SimOutput}
+import com.boombustgroup.amorfati.montecarlo.{McRunConfig, McRunner, McTimeseriesSchema, RunResult, SimError}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import zio.{Runtime, Unsafe, ZIO}
@@ -109,7 +109,7 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
       val lines  = readLines(path)
       val result = expectedRuns(seed)
 
-      lines.head shouldBe SimOutput.colNames.mkString(";")
+      lines.head shouldBe McTimeseriesSchema.colNames.mkString(";")
       lines.length shouldBe DurationMonths + 1
 
       for (line, monthIndex) <- lines.tail.zipWithIndex do
@@ -117,9 +117,9 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
         val month    = ExecutionMonth.First.advanceBy(monthIndex)
         val expected = result.timeSeries.monthRow(month)
 
-        actual.length shouldBe SimOutput.nCols
+        actual.length shouldBe McTimeseriesSchema.nCols
 
-        for col <- 0 until SimOutput.nCols do
+        for col <- 0 until McTimeseriesSchema.nCols do
           withClue(s"seed=$seed month=${month.toInt} col=$col: ") {
             actual(col) shouldBe (expected(col) +- 1e-6)
           }
