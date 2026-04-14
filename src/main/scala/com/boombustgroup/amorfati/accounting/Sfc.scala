@@ -125,7 +125,7 @@ object Sfc:
     */
   case class SemanticFlows(
       govSpending: PLN,             // total budget expenditure (benefits + transfers + current spend + domestic capital spend + debt service + subventions + domestic EU co-financing)
-      govRevenue: PLN,              // total gov revenue (CIT + PIT + VAT + excise + customs + dividend tax + NBP remittance)
+      govRevenue: PLN,              // total treasury inflow from explicit runtime channels (firm CIT + household PIT + dividend tax + SOE dividends + VAT + excise + customs + NBP remittance)
       nplLoss: PLN,                 // bank NPL write-off loss (firm loans, after recovery)
       interestIncome: PLN,          // bank interest income from firm loans
       hhDebtService: PLN,           // household debt service payments → bank capital

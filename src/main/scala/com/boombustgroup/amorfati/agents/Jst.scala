@@ -35,10 +35,10 @@ object Jst:
     */
   def step(
       prev: State,
-      govTaxRevenue: PLN,   // central government total tax revenue (CIT + VAT)
-      totalWageIncome: PLN, // total wage income (for PIT proxy)
-      gdp: PLN,             // GDP proxy for subvention/dotacje
-      nFirms: Int,          // number of living firms (for property tax)
+      centralCitRevenue: PLN, // central government CIT revenue
+      totalWageIncome: PLN,   // total wage income (for PIT proxy)
+      gdp: PLN,               // GDP proxy for subvention/dotacje
+      nFirms: Int,            // number of living firms (for property tax)
       pitRevenue: PLN,
   )(using p: SimParams): StepResult =
     // Revenue sources:
@@ -47,7 +47,7 @@ object Jst:
       if pitRevenue > PLN.Zero then pitRevenue * p.fiscal.jstPitShare
       else totalWageIncome * (Share(FallbackPitRate) * p.fiscal.jstPitShare)
     // 2. CIT share: JST gets ~6.71% of CIT
-    val citRevenue   = govTaxRevenue * p.fiscal.jstCitShare
+    val citRevenue   = centralCitRevenue * p.fiscal.jstCitShare
     // 3. Property tax: fixed per firm per year
     val propertyTax  = nFirms * p.fiscal.jstPropertyTax / 12L
     // 4. Subwencja oświatowa (education subvention): ~3% of GDP annually

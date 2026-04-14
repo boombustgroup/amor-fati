@@ -28,7 +28,7 @@ object FlowMechanism:
   val JstRevenue: MechanismId                   = MechanismId(18)
   val JstSpending: MechanismId                  = MechanismId(19)
   // Government budget
-  val GovTaxRevenue: MechanismId                = MechanismId(20)
+  val GovTaxRevenue: MechanismId                = MechanismId(20) // legacy aggregate slot kept reserved for mechanism ID stability
   val GovPurchases: MechanismId                 = MechanismId(21)
   val GovDebtService: MechanismId               = MechanismId(22)
   val GovCapitalInvestment: MechanismId         = MechanismId(23)
@@ -108,3 +108,6 @@ object FlowMechanism:
   val EquityGovDividend: MechanismId            = MechanismId(89)
   val NbpFxSettlement: MechanismId              = MechanismId(90)
   val BankStandingFacilityBackstop: MechanismId = MechanismId(91)
+  val GovVatRevenue: MechanismId                = MechanismId(92)
+  val GovExciseRevenue: MechanismId             = MechanismId(93)
+  val GovCustomsDutyRevenue: MechanismId        = MechanismId(94)

@@ -19,7 +19,7 @@ object JstFlows:
   val SERVICES_ACCOUNT: Int = 2
 
   case class Input(
-      govTaxRevenue: PLN,
+      centralCitRevenue: PLN,
       totalWageIncome: PLN,
       gdp: PLN,
       nFirms: Int,
@@ -31,7 +31,7 @@ object JstFlows:
     val jstPitIncome  =
       if input.pitRevenue > PLN.Zero then input.pitRevenue * p.fiscal.jstPitShare
       else input.totalWageIncome * (Share(FallbackPitRate) * p.fiscal.jstPitShare)
-    val citRevenue    = input.govTaxRevenue * p.fiscal.jstCitShare
+    val citRevenue    = input.centralCitRevenue * p.fiscal.jstCitShare
     val propertyTax   = input.nFirms * p.fiscal.jstPropertyTax / 12L
     val subvention    = input.gdp * p.fiscal.jstSubventionShare / 12L
     val dotacje       = input.gdp * p.fiscal.jstDotacjeShare / 12L
@@ -62,7 +62,7 @@ object JstFlows:
     val jstPitIncome =
       if input.pitRevenue > PLN.Zero then input.pitRevenue * p.fiscal.jstPitShare
       else input.totalWageIncome * (Share(FallbackPitRate) * p.fiscal.jstPitShare)
-    val citRevenue   = input.govTaxRevenue * p.fiscal.jstCitShare
+    val citRevenue   = input.centralCitRevenue * p.fiscal.jstCitShare
     val propertyTax  = input.nFirms * p.fiscal.jstPropertyTax / 12L
     val subvention   = input.gdp * p.fiscal.jstSubventionShare / 12L
     val dotacje      = input.gdp * p.fiscal.jstDotacjeShare / 12L
