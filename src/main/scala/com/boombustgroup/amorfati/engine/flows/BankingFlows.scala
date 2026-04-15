@@ -45,7 +45,7 @@ object BankingFlows:
         EntitySector.Banks,
         topology.banks.aggregate,
         input.govBondIncome,
-        AssetType.Cash,
+        AssetType.Capital,
         FlowMechanism.BankGovBondIncome,
       ),
       AggregateBatchedEmission.transfer(
@@ -111,7 +111,7 @@ object BankingFlows:
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.bfgLevy,
-        AssetType.Cash,
+        AssetType.Capital,
         FlowMechanism.BankBfgLevy,
       ),
       AggregateBatchedEmission.transfer(
@@ -120,7 +120,7 @@ object BankingFlows:
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.unrealizedBondLoss,
-        AssetType.Cash,
+        AssetType.Capital,
         FlowMechanism.BankUnrealizedLoss,
       ),
       AggregateBatchedEmission.transfer(
@@ -138,7 +138,7 @@ object BankingFlows:
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.nbpRemittance,
-        AssetType.Cash,
+        AssetType.Capital,
         FlowMechanism.BankNbpRemittance,
       ),
     )

@@ -128,6 +128,24 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
           backstop.to shouldBe EntitySector.Banks
         }
 
+  it should "avoid cash assets on bank capital P&L channels" in
+    runtimeTopologies.foreach:
+      case (label, topology) =>
+        withClue(s"$label: ") {
+          val batches           = BankingFlows.emitBatches(baseInput)(using topology)
+          val capitalMechanisms = Set(
+            FlowMechanism.BankGovBondIncome,
+            FlowMechanism.BankBfgLevy,
+            FlowMechanism.BankUnrealizedLoss,
+            FlowMechanism.BankNbpRemittance,
+          )
+
+          val capitalBatches = batches.filter(batch => capitalMechanisms.contains(batch.mechanism))
+          capitalBatches should not be empty
+          all(capitalBatches.map(_.asset)) shouldBe AssetType.Capital
+          capitalBatches.exists(batch => batch.from == EntitySector.Banks || batch.to == EntitySector.Banks) shouldBe true
+        }
+
   it should "preserve SFC across 120 months" in {
     var balances = Map.empty[Int, Long]
     (1 to 120).foreach { _ =>

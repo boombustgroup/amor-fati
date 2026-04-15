@@ -16,7 +16,7 @@ import com.boombustgroup.amorfati.engine.{
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.ledger.{BatchedFlow, EntitySector, ImperativeInterpreter, Interpreter, MechanismId}
+import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector, ImperativeInterpreter, Interpreter, MechanismId}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -85,6 +85,27 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
         broadcast.fromIndex should (be >= 0 and be < topology.sectorSizes(broadcast.from))
         all(broadcast.targetIndices.map(index => index >= 0 && index < topology.sectorSizes(broadcast.to))) shouldBe true
     }
+  }
+
+  it should "avoid cash assets on bank capital and insurance investment channels" in {
+    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state  = FlowSimulation.SimState.fromInit(init)
+    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+
+    val bankCapitalMechanisms = Set(
+      FlowMechanism.BankGovBondIncome,
+      FlowMechanism.BankBfgLevy,
+      FlowMechanism.BankUnrealizedLoss,
+      FlowMechanism.BankNbpRemittance,
+    )
+
+    val bankCapitalBatches = result.flows.filter(batch => bankCapitalMechanisms.contains(batch.mechanism))
+    bankCapitalBatches should not be empty
+    all(bankCapitalBatches.map(_.asset)) shouldBe AssetType.Capital
+
+    val insuranceIncomeBatches = result.flows.filter(_.mechanism == FlowMechanism.InsInvestmentIncome)
+    insuranceIncomeBatches should not be empty
+    insuranceIncomeBatches.map(_.asset).toSet shouldBe Set(AssetType.LifeReserve, AssetType.NonLifeReserve)
   }
 
   it should "expose the month boundary as SimState -> StepOutput -> (nextState, trace)" in {
