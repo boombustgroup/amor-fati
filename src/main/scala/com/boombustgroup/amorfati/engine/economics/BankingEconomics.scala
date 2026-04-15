@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -30,17 +31,18 @@ object BankingEconomics:
   // ---- Step-level types (formerly BankUpdateStep.Input / BankUpdateStep.Output) ----
 
   case class StepInput(
-      w: World,                               // current world state (pre-step)
-      s1: FiscalConstraintEconomics.Output,   // fiscal constraint (month, lending base rate, res wage)
-      s2: LaborEconomics.Output,              // labor/demographics (employment, wage, immigration)
-      s3: HouseholdIncomeEconomics.Output,    // household income (consumption, PIT, debt service)
-      s4: DemandEconomics.Output,             // demand (sector multipliers, gov purchases)
-      s5: FirmEconomics.StepOutput,           // firm processing (loans, NPL, bonds, I-O firms)
-      s6: HouseholdFinancialEconomics.Output, // household financial (remittances, tourism, consumer credit)
-      s7: PriceEquityEconomics.Output,        // price/equity (inflation, GDP, equity state, macropru)
-      s8: OpenEconEconomics.StepOutput,       // open economy (NBP rate, bond yield, QE, FX, BoP)
-      banks: Vector[Banking.BankState],       // explicit bank population
-      depositRng: RandomStream,               // deterministic RNG for deposit flight decisions
+      w: World,                                   // current world state (pre-step)
+      ledgerFinancialState: LedgerFinancialState, // ledger-backed supported financial state
+      s1: FiscalConstraintEconomics.Output,       // fiscal constraint (month, lending base rate, res wage)
+      s2: LaborEconomics.Output,                  // labor/demographics (employment, wage, immigration)
+      s3: HouseholdIncomeEconomics.Output,        // household income (consumption, PIT, debt service)
+      s4: DemandEconomics.Output,                 // demand (sector multipliers, gov purchases)
+      s5: FirmEconomics.StepOutput,               // firm processing (loans, NPL, bonds, I-O firms)
+      s6: HouseholdFinancialEconomics.Output,     // household financial (remittances, tourism, consumer credit)
+      s7: PriceEquityEconomics.Output,            // price/equity (inflation, GDP, equity state, macropru)
+      s8: OpenEconEconomics.StepOutput,           // open economy (NBP rate, bond yield, QE, FX, BoP)
+      banks: Vector[Banking.BankState],           // explicit bank population
+      depositRng: RandomStream,                   // deterministic RNG for deposit flight decisions
   )
 
   case class StepOutput(
@@ -156,6 +158,7 @@ object BankingEconomics:
 
   case class Input(
       w: World,
+      ledgerFinancialState: LedgerFinancialState,
       // Raw values from earlier calculus (avoids Step.Output dependency)
       month: ExecutionMonth,
       lendingBaseRate: Rate,
@@ -307,6 +310,7 @@ object BankingEconomics:
     val s9 = runStep(
       StepInput(
         in.w,
+        in.ledgerFinancialState,
         s1,
         in.laborOutput,
         in.hhOutput,
@@ -473,9 +477,11 @@ object BankingEconomics:
       in: StepInput,
       newGovWithYield: FiscalBudget.GovState,
   ): BondWaterfallInputs =
-    val actualBondChange = newGovWithYield.bondsOutstanding - in.w.gov.bondsOutstanding
-    val insRequested     = (in.s8.nonBank.newInsurance.govBondHoldings - in.w.financial.insurance.govBondHoldings).max(PLN.Zero)
-    val tfiRequested     = (in.s8.nonBank.newNbfi.tfiGovBondHoldings - in.w.financial.nbfi.tfiGovBondHoldings).max(PLN.Zero)
+    val actualBondChange = newGovWithYield.bondsOutstanding - in.ledgerFinancialState.government.govBondOutstanding
+    val insRequested     =
+      (in.s8.nonBank.newInsurance.govBondHoldings - in.ledgerFinancialState.insurance.govBondHoldings).max(PLN.Zero)
+    val tfiRequested     =
+      (in.s8.nonBank.newNbfi.tfiGovBondHoldings - in.ledgerFinancialState.funds.nbfi.govBondHoldings).max(PLN.Zero)
     val prevEr           = in.w.forex.exchangeRate
     val currEr           = in.s8.external.newForex.exchangeRate
     val erChange         = currEr.deviationFrom(prevEr).toCoefficient
@@ -741,14 +747,18 @@ object BankingEconomics:
         qeCumulative = in.s8.monetary.postFxNbp.qeCumulative + qeSale.actualSold,
       ),
     )
-    val finalPpk                 = in.s2.newPpk.copy(bondHoldings = in.w.social.ppk.bondHoldings + ppkSale.actualSold)
+    val finalPpk                 = in.s2.newPpk.copy(bondHoldings = in.ledgerFinancialState.funds.ppkGovBondHoldings + ppkSale.actualSold)
     val finalInsurance           = in.s8.nonBank.newInsurance.copy(
-      portfolio = in.s8.nonBank.newInsurance.portfolio.copy(govBondHoldings = in.w.financial.insurance.govBondHoldings + insSale.actualSold),
+      portfolio = in.s8.nonBank.newInsurance.portfolio.copy(
+        govBondHoldings = in.ledgerFinancialState.insurance.govBondHoldings + insSale.actualSold,
+      ),
     )
     val finalNbfi                = in.s8.nonBank.newNbfi.copy(
-      tfi = in.s8.nonBank.newNbfi.tfi.copy(tfiGovBondHoldings = in.w.financial.nbfi.tfiGovBondHoldings + tfiSale.actualSold),
+      tfi = in.s8.nonBank.newNbfi.tfi.copy(
+        tfiGovBondHoldings = in.ledgerFinancialState.funds.nbfi.govBondHoldings + tfiSale.actualSold,
+      ),
     )
-    val finalForeignBondHoldings = in.w.gov.foreignBondHoldings + foreignSale.actualSold
+    val finalForeignBondHoldings = in.ledgerFinancialState.foreign.govBondHoldings + foreignSale.actualSold
 
     val failResult =
       Banking.checkFailures(tfiSale.banks, in.s1.m, true, in.s7.newMacropru.ccyb)
@@ -955,8 +965,8 @@ object BankingEconomics:
     Some(
       Banking.MonetaryAggregates.compute(
         finalBanks,
-        in.w.financial.nbfi.tfiAum,
-        in.w.financial.corporateBonds.outstanding,
+        in.ledgerFinancialState.funds.nbfi.tfiUnit,
+        PLN.fromRaw(in.ledgerFinancialState.firms.map(_.corpBond.toLong).sum),
       ),
     )
 

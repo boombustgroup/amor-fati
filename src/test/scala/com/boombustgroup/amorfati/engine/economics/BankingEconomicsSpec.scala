@@ -5,6 +5,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals}
 import com.boombustgroup.amorfati.engine.flows.*
+import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -72,12 +73,25 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       stageRandomness.priceEquityEconomics,
     )
     val s8     = OpenEconEconomics.runStep(
-      OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, init.banks, stageRandomness.openEconEconomics),
+      OpenEconEconomics.StepInput(
+        w,
+        LedgerStateAdapter.captureLedgerFinancialState(w, init.firms, init.households, init.banks),
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        init.banks,
+        stageRandomness.openEconEconomics,
+      ),
     )
 
     val res = BankingEconomics.compute(
       BankingEconomics.Input(
         w = w,
+        ledgerFinancialState = LedgerStateAdapter.captureLedgerFinancialState(w, init.firms, init.households, init.banks),
         month = s1.m,
         lendingBaseRate = s1.lendingBaseRate,
         resWage = s1.resWage,

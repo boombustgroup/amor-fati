@@ -143,7 +143,7 @@ object LedgerTestFixtures:
       ),
     )
 
-    FlowSimulation.SimState(
+    FlowSimulation.SimState.fromMirrors(
       completedMonth = base.completedMonth,
       world = world,
       firms = firms,

@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.engine.markets.RegionalClearing
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
@@ -149,9 +150,38 @@ object InflationProbe:
         contract.stages.priceEquityEconomics.newStream(),
       )
       val s8                =
-        OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, banks, contract.stages.openEconEconomics.newStream()))
+        OpenEconEconomics.runStep(
+          OpenEconEconomics.StepInput(
+            world,
+            LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks),
+            s1,
+            s2,
+            s3,
+            s4,
+            s5,
+            s6,
+            s7,
+            banks,
+            contract.stages.openEconEconomics.newStream(),
+          ),
+        )
       val s9                =
-        BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, banks, contract.stages.bankingEconomics.newStream()))
+        BankingEconomics.runStep(
+          BankingEconomics.StepInput(
+            world,
+            LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks),
+            s1,
+            s2,
+            s3,
+            s4,
+            s5,
+            s6,
+            s7,
+            s8,
+            banks,
+            contract.stages.bankingEconomics.newStream(),
+          ),
+        )
 
       val exDev         = exchangeRateValue(world.forex.exchangeRate) / exchangeRateValue(summon[SimParams].forex.baseExRate) - 1.0
       val demandPullM   = toDouble((s4.avgDemandMult.deviationFromOne.toScalar * Scalar(DemandPullWeight)).toCoefficient)
@@ -215,6 +245,7 @@ object InflationProbe:
           firms = firms,
           households = hhs,
           banks = banks,
+          ledgerFinancialState = LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks),
           month = fiscal.month,
           lendingBaseRate = fiscal.lendingBaseRate,
           resWage = fiscal.resWage,

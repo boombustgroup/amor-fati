@@ -2,7 +2,6 @@ package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
-import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector, MutableWorldState}
@@ -261,9 +260,6 @@ object LedgerStateAdapter:
       ),
     )
 
-  def captureLedgerFinancialState(sim: FlowSimulation.SimState): LedgerFinancialState =
-    sim.ledgerFinancialState
-
   /** Financial fields intentionally left outside current ledger mapping because
     * the public `EntitySector` / `AssetType` API does not yet name them
     * cleanly, or because they are fiscal/accounting metrics rather than
@@ -306,22 +302,8 @@ object LedgerStateAdapter:
     populate(state, ledgerFinancialState)
     state
 
-  def roundTripLedgerFinancialState(sim: FlowSimulation.SimState): LedgerFinancialState =
-    readLedgerFinancialState(toMutableWorldState(sim))
-
   def roundTripLedgerFinancialState(ledgerFinancialState: LedgerFinancialState): LedgerFinancialState =
     readLedgerFinancialState(toMutableWorldState(ledgerFinancialState))
-
-  def roundTripLedgerFinancialState(
-      world: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-      householdAggregates: Household.Aggregates,
-  ): LedgerFinancialState =
-    roundTripLedgerFinancialState(
-      FlowSimulation.SimState(CompletedMonth.Zero, world, firms, households, banks, householdAggregates),
-    )
 
   def populate(state: MutableWorldState, sim: FlowSimulation.SimState): Unit =
     populate(state, sim.ledgerFinancialState)

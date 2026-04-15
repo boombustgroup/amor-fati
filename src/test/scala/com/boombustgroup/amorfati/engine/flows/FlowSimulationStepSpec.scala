@@ -108,6 +108,48 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     insuranceIncomeBatches.map(_.asset).toSet shouldBe Set(AssetType.LifeReserve, AssetType.NonLifeReserve)
   }
 
+  it should "read insurance flow inputs from LedgerFinancialState instead of world mirrors" in {
+    val init            = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState       = FlowSimulation.SimState.fromInit(init)
+    val worldInsurance  = baseState.world.financial.insurance.copy(
+      reserves = baseState.world.financial.insurance.reserves.copy(
+        lifeReserves = PLN(11),
+        nonLifeReserves = PLN(12),
+      ),
+      portfolio = baseState.world.financial.insurance.portfolio.copy(
+        govBondHoldings = PLN(13),
+        corpBondHoldings = PLN(14),
+        equityHoldings = PLN(15),
+      ),
+    )
+    val ledgerInsurance = baseState.ledgerFinancialState.insurance.copy(
+      lifeReserve = PLN(21),
+      nonLifeReserve = PLN(22),
+      govBondHoldings = PLN(23),
+      corpBondHoldings = PLN(24),
+      equityHoldings = PLN(25),
+    )
+    val state           = baseState.copy(
+      world = baseState.world.copy(
+        financial = baseState.world.financial.copy(
+          insurance = worldInsurance,
+        ),
+      ),
+      ledgerFinancialState = baseState.ledgerFinancialState.copy(
+        insurance = ledgerInsurance,
+      ),
+    )
+
+    val calculus = FlowSimulation.computeCalculus(state, MonthRandomness.Contract.fromSeed(42L))
+
+    worldInsurance.lifeReserves.should(not be ledgerInsurance.lifeReserve)
+    calculus.insuranceCurrentLifeReserves shouldBe ledgerInsurance.lifeReserve
+    calculus.insuranceCurrentNonLifeReserves shouldBe ledgerInsurance.nonLifeReserve
+    calculus.insurancePrevGovBonds shouldBe ledgerInsurance.govBondHoldings
+    calculus.insurancePrevCorpBonds shouldBe ledgerInsurance.corpBondHoldings
+    calculus.insurancePrevEquity shouldBe ledgerInsurance.equityHoldings
+  }
+
   it should "expose the month boundary as SimState -> StepOutput -> (nextState, trace)" in {
     val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state       = FlowSimulation.SimState.fromInit(init)
@@ -221,11 +263,25 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val lowShadowW    = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.0))
     val highShadowW   = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.4))
     val lowShadowRun  = FlowSimulation.step(
-      FlowSimulation.SimState(SimulationMonth.CompletedMonth.Zero, lowShadowW, init.firms, init.households, init.banks, init.householdAggregates),
+      FlowSimulation.SimState.fromMirrors(
+        SimulationMonth.CompletedMonth.Zero,
+        lowShadowW,
+        init.firms,
+        init.households,
+        init.banks,
+        init.householdAggregates,
+      ),
       MonthRandomness.Contract.fromSeed(42L),
     )
     val highShadowRun = FlowSimulation.step(
-      FlowSimulation.SimState(SimulationMonth.CompletedMonth.Zero, highShadowW, init.firms, init.households, init.banks, init.householdAggregates),
+      FlowSimulation.SimState.fromMirrors(
+        SimulationMonth.CompletedMonth.Zero,
+        highShadowW,
+        init.firms,
+        init.households,
+        init.banks,
+        init.householdAggregates,
+      ),
       MonthRandomness.Contract.fromSeed(42L),
     )
 

@@ -24,19 +24,20 @@ object WorldAssemblyEconomics:
   // ---------------------------------------------------------------------------
 
   case class StepInput(
-      w: World,                               // current world state
-      firms: Vector[Firm.State],              // pre-step firm population
-      households: Vector[Household.State],    // pre-step household population
-      banks: Vector[Banking.BankState],       // pre-step bank population
-      s1: FiscalConstraintEconomics.Output,   // fiscal constraint (month, reservation wage, lending base rate)
-      s2: LaborEconomics.Output,              // labor/demographics (wage, employment, ZUS, PPK)
-      s3: HouseholdIncomeEconomics.Output,    // household income (consumption, PIT, import propensity)
-      s4: DemandEconomics.Output,             // demand (sector multipliers, gov purchases)
-      s5: FirmEconomics.StepOutput,           // firm processing (loans, NPL, tax, I-O, bond issuance)
-      s6: HouseholdFinancialEconomics.Output, // household financial (debt service, remittances, tourism)
-      s7: PriceEquityEconomics.Output,        // price/equity (inflation, GDP, equity, macropru)
-      s8: OpenEconEconomics.StepOutput,       // open economy (monetary policy, forex, BOP, corp bonds)
-      s9: BankingEconomics.StepOutput,        // bank update (balance sheets, tax revenue, housing flows)
+      w: World,                                   // current world state
+      firms: Vector[Firm.State],                  // pre-step firm population
+      households: Vector[Household.State],        // pre-step household population
+      banks: Vector[Banking.BankState],           // pre-step bank population
+      ledgerFinancialState: LedgerFinancialState, // ledger-backed supported financial source of truth
+      s1: FiscalConstraintEconomics.Output,       // fiscal constraint (month, reservation wage, lending base rate)
+      s2: LaborEconomics.Output,                  // labor/demographics (wage, employment, ZUS, PPK)
+      s3: HouseholdIncomeEconomics.Output,        // household income (consumption, PIT, import propensity)
+      s4: DemandEconomics.Output,                 // demand (sector multipliers, gov purchases)
+      s5: FirmEconomics.StepOutput,               // firm processing (loans, NPL, tax, I-O, bond issuance)
+      s6: HouseholdFinancialEconomics.Output,     // household financial (debt service, remittances, tourism)
+      s7: PriceEquityEconomics.Output,            // price/equity (inflation, GDP, equity, macropru)
+      s8: OpenEconEconomics.StepOutput,           // open economy (monetary policy, forex, BOP, corp bonds)
+      s9: BankingEconomics.StepOutput,            // bank update (balance sheets, tax revenue, housing flows)
   )
 
   case class StepOutput(
@@ -91,6 +92,7 @@ object WorldAssemblyEconomics:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
       // Raw values
       month: ExecutionMonth,
       lendingBaseRate: Rate,
@@ -122,6 +124,7 @@ object WorldAssemblyEconomics:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
+      ledgerFinancialState: LedgerFinancialState,
       signalExtraction: SignalExtraction.Output,
   )
 
@@ -132,6 +135,7 @@ object WorldAssemblyEconomics:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
+      ledgerFinancialState: LedgerFinancialState,
       startupAbsorptionRate: Share,
   )
 
@@ -150,6 +154,7 @@ object WorldAssemblyEconomics:
       in.firms,
       in.households,
       in.banks,
+      in.ledgerFinancialState,
       s1,
       in.laborOutput,
       in.hhOutput,
@@ -211,7 +216,15 @@ object WorldAssemblyEconomics:
     val signalInput = buildSignalExtractionInput(step)
     val post        = computePostMonth(step, in.randomness)
     val seed        = extractSignalExtraction(signalInput, post)
-    Result(advanceToBoundaryWorld(post.world, seed.seedOut), post.firms, post.households, post.banks, post.householdAggregates, seed)
+    Result(
+      advanceToBoundaryWorld(post.world, seed.seedOut),
+      post.firms,
+      post.households,
+      post.banks,
+      post.householdAggregates,
+      post.ledgerFinancialState,
+      seed,
+    )
 
   // ---------------------------------------------------------------------------
   // runStep — migrated from WorldAssemblyStep.run
@@ -237,7 +250,7 @@ object WorldAssemblyEconomics:
     val obs             = computeObservables(in)
     val seedIn          = in.w.seedIn
 
-    val newW = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
+    val (newW, assembledLedgerFinancialState) = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
 
     val postFdiFirms = applyFdiMa(in.s9.reassignedFirms, randomness.fdiMa)
     val entryStep    =
@@ -253,9 +266,9 @@ object WorldAssemblyEconomics:
     val startupStaffing = applyStartupStaffing(in, entryStep.firms, in.s9.reassignedHouseholds, randomness.startupStaffing)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
-    val postMigHh  = RegionalMigration(startupStaffing.households, in.s2.regionalWages, randomness.regionalMigration).households
-    val finalFirms = syncStartupStaffing(startupStaffing.firms, postMigHh)
-    val finalW     = newW
+    val postMigHh                 = RegionalMigration(startupStaffing.households, in.s2.regionalWages, randomness.regionalMigration).households
+    val finalFirms                = syncStartupStaffing(startupStaffing.firms, postMigHh)
+    val finalW                    = newW
       .updatePipeline(_ => buildPostMonthPipelineState(in))
       .updateFlows(_.copy(firmBirths = entryStep.firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths))
       .updateReal: r =>
@@ -265,7 +278,20 @@ object WorldAssemblyEconomics:
           ),
         )
       .copy(regionalWages = in.s2.regionalWages)
-    PostResult(finalW, finalFirms, postMigHh, in.s9.banks, startupStaffing.hhAgg, startupStaffing.startupAbsorptionRate)
+    val finalLedgerFinancialState = assembledLedgerFinancialState.copy(
+      households = postMigHh.map(LedgerStateAdapter.householdBalances),
+      firms = finalFirms.map(LedgerStateAdapter.firmBalances),
+      banks = in.s9.banks.map(LedgerStateAdapter.bankBalances),
+    )
+    PostResult(
+      finalW,
+      finalFirms,
+      postMigHh,
+      in.s9.banks,
+      startupStaffing.hhAgg,
+      finalLedgerFinancialState,
+      startupStaffing.startupAbsorptionRate,
+    )
 
   // ---------------------------------------------------------------------------
   // Private helpers — migrated from WorldAssemblyStep
@@ -420,16 +446,17 @@ object WorldAssemblyEconomics:
       fofResidual: PLN,
       informal: InformalResult,
       obs: Observables,
-  ): World =
-    val ledgerFinancialState = buildLedgerFinancialState(in)
-    val provisionalWorld     = World(
+  ): (World, LedgerFinancialState) =
+    val ledgerFinancialState = LedgerStateAdapter.roundTripLedgerFinancialState(buildLedgerFinancialState(in))
+    val corporateBondCircuit = LedgerStateAdapter.corporateBondCircuit(ledgerFinancialState)
+    val world                = World(
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
       currentSigmas = in.s7.newSigmas,
       gov = in.s9.newGovWithYield.copy(
         financial = in.s9.newGovWithYield.financial.copy(
-          bondsOutstanding = in.w.gov.bondsOutstanding,
-          foreignBondHoldings = in.w.gov.foreignBondHoldings,
+          bondsOutstanding = ledgerFinancialState.government.govBondOutstanding,
+          foreignBondHoldings = ledgerFinancialState.foreign.govBondHoldings,
         ),
         policy = in.s9.newGovWithYield.policy.copy(
           minWageLevel = in.s1.baseMinWage,
@@ -438,8 +465,8 @@ object WorldAssemblyEconomics:
       ),
       nbp = in.s9.finalNbp.copy(
         balance = in.s9.finalNbp.balance.copy(
-          govBondHoldings = in.w.nbp.govBondHoldings,
-          fxReserves = in.w.nbp.fxReserves,
+          govBondHoldings = ledgerFinancialState.nbp.govBondHoldings,
+          fxReserves = ledgerFinancialState.nbp.foreignAssets,
         ),
       ),
       bankingSector = in.s9.bankingMarket,
@@ -447,34 +474,50 @@ object WorldAssemblyEconomics:
       bop = in.s8.external.newBop,
       householdMarket = HouseholdMarketState.fromAggregates(in.s9.finalHhAgg),
       social = SocialState(
-        jst = in.s9.newJst,
-        zus = in.s2.newZus.copy(fusBalance = in.w.social.zus.fusBalance),
-        nfz = in.s2.newNfz.copy(balance = in.w.social.nfz.balance),
-        ppk = in.s9.finalPpk.copy(bondHoldings = in.w.social.ppk.bondHoldings),
+        jst = in.s9.newJst.copy(deposits = ledgerFinancialState.funds.jstCash),
+        zus = in.s2.newZus.copy(fusBalance = ledgerFinancialState.funds.zusCash),
+        nfz = in.s2.newNfz.copy(balance = ledgerFinancialState.funds.nfzCash),
+        ppk = in.s9.finalPpk.copy(bondHoldings = ledgerFinancialState.funds.ppkGovBondHoldings),
         demographics = in.s2.newDemographics,
         earmarked = in.s2.newEarmarked.copy(
-          fp = in.s2.newEarmarked.fp.copy(balance = in.w.social.earmarked.fpBalance),
-          pfron = in.s2.newEarmarked.pfron.copy(balance = in.w.social.earmarked.pfronBalance),
-          fgsp = in.s2.newEarmarked.fgsp.copy(balance = in.w.social.earmarked.fgspBalance),
+          fp = in.s2.newEarmarked.fp.copy(balance = ledgerFinancialState.funds.fpCash),
+          pfron = in.s2.newEarmarked.pfron.copy(balance = ledgerFinancialState.funds.pfronCash),
+          fgsp = in.s2.newEarmarked.fgsp.copy(balance = ledgerFinancialState.funds.fgspCash),
         ),
       ),
       financial = FinancialMarketsState(
         equity = equityAfterStep,
         corporateBonds = in.s8.corpBonds.newCorpBonds.copy(
-          bankHoldings = in.w.financial.corporateBonds.bankHoldings,
-          ppkHoldings = in.w.financial.corporateBonds.ppkHoldings,
+          bankHoldings = corporateBondCircuit.bankHoldings,
+          ppkHoldings = corporateBondCircuit.ppkHoldings,
+          otherHoldings = corporateBondCircuit.otherHoldings,
         ),
         insurance = in.s9.finalInsurance.copy(
-          reserves = in.w.financial.insurance.reserves,
-          portfolio = in.w.financial.insurance.portfolio,
+          reserves = in.s9.finalInsurance.reserves.copy(
+            lifeReserves = ledgerFinancialState.insurance.lifeReserve,
+            nonLifeReserves = ledgerFinancialState.insurance.nonLifeReserve,
+          ),
+          portfolio = in.s9.finalInsurance.portfolio.copy(
+            govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
+            corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
+            equityHoldings = ledgerFinancialState.insurance.equityHoldings,
+          ),
         ),
         nbfi = in.s9.finalNbfi.copy(
-          tfi = in.w.financial.nbfi.tfi,
-          credit = in.w.financial.nbfi.credit,
+          tfi = in.s9.finalNbfi.tfi.copy(
+            tfiAum = ledgerFinancialState.funds.nbfi.tfiUnit,
+            tfiGovBondHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
+            tfiCorpBondHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
+            tfiEquityHoldings = ledgerFinancialState.funds.nbfi.equityHoldings,
+            tfiCashHoldings = ledgerFinancialState.funds.nbfi.cashHoldings,
+          ),
+          credit = in.s9.finalNbfi.credit.copy(
+            nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
+          ),
         ),
         quasiFiscal = in.s9.newQuasiFiscal.copy(
-          bondsOutstanding = in.w.financial.quasiFiscal.bondsOutstanding,
-          loanPortfolio = in.w.financial.quasiFiscal.loanPortfolio,
+          bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
+          loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
         ),
       ),
       external = ExternalState(
@@ -513,10 +556,10 @@ object WorldAssemblyEconomics:
       pipeline = in.w.pipeline,
       flows = buildFlowState(in, informal),
     )
-    withLedgerFinancialState(provisionalWorld, LedgerStateAdapter.roundTripLedgerFinancialState(ledgerFinancialState))
+    (world, ledgerFinancialState)
 
   private def buildLedgerFinancialState(in: StepInput): LedgerFinancialState =
-    LedgerFinancialState(
+    in.ledgerFinancialState.copy(
       households = in.s9.reassignedHouseholds.map(LedgerStateAdapter.householdBalances),
       firms = in.s9.reassignedFirms.map(LedgerStateAdapter.firmBalances),
       banks = in.s9.banks.map(LedgerStateAdapter.bankBalances),
@@ -558,71 +601,6 @@ object WorldAssemblyEconomics:
         quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
           bondsOutstanding = in.s9.newQuasiFiscal.bondsOutstanding,
           loanPortfolio = in.s9.newQuasiFiscal.loanPortfolio,
-        ),
-      ),
-    )
-
-  private[economics] def withLedgerFinancialState(
-      world: World,
-      ledgerFinancialState: LedgerFinancialState,
-  ): World =
-    val corpBonds = LedgerStateAdapter.corporateBondCircuit(ledgerFinancialState)
-    world.copy(
-      gov = world.gov.copy(
-        financial = world.gov.financial.copy(
-          bondsOutstanding = ledgerFinancialState.government.govBondOutstanding,
-          foreignBondHoldings = ledgerFinancialState.foreign.govBondHoldings,
-        ),
-      ),
-      nbp = world.nbp.copy(
-        balance = world.nbp.balance.copy(
-          govBondHoldings = ledgerFinancialState.nbp.govBondHoldings,
-          fxReserves = ledgerFinancialState.nbp.foreignAssets,
-        ),
-      ),
-      social = world.social.copy(
-        jst = world.social.jst.copy(deposits = ledgerFinancialState.funds.jstCash),
-        zus = world.social.zus.copy(fusBalance = ledgerFinancialState.funds.zusCash),
-        nfz = world.social.nfz.copy(balance = ledgerFinancialState.funds.nfzCash),
-        ppk = world.social.ppk.copy(bondHoldings = ledgerFinancialState.funds.ppkGovBondHoldings),
-        earmarked = world.social.earmarked.copy(
-          fp = world.social.earmarked.fp.copy(balance = ledgerFinancialState.funds.fpCash),
-          pfron = world.social.earmarked.pfron.copy(balance = ledgerFinancialState.funds.pfronCash),
-          fgsp = world.social.earmarked.fgsp.copy(balance = ledgerFinancialState.funds.fgspCash),
-        ),
-      ),
-      financial = world.financial.copy(
-        corporateBonds = world.financial.corporateBonds.copy(
-          bankHoldings = corpBonds.bankHoldings,
-          ppkHoldings = corpBonds.ppkHoldings,
-          otherHoldings = corpBonds.otherHoldings,
-        ),
-        insurance = world.financial.insurance.copy(
-          reserves = world.financial.insurance.reserves.copy(
-            lifeReserves = ledgerFinancialState.insurance.lifeReserve,
-            nonLifeReserves = ledgerFinancialState.insurance.nonLifeReserve,
-          ),
-          portfolio = world.financial.insurance.portfolio.copy(
-            govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
-            corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
-            equityHoldings = ledgerFinancialState.insurance.equityHoldings,
-          ),
-        ),
-        nbfi = world.financial.nbfi.copy(
-          tfi = world.financial.nbfi.tfi.copy(
-            tfiAum = ledgerFinancialState.funds.nbfi.tfiUnit,
-            tfiGovBondHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
-            tfiCorpBondHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
-            tfiEquityHoldings = ledgerFinancialState.funds.nbfi.equityHoldings,
-            tfiCashHoldings = ledgerFinancialState.funds.nbfi.cashHoldings,
-          ),
-          credit = world.financial.nbfi.credit.copy(
-            nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
-          ),
-        ),
-        quasiFiscal = world.financial.quasiFiscal.copy(
-          bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
-          loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
         ),
       ),
     )

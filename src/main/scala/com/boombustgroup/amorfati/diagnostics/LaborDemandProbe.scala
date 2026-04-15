@@ -5,6 +5,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.PLN
 
@@ -215,9 +216,38 @@ object LaborDemandProbe:
         contract.stages.priceEquityEconomics.newStream(),
       )
       val s8     =
-        OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2Post, s3, s4, s5, s6, s7, banks, contract.stages.openEconEconomics.newStream()))
+        OpenEconEconomics.runStep(
+          OpenEconEconomics.StepInput(
+            world,
+            LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks),
+            s1,
+            s2Post,
+            s3,
+            s4,
+            s5,
+            s6,
+            s7,
+            banks,
+            contract.stages.openEconEconomics.newStream(),
+          ),
+        )
       val s9     =
-        BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2Post, s3, s4, s5, s6, s7, s8, banks, contract.stages.bankingEconomics.newStream()))
+        BankingEconomics.runStep(
+          BankingEconomics.StepInput(
+            world,
+            LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks),
+            s1,
+            s2Post,
+            s3,
+            s4,
+            s5,
+            s6,
+            s7,
+            s8,
+            banks,
+            contract.stages.bankingEconomics.newStream(),
+          ),
+        )
 
       val afterFirm = sectorSnapshots(s5.ioFirms)
       val changes   = sectorChangeSummaries(firms, s5.ioFirms)
@@ -234,6 +264,7 @@ object LaborDemandProbe:
           firms = firms,
           households = hhs,
           banks = banks,
+          ledgerFinancialState = LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks),
           month = fiscal.month,
           lendingBaseRate = fiscal.lendingBaseRate,
           resWage = fiscal.resWage,
