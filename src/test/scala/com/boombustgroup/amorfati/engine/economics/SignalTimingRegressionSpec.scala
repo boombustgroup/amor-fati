@@ -15,6 +15,14 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
+  private def ledgerState(
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  ) =
+    LedgerStateAdapter.captureLedgerFinancialState(world, firms, households, banks)
+
   private case class PipelineFixture(
       world: World,
       firms: Vector[Firm.State],
@@ -95,7 +103,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       OpenEconEconomics.runStep(
         OpenEconEconomics.StepInput(
           world,
-          LedgerStateAdapter.captureLedgerFinancialState(world, init.firms, init.households, init.banks),
+          ledgerState(world, init.firms, init.households, init.banks),
           s1,
           s2,
           s3,
@@ -111,7 +119,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       BankingEconomics.runStep(
         BankingEconomics.StepInput(
           world,
-          LedgerStateAdapter.captureLedgerFinancialState(world, init.firms, init.households, init.banks),
+          ledgerState(world, init.firms, init.households, init.banks),
           s1,
           s2,
           s3,
@@ -133,7 +141,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       baseline.firms,
       baseline.households,
       baseline.banks,
-      LedgerStateAdapter.captureLedgerFinancialState(baseline.world, baseline.firms, baseline.households, baseline.banks),
+      ledgerState(baseline.world, baseline.firms, baseline.households, baseline.banks),
       baseline.s1,
       baseline.s2,
       baseline.s3,
@@ -194,7 +202,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
   private def baseBankingComputeInput(world: World, operationalSignals: OperationalSignals, seed: Long): BankingEconomics.Input =
     BankingEconomics.Input(
       w = world,
-      ledgerFinancialState = LedgerStateAdapter.captureLedgerFinancialState(world, baseline.firms, baseline.households, baseline.banks),
+      ledgerFinancialState = ledgerState(world, baseline.firms, baseline.households, baseline.banks),
       month = baseline.s1.m,
       lendingBaseRate = baseline.s1.lendingBaseRate,
       resWage = baseline.s1.resWage,
@@ -226,7 +234,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       firms = baseline.firms,
       households = baseline.households,
       banks = baseline.banks,
-      ledgerFinancialState = LedgerStateAdapter.captureLedgerFinancialState(world, baseline.firms, baseline.households, baseline.banks),
+      ledgerFinancialState = ledgerState(world, baseline.firms, baseline.households, baseline.banks),
       month = baseline.s1.m,
       lendingBaseRate = baseline.s1.lendingBaseRate,
       resWage = baseline.s1.resWage,
