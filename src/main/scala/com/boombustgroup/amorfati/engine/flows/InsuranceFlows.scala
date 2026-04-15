@@ -23,6 +23,8 @@ object InsuranceFlows:
       employed: Int,
       wage: PLN,
       unempRate: Share,
+      currentLifeReserves: PLN,
+      currentNonLifeReserves: PLN,
       prevGovBondHoldings: PLN,
       prevCorpBondHoldings: PLN,
       prevEquityHoldings: PLN,
@@ -44,8 +46,9 @@ object InsuranceFlows:
     val invIncome        = input.prevGovBondHoldings * input.govBondYield.monthly +
       input.prevCorpBondHoldings * input.corpBondYield.monthly +
       input.prevEquityHoldings * input.equityReturn
-    val totalReserves    = p.ins.lifeReserves + p.ins.nonLifeReserves
-    val lifeShare        = if totalReserves > PLN.Zero then Share(p.ins.lifeReserves / totalReserves) else Share(0.5)
+    val totalReserves    = input.currentLifeReserves + input.currentNonLifeReserves
+    val lifeShare        =
+      if totalReserves > PLN.Zero then Share(input.currentLifeReserves / totalReserves) else Share(0.5)
     val lifeInvIncome    = invIncome * lifeShare
     val nonLifeInvIncome = invIncome - lifeInvIncome
 

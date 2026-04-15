@@ -143,7 +143,7 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
           val capitalBatches = batches.filter(batch => capitalMechanisms.contains(batch.mechanism))
           capitalBatches should not be empty
           all(capitalBatches.map(_.asset)) shouldBe AssetType.Capital
-          capitalBatches.exists(batch => batch.from == EntitySector.Banks || batch.to == EntitySector.Banks) shouldBe true
+          all(capitalBatches.map(batch => batch.from == EntitySector.Banks || batch.to == EntitySector.Banks)) shouldBe true
         }
 
   it should "preserve SFC across 120 months" in {
