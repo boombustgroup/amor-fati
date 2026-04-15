@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.{ComputationBoundary, PLN}
@@ -56,8 +56,8 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "overwrite only supported financial slice from ledger snapshot while preserving unsupported QE metrics" in {
-    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val base      = init.world.copy(
+    val init                 = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val base                 = init.world.copy(
       gov = init.world.gov.copy(
         financial = init.world.gov.financial.copy(
           cumulativeDebt = PLN(101),
@@ -121,16 +121,16 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
         ),
       ),
     )
-    val supported = LedgerStateAdapter.SupportedFinancialSnapshot(
+    val ledgerFinancialState = LedgerFinancialState(
       households = Vector.empty,
       firms = Vector(
-        LedgerStateAdapter.FirmBalances(
+        LedgerFinancialState.FirmBalances(
           cash = PLN.Zero,
           firmLoan = PLN.Zero,
           corpBond = PLN(301),
           equity = PLN.Zero,
         ),
-        LedgerStateAdapter.FirmBalances(
+        LedgerFinancialState.FirmBalances(
           cash = PLN.Zero,
           firmLoan = PLN.Zero,
           corpBond = PLN(302),
@@ -138,7 +138,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       banks = Vector(
-        LedgerStateAdapter.BankBalances(
+        LedgerFinancialState.BankBalances(
           totalDeposits = PLN.Zero,
           demandDeposit = PLN.Zero,
           termDeposit = PLN.Zero,
@@ -150,7 +150,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
           interbankLoan = PLN.Zero,
           corpBond = PLN(7),
         ),
-        LedgerStateAdapter.BankBalances(
+        LedgerFinancialState.BankBalances(
           totalDeposits = PLN.Zero,
           demandDeposit = PLN.Zero,
           termDeposit = PLN.Zero,
@@ -163,20 +163,20 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
           corpBond = PLN(11),
         ),
       ),
-      government = LedgerStateAdapter.GovernmentBalances(PLN(201)),
-      foreign = LedgerStateAdapter.ForeignBalances(PLN(202)),
-      nbp = LedgerStateAdapter.NbpBalances(
+      government = LedgerFinancialState.GovernmentBalances(PLN(201)),
+      foreign = LedgerFinancialState.ForeignBalances(PLN(202)),
+      nbp = LedgerFinancialState.NbpBalances(
         govBondHoldings = PLN(203),
         foreignAssets = PLN(204),
       ),
-      insurance = LedgerStateAdapter.InsuranceBalances(
+      insurance = LedgerFinancialState.InsuranceBalances(
         lifeReserve = PLN(205),
         nonLifeReserve = PLN(206),
         govBondHoldings = PLN(207),
         corpBondHoldings = PLN(208),
         equityHoldings = PLN(209),
       ),
-      funds = LedgerStateAdapter.FundBalances(
+      funds = LedgerFinancialState.FundBalances(
         zusCash = PLN(210),
         nfzCash = PLN(211),
         ppkGovBondHoldings = PLN(212),
@@ -186,7 +186,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
         fgspCash = PLN(216),
         jstCash = PLN(217),
         corpBondOtherHoldings = PLN(218),
-        nbfi = LedgerStateAdapter.NbfiFundBalances(
+        nbfi = LedgerFinancialState.NbfiFundBalances(
           tfiUnit = PLN(219),
           govBondHoldings = PLN(220),
           corpBondHoldings = PLN(221),
@@ -194,14 +194,14 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
           cashHoldings = PLN(223),
           nbfiLoanStock = PLN(224),
         ),
-        quasiFiscal = LedgerStateAdapter.QuasiFiscalBalances(
+        quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
           bondsOutstanding = PLN(225),
           loanPortfolio = PLN(226),
         ),
       ),
     )
 
-    val updated = WorldAssemblyEconomics.withLedgerSupportedFinancialState(base, supported)
+    val updated = WorldAssemblyEconomics.withLedgerFinancialState(base, ledgerFinancialState)
 
     updated.gov.bondsOutstanding shouldBe PLN(201)
     updated.gov.foreignBondHoldings shouldBe PLN(202)

@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
+import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, InformalEconomy, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
@@ -421,8 +421,8 @@ object WorldAssemblyEconomics:
       informal: InformalResult,
       obs: Observables,
   ): World =
-    val ledgerSupported  = buildLedgerSupportedSnapshot(in)
-    val provisionalWorld = World(
+    val ledgerFinancialState = buildLedgerFinancialState(in)
+    val provisionalWorld     = World(
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
       currentSigmas = in.s7.newSigmas,
@@ -513,31 +513,31 @@ object WorldAssemblyEconomics:
       pipeline = in.w.pipeline,
       flows = buildFlowState(in, informal),
     )
-    withLedgerSupportedFinancialState(provisionalWorld, LedgerStateAdapter.roundTripSupported(ledgerSupported))
+    withLedgerFinancialState(provisionalWorld, LedgerStateAdapter.roundTripLedgerFinancialState(ledgerFinancialState))
 
-  private def buildLedgerSupportedSnapshot(in: StepInput): LedgerStateAdapter.SupportedFinancialSnapshot =
-    LedgerStateAdapter.SupportedFinancialSnapshot(
+  private def buildLedgerFinancialState(in: StepInput): LedgerFinancialState =
+    LedgerFinancialState(
       households = in.s9.reassignedHouseholds.map(LedgerStateAdapter.householdBalances),
       firms = in.s9.reassignedFirms.map(LedgerStateAdapter.firmBalances),
       banks = in.s9.banks.map(LedgerStateAdapter.bankBalances),
-      government = LedgerStateAdapter.GovernmentBalances(
+      government = LedgerFinancialState.GovernmentBalances(
         govBondOutstanding = in.s9.newGovWithYield.bondsOutstanding,
       ),
-      foreign = LedgerStateAdapter.ForeignBalances(
+      foreign = LedgerFinancialState.ForeignBalances(
         govBondHoldings = in.s9.newGovWithYield.foreignBondHoldings,
       ),
-      nbp = LedgerStateAdapter.NbpBalances(
+      nbp = LedgerFinancialState.NbpBalances(
         govBondHoldings = in.s9.finalNbp.govBondHoldings,
         foreignAssets = in.s9.finalNbp.fxReserves,
       ),
-      insurance = LedgerStateAdapter.InsuranceBalances(
+      insurance = LedgerFinancialState.InsuranceBalances(
         lifeReserve = in.s9.finalInsurance.lifeReserves,
         nonLifeReserve = in.s9.finalInsurance.nonLifeReserves,
         govBondHoldings = in.s9.finalInsurance.govBondHoldings,
         corpBondHoldings = in.s9.finalInsurance.corpBondHoldings,
         equityHoldings = in.s9.finalInsurance.equityHoldings,
       ),
-      funds = LedgerStateAdapter.FundBalances(
+      funds = LedgerFinancialState.FundBalances(
         zusCash = in.s2.newZus.fusBalance,
         nfzCash = in.s2.newNfz.balance,
         ppkGovBondHoldings = in.s9.finalPpk.bondHoldings,
@@ -547,7 +547,7 @@ object WorldAssemblyEconomics:
         fgspCash = in.s2.newEarmarked.fgspBalance,
         jstCash = in.s9.newJst.deposits,
         corpBondOtherHoldings = in.s8.corpBonds.newCorpBonds.otherHoldings,
-        nbfi = LedgerStateAdapter.NbfiFundBalances(
+        nbfi = LedgerFinancialState.NbfiFundBalances(
           tfiUnit = in.s9.finalNbfi.tfiAum,
           govBondHoldings = in.s9.finalNbfi.tfiGovBondHoldings,
           corpBondHoldings = in.s9.finalNbfi.tfiCorpBondHoldings,
@@ -555,40 +555,40 @@ object WorldAssemblyEconomics:
           cashHoldings = in.s9.finalNbfi.tfiCashHoldings,
           nbfiLoanStock = in.s9.finalNbfi.nbfiLoanStock,
         ),
-        quasiFiscal = LedgerStateAdapter.QuasiFiscalBalances(
+        quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
           bondsOutstanding = in.s9.newQuasiFiscal.bondsOutstanding,
           loanPortfolio = in.s9.newQuasiFiscal.loanPortfolio,
         ),
       ),
     )
 
-  private[economics] def withLedgerSupportedFinancialState(
+  private[economics] def withLedgerFinancialState(
       world: World,
-      supported: LedgerStateAdapter.SupportedFinancialSnapshot,
+      ledgerFinancialState: LedgerFinancialState,
   ): World =
-    val corpBonds = LedgerStateAdapter.corporateBondCircuit(supported)
+    val corpBonds = LedgerStateAdapter.corporateBondCircuit(ledgerFinancialState)
     world.copy(
       gov = world.gov.copy(
         financial = world.gov.financial.copy(
-          bondsOutstanding = supported.government.govBondOutstanding,
-          foreignBondHoldings = supported.foreign.govBondHoldings,
+          bondsOutstanding = ledgerFinancialState.government.govBondOutstanding,
+          foreignBondHoldings = ledgerFinancialState.foreign.govBondHoldings,
         ),
       ),
       nbp = world.nbp.copy(
         balance = world.nbp.balance.copy(
-          govBondHoldings = supported.nbp.govBondHoldings,
-          fxReserves = supported.nbp.foreignAssets,
+          govBondHoldings = ledgerFinancialState.nbp.govBondHoldings,
+          fxReserves = ledgerFinancialState.nbp.foreignAssets,
         ),
       ),
       social = world.social.copy(
-        jst = world.social.jst.copy(deposits = supported.funds.jstCash),
-        zus = world.social.zus.copy(fusBalance = supported.funds.zusCash),
-        nfz = world.social.nfz.copy(balance = supported.funds.nfzCash),
-        ppk = world.social.ppk.copy(bondHoldings = supported.funds.ppkGovBondHoldings),
+        jst = world.social.jst.copy(deposits = ledgerFinancialState.funds.jstCash),
+        zus = world.social.zus.copy(fusBalance = ledgerFinancialState.funds.zusCash),
+        nfz = world.social.nfz.copy(balance = ledgerFinancialState.funds.nfzCash),
+        ppk = world.social.ppk.copy(bondHoldings = ledgerFinancialState.funds.ppkGovBondHoldings),
         earmarked = world.social.earmarked.copy(
-          fp = world.social.earmarked.fp.copy(balance = supported.funds.fpCash),
-          pfron = world.social.earmarked.pfron.copy(balance = supported.funds.pfronCash),
-          fgsp = world.social.earmarked.fgsp.copy(balance = supported.funds.fgspCash),
+          fp = world.social.earmarked.fp.copy(balance = ledgerFinancialState.funds.fpCash),
+          pfron = world.social.earmarked.pfron.copy(balance = ledgerFinancialState.funds.pfronCash),
+          fgsp = world.social.earmarked.fgsp.copy(balance = ledgerFinancialState.funds.fgspCash),
         ),
       ),
       financial = world.financial.copy(
@@ -599,30 +599,30 @@ object WorldAssemblyEconomics:
         ),
         insurance = world.financial.insurance.copy(
           reserves = world.financial.insurance.reserves.copy(
-            lifeReserves = supported.insurance.lifeReserve,
-            nonLifeReserves = supported.insurance.nonLifeReserve,
+            lifeReserves = ledgerFinancialState.insurance.lifeReserve,
+            nonLifeReserves = ledgerFinancialState.insurance.nonLifeReserve,
           ),
           portfolio = world.financial.insurance.portfolio.copy(
-            govBondHoldings = supported.insurance.govBondHoldings,
-            corpBondHoldings = supported.insurance.corpBondHoldings,
-            equityHoldings = supported.insurance.equityHoldings,
+            govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
+            corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
+            equityHoldings = ledgerFinancialState.insurance.equityHoldings,
           ),
         ),
         nbfi = world.financial.nbfi.copy(
           tfi = world.financial.nbfi.tfi.copy(
-            tfiAum = supported.funds.nbfi.tfiUnit,
-            tfiGovBondHoldings = supported.funds.nbfi.govBondHoldings,
-            tfiCorpBondHoldings = supported.funds.nbfi.corpBondHoldings,
-            tfiEquityHoldings = supported.funds.nbfi.equityHoldings,
-            tfiCashHoldings = supported.funds.nbfi.cashHoldings,
+            tfiAum = ledgerFinancialState.funds.nbfi.tfiUnit,
+            tfiGovBondHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
+            tfiCorpBondHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
+            tfiEquityHoldings = ledgerFinancialState.funds.nbfi.equityHoldings,
+            tfiCashHoldings = ledgerFinancialState.funds.nbfi.cashHoldings,
           ),
           credit = world.financial.nbfi.credit.copy(
-            nbfiLoanStock = supported.funds.nbfi.nbfiLoanStock,
+            nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
           ),
         ),
         quasiFiscal = world.financial.quasiFiscal.copy(
-          bondsOutstanding = supported.funds.quasiFiscal.bondsOutstanding,
-          loanPortfolio = supported.funds.quasiFiscal.loanPortfolio,
+          bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
+          loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
         ),
       ),
     )

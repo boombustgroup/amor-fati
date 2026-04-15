@@ -143,6 +143,13 @@ object LedgerTestFixtures:
       ),
     )
 
-    base.copy(world = world, firms = firms, households = households, banks = banks)
+    FlowSimulation.SimState(
+      completedMonth = base.completedMonth,
+      world = world,
+      firms = firms,
+      households = households,
+      banks = banks,
+      householdAggregates = base.householdAggregates,
+    )
 
 end LedgerTestFixtures

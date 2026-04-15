@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -33,9 +34,28 @@ object FlowSimulation:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
+      ledgerFinancialState: LedgerFinancialState,
   )
 
   object SimState:
+    def apply(
+        completedMonth: CompletedMonth,
+        world: World,
+        firms: Vector[Firm.State],
+        households: Vector[Household.State],
+        banks: Vector[Banking.BankState],
+        householdAggregates: Household.Aggregates,
+    ): SimState =
+      new SimState(
+        completedMonth,
+        world,
+        firms,
+        households,
+        banks,
+        householdAggregates,
+        LedgerStateAdapter.captureLedgerFinancialState(world, firms, households, banks),
+      )
+
     def fromInit(init: com.boombustgroup.amorfati.init.WorldInit.InitResult): SimState =
       SimState(CompletedMonth.Zero, init.world, init.firms, init.households, init.banks, init.householdAggregates)
 
