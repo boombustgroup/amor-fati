@@ -45,7 +45,19 @@ object AssetOwnershipContract:
       owner.matches(sector, index)
 
   enum PublicAssetStatus:
+    /** Asset has an engine-owned persisted stock contract and participates in
+      * the current supported ledger slice.
+      */
     case SupportedPersistedStock
+
+    /** Asset maps to real persisted state in the engine, but that stock family
+      * is intentionally outside the supported ledger-owned slice for now.
+      */
+    case UnsupportedPersistedStock
+
+    /** Asset is part of the public ledger API, but the engine currently has no
+      * persisted ownership contract for it.
+      */
     case PublicAssetWithoutEngineContract
 
   case class PublicAssetContract(
@@ -202,9 +214,9 @@ object AssetOwnershipContract:
     ),
     PublicAssetContract(
       AssetType.Capital,
-      PublicAssetStatus.PublicAssetWithoutEngineContract,
-      Set.empty,
-      "Physical capital exists in the engine, but not as a supported ledger-owned stock family.",
+      PublicAssetStatus.UnsupportedPersistedStock,
+      Set(dynamic(EntitySector.Banks)),
+      "Used for persisted bank capital, but not part of the supported ledger-owned stock slice.",
     ),
     PublicAssetContract(
       AssetType.ForeignAsset,

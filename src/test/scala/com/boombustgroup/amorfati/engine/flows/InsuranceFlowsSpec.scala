@@ -9,12 +9,15 @@ import org.scalatest.matchers.should.Matchers
 
 class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
 
-  private given p: SimParams = SimParams.defaults
+  private given p: SimParams          = SimParams.defaults
+  private given RuntimeLedgerTopology = RuntimeLedgerTopology.zeroPopulation
 
   private val baseInput = InsuranceFlows.Input(
     employed = 80000,
     wage = PLN(7000.0),
     unempRate = Share(0.05),
+    currentLifeReserves = PLN(90000000.0),
+    currentNonLifeReserves = PLN(10000000.0),
     prevGovBondHoldings = PLN(50000000.0),
     prevCorpBondHoldings = PLN(20000000.0),
     prevEquityHoldings = PLN(10000000.0),
@@ -55,6 +58,27 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
     PLN.fromRaw(newNonLifePrem) shouldBe oldIns.lastNonLifePremium
     PLN.fromRaw(newLifeCl) shouldBe oldIns.lastLifeClaims
     PLN.fromRaw(newNonLifeCl) shouldBe oldIns.lastNonLifeClaims
+  }
+
+  it should "route investment income through reserve assets rather than cash" in {
+    val expectedInvIncome  =
+      baseInput.prevGovBondHoldings * baseInput.govBondYield.monthly +
+        baseInput.prevCorpBondHoldings * baseInput.corpBondYield.monthly +
+        baseInput.prevEquityHoldings * baseInput.equityReturn
+    val totalReserves      = baseInput.currentLifeReserves + baseInput.currentNonLifeReserves
+    val lifeShare          =
+      if totalReserves > PLN.Zero then Share(baseInput.currentLifeReserves / totalReserves) else Share(0.5)
+    val expectedLifeInv    = expectedInvIncome * lifeShare
+    val expectedNonLifeInv = expectedInvIncome - expectedLifeInv
+    val batches            = InsuranceFlows.emitBatches(baseInput)
+    val invBatches         = batches.filter(_.mechanism == FlowMechanism.InsInvestmentIncome)
+
+    invBatches should have size 2
+    invBatches.map(_.asset).toSet shouldBe Set(AssetType.LifeReserve, AssetType.NonLifeReserve)
+    invBatches.exists(batch => batch.asset == AssetType.Cash) shouldBe false
+    invBatches.map(RuntimeLedgerTopology.totalTransferred).sum shouldBe expectedInvIncome.toLong
+    RuntimeLedgerTopology.totalTransferred(invBatches.find(_.asset == AssetType.LifeReserve).get) shouldBe expectedLifeInv.toLong
+    RuntimeLedgerTopology.totalTransferred(invBatches.find(_.asset == AssetType.NonLifeReserve).get) shouldBe expectedNonLifeInv.toLong
   }
 
   it should "preserve SFC across 120 months" in {

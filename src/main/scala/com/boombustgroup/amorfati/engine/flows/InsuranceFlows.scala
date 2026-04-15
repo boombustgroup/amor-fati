@@ -23,6 +23,8 @@ object InsuranceFlows:
       employed: Int,
       wage: PLN,
       unempRate: Share,
+      currentLifeReserves: PLN,
+      currentNonLifeReserves: PLN,
       prevGovBondHoldings: PLN,
       prevCorpBondHoldings: PLN,
       prevEquityHoldings: PLN,
@@ -41,9 +43,14 @@ object InsuranceFlows:
     val stressAdj   = (stressGap * p.ins.nonLifeUnempSens).toMultiplier
     val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 
-    val invIncome = input.prevGovBondHoldings * input.govBondYield.monthly +
+    val invIncome        = input.prevGovBondHoldings * input.govBondYield.monthly +
       input.prevCorpBondHoldings * input.corpBondYield.monthly +
       input.prevEquityHoldings * input.equityReturn
+    val totalReserves    = input.currentLifeReserves + input.currentNonLifeReserves
+    val lifeShare        =
+      if totalReserves > PLN.Zero then Share(input.currentLifeReserves / totalReserves) else Share(0.5)
+    val lifeInvIncome    = invIncome * lifeShare
+    val nonLifeInvIncome = invIncome - lifeInvIncome
 
     Vector.concat(
       AggregateBatchedEmission.transfer(
@@ -87,8 +94,17 @@ object InsuranceFlows:
         topology.funds.markets,
         EntitySector.Insurance,
         topology.insurance.aggregate,
-        invIncome,
-        AssetType.Cash,
+        lifeInvIncome,
+        AssetType.LifeReserve,
+        FlowMechanism.InsInvestmentIncome,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Funds,
+        topology.funds.markets,
+        EntitySector.Insurance,
+        topology.insurance.aggregate,
+        nonLifeInvIncome,
+        AssetType.NonLifeReserve,
         FlowMechanism.InsInvestmentIncome,
       ),
     )

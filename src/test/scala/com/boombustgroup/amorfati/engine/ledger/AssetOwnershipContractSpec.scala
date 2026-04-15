@@ -40,9 +40,10 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "mark orphan public assets as outside the current engine contract" in {
-    orphanPublicAssets shouldBe Set(AssetType.StandingFacility, AssetType.Capital)
+    orphanPublicAssets shouldBe Set(AssetType.StandingFacility)
     publicAsset(AssetType.StandingFacility).status shouldBe PublicAssetStatus.PublicAssetWithoutEngineContract
-    publicAsset(AssetType.Capital).status shouldBe PublicAssetStatus.PublicAssetWithoutEngineContract
+    publicAsset(AssetType.Capital).status shouldBe PublicAssetStatus.UnsupportedPersistedStock
+    publicAsset(AssetType.Capital).supportedSlots shouldBe Set(SectorId.Dynamic(EntitySector.Banks))
   }
 
   it should "expose non-persisted runtime shells separately from supported stock owners" in {

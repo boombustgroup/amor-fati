@@ -67,6 +67,8 @@ object StateAdapter:
       employed = labor.employed,
       wage = labor.wage,
       unempRate = w.unemploymentRate(labor.employed),
+      currentLifeReserves = ins.lifeReserves,
+      currentNonLifeReserves = ins.nonLifeReserves,
       prevGovBondHoldings = ins.govBondHoldings,
       prevCorpBondHoldings = ins.corpBondHoldings,
       prevEquityHoldings = ins.equityHoldings,
