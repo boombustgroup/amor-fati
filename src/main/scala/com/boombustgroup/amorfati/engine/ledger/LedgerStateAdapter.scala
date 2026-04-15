@@ -1,7 +1,8 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi}
-import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp}
+import com.boombustgroup.amorfati.engine.{SocialState, World}
+import com.boombustgroup.amorfati.engine.markets.FiscalBudget
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector, MutableWorldState}
@@ -218,6 +219,44 @@ object LedgerStateAdapter:
         govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
         corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
         equityHoldings = ledgerFinancialState.insurance.equityHoldings,
+      ),
+    )
+
+  def projectGovState(
+      base: FiscalBudget.GovState,
+      ledgerFinancialState: LedgerFinancialState,
+  ): FiscalBudget.GovState =
+    base.copy(
+      financial = base.financial.copy(
+        bondsOutstanding = ledgerFinancialState.government.govBondOutstanding,
+        foreignBondHoldings = ledgerFinancialState.foreign.govBondHoldings,
+      ),
+    )
+
+  def projectNbpState(
+      base: Nbp.State,
+      ledgerFinancialState: LedgerFinancialState,
+  ): Nbp.State =
+    base.copy(
+      balance = base.balance.copy(
+        govBondHoldings = ledgerFinancialState.nbp.govBondHoldings,
+        fxReserves = ledgerFinancialState.nbp.foreignAssets,
+      ),
+    )
+
+  def projectSocialState(
+      base: SocialState,
+      ledgerFinancialState: LedgerFinancialState,
+  ): SocialState =
+    base.copy(
+      jst = base.jst.copy(deposits = ledgerFinancialState.funds.jstCash),
+      zus = base.zus.copy(fusBalance = ledgerFinancialState.funds.zusCash),
+      nfz = base.nfz.copy(balance = ledgerFinancialState.funds.nfzCash),
+      ppk = base.ppk.copy(bondHoldings = ledgerFinancialState.funds.ppkGovBondHoldings),
+      earmarked = base.earmarked.copy(
+        fp = base.earmarked.fp.copy(balance = ledgerFinancialState.funds.fpCash),
+        pfron = base.earmarked.pfron.copy(balance = ledgerFinancialState.funds.pfronCash),
+        fgsp = base.earmarked.fgsp.copy(balance = ledgerFinancialState.funds.fgspCash),
       ),
     )
 

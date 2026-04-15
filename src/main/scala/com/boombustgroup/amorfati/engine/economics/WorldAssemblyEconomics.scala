@@ -449,42 +449,36 @@ object WorldAssemblyEconomics:
   ): (World, LedgerFinancialState) =
     val ledgerFinancialState = LedgerStateAdapter.roundTripLedgerFinancialState(buildLedgerFinancialState(in))
     val corporateBondCircuit = LedgerStateAdapter.corporateBondCircuit(ledgerFinancialState)
+    val projectedSocial      = LedgerStateAdapter.projectSocialState(
+      SocialState(
+        jst = in.s9.newJst,
+        zus = in.s2.newZus,
+        nfz = in.s2.newNfz,
+        ppk = in.s9.finalPpk,
+        demographics = in.s2.newDemographics,
+        earmarked = in.s2.newEarmarked,
+      ),
+      ledgerFinancialState,
+    )
     val world                = World(
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
       currentSigmas = in.s7.newSigmas,
-      gov = in.s9.newGovWithYield.copy(
-        financial = in.s9.newGovWithYield.financial.copy(
-          bondsOutstanding = ledgerFinancialState.government.govBondOutstanding,
-          foreignBondHoldings = ledgerFinancialState.foreign.govBondHoldings,
+      gov = LedgerStateAdapter.projectGovState(
+        in.s9.newGovWithYield.copy(
+          policy = in.s9.newGovWithYield.policy.copy(
+            minWageLevel = in.s1.baseMinWage,
+            minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
+          ),
         ),
-        policy = in.s9.newGovWithYield.policy.copy(
-          minWageLevel = in.s1.baseMinWage,
-          minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
-        ),
+        ledgerFinancialState,
       ),
-      nbp = in.s9.finalNbp.copy(
-        balance = in.s9.finalNbp.balance.copy(
-          govBondHoldings = ledgerFinancialState.nbp.govBondHoldings,
-          fxReserves = ledgerFinancialState.nbp.foreignAssets,
-        ),
-      ),
+      nbp = LedgerStateAdapter.projectNbpState(in.s9.finalNbp, ledgerFinancialState),
       bankingSector = in.s9.bankingMarket,
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
       householdMarket = HouseholdMarketState.fromAggregates(in.s9.finalHhAgg),
-      social = SocialState(
-        jst = in.s9.newJst.copy(deposits = ledgerFinancialState.funds.jstCash),
-        zus = in.s2.newZus.copy(fusBalance = ledgerFinancialState.funds.zusCash),
-        nfz = in.s2.newNfz.copy(balance = ledgerFinancialState.funds.nfzCash),
-        ppk = in.s9.finalPpk.copy(bondHoldings = ledgerFinancialState.funds.ppkGovBondHoldings),
-        demographics = in.s2.newDemographics,
-        earmarked = in.s2.newEarmarked.copy(
-          fp = in.s2.newEarmarked.fp.copy(balance = ledgerFinancialState.funds.fpCash),
-          pfron = in.s2.newEarmarked.pfron.copy(balance = ledgerFinancialState.funds.pfronCash),
-          fgsp = in.s2.newEarmarked.fgsp.copy(balance = ledgerFinancialState.funds.fgspCash),
-        ),
-      ),
+      social = projectedSocial,
       financial = FinancialMarketsState(
         equity = equityAfterStep,
         corporateBonds = in.s8.corpBonds.newCorpBonds.copy(
