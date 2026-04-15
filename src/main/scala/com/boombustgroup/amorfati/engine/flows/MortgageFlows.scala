@@ -22,41 +22,40 @@ object MortgageFlows:
       defaultAmount: PLN,
   )
 
-  def emitBatches(input: Input): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         input.origination,
         AssetType.MortgageLoan,
         FlowMechanism.MortgageOrigination,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         input.principalRepayment,
         AssetType.MortgageLoan,
         FlowMechanism.MortgageRepayment,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         input.interest,
         AssetType.Cash,
         FlowMechanism.MortgageInterest,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         input.defaultAmount,
         AssetType.MortgageLoan,
         FlowMechanism.MortgageDefault,

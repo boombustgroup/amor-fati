@@ -8,6 +8,8 @@ import org.scalatest.matchers.should.Matchers
 
 class BankingFlowsSpec extends AnyFlatSpec with Matchers:
 
+  private given RuntimeLedgerTopology = RuntimeLedgerTopology.zeroPopulation
+
   private val baseInput = BankingFlows.Input(
     govBondIncome = PLN(3000000.0),
     reserveInterest = PLN(500000.0),

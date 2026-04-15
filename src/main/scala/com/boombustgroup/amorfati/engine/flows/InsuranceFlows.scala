@@ -31,8 +31,7 @@ object InsuranceFlows:
       equityReturn: Rate,
   )
 
-  def emitBatches(input: Input)(using p: SimParams): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: Input)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     val lifePrem    = input.employed * (input.wage * p.ins.lifePremiumRate)
     val nonLifePrem = input.employed * (input.wage * p.ins.nonLifePremiumRate)
 
@@ -49,45 +48,45 @@ object InsuranceFlows:
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Insurance,
-        InsuranceIndex.Aggregate,
+        topology.insurance.aggregate,
         lifePrem,
         AssetType.LifeReserve,
         FlowMechanism.InsLifePremium,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Insurance,
-        InsuranceIndex.Aggregate,
+        topology.insurance.aggregate,
         nonLifePrem,
         AssetType.NonLifeReserve,
         FlowMechanism.InsNonLifePremium,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Insurance,
-        InsuranceIndex.Aggregate,
+        topology.insurance.aggregate,
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         lifeCl,
         AssetType.LifeReserve,
         FlowMechanism.InsLifeClaim,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Insurance,
-        InsuranceIndex.Aggregate,
+        topology.insurance.aggregate,
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         nonLifeCl,
         AssetType.NonLifeReserve,
         FlowMechanism.InsNonLifeClaim,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        FundIndex.Markets,
+        topology.funds.markets,
         EntitySector.Insurance,
-        InsuranceIndex.Aggregate,
+        topology.insurance.aggregate,
         invIncome,
         AssetType.Cash,
         FlowMechanism.InsInvestmentIncome,

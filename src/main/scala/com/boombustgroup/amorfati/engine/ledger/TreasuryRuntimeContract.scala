@@ -1,12 +1,12 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.engine.flows.AggregateBatchContract
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
 /** Explicit runtime contract for government treasury settlement shells.
   *
-  * The engine currently uses synthetic aggregate government nodes during batch
-  * execution. This contract makes the distinction explicit:
+  * Runtime execution now uses a topology aligned with persisted sector
+  * ownership plus explicit shell slots. This contract makes the government-side
+  * distinction explicit:
   *   - sovereign issuer stock is the persisted `Government / GovBondHTM` slot
   *   - treasury budget settlement is a non-persisted runtime cash shell
   *   - taxpayer collection is a non-persisted runtime routing shell
@@ -41,7 +41,7 @@ object TreasuryRuntimeContract:
     RuntimeNode(
       name = "Government.TreasuryBudgetSettlement",
       sector = EntitySector.Government,
-      index = AggregateBatchContract.GovernmentIndex.Budget,
+      index = 1,
       role = RuntimeRole.TreasuryBudgetSettlementShell,
       persistedAsStock = false,
     )
@@ -50,7 +50,7 @@ object TreasuryRuntimeContract:
     RuntimeNode(
       name = "Government.TaxpayerCollectionShell",
       sector = EntitySector.Government,
-      index = AggregateBatchContract.GovernmentIndex.TaxpayerPool,
+      index = 2,
       role = RuntimeRole.TaxpayerCollectionShell,
       persistedAsStock = false,
     )

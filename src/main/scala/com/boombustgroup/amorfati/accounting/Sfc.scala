@@ -3,7 +3,6 @@ package com.boombustgroup.amorfati.accounting
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.flows.AggregateBatchContract
 import com.boombustgroup.amorfati.engine.ledger.{LedgerStateAdapter, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
@@ -491,42 +490,42 @@ object Sfc:
         runtimeCashIdentity(
           SfcIdentity.JstCash,
           "JST cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Jst)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Jst)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.ZusCash,
           "ZUS cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Zus)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Zus)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.NfzCash,
           "NFZ cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Nfz)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Nfz)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.FpCash,
           "FP cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Fp)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Fp)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.PfronCash,
           "PFRON cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Pfron)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Pfron)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.FgspCash,
           "FGSP cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(AggregateBatchContract.FundIndex.Fgsp)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Fgsp)),
           batches,
           executionDeltaLedger,
         )

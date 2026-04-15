@@ -22,41 +22,40 @@ object CorpBondFlows:
       amortization: PLN,
   )
 
-  def emitBatches(input: Input): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        FirmIndex.Aggregate,
+        topology.firms.aggregate,
         EntitySector.Funds,
-        FundIndex.Bondholders,
+        topology.funds.bondholders,
         input.coupon,
         AssetType.Cash,
         FlowMechanism.CorpBondCoupon,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        FirmIndex.Aggregate,
+        topology.firms.aggregate,
         EntitySector.Funds,
-        FundIndex.Bondholders,
+        topology.funds.bondholders,
         input.defaultLoss,
         AssetType.CorpBond,
         FlowMechanism.CorpBondDefault,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        FundIndex.BondMarket,
+        topology.funds.bondMarket,
         EntitySector.Firms,
-        FirmIndex.Aggregate,
+        topology.firms.aggregate,
         input.issuance,
         AssetType.CorpBond,
         FlowMechanism.CorpBondIssuance,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        FirmIndex.Aggregate,
+        topology.firms.aggregate,
         EntitySector.Funds,
-        FundIndex.Bondholders,
+        topology.funds.bondholders,
         input.amortization,
         AssetType.CorpBond,
         FlowMechanism.CorpBondAmortization,

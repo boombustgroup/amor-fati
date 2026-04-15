@@ -19,25 +19,24 @@ object PpkFlows:
 
   case class PpkInput(employed: Int, wage: PLN)
 
-  def emitBatches(input: PpkInput)(using p: SimParams): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: PpkInput)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     val contributions = input.employed * (input.wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
     val bondPurchase  = contributions * p.social.ppkBondAlloc
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Funds,
-        FundIndex.Ppk,
+        topology.funds.ppk,
         contributions,
         AssetType.Cash,
         FlowMechanism.PpkContribution,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        FundIndex.Ppk,
+        topology.funds.ppk,
         EntitySector.Funds,
-        FundIndex.BondMarket,
+        topology.funds.bondMarket,
         bondPurchase,
         AssetType.GovBondHTM,
         FlowMechanism.PpkBondPurchase,

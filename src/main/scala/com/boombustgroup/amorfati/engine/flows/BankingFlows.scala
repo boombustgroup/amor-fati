@@ -37,14 +37,13 @@ object BankingFlows:
       standingFacilityBackstop: PLN,
   )
 
-  def emitBatches(input: Input): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         input.govBondIncome,
         AssetType.Cash,
         FlowMechanism.BankGovBondIncome,
@@ -53,7 +52,7 @@ object BankingFlows:
         EntitySector.NBP,
         NbpRuntimeContract.ReserveSettlementLiability.index,
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         input.reserveInterest,
         NbpRuntimeContract.ReserveSettlementLiability.asset,
         FlowMechanism.BankReserveInterest,
@@ -62,7 +61,7 @@ object BankingFlows:
         EntitySector.NBP,
         NbpRuntimeContract.ReserveSettlementLiability.index,
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         input.standingFacilityIncome,
         NbpRuntimeContract.ReserveSettlementLiability.asset,
         FlowMechanism.BankStandingFacility,
@@ -72,7 +71,7 @@ object BankingFlows:
           EntitySector.NBP,
           NbpRuntimeContract.ReserveSettlementLiability.index,
           EntitySector.Banks,
-          BankIndex.Aggregate,
+          topology.banks.aggregate,
           input.interbankInterest,
           NbpRuntimeContract.ReserveSettlementLiability.asset,
           FlowMechanism.BankInterbankInterest,
@@ -80,7 +79,7 @@ object BankingFlows:
       else if input.interbankInterest < PLN.Zero then
         AggregateBatchedEmission.transfer(
           EntitySector.Banks,
-          BankIndex.Aggregate,
+          topology.banks.aggregate,
           EntitySector.NBP,
           NbpRuntimeContract.ReserveSettlementLiability.index,
           -input.interbankInterest,
@@ -92,7 +91,7 @@ object BankingFlows:
         EntitySector.NBP,
         NbpRuntimeContract.ReserveSettlementLiability.index,
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         input.fxReserveSettlement,
         NbpRuntimeContract.ReserveSettlementLiability.asset,
         FlowMechanism.NbpFxSettlement,
@@ -101,14 +100,14 @@ object BankingFlows:
         EntitySector.NBP,
         NbpRuntimeContract.StandingFacilityBackstop.index,
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         input.standingFacilityBackstop,
         NbpRuntimeContract.StandingFacilityBackstop.asset,
         FlowMechanism.BankStandingFacilityBackstop,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.bfgLevy,
@@ -117,7 +116,7 @@ object BankingFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.unrealizedBondLoss,
@@ -126,16 +125,16 @@ object BankingFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Depositors,
+        topology.households.depositors,
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         input.bailInLoss,
         AssetType.DemandDeposit,
         FlowMechanism.BankBailIn,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Banks,
-        BankIndex.Aggregate,
+        topology.banks.aggregate,
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.nbpRemittance,

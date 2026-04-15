@@ -20,7 +20,7 @@ import com.boombustgroup.ledger.*
   * BatchedFlow.Broadcast when Household is migrated (#121). For now: aggregate
   * flows.
   *
-  * Account IDs: 0=Taxpayers, 1=GOV, 2=Firms, 3=Bondholders, 4=HH,
+  * Flat-flow account IDs: 0=Taxpayers, 1=GOV, 2=Firms, 3=Bondholders, 4=HH,
   * 5=Infrastructure
   */
 object GovBudgetFlows:
@@ -65,22 +65,22 @@ object GovBudgetFlows:
       fromIndex: Int,
       toSector: EntitySector,
       toIndex: Int,
-      legacyFrom: Int,
-      legacyTo: Int,
+      flatFrom: Int,
+      flatTo: Int,
       amount: PLN,
       asset: AssetType,
       mechanism: MechanismId,
   )
 
-  private def flowLegs(input: Input): Vector[FlowLeg] =
+  private def flowLegs(input: Input)(using topology: RuntimeLedgerTopology): Vector[FlowLeg] =
     Vector(
       FlowLeg(
         fromSector = EntitySector.Government,
         fromIndex = TreasuryRuntimeContract.TaxpayerCollection.index,
         toSector = EntitySector.Government,
         toIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        legacyFrom = TAXPAYER_ACCOUNT,
-        legacyTo = GOV_ACCOUNT,
+        flatFrom = TAXPAYER_ACCOUNT,
+        flatTo = GOV_ACCOUNT,
         amount = input.vatRevenue,
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovVatRevenue,
@@ -90,8 +90,8 @@ object GovBudgetFlows:
         fromIndex = TreasuryRuntimeContract.TaxpayerCollection.index,
         toSector = EntitySector.Government,
         toIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        legacyFrom = TAXPAYER_ACCOUNT,
-        legacyTo = GOV_ACCOUNT,
+        flatFrom = TAXPAYER_ACCOUNT,
+        flatTo = GOV_ACCOUNT,
         amount = input.exciseRevenue,
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovExciseRevenue,
@@ -101,8 +101,8 @@ object GovBudgetFlows:
         fromIndex = TreasuryRuntimeContract.TaxpayerCollection.index,
         toSector = EntitySector.Government,
         toIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        legacyFrom = TAXPAYER_ACCOUNT,
-        legacyTo = GOV_ACCOUNT,
+        flatFrom = TAXPAYER_ACCOUNT,
+        flatTo = GOV_ACCOUNT,
         amount = input.customsDutyRevenue,
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovCustomsDutyRevenue,
@@ -111,9 +111,9 @@ object GovBudgetFlows:
         fromSector = EntitySector.Government,
         fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         toSector = EntitySector.Firms,
-        toIndex = AggregateBatchContract.FirmIndex.Aggregate,
-        legacyFrom = GOV_ACCOUNT,
-        legacyTo = FIRM_ACCOUNT,
+        toIndex = topology.firms.aggregate,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = FIRM_ACCOUNT,
         amount = input.govPurchases,
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovPurchases,
@@ -122,9 +122,9 @@ object GovBudgetFlows:
         fromSector = EntitySector.Government,
         fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         toSector = EntitySector.Funds,
-        toIndex = AggregateBatchContract.FundIndex.Bondholders,
-        legacyFrom = GOV_ACCOUNT,
-        legacyTo = BONDHOLDER_ACCOUNT,
+        toIndex = topology.funds.bondholders,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = BONDHOLDER_ACCOUNT,
         amount = input.debtService,
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovDebtService,
@@ -133,9 +133,9 @@ object GovBudgetFlows:
         fromSector = EntitySector.Government,
         fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         toSector = EntitySector.Households,
-        toIndex = AggregateBatchContract.HouseholdIndex.Aggregate,
-        legacyFrom = GOV_ACCOUNT,
-        legacyTo = HH_ACCOUNT,
+        toIndex = topology.households.aggregate,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = HH_ACCOUNT,
         amount = input.unempBenefitSpend,
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovUnempBenefit,
@@ -144,9 +144,9 @@ object GovBudgetFlows:
         fromSector = EntitySector.Government,
         fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         toSector = EntitySector.Households,
-        toIndex = AggregateBatchContract.HouseholdIndex.Aggregate,
-        legacyFrom = GOV_ACCOUNT,
-        legacyTo = HH_ACCOUNT,
+        toIndex = topology.households.aggregate,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = HH_ACCOUNT,
         amount = input.socialTransferSpend,
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovSocialTransfer,
@@ -155,9 +155,9 @@ object GovBudgetFlows:
         fromSector = EntitySector.Government,
         fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         toSector = EntitySector.Firms,
-        toIndex = AggregateBatchContract.FirmIndex.CapitalGoods,
-        legacyFrom = GOV_ACCOUNT,
-        legacyTo = INFRASTRUCTURE_ACCOUNT,
+        toIndex = topology.firms.capitalGoods,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = INFRASTRUCTURE_ACCOUNT,
         amount = input.euCofinancing,
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovEuCofin,
@@ -166,16 +166,16 @@ object GovBudgetFlows:
         fromSector = EntitySector.Government,
         fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         toSector = EntitySector.Firms,
-        toIndex = AggregateBatchContract.FirmIndex.CapitalGoods,
-        legacyFrom = GOV_ACCOUNT,
-        legacyTo = INFRASTRUCTURE_ACCOUNT,
+        toIndex = topology.firms.capitalGoods,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = INFRASTRUCTURE_ACCOUNT,
         amount = input.govCapitalSpend,
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovCapitalInvestment,
       ),
     )
 
-  def emitBatches(input: Input): Vector[BatchedFlow] =
+  def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     flowLegs(input).flatMap: leg =>
       AggregateBatchedEmission.transfer(
         leg.fromSector,
@@ -188,11 +188,11 @@ object GovBudgetFlows:
       )
 
   def emit(input: Input): Vector[Flow] =
-    flowLegs(input).collect:
+    flowLegs(input)(using RuntimeLedgerTopology.zeroPopulation).collect:
       case leg if leg.amount > PLN.Zero =>
         Flow(
-          leg.legacyFrom,
-          leg.legacyTo,
+          leg.flatFrom,
+          leg.flatTo,
           leg.amount.toLong,
           leg.mechanism.toInt,
         )

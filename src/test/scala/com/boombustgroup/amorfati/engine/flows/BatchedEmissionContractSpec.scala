@@ -10,16 +10,17 @@ import org.scalatest.matchers.should.Matchers
 
 class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
 
-  private given SimParams = SimParams.defaults
+  private given SimParams             = SimParams.defaults
+  private given RuntimeLedgerTopology = RuntimeLedgerTopology.zeroPopulation
 
-  private def legacyMechanismTotals(flows: Vector[Flow]): Map[Int, Long] =
+  private def flatMechanismTotals(flows: Vector[Flow]): Map[Int, Long] =
     flows.groupMapReduce(_.mechanism)(_.amount)(_ + _)
 
   private def batchedMechanismTotals(batches: Vector[BatchedFlow]): Map[Int, Long] =
-    batches.groupMapReduce(_.mechanism.toInt)(AggregateBatchContract.totalTransferred)(_ + _)
+    batches.groupMapReduce(_.mechanism.toInt)(RuntimeLedgerTopology.totalTransferred)(_ + _)
 
   "emitBatches" should "preserve mechanism totals across migrated emitters" in {
-    val legacyFlows = Vector.concat(
+    val flatFlows = Vector.concat(
       ZusFlows.emit(ZusFlows.ZusInput(80000, PLN(7000.0), 1000)),
       NfzFlows.emit(NfzFlows.NfzInput(80000, PLN(7000.0), 90000, 1000)),
       PpkFlows.emit(PpkFlows.PpkInput(80000, PLN(7000.0))),
@@ -171,7 +172,7 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    batchedMechanismTotals(batchedFlows) shouldBe legacyMechanismTotals(legacyFlows)
+    batchedMechanismTotals(batchedFlows) shouldBe flatMechanismTotals(flatFlows)
     batchedFlows.foreach(_ shouldBe a[BatchedFlow.Broadcast])
   }
 
@@ -179,10 +180,10 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
     val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state  = FlowSimulation.SimState.fromInit(init)
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
-    val legacy = AggregateBatchContract.toLegacyFlows(result.flows)
+    val flat   = result.execution.topology.toFlatFlows(result.flows)
 
     result.flows should not be empty
     result.flows.forall(_.isInstanceOf[BatchedFlow]) shouldBe true
-    batchedMechanismTotals(result.flows) shouldBe legacyMechanismTotals(legacy)
+    batchedMechanismTotals(result.flows) shouldBe flatMechanismTotals(flat)
     result.execution.netDelta shouldBe 0L
   }

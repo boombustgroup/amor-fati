@@ -32,21 +32,20 @@ object OpenEconFlows:
       capitalFlightOutflow: PLN,
   )
 
-  def emitBatches(input: Input): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Foreign,
         ForeignRuntimeContract.TradeSettlement.index,
         EntitySector.Firms,
-        FirmIndex.DomesticDemand,
+        topology.firms.domesticDemand,
         input.exports,
         AssetType.Cash,
         FlowMechanism.TradeExports,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        FirmIndex.DomesticDemand,
+        topology.firms.domesticDemand,
         EntitySector.Foreign,
         ForeignRuntimeContract.TradeSettlement.index,
         input.imports,
@@ -57,14 +56,14 @@ object OpenEconFlows:
         EntitySector.Foreign,
         ForeignRuntimeContract.TradeSettlement.index,
         EntitySector.Firms,
-        FirmIndex.DomesticDemand,
+        topology.firms.domesticDemand,
         input.tourismExport,
         AssetType.Cash,
         FlowMechanism.TourismExport,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        FirmIndex.DomesticDemand,
+        topology.firms.domesticDemand,
         EntitySector.Foreign,
         ForeignRuntimeContract.TradeSettlement.index,
         input.tourismImport,
@@ -76,7 +75,7 @@ object OpenEconFlows:
           EntitySector.Foreign,
           ForeignRuntimeContract.CapitalSettlement.index,
           EntitySector.Firms,
-          FirmIndex.Aggregate,
+          topology.firms.aggregate,
           input.fdi,
           AssetType.Cash,
           FlowMechanism.Fdi,
@@ -86,7 +85,7 @@ object OpenEconFlows:
           EntitySector.Foreign,
           ForeignRuntimeContract.CapitalSettlement.index,
           EntitySector.Firms,
-          FirmIndex.Aggregate,
+          topology.firms.aggregate,
           input.portfolioFlows,
           AssetType.Cash,
           FlowMechanism.PortfolioFlow,
@@ -94,7 +93,7 @@ object OpenEconFlows:
       else if input.portfolioFlows < PLN.Zero then
         AggregateBatchedEmission.transfer(
           EntitySector.Firms,
-          FirmIndex.Aggregate,
+          topology.firms.aggregate,
           EntitySector.Foreign,
           ForeignRuntimeContract.CapitalSettlement.index,
           -input.portfolioFlows,
@@ -107,7 +106,7 @@ object OpenEconFlows:
           EntitySector.Foreign,
           ForeignRuntimeContract.IncomeSettlement.index,
           EntitySector.Firms,
-          FirmIndex.Aggregate,
+          topology.firms.aggregate,
           input.primaryIncome,
           AssetType.Cash,
           FlowMechanism.PrimaryIncome,
@@ -115,7 +114,7 @@ object OpenEconFlows:
       else if input.primaryIncome < PLN.Zero then
         AggregateBatchedEmission.transfer(
           EntitySector.Firms,
-          FirmIndex.Aggregate,
+          topology.firms.aggregate,
           EntitySector.Foreign,
           ForeignRuntimeContract.IncomeSettlement.index,
           -input.primaryIncome,
@@ -136,14 +135,14 @@ object OpenEconFlows:
         EntitySector.Foreign,
         ForeignRuntimeContract.TransferSettlement.index,
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         input.diasporaInflow,
         AssetType.Cash,
         FlowMechanism.DiasporaInflow,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        FirmIndex.Aggregate,
+        topology.firms.aggregate,
         EntitySector.Foreign,
         ForeignRuntimeContract.CapitalSettlement.index,
         input.capitalFlightOutflow,

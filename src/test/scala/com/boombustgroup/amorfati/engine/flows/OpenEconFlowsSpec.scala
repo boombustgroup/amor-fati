@@ -8,6 +8,8 @@ import org.scalatest.matchers.should.Matchers
 
 class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
 
+  private given RuntimeLedgerTopology = RuntimeLedgerTopology.zeroPopulation
+
   private val baseInput = OpenEconFlows.Input(
     exports = PLN(20000000.0),
     imports = PLN(18000000.0),
