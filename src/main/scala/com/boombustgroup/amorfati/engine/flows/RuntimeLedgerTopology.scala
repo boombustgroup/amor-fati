@@ -65,9 +65,67 @@ final case class RuntimeLedgerTopology(
   def netDelta(state: MutableWorldState): Long =
     netDelta(state.snapshot)
 
+  private def requireBoundedIndex(
+      batchKind: String,
+      position: String,
+      sector: EntitySector,
+      sectorSize: Int,
+      index: Int,
+  ): Unit =
+    require(
+      index >= 0 && index < sectorSize,
+      s"$batchKind $position index $index is out of bounds for $sector (size=$sectorSize).",
+    )
+
+  private def validateScatter(scatter: BatchedFlow.Scatter): Unit =
+    val sourceSize = sectorSizes(scatter.from)
+    val targetSize = sectorSizes(scatter.to)
+    require(
+      scatter.amounts.length == scatter.targetIndices.length,
+      s"Scatter ${scatter.mechanism} has amounts.length=${scatter.amounts.length} but targetIndices.length=${scatter.targetIndices.length}.",
+    )
+    require(
+      scatter.amounts.length == sourceSize,
+      s"Scatter ${scatter.mechanism} has amounts.length=${scatter.amounts.length} but source sector ${scatter.from} has size=$sourceSize.",
+    )
+    scatter.targetIndices.zipWithIndex.foreach:
+      case (targetIndex, senderIndex) =>
+        requireBoundedIndex(
+          batchKind = s"Scatter ${scatter.mechanism}",
+          position = s"target[$senderIndex]",
+          sector = scatter.to,
+          sectorSize = targetSize,
+          index = targetIndex,
+        )
+
+  private def validateBroadcast(broadcast: BatchedFlow.Broadcast): Unit =
+    val sourceSize = sectorSizes(broadcast.from)
+    val targetSize = sectorSizes(broadcast.to)
+    require(
+      broadcast.amounts.length == broadcast.targetIndices.length,
+      s"Broadcast ${broadcast.mechanism} has amounts.length=${broadcast.amounts.length} but targetIndices.length=${broadcast.targetIndices.length}.",
+    )
+    requireBoundedIndex(
+      batchKind = s"Broadcast ${broadcast.mechanism}",
+      position = "from",
+      sector = broadcast.from,
+      sectorSize = sourceSize,
+      index = broadcast.fromIndex,
+    )
+    broadcast.targetIndices.zipWithIndex.foreach:
+      case (targetIndex, receiverIndex) =>
+        requireBoundedIndex(
+          batchKind = s"Broadcast ${broadcast.mechanism}",
+          position = s"target[$receiverIndex]",
+          sector = broadcast.to,
+          sectorSize = targetSize,
+          index = targetIndex,
+        )
+
   private def toFlatFlows(batch: BatchedFlow): Vector[Flow] =
     batch match
       case scatter: BatchedFlow.Scatter     =>
+        validateScatter(scatter)
         val fromOffset = offsets(scatter.from)
         val toOffset   = offsets(scatter.to)
         scatter.amounts.indices
@@ -78,6 +136,7 @@ final case class RuntimeLedgerTopology(
             if amount != 0L && fromId != toId then Some(Flow(fromId, toId, amount, scatter.mechanism.toInt)) else None
           .toVector
       case broadcast: BatchedFlow.Broadcast =>
+        validateBroadcast(broadcast)
         val fromOffset = offsets(broadcast.from)
         val toOffset   = offsets(broadcast.to)
         broadcast.amounts.indices
@@ -176,6 +235,18 @@ object RuntimeLedgerTopology:
       households = Households(0),
       firms = Firms(0),
       banks = Banks(0),
+      government = Government(),
+      nbp = Nbp(),
+      insurance = Insurance(),
+      funds = Funds(),
+      foreign = Foreign(),
+    )
+
+  val nonZeroPopulation: RuntimeLedgerTopology =
+    RuntimeLedgerTopology(
+      households = Households(3),
+      firms = Firms(4),
+      banks = Banks(2),
       government = Government(),
       nbp = Nbp(),
       insurance = Insurance(),

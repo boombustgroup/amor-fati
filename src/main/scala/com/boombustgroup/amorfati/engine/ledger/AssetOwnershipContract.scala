@@ -407,6 +407,12 @@ object AssetOwnershipContract:
       RuntimeShellCategory.SettlementShell,
     ),
     RuntimeShell(
+      NbpRuntimeContract.StandingFacilityBackstop.sector,
+      NbpRuntimeContract.StandingFacilityBackstop.index,
+      NbpRuntimeContract.StandingFacilityBackstop.name,
+      RuntimeShellCategory.SettlementShell,
+    ),
+    RuntimeShell(
       EntitySector.Insurance,
       zeroPopulationTopology.insurance.aggregate,
       "Insurance.Aggregate",

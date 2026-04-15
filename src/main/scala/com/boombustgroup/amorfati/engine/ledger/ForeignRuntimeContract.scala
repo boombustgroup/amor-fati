@@ -80,4 +80,7 @@ object ForeignRuntimeContract:
   val RuntimeShells: Vector[RuntimeNode] =
     Vector(TradeSettlement, IncomeSettlement, CapitalSettlement, TransferSettlement)
 
+  val AllNodes: Vector[RuntimeNode] =
+    GovBondHolderStock +: RuntimeShells
+
 end ForeignRuntimeContract

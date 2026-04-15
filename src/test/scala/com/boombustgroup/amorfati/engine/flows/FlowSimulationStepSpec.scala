@@ -78,10 +78,12 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.flows.foreach {
       case scatter: BatchedFlow.Scatter     =>
         scatter.amounts.length shouldBe topology.sectorSizes(scatter.from)
-        all(scatter.targetIndices.map(_ < topology.sectorSizes(scatter.to))) shouldBe true
+        scatter.amounts.length shouldBe scatter.targetIndices.length
+        all(scatter.targetIndices.map(index => index >= 0 && index < topology.sectorSizes(scatter.to))) shouldBe true
       case broadcast: BatchedFlow.Broadcast =>
-        broadcast.fromIndex should be < topology.sectorSizes(broadcast.from)
-        all(broadcast.targetIndices.map(_ < topology.sectorSizes(broadcast.to))) shouldBe true
+        broadcast.amounts.length shouldBe broadcast.targetIndices.length
+        broadcast.fromIndex should (be >= 0 and be < topology.sectorSizes(broadcast.from))
+        all(broadcast.targetIndices.map(index => index >= 0 && index < topology.sectorSizes(broadcast.to))) shouldBe true
     }
   }
 

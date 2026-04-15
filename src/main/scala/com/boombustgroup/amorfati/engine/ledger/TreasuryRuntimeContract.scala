@@ -26,13 +26,16 @@ object TreasuryRuntimeContract:
       persistedAsStock: Boolean,
   )
 
-  val IssuerStockAsset: AssetType = AssetType.GovBondHTM
+  val IssuerStockAsset: AssetType        = AssetType.GovBondHTM
+  val SovereignIssuerIndex: Int          = 0
+  val TreasuryBudgetSettlementIndex: Int = 1
+  val TaxpayerCollectionIndex: Int       = 2
 
   val SovereignIssuerGovBondStock: RuntimeNode =
     RuntimeNode(
       name = "Government.GovBondOutstanding",
       sector = EntitySector.Government,
-      index = 0,
+      index = SovereignIssuerIndex,
       role = RuntimeRole.SovereignIssuerStock,
       persistedAsStock = true,
     )
@@ -41,7 +44,7 @@ object TreasuryRuntimeContract:
     RuntimeNode(
       name = "Government.TreasuryBudgetSettlement",
       sector = EntitySector.Government,
-      index = 1,
+      index = TreasuryBudgetSettlementIndex,
       role = RuntimeRole.TreasuryBudgetSettlementShell,
       persistedAsStock = false,
     )
@@ -50,7 +53,7 @@ object TreasuryRuntimeContract:
     RuntimeNode(
       name = "Government.TaxpayerCollectionShell",
       sector = EntitySector.Government,
-      index = 2,
+      index = TaxpayerCollectionIndex,
       role = RuntimeRole.TaxpayerCollectionShell,
       persistedAsStock = false,
     )

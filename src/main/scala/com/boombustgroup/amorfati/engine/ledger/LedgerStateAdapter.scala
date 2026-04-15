@@ -34,7 +34,7 @@ object LedgerStateAdapter:
     val Count: Int = 10
 
   private val SingletonSectorSize = 1
-  private val ForeignSectorSize   = ForeignRuntimeContract.TransferSettlement.index + 1
+  private val ForeignSectorSize   = ForeignRuntimeContract.AllNodes.iterator.map(_.index).max + 1
 
   case class HouseholdBalances(
       demandDeposit: PLN,
