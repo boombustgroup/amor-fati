@@ -532,50 +532,23 @@ object WorldAssemblyEconomics:
     (world, ledgerFinancialState)
 
   private def buildLedgerFinancialState(in: StepInput): LedgerFinancialState =
+    val social = SocialState(
+      jst = in.s9.newJst,
+      zus = in.s2.newZus,
+      nfz = in.s2.newNfz,
+      ppk = in.s9.finalPpk,
+      demographics = in.s2.newDemographics,
+      earmarked = in.s2.newEarmarked,
+    )
     in.ledgerFinancialState.copy(
       households = in.s9.reassignedHouseholds.map(LedgerStateAdapter.householdBalances),
       firms = in.s9.reassignedFirms.map(LedgerStateAdapter.firmBalances),
       banks = in.s9.banks.map(LedgerStateAdapter.bankBalances),
-      government = LedgerFinancialState.GovernmentBalances(
-        govBondOutstanding = in.s9.newGovWithYield.bondsOutstanding,
-      ),
-      foreign = LedgerFinancialState.ForeignBalances(
-        govBondHoldings = in.s9.newGovWithYield.foreignBondHoldings,
-      ),
-      nbp = LedgerFinancialState.NbpBalances(
-        govBondHoldings = in.s9.finalNbp.govBondHoldings,
-        foreignAssets = in.s9.finalNbp.fxReserves,
-      ),
-      insurance = LedgerFinancialState.InsuranceBalances(
-        lifeReserve = in.s9.finalInsurance.lifeReserves,
-        nonLifeReserve = in.s9.finalInsurance.nonLifeReserves,
-        govBondHoldings = in.s9.finalInsurance.govBondHoldings,
-        corpBondHoldings = in.s9.finalInsurance.corpBondHoldings,
-        equityHoldings = in.s9.finalInsurance.equityHoldings,
-      ),
-      funds = LedgerFinancialState.FundBalances(
-        zusCash = in.s2.newZus.fusBalance,
-        nfzCash = in.s2.newNfz.balance,
-        ppkGovBondHoldings = in.s9.finalPpk.bondHoldings,
-        ppkCorpBondHoldings = in.s8.corpBonds.newCorpBonds.ppkHoldings,
-        fpCash = in.s2.newEarmarked.fpBalance,
-        pfronCash = in.s2.newEarmarked.pfronBalance,
-        fgspCash = in.s2.newEarmarked.fgspBalance,
-        jstCash = in.s9.newJst.deposits,
-        corpBondOtherHoldings = in.s8.corpBonds.newCorpBonds.otherHoldings,
-        nbfi = LedgerFinancialState.NbfiFundBalances(
-          tfiUnit = in.s9.finalNbfi.tfiAum,
-          govBondHoldings = in.s9.finalNbfi.tfiGovBondHoldings,
-          corpBondHoldings = in.s9.finalNbfi.tfiCorpBondHoldings,
-          equityHoldings = in.s9.finalNbfi.tfiEquityHoldings,
-          cashHoldings = in.s9.finalNbfi.tfiCashHoldings,
-          nbfiLoanStock = in.s9.finalNbfi.nbfiLoanStock,
-        ),
-        quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
-          bondsOutstanding = in.s9.newQuasiFiscal.bondsOutstanding,
-          loanPortfolio = in.s9.newQuasiFiscal.loanPortfolio,
-        ),
-      ),
+      government = LedgerStateAdapter.governmentBalances(in.s9.newGovWithYield),
+      foreign = LedgerStateAdapter.foreignBalances(in.s9.newGovWithYield),
+      nbp = LedgerStateAdapter.nbpBalances(in.s9.finalNbp),
+      insurance = LedgerStateAdapter.insuranceBalances(in.s9.finalInsurance),
+      funds = LedgerStateAdapter.fundBalances(social, in.s8.corpBonds.newCorpBonds, in.s9.finalNbfi, in.s9.newQuasiFiscal),
     )
 
   private def buildPostMonthPipelineState(in: StepInput): PipelineState =

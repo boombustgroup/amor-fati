@@ -1,8 +1,8 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.{SocialState, World}
-import com.boombustgroup.amorfati.engine.markets.FiscalBudget
+import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector, MutableWorldState}
@@ -149,6 +149,67 @@ object LedgerStateAdapter:
       corpBond = b.corpBondHoldings,
     )
 
+  def governmentBalances(gov: FiscalBudget.GovState): GovernmentBalances =
+    GovernmentBalances(
+      govBondOutstanding = gov.bondsOutstanding,
+    )
+
+  def foreignBalances(gov: FiscalBudget.GovState): ForeignBalances =
+    ForeignBalances(
+      govBondHoldings = gov.foreignBondHoldings,
+    )
+
+  def nbpBalances(nbp: Nbp.State): NbpBalances =
+    NbpBalances(
+      govBondHoldings = nbp.govBondHoldings,
+      foreignAssets = nbp.fxReserves,
+    )
+
+  def insuranceBalances(insurance: Insurance.State): InsuranceBalances =
+    InsuranceBalances(
+      lifeReserve = insurance.lifeReserves,
+      nonLifeReserve = insurance.nonLifeReserves,
+      govBondHoldings = insurance.govBondHoldings,
+      corpBondHoldings = insurance.corpBondHoldings,
+      equityHoldings = insurance.equityHoldings,
+    )
+
+  def nbfiFundBalances(nbfi: Nbfi.State): NbfiFundBalances =
+    NbfiFundBalances(
+      tfiUnit = nbfi.tfiAum,
+      govBondHoldings = nbfi.tfiGovBondHoldings,
+      corpBondHoldings = nbfi.tfiCorpBondHoldings,
+      equityHoldings = nbfi.tfiEquityHoldings,
+      cashHoldings = nbfi.tfiCashHoldings,
+      nbfiLoanStock = nbfi.nbfiLoanStock,
+    )
+
+  def quasiFiscalBalances(quasiFiscal: QuasiFiscal.State): QuasiFiscalBalances =
+    QuasiFiscalBalances(
+      bondsOutstanding = quasiFiscal.bondsOutstanding,
+      loanPortfolio = quasiFiscal.loanPortfolio,
+    )
+
+  def fundBalances(
+      social: SocialState,
+      corporateBonds: CorporateBondMarket.State,
+      nbfi: Nbfi.State,
+      quasiFiscal: QuasiFiscal.State,
+  ): FundBalances =
+    FundBalances(
+      zusCash = social.zus.fusBalance,
+      nfzCash = social.nfz.balance,
+      ppkGovBondHoldings = social.ppk.bondHoldings,
+      ppkCorpBondHoldings = corporateBonds.ppkHoldings,
+      fpCash = social.earmarked.fpBalance,
+      pfronCash = social.earmarked.pfronBalance,
+      fgspCash = social.earmarked.fgspBalance,
+      jstCash = social.jst.deposits,
+      corpBondOtherHoldings = corporateBonds.otherHoldings,
+      nbfi = nbfiFundBalances(nbfi),
+      quasiFiscal = quasiFiscalBalances(quasiFiscal),
+    )
+
   def governmentBondCircuit(
       world: World,
       banks: Vector[Banking.BankState],
@@ -290,46 +351,11 @@ object LedgerStateAdapter:
       households = households.map(householdBalances),
       firms = firms.map(firmBalances),
       banks = banks.map(bankBalances),
-      government = GovernmentBalances(
-        govBondOutstanding = world.gov.bondsOutstanding,
-      ),
-      foreign = ForeignBalances(
-        govBondHoldings = world.gov.foreignBondHoldings,
-      ),
-      nbp = NbpBalances(
-        govBondHoldings = world.nbp.govBondHoldings,
-        foreignAssets = world.nbp.fxReserves,
-      ),
-      insurance = InsuranceBalances(
-        lifeReserve = world.financial.insurance.lifeReserves,
-        nonLifeReserve = world.financial.insurance.nonLifeReserves,
-        govBondHoldings = world.financial.insurance.govBondHoldings,
-        corpBondHoldings = world.financial.insurance.corpBondHoldings,
-        equityHoldings = world.financial.insurance.equityHoldings,
-      ),
-      funds = FundBalances(
-        zusCash = world.social.zus.fusBalance,
-        nfzCash = world.social.nfz.balance,
-        ppkGovBondHoldings = world.social.ppk.bondHoldings,
-        ppkCorpBondHoldings = world.financial.corporateBonds.ppkHoldings,
-        fpCash = world.social.earmarked.fpBalance,
-        pfronCash = world.social.earmarked.pfronBalance,
-        fgspCash = world.social.earmarked.fgspBalance,
-        jstCash = world.social.jst.deposits,
-        corpBondOtherHoldings = world.financial.corporateBonds.otherHoldings,
-        nbfi = NbfiFundBalances(
-          tfiUnit = world.financial.nbfi.tfiAum,
-          govBondHoldings = world.financial.nbfi.tfiGovBondHoldings,
-          corpBondHoldings = world.financial.nbfi.tfiCorpBondHoldings,
-          equityHoldings = world.financial.nbfi.tfiEquityHoldings,
-          cashHoldings = world.financial.nbfi.tfiCashHoldings,
-          nbfiLoanStock = world.financial.nbfi.nbfiLoanStock,
-        ),
-        quasiFiscal = QuasiFiscalBalances(
-          bondsOutstanding = world.financial.quasiFiscal.bondsOutstanding,
-          loanPortfolio = world.financial.quasiFiscal.loanPortfolio,
-        ),
-      ),
+      government = governmentBalances(world.gov),
+      foreign = foreignBalances(world.gov),
+      nbp = nbpBalances(world.nbp),
+      insurance = insuranceBalances(world.financial.insurance),
+      funds = fundBalances(world.social, world.financial.corporateBonds, world.financial.nbfi, world.financial.quasiFiscal),
     )
 
   /** Financial fields intentionally left outside current ledger mapping because
