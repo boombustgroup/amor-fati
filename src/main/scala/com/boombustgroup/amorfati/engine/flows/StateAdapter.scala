@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.flows
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.types.*
 
 /** Temporary bridge between old World state and new flow mechanisms.
@@ -60,15 +61,17 @@ object StateAdapter:
       ccDefault = agg.totalConsumerDefault,
     )
 
-  /** Build Insurance flow input from world state. */
-  def insuranceInput(w: World, labor: LaborEconomics.Result): InsuranceFlows.Input =
-    val ins = w.financial.insurance
+  /** Build Insurance flow input from world state + ledger-backed financial
+    * mirrors.
+    */
+  def insuranceInput(w: World, ledgerFinancialState: LedgerFinancialState, labor: LaborEconomics.Result): InsuranceFlows.Input =
+    val ins = ledgerFinancialState.insurance
     InsuranceFlows.Input(
       employed = labor.employed,
       wage = labor.wage,
       unempRate = w.unemploymentRate(labor.employed),
-      currentLifeReserves = ins.lifeReserves,
-      currentNonLifeReserves = ins.nonLifeReserves,
+      currentLifeReserves = ins.lifeReserve,
+      currentNonLifeReserves = ins.nonLifeReserve,
       prevGovBondHoldings = ins.govBondHoldings,
       prevCorpBondHoldings = ins.corpBondHoldings,
       prevEquityHoldings = ins.equityHoldings,
