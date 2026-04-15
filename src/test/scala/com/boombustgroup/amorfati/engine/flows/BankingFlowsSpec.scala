@@ -8,6 +8,11 @@ import org.scalatest.matchers.should.Matchers
 
 class BankingFlowsSpec extends AnyFlatSpec with Matchers:
 
+  private val runtimeTopologies = Vector(
+    "zeroPopulation"    -> RuntimeLedgerTopology.zeroPopulation,
+    "nonZeroPopulation" -> RuntimeLedgerTopology.nonZeroPopulation,
+  )
+
   private val baseInput = BankingFlows.Input(
     govBondIncome = PLN(3000000.0),
     reserveInterest = PLN(500000.0),
@@ -68,48 +73,60 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "emit NBP reserve-side settlement on the reserve asset contract" in {
-    val batches              = BankingFlows.emitBatches(baseInput)
     val nbpReserveMechanisms = Set(
       FlowMechanism.BankReserveInterest,
       FlowMechanism.BankStandingFacility,
       FlowMechanism.BankInterbankInterest,
     )
 
-    val reserveBatches = batches.filter(batch => nbpReserveMechanisms.contains(batch.mechanism))
-    reserveBatches should not be empty
-    all(reserveBatches.map(_.asset)) shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
-    all(reserveBatches.collect { case broadcast: BatchedFlow.Broadcast => broadcast.fromIndex }) shouldBe NbpRuntimeContract.ReserveSettlementLiability.index
+    runtimeTopologies.foreach:
+      case (label, topology) =>
+        withClue(s"$label: ") {
+          val batches        = BankingFlows.emitBatches(baseInput)(using topology)
+          val reserveBatches = batches.filter(batch => nbpReserveMechanisms.contains(batch.mechanism))
+          reserveBatches should not be empty
+          all(reserveBatches.map(_.asset)) shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
+          all(
+            reserveBatches.collect { case broadcast: BatchedFlow.Broadcast => broadcast.fromIndex },
+          ) shouldBe NbpRuntimeContract.ReserveSettlementLiability.index
+        }
   }
 
-  it should "emit signed FX reserve settlement through the same NBP shell" in {
-    val injection = BankingFlows
-      .emitBatches(baseInput.copy(fxReserveSettlement = PLN(125000.0)))
-      .find(_.mechanism == FlowMechanism.NbpFxSettlement)
-      .get
-    val drain     = BankingFlows
-      .emitBatches(baseInput.copy(fxReserveSettlement = PLN(-90000.0)))
-      .find(_.mechanism == FlowMechanism.NbpFxSettlement)
-      .get
+  it should "emit signed FX reserve settlement through the same NBP shell" in
+    runtimeTopologies.foreach:
+      case (label, topology) =>
+        withClue(s"$label: ") {
+          val injection = BankingFlows
+            .emitBatches(baseInput.copy(fxReserveSettlement = PLN(125000.0)))(using topology)
+            .find(_.mechanism == FlowMechanism.NbpFxSettlement)
+            .get
+          val drain     = BankingFlows
+            .emitBatches(baseInput.copy(fxReserveSettlement = PLN(-90000.0)))(using topology)
+            .find(_.mechanism == FlowMechanism.NbpFxSettlement)
+            .get
 
-    injection.asset shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
-    injection.from shouldBe EntitySector.NBP
-    injection.to shouldBe EntitySector.Banks
+          injection.asset shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
+          injection.from shouldBe EntitySector.NBP
+          injection.to shouldBe EntitySector.Banks
 
-    drain.asset shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
-    drain.from shouldBe EntitySector.Banks
-    drain.to shouldBe EntitySector.NBP
-  }
+          drain.asset shouldBe NbpRuntimeContract.ReserveSettlementLiability.asset
+          drain.from shouldBe EntitySector.Banks
+          drain.to shouldBe EntitySector.NBP
+        }
 
-  it should "emit explicit standing-facility backstop on the dedicated NBP contract" in {
-    val backstop = BankingFlows
-      .emitBatches(baseInput.copy(standingFacilityBackstop = PLN(175000.0)))
-      .find(_.mechanism == FlowMechanism.BankStandingFacilityBackstop)
-      .get
+  it should "emit explicit standing-facility backstop on the dedicated NBP contract" in
+    runtimeTopologies.foreach:
+      case (label, topology) =>
+        withClue(s"$label: ") {
+          val backstop = BankingFlows
+            .emitBatches(baseInput.copy(standingFacilityBackstop = PLN(175000.0)))(using topology)
+            .find(_.mechanism == FlowMechanism.BankStandingFacilityBackstop)
+            .get
 
-    backstop.asset shouldBe NbpRuntimeContract.StandingFacilityBackstop.asset
-    backstop.from shouldBe EntitySector.NBP
-    backstop.to shouldBe EntitySector.Banks
-  }
+          backstop.asset shouldBe NbpRuntimeContract.StandingFacilityBackstop.asset
+          backstop.from shouldBe EntitySector.NBP
+          backstop.to shouldBe EntitySector.Banks
+        }
 
   it should "preserve SFC across 120 months" in {
     var balances = Map.empty[Int, Long]

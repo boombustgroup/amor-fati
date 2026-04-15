@@ -1,13 +1,12 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.engine.flows.AggregateBatchContract
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
 /** Explicit runtime contract for NBP settlement and asset-side stock roles.
   *
-  * The engine persists NBP asset-side stocks, but reserve-side monetary
-  * operations execute through an aggregate runtime shell. This contract names
-  * those roles explicitly:
+  * The engine persists NBP asset-side stocks, while reserve-side monetary
+  * operations execute through an explicit runtime shell in the shared runtime
+  * topology. This contract names those roles explicitly:
   *   - NBP government bond holdings are a persisted stock
   *   - NBP FX reserves are a persisted stock
   *   - reserve settlement is a non-persisted delta-only liability shell
@@ -53,7 +52,7 @@ object NbpRuntimeContract:
     RuntimeNode(
       name = "NBP.ReserveSettlementLiability",
       sector = EntitySector.NBP,
-      index = AggregateBatchContract.NbpIndex.Aggregate,
+      index = 1,
       role = RuntimeRole.ReserveSettlementLiabilityShell,
       persistedAsStock = false,
       asset = AssetType.Reserve,
@@ -63,7 +62,7 @@ object NbpRuntimeContract:
     RuntimeNode(
       name = "NBP.StandingFacilityBackstop",
       sector = EntitySector.NBP,
-      index = AggregateBatchContract.NbpIndex.Aggregate,
+      index = 1,
       role = RuntimeRole.StandingFacilityBackstopShell,
       persistedAsStock = false,
       asset = AssetType.StandingFacility,

@@ -1,12 +1,12 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.engine.flows.AggregateBatchContract
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
 /** Explicit runtime contract for government treasury settlement shells.
   *
-  * The engine currently uses synthetic aggregate government nodes during batch
-  * execution. This contract makes the distinction explicit:
+  * Runtime execution now uses a topology aligned with persisted sector
+  * ownership plus explicit shell slots. This contract makes the government-side
+  * distinction explicit:
   *   - sovereign issuer stock is the persisted `Government / GovBondHTM` slot
   *   - treasury budget settlement is a non-persisted runtime cash shell
   *   - taxpayer collection is a non-persisted runtime routing shell
@@ -26,13 +26,16 @@ object TreasuryRuntimeContract:
       persistedAsStock: Boolean,
   )
 
-  val IssuerStockAsset: AssetType = AssetType.GovBondHTM
+  val IssuerStockAsset: AssetType        = AssetType.GovBondHTM
+  val SovereignIssuerIndex: Int          = 0
+  val TreasuryBudgetSettlementIndex: Int = 1
+  val TaxpayerCollectionIndex: Int       = 2
 
   val SovereignIssuerGovBondStock: RuntimeNode =
     RuntimeNode(
       name = "Government.GovBondOutstanding",
       sector = EntitySector.Government,
-      index = 0,
+      index = SovereignIssuerIndex,
       role = RuntimeRole.SovereignIssuerStock,
       persistedAsStock = true,
     )
@@ -41,7 +44,7 @@ object TreasuryRuntimeContract:
     RuntimeNode(
       name = "Government.TreasuryBudgetSettlement",
       sector = EntitySector.Government,
-      index = AggregateBatchContract.GovernmentIndex.Budget,
+      index = TreasuryBudgetSettlementIndex,
       role = RuntimeRole.TreasuryBudgetSettlementShell,
       persistedAsStock = false,
     )
@@ -50,7 +53,7 @@ object TreasuryRuntimeContract:
     RuntimeNode(
       name = "Government.TaxpayerCollectionShell",
       sector = EntitySector.Government,
-      index = AggregateBatchContract.GovernmentIndex.TaxpayerPool,
+      index = TaxpayerCollectionIndex,
       role = RuntimeRole.TaxpayerCollectionShell,
       persistedAsStock = false,
     )

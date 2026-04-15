@@ -8,8 +8,8 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
-import com.boombustgroup.amorfati.engine.flows.{AggregateBatchContract, AggregateBatchedEmission, FlowMechanism}
-import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
+import com.boombustgroup.amorfati.engine.flows.{AggregateBatchedEmission, FlowMechanism, RuntimeLedgerTopology}
+import com.boombustgroup.amorfati.engine.ledger.{LedgerStateAdapter, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
@@ -18,6 +18,16 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
+  private val zeroPopulationTopology  = RuntimeLedgerTopology.zeroPopulation
+  private val firmAggregateIndex      = zeroPopulationTopology.firms.aggregate
+  private val firmServicesIndex       = zeroPopulationTopology.firms.services
+  private val householdAggregateIndex = zeroPopulationTopology.households.aggregate
+  private val jstFundIndex            = LedgerStateAdapter.FundIndex.Jst
+  private val zusFundIndex            = LedgerStateAdapter.FundIndex.Zus
+  private val nfzFundIndex            = LedgerStateAdapter.FundIndex.Nfz
+  private val fpFundIndex             = LedgerStateAdapter.FundIndex.Fp
+  private val pfronFundIndex          = LedgerStateAdapter.FundIndex.Pfron
+  private val fgspFundIndex           = LedgerStateAdapter.FundIndex.Fgsp
   private val treasuryBudgetIndex     = TreasuryRuntimeContract.TreasuryBudgetSettlement.index
   private val taxpayerCollectionIndex = TreasuryRuntimeContract.TaxpayerCollection.index
 
@@ -966,7 +976,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val batches     = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Aggregate,
+        firmAggregateIndex,
         EntitySector.Government,
         treasuryBudgetIndex,
         PLN(100.0),
@@ -977,7 +987,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Services,
+        firmServicesIndex,
         PLN(40.0),
         AssetType.Cash,
         FlowMechanism.GovPurchases,
@@ -1007,7 +1017,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val batches = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Aggregate,
+        firmAggregateIndex,
         EntitySector.Government,
         treasuryBudgetIndex,
         PLN(100.0),
@@ -1018,7 +1028,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Services,
+        firmServicesIndex,
         PLN(40.0),
         AssetType.Cash,
         FlowMechanism.GovPurchases,
@@ -1050,7 +1060,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val batches     = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Aggregate,
+        firmAggregateIndex,
         EntitySector.Government,
         treasuryBudgetIndex,
         PLN(100.0),
@@ -1061,7 +1071,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Services,
+        firmServicesIndex,
         PLN(40.0),
         AssetType.Cash,
         FlowMechanism.GovPurchases,
@@ -1092,34 +1102,34 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         taxpayerCollectionIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Jst,
+        jstFundIndex,
         PLN(100.0),
         AssetType.Cash,
         FlowMechanism.JstRevenue,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Jst,
+        jstFundIndex,
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Services,
+        firmServicesIndex,
         PLN(40.0),
         AssetType.Cash,
         FlowMechanism.JstSpending,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        AggregateBatchContract.HouseholdIndex.Aggregate,
+        householdAggregateIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Zus,
+        zusFundIndex,
         PLN(100.0),
         AssetType.Cash,
         FlowMechanism.ZusContribution,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Zus,
+        zusFundIndex,
         EntitySector.Households,
-        AggregateBatchContract.HouseholdIndex.Aggregate,
+        householdAggregateIndex,
         PLN(70.0),
         AssetType.Cash,
         FlowMechanism.ZusPension,
@@ -1128,25 +1138,25 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Zus,
+        zusFundIndex,
         PLN(20.0),
         AssetType.Cash,
         FlowMechanism.ZusGovSubvention,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        AggregateBatchContract.HouseholdIndex.Aggregate,
+        householdAggregateIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Nfz,
+        nfzFundIndex,
         PLN(90.0),
         AssetType.Cash,
         FlowMechanism.NfzContribution,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Nfz,
+        nfzFundIndex,
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Services,
+        firmServicesIndex,
         PLN(110.0),
         AssetType.Cash,
         FlowMechanism.NfzSpending,
@@ -1155,7 +1165,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Nfz,
+        nfzFundIndex,
         PLN(30.0),
         AssetType.Cash,
         FlowMechanism.NfzGovSubvention,
@@ -1176,17 +1186,17 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Jst),
+            Sfc.ExecutionIndex(jstFundIndex),
           ) -> PLN(60.0),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Zus),
+            Sfc.ExecutionIndex(zusFundIndex),
           ) -> PLN(50.0),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Nfz),
+            Sfc.ExecutionIndex(nfzFundIndex),
           ) -> PLN(10.0),
         ),
       ),
@@ -1201,25 +1211,25 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Zus,
+        zusFundIndex,
         PLN(20.0),
         AssetType.Cash,
         FlowMechanism.ZusGovSubvention,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        AggregateBatchContract.HouseholdIndex.Aggregate,
+        householdAggregateIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Zus,
+        zusFundIndex,
         PLN(100.0),
         AssetType.Cash,
         FlowMechanism.ZusContribution,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Zus,
+        zusFundIndex,
         EntitySector.Households,
-        AggregateBatchContract.HouseholdIndex.Aggregate,
+        householdAggregateIndex,
         PLN(70.0),
         AssetType.Cash,
         FlowMechanism.ZusPension,
@@ -1248,7 +1258,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Zus),
+            Sfc.ExecutionIndex(zusFundIndex),
           ) -> PLN(49.0),
         ),
       ),
@@ -1262,18 +1272,18 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val batches = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        AggregateBatchContract.HouseholdIndex.Aggregate,
+        householdAggregateIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Fp,
+        fpFundIndex,
         PLN(100.0),
         AssetType.Cash,
         FlowMechanism.FpContribution,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Fp,
+        fpFundIndex,
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Services,
+        firmServicesIndex,
         PLN(70.0),
         AssetType.Cash,
         FlowMechanism.FpSpending,
@@ -1282,25 +1292,25 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Fp,
+        fpFundIndex,
         PLN(20.0),
         AssetType.Cash,
         FlowMechanism.FpGovSubvention,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        AggregateBatchContract.HouseholdIndex.Aggregate,
+        householdAggregateIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Pfron,
+        pfronFundIndex,
         PLN(30.0),
         AssetType.Cash,
         FlowMechanism.PfronContribution,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Pfron,
+        pfronFundIndex,
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Services,
+        firmServicesIndex,
         PLN(40.0),
         AssetType.Cash,
         FlowMechanism.PfronSpending,
@@ -1309,25 +1319,25 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Pfron,
+        pfronFundIndex,
         PLN(15.0),
         AssetType.Cash,
         FlowMechanism.PfronGovSubvention,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        AggregateBatchContract.HouseholdIndex.Aggregate,
+        householdAggregateIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Fgsp,
+        fgspFundIndex,
         PLN(50.0),
         AssetType.Cash,
         FlowMechanism.FgspContribution,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Fgsp,
+        fgspFundIndex,
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Services,
+        firmServicesIndex,
         PLN(60.0),
         AssetType.Cash,
         FlowMechanism.FgspSpending,
@@ -1336,7 +1346,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Fgsp,
+        fgspFundIndex,
         PLN(25.0),
         AssetType.Cash,
         FlowMechanism.FgspGovSubvention,
@@ -1357,17 +1367,17 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Fp),
+            Sfc.ExecutionIndex(fpFundIndex),
           ) -> PLN(50.0),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Pfron),
+            Sfc.ExecutionIndex(pfronFundIndex),
           ) -> PLN(5.0),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Fgsp),
+            Sfc.ExecutionIndex(fgspFundIndex),
           ) -> PLN(15.0),
         ),
       ),
@@ -1380,18 +1390,18 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val batches = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        AggregateBatchContract.HouseholdIndex.Aggregate,
+        householdAggregateIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Fgsp,
+        fgspFundIndex,
         PLN(50.0),
         AssetType.Cash,
         FlowMechanism.FgspContribution,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Fgsp,
+        fgspFundIndex,
         EntitySector.Firms,
-        AggregateBatchContract.FirmIndex.Services,
+        firmServicesIndex,
         PLN(60.0),
         AssetType.Cash,
         FlowMechanism.FgspSpending,
@@ -1400,7 +1410,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         EntitySector.Government,
         treasuryBudgetIndex,
         EntitySector.Funds,
-        AggregateBatchContract.FundIndex.Fgsp,
+        fgspFundIndex,
         PLN(25.0),
         AssetType.Cash,
         FlowMechanism.FgspGovSubvention,
@@ -1421,7 +1431,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
-            Sfc.ExecutionIndex(AggregateBatchContract.FundIndex.Fgsp),
+            Sfc.ExecutionIndex(fgspFundIndex),
           ) -> PLN(14.0),
         ),
       ),

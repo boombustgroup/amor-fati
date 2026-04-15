@@ -39,7 +39,7 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
 
     (1 to 120).foreach { month =>
       val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
-      volumes = volumes :+ AggregateBatchContract.totalTransferred(result.flows)
+      volumes = volumes :+ result.flows.iterator.map(RuntimeLedgerTopology.totalTransferred).sum
 
       state = result.nextState
     }

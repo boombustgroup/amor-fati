@@ -16,7 +16,7 @@ import com.boombustgroup.amorfati.engine.{
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.ledger.{BatchedFlow, ImperativeInterpreter, Interpreter, MechanismId}
+import com.boombustgroup.ledger.{BatchedFlow, EntitySector, ImperativeInterpreter, Interpreter, MechanismId}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -29,7 +29,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     PLN.fromRaw(
       batches.iterator
         .filter(_.mechanism == mechanism)
-        .map(AggregateBatchContract.totalTransferred)
+        .map(RuntimeLedgerTopology.totalTransferred)
         .sum,
     )
 
@@ -48,6 +48,43 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.execution.netDelta shouldBe 0L
     result.sfcResult shouldBe Right(())
     result.calculus.employed should be > 0
+  }
+
+  it should "derive runtime ledger topology from actual populations plus explicit shell slots" in {
+    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state    = FlowSimulation.SimState.fromInit(init)
+    val result   = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val topology = result.execution.topology
+
+    topology.households.aggregate shouldBe state.households.size
+    topology.firms.aggregate shouldBe state.firms.size
+    topology.banks.aggregate shouldBe state.banks.size
+    topology.government.sovereignIssuer shouldBe 0
+    topology.government.treasuryBudgetSettlement shouldBe 1
+    topology.government.taxpayerCollection shouldBe 2
+    topology.nbp.persistedOwner shouldBe 0
+    topology.nbp.reserveSettlement shouldBe 1
+    topology.sectorSizes shouldBe Map(
+      EntitySector.Households -> (state.households.size + 4),
+      EntitySector.Firms      -> (state.firms.size + 5),
+      EntitySector.Banks      -> (state.banks.size + 1),
+      EntitySector.Government -> 3,
+      EntitySector.NBP        -> 2,
+      EntitySector.Insurance  -> 2,
+      EntitySector.Funds      -> 14,
+      EntitySector.Foreign    -> 5,
+    )
+
+    result.flows.foreach {
+      case scatter: BatchedFlow.Scatter     =>
+        scatter.amounts.length shouldBe topology.sectorSizes(scatter.from)
+        scatter.amounts.length shouldBe scatter.targetIndices.length
+        all(scatter.targetIndices.map(index => index >= 0 && index < topology.sectorSizes(scatter.to))) shouldBe true
+      case broadcast: BatchedFlow.Broadcast =>
+        broadcast.amounts.length shouldBe broadcast.targetIndices.length
+        broadcast.fromIndex should (be >= 0 and be < topology.sectorSizes(broadcast.from))
+        all(broadcast.targetIndices.map(index => index >= 0 && index < topology.sectorSizes(broadcast.to))) shouldBe true
+    }
   }
 
   it should "expose the month boundary as SimState -> StepOutput -> (nextState, trace)" in {
@@ -294,14 +331,14 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     trace.seedTransition.provenance.sectorHiringSignal.value shouldBe trace.timing.demandSignals.sectorHiringSignal
   }
 
-  it should "match the legacy pure interpreter on aggregate execution deltas" in {
+  it should "match the flat reference interpreter on aggregate execution deltas" in {
     val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val initState = FlowSimulation.SimState.fromInit(init)
     val result    = FlowSimulation.step(initState, MonthRandomness.Contract.fromSeed(42L))
-    val state     = AggregateBatchContract.emptyExecutionState()
+    val state     = result.execution.topology.emptyExecutionState()
 
     ImperativeInterpreter.planAndApplyAll(state, result.flows) shouldBe Right(())
-    AggregateBatchContract.netDelta(state) shouldBe Interpreter.totalWealth(
-      Interpreter.applyAll(Map.empty[Int, Long], AggregateBatchContract.toLegacyFlows(result.flows)),
+    result.execution.topology.netDelta(state) shouldBe Interpreter.totalWealth(
+      Interpreter.applyAll(Map.empty[Int, Long], result.execution.topology.toFlatFlows(result.flows)),
     )
   }

@@ -27,8 +27,7 @@ object NfzFlows:
       nRetirees: Int,
   )
 
-  def emitBatches(input: NfzInput)(using p: SimParams): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: NfzInput)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     val contributions = input.employed * (input.wage * p.social.nfzContribRate)
     val spending      =
       input.workingAge * p.social.nfzPerCapitaCost +
@@ -37,20 +36,20 @@ object NfzFlows:
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Funds,
-        FundIndex.Nfz,
+        topology.funds.nfz,
         contributions,
         AssetType.Cash,
         FlowMechanism.NfzContribution,
       ),
       AggregateBatchedEmission
-        .transfer(EntitySector.Funds, FundIndex.Nfz, EntitySector.Firms, FirmIndex.Services, spending, AssetType.Cash, FlowMechanism.NfzSpending),
+        .transfer(EntitySector.Funds, topology.funds.nfz, EntitySector.Firms, topology.firms.services, spending, AssetType.Cash, FlowMechanism.NfzSpending),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
-        FundIndex.Nfz,
+        topology.funds.nfz,
         deficit,
         AssetType.Cash,
         FlowMechanism.NfzGovSubvention,

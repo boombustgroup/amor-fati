@@ -30,28 +30,35 @@ object ZusFlows:
       nRetirees: Int,
   )
 
-  def emitBatches(input: ZusInput)(using p: SimParams): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: ZusInput)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     val contributions = input.employed * (input.wage * p.social.zusContribRate * p.social.zusScale)
     val pensions      = input.nRetirees * p.social.zusBasePension
     val deficit       = pensions - contributions
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Funds,
-        FundIndex.Zus,
+        topology.funds.zus,
         contributions,
         AssetType.Cash,
         FlowMechanism.ZusContribution,
       ),
       AggregateBatchedEmission
-        .transfer(EntitySector.Funds, FundIndex.Zus, EntitySector.Households, HouseholdIndex.Aggregate, pensions, AssetType.Cash, FlowMechanism.ZusPension),
+        .transfer(
+          EntitySector.Funds,
+          topology.funds.zus,
+          EntitySector.Households,
+          topology.households.aggregate,
+          pensions,
+          AssetType.Cash,
+          FlowMechanism.ZusPension,
+        ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
-        FundIndex.Zus,
+        topology.funds.zus,
         deficit,
         AssetType.Cash,
         FlowMechanism.ZusGovSubvention,

@@ -26,21 +26,20 @@ object EquityFlows:
       issuance: PLN,
   )
 
-  def emitBatches(input: Input): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        FirmIndex.Aggregate,
+        topology.firms.aggregate,
         EntitySector.Households,
-        HouseholdIndex.Investors,
+        topology.households.investors,
         input.netDomesticDividends,
         AssetType.Cash,
         FlowMechanism.EquityDomDividend,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        FirmIndex.Aggregate,
+        topology.firms.aggregate,
         EntitySector.Foreign,
         ForeignRuntimeContract.IncomeSettlement.index,
         input.foreignDividends,
@@ -49,7 +48,7 @@ object EquityFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Investors,
+        topology.households.investors,
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.dividendTax,
@@ -58,7 +57,7 @@ object EquityFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
-        FirmIndex.Aggregate,
+        topology.firms.aggregate,
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         input.govDividends,
@@ -67,9 +66,9 @@ object EquityFlows:
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Investors,
+        topology.households.investors,
         EntitySector.Firms,
-        FirmIndex.Aggregate,
+        topology.firms.aggregate,
         input.issuance,
         AssetType.Equity,
         FlowMechanism.EquityIssuance,

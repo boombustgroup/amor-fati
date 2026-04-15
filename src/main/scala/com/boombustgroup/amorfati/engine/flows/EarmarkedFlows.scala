@@ -29,8 +29,7 @@ object EarmarkedFlows:
       avgFirmWorkers: Int,
   )
 
-  def emitBatches(input: Input)(using p: SimParams): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: Input)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     val fpContrib = input.employed * (input.wage * p.earmarked.fpRate)
     val fpSpend   = input.unempBenefitSpend + input.employed * p.earmarked.fpAlmpSpendPerWorker
     val fpDeficit = fpSpend - fpContrib
@@ -45,55 +44,71 @@ object EarmarkedFlows:
 
     Vector.concat(
       AggregateBatchedEmission
-        .transfer(EntitySector.Households, HouseholdIndex.Aggregate, EntitySector.Funds, FundIndex.Fp, fpContrib, AssetType.Cash, FlowMechanism.FpContribution),
+        .transfer(
+          EntitySector.Households,
+          topology.households.aggregate,
+          EntitySector.Funds,
+          topology.funds.fp,
+          fpContrib,
+          AssetType.Cash,
+          FlowMechanism.FpContribution,
+        ),
       AggregateBatchedEmission
-        .transfer(EntitySector.Funds, FundIndex.Fp, EntitySector.Firms, FirmIndex.Services, fpSpend, AssetType.Cash, FlowMechanism.FpSpending),
+        .transfer(EntitySector.Funds, topology.funds.fp, EntitySector.Firms, topology.firms.services, fpSpend, AssetType.Cash, FlowMechanism.FpSpending),
       AggregateBatchedEmission
         .transfer(
           EntitySector.Government,
           TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
           EntitySector.Funds,
-          FundIndex.Fp,
+          topology.funds.fp,
           fpDeficit,
           AssetType.Cash,
           FlowMechanism.FpGovSubvention,
         ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Funds,
-        FundIndex.Pfron,
+        topology.funds.pfron,
         pfronContrib,
         AssetType.Cash,
         FlowMechanism.PfronContribution,
       ),
       AggregateBatchedEmission
-        .transfer(EntitySector.Funds, FundIndex.Pfron, EntitySector.Firms, FirmIndex.Services, pfronSpend, AssetType.Cash, FlowMechanism.PfronSpending),
+        .transfer(
+          EntitySector.Funds,
+          topology.funds.pfron,
+          EntitySector.Firms,
+          topology.firms.services,
+          pfronSpend,
+          AssetType.Cash,
+          FlowMechanism.PfronSpending,
+        ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
-        FundIndex.Pfron,
+        topology.funds.pfron,
         pfronDeficit,
         AssetType.Cash,
         FlowMechanism.PfronGovSubvention,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
-        HouseholdIndex.Aggregate,
+        topology.households.aggregate,
         EntitySector.Funds,
-        FundIndex.Fgsp,
+        topology.funds.fgsp,
         fgspContrib,
         AssetType.Cash,
         FlowMechanism.FgspContribution,
       ),
       AggregateBatchedEmission
-        .transfer(EntitySector.Funds, FundIndex.Fgsp, EntitySector.Firms, FirmIndex.Services, fgspSpend, AssetType.Cash, FlowMechanism.FgspSpending),
+        .transfer(EntitySector.Funds, topology.funds.fgsp, EntitySector.Firms, topology.firms.services, fgspSpend, AssetType.Cash, FlowMechanism.FgspSpending),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
-        FundIndex.Fgsp,
+        topology.funds.fgsp,
         fgspDeficit,
         AssetType.Cash,
         FlowMechanism.FgspGovSubvention,

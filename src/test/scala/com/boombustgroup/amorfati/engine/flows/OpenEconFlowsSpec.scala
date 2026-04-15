@@ -8,6 +8,11 @@ import org.scalatest.matchers.should.Matchers
 
 class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
 
+  private val runtimeTopologies = Vector(
+    "zeroPopulation"    -> RuntimeLedgerTopology.zeroPopulation,
+    "nonZeroPopulation" -> RuntimeLedgerTopology.nonZeroPopulation,
+  )
+
   private val baseInput = OpenEconFlows.Input(
     exports = PLN(20000000.0),
     imports = PLN(18000000.0),
@@ -55,30 +60,33 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(balances) shouldBe 0L
   }
 
-  it should "route trade, income, capital, and transfer channels through distinct foreign settlement shells" in {
-    val batches                                      = OpenEconFlows.emitBatches(baseInput.copy(primaryIncome = PLN(300000.0)))
-    def onlyFromIndex(mechanism: MechanismId): Int   =
-      batches.find(_.mechanism == mechanism).get match
-        case broadcast: BatchedFlow.Broadcast => broadcast.fromIndex
-        case other                            => fail(s"expected broadcast batch for $mechanism but got $other")
-    def onlyTargetIndex(mechanism: MechanismId): Int =
-      batches.find(_.mechanism == mechanism).get match
-        case broadcast: BatchedFlow.Broadcast => broadcast.targetIndices.head
-        case other                            => fail(s"expected broadcast batch for $mechanism but got $other")
+  it should "route trade, income, capital, and transfer channels through distinct foreign settlement shells" in
+    runtimeTopologies.foreach:
+      case (label, topology) =>
+        withClue(s"$label: ") {
+          val batches                                      = OpenEconFlows.emitBatches(baseInput.copy(primaryIncome = PLN(300000.0)))(using topology)
+          def onlyFromIndex(mechanism: MechanismId): Int   =
+            batches.find(_.mechanism == mechanism).get match
+              case broadcast: BatchedFlow.Broadcast => broadcast.fromIndex
+              case other                            => fail(s"expected broadcast batch for $mechanism but got $other")
+          def onlyTargetIndex(mechanism: MechanismId): Int =
+            batches.find(_.mechanism == mechanism).get match
+              case broadcast: BatchedFlow.Broadcast => broadcast.targetIndices.head
+              case other                            => fail(s"expected broadcast batch for $mechanism but got $other")
 
-    onlyFromIndex(FlowMechanism.TradeExports) shouldBe ForeignRuntimeContract.TradeSettlement.index
-    onlyTargetIndex(FlowMechanism.TradeImports) shouldBe ForeignRuntimeContract.TradeSettlement.index
-    onlyFromIndex(FlowMechanism.TourismExport) shouldBe ForeignRuntimeContract.TradeSettlement.index
-    onlyTargetIndex(FlowMechanism.TourismImport) shouldBe ForeignRuntimeContract.TradeSettlement.index
+          onlyFromIndex(FlowMechanism.TradeExports) shouldBe ForeignRuntimeContract.TradeSettlement.index
+          onlyTargetIndex(FlowMechanism.TradeImports) shouldBe ForeignRuntimeContract.TradeSettlement.index
+          onlyFromIndex(FlowMechanism.TourismExport) shouldBe ForeignRuntimeContract.TradeSettlement.index
+          onlyTargetIndex(FlowMechanism.TourismImport) shouldBe ForeignRuntimeContract.TradeSettlement.index
 
-    onlyFromIndex(FlowMechanism.Fdi) shouldBe ForeignRuntimeContract.CapitalSettlement.index
-    onlyFromIndex(FlowMechanism.PortfolioFlow) shouldBe ForeignRuntimeContract.CapitalSettlement.index
-    onlyTargetIndex(FlowMechanism.CapitalFlight) shouldBe ForeignRuntimeContract.CapitalSettlement.index
+          onlyFromIndex(FlowMechanism.Fdi) shouldBe ForeignRuntimeContract.CapitalSettlement.index
+          onlyFromIndex(FlowMechanism.PortfolioFlow) shouldBe ForeignRuntimeContract.CapitalSettlement.index
+          onlyTargetIndex(FlowMechanism.CapitalFlight) shouldBe ForeignRuntimeContract.CapitalSettlement.index
 
-    onlyFromIndex(FlowMechanism.PrimaryIncome) shouldBe ForeignRuntimeContract.IncomeSettlement.index
-    onlyFromIndex(FlowMechanism.EuFunds) shouldBe ForeignRuntimeContract.TransferSettlement.index
-    onlyFromIndex(FlowMechanism.DiasporaInflow) shouldBe ForeignRuntimeContract.TransferSettlement.index
-  }
+          onlyFromIndex(FlowMechanism.PrimaryIncome) shouldBe ForeignRuntimeContract.IncomeSettlement.index
+          onlyFromIndex(FlowMechanism.EuFunds) shouldBe ForeignRuntimeContract.TransferSettlement.index
+          onlyFromIndex(FlowMechanism.DiasporaInflow) shouldBe ForeignRuntimeContract.TransferSettlement.index
+        }
 
   it should "preserve SFC across 120 months" in {
     var balances = Map.empty[Int, Long]

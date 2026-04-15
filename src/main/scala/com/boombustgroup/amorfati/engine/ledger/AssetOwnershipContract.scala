@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.engine.flows.{AggregateBatchContract, FlowSimulation}
+import com.boombustgroup.amorfati.engine.flows.{FlowSimulation, RuntimeLedgerTopology}
 import com.boombustgroup.amorfati.types.PLN
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
@@ -14,6 +14,8 @@ import com.boombustgroup.ledger.{AssetType, EntitySector}
   * settlement shells rather than persisted owners.
   */
 object AssetOwnershipContract:
+
+  private val zeroPopulationTopology = RuntimeLedgerTopology.zeroPopulation
 
   enum SectorId:
     case Dynamic(sector: EntitySector)
@@ -322,64 +324,67 @@ object AssetOwnershipContract:
       category: RuntimeShellCategory,
   )
 
+  // Dynamic-sector shell indices come from a zero-population runtime
+  // topology. Real runtime positions are derived per step by
+  // RuntimeLedgerTopology.fromState(...).
   val nonPersistedRuntimeShells: Vector[RuntimeShell] = Vector(
     RuntimeShell(
       EntitySector.Households,
-      AggregateBatchContract.HouseholdIndex.Aggregate,
+      zeroPopulationTopology.households.aggregate,
       "Households.Aggregate",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Households,
-      AggregateBatchContract.HouseholdIndex.Landlords,
+      zeroPopulationTopology.households.landlords,
       "Households.Landlords",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Households,
-      AggregateBatchContract.HouseholdIndex.Depositors,
+      zeroPopulationTopology.households.depositors,
       "Households.Depositors",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Households,
-      AggregateBatchContract.HouseholdIndex.Investors,
+      zeroPopulationTopology.households.investors,
       "Households.Investors",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Firms,
-      AggregateBatchContract.FirmIndex.Aggregate,
+      zeroPopulationTopology.firms.aggregate,
       "Firms.Aggregate",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Firms,
-      AggregateBatchContract.FirmIndex.Services,
+      zeroPopulationTopology.firms.services,
       "Firms.Services",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Firms,
-      AggregateBatchContract.FirmIndex.CapitalGoods,
+      zeroPopulationTopology.firms.capitalGoods,
       "Firms.CapitalGoods",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Firms,
-      AggregateBatchContract.FirmIndex.IoCounterparty,
+      zeroPopulationTopology.firms.ioCounterparty,
       "Firms.IoCounterparty",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Firms,
-      AggregateBatchContract.FirmIndex.DomesticDemand,
+      zeroPopulationTopology.firms.domesticDemand,
       "Firms.DomesticDemand",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Banks,
-      AggregateBatchContract.BankIndex.Aggregate,
+      zeroPopulationTopology.banks.aggregate,
       "Banks.Aggregate",
       RuntimeShellCategory.ExecutionShell,
     ),
@@ -402,32 +407,38 @@ object AssetOwnershipContract:
       RuntimeShellCategory.SettlementShell,
     ),
     RuntimeShell(
+      NbpRuntimeContract.StandingFacilityBackstop.sector,
+      NbpRuntimeContract.StandingFacilityBackstop.index,
+      NbpRuntimeContract.StandingFacilityBackstop.name,
+      RuntimeShellCategory.SettlementShell,
+    ),
+    RuntimeShell(
       EntitySector.Insurance,
-      AggregateBatchContract.InsuranceIndex.Aggregate,
+      zeroPopulationTopology.insurance.aggregate,
       "Insurance.Aggregate",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Funds,
-      AggregateBatchContract.FundIndex.Bondholders,
+      zeroPopulationTopology.funds.bondholders,
       "Funds.Bondholders",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Funds,
-      AggregateBatchContract.FundIndex.BondMarket,
+      zeroPopulationTopology.funds.bondMarket,
       "Funds.BondMarket",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Funds,
-      AggregateBatchContract.FundIndex.Markets,
+      zeroPopulationTopology.funds.markets,
       "Funds.Markets",
       RuntimeShellCategory.ExecutionShell,
     ),
     RuntimeShell(
       EntitySector.Funds,
-      AggregateBatchContract.FundIndex.Healthcare,
+      zeroPopulationTopology.funds.healthcare,
       "Funds.Healthcare",
       RuntimeShellCategory.ExecutionShell,
     ),

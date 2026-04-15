@@ -1,6 +1,5 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.engine.flows.AggregateBatchContract
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
 /** Explicit runtime contract for foreign-sector stock ownership and settlement
@@ -32,7 +31,7 @@ object ForeignRuntimeContract:
     RuntimeNode(
       name = "Foreign.GovBondPortfolio",
       sector = EntitySector.Foreign,
-      index = AggregateBatchContract.ForeignIndex.GovBondHolder,
+      index = 0,
       role = RuntimeRole.GovBondHolderStock,
       persistedAsStock = true,
       asset = AssetType.GovBondHTM,
@@ -42,7 +41,7 @@ object ForeignRuntimeContract:
     RuntimeNode(
       name = "Foreign.TradeSettlement",
       sector = EntitySector.Foreign,
-      index = AggregateBatchContract.ForeignIndex.TradeSettlement,
+      index = 1,
       role = RuntimeRole.TradeSettlementShell,
       persistedAsStock = false,
       asset = AssetType.Cash,
@@ -52,7 +51,7 @@ object ForeignRuntimeContract:
     RuntimeNode(
       name = "Foreign.IncomeSettlement",
       sector = EntitySector.Foreign,
-      index = AggregateBatchContract.ForeignIndex.IncomeSettlement,
+      index = 2,
       role = RuntimeRole.IncomeSettlementShell,
       persistedAsStock = false,
       asset = AssetType.Cash,
@@ -62,7 +61,7 @@ object ForeignRuntimeContract:
     RuntimeNode(
       name = "Foreign.CapitalSettlement",
       sector = EntitySector.Foreign,
-      index = AggregateBatchContract.ForeignIndex.CapitalSettlement,
+      index = 3,
       role = RuntimeRole.CapitalSettlementShell,
       persistedAsStock = false,
       asset = AssetType.Cash,
@@ -72,7 +71,7 @@ object ForeignRuntimeContract:
     RuntimeNode(
       name = "Foreign.TransferSettlement",
       sector = EntitySector.Foreign,
-      index = AggregateBatchContract.ForeignIndex.TransferSettlement,
+      index = 4,
       role = RuntimeRole.TransferSettlementShell,
       persistedAsStock = false,
       asset = AssetType.Cash,
@@ -80,5 +79,8 @@ object ForeignRuntimeContract:
 
   val RuntimeShells: Vector[RuntimeNode] =
     Vector(TradeSettlement, IncomeSettlement, CapitalSettlement, TransferSettlement)
+
+  val AllNodes: Vector[RuntimeNode] =
+    GovBondHolderStock +: RuntimeShells
 
 end ForeignRuntimeContract

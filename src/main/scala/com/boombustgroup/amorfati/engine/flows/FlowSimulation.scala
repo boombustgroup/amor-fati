@@ -46,6 +46,7 @@ object FlowSimulation:
     * over that delta space.
     */
   case class ExecutionResult(
+      topology: RuntimeLedgerTopology,
       deltaLedger: Map[(EntitySector, AssetType, Int), Long],
       netDelta: Long,
   )
@@ -155,7 +156,7 @@ object FlowSimulation:
   /** Emit ALL flows from calculus results. Pure translation — no economics
     * here.
     */
-  def emitAllBatches(c: MonthlyCalculus)(using p: SimParams): Vector[BatchedFlow] =
+  def emitAllBatches(c: MonthlyCalculus)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     Vector.concat(
       // Tier 1: Social funds
       ZusFlows.emitBatches(ZusFlows.ZusInput(c.employed, c.wage, c.retirees)),
@@ -262,9 +263,6 @@ object FlowSimulation:
       ),
     )
 
-  def emitAllFlows(c: MonthlyCalculus)(using p: SimParams): Vector[Flow] =
-    AggregateBatchContract.toLegacyFlows(emitAllBatches(c))
-
   /** Typed month-`t` boundary input used internally by [[step]]. */
   case class StepInput(
       stateIn: SimState,
@@ -355,16 +353,17 @@ object FlowSimulation:
     * one-month contract used by tests, replay, and diagnostics.
     */
   def step(stateIn: SimState, randomness: MonthRandomness.Contract)(using p: SimParams): StepOutput =
-    val input      = stepInput(stateIn, randomness)
-    val outcome    = computeMonthOutcome(input)
-    val flows      = emitAllBatches(outcome.flowPlan.calculus)
-    val execution  = executeBatches(flows).fold(
+    given RuntimeLedgerTopology = RuntimeLedgerTopology.fromState(stateIn)
+    val input                   = stepInput(stateIn, randomness)
+    val outcome                 = computeMonthOutcome(input)
+    val flows                   = emitAllBatches(outcome.flowPlan.calculus)
+    val execution               = executeBatches(flows).fold(
       err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
       identity,
     )
-    val nextState  = advanceState(input, outcome)
-    val sfcFlows   = buildSfcFlows(outcome.semanticProjection, flows, nextState.world.plumbing.fofResidual)
-    val sfcResult  = Sfc.validate(
+    val nextState               = advanceState(input, outcome)
+    val sfcFlows                = buildSfcFlows(outcome.semanticProjection, flows, nextState.world.plumbing.fofResidual)
+    val sfcResult               = Sfc.validate(
       prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
       curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks),
       flows = sfcFlows,
@@ -372,7 +371,7 @@ object FlowSimulation:
       executionDeltaLedger = Sfc.ExecutionDeltaLedger.fromRaw(execution.deltaLedger),
       deltaLedgerNet = execution.netDelta,
     )
-    val monthTrace = buildMonthTrace(
+    val monthTrace              = buildMonthTrace(
       input = input,
       outcome = outcome,
       executedFlows = sfcFlows,
@@ -665,15 +664,16 @@ object FlowSimulation:
       ),
     )
 
-  private def executeBatches(flows: Vector[BatchedFlow]): Either[String, ExecutionResult] =
-    val state = AggregateBatchContract.emptyExecutionState()
+  private def executeBatches(flows: Vector[BatchedFlow])(using topology: RuntimeLedgerTopology): Either[String, ExecutionResult] =
+    val state = topology.emptyExecutionState()
     ImperativeInterpreter
       .planAndApplyAll(state, flows)
       .map: _ =>
         val deltaLedger = state.snapshot
         ExecutionResult(
+          topology = topology,
           deltaLedger = deltaLedger,
-          netDelta = AggregateBatchContract.netDelta(deltaLedger),
+          netDelta = topology.netDelta(deltaLedger),
         )
 
   private def runtimeState(
@@ -705,7 +705,7 @@ object FlowSimulation:
           Map.empty[MechanismId, Long].withDefaultValue(0L),
         ):
           case ((totalsAcc, signedAcc), batch) =>
-            val amount       = AggregateBatchContract.totalTransferred(batch)
+            val amount       = RuntimeLedgerTopology.totalTransferred(batch)
             val signedAmount =
               if batch.mechanism == FlowMechanism.BankInterbankInterest || batch.mechanism == FlowMechanism.BankStandingFacility then
                 (batch.from, batch.to) match

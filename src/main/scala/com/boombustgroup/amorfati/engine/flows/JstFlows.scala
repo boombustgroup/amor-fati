@@ -26,8 +26,7 @@ object JstFlows:
       pitRevenue: PLN,
   )
 
-  def emitBatches(input: Input)(using p: SimParams): Vector[BatchedFlow] =
-    import AggregateBatchContract.*
+  def emitBatches(input: Input)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     val jstPitIncome  =
       if input.pitRevenue > PLN.Zero then input.pitRevenue * p.fiscal.jstPitShare
       else input.totalWageIncome * (Share(FallbackPitRate) * p.fiscal.jstPitShare)
@@ -42,16 +41,16 @@ object JstFlows:
         EntitySector.Government,
         TreasuryRuntimeContract.TaxpayerCollection.index,
         EntitySector.Funds,
-        FundIndex.Jst,
+        topology.funds.jst,
         totalRevenue,
         AssetType.Cash,
         FlowMechanism.JstRevenue,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,
-        FundIndex.Jst,
+        topology.funds.jst,
         EntitySector.Firms,
-        FirmIndex.Services,
+        topology.firms.services,
         totalSpending,
         AssetType.Cash,
         FlowMechanism.JstSpending,
