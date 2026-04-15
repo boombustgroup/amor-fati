@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
-import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
+import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, GvcTrade, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.Expectations
 import com.boombustgroup.amorfati.types.*
@@ -286,17 +286,7 @@ object OpenEconEconomics:
     // 8. Insurance
     val unempRate    = in.w.unemploymentRate(in.employed)
     val newInsurance = Insurance.step(
-      in.w.financial.insurance.copy(
-        reserves = in.w.financial.insurance.reserves.copy(
-          lifeReserves = in.ledgerFinancialState.insurance.lifeReserve,
-          nonLifeReserves = in.ledgerFinancialState.insurance.nonLifeReserve,
-        ),
-        portfolio = in.w.financial.insurance.portfolio.copy(
-          govBondHoldings = in.ledgerFinancialState.insurance.govBondHoldings,
-          corpBondHoldings = in.ledgerFinancialState.insurance.corpBondHoldings,
-          equityHoldings = in.ledgerFinancialState.insurance.equityHoldings,
-        ),
-      ),
+      LedgerStateAdapter.projectInsuranceState(in.w.financial.insurance, in.ledgerFinancialState),
       in.employed,
       in.newWage,
       unempRate,
@@ -684,17 +674,7 @@ object OpenEconEconomics:
     val unempRate    = in.w.unemploymentRate(in.s2.employed)
     val newInsurance =
       Insurance.step(
-        in.w.financial.insurance.copy(
-          reserves = in.w.financial.insurance.reserves.copy(
-            lifeReserves = in.ledgerFinancialState.insurance.lifeReserve,
-            nonLifeReserves = in.ledgerFinancialState.insurance.nonLifeReserve,
-          ),
-          portfolio = in.w.financial.insurance.portfolio.copy(
-            govBondHoldings = in.ledgerFinancialState.insurance.govBondHoldings,
-            corpBondHoldings = in.ledgerFinancialState.insurance.corpBondHoldings,
-            equityHoldings = in.ledgerFinancialState.insurance.equityHoldings,
-          ),
-        ),
+        LedgerStateAdapter.projectInsuranceState(in.w.financial.insurance, in.ledgerFinancialState),
         in.s2.employed,
         in.s2.newWage,
         unempRate,
@@ -709,18 +689,7 @@ object OpenEconEconomics:
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
     val newNbfi         =
       Nbfi.step(
-        in.w.financial.nbfi.copy(
-          tfi = in.w.financial.nbfi.tfi.copy(
-            tfiAum = in.ledgerFinancialState.funds.nbfi.tfiUnit,
-            tfiGovBondHoldings = in.ledgerFinancialState.funds.nbfi.govBondHoldings,
-            tfiCorpBondHoldings = in.ledgerFinancialState.funds.nbfi.corpBondHoldings,
-            tfiEquityHoldings = in.ledgerFinancialState.funds.nbfi.equityHoldings,
-            tfiCashHoldings = in.ledgerFinancialState.funds.nbfi.cashHoldings,
-          ),
-          credit = in.w.financial.nbfi.credit.copy(
-            nbfiLoanStock = in.ledgerFinancialState.funds.nbfi.nbfiLoanStock,
-          ),
-        ),
+        LedgerStateAdapter.projectNbfiState(in.w.financial.nbfi, in.ledgerFinancialState),
         in.s2.employed,
         in.s2.newWage,
         in.w.priceLevel,

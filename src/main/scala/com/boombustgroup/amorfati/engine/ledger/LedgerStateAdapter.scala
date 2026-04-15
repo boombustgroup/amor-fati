@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.types.*
@@ -203,6 +203,39 @@ object LedgerStateAdapter:
       insuranceHoldings = ledgerFinancialState.insurance.corpBondHoldings,
       tfiHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
       otherHoldings = ledgerFinancialState.funds.corpBondOtherHoldings,
+    )
+
+  def projectInsuranceState(
+      base: Insurance.State,
+      ledgerFinancialState: LedgerFinancialState,
+  ): Insurance.State =
+    base.copy(
+      reserves = base.reserves.copy(
+        lifeReserves = ledgerFinancialState.insurance.lifeReserve,
+        nonLifeReserves = ledgerFinancialState.insurance.nonLifeReserve,
+      ),
+      portfolio = base.portfolio.copy(
+        govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
+        corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
+        equityHoldings = ledgerFinancialState.insurance.equityHoldings,
+      ),
+    )
+
+  def projectNbfiState(
+      base: Nbfi.State,
+      ledgerFinancialState: LedgerFinancialState,
+  ): Nbfi.State =
+    base.copy(
+      tfi = base.tfi.copy(
+        tfiAum = ledgerFinancialState.funds.nbfi.tfiUnit,
+        tfiGovBondHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
+        tfiCorpBondHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
+        tfiEquityHoldings = ledgerFinancialState.funds.nbfi.equityHoldings,
+        tfiCashHoldings = ledgerFinancialState.funds.nbfi.cashHoldings,
+      ),
+      credit = base.credit.copy(
+        nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
+      ),
     )
 
   /** Transitional capture from mirrored world/agent state into the first-class

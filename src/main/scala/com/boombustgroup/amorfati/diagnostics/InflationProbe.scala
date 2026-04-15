@@ -73,33 +73,33 @@ object InflationProbe:
     println(s"seed=$seed months=$months")
 
     (1 to months).foreach: month =>
-      val population        = world.derivedTotalPopulation.max(1)
-      val contract          = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
-      val fiscal            = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
-      val s1                = FiscalConstraintEconomics.toOutput(fiscal)
-      val labor             = LaborEconomics.compute(world, firms, hhs, s1)
-      val prevWage          = toDouble(world.householdMarket.marketWage)
-      val rawLaborWage      = toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
-      val target            = toDouble(summon[SimParams].monetary.targetInfl)
-      val expWagePressure   =
+      val population           = world.derivedTotalPopulation.max(1)
+      val contract             = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
+      val fiscal               = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
+      val s1                   = FiscalConstraintEconomics.toOutput(fiscal)
+      val labor                = LaborEconomics.compute(world, firms, hhs, s1)
+      val prevWage             = toDouble(world.householdMarket.marketWage)
+      val rawLaborWage         = toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
+      val target               = toDouble(summon[SimParams].monetary.targetInfl)
+      val expWagePressure      =
         toDouble(summon[SimParams].labor.expWagePassthrough) * Math.max(0.0, toDouble(world.mechanisms.expectations.expectedInflation) - target) / 12.0
-      val wageAfterExp      = Math.max(toDouble(s1.resWage), rawLaborWage * (1.0 + expWagePressure))
-      val aggUnionDensity   =
+      val wageAfterExp         = Math.max(toDouble(s1.resWage), rawLaborWage * (1.0 + expWagePressure))
+      val aggUnionDensity      =
         summon[SimParams].sectorDefs.zipWithIndex
           .map((s, i) => toDouble(s.share) * toDouble(summon[SimParams].labor.unionDensity(i)))
           .sum
-      val unionAdjustedWage =
+      val unionAdjustedWage    =
         if wageAfterExp < prevWage then
           val decline = prevWage - wageAfterExp
           Math.max(toDouble(s1.resWage), wageAfterExp + decline * toDouble(summon[SimParams].labor.unionRigidity) * aggUnionDensity)
         else wageAfterExp
-      val supplyAtPrev      = laborSupplyCount(world.householdMarket.marketWage, s1.resWage, population)
-      val newSupply         = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, population)
-      val excessDemand      = (labor.laborDemand - supplyAtPrev).toDouble / population
-      val phillipsGrowth    = if prevWage > 0.0 then rawLaborWage / prevWage - 1.0 else 0.0
-      val expGrowth         = if rawLaborWage > 0.0 then wageAfterExp / rawLaborWage - 1.0 else 0.0
-      val unionGrowth       = if wageAfterExp > 0.0 then unionAdjustedWage / wageAfterExp - 1.0 else 0.0
-      val s2Pre             = LaborEconomics.Output(
+      val supplyAtPrev         = laborSupplyCount(world.householdMarket.marketWage, s1.resWage, population)
+      val newSupply            = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, population)
+      val excessDemand         = (labor.laborDemand - supplyAtPrev).toDouble / population
+      val phillipsGrowth       = if prevWage > 0.0 then rawLaborWage / prevWage - 1.0 else 0.0
+      val expGrowth            = if rawLaborWage > 0.0 then wageAfterExp / rawLaborWage - 1.0 else 0.0
+      val unionGrowth          = if wageAfterExp > 0.0 then unionAdjustedWage / wageAfterExp - 1.0 else 0.0
+      val s2Pre                = LaborEconomics.Output(
         labor.wage,
         labor.employed,
         labor.laborDemand,
@@ -116,7 +116,7 @@ object InflationProbe:
         labor.living,
         labor.regionalWages,
       )
-      val s3                =
+      val s3                   =
         HouseholdIncomeEconomics.compute(
           world,
           firms,
@@ -127,13 +127,13 @@ object InflationProbe:
           s2Pre.newWage,
           contract.stages.householdIncomeEconomics.newStream(),
         )
-      val s4                = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
-      val s5                = FirmEconomics.runStep(world, firms, hhs, banks, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
-      val living            = s5.ioFirms.filter(Firm.isAlive)
-      val s2                = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, living, s5.households)
-      val s6                =
+      val s4                   = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
+      val s5                   = FirmEconomics.runStep(world, firms, hhs, banks, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
+      val living               = s5.ioFirms.filter(Firm.isAlive)
+      val s2                   = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, living, s5.households)
+      val s6                   =
         HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
-      val s7                = PriceEquityEconomics.compute(
+      val s7                   = PriceEquityEconomics.compute(
         PriceEquityEconomics.Input(
           world,
           s1.m,
@@ -149,11 +149,13 @@ object InflationProbe:
         ),
         contract.stages.priceEquityEconomics.newStream(),
       )
-      val s8                =
+      val ledgerFinancialState =
+        LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks)
+      val s8                   =
         OpenEconEconomics.runStep(
           OpenEconEconomics.StepInput(
             world,
-            LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks),
+            ledgerFinancialState,
             s1,
             s2,
             s3,
@@ -165,11 +167,11 @@ object InflationProbe:
             contract.stages.openEconEconomics.newStream(),
           ),
         )
-      val s9                =
+      val s9                   =
         BankingEconomics.runStep(
           BankingEconomics.StepInput(
             world,
-            LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks),
+            ledgerFinancialState,
             s1,
             s2,
             s3,
@@ -245,7 +247,7 @@ object InflationProbe:
           firms = firms,
           households = hhs,
           banks = banks,
-          ledgerFinancialState = LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks),
+          ledgerFinancialState = ledgerFinancialState,
           month = fiscal.month,
           lendingBaseRate = fiscal.lendingBaseRate,
           resWage = fiscal.resWage,

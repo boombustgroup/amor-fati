@@ -502,7 +502,7 @@ object FlowSimulation:
     val openEcon          = OpenEconEconomics.compute(
       OpenEconEconomics.Input(
         w = w,
-        ledgerFinancialState = stateIn.ledgerFinancialState,
+        ledgerFinancialState = ledger,
         employed = s2.employed,
         newWage = s2.newWage,
         domesticConsumption = s3.domesticCons,
@@ -535,7 +535,7 @@ object FlowSimulation:
     val s8                = OpenEconEconomics.runStep(
       OpenEconEconomics.StepInput(
         w,
-        stateIn.ledgerFinancialState,
+        ledger,
         s1,
         s2,
         s3,
@@ -551,7 +551,7 @@ object FlowSimulation:
     val bankingDepositRng = randomness.bankingEconomics.newStream()
     val bankingInput      = BankingEconomics.Input(
       w = w,
-      ledgerFinancialState = stateIn.ledgerFinancialState,
+      ledgerFinancialState = ledger,
       month = fiscal.month,
       lendingBaseRate = fiscal.lendingBaseRate,
       resWage = fiscal.resWage,
@@ -579,7 +579,7 @@ object FlowSimulation:
     val s9                = BankingEconomics.runStep(
       BankingEconomics.StepInput(
         w,
-        stateIn.ledgerFinancialState,
+        ledger,
         s1,
         s2,
         s3,

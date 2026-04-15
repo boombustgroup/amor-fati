@@ -492,29 +492,8 @@ object WorldAssemblyEconomics:
           ppkHoldings = corporateBondCircuit.ppkHoldings,
           otherHoldings = corporateBondCircuit.otherHoldings,
         ),
-        insurance = in.s9.finalInsurance.copy(
-          reserves = in.s9.finalInsurance.reserves.copy(
-            lifeReserves = ledgerFinancialState.insurance.lifeReserve,
-            nonLifeReserves = ledgerFinancialState.insurance.nonLifeReserve,
-          ),
-          portfolio = in.s9.finalInsurance.portfolio.copy(
-            govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
-            corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
-            equityHoldings = ledgerFinancialState.insurance.equityHoldings,
-          ),
-        ),
-        nbfi = in.s9.finalNbfi.copy(
-          tfi = in.s9.finalNbfi.tfi.copy(
-            tfiAum = ledgerFinancialState.funds.nbfi.tfiUnit,
-            tfiGovBondHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
-            tfiCorpBondHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
-            tfiEquityHoldings = ledgerFinancialState.funds.nbfi.equityHoldings,
-            tfiCashHoldings = ledgerFinancialState.funds.nbfi.cashHoldings,
-          ),
-          credit = in.s9.finalNbfi.credit.copy(
-            nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
-          ),
-        ),
+        insurance = LedgerStateAdapter.projectInsuranceState(in.s9.finalInsurance, ledgerFinancialState),
+        nbfi = LedgerStateAdapter.projectNbfiState(in.s9.finalNbfi, ledgerFinancialState),
         quasiFiscal = in.s9.newQuasiFiscal.copy(
           bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
           loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
