@@ -72,14 +72,17 @@ object CorporateBondMarket:
     val spread         = cyclicalSpread.min(MaxSpread)
     (govBondYield + spread).max(MinYield)
 
-  /** @param total
-    *   total monthly coupon across all holders
-    * @param bank
-    *   bank share of monthly coupon
-    * @param ppk
-    *   PPK share of monthly coupon
-    */
-  case class CouponResult(total: PLN, bank: PLN, ppk: PLN)
+  /** Monthly coupon income split across concrete holder buckets. */
+  case class CouponResult(
+      total: PLN,
+      bank: PLN,
+      ppk: PLN,
+      other: PLN,
+      insurance: PLN,
+      nbfi: PLN,
+  ):
+    def holderTotal: PLN =
+      bank + ppk + other + insurance + nbfi
 
   /** Monthly coupon income from corporate bond holdings. */
   def computeCoupon(state: State): CouponResult =
@@ -88,32 +91,50 @@ object CorporateBondMarket:
       total = state.outstanding * yieldMonthly,
       bank = state.bankHoldings * yieldMonthly,
       ppk = state.ppkHoldings * yieldMonthly,
+      other = state.otherHoldings * yieldMonthly,
+      insurance = state.insuranceHoldings * yieldMonthly,
+      nbfi = state.nbfiHoldings * yieldMonthly,
     )
 
-  /** @param grossDefault
-    *   gross default amount (face value)
-    * @param lossAfterRecovery
-    *   net loss after recovery rate applied
-    * @param bankLoss
-    *   bank share of net loss
-    * @param ppkLoss
-    *   PPK share of net loss
-    */
-  case class DefaultResult(grossDefault: PLN, lossAfterRecovery: PLN, bankLoss: PLN, ppkLoss: PLN)
+  /** Gross face-value default plus net loss split across holder buckets. */
+  case class DefaultResult(
+      grossDefault: PLN,
+      lossAfterRecovery: PLN,
+      bankLoss: PLN,
+      ppkLoss: PLN,
+      otherLoss: PLN,
+      insuranceLoss: PLN,
+      nbfiLoss: PLN,
+  ):
+    def holderLossTotal: PLN =
+      bankLoss + ppkLoss + otherLoss + insuranceLoss + nbfiLoss
 
-  val DefaultResultZero: DefaultResult = DefaultResult(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+  val DefaultResultZero: DefaultResult = DefaultResult(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   /** Process defaults from bankrupt firms' bond debt. */
   def processDefaults(state: State, totalBondDefault: PLN)(using p: SimParams): DefaultResult =
     if totalBondDefault <= PLN.Zero || state.outstanding <= PLN.Zero then DefaultResultZero
     else
-      val defaultFrac = totalBondDefault.ratioTo(state.outstanding).toShare.clamp(Share.Zero, Share.One)
-      val lossRate    = Share.One - p.corpBond.recovery
+      val lossRate     = Share.One - p.corpBond.recovery
+      val loss         = totalBondDefault * lossRate
+      val holderLosses = Distribute.distribute(
+        loss.distributeRaw,
+        Array(
+          state.bankHoldings.distributeRaw,
+          state.ppkHoldings.distributeRaw,
+          state.otherHoldings.distributeRaw,
+          state.insuranceHoldings.distributeRaw,
+          state.nbfiHoldings.distributeRaw,
+        ),
+      )
       DefaultResult(
         grossDefault = totalBondDefault,
-        lossAfterRecovery = totalBondDefault * lossRate,
-        bankLoss = state.bankHoldings * defaultFrac * lossRate,
-        ppkLoss = state.ppkHoldings * defaultFrac * lossRate,
+        lossAfterRecovery = loss,
+        bankLoss = PLN.fromRaw(holderLosses(0)),
+        ppkLoss = PLN.fromRaw(holderLosses(1)),
+        otherLoss = PLN.fromRaw(holderLosses(2)),
+        insuranceLoss = PLN.fromRaw(holderLosses(3)),
+        nbfiLoss = PLN.fromRaw(holderLosses(4)),
       )
 
   /** Monthly amortization: outstanding / maturity. */

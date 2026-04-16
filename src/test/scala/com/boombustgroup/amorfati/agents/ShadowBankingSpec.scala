@@ -24,6 +24,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       depositRate: Rate = Rate(0.03),
       domesticCons: PLN = PLN(1e8),
       settledCorpBondHoldings: Option[PLN] = None,
+      corpBondDefaultLoss: PLN = PLN.Zero,
   ): Nbfi.State =
     Nbfi.step(
       prev,
@@ -38,6 +39,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       depositRate,
       domesticCons,
       settledCorpBondHoldings.getOrElse(prev.tfiCorpBondHoldings),
+      corpBondDefaultLoss,
     )
 
   // ---- zero / initial ----
@@ -188,6 +190,12 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
     val init   = Nbfi.initial
     val result = mkStep(prev = init)
     result.tfiAum should be > init.tfiAum
+  }
+
+  it should "reduce AUM by corporate bond default losses" in {
+    val noDefault = mkStep()
+    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000.0))
+    withLoss.tfiAum shouldBe noDefault.tfiAum - PLN(1000.0)
   }
 
   it should "produce deposit drain equal to negative inflow" in {

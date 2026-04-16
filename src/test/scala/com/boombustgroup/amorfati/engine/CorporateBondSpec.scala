@@ -77,6 +77,8 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     coupon.total should be > PLN.Zero
     coupon.bank shouldBe (initState.bankHoldings * initState.corpBondYield.monthly)
     coupon.ppk shouldBe (initState.ppkHoldings * initState.corpBondYield.monthly)
+    coupon.insurance shouldBe (initState.insuranceHoldings * initState.corpBondYield.monthly)
+    coupon.nbfi shouldBe (initState.nbfiHoldings * initState.corpBondYield.monthly)
   }
 
   it should "return zeros for zero outstanding" in {
@@ -84,6 +86,9 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     coupon.total shouldBe PLN.Zero
     coupon.bank shouldBe PLN.Zero
     coupon.ppk shouldBe PLN.Zero
+    coupon.other shouldBe PLN.Zero
+    coupon.insurance shouldBe PLN.Zero
+    coupon.nbfi shouldBe PLN.Zero
   }
 
   "amortization" should "equal outstanding / maturity" in {
@@ -97,6 +102,9 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     r.lossAfterRecovery shouldBe PLN.Zero
     r.bankLoss shouldBe PLN.Zero
     r.ppkLoss shouldBe PLN.Zero
+    r.otherLoss shouldBe PLN.Zero
+    r.insuranceLoss shouldBe PLN.Zero
+    r.nbfiLoss shouldBe PLN.Zero
   }
 
   it should "allocate defaults proportionally to holdings" in {
@@ -106,6 +114,9 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     shouldBeClosePln(r.lossAfterRecovery, defaultAmt * (Share.One - p.corpBond.recovery), pln(5_000))
     val bankFrac   = initState.bankHoldings.ratioTo(initState.outstanding).toShare
     shouldBeClosePln(r.bankLoss, defaultAmt * bankFrac * (Share.One - p.corpBond.recovery), pln(5_000))
+    val nbfiFrac   = initState.nbfiHoldings.ratioTo(initState.outstanding).toShare
+    shouldBeClosePln(r.nbfiLoss, defaultAmt * nbfiFrac * (Share.One - p.corpBond.recovery), pln(5_000))
+    shouldBeClosePln(r.holderLossTotal, r.lossAfterRecovery, pln(5_000))
   }
 
   "processIssuance" should "increase outstanding and fixed bank/PPK buckets" in {

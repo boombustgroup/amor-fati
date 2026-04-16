@@ -20,6 +20,7 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
     currentNonLifeReserves = PLN(10000000.0),
     prevGovBondHoldings = PLN(50000000.0),
     prevCorpBondHoldings = PLN(20000000.0),
+    corpBondDefaultLoss = PLN.Zero,
     prevEquityHoldings = PLN(10000000.0),
     govBondYield = Rate(0.06),
     corpBondYield = Rate(0.08),
@@ -46,7 +47,7 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "match old Insurance.step premium and claim amounts" in {
     val prev   = Insurance.initial
-    val oldIns = Insurance.step(prev, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01), prev.corpBondHoldings)
+    val oldIns = Insurance.step(prev, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01), prev.corpBondHoldings, PLN.Zero)
     val flows  = InsuranceFlows.emit(baseInput)
 
     val newLifePrem    = flows.filter(_.mechanism == FlowMechanism.InsLifePremium.toInt).map(_.amount).sum
@@ -64,7 +65,8 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
     val expectedInvIncome  =
       baseInput.prevGovBondHoldings * baseInput.govBondYield.monthly +
         baseInput.prevCorpBondHoldings * baseInput.corpBondYield.monthly +
-        baseInput.prevEquityHoldings * baseInput.equityReturn
+        baseInput.prevEquityHoldings * baseInput.equityReturn -
+        baseInput.corpBondDefaultLoss
     val totalReserves      = baseInput.currentLifeReserves + baseInput.currentNonLifeReserves
     val lifeShare          =
       if totalReserves > PLN.Zero then Share(baseInput.currentLifeReserves / totalReserves) else Share(0.5)
@@ -79,6 +81,22 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
     invBatches.map(RuntimeLedgerTopology.totalTransferred).sum shouldBe expectedInvIncome.toLong
     RuntimeLedgerTopology.totalTransferred(invBatches.find(_.asset == AssetType.LifeReserve).get) shouldBe expectedLifeInv.toLong
     RuntimeLedgerTopology.totalTransferred(invBatches.find(_.asset == AssetType.NonLifeReserve).get) shouldBe expectedNonLifeInv.toLong
+  }
+
+  it should "route corporate bond default losses as negative reserve investment income" in {
+    val lossInput       = baseInput.copy(corpBondDefaultLoss = PLN(2000000.0))
+    val grossInvestment =
+      lossInput.prevGovBondHoldings * lossInput.govBondYield.monthly +
+        lossInput.prevCorpBondHoldings * lossInput.corpBondYield.monthly +
+        lossInput.prevEquityHoldings * lossInput.equityReturn
+    val expectedLoss    = lossInput.corpBondDefaultLoss - grossInvestment
+    val batches         = InsuranceFlows.emitBatches(lossInput)
+    val lossLegs        = batches.filter(_.mechanism == FlowMechanism.InsInvestmentIncome)
+
+    lossLegs should have size 2
+    all(lossLegs.map(_.from)) shouldBe EntitySector.Insurance
+    all(lossLegs.map(_.to)) shouldBe EntitySector.Funds
+    lossLegs.map(RuntimeLedgerTopology.totalTransferred).sum shouldBe expectedLoss.toLong
   }
 
   it should "preserve SFC across 120 months" in {

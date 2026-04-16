@@ -27,6 +27,7 @@ object InsuranceFlows:
       currentNonLifeReserves: PLN,
       prevGovBondHoldings: PLN,
       prevCorpBondHoldings: PLN,
+      corpBondDefaultLoss: PLN,
       prevEquityHoldings: PLN,
       govBondYield: Rate,
       corpBondYield: Rate,
@@ -43,14 +44,15 @@ object InsuranceFlows:
     val stressAdj   = (stressGap * p.ins.nonLifeUnempSens).toMultiplier
     val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 
-    val invIncome        = input.prevGovBondHoldings * input.govBondYield.monthly +
+    val grossInvestmentIncome = input.prevGovBondHoldings * input.govBondYield.monthly +
       input.prevCorpBondHoldings * input.corpBondYield.monthly +
       input.prevEquityHoldings * input.equityReturn
-    val totalReserves    = input.currentLifeReserves + input.currentNonLifeReserves
-    val lifeShare        =
+    val invIncome             = grossInvestmentIncome - input.corpBondDefaultLoss
+    val totalReserves         = input.currentLifeReserves + input.currentNonLifeReserves
+    val lifeShare             =
       if totalReserves > PLN.Zero then Share(input.currentLifeReserves / totalReserves) else Share(0.5)
-    val lifeInvIncome    = invIncome * lifeShare
-    val nonLifeInvIncome = invIncome - lifeInvIncome
+    val lifeInvIncome         = invIncome * lifeShare
+    val nonLifeInvIncome      = invIncome - lifeInvIncome
 
     Vector.concat(
       AggregateBatchedEmission.transfer(
@@ -89,7 +91,7 @@ object InsuranceFlows:
         AssetType.NonLifeReserve,
         FlowMechanism.InsNonLifeClaim,
       ),
-      AggregateBatchedEmission.transfer(
+      AggregateBatchedEmission.signedTransfer(
         EntitySector.Funds,
         topology.funds.markets,
         EntitySector.Insurance,
@@ -98,7 +100,7 @@ object InsuranceFlows:
         AssetType.LifeReserve,
         FlowMechanism.InsInvestmentIncome,
       ),
-      AggregateBatchedEmission.transfer(
+      AggregateBatchedEmission.signedTransfer(
         EntitySector.Funds,
         topology.funds.markets,
         EntitySector.Insurance,
@@ -119,9 +121,10 @@ object InsuranceFlows:
     val stressAdj   = (stressGap * p.ins.nonLifeUnempSens).toMultiplier
     val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 
-    val invIncome = input.prevGovBondHoldings * input.govBondYield.monthly +
+    val grossInvestmentIncome = input.prevGovBondHoldings * input.govBondYield.monthly +
       input.prevCorpBondHoldings * input.corpBondYield.monthly +
       input.prevEquityHoldings * input.equityReturn
+    val invIncome             = grossInvestmentIncome - input.corpBondDefaultLoss
 
     val flows = Vector.newBuilder[Flow]
 
@@ -130,5 +133,6 @@ object InsuranceFlows:
     if lifeCl > PLN.Zero then flows += Flow(INS_ACCOUNT, HH_ACCOUNT, lifeCl.toLong, FlowMechanism.InsLifeClaim.toInt)
     if nonLifeCl > PLN.Zero then flows += Flow(INS_ACCOUNT, HH_ACCOUNT, nonLifeCl.toLong, FlowMechanism.InsNonLifeClaim.toInt)
     if invIncome > PLN.Zero then flows += Flow(MARKETS_ACCOUNT, INS_ACCOUNT, invIncome.toLong, FlowMechanism.InsInvestmentIncome.toInt)
+    else if invIncome < PLN.Zero then flows += Flow(INS_ACCOUNT, MARKETS_ACCOUNT, invIncome.abs.toLong, FlowMechanism.InsInvestmentIncome.toInt)
 
     flows.result()

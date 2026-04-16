@@ -190,13 +190,15 @@ object Nbfi:
       depositRate: Rate,                               // bank deposit rate (TFI opportunity cost)
       domesticCons: PLN,                               // domestic consumption (NBFI credit base)
       settledCorpBondHoldings: PLN,
+      corpBondDefaultLoss: PLN,
   )(using p: SimParams): State =
     // TFI: inflow + investment income + rebalance
-    val netInflow = tfiInflow(employed, wage, equityReturn, govBondYield, depositRate)
-    val invIncome = prev.tfiGovBondHoldings * govBondYield.monthly +
+    val netInflow             = tfiInflow(employed, wage, equityReturn, govBondYield, depositRate)
+    val grossInvestmentIncome = prev.tfiGovBondHoldings * govBondYield.monthly +
       prev.tfiCorpBondHoldings * corpBondYield.monthly +
       prev.tfiEquityHoldings * equityReturn
-    val newAum    = (prev.tfiAum + netInflow + invIncome).max(PLN.Zero)
+    val invIncome             = grossInvestmentIncome - corpBondDefaultLoss
+    val newAum                = (prev.tfiAum + netInflow + invIncome).max(PLN.Zero)
 
     // Rebalance towards target allocation
     val s         = p.nbfi.tfiRebalanceSpeed

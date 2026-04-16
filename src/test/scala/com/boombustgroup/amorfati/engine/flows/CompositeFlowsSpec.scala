@@ -80,6 +80,7 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
           currentNonLifeReserves = PLN(30000000.0),
           prevGovBondHoldings = PLN(50000000.0),
           prevCorpBondHoldings = PLN(20000000.0),
+          corpBondDefaultLoss = PLN.Zero,
           prevEquityHoldings = PLN(10000000.0),
           govBondYield = Rate(0.06),
           corpBondYield = Rate(0.08),

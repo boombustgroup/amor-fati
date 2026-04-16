@@ -123,6 +123,7 @@ object Insurance:
       corpBondYield: Rate, // corporate bond yield (annualised)
       equityReturn: Rate,  // equity monthly return
       settledCorpBondHoldings: PLN,
+      corpBondDefaultLoss: PLN,
   )(using p: SimParams): State =
     // Premiums: proportional to wage bill
     val lifePrem    = employed * (wage * p.ins.lifePremiumRate)
@@ -136,9 +137,10 @@ object Insurance:
     val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 
     // Investment income from all three asset classes
-    val invIncome = prev.govBondHoldings * govBondYield.monthly +
+    val grossInvestmentIncome = prev.govBondHoldings * govBondYield.monthly +
       prev.corpBondHoldings * corpBondYield.monthly +
       prev.equityHoldings * equityReturn
+    val invIncome             = grossInvestmentIncome - corpBondDefaultLoss
 
     // Net deposit change: premium outflow from HH minus claims inflow to HH
     val netDepositChange = -(lifePrem + nonLifePrem - lifeCl - nonLifeCl)

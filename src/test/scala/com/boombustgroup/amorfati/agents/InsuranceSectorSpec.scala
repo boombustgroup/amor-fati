@@ -21,8 +21,19 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
       corpBondYield: Rate = Rate(0.08),
       equityReturn: Rate = Rate(0.005),
       settledCorpBondHoldings: Option[PLN] = None,
+      corpBondDefaultLoss: PLN = PLN.Zero,
   ): Insurance.State =
-    Insurance.step(prev, employed, wage, unempRate, govBondYield, corpBondYield, equityReturn, settledCorpBondHoldings.getOrElse(prev.corpBondHoldings))
+    Insurance.step(
+      prev,
+      employed,
+      wage,
+      unempRate,
+      govBondYield,
+      corpBondYield,
+      equityReturn,
+      settledCorpBondHoldings.getOrElse(prev.corpBondHoldings),
+      corpBondDefaultLoss,
+    )
 
   "Insurance.State.zero" should "return all-zero state" in {
     val z = Insurance.State.zero
@@ -102,6 +113,12 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   it should "compute positive investment income with positive yields" in {
     val r = mkStep()
     r.lastInvestmentIncome should be > PLN.Zero
+  }
+
+  it should "reduce investment income by corporate bond default losses" in {
+    val noDefault = mkStep()
+    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000.0))
+    withLoss.lastInvestmentIncome shouldBe noDefault.lastInvestmentIncome - PLN(1000.0)
   }
 
   it should "compute zero investment income with zero holdings" in {
