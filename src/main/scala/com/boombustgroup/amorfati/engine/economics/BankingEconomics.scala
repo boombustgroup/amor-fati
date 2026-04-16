@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
+import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -32,7 +32,7 @@ object BankingEconomics:
 
   case class StepInput(
       w: World,                                   // current world state (pre-step)
-      ledgerFinancialState: LedgerFinancialState, // ledger-backed supported financial state
+      ledgerFinancialState: LedgerFinancialState, // ledger-backed financial state
       s1: FiscalConstraintEconomics.Output,       // fiscal constraint (month, lending base rate, res wage)
       s2: LaborEconomics.Output,                  // labor/demographics (employment, wage, immigration)
       s3: HouseholdIncomeEconomics.Output,        // household income (consumption, PIT, debt service)
@@ -82,6 +82,7 @@ object BankingEconomics:
       htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
       eclProvisionChange: PLN,                       // aggregate IFRS 9 ECL provision change
       newQuasiFiscal: QuasiFiscal.State,             // BGK/PFR after issuance and lending
+      ledgerFinancialState: LedgerFinancialState,    // ledger-backed financial state at the banking stage boundary
   )
 
   // --- Intermediate result types for sub-methods ---
@@ -240,6 +241,30 @@ object BankingEconomics:
         in.w.nbp.qeActive,
       )
 
+    val newGovWithForeignHoldings =
+      govJst.newGovWithYield.copy(
+        financial = govJst.newGovWithYield.financial.copy(foreignBondHoldings = multi.foreignBondHoldings),
+      )
+    val socialForLedger           = SocialState(
+      jst = govJst.newJst,
+      zus = in.s2.newZus,
+      nfz = in.s2.newNfz,
+      ppk = multi.finalPpk,
+      demographics = in.s2.newDemographics,
+      earmarked = in.s2.newEarmarked,
+    )
+    val ledgerFinancialState      =
+      in.ledgerFinancialState.copy(
+        households = multi.reassignedHouseholds.map(LedgerStateAdapter.householdBalances),
+        firms = multi.reassignedFirms.map(LedgerStateAdapter.firmBalances),
+        banks = multi.finalBanks.map(LedgerStateAdapter.bankBalances),
+        government = LedgerStateAdapter.governmentBalances(newGovWithForeignHoldings),
+        foreign = LedgerStateAdapter.foreignBalances(newGovWithForeignHoldings),
+        nbp = LedgerStateAdapter.nbpBalances(multi.finalNbp),
+        insurance = LedgerStateAdapter.insuranceBalances(multi.finalInsurance),
+        funds = LedgerStateAdapter.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBonds, multi.finalNbfi, newQuasiFiscal),
+      )
+
     StepOutput(
       resolvedBank = multi.resolvedBank,
       banks = multi.finalBanks,
@@ -250,9 +275,7 @@ object BankingEconomics:
       finalPpk = multi.finalPpk,
       finalInsurance = multi.finalInsurance,
       finalNbfi = multi.finalNbfi,
-      newGovWithYield = govJst.newGovWithYield.copy(
-        financial = govJst.newGovWithYield.financial.copy(foreignBondHoldings = multi.foreignBondHoldings),
-      ),
+      newGovWithYield = newGovWithForeignHoldings,
       newJst = govJst.newJst,
       housingAfterFlows = housing.housingAfterFlows,
       bfgLevy = bfgLevy,
@@ -292,6 +315,7 @@ object BankingEconomics:
           .sum
       ,
       newQuasiFiscal = newQuasiFiscal,
+      ledgerFinancialState = ledgerFinancialState,
     )
 
   def compute(in: Input)(using p: SimParams): Result =
