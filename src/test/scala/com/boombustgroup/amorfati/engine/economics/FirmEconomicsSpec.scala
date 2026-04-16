@@ -196,7 +196,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   it should "reduce manufacturing markup pass-through for state-owned firms under a commodity shock" in {
     val privateFirms          = manufacturingScenario(stateOwned = false)
     val stateOwnedFirms       = manufacturingScenario(stateOwned = true)
-    val shockedWorld          = w.updateExternal(_.copy(gvc = w.external.gvc.copy(commodityPriceIndex = PriceIndex(1.20))))
+    val shockedWorld          = w.copy(external = w.external.copy(gvc = w.external.gvc.copy(commodityPriceIndex = PriceIndex(1.20))))
     val baselinePrivateRun    = runStepFor(w, privateFirms)
     val baselineStateOwnedRun = runStepFor(w, stateOwnedFirms)
     val shockedPrivateRun     = runStepFor(shockedWorld, privateFirms)

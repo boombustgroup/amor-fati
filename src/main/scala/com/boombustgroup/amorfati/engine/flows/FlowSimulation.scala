@@ -976,7 +976,7 @@ object FlowSimulation:
   ): SimState =
     val assembled   = outcome.post.assembled
     val nextSeed    = outcome.seedOut.nextSeed
-    val nextWorld   = assembled.world.updatePipeline(_.withDecisionSignals(nextSeed))
+    val nextWorld   = assembled.world.copy(pipeline = assembled.world.pipeline.withDecisionSignals(nextSeed))
     val currentSeed = input.seedIn.decisionSignals
 
     // `advanceState` is the only legal `post -> next-pre` transition:

@@ -197,7 +197,7 @@ object WorldAssemblyEconomics:
       postWorld: World,
       signals: DecisionSignals,
   ): World =
-    postWorld.updatePipeline(_.withDecisionSignals(signals))
+    postWorld.copy(pipeline = postWorld.pipeline.withDecisionSignals(signals))
 
   private[engine] def computePostMonth(
       step: StepInput,
@@ -268,16 +268,18 @@ object WorldAssemblyEconomics:
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
     val postMigHh                 = RegionalMigration(startupStaffing.households, in.s2.regionalWages, randomness.regionalMigration).households
     val finalFirms                = syncStartupStaffing(startupStaffing.firms, postMigHh)
-    val finalW                    = newW
-      .updatePipeline(_ => buildPostMonthPipelineState(in))
-      .updateFlows(_.copy(firmBirths = entryStep.firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths))
-      .updateReal: r =>
-        r.copy(
-          sectoralMobility = r.sectoralMobility.copy(
-            crossSectorHires = r.sectoralMobility.crossSectorHires + startupStaffing.crossSectorHires,
-          ),
-        )
-      .copy(regionalWages = in.s2.regionalWages)
+    val finalFlows                = newW.flows.copy(firmBirths = entryStep.firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths)
+    val finalReal                 = newW.real.copy(
+      sectoralMobility = newW.real.sectoralMobility.copy(
+        crossSectorHires = newW.real.sectoralMobility.crossSectorHires + startupStaffing.crossSectorHires,
+      ),
+    )
+    val finalW                    = newW.copy(
+      pipeline = buildPostMonthPipelineState(in),
+      flows = finalFlows,
+      real = finalReal,
+      regionalWages = in.s2.regionalWages,
+    )
     val finalLedgerFinancialState = assembledLedgerFinancialState.copy(
       households = postMigHh.map(LedgerFinancialState.householdBalances),
       firms = LedgerFinancialState.refreshFirmBalances(finalFirms, assembledLedgerFinancialState.firms),

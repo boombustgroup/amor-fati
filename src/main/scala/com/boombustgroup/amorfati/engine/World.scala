@@ -44,11 +44,6 @@ case class World(
 
   def cachedMonthlyGdpProxy: PLN = flows.monthlyGdpProxy
 
-  def updateExternal(f: ExternalState => ExternalState): World = copy(external = f(external))
-  def updateReal(f: RealState => RealState): World             = copy(real = f(real))
-  def updatePipeline(f: PipelineState => PipelineState): World = copy(pipeline = f(pipeline))
-  def updateFlows(f: FlowState => FlowState): World            = copy(flows = f(flows))
-
 // ---------------------------------------------------------------------------
 // Nested state types
 // ---------------------------------------------------------------------------
