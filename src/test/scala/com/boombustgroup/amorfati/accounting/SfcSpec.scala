@@ -9,7 +9,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.engine.flows.{AggregateBatchedEmission, FlowMechanism, RuntimeLedgerTopology}
-import com.boombustgroup.amorfati.engine.ledger.{LedgerStateAdapter, TreasuryRuntimeContract}
+import com.boombustgroup.amorfati.engine.ledger.{FundRuntimeIndex, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
@@ -22,12 +22,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   private val firmAggregateIndex      = zeroPopulationTopology.firms.aggregate
   private val firmServicesIndex       = zeroPopulationTopology.firms.services
   private val householdAggregateIndex = zeroPopulationTopology.households.aggregate
-  private val jstFundIndex            = LedgerStateAdapter.FundIndex.Jst
-  private val zusFundIndex            = LedgerStateAdapter.FundIndex.Zus
-  private val nfzFundIndex            = LedgerStateAdapter.FundIndex.Nfz
-  private val fpFundIndex             = LedgerStateAdapter.FundIndex.Fp
-  private val pfronFundIndex          = LedgerStateAdapter.FundIndex.Pfron
-  private val fgspFundIndex           = LedgerStateAdapter.FundIndex.Fgsp
+  private val jstFundIndex            = FundRuntimeIndex.Jst
+  private val zusFundIndex            = FundRuntimeIndex.Zus
+  private val nfzFundIndex            = FundRuntimeIndex.Nfz
+  private val fpFundIndex             = FundRuntimeIndex.Fp
+  private val pfronFundIndex          = FundRuntimeIndex.Pfron
+  private val fgspFundIndex           = FundRuntimeIndex.Fgsp
   private val treasuryBudgetIndex     = TreasuryRuntimeContract.TreasuryBudgetSettlement.index
   private val taxpayerCollectionIndex = TreasuryRuntimeContract.TaxpayerCollection.index
 

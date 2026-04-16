@@ -285,7 +285,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val lowShadowW    = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.0))
     val highShadowW   = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.4))
     val lowShadowRun  = FlowSimulation.step(
-      FlowSimulation.SimState.fromMirrors(
+      FlowSimulation.SimState.bootstrapFromMirrors(
         SimulationMonth.CompletedMonth.Zero,
         lowShadowW,
         init.firms,
@@ -296,7 +296,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       MonthRandomness.Contract.fromSeed(42L),
     )
     val highShadowRun = FlowSimulation.step(
-      FlowSimulation.SimState.fromMirrors(
+      FlowSimulation.SimState.bootstrapFromMirrors(
         SimulationMonth.CompletedMonth.Zero,
         highShadowW,
         init.firms,

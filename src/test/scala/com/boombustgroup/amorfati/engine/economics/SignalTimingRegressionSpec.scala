@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthRandomness, MonthTraceStage, OperationalSignals, SignalExtraction, World}
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
@@ -21,7 +21,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
   ) =
-    LedgerStateAdapter.captureLedgerFinancialState(world, firms, households, banks)
+    LedgerFinancialState.bootstrapFromMirrors(world, firms, households, banks)
 
   private case class PipelineFixture(
       world: World,

@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState, LedgerStateAdapter}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -255,14 +255,14 @@ object BankingEconomics:
     )
     val ledgerFinancialState      =
       in.ledgerFinancialState.copy(
-        households = multi.reassignedHouseholds.map(LedgerStateAdapter.householdBalances),
-        firms = issuerSettledFirms.map(LedgerStateAdapter.firmBalances),
-        banks = multi.finalBanks.map(LedgerStateAdapter.bankBalances),
-        government = LedgerStateAdapter.governmentBalances(newGovWithForeignHoldings),
-        foreign = LedgerStateAdapter.foreignBalances(newGovWithForeignHoldings),
-        nbp = LedgerStateAdapter.nbpBalances(multi.finalNbp),
-        insurance = LedgerStateAdapter.insuranceBalances(multi.finalInsurance),
-        funds = LedgerStateAdapter.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBonds, multi.finalNbfi, newQuasiFiscal),
+        households = multi.reassignedHouseholds.map(LedgerFinancialState.householdBalances),
+        firms = issuerSettledFirms.map(LedgerFinancialState.firmBalances),
+        banks = multi.finalBanks.map(LedgerFinancialState.bankBalances),
+        government = LedgerFinancialState.governmentBalances(newGovWithForeignHoldings),
+        foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
+        nbp = LedgerFinancialState.nbpBalances(multi.finalNbp),
+        insurance = LedgerFinancialState.insuranceBalances(multi.finalInsurance),
+        funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBonds, multi.finalNbfi, newQuasiFiscal),
       )
     val monAgg                    = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
 

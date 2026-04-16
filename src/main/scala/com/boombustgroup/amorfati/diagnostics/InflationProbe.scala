@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.engine.markets.RegionalClearing
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
@@ -150,7 +150,7 @@ object InflationProbe:
         contract.stages.priceEquityEconomics.newStream(),
       )
       val ledgerFinancialState =
-        LedgerStateAdapter.captureLedgerFinancialState(world, firms, hhs, banks)
+        LedgerFinancialState.bootstrapFromMirrors(world, firms, hhs, banks)
       val s8                   =
         OpenEconEconomics.runStep(
           OpenEconEconomics.StepInput(

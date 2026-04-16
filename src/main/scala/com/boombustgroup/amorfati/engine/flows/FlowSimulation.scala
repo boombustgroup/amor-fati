@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -38,7 +38,7 @@ object FlowSimulation:
   )
 
   object SimState:
-    def fromMirrors(
+    def bootstrapFromMirrors(
         completedMonth: CompletedMonth,
         world: World,
         firms: Vector[Firm.State],
@@ -53,11 +53,11 @@ object FlowSimulation:
         households,
         banks,
         householdAggregates,
-        LedgerStateAdapter.captureLedgerFinancialState(world, firms, households, banks),
+        LedgerFinancialState.bootstrapFromMirrors(world, firms, households, banks),
       )
 
     def fromInit(init: com.boombustgroup.amorfati.init.WorldInit.InitResult): SimState =
-      fromMirrors(CompletedMonth.Zero, init.world, init.firms, init.households, init.banks, init.householdAggregates)
+      bootstrapFromMirrors(CompletedMonth.Zero, init.world, init.firms, init.households, init.banks, init.householdAggregates)
 
   /** Executed aggregate batch deltas on top of an empty runtime ledger shell.
     *

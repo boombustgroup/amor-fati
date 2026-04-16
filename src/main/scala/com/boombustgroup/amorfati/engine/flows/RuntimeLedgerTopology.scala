@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
+import com.boombustgroup.amorfati.engine.ledger.FundRuntimeIndex
 import com.boombustgroup.ledger.*
 
 /** First-class runtime ledger topology derived from the current simulation
@@ -190,17 +190,17 @@ object RuntimeLedgerTopology:
     val sectorSize: Int     = 2
 
   final case class Funds():
-    val zus: Int            = LedgerStateAdapter.FundIndex.Zus
-    val nfz: Int            = LedgerStateAdapter.FundIndex.Nfz
-    val ppk: Int            = LedgerStateAdapter.FundIndex.Ppk
-    val fp: Int             = LedgerStateAdapter.FundIndex.Fp
-    val pfron: Int          = LedgerStateAdapter.FundIndex.Pfron
-    val fgsp: Int           = LedgerStateAdapter.FundIndex.Fgsp
-    val jst: Int            = LedgerStateAdapter.FundIndex.Jst
-    val corpBondOther: Int  = LedgerStateAdapter.FundIndex.CorpBondOther
-    val nbfi: Int           = LedgerStateAdapter.FundIndex.Nbfi
-    val quasiFiscal: Int    = LedgerStateAdapter.FundIndex.QuasiFiscal
-    val supportedCount: Int = LedgerStateAdapter.FundIndex.Count
+    val zus: Int            = FundRuntimeIndex.Zus
+    val nfz: Int            = FundRuntimeIndex.Nfz
+    val ppk: Int            = FundRuntimeIndex.Ppk
+    val fp: Int             = FundRuntimeIndex.Fp
+    val pfron: Int          = FundRuntimeIndex.Pfron
+    val fgsp: Int           = FundRuntimeIndex.Fgsp
+    val jst: Int            = FundRuntimeIndex.Jst
+    val corpBondOther: Int  = FundRuntimeIndex.CorpBondOther
+    val nbfi: Int           = FundRuntimeIndex.Nbfi
+    val quasiFiscal: Int    = FundRuntimeIndex.QuasiFiscal
+    val supportedCount: Int = FundRuntimeIndex.Count
     val bondholders: Int    = supportedCount
     val bondMarket: Int     = supportedCount + 1
     val markets: Int        = supportedCount + 2

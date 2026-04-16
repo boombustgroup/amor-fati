@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.ledger.{LedgerBoundaryProjection, LedgerFinancialState, LedgerStateAdapter}
+import com.boombustgroup.amorfati.engine.ledger.{LedgerBoundaryProjection, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, InformalEconomy, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
@@ -279,9 +279,9 @@ object WorldAssemblyEconomics:
         )
       .copy(regionalWages = in.s2.regionalWages)
     val finalLedgerFinancialState = assembledLedgerFinancialState.copy(
-      households = postMigHh.map(LedgerStateAdapter.householdBalances),
-      firms = finalFirms.map(LedgerStateAdapter.firmBalances),
-      banks = in.s9.banks.map(LedgerStateAdapter.bankBalances),
+      households = postMigHh.map(LedgerFinancialState.householdBalances),
+      firms = finalFirms.map(LedgerFinancialState.firmBalances),
+      banks = in.s9.banks.map(LedgerFinancialState.bankBalances),
     )
     PostResult(
       finalW,

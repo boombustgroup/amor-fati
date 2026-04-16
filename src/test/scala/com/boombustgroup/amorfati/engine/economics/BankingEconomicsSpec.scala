@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals, World}
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -23,7 +23,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
   ) =
-    LedgerStateAdapter.captureLedgerFinancialState(world, firms, households, banks)
+    LedgerFinancialState.bootstrapFromMirrors(world, firms, households, banks)
 
   "BankingEconomics (own Input)" should "produce flows that close at SFC == 0L" in {
     val init            = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))

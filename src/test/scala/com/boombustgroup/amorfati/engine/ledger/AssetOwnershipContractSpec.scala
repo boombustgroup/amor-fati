@@ -15,13 +15,13 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "preserve fund-slot granularity in supported persisted pairs" in {
-    supportedPairs should contain(SupportedPair(SectorId.Fixed(EntitySector.Funds, LedgerStateAdapter.FundIndex.Zus), AssetType.Cash))
+    supportedPairs should contain(SupportedPair(SectorId.Fixed(EntitySector.Funds, FundRuntimeIndex.Zus), AssetType.Cash))
     supportedPairs should not contain SupportedPair(
-      SectorId.Fixed(EntitySector.Funds, LedgerStateAdapter.FundIndex.QuasiFiscal),
+      SectorId.Fixed(EntitySector.Funds, FundRuntimeIndex.QuasiFiscal),
       AssetType.Cash,
     )
-    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, LedgerStateAdapter.FundIndex.Zus) shouldBe true
-    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, LedgerStateAdapter.FundIndex.QuasiFiscal) shouldBe false
+    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, FundRuntimeIndex.Zus) shouldBe true
+    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, FundRuntimeIndex.QuasiFiscal) shouldBe false
   }
 
   it should "track currently unsupported persisted families explicitly" in {

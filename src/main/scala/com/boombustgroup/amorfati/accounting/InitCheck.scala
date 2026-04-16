@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.accounting
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
+import com.boombustgroup.amorfati.engine.ledger.GovernmentBondCircuit
 import com.boombustgroup.amorfati.types.*
 
 /** Pure init-time stock validation.
@@ -42,7 +42,7 @@ object InitCheck:
   ): Vector[InitCheckResult] =
     val levelTol   = PLN(0.01)
     val perBankTol = PLN(1.0)
-    val bonds      = LedgerStateAdapter.GovernmentBondCircuit(
+    val bonds      = GovernmentBondCircuit(
       outstanding = snapshot.bondsOutstanding,
       bankHoldings = snapshot.bankBondHoldings,
       foreignHoldings = snapshot.foreignBondHoldings,
