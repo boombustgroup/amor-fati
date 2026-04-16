@@ -1,8 +1,9 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Insurance, Nbfi, Nbp}
+import com.boombustgroup.amorfati.agents.{Insurance, Nbfi, Nbp, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.SocialState
-import com.boombustgroup.amorfati.engine.markets.FiscalBudget
+import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
+import com.boombustgroup.amorfati.types.PLN
 
 /** One-way projection from ledger-owned financial state into boundary views.
   *
@@ -81,4 +82,23 @@ object LedgerBoundaryProjection:
       credit = base.credit.copy(
         nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
       ),
+    )
+
+  def corporateBondState(
+      base: CorporateBondMarket.State,
+      ledgerFinancialState: LedgerFinancialState,
+  ): CorporateBondMarket.State =
+    base.copy(
+      bankHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond),
+      ppkHoldings = ledgerFinancialState.funds.ppkCorpBondHoldings,
+      otherHoldings = ledgerFinancialState.funds.corpBondOtherHoldings,
+    )
+
+  def quasiFiscalState(
+      base: QuasiFiscal.State,
+      ledgerFinancialState: LedgerFinancialState,
+  ): QuasiFiscal.State =
+    base.copy(
+      bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
+      loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
     )
