@@ -492,15 +492,4 @@ object AssetOwnershipContract:
       .filter(_.asset == asset)
       .exists(_.matches(sector, index))
 
-  def requireSupportedPersistedPair(
-      sector: EntitySector,
-      asset: AssetType,
-      index: Int,
-      context: String,
-  ): Unit =
-    require(
-      isSupportedPersistedPair(sector, asset, index),
-      s"$context attempted to use unsupported ledger pair ($sector, $asset, $index).",
-    )
-
 end AssetOwnershipContract
