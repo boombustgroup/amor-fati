@@ -4,7 +4,6 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.ComputationBoundary
 import org.scalatest.flatspec.AnyFlatSpec
@@ -55,15 +54,19 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     w.gov.domesticBudgetOutlays.should(be >= w.gov.domesticBudgetDemand)
   }
 
-  it should "keep world mirrors aligned with LedgerFinancialState after assembly" in {
+  it should "project LedgerFinancialState into world boundary mirrors after assembly" in {
     val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state     = FlowSimulation.SimState.fromInit(init)
     val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
+    val ledger    = nextState.ledgerFinancialState
+    val world     = nextState.world
 
-    LedgerStateAdapter.captureLedgerFinancialState(
-      nextState.world,
-      nextState.firms,
-      nextState.households,
-      nextState.banks,
-    ) shouldBe nextState.ledgerFinancialState
+    world.gov.bondsOutstanding shouldBe ledger.government.govBondOutstanding
+    world.gov.foreignBondHoldings shouldBe ledger.foreign.govBondHoldings
+    world.nbp.govBondHoldings shouldBe ledger.nbp.govBondHoldings
+    world.nbp.fxReserves shouldBe ledger.nbp.foreignAssets
+    world.financial.insurance.lifeReserves shouldBe ledger.insurance.lifeReserve
+    world.financial.nbfi.tfiAum shouldBe ledger.funds.nbfi.tfiUnit
+    world.social.jst.deposits shouldBe ledger.funds.jstCash
+    world.financial.quasiFiscal.bondsOutstanding shouldBe ledger.funds.quasiFiscal.bondsOutstanding
   }

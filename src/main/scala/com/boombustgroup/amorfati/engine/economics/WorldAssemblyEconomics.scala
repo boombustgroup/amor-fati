@@ -28,7 +28,7 @@ object WorldAssemblyEconomics:
       firms: Vector[Firm.State],                  // pre-step firm population
       households: Vector[Household.State],        // pre-step household population
       banks: Vector[Banking.BankState],           // pre-step bank population
-      ledgerFinancialState: LedgerFinancialState, // ledger-backed supported financial source of truth
+      ledgerFinancialState: LedgerFinancialState, // ledger-backed financial source of truth
       s1: FiscalConstraintEconomics.Output,       // fiscal constraint (month, reservation wage, lending base rate)
       s2: LaborEconomics.Output,                  // labor/demographics (wage, employment, ZUS, PPK)
       s3: HouseholdIncomeEconomics.Output,        // household income (consumption, PIT, import propensity)
@@ -447,8 +447,8 @@ object WorldAssemblyEconomics:
       informal: InformalResult,
       obs: Observables,
   ): (World, LedgerFinancialState) =
-    val ledgerFinancialState = LedgerStateAdapter.roundTripLedgerFinancialState(buildLedgerFinancialState(in))
-    val corporateBondCircuit = LedgerStateAdapter.corporateBondCircuit(ledgerFinancialState)
+    val ledgerFinancialState = buildLedgerFinancialState(in)
+    val bankCorpBondHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond)
     val projectedSocial      = LedgerStateAdapter.projectSocialState(
       SocialState(
         jst = in.s9.newJst,
@@ -482,9 +482,9 @@ object WorldAssemblyEconomics:
       financial = FinancialMarketsState(
         equity = equityAfterStep,
         corporateBonds = in.s8.corpBonds.newCorpBonds.copy(
-          bankHoldings = corporateBondCircuit.bankHoldings,
-          ppkHoldings = corporateBondCircuit.ppkHoldings,
-          otherHoldings = corporateBondCircuit.otherHoldings,
+          bankHoldings = bankCorpBondHoldings,
+          ppkHoldings = ledgerFinancialState.funds.ppkCorpBondHoldings,
+          otherHoldings = ledgerFinancialState.funds.corpBondOtherHoldings,
         ),
         insurance = LedgerStateAdapter.projectInsuranceState(in.s9.finalInsurance, ledgerFinancialState),
         nbfi = LedgerStateAdapter.projectNbfiState(in.s9.finalNbfi, ledgerFinancialState),

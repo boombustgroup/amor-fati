@@ -4,7 +4,6 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
@@ -20,8 +19,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private val init                     = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
   private val w                        = init.world
-  private val baseLedgerFinancialState =
-    LedgerStateAdapter.captureLedgerFinancialState(w, init.firms, init.households, init.banks)
+  private val baseLedgerFinancialState = FlowSimulation.SimState.fromInit(init).ledgerFinancialState
   private val rng                      = RandomStream.seeded(TestSeed)
 
   // Run pipeline through Economics objects

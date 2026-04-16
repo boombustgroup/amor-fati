@@ -5,7 +5,6 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
@@ -25,8 +24,7 @@ class FullMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   private val initResult = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
   private val w          = initResult.world
-  private val ledger     =
-    LedgerStateAdapter.captureLedgerFinancialState(w, initResult.firms, initResult.households, initResult.banks)
+  private val ledger     = FlowSimulation.SimState.fromInit(initResult).ledgerFinancialState
 
   /** Run pipeline for one month using Economics objects. */
   private def runFullMonth: Vector[Flow] =

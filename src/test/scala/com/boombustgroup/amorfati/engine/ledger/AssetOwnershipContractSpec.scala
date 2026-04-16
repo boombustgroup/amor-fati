@@ -7,8 +7,6 @@ import org.scalatest.matchers.should.Matchers
 
 class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
 
-  import LedgerTestFixtures.enrichedSimState
-
   "AssetOwnershipContract" should "classify every public ledger asset exactly once" in {
     val grouped = publicAssets.groupBy(_.asset)
 
@@ -16,14 +14,7 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
     grouped.values.foreach(_ should have size 1)
   }
 
-  it should "accept every materialized adapter balance and preserve fund-slot granularity" in {
-    val runtime = enrichedSimState()
-    val ledger  = LedgerStateAdapter.toMutableWorldState(runtime)
-
-    ledger.snapshot.keySet.foreach { case (sector, asset, index) =>
-      isSupportedPersistedPair(sector, asset, index) shouldBe true
-    }
-
+  it should "preserve fund-slot granularity in supported persisted pairs" in {
     supportedPairs should contain(SupportedPair(SectorId.Fixed(EntitySector.Funds, LedgerStateAdapter.FundIndex.Zus), AssetType.Cash))
     supportedPairs should not contain SupportedPair(
       SectorId.Fixed(EntitySector.Funds, LedgerStateAdapter.FundIndex.QuasiFiscal),
@@ -34,6 +25,8 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "track currently unsupported persisted families explicitly" in {
+    import LedgerTestFixtures.enrichedSimState
+
     val runtime = enrichedSimState()
 
     presentUnsupportedFamilies(runtime) shouldBe unsupportedFamilies.map(_.id).toSet
