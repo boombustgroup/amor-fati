@@ -18,6 +18,7 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
     reserveInterest = PLN(500000.0),
     standingFacilityIncome = PLN(100000.0),
     interbankInterest = PLN(200000.0),
+    corpBondDefaultLoss = PLN(50000.0),
     bfgLevy = PLN(400000.0),
     unrealizedBondLoss = PLN(150000.0),
     bailInLoss = PLN.Zero,
@@ -37,7 +38,7 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
 
     val income   = baseInput.govBondIncome + baseInput.reserveInterest + baseInput.standingFacilityIncome + baseInput.interbankInterest
-    val outflows = baseInput.bfgLevy + baseInput.unrealizedBondLoss + baseInput.nbpRemittance
+    val outflows = baseInput.corpBondDefaultLoss + baseInput.bfgLevy + baseInput.unrealizedBondLoss + baseInput.nbpRemittance
     val bailIn   = baseInput.bailInLoss
 
     balances(BankingFlows.BANK_ACCOUNT) shouldBe (income - outflows + bailIn).toLong
@@ -135,6 +136,7 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
           val batches           = BankingFlows.emitBatches(baseInput)(using topology)
           val capitalMechanisms = Set(
             FlowMechanism.BankGovBondIncome,
+            FlowMechanism.BankCorpBondLoss,
             FlowMechanism.BankBfgLevy,
             FlowMechanism.BankUnrealizedLoss,
             FlowMechanism.BankNbpRemittance,

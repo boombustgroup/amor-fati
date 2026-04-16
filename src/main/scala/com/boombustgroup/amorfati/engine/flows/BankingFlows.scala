@@ -9,13 +9,15 @@ import com.boombustgroup.ledger.*
   * Aggregate level: all income and loss items that affect bank capital. Deposit
   * interest and consumer credit flows already in HouseholdFlows. Firm loan
   * interest and NPL already in FirmFlows. Mortgage flows already in
-  * MortgageFlows. Corp bond flows already in CorpBondFlows.
+  * MortgageFlows. Corporate bond principal flows are in CorpBondFlows; bank
+  * loss recognition is capital P&L here.
   *
   * This mechanism captures the REMAINING bank-specific flows: gov bond income,
   * reserve/standing facility/interbank interest, BFG levy, unrealized bond
   * losses, bail-in, NBP remittance.
   *
-  * Account IDs: 0=Bank, 1=NBP, 2=Gov (BFG levy), 3=Depositors (bail-in)
+  * Account IDs: 0=Bank, 1=NBP, 2=Gov (BFG levy), 3=Depositors (bail-in), 4=Corp
+  * bond loss settlement
   */
 object BankingFlows:
 
@@ -23,12 +25,14 @@ object BankingFlows:
   val NBP_ACCOUNT: Int       = 1
   val GOV_ACCOUNT: Int       = 2
   val DEPOSITOR_ACCOUNT: Int = 3
+  val LOSS_ACCOUNT: Int      = 4
 
   case class Input(
       govBondIncome: PLN,
       reserveInterest: PLN,
       standingFacilityIncome: PLN,
       interbankInterest: PLN,
+      corpBondDefaultLoss: PLN,
       bfgLevy: PLN,
       unrealizedBondLoss: PLN,
       bailInLoss: PLN,
@@ -87,6 +91,15 @@ object BankingFlows:
           FlowMechanism.BankInterbankInterest,
         )
       else Vector.empty,
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        topology.banks.aggregate,
+        EntitySector.Funds,
+        topology.funds.bondholders,
+        input.corpBondDefaultLoss,
+        AssetType.Capital,
+        FlowMechanism.BankCorpBondLoss,
+      ),
       AggregateBatchedEmission.signedTransfer(
         EntitySector.NBP,
         NbpRuntimeContract.ReserveSettlementLiability.index,
@@ -159,6 +172,8 @@ object BankingFlows:
       flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.interbankInterest.toLong, FlowMechanism.BankInterbankInterest.toInt)
     else if input.interbankInterest < PLN.Zero then
       flows += Flow(BANK_ACCOUNT, NBP_ACCOUNT, (-input.interbankInterest).toLong, FlowMechanism.BankInterbankInterest.toInt)
+    if input.corpBondDefaultLoss > PLN.Zero then
+      flows += Flow(BANK_ACCOUNT, LOSS_ACCOUNT, input.corpBondDefaultLoss.toLong, FlowMechanism.BankCorpBondLoss.toInt)
     if input.fxReserveSettlement > PLN.Zero then flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.fxReserveSettlement.toLong, FlowMechanism.NbpFxSettlement.toInt)
     else if input.fxReserveSettlement < PLN.Zero then
       flows += Flow(BANK_ACCOUNT, NBP_ACCOUNT, (-input.fxReserveSettlement).toLong, FlowMechanism.NbpFxSettlement.toInt)

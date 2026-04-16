@@ -15,7 +15,6 @@ class FirmFlowsSpec extends AnyFlatSpec with Matchers:
     interestPaid = PLN(2000000.0),
     capex = PLN(1500000.0),
     equityIssuance = PLN(1000000.0),
-    bondIssuance = PLN(800000.0),
     ioPayments = PLN(10000000.0),
     nplDefault = PLN(500000.0),
     profitShifting = PLN(300000.0),
@@ -33,7 +32,7 @@ class FirmFlowsSpec extends AnyFlatSpec with Matchers:
     val flows    = FirmFlows.emit(baseInput)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
 
-    val inflows  = baseInput.newLoans + baseInput.equityIssuance + baseInput.bondIssuance
+    val inflows  = baseInput.newLoans + baseInput.equityIssuance
     val outflows = baseInput.wages + baseInput.cit + baseInput.loanRepayment +
       baseInput.interestPaid + baseInput.capex + baseInput.ioPayments +
       baseInput.nplDefault + baseInput.profitShifting + baseInput.fdiRepatriation +
@@ -52,7 +51,20 @@ class FirmFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "skip zero-amount flows" in {
     val minimal =
-      FirmFlows.Input(PLN(1000000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+      FirmFlows.Input(
+        wages = PLN(1000000.0),
+        cit = PLN.Zero,
+        loanRepayment = PLN.Zero,
+        newLoans = PLN.Zero,
+        interestPaid = PLN.Zero,
+        capex = PLN.Zero,
+        equityIssuance = PLN.Zero,
+        ioPayments = PLN.Zero,
+        nplDefault = PLN.Zero,
+        profitShifting = PLN.Zero,
+        fdiRepatriation = PLN.Zero,
+        grossInvestment = PLN.Zero,
+      )
     val flows   = FirmFlows.emit(minimal)
     flows.length shouldBe 1
     flows.head.mechanism shouldBe FlowMechanism.FirmWages.toInt

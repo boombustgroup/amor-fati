@@ -6,7 +6,7 @@ import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Grand Unification Test: ALL 14 flow mechanisms fired together.
+/** Grand Unification Test: representative flow mechanisms fired together.
   *
   * Proves that the entire economy's monetary flows close at SFC == 0L when
   * composed through the verified interpreter. Uses realistic aggregate values
@@ -51,7 +51,6 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
           PLN(2000000.0),
           PLN(1500000.0),
           PLN(1000000.0),
-          PLN(800000.0),
           PLN(10000000.0),
           PLN(500000.0),
           PLN(300000.0),
@@ -111,6 +110,7 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
           PLN(500000.0),
           PLN(100000.0),
           PLN(200000.0),
+          PLN(50000.0),
           PLN(400000.0),
           PLN(150000.0),
           PLN.Zero,
@@ -121,7 +121,7 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-  "Composite flows (all 14 mechanisms)" should "preserve total wealth at exactly 0L" in {
+  "Composite flows" should "preserve total wealth at exactly 0L" in {
     val flows    = allFlows
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L

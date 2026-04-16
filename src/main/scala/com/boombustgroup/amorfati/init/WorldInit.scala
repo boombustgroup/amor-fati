@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.init
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.*
 import com.boombustgroup.amorfati.engine.*
+import com.boombustgroup.amorfati.engine.ledger.CorporateBondOwnership
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.{Macroprudential, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
@@ -18,7 +19,9 @@ object WorldInit:
     import ComputationBoundary.toDouble
 
     // --- Firms ---
-    val firms = FirmInit.create(randomness.firms.newStreams())
+    val initCorporateBonds = CorporateBondMarket.initial
+    val firms0             = FirmInit.create(randomness.firms.newStreams())
+    val firms              = CorporateBondOwnership.initializeIssuerDebt(firms0, initCorporateBonds.outstanding)
     assert(firms.length == p.pop.firmsCount)
 
     // --- Households ---
@@ -137,7 +140,7 @@ object WorldInit:
       ),
       financial = FinancialMarketsState(
         equity = EquityInit.create(totalPop),
-        corporateBonds = CorporateBondMarket.initial,
+        corporateBonds = initCorporateBonds,
         insurance = initInsurance,
         nbfi = initNbfi,
         quasiFiscal = QuasiFiscal.State.zero,

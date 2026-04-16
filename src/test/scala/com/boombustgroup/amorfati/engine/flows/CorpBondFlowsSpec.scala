@@ -13,11 +13,11 @@ class CorpBondFlowsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(balances) shouldBe 0L
   }
 
-  it should "have firm balance = issuance - coupon - default - amortization" in {
+  it should "have firm balance = issuance - coupon - default amount - amortization" in {
     val input    = CorpBondFlows.Input(PLN(300000.0), PLN(50000.0), PLN(1000000.0), PLN(200000.0))
     val flows    = CorpBondFlows.emit(input)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
-    balances(CorpBondFlows.FIRM_ACCOUNT) shouldBe (input.issuance - input.coupon - input.defaultLoss - input.amortization).toLong
+    balances(CorpBondFlows.FIRM_ACCOUNT) shouldBe (input.issuance - input.coupon - input.defaultAmount - input.amortization).toLong
   }
 
   it should "preserve SFC across 120 months" in {

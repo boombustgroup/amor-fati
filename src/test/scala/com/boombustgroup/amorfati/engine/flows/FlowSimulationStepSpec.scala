@@ -13,6 +13,7 @@ import com.boombustgroup.amorfati.engine.{
   MonthTraceStage,
   SimulationMonth,
 }
+import com.boombustgroup.amorfati.engine.ledger.CorporateBondOwnership
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
@@ -48,6 +49,21 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.execution.netDelta shouldBe 0L
     result.sfcResult shouldBe Right(())
     result.calculus.employed should be > 0
+  }
+
+  it should "keep corporate bond outstanding ledger-owned across month boundaries" in {
+    val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state       = FlowSimulation.SimState.fromInit(init)
+    val initialDebt = CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState)
+
+    initialDebt shouldBe CorporateBondOwnership.issuerOutstanding(state.firms)
+    initialDebt shouldBe state.world.financial.corporateBonds.outstanding
+
+    val result   = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val nextDebt = CorporateBondOwnership.issuerOutstanding(result.nextState.ledgerFinancialState)
+
+    nextDebt shouldBe CorporateBondOwnership.issuerOutstanding(result.nextState.firms)
+    nextDebt shouldBe result.nextState.world.financial.corporateBonds.outstanding
   }
 
   it should "derive runtime ledger topology from actual populations plus explicit shell slots" in {

@@ -154,6 +154,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
       ),
       financial = w.financial.copy(
         corporateBonds = w.financial.corporateBonds.copy(
+          outstanding = w.financial.corporateBonds.outstanding + PLN(110),
           bankHoldings = w.financial.corporateBonds.bankHoldings + PLN(111),
           ppkHoldings = w.financial.corporateBonds.ppkHoldings + PLN(112),
           otherHoldings = w.financial.corporateBonds.otherHoldings + PLN(113),
@@ -253,6 +254,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     val mismatchedWorld = w.copy(
       financial = w.financial.copy(
         corporateBonds = w.financial.corporateBonds.copy(
+          outstanding = w.financial.corporateBonds.outstanding + PLN(110),
           bankHoldings = w.financial.corporateBonds.bankHoldings + PLN(111),
           ppkHoldings = w.financial.corporateBonds.ppkHoldings + PLN(112),
           otherHoldings = w.financial.corporateBonds.otherHoldings + PLN(113),

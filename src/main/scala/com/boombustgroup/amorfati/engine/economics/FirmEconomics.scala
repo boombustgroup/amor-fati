@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{OperationalSignals, World}
+import com.boombustgroup.amorfati.engine.ledger.CorporateBondOwnership
 import com.boombustgroup.amorfati.engine.markets.{CalvoPricing, CorporateBondMarket, IntermediateMarket, LaborMarket}
 import com.boombustgroup.amorfati.types.*
 
@@ -126,14 +127,15 @@ object FirmEconomics:
 
   /** Result of NPL and interest computation (phase 6). */
   private case class NplResult(
-      nplNew: PLN,                   // new NPL volume from bankruptcies
-      nplLoss: PLN,                  // NPL loss net of recovery
-      totalBondDefault: PLN,         // bond default from bankrupt firms
-      firmDeaths: Int,               // count of newly bankrupt firms
-      intIncome: PLN,                // aggregate bank interest income
-      perBankNplDebt: Vector[PLN],   // NPL debt by bank index
-      perBankIntIncome: Vector[PLN], // interest income by bank index
-      perBankWorkers: Vector[Int],   // worker count by bank index
+      nplNew: PLN,                      // new NPL volume from bankruptcies
+      nplLoss: PLN,                     // NPL loss net of recovery
+      totalBondDefault: PLN,            // bond default from bankrupt firms
+      firmDeaths: Int,                  // count of newly bankrupt firms
+      intIncome: PLN,                   // aggregate bank interest income
+      perBankNplDebt: Vector[PLN],      // NPL debt by bank index
+      perBankIntIncome: Vector[PLN],    // interest income by bank index
+      perBankWorkers: Vector[Int],      // worker count by bank index
+      defaultedBondFirmIds: Set[FirmId], // firms whose issuer liability defaulted this month
   )
 
   // ---- Public I/O types ----
@@ -357,8 +359,9 @@ object FirmEconomics:
       f.copy(markup = calvo.newMarkup)
     val (finalHouseholds, crossSectorHires) = processLaborMarket(calvoFirms, stepIn, rng)
     val npl                                 = computeNplAndInterest(stepIn.firms, calvoFirms, lending)
+    val issuerSettledFirms                  = CorporateBondOwnership.clearDefaultedIssuerDebt(calvoFirms, npl.defaultedBondFirmIds)
     val markupInfl                          = CalvoPricing.aggregateMarkupInflation(calvoFirms, ioFirms).annualize
-    assembleOutput(fp, bonded, calvoFirms, totalIoPaid, finalHouseholds, crossSectorHires, npl, stepIn, lending, markupInfl)
+    assembleOutput(fp, bonded, issuerSettledFirms, totalIoPaid, finalHouseholds, crossSectorHires, npl, stepIn, lending, markupInfl)
 
   // ---- Internal step input (mirrors old FirmProcessingStep.Input) ----
 
@@ -589,6 +592,7 @@ object FirmEconomics:
       perBankNplDebt,
       perBankIntIncome,
       perBankWorkers,
+      newlyDead.map(_.id).toSet,
     )
 
   // ---- Output assembly ----

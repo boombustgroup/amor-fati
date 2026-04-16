@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState, LedgerStateAdapter}
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -231,7 +231,7 @@ object BankingEconomics:
       housing.mortgageFlows,
       wf,
     )
-    val monAgg               = computeMonetaryAggregates(multi.finalBanks, in)
+    val issuerSettledFirms   = CorporateBondOwnership.applyAmortization(multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
 
     val newQuasiFiscal =
       QuasiFiscal.step(
@@ -256,7 +256,7 @@ object BankingEconomics:
     val ledgerFinancialState      =
       in.ledgerFinancialState.copy(
         households = multi.reassignedHouseholds.map(LedgerStateAdapter.householdBalances),
-        firms = multi.reassignedFirms.map(LedgerStateAdapter.firmBalances),
+        firms = issuerSettledFirms.map(LedgerStateAdapter.firmBalances),
         banks = multi.finalBanks.map(LedgerStateAdapter.bankBalances),
         government = LedgerStateAdapter.governmentBalances(newGovWithForeignHoldings),
         foreign = LedgerStateAdapter.foreignBalances(newGovWithForeignHoldings),
@@ -264,12 +264,13 @@ object BankingEconomics:
         insurance = LedgerStateAdapter.insuranceBalances(multi.finalInsurance),
         funds = LedgerStateAdapter.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBonds, multi.finalNbfi, newQuasiFiscal),
       )
+    val monAgg                    = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
 
     StepOutput(
       resolvedBank = multi.resolvedBank,
       banks = multi.finalBanks,
       bankingMarket = multi.finalBankingMarket,
-      reassignedFirms = multi.reassignedFirms,
+      reassignedFirms = issuerSettledFirms,
       reassignedHouseholds = multi.reassignedHouseholds,
       finalNbp = multi.finalNbp,
       finalPpk = multi.finalPpk,
@@ -984,13 +985,13 @@ object BankingEconomics:
   /** Monetary aggregates (M0/M1/M2/M3) when credit diagnostics enabled. */
   private def computeMonetaryAggregates(
       finalBanks: Vector[Banking.BankState],
-      in: StepInput,
+      ledgerFinancialState: LedgerFinancialState,
   ): Option[Banking.MonetaryAggregates] =
     Some(
       Banking.MonetaryAggregates.compute(
         finalBanks,
-        in.ledgerFinancialState.funds.nbfi.tfiUnit,
-        PLN.fromRaw(in.ledgerFinancialState.firms.map(_.corpBond.toLong).sum),
+        ledgerFinancialState.funds.nbfi.tfiUnit,
+        CorporateBondOwnership.issuerOutstanding(ledgerFinancialState),
       ),
     )
 

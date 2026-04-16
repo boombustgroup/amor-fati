@@ -149,7 +149,6 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
         interestPaid = resultR.intIncome,
         capex = resultR.capex,
         equityIssuance = resultR.equityIssuance,
-        bondIssuance = resultR.actualBondIssuance,
         ioPayments = resultR.ioPayments,
         nplDefault = resultR.nplLoss,
         profitShifting = resultR.profitShifting,
