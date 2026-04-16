@@ -524,24 +524,7 @@ object WorldAssemblyEconomics:
     (world, ledgerFinancialState)
 
   private def buildLedgerFinancialState(in: StepInput): LedgerFinancialState =
-    val social = SocialState(
-      jst = in.s9.newJst,
-      zus = in.s2.newZus,
-      nfz = in.s2.newNfz,
-      ppk = in.s9.finalPpk,
-      demographics = in.s2.newDemographics,
-      earmarked = in.s2.newEarmarked,
-    )
-    in.ledgerFinancialState.copy(
-      households = in.s9.reassignedHouseholds.map(LedgerStateAdapter.householdBalances),
-      firms = in.s9.reassignedFirms.map(LedgerStateAdapter.firmBalances),
-      banks = in.s9.banks.map(LedgerStateAdapter.bankBalances),
-      government = LedgerStateAdapter.governmentBalances(in.s9.newGovWithYield),
-      foreign = LedgerStateAdapter.foreignBalances(in.s9.newGovWithYield),
-      nbp = LedgerStateAdapter.nbpBalances(in.s9.finalNbp),
-      insurance = LedgerStateAdapter.insuranceBalances(in.s9.finalInsurance),
-      funds = LedgerStateAdapter.fundBalances(social, in.s8.corpBonds.newCorpBonds, in.s9.finalNbfi, in.s9.newQuasiFiscal),
-    )
+    in.s9.ledgerFinancialState
 
   private def buildPostMonthPipelineState(in: StepInput): PipelineState =
     in.w.pipeline

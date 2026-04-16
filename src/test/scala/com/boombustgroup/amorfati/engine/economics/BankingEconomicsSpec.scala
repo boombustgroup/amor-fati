@@ -96,40 +96,63 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val res = BankingEconomics.compute(
-      BankingEconomics.Input(
-        w = w,
-        ledgerFinancialState = ledgerState(w, init.firms, init.households, init.banks),
-        month = s1.m,
-        lendingBaseRate = s1.lendingBaseRate,
-        resWage = s1.resWage,
-        baseMinWage = s1.baseMinWage,
-        minWagePriceLevel = s1.updatedMinWagePriceLevel,
-        employed = s2.employed,
-        newWage = s2.newWage,
-        laborDemand = s2.laborDemand,
-        wageGrowth = s2.wageGrowth,
-        govPurchases = s4.govPurchases,
-        avgDemandMult = s4.avgDemandMult,
-        sectorCapReal = s4.sectorCapReal,
-        laggedInvestDemand = s4.laggedInvestDemand,
-        fiscalRuleStatus = s4.fiscalRuleStatus,
-        laborOutput = s2,
-        operationalSignals = OperationalSignals(
-          sectorDemandMult = s4.sectorMults,
-          sectorDemandPressure = s4.sectorDemandPressure,
-          sectorHiringSignal = s4.sectorHiringSignal,
-          operationalHiringSlack = s2.operationalHiringSlack,
-        ),
-        hhOutput = s3,
-        firmOutput = s5,
-        hhFinancialOutput = s6,
-        priceEquityOutput = s7,
-        openEconOutput = s8,
-        banks = init.banks,
-        depositRng = stageRandomness.bankingEconomics,
+    val bankingInput = BankingEconomics.Input(
+      w = w,
+      ledgerFinancialState = ledgerState(w, init.firms, init.households, init.banks),
+      month = s1.m,
+      lendingBaseRate = s1.lendingBaseRate,
+      resWage = s1.resWage,
+      baseMinWage = s1.baseMinWage,
+      minWagePriceLevel = s1.updatedMinWagePriceLevel,
+      employed = s2.employed,
+      newWage = s2.newWage,
+      laborDemand = s2.laborDemand,
+      wageGrowth = s2.wageGrowth,
+      govPurchases = s4.govPurchases,
+      avgDemandMult = s4.avgDemandMult,
+      sectorCapReal = s4.sectorCapReal,
+      laggedInvestDemand = s4.laggedInvestDemand,
+      fiscalRuleStatus = s4.fiscalRuleStatus,
+      laborOutput = s2,
+      operationalSignals = OperationalSignals(
+        sectorDemandMult = s4.sectorMults,
+        sectorDemandPressure = s4.sectorDemandPressure,
+        sectorHiringSignal = s4.sectorHiringSignal,
+        operationalHiringSlack = s2.operationalHiringSlack,
+      ),
+      hhOutput = s3,
+      firmOutput = s5,
+      hhFinancialOutput = s6,
+      priceEquityOutput = s7,
+      openEconOutput = s8,
+      banks = init.banks,
+      depositRng = stageRandomness.bankingEconomics,
+    )
+    val s9           = BankingEconomics.runStep(
+      BankingEconomics.StepInput(
+        w,
+        bankingInput.ledgerFinancialState,
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        s8,
+        init.banks,
+        stageRandomness.bankingEconomics,
       ),
     )
+    val res          = BankingEconomics.toResult(s9, bankingInput)
+
+    s9.ledgerFinancialState.government.govBondOutstanding shouldBe s9.newGovWithYield.bondsOutstanding
+    s9.ledgerFinancialState.foreign.govBondHoldings shouldBe s9.newGovWithYield.foreignBondHoldings
+    s9.ledgerFinancialState.nbp.govBondHoldings shouldBe s9.finalNbp.govBondHoldings
+    s9.ledgerFinancialState.insurance.govBondHoldings shouldBe s9.finalInsurance.govBondHoldings
+    s9.ledgerFinancialState.funds.ppkGovBondHoldings shouldBe s9.finalPpk.bondHoldings
+    s9.ledgerFinancialState.funds.nbfi.tfiUnit shouldBe s9.finalNbfi.tfiAum
+    s9.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding shouldBe s9.newQuasiFiscal.bondsOutstanding
 
     val flows = BankingFlows.emit(
       BankingFlows.Input(
