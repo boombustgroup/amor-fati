@@ -288,7 +288,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   "Sfc.snapshot" should "correctly sum firm cash and debt" in {
     val w     = makeWorld()
     val firms = makeFirms(5, cash = 10000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, zeroLedger)
     snap.firmCash.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
     snap.firmDebt.bd shouldBe (BigDecimal("25000.0") +- BigDecimal("0.01"))
   }
@@ -297,7 +297,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val w     = makeWorld()
     val firms = makeFirms(1)
     val hhs   = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, hhs, Vector.empty)
+    val snap  = Sfc.snapshot(w, firms, hhs, Vector.empty, zeroLedger)
     snap.hhSavings.bd shouldBe (BigDecimal("200000.0") +- BigDecimal("0.01"))
     snap.hhDebt.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
   }
@@ -305,7 +305,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "return zero HH values with empty household vector" in {
     val w     = makeWorld()
     val firms = makeFirms(1)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, zeroLedger)
     snap.hhSavings shouldBe PLN.Zero
     snap.hhDebt shouldBe PLN.Zero
   }
@@ -336,7 +336,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         corpBondHoldings = PLN.Zero,
       ),
     )
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, banks)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, banks, zeroLedger)
     snap.bankCapital shouldBe PLN(123456.0)
     snap.bankDeposits shouldBe PLN(789012.0)
     snap.bankLoans shouldBe PLN(50000.0)

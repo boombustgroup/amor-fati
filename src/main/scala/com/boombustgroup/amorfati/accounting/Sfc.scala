@@ -263,14 +263,6 @@ object Sfc:
       nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
     )
 
-  def snapshot(
-      w: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-  )(using p: SimParams): StockState =
-    snapshot(w, firms, households, banks, LedgerFinancialState.bootstrapFromMirrors(w, firms, households, banks))
-
   def snapshot(state: RuntimeState): StockState =
     snapshot(state.world, state.firms, state.households, state.banks, state.ledgerFinancialState)
 
