@@ -200,7 +200,7 @@ object HouseholdMarketState:
 /** Non-bank financial sector state. */
 case class FinancialMarketsState(
     equity: EquityMarket.State,                // GPW: index, market cap, returns, dividends
-    corporateBonds: CorporateBondMarket.State, // Catalyst: outstanding, YTM, spread, holdings
+    corporateBonds: CorporateBondMarket.State, // Catalyst pricing and last-month diagnostics; stocks live in LedgerFinancialState
     insurance: Insurance.State,                // life/non-life reserves, three-asset allocation
     nbfi: Nbfi.State,                          // TFI: AUM, NBFI credit, deposit drain
     quasiFiscal: QuasiFiscal.State,            // BGK/PFR: off-balance-sheet bonds, subsidized lending

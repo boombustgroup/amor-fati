@@ -153,14 +153,6 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       financial = w.financial.copy(
-        corporateBonds = w.financial.corporateBonds.copy(
-          outstanding = w.financial.corporateBonds.outstanding + PLN(110),
-          bankHoldings = w.financial.corporateBonds.bankHoldings + PLN(111),
-          ppkHoldings = w.financial.corporateBonds.ppkHoldings + PLN(112),
-          otherHoldings = w.financial.corporateBonds.otherHoldings + PLN(113),
-          insuranceHoldings = w.financial.corporateBonds.insuranceHoldings + PLN(114),
-          nbfiHoldings = w.financial.corporateBonds.nbfiHoldings + PLN(115),
-        ),
         insurance = w.financial.insurance.copy(
           reserves = w.financial.insurance.reserves.copy(
             lifeReserves = w.financial.insurance.lifeReserves + PLN(105),
@@ -252,20 +244,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     fromLedger.insInvestmentIncome shouldBe aligned.insInvestmentIncome
   }
 
-  it should "read corporate bond stocks from LedgerFinancialState in runStep" in {
-    val mismatchedWorld = w.copy(
-      financial = w.financial.copy(
-        corporateBonds = w.financial.corporateBonds.copy(
-          outstanding = w.financial.corporateBonds.outstanding + PLN(110),
-          bankHoldings = w.financial.corporateBonds.bankHoldings + PLN(111),
-          ppkHoldings = w.financial.corporateBonds.ppkHoldings + PLN(112),
-          otherHoldings = w.financial.corporateBonds.otherHoldings + PLN(113),
-          insuranceHoldings = w.financial.corporateBonds.insuranceHoldings + PLN(114),
-          nbfiHoldings = w.financial.corporateBonds.nbfiHoldings + PLN(115),
-        ),
-      ),
-    )
-
+  it should "return corporate bond stock separately from market memory in runStep" in {
     def run(world: World): OpenEconEconomics.StepOutput =
       OpenEconEconomics.runStep(
         OpenEconEconomics.StepInput(
@@ -283,18 +262,15 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
         ),
       )
 
-    val aligned    = run(w)
-    val fromLedger = run(mismatchedWorld)
+    val aligned = run(w)
 
-    fromLedger.corpBonds.corpBondBankCoupon shouldBe aligned.corpBonds.corpBondBankCoupon
-    fromLedger.corpBonds.corpBondBankDefaultLoss shouldBe aligned.corpBonds.corpBondBankDefaultLoss
-    fromLedger.corpBonds.corpBondInsuranceDefaultLoss shouldBe aligned.corpBonds.corpBondInsuranceDefaultLoss
-    fromLedger.corpBonds.corpBondNbfiDefaultLoss shouldBe aligned.corpBonds.corpBondNbfiDefaultLoss
-    fromLedger.corpBonds.newCorpBonds.bankHoldings shouldBe aligned.corpBonds.newCorpBonds.bankHoldings
-    fromLedger.corpBonds.newCorpBonds.ppkHoldings shouldBe aligned.corpBonds.newCorpBonds.ppkHoldings
-    fromLedger.corpBonds.newCorpBonds.otherHoldings shouldBe aligned.corpBonds.newCorpBonds.otherHoldings
-    fromLedger.corpBonds.newCorpBonds.insuranceHoldings shouldBe aligned.corpBonds.newCorpBonds.insuranceHoldings
-    fromLedger.corpBonds.newCorpBonds.nbfiHoldings shouldBe aligned.corpBonds.newCorpBonds.nbfiHoldings
+    aligned.corpBonds.newCorpBonds.corpBondYield should be > Rate.Zero
+    aligned.corpBonds.newCorpBondStock.outstanding should be > PLN.Zero
+    aligned.corpBonds.newCorpBondStock.bankHoldings should be > PLN.Zero
+    aligned.corpBonds.newCorpBondStock.ppkHoldings should be > PLN.Zero
+    aligned.corpBonds.newCorpBondStock.otherHoldings should be >= PLN.Zero
+    aligned.corpBonds.newCorpBondStock.insuranceHoldings should be > PLN.Zero
+    aligned.corpBonds.newCorpBondStock.nbfiHoldings should be > PLN.Zero
   }
 
   it should "produce non-negative interbank flows" in {

@@ -19,9 +19,10 @@ object WorldInit:
     import ComputationBoundary.toDouble
 
     // --- Firms ---
-    val initCorporateBonds = CorporateBondMarket.initial
-    val firms0             = FirmInit.create(randomness.firms.newStreams())
-    val firms              = CorporateBondOwnership.initializeIssuerDebt(firms0, initCorporateBonds.outstanding)
+    val initCorporateBonds      = CorporateBondMarket.initial
+    val initCorporateBondStocks = CorporateBondMarket.initialStock
+    val firms0                  = FirmInit.create(randomness.firms.newStreams())
+    val firms                   = CorporateBondOwnership.initializeIssuerDebt(firms0, initCorporateBondStocks.outstanding)
     assert(firms.length == p.pop.firmsCount)
 
     // --- Households ---
@@ -40,14 +41,14 @@ object WorldInit:
     val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(toDouble(_)).max)
     val initImportCons   = initConsumption - initDomesticCons
 
-    val initBankingSector = BankInit.create(firms, households, initCorporateBonds.bankHoldings)
+    val initBankingSector = BankInit.create(firms, households, initCorporateBondStocks.bankHoldings)
 
     // --- Sub-state initializers ---
     val initDemographics = DemographicsInit.create(totalPop)
     val initInsurance0   = InsuranceInit.create()
     val initNbfi0        = NbfiInit.create()
-    val initInsurance    = CorporateBondOwnership.alignInsuranceHoldings(initInsurance0, initCorporateBonds.insuranceHoldings)
-    val initNbfi         = CorporateBondOwnership.alignNbfiHoldings(initNbfi0, initCorporateBonds.nbfiHoldings)
+    val initInsurance    = CorporateBondOwnership.alignInsuranceHoldings(initInsurance0, initCorporateBondStocks.insuranceHoldings)
+    val initNbfi         = CorporateBondOwnership.alignNbfiHoldings(initNbfi0, initCorporateBondStocks.nbfiHoldings)
     val initExpectations = ExpectationsInit.create()
     val initInflation    = p.monetary.targetInfl
 

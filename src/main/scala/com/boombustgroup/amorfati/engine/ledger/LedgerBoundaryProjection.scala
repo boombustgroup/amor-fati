@@ -83,11 +83,10 @@ object LedgerBoundaryProjection:
       ),
     )
 
-  def corporateBondState(
-      base: CorporateBondMarket.State,
+  def corporateBondStock(
       ledgerFinancialState: LedgerFinancialState,
-  ): CorporateBondMarket.State =
-    CorporateBondOwnership.marketStateFromLedger(base, ledgerFinancialState)
+  ): CorporateBondMarket.StockState =
+    CorporateBondOwnership.stockStateFromLedger(ledgerFinancialState)
 
   def quasiFiscalState(
       base: QuasiFiscal.State,

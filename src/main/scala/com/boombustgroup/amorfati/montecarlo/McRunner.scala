@@ -91,6 +91,7 @@ object McRunner:
           result.nextState.households,
           result.nextState.banks,
           result.nextState.householdAggregates,
+          result.nextState.ledgerFinancialState,
         )
         Right(MonthSnapshot(result.executionMonth, result.nextState, monthData))
 

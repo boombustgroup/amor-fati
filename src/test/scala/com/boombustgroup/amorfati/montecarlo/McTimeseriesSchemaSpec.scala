@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.montecarlo
 import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -265,6 +266,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
       households = init.households,
       banks = init.banks,
       householdAggregates = init.householdAggregates,
+      ledgerFinancialState = FlowSimulation.SimState.fromInit(init).ledgerFinancialState,
     )
 
   private def valueAt(row: Array[Double], name: String): Double =

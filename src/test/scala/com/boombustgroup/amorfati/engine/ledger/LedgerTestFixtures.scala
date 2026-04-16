@@ -56,11 +56,6 @@ object LedgerTestFixtures:
         ),
       ),
       financial = base.world.financial.copy(
-        corporateBonds = base.world.financial.corporateBonds.copy(
-          outstanding = PLN(32e6),
-          ppkHoldings = PLN(33e6),
-          otherHoldings = PLN(34e6),
-        ),
         insurance = Insurance.State(
           lifeReserves = PLN(17e6),
           nonLifeReserves = PLN(18e6),

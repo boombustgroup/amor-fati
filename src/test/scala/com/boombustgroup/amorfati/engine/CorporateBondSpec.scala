@@ -22,15 +22,10 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   private def shouldBeCloseMultiplier(actual: Multiplier, expected: Multiplier, tolerance: Multiplier): Unit = (actual - expected).abs should be <= tolerance
 
   private val initState = CorporateBondMarket.initial
+  private val initStock = CorporateBondMarket.initialStock
 
   "CorporateBondMarket.zero" should "return all-zero state" in {
     val z = CorporateBondMarket.zero
-    z.outstanding shouldBe PLN.Zero
-    z.bankHoldings shouldBe PLN.Zero
-    z.ppkHoldings shouldBe PLN.Zero
-    z.otherHoldings shouldBe PLN.Zero
-    z.insuranceHoldings shouldBe PLN.Zero
-    z.nbfiHoldings shouldBe PLN.Zero
     z.corpBondYield shouldBe Rate.Zero
     z.lastIssuance shouldBe PLN.Zero
     z.lastAmortization shouldBe PLN.Zero
@@ -39,22 +34,32 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     z.lastDefaultAmount shouldBe PLN.Zero
   }
 
-  "CorporateBondMarket.initial" should "have stock = CorpBondInitStock" in
-    shouldBeClosePln(initState.outstanding, p.corpBond.initStock, onePln)
+  "CorporateBondMarket.StockState.zero" should "return all-zero stock" in {
+    val z = CorporateBondMarket.StockState.zero
+    z.outstanding shouldBe PLN.Zero
+    z.bankHoldings shouldBe PLN.Zero
+    z.ppkHoldings shouldBe PLN.Zero
+    z.otherHoldings shouldBe PLN.Zero
+    z.insuranceHoldings shouldBe PLN.Zero
+    z.nbfiHoldings shouldBe PLN.Zero
+  }
+
+  "CorporateBondMarket.initialStock" should "have stock = CorpBondInitStock" in
+    shouldBeClosePln(initStock.outstanding, p.corpBond.initStock, onePln)
 
   it should "allocate holders summing to 100%" in
-    shouldBeClosePln(initState.holderTotal, initState.outstanding, onePln)
+    shouldBeClosePln(initStock.holderTotal, initStock.outstanding, onePln)
 
   it should "allocate insurance and NBFI holder buckets explicitly" in {
-    initState.insuranceHoldings should be > PLN.Zero
-    initState.nbfiHoldings should be > PLN.Zero
+    initStock.insuranceHoldings should be > PLN.Zero
+    initStock.nbfiHoldings should be > PLN.Zero
   }
 
   it should "have bank holdings = stock * CorpBondBankShare" in
-    shouldBeClosePln(initState.bankHoldings, initState.outstanding * p.corpBond.bankShare, onePln)
+    shouldBeClosePln(initStock.bankHoldings, initStock.outstanding * p.corpBond.bankShare, onePln)
 
   it should "have ppk holdings = stock * CorpBondPpkShare" in
-    shouldBeClosePln(initState.ppkHoldings, initState.outstanding * p.corpBond.ppkShare, onePln)
+    shouldBeClosePln(initStock.ppkHoldings, initStock.outstanding * p.corpBond.ppkShare, onePln)
 
   "computeYield" should "equal govYield + spread when nplRatio = 0" in {
     val y = CorporateBondMarket.computeYield(rateBps(600), Share.Zero)
@@ -73,16 +78,16 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   }
 
   "computeCoupon" should "be proportional to holdings" in {
-    val coupon = CorporateBondMarket.computeCoupon(initState)
+    val coupon = CorporateBondMarket.computeCoupon(initState, initStock)
     coupon.total should be > PLN.Zero
-    coupon.bank shouldBe (initState.bankHoldings * initState.corpBondYield.monthly)
-    coupon.ppk shouldBe (initState.ppkHoldings * initState.corpBondYield.monthly)
-    coupon.insurance shouldBe (initState.insuranceHoldings * initState.corpBondYield.monthly)
-    coupon.nbfi shouldBe (initState.nbfiHoldings * initState.corpBondYield.monthly)
+    coupon.bank shouldBe (initStock.bankHoldings * initState.corpBondYield.monthly)
+    coupon.ppk shouldBe (initStock.ppkHoldings * initState.corpBondYield.monthly)
+    coupon.insurance shouldBe (initStock.insuranceHoldings * initState.corpBondYield.monthly)
+    coupon.nbfi shouldBe (initStock.nbfiHoldings * initState.corpBondYield.monthly)
   }
 
   it should "return zeros for zero outstanding" in {
-    val coupon = CorporateBondMarket.computeCoupon(CorporateBondMarket.zero)
+    val coupon = CorporateBondMarket.computeCoupon(CorporateBondMarket.zero, CorporateBondMarket.StockState.zero)
     coupon.total shouldBe PLN.Zero
     coupon.bank shouldBe PLN.Zero
     coupon.ppk shouldBe PLN.Zero
@@ -92,12 +97,12 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   }
 
   "amortization" should "equal outstanding / maturity" in {
-    val a = CorporateBondMarket.amortization(initState)
-    a shouldBe (initState.outstanding / p.corpBond.maturity)
+    val a = CorporateBondMarket.amortization(initStock)
+    a shouldBe (initStock.outstanding / p.corpBond.maturity)
   }
 
   "processDefaults" should "return zeros when no defaults" in {
-    val r = CorporateBondMarket.processDefaults(initState, PLN.Zero)
+    val r = CorporateBondMarket.processDefaults(initStock, PLN.Zero)
     r.grossDefault shouldBe PLN.Zero
     r.lossAfterRecovery shouldBe PLN.Zero
     r.bankLoss shouldBe PLN.Zero
@@ -109,51 +114,51 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
 
   it should "allocate defaults proportionally to holdings" in {
     val defaultAmt = pln(1_000_000)
-    val r          = CorporateBondMarket.processDefaults(initState, defaultAmt)
+    val r          = CorporateBondMarket.processDefaults(initStock, defaultAmt)
     r.grossDefault shouldBe defaultAmt
     shouldBeClosePln(r.lossAfterRecovery, defaultAmt * (Share.One - p.corpBond.recovery), pln(5_000))
-    val bankFrac   = initState.bankHoldings.ratioTo(initState.outstanding).toShare
+    val bankFrac   = initStock.bankHoldings.ratioTo(initStock.outstanding).toShare
     shouldBeClosePln(r.bankLoss, defaultAmt * bankFrac * (Share.One - p.corpBond.recovery), pln(5_000))
-    val nbfiFrac   = initState.nbfiHoldings.ratioTo(initState.outstanding).toShare
+    val nbfiFrac   = initStock.nbfiHoldings.ratioTo(initStock.outstanding).toShare
     shouldBeClosePln(r.nbfiLoss, defaultAmt * nbfiFrac * (Share.One - p.corpBond.recovery), pln(5_000))
     shouldBeClosePln(r.holderLossTotal, r.lossAfterRecovery, pln(5_000))
   }
 
   "processIssuance" should "increase outstanding and fixed bank/PPK buckets" in {
     val issuance = fiveKPln
-    val result   = CorporateBondMarket.processIssuance(initState, issuance)
-    result.outstanding shouldBe initState.outstanding + issuance
-    shouldBeClosePln(result.bankHoldings, initState.bankHoldings + issuance * p.corpBond.bankShare, onePln)
-    shouldBeClosePln(result.ppkHoldings, initState.ppkHoldings + issuance * p.corpBond.ppkShare, onePln)
-    result.lastIssuance shouldBe issuance
+    val result   = CorporateBondMarket.processIssuance(initStock, issuance)
+    result.outstanding shouldBe initStock.outstanding + issuance
+    shouldBeClosePln(result.bankHoldings, initStock.bankHoldings + issuance * p.corpBond.bankShare, onePln)
+    shouldBeClosePln(result.ppkHoldings, initStock.ppkHoldings + issuance * p.corpBond.ppkShare, onePln)
   }
 
   it should "allocate issuance with exact holder sums under residual rounding" in {
     val issuance = pln(2)
-    val result   = CorporateBondMarket.processIssuance(initState, issuance)
+    val result   = CorporateBondMarket.processIssuance(initStock, issuance)
     val deltaSum =
-      (result.bankHoldings - initState.bankHoldings) +
-        (result.ppkHoldings - initState.ppkHoldings) +
-        (result.otherHoldings - initState.otherHoldings) +
-        (result.insuranceHoldings - initState.insuranceHoldings) +
-        (result.nbfiHoldings - initState.nbfiHoldings)
+      (result.bankHoldings - initStock.bankHoldings) +
+        (result.ppkHoldings - initStock.ppkHoldings) +
+        (result.otherHoldings - initStock.otherHoldings) +
+        (result.insuranceHoldings - initStock.insuranceHoldings) +
+        (result.nbfiHoldings - initStock.nbfiHoldings)
     deltaSum shouldBe issuance
   }
 
   it should "not change state for zero issuance" in {
-    val result = CorporateBondMarket.processIssuance(initState, PLN.Zero)
-    result.outstanding shouldBe initState.outstanding
-    result.lastIssuance shouldBe PLN.Zero
+    val result = CorporateBondMarket.processIssuance(initStock, PLN.Zero)
+    result.outstanding shouldBe initStock.outstanding
   }
 
   "step" should "reduce outstanding by amortization + defaults" in {
-    val prevOutstanding = initState.outstanding
-    val result          = CorporateBondMarket.step(CorporateBondMarket.StepInput(initState, rateBps(600), Share.Zero, PLN.Zero, PLN.Zero))
-    result.outstanding shouldBe (prevOutstanding - (prevOutstanding / p.corpBond.maturity))
+    val prevOutstanding = initStock.outstanding
+    val result          = CorporateBondMarket.step(
+      CorporateBondMarket.StepInput(initState, initStock, rateBps(600), Share.Zero, PLN.Zero, PLN.Zero),
+    )
+    result.stock.outstanding shouldBe (prevOutstanding - (prevOutstanding / p.corpBond.maturity))
   }
 
   it should "preserve exact holder reduction sum under residual rounding" in {
-    val prev            = initState.copy(
+    val prevStock       = initStock.copy(
       outstanding = pln(3000),
       bankHoldings = pln(1000),
       ppkHoldings = pln(1000),
@@ -161,22 +166,24 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
       insuranceHoldings = pln(300),
       nbfiHoldings = pln(200),
     )
-    val result          = CorporateBondMarket.step(CorporateBondMarket.StepInput(prev, rateBps(600), Share.Zero, PLN.Zero, PLN.Zero))
+    val result          = CorporateBondMarket.step(
+      CorporateBondMarket.StepInput(initState, prevStock, rateBps(600), Share.Zero, PLN.Zero, PLN.Zero),
+    )
     val holderReduction =
-      (prev.bankHoldings - result.bankHoldings) +
-        (prev.ppkHoldings - result.ppkHoldings) +
-        (prev.otherHoldings - result.otherHoldings) +
-        (prev.insuranceHoldings - result.insuranceHoldings) +
-        (prev.nbfiHoldings - result.nbfiHoldings)
-    holderReduction shouldBe (prev.outstanding - result.outstanding)
+      (prevStock.bankHoldings - result.stock.bankHoldings) +
+        (prevStock.ppkHoldings - result.stock.ppkHoldings) +
+        (prevStock.otherHoldings - result.stock.otherHoldings) +
+        (prevStock.insuranceHoldings - result.stock.insuranceHoldings) +
+        (prevStock.nbfiHoldings - result.stock.nbfiHoldings)
+    holderReduction shouldBe (prevStock.outstanding - result.stock.outstanding)
   }
 
   it should "satisfy SFC Identity 12: delta = issuance - amort - default" in {
     val issuance = pln(2000)
     val default  = pln(500)
-    val result   = CorporateBondMarket.step(CorporateBondMarket.StepInput(initState, rateBps(600), shareBps(200), default, issuance))
-    val amort    = initState.outstanding / p.corpBond.maturity
-    result.outstanding - initState.outstanding shouldBe (issuance - amort - default)
+    val result   = CorporateBondMarket.step(CorporateBondMarket.StepInput(initState, initStock, rateBps(600), shareBps(200), default, issuance))
+    val amort    = initStock.outstanding / p.corpBond.maturity
+    result.stock.outstanding - initStock.outstanding shouldBe (issuance - amort - default)
   }
 
   "p.corpBond.spread" should "be 250 bps by default" in {

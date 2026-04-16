@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
+import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.{SocialState, World}
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
 import com.boombustgroup.amorfati.types.PLN
@@ -106,7 +107,7 @@ object LedgerFinancialState:
 
   def fundBalances(
       social: SocialState,
-      corporateBonds: CorporateBondMarket.State,
+      corporateBonds: CorporateBondMarket.StockState,
       nbfi: Nbfi.State,
       quasiFiscal: QuasiFiscal.State,
   ): FundBalances =
@@ -135,7 +136,8 @@ object LedgerFinancialState:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
-  ): LedgerFinancialState =
+  )(using p: SimParams): LedgerFinancialState =
+    val corporateBondStock = CorporateBondMarket.initialStock
     LedgerFinancialState(
       households = households.map(householdBalances),
       firms = firms.map(firmBalances),
@@ -144,7 +146,7 @@ object LedgerFinancialState:
       foreign = foreignBalances(world.gov),
       nbp = nbpBalances(world.nbp),
       insurance = insuranceBalances(world.financial.insurance),
-      funds = fundBalances(world.social, world.financial.corporateBonds, world.financial.nbfi, world.financial.quasiFiscal),
+      funds = fundBalances(world.social, corporateBondStock, world.financial.nbfi, world.financial.quasiFiscal),
     )
 
   private def bankDemandDeposits(bank: Banking.BankState): PLN =

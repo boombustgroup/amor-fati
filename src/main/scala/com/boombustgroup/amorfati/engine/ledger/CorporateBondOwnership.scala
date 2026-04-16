@@ -27,11 +27,10 @@ object CorporateBondOwnership:
       ledgerFinancialState.funds.corpBondOtherHoldings +
       ledgerFinancialState.funds.nbfi.corpBondHoldings
 
-  def marketStateFromLedger(
-      base: CorporateBondMarket.State,
+  def stockStateFromLedger(
       ledgerFinancialState: LedgerFinancialState,
-  ): CorporateBondMarket.State =
-    base.copy(
+  ): CorporateBondMarket.StockState =
+    CorporateBondMarket.StockState(
       outstanding = issuerOutstanding(ledgerFinancialState),
       bankHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond),
       ppkHoldings = ledgerFinancialState.funds.ppkCorpBondHoldings,

@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.accounting
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.ledger.{FundRuntimeIndex, GovernmentBondCircuit, TreasuryRuntimeContract}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, FundRuntimeIndex, GovernmentBondCircuit, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
 
@@ -254,7 +254,7 @@ object Sfc:
       ppkBondHoldings = bonds.ppkHoldings,
       mortgageStock = w.real.housing.mortgageStock,
       consumerLoans = bankAgg.consumerLoans,
-      corpBondsOutstanding = w.financial.corporateBonds.outstanding,
+      corpBondsOutstanding = CorporateBondOwnership.issuerOutstanding(firms),
       insuranceGovBondHoldings = bonds.insuranceHoldings,
       tfiGovBondHoldings = bonds.tfiHoldings,
       nbfiLoanStock = w.financial.nbfi.nbfiLoanStock,

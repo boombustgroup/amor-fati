@@ -12,23 +12,19 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
   private given SimParams = SimParams.defaults
 
   "CorporateBondOwnership" should "initialize issuer liabilities to the market outstanding stock" in {
-    val init         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val issuerStock  = CorporateBondOwnership.issuerOutstanding(init.firms)
-    val holderStock  = CorporateBondOwnership.holderOutstanding(FlowSimulation.SimState.fromInit(init).ledgerFinancialState)
-    val boundaryView = init.world.financial.corporateBonds
+    val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val issuerStock = CorporateBondOwnership.issuerOutstanding(init.firms)
+    val holderStock = CorporateBondOwnership.holderOutstanding(FlowSimulation.SimState.fromInit(init).ledgerFinancialState)
 
-    issuerStock shouldBe boundaryView.outstanding
-    holderStock shouldBe boundaryView.outstanding
-    boundaryView.holderTotal shouldBe boundaryView.outstanding
+    issuerStock shouldBe holderStock
   }
 
-  it should "project outstanding from ledger issuer liabilities, not from the stale boundary view" in {
+  it should "project stock from ledger issuer and holder balances" in {
     val state          = LedgerTestFixtures.simState()
-    val staleBoundary  = state.world.financial.corporateBonds.copy(outstanding = PLN(1))
-    val projectedState = LedgerBoundaryProjection.corporateBondState(staleBoundary, state.ledgerFinancialState)
+    val projectedStock = LedgerBoundaryProjection.corporateBondStock(state.ledgerFinancialState)
 
-    projectedState.outstanding shouldBe CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState)
-    projectedState.outstanding should not be staleBoundary.outstanding
+    projectedStock.outstanding shouldBe CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState)
+    projectedStock.holderTotal shouldBe CorporateBondOwnership.holderOutstanding(state.ledgerFinancialState)
   }
 
   it should "amortize issuer liabilities pro rata and exactly at aggregate level" in {

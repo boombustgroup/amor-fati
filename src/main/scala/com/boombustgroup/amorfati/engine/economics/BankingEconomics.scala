@@ -262,7 +262,7 @@ object BankingEconomics:
         foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbp),
         insurance = LedgerFinancialState.insuranceBalances(multi.finalInsurance),
-        funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBonds, multi.finalNbfi, newQuasiFiscal),
+        funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfi, newQuasiFiscal),
       )
     val monAgg                    = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
 
@@ -651,7 +651,7 @@ object BankingEconomics:
       loansLong = newLoansTotal * Share(LongLoanFrac),
       consumerLoans = (b.consumerLoans + hhFlows.ccOrigination - bankCcStockReduction - hhFlows.ccDefault).max(PLN.Zero),
       consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * Share(NplMonthlyWriteOff)).max(PLN.Zero),
-      corpBondHoldings = in.s8.corpBonds.newCorpBonds.bankHoldings * workerShare,
+      corpBondHoldings = in.s8.corpBonds.newCorpBondStock.bankHoldings * workerShare,
     )
 
   /** Multi-bank update: per-bank loop, interbank clearing, bond allocation,

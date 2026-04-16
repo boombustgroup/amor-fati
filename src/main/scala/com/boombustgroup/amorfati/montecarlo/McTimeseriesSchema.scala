@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.HousingMarket
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
 import com.boombustgroup.amorfati.fp.ComputationBoundary
@@ -55,6 +56,7 @@ object McTimeseriesSchema:
       val households: Vector[Household.State],
       val banks: Vector[Banking.BankState],
       val householdAggregates: Household.Aggregates,
+      val ledgerFinancialState: LedgerFinancialState,
       val living: Vector[Firm.State],
       val nLiving: Double,
       val aliveBanks: Vector[Banking.BankState],
@@ -70,7 +72,11 @@ object McTimeseriesSchema:
     lazy val bankAgg: Banking.Aggregate                                                             = Banking.aggregateFromBanks(banks)
     lazy val hhAgg: Household.Aggregates                                                            = householdAggregates
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates]                                        = Some(
-      Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding),
+      Banking.MonetaryAggregates.compute(
+        banks,
+        ledgerFinancialState.funds.nbfi.tfiUnit,
+        CorporateBondOwnership.issuerOutstanding(ledgerFinancialState),
+      ),
     )
     lazy val monthlyGdp: PLN                                                                        = world.cachedMonthlyGdpProxy
     lazy val sectorAuto: Vector[Double]                                                             = sectorColumns.map { sector =>
@@ -316,12 +322,12 @@ object McTimeseriesSchema:
     ColumnDef("ForeignDividendOutflow", ctx => td.toDouble(ctx.world.financial.equity.lastForeignDividends)),
     ColumnDef("GovernmentDividends", ctx => td.toDouble(ctx.world.gov.govDividendRevenue)),
     // Corporate Bonds / Catalyst
-    ColumnDef("CorpBondOutstanding", ctx => td.toDouble(ctx.world.financial.corporateBonds.outstanding)),
+    ColumnDef("CorpBondOutstanding", ctx => td.toDouble(CorporateBondOwnership.issuerOutstanding(ctx.ledgerFinancialState))),
     ColumnDef("CorpBondYield", ctx => td.toDouble(ctx.world.financial.corporateBonds.corpBondYield)),
     ColumnDef("CorpBondIssuance", ctx => td.toDouble(ctx.world.financial.corporateBonds.lastIssuance)),
     ColumnDef("CorpBondSpread", ctx => td.toDouble(ctx.world.financial.corporateBonds.creditSpread)),
-    ColumnDef("BankCorpBondHoldings", ctx => td.toDouble(ctx.world.financial.corporateBonds.bankHoldings)),
-    ColumnDef("PpkCorpBondHoldings", ctx => td.toDouble(ctx.world.financial.corporateBonds.ppkHoldings)),
+    ColumnDef("BankCorpBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond))),
+    ColumnDef("PpkCorpBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.funds.ppkCorpBondHoldings)),
     ColumnDef("CorpBondAbsorptionRate", ctx => td.toDouble(ctx.world.financial.corporateBonds.lastAbsorptionRate)),
     // Insurance Sector
     ColumnDef("InsLifeReserves", ctx => td.toDouble(ctx.world.financial.insurance.lifeReserves)),
@@ -649,10 +655,11 @@ object McTimeseriesSchema:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
+      ledgerFinancialState: LedgerFinancialState,
   )(using p: SimParams): Array[Double] =
     val living     = firms.filter(Firm.isAlive)
     val aliveBanks = banks.filterNot(_.failed).toVector
-    val ctx        = Ctx(executionMonth, world, firms, households, banks, householdAggregates, living, living.length.toDouble, aliveBanks, p)
+    val ctx        = Ctx(executionMonth, world, firms, households, banks, householdAggregates, ledgerFinancialState, living, living.length.toDouble, aliveBanks, p)
     val result     = new Array[Double](schema.length)
     var i          = 0
     while i < schema.length do

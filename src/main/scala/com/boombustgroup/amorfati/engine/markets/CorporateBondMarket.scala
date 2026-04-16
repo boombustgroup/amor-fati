@@ -27,15 +27,24 @@ object CorporateBondMarket:
   private val CarBufferZone       = Multiplier(0.02) // 200 bps CAR ramp zone above minCar
   private val SpreadAbsorptionCap = Rate(0.10)       // excess spread at which absorption hits floor
 
-  /** Corporate bond market state: Catalyst + non-public issuance. */
-  case class State(
+  /** Ledger-owned corporate bond stock view used by market calculus. */
+  case class StockState(
       outstanding: PLN,
       bankHoldings: PLN,
       ppkHoldings: PLN,
       otherHoldings: PLN,
-      corpBondYield: Rate,
       insuranceHoldings: PLN = PLN.Zero,
       nbfiHoldings: PLN = PLN.Zero,
+  ):
+    def holderTotal: PLN =
+      bankHoldings + ppkHoldings + otherHoldings + insuranceHoldings + nbfiHoldings
+
+  object StockState:
+    val zero: StockState = StockState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+
+  /** Corporate bond market memory: pricing and last-month diagnostics only. */
+  case class State(
+      corpBondYield: Rate,
       lastIssuance: PLN = PLN.Zero,
       lastAmortization: PLN = PLN.Zero,
       lastCouponIncome: PLN = PLN.Zero,
@@ -43,24 +52,28 @@ object CorporateBondMarket:
       lastDefaultAmount: PLN = PLN.Zero,
       creditSpread: Rate = Rate(0.025),
       lastAbsorptionRate: Share = Share.One,
-  ):
-    def holderTotal: PLN =
-      bankHoldings + ppkHoldings + otherHoldings + insuranceHoldings + nbfiHoldings
+  )
 
-  def zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero)
+  case class StepResult(state: State, stock: StockState)
+
+  def zero: State = State(Rate.Zero, creditSpread = Rate.Zero)
 
   def initial(using p: SimParams): State =
+    State(
+      corpBondYield = Rate(0.06) + p.corpBond.spread,
+      creditSpread = p.corpBond.spread,
+    )
+
+  def initialStock(using p: SimParams): StockState =
     val stock       = p.corpBond.initStock
     val allocations = allocateToHolders(stock)
-    State(
+    StockState(
       outstanding = stock,
       bankHoldings = PLN.fromRaw(allocations.bank),
       ppkHoldings = PLN.fromRaw(allocations.ppk),
       otherHoldings = PLN.fromRaw(allocations.other),
-      corpBondYield = Rate(0.06) + p.corpBond.spread,
       insuranceHoldings = PLN.fromRaw(allocations.insurance),
       nbfiHoldings = PLN.fromRaw(allocations.nbfi),
-      creditSpread = p.corpBond.spread,
     )
 
   /** Compute current corporate bond yield = gov bond yield + credit spread.
@@ -85,15 +98,15 @@ object CorporateBondMarket:
       bank + ppk + other + insurance + nbfi
 
   /** Monthly coupon income from corporate bond holdings. */
-  def computeCoupon(state: State): CouponResult =
+  def computeCoupon(state: State, stock: StockState): CouponResult =
     val yieldMonthly = state.corpBondYield.monthly
     CouponResult(
-      total = state.outstanding * yieldMonthly,
-      bank = state.bankHoldings * yieldMonthly,
-      ppk = state.ppkHoldings * yieldMonthly,
-      other = state.otherHoldings * yieldMonthly,
-      insurance = state.insuranceHoldings * yieldMonthly,
-      nbfi = state.nbfiHoldings * yieldMonthly,
+      total = stock.outstanding * yieldMonthly,
+      bank = stock.bankHoldings * yieldMonthly,
+      ppk = stock.ppkHoldings * yieldMonthly,
+      other = stock.otherHoldings * yieldMonthly,
+      insurance = stock.insuranceHoldings * yieldMonthly,
+      nbfi = stock.nbfiHoldings * yieldMonthly,
     )
 
   /** Gross face-value default plus net loss split across holder buckets. */
@@ -112,19 +125,19 @@ object CorporateBondMarket:
   val DefaultResultZero: DefaultResult = DefaultResult(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   /** Process defaults from bankrupt firms' bond debt. */
-  def processDefaults(state: State, totalBondDefault: PLN)(using p: SimParams): DefaultResult =
-    if totalBondDefault <= PLN.Zero || state.outstanding <= PLN.Zero then DefaultResultZero
+  def processDefaults(stock: StockState, totalBondDefault: PLN)(using p: SimParams): DefaultResult =
+    if totalBondDefault <= PLN.Zero || stock.outstanding <= PLN.Zero then DefaultResultZero
     else
       val lossRate     = Share.One - p.corpBond.recovery
       val loss         = totalBondDefault * lossRate
       val holderLosses = Distribute.distribute(
         loss.distributeRaw,
         Array(
-          state.bankHoldings.distributeRaw,
-          state.ppkHoldings.distributeRaw,
-          state.otherHoldings.distributeRaw,
-          state.insuranceHoldings.distributeRaw,
-          state.nbfiHoldings.distributeRaw,
+          stock.bankHoldings.distributeRaw,
+          stock.ppkHoldings.distributeRaw,
+          stock.otherHoldings.distributeRaw,
+          stock.insuranceHoldings.distributeRaw,
+          stock.nbfiHoldings.distributeRaw,
         ),
       )
       DefaultResult(
@@ -138,8 +151,8 @@ object CorporateBondMarket:
       )
 
   /** Monthly amortization: outstanding / maturity. */
-  def amortization(state: State)(using p: SimParams): PLN =
-    state.outstanding / math.max(1, p.corpBond.maturity)
+  def amortization(stock: StockState)(using p: SimParams): PLN =
+    stock.outstanding / math.max(1, p.corpBond.maturity)
 
   /** Compute market absorption rate for new bond issuance.
     *
@@ -164,64 +177,67 @@ object CorporateBondMarket:
       spreadAbsorption.min(carAbsorption).clamp(MinAbsorption, Share.One)
 
   /** Process new issuance: allocate to holders proportionally. */
-  def processIssuance(state: State, issuance: PLN)(using p: SimParams): State =
-    if issuance <= PLN.Zero then state.copy(lastIssuance = PLN.Zero)
+  def processIssuance(stock: StockState, issuance: PLN)(using p: SimParams): StockState =
+    if issuance <= PLN.Zero then stock
     else
       val allocations = allocateToHolders(issuance)
-      state.copy(
-        outstanding = state.outstanding + issuance,
-        bankHoldings = state.bankHoldings + PLN.fromRaw(allocations.bank),
-        ppkHoldings = state.ppkHoldings + PLN.fromRaw(allocations.ppk),
-        otherHoldings = state.otherHoldings + PLN.fromRaw(allocations.other),
-        insuranceHoldings = state.insuranceHoldings + PLN.fromRaw(allocations.insurance),
-        nbfiHoldings = state.nbfiHoldings + PLN.fromRaw(allocations.nbfi),
-        lastIssuance = issuance,
+      stock.copy(
+        outstanding = stock.outstanding + issuance,
+        bankHoldings = stock.bankHoldings + PLN.fromRaw(allocations.bank),
+        ppkHoldings = stock.ppkHoldings + PLN.fromRaw(allocations.ppk),
+        otherHoldings = stock.otherHoldings + PLN.fromRaw(allocations.other),
+        insuranceHoldings = stock.insuranceHoldings + PLN.fromRaw(allocations.insurance),
+        nbfiHoldings = stock.nbfiHoldings + PLN.fromRaw(allocations.nbfi),
       )
 
   /** Full monthly step: yield → coupon → amortization → default → issuance. */
   case class StepInput(
-      prev: State,
+      prevState: State,
+      prevStock: StockState,
       govBondYield: Rate,
       nplRatio: Share,
       totalBondDefault: PLN,
       totalBondIssuance: PLN,
   )
 
-  def step(in: StepInput)(using p: SimParams): State =
+  def step(in: StepInput)(using p: SimParams): StepResult =
     val newYield        = computeYield(in.govBondYield, in.nplRatio)
-    val coupon          = computeCoupon(in.prev)
-    val amort           = amortization(in.prev)
-    val defaults        = processDefaults(in.prev, in.totalBondDefault)
+    val coupon          = computeCoupon(in.prevState, in.prevStock)
+    val amort           = amortization(in.prevStock)
+    val defaults        = processDefaults(in.prevStock, in.totalBondDefault)
     val reduction       = amort + defaults.grossDefault
-    val actualReduction = reduction.min(in.prev.outstanding).max(PLN.Zero)
+    val actualReduction = reduction.min(in.prevStock.outstanding).max(PLN.Zero)
     val reductions      =
-      if in.prev.outstanding > PLN.Zero then
+      if in.prevStock.outstanding > PLN.Zero then
         Distribute.distribute(
           actualReduction.distributeRaw,
           Array(
-            in.prev.bankHoldings.distributeRaw,
-            in.prev.ppkHoldings.distributeRaw,
-            in.prev.otherHoldings.distributeRaw,
-            in.prev.insuranceHoldings.distributeRaw,
-            in.prev.nbfiHoldings.distributeRaw,
+            in.prevStock.bankHoldings.distributeRaw,
+            in.prevStock.ppkHoldings.distributeRaw,
+            in.prevStock.otherHoldings.distributeRaw,
+            in.prevStock.insuranceHoldings.distributeRaw,
+            in.prevStock.nbfiHoldings.distributeRaw,
           ),
         )
       else Array(0L, 0L, 0L, 0L, 0L)
-    val afterReduction  = in.prev.copy(
-      outstanding = in.prev.outstanding - actualReduction,
-      bankHoldings = (in.prev.bankHoldings - PLN.fromRaw(reductions(0))).max(PLN.Zero),
-      ppkHoldings = (in.prev.ppkHoldings - PLN.fromRaw(reductions(1))).max(PLN.Zero),
-      otherHoldings = (in.prev.otherHoldings - PLN.fromRaw(reductions(2))).max(PLN.Zero),
-      insuranceHoldings = (in.prev.insuranceHoldings - PLN.fromRaw(reductions(3))).max(PLN.Zero),
-      nbfiHoldings = (in.prev.nbfiHoldings - PLN.fromRaw(reductions(4))).max(PLN.Zero),
+    val afterReduction  = in.prevStock.copy(
+      outstanding = in.prevStock.outstanding - actualReduction,
+      bankHoldings = (in.prevStock.bankHoldings - PLN.fromRaw(reductions(0))).max(PLN.Zero),
+      ppkHoldings = (in.prevStock.ppkHoldings - PLN.fromRaw(reductions(1))).max(PLN.Zero),
+      otherHoldings = (in.prevStock.otherHoldings - PLN.fromRaw(reductions(2))).max(PLN.Zero),
+      insuranceHoldings = (in.prevStock.insuranceHoldings - PLN.fromRaw(reductions(3))).max(PLN.Zero),
+      nbfiHoldings = (in.prevStock.nbfiHoldings - PLN.fromRaw(reductions(4))).max(PLN.Zero),
+    )
+    val newState        = in.prevState.copy(
       corpBondYield = newYield,
       creditSpread = (newYield - in.govBondYield).max(Rate.Zero),
+      lastIssuance = in.totalBondIssuance.max(PLN.Zero),
       lastAmortization = amort,
       lastDefaultAmount = defaults.grossDefault,
       lastDefaultLoss = defaults.lossAfterRecovery,
       lastCouponIncome = coupon.total,
     )
-    processIssuance(afterReduction, in.totalBondIssuance)
+    StepResult(newState, processIssuance(afterReduction, in.totalBondIssuance))
 
   private case class HolderAllocation(bank: Long, ppk: Long, other: Long, insurance: Long, nbfi: Long)
 

@@ -112,6 +112,7 @@ object OpenEconEconomics:
 
   case class CorporateBonds(
       newCorpBonds: CorporateBondMarket.State,
+      newCorpBondStock: CorporateBondMarket.StockState,
       corpBondBankCoupon: PLN,
       corpBondBankDefaultLoss: PLN,
       corpBondInsuranceDefaultLoss: PLN,
@@ -272,19 +273,20 @@ object OpenEconEconomics:
     val qeRequest = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.gdp, in.newInflation, newExp.expectedInflation)
 
     // 7. Corporate bonds
-    val prevCorpBonds = LedgerBoundaryProjection.corporateBondState(in.w.financial.corporateBonds, in.ledgerFinancialState)
-    val corpBondAmort = CorporateBondMarket.amortization(prevCorpBonds)
-    val newCorpBonds  = CorporateBondMarket.step(
+    val prevCorpBondStock = LedgerBoundaryProjection.corporateBondStock(in.ledgerFinancialState)
+    val corpBondAmort     = CorporateBondMarket.amortization(prevCorpBondStock)
+    val corpBondStep      = CorporateBondMarket.step(
       CorporateBondMarket.StepInput(
-        prevCorpBonds,
-        marketYield,
-        bankAgg.nplRatio,
-        in.totalBondDefault,
-        in.actualBondIssuance,
+        prevState = in.w.financial.corporateBonds,
+        prevStock = prevCorpBondStock,
+        govBondYield = marketYield,
+        nplRatio = bankAgg.nplRatio,
+        totalBondDefault = in.totalBondDefault,
+        totalBondIssuance = in.actualBondIssuance,
       ),
     )
-    val corpCoupon    = CorporateBondMarket.computeCoupon(prevCorpBonds)
-    val corpDefaults  = CorporateBondMarket.processDefaults(prevCorpBonds, in.totalBondDefault)
+    val corpCoupon        = CorporateBondMarket.computeCoupon(in.w.financial.corporateBonds, prevCorpBondStock)
+    val corpDefaults      = CorporateBondMarket.processDefaults(prevCorpBondStock, in.totalBondDefault)
 
     // 8. Insurance
     val unempRate    = in.w.unemploymentRate(in.employed)
@@ -294,9 +296,9 @@ object OpenEconEconomics:
       in.newWage,
       unempRate,
       marketYield,
-      newCorpBonds.corpBondYield,
+      corpBondStep.state.corpBondYield,
       in.equityReturn,
-      newCorpBonds.insuranceHoldings,
+      corpBondStep.stock.insuranceHoldings,
       corpDefaults.insuranceLoss,
     )
 
@@ -324,7 +326,7 @@ object OpenEconEconomics:
       corpBondDefaultLoss = corpDefaults.bankLoss,
       corpBondIssuance = in.actualBondIssuance,
       corpBondAmortization = corpBondAmort,
-      corpBondYield = newCorpBonds.corpBondYield,
+      corpBondYield = corpBondStep.state.corpBondYield,
       insLifePremium = newInsurance.lastLifePremium,
       insNonLifePremium = newInsurance.lastNonLifePremium,
       insLifeClaims = newInsurance.lastLifeClaims,
@@ -443,7 +445,7 @@ object OpenEconEconomics:
       in,
       bondQe.marketYield,
       corpBonds.newCorpBonds.corpBondYield,
-      corpBonds.newCorpBonds.insuranceHoldings,
+      corpBonds.newCorpBondStock.insuranceHoldings,
       corpBonds.corpBondInsuranceDefaultLoss,
     )
     val nbfi          = runStepNbfi(
@@ -452,7 +454,7 @@ object OpenEconEconomics:
       bondQe.postFxNbp,
       bondQe.marketYield,
       corpBonds.newCorpBonds.corpBondYield,
-      corpBonds.newCorpBonds.nbfiHoldings,
+      corpBonds.newCorpBondStock.nbfiHoldings,
       corpBonds.corpBondNbfiDefaultLoss,
     )
 
@@ -668,23 +670,25 @@ object OpenEconEconomics:
     BondQeResult(marketYield, newWeightedCoupon, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp)
 
   private def runStepCorporateBonds(in: StepInput, bankAgg: Banking.Aggregate, newBondYield: Rate)(using SimParams): CorporateBonds =
-    val prevCorpBonds    = LedgerBoundaryProjection.corporateBondState(in.w.financial.corporateBonds, in.ledgerFinancialState)
-    val corpBondAmort    = CorporateBondMarket.amortization(prevCorpBonds)
-    val newCorpBonds     = CorporateBondMarket
+    val prevCorpBondStock = LedgerBoundaryProjection.corporateBondStock(in.ledgerFinancialState)
+    val corpBondAmort     = CorporateBondMarket.amortization(prevCorpBondStock)
+    val corpBondStep      = CorporateBondMarket
       .step(
         CorporateBondMarket.StepInput(
-          prev = prevCorpBonds,
+          prevState = in.w.financial.corporateBonds,
+          prevStock = prevCorpBondStock,
           govBondYield = newBondYield,
           nplRatio = bankAgg.nplRatio,
           totalBondDefault = in.s5.totalBondDefault,
           totalBondIssuance = in.s5.actualBondIssuance,
         ),
       )
-      .copy(lastAbsorptionRate = in.s5.corpBondAbsorption)
-    val corpBondCoupon   = CorporateBondMarket.computeCoupon(prevCorpBonds)
-    val corpBondDefaults = CorporateBondMarket.processDefaults(prevCorpBonds, in.s5.totalBondDefault)
+    val newCorpBonds      = corpBondStep.state.copy(lastAbsorptionRate = in.s5.corpBondAbsorption)
+    val corpBondCoupon    = CorporateBondMarket.computeCoupon(in.w.financial.corporateBonds, prevCorpBondStock)
+    val corpBondDefaults  = CorporateBondMarket.processDefaults(prevCorpBondStock, in.s5.totalBondDefault)
     CorporateBonds(
       newCorpBonds = newCorpBonds,
+      newCorpBondStock = corpBondStep.stock,
       corpBondBankCoupon = corpBondCoupon.bank,
       corpBondBankDefaultLoss = corpBondDefaults.bankLoss,
       corpBondInsuranceDefaultLoss = corpBondDefaults.insuranceLoss,

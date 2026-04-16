@@ -480,7 +480,7 @@ object WorldAssemblyEconomics:
       social = projectedSocial,
       financial = FinancialMarketsState(
         equity = equityAfterStep,
-        corporateBonds = LedgerBoundaryProjection.corporateBondState(in.s8.corpBonds.newCorpBonds, ledgerFinancialState),
+        corporateBonds = in.s8.corpBonds.newCorpBonds,
         insurance = LedgerBoundaryProjection.insuranceState(in.s9.finalInsurance, ledgerFinancialState),
         nbfi = LedgerBoundaryProjection.nbfiState(in.s9.finalNbfi, ledgerFinancialState),
         quasiFiscal = LedgerBoundaryProjection.quasiFiscalState(in.s9.newQuasiFiscal, ledgerFinancialState),
