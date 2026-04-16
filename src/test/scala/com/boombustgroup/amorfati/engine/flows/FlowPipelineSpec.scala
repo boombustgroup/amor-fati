@@ -3,7 +3,6 @@ package com.boombustgroup.amorfati.engine.flows
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -18,7 +17,7 @@ class FlowPipelineSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
   private val init           = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val w              = init.world
-  private val ledger         = LedgerStateAdapter.captureLedgerFinancialState(w, init.firms, init.households, init.banks)
+  private val ledger         = FlowSimulation.SimState.fromInit(init).ledgerFinancialState
 
   /** Run one month through the new flow pipeline (partial -- Steps 1-2
     * economics + all fund flows).
