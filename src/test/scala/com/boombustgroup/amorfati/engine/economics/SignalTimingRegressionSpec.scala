@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthRandomness, MonthTraceStage, OperationalSignals, SignalExtraction, World}
+import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
@@ -13,6 +14,14 @@ import org.scalatest.matchers.should.Matchers
 class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
+
+  private def ledgerState(
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  ) =
+    LedgerStateAdapter.captureLedgerFinancialState(world, firms, households, banks)
 
   private case class PipelineFixture(
       world: World,
@@ -92,11 +101,36 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     )
     val s8     =
       OpenEconEconomics.runStep(
-        OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, init.banks, contract.stages.openEconEconomics.newStream()),
+        OpenEconEconomics.StepInput(
+          world,
+          ledgerState(world, init.firms, init.households, init.banks),
+          s1,
+          s2,
+          s3,
+          s4,
+          s5,
+          s6,
+          s7,
+          init.banks,
+          contract.stages.openEconEconomics.newStream(),
+        ),
       )
     val s9     =
       BankingEconomics.runStep(
-        BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, init.banks, contract.stages.bankingEconomics.newStream()),
+        BankingEconomics.StepInput(
+          world,
+          ledgerState(world, init.firms, init.households, init.banks),
+          s1,
+          s2,
+          s3,
+          s4,
+          s5,
+          s6,
+          s7,
+          s8,
+          init.banks,
+          contract.stages.bankingEconomics.newStream(),
+        ),
       )
 
     PipelineFixture(world, init.firms, init.households, init.banks, s1, s2Pre, s2, s3, s4, s5, s6, s7, s8, s9)
@@ -107,6 +141,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       baseline.firms,
       baseline.households,
       baseline.banks,
+      ledgerState(baseline.world, baseline.firms, baseline.households, baseline.banks),
       baseline.s1,
       baseline.s2,
       baseline.s3,
@@ -167,6 +202,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
   private def baseBankingComputeInput(world: World, operationalSignals: OperationalSignals, seed: Long): BankingEconomics.Input =
     BankingEconomics.Input(
       w = world,
+      ledgerFinancialState = ledgerState(world, baseline.firms, baseline.households, baseline.banks),
       month = baseline.s1.m,
       lendingBaseRate = baseline.s1.lendingBaseRate,
       resWage = baseline.s1.resWage,
@@ -198,6 +234,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       firms = baseline.firms,
       households = baseline.households,
       banks = baseline.banks,
+      ledgerFinancialState = ledgerState(world, baseline.firms, baseline.households, baseline.banks),
       month = baseline.s1.m,
       lendingBaseRate = baseline.s1.lendingBaseRate,
       resWage = baseline.s1.resWage,

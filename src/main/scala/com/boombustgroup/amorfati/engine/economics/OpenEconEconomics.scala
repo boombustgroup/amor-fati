@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, GvcTrade, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.Expectations
 import com.boombustgroup.amorfati.types.*
@@ -134,6 +135,7 @@ object OpenEconEconomics:
   /** Input: everything needed from previous stages. */
   case class Input(
       w: World,
+      ledgerFinancialState: LedgerFinancialState,
       banks: Vector[Banking.BankState],
       employed: Int,
       newWage: PLN,
@@ -202,7 +204,7 @@ object OpenEconEconomics:
         sectorOutputs = sectorOutputs,
         month = in.month,
         inflation = in.w.inflation,
-        nbpFxReserves = in.w.nbp.fxReserves,
+        nbpFxReserves = in.ledgerFinancialState.nbp.foreignAssets,
         gvcExports = gvcExp,
         gvcIntermImports = gvcImp,
         remittanceOutflow = in.remittanceOutflow,
@@ -239,11 +241,17 @@ object OpenEconEconomics:
       Rate(toDouble(deAnchor) * toDouble(p.labor.expBondSensitivity))
     val marketYield       = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
     val newWeightedCoupon =
-      updateWeightedCoupon(in.w.gov.weightedCoupon, marketYield, in.w.gov.bondsOutstanding, in.w.gov.deficit, p.fiscal.govAvgMaturityMonths)
-    val rawDebtService    = in.w.gov.bondsOutstanding * newWeightedCoupon.monthly
+      updateWeightedCoupon(
+        in.w.gov.weightedCoupon,
+        marketYield,
+        in.ledgerFinancialState.government.govBondOutstanding,
+        in.w.gov.deficit,
+        p.fiscal.govAvgMaturityMonths,
+      )
+    val rawDebtService    = in.ledgerFinancialState.government.govBondOutstanding * newWeightedCoupon.monthly
     val debtService       = rawDebtService.min(in.gdp * MaxDebtServiceGdpShare)
     val bankBondIncome    = bankAgg.govBondHoldings * marketYield.monthly
-    val nbpBondIncome     = in.w.nbp.govBondHoldings * marketYield.monthly
+    val nbpBondIncome     = in.ledgerFinancialState.nbp.govBondHoldings * marketYield.monthly
     val nbpRemittance     = nbpBondIncome - reserveInterest - standingFacility
 
     // QE
@@ -251,7 +259,14 @@ object OpenEconEconomics:
       if Nbp.shouldActivateQe(newRefRate, in.newInflation, newExp.expectedInflation) then true
       else if Nbp.shouldTaperQe(in.newInflation, newExp.expectedInflation) then false
       else in.w.nbp.qeActive
-    val preQeNbp  = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
+    val preQeNbp  = Nbp.State(
+      newRefRate,
+      in.ledgerFinancialState.nbp.govBondHoldings,
+      qeActive,
+      in.w.nbp.qeCumulative,
+      in.ledgerFinancialState.nbp.foreignAssets,
+      in.w.nbp.lastFxTraded,
+    )
     val qeRequest = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.gdp, in.newInflation, newExp.expectedInflation)
 
     // 7. Corporate bonds
@@ -270,7 +285,15 @@ object OpenEconEconomics:
 
     // 8. Insurance
     val unempRate    = in.w.unemploymentRate(in.employed)
-    val newInsurance = Insurance.step(in.w.financial.insurance, in.employed, in.newWage, unempRate, marketYield, newCorpBonds.corpBondYield, in.equityReturn)
+    val newInsurance = Insurance.step(
+      LedgerStateAdapter.projectInsuranceState(in.w.financial.insurance, in.ledgerFinancialState),
+      in.employed,
+      in.newWage,
+      unempRate,
+      marketYield,
+      newCorpBonds.corpBondYield,
+      in.equityReturn,
+    )
 
     Result(
       exports = bop.exports,
@@ -348,6 +371,7 @@ object OpenEconEconomics:
 
   case class StepInput(
       w: World,
+      ledgerFinancialState: LedgerFinancialState,
       s1: FiscalConstraintEconomics.Output,
       s2: LaborEconomics.Output,
       s3: HouseholdIncomeEconomics.Output,
@@ -495,7 +519,7 @@ object OpenEconEconomics:
         priceLevel = in.w.priceLevel,
         sectorOutputs = sectorOutputs,
         month = in.s1.m,
-        nbpFxReserves = in.w.nbp.fxReserves,
+        nbpFxReserves = in.ledgerFinancialState.nbp.foreignAssets,
         gvcExports = gvcExp,
         gvcIntermImports = gvcImp,
         remittanceOutflow = in.s6.remittanceOutflow,
@@ -590,15 +614,15 @@ object OpenEconEconomics:
     val newWeightedCoupon = updateWeightedCouponPublic(
       prevCoupon = in.w.gov.weightedCoupon,
       marketYield = marketYield,
-      bondsOutstanding = in.w.gov.bondsOutstanding,
+      bondsOutstanding = in.ledgerFinancialState.government.govBondOutstanding,
       deficit = in.w.gov.deficit,
       avgMaturityMonths = p.fiscal.govAvgMaturityMonths,
     )
 
-    val rawDebtService     = in.w.gov.bondsOutstanding * newWeightedCoupon.monthly
+    val rawDebtService     = in.ledgerFinancialState.government.govBondOutstanding * newWeightedCoupon.monthly
     val monthlyDebtService = rawDebtService.min(in.s7.gdp * MaxDebtServiceGdpShare)
     val bankBondIncome     = bankAgg.govBondHoldings * marketYield.monthly
-    val nbpBondIncome      = in.w.nbp.govBondHoldings * marketYield.monthly
+    val nbpBondIncome      = in.ledgerFinancialState.nbp.govBondHoldings * marketYield.monthly
     val nbpRemittance      = nbpBondIncome - interbank.reserveInterest - interbank.standingFacilityIncome
 
     val qeActivate       = Nbp.shouldActivateQe(newRefRate, in.s7.newInfl, newExp.expectedInflation)
@@ -607,7 +631,14 @@ object OpenEconEconomics:
       if qeActivate then true
       else if qeTaper then false
       else in.w.nbp.qeActive
-    val preQeNbp         = Nbp.State(newRefRate, in.w.nbp.govBondHoldings, qeActive, in.w.nbp.qeCumulative, in.w.nbp.fxReserves, in.w.nbp.lastFxTraded)
+    val preQeNbp         = Nbp.State(
+      newRefRate,
+      in.ledgerFinancialState.nbp.govBondHoldings,
+      qeActive,
+      in.w.nbp.qeCumulative,
+      in.ledgerFinancialState.nbp.foreignAssets,
+      in.w.nbp.lastFxTraded,
+    )
     val qeRequest        = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.s7.gdp, in.s7.newInfl, newExp.expectedInflation)
     val qePurchaseAmount = qeRequest.requestedPurchase
     val postFxNbp        = qeRequest.nbpState.copy(
@@ -643,7 +674,7 @@ object OpenEconEconomics:
     val unempRate    = in.w.unemploymentRate(in.s2.employed)
     val newInsurance =
       Insurance.step(
-        in.w.financial.insurance,
+        LedgerStateAdapter.projectInsuranceState(in.w.financial.insurance, in.ledgerFinancialState),
         in.s2.employed,
         in.s2.newWage,
         unempRate,
@@ -658,7 +689,7 @@ object OpenEconEconomics:
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
     val newNbfi         =
       Nbfi.step(
-        in.w.financial.nbfi,
+        LedgerStateAdapter.projectNbfiState(in.w.financial.nbfi, in.ledgerFinancialState),
         in.s2.employed,
         in.s2.newWage,
         in.w.priceLevel,

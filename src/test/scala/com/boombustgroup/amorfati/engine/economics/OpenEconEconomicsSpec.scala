@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.flows.*
+import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
@@ -17,9 +18,11 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
   private val TestSeed       = 42L
 
-  private val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
-  private val w    = init.world
-  private val rng  = RandomStream.seeded(TestSeed)
+  private val init                     = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
+  private val w                        = init.world
+  private val baseLedgerFinancialState =
+    LedgerStateAdapter.captureLedgerFinancialState(w, init.firms, init.households, init.banks)
+  private val rng                      = RandomStream.seeded(TestSeed)
 
   // Run pipeline through Economics objects
   private val fiscal = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
@@ -66,6 +69,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   private val newResult = OpenEconEconomics.compute(
     OpenEconEconomics.Input(
       w = w,
+      ledgerFinancialState = baseLedgerFinancialState,
       banks = init.banks,
       employed = s2.employed,
       newWage = s2.newWage,
@@ -133,6 +137,110 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
 
   it should "produce a valid bond yield" in {
     ComputationBoundary.toDouble(newResult.newBondYield) should be >= 0.0
+  }
+
+  it should "read supported bond and insurance stocks from LedgerFinancialState" in {
+    val mismatchedWorld = w.copy(
+      gov = w.gov.copy(
+        financial = w.gov.financial.copy(
+          bondsOutstanding = w.gov.bondsOutstanding + PLN(101),
+          foreignBondHoldings = w.gov.foreignBondHoldings + PLN(102),
+        ),
+      ),
+      nbp = w.nbp.copy(
+        balance = w.nbp.balance.copy(
+          govBondHoldings = w.nbp.govBondHoldings + PLN(103),
+          fxReserves = w.nbp.fxReserves + PLN(104),
+        ),
+      ),
+      financial = w.financial.copy(
+        insurance = w.financial.insurance.copy(
+          reserves = w.financial.insurance.reserves.copy(
+            lifeReserves = w.financial.insurance.lifeReserves + PLN(105),
+            nonLifeReserves = w.financial.insurance.nonLifeReserves + PLN(106),
+          ),
+          portfolio = w.financial.insurance.portfolio.copy(
+            govBondHoldings = w.financial.insurance.govBondHoldings + PLN(107),
+            corpBondHoldings = w.financial.insurance.corpBondHoldings + PLN(108),
+            equityHoldings = w.financial.insurance.equityHoldings + PLN(109),
+          ),
+        ),
+      ),
+    )
+
+    val aligned    = OpenEconEconomics.compute(
+      OpenEconEconomics.Input(
+        w = w,
+        ledgerFinancialState = baseLedgerFinancialState,
+        banks = init.banks,
+        employed = s2.employed,
+        newWage = s2.newWage,
+        domesticConsumption = s3.domesticCons,
+        importConsumption = s3.importCons,
+        totalTechAndInvImports = s5.sumTechImp,
+        gdp = s7.gdp,
+        newInflation = s7.newInfl,
+        autoRatio = s7.autoR,
+        govPurchases = s4.govPurchases,
+        sectorMults = s4.sectorMults,
+        livingFirms = s5.ioFirms,
+        totalBondDefault = s5.totalBondDefault,
+        actualBondIssuance = s5.actualBondIssuance,
+        corpBondAbsorption = s5.corpBondAbsorption,
+        euMonthly = s7.euMonthly,
+        remittanceOutflow = s6.remittanceOutflow,
+        diasporaInflow = s6.diasporaInflow,
+        tourismExport = s6.tourismExport,
+        tourismImport = s6.tourismImport,
+        equityReturn = w.financial.equity.monthlyReturn,
+        investmentImports = s7.investmentImports,
+        profitShifting = s5.sumProfitShifting,
+        fdiRepatriation = s5.sumFdiRepatriation,
+        foreignDividendOutflow = s7.foreignDividendOutflow,
+        month = s1.m,
+        commodityRng = RandomStream.seeded(TestSeed),
+      ),
+    )
+    val fromLedger = OpenEconEconomics.compute(
+      OpenEconEconomics.Input(
+        w = mismatchedWorld,
+        ledgerFinancialState = baseLedgerFinancialState,
+        banks = init.banks,
+        employed = s2.employed,
+        newWage = s2.newWage,
+        domesticConsumption = s3.domesticCons,
+        importConsumption = s3.importCons,
+        totalTechAndInvImports = s5.sumTechImp,
+        gdp = s7.gdp,
+        newInflation = s7.newInfl,
+        autoRatio = s7.autoR,
+        govPurchases = s4.govPurchases,
+        sectorMults = s4.sectorMults,
+        livingFirms = s5.ioFirms,
+        totalBondDefault = s5.totalBondDefault,
+        actualBondIssuance = s5.actualBondIssuance,
+        corpBondAbsorption = s5.corpBondAbsorption,
+        euMonthly = s7.euMonthly,
+        remittanceOutflow = s6.remittanceOutflow,
+        diasporaInflow = s6.diasporaInflow,
+        tourismExport = s6.tourismExport,
+        tourismImport = s6.tourismImport,
+        equityReturn = w.financial.equity.monthlyReturn,
+        investmentImports = s7.investmentImports,
+        profitShifting = s5.sumProfitShifting,
+        fdiRepatriation = s5.sumFdiRepatriation,
+        foreignDividendOutflow = s7.foreignDividendOutflow,
+        month = s1.m,
+        commodityRng = RandomStream.seeded(TestSeed),
+      ),
+    )
+
+    fromLedger.newWeightedCoupon shouldBe aligned.newWeightedCoupon
+    fromLedger.monthlyDebtService shouldBe aligned.monthlyDebtService
+    fromLedger.nbpRemittance shouldBe aligned.nbpRemittance
+    fromLedger.newNbpGovBondHoldings shouldBe aligned.newNbpGovBondHoldings
+    fromLedger.newNbpFxReserves shouldBe aligned.newNbpFxReserves
+    fromLedger.insInvestmentIncome shouldBe aligned.insInvestmentIncome
   }
 
   it should "produce non-negative interbank flows" in {

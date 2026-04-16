@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -33,11 +34,30 @@ object FlowSimulation:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
+      ledgerFinancialState: LedgerFinancialState,
   )
 
   object SimState:
+    def fromMirrors(
+        completedMonth: CompletedMonth,
+        world: World,
+        firms: Vector[Firm.State],
+        households: Vector[Household.State],
+        banks: Vector[Banking.BankState],
+        householdAggregates: Household.Aggregates,
+    ): SimState =
+      new SimState(
+        completedMonth,
+        world,
+        firms,
+        households,
+        banks,
+        householdAggregates,
+        LedgerStateAdapter.captureLedgerFinancialState(world, firms, households, banks),
+      )
+
     def fromInit(init: com.boombustgroup.amorfati.init.WorldInit.InitResult): SimState =
-      SimState(CompletedMonth.Zero, init.world, init.firms, init.households, init.banks, init.householdAggregates)
+      fromMirrors(CompletedMonth.Zero, init.world, init.firms, init.households, init.banks, init.householdAggregates)
 
   /** Executed aggregate batch deltas on top of an empty runtime ledger shell.
     *
@@ -423,6 +443,7 @@ object FlowSimulation:
   private def computeStageOutputs(input: StepInput)(using p: SimParams): StageOutputs =
     val randomness        = input.randomness.stages
     val stateIn           = input.stateIn
+    val ledger            = stateIn.ledgerFinancialState
     val w                 = stateIn.world
     val firms             = stateIn.firms
     val households        = stateIn.households
@@ -481,6 +502,7 @@ object FlowSimulation:
     val openEcon          = OpenEconEconomics.compute(
       OpenEconEconomics.Input(
         w = w,
+        ledgerFinancialState = ledger,
         employed = s2.employed,
         newWage = s2.newWage,
         domesticConsumption = s3.domesticCons,
@@ -511,12 +533,25 @@ object FlowSimulation:
       ),
     )
     val s8                = OpenEconEconomics.runStep(
-      OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, randomness.openEconEconomics.newStream()),
+      OpenEconEconomics.StepInput(
+        w,
+        ledger,
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        banks,
+        randomness.openEconEconomics.newStream(),
+      ),
     )
     val operational       = operationalSignals(s2, s4)
     val bankingDepositRng = randomness.bankingEconomics.newStream()
     val bankingInput      = BankingEconomics.Input(
       w = w,
+      ledgerFinancialState = ledger,
       month = fiscal.month,
       lendingBaseRate = fiscal.lendingBaseRate,
       resWage = fiscal.resWage,
@@ -542,7 +577,20 @@ object FlowSimulation:
       depositRng = bankingDepositRng,
     )
     val s9                = BankingEconomics.runStep(
-      BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, bankingDepositRng),
+      BankingEconomics.StepInput(
+        w,
+        ledger,
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        s8,
+        banks,
+        bankingDepositRng,
+      ),
     )
     val banking           = BankingEconomics.toResult(s9, bankingInput)
     val agg               = s3.hhAgg
@@ -630,11 +678,11 @@ object FlowSimulation:
       govDebtService = w.gov.debtServiceSpend,
       govEuCofinancing = w.gov.euCofinancing,
       govCapitalSpend = w.gov.govCapitalSpend,
-      insuranceCurrentLifeReserves = w.financial.insurance.lifeReserves,
-      insuranceCurrentNonLifeReserves = w.financial.insurance.nonLifeReserves,
-      insurancePrevGovBonds = w.financial.insurance.govBondHoldings,
-      insurancePrevCorpBonds = w.financial.insurance.corpBondHoldings,
-      insurancePrevEquity = w.financial.insurance.equityHoldings,
+      insuranceCurrentLifeReserves = ledger.insurance.lifeReserve,
+      insuranceCurrentNonLifeReserves = ledger.insurance.nonLifeReserve,
+      insurancePrevGovBonds = ledger.insurance.govBondHoldings,
+      insurancePrevCorpBonds = ledger.insurance.corpBondHoldings,
+      insurancePrevEquity = ledger.insurance.equityHoldings,
       govBondYield = openEcon.newBondYield,
       corpBondYield = openEcon.corpBondYield,
     )
@@ -649,6 +697,7 @@ object FlowSimulation:
         firms = firms,
         households = households,
         banks = banks,
+        ledgerFinancialState = stateIn.ledgerFinancialState,
         s1 = s1,
         s2 = s2,
         s3 = s3,
@@ -932,13 +981,14 @@ object FlowSimulation:
     require(assembled.world.seedIn == currentSeed, "PostMonth world must remain on the pre-step seed until advanceState runs")
     require(nextWorld.seedIn == nextSeed, "advanceState must be the transition that applies SeedOut to the next boundary")
 
-    SimState(
+    new SimState(
       completedMonth = input.executionMonth.completed,
       world = nextWorld,
       firms = assembled.firms,
       households = assembled.households,
       banks = assembled.banks,
       householdAggregates = assembled.householdAggregates,
+      ledgerFinancialState = assembled.ledgerFinancialState,
     )
 
   private def buildMonthTrace(

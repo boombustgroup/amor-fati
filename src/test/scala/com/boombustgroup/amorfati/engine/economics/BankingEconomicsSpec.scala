@@ -3,8 +3,9 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals}
+import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals, World}
 import com.boombustgroup.amorfati.engine.flows.*
+import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -15,6 +16,14 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
   private val TestSeed       = 42L
+
+  private def ledgerState(
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  ) =
+    LedgerStateAdapter.captureLedgerFinancialState(world, firms, households, banks)
 
   "BankingEconomics (own Input)" should "produce flows that close at SFC == 0L" in {
     val init            = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
@@ -72,12 +81,25 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       stageRandomness.priceEquityEconomics,
     )
     val s8     = OpenEconEconomics.runStep(
-      OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, init.banks, stageRandomness.openEconEconomics),
+      OpenEconEconomics.StepInput(
+        w,
+        ledgerState(w, init.firms, init.households, init.banks),
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        init.banks,
+        stageRandomness.openEconEconomics,
+      ),
     )
 
     val res = BankingEconomics.compute(
       BankingEconomics.Input(
         w = w,
+        ledgerFinancialState = ledgerState(w, init.firms, init.households, init.banks),
         month = s1.m,
         lendingBaseRate = s1.lendingBaseRate,
         resWage = s1.resWage,

@@ -1,11 +1,12 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
-import com.boombustgroup.amorfati.engine.World
-import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
+import com.boombustgroup.amorfati.engine.{SocialState, World}
+import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector, MutableWorldState}
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState.*
 
 /** Narrow bridge between runtime simulation state and ledger-owned financial
   * storage.
@@ -36,37 +37,6 @@ object LedgerStateAdapter:
   private val SingletonSectorSize = 1
   private val ForeignSectorSize   = ForeignRuntimeContract.AllNodes.iterator.map(_.index).max + 1
 
-  case class HouseholdBalances(
-      demandDeposit: PLN,
-      mortgageLoan: PLN,
-      consumerLoan: PLN,
-      equity: PLN,
-  )
-
-  case class FirmBalances(
-      cash: PLN,
-      firmLoan: PLN,
-      corpBond: PLN,
-      equity: PLN,
-  )
-
-  case class BankBalances(
-      totalDeposits: PLN,
-      demandDeposit: PLN,
-      termDeposit: PLN,
-      firmLoan: PLN,
-      consumerLoan: PLN,
-      govBondAfs: PLN,
-      govBondHtm: PLN,
-      reserve: PLN,
-      interbankLoan: PLN,
-      corpBond: PLN,
-  )
-
-  case class GovernmentBalances(
-      govBondOutstanding: PLN,
-  )
-
   case class GovernmentBondCircuit(
       outstanding: PLN,
       bankHoldings: PLN,
@@ -89,62 +59,6 @@ object LedgerStateAdapter:
   ):
     def totalHoldings: PLN =
       bankHoldings + ppkHoldings + insuranceHoldings + tfiHoldings + otherHoldings
-
-  case class ForeignBalances(
-      govBondHoldings: PLN,
-  )
-
-  case class NbpBalances(
-      govBondHoldings: PLN,
-      foreignAssets: PLN,
-  )
-
-  case class InsuranceBalances(
-      lifeReserve: PLN,
-      nonLifeReserve: PLN,
-      govBondHoldings: PLN,
-      corpBondHoldings: PLN,
-      equityHoldings: PLN,
-  )
-
-  case class NbfiFundBalances(
-      tfiUnit: PLN,
-      govBondHoldings: PLN,
-      corpBondHoldings: PLN,
-      equityHoldings: PLN,
-      cashHoldings: PLN,
-      nbfiLoanStock: PLN,
-  )
-
-  case class QuasiFiscalBalances(
-      bondsOutstanding: PLN,
-      loanPortfolio: PLN,
-  )
-
-  case class FundBalances(
-      zusCash: PLN,
-      nfzCash: PLN,
-      ppkGovBondHoldings: PLN,
-      ppkCorpBondHoldings: PLN,
-      fpCash: PLN,
-      pfronCash: PLN,
-      fgspCash: PLN,
-      jstCash: PLN,
-      corpBondOtherHoldings: PLN,
-      nbfi: NbfiFundBalances,
-      quasiFiscal: QuasiFiscalBalances,
-  )
-
-  case class SupportedFinancialSnapshot(
-      households: Vector[HouseholdBalances],
-      firms: Vector[FirmBalances],
-      banks: Vector[BankBalances],
-      government: GovernmentBalances,
-      foreign: ForeignBalances,
-      nbp: NbpBalances,
-      insurance: InsuranceBalances,
-      funds: FundBalances,
-  )
 
   case class UnsupportedBankBalances(
       capital: PLN,
@@ -183,9 +97,9 @@ object LedgerStateAdapter:
   /** Deterministic ledger sector sizes for the current runtime state. */
   def sectorSizes(sim: FlowSimulation.SimState): Map[EntitySector, Int] =
     Map(
-      EntitySector.Households -> sim.households.size,
-      EntitySector.Firms      -> sim.firms.size,
-      EntitySector.Banks      -> sim.banks.size,
+      EntitySector.Households -> sim.ledgerFinancialState.households.size,
+      EntitySector.Firms      -> sim.ledgerFinancialState.firms.size,
+      EntitySector.Banks      -> sim.ledgerFinancialState.banks.size,
       EntitySector.Government -> SingletonSectorSize,
       EntitySector.NBP        -> SingletonSectorSize,
       EntitySector.Insurance  -> SingletonSectorSize,
@@ -193,11 +107,11 @@ object LedgerStateAdapter:
       EntitySector.Foreign    -> ForeignSectorSize,
     )
 
-  def sectorSizes(supported: SupportedFinancialSnapshot): Map[EntitySector, Int] =
+  def sectorSizes(ledgerFinancialState: LedgerFinancialState): Map[EntitySector, Int] =
     Map(
-      EntitySector.Households -> supported.households.size,
-      EntitySector.Firms      -> supported.firms.size,
-      EntitySector.Banks      -> supported.banks.size,
+      EntitySector.Households -> ledgerFinancialState.households.size,
+      EntitySector.Firms      -> ledgerFinancialState.firms.size,
+      EntitySector.Banks      -> ledgerFinancialState.banks.size,
       EntitySector.Government -> SingletonSectorSize,
       EntitySector.NBP        -> SingletonSectorSize,
       EntitySector.Insurance  -> SingletonSectorSize,
@@ -235,6 +149,67 @@ object LedgerStateAdapter:
       corpBond = b.corpBondHoldings,
     )
 
+  def governmentBalances(gov: FiscalBudget.GovState): GovernmentBalances =
+    GovernmentBalances(
+      govBondOutstanding = gov.bondsOutstanding,
+    )
+
+  def foreignBalances(gov: FiscalBudget.GovState): ForeignBalances =
+    ForeignBalances(
+      govBondHoldings = gov.foreignBondHoldings,
+    )
+
+  def nbpBalances(nbp: Nbp.State): NbpBalances =
+    NbpBalances(
+      govBondHoldings = nbp.govBondHoldings,
+      foreignAssets = nbp.fxReserves,
+    )
+
+  def insuranceBalances(insurance: Insurance.State): InsuranceBalances =
+    InsuranceBalances(
+      lifeReserve = insurance.lifeReserves,
+      nonLifeReserve = insurance.nonLifeReserves,
+      govBondHoldings = insurance.govBondHoldings,
+      corpBondHoldings = insurance.corpBondHoldings,
+      equityHoldings = insurance.equityHoldings,
+    )
+
+  def nbfiFundBalances(nbfi: Nbfi.State): NbfiFundBalances =
+    NbfiFundBalances(
+      tfiUnit = nbfi.tfiAum,
+      govBondHoldings = nbfi.tfiGovBondHoldings,
+      corpBondHoldings = nbfi.tfiCorpBondHoldings,
+      equityHoldings = nbfi.tfiEquityHoldings,
+      cashHoldings = nbfi.tfiCashHoldings,
+      nbfiLoanStock = nbfi.nbfiLoanStock,
+    )
+
+  def quasiFiscalBalances(quasiFiscal: QuasiFiscal.State): QuasiFiscalBalances =
+    QuasiFiscalBalances(
+      bondsOutstanding = quasiFiscal.bondsOutstanding,
+      loanPortfolio = quasiFiscal.loanPortfolio,
+    )
+
+  def fundBalances(
+      social: SocialState,
+      corporateBonds: CorporateBondMarket.State,
+      nbfi: Nbfi.State,
+      quasiFiscal: QuasiFiscal.State,
+  ): FundBalances =
+    FundBalances(
+      zusCash = social.zus.fusBalance,
+      nfzCash = social.nfz.balance,
+      ppkGovBondHoldings = social.ppk.bondHoldings,
+      ppkCorpBondHoldings = corporateBonds.ppkHoldings,
+      fpCash = social.earmarked.fpBalance,
+      pfronCash = social.earmarked.pfronBalance,
+      fgspCash = social.earmarked.fgspBalance,
+      jstCash = social.jst.deposits,
+      corpBondOtherHoldings = corporateBonds.otherHoldings,
+      nbfi = nbfiFundBalances(nbfi),
+      quasiFiscal = quasiFiscalBalances(quasiFiscal),
+    )
+
   def governmentBondCircuit(
       world: World,
       banks: Vector[Banking.BankState],
@@ -251,17 +226,17 @@ object LedgerStateAdapter:
     )
 
   def governmentBondCircuit(
-      supported: SupportedFinancialSnapshot,
+      ledgerFinancialState: LedgerFinancialState,
   ): GovernmentBondCircuit =
-    val bankGovBondHoldings = supported.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
+    val bankGovBondHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
     GovernmentBondCircuit(
-      outstanding = supported.government.govBondOutstanding,
+      outstanding = ledgerFinancialState.government.govBondOutstanding,
       bankHoldings = bankGovBondHoldings,
-      foreignHoldings = supported.foreign.govBondHoldings,
-      nbpHoldings = supported.nbp.govBondHoldings,
-      insuranceHoldings = supported.insurance.govBondHoldings,
-      ppkHoldings = supported.funds.ppkGovBondHoldings,
-      tfiHoldings = supported.funds.nbfi.govBondHoldings,
+      foreignHoldings = ledgerFinancialState.foreign.govBondHoldings,
+      nbpHoldings = ledgerFinancialState.nbp.govBondHoldings,
+      insuranceHoldings = ledgerFinancialState.insurance.govBondHoldings,
+      ppkHoldings = ledgerFinancialState.funds.ppkGovBondHoldings,
+      tfiHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
     )
 
   def corporateBondCircuit(
@@ -280,64 +255,107 @@ object LedgerStateAdapter:
     )
 
   def corporateBondCircuit(
-      supported: SupportedFinancialSnapshot,
+      ledgerFinancialState: LedgerFinancialState,
   ): CorporateBondCircuit =
-    val bankCorpBondHoldings = supported.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond)
+    val bankCorpBondHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond)
     CorporateBondCircuit(
-      outstanding = PLN.fromRaw(supported.firms.map(_.corpBond.toLong).sum),
+      outstanding = PLN.fromRaw(ledgerFinancialState.firms.map(_.corpBond.toLong).sum),
       bankHoldings = bankCorpBondHoldings,
-      ppkHoldings = supported.funds.ppkCorpBondHoldings,
-      insuranceHoldings = supported.insurance.corpBondHoldings,
-      tfiHoldings = supported.funds.nbfi.corpBondHoldings,
-      otherHoldings = supported.funds.corpBondOtherHoldings,
+      ppkHoldings = ledgerFinancialState.funds.ppkCorpBondHoldings,
+      insuranceHoldings = ledgerFinancialState.insurance.corpBondHoldings,
+      tfiHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
+      otherHoldings = ledgerFinancialState.funds.corpBondOtherHoldings,
     )
 
-  /** Pure supported-slice read from runtime state. */
-  def supportedSnapshot(sim: FlowSimulation.SimState): SupportedFinancialSnapshot =
-    SupportedFinancialSnapshot(
-      households = sim.households.map(householdBalances),
-      firms = sim.firms.map(firmBalances),
-      banks = sim.banks.map(bankBalances),
-      government = GovernmentBalances(
-        govBondOutstanding = sim.world.gov.bondsOutstanding,
+  def projectInsuranceState(
+      base: Insurance.State,
+      ledgerFinancialState: LedgerFinancialState,
+  ): Insurance.State =
+    base.copy(
+      reserves = base.reserves.copy(
+        lifeReserves = ledgerFinancialState.insurance.lifeReserve,
+        nonLifeReserves = ledgerFinancialState.insurance.nonLifeReserve,
       ),
-      foreign = ForeignBalances(
-        govBondHoldings = sim.world.gov.foreignBondHoldings,
+      portfolio = base.portfolio.copy(
+        govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
+        corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
+        equityHoldings = ledgerFinancialState.insurance.equityHoldings,
       ),
-      nbp = NbpBalances(
-        govBondHoldings = sim.world.nbp.govBondHoldings,
-        foreignAssets = sim.world.nbp.fxReserves,
+    )
+
+  def projectGovState(
+      base: FiscalBudget.GovState,
+      ledgerFinancialState: LedgerFinancialState,
+  ): FiscalBudget.GovState =
+    base.copy(
+      financial = base.financial.copy(
+        bondsOutstanding = ledgerFinancialState.government.govBondOutstanding,
+        foreignBondHoldings = ledgerFinancialState.foreign.govBondHoldings,
       ),
-      insurance = InsuranceBalances(
-        lifeReserve = sim.world.financial.insurance.lifeReserves,
-        nonLifeReserve = sim.world.financial.insurance.nonLifeReserves,
-        govBondHoldings = sim.world.financial.insurance.govBondHoldings,
-        corpBondHoldings = sim.world.financial.insurance.corpBondHoldings,
-        equityHoldings = sim.world.financial.insurance.equityHoldings,
+    )
+
+  def projectNbpState(
+      base: Nbp.State,
+      ledgerFinancialState: LedgerFinancialState,
+  ): Nbp.State =
+    base.copy(
+      balance = base.balance.copy(
+        govBondHoldings = ledgerFinancialState.nbp.govBondHoldings,
+        fxReserves = ledgerFinancialState.nbp.foreignAssets,
       ),
-      funds = FundBalances(
-        zusCash = sim.world.social.zus.fusBalance,
-        nfzCash = sim.world.social.nfz.balance,
-        ppkGovBondHoldings = sim.world.social.ppk.bondHoldings,
-        ppkCorpBondHoldings = sim.world.financial.corporateBonds.ppkHoldings,
-        fpCash = sim.world.social.earmarked.fpBalance,
-        pfronCash = sim.world.social.earmarked.pfronBalance,
-        fgspCash = sim.world.social.earmarked.fgspBalance,
-        jstCash = sim.world.social.jst.deposits,
-        corpBondOtherHoldings = sim.world.financial.corporateBonds.otherHoldings,
-        nbfi = NbfiFundBalances(
-          tfiUnit = sim.world.financial.nbfi.tfiAum,
-          govBondHoldings = sim.world.financial.nbfi.tfiGovBondHoldings,
-          corpBondHoldings = sim.world.financial.nbfi.tfiCorpBondHoldings,
-          equityHoldings = sim.world.financial.nbfi.tfiEquityHoldings,
-          cashHoldings = sim.world.financial.nbfi.tfiCashHoldings,
-          nbfiLoanStock = sim.world.financial.nbfi.nbfiLoanStock,
-        ),
-        quasiFiscal = QuasiFiscalBalances(
-          bondsOutstanding = sim.world.financial.quasiFiscal.bondsOutstanding,
-          loanPortfolio = sim.world.financial.quasiFiscal.loanPortfolio,
-        ),
+    )
+
+  def projectSocialState(
+      base: SocialState,
+      ledgerFinancialState: LedgerFinancialState,
+  ): SocialState =
+    base.copy(
+      jst = base.jst.copy(deposits = ledgerFinancialState.funds.jstCash),
+      zus = base.zus.copy(fusBalance = ledgerFinancialState.funds.zusCash),
+      nfz = base.nfz.copy(balance = ledgerFinancialState.funds.nfzCash),
+      ppk = base.ppk.copy(bondHoldings = ledgerFinancialState.funds.ppkGovBondHoldings),
+      earmarked = base.earmarked.copy(
+        fp = base.earmarked.fp.copy(balance = ledgerFinancialState.funds.fpCash),
+        pfron = base.earmarked.pfron.copy(balance = ledgerFinancialState.funds.pfronCash),
+        fgsp = base.earmarked.fgsp.copy(balance = ledgerFinancialState.funds.fgspCash),
       ),
+    )
+
+  def projectNbfiState(
+      base: Nbfi.State,
+      ledgerFinancialState: LedgerFinancialState,
+  ): Nbfi.State =
+    base.copy(
+      tfi = base.tfi.copy(
+        tfiAum = ledgerFinancialState.funds.nbfi.tfiUnit,
+        tfiGovBondHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
+        tfiCorpBondHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
+        tfiEquityHoldings = ledgerFinancialState.funds.nbfi.equityHoldings,
+        tfiCashHoldings = ledgerFinancialState.funds.nbfi.cashHoldings,
+      ),
+      credit = base.credit.copy(
+        nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
+      ),
+    )
+
+  /** Transitional capture from mirrored world/agent state into the first-class
+    * ledger-backed financial state.
+    */
+  def captureLedgerFinancialState(
+      world: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  ): LedgerFinancialState =
+    LedgerFinancialState(
+      households = households.map(householdBalances),
+      firms = firms.map(firmBalances),
+      banks = banks.map(bankBalances),
+      government = governmentBalances(world.gov),
+      foreign = foreignBalances(world.gov),
+      nbp = nbpBalances(world.nbp),
+      insurance = insuranceBalances(world.financial.insurance),
+      funds = fundBalances(world.social, world.financial.corporateBonds, world.financial.nbfi, world.financial.quasiFiscal),
     )
 
   /** Financial fields intentionally left outside current ledger mapping because
@@ -377,47 +395,34 @@ object LedgerStateAdapter:
     populate(state, sim)
     state
 
-  def toMutableWorldState(supported: SupportedFinancialSnapshot): MutableWorldState =
-    val state = new MutableWorldState(sectorSizes(supported))
-    populate(state, supported)
+  def toMutableWorldState(ledgerFinancialState: LedgerFinancialState): MutableWorldState =
+    val state = new MutableWorldState(sectorSizes(ledgerFinancialState))
+    populate(state, ledgerFinancialState)
     state
 
-  def roundTripSupported(sim: FlowSimulation.SimState): SupportedFinancialSnapshot =
-    readSupported(toMutableWorldState(sim))
-
-  def roundTripSupported(supported: SupportedFinancialSnapshot): SupportedFinancialSnapshot =
-    readSupported(toMutableWorldState(supported))
-
-  def roundTripSupported(
-      world: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-      householdAggregates: Household.Aggregates,
-  ): SupportedFinancialSnapshot =
-    roundTripSupported(FlowSimulation.SimState(CompletedMonth.Zero, world, firms, households, banks, householdAggregates))
+  def roundTripLedgerFinancialState(ledgerFinancialState: LedgerFinancialState): LedgerFinancialState =
+    readLedgerFinancialState(toMutableWorldState(ledgerFinancialState))
 
   def populate(state: MutableWorldState, sim: FlowSimulation.SimState): Unit =
-    val supported = supportedSnapshot(sim)
-    populate(state, supported)
+    populate(state, sim.ledgerFinancialState)
 
-  def populate(state: MutableWorldState, supported: SupportedFinancialSnapshot): Unit =
+  def populate(state: MutableWorldState, ledgerFinancialState: LedgerFinancialState): Unit =
 
-    supported.households.zipWithIndex.foreach { (hh, idx) =>
+    ledgerFinancialState.households.zipWithIndex.foreach { (hh, idx) =>
       set(state, EntitySector.Households, AssetType.DemandDeposit, idx, hh.demandDeposit)
       set(state, EntitySector.Households, AssetType.MortgageLoan, idx, hh.mortgageLoan)
       set(state, EntitySector.Households, AssetType.ConsumerLoan, idx, hh.consumerLoan)
       set(state, EntitySector.Households, AssetType.Equity, idx, hh.equity)
     }
 
-    supported.firms.zipWithIndex.foreach { (firm, idx) =>
+    ledgerFinancialState.firms.zipWithIndex.foreach { (firm, idx) =>
       set(state, EntitySector.Firms, AssetType.Cash, idx, firm.cash)
       set(state, EntitySector.Firms, AssetType.FirmLoan, idx, firm.firmLoan)
       set(state, EntitySector.Firms, AssetType.CorpBond, idx, firm.corpBond)
       set(state, EntitySector.Firms, AssetType.Equity, idx, firm.equity)
     }
 
-    supported.banks.zipWithIndex.foreach { (bank, idx) =>
+    ledgerFinancialState.banks.zipWithIndex.foreach { (bank, idx) =>
       set(state, EntitySector.Banks, AssetType.DemandDeposit, idx, bank.demandDeposit)
       set(state, EntitySector.Banks, AssetType.TermDeposit, idx, bank.termDeposit)
       set(state, EntitySector.Banks, AssetType.FirmLoan, idx, bank.firmLoan)
@@ -429,36 +434,42 @@ object LedgerStateAdapter:
       set(state, EntitySector.Banks, AssetType.CorpBond, idx, bank.corpBond)
     }
 
-    set(state, EntitySector.Government, AssetType.GovBondHTM, 0, supported.government.govBondOutstanding)
-    set(state, EntitySector.Foreign, AssetType.GovBondHTM, 0, supported.foreign.govBondHoldings)
-    set(state, EntitySector.NBP, AssetType.GovBondHTM, 0, supported.nbp.govBondHoldings)
-    set(state, EntitySector.NBP, AssetType.ForeignAsset, 0, supported.nbp.foreignAssets)
-    set(state, EntitySector.Insurance, AssetType.LifeReserve, 0, supported.insurance.lifeReserve)
-    set(state, EntitySector.Insurance, AssetType.NonLifeReserve, 0, supported.insurance.nonLifeReserve)
-    set(state, EntitySector.Insurance, AssetType.GovBondHTM, 0, supported.insurance.govBondHoldings)
-    set(state, EntitySector.Insurance, AssetType.CorpBond, 0, supported.insurance.corpBondHoldings)
-    set(state, EntitySector.Insurance, AssetType.Equity, 0, supported.insurance.equityHoldings)
+    set(state, EntitySector.Government, AssetType.GovBondHTM, 0, ledgerFinancialState.government.govBondOutstanding)
+    set(state, EntitySector.Foreign, AssetType.GovBondHTM, 0, ledgerFinancialState.foreign.govBondHoldings)
+    set(state, EntitySector.NBP, AssetType.GovBondHTM, 0, ledgerFinancialState.nbp.govBondHoldings)
+    set(state, EntitySector.NBP, AssetType.ForeignAsset, 0, ledgerFinancialState.nbp.foreignAssets)
+    set(state, EntitySector.Insurance, AssetType.LifeReserve, 0, ledgerFinancialState.insurance.lifeReserve)
+    set(state, EntitySector.Insurance, AssetType.NonLifeReserve, 0, ledgerFinancialState.insurance.nonLifeReserve)
+    set(state, EntitySector.Insurance, AssetType.GovBondHTM, 0, ledgerFinancialState.insurance.govBondHoldings)
+    set(state, EntitySector.Insurance, AssetType.CorpBond, 0, ledgerFinancialState.insurance.corpBondHoldings)
+    set(state, EntitySector.Insurance, AssetType.Equity, 0, ledgerFinancialState.insurance.equityHoldings)
 
-    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Zus, supported.funds.zusCash)
-    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Nfz, supported.funds.nfzCash)
-    set(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Ppk, supported.funds.ppkGovBondHoldings)
-    set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.Ppk, supported.funds.ppkCorpBondHoldings)
-    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fp, supported.funds.fpCash)
-    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Pfron, supported.funds.pfronCash)
-    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fgsp, supported.funds.fgspCash)
-    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Jst, supported.funds.jstCash)
-    set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.CorpBondOther, supported.funds.corpBondOtherHoldings)
-    set(state, EntitySector.Funds, AssetType.TfiUnit, FundIndex.Nbfi, supported.funds.nbfi.tfiUnit)
-    set(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Nbfi, supported.funds.nbfi.govBondHoldings)
-    set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.Nbfi, supported.funds.nbfi.corpBondHoldings)
-    set(state, EntitySector.Funds, AssetType.Equity, FundIndex.Nbfi, supported.funds.nbfi.equityHoldings)
-    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Nbfi, supported.funds.nbfi.cashHoldings)
-    set(state, EntitySector.Funds, AssetType.NbfiLoan, FundIndex.Nbfi, supported.funds.nbfi.nbfiLoanStock)
-    set(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.QuasiFiscal, supported.funds.quasiFiscal.bondsOutstanding)
-    set(state, EntitySector.Funds, AssetType.NbfiLoan, FundIndex.QuasiFiscal, supported.funds.quasiFiscal.loanPortfolio)
+    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Zus, ledgerFinancialState.funds.zusCash)
+    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Nfz, ledgerFinancialState.funds.nfzCash)
+    set(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Ppk, ledgerFinancialState.funds.ppkGovBondHoldings)
+    set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.Ppk, ledgerFinancialState.funds.ppkCorpBondHoldings)
+    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fp, ledgerFinancialState.funds.fpCash)
+    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Pfron, ledgerFinancialState.funds.pfronCash)
+    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Fgsp, ledgerFinancialState.funds.fgspCash)
+    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Jst, ledgerFinancialState.funds.jstCash)
+    set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.CorpBondOther, ledgerFinancialState.funds.corpBondOtherHoldings)
+    set(state, EntitySector.Funds, AssetType.TfiUnit, FundIndex.Nbfi, ledgerFinancialState.funds.nbfi.tfiUnit)
+    set(state, EntitySector.Funds, AssetType.GovBondHTM, FundIndex.Nbfi, ledgerFinancialState.funds.nbfi.govBondHoldings)
+    set(state, EntitySector.Funds, AssetType.CorpBond, FundIndex.Nbfi, ledgerFinancialState.funds.nbfi.corpBondHoldings)
+    set(state, EntitySector.Funds, AssetType.Equity, FundIndex.Nbfi, ledgerFinancialState.funds.nbfi.equityHoldings)
+    set(state, EntitySector.Funds, AssetType.Cash, FundIndex.Nbfi, ledgerFinancialState.funds.nbfi.cashHoldings)
+    set(state, EntitySector.Funds, AssetType.NbfiLoan, FundIndex.Nbfi, ledgerFinancialState.funds.nbfi.nbfiLoanStock)
+    set(
+      state,
+      EntitySector.Funds,
+      AssetType.GovBondHTM,
+      FundIndex.QuasiFiscal,
+      ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
+    )
+    set(state, EntitySector.Funds, AssetType.NbfiLoan, FundIndex.QuasiFiscal, ledgerFinancialState.funds.quasiFiscal.loanPortfolio)
 
-  def readSupported(state: MutableWorldState): SupportedFinancialSnapshot =
-    SupportedFinancialSnapshot(
+  def readLedgerFinancialState(state: MutableWorldState): LedgerFinancialState =
+    LedgerFinancialState(
       households = Vector.tabulate(state.sectorSize(EntitySector.Households))(idx =>
         HouseholdBalances(
           demandDeposit = pln(state, EntitySector.Households, AssetType.DemandDeposit, idx),

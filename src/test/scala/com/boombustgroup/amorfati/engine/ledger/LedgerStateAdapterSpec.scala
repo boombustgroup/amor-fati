@@ -27,14 +27,14 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
   it should "round-trip the supported financial slice without semantic loss" in {
     val runtime  = enrichedSimState()
     val ledger   = LedgerStateAdapter.toMutableWorldState(runtime)
-    val expected = LedgerStateAdapter.supportedSnapshot(runtime)
+    val expected = runtime.ledgerFinancialState
 
-    LedgerStateAdapter.readSupported(ledger) shouldBe expected
+    LedgerStateAdapter.readLedgerFinancialState(ledger) shouldBe expected
   }
 
   it should "preserve bank total deposits and extended holder mappings in the supported slice" in {
     val runtime   = enrichedSimState()
-    val supported = LedgerStateAdapter.supportedSnapshot(runtime)
+    val supported = runtime.ledgerFinancialState
 
     supported.banks.head.totalDeposits shouldBe PLN(603e6)
     supported.banks.head.demandDeposit + supported.banks.head.termDeposit shouldBe supported.banks.head.totalDeposits
@@ -68,4 +68,15 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
     ledger.snapshot.keySet should not contain ((EntitySector.Banks, AssetType.Cash, 0))
     ledger.snapshot.keySet should not contain ((EntitySector.Funds, AssetType.Reserve, LedgerStateAdapter.FundIndex.QuasiFiscal))
     ledger.snapshot.keySet should not contain ((EntitySector.Funds, AssetType.Cash, LedgerStateAdapter.FundIndex.QuasiFiscal))
+  }
+
+  it should "carry ledger financial state explicitly inside SimState" in {
+    val runtime = enrichedSimState()
+
+    runtime.ledgerFinancialState shouldBe LedgerStateAdapter.captureLedgerFinancialState(
+      runtime.world,
+      runtime.firms,
+      runtime.households,
+      runtime.banks,
+    )
   }
