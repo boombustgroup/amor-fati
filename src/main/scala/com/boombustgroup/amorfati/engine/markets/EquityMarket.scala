@@ -45,7 +45,6 @@ object EquityMarket:
       lastDomesticDividends: PLN = PLN.Zero,
       lastForeignDividends: PLN = PLN.Zero,
       lastDividendTax: PLN = PLN.Zero,
-      hhEquityWealth: PLN = PLN.Zero,
       lastWealthEffect: PLN = PLN.Zero,
       monthlyReturn: Rate = Rate.Zero,
   )

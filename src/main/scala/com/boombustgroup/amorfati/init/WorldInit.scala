@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.*
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
-import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, EquityMarket, FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.{Macroprudential, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
 
@@ -142,7 +142,7 @@ object WorldInit:
         earmarked = EarmarkedFunds.State.zero,
       ),
       financial = FinancialMarketsState(
-        equity = EquityInit.create(totalPop),
+        equity = EquityMarket.initial,
         corporateBonds = initCorporateBonds,
         insurance = initInsurance,
         nbfi = initNbfi,

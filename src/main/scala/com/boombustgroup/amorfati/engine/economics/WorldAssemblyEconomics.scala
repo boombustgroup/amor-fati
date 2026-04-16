@@ -297,11 +297,9 @@ object WorldAssemblyEconomics:
   // Private helpers — migrated from WorldAssemblyStep
   // ---------------------------------------------------------------------------
 
-  /** Finalize GPW equity state with aggregate household equity wealth. */
+  /** Finalize GPW market-memory fields for this month. */
   private def finalizeEquity(in: StepInput): EquityMarket.State =
-    val totalHhEquityWealth = PLN.fromRaw(in.s9.reassignedHouseholds.map(_.equityWealth.toLong).sum)
     in.s7.equityAfterIssuance.copy(
-      hhEquityWealth = totalHhEquityWealth,
       lastWealthEffect = PLN.Zero,
       lastDomesticDividends = in.s7.netDomesticDividends,
       lastForeignDividends = in.s7.foreignDividendOutflow,
