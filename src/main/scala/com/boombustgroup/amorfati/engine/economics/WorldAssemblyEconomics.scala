@@ -28,7 +28,7 @@ object WorldAssemblyEconomics:
       firms: Vector[Firm.State],                  // pre-step firm population
       households: Vector[Household.State],        // pre-step household population
       banks: Vector[Banking.BankState],           // pre-step bank population
-      ledgerFinancialState: LedgerFinancialState, // ledger-backed supported financial source of truth
+      ledgerFinancialState: LedgerFinancialState, // ledger-backed financial source of truth
       s1: FiscalConstraintEconomics.Output,       // fiscal constraint (month, reservation wage, lending base rate)
       s2: LaborEconomics.Output,                  // labor/demographics (wage, employment, ZUS, PPK)
       s3: HouseholdIncomeEconomics.Output,        // household income (consumption, PIT, import propensity)
@@ -447,7 +447,7 @@ object WorldAssemblyEconomics:
       informal: InformalResult,
       obs: Observables,
   ): (World, LedgerFinancialState) =
-    val ledgerFinancialState = LedgerStateAdapter.roundTripLedgerFinancialState(buildLedgerFinancialState(in))
+    val ledgerFinancialState = buildLedgerFinancialState(in)
     val corporateBondCircuit = LedgerStateAdapter.corporateBondCircuit(ledgerFinancialState)
     val projectedSocial      = LedgerStateAdapter.projectSocialState(
       SocialState(
