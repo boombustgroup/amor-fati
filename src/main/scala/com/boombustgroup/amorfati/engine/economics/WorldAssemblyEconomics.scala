@@ -448,7 +448,6 @@ object WorldAssemblyEconomics:
       obs: Observables,
   ): (World, LedgerFinancialState) =
     val ledgerFinancialState = buildLedgerFinancialState(in)
-    val bankCorpBondHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond)
     val projectedSocial      = LedgerBoundaryProjection.socialState(
       SocialState(
         jst = in.s9.newJst,
@@ -481,17 +480,10 @@ object WorldAssemblyEconomics:
       social = projectedSocial,
       financial = FinancialMarketsState(
         equity = equityAfterStep,
-        corporateBonds = in.s8.corpBonds.newCorpBonds.copy(
-          bankHoldings = bankCorpBondHoldings,
-          ppkHoldings = ledgerFinancialState.funds.ppkCorpBondHoldings,
-          otherHoldings = ledgerFinancialState.funds.corpBondOtherHoldings,
-        ),
+        corporateBonds = LedgerBoundaryProjection.corporateBondState(in.s8.corpBonds.newCorpBonds, ledgerFinancialState),
         insurance = LedgerBoundaryProjection.insuranceState(in.s9.finalInsurance, ledgerFinancialState),
         nbfi = LedgerBoundaryProjection.nbfiState(in.s9.finalNbfi, ledgerFinancialState),
-        quasiFiscal = in.s9.newQuasiFiscal.copy(
-          bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
-          loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
-        ),
+        quasiFiscal = LedgerBoundaryProjection.quasiFiscalState(in.s9.newQuasiFiscal, ledgerFinancialState),
       ),
       external = ExternalState(
         gvc = in.s8.external.newGvc,
