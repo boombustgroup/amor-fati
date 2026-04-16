@@ -34,7 +34,6 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       loansLong: PLN = PLN.Zero,
       consumerLoans: PLN = PLN.Zero,
       consumerNpl: PLN = PLN.Zero,
-      corpBondHoldings: PLN = PLN.Zero,
   ): Banking.BankState = Banking.BankState(
     id = BankId(id),
     deposits = deposits,
@@ -54,7 +53,6 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     loansLong = loansLong,
     consumerLoans = consumerLoans,
     consumerNpl = consumerNpl,
-    corpBondHoldings = corpBondHoldings,
   )
 
   // ---- initialize ----
@@ -99,22 +97,22 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   "Banking.lendingRate" should "return high spread for failed bank" in {
     val bank = mkBank(status = BankStatus.Failed(ExecutionMonth(30)))
-    val rate = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero)
+    val rate = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero, PLN.Zero)
     td.toDouble(rate) shouldBe (0.05 + 0.50) +- 0.001
   }
 
   it should "increase with NPL ratio" in {
     val bankLowNpl  = mkBank(nplAmount = PLN(1e4))
     val bankHighNpl = mkBank(nplAmount = PLN(2e5))
-    val rateLow     = Banking.lendingRate(bankLowNpl, configs(0), Rate(0.05), Rate.Zero)
-    val rateHigh    = Banking.lendingRate(bankHighNpl, configs(0), Rate(0.05), Rate.Zero)
+    val rateLow     = Banking.lendingRate(bankLowNpl, configs(0), Rate(0.05), Rate.Zero, PLN.Zero)
+    val rateHigh    = Banking.lendingRate(bankHighNpl, configs(0), Rate(0.05), Rate.Zero, PLN.Zero)
     rateHigh should be > rateLow
   }
 
   it should "include bank-specific spread" in {
     val bank    = mkBank(nplAmount = PLN.Zero)
-    val ratePko = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero) // spread = -0.002
-    val rateBps = Banking.lendingRate(bank, configs(5), Rate(0.05), Rate.Zero) // spread = +0.003
+    val ratePko = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero, PLN.Zero) // spread = -0.002
+    val rateBps = Banking.lendingRate(bank, configs(5), Rate(0.05), Rate.Zero, PLN.Zero) // spread = +0.003
     rateBps should be > ratePko
   }
 
@@ -122,7 +120,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   "Banking.canLend" should "return false for failed bank" in {
     val bank = mkBank(capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30)))
-    Banking.canLend(bank, PLN(1000.0), RandomStream.seeded(42), Multiplier.Zero) shouldBe false
+    Banking.canLend(bank, PLN(1000.0), RandomStream.seeded(42), Multiplier.Zero, PLN.Zero) shouldBe false
   }
 
   it should "reject when projected CAR too low" in {
@@ -131,7 +129,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     val bank    = mkBank(loans = PLN(100000.0), capital = PLN(8000.0))
     val rng     = RandomStream.seeded(42L)
     // Need to test multiple times since there's a stochastic element
-    val results = (0 until 100).map(_ => Banking.canLend(bank, PLN(10000.0), rng, Multiplier.Zero))
+    val results = (0 until 100).map(_ => Banking.canLend(bank, PLN(10000.0), rng, Multiplier.Zero, PLN.Zero))
     results.forall(_ == false) shouldBe true
   }
 
@@ -229,9 +227,10 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
         status = BankStatus.Failed(ExecutionMonth(30)),
       ),
     )
-    val result = Banking.resolveFailures(banks)
+    val result = Banking.resolveFailures(banks, Vector(PLN(1000.0), PLN(250.0)))
     td.toDouble(result.banks(0).deposits) shouldBe 800000.0 +- 0.01 // absorbed 300k
     result.banks(1).deposits shouldBe PLN.Zero
+    result.bankCorpBondHoldings shouldBe Vector(PLN(1250.0), PLN.Zero)
   }
 
   // ---- allocateBonds ----
@@ -343,9 +342,9 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   // ---- aggregate ----
 
-  "Banking.State.aggregate" should "sum all individual bank values" in {
+  "Banking.aggregateFromBanks" should "sum all individual bank values" in {
     val bs  = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
-    val agg = bs.aggregate
+    val agg = Banking.aggregateFromBanks(bs.banks)
     agg.deposits shouldBe PLN(1000000.0)
     agg.capital shouldBe PLN(100000.0)
     agg.totalLoans shouldBe PLN.Zero
@@ -388,7 +387,6 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
     val result = Banking.allocateBonds(Vector(b0), PLN(10000.0), Rate(0.08))
     // new HTM = 10000 * 0.6 = 6000, total HTM = 12000
@@ -418,7 +416,6 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
     val result = Banking.sellToBuyer(Vector(b0), PLN(3000.0)).banks
     td.toDouble(result(0).afsBonds) shouldBe 1000.0 +- 0.01 // 4000 - 3000
@@ -445,7 +442,6 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
     val result = Banking.sellToBuyer(Vector(b0), PLN(5000.0)).banks
     td.toDouble(result(0).afsBonds) shouldBe 0.0 +- 0.01    // 2000 fully sold
@@ -475,7 +471,6 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
     val result      = Banking.processHtmForcedSale(Vector(healthyBank), Rate(0.08))
     result.totalRealizedLoss shouldBe PLN.Zero
@@ -506,7 +501,6 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
     val currentYield = Rate(0.08)
     val result       = Banking.processHtmForcedSale(Vector(stressedBank), currentYield)
@@ -545,7 +539,6 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
     val result = Banking.processHtmForcedSale(Vector(bank), Rate(0.10))
     result.totalRealizedLoss shouldBe PLN.Zero
@@ -572,7 +565,6 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
     val result = Banking.processHtmForcedSale(Vector(bank), Rate(0.05))
     result.totalRealizedLoss shouldBe PLN.Zero

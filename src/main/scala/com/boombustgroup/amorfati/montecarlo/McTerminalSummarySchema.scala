@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.Banking.BankState
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.fp.ComputationBoundary
+import com.boombustgroup.amorfati.types.PLN
 
 import java.io.File
 
@@ -17,6 +18,8 @@ private[montecarlo] final case class McTerminalSummaryRows(seed: Long, rowsById:
 private[montecarlo] object McTerminalSummarySchema:
 
   private val td = ComputationBoundary
+
+  private case class BankRow(bank: BankState, corpBondHoldings: PLN)
 
   private[montecarlo] final case class SummarySpec(
       id: McTerminalSummaryId,
@@ -46,16 +49,16 @@ private[montecarlo] object McTerminalSummarySchema:
     ("PovertyRate_30pct", a => f"${td.toDouble(a.povertyRate30)}%.6f"),
   )
 
-  private val bankSchema: Vector[(String, BankState => String)] = Vector(
-    ("BankId", b => s"${b.id}"),
-    ("Deposits", b => f"${td.toDouble(b.deposits)}%.2f"),
-    ("Loans", b => f"${td.toDouble(b.loans)}%.2f"),
-    ("Capital", b => f"${td.toDouble(b.capital)}%.2f"),
-    ("NPL", b => f"${td.toDouble(b.nplRatio)}%.6f"),
-    ("CAR", b => f"${td.toDouble(b.car)}%.6f"),
-    ("GovBonds", b => f"${td.toDouble(b.govBondHoldings)}%.2f"),
-    ("InterbankNet", b => f"${td.toDouble(b.interbankNet)}%.2f"),
-    ("Failed", b => s"${b.failed}"),
+  private val bankSchema: Vector[(String, BankRow => String)] = Vector(
+    ("BankId", row => s"${row.bank.id}"),
+    ("Deposits", row => f"${td.toDouble(row.bank.deposits)}%.2f"),
+    ("Loans", row => f"${td.toDouble(row.bank.loans)}%.2f"),
+    ("Capital", row => f"${td.toDouble(row.bank.capital)}%.2f"),
+    ("NPL", row => f"${td.toDouble(row.bank.nplRatio)}%.6f"),
+    ("CAR", row => f"${td.toDouble(row.bank.car(row.corpBondHoldings))}%.6f"),
+    ("GovBonds", row => f"${td.toDouble(row.bank.govBondHoldings)}%.2f"),
+    ("InterbankNet", row => f"${td.toDouble(row.bank.interbankNet)}%.2f"),
+    ("Failed", row => s"${row.bank.failed}"),
   )
 
   private[montecarlo] val specs = Vector(
@@ -84,12 +87,14 @@ private[montecarlo] object McTerminalSummarySchema:
       seed,
       Map(
         McTerminalSummaryId.Household -> Vector(renderHouseholdRow(seed, terminalState.householdAggregates)),
-        McTerminalSummaryId.Banks     -> terminalState.banks.map(renderBankRow(seed, _)),
+        McTerminalSummaryId.Banks     -> terminalState.banks.map(bank =>
+          renderBankRow(seed, BankRow(bank, terminalState.ledgerFinancialState.banks.lift(bank.id.toInt).fold(PLN.Zero)(_.corpBond))),
+        ),
       ),
     )
 
   private def renderHouseholdRow(seed: Long, agg: Household.Aggregates): String =
     s"$seed;" + hhSchema.map(_._2(agg)).mkString(";")
 
-  private def renderBankRow(seed: Long, bank: BankState): String =
-    s"$seed;" + bankSchema.map(_._2(bank)).mkString(";")
+  private def renderBankRow(seed: Long, row: BankRow): String =
+    s"$seed;" + bankSchema.map(_._2(row)).mkString(";")

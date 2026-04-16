@@ -332,7 +332,6 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         loansLong = PLN.Zero,
         consumerLoans = PLN.Zero,
         consumerNpl = PLN.Zero,
-        corpBondHoldings = PLN.Zero,
       ),
     )
     val snap  = Sfc.snapshot(w, firms, Vector.empty, banks, zeroLedger)

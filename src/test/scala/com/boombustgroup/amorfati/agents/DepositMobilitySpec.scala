@@ -35,7 +35,6 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
       loansLong = PLN(3e9),
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
 
   private def mkHh(bankId: Int, savings: Double = 50000.0): Household.State =

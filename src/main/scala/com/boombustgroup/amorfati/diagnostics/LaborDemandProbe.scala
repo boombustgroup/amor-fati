@@ -190,6 +190,7 @@ object LaborDemandProbe:
           firms,
           hhs,
           banks,
+          ledgerFinancialState,
           s1.lendingBaseRate,
           s1.resWage,
           s2Pre.newWage,

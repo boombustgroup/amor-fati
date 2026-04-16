@@ -139,7 +139,6 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
 
   // =========================================================================

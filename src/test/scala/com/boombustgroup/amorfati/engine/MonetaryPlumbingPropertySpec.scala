@@ -46,7 +46,6 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     loansLong = PLN.Zero,
     consumerLoans = PLN.Zero,
     consumerNpl = PLN.Zero,
-    corpBondHoldings = PLN.Zero,
   )
 
   // =========================================================================

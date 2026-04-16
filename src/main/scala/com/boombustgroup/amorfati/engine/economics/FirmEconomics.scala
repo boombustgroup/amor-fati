@@ -392,8 +392,9 @@ object FirmEconomics:
     val bsec               = in.w.bankingSector
     val nBanks             = in.banks.length
     val ccyb               = in.w.mechanisms.macropru.ccyb
-    val rates              = in.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield))
-    val canLend            = (bankId: Int, amt: PLN) => Banking.canLend(in.banks(bankId), amt, rng, ccyb)
+    val bankCorpBonds      = (bankId: BankId) => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId)
+    val rates              = in.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield, bankCorpBonds(b.id)))
+    val canLend            = (bankId: Int, amt: PLN) => Banking.canLend(in.banks(bankId), amt, rng, ccyb, bankCorpBonds(BankId(bankId)))
     val operationalSignals = OperationalSignals(
       sectorDemandMult = in.s4.sectorMults,
       sectorDemandPressure = in.s4.sectorDemandPressure,
@@ -502,7 +503,7 @@ object FirmEconomics:
       banks: Vector[Banking.BankState],
       ledgerFinancialState: LedgerFinancialState,
   )(using p: SimParams): BondAbsorptionResult =
-    val bankAgg            = Banking.aggregateFromBanks(banks)
+    val bankAgg            = Banking.aggregateFromBanks(banks, bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId))
     val absorption         = CorporateBondMarket
       .computeAbsorption(w.financialMarkets.corporateBonds, result.flows.bondIssuance, bankAgg.car, p.banking.minCar)
     val actualBondIssuance = result.flows.bondIssuance * absorption

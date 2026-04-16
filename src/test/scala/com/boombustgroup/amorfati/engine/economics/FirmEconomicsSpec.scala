@@ -41,7 +41,8 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     labor.living,
     labor.regionalWages,
   )
-  private val s3     = HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
+  private val s3     =
+    HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, init.ledgerFinancialState, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
   private val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
 
   private val rng2  = RandomStream.seeded(42)
@@ -114,11 +115,22 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
       labor.living,
       labor.regionalWages,
     )
-    val s3                   = HouseholdIncomeEconomics.compute(world, firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, RandomStream.seeded(42))
-    val s4                   = DemandEconomics.compute(DemandEconomics.Input(world, s2.employed, s2.living, s3.domesticCons))
     val ledgerFinancialState = init.ledgerFinancialState.copy(
       firms = LedgerFinancialState.refreshFirmBalances(firms, init.ledgerFinancialState.firms),
     )
+    val s3                   =
+      HouseholdIncomeEconomics.compute(
+        world,
+        firms,
+        init.households,
+        init.banks,
+        ledgerFinancialState,
+        s1.lendingBaseRate,
+        s1.resWage,
+        s2.newWage,
+        RandomStream.seeded(42),
+      )
+    val s4                   = DemandEconomics.compute(DemandEconomics.Input(world, s2.employed, s2.living, s3.domesticCons))
     FirmEconomics.runStep(world, firms, init.households, init.banks, ledgerFinancialState, s1, s2, s3, s4, RandomStream.seeded(43))
 
   private def manufacturingScenario(stateOwned: Boolean, cashRich: Boolean = false): Vector[Firm.State] =

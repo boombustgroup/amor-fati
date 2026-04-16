@@ -233,7 +233,7 @@ object Sfc:
     val hhS     = PLN.fromRaw(households.map(_.savings.toLong).sum)
     val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
     val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
-    val bankAgg = Banking.aggregateFromBanks(banks)
+    val bankAgg = Banking.aggregateFromBanks(banks, bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId))
     val bonds   = GovernmentBondCircuit.from(ledgerFinancialState)
     StockState(
       hhSavings = hhS,

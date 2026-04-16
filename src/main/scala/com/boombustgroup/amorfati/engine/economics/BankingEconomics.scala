@@ -4,8 +4,8 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
-import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerBoundaryProjection, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.markets.{BondAuction, CorporateBondMarket, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.Distribute
@@ -123,6 +123,7 @@ object BankingEconomics:
 
   private case class MultiBankResult(
       finalBanks: Vector[Banking.BankState],         // final explicit bank population after interbank clearing and resolution
+      finalBankCorpBondHoldings: Vector[PLN],        // ledger-owned corporate bond holdings by bank index
       finalBankingMarket: Banking.MarketState,       // final banking market wrapper after interbank clearing and resolution
       reassignedFirms: Vector[Firm.State],           // firms reassigned from failed banks to absorber bank
       reassignedHouseholds: Vector[Household.State], // households reassigned from failed banks to absorber bank
@@ -158,6 +159,9 @@ object BankingEconomics:
       allocations: Vector[PLN],
       residual: PLN,
   )
+
+  private def bankCorpBondHoldings(ledgerFinancialState: LedgerFinancialState): Banking.BankCorpBondHoldings =
+    bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId)
 
   // ---- Economics-level types (for MonthlyCalculus) ----
 
@@ -221,7 +225,7 @@ object BankingEconomics:
   // ---- Public API ----
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
-    val prevBankAgg               = Banking.aggregateFromBanks(in.banks)
+    val prevBankAgg               = Banking.aggregateFromBanks(in.banks, bankCorpBondHoldings(in.ledgerFinancialState))
     val govJst                    = computeGovAndJst(in)
     val housing                   = computeHousingFlows(in)
     val bfgLevy                   = Banking.computeBfgLevy(in.banks).total
@@ -264,7 +268,7 @@ object BankingEconomics:
       in.ledgerFinancialState.copy(
         households = multi.reassignedHouseholds.map(LedgerFinancialState.householdBalances),
         firms = issuerSettledFirmBalances,
-        banks = multi.finalBanks.map(LedgerFinancialState.bankBalances),
+        banks = LedgerFinancialState.refreshBankBalances(multi.finalBanks, in.ledgerFinancialState.banks, multi.finalBankCorpBondHoldings),
         government = LedgerFinancialState.governmentBalances(newGovWithForeignHoldings),
         foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbp),
@@ -361,7 +365,7 @@ object BankingEconomics:
     toResult(s9, in)
 
   private[engine] def toResult(s9: StepOutput, in: Input): Result =
-    val prevBankAgg = Banking.aggregateFromBanks(in.banks)
+    val prevBankAgg = Banking.aggregateFromBanks(in.banks, bankCorpBondHoldings(in.ledgerFinancialState))
     Result(
       govBondIncome = prevBankAgg.govBondHoldings * in.openEconOutput.monetary.newBondYield.monthly,
       reserveInterest = in.openEconOutput.banking.totalReserveInterest,
@@ -461,7 +465,7 @@ object BankingEconomics:
       YieldCurve
         .compute(
           in.w.bankingSector.interbankRate,
-          nplRatio = Banking.aggregateFromBanks(in.banks).nplRatio,
+          nplRatio = Banking.aggregateFromBanks(in.banks, bankCorpBondHoldings(in.ledgerFinancialState)).nplRatio,
           credibility = exp.credibility,
           expectedInflation = exp.expectedInflation,
           targetInflation = p.monetary.targetInfl,
@@ -562,6 +566,38 @@ object BankingEconomics:
           ccDefault = in.s6.consumerDefaultAmt * Share(ws),
         )
 
+  private def allocateBankCorpBondIssuance(issuance: PLN, perBankWorkers: Vector[Int]): Vector[PLN] =
+    if perBankWorkers.isEmpty then Vector.empty
+    else if issuance <= PLN.Zero then Vector.fill(perBankWorkers.length)(PLN.Zero)
+    else
+      val weights =
+        val workerWeights = perBankWorkers.map(_.toLong.max(0L)).toArray
+        if workerWeights.exists(_ > 0L) then workerWeights
+        else Array.fill(perBankWorkers.length)(1L)
+      Distribute.distribute(issuance.distributeRaw, weights).map(PLN.fromRaw).toVector
+
+  private def reduceBankCorpBondHoldings(holdings: Vector[PLN], reduction: PLN): Vector[PLN] =
+    if holdings.isEmpty then Vector.empty
+    else if reduction <= PLN.Zero then holdings
+    else
+      val total           = PLN.fromRaw(holdings.iterator.map(_.toLong).sum)
+      val actualReduction = reduction.min(total)
+      val reductions      = Distribute.distribute(actualReduction.distributeRaw, holdings.map(_.distributeRaw).toArray)
+      holdings.zip(reductions).map((holding, rawReduction) => (holding - PLN.fromRaw(rawReduction)).max(PLN.Zero))
+
+  private def settleBankCorpBondHoldings(
+      previous: Vector[PLN],
+      previousAggregateStock: CorporateBondMarket.StockState,
+      nextAggregateStock: CorporateBondMarket.StockState,
+      totalBondIssuance: PLN,
+      perBankWorkers: Vector[Int],
+  )(using p: SimParams): Vector[PLN] =
+    val bankIssuance   = CorporateBondMarket.processIssuance(CorporateBondMarket.StockState.zero, totalBondIssuance).bankHoldings
+    val bankReduction  = (previousAggregateStock.bankHoldings + bankIssuance - nextAggregateStock.bankHoldings).max(PLN.Zero)
+    val afterReduction = reduceBankCorpBondHoldings(previous, bankReduction)
+    val issuance       = allocateBankCorpBondIssuance(bankIssuance, perBankWorkers)
+    afterReduction.zip(issuance).map(_ + _)
+
   /** Compute updated state for a single bank in the multi-bank path. */
   private def updateSingleBank(
       b: Banking.BankState,
@@ -660,7 +696,6 @@ object BankingEconomics:
       loansLong = newLoansTotal * Share(LongLoanFrac),
       consumerLoans = (b.consumerLoans + hhFlows.ccOrigination - bankCcStockReduction - hhFlows.ccDefault).max(PLN.Zero),
       consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * Share(NplMonthlyWriteOff)).max(PLN.Zero),
-      corpBondHoldings = in.s8.corpBonds.newCorpBondStock.bankHoldings * workerShare,
     )
 
   /** Multi-bank update: per-bank loop, interbank clearing, bond allocation,
@@ -686,6 +721,14 @@ object BankingEconomics:
         val raw  = (0 until n - 1).map(i => Share.fraction(in.s5.perBankWorkers(i), totalWorkers)).toVector
         val last = Share.One - raw.foldLeft(Share.Zero)(_ + _)
         raw :+ last
+
+    val settledBankCorpBonds = settleBankCorpBondHoldings(
+      previous = CorporateBondOwnership.bankHolderBalances(in.ledgerFinancialState),
+      previousAggregateStock = LedgerBoundaryProjection.corporateBondStock(in.ledgerFinancialState),
+      nextAggregateStock = in.s8.corpBonds.newCorpBondStock,
+      totalBondIssuance = in.s5.actualBondIssuance,
+      perBankWorkers = in.s5.perBankWorkers,
+    )
 
     val updatedBanks = bs.banks.map { b =>
       val bId         = b.id.toInt
@@ -716,6 +759,7 @@ object BankingEconomics:
       jstDepositChange,
       investNetDepositFlow,
       mortgageFlows,
+      settledBankCorpBonds,
     )
 
   /** Interbank clearing, bond allocation, QE, failure check, bail-in,
@@ -732,8 +776,9 @@ object BankingEconomics:
       jstDepositChange: PLN,
       investNetDepositFlow: PLN,
       mortgageFlows: HousingMarket.MortgageFlows,
+      settledBankCorpBonds: Vector[PLN],
   )(using p: SimParams): MultiBankResult =
-    val prevBankAgg    = Banking.aggregateFromBanks(in.banks)
+    val prevBankAgg    = Banking.aggregateFromBanks(in.banks, bankCorpBondHoldings(in.ledgerFinancialState))
     val ibRate         = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
     // Liquidity hoarding: reduce interbank lending when system NPL is high
     val hoarding       = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
@@ -792,8 +837,10 @@ object BankingEconomics:
     )
     val finalForeignBondHoldings = in.ledgerFinancialState.foreign.govBondHoldings + foreignSale.actualSold
 
+    val bankCorpBondHoldingsAfterSettlement = Banking.bankCorpBondHoldingsFromVector(settledBankCorpBonds)
+
     val failResult =
-      Banking.checkFailures(tfiSale.banks, in.s1.m, true, in.s7.newMacropru.ccyb)
+      Banking.checkFailures(tfiSale.banks, in.s1.m, true, in.s7.newMacropru.ccyb, bankCorpBondHoldingsAfterSettlement)
 
     // Interbank contagion: failed banks impose losses on counterparties
     val exposures      = InterbankContagion.buildExposureMatrix(tfiSale.banks)
@@ -801,21 +848,23 @@ object BankingEconomics:
       if failResult.anyFailed then InterbankContagion.applyContagionLosses(failResult.banks, exposures)
       else failResult.banks
     // Re-check for secondary failures triggered by contagion losses
-    val secondaryFail  = Banking.checkFailures(afterContagion, in.s1.m, true, in.s7.newMacropru.ccyb)
+    val secondaryFail  = Banking.checkFailures(afterContagion, in.s1.m, true, in.s7.newMacropru.ccyb, bankCorpBondHoldingsAfterSettlement)
     val afterFailCheck = secondaryFail.banks
     val anyFailed      = failResult.anyFailed || secondaryFail.anyFailed
 
-    val bailInResult       =
+    val bailInResult                 =
       if anyFailed then Banking.applyBailIn(afterFailCheck) else Banking.BailInResult(afterFailCheck, PLN.Zero)
-    val resolveResult      =
-      if anyFailed then Banking.resolveFailures(bailInResult.banks)
-      else Banking.ResolutionResult(bailInResult.banks, BankId.NoBank)
-    val afterResolve       = resolveResult.banks
-    val rawAbsorberId      = resolveResult.absorberId
-    val absorberId         =
+    val resolveResult                =
+      if anyFailed then Banking.resolveFailures(bailInResult.banks, settledBankCorpBonds)
+      else Banking.ResolutionResult(bailInResult.banks, BankId.NoBank, settledBankCorpBonds)
+    val afterResolve                 = resolveResult.banks
+    val afterResolveCorpBonds        = resolveResult.bankCorpBondHoldings
+    val afterResolveCorpBondHoldings = Banking.bankCorpBondHoldingsFromVector(afterResolveCorpBonds)
+    val rawAbsorberId                = resolveResult.absorberId
+    val absorberId                   =
       if rawAbsorberId.toInt >= 0 then rawAbsorberId
-      else Banking.healthiestBankId(afterResolve)
-    val multiCapDest: PLN  =
+      else Banking.healthiestBankId(afterResolve, afterResolveCorpBondHoldings)
+    val multiCapDest: PLN            =
       if anyFailed then
         PLN.fromRaw(
           tfiSale.banks
@@ -826,7 +875,7 @@ object BankingEconomics:
             .sum,
         )
       else PLN.Zero
-    val curve              =
+    val curve                        =
       val exp = in.w.mechanisms.expectations
       Some(
         YieldCurve.compute(
@@ -837,18 +886,18 @@ object BankingEconomics:
           targetInflation = p.monetary.targetInfl,
         ),
       )
-    val finalBankingMarket = Banking.MarketState(
+    val finalBankingMarket           = Banking.MarketState(
       interbankRate = ibRate,
       configs = bs.configs,
       interbankCurve = curve,
     )
-    val reassignedFirms    =
+    val reassignedFirms              =
       if anyFailed then
         in.s7.rewiredFirms.map: f =>
           if f.bankId.toInt < afterResolve.length && afterResolve(f.bankId.toInt).failed then f.copy(bankId = absorberId)
           else f
       else in.s7.rewiredFirms
-    val postFailureHh      =
+    val postFailureHh                =
       if anyFailed then
         in.s5.households.map: h =>
           if h.bankId.toInt < afterResolve.length && afterResolve(h.bankId.toInt).failed then h.copy(bankId = absorberId)
@@ -856,7 +905,7 @@ object BankingEconomics:
       else in.s5.households
 
     // Deposit mobility: HH may switch banks based on health signals and panic
-    val mobilityResult       = DepositMobility(postFailureHh, afterResolve, anyFailed, in.depositRng)
+    val mobilityResult       = DepositMobility(postFailureHh, afterResolve, anyFailed, in.depositRng, afterResolveCorpBondHoldings)
     val reassignedHouseholds = mobilityResult.households
 
     // Deposit flows take effect next month when HH income/consumption routes
@@ -876,12 +925,13 @@ object BankingEconomics:
 
     MultiBankResult(
       finalBanks = reconciled,
+      finalBankCorpBondHoldings = afterResolveCorpBonds,
       finalBankingMarket = finalBankingMarket,
       reassignedFirms = reassignedFirms,
       reassignedHouseholds = reassignedHouseholds,
       bailInLoss = bailInResult.totalLoss,
       multiCapDestruction = multiCapDest,
-      resolvedBank = Banking.aggregateFromBanks(reconciled),
+      resolvedBank = Banking.aggregateFromBanks(reconciled, afterResolveCorpBondHoldings),
       htmRealizedLoss = htmResult.totalRealizedLoss,
       finalNbp = finalNbp,
       finalPpk = finalPpk,

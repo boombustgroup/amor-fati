@@ -48,6 +48,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         init.firms,
         init.households,
         init.banks,
+        ledgerFinancialState,
         s1.lendingBaseRate,
         s1.resWage,
         s2.newWage,
@@ -262,5 +263,4 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )

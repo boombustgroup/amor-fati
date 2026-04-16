@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
-import com.boombustgroup.amorfati.engine.ledger.{LedgerBoundaryProjection, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerBoundaryProjection, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, GvcTrade, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.Expectations
 import com.boombustgroup.amorfati.types.*
@@ -173,7 +173,7 @@ object OpenEconEconomics:
   @boundaryEscape
   def compute(in: Input)(using p: SimParams): Result =
     import ComputationBoundary.toDouble
-    val bankAgg = Banking.aggregateFromBanks(in.banks)
+    val bankAgg = Banking.aggregateFromBanks(in.banks, bankId => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId))
 
     // 1. Sector outputs (capacity × demand × price)
     val sectorOutputs = computeSectorOutputs(in)
@@ -437,7 +437,7 @@ object OpenEconEconomics:
   private case class NbfiResult(state: Nbfi.State, stock: Nbfi.StockState)
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
-    val bankAgg       = Banking.aggregateFromBanks(in.banks)
+    val bankAgg       = Banking.aggregateFromBanks(in.banks, bankId => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId))
     val sectorOutputs = runStepSectorOutputs(in)
     val external      = runStepExternalSector(in, sectorOutputs)
     val rateAndExp    = runStepRateAndExpectations(in, external.newForex)

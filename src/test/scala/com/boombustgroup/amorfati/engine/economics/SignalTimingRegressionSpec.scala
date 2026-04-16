@@ -67,6 +67,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         init.firms,
         init.households,
         init.banks,
+        ledgerFinancialState,
         s1.lendingBaseRate,
         s1.resWage,
         s2Pre.newWage,

@@ -41,7 +41,15 @@ object WorldInit:
     val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(toDouble(_)).max)
     val initImportCons   = initConsumption - initDomesticCons
 
-    val initBankingSector = BankInit.create(firms, households, initCorporateBondStocks.bankHoldings)
+    val initBankingSector = BankInit.create(firms, households)
+    val initBankCorpBonds =
+      com.boombustgroup.ledger.Distribute
+        .distribute(
+          initCorporateBondStocks.bankHoldings.toLong,
+          Banking.DefaultConfigs.map(_.initMarketShare.toLong).toArray,
+        )
+        .map(PLN.fromRaw)
+        .toVector
 
     // --- Sub-state initializers ---
     val initDemographics   = DemographicsInit.create(totalPop)
@@ -176,7 +184,7 @@ object WorldInit:
     val ledgerFinancialState = LedgerFinancialState(
       households = households.map(LedgerFinancialState.householdBalances),
       firms = initFirmBalances,
-      banks = initBankingSector.banks.map(LedgerFinancialState.bankBalances),
+      banks = LedgerFinancialState.refreshBankBalances(initBankingSector.banks, Vector.empty, initBankCorpBonds),
       government = LedgerFinancialState.governmentBalances(world.gov),
       foreign = LedgerFinancialState.foreignBalances(world.gov),
       nbp = LedgerFinancialState.nbpBalances(world.nbp),

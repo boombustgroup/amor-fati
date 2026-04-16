@@ -97,7 +97,6 @@ object LedgerTestFixtures:
         htmBonds = PLN(306e6),
         reservesAtNbp = PLN(307e6),
         interbankNet = PLN(308e6),
-        corpBondHoldings = PLN(309e6),
         capital = PLN(310e6),
         nplAmount = PLN(311e6),
         consumerNpl = PLN(312e6),
@@ -114,7 +113,8 @@ object LedgerTestFixtures:
     val ledgerFinancialState = base.ledgerFinancialState.copy(
       households = households.map(LedgerFinancialState.householdBalances),
       firms = firmBalances,
-      banks = banks.map(LedgerFinancialState.bankBalances),
+      banks =
+        LedgerFinancialState.refreshBankBalances(banks, base.ledgerFinancialState.banks).updated(0, LedgerFinancialState.bankBalances(banks.head, PLN(309e6))),
       government = LedgerFinancialState.governmentBalances(world.gov),
       foreign = LedgerFinancialState.foreignBalances(world.gov),
       nbp = LedgerFinancialState.nbpBalances(world.nbp),

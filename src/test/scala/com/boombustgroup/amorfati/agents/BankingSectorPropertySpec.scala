@@ -53,7 +53,6 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     loansLong = PLN.Zero,
     consumerLoans = PLN.Zero,
     consumerNpl = PLN.Zero,
-    corpBondHoldings = PLN.Zero,
   )
 
   // ---- Interbank netting invariant ----
@@ -97,8 +96,8 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       val (lo, hi) = if npl1Frac <= npl2Frac then (npl1Frac, npl2Frac) else (npl2Frac, npl1Frac)
       val bankLo   = mkBank(nplAmount = PLN(loans * lo))
       val bankHi   = mkBank(nplAmount = PLN(loans * hi))
-      val rateLo   = Banking.lendingRate(bankLo, configs(0), Rate(refRate), Rate.Zero)
-      val rateHi   = Banking.lendingRate(bankHi, configs(0), Rate(refRate), Rate.Zero)
+      val rateLo   = Banking.lendingRate(bankLo, configs(0), Rate(refRate), Rate.Zero, PLN.Zero)
+      val rateHi   = Banking.lendingRate(bankHi, configs(0), Rate(refRate), Rate.Zero, PLN.Zero)
       rateHi should be >= rateLo
     }
 
@@ -117,14 +116,14 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   "aggregate" should "have deposits equal to sum of individual deposits" in
     forAll(genBanking.State) { (bs: Banking.State) =>
-      val agg         = bs.aggregate
+      val agg         = Banking.aggregateFromBanks(bs.banks)
       val expectedDep = bs.banks.map(b => td.toDouble(b.deposits)).sum
       td.toDouble(agg.deposits) shouldBe expectedDep +- 1.0
     }
 
   it should "have capital equal to sum of individual capital" in
     forAll(genBanking.State) { (bs: Banking.State) =>
-      val agg         = bs.aggregate
+      val agg         = Banking.aggregateFromBanks(bs.banks)
       val expectedCap = bs.banks.map(b => td.toDouble(b.capital)).sum
       td.toDouble(agg.capital) shouldBe expectedCap +- 1.0
     }

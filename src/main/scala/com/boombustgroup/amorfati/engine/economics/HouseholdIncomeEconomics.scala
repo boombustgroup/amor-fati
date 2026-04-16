@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.types.*
@@ -45,6 +46,7 @@ object HouseholdIncomeEconomics:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
       lendingBaseRate: Rate,
       resWage: PLN,
       newWage: PLN,
@@ -62,7 +64,9 @@ object HouseholdIncomeEconomics:
     val nBanksHh           = banks.length
     val hhBankRates        = Some(
       BankRates(
-        lendingRates = banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, lendingBaseRate, w.gov.bondYield)),
+        lendingRates = banks
+          .zip(bsec.configs)
+          .map((b, cfg) => Banking.lendingRate(b, cfg, lendingBaseRate, w.gov.bondYield, CorporateBondOwnership.bankHolderFor(ledgerFinancialState, b.id))),
         depositRates = banks.map(_ => Banking.hhDepositRate(w.nbp.referenceRate)),
       ),
     )

@@ -27,7 +27,6 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
       loansS: PLN = PLN.Zero,
       loansM: PLN = PLN.Zero,
       loansL: PLN = PLN.Zero,
-      corpBondHoldings: PLN = PLN.Zero,
   ) =
     Banking.BankState(
       id = BankId(id),
@@ -48,7 +47,6 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
       loansLong = loansL,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = corpBondHoldings,
     )
 
   // =========================================================================
@@ -95,12 +93,12 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
     // RSF = 100M×0.50 + 150M×0.65 + 250M×0.85 + 50M×0.05
     //     = 50M + 97.5M + 212.5M + 2.5M = 362.5M
     // NSFR = 1020M / 362.5M ≈ 2.81
-    td.toDouble(b.nsfr) shouldBe (1020e6 / 362.5e6 +- 0.01)
+    td.toDouble(b.nsfr(PLN.Zero)) shouldBe (1020e6 / 362.5e6 +- 0.01)
   }
 
   it should "return 10.0 when RSF is zero" in {
     val b = mkBank(loansS = PLN.Zero, loansM = PLN.Zero, loansL = PLN.Zero, govBonds = PLN.Zero)
-    b.nsfr shouldBe Multiplier(10.0)
+    b.nsfr(PLN.Zero) shouldBe Multiplier(10.0)
   }
 
   // =========================================================================
@@ -171,7 +169,6 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
     loansLong = loansLong,
     consumerLoans = PLN.Zero,
     consumerNpl = PLN.Zero,
-    corpBondHoldings = PLN.Zero,
   )
 
   "LCR" should "be non-negative" in
@@ -197,7 +194,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
         loansMedium = PLN(loansM),
         loansLong = PLN(loansL),
       )
-      b.nsfr should be >= Multiplier.Zero
+      b.nsfr(PLN.Zero) should be >= Multiplier.Zero
     }
 
   "HQLA" should "equal reserves + gov bonds" in

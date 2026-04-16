@@ -24,11 +24,20 @@ object CorporateBondOwnership:
     ledgerFinancialState.firms.lift(firmId.toInt).fold(PLN.Zero)(_.corpBond)
 
   def holderOutstanding(ledgerFinancialState: LedgerFinancialState): PLN =
-    ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond) +
+    bankHolderOutstanding(ledgerFinancialState) +
       ledgerFinancialState.insurance.corpBondHoldings +
       ledgerFinancialState.funds.ppkCorpBondHoldings +
       ledgerFinancialState.funds.corpBondOtherHoldings +
       ledgerFinancialState.funds.nbfi.corpBondHoldings
+
+  def bankHolderOutstanding(ledgerFinancialState: LedgerFinancialState): PLN =
+    ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond)
+
+  def bankHolderBalances(ledgerFinancialState: LedgerFinancialState): Vector[PLN] =
+    ledgerFinancialState.banks.map(_.corpBond)
+
+  def bankHolderFor(ledgerFinancialState: LedgerFinancialState, bankId: BankId): PLN =
+    ledgerFinancialState.banks.lift(bankId.toInt).fold(PLN.Zero)(_.corpBond)
 
   def stockStateFromLedger(
       ledgerFinancialState: LedgerFinancialState,

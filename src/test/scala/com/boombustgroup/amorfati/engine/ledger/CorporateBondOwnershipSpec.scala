@@ -30,8 +30,7 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
   it should "amortize issuer liabilities pro rata and exactly at aggregate level" in {
     val init         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val firmStates   = init.firms.take(2)
-    val firms        = firmStates
-      .zipWithIndex
+    val firms        = firmStates.zipWithIndex
       .map: (firm, index) =>
         LedgerFinancialState.firmBalances(firm, corpBond = PLN.fromLong((index + 1L) * 100L))
     val amortization = PLN.fromLong(60)
@@ -45,8 +44,7 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
   it should "clear defaulted issuer liabilities by firm id" in {
     val init       = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val firmStates = init.firms.take(2)
-    val firms      = firmStates
-      .zipWithIndex
+    val firms      = firmStates.zipWithIndex
       .map: (firm, index) =>
         LedgerFinancialState.firmBalances(firm, corpBond = PLN.fromLong((index + 1L) * 100L))
     val cleared    = CorporateBondOwnership.clearDefaultedIssuerDebt(firms, Set(firmStates.head.id))

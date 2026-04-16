@@ -34,7 +34,6 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
       loansLong = PLN(1.5e9),
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
 
   "buildExposureMatrix" should "have zero diagonal" in {

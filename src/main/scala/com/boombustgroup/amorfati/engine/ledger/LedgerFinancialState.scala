@@ -63,7 +63,7 @@ object LedgerFinancialState:
         corpBond = previous.lift(firm.id.toInt).fold(PLN.Zero)(_.corpBond),
       )
 
-  def bankBalances(b: Banking.BankState): BankBalances =
+  def bankBalances(b: Banking.BankState, corpBond: PLN): BankBalances =
     BankBalances(
       totalDeposits = b.deposits,
       demandDeposit = bankDemandDeposits(b),
@@ -74,8 +74,20 @@ object LedgerFinancialState:
       govBondHtm = b.htmBonds,
       reserve = b.reservesAtNbp,
       interbankLoan = b.interbankNet,
-      corpBond = b.corpBondHoldings,
+      corpBond = corpBond,
     )
+
+  def refreshBankBalances(
+      banks: Vector[Banking.BankState],
+      previous: Vector[BankBalances],
+      corpBondHoldings: Vector[PLN] = Vector.empty,
+  ): Vector[BankBalances] =
+    banks.map: bank =>
+      val corpBond = corpBondHoldings
+        .lift(bank.id.toInt)
+        .orElse(previous.lift(bank.id.toInt).map(_.corpBond))
+        .getOrElse(PLN.Zero)
+      bankBalances(bank, corpBond)
 
   def governmentBalances(gov: FiscalBudget.GovState): GovernmentBalances =
     GovernmentBalances(govBondOutstanding = gov.bondsOutstanding)

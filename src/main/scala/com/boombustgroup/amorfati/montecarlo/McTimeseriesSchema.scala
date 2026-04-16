@@ -69,7 +69,9 @@ object McTimeseriesSchema:
 
     given SimParams                                                                                 = p
     private val sectorIndexByName: Map[String, Int]                                                 = p.sectorDefs.iterator.map(_.name).zipWithIndex.map((name, idx) => name -> idx).toMap
-    lazy val bankAgg: Banking.Aggregate                                                             = Banking.aggregateFromBanks(banks)
+    lazy val bankCorpBondHoldings: Banking.BankCorpBondHoldings                                     =
+      Banking.bankCorpBondHoldingsFromVector(ledgerFinancialState.banks.map(_.corpBond))
+    lazy val bankAgg: Banking.Aggregate                                                             = Banking.aggregateFromBanks(banks, bankCorpBondHoldings)
     lazy val ledgerBankGovBondHoldings: PLN                                                         =
       ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
     lazy val ledgerHouseholdEquityWealth: PLN                                                       =
@@ -271,7 +273,10 @@ object McTimeseriesSchema:
   private def financialGroup: Vector[ColumnDef] = Vector(
     // Interbank
     ColumnDef("InterbankRate", ctx => td.toDouble(ctx.world.bankingSector.interbankRate)),
-    ColumnDef("MinBankCAR", ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.car).min)),
+    ColumnDef(
+      "MinBankCAR",
+      ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(bank => bank.car(ctx.bankCorpBondHoldings(bank.id))).min),
+    ),
     ColumnDef("MaxBankNPL", ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.nplRatio).max)),
     ColumnDef("BankFailures", ctx => ctx.banks.count(_.failed).toDouble),
     // LCR/NSFR
@@ -279,7 +284,10 @@ object McTimeseriesSchema:
       "MinBankLCR",
       ctx => { given SimParams = ctx.p; if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.lcr).min) },
     ),
-    ColumnDef("MinBankNSFR", ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.nsfr).min)),
+    ColumnDef(
+      "MinBankNSFR",
+      ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(bank => bank.nsfr(ctx.bankCorpBondHoldings(bank.id))).min),
+    ),
     ColumnDef(
       "AvgTermDepositFrac",
       ctx =>

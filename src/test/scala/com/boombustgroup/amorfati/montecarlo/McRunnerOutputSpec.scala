@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.Banking.BankState
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.fp.{ComputationBoundary, FixedPointBase}
+import com.boombustgroup.amorfati.types.PLN
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import zio.{Runtime, Unsafe}
@@ -93,9 +94,11 @@ class McRunnerOutputSpec extends AnyFlatSpec with Matchers:
 
   private def expectedBankLines(results: Vector[(Long, RunResult)]): Vector[String] =
     bankHeader +: results.flatMap: (seed, result) =>
-      result.terminalState.banks.map(bankRow(seed, _))
+      result.terminalState.banks.map: bank =>
+        val corpBondHoldings = result.terminalState.ledgerFinancialState.banks.lift(bank.id.toInt).fold(PLN.Zero)(_.corpBond)
+        bankRow(seed, bank, corpBondHoldings)
 
-  private def bankRow(seed: Long, bank: BankState): String =
+  private def bankRow(seed: Long, bank: BankState, corpBondHoldings: PLN): String =
     Vector(
       s"$seed",
       s"${bank.id}",
@@ -103,7 +106,7 @@ class McRunnerOutputSpec extends AnyFlatSpec with Matchers:
       f"${td.toDouble(bank.loans)}%.2f",
       f"${td.toDouble(bank.capital)}%.2f",
       f"${td.toDouble(bank.nplRatio)}%.6f",
-      f"${td.toDouble(bank.car)}%.6f",
+      f"${td.toDouble(bank.car(corpBondHoldings))}%.6f",
       f"${td.toDouble(bank.govBondHoldings)}%.2f",
       f"${td.toDouble(bank.interbankNet)}%.2f",
       s"${bank.failed}",

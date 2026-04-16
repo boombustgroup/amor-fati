@@ -45,7 +45,6 @@ object Generators:
         loansLong = PLN.Zero,
         consumerLoans = totalConsumerLoans * cfg.initMarketShare,
         consumerNpl = PLN.Zero,
-        corpBondHoldings = PLN.Zero,
       )
     Banking.State(banks, Rate.Zero, configs, None)
 
@@ -661,7 +660,6 @@ object Generators:
       loansLong = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
     )
 
     val State: Gen[Banking.State] = for

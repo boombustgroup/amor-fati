@@ -11,7 +11,7 @@ import com.boombustgroup.amorfati.types.*
   */
 object BankInit:
 
-  def create(firms: Vector[Firm.State], households: Vector[Household.State], corpBondHoldings: PLN)(using p: SimParams): Banking.State =
+  def create(firms: Vector[Firm.State], households: Vector[Household.State])(using p: SimParams): Banking.State =
     val perBankCorpLoans  = firms.groupMapReduce(_.bankId.toInt)(_.debt)(_ + _)
     val perBankCash       = firms.groupMapReduce(_.bankId.toInt)(_.cash)(_ + _)
     val perBankConsLoans  = households.groupMapReduce(_.bankId.toInt)(_.consumerDebt)(_ + _)
@@ -23,15 +23,10 @@ object BankInit:
       totalGovBonds.toLong,
       Banking.DefaultConfigs.map(_.initMarketShare.toLong).toArray,
     )
-    val corpBondAlloc = com.boombustgroup.ledger.Distribute.distribute(
-      corpBondHoldings.toLong,
-      Banking.DefaultConfigs.map(_.initMarketShare.toLong).toArray,
-    )
 
     val banks = Banking.DefaultConfigs
       .zip(bondAlloc)
-      .zip(corpBondAlloc)
-      .map { case ((cfg, bankBondRaw), corpBondRaw) =>
+      .map { case (cfg, bankBondRaw) =>
         val bId          = cfg.id.toInt
         val corpLoans    = perBankCorpLoans.getOrElse(bId, PLN.Zero)
         val consLoans    = perBankConsLoans.getOrElse(bId, PLN.Zero)
@@ -57,7 +52,6 @@ object BankInit:
           loansLong = PLN.Zero,
           consumerLoans = consLoans,
           consumerNpl = PLN.Zero,
-          corpBondHoldings = PLN.fromRaw(corpBondRaw),
         )
       }
 
