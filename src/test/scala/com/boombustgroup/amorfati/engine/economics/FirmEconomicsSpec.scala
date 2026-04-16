@@ -140,7 +140,23 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce flows that close at SFC == 0L" in {
-    val flows = FirmFlows.emit(StateAdapter.firmInput(resultR, s3.totalIncome))
+    val flows = FirmFlows.emit(
+      FirmFlows.Input(
+        wages = s3.totalIncome,
+        cit = resultR.tax,
+        loanRepayment = resultR.firmPrincipal,
+        newLoans = resultR.newLoans,
+        interestPaid = resultR.intIncome,
+        capex = resultR.capex,
+        equityIssuance = resultR.equityIssuance,
+        bondIssuance = resultR.actualBondIssuance,
+        ioPayments = resultR.ioPayments,
+        nplDefault = resultR.nplLoss,
+        profitShifting = resultR.profitShifting,
+        fdiRepatriation = resultR.fdiRepatriation,
+        grossInvestment = resultR.grossInvestment,
+      ),
+    )
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
   }
 

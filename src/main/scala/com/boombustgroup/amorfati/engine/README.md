@@ -90,7 +90,6 @@ against 13 accounting identities each month.
 |------|----------------|
 | `FlowSimulation.scala` | Sole pipeline entry point for one month. `step(state, randomness)` is the explicit month boundary: it computes narrow same-month groups for flow emission, signal timing, post-month assembly, and SFC projection, assembles `MonthOutcome`, records monetary flows, emits `MonthTrace`, and returns typed `nextState` for month `t+1`. |
 | `FlowMechanism.scala` | Enum of ~80 named flow mechanisms (e.g. `FirmWages`, `HhConsumption`, `BankBfgLevy`). Each flow in the system maps to exactly one mechanism. |
-| `StateAdapter.scala` | Legacy bridge from economics/world state into specific flow inputs. Kept only as transitional adapter code around the newer pipeline. |
 | `ZusFlows.scala` | ZUS/FUS pensions: contributions (HH → FUS), pensions (FUS → HH), gov subvention covering deficit |
 | `NfzFlows.scala` | NFZ (National Health Fund): 9% składka zdrowotna, healthcare spending, gov subvention |
 | `PpkFlows.scala` | PPK (Pracownicze Plany Kapitałowe): employee + employer contributions, bond purchases |
