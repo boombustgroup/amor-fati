@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
+import com.boombustgroup.amorfati.engine.ledger.{LedgerBoundaryProjection, LedgerFinancialState, LedgerStateAdapter}
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, InformalEconomy, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
@@ -449,7 +449,7 @@ object WorldAssemblyEconomics:
   ): (World, LedgerFinancialState) =
     val ledgerFinancialState = buildLedgerFinancialState(in)
     val bankCorpBondHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond)
-    val projectedSocial      = LedgerStateAdapter.projectSocialState(
+    val projectedSocial      = LedgerBoundaryProjection.socialState(
       SocialState(
         jst = in.s9.newJst,
         zus = in.s2.newZus,
@@ -464,7 +464,7 @@ object WorldAssemblyEconomics:
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
       currentSigmas = in.s7.newSigmas,
-      gov = LedgerStateAdapter.projectGovState(
+      gov = LedgerBoundaryProjection.govState(
         in.s9.newGovWithYield.copy(
           policy = in.s9.newGovWithYield.policy.copy(
             minWageLevel = in.s1.baseMinWage,
@@ -473,7 +473,7 @@ object WorldAssemblyEconomics:
         ),
         ledgerFinancialState,
       ),
-      nbp = LedgerStateAdapter.projectNbpState(in.s9.finalNbp, ledgerFinancialState),
+      nbp = LedgerBoundaryProjection.nbpState(in.s9.finalNbp, ledgerFinancialState),
       bankingSector = in.s9.bankingMarket,
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
@@ -486,8 +486,8 @@ object WorldAssemblyEconomics:
           ppkHoldings = ledgerFinancialState.funds.ppkCorpBondHoldings,
           otherHoldings = ledgerFinancialState.funds.corpBondOtherHoldings,
         ),
-        insurance = LedgerStateAdapter.projectInsuranceState(in.s9.finalInsurance, ledgerFinancialState),
-        nbfi = LedgerStateAdapter.projectNbfiState(in.s9.finalNbfi, ledgerFinancialState),
+        insurance = LedgerBoundaryProjection.insuranceState(in.s9.finalInsurance, ledgerFinancialState),
+        nbfi = LedgerBoundaryProjection.nbfiState(in.s9.finalNbfi, ledgerFinancialState),
         quasiFiscal = in.s9.newQuasiFiscal.copy(
           bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
           loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,

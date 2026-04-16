@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
-import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, LedgerStateAdapter}
+import com.boombustgroup.amorfati.engine.ledger.{LedgerBoundaryProjection, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, GvcTrade, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.Expectations
 import com.boombustgroup.amorfati.types.*
@@ -286,7 +286,7 @@ object OpenEconEconomics:
     // 8. Insurance
     val unempRate    = in.w.unemploymentRate(in.employed)
     val newInsurance = Insurance.step(
-      LedgerStateAdapter.projectInsuranceState(in.w.financial.insurance, in.ledgerFinancialState),
+      LedgerBoundaryProjection.insuranceState(in.w.financial.insurance, in.ledgerFinancialState),
       in.employed,
       in.newWage,
       unempRate,
@@ -674,7 +674,7 @@ object OpenEconEconomics:
     val unempRate    = in.w.unemploymentRate(in.s2.employed)
     val newInsurance =
       Insurance.step(
-        LedgerStateAdapter.projectInsuranceState(in.w.financial.insurance, in.ledgerFinancialState),
+        LedgerBoundaryProjection.insuranceState(in.w.financial.insurance, in.ledgerFinancialState),
         in.s2.employed,
         in.s2.newWage,
         unempRate,
@@ -689,7 +689,7 @@ object OpenEconEconomics:
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
     val newNbfi         =
       Nbfi.step(
-        LedgerStateAdapter.projectNbfiState(in.w.financial.nbfi, in.ledgerFinancialState),
+        LedgerBoundaryProjection.nbfiState(in.w.financial.nbfi, in.ledgerFinancialState),
         in.s2.employed,
         in.s2.newWage,
         in.w.priceLevel,
