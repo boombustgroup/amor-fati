@@ -38,26 +38,16 @@ object FlowSimulation:
   )
 
   object SimState:
-    def bootstrapFromMirrors(
-        completedMonth: CompletedMonth,
-        world: World,
-        firms: Vector[Firm.State],
-        households: Vector[Household.State],
-        banks: Vector[Banking.BankState],
-        householdAggregates: Household.Aggregates,
-    )(using SimParams): SimState =
-      new SimState(
-        completedMonth,
-        world,
-        firms,
-        households,
-        banks,
-        householdAggregates,
-        LedgerFinancialState.bootstrapFromMirrors(world, firms, households, banks),
+    def fromInit(init: com.boombustgroup.amorfati.init.WorldInit.InitResult): SimState =
+      SimState(
+        completedMonth = CompletedMonth.Zero,
+        world = init.world,
+        firms = init.firms,
+        households = init.households,
+        banks = init.banks,
+        householdAggregates = init.householdAggregates,
+        ledgerFinancialState = init.ledgerFinancialState,
       )
-
-    def fromInit(init: com.boombustgroup.amorfati.init.WorldInit.InitResult)(using SimParams): SimState =
-      bootstrapFromMirrors(CompletedMonth.Zero, init.world, init.firms, init.households, init.banks, init.householdAggregates)
 
   /** Executed aggregate batch deltas on top of an empty runtime ledger shell.
     *

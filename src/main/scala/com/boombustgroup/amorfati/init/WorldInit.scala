@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.init
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.*
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.ledger.CorporateBondOwnership
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.{Macroprudential, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
@@ -173,7 +173,18 @@ object WorldInit:
       regionalWages = Region.all.map(r => r -> (p.household.baseWage * Region.normalizedWageMultiplier(r))).toMap,
     )
 
-    InitResult(world, firms, households, initBankingSector.banks, initHhAgg)
+    val ledgerFinancialState = LedgerFinancialState(
+      households = households.map(LedgerFinancialState.householdBalances),
+      firms = firms.map(LedgerFinancialState.firmBalances),
+      banks = initBankingSector.banks.map(LedgerFinancialState.bankBalances),
+      government = LedgerFinancialState.governmentBalances(world.gov),
+      foreign = LedgerFinancialState.foreignBalances(world.gov),
+      nbp = LedgerFinancialState.nbpBalances(world.nbp),
+      insurance = LedgerFinancialState.insuranceBalances(initInsuranceStock),
+      funds = LedgerFinancialState.fundBalances(world.social, initCorporateBondStocks, initNbfiStock, world.financial.quasiFiscal),
+    )
+
+    InitResult(world, firms, households, initBankingSector.banks, initHhAgg, ledgerFinancialState)
 
   case class InitResult(
       world: World,
@@ -181,4 +192,5 @@ object WorldInit:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
+      ledgerFinancialState: LedgerFinancialState,
   )

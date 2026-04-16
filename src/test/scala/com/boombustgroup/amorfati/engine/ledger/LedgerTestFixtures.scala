@@ -110,13 +110,13 @@ object LedgerTestFixtures:
       ),
     )
 
-    val state = FlowSimulation.SimState.bootstrapFromMirrors(
-      completedMonth = base.completedMonth,
+    val ledgerFinancialState = LedgerFinancialState.bootstrapFromMirrors(world, firms, households, banks)
+    val state                = base.copy(
       world = world,
       firms = firms,
       households = households,
       banks = banks,
-      householdAggregates = base.householdAggregates,
+      ledgerFinancialState = ledgerFinancialState,
     )
     state.copy(
       ledgerFinancialState = state.ledgerFinancialState.copy(

@@ -261,28 +261,15 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   it should "propagate informal-economy pressure into fiscal outputs without breaking SFC" in {
     val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState     = FlowSimulation.SimState.fromInit(init)
     val lowShadowW    = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.0))
     val highShadowW   = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.4))
     val lowShadowRun  = FlowSimulation.step(
-      FlowSimulation.SimState.bootstrapFromMirrors(
-        SimulationMonth.CompletedMonth.Zero,
-        lowShadowW,
-        init.firms,
-        init.households,
-        init.banks,
-        init.householdAggregates,
-      ),
+      baseState.copy(world = lowShadowW),
       MonthRandomness.Contract.fromSeed(42L),
     )
     val highShadowRun = FlowSimulation.step(
-      FlowSimulation.SimState.bootstrapFromMirrors(
-        SimulationMonth.CompletedMonth.Zero,
-        highShadowW,
-        init.firms,
-        init.households,
-        init.banks,
-        init.householdAggregates,
-      ),
+      baseState.copy(world = highShadowW),
       MonthRandomness.Contract.fromSeed(42L),
     )
 
