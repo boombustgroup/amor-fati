@@ -20,8 +20,9 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
       govBondYield: Rate = Rate(0.06),
       corpBondYield: Rate = Rate(0.08),
       equityReturn: Rate = Rate(0.005),
+      settledCorpBondHoldings: Option[PLN] = None,
   ): Insurance.State =
-    Insurance.step(prev, employed, wage, unempRate, govBondYield, corpBondYield, equityReturn)
+    Insurance.step(prev, employed, wage, unempRate, govBondYield, corpBondYield, equityReturn, settledCorpBondHoldings.getOrElse(prev.corpBondHoldings))
 
   "Insurance.State.zero" should "return all-zero state" in {
     val z = Insurance.State.zero
@@ -136,6 +137,12 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     val prev = Insurance.initial.copy(portfolio = Insurance.initial.portfolio.copy(equityHoldings = PLN.Zero))
     val r    = mkStep(prev = prev)
     r.equityHoldings should be > PLN.Zero
+  }
+
+  it should "take corpBondHoldings from corporate bond market settlement" in {
+    val settled = PLN(123456.0)
+    val r       = mkStep(settledCorpBondHoldings = Some(settled))
+    r.corpBondHoldings shouldBe settled
   }
 
   it should "be idempotent from zero state with zero employment" in {

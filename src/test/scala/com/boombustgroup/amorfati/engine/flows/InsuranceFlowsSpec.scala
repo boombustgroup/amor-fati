@@ -46,7 +46,7 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "match old Insurance.step premium and claim amounts" in {
     val prev   = Insurance.initial
-    val oldIns = Insurance.step(prev, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01))
+    val oldIns = Insurance.step(prev, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01), prev.corpBondHoldings)
     val flows  = InsuranceFlows.emit(baseInput)
 
     val newLifePrem    = flows.filter(_.mechanism == FlowMechanism.InsLifePremium.toInt).map(_.amount).sum

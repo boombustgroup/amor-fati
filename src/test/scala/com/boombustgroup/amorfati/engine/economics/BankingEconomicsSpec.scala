@@ -160,6 +160,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         res.reserveInterest,
         res.standingFacilityIncome,
         res.interbankInterest,
+        s8.corpBonds.corpBondBankCoupon,
         s8.corpBonds.corpBondBankDefaultLoss,
         res.bfgLevy,
         res.unrealizedBondLoss,

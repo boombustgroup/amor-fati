@@ -29,6 +29,8 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     z.bankHoldings shouldBe PLN.Zero
     z.ppkHoldings shouldBe PLN.Zero
     z.otherHoldings shouldBe PLN.Zero
+    z.insuranceHoldings shouldBe PLN.Zero
+    z.nbfiHoldings shouldBe PLN.Zero
     z.corpBondYield shouldBe Rate.Zero
     z.lastIssuance shouldBe PLN.Zero
     z.lastAmortization shouldBe PLN.Zero
@@ -40,9 +42,12 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   "CorporateBondMarket.initial" should "have stock = CorpBondInitStock" in
     shouldBeClosePln(initState.outstanding, p.corpBond.initStock, onePln)
 
-  it should "allocate holders summing to 100%" in {
-    val total = initState.bankHoldings + initState.ppkHoldings + initState.otherHoldings
-    shouldBeClosePln(total, initState.outstanding, onePln)
+  it should "allocate holders summing to 100%" in
+    shouldBeClosePln(initState.holderTotal, initState.outstanding, onePln)
+
+  it should "allocate insurance and NBFI holder buckets explicitly" in {
+    initState.insuranceHoldings should be > PLN.Zero
+    initState.nbfiHoldings should be > PLN.Zero
   }
 
   it should "have bank holdings = stock * CorpBondBankShare" in
@@ -103,7 +108,7 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     shouldBeClosePln(r.bankLoss, defaultAmt * bankFrac * (Share.One - p.corpBond.recovery), pln(5_000))
   }
 
-  "processIssuance" should "increase all holder buckets" in {
+  "processIssuance" should "increase outstanding and fixed bank/PPK buckets" in {
     val issuance = fiveKPln
     val result   = CorporateBondMarket.processIssuance(initState, issuance)
     result.outstanding shouldBe initState.outstanding + issuance
@@ -118,7 +123,9 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     val deltaSum =
       (result.bankHoldings - initState.bankHoldings) +
         (result.ppkHoldings - initState.ppkHoldings) +
-        (result.otherHoldings - initState.otherHoldings)
+        (result.otherHoldings - initState.otherHoldings) +
+        (result.insuranceHoldings - initState.insuranceHoldings) +
+        (result.nbfiHoldings - initState.nbfiHoldings)
     deltaSum shouldBe issuance
   }
 
@@ -139,13 +146,17 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
       outstanding = pln(3000),
       bankHoldings = pln(1000),
       ppkHoldings = pln(1000),
-      otherHoldings = pln(1000),
+      otherHoldings = pln(500),
+      insuranceHoldings = pln(300),
+      nbfiHoldings = pln(200),
     )
     val result          = CorporateBondMarket.step(CorporateBondMarket.StepInput(prev, rateBps(600), Share.Zero, PLN.Zero, PLN.Zero))
     val holderReduction =
       (prev.bankHoldings - result.bankHoldings) +
         (prev.ppkHoldings - result.ppkHoldings) +
-        (prev.otherHoldings - result.otherHoldings)
+        (prev.otherHoldings - result.otherHoldings) +
+        (prev.insuranceHoldings - result.insuranceHoldings) +
+        (prev.nbfiHoldings - result.nbfiHoldings)
     holderReduction shouldBe (prev.outstanding - result.outstanding)
   }
 

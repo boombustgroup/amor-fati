@@ -110,6 +110,7 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
           PLN(500000.0),
           PLN(100000.0),
           PLN(200000.0),
+          PLN(70000.0),
           PLN(50000.0),
           PLN(400000.0),
           PLN(150000.0),

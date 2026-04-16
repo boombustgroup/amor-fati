@@ -294,6 +294,7 @@ object OpenEconEconomics:
       marketYield,
       newCorpBonds.corpBondYield,
       in.equityReturn,
+      newCorpBonds.insuranceHoldings,
     )
 
     Result(
@@ -316,7 +317,7 @@ object OpenEconEconomics:
       interbankInterest = interbankInterest,
       bankBondIncome = bankBondIncome,
       nbpRemittance = nbpRemittance,
-      corpBondCoupon = corpCoupon.bank,
+      corpBondCoupon = corpCoupon.total,
       corpBondDefaultLoss = corpDefaults.bankLoss,
       corpBondIssuance = in.actualBondIssuance,
       corpBondAmortization = corpBondAmort,
@@ -435,8 +436,8 @@ object OpenEconEconomics:
     val interbank     = runStepInterbankFlows(in.w, in.banks)
     val bondQe        = runStepBondYieldAndQe(in, bankAgg, rateAndExp.refRate, rateAndExp.expectations, external.fxIntervention, interbank)
     val corpBonds     = runStepCorporateBonds(in, bankAgg, bondQe.marketYield)
-    val insurance     = runStepInsurance(in, bondQe.marketYield)
-    val nbfi          = runStepNbfi(in, bankAgg, bondQe.postFxNbp, bondQe.marketYield)
+    val insurance     = runStepInsurance(in, bondQe.marketYield, corpBonds.newCorpBonds.corpBondYield, corpBonds.newCorpBonds.insuranceHoldings)
+    val nbfi          = runStepNbfi(in, bankAgg, bondQe.postFxNbp, bondQe.marketYield, corpBonds.newCorpBonds.corpBondYield, corpBonds.newCorpBonds.nbfiHoldings)
 
     StepOutput(
       monetary = MonetaryPolicy(
@@ -672,7 +673,12 @@ object OpenEconEconomics:
       corpBondAmort = corpBondAmort,
     )
 
-  private def runStepInsurance(in: StepInput, newBondYield: Rate)(using p: SimParams): InsuranceResult =
+  private def runStepInsurance(
+      in: StepInput,
+      newBondYield: Rate,
+      newCorpBondYield: Rate,
+      settledCorpBondHoldings: PLN,
+  )(using p: SimParams): InsuranceResult =
     val unempRate    = in.w.unemploymentRate(in.s2.employed)
     val newInsurance =
       Insurance.step(
@@ -681,12 +687,20 @@ object OpenEconEconomics:
         in.s2.newWage,
         unempRate,
         newBondYield,
-        in.w.financial.corporateBonds.corpBondYield,
+        newCorpBondYield,
         in.w.financial.equity.monthlyReturn,
+        settledCorpBondHoldings,
       )
     InsuranceResult(newInsurance)
 
-  private def runStepNbfi(in: StepInput, bankAgg: Banking.Aggregate, postFxNbp: Nbp.State, newBondYield: Rate)(using p: SimParams): NbfiResult =
+  private def runStepNbfi(
+      in: StepInput,
+      bankAgg: Banking.Aggregate,
+      postFxNbp: Nbp.State,
+      newBondYield: Rate,
+      newCorpBondYield: Rate,
+      settledCorpBondHoldings: PLN,
+  )(using p: SimParams): NbfiResult =
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
     val newNbfi         =
@@ -698,9 +712,10 @@ object OpenEconEconomics:
         nbfiUnempRate,
         bankAgg.nplRatio,
         newBondYield,
-        in.w.financial.corporateBonds.corpBondYield,
+        newCorpBondYield,
         in.w.financial.equity.monthlyReturn,
         nbfiDepositRate,
         in.s3.domesticCons,
+        settledCorpBondHoldings,
       )
     NbfiResult(newNbfi)

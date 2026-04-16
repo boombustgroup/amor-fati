@@ -23,8 +23,22 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       equityReturn: Rate = Rate(0.005),
       depositRate: Rate = Rate(0.03),
       domesticCons: PLN = PLN(1e8),
+      settledCorpBondHoldings: Option[PLN] = None,
   ): Nbfi.State =
-    Nbfi.step(prev, employed, wage, priceLevel, unempRate, bankNplRatio, govBondYield, corpBondYield, equityReturn, depositRate, domesticCons)
+    Nbfi.step(
+      prev,
+      employed,
+      wage,
+      priceLevel,
+      unempRate,
+      bankNplRatio,
+      govBondYield,
+      corpBondYield,
+      equityReturn,
+      depositRate,
+      domesticCons,
+      settledCorpBondHoldings.getOrElse(prev.tfiCorpBondHoldings),
+    )
 
   // ---- zero / initial ----
 
@@ -207,6 +221,12 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
     )
     val result    = mkStep(prev = offTarget)
     result.tfiGovBondHoldings should be > PLN.Zero
+  }
+
+  it should "take TFI corpBondHoldings from corporate bond market settlement" in {
+    val settled = PLN(123456.0)
+    val result  = mkStep(settledCorpBondHoldings = Some(settled))
+    result.tfiCorpBondHoldings shouldBe settled
   }
 
   it should "increase origination when bank NPL is high (counter-cyclical)" in {

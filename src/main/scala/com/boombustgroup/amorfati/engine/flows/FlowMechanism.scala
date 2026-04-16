@@ -111,3 +111,4 @@ object FlowMechanism:
   val GovVatRevenue: MechanismId                = MechanismId(92)
   val GovExciseRevenue: MechanismId             = MechanismId(93)
   val GovCustomsDutyRevenue: MechanismId        = MechanismId(94)
+  val BankCorpBondCoupon: MechanismId           = MechanismId(95)

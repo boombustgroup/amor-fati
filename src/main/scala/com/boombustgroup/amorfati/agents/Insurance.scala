@@ -108,7 +108,12 @@ object Insurance:
       lastNetDepositChange = PLN.Zero,
     )
 
-  /** Full monthly step: premiums, claims, investment income, rebalancing. */
+  /** Full monthly step: premiums, claims, investment income, rebalancing.
+    *
+    * Corporate bond holdings are settled by CorporateBondMarket, not by the
+    * insurance portfolio target. Insurance only computes income from the
+    * opening stock and receives the closing stock from market settlement.
+    */
   def step(
       prev: State,
       employed: Int,       // employed workers (premium base)
@@ -117,6 +122,7 @@ object Insurance:
       govBondYield: Rate,  // government bond yield (annualised)
       corpBondYield: Rate, // corporate bond yield (annualised)
       equityReturn: Rate,  // equity monthly return
+      settledCorpBondHoldings: PLN,
   )(using p: SimParams): State =
     // Premiums: proportional to wage bill
     val lifePrem    = employed * (wage * p.ins.lifePremiumRate)
@@ -147,17 +153,15 @@ object Insurance:
     val totalAssets = newLifeRes + newNonLifeRes
     val speed       = p.ins.rebalanceSpeed // Coefficient used as adjustment speed
     val targetGov   = totalAssets * p.ins.govBondShare
-    val targetCorp  = totalAssets * p.ins.corpBondShare
     val targetEq    = totalAssets * p.ins.equityShare
     val newGov      = prev.govBondHoldings + (targetGov - prev.govBondHoldings) * speed
-    val newCorp     = prev.corpBondHoldings + (targetCorp - prev.corpBondHoldings) * speed
     val newEq       = prev.equityHoldings + (targetEq - prev.equityHoldings) * speed
 
     State(
       newLifeRes,
       newNonLifeRes,
       newGov,
-      newCorp,
+      settledCorpBondHoldings,
       newEq,
       lifePrem,
       nonLifePrem,

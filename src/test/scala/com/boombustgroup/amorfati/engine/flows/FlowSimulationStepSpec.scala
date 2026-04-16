@@ -57,13 +57,17 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val initialDebt = CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState)
 
     initialDebt shouldBe CorporateBondOwnership.issuerOutstanding(state.firms)
+    initialDebt shouldBe CorporateBondOwnership.holderOutstanding(state.ledgerFinancialState)
     initialDebt shouldBe state.world.financial.corporateBonds.outstanding
 
     val result   = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val nextDebt = CorporateBondOwnership.issuerOutstanding(result.nextState.ledgerFinancialState)
 
     nextDebt shouldBe CorporateBondOwnership.issuerOutstanding(result.nextState.firms)
+    nextDebt shouldBe CorporateBondOwnership.holderOutstanding(result.nextState.ledgerFinancialState)
     nextDebt shouldBe result.nextState.world.financial.corporateBonds.outstanding
+    result.nextState.world.financial.insurance.corpBondHoldings shouldBe result.nextState.world.financial.corporateBonds.insuranceHoldings
+    result.nextState.world.financial.nbfi.tfiCorpBondHoldings shouldBe result.nextState.world.financial.corporateBonds.nbfiHoldings
   }
 
   it should "derive runtime ledger topology from actual populations plus explicit shell slots" in {
@@ -110,6 +114,8 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
     val bankCapitalMechanisms = Set(
       FlowMechanism.BankGovBondIncome,
+      FlowMechanism.BankCorpBondCoupon,
+      FlowMechanism.BankCorpBondLoss,
       FlowMechanism.BankBfgLevy,
       FlowMechanism.BankUnrealizedLoss,
       FlowMechanism.BankNbpRemittance,

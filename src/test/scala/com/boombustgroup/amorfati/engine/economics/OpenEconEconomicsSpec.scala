@@ -158,6 +158,8 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
           bankHoldings = w.financial.corporateBonds.bankHoldings + PLN(111),
           ppkHoldings = w.financial.corporateBonds.ppkHoldings + PLN(112),
           otherHoldings = w.financial.corporateBonds.otherHoldings + PLN(113),
+          insuranceHoldings = w.financial.corporateBonds.insuranceHoldings + PLN(114),
+          nbfiHoldings = w.financial.corporateBonds.nbfiHoldings + PLN(115),
         ),
         insurance = w.financial.insurance.copy(
           reserves = w.financial.insurance.reserves.copy(
@@ -258,6 +260,8 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
           bankHoldings = w.financial.corporateBonds.bankHoldings + PLN(111),
           ppkHoldings = w.financial.corporateBonds.ppkHoldings + PLN(112),
           otherHoldings = w.financial.corporateBonds.otherHoldings + PLN(113),
+          insuranceHoldings = w.financial.corporateBonds.insuranceHoldings + PLN(114),
+          nbfiHoldings = w.financial.corporateBonds.nbfiHoldings + PLN(115),
         ),
       ),
     )
@@ -287,6 +291,8 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     fromLedger.corpBonds.newCorpBonds.bankHoldings shouldBe aligned.corpBonds.newCorpBonds.bankHoldings
     fromLedger.corpBonds.newCorpBonds.ppkHoldings shouldBe aligned.corpBonds.newCorpBonds.ppkHoldings
     fromLedger.corpBonds.newCorpBonds.otherHoldings shouldBe aligned.corpBonds.newCorpBonds.otherHoldings
+    fromLedger.corpBonds.newCorpBonds.insuranceHoldings shouldBe aligned.corpBonds.newCorpBonds.insuranceHoldings
+    fromLedger.corpBonds.newCorpBonds.nbfiHoldings shouldBe aligned.corpBonds.newCorpBonds.nbfiHoldings
   }
 
   it should "produce non-negative interbank flows" in {

@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,9 +14,12 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
   "CorporateBondOwnership" should "initialize issuer liabilities to the market outstanding stock" in {
     val init         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val issuerStock  = CorporateBondOwnership.issuerOutstanding(init.firms)
+    val holderStock  = CorporateBondOwnership.holderOutstanding(FlowSimulation.SimState.fromInit(init).ledgerFinancialState)
     val boundaryView = init.world.financial.corporateBonds
 
     issuerStock shouldBe boundaryView.outstanding
+    holderStock shouldBe boundaryView.outstanding
+    boundaryView.holderTotal shouldBe boundaryView.outstanding
   }
 
   it should "project outstanding from ledger issuer liabilities, not from the stale boundary view" in {

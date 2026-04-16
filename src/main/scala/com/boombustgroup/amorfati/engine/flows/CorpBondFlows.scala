@@ -8,7 +8,7 @@ import com.boombustgroup.ledger.*
   * Coupon (Firm→Holders), default (gross principal write-off), issuance
   * (Holders→Firm), amortization (Firm→Holders principal return).
   *
-  * Account IDs: 0=Firm, 1=BondHolders (banks+PPK+other)
+  * Account IDs: 0=Firm, 1=BondHolders (aggregate runtime settlement shell)
   */
 object CorpBondFlows:
 

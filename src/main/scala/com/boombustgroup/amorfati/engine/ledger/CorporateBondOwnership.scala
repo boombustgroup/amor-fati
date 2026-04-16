@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.Firm
+import com.boombustgroup.amorfati.agents.{Firm, Insurance, Nbfi}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
 import com.boombustgroup.amorfati.types.*
@@ -20,6 +20,13 @@ object CorporateBondOwnership:
   def issuerOutstanding(ledgerFinancialState: LedgerFinancialState): PLN =
     PLN.fromRaw(ledgerFinancialState.firms.iterator.map(_.corpBond.toLong).sum)
 
+  def holderOutstanding(ledgerFinancialState: LedgerFinancialState): PLN =
+    ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond) +
+      ledgerFinancialState.insurance.corpBondHoldings +
+      ledgerFinancialState.funds.ppkCorpBondHoldings +
+      ledgerFinancialState.funds.corpBondOtherHoldings +
+      ledgerFinancialState.funds.nbfi.corpBondHoldings
+
   def marketStateFromLedger(
       base: CorporateBondMarket.State,
       ledgerFinancialState: LedgerFinancialState,
@@ -29,6 +36,8 @@ object CorporateBondOwnership:
       bankHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond),
       ppkHoldings = ledgerFinancialState.funds.ppkCorpBondHoldings,
       otherHoldings = ledgerFinancialState.funds.corpBondOtherHoldings,
+      insuranceHoldings = ledgerFinancialState.insurance.corpBondHoldings,
+      nbfiHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
     )
 
   def initializeIssuerDebt(firms: Vector[Firm.State], outstanding: PLN)(using p: SimParams): Vector[Firm.State] =
@@ -52,6 +61,22 @@ object CorporateBondOwnership:
       val issuers = firms.zipWithIndex.filter: (firm, _) =>
         Firm.isAlive(firm) && firm.bondDebt > PLN.Zero
       reduceDebt(firms, issuers, amortization)
+
+  def alignInsuranceHoldings(insurance: Insurance.State, corpBondHoldings: PLN): Insurance.State =
+    insurance.copy(
+      portfolio = insurance.portfolio.copy(
+        corpBondHoldings = corpBondHoldings,
+      ),
+    )
+
+  def alignNbfiHoldings(nbfi: Nbfi.State, corpBondHoldings: PLN): Nbfi.State =
+    val cashHoldings = (nbfi.tfiAum - nbfi.tfiGovBondHoldings - corpBondHoldings - nbfi.tfiEquityHoldings).max(PLN.Zero)
+    nbfi.copy(
+      tfi = nbfi.tfi.copy(
+        tfiCorpBondHoldings = corpBondHoldings,
+        tfiCashHoldings = cashHoldings,
+      ),
+    )
 
   private def allocateDebt(
       firms: Vector[Firm.State],

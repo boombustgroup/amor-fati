@@ -6,8 +6,8 @@ import com.boombustgroup.ledger.Distribute
 
 /** Corporate bond market: Catalyst + non-public issuance (GPW Catalyst 2024).
   *
-  * Three holder classes (banks, PPK, other) absorb issuance proportionally.
-  * Monthly cycle: yield repricing → coupon → amortization → default → issuance.
+  * Holder buckets (banks, PPK, insurance, NBFI, other) absorb issuance. Monthly
+  * cycle: yield repricing → coupon → amortization → default → issuance.
   *
   * Demand-side absorption constraint (two gates):
   *   - Gate 1: spread-based investor appetite (cyclical, widens with NPL)
@@ -34,6 +34,8 @@ object CorporateBondMarket:
       ppkHoldings: PLN,
       otherHoldings: PLN,
       corpBondYield: Rate,
+      insuranceHoldings: PLN = PLN.Zero,
+      nbfiHoldings: PLN = PLN.Zero,
       lastIssuance: PLN = PLN.Zero,
       lastAmortization: PLN = PLN.Zero,
       lastCouponIncome: PLN = PLN.Zero,
@@ -41,18 +43,23 @@ object CorporateBondMarket:
       lastDefaultAmount: PLN = PLN.Zero,
       creditSpread: Rate = Rate(0.025),
       lastAbsorptionRate: Share = Share.One,
-  )
+  ):
+    def holderTotal: PLN =
+      bankHoldings + ppkHoldings + otherHoldings + insuranceHoldings + nbfiHoldings
+
   def zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Rate.Zero)
 
   def initial(using p: SimParams): State =
-    val stock   = p.corpBond.initStock
-    val otherSh = Share.One - p.corpBond.bankShare - p.corpBond.ppkShare
+    val stock       = p.corpBond.initStock
+    val allocations = allocateToHolders(stock)
     State(
       outstanding = stock,
-      bankHoldings = stock * p.corpBond.bankShare,
-      ppkHoldings = stock * p.corpBond.ppkShare,
-      otherHoldings = stock * otherSh,
+      bankHoldings = PLN.fromRaw(allocations.bank),
+      ppkHoldings = PLN.fromRaw(allocations.ppk),
+      otherHoldings = PLN.fromRaw(allocations.other),
       corpBondYield = Rate(0.06) + p.corpBond.spread,
+      insuranceHoldings = PLN.fromRaw(allocations.insurance),
+      nbfiHoldings = PLN.fromRaw(allocations.nbfi),
       creditSpread = p.corpBond.spread,
     )
 
@@ -139,17 +146,14 @@ object CorporateBondMarket:
   def processIssuance(state: State, issuance: PLN)(using p: SimParams): State =
     if issuance <= PLN.Zero then state.copy(lastIssuance = PLN.Zero)
     else
-      val holderWeights = Array(
-        p.corpBond.bankShare.distributeRaw,
-        p.corpBond.ppkShare.distributeRaw,
-        (Share.One - p.corpBond.bankShare - p.corpBond.ppkShare).distributeRaw,
-      )
-      val allocations   = Distribute.distribute(issuance.distributeRaw, holderWeights)
+      val allocations = allocateToHolders(issuance)
       state.copy(
         outstanding = state.outstanding + issuance,
-        bankHoldings = state.bankHoldings + PLN.fromRaw(allocations(0)),
-        ppkHoldings = state.ppkHoldings + PLN.fromRaw(allocations(1)),
-        otherHoldings = state.otherHoldings + PLN.fromRaw(allocations(2)),
+        bankHoldings = state.bankHoldings + PLN.fromRaw(allocations.bank),
+        ppkHoldings = state.ppkHoldings + PLN.fromRaw(allocations.ppk),
+        otherHoldings = state.otherHoldings + PLN.fromRaw(allocations.other),
+        insuranceHoldings = state.insuranceHoldings + PLN.fromRaw(allocations.insurance),
+        nbfiHoldings = state.nbfiHoldings + PLN.fromRaw(allocations.nbfi),
         lastIssuance = issuance,
       )
 
@@ -173,19 +177,57 @@ object CorporateBondMarket:
       if in.prev.outstanding > PLN.Zero then
         Distribute.distribute(
           actualReduction.distributeRaw,
-          Array(in.prev.bankHoldings.distributeRaw, in.prev.ppkHoldings.distributeRaw, in.prev.otherHoldings.distributeRaw),
+          Array(
+            in.prev.bankHoldings.distributeRaw,
+            in.prev.ppkHoldings.distributeRaw,
+            in.prev.otherHoldings.distributeRaw,
+            in.prev.insuranceHoldings.distributeRaw,
+            in.prev.nbfiHoldings.distributeRaw,
+          ),
         )
-      else Array(0L, 0L, 0L)
+      else Array(0L, 0L, 0L, 0L, 0L)
     val afterReduction  = in.prev.copy(
       outstanding = in.prev.outstanding - actualReduction,
       bankHoldings = (in.prev.bankHoldings - PLN.fromRaw(reductions(0))).max(PLN.Zero),
       ppkHoldings = (in.prev.ppkHoldings - PLN.fromRaw(reductions(1))).max(PLN.Zero),
       otherHoldings = (in.prev.otherHoldings - PLN.fromRaw(reductions(2))).max(PLN.Zero),
+      insuranceHoldings = (in.prev.insuranceHoldings - PLN.fromRaw(reductions(3))).max(PLN.Zero),
+      nbfiHoldings = (in.prev.nbfiHoldings - PLN.fromRaw(reductions(4))).max(PLN.Zero),
       corpBondYield = newYield,
       creditSpread = (newYield - in.govBondYield).max(Rate.Zero),
       lastAmortization = amort,
       lastDefaultAmount = defaults.grossDefault,
       lastDefaultLoss = defaults.lossAfterRecovery,
-      lastCouponIncome = coupon.bank + coupon.ppk,
+      lastCouponIncome = coupon.total,
     )
     processIssuance(afterReduction, in.totalBondIssuance)
+
+  private case class HolderAllocation(bank: Long, ppk: Long, other: Long, insurance: Long, nbfi: Long)
+
+  private def allocateToHolders(amount: PLN)(using p: SimParams): HolderAllocation =
+    if amount <= PLN.Zero then HolderAllocation(0L, 0L, 0L, 0L, 0L)
+    else
+      val fixedWeights = Array(p.corpBond.bankShare.distributeRaw, p.corpBond.ppkShare.distributeRaw)
+      val fixedShare   = p.corpBond.bankShare + p.corpBond.ppkShare
+      if fixedShare >= Share.One then
+        val fixed = Distribute.distribute(amount.distributeRaw, fixedWeights)
+        HolderAllocation(fixed(0), fixed(1), 0L, 0L, 0L)
+      else
+        val bank      = amount * p.corpBond.bankShare
+        val ppk       = amount * p.corpBond.ppkShare
+        val residual  = (amount - bank - ppk).max(PLN.Zero)
+        val remaining = Distribute.distribute(residual.distributeRaw, positiveResidualHolderWeights)
+        HolderAllocation(bank.distributeRaw, ppk.distributeRaw, remaining(0), remaining(1), remaining(2))
+
+  private def positiveResidualHolderWeights(using p: SimParams): Array[Long] =
+    val weights = residualHolderWeights
+    if weights.exists(_ > 0L) then weights else Array(1L, 0L, 0L)
+
+  private def residualHolderWeights(using p: SimParams): Array[Long] =
+    val stock           = p.corpBond.initStock
+    val bankTarget      = stock * p.corpBond.bankShare
+    val ppkTarget       = stock * p.corpBond.ppkShare
+    val insuranceTarget = (p.ins.lifeReserves + p.ins.nonLifeReserves) * p.ins.corpBondShare
+    val nbfiTarget      = p.nbfi.tfiInitAum * p.nbfi.tfiCorpBondShare
+    val otherTarget     = (stock - bankTarget - ppkTarget - insuranceTarget - nbfiTarget).max(PLN.Zero)
+    Array(otherTarget.distributeRaw, insuranceTarget.distributeRaw, nbfiTarget.distributeRaw)

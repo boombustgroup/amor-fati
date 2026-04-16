@@ -172,6 +172,10 @@ object Nbfi:
 
   /** Full monthly step: TFI inflow → investment income → rebalance; NBFI credit
     * flows.
+    *
+    * Corporate bond holdings are settled by CorporateBondMarket. TFI computes
+    * income from the opening stock and receives the closing corporate-bond
+    * stock from market settlement.
     */
   def step(
       prev: State,
@@ -185,6 +189,7 @@ object Nbfi:
       equityReturn: Rate,                              // equity monthly return
       depositRate: Rate,                               // bank deposit rate (TFI opportunity cost)
       domesticCons: PLN,                               // domestic consumption (NBFI credit base)
+      settledCorpBondHoldings: PLN,
   )(using p: SimParams): State =
     // TFI: inflow + investment income + rebalance
     val netInflow = tfiInflow(employed, wage, equityReturn, govBondYield, depositRate)
@@ -194,14 +199,12 @@ object Nbfi:
     val newAum    = (prev.tfiAum + netInflow + invIncome).max(PLN.Zero)
 
     // Rebalance towards target allocation
-    val s          = p.nbfi.tfiRebalanceSpeed
-    val targetGov  = newAum * p.nbfi.tfiGovBondShare
-    val targetCorp = newAum * p.nbfi.tfiCorpBondShare
-    val targetEq   = newAum * p.nbfi.tfiEquityShare
-    val newGov     = prev.tfiGovBondHoldings + (targetGov - prev.tfiGovBondHoldings) * s
-    val newCorp    = prev.tfiCorpBondHoldings + (targetCorp - prev.tfiCorpBondHoldings) * s
-    val newEq      = prev.tfiEquityHoldings + (targetEq - prev.tfiEquityHoldings) * s
-    val newCash    = newAum - newGov - newCorp - newEq
+    val s         = p.nbfi.tfiRebalanceSpeed
+    val targetGov = newAum * p.nbfi.tfiGovBondShare
+    val targetEq  = newAum * p.nbfi.tfiEquityShare
+    val newGov    = prev.tfiGovBondHoldings + (targetGov - prev.tfiGovBondHoldings) * s
+    val newEq     = prev.tfiEquityHoldings + (targetEq - prev.tfiEquityHoldings) * s
+    val newCash   = (newAum - newGov - settledCorpBondHoldings - newEq).max(PLN.Zero)
 
     // Deposit drain: HH buys fund units → deposits decrease
     val depositDrain = -netInflow
@@ -217,7 +220,7 @@ object Nbfi:
     State(
       tfiAum = newAum,
       tfiGovBondHoldings = newGov,
-      tfiCorpBondHoldings = newCorp,
+      tfiCorpBondHoldings = settledCorpBondHoldings,
       tfiEquityHoldings = newEq,
       tfiCashHoldings = newCash,
       nbfiLoanStock = newLoanStock,

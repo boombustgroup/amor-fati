@@ -40,12 +40,14 @@ object WorldInit:
     val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(toDouble(_)).max)
     val initImportCons   = initConsumption - initDomesticCons
 
-    val initBankingSector = BankInit.create(firms, households)
+    val initBankingSector = BankInit.create(firms, households, initCorporateBonds.bankHoldings)
 
     // --- Sub-state initializers ---
     val initDemographics = DemographicsInit.create(totalPop)
-    val initInsurance    = InsuranceInit.create()
-    val initNbfi         = NbfiInit.create()
+    val initInsurance0   = InsuranceInit.create()
+    val initNbfi0        = NbfiInit.create()
+    val initInsurance    = CorporateBondOwnership.alignInsuranceHoldings(initInsurance0, initCorporateBonds.insuranceHoldings)
+    val initNbfi         = CorporateBondOwnership.alignNbfiHoldings(initNbfi0, initCorporateBonds.nbfiHoldings)
     val initExpectations = ExpectationsInit.create()
     val initInflation    = p.monetary.targetInfl
 
