@@ -219,8 +219,9 @@ object Sfc:
     */
   type SfcResult = Either[Vector[SfcIdentityError], Unit]
 
-  /** Build stock state from the current simulation state by aggregating all
-    * agent-level stocks.
+  /** Build stock state from the current simulation state. Supported financial
+    * ownership comes from `LedgerFinancialState`; remaining behavioral or
+    * unsupported diagnostics still come from agent/domain state.
     */
   def snapshot(
       w: World,
@@ -233,7 +234,7 @@ object Sfc:
     val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
     val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
     val bankAgg = Banking.aggregateFromBanks(banks)
-    val bonds   = GovernmentBondCircuit.from(banks, ledgerFinancialState)
+    val bonds   = GovernmentBondCircuit.from(ledgerFinancialState)
     StockState(
       hhSavings = hhS,
       hhDebt = hhD,
@@ -248,15 +249,15 @@ object Sfc:
       nbpBondHoldings = bonds.nbpHoldings,
       bondsOutstanding = bonds.outstanding,
       interbankNetSum = ibNet,
-      jstDeposits = w.social.jst.deposits,
+      jstDeposits = ledgerFinancialState.funds.jstCash,
       jstDebt = w.social.jst.debt,
-      fusBalance = w.social.zus.fusBalance,
-      nfzBalance = w.social.nfz.balance,
+      fusBalance = ledgerFinancialState.funds.zusCash,
+      nfzBalance = ledgerFinancialState.funds.nfzCash,
       foreignBondHoldings = bonds.foreignHoldings,
       ppkBondHoldings = bonds.ppkHoldings,
       mortgageStock = w.real.housing.mortgageStock,
       consumerLoans = bankAgg.consumerLoans,
-      corpBondsOutstanding = CorporateBondOwnership.issuerOutstanding(firms),
+      corpBondsOutstanding = CorporateBondOwnership.issuerOutstanding(ledgerFinancialState),
       insuranceGovBondHoldings = bonds.insuranceHoldings,
       tfiGovBondHoldings = bonds.tfiHoldings,
       nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,

@@ -343,6 +343,47 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     snap.govDebt shouldBe PLN(100000.0)
   }
 
+  it should "source ledger-owned public and fund stocks from LedgerFinancialState" in {
+    val ledger = zeroLedger.copy(
+      banks = Vector(
+        LedgerFinancialState.BankBalances(
+          totalDeposits = PLN.Zero,
+          demandDeposit = PLN.Zero,
+          termDeposit = PLN.Zero,
+          firmLoan = PLN.Zero,
+          consumerLoan = PLN.Zero,
+          govBondAfs = PLN(11.0),
+          govBondHtm = PLN(22.0),
+          reserve = PLN.Zero,
+          interbankLoan = PLN.Zero,
+          corpBond = PLN.Zero,
+        ),
+      ),
+      government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = PLN(100.0)),
+      foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = PLN(20.0)),
+      nbp = LedgerFinancialState.NbpBalances(govBondHoldings = PLN(30.0), foreignAssets = PLN.Zero),
+      funds = zeroLedger.funds.copy(
+        jstCash = PLN(40.0),
+        zusCash = PLN(50.0),
+        nfzCash = PLN(60.0),
+        ppkGovBondHoldings = PLN(17.0),
+        nbfi = zeroLedger.funds.nbfi.copy(govBondHoldings = PLN(18.0), nbfiLoanStock = PLN(70.0)),
+      ),
+    )
+    val snap   = Sfc.snapshot(zeroWorld, Vector.empty, Vector.empty, Vector.empty, ledger)
+
+    snap.bondsOutstanding shouldBe PLN(100.0)
+    snap.bankBondHoldings shouldBe PLN(33.0)
+    snap.foreignBondHoldings shouldBe PLN(20.0)
+    snap.nbpBondHoldings shouldBe PLN(30.0)
+    snap.jstDeposits shouldBe PLN(40.0)
+    snap.fusBalance shouldBe PLN(50.0)
+    snap.nfzBalance shouldBe PLN(60.0)
+    snap.ppkBondHoldings shouldBe PLN(17.0)
+    snap.tfiGovBondHoldings shouldBe PLN(18.0)
+    snap.nbfiLoanStock shouldBe PLN(70.0)
+  }
+
   // ---- Identity 1: Bank capital ----
 
   "Sfc.validateStockExactness (bank capital)" should "pass when change matches formula exactly" in {

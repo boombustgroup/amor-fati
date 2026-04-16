@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerBoundaryProjection, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -237,9 +237,11 @@ object BankingEconomics:
     )
     val issuerSettledFirms   = CorporateBondOwnership.applyAmortization(multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
 
-    val newQuasiFiscal =
+    val prevQuasiFiscal =
+      LedgerBoundaryProjection.quasiFiscalState(in.w.financial.quasiFiscal, in.ledgerFinancialState)
+    val newQuasiFiscal  =
       QuasiFiscal.step(
-        in.w.financial.quasiFiscal,
+        prevQuasiFiscal,
         govJst.newGovWithYield.govCapitalSpend,
         govJst.newGovWithYield.euCofinancing,
         in.w.nbp.qeActive,

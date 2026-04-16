@@ -339,12 +339,13 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     trace.seedTransition.seedIn shouldBe init.world.seedIn
     trace.seedTransition.seedOut shouldBe result.nextState.world.seedIn
     trace.randomness shouldBe result.randomness
-    trace.boundary.startSnapshot.stock shouldBe Sfc.snapshot(init.world, init.firms, init.households, init.banks)
+    trace.boundary.startSnapshot.stock shouldBe Sfc.snapshot(init.world, init.firms, init.households, init.banks, state.ledgerFinancialState)
     trace.boundary.endSnapshot.stock shouldBe Sfc.snapshot(
       result.nextState.world,
       result.nextState.firms,
       result.nextState.households,
       result.nextState.banks,
+      result.nextState.ledgerFinancialState,
     )
     trace.boundary.startSnapshot.inflation shouldBe init.world.inflation
     trace.boundary.endSnapshot.inflation shouldBe result.nextState.world.inflation

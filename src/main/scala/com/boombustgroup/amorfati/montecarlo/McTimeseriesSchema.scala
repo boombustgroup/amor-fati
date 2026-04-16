@@ -70,6 +70,8 @@ object McTimeseriesSchema:
     given SimParams                                                                                 = p
     private val sectorIndexByName: Map[String, Int]                                                 = p.sectorDefs.iterator.map(_.name).zipWithIndex.map((name, idx) => name -> idx).toMap
     lazy val bankAgg: Banking.Aggregate                                                             = Banking.aggregateFromBanks(banks)
+    lazy val ledgerBankGovBondHoldings: PLN                                                         =
+      ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
     lazy val hhAgg: Household.Aggregates                                                            = householdAggregates
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates]                                        = Some(
       Banking.MonetaryAggregates.compute(
@@ -243,13 +245,13 @@ object McTimeseriesSchema:
     // Bond market
     ColumnDef("BondYield", ctx => td.toDouble(ctx.world.gov.bondYield)),
     ColumnDef("WeightedCoupon", ctx => td.toDouble(ctx.world.gov.weightedCoupon)),
-    ColumnDef("BondsOutstanding", ctx => td.toDouble(ctx.world.gov.bondsOutstanding)),
-    ColumnDef("BankBondHoldings", ctx => td.toDouble(ctx.bankAgg.govBondHoldings)),
-    ColumnDef("ForeignBondHoldings", ctx => td.toDouble(ctx.world.gov.foreignBondHoldings)),
-    ColumnDef("NbpBondHoldings", ctx => td.toDouble(ctx.world.nbp.govBondHoldings)),
+    ColumnDef("BondsOutstanding", ctx => td.toDouble(ctx.ledgerFinancialState.government.govBondOutstanding)),
+    ColumnDef("BankBondHoldings", ctx => td.toDouble(ctx.ledgerBankGovBondHoldings)),
+    ColumnDef("ForeignBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.foreign.govBondHoldings)),
+    ColumnDef("NbpBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.nbp.govBondHoldings)),
     ColumnDef("QeActive", ctx => if ctx.world.nbp.qeActive then 1.0 else 0.0),
     ColumnDef("DebtService", ctx => td.toDouble(ctx.world.gov.debtServiceSpend)),
-    ColumnDef("NbpRemittance", ctx => td.toDouble(ctx.world.nbp.govBondHoldings) * td.toDouble(ctx.world.gov.bondYield.monthly)),
+    ColumnDef("NbpRemittance", ctx => td.toDouble(ctx.ledgerFinancialState.nbp.govBondHoldings) * td.toDouble(ctx.world.gov.bondYield.monthly)),
     // Monetary plumbing
     ColumnDef("ReserveInterest", ctx => td.toDouble(ctx.world.plumbing.reserveInterestTotal)),
     ColumnDef("StandingFacilityNet", ctx => td.toDouble(ctx.world.plumbing.standingFacilityNet)),
@@ -345,15 +347,16 @@ object McTimeseriesSchema:
     ColumnDef("NbfiDefaults", ctx => td.toDouble(ctx.world.financial.nbfi.lastNbfiDefaultAmount)),
     ColumnDef("NbfiBankTightness", ctx => td.toDouble(ctx.world.financial.nbfi.lastBankTightness)),
     // Quasi-fiscal (BGK/PFR)
-    ColumnDef("QfBondsOutstanding", ctx => td.toDouble(ctx.world.financial.quasiFiscal.bondsOutstanding)),
+    ColumnDef("QfBondsOutstanding", ctx => td.toDouble(ctx.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding)),
     ColumnDef("QfNbpHoldings", ctx => td.toDouble(ctx.world.financial.quasiFiscal.nbpHoldings)),
-    ColumnDef("QfLoanPortfolio", ctx => td.toDouble(ctx.world.financial.quasiFiscal.loanPortfolio)),
+    ColumnDef("QfLoanPortfolio", ctx => td.toDouble(ctx.ledgerFinancialState.funds.quasiFiscal.loanPortfolio)),
     ColumnDef("QfIssuance", ctx => td.toDouble(ctx.world.financial.quasiFiscal.monthlyIssuance)),
     ColumnDef(
       "Esa2010DebtToGdp",
       ctx =>
         val annualGdp = td.toDouble(ctx.monthlyGdp) * 12.0
-        if annualGdp > 0 then td.toDouble(QuasiFiscal.esa2010Debt(ctx.world.gov.cumulativeDebt, ctx.world.financial.quasiFiscal.bondsOutstanding)) / annualGdp
+        if annualGdp > 0 then
+          td.toDouble(QuasiFiscal.esa2010Debt(ctx.world.gov.cumulativeDebt, ctx.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding)) / annualGdp
         else 0.0,
     ),
     ColumnDef("NbfiDepositDrain", ctx => td.toDouble(ctx.world.financial.nbfi.lastDepositDrain)),
@@ -435,27 +438,27 @@ object McTimeseriesSchema:
     ColumnDef("JstRevenue", ctx => td.toDouble(ctx.world.social.jst.revenue)),
     ColumnDef("JstSpending", ctx => td.toDouble(ctx.world.social.jst.spending)),
     ColumnDef("JstDebt", ctx => td.toDouble(ctx.world.social.jst.debt)),
-    ColumnDef("JstDeposits", ctx => td.toDouble(ctx.world.social.jst.deposits)),
+    ColumnDef("JstDeposits", ctx => td.toDouble(ctx.ledgerFinancialState.funds.jstCash)),
     ColumnDef("JstDeficit", ctx => td.toDouble(ctx.world.social.jst.deficit)),
     // ZUS/PPK
     ColumnDef("ZusContributions", ctx => td.toDouble(ctx.world.social.zus.contributions)),
     ColumnDef("ZusPensionPayments", ctx => td.toDouble(ctx.world.social.zus.pensionPayments)),
     ColumnDef("ZusGovSubvention", ctx => td.toDouble(ctx.world.social.zus.govSubvention)),
-    ColumnDef("FusBalance", ctx => td.toDouble(ctx.world.social.zus.fusBalance)),
+    ColumnDef("FusBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.zusCash)),
     ColumnDef("NfzContributions", ctx => td.toDouble(ctx.world.social.nfz.contributions)),
     ColumnDef("NfzSpending", ctx => td.toDouble(ctx.world.social.nfz.spending)),
-    ColumnDef("NfzBalance", ctx => td.toDouble(ctx.world.social.nfz.balance)),
+    ColumnDef("NfzBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.nfzCash)),
     ColumnDef("NfzGovSubvention", ctx => td.toDouble(ctx.world.social.nfz.govSubvention)),
     ColumnDef("PpkContributions", ctx => td.toDouble(ctx.world.social.ppk.contributions)),
-    ColumnDef("PpkBondHoldings", ctx => td.toDouble(ctx.world.social.ppk.bondHoldings)),
+    ColumnDef("PpkBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.funds.ppkGovBondHoldings)),
     ColumnDef("NRetirees", ctx => ctx.world.social.demographics.retirees.toDouble),
     ColumnDef("WorkingAgePop", ctx => ctx.world.social.demographics.workingAgePop.toDouble),
     ColumnDef("MonthlyRetirements", ctx => ctx.world.social.demographics.monthlyRetirements.toDouble),
     // Earmarked funds (FP, PFRON, FGŚP)
-    ColumnDef("FpBalance", ctx => td.toDouble(ctx.world.social.earmarked.fpBalance)),
+    ColumnDef("FpBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.fpCash)),
     ColumnDef("FpContributions", ctx => td.toDouble(ctx.world.social.earmarked.fpContributions)),
-    ColumnDef("PfronBalance", ctx => td.toDouble(ctx.world.social.earmarked.pfronBalance)),
-    ColumnDef("FgspBalance", ctx => td.toDouble(ctx.world.social.earmarked.fgspBalance)),
+    ColumnDef("PfronBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.pfronCash)),
+    ColumnDef("FgspBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.fgspCash)),
     ColumnDef("FgspSpending", ctx => td.toDouble(ctx.world.social.earmarked.fgspSpending)),
     ColumnDef("EarmarkedGovSubvention", ctx => td.toDouble(ctx.world.social.earmarked.totalGovSubvention)),
     // Forward-Looking Expectations
