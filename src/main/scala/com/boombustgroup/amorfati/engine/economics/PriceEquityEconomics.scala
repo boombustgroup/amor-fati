@@ -15,7 +15,7 @@ import com.boombustgroup.amorfati.random.RandomStream
   * network rewiring for bankrupt firm replacement — no state mutation, no
   * flows.
   *
-  * Integrates real-side aggregates with financial market state.
+  * Integrates real-side aggregates with financial-market state.
   *
   * Extracted from PriceEquityStep (Calculus vs Accounting split).
   */
@@ -305,7 +305,7 @@ object PriceEquityEconomics:
     val gdpGrowthForEquity  = gdp.ratioTo(prevGdp).toMultiplier.deviationFromOne
     val equityAfterIndex    = EquityMarket.step(
       EquityMarket.StepInput(
-        prev = in.w.financial.equity,
+        prev = in.w.financialMarkets.equity,
         refRate = in.w.nbp.referenceRate,
         inflation = newInfl,
         gdpGrowth = gdpGrowthForEquity,

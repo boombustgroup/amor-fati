@@ -66,7 +66,7 @@ object HouseholdIncomeEconomics:
         depositRates = banks.map(_ => Banking.hhDepositRate(w.nbp.referenceRate)),
       ),
     )
-    val eqReturn           = w.financial.equity.monthlyReturn
+    val eqReturn           = w.financialMarkets.equity.monthlyReturn
     val secWages           = Some(SectoralMobility.sectorWages(afterWages))
     val secVacancies       = Some(SectoralMobility.sectorVacancies(afterWages, firms))
     val (newHhs, agg, pbf) = Household.step(

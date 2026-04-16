@@ -485,7 +485,7 @@ object FirmEconomics:
   )(using p: SimParams): BondAbsorptionResult =
     val bankAgg            = Banking.aggregateFromBanks(banks)
     val absorption         = CorporateBondMarket
-      .computeAbsorption(w.financial.corporateBonds, result.flows.bondIssuance, bankAgg.car, p.banking.minCar)
+      .computeAbsorption(w.financialMarkets.corporateBonds, result.flows.bondIssuance, bankAgg.car, p.banking.minCar)
     val actualBondIssuance = result.flows.bondIssuance * absorption
     val revertShare        = Share.One - absorption
 

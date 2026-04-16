@@ -321,8 +321,8 @@ object AssetOwnershipContract:
       ++ Option.when(sim.world.nbp.qeCumulative != PLN.Zero)(UnsupportedFamilyId.NbpQeCumulativePurchases)
       ++ Option.when(sim.world.social.jst.debt != PLN.Zero)(UnsupportedFamilyId.JstDebt)
       ++ Option.when(
-        sim.world.financial.quasiFiscal.bankHoldings != PLN.Zero ||
-          sim.world.financial.quasiFiscal.nbpHoldings != PLN.Zero,
+        sim.world.financialMarkets.quasiFiscal.bankHoldings != PLN.Zero ||
+          sim.world.financialMarkets.quasiFiscal.nbpHoldings != PLN.Zero,
       )(UnsupportedFamilyId.QuasiFiscalHolderSplits)
 
   enum RuntimeShellCategory:

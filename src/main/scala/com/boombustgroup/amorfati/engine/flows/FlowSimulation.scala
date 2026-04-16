@@ -516,7 +516,7 @@ object FlowSimulation:
         diasporaInflow = s6.diasporaInflow,
         tourismExport = s6.tourismExport,
         tourismImport = s6.tourismImport,
-        equityReturn = w.financial.equity.monthlyReturn,
+        equityReturn = w.financialMarkets.equity.monthlyReturn,
         investmentImports = s7.investmentImports,
         profitShifting = s5.sumProfitShifting,
         fdiRepatriation = s5.sumFdiRepatriation,
@@ -588,7 +588,7 @@ object FlowSimulation:
     )
     val banking           = BankingEconomics.toResult(s9, bankingInput)
     val agg               = s3.hhAgg
-    val eq                = w.financial.equity
+    val eq                = w.financialMarkets.equity
     val h                 = s9.housingAfterFlows
     val calc              = MonthlyCalculus(
       month = fiscal.month,

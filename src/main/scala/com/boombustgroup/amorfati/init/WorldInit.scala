@@ -141,7 +141,7 @@ object WorldInit:
         demographics = initDemographics,
         earmarked = EarmarkedFunds.State.zero,
       ),
-      financial = FinancialMarketsState(
+      financialMarkets = FinancialMarketsState(
         equity = EquityMarket.initial,
         corporateBonds = initCorporateBonds,
         insurance = initInsurance,

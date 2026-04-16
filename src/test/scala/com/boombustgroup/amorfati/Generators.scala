@@ -363,7 +363,7 @@ object Generators:
       totalConsumerPrincipal = PLN.Zero,
     ),
     social = SocialState.zero,
-    financial = FinancialMarketsState.zero,
+    financialMarkets = FinancialMarketsState.zero,
     external = ExternalState.zero,
     real = RealState.zero.copy(automationRatio = Share(autoR), hybridRatio = Share(hybR)),
     mechanisms = MechanismsState.zero,

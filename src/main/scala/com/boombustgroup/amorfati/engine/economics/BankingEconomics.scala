@@ -38,7 +38,7 @@ object BankingEconomics:
       s3: HouseholdIncomeEconomics.Output,        // household income (consumption, PIT, debt service)
       s4: DemandEconomics.Output,                 // demand (sector multipliers, gov purchases)
       s5: FirmEconomics.StepOutput,               // firm processing (loans, NPL, bonds, I-O firms)
-      s6: HouseholdFinancialEconomics.Output,     // household financial (remittances, tourism, consumer credit)
+      s6: HouseholdFinancialEconomics.Output,     // household financial flows (remittances, tourism, consumer credit)
       s7: PriceEquityEconomics.Output,            // price/equity (inflation, GDP, equity state, macropru)
       s8: OpenEconEconomics.StepOutput,           // open economy (NBP rate, bond yield, QE, FX, BoP)
       banks: Vector[Banking.BankState],           // explicit bank population
@@ -239,7 +239,7 @@ object BankingEconomics:
 
     val quasiFiscalStep =
       QuasiFiscal.step(
-        in.w.financial.quasiFiscal,
+        in.w.financialMarkets.quasiFiscal,
         LedgerFinancialState.quasiFiscalStock(in.ledgerFinancialState),
         govJst.newGovWithYield.govCapitalSpend,
         govJst.newGovWithYield.euCofinancing,

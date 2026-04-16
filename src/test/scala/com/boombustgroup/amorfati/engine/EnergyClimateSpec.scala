@@ -221,7 +221,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
       totalConsumerPrincipal = PLN.Zero,
     ),
     social = SocialState.zero,
-    financial = FinancialMarketsState.zero,
+    financialMarkets = FinancialMarketsState.zero,
     external = ExternalState.zero,
     real = RealState.zero,
     mechanisms = MechanismsState.zero,

@@ -279,7 +279,7 @@ object OpenEconEconomics:
     val corpBondAmort     = CorporateBondMarket.amortization(prevCorpBondStock)
     val corpBondStep      = CorporateBondMarket.step(
       CorporateBondMarket.StepInput(
-        prevState = in.w.financial.corporateBonds,
+        prevState = in.w.financialMarkets.corporateBonds,
         prevStock = prevCorpBondStock,
         govBondYield = marketYield,
         nplRatio = bankAgg.nplRatio,
@@ -287,7 +287,7 @@ object OpenEconEconomics:
         totalBondIssuance = in.actualBondIssuance,
       ),
     )
-    val corpCoupon        = CorporateBondMarket.computeCoupon(in.w.financial.corporateBonds, prevCorpBondStock)
+    val corpCoupon        = CorporateBondMarket.computeCoupon(in.w.financialMarkets.corporateBonds, prevCorpBondStock)
     val corpDefaults      = CorporateBondMarket.processDefaults(prevCorpBondStock, in.totalBondDefault)
 
     // 8. Insurance
@@ -680,7 +680,7 @@ object OpenEconEconomics:
     val corpBondStep      = CorporateBondMarket
       .step(
         CorporateBondMarket.StepInput(
-          prevState = in.w.financial.corporateBonds,
+          prevState = in.w.financialMarkets.corporateBonds,
           prevStock = prevCorpBondStock,
           govBondYield = newBondYield,
           nplRatio = bankAgg.nplRatio,
@@ -689,7 +689,7 @@ object OpenEconEconomics:
         ),
       )
     val newCorpBonds      = corpBondStep.state.copy(lastAbsorptionRate = in.s5.corpBondAbsorption)
-    val corpBondCoupon    = CorporateBondMarket.computeCoupon(in.w.financial.corporateBonds, prevCorpBondStock)
+    val corpBondCoupon    = CorporateBondMarket.computeCoupon(in.w.financialMarkets.corporateBonds, prevCorpBondStock)
     val corpBondDefaults  = CorporateBondMarket.processDefaults(prevCorpBondStock, in.s5.totalBondDefault)
     CorporateBonds(
       newCorpBonds = newCorpBonds,
@@ -718,7 +718,7 @@ object OpenEconEconomics:
         unempRate,
         newBondYield,
         newCorpBondYield,
-        in.w.financial.equity.monthlyReturn,
+        in.w.financialMarkets.equity.monthlyReturn,
         settledCorpBondHoldings,
         corpBondDefaultLoss,
       )
@@ -746,7 +746,7 @@ object OpenEconEconomics:
         bankAgg.nplRatio,
         newBondYield,
         newCorpBondYield,
-        in.w.financial.equity.monthlyReturn,
+        in.w.financialMarkets.equity.monthlyReturn,
         nbfiDepositRate,
         in.s3.domesticCons,
         settledCorpBondHoldings,

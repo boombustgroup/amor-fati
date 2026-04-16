@@ -34,7 +34,7 @@ object WorldAssemblyEconomics:
       s3: HouseholdIncomeEconomics.Output,        // household income (consumption, PIT, import propensity)
       s4: DemandEconomics.Output,                 // demand (sector multipliers, gov purchases)
       s5: FirmEconomics.StepOutput,               // firm processing (loans, NPL, tax, I-O, bond issuance)
-      s6: HouseholdFinancialEconomics.Output,     // household financial (debt service, remittances, tourism)
+      s6: HouseholdFinancialEconomics.Output,     // household financial flows (debt service, remittances, tourism)
       s7: PriceEquityEconomics.Output,            // price/equity (inflation, GDP, equity, macropru)
       s8: OpenEconEconomics.StepOutput,           // open economy (monetary policy, forex, BOP, corp bonds)
       s9: BankingEconomics.StepOutput,            // bank update (balance sheets, tax revenue, housing flows)
@@ -476,7 +476,7 @@ object WorldAssemblyEconomics:
       bop = in.s8.external.newBop,
       householdMarket = HouseholdMarketState.fromAggregates(in.s9.finalHhAgg),
       social = projectedSocial,
-      financial = FinancialMarketsState(
+      financialMarkets = FinancialMarketsState(
         equity = equityAfterStep,
         corporateBonds = in.s8.corpBonds.newCorpBonds,
         insurance = in.s9.finalInsurance,

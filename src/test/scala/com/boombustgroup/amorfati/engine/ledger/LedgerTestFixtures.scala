@@ -55,7 +55,7 @@ object LedgerTestFixtures:
           totalGovSubvention = PLN.Zero,
         ),
       ),
-      financial = base.world.financial.copy(
+      financialMarkets = base.world.financialMarkets.copy(
         quasiFiscal = QuasiFiscal.State(
           bankHoldings = PLN(29e6),
           nbpHoldings = PLN(30e6),

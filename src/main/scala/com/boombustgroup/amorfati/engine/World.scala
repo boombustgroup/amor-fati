@@ -22,7 +22,7 @@ case class World(
     bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,                            // balance of payments: NFA, CA, KA, FDI
     householdMarket: HouseholdMarketState = HouseholdMarketState.zero,                // explicit household wage-market state used in hot paths
     social: SocialState,                                                              // JST, ZUS, PPK, demographics
-    financial: FinancialMarketsState,                                                 // financial-market memory; ownership lives in LedgerFinancialState
+    financialMarkets: FinancialMarketsState,                                          // financial-market memory; ownership lives in LedgerFinancialState
     external: ExternalState,                                                          // GVC, immigration, tourism
     real: RealState,                                                                  // housing, mobility, investment, energy, automation
     mechanisms: MechanismsState,                                                      // macropru, expectations, BFG, informal economy
@@ -44,14 +44,14 @@ case class World(
 
   def cachedMonthlyGdpProxy: PLN = flows.monthlyGdpProxy
 
-  def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
-  def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))
-  def updateExternal(f: ExternalState => ExternalState): World                  = copy(external = f(external))
-  def updateReal(f: RealState => RealState): World                              = copy(real = f(real))
-  def updateMechanisms(f: MechanismsState => MechanismsState): World            = copy(mechanisms = f(mechanisms))
-  def updatePlumbing(f: MonetaryPlumbingState => MonetaryPlumbingState): World  = copy(plumbing = f(plumbing))
-  def updatePipeline(f: PipelineState => PipelineState): World                  = copy(pipeline = f(pipeline))
-  def updateFlows(f: FlowState => FlowState): World                             = copy(flows = f(flows))
+  def updateSocial(f: SocialState => SocialState): World                               = copy(social = f(social))
+  def updateFinancialMarkets(f: FinancialMarketsState => FinancialMarketsState): World = copy(financialMarkets = f(financialMarkets))
+  def updateExternal(f: ExternalState => ExternalState): World                         = copy(external = f(external))
+  def updateReal(f: RealState => RealState): World                                     = copy(real = f(real))
+  def updateMechanisms(f: MechanismsState => MechanismsState): World                   = copy(mechanisms = f(mechanisms))
+  def updatePlumbing(f: MonetaryPlumbingState => MonetaryPlumbingState): World         = copy(plumbing = f(plumbing))
+  def updatePipeline(f: PipelineState => PipelineState): World                         = copy(pipeline = f(pipeline))
+  def updateFlows(f: FlowState => FlowState): World                                    = copy(flows = f(flows))
 
 // ---------------------------------------------------------------------------
 // Nested state types
@@ -89,7 +89,7 @@ object World:
       forex: OpenEconomy.ForexState,
       hhAgg: Household.Aggregates,
       social: SocialState,
-      financial: FinancialMarketsState,
+      financialMarkets: FinancialMarketsState,
       external: ExternalState,
       real: RealState,
       mechanisms: MechanismsState,
@@ -120,7 +120,7 @@ object World:
       bop = OpenEconomy.BopState.zero,
       householdMarket = HouseholdMarketState.fromAggregates(hhAgg),
       social = social.copy(demographics = compatDemographics),
-      financial = financial,
+      financialMarkets = financialMarkets,
       external = external,
       real = real,
       mechanisms = mechanisms,
@@ -142,7 +142,7 @@ object World:
       forex: OpenEconomy.ForexState,
       hhAgg: Household.Aggregates,
       social: SocialState,
-      financial: FinancialMarketsState,
+      financialMarkets: FinancialMarketsState,
       external: ExternalState,
       real: RealState,
       mechanisms: MechanismsState,
@@ -173,7 +173,7 @@ object World:
       bop = OpenEconomy.BopState.zero,
       householdMarket = HouseholdMarketState.fromAggregates(hhAgg),
       social = social.copy(demographics = compatDemographics),
-      financial = financial,
+      financialMarkets = financialMarkets,
       external = external,
       real = real,
       mechanisms = mechanisms,

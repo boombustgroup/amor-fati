@@ -169,7 +169,8 @@ object LedgerFinancialState:
       equity: PLN,
   )
 
-  /** Ledger-backed financial balances owned or issued by a single firm. */
+  /** Ledger-backed financial balances owned or issued by a single firm.
+    */
   case class FirmBalances(
       /** Cash or deposit-like liquidity owned by the firm. */
       cash: PLN,
@@ -181,7 +182,8 @@ object LedgerFinancialState:
       equity: PLN,
   )
 
-  /** Ledger-backed financial balances owned or issued by a single bank. */
+  /** Ledger-backed financial balances owned or issued by a single bank.
+    */
   case class BankBalances(
       /** Total customer deposits owed by the bank. */
       totalDeposits: PLN,
@@ -225,7 +227,8 @@ object LedgerFinancialState:
       foreignAssets: PLN,
   )
 
-  /** Ledger-backed financial balances owned or owed by the insurance sector. */
+  /** Ledger-backed financial balances owned or owed by the insurance sector.
+    */
   case class InsuranceBalances(
       /** Life-insurance technical reserves owed to policyholders. */
       lifeReserve: PLN,
@@ -239,7 +242,8 @@ object LedgerFinancialState:
       equityHoldings: PLN,
   )
 
-  /** Ledger-backed financial balances owned or owed by an NBFI fund bucket. */
+  /** Ledger-backed financial balances owned or owed by an NBFI fund bucket.
+    */
   case class NbfiFundBalances(
       /** Investment-fund units issued by the NBFI bucket. */
       tfiUnit: PLN,
@@ -255,7 +259,8 @@ object LedgerFinancialState:
       nbfiLoanStock: PLN,
   )
 
-  /** Ledger-backed financial balances for quasi-fiscal investment vehicles. */
+  /** Ledger-backed financial balances for quasi-fiscal investment vehicles.
+    */
   case class QuasiFiscalBalances(
       /** Bonds issued by quasi-fiscal vehicles. */
       bondsOutstanding: PLN,
@@ -263,7 +268,8 @@ object LedgerFinancialState:
       loanPortfolio: PLN,
   )
 
-  /** Ledger-backed financial balances for non-agent public and fund buckets. */
+  /** Ledger-backed financial balances for non-agent public and fund buckets.
+    */
   case class FundBalances(
       /** ZUS cash balance. */
       zusCash: PLN,
