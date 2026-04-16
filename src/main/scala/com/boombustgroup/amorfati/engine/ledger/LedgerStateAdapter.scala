@@ -3,7 +3,6 @@ package com.boombustgroup.amorfati.engine.ledger
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.{SocialState, World}
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
-import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState.*
 
@@ -43,51 +42,6 @@ object LedgerStateAdapter:
   ):
     def totalHoldings: PLN =
       bankHoldings + foreignHoldings + nbpHoldings + insuranceHoldings + ppkHoldings + tfiHoldings
-
-  case class CorporateBondCircuit(
-      outstanding: PLN,
-      bankHoldings: PLN,
-      ppkHoldings: PLN,
-      insuranceHoldings: PLN,
-      tfiHoldings: PLN,
-      otherHoldings: PLN,
-  ):
-    def totalHoldings: PLN =
-      bankHoldings + ppkHoldings + insuranceHoldings + tfiHoldings + otherHoldings
-
-  case class UnsupportedBankBalances(
-      capital: PLN,
-      nplAmount: PLN,
-      consumerNpl: PLN,
-      loansShort: PLN,
-      loansMedium: PLN,
-      loansLong: PLN,
-  )
-
-  case class UnsupportedGovernmentBalances(
-      fiscalCumulativeDebt: PLN,
-  )
-
-  case class UnsupportedNbpBalances(
-      qeCumulativePurchases: PLN,
-  )
-
-  case class UnsupportedQuasiFiscalBalances(
-      bankHoldings: PLN,
-      nbpHoldings: PLN,
-  )
-
-  case class UnsupportedJstBalances(
-      jstDebt: PLN,
-  )
-
-  case class UnsupportedFinancialSnapshot(
-      banks: Vector[UnsupportedBankBalances],
-      government: UnsupportedGovernmentBalances,
-      nbp: UnsupportedNbpBalances,
-      jst: UnsupportedJstBalances,
-      quasiFiscal: UnsupportedQuasiFiscalBalances,
-  )
 
   def householdBalances(h: Household.State): HouseholdBalances =
     HouseholdBalances(
@@ -195,33 +149,6 @@ object LedgerStateAdapter:
       tfiHoldings = world.financial.nbfi.tfiGovBondHoldings,
     )
 
-  def governmentBondCircuit(
-      ledgerFinancialState: LedgerFinancialState,
-  ): GovernmentBondCircuit =
-    val bankGovBondHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
-    GovernmentBondCircuit(
-      outstanding = ledgerFinancialState.government.govBondOutstanding,
-      bankHoldings = bankGovBondHoldings,
-      foreignHoldings = ledgerFinancialState.foreign.govBondHoldings,
-      nbpHoldings = ledgerFinancialState.nbp.govBondHoldings,
-      insuranceHoldings = ledgerFinancialState.insurance.govBondHoldings,
-      ppkHoldings = ledgerFinancialState.funds.ppkGovBondHoldings,
-      tfiHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
-    )
-
-  def corporateBondCircuit(
-      ledgerFinancialState: LedgerFinancialState,
-  ): CorporateBondCircuit =
-    val bankCorpBondHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond)
-    CorporateBondCircuit(
-      outstanding = PLN.fromRaw(ledgerFinancialState.firms.map(_.corpBond.toLong).sum),
-      bankHoldings = bankCorpBondHoldings,
-      ppkHoldings = ledgerFinancialState.funds.ppkCorpBondHoldings,
-      insuranceHoldings = ledgerFinancialState.insurance.corpBondHoldings,
-      tfiHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
-      otherHoldings = ledgerFinancialState.funds.corpBondOtherHoldings,
-    )
-
   def projectInsuranceState(
       base: Insurance.State,
       ledgerFinancialState: LedgerFinancialState,
@@ -315,38 +242,6 @@ object LedgerStateAdapter:
       nbp = nbpBalances(world.nbp),
       insurance = insuranceBalances(world.financial.insurance),
       funds = fundBalances(world.social, world.financial.corporateBonds, world.financial.nbfi, world.financial.quasiFiscal),
-    )
-
-  /** Financial fields intentionally left outside current ledger mapping because
-    * the public `EntitySector` / `AssetType` API does not yet name them
-    * cleanly, or because they are fiscal/accounting metrics rather than
-    * holder-tracked instruments.
-    */
-  def unsupportedSnapshot(sim: FlowSimulation.SimState): UnsupportedFinancialSnapshot =
-    UnsupportedFinancialSnapshot(
-      banks = sim.banks.map(b =>
-        UnsupportedBankBalances(
-          capital = b.capital,
-          nplAmount = b.nplAmount,
-          consumerNpl = b.consumerNpl,
-          loansShort = b.loansShort,
-          loansMedium = b.loansMedium,
-          loansLong = b.loansLong,
-        ),
-      ),
-      government = UnsupportedGovernmentBalances(
-        fiscalCumulativeDebt = sim.world.gov.cumulativeDebt,
-      ),
-      nbp = UnsupportedNbpBalances(
-        qeCumulativePurchases = sim.world.nbp.qeCumulative,
-      ),
-      jst = UnsupportedJstBalances(
-        jstDebt = sim.world.social.jst.debt,
-      ),
-      quasiFiscal = UnsupportedQuasiFiscalBalances(
-        bankHoldings = sim.world.financial.quasiFiscal.bankHoldings,
-        nbpHoldings = sim.world.financial.quasiFiscal.nbpHoldings,
-      ),
     )
 
   private def bankDemandDeposits(bank: Banking.BankState): PLN =

@@ -20,17 +20,6 @@ class LedgerStateAdapterSpec extends AnyFlatSpec with Matchers:
     ledger.funds.jstCash shouldBe PLN(10e6)
   }
 
-  it should "expose unsupported financial fields explicitly instead of forcing them into the ledger slice" in {
-    val runtime     = enrichedSimState()
-    val unsupported = LedgerStateAdapter.unsupportedSnapshot(runtime)
-
-    unsupported.government.fiscalCumulativeDebt shouldBe runtime.world.gov.cumulativeDebt
-    unsupported.nbp.qeCumulativePurchases shouldBe PLN(89e6)
-    unsupported.jst.jstDebt shouldBe PLN(11e6)
-    unsupported.quasiFiscal.bankHoldings shouldBe PLN(29e6)
-    unsupported.banks.head.capital shouldBe PLN(310e6)
-  }
-
   it should "carry ledger financial state explicitly inside SimState" in {
     val runtime = enrichedSimState()
 

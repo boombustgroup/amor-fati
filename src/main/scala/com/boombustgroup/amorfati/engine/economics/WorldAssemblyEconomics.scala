@@ -448,7 +448,7 @@ object WorldAssemblyEconomics:
       obs: Observables,
   ): (World, LedgerFinancialState) =
     val ledgerFinancialState = buildLedgerFinancialState(in)
-    val corporateBondCircuit = LedgerStateAdapter.corporateBondCircuit(ledgerFinancialState)
+    val bankCorpBondHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond)
     val projectedSocial      = LedgerStateAdapter.projectSocialState(
       SocialState(
         jst = in.s9.newJst,
@@ -482,9 +482,9 @@ object WorldAssemblyEconomics:
       financial = FinancialMarketsState(
         equity = equityAfterStep,
         corporateBonds = in.s8.corpBonds.newCorpBonds.copy(
-          bankHoldings = corporateBondCircuit.bankHoldings,
-          ppkHoldings = corporateBondCircuit.ppkHoldings,
-          otherHoldings = corporateBondCircuit.otherHoldings,
+          bankHoldings = bankCorpBondHoldings,
+          ppkHoldings = ledgerFinancialState.funds.ppkCorpBondHoldings,
+          otherHoldings = ledgerFinancialState.funds.corpBondOtherHoldings,
         ),
         insurance = LedgerStateAdapter.projectInsuranceState(in.s9.finalInsurance, ledgerFinancialState),
         nbfi = LedgerStateAdapter.projectNbfiState(in.s9.finalNbfi, ledgerFinancialState),
