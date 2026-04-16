@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.flows.*
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -152,6 +153,11 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
         ),
       ),
       financial = w.financial.copy(
+        corporateBonds = w.financial.corporateBonds.copy(
+          bankHoldings = w.financial.corporateBonds.bankHoldings + PLN(111),
+          ppkHoldings = w.financial.corporateBonds.ppkHoldings + PLN(112),
+          otherHoldings = w.financial.corporateBonds.otherHoldings + PLN(113),
+        ),
         insurance = w.financial.insurance.copy(
           reserves = w.financial.insurance.reserves.copy(
             lifeReserves = w.financial.insurance.lifeReserves + PLN(105),
@@ -238,7 +244,47 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     fromLedger.nbpRemittance shouldBe aligned.nbpRemittance
     fromLedger.newNbpGovBondHoldings shouldBe aligned.newNbpGovBondHoldings
     fromLedger.newNbpFxReserves shouldBe aligned.newNbpFxReserves
+    fromLedger.corpBondCoupon shouldBe aligned.corpBondCoupon
+    fromLedger.corpBondDefaultLoss shouldBe aligned.corpBondDefaultLoss
     fromLedger.insInvestmentIncome shouldBe aligned.insInvestmentIncome
+  }
+
+  it should "read corporate bond stocks from LedgerFinancialState in runStep" in {
+    val mismatchedWorld = w.copy(
+      financial = w.financial.copy(
+        corporateBonds = w.financial.corporateBonds.copy(
+          bankHoldings = w.financial.corporateBonds.bankHoldings + PLN(111),
+          ppkHoldings = w.financial.corporateBonds.ppkHoldings + PLN(112),
+          otherHoldings = w.financial.corporateBonds.otherHoldings + PLN(113),
+        ),
+      ),
+    )
+
+    def run(world: World): OpenEconEconomics.StepOutput =
+      OpenEconEconomics.runStep(
+        OpenEconEconomics.StepInput(
+          w = world,
+          ledgerFinancialState = baseLedgerFinancialState,
+          s1 = s1,
+          s2 = s2,
+          s3 = s3,
+          s4 = s4,
+          s5 = s5,
+          s6 = s6,
+          s7 = s7,
+          banks = init.banks,
+          commodityRng = RandomStream.seeded(TestSeed),
+        ),
+      )
+
+    val aligned    = run(w)
+    val fromLedger = run(mismatchedWorld)
+
+    fromLedger.corpBonds.corpBondBankCoupon shouldBe aligned.corpBonds.corpBondBankCoupon
+    fromLedger.corpBonds.corpBondBankDefaultLoss shouldBe aligned.corpBonds.corpBondBankDefaultLoss
+    fromLedger.corpBonds.newCorpBonds.bankHoldings shouldBe aligned.corpBonds.newCorpBonds.bankHoldings
+    fromLedger.corpBonds.newCorpBonds.ppkHoldings shouldBe aligned.corpBonds.newCorpBonds.ppkHoldings
+    fromLedger.corpBonds.newCorpBonds.otherHoldings shouldBe aligned.corpBonds.newCorpBonds.otherHoldings
   }
 
   it should "produce non-negative interbank flows" in {

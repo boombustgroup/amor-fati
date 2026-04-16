@@ -270,18 +270,19 @@ object OpenEconEconomics:
     val qeRequest = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.gdp, in.newInflation, newExp.expectedInflation)
 
     // 7. Corporate bonds
-    val corpBondAmort = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
+    val prevCorpBonds = LedgerBoundaryProjection.corporateBondState(in.w.financial.corporateBonds, in.ledgerFinancialState)
+    val corpBondAmort = CorporateBondMarket.amortization(prevCorpBonds)
     val newCorpBonds  = CorporateBondMarket.step(
       CorporateBondMarket.StepInput(
-        in.w.financial.corporateBonds,
+        prevCorpBonds,
         marketYield,
         bankAgg.nplRatio,
         in.totalBondDefault,
         in.actualBondIssuance,
       ),
     )
-    val corpCoupon    = CorporateBondMarket.computeCoupon(in.w.financial.corporateBonds)
-    val corpDefaults  = CorporateBondMarket.processDefaults(in.w.financial.corporateBonds, in.totalBondDefault)
+    val corpCoupon    = CorporateBondMarket.computeCoupon(prevCorpBonds)
+    val corpDefaults  = CorporateBondMarket.processDefaults(prevCorpBonds, in.totalBondDefault)
 
     // 8. Insurance
     val unempRate    = in.w.unemploymentRate(in.employed)
@@ -649,11 +650,12 @@ object OpenEconEconomics:
     BondQeResult(marketYield, newWeightedCoupon, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp)
 
   private def runStepCorporateBonds(in: StepInput, bankAgg: Banking.Aggregate, newBondYield: Rate)(using SimParams): CorporateBonds =
-    val corpBondAmort    = CorporateBondMarket.amortization(in.w.financial.corporateBonds)
+    val prevCorpBonds    = LedgerBoundaryProjection.corporateBondState(in.w.financial.corporateBonds, in.ledgerFinancialState)
+    val corpBondAmort    = CorporateBondMarket.amortization(prevCorpBonds)
     val newCorpBonds     = CorporateBondMarket
       .step(
         CorporateBondMarket.StepInput(
-          prev = in.w.financial.corporateBonds,
+          prev = prevCorpBonds,
           govBondYield = newBondYield,
           nplRatio = bankAgg.nplRatio,
           totalBondDefault = in.s5.totalBondDefault,
@@ -661,8 +663,8 @@ object OpenEconEconomics:
         ),
       )
       .copy(lastAbsorptionRate = in.s5.corpBondAbsorption)
-    val corpBondCoupon   = CorporateBondMarket.computeCoupon(in.w.financial.corporateBonds)
-    val corpBondDefaults = CorporateBondMarket.processDefaults(in.w.financial.corporateBonds, in.s5.totalBondDefault)
+    val corpBondCoupon   = CorporateBondMarket.computeCoupon(prevCorpBonds)
+    val corpBondDefaults = CorporateBondMarket.processDefaults(prevCorpBonds, in.s5.totalBondDefault)
     CorporateBonds(
       newCorpBonds = newCorpBonds,
       corpBondBankCoupon = corpBondCoupon.bank,
