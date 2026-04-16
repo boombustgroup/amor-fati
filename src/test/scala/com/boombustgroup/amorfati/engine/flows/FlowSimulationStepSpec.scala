@@ -64,8 +64,6 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
     nextDebt shouldBe CorporateBondOwnership.issuerOutstanding(result.nextState.firms)
     nextDebt shouldBe CorporateBondOwnership.holderOutstanding(result.nextState.ledgerFinancialState)
-    result.nextState.world.financial.insurance.corpBondHoldings shouldBe result.nextState.ledgerFinancialState.insurance.corpBondHoldings
-    result.nextState.world.financial.nbfi.tfiCorpBondHoldings shouldBe result.nextState.ledgerFinancialState.funds.nbfi.corpBondHoldings
   }
 
   it should "derive runtime ledger topology from actual populations plus explicit shell slots" in {
@@ -131,17 +129,6 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   it should "read insurance flow inputs from LedgerFinancialState instead of world mirrors" in {
     val init            = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val baseState       = FlowSimulation.SimState.fromInit(init)
-    val worldInsurance  = baseState.world.financial.insurance.copy(
-      reserves = baseState.world.financial.insurance.reserves.copy(
-        lifeReserves = PLN(11),
-        nonLifeReserves = PLN(12),
-      ),
-      portfolio = baseState.world.financial.insurance.portfolio.copy(
-        govBondHoldings = PLN(13),
-        corpBondHoldings = PLN(14),
-        equityHoldings = PLN(15),
-      ),
-    )
     val ledgerInsurance = baseState.ledgerFinancialState.insurance.copy(
       lifeReserve = PLN(21),
       nonLifeReserve = PLN(22),
@@ -150,11 +137,6 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       equityHoldings = PLN(25),
     )
     val state           = baseState.copy(
-      world = baseState.world.copy(
-        financial = baseState.world.financial.copy(
-          insurance = worldInsurance,
-        ),
-      ),
       ledgerFinancialState = baseState.ledgerFinancialState.copy(
         insurance = ledgerInsurance,
       ),
@@ -162,7 +144,6 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
     val calculus = FlowSimulation.computeCalculus(state, MonthRandomness.Contract.fromSeed(42L))
 
-    worldInsurance.lifeReserves.should(not be ledgerInsurance.lifeReserve)
     calculus.insuranceCurrentLifeReserves shouldBe ledgerInsurance.lifeReserve
     calculus.insuranceCurrentNonLifeReserves shouldBe ledgerInsurance.nonLifeReserve
     calculus.insurancePrevGovBonds shouldBe ledgerInsurance.govBondHoldings

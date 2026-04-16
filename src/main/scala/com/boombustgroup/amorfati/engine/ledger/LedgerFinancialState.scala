@@ -80,7 +80,16 @@ object LedgerFinancialState:
       foreignAssets = nbp.fxReserves,
     )
 
-  def insuranceBalances(insurance: Insurance.State): InsuranceBalances =
+  def insuranceStock(ledgerFinancialState: LedgerFinancialState): Insurance.StockState =
+    Insurance.StockState(
+      lifeReserves = ledgerFinancialState.insurance.lifeReserve,
+      nonLifeReserves = ledgerFinancialState.insurance.nonLifeReserve,
+      govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
+      corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
+      equityHoldings = ledgerFinancialState.insurance.equityHoldings,
+    )
+
+  def insuranceBalances(insurance: Insurance.StockState): InsuranceBalances =
     InsuranceBalances(
       lifeReserve = insurance.lifeReserves,
       nonLifeReserve = insurance.nonLifeReserves,
@@ -89,7 +98,17 @@ object LedgerFinancialState:
       equityHoldings = insurance.equityHoldings,
     )
 
-  def nbfiFundBalances(nbfi: Nbfi.State): NbfiFundBalances =
+  def nbfiStock(ledgerFinancialState: LedgerFinancialState): Nbfi.StockState =
+    Nbfi.StockState(
+      tfiAum = ledgerFinancialState.funds.nbfi.tfiUnit,
+      tfiGovBondHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
+      tfiCorpBondHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
+      tfiEquityHoldings = ledgerFinancialState.funds.nbfi.equityHoldings,
+      tfiCashHoldings = ledgerFinancialState.funds.nbfi.cashHoldings,
+      nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
+    )
+
+  def nbfiFundBalances(nbfi: Nbfi.StockState): NbfiFundBalances =
     NbfiFundBalances(
       tfiUnit = nbfi.tfiAum,
       govBondHoldings = nbfi.tfiGovBondHoldings,
@@ -108,7 +127,7 @@ object LedgerFinancialState:
   def fundBalances(
       social: SocialState,
       corporateBonds: CorporateBondMarket.StockState,
-      nbfi: Nbfi.State,
+      nbfi: Nbfi.StockState,
       quasiFiscal: QuasiFiscal.State,
   ): FundBalances =
     FundBalances(
@@ -138,6 +157,8 @@ object LedgerFinancialState:
       banks: Vector[Banking.BankState],
   )(using p: SimParams): LedgerFinancialState =
     val corporateBondStock = CorporateBondMarket.initialStock
+    val insuranceStock     = CorporateBondOwnership.alignInsuranceStock(Insurance.initialStock, corporateBondStock.insuranceHoldings)
+    val nbfiStock          = CorporateBondOwnership.alignNbfiStock(Nbfi.initialStock, corporateBondStock.nbfiHoldings)
     LedgerFinancialState(
       households = households.map(householdBalances),
       firms = firms.map(firmBalances),
@@ -145,8 +166,8 @@ object LedgerFinancialState:
       government = governmentBalances(world.gov),
       foreign = foreignBalances(world.gov),
       nbp = nbpBalances(world.nbp),
-      insurance = insuranceBalances(world.financial.insurance),
-      funds = fundBalances(world.social, corporateBondStock, world.financial.nbfi, world.financial.quasiFiscal),
+      insurance = insuranceBalances(insuranceStock),
+      funds = fundBalances(world.social, corporateBondStock, nbfiStock, world.financial.quasiFiscal),
     )
 
   private def bankDemandDeposits(bank: Banking.BankState): PLN =

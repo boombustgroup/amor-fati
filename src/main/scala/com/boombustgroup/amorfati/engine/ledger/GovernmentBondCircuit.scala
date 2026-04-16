@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.Banking
-import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.types.PLN
 
 /** Government-bond issuer/holder stock view used by SFC level checks. */
@@ -18,14 +17,14 @@ case class GovernmentBondCircuit(
     bankHoldings + foreignHoldings + nbpHoldings + insuranceHoldings + ppkHoldings + tfiHoldings
 
 object GovernmentBondCircuit:
-  def from(world: World, banks: Vector[Banking.BankState]): GovernmentBondCircuit =
+  def from(banks: Vector[Banking.BankState], ledgerFinancialState: LedgerFinancialState): GovernmentBondCircuit =
     val bankAgg = Banking.aggregateFromBanks(banks)
     GovernmentBondCircuit(
-      outstanding = world.gov.bondsOutstanding,
+      outstanding = ledgerFinancialState.government.govBondOutstanding,
       bankHoldings = bankAgg.govBondHoldings,
-      foreignHoldings = world.gov.foreignBondHoldings,
-      nbpHoldings = world.nbp.govBondHoldings,
-      insuranceHoldings = world.financial.insurance.govBondHoldings,
-      ppkHoldings = world.social.ppk.bondHoldings,
-      tfiHoldings = world.financial.nbfi.tfiGovBondHoldings,
+      foreignHoldings = ledgerFinancialState.foreign.govBondHoldings,
+      nbpHoldings = ledgerFinancialState.nbp.govBondHoldings,
+      insuranceHoldings = ledgerFinancialState.insurance.govBondHoldings,
+      ppkHoldings = ledgerFinancialState.funds.ppkGovBondHoldings,
+      tfiHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
     )

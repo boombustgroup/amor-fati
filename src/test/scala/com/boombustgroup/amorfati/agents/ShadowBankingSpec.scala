@@ -12,7 +12,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   private val td           = ComputationBoundary
 
   private def mkStep(
-      prev: Nbfi.State = Nbfi.initial,
+      prevStock: Nbfi.StockState = Nbfi.initialStock,
       employed: Int = 50000,
       wage: PLN = PLN(8000.0),
       priceLevel: PriceIndex = PriceIndex.Base,
@@ -25,9 +25,9 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       domesticCons: PLN = PLN(1e8),
       settledCorpBondHoldings: Option[PLN] = None,
       corpBondDefaultLoss: PLN = PLN.Zero,
-  ): Nbfi.State =
+  ): Nbfi.StepResult =
     Nbfi.step(
-      prev,
+      prevStock,
       employed,
       wage,
       priceLevel,
@@ -38,20 +38,14 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       equityReturn,
       depositRate,
       domesticCons,
-      settledCorpBondHoldings.getOrElse(prev.tfiCorpBondHoldings),
+      settledCorpBondHoldings.getOrElse(prevStock.tfiCorpBondHoldings),
       corpBondDefaultLoss,
     )
 
   // ---- zero / initial ----
 
-  "Nbfi.State.zero" should "have all fields at zero" in {
+  "Nbfi.State.zero" should "have all monthly fields at zero" in {
     val z = Nbfi.State.zero
-    z.tfiAum shouldBe PLN.Zero
-    z.tfiGovBondHoldings shouldBe PLN.Zero
-    z.tfiCorpBondHoldings shouldBe PLN.Zero
-    z.tfiEquityHoldings shouldBe PLN.Zero
-    z.tfiCashHoldings shouldBe PLN.Zero
-    z.nbfiLoanStock shouldBe PLN.Zero
     z.lastTfiNetInflow shouldBe PLN.Zero
     z.lastNbfiOrigination shouldBe PLN.Zero
     z.lastNbfiRepayment shouldBe PLN.Zero
@@ -60,35 +54,45 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
     z.lastDepositDrain shouldBe PLN.Zero
   }
 
-  "Nbfi.initial" should "have correct AUM" in {
-    val init = Nbfi.initial
+  "Nbfi.StockState.zero" should "have all stock fields at zero" in {
+    val z = Nbfi.StockState.zero
+    z.tfiAum shouldBe PLN.Zero
+    z.tfiGovBondHoldings shouldBe PLN.Zero
+    z.tfiCorpBondHoldings shouldBe PLN.Zero
+    z.tfiEquityHoldings shouldBe PLN.Zero
+    z.tfiCashHoldings shouldBe PLN.Zero
+    z.nbfiLoanStock shouldBe PLN.Zero
+  }
+
+  "Nbfi.initialStock" should "have correct AUM" in {
+    val init = Nbfi.initialStock
     td.toDouble(init.tfiAum) shouldBe td.toDouble(p.nbfi.tfiInitAum) +- 1.0
   }
 
   it should "allocate gov bonds at target share" in {
-    val init = Nbfi.initial
+    val init = Nbfi.initialStock
     td.toDouble(init.tfiGovBondHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiGovBondShare)) +- 1.0
   }
 
   it should "allocate corp bonds at target share" in {
-    val init = Nbfi.initial
+    val init = Nbfi.initialStock
     td.toDouble(init.tfiCorpBondHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiCorpBondShare)) +- 1.0
   }
 
   it should "allocate equities at target share" in {
-    val init = Nbfi.initial
+    val init = Nbfi.initialStock
     td.toDouble(init.tfiEquityHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiEquityShare)) +- 1.0
   }
 
   it should "allocate residual to cash" in {
-    val init         = Nbfi.initial
+    val init         = Nbfi.initialStock
     val expectedCash = td.toDouble(p.nbfi.tfiInitAum) *
       (1.0 - td.toDouble(p.nbfi.tfiGovBondShare) - td.toDouble(p.nbfi.tfiCorpBondShare) - td.toDouble(p.nbfi.tfiEquityShare))
     td.toDouble(init.tfiCashHoldings) shouldBe expectedCash +- 1.0
   }
 
   it should "have correct initial loan stock" in {
-    val init = Nbfi.initial
+    val init = Nbfi.initialStock
     td.toDouble(init.nbfiLoanStock) shouldBe td.toDouble(p.nbfi.creditInitStock) +- 1.0
   }
 
@@ -187,66 +191,59 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   // ---- step ----
 
   "Nbfi.step" should "grow AUM with positive inflow" in {
-    val init   = Nbfi.initial
-    val result = mkStep(prev = init)
+    val init   = Nbfi.initialStock
+    val result = mkStep(prevStock = init).stock
     result.tfiAum should be > init.tfiAum
   }
 
   it should "reduce AUM by corporate bond default losses" in {
-    val noDefault = mkStep()
-    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000.0))
+    val noDefault = mkStep().stock
+    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000.0)).stock
     withLoss.tfiAum shouldBe noDefault.tfiAum - PLN(1000.0)
   }
 
   it should "produce deposit drain equal to negative inflow" in {
-    val result = mkStep()
+    val result = mkStep().state
     td.toDouble(result.lastDepositDrain) shouldBe -td.toDouble(result.lastTfiNetInflow) +- 0.01
   }
 
   it should "maintain Identity 13 (NBFI credit stock)" in {
-    val init           = Nbfi.initial
-    val result         = mkStep(prev = init)
-    val expectedChange = td.toDouble(result.lastNbfiOrigination - result.lastNbfiRepayment - result.lastNbfiDefaultAmount)
-    val actualChange   = td.toDouble(result.nbfiLoanStock - init.nbfiLoanStock)
+    val init           = Nbfi.initialStock
+    val result         = mkStep(prevStock = init)
+    val expectedChange = td.toDouble(result.state.lastNbfiOrigination - result.state.lastNbfiRepayment - result.state.lastNbfiDefaultAmount)
+    val actualChange   = td.toDouble(result.stock.nbfiLoanStock - init.nbfiLoanStock)
     actualChange shouldBe expectedChange +- 0.01
   }
 
   it should "rebalance TFI portfolio towards targets" in {
-    val offTarget = Nbfi.State(
+    val offTarget = Nbfi.StockState(
       tfiAum = PLN(1000000.0),
       tfiGovBondHoldings = PLN.Zero,
       tfiCorpBondHoldings = PLN.Zero,
       tfiEquityHoldings = PLN.Zero,
       tfiCashHoldings = PLN(1000000.0),
       nbfiLoanStock = PLN(100000.0),
-      lastTfiNetInflow = PLN.Zero,
-      lastNbfiOrigination = PLN.Zero,
-      lastNbfiRepayment = PLN.Zero,
-      lastNbfiDefaultAmount = PLN.Zero,
-      lastNbfiInterestIncome = PLN.Zero,
-      lastBankTightness = Share.Zero,
-      lastDepositDrain = PLN.Zero,
     )
-    val result    = mkStep(prev = offTarget)
+    val result    = mkStep(prevStock = offTarget).stock
     result.tfiGovBondHoldings should be > PLN.Zero
   }
 
   it should "take TFI corpBondHoldings from corporate bond market settlement" in {
     val settled = PLN(123456.0)
-    val result  = mkStep(settledCorpBondHoldings = Some(settled))
+    val result  = mkStep(settledCorpBondHoldings = Some(settled)).stock
     result.tfiCorpBondHoldings shouldBe settled
   }
 
   it should "increase origination when bank NPL is high (counter-cyclical)" in {
-    val normal = mkStep(bankNplRatio = Share(0.02))
-    val tight  = mkStep(bankNplRatio = Share(0.06))
+    val normal = mkStep(bankNplRatio = Share(0.02)).state
+    val tight  = mkStep(bankNplRatio = Share(0.06)).state
     tight.lastNbfiOrigination should be > normal.lastNbfiOrigination
     tight.lastBankTightness should be > normal.lastBankTightness
   }
 
   it should "produce positive interest income from loan stock" in {
-    val init   = Nbfi.initial
-    val result = mkStep(prev = init)
+    val init   = Nbfi.initialStock
+    val result = mkStep(prevStock = init).state
     if init.nbfiLoanStock > PLN.Zero then result.lastNbfiInterestIncome should be > PLN.Zero
   }
 

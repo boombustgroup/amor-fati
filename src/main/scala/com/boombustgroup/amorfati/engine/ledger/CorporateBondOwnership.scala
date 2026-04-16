@@ -61,20 +61,14 @@ object CorporateBondOwnership:
         Firm.isAlive(firm) && firm.bondDebt > PLN.Zero
       reduceDebt(firms, issuers, amortization)
 
-  def alignInsuranceHoldings(insurance: Insurance.State, corpBondHoldings: PLN): Insurance.State =
-    insurance.copy(
-      portfolio = insurance.portfolio.copy(
-        corpBondHoldings = corpBondHoldings,
-      ),
-    )
+  def alignInsuranceStock(stock: Insurance.StockState, corpBondHoldings: PLN): Insurance.StockState =
+    stock.copy(corpBondHoldings = corpBondHoldings)
 
-  def alignNbfiHoldings(nbfi: Nbfi.State, corpBondHoldings: PLN): Nbfi.State =
-    val cashHoldings = (nbfi.tfiAum - nbfi.tfiGovBondHoldings - corpBondHoldings - nbfi.tfiEquityHoldings).max(PLN.Zero)
-    nbfi.copy(
-      tfi = nbfi.tfi.copy(
-        tfiCorpBondHoldings = corpBondHoldings,
-        tfiCashHoldings = cashHoldings,
-      ),
+  def alignNbfiStock(stock: Nbfi.StockState, corpBondHoldings: PLN): Nbfi.StockState =
+    val cashHoldings = (stock.tfiAum - stock.tfiGovBondHoldings - corpBondHoldings - stock.tfiEquityHoldings).max(PLN.Zero)
+    stock.copy(
+      tfiCorpBondHoldings = corpBondHoldings,
+      tfiCashHoldings = cashHoldings,
     )
 
   private def allocateDebt(

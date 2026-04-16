@@ -122,8 +122,10 @@ object OpenEconEconomics:
 
   case class NonBankFinancials(
       newInsurance: Insurance.State,
+      newInsuranceStock: Insurance.StockState,
       insNetDepositChange: PLN,
       newNbfi: Nbfi.State,
+      newNbfiStock: Nbfi.StockState,
       nbfiDepositDrain: PLN,
   )
 
@@ -289,9 +291,10 @@ object OpenEconEconomics:
     val corpDefaults      = CorporateBondMarket.processDefaults(prevCorpBondStock, in.totalBondDefault)
 
     // 8. Insurance
-    val unempRate    = in.w.unemploymentRate(in.employed)
-    val newInsurance = Insurance.step(
-      LedgerBoundaryProjection.insuranceState(in.w.financial.insurance, in.ledgerFinancialState),
+    val unempRate          = in.w.unemploymentRate(in.employed)
+    val prevInsuranceStock = LedgerFinancialState.insuranceStock(in.ledgerFinancialState)
+    val insuranceStep      = Insurance.step(
+      prevInsuranceStock,
       in.employed,
       in.newWage,
       unempRate,
@@ -327,11 +330,11 @@ object OpenEconEconomics:
       corpBondIssuance = in.actualBondIssuance,
       corpBondAmortization = corpBondAmort,
       corpBondYield = corpBondStep.state.corpBondYield,
-      insLifePremium = newInsurance.lastLifePremium,
-      insNonLifePremium = newInsurance.lastNonLifePremium,
-      insLifeClaims = newInsurance.lastLifeClaims,
-      insNonLifeClaims = newInsurance.lastNonLifeClaims,
-      insInvestmentIncome = newInsurance.lastInvestmentIncome,
+      insLifePremium = insuranceStep.state.lastLifePremium,
+      insNonLifePremium = insuranceStep.state.lastNonLifePremium,
+      insLifeClaims = insuranceStep.state.lastLifeClaims,
+      insNonLifeClaims = insuranceStep.state.lastNonLifeClaims,
+      insInvestmentIncome = insuranceStep.state.lastInvestmentIncome,
       newExpectations = newExp,
       newGvc = newGvc,
       newNbpRefRate = newRefRate,
@@ -430,8 +433,8 @@ object OpenEconEconomics:
       postFxNbp: Nbp.State,
   )
 
-  private case class InsuranceResult(state: Insurance.State)
-  private case class NbfiResult(state: Nbfi.State)
+  private case class InsuranceResult(state: Insurance.State, stock: Insurance.StockState)
+  private case class NbfiResult(state: Nbfi.State, stock: Nbfi.StockState)
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
     val bankAgg       = Banking.aggregateFromBanks(in.banks)
@@ -486,8 +489,10 @@ object OpenEconEconomics:
       corpBonds = corpBonds,
       nonBank = NonBankFinancials(
         newInsurance = insurance.state,
+        newInsuranceStock = insurance.stock,
         insNetDepositChange = insurance.state.lastNetDepositChange,
         newNbfi = nbfi.state,
+        newNbfiStock = nbfi.stock,
         nbfiDepositDrain = nbfi.state.lastDepositDrain,
       ),
     )
@@ -703,10 +708,11 @@ object OpenEconEconomics:
       settledCorpBondHoldings: PLN,
       corpBondDefaultLoss: PLN,
   )(using p: SimParams): InsuranceResult =
-    val unempRate    = in.w.unemploymentRate(in.s2.employed)
-    val newInsurance =
+    val unempRate          = in.w.unemploymentRate(in.s2.employed)
+    val prevInsuranceStock = LedgerFinancialState.insuranceStock(in.ledgerFinancialState)
+    val insuranceStep      =
       Insurance.step(
-        LedgerBoundaryProjection.insuranceState(in.w.financial.insurance, in.ledgerFinancialState),
+        prevInsuranceStock,
         in.s2.employed,
         in.s2.newWage,
         unempRate,
@@ -716,7 +722,7 @@ object OpenEconEconomics:
         settledCorpBondHoldings,
         corpBondDefaultLoss,
       )
-    InsuranceResult(newInsurance)
+    InsuranceResult(insuranceStep.state, insuranceStep.stock)
 
   private def runStepNbfi(
       in: StepInput,
@@ -729,9 +735,10 @@ object OpenEconEconomics:
   )(using p: SimParams): NbfiResult =
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
-    val newNbfi         =
+    val prevNbfiStock   = LedgerFinancialState.nbfiStock(in.ledgerFinancialState)
+    val nbfiStep        =
       Nbfi.step(
-        LedgerBoundaryProjection.nbfiState(in.w.financial.nbfi, in.ledgerFinancialState),
+        prevNbfiStock,
         in.s2.employed,
         in.s2.newWage,
         in.w.priceLevel,
@@ -745,4 +752,4 @@ object OpenEconEconomics:
         settledCorpBondHoldings,
         corpBondDefaultLoss,
       )
-    NbfiResult(newNbfi)
+    NbfiResult(nbfiStep.state, nbfiStep.stock)

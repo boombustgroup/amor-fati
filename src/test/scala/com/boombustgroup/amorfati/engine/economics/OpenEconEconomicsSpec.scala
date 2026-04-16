@@ -138,7 +138,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     ComputationBoundary.toDouble(newResult.newBondYield) should be >= 0.0
   }
 
-  it should "read supported bond and insurance stocks from LedgerFinancialState" in {
+  it should "read supported public bond and central-bank stocks from LedgerFinancialState" in {
     val mismatchedWorld = w.copy(
       gov = w.gov.copy(
         financial = w.gov.financial.copy(
@@ -150,19 +150,6 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
         balance = w.nbp.balance.copy(
           govBondHoldings = w.nbp.govBondHoldings + PLN(103),
           fxReserves = w.nbp.fxReserves + PLN(104),
-        ),
-      ),
-      financial = w.financial.copy(
-        insurance = w.financial.insurance.copy(
-          reserves = w.financial.insurance.reserves.copy(
-            lifeReserves = w.financial.insurance.lifeReserves + PLN(105),
-            nonLifeReserves = w.financial.insurance.nonLifeReserves + PLN(106),
-          ),
-          portfolio = w.financial.insurance.portfolio.copy(
-            govBondHoldings = w.financial.insurance.govBondHoldings + PLN(107),
-            corpBondHoldings = w.financial.insurance.corpBondHoldings + PLN(108),
-            equityHoldings = w.financial.insurance.equityHoldings + PLN(109),
-          ),
         ),
       ),
     )

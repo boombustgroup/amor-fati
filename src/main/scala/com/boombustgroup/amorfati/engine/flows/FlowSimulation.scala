@@ -392,8 +392,8 @@ object FlowSimulation:
     val nextState               = advanceState(input, outcome)
     val sfcFlows                = buildSfcFlows(outcome.semanticProjection, flows, nextState.world.plumbing.fofResidual)
     val sfcResult               = Sfc.validate(
-      prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
-      curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks),
+      prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks, stateIn.ledgerFinancialState),
+      curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks, nextState.ledgerFinancialState),
       flows = sfcFlows,
       batches = flows,
       executionDeltaLedger = Sfc.ExecutionDeltaLedger.fromRaw(execution.deltaLedger),
@@ -434,7 +434,7 @@ object FlowSimulation:
       executionMonth = stateIn.completedMonth.next,
       seedIn = MonthSemantics.seedIn(stateIn.world.seedIn),
       randomness = randomness,
-      boundaryIn = MonthBoundarySnapshot.capture(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
+      boundaryIn = MonthBoundarySnapshot.capture(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks, stateIn.ledgerFinancialState),
     )
 
   /** Compute same-month groups by chaining all Economics. Uses old pipeline
@@ -742,8 +742,9 @@ object FlowSimulation:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
   ): Sfc.RuntimeState =
-    Sfc.RuntimeState(w, firms, households, banks)
+    Sfc.RuntimeState(w, firms, households, banks, ledgerFinancialState)
 
   private case class ExecutedBatchEvidence(
       totals: Map[MechanismId, Long],
@@ -913,7 +914,13 @@ object FlowSimulation:
     MonthSemantics.postAssembly(
       PostMonth(
         assembled = assembled,
-        boundaryOut = MonthBoundarySnapshot.capture(assembled.world, assembled.firms, assembled.households, assembled.banks),
+        boundaryOut = MonthBoundarySnapshot.capture(
+          assembled.world,
+          assembled.firms,
+          assembled.households,
+          assembled.banks,
+          assembled.ledgerFinancialState,
+        ),
         timing = MonthTimingTrace.fromInputs(buildTimingInputs(signalView, assembled)),
       ),
     )

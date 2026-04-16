@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.types.*
 
 import scala.reflect.ClassTag
@@ -105,11 +106,12 @@ object MonthBoundarySnapshot:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
   ): MonthBoundarySnapshot =
     val employedHouseholds = Household.countEmployed(households)
 
     MonthBoundarySnapshot(
-      stock = Sfc.snapshot(world, firms, households, banks),
+      stock = Sfc.snapshot(world, firms, households, banks, ledgerFinancialState),
       firmCount = firms.length,
       livingFirmCount = firms.count(Firm.isAlive),
       householdCount = households.length,

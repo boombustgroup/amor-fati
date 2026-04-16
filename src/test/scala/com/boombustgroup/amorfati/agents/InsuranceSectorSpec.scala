@@ -13,7 +13,7 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   private val td           = ComputationBoundary
 
   private def mkStep(
-      prev: Insurance.State = Insurance.initial,
+      prevStock: Insurance.StockState = Insurance.initialStock,
       employed: Int = 80000,
       wage: PLN = PLN(8000.0),
       unempRate: Share = Share(0.05),
@@ -22,26 +22,21 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
       equityReturn: Rate = Rate(0.005),
       settledCorpBondHoldings: Option[PLN] = None,
       corpBondDefaultLoss: PLN = PLN.Zero,
-  ): Insurance.State =
+  ): Insurance.StepResult =
     Insurance.step(
-      prev,
+      prevStock,
       employed,
       wage,
       unempRate,
       govBondYield,
       corpBondYield,
       equityReturn,
-      settledCorpBondHoldings.getOrElse(prev.corpBondHoldings),
+      settledCorpBondHoldings.getOrElse(prevStock.corpBondHoldings),
       corpBondDefaultLoss,
     )
 
-  "Insurance.State.zero" should "return all-zero state" in {
+  "Insurance.State.zero" should "return all-zero monthly state" in {
     val z = Insurance.State.zero
-    z.lifeReserves shouldBe PLN.Zero
-    z.nonLifeReserves shouldBe PLN.Zero
-    z.govBondHoldings shouldBe PLN.Zero
-    z.corpBondHoldings shouldBe PLN.Zero
-    z.equityHoldings shouldBe PLN.Zero
     z.lastLifePremium shouldBe PLN.Zero
     z.lastNonLifePremium shouldBe PLN.Zero
     z.lastLifeClaims shouldBe PLN.Zero
@@ -50,30 +45,39 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     z.lastNetDepositChange shouldBe PLN.Zero
   }
 
-  "Insurance.initial" should "have correct life reserves" in {
-    val s = Insurance.initial
+  "Insurance.StockState.zero" should "return all-zero stock" in {
+    val z = Insurance.StockState.zero
+    z.lifeReserves shouldBe PLN.Zero
+    z.nonLifeReserves shouldBe PLN.Zero
+    z.govBondHoldings shouldBe PLN.Zero
+    z.corpBondHoldings shouldBe PLN.Zero
+    z.equityHoldings shouldBe PLN.Zero
+  }
+
+  "Insurance.initialStock" should "have correct life reserves" in {
+    val s = Insurance.initialStock
     td.toDouble(s.lifeReserves) shouldBe (td.toDouble(p.ins.lifeReserves) +- 1.0)
   }
 
   it should "have correct non-life reserves" in {
-    val s = Insurance.initial
+    val s = Insurance.initialStock
     td.toDouble(s.nonLifeReserves) shouldBe (td.toDouble(p.ins.nonLifeReserves) +- 1.0)
   }
 
   it should "have govBondHoldings = totalAssets * govBondShare" in {
-    val s           = Insurance.initial
+    val s           = Insurance.initialStock
     val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
     td.toDouble(s.govBondHoldings) shouldBe (totalAssets * td.toDouble(p.ins.govBondShare) +- 1.0)
   }
 
   it should "have corpBondHoldings = totalAssets * corpBondShare" in {
-    val s           = Insurance.initial
+    val s           = Insurance.initialStock
     val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
     td.toDouble(s.corpBondHoldings) shouldBe (totalAssets * td.toDouble(p.ins.corpBondShare) +- 1.0)
   }
 
   it should "have equityHoldings = totalAssets * equityShare" in {
-    val s           = Insurance.initial
+    val s           = Insurance.initialStock
     val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
     td.toDouble(s.equityHoldings) shouldBe (totalAssets * td.toDouble(p.ins.equityShare) +- 1.0)
   }
@@ -85,85 +89,85 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
 
   "Insurance.step" should "compute life premium proportional to employment and wage" in {
     val result = mkStep()
-    td.toDouble(result.lastLifePremium) shouldBe (80000 * 8000.0 * td.toDouble(p.ins.lifePremiumRate) +- 0.01)
+    td.toDouble(result.state.lastLifePremium) shouldBe (80000 * 8000.0 * td.toDouble(p.ins.lifePremiumRate) +- 0.01)
   }
 
   it should "compute non-life premium proportional to employment and wage" in {
     val result = mkStep()
-    td.toDouble(result.lastNonLifePremium) shouldBe (80000 * 8000.0 * td.toDouble(p.ins.nonLifePremiumRate) +- 0.01)
+    td.toDouble(result.state.lastNonLifePremium) shouldBe (80000 * 8000.0 * td.toDouble(p.ins.nonLifePremiumRate) +- 0.01)
   }
 
   it should "compute life claims = premium * loss ratio" in {
-    val r = mkStep()
+    val r = mkStep().state
     td.toDouble(r.lastLifeClaims) shouldBe (td.toDouble(r.lastLifePremium) * td.toDouble(p.ins.lifeLossRatio) +- 0.01)
   }
 
   it should "widen non-life claims with high unemployment" in {
-    val rLow  = mkStep(unempRate = Share(0.05))
-    val rHigh = mkStep(unempRate = Share(0.15))
+    val rLow  = mkStep(unempRate = Share(0.05)).state
+    val rHigh = mkStep(unempRate = Share(0.15)).state
     rHigh.lastNonLifeClaims should be > rLow.lastNonLifeClaims
   }
 
   it should "not widen non-life claims when unemployment is at or below 5%" in {
-    val r            = mkStep(unempRate = Share(0.04))
+    val r            = mkStep(unempRate = Share(0.04)).state
     val expectedBase = td.toDouble(r.lastNonLifePremium) * td.toDouble(p.ins.nonLifeLossRatio)
     td.toDouble(r.lastNonLifeClaims) shouldBe (expectedBase +- 0.01)
   }
 
   it should "compute positive investment income with positive yields" in {
-    val r = mkStep()
+    val r = mkStep().state
     r.lastInvestmentIncome should be > PLN.Zero
   }
 
   it should "reduce investment income by corporate bond default losses" in {
-    val noDefault = mkStep()
-    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000.0))
+    val noDefault = mkStep().state
+    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000.0)).state
     withLoss.lastInvestmentIncome shouldBe noDefault.lastInvestmentIncome - PLN(1000.0)
   }
 
   it should "compute zero investment income with zero holdings" in {
-    val r = mkStep(prev = Insurance.State.zero)
+    val r = mkStep(prevStock = Insurance.StockState.zero).state
     r.lastInvestmentIncome shouldBe PLN.Zero
   }
 
   it should "have net deposit change = -(premium - claims)" in {
-    val r           = mkStep()
+    val r           = mkStep().state
     val totalPrem   = r.lastLifePremium + r.lastNonLifePremium
     val totalClaims = r.lastLifeClaims + r.lastNonLifeClaims
     td.toDouble(r.lastNetDepositChange) shouldBe (-td.toDouble(totalPrem - totalClaims) +- 0.01)
   }
 
   it should "have negative net deposit change in normal times (premium > claims)" in {
-    val r = mkStep()
+    val r = mkStep().state
     r.lastNetDepositChange should be < PLN.Zero
   }
 
   it should "preserve reserves >= 0 under normal conditions" in {
-    val r = mkStep()
+    val r = mkStep().stock
     r.lifeReserves should be >= PLN.Zero
     r.nonLifeReserves should be >= PLN.Zero
   }
 
   it should "move govBondHoldings towards target allocation" in {
-    val prev = Insurance.initial.copy(portfolio = Insurance.initial.portfolio.copy(govBondHoldings = PLN.Zero))
-    val r    = mkStep(prev = prev)
+    val prev = Insurance.initialStock.copy(govBondHoldings = PLN.Zero)
+    val r    = mkStep(prevStock = prev).stock
     r.govBondHoldings should be > PLN.Zero
   }
 
   it should "move equityHoldings towards target allocation" in {
-    val prev = Insurance.initial.copy(portfolio = Insurance.initial.portfolio.copy(equityHoldings = PLN.Zero))
-    val r    = mkStep(prev = prev)
+    val prev = Insurance.initialStock.copy(equityHoldings = PLN.Zero)
+    val r    = mkStep(prevStock = prev).stock
     r.equityHoldings should be > PLN.Zero
   }
 
   it should "take corpBondHoldings from corporate bond market settlement" in {
     val settled = PLN(123456.0)
-    val r       = mkStep(settledCorpBondHoldings = Some(settled))
+    val r       = mkStep(settledCorpBondHoldings = Some(settled)).stock
     r.corpBondHoldings shouldBe settled
   }
 
   it should "be idempotent from zero state with zero employment" in {
-    val r = mkStep(prev = Insurance.State.zero, employed = 0, govBondYield = Rate.Zero, corpBondYield = Rate.Zero, equityReturn = Rate.Zero)
+    val r = mkStep(prevStock = Insurance.StockState.zero, employed = 0, govBondYield = Rate.Zero, corpBondYield = Rate.Zero, equityReturn = Rate.Zero).state
     r.lastLifePremium shouldBe PLN.Zero
     r.lastNonLifePremium shouldBe PLN.Zero
     r.lastLifeClaims shouldBe PLN.Zero

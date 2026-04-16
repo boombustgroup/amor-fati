@@ -54,7 +54,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     w.gov.domesticBudgetOutlays.should(be >= w.gov.domesticBudgetDemand)
   }
 
-  it should "project LedgerFinancialState into world boundary mirrors after assembly" in {
+  it should "project remaining LedgerFinancialState boundary mirrors after assembly" in {
     val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state     = FlowSimulation.SimState.fromInit(init)
     val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
@@ -65,8 +65,6 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     world.gov.foreignBondHoldings shouldBe ledger.foreign.govBondHoldings
     world.nbp.govBondHoldings shouldBe ledger.nbp.govBondHoldings
     world.nbp.fxReserves shouldBe ledger.nbp.foreignAssets
-    world.financial.insurance.lifeReserves shouldBe ledger.insurance.lifeReserve
-    world.financial.nbfi.tfiAum shouldBe ledger.funds.nbfi.tfiUnit
     world.social.jst.deposits shouldBe ledger.funds.jstCash
     world.financial.quasiFiscal.bondsOutstanding shouldBe ledger.funds.quasiFiscal.bondsOutstanding
   }

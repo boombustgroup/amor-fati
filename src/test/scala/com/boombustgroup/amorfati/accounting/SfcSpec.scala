@@ -9,7 +9,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.engine.flows.{AggregateBatchedEmission, FlowMechanism, RuntimeLedgerTopology}
-import com.boombustgroup.amorfati.engine.ledger.{FundRuntimeIndex, TreasuryRuntimeContract}
+import com.boombustgroup.amorfati.engine.ledger.{FundRuntimeIndex, LedgerFinancialState, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
@@ -146,7 +146,46 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       )
     }.toVector
 
-  private val zeroRuntime = Sfc.RuntimeState(makeWorld(), Vector.empty, Vector.empty, Vector.empty)
+  private val zeroLedger  = LedgerFinancialState(
+    households = Vector.empty,
+    firms = Vector.empty,
+    banks = Vector.empty,
+    government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = PLN.Zero),
+    foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = PLN.Zero),
+    nbp = LedgerFinancialState.NbpBalances(govBondHoldings = PLN.Zero, foreignAssets = PLN.Zero),
+    insurance = LedgerFinancialState.InsuranceBalances(
+      lifeReserve = PLN.Zero,
+      nonLifeReserve = PLN.Zero,
+      govBondHoldings = PLN.Zero,
+      corpBondHoldings = PLN.Zero,
+      equityHoldings = PLN.Zero,
+    ),
+    funds = LedgerFinancialState.FundBalances(
+      zusCash = PLN.Zero,
+      nfzCash = PLN.Zero,
+      ppkGovBondHoldings = PLN.Zero,
+      ppkCorpBondHoldings = PLN.Zero,
+      fpCash = PLN.Zero,
+      pfronCash = PLN.Zero,
+      fgspCash = PLN.Zero,
+      jstCash = PLN.Zero,
+      corpBondOtherHoldings = PLN.Zero,
+      nbfi = LedgerFinancialState.NbfiFundBalances(
+        tfiUnit = PLN.Zero,
+        govBondHoldings = PLN.Zero,
+        corpBondHoldings = PLN.Zero,
+        equityHoldings = PLN.Zero,
+        cashHoldings = PLN.Zero,
+        nbfiLoanStock = PLN.Zero,
+      ),
+      quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
+        bondsOutstanding = PLN.Zero,
+        loanPortfolio = PLN.Zero,
+      ),
+    ),
+  )
+  private val zeroWorld   = makeWorld()
+  private val zeroRuntime = Sfc.RuntimeState(zeroWorld, Vector.empty, Vector.empty, Vector.empty, zeroLedger)
 
   private val zeroSnap = Sfc.StockState(
     hhSavings = PLN.Zero,

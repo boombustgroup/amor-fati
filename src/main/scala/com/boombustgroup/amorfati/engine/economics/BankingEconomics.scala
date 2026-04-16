@@ -53,8 +53,10 @@ object BankingEconomics:
       reassignedHouseholds: Vector[Household.State], // HH with bankId reassigned after bank failure
       finalNbp: Nbp.State,                           // NBP state after QE bond purchase (waterfall)
       finalPpk: SocialSecurity.PpkState,             // PPK state after bond purchases
-      finalInsurance: Insurance.State,               // insurance state after asset allocation
-      finalNbfi: Nbfi.State,                         // NBFI/TFI state after bond purchases
+      finalInsurance: Insurance.State,               // insurance monthly state
+      finalInsuranceStock: Insurance.StockState,     // insurance ledger-owned closing stock
+      finalNbfi: Nbfi.State,                         // NBFI/TFI monthly state
+      finalNbfiStock: Nbfi.StockState,               // NBFI/TFI ledger-owned closing stock
       newGovWithYield: FiscalBudget.GovState,        // gov state with updated bond yield
       newJst: Jst.State,                             // local government state
       housingAfterFlows: HousingMarket.State,        // housing market after mortgage flows
@@ -131,8 +133,10 @@ object BankingEconomics:
       // Bond waterfall outputs — single source of truth for buyer holdings
       finalNbp: Nbp.State,                           // NBP after QE bond purchase (govBondHoldings updated)
       finalPpk: SocialSecurity.PpkState,             // PPK after bond purchase
-      finalInsurance: Insurance.State,               // insurance after bond purchase
-      finalNbfi: Nbfi.State,                         // NBFI/TFI after bond purchase
+      finalInsurance: Insurance.State,               // insurance monthly state after non-bank step
+      finalInsuranceStock: Insurance.StockState,     // insurance stock after bond purchase
+      finalNbfi: Nbfi.State,                         // NBFI/TFI monthly state after non-bank step
+      finalNbfiStock: Nbfi.StockState,               // NBFI/TFI stock after bond purchase
       actualBondChange: PLN,                         // net change in gov bonds outstanding
       standingFacilityBackstop: PLN,                 // reserve shortfall funded by explicit NBP standing-facility backstop
       foreignBondHoldings: PLN,                      // non-resident holdings after auction
@@ -261,8 +265,8 @@ object BankingEconomics:
         government = LedgerFinancialState.governmentBalances(newGovWithForeignHoldings),
         foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbp),
-        insurance = LedgerFinancialState.insuranceBalances(multi.finalInsurance),
-        funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfi, newQuasiFiscal),
+        insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceStock),
+        funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfiStock, newQuasiFiscal),
       )
     val monAgg                    = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
 
@@ -275,7 +279,9 @@ object BankingEconomics:
       finalNbp = multi.finalNbp,
       finalPpk = multi.finalPpk,
       finalInsurance = multi.finalInsurance,
+      finalInsuranceStock = multi.finalInsuranceStock,
       finalNbfi = multi.finalNbfi,
+      finalNbfiStock = multi.finalNbfiStock,
       newGovWithYield = newGovWithForeignHoldings,
       newJst = govJst.newJst,
       housingAfterFlows = housing.housingAfterFlows,
@@ -504,9 +510,9 @@ object BankingEconomics:
   ): BondWaterfallInputs =
     val actualBondChange = newGovWithYield.bondsOutstanding - in.ledgerFinancialState.government.govBondOutstanding
     val insRequested     =
-      (in.s8.nonBank.newInsurance.govBondHoldings - in.ledgerFinancialState.insurance.govBondHoldings).max(PLN.Zero)
+      (in.s8.nonBank.newInsuranceStock.govBondHoldings - in.ledgerFinancialState.insurance.govBondHoldings).max(PLN.Zero)
     val tfiRequested     =
-      (in.s8.nonBank.newNbfi.tfiGovBondHoldings - in.ledgerFinancialState.funds.nbfi.govBondHoldings).max(PLN.Zero)
+      (in.s8.nonBank.newNbfiStock.tfiGovBondHoldings - in.ledgerFinancialState.funds.nbfi.govBondHoldings).max(PLN.Zero)
     val prevEr           = in.w.forex.exchangeRate
     val currEr           = in.s8.external.newForex.exchangeRate
     val erChange         = currEr.deviationFrom(prevEr).toCoefficient
@@ -773,15 +779,13 @@ object BankingEconomics:
       ),
     )
     val finalPpk                 = in.s2.newPpk.copy(bondHoldings = in.ledgerFinancialState.funds.ppkGovBondHoldings + ppkSale.actualSold)
-    val finalInsurance           = in.s8.nonBank.newInsurance.copy(
-      portfolio = in.s8.nonBank.newInsurance.portfolio.copy(
-        govBondHoldings = in.ledgerFinancialState.insurance.govBondHoldings + insSale.actualSold,
-      ),
+    val finalInsurance           = in.s8.nonBank.newInsurance
+    val finalInsuranceStock      = in.s8.nonBank.newInsuranceStock.copy(
+      govBondHoldings = in.ledgerFinancialState.insurance.govBondHoldings + insSale.actualSold,
     )
-    val finalNbfi                = in.s8.nonBank.newNbfi.copy(
-      tfi = in.s8.nonBank.newNbfi.tfi.copy(
-        tfiGovBondHoldings = in.ledgerFinancialState.funds.nbfi.govBondHoldings + tfiSale.actualSold,
-      ),
+    val finalNbfi                = in.s8.nonBank.newNbfi
+    val finalNbfiStock           = in.s8.nonBank.newNbfiStock.copy(
+      tfiGovBondHoldings = in.ledgerFinancialState.funds.nbfi.govBondHoldings + tfiSale.actualSold,
     )
     val finalForeignBondHoldings = in.ledgerFinancialState.foreign.govBondHoldings + foreignSale.actualSold
 
@@ -879,7 +883,9 @@ object BankingEconomics:
       finalNbp = finalNbp,
       finalPpk = finalPpk,
       finalInsurance = finalInsurance,
+      finalInsuranceStock = finalInsuranceStock,
       finalNbfi = finalNbfi,
+      finalNbfiStock = finalNbfiStock,
       actualBondChange = wf.actualBondChange,
       standingFacilityBackstop = nbpSettlement.standingFacilityBackstop,
       foreignBondHoldings = finalForeignBondHoldings,

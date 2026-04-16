@@ -56,34 +56,6 @@ object LedgerTestFixtures:
         ),
       ),
       financial = base.world.financial.copy(
-        insurance = Insurance.State(
-          lifeReserves = PLN(17e6),
-          nonLifeReserves = PLN(18e6),
-          govBondHoldings = PLN(19e6),
-          corpBondHoldings = PLN(20e6),
-          equityHoldings = PLN(21e6),
-          lastLifePremium = PLN.Zero,
-          lastNonLifePremium = PLN.Zero,
-          lastLifeClaims = PLN.Zero,
-          lastNonLifeClaims = PLN.Zero,
-          lastInvestmentIncome = PLN.Zero,
-          lastNetDepositChange = PLN.Zero,
-        ),
-        nbfi = Nbfi.State(
-          tfiAum = PLN(22e6),
-          tfiGovBondHoldings = PLN(23e6),
-          tfiCorpBondHoldings = PLN(24e6),
-          tfiEquityHoldings = PLN(25e6),
-          tfiCashHoldings = PLN(26e6),
-          nbfiLoanStock = PLN(27e6),
-          lastTfiNetInflow = PLN.Zero,
-          lastNbfiOrigination = PLN.Zero,
-          lastNbfiRepayment = PLN.Zero,
-          lastNbfiDefaultAmount = PLN.Zero,
-          lastNbfiInterestIncome = PLN.Zero,
-          lastBankTightness = Share.Zero,
-          lastDepositDrain = PLN.Zero,
-        ),
         quasiFiscal = QuasiFiscal.State(
           bondsOutstanding = PLN(28e6),
           bankHoldings = PLN(29e6),
@@ -138,13 +110,34 @@ object LedgerTestFixtures:
       ),
     )
 
-    FlowSimulation.SimState.bootstrapFromMirrors(
+    val state = FlowSimulation.SimState.bootstrapFromMirrors(
       completedMonth = base.completedMonth,
       world = world,
       firms = firms,
       households = households,
       banks = banks,
       householdAggregates = base.householdAggregates,
+    )
+    state.copy(
+      ledgerFinancialState = state.ledgerFinancialState.copy(
+        insurance = LedgerFinancialState.InsuranceBalances(
+          lifeReserve = PLN(17e6),
+          nonLifeReserve = PLN(18e6),
+          govBondHoldings = PLN(19e6),
+          corpBondHoldings = PLN(20e6),
+          equityHoldings = PLN(21e6),
+        ),
+        funds = state.ledgerFinancialState.funds.copy(
+          nbfi = LedgerFinancialState.NbfiFundBalances(
+            tfiUnit = PLN(22e6),
+            govBondHoldings = PLN(23e6),
+            corpBondHoldings = PLN(24e6),
+            equityHoldings = PLN(25e6),
+            cashHoldings = PLN(26e6),
+            nbfiLoanStock = PLN(27e6),
+          ),
+        ),
+      ),
     )
 
 end LedgerTestFixtures

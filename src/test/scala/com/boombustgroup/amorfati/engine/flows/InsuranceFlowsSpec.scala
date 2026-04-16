@@ -46,19 +46,26 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "match old Insurance.step premium and claim amounts" in {
-    val prev   = Insurance.initial
-    val oldIns = Insurance.step(prev, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01), prev.corpBondHoldings, PLN.Zero)
-    val flows  = InsuranceFlows.emit(baseInput)
+    val prevStock = Insurance.StockState(
+      lifeReserves = baseInput.currentLifeReserves,
+      nonLifeReserves = baseInput.currentNonLifeReserves,
+      govBondHoldings = baseInput.prevGovBondHoldings,
+      corpBondHoldings = baseInput.prevCorpBondHoldings,
+      equityHoldings = baseInput.prevEquityHoldings,
+    )
+    val oldIns    =
+      Insurance.step(prevStock, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01), prevStock.corpBondHoldings, PLN.Zero)
+    val flows     = InsuranceFlows.emit(baseInput)
 
     val newLifePrem    = flows.filter(_.mechanism == FlowMechanism.InsLifePremium.toInt).map(_.amount).sum
     val newNonLifePrem = flows.filter(_.mechanism == FlowMechanism.InsNonLifePremium.toInt).map(_.amount).sum
     val newLifeCl      = flows.filter(_.mechanism == FlowMechanism.InsLifeClaim.toInt).map(_.amount).sum
     val newNonLifeCl   = flows.filter(_.mechanism == FlowMechanism.InsNonLifeClaim.toInt).map(_.amount).sum
 
-    PLN.fromRaw(newLifePrem) shouldBe oldIns.lastLifePremium
-    PLN.fromRaw(newNonLifePrem) shouldBe oldIns.lastNonLifePremium
-    PLN.fromRaw(newLifeCl) shouldBe oldIns.lastLifeClaims
-    PLN.fromRaw(newNonLifeCl) shouldBe oldIns.lastNonLifeClaims
+    PLN.fromRaw(newLifePrem) shouldBe oldIns.state.lastLifePremium
+    PLN.fromRaw(newNonLifePrem) shouldBe oldIns.state.lastNonLifePremium
+    PLN.fromRaw(newLifeCl) shouldBe oldIns.state.lastLifeClaims
+    PLN.fromRaw(newNonLifeCl) shouldBe oldIns.state.lastNonLifeClaims
   }
 
   it should "route investment income through reserve assets rather than cash" in {

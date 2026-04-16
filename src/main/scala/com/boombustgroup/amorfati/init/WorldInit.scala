@@ -44,16 +44,16 @@ object WorldInit:
     val initBankingSector = BankInit.create(firms, households, initCorporateBondStocks.bankHoldings)
 
     // --- Sub-state initializers ---
-    val initDemographics = DemographicsInit.create(totalPop)
-    val initInsurance0   = InsuranceInit.create()
-    val initNbfi0        = NbfiInit.create()
-    val initInsurance    = CorporateBondOwnership.alignInsuranceHoldings(initInsurance0, initCorporateBondStocks.insuranceHoldings)
-    val initNbfi         = CorporateBondOwnership.alignNbfiHoldings(initNbfi0, initCorporateBondStocks.nbfiHoldings)
-    val initExpectations = ExpectationsInit.create()
-    val initInflation    = p.monetary.targetInfl
+    val initDemographics   = DemographicsInit.create(totalPop)
+    val initInsurance      = InsuranceInit.create()
+    val initNbfi           = NbfiInit.create()
+    val initInsuranceStock = CorporateBondOwnership.alignInsuranceStock(Insurance.initialStock, initCorporateBondStocks.insuranceHoldings)
+    val initNbfiStock      = CorporateBondOwnership.alignNbfiStock(Nbfi.initialStock, initCorporateBondStocks.nbfiHoldings)
+    val initExpectations   = ExpectationsInit.create()
+    val initInflation      = p.monetary.targetInfl
 
     val initBondsOutstanding = p.banking.initGovBonds + p.banking.initNbpGovBonds +
-      initInsurance.govBondHoldings + initNbfi.tfiGovBondHoldings
+      initInsuranceStock.govBondHoldings + initNbfiStock.tfiGovBondHoldings
 
     // --- Steady-state gross investment ---
     val initGrossInvestment = PLN.fromRaw(firms.map(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toLong).sum)

@@ -149,9 +149,9 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     s9.ledgerFinancialState.government.govBondOutstanding shouldBe s9.newGovWithYield.bondsOutstanding
     s9.ledgerFinancialState.foreign.govBondHoldings shouldBe s9.newGovWithYield.foreignBondHoldings
     s9.ledgerFinancialState.nbp.govBondHoldings shouldBe s9.finalNbp.govBondHoldings
-    s9.ledgerFinancialState.insurance.govBondHoldings shouldBe s9.finalInsurance.govBondHoldings
+    s9.ledgerFinancialState.insurance.govBondHoldings shouldBe s9.finalInsuranceStock.govBondHoldings
     s9.ledgerFinancialState.funds.ppkGovBondHoldings shouldBe s9.finalPpk.bondHoldings
-    s9.ledgerFinancialState.funds.nbfi.tfiUnit shouldBe s9.finalNbfi.tfiAum
+    s9.ledgerFinancialState.funds.nbfi.tfiUnit shouldBe s9.finalNbfiStock.tfiAum
     s9.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding shouldBe s9.newQuasiFiscal.bondsOutstanding
 
     val flows = BankingFlows.emit(

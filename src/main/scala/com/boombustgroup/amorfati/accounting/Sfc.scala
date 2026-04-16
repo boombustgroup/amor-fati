@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.accounting
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, FundRuntimeIndex, GovernmentBondCircuit, TreasuryRuntimeContract}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, FundRuntimeIndex, GovernmentBondCircuit, LedgerFinancialState, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
 
@@ -77,6 +77,7 @@ object Sfc:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
   )
 
   /** Point-in-time stock state for stock-side diagnostics and exactness checks.
@@ -226,12 +227,13 @@ object Sfc:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
   ): StockState =
     val hhS     = PLN.fromRaw(households.map(_.savings.toLong).sum)
     val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
     val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
     val bankAgg = Banking.aggregateFromBanks(banks)
-    val bonds   = GovernmentBondCircuit.from(w, banks)
+    val bonds   = GovernmentBondCircuit.from(banks, ledgerFinancialState)
     StockState(
       hhSavings = hhS,
       hhDebt = hhD,
@@ -257,11 +259,19 @@ object Sfc:
       corpBondsOutstanding = CorporateBondOwnership.issuerOutstanding(firms),
       insuranceGovBondHoldings = bonds.insuranceHoldings,
       tfiGovBondHoldings = bonds.tfiHoldings,
-      nbfiLoanStock = w.financial.nbfi.nbfiLoanStock,
+      nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
     )
 
+  def snapshot(
+      w: World,
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      banks: Vector[Banking.BankState],
+  )(using p: SimParams): StockState =
+    snapshot(w, firms, households, banks, LedgerFinancialState.bootstrapFromMirrors(w, firms, households, banks))
+
   def snapshot(state: RuntimeState): StockState =
-    snapshot(state.world, state.firms, state.households, state.banks)
+    snapshot(state.world, state.firms, state.households, state.banks, state.ledgerFinancialState)
 
   /** Validate exact balance-sheet identities. Returns `Right(())` if all pass,
     * or `Left(errors)` with every violated identity and its expected/actual

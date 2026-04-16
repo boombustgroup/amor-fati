@@ -11,16 +11,17 @@ object Insurance:
   // Unemployment threshold below which non-life claims have no cyclical add-on
   private val NonLifeUnempThreshold = 0.05
 
-  case class ReserveState(
-      lifeReserves: PLN,   // life insurance technical reserves
-      nonLifeReserves: PLN, // non-life insurance technical reserves
-  )
-
-  case class PortfolioState(
+  case class StockState(
+      lifeReserves: PLN,     // life insurance technical reserves
+      nonLifeReserves: PLN,  // non-life insurance technical reserves
       govBondHoldings: PLN,  // government bond allocation
       corpBondHoldings: PLN, // corporate bond allocation
       equityHoldings: PLN,   // equity allocation (GPW)
-  )
+  ):
+    def totalReserves: PLN = lifeReserves + nonLifeReserves
+
+  object StockState:
+    val zero: StockState = StockState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   case class MonthlyFlowState(
       lastLifePremium: PLN,      // life premium collected this month
@@ -32,15 +33,8 @@ object Insurance:
   )
 
   case class State(
-      reserves: ReserveState,
-      portfolio: PortfolioState,
       monthly: MonthlyFlowState,
   ):
-    def lifeReserves: PLN         = reserves.lifeReserves
-    def nonLifeReserves: PLN      = reserves.nonLifeReserves
-    def govBondHoldings: PLN      = portfolio.govBondHoldings
-    def corpBondHoldings: PLN     = portfolio.corpBondHoldings
-    def equityHoldings: PLN       = portfolio.equityHoldings
     def lastLifePremium: PLN      = monthly.lastLifePremium
     def lastNonLifePremium: PLN   = monthly.lastNonLifePremium
     def lastLifeClaims: PLN       = monthly.lastLifeClaims
@@ -50,11 +44,6 @@ object Insurance:
 
   object State:
     def apply(
-        lifeReserves: PLN,
-        nonLifeReserves: PLN,
-        govBondHoldings: PLN,
-        corpBondHoldings: PLN,
-        equityHoldings: PLN,
         lastLifePremium: PLN,
         lastNonLifePremium: PLN,
         lastLifeClaims: PLN,
@@ -63,8 +52,6 @@ object Insurance:
         lastNetDepositChange: PLN,
     ): State =
       State(
-        reserves = ReserveState(lifeReserves, nonLifeReserves),
-        portfolio = PortfolioState(govBondHoldings, corpBondHoldings, equityHoldings),
         monthly = MonthlyFlowState(
           lastLifePremium,
           lastNonLifePremium,
@@ -82,31 +69,24 @@ object Insurance:
       PLN.Zero,
       PLN.Zero,
       PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
     )
 
   /** Initialize from SimParams calibration (KNF 2024 reserves + target
     * allocation).
     */
-  def initial(using p: SimParams): State =
+  def initial: State = State.zero
+
+  def initialStock(using p: SimParams): StockState =
     val totalAssets = p.ins.lifeReserves + p.ins.nonLifeReserves
-    State(
+    StockState(
       lifeReserves = p.ins.lifeReserves,
       nonLifeReserves = p.ins.nonLifeReserves,
       govBondHoldings = totalAssets * p.ins.govBondShare,
       corpBondHoldings = totalAssets * p.ins.corpBondShare,
       equityHoldings = totalAssets * p.ins.equityShare,
-      lastLifePremium = PLN.Zero,
-      lastNonLifePremium = PLN.Zero,
-      lastLifeClaims = PLN.Zero,
-      lastNonLifeClaims = PLN.Zero,
-      lastInvestmentIncome = PLN.Zero,
-      lastNetDepositChange = PLN.Zero,
     )
+
+  case class StepResult(state: State, stock: StockState)
 
   /** Full monthly step: premiums, claims, investment income, rebalancing.
     *
@@ -115,7 +95,7 @@ object Insurance:
     * opening stock and receives the closing stock from market settlement.
     */
   def step(
-      prev: State,
+      prevStock: StockState,
       employed: Int,       // employed workers (premium base)
       wage: PLN,           // average monthly wage
       unempRate: Share,    // unemployment rate (non-life claim cyclicality)
@@ -124,7 +104,7 @@ object Insurance:
       equityReturn: Rate,  // equity monthly return
       settledCorpBondHoldings: PLN,
       corpBondDefaultLoss: PLN,
-  )(using p: SimParams): State =
+  )(using p: SimParams): StepResult =
     // Premiums: proportional to wage bill
     val lifePrem    = employed * (wage * p.ins.lifePremiumRate)
     val nonLifePrem = employed * (wage * p.ins.nonLifePremiumRate)
@@ -137,38 +117,42 @@ object Insurance:
     val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 
     // Investment income from all three asset classes
-    val grossInvestmentIncome = prev.govBondHoldings * govBondYield.monthly +
-      prev.corpBondHoldings * corpBondYield.monthly +
-      prev.equityHoldings * equityReturn
+    val grossInvestmentIncome = prevStock.govBondHoldings * govBondYield.monthly +
+      prevStock.corpBondHoldings * corpBondYield.monthly +
+      prevStock.equityHoldings * equityReturn
     val invIncome             = grossInvestmentIncome - corpBondDefaultLoss
 
     // Net deposit change: premium outflow from HH minus claims inflow to HH
     val netDepositChange = -(lifePrem + nonLifePrem - lifeCl - nonLifeCl)
 
     // Update reserves: split investment income proportionally
-    val totalReserves = prev.lifeReserves + prev.nonLifeReserves
-    val lifeShare     = if totalReserves > PLN.Zero then Share(prev.lifeReserves / totalReserves) else Share(0.5)
-    val newLifeRes    = prev.lifeReserves + (lifePrem - lifeCl) + invIncome * lifeShare
-    val newNonLifeRes = prev.nonLifeReserves + (nonLifePrem - nonLifeCl) + invIncome * (Share.One - lifeShare)
+    val totalReserves = prevStock.totalReserves
+    val lifeShare     = if totalReserves > PLN.Zero then Share(prevStock.lifeReserves / totalReserves) else Share(0.5)
+    val newLifeRes    = prevStock.lifeReserves + (lifePrem - lifeCl) + invIncome * lifeShare
+    val newNonLifeRes = prevStock.nonLifeReserves + (nonLifePrem - nonLifeCl) + invIncome * (Share.One - lifeShare)
 
     // Rebalance towards target allocation
     val totalAssets = newLifeRes + newNonLifeRes
     val speed       = p.ins.rebalanceSpeed // Coefficient used as adjustment speed
     val targetGov   = totalAssets * p.ins.govBondShare
     val targetEq    = totalAssets * p.ins.equityShare
-    val newGov      = prev.govBondHoldings + (targetGov - prev.govBondHoldings) * speed
-    val newEq       = prev.equityHoldings + (targetEq - prev.equityHoldings) * speed
+    val newGov      = prevStock.govBondHoldings + (targetGov - prevStock.govBondHoldings) * speed
+    val newEq       = prevStock.equityHoldings + (targetEq - prevStock.equityHoldings) * speed
 
-    State(
-      newLifeRes,
-      newNonLifeRes,
-      newGov,
-      settledCorpBondHoldings,
-      newEq,
-      lifePrem,
-      nonLifePrem,
-      lifeCl,
-      nonLifeCl,
-      invIncome,
-      netDepositChange,
+    StepResult(
+      state = State(
+        lifePrem,
+        nonLifePrem,
+        lifeCl,
+        nonLifeCl,
+        invIncome,
+        netDepositChange,
+      ),
+      stock = StockState(
+        newLifeRes,
+        newNonLifeRes,
+        newGov,
+        settledCorpBondHoldings,
+        newEq,
+      ),
     )

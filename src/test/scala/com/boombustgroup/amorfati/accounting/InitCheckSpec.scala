@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.accounting
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 
@@ -12,7 +13,13 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
 
   "InitCheck" should "pass for default init" in:
     val result = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = Sfc.RuntimeState(result.world, result.firms, result.households, result.banks)
+    val state  = Sfc.RuntimeState(
+      result.world,
+      result.firms,
+      result.households,
+      result.banks,
+      LedgerFinancialState.bootstrapFromMirrors(result.world, result.firms, result.households, result.banks),
+    )
     val errors = InitCheck.validate(state)
     errors shouldBe empty
 
