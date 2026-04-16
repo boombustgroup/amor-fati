@@ -181,7 +181,7 @@ object WorldInit:
       foreign = LedgerFinancialState.foreignBalances(world.gov),
       nbp = LedgerFinancialState.nbpBalances(world.nbp),
       insurance = LedgerFinancialState.insuranceBalances(initInsuranceStock),
-      funds = LedgerFinancialState.fundBalances(world.social, initCorporateBondStocks, initNbfiStock, world.financial.quasiFiscal),
+      funds = LedgerFinancialState.fundBalances(world.social, initCorporateBondStocks, initNbfiStock, QuasiFiscal.StockState.zero),
     )
 
     InitResult(world, firms, households, initBankingSector.banks, initHhAgg, ledgerFinancialState)

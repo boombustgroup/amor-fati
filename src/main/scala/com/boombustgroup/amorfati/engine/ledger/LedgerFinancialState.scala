@@ -117,7 +117,13 @@ object LedgerFinancialState:
       nbfiLoanStock = nbfi.nbfiLoanStock,
     )
 
-  def quasiFiscalBalances(quasiFiscal: QuasiFiscal.State): QuasiFiscalBalances =
+  def quasiFiscalStock(ledgerFinancialState: LedgerFinancialState): QuasiFiscal.StockState =
+    QuasiFiscal.StockState(
+      bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
+      loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
+    )
+
+  def quasiFiscalBalances(quasiFiscal: QuasiFiscal.StockState): QuasiFiscalBalances =
     QuasiFiscalBalances(
       bondsOutstanding = quasiFiscal.bondsOutstanding,
       loanPortfolio = quasiFiscal.loanPortfolio,
@@ -127,7 +133,7 @@ object LedgerFinancialState:
       social: SocialState,
       corporateBonds: CorporateBondMarket.StockState,
       nbfi: Nbfi.StockState,
-      quasiFiscal: QuasiFiscal.State,
+      quasiFiscal: QuasiFiscal.StockState,
   ): FundBalances =
     FundBalances(
       zusCash = social.zus.fusBalance,

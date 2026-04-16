@@ -13,39 +13,54 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
   private val govCapital = PLN(5e9)
   private val euCapital  = PLN(2e9)
 
+  private def step(
+      state: QuasiFiscal.State = QuasiFiscal.State.zero,
+      stock: QuasiFiscal.StockState = QuasiFiscal.StockState.zero,
+      govCapitalSpend: PLN = govCapital,
+      euProjectCapital: PLN = euCapital,
+      nbpQeActive: Boolean = false,
+  ): QuasiFiscal.StepResult =
+    QuasiFiscal.step(state, stock, govCapitalSpend, euProjectCapital, nbpQeActive)
+
   "QuasiFiscal.step" should "issue bonds proportional to gov capital spending" in {
-    val result = QuasiFiscal.step(QuasiFiscal.State.zero, govCapital, euCapital, nbpQeActive = false)
-    td.toDouble(result.monthlyIssuance) should be > 0.0
-    td.toDouble(result.bondsOutstanding) should be > 0.0
+    val result = step()
+    td.toDouble(result.state.monthlyIssuance) should be > 0.0
+    td.toDouble(result.stock.bondsOutstanding) should be > 0.0
   }
 
   it should "route NBP purchases when QE active" in {
-    val withQe    = QuasiFiscal.step(QuasiFiscal.State.zero, govCapital, euCapital, nbpQeActive = true)
-    val withoutQe = QuasiFiscal.step(QuasiFiscal.State.zero, govCapital, euCapital, nbpQeActive = false)
-    td.toDouble(withQe.nbpHoldings) should be > td.toDouble(withoutQe.nbpHoldings)
+    val withQe    = step(nbpQeActive = true)
+    val withoutQe = step(nbpQeActive = false)
+    td.toDouble(withQe.state.nbpHoldings) should be > td.toDouble(withoutQe.state.nbpHoldings)
   }
 
   it should "have zero NBP holdings when QE inactive" in {
-    val result = QuasiFiscal.step(QuasiFiscal.State.zero, govCapital, euCapital, nbpQeActive = false)
-    result.nbpHoldings shouldBe PLN.Zero
+    val result = step(nbpQeActive = false)
+    result.state.nbpHoldings shouldBe PLN.Zero
   }
 
   it should "grow loan portfolio with lending" in {
-    val result = QuasiFiscal.step(QuasiFiscal.State.zero, govCapital, euCapital, nbpQeActive = false)
-    td.toDouble(result.loanPortfolio) should be > 0.0
+    val result = step(nbpQeActive = false)
+    td.toDouble(result.stock.loanPortfolio) should be > 0.0
   }
 
   it should "maintain bond clearing (outstanding = bank + nbp)" in {
-    val result  = QuasiFiscal.step(QuasiFiscal.State.zero, govCapital, euCapital, nbpQeActive = true)
-    val holders = td.toDouble(result.bankHoldings) + td.toDouble(result.nbpHoldings)
-    holders shouldBe td.toDouble(result.bondsOutstanding) +- 1.0
+    val result  = step(nbpQeActive = true)
+    val holders = td.toDouble(result.state.bankHoldings) + td.toDouble(result.state.nbpHoldings)
+    holders shouldBe td.toDouble(result.stock.bondsOutstanding) +- 1.0
   }
 
   it should "amortize bonds over time" in {
-    val m1 = QuasiFiscal.step(QuasiFiscal.State.zero, govCapital, euCapital, nbpQeActive = false)
+    val m1 = step(nbpQeActive = false)
     // Run with zero new issuance — bonds should decline
-    val m2 = QuasiFiscal.step(m1, PLN.Zero, PLN.Zero, nbpQeActive = false)
-    td.toDouble(m2.bondsOutstanding) should be < td.toDouble(m1.bondsOutstanding)
+    val m2 = step(
+      state = m1.state,
+      stock = m1.stock,
+      govCapitalSpend = PLN.Zero,
+      euProjectCapital = PLN.Zero,
+      nbpQeActive = false,
+    )
+    td.toDouble(m2.stock.bondsOutstanding) should be < td.toDouble(m1.stock.bondsOutstanding)
   }
 
   it should "compute ESA 2010 debt as MF + quasi-fiscal" in {

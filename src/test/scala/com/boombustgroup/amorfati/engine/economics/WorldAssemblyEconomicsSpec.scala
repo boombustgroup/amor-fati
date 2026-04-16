@@ -66,5 +66,4 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     world.nbp.govBondHoldings shouldBe ledger.nbp.govBondHoldings
     world.nbp.fxReserves shouldBe ledger.nbp.foreignAssets
     world.social.jst.deposits shouldBe ledger.funds.jstCash
-    world.financial.quasiFiscal.bondsOutstanding shouldBe ledger.funds.quasiFiscal.bondsOutstanding
   }

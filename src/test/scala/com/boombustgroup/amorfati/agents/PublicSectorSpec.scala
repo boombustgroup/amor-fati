@@ -85,9 +85,9 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // BGK (stub)
   // =========================================================================
 
-  "QuasiFiscal.State.zero" should "have zero outstanding and loans" in {
-    QuasiFiscal.State.zero.bondsOutstanding shouldBe PLN.Zero
-    QuasiFiscal.State.zero.loanPortfolio shouldBe PLN.Zero
+  "QuasiFiscal.StockState.zero" should "have zero outstanding and loans" in {
+    QuasiFiscal.StockState.zero.bondsOutstanding shouldBe PLN.Zero
+    QuasiFiscal.StockState.zero.loanPortfolio shouldBe PLN.Zero
   }
 
   // =========================================================================

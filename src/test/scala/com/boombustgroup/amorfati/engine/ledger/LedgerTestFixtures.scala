@@ -57,10 +57,8 @@ object LedgerTestFixtures:
       ),
       financial = base.world.financial.copy(
         quasiFiscal = QuasiFiscal.State(
-          bondsOutstanding = PLN(28e6),
           bankHoldings = PLN(29e6),
           nbpHoldings = PLN(30e6),
-          loanPortfolio = PLN(31e6),
           monthlyIssuance = PLN.Zero,
           monthlyLending = PLN.Zero,
         ),
@@ -125,7 +123,12 @@ object LedgerTestFixtures:
         pfronCash = world.social.earmarked.pfronBalance,
         fgspCash = world.social.earmarked.fgspBalance,
         jstCash = world.social.jst.deposits,
-        quasiFiscal = LedgerFinancialState.quasiFiscalBalances(world.financial.quasiFiscal),
+        quasiFiscal = LedgerFinancialState.quasiFiscalBalances(
+          QuasiFiscal.StockState(
+            bondsOutstanding = PLN(28e6),
+            loanPortfolio = PLN(31e6),
+          ),
+        ),
       ),
     )
     val state                = base.copy(

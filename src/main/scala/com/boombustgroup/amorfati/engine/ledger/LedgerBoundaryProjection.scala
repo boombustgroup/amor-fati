@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Nbp, QuasiFiscal}
+import com.boombustgroup.amorfati.agents.Nbp
 import com.boombustgroup.amorfati.engine.SocialState
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
 
@@ -54,12 +54,3 @@ object LedgerBoundaryProjection:
       ledgerFinancialState: LedgerFinancialState,
   ): CorporateBondMarket.StockState =
     CorporateBondOwnership.stockStateFromLedger(ledgerFinancialState)
-
-  def quasiFiscalState(
-      base: QuasiFiscal.State,
-      ledgerFinancialState: LedgerFinancialState,
-  ): QuasiFiscal.State =
-    base.copy(
-      bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
-      loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
-    )

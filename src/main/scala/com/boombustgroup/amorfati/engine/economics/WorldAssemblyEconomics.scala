@@ -481,7 +481,7 @@ object WorldAssemblyEconomics:
         corporateBonds = in.s8.corpBonds.newCorpBonds,
         insurance = in.s9.finalInsurance,
         nbfi = in.s9.finalNbfi,
-        quasiFiscal = LedgerBoundaryProjection.quasiFiscalState(in.s9.newQuasiFiscal, ledgerFinancialState),
+        quasiFiscal = in.s9.newQuasiFiscal,
       ),
       external = ExternalState(
         gvc = in.s8.external.newGvc,
