@@ -26,7 +26,6 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = workers,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,

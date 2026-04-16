@@ -473,7 +473,7 @@ object FlowSimulation:
       randomness.householdIncomeEconomics.newStream(),
     )
     val s4                = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
-    val s5                = FirmEconomics.runStep(w, firms, households, banks, s1, s2Pre, s3, s4, randomness.firmEconomics.newStream())
+    val s5                = FirmEconomics.runStep(w, firms, households, banks, ledger, s1, s2Pre, s3, s4, randomness.firmEconomics.newStream())
     val postLivingFirms   = s5.ioFirms.filter(Firm.isAlive)
     val s2                = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
     val s6                = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, randomness.householdFinancialEconomics.newStream())

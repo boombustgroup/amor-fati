@@ -214,7 +214,6 @@ object PriceEquityEconomics:
           equityRaised = PLN.Zero,
           initialSize = newSize,
           capitalStock = p.capital.klRatios(sec.toInt) * newSize,
-          bondDebt = PLN.Zero,
           foreignOwned = false,
           stateOwned = isSoe,
           inventory = PLN.Zero,

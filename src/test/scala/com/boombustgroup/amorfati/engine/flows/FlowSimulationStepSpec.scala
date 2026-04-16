@@ -56,13 +56,13 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val state       = FlowSimulation.SimState.fromInit(init)
     val initialDebt = CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState)
 
-    initialDebt shouldBe CorporateBondOwnership.issuerOutstanding(state.firms)
+    initialDebt shouldBe CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState.firms)
     initialDebt shouldBe CorporateBondOwnership.holderOutstanding(state.ledgerFinancialState)
 
     val result   = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val nextDebt = CorporateBondOwnership.issuerOutstanding(result.nextState.ledgerFinancialState)
 
-    nextDebt shouldBe CorporateBondOwnership.issuerOutstanding(result.nextState.firms)
+    nextDebt shouldBe CorporateBondOwnership.issuerOutstanding(result.nextState.ledgerFinancialState.firms)
     nextDebt shouldBe CorporateBondOwnership.holderOutstanding(result.nextState.ledgerFinancialState)
   }
 

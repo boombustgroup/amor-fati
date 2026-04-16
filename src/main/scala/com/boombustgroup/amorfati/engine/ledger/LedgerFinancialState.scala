@@ -45,13 +45,23 @@ object LedgerFinancialState:
       equity = h.equityWealth,
     )
 
-  def firmBalances(f: Firm.State): FirmBalances =
+  def firmBalances(f: Firm.State, corpBond: PLN): FirmBalances =
     FirmBalances(
       cash = f.cash,
       firmLoan = f.debt,
-      corpBond = f.bondDebt,
+      corpBond = corpBond,
       equity = f.equityRaised,
     )
+
+  def refreshFirmBalances(
+      firms: Vector[Firm.State],
+      previous: Vector[FirmBalances],
+  ): Vector[FirmBalances] =
+    firms.map: firm =>
+      firmBalances(
+        firm,
+        corpBond = previous.lift(firm.id.toInt).fold(PLN.Zero)(_.corpBond),
+      )
 
   def bankBalances(b: Banking.BankState): BankBalances =
     BankBalances(

@@ -21,8 +21,8 @@ object WorldInit:
     // --- Firms ---
     val initCorporateBonds      = CorporateBondMarket.initial
     val initCorporateBondStocks = CorporateBondMarket.initialStock
-    val firms0                  = FirmInit.create(randomness.firms.newStreams())
-    val firms                   = CorporateBondOwnership.initializeIssuerDebt(firms0, initCorporateBondStocks.outstanding)
+    val firms                   = FirmInit.create(randomness.firms.newStreams())
+    val initFirmBalances        = CorporateBondOwnership.initializeIssuerBalances(firms, initCorporateBondStocks.outstanding)
     assert(firms.length == p.pop.firmsCount)
 
     // --- Households ---
@@ -175,7 +175,7 @@ object WorldInit:
 
     val ledgerFinancialState = LedgerFinancialState(
       households = households.map(LedgerFinancialState.householdBalances),
-      firms = firms.map(LedgerFinancialState.firmBalances),
+      firms = initFirmBalances,
       banks = initBankingSector.banks.map(LedgerFinancialState.bankBalances),
       government = LedgerFinancialState.governmentBalances(world.gov),
       foreign = LedgerFinancialState.foreignBalances(world.gov),

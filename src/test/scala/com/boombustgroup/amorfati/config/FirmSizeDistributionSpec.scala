@@ -41,7 +41,6 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = size,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,

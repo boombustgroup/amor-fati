@@ -173,7 +173,6 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,

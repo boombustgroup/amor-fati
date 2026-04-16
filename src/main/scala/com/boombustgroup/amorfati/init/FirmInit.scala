@@ -107,7 +107,6 @@ object FirmInit:
           equityRaised = PLN.Zero,
           initialSize = firmSize,
           capitalStock = PLN.Zero,
-          bondDebt = PLN.Zero,
           foreignOwned = false,
           inventory = PLN.Zero,
           greenCapital = PLN.Zero,

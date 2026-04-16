@@ -73,7 +73,8 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         contract.stages.householdIncomeEconomics.newStream(),
       )
     val s4     = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
-    val s5     = FirmEconomics.runStep(world, init.firms, init.households, init.banks, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
+    val s5     =
+      FirmEconomics.runStep(world, init.firms, init.households, init.banks, ledgerFinancialState, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
     val living = s5.ioFirms.filter(Firm.isAlive)
     val s2     = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, living, s5.households)
     val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
@@ -164,6 +165,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       firms = baseline.firms,
       households = baseline.households,
       banks = baseline.banks,
+      ledgerFinancialState = baseline.ledgerFinancialState,
       month = baseline.s1.m,
       lendingBaseRate = baseline.s1.lendingBaseRate,
       resWage = baseline.s1.resWage,

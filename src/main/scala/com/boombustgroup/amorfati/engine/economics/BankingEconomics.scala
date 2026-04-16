@@ -221,21 +221,22 @@ object BankingEconomics:
   // ---- Public API ----
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
-    val prevBankAgg          = Banking.aggregateFromBanks(in.banks)
-    val govJst               = computeGovAndJst(in)
-    val housing              = computeHousingFlows(in)
-    val bfgLevy              = Banking.computeBfgLevy(in.banks).total
-    val investNetDepositFlow = computeInvestNetDepositFlow(in)
-    val finalHhAgg           = computeHhAgg(in)
-    val wf                   = computeWaterfallInputs(in, govJst.newGovWithYield)
-    val multi                = processMultiBankPath(
+    val prevBankAgg               = Banking.aggregateFromBanks(in.banks)
+    val govJst                    = computeGovAndJst(in)
+    val housing                   = computeHousingFlows(in)
+    val bfgLevy                   = Banking.computeBfgLevy(in.banks).total
+    val investNetDepositFlow      = computeInvestNetDepositFlow(in)
+    val finalHhAgg                = computeHhAgg(in)
+    val wf                        = computeWaterfallInputs(in, govJst.newGovWithYield)
+    val multi                     = processMultiBankPath(
       in,
       govJst.jstDepositChange,
       investNetDepositFlow,
       housing.mortgageFlows,
       wf,
     )
-    val issuerSettledFirms   = CorporateBondOwnership.applyAmortization(multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
+    val issuerSettledFirmBalances =
+      CorporateBondOwnership.applyAmortization(in.s5.ledgerFinancialState.firms, multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
 
     val quasiFiscalStep =
       QuasiFiscal.step(
@@ -262,7 +263,7 @@ object BankingEconomics:
     val ledgerFinancialState      =
       in.ledgerFinancialState.copy(
         households = multi.reassignedHouseholds.map(LedgerFinancialState.householdBalances),
-        firms = issuerSettledFirms.map(LedgerFinancialState.firmBalances),
+        firms = issuerSettledFirmBalances,
         banks = multi.finalBanks.map(LedgerFinancialState.bankBalances),
         government = LedgerFinancialState.governmentBalances(newGovWithForeignHoldings),
         foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
@@ -276,7 +277,7 @@ object BankingEconomics:
       resolvedBank = multi.resolvedBank,
       banks = multi.finalBanks,
       bankingMarket = multi.finalBankingMarket,
-      reassignedFirms = issuerSettledFirms,
+      reassignedFirms = multi.reassignedFirms,
       reassignedHouseholds = multi.reassignedHouseholds,
       finalNbp = multi.finalNbp,
       finalPpk = multi.finalPpk,

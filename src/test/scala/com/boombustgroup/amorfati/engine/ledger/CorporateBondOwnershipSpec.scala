@@ -13,7 +13,7 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
 
   "CorporateBondOwnership" should "initialize issuer liabilities to the market outstanding stock" in {
     val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val issuerStock = CorporateBondOwnership.issuerOutstanding(init.firms)
+    val issuerStock = CorporateBondOwnership.issuerOutstanding(init.ledgerFinancialState)
     val holderStock = CorporateBondOwnership.holderOutstanding(FlowSimulation.SimState.fromInit(init).ledgerFinancialState)
 
     issuerStock shouldBe holderStock
@@ -29,28 +29,28 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
 
   it should "amortize issuer liabilities pro rata and exactly at aggregate level" in {
     val init         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val firms        = init.firms
-      .take(2)
+    val firmStates   = init.firms.take(2)
+    val firms        = firmStates
       .zipWithIndex
       .map: (firm, index) =>
-        firm.copy(bondDebt = PLN.fromLong((index + 1L) * 100L))
+        LedgerFinancialState.firmBalances(firm, corpBond = PLN.fromLong((index + 1L) * 100L))
     val amortization = PLN.fromLong(60)
-    val settled      = CorporateBondOwnership.applyAmortization(firms, amortization)
+    val settled      = CorporateBondOwnership.applyAmortization(firms, firmStates, amortization)
 
     CorporateBondOwnership.issuerOutstanding(settled) shouldBe CorporateBondOwnership.issuerOutstanding(firms) - amortization
-    settled.head.bondDebt should be < firms.head.bondDebt
-    settled(1).bondDebt should be < firms(1).bondDebt
+    settled.head.corpBond should be < firms.head.corpBond
+    settled(1).corpBond should be < firms(1).corpBond
   }
 
   it should "clear defaulted issuer liabilities by firm id" in {
-    val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val firms   = init.firms
-      .take(2)
+    val init       = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val firmStates = init.firms.take(2)
+    val firms      = firmStates
       .zipWithIndex
       .map: (firm, index) =>
-        firm.copy(bondDebt = PLN.fromLong((index + 1L) * 100L))
-    val cleared = CorporateBondOwnership.clearDefaultedIssuerDebt(firms, Set(firms.head.id))
+        LedgerFinancialState.firmBalances(firm, corpBond = PLN.fromLong((index + 1L) * 100L))
+    val cleared    = CorporateBondOwnership.clearDefaultedIssuerDebt(firms, Set(firmStates.head.id))
 
-    cleared.head.bondDebt shouldBe PLN.Zero
-    cleared(1).bondDebt shouldBe firms(1).bondDebt
+    cleared.head.corpBond shouldBe PLN.Zero
+    cleared(1).corpBond shouldBe firms(1).corpBond
   }

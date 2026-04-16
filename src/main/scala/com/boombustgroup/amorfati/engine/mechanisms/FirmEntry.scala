@@ -203,7 +203,6 @@ object FirmEntry:
       equityRaised = PLN.Zero,
       initialSize = firmSize,
       capitalStock = initCapitalStock(firmSize, newSector),
-      bondDebt = PLN.Zero,
       foreignOwned = p.fdi.foreignShares(newSector).sampleBelow(rng),
       inventory = initInventory(firmSize, newSector),
       greenCapital = initGreenCapital(firmSize, newSector),

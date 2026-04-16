@@ -34,7 +34,6 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = p.capital.klRatios(sector) * Multiplier(10.0), // exact match for workers=10
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,

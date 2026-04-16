@@ -5,6 +5,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{OperationalSignals, World}
 import com.boombustgroup.amorfati.engine.flows.*
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
@@ -44,7 +45,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private val s4     = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
 
   private val rng2  = RandomStream.seeded(42)
-  private val oldS5 = FirmEconomics.runStep(w, init.firms, init.households, init.banks, s1, s2, s3, s4, rng2)
+  private val oldS5 = FirmEconomics.runStep(w, init.firms, init.households, init.banks, init.ledgerFinancialState, s1, s2, s3, s4, rng2)
 
   private val rng3   = RandomStream.seeded(42)
   private val result = FirmEconomics.compute(
@@ -53,6 +54,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
       firms = init.firms,
       households = init.households,
       banks = init.banks,
+      ledgerFinancialState = init.ledgerFinancialState,
       month = s1.m,
       lendingBaseRate = s1.lendingBaseRate,
       resWage = s1.resWage,
@@ -92,10 +94,10 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private val ManufacturingSector = 1
 
   private def runStepFor(world: World, firms: Vector[Firm.State])(using SimParams): FirmEconomics.StepOutput =
-    val fiscal = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
-    val s1     = FiscalConstraintEconomics.toOutput(fiscal)
-    val labor  = LaborEconomics.compute(world, firms, init.households, s1)
-    val s2     = LaborEconomics.Output(
+    val fiscal               = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
+    val s1                   = FiscalConstraintEconomics.toOutput(fiscal)
+    val labor                = LaborEconomics.compute(world, firms, init.households, s1)
+    val s2                   = LaborEconomics.Output(
       labor.wage,
       labor.employed,
       labor.laborDemand,
@@ -112,9 +114,12 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
       labor.living,
       labor.regionalWages,
     )
-    val s3     = HouseholdIncomeEconomics.compute(world, firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, RandomStream.seeded(42))
-    val s4     = DemandEconomics.compute(DemandEconomics.Input(world, s2.employed, s2.living, s3.domesticCons))
-    FirmEconomics.runStep(world, firms, init.households, init.banks, s1, s2, s3, s4, RandomStream.seeded(43))
+    val s3                   = HouseholdIncomeEconomics.compute(world, firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, RandomStream.seeded(42))
+    val s4                   = DemandEconomics.compute(DemandEconomics.Input(world, s2.employed, s2.living, s3.domesticCons))
+    val ledgerFinancialState = init.ledgerFinancialState.copy(
+      firms = LedgerFinancialState.refreshFirmBalances(firms, init.ledgerFinancialState.firms),
+    )
+    FirmEconomics.runStep(world, firms, init.households, init.banks, ledgerFinancialState, s1, s2, s3, s4, RandomStream.seeded(43))
 
   private def manufacturingScenario(stateOwned: Boolean, cashRich: Boolean = false): Vector[Firm.State] =
     init.firms.map { firm =>

@@ -10,15 +10,18 @@ import com.boombustgroup.ledger.Distribute
   *
   * Corporate bond market code computes pricing, coupons, absorption and holder
   * allocation. This object owns the stock-side invariant: outstanding corporate
-  * bonds are the sum of issuer liabilities carried by firms.
+  * bonds are the sum of issuer liabilities carried by ledger firm balances.
   */
 object CorporateBondOwnership:
 
-  def issuerOutstanding(firms: Vector[Firm.State]): PLN =
-    PLN.fromRaw(firms.iterator.map(_.bondDebt.toLong).sum)
+  def issuerOutstanding(firms: Vector[LedgerFinancialState.FirmBalances]): PLN =
+    PLN.fromRaw(firms.iterator.map(_.corpBond.toLong).sum)
 
   def issuerOutstanding(ledgerFinancialState: LedgerFinancialState): PLN =
-    PLN.fromRaw(ledgerFinancialState.firms.iterator.map(_.corpBond.toLong).sum)
+    issuerOutstanding(ledgerFinancialState.firms)
+
+  def issuerBalanceFor(ledgerFinancialState: LedgerFinancialState, firmId: FirmId): PLN =
+    ledgerFinancialState.firms.lift(firmId.toInt).fold(PLN.Zero)(_.corpBond)
 
   def holderOutstanding(ledgerFinancialState: LedgerFinancialState): PLN =
     ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond) +
@@ -39,26 +42,61 @@ object CorporateBondOwnership:
       nbfiHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
     )
 
-  def initializeIssuerDebt(firms: Vector[Firm.State], outstanding: PLN)(using p: SimParams): Vector[Firm.State] =
-    if outstanding <= PLN.Zero || firms.isEmpty then firms
+  def initializeIssuerBalances(firms: Vector[Firm.State], outstanding: PLN)(using p: SimParams): Vector[LedgerFinancialState.FirmBalances] =
+    val base = firms.map(firm => LedgerFinancialState.firmBalances(firm, corpBond = PLN.Zero))
+    if outstanding <= PLN.Zero || firms.isEmpty then base
     else
       val eligible = firms.zipWithIndex.filter: (firm, _) =>
         Firm.isAlive(firm) && Firm.workerCount(firm) >= p.corpBond.minSize
       val issuers  = if eligible.nonEmpty then eligible else firms.zipWithIndex
-      allocateDebt(firms, issuers, outstanding)
+      allocateDebt(base, issuers, outstanding)
 
-  def clearDefaultedIssuerDebt(firms: Vector[Firm.State], defaultedFirmIds: Set[FirmId]): Vector[Firm.State] =
+  def applyIssuance(
+      firms: Vector[LedgerFinancialState.FirmBalances],
+      issuanceByFirm: Map[FirmId, PLN],
+  ): Vector[LedgerFinancialState.FirmBalances] =
+    if issuanceByFirm.isEmpty then firms
+    else
+      firms.zipWithIndex.map: (balance, index) =>
+        val issuance = issuanceByFirm.getOrElse(FirmId(index), PLN.Zero)
+        if issuance > PLN.Zero then balance.copy(corpBond = balance.corpBond + issuance)
+        else balance
+
+  def defaultedIssuerDebt(
+      firms: Vector[LedgerFinancialState.FirmBalances],
+      defaultedFirmIds: Set[FirmId],
+  ): PLN =
+    if defaultedFirmIds.isEmpty then PLN.Zero
+    else
+      PLN.fromRaw(
+        defaultedFirmIds.iterator
+          .flatMap(id => firms.lift(id.toInt))
+          .map(_.corpBond.toLong)
+          .sum,
+      )
+
+  def clearDefaultedIssuerDebt(
+      firms: Vector[LedgerFinancialState.FirmBalances],
+      defaultedFirmIds: Set[FirmId],
+  ): Vector[LedgerFinancialState.FirmBalances] =
     if defaultedFirmIds.isEmpty then firms
     else
-      firms.map: firm =>
-        if defaultedFirmIds.contains(firm.id) then firm.copy(bondDebt = PLN.Zero)
-        else firm
+      firms.zipWithIndex.map: (balance, index) =>
+        if defaultedFirmIds.contains(FirmId(index)) then balance.copy(corpBond = PLN.Zero)
+        else balance
 
-  def applyAmortization(firms: Vector[Firm.State], amortization: PLN): Vector[Firm.State] =
+  def applyAmortization(
+      firms: Vector[LedgerFinancialState.FirmBalances],
+      firmStates: Vector[Firm.State],
+      amortization: PLN,
+  ): Vector[LedgerFinancialState.FirmBalances] =
     if amortization <= PLN.Zero then firms
     else
-      val issuers = firms.zipWithIndex.filter: (firm, _) =>
-        Firm.isAlive(firm) && firm.bondDebt > PLN.Zero
+      val issuers = firmStates
+        .zip(firms)
+        .zipWithIndex
+        .collect:
+          case ((firm, balance), index) if Firm.isAlive(firm) && balance.corpBond > PLN.Zero => (balance, firm, index)
       reduceDebt(firms, issuers, amortization)
 
   def alignInsuranceStock(stock: Insurance.StockState, corpBondHoldings: PLN): Insurance.StockState =
@@ -72,31 +110,32 @@ object CorporateBondOwnership:
     )
 
   private def allocateDebt(
-      firms: Vector[Firm.State],
+      firms: Vector[LedgerFinancialState.FirmBalances],
       issuers: Vector[(Firm.State, Int)],
       amount: PLN,
-  ): Vector[Firm.State] =
+  ): Vector[LedgerFinancialState.FirmBalances] =
     if issuers.isEmpty then firms
     else
       val weights     = positiveWeights(issuers)
       val allocations = Distribute.distribute(amount.distributeRaw, weights)
-      issuers.zip(allocations).foldLeft(firms) { case (acc, ((firm, index), rawAmount)) =>
-        acc.updated(index, firm.copy(bondDebt = firm.bondDebt + PLN.fromRaw(rawAmount)))
+      issuers.zip(allocations).foldLeft(firms) { case (acc, ((_, index), rawAmount)) =>
+        val balance = acc(index)
+        acc.updated(index, balance.copy(corpBond = balance.corpBond + PLN.fromRaw(rawAmount)))
       }
 
   private def reduceDebt(
-      firms: Vector[Firm.State],
-      issuers: Vector[(Firm.State, Int)],
+      firms: Vector[LedgerFinancialState.FirmBalances],
+      issuers: Vector[(LedgerFinancialState.FirmBalances, Firm.State, Int)],
       requestedReduction: PLN,
-  ): Vector[Firm.State] =
-    val totalDebt = PLN.fromRaw(issuers.iterator.map(_._1.bondDebt.toLong).sum)
+  ): Vector[LedgerFinancialState.FirmBalances] =
+    val totalDebt = PLN.fromRaw(issuers.iterator.map(_._1.corpBond.toLong).sum)
     if issuers.isEmpty || totalDebt <= PLN.Zero then firms
     else
       val actualReduction = requestedReduction.min(totalDebt)
-      val allocations     = Distribute.distribute(actualReduction.distributeRaw, issuers.map(_._1.bondDebt.distributeRaw).toArray)
-      issuers.zip(allocations).foldLeft(firms) { case (acc, ((firm, index), rawAmount)) =>
-        val reduction = PLN.fromRaw(rawAmount).min(firm.bondDebt)
-        acc.updated(index, firm.copy(bondDebt = firm.bondDebt - reduction))
+      val allocations     = Distribute.distribute(actualReduction.distributeRaw, issuers.map(_._1.corpBond.distributeRaw).toArray)
+      issuers.zip(allocations).foldLeft(firms) { case (acc, ((balance, _, index), rawAmount)) =>
+        val reduction = PLN.fromRaw(rawAmount).min(balance.corpBond)
+        acc.updated(index, balance.copy(corpBond = balance.corpBond - reduction))
       }
 
   private def positiveWeights(issuers: Vector[(Firm.State, Int)]): Array[Long] =

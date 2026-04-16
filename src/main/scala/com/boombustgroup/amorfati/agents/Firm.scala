@@ -160,7 +160,6 @@ object Firm:
       equityRaised: PLN,                   // GPW: cumulative equity raised via IPO/SPO
       initialSize: Int,                    // Firm size at creation (heterogeneous when FIRM_SIZE_DIST=gus)
       capitalStock: PLN,                   // Physical capital stock (PLN)
-      bondDebt: PLN,                       // Outstanding corporate bond debt
       foreignOwned: Boolean,               // FDI: subject to profit shifting & repatriation
       stateOwned: Boolean = false,         // SOE: Skarb Państwa ownership (dividend/employment/investment policy)
       inventory: PLN,                      // Inventory stock (PLN)
@@ -463,8 +462,9 @@ object Firm:
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       rng: RandomStream,
+      corpBondDebt: PLN,
   )(using p: SimParams): Result =
-    val decision = decide(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, rng)
+    val decision = decide(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, rng, corpBondDebt)
     val r0       = updateHiringSignalState(execute(firm, decision), firm, w, operationalSignals)
     val r0a      = applyLoanAmortization(r0)
     val r1       = applyGreenInvestment(r0a)
@@ -482,8 +482,9 @@ object Firm:
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       rng: RandomStream,
+      corpBondDebt: PLN = PLN.Zero,
   )(using p: SimParams): Result =
-    process(firm, w, executionMonth, OperationalSignals.fromBridgedWorld(w), lendRate, bankCanLend, allFirms, rng)
+    process(firm, w, executionMonth, OperationalSignals.fromBridgedWorld(w), lendRate, bankCanLend, allFirms, rng, corpBondDebt)
 
   // ---- Decide (all match logic + RandomStream rolls) ----
 
@@ -498,12 +499,14 @@ object Firm:
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       rng: RandomStream,
+      corpBondDebt: PLN,
   )(using p: SimParams): Decision =
     firm.tech match
       case _: TechState.Bankrupt         => Decision.StayBankrupt
-      case _: TechState.Automated        => decideAutomated(firm, w, executionMonth, operationalSignals, lendRate)
-      case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, wkrs, aiEff, rng)
-      case TechState.Traditional(wkrs)   => decideTraditional(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, wkrs, rng)
+      case _: TechState.Automated        => decideAutomated(firm, w, executionMonth, operationalSignals, lendRate, corpBondDebt)
+      case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, wkrs, aiEff, rng, corpBondDebt)
+      case TechState.Traditional(wkrs)   =>
+        decideTraditional(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, wkrs, rng, corpBondDebt)
 
   /** Smooth labor adjustment: Δworkers = λ × (target − current), with severance
     * costs. Target = break-even headcount from P&L. If adjustment insufficient
@@ -601,6 +604,7 @@ object Firm:
       executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
       lendRate: Rate,
+      corpBondDebt: PLN,
   )(using p: SimParams): Decision =
     val pnl = computePnL(
       firm,
@@ -611,6 +615,7 @@ object Firm:
       w.external.gvc.commodityPriceIndex,
       lendRate,
       executionMonth,
+      corpBondDebt,
     )
     val nc  = firm.cash + pnl.netAfterTax
     if nc < PLN.Zero then Decision.GoBankrupt(pnl, nc, BankruptReason.AiDebtTrap)
@@ -627,6 +632,7 @@ object Firm:
       workers: Int,
       aiEff: Multiplier,
       rng: RandomStream,
+      corpBondDebt: PLN,
   )(using p: SimParams): Decision =
     val pnl    = computePnL(
       firm,
@@ -637,6 +643,7 @@ object Firm:
       w.external.gvc.commodityPriceIndex,
       lendRate,
       executionMonth,
+      corpBondDebt,
     )
     val ready2 = (firm.digitalReadiness + Share(HybridMonthlyDrDrift)).min(Share.One)
 
@@ -920,6 +927,7 @@ object Firm:
       allFirms: Vector[State],
       workers: Int,
       rng: RandomStream,
+      corpBondDebt: PLN,
   )(using p: SimParams): Decision =
     val pnl           = computePnL(
       firm,
@@ -930,6 +938,7 @@ object Firm:
       w.external.gvc.commodityPriceIndex,
       lendRate,
       executionMonth,
+      corpBondDebt,
     )
     if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, TechState.Traditional(_), w.householdMarket.marketWage)
     val ai            = evaluateFullAi(firm, pnl, w, lendRate, bankCanLend)
@@ -1131,11 +1140,12 @@ object Firm:
       commodityPrice: PriceIndex,
       lendRate: Rate,
       month: ExecutionMonth,
+      corpBondDebt: PLN = PLN.Zero,
   )(using p: SimParams): PnL =
     val revenue: PLN         = (domesticPrice * computeCapacity(firm)) * sectorDemandMult
     val labor: PLN           = workerCount(firm) * (wage * effectiveWageMult(firm.sector))
     val depnCost: PLN        = firm.capitalStock * p.capital.depRates(firm.sector.toInt).monthly
-    val interest: PLN        = (firm.debt + firm.bondDebt) * lendRate.monthly
+    val interest: PLN        = (firm.debt + corpBondDebt) * lendRate.monthly
     val inventoryCost: PLN   = firm.inventory * p.capital.inventoryCarryingCost.monthly
     val energyCost: PLN      = energyAndEtsCost(firm, revenue, month, commodityPrice)
     val prePsCosts           =
@@ -1171,6 +1181,7 @@ object Firm:
       commodityPrice: PriceIndex,
       lendRate: Rate,
       month: ExecutionMonth,
+      corpBondDebt: PLN = PLN.Zero,
   )(using p: SimParams): PLN =
     computePnL(
       firm,
@@ -1181,6 +1192,7 @@ object Firm:
       commodityPrice,
       lendRate,
       month,
+      corpBondDebt,
     ).netAfterTax.max(PLN.Zero)
 
   /** Apply green capital investment — separate cash pool. Firms earmark
