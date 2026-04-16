@@ -72,6 +72,8 @@ object McTimeseriesSchema:
     lazy val bankAgg: Banking.Aggregate                                                             = Banking.aggregateFromBanks(banks)
     lazy val ledgerBankGovBondHoldings: PLN                                                         =
       ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
+    lazy val ledgerHouseholdEquityWealth: PLN                                                       =
+      ledgerFinancialState.households.foldLeft(PLN.Zero)((acc, household) => acc + household.equity)
     lazy val hhAgg: Household.Aggregates                                                            = householdAggregates
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates]                                        = Some(
       Banking.MonetaryAggregates.compute(
@@ -318,7 +320,7 @@ object McTimeseriesSchema:
           ctx.living.map(f => td.toDouble(f.debt + f.equityRaised)).sum,
         ),
     ),
-    ColumnDef("HhEquityWealth", ctx => td.toDouble(ctx.world.financial.equity.hhEquityWealth)),
+    ColumnDef("HhEquityWealth", ctx => td.toDouble(ctx.ledgerHouseholdEquityWealth)),
     ColumnDef("EquityWealthEffect", ctx => td.toDouble(ctx.world.financial.equity.lastWealthEffect)),
     ColumnDef("DomesticDividends", ctx => td.toDouble(ctx.world.financial.equity.lastDomesticDividends)),
     ColumnDef("ForeignDividendOutflow", ctx => td.toDouble(ctx.world.financial.equity.lastForeignDividends)),

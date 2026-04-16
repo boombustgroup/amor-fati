@@ -1,8 +1,7 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
-import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.{SocialState, World}
+import com.boombustgroup.amorfati.engine.SocialState
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
 import com.boombustgroup.amorfati.types.PLN
 
@@ -12,10 +11,10 @@ import com.boombustgroup.amorfati.types.PLN
   * This file defines the runtime state that should become the source of truth
   * for financial ownership with an explicit ledger contract. It is
   * intentionally narrower than `World`: it stores ledger-backed stock balances,
-  * not monthly flow deltas, execution-only settlement shells, or public assets
-  * that the engine still keeps outside the ledger contract. Boundary code may
-  * project these balances back into `World` mirrors while the migration is in
-  * progress.
+  * not market-memory fields, monthly flow deltas, execution-only settlement
+  * shells, or public assets that the engine still keeps outside the ledger
+  * contract. Boundary code may project these balances back into `World` mirrors
+  * while the migration is in progress.
   */
 final case class LedgerFinancialState(
     /** Household-sector ledger-backed financial stock balances. */
@@ -142,32 +141,6 @@ object LedgerFinancialState:
       corpBondOtherHoldings = corporateBonds.otherHoldings,
       nbfi = nbfiFundBalances(nbfi),
       quasiFiscal = quasiFiscalBalances(quasiFiscal),
-    )
-
-  /** Init/bootstrap-only import from the still-existing mirror state.
-    *
-    * Normal month transitions must carry `LedgerFinancialState` forward and
-    * project it into boundary views; they must not use this method to
-    * round-trip through `World`.
-    */
-  def bootstrapFromMirrors(
-      world: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-  )(using p: SimParams): LedgerFinancialState =
-    val corporateBondStock = CorporateBondMarket.initialStock
-    val insuranceStock     = CorporateBondOwnership.alignInsuranceStock(Insurance.initialStock, corporateBondStock.insuranceHoldings)
-    val nbfiStock          = CorporateBondOwnership.alignNbfiStock(Nbfi.initialStock, corporateBondStock.nbfiHoldings)
-    LedgerFinancialState(
-      households = households.map(householdBalances),
-      firms = firms.map(firmBalances),
-      banks = banks.map(bankBalances),
-      government = governmentBalances(world.gov),
-      foreign = foreignBalances(world.gov),
-      nbp = nbpBalances(world.nbp),
-      insurance = insuranceBalances(insuranceStock),
-      funds = fundBalances(world.social, corporateBondStock, nbfiStock, world.financial.quasiFiscal),
     )
 
   private def bankDemandDeposits(bank: Banking.BankState): PLN =

@@ -110,7 +110,24 @@ object LedgerTestFixtures:
       ),
     )
 
-    val ledgerFinancialState = LedgerFinancialState.bootstrapFromMirrors(world, firms, households, banks)
+    val ledgerFinancialState = base.ledgerFinancialState.copy(
+      households = households.map(LedgerFinancialState.householdBalances),
+      firms = firms.map(LedgerFinancialState.firmBalances),
+      banks = banks.map(LedgerFinancialState.bankBalances),
+      government = LedgerFinancialState.governmentBalances(world.gov),
+      foreign = LedgerFinancialState.foreignBalances(world.gov),
+      nbp = LedgerFinancialState.nbpBalances(world.nbp),
+      funds = base.ledgerFinancialState.funds.copy(
+        zusCash = world.social.zus.fusBalance,
+        nfzCash = world.social.nfz.balance,
+        ppkGovBondHoldings = world.social.ppk.bondHoldings,
+        fpCash = world.social.earmarked.fpBalance,
+        pfronCash = world.social.earmarked.pfronBalance,
+        fgspCash = world.social.earmarked.fgspBalance,
+        jstCash = world.social.jst.deposits,
+        quasiFiscal = LedgerFinancialState.quasiFiscalBalances(world.financial.quasiFiscal),
+      ),
+    )
     val state                = base.copy(
       world = world,
       firms = firms,

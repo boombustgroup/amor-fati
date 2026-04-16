@@ -3,9 +3,8 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals, World}
+import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals}
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -17,18 +16,11 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
   private val TestSeed       = 42L
 
-  private def ledgerState(
-      world: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-  ) =
-    LedgerFinancialState.bootstrapFromMirrors(world, firms, households, banks)
-
   "BankingEconomics (own Input)" should "produce flows that close at SFC == 0L" in {
-    val init            = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
-    val w               = init.world
-    val stageRandomness = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams()
+    val init                 = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
+    val w                    = init.world
+    val ledgerFinancialState = init.ledgerFinancialState
+    val stageRandomness      = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams()
 
     val fiscal = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
     val s1     = FiscalConstraintEconomics.toOutput(fiscal)
@@ -83,7 +75,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val s8     = OpenEconEconomics.runStep(
       OpenEconEconomics.StepInput(
         w,
-        ledgerState(w, init.firms, init.households, init.banks),
+        ledgerFinancialState,
         s1,
         s2,
         s3,
@@ -98,7 +90,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
 
     val bankingInput = BankingEconomics.Input(
       w = w,
-      ledgerFinancialState = ledgerState(w, init.firms, init.households, init.banks),
+      ledgerFinancialState = ledgerFinancialState,
       month = s1.m,
       lendingBaseRate = s1.lendingBaseRate,
       resWage = s1.resWage,

@@ -22,7 +22,7 @@ case class World(
     bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,                            // balance of payments: NFA, CA, KA, FDI
     householdMarket: HouseholdMarketState = HouseholdMarketState.zero,                // explicit household wage-market state used in hot paths
     social: SocialState,                                                              // JST, ZUS, PPK, demographics
-    financial: FinancialMarketsState,                                                 // equity, corporate bonds, insurance, TFI
+    financial: FinancialMarketsState,                                                 // financial-market memory; ownership lives in LedgerFinancialState
     external: ExternalState,                                                          // GVC, immigration, tourism
     real: RealState,                                                                  // housing, mobility, investment, energy, automation
     mechanisms: MechanismsState,                                                      // macropru, expectations, BFG, informal economy
@@ -197,13 +197,18 @@ object HouseholdMarketState:
       reservationWage = agg.reservationWage,
     )
 
-/** Non-bank financial sector state. */
+/** Financial-market memory carried by `World`.
+  *
+  * This is deliberately not the ownership ledger. Keep market prices,
+  * last-month diagnostics, and unsupported transition fields here; keep
+  * ledger-contracted financial stocks in `LedgerFinancialState`.
+  */
 case class FinancialMarketsState(
-    equity: EquityMarket.State,                // GPW: index, market cap, returns, dividends
-    corporateBonds: CorporateBondMarket.State, // Catalyst pricing and last-month diagnostics; stocks live in LedgerFinancialState
-    insurance: Insurance.State,                // life/non-life reserves, three-asset allocation
-    nbfi: Nbfi.State,                          // TFI: AUM, NBFI credit, deposit drain
-    quasiFiscal: QuasiFiscal.State,            // BGK/PFR: off-balance-sheet bonds, subsidized lending
+    equity: EquityMarket.State,                // GPW market prices, returns, issuance, dividends
+    corporateBonds: CorporateBondMarket.State, // Catalyst pricing and last-month diagnostics
+    insurance: Insurance.State,                // monthly premium, claims, investment-income diagnostics
+    nbfi: Nbfi.State,                          // monthly TFI/NBFI origination, defaults, deposit-drain diagnostics
+    quasiFiscal: QuasiFiscal.State,            // unsupported holder split plus monthly issuance/lending diagnostics
 )
 object FinancialMarketsState:
   val zero: FinancialMarketsState = FinancialMarketsState(
