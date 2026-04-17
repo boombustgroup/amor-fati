@@ -21,52 +21,18 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private val w    = init.world
   private val rng  = RandomStream.seeded(42)
 
-  private val s1    = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
-  private val labor = LaborEconomics.compute(w, init.firms, init.households, s1)
-  private val s2    = LaborEconomics.Output(
-    labor.wage,
-    labor.employed,
-    labor.laborDemand,
-    labor.wageGrowth,
-    labor.operationalHiringSlack,
-    labor.immigration,
-    labor.netMigration,
-    labor.demographics,
-    SocialSecurity.ZusState.zero,
-    SocialSecurity.NfzState.zero,
-    SocialSecurity.PpkState.zero,
-    PLN.Zero,
-    EarmarkedFunds.State.zero,
-    labor.living,
-    labor.regionalWages,
-  )
-  private val s3    =
+  private val s1 = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
+  private val s2 = LaborEconomics.compute(w, init.firms, init.households, s1)
+  private val s3 =
     HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, init.ledgerFinancialState, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
-  private val s4    = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
+  private val s4 = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
 
   private val result              = FirmEconomics.runStep(w, init.firms, init.households, init.banks, init.ledgerFinancialState, s1, s2, s3, s4, RandomStream.seeded(42))
   private val ManufacturingSector = 1
 
   private def runStepFor(world: World, firms: Vector[Firm.State])(using SimParams): FirmEconomics.StepOutput =
     val s1                   = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
-    val labor                = LaborEconomics.compute(world, firms, init.households, s1)
-    val s2                   = LaborEconomics.Output(
-      labor.wage,
-      labor.employed,
-      labor.laborDemand,
-      labor.wageGrowth,
-      labor.operationalHiringSlack,
-      labor.immigration,
-      labor.netMigration,
-      labor.demographics,
-      SocialSecurity.ZusState.zero,
-      SocialSecurity.NfzState.zero,
-      SocialSecurity.PpkState.zero,
-      PLN.Zero,
-      EarmarkedFunds.State.zero,
-      labor.living,
-      labor.regionalWages,
-    )
+    val s2                   = LaborEconomics.compute(world, firms, init.households, s1)
     val ledgerFinancialState = init.ledgerFinancialState.copy(
       firms = LedgerFinancialState.refreshFirmBalances(firms, init.ledgerFinancialState.firms),
     )

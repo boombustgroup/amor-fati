@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
-import com.boombustgroup.amorfati.agents.{EarmarkedFunds, SocialSecurity}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -16,24 +15,7 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
   private val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val w           = init.world
   private val s1          = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
-  private val labor       = LaborEconomics.compute(w, init.firms, init.households, s1)
-  private val s2          = LaborEconomics.Output(
-    labor.wage,
-    labor.employed,
-    labor.laborDemand,
-    labor.wageGrowth,
-    labor.operationalHiringSlack,
-    labor.immigration,
-    labor.netMigration,
-    labor.demographics,
-    SocialSecurity.ZusState.zero,
-    SocialSecurity.NfzState.zero,
-    SocialSecurity.PpkState.zero,
-    PLN.Zero,
-    EarmarkedFunds.State.zero,
-    labor.living,
-    labor.regionalWages,
-  )
+  private val s2          = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s3          =
     HouseholdIncomeEconomics.compute(
       w,

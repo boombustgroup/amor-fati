@@ -23,26 +23,9 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val ledgerFinancialState = init.ledgerFinancialState
     val stageRandomness      = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams()
 
-    val s1    = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
-    val labor = LaborEconomics.compute(w, init.firms, init.households, s1)
-    val s2    = LaborEconomics.Output(
-      labor.wage,
-      labor.employed,
-      labor.laborDemand,
-      labor.wageGrowth,
-      labor.operationalHiringSlack,
-      labor.immigration,
-      labor.netMigration,
-      labor.demographics,
-      SocialSecurity.ZusState.zero,
-      SocialSecurity.NfzState.zero,
-      SocialSecurity.PpkState.zero,
-      PLN.Zero,
-      EarmarkedFunds.State.zero,
-      labor.living,
-      labor.regionalWages,
-    )
-    val s3    =
+    val s1 = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
+    val s2 = LaborEconomics.compute(w, init.firms, init.households, s1)
+    val s3 =
       HouseholdIncomeEconomics.compute(
         w,
         init.firms,
@@ -54,10 +37,10 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         s2.newWage,
         stageRandomness.householdIncomeEconomics,
       )
-    val s4    = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
-    val s5    = FirmEconomics.runStep(w, init.firms, init.households, init.banks, ledgerFinancialState, s1, s2, s3, s4, stageRandomness.firmEconomics)
-    val s6    = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, stageRandomness.householdFinancialEconomics)
-    val s7    = PriceEquityEconomics.compute(
+    val s4 = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
+    val s5 = FirmEconomics.runStep(w, init.firms, init.households, init.banks, ledgerFinancialState, s1, s2, s3, s4, stageRandomness.firmEconomics)
+    val s6 = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, stageRandomness.householdFinancialEconomics)
+    val s7 = PriceEquityEconomics.compute(
       PriceEquityEconomics.Input(
         w,
         s1.m,
@@ -72,7 +55,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         s5,
       ),
     )
-    val s8    = OpenEconEconomics.runStep(
+    val s8 = OpenEconEconomics.runStep(
       OpenEconEconomics.StepInput(
         w,
         ledgerFinancialState,

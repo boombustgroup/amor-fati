@@ -42,24 +42,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     val ledgerFinancialState = init.ledgerFinancialState
 
     val s1     = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
-    val labor  = LaborEconomics.compute(world, init.firms, init.households, s1)
-    val s2Pre  = LaborEconomics.Output(
-      labor.wage,
-      labor.employed,
-      labor.laborDemand,
-      labor.wageGrowth,
-      labor.operationalHiringSlack,
-      labor.immigration,
-      labor.netMigration,
-      labor.demographics,
-      SocialSecurity.ZusState.zero,
-      SocialSecurity.NfzState.zero,
-      SocialSecurity.PpkState.zero,
-      PLN.Zero,
-      EarmarkedFunds.State.zero,
-      labor.living,
-      labor.regionalWages,
-    )
+    val s2Pre  = LaborEconomics.compute(world, init.firms, init.households, s1)
     val s3     =
       HouseholdIncomeEconomics.compute(
         world,

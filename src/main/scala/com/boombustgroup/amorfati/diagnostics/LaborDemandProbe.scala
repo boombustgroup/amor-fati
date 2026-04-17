@@ -6,7 +6,6 @@ import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
-import com.boombustgroup.amorfati.types.PLN
 
 object LaborDemandProbe:
 
@@ -165,24 +164,7 @@ object LaborDemandProbe:
       val hiring    = hiringSummaries(world, firms)
 
       val s1     = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
-      val labor  = LaborEconomics.compute(world, firms, hhs, s1)
-      val s2Pre  = LaborEconomics.Output(
-        labor.wage,
-        labor.employed,
-        labor.laborDemand,
-        labor.wageGrowth,
-        labor.operationalHiringSlack,
-        labor.immigration,
-        labor.netMigration,
-        labor.demographics,
-        SocialSecurity.ZusState.zero,
-        SocialSecurity.NfzState.zero,
-        SocialSecurity.PpkState.zero,
-        PLN.Zero,
-        EarmarkedFunds.State.zero,
-        labor.living,
-        labor.regionalWages,
-      )
+      val s2Pre  = LaborEconomics.compute(world, firms, hhs, s1)
       val s3     =
         HouseholdIncomeEconomics.compute(
           world,
@@ -251,7 +233,7 @@ object LaborDemandProbe:
       val afterFirm = sectorSnapshots(s5.ioFirms)
       val changes   = sectorChangeSummaries(firms, s5.ioFirms)
       println(
-        s"m=$month preLaborDemand=${labor.laborDemand} postFirmDemand=${s5.ioFirms.filter(Firm.isAlive).map(Firm.workerCount).sum} employedPre=${labor.employed}",
+        s"m=$month preLaborDemand=${s2Pre.laborDemand} postFirmDemand=${s5.ioFirms.filter(Firm.isAlive).map(Firm.workerCount).sum} employedPre=${s2Pre.employed}",
       )
       printHiringSummaries("  pre-step hiring diagnostics:", hiring)
       printSectorTable("  sector deltas after FirmEconomics:", beforeAll, afterFirm)

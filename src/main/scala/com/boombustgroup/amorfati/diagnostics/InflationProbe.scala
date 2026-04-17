@@ -76,9 +76,9 @@ object InflationProbe:
       val population        = world.derivedTotalPopulation.max(1)
       val contract          = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
       val s1                = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
-      val labor             = LaborEconomics.compute(world, firms, hhs, s1)
+      val s2Pre             = LaborEconomics.compute(world, firms, hhs, s1)
       val prevWage          = toDouble(world.householdMarket.marketWage)
-      val rawLaborWage      = toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
+      val rawLaborWage      = toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, s2Pre.laborDemand, population).nationalWage)
       val target            = toDouble(summon[SimParams].monetary.targetInfl)
       val expWagePressure   =
         toDouble(summon[SimParams].labor.expWagePassthrough) * Math.max(0.0, toDouble(world.mechanisms.expectations.expectedInflation) - target) / 12.0
@@ -94,27 +94,10 @@ object InflationProbe:
         else wageAfterExp
       val supplyAtPrev      = laborSupplyCount(world.householdMarket.marketWage, s1.resWage, population)
       val newSupply         = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, population)
-      val excessDemand      = (labor.laborDemand - supplyAtPrev).toDouble / population
+      val excessDemand      = (s2Pre.laborDemand - supplyAtPrev).toDouble / population
       val phillipsGrowth    = if prevWage > 0.0 then rawLaborWage / prevWage - 1.0 else 0.0
       val expGrowth         = if rawLaborWage > 0.0 then wageAfterExp / rawLaborWage - 1.0 else 0.0
       val unionGrowth       = if wageAfterExp > 0.0 then unionAdjustedWage / wageAfterExp - 1.0 else 0.0
-      val s2Pre             = LaborEconomics.Output(
-        labor.wage,
-        labor.employed,
-        labor.laborDemand,
-        labor.wageGrowth,
-        labor.operationalHiringSlack,
-        labor.immigration,
-        labor.netMigration,
-        labor.demographics,
-        SocialSecurity.ZusState.zero,
-        SocialSecurity.NfzState.zero,
-        SocialSecurity.PpkState.zero,
-        PLN.Zero,
-        EarmarkedFunds.State.zero,
-        labor.living,
-        labor.regionalWages,
-      )
       val s3                =
         HouseholdIncomeEconomics.compute(
           world,
@@ -228,7 +211,7 @@ object InflationProbe:
         f"  wages: phillips=${phillipsGrowth * 100.0}%.2f%% exp=${expGrowth * 100.0}%.2f%% union=${unionGrowth * 100.0}%.2f%% raw=${rawLaborWage}%.0f afterExp=${wageAfterExp}%.0f final=${unionAdjustedWage}%.0f",
       )
       println(
-        f"  labor: demand=${labor.laborDemand}%d supplyPrev=${supplyAtPrev}%d supplyNew=${newSupply}%d excess=${excessDemand * 100.0}%.2f%% employedPre=${labor.employed}%d employedPost=${s2.employed}%d",
+        f"  labor: demand=${s2Pre.laborDemand}%d supplyPrev=${supplyAtPrev}%d supplyNew=${newSupply}%d excess=${excessDemand * 100.0}%.2f%% employedPre=${s2Pre.employed}%d employedPost=${s2.employed}%d",
       )
       println(
         f"  fiscal: govPurch=${govPurchases}%.0f govCur=${govCurrent}%.0f govCapDom=${govCapital}%.0f euProjCap=${euProjectCap}%.0f euCofinDom=${euCofin}%.0f def=${deficit}%.0f def/gdp=${deficitToGdp}%.2f%% debt/gdp=${debtToGdp}%.2f%% rule=${s4.fiscalRuleStatus.bindingRule} cut=${toDouble(s4.fiscalRuleStatus.spendingCutRatio) * 100.0}%.2f%%",

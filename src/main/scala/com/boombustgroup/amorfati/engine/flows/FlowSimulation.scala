@@ -443,24 +443,7 @@ object FlowSimulation:
     val households        = stateIn.households
     val banks             = stateIn.banks
     val s1                = FiscalConstraintEconomics.compute(w, banks, input.executionMonth)
-    val labor             = LaborEconomics.compute(w, firms, households, s1)
-    val s2Pre             = LaborEconomics.Output(
-      labor.wage,
-      labor.employed,
-      labor.laborDemand,
-      labor.wageGrowth,
-      labor.operationalHiringSlack,
-      labor.immigration,
-      labor.netMigration,
-      labor.demographics,
-      SocialSecurity.ZusState.zero,
-      SocialSecurity.NfzState.zero,
-      SocialSecurity.PpkState.zero,
-      PLN.Zero,
-      EarmarkedFunds.State.zero,
-      labor.living,
-      labor.regionalWages,
-    )
+    val s2Pre             = LaborEconomics.compute(w, firms, households, s1)
     val s3                = HouseholdIncomeEconomics.compute(
       w,
       firms,
@@ -539,10 +522,10 @@ object FlowSimulation:
       employed = s2.employed,
       laborDemand = s2.laborDemand,
       livingFirms = s5.ioFirms.count(Firm.isAlive),
-      retirees = labor.demographics.retirees,
-      workingAgePop = labor.demographics.workingAgePop,
-      nBankruptFirms = labor.nBankruptFirms,
-      avgFirmWorkers = if s2.living.nonEmpty then s2.laborDemand / s2.living.length else 0,
+      retirees = s2Pre.newDemographics.retirees,
+      workingAgePop = s2Pre.newDemographics.workingAgePop,
+      nBankruptFirms = firms.length - s2Pre.living.length,
+      avgFirmWorkers = if s2Pre.living.nonEmpty then s2Pre.laborDemand / s2Pre.living.length else 0,
       totalIncome = s3.totalIncome,
       consumption = agg.consumption,
       domesticConsumption = s3.domesticCons,
