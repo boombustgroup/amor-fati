@@ -240,7 +240,7 @@ object BankingEconomics:
       wf,
     )
     val issuerSettledFirmBalances =
-      CorporateBondOwnership.applyAmortization(in.s5.ledgerFinancialState.firms, multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
+      CorporateBondOwnership.applyAmortization(in.s7.ledgerFinancialState.firms, multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
 
     val quasiFiscalStep =
       QuasiFiscal.step(

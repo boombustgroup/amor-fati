@@ -644,7 +644,10 @@ object FirmEconomics:
       lending: LendingConditions,
       markupInflation: Rate,
   ): StepOutput =
-    val flows = fp.flows
+    val flows                 = fp.flows
+    val ledgerAfterFirmStocks = ledgerFinancialState.copy(
+      firms = LedgerFinancialState.refreshFirmBalances(ioFirms, ledgerFinancialState.firms),
+    )
 
     // Derive per-bank vectors from immutable outcomes
     val emptyPln = Vector.fill(lending.nBanks)(PLN.Zero)
@@ -701,5 +704,5 @@ object FirmEconomics:
       markupInflation = markupInflation,
       sumRealizedPostTaxProfit = fp.outcomes.foldLeft(PLN.Zero)(_ + _.realizedPostTaxProfit),
       sumStateOwnedPostTaxProfit = fp.outcomes.filter(_.firm.stateOwned).foldLeft(PLN.Zero)((acc, o) => acc + o.realizedPostTaxProfit),
-      ledgerFinancialState = ledgerFinancialState,
+      ledgerFinancialState = ledgerAfterFirmStocks,
     )

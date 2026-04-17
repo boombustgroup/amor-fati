@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.{FirmSizeDistribution, SimParams}
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, PriceLevel}
 import com.boombustgroup.amorfati.engine.mechanisms.{EuFunds, Macroprudential}
 import com.boombustgroup.amorfati.types.*
@@ -58,6 +59,7 @@ object PriceEquityEconomics:
       newMacropru: Macroprudential.State,
       newSigmas: Vector[Sigma],
       rewiredFirms: Vector[Firm.State],
+      ledgerFinancialState: LedgerFinancialState,
       newInfl: Rate,
       newPrice: PriceIndex,
       equityAfterIssuance: EquityMarket.State,
@@ -284,7 +286,10 @@ object PriceEquityEconomics:
     val newSigmas      =
       evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
 
-    val rewiredFirms = rewireFirms(in.s5.ioFirms, p.firm.rewireRho, rng)
+    val rewiredFirms         = rewireFirms(in.s5.ioFirms, p.firm.rewireRho, rng)
+    val ledgerFinancialState = in.s5.ledgerFinancialState.copy(
+      firms = LedgerFinancialState.refreshFirmBalances(rewiredFirms, in.s5.ledgerFinancialState.firms),
+    )
 
     val exDev    = in.w.forex.exchangeRate.deviationFrom(p.forex.baseExRate)
     val priceUpd = PriceLevel.update(
@@ -337,6 +342,7 @@ object PriceEquityEconomics:
       newMacropru,
       newSigmas,
       rewiredFirms,
+      ledgerFinancialState,
       newInfl,
       newPrice,
       equityAfterIssuance,

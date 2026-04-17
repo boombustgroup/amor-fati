@@ -67,3 +67,31 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     world.nbp.fxReserves shouldBe ledger.nbp.foreignAssets
     world.social.jst.deposits shouldBe ledger.funds.jstCash
   }
+
+  it should "carry supported financial stocks through stage-owned ledger updates" in {
+    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state     = FlowSimulation.SimState.fromInit(init)
+    val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
+    val ledger    = nextState.ledgerFinancialState
+
+    nextState.households.foreach: household =>
+      val balances = ledger.households(household.id.toInt)
+      balances.demandDeposit shouldBe household.savings
+      balances.mortgageLoan shouldBe household.debt
+      balances.consumerLoan shouldBe household.consumerDebt
+      balances.equity shouldBe household.equityWealth
+
+    nextState.firms.foreach: firm =>
+      val balances = ledger.firms(firm.id.toInt)
+      balances.cash shouldBe firm.cash
+      balances.firmLoan shouldBe firm.debt
+      balances.equity shouldBe firm.equityRaised
+
+    nextState.banks.foreach: bank =>
+      val balances = ledger.banks(bank.id.toInt)
+      balances.totalDeposits shouldBe bank.deposits
+      balances.firmLoan shouldBe bank.loans
+      balances.consumerLoan shouldBe bank.consumerLoans
+      balances.reserve shouldBe bank.reservesAtNbp
+      balances.interbankLoan shouldBe bank.interbankNet
+  }

@@ -281,9 +281,7 @@ object WorldAssemblyEconomics:
       regionalWages = in.s2.regionalWages,
     )
     val finalLedgerFinancialState = assembledLedgerFinancialState.copy(
-      households = postMigHh.map(LedgerFinancialState.householdBalances),
-      firms = LedgerFinancialState.refreshFirmBalances(finalFirms, assembledLedgerFinancialState.firms),
-      banks = LedgerFinancialState.refreshBankBalances(in.s9.banks, assembledLedgerFinancialState.banks),
+      firms = LedgerFinancialState.registerFirmEntrants(finalFirms, assembledLedgerFinancialState.firms, entryStep.entrantIds),
     )
     PostResult(
       finalW,

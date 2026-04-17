@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.engine.ledger
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.SocialState
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
-import com.boombustgroup.amorfati.types.PLN
+import com.boombustgroup.amorfati.types.{FirmId, PLN}
 
 /** Ledger-owned snapshot of ledger-contracted financial stocks used by the
   * engine.
@@ -62,6 +62,24 @@ object LedgerFinancialState:
         firm,
         corpBond = previous.lift(firm.id.toInt).fold(PLN.Zero)(_.corpBond),
       )
+
+  def registerFirmEntrants(
+      firms: Vector[Firm.State],
+      previous: Vector[FirmBalances],
+      entrantIds: Set[FirmId],
+  ): Vector[FirmBalances] =
+    if entrantIds.isEmpty then previous
+    else
+      val expanded =
+        if previous.length >= firms.length then previous
+        else previous ++ Vector.fill(firms.length - previous.length)(FirmBalances(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero))
+
+      entrantIds.foldLeft(expanded): (acc, id) =>
+        val index = id.toInt
+        require(index >= 0 && index < firms.length, s"Entrant firm id $index has no firm state")
+        val firm  = firms(index)
+        require(firm.id == id, s"Entrant firm id $index does not match firm vector index")
+        acc.updated(index, firmBalances(firm, corpBond = PLN.Zero))
 
   def bankBalances(b: Banking.BankState, corpBond: PLN): BankBalances =
     BankBalances(
