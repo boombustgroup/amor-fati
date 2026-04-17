@@ -461,19 +461,14 @@ object FlowSimulation:
     val s2                = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
     val s6                = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, randomness.householdFinancialEconomics.newStream())
     val s7                = PriceEquityEconomics.compute(
-      PriceEquityEconomics.Input(
-        w,
-        s1.m,
-        s2.newWage,
-        s2.employed,
-        s2.wageGrowth,
-        s3.domesticCons,
-        s4.govPurchases,
-        s4.avgDemandMult,
-        s4.sectorMults,
-        banks.map(_.loans).sum,
-        s5,
-      ),
+      w = w,
+      month = s1.m,
+      wageGrowth = s2.wageGrowth,
+      domesticCons = s3.domesticCons,
+      govPurchases = s4.govPurchases,
+      avgDemandMult = s4.avgDemandMult,
+      totalSystemLoans = banks.map(_.loans).sum,
+      firmStep = s5,
     )
     val s8                = OpenEconEconomics.runStep(
       OpenEconEconomics.StepInput(

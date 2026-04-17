@@ -34,19 +34,14 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private def runPriceStep(world: com.boombustgroup.amorfati.engine.World, firmStep: FirmEconomics.StepOutput): PriceEquityEconomics.Output =
     PriceEquityEconomics.compute(
-      PriceEquityEconomics.Input(
-        w = world,
-        month = s1.m,
-        newWage = s2.newWage,
-        employed = s2.employed,
-        wageGrowth = s2.wageGrowth,
-        domesticCons = s3.domesticCons,
-        govPurchases = s4.govPurchases,
-        avgDemandMult = s4.avgDemandMult,
-        sectorMults = s4.sectorMults,
-        totalSystemLoans = init.banks.map(_.loans).sum,
-        s5 = firmStep,
-      ),
+      w = world,
+      month = s1.m,
+      wageGrowth = s2.wageGrowth,
+      domesticCons = s3.domesticCons,
+      govPurchases = s4.govPurchases,
+      avgDemandMult = s4.avgDemandMult,
+      totalSystemLoans = init.banks.map(_.loans).sum,
+      firmStep = firmStep,
     )
 
   "PriceEquityEconomics.governmentDemandContribution" should "scale with constrained runtime government purchases" in {

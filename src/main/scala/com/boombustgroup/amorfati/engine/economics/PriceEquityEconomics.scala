@@ -18,20 +18,6 @@ import com.boombustgroup.amorfati.types.*
   */
 object PriceEquityEconomics:
 
-  case class Input(
-      w: World,                        // current world state
-      month: ExecutionMonth,           // realized simulation month
-      newWage: PLN,                    // new wage from labor market
-      employed: Int,                   // employment count
-      wageGrowth: Coefficient,         // wage growth coefficient
-      domesticCons: PLN,               // domestic component of household consumption
-      govPurchases: PLN,               // constrained government purchases from demand formation
-      avgDemandMult: Multiplier,       // economy-wide average demand multiplier
-      sectorMults: Vector[Multiplier], // per-sector demand multipliers
-      totalSystemLoans: PLN,           // opening banking-system loan stock used for macroprudential policy
-      s5: FirmEconomics.StepOutput,    // firm processing output
-  )
-
   case class Output(
       autoR: Share,
       hybR: Share,
@@ -148,8 +134,17 @@ object PriceEquityEconomics:
   // Main compute logic
   // ---------------------------------------------------------------------------
 
-  def compute(in: Input)(using p: SimParams): Output =
-    val living2           = in.s5.ioFirms.filter(Firm.isAlive)
+  def compute(
+      w: World,
+      month: ExecutionMonth,
+      wageGrowth: Coefficient,
+      domesticCons: PLN,
+      govPurchases: PLN,
+      avgDemandMult: Multiplier,
+      totalSystemLoans: PLN,
+      firmStep: FirmEconomics.StepOutput,
+  )(using p: SimParams): Output =
+    val living2           = firmStep.ioFirms.filter(Firm.isAlive)
     val nLiving           = living2.length
     val autoR             =
       if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]).ratioTo(nLiving).toShare
@@ -160,22 +155,22 @@ object PriceEquityEconomics:
     val aggInventoryStock = living2.map(_.inventory).sum
     val aggGreenCapital   = living2.map(_.greenCapital).sum
 
-    val euMonthly = EuFunds.monthlyTransfer(in.month)
+    val euMonthly = EuFunds.monthlyTransfer(month)
 
-    val govGdpContribution = governmentDemandContribution(in.govPurchases)
+    val govGdpContribution = governmentDemandContribution(govPurchases)
     val euCofin            = EuFunds.cofinancing(euMonthly)
     val euProjectCapital   = EuFunds.capitalInvestment(euMonthly, euCofin)
     val euGdpContribution  =
       euProjectCapital * p.fiscal.govCapitalMultiplier +
         (euCofin - euProjectCapital).max(PLN.Zero) * p.fiscal.govCurrentMultiplier
-    val greenDomesticGFCF  = in.s5.sumGreenInvestment * (Share.One - p.climate.greenImportShare)
-    val domesticGFCF       = in.s5.sumGrossInvestment * (Share.One - p.capital.importShare) + greenDomesticGFCF
-    val investmentImports  = in.s5.sumGrossInvestment * p.capital.importShare + in.s5.sumGreenInvestment * p.climate.greenImportShare
-    val aggInventoryChange = in.s5.sumInventoryChange
+    val greenDomesticGFCF  = firmStep.sumGreenInvestment * (Share.One - p.climate.greenImportShare)
+    val domesticGFCF       = firmStep.sumGrossInvestment * (Share.One - p.capital.importShare) + greenDomesticGFCF
+    val investmentImports  = firmStep.sumGrossInvestment * p.capital.importShare + firmStep.sumGreenInvestment * p.climate.greenImportShare
+    val aggInventoryChange = firmStep.sumInventoryChange
     val gdp                =
-      in.domesticCons + govGdpContribution + euGdpContribution + in.w.forex.exports + domesticGFCF + aggInventoryChange
+      domesticCons + govGdpContribution + euGdpContribution + w.forex.exports + domesticGFCF + aggInventoryChange
 
-    val newMacropru = Macroprudential.step(in.w.mechanisms.macropru, in.totalSystemLoans, gdp)
+    val newMacropru = Macroprudential.step(w.mechanisms.macropru, totalSystemLoans, gdp)
 
     val sectorAdoption = p.sectorDefs.indices.map { s =>
       val secFirms = living2.filter(_.sector.toInt == s)
@@ -188,40 +183,40 @@ object PriceEquityEconomics:
     }.toVector
     val baseSigmas     = p.sectorDefs.map(_.sigma).toVector
     val newSigmas      =
-      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
+      evolveSigmas(w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
 
-    val exDev    = in.w.forex.exchangeRate.deviationFrom(p.forex.baseExRate)
+    val exDev    = w.forex.exchangeRate.deviationFrom(p.forex.baseExRate)
     val priceUpd = PriceLevel.update(
-      in.w.inflation,
-      in.w.priceLevel,
-      in.avgDemandMult,
-      in.wageGrowth,
+      w.inflation,
+      w.priceLevel,
+      avgDemandMult,
+      wageGrowth,
       exDev,
     )
     // Calvo markup contribution (already annualized Rate from FirmProcessingStep)
-    val newInfl  = priceUpd.inflation + in.s5.markupInflation
-    val newPrice = priceUpd.priceLevel.applyGrowth(in.s5.markupInflation.monthly.toCoefficient)
+    val newInfl  = priceUpd.inflation + firmStep.markupInflation
+    val newPrice = priceUpd.priceLevel.applyGrowth(firmStep.markupInflation.monthly.toCoefficient)
 
-    val prevGdp             = in.w.cachedMonthlyGdpProxy.max(PLN(1.0))
-    val deficitToGdp        = fiscalDeficitToGdp(in.w.gov.deficit.max(PLN.Zero), prevGdp)
-    val firmProfitsPnl      = in.s5.sumRealizedPostTaxProfit
+    val prevGdp             = w.cachedMonthlyGdpProxy.max(PLN(1.0))
+    val deficitToGdp        = fiscalDeficitToGdp(w.gov.deficit.max(PLN.Zero), prevGdp)
+    val firmProfitsPnl      = firmStep.sumRealizedPostTaxProfit
     val gdpGrowthForEquity  = gdp.ratioTo(prevGdp).toMultiplier.deviationFromOne
     val equityAfterIndex    = EquityMarket.step(
       EquityMarket.StepInput(
-        prev = in.w.financialMarkets.equity,
-        refRate = in.w.nbp.referenceRate,
+        prev = w.financialMarkets.equity,
+        refRate = w.nbp.referenceRate,
         inflation = newInfl,
         gdpGrowth = gdpGrowthForEquity,
         firmProfits = firmProfitsPnl,
       ),
     )
-    val equityAfterIssuance = EquityMarket.processIssuance(in.s5.sumEquityIssuance, equityAfterIndex)
+    val equityAfterIssuance = EquityMarket.processIssuance(firmStep.sumEquityIssuance, equityAfterIndex)
 
     val dividends              =
       EquityMarket.computeDividends(
         firmProfitsPnl,
         equityAfterIssuance.foreignOwnership,
-        stateOwnedProfits = in.s5.sumStateOwnedPostTaxProfit,
+        stateOwnedProfits = firmStep.sumStateOwnedPostTaxProfit,
         deficitToGdp = deficitToGdp,
       )
     val netDomesticDividends   = dividends.netDomestic

@@ -31,19 +31,14 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   private val s5 = FirmEconomics.runStep(w, init.firms, init.households, init.banks, baseLedgerFinancialState, s1, s2, s3, s4, rng)
   private val s6 = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
   private val s7 = PriceEquityEconomics.compute(
-    PriceEquityEconomics.Input(
-      w,
-      s1.m,
-      s2.newWage,
-      s2.employed,
-      s2.wageGrowth,
-      s3.domesticCons,
-      s4.govPurchases,
-      s4.avgDemandMult,
-      s4.sectorMults,
-      init.banks.map(_.loans).sum,
-      s5,
-    ),
+    w = w,
+    month = s1.m,
+    wageGrowth = s2.wageGrowth,
+    domesticCons = s3.domesticCons,
+    govPurchases = s4.govPurchases,
+    avgDemandMult = s4.avgDemandMult,
+    totalSystemLoans = init.banks.map(_.loans).sum,
+    firmStep = s5,
   )
 
   private def runOpenEcon(world: World): OpenEconEconomics.StepOutput =

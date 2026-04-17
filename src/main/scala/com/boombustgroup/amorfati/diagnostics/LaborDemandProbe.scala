@@ -182,19 +182,14 @@ object LaborDemandProbe:
       val s2Post = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, s5.ioFirms.filter(Firm.isAlive), s5.households)
       val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2Post.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
       val s7     = PriceEquityEconomics.compute(
-        PriceEquityEconomics.Input(
-          world,
-          s1.m,
-          s2Post.newWage,
-          s2Post.employed,
-          s2Post.wageGrowth,
-          s3.domesticCons,
-          s4.govPurchases,
-          s4.avgDemandMult,
-          s4.sectorMults,
-          banks.map(_.loans).sum,
-          s5,
-        ),
+        w = world,
+        month = s1.m,
+        wageGrowth = s2Post.wageGrowth,
+        domesticCons = s3.domesticCons,
+        govPurchases = s4.govPurchases,
+        avgDemandMult = s4.avgDemandMult,
+        totalSystemLoans = banks.map(_.loans).sum,
+        firmStep = s5,
       )
       val s8     =
         OpenEconEconomics.runStep(

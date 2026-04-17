@@ -117,19 +117,14 @@ object InflationProbe:
       val s6                =
         HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
       val s7                = PriceEquityEconomics.compute(
-        PriceEquityEconomics.Input(
-          world,
-          s1.m,
-          s2.newWage,
-          s2.employed,
-          s2.wageGrowth,
-          s3.domesticCons,
-          s4.govPurchases,
-          s4.avgDemandMult,
-          s4.sectorMults,
-          banks.map(_.loans).sum,
-          s5,
-        ),
+        w = world,
+        month = s1.m,
+        wageGrowth = s2.wageGrowth,
+        domesticCons = s3.domesticCons,
+        govPurchases = s4.govPurchases,
+        avgDemandMult = s4.avgDemandMult,
+        totalSystemLoans = banks.map(_.loans).sum,
+        firmStep = s5,
       )
       val s8                =
         OpenEconEconomics.runStep(
