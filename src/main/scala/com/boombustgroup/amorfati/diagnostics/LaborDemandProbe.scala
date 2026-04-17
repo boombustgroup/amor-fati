@@ -237,10 +237,6 @@ object LaborDemandProbe:
       val assembled = WorldAssemblyEconomics.runStep(
         WorldAssemblyEconomics.StepInput(
           world,
-          firms,
-          hhs,
-          banks,
-          ledgerFinancialState,
           s1,
           s2Post,
           s3,

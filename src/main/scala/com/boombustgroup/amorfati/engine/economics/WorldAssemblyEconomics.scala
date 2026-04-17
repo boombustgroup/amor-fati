@@ -23,20 +23,16 @@ object WorldAssemblyEconomics:
   // ---------------------------------------------------------------------------
 
   case class StepInput(
-      w: World,                                   // current world state
-      firms: Vector[Firm.State],                  // pre-step firm population
-      households: Vector[Household.State],        // pre-step household population
-      banks: Vector[Banking.BankState],           // pre-step bank population
-      ledgerFinancialState: LedgerFinancialState, // ledger-backed financial source of truth
-      s1: FiscalConstraintEconomics.Output,       // fiscal constraint (month, reservation wage, lending base rate)
-      s2: LaborEconomics.Output,                  // labor/demographics (wage, employment, ZUS, PPK)
-      s3: HouseholdIncomeEconomics.Output,        // household income (consumption, PIT, import propensity)
-      s4: DemandEconomics.Output,                 // demand (sector multipliers, gov purchases)
-      s5: FirmEconomics.StepOutput,               // firm processing (loans, NPL, tax, I-O, bond issuance)
-      s6: HouseholdFinancialEconomics.Output,     // household financial flows (debt service, remittances, tourism)
-      s7: PriceEquityEconomics.Output,            // price/equity (inflation, GDP, equity, macropru)
-      s8: OpenEconEconomics.StepOutput,           // open economy (monetary policy, forex, BOP, corp bonds)
-      s9: BankingEconomics.StepOutput,            // bank update (balance sheets, tax revenue, housing flows)
+      w: World,                               // current world state
+      s1: FiscalConstraintEconomics.Output,   // fiscal constraint (month, reservation wage, lending base rate)
+      s2: LaborEconomics.Output,              // labor/demographics (wage, employment, ZUS, PPK)
+      s3: HouseholdIncomeEconomics.Output,    // household income (consumption, PIT, import propensity)
+      s4: DemandEconomics.Output,             // demand (sector multipliers, gov purchases)
+      s5: FirmEconomics.StepOutput,           // firm processing (loans, NPL, tax, I-O, bond issuance)
+      s6: HouseholdFinancialEconomics.Output, // household financial flows (debt service, remittances, tourism)
+      s7: PriceEquityEconomics.Output,        // price/equity (inflation, GDP, equity, macropru)
+      s8: OpenEconEconomics.StepOutput,       // open economy (monetary policy, forex, BOP, corp bonds)
+      s9: BankingEconomics.StepOutput,        // bank update (balance sheets, tax revenue, housing flows)
   )
 
   case class StepOutput(

@@ -219,10 +219,6 @@ object InflationProbe:
       val assembled = WorldAssemblyEconomics.runStep(
         WorldAssemblyEconomics.StepInput(
           world,
-          firms,
-          hhs,
-          banks,
-          ledgerFinancialState,
           s1,
           s2,
           s3,

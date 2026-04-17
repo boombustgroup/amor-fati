@@ -110,10 +110,6 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
   private def baseStepInput: WorldAssemblyEconomics.StepInput =
     WorldAssemblyEconomics.StepInput(
       baseline.world,
-      baseline.firms,
-      baseline.households,
-      baseline.banks,
-      baseline.ledgerFinancialState,
       baseline.s1,
       baseline.s2,
       baseline.s3,
