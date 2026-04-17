@@ -148,7 +148,6 @@ object InflationProbe:
           banks,
           s5,
         ),
-        contract.stages.priceEquityEconomics.newStream(),
       )
       val s8                =
         OpenEconEconomics.runStep(

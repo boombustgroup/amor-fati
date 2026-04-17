@@ -240,7 +240,7 @@ object BankingEconomics:
       wf,
     )
     val issuerSettledFirmBalances =
-      CorporateBondOwnership.applyAmortization(in.s7.ledgerFinancialState.firms, multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
+      CorporateBondOwnership.applyAmortization(in.s5.ledgerFinancialState.firms, multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
 
     val quasiFiscalStep =
       QuasiFiscal.step(
@@ -265,9 +265,9 @@ object BankingEconomics:
       earmarked = in.s2.newEarmarked,
     )
     val ledgerFinancialState      =
-      in.s7.ledgerFinancialState.copy(
+      in.s5.ledgerFinancialState.copy(
         firms = issuerSettledFirmBalances,
-        banks = LedgerFinancialState.refreshBankBalances(multi.finalBanks, in.s7.ledgerFinancialState.banks, multi.finalBankCorpBondHoldings),
+        banks = LedgerFinancialState.refreshBankBalances(multi.finalBanks, in.s5.ledgerFinancialState.banks, multi.finalBankCorpBondHoldings),
         government = LedgerFinancialState.governmentBalances(newGovWithForeignHoldings),
         foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbp),
@@ -892,10 +892,10 @@ object BankingEconomics:
     )
     val reassignedFirms              =
       if anyFailed then
-        in.s7.rewiredFirms.map: f =>
+        in.s7.firms.map: f =>
           if f.bankId.toInt < afterResolve.length && afterResolve(f.bankId.toInt).failed then f.copy(bankId = absorberId)
           else f
-      else in.s7.rewiredFirms
+      else in.s7.firms
     val postFailureHh                =
       if anyFailed then
         in.s5.households.map: h =>

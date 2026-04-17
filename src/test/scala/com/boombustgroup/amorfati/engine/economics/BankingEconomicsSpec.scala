@@ -71,7 +71,6 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         init.banks,
         s5,
       ),
-      stageRandomness.priceEquityEconomics,
     )
     val s8     = OpenEconEconomics.runStep(
       OpenEconEconomics.StepInput(

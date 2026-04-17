@@ -195,7 +195,6 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       MonthRandomness.StreamKey.HouseholdIncomeEconomics,
       MonthRandomness.StreamKey.FirmEconomics,
       MonthRandomness.StreamKey.HouseholdFinancialEconomics,
-      MonthRandomness.StreamKey.PriceEquityEconomics,
       MonthRandomness.StreamKey.OpenEconEconomics,
       MonthRandomness.StreamKey.BankingEconomics,
       MonthRandomness.StreamKey.FdiMa,

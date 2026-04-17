@@ -80,8 +80,6 @@ import com.boombustgroup.amorfati.types.*
   *   Poisson arrival rate for aggregate technology shocks (0 = off)
   * @param sigmaCapMult
   *   capacity multiplier applied during a technology shock
-  * @param rewireRho
-  *   monthly probability of network rewiring (0 = static network)
   */
 case class FirmConfig(
     // Production & costs
@@ -129,7 +127,6 @@ case class FirmConfig(
     adoptionRampMonths: Int = 36,
     sigmaLambda: Coefficient = Coefficient(0.0),
     sigmaCapMult: Multiplier = Multiplier(3.0),
-    rewireRho: Share = Share(0.0),
 ):
   require(entrySectorBarriers.length == 6, s"entrySectorBarriers must have 6 sectors: ${entrySectorBarriers.length}")
   require(adoptionRampMonths > 0, s"adoptionRampMonths must be positive: $adoptionRampMonths")

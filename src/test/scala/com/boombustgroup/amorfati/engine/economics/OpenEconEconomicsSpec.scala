@@ -63,7 +63,6 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
       init.banks,
       s5,
     ),
-    rng,
   )
 
   private val newResult = OpenEconEconomics.compute(

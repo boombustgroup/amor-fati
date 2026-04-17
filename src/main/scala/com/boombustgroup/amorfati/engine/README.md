@@ -75,7 +75,7 @@ without emitting monetary flows. `FlowSimulation` wires them together.
 | `DemandEconomics.scala` | s4 | Sector demand allocation: HH consumption, government purchases, investment, exports; capacity constraints and spillover                       |
 | `FirmEconomics.scala` | s5 | Production, I-O intermediate market, CAPEX, financing splits (equity/bonds/loans), labor matching, NPL detection                              |
 | `HouseholdFinancialEconomics.scala` | s6 | Mortgage debt service, deposit interest, diaspora remittances, tourism, consumer credit aggregation                                           |
-| `PriceEquityEconomics.scala` | s7 | Inflation, GPW equity, sigma dynamics, network rewiring, GDP, macroprudential, EU funds                                                       |
+| `PriceEquityEconomics.scala` | s7 | Inflation, GPW equity, sigma dynamics, GDP, macroprudential, EU funds                                                                        |
 | `OpenEconEconomics.scala` | s8 | BoP/forex, GVC trade, Taylor rule, bond yields, interbank, corporate bonds, insurance, NBFI                                                   |
 | `BankingEconomics.scala` | s9 | Bank P&L, provisioning, CAR, multi-bank resolution, bail-in, interbank, BFG levy, monetary aggregates (M1/M2/M3)                              |
 | `WorldAssemblyEconomics.scala` | final | Aggregation, informal economy, observables; assembles final World state + updated agents, 13-identity SFC check                                |

@@ -66,7 +66,6 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
         banks = init.banks,
         s5 = firmStep,
       ),
-      RandomStream.seeded(44),
     )
 
   "PriceEquityEconomics.governmentDemandContribution" should "scale with constrained runtime government purchases" in {

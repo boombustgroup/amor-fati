@@ -492,7 +492,6 @@ object FlowSimulation:
         banks,
         s5,
       ),
-      randomness.priceEquityEconomics.newStream(),
     )
     val openEcon          = OpenEconEconomics.compute(
       OpenEconEconomics.Input(
