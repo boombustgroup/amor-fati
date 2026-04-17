@@ -197,36 +197,6 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-  private def baseComputeInput(world: World): WorldAssemblyEconomics.Input =
-    WorldAssemblyEconomics.Input(
-      w = world,
-      firms = baseline.firms,
-      households = baseline.households,
-      banks = baseline.banks,
-      ledgerFinancialState = baseline.ledgerFinancialState,
-      month = baseline.s1.m,
-      lendingBaseRate = baseline.s1.lendingBaseRate,
-      resWage = baseline.s1.resWage,
-      baseMinWage = baseline.s1.baseMinWage,
-      minWagePriceLevel = baseline.s1.updatedMinWagePriceLevel,
-      govPurchases = baseline.s4.govPurchases,
-      sectorMults = baseline.s4.sectorMults,
-      sectorDemandPressure = baseline.s4.sectorDemandPressure,
-      sectorHiringSignal = baseline.s4.sectorHiringSignal,
-      avgDemandMult = baseline.s4.avgDemandMult,
-      sectorCapReal = baseline.s4.sectorCapReal,
-      laggedInvestDemand = baseline.s4.laggedInvestDemand,
-      fiscalRuleStatus = baseline.s4.fiscalRuleStatus,
-      laborOutput = baseline.s2,
-      hhOutput = baseline.s3,
-      firmOutput = baseline.s5,
-      hhFinancialOutput = baseline.s6,
-      priceEquityOutput = baseline.s7,
-      openEconOutput = baseline.s8,
-      bankOutput = baseline.s9,
-      randomness = MonthRandomness.Contract.fromSeed(42L).assembly.newStreams(),
-    )
-
   private def assemblyRandomness(seed: Long): MonthRandomness.AssemblyStreams =
     MonthRandomness.Contract.fromSeed(seed).assembly.newStreams()
 
@@ -491,7 +461,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     baseOperationalSignals.operationalHiringSlack shouldBe baseline.s2.operationalHiringSlack
   }
 
-  "WorldAssemblyEconomics.compute" should "persist demand and hiring signals from current demand output in the bridge path" in {
+  "WorldAssemblyEconomics.runStep" should "persist demand and hiring signals from current demand output" in {
     val stalePressure = Vector.fill(p.sectorDefs.length)(Multiplier(0.33))
     val staleHiring   = Vector.fill(p.sectorDefs.length)(Multiplier(1.77))
     val staleWorld    = baseline.world.copy(
@@ -501,10 +471,10 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val assembled = WorldAssemblyEconomics.compute(baseComputeInput(staleWorld))
+    val assembled = WorldAssemblyEconomics.runStep(baseStepInput.copy(w = staleWorld), assemblyRandomness(42L))
 
-    assembled.world.pipeline.sectorDemandPressure shouldBe baseline.s4.sectorDemandPressure
-    assembled.world.pipeline.sectorHiringSignal shouldBe baseline.s4.sectorHiringSignal
-    assembled.world.pipeline.sectorDemandPressure should not be stalePressure
-    assembled.world.pipeline.sectorHiringSignal should not be staleHiring
+    assembled.newWorld.pipeline.sectorDemandPressure shouldBe baseline.s4.sectorDemandPressure
+    assembled.newWorld.pipeline.sectorHiringSignal shouldBe baseline.s4.sectorHiringSignal
+    assembled.newWorld.pipeline.sectorDemandPressure should not be stalePressure
+    assembled.newWorld.pipeline.sectorHiringSignal should not be staleHiring
   }

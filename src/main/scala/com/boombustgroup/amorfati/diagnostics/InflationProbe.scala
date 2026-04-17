@@ -239,39 +239,28 @@ object InflationProbe:
       )
       println(s"  top pressure: ${topPressures(s4.sectorDemandPressure)}")
 
-      val assembled = WorldAssemblyEconomics.compute(
-        WorldAssemblyEconomics.Input(
-          w = world,
-          firms = firms,
-          households = hhs,
-          banks = banks,
-          ledgerFinancialState = ledgerFinancialState,
-          month = fiscal.month,
-          lendingBaseRate = fiscal.lendingBaseRate,
-          resWage = fiscal.resWage,
-          baseMinWage = fiscal.baseMinWage,
-          minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-          govPurchases = s4.govPurchases,
-          sectorMults = s4.sectorMults,
-          sectorDemandPressure = s4.sectorDemandPressure,
-          sectorHiringSignal = s4.sectorHiringSignal,
-          avgDemandMult = s4.avgDemandMult,
-          sectorCapReal = s4.sectorCapReal,
-          laggedInvestDemand = s4.laggedInvestDemand,
-          fiscalRuleStatus = s4.fiscalRuleStatus,
-          laborOutput = s2,
-          hhOutput = s3,
-          firmOutput = s5,
-          hhFinancialOutput = s6,
-          priceEquityOutput = s7,
-          openEconOutput = s8,
-          bankOutput = s9,
-          randomness = contract.assembly.newStreams(),
+      val assembled = WorldAssemblyEconomics.runStep(
+        WorldAssemblyEconomics.StepInput(
+          world,
+          firms,
+          hhs,
+          banks,
+          ledgerFinancialState,
+          s1,
+          s2,
+          s3,
+          s4,
+          s5,
+          s6,
+          s7,
+          s8,
+          s9,
         ),
+        contract.assembly.newStreams(),
       )
 
-      world = assembled.world
-      firms = assembled.firms
-      hhs = assembled.households
+      world = assembled.newWorld
+      firms = assembled.finalFirms
+      hhs = assembled.reassignedHouseholds
       banks = assembled.banks
       ledgerFinancialState = assembled.ledgerFinancialState

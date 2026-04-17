@@ -4,7 +4,6 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.ledger.{LedgerBoundaryProjection, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, InformalEconomy, SectoralMobility}
@@ -14,8 +13,8 @@ import com.boombustgroup.amorfati.random.RandomStream
 
 /** WorldAssembly economics: aggregation, informal economy, observables.
   *
-  * Own Input takes raw values where possible, Step.Output types where
-  * unavoidable. Returns assembled World + updated agents.
+  * The assembly boundary consumes explicit stage outputs and returns the
+  * post-month world, agents, and ledger-owned financial state.
   */
 object WorldAssemblyEconomics:
 
@@ -46,6 +45,7 @@ object WorldAssemblyEconomics:
       reassignedHouseholds: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
+      ledgerFinancialState: LedgerFinancialState,
       signalExtraction: SignalExtraction.Output,
   )
 
@@ -76,51 +76,6 @@ object WorldAssemblyEconomics:
       startupAbsorptionRate: Share,
   )
 
-  // ---------------------------------------------------------------------------
-  // Economics-level Input / Result (existing)
-  // ---------------------------------------------------------------------------
-
-  case class Input(
-      w: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-      ledgerFinancialState: LedgerFinancialState,
-      // Raw values
-      month: ExecutionMonth,
-      lendingBaseRate: Rate,
-      resWage: PLN,
-      baseMinWage: PLN,
-      minWagePriceLevel: PriceIndex,
-      govPurchases: PLN,
-      sectorMults: Vector[Multiplier],
-      sectorDemandPressure: Vector[Multiplier],
-      sectorHiringSignal: Vector[Multiplier],
-      avgDemandMult: Multiplier,
-      sectorCapReal: Vector[PLN],
-      laggedInvestDemand: PLN,
-      fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
-      // Step outputs (too complex to decompose)
-      laborOutput: LaborEconomics.Output,
-      hhOutput: HouseholdIncomeEconomics.Output,
-      firmOutput: FirmEconomics.StepOutput,
-      hhFinancialOutput: HouseholdFinancialEconomics.Output,
-      priceEquityOutput: PriceEquityEconomics.Output,
-      openEconOutput: OpenEconEconomics.StepOutput,
-      bankOutput: BankingEconomics.StepOutput,
-      randomness: MonthRandomness.AssemblyStreams,
-  )
-
-  case class Result(
-      world: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-      householdAggregates: Household.Aggregates,
-      ledgerFinancialState: LedgerFinancialState,
-      signalExtraction: SignalExtraction.Output,
-  )
-
   /** Internal post-month result kept distinct from the next-month boundary. */
   private[engine] case class PostResult(
       world: World,
@@ -138,26 +93,6 @@ object WorldAssemblyEconomics:
       sectorDemandPressure: Vector[Multiplier],
       sectorHiringSignal: Vector[Multiplier],
   )
-
-  private def buildStepInput(in: Input): StepInput =
-    val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-
-    StepInput(
-      in.w,
-      in.firms,
-      in.households,
-      in.banks,
-      in.ledgerFinancialState,
-      s1,
-      in.laborOutput,
-      in.hhOutput,
-      buildDemandOutput(in),
-      in.firmOutput,
-      in.hhFinancialOutput,
-      in.priceEquityOutput,
-      in.openEconOutput,
-      in.bankOutput,
-    )
 
   private def buildSignalExtractionInput(in: StepInput): SignalExtractionInput =
     SignalExtractionInput(
@@ -201,24 +136,6 @@ object WorldAssemblyEconomics:
       randomness,
     )
 
-  private[engine] def computePostMonth(in: Input)(using SimParams): PostResult =
-    computePostMonth(buildStepInput(in), in.randomness)
-
-  def compute(in: Input)(using SimParams): Result =
-    val step        = buildStepInput(in)
-    val signalInput = buildSignalExtractionInput(step)
-    val post        = computePostMonth(step, in.randomness)
-    val seed        = extractSignalExtraction(signalInput, post)
-    Result(
-      advanceToBoundaryWorld(post.world, seed.seedOut),
-      post.firms,
-      post.households,
-      post.banks,
-      post.householdAggregates,
-      post.ledgerFinancialState,
-      seed,
-    )
-
   // ---------------------------------------------------------------------------
   // runStep — migrated from WorldAssemblyStep.run
   // ---------------------------------------------------------------------------
@@ -233,6 +150,7 @@ object WorldAssemblyEconomics:
       reassignedHouseholds = post.households,
       banks = post.banks,
       householdAggregates = post.householdAggregates,
+      ledgerFinancialState = post.ledgerFinancialState,
       signalExtraction = signalExtraction,
     )
 
@@ -295,18 +213,6 @@ object WorldAssemblyEconomics:
       lastDomesticDividends = in.s7.netDomesticDividends,
       lastForeignDividends = in.s7.foreignDividendOutflow,
       lastDividendTax = in.s7.dividendTax,
-    )
-
-  private def buildDemandOutput(in: Input): DemandEconomics.Output =
-    DemandEconomics.Output(
-      in.govPurchases,
-      in.sectorMults,
-      in.sectorDemandPressure,
-      in.sectorHiringSignal,
-      in.avgDemandMult,
-      in.sectorCapReal,
-      in.laggedInvestDemand,
-      in.fiscalRuleStatus,
     )
 
   /** Flow-of-funds residual: total firm revenue minus adjusted demand. Both

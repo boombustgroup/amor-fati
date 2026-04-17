@@ -13,7 +13,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  "WorldAssemblyEconomics (own Input)" should "produce valid world after simulation step" in {
+  "WorldAssemblyEconomics" should "produce valid world after simulation step" in {
     val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state  = FlowSimulation.SimState.fromInit(init)
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
