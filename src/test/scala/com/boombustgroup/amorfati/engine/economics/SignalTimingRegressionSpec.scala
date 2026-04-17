@@ -179,33 +179,22 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       RandomStream.seeded(seed),
     )
 
-  private def baseBankingComputeInput(world: World, operationalSignals: OperationalSignals, seed: Long): BankingEconomics.Input =
-    BankingEconomics.Input(
-      w = world,
-      ledgerFinancialState = baseline.ledgerFinancialState,
-      month = baseline.s1.m,
-      lendingBaseRate = baseline.s1.lendingBaseRate,
-      resWage = baseline.s1.resWage,
-      baseMinWage = baseline.s1.baseMinWage,
-      minWagePriceLevel = baseline.s1.updatedMinWagePriceLevel,
-      employed = baseline.s2.employed,
-      newWage = baseline.s2.newWage,
-      laborDemand = baseline.s2.laborDemand,
-      wageGrowth = baseline.s2.wageGrowth,
-      govPurchases = baseline.s4.govPurchases,
-      avgDemandMult = baseline.s4.avgDemandMult,
-      sectorCapReal = baseline.s4.sectorCapReal,
-      laggedInvestDemand = baseline.s4.laggedInvestDemand,
-      fiscalRuleStatus = baseline.s4.fiscalRuleStatus,
-      laborOutput = baseline.s2,
-      operationalSignals = operationalSignals,
-      hhOutput = baseline.s3,
-      firmOutput = baseline.s5,
-      hhFinancialOutput = baseline.s6,
-      priceEquityOutput = baseline.s7,
-      openEconOutput = baseline.s8,
-      banks = baseline.banks,
-      depositRng = RandomStream.seeded(seed),
+  private def baseBankingRunStep(world: World, seed: Long): BankingEconomics.StepOutput =
+    BankingEconomics.runStep(
+      BankingEconomics.StepInput(
+        world,
+        baseline.ledgerFinancialState,
+        baseline.s1,
+        baseline.s2,
+        baseline.s3,
+        baseline.s4,
+        baseline.s5,
+        baseline.s6,
+        baseline.s7,
+        baseline.s8,
+        baseline.banks,
+        RandomStream.seeded(seed),
+      ),
     )
 
   private def baseComputeInput(world: World): WorldAssemblyEconomics.Input =
@@ -382,7 +371,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     explicitResult.perBankWorkers should not be bridgedResult.perBankWorkers
   }
 
-  "BankingEconomics.compute" should "remain insensitive to stale persisted demand signals when explicit OperationalSignals are supplied" in {
+  "BankingEconomics.runStep" should "remain insensitive to stale persisted demand signals when stage outputs are supplied" in {
     val staleWorld       = withSeedSignals(
       baseline.world,
       _.copy(
@@ -391,8 +380,8 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         sectorHiringSignal = multiplierVector(0.35),
       ),
     )
-    val explicitResult   = BankingEconomics.compute(baseBankingComputeInput(staleWorld, baseOperationalSignals, seed = 777L))
-    val freshWorldResult = BankingEconomics.compute(baseBankingComputeInput(baseline.world, baseOperationalSignals, seed = 777L))
+    val explicitResult   = baseBankingRunStep(staleWorld, seed = 777L)
+    val freshWorldResult = baseBankingRunStep(baseline.world, seed = 777L)
 
     explicitResult shouldBe freshWorldResult
   }

@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -508,35 +508,7 @@ object FlowSimulation:
         randomness.openEconEconomics.newStream(),
       ),
     )
-    val operational       = operationalSignals(s2, s4)
     val bankingDepositRng = randomness.bankingEconomics.newStream()
-    val bankingInput      = BankingEconomics.Input(
-      w = w,
-      ledgerFinancialState = ledger,
-      month = fiscal.month,
-      lendingBaseRate = fiscal.lendingBaseRate,
-      resWage = fiscal.resWage,
-      baseMinWage = fiscal.baseMinWage,
-      minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-      employed = s2.employed,
-      newWage = s2.newWage,
-      laborDemand = s2.laborDemand,
-      wageGrowth = s2.wageGrowth,
-      govPurchases = s4.govPurchases,
-      avgDemandMult = s4.avgDemandMult,
-      sectorCapReal = s4.sectorCapReal,
-      laggedInvestDemand = s4.laggedInvestDemand,
-      fiscalRuleStatus = s4.fiscalRuleStatus,
-      laborOutput = s2,
-      operationalSignals = operational,
-      hhOutput = s3,
-      firmOutput = s5,
-      hhFinancialOutput = s6,
-      priceEquityOutput = s7,
-      openEconOutput = s8,
-      banks = banks,
-      depositRng = bankingDepositRng,
-    )
     val s9                = BankingEconomics.runStep(
       BankingEconomics.StepInput(
         w,
@@ -553,7 +525,7 @@ object FlowSimulation:
         bankingDepositRng,
       ),
     )
-    val banking           = BankingEconomics.toResult(s9, bankingInput)
+    val prevBankAgg       = Banking.aggregateFromBanks(banks, bankId => CorporateBondOwnership.bankHolderFor(ledger, bankId))
     val agg               = s3.hhAgg
     val eq                = w.financialMarkets.equity
     val h                 = s9.housingAfterFlows
@@ -577,7 +549,7 @@ object FlowSimulation:
       domesticConsumption = s3.domesticCons,
       importConsumption = s3.importCons,
       totalRent = agg.totalRent,
-      pitRevenue = banking.pitAfterEvasion,
+      pitRevenue = s9.pitAfterEvasion,
       totalDebtService = agg.totalDebtService,
       totalDepositInterest = agg.totalDepositInterest,
       totalRemittances = agg.totalRemittances,
@@ -623,21 +595,21 @@ object FlowSimulation:
       mortgageRepayment = h.lastRepayment,
       mortgageInterest = h.mortgageInterestIncome,
       mortgageDefault = h.lastDefault,
-      bankGovBondIncome = banking.govBondIncome,
-      bankReserveInterest = banking.reserveInterest,
-      bankStandingFacility = banking.standingFacilityIncome,
-      bankStandingFacilityBackstop = banking.standingFacilityBackstop,
-      bankInterbankInterest = banking.interbankInterest,
+      bankGovBondIncome = prevBankAgg.govBondHoldings * s8.monetary.newBondYield.monthly,
+      bankReserveInterest = s8.banking.totalReserveInterest,
+      bankStandingFacility = s8.banking.totalStandingFacilityIncome,
+      bankStandingFacilityBackstop = s9.standingFacilityBackstop,
+      bankInterbankInterest = s8.banking.totalInterbankInterest,
       bankCorpBondCoupon = s8.corpBonds.corpBondBankCoupon,
       bankCorpBondLoss = s8.corpBonds.corpBondBankDefaultLoss,
       bankFxReserveSettlement = s8.monetary.fxPlnInjection,
-      bankBfgLevy = banking.bfgLevy,
-      bankUnrealizedLoss = banking.unrealizedBondLoss,
-      bankBailIn = banking.bailInLoss,
-      bankNbpRemittance = banking.nbpRemittance,
-      govVatRevenue = banking.vatAfterEvasion,
-      govExciseRevenue = banking.exciseAfterEvasion,
-      govCustomsDutyRevenue = banking.customsDutyRevenue,
+      bankBfgLevy = s9.bfgLevy,
+      bankUnrealizedLoss = s9.unrealizedBondLoss,
+      bankBailIn = s9.bailInLoss,
+      bankNbpRemittance = s8.banking.nbpRemittance,
+      govVatRevenue = s9.vatAfterEvasion,
+      govExciseRevenue = s9.exciseAfterEvasion,
+      govCustomsDutyRevenue = s9.customsDutyRevenue,
       govDebtService = w.gov.debtServiceSpend,
       govEuCofinancing = w.gov.euCofinancing,
       govCapitalSpend = w.gov.govCapitalSpend,

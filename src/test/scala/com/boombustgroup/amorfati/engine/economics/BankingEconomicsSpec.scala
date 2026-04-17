@@ -3,8 +3,9 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals}
+import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.flows.*
+import com.boombustgroup.amorfati.engine.ledger.CorporateBondOwnership
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -16,7 +17,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
   private val TestSeed       = 42L
 
-  "BankingEconomics (own Input)" should "produce flows that close at SFC == 0L" in {
+  "BankingEconomics.runStep" should "produce flows that close at SFC == 0L" in {
     val init                 = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
     val w                    = init.world
     val ledgerFinancialState = init.ledgerFinancialState
@@ -88,42 +89,10 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val bankingInput = BankingEconomics.Input(
-      w = w,
-      ledgerFinancialState = ledgerFinancialState,
-      month = s1.m,
-      lendingBaseRate = s1.lendingBaseRate,
-      resWage = s1.resWage,
-      baseMinWage = s1.baseMinWage,
-      minWagePriceLevel = s1.updatedMinWagePriceLevel,
-      employed = s2.employed,
-      newWage = s2.newWage,
-      laborDemand = s2.laborDemand,
-      wageGrowth = s2.wageGrowth,
-      govPurchases = s4.govPurchases,
-      avgDemandMult = s4.avgDemandMult,
-      sectorCapReal = s4.sectorCapReal,
-      laggedInvestDemand = s4.laggedInvestDemand,
-      fiscalRuleStatus = s4.fiscalRuleStatus,
-      laborOutput = s2,
-      operationalSignals = OperationalSignals(
-        sectorDemandMult = s4.sectorMults,
-        sectorDemandPressure = s4.sectorDemandPressure,
-        sectorHiringSignal = s4.sectorHiringSignal,
-        operationalHiringSlack = s2.operationalHiringSlack,
-      ),
-      hhOutput = s3,
-      firmOutput = s5,
-      hhFinancialOutput = s6,
-      priceEquityOutput = s7,
-      openEconOutput = s8,
-      banks = init.banks,
-      depositRng = stageRandomness.bankingEconomics,
-    )
-    val s9           = BankingEconomics.runStep(
+    val s9          = BankingEconomics.runStep(
       BankingEconomics.StepInput(
         w,
-        bankingInput.ledgerFinancialState,
+        ledgerFinancialState,
         s1,
         s2,
         s3,
@@ -136,7 +105,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         stageRandomness.bankingEconomics,
       ),
     )
-    val res          = BankingEconomics.toResult(s9, bankingInput)
+    val prevBankAgg = Banking.aggregateFromBanks(init.banks, bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId))
 
     s9.ledgerFinancialState.government.govBondOutstanding shouldBe s9.newGovWithYield.bondsOutstanding
     s9.ledgerFinancialState.foreign.govBondHoldings shouldBe s9.newGovWithYield.foreignBondHoldings
@@ -149,18 +118,18 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
 
     val flows = BankingFlows.emit(
       BankingFlows.Input(
-        res.govBondIncome,
-        res.reserveInterest,
-        res.standingFacilityIncome,
-        res.interbankInterest,
+        prevBankAgg.govBondHoldings * s8.monetary.newBondYield.monthly,
+        s8.banking.totalReserveInterest,
+        s8.banking.totalStandingFacilityIncome,
+        s8.banking.totalInterbankInterest,
         s8.corpBonds.corpBondBankCoupon,
         s8.corpBonds.corpBondBankDefaultLoss,
-        res.bfgLevy,
-        res.unrealizedBondLoss,
-        res.bailInLoss,
-        res.nbpRemittance,
+        s9.bfgLevy,
+        s9.unrealizedBondLoss,
+        s9.bailInLoss,
+        s8.banking.nbpRemittance,
         PLN.Zero,
-        res.standingFacilityBackstop,
+        s9.standingFacilityBackstop,
       ),
     )
 

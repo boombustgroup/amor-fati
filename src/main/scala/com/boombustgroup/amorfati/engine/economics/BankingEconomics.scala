@@ -3,7 +3,6 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, CorporateBondMarket, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
@@ -163,67 +162,6 @@ object BankingEconomics:
   private def bankCorpBondHoldings(ledgerFinancialState: LedgerFinancialState): Banking.BankCorpBondHoldings =
     bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId)
 
-  // ---- Economics-level types (for MonthlyCalculus) ----
-
-  case class Input(
-      w: World,
-      ledgerFinancialState: LedgerFinancialState,
-      // Raw values from earlier calculus (avoids Step.Output dependency)
-      month: ExecutionMonth,
-      lendingBaseRate: Rate,
-      resWage: PLN,
-      baseMinWage: PLN,
-      minWagePriceLevel: PriceIndex,
-      employed: Int,
-      newWage: PLN,
-      laborDemand: Int,
-      wageGrowth: Coefficient,
-      govPurchases: PLN,
-      avgDemandMult: Multiplier,
-      sectorCapReal: Vector[PLN],
-      laggedInvestDemand: PLN,
-      fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
-      // Step outputs too complex to decompose (will vanish with #131)
-      laborOutput: LaborEconomics.Output,
-      operationalSignals: OperationalSignals,
-      hhOutput: HouseholdIncomeEconomics.Output,
-      firmOutput: FirmEconomics.StepOutput,
-      hhFinancialOutput: HouseholdFinancialEconomics.Output,
-      priceEquityOutput: PriceEquityEconomics.Output,
-      openEconOutput: OpenEconEconomics.StepOutput,
-      banks: Vector[Banking.BankState],
-      depositRng: RandomStream,
-  )
-
-  case class Result(
-      govBondIncome: PLN,
-      reserveInterest: PLN,
-      standingFacilityIncome: PLN,
-      standingFacilityBackstop: PLN,
-      interbankInterest: PLN,
-      bfgLevy: PLN,
-      unrealizedBondLoss: PLN,
-      bailInLoss: PLN,
-      nbpRemittance: PLN,
-      pitAfterEvasion: PLN,
-      vatAfterEvasion: PLN,
-      exciseAfterEvasion: PLN,
-      customsDutyRevenue: PLN,
-      mortgageInterestIncome: PLN,
-      mortgagePrincipal: PLN,
-      mortgageDefaultLoss: PLN,
-      mortgageDefaultAmount: PLN,
-      // Non-monetary outputs needed by WorldAssembly
-      realizedTaxShadowShare: Share,
-      jstDepositChange: PLN,
-      investNetDepositFlow: PLN,
-      actualBondChange: PLN,
-      eclProvisionChange: PLN,
-      htmRealizedLoss: PLN,
-  )
-
-  // ---- Public API ----
-
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
     val prevBankAgg               = Banking.aggregateFromBanks(in.banks, bankCorpBondHoldings(in.ledgerFinancialState))
     val govJst                    = computeGovAndJst(in)
@@ -331,67 +269,7 @@ object BankingEconomics:
       ledgerFinancialState = ledgerFinancialState,
     )
 
-  def compute(in: Input)(using p: SimParams): Result =
-    val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-    val s4 = DemandEconomics.Output(
-      in.govPurchases,
-      in.operationalSignals.sectorDemandMult,
-      in.operationalSignals.sectorDemandPressure,
-      in.operationalSignals.sectorHiringSignal,
-      in.avgDemandMult,
-      in.sectorCapReal,
-      in.laggedInvestDemand,
-      in.fiscalRuleStatus,
-    )
-
-    val s9 = runStep(
-      StepInput(
-        in.w,
-        in.ledgerFinancialState,
-        s1,
-        in.laborOutput,
-        in.hhOutput,
-        s4,
-        in.firmOutput,
-        in.hhFinancialOutput,
-        in.priceEquityOutput,
-        in.openEconOutput,
-        in.banks,
-        in.depositRng,
-      ),
-    )
-
-    toResult(s9, in)
-
-  private[engine] def toResult(s9: StepOutput, in: Input): Result =
-    val prevBankAgg = Banking.aggregateFromBanks(in.banks, bankCorpBondHoldings(in.ledgerFinancialState))
-    Result(
-      govBondIncome = prevBankAgg.govBondHoldings * in.openEconOutput.monetary.newBondYield.monthly,
-      reserveInterest = in.openEconOutput.banking.totalReserveInterest,
-      standingFacilityIncome = in.openEconOutput.banking.totalStandingFacilityIncome,
-      standingFacilityBackstop = s9.standingFacilityBackstop,
-      interbankInterest = in.openEconOutput.banking.totalInterbankInterest,
-      bfgLevy = s9.bfgLevy,
-      unrealizedBondLoss = s9.unrealizedBondLoss,
-      bailInLoss = s9.bailInLoss,
-      nbpRemittance = in.openEconOutput.banking.nbpRemittance,
-      pitAfterEvasion = s9.pitAfterEvasion,
-      vatAfterEvasion = s9.vatAfterEvasion,
-      exciseAfterEvasion = s9.exciseAfterEvasion,
-      customsDutyRevenue = s9.customsDutyRevenue,
-      mortgageInterestIncome = s9.mortgageInterestIncome,
-      mortgagePrincipal = s9.mortgagePrincipal,
-      mortgageDefaultLoss = s9.mortgageDefaultLoss,
-      mortgageDefaultAmount = s9.mortgageDefaultAmount,
-      realizedTaxShadowShare = s9.realizedTaxShadowShare,
-      jstDepositChange = s9.jstDepositChange,
-      investNetDepositFlow = s9.investNetDepositFlow,
-      actualBondChange = s9.actualBondChange,
-      eclProvisionChange = s9.eclProvisionChange,
-      htmRealizedLoss = s9.htmRealizedLoss,
-    )
-
-  // ---- Private helpers (moved from BankUpdateStep) ----
+  // ---- Private helpers ----
 
   /** Government budget update (deficit, debt, bonds) and JST local government
     * step.
