@@ -243,7 +243,7 @@ object WorldAssemblyEconomics:
     val obs             = computeObservables(in)
     val seedIn          = in.w.seedIn
 
-    val (newW, assembledLedgerFinancialState) = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
+    val newW = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
 
     val postFdiFirms = applyFdiMa(in.s9.reassignedFirms, randomness.fdiMa)
     val entryStep    = FirmEntry.process(
@@ -271,8 +271,8 @@ object WorldAssemblyEconomics:
       real = finalReal,
       regionalWages = in.s2.regionalWages,
     )
-    val finalLedgerFinancialState = assembledLedgerFinancialState.copy(
-      firms = LedgerFinancialState.refreshFirmBalances(finalFirms, assembledLedgerFinancialState.firms),
+    val finalLedgerFinancialState = in.s9.ledgerFinancialState.copy(
+      firms = LedgerFinancialState.refreshFirmBalances(finalFirms, in.s9.ledgerFinancialState.firms),
     )
     PostResult(
       finalW,
@@ -356,12 +356,7 @@ object WorldAssemblyEconomics:
   private def computeObservables(in: StepInput)(using p: SimParams): Observables =
     import ComputationBoundary.toDouble
     val aliveBanks           = in.s9.banks.filterNot(_.failed)
-    val depositFacilityUsage = PLN.fromRaw(
-      aliveBanks
-        .filter(_.reservesAtNbp > PLN.Zero)
-        .map(_.reservesAtNbp.toLong)
-        .sum,
-    )
+    val depositFacilityUsage = aliveBanks.filter(_.reservesAtNbp > PLN.Zero).map(_.reservesAtNbp).sum
 
     val monthsPerYear = 12.0
     val elapsedMonths = in.s1.m.previousCompleted.toInt.toDouble
@@ -435,7 +430,7 @@ object WorldAssemblyEconomics:
       fofResidual: PLN,
       informal: InformalResult,
       obs: Observables,
-  ): (World, LedgerFinancialState) =
+  ): World =
     val ledgerFinancialState = in.s9.ledgerFinancialState
     val projectedSocial      = LedgerBoundaryProjection.socialState(
       SocialState(
@@ -510,7 +505,7 @@ object WorldAssemblyEconomics:
       pipeline = in.w.pipeline,
       flows = buildFlowState(in, informal),
     )
-    (world, ledgerFinancialState)
+    world
 
   private def buildPostMonthPipelineState(in: StepInput): PipelineState =
     in.w.pipeline

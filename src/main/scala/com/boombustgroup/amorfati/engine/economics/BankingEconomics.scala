@@ -579,7 +579,7 @@ object BankingEconomics:
     if holdings.isEmpty then Vector.empty
     else if reduction <= PLN.Zero then holdings
     else
-      val total           = PLN.fromRaw(holdings.iterator.map(_.toLong).sum)
+      val total           = holdings.sum
       val actualReduction = reduction.min(total)
       val reductions      = Distribute.distribute(actualReduction.distributeRaw, holdings.map(_.distributeRaw).toArray)
       holdings.zip(reductions).map((holding, rawReduction) => (holding - PLN.fromRaw(rawReduction)).max(PLN.Zero))
@@ -805,7 +805,7 @@ object BankingEconomics:
     // ---- Bond waterfall: single pass, SFC by construction ----
     // Each sellToBuyer removes bonds from banks and returns actualSold.
     // Buyer gets exactly old + actualSold. No speculation, no correction.
-    val bankDeposits  = PLN.fromRaw(afterBonds.map(_.deposits.toLong).sum)
+    val bankDeposits  = afterBonds.map(_.deposits).sum
     val auctionResult = BondAuction.auction(
       newIssuance = wf.actualBondChange.max(PLN.Zero),
       bankBondCapacity = bankDeposits * p.fiscal.bankBondAbsorptionShare,
@@ -865,14 +865,10 @@ object BankingEconomics:
       else Banking.healthiestBankId(afterResolve, afterResolveCorpBondHoldings)
     val multiCapDest: PLN            =
       if anyFailed then
-        PLN.fromRaw(
-          tfiSale.banks
-            .zip(afterFailCheck)
-            .map { case (pre, post) =>
-              if !pre.failed && post.failed then pre.capital.toLong else 0L
-            }
-            .sum,
-        )
+        tfiSale.banks
+          .zip(afterFailCheck)
+          .collect { case (pre, post) if !pre.failed && post.failed => pre.capital }
+          .sum
       else PLN.Zero
     val curve                        =
       val exp = in.w.mechanisms.expectations
@@ -968,8 +964,8 @@ object BankingEconomics:
         multiCapDestruction = multiCapDestruction,
         htmRealizedLoss = htmRealizedLoss,
       )
-      val actualDeposits = PLN.fromRaw(banks.iterator.map(_.deposits.toLong).sum)
-      val actualCapital  = PLN.fromRaw(banks.iterator.map(_.capital.toLong).sum)
+      val actualDeposits = banks.iterator.map(_.deposits).sum
+      val actualCapital  = banks.iterator.map(_.capital).sum
       val depResidual    = target.depositsResidual - actualDeposits
       val capResidual    = target.capitalResidual - actualCapital
       if depResidual == PLN.Zero && capResidual == PLN.Zero then banks

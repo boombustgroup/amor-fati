@@ -591,7 +591,7 @@ object FirmEconomics:
   )(using p: SimParams): NplResult =
     val prevAlive            = preFirms.filter(Firm.isAlive).map(_.id).toSet
     val newlyDead            = postFirms.filter(f => !Firm.isAlive(f) && prevAlive.contains(f.id))
-    val nplNew               = PLN.fromRaw(newlyDead.map(_.debt.toLong).sum)
+    val nplNew               = newlyDead.map(_.debt).sum
     val nplLoss              = nplNew * (Share.One - p.banking.loanRecovery)
     val defaultedBondFirmIds = newlyDead.map(_.id).toSet
     val totalBondDefault     = CorporateBondOwnership.defaultedIssuerDebt(ledgerFinancialState.firms, defaultedBondFirmIds)

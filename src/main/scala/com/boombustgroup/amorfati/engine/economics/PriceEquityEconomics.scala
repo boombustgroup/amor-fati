@@ -157,8 +157,8 @@ object PriceEquityEconomics:
     val hybR              =
       if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]).ratioTo(nLiving).toShare
       else Share.Zero
-    val aggInventoryStock = PLN.fromRaw(living2.map(_.inventory.toLong).sum)
-    val aggGreenCapital   = PLN.fromRaw(living2.map(_.greenCapital.toLong).sum)
+    val aggInventoryStock = living2.map(_.inventory).sum
+    val aggGreenCapital   = living2.map(_.greenCapital).sum
 
     val euMonthly = EuFunds.monthlyTransfer(in.month)
 
