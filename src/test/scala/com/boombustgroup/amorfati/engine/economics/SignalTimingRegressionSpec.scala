@@ -55,7 +55,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         s2Pre.newWage,
         contract.stages.householdIncomeEconomics.newStream(),
       )
-    val s4     = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
+    val s4     = DemandEconomics.compute(world, s2Pre.employed, s2Pre.living, s3.domesticCons)
     val s5     =
       FirmEconomics.runStep(world, init.firms, init.households, init.banks, ledgerFinancialState, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
     val living = s5.ioFirms.filter(Firm.isAlive)
@@ -243,12 +243,8 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       baseline.world,
       _.copy(sectorHiringSignal = multiplierVector(1.60)),
     )
-    val weakResult   = DemandEconomics.compute(
-      DemandEconomics.Input(weakLagged, baseline.s2Pre.employed, baseline.s2Pre.living, baseline.s3.domesticCons),
-    )
-    val strongResult = DemandEconomics.compute(
-      DemandEconomics.Input(strongLagged, baseline.s2Pre.employed, baseline.s2Pre.living, baseline.s3.domesticCons),
-    )
+    val weakResult   = DemandEconomics.compute(weakLagged, baseline.s2Pre.employed, baseline.s2Pre.living, baseline.s3.domesticCons)
+    val strongResult = DemandEconomics.compute(strongLagged, baseline.s2Pre.employed, baseline.s2Pre.living, baseline.s3.domesticCons)
 
     weakResult.sectorDemandPressure shouldBe strongResult.sectorDemandPressure
     weakResult.sectorMults shouldBe strongResult.sectorMults

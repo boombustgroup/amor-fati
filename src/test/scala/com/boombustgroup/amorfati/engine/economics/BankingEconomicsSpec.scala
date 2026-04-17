@@ -37,7 +37,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         s2.newWage,
         stageRandomness.householdIncomeEconomics,
       )
-    val s4 = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
+    val s4 = DemandEconomics.compute(w, s2.employed, s2.living, s3.domesticCons)
     val s5 = FirmEconomics.runStep(w, init.firms, init.households, init.banks, ledgerFinancialState, s1, s2, s3, s4, stageRandomness.firmEconomics)
     val s6 = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, stageRandomness.householdFinancialEconomics)
     val s7 = PriceEquityEconomics.compute(

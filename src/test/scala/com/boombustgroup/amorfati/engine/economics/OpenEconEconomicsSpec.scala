@@ -27,7 +27,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   private val s2 = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s3 =
     HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, baseLedgerFinancialState, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
-  private val s4 = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
+  private val s4 = DemandEconomics.compute(w, s2.employed, s2.living, s3.domesticCons)
   private val s5 = FirmEconomics.runStep(w, init.firms, init.households, init.banks, baseLedgerFinancialState, s1, s2, s3, s4, rng)
   private val s6 = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, rng)
   private val s7 = PriceEquityEconomics.compute(

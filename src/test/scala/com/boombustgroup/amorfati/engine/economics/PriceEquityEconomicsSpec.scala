@@ -28,7 +28,7 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
       s2.newWage,
       RandomStream.seeded(42),
     )
-  private val s4          = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
+  private val s4          = DemandEconomics.compute(w, s2.employed, s2.living, s3.domesticCons)
   private val s5          =
     FirmEconomics.runStep(w, init.firms, init.households, init.banks, init.ledgerFinancialState, s1, s2, s3, s4, RandomStream.seeded(43))
 

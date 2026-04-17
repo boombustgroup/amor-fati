@@ -177,7 +177,7 @@ object LaborDemandProbe:
           s2Pre.newWage,
           contract.stages.householdIncomeEconomics.newStream(),
         )
-      val s4     = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
+      val s4     = DemandEconomics.compute(world, s2Pre.employed, s2Pre.living, s3.domesticCons)
       val s5     = FirmEconomics.runStep(world, firms, hhs, banks, ledgerFinancialState, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
       val s2Post = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, s5.ioFirms.filter(Firm.isAlive), s5.households)
       val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2Post.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
