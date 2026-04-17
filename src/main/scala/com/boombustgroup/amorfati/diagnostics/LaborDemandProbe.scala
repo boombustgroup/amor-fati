@@ -164,8 +164,7 @@ object LaborDemandProbe:
       val beforeAll = sectorSnapshots(firms)
       val hiring    = hiringSummaries(world, firms)
 
-      val fiscal = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
-      val s1     = FiscalConstraintEconomics.toOutput(fiscal)
+      val s1     = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
       val labor  = LaborEconomics.compute(world, firms, hhs, s1)
       val s2Pre  = LaborEconomics.Output(
         labor.wage,

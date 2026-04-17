@@ -41,8 +41,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     val contract             = MonthRandomness.Contract.fromSeed(seed)
     val ledgerFinancialState = init.ledgerFinancialState
 
-    val fiscal = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
-    val s1     = FiscalConstraintEconomics.toOutput(fiscal)
+    val s1     = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
     val labor  = LaborEconomics.compute(world, init.firms, init.households, s1)
     val s2Pre  = LaborEconomics.Output(
       labor.wage,

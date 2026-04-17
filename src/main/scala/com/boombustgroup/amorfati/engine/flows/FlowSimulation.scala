@@ -442,8 +442,7 @@ object FlowSimulation:
     val firms             = stateIn.firms
     val households        = stateIn.households
     val banks             = stateIn.banks
-    val fiscal            = FiscalConstraintEconomics.compute(w, banks, input.executionMonth)
-    val s1                = FiscalConstraintEconomics.toOutput(fiscal)
+    val s1                = FiscalConstraintEconomics.compute(w, banks, input.executionMonth)
     val labor             = LaborEconomics.compute(w, firms, households, s1)
     val s2Pre             = LaborEconomics.Output(
       labor.wage,
@@ -531,11 +530,11 @@ object FlowSimulation:
     val h                 = s9.housingAfterFlows
     val externalFlowBop   = s8.external.flowBop
     val calc              = MonthlyCalculus(
-      month = fiscal.month,
-      resWage = fiscal.resWage,
-      lendingBaseRate = fiscal.lendingBaseRate,
-      baseMinWage = fiscal.baseMinWage,
-      minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
+      month = s1.month,
+      resWage = s1.resWage,
+      lendingBaseRate = s1.lendingBaseRate,
+      baseMinWage = s1.baseMinWage,
+      minWagePriceLevel = s1.updatedMinWagePriceLevel,
       wage = s2.newWage,
       employed = s2.employed,
       laborDemand = s2.laborDemand,

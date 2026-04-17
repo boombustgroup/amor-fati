@@ -75,8 +75,7 @@ object InflationProbe:
     (1 to months).foreach: month =>
       val population        = world.derivedTotalPopulation.max(1)
       val contract          = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
-      val fiscal            = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
-      val s1                = FiscalConstraintEconomics.toOutput(fiscal)
+      val s1                = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
       val labor             = LaborEconomics.compute(world, firms, hhs, s1)
       val prevWage          = toDouble(world.householdMarket.marketWage)
       val rawLaborWage      = toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)

@@ -17,15 +17,6 @@ object FiscalConstraintEconomics:
 
   private val ExpectationsBlendWeight = 0.5
 
-  case class Result(
-      month: ExecutionMonth,
-      baseMinWage: PLN,
-      updatedMinWagePriceLevel: PriceIndex,
-      resWage: PLN,
-      lendingBaseRate: Rate,
-  )
-
-  /** Bridge type — same fields as the deleted FiscalConstraintStep.Output. */
   case class Output(
       month: ExecutionMonth,
       baseMinWage: PLN,
@@ -35,11 +26,8 @@ object FiscalConstraintEconomics:
   ):
     def m: ExecutionMonth = month
 
-  def toOutput(r: Result): Output =
-    Output(r.month, r.baseMinWage, r.updatedMinWagePriceLevel, r.resWage, r.lendingBaseRate)
-
   @boundaryEscape
-  def compute(w: World, banks: Vector[Banking.BankState], month: ExecutionMonth)(using p: SimParams): Result =
+  def compute(w: World, banks: Vector[Banking.BankState], month: ExecutionMonth)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
     val bankAgg = Banking.aggregateFromBanks(banks)
 
@@ -71,4 +59,4 @@ object FiscalConstraintEconomics:
     val lendingBaseRate =
       ExpectationsBlendWeight * rawLendingBaseRate + (1.0 - ExpectationsBlendWeight) * toDouble(w.mechanisms.expectations.expectedRate)
 
-    Result(month, PLN(baseMinWage), updatedMinWagePriceLevel, PLN(resWage), Rate(lendingBaseRate))
+    Output(month, PLN(baseMinWage), updatedMinWagePriceLevel, PLN(resWage), Rate(lendingBaseRate))
