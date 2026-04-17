@@ -68,13 +68,6 @@ object WorldAssemblyEconomics:
       tourismSeasonalFactor: Double,
   )
 
-  private case class EntryStepResult(
-      firms: Vector[Firm.State],
-      firmBirths: Int,
-      netBirths: Int,
-      entrantIds: Set[FirmId],
-  )
-
   private case class StartupStaffingResult(
       firms: Vector[Firm.State],
       households: Vector[Household.State],
@@ -253,22 +246,20 @@ object WorldAssemblyEconomics:
     val (newW, assembledLedgerFinancialState) = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
 
     val postFdiFirms = applyFdiMa(in.s9.reassignedFirms, randomness.fdiMa)
-    val entryStep    =
-      val r = FirmEntry.process(
-        postFdiFirms,
-        newW.real.automationRatio,
-        newW.real.hybridRatio,
-        FirmEntry.LaggedEntrySignals.fromDecisionSignals(seedIn),
-        randomness.firmEntry,
-      )
-      EntryStepResult(r.firms, r.births, r.netBirths, r.entrantIds)
+    val entryStep    = FirmEntry.process(
+      postFdiFirms,
+      newW.real.automationRatio,
+      newW.real.hybridRatio,
+      FirmEntry.LaggedEntrySignals.fromDecisionSignals(seedIn),
+      randomness.firmEntry,
+    )
 
     val startupStaffing = applyStartupStaffing(in, entryStep.firms, in.s9.reassignedHouseholds, randomness.startupStaffing)
 
     // Regional migration: unemployed HH may relocate between NUTS-1 regions
     val postMigHh                 = RegionalMigration(startupStaffing.households, in.s2.regionalWages, randomness.regionalMigration).households
     val finalFirms                = syncStartupStaffing(startupStaffing.firms, postMigHh)
-    val finalFlows                = newW.flows.copy(firmBirths = entryStep.firmBirths, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths)
+    val finalFlows                = newW.flows.copy(firmBirths = entryStep.births, firmDeaths = in.s5.firmDeaths, netFirmBirths = entryStep.netBirths)
     val finalReal                 = newW.real.copy(
       sectoralMobility = newW.real.sectoralMobility.copy(
         crossSectorHires = newW.real.sectoralMobility.crossSectorHires + startupStaffing.crossSectorHires,
@@ -281,7 +272,7 @@ object WorldAssemblyEconomics:
       regionalWages = in.s2.regionalWages,
     )
     val finalLedgerFinancialState = assembledLedgerFinancialState.copy(
-      firms = LedgerFinancialState.registerFirmEntrants(finalFirms, assembledLedgerFinancialState.firms, entryStep.entrantIds),
+      firms = LedgerFinancialState.refreshFirmBalances(finalFirms, assembledLedgerFinancialState.firms),
     )
     PostResult(
       finalW,
