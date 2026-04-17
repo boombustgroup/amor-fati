@@ -265,10 +265,9 @@ object BankingEconomics:
       earmarked = in.s2.newEarmarked,
     )
     val ledgerFinancialState      =
-      in.ledgerFinancialState.copy(
-        households = multi.reassignedHouseholds.map(LedgerFinancialState.householdBalances),
+      in.s7.ledgerFinancialState.copy(
         firms = issuerSettledFirmBalances,
-        banks = LedgerFinancialState.refreshBankBalances(multi.finalBanks, in.ledgerFinancialState.banks, multi.finalBankCorpBondHoldings),
+        banks = LedgerFinancialState.refreshBankBalances(multi.finalBanks, in.s7.ledgerFinancialState.banks, multi.finalBankCorpBondHoldings),
         government = LedgerFinancialState.governmentBalances(newGovWithForeignHoldings),
         foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbp),

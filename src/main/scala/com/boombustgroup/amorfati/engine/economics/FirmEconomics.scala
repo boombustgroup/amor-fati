@@ -645,7 +645,8 @@ object FirmEconomics:
       markupInflation: Rate,
   ): StepOutput =
     val flows                 = fp.flows
-    val ledgerAfterFirmStocks = ledgerFinancialState.copy(
+    val ledgerAfterFirmStocks = in.s3.ledgerFinancialState.copy(
+      households = households.map(LedgerFinancialState.householdBalances),
       firms = LedgerFinancialState.refreshFirmBalances(ioFirms, ledgerFinancialState.firms),
     )
 

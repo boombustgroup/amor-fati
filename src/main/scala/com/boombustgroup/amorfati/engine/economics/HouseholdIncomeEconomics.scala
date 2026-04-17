@@ -38,6 +38,7 @@ object HouseholdIncomeEconomics:
       pitRevenue: PLN,                                // personal income tax collected from households
       importAdj: Share,                               // ER-adjusted import propensity (base * ER elasticity)
       aggUnempBenefit: PLN,                           // aggregate unemployment benefit payments
+      ledgerFinancialState: LedgerFinancialState,     // ledger after household financial stock updates
   )
 
   @boundaryEscape
@@ -98,4 +99,5 @@ object HouseholdIncomeEconomics:
       agg.totalPit,
       importAdj,
       aggUnempBenefit = PLN.Zero,
+      ledgerFinancialState = ledgerFinancialState.copy(households = newHhs.map(LedgerFinancialState.householdBalances)),
     )
