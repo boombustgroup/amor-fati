@@ -489,7 +489,7 @@ object FlowSimulation:
         s4.govPurchases,
         s4.avgDemandMult,
         s4.sectorMults,
-        banks,
+        banks.map(_.loans).sum,
         s5,
       ),
     )

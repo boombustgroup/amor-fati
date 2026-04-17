@@ -63,7 +63,7 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
         govPurchases = s4.govPurchases,
         avgDemandMult = s4.avgDemandMult,
         sectorMults = s4.sectorMults,
-        banks = init.banks,
+        totalSystemLoans = init.banks.map(_.loans).sum,
         s5 = firmStep,
       ),
     )

@@ -892,10 +892,10 @@ object BankingEconomics:
     )
     val reassignedFirms              =
       if anyFailed then
-        in.s7.firms.map: f =>
+        in.s5.ioFirms.map: f =>
           if f.bankId.toInt < afterResolve.length && afterResolve(f.bankId.toInt).failed then f.copy(bankId = absorberId)
           else f
-      else in.s7.firms
+      else in.s5.ioFirms
     val postFailureHh                =
       if anyFailed then
         in.s5.households.map: h =>

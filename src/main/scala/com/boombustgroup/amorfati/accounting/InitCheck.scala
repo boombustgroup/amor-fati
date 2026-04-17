@@ -114,7 +114,7 @@ object InitCheck:
       levelTol,
     )
 
-    val aggLoans     = PLN.fromRaw(banks.map(_.loans.toLong).sum)
+    val aggLoans     = banks.map(_.loans).sum
     val aggLoanCheck = check(
       "Aggregate loans",
       expected = aggLoans,

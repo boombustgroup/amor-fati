@@ -60,7 +60,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
       s4.govPurchases,
       s4.avgDemandMult,
       s4.sectorMults,
-      init.banks,
+      init.banks.map(_.loans).sum,
       s5,
     ),
   )

@@ -19,17 +19,17 @@ import com.boombustgroup.amorfati.types.*
 object PriceEquityEconomics:
 
   case class Input(
-      w: World,                         // current world state
-      month: ExecutionMonth,            // realized simulation month
-      newWage: PLN,                     // new wage from labor market
-      employed: Int,                    // employment count
-      wageGrowth: Coefficient,          // wage growth coefficient
-      domesticCons: PLN,                // domestic component of household consumption
-      govPurchases: PLN,                // constrained government purchases from demand formation
-      avgDemandMult: Multiplier,        // economy-wide average demand multiplier
-      sectorMults: Vector[Multiplier],  // per-sector demand multipliers
-      banks: Vector[Banking.BankState], // explicit bank population
-      s5: FirmEconomics.StepOutput,     // firm processing output
+      w: World,                        // current world state
+      month: ExecutionMonth,           // realized simulation month
+      newWage: PLN,                    // new wage from labor market
+      employed: Int,                   // employment count
+      wageGrowth: Coefficient,         // wage growth coefficient
+      domesticCons: PLN,               // domestic component of household consumption
+      govPurchases: PLN,               // constrained government purchases from demand formation
+      avgDemandMult: Multiplier,       // economy-wide average demand multiplier
+      sectorMults: Vector[Multiplier], // per-sector demand multipliers
+      totalSystemLoans: PLN,           // opening banking-system loan stock used for macroprudential policy
+      s5: FirmEconomics.StepOutput,    // firm processing output
   )
 
   case class Output(
@@ -43,7 +43,6 @@ object PriceEquityEconomics:
       gdp: PLN,
       newMacropru: Macroprudential.State,
       newSigmas: Vector[Sigma],
-      firms: Vector[Firm.State],
       newInfl: Rate,
       newPrice: PriceIndex,
       equityAfterIssuance: EquityMarket.State,
@@ -176,8 +175,7 @@ object PriceEquityEconomics:
     val gdp                =
       in.domesticCons + govGdpContribution + euGdpContribution + in.w.forex.exports + domesticGFCF + aggInventoryChange
 
-    val totalSystemLoans = PLN.fromRaw(in.banks.map(_.loans.toLong).sum)
-    val newMacropru      = Macroprudential.step(in.w.mechanisms.macropru, totalSystemLoans, gdp)
+    val newMacropru = Macroprudential.step(in.w.mechanisms.macropru, in.totalSystemLoans, gdp)
 
     val sectorAdoption = p.sectorDefs.indices.map { s =>
       val secFirms = living2.filter(_.sector.toInt == s)
@@ -191,8 +189,6 @@ object PriceEquityEconomics:
     val baseSigmas     = p.sectorDefs.map(_.sigma).toVector
     val newSigmas      =
       evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
-
-    val firms = in.s5.ioFirms
 
     val exDev    = in.w.forex.exchangeRate.deviationFrom(p.forex.baseExRate)
     val priceUpd = PriceLevel.update(
@@ -244,7 +240,6 @@ object PriceEquityEconomics:
       gdp,
       newMacropru,
       newSigmas,
-      firms,
       newInfl,
       newPrice,
       equityAfterIssuance,

@@ -150,9 +150,9 @@ object Banking:
 
     def compute(banks: Vector[BankState], tfiAum: PLN, corpBondOutstanding: PLN): MonetaryAggregates =
       val alive  = banks.filterNot(_.failed)
-      val m0     = PLN.fromRaw(alive.map(_.reservesAtNbp.toLong).sum)
-      val demand = PLN.fromRaw(alive.map(_.demandDeposits.toLong).sum)
-      val term   = PLN.fromRaw(alive.map(_.termDeposits.toLong).sum)
+      val m0     = alive.map(_.reservesAtNbp).sum
+      val demand = alive.map(_.demandDeposits).sum
+      val term   = alive.map(_.termDeposits).sum
       val m1     = demand
       val m2     = demand + term
       val m3     = m2 + tfiAum + corpBondOutstanding
@@ -374,10 +374,10 @@ object Banking:
     */
   def interbankRate(banks: Vector[BankState], refRate: Rate)(using p: SimParams): Rate =
     val alive       = banks.filterNot(_.failed)
-    val aggNpl      = PLN.fromRaw(alive.map(_.nplAmount.toLong).sum)
-    val aggLoans    = PLN.fromRaw(alive.map(_.loans.toLong).sum)
-    val aggDeposits = PLN.fromRaw(alive.map(_.deposits.toLong).sum)
-    val aggReserves = PLN.fromRaw(alive.map(_.reservesAtNbp.toLong).sum)
+    val aggNpl      = alive.map(_.nplAmount).sum
+    val aggLoans    = alive.map(_.loans).sum
+    val aggDeposits = alive.map(_.deposits).sum
+    val aggReserves = alive.map(_.reservesAtNbp).sum
 
     // Credit stress: NPL ratio relative to stress threshold (0 = healthy, 1 = max stress)
     val aggNplShare  = if aggLoans > MinBalanceThreshold then aggNpl.ratioTo(aggLoans).toShare else Share.Zero
@@ -514,7 +514,7 @@ object Banking:
     val perBank = banks.map: b =>
       if b.failed then PLN.Zero
       else b.deposits * p.banking.bfgLevyRate.monthly
-    PerBankAmounts(perBank, PLN.fromRaw(perBank.map(_.toLong).sum))
+    PerBankAmounts(perBank, perBank.sum)
 
   /** Bail-in: haircut uninsured deposits on failed banks. Deposits below
     * bfgDepositGuarantee are protected.
@@ -527,7 +527,7 @@ object Banking:
         val haircut    = uninsured * p.banking.bailInDepositHaircut
         (b.copy(deposits = b.deposits - haircut), haircut)
       else (b, PLN.Zero)
-    BailInResult(withHaircut.map(_._1), PLN.fromRaw(withHaircut.map(_._2.toLong).sum))
+    BailInResult(withHaircut.map(_._1), withHaircut.map(_._2).sum)
 
   /** BFG P&A resolution: transfer deposits, bonds, performing loans, consumer
     * loans from failed banks to the healthiest surviving bank.
@@ -540,15 +540,15 @@ object Banking:
       val absorberId = healthiestBankId(banks, bankCorpBondHoldingsFromVector(holderBalances))
       val toAbsorb   = newlyFailed.filter(_.id != absorberId)
       // Single-pass PLN aggregation of all flows from failed banks (exact Long addition)
-      val addDep     = PLN.fromRaw(toAbsorb.map(_.deposits.toLong).sum)
-      val addLoans   = PLN.fromRaw(toAbsorb.map(f => (f.loans - f.nplAmount).toLong).sum)
-      val addAfs     = PLN.fromRaw(toAbsorb.map(_.afsBonds.toLong).sum)
-      val addHtm     = PLN.fromRaw(toAbsorb.map(_.htmBonds.toLong).sum)
-      val addCorpB   = PLN.fromRaw(toAbsorb.flatMap(bank => holderBalances.lift(bank.id.toInt)).map(_.toLong).sum)
-      val addCC      = PLN.fromRaw(toAbsorb.map(_.consumerLoans.toLong).sum)
-      val addIB      = PLN.fromRaw(toAbsorb.map(_.interbankNet.toLong).sum)
+      val addDep     = toAbsorb.map(_.deposits).sum
+      val addLoans   = toAbsorb.map(f => f.loans - f.nplAmount).sum
+      val addAfs     = toAbsorb.map(_.afsBonds).sum
+      val addHtm     = toAbsorb.map(_.htmBonds).sum
+      val addCorpB   = toAbsorb.flatMap(bank => holderBalances.lift(bank.id.toInt)).sum
+      val addCC      = toAbsorb.map(_.consumerLoans).sum
+      val addIB      = toAbsorb.map(_.interbankNet).sum
       // Weighted yield: Σ(htmBonds × htmBookYield) — PLN × Rate → PLN
-      val htmYieldWt = PLN.fromRaw(toAbsorb.map(f => (f.htmBonds * f.htmBookYield).toLong).sum)
+      val htmYieldWt = toAbsorb.map(f => f.htmBonds * f.htmBookYield).sum
 
       val resolved          = banks.map: b =>
         if b.id == absorberId then
@@ -686,7 +686,7 @@ object Banking:
     if requested <= PLN.Zero then BondSaleResult(banks, PLN.Zero)
     else
       val eligible   = banks.filter(b => !b.failed && b.govBondHoldings > PLN.Zero)
-      val totalBonds = PLN.fromRaw(eligible.map(_.govBondHoldings.toLong).sum)
+      val totalBonds = eligible.map(_.govBondHoldings).sum
       if totalBonds <= PLN.Zero then BondSaleResult(banks, PLN.Zero)
       else
         val requestedSale  = requested.min(totalBonds)
@@ -796,7 +796,7 @@ object Banking:
   /** Reserve interest for all banks → per-bank amounts + sector total. */
   def computeReserveInterest(banks: Vector[BankState], refRate: Rate)(using SimParams): PerBankAmounts =
     val perBank = banks.map(b => reserveInterest(b, refRate))
-    PerBankAmounts(perBank, PLN.fromRaw(perBank.map(_.toLong).sum))
+    PerBankAmounts(perBank, perBank.sum)
 
   /** Standing facility flows (monthly): deposit rate for excess reserves,
     * lombard rate for borrowers. Always-on — the NBP corridor (ref ± 100 bps)
@@ -810,7 +810,7 @@ object Banking:
       else if b.reservesAtNbp > PLN.Zero then b.reservesAtNbp * depositRate.monthly
       else if b.interbankNet < PLN.Zero then -(b.interbankNet.abs * lombardRate.monthly)
       else PLN.Zero
-    PerBankAmounts(perBank, PLN.fromRaw(perBank.map(_.toLong).sum))
+    PerBankAmounts(perBank, perBank.sum)
 
   /** Interbank interest flows (monthly). Net zero in aggregate (closed system).
     */
@@ -818,4 +818,4 @@ object Banking:
     val perBank = banks.map: b =>
       if b.failed then PLN.Zero
       else b.interbankNet * rate.monthly
-    PerBankAmounts(perBank, PLN.fromRaw(perBank.map(_.toLong).sum))
+    PerBankAmounts(perBank, perBank.sum)
