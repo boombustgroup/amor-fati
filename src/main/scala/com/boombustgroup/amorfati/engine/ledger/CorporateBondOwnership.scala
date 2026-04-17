@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Firm, Insurance, Nbfi}
+import com.boombustgroup.amorfati.agents.Firm
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
 import com.boombustgroup.amorfati.types.*
@@ -107,16 +107,6 @@ object CorporateBondOwnership:
         .collect:
           case ((firm, balance), index) if Firm.isAlive(firm) && balance.corpBond > PLN.Zero => (balance, firm, index)
       reduceDebt(firms, issuers, amortization)
-
-  def alignInsuranceStock(stock: Insurance.StockState, corpBondHoldings: PLN): Insurance.StockState =
-    stock.copy(corpBondHoldings = corpBondHoldings)
-
-  def alignNbfiStock(stock: Nbfi.StockState, corpBondHoldings: PLN): Nbfi.StockState =
-    val cashHoldings = (stock.tfiAum - stock.tfiGovBondHoldings - corpBondHoldings - stock.tfiEquityHoldings).max(PLN.Zero)
-    stock.copy(
-      tfiCorpBondHoldings = corpBondHoldings,
-      tfiCashHoldings = cashHoldings,
-    )
 
   private def allocateDebt(
       firms: Vector[LedgerFinancialState.FirmBalances],

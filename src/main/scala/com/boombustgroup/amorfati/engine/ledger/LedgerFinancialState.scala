@@ -106,16 +106,15 @@ object LedgerFinancialState:
       lifeReserves = ledgerFinancialState.insurance.lifeReserve,
       nonLifeReserves = ledgerFinancialState.insurance.nonLifeReserve,
       govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
-      corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
       equityHoldings = ledgerFinancialState.insurance.equityHoldings,
     )
 
-  def insuranceBalances(insurance: Insurance.StockState): InsuranceBalances =
+  def insuranceBalances(insurance: Insurance.StockState, corpBondHoldings: PLN): InsuranceBalances =
     InsuranceBalances(
       lifeReserve = insurance.lifeReserves,
       nonLifeReserve = insurance.nonLifeReserves,
       govBondHoldings = insurance.govBondHoldings,
-      corpBondHoldings = insurance.corpBondHoldings,
+      corpBondHoldings = corpBondHoldings,
       equityHoldings = insurance.equityHoldings,
     )
 
@@ -123,19 +122,18 @@ object LedgerFinancialState:
     Nbfi.StockState(
       tfiAum = ledgerFinancialState.funds.nbfi.tfiUnit,
       tfiGovBondHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
-      tfiCorpBondHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
       tfiEquityHoldings = ledgerFinancialState.funds.nbfi.equityHoldings,
-      tfiCashHoldings = ledgerFinancialState.funds.nbfi.cashHoldings,
       nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
     )
 
-  def nbfiFundBalances(nbfi: Nbfi.StockState): NbfiFundBalances =
+  def nbfiFundBalances(nbfi: Nbfi.StockState, corpBondHoldings: PLN): NbfiFundBalances =
+    val cashHoldings = (nbfi.tfiAum - nbfi.tfiGovBondHoldings - corpBondHoldings - nbfi.tfiEquityHoldings).max(PLN.Zero)
     NbfiFundBalances(
       tfiUnit = nbfi.tfiAum,
       govBondHoldings = nbfi.tfiGovBondHoldings,
-      corpBondHoldings = nbfi.tfiCorpBondHoldings,
+      corpBondHoldings = corpBondHoldings,
       equityHoldings = nbfi.tfiEquityHoldings,
-      cashHoldings = nbfi.tfiCashHoldings,
+      cashHoldings = cashHoldings,
       nbfiLoanStock = nbfi.nbfiLoanStock,
     )
 
@@ -167,7 +165,7 @@ object LedgerFinancialState:
       fgspCash = social.earmarked.fgspBalance,
       jstCash = social.jst.deposits,
       corpBondOtherHoldings = corporateBonds.otherHoldings,
-      nbfi = nbfiFundBalances(nbfi),
+      nbfi = nbfiFundBalances(nbfi, corporateBonds.nbfiHoldings),
       quasiFiscal = quasiFiscalBalances(quasiFiscal),
     )
 

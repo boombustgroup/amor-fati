@@ -3,8 +3,9 @@ package com.boombustgroup.amorfati.agents
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
-/** Insurance sector: life + non-life reserves, three-asset allocation (gov
-  * bonds, corp bonds, equities). KNF 2024 calibration.
+/** Insurance sector: life + non-life reserves, plus non-corporate-bond
+  * portfolio state. Corporate bond stock is ledger-owned and passed into the
+  * monthly step explicitly.
   */
 object Insurance:
 
@@ -12,16 +13,15 @@ object Insurance:
   private val NonLifeUnempThreshold = 0.05
 
   case class StockState(
-      lifeReserves: PLN,     // life insurance technical reserves
-      nonLifeReserves: PLN,  // non-life insurance technical reserves
-      govBondHoldings: PLN,  // government bond allocation
-      corpBondHoldings: PLN, // corporate bond allocation
-      equityHoldings: PLN,   // equity allocation (GPW)
+      lifeReserves: PLN,    // life insurance technical reserves
+      nonLifeReserves: PLN, // non-life insurance technical reserves
+      govBondHoldings: PLN, // government bond allocation
+      equityHoldings: PLN,  // equity allocation (GPW)
   ):
     def totalReserves: PLN = lifeReserves + nonLifeReserves
 
   object StockState:
-    val zero: StockState = StockState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val zero: StockState = StockState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   case class MonthlyFlowState(
       lastLifePremium: PLN,      // life premium collected this month
@@ -82,7 +82,6 @@ object Insurance:
       lifeReserves = p.ins.lifeReserves,
       nonLifeReserves = p.ins.nonLifeReserves,
       govBondHoldings = totalAssets * p.ins.govBondShare,
-      corpBondHoldings = totalAssets * p.ins.corpBondShare,
       equityHoldings = totalAssets * p.ins.equityShare,
     )
 
@@ -90,9 +89,9 @@ object Insurance:
 
   /** Full monthly step: premiums, claims, investment income, rebalancing.
     *
-    * Corporate bond holdings are settled by CorporateBondMarket, not by the
-    * insurance portfolio target. Insurance only computes income from the
-    * opening stock and receives the closing stock from market settlement.
+    * Corporate bond holdings are settled by CorporateBondMarket and owned by
+    * LedgerFinancialState. Insurance only receives the opening corporate-bond
+    * stock to compute monthly investment income.
     */
   def step(
       prevStock: StockState,
@@ -102,7 +101,7 @@ object Insurance:
       govBondYield: Rate,  // government bond yield (annualised)
       corpBondYield: Rate, // corporate bond yield (annualised)
       equityReturn: Rate,  // equity monthly return
-      settledCorpBondHoldings: PLN,
+      prevCorpBondHoldings: PLN,
       corpBondDefaultLoss: PLN,
   )(using p: SimParams): StepResult =
     // Premiums: proportional to wage bill
@@ -118,7 +117,7 @@ object Insurance:
 
     // Investment income from all three asset classes
     val grossInvestmentIncome = prevStock.govBondHoldings * govBondYield.monthly +
-      prevStock.corpBondHoldings * corpBondYield.monthly +
+      prevCorpBondHoldings * corpBondYield.monthly +
       prevStock.equityHoldings * equityReturn
     val invIncome             = grossInvestmentIncome - corpBondDefaultLoss
 
@@ -152,7 +151,6 @@ object Insurance:
         newLifeRes,
         newNonLifeRes,
         newGov,
-        settledCorpBondHoldings,
         newEq,
       ),
     )

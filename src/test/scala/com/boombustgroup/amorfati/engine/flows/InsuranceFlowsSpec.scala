@@ -50,11 +50,10 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
       lifeReserves = baseInput.currentLifeReserves,
       nonLifeReserves = baseInput.currentNonLifeReserves,
       govBondHoldings = baseInput.prevGovBondHoldings,
-      corpBondHoldings = baseInput.prevCorpBondHoldings,
       equityHoldings = baseInput.prevEquityHoldings,
     )
     val oldIns    =
-      Insurance.step(prevStock, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01), prevStock.corpBondHoldings, PLN.Zero)
+      Insurance.step(prevStock, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01), baseInput.prevCorpBondHoldings, PLN.Zero)
     val flows     = InsuranceFlows.emit(baseInput)
 
     val newLifePrem    = flows.filter(_.mechanism == FlowMechanism.InsLifePremium.toInt).map(_.amount).sum

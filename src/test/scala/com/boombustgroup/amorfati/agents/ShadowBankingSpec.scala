@@ -7,9 +7,11 @@ import com.boombustgroup.amorfati.types.*
 class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
-  given SimParams          = SimParams.defaults
-  private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
+  given SimParams                          = SimParams.defaults
+  private val p: SimParams                 = summon[SimParams]
+  private val td                           = ComputationBoundary
+  private def initialCorpBondHoldings: PLN =
+    p.nbfi.tfiInitAum * p.nbfi.tfiCorpBondShare
 
   private def mkStep(
       prevStock: Nbfi.StockState = Nbfi.initialStock,
@@ -23,7 +25,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       equityReturn: Rate = Rate(0.005),
       depositRate: Rate = Rate(0.03),
       domesticCons: PLN = PLN(1e8),
-      settledCorpBondHoldings: Option[PLN] = None,
+      prevCorpBondHoldings: PLN = initialCorpBondHoldings,
       corpBondDefaultLoss: PLN = PLN.Zero,
   ): Nbfi.StepResult =
     Nbfi.step(
@@ -38,7 +40,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       equityReturn,
       depositRate,
       domesticCons,
-      settledCorpBondHoldings.getOrElse(prevStock.tfiCorpBondHoldings),
+      prevCorpBondHoldings,
       corpBondDefaultLoss,
     )
 
@@ -58,9 +60,7 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
     val z = Nbfi.StockState.zero
     z.tfiAum shouldBe PLN.Zero
     z.tfiGovBondHoldings shouldBe PLN.Zero
-    z.tfiCorpBondHoldings shouldBe PLN.Zero
     z.tfiEquityHoldings shouldBe PLN.Zero
-    z.tfiCashHoldings shouldBe PLN.Zero
     z.nbfiLoanStock shouldBe PLN.Zero
   }
 
@@ -74,21 +74,9 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
     td.toDouble(init.tfiGovBondHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiGovBondShare)) +- 1.0
   }
 
-  it should "allocate corp bonds at target share" in {
-    val init = Nbfi.initialStock
-    td.toDouble(init.tfiCorpBondHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiCorpBondShare)) +- 1.0
-  }
-
   it should "allocate equities at target share" in {
     val init = Nbfi.initialStock
     td.toDouble(init.tfiEquityHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiEquityShare)) +- 1.0
-  }
-
-  it should "allocate residual to cash" in {
-    val init         = Nbfi.initialStock
-    val expectedCash = td.toDouble(p.nbfi.tfiInitAum) *
-      (1.0 - td.toDouble(p.nbfi.tfiGovBondShare) - td.toDouble(p.nbfi.tfiCorpBondShare) - td.toDouble(p.nbfi.tfiEquityShare))
-    td.toDouble(init.tfiCashHoldings) shouldBe expectedCash +- 1.0
   }
 
   it should "have correct initial loan stock" in {
@@ -202,6 +190,12 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
     withLoss.tfiAum shouldBe noDefault.tfiAum - PLN(1000.0)
   }
 
+  it should "include opening ledger corporate bond holdings in AUM return" in {
+    val withoutCorp = mkStep(prevCorpBondHoldings = PLN.Zero).stock
+    val withCorp    = mkStep(prevCorpBondHoldings = PLN(120000.0)).stock
+    withCorp.tfiAum shouldBe withoutCorp.tfiAum + PLN(120000.0) * Rate(0.07).monthly
+  }
+
   it should "produce deposit drain equal to negative inflow" in {
     val result = mkStep().state
     td.toDouble(result.lastDepositDrain) shouldBe -td.toDouble(result.lastTfiNetInflow) +- 0.01
@@ -219,19 +213,11 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
     val offTarget = Nbfi.StockState(
       tfiAum = PLN(1000000.0),
       tfiGovBondHoldings = PLN.Zero,
-      tfiCorpBondHoldings = PLN.Zero,
       tfiEquityHoldings = PLN.Zero,
-      tfiCashHoldings = PLN(1000000.0),
       nbfiLoanStock = PLN(100000.0),
     )
     val result    = mkStep(prevStock = offTarget).stock
     result.tfiGovBondHoldings should be > PLN.Zero
-  }
-
-  it should "take TFI corpBondHoldings from corporate bond market settlement" in {
-    val settled = PLN(123456.0)
-    val result  = mkStep(settledCorpBondHoldings = Some(settled)).stock
-    result.tfiCorpBondHoldings shouldBe settled
   }
 
   it should "increase origination when bank NPL is high (counter-cyclical)" in {

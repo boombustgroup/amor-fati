@@ -55,8 +55,8 @@ object WorldInit:
     val initDemographics   = DemographicsInit.create(totalPop)
     val initInsurance      = InsuranceInit.create()
     val initNbfi           = NbfiInit.create()
-    val initInsuranceStock = CorporateBondOwnership.alignInsuranceStock(Insurance.initialStock, initCorporateBondStocks.insuranceHoldings)
-    val initNbfiStock      = CorporateBondOwnership.alignNbfiStock(Nbfi.initialStock, initCorporateBondStocks.nbfiHoldings)
+    val initInsuranceStock = Insurance.initialStock
+    val initNbfiStock      = Nbfi.initialStock
     val initExpectations   = ExpectationsInit.create()
     val initInflation      = p.monetary.targetInfl
 
@@ -188,7 +188,7 @@ object WorldInit:
       government = LedgerFinancialState.governmentBalances(world.gov),
       foreign = LedgerFinancialState.foreignBalances(world.gov),
       nbp = LedgerFinancialState.nbpBalances(world.nbp),
-      insurance = LedgerFinancialState.insuranceBalances(initInsuranceStock),
+      insurance = LedgerFinancialState.insuranceBalances(initInsuranceStock, initCorporateBondStocks.insuranceHoldings),
       funds = LedgerFinancialState.fundBalances(world.social, initCorporateBondStocks, initNbfiStock, QuasiFiscal.StockState.zero),
     )
 

@@ -8,9 +8,11 @@ import com.boombustgroup.amorfati.types.*
 class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
-  given SimParams          = SimParams.defaults
-  private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
+  given SimParams                          = SimParams.defaults
+  private val p: SimParams                 = summon[SimParams]
+  private val td                           = ComputationBoundary
+  private def initialCorpBondHoldings: PLN =
+    (p.ins.lifeReserves + p.ins.nonLifeReserves) * p.ins.corpBondShare
 
   private def mkStep(
       prevStock: Insurance.StockState = Insurance.initialStock,
@@ -20,7 +22,7 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
       govBondYield: Rate = Rate(0.06),
       corpBondYield: Rate = Rate(0.08),
       equityReturn: Rate = Rate(0.005),
-      settledCorpBondHoldings: Option[PLN] = None,
+      prevCorpBondHoldings: PLN = initialCorpBondHoldings,
       corpBondDefaultLoss: PLN = PLN.Zero,
   ): Insurance.StepResult =
     Insurance.step(
@@ -31,7 +33,7 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
       govBondYield,
       corpBondYield,
       equityReturn,
-      settledCorpBondHoldings.getOrElse(prevStock.corpBondHoldings),
+      prevCorpBondHoldings,
       corpBondDefaultLoss,
     )
 
@@ -50,7 +52,6 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     z.lifeReserves shouldBe PLN.Zero
     z.nonLifeReserves shouldBe PLN.Zero
     z.govBondHoldings shouldBe PLN.Zero
-    z.corpBondHoldings shouldBe PLN.Zero
     z.equityHoldings shouldBe PLN.Zero
   }
 
@@ -68,12 +69,6 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     val s           = Insurance.initialStock
     val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
     td.toDouble(s.govBondHoldings) shouldBe (totalAssets * td.toDouble(p.ins.govBondShare) +- 1.0)
-  }
-
-  it should "have corpBondHoldings = totalAssets * corpBondShare" in {
-    val s           = Insurance.initialStock
-    val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
-    td.toDouble(s.corpBondHoldings) shouldBe (totalAssets * td.toDouble(p.ins.corpBondShare) +- 1.0)
   }
 
   it should "have equityHoldings = totalAssets * equityShare" in {
@@ -125,8 +120,14 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     withLoss.lastInvestmentIncome shouldBe noDefault.lastInvestmentIncome - PLN(1000.0)
   }
 
+  it should "include opening ledger corporate bond holdings in investment income" in {
+    val withoutCorp = mkStep(prevCorpBondHoldings = PLN.Zero).state
+    val withCorp    = mkStep(prevCorpBondHoldings = PLN(120000.0)).state
+    withCorp.lastInvestmentIncome shouldBe withoutCorp.lastInvestmentIncome + PLN(120000.0) * Rate(0.08).monthly
+  }
+
   it should "compute zero investment income with zero holdings" in {
-    val r = mkStep(prevStock = Insurance.StockState.zero).state
+    val r = mkStep(prevStock = Insurance.StockState.zero, prevCorpBondHoldings = PLN.Zero).state
     r.lastInvestmentIncome shouldBe PLN.Zero
   }
 
@@ -160,14 +161,15 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     r.equityHoldings should be > PLN.Zero
   }
 
-  it should "take corpBondHoldings from corporate bond market settlement" in {
-    val settled = PLN(123456.0)
-    val r       = mkStep(settledCorpBondHoldings = Some(settled)).stock
-    r.corpBondHoldings shouldBe settled
-  }
-
   it should "be idempotent from zero state with zero employment" in {
-    val r = mkStep(prevStock = Insurance.StockState.zero, employed = 0, govBondYield = Rate.Zero, corpBondYield = Rate.Zero, equityReturn = Rate.Zero).state
+    val r = mkStep(
+      prevStock = Insurance.StockState.zero,
+      employed = 0,
+      govBondYield = Rate.Zero,
+      corpBondYield = Rate.Zero,
+      equityReturn = Rate.Zero,
+      prevCorpBondHoldings = PLN.Zero,
+    ).state
     r.lastLifePremium shouldBe PLN.Zero
     r.lastNonLifePremium shouldBe PLN.Zero
     r.lastLifeClaims shouldBe PLN.Zero

@@ -54,9 +54,9 @@ object BankingEconomics:
       finalNbp: Nbp.State,                           // NBP state after QE bond purchase (waterfall)
       finalPpk: SocialSecurity.PpkState,             // PPK state after bond purchases
       finalInsurance: Insurance.State,               // insurance monthly state
-      finalInsuranceStock: Insurance.StockState,     // insurance ledger-owned closing stock
+      finalInsuranceStock: Insurance.StockState,     // insurance non-corporate-bond closing stock
       finalNbfi: Nbfi.State,                         // NBFI/TFI monthly state
-      finalNbfiStock: Nbfi.StockState,               // NBFI/TFI ledger-owned closing stock
+      finalNbfiStock: Nbfi.StockState,               // NBFI/TFI non-corporate-bond closing stock
       newGovWithYield: FiscalBudget.GovState,        // gov state with updated bond yield
       newJst: Jst.State,                             // local government state
       housingAfterFlows: HousingMarket.State,        // housing market after mortgage flows
@@ -135,9 +135,9 @@ object BankingEconomics:
       finalNbp: Nbp.State,                           // NBP after QE bond purchase (govBondHoldings updated)
       finalPpk: SocialSecurity.PpkState,             // PPK after bond purchase
       finalInsurance: Insurance.State,               // insurance monthly state after non-bank step
-      finalInsuranceStock: Insurance.StockState,     // insurance stock after bond purchase
+      finalInsuranceStock: Insurance.StockState,     // insurance stock after government-bond purchase
       finalNbfi: Nbfi.State,                         // NBFI/TFI monthly state after non-bank step
-      finalNbfiStock: Nbfi.StockState,               // NBFI/TFI stock after bond purchase
+      finalNbfiStock: Nbfi.StockState,               // NBFI/TFI stock after government-bond purchase
       actualBondChange: PLN,                         // net change in gov bonds outstanding
       standingFacilityBackstop: PLN,                 // reserve shortfall funded by explicit NBP standing-facility backstop
       foreignBondHoldings: PLN,                      // non-resident holdings after auction
@@ -272,7 +272,7 @@ object BankingEconomics:
         government = LedgerFinancialState.governmentBalances(newGovWithForeignHoldings),
         foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbp),
-        insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceStock),
+        insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceStock, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
         funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfiStock, quasiFiscalStep.stock),
       )
     val monAgg                    = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)

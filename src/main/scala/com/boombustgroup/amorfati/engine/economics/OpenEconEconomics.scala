@@ -301,7 +301,7 @@ object OpenEconEconomics:
       marketYield,
       corpBondStep.state.corpBondYield,
       in.equityReturn,
-      corpBondStep.stock.insuranceHoldings,
+      in.ledgerFinancialState.insurance.corpBondHoldings,
       corpDefaults.insuranceLoss,
     )
 
@@ -448,7 +448,6 @@ object OpenEconEconomics:
       in,
       bondQe.marketYield,
       corpBonds.newCorpBonds.corpBondYield,
-      corpBonds.newCorpBondStock.insuranceHoldings,
       corpBonds.corpBondInsuranceDefaultLoss,
     )
     val nbfi          = runStepNbfi(
@@ -457,7 +456,6 @@ object OpenEconEconomics:
       bondQe.postFxNbp,
       bondQe.marketYield,
       corpBonds.newCorpBonds.corpBondYield,
-      corpBonds.newCorpBondStock.nbfiHoldings,
       corpBonds.corpBondNbfiDefaultLoss,
     )
 
@@ -705,7 +703,6 @@ object OpenEconEconomics:
       in: StepInput,
       newBondYield: Rate,
       newCorpBondYield: Rate,
-      settledCorpBondHoldings: PLN,
       corpBondDefaultLoss: PLN,
   )(using p: SimParams): InsuranceResult =
     val unempRate          = in.w.unemploymentRate(in.s2.employed)
@@ -719,7 +716,7 @@ object OpenEconEconomics:
         newBondYield,
         newCorpBondYield,
         in.w.financialMarkets.equity.monthlyReturn,
-        settledCorpBondHoldings,
+        in.ledgerFinancialState.insurance.corpBondHoldings,
         corpBondDefaultLoss,
       )
     InsuranceResult(insuranceStep.state, insuranceStep.stock)
@@ -730,7 +727,6 @@ object OpenEconEconomics:
       postFxNbp: Nbp.State,
       newBondYield: Rate,
       newCorpBondYield: Rate,
-      settledCorpBondHoldings: PLN,
       corpBondDefaultLoss: PLN,
   )(using p: SimParams): NbfiResult =
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
@@ -749,7 +745,7 @@ object OpenEconEconomics:
         in.w.financialMarkets.equity.monthlyReturn,
         nbfiDepositRate,
         in.s3.domesticCons,
-        settledCorpBondHoldings,
+        in.ledgerFinancialState.funds.nbfi.corpBondHoldings,
         corpBondDefaultLoss,
       )
     NbfiResult(nbfiStep.state, nbfiStep.stock)

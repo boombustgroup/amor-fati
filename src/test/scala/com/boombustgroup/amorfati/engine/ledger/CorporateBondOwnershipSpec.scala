@@ -1,7 +1,9 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
+import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -17,6 +19,31 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
     val holderStock = CorporateBondOwnership.holderOutstanding(FlowSimulation.SimState.fromInit(init).ledgerFinancialState)
 
     issuerStock shouldBe holderStock
+  }
+
+  it should "initialize insurance and NBFI holder stocks from the corporate bond market only" in {
+    val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val marketStock = CorporateBondMarket.initialStock
+    val ledger      = init.ledgerFinancialState
+    val nbfi        = ledger.funds.nbfi
+
+    ledger.insurance.corpBondHoldings shouldBe marketStock.insuranceHoldings
+    nbfi.corpBondHoldings shouldBe marketStock.nbfiHoldings
+    nbfi.cashHoldings shouldBe (nbfi.tfiUnit - nbfi.govBondHoldings - nbfi.corpBondHoldings - nbfi.equityHoldings).max(PLN.Zero)
+    nbfi.govBondHoldings + nbfi.corpBondHoldings + nbfi.equityHoldings + nbfi.cashHoldings shouldBe nbfi.tfiUnit
+  }
+
+  it should "keep insurance and NBFI holder buckets ledger-owned after a simulation step" in {
+    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state     = FlowSimulation.SimState.fromInit(init)
+    val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
+    val ledger    = nextState.ledgerFinancialState
+    val stock     = LedgerBoundaryProjection.corporateBondStock(ledger)
+    val nbfi      = ledger.funds.nbfi
+
+    stock.insuranceHoldings shouldBe ledger.insurance.corpBondHoldings
+    stock.nbfiHoldings shouldBe nbfi.corpBondHoldings
+    nbfi.cashHoldings shouldBe (nbfi.tfiUnit - nbfi.govBondHoldings - nbfi.corpBondHoldings - nbfi.equityHoldings).max(PLN.Zero)
   }
 
   it should "project stock from ledger issuer and holder balances" in {

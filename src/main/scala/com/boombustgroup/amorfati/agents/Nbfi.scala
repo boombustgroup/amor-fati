@@ -23,16 +23,14 @@ object Nbfi:
   // ---------------------------------------------------------------------------
 
   case class StockState(
-      tfiAum: PLN,              // total assets under management
-      tfiGovBondHoldings: PLN,  // gov bonds (target share)
-      tfiCorpBondHoldings: PLN, // corp bonds (target share)
-      tfiEquityHoldings: PLN,   // equities (target share)
-      tfiCashHoldings: PLN,     // cash/money market (residual)
-      nbfiLoanStock: PLN,       // outstanding NBFI loans
+      tfiAum: PLN,             // total assets under management
+      tfiGovBondHoldings: PLN, // gov bonds (target share)
+      tfiEquityHoldings: PLN,  // equities (target share)
+      nbfiLoanStock: PLN,      // outstanding NBFI loans
   )
 
   object StockState:
-    val zero: StockState = StockState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val zero: StockState = StockState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   case class FlowState(
       lastTfiNetInflow: PLN,       // HH net fund purchases this month
@@ -95,9 +93,7 @@ object Nbfi:
     StockState(
       tfiAum = aum,
       tfiGovBondHoldings = aum * p.nbfi.tfiGovBondShare,
-      tfiCorpBondHoldings = aum * p.nbfi.tfiCorpBondShare,
       tfiEquityHoldings = aum * p.nbfi.tfiEquityShare,
-      tfiCashHoldings = aum * (Share.One - p.nbfi.tfiGovBondShare - p.nbfi.tfiCorpBondShare - p.nbfi.tfiEquityShare),
       nbfiLoanStock = p.nbfi.creditInitStock,
     )
 
@@ -148,9 +144,9 @@ object Nbfi:
   /** Full monthly step: TFI inflow → investment income → rebalance; NBFI credit
     * flows.
     *
-    * Corporate bond holdings are settled by CorporateBondMarket. TFI computes
-    * income from the opening stock and receives the closing corporate-bond
-    * stock from market settlement.
+    * Corporate bond holdings are settled by CorporateBondMarket and owned by
+    * LedgerFinancialState. TFI receives the opening stock for income; residual
+    * cash is derived later by the ledger from the settled closing stock.
     */
   def step(
       prevStock: StockState,
@@ -164,13 +160,13 @@ object Nbfi:
       equityReturn: Rate,                              // equity monthly return
       depositRate: Rate,                               // bank deposit rate (TFI opportunity cost)
       domesticCons: PLN,                               // domestic consumption (NBFI credit base)
-      settledCorpBondHoldings: PLN,
+      prevCorpBondHoldings: PLN,
       corpBondDefaultLoss: PLN,
   )(using p: SimParams): StepResult =
     // TFI: inflow + investment income + rebalance
     val netInflow             = tfiInflow(employed, wage, equityReturn, govBondYield, depositRate)
     val grossInvestmentIncome = prevStock.tfiGovBondHoldings * govBondYield.monthly +
-      prevStock.tfiCorpBondHoldings * corpBondYield.monthly +
+      prevCorpBondHoldings * corpBondYield.monthly +
       prevStock.tfiEquityHoldings * equityReturn
     val invIncome             = grossInvestmentIncome - corpBondDefaultLoss
     val newAum                = (prevStock.tfiAum + netInflow + invIncome).max(PLN.Zero)
@@ -181,7 +177,6 @@ object Nbfi:
     val targetEq  = newAum * p.nbfi.tfiEquityShare
     val newGov    = prevStock.tfiGovBondHoldings + (targetGov - prevStock.tfiGovBondHoldings) * s
     val newEq     = prevStock.tfiEquityHoldings + (targetEq - prevStock.tfiEquityHoldings) * s
-    val newCash   = (newAum - newGov - settledCorpBondHoldings - newEq).max(PLN.Zero)
 
     // Deposit drain: HH buys fund units → deposits decrease
     val depositDrain = -netInflow
@@ -207,9 +202,7 @@ object Nbfi:
       stock = StockState(
         tfiAum = newAum,
         tfiGovBondHoldings = newGov,
-        tfiCorpBondHoldings = settledCorpBondHoldings,
         tfiEquityHoldings = newEq,
-        tfiCashHoldings = newCash,
         nbfiLoanStock = newLoanStock,
       ),
     )
