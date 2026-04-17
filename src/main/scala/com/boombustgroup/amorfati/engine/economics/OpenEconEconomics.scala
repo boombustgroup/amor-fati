@@ -122,10 +122,10 @@ object OpenEconEconomics:
 
   case class NonBankFinancials(
       newInsurance: Insurance.State,
-      newInsuranceStock: Insurance.StockState,
+      newInsuranceBalances: Insurance.ClosingBalances,
       insNetDepositChange: PLN,
       newNbfi: Nbfi.State,
-      newNbfiStock: Nbfi.StockState,
+      newNbfiBalances: Nbfi.ClosingBalances,
       nbfiDepositDrain: PLN,
   )
 
@@ -291,18 +291,18 @@ object OpenEconEconomics:
     val corpDefaults      = CorporateBondMarket.processDefaults(prevCorpBondStock, in.totalBondDefault)
 
     // 8. Insurance
-    val unempRate          = in.w.unemploymentRate(in.employed)
-    val prevInsuranceStock = LedgerFinancialState.insuranceStock(in.ledgerFinancialState)
-    val insuranceStep      = Insurance.step(
-      prevInsuranceStock,
-      in.employed,
-      in.newWage,
-      unempRate,
-      marketYield,
-      corpBondStep.state.corpBondYield,
-      in.equityReturn,
-      in.ledgerFinancialState.insurance.corpBondHoldings,
-      corpDefaults.insuranceLoss,
+    val unempRate     = in.w.unemploymentRate(in.employed)
+    val insuranceStep = Insurance.step(
+      Insurance.StepInput(
+        opening = LedgerFinancialState.insuranceOpeningBalances(in.ledgerFinancialState),
+        employed = in.employed,
+        wage = in.newWage,
+        unempRate = unempRate,
+        govBondYield = marketYield,
+        corpBondYield = corpBondStep.state.corpBondYield,
+        equityReturn = in.equityReturn,
+        corpBondDefaultLoss = corpDefaults.insuranceLoss,
+      ),
     )
 
     Result(
@@ -433,8 +433,8 @@ object OpenEconEconomics:
       postFxNbp: Nbp.State,
   )
 
-  private case class InsuranceResult(state: Insurance.State, stock: Insurance.StockState)
-  private case class NbfiResult(state: Nbfi.State, stock: Nbfi.StockState)
+  private case class InsuranceResult(state: Insurance.State, closing: Insurance.ClosingBalances)
+  private case class NbfiResult(state: Nbfi.State, closing: Nbfi.ClosingBalances)
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
     val bankAgg       = Banking.aggregateFromBanks(in.banks, bankId => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId))
@@ -487,10 +487,10 @@ object OpenEconEconomics:
       corpBonds = corpBonds,
       nonBank = NonBankFinancials(
         newInsurance = insurance.state,
-        newInsuranceStock = insurance.stock,
+        newInsuranceBalances = insurance.closing,
         insNetDepositChange = insurance.state.lastNetDepositChange,
         newNbfi = nbfi.state,
-        newNbfiStock = nbfi.stock,
+        newNbfiBalances = nbfi.closing,
         nbfiDepositDrain = nbfi.state.lastDepositDrain,
       ),
     )
@@ -705,21 +705,21 @@ object OpenEconEconomics:
       newCorpBondYield: Rate,
       corpBondDefaultLoss: PLN,
   )(using p: SimParams): InsuranceResult =
-    val unempRate          = in.w.unemploymentRate(in.s2.employed)
-    val prevInsuranceStock = LedgerFinancialState.insuranceStock(in.ledgerFinancialState)
-    val insuranceStep      =
+    val unempRate     = in.w.unemploymentRate(in.s2.employed)
+    val insuranceStep =
       Insurance.step(
-        prevInsuranceStock,
-        in.s2.employed,
-        in.s2.newWage,
-        unempRate,
-        newBondYield,
-        newCorpBondYield,
-        in.w.financialMarkets.equity.monthlyReturn,
-        in.ledgerFinancialState.insurance.corpBondHoldings,
-        corpBondDefaultLoss,
+        Insurance.StepInput(
+          opening = LedgerFinancialState.insuranceOpeningBalances(in.ledgerFinancialState),
+          employed = in.s2.employed,
+          wage = in.s2.newWage,
+          unempRate = unempRate,
+          govBondYield = newBondYield,
+          corpBondYield = newCorpBondYield,
+          equityReturn = in.w.financialMarkets.equity.monthlyReturn,
+          corpBondDefaultLoss = corpBondDefaultLoss,
+        ),
       )
-    InsuranceResult(insuranceStep.state, insuranceStep.stock)
+    InsuranceResult(insuranceStep.state, insuranceStep.closing)
 
   private def runStepNbfi(
       in: StepInput,
@@ -731,21 +731,21 @@ object OpenEconEconomics:
   )(using p: SimParams): NbfiResult =
     val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
-    val prevNbfiStock   = LedgerFinancialState.nbfiStock(in.ledgerFinancialState)
     val nbfiStep        =
       Nbfi.step(
-        prevNbfiStock,
-        in.s2.employed,
-        in.s2.newWage,
-        in.w.priceLevel,
-        nbfiUnempRate,
-        bankAgg.nplRatio,
-        newBondYield,
-        newCorpBondYield,
-        in.w.financialMarkets.equity.monthlyReturn,
-        nbfiDepositRate,
-        in.s3.domesticCons,
-        in.ledgerFinancialState.funds.nbfi.corpBondHoldings,
-        corpBondDefaultLoss,
+        Nbfi.StepInput(
+          opening = LedgerFinancialState.nbfiOpeningBalances(in.ledgerFinancialState),
+          employed = in.s2.employed,
+          wage = in.s2.newWage,
+          priceLevel = in.w.priceLevel,
+          unempRate = nbfiUnempRate,
+          bankNplRatio = bankAgg.nplRatio,
+          govBondYield = newBondYield,
+          corpBondYield = newCorpBondYield,
+          equityReturn = in.w.financialMarkets.equity.monthlyReturn,
+          depositRate = nbfiDepositRate,
+          domesticCons = in.s3.domesticCons,
+          corpBondDefaultLoss = corpBondDefaultLoss,
+        ),
       )
-    NbfiResult(nbfiStep.state, nbfiStep.stock)
+    NbfiResult(nbfiStep.state, nbfiStep.closing)

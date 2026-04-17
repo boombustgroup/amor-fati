@@ -45,16 +45,28 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
     balances(InsuranceFlows.INS_ACCOUNT) shouldBe (premiums - claims + invIncome)
   }
 
-  it should "match old Insurance.step premium and claim amounts" in {
-    val prevStock = Insurance.StockState(
+  it should "match Insurance.step premium and claim amounts" in {
+    val opening = Insurance.OpeningBalances(
       lifeReserves = baseInput.currentLifeReserves,
       nonLifeReserves = baseInput.currentNonLifeReserves,
       govBondHoldings = baseInput.prevGovBondHoldings,
+      corpBondHoldings = baseInput.prevCorpBondHoldings,
       equityHoldings = baseInput.prevEquityHoldings,
     )
-    val oldIns    =
-      Insurance.step(prevStock, 80000, PLN(7000.0), Share(0.05), Rate(0.06), Rate(0.08), Rate(0.01), baseInput.prevCorpBondHoldings, PLN.Zero)
-    val flows     = InsuranceFlows.emit(baseInput)
+    val oldIns  =
+      Insurance.step(
+        Insurance.StepInput(
+          opening = opening,
+          employed = 80000,
+          wage = PLN(7000.0),
+          unempRate = Share(0.05),
+          govBondYield = Rate(0.06),
+          corpBondYield = Rate(0.08),
+          equityReturn = Rate(0.01),
+          corpBondDefaultLoss = PLN.Zero,
+        ),
+      )
+    val flows   = InsuranceFlows.emit(baseInput)
 
     val newLifePrem    = flows.filter(_.mechanism == FlowMechanism.InsLifePremium.toInt).map(_.amount).sum
     val newNonLifePrem = flows.filter(_.mechanism == FlowMechanism.InsNonLifePremium.toInt).map(_.amount).sum

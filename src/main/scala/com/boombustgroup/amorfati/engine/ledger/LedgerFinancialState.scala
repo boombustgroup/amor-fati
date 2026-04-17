@@ -101,15 +101,16 @@ object LedgerFinancialState:
       foreignAssets = nbp.fxReserves,
     )
 
-  def insuranceStock(ledgerFinancialState: LedgerFinancialState): Insurance.StockState =
-    Insurance.StockState(
+  def insuranceOpeningBalances(ledgerFinancialState: LedgerFinancialState): Insurance.OpeningBalances =
+    Insurance.OpeningBalances(
       lifeReserves = ledgerFinancialState.insurance.lifeReserve,
       nonLifeReserves = ledgerFinancialState.insurance.nonLifeReserve,
       govBondHoldings = ledgerFinancialState.insurance.govBondHoldings,
+      corpBondHoldings = ledgerFinancialState.insurance.corpBondHoldings,
       equityHoldings = ledgerFinancialState.insurance.equityHoldings,
     )
 
-  def insuranceBalances(insurance: Insurance.StockState, corpBondHoldings: PLN): InsuranceBalances =
+  def insuranceBalances(insurance: Insurance.ClosingBalances, corpBondHoldings: PLN): InsuranceBalances =
     InsuranceBalances(
       lifeReserve = insurance.lifeReserves,
       nonLifeReserve = insurance.nonLifeReserves,
@@ -118,15 +119,16 @@ object LedgerFinancialState:
       equityHoldings = insurance.equityHoldings,
     )
 
-  def nbfiStock(ledgerFinancialState: LedgerFinancialState): Nbfi.StockState =
-    Nbfi.StockState(
+  def nbfiOpeningBalances(ledgerFinancialState: LedgerFinancialState): Nbfi.OpeningBalances =
+    Nbfi.OpeningBalances(
       tfiAum = ledgerFinancialState.funds.nbfi.tfiUnit,
       tfiGovBondHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
+      corpBondHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
       tfiEquityHoldings = ledgerFinancialState.funds.nbfi.equityHoldings,
       nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
     )
 
-  def nbfiFundBalances(nbfi: Nbfi.StockState, corpBondHoldings: PLN): NbfiFundBalances =
+  def nbfiFundBalances(nbfi: Nbfi.ClosingBalances, corpBondHoldings: PLN): NbfiFundBalances =
     val cashHoldings = (nbfi.tfiAum - nbfi.tfiGovBondHoldings - corpBondHoldings - nbfi.tfiEquityHoldings).max(PLN.Zero)
     NbfiFundBalances(
       tfiUnit = nbfi.tfiAum,
@@ -152,7 +154,7 @@ object LedgerFinancialState:
   def fundBalances(
       social: SocialState,
       corporateBonds: CorporateBondMarket.StockState,
-      nbfi: Nbfi.StockState,
+      nbfi: Nbfi.ClosingBalances,
       quasiFiscal: QuasiFiscal.StockState,
   ): FundBalances =
     FundBalances(

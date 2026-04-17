@@ -52,16 +52,16 @@ object WorldInit:
         .toVector
 
     // --- Sub-state initializers ---
-    val initDemographics   = DemographicsInit.create(totalPop)
-    val initInsurance      = InsuranceInit.create()
-    val initNbfi           = NbfiInit.create()
-    val initInsuranceStock = Insurance.initialStock
-    val initNbfiStock      = Nbfi.initialStock
-    val initExpectations   = ExpectationsInit.create()
-    val initInflation      = p.monetary.targetInfl
+    val initDemographics      = DemographicsInit.create(totalPop)
+    val initInsuranceState    = InsuranceInit.create()
+    val initNbfiState         = NbfiInit.create()
+    val initInsuranceBalances = Insurance.initialBalances
+    val initNbfiBalances      = Nbfi.initialBalances
+    val initExpectations      = ExpectationsInit.create()
+    val initInflation         = p.monetary.targetInfl
 
     val initBondsOutstanding = p.banking.initGovBonds + p.banking.initNbpGovBonds +
-      initInsuranceStock.govBondHoldings + initNbfiStock.tfiGovBondHoldings
+      initInsuranceBalances.govBondHoldings + initNbfiBalances.tfiGovBondHoldings
 
     // --- Steady-state gross investment ---
     val initGrossInvestment = PLN.fromRaw(firms.map(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toLong).sum)
@@ -152,8 +152,8 @@ object WorldInit:
       financialMarkets = FinancialMarketsState(
         equity = EquityMarket.initial,
         corporateBonds = initCorporateBonds,
-        insurance = initInsurance,
-        nbfi = initNbfi,
+        insurance = initInsuranceState,
+        nbfi = initNbfiState,
         quasiFiscal = QuasiFiscal.State.zero,
       ),
       external = ExternalState(
@@ -188,8 +188,8 @@ object WorldInit:
       government = LedgerFinancialState.governmentBalances(world.gov),
       foreign = LedgerFinancialState.foreignBalances(world.gov),
       nbp = LedgerFinancialState.nbpBalances(world.nbp),
-      insurance = LedgerFinancialState.insuranceBalances(initInsuranceStock, initCorporateBondStocks.insuranceHoldings),
-      funds = LedgerFinancialState.fundBalances(world.social, initCorporateBondStocks, initNbfiStock, QuasiFiscal.StockState.zero),
+      insurance = LedgerFinancialState.insuranceBalances(initInsuranceBalances, initCorporateBondStocks.insuranceHoldings),
+      funds = LedgerFinancialState.fundBalances(world.social, initCorporateBondStocks, initNbfiBalances, QuasiFiscal.StockState.zero),
     )
 
     InitResult(world, firms, households, initBankingSector.banks, initHhAgg, ledgerFinancialState)

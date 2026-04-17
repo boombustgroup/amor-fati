@@ -46,45 +46,45 @@ object BankingEconomics:
   )
 
   case class StepOutput(
-      resolvedBank: Banking.Aggregate,               // aggregate bank balance sheet after resolution
-      banks: Vector[Banking.BankState],              // explicit post-step bank population
-      bankingMarket: Banking.MarketState,            // banking market wrapper after interbank clearing
-      reassignedFirms: Vector[Firm.State],           // firms with bankId reassigned after bank failure
-      reassignedHouseholds: Vector[Household.State], // HH with bankId reassigned after bank failure
-      finalNbp: Nbp.State,                           // NBP state after QE bond purchase (waterfall)
-      finalPpk: SocialSecurity.PpkState,             // PPK state after bond purchases
-      finalInsurance: Insurance.State,               // insurance monthly state
-      finalInsuranceStock: Insurance.StockState,     // insurance non-corporate-bond closing stock
-      finalNbfi: Nbfi.State,                         // NBFI/TFI monthly state
-      finalNbfiStock: Nbfi.StockState,               // NBFI/TFI non-corporate-bond closing stock
-      newGovWithYield: FiscalBudget.GovState,        // gov state with updated bond yield
-      newJst: Jst.State,                             // local government state
-      housingAfterFlows: HousingMarket.State,        // housing market after mortgage flows
-      bfgLevy: PLN,                                  // BFG resolution fund levy (aggregate)
-      bailInLoss: PLN,                               // bail-in deposit destruction (aggregate)
-      multiCapDestruction: PLN,                      // capital wiped when banks fail
-      monAgg: Option[Banking.MonetaryAggregates],    // M0/M1/M2/M3 (when credit diagnostics on)
-      finalHhAgg: Household.Aggregates,              // recomputed HH aggregates
-      vat: PLN,                                      // gross VAT revenue
-      vatAfterEvasion: PLN,                          // VAT after informal evasion
-      pitAfterEvasion: PLN,                          // PIT after informal evasion
-      exciseRevenue: PLN,                            // gross excise revenue
-      exciseAfterEvasion: PLN,                       // excise after informal evasion
-      customsDutyRevenue: PLN,                       // customs duty revenue
-      realizedTaxShadowShare: Share,                 // current-period realized aggregate tax-side shadow share
-      mortgageInterestIncome: PLN,                   // mortgage interest income (bank share)
-      mortgagePrincipal: PLN,                        // mortgage principal repaid
-      mortgageDefaultLoss: PLN,                      // mortgage default loss (bank share)
-      mortgageDefaultAmount: PLN,                    // gross mortgage default amount
-      jstDepositChange: PLN,                         // JST deposit flow (Identity 2)
-      investNetDepositFlow: PLN,                     // investment demand net deposit flow
-      actualBondChange: PLN,                         // net change in gov bonds outstanding
-      standingFacilityBackstop: PLN,                 // reserve shortfall funded by explicit NBP standing-facility backstop
-      unrealizedBondLoss: PLN,                       // mark-to-market loss on gov bond portfolio (interest rate risk channel)
-      htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
-      eclProvisionChange: PLN,                       // aggregate IFRS 9 ECL provision change
-      newQuasiFiscal: QuasiFiscal.State,             // BGK/PFR market memory after issuance and lending
-      ledgerFinancialState: LedgerFinancialState,    // ledger-backed financial state at the banking stage boundary
+      resolvedBank: Banking.Aggregate,                   // aggregate bank balance sheet after resolution
+      banks: Vector[Banking.BankState],                  // explicit post-step bank population
+      bankingMarket: Banking.MarketState,                // banking market wrapper after interbank clearing
+      reassignedFirms: Vector[Firm.State],               // firms with bankId reassigned after bank failure
+      reassignedHouseholds: Vector[Household.State],     // HH with bankId reassigned after bank failure
+      finalNbp: Nbp.State,                               // NBP state after QE bond purchase (waterfall)
+      finalPpk: SocialSecurity.PpkState,                 // PPK state after bond purchases
+      finalInsurance: Insurance.State,                   // insurance monthly state
+      finalInsuranceBalances: Insurance.ClosingBalances, // insurance non-corporate-bond closing balances
+      finalNbfi: Nbfi.State,                             // NBFI/TFI monthly state
+      finalNbfiBalances: Nbfi.ClosingBalances,           // NBFI/TFI non-corporate-bond closing balances
+      newGovWithYield: FiscalBudget.GovState,            // gov state with updated bond yield
+      newJst: Jst.State,                                 // local government state
+      housingAfterFlows: HousingMarket.State,            // housing market after mortgage flows
+      bfgLevy: PLN,                                      // BFG resolution fund levy (aggregate)
+      bailInLoss: PLN,                                   // bail-in deposit destruction (aggregate)
+      multiCapDestruction: PLN,                          // capital wiped when banks fail
+      monAgg: Option[Banking.MonetaryAggregates],        // M0/M1/M2/M3 (when credit diagnostics on)
+      finalHhAgg: Household.Aggregates,                  // recomputed HH aggregates
+      vat: PLN,                                          // gross VAT revenue
+      vatAfterEvasion: PLN,                              // VAT after informal evasion
+      pitAfterEvasion: PLN,                              // PIT after informal evasion
+      exciseRevenue: PLN,                                // gross excise revenue
+      exciseAfterEvasion: PLN,                           // excise after informal evasion
+      customsDutyRevenue: PLN,                           // customs duty revenue
+      realizedTaxShadowShare: Share,                     // current-period realized aggregate tax-side shadow share
+      mortgageInterestIncome: PLN,                       // mortgage interest income (bank share)
+      mortgagePrincipal: PLN,                            // mortgage principal repaid
+      mortgageDefaultLoss: PLN,                          // mortgage default loss (bank share)
+      mortgageDefaultAmount: PLN,                        // gross mortgage default amount
+      jstDepositChange: PLN,                             // JST deposit flow (Identity 2)
+      investNetDepositFlow: PLN,                         // investment demand net deposit flow
+      actualBondChange: PLN,                             // net change in gov bonds outstanding
+      standingFacilityBackstop: PLN,                     // reserve shortfall funded by explicit NBP standing-facility backstop
+      unrealizedBondLoss: PLN,                           // mark-to-market loss on gov bond portfolio (interest rate risk channel)
+      htmRealizedLoss: PLN,                              // realized loss from HTM forced reclassification
+      eclProvisionChange: PLN,                           // aggregate IFRS 9 ECL provision change
+      newQuasiFiscal: QuasiFiscal.State,                 // BGK/PFR market memory after issuance and lending
+      ledgerFinancialState: LedgerFinancialState,        // ledger-backed financial state at the banking stage boundary
   )
 
   // --- Intermediate result types for sub-methods ---
@@ -122,26 +122,26 @@ object BankingEconomics:
   )
 
   private case class MultiBankResult(
-      finalBanks: Vector[Banking.BankState],         // final explicit bank population after interbank clearing and resolution
-      finalBankCorpBondHoldings: Vector[PLN],        // ledger-owned corporate bond holdings by bank index
-      finalBankingMarket: Banking.MarketState,       // final banking market wrapper after interbank clearing and resolution
-      reassignedFirms: Vector[Firm.State],           // firms reassigned from failed banks to absorber bank
-      reassignedHouseholds: Vector[Household.State], // households reassigned from failed banks to absorber bank
-      bailInLoss: PLN,                               // total bail-in losses imposed on depositors
-      multiCapDestruction: PLN,                      // capital destroyed by bank failures this month
-      resolvedBank: Banking.Aggregate,               // aggregate banking sector after resolution
-      htmRealizedLoss: PLN,                          // realized loss from HTM forced reclassification
+      finalBanks: Vector[Banking.BankState],             // final explicit bank population after interbank clearing and resolution
+      finalBankCorpBondHoldings: Vector[PLN],            // ledger-owned corporate bond holdings by bank index
+      finalBankingMarket: Banking.MarketState,           // final banking market wrapper after interbank clearing and resolution
+      reassignedFirms: Vector[Firm.State],               // firms reassigned from failed banks to absorber bank
+      reassignedHouseholds: Vector[Household.State],     // households reassigned from failed banks to absorber bank
+      bailInLoss: PLN,                                   // total bail-in losses imposed on depositors
+      multiCapDestruction: PLN,                          // capital destroyed by bank failures this month
+      resolvedBank: Banking.Aggregate,                   // aggregate banking sector after resolution
+      htmRealizedLoss: PLN,                              // realized loss from HTM forced reclassification
       // Bond waterfall outputs — single source of truth for buyer holdings
-      finalNbp: Nbp.State,                           // NBP after QE bond purchase (govBondHoldings updated)
-      finalPpk: SocialSecurity.PpkState,             // PPK after bond purchase
-      finalInsurance: Insurance.State,               // insurance monthly state after non-bank step
-      finalInsuranceStock: Insurance.StockState,     // insurance stock after government-bond purchase
-      finalNbfi: Nbfi.State,                         // NBFI/TFI monthly state after non-bank step
-      finalNbfiStock: Nbfi.StockState,               // NBFI/TFI stock after government-bond purchase
-      actualBondChange: PLN,                         // net change in gov bonds outstanding
-      standingFacilityBackstop: PLN,                 // reserve shortfall funded by explicit NBP standing-facility backstop
-      foreignBondHoldings: PLN,                      // non-resident holdings after auction
-      bidToCover: Multiplier,                        // bond auction bid-to-cover ratio
+      finalNbp: Nbp.State,                               // NBP after QE bond purchase (govBondHoldings updated)
+      finalPpk: SocialSecurity.PpkState,                 // PPK after bond purchase
+      finalInsurance: Insurance.State,                   // insurance monthly state after non-bank step
+      finalInsuranceBalances: Insurance.ClosingBalances, // insurance balances after government-bond purchase
+      finalNbfi: Nbfi.State,                             // NBFI/TFI monthly state after non-bank step
+      finalNbfiBalances: Nbfi.ClosingBalances,           // NBFI/TFI balances after government-bond purchase
+      actualBondChange: PLN,                             // net change in gov bonds outstanding
+      standingFacilityBackstop: PLN,                     // reserve shortfall funded by explicit NBP standing-facility backstop
+      foreignBondHoldings: PLN,                          // non-resident holdings after auction
+      bidToCover: Multiplier,                            // bond auction bid-to-cover ratio
   )
 
   private case class AggregateReconciliation(
@@ -272,8 +272,8 @@ object BankingEconomics:
         government = LedgerFinancialState.governmentBalances(newGovWithForeignHoldings),
         foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbp),
-        insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceStock, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
-        funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfiStock, quasiFiscalStep.stock),
+        insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
+        funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfiBalances, quasiFiscalStep.stock),
       )
     val monAgg                    = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
 
@@ -286,9 +286,9 @@ object BankingEconomics:
       finalNbp = multi.finalNbp,
       finalPpk = multi.finalPpk,
       finalInsurance = multi.finalInsurance,
-      finalInsuranceStock = multi.finalInsuranceStock,
+      finalInsuranceBalances = multi.finalInsuranceBalances,
       finalNbfi = multi.finalNbfi,
-      finalNbfiStock = multi.finalNbfiStock,
+      finalNbfiBalances = multi.finalNbfiBalances,
       newGovWithYield = newGovWithForeignHoldings,
       newJst = govJst.newJst,
       housingAfterFlows = housing.housingAfterFlows,
@@ -517,9 +517,9 @@ object BankingEconomics:
   ): BondWaterfallInputs =
     val actualBondChange = newGovWithYield.bondsOutstanding - in.ledgerFinancialState.government.govBondOutstanding
     val insRequested     =
-      (in.s8.nonBank.newInsuranceStock.govBondHoldings - in.ledgerFinancialState.insurance.govBondHoldings).max(PLN.Zero)
+      (in.s8.nonBank.newInsuranceBalances.govBondHoldings - in.ledgerFinancialState.insurance.govBondHoldings).max(PLN.Zero)
     val tfiRequested     =
-      (in.s8.nonBank.newNbfiStock.tfiGovBondHoldings - in.ledgerFinancialState.funds.nbfi.govBondHoldings).max(PLN.Zero)
+      (in.s8.nonBank.newNbfiBalances.tfiGovBondHoldings - in.ledgerFinancialState.funds.nbfi.govBondHoldings).max(PLN.Zero)
     val prevEr           = in.w.forex.exchangeRate
     val currEr           = in.s8.external.newForex.exchangeRate
     val erChange         = currEr.deviationFrom(prevEr).toCoefficient
@@ -828,11 +828,11 @@ object BankingEconomics:
     )
     val finalPpk                 = in.s2.newPpk.copy(bondHoldings = in.ledgerFinancialState.funds.ppkGovBondHoldings + ppkSale.actualSold)
     val finalInsurance           = in.s8.nonBank.newInsurance
-    val finalInsuranceStock      = in.s8.nonBank.newInsuranceStock.copy(
+    val finalInsuranceBalances   = in.s8.nonBank.newInsuranceBalances.copy(
       govBondHoldings = in.ledgerFinancialState.insurance.govBondHoldings + insSale.actualSold,
     )
     val finalNbfi                = in.s8.nonBank.newNbfi
-    val finalNbfiStock           = in.s8.nonBank.newNbfiStock.copy(
+    val finalNbfiBalances        = in.s8.nonBank.newNbfiBalances.copy(
       tfiGovBondHoldings = in.ledgerFinancialState.funds.nbfi.govBondHoldings + tfiSale.actualSold,
     )
     val finalForeignBondHoldings = in.ledgerFinancialState.foreign.govBondHoldings + foreignSale.actualSold
@@ -936,9 +936,9 @@ object BankingEconomics:
       finalNbp = finalNbp,
       finalPpk = finalPpk,
       finalInsurance = finalInsurance,
-      finalInsuranceStock = finalInsuranceStock,
+      finalInsuranceBalances = finalInsuranceBalances,
       finalNbfi = finalNbfi,
-      finalNbfiStock = finalNbfiStock,
+      finalNbfiBalances = finalNbfiBalances,
       actualBondChange = wf.actualBondChange,
       standingFacilityBackstop = nbpSettlement.standingFacilityBackstop,
       foreignBondHoldings = finalForeignBondHoldings,

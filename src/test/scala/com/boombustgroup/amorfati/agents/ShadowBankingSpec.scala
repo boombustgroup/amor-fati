@@ -7,14 +7,17 @@ import com.boombustgroup.amorfati.types.*
 class ShadowBankingSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
-  given SimParams                          = SimParams.defaults
-  private val p: SimParams                 = summon[SimParams]
-  private val td                           = ComputationBoundary
-  private def initialCorpBondHoldings: PLN =
+  given SimParams                                  = SimParams.defaults
+  private val p: SimParams                         = summon[SimParams]
+  private val td                                   = ComputationBoundary
+  private def initialCorpBondHoldings: PLN         =
     p.nbfi.tfiInitAum * p.nbfi.tfiCorpBondShare
+  private def initialOpening: Nbfi.OpeningBalances =
+    val b = Nbfi.initialBalances
+    Nbfi.OpeningBalances(b.tfiAum, b.tfiGovBondHoldings, initialCorpBondHoldings, b.tfiEquityHoldings, b.nbfiLoanStock)
 
   private def mkStep(
-      prevStock: Nbfi.StockState = Nbfi.initialStock,
+      opening: Nbfi.OpeningBalances = initialOpening,
       employed: Int = 50000,
       wage: PLN = PLN(8000.0),
       priceLevel: PriceIndex = PriceIndex.Base,
@@ -29,19 +32,20 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
       corpBondDefaultLoss: PLN = PLN.Zero,
   ): Nbfi.StepResult =
     Nbfi.step(
-      prevStock,
-      employed,
-      wage,
-      priceLevel,
-      unempRate,
-      bankNplRatio,
-      govBondYield,
-      corpBondYield,
-      equityReturn,
-      depositRate,
-      domesticCons,
-      prevCorpBondHoldings,
-      corpBondDefaultLoss,
+      Nbfi.StepInput(
+        opening = opening.copy(corpBondHoldings = prevCorpBondHoldings),
+        employed = employed,
+        wage = wage,
+        priceLevel = priceLevel,
+        unempRate = unempRate,
+        bankNplRatio = bankNplRatio,
+        govBondYield = govBondYield,
+        corpBondYield = corpBondYield,
+        equityReturn = equityReturn,
+        depositRate = depositRate,
+        domesticCons = domesticCons,
+        corpBondDefaultLoss = corpBondDefaultLoss,
+      ),
     )
 
   // ---- zero / initial ----
@@ -56,31 +60,31 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
     z.lastDepositDrain shouldBe PLN.Zero
   }
 
-  "Nbfi.StockState.zero" should "have all stock fields at zero" in {
-    val z = Nbfi.StockState.zero
+  "Nbfi.ClosingBalances.zero" should "have all closing fields at zero" in {
+    val z = Nbfi.ClosingBalances.zero
     z.tfiAum shouldBe PLN.Zero
     z.tfiGovBondHoldings shouldBe PLN.Zero
     z.tfiEquityHoldings shouldBe PLN.Zero
     z.nbfiLoanStock shouldBe PLN.Zero
   }
 
-  "Nbfi.initialStock" should "have correct AUM" in {
-    val init = Nbfi.initialStock
+  "Nbfi.initialBalances" should "have correct AUM" in {
+    val init = Nbfi.initialBalances
     td.toDouble(init.tfiAum) shouldBe td.toDouble(p.nbfi.tfiInitAum) +- 1.0
   }
 
   it should "allocate gov bonds at target share" in {
-    val init = Nbfi.initialStock
+    val init = Nbfi.initialBalances
     td.toDouble(init.tfiGovBondHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiGovBondShare)) +- 1.0
   }
 
   it should "allocate equities at target share" in {
-    val init = Nbfi.initialStock
+    val init = Nbfi.initialBalances
     td.toDouble(init.tfiEquityHoldings) shouldBe (td.toDouble(p.nbfi.tfiInitAum) * td.toDouble(p.nbfi.tfiEquityShare)) +- 1.0
   }
 
   it should "have correct initial loan stock" in {
-    val init = Nbfi.initialStock
+    val init = Nbfi.initialBalances
     td.toDouble(init.nbfiLoanStock) shouldBe td.toDouble(p.nbfi.creditInitStock) +- 1.0
   }
 
@@ -179,20 +183,20 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   // ---- step ----
 
   "Nbfi.step" should "grow AUM with positive inflow" in {
-    val init   = Nbfi.initialStock
-    val result = mkStep(prevStock = init).stock
+    val init   = Nbfi.initialBalances
+    val result = mkStep().closing
     result.tfiAum should be > init.tfiAum
   }
 
   it should "reduce AUM by corporate bond default losses" in {
-    val noDefault = mkStep().stock
-    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000.0)).stock
+    val noDefault = mkStep().closing
+    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000.0)).closing
     withLoss.tfiAum shouldBe noDefault.tfiAum - PLN(1000.0)
   }
 
   it should "include opening ledger corporate bond holdings in AUM return" in {
-    val withoutCorp = mkStep(prevCorpBondHoldings = PLN.Zero).stock
-    val withCorp    = mkStep(prevCorpBondHoldings = PLN(120000.0)).stock
+    val withoutCorp = mkStep(prevCorpBondHoldings = PLN.Zero).closing
+    val withCorp    = mkStep(prevCorpBondHoldings = PLN(120000.0)).closing
     withCorp.tfiAum shouldBe withoutCorp.tfiAum + PLN(120000.0) * Rate(0.07).monthly
   }
 
@@ -202,21 +206,22 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "maintain Identity 13 (NBFI credit stock)" in {
-    val init           = Nbfi.initialStock
-    val result         = mkStep(prevStock = init)
+    val init           = Nbfi.initialBalances
+    val result         = mkStep()
     val expectedChange = td.toDouble(result.state.lastNbfiOrigination - result.state.lastNbfiRepayment - result.state.lastNbfiDefaultAmount)
-    val actualChange   = td.toDouble(result.stock.nbfiLoanStock - init.nbfiLoanStock)
+    val actualChange   = td.toDouble(result.closing.nbfiLoanStock - init.nbfiLoanStock)
     actualChange shouldBe expectedChange +- 0.01
   }
 
   it should "rebalance TFI portfolio towards targets" in {
-    val offTarget = Nbfi.StockState(
+    val offTarget = Nbfi.OpeningBalances(
       tfiAum = PLN(1000000.0),
       tfiGovBondHoldings = PLN.Zero,
+      corpBondHoldings = PLN.Zero,
       tfiEquityHoldings = PLN.Zero,
       nbfiLoanStock = PLN(100000.0),
     )
-    val result    = mkStep(prevStock = offTarget).stock
+    val result    = mkStep(opening = offTarget, prevCorpBondHoldings = PLN.Zero).closing
     result.tfiGovBondHoldings should be > PLN.Zero
   }
 
@@ -228,8 +233,8 @@ class ShadowBankingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce positive interest income from loan stock" in {
-    val init   = Nbfi.initialStock
-    val result = mkStep(prevStock = init).state
+    val init   = Nbfi.initialBalances
+    val result = mkStep().state
     if init.nbfiLoanStock > PLN.Zero then result.lastNbfiInterestIncome should be > PLN.Zero
   }
 
