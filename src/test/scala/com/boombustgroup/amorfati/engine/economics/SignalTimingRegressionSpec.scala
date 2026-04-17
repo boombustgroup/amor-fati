@@ -223,7 +223,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     )
 
   private def netBirths(in: WorldAssemblyEconomics.StepInput): Int =
-    WorldAssemblyEconomics.runStep(in, assemblyRandomness(1234L)).newWorld.flows.netFirmBirths
+    WorldAssemblyEconomics.computePostMonth(in, assemblyRandomness(1234L)).world.flows.netFirmBirths
 
   "DemandEconomics.compute" should "smooth sector hiring plans from lagged decision signals while keeping same-month pressure fixed" in {
     val weakLagged   = withSeedSignals(
@@ -257,22 +257,15 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         expectations = base.w.mechanisms.expectations.copy(expectedInflation = Rate(0.04)),
       ),
     )
-    val extracted       = SignalExtraction.compute(
-      SignalExtraction.Input(
-        labor = SignalExtraction.LaborOutcomes(
-          unemploymentRate = finalWorld.unemploymentRate(finalHouseholds.count(_.status.isInstanceOf[HhStatus.Employed])),
-          laggedHiringSlack = Share.One,
-          startupAbsorptionRate = Share(0.35),
-        ),
-        nominal = SignalExtraction.NominalOutcomes(
-          inflation = finalWorld.inflation,
-          expectedInflation = finalWorld.mechanisms.expectations.expectedInflation,
-        ),
-        demand = SignalExtraction.DemandOutcomes(
-          sectorDemandMult = base.s4.sectorMults,
-          sectorDemandPressure = base.s4.sectorDemandPressure,
-          sectorHiringSignal = base.s4.sectorHiringSignal,
-        ),
+    val extracted       = SignalExtraction.fromPostMonth(
+      world = finalWorld,
+      households = finalHouseholds,
+      operationalHiringSlack = Share.One,
+      startupAbsorptionRate = Share(0.35),
+      demand = SignalExtraction.DemandOutcomes(
+        sectorDemandMult = base.s4.sectorMults,
+        sectorDemandPressure = base.s4.sectorDemandPressure,
+        sectorHiringSignal = base.s4.sectorHiringSignal,
       ),
     )
 
@@ -326,7 +319,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     explicitResult shouldBe freshWorldResult
   }
 
-  "WorldAssemblyEconomics.runStep" should "derive entry unemployment from lagged decision signals instead of post-firm households" in {
+  "WorldAssemblyEconomics.computePostMonth" should "derive entry unemployment from lagged decision signals instead of post-firm households" in {
     val base       = entrySensitiveInput
     val lowUnemp   = base.copy(
       s9 = base.s9.copy(
@@ -406,19 +399,9 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     netBirths(strong) should be > netBirths(weak)
   }
 
-  it should "persist extracted same-month hiring slack into next-month decision signals" in {
-    val input  = entrySensitiveInput
-    val base   = input.copy(s2 = input.s2.copy(operationalHiringSlack = Share(0.21)))
-    val result = WorldAssemblyEconomics.runStep(base, assemblyRandomness(1234L))
-
-    result.newWorld.pipeline.operationalHiringSlack shouldBe Share(0.21)
-    result.newWorld.pipeline.laggedHiringSlack shouldBe Share(0.21)
-    result.newWorld.seedIn.laggedHiringSlack shouldBe Share(0.21)
-  }
-
   it should "keep post-month assembly distinct from the next-month seed boundary" in {
     val input = entrySensitiveInput.copy(s2 = entrySensitiveInput.s2.copy(operationalHiringSlack = Share(0.21)))
-    val post  = WorldAssemblyEconomics.runPostStep(input, assemblyRandomness(1234L))
+    val post  = WorldAssemblyEconomics.computePostMonth(input, assemblyRandomness(1234L))
 
     post.world.pipeline.operationalHiringSlack shouldBe Share(0.21)
     post.world.seedIn shouldBe input.w.seedIn
@@ -429,22 +412,4 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
   it should "keep explicit OperationalSignals aligned with post-reconcile labor slack" in {
     baseOperationalSignals.operationalHiringSlack shouldBe baseline.s2.operationalHiringSlack
-  }
-
-  "WorldAssemblyEconomics.runStep" should "persist demand and hiring signals from current demand output" in {
-    val stalePressure = Vector.fill(p.sectorDefs.length)(Multiplier(0.33))
-    val staleHiring   = Vector.fill(p.sectorDefs.length)(Multiplier(1.77))
-    val staleWorld    = baseline.world.copy(
-      pipeline = baseline.world.pipeline.copy(
-        sectorDemandPressure = stalePressure,
-        sectorHiringSignal = staleHiring,
-      ),
-    )
-
-    val assembled = WorldAssemblyEconomics.runStep(baseStepInput.copy(w = staleWorld), assemblyRandomness(42L))
-
-    assembled.newWorld.pipeline.sectorDemandPressure shouldBe baseline.s4.sectorDemandPressure
-    assembled.newWorld.pipeline.sectorHiringSignal shouldBe baseline.s4.sectorHiringSignal
-    assembled.newWorld.pipeline.sectorDemandPressure should not be stalePressure
-    assembled.newWorld.pipeline.sectorHiringSignal should not be staleHiring
   }

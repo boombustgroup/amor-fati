@@ -19,7 +19,7 @@ import com.boombustgroup.amorfati.random.RandomStream
 object WorldAssemblyEconomics:
 
   // ---------------------------------------------------------------------------
-  // StepInput / StepOutput — migrated from WorldAssemblyStep
+  // StepInput / PostResult — explicit post-month assembly boundary
   // ---------------------------------------------------------------------------
 
   case class StepInput(
@@ -33,16 +33,6 @@ object WorldAssemblyEconomics:
       s7: PriceEquityEconomics.Output,        // price/equity (inflation, GDP, equity, macropru)
       s8: OpenEconEconomics.StepOutput,       // open economy (monetary policy, forex, BOP, corp bonds)
       s9: BankingEconomics.StepOutput,        // bank update (balance sheets, tax revenue, housing flows)
-  )
-
-  case class StepOutput(
-      newWorld: World,
-      finalFirms: Vector[Firm.State],
-      reassignedHouseholds: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-      householdAggregates: Household.Aggregates,
-      ledgerFinancialState: LedgerFinancialState,
-      signalExtraction: SignalExtraction.Output,
   )
 
   // ---------------------------------------------------------------------------
@@ -72,8 +62,9 @@ object WorldAssemblyEconomics:
       startupAbsorptionRate: Share,
   )
 
-  /** Internal post-month result kept distinct from the next-month boundary. */
-  private[engine] case class PostResult(
+  /** Assembled month-`t` state before the next-month decision seed is applied.
+    */
+  case class PostResult(
       world: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
@@ -83,74 +74,11 @@ object WorldAssemblyEconomics:
       startupAbsorptionRate: Share,
   )
 
-  private case class SignalExtractionInput(
-      operationalHiringSlack: Share,
-      sectorDemandMult: Vector[Multiplier],
-      sectorDemandPressure: Vector[Multiplier],
-      sectorHiringSignal: Vector[Multiplier],
-  )
-
-  private def buildSignalExtractionInput(in: StepInput): SignalExtractionInput =
-    SignalExtractionInput(
-      operationalHiringSlack = in.s2.operationalHiringSlack,
-      sectorDemandMult = in.s4.sectorMults,
-      sectorDemandPressure = in.s4.sectorDemandPressure,
-      sectorHiringSignal = in.s4.sectorHiringSignal,
-    )
-
-  private def extractSignalExtraction(
-      signalInput: SignalExtractionInput,
-      post: PostResult,
-  ): SignalExtraction.Output =
-    val employedHouseholds = Household.countEmployed(post.households)
-
-    SignalExtraction.compute(
-      SignalExtraction.inputFromRealizedOutcomes(
-        unemploymentRate = post.world.unemploymentRate(employedHouseholds),
-        laggedHiringSlack = signalInput.operationalHiringSlack,
-        startupAbsorptionRate = post.startupAbsorptionRate,
-        inflation = post.world.inflation,
-        expectedInflation = post.world.mechanisms.expectations.expectedInflation,
-        sectorDemandMult = signalInput.sectorDemandMult,
-        sectorDemandPressure = signalInput.sectorDemandPressure,
-        sectorHiringSignal = signalInput.sectorHiringSignal,
-      ),
-    )
-
-  private def advanceToBoundaryWorld(
-      postWorld: World,
-      signals: DecisionSignals,
-  ): World =
-    postWorld.copy(pipeline = postWorld.pipeline.withDecisionSignals(signals))
-
-  private[engine] def computePostMonth(
+  def computePostMonth(
       step: StepInput,
       randomness: MonthRandomness.AssemblyStreams,
-  )(using SimParams): PostResult =
-    runPostStep(
-      step,
-      randomness,
-    )
-
-  // ---------------------------------------------------------------------------
-  // runStep — migrated from WorldAssemblyStep.run
-  // ---------------------------------------------------------------------------
-
-  def runStep(in: StepInput, randomness: MonthRandomness.AssemblyStreams)(using p: SimParams): StepOutput =
-    val signalInput      = buildSignalExtractionInput(in)
-    val post             = runPostStep(in, randomness)
-    val signalExtraction = extractSignalExtraction(signalInput, post)
-    StepOutput(
-      newWorld = advanceToBoundaryWorld(post.world, signalExtraction.seedOut),
-      finalFirms = post.firms,
-      reassignedHouseholds = post.households,
-      banks = post.banks,
-      householdAggregates = post.householdAggregates,
-      ledgerFinancialState = post.ledgerFinancialState,
-      signalExtraction = signalExtraction,
-    )
-
-  private[engine] def runPostStep(in: StepInput, randomness: MonthRandomness.AssemblyStreams)(using p: SimParams): PostResult =
+  )(using p: SimParams): PostResult =
+    val in              = step
     val equityAfterStep = finalizeEquity(in)
     val fofResidual     = computeFofResidual(in)
     val informal        = computeInformalEconomy(in)

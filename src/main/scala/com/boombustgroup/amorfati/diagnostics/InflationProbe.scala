@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.diagnostics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.engine.{MonthRandomness, SignalExtraction}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
@@ -216,24 +216,35 @@ object InflationProbe:
       )
       println(s"  top pressure: ${topPressures(s4.sectorDemandPressure)}")
 
-      val assembled = WorldAssemblyEconomics.runStep(
-        WorldAssemblyEconomics.StepInput(
-          world,
-          s1,
-          s2,
-          s3,
-          s4,
-          s5,
-          s6,
-          s7,
-          s8,
-          s9,
-        ),
-        contract.assembly.newStreams(),
+      val assemblyInput = WorldAssemblyEconomics.StepInput(
+        world,
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        s8,
+        s9,
       )
+      val assembled     = WorldAssemblyEconomics.computePostMonth(assemblyInput, contract.assembly.newStreams())
+      val seedOut       = SignalExtraction
+        .fromPostMonth(
+          world = assembled.world,
+          households = assembled.households,
+          operationalHiringSlack = assemblyInput.s2.operationalHiringSlack,
+          startupAbsorptionRate = assembled.startupAbsorptionRate,
+          demand = SignalExtraction.DemandOutcomes(
+            sectorDemandMult = assemblyInput.s4.sectorMults,
+            sectorDemandPressure = assemblyInput.s4.sectorDemandPressure,
+            sectorHiringSignal = assemblyInput.s4.sectorHiringSignal,
+          ),
+        )
+        .seedOut
 
-      world = assembled.newWorld
-      firms = assembled.finalFirms
-      hhs = assembled.reassignedHouseholds
+      world = assembled.world.copy(pipeline = assembled.world.pipeline.withDecisionSignals(seedOut))
+      firms = assembled.firms
+      hhs = assembled.households
       banks = assembled.banks
       ledgerFinancialState = assembled.ledgerFinancialState

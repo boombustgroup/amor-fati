@@ -830,18 +830,16 @@ object FlowSimulation:
 
   private def extractSeedOut(signalView: MonthSemantics.SignalView, post: MonthSemantics.PostAssembly): MonthSemantics.SeedOut =
     val assembled = post.assembled
-    val employed  = Household.countEmployed(assembled.households)
 
     MonthSemantics.seedOut(
-      SignalExtraction.compute(
-        // Seed extraction is the only place that derives the next boundary
-        // signal from realized month-`t` outcomes.
-        SignalExtraction.inputFromRealizedOutcomes(
-          unemploymentRate = assembled.world.unemploymentRate(employed),
-          laggedHiringSlack = signalView.labor.operationalHiringSlack,
-          startupAbsorptionRate = assembled.startupAbsorptionRate,
-          inflation = assembled.world.inflation,
-          expectedInflation = assembled.world.mechanisms.expectations.expectedInflation,
+      // Seed extraction is the only place that derives the next boundary
+      // signal from realized month-`t` outcomes.
+      SignalExtraction.fromPostMonth(
+        world = assembled.world,
+        households = assembled.households,
+        operationalHiringSlack = signalView.labor.operationalHiringSlack,
+        startupAbsorptionRate = assembled.startupAbsorptionRate,
+        demand = SignalExtraction.DemandOutcomes(
           sectorDemandMult = signalView.demand.sectorMults,
           sectorDemandPressure = signalView.demand.sectorDemandPressure,
           sectorHiringSignal = signalView.demand.sectorHiringSignal,

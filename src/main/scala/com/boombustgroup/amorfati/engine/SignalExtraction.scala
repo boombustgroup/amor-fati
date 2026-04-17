@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.types.*
 
 /** Provenance stage tags for extracted next-month signals. */
@@ -92,6 +93,33 @@ object SignalExtraction:
         sectorDemandMult = sectorDemandMult,
         sectorDemandPressure = sectorDemandPressure,
         sectorHiringSignal = sectorHiringSignal,
+      ),
+    )
+
+  /** Canonical extraction from the assembled post-month state.
+    *
+    * This is the single bridge from realized month-`t` stock/flow outcomes to
+    * the next month's decision seed. Callers that need next-boundary signals
+    * should use this instead of rebuilding unemployment and demand inputs.
+    */
+  def fromPostMonth(
+      world: World,
+      households: Vector[Household.State],
+      operationalHiringSlack: Share,
+      startupAbsorptionRate: Share,
+      demand: DemandOutcomes,
+  ): Output =
+    val employed = Household.countEmployed(households)
+    compute(
+      inputFromRealizedOutcomes(
+        unemploymentRate = world.unemploymentRate(employed),
+        laggedHiringSlack = operationalHiringSlack,
+        startupAbsorptionRate = startupAbsorptionRate,
+        inflation = world.inflation,
+        expectedInflation = world.mechanisms.expectations.expectedInflation,
+        sectorDemandMult = demand.sectorDemandMult,
+        sectorDemandPressure = demand.sectorDemandPressure,
+        sectorHiringSignal = demand.sectorHiringSignal,
       ),
     )
 
