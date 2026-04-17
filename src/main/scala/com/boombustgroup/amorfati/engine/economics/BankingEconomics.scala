@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerBoundaryProjection, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, CorporateBondMarket, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -724,7 +724,7 @@ object BankingEconomics:
 
     val settledBankCorpBonds = settleBankCorpBondHoldings(
       previous = CorporateBondOwnership.bankHolderBalances(in.ledgerFinancialState),
-      previousAggregateStock = LedgerBoundaryProjection.corporateBondStock(in.ledgerFinancialState),
+      previousAggregateStock = CorporateBondOwnership.stockStateFromLedger(in.ledgerFinancialState),
       nextAggregateStock = in.s8.corpBonds.newCorpBondStock,
       totalBondIssuance = in.s5.actualBondIssuance,
       perBankWorkers = in.s5.perBankWorkers,

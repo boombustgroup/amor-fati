@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.Nbp
 import com.boombustgroup.amorfati.engine.SocialState
-import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
+import com.boombustgroup.amorfati.engine.markets.FiscalBudget
 
 /** One-way projection from ledger-owned financial state into boundary views.
   *
@@ -49,8 +49,3 @@ object LedgerBoundaryProjection:
         fgsp = base.earmarked.fgsp.copy(balance = ledgerFinancialState.funds.fgspCash),
       ),
     )
-
-  def corporateBondStock(
-      ledgerFinancialState: LedgerFinancialState,
-  ): CorporateBondMarket.StockState =
-    CorporateBondOwnership.stockStateFromLedger(ledgerFinancialState)

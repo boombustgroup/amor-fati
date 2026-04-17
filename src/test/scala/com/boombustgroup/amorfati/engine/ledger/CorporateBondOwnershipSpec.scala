@@ -38,7 +38,7 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
     val state     = FlowSimulation.SimState.fromInit(init)
     val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
     val ledger    = nextState.ledgerFinancialState
-    val stock     = LedgerBoundaryProjection.corporateBondStock(ledger)
+    val stock     = CorporateBondOwnership.stockStateFromLedger(ledger)
     val nbfi      = ledger.funds.nbfi
 
     stock.insuranceHoldings shouldBe ledger.insurance.corpBondHoldings
@@ -48,7 +48,7 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
 
   it should "project stock from ledger issuer and holder balances" in {
     val state          = LedgerTestFixtures.simState()
-    val projectedStock = LedgerBoundaryProjection.corporateBondStock(state.ledgerFinancialState)
+    val projectedStock = CorporateBondOwnership.stockStateFromLedger(state.ledgerFinancialState)
 
     projectedStock.outstanding shouldBe CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState)
     projectedStock.holderTotal shouldBe CorporateBondOwnership.holderOutstanding(state.ledgerFinancialState)

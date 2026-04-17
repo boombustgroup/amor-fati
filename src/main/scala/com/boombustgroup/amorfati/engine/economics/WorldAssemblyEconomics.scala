@@ -447,7 +447,7 @@ object WorldAssemblyEconomics:
       informal: InformalResult,
       obs: Observables,
   ): (World, LedgerFinancialState) =
-    val ledgerFinancialState = buildLedgerFinancialState(in)
+    val ledgerFinancialState = in.s9.ledgerFinancialState
     val projectedSocial      = LedgerBoundaryProjection.socialState(
       SocialState(
         jst = in.s9.newJst,
@@ -522,9 +522,6 @@ object WorldAssemblyEconomics:
       flows = buildFlowState(in, informal),
     )
     (world, ledgerFinancialState)
-
-  private def buildLedgerFinancialState(in: StepInput): LedgerFinancialState =
-    in.s9.ledgerFinancialState
 
   private def buildPostMonthPipelineState(in: StepInput): PipelineState =
     in.w.pipeline

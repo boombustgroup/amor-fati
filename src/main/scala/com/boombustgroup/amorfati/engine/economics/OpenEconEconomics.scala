@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerBoundaryProjection, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, GvcTrade, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.Expectations
 import com.boombustgroup.amorfati.types.*
@@ -275,7 +275,7 @@ object OpenEconEconomics:
     val qeRequest = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.gdp, in.newInflation, newExp.expectedInflation)
 
     // 7. Corporate bonds
-    val prevCorpBondStock = LedgerBoundaryProjection.corporateBondStock(in.ledgerFinancialState)
+    val prevCorpBondStock = CorporateBondOwnership.stockStateFromLedger(in.ledgerFinancialState)
     val corpBondAmort     = CorporateBondMarket.amortization(prevCorpBondStock)
     val corpBondStep      = CorporateBondMarket.step(
       CorporateBondMarket.StepInput(
@@ -673,7 +673,7 @@ object OpenEconEconomics:
     BondQeResult(marketYield, newWeightedCoupon, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp)
 
   private def runStepCorporateBonds(in: StepInput, bankAgg: Banking.Aggregate, newBondYield: Rate)(using SimParams): CorporateBonds =
-    val prevCorpBondStock = LedgerBoundaryProjection.corporateBondStock(in.ledgerFinancialState)
+    val prevCorpBondStock = CorporateBondOwnership.stockStateFromLedger(in.ledgerFinancialState)
     val corpBondAmort     = CorporateBondMarket.amortization(prevCorpBondStock)
     val corpBondStep      = CorporateBondMarket
       .step(
