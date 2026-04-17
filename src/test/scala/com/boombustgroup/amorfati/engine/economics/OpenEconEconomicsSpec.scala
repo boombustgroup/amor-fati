@@ -65,42 +65,27 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     ),
   )
 
-  private val newResult = OpenEconEconomics.compute(
-    OpenEconEconomics.Input(
-      w = w,
-      ledgerFinancialState = baseLedgerFinancialState,
-      banks = init.banks,
-      employed = s2.employed,
-      newWage = s2.newWage,
-      domesticConsumption = s3.domesticCons,
-      importConsumption = s3.importCons,
-      totalTechAndInvImports = s5.sumTechImp,
-      gdp = s7.gdp,
-      newInflation = s7.newInfl,
-      autoRatio = s7.autoR,
-      govPurchases = s4.govPurchases,
-      sectorMults = s4.sectorMults,
-      livingFirms = s5.ioFirms,
-      totalBondDefault = s5.totalBondDefault,
-      actualBondIssuance = s5.actualBondIssuance,
-      corpBondAbsorption = s5.corpBondAbsorption,
-      euMonthly = s7.euMonthly,
-      remittanceOutflow = s6.remittanceOutflow,
-      diasporaInflow = s6.diasporaInflow,
-      tourismExport = s6.tourismExport,
-      tourismImport = s6.tourismImport,
-      equityReturn = w.financialMarkets.equity.monthlyReturn,
-      investmentImports = s7.investmentImports,
-      profitShifting = s5.sumProfitShifting,
-      fdiRepatriation = s5.sumFdiRepatriation,
-      foreignDividendOutflow = s7.foreignDividendOutflow,
-      month = s1.m,
-      commodityRng = RandomStream.seeded(TestSeed),
-    ),
-  )
+  private def runOpenEcon(world: World): OpenEconEconomics.StepOutput =
+    OpenEconEconomics.runStep(
+      OpenEconEconomics.StepInput(
+        w = world,
+        ledgerFinancialState = baseLedgerFinancialState,
+        s1 = s1,
+        s2 = s2,
+        s3 = s3,
+        s4 = s4,
+        s5 = s5,
+        s6 = s6,
+        s7 = s7,
+        banks = init.banks,
+        commodityRng = RandomStream.seeded(TestSeed),
+      ),
+    )
+
+  private val result = runOpenEcon(w)
 
   "OpenEconEconomics (self-contained)" should "produce a valid reference rate" in {
-    ComputationBoundary.toDouble(newResult.newRefRate) should be >= 0.0
+    ComputationBoundary.toDouble(result.monetary.newRefRate) should be >= 0.0
   }
 
   it should "keep diaspora inflow growth at baseline in the first execution month" in {
@@ -135,7 +120,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce a valid bond yield" in {
-    ComputationBoundary.toDouble(newResult.newBondYield) should be >= 0.0
+    ComputationBoundary.toDouble(result.monetary.newBondYield) should be >= 0.0
   }
 
   it should "read supported public bond and central-bank stocks from LedgerFinancialState" in {
@@ -154,102 +139,21 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val aligned    = OpenEconEconomics.compute(
-      OpenEconEconomics.Input(
-        w = w,
-        ledgerFinancialState = baseLedgerFinancialState,
-        banks = init.banks,
-        employed = s2.employed,
-        newWage = s2.newWage,
-        domesticConsumption = s3.domesticCons,
-        importConsumption = s3.importCons,
-        totalTechAndInvImports = s5.sumTechImp,
-        gdp = s7.gdp,
-        newInflation = s7.newInfl,
-        autoRatio = s7.autoR,
-        govPurchases = s4.govPurchases,
-        sectorMults = s4.sectorMults,
-        livingFirms = s5.ioFirms,
-        totalBondDefault = s5.totalBondDefault,
-        actualBondIssuance = s5.actualBondIssuance,
-        corpBondAbsorption = s5.corpBondAbsorption,
-        euMonthly = s7.euMonthly,
-        remittanceOutflow = s6.remittanceOutflow,
-        diasporaInflow = s6.diasporaInflow,
-        tourismExport = s6.tourismExport,
-        tourismImport = s6.tourismImport,
-        equityReturn = w.financialMarkets.equity.monthlyReturn,
-        investmentImports = s7.investmentImports,
-        profitShifting = s5.sumProfitShifting,
-        fdiRepatriation = s5.sumFdiRepatriation,
-        foreignDividendOutflow = s7.foreignDividendOutflow,
-        month = s1.m,
-        commodityRng = RandomStream.seeded(TestSeed),
-      ),
-    )
-    val fromLedger = OpenEconEconomics.compute(
-      OpenEconEconomics.Input(
-        w = mismatchedWorld,
-        ledgerFinancialState = baseLedgerFinancialState,
-        banks = init.banks,
-        employed = s2.employed,
-        newWage = s2.newWage,
-        domesticConsumption = s3.domesticCons,
-        importConsumption = s3.importCons,
-        totalTechAndInvImports = s5.sumTechImp,
-        gdp = s7.gdp,
-        newInflation = s7.newInfl,
-        autoRatio = s7.autoR,
-        govPurchases = s4.govPurchases,
-        sectorMults = s4.sectorMults,
-        livingFirms = s5.ioFirms,
-        totalBondDefault = s5.totalBondDefault,
-        actualBondIssuance = s5.actualBondIssuance,
-        corpBondAbsorption = s5.corpBondAbsorption,
-        euMonthly = s7.euMonthly,
-        remittanceOutflow = s6.remittanceOutflow,
-        diasporaInflow = s6.diasporaInflow,
-        tourismExport = s6.tourismExport,
-        tourismImport = s6.tourismImport,
-        equityReturn = w.financialMarkets.equity.monthlyReturn,
-        investmentImports = s7.investmentImports,
-        profitShifting = s5.sumProfitShifting,
-        fdiRepatriation = s5.sumFdiRepatriation,
-        foreignDividendOutflow = s7.foreignDividendOutflow,
-        month = s1.m,
-        commodityRng = RandomStream.seeded(TestSeed),
-      ),
-    )
+    val aligned    = runOpenEcon(w)
+    val fromLedger = runOpenEcon(mismatchedWorld)
 
-    fromLedger.newWeightedCoupon shouldBe aligned.newWeightedCoupon
-    fromLedger.monthlyDebtService shouldBe aligned.monthlyDebtService
-    fromLedger.nbpRemittance shouldBe aligned.nbpRemittance
-    fromLedger.newNbpGovBondHoldings shouldBe aligned.newNbpGovBondHoldings
-    fromLedger.newNbpFxReserves shouldBe aligned.newNbpFxReserves
-    fromLedger.corpBondCoupon shouldBe aligned.corpBondCoupon
-    fromLedger.corpBondDefaultLoss shouldBe aligned.corpBondDefaultLoss
-    fromLedger.insInvestmentIncome shouldBe aligned.insInvestmentIncome
+    fromLedger.monetary.newWeightedCoupon shouldBe aligned.monetary.newWeightedCoupon
+    fromLedger.banking.monthlyDebtService shouldBe aligned.banking.monthlyDebtService
+    fromLedger.banking.nbpRemittance shouldBe aligned.banking.nbpRemittance
+    fromLedger.monetary.postFxNbp.govBondHoldings shouldBe aligned.monetary.postFxNbp.govBondHoldings
+    fromLedger.monetary.postFxNbp.fxReserves shouldBe aligned.monetary.postFxNbp.fxReserves
+    fromLedger.corpBonds.corpBondCoupon shouldBe aligned.corpBonds.corpBondCoupon
+    fromLedger.corpBonds.corpBondBankDefaultLoss shouldBe aligned.corpBonds.corpBondBankDefaultLoss
+    fromLedger.nonBank.newInsurance.lastInvestmentIncome shouldBe aligned.nonBank.newInsurance.lastInvestmentIncome
   }
 
   it should "return corporate bond stock separately from market memory in runStep" in {
-    def run(world: World): OpenEconEconomics.StepOutput =
-      OpenEconEconomics.runStep(
-        OpenEconEconomics.StepInput(
-          w = world,
-          ledgerFinancialState = baseLedgerFinancialState,
-          s1 = s1,
-          s2 = s2,
-          s3 = s3,
-          s4 = s4,
-          s5 = s5,
-          s6 = s6,
-          s7 = s7,
-          banks = init.banks,
-          commodityRng = RandomStream.seeded(TestSeed),
-        ),
-      )
-
-    val aligned = run(w)
+    val aligned = runOpenEcon(w)
 
     aligned.corpBonds.newCorpBonds.corpBondYield should be > Rate.Zero
     aligned.corpBonds.newCorpBondStock.outstanding should be > PLN.Zero
@@ -261,20 +165,21 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "produce non-negative interbank flows" in {
-    newResult.reserveInterest should be >= PLN.Zero
+    result.banking.totalReserveInterest should be >= PLN.Zero
   }
 
   it should "produce flows that close at SFC == 0L" in {
-    val flows = OpenEconFlows.emit(
+    val flowBop = result.external.flowBop
+    val flows   = OpenEconFlows.emit(
       OpenEconFlows.Input(
-        newResult.exports,
-        newResult.totalImports,
+        flowBop.exports,
+        flowBop.totalImports,
         s6.tourismExport,
         s6.tourismImport,
-        newResult.fdi,
-        newResult.portfolioFlows,
-        newResult.primaryIncome,
-        newResult.euFunds,
+        flowBop.fdi,
+        flowBop.portfolioFlows,
+        flowBop.primaryIncome,
+        flowBop.euFundsMonthly,
         s6.diasporaInflow,
         PLN.Zero,
       ),

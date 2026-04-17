@@ -2,7 +2,6 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, GvcTrade, OpenEconomy}
@@ -26,63 +25,6 @@ object OpenEconEconomics:
 
   private val MaxDebtServiceGdpShare = Share(0.50)
 
-  /** Everything the new pipeline needs from open economy + monetary + financial
-    * sector.
-    */
-  case class Result(
-      // External sector
-      exports: PLN,
-      totalImports: PLN,
-      fdi: PLN,
-      portfolioFlows: PLN,
-      primaryIncome: PLN,
-      euFunds: PLN,
-      newExchangeRate: ExchangeRate,
-      valuationEffect: PLN,
-      fdiCitLoss: PLN,
-      // Monetary policy
-      newRefRate: Rate,
-      newBondYield: Rate,
-      newWeightedCoupon: Rate,
-      monthlyDebtService: PLN,
-      qePurchaseAmount: PLN,
-      // Interbank
-      reserveInterest: PLN,
-      standingFacilityIncome: PLN,
-      interbankInterest: PLN,
-      bankBondIncome: PLN,
-      nbpRemittance: PLN,
-      // Corporate bonds
-      corpBondCoupon: PLN,
-      corpBondDefaultLoss: PLN,
-      corpBondIssuance: PLN,
-      corpBondAmortization: PLN,
-      corpBondYield: Rate,
-      // Insurance
-      insLifePremium: PLN,
-      insNonLifePremium: PLN,
-      insLifeClaims: PLN,
-      insNonLifeClaims: PLN,
-      insInvestmentIncome: PLN,
-      // Expectations
-      newExpectations: Expectations.State,
-      // GVC
-      newGvc: GvcTrade.State,
-      // NBP
-      newNbpRefRate: Rate,
-      newNbpQeActive: Boolean,
-      newNbpGovBondHoldings: PLN,
-      newNbpQeCumulative: PLN,
-      newNbpFxReserves: PLN,
-      newNbpLastFxTraded: PLN,
-      // FX intervention
-      fxPlnInjection: PLN,
-  )
-
-  // ---------------------------------------------------------------------------
-  // Bridge types — same as the deleted OpenEconomyStep nested types
-  // ---------------------------------------------------------------------------
-
   case class MonetaryPolicy(
       newRefRate: Rate,
       newExp: Expectations.State,
@@ -103,6 +45,7 @@ object OpenEconEconomics:
   )
 
   case class ExternalSector(
+      flowBop: OpenEconomy.BopState,
       newForex: OpenEconomy.ForexState,
       newBop: OpenEconomy.BopState,
       newGvc: GvcTrade.State,
@@ -113,6 +56,7 @@ object OpenEconEconomics:
   case class CorporateBonds(
       newCorpBonds: CorporateBondMarket.State,
       newCorpBondStock: CorporateBondMarket.StockState,
+      corpBondCoupon: PLN,
       corpBondBankCoupon: PLN,
       corpBondBankDefaultLoss: PLN,
       corpBondInsuranceDefaultLoss: PLN,
@@ -136,229 +80,6 @@ object OpenEconEconomics:
       corpBonds: CorporateBonds,
       nonBank: NonBankFinancials,
   )
-
-  /** Input: everything needed from previous stages. */
-  case class Input(
-      w: World,
-      ledgerFinancialState: LedgerFinancialState,
-      banks: Vector[Banking.BankState],
-      employed: Int,
-      newWage: PLN,
-      domesticConsumption: PLN,
-      importConsumption: PLN,
-      totalTechAndInvImports: PLN,
-      gdp: PLN,
-      newInflation: Rate,
-      autoRatio: Share,
-      govPurchases: PLN,
-      sectorMults: Vector[Multiplier],
-      livingFirms: Vector[Firm.State],
-      totalBondDefault: PLN,
-      actualBondIssuance: PLN,
-      corpBondAbsorption: Share,
-      euMonthly: PLN,
-      remittanceOutflow: PLN,
-      diasporaInflow: PLN,
-      tourismExport: PLN,
-      tourismImport: PLN,
-      equityReturn: Rate,
-      investmentImports: PLN,
-      profitShifting: PLN,
-      fdiRepatriation: PLN,
-      foreignDividendOutflow: PLN,
-      month: ExecutionMonth,
-      commodityRng: RandomStream,
-  )
-
-  @boundaryEscape
-  def compute(in: Input)(using p: SimParams): Result =
-    import ComputationBoundary.toDouble
-    val bankAgg = Banking.aggregateFromBanks(in.banks, bankId => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId))
-
-    // 1. Sector outputs (capacity × demand × price)
-    val sectorOutputs = computeSectorOutputs(in)
-
-    // 2. GVC trade
-    val newGvc =
-      GvcTrade.step(
-        GvcTrade.StepInput(
-          in.w.external.gvc,
-          sectorOutputs,
-          in.w.priceLevel,
-          in.w.forex.exchangeRate,
-          in.autoRatio,
-          in.month,
-          in.commodityRng,
-        ),
-      )
-
-    // 3. Forex / BoP
-    val (gvcExp, gvcImp) = (Some(newGvc.totalExports), Some(newGvc.sectorImports))
-    val totalTechImp     = in.totalTechAndInvImports + in.investmentImports
-
-    val oe                                = OpenEconomy.step(
-      OpenEconomy.StepInput(
-        prevBop = in.w.bop,
-        prevForex = in.w.forex,
-        importCons = in.importConsumption,
-        techImports = totalTechImp,
-        autoRatio = in.autoRatio,
-        domesticRate = in.w.nbp.referenceRate,
-        gdp = in.gdp,
-        priceLevel = in.w.priceLevel,
-        sectorOutputs = sectorOutputs,
-        month = in.month,
-        inflation = in.w.inflation,
-        nbpFxReserves = in.ledgerFinancialState.nbp.foreignAssets,
-        gvcExports = gvcExp,
-        gvcIntermImports = gvcImp,
-        remittanceOutflow = in.remittanceOutflow,
-        euFundsMonthly = in.euMonthly,
-        diasporaInflow = in.diasporaInflow,
-        tourismExport = in.tourismExport,
-        tourismImport = in.tourismImport,
-      ),
-    )
-    val (forex, bop, valEffect, fxResult) = (oe.forex, oe.bop, oe.valuationEffect, oe.fxIntervention)
-
-    // Adjust BoP for FDI and dividends
-    val fdiCitLoss = in.profitShifting * p.fiscal.citRate
-
-    // 4. Monetary policy (Taylor rule + expectations)
-    val exRateChg   = forex.exchangeRate.deviationFrom(in.w.forex.exchangeRate).toCoefficient
-    val newRefRate  = Nbp.updateRate(in.w.nbp.referenceRate, in.newInflation, exRateChg, in.employed, in.w.laborForcePopulation)
-    val unempForExp = in.w.unemploymentRate(in.employed)
-    val newExp      = Expectations.step(in.w.mechanisms.expectations, in.newInflation, newRefRate, unempForExp)
-
-    // 5. Interbank
-    val bsec              = in.w.bankingSector
-    val reserveInterest   = Banking.computeReserveInterest(in.banks, in.w.nbp.referenceRate).total
-    val standingFacility  = Banking.computeStandingFacilities(in.banks, in.w.nbp.referenceRate).total
-    val interbankInterest = Banking.interbankInterestFlows(in.banks, bsec.interbankRate).total
-
-    // 6. Bond yield, debt service, QE
-    val annualGdp         = in.gdp * 12
-    val debtToGdp         = if annualGdp > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdp)) else Share.Zero
-    val nbpBondGdpShare   = if annualGdp > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdp)) else Share.Zero
-    val credPremium       =
-      val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
-        Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
-      Rate(toDouble(deAnchor) * toDouble(p.labor.expBondSensitivity))
-    val marketYield       = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
-    val newWeightedCoupon =
-      updateWeightedCoupon(
-        in.w.gov.weightedCoupon,
-        marketYield,
-        in.ledgerFinancialState.government.govBondOutstanding,
-        in.w.gov.deficit,
-        p.fiscal.govAvgMaturityMonths,
-      )
-    val rawDebtService    = in.ledgerFinancialState.government.govBondOutstanding * newWeightedCoupon.monthly
-    val debtService       = rawDebtService.min(in.gdp * MaxDebtServiceGdpShare)
-    val bankBondIncome    = bankAgg.govBondHoldings * marketYield.monthly
-    val nbpBondIncome     = in.ledgerFinancialState.nbp.govBondHoldings * marketYield.monthly
-    val nbpRemittance     = nbpBondIncome - reserveInterest - standingFacility
-
-    // QE
-    val qeActive  =
-      if Nbp.shouldActivateQe(newRefRate, in.newInflation, newExp.expectedInflation) then true
-      else if Nbp.shouldTaperQe(in.newInflation, newExp.expectedInflation) then false
-      else in.w.nbp.qeActive
-    val preQeNbp  = Nbp.State(
-      newRefRate,
-      in.ledgerFinancialState.nbp.govBondHoldings,
-      qeActive,
-      in.w.nbp.qeCumulative,
-      in.ledgerFinancialState.nbp.foreignAssets,
-      in.w.nbp.lastFxTraded,
-    )
-    val qeRequest = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.gdp, in.newInflation, newExp.expectedInflation)
-
-    // 7. Corporate bonds
-    val prevCorpBondStock = CorporateBondOwnership.stockStateFromLedger(in.ledgerFinancialState)
-    val corpBondAmort     = CorporateBondMarket.amortization(prevCorpBondStock)
-    val corpBondStep      = CorporateBondMarket.step(
-      CorporateBondMarket.StepInput(
-        prevState = in.w.financialMarkets.corporateBonds,
-        prevStock = prevCorpBondStock,
-        govBondYield = marketYield,
-        nplRatio = bankAgg.nplRatio,
-        totalBondDefault = in.totalBondDefault,
-        totalBondIssuance = in.actualBondIssuance,
-      ),
-    )
-    val corpCoupon        = CorporateBondMarket.computeCoupon(in.w.financialMarkets.corporateBonds, prevCorpBondStock)
-    val corpDefaults      = CorporateBondMarket.processDefaults(prevCorpBondStock, in.totalBondDefault)
-
-    // 8. Insurance
-    val unempRate     = in.w.unemploymentRate(in.employed)
-    val insuranceStep = Insurance.step(
-      Insurance.StepInput(
-        opening = LedgerFinancialState.insuranceOpeningBalances(in.ledgerFinancialState),
-        employed = in.employed,
-        wage = in.newWage,
-        unempRate = unempRate,
-        govBondYield = marketYield,
-        corpBondYield = corpBondStep.state.corpBondYield,
-        equityReturn = in.equityReturn,
-        corpBondDefaultLoss = corpDefaults.insuranceLoss,
-      ),
-    )
-
-    Result(
-      exports = bop.exports,
-      totalImports = bop.totalImports,
-      fdi = bop.fdi,
-      portfolioFlows = bop.portfolioFlows,
-      primaryIncome = bop.primaryIncome,
-      euFunds = bop.euFundsMonthly,
-      newExchangeRate = forex.exchangeRate,
-      valuationEffect = valEffect,
-      fdiCitLoss = fdiCitLoss,
-      newRefRate = newRefRate,
-      newBondYield = marketYield,
-      newWeightedCoupon = newWeightedCoupon,
-      monthlyDebtService = debtService,
-      qePurchaseAmount = qeRequest.requestedPurchase,
-      reserveInterest = reserveInterest,
-      standingFacilityIncome = standingFacility,
-      interbankInterest = interbankInterest,
-      bankBondIncome = bankBondIncome,
-      nbpRemittance = nbpRemittance,
-      corpBondCoupon = corpCoupon.total,
-      corpBondDefaultLoss = corpDefaults.bankLoss,
-      corpBondIssuance = in.actualBondIssuance,
-      corpBondAmortization = corpBondAmort,
-      corpBondYield = corpBondStep.state.corpBondYield,
-      insLifePremium = insuranceStep.state.lastLifePremium,
-      insNonLifePremium = insuranceStep.state.lastNonLifePremium,
-      insLifeClaims = insuranceStep.state.lastLifeClaims,
-      insNonLifeClaims = insuranceStep.state.lastNonLifeClaims,
-      insInvestmentIncome = insuranceStep.state.lastInvestmentIncome,
-      newExpectations = newExp,
-      newGvc = newGvc,
-      newNbpRefRate = newRefRate,
-      newNbpQeActive = qeActive,
-      newNbpGovBondHoldings = qeRequest.nbpState.govBondHoldings,
-      newNbpQeCumulative = qeRequest.nbpState.qeCumulative,
-      newNbpFxReserves = fxResult.newReserves,
-      newNbpLastFxTraded = fxResult.eurTraded,
-      fxPlnInjection = fxResult.plnInjection,
-    )
-
-  @boundaryEscape
-  private def computeSectorOutputs(in: Input)(using p: SimParams): Vector[PLN] =
-    aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.livingFirms, in.sectorMults.apply)
-
-  @boundaryEscape
-  private def updateWeightedCoupon(prevCoupon: Rate, marketYield: Rate, bondsOutstanding: PLN, deficit: PLN, avgMaturityMonths: Int)(using
-      @scala.annotation.unused p: SimParams,
-  ): Rate =
-    import ComputationBoundary.toDouble
-    val rolloverFrac = if avgMaturityMonths > 0 then 1.0 / avgMaturityMonths else 1.0 / 60.0
-    val newIssueFrac = if bondsOutstanding > PLN.Zero then Math.max(0.0, toDouble(deficit) / toDouble(bondsOutstanding)) else 0.0
-    val blendFrac    = Math.min(1.0, rolloverFrac + newIssueFrac)
-    Rate(toDouble(prevCoupon) * (1.0 - blendFrac) + toDouble(marketYield) * blendFrac)
 
   /** Public WAM coupon update — exposed for tests (DebtMaturitySpec). */
   private[amorfati] def updateWeightedCouponPublic(
@@ -404,6 +125,7 @@ object OpenEconEconomics:
   )
 
   private case class ExternalResult(
+      flowBop: OpenEconomy.BopState,
       newForex: OpenEconomy.ForexState,
       newBop: OpenEconomy.BopState,
       newGvc: GvcTrade.State,
@@ -478,6 +200,7 @@ object OpenEconEconomics:
         monthlyDebtService = bondQe.monthlyDebtService,
       ),
       external = ExternalSector(
+        flowBop = external.flowBop,
         newForex = external.newForex,
         newBop = external.newBop,
         newGvc = external.newGvc,
@@ -585,6 +308,7 @@ object OpenEconEconomics:
     val fxResult             = runStepForex(in, sectorOutputs, newGvc)
     val (newBop, fdiCitLoss) = runStepAdjustBop(in, fxResult.bop)
     ExternalResult(
+      flowBop = fxResult.bop,
       newForex = fxResult.forex,
       newBop = newBop,
       newGvc = newGvc,
@@ -692,6 +416,7 @@ object OpenEconEconomics:
     CorporateBonds(
       newCorpBonds = newCorpBonds,
       newCorpBondStock = corpBondStep.stock,
+      corpBondCoupon = corpBondCoupon.total,
       corpBondBankCoupon = corpBondCoupon.bank,
       corpBondBankDefaultLoss = corpBondDefaults.bankLoss,
       corpBondInsuranceDefaultLoss = corpBondDefaults.insuranceLoss,
