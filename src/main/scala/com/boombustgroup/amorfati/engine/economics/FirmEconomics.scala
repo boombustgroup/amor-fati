@@ -14,8 +14,8 @@ import com.boombustgroup.amorfati.random.RandomStream
   * decisions, financing splits (equity/bonds/bank loans), labor matching, NPL
   * detection.
   *
-  * Own Input contract — does not depend on Step.Output types in its public API.
-  * Step Output types are constructed internally from raw values.
+  * `runStep` is the single runtime entry point; flow emission reads the
+  * returned `StepOutput` directly.
   */
 object FirmEconomics:
 
@@ -141,46 +141,6 @@ object FirmEconomics:
 
   // ---- Public I/O types ----
 
-  /** Raw inputs needed from previous calculus stages. */
-  case class Input(
-      w: World,
-      firms: Vector[Firm.State],
-      households: Vector[Household.State],
-      banks: Vector[Banking.BankState],
-      ledgerFinancialState: LedgerFinancialState,
-      // From FiscalConstraint
-      month: ExecutionMonth,
-      lendingBaseRate: Rate,
-      resWage: PLN,
-      baseMinWage: PLN,
-      minWagePriceLevel: PriceIndex,
-      // From Labor
-      newWage: PLN,
-      employed: Int,
-      laborDemand: Int,
-      wageGrowth: Coefficient,
-      immigration: Immigration.State,
-      netMigration: Int,
-      demographics: SocialSecurity.DemographicsState,
-      zusState: SocialSecurity.ZusState,
-      nfzState: SocialSecurity.NfzState,
-      ppkState: SocialSecurity.PpkState,
-      rawPpkBondPurchase: PLN,
-      earmarked: EarmarkedFunds.State,
-      living: Vector[Firm.State],
-      regionalWages: Map[Region, PLN],
-      // From HouseholdIncome
-      hhOutput: HouseholdIncomeEconomics.Output,
-      operationalSignals: OperationalSignals,
-      // From Demand
-      avgDemandMult: Multiplier,
-      sectorCapReal: Vector[PLN],
-      govPurchases: PLN,
-      laggedInvestDemand: PLN,
-      fiscalRuleStatus: com.boombustgroup.amorfati.engine.markets.FiscalRules.RuleStatus,
-      rng: RandomStream,
-  )
-
   /** Full step output — all fields previously in FirmProcessingStep.Output. */
   case class StepOutput(
       ioFirms: Vector[Firm.State],               // firms after I-O intermediate market
@@ -221,74 +181,7 @@ object FirmEconomics:
       ledgerFinancialState: LedgerFinancialState, // ledger with firm corporate-bond issuer balances after firm stage
   )
 
-  case class Result(
-      tax: PLN,
-      capex: PLN,
-      newLoans: PLN,
-      equityIssuance: PLN,
-      grossInvestment: PLN,
-      bondIssuance: PLN,
-      actualBondIssuance: PLN,
-      profitShifting: PLN,
-      fdiRepatriation: PLN,
-      ioPayments: PLN,
-      nplLoss: PLN,
-      intIncome: PLN,
-      firmPrincipal: PLN,
-      greenInvestment: PLN,
-      energyCost: PLN,
-      firmDeaths: Int,
-      nplNew: PLN,
-      totalBondDefault: PLN,
-      corpBondAbsorption: Share,
-      // Non-monetary outputs needed by later stages
-      markupInflation: Rate,
-      ioFirms: Vector[Firm.State],
-      updatedHouseholds: Vector[Household.State],
-      crossSectorHires: Int,
-      techImports: PLN,
-      inventoryChange: PLN,
-      citEvasion: PLN,
-      perBankWorkers: Vector[Int],
-      realizedPostTaxProfit: PLN,
-  )
-
-  def toResult(s5: StepOutput): Result = Result(
-    tax = s5.sumTax,
-    capex = s5.sumCapex,
-    newLoans = s5.sumNewLoans,
-    equityIssuance = s5.sumEquityIssuance,
-    grossInvestment = s5.sumGrossInvestment,
-    bondIssuance = s5.sumBondIssuance,
-    actualBondIssuance = s5.actualBondIssuance,
-    profitShifting = s5.sumProfitShifting,
-    fdiRepatriation = s5.sumFdiRepatriation,
-    ioPayments = s5.totalIoPaid,
-    nplLoss = s5.nplLoss,
-    intIncome = s5.intIncome,
-    firmPrincipal = s5.sumFirmPrincipal,
-    greenInvestment = s5.sumGreenInvestment,
-    energyCost = s5.sumEnergyCost,
-    firmDeaths = s5.firmDeaths,
-    nplNew = s5.nplNew,
-    totalBondDefault = s5.totalBondDefault,
-    corpBondAbsorption = s5.corpBondAbsorption,
-    markupInflation = s5.markupInflation,
-    ioFirms = s5.ioFirms,
-    updatedHouseholds = s5.households,
-    crossSectorHires = s5.postFirmCrossSectorHires,
-    techImports = s5.sumTechImp,
-    inventoryChange = s5.sumInventoryChange,
-    citEvasion = s5.sumCitEvasion,
-    perBankWorkers = s5.perBankWorkers,
-    realizedPostTaxProfit = s5.sumRealizedPostTaxProfit,
-  )
-
-  // ---- Entry point (from step outputs, used by FlowSimulation) ----
-
-  /** Run the full firm processing pipeline from step-level inputs. This is the
-    * direct replacement for FirmProcessingStep.run().
-    */
+  /** Run the full firm processing pipeline from stage outputs. */
   def runStep(
       w: World,
       firms: Vector[Firm.State],
@@ -304,43 +197,7 @@ object FirmEconomics:
     val stepIn = StepInput(w, firms, households, banks, ledgerFinancialState, s1, s2, s3, s4)
     runInternal(stepIn, rng)
 
-  // ---- Entry point (from raw values, used by MonthlyCalculus) ----
-
-  def compute(in: Input)(using p: SimParams): StepOutput =
-    // Construct bridge types from raw values
-    val s1 = FiscalConstraintEconomics.Output(in.month, in.baseMinWage, in.minWagePriceLevel, in.resWage, in.lendingBaseRate)
-    val s2 = LaborEconomics.Output(
-      in.newWage,
-      in.employed,
-      in.laborDemand,
-      in.wageGrowth,
-      in.operationalSignals.operationalHiringSlack,
-      in.immigration,
-      in.netMigration,
-      in.demographics,
-      in.zusState,
-      in.nfzState,
-      in.ppkState,
-      in.rawPpkBondPurchase,
-      in.earmarked,
-      in.living,
-      in.regionalWages,
-    )
-    val s4 = DemandEconomics.Output(
-      in.govPurchases,
-      in.operationalSignals.sectorDemandMult,
-      in.operationalSignals.sectorDemandPressure,
-      in.operationalSignals.sectorHiringSignal,
-      in.avgDemandMult,
-      in.sectorCapReal,
-      in.laggedInvestDemand,
-      in.fiscalRuleStatus,
-    )
-
-    val stepIn = StepInput(in.w, in.firms, in.households, in.banks, in.ledgerFinancialState, s1, s2, in.hhOutput, s4)
-    runInternal(stepIn, in.rng)
-
-  // ---- Core pipeline (shared by compute + runStep) ----
+  // ---- Core pipeline ----
 
   private def runInternal(stepIn: StepInput, rng: RandomStream)(using p: SimParams): StepOutput =
     val lending                             = prepareLending(stepIn, rng)
@@ -369,7 +226,7 @@ object FirmEconomics:
     val markupInfl                          = CalvoPricing.aggregateMarkupInflation(calvoFirms, ioFirms).annualize
     assembleOutput(fp, bonded, calvoFirms, issuerSettledLedger, totalIoPaid, finalHouseholds, crossSectorHires, npl, stepIn, lending, markupInfl)
 
-  // ---- Internal step input (mirrors old FirmProcessingStep.Input) ----
+  // ---- Internal step input ----
 
   private case class StepInput(
       w: World,

@@ -159,40 +159,24 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       operationalHiringSlack = baseline.s2.operationalHiringSlack,
     )
 
-  private def baseFirmComputeInput(world: World, operationalSignals: OperationalSignals, seed: Long): FirmEconomics.Input =
-    FirmEconomics.Input(
-      w = world,
-      firms = baseline.firms,
-      households = baseline.households,
-      banks = baseline.banks,
-      ledgerFinancialState = baseline.ledgerFinancialState,
-      month = baseline.s1.m,
-      lendingBaseRate = baseline.s1.lendingBaseRate,
-      resWage = baseline.s1.resWage,
-      baseMinWage = baseline.s1.baseMinWage,
-      minWagePriceLevel = baseline.s1.updatedMinWagePriceLevel,
-      newWage = baseline.s2Pre.newWage,
-      employed = baseline.s2Pre.employed,
-      laborDemand = baseline.s2Pre.laborDemand,
-      wageGrowth = baseline.s2Pre.wageGrowth,
-      immigration = baseline.s2Pre.newImmig,
-      netMigration = baseline.s2Pre.netMigration,
-      demographics = baseline.s2Pre.newDemographics,
-      zusState = baseline.s2Pre.newZus,
-      nfzState = baseline.s2Pre.newNfz,
-      ppkState = baseline.s2Pre.newPpk,
-      rawPpkBondPurchase = baseline.s2Pre.rawPpkBondPurchase,
-      earmarked = baseline.s2Pre.newEarmarked,
-      living = baseline.s2Pre.living,
-      regionalWages = baseline.s2Pre.regionalWages,
-      hhOutput = baseline.s3,
-      operationalSignals = operationalSignals,
-      avgDemandMult = baseline.s4.avgDemandMult,
-      sectorCapReal = baseline.s4.sectorCapReal,
-      govPurchases = baseline.s4.govPurchases,
-      laggedInvestDemand = baseline.s4.laggedInvestDemand,
-      fiscalRuleStatus = baseline.s4.fiscalRuleStatus,
-      rng = RandomStream.seeded(seed),
+  private def baseFirmRunStep(world: World, operationalSignals: OperationalSignals, seed: Long): FirmEconomics.StepOutput =
+    val labor  = baseline.s2Pre.copy(operationalHiringSlack = operationalSignals.operationalHiringSlack)
+    val demand = baseline.s4.copy(
+      sectorMults = operationalSignals.sectorDemandMult,
+      sectorDemandPressure = operationalSignals.sectorDemandPressure,
+      sectorHiringSignal = operationalSignals.sectorHiringSignal,
+    )
+    FirmEconomics.runStep(
+      world,
+      baseline.firms,
+      baseline.households,
+      baseline.banks,
+      baseline.ledgerFinancialState,
+      baseline.s1,
+      labor,
+      baseline.s3,
+      demand,
+      RandomStream.seeded(seed),
     )
 
   private def baseBankingComputeInput(world: World, operationalSignals: OperationalSignals, seed: Long): BankingEconomics.Input =
@@ -376,7 +360,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     extracted.provenance.startupAbsorptionRate.stage shouldBe MonthTraceStage.StartupStaffing
   }
 
-  "FirmEconomics.compute" should "ignore stale persisted demand signals when explicit OperationalSignals define the same-month surface" in {
+  "FirmEconomics.runStep" should "ignore stale persisted demand signals when stage outputs define the same-month surface" in {
     val staleWorld       = withSeedSignals(
       baseline.world,
       _.copy(
@@ -385,11 +369,9 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         sectorHiringSignal = multiplierVector(0.35),
       ),
     )
-    val explicitResult   = FirmEconomics.compute(baseFirmComputeInput(staleWorld, baseOperationalSignals, seed = 9001L))
-    val freshWorldResult = FirmEconomics.compute(baseFirmComputeInput(baseline.world, baseOperationalSignals, seed = 9001L))
-    val bridgedResult    = FirmEconomics.compute(
-      baseFirmComputeInput(staleWorld, OperationalSignals.fromBridgedWorld(staleWorld), seed = 9001L),
-    )
+    val explicitResult   = baseFirmRunStep(staleWorld, baseOperationalSignals, seed = 9001L)
+    val freshWorldResult = baseFirmRunStep(baseline.world, baseOperationalSignals, seed = 9001L)
+    val bridgedResult    = baseFirmRunStep(staleWorld, OperationalSignals.fromBridgedWorld(staleWorld), seed = 9001L)
 
     explicitResult.sumNewLoans shouldBe freshWorldResult.sumNewLoans
     explicitResult.sumGrossInvestment shouldBe freshWorldResult.sumGrossInvestment
