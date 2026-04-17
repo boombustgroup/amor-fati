@@ -400,9 +400,6 @@ object Firm:
       requiredSignalMonths = requiredHiringSignalMonths(workers),
     )
 
-  private[amorfati] def hiringDiagnostics(firm: State, w: World)(using p: SimParams): HiringDiagnostics =
-    hiringDiagnostics(firm, w, OperationalSignals.fromBridgedWorld(w))
-
   /** Effective AI CAPEX for sector — sublinear in firm size (exponent 0.6),
     * digital readiness discount.
     */
@@ -473,18 +470,6 @@ object Firm:
     val r4       = applyInventory(r3, sectorDemandMult = operationalSignals.sectorDemandMult(firm.sector.toInt))
     val r5       = applyFdiFlows(r4)
     applyInformalCitEvasion(r5, Share(w.mechanisms.informalCyclicalAdj))
-
-  def process(
-      firm: State,
-      w: World,
-      executionMonth: ExecutionMonth,
-      lendRate: Rate,
-      bankCanLend: PLN => Boolean,
-      allFirms: Vector[State],
-      rng: RandomStream,
-      corpBondDebt: PLN = PLN.Zero,
-  )(using p: SimParams): Result =
-    process(firm, w, executionMonth, OperationalSignals.fromBridgedWorld(w), lendRate, bankCanLend, allFirms, rng, corpBondDebt)
 
   // ---- Decide (all match logic + RandomStream rolls) ----
 

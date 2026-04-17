@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.diagnostics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals, World}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.economics.*
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -102,12 +102,13 @@ object LaborDemandProbe:
       )
     }
 
-  private def hiringSummaries(world: com.boombustgroup.amorfati.engine.World, firms: Vector[Firm.State])(using p: SimParams): Vector[HiringSummary] =
+  private def hiringSummaries(world: World, firms: Vector[Firm.State])(using p: SimParams): Vector[HiringSummary] =
+    val signals = OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack)
     (0 until p.sectorDefs.length)
       .map: s =>
         val ds                           = firms
           .filter(f => Firm.isAlive(f) && f.sector.toInt == s)
-          .map(Firm.hiringDiagnostics(_, world))
+          .map(Firm.hiringDiagnostics(_, world, signals))
         val positiveDesired              = ds.filter(_.desiredGap > 0)
         val desiredGaps                  = positiveDesired.map(_.desiredGap).sorted
         val feasibleGaps                 = positiveDesired.map(_.feasibleGap).sorted

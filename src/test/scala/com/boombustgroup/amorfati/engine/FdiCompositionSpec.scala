@@ -71,7 +71,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   "calcPnL (via Firm.process)" should "produce profitShiftCost=0 for domestic firm" in {
     val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = false)
     val w = mkWorld()
-    val r = Firm.process(f, w, ExecutionMonth31, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42))
+    val r = process(f, w, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42))
     r.profitShiftCost shouldBe PLN.Zero
   }
 
@@ -108,7 +108,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     // When FDI is enabled and firm has low cash, repatriation is capped
     val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = true, cash = PLN(100.0))
     val w = mkWorld()
-    val r = Firm.process(f, w, ExecutionMonth31, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42))
+    val r = process(f, w, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42))
     // Even with FDI enabled, cash should not go below what the base logic sets
     // With FDI disabled (default), just verify firm processes normally
     Firm.isAlive(r.firm) || !Firm.isAlive(r.firm) shouldBe true // always true, no crash
@@ -212,4 +212,24 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
       mechanisms = MechanismsState.zero,
       plumbing = MonetaryPlumbingState.zero,
       flows = FlowState.zero,
+    )
+
+  private def process(
+      firm: Firm.State,
+      world: World,
+      lendRate: Rate,
+      bankCanLend: PLN => Boolean,
+      allFirms: Vector[Firm.State],
+      rng: RandomStream,
+  ): Firm.Result =
+    Firm.process(
+      firm,
+      world,
+      ExecutionMonth31,
+      OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack),
+      lendRate,
+      bankCanLend,
+      allFirms,
+      rng,
+      PLN.Zero,
     )

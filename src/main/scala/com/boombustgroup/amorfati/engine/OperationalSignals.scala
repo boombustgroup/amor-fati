@@ -32,16 +32,10 @@ object OperationalSignals:
       operationalHiringSlack = Share.One,
     )
 
-  /** Compatibility wrapper for call sites that still hold a transitional
-    * world-shaped bridge rather than the explicit same-month surface.
-    *
-    * New engine wiring should prefer passing [[OperationalSignals]] directly
-    * from current-month stage outputs instead of routing them through `World`.
-    */
-  def fromBridgedWorld(w: World): OperationalSignals =
+  def fromDecisionSignals(signals: DecisionSignals, operationalHiringSlack: Share): OperationalSignals =
     OperationalSignals(
-      sectorDemandMult = w.seedIn.sectorDemandMult,
-      sectorDemandPressure = w.seedIn.sectorDemandPressure,
-      sectorHiringSignal = w.seedIn.sectorHiringSignal,
-      operationalHiringSlack = w.pipeline.operationalHiringSlack,
+      sectorDemandMult = signals.sectorDemandMult,
+      sectorDemandPressure = signals.sectorDemandPressure,
+      sectorHiringSignal = signals.sectorHiringSignal,
+      operationalHiringSlack = operationalHiringSlack,
     )

@@ -299,7 +299,8 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     )
     val explicitResult   = baseFirmRunStep(staleWorld, baseOperationalSignals, seed = 9001L)
     val freshWorldResult = baseFirmRunStep(baseline.world, baseOperationalSignals, seed = 9001L)
-    val bridgedResult    = baseFirmRunStep(staleWorld, OperationalSignals.fromBridgedWorld(staleWorld), seed = 9001L)
+    val bridgedResult    =
+      baseFirmRunStep(staleWorld, OperationalSignals.fromDecisionSignals(staleWorld.seedIn, staleWorld.pipeline.operationalHiringSlack), seed = 9001L)
 
     explicitResult.sumNewLoans shouldBe freshWorldResult.sumNewLoans
     explicitResult.sumGrossInvestment shouldBe freshWorldResult.sumGrossInvestment

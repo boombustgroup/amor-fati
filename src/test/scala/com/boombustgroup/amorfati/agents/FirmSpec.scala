@@ -18,6 +18,29 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   private val p: SimParams     = summon[SimParams]
   private val ExecutionMonth31 = ExecutionMonth(31)
 
+  private def hiringDiagnostics(firm: Firm.State, world: World): Firm.HiringDiagnostics =
+    Firm.hiringDiagnostics(firm, world, OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack))
+
+  private def process(
+      firm: Firm.State,
+      world: World,
+      lendRate: Rate,
+      bankCanLend: PLN => Boolean,
+      allFirms: Vector[Firm.State],
+      rng: RandomStream,
+  ): Firm.Result =
+    Firm.process(
+      firm,
+      world,
+      ExecutionMonth31,
+      OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack),
+      lendRate,
+      bankCanLend,
+      allFirms,
+      rng,
+      PLN.Zero,
+    )
+
   // --- Firm.isAlive ---
 
   "Firm.isAlive" should "return true for Traditional" in {
@@ -73,13 +96,13 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       ),
       flows = FlowState.zero,
     )
-    val firstSignal = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3), world)
+    val firstSignal = hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3), world)
     firstSignal.desiredWorkers should be > firstSignal.workers
     firstSignal.feasibleWorkers shouldBe firstSignal.workers
     firstSignal.signalMonths shouldBe 1
     firstSignal.requiredSignalMonths shouldBe 2
 
-    val persistedSignal = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3).copy(hiringSignalMonths = 1), world)
+    val persistedSignal = hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3).copy(hiringSignalMonths = 1), world)
     persistedSignal.desiredWorkers should be > persistedSignal.workers
     persistedSignal.feasibleWorkers should be > persistedSignal.workers
     persistedSignal.signalMonths shouldBe 2
@@ -95,7 +118,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       ),
       flows = FlowState.zero,
     )
-    val diag  = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(4), sector = 3), world)
+    val diag  = hiringDiagnostics(mkFirm(TechState.Traditional(4), sector = 3), world)
     diag.desiredWorkers should be > diag.workers
     diag.feasibleWorkers should be > diag.workers
     diag.requiredSignalMonths shouldBe 1
@@ -112,7 +135,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       flows = FlowState.zero,
     )
     val startup = mkFirm(TechState.Traditional(1), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 3)
-    val diag    = Firm.hiringDiagnostics(startup, world)
+    val diag    = hiringDiagnostics(startup, world)
     diag.desiredWorkers shouldBe 3
     diag.feasibleWorkers shouldBe 2
     diag.signalMonths shouldBe 1
@@ -135,7 +158,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       operationalHiringSlack = Share.One,
     )
     val firm              = mkFirm(TechState.Traditional(8), sector = 3).copy(hiringSignalMonths = 1)
-    val bridged           = Firm.hiringDiagnostics(firm, weakWorld)
+    val bridged           = hiringDiagnostics(firm, weakWorld)
     val explicit          = Firm.hiringDiagnostics(firm, weakWorld, strongOperational)
 
     explicit.desiredWorkers should be > bridged.desiredWorkers
@@ -299,7 +322,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   "Firm.process" should "keep a Bankrupt firm bankrupt with zero tax/capex" in {
     val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))
-    val result = Firm.process(f, mkWorld(), ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     result.taxPaid shouldBe PLN.Zero
     result.capexSpent shouldBe PLN.Zero
     result.firm.tech shouldBe a[TechState.Bankrupt]
@@ -307,7 +330,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   it should "keep an Automated firm alive with large cash" in {
     val f      = mkFirm(TechState.Automated(Multiplier(1.5))).copy(cash = PLN(10000000.0))
-    val result = Firm.process(f, mkWorld(), ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     Firm.isAlive(result.firm) shouldBe true
   }
 
@@ -321,7 +344,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         sectorDemandMult = Vector.fill(baseW.pipeline.sectorDemandMult.length)(Multiplier(0.1)),
       ),
     )
-    val result = Firm.process(f, w, ExecutionMonth31, Rate(0.20), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate(0.20), _ => true, Vector(f), RandomStream.seeded(42))
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }
 
@@ -337,9 +360,9 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       )
     val lowAdj     = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.0))
     val highAdj    = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.4))
-    val lowResult  = Firm.process(firm, lowAdj, ExecutionMonth31, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
+    val lowResult  = process(firm, lowAdj, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
     val highResult =
-      Firm.process(firm, highAdj, ExecutionMonth31, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
+      process(firm, highAdj, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
 
     lowResult.taxPaid should be > PLN.Zero
     highResult.taxPaid should be > PLN.Zero
