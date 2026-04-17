@@ -64,27 +64,29 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       netSum shouldBe 0.0 +- 1.0 // tolerance for floating-point
     }
 
-  // ---- allocateBonds increment sums to deficit ----
+  // ---- bond allocation increments sum exactly ----
 
-  "allocateBonds" should "have individual deltas summing to exactly deficit (residual)" in
-    forAll(genBanking.State, Gen.choose(-1e8, 1e8)) { (bs: Banking.State, deficit: Double) =>
+  "allocateBondIssuance/allocateBondRedemption" should "have individual deltas summing to exactly the requested change (residual)" in
+    forAll(genBanking.State, Gen.choose(-1e8, 1e8)) { (bs: Banking.State, signedChange: Double) =>
       val aliveDep = bs.banks.filterNot(_.failed).map(b => td.toDouble(b.deposits)).sum
-      whenever(aliveDep > 0 && deficit != 0.0) {
-        val after  = Banking.allocateBonds(bs.banks, PLN(deficit), Rate(0.05))
-        // Per-bank deltas sum to exactly deficit (residual-based allocation)
+      whenever(aliveDep > 0 && signedChange != 0.0) {
+        val after  =
+          if signedChange > 0.0 then Banking.allocateBondIssuance(bs.banks, PLN(signedChange), Rate(0.05))
+          else Banking.allocateBondRedemption(bs.banks, PLN(-signedChange), Rate(0.05))
+        // Per-bank deltas sum to the signed issuance/redemption request.
         val deltas = after.zip(bs.banks).map((a, b) => td.toDouble(a.govBondHoldings) - td.toDouble(b.govBondHoldings))
-        deltas.sum shouldBe deficit +- 1.0
+        deltas.sum shouldBe signedChange +- 1.0
       }
     }
 
-  it should "keep aggregate bond change within tight tolerance for large deficits" in
-    forAll(genBanking.State, Gen.choose(1e10, 1e14)) { (bs: Banking.State, deficit: Double) =>
+  it should "keep aggregate bond change within tight tolerance for large issuance" in
+    forAll(genBanking.State, Gen.choose(1e10, 1e14)) { (bs: Banking.State, issuance: Double) =>
       val alive = bs.banks.filterNot(_.failed)
       whenever(alive.nonEmpty) {
         val before   = bs.banks.map(b => td.toDouble(b.govBondHoldings)).sum
-        val after    = Banking.allocateBonds(bs.banks, PLN(deficit), Rate(0.05))
+        val after    = Banking.allocateBondIssuance(bs.banks, PLN(issuance), Rate(0.05))
         val afterSum = after.map(b => td.toDouble(b.govBondHoldings)).sum
-        (afterSum - before) shouldBe deficit +- 1.0 // well within SFC tolerance
+        (afterSum - before) shouldBe issuance +- 1.0 // well within SFC tolerance
       }
     }
 

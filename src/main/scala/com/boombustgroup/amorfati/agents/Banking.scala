@@ -619,16 +619,6 @@ object Banking:
     if redemption <= PLN.Zero then return banks
     allocateBondChange(banks, PLN.fromRaw(-redemption.toLong), currentYield)
 
-  /** Compat wrapper for signed net issuance.
-    *
-    *   - `netIssuance > 0` means new bond issuance
-    *   - `netIssuance < 0` means bond redemption
-    */
-  def allocateBonds(banks: Vector[BankState], netIssuance: PLN, currentYield: Rate)(using p: SimParams): Vector[BankState] =
-    if netIssuance > PLN.Zero then allocateBondIssuance(banks, netIssuance, currentYield)
-    else if netIssuance < PLN.Zero then allocateBondRedemption(banks, PLN.fromRaw(-netIssuance.toLong), currentYield)
-    else banks
-
   private def allocateBondChange(banks: Vector[BankState], signedChange: PLN, currentYield: Rate)(using p: SimParams): Vector[BankState] =
     if signedChange == PLN.Zero then return banks
     val aliveBanks = banks.filterNot(_.failed)

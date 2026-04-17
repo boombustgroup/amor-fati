@@ -233,41 +233,31 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     result.bankCorpBondHoldings shouldBe Vector(PLN(1250.0), PLN.Zero)
   }
 
-  // ---- allocateBonds ----
+  // ---- bond allocation ----
 
-  "Banking.allocateBonds" should "distribute proportional to deposits" in {
+  "Banking.allocateBondIssuance" should "distribute proportional to deposits" in {
     val banks  = Vector(
       mkBank(id = 0, deposits = PLN(600000.0), loans = PLN.Zero, capital = PLN(1e5)),
       mkBank(id = 1, deposits = PLN(400000.0), loans = PLN.Zero, capital = PLN(1e5)),
     )
-    val result = Banking.allocateBonds(banks, PLN(10000.0), Rate(0.05))
+    val result = Banking.allocateBondIssuance(banks, PLN(10000.0), Rate(0.05))
     td.toDouble(result(0).govBondHoldings) shouldBe 6000.0 +- 0.01
     td.toDouble(result(1).govBondHoldings) shouldBe 4000.0 +- 0.01
   }
 
-  it should "handle negative deficit (surplus)" in {
-    val banks  = Vector(
-      mkBank(id = 0, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(8000.0)),
-      mkBank(id = 1, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(2000.0)),
-    )
-    val result = Banking.allocateBonds(banks, PLN(-4000.0), Rate(0.05))
-    td.toDouble(result(0).govBondHoldings) shouldBe 6000.0 +- 0.01 // 8000 + (-4000 * 0.5)
-    td.toDouble(result(1).govBondHoldings) shouldBe 0.0 +- 0.01    // 2000 + (-4000 * 0.5)
-  }
-
-  it should "support explicit positive redemption API" in {
+  "Banking.allocateBondRedemption" should "handle government surplus as explicit redemption" in {
     val banks  = Vector(
       mkBank(id = 0, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(8000.0)),
       mkBank(id = 1, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(2000.0)),
     )
     val result = Banking.allocateBondRedemption(banks, PLN(4000.0), Rate(0.05))
-    td.toDouble(result(0).govBondHoldings) shouldBe 6000.0 +- 0.01
-    td.toDouble(result(1).govBondHoldings) shouldBe 0.0 +- 0.01
+    td.toDouble(result(0).govBondHoldings) shouldBe 6000.0 +- 0.01 // 8000 + (-4000 * 0.5)
+    td.toDouble(result(1).govBondHoldings) shouldBe 0.0 +- 0.01    // 2000 + (-4000 * 0.5)
   }
 
-  it should "have per-bank deltas summing to exactly deficit (residual-based)" in {
+  "Banking.allocateBondIssuance" should "have per-bank deltas summing to exactly issuance (residual-based)" in {
     // 7 banks with irrational deposit ratios -> FP rounding inevitable without residual
-    val banks   = (0 until 7)
+    val banks    = (0 until 7)
       .map(i =>
         mkBank(
           id = i,
@@ -278,19 +268,19 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
         ),
       )
       .toVector
-    val deficit = PLN(123456.789)
-    val result  = Banking.allocateBonds(banks, deficit, Rate(0.05))
-    val deltas  = result.zip(banks).map((a, b) => td.toDouble(a.govBondHoldings) - td.toDouble(b.govBondHoldings))
-    deltas.sum shouldBe td.toDouble(deficit) +- 1e-6
+    val issuance = PLN(123456.789)
+    val result   = Banking.allocateBondIssuance(banks, issuance, Rate(0.05))
+    val deltas   = result.zip(banks).map((a, b) => td.toDouble(a.govBondHoldings) - td.toDouble(b.govBondHoldings))
+    deltas.sum shouldBe td.toDouble(issuance) +- 1e-6
   }
 
-  it should "keep aggregate within tight tolerance with large deficit (1e13)" in {
-    val banks   = Generators.testBankingSector(totalDeposits = PLN(1e9), totalCapital = PLN(1e8), totalLoans = PLN.Zero, configs = configs).banks
-    val deficit = PLN(1e13)
-    val before  = banks.map(b => td.toDouble(b.govBondHoldings)).sum
-    val result  = Banking.allocateBonds(banks, deficit, Rate(0.05))
-    val after   = result.map(b => td.toDouble(b.govBondHoldings)).sum
-    (after - before) shouldBe td.toDouble(deficit) +- 0.01 // well within SFC tolerance of 1.0
+  it should "keep aggregate within tight tolerance with large issuance (1e13)" in {
+    val banks    = Generators.testBankingSector(totalDeposits = PLN(1e9), totalCapital = PLN(1e8), totalLoans = PLN.Zero, configs = configs).banks
+    val issuance = PLN(1e13)
+    val before   = banks.map(b => td.toDouble(b.govBondHoldings)).sum
+    val result   = Banking.allocateBondIssuance(banks, issuance, Rate(0.05))
+    val after    = result.map(b => td.toDouble(b.govBondHoldings)).sum
+    (after - before) shouldBe td.toDouble(issuance) +- 0.01 // well within SFC tolerance of 1.0
   }
 
   // ---- sellToBuyer ----
@@ -359,9 +349,9 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     b.htmBonds shouldBe PLN(6000.0)
   }
 
-  "allocateBonds" should "split new issuance per htmShare" in {
+  "allocateBondIssuance" should "split new issuance per htmShare" in {
     val banks  = Vector(mkBank(id = 0, deposits = PLN(1e6)))
-    val result = Banking.allocateBonds(banks, PLN(10000.0), Rate(0.06))
+    val result = Banking.allocateBondIssuance(banks, PLN(10000.0), Rate(0.06))
     // 60% HTM, 40% AFS
     td.toDouble(result(0).htmBonds) shouldBe 6000.0 +- 0.01
     td.toDouble(result(0).afsBonds) shouldBe 4000.0 +- 0.01
@@ -388,7 +378,7 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
     )
-    val result = Banking.allocateBonds(Vector(b0), PLN(10000.0), Rate(0.08))
+    val result = Banking.allocateBondIssuance(Vector(b0), PLN(10000.0), Rate(0.08))
     // new HTM = 10000 * 0.6 = 6000, total HTM = 12000
     // weighted yield = (6000*0.05 + 6000*0.08) / 12000 = 0.065
     td.toDouble(result(0).htmBookYield) shouldBe 0.065 +- 0.001
