@@ -123,6 +123,7 @@ object BankingEconomics:
   private case class MultiBankResult(
       finalBanks: Vector[Banking.BankState],             // final explicit bank population after interbank clearing and resolution
       finalBankCorpBondHoldings: Vector[PLN],            // ledger-owned corporate bond holdings by bank index
+      finalBankFinancialBalances: Vector[Banking.FinancialBalances],
       finalBankingMarket: Banking.MarketState,           // final banking market wrapper after interbank clearing and resolution
       reassignedFirms: Vector[Firm.State],               // firms reassigned from failed banks to absorber bank
       reassignedHouseholds: Vector[Household.State],     // households reassigned from failed banks to absorber bank
@@ -201,7 +202,7 @@ object BankingEconomics:
     val ledgerFinancialState =
       in.s5.ledgerFinancialState.copy(
         firms = issuerSettledFirmBalances,
-        banks = LedgerFinancialState.refreshBankBalances(multi.finalBanks, in.s5.ledgerFinancialState.banks, multi.finalBankCorpBondHoldings),
+        banks = LedgerFinancialState.refreshBankFinancialBalances(multi.finalBankFinancialBalances),
         government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = govJst.newGovWithYield.bondsOutstanding),
         foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = multi.foreignBondHoldings),
         nbp = LedgerFinancialState.NbpBalances(
@@ -800,6 +801,8 @@ object BankingEconomics:
     MultiBankResult(
       finalBanks = reconciled,
       finalBankCorpBondHoldings = afterResolveCorpBonds,
+      finalBankFinancialBalances = reconciled.map: bank =>
+        Banking.FinancialBalances.fromState(bank, afterResolveCorpBonds.lift(bank.id.toInt).getOrElse(PLN.Zero)),
       finalBankingMarket = finalBankingMarket,
       reassignedFirms = reassignedFirms,
       reassignedHouseholds = reassignedHouseholds,

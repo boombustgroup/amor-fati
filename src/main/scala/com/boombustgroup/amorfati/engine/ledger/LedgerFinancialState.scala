@@ -116,6 +116,20 @@ object LedgerFinancialState:
       corpBond = corpBond,
     )
 
+  def bankBalances(balances: Banking.FinancialBalances): BankBalances =
+    BankBalances(
+      totalDeposits = balances.totalDeposits,
+      demandDeposit = balances.demandDeposit,
+      termDeposit = balances.termDeposit,
+      firmLoan = balances.firmLoan,
+      consumerLoan = balances.consumerLoan,
+      govBondAfs = balances.govBondAfs,
+      govBondHtm = balances.govBondHtm,
+      reserve = balances.reserve,
+      interbankLoan = balances.interbankLoan,
+      corpBond = balances.corpBond,
+    )
+
   def refreshBankBalances(
       banks: Vector[Banking.BankState],
       previous: Vector[BankBalances],
@@ -127,6 +141,11 @@ object LedgerFinancialState:
         .orElse(previous.lift(bank.id.toInt).map(_.corpBond))
         .getOrElse(PLN.Zero)
       bankBalances(bank, corpBond)
+
+  def refreshBankFinancialBalances(
+      balances: Vector[Banking.FinancialBalances],
+  ): Vector[BankBalances] =
+    balances.map(bankBalances)
 
   def insuranceOpeningBalances(ledgerFinancialState: LedgerFinancialState): Insurance.OpeningBalances =
     Insurance.OpeningBalances(

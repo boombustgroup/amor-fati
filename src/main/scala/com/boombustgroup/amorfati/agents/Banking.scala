@@ -277,6 +277,42 @@ object Banking:
       val requiredStableFunding = rsf(corpBondHoldings)
       if requiredStableFunding > MinBalanceThreshold then asf.ratioTo(requiredStableFunding).toMultiplier else SafeRatioFloor
 
+  /** Financial stock balances produced by the banking stage for ledger-owned
+    * assets and liabilities.
+    */
+  case class FinancialBalances(
+      totalDeposits: PLN,
+      demandDeposit: PLN,
+      termDeposit: PLN,
+      firmLoan: PLN,
+      consumerLoan: PLN,
+      govBondAfs: PLN,
+      govBondHtm: PLN,
+      reserve: PLN,
+      interbankLoan: PLN,
+      corpBond: PLN,
+  )
+  object FinancialBalances:
+    def fromState(bank: BankState, corpBond: PLN): FinancialBalances =
+      val demandDeposit =
+        if bank.demandDeposits == PLN.Zero && bank.termDeposits == PLN.Zero then bank.deposits
+        else bank.demandDeposits
+      val termDeposit   =
+        if bank.demandDeposits == PLN.Zero && bank.termDeposits == PLN.Zero then PLN.Zero
+        else bank.termDeposits
+      FinancialBalances(
+        totalDeposits = bank.deposits,
+        demandDeposit = demandDeposit,
+        termDeposit = termDeposit,
+        firmLoan = bank.loans,
+        consumerLoan = bank.consumerLoans,
+        govBondAfs = bank.afsBonds,
+        govBondHtm = bank.htmBonds,
+        reserve = bank.reservesAtNbp,
+        interbankLoan = bank.interbankNet,
+        corpBond = corpBond,
+      )
+
   /** State of the entire banking sector. */
   case class State(
       banks: Vector[BankState],
