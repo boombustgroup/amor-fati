@@ -43,31 +43,22 @@ object Nbp:
 
   case class State(
       policy: PolicyState,
-      financial: FinancialStocks,
       qeCumulative: PLN,
       monthly: MonthlyOpsState,
   ):
-    def referenceRate: Rate  = policy.referenceRate
-    def qeActive: Boolean    = policy.qeActive
-    def govBondHoldings: PLN = financial.govBondHoldings
-    def fxReserves: PLN      = financial.foreignAssets
-    def lastFxTraded: PLN    = monthly.lastFxTraded
-
-    def withFinancial(update: FinancialStocks => FinancialStocks): State =
-      copy(financial = update(financial))
+    def referenceRate: Rate = policy.referenceRate
+    def qeActive: Boolean   = policy.qeActive
+    def lastFxTraded: PLN   = monthly.lastFxTraded
 
   object State:
     def apply(
         referenceRate: Rate,
-        govBondHoldings: PLN,
         qeActive: Boolean,
         qeCumulative: PLN,
-        fxReserves: PLN,
         lastFxTraded: PLN,
     ): State =
       State(
         policy = PolicyState(referenceRate, qeActive),
-        financial = FinancialStocks(govBondHoldings, fxReserves),
         qeCumulative = qeCumulative,
         monthly = MonthlyOpsState(lastFxTraded),
       )
@@ -81,7 +72,7 @@ object Nbp:
     * Actual purchase happens in the bond waterfall (BankingEconomics).
     */
   case class QeRequest(
-      nbpState: State,       // NBP state (govBondHoldings NOT yet updated)
+      nbpState: State,       // NBP policy/QE state; financial stocks settle in the bond waterfall
       requestedPurchase: PLN, // how much QE wants to buy (actual capped by bank supply in waterfall)
   )
 
@@ -204,18 +195,20 @@ object Nbp:
     inflation > p.monetary.targetInfl + ZlbExitBuffer &&
       expectedInflation > p.monetary.targetInfl
 
-  /** Compute QE purchase request. Does NOT update govBondHoldings — the bond
+  /** Compute QE purchase request. Does NOT update financial stocks — the bond
     * waterfall in BankingEconomics handles the actual transfer so that SFC
     * clears by construction (actualSold from banks = actualSold to NBP).
     *
-    * `qeCumulative` is intentionally distinct from current `govBondHoldings`:
+    * `qeCumulative` is intentionally distinct from current NBP bond ownership:
     * it tracks purchases attributed to the QE regime, not the full NBP bond
     * stock.
     */
-  def executeQe(nbp: State, bankBondHoldings: PLN, annualGdp: PLN, inflation: Rate, expectedInflation: Rate)(using p: SimParams): QeRequest =
+  def executeQe(nbp: State, financialStocks: FinancialStocks, bankBondHoldings: PLN, annualGdp: PLN, inflation: Rate, expectedInflation: Rate)(using
+      p: SimParams,
+  ): QeRequest =
     if !nbp.qeActive then QeRequest(nbp, PLN.Zero)
     else
-      val maxByGdp  = (annualGdp * p.monetary.qeMaxGdpShare - nbp.govBondHoldings).max(PLN.Zero)
+      val maxByGdp  = (annualGdp * p.monetary.qeMaxGdpShare - financialStocks.govBondHoldings).max(PLN.Zero)
       val available = bankBondHoldings
       val pace      = qePurchasePace(nbp.referenceRate, inflation, expectedInflation)
       val purchase  = PLN.Zero.max(maxByGdp.min(available).min(pace))

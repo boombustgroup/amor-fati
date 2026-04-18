@@ -99,30 +99,6 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     ComputationBoundary.toDouble(result.monetary.newBondYield) should be >= 0.0
   }
 
-  it should "read central-bank stocks from LedgerFinancialState" in {
-    val mismatchedWorld = w.copy(
-      nbp = w.nbp.withFinancial(
-        _.copy(
-          govBondHoldings = w.nbp.govBondHoldings + PLN(103),
-          foreignAssets = w.nbp.fxReserves + PLN(104),
-        ),
-      ),
-    )
-
-    val aligned    = runOpenEcon(w)
-    val fromLedger = runOpenEcon(mismatchedWorld)
-
-    fromLedger.monetary.newWeightedCoupon shouldBe aligned.monetary.newWeightedCoupon
-    fromLedger.banking.monthlyDebtService shouldBe aligned.banking.monthlyDebtService
-    fromLedger.banking.nbpRemittance shouldBe aligned.banking.nbpRemittance
-    fromLedger.monetary.postFxNbp.govBondHoldings shouldBe aligned.monetary.postFxNbp.govBondHoldings
-    fromLedger.monetary.postFxNbp.fxReserves shouldBe aligned.monetary.postFxNbp.fxReserves
-    fromLedger.monetary.postFxNbpFinancialStocks shouldBe aligned.monetary.postFxNbpFinancialStocks
-    fromLedger.corpBonds.corpBondCoupon shouldBe aligned.corpBonds.corpBondCoupon
-    fromLedger.corpBonds.corpBondBankDefaultLoss shouldBe aligned.corpBonds.corpBondBankDefaultLoss
-    fromLedger.nonBank.newInsurance.lastInvestmentIncome shouldBe aligned.nonBank.newInsurance.lastInvestmentIncome
-  }
-
   it should "return corporate bond stock separately from market memory in runStep" in {
     val aligned = runOpenEcon(w)
 

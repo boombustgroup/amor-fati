@@ -189,7 +189,7 @@ object McTimeseriesSchema:
         else 0.0,
     ),
     // FX
-    ColumnDef("FxReserves", ctx => td.toDouble(ctx.world.nbp.fxReserves)),
+    ColumnDef("FxReserves", ctx => td.toDouble(ctx.ledgerFinancialState.nbp.foreignAssets)),
     ColumnDef("FxInterventionAmt", ctx => td.toDouble(ctx.world.nbp.lastFxTraded)),
     ColumnDef("FxInterventionActive", _ => 1.0),
     // Diaspora Remittances

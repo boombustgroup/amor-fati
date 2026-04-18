@@ -108,7 +108,7 @@ object Generators:
       marketWage: PLN = PLN(8000),
       reservationWage: PLN = PLN(4666),
       gov: FiscalBudget.GovState = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      nbp: Nbp.State = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
+      nbp: Nbp.State = Nbp.State(Rate(0.0575), false, PLN.Zero, PLN.Zero),
       bankingSector: Banking.MarketState = Banking.MarketState(Rate.Zero, Banking.DefaultConfigs, None),
       forex: OpenEconomy.ForexState = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       social: SocialState = SocialState.zero,
@@ -424,7 +424,7 @@ object Generators:
     marketWage = PLN(wage),
     reservationWage = PLN(resWage),
     gov = gov,
-    nbp = Nbp.State(Rate(rate), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
+    nbp = Nbp.State(Rate(rate), false, PLN.Zero, PLN.Zero),
     forex = forex,
     real = RealState.zero.copy(automationRatio = Share(autoR), hybridRatio = Share(hybR)),
   )
@@ -641,12 +641,10 @@ object Generators:
 
   val genNbpState: Gen[Nbp.State] = for
     rate     <- genRate
-    bonds    <- Gen.choose(0.0, 1e10)
     qeActive <- Gen.oneOf(true, false)
     qeCum    <- Gen.choose(0.0, 1e10)
-    fxRes    <- Gen.choose(0.0, 1e11)
     lastFx   <- Gen.choose(-1e9, 1e9)
-  yield Nbp.State(Rate(rate), PLN(bonds), qeActive, PLN(qeCum), PLN(fxRes), PLN(lastFx))
+  yield Nbp.State(Rate(rate), qeActive, PLN(qeCum), PLN(lastFx))
 
   // --- I-O matrix generator ---
 

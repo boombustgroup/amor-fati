@@ -283,7 +283,7 @@ object WorldAssemblyEconomics:
           minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
         ),
       ),
-      nbp = LedgerBoundaryProjection.nbpState(in.s9.finalNbp, ledgerFinancialState),
+      nbp = in.s9.finalNbp,
       bankingSector = in.s9.bankingMarket,
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,

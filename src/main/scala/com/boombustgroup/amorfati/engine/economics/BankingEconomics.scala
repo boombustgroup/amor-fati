@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerBoundaryProjection, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, CorporateBondMarket, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -50,7 +50,7 @@ object BankingEconomics:
       bankingMarket: Banking.MarketState,                // banking market wrapper after interbank clearing
       reassignedFirms: Vector[Firm.State],               // firms with bankId reassigned after bank failure
       reassignedHouseholds: Vector[Household.State],     // HH with bankId reassigned after bank failure
-      finalNbp: Nbp.State,                               // NBP state after QE bond purchase (waterfall)
+      finalNbp: Nbp.State,                               // NBP policy/QE state after bond-waterfall settlement
       finalPpk: SocialSecurity.PpkState,                 // PPK state after bond purchases
       finalInsurance: Insurance.State,                   // insurance monthly state
       finalInsuranceBalances: Insurance.ClosingBalances, // insurance non-corporate-bond closing balances
@@ -133,7 +133,7 @@ object BankingEconomics:
       resolvedBank: Banking.Aggregate,                   // aggregate banking sector after resolution
       htmRealizedLoss: PLN,                              // realized loss from HTM forced reclassification
       // Bond waterfall outputs — single source of truth for buyer holdings
-      finalNbp: Nbp.State,                               // NBP after QE bond purchase (govBondHoldings updated)
+      finalNbp: Nbp.State,                               // NBP policy/QE state after bond-waterfall settlement
       finalNbpFinancialStocks: Nbp.FinancialStocks,      // NBP ledger-owned financial stocks after QE/FX settlement
       finalPpk: SocialSecurity.PpkState,                 // PPK after bond purchase
       finalInsurance: Insurance.State,                   // insurance monthly state after non-bank step
@@ -212,7 +212,6 @@ object BankingEconomics:
         funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfiBalances, quasiFiscalStep.stock),
       )
     val monAgg               = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
-    val projectedNbp         = LedgerBoundaryProjection.nbpState(multi.finalNbp, ledgerFinancialState)
 
     StepOutput(
       resolvedBank = multi.resolvedBank,
@@ -220,7 +219,7 @@ object BankingEconomics:
       bankingMarket = multi.finalBankingMarket,
       reassignedFirms = multi.reassignedFirms,
       reassignedHouseholds = multi.reassignedHouseholds,
-      finalNbp = projectedNbp,
+      finalNbp = multi.finalNbp,
       finalPpk = multi.finalPpk,
       finalInsurance = multi.finalInsurance,
       finalInsuranceBalances = multi.finalInsuranceBalances,
@@ -706,9 +705,7 @@ object BankingEconomics:
     val tfiSale       = Banking.sellToBuyer(insSale.banks, wf.tfiRequested)
 
     // Buyer holdings: old + actualSold (single source of truth)
-    val finalNbp                 = in.s8.monetary.postFxNbp
-      .withFinancial(_.copy(govBondHoldings = in.s8.monetary.postFxNbp.govBondHoldings + qeSale.actualSold))
-      .copy(qeCumulative = in.s8.monetary.postFxNbp.qeCumulative + qeSale.actualSold)
+    val finalNbp                 = in.s8.monetary.postFxNbp.copy(qeCumulative = in.s8.monetary.postFxNbp.qeCumulative + qeSale.actualSold)
     val finalNbpFinancialStocks  = in.s8.monetary.postFxNbpFinancialStocks.copy(
       govBondHoldings = in.s8.monetary.postFxNbpFinancialStocks.govBondHoldings + qeSale.actualSold,
     )

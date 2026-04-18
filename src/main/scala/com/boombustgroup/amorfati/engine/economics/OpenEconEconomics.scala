@@ -384,19 +384,18 @@ object OpenEconEconomics:
       else in.w.nbp.qeActive
     val preQeNbp         = Nbp.State(
       newRefRate,
-      in.ledgerFinancialState.nbp.govBondHoldings,
       qeActive,
       in.w.nbp.qeCumulative,
-      in.ledgerFinancialState.nbp.foreignAssets,
       in.w.nbp.lastFxTraded,
     )
-    val qeRequest        = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.s7.gdp, in.s7.newInfl, newExp.expectedInflation)
-    val qePurchaseAmount = qeRequest.requestedPurchase
-    val postFxNbp        = qeRequest.nbpState
-      .withFinancial(_.copy(foreignAssets = fxResult.newReserves))
-      .copy(monthly = qeRequest.nbpState.monthly.copy(lastFxTraded = fxResult.eurTraded))
-    val postFxNbpStocks  = Nbp.FinancialStocks(
+    val preQeNbpStocks   = Nbp.FinancialStocks(
       govBondHoldings = in.ledgerFinancialState.nbp.govBondHoldings,
+      foreignAssets = in.ledgerFinancialState.nbp.foreignAssets,
+    )
+    val qeRequest        = Nbp.executeQe(preQeNbp, preQeNbpStocks, bankAgg.govBondHoldings, in.s7.gdp, in.s7.newInfl, newExp.expectedInflation)
+    val qePurchaseAmount = qeRequest.requestedPurchase
+    val postFxNbp        = qeRequest.nbpState.copy(monthly = qeRequest.nbpState.monthly.copy(lastFxTraded = fxResult.eurTraded))
+    val postFxNbpStocks  = preQeNbpStocks.copy(
       foreignAssets = fxResult.newReserves,
     )
 

@@ -22,9 +22,7 @@ object LedgerTestFixtures:
           cumulativeDebt = PLN(776e6),
         ),
       ),
-      nbp = base.world.nbp
-        .withFinancial(_.copy(govBondHoldings = PLN(88e6), foreignAssets = PLN(99e6)))
-        .copy(qeCumulative = PLN(89e6)),
+      nbp = base.world.nbp.copy(qeCumulative = PLN(89e6)),
       social = base.world.social.copy(
         jst = Jst.State(
           deposits = PLN(10e6),
@@ -119,8 +117,8 @@ object LedgerTestFixtures:
       government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = PLN(777e6)),
       foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = PLN(778e6)),
       nbp = LedgerFinancialState.NbpBalances(
-        govBondHoldings = world.nbp.govBondHoldings,
-        foreignAssets = world.nbp.fxReserves,
+        govBondHoldings = PLN(88e6),
+        foreignAssets = PLN(99e6),
       ),
       funds = base.ledgerFinancialState.funds.copy(
         zusCash = world.social.zus.fusBalance,

@@ -27,7 +27,6 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       prepared.ledgerFinancialState.government.govBondOutstanding,
       s9.newGovWithYield.deficit,
     )
-    s9.ledgerFinancialState.nbp.govBondHoldings shouldBe s9.finalNbp.govBondHoldings
     s9.ledgerFinancialState.insurance.govBondHoldings shouldBe s9.finalInsuranceBalances.govBondHoldings
     s9.ledgerFinancialState.funds.ppkGovBondHoldings shouldBe s9.finalPpk.bondHoldings
     s9.ledgerFinancialState.funds.nbfi.tfiUnit shouldBe s9.finalNbfiBalances.tfiAum

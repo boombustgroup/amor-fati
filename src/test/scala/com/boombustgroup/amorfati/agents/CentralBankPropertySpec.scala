@@ -14,6 +14,7 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
+  private val zeroStocks   = Nbp.FinancialStocks(PLN.Zero, PLN.Zero)
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -54,30 +55,30 @@ class CentralBankPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   "Nbp.executeQe" should "always return purchase >= 0" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
-      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
+      val qeResult = Nbp.executeQe(nbp, zeroStocks, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
       qeResult.requestedPurchase should be >= PLN.Zero
     }
 
   it should "not exceed bankBondHoldings" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
-      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
+      val qeResult = Nbp.executeQe(nbp, zeroStocks, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
       td.toDouble(qeResult.requestedPurchase) should be <= (bankBonds + 1.0)
     }
 
   it should "not exceed max GDP share limit when active" in
     forAll(Gen.choose(0.0, 0.25), Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (rate: Double, bankBonds: Double, gdp: Double) =>
-      val nbp         = Nbp.State(Rate(rate), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
-      val qeResult    = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
+      val nbp         = Nbp.State(Rate(rate), true, PLN.Zero, PLN.Zero)
+      val qeResult    = Nbp.executeQe(nbp, zeroStocks, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
       // executeQe returns a request; bond update happens in BankingEconomics
       val maxHoldings = (PLN(gdp) * p.monetary.qeMaxGdpShare).max(PLN.Zero)
-      qeResult.requestedPurchase + nbp.govBondHoldings should be <= maxHoldings
+      qeResult.requestedPurchase should be <= maxHoldings
     }
 
-  it should "not modify nbpState.govBondHoldings (deferred to BankingEconomics)" in
+  it should "not modify NBP policy/QE state" in
     forAll(genNbpState, Gen.choose(0.0, 1e10), Gen.choose(1e6, 1e12)) { (nbp: Nbp.State, bankBonds: Double, gdp: Double) =>
-      val qeResult = Nbp.executeQe(nbp, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
+      val qeResult = Nbp.executeQe(nbp, zeroStocks, PLN(bankBonds), PLN(gdp), Rate(-0.02), Rate(-0.01))
       // executeQe returns a request; bond update happens in BankingEconomics waterfall
-      qeResult.nbpState.govBondHoldings shouldBe nbp.govBondHoldings
+      qeResult.nbpState shouldBe nbp
       qeResult.requestedPurchase should be >= PLN.Zero
       td.toDouble(qeResult.requestedPurchase) should be <= (bankBonds + 1.0)
     }

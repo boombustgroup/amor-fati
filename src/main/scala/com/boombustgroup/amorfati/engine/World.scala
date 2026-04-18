@@ -16,7 +16,7 @@ case class World(
     priceLevel: PriceIndex,                                                           // cumulative CPI index (base = 1.0)
     currentSigmas: Vector[Sigma],                                                     // per-sector σ (Arthur increasing returns)
     gov: FiscalBudget.GovState,                                                       // government budget & debt
-    nbp: Nbp.State,                                                                   // central bank: rate, bonds, FX, QE
+    nbp: Nbp.State,                                                                   // central bank: rate, QE regime, monthly FX operations
     bankingSector: Banking.MarketState,                                               // banking macro state: interbank conditions, configs, term structure
     forex: OpenEconomy.ForexState,                                                    // EUR/PLN, exports, imports, trade balance
     bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,                            // balance of payments: NFA, CA, KA, FDI
