@@ -48,6 +48,113 @@ object Generators:
       )
     Banking.State(banks, Rate.Zero, configs, None)
 
+  def testHouseholdAggregates(
+      employed: Int = 100,
+      unemployed: Int = 0,
+      marketWage: PLN = PLN(8000),
+      reservationWage: PLN = PLN(4666),
+  ): Household.Aggregates =
+    Household.Aggregates(
+      employed = employed,
+      unemployed = unemployed,
+      retraining = 0,
+      bankrupt = 0,
+      totalIncome = PLN.Zero,
+      consumption = PLN.Zero,
+      domesticConsumption = PLN.Zero,
+      importConsumption = PLN.Zero,
+      marketWage = marketWage,
+      reservationWage = reservationWage,
+      giniIndividual = Share.Zero,
+      giniWealth = Share.Zero,
+      meanSavings = PLN.Zero,
+      medianSavings = PLN.Zero,
+      povertyRate50 = Share.Zero,
+      bankruptcyRate = Share.Zero,
+      meanSkill = Share.Zero,
+      meanHealthPenalty = Share.Zero,
+      retrainingAttempts = 0,
+      retrainingSuccesses = 0,
+      consumptionP10 = PLN.Zero,
+      consumptionP50 = PLN.Zero,
+      consumptionP90 = PLN.Zero,
+      meanMonthsToRuin = Scalar.Zero,
+      povertyRate30 = Share.Zero,
+      totalRent = PLN.Zero,
+      totalDebtService = PLN.Zero,
+      totalUnempBenefits = PLN.Zero,
+      totalDepositInterest = PLN.Zero,
+      crossSectorHires = 0,
+      voluntaryQuits = 0,
+      sectorMobilityRate = Share.Zero,
+      totalRemittances = PLN.Zero,
+      totalPit = PLN.Zero,
+      totalSocialTransfers = PLN.Zero,
+      totalConsumerDebtService = PLN.Zero,
+      totalConsumerOrigination = PLN.Zero,
+      totalConsumerDefault = PLN.Zero,
+      totalConsumerPrincipal = PLN.Zero,
+    )
+
+  def testWorld(
+      inflation: Rate = Rate(0.02),
+      priceLevel: PriceIndex = PriceIndex.Base,
+      monthlyGdpProxy: PLN = PLN(1e9),
+      currentSigmas: Vector[Sigma] = p.sectorDefs.map(_.sigma).toVector,
+      totalPopulation: Int = 100,
+      employed: Int = 100,
+      marketWage: PLN = PLN(8000),
+      reservationWage: PLN = PLN(4666),
+      gov: FiscalBudget.GovState = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      nbp: Nbp.State = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
+      bankingSector: Banking.MarketState = testBankingSector().marketState,
+      forex: OpenEconomy.ForexState = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      social: SocialState = SocialState.zero,
+      financialMarkets: FinancialMarketsState = FinancialMarketsState.zero,
+      external: ExternalState = ExternalState.zero,
+      real: RealState = RealState.zero,
+      mechanisms: MechanismsState = MechanismsState.zero,
+      plumbing: MonetaryPlumbingState = MonetaryPlumbingState.zero,
+      flows: FlowState = FlowState.zero,
+  ): World =
+    val demographics =
+      if social.demographics == SocialSecurity.DemographicsState.zero && totalPopulation > 0
+      then social.demographics.copy(workingAgePop = totalPopulation)
+      else social.demographics
+    val households   = testHouseholdAggregates(
+      employed = employed,
+      unemployed = (totalPopulation - employed).max(0),
+      marketWage = marketWage,
+      reservationWage = reservationWage,
+    )
+    val flowState    =
+      if flows.monthlyGdpProxy == PLN.Zero && monthlyGdpProxy != PLN.Zero then flows.copy(monthlyGdpProxy = monthlyGdpProxy)
+      else flows
+
+    World(
+      inflation = inflation,
+      priceLevel = priceLevel,
+      currentSigmas = currentSigmas,
+      gov = gov,
+      nbp = nbp,
+      bankingSector = bankingSector,
+      forex = forex,
+      householdMarket = HouseholdMarketState.fromAggregates(households),
+      social = social.copy(demographics = demographics),
+      financialMarkets = financialMarkets,
+      external = external,
+      real = real,
+      mechanisms = mechanisms,
+      plumbing = plumbing,
+      pipeline = PipelineState.bootstrap(
+        currentSigmas.length,
+        if totalPopulation > 0 then Share.One - Share.fraction(employed, totalPopulation) else Share.Zero,
+        inflation,
+        mechanisms.expectations.expectedInflation,
+      ),
+      flows = flowState,
+    )
+
   // --- Primitive generators ---
 
   val genRate: Gen[Double] = Gen.choose(0.0, 0.25)
@@ -308,64 +415,19 @@ object Generators:
     autoR    <- genFraction
     hybR     <- genFraction
     gdp      <- Gen.choose(1e6, 1e11)
-  yield World(
+  yield testWorld(
     inflation = Rate(infl),
-    priceLevel = price,
-    gdpProxy = gdp,
+    priceLevel = PriceIndex(price),
+    monthlyGdpProxy = PLN(gdp),
     currentSigmas = p.sectorDefs.map(_.sigma),
     totalPopulation = employed,
+    employed = employed,
+    marketWage = PLN(wage),
+    reservationWage = PLN(resWage),
     gov = gov,
     nbp = Nbp.State(Rate(rate), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-    bankingSector = testBankingSector().marketState,
     forex = forex,
-    hhAgg = Household.Aggregates(
-      employed = employed,
-      unemployed = 0,
-      retraining = 0,
-      bankrupt = 0,
-      totalIncome = PLN.Zero,
-      consumption = PLN.Zero,
-      domesticConsumption = PLN.Zero,
-      importConsumption = PLN.Zero,
-      marketWage = PLN(wage),
-      reservationWage = PLN(resWage),
-      giniIndividual = Share.Zero,
-      giniWealth = Share.Zero,
-      meanSavings = PLN.Zero,
-      medianSavings = PLN.Zero,
-      povertyRate50 = Share.Zero,
-      bankruptcyRate = Share.Zero,
-      meanSkill = Share.Zero,
-      meanHealthPenalty = Share.Zero,
-      retrainingAttempts = 0,
-      retrainingSuccesses = 0,
-      consumptionP10 = PLN.Zero,
-      consumptionP50 = PLN.Zero,
-      consumptionP90 = PLN.Zero,
-      meanMonthsToRuin = Scalar.Zero,
-      povertyRate30 = Share.Zero,
-      totalRent = PLN.Zero,
-      totalDebtService = PLN.Zero,
-      totalUnempBenefits = PLN.Zero,
-      totalDepositInterest = PLN.Zero,
-      crossSectorHires = 0,
-      voluntaryQuits = 0,
-      sectorMobilityRate = Share.Zero,
-      totalRemittances = PLN.Zero,
-      totalPit = PLN.Zero,
-      totalSocialTransfers = PLN.Zero,
-      totalConsumerDebtService = PLN.Zero,
-      totalConsumerOrigination = PLN.Zero,
-      totalConsumerDefault = PLN.Zero,
-      totalConsumerPrincipal = PLN.Zero,
-    ),
-    social = SocialState.zero,
-    financialMarkets = FinancialMarketsState.zero,
-    external = ExternalState.zero,
     real = RealState.zero.copy(automationRatio = Share(autoR), hybridRatio = Share(hybR)),
-    mechanisms = MechanismsState.zero,
-    plumbing = MonetaryPlumbingState.zero,
-    flows = FlowState.zero,
   )
 
   // --- SFC Check generators ---

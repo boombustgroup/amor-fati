@@ -4,7 +4,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.agents.Banking.BankStatus
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
@@ -198,64 +197,11 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "World" should "default bfgFundBalance=0 and bailInLoss=0" in {
-    val w = World(
-      inflation = Rate(0.02),
-      priceLevel = 1.0,
-      gdpProxy = 100000.0,
+    val w = Generators.testWorld(
+      monthlyGdpProxy = PLN(100000.0),
       currentSigmas = Vector(Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0)),
-      totalPopulation = 100,
-      gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bankingSector = Generators.testBankingSector().marketState,
-      forex = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
-        employed = 100,
-        unemployed = 0,
-        retraining = 0,
-        bankrupt = 0,
-        totalIncome = PLN.Zero,
-        consumption = PLN.Zero,
-        domesticConsumption = PLN.Zero,
-        importConsumption = PLN.Zero,
-        marketWage = PLN(8000),
-        reservationWage = PLN(4000),
-        giniIndividual = Share.Zero,
-        giniWealth = Share.Zero,
-        meanSavings = PLN.Zero,
-        medianSavings = PLN.Zero,
-        povertyRate50 = Share.Zero,
-        bankruptcyRate = Share.Zero,
-        meanSkill = Share.Zero,
-        meanHealthPenalty = Share.Zero,
-        retrainingAttempts = 0,
-        retrainingSuccesses = 0,
-        consumptionP10 = PLN.Zero,
-        consumptionP50 = PLN.Zero,
-        consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = Scalar.Zero,
-        povertyRate30 = Share.Zero,
-        totalRent = PLN.Zero,
-        totalDebtService = PLN.Zero,
-        totalUnempBenefits = PLN.Zero,
-        totalDepositInterest = PLN.Zero,
-        crossSectorHires = 0,
-        voluntaryQuits = 0,
-        sectorMobilityRate = Share.Zero,
-        totalRemittances = PLN.Zero,
-        totalPit = PLN.Zero,
-        totalSocialTransfers = PLN.Zero,
-        totalConsumerDebtService = PLN.Zero,
-        totalConsumerOrigination = PLN.Zero,
-        totalConsumerDefault = PLN.Zero,
-        totalConsumerPrincipal = PLN.Zero,
-      ),
-      social = SocialState.zero,
-      financialMarkets = FinancialMarketsState.zero,
-      external = ExternalState.zero,
-      real = RealState.zero,
-      mechanisms = MechanismsState.zero,
-      plumbing = MonetaryPlumbingState.zero,
-      flows = FlowState.zero,
+      marketWage = PLN(8000),
+      reservationWage = PLN(4000),
     )
     w.mechanisms.bfgFundBalance shouldBe PLN.Zero
     w.flows.bailInLoss shouldBe PLN.Zero
