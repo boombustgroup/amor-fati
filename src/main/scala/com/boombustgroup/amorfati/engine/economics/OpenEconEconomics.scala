@@ -32,6 +32,7 @@ object OpenEconEconomics:
       newWeightedCoupon: Rate,
       qePurchaseAmount: PLN,
       postFxNbp: Nbp.State,
+      postFxNbpFinancialBalances: Nbp.FinancialBalances,
       fxPlnInjection: PLN,
   )
 
@@ -153,6 +154,7 @@ object OpenEconEconomics:
       monthlyDebtService: PLN,
       qePurchaseAmount: PLN,
       postFxNbp: Nbp.State,
+      postFxNbpFinancialBalances: Nbp.FinancialBalances,
   )
 
   private case class InsuranceResult(state: Insurance.State, closing: Insurance.ClosingBalances)
@@ -189,6 +191,7 @@ object OpenEconEconomics:
         newWeightedCoupon = bondQe.newWeightedCoupon,
         qePurchaseAmount = bondQe.qePurchaseAmount,
         postFxNbp = bondQe.postFxNbp,
+        postFxNbpFinancialBalances = bondQe.postFxNbpFinancialBalances,
         fxPlnInjection = external.fxIntervention.plnInjection,
       ),
       banking = BankingFlows(
@@ -373,13 +376,13 @@ object OpenEconEconomics:
     val nbpBondIncome      = in.ledgerFinancialState.nbp.govBondHoldings * marketYield.monthly
     val nbpRemittance      = nbpBondIncome - interbank.reserveInterest - interbank.standingFacilityIncome
 
-    val qeActivate       = Nbp.shouldActivateQe(newRefRate, in.s7.newInfl, newExp.expectedInflation)
-    val qeTaper          = Nbp.shouldTaperQe(in.s7.newInfl, newExp.expectedInflation)
-    val qeActive         =
+    val qeActivate        = Nbp.shouldActivateQe(newRefRate, in.s7.newInfl, newExp.expectedInflation)
+    val qeTaper           = Nbp.shouldTaperQe(in.s7.newInfl, newExp.expectedInflation)
+    val qeActive          =
       if qeActivate then true
       else if qeTaper then false
       else in.w.nbp.qeActive
-    val preQeNbp         = Nbp.State(
+    val preQeNbp          = Nbp.State(
       newRefRate,
       in.ledgerFinancialState.nbp.govBondHoldings,
       qeActive,
@@ -387,14 +390,18 @@ object OpenEconEconomics:
       in.ledgerFinancialState.nbp.foreignAssets,
       in.w.nbp.lastFxTraded,
     )
-    val qeRequest        = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.s7.gdp, in.s7.newInfl, newExp.expectedInflation)
-    val qePurchaseAmount = qeRequest.requestedPurchase
-    val postFxNbp        = qeRequest.nbpState.copy(
+    val qeRequest         = Nbp.executeQe(preQeNbp, bankAgg.govBondHoldings, in.s7.gdp, in.s7.newInfl, newExp.expectedInflation)
+    val qePurchaseAmount  = qeRequest.requestedPurchase
+    val postFxNbp         = qeRequest.nbpState.copy(
       balance = qeRequest.nbpState.balance.copy(fxReserves = fxResult.newReserves),
       monthly = qeRequest.nbpState.monthly.copy(lastFxTraded = fxResult.eurTraded),
     )
+    val postFxNbpBalances = Nbp.FinancialBalances(
+      govBondHoldings = in.ledgerFinancialState.nbp.govBondHoldings,
+      foreignAssets = fxResult.newReserves,
+    )
 
-    BondQeResult(marketYield, newWeightedCoupon, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp)
+    BondQeResult(marketYield, newWeightedCoupon, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp, postFxNbpBalances)
 
   private def runStepCorporateBonds(in: StepInput, bankAgg: Banking.Aggregate, newBondYield: Rate)(using SimParams): CorporateBonds =
     val prevCorpBondStock = CorporateBondOwnership.stockStateFromLedger(in.ledgerFinancialState)

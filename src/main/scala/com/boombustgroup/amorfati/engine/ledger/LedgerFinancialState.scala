@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, QuasiFiscal}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.SocialState
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
 import com.boombustgroup.amorfati.types.{FirmId, PLN}
@@ -143,6 +143,12 @@ object LedgerFinancialState:
     QuasiFiscalBalances(
       bondsOutstanding = quasiFiscal.bondsOutstanding,
       loanPortfolio = quasiFiscal.loanPortfolio,
+    )
+
+  def nbpBalances(balances: Nbp.FinancialBalances): NbpBalances =
+    NbpBalances(
+      govBondHoldings = balances.govBondHoldings,
+      foreignAssets = balances.foreignAssets,
     )
 
   def fundBalances(

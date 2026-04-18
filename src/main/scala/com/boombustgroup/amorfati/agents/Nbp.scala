@@ -42,6 +42,20 @@ object Nbp:
       lastFxTraded: PLN, // monthly FX intervention amount (EUR, +bought/−sold)
   )
 
+  /** Financial stock balances produced by NBP execution for ledger-owned
+    * assets.
+    */
+  case class FinancialBalances(
+      govBondHoldings: PLN, // government bonds owned by NBP
+      foreignAssets: PLN,   // FX reserve assets owned by NBP
+  )
+  object FinancialBalances:
+    def fromState(nbp: State): FinancialBalances =
+      FinancialBalances(
+        govBondHoldings = nbp.govBondHoldings,
+        foreignAssets = nbp.fxReserves,
+      )
+
   case class State(
       policy: PolicyState,
       balance: BalanceState,

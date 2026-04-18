@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Nbp}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
@@ -111,5 +111,17 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
       reserve = PLN(44.0),
       interbankLoan = PLN(33.0),
       corpBond = PLN(22.0),
+    )
+  }
+
+  "LedgerFinancialState.nbpBalances" should "write NBP execution balances directly" in {
+    val balances = Nbp.FinancialBalances(
+      govBondHoldings = PLN(123.0),
+      foreignAssets = PLN(456.0),
+    )
+
+    LedgerFinancialState.nbpBalances(balances) shouldBe LedgerFinancialState.NbpBalances(
+      govBondHoldings = PLN(123.0),
+      foreignAssets = PLN(456.0),
     )
   }
