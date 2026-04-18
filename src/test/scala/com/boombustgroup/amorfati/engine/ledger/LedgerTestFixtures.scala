@@ -24,13 +24,9 @@ object LedgerTestFixtures:
           foreignBondHoldings = PLN(778e6),
         ),
       ),
-      nbp = base.world.nbp.copy(
-        balance = base.world.nbp.balance.copy(
-          govBondHoldings = PLN(88e6),
-          qeCumulative = PLN(89e6),
-          fxReserves = PLN(99e6),
-        ),
-      ),
+      nbp = base.world.nbp
+        .withFinancial(_.copy(govBondHoldings = PLN(88e6), foreignAssets = PLN(99e6)))
+        .copy(qeCumulative = PLN(89e6)),
       social = base.world.social.copy(
         jst = Jst.State(
           deposits = PLN(10e6),

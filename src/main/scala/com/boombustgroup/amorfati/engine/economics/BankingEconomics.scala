@@ -133,7 +133,7 @@ object BankingEconomics:
       htmRealizedLoss: PLN,                              // realized loss from HTM forced reclassification
       // Bond waterfall outputs — single source of truth for buyer holdings
       finalNbp: Nbp.State,                               // NBP after QE bond purchase (govBondHoldings updated)
-      finalNbpFinancialBalances: Nbp.FinancialBalances,  // NBP ledger-owned financial stocks after QE/FX settlement
+      finalNbpFinancialStocks: Nbp.FinancialStocks,      // NBP ledger-owned financial stocks after QE/FX settlement
       finalPpk: SocialSecurity.PpkState,                 // PPK after bond purchase
       finalInsurance: Insurance.State,                   // insurance monthly state after non-bank step
       finalInsuranceBalances: Insurance.ClosingBalances, // insurance balances after government-bond purchase
@@ -206,7 +206,7 @@ object BankingEconomics:
         banks = multi.finalBankLedgerBalances,
         government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = govJst.newGovWithYield.bondsOutstanding),
         foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = multi.foreignBondHoldings),
-        nbp = LedgerFinancialState.nbpBalances(multi.finalNbpFinancialBalances),
+        nbp = LedgerFinancialState.nbpBalances(multi.finalNbpFinancialStocks),
         insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
         funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfiBalances, quasiFiscalStep.stock),
       )
@@ -704,25 +704,22 @@ object BankingEconomics:
     val tfiSale       = Banking.sellToBuyer(insSale.banks, wf.tfiRequested)
 
     // Buyer holdings: old + actualSold (single source of truth)
-    val finalNbp                  = in.s8.monetary.postFxNbp.copy(
-      balance = in.s8.monetary.postFxNbp.balance.copy(
-        govBondHoldings = in.s8.monetary.postFxNbp.govBondHoldings + qeSale.actualSold,
-        qeCumulative = in.s8.monetary.postFxNbp.qeCumulative + qeSale.actualSold,
-      ),
+    val finalNbp                 = in.s8.monetary.postFxNbp
+      .withFinancial(_.copy(govBondHoldings = in.s8.monetary.postFxNbp.govBondHoldings + qeSale.actualSold))
+      .copy(qeCumulative = in.s8.monetary.postFxNbp.qeCumulative + qeSale.actualSold)
+    val finalNbpFinancialStocks  = in.s8.monetary.postFxNbpFinancialStocks.copy(
+      govBondHoldings = in.s8.monetary.postFxNbpFinancialStocks.govBondHoldings + qeSale.actualSold,
     )
-    val finalNbpFinancialBalances = in.s8.monetary.postFxNbpFinancialBalances.copy(
-      govBondHoldings = in.s8.monetary.postFxNbpFinancialBalances.govBondHoldings + qeSale.actualSold,
-    )
-    val finalPpk                  = in.s2.newPpk.copy(bondHoldings = in.ledgerFinancialState.funds.ppkGovBondHoldings + ppkSale.actualSold)
-    val finalInsurance            = in.s8.nonBank.newInsurance
-    val finalInsuranceBalances    = in.s8.nonBank.newInsuranceBalances.copy(
+    val finalPpk                 = in.s2.newPpk.copy(bondHoldings = in.ledgerFinancialState.funds.ppkGovBondHoldings + ppkSale.actualSold)
+    val finalInsurance           = in.s8.nonBank.newInsurance
+    val finalInsuranceBalances   = in.s8.nonBank.newInsuranceBalances.copy(
       govBondHoldings = in.ledgerFinancialState.insurance.govBondHoldings + insSale.actualSold,
     )
-    val finalNbfi                 = in.s8.nonBank.newNbfi
-    val finalNbfiBalances         = in.s8.nonBank.newNbfiBalances.copy(
+    val finalNbfi                = in.s8.nonBank.newNbfi
+    val finalNbfiBalances        = in.s8.nonBank.newNbfiBalances.copy(
       tfiGovBondHoldings = in.ledgerFinancialState.funds.nbfi.govBondHoldings + tfiSale.actualSold,
     )
-    val finalForeignBondHoldings  = in.ledgerFinancialState.foreign.govBondHoldings + foreignSale.actualSold
+    val finalForeignBondHoldings = in.ledgerFinancialState.foreign.govBondHoldings + foreignSale.actualSold
 
     val bankCorpBondHoldingsAfterSettlement = Banking.bankCorpBondHoldingsFromVector(settledBankCorpBonds)
 
@@ -819,7 +816,7 @@ object BankingEconomics:
       resolvedBank = Banking.aggregateFromBanks(reconciled, afterResolveCorpBondHoldings),
       htmRealizedLoss = htmResult.totalRealizedLoss,
       finalNbp = finalNbp,
-      finalNbpFinancialBalances = finalNbpFinancialBalances,
+      finalNbpFinancialStocks = finalNbpFinancialStocks,
       finalPpk = finalPpk,
       finalInsurance = finalInsurance,
       finalInsuranceBalances = finalInsuranceBalances,

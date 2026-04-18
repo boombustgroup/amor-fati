@@ -27,10 +27,10 @@ object LedgerBoundaryProjection:
       base: Nbp.State,
       ledgerFinancialState: LedgerFinancialState,
   ): Nbp.State =
-    base.copy(
-      balance = base.balance.copy(
+    base.withFinancial(
+      _.copy(
         govBondHoldings = ledgerFinancialState.nbp.govBondHoldings,
-        fxReserves = ledgerFinancialState.nbp.foreignAssets,
+        foreignAssets = ledgerFinancialState.nbp.foreignAssets,
       ),
     )
 

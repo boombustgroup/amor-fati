@@ -140,10 +140,10 @@ object LedgerFinancialState:
       loanPortfolio = quasiFiscal.loanPortfolio,
     )
 
-  def nbpBalances(balances: Nbp.FinancialBalances): NbpBalances =
+  def nbpBalances(stocks: Nbp.FinancialStocks): NbpBalances =
     NbpBalances(
-      govBondHoldings = balances.govBondHoldings,
-      foreignAssets = balances.foreignAssets,
+      govBondHoldings = stocks.govBondHoldings,
+      foreignAssets = stocks.foreignAssets,
     )
 
   def fundBalances(

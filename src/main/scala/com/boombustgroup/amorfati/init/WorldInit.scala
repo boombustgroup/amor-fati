@@ -187,7 +187,7 @@ object WorldInit:
       government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = initBondsOutstanding),
       foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = initForeignGovBonds),
       nbp = LedgerFinancialState.nbpBalances(
-        Nbp.FinancialBalances(
+        Nbp.FinancialStocks(
           govBondHoldings = p.banking.initNbpGovBonds,
           foreignAssets = p.monetary.fxReserves,
         ),

@@ -32,41 +32,29 @@ object Nbp:
       qeActive: Boolean,   // whether QE programme is currently active
   )
 
-  case class BalanceState(
-      govBondHoldings: PLN, // current NBP government bond position (QE + open market), i.e. the ledger-coverable stock
-      qeCumulative: PLN,    // cumulative purchases executed under the QE regime; accounting/policy metric, not a separate ledger asset
-      fxReserves: PLN,      // EUR-equivalent total reserves (multi-currency)
+  case class FinancialStocks(
+      govBondHoldings: PLN, // government bonds owned by NBP
+      foreignAssets: PLN,   // FX reserve assets owned by NBP
   )
 
   case class MonthlyOpsState(
       lastFxTraded: PLN, // monthly FX intervention amount (EUR, +bought/−sold)
   )
 
-  /** Financial stock balances produced by NBP execution for ledger-owned
-    * assets.
-    */
-  case class FinancialBalances(
-      govBondHoldings: PLN, // government bonds owned by NBP
-      foreignAssets: PLN,   // FX reserve assets owned by NBP
-  )
-  object FinancialBalances:
-    def fromState(nbp: State): FinancialBalances =
-      FinancialBalances(
-        govBondHoldings = nbp.govBondHoldings,
-        foreignAssets = nbp.fxReserves,
-      )
-
   case class State(
       policy: PolicyState,
-      balance: BalanceState,
+      financial: FinancialStocks,
+      qeCumulative: PLN,
       monthly: MonthlyOpsState,
   ):
     def referenceRate: Rate  = policy.referenceRate
     def qeActive: Boolean    = policy.qeActive
-    def govBondHoldings: PLN = balance.govBondHoldings
-    def qeCumulative: PLN    = balance.qeCumulative
-    def fxReserves: PLN      = balance.fxReserves
+    def govBondHoldings: PLN = financial.govBondHoldings
+    def fxReserves: PLN      = financial.foreignAssets
     def lastFxTraded: PLN    = monthly.lastFxTraded
+
+    def withFinancial(update: FinancialStocks => FinancialStocks): State =
+      copy(financial = update(financial))
 
   object State:
     def apply(
@@ -79,7 +67,8 @@ object Nbp:
     ): State =
       State(
         policy = PolicyState(referenceRate, qeActive),
-        balance = BalanceState(govBondHoldings, qeCumulative, fxReserves),
+        financial = FinancialStocks(govBondHoldings, fxReserves),
+        qeCumulative = qeCumulative,
         monthly = MonthlyOpsState(lastFxTraded),
       )
 
