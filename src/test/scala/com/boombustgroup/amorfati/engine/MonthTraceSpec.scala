@@ -80,15 +80,21 @@ class MonthTraceSpec extends AnyFlatSpec with Matchers:
     )
     val seedOut = MonthSemantics.seedOut(
       SignalExtraction.compute(
-        SignalExtraction.inputFromRealizedOutcomes(
-          unemploymentRate = Share(0.07),
-          laggedHiringSlack = Share(0.85),
-          startupAbsorptionRate = Share(0.75),
-          inflation = Rate(0.03),
-          expectedInflation = Rate(0.028),
-          sectorDemandMult = sectorDemandMult,
-          sectorDemandPressure = sectorDemandPressure,
-          sectorHiringSignal = sectorHiringSignal,
+        SignalExtraction.Input(
+          labor = SignalExtraction.LaborOutcomes(
+            unemploymentRate = Share(0.07),
+            laggedHiringSlack = Share(0.85),
+            startupAbsorptionRate = Share(0.75),
+          ),
+          nominal = SignalExtraction.NominalOutcomes(
+            inflation = Rate(0.03),
+            expectedInflation = Rate(0.028),
+          ),
+          demand = SignalExtraction.DemandOutcomes(
+            sectorDemandMult = sectorDemandMult,
+            sectorDemandPressure = sectorDemandPressure,
+            sectorHiringSignal = sectorHiringSignal,
+          ),
         ),
       ),
     )

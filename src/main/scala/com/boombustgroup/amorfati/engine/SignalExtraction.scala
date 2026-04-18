@@ -69,7 +69,7 @@ object SignalExtraction:
   /** Canonical builder used by both world assembly and typed month-boundary
     * code so seed extraction always reads the same realized fields.
     */
-  private[engine] def inputFromRealizedOutcomes(
+  private def inputFromRealizedOutcomes(
       unemploymentRate: Share,
       laggedHiringSlack: Share,
       startupAbsorptionRate: Share,

@@ -247,7 +247,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     strongResult.sectorHiringSignal.head should be > weakResult.sectorHiringSignal.head
   }
 
-  "SignalExtraction.compute" should "derive next-month decision inputs through one explicit post-to-pre boundary" in {
+  "SignalExtraction.fromPostMonth" should "derive next-month decision inputs through one explicit post-to-pre boundary" in {
     val base            = entrySensitiveInput
     val finalHouseholds = withUnemploymentShare(base.s9.reassignedHouseholds, base.s9.reassignedFirms, base.s2.newWage, 0.22)
     val finalWorld      = base.w.copy(
