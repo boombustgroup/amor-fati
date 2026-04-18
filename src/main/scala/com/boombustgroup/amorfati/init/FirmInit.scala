@@ -95,8 +95,11 @@ object FirmInit:
           else TechState.Traditional(firmSize)
         Firm.State(
           id = FirmId(i),
-          cash = PLN(baseCash * sizeMult),
-          debt = PLN.Zero,
+          financial = Firm.FinancialStocks(
+            cash = PLN(baseCash * sizeMult),
+            firmLoan = PLN.Zero,
+            equity = PLN.Zero,
+          ),
           tech = tech,
           riskProfile = Share(rng.between(RiskProfileMin, RiskProfileMax)),
           innovationCostFactor = Multiplier(rng.between(InnovCostMin, InnovCostMax)),
@@ -104,7 +107,6 @@ object FirmInit:
           sector = SectorIdx(sectorAssignments(i)),
           neighbors = adjList(i).iterator.map(FirmId(_)).toVector,
           bankId = BankId(0),
-          equityRaised = PLN.Zero,
           initialSize = firmSize,
           capitalStock = PLN.Zero,
           foreignOwned = false,
@@ -151,7 +153,12 @@ object FirmInit:
       val wshare     = Firm.workerCount(f).toDouble / totalWorkers
       val withInv    = initInventory(f)
       val withEnergy = initGreenCapital(withInv)
-      withEnergy.copy(cash = totalFirmCash * Share(wshare), debt = p.banking.initLoans * Share(wshare))
+      withEnergy.withFinancial(
+        _.copy(
+          cash = totalFirmCash * Share(wshare),
+          firmLoan = p.banking.initLoans * Share(wshare),
+        ),
+      )
 
   /** Set initial inventory stock from sector target ratio scaled to firm
     * capacity.

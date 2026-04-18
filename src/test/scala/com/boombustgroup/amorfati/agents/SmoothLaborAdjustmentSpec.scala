@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -12,7 +14,7 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
   private val wage = PLN(8000.0)
 
   private def mkFirm(workers: Int, cash: PLN): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       cash,
       PLN.Zero,

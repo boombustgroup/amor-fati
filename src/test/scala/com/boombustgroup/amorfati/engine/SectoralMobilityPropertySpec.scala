@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
@@ -64,7 +66,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   "sectorVacancies" should "return array of length 6" in {
     val firms = Vector(
-      Firm.State(
+      TestFirmState(
         FirmId(0),
         PLN(50000.0),
         PLN.Zero,

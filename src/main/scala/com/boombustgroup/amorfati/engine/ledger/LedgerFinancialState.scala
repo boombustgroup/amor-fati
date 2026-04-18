@@ -52,12 +52,12 @@ object LedgerFinancialState:
     households.map: household =>
       previous.lift(household.id.toInt).getOrElse(initialHouseholdBalances(household))
 
-  def firmBalances(balances: Firm.FinancialBalances, corpBond: PLN): FirmBalances =
+  def firmBalances(stocks: Firm.FinancialStocks, corpBond: PLN): FirmBalances =
     FirmBalances(
-      cash = balances.cash,
-      firmLoan = balances.firmLoan,
+      cash = stocks.cash,
+      firmLoan = stocks.firmLoan,
       corpBond = corpBond,
-      equity = balances.equity,
+      equity = stocks.equity,
     )
 
   def refreshFirmPopulationBalances(
@@ -70,7 +70,7 @@ object LedgerFinancialState:
       else previous.lift(firm.id.toInt).getOrElse(initialFirmBalances(firm, corpBond = PLN.Zero))
 
   def refreshFirmFinancialBalances(
-      balances: Vector[Firm.FinancialBalances],
+      balances: Vector[Firm.FinancialStocks],
       previous: Vector[FirmBalances],
   ): Vector[FirmBalances] =
     balances.zipWithIndex.map: (balance, index) =>
@@ -167,7 +167,7 @@ object LedgerFinancialState:
     )
 
   private def initialFirmBalances(firm: Firm.State, corpBond: PLN): FirmBalances =
-    firmBalances(Firm.FinancialBalances.fromState(firm), corpBond)
+    firmBalances(firm.financial, corpBond)
 
   private def initialHouseholdBalances(household: Household.State): HouseholdBalances =
     householdBalances(Household.FinancialBalances.fromState(household))

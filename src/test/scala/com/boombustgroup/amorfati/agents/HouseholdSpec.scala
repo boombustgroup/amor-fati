@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
@@ -388,7 +390,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
 
   private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n).map { i =>
-      Firm.State(
+      TestFirmState(
         FirmId(i),
         PLN(50000.0),
         PLN(0.0),

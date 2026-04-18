@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
@@ -20,7 +22,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   // ---- Helpers ----
 
   private def mkFirm(tech: TechState, sector: Int = 2, cash: Double = 500000.0, dr: Double = 0.5): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       PLN(cash),
       PLN.Zero,
@@ -209,6 +211,6 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     // Simulate 10 months — at minimum, drift alone adds 10 × 0.001 = 0.01
     for _ <- 0 until 10 do
       val result = process(f, w, Rate(0.07), _ => false, Vector(f), rng)
-      if Firm.isAlive(result.firm) then f = result.firm.copy(cash = PLN(1000000.0)) // reset cash for next round
+      if Firm.isAlive(result.firm) then f = result.firm.withFinancial(_.copy(cash = PLN(1000000.0))) // reset cash for next round
     td.toDouble(f.digitalReadiness) should be >= (initDR + 10 * td.toDouble(p.firm.digiDrift) - 0.001)
   }

@@ -42,21 +42,20 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
       existingIndex,
       init.ledgerFinancialState.firms(existingIndex).copy(cash = PLN(123.0), corpBond = PLN(456.0)),
     )
-    val mirrorChanged = existing.copy(cash = PLN(999.0), debt = PLN(88.0), equityRaised = PLN(77.0))
-    val appendedFirm  = init.firms.last.copy(
-      id = FirmId(previous.length),
-      cash = PLN(777.0),
-      debt = PLN(55.0),
-      equityRaised = PLN(22.0),
-    )
-    val recycledFirm  = existing.copy(cash = PLN(333.0), debt = PLN(44.0), equityRaised = PLN(12.0))
+    val mirrorChanged = existing.withFinancial(_.copy(cash = PLN(999.0), firmLoan = PLN(88.0), equity = PLN(77.0)))
+    val appendedFirm  = init.firms.last
+      .copy(
+        id = FirmId(previous.length),
+      )
+      .withFinancial(_.copy(cash = PLN(777.0), firmLoan = PLN(55.0), equity = PLN(22.0)))
+    val recycledFirm  = existing.withFinancial(_.copy(cash = PLN(333.0), firmLoan = PLN(44.0), equity = PLN(12.0)))
 
     val refreshed = LedgerFinancialState.refreshFirmPopulationBalances(Vector(mirrorChanged, appendedFirm), previous, newFirmIds = Set(appendedFirm.id))
     val recycled  = LedgerFinancialState.refreshFirmPopulationBalances(Vector(recycledFirm), previous, newFirmIds = Set(recycledFirm.id))
 
     refreshed.head shouldBe previous(existingIndex)
-    refreshed.last shouldBe LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(appendedFirm), corpBond = PLN.Zero)
-    recycled.head shouldBe LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(recycledFirm), corpBond = PLN.Zero)
+    refreshed.last shouldBe LedgerFinancialState.firmBalances(appendedFirm.financial, corpBond = PLN.Zero)
+    recycled.head shouldBe LedgerFinancialState.firmBalances(recycledFirm.financial, corpBond = PLN.Zero)
   }
 
   "LedgerFinancialState.refreshFirmFinancialBalances" should "update operational balances while preserving corporate bonds" in {
@@ -66,7 +65,7 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
       init.ledgerFinancialState.firms.head.copy(corpBond = PLN(456.0)),
     )
     val balances = Vector(
-      Firm.FinancialBalances(
+      Firm.FinancialStocks(
         cash = PLN(123.0),
         firmLoan = PLN(88.0),
         equity = PLN(77.0),

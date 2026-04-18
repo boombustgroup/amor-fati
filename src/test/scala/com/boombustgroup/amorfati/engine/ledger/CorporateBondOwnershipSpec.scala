@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.agents.Firm
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
@@ -60,7 +59,7 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
     val firmStates   = init.firms.take(2)
     val firms        = firmStates.zipWithIndex
       .map: (firm, index) =>
-        LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(firm), corpBond = PLN.fromLong((index + 1L) * 100L))
+        LedgerFinancialState.firmBalances(firm.financial, corpBond = PLN.fromLong((index + 1L) * 100L))
     val amortization = PLN.fromLong(60)
     val settled      = CorporateBondOwnership.applyAmortization(firms, firmStates, amortization)
 
@@ -74,7 +73,7 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
     val firmStates = init.firms.take(2)
     val firms      = firmStates.zipWithIndex
       .map: (firm, index) =>
-        LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(firm), corpBond = PLN.fromLong((index + 1L) * 100L))
+        LedgerFinancialState.firmBalances(firm.financial, corpBond = PLN.fromLong((index + 1L) * 100L))
     val cleared    = CorporateBondOwnership.clearDefaultedIssuerDebt(firms, Set(firmStates.head.id))
 
     cleared.head.corpBond shouldBe PLN.Zero

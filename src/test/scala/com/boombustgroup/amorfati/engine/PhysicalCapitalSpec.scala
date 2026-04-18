@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
@@ -20,7 +22,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
       cash: Double = 500000.0,
       capitalStock: Double = 0.0,
   ): Firm.State =
-    Firm.State(
+    TestFirmState(
       id = FirmId(0),
       cash = PLN(cash),
       debt = PLN.Zero,
@@ -157,7 +159,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return 0 for bankrupt firm" in {
-    val f = Firm.State(
+    val f = TestFirmState(
       id = FirmId(0),
       cash = PLN.Zero,
       debt = PLN.Zero,
@@ -183,7 +185,7 @@ class PhysicalCapitalSpec extends AnyFlatSpec with Matchers:
 
   "Bankruptcy" should "zero capitalStock via applyInvestment" in {
     // applyInvestment on a bankrupt firm should zero capitalStock
-    val f = Firm.State(
+    val f = TestFirmState(
       id = FirmId(0),
       cash = PLN.Zero,
       debt = PLN(100000),

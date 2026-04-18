@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
@@ -120,7 +122,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have zero debt" in {
-    val entrant = Firm.State(
+    val entrant = TestFirmState(
       id = FirmId(0),
       cash = PLN(50000.0),
       debt = PLN.Zero,
@@ -149,7 +151,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be alive" in {
-    val entrant = Firm.State(
+    val entrant = TestFirmState(
       id = FirmId(0),
       cash = PLN(50000.0),
       debt = PLN.Zero,
@@ -259,7 +261,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     // When households.isDefined, startWorkers = 0
     val tech = TechState.Traditional(0)
     Firm.workerCount(
-      Firm.State(
+      TestFirmState(
         id = FirmId(0),
         cash = PLN(50000.0),
         debt = PLN.Zero,
@@ -334,7 +336,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n)
       .map: i =>
-        Firm.State(
+        TestFirmState(
           id = FirmId(i),
           cash = PLN(100000.0),
           debt = PLN.Zero,
@@ -356,7 +358,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       .toVector
 
   private def mkDeadFirm(id: Int, sector: Int = 2): Firm.State =
-    Firm.State(
+    TestFirmState(
       id = FirmId(id),
       cash = PLN(-1.0),
       debt = PLN.Zero,

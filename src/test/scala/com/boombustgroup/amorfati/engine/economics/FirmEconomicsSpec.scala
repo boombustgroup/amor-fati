@@ -34,7 +34,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     val s1                   = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
     val s2                   = LaborEconomics.compute(world, firms, init.households, s1)
     val ledgerFinancialState = init.ledgerFinancialState.copy(
-      firms = LedgerFinancialState.refreshFirmFinancialBalances(firms.map(Firm.FinancialBalances.fromState), init.ledgerFinancialState.firms),
+      firms = LedgerFinancialState.refreshFirmFinancialBalances(firms.map(_.financial), init.ledgerFinancialState.firms),
     )
     val s3                   =
       HouseholdIncomeEconomics.compute(
@@ -54,7 +54,10 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private def manufacturingScenario(stateOwned: Boolean, cashRich: Boolean = false): Vector[Firm.State] =
     init.firms.map { firm =>
       val base =
-        if firm.sector.toInt == ManufacturingSector && cashRich then firm.copy(cash = PLN(500e6), capitalStock = PLN.Zero, greenCapital = PLN.Zero)
+        if firm.sector.toInt == ManufacturingSector && cashRich then
+          firm
+            .withFinancial(_.copy(cash = PLN(500e6)))
+            .copy(capitalStock = PLN.Zero, greenCapital = PLN.Zero)
         else firm
       if base.sector.toInt == ManufacturingSector then base.copy(stateOwned = stateOwned) else base.copy(stateOwned = false)
     }

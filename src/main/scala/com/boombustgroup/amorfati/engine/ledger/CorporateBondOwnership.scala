@@ -52,7 +52,7 @@ object CorporateBondOwnership:
     )
 
   def initializeIssuerBalances(firms: Vector[Firm.State], outstanding: PLN)(using p: SimParams): Vector[LedgerFinancialState.FirmBalances] =
-    val base = firms.map(firm => LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(firm), corpBond = PLN.Zero))
+    val base = firms.map(firm => LedgerFinancialState.firmBalances(firm.financial, corpBond = PLN.Zero))
     if outstanding <= PLN.Zero || firms.isEmpty then base
     else
       val eligible = firms.zipWithIndex.filter: (firm, _) =>

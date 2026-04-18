@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.Generators.*
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
@@ -25,7 +27,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   private def makeFirms(n: Int, sectors: Seq[Int] = Seq(0, 1, 2, 3, 4, 5)): Vector[Firm.State] =
     (0 until n).map { i =>
       val sector = sectors(i % sectors.length)
-      Firm.State(
+      TestFirmState(
         FirmId(i),
         PLN(500000.0),
         PLN.Zero,
@@ -135,7 +137,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   }
 
   it should "distribute revenue proportionally within sector" in {
-    def mkF(id: Int, sec: Int): Firm.State = Firm.State(
+    def mkF(id: Int, sec: Int): Firm.State = TestFirmState(
       FirmId(id),
       PLN(500000.0),
       PLN.Zero,

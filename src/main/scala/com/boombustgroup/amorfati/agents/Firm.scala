@@ -145,11 +145,23 @@ object Firm:
 
   // ---- Data types ----
 
+  /** Ledger-contracted firm financial stocks currently carried through firm
+    * execution.
+    *
+    * Corporate bonds stay in `LedgerFinancialState` because issuance,
+    * absorption, and default settlement happen outside individual
+    * `Firm.process`.
+    */
+  case class FinancialStocks(
+      cash: PLN,     // cash or deposit-like liquidity owned by the firm
+      firmLoan: PLN, // outstanding bank-loan principal owed by the firm
+      equity: PLN,   // listed equity issued by the firm
+  )
+
   /** Full mutable state of a single firm, carried across simulation months. */
   case class State(
       id: FirmId,                          // Unique firm identifier (index into firms vector)
-      cash: PLN,                           // Current cash balance (can be negative)
-      debt: PLN,                           // Outstanding bank loan debt
+      financial: FinancialStocks,          // ledger-contracted stocks mirrored during firm execution
       tech: TechState,                     // Current technology regime
       riskProfile: Share,                  // Propensity to invest / adopt technology [0,1]
       innovationCostFactor: Multiplier,    // Firm-specific CAPEX multiplier (drawn at creation)
@@ -157,7 +169,6 @@ object Firm:
       sector: SectorIdx,                   // Index into p.sectorDefs
       neighbors: Vector[FirmId],           // Network adjacency (firm IDs)
       bankId: BankId,                      // Multi-bank: index into Banking.State.banks
-      equityRaised: PLN,                   // GPW: cumulative equity raised via IPO/SPO
       initialSize: Int,                    // Firm size at creation (heterogeneous when FIRM_SIZE_DIST=gus)
       capitalStock: PLN,                   // Physical capital stock (PLN)
       foreignOwned: Boolean,               // FDI: subject to profit shifting & repatriation
@@ -171,25 +182,13 @@ object Firm:
       startupTargetWorkers: Int = 0,       // small team size targeted during startup phase
       startupFilledWorkers: Int = 0,       // employed workers currently filling the startup team
       hiringSignalMonths: Int = 0,         // consecutive months with positive desired hiring gap
-  )
+  ):
+    def cash: PLN         = financial.cash
+    def debt: PLN         = financial.firmLoan
+    def equityRaised: PLN = financial.equity
 
-  /** Financial stock balances produced by firm execution for ledger-owned
-    * assets and liabilities. Corporate bonds stay in LedgerFinancialState
-    * because issuance/absorption/default is settled outside individual
-    * Firm.process.
-    */
-  case class FinancialBalances(
-      cash: PLN,     // cash or deposit-like liquidity owned by the firm
-      firmLoan: PLN, // outstanding bank-loan principal owed by the firm
-      equity: PLN,   // listed equity issued by the firm
-  )
-  object FinancialBalances:
-    def fromState(firm: State): FinancialBalances =
-      FinancialBalances(
-        cash = firm.cash,
-        firmLoan = firm.debt,
-        equity = firm.equityRaised,
-      )
+    def withFinancial(update: FinancialStocks => FinancialStocks): State =
+      copy(financial = update(financial))
 
   /** Output of `process` for one firm in one month — updated state + flow
     * variables.
@@ -964,19 +963,22 @@ object Firm:
         buildResult(firm, PnL.zero)
 
       case Decision.Survive(pnl, newCash, drUpdate) =>
-        val f = firm.copy(cash = newCash)
+        val f = firm.withFinancial(_.copy(cash = newCash))
         buildResult(drUpdate.fold(f)(dr => f.copy(digitalReadiness = dr)), pnl)
 
       case Decision.GoBankrupt(pnl, cash, reason) =>
-        buildResult(firm.copy(cash = cash, tech = TechState.Bankrupt(reason)), pnl)
+        buildResult(firm.withFinancial(_.copy(cash = cash)).copy(tech = TechState.Bankrupt(reason)), pnl)
 
       case Decision.Upgrade(pnl, newTech, capex, loan, downPayment, drUpdate) =>
         val tImp = capex * p.forex.techImportShare
-        val f    = firm.copy(
-          tech = newTech,
-          debt = firm.debt + loan,
-          cash = firm.cash + pnl.netAfterTax + loan - downPayment,
-        )
+        val f    = firm
+          .withFinancial(
+            _.copy(
+              firmLoan = firm.debt + loan,
+              cash = firm.cash + pnl.netAfterTax + loan - downPayment,
+            ),
+          )
+          .copy(tech = newTech)
         buildResult(
           drUpdate.fold(f)(dr => f.copy(digitalReadiness = dr)),
           pnl,
@@ -988,11 +990,14 @@ object Firm:
       case Decision.UpgradeFailed(pnl, reason, capex, loan, down) =>
         val tImp = capex * p.forex.techImportShare
         buildResult(
-          firm.copy(
-            cash = firm.cash + pnl.netAfterTax + loan - down,
-            debt = firm.debt + loan,
-            tech = TechState.Bankrupt(reason),
-          ),
+          firm
+            .withFinancial(
+              _.copy(
+                cash = firm.cash + pnl.netAfterTax + loan - down,
+                firmLoan = firm.debt + loan,
+              ),
+            )
+            .copy(tech = TechState.Bankrupt(reason)),
           pnl,
           capex = capex,
           techImports = tImp,
@@ -1000,15 +1005,15 @@ object Firm:
         )
 
       case Decision.Downsize(pnl, _, adjustedCash, newTech, drUpdate) =>
-        val f = firm.copy(cash = adjustedCash, tech = newTech)
+        val f = firm.withFinancial(_.copy(cash = adjustedCash)).copy(tech = newTech)
         buildResult(drUpdate.fold(f)(dr => f.copy(digitalReadiness = dr)), pnl)
 
       case Decision.Upsize(pnl, _, newCash, newTech) =>
-        buildResult(firm.copy(cash = newCash, tech = newTech), pnl)
+        buildResult(firm.withFinancial(_.copy(cash = newCash)).copy(tech = newTech), pnl)
 
       case Decision.DigiInvest(pnl, cost, newDR) =>
         val nc = firm.cash + pnl.netAfterTax
-        buildResult(firm.copy(cash = nc - cost, digitalReadiness = newDR), pnl)
+        buildResult(firm.withFinancial(_.copy(cash = nc - cost)).copy(digitalReadiness = newDR), pnl)
 
   /** Assemble `Result` from updated `State` and `PnL`. Flow fields not set by
     * the decision (equity, investment, inventory, FDI, evasion) default to zero
@@ -1055,8 +1060,8 @@ object Firm:
   // ---- Post-processing pipeline ----
 
   /** Scheduled loan principal repayment: debt × amortRate per month. Reduces
-    * firm.debt and firm.cash; reports flow for SFC accounting. Bankrupt firms
-    * and firms with zero debt skip.
+    * the firm-loan and cash stocks; reports flow for SFC accounting. Bankrupt
+    * firms and firms with zero debt skip.
     */
   private def applyLoanAmortization(r: Result)(using p: SimParams): Result =
     val f         = r.firm
@@ -1064,7 +1069,7 @@ object Firm:
     val principal = f.debt * p.banking.firmLoanAmortRate
     val paid      = principal.min(f.cash.max(PLN.Zero))
     r.copy(
-      firm = f.copy(debt = f.debt - paid, cash = f.cash - paid),
+      firm = f.withFinancial(_.copy(firmLoan = f.debt - paid, cash = f.cash - paid)),
       principalRepaid = paid,
     )
 
@@ -1091,7 +1096,7 @@ object Firm:
     val desiredInv = depn + (gap * p.capital.adjustSpeed * invMult)
     val actualInv  = desiredInv.min(f.cash.max(PLN.Zero))
     val newK       = postDepK + actualInv
-    r.copy(firm = f.copy(cash = f.cash - actualInv, capitalStock = newK), grossInvestment = actualInv)
+    r.copy(firm = f.withFinancial(_.copy(cash = f.cash - actualInv)).copy(capitalStock = newK), grossInvestment = actualInv)
 
   // ---- PnL computation ----
 
@@ -1215,7 +1220,7 @@ object Firm:
     val greenBudget = f.cash.max(PLN.Zero) * p.climate.greenBudgetShare
     val actualInv   = desiredInv.min(greenBudget)
     val newGK       = postDepGK + actualInv
-    r.copy(firm = f.copy(cash = f.cash - actualInv, greenCapital = newGK), greenInvestment = actualInv)
+    r.copy(firm = f.withFinancial(_.copy(cash = f.cash - actualInv)).copy(greenCapital = newGK), greenInvestment = actualInv)
 
   /** Apply inventory accumulation/drawdown after firm decision. Includes
     * sector-specific spoilage, target-based adjustment toward desired inventory
@@ -1248,7 +1253,7 @@ object Firm:
     else (newInv, PLN.Zero)
     val actualChange          = finalInv - f.inventory
     r.copy(
-      firm = f.copy(inventory = finalInv, cash = f.cash + cashBoost),
+      firm = f.withFinancial(_.copy(cash = f.cash + cashBoost)).copy(inventory = finalInv),
       inventoryChange = actualChange,
     )
 
@@ -1269,7 +1274,7 @@ object Firm:
     if !isAlive(r.firm) || r.taxPaid <= PLN.Zero then return r
     val evaded = r.taxPaid * citEvasionFrac(r.firm.sector, carriedInformalAdj)
     r.copy(
-      firm = r.firm.copy(cash = r.firm.cash + evaded),
+      firm = r.firm.withFinancial(_.copy(cash = r.firm.cash + evaded)),
       taxPaid = r.taxPaid - evaded,
       citEvasion = evaded,
     )
@@ -1285,4 +1290,4 @@ object Firm:
     val repatriation: PLN   =
       (afterTaxProfit.max(PLN.Zero) * p.fdi.repatriationRate).min(r.firm.cash.max(PLN.Zero))
     if repatriation <= PLN.Zero then return r
-    r.copy(firm = r.firm.copy(cash = r.firm.cash - repatriation), fdiRepatriation = repatriation)
+    r.copy(firm = r.firm.withFinancial(_.copy(cash = r.firm.cash - repatriation)), fdiRepatriation = repatriation)

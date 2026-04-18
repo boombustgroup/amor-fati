@@ -191,8 +191,11 @@ object FirmEntry:
 
     Firm.State(
       id = slotId,
-      cash = p.firm.entryStartupCash * sizeMult,
-      debt = PLN.Zero,
+      financial = Firm.FinancialStocks(
+        cash = p.firm.entryStartupCash * sizeMult,
+        firmLoan = PLN.Zero,
+        equity = PLN.Zero,
+      ),
       tech = tech,
       riskProfile = TypedRandom.randomBetween(Share(0.1), Share(0.9), rng),
       innovationCostFactor = TypedRandom.randomBetween(Multiplier(0.8), Multiplier(1.5), rng),
@@ -200,7 +203,6 @@ object FirmEntry:
       sector = SectorIdx(newSector),
       neighbors = newNeighbors,
       bankId = newBankId,
-      equityRaised = PLN.Zero,
       initialSize = firmSize,
       capitalStock = initCapitalStock(firmSize, newSector),
       foreignOwned = p.fdi.foreignShares(newSector).sampleBelow(rng),

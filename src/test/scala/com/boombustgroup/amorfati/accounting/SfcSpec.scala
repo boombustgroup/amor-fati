@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.accounting
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
@@ -44,7 +46,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   private def makeFirms(n: Int, cash: Double = 50000.0, debt: Double = 0.0): Vector[Firm.State] =
     (0 until n).map { i =>
-      Firm.State(
+      TestFirmState(
         FirmId(i),
         PLN(cash),
         PLN(debt),

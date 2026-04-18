@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
 import com.boombustgroup.amorfati.config.SimParams
@@ -33,7 +35,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       cash: Double = 50000.0,
       tech: TechState = TechState.Traditional(10),
   ): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(id),
       PLN(cash),
       PLN.Zero,

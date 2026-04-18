@@ -106,6 +106,6 @@ object IntermediateMarket:
     val newFirms = arr.clone()
     for idx <- living do
       val f = newFirms(idx)
-      newFirms(idx) = f.copy(cash = f.cash + cashAdj(idx))
+      newFirms(idx) = f.withFinancial(_.copy(cash = f.cash + cashAdj(idx)))
 
     Result(newFirms.toVector, sectorCosts.foldLeft(PLN.Zero)(_ + _), cashAdj.toVector)

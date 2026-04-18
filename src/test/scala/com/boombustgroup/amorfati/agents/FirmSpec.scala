@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
@@ -329,14 +331,14 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep an Automated firm alive with large cash" in {
-    val f      = mkFirm(TechState.Automated(Multiplier(1.5))).copy(cash = PLN(10000000.0))
+    val f      = mkFirm(TechState.Automated(Multiplier(1.5))).withFinancial(_.copy(cash = PLN(10000000.0)))
     val result = process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     Firm.isAlive(result.firm) shouldBe true
   }
 
   it should "bankrupt an Automated firm with negative cash when P&L is negative" in {
     // Very low cash + high price level = deep losses → bankrupt
-    val f      = mkFirm(TechState.Automated(Multiplier(0.1))).copy(cash = PLN(-500000.0), debt = PLN(5000000.0))
+    val f      = mkFirm(TechState.Automated(Multiplier(0.1))).withFinancial(_.copy(cash = PLN(-500000.0), firmLoan = PLN(5000000.0)))
     val baseW  = mkWorld()
     val w      = baseW.copy(
       priceLevel = PriceIndex(0.3),
@@ -349,7 +351,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "use the carried informal adjustment from world state for CIT evasion" in {
-    val firm       = mkFirm(TechState.Traditional(10), sector = 2).copy(cash = PLN(500000.0))
+    val firm       = mkFirm(TechState.Traditional(10), sector = 2).withFinancial(_.copy(cash = PLN(500000.0)))
     val baseWorld  =
       mkWorld().copy(
         pipeline = mkWorld().pipeline.copy(
@@ -372,7 +374,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   // --- helpers ---
 
   private def mkFirmWithNeighbors(id: Int, tech: TechState, neighbors: Vector[FirmId]): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(id),
       PLN(50000.0),
       PLN.Zero,
@@ -393,7 +395,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     )
 
   private def mkFirm(tech: TechState, sector: Int = 2): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       PLN(50000.0),
       PLN.Zero,

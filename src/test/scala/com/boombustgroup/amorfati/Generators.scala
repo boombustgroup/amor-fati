@@ -218,7 +218,7 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm.State(
+  yield TestFirmState(
     FirmId(id),
     PLN(cash),
     PLN(debt),
@@ -250,7 +250,7 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm.State(
+  yield TestFirmState(
     FirmId(id),
     PLN(cash),
     PLN(debt),

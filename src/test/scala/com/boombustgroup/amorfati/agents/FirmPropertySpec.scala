@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
@@ -102,7 +104,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   "capacity for Traditional" should "scale linearly with workers/initialSize" in
     forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) { (sector: Int, innov: Double, digiR: Double) =>
       // Same initialSize=16, different worker counts: (16/16) / (4/16) = 4.0
-      val f1    = Firm.State(
+      val f1    = TestFirmState(
         FirmId(0),
         PLN.Zero,
         PLN.Zero,
@@ -121,7 +123,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         greenCapital = PLN.Zero,
         accumulatedLoss = PLN.Zero,
       )
-      val f2    = Firm.State(
+      val f2    = TestFirmState(
         FirmId(0),
         PLN.Zero,
         PLN.Zero,
@@ -146,7 +148,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   it should "scale linearly with initialSize at full employment" in
     forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) { (sector: Int, innov: Double, digiR: Double) =>
-      val f1    = Firm.State(
+      val f1    = TestFirmState(
         FirmId(0),
         PLN.Zero,
         PLN.Zero,
@@ -165,7 +167,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         greenCapital = PLN.Zero,
         accumulatedLoss = PLN.Zero,
       )
-      val f2    = Firm.State(
+      val f2    = TestFirmState(
         FirmId(0),
         PLN.Zero,
         PLN.Zero,
@@ -193,7 +195,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   "Firm.computeLocalAutoRatio" should "be in [0, 1]" in {
     val firms = (0 until 10).map { i =>
       val tech = if i < 3 then TechState.Automated(Multiplier.One) else TechState.Traditional(10)
-      Firm.State(
+      TestFirmState(
         FirmId(i),
         PLN(100000),
         PLN.Zero,
@@ -220,7 +222,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   }
 
   it should "be 0 when no neighbors" in {
-    val firm  = Firm.State(
+    val firm  = TestFirmState(
       FirmId(0),
       PLN(100000),
       PLN.Zero,

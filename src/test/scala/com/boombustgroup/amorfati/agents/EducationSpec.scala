@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -144,7 +146,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
     // Set up: one firm that just automated with skeleton crew = 2
     // Two workers: one primary (edu=0, skill=0.5), one tertiary (edu=3, skill=0.4)
     // Tertiary should be retained despite lower skill (skeleton crew = max(2, 10*0.02) = 2, but need 3 workers to test)
-    val prevFirm = Firm.State(
+    val prevFirm = TestFirmState(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -163,7 +165,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
-    val newFirm  = Firm.State(
+    val newFirm  = TestFirmState(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -257,7 +259,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "use skill as tiebreaker within same education level" in {
-    val prevFirm = Firm.State(
+    val prevFirm = TestFirmState(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -276,7 +278,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
-    val newFirm  = Firm.State(
+    val newFirm  = TestFirmState(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -394,7 +396,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   "Household.Init.initialize" should "assign education to all households" in {
     val rng       = RandomStream.seeded(42)
     val mkF       = (id: Int, sec: Int, w: Int) =>
-      Firm.State(
+      TestFirmState(
         FirmId(id),
         PLN(1000000.0),
         PLN.Zero,
@@ -425,7 +427,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   it should "clamp skill within education-specific range" in {
     val rng       = RandomStream.seeded(42)
     val firms     = Vector(
-      Firm.State(
+      TestFirmState(
         FirmId(0),
         PLN(1000000.0),
         PLN.Zero,
