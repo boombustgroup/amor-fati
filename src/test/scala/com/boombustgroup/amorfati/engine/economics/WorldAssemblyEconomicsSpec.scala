@@ -54,7 +54,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     w.gov.domesticBudgetOutlays.should(be >= w.gov.domesticBudgetDemand)
   }
 
-  it should "project remaining LedgerFinancialState boundary mirrors after assembly" in {
+  it should "keep social financial balances aligned after assembly" in {
     val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state     = FlowSimulation.SimState.fromInit(init)
     val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState

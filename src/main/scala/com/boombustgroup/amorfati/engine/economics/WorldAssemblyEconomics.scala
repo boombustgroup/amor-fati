@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.ledger.{LedgerBoundaryProjection, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, InformalEconomy, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
@@ -261,19 +261,15 @@ object WorldAssemblyEconomics:
       informal: InformalResult,
       obs: Observables,
   ): World =
-    val ledgerFinancialState = in.s9.ledgerFinancialState
-    val projectedSocial      = LedgerBoundaryProjection.socialState(
-      SocialState(
-        jst = in.s9.newJst,
-        zus = in.s2.newZus,
-        nfz = in.s2.newNfz,
-        ppk = in.s9.finalPpk,
-        demographics = in.s2.newDemographics,
-        earmarked = in.s2.newEarmarked,
-      ),
-      ledgerFinancialState,
+    val social = SocialState(
+      jst = in.s9.newJst,
+      zus = in.s2.newZus,
+      nfz = in.s2.newNfz,
+      ppk = in.s9.finalPpk,
+      demographics = in.s2.newDemographics,
+      earmarked = in.s2.newEarmarked,
     )
-    val world                = World(
+    val world  = World(
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
       currentSigmas = in.s7.newSigmas,
@@ -288,7 +284,7 @@ object WorldAssemblyEconomics:
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
       householdMarket = HouseholdMarketState.fromAggregates(in.s9.finalHhAgg),
-      social = projectedSocial,
+      social = social,
       financialMarkets = FinancialMarketsState(
         equity = equityAfterStep,
         corporateBonds = in.s8.corpBonds.newCorpBonds,
