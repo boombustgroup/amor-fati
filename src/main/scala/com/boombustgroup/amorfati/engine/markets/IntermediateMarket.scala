@@ -41,8 +41,10 @@ object IntermediateMarket:
     *   firms with cash adjusted for intermediate purchases/sales (zero-sum)
     * @param totalPaid
     *   aggregate intermediate input costs across all living firms
+    * @param cashAdjustments
+    *   per-firm cash deltas from intermediate purchases/sales
     */
-  case class Result(firms: Vector[Firm.State], totalPaid: PLN)
+  case class Result(firms: Vector[Firm.State], totalPaid: PLN, cashAdjustments: Vector[PLN])
 
   def process(in: Input)(using SimParams): Result =
     val nSectors = in.ioMatrix.size
@@ -106,4 +108,4 @@ object IntermediateMarket:
       val f = newFirms(idx)
       newFirms(idx) = f.copy(cash = f.cash + cashAdj(idx))
 
-    Result(newFirms.toVector, sectorCosts.foldLeft(PLN.Zero)(_ + _))
+    Result(newFirms.toVector, sectorCosts.foldLeft(PLN.Zero)(_ + _), cashAdj.toVector)

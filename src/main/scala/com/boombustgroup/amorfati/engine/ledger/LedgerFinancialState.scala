@@ -68,6 +68,14 @@ object LedgerFinancialState:
       equity = f.equityRaised,
     )
 
+  def firmBalances(balances: Firm.FinancialBalances, corpBond: PLN): FirmBalances =
+    FirmBalances(
+      cash = balances.cash,
+      firmLoan = balances.firmLoan,
+      corpBond = corpBond,
+      equity = balances.equity,
+    )
+
   def refreshFirmBalances(
       firms: Vector[Firm.State],
       previous: Vector[FirmBalances],
@@ -86,6 +94,13 @@ object LedgerFinancialState:
     firms.map: firm =>
       if newFirmIds.contains(firm.id) then firmBalances(firm, corpBond = PLN.Zero)
       else previous.lift(firm.id.toInt).getOrElse(firmBalances(firm, corpBond = PLN.Zero))
+
+  def refreshFirmFinancialBalances(
+      balances: Vector[Firm.FinancialBalances],
+      previous: Vector[FirmBalances],
+  ): Vector[FirmBalances] =
+    balances.zipWithIndex.map: (balance, index) =>
+      firmBalances(balance, corpBond = previous.lift(index).fold(PLN.Zero)(_.corpBond))
 
   def bankBalances(b: Banking.BankState, corpBond: PLN): BankBalances =
     BankBalances(

@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
+import com.boombustgroup.amorfati.agents.Firm
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
@@ -56,4 +57,28 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
     refreshed.head shouldBe previous(existingIndex)
     refreshed.last shouldBe LedgerFinancialState.firmBalances(appendedFirm, corpBond = PLN.Zero)
     recycled.head shouldBe LedgerFinancialState.firmBalances(recycledFirm, corpBond = PLN.Zero)
+  }
+
+  "LedgerFinancialState.refreshFirmFinancialBalances" should "update operational balances while preserving corporate bonds" in {
+    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val previous = init.ledgerFinancialState.firms.updated(
+      0,
+      init.ledgerFinancialState.firms.head.copy(corpBond = PLN(456.0)),
+    )
+    val balances = Vector(
+      Firm.FinancialBalances(
+        cash = PLN(123.0),
+        firmLoan = PLN(88.0),
+        equity = PLN(77.0),
+      ),
+    )
+
+    val refreshed = LedgerFinancialState.refreshFirmFinancialBalances(balances, previous)
+
+    refreshed.head shouldBe LedgerFinancialState.FirmBalances(
+      cash = PLN(123.0),
+      firmLoan = PLN(88.0),
+      corpBond = PLN(456.0),
+      equity = PLN(77.0),
+    )
   }

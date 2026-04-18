@@ -75,6 +75,10 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val totalCashBefore = firms.map(_.cash.bd).sum
     val totalCashAfter  = result.firms.map(_.cash.bd).sum
     totalCashAfter shouldBe (totalCashBefore +- BigDecimal("1.0"))
+    result.cashAdjustments.sum shouldBe PLN.Zero +- PLN(1.0)
+    result.firms.zip(firms).zip(result.cashAdjustments).foreach { case ((updated, previous), adjustment) =>
+      updated.cash shouldBe previous.cash + adjustment
+    }
   }
 
   // ---- Test 2: Correct routing ----

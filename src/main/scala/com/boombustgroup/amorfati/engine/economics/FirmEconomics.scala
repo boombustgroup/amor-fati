@@ -93,6 +93,7 @@ object FirmEconomics:
   /** Per-firm processing outcome — immutable, one per firm. */
   private case class FirmOutcome(
       firm: Firm.State,           // updated firm state after decision + financing
+      financialBalances: Firm.FinancialBalances,
       flows: FirmFlows,           // monetary flows from this firm
       realizedPostTaxProfit: PLN, // realized monthly profit after tax, floored at zero
       bankId: BankId,             // relationship bank (for per-bank aggregation)
@@ -111,6 +112,7 @@ object FirmEconomics:
   /** Result of bond absorption (phase 3). */
   private case class BondAbsorptionResult(
       firms: Vector[Firm.State],                  // firms after bond reversion (unsold → bank loans)
+      financialBalances: Vector[Firm.FinancialBalances],
       ledgerFinancialState: LedgerFinancialState, // ledger with issuer-side corporate bond balances after accepted issuance
       sumNewLoans: PLN,                           // total new bank loans incl. reversion
       corpBondAbsorption: Share,                  // Catalyst absorption ratio (0-1)
@@ -124,6 +126,15 @@ object FirmEconomics:
       equity: PLN,     // GPW equity issuance (large firms only)
       bonds: PLN,      // Catalyst corporate bonds (medium+ firms only)
       firm: Firm.State, // firm with updated bank debt/equity; corporate bonds stay in LedgerFinancialState
+  )
+
+  /** Result of the intermediate market phase with ledger-facing firm balances
+    * updated by the same cash deltas as firm states.
+    */
+  private case class IntermediateResult(
+      firms: Vector[Firm.State],
+      financialBalances: Vector[Firm.FinancialBalances],
+      totalPaid: PLN,
   )
 
   /** Result of NPL and interest computation (phase 6). */
@@ -203,9 +214,9 @@ object FirmEconomics:
     val lending                             = prepareLending(stepIn, rng)
     val fp                                  = processFirms(stepIn.firms, stepIn.ledgerFinancialState, lending, rng)
     val bonded                              = applyBondAbsorption(fp, stepIn.w, stepIn.banks, stepIn.ledgerFinancialState)
-    val (ioFirms, totalIoPaid)              = applyIntermediateMarket(bonded.firms, stepIn)
+    val intermediate                        = applyIntermediateMarket(bonded.firms, bonded.financialBalances, stepIn)
     // Calvo staggered pricing: per-firm markup update
-    val calvoFirms                          = ioFirms.map: f =>
+    val calvoFirms                          = intermediate.firms.map: f =>
       val sectorMult         = stepIn.s4.sectorMults(f.sector.toInt)
       val passthrough        =
         if f.stateOwned then StateOwned.effectiveEnergyPassthrough(f.sector.toInt)
@@ -223,8 +234,21 @@ object FirmEconomics:
     val issuerSettledLedger                 = bonded.ledgerFinancialState.copy(
       firms = CorporateBondOwnership.clearDefaultedIssuerDebt(bonded.ledgerFinancialState.firms, npl.defaultedBondFirmIds),
     )
-    val markupInfl                          = CalvoPricing.aggregateMarkupInflation(calvoFirms, ioFirms).annualize
-    assembleOutput(fp, bonded, calvoFirms, issuerSettledLedger, totalIoPaid, finalHouseholds, crossSectorHires, npl, stepIn, lending, markupInfl)
+    val markupInfl                          = CalvoPricing.aggregateMarkupInflation(calvoFirms, intermediate.firms).annualize
+    assembleOutput(
+      fp,
+      bonded,
+      calvoFirms,
+      intermediate.financialBalances,
+      issuerSettledLedger,
+      intermediate.totalPaid,
+      finalHouseholds,
+      crossSectorHires,
+      npl,
+      stepIn,
+      lending,
+      markupInfl,
+    )
 
   // ---- Internal step input ----
 
@@ -295,6 +319,7 @@ object FirmEconomics:
 
       FirmOutcome(
         firm = fin.firm,
+        financialBalances = Firm.FinancialBalances.fromState(fin.firm),
         flows = FirmFlows(
           tax = r.taxPaid,
           capex = r.capexSpent,
@@ -366,15 +391,16 @@ object FirmEconomics:
     val actualBondIssuance = result.flows.bondIssuance * absorption
     val revertShare        = Share.One - absorption
 
-    val adjustedFirms =
-      if revertShare > Share(BondRevertThreshold) then
-        result.outcomes.map: o =>
-          val ba = result.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero)
-          if ba > PLN.Zero then
-            val revert = ba * revertShare
-            o.firm.copy(debt = o.firm.debt + revert)
-          else o.firm
-      else result.outcomes.map(_.firm)
+    val adjusted =
+      result.outcomes.map: o =>
+        val ba = result.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero)
+        if revertShare > Share(BondRevertThreshold) && ba > PLN.Zero then
+          val revert = ba * revertShare
+          (
+            o.firm.copy(debt = o.firm.debt + revert),
+            o.financialBalances.copy(firmLoan = o.financialBalances.firmLoan + revert),
+          )
+        else (o.firm, o.financialBalances)
 
     val actualIssuanceByFirm =
       result.firmBondAmounts.view
@@ -389,7 +415,14 @@ object FirmEconomics:
       if revertShare > Share(BondRevertThreshold) then result.flows.bondIssuance * revertShare
       else PLN.Zero
 
-    BondAbsorptionResult(adjustedFirms, issuerLedger, result.flows.newLoans + bondRevertLoans, absorption, actualBondIssuance)
+    BondAbsorptionResult(
+      adjusted.map(_._1),
+      adjusted.map(_._2),
+      issuerLedger,
+      result.flows.newLoans + bondRevertLoans,
+      absorption,
+      actualBondIssuance,
+    )
 
   // ---- Phase 4: Intermediate market ----
 
@@ -398,10 +431,11 @@ object FirmEconomics:
     */
   private def applyIntermediateMarket(
       firms: Vector[Firm.State],
+      financialBalances: Vector[Firm.FinancialBalances],
       in: StepInput,
-  )(using p: SimParams): (Vector[Firm.State], PLN) =
+  )(using p: SimParams): IntermediateResult =
 
-    val r = IntermediateMarket.process(
+    val r                = IntermediateMarket.process(
       IntermediateMarket.Input(
         firms = firms,
         sectorMults = in.s4.sectorMults,
@@ -411,7 +445,11 @@ object FirmEconomics:
         scale = p.io.scale,
       ),
     )
-    (r.firms, r.totalPaid)
+    val adjustedBalances = financialBalances
+      .zip(r.cashAdjustments)
+      .map: (balances, cashAdjustment) =>
+        balances.copy(cash = balances.cash + cashAdjustment)
+    IntermediateResult(r.firms, adjustedBalances, r.totalPaid)
 
   // ---- Phase 5: Labor market + immigration ----
 
@@ -492,6 +530,7 @@ object FirmEconomics:
       fp: FirmProcessingResult,
       bonded: BondAbsorptionResult,
       ioFirms: Vector[Firm.State],
+      firmFinancialBalances: Vector[Firm.FinancialBalances],
       ledgerFinancialState: LedgerFinancialState,
       totalIoPaid: PLN,
       households: Vector[Household.State],
@@ -504,7 +543,7 @@ object FirmEconomics:
     val flows                 = fp.flows
     val ledgerAfterFirmStocks = in.s3.ledgerFinancialState.copy(
       households = LedgerFinancialState.refreshHouseholdBalances(households, in.s3.ledgerFinancialState.households),
-      firms = LedgerFinancialState.refreshFirmBalances(ioFirms, ledgerFinancialState.firms),
+      firms = LedgerFinancialState.refreshFirmFinancialBalances(firmFinancialBalances, ledgerFinancialState.firms),
     )
 
     // Derive per-bank vectors from immutable outcomes

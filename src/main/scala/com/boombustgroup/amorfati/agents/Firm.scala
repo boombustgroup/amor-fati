@@ -173,6 +173,24 @@ object Firm:
       hiringSignalMonths: Int = 0,         // consecutive months with positive desired hiring gap
   )
 
+  /** Financial stock balances produced by firm execution for ledger-owned
+    * assets and liabilities. Corporate bonds stay in LedgerFinancialState
+    * because issuance/absorption/default is settled outside individual
+    * Firm.process.
+    */
+  case class FinancialBalances(
+      cash: PLN,     // cash or deposit-like liquidity owned by the firm
+      firmLoan: PLN, // outstanding bank-loan principal owed by the firm
+      equity: PLN,   // listed equity issued by the firm
+  )
+  object FinancialBalances:
+    def fromState(firm: State): FinancialBalances =
+      FinancialBalances(
+        cash = firm.cash,
+        firmLoan = firm.debt,
+        equity = firm.equityRaised,
+      )
+
   /** Output of `process` for one firm in one month — updated state + flow
     * variables.
     */
