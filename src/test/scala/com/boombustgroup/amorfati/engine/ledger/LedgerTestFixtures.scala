@@ -33,7 +33,7 @@ object LedgerTestFixtures:
         ),
         zus = SocialSecurity.ZusState(PLN(11e6), PLN.Zero, PLN.Zero, PLN.Zero),
         nfz = SocialSecurity.NfzState(PLN(12e6), PLN.Zero, PLN.Zero, PLN.Zero),
-        ppk = SocialSecurity.PpkState(PLN(13e6), PLN.Zero),
+        ppk = SocialSecurity.PpkState(PLN.Zero),
         earmarked = EarmarkedFunds.State(
           fpBalance = PLN(14e6),
           fpContributions = PLN.Zero,
@@ -123,7 +123,7 @@ object LedgerTestFixtures:
       funds = base.ledgerFinancialState.funds.copy(
         zusCash = world.social.zus.fusBalance,
         nfzCash = world.social.nfz.balance,
-        ppkGovBondHoldings = world.social.ppk.bondHoldings,
+        ppkGovBondHoldings = PLN(13e6),
         fpCash = world.social.earmarked.fpBalance,
         pfronCash = world.social.earmarked.pfronBalance,
         fgspCash = world.social.earmarked.fgspBalance,

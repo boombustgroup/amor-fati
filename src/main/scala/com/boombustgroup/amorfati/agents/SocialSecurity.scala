@@ -64,21 +64,20 @@ object SocialSecurity:
   // PPK
   // ---------------------------------------------------------------------------
 
-  /** PPK state: capital pension fund bond holdings and monthly flows. */
+  /** PPK monthly flow state. Government-bond ownership is ledger-owned. */
   case class PpkState(
-      bondHoldings: PLN, // accumulated government bond holdings
       contributions: PLN, // this month's total PPK contributions
   )
   object PpkState:
-    val zero: PpkState = PpkState(PLN.Zero, PLN.Zero)
+    val zero: PpkState = PpkState(PLN.Zero)
 
   /** Compute PPK monthly contributions. PPK buys government bonds proportional
     * to contributions × bond allocation. Does NOT affect bank deposits (PPK is
     * a pass-through bond market participant).
     */
-  def ppkStep(prevHoldings: PLN, employed: Int, wage: PLN)(using p: SimParams): PpkState =
+  def ppkStep(employed: Int, wage: PLN)(using p: SimParams): PpkState =
     val contributions = employed * (wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
-    PpkState(prevHoldings, contributions)
+    PpkState(contributions)
 
   /** PPK bond purchase this month: contributions × bond allocation. */
   def ppkBondPurchase(ppk: PpkState)(using p: SimParams): PLN =

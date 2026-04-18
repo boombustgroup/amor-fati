@@ -60,14 +60,13 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "SocialSecurity.ppkBondPurchase" should "be contributions × bondAlloc" in {
-    val ppk      = SocialSecurity.PpkState(bondHoldings = PLN.Zero, contributions = PLN(1e6))
+    val ppk      = SocialSecurity.PpkState(contributions = PLN(1e6))
     // Default bondAlloc = 0.60
     val purchase = SocialSecurity.ppkBondPurchase(ppk)
     td.toDouble(purchase) shouldBe (1e6 * 0.60 +- 0.01)
   }
 
-  "SocialSecurity.PpkState.zero" should "have all zero fields" in {
-    SocialSecurity.PpkState.zero.bondHoldings shouldBe PLN.Zero
+  "SocialSecurity.PpkState.zero" should "have zero contributions" in {
     SocialSecurity.PpkState.zero.contributions shouldBe PLN.Zero
   }
 

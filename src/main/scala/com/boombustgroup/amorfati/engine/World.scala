@@ -53,7 +53,7 @@ case class SocialState(
     jst: Jst.State,                                 // local government (JST): budget, debt, deposits
     zus: SocialSecurity.ZusState,                   // ZUS: contributions, pensions, FUS balance
     nfz: SocialSecurity.NfzState,                   // NFZ: health insurance contributions, spending, balance
-    ppk: SocialSecurity.PpkState,                   // PPK: employee contributions, gov bond portfolio
+    ppk: SocialSecurity.PpkState,                   // PPK monthly contribution flow; holdings live in LedgerFinancialState
     demographics: SocialSecurity.DemographicsState, // working-age, retirees, monthly retirements
     earmarked: EarmarkedFunds.State,                // FP, PFRON, FGŚP
 )

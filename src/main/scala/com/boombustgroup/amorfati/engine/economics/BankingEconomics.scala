@@ -51,7 +51,7 @@ object BankingEconomics:
       reassignedFirms: Vector[Firm.State],               // firms with bankId reassigned after bank failure
       reassignedHouseholds: Vector[Household.State],     // HH with bankId reassigned after bank failure
       finalNbp: Nbp.State,                               // NBP policy/QE state after bond-waterfall settlement
-      finalPpk: SocialSecurity.PpkState,                 // PPK state after bond purchases
+      finalPpk: SocialSecurity.PpkState,                 // PPK monthly contribution state
       finalInsurance: Insurance.State,                   // insurance monthly state
       finalInsuranceBalances: Insurance.ClosingBalances, // insurance non-corporate-bond closing balances
       finalNbfi: Nbfi.State,                             // NBFI/TFI monthly state
@@ -135,7 +135,8 @@ object BankingEconomics:
       // Bond waterfall outputs — single source of truth for buyer holdings
       finalNbp: Nbp.State,                               // NBP policy/QE state after bond-waterfall settlement
       finalNbpFinancialStocks: Nbp.FinancialStocks,      // NBP ledger-owned financial stocks after QE/FX settlement
-      finalPpk: SocialSecurity.PpkState,                 // PPK after bond purchase
+      finalPpk: SocialSecurity.PpkState,                 // PPK monthly contribution state
+      finalPpkGovBondHoldings: PLN,                      // PPK ledger-owned government bond holdings after bond purchase
       finalInsurance: Insurance.State,                   // insurance monthly state after non-bank step
       finalInsuranceBalances: Insurance.ClosingBalances, // insurance balances after government-bond purchase
       finalNbfi: Nbfi.State,                             // NBFI/TFI monthly state after non-bank step
@@ -209,7 +210,13 @@ object BankingEconomics:
         foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = multi.foreignBondHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbpFinancialStocks),
         insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
-        funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfiBalances, quasiFiscalStep.stock),
+        funds = LedgerFinancialState.fundBalances(
+          socialForLedger,
+          multi.finalPpkGovBondHoldings,
+          in.s8.corpBonds.newCorpBondStock,
+          multi.finalNbfiBalances,
+          quasiFiscalStep.stock,
+        ),
       )
     val monAgg               = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
 
@@ -709,7 +716,8 @@ object BankingEconomics:
     val finalNbpFinancialStocks  = in.s8.monetary.postFxNbpFinancialStocks.copy(
       govBondHoldings = in.s8.monetary.postFxNbpFinancialStocks.govBondHoldings + qeSale.actualSold,
     )
-    val finalPpk                 = in.s2.newPpk.copy(bondHoldings = in.ledgerFinancialState.funds.ppkGovBondHoldings + ppkSale.actualSold)
+    val finalPpk                 = in.s2.newPpk
+    val finalPpkGovBondHoldings  = in.ledgerFinancialState.funds.ppkGovBondHoldings + ppkSale.actualSold
     val finalInsurance           = in.s8.nonBank.newInsurance
     val finalInsuranceBalances   = in.s8.nonBank.newInsuranceBalances.copy(
       govBondHoldings = in.ledgerFinancialState.insurance.govBondHoldings + insSale.actualSold,
@@ -817,6 +825,7 @@ object BankingEconomics:
       finalNbp = finalNbp,
       finalNbpFinancialStocks = finalNbpFinancialStocks,
       finalPpk = finalPpk,
+      finalPpkGovBondHoldings = finalPpkGovBondHoldings,
       finalInsurance = finalInsurance,
       finalInsuranceBalances = finalInsuranceBalances,
       finalNbfi = finalNbfi,
