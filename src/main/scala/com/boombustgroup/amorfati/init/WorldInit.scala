@@ -66,14 +66,7 @@ object WorldInit:
 
     val initBondsOutstanding = p.banking.initGovBonds + p.banking.initNbpGovBonds +
       initInsuranceBalances.govBondHoldings + initNbfiBalances.tfiGovBondHoldings
-    val initSocialState      = SocialState(
-      jst = Jst.State.zero,
-      zus = SocialSecurity.ZusState.zero,
-      nfz = SocialSecurity.NfzState.zero,
-      ppk = SocialSecurity.PpkState.zero,
-      demographics = initDemographics,
-      earmarked = EarmarkedFunds.State.zero,
-    )
+    val initSocialState      = SocialState.zero.copy(demographics = initDemographics)
 
     // --- Steady-state gross investment ---
     val initGrossInvestment = PLN.fromRaw(firms.map(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toLong).sum)
