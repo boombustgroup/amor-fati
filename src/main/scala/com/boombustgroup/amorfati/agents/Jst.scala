@@ -4,9 +4,9 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
 /** Local government (JST / samorządy). JST receives PIT/CIT shares, property
-  * tax, subventions/dotacje. JST deposits sit in commercial banks and are
-  * ledger-coverable cash balances; JST debt remains a cumulative fiscal metric
-  * in the current model.
+  * tax, subventions/dotacje. JST deposits sit in commercial banks and are owned
+  * by `LedgerFinancialState`; JST debt remains a cumulative fiscal metric in
+  * the current model.
   */
 object Jst:
 
@@ -14,7 +14,6 @@ object Jst:
   private val FallbackPitRate = 0.12
 
   case class State(
-      deposits: PLN, // JST deposits in commercial banks (ledger-coverable cash balance)
       debt: PLN,     // cumulative JST debt metric (not yet represented as a holder-tracked instrument)
       revenue: PLN,  // this month's revenue
       spending: PLN, // this month's spending
@@ -22,12 +21,13 @@ object Jst:
   )
 
   object State:
-    val zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   /** Result of monthly JST step. */
   case class StepResult(
-      state: State,      // updated JST state
-      depositChange: PLN, // effect on bank deposits (SFC Identity 2)
+      state: State,        // updated JST fiscal state
+      depositChange: PLN,  // effect on bank deposits (SFC Identity 2)
+      closingDeposits: PLN, // ledger-owned JST deposit stock after this step
   )
 
   /** Monthly JST step: revenue (PIT/CIT shares, property tax, subventions,
@@ -35,6 +35,7 @@ object Jst:
     */
   def step(
       prev: State,
+      openingDeposits: PLN,   // JST cash/deposit stock owned by LedgerFinancialState
       centralCitRevenue: PLN, // central government CIT revenue
       totalWageIncome: PLN,   // total wage income (for PIT proxy)
       gdp: PLN,               // GDP proxy for subvention/dotacje
@@ -60,7 +61,7 @@ object Jst:
     val totalSpending = totalRevenue * p.fiscal.jstSpendingMult
     val deficit       = totalSpending - totalRevenue
     val depositChange = totalRevenue - totalSpending // negative when deficit
-    val newDeposits   = prev.deposits + depositChange
+    val newDeposits   = openingDeposits + depositChange
     val newDebt       = prev.debt + deficit
 
-    StepResult(State(newDeposits, newDebt, totalRevenue, totalSpending, deficit), depositChange)
+    StepResult(State(newDebt, totalRevenue, totalSpending, deficit), depositChange, newDeposits)

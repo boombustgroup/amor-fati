@@ -54,16 +54,6 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     w.gov.domesticBudgetOutlays.should(be >= w.gov.domesticBudgetDemand)
   }
 
-  it should "keep social financial balances aligned after assembly" in {
-    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state     = FlowSimulation.SimState.fromInit(init)
-    val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
-    val ledger    = nextState.ledgerFinancialState
-    val world     = nextState.world
-
-    world.social.jst.deposits shouldBe ledger.funds.jstCash
-  }
-
   it should "carry supported financial stocks through stage-owned ledger updates" in {
     val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state     = FlowSimulation.SimState.fromInit(init)

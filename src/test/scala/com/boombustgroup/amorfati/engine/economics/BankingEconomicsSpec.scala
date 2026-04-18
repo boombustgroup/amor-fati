@@ -58,18 +58,16 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val prepared = preparedBankingStep()
     val aligned  = prepared.run()
 
-    val mismatchedWorld = prepared.world.copy(
-      social = prepared.world.social.copy(
-        jst = prepared.world.social.jst.copy(
-          deposits = prepared.ledgerFinancialState.funds.jstCash + PLN(555e9),
-        ),
+    val shiftedLedger = prepared.ledgerFinancialState.copy(
+      funds = prepared.ledgerFinancialState.funds.copy(
+        jstCash = prepared.ledgerFinancialState.funds.jstCash + PLN(555e9),
       ),
     )
-    val fromLedger      = prepared.run(mismatchedWorld)
+    val fromLedger    = prepared.run(ledgerFinancialStateOverride = shiftedLedger)
 
     fromLedger.ledgerFinancialState.government.govBondOutstanding shouldBe aligned.ledgerFinancialState.government.govBondOutstanding
-    fromLedger.newJst.deposits shouldBe aligned.newJst.deposits
-    fromLedger.ledgerFinancialState.funds.jstCash shouldBe aligned.ledgerFinancialState.funds.jstCash
+    fromLedger.newJst shouldBe aligned.newJst
+    fromLedger.ledgerFinancialState.funds.jstCash shouldBe aligned.ledgerFinancialState.funds.jstCash + PLN(555e9)
   }
 
   private case class PreparedBankingStep(
@@ -85,12 +83,15 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       s7: PriceEquityEconomics.Output,
       s8: OpenEconEconomics.StepOutput,
   ):
-    def run(worldOverride: World = world): BankingEconomics.StepOutput =
+    def run(
+        worldOverride: World = world,
+        ledgerFinancialStateOverride: LedgerFinancialState = ledgerFinancialState,
+    ): BankingEconomics.StepOutput =
       val bankingRng = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams().bankingEconomics
       BankingEconomics.runStep(
         BankingEconomics.StepInput(
           worldOverride,
-          ledgerFinancialState,
+          ledgerFinancialStateOverride,
           s1,
           s2,
           s3,

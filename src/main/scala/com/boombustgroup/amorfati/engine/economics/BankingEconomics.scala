@@ -92,6 +92,7 @@ object BankingEconomics:
       newGovWithYield: FiscalBudget.GovState, // updated government state with bond yield
       newGovBondOutstanding: PLN,             // issuer-side government bond stock owned by LedgerFinancialState
       newJst: Jst.State,                      // updated local government (JST) state
+      jstCash: PLN,                           // ledger-owned JST cash after monthly deposit flow
       jstDepositChange: PLN,                  // net JST deposit flow into banking sector
       tax: TaxRevenue.Output,                 // computed tax revenues (VAT, excise, customs, PIT)
   )
@@ -212,6 +213,7 @@ object BankingEconomics:
         insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
         funds = LedgerFinancialState.fundBalances(
           socialForLedger,
+          govJst.jstCash,
           multi.finalPpkGovBondHoldings,
           in.s8.corpBonds.newCorpBondStock,
           multi.finalNbfiBalances,
@@ -293,7 +295,7 @@ object BankingEconomics:
     val unempBenefitSpend   = in.s3.hhAgg.totalUnempBenefits
     val socialTransferSpend = in.s3.hhAgg.totalSocialTransfers
     val prevGov             = in.w.gov
-    val prevJst             = in.w.social.jst.copy(deposits = in.ledgerFinancialState.funds.jstCash)
+    val prevJst             = in.w.social.jst
 
     val newGov                = FiscalBudget.update(
       FiscalBudget.Input(
@@ -328,6 +330,7 @@ object BankingEconomics:
     val jstResult    =
       Jst.step(
         prevJst,
+        in.ledgerFinancialState.funds.jstCash,
         in.s5.sumTax,
         in.s3.totalIncome,
         in.s7.gdp,
@@ -339,6 +342,7 @@ object BankingEconomics:
       newGovWithYield = newGovWithYield,
       newGovBondOutstanding = newGovBondOutstanding,
       newJst = jstResult.state,
+      jstCash = jstResult.closingDeposits,
       jstDepositChange = jstResult.depositChange,
       tax = tax,
     )

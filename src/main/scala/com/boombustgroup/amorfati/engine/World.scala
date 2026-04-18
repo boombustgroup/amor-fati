@@ -50,7 +50,7 @@ case class World(
 
 /** Social security system and local government state. */
 case class SocialState(
-    jst: Jst.State,                                 // local government (JST): budget, debt, deposits
+    jst: Jst.State,                                 // local government (JST): budget and debt; cash lives in LedgerFinancialState
     zus: SocialSecurity.ZusState,                   // ZUS: contributions, pensions, FUS balance
     nfz: SocialSecurity.NfzState,                   // NFZ: health insurance contributions, spending, balance
     ppk: SocialSecurity.PpkState,                   // PPK monthly contribution flow; holdings live in LedgerFinancialState

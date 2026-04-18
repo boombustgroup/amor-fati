@@ -25,7 +25,6 @@ object LedgerTestFixtures:
       nbp = base.world.nbp.copy(qeCumulative = PLN(89e6)),
       social = base.world.social.copy(
         jst = Jst.State(
-          deposits = PLN(10e6),
           debt = PLN(11e6),
           revenue = PLN.Zero,
           spending = PLN.Zero,
@@ -127,7 +126,7 @@ object LedgerTestFixtures:
         fpCash = world.social.earmarked.fpBalance,
         pfronCash = world.social.earmarked.pfronBalance,
         fgspCash = world.social.earmarked.fgspBalance,
-        jstCash = world.social.jst.deposits,
+        jstCash = PLN(10e6),
         quasiFiscal = LedgerFinancialState.quasiFiscalBalances(
           QuasiFiscal.StockState(
             bondsOutstanding = PLN(28e6),
