@@ -1234,7 +1234,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     result shouldBe Right(())
   }
 
-  it should "detect mismatch in ZUS runtime cash identity even when legacy fusBalance would be ignored" in {
+  it should "detect mismatch in ZUS runtime cash identity from execution delta ledger" in {
     val batches = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
@@ -1265,16 +1265,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
     )
     val result  = Sfc.validate(
-      prev = zeroRuntime.copy(
-        world = makeWorld().copy(
-          social = SocialState.zero.copy(zus = SocialSecurity.ZusState(PLN(999.0), PLN.Zero, PLN.Zero, PLN.Zero)),
-        ),
-      ),
-      curr = zeroRuntime.copy(
-        world = makeWorld().copy(
-          social = SocialState.zero.copy(zus = SocialSecurity.ZusState(PLN(-123.0), PLN.Zero, PLN.Zero, PLN.Zero)),
-        ),
-      ),
+      prev = zeroRuntime.copy(world = makeWorld()),
+      curr = zeroRuntime.copy(world = makeWorld()),
       flows = zeroFlows.copy(zusContributions = PLN.Zero, zusPensionPayments = PLN(9999.0)),
       batches = batches,
       executionDeltaLedger = Sfc.ExecutionDeltaLedger(

@@ -148,6 +148,8 @@ object LedgerFinancialState:
 
   def fundBalances(
       social: SocialState,
+      zusCash: PLN,
+      nfzCash: PLN,
       jstCash: PLN,
       ppkGovBondHoldings: PLN,
       corporateBonds: CorporateBondMarket.StockState,
@@ -155,8 +157,8 @@ object LedgerFinancialState:
       quasiFiscal: QuasiFiscal.StockState,
   ): FundBalances =
     FundBalances(
-      zusCash = social.zus.fusBalance,
-      nfzCash = social.nfz.balance,
+      zusCash = zusCash,
+      nfzCash = nfzCash,
       ppkGovBondHoldings = ppkGovBondHoldings,
       ppkCorpBondHoldings = corporateBonds.ppkHoldings,
       fpCash = social.earmarked.fpBalance,

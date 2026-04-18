@@ -189,7 +189,16 @@ object WorldInit:
         ),
       ),
       insurance = LedgerFinancialState.insuranceBalances(initInsuranceBalances, initCorporateBondStocks.insuranceHoldings),
-      funds = LedgerFinancialState.fundBalances(initSocialState, PLN.Zero, PLN.Zero, initCorporateBondStocks, initNbfiBalances, QuasiFiscal.StockState.zero),
+      funds = LedgerFinancialState.fundBalances(
+        social = initSocialState,
+        zusCash = PLN.Zero,
+        nfzCash = PLN.Zero,
+        jstCash = PLN.Zero,
+        ppkGovBondHoldings = PLN.Zero,
+        corporateBonds = initCorporateBondStocks,
+        nbfi = initNbfiBalances,
+        quasiFiscal = QuasiFiscal.StockState.zero,
+      ),
     )
 
     InitResult(world, firms, households, initBankingSector.banks, initHhAgg, ledgerFinancialState)

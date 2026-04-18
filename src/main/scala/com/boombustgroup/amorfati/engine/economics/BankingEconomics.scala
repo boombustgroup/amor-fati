@@ -212,12 +212,14 @@ object BankingEconomics:
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbpFinancialStocks),
         insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
         funds = LedgerFinancialState.fundBalances(
-          socialForLedger,
-          govJst.jstCash,
-          multi.finalPpkGovBondHoldings,
-          in.s8.corpBonds.newCorpBondStock,
-          multi.finalNbfiBalances,
-          quasiFiscalStep.stock,
+          social = socialForLedger,
+          zusCash = SocialSecurity.zusCashAfter(in.ledgerFinancialState.funds.zusCash, in.s2.newZus),
+          nfzCash = SocialSecurity.nfzCashAfter(in.ledgerFinancialState.funds.nfzCash, in.s2.newNfz),
+          jstCash = govJst.jstCash,
+          ppkGovBondHoldings = multi.finalPpkGovBondHoldings,
+          corporateBonds = in.s8.corpBonds.newCorpBondStock,
+          nbfi = multi.finalNbfiBalances,
+          quasiFiscal = quasiFiscalStep.stock,
         ),
       )
     val monAgg               = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)

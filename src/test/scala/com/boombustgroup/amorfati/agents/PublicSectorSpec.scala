@@ -49,7 +49,6 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   "SocialSecurity.ZusState.zero" should "have all zero fields" in {
-    SocialSecurity.ZusState.zero.fusBalance shouldBe PLN.Zero
     SocialSecurity.ZusState.zero.contributions shouldBe PLN.Zero
     SocialSecurity.ZusState.zero.pensionPayments shouldBe PLN.Zero
     SocialSecurity.ZusState.zero.govSubvention shouldBe PLN.Zero
