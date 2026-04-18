@@ -99,13 +99,8 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     ComputationBoundary.toDouble(result.monetary.newBondYield) should be >= 0.0
   }
 
-  it should "read supported public bond and central-bank stocks from LedgerFinancialState" in {
+  it should "read central-bank stocks from LedgerFinancialState" in {
     val mismatchedWorld = w.copy(
-      gov = w.gov.copy(
-        financial = w.gov.financial.copy(
-          bondsOutstanding = w.gov.bondsOutstanding + PLN(101),
-        ),
-      ),
       nbp = w.nbp.withFinancial(
         _.copy(
           govBondHoldings = w.nbp.govBondHoldings + PLN(103),

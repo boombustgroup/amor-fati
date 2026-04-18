@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{MonthRandomness, World}
 import com.boombustgroup.amorfati.engine.flows.*
 import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.markets.FiscalBudget
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -22,7 +23,10 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val s9          = prepared.run()
     val prevBankAgg = Banking.aggregateFromBanks(prepared.banks, bankId => CorporateBondOwnership.bankHolderFor(prepared.ledgerFinancialState, bankId))
 
-    s9.ledgerFinancialState.government.govBondOutstanding shouldBe s9.newGovWithYield.bondsOutstanding
+    s9.ledgerFinancialState.government.govBondOutstanding shouldBe FiscalBudget.nextGovBondOutstanding(
+      prepared.ledgerFinancialState.government.govBondOutstanding,
+      s9.newGovWithYield.deficit,
+    )
     s9.ledgerFinancialState.nbp.govBondHoldings shouldBe s9.finalNbp.govBondHoldings
     s9.ledgerFinancialState.insurance.govBondHoldings shouldBe s9.finalInsuranceBalances.govBondHoldings
     s9.ledgerFinancialState.funds.ppkGovBondHoldings shouldBe s9.finalPpk.bondHoldings
@@ -50,16 +54,11 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
   }
 
-  it should "read government bond and JST cash opening stocks from LedgerFinancialState" in {
+  it should "read JST cash opening stocks from LedgerFinancialState" in {
     val prepared = preparedBankingStep()
     val aligned  = prepared.run()
 
     val mismatchedWorld = prepared.world.copy(
-      gov = prepared.world.gov.copy(
-        financial = prepared.world.gov.financial.copy(
-          bondsOutstanding = prepared.ledgerFinancialState.government.govBondOutstanding + PLN(999e9),
-        ),
-      ),
       social = prepared.world.social.copy(
         jst = prepared.world.social.jst.copy(
           deposits = prepared.ledgerFinancialState.funds.jstCash + PLN(555e9),
@@ -68,7 +67,6 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     )
     val fromLedger      = prepared.run(mismatchedWorld)
 
-    fromLedger.newGovWithYield.bondsOutstanding shouldBe aligned.newGovWithYield.bondsOutstanding
     fromLedger.ledgerFinancialState.government.govBondOutstanding shouldBe aligned.ledgerFinancialState.government.govBondOutstanding
     fromLedger.newJst.deposits shouldBe aligned.newJst.deposits
     fromLedger.ledgerFinancialState.funds.jstCash shouldBe aligned.ledgerFinancialState.funds.jstCash

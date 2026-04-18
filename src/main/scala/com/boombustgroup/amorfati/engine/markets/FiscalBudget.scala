@@ -12,7 +12,7 @@ import com.boombustgroup.amorfati.types.*
   *
   * When GOV_INVEST is enabled, base spending splits into current (1 − share)
   * and capital (share) components; public capital stock depreciates monthly.
-  * Bond-financed deficit accumulates when GOV_BOND_MARKET is enabled.
+  * Government-bond stock is settled downstream into `LedgerFinancialState`.
   *
   * Calibration: MF budgetary law (ustawa budżetowa) structure. All flows in
   * nominal PLN, price-adjusted via priceLevel.
@@ -32,11 +32,10 @@ object FiscalBudget:
     * are single-month flows. `govCapitalSpend` is only the domestic
     * budget-financed capital outlay. `euProjectCapital` is the capital portion
     * of the total EU project envelope (EU transfer + domestic co-financing).
-    * Stock fields (`cumulativeDebt`, `bondsOutstanding`, `publicCapitalStock`)
-    * accumulate across months. `bondsOutstanding` is the issuer-side market
-    * debt instrument stock. Holder-side ownership lives in
-    * `LedgerFinancialState`. `cumulativeDebt` is a broader fiscal debt metric
-    * (Σ deficits), not a separate tradable instrument.
+    * Stock fields (`cumulativeDebt`, `publicCapitalStock`) accumulate across
+    * months. Government-bond ownership and issuer-side outstanding stock live
+    * in `LedgerFinancialState`; this state keeps only the broader fiscal debt
+    * metric (Σ deficits), not a separate tradable instrument.
     *
     * `deficit` = totalSpend − totalRevenue (positive = deficit, negative =
     * surplus). `cumulativeDebt` += deficit each month.
@@ -54,8 +53,7 @@ object FiscalBudget:
     * statistics, NBP government securities data.
     */
   case class GovFinancialState(
-      cumulativeDebt: PLN,             // fiscal debt metric (Σ deficits since t = 0), not a separate holder-tracked instrument
-      bondsOutstanding: PLN = PLN.Zero, // government bond stock (skarbowe papiery wartościowe), i.e. the issuer-side instrument covered by ledger
+      cumulativeDebt: PLN, // fiscal debt metric (Σ deficits since t = 0), not a separate holder-tracked instrument
   )
 
   case class GovPolicyState(
@@ -92,7 +90,6 @@ object FiscalBudget:
     def deficit: PLN                  = monthly.deficit
     def cumulativeDebt: PLN           = financial.cumulativeDebt
     def unempBenefitSpend: PLN        = monthly.unempBenefitSpend
-    def bondsOutstanding: PLN         = financial.bondsOutstanding
     def bondYield: Rate               = policy.bondYield
     def weightedCoupon: Rate          = policy.weightedCoupon
     def debtServiceSpend: PLN         = monthly.debtServiceSpend
@@ -122,7 +119,6 @@ object FiscalBudget:
         deficit: PLN,
         cumulativeDebt: PLN,
         unempBenefitSpend: PLN,
-        bondsOutstanding: PLN = PLN.Zero,
         bondYield: Rate = Rate.Zero,
         weightedCoupon: Rate = Rate.Zero,
         debtServiceSpend: PLN = PLN.Zero,
@@ -139,7 +135,7 @@ object FiscalBudget:
         minWagePriceLevel: PriceIndex = PriceIndex.Base,
     ): GovState =
       GovState(
-        financial = GovFinancialState(cumulativeDebt, bondsOutstanding),
+        financial = GovFinancialState(cumulativeDebt),
         policy = GovPolicyState(bondYield, weightedCoupon, publicCapitalStock, minWageLevel, minWagePriceLevel),
         monthly = GovFlowState(
           taxRevenue,
@@ -200,9 +196,6 @@ object FiscalBudget:
     val totalRev   = taxRev + in.govDividendRevenue
     val deficit    = totalSpend - totalRev
 
-    val newBondsOutstanding =
-      (in.prev.bondsOutstanding + deficit).max(PLN.Zero)
-
     val newCapitalStock =
       val monthlyDeprecShare = p.fiscal.govDepreciationRate.monthly.toMultiplier.toShare
       in.prev.publicCapitalStock * (Share.One - monthlyDeprecShare) + govCapital + in.euProjectCapital
@@ -212,7 +205,6 @@ object FiscalBudget:
       deficit = deficit,
       cumulativeDebt = in.prev.cumulativeDebt + deficit,
       unempBenefitSpend = in.unempBenefitSpend,
-      bondsOutstanding = newBondsOutstanding,
       bondYield = in.prev.bondYield,           // lagged market yield — updated by OpenEconomyStep
       weightedCoupon = in.prev.weightedCoupon, // WAM coupon — updated by OpenEconomyStep
       debtServiceSpend = in.debtService,
@@ -226,3 +218,6 @@ object FiscalBudget:
       customsDutyRevenue = in.customsDutyRevenue,
       govDividendRevenue = in.govDividendRevenue,
     )
+
+  def nextGovBondOutstanding(prevGovBondOutstanding: PLN, deficit: PLN): PLN =
+    (prevGovBondOutstanding + deficit).max(PLN.Zero)

@@ -296,7 +296,6 @@ object Generators:
     deficit     <- Gen.choose(-1e9, 1e9)
     cumDebt     <- Gen.choose(0.0, 1e10)
     unempBen    <- Gen.choose(0.0, 1e8)
-    bondsOut    <- Gen.choose(0.0, 1e10)
     bondYield   <- Gen.choose(0.0, 0.15)
     debtService <- Gen.choose(0.0, 1e8)
   yield FiscalBudget.GovState(
@@ -304,7 +303,6 @@ object Generators:
     PLN(deficit),
     PLN(cumDebt),
     PLN(unempBen),
-    PLN(bondsOut),
     Rate(bondYield),
     Rate(bondYield), // weightedCoupon starts at market yield
     PLN(debtService),

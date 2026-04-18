@@ -20,7 +20,6 @@ object LedgerTestFixtures:
       gov = base.world.gov.copy(
         financial = base.world.gov.financial.copy(
           cumulativeDebt = PLN(776e6),
-          bondsOutstanding = PLN(777e6),
         ),
       ),
       nbp = base.world.nbp
@@ -117,7 +116,7 @@ object LedgerTestFixtures:
       households = households.map(_.financial).map(LedgerFinancialState.householdBalances),
       firms = firmBalances,
       banks = bankBalances,
-      government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = world.gov.bondsOutstanding),
+      government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = PLN(777e6)),
       foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = PLN(778e6)),
       nbp = LedgerFinancialState.NbpBalances(
         govBondHoldings = world.nbp.govBondHoldings,

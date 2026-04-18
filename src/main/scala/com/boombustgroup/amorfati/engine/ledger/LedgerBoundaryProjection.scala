@@ -2,7 +2,6 @@ package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.Nbp
 import com.boombustgroup.amorfati.engine.SocialState
-import com.boombustgroup.amorfati.engine.markets.FiscalBudget
 
 /** One-way projection from ledger-owned financial state into boundary views.
   *
@@ -11,16 +10,6 @@ import com.boombustgroup.amorfati.engine.markets.FiscalBudget
   * ownership direction is ledger state to boundary view.
   */
 object LedgerBoundaryProjection:
-
-  def govState(
-      base: FiscalBudget.GovState,
-      ledgerFinancialState: LedgerFinancialState,
-  ): FiscalBudget.GovState =
-    base.copy(
-      financial = base.financial.copy(
-        bondsOutstanding = ledgerFinancialState.government.govBondOutstanding,
-      ),
-    )
 
   def nbpState(
       base: Nbp.State,

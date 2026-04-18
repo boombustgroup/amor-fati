@@ -90,6 +90,7 @@ object BankingEconomics:
 
   private case class GovJstResult(
       newGovWithYield: FiscalBudget.GovState, // updated government state with bond yield
+      newGovBondOutstanding: PLN,             // issuer-side government bond stock owned by LedgerFinancialState
       newJst: Jst.State,                      // updated local government (JST) state
       jstDepositChange: PLN,                  // net JST deposit flow into banking sector
       tax: TaxRevenue.Output,                 // computed tax revenues (VAT, excise, customs, PIT)
@@ -102,7 +103,7 @@ object BankingEconomics:
 
   /** Inputs for the bond waterfall — raw requests, not final allocations. */
   private case class BondWaterfallInputs(
-      actualBondChange: PLN, // Δ gov bonds outstanding (from FiscalBudget)
+      actualBondChange: PLN, // Δ gov bonds outstanding settled against LedgerFinancialState
       qeRequested: PLN,      // NBP QE purchase request
       ppkRequested: PLN,     // PPK bond purchase request
       insRequested: PLN,     // insurance bond purchase request (delta)
@@ -171,7 +172,7 @@ object BankingEconomics:
     val bfgLevy                   = Banking.computeBfgLevy(in.banks).total
     val investNetDepositFlow      = computeInvestNetDepositFlow(in)
     val finalHhAgg                = computeHhAgg(in)
-    val wf                        = computeWaterfallInputs(in, govJst.newGovWithYield)
+    val wf                        = computeWaterfallInputs(in, govJst.newGovBondOutstanding)
     val multi                     = processMultiBankPath(
       in,
       govJst.jstDepositChange,
@@ -204,14 +205,13 @@ object BankingEconomics:
       in.s5.ledgerFinancialState.copy(
         firms = issuerSettledFirmBalances,
         banks = multi.finalBankLedgerBalances,
-        government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = govJst.newGovWithYield.bondsOutstanding),
+        government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = govJst.newGovBondOutstanding),
         foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = multi.foreignBondHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbpFinancialStocks),
         insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
         funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfiBalances, quasiFiscalStep.stock),
       )
     val monAgg               = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
-    val projectedGov         = LedgerBoundaryProjection.govState(govJst.newGovWithYield, ledgerFinancialState)
     val projectedNbp         = LedgerBoundaryProjection.nbpState(multi.finalNbp, ledgerFinancialState)
 
     StepOutput(
@@ -226,7 +226,7 @@ object BankingEconomics:
       finalInsuranceBalances = multi.finalInsuranceBalances,
       finalNbfi = multi.finalNbfi,
       finalNbfiBalances = multi.finalNbfiBalances,
-      newGovWithYield = projectedGov,
+      newGovWithYield = govJst.newGovWithYield,
       newJst = govJst.newJst,
       housingAfterFlows = housing.housingAfterFlows,
       bfgLevy = bfgLevy,
@@ -286,10 +286,10 @@ object BankingEconomics:
 
     val unempBenefitSpend   = in.s3.hhAgg.totalUnempBenefits
     val socialTransferSpend = in.s3.hhAgg.totalSocialTransfers
-    val prevGov             = LedgerBoundaryProjection.govState(in.w.gov, in.ledgerFinancialState)
+    val prevGov             = in.w.gov
     val prevJst             = in.w.social.jst.copy(deposits = in.ledgerFinancialState.funds.jstCash)
 
-    val newGov          = FiscalBudget.update(
+    val newGov                = FiscalBudget.update(
       FiscalBudget.Input(
         prev = prevGov,
         priceLevel = in.s7.newPrice,
@@ -310,12 +310,13 @@ object BankingEconomics:
         govPurchasesActual = in.s4.govPurchases,
       ),
     )
-    val newGovWithYield = newGov.copy(
+    val newGovWithYield       = newGov.copy(
       policy = newGov.policy.copy(
         bondYield = in.s8.monetary.newBondYield,
         weightedCoupon = in.s8.monetary.newWeightedCoupon,
       ),
     )
+    val newGovBondOutstanding = FiscalBudget.nextGovBondOutstanding(in.ledgerFinancialState.government.govBondOutstanding, newGov.deficit)
 
     val nLivingFirms = in.s5.ioFirms.count(Firm.isAlive)
     val jstResult    =
@@ -330,6 +331,7 @@ object BankingEconomics:
 
     GovJstResult(
       newGovWithYield = newGovWithYield,
+      newGovBondOutstanding = newGovBondOutstanding,
       newJst = jstResult.state,
       jstDepositChange = jstResult.depositChange,
       tax = tax,
@@ -392,9 +394,9 @@ object BankingEconomics:
     */
   private def computeWaterfallInputs(
       in: StepInput,
-      newGovWithYield: FiscalBudget.GovState,
+      newGovBondOutstanding: PLN,
   ): BondWaterfallInputs =
-    val actualBondChange = newGovWithYield.bondsOutstanding - in.ledgerFinancialState.government.govBondOutstanding
+    val actualBondChange = newGovBondOutstanding - in.ledgerFinancialState.government.govBondOutstanding
     val insRequested     =
       (in.s8.nonBank.newInsuranceBalances.govBondHoldings - in.ledgerFinancialState.insurance.govBondHoldings).max(PLN.Zero)
     val tfiRequested     =

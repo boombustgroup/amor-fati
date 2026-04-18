@@ -277,14 +277,11 @@ object WorldAssemblyEconomics:
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
       currentSigmas = in.s7.newSigmas,
-      gov = LedgerBoundaryProjection.govState(
-        in.s9.newGovWithYield.copy(
-          policy = in.s9.newGovWithYield.policy.copy(
-            minWageLevel = in.s1.baseMinWage,
-            minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
-          ),
+      gov = in.s9.newGovWithYield.copy(
+        policy = in.s9.newGovWithYield.policy.copy(
+          minWageLevel = in.s1.baseMinWage,
+          minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
         ),
-        ledgerFinancialState,
       ),
       nbp = LedgerBoundaryProjection.nbpState(in.s9.finalNbp, ledgerFinancialState),
       bankingSector = in.s9.bankingMarket,
