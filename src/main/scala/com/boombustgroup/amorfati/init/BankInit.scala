@@ -11,7 +11,12 @@ import com.boombustgroup.amorfati.types.*
   */
 object BankInit:
 
-  def create(firms: Vector[Firm.State], households: Vector[Household.State])(using p: SimParams): Banking.State =
+  case class Result(
+      banks: Vector[Banking.BankState],
+      market: Banking.MarketState,
+  )
+
+  def create(firms: Vector[Firm.State], households: Vector[Household.State])(using p: SimParams): Result =
     val perBankCorpLoans  = firms.groupMapReduce(_.bankId.toInt)(_.debt)(_ + _)
     val perBankCash       = firms.groupMapReduce(_.bankId.toInt)(_.cash)(_ + _)
     val perBankConsLoans  = households.groupMapReduce(_.bankId.toInt)(_.consumerDebt)(_ + _)
@@ -55,4 +60,11 @@ object BankInit:
         )
       }
 
-    Banking.State(banks, Rate.Zero, Banking.DefaultConfigs, None)
+    Result(
+      banks = banks,
+      market = Banking.MarketState(
+        interbankRate = Rate.Zero,
+        configs = Banking.DefaultConfigs,
+        interbankCurve = None,
+      ),
+    )

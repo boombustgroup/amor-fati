@@ -132,7 +132,7 @@ object WorldInit:
         fxReserves = p.monetary.fxReserves,
         lastFxTraded = PLN.Zero,
       ),
-      bankingSector = initBankingSector.marketState,
+      bankingSector = initBankingSector.market,
       forex = OpenEconomy.ForexState(
         exchangeRate = p.forex.baseExRate,
         imports = PLN.Zero,
