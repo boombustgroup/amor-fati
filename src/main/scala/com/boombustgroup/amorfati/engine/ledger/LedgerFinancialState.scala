@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.engine.ledger
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.SocialState
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
-import com.boombustgroup.amorfati.types.PLN
+import com.boombustgroup.amorfati.types.{FirmId, PLN}
 
 /** Ledger-owned snapshot of ledger-contracted financial stocks used by the
   * engine.
@@ -69,6 +69,15 @@ object LedgerFinancialState:
         firm,
         corpBond = previous.lift(firm.id.toInt).fold(PLN.Zero)(_.corpBond),
       )
+
+  def refreshFirmPopulationBalances(
+      firms: Vector[Firm.State],
+      previous: Vector[FirmBalances],
+      newFirmIds: Set[FirmId],
+  ): Vector[FirmBalances] =
+    firms.map: firm =>
+      if newFirmIds.contains(firm.id) then firmBalances(firm, corpBond = PLN.Zero)
+      else previous.lift(firm.id.toInt).getOrElse(firmBalances(firm, corpBond = PLN.Zero))
 
   def bankBalances(b: Banking.BankState, corpBond: PLN): BankBalances =
     BankBalances(

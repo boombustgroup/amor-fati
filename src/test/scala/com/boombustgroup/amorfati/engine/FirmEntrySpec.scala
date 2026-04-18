@@ -390,6 +390,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     val result = runEntry(firms, 0.04, rng)
     result.netBirths shouldBe 0
     result.births should be > 0
+    result.newFirmIds.size shouldBe result.births
     result.firms.length shouldBe firms.length
     result.firms.count(Firm.isAlive) should be > firms.count(Firm.isAlive)
   }
@@ -408,6 +409,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     val result = runEntry(firms, 0.20, rng)
     result.births should be >= result.netBirths
     result.netBirths should be > 0
+    result.newFirmIds.size shouldBe result.births
     result.firms.length shouldBe firms.length + result.netBirths
   }
 
@@ -433,6 +435,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     val newFirms = result.firms.drop(firms.length)
     newFirms.zipWithIndex.foreach: (f, i) =>
       f.id.toInt shouldBe firms.length + i
+    newFirms.map(_.id).toSet.subsetOf(result.newFirmIds) shouldBe true
   }
 
   it should "create firms with GUS size distribution" in {

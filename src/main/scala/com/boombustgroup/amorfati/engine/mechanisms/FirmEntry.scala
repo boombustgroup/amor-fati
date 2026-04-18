@@ -45,6 +45,7 @@ object FirmEntry:
       firms: Vector[Firm.State], // post-entry firm population (may be longer than input if net creation occurred)
       births: Int,               // total new entrants (recycled + net new)
       netBirths: Int,            // net new firms appended to vector
+      newFirmIds: Set[FirmId],   // recycled or appended slots that now contain a newly created firm
   )
 
   case class LaggedEntrySignals(
@@ -75,14 +76,15 @@ object FirmEntry:
     val profitSignals = computeProfitSignals(living)
     val sectorWeights = computeSectorWeights(profitSignals)
 
-    val totalAdoption                   = automationRatio + hybridRatio
-    val livingIds                       = living.map(_.id.toInt)
-    val (recycledFirms, recycledBirths) =
+    val totalAdoption                = automationRatio + hybridRatio
+    val livingIds                    = living.map(_.id.toInt)
+    val (recycledFirms, recycledIds) =
       recycleDeadSlots(firms, totalAdoption, livingIds, sectorWeights, rng)
 
-    val (finalFirms, netBirths) =
+    val (finalFirms, netNewIds) =
       netCreation(recycledFirms, living.length, laggedSignals, totalAdoption, livingIds, sectorWeights, rng)
-    Result(finalFirms, recycledBirths + netBirths, netBirths)
+    val newFirmIds              = recycledIds ++ netNewIds
+    Result(finalFirms, newFirmIds.size, netNewIds.size, newFirmIds)
 
   private def recycleDeadSlots(
       firms: Vector[Firm.State],
@@ -90,9 +92,9 @@ object FirmEntry:
       livingIds: Vector[Int],
       sectorWeights: Vector[Multiplier],
       rng: RandomStream,
-  )(using p: SimParams): (Vector[Firm.State], Int) =
+  )(using p: SimParams): (Vector[Firm.State], Set[FirmId]) =
     val deadSlots = firms.filterNot(Firm.isAlive)
-    if deadSlots.isEmpty then return (firms, 0)
+    if deadSlots.isEmpty then return (firms, Set.empty)
 
     val rawCount         = p.firm.replacementEntryRate.ceilApplyTo(deadSlots.length)
     val boundedCount     =
@@ -101,14 +103,14 @@ object FirmEntry:
         Math.min(rawCount, p.firm.replacementEntryMaxMonthly),
       )
     val replacementCount = Math.min(deadSlots.length, boundedCount)
-    if replacementCount <= 0 then return (firms, 0)
+    if replacementCount <= 0 then return (firms, Set.empty)
 
     val replacementIds = rng.shuffle(deadSlots.map(_.id).toList).take(replacementCount).toSet
     (
       firms.map: f =>
         if !Firm.isAlive(f) && replacementIds.contains(f.id) then createNewFirm(f.id, sectorWeights, totalAdoption, livingIds, rng)
         else f,
-      replacementIds.size,
+      replacementIds,
     )
 
   /** Append net new firms when unemployment exceeds NAIRU. Birth count is
@@ -124,17 +126,17 @@ object FirmEntry:
       livingIds: Vector[Int],
       sectorWeights: Vector[Multiplier],
       rng: RandomStream,
-  )(using p: SimParams): (Vector[Firm.State], Int) =
+  )(using p: SimParams): (Vector[Firm.State], Set[FirmId]) =
     val signal   = expansionaryEntrySignal(laggedSignals)
-    if signal <= Share.Zero then return (firms, 0)
+    if signal <= Share.Zero then return (firms, Set.empty)
     val rawCount = (signal * p.firm.netEntryRate).ceilApplyTo(livingCount)
     val count    = Math.max(0, Math.min(rawCount, p.firm.netEntryMaxMonthly))
-    if count <= 0 then return (firms, 0)
+    if count <= 0 then return (firms, Set.empty)
 
     val baseId   = firms.length
     val newFirms = (0 until count).map: i =>
       createNewFirm(FirmId(baseId + i), sectorWeights, totalAdoption, livingIds, rng)
-    (firms ++ newFirms, count)
+    (firms ++ newFirms, newFirms.map(_.id).toSet)
 
   private def expansionaryEntrySignal(c: LaggedEntrySignals)(using p: SimParams): Share =
     val laborSlack    = (c.unemploymentRate - p.monetary.nairu).max(Share.Zero)

@@ -32,3 +32,28 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
     refreshed.head.demandDeposit shouldBe PLN(123.0)
     refreshed.last shouldBe LedgerFinancialState.householdBalances(newHousehold)
   }
+
+  "LedgerFinancialState.refreshFirmPopulationBalances" should "preserve existing ledger balances and initialize only new firms" in {
+    val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val existing      = init.firms.head
+    val existingIndex = existing.id.toInt
+    val previous      = init.ledgerFinancialState.firms.updated(
+      existingIndex,
+      init.ledgerFinancialState.firms(existingIndex).copy(cash = PLN(123.0), corpBond = PLN(456.0)),
+    )
+    val mirrorChanged = existing.copy(cash = PLN(999.0), debt = PLN(88.0), equityRaised = PLN(77.0))
+    val appendedFirm  = init.firms.last.copy(
+      id = FirmId(previous.length),
+      cash = PLN(777.0),
+      debt = PLN(55.0),
+      equityRaised = PLN(22.0),
+    )
+    val recycledFirm  = existing.copy(cash = PLN(333.0), debt = PLN(44.0), equityRaised = PLN(12.0))
+
+    val refreshed = LedgerFinancialState.refreshFirmPopulationBalances(Vector(mirrorChanged, appendedFirm), previous, newFirmIds = Set(appendedFirm.id))
+    val recycled  = LedgerFinancialState.refreshFirmPopulationBalances(Vector(recycledFirm), previous, newFirmIds = Set(recycledFirm.id))
+
+    refreshed.head shouldBe previous(existingIndex)
+    refreshed.last shouldBe LedgerFinancialState.firmBalances(appendedFirm, corpBond = PLN.Zero)
+    recycled.head shouldBe LedgerFinancialState.firmBalances(recycledFirm, corpBond = PLN.Zero)
+  }
