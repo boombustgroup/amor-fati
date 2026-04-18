@@ -587,16 +587,16 @@ object BankingEconomics:
       mortgageFlows: HousingMarket.MortgageFlows,
       wf: BondWaterfallInputs,
   )(using p: SimParams): MultiBankResult =
-    val bs                  = in.w.bankingSector.withBanks(in.banks)
-    val perBankReserveInt   = Banking.computeReserveInterest(bs.banks, in.w.nbp.referenceRate)
-    val perBankStandingFac  = Banking.computeStandingFacilities(bs.banks, in.w.nbp.referenceRate)
-    val perBankInterbankInt = Banking.interbankInterestFlows(bs.banks, bs.interbankRate)
+    val banks               = in.banks
+    val perBankReserveInt   = Banking.computeReserveInterest(banks, in.w.nbp.referenceRate)
+    val perBankStandingFac  = Banking.computeStandingFacilities(banks, in.w.nbp.referenceRate)
+    val perBankInterbankInt = Banking.interbankInterestFlows(banks, in.w.bankingSector.interbankRate)
     val totalWorkers        = in.s5.perBankWorkers.sum
 
     val workerShares: Vector[Share] =
-      if totalWorkers <= 0 then Vector.fill(bs.banks.length)(Share.Zero)
+      if totalWorkers <= 0 then Vector.fill(banks.length)(Share.Zero)
       else
-        val n    = bs.banks.length
+        val n    = banks.length
         val raw  = (0 until n - 1).map(i => Share.fraction(in.s5.perBankWorkers(i), totalWorkers)).toVector
         val last = Share.One - raw.foldLeft(Share.Zero)(_ + _)
         raw :+ last
@@ -609,7 +609,7 @@ object BankingEconomics:
       perBankWorkers = in.s5.perBankWorkers,
     )
 
-    val updatedBanks = bs.banks.map { b =>
+    val updatedBanks = banks.map { b =>
       val bId         = b.id.toInt
       val workerShare = workerShares(bId)
       val hhFlows     = resolvePerBankHhFlows(bId, in.s3.perBankHhFlowsOpt, totalWorkers, in.s5.perBankWorkers, in)
@@ -630,7 +630,7 @@ object BankingEconomics:
     processInterbankAndFailures(
       in,
       updatedBanks,
-      bs,
+      in.w.bankingSector.configs,
       wf,
       perBankReserveInt,
       perBankStandingFac,
@@ -647,7 +647,7 @@ object BankingEconomics:
   private def processInterbankAndFailures(
       in: StepInput,
       updatedBanks: Vector[Banking.BankState],
-      bs: Banking.State,
+      bankConfigs: Vector[Banking.Config],
       wf: BondWaterfallInputs,
       perBankReserveInt: Banking.PerBankAmounts,
       perBankStandingFac: Banking.PerBankAmounts,
@@ -661,7 +661,7 @@ object BankingEconomics:
     val ibRate         = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
     // Liquidity hoarding: reduce interbank lending when system NPL is high
     val hoarding       = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
-    val afterInterbank = Banking.clearInterbank(updatedBanks, bs.configs, hoarding)
+    val afterInterbank = Banking.clearInterbank(updatedBanks, bankConfigs, hoarding)
     val nbpSettlement  = applyNbpReserveSettlement(
       afterInterbank,
       perBankReserveInt,
@@ -763,7 +763,7 @@ object BankingEconomics:
       )
     val finalBankingMarket           = Banking.MarketState(
       interbankRate = ibRate,
-      configs = bs.configs,
+      configs = bankConfigs,
       interbankCurve = curve,
     )
     val reassignedFirms              =

@@ -334,14 +334,7 @@ object Banking:
       interbankRate: Rate,
       configs: Vector[Config],
       interbankCurve: Option[YieldCurve.State],
-  ):
-    def withBanks(banks: Vector[BankState]): State =
-      State(
-        banks = banks,
-        interbankRate = interbankRate,
-        configs = configs,
-        interbankCurve = interbankCurve,
-      )
+  )
 
   // ---------------------------------------------------------------------------
   // Default configs (7 Polish banks, KNF 2024)
