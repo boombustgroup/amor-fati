@@ -40,22 +40,24 @@ object BankInit:
         val bankBonds    = PLN.fromRaw(bankBondRaw)
         Banking.BankState(
           id = cfg.id,
-          deposits = firmDeposits + hhDeposits,
-          loans = corpLoans,
+          financial = Banking.BankFinancialStocks(
+            totalDeposits = firmDeposits + hhDeposits,
+            firmLoan = corpLoans,
+            govBondAfs = bankBonds * (Share.One - p.banking.htmShare),
+            govBondHtm = bankBonds * p.banking.htmShare,
+            reserve = PLN.Zero,
+            interbankLoan = PLN.Zero,
+            demandDeposit = PLN.Zero,
+            termDeposit = PLN.Zero,
+            consumerLoan = consLoans,
+          ),
           capital = totalCapital * cfg.initMarketShare,
           nplAmount = PLN.Zero,
-          afsBonds = bankBonds * (Share.One - p.banking.htmShare),
-          htmBonds = bankBonds * p.banking.htmShare,
           htmBookYield = p.banking.initHtmBookYield,
-          reservesAtNbp = PLN.Zero,
-          interbankNet = PLN.Zero,
           status = Banking.BankStatus.Active(0),
-          demandDeposits = PLN.Zero,
-          termDeposits = PLN.Zero,
           loansShort = PLN.Zero,
           loansMedium = PLN.Zero,
           loansLong = PLN.Zero,
-          consumerLoans = consLoans,
           consumerNpl = PLN.Zero,
         )
       }

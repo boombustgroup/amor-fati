@@ -52,7 +52,7 @@ object WorldInit:
         .toVector
     val initBankBalances  =
       initBankingSector.banks.map: bank =>
-        Banking.FinancialBalances.fromState(bank, corpBond = initBankCorpBonds.lift(bank.id.toInt).getOrElse(PLN.Zero))
+        LedgerFinancialState.bankBalances(bank.financial, corpBond = initBankCorpBonds.lift(bank.id.toInt).getOrElse(PLN.Zero))
 
     // --- Sub-state initializers ---
     val initDemographics      = DemographicsInit.create(totalPop)
@@ -183,7 +183,7 @@ object WorldInit:
     val ledgerFinancialState = LedgerFinancialState(
       households = households.map(Household.FinancialBalances.fromState).map(LedgerFinancialState.householdBalances),
       firms = initFirmBalances,
-      banks = LedgerFinancialState.refreshBankFinancialBalances(initBankBalances),
+      banks = initBankBalances,
       government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = initBondsOutstanding),
       foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = initForeignGovBonds),
       nbp = LedgerFinancialState.nbpBalances(

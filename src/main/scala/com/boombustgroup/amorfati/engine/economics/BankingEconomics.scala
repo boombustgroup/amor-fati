@@ -123,7 +123,7 @@ object BankingEconomics:
   private case class MultiBankResult(
       finalBanks: Vector[Banking.BankState],             // final explicit bank population after interbank clearing and resolution
       finalBankCorpBondHoldings: Vector[PLN],            // ledger-owned corporate bond holdings by bank index
-      finalBankFinancialBalances: Vector[Banking.FinancialBalances],
+      finalBankLedgerBalances: Vector[LedgerFinancialState.BankBalances],
       finalBankingMarket: Banking.MarketState,           // final banking market wrapper after interbank clearing and resolution
       reassignedFirms: Vector[Firm.State],               // firms reassigned from failed banks to absorber bank
       reassignedHouseholds: Vector[Household.State],     // households reassigned from failed banks to absorber bank
@@ -203,7 +203,7 @@ object BankingEconomics:
     val ledgerFinancialState =
       in.s5.ledgerFinancialState.copy(
         firms = issuerSettledFirmBalances,
-        banks = LedgerFinancialState.refreshBankFinancialBalances(multi.finalBankFinancialBalances),
+        banks = multi.finalBankLedgerBalances,
         government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = govJst.newGovWithYield.bondsOutstanding),
         foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = multi.foreignBondHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbpFinancialBalances),
@@ -562,20 +562,25 @@ object BankingEconomics:
       if prevGdp > PLN.Zero then (in.s7.gdp.ratioTo(prevGdp) - Scalar.One).toCoefficient else Coefficient.Zero
     val eclResult: EclStaging.StepResult = EclStaging.step(b.eclStaging, newLoansTotal + b.consumerLoans, bankNplNew, unemployment, gdpGrowth)
 
-    b.copy(
-      loans = newLoansTotal,
-      nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * Share(NplMonthlyWriteOff)).max(PLN.Zero),
-      capital = capitalPnl.newCapital - eclResult.provisionChange,
-      eclStaging = eclResult.newStaging,
-      deposits = newDep,
-      demandDeposits = newDep * (Share.One - p.banking.termDepositFrac),
-      termDeposits = newDep * p.banking.termDepositFrac,
-      loansShort = newLoansTotal * Share(ShortLoanFrac),
-      loansMedium = newLoansTotal * Share(MediumLoanFrac),
-      loansLong = newLoansTotal * Share(LongLoanFrac),
-      consumerLoans = (b.consumerLoans + hhFlows.ccOrigination - bankCcStockReduction - hhFlows.ccDefault).max(PLN.Zero),
-      consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * Share(NplMonthlyWriteOff)).max(PLN.Zero),
-    )
+    b
+      .withFinancial(
+        _.copy(
+          firmLoan = newLoansTotal,
+          totalDeposits = newDep,
+          demandDeposit = newDep * (Share.One - p.banking.termDepositFrac),
+          termDeposit = newDep * p.banking.termDepositFrac,
+          consumerLoan = (b.consumerLoans + hhFlows.ccOrigination - bankCcStockReduction - hhFlows.ccDefault).max(PLN.Zero),
+        ),
+      )
+      .copy(
+        nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * Share(NplMonthlyWriteOff)).max(PLN.Zero),
+        capital = capitalPnl.newCapital - eclResult.provisionChange,
+        eclStaging = eclResult.newStaging,
+        loansShort = newLoansTotal * Share(ShortLoanFrac),
+        loansMedium = newLoansTotal * Share(MediumLoanFrac),
+        loansLong = newLoansTotal * Share(LongLoanFrac),
+        consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * Share(NplMonthlyWriteOff)).max(PLN.Zero),
+      )
 
   /** Multi-bank update: per-bank loop, interbank clearing, bond allocation,
     * failure resolution.
@@ -804,8 +809,8 @@ object BankingEconomics:
     MultiBankResult(
       finalBanks = reconciled,
       finalBankCorpBondHoldings = afterResolveCorpBonds,
-      finalBankFinancialBalances = reconciled.map: bank =>
-        Banking.FinancialBalances.fromState(bank, afterResolveCorpBonds.lift(bank.id.toInt).getOrElse(PLN.Zero)),
+      finalBankLedgerBalances = reconciled.map: bank =>
+        LedgerFinancialState.bankBalances(bank.financial, afterResolveCorpBonds.lift(bank.id.toInt).getOrElse(PLN.Zero)),
       finalBankingMarket = finalBankingMarket,
       reassignedFirms = reassignedFirms,
       reassignedHouseholds = reassignedHouseholds,
@@ -915,12 +920,15 @@ object BankingEconomics:
       capitalResidual: PLN,
   )(using p: SimParams): Banking.BankState =
     val newDeposits = bank.deposits + depositResidual
-    bank.copy(
-      deposits = newDeposits,
-      demandDeposits = newDeposits * (Share.One - p.banking.termDepositFrac),
-      termDeposits = newDeposits * p.banking.termDepositFrac,
-      capital = bank.capital + capitalResidual,
-    )
+    bank
+      .withFinancial(
+        _.copy(
+          totalDeposits = newDeposits,
+          demandDeposit = newDeposits * (Share.One - p.banking.termDepositFrac),
+          termDeposit = newDeposits * p.banking.termDepositFrac,
+        ),
+      )
+      .copy(capital = bank.capital + capitalResidual)
 
   /** Monetary aggregates (M0/M1/M2/M3) when credit diagnostics enabled. */
   private def computeMonetaryAggregates(
@@ -963,10 +971,10 @@ object BankingEconomics:
             distributedFx.allocations(idx)
         val updated                    = bank.reservesAtNbp + delta
         if updated >= PLN.Zero then
-          updatedBanks += bank.copy(reservesAtNbp = updated)
+          updatedBanks += bank.withFinancial(_.copy(reserve = updated))
           (accBackstop, accResidual)
         else
-          updatedBanks += bank.copy(reservesAtNbp = PLN.Zero)
+          updatedBanks += bank.withFinancial(_.copy(reserve = PLN.Zero))
           (accBackstop - updated, accResidual)
       }
 

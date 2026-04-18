@@ -29,22 +29,24 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
       status: BankStatus = BankStatus.Active(0),
   ): Banking.BankState = Banking.BankState(
     id = BankId(id),
-    deposits = deposits,
-    loans = loans,
+    financial = Banking.BankFinancialStocks(
+      totalDeposits = deposits,
+      firmLoan = loans,
+      govBondAfs = PLN.Zero,
+      govBondHtm = PLN.Zero,
+      reserve = reservesAtNbp,
+      interbankLoan = interbankNet,
+      demandDeposit = PLN.Zero,
+      termDeposit = PLN.Zero,
+      consumerLoan = PLN.Zero,
+    ),
     capital = capital,
     nplAmount = PLN.Zero,
-    afsBonds = PLN.Zero,
-    htmBonds = PLN.Zero,
     htmBookYield = Rate.Zero,
-    reservesAtNbp = reservesAtNbp,
-    interbankNet = interbankNet,
     status = status,
-    demandDeposits = PLN.Zero,
-    termDeposits = PLN.Zero,
     loansShort = PLN.Zero,
     loansMedium = PLN.Zero,
     loansLong = PLN.Zero,
-    consumerLoans = PLN.Zero,
     consumerNpl = PLN.Zero,
   )
 
@@ -63,7 +65,7 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     forAll(genRate, Gen.choose(1e4, 1e9), Gen.choose(1.1, 5.0)) { (rate, reserves, mult) =>
       whenever(rate > 0.001) {
         val b1 = mkBank(reservesAtNbp = PLN(reserves))
-        val b2 = b1.copy(reservesAtNbp = PLN(reserves * mult))
+        val b2 = b1.withFinancial(_.copy(reserve = PLN(reserves * mult)))
         val r1 = Banking.reserveInterest(b1, Rate(rate))
         val r2 = Banking.reserveInterest(b2, Rate(rate))
         td.toDouble(r2) shouldBe (td.toDouble(r1) * mult +- 1.0)

@@ -18,22 +18,24 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     val cap   = car * loans // CAR = capital / RWA ≈ capital / loans
     Banking.BankState(
       id = BankId(id),
-      deposits = PLN(10e9),
-      loans = PLN(loans),
+      financial = Banking.BankFinancialStocks(
+        totalDeposits = PLN(10e9),
+        firmLoan = PLN(loans),
+        govBondAfs = PLN(1e9),
+        govBondHtm = PLN(1e9),
+        reserve = PLN.Zero,
+        interbankLoan = PLN.Zero,
+        demandDeposit = PLN(6e9),
+        termDeposit = PLN(4e9),
+        consumerLoan = PLN.Zero,
+      ),
       capital = PLN(cap),
       nplAmount = PLN.Zero,
-      afsBonds = PLN(1e9),
-      htmBonds = PLN(1e9),
       htmBookYield = Rate(0.05),
-      reservesAtNbp = PLN.Zero,
-      interbankNet = PLN.Zero,
       status = if failed then Banking.BankStatus.Failed(ExecutionMonth.First) else Banking.BankStatus.Active(0),
-      demandDeposits = PLN(6e9),
-      termDeposits = PLN(4e9),
       loansShort = PLN(3e9),
       loansMedium = PLN(4e9),
       loansLong = PLN(3e9),
-      consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
     )
 

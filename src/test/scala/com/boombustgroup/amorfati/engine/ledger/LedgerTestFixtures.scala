@@ -87,37 +87,37 @@ object LedgerTestFixtures:
 
     val banks = base.banks.updated(
       0,
-      base.banks.head.copy(
-        deposits = PLN(603e6),
-        demandDeposits = PLN(301e6),
-        termDeposits = PLN(302e6),
-        loans = PLN(303e6),
-        consumerLoans = PLN(304e6),
-        afsBonds = PLN(305e6),
-        htmBonds = PLN(306e6),
-        reservesAtNbp = PLN(307e6),
-        interbankNet = PLN(308e6),
-        capital = PLN(310e6),
-        nplAmount = PLN(311e6),
-        consumerNpl = PLN(312e6),
-        loansShort = PLN(313e6),
-        loansMedium = PLN(314e6),
-        loansLong = PLN(315e6),
-      ),
+      base.banks.head
+        .withFinancial(
+          _.copy(
+            totalDeposits = PLN(603e6),
+            demandDeposit = PLN(301e6),
+            termDeposit = PLN(302e6),
+            firmLoan = PLN(303e6),
+            consumerLoan = PLN(304e6),
+            govBondAfs = PLN(305e6),
+            govBondHtm = PLN(306e6),
+            reserve = PLN(307e6),
+            interbankLoan = PLN(308e6),
+          ),
+        )
+        .copy(
+          capital = PLN(310e6),
+          nplAmount = PLN(311e6),
+          consumerNpl = PLN(312e6),
+          loansShort = PLN(313e6),
+          loansMedium = PLN(314e6),
+          loansLong = PLN(315e6),
+        ),
     )
 
     val firmBalances = LedgerFinancialState
       .refreshFirmFinancialBalances(firms.map(Firm.FinancialBalances.fromState), base.ledgerFinancialState.firms)
       .updated(0, LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(firms.head), corpBond = PLN(103e6)))
-    val bankBalances = LedgerFinancialState
-      .refreshBankFinancialBalances(
-        banks.map: bank =>
-          Banking.FinancialBalances.fromState(
-            bank,
-            corpBond = base.ledgerFinancialState.banks.lift(bank.id.toInt).fold(PLN.Zero)(_.corpBond),
-          ),
-      )
-      .updated(0, LedgerFinancialState.bankBalances(Banking.FinancialBalances.fromState(banks.head, corpBond = PLN(309e6))))
+    val bankBalances = banks
+      .map: bank =>
+        LedgerFinancialState.bankBalances(bank.financial, corpBond = base.ledgerFinancialState.banks.lift(bank.id.toInt).fold(PLN.Zero)(_.corpBond))
+      .updated(0, LedgerFinancialState.bankBalances(banks.head.financial, corpBond = PLN(309e6)))
 
     val ledgerFinancialState = base.ledgerFinancialState.copy(
       households = households.map(Household.FinancialBalances.fromState).map(LedgerFinancialState.householdBalances),

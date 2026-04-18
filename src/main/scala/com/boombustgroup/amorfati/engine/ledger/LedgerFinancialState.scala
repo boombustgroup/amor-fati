@@ -76,24 +76,19 @@ object LedgerFinancialState:
     balances.zipWithIndex.map: (balance, index) =>
       firmBalances(balance, corpBond = previous.lift(index).fold(PLN.Zero)(_.corpBond))
 
-  def bankBalances(balances: Banking.FinancialBalances): BankBalances =
+  def bankBalances(stocks: Banking.BankFinancialStocks, corpBond: PLN): BankBalances =
     BankBalances(
-      totalDeposits = balances.totalDeposits,
-      demandDeposit = balances.demandDeposit,
-      termDeposit = balances.termDeposit,
-      firmLoan = balances.firmLoan,
-      consumerLoan = balances.consumerLoan,
-      govBondAfs = balances.govBondAfs,
-      govBondHtm = balances.govBondHtm,
-      reserve = balances.reserve,
-      interbankLoan = balances.interbankLoan,
-      corpBond = balances.corpBond,
+      totalDeposits = stocks.totalDeposits,
+      demandDeposit = stocks.demandDeposit,
+      termDeposit = stocks.termDeposit,
+      firmLoan = stocks.firmLoan,
+      consumerLoan = stocks.consumerLoan,
+      govBondAfs = stocks.govBondAfs,
+      govBondHtm = stocks.govBondHtm,
+      reserve = stocks.reserve,
+      interbankLoan = stocks.interbankLoan,
+      corpBond = corpBond,
     )
-
-  def refreshBankFinancialBalances(
-      balances: Vector[Banking.FinancialBalances],
-  ): Vector[BankBalances] =
-    balances.map(bankBalances)
 
   def insuranceOpeningBalances(ledgerFinancialState: LedgerFinancialState): Insurance.OpeningBalances =
     Insurance.OpeningBalances(

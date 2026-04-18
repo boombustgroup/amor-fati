@@ -17,22 +17,24 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
   private def mkBank(id: Int, interbankNet: Double, capital: Double = 1e9, failed: Boolean = false): Banking.BankState =
     Banking.BankState(
       id = BankId(id),
-      deposits = PLN(10e9),
-      loans = PLN(5e9),
+      financial = Banking.BankFinancialStocks(
+        totalDeposits = PLN(10e9),
+        firmLoan = PLN(5e9),
+        govBondAfs = PLN(2e9),
+        govBondHtm = PLN(1e9),
+        reserve = PLN.Zero,
+        interbankLoan = PLN(interbankNet),
+        demandDeposit = PLN(6e9),
+        termDeposit = PLN(4e9),
+        consumerLoan = PLN.Zero,
+      ),
       capital = PLN(capital),
       nplAmount = PLN.Zero,
-      afsBonds = PLN(2e9),
-      htmBonds = PLN(1e9),
       htmBookYield = Rate(0.05),
-      reservesAtNbp = PLN.Zero,
-      interbankNet = PLN(interbankNet),
       status = if failed then Banking.BankStatus.Failed(ExecutionMonth.First) else Banking.BankStatus.Active(0),
-      demandDeposits = PLN(6e9),
-      termDeposits = PLN(4e9),
       loansShort = PLN(1.5e9),
       loansMedium = PLN(2e9),
       loansLong = PLN(1.5e9),
-      consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
     )
 

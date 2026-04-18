@@ -44,7 +44,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     val result        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val snap          = stockSnapshot(result)
     val banks         = result.banks
-    val tamperedBank0 = banks.updated(0, banks(0).copy(deposits = banks(0).deposits + PLN(5000.0)))
+    val tamperedBank0 = banks.updated(0, banks(0).withFinancial(_.copy(totalDeposits = banks(0).deposits + PLN(5000.0))))
     val errors        = InitCheck.validate(snap, tamperedBank0, result.firms, result.households)
     errors should not be empty
     errors.exists(_.identity.startsWith("Deposit consistency")) shouldBe true
@@ -53,7 +53,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     val result        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val snap          = stockSnapshot(result)
     val banks         = result.banks
-    val tamperedBank0 = banks.updated(0, banks(0).copy(loans = banks(0).loans + PLN(5000.0)))
+    val tamperedBank0 = banks.updated(0, banks(0).withFinancial(_.copy(firmLoan = banks(0).loans + PLN(5000.0))))
     val errors        = InitCheck.validate(snap, tamperedBank0, result.firms, result.households)
     errors should not be empty
     errors.exists(_.identity.startsWith("Corp loan consistency")) shouldBe true
@@ -62,7 +62,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     val result        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val snap          = stockSnapshot(result)
     val banks         = result.banks
-    val tamperedBank0 = banks.updated(0, banks(0).copy(consumerLoans = banks(0).consumerLoans + PLN(5000.0)))
+    val tamperedBank0 = banks.updated(0, banks(0).withFinancial(_.copy(consumerLoan = banks(0).consumerLoans + PLN(5000.0))))
     val errors        = InitCheck.validate(snap, tamperedBank0, result.firms, result.households)
     errors should not be empty
     errors.exists(_.identity.startsWith("Consumer loan consistency")) shouldBe true

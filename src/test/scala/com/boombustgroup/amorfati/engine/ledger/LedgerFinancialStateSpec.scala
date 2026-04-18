@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Nbp}
+import com.boombustgroup.amorfati.agents.{Firm, Household, Nbp}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
@@ -83,24 +83,22 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
     )
   }
 
-  "LedgerFinancialState.refreshBankFinancialBalances" should "write bank execution balances directly" in {
-    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val bank     = init.banks.head.copy(
-      deposits = PLN(123.0),
-      demandDeposits = PLN(100.0),
-      termDeposits = PLN(23.0),
-      loans = PLN(88.0),
-      consumerLoans = PLN(77.0),
-      afsBonds = PLN(66.0),
-      htmBonds = PLN(55.0),
-      reservesAtNbp = PLN(44.0),
-      interbankNet = PLN(33.0),
+  "LedgerFinancialState.bankBalances" should "write bank execution stocks directly" in {
+    val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val bank = init.banks.head.withFinancial(
+      _.copy(
+        totalDeposits = PLN(123.0),
+        demandDeposit = PLN(100.0),
+        termDeposit = PLN(23.0),
+        firmLoan = PLN(88.0),
+        consumerLoan = PLN(77.0),
+        govBondAfs = PLN(66.0),
+        govBondHtm = PLN(55.0),
+        reserve = PLN(44.0),
+        interbankLoan = PLN(33.0),
+      ),
     )
-    val balances = Vector(Banking.FinancialBalances.fromState(bank, corpBond = PLN(22.0)))
-
-    val refreshed = LedgerFinancialState.refreshBankFinancialBalances(balances)
-
-    refreshed.head shouldBe LedgerFinancialState.BankBalances(
+    LedgerFinancialState.bankBalances(bank.financial, corpBond = PLN(22.0)) shouldBe LedgerFinancialState.BankBalances(
       totalDeposits = PLN(123.0),
       demandDeposit = PLN(100.0),
       termDeposit = PLN(23.0),

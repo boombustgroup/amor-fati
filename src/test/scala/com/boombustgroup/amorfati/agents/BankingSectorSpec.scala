@@ -24,6 +24,8 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       capital: PLN = PLN(2e5),
       nplAmount: PLN = PLN.Zero,
       govBondHoldings: PLN = PLN.Zero,
+      govBondAfsShare: Share = Share(0.40),
+      htmBookYield: Rate = Rate(0.055),
       reservesAtNbp: PLN = PLN.Zero,
       interbankNet: PLN = PLN.Zero,
       status: BankStatus = BankStatus.Active(0),
@@ -36,22 +38,24 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       consumerNpl: PLN = PLN.Zero,
   ): Banking.BankState = Banking.BankState(
     id = BankId(id),
-    deposits = deposits,
-    loans = loans,
+    financial = Banking.BankFinancialStocks(
+      totalDeposits = deposits,
+      firmLoan = loans,
+      govBondAfs = govBondHoldings * govBondAfsShare,
+      govBondHtm = govBondHoldings * (Share.One - govBondAfsShare),
+      reserve = reservesAtNbp,
+      interbankLoan = interbankNet,
+      demandDeposit = demandDeposits,
+      termDeposit = termDeposits,
+      consumerLoan = consumerLoans,
+    ),
     capital = capital,
     nplAmount = nplAmount,
-    afsBonds = govBondHoldings * Share(0.40),
-    htmBonds = govBondHoldings * Share(0.60),
-    htmBookYield = Rate(0.055),
-    reservesAtNbp = reservesAtNbp,
-    interbankNet = interbankNet,
+    htmBookYield = htmBookYield,
     status = status,
-    demandDeposits = demandDeposits,
-    termDeposits = termDeposits,
     loansShort = loansShort,
     loansMedium = loansMedium,
     loansLong = loansLong,
-    consumerLoans = consumerLoans,
     consumerNpl = consumerNpl,
   )
 
@@ -358,25 +362,14 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "update htmBookYield as weighted average on issuance" in {
-    val b0     = Banking.BankState(
-      id = BankId(0),
+    val b0     = mkBank(
+      id = 0,
       deposits = PLN(1e6),
       loans = PLN.Zero,
       capital = PLN(1e5),
-      nplAmount = PLN.Zero,
-      afsBonds = PLN.Zero,
-      htmBonds = PLN(6000.0),
+      govBondHoldings = PLN(6000.0),
+      govBondAfsShare = Share.Zero,
       htmBookYield = Rate(0.05),
-      reservesAtNbp = PLN.Zero,
-      interbankNet = PLN.Zero,
-      status = BankStatus.Active(0),
-      demandDeposits = PLN.Zero,
-      termDeposits = PLN.Zero,
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
     )
     val result = Banking.allocateBondIssuance(Vector(b0), PLN(10000.0), Rate(0.08))
     // new HTM = 10000 * 0.6 = 6000, total HTM = 12000
@@ -387,25 +380,13 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   // ---- sellToBuyer AFS-first ----
 
   "sellToBuyer" should "sell AFS before HTM" in {
-    val b0     = Banking.BankState(
-      id = BankId(0),
+    val b0     = mkBank(
+      id = 0,
       deposits = PLN(1e6),
       loans = PLN.Zero,
       capital = PLN(1e5),
-      nplAmount = PLN.Zero,
-      afsBonds = PLN(4000.0),
-      htmBonds = PLN(6000.0),
+      govBondHoldings = PLN(10000.0),
       htmBookYield = Rate(0.05),
-      reservesAtNbp = PLN.Zero,
-      interbankNet = PLN.Zero,
-      status = BankStatus.Active(0),
-      demandDeposits = PLN.Zero,
-      termDeposits = PLN.Zero,
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
     )
     val result = Banking.sellToBuyer(Vector(b0), PLN(3000.0)).banks
     td.toDouble(result(0).afsBonds) shouldBe 1000.0 +- 0.01 // 4000 - 3000
@@ -413,25 +394,14 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "spill into HTM when AFS exhausted" in {
-    val b0     = Banking.BankState(
-      id = BankId(0),
+    val b0     = mkBank(
+      id = 0,
       deposits = PLN(1e6),
       loans = PLN.Zero,
       capital = PLN(1e5),
-      nplAmount = PLN.Zero,
-      afsBonds = PLN(2000.0),
-      htmBonds = PLN(8000.0),
+      govBondHoldings = PLN(10000.0),
+      govBondAfsShare = Share(0.20),
       htmBookYield = Rate(0.05),
-      reservesAtNbp = PLN.Zero,
-      interbankNet = PLN.Zero,
-      status = BankStatus.Active(0),
-      demandDeposits = PLN.Zero,
-      termDeposits = PLN.Zero,
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
     )
     val result = Banking.sellToBuyer(Vector(b0), PLN(5000.0)).banks
     td.toDouble(result(0).afsBonds) shouldBe 0.0 +- 0.01    // 2000 fully sold
@@ -442,25 +412,16 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   "processHtmForcedSale" should "trigger only when LCR < threshold" in {
     // Bank with high LCR — no reclassification
-    val healthyBank = Banking.BankState(
-      id = BankId(0),
+    val healthyBank = mkBank(
+      id = 0,
       deposits = PLN(1e6),
       loans = PLN(1e5),
       capital = PLN(1e5),
-      nplAmount = PLN.Zero,
-      afsBonds = PLN(4e5),
-      htmBonds = PLN(6e5),
+      govBondHoldings = PLN(1e6),
       htmBookYield = Rate(0.04),
       reservesAtNbp = PLN(1e6), // large reserves → high LCR
-      interbankNet = PLN.Zero,
-      status = BankStatus.Active(0),
       demandDeposits = PLN(6e5),
       termDeposits = PLN(4e5),
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
     )
     val result      = Banking.processHtmForcedSale(Vector(healthyBank), Rate(0.08))
     result.totalRealizedLoss shouldBe PLN.Zero
@@ -472,26 +433,15 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
     // LCR = HQLA / (demandDep * runoff) = (reserves + govBonds) / (demandDep * 0.10)
     // Need LCR < 0.75. Set reserves = 0, govBonds = afsBonds+htmBonds = 1.1e8, demandDep = 2e9
     // LCR = 1.1e8 / (2e9 * 0.10) = 1.1e8 / 2e8 = 0.55 < 0.75 ✓
-    val stressedBank = Banking.BankState(
-      id = BankId(0),
+    val stressedBank = mkBank(
+      id = 0,
       deposits = PLN(2e9),
       loans = PLN(1e8),
       capital = PLN(1e8),
-      nplAmount = PLN.Zero,
-      afsBonds = PLN(1e7),
-      htmBonds = PLN(1e8),
       htmBookYield = Rate(0.04),
-      reservesAtNbp = PLN.Zero,
-      interbankNet = PLN.Zero,
-      status = BankStatus.Active(0),
       demandDeposits = PLN(2e9),
       termDeposits = PLN.Zero,
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
-    )
+    ).withFinancial(_.copy(govBondAfs = PLN(1e7), govBondHtm = PLN(1e8)))
     val currentYield = Rate(0.08)
     val result       = Banking.processHtmForcedSale(Vector(stressedBank), currentYield)
     // reclassified = 1e8 * 0.10 = 1e7
@@ -510,25 +460,17 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be no-op when htmBonds is zero" in {
-    val bank   = Banking.BankState(
-      id = BankId(0),
+    val bank   = mkBank(
+      id = 0,
       deposits = PLN(1e9),
       loans = PLN(1e8),
       capital = PLN(1e8),
-      nplAmount = PLN.Zero,
-      afsBonds = PLN(1e8),
-      htmBonds = PLN.Zero,
+      govBondHoldings = PLN(1e8),
+      govBondAfsShare = Share.One,
       htmBookYield = Rate.Zero,
       reservesAtNbp = PLN(1e4),
-      interbankNet = PLN.Zero,
-      status = BankStatus.Active(0),
       demandDeposits = PLN(6e8),
       termDeposits = PLN(4e8),
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
     )
     val result = Banking.processHtmForcedSale(Vector(bank), Rate(0.10))
     result.totalRealizedLoss shouldBe PLN.Zero
@@ -536,26 +478,15 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
 
   it should "realize zero loss when currentYield <= htmBookYield" in {
     // LCR = (0 + 1.1e8) / (2e9 * 0.10) = 0.55 < 0.75 → triggers
-    val bank   = Banking.BankState(
-      id = BankId(0),
+    val bank   = mkBank(
+      id = 0,
       deposits = PLN(2e9),
       loans = PLN(1e8),
       capital = PLN(1e8),
-      nplAmount = PLN.Zero,
-      afsBonds = PLN(1e7),
-      htmBonds = PLN(1e8),
       htmBookYield = Rate(0.08),
-      reservesAtNbp = PLN.Zero,
-      interbankNet = PLN.Zero,
-      status = BankStatus.Active(0),
       demandDeposits = PLN(2e9),
       termDeposits = PLN.Zero,
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
-    )
+    ).withFinancial(_.copy(govBondAfs = PLN(1e7), govBondHtm = PLN(1e8)))
     val result = Banking.processHtmForcedSale(Vector(bank), Rate(0.05))
     result.totalRealizedLoss shouldBe PLN.Zero
     // HTM still reclassified to AFS (just no loss since yield dropped)
