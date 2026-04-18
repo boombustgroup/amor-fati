@@ -503,7 +503,7 @@ object FirmEconomics:
   ): StepOutput =
     val flows                 = fp.flows
     val ledgerAfterFirmStocks = in.s3.ledgerFinancialState.copy(
-      households = households.map(LedgerFinancialState.householdBalances),
+      households = LedgerFinancialState.refreshHouseholdBalances(households, in.s3.ledgerFinancialState.households),
       firms = LedgerFinancialState.refreshFirmBalances(ioFirms, ledgerFinancialState.firms),
     )
 

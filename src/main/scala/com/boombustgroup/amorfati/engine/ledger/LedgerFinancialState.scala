@@ -45,6 +45,13 @@ object LedgerFinancialState:
       equity = h.equityWealth,
     )
 
+  def refreshHouseholdBalances(
+      households: Vector[Household.State],
+      previous: Vector[HouseholdBalances],
+  ): Vector[HouseholdBalances] =
+    households.map: household =>
+      previous.lift(household.id.toInt).getOrElse(householdBalances(household))
+
   def firmBalances(f: Firm.State, corpBond: PLN): FirmBalances =
     FirmBalances(
       cash = f.cash,
