@@ -107,7 +107,7 @@ object Generators:
       reservationWage: PLN = PLN(4666),
       gov: FiscalBudget.GovState = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       nbp: Nbp.State = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bankingSector: Banking.MarketState = testBankingSector().marketState,
+      bankingSector: Banking.MarketState = Banking.MarketState(Rate.Zero, Banking.DefaultConfigs, None),
       forex: OpenEconomy.ForexState = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       social: SocialState = SocialState.zero,
       financialMarkets: FinancialMarketsState = FinancialMarketsState.zero,

@@ -319,13 +319,7 @@ object Banking:
       interbankRate: Rate,
       configs: Vector[Config],
       interbankCurve: Option[YieldCurve.State],
-  ):
-    def marketState: MarketState =
-      MarketState(
-        interbankRate = interbankRate,
-        configs = configs,
-        interbankCurve = interbankCurve,
-      )
+  )
 
   /** Banking-sector state that belongs to macro/market runtime state, without
     * the explicit bank population.
