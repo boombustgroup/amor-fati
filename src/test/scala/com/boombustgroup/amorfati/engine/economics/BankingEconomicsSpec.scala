@@ -3,9 +3,9 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.engine.{MonthRandomness, World}
 import com.boombustgroup.amorfati.engine.flows.*
-import com.boombustgroup.amorfati.engine.ledger.CorporateBondOwnership
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -18,6 +18,97 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   private val TestSeed       = 42L
 
   "BankingEconomics.runStep" should "produce flows that close at SFC == 0L" in {
+    val prepared    = preparedBankingStep()
+    val s9          = prepared.run()
+    val prevBankAgg = Banking.aggregateFromBanks(prepared.banks, bankId => CorporateBondOwnership.bankHolderFor(prepared.ledgerFinancialState, bankId))
+
+    s9.ledgerFinancialState.government.govBondOutstanding shouldBe s9.newGovWithYield.bondsOutstanding
+    s9.ledgerFinancialState.foreign.govBondHoldings shouldBe s9.newGovWithYield.foreignBondHoldings
+    s9.ledgerFinancialState.nbp.govBondHoldings shouldBe s9.finalNbp.govBondHoldings
+    s9.ledgerFinancialState.insurance.govBondHoldings shouldBe s9.finalInsuranceBalances.govBondHoldings
+    s9.ledgerFinancialState.funds.ppkGovBondHoldings shouldBe s9.finalPpk.bondHoldings
+    s9.ledgerFinancialState.funds.nbfi.tfiUnit shouldBe s9.finalNbfiBalances.tfiAum
+    s9.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding should be >= PLN.Zero
+    s9.ledgerFinancialState.funds.quasiFiscal.loanPortfolio should be >= PLN.Zero
+
+    val flows = BankingFlows.emit(
+      BankingFlows.Input(
+        prevBankAgg.govBondHoldings * prepared.s8.monetary.newBondYield.monthly,
+        prepared.s8.banking.totalReserveInterest,
+        prepared.s8.banking.totalStandingFacilityIncome,
+        prepared.s8.banking.totalInterbankInterest,
+        prepared.s8.corpBonds.corpBondBankCoupon,
+        prepared.s8.corpBonds.corpBondBankDefaultLoss,
+        s9.bfgLevy,
+        s9.unrealizedBondLoss,
+        s9.bailInLoss,
+        prepared.s8.banking.nbpRemittance,
+        PLN.Zero,
+        s9.standingFacilityBackstop,
+      ),
+    )
+
+    Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
+  }
+
+  it should "read government bond and JST cash opening stocks from LedgerFinancialState" in {
+    val prepared = preparedBankingStep()
+    val aligned  = prepared.run()
+
+    val mismatchedWorld = prepared.world.copy(
+      gov = prepared.world.gov.copy(
+        financial = prepared.world.gov.financial.copy(
+          bondsOutstanding = prepared.ledgerFinancialState.government.govBondOutstanding + PLN(999e9),
+          foreignBondHoldings = prepared.ledgerFinancialState.foreign.govBondHoldings + PLN(777e9),
+        ),
+      ),
+      social = prepared.world.social.copy(
+        jst = prepared.world.social.jst.copy(
+          deposits = prepared.ledgerFinancialState.funds.jstCash + PLN(555e9),
+        ),
+      ),
+    )
+    val fromLedger      = prepared.run(mismatchedWorld)
+
+    fromLedger.newGovWithYield.bondsOutstanding shouldBe aligned.newGovWithYield.bondsOutstanding
+    fromLedger.ledgerFinancialState.government.govBondOutstanding shouldBe aligned.ledgerFinancialState.government.govBondOutstanding
+    fromLedger.newJst.deposits shouldBe aligned.newJst.deposits
+    fromLedger.ledgerFinancialState.funds.jstCash shouldBe aligned.ledgerFinancialState.funds.jstCash
+  }
+
+  private case class PreparedBankingStep(
+      world: World,
+      ledgerFinancialState: LedgerFinancialState,
+      banks: Vector[Banking.BankState],
+      s1: FiscalConstraintEconomics.Output,
+      s2: LaborEconomics.Output,
+      s3: HouseholdIncomeEconomics.Output,
+      s4: DemandEconomics.Output,
+      s5: FirmEconomics.StepOutput,
+      s6: HouseholdFinancialEconomics.Output,
+      s7: PriceEquityEconomics.Output,
+      s8: OpenEconEconomics.StepOutput,
+  ):
+    def run(worldOverride: World = world): BankingEconomics.StepOutput =
+      val bankingRng = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams().bankingEconomics
+      BankingEconomics.runStep(
+        BankingEconomics.StepInput(
+          worldOverride,
+          ledgerFinancialState,
+          s1,
+          s2,
+          s3,
+          s4,
+          s5,
+          s6,
+          s7,
+          s8,
+          banks,
+          bankingRng,
+        ),
+      )
+
+  private def preparedBankingStep(): PreparedBankingStep =
     val init                 = WorldInit.initialize(InitRandomness.Contract.fromSeed(TestSeed))
     val w                    = init.world
     val ledgerFinancialState = init.ledgerFinancialState
@@ -66,52 +157,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val s9          = BankingEconomics.runStep(
-      BankingEconomics.StepInput(
-        w,
-        ledgerFinancialState,
-        s1,
-        s2,
-        s3,
-        s4,
-        s5,
-        s6,
-        s7,
-        s8,
-        init.banks,
-        stageRandomness.bankingEconomics,
-      ),
-    )
-    val prevBankAgg = Banking.aggregateFromBanks(init.banks, bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId))
-
-    s9.ledgerFinancialState.government.govBondOutstanding shouldBe s9.newGovWithYield.bondsOutstanding
-    s9.ledgerFinancialState.foreign.govBondHoldings shouldBe s9.newGovWithYield.foreignBondHoldings
-    s9.ledgerFinancialState.nbp.govBondHoldings shouldBe s9.finalNbp.govBondHoldings
-    s9.ledgerFinancialState.insurance.govBondHoldings shouldBe s9.finalInsuranceBalances.govBondHoldings
-    s9.ledgerFinancialState.funds.ppkGovBondHoldings shouldBe s9.finalPpk.bondHoldings
-    s9.ledgerFinancialState.funds.nbfi.tfiUnit shouldBe s9.finalNbfiBalances.tfiAum
-    s9.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding should be >= PLN.Zero
-    s9.ledgerFinancialState.funds.quasiFiscal.loanPortfolio should be >= PLN.Zero
-
-    val flows = BankingFlows.emit(
-      BankingFlows.Input(
-        prevBankAgg.govBondHoldings * s8.monetary.newBondYield.monthly,
-        s8.banking.totalReserveInterest,
-        s8.banking.totalStandingFacilityIncome,
-        s8.banking.totalInterbankInterest,
-        s8.corpBonds.corpBondBankCoupon,
-        s8.corpBonds.corpBondBankDefaultLoss,
-        s9.bfgLevy,
-        s9.unrealizedBondLoss,
-        s9.bailInLoss,
-        s8.banking.nbpRemittance,
-        PLN.Zero,
-        s9.standingFacilityBackstop,
-      ),
-    )
-
-    Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
-  }
+    PreparedBankingStep(w, ledgerFinancialState, init.banks, s1, s2, s3, s4, s5, s6, s7, s8)
 
   "BankingEconomics.distributeFxInjection" should "distribute exact positive injection by non-negative deposit weights" in {
     val banks  = Vector(

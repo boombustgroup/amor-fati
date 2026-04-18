@@ -286,10 +286,12 @@ object BankingEconomics:
 
     val unempBenefitSpend   = in.s3.hhAgg.totalUnempBenefits
     val socialTransferSpend = in.s3.hhAgg.totalSocialTransfers
+    val prevGov             = LedgerBoundaryProjection.govState(in.w.gov, in.ledgerFinancialState)
+    val prevJst             = in.w.social.jst.copy(deposits = in.ledgerFinancialState.funds.jstCash)
 
     val newGov          = FiscalBudget.update(
       FiscalBudget.Input(
-        prev = in.w.gov,
+        prev = prevGov,
         priceLevel = in.s7.newPrice,
         citPaid = in.s5.sumTax + in.s7.dividendTax + tax.pitAfterEvasion,
         govDividendRevenue = in.s7.stateOwnedGovDividends,
@@ -318,7 +320,7 @@ object BankingEconomics:
     val nLivingFirms = in.s5.ioFirms.count(Firm.isAlive)
     val jstResult    =
       Jst.step(
-        in.w.social.jst,
+        prevJst,
         in.s5.sumTax,
         in.s3.totalIncome,
         in.s7.gdp,
