@@ -103,8 +103,7 @@ object Household:
     */
   case class State(
       id: HhId,                                            // unique household identifier
-      savings: PLN,                                        // liquid savings (bank deposits)
-      debt: PLN,                                           // outstanding secured (mortgage) debt
+      financial: FinancialStocks,                          // ledger-contracted stocks mirrored during household execution
       monthlyRent: PLN,                                    // monthly rent payment (to landlord / housing market)
       skill: Share,                                        // labor productivity multiplier [0,1], decays during unemployment
       healthPenalty: Share,                                // cumulative health penalty from long-term unemployment (scarring)
@@ -112,36 +111,33 @@ object Household:
       status: HhStatus,                                    // current employment/activity status
       socialNeighbors: Array[HhId],                        // Watts-Strogatz social network neighbor IDs
       bankId: BankId,                                      // index into Banking.State.banks (multi-bank)
-      equityWealth: PLN,                                   // value of GPW equity holdings
       lastSectorIdx: SectorIdx,                            // last sector employed in (-1 = never)
       isImmigrant: Boolean,                                // immigrant status for wage discount + remittances
       numDependentChildren: Int,                           // children ≤ 18 for 800+ social transfers
-      consumerDebt: PLN,                                   // outstanding unsecured consumer loan
       education: Int,                                      // education level: 0=Primary, 1=Vocational, 2=Secondary, 3=Tertiary
       taskRoutineness: Share,                              // how routine is this worker's task bundle [0,1] (Acemoglu & Restrepo 2020)
       wageScar: Share,                                     // persistent wage penalty from unemployment spell (Jacobson et al. 1993)
       financialDistressMonths: Int = 0,                    // consecutive months of deep financial distress
       contractType: ContractType = ContractType.Permanent, // employment contract type (Kodeks Pracy / umowa zlecenie / B2B)
       region: Region = Region.Central,                     // NUTS-1 macroregion (geographic labor market)
-  )
+  ):
+    def savings: PLN      = financial.demandDeposit
+    def debt: PLN         = financial.mortgageLoan
+    def consumerDebt: PLN = financial.consumerLoan
+    def equityWealth: PLN = financial.equity
 
-  /** Financial stock balances produced by the household step for ledger-owned
-    * assets and liabilities.
+    def withFinancial(update: FinancialStocks => FinancialStocks): State =
+      copy(financial = update(financial))
+
+  /** Ledger-contracted household financial stocks carried through household
+    * execution.
     */
-  case class FinancialBalances(
+  case class FinancialStocks(
       demandDeposit: PLN, // bank demand deposits owned by the household
       mortgageLoan: PLN,  // outstanding secured mortgage principal
       consumerLoan: PLN,  // outstanding unsecured consumer-loan principal
       equity: PLN,        // listed equity owned by the household
   )
-  object FinancialBalances:
-    def fromState(hh: State): FinancialBalances =
-      FinancialBalances(
-        demandDeposit = hh.savings,
-        mortgageLoan = hh.debt,
-        consumerLoan = hh.consumerDebt,
-        equity = hh.equityWealth,
-      )
 
   /** Aggregate statistics computed from individual households (Paper-06). */
   case class Aggregates(
@@ -196,7 +192,7 @@ object Household:
       households: Vector[State],
       aggregates: Aggregates,
       perBankFlows: Option[Vector[PerBankFlow]],
-      financialBalances: Vector[FinancialBalances],
+      financialStocks: Vector[FinancialStocks],
   )
 
   // ---- Init ----
@@ -271,8 +267,12 @@ object Household:
 
       State(
         id = HhId(hhId),
-        savings = savings,
-        debt = debt,
+        financial = FinancialStocks(
+          demandDeposit = savings,
+          mortgageLoan = debt,
+          consumerLoan = consDebt,
+          equity = eqWealth,
+        ),
         monthlyRent = rent,
         skill = skill,
         healthPenalty = Share.Zero,
@@ -280,11 +280,9 @@ object Household:
         status = HhStatus.Employed(firm.id, sectorIdx, wage),
         socialNeighbors = if hhId < socialNetwork.length then socialNetwork(hhId).map(HhId(_)) else Array.empty[HhId],
         bankId = BankId(0),
-        equityWealth = eqWealth,
         lastSectorIdx = sectorIdx,
         isImmigrant = false,
         numDependentChildren = numChildren,
-        consumerDebt = consDebt,
         education = edu,
         taskRoutineness = routineness,
         wageScar = Share.Zero,
@@ -419,7 +417,7 @@ object Household:
       retrainingSuccess: Int, // 1 if retraining succeeded, 0 otherwise
       equityWealth: PLN,      // updated equity wealth after revaluation
       rent: PLN,              // monthly rent payment
-      financialBalances: FinancialBalances,
+      financialStocks: FinancialStocks,
   )
 
   // ---- Logic ----
@@ -675,15 +673,19 @@ object Household:
   private def resolveBankruptcy(f: MonthlyFlows, distressMonths: Int)(using p: SimParams): HhMonthlyResult =
     val ccDefaultAmt  = f.hh.consumerDebt * (Rate(1.0) - p.household.ccAmortRate) + f.credit.newLoan
     val creditWithDef = f.credit.copy(defaultAmt = ccDefaultAmt, updatedDebt = PLN.Zero)
+    val financial     = FinancialStocks(
+      demandDeposit = f.newSavings,
+      mortgageLoan = f.newDebt,
+      consumerLoan = PLN.Zero,
+      equity = PLN.Zero,
+    )
     HhMonthlyResult(
-      newState = f.hh.copy(
-        savings = f.newSavings,
-        debt = f.newDebt,
-        consumerDebt = PLN.Zero,
-        status = HhStatus.Bankrupt,
-        equityWealth = PLN.Zero,
-        financialDistressMonths = distressMonths,
-      ),
+      newState = f.hh
+        .withFinancial(_ => financial)
+        .copy(
+          status = HhStatus.Bankrupt,
+          financialDistressMonths = distressMonths,
+        ),
       income = f.income,
       benefit = f.benefit,
       consumption = f.consumption,
@@ -698,12 +700,7 @@ object Household:
       retrainingSuccess = 0,
       equityWealth = PLN.Zero,
       rent = f.hh.monthlyRent,
-      financialBalances = FinancialBalances(
-        demandDeposit = f.newSavings,
-        mortgageLoan = f.newDebt,
-        consumerLoan = PLN.Zero,
-        equity = PLN.Zero,
-      ),
+      financialStocks = financial,
     )
 
   /** Survival branch: skill decay, labor transitions, state update. */
@@ -731,20 +728,24 @@ object Household:
       case HhStatus.Retraining(ml, _, cost) if ml == p.household.retrainingDuration - 1 => cost
       case _                                                                            => PLN.Zero
     val finalSavings            = f.newSavings - retrainingCostThisMonth
+    val financial               = FinancialStocks(
+      demandDeposit = finalSavings,
+      mortgageLoan = f.newDebt,
+      consumerLoan = f.credit.updatedDebt,
+      equity = f.newEquityWealth,
+    )
 
     HhMonthlyResult(
-      newState = f.hh.copy(
-        savings = finalSavings,
-        debt = f.newDebt,
-        consumerDebt = f.credit.updatedDebt,
-        skill = afterSkill,
-        healthPenalty = afterHealth,
-        wageScar = afterWageScar,
-        mpc = afterMpc,
-        status = finalStatus,
-        equityWealth = f.newEquityWealth,
-        financialDistressMonths = distressMonths,
-      ),
+      newState = f.hh
+        .withFinancial(_ => financial)
+        .copy(
+          skill = afterSkill,
+          healthPenalty = afterHealth,
+          wageScar = afterWageScar,
+          mpc = afterMpc,
+          status = finalStatus,
+          financialDistressMonths = distressMonths,
+        ),
       income = f.income,
       benefit = f.benefit,
       consumption = f.consumption,
@@ -759,12 +760,7 @@ object Household:
       retrainingSuccess = rSuccess,
       equityWealth = f.newEquityWealth,
       rent = f.hh.monthlyRent,
-      financialBalances = FinancialBalances(
-        demandDeposit = finalSavings,
-        mortgageLoan = f.newDebt,
-        consumerLoan = f.credit.updatedDebt,
-        equity = f.newEquityWealth,
-      ),
+      financialStocks = financial,
     )
 
   /** Monthly entry point: map processHousehold + accumulate + aggregate. */
@@ -784,10 +780,10 @@ object Household:
     val distressedIds = buildDistressedSet(households)
 
     val mapped = households.map: hh =>
-      if hh.status == HhStatus.Bankrupt then (hh, None, FinancialBalances.fromState(hh)) // absorbing barrier
+      if hh.status == HhStatus.Bankrupt then (hh, None, hh.financial) // absorbing barrier
       else
         val result = processHousehold(hh, world, rng, bankRates, equityIndexReturn, sectorWages, sectorVacancies, distressedIds)
-        (result.newState, Some((hh.bankId, result)), result.financialBalances)
+        (result.newState, Some((hh.bankId, result)), result.financialStocks)
 
     val updated = mapped.map(_._1)
     val flows   = mapped.flatMap(_._2)

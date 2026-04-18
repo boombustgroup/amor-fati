@@ -37,12 +37,12 @@ final case class LedgerFinancialState(
 
 object LedgerFinancialState:
 
-  def householdBalances(balances: Household.FinancialBalances): HouseholdBalances =
+  def householdBalances(stocks: Household.FinancialStocks): HouseholdBalances =
     HouseholdBalances(
-      demandDeposit = balances.demandDeposit,
-      mortgageLoan = balances.mortgageLoan,
-      consumerLoan = balances.consumerLoan,
-      equity = balances.equity,
+      demandDeposit = stocks.demandDeposit,
+      mortgageLoan = stocks.mortgageLoan,
+      consumerLoan = stocks.consumerLoan,
+      equity = stocks.equity,
     )
 
   def refreshHouseholdBalances(
@@ -170,7 +170,7 @@ object LedgerFinancialState:
     firmBalances(firm.financial, corpBond)
 
   private def initialHouseholdBalances(household: Household.State): HouseholdBalances =
-    householdBalances(Household.FinancialBalances.fromState(household))
+    householdBalances(household.financial)
 
   /** Ledger-backed financial balances owned by a single household. */
   case class HouseholdBalances(

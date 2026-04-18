@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
@@ -111,7 +113,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
   }
 
   "Household.numDependentChildren" should "default to 0" in {
-    val hh = Household.State(
+    val hh = TestHouseholdState(
       id = HhId(0),
       savings = PLN(1000),
       debt = PLN.Zero,

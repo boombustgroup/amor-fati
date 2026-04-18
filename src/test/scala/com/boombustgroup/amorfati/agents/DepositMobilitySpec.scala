@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
@@ -40,7 +42,7 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     )
 
   private def mkHh(bankId: Int, savings: Double = 50000.0): Household.State =
-    Household.State(
+    TestHouseholdState(
       id = HhId(0),
       savings = PLN(savings),
       debt = PLN.Zero,

@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import com.boombustgroup.amorfati.TestFirmState
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
@@ -92,7 +94,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   // ---- Household field ----
 
   "Household.education" should "default to 2 (Secondary)" in {
-    val hh = Household.State(
+    val hh = TestHouseholdState(
       HhId(0),
       PLN(1000.0),
       PLN.Zero,
@@ -116,7 +118,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be preserved through copy" in {
-    val hh     = Household.State(
+    val hh     = TestHouseholdState(
       HhId(0),
       PLN(1000.0),
       PLN.Zero,
@@ -136,7 +138,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.5),
       wageScar = Share.Zero,
     )
-    val copied = hh.copy(savings = PLN(2000.0))
+    val copied = hh.withFinancial(_.copy(demandDeposit = PLN(2000.0)))
     copied.education shouldBe 3
   }
 
@@ -185,7 +187,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       accumulatedLoss = PLN.Zero,
     )
 
-    val hhPrimary    = Household.State(
+    val hhPrimary    = TestHouseholdState(
       HhId(0),
       PLN(5000.0),
       PLN.Zero,
@@ -205,7 +207,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.80),
       wageScar = Share.Zero,
     )
-    val hhTertiary   = Household.State(
+    val hhTertiary   = TestHouseholdState(
       HhId(1),
       PLN(5000.0),
       PLN.Zero,
@@ -225,7 +227,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.25),
       wageScar = Share.Zero,
     )
-    val hhVocational = Household.State(
+    val hhVocational = TestHouseholdState(
       HhId(2),
       PLN(5000.0),
       PLN.Zero,
@@ -298,7 +300,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       accumulatedLoss = PLN.Zero,
     )
 
-    val hhLowSkill  = Household.State(
+    val hhLowSkill  = TestHouseholdState(
       HhId(0),
       PLN(5000.0),
       PLN.Zero,
@@ -318,7 +320,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.5),
       wageScar = Share.Zero,
     )
-    val hhHighSkill = Household.State(
+    val hhHighSkill = TestHouseholdState(
       HhId(1),
       PLN(5000.0),
       PLN.Zero,
@@ -338,7 +340,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.5),
       wageScar = Share.Zero,
     )
-    val hhMidSkill  = Household.State(
+    val hhMidSkill  = TestHouseholdState(
       HhId(2),
       PLN(5000.0),
       PLN.Zero,

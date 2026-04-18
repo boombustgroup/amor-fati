@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import com.boombustgroup.amorfati.TestFirmState
 
 import org.scalatest.flatspec.AnyFlatSpec
@@ -183,7 +185,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val result  = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
     val updated = result.households.head
 
-    result.financialBalances.head shouldBe Household.FinancialBalances(
+    result.financialStocks.head shouldBe Household.FinancialStocks(
       demandDeposit = updated.savings,
       mortgageLoan = updated.debt,
       consumerLoan = updated.consumerDebt,
@@ -422,7 +424,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       mpc: Double = 0.82,
       bankId: Int = 0,
   ): Household.State =
-    Household.State(
+    TestHouseholdState(
       HhId(id),
       savings,
       debt,

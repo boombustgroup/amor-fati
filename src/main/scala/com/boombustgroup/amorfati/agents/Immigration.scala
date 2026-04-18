@@ -78,8 +78,12 @@ object Immigration:
 
       Household.State(
         id = HhId(startId + i),
-        savings = savings,
-        debt = PLN.Zero,
+        financial = Household.FinancialStocks(
+          demandDeposit = savings,
+          mortgageLoan = PLN.Zero,
+          consumerLoan = PLN.Zero,
+          equity = PLN.Zero,
+        ),
         monthlyRent = rent,
         skill = skill,
         healthPenalty = Share.Zero,
@@ -87,11 +91,9 @@ object Immigration:
         status = HhStatus.Unemployed(0),
         socialNeighbors = Array.empty[HhId],
         bankId = BankId(0),
-        equityWealth = PLN.Zero,
         lastSectorIdx = sector,
         isImmigrant = true,
         numDependentChildren = numChildren,
-        consumerDebt = PLN.Zero,
         education = edu,
         taskRoutineness = Household.Init.sampleTaskRoutineness(edu, sector, rng),
         wageScar = Share.Zero,

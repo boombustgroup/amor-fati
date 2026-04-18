@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.types.*
@@ -79,7 +81,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
 
   "Immigration.removeReturnMigrants" should "never remove more immigrants than exist" in {
     val hhs    = (0 until 10).map { i =>
-      Household.State(
+      TestHouseholdState(
         HhId(i),
         PLN(1000.0),
         PLN.Zero,

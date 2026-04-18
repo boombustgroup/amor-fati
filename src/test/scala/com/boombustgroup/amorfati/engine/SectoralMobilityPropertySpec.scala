@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import com.boombustgroup.amorfati.TestFirmState
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
@@ -96,7 +98,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   "sectorWages" should "return non-negative values" in {
     val hhs   = (0 until 10)
       .map(i =>
-        Household.State(
+        TestHouseholdState(
           HhId(i),
           PLN(20000.0),
           PLN.Zero,

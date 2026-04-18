@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.accounting.Sfc
@@ -77,7 +79,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "Bankruptcy" should "trigger consumer debt default" in {
-    val hh      = Household.State(
+    val hh      = TestHouseholdState(
       id = HhId(0),
       savings = PLN(-5000.0),
       debt = PLN(1000.0),
@@ -184,7 +186,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "Household" should "have consumerDebt field defaulting to 0" in {
-    val hh = Household.State(
+    val hh = TestHouseholdState(
       id = HhId(0),
       savings = PLN(10000.0),
       debt = PLN.Zero,

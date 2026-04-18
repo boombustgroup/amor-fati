@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,7 +15,7 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
   private val income  = PLN(8000.0)
 
   private def mkHh(savings: PLN = PLN(48000.0), mpc: Share = baseMpc): Household.State =
-    Household.State(
+    TestHouseholdState(
       HhId(0),
       savings,
       PLN.Zero,

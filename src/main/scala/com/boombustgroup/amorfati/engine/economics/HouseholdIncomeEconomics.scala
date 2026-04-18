@@ -100,5 +100,5 @@ object HouseholdIncomeEconomics:
       agg.totalPit,
       importAdj,
       aggUnempBenefit = PLN.Zero,
-      ledgerFinancialState = ledgerFinancialState.copy(households = householdStep.financialBalances.map(LedgerFinancialState.householdBalances)),
+      ledgerFinancialState = ledgerFinancialState.copy(households = householdStep.financialStocks.map(LedgerFinancialState.householdBalances)),
     )

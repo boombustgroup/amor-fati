@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -134,7 +136,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
 
   it should "have positive meanSavings when all savings are positive" in
     forAll(Gen.choose(5, 30)) { (n: Int) =>
-      val positiveHhGen = genHousehold.map(h => h.copy(savings = PLN(Math.abs(plnValue(h.savings)) + 1.0)))
+      val positiveHhGen = genHousehold.map(h => h.withFinancial(_.copy(demandDeposit = PLN(Math.abs(plnValue(h.savings)) + 1.0))))
       forAll(Gen.listOfN(n, positiveHhGen)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
         val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), Share(0.40), 0, 0)
@@ -147,7 +149,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   "Bankrupt" should "be an absorbing barrier" in
     forAll(Gen.choose(1, 20)) { (n: Int) =>
       val bankruptHhs = (0 until n).map { i =>
-        Household.State(
+        TestHouseholdState(
           HhId(i),
           PLN(-10000.0),
           PLN(5000.0),

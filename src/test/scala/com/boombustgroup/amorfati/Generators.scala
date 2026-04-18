@@ -382,7 +382,7 @@ object Generators:
     bankId  <- Gen.choose(0, 6)
     eqW     <- Gen.choose(0.0, 100000.0)
     lastSec <- Gen.choose(-1, 5)
-  yield Household.State(
+  yield TestHouseholdState(
     HhId(id),
     PLN(savings),
     PLN(debt),

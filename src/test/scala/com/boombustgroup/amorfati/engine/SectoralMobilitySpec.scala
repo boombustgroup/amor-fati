@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import com.boombustgroup.amorfati.TestFirmState
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
@@ -197,7 +199,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
       skill: Double = 0.7,
       healthPenalty: Double = 0.0,
   ): Household.State =
-    Household.State(
+    TestHouseholdState(
       HhId(id),
       PLN(20000.0),
       PLN.Zero,
