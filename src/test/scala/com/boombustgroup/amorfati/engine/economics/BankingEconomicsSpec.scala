@@ -23,7 +23,6 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val prevBankAgg = Banking.aggregateFromBanks(prepared.banks, bankId => CorporateBondOwnership.bankHolderFor(prepared.ledgerFinancialState, bankId))
 
     s9.ledgerFinancialState.government.govBondOutstanding shouldBe s9.newGovWithYield.bondsOutstanding
-    s9.ledgerFinancialState.foreign.govBondHoldings shouldBe s9.newGovWithYield.foreignBondHoldings
     s9.ledgerFinancialState.nbp.govBondHoldings shouldBe s9.finalNbp.govBondHoldings
     s9.ledgerFinancialState.insurance.govBondHoldings shouldBe s9.finalInsuranceBalances.govBondHoldings
     s9.ledgerFinancialState.funds.ppkGovBondHoldings shouldBe s9.finalPpk.bondHoldings
@@ -59,7 +58,6 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       gov = prepared.world.gov.copy(
         financial = prepared.world.gov.financial.copy(
           bondsOutstanding = prepared.ledgerFinancialState.government.govBondOutstanding + PLN(999e9),
-          foreignBondHoldings = prepared.ledgerFinancialState.foreign.govBondHoldings + PLN(777e9),
         ),
       ),
       social = prepared.world.social.copy(

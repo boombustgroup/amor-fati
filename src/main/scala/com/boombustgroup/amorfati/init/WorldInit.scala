@@ -125,7 +125,6 @@ object WorldInit:
         cumulativeDebt = p.fiscal.initGovDebt,
         unempBenefitSpend = PLN.Zero,
         bondsOutstanding = initBondsOutstanding,
-        foreignBondHoldings = initForeignGovBonds,
       ),
       nbp = Nbp.State(
         referenceRate = p.monetary.initialRate,

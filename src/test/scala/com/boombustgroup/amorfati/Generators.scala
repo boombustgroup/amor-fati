@@ -305,7 +305,6 @@ object Generators:
     PLN(cumDebt),
     PLN(unempBen),
     PLN(bondsOut),
-    PLN.Zero,        // foreignBondHoldings
     Rate(bondYield),
     Rate(bondYield), // weightedCoupon starts at market yield
     PLN(debtService),

@@ -19,7 +19,6 @@ object LedgerBoundaryProjection:
     base.copy(
       financial = base.financial.copy(
         bondsOutstanding = ledgerFinancialState.government.govBondOutstanding,
-        foreignBondHoldings = ledgerFinancialState.foreign.govBondHoldings,
       ),
     )
 

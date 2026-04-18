@@ -62,7 +62,6 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     val world     = nextState.world
 
     world.gov.bondsOutstanding shouldBe ledger.government.govBondOutstanding
-    world.gov.foreignBondHoldings shouldBe ledger.foreign.govBondHoldings
     world.nbp.govBondHoldings shouldBe ledger.nbp.govBondHoldings
     world.nbp.fxReserves shouldBe ledger.nbp.foreignAssets
     world.social.jst.deposits shouldBe ledger.funds.jstCash

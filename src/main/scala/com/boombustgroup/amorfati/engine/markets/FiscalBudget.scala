@@ -33,9 +33,10 @@ object FiscalBudget:
     * budget-financed capital outlay. `euProjectCapital` is the capital portion
     * of the total EU project envelope (EU transfer + domestic co-financing).
     * Stock fields (`cumulativeDebt`, `bondsOutstanding`, `publicCapitalStock`)
-    * accumulate across months. `bondsOutstanding` is the holder-tracked market
-    * debt instrument stock. `cumulativeDebt` is a broader fiscal debt metric (Σ
-    * deficits), not a separate tradable instrument.
+    * accumulate across months. `bondsOutstanding` is the issuer-side market
+    * debt instrument stock. Holder-side ownership lives in
+    * `LedgerFinancialState`. `cumulativeDebt` is a broader fiscal debt metric
+    * (Σ deficits), not a separate tradable instrument.
     *
     * `deficit` = totalSpend − totalRevenue (positive = deficit, negative =
     * surplus). `cumulativeDebt` += deficit each month.
@@ -53,9 +54,8 @@ object FiscalBudget:
     * statistics, NBP government securities data.
     */
   case class GovFinancialState(
-      cumulativeDebt: PLN,                // fiscal debt metric (Σ deficits since t = 0), not a separate holder-tracked instrument
-      bondsOutstanding: PLN = PLN.Zero,   // government bond stock (skarbowe papiery wartościowe), i.e. the market debt instrument covered by ledger
-      foreignBondHoldings: PLN = PLN.Zero, // non-resident SPW holdings (~35%, NBP)
+      cumulativeDebt: PLN,             // fiscal debt metric (Σ deficits since t = 0), not a separate holder-tracked instrument
+      bondsOutstanding: PLN = PLN.Zero, // government bond stock (skarbowe papiery wartościowe), i.e. the issuer-side instrument covered by ledger
   )
 
   case class GovPolicyState(
@@ -93,7 +93,6 @@ object FiscalBudget:
     def cumulativeDebt: PLN           = financial.cumulativeDebt
     def unempBenefitSpend: PLN        = monthly.unempBenefitSpend
     def bondsOutstanding: PLN         = financial.bondsOutstanding
-    def foreignBondHoldings: PLN      = financial.foreignBondHoldings
     def bondYield: Rate               = policy.bondYield
     def weightedCoupon: Rate          = policy.weightedCoupon
     def debtServiceSpend: PLN         = monthly.debtServiceSpend
@@ -124,7 +123,6 @@ object FiscalBudget:
         cumulativeDebt: PLN,
         unempBenefitSpend: PLN,
         bondsOutstanding: PLN = PLN.Zero,
-        foreignBondHoldings: PLN = PLN.Zero,
         bondYield: Rate = Rate.Zero,
         weightedCoupon: Rate = Rate.Zero,
         debtServiceSpend: PLN = PLN.Zero,
@@ -141,7 +139,7 @@ object FiscalBudget:
         minWagePriceLevel: PriceIndex = PriceIndex.Base,
     ): GovState =
       GovState(
-        financial = GovFinancialState(cumulativeDebt, bondsOutstanding, foreignBondHoldings),
+        financial = GovFinancialState(cumulativeDebt, bondsOutstanding),
         policy = GovPolicyState(bondYield, weightedCoupon, publicCapitalStock, minWageLevel, minWagePriceLevel),
         monthly = GovFlowState(
           taxRevenue,

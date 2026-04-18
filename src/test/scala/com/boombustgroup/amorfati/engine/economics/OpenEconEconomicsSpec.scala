@@ -104,7 +104,6 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
       gov = w.gov.copy(
         financial = w.gov.financial.copy(
           bondsOutstanding = w.gov.bondsOutstanding + PLN(101),
-          foreignBondHoldings = w.gov.foreignBondHoldings + PLN(102),
         ),
       ),
       nbp = w.nbp.withFinancial(
