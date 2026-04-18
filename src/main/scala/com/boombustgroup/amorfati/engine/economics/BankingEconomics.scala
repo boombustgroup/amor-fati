@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerBoundaryProjection, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.{BondAuction, CorporateBondMarket, FiscalBudget, HousingMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{TaxRevenue, YieldCurve}
 import com.boombustgroup.amorfati.types.*
@@ -190,11 +190,7 @@ object BankingEconomics:
       )
     val newQuasiFiscal  = quasiFiscalStep.state
 
-    val newGovWithForeignHoldings =
-      govJst.newGovWithYield.copy(
-        financial = govJst.newGovWithYield.financial.copy(foreignBondHoldings = multi.foreignBondHoldings),
-      )
-    val socialForLedger           = SocialState(
+    val socialForLedger      = SocialState(
       jst = govJst.newJst,
       zus = in.s2.newZus,
       nfz = in.s2.newNfz,
@@ -202,17 +198,22 @@ object BankingEconomics:
       demographics = in.s2.newDemographics,
       earmarked = in.s2.newEarmarked,
     )
-    val ledgerFinancialState      =
+    val ledgerFinancialState =
       in.s5.ledgerFinancialState.copy(
         firms = issuerSettledFirmBalances,
         banks = LedgerFinancialState.refreshBankBalances(multi.finalBanks, in.s5.ledgerFinancialState.banks, multi.finalBankCorpBondHoldings),
-        government = LedgerFinancialState.governmentBalances(newGovWithForeignHoldings),
-        foreign = LedgerFinancialState.foreignBalances(newGovWithForeignHoldings),
-        nbp = LedgerFinancialState.nbpBalances(multi.finalNbp),
+        government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = govJst.newGovWithYield.bondsOutstanding),
+        foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = multi.foreignBondHoldings),
+        nbp = LedgerFinancialState.NbpBalances(
+          govBondHoldings = multi.finalNbp.govBondHoldings,
+          foreignAssets = multi.finalNbp.fxReserves,
+        ),
         insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
         funds = LedgerFinancialState.fundBalances(socialForLedger, in.s8.corpBonds.newCorpBondStock, multi.finalNbfiBalances, quasiFiscalStep.stock),
       )
-    val monAgg                    = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
+    val monAgg               = computeMonetaryAggregates(multi.finalBanks, ledgerFinancialState)
+    val projectedGov         = LedgerBoundaryProjection.govState(govJst.newGovWithYield, ledgerFinancialState)
+    val projectedNbp         = LedgerBoundaryProjection.nbpState(multi.finalNbp, ledgerFinancialState)
 
     StepOutput(
       resolvedBank = multi.resolvedBank,
@@ -220,13 +221,13 @@ object BankingEconomics:
       bankingMarket = multi.finalBankingMarket,
       reassignedFirms = multi.reassignedFirms,
       reassignedHouseholds = multi.reassignedHouseholds,
-      finalNbp = multi.finalNbp,
+      finalNbp = projectedNbp,
       finalPpk = multi.finalPpk,
       finalInsurance = multi.finalInsurance,
       finalInsuranceBalances = multi.finalInsuranceBalances,
       finalNbfi = multi.finalNbfi,
       finalNbfiBalances = multi.finalNbfiBalances,
-      newGovWithYield = newGovWithForeignHoldings,
+      newGovWithYield = projectedGov,
       newJst = govJst.newJst,
       housingAfterFlows = housing.housingAfterFlows,
       bfgLevy = bfgLevy,

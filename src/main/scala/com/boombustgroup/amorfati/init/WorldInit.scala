@@ -185,9 +185,12 @@ object WorldInit:
       households = households.map(LedgerFinancialState.householdBalances),
       firms = initFirmBalances,
       banks = LedgerFinancialState.refreshBankBalances(initBankingSector.banks, Vector.empty, initBankCorpBonds),
-      government = LedgerFinancialState.governmentBalances(world.gov),
-      foreign = LedgerFinancialState.foreignBalances(world.gov),
-      nbp = LedgerFinancialState.nbpBalances(world.nbp),
+      government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = initBondsOutstanding),
+      foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = world.gov.foreignBondHoldings),
+      nbp = LedgerFinancialState.NbpBalances(
+        govBondHoldings = p.banking.initNbpGovBonds,
+        foreignAssets = p.monetary.fxReserves,
+      ),
       insurance = LedgerFinancialState.insuranceBalances(initInsuranceBalances, initCorporateBondStocks.insuranceHoldings),
       funds = LedgerFinancialState.fundBalances(world.social, initCorporateBondStocks, initNbfiBalances, QuasiFiscal.StockState.zero),
     )

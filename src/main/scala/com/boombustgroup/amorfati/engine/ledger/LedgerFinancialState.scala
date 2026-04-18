@@ -1,8 +1,8 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.SocialState
-import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, FiscalBudget}
+import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
 import com.boombustgroup.amorfati.types.PLN
 
 /** Ledger-owned snapshot of ledger-contracted financial stocks used by the
@@ -88,18 +88,6 @@ object LedgerFinancialState:
         .orElse(previous.lift(bank.id.toInt).map(_.corpBond))
         .getOrElse(PLN.Zero)
       bankBalances(bank, corpBond)
-
-  def governmentBalances(gov: FiscalBudget.GovState): GovernmentBalances =
-    GovernmentBalances(govBondOutstanding = gov.bondsOutstanding)
-
-  def foreignBalances(gov: FiscalBudget.GovState): ForeignBalances =
-    ForeignBalances(govBondHoldings = gov.foreignBondHoldings)
-
-  def nbpBalances(nbp: Nbp.State): NbpBalances =
-    NbpBalances(
-      govBondHoldings = nbp.govBondHoldings,
-      foreignAssets = nbp.fxReserves,
-    )
 
   def insuranceOpeningBalances(ledgerFinancialState: LedgerFinancialState): Insurance.OpeningBalances =
     Insurance.OpeningBalances(

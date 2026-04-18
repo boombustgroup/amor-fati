@@ -115,9 +115,12 @@ object LedgerTestFixtures:
       firms = firmBalances,
       banks =
         LedgerFinancialState.refreshBankBalances(banks, base.ledgerFinancialState.banks).updated(0, LedgerFinancialState.bankBalances(banks.head, PLN(309e6))),
-      government = LedgerFinancialState.governmentBalances(world.gov),
-      foreign = LedgerFinancialState.foreignBalances(world.gov),
-      nbp = LedgerFinancialState.nbpBalances(world.nbp),
+      government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = world.gov.bondsOutstanding),
+      foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = world.gov.foreignBondHoldings),
+      nbp = LedgerFinancialState.NbpBalances(
+        govBondHoldings = world.nbp.govBondHoldings,
+        foreignAssets = world.nbp.fxReserves,
+      ),
       funds = base.ledgerFinancialState.funds.copy(
         zusCash = world.social.zus.fusBalance,
         nfzCash = world.social.nfz.balance,
