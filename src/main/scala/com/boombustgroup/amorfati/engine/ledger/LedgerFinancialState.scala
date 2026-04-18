@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
-import com.boombustgroup.amorfati.engine.SocialState
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
 import com.boombustgroup.amorfati.types.{FirmId, PLN}
 
@@ -147,9 +146,11 @@ object LedgerFinancialState:
     )
 
   def fundBalances(
-      social: SocialState,
       zusCash: PLN,
       nfzCash: PLN,
+      fpCash: PLN,
+      pfronCash: PLN,
+      fgspCash: PLN,
       jstCash: PLN,
       ppkGovBondHoldings: PLN,
       corporateBonds: CorporateBondMarket.StockState,
@@ -161,9 +162,9 @@ object LedgerFinancialState:
       nfzCash = nfzCash,
       ppkGovBondHoldings = ppkGovBondHoldings,
       ppkCorpBondHoldings = corporateBonds.ppkHoldings,
-      fpCash = social.earmarked.fpBalance,
-      pfronCash = social.earmarked.pfronBalance,
-      fgspCash = social.earmarked.fgspBalance,
+      fpCash = fpCash,
+      pfronCash = pfronCash,
+      fgspCash = fgspCash,
       jstCash = jstCash,
       corpBondOtherHoldings = corporateBonds.otherHoldings,
       nbfi = nbfiFundBalances(nbfi, corporateBonds.nbfiHoldings),

@@ -195,14 +195,6 @@ object BankingEconomics:
       )
     val newQuasiFiscal  = quasiFiscalStep.state
 
-    val socialForLedger      = SocialState(
-      jst = govJst.newJst,
-      zus = in.s2.newZus,
-      nfz = in.s2.newNfz,
-      ppk = multi.finalPpk,
-      demographics = in.s2.newDemographics,
-      earmarked = in.s2.newEarmarked,
-    )
     val ledgerFinancialState =
       in.s5.ledgerFinancialState.copy(
         firms = issuerSettledFirmBalances,
@@ -212,9 +204,11 @@ object BankingEconomics:
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbpFinancialStocks),
         insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
         funds = LedgerFinancialState.fundBalances(
-          social = socialForLedger,
           zusCash = SocialSecurity.zusCashAfter(in.ledgerFinancialState.funds.zusCash, in.s2.newZus),
           nfzCash = SocialSecurity.nfzCashAfter(in.ledgerFinancialState.funds.nfzCash, in.s2.newNfz),
+          fpCash = EarmarkedFunds.fpCashAfter(in.ledgerFinancialState.funds.fpCash, in.s2.newEarmarked),
+          pfronCash = EarmarkedFunds.pfronCashAfter(in.ledgerFinancialState.funds.pfronCash, in.s2.newEarmarked),
+          fgspCash = EarmarkedFunds.fgspCashAfter(in.ledgerFinancialState.funds.fgspCash, in.s2.newEarmarked),
           jstCash = govJst.jstCash,
           ppkGovBondHoldings = multi.finalPpkGovBondHoldings,
           corporateBonds = in.s8.corpBonds.newCorpBondStock,

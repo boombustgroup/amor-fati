@@ -33,18 +33,7 @@ object LedgerTestFixtures:
         zus = SocialSecurity.ZusState.zero,
         nfz = SocialSecurity.NfzState.zero,
         ppk = SocialSecurity.PpkState(PLN.Zero),
-        earmarked = EarmarkedFunds.State(
-          fpBalance = PLN(14e6),
-          fpContributions = PLN.Zero,
-          fpSpending = PLN.Zero,
-          pfronBalance = PLN(15e6),
-          pfronContributions = PLN.Zero,
-          pfronSpending = PLN.Zero,
-          fgspBalance = PLN(16e6),
-          fgspContributions = PLN.Zero,
-          fgspSpending = PLN.Zero,
-          totalGovSubvention = PLN.Zero,
-        ),
+        earmarked = EarmarkedFunds.State.zero,
       ),
       financialMarkets = base.world.financialMarkets.copy(
         quasiFiscal = QuasiFiscal.State(
@@ -123,9 +112,9 @@ object LedgerTestFixtures:
         zusCash = PLN(11e6),
         nfzCash = PLN(12e6),
         ppkGovBondHoldings = PLN(13e6),
-        fpCash = world.social.earmarked.fpBalance,
-        pfronCash = world.social.earmarked.pfronBalance,
-        fgspCash = world.social.earmarked.fgspBalance,
+        fpCash = PLN(14e6),
+        pfronCash = PLN(15e6),
+        fgspCash = PLN(16e6),
         jstCash = PLN(10e6),
         quasiFiscal = LedgerFinancialState.quasiFiscalBalances(
           QuasiFiscal.StockState(
