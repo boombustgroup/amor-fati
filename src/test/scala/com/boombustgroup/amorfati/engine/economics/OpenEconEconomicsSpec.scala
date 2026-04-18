@@ -123,6 +123,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     fromLedger.banking.nbpRemittance shouldBe aligned.banking.nbpRemittance
     fromLedger.monetary.postFxNbp.govBondHoldings shouldBe aligned.monetary.postFxNbp.govBondHoldings
     fromLedger.monetary.postFxNbp.fxReserves shouldBe aligned.monetary.postFxNbp.fxReserves
+    fromLedger.monetary.postFxNbpFinancialBalances shouldBe aligned.monetary.postFxNbpFinancialBalances
     fromLedger.corpBonds.corpBondCoupon shouldBe aligned.corpBonds.corpBondCoupon
     fromLedger.corpBonds.corpBondBankDefaultLoss shouldBe aligned.corpBonds.corpBondBankDefaultLoss
     fromLedger.nonBank.newInsurance.lastInvestmentIncome shouldBe aligned.nonBank.newInsurance.lastInvestmentIncome
