@@ -125,6 +125,24 @@ object Household:
       region: Region = Region.Central,                     // NUTS-1 macroregion (geographic labor market)
   )
 
+  /** Financial stock balances produced by the household step for ledger-owned
+    * assets and liabilities.
+    */
+  case class FinancialBalances(
+      demandDeposit: PLN, // bank demand deposits owned by the household
+      mortgageLoan: PLN,  // outstanding secured mortgage principal
+      consumerLoan: PLN,  // outstanding unsecured consumer-loan principal
+      equity: PLN,        // listed equity owned by the household
+  )
+  object FinancialBalances:
+    def fromState(hh: State): FinancialBalances =
+      FinancialBalances(
+        demandDeposit = hh.savings,
+        mortgageLoan = hh.debt,
+        consumerLoan = hh.consumerDebt,
+        equity = hh.equityWealth,
+      )
+
   /** Aggregate statistics computed from individual households (Paper-06). */
   case class Aggregates(
       employed: Int,                 // count of employed HH
@@ -170,6 +188,16 @@ object Household:
     def unemploymentRate(totalPopulation: Int): Share =
       if totalPopulation <= 0 then Share.Zero
       else Share.fraction(totalPopulation - employed, totalPopulation)
+
+  /** Monthly household-step output. Behavioral state remains separate from the
+    * financial stock balances consumed by the ledger boundary.
+    */
+  case class StepResult(
+      households: Vector[State],
+      aggregates: Aggregates,
+      perBankFlows: Option[Vector[PerBankFlow]],
+      financialBalances: Vector[FinancialBalances],
+  )
 
   // ---- Init ----
 
@@ -391,6 +419,7 @@ object Household:
       retrainingSuccess: Int, // 1 if retraining succeeded, 0 otherwise
       equityWealth: PLN,      // updated equity wealth after revaluation
       rent: PLN,              // monthly rent payment
+      financialBalances: FinancialBalances,
   )
 
   // ---- Logic ----
@@ -669,6 +698,12 @@ object Household:
       retrainingSuccess = 0,
       equityWealth = PLN.Zero,
       rent = f.hh.monthlyRent,
+      financialBalances = FinancialBalances(
+        demandDeposit = f.newSavings,
+        mortgageLoan = f.newDebt,
+        consumerLoan = PLN.Zero,
+        equity = PLN.Zero,
+      ),
     )
 
   /** Survival branch: skill decay, labor transitions, state update. */
@@ -695,10 +730,11 @@ object Household:
     val retrainingCostThisMonth = finalStatus match
       case HhStatus.Retraining(ml, _, cost) if ml == p.household.retrainingDuration - 1 => cost
       case _                                                                            => PLN.Zero
+    val finalSavings            = f.newSavings - retrainingCostThisMonth
 
     HhMonthlyResult(
       newState = f.hh.copy(
-        savings = f.newSavings - retrainingCostThisMonth,
+        savings = finalSavings,
         debt = f.newDebt,
         consumerDebt = f.credit.updatedDebt,
         skill = afterSkill,
@@ -723,6 +759,12 @@ object Household:
       retrainingSuccess = rSuccess,
       equityWealth = f.newEquityWealth,
       rent = f.hh.monthlyRent,
+      financialBalances = FinancialBalances(
+        demandDeposit = finalSavings,
+        mortgageLoan = f.newDebt,
+        consumerLoan = f.credit.updatedDebt,
+        equity = f.newEquityWealth,
+      ),
     )
 
   /** Monthly entry point: map processHousehold + accumulate + aggregate. */
@@ -738,21 +780,21 @@ object Household:
       equityIndexReturn: Rate = Rate.Zero,
       sectorWages: Option[Vector[PLN]] = None,
       sectorVacancies: Option[Vector[Int]] = None,
-  )(using p: SimParams): (Vector[State], Aggregates, Option[Vector[PerBankFlow]]) =
+  )(using p: SimParams): StepResult =
     val distressedIds = buildDistressedSet(households)
 
     val mapped = households.map: hh =>
-      if hh.status == HhStatus.Bankrupt then (hh, None) // absorbing barrier
+      if hh.status == HhStatus.Bankrupt then (hh, None, FinancialBalances.fromState(hh)) // absorbing barrier
       else
         val result = processHousehold(hh, world, rng, bankRates, equityIndexReturn, sectorWages, sectorVacancies, distressedIds)
-        (result.newState, Some((hh.bankId, result)))
+        (result.newState, Some((hh.bankId, result)), result.financialBalances)
 
     val updated = mapped.map(_._1)
     val flows   = mapped.flatMap(_._2)
     val totals  = { val t = StepTotals(); flows.foreach((_, r) => t.add(r)); t }
     val agg     = computeAggregates(updated, marketWage, reservationWage, importAdj, totals)
     val pbf     = if bankRates.isDefined then Some(buildPerBankFlows(flows, nBanks)) else None
-    (updated, agg, pbf)
+    StepResult(updated, agg, pbf, mapped.map(_._3))
 
   /** Pre-compute distressed HH set for O(1) neighbor lookups. */
   private def buildDistressedSet(households: Vector[State]): java.util.BitSet =

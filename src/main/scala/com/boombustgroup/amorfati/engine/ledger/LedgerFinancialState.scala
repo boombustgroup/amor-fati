@@ -45,6 +45,14 @@ object LedgerFinancialState:
       equity = h.equityWealth,
     )
 
+  def householdBalances(balances: Household.FinancialBalances): HouseholdBalances =
+    HouseholdBalances(
+      demandDeposit = balances.demandDeposit,
+      mortgageLoan = balances.mortgageLoan,
+      consumerLoan = balances.consumerLoan,
+      equity = balances.equity,
+    )
+
   def refreshHouseholdBalances(
       households: Vector[Household.State],
       previous: Vector[HouseholdBalances],

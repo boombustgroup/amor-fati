@@ -59,11 +59,11 @@ object HouseholdIncomeEconomics:
         Math.pow(toDouble(p.forex.baseExRate) / exchangeRateValue(w.forex.exchangeRate), ImportErElasticity),
     )
 
-    val afterSep           = LaborMarket.separations(households, firms, firms)
-    val afterWages         = LaborMarket.updateWages(afterSep, firms, newWage)
-    val bsec               = w.bankingSector
-    val nBanksHh           = banks.length
-    val hhBankRates        = Some(
+    val afterSep      = LaborMarket.separations(households, firms, firms)
+    val afterWages    = LaborMarket.updateWages(afterSep, firms, newWage)
+    val bsec          = w.bankingSector
+    val nBanksHh      = banks.length
+    val hhBankRates   = Some(
       BankRates(
         lendingRates = banks
           .zip(bsec.configs)
@@ -71,10 +71,10 @@ object HouseholdIncomeEconomics:
         depositRates = banks.map(_ => Banking.hhDepositRate(w.nbp.referenceRate)),
       ),
     )
-    val eqReturn           = w.financialMarkets.equity.monthlyReturn
-    val secWages           = Some(SectoralMobility.sectorWages(afterWages))
-    val secVacancies       = Some(SectoralMobility.sectorVacancies(afterWages, firms))
-    val (newHhs, agg, pbf) = Household.step(
+    val eqReturn      = w.financialMarkets.equity.monthlyReturn
+    val secWages      = Some(SectoralMobility.sectorWages(afterWages))
+    val secVacancies  = Some(SectoralMobility.sectorVacancies(afterWages, firms))
+    val householdStep = Household.step(
       afterWages,
       w,
       newWage,
@@ -87,17 +87,18 @@ object HouseholdIncomeEconomics:
       secWages,
       secVacancies,
     )
+    val agg           = householdStep.aggregates
 
     Output(
       agg.totalIncome,
       agg.consumption,
       agg.importConsumption,
       agg.domesticConsumption,
-      newHhs,
+      householdStep.households,
       agg,
-      pbf,
+      householdStep.perBankFlows,
       agg.totalPit,
       importAdj,
       aggUnempBenefit = PLN.Zero,
-      ledgerFinancialState = ledgerFinancialState.copy(households = newHhs.map(LedgerFinancialState.householdBalances)),
+      ledgerFinancialState = ledgerFinancialState.copy(households = householdStep.financialBalances.map(LedgerFinancialState.householdBalances)),
     )
