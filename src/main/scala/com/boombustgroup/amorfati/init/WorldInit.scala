@@ -62,9 +62,18 @@ object WorldInit:
     val initNbfiBalances      = Nbfi.initialBalances
     val initExpectations      = ExpectationsInit.create()
     val initInflation         = p.monetary.targetInfl
+    val initForeignGovBonds   = PLN.Zero
 
     val initBondsOutstanding = p.banking.initGovBonds + p.banking.initNbpGovBonds +
       initInsuranceBalances.govBondHoldings + initNbfiBalances.tfiGovBondHoldings
+    val initSocialState      = SocialState(
+      jst = Jst.State.zero,
+      zus = SocialSecurity.ZusState.zero,
+      nfz = SocialSecurity.NfzState.zero,
+      ppk = SocialSecurity.PpkState.zero,
+      demographics = initDemographics,
+      earmarked = EarmarkedFunds.State.zero,
+    )
 
     // --- Steady-state gross investment ---
     val initGrossInvestment = PLN.fromRaw(firms.map(f => (f.capitalStock * p.capital.depRates(f.sector.toInt).monthly).toLong).sum)
@@ -123,6 +132,7 @@ object WorldInit:
         cumulativeDebt = p.fiscal.initGovDebt,
         unempBenefitSpend = PLN.Zero,
         bondsOutstanding = initBondsOutstanding,
+        foreignBondHoldings = initForeignGovBonds,
       ),
       nbp = Nbp.State(
         referenceRate = p.monetary.initialRate,
@@ -144,14 +154,7 @@ object WorldInit:
         marketWage = p.household.baseWage,
         reservationWage = p.household.baseReservationWage,
       ),
-      social = SocialState(
-        jst = Jst.State.zero,
-        zus = SocialSecurity.ZusState.zero,
-        nfz = SocialSecurity.NfzState.zero,
-        ppk = SocialSecurity.PpkState.zero,
-        demographics = initDemographics,
-        earmarked = EarmarkedFunds.State.zero,
-      ),
+      social = initSocialState,
       financialMarkets = FinancialMarketsState(
         equity = EquityMarket.initial,
         corporateBonds = initCorporateBonds,
@@ -189,13 +192,15 @@ object WorldInit:
       firms = initFirmBalances,
       banks = LedgerFinancialState.refreshBankFinancialBalances(initBankBalances),
       government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = initBondsOutstanding),
-      foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = world.gov.foreignBondHoldings),
-      nbp = LedgerFinancialState.NbpBalances(
-        govBondHoldings = p.banking.initNbpGovBonds,
-        foreignAssets = p.monetary.fxReserves,
+      foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = initForeignGovBonds),
+      nbp = LedgerFinancialState.nbpBalances(
+        Nbp.FinancialBalances(
+          govBondHoldings = p.banking.initNbpGovBonds,
+          foreignAssets = p.monetary.fxReserves,
+        ),
       ),
       insurance = LedgerFinancialState.insuranceBalances(initInsuranceBalances, initCorporateBondStocks.insuranceHoldings),
-      funds = LedgerFinancialState.fundBalances(world.social, initCorporateBondStocks, initNbfiBalances, QuasiFiscal.StockState.zero),
+      funds = LedgerFinancialState.fundBalances(initSocialState, initCorporateBondStocks, initNbfiBalances, QuasiFiscal.StockState.zero),
     )
 
     InitResult(world, firms, households, initBankingSector.banks, initHhAgg, ledgerFinancialState)
