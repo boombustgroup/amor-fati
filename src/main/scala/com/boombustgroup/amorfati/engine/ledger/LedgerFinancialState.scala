@@ -60,14 +60,6 @@ object LedgerFinancialState:
     households.map: household =>
       previous.lift(household.id.toInt).getOrElse(householdBalances(household))
 
-  def firmBalances(f: Firm.State, corpBond: PLN): FirmBalances =
-    FirmBalances(
-      cash = f.cash,
-      firmLoan = f.debt,
-      corpBond = corpBond,
-      equity = f.equityRaised,
-    )
-
   def firmBalances(balances: Firm.FinancialBalances, corpBond: PLN): FirmBalances =
     FirmBalances(
       cash = balances.cash,
@@ -76,24 +68,14 @@ object LedgerFinancialState:
       equity = balances.equity,
     )
 
-  def refreshFirmBalances(
-      firms: Vector[Firm.State],
-      previous: Vector[FirmBalances],
-  ): Vector[FirmBalances] =
-    firms.map: firm =>
-      firmBalances(
-        firm,
-        corpBond = previous.lift(firm.id.toInt).fold(PLN.Zero)(_.corpBond),
-      )
-
   def refreshFirmPopulationBalances(
       firms: Vector[Firm.State],
       previous: Vector[FirmBalances],
       newFirmIds: Set[FirmId],
   ): Vector[FirmBalances] =
     firms.map: firm =>
-      if newFirmIds.contains(firm.id) then firmBalances(firm, corpBond = PLN.Zero)
-      else previous.lift(firm.id.toInt).getOrElse(firmBalances(firm, corpBond = PLN.Zero))
+      if newFirmIds.contains(firm.id) then initialFirmBalances(firm, corpBond = PLN.Zero)
+      else previous.lift(firm.id.toInt).getOrElse(initialFirmBalances(firm, corpBond = PLN.Zero))
 
   def refreshFirmFinancialBalances(
       balances: Vector[Firm.FinancialBalances],
@@ -101,20 +83,6 @@ object LedgerFinancialState:
   ): Vector[FirmBalances] =
     balances.zipWithIndex.map: (balance, index) =>
       firmBalances(balance, corpBond = previous.lift(index).fold(PLN.Zero)(_.corpBond))
-
-  def bankBalances(b: Banking.BankState, corpBond: PLN): BankBalances =
-    BankBalances(
-      totalDeposits = b.deposits,
-      demandDeposit = bankDemandDeposits(b),
-      termDeposit = bankTermDeposits(b),
-      firmLoan = b.loans,
-      consumerLoan = b.consumerLoans,
-      govBondAfs = b.afsBonds,
-      govBondHtm = b.htmBonds,
-      reserve = b.reservesAtNbp,
-      interbankLoan = b.interbankNet,
-      corpBond = corpBond,
-    )
 
   def bankBalances(balances: Banking.FinancialBalances): BankBalances =
     BankBalances(
@@ -129,18 +97,6 @@ object LedgerFinancialState:
       interbankLoan = balances.interbankLoan,
       corpBond = balances.corpBond,
     )
-
-  def refreshBankBalances(
-      banks: Vector[Banking.BankState],
-      previous: Vector[BankBalances],
-      corpBondHoldings: Vector[PLN] = Vector.empty,
-  ): Vector[BankBalances] =
-    banks.map: bank =>
-      val corpBond = corpBondHoldings
-        .lift(bank.id.toInt)
-        .orElse(previous.lift(bank.id.toInt).map(_.corpBond))
-        .getOrElse(PLN.Zero)
-      bankBalances(bank, corpBond)
 
   def refreshBankFinancialBalances(
       balances: Vector[Banking.FinancialBalances],
@@ -217,13 +173,8 @@ object LedgerFinancialState:
       quasiFiscal = quasiFiscalBalances(quasiFiscal),
     )
 
-  private def bankDemandDeposits(bank: Banking.BankState): PLN =
-    if bank.demandDeposits == PLN.Zero && bank.termDeposits == PLN.Zero then bank.deposits
-    else bank.demandDeposits
-
-  private def bankTermDeposits(bank: Banking.BankState): PLN =
-    if bank.demandDeposits == PLN.Zero && bank.termDeposits == PLN.Zero then PLN.Zero
-    else bank.termDeposits
+  private def initialFirmBalances(firm: Firm.State, corpBond: PLN): FirmBalances =
+    firmBalances(Firm.FinancialBalances.fromState(firm), corpBond)
 
   /** Ledger-backed financial balances owned by a single household. */
   case class HouseholdBalances(

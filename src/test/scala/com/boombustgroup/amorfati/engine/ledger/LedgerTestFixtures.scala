@@ -107,14 +107,22 @@ object LedgerTestFixtures:
     )
 
     val firmBalances = LedgerFinancialState
-      .refreshFirmBalances(firms, base.ledgerFinancialState.firms)
-      .updated(0, LedgerFinancialState.firmBalances(firms.head, corpBond = PLN(103e6)))
+      .refreshFirmFinancialBalances(firms.map(Firm.FinancialBalances.fromState), base.ledgerFinancialState.firms)
+      .updated(0, LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(firms.head), corpBond = PLN(103e6)))
+    val bankBalances = LedgerFinancialState
+      .refreshBankFinancialBalances(
+        banks.map: bank =>
+          Banking.FinancialBalances.fromState(
+            bank,
+            corpBond = base.ledgerFinancialState.banks.lift(bank.id.toInt).fold(PLN.Zero)(_.corpBond),
+          ),
+      )
+      .updated(0, LedgerFinancialState.bankBalances(Banking.FinancialBalances.fromState(banks.head, corpBond = PLN(309e6))))
 
     val ledgerFinancialState = base.ledgerFinancialState.copy(
       households = households.map(LedgerFinancialState.householdBalances),
       firms = firmBalances,
-      banks =
-        LedgerFinancialState.refreshBankBalances(banks, base.ledgerFinancialState.banks).updated(0, LedgerFinancialState.bankBalances(banks.head, PLN(309e6))),
+      banks = bankBalances,
       government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = world.gov.bondsOutstanding),
       foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = world.gov.foreignBondHoldings),
       nbp = LedgerFinancialState.NbpBalances(

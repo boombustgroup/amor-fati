@@ -55,8 +55,8 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
     val recycled  = LedgerFinancialState.refreshFirmPopulationBalances(Vector(recycledFirm), previous, newFirmIds = Set(recycledFirm.id))
 
     refreshed.head shouldBe previous(existingIndex)
-    refreshed.last shouldBe LedgerFinancialState.firmBalances(appendedFirm, corpBond = PLN.Zero)
-    recycled.head shouldBe LedgerFinancialState.firmBalances(recycledFirm, corpBond = PLN.Zero)
+    refreshed.last shouldBe LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(appendedFirm), corpBond = PLN.Zero)
+    recycled.head shouldBe LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(recycledFirm), corpBond = PLN.Zero)
   }
 
   "LedgerFinancialState.refreshFirmFinancialBalances" should "update operational balances while preserving corporate bonds" in {

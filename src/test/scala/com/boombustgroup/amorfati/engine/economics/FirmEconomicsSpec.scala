@@ -34,7 +34,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     val s1                   = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
     val s2                   = LaborEconomics.compute(world, firms, init.households, s1)
     val ledgerFinancialState = init.ledgerFinancialState.copy(
-      firms = LedgerFinancialState.refreshFirmBalances(firms, init.ledgerFinancialState.firms),
+      firms = LedgerFinancialState.refreshFirmFinancialBalances(firms.map(Firm.FinancialBalances.fromState), init.ledgerFinancialState.firms),
     )
     val s3                   =
       HouseholdIncomeEconomics.compute(
