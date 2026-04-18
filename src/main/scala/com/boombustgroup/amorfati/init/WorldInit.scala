@@ -185,7 +185,7 @@ object WorldInit:
     )
 
     val ledgerFinancialState = LedgerFinancialState(
-      households = households.map(LedgerFinancialState.householdBalances),
+      households = households.map(Household.FinancialBalances.fromState).map(LedgerFinancialState.householdBalances),
       firms = initFirmBalances,
       banks = LedgerFinancialState.refreshBankFinancialBalances(initBankBalances),
       government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = initBondsOutstanding),

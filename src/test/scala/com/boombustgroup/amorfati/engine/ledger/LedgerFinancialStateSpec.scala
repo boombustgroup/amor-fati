@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
@@ -31,7 +31,7 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
     val refreshed = LedgerFinancialState.refreshHouseholdBalances(Vector(mirrorChanged, newHousehold), previous)
 
     refreshed.head.demandDeposit shouldBe PLN(123.0)
-    refreshed.last shouldBe LedgerFinancialState.householdBalances(newHousehold)
+    refreshed.last shouldBe LedgerFinancialState.householdBalances(Household.FinancialBalances.fromState(newHousehold))
   }
 
   "LedgerFinancialState.refreshFirmPopulationBalances" should "preserve existing ledger balances and initialize only new firms" in {

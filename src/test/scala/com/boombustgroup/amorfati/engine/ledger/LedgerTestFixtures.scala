@@ -120,7 +120,7 @@ object LedgerTestFixtures:
       .updated(0, LedgerFinancialState.bankBalances(Banking.FinancialBalances.fromState(banks.head, corpBond = PLN(309e6))))
 
     val ledgerFinancialState = base.ledgerFinancialState.copy(
-      households = households.map(LedgerFinancialState.householdBalances),
+      households = households.map(Household.FinancialBalances.fromState).map(LedgerFinancialState.householdBalances),
       firms = firmBalances,
       banks = bankBalances,
       government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = world.gov.bondsOutstanding),

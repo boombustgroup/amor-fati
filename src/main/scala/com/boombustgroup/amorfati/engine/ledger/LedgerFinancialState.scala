@@ -37,14 +37,6 @@ final case class LedgerFinancialState(
 
 object LedgerFinancialState:
 
-  def householdBalances(h: Household.State): HouseholdBalances =
-    HouseholdBalances(
-      demandDeposit = h.savings,
-      mortgageLoan = h.debt,
-      consumerLoan = h.consumerDebt,
-      equity = h.equityWealth,
-    )
-
   def householdBalances(balances: Household.FinancialBalances): HouseholdBalances =
     HouseholdBalances(
       demandDeposit = balances.demandDeposit,
@@ -58,7 +50,7 @@ object LedgerFinancialState:
       previous: Vector[HouseholdBalances],
   ): Vector[HouseholdBalances] =
     households.map: household =>
-      previous.lift(household.id.toInt).getOrElse(householdBalances(household))
+      previous.lift(household.id.toInt).getOrElse(initialHouseholdBalances(household))
 
   def firmBalances(balances: Firm.FinancialBalances, corpBond: PLN): FirmBalances =
     FirmBalances(
@@ -175,6 +167,9 @@ object LedgerFinancialState:
 
   private def initialFirmBalances(firm: Firm.State, corpBond: PLN): FirmBalances =
     firmBalances(Firm.FinancialBalances.fromState(firm), corpBond)
+
+  private def initialHouseholdBalances(household: Household.State): HouseholdBalances =
+    householdBalances(Household.FinancialBalances.fromState(household))
 
   /** Ledger-backed financial balances owned by a single household. */
   case class HouseholdBalances(
