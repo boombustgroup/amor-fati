@@ -13,6 +13,7 @@ object BankInit:
 
   case class Result(
       banks: Vector[Banking.BankState],
+      financialStocks: Vector[Banking.BankFinancialStocks],
       market: Banking.MarketState,
   )
 
@@ -44,7 +45,7 @@ object BankInit:
       Banking.DefaultConfigs.map(_.initMarketShare.toLong).toArray,
     )
 
-    val banks = Banking.DefaultConfigs
+    val rows = Banking.DefaultConfigs
       .zip(bondAlloc)
       .map { case (cfg, bankBondRaw) =>
         val bId          = cfg.id.toInt
@@ -53,9 +54,19 @@ object BankInit:
         val firmDeposits = perBankCash.getOrElse(bId, PLN.Zero)
         val hhDeposits   = perBankHhDeposits.getOrElse(bId, PLN.Zero)
         val bankBonds    = PLN.fromRaw(bankBondRaw)
-        Banking.BankState(
-          id = cfg.id,
-          financial = Banking.BankFinancialStocks(
+        (
+          Banking.BankState(
+            id = cfg.id,
+            capital = totalCapital * cfg.initMarketShare,
+            nplAmount = PLN.Zero,
+            htmBookYield = p.banking.initHtmBookYield,
+            status = Banking.BankStatus.Active(0),
+            loansShort = PLN.Zero,
+            loansMedium = PLN.Zero,
+            loansLong = PLN.Zero,
+            consumerNpl = PLN.Zero,
+          ),
+          Banking.BankFinancialStocks(
             totalDeposits = firmDeposits + hhDeposits,
             firmLoan = corpLoans,
             govBondAfs = bankBonds * (Share.One - p.banking.htmShare),
@@ -66,19 +77,12 @@ object BankInit:
             termDeposit = PLN.Zero,
             consumerLoan = consLoans,
           ),
-          capital = totalCapital * cfg.initMarketShare,
-          nplAmount = PLN.Zero,
-          htmBookYield = p.banking.initHtmBookYield,
-          status = Banking.BankStatus.Active(0),
-          loansShort = PLN.Zero,
-          loansMedium = PLN.Zero,
-          loansLong = PLN.Zero,
-          consumerNpl = PLN.Zero,
         )
       }
 
     Result(
-      banks = banks,
+      banks = rows.map(_._1),
+      financialStocks = rows.map(_._2),
       market = Banking.MarketState(
         interbankRate = Rate.Zero,
         configs = Banking.DefaultConfigs,

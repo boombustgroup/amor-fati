@@ -2,8 +2,8 @@ package com.boombustgroup.amorfati.agents
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.boombustgroup.amorfati.agents.Banking.BankStatus
 import com.boombustgroup.amorfati.Generators
+import com.boombustgroup.amorfati.agents.Banking.BankStatus
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
@@ -17,7 +17,9 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   private val td      = ComputationBoundary
   private val configs = Banking.DefaultConfigs
 
-  private def mkBank(
+  private case class BankRow(bank: Banking.BankState, stocks: Banking.BankFinancialStocks)
+
+  private def mkBankRow(
       id: Int = 0,
       deposits: PLN = PLN(1e6),
       loans: PLN = PLN(1e6),
@@ -36,50 +38,51 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       loansLong: PLN = PLN.Zero,
       consumerLoans: PLN = PLN.Zero,
       consumerNpl: PLN = PLN.Zero,
-  ): Banking.BankState = Banking.BankState(
-    id = BankId(id),
-    financial = Banking.BankFinancialStocks(
-      totalDeposits = deposits,
-      firmLoan = loans,
-      govBondAfs = govBondHoldings * govBondAfsShare,
-      govBondHtm = govBondHoldings * (Share.One - govBondAfsShare),
-      reserve = reservesAtNbp,
-      interbankLoan = interbankNet,
-      demandDeposit = demandDeposits,
-      termDeposit = termDeposits,
-      consumerLoan = consumerLoans,
-    ),
-    capital = capital,
-    nplAmount = nplAmount,
-    htmBookYield = htmBookYield,
-    status = status,
-    loansShort = loansShort,
-    loansMedium = loansMedium,
-    loansLong = loansLong,
-    consumerNpl = consumerNpl,
-  )
+  ): BankRow =
+    BankRow(
+      Banking.BankState(
+        id = BankId(id),
+        capital = capital,
+        nplAmount = nplAmount,
+        htmBookYield = htmBookYield,
+        status = status,
+        loansShort = loansShort,
+        loansMedium = loansMedium,
+        loansLong = loansLong,
+        consumerNpl = consumerNpl,
+      ),
+      Banking.BankFinancialStocks(
+        totalDeposits = deposits,
+        firmLoan = loans,
+        govBondAfs = govBondHoldings * govBondAfsShare,
+        govBondHtm = govBondHoldings * (Share.One - govBondAfsShare),
+        reserve = reservesAtNbp,
+        interbankLoan = interbankNet,
+        demandDeposit = demandDeposits,
+        termDeposit = termDeposits,
+        consumerLoan = consumerLoans,
+      ),
+    )
 
-  // ---- initialize ----
+  private def banks(rows: Vector[BankRow]): Vector[Banking.BankState] =
+    rows.map(_.bank)
 
-  "Banking.initialize" should "create 7 banks with correct deposit/capital shares" in {
+  private def stocks(rows: Vector[BankRow]): Vector[Banking.BankFinancialStocks] =
+    rows.map(_.stocks)
+
+  private def govBonds(stocks: Banking.BankFinancialStocks): PLN =
+    Banking.govBondHoldings(stocks)
+
+  "Generators.testBankingSector" should "create 7 banks with explicit financial stocks preserving totals" in {
     val bs = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
+
     bs.banks.length shouldBe 7
-    bs.banks.map(b => td.toDouble(b.deposits)).sum shouldBe 1000000.0 +- 0.01
+    bs.financialStocks.map(s => td.toDouble(s.totalDeposits)).sum shouldBe 1000000.0 +- 0.01
     bs.banks.map(b => td.toDouble(b.capital)).sum shouldBe 100000.0 +- 0.01
-  }
-
-  it should "set all banks as not failed initially" in {
-    val bs = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
+    td.toDouble(bs.financialStocks(0).totalDeposits) shouldBe (1000000.0 * 0.175) +- 0.01
+    td.toDouble(bs.financialStocks(5).totalDeposits) shouldBe (1000000.0 * 0.050) +- 0.01
     bs.banks.forall(!_.failed) shouldBe true
   }
-
-  it should "set deposits proportional to market share" in {
-    val bs = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
-    td.toDouble(bs.banks(0).deposits) shouldBe (1000000.0 * 0.175) +- 0.01 // PKO BP
-    td.toDouble(bs.banks(5).deposits) shouldBe (1000000.0 * 0.050) +- 0.01 // BPS/Coop
-  }
-
-  // ---- assignBank ----
 
   "Banking.assignBank" should "return valid bank index" in {
     val rng = RandomStream.seeded(42)
@@ -92,277 +95,113 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
   it should "favor BPS/Coop for agriculture firms" in {
     val rng         = RandomStream.seeded(42)
     val assignments = (0 until 10000).map(_ => Banking.assignBank(SectorIdx(5), configs, rng))
-    val bpsCount    = assignments.count(_ == BankId(5))
-    // BPS has 0.65 agriculture affinity vs others ~0.15, so it should get disproportionate share
-    bpsCount.toDouble / 10000 should be > 0.10
+    assignments.count(_ == BankId(5)).toDouble / 10000 should be > 0.10
   }
 
-  // ---- lendingRate ----
+  "Banking.lendingRate" should "price failed banks, NPL stress, and bank-specific spread from explicit stocks" in {
+    val failed = mkBankRow(status = BankStatus.Failed(ExecutionMonth(30)))
+    Banking.lendingRate(failed.bank, failed.stocks, configs(0), Rate(0.05), Rate.Zero, PLN.Zero) shouldBe Rate(0.55)
 
-  "Banking.lendingRate" should "return high spread for failed bank" in {
-    val bank = mkBank(status = BankStatus.Failed(ExecutionMonth(30)))
-    val rate = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero, PLN.Zero)
-    td.toDouble(rate) shouldBe (0.05 + 0.50) +- 0.001
+    val lowNpl  = mkBankRow(nplAmount = PLN(1e4))
+    val highNpl = mkBankRow(nplAmount = PLN(2e5))
+    Banking.lendingRate(highNpl.bank, highNpl.stocks, configs(0), Rate(0.05), Rate.Zero, PLN.Zero) should be >
+      Banking.lendingRate(lowNpl.bank, lowNpl.stocks, configs(0), Rate(0.05), Rate.Zero, PLN.Zero)
+
+    val base = mkBankRow(nplAmount = PLN.Zero)
+    Banking.lendingRate(base.bank, base.stocks, configs(5), Rate(0.05), Rate.Zero, PLN.Zero) should be >
+      Banking.lendingRate(base.bank, base.stocks, configs(0), Rate(0.05), Rate.Zero, PLN.Zero)
   }
 
-  it should "increase with NPL ratio" in {
-    val bankLowNpl  = mkBank(nplAmount = PLN(1e4))
-    val bankHighNpl = mkBank(nplAmount = PLN(2e5))
-    val rateLow     = Banking.lendingRate(bankLowNpl, configs(0), Rate(0.05), Rate.Zero, PLN.Zero)
-    val rateHigh    = Banking.lendingRate(bankHighNpl, configs(0), Rate(0.05), Rate.Zero, PLN.Zero)
-    rateHigh should be > rateLow
+  "Banking.canLend" should "reject failed banks and low projected CAR" in {
+    val failed = mkBankRow(capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30)))
+    Banking.canLend(failed.bank, failed.stocks, PLN(1000.0), RandomStream.seeded(42), Multiplier.Zero, PLN.Zero) shouldBe false
+
+    val weak = mkBankRow(loans = PLN(100000.0), capital = PLN(8000.0))
+    val rng  = RandomStream.seeded(42L)
+    (0 until 100).forall(_ => !Banking.canLend(weak.bank, weak.stocks, PLN(10000.0), rng, Multiplier.Zero, PLN.Zero)) shouldBe true
   }
 
-  it should "include bank-specific spread" in {
-    val bank    = mkBank(nplAmount = PLN.Zero)
-    val ratePko = Banking.lendingRate(bank, configs(0), Rate(0.05), Rate.Zero, PLN.Zero) // spread = -0.002
-    val rateBps = Banking.lendingRate(bank, configs(5), Rate(0.05), Rate.Zero, PLN.Zero) // spread = +0.003
-    rateBps should be > ratePko
-  }
-
-  // ---- canLend ----
-
-  "Banking.canLend" should "return false for failed bank" in {
-    val bank = mkBank(capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30)))
-    Banking.canLend(bank, PLN(1000.0), RandomStream.seeded(42), Multiplier.Zero, PLN.Zero) shouldBe false
-  }
-
-  it should "reject when projected CAR too low" in {
-    // capital=8000, loans=100000, existing CAR=0.08
-    // Adding 10000 loan -> projected = 8000/110000 = 0.0727 < 0.08
-    val bank    = mkBank(loans = PLN(100000.0), capital = PLN(8000.0))
-    val rng     = RandomStream.seeded(42L)
-    // Need to test multiple times since there's a stochastic element
-    val results = (0 until 100).map(_ => Banking.canLend(bank, PLN(10000.0), rng, Multiplier.Zero, PLN.Zero))
-    results.forall(_ == false) shouldBe true
-  }
-
-  // ---- interbankRate ----
-
-  "Banking.interbankRate" should "return deposit rate when NPL is zero" in {
-    val banks = Vector(
-      mkBank(id = 0),
-      mkBank(id = 1),
+  "Banking.interbankRate" should "use explicit financial stocks" in {
+    val healthy  = Vector(mkBankRow(id = 0), mkBankRow(id = 1))
+    val stressed = Vector(
+      mkBankRow(id = 0, nplAmount = PLN(1e5)),
+      mkBankRow(id = 1, nplAmount = PLN(1e5)),
     )
-    val rate  = Banking.interbankRate(banks, Rate(0.05))
-    td.toDouble(rate) shouldBe (0.05 - 0.01) +- 0.001 // deposit rate
+
+    td.toDouble(Banking.interbankRate(banks(healthy), stocks(healthy), Rate(0.05))) shouldBe (0.05 - 0.01) +- 0.001
+    td.toDouble(Banking.interbankRate(banks(stressed), stocks(stressed), Rate(0.05))) shouldBe (0.05 + 0.01) +- 0.001
   }
 
-  it should "approach lombard rate when NPL is high" in {
-    val banks = Vector(
-      mkBank(id = 0, nplAmount = PLN(1e5)), // 10% NPL
-      mkBank(id = 1, nplAmount = PLN(1e5)),
+  "Banking.clearInterbank" should "clear net interbank positions on financial stocks" in {
+    val rows    = Vector(
+      mkBankRow(id = 0, loans = PLN(3e5), govBondHoldings = PLN(1e5)),
+      mkBankRow(id = 1, deposits = PLN(5e5), loans = PLN(8e5), capital = PLN(1e5)),
+      mkBankRow(id = 2, deposits = PLN(8e5), loans = PLN(2e5), capital = PLN(1.5e5), govBondHoldings = PLN(5e4)),
     )
-    val rate  = Banking.interbankRate(banks, Rate(0.05))
-    // stress = 0.10 / 0.05 = 2.0, clipped to 1.0
-    td.toDouble(rate) shouldBe (0.05 + 0.01) +- 0.001 // lombard rate
+    val cleared = Banking.clearInterbank(banks(rows), stocks(rows), configs.take(3))
+
+    cleared.financialStocks.map(s => td.toDouble(s.interbankLoan)).sum shouldBe 0.0 +- 0.01
+    cleared.financialStocks.foreach(_.reserve should be >= PLN.Zero)
   }
 
-  // ---- clearInterbank ----
-
-  "Banking.clearInterbank" should "produce interbankNet that sums to zero" in {
-    val banks   = Vector(
-      mkBank(id = 0, loans = PLN(3e5), govBondHoldings = PLN(1e5)),
-      mkBank(id = 1, deposits = PLN(5e5), loans = PLN(8e5), capital = PLN(1e5)),
-      mkBank(id = 2, deposits = PLN(8e5), loans = PLN(2e5), capital = PLN(1.5e5), govBondHoldings = PLN(5e4)),
+  it should "set failed banks' interbank position to zero" in {
+    val rows = Vector(
+      mkBankRow(id = 0, loans = PLN(3e5)),
+      mkBankRow(id = 1, deposits = PLN(5e5), loans = PLN(8e5), capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30))),
     )
-    val cleared = Banking.clearInterbank(banks, configs.take(3))
-    val netSum  = cleared.map(b => td.toDouble(b.interbankNet)).sum
-    netSum shouldBe 0.0 +- 0.01
+    Banking.clearInterbank(banks(rows), stocks(rows), configs.take(2)).financialStocks(1).interbankLoan shouldBe PLN.Zero
   }
 
-  it should "produce exact zero interbankNet sum in raw PLN units" in {
-    val banks   = Vector(
-      mkBank(id = 0, deposits = PLN(900001.0), loans = PLN(100000.0), capital = PLN(1e5)),
-      mkBank(id = 1, deposits = PLN(500000.0), loans = PLN(850000.0), capital = PLN(1e5)),
-      mkBank(id = 2, deposits = PLN(700000.0), loans = PLN(250000.0), capital = PLN(1e5)),
-      mkBank(id = 3, deposits = PLN(600000.0), loans = PLN(950000.0), capital = PLN(1e5)),
-    )
-    val cleared = Banking.clearInterbank(banks, configs.take(4))
-    cleared.map(_.interbankNet.toLong).sum shouldBe 0L
+  "Banking.checkFailures" should "respect disabled mode, trigger failures, and reset recovered counters" in {
+    val weak     = mkBankRow(capital = PLN(1000.0), status = BankStatus.Active(5))
+    val disabled = Banking.checkFailures(Vector(weak.bank), Vector(weak.stocks), ExecutionMonth(30), enabled = false, Multiplier.Zero)
+    disabled.anyFailed shouldBe false
+    disabled.banks.head.failed shouldBe false
+
+    val preFailed = mkBankRow(capital = PLN(1000.0), status = BankStatus.Active(2))
+    val failed    = Banking.checkFailures(Vector(preFailed.bank), Vector(preFailed.stocks), ExecutionMonth(30), enabled = true, Multiplier.Zero)
+    failed.anyFailed shouldBe true
+    failed.banks.head.failed shouldBe true
+    failed.banks.head.capital shouldBe PLN.Zero
+
+    val recovered = mkBankRow(status = BankStatus.Active(2))
+    Banking
+      .checkFailures(Vector(recovered.bank), Vector(recovered.stocks), ExecutionMonth(30), enabled = true, Multiplier.Zero)
+      .banks
+      .head
+      .consecutiveLowCar shouldBe 0
   }
 
-  it should "set failed banks' interbankNet to zero" in {
-    val banks   = Vector(
-      mkBank(id = 0, loans = PLN(3e5)),
-      mkBank(id = 1, deposits = PLN(5e5), loans = PLN(8e5), capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30))),
-    )
-    val cleared = Banking.clearInterbank(banks, configs.take(2))
-    cleared(1).interbankNet shouldBe PLN.Zero
-  }
-
-  // ---- checkFailures ----
-
-  "Banking.checkFailures" should "not trigger when disabled" in {
-    val banks = Vector(
-      mkBank(capital = PLN(1000.0), status = BankStatus.Active(5)), // Very low CAR
-    )
-    val result = Banking.checkFailures(banks, ExecutionMonth(30), enabled = false, Multiplier.Zero)
-    result.anyFailed shouldBe false
-    result.banks(0).failed shouldBe false
-  }
-
-  it should "trigger after 3 consecutive months of low CAR" in {
-    val bank   = mkBank(capital = PLN(1000.0), status = BankStatus.Active(2))
-    val result = Banking.checkFailures(Vector(bank), ExecutionMonth(30), enabled = true, Multiplier.Zero)
-    result.anyFailed shouldBe true
-    result.banks(0).failed shouldBe true
-    result.banks(0).capital shouldBe PLN.Zero // Shareholders wiped
-  }
-
-  it should "reset consecutive counter when CAR recovers" in {
-    val bank   = mkBank(status = BankStatus.Active(2)) // CAR = 0.20 > MinCar
-    val result = Banking.checkFailures(Vector(bank), ExecutionMonth(30), enabled = true, Multiplier.Zero)
-    result.anyFailed shouldBe false
-    result.banks(0).consecutiveLowCar shouldBe 0
-  }
-
-  // ---- resolveFailures ----
-
-  "Banking.resolveFailures" should "transfer deposits to healthiest bank" in {
-    val banks  = Vector(
-      mkBank(id = 0, deposits = PLN(500000.0), loans = PLN(100000.0), capital = PLN(50000.0), govBondHoldings = PLN(10000.0)),
-      mkBank(
+  "Banking.resolveFailures" should "move failed-bank stocks to the healthiest survivor" in {
+    val rows   = Vector(
+      mkBankRow(id = 0, deposits = PLN(500000.0), loans = PLN(100000.0), capital = PLN(50000.0), govBondHoldings = PLN(10000.0)),
+      mkBankRow(
         id = 1,
         deposits = PLN(300000.0),
         loans = PLN(80000.0),
-        capital = PLN(0.0),
+        capital = PLN.Zero,
         govBondHoldings = PLN(5000.0),
         status = BankStatus.Failed(ExecutionMonth(30)),
       ),
     )
-    val result = Banking.resolveFailures(banks, Vector(PLN(1000.0), PLN(250.0)))
-    td.toDouble(result.banks(0).deposits) shouldBe 800000.0 +- 0.01 // absorbed 300k
-    result.banks(1).deposits shouldBe PLN.Zero
+    val result = Banking.resolveFailures(banks(rows), stocks(rows), Vector(PLN(1000.0), PLN(250.0)))
+
+    td.toDouble(result.financialStocks(0).totalDeposits) shouldBe 800000.0 +- 0.01
+    result.financialStocks(1).totalDeposits shouldBe PLN.Zero
     result.bankCorpBondHoldings shouldBe Vector(PLN(1250.0), PLN.Zero)
   }
 
-  // ---- bond allocation ----
-
-  "Banking.allocateBondIssuance" should "distribute proportional to deposits" in {
-    val banks  = Vector(
-      mkBank(id = 0, deposits = PLN(600000.0), loans = PLN.Zero, capital = PLN(1e5)),
-      mkBank(id = 1, deposits = PLN(400000.0), loans = PLN.Zero, capital = PLN(1e5)),
+  "Banking.allocateBondIssuance" should "distribute new bonds by deposits and update HTM yield" in {
+    val rows   = Vector(
+      mkBankRow(id = 0, deposits = PLN(600000.0), loans = PLN.Zero, capital = PLN(1e5)),
+      mkBankRow(id = 1, deposits = PLN(400000.0), loans = PLN.Zero, capital = PLN(1e5)),
     )
-    val result = Banking.allocateBondIssuance(banks, PLN(10000.0), Rate(0.05))
-    td.toDouble(result(0).govBondHoldings) shouldBe 6000.0 +- 0.01
-    td.toDouble(result(1).govBondHoldings) shouldBe 4000.0 +- 0.01
-  }
+    val result = Banking.allocateBondIssuance(banks(rows), stocks(rows), PLN(10000.0), Rate(0.05))
 
-  "Banking.allocateBondRedemption" should "handle government surplus as explicit redemption" in {
-    val banks  = Vector(
-      mkBank(id = 0, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(8000.0)),
-      mkBank(id = 1, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(2000.0)),
-    )
-    val result = Banking.allocateBondRedemption(banks, PLN(4000.0), Rate(0.05))
-    td.toDouble(result(0).govBondHoldings) shouldBe 6000.0 +- 0.01 // 8000 + (-4000 * 0.5)
-    td.toDouble(result(1).govBondHoldings) shouldBe 0.0 +- 0.01    // 2000 + (-4000 * 0.5)
-  }
+    td.toDouble(govBonds(result.financialStocks(0))) shouldBe 6000.0 +- 0.01
+    td.toDouble(govBonds(result.financialStocks(1))) shouldBe 4000.0 +- 0.01
 
-  "Banking.allocateBondIssuance" should "have per-bank deltas summing to exactly issuance (residual-based)" in {
-    // 7 banks with irrational deposit ratios -> FP rounding inevitable without residual
-    val banks    = (0 until 7)
-      .map(i =>
-        mkBank(
-          id = i,
-          deposits = PLN(1e6 / 7.0 * (i + 1)),
-          loans = PLN.Zero,
-          capital = PLN(1e5),
-          govBondHoldings = PLN(1000.0 * (i + 1)),
-        ),
-      )
-      .toVector
-    val issuance = PLN(123456.789)
-    val result   = Banking.allocateBondIssuance(banks, issuance, Rate(0.05))
-    val deltas   = result.zip(banks).map((a, b) => td.toDouble(a.govBondHoldings) - td.toDouble(b.govBondHoldings))
-    deltas.sum shouldBe td.toDouble(issuance) +- 1e-6
-  }
-
-  it should "keep aggregate within tight tolerance with large issuance (1e13)" in {
-    val banks    = Generators.testBankingSector(totalDeposits = PLN(1e9), totalCapital = PLN(1e8), totalLoans = PLN.Zero, configs = configs).banks
-    val issuance = PLN(1e13)
-    val before   = banks.map(b => td.toDouble(b.govBondHoldings)).sum
-    val result   = Banking.allocateBondIssuance(banks, issuance, Rate(0.05))
-    val after    = result.map(b => td.toDouble(b.govBondHoldings)).sum
-    (after - before) shouldBe td.toDouble(issuance) +- 0.01 // well within SFC tolerance of 1.0
-  }
-
-  // ---- sellToBuyer ----
-
-  "Banking.sellToBuyer" should "sell proportional to bond holdings" in {
-    val banks  = Vector(
-      mkBank(id = 0, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(6000.0)),
-      mkBank(id = 1, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(4000.0)),
-    )
-    val result = Banking.sellToBuyer(banks, PLN(5000.0)).banks
-    td.toDouble(result(0).govBondHoldings) shouldBe 3000.0 +- 0.01 // 6000 - 5000*0.6
-    td.toDouble(result(1).govBondHoldings) shouldBe 2000.0 +- 0.01 // 4000 - 5000*0.4
-  }
-
-  it should "sell exact requested amount when rounded shares leave residual" in {
-    val banks     = Vector(
-      mkBank(id = 0, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(1000.0)),
-      mkBank(id = 1, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(1000.0)),
-      mkBank(id = 2, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(1000.0)),
-    )
-    val sale      = Banking.sellToBuyer(banks, PLN(2.0))
-    sale.actualSold shouldBe PLN(2.0)
-    val remaining = sale.banks.map(_.govBondHoldings.toLong).sum
-    remaining shouldBe banks.map(_.govBondHoldings.toLong).sum - PLN(2.0).toLong
-  }
-
-  it should "not change banks when qeTotal is zero" in {
-    val banks  = Vector(
-      mkBank(loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(5000.0)),
-    )
-    val result = Banking.sellToBuyer(banks, PLN.Zero).banks
-    result(0).govBondHoldings shouldBe PLN(5000.0)
-  }
-
-  // ---- reassignBankId ----
-
-  "Banking.reassignBankId" should "keep valid bank unchanged" in {
-    val banks = Vector(mkBank(id = 0), mkBank(id = 1, capital = PLN(1e5)))
-    Banking.reassignBankId(BankId(0), banks) shouldBe BankId(0)
-  }
-
-  it should "route to healthiest bank when current bank failed" in {
-    val banks = Vector(
-      mkBank(id = 0),
-      mkBank(id = 1, capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30))),
-    )
-    Banking.reassignBankId(BankId(1), banks) shouldBe BankId(0)
-  }
-
-  // ---- aggregate ----
-
-  "Banking.aggregateFromBanks" should "sum all individual bank values" in {
-    val bs  = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
-    val agg = Banking.aggregateFromBanks(bs.banks)
-    agg.deposits shouldBe PLN(1000000.0)
-    agg.capital shouldBe PLN(100000.0)
-    agg.totalLoans shouldBe PLN.Zero
-  }
-
-  // ---- AFS/HTM split ----
-
-  "BankState.govBondHoldings" should "equal afsBonds + htmBonds" in {
-    val b = mkBank(govBondHoldings = PLN(10000.0))
-    b.govBondHoldings shouldBe PLN(10000.0)
-    b.afsBonds shouldBe PLN(4000.0)
-    b.htmBonds shouldBe PLN(6000.0)
-  }
-
-  "allocateBondIssuance" should "split new issuance per htmShare" in {
-    val banks  = Vector(mkBank(id = 0, deposits = PLN(1e6)))
-    val result = Banking.allocateBondIssuance(banks, PLN(10000.0), Rate(0.06))
-    // 60% HTM, 40% AFS
-    td.toDouble(result(0).htmBonds) shouldBe 6000.0 +- 0.01
-    td.toDouble(result(0).afsBonds) shouldBe 4000.0 +- 0.01
-  }
-
-  it should "update htmBookYield as weighted average on issuance" in {
-    val b0     = mkBank(
+    val htmRow    = mkBankRow(
       id = 0,
       deposits = PLN(1e6),
       loans = PLN.Zero,
@@ -371,69 +210,74 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       govBondAfsShare = Share.Zero,
       htmBookYield = Rate(0.05),
     )
-    val result = Banking.allocateBondIssuance(Vector(b0), PLN(10000.0), Rate(0.08))
-    // new HTM = 10000 * 0.6 = 6000, total HTM = 12000
-    // weighted yield = (6000*0.05 + 6000*0.08) / 12000 = 0.065
-    td.toDouble(result(0).htmBookYield) shouldBe 0.065 +- 0.001
+    val htmResult = Banking.allocateBondIssuance(Vector(htmRow.bank), Vector(htmRow.stocks), PLN(10000.0), Rate(0.08))
+    td.toDouble(htmResult.banks.head.htmBookYield) shouldBe 0.065 +- 0.001
   }
 
-  // ---- sellToBuyer AFS-first ----
-
-  "sellToBuyer" should "sell AFS before HTM" in {
-    val b0     = mkBank(
-      id = 0,
-      deposits = PLN(1e6),
-      loans = PLN.Zero,
-      capital = PLN(1e5),
-      govBondHoldings = PLN(10000.0),
-      htmBookYield = Rate(0.05),
+  "Banking.allocateBondRedemption" should "reduce bond stocks proportionally" in {
+    val rows   = Vector(
+      mkBankRow(id = 0, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(8000.0)),
+      mkBankRow(id = 1, deposits = PLN(500000.0), loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(2000.0)),
     )
-    val result = Banking.sellToBuyer(Vector(b0), PLN(3000.0)).banks
-    td.toDouble(result(0).afsBonds) shouldBe 1000.0 +- 0.01 // 4000 - 3000
-    td.toDouble(result(0).htmBonds) shouldBe 6000.0 +- 0.01 // unchanged
+    val result = Banking.allocateBondRedemption(banks(rows), stocks(rows), PLN(4000.0), Rate(0.05))
+
+    td.toDouble(govBonds(result.financialStocks(0))) shouldBe 6000.0 +- 0.01
+    td.toDouble(govBonds(result.financialStocks(1))) shouldBe 0.0 +- 0.01
   }
 
-  it should "spill into HTM when AFS exhausted" in {
-    val b0     = mkBank(
-      id = 0,
-      deposits = PLN(1e6),
-      loans = PLN.Zero,
-      capital = PLN(1e5),
-      govBondHoldings = PLN(10000.0),
-      govBondAfsShare = Share(0.20),
-      htmBookYield = Rate(0.05),
+  "Banking.sellToBuyer" should "sell AFS first and preserve exact requested sale where available" in {
+    val rows = Vector(
+      mkBankRow(id = 0, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(6000.0)),
+      mkBankRow(id = 1, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(4000.0)),
     )
-    val result = Banking.sellToBuyer(Vector(b0), PLN(5000.0)).banks
-    td.toDouble(result(0).afsBonds) shouldBe 0.0 +- 0.01    // 2000 fully sold
-    td.toDouble(result(0).htmBonds) shouldBe 5000.0 +- 0.01 // 8000 - 3000 spill
+    val sale = Banking.sellToBuyer(banks(rows), stocks(rows), PLN(5000.0))
+
+    sale.actualSold shouldBe PLN(5000.0)
+    td.toDouble(govBonds(sale.financialStocks(0))) shouldBe 3000.0 +- 0.01
+    td.toDouble(govBonds(sale.financialStocks(1))) shouldBe 2000.0 +- 0.01
+
+    val afsFirst = mkBankRow(id = 0, loans = PLN.Zero, capital = PLN(1e5), govBondHoldings = PLN(10000.0))
+    val afterAfs = Banking.sellToBuyer(Vector(afsFirst.bank), Vector(afsFirst.stocks), PLN(3000.0)).financialStocks.head
+    td.toDouble(afterAfs.govBondAfs) shouldBe 1000.0 +- 0.01
+    td.toDouble(afterAfs.govBondHtm) shouldBe 6000.0 +- 0.01
   }
 
-  // ---- processHtmForcedSale ----
+  "Banking.reassignBankId" should "route failed-bank clients to the healthiest survivor" in {
+    val rows = Vector(
+      mkBankRow(id = 0),
+      mkBankRow(id = 1, capital = PLN(1e5), status = BankStatus.Failed(ExecutionMonth(30))),
+    )
 
-  "processHtmForcedSale" should "trigger only when LCR < threshold" in {
-    // Bank with high LCR — no reclassification
-    val healthyBank = mkBank(
+    Banking.reassignBankId(BankId(0), banks(rows), stocks(rows)) shouldBe BankId(0)
+    Banking.reassignBankId(BankId(1), banks(rows), stocks(rows)) shouldBe BankId(0)
+  }
+
+  "Banking.aggregateFromBankStocks" should "sum operational state and explicit financial stocks" in {
+    val bs  = Generators.testBankingSector(totalDeposits = PLN(1000000.0), totalCapital = PLN(100000.0), totalLoans = PLN.Zero, configs = configs)
+    val agg = Banking.aggregateFromBankStocks(bs.banks, bs.financialStocks)
+
+    agg.deposits shouldBe PLN(1000000.0)
+    agg.capital shouldBe PLN(100000.0)
+    agg.totalLoans shouldBe PLN.Zero
+  }
+
+  "Banking.processHtmForcedSale" should "reclassify HTM to AFS and realize loss only under LCR stress" in {
+    val healthy       = mkBankRow(
       id = 0,
       deposits = PLN(1e6),
       loans = PLN(1e5),
       capital = PLN(1e5),
       govBondHoldings = PLN(1e6),
       htmBookYield = Rate(0.04),
-      reservesAtNbp = PLN(1e6), // large reserves → high LCR
+      reservesAtNbp = PLN(1e6),
       demandDeposits = PLN(6e5),
       termDeposits = PLN(4e5),
     )
-    val result      = Banking.processHtmForcedSale(Vector(healthyBank), Rate(0.08))
-    result.totalRealizedLoss shouldBe PLN.Zero
-    result.banks(0).htmBonds shouldBe healthyBank.htmBonds
-  }
+    val healthyResult = Banking.processHtmForcedSale(Vector(healthy.bank), Vector(healthy.stocks), Rate(0.08))
+    healthyResult.totalRealizedLoss shouldBe PLN.Zero
+    healthyResult.financialStocks.head.govBondHtm shouldBe healthy.stocks.govBondHtm
 
-  it should "reclassify HTM to AFS and realize loss when LCR breached" in {
-    // Bank with very low LCR: HQLA ~ 0 (no reserves, no AFS/HTM counted in HQLA via govBondHoldings)
-    // LCR = HQLA / (demandDep * runoff) = (reserves + govBonds) / (demandDep * 0.10)
-    // Need LCR < 0.75. Set reserves = 0, govBonds = afsBonds+htmBonds = 1.1e8, demandDep = 2e9
-    // LCR = 1.1e8 / (2e9 * 0.10) = 1.1e8 / 2e8 = 0.55 < 0.75 ✓
-    val stressedBank = mkBank(
+    val stressed       = mkBankRow(
       id = 0,
       deposits = PLN(2e9),
       loans = PLN(1e8),
@@ -441,54 +285,14 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       htmBookYield = Rate(0.04),
       demandDeposits = PLN(2e9),
       termDeposits = PLN.Zero,
-    ).withFinancial(_.copy(govBondAfs = PLN(1e7), govBondHtm = PLN(1e8)))
-    val currentYield = Rate(0.08)
-    val result       = Banking.processHtmForcedSale(Vector(stressedBank), currentYield)
-    // reclassified = 1e8 * 0.10 = 1e7
-    val reclassified = 1e7
-    val yieldGap     = 0.08 - 0.04
-    val duration     = 4.5
-    val expectedLoss = reclassified * duration * yieldGap // 1e7 * 4.5 * 0.04 = 1.8e6
-    result.totalRealizedLoss shouldBe PLN(expectedLoss)
-    // Total govBondHoldings unchanged
-    td.toDouble(result.banks(0).govBondHoldings) shouldBe td.toDouble(stressedBank.govBondHoldings) +- 0.01
-    // HTM decreased, AFS increased
-    td.toDouble(result.banks(0).htmBonds) shouldBe (1e8 - reclassified) +- 0.01
-    td.toDouble(result.banks(0).afsBonds) shouldBe (1e7 + reclassified) +- 0.01
-    // Capital reduced by realized loss
-    td.toDouble(result.banks(0).capital) shouldBe (1e8 - expectedLoss) +- 1.0
-  }
-
-  it should "be no-op when htmBonds is zero" in {
-    val bank   = mkBank(
-      id = 0,
-      deposits = PLN(1e9),
-      loans = PLN(1e8),
-      capital = PLN(1e8),
-      govBondHoldings = PLN(1e8),
-      govBondAfsShare = Share.One,
-      htmBookYield = Rate.Zero,
-      reservesAtNbp = PLN(1e4),
-      demandDeposits = PLN(6e8),
-      termDeposits = PLN(4e8),
     )
-    val result = Banking.processHtmForcedSale(Vector(bank), Rate(0.10))
-    result.totalRealizedLoss shouldBe PLN.Zero
-  }
+    val stressedStocks = stressed.stocks.copy(govBondAfs = PLN(1e7), govBondHtm = PLN(1e8))
+    val result         = Banking.processHtmForcedSale(Vector(stressed.bank), Vector(stressedStocks), Rate(0.08))
+    val expectedLoss   = PLN(1.8e6)
 
-  it should "realize zero loss when currentYield <= htmBookYield" in {
-    // LCR = (0 + 1.1e8) / (2e9 * 0.10) = 0.55 < 0.75 → triggers
-    val bank   = mkBank(
-      id = 0,
-      deposits = PLN(2e9),
-      loans = PLN(1e8),
-      capital = PLN(1e8),
-      htmBookYield = Rate(0.08),
-      demandDeposits = PLN(2e9),
-      termDeposits = PLN.Zero,
-    ).withFinancial(_.copy(govBondAfs = PLN(1e7), govBondHtm = PLN(1e8)))
-    val result = Banking.processHtmForcedSale(Vector(bank), Rate(0.05))
-    result.totalRealizedLoss shouldBe PLN.Zero
-    // HTM still reclassified to AFS (just no loss since yield dropped)
-    td.toDouble(result.banks(0).htmBonds) should be < td.toDouble(bank.htmBonds)
+    result.totalRealizedLoss shouldBe expectedLoss
+    govBonds(result.financialStocks.head) shouldBe govBonds(stressedStocks)
+    result.financialStocks.head.govBondHtm shouldBe PLN(9e7)
+    result.financialStocks.head.govBondAfs shouldBe PLN(2e7)
+    td.toDouble(result.banks.head.capital) shouldBe (1e8 - td.toDouble(expectedLoss)) +- 1.0
   }

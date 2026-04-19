@@ -42,9 +42,13 @@ object InterbankContagion:
     * This produces a dense matrix where every lender is exposed to every
     * borrower.
     */
-  def buildExposureMatrix(banks: Vector[Banking.BankState]): ExposureMatrix =
+  def buildExposureMatrix(banks: Vector[Banking.BankState], financialStocks: Vector[Banking.BankFinancialStocks]): ExposureMatrix =
+    require(
+      banks.length == financialStocks.length,
+      s"InterbankContagion.buildExposureMatrix requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
+    )
     val n         = banks.length
-    val nets      = banks.map(_.interbankNet)
+    val nets      = financialStocks.map(_.interbankLoan)
     val borrowers = nets.indices.filter(i => nets(i) < PLN.Zero).toVector
     val weights   = borrowers.map(i => (-nets(i)).toLong)
     if borrowers.isEmpty then Vector.fill(n)(Vector.fill(n)(PLN.Zero))

@@ -187,8 +187,12 @@ object WorldAssemblyEconomics:
   @boundaryEscape
   private def computeObservables(in: StepInput)(using p: SimParams): Observables =
     import ComputationBoundary.toDouble
-    val aliveBanks           = in.s9.banks.filterNot(_.failed)
-    val depositFacilityUsage = aliveBanks.filter(_.reservesAtNbp > PLN.Zero).map(_.reservesAtNbp).sum
+    val aliveBankIds         = in.s9.banks.filterNot(_.failed).map(_.id.toInt).toSet
+    val depositFacilityUsage = in.s9.ledgerFinancialState.banks.zipWithIndex
+      .filter((_, index) => aliveBankIds.contains(index))
+      .map(_._1.reserve)
+      .filter(_ > PLN.Zero)
+      .sum
 
     val monthsPerYear = 12.0
     val elapsedMonths = in.s1.m.previousCompleted.toInt.toDouble
