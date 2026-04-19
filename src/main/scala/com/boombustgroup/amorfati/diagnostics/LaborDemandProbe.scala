@@ -105,7 +105,8 @@ object LaborDemandProbe:
 
   private def hiringSummaries(world: World, firms: Vector[Firm.State], ledgerFinancialState: LedgerFinancialState)(using p: SimParams): Vector[HiringSummary] =
     val signals             = OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack)
-    val financialStocksById = firms.zip(ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks)).map((firm, stocks) => firm.id -> stocks).toMap
+    val financialStocksById =
+      firms.zip(ledgerFinancialState.firms.map(LedgerFinancialState.projectFirmFinancialStocks)).map((firm, stocks) => firm.id -> stocks).toMap
     (0 until p.sectorDefs.length)
       .map: s =>
         val ds                           = firms

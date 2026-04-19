@@ -161,7 +161,7 @@ object OpenEconEconomics:
   private case class NbfiResult(state: Nbfi.State, closing: Nbfi.ClosingBalances)
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
-    val bankFinancialStocks = in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)
+    val bankFinancialStocks = in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)
     val bankAgg             = Banking.aggregateFromBankStocks(
       in.banks,
       bankFinancialStocks,
@@ -411,7 +411,7 @@ object OpenEconEconomics:
   private def runStepCorporateBonds(in: StepInput, bankAgg: Banking.Aggregate, newBondYield: Rate)(using SimParams): CorporateBonds =
     val openingCorpBondProjection = CorporateBondOwnership.stockStateFromLedger(in.ledgerFinancialState)
     val corpBondAmort             = CorporateBondMarket.amortization(openingCorpBondProjection)
-    val corpBondStep      = CorporateBondMarket
+    val corpBondStep              = CorporateBondMarket
       .step(
         CorporateBondMarket.StepInput(
           prevState = in.w.financialMarkets.corporateBonds,
@@ -422,9 +422,9 @@ object OpenEconEconomics:
           totalBondIssuance = in.s5.actualBondIssuance,
         ),
       )
-    val newCorpBonds      = corpBondStep.state.copy(lastAbsorptionRate = in.s5.corpBondAbsorption)
-    val corpBondCoupon    = CorporateBondMarket.computeCoupon(in.w.financialMarkets.corporateBonds, openingCorpBondProjection)
-    val corpBondDefaults  = CorporateBondMarket.processDefaults(openingCorpBondProjection, in.s5.totalBondDefault)
+    val newCorpBonds              = corpBondStep.state.copy(lastAbsorptionRate = in.s5.corpBondAbsorption)
+    val corpBondCoupon            = CorporateBondMarket.computeCoupon(in.w.financialMarkets.corporateBonds, openingCorpBondProjection)
+    val corpBondDefaults          = CorporateBondMarket.processDefaults(openingCorpBondProjection, in.s5.totalBondDefault)
     CorporateBonds(
       newCorpBonds = newCorpBonds,
       closingCorpBondProjection = corpBondStep.stock,

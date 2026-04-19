@@ -504,7 +504,7 @@ object FlowSimulation:
     )
     val prevBankAgg       = Banking.aggregateFromBankStocks(
       banks,
-      ledger.banks.map(LedgerFinancialState.bankFinancialStocks),
+      ledger.banks.map(LedgerFinancialState.projectBankFinancialStocks),
       bankId => CorporateBondOwnership.bankHolderFor(ledger, bankId),
     )
     val agg               = s3.hhAgg

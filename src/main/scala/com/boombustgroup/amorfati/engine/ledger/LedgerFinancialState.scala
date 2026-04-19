@@ -13,8 +13,8 @@ import com.boombustgroup.ledger.Distribute
   * intentionally narrower than `World`: it stores ledger-backed stock balances,
   * not market-memory fields, monthly flow deltas, execution-only settlement
   * shells, or public assets that the engine still keeps outside the ledger
-  * contract. Boundary code may project these balances back into `World` mirrors
-  * while the migration is in progress.
+  * contract. Boundary code may project these balances into execution DTOs for
+  * agent and market calculations, but those DTOs are not persisted owners.
   */
 final case class LedgerFinancialState(
     /** Household-sector ledger-backed financial stock balances. */
@@ -45,7 +45,9 @@ object LedgerFinancialState:
       equity = stocks.equity,
     )
 
-  def householdFinancialStocks(balances: HouseholdBalances): Household.FinancialStocks =
+  /** Project ledger-owned household balances into the household execution DTO.
+    */
+  def projectHouseholdFinancialStocks(balances: HouseholdBalances): Household.FinancialStocks =
     Household.FinancialStocks(
       demandDeposit = balances.demandDeposit,
       mortgageLoan = balances.mortgageLoan,
@@ -112,7 +114,11 @@ object LedgerFinancialState:
       equity = stocks.equity,
     )
 
-  def firmFinancialStocks(balances: FirmBalances): Firm.FinancialStocks =
+  /** Project ledger-owned firm balances into the firm execution DTO.
+    *
+    * Corporate bonds intentionally stay in ledger-only firm balances.
+    */
+  def projectFirmFinancialStocks(balances: FirmBalances): Firm.FinancialStocks =
     Firm.FinancialStocks(
       cash = balances.cash,
       firmLoan = balances.firmLoan,
@@ -149,7 +155,12 @@ object LedgerFinancialState:
       corpBond = corpBond,
     )
 
-  def bankFinancialStocks(balances: BankBalances): Banking.BankFinancialStocks =
+  /** Project ledger-owned bank balances into the banking execution DTO.
+    *
+    * Corporate bonds stay out of BankFinancialStocks and are supplied via
+    * CorporateBondOwnership views.
+    */
+  def projectBankFinancialStocks(balances: BankBalances): Banking.BankFinancialStocks =
     Banking.BankFinancialStocks(
       totalDeposits = balances.totalDeposits,
       demandDeposit = balances.demandDeposit,

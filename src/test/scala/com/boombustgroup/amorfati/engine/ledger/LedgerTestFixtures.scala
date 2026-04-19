@@ -49,7 +49,7 @@ object LedgerTestFixtures:
         .copy(capitalStock = PLN(105e6)),
     )
     val firmStocks = base.ledgerFinancialState.firms
-      .map(LedgerFinancialState.firmFinancialStocks)
+      .map(LedgerFinancialState.projectFirmFinancialStocks)
       .updated(0, Firm.FinancialStocks(cash = PLN(101e6), firmLoan = PLN(102e6), equity = PLN(104e6)))
 
     val households = base.households
@@ -67,7 +67,7 @@ object LedgerTestFixtures:
         ),
     )
     val bankStocks = base.ledgerFinancialState.banks
-      .map(LedgerFinancialState.bankFinancialStocks)
+      .map(LedgerFinancialState.projectBankFinancialStocks)
       .updated(
         0,
         Banking.BankFinancialStocks(

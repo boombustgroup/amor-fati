@@ -30,7 +30,7 @@ object FiscalConstraintEconomics:
   @boundaryEscape
   def compute(w: World, banks: Vector[Banking.BankState], ledgerFinancialState: LedgerFinancialState, month: ExecutionMonth)(using p: SimParams): Output =
     import ComputationBoundary.toDouble
-    val bankAgg = Banking.aggregateFromBankStocks(banks, ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks))
+    val bankAgg = Banking.aggregateFromBankStocks(banks, ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks))
 
     val (baseMinWage, updatedMinWagePriceLevel) =
       val isAdjustMonth = month.toInt % p.fiscal.minWageAdjustMonths == 0

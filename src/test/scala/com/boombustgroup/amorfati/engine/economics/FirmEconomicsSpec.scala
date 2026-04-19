@@ -36,7 +36,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   )
 
   private def initialFirmStocks: Vector[Firm.FinancialStocks] =
-    init.ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks)
+    init.ledgerFinancialState.firms.map(LedgerFinancialState.projectFirmFinancialStocks)
 
   private def runStepFor(world: World, firms: Vector[Firm.State], financialStocks: Vector[Firm.FinancialStocks])(using SimParams): FirmEconomics.StepOutput =
     val s1                   = FiscalConstraintEconomics.compute(world, init.banks, init.ledgerFinancialState, ExecutionMonth.First)

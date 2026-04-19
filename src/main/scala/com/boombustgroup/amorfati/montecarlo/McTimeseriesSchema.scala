@@ -72,9 +72,9 @@ object McTimeseriesSchema:
     lazy val bankCorpBondHoldings: Banking.BankCorpBondHoldings                                     =
       Banking.bankCorpBondHoldingsFromVector(ledgerFinancialState.banks.map(_.corpBond))
     lazy val bankAgg: Banking.Aggregate                                                             =
-      Banking.aggregateFromBankStocks(banks, ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks), bankCorpBondHoldings)
+      Banking.aggregateFromBankStocks(banks, ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks), bankCorpBondHoldings)
     lazy val ledgerBankStocksById: Map[BankId, Banking.BankFinancialStocks]                         =
-      banks.zip(ledgerFinancialState.banks).map((bank, balances) => bank.id -> LedgerFinancialState.bankFinancialStocks(balances)).toMap
+      banks.zip(ledgerFinancialState.banks).map((bank, balances) => bank.id -> LedgerFinancialState.projectBankFinancialStocks(balances)).toMap
     lazy val aliveBankRows: Vector[(Banking.BankState, Banking.BankFinancialStocks)]                =
       aliveBanks.map: bank =>
         val stocks = ledgerBankStocksById.getOrElse(bank.id, throw IllegalStateException(s"Missing ledger bank stocks for bank ${bank.id.toInt}"))
@@ -91,7 +91,7 @@ object McTimeseriesSchema:
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates]                                        = Some(
       Banking.MonetaryAggregates.computeFromBankStocks(
         banks,
-        ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+        ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
         ledgerFinancialState.funds.nbfi.tfiUnit,
         CorporateBondOwnership.issuerOutstanding(ledgerFinancialState),
       ),

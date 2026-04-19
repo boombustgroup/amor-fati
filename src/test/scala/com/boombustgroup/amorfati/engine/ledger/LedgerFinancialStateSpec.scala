@@ -12,20 +12,20 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
   private given SimParams = SimParams.defaults
 
   "LedgerFinancialState.refreshHouseholdBalances" should "preserve existing ledger balances and initialize only new households" in {
-    val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val existing      = init.households.head
-    val existingIndex = existing.id.toInt
-    val previous      = init.ledgerFinancialState.households.updated(
+    val init              = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val existing          = init.households.head
+    val existingIndex     = existing.id.toInt
+    val previous          = init.ledgerFinancialState.households.updated(
       existingIndex,
       init.ledgerFinancialState.households(existingIndex).copy(demandDeposit = PLN(123.0)),
     )
-    val mirrorChanged = existing
-    val newHousehold  = init.households.last.copy(id = HhId(previous.length))
-    val newStocks     =
+    val existingHousehold = existing
+    val newHousehold      = init.households.last.copy(id = HhId(previous.length))
+    val newStocks         =
       Household.FinancialStocks(demandDeposit = PLN(777.0), mortgageLoan = PLN(55.0), consumerLoan = PLN(11.0), equity = PLN(22.0))
 
     val refreshed =
-      LedgerFinancialState.refreshHouseholdBalances(Vector(mirrorChanged, newHousehold), init.households, previous, Map(newHousehold.id -> newStocks))
+      LedgerFinancialState.refreshHouseholdBalances(Vector(existingHousehold, newHousehold), init.households, previous, Map(newHousehold.id -> newStocks))
 
     refreshed.head.demandDeposit shouldBe PLN(123.0)
     refreshed.last shouldBe LedgerFinancialState.householdBalances(newStocks)
@@ -77,20 +77,20 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
       existingIndex,
       init.ledgerFinancialState.firms(existingIndex).copy(cash = PLN(123.0), corpBond = PLN(456.0)),
     )
-    val mirrorChanged = Firm.FinancialStocks(cash = PLN(999.0), firmLoan = PLN(88.0), equity = PLN(77.0))
+    val closingStocks = Firm.FinancialStocks(cash = PLN(999.0), firmLoan = PLN(88.0), equity = PLN(77.0))
     val appended      = Firm.FinancialStocks(cash = PLN(777.0), firmLoan = PLN(55.0), equity = PLN(22.0))
     val recycled      = Firm.FinancialStocks(cash = PLN(333.0), firmLoan = PLN(44.0), equity = PLN(12.0))
 
     val stockRows         =
-      previous.map(LedgerFinancialState.firmFinancialStocks).updated(existingIndex, mirrorChanged) :+ appended
+      previous.map(LedgerFinancialState.projectFirmFinancialStocks).updated(existingIndex, closingStocks) :+ appended
     val recycledRows      =
-      previous.map(LedgerFinancialState.firmFinancialStocks).updated(existingIndex, recycled)
+      previous.map(LedgerFinancialState.projectFirmFinancialStocks).updated(existingIndex, recycled)
     val refreshed         =
       LedgerFinancialState.refreshFirmPopulationBalances(stockRows, previous, newFirmIds = Set(FirmId(previous.length)))
     val refreshedRecycled =
       LedgerFinancialState.refreshFirmPopulationBalances(recycledRows, previous, newFirmIds = Set(FirmId(existingIndex)))
 
-    refreshed(existingIndex) shouldBe LedgerFinancialState.firmBalances(mirrorChanged, corpBond = PLN(456.0))
+    refreshed(existingIndex) shouldBe LedgerFinancialState.firmBalances(closingStocks, corpBond = PLN(456.0))
     refreshed.last shouldBe LedgerFinancialState.firmBalances(appended, corpBond = PLN.Zero)
     refreshedRecycled(existingIndex) shouldBe LedgerFinancialState.firmBalances(recycled, corpBond = PLN.Zero)
   }

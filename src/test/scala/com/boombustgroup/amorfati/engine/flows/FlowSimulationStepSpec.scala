@@ -126,7 +126,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     insuranceIncomeBatches.map(_.asset).toSet shouldBe Set(AssetType.LifeReserve, AssetType.NonLifeReserve)
   }
 
-  it should "read insurance flow inputs from LedgerFinancialState instead of world mirrors" in {
+  it should "read insurance flow inputs from LedgerFinancialState instead of World market memory" in {
     val init            = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val baseState       = FlowSimulation.SimState.fromInit(init)
     val ledgerInsurance = baseState.ledgerFinancialState.insurance.copy(

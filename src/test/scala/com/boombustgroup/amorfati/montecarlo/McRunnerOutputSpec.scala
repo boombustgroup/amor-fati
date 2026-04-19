@@ -100,7 +100,7 @@ class McRunnerOutputSpec extends AnyFlatSpec with Matchers:
         bankRow(seed, bank, balances)
 
   private def bankRow(seed: Long, bank: BankState, balances: LedgerFinancialState.BankBalances): String =
-    val stocks = LedgerFinancialState.bankFinancialStocks(balances)
+    val stocks = LedgerFinancialState.projectBankFinancialStocks(balances)
     Vector(
       s"$seed",
       s"${bank.id}",

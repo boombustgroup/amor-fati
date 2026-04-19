@@ -23,7 +23,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val s9          = prepared.run()
     val prevBankAgg = Banking.aggregateFromBankStocks(
       prepared.banks,
-      prepared.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+      prepared.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
       bankId => CorporateBondOwnership.bankHolderFor(prepared.ledgerFinancialState, bankId),
     )
 

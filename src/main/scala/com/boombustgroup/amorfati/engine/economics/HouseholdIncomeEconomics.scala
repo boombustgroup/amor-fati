@@ -63,7 +63,7 @@ object HouseholdIncomeEconomics:
     val afterWages    = LaborMarket.updateWages(afterSep, firms, newWage)
     val bsec          = w.bankingSector
     val nBanksHh      = banks.length
-    val bankStocks    = ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)
+    val bankStocks    = ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)
     val hhBankRates   = Some(
       BankRates(
         lendingRates = banks
@@ -78,7 +78,7 @@ object HouseholdIncomeEconomics:
     val eqReturn      = w.financialMarkets.equity.monthlyReturn
     val secWages      = Some(SectoralMobility.sectorWages(afterWages))
     val secVacancies  = Some(SectoralMobility.sectorVacancies(afterWages, firms))
-    val openingStocks = ledgerFinancialState.households.map(LedgerFinancialState.householdFinancialStocks)
+    val openingStocks = ledgerFinancialState.households.map(LedgerFinancialState.projectHouseholdFinancialStocks)
     val householdStep = Household.step(
       afterWages,
       openingStocks,

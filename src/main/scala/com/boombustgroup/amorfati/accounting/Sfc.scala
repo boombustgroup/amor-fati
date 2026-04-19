@@ -247,7 +247,7 @@ object Sfc:
     val ibNet   = PLN.fromRaw(ledgerFinancialState.banks.map(_.interbankLoan.toLong).sum)
     val bankAgg = Banking.aggregateFromBankStocks(
       banks,
-      ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+      ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
       bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId),
     )
     val bonds   = GovernmentBondCircuit.from(ledgerFinancialState)

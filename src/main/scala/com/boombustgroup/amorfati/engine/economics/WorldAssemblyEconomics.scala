@@ -88,7 +88,7 @@ object WorldAssemblyEconomics:
     val newW = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
 
     val postFdiFirms               = applyFdiMa(in.s9.reassignedFirms, randomness.fdiMa)
-    val postFdiFirmFinancialStocks = in.s9.ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks)
+    val postFdiFirmFinancialStocks = in.s9.ledgerFinancialState.firms.map(LedgerFinancialState.projectFirmFinancialStocks)
     val entryStep                  = FirmEntry.process(
       postFdiFirms,
       postFdiFirmFinancialStocks,
@@ -230,7 +230,7 @@ object WorldAssemblyEconomics:
         else Share.One
       val hhAgg                 = Household.computeAggregates(
         postWages,
-        in.s9.ledgerFinancialState.households.map(LedgerFinancialState.householdFinancialStocks),
+        in.s9.ledgerFinancialState.households.map(LedgerFinancialState.projectHouseholdFinancialStocks),
         in.s2.newWage,
         in.s1.resWage,
         in.s3.importAdj,

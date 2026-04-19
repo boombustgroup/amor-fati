@@ -175,7 +175,7 @@ object BankingEconomics:
 
   def runStep(rawIn: StepInput)(using p: SimParams): StepOutput =
     val in                        = rawIn
-    val openingBankStocks         = in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)
+    val openingBankStocks         = in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)
     val prevBankAgg               =
       Banking.aggregateFromBankStocks(
         in.banks,
@@ -370,7 +370,7 @@ object BankingEconomics:
           nplRatio = Banking
             .aggregateFromBankStocks(
               in.banks,
-              in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+              in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
               bankCorpBondHoldings(in.ledgerFinancialState),
             )
             .nplRatio,
@@ -409,7 +409,7 @@ object BankingEconomics:
   private def computeHhAgg(in: StepInput)(using SimParams): Household.Aggregates =
     Household.computeAggregates(
       in.s5.households,
-      in.s5.ledgerFinancialState.households.map(LedgerFinancialState.householdFinancialStocks),
+      in.s5.ledgerFinancialState.households.map(LedgerFinancialState.projectHouseholdFinancialStocks),
       in.s2.newWage,
       in.s1.resWage,
       in.s3.importAdj,
@@ -623,7 +623,7 @@ object BankingEconomics:
       wf: BondWaterfallInputs,
   )(using p: SimParams): MultiBankResult =
     val banks               = in.banks
-    val bankStocks          = in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)
+    val bankStocks          = in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)
     val perBankReserveInt   = Banking.computeReserveInterest(banks, bankStocks, in.w.nbp.referenceRate)
     val perBankStandingFac  = Banking.computeStandingFacilities(banks, bankStocks, in.w.nbp.referenceRate)
     val perBankInterbankInt = Banking.interbankInterestFlows(banks, bankStocks, in.w.bankingSector.interbankRate)
@@ -701,7 +701,7 @@ object BankingEconomics:
     val prevBankAgg    =
       Banking.aggregateFromBankStocks(
         in.banks,
-        in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+        in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
         bankCorpBondHoldings(in.ledgerFinancialState),
       )
     val ibRate         = Banking.interbankRate(updatedBanks, updatedBankStocks, in.w.nbp.referenceRate)
@@ -945,7 +945,7 @@ object BankingEconomics:
         .sum
     val capitalLosses      = in.s5.nplLoss + mortgageFlows.defaultLoss + in.s6.consumerNplLoss +
       in.s8.corpBonds.corpBondBankDefaultLoss +
-      Banking.computeBfgLevy(in.banks, in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)).total +
+      Banking.computeBfgLevy(in.banks, in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)).total +
       unrealizedBondLoss + htmRealizedLoss + eclProvisionChange + multiCapDestruction
     val capitalGrossIncome = in.s5.intIncome + in.s6.hhDebtService +
       prevBankAgg.govBondHoldings * in.s8.monetary.newBondYield.monthly -
@@ -988,7 +988,7 @@ object BankingEconomics:
     Some(
       Banking.MonetaryAggregates.computeFromBankStocks(
         finalBanks,
-        ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+        ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
         ledgerFinancialState.funds.nbfi.tfiUnit,
         CorporateBondOwnership.issuerOutstanding(ledgerFinancialState),
       ),

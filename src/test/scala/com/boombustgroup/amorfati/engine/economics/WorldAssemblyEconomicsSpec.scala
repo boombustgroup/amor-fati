@@ -71,7 +71,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     nextState.banks.foreach: bank =>
       val balances = ledger.banks(bank.id.toInt)
       LedgerFinancialState.bankBalances(
-        LedgerFinancialState.bankFinancialStocks(balances),
+        LedgerFinancialState.projectBankFinancialStocks(balances),
         balances.corpBond,
       ) shouldBe balances
   }

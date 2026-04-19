@@ -234,7 +234,7 @@ object FirmEconomics:
     val npl                 = computeNplAndInterest(
       stepIn.firms,
       calvoFirms,
-      stepIn.ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks),
+      stepIn.ledgerFinancialState.firms.map(LedgerFinancialState.projectFirmFinancialStocks),
       intermediate.financialStocks,
       bonded.ledgerFinancialState,
       lending,
@@ -288,7 +288,7 @@ object FirmEconomics:
     val bsec               = in.w.bankingSector
     val nBanks             = in.banks.length
     val ccyb               = in.w.mechanisms.macropru.ccyb
-    val bankStocks         = in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)
+    val bankStocks         = in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)
     val bankCorpBonds      = (bankId: BankId) => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId)
     val rates              = in.banks.zip(bankStocks).zip(bsec.configs).map { case ((b, stocks), cfg) =>
       Banking.lendingRate(b, stocks, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield, bankCorpBonds(b.id))
@@ -323,7 +323,7 @@ object FirmEconomics:
       firms.length == ledgerFinancialState.firms.length,
       s"FirmEconomics.processFirms requires aligned firms and ledger firm balances, got ${firms.length} firms and ${ledgerFinancialState.firms.length} balance rows",
     )
-    val openingStocks = ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks)
+    val openingStocks = ledgerFinancialState.firms.map(LedgerFinancialState.projectFirmFinancialStocks)
     val outcomes      = firms
       .zip(openingStocks)
       .map: (f, stocks) =>
@@ -416,7 +416,7 @@ object FirmEconomics:
   )(using p: SimParams): BondAbsorptionResult =
     val bankAgg            = Banking.aggregateFromBankStocks(
       banks,
-      ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+      ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
       bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId),
     )
     val absorption         = CorporateBondMarket
