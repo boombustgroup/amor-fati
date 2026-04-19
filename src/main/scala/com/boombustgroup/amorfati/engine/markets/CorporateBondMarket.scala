@@ -27,7 +27,11 @@ object CorporateBondMarket:
   private val CarBufferZone       = Multiplier(0.02) // 200 bps CAR ramp zone above minCar
   private val SpreadAbsorptionCap = Rate(0.10)       // excess spread at which absorption hits floor
 
-  /** Ledger-owned corporate bond stock view used by market calculus. */
+  /** Projection of ledger-owned corporate bond balances used by market calculus.
+    *
+    * This market DTO is not persisted as ownership state. Month boundaries keep
+    * issuer and holder balances in LedgerFinancialState.
+    */
   case class StockState(
       outstanding: PLN,
       bankHoldings: PLN,

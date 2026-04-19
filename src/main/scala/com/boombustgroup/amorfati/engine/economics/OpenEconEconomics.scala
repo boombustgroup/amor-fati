@@ -56,7 +56,7 @@ object OpenEconEconomics:
 
   case class CorporateBonds(
       newCorpBonds: CorporateBondMarket.State,
-      newCorpBondStock: CorporateBondMarket.StockState,
+      closingCorpBondProjection: CorporateBondMarket.StockState, // ledger-owned stock projection for downstream settlement
       corpBondCoupon: PLN,
       corpBondBankCoupon: PLN,
       corpBondBankDefaultLoss: PLN,
@@ -409,13 +409,13 @@ object OpenEconEconomics:
     BondQeResult(marketYield, newWeightedCoupon, bankBondIncome, nbpRemittance, monthlyDebtService, qePurchaseAmount, postFxNbp, postFxNbpStocks)
 
   private def runStepCorporateBonds(in: StepInput, bankAgg: Banking.Aggregate, newBondYield: Rate)(using SimParams): CorporateBonds =
-    val prevCorpBondStock = CorporateBondOwnership.stockStateFromLedger(in.ledgerFinancialState)
-    val corpBondAmort     = CorporateBondMarket.amortization(prevCorpBondStock)
+    val openingCorpBondProjection = CorporateBondOwnership.stockStateFromLedger(in.ledgerFinancialState)
+    val corpBondAmort             = CorporateBondMarket.amortization(openingCorpBondProjection)
     val corpBondStep      = CorporateBondMarket
       .step(
         CorporateBondMarket.StepInput(
           prevState = in.w.financialMarkets.corporateBonds,
-          prevStock = prevCorpBondStock,
+          prevStock = openingCorpBondProjection,
           govBondYield = newBondYield,
           nplRatio = bankAgg.nplRatio,
           totalBondDefault = in.s5.totalBondDefault,
@@ -423,11 +423,11 @@ object OpenEconEconomics:
         ),
       )
     val newCorpBonds      = corpBondStep.state.copy(lastAbsorptionRate = in.s5.corpBondAbsorption)
-    val corpBondCoupon    = CorporateBondMarket.computeCoupon(in.w.financialMarkets.corporateBonds, prevCorpBondStock)
-    val corpBondDefaults  = CorporateBondMarket.processDefaults(prevCorpBondStock, in.s5.totalBondDefault)
+    val corpBondCoupon    = CorporateBondMarket.computeCoupon(in.w.financialMarkets.corporateBonds, openingCorpBondProjection)
+    val corpBondDefaults  = CorporateBondMarket.processDefaults(openingCorpBondProjection, in.s5.totalBondDefault)
     CorporateBonds(
       newCorpBonds = newCorpBonds,
-      newCorpBondStock = corpBondStep.stock,
+      closingCorpBondProjection = corpBondStep.stock,
       corpBondCoupon = corpBondCoupon.total,
       corpBondBankCoupon = corpBondCoupon.bank,
       corpBondBankDefaultLoss = corpBondDefaults.bankLoss,

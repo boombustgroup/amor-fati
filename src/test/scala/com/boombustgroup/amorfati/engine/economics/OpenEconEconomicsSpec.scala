@@ -99,16 +99,16 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     ComputationBoundary.toDouble(result.monetary.newBondYield) should be >= 0.0
   }
 
-  it should "return corporate bond stock separately from market memory in runStep" in {
+  it should "return corporate bond projection separately from market memory in runStep" in {
     val aligned = runOpenEcon(w)
 
     aligned.corpBonds.newCorpBonds.corpBondYield should be > Rate.Zero
-    aligned.corpBonds.newCorpBondStock.outstanding should be > PLN.Zero
-    aligned.corpBonds.newCorpBondStock.bankHoldings should be > PLN.Zero
-    aligned.corpBonds.newCorpBondStock.ppkHoldings should be > PLN.Zero
-    aligned.corpBonds.newCorpBondStock.otherHoldings should be >= PLN.Zero
-    aligned.corpBonds.newCorpBondStock.insuranceHoldings should be > PLN.Zero
-    aligned.corpBonds.newCorpBondStock.nbfiHoldings should be > PLN.Zero
+    aligned.corpBonds.closingCorpBondProjection.outstanding should be > PLN.Zero
+    aligned.corpBonds.closingCorpBondProjection.bankHoldings should be > PLN.Zero
+    aligned.corpBonds.closingCorpBondProjection.ppkHoldings should be > PLN.Zero
+    aligned.corpBonds.closingCorpBondProjection.otherHoldings should be >= PLN.Zero
+    aligned.corpBonds.closingCorpBondProjection.insuranceHoldings should be > PLN.Zero
+    aligned.corpBonds.closingCorpBondProjection.nbfiHoldings should be > PLN.Zero
   }
 
   it should "produce non-negative interbank flows" in {

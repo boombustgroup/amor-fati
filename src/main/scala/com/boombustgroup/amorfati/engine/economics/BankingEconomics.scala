@@ -215,7 +215,7 @@ object BankingEconomics:
         government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = govJst.newGovBondOutstanding),
         foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = multi.foreignBondHoldings),
         nbp = LedgerFinancialState.nbpBalances(multi.finalNbpFinancialStocks),
-        insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.newCorpBondStock.insuranceHoldings),
+        insurance = LedgerFinancialState.insuranceBalances(multi.finalInsuranceBalances, in.s8.corpBonds.closingCorpBondProjection.insuranceHoldings),
         funds = LedgerFinancialState.fundBalances(
           zusCash = SocialSecurity.zusCashAfter(in.ledgerFinancialState.funds.zusCash, in.s2.newZus),
           nfzCash = SocialSecurity.nfzCashAfter(in.ledgerFinancialState.funds.nfzCash, in.s2.newNfz),
@@ -224,7 +224,7 @@ object BankingEconomics:
           fgspCash = EarmarkedFunds.fgspCashAfter(in.ledgerFinancialState.funds.fgspCash, in.s2.newEarmarked),
           jstCash = govJst.jstCash,
           ppkGovBondHoldings = multi.finalPpkGovBondHoldings,
-          corporateBonds = in.s8.corpBonds.newCorpBondStock,
+          corporateBonds = in.s8.corpBonds.closingCorpBondProjection,
           nbfi = multi.finalNbfiBalances,
           quasiFiscal = quasiFiscalStep.stock,
         ),
@@ -640,7 +640,7 @@ object BankingEconomics:
     val settledBankCorpBonds = settleBankCorpBondHoldings(
       previous = CorporateBondOwnership.bankHolderBalances(in.ledgerFinancialState),
       previousAggregateStock = CorporateBondOwnership.stockStateFromLedger(in.ledgerFinancialState),
-      nextAggregateStock = in.s8.corpBonds.newCorpBondStock,
+      nextAggregateStock = in.s8.corpBonds.closingCorpBondProjection,
       totalBondIssuance = in.s5.actualBondIssuance,
       perBankWorkers = in.s5.perBankWorkers,
     )
