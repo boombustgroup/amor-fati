@@ -33,7 +33,7 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
       emittedMechanisms.filter(expectedRevenueMechanisms.contains)
 
     revenueMechanisms.toSet shouldBe expectedRevenueMechanisms
-    emittedMechanisms should not contain FlowMechanism.GovTaxRevenue.toInt
+    emittedMechanisms should contain allElementsOf expectedRevenueMechanisms
   }
 
   it should "have GOV balance = revenue - total spending" in {

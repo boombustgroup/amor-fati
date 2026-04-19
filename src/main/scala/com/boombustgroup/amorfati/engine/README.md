@@ -174,7 +174,7 @@ don't clear markets themselves.
 
 **Adding a new flow:**
 1. Add a case to the `FlowMechanism` enum in `FlowMechanism.scala`.
-2. Add the mechanism to `FlowMechanism.emittedRuntimeMechanisms`, unless it is a deliberately reserved legacy ID.
+2. Add the mechanism to `FlowMechanism.emittedRuntimeMechanisms`.
 3. Create or extend the appropriate `*Flows.scala` to emit the flow.
 4. Wire the batch emission call in `FlowSimulation.emitAllBatches(...)` or the relevant aggregation point.
 5. Update `RuntimeMechanismSurvivability.scala` with the mechanism's audit class and ensure representative branch coverage exercises it.

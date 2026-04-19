@@ -28,7 +28,6 @@ object FlowMechanism:
   val JstRevenue: MechanismId                   = MechanismId(18)
   val JstSpending: MechanismId                  = MechanismId(19)
   // Government budget
-  val GovTaxRevenue: MechanismId                = MechanismId(20) // legacy aggregate slot kept reserved for mechanism ID stability
   val GovPurchases: MechanismId                 = MechanismId(21)
   val GovDebtService: MechanismId               = MechanismId(22)
   val GovCapitalInvestment: MechanismId         = MechanismId(23)
@@ -59,7 +58,6 @@ object FlowMechanism:
   val FirmInterestPaid: MechanismId             = MechanismId(45)
   val FirmCapex: MechanismId                    = MechanismId(46)
   val FirmEquityIssuance: MechanismId           = MechanismId(47)
-  val FirmBondIssuance: MechanismId             = MechanismId(48) // legacy ID; corporate bond issuance is emitted by CorpBondIssuance
   val FirmIoPayment: MechanismId                = MechanismId(49)
   val FirmNplDefault: MechanismId               = MechanismId(50)
   val FirmProfitShifting: MechanismId           = MechanismId(51)
@@ -112,9 +110,7 @@ object FlowMechanism:
   val GovCustomsDutyRevenue: MechanismId        = MechanismId(94)
   val BankCorpBondCoupon: MechanismId           = MechanismId(95)
 
-  /** All mechanism IDs defined by the engine, including reserved legacy slots
-    * that no current runtime emitter should produce.
-    */
+  /** All mechanism IDs emitted by current runtime flow code. */
   val allMechanisms: Vector[MechanismId] = Vector(
     ZusContribution,
     ZusPension,
@@ -135,7 +131,6 @@ object FlowMechanism:
     FgspGovSubvention,
     JstRevenue,
     JstSpending,
-    GovTaxRevenue,
     GovPurchases,
     GovDebtService,
     GovCapitalInvestment,
@@ -163,7 +158,6 @@ object FlowMechanism:
     FirmInterestPaid,
     FirmCapex,
     FirmEquityIssuance,
-    FirmBondIssuance,
     FirmIoPayment,
     FirmNplDefault,
     FirmProfitShifting,
@@ -212,15 +206,9 @@ object FlowMechanism:
     BankCorpBondCoupon,
   )
 
-  val reservedMechanisms: Set[MechanismId] =
-    Set(
-      GovTaxRevenue,
-      FirmBondIssuance,
-    )
-
   /** Runtime-emitted mechanisms that must have a survivability declaration. */
   val emittedRuntimeMechanisms: Set[MechanismId] =
-    allMechanisms.toSet -- reservedMechanisms
+    allMechanisms.toSet
 
   require(
     allMechanisms.map(_.toInt).distinct.size == allMechanisms.size,
