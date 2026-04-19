@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.engine.ledger.AssetOwnershipContract.*
+import com.boombustgroup.amorfati.engine.flows.RuntimeLedgerTopology
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -22,6 +23,16 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
     )
     isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, FundRuntimeIndex.Zus) shouldBe true
     isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, FundRuntimeIndex.QuasiFiscal) shouldBe false
+  }
+
+  it should "distinguish persisted dynamic owners from appended runtime shells" in {
+    val topology = RuntimeLedgerTopology.nonZeroPopulation
+
+    isSupportedPersistedPair(topology, EntitySector.Firms, AssetType.Cash, 0) shouldBe true
+    isSupportedPersistedPair(topology, EntitySector.Firms, AssetType.Cash, topology.firms.persistedCount - 1) shouldBe true
+    isSupportedPersistedPair(topology, EntitySector.Firms, AssetType.Cash, topology.firms.aggregate) shouldBe false
+    isSupportedPersistedPair(topology, EntitySector.Banks, AssetType.Reserve, topology.banks.aggregate) shouldBe false
+    isSupportedPersistedPair(EntitySector.Firms, AssetType.Cash, topology.firms.aggregate) shouldBe true
   }
 
   it should "track currently unsupported persisted and metric families explicitly" in {

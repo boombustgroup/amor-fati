@@ -17,6 +17,17 @@ object AssetOwnershipContract:
 
   private val zeroPopulationTopology = RuntimeLedgerTopology.zeroPopulation
 
+  private def persistedOwnerCount(topology: RuntimeLedgerTopology, sector: EntitySector): Int =
+    sector match
+      case EntitySector.Households => topology.households.persistedCount
+      case EntitySector.Firms      => topology.firms.persistedCount
+      case EntitySector.Banks      => topology.banks.persistedCount
+      case EntitySector.Government => 1
+      case EntitySector.NBP        => 1
+      case EntitySector.Insurance  => 1
+      case EntitySector.Funds      => topology.funds.supportedCount
+      case EntitySector.Foreign    => 1
+
   /** Logical owner slot in the runtime ledger topology.
     *
     * Dynamic slots match every runtime entity in a sector, for example all
@@ -43,6 +54,16 @@ object AssetOwnershipContract:
         case Dynamic(ownerSector)         => ownerSector == sector
         case Fixed(ownerSector, ownerIdx) => ownerSector == sector && ownerIdx == index
 
+    def matches(
+        topology: RuntimeLedgerTopology,
+        sector: EntitySector,
+        index: Int,
+    ): Boolean =
+      this match
+        case Dynamic(ownerSector)         =>
+          ownerSector == sector && index >= 0 && index < persistedOwnerCount(topology, sector)
+        case Fixed(ownerSector, ownerIdx) => ownerSector == sector && ownerIdx == index
+
   /** Expanded `(owner, asset)` contract row used by runtime membership checks.
     *
     * These pairs are derived from [[PublicAssetContract.supportedSlots]] for
@@ -57,6 +78,13 @@ object AssetOwnershipContract:
         index: Int,
     ): Boolean =
       owner.matches(sector, index)
+
+    def matches(
+        topology: RuntimeLedgerTopology,
+        sector: EntitySector,
+        index: Int,
+    ): Boolean =
+      owner.matches(topology, sector, index)
 
   /** Current engine contract status for a public `amor-fati-ledger` asset type.
     *
@@ -594,6 +622,11 @@ object AssetOwnershipContract:
 
   /** True when the concrete runtime owner slot is part of the supported
     * persisted ownership contract for `asset`.
+    *
+    * This topology-free variant preserves registry-level checks where a dynamic
+    * owner means "some persisted owner in this sector". Use the topology-aware
+    * overload for concrete emitted runtime batches so aggregate execution
+    * shells are not mistaken for persisted owner indices.
     */
   def isSupportedPersistedPair(
       sector: EntitySector,
@@ -603,5 +636,18 @@ object AssetOwnershipContract:
     supportedPairs.iterator
       .filter(_.asset == asset)
       .exists(_.matches(sector, index))
+
+  /** True when a concrete runtime owner index belongs to the persisted stock
+    * slice for this exact topology.
+    */
+  def isSupportedPersistedPair(
+      topology: RuntimeLedgerTopology,
+      sector: EntitySector,
+      asset: AssetType,
+      index: Int,
+  ): Boolean =
+    supportedPairs.iterator
+      .filter(_.asset == asset)
+      .exists(_.matches(topology, sector, index))
 
 end AssetOwnershipContract
