@@ -1,5 +1,9 @@
 package com.boombustgroup.amorfati.accounting
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
@@ -44,7 +48,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   private def makeFirms(n: Int, cash: Double = 50000.0, debt: Double = 0.0): Vector[Firm.State] =
     (0 until n).map { i =>
-      Firm.State(
+      TestFirmState(
         FirmId(i),
         PLN(cash),
         PLN(debt),
@@ -68,7 +72,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   @annotation.nowarn("msg=unused private member") // defaults used by callers
   private def makeHouseholds(n: Int, savings: Double = 15000.0, debt: Double = 0.0): Vector[Household.State] =
     (0 until n).map { i =>
-      Household.State(
+      TestHouseholdState(
         HhId(i),
         PLN(savings),
         PLN(debt),
@@ -90,7 +94,33 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       )
     }.toVector
 
-  private val zeroLedger  = LedgerFinancialState(
+  private val zeroBankFinancialStocks = Banking.BankFinancialStocks(
+    totalDeposits = PLN.Zero,
+    firmLoan = PLN.Zero,
+    govBondAfs = PLN.Zero,
+    govBondHtm = PLN.Zero,
+    reserve = PLN.Zero,
+    interbankLoan = PLN.Zero,
+    demandDeposit = PLN.Zero,
+    termDeposit = PLN.Zero,
+    consumerLoan = PLN.Zero,
+  )
+
+  private def makeBank(id: Int = 0, capital: PLN = PLN.Zero): Banking.BankState =
+    Banking.BankState(
+      id = BankId(id),
+      financial = zeroBankFinancialStocks,
+      nplAmount = PLN.Zero,
+      capital = capital,
+      htmBookYield = Rate.Zero,
+      status = Banking.BankStatus.Active(0),
+      loansShort = PLN.Zero,
+      loansMedium = PLN.Zero,
+      loansLong = PLN.Zero,
+      consumerNpl = PLN.Zero,
+    )
+
+  private val zeroLedger = LedgerFinancialState(
     households = Vector.empty,
     firms = Vector.empty,
     banks = Vector.empty,
@@ -128,6 +158,36 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
     ),
   )
+
+  private def ledgerForHouseholds(households: Vector[Household.State], savings: Double, debt: Double): LedgerFinancialState =
+    zeroLedger.copy(
+      households = Vector.fill(households.length)(
+        LedgerFinancialState.HouseholdBalances(
+          demandDeposit = PLN(savings),
+          mortgageLoan = PLN(debt),
+          consumerLoan = PLN.Zero,
+          equity = PLN.Zero,
+        ),
+      ),
+    )
+
+  private def ledgerForFirms(
+      firms: Vector[Firm.State],
+      cash: Double = 50000.0,
+      debt: Double = 0.0,
+      base: LedgerFinancialState = zeroLedger,
+  ): LedgerFinancialState =
+    base.copy(
+      firms = Vector.fill(firms.length)(
+        LedgerFinancialState.FirmBalances(
+          cash = PLN(cash),
+          firmLoan = PLN(debt),
+          corpBond = PLN.Zero,
+          equity = PLN.Zero,
+        ),
+      ),
+    )
+
   private val zeroWorld   = makeWorld()
   private val zeroRuntime = Sfc.RuntimeState(zeroWorld, Vector.empty, Vector.empty, Vector.empty, zeroLedger)
 
@@ -232,16 +292,20 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   "Sfc.snapshot" should "correctly sum firm cash and debt" in {
     val w     = makeWorld()
     val firms = makeFirms(5, cash = 10000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, zeroLedger)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, ledgerForFirms(firms, cash = 10000.0, debt = 5000.0))
     snap.firmCash.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
     snap.firmDebt.bd shouldBe (BigDecimal("25000.0") +- BigDecimal("0.01"))
   }
 
   it should "correctly sum household savings and debt" in {
-    val w     = makeWorld()
-    val firms = makeFirms(1)
-    val hhs   = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, hhs, Vector.empty, zeroLedger)
+    val w      = makeWorld()
+    val firms  = makeFirms(1)
+    val hhs    = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
+    val ledger = ledgerForFirms(
+      firms,
+      base = ledgerForHouseholds(hhs, savings = 20000.0, debt = 5000.0),
+    )
+    val snap   = Sfc.snapshot(w, firms, hhs, Vector.empty, ledger)
     snap.hhSavings.bd shouldBe (BigDecimal("200000.0") +- BigDecimal("0.01"))
     snap.hhDebt.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
   }
@@ -249,37 +313,32 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "return zero HH values with empty household vector" in {
     val w     = makeWorld()
     val firms = makeFirms(1)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, zeroLedger)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, ledgerForFirms(firms))
     snap.hhSavings shouldBe PLN.Zero
     snap.hhDebt shouldBe PLN.Zero
   }
 
-  it should "capture bank state from explicit banks" in {
-    val w     = makeWorld(govDebt = 100000.0)
-    val firms = makeFirms(1)
-    val banks = Vector(
-      Banking.BankState(
-        id = BankId(0),
-        loans = PLN(50000.0),
-        nplAmount = PLN.Zero,
-        capital = PLN(123456.0),
-        deposits = PLN(789012.0),
-        afsBonds = PLN.Zero,
-        htmBonds = PLN.Zero,
-        htmBookYield = Rate.Zero,
-        reservesAtNbp = PLN.Zero,
-        interbankNet = PLN.Zero,
-        status = Banking.BankStatus.Active(0),
-        demandDeposits = PLN(789012.0),
-        termDeposits = PLN.Zero,
-        loansShort = PLN(50000.0),
-        loansMedium = PLN.Zero,
-        loansLong = PLN.Zero,
-        consumerLoans = PLN.Zero,
-        consumerNpl = PLN.Zero,
+  it should "capture bank capital from banks and bank stocks from ledger" in {
+    val w      = makeWorld(govDebt = 100000.0)
+    val firms  = makeFirms(1)
+    val banks  = Vector(makeBank(capital = PLN(123456.0)))
+    val ledger = ledgerForFirms(firms).copy(
+      banks = Vector(
+        LedgerFinancialState.BankBalances(
+          totalDeposits = PLN(789012.0),
+          demandDeposit = PLN(789012.0),
+          termDeposit = PLN.Zero,
+          firmLoan = PLN(50000.0),
+          consumerLoan = PLN.Zero,
+          govBondAfs = PLN.Zero,
+          govBondHtm = PLN.Zero,
+          reserve = PLN.Zero,
+          interbankLoan = PLN.Zero,
+          corpBond = PLN.Zero,
+        ),
       ),
     )
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, banks, zeroLedger)
+    val snap   = Sfc.snapshot(w, firms, Vector.empty, banks, ledger)
     snap.bankCapital shouldBe PLN(123456.0)
     snap.bankDeposits shouldBe PLN(789012.0)
     snap.bankLoans shouldBe PLN(50000.0)
@@ -313,7 +372,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         nbfi = zeroLedger.funds.nbfi.copy(govBondHoldings = PLN(18.0), nbfiLoanStock = PLN(70.0)),
       ),
     )
-    val snap   = Sfc.snapshot(zeroWorld, Vector.empty, Vector.empty, Vector.empty, ledger)
+    val snap   = Sfc.snapshot(zeroWorld, Vector.empty, Vector.empty, Vector(makeBank()), ledger)
 
     snap.bondsOutstanding shouldBe PLN(100.0)
     snap.bankBondHoldings shouldBe PLN(33.0)
@@ -1228,7 +1287,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     result shouldBe Right(())
   }
 
-  it should "detect mismatch in ZUS runtime cash identity even when legacy fusBalance would be ignored" in {
+  it should "detect mismatch in ZUS runtime cash identity from execution delta ledger" in {
     val batches = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
@@ -1259,16 +1318,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
     )
     val result  = Sfc.validate(
-      prev = zeroRuntime.copy(
-        world = makeWorld().copy(
-          social = SocialState.zero.copy(zus = SocialSecurity.ZusState(PLN(999.0), PLN.Zero, PLN.Zero, PLN.Zero)),
-        ),
-      ),
-      curr = zeroRuntime.copy(
-        world = makeWorld().copy(
-          social = SocialState.zero.copy(zus = SocialSecurity.ZusState(PLN(-123.0), PLN.Zero, PLN.Zero, PLN.Zero)),
-        ),
-      ),
+      prev = zeroRuntime.copy(world = makeWorld()),
+      curr = zeroRuntime.copy(world = makeWorld()),
       flows = zeroFlows.copy(zusContributions = PLN.Zero, zusPensionPayments = PLN(9999.0)),
       batches = batches,
       executionDeltaLedger = Sfc.ExecutionDeltaLedger(

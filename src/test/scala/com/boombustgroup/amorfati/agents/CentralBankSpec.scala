@@ -11,6 +11,7 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
+  private val zeroStocks   = Nbp.FinancialStocks(PLN.Zero, PLN.Zero)
 
   // --- bondYield ---
 
@@ -77,50 +78,50 @@ class CentralBankSpec extends AnyFlatSpec with Matchers:
   // --- executeQe ---
 
   "Nbp.executeQe" should "return 0 purchase when not active" in {
-    val nbp      = Nbp.State(Rate(0.05), PLN(1000.0), false, PLN.Zero, PLN.Zero, PLN.Zero)
-    val qeResult = Nbp.executeQe(nbp, PLN(5000.0), PLN(1e10), Rate(-0.05), Rate(-0.02))
+    val stocks   = Nbp.FinancialStocks(PLN(1000.0), PLN.Zero)
+    val nbp      = Nbp.State(Rate(0.05), false, PLN.Zero, PLN.Zero)
+    val qeResult = Nbp.executeQe(nbp, stocks, PLN(5000.0), PLN(1e10), Rate(-0.05), Rate(-0.02))
     qeResult.requestedPurchase shouldBe PLN.Zero
-    qeResult.nbpState.govBondHoldings shouldBe nbp.govBondHoldings
+    qeResult.nbpState shouldBe nbp
   }
 
   it should "not exceed available bank bond holdings" in {
-    val nbp       = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
+    val nbp       = Nbp.State(Rate(0.05), true, PLN.Zero, PLN.Zero)
     val bankBonds = PLN(100.0)
-    val qeResult  = Nbp.executeQe(nbp, bankBonds, PLN(1e12), Rate(-0.05), Rate(-0.02))
+    val qeResult  = Nbp.executeQe(nbp, zeroStocks, bankBonds, PLN(1e12), Rate(-0.05), Rate(-0.02))
     td.toDouble(qeResult.requestedPurchase) should be <= td.toDouble(bankBonds)
   }
 
   it should "not exceed max GDP share" in {
-    val nbp       = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
+    val nbp       = Nbp.State(Rate(0.05), true, PLN.Zero, PLN.Zero)
     val annualGdp = PLN(1000.0)
     val maxByGdp  = td.toDouble(p.monetary.qeMaxGdpShare) * td.toDouble(annualGdp)
-    val qeResult  = Nbp.executeQe(nbp, PLN(1e12), annualGdp, Rate(-0.05), Rate(-0.02))
+    val qeResult  = Nbp.executeQe(nbp, zeroStocks, PLN(1e12), annualGdp, Rate(-0.05), Rate(-0.02))
     td.toDouble(qeResult.requestedPurchase) should be <= maxByGdp
   }
 
   it should "return positive purchase when active with available bonds" in {
-    val nbp      = Nbp.State(Rate(0.05), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
-    val qeResult = Nbp.executeQe(nbp, PLN(1e12), PLN(1e12), Rate(-0.05), Rate(-0.02))
+    val nbp      = Nbp.State(Rate(0.05), true, PLN.Zero, PLN.Zero)
+    val qeResult = Nbp.executeQe(nbp, zeroStocks, PLN(1e12), PLN(1e12), Rate(-0.05), Rate(-0.02))
     td.toDouble(qeResult.requestedPurchase) should be > 0.0
     // executeQe no longer updates cumulative; that happens in BankingEconomics
     qeResult.nbpState.qeCumulative shouldBe nbp.qeCumulative
   }
 
   it should "scale QE more aggressively in a lower-bound regime" in {
-    val zlbNbp    = Nbp.State(p.monetary.rateFloor, PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
-    val normalNbp = Nbp.State(Rate(0.03), PLN.Zero, true, PLN.Zero, PLN.Zero, PLN.Zero)
+    val zlbNbp    = Nbp.State(p.monetary.rateFloor, true, PLN.Zero, PLN.Zero)
+    val normalNbp = Nbp.State(Rate(0.03), true, PLN.Zero, PLN.Zero)
     val annualGdp = PLN(1e12)
-    val zlbQe     = Nbp.executeQe(zlbNbp, PLN(1e12), annualGdp, Rate(-0.05), Rate(-0.02))
-    val normalQe  = Nbp.executeQe(normalNbp, PLN(1e12), annualGdp, Rate(0.015), Rate(0.02))
+    val zlbQe     = Nbp.executeQe(zlbNbp, zeroStocks, PLN(1e12), annualGdp, Rate(-0.05), Rate(-0.02))
+    val normalQe  = Nbp.executeQe(normalNbp, zeroStocks, PLN(1e12), annualGdp, Rate(0.015), Rate(0.02))
     td.toDouble(zlbQe.requestedPurchase) should be > td.toDouble(normalQe.requestedPurchase)
   }
 
   // --- NbpState defaults ---
 
-  "Nbp.State" should "have backward-compatible constructor" in {
-    val nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero)
+  "Nbp.State" should "carry policy and QE state without financial stocks" in {
+    val nbp = Nbp.State(Rate(0.0575), false, PLN.Zero, PLN.Zero)
     nbp.referenceRate shouldBe Rate(0.0575)
-    nbp.govBondHoldings shouldBe PLN.Zero
     nbp.qeActive shouldBe false
     nbp.qeCumulative shouldBe PLN.Zero
   }

@@ -18,7 +18,7 @@ class PpkFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "match old SocialSecurity.ppkStep amounts exactly" in {
     val employed = 80000; val wage = PLN(7000.0)
-    val oldPpk   = com.boombustgroup.amorfati.agents.SocialSecurity.ppkStep(PLN.Zero, employed, wage)
+    val oldPpk   = com.boombustgroup.amorfati.agents.SocialSecurity.ppkStep(employed, wage)
     val oldBond  = com.boombustgroup.amorfati.agents.SocialSecurity.ppkBondPurchase(oldPpk)
     val flows    = PpkFlows.emit(PpkFlows.PpkInput(employed, wage))
 

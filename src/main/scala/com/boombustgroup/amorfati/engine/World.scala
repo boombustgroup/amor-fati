@@ -16,7 +16,7 @@ case class World(
     priceLevel: PriceIndex,                                                           // cumulative CPI index (base = 1.0)
     currentSigmas: Vector[Sigma],                                                     // per-sector σ (Arthur increasing returns)
     gov: FiscalBudget.GovState,                                                       // government budget & debt
-    nbp: Nbp.State,                                                                   // central bank: rate, bonds, FX, QE
+    nbp: Nbp.State,                                                                   // central bank: rate, QE regime, monthly FX operations
     bankingSector: Banking.MarketState,                                               // banking macro state: interbank conditions, configs, term structure
     forex: OpenEconomy.ForexState,                                                    // EUR/PLN, exports, imports, trade balance
     bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,                            // balance of payments: NFA, CA, KA, FDI
@@ -50,10 +50,10 @@ case class World(
 
 /** Social security system and local government state. */
 case class SocialState(
-    jst: Jst.State,                                 // local government (JST): budget, debt, deposits
+    jst: Jst.State,                                 // local government (JST): budget and debt; cash lives in LedgerFinancialState
     zus: SocialSecurity.ZusState,                   // ZUS: contributions, pensions, FUS balance
     nfz: SocialSecurity.NfzState,                   // NFZ: health insurance contributions, spending, balance
-    ppk: SocialSecurity.PpkState,                   // PPK: employee contributions, gov bond portfolio
+    ppk: SocialSecurity.PpkState,                   // PPK monthly contribution flow; holdings live in LedgerFinancialState
     demographics: SocialSecurity.DemographicsState, // working-age, retirees, monthly retirements
     earmarked: EarmarkedFunds.State,                // FP, PFRON, FGŚP
 )

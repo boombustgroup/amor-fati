@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{MonthRandomness, World}
 import com.boombustgroup.amorfati.engine.flows.*
 import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.markets.FiscalBudget
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -20,13 +21,19 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   "BankingEconomics.runStep" should "produce flows that close at SFC == 0L" in {
     val prepared    = preparedBankingStep()
     val s9          = prepared.run()
-    val prevBankAgg = Banking.aggregateFromBanks(prepared.banks, bankId => CorporateBondOwnership.bankHolderFor(prepared.ledgerFinancialState, bankId))
+    val prevBankAgg = Banking.aggregateFromBankStocks(
+      prepared.banks,
+      prepared.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+      bankId => CorporateBondOwnership.bankHolderFor(prepared.ledgerFinancialState, bankId),
+    )
 
-    s9.ledgerFinancialState.government.govBondOutstanding shouldBe s9.newGovWithYield.bondsOutstanding
-    s9.ledgerFinancialState.foreign.govBondHoldings shouldBe s9.newGovWithYield.foreignBondHoldings
-    s9.ledgerFinancialState.nbp.govBondHoldings shouldBe s9.finalNbp.govBondHoldings
+    s9.ledgerFinancialState.government.govBondOutstanding shouldBe FiscalBudget.nextGovBondOutstanding(
+      prepared.ledgerFinancialState.government.govBondOutstanding,
+      s9.newGovWithYield.deficit,
+    )
     s9.ledgerFinancialState.insurance.govBondHoldings shouldBe s9.finalInsuranceBalances.govBondHoldings
-    s9.ledgerFinancialState.funds.ppkGovBondHoldings shouldBe s9.finalPpk.bondHoldings
+    s9.finalPpk shouldBe prepared.s2.newPpk
+    s9.ledgerFinancialState.funds.ppkGovBondHoldings should be >= prepared.ledgerFinancialState.funds.ppkGovBondHoldings
     s9.ledgerFinancialState.funds.nbfi.tfiUnit shouldBe s9.finalNbfiBalances.tfiAum
     s9.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding should be >= PLN.Zero
     s9.ledgerFinancialState.funds.quasiFiscal.loanPortfolio should be >= PLN.Zero
@@ -51,29 +58,43 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
   }
 
-  it should "read government bond and JST cash opening stocks from LedgerFinancialState" in {
+  it should "read JST cash opening stocks from LedgerFinancialState" in {
     val prepared = preparedBankingStep()
     val aligned  = prepared.run()
 
-    val mismatchedWorld = prepared.world.copy(
-      gov = prepared.world.gov.copy(
-        financial = prepared.world.gov.financial.copy(
-          bondsOutstanding = prepared.ledgerFinancialState.government.govBondOutstanding + PLN(999e9),
-          foreignBondHoldings = prepared.ledgerFinancialState.foreign.govBondHoldings + PLN(777e9),
-        ),
-      ),
-      social = prepared.world.social.copy(
-        jst = prepared.world.social.jst.copy(
-          deposits = prepared.ledgerFinancialState.funds.jstCash + PLN(555e9),
-        ),
+    val shiftedLedger = prepared.ledgerFinancialState.copy(
+      funds = prepared.ledgerFinancialState.funds.copy(
+        jstCash = prepared.ledgerFinancialState.funds.jstCash + PLN(555e9),
       ),
     )
-    val fromLedger      = prepared.run(mismatchedWorld)
+    val fromLedger    = prepared.run(ledgerFinancialStateOverride = shiftedLedger)
 
-    fromLedger.newGovWithYield.bondsOutstanding shouldBe aligned.newGovWithYield.bondsOutstanding
     fromLedger.ledgerFinancialState.government.govBondOutstanding shouldBe aligned.ledgerFinancialState.government.govBondOutstanding
-    fromLedger.newJst.deposits shouldBe aligned.newJst.deposits
-    fromLedger.ledgerFinancialState.funds.jstCash shouldBe aligned.ledgerFinancialState.funds.jstCash
+    fromLedger.newJst shouldBe aligned.newJst
+    fromLedger.ledgerFinancialState.funds.jstCash shouldBe aligned.ledgerFinancialState.funds.jstCash + PLN(555e9)
+  }
+
+  it should "source bank financial opening stocks from LedgerFinancialState" in {
+    val prepared   = preparedBankingStep()
+    val aligned    = prepared.run()
+    val staleBanks = prepared.banks.map: bank =>
+      bank.withFinancial(_ =>
+        Banking.BankFinancialStocks(
+          totalDeposits = PLN.Zero,
+          firmLoan = PLN.Zero,
+          govBondAfs = PLN.Zero,
+          govBondHtm = PLN.Zero,
+          reserve = PLN.Zero,
+          interbankLoan = PLN.Zero,
+          demandDeposit = PLN.Zero,
+          termDeposit = PLN.Zero,
+          consumerLoan = PLN.Zero,
+        ),
+      )
+    val fromLedger = prepared.run(banksOverride = staleBanks)
+
+    fromLedger.resolvedBank shouldBe aligned.resolvedBank
+    fromLedger.ledgerFinancialState.banks shouldBe aligned.ledgerFinancialState.banks
   }
 
   private case class PreparedBankingStep(
@@ -89,12 +110,16 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       s7: PriceEquityEconomics.Output,
       s8: OpenEconEconomics.StepOutput,
   ):
-    def run(worldOverride: World = world): BankingEconomics.StepOutput =
+    def run(
+        worldOverride: World = world,
+        ledgerFinancialStateOverride: LedgerFinancialState = ledgerFinancialState,
+        banksOverride: Vector[Banking.BankState] = banks,
+    ): BankingEconomics.StepOutput =
       val bankingRng = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams().bankingEconomics
       BankingEconomics.runStep(
         BankingEconomics.StepInput(
           worldOverride,
-          ledgerFinancialState,
+          ledgerFinancialStateOverride,
           s1,
           s2,
           s3,
@@ -103,7 +128,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
           s6,
           s7,
           s8,
-          banks,
+          banksOverride,
           bankingRng,
         ),
       )
@@ -114,7 +139,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val ledgerFinancialState = init.ledgerFinancialState
     val stageRandomness      = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams()
 
-    val s1 = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
+    val s1 = FiscalConstraintEconomics.compute(w, init.banks, ledgerFinancialState, ExecutionMonth.First)
     val s2 = LaborEconomics.compute(w, init.firms, init.households, s1)
     val s3 =
       HouseholdIncomeEconomics.compute(
@@ -138,7 +163,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       domesticCons = s3.domesticCons,
       govPurchases = s4.govPurchases,
       avgDemandMult = s4.avgDemandMult,
-      totalSystemLoans = init.banks.map(_.loans).sum,
+      totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sum,
       firmStep = s5,
     )
     val s8 = OpenEconEconomics.runStep(
@@ -237,21 +262,23 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   private def initBank(id: Int, deposits: PLN, reserves: PLN): Banking.BankState =
     Banking.BankState(
       id = BankId(id),
-      deposits = deposits,
-      loans = PLN.Zero,
+      financial = Banking.BankFinancialStocks(
+        totalDeposits = deposits,
+        firmLoan = PLN.Zero,
+        govBondAfs = PLN.Zero,
+        govBondHtm = PLN.Zero,
+        reserve = reserves,
+        interbankLoan = PLN.Zero,
+        demandDeposit = deposits.max(PLN.Zero),
+        termDeposit = PLN.Zero,
+        consumerLoan = PLN.Zero,
+      ),
       capital = PLN(100.0),
       nplAmount = PLN.Zero,
-      afsBonds = PLN.Zero,
-      htmBonds = PLN.Zero,
       htmBookYield = Rate.Zero,
-      reservesAtNbp = reserves,
-      interbankNet = PLN.Zero,
       status = Banking.BankStatus.Active(0),
-      demandDeposits = deposits.max(PLN.Zero),
-      termDeposits = PLN.Zero,
       loansShort = PLN.Zero,
       loansMedium = PLN.Zero,
       loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
     )

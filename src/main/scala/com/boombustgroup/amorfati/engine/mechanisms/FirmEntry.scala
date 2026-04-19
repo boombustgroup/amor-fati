@@ -42,10 +42,11 @@ object FirmEntry:
   private val StartupMaxWorkers   = 4                 // entrant startup team cap
 
   case class Result(
-      firms: Vector[Firm.State], // post-entry firm population (may be longer than input if net creation occurred)
-      births: Int,               // total new entrants (recycled + net new)
-      netBirths: Int,            // net new firms appended to vector
-      newFirmIds: Set[FirmId],   // recycled or appended slots that now contain a newly created firm
+      firms: Vector[Firm.State],                     // post-entry firm population (may be longer than input if net creation occurred)
+      financialStocks: Vector[Firm.FinancialStocks], // ledger-owned firm financial stocks aligned with `firms`
+      births: Int,                                   // total new entrants (recycled + net new)
+      netBirths: Int,                                // net new firms appended to vector
+      newFirmIds: Set[FirmId],                       // recycled or appended slots that now contain a newly created firm
   )
 
   case class LaggedEntrySignals(
@@ -67,34 +68,41 @@ object FirmEntry:
 
   def process(
       firms: Vector[Firm.State],
+      financialStocks: Vector[Firm.FinancialStocks],
       automationRatio: Share,
       hybridRatio: Share,
       laggedSignals: LaggedEntrySignals,
       rng: RandomStream,
   )(using p: SimParams): Result =
-    val living        = firms.filter(Firm.isAlive)
+    require(
+      firms.length == financialStocks.length,
+      s"FirmEntry.process requires aligned firms and financial stocks, got ${firms.length} firms and ${financialStocks.length} stock rows",
+    )
+    val rows          = firms.zip(financialStocks)
+    val living        = rows.filter((firm, _) => Firm.isAlive(firm))
     val profitSignals = computeProfitSignals(living)
     val sectorWeights = computeSectorWeights(profitSignals)
 
-    val totalAdoption                = automationRatio + hybridRatio
-    val livingIds                    = living.map(_.id.toInt)
-    val (recycledFirms, recycledIds) =
-      recycleDeadSlots(firms, totalAdoption, livingIds, sectorWeights, rng)
+    val totalAdoption                                = automationRatio + hybridRatio
+    val livingIds                                    = living.map(_._1.id.toInt)
+    val (recycledFirms, recycledStocks, recycledIds) =
+      recycleDeadSlots(firms, financialStocks, totalAdoption, livingIds, sectorWeights, rng)
 
-    val (finalFirms, netNewIds) =
-      netCreation(recycledFirms, living.length, laggedSignals, totalAdoption, livingIds, sectorWeights, rng)
-    val newFirmIds              = recycledIds ++ netNewIds
-    Result(finalFirms, newFirmIds.size, netNewIds.size, newFirmIds)
+    val (finalFirms, finalStocks, netNewIds) =
+      netCreation(recycledFirms, recycledStocks, living.length, laggedSignals, totalAdoption, livingIds, sectorWeights, rng)
+    val newFirmIds                           = recycledIds ++ netNewIds
+    Result(finalFirms, finalStocks, newFirmIds.size, netNewIds.size, newFirmIds)
 
   private def recycleDeadSlots(
       firms: Vector[Firm.State],
+      financialStocks: Vector[Firm.FinancialStocks],
       totalAdoption: Share,
       livingIds: Vector[Int],
       sectorWeights: Vector[Multiplier],
       rng: RandomStream,
-  )(using p: SimParams): (Vector[Firm.State], Set[FirmId]) =
+  )(using p: SimParams): (Vector[Firm.State], Vector[Firm.FinancialStocks], Set[FirmId]) =
     val deadSlots = firms.filterNot(Firm.isAlive)
-    if deadSlots.isEmpty then return (firms, Set.empty)
+    if deadSlots.isEmpty then return (firms, financialStocks, Set.empty)
 
     val rawCount         = p.firm.replacementEntryRate.ceilApplyTo(deadSlots.length)
     val boundedCount     =
@@ -103,15 +111,15 @@ object FirmEntry:
         Math.min(rawCount, p.firm.replacementEntryMaxMonthly),
       )
     val replacementCount = Math.min(deadSlots.length, boundedCount)
-    if replacementCount <= 0 then return (firms, Set.empty)
+    if replacementCount <= 0 then return (firms, financialStocks, Set.empty)
 
     val replacementIds = rng.shuffle(deadSlots.map(_.id).toList).take(replacementCount).toSet
-    (
-      firms.map: f =>
-        if !Firm.isAlive(f) && replacementIds.contains(f.id) then createNewFirm(f.id, sectorWeights, totalAdoption, livingIds, rng)
-        else f,
-      replacementIds,
-    )
+    val rows           = firms
+      .zip(financialStocks)
+      .map: (firm, stocks) =>
+        if !Firm.isAlive(firm) && replacementIds.contains(firm.id) then createNewFirm(firm.id, sectorWeights, totalAdoption, livingIds, rng)
+        else (firm, stocks)
+    (rows.map(_._1), rows.map(_._2), replacementIds)
 
   /** Append net new firms when unemployment exceeds NAIRU. Birth count is
     * proportional to the gap, capped to prevent vector explosion. New firms get
@@ -120,23 +128,24 @@ object FirmEntry:
     */
   private def netCreation(
       firms: Vector[Firm.State],
+      financialStocks: Vector[Firm.FinancialStocks],
       livingCount: Int,
       laggedSignals: LaggedEntrySignals,
       totalAdoption: Share,
       livingIds: Vector[Int],
       sectorWeights: Vector[Multiplier],
       rng: RandomStream,
-  )(using p: SimParams): (Vector[Firm.State], Set[FirmId]) =
+  )(using p: SimParams): (Vector[Firm.State], Vector[Firm.FinancialStocks], Set[FirmId]) =
     val signal   = expansionaryEntrySignal(laggedSignals)
-    if signal <= Share.Zero then return (firms, Set.empty)
+    if signal <= Share.Zero then return (firms, financialStocks, Set.empty)
     val rawCount = (signal * p.firm.netEntryRate).ceilApplyTo(livingCount)
     val count    = Math.max(0, Math.min(rawCount, p.firm.netEntryMaxMonthly))
-    if count <= 0 then return (firms, Set.empty)
+    if count <= 0 then return (firms, financialStocks, Set.empty)
 
-    val baseId   = firms.length
-    val newFirms = (0 until count).map: i =>
+    val baseId  = firms.length
+    val newRows = (0 until count).map: i =>
       createNewFirm(FirmId(baseId + i), sectorWeights, totalAdoption, livingIds, rng)
-    (firms ++ newFirms, newFirms.map(_.id).toSet)
+    (firms ++ newRows.map(_._1), financialStocks ++ newRows.map(_._2), newRows.map(_._1.id).toSet)
 
   private def expansionaryEntrySignal(c: LaggedEntrySignals)(using p: SimParams): Share =
     val laborSlack    = (c.unemploymentRate - p.monetary.nairu).max(Share.Zero)
@@ -147,11 +156,11 @@ object FirmEntry:
       else 1.0
     laborSlack * Share(nominalSignal) * c.laggedHiringSlack.clamp(Share.Zero, Share.One) * c.startupAbsorptionRate.clamp(Share.Zero, Share.One)
 
-  private def computeProfitSignals(living: Vector[Firm.State])(using p: SimParams): Vector[Coefficient] =
-    val bySector      = living.groupBy(_.sector.toInt)
+  private def computeProfitSignals(living: Vector[(Firm.State, Firm.FinancialStocks)])(using p: SimParams): Vector[Coefficient] =
+    val bySector      = living.groupBy(_._1.sector.toInt)
     val sectorAvgCash = p.sectorDefs.indices.map: s =>
-      bySector.get(s).fold(PLN.Zero)(fs => fs.map(_.cash).foldLeft(PLN.Zero)(_ + _).divideBy(fs.length))
-    val globalAvgCash = if living.nonEmpty then living.map(_.cash).foldLeft(PLN.Zero)(_ + _).divideBy(living.length) else PLN(1.0)
+      bySector.get(s).fold(PLN.Zero)(fs => fs.map(_._2.cash).foldLeft(PLN.Zero)(_ + _).divideBy(fs.length))
+    val globalAvgCash = if living.nonEmpty then living.map(_._2.cash).foldLeft(PLN.Zero)(_ + _).divideBy(living.length) else PLN(1.0)
     sectorAvgCash
       .map: c =>
         (c - globalAvgCash)
@@ -177,7 +186,7 @@ object FirmEntry:
       totalAdoption: Share,
       livingIds: Vector[Int],
       rng: RandomStream,
-  )(using p: SimParams): Firm.State =
+  )(using p: SimParams): (Firm.State, Firm.FinancialStocks) =
     val newSector    = pickSector(sectorWeights, rng)
     val firmSize     = FirmSizeDistribution.draw(rng)
     val startupTeam  = drawStartupTargetWorkers(firmSize, rng)
@@ -189,29 +198,33 @@ object FirmEntry:
     val newNeighbors = assignNeighbors(livingIds, rng)
     val newBankId    = Banking.assignBank(SectorIdx(newSector), Banking.DefaultConfigs, rng)
 
-    Firm.State(
-      id = slotId,
-      cash = p.firm.entryStartupCash * sizeMult,
-      debt = PLN.Zero,
-      tech = tech,
-      riskProfile = TypedRandom.randomBetween(Share(0.1), Share(0.9), rng),
-      innovationCostFactor = TypedRandom.randomBetween(Multiplier(0.8), Multiplier(1.5), rng),
-      digitalReadiness = dr,
-      sector = SectorIdx(newSector),
-      neighbors = newNeighbors,
-      bankId = newBankId,
-      equityRaised = PLN.Zero,
-      initialSize = firmSize,
-      capitalStock = initCapitalStock(firmSize, newSector),
-      foreignOwned = p.fdi.foreignShares(newSector).sampleBelow(rng),
-      inventory = initInventory(firmSize, newSector),
-      greenCapital = initGreenCapital(firmSize, newSector),
-      accumulatedLoss = PLN.Zero,
-      markup = p.pricing.baseMarkup,
-      region = Region.cdfSample(rng),
-      startupMonthsLeft = StartupMonths,
-      startupTargetWorkers = startupTeam,
-      startupFilledWorkers = 0,
+    (
+      Firm.State(
+        id = slotId,
+        tech = tech,
+        riskProfile = TypedRandom.randomBetween(Share(0.1), Share(0.9), rng),
+        innovationCostFactor = TypedRandom.randomBetween(Multiplier(0.8), Multiplier(1.5), rng),
+        digitalReadiness = dr,
+        sector = SectorIdx(newSector),
+        neighbors = newNeighbors,
+        bankId = newBankId,
+        initialSize = firmSize,
+        capitalStock = initCapitalStock(firmSize, newSector),
+        foreignOwned = p.fdi.foreignShares(newSector).sampleBelow(rng),
+        inventory = initInventory(firmSize, newSector),
+        greenCapital = initGreenCapital(firmSize, newSector),
+        accumulatedLoss = PLN.Zero,
+        markup = p.pricing.baseMarkup,
+        region = Region.cdfSample(rng),
+        startupMonthsLeft = StartupMonths,
+        startupTargetWorkers = startupTeam,
+        startupFilledWorkers = 0,
+      ),
+      Firm.FinancialStocks(
+        cash = p.firm.entryStartupCash * sizeMult,
+        firmLoan = PLN.Zero,
+        equity = PLN.Zero,
+      ),
     )
 
   /** Select technology regime: AI-native entrants start as Hybrid with partial

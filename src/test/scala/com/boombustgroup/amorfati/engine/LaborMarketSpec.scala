@@ -1,5 +1,9 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.*
@@ -162,7 +166,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
 
   private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n).map { i =>
-      Firm.State(
+      TestFirmState(
         FirmId(i),
         PLN(50000.0),
         PLN.Zero,
@@ -189,7 +193,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       skill: Double = 0.7,
       healthPenalty: Double = 0.0,
   ): Household.State =
-    Household.State(
+    TestHouseholdState(
       HhId(id),
       PLN(20000.0),
       PLN.Zero,

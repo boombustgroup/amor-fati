@@ -122,22 +122,24 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   ) =
     Banking.BankState(
       id = BankId(id),
-      deposits = deposits,
-      loans = loans,
+      financial = Banking.BankFinancialStocks(
+        totalDeposits = deposits,
+        firmLoan = loans,
+        govBondAfs = PLN.Zero,
+        govBondHtm = PLN.Zero,
+        reserve = reservesAtNbp,
+        interbankLoan = interbankNet,
+        demandDeposit = PLN.Zero,
+        termDeposit = PLN.Zero,
+        consumerLoan = PLN.Zero,
+      ),
       capital = capital,
       nplAmount = PLN.Zero,
-      afsBonds = PLN.Zero,
-      htmBonds = PLN.Zero,
       htmBookYield = Rate.Zero,
-      reservesAtNbp = reservesAtNbp,
-      interbankNet = interbankNet,
       status = if failed then Banking.BankStatus.Failed(ExecutionMonth(30)) else Banking.BankStatus.Active(0),
-      demandDeposits = PLN.Zero,
-      termDeposits = PLN.Zero,
       loansShort = PLN.Zero,
       loansMedium = PLN.Zero,
       loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
     )
 
@@ -326,13 +328,17 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "MonetaryAggregates.compute" should "compute M0/M1/M2/M3 from bank vector" in {
-    val b0  = mkBank(0, deposits = PLN(6e8), reservesAtNbp = PLN(5e7)).copy(
-      demandDeposits = PLN(3.6e8),
-      termDeposits = PLN(2.4e8),
+    val b0  = mkBank(0, deposits = PLN(6e8), reservesAtNbp = PLN(5e7)).withFinancial(
+      _.copy(
+        demandDeposit = PLN(3.6e8),
+        termDeposit = PLN(2.4e8),
+      ),
     )
-    val b1  = mkBank(1, deposits = PLN(4e8), reservesAtNbp = PLN(5e7)).copy(
-      demandDeposits = PLN(2.4e8),
-      termDeposits = PLN(1.6e8),
+    val b1  = mkBank(1, deposits = PLN(4e8), reservesAtNbp = PLN(5e7)).withFinancial(
+      _.copy(
+        demandDeposit = PLN(2.4e8),
+        termDeposit = PLN(1.6e8),
+      ),
     )
     val agg = Banking.MonetaryAggregates.compute(Vector(b0, b1), PLN(1e8), PLN(5e7))
     agg.m0 shouldBe PLN(1e8)                              // sum of reserves
@@ -342,18 +348,22 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "compute credit multiplier as M2/M0" in {
-    val b   = mkBank(0, deposits = PLN(4.5e9), reservesAtNbp = PLN(1e9)).copy(
-      demandDeposits = PLN(2.7e9),
-      termDeposits = PLN(1.8e9),
+    val b   = mkBank(0, deposits = PLN(4.5e9), reservesAtNbp = PLN(1e9)).withFinancial(
+      _.copy(
+        demandDeposit = PLN(2.7e9),
+        termDeposit = PLN(1.8e9),
+      ),
     )
     val agg = Banking.MonetaryAggregates.compute(Vector(b), PLN.Zero, PLN.Zero)
     agg.creditMultiplier shouldBe Multiplier(4.5)
   }
 
   it should "handle zero reserves with floor" in {
-    val b   = mkBank(0, deposits = PLN(1e9), reservesAtNbp = PLN.Zero).copy(
-      demandDeposits = PLN(6e8),
-      termDeposits = PLN(4e8),
+    val b   = mkBank(0, deposits = PLN(1e9), reservesAtNbp = PLN.Zero).withFinancial(
+      _.copy(
+        demandDeposit = PLN(6e8),
+        termDeposit = PLN(4e8),
+      ),
     )
     val agg = Banking.MonetaryAggregates.compute(Vector(b), PLN.Zero, PLN.Zero)
     agg.creditMultiplier shouldBe Multiplier(1e9) // m2 / max(PLN(1.0), PLN.Zero)

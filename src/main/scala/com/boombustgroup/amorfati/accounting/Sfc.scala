@@ -230,16 +230,32 @@ object Sfc:
       banks: Vector[Banking.BankState],
       ledgerFinancialState: LedgerFinancialState,
   ): StockState =
-    val hhS     = PLN.fromRaw(households.map(_.savings.toLong).sum)
-    val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
-    val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
-    val bankAgg = Banking.aggregateFromBanks(banks, bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId))
+    require(
+      households.length == ledgerFinancialState.households.length,
+      s"Sfc.snapshot requires aligned households and ledger household balances, got ${households.length} households and ${ledgerFinancialState.households.length} balance rows",
+    )
+    require(
+      firms.length == ledgerFinancialState.firms.length,
+      s"Sfc.snapshot requires aligned firms and ledger firm balances, got ${firms.length} firms and ${ledgerFinancialState.firms.length} balance rows",
+    )
+    require(
+      banks.length == ledgerFinancialState.banks.length,
+      s"Sfc.snapshot requires aligned banks and ledger bank balances, got ${banks.length} banks and ${ledgerFinancialState.banks.length} balance rows",
+    )
+    val hhS     = ledgerFinancialState.households.map(_.demandDeposit).sum
+    val hhD     = ledgerFinancialState.households.map(_.mortgageLoan).sum
+    val ibNet   = PLN.fromRaw(ledgerFinancialState.banks.map(_.interbankLoan.toLong).sum)
+    val bankAgg = Banking.aggregateFromBankStocks(
+      banks,
+      ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+      bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId),
+    )
     val bonds   = GovernmentBondCircuit.from(ledgerFinancialState)
     StockState(
       hhSavings = hhS,
       hhDebt = hhD,
-      firmCash = PLN.fromRaw(firms.map(_.cash.toLong).sum),
-      firmDebt = PLN.fromRaw(firms.map(_.debt.toLong).sum),
+      firmCash = ledgerFinancialState.firms.map(_.cash).sum,
+      firmDebt = ledgerFinancialState.firms.map(_.firmLoan).sum,
       bankCapital = bankAgg.capital,
       bankDeposits = bankAgg.deposits,
       bankLoans = bankAgg.totalLoans,

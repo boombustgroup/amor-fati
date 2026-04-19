@@ -21,16 +21,20 @@ object WorldInit:
     // --- Firms ---
     val initCorporateBonds      = CorporateBondMarket.initial
     val initCorporateBondStocks = CorporateBondMarket.initialStock
-    val firms                   = FirmInit.create(randomness.firms.newStreams())
-    val initFirmBalances        = CorporateBondOwnership.initializeIssuerBalances(firms, initCorporateBondStocks.outstanding)
+    val firmPop                 = FirmInit.create(randomness.firms.newStreams())
+    val firms                   = firmPop.firms
+    val firmStocks              = firmPop.financialStocks
+    val initFirmBalances        = CorporateBondOwnership.initializeIssuerBalances(firms, firmStocks, initCorporateBondStocks.outstanding)
     assert(firms.length == p.pop.firmsCount)
 
     // --- Households ---
-    val households0    = Household.Init.create(randomness.households.newStreams(), firms)
-    val households     = ImmigrantInit.create(randomness.immigration.newStreams(), households0)
-    val totalPop       = households.length
-    val initEmployed   = households.count(_.status.isInstanceOf[HhStatus.Employed])
-    val initUnemployed = totalPop - initEmployed
+    val households0     = Household.Init.create(randomness.households.newStreams(), firms)
+    val householdPop    = ImmigrantInit.create(randomness.immigration.newStreams(), households0)
+    val households      = householdPop.households
+    val householdStocks = householdPop.financialStocks
+    val totalPop        = households.length
+    val initEmployed    = households.count(_.status.isInstanceOf[HhStatus.Employed])
+    val initUnemployed  = totalPop - initEmployed
     assert(totalPop > 0)
 
     // --- Banking sector ---
@@ -41,7 +45,7 @@ object WorldInit:
     val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(toDouble(_)).max)
     val initImportCons   = initConsumption - initDomesticCons
 
-    val initBankingSector = BankInit.create(firms, households)
+    val initBankingSector = BankInit.create(firms, firmStocks, households, householdStocks)
     val initBankCorpBonds =
       com.boombustgroup.ledger.Distribute
         .distribute(
@@ -52,7 +56,7 @@ object WorldInit:
         .toVector
     val initBankBalances  =
       initBankingSector.banks.map: bank =>
-        Banking.FinancialBalances.fromState(bank, corpBond = initBankCorpBonds.lift(bank.id.toInt).getOrElse(PLN.Zero))
+        LedgerFinancialState.bankBalances(bank.financial, corpBond = initBankCorpBonds.lift(bank.id.toInt).getOrElse(PLN.Zero))
 
     // --- Sub-state initializers ---
     val initDemographics      = DemographicsInit.create(totalPop)
@@ -124,15 +128,11 @@ object WorldInit:
         deficit = PLN.Zero,
         cumulativeDebt = p.fiscal.initGovDebt,
         unempBenefitSpend = PLN.Zero,
-        bondsOutstanding = initBondsOutstanding,
-        foreignBondHoldings = initForeignGovBonds,
       ),
       nbp = Nbp.State(
         referenceRate = p.monetary.initialRate,
-        govBondHoldings = p.banking.initNbpGovBonds,
         qeActive = false,
         qeCumulative = PLN.Zero,
-        fxReserves = p.monetary.fxReserves,
         lastFxTraded = PLN.Zero,
       ),
       bankingSector = initBankingSector.market,
@@ -181,19 +181,30 @@ object WorldInit:
     )
 
     val ledgerFinancialState = LedgerFinancialState(
-      households = households.map(Household.FinancialBalances.fromState).map(LedgerFinancialState.householdBalances),
+      households = householdStocks.map(LedgerFinancialState.householdBalances),
       firms = initFirmBalances,
-      banks = LedgerFinancialState.refreshBankFinancialBalances(initBankBalances),
+      banks = initBankBalances,
       government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = initBondsOutstanding),
       foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = initForeignGovBonds),
       nbp = LedgerFinancialState.nbpBalances(
-        Nbp.FinancialBalances(
+        Nbp.FinancialStocks(
           govBondHoldings = p.banking.initNbpGovBonds,
           foreignAssets = p.monetary.fxReserves,
         ),
       ),
       insurance = LedgerFinancialState.insuranceBalances(initInsuranceBalances, initCorporateBondStocks.insuranceHoldings),
-      funds = LedgerFinancialState.fundBalances(initSocialState, initCorporateBondStocks, initNbfiBalances, QuasiFiscal.StockState.zero),
+      funds = LedgerFinancialState.fundBalances(
+        zusCash = PLN.Zero,
+        nfzCash = PLN.Zero,
+        fpCash = PLN.Zero,
+        pfronCash = PLN.Zero,
+        fgspCash = PLN.Zero,
+        jstCash = PLN.Zero,
+        ppkGovBondHoldings = PLN.Zero,
+        corporateBonds = initCorporateBondStocks,
+        nbfi = initNbfiBalances,
+        quasiFiscal = QuasiFiscal.StockState.zero,
+      ),
     )
 
     InitResult(world, firms, households, initBankingSector.banks, initHhAgg, ledgerFinancialState)

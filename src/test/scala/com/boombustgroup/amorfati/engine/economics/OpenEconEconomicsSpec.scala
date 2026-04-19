@@ -23,7 +23,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   private val rng                      = RandomStream.seeded(TestSeed)
 
   // Run pipeline through Economics objects
-  private val s1 = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
+  private val s1 = FiscalConstraintEconomics.compute(w, init.banks, baseLedgerFinancialState, ExecutionMonth.First)
   private val s2 = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s3 =
     HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, baseLedgerFinancialState, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
@@ -37,7 +37,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     domesticCons = s3.domesticCons,
     govPurchases = s4.govPurchases,
     avgDemandMult = s4.avgDemandMult,
-    totalSystemLoans = init.banks.map(_.loans).sum,
+    totalSystemLoans = baseLedgerFinancialState.banks.map(_.firmLoan).sum,
     firmStep = s5,
   )
 
@@ -97,36 +97,6 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
 
   it should "produce a valid bond yield" in {
     ComputationBoundary.toDouble(result.monetary.newBondYield) should be >= 0.0
-  }
-
-  it should "read supported public bond and central-bank stocks from LedgerFinancialState" in {
-    val mismatchedWorld = w.copy(
-      gov = w.gov.copy(
-        financial = w.gov.financial.copy(
-          bondsOutstanding = w.gov.bondsOutstanding + PLN(101),
-          foreignBondHoldings = w.gov.foreignBondHoldings + PLN(102),
-        ),
-      ),
-      nbp = w.nbp.copy(
-        balance = w.nbp.balance.copy(
-          govBondHoldings = w.nbp.govBondHoldings + PLN(103),
-          fxReserves = w.nbp.fxReserves + PLN(104),
-        ),
-      ),
-    )
-
-    val aligned    = runOpenEcon(w)
-    val fromLedger = runOpenEcon(mismatchedWorld)
-
-    fromLedger.monetary.newWeightedCoupon shouldBe aligned.monetary.newWeightedCoupon
-    fromLedger.banking.monthlyDebtService shouldBe aligned.banking.monthlyDebtService
-    fromLedger.banking.nbpRemittance shouldBe aligned.banking.nbpRemittance
-    fromLedger.monetary.postFxNbp.govBondHoldings shouldBe aligned.monetary.postFxNbp.govBondHoldings
-    fromLedger.monetary.postFxNbp.fxReserves shouldBe aligned.monetary.postFxNbp.fxReserves
-    fromLedger.monetary.postFxNbpFinancialBalances shouldBe aligned.monetary.postFxNbpFinancialBalances
-    fromLedger.corpBonds.corpBondCoupon shouldBe aligned.corpBonds.corpBondCoupon
-    fromLedger.corpBonds.corpBondBankDefaultLoss shouldBe aligned.corpBonds.corpBondBankDefaultLoss
-    fromLedger.nonBank.newInsurance.lastInvestmentIncome shouldBe aligned.nonBank.newInsurance.lastInvestmentIncome
   }
 
   it should "return corporate bond stock separately from market memory in runStep" in {

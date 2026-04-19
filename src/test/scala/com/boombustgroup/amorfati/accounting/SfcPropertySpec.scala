@@ -192,19 +192,6 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
       result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.InterbankNetting) shouldBe true
     }
 
-  // --- Snapshot sums property ---
-
-  it should "compute correct snapshot sums from firms" in
-    forAll(Gen.choose(3, 20)) { (n: Int) =>
-      forAll(Gen.listOfN(n, genAliveFirm)) { (firmList: List[com.boombustgroup.amorfati.agents.Firm.State]) =>
-        val firms        = firmList.toArray
-        val expectedCash = firms.map(f => td.toDouble(f.cash)).sum
-        val expectedDebt = firms.map(f => td.toDouble(f.debt)).sum
-        Math.abs(expectedCash - firms.map(f => td.toDouble(f.cash)).sum) should be < 1e-6
-        Math.abs(expectedDebt - firms.map(f => td.toDouble(f.debt)).sum) should be < 1e-6
-      }
-    }
-
   // --- Dividend flow consistency ---
 
   it should "pass with non-zero dividend flows in consistent snapshots" in

@@ -1,9 +1,8 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
-import com.boombustgroup.amorfati.engine.SocialState
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
-import com.boombustgroup.amorfati.types.{FirmId, PLN}
+import com.boombustgroup.amorfati.types.{FirmId, HhId, PLN}
 
 /** Ledger-owned snapshot of ledger-contracted financial stocks used by the
   * engine.
@@ -37,8 +36,16 @@ final case class LedgerFinancialState(
 
 object LedgerFinancialState:
 
-  def householdBalances(balances: Household.FinancialBalances): HouseholdBalances =
+  def householdBalances(stocks: Household.FinancialStocks): HouseholdBalances =
     HouseholdBalances(
+      demandDeposit = stocks.demandDeposit,
+      mortgageLoan = stocks.mortgageLoan,
+      consumerLoan = stocks.consumerLoan,
+      equity = stocks.equity,
+    )
+
+  def householdFinancialStocks(balances: HouseholdBalances): Household.FinancialStocks =
+    Household.FinancialStocks(
       demandDeposit = balances.demandDeposit,
       mortgageLoan = balances.mortgageLoan,
       consumerLoan = balances.consumerLoan,
@@ -47,37 +54,69 @@ object LedgerFinancialState:
 
   def refreshHouseholdBalances(
       households: Vector[Household.State],
+      previousHouseholds: Vector[Household.State],
       previous: Vector[HouseholdBalances],
+      newHouseholdFinancialStocksById: Map[HhId, Household.FinancialStocks] = Map.empty,
   ): Vector[HouseholdBalances] =
+    require(
+      previousHouseholds.length == previous.length,
+      s"LedgerFinancialState.refreshHouseholdBalances requires aligned previous households and balances, got ${previousHouseholds.length} households and ${previous.length} balance rows",
+    )
+    val previousById = previousHouseholds.zip(previous).map((household, balances) => household.id -> balances).toMap
     households.map: household =>
-      previous.lift(household.id.toInt).getOrElse(initialHouseholdBalances(household))
+      previousById
+        .get(household.id)
+        .orElse(newHouseholdFinancialStocksById.get(household.id).map(householdBalances))
+        .getOrElse:
+          throw new IllegalStateException(s"Missing ledger financial balances for household ${household.id.toInt}")
 
-  def firmBalances(balances: Firm.FinancialBalances, corpBond: PLN): FirmBalances =
+  def firmBalances(stocks: Firm.FinancialStocks, corpBond: PLN): FirmBalances =
     FirmBalances(
+      cash = stocks.cash,
+      firmLoan = stocks.firmLoan,
+      corpBond = corpBond,
+      equity = stocks.equity,
+    )
+
+  def firmFinancialStocks(balances: FirmBalances): Firm.FinancialStocks =
+    Firm.FinancialStocks(
       cash = balances.cash,
       firmLoan = balances.firmLoan,
-      corpBond = corpBond,
       equity = balances.equity,
     )
 
   def refreshFirmPopulationBalances(
-      firms: Vector[Firm.State],
+      financialStocks: Vector[Firm.FinancialStocks],
       previous: Vector[FirmBalances],
       newFirmIds: Set[FirmId],
   ): Vector[FirmBalances] =
-    firms.map: firm =>
-      if newFirmIds.contains(firm.id) then initialFirmBalances(firm, corpBond = PLN.Zero)
-      else previous.lift(firm.id.toInt).getOrElse(initialFirmBalances(firm, corpBond = PLN.Zero))
+    financialStocks.zipWithIndex.map: (stocks, index) =>
+      if newFirmIds.contains(FirmId(index)) then firmBalances(stocks, corpBond = PLN.Zero)
+      else firmBalances(stocks, corpBond = previous.lift(index).fold(PLN.Zero)(_.corpBond))
 
   def refreshFirmFinancialBalances(
-      balances: Vector[Firm.FinancialBalances],
+      balances: Vector[Firm.FinancialStocks],
       previous: Vector[FirmBalances],
   ): Vector[FirmBalances] =
     balances.zipWithIndex.map: (balance, index) =>
       firmBalances(balance, corpBond = previous.lift(index).fold(PLN.Zero)(_.corpBond))
 
-  def bankBalances(balances: Banking.FinancialBalances): BankBalances =
+  def bankBalances(stocks: Banking.BankFinancialStocks, corpBond: PLN): BankBalances =
     BankBalances(
+      totalDeposits = stocks.totalDeposits,
+      demandDeposit = stocks.demandDeposit,
+      termDeposit = stocks.termDeposit,
+      firmLoan = stocks.firmLoan,
+      consumerLoan = stocks.consumerLoan,
+      govBondAfs = stocks.govBondAfs,
+      govBondHtm = stocks.govBondHtm,
+      reserve = stocks.reserve,
+      interbankLoan = stocks.interbankLoan,
+      corpBond = corpBond,
+    )
+
+  def bankFinancialStocks(balances: BankBalances): Banking.BankFinancialStocks =
+    Banking.BankFinancialStocks(
       totalDeposits = balances.totalDeposits,
       demandDeposit = balances.demandDeposit,
       termDeposit = balances.termDeposit,
@@ -87,13 +126,7 @@ object LedgerFinancialState:
       govBondHtm = balances.govBondHtm,
       reserve = balances.reserve,
       interbankLoan = balances.interbankLoan,
-      corpBond = balances.corpBond,
     )
-
-  def refreshBankFinancialBalances(
-      balances: Vector[Banking.FinancialBalances],
-  ): Vector[BankBalances] =
-    balances.map(bankBalances)
 
   def insuranceOpeningBalances(ledgerFinancialState: LedgerFinancialState): Insurance.OpeningBalances =
     Insurance.OpeningBalances(
@@ -145,37 +178,37 @@ object LedgerFinancialState:
       loanPortfolio = quasiFiscal.loanPortfolio,
     )
 
-  def nbpBalances(balances: Nbp.FinancialBalances): NbpBalances =
+  def nbpBalances(stocks: Nbp.FinancialStocks): NbpBalances =
     NbpBalances(
-      govBondHoldings = balances.govBondHoldings,
-      foreignAssets = balances.foreignAssets,
+      govBondHoldings = stocks.govBondHoldings,
+      foreignAssets = stocks.foreignAssets,
     )
 
   def fundBalances(
-      social: SocialState,
+      zusCash: PLN,
+      nfzCash: PLN,
+      fpCash: PLN,
+      pfronCash: PLN,
+      fgspCash: PLN,
+      jstCash: PLN,
+      ppkGovBondHoldings: PLN,
       corporateBonds: CorporateBondMarket.StockState,
       nbfi: Nbfi.ClosingBalances,
       quasiFiscal: QuasiFiscal.StockState,
   ): FundBalances =
     FundBalances(
-      zusCash = social.zus.fusBalance,
-      nfzCash = social.nfz.balance,
-      ppkGovBondHoldings = social.ppk.bondHoldings,
+      zusCash = zusCash,
+      nfzCash = nfzCash,
+      ppkGovBondHoldings = ppkGovBondHoldings,
       ppkCorpBondHoldings = corporateBonds.ppkHoldings,
-      fpCash = social.earmarked.fpBalance,
-      pfronCash = social.earmarked.pfronBalance,
-      fgspCash = social.earmarked.fgspBalance,
-      jstCash = social.jst.deposits,
+      fpCash = fpCash,
+      pfronCash = pfronCash,
+      fgspCash = fgspCash,
+      jstCash = jstCash,
       corpBondOtherHoldings = corporateBonds.otherHoldings,
       nbfi = nbfiFundBalances(nbfi, corporateBonds.nbfiHoldings),
       quasiFiscal = quasiFiscalBalances(quasiFiscal),
     )
-
-  private def initialFirmBalances(firm: Firm.State, corpBond: PLN): FirmBalances =
-    firmBalances(Firm.FinancialBalances.fromState(firm), corpBond)
-
-  private def initialHouseholdBalances(household: Household.State): HouseholdBalances =
-    householdBalances(Household.FinancialBalances.fromState(household))
 
   /** Ledger-backed financial balances owned by a single household. */
   case class HouseholdBalances(

@@ -1,10 +1,12 @@
 package com.boombustgroup.amorfati.montecarlo
 
+import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.agents.Banking.BankState
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.fp.ComputationBoundary
-import com.boombustgroup.amorfati.types.PLN
+import com.boombustgroup.amorfati.types.*
 
 import java.io.File
 
@@ -19,7 +21,13 @@ private[montecarlo] object McTerminalSummarySchema:
 
   private val td = ComputationBoundary
 
-  private case class BankRow(bank: BankState, corpBondHoldings: PLN)
+  private case class BankRow(bank: BankState, balances: LedgerFinancialState.BankBalances)
+
+  private def nplRatio(row: BankRow): Share =
+    Banking.nplRatio(row.balances.firmLoan, row.bank.nplAmount)
+
+  private def car(row: BankRow): Multiplier =
+    Banking.capitalAdequacyRatio(row.bank.capital, row.balances.firmLoan, row.balances.consumerLoan, row.balances.corpBond)
 
   private[montecarlo] final case class SummarySpec(
       id: McTerminalSummaryId,
@@ -51,13 +59,13 @@ private[montecarlo] object McTerminalSummarySchema:
 
   private val bankSchema: Vector[(String, BankRow => String)] = Vector(
     ("BankId", row => s"${row.bank.id}"),
-    ("Deposits", row => f"${td.toDouble(row.bank.deposits)}%.2f"),
-    ("Loans", row => f"${td.toDouble(row.bank.loans)}%.2f"),
+    ("Deposits", row => f"${td.toDouble(row.balances.totalDeposits)}%.2f"),
+    ("Loans", row => f"${td.toDouble(row.balances.firmLoan)}%.2f"),
     ("Capital", row => f"${td.toDouble(row.bank.capital)}%.2f"),
-    ("NPL", row => f"${td.toDouble(row.bank.nplRatio)}%.6f"),
-    ("CAR", row => f"${td.toDouble(row.bank.car(row.corpBondHoldings))}%.6f"),
-    ("GovBonds", row => f"${td.toDouble(row.bank.govBondHoldings)}%.2f"),
-    ("InterbankNet", row => f"${td.toDouble(row.bank.interbankNet)}%.2f"),
+    ("NPL", row => f"${td.toDouble(nplRatio(row))}%.6f"),
+    ("CAR", row => f"${td.toDouble(car(row))}%.6f"),
+    ("GovBonds", row => f"${td.toDouble(row.balances.govBondAfs + row.balances.govBondHtm)}%.2f"),
+    ("InterbankNet", row => f"${td.toDouble(row.balances.interbankLoan)}%.2f"),
     ("Failed", row => s"${row.bank.failed}"),
   )
 
@@ -88,7 +96,7 @@ private[montecarlo] object McTerminalSummarySchema:
       Map(
         McTerminalSummaryId.Household -> Vector(renderHouseholdRow(seed, terminalState.householdAggregates)),
         McTerminalSummaryId.Banks     -> terminalState.banks.map(bank =>
-          renderBankRow(seed, BankRow(bank, terminalState.ledgerFinancialState.banks.lift(bank.id.toInt).fold(PLN.Zero)(_.corpBond))),
+          renderBankRow(seed, BankRow(bank, terminalState.ledgerFinancialState.banks(bank.id.toInt))),
         ),
       ),
     )

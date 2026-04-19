@@ -20,40 +20,20 @@ object LedgerTestFixtures:
       gov = base.world.gov.copy(
         financial = base.world.gov.financial.copy(
           cumulativeDebt = PLN(776e6),
-          bondsOutstanding = PLN(777e6),
-          foreignBondHoldings = PLN(778e6),
         ),
       ),
-      nbp = base.world.nbp.copy(
-        balance = base.world.nbp.balance.copy(
-          govBondHoldings = PLN(88e6),
-          qeCumulative = PLN(89e6),
-          fxReserves = PLN(99e6),
-        ),
-      ),
+      nbp = base.world.nbp.copy(qeCumulative = PLN(89e6)),
       social = base.world.social.copy(
         jst = Jst.State(
-          deposits = PLN(10e6),
           debt = PLN(11e6),
           revenue = PLN.Zero,
           spending = PLN.Zero,
           deficit = PLN.Zero,
         ),
-        zus = SocialSecurity.ZusState(PLN(11e6), PLN.Zero, PLN.Zero, PLN.Zero),
-        nfz = SocialSecurity.NfzState(PLN(12e6), PLN.Zero, PLN.Zero, PLN.Zero),
-        ppk = SocialSecurity.PpkState(PLN(13e6), PLN.Zero),
-        earmarked = EarmarkedFunds.State(
-          fpBalance = PLN(14e6),
-          fpContributions = PLN.Zero,
-          fpSpending = PLN.Zero,
-          pfronBalance = PLN(15e6),
-          pfronContributions = PLN.Zero,
-          pfronSpending = PLN.Zero,
-          fgspBalance = PLN(16e6),
-          fgspContributions = PLN.Zero,
-          fgspSpending = PLN.Zero,
-          totalGovSubvention = PLN.Zero,
-        ),
+        zus = SocialSecurity.ZusState.zero,
+        nfz = SocialSecurity.NfzState.zero,
+        ppk = SocialSecurity.PpkState(PLN.Zero),
+        earmarked = EarmarkedFunds.State.zero,
       ),
       financialMarkets = base.world.financialMarkets.copy(
         quasiFiscal = QuasiFiscal.State(
@@ -65,78 +45,77 @@ object LedgerTestFixtures:
       ),
     )
 
-    val firms = base.firms.updated(
+    val firms      = base.firms.updated(
       0,
-      base.firms.head.copy(
-        cash = PLN(101e6),
-        debt = PLN(102e6),
-        equityRaised = PLN(104e6),
-        capitalStock = PLN(105e6),
-      ),
+      base.firms.head
+        .copy(capitalStock = PLN(105e6)),
     )
+    val firmStocks = base.ledgerFinancialState.firms
+      .map(LedgerFinancialState.firmFinancialStocks)
+      .updated(0, Firm.FinancialStocks(cash = PLN(101e6), firmLoan = PLN(102e6), equity = PLN(104e6)))
 
-    val households = base.households.updated(
-      0,
-      base.households.head.copy(
-        savings = PLN(201e6),
-        debt = PLN(202e6),
-        consumerDebt = PLN(203e6),
-        equityWealth = PLN(204e6),
-      ),
-    )
+    val households = base.households
 
     val banks = base.banks.updated(
       0,
-      base.banks.head.copy(
-        deposits = PLN(603e6),
-        demandDeposits = PLN(301e6),
-        termDeposits = PLN(302e6),
-        loans = PLN(303e6),
-        consumerLoans = PLN(304e6),
-        afsBonds = PLN(305e6),
-        htmBonds = PLN(306e6),
-        reservesAtNbp = PLN(307e6),
-        interbankNet = PLN(308e6),
-        capital = PLN(310e6),
-        nplAmount = PLN(311e6),
-        consumerNpl = PLN(312e6),
-        loansShort = PLN(313e6),
-        loansMedium = PLN(314e6),
-        loansLong = PLN(315e6),
-      ),
+      base.banks.head
+        .withFinancial(
+          _.copy(
+            totalDeposits = PLN(603e6),
+            demandDeposit = PLN(301e6),
+            termDeposit = PLN(302e6),
+            firmLoan = PLN(303e6),
+            consumerLoan = PLN(304e6),
+            govBondAfs = PLN(305e6),
+            govBondHtm = PLN(306e6),
+            reserve = PLN(307e6),
+            interbankLoan = PLN(308e6),
+          ),
+        )
+        .copy(
+          capital = PLN(310e6),
+          nplAmount = PLN(311e6),
+          consumerNpl = PLN(312e6),
+          loansShort = PLN(313e6),
+          loansMedium = PLN(314e6),
+          loansLong = PLN(315e6),
+        ),
     )
 
     val firmBalances = LedgerFinancialState
-      .refreshFirmFinancialBalances(firms.map(Firm.FinancialBalances.fromState), base.ledgerFinancialState.firms)
-      .updated(0, LedgerFinancialState.firmBalances(Firm.FinancialBalances.fromState(firms.head), corpBond = PLN(103e6)))
-    val bankBalances = LedgerFinancialState
-      .refreshBankFinancialBalances(
-        banks.map: bank =>
-          Banking.FinancialBalances.fromState(
-            bank,
-            corpBond = base.ledgerFinancialState.banks.lift(bank.id.toInt).fold(PLN.Zero)(_.corpBond),
-          ),
-      )
-      .updated(0, LedgerFinancialState.bankBalances(Banking.FinancialBalances.fromState(banks.head, corpBond = PLN(309e6))))
+      .refreshFirmFinancialBalances(firmStocks, base.ledgerFinancialState.firms)
+      .updated(0, LedgerFinancialState.firmBalances(firmStocks.head, corpBond = PLN(103e6)))
+    val bankBalances = banks
+      .map: bank =>
+        LedgerFinancialState.bankBalances(bank.financial, corpBond = base.ledgerFinancialState.banks.lift(bank.id.toInt).fold(PLN.Zero)(_.corpBond))
+      .updated(0, LedgerFinancialState.bankBalances(banks.head.financial, corpBond = PLN(309e6)))
 
     val ledgerFinancialState = base.ledgerFinancialState.copy(
-      households = households.map(Household.FinancialBalances.fromState).map(LedgerFinancialState.householdBalances),
+      households = base.ledgerFinancialState.households.updated(
+        0,
+        LedgerFinancialState.HouseholdBalances(
+          demandDeposit = PLN(201e6),
+          mortgageLoan = PLN(202e6),
+          consumerLoan = PLN(203e6),
+          equity = PLN(204e6),
+        ),
+      ),
       firms = firmBalances,
       banks = bankBalances,
-      government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = world.gov.bondsOutstanding),
-      foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = world.gov.foreignBondHoldings),
+      government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = PLN(777e6)),
+      foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = PLN(778e6)),
       nbp = LedgerFinancialState.NbpBalances(
-        govBondHoldings = world.nbp.govBondHoldings,
-        foreignAssets = world.nbp.fxReserves,
+        govBondHoldings = PLN(88e6),
+        foreignAssets = PLN(99e6),
       ),
       funds = base.ledgerFinancialState.funds.copy(
-        zusCash = world.social.zus.fusBalance,
-        nfzCash = world.social.nfz.balance,
-        ppkGovBondHoldings = world.social.ppk.bondHoldings,
-        fpCash = world.social.earmarked.fpBalance,
-        pfronCash = world.social.earmarked.pfronBalance,
-        fgspCash = world.social.earmarked.fgspBalance,
-        jstCash = world.social.jst.deposits,
+        zusCash = PLN(11e6),
+        nfzCash = PLN(12e6),
+        ppkGovBondHoldings = PLN(13e6),
+        fpCash = PLN(14e6),
+        pfronCash = PLN(15e6),
+        fgspCash = PLN(16e6),
+        jstCash = PLN(10e6),
         quasiFiscal = LedgerFinancialState.quasiFiscalBalances(
           QuasiFiscal.StockState(
             bondsOutstanding = PLN(28e6),

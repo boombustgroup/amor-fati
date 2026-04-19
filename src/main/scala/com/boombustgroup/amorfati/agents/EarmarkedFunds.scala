@@ -19,17 +19,16 @@ import com.boombustgroup.amorfati.types.*
   *      payouts spike during bankruptcy waves. ~0.5 mld PLN/year base, 10×
   *      during COVID (Tarcze). Calibration: FGŚP annual reports.
   *
-  * Each fund: contributions from payroll → spending on purpose →
-  * surplus/deficit. Deficit covered by government subvention. These balances
-  * belong to public cash-identity semantics, not to government debt metrics.
+  * Each fund: contributions from payroll → spending on purpose. Deficit covered
+  * by government subvention. Fund cash balances are owned by
+  * `LedgerFinancialState`, not by this monthly flow state.
   *
   * Pure functions. Called from LaborDemographicsStep alongside ZUS/NFZ.
   */
 object EarmarkedFunds:
 
-  /** State of all three earmarked funds. */
+  /** Monthly flow state for a single earmarked fund. */
   case class FundState(
-      balance: PLN,
       contributions: PLN,
       spending: PLN,
   )
@@ -40,32 +39,26 @@ object EarmarkedFunds:
       fgsp: FundState,
       totalGovSubvention: PLN, // government covers combined deficit
   ):
-    def fpBalance: PLN          = fp.balance
     def fpContributions: PLN    = fp.contributions
     def fpSpending: PLN         = fp.spending
-    def pfronBalance: PLN       = pfron.balance
     def pfronContributions: PLN = pfron.contributions
     def pfronSpending: PLN      = pfron.spending
-    def fgspBalance: PLN        = fgsp.balance
     def fgspContributions: PLN  = fgsp.contributions
     def fgspSpending: PLN       = fgsp.spending
   object State:
     def apply(
-        fpBalance: PLN,
         fpContributions: PLN,
         fpSpending: PLN,
-        pfronBalance: PLN,
         pfronContributions: PLN,
         pfronSpending: PLN,
-        fgspBalance: PLN,
         fgspContributions: PLN,
         fgspSpending: PLN,
         totalGovSubvention: PLN,
     ): State =
       State(
-        fp = FundState(fpBalance, fpContributions, fpSpending),
-        pfron = FundState(pfronBalance, pfronContributions, pfronSpending),
-        fgsp = FundState(fgspBalance, fgspContributions, fgspSpending),
+        fp = FundState(fpContributions, fpSpending),
+        pfron = FundState(pfronContributions, pfronSpending),
+        fgsp = FundState(fgspContributions, fgspSpending),
         totalGovSubvention = totalGovSubvention,
       )
 
@@ -77,16 +70,28 @@ object EarmarkedFunds:
       PLN.Zero,
       PLN.Zero,
       PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
     )
 
-  /** Monthly step: compute contributions, spending, balances for all three
-    * funds.
+  def fpCashChange(state: State): PLN =
+    state.fpContributions - state.fpSpending
+
+  def pfronCashChange(state: State): PLN =
+    state.pfronContributions - state.pfronSpending
+
+  def fgspCashChange(state: State): PLN =
+    state.fgspContributions - state.fgspSpending
+
+  def fpCashAfter(openingCash: PLN, state: State): PLN =
+    openingCash + fpCashChange(state)
+
+  def pfronCashAfter(openingCash: PLN, state: State): PLN =
+    openingCash + pfronCashChange(state)
+
+  def fgspCashAfter(openingCash: PLN, state: State): PLN =
+    openingCash + fgspCashChange(state)
+
+  /** Monthly step: compute contributions and spending for all three funds.
     *
-    * @param prev
-    *   previous state (balances carried forward)
     * @param employed
     *   total employed workers
     * @param wage
@@ -99,7 +104,6 @@ object EarmarkedFunds:
     *   average workers per bankrupt firm
     */
   def step(
-      prev: State,
       employed: Int,
       wage: PLN,
       unempBenefitSpend: PLN,
@@ -125,13 +129,10 @@ object EarmarkedFunds:
     val fgspSubv    = if fgspFlow < PLN.Zero then -fgspFlow else PLN.Zero
 
     State(
-      fpBalance = prev.fpBalance + fpFlow,
       fpContributions = fpContrib,
       fpSpending = fpSpend,
-      pfronBalance = prev.pfronBalance + pfronFlow,
       pfronContributions = pfronContrib,
       pfronSpending = pfronSpend,
-      fgspBalance = prev.fgspBalance + fgspFlow,
       fgspContributions = fgspContrib,
       fgspSpending = fgspSpend,
       totalGovSubvention = fpSubv + pfronSubv + fgspSubv,

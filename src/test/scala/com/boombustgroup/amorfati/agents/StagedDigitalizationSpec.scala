@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
@@ -20,7 +22,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   // ---- Helpers ----
 
   private def mkFirm(tech: TechState, sector: Int = 2, cash: Double = 500000.0, dr: Double = 0.5): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       PLN(cash),
       PLN.Zero,
@@ -40,6 +42,9 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       accumulatedLoss = PLN.Zero,
     )
 
+  private def mkStocks(cash: Double = 500000.0, debt: PLN = PLN.Zero, equity: PLN = PLN.Zero): Firm.FinancialStocks =
+    TestFirmState.financial(cash = PLN(cash), debt = debt, equityRaised = equity)
+
   private def mkWorld(autoRatio: Double = 0.0, hybridRatio: Double = 0.0): World =
     Generators.testWorld(
       totalPopulation = 100000,
@@ -57,9 +62,11 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       bankCanLend: PLN => Boolean,
       allFirms: Vector[Firm.State],
       rng: RandomStream,
+      financialStocks: Firm.FinancialStocks = mkStocks(),
   ): Firm.Result =
     Firm.process(
       firm,
+      financialStocks,
       world,
       ExecutionMonth31,
       OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack),
@@ -142,7 +149,11 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     // concurrently. Run enough rounds for DR to increase above drift baseline.
     val rng        = RandomStream.seeded(42)
     var f1         = f
-    for _ <- 0 until 200 do f1 = process(f1, w, Rate(0.07), _ => false, Vector(f1), rng).firm
+    var stocks     = mkStocks(cash = 1e9)
+    for _ <- 0 until 200 do
+      val result = process(f1, w, Rate(0.07), _ => false, Vector(f1), rng, stocks)
+      f1 = result.firm
+      stocks = result.financialStocks
     assume(Firm.isAlive(f1), "firm must survive processing")
     // DR should have increased from digital investment (beyond just drift)
     val drIncrease = td.toDouble(f1.digitalReadiness) - td.toDouble(f.digitalReadiness)
@@ -157,7 +168,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     val rng      = RandomStream.seeded(42L)
     // Over many trials, no investment should happen (only drift)
     for _ <- 0 until 100 do
-      val result = process(f, w, Rate(0.07), _ => false, Vector(f), rng)
+      val result = process(f, w, Rate(0.07), _ => false, Vector(f), rng, mkStocks(cash = digiCost * 0.5))
       // DR should be at most initial + drift (no investment boost)
       // But net income is added to cash, so firm may become solvent enough
       // Just verify no investment boost beyond drift
@@ -204,11 +215,14 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "Traditional firms" should "accumulate DR over multiple months via drift" in {
     val initDR = 0.30
     var f      = mkFirm(TechState.Traditional(10), cash = 1000000.0, dr = initDR)
+    var stocks = mkStocks(cash = 1000000.0)
     val w      = mkWorld()
     val rng    = RandomStream.seeded(42L)
     // Simulate 10 months — at minimum, drift alone adds 10 × 0.001 = 0.01
     for _ <- 0 until 10 do
-      val result = process(f, w, Rate(0.07), _ => false, Vector(f), rng)
-      if Firm.isAlive(result.firm) then f = result.firm.copy(cash = PLN(1000000.0)) // reset cash for next round
+      val result = process(f, w, Rate(0.07), _ => false, Vector(f), rng, financialStocks = stocks)
+      if Firm.isAlive(result.firm) then
+        f = result.firm
+        stocks = result.financialStocks.copy(cash = PLN(1000000.0)) // reset cash for next round
     td.toDouble(f.digitalReadiness) should be >= (initDR + 10 * td.toDouble(p.firm.digiDrift) - 0.001)
   }

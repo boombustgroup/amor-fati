@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
@@ -97,7 +99,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   private def mkFirm(tech: TechState = TechState.Traditional(10)): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       PLN(50000.0),
       PLN.Zero,
@@ -277,7 +279,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   "Bankrupt firm" should "have zero inventory" in {
     val f = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))
-      .copy(cash = PLN(-1000.0), debt = PLN(50000.0), inventory = PLN(5000.0))
+      .copy(inventory = PLN(5000.0))
     // applyInventory should zero out inventory for bankrupt firms
     Firm.isAlive(f) shouldBe false
   }

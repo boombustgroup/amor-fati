@@ -28,22 +28,24 @@ object Generators:
       val bankBonds = totalGovBonds * cfg.initMarketShare
       Banking.BankState(
         id = cfg.id,
-        deposits = totalDeposits * cfg.initMarketShare,
-        loans = totalLoans * cfg.initMarketShare,
+        financial = Banking.BankFinancialStocks(
+          totalDeposits = totalDeposits * cfg.initMarketShare,
+          firmLoan = totalLoans * cfg.initMarketShare,
+          govBondAfs = bankBonds * (Share.One - p.banking.htmShare),
+          govBondHtm = bankBonds * p.banking.htmShare,
+          reserve = PLN.Zero,
+          interbankLoan = PLN.Zero,
+          demandDeposit = PLN.Zero,
+          termDeposit = PLN.Zero,
+          consumerLoan = totalConsumerLoans * cfg.initMarketShare,
+        ),
         capital = totalCapital * cfg.initMarketShare,
         nplAmount = PLN.Zero,
-        afsBonds = bankBonds * (Share.One - p.banking.htmShare),
-        htmBonds = bankBonds * p.banking.htmShare,
         htmBookYield = p.banking.initHtmBookYield,
-        reservesAtNbp = PLN.Zero,
-        interbankNet = PLN.Zero,
         status = Banking.BankStatus.Active(0),
-        demandDeposits = PLN.Zero,
-        termDeposits = PLN.Zero,
         loansShort = PLN.Zero,
         loansMedium = PLN.Zero,
         loansLong = PLN.Zero,
-        consumerLoans = totalConsumerLoans * cfg.initMarketShare,
         consumerNpl = PLN.Zero,
       )
     Banking.State(banks, Rate.Zero, configs, None)
@@ -106,7 +108,7 @@ object Generators:
       marketWage: PLN = PLN(8000),
       reservationWage: PLN = PLN(4666),
       gov: FiscalBudget.GovState = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      nbp: Nbp.State = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
+      nbp: Nbp.State = Nbp.State(Rate(0.0575), false, PLN.Zero, PLN.Zero),
       bankingSector: Banking.MarketState = Banking.MarketState(Rate.Zero, Banking.DefaultConfigs, None),
       forex: OpenEconomy.ForexState = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       social: SocialState = SocialState.zero,
@@ -216,7 +218,7 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm.State(
+  yield TestFirmState(
     FirmId(id),
     PLN(cash),
     PLN(debt),
@@ -248,7 +250,7 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm.State(
+  yield TestFirmState(
     FirmId(id),
     PLN(cash),
     PLN(debt),
@@ -294,7 +296,6 @@ object Generators:
     deficit     <- Gen.choose(-1e9, 1e9)
     cumDebt     <- Gen.choose(0.0, 1e10)
     unempBen    <- Gen.choose(0.0, 1e8)
-    bondsOut    <- Gen.choose(0.0, 1e10)
     bondYield   <- Gen.choose(0.0, 0.15)
     debtService <- Gen.choose(0.0, 1e8)
   yield FiscalBudget.GovState(
@@ -302,8 +303,6 @@ object Generators:
     PLN(deficit),
     PLN(cumDebt),
     PLN(unempBen),
-    PLN(bondsOut),
-    PLN.Zero,        // foreignBondHoldings
     Rate(bondYield),
     Rate(bondYield), // weightedCoupon starts at market yield
     PLN(debtService),
@@ -380,7 +379,7 @@ object Generators:
     bankId  <- Gen.choose(0, 6)
     eqW     <- Gen.choose(0.0, 100000.0)
     lastSec <- Gen.choose(-1, 5)
-  yield Household.State(
+  yield TestHouseholdState(
     HhId(id),
     PLN(savings),
     PLN(debt),
@@ -425,7 +424,7 @@ object Generators:
     marketWage = PLN(wage),
     reservationWage = PLN(resWage),
     gov = gov,
-    nbp = Nbp.State(Rate(rate), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
+    nbp = Nbp.State(Rate(rate), false, PLN.Zero, PLN.Zero),
     forex = forex,
     real = RealState.zero.copy(automationRatio = Share(autoR), hybridRatio = Share(hybR)),
   )
@@ -642,12 +641,10 @@ object Generators:
 
   val genNbpState: Gen[Nbp.State] = for
     rate     <- genRate
-    bonds    <- Gen.choose(0.0, 1e10)
     qeActive <- Gen.oneOf(true, false)
     qeCum    <- Gen.choose(0.0, 1e10)
-    fxRes    <- Gen.choose(0.0, 1e11)
     lastFx   <- Gen.choose(-1e9, 1e9)
-  yield Nbp.State(Rate(rate), PLN(bonds), qeActive, PLN(qeCum), PLN(fxRes), PLN(lastFx))
+  yield Nbp.State(Rate(rate), qeActive, PLN(qeCum), PLN(lastFx))
 
   // --- I-O matrix generator ---
 
@@ -705,22 +702,24 @@ object Generators:
       lowCar   <- Gen.choose(0, 5)
     yield Banking.BankState(
       id = BankId(id),
-      deposits = PLN(deposits),
-      loans = PLN(loans),
+      financial = Banking.BankFinancialStocks(
+        totalDeposits = PLN(deposits),
+        firmLoan = PLN(loans),
+        govBondAfs = PLN(bonds * (1.0 - htmFrac)),
+        govBondHtm = PLN(bonds * htmFrac),
+        reserve = PLN(reserves),
+        interbankLoan = PLN(ibNet),
+        demandDeposit = PLN.Zero,
+        termDeposit = PLN.Zero,
+        consumerLoan = PLN.Zero,
+      ),
       capital = PLN(capital),
       nplAmount = PLN(loans * nplFrac),
-      afsBonds = PLN(bonds * (1.0 - htmFrac)),
-      htmBonds = PLN(bonds * htmFrac),
       htmBookYield = Rate(bookYld),
-      reservesAtNbp = PLN(reserves),
-      interbankNet = PLN(ibNet),
       status = if failed then Banking.BankStatus.Failed(SimulationMonth.ExecutionMonth(30)) else Banking.BankStatus.Active(lowCar),
-      demandDeposits = PLN.Zero,
-      termDeposits = PLN.Zero,
       loansShort = PLN.Zero,
       loansMedium = PLN.Zero,
       loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
     )
 

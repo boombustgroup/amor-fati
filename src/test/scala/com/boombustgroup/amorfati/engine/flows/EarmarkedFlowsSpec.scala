@@ -21,7 +21,6 @@ class EarmarkedFlowsSpec extends AnyFlatSpec with Matchers:
     val unempBenefit = PLN(1000000.0); val nBankrupt = 10; val avgWorkers = 15
 
     val oldState = com.boombustgroup.amorfati.agents.EarmarkedFunds.step(
-      com.boombustgroup.amorfati.agents.EarmarkedFunds.State.zero,
       employed,
       wage,
       unempBenefit,

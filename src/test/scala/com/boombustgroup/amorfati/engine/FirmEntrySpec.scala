@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
@@ -23,9 +25,11 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       inflation: Rate = Rate.Zero,
       expectedInflation: Rate = Rate.Zero,
       startupAbsorptionRate: Share = Share.One,
+      financialStocks: Vector[Firm.FinancialStocks] = Vector.empty,
   ): FirmEntry.Result =
     FirmEntry.process(
       firms,
+      if financialStocks.nonEmpty then financialStocks else defaultFinancialStocks(firms),
       Share.Zero,
       Share.Zero,
       FirmEntry.LaggedEntrySignals(
@@ -37,6 +41,9 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       ),
       rng,
     )
+
+  private def defaultFinancialStocks(firms: Vector[Firm.State]): Vector[Firm.FinancialStocks] =
+    firms.map(_ => TestFirmState.financial(cash = PLN(100000.0)))
 
   // ==========================================================================
   // Config defaults
@@ -120,7 +127,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have zero debt" in {
-    val entrant = Firm.State(
+    val entrant = TestFirmState.fixture(
       id = FirmId(0),
       cash = PLN(50000.0),
       debt = PLN.Zero,
@@ -139,7 +146,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
-    entrant.debt shouldBe PLN.Zero
+    entrant.financialStocks.firmLoan shouldBe PLN.Zero
   }
 
   it should "have positive startup cash" in {
@@ -149,7 +156,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be alive" in {
-    val entrant = Firm.State(
+    val entrant = TestFirmState(
       id = FirmId(0),
       cash = PLN(50000.0),
       debt = PLN.Zero,
@@ -259,7 +266,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     // When households.isDefined, startWorkers = 0
     val tech = TechState.Traditional(0)
     Firm.workerCount(
-      Firm.State(
+      TestFirmState(
         id = FirmId(0),
         cash = PLN(50000.0),
         debt = PLN.Zero,
@@ -334,7 +341,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n)
       .map: i =>
-        Firm.State(
+        TestFirmState(
           id = FirmId(i),
           cash = PLN(100000.0),
           debt = PLN.Zero,
@@ -356,7 +363,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       .toVector
 
   private def mkDeadFirm(id: Int, sector: Int = 2): Firm.State =
-    Firm.State(
+    TestFirmState(
       id = FirmId(id),
       cash = PLN(-1.0),
       debt = PLN.Zero,

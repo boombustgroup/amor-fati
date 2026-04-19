@@ -74,8 +74,10 @@ object HouseholdIncomeEconomics:
     val eqReturn      = w.financialMarkets.equity.monthlyReturn
     val secWages      = Some(SectoralMobility.sectorWages(afterWages))
     val secVacancies  = Some(SectoralMobility.sectorVacancies(afterWages, firms))
+    val openingStocks = ledgerFinancialState.households.map(LedgerFinancialState.householdFinancialStocks)
     val householdStep = Household.step(
       afterWages,
+      openingStocks,
       w,
       newWage,
       resWage,
@@ -100,5 +102,5 @@ object HouseholdIncomeEconomics:
       agg.totalPit,
       importAdj,
       aggUnempBenefit = PLN.Zero,
-      ledgerFinancialState = ledgerFinancialState.copy(households = householdStep.financialBalances.map(LedgerFinancialState.householdBalances)),
+      ledgerFinancialState = ledgerFinancialState.copy(households = householdStep.financialStocks.map(LedgerFinancialState.householdBalances)),
     )

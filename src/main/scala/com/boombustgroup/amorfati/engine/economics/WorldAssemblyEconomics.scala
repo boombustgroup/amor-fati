@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.agents.RegionalMigration
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
-import com.boombustgroup.amorfati.engine.ledger.{LedgerBoundaryProjection, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, LaborMarket}
 import com.boombustgroup.amorfati.engine.mechanisms.{FirmEntry, InformalEconomy, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
@@ -87,9 +87,11 @@ object WorldAssemblyEconomics:
 
     val newW = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
 
-    val postFdiFirms = applyFdiMa(in.s9.reassignedFirms, randomness.fdiMa)
-    val entryStep    = FirmEntry.process(
+    val postFdiFirms               = applyFdiMa(in.s9.reassignedFirms, randomness.fdiMa)
+    val postFdiFirmFinancialStocks = in.s9.ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks)
+    val entryStep                  = FirmEntry.process(
       postFdiFirms,
+      postFdiFirmFinancialStocks,
       newW.real.automationRatio,
       newW.real.hybridRatio,
       FirmEntry.LaggedEntrySignals.fromDecisionSignals(seedIn),
@@ -114,7 +116,7 @@ object WorldAssemblyEconomics:
       regionalWages = in.s2.regionalWages,
     )
     val finalLedgerFinancialState = in.s9.ledgerFinancialState.copy(
-      firms = LedgerFinancialState.refreshFirmPopulationBalances(finalFirms, in.s9.ledgerFinancialState.firms, entryStep.newFirmIds),
+      firms = LedgerFinancialState.refreshFirmPopulationBalances(entryStep.financialStocks, in.s9.ledgerFinancialState.firms, entryStep.newFirmIds),
     )
     PostResult(
       finalW,
@@ -224,6 +226,7 @@ object WorldAssemblyEconomics:
         else Share.One
       val hhAgg                 = Household.computeAggregates(
         postWages,
+        in.s9.ledgerFinancialState.households.map(LedgerFinancialState.householdFinancialStocks),
         in.s2.newWage,
         in.s1.resWage,
         in.s3.importAdj,
@@ -261,37 +264,30 @@ object WorldAssemblyEconomics:
       informal: InformalResult,
       obs: Observables,
   ): World =
-    val ledgerFinancialState = in.s9.ledgerFinancialState
-    val projectedSocial      = LedgerBoundaryProjection.socialState(
-      SocialState(
-        jst = in.s9.newJst,
-        zus = in.s2.newZus,
-        nfz = in.s2.newNfz,
-        ppk = in.s9.finalPpk,
-        demographics = in.s2.newDemographics,
-        earmarked = in.s2.newEarmarked,
-      ),
-      ledgerFinancialState,
+    val social = SocialState(
+      jst = in.s9.newJst,
+      zus = in.s2.newZus,
+      nfz = in.s2.newNfz,
+      ppk = in.s9.finalPpk,
+      demographics = in.s2.newDemographics,
+      earmarked = in.s2.newEarmarked,
     )
-    val world                = World(
+    val world  = World(
       inflation = in.s7.newInfl,
       priceLevel = in.s7.newPrice,
       currentSigmas = in.s7.newSigmas,
-      gov = LedgerBoundaryProjection.govState(
-        in.s9.newGovWithYield.copy(
-          policy = in.s9.newGovWithYield.policy.copy(
-            minWageLevel = in.s1.baseMinWage,
-            minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
-          ),
+      gov = in.s9.newGovWithYield.copy(
+        policy = in.s9.newGovWithYield.policy.copy(
+          minWageLevel = in.s1.baseMinWage,
+          minWagePriceLevel = in.s1.updatedMinWagePriceLevel,
         ),
-        ledgerFinancialState,
       ),
-      nbp = LedgerBoundaryProjection.nbpState(in.s9.finalNbp, ledgerFinancialState),
+      nbp = in.s9.finalNbp,
       bankingSector = in.s9.bankingMarket,
       forex = in.s8.external.newForex,
       bop = in.s8.external.newBop,
       householdMarket = HouseholdMarketState.fromAggregates(in.s9.finalHhAgg),
-      social = projectedSocial,
+      social = social,
       financialMarkets = FinancialMarketsState(
         equity = equityAfterStep,
         corporateBonds = in.s8.corpBonds.newCorpBonds,

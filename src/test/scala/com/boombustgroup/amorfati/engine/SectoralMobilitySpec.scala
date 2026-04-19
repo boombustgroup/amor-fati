@@ -1,5 +1,9 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
@@ -169,7 +173,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
     }.toVector
 
   private def mkFirm(id: Int, sector: Int, tech: TechState): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(id),
       PLN(50000.0),
       PLN.Zero,
@@ -195,7 +199,7 @@ class SectoralMobilitySpec extends AnyFlatSpec with Matchers:
       skill: Double = 0.7,
       healthPenalty: Double = 0.0,
   ): Household.State =
-    Household.State(
+    TestHouseholdState(
       HhId(id),
       PLN(20000.0),
       PLN.Zero,

@@ -54,38 +54,18 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     w.gov.domesticBudgetOutlays.should(be >= w.gov.domesticBudgetDemand)
   }
 
-  it should "project remaining LedgerFinancialState boundary mirrors after assembly" in {
-    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state     = FlowSimulation.SimState.fromInit(init)
-    val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
-    val ledger    = nextState.ledgerFinancialState
-    val world     = nextState.world
-
-    world.gov.bondsOutstanding shouldBe ledger.government.govBondOutstanding
-    world.gov.foreignBondHoldings shouldBe ledger.foreign.govBondHoldings
-    world.nbp.govBondHoldings shouldBe ledger.nbp.govBondHoldings
-    world.nbp.fxReserves shouldBe ledger.nbp.foreignAssets
-    world.social.jst.deposits shouldBe ledger.funds.jstCash
-  }
-
   it should "carry supported financial stocks through stage-owned ledger updates" in {
     val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state     = FlowSimulation.SimState.fromInit(init)
     val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
     val ledger    = nextState.ledgerFinancialState
 
+    ledger.households.length shouldBe nextState.households.length
     nextState.households.foreach: household =>
-      val balances = ledger.households(household.id.toInt)
-      balances.demandDeposit shouldBe household.savings
-      balances.mortgageLoan shouldBe household.debt
-      balances.consumerLoan shouldBe household.consumerDebt
-      balances.equity shouldBe household.equityWealth
+      ledger.households.isDefinedAt(household.id.toInt) shouldBe true
 
     nextState.firms.foreach: firm =>
-      val balances = ledger.firms(firm.id.toInt)
-      balances.cash shouldBe firm.cash
-      balances.firmLoan shouldBe firm.debt
-      balances.equity shouldBe firm.equityRaised
+      ledger.firms.isDefinedAt(firm.id.toInt) shouldBe true
 
     nextState.banks.foreach: bank =>
       val balances = ledger.banks(bank.id.toInt)

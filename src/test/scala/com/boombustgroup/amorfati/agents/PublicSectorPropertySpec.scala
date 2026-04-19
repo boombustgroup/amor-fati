@@ -15,8 +15,8 @@ class PublicSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     PropertyCheckConfiguration(minSuccessful = 200)
 
   "PPK bond purchase" should "be non-negative" in
-    forAll(Gen.choose(0.0, 1e10), Gen.choose(0.0, 1e8)) { (holdings, contributions) =>
-      val ppk = SocialSecurity.PpkState(PLN(holdings), PLN(contributions))
+    forAll(Gen.choose(0.0, 1e8)) { contributions =>
+      val ppk = SocialSecurity.PpkState(PLN(contributions))
       SocialSecurity.ppkBondPurchase(ppk) should be >= PLN.Zero
     }
 

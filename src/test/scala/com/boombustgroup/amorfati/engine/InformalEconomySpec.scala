@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
@@ -105,7 +107,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   private def mkFirm(tech: TechState = TechState.Traditional(10), cash: PLN = PLN(50000.0)): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       cash,
       PLN.Zero,
