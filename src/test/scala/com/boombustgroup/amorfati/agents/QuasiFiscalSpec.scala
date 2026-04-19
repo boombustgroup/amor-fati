@@ -14,13 +14,12 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
   private val euCapital  = PLN(2e9)
 
   private def step(
-      state: QuasiFiscal.State = QuasiFiscal.State.zero,
       stock: QuasiFiscal.StockState = QuasiFiscal.StockState.zero,
       govCapitalSpend: PLN = govCapital,
       euProjectCapital: PLN = euCapital,
       nbpQeActive: Boolean = false,
   ): QuasiFiscal.StepResult =
-    QuasiFiscal.step(state, stock, govCapitalSpend, euProjectCapital, nbpQeActive)
+    QuasiFiscal.step(stock, govCapitalSpend, euProjectCapital, nbpQeActive)
 
   "QuasiFiscal.step" should "issue bonds proportional to gov capital spending" in {
     val result = step()
@@ -31,12 +30,12 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
   it should "route NBP purchases when QE active" in {
     val withQe    = step(nbpQeActive = true)
     val withoutQe = step(nbpQeActive = false)
-    td.toDouble(withQe.state.nbpHoldings) should be > td.toDouble(withoutQe.state.nbpHoldings)
+    td.toDouble(withQe.stock.nbpHoldings) should be > td.toDouble(withoutQe.stock.nbpHoldings)
   }
 
   it should "have zero NBP holdings when QE inactive" in {
     val result = step(nbpQeActive = false)
-    result.state.nbpHoldings shouldBe PLN.Zero
+    result.stock.nbpHoldings shouldBe PLN.Zero
   }
 
   it should "grow loan portfolio with lending" in {
@@ -46,7 +45,7 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
 
   it should "maintain bond clearing (outstanding = bank + nbp)" in {
     val result  = step(nbpQeActive = true)
-    val holders = td.toDouble(result.state.bankHoldings) + td.toDouble(result.state.nbpHoldings)
+    val holders = td.toDouble(result.stock.bankHoldings) + td.toDouble(result.stock.nbpHoldings)
     holders shouldBe td.toDouble(result.stock.bondsOutstanding) +- 1.0
   }
 
@@ -54,7 +53,6 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
     val m1 = step(nbpQeActive = false)
     // Run with zero new issuance — bonds should decline
     val m2 = step(
-      state = m1.state,
       stock = m1.stock,
       govCapitalSpend = PLN.Zero,
       euProjectCapital = PLN.Zero,

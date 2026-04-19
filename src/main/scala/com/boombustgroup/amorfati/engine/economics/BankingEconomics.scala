@@ -200,7 +200,6 @@ object BankingEconomics:
 
     val quasiFiscalStep =
       QuasiFiscal.step(
-        in.w.financialMarkets.quasiFiscal,
         LedgerFinancialState.quasiFiscalStock(in.ledgerFinancialState),
         govJst.newGovWithYield.govCapitalSpend,
         govJst.newGovWithYield.euCofinancing,

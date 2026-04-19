@@ -204,12 +204,16 @@ object LedgerFinancialState:
     QuasiFiscal.StockState(
       bondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
       loanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
+      bankHoldings = ledgerFinancialState.funds.quasiFiscal.bankHoldings,
+      nbpHoldings = ledgerFinancialState.funds.quasiFiscal.nbpHoldings,
     )
 
   def quasiFiscalBalances(quasiFiscal: QuasiFiscal.StockState): QuasiFiscalBalances =
     QuasiFiscalBalances(
       bondsOutstanding = quasiFiscal.bondsOutstanding,
       loanPortfolio = quasiFiscal.loanPortfolio,
+      bankHoldings = quasiFiscal.bankHoldings,
+      nbpHoldings = quasiFiscal.nbpHoldings,
     )
 
   def nbpBalances(stocks: Nbp.FinancialStocks): NbpBalances =
@@ -353,6 +357,10 @@ object LedgerFinancialState:
       bondsOutstanding: PLN,
       /** Loan portfolio owned by quasi-fiscal vehicles. */
       loanPortfolio: PLN,
+      /** Quasi-fiscal bonds held by commercial banks. */
+      bankHoldings: PLN = PLN.Zero,
+      /** Quasi-fiscal bonds held by the NBP. */
+      nbpHoldings: PLN = PLN.Zero,
   )
 
   /** Ledger-backed financial balances for non-agent public and fund buckets.

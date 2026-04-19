@@ -92,7 +92,7 @@ case class FinancialMarketsState(
     corporateBonds: CorporateBondMarket.State, // Catalyst pricing and last-month diagnostics
     insurance: Insurance.State,                // monthly premium, claims, investment-income diagnostics
     nbfi: Nbfi.State,                          // monthly TFI/NBFI origination, defaults, deposit-drain diagnostics
-    quasiFiscal: QuasiFiscal.State,            // unsupported holder split plus monthly issuance/lending diagnostics
+    quasiFiscal: QuasiFiscal.State,            // quasi-fiscal monthly issuance/lending diagnostics
 )
 object FinancialMarketsState:
   val zero: FinancialMarketsState = FinancialMarketsState(

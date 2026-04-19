@@ -35,21 +35,23 @@ object QuasiFiscal:
 
   /** Ledger-owned quasi-fiscal stock balances. */
   case class StockState(
-      bondsOutstanding: PLN, // total BGK/PFR bonds outstanding
-      loanPortfolio: PLN,    // outstanding subsidized loans to firms/JST
+      bondsOutstanding: PLN,        // total BGK/PFR bonds outstanding
+      loanPortfolio: PLN,           // outstanding subsidized loans to firms/JST
+      bankHoldings: PLN = PLN.Zero, // commercial bank holdings of quasi-fiscal bonds
+      nbpHoldings: PLN = PLN.Zero,  // NBP holdings of quasi-fiscal bonds
   )
   object StockState:
     val zero: StockState = StockState(PLN.Zero, PLN.Zero)
 
-  /** Quasi-fiscal market memory and unsupported holder split. */
+  /** Quasi-fiscal monthly market memory. Bond and loan stocks are owned by
+    * LedgerFinancialState.
+    */
   case class State(
-      bankHoldings: PLN,    // commercial bank holdings of quasi-fiscal bonds
-      nbpHoldings: PLN,     // NBP holdings of quasi-fiscal bonds
       monthlyIssuance: PLN, // this month's new bond issuance
       monthlyLending: PLN,  // this month's new lending
   )
   object State:
-    val zero: State = State(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val zero: State = State(PLN.Zero, PLN.Zero)
 
   case class StepResult(
       state: State,
@@ -64,7 +66,6 @@ object QuasiFiscal:
     * credit.
     */
   def step(
-      prev: State,
       prevStock: StockState,
       govCapitalSpend: PLN,
       euProjectCapital: PLN,
@@ -92,30 +93,30 @@ object QuasiFiscal:
     val newLoanPortfolio: PLN = (prevStock.loanPortfolio + lendingGrowth - lendingAmort).max(PLN.Zero)
 
     val newOutstanding: PLN  = (prevStock.bondsOutstanding + issuance - amortization).max(PLN.Zero)
-    val newBankHoldings: PLN = (prev.bankHoldings + bankPurchase - amortization * bankShareOf(prev, prevStock)).max(PLN.Zero)
-    val newNbpHoldings: PLN  = (prev.nbpHoldings + nbpPurchase - amortization * nbpShareOf(prev, prevStock)).max(PLN.Zero)
+    val newBankHoldings: PLN = (prevStock.bankHoldings + bankPurchase - amortization * bankShareOf(prevStock)).max(PLN.Zero)
+    val newNbpHoldings: PLN  = (prevStock.nbpHoldings + nbpPurchase - amortization * nbpShareOf(prevStock)).max(PLN.Zero)
 
     StepResult(
       state = State(
-        bankHoldings = newBankHoldings,
-        nbpHoldings = newNbpHoldings,
         monthlyIssuance = issuance,
         monthlyLending = lendingGrowth,
       ),
       stock = StockState(
         bondsOutstanding = newOutstanding,
         loanPortfolio = newLoanPortfolio,
+        bankHoldings = newBankHoldings,
+        nbpHoldings = newNbpHoldings,
       ),
     )
 
   /** Bank share of outstanding (for amortization split). */
-  private def bankShareOf(s: State, stock: StockState): Share =
-    if stock.bondsOutstanding > PLN.Zero then Share(s.bankHoldings / stock.bondsOutstanding).clamp(Share.Zero, Share.One)
+  private def bankShareOf(stock: StockState): Share =
+    if stock.bondsOutstanding > PLN.Zero then Share(stock.bankHoldings / stock.bondsOutstanding).clamp(Share.Zero, Share.One)
     else Share(0.5)
 
   /** NBP share of outstanding (for amortization split). */
-  private def nbpShareOf(s: State, stock: StockState): Share =
-    if stock.bondsOutstanding > PLN.Zero then Share(s.nbpHoldings / stock.bondsOutstanding).clamp(Share.Zero, Share.One)
+  private def nbpShareOf(stock: StockState): Share =
+    if stock.bondsOutstanding > PLN.Zero then Share(stock.nbpHoldings / stock.bondsOutstanding).clamp(Share.Zero, Share.One)
     else Share(0.5)
 
   /** ESA 2010 debt: MF debt + quasi-fiscal outstanding. */

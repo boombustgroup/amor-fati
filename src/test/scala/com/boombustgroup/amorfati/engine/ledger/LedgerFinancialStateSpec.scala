@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Nbp}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Nbp, QuasiFiscal}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
@@ -154,5 +154,23 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
     LedgerFinancialState.nbpBalances(stocks) shouldBe LedgerFinancialState.NbpBalances(
       govBondHoldings = PLN(123.0),
       foreignAssets = PLN(456.0),
+    )
+  }
+
+  "LedgerFinancialState.quasiFiscalBalances" should "round-trip holder split through ledger-owned stock" in {
+    val stock = QuasiFiscal.StockState(
+      bondsOutstanding = PLN(123.0),
+      loanPortfolio = PLN(45.0),
+      bankHoldings = PLN(67.0),
+      nbpHoldings = PLN(56.0),
+    )
+
+    val balances = LedgerFinancialState.quasiFiscalBalances(stock)
+
+    balances shouldBe LedgerFinancialState.QuasiFiscalBalances(
+      bondsOutstanding = PLN(123.0),
+      loanPortfolio = PLN(45.0),
+      bankHoldings = PLN(67.0),
+      nbpHoldings = PLN(56.0),
     )
   }

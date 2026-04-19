@@ -315,6 +315,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
         quasiFiscal = initState.ledgerFinancialState.funds.quasiFiscal.copy(
           bondsOutstanding = PLN(96.0),
           loanPortfolio = PLN(97.0),
+          nbpHoldings = PLN(98.0),
         ),
       ),
     )
@@ -328,6 +329,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     valueAt(row, "NbpBondHoldings") shouldBe 67.0
     valueAt(row, "QfBondsOutstanding") shouldBe 96.0
     valueAt(row, "QfLoanPortfolio") shouldBe 97.0
+    valueAt(row, "QfNbpHoldings") shouldBe 98.0
     valueAt(row, "JstDeposits") shouldBe 89.0
     valueAt(row, "FusBalance") shouldBe 90.0
     valueAt(row, "NfzBalance") shouldBe 91.0

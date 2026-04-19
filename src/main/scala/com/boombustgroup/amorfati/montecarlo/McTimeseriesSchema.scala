@@ -378,7 +378,7 @@ object McTimeseriesSchema:
     ColumnDef("NbfiBankTightness", ctx => td.toDouble(ctx.world.financialMarkets.nbfi.lastBankTightness)),
     // Quasi-fiscal (BGK/PFR)
     ColumnDef("QfBondsOutstanding", ctx => td.toDouble(ctx.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding)),
-    ColumnDef("QfNbpHoldings", ctx => td.toDouble(ctx.world.financialMarkets.quasiFiscal.nbpHoldings)),
+    ColumnDef("QfNbpHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.funds.quasiFiscal.nbpHoldings)),
     ColumnDef("QfLoanPortfolio", ctx => td.toDouble(ctx.ledgerFinancialState.funds.quasiFiscal.loanPortfolio)),
     ColumnDef("QfIssuance", ctx => td.toDouble(ctx.world.financialMarkets.quasiFiscal.monthlyIssuance)),
     ColumnDef(

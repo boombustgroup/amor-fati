@@ -37,8 +37,6 @@ object LedgerTestFixtures:
       ),
       financialMarkets = base.world.financialMarkets.copy(
         quasiFiscal = QuasiFiscal.State(
-          bankHoldings = PLN(29e6),
-          nbpHoldings = PLN(30e6),
           monthlyIssuance = PLN.Zero,
           monthlyLending = PLN.Zero,
         ),
@@ -124,6 +122,8 @@ object LedgerTestFixtures:
           QuasiFiscal.StockState(
             bondsOutstanding = PLN(28e6),
             loanPortfolio = PLN(31e6),
+            bankHoldings = PLN(29e6),
+            nbpHoldings = PLN(30e6),
           ),
         ),
       ),

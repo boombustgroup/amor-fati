@@ -264,7 +264,6 @@ object AssetOwnershipContract:
     case GovernmentFiscalCumulativeDebt
     case NbpQeCumulativePurchases
     case JstDebt
-    case QuasiFiscalHolderSplits
 
   case class UnsupportedFamily(
       id: UnsupportedFamilyId,
@@ -298,11 +297,6 @@ object AssetOwnershipContract:
       UnsupportedCategory.UnsupportedPersistedStock,
       "JST debt persists in the world, but lacks a holder-resolved supported asset contract.",
     ),
-    UnsupportedFamily(
-      UnsupportedFamilyId.QuasiFiscalHolderSplits,
-      UnsupportedCategory.UnsupportedPersistedStock,
-      "Quasi-fiscal bank/NBP holder splits persist, but are not yet supported in the ledger-owned slice.",
-    ),
   )
 
   def presentUnsupportedFamilies(sim: FlowSimulation.SimState): Set[UnsupportedFamilyId] =
@@ -320,10 +314,6 @@ object AssetOwnershipContract:
       ++ Option.when(sim.world.gov.cumulativeDebt != PLN.Zero)(UnsupportedFamilyId.GovernmentFiscalCumulativeDebt)
       ++ Option.when(sim.world.nbp.qeCumulative != PLN.Zero)(UnsupportedFamilyId.NbpQeCumulativePurchases)
       ++ Option.when(sim.world.social.jst.debt != PLN.Zero)(UnsupportedFamilyId.JstDebt)
-      ++ Option.when(
-        sim.world.financialMarkets.quasiFiscal.bankHoldings != PLN.Zero ||
-          sim.world.financialMarkets.quasiFiscal.nbpHoldings != PLN.Zero,
-      )(UnsupportedFamilyId.QuasiFiscalHolderSplits)
 
   enum RuntimeShellCategory:
     case ExecutionShell
