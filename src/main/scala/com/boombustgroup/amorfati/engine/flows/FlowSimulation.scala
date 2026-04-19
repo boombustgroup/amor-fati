@@ -114,7 +114,6 @@ object FlowSimulation:
       equityForDividends: PLN,
       equityDivTax: PLN,
       equityGovDividends: PLN,
-      equityIssuance: PLN,
       equityReturn: Rate,
       // Stage 8: Open economy
       exports: PLN,
@@ -244,7 +243,6 @@ object FlowSimulation:
           c.equityForDividends,
           c.equityDivTax,
           c.equityGovDividends,
-          c.equityIssuance,
         ),
       ),
       CorpBondFlows.emitBatches(CorpBondFlows.Input(c.corpBondCoupon, c.corpBondDefaultAmount, c.corpBondIssuance, c.corpBondAmortization)),
@@ -561,7 +559,6 @@ object FlowSimulation:
       equityForDividends = eq.lastForeignDividends,
       equityDivTax = eq.lastDividendTax,
       equityGovDividends = w.gov.govDividendRevenue,
-      equityIssuance = eq.lastIssuance,
       equityReturn = eq.monthlyReturn,
       exports = externalFlowBop.exports,
       totalImports = externalFlowBop.totalImports,

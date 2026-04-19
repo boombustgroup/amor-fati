@@ -205,7 +205,7 @@ object AssetOwnershipContract:
         singleton(EntitySector.Insurance),
         fund(FundRuntimeIndex.Nbfi),
       ),
-      "Supported stock family despite separate timing-cleanup work for equity flows.",
+      "Supported stock family; FirmFlows owns current-month issuance while EquityFlows owns dividends.",
     ),
     PublicAssetContract(
       AssetType.LifeReserve,
