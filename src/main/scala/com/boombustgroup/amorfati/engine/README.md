@@ -1,16 +1,19 @@
 # Simulation Engine
 
-The engine package orchestrates the monthly simulation loop. It owns the
-`World` state and delegates domain logic to four subpackages: **economics**
-(9-stage computation pipeline), **flows** (SFC-verified monetary flow
-emission via ledger), **markets** (clearing mechanisms), and **mechanisms**
-(policy / regulatory rules).
+The engine package orchestrates the monthly simulation loop. The month
+boundary is `FlowSimulation.SimState`, which carries `World` macro state,
+agent populations, household aggregates, and `LedgerFinancialState`.
+Domain logic is split across **economics** (9-stage computation pipeline),
+**flows** (SFC-verified monetary flow emission via ledger), **ledger**
+(financial ownership contracts and projections), **markets** (clearing
+mechanisms), and **mechanisms** (policy / regulatory rules).
 
 ```
 engine/
-├── World.scala             # Immutable global state container (7 nested types)
+├── World.scala             # Immutable macro/runtime state container (9 nested types)
 ├── economics/              # 9-stage computation pipeline (calculus, no flows)
 ├── flows/                  # SFC flow emission via verified ledger
+├── ledger/                 # Ledger-owned financial state, ownership contracts, projections
 ├── markets/                # Market clearing & price formation
 └── mechanisms/             # Policy rules & regulatory instruments
 ```
@@ -19,7 +22,9 @@ engine/
 
 | File | Responsibility |
 |------|----------------|
-| `World.scala` | Case class holding all macro state, decomposed into 7 nested types: `SocialState`, `FinancialMarketsState`, `ExternalState`, `RealState`, `MechanismsState`, `MonetaryPlumbingState`, `FlowState`. |
+| `World.scala` | Case class holding macro/runtime state, decomposed into 9 nested types: `SocialState`, `HouseholdMarketState`, `FinancialMarketsState`, `ExternalState`, `RealState`, `MechanismsState`, `MonetaryPlumbingState`, `PipelineState`, `FlowState`. Financial ownership lives in `LedgerFinancialState`, not `World`. |
+| `ledger/LedgerFinancialState.scala` | Runtime source of truth for supported financial balances; exposes projection DTOs for agent/economics execution. |
+| `ledger/AssetOwnershipContract.scala` | Audit contract for supported persisted owner/asset pairs, unsupported stock-like families, and non-persisted runtime shells. |
 | `MonthSemantics.scala` | Tiny typed phase markers for the internal month step: pre-seed, same-month operational state, post-assembly state, and next pre-seed extraction. |
 | `MonthRandomness.scala` | Explicit month-step randomness contract: one root seed split into named stage and assembly streams for deterministic replay and auditability. |
 | `MonthDriver.scala` | Shared month-by-month unfold driver over the explicit `FlowSimulation.step` boundary. |
@@ -118,7 +123,7 @@ equilibrium prices, quantities, or flows given current state.
 | `OpenEconomy.scala` | BoP, floating exchange rate, trade balance, capital account, NFA |
 | `FiscalBudget.scala` | Government budget: revenue (CIT/VAT/excise/customs), spending, deficit, bond issuance |
 | `FiscalRules.scala` | Polish fiscal rules: SRW (stabilizing expenditure rule), SGP 3% deficit, Art. 216 debt brake, consolidation 55% |
-| `EquityMarket.scala` | GPW: WIG index, market cap, dividend yield, foreign ownership, issuance |
+| `EquityMarket.scala` | GPW: WIG index, market cap, dividend yield, foreign-ownership share, issuance |
 | `HousingMarket.scala` | House price index (aggregate + 7 regions), mortgage origination/default/amortization |
 | `CorporateBondMarket.scala` | Catalyst: corporate bond issuance, coupon, default, demand-side absorption |
 | `BondAuction.scala` | SPW primary market: foreign demand f(yield spread vs Bund, ER), absorption constraint |
@@ -158,7 +163,7 @@ don't clear markets themselves.
 **Adding a new flow:**
 1. Add a case to the `FlowMechanism` enum in `FlowMechanism.scala`.
 2. Create or extend the appropriate `*Flows.scala` to emit the flow.
-3. Wire the emission call in `FlowSimulation.emitAllFlows()`.
+3. Wire the batch emission call in `FlowSimulation.emitAllBatches(...)` or the relevant aggregation point.
 4. Update the SFC validation projection so the 13-identity check covers the new flow.
 
 **SFC rule:** Any flow that modifies bank capital, deposits, government

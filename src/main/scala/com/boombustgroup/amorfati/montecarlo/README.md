@@ -13,7 +13,7 @@ pipeline has no dependency on this package.
 | `McRunConfig.scala` | `McRunConfig` | Runtime config from CLI args: `nSeeds`, `outputPrefix`, `runDurationMonths`, `runId` |
 | `McTimeseriesSchema.scala` | `McTimeseriesSchema` | Timeseries schema with typed `Col` definitions, `compute`, and shared `csvSchema` |
 | `McTimeseriesCsv.scala` | `McTimeseriesCsv` | Streaming per-seed timeseries CSV sink with temp-file finalization |
-| `McTerminalSummarySchema.scala` | `McTerminalSummarySchema` | Household/bank terminal summary schemas and terminal-state row extraction |
+| `McTerminalSummarySchema.scala` | `McTerminalSummarySchema` | Household/bank terminal summary schemas and terminal-state row extraction; bank stock columns read `LedgerFinancialState` |
 | `McTerminalSummaryCsv.scala` | `McTerminalSummaryCsv` | Writes aggregate household/bank terminal summary CSVs |
 | `McCsvSchema.scala` | `McCsvSchema` | Shared CSV header/render contract used by output schemas |
 | `McOutputFiles.scala` | `McOutputFiles` | Output directory preparation and stable output file naming |

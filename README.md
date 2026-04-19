@@ -19,7 +19,7 @@
 
 ---
 
-A closed-economy simulation where **every monetary flow is accounted for**. Firms produce, households consume, banks lend, the central bank sets policy, the government taxes and spends — and the books must balance. Always.
+A ledger-first SFC-ABM of the Polish economy where **every monetary flow is accounted for**. Firms produce, households consume, banks lend, the central bank sets policy, the government taxes and spends, the external sector trades and moves capital — and the books must balance. Always.
 
 Amor Fati is a **stock-flow consistent** (SFC) **agent-based model** (ABM) that simulates the Polish economy at the level of individual households, heterogeneous firms, and a realistic multi-bank financial system. The engine enforces 13 accounting identities each month — if a single zloty goes missing, the simulation fails.
 
@@ -27,7 +27,7 @@ The key design principle is simple:
 
 > **Macro stories can be wrong. The ledger cannot.**
 
-This engine is built on top of the separately verified [amor-fati-ledger](https://github.com/boombustgroup/amor-fati-ledger-poc) flow interpreter. The practical consequence is that the strongest invariant in the entire project is not "inflation should look smooth" or "GDP should converge nicely after 10 years". It is this:
+This engine is built on top of the separately verified [amor-fati-ledger](https://github.com/boombustgroup/amor-fati-ledger) flow interpreter, vendored here under `modules/ledger`. The practical consequence is that the strongest invariant in the entire project is not "inflation should look smooth" or "GDP should converge nicely after 10 years". It is this:
 
 > **The books must balance to the end of the universe.**
 
@@ -81,7 +81,7 @@ Amor Fati uses a hybrid runtime ontology rather than a single undifferentiated w
 - macro and market state
   - prices, policy, external conditions, and inter-step signals live in the macro runtime layer
 - ledger-owned financial state
-  - balances and executed financial transfers are projected onto the ledger runtime
+  - supported financial balances live in `LedgerFinancialState` and are projected into the ledger runtime for execution and validation
 
 This split is intentional. It keeps rich agent behavior where object-level modeling is useful, while moving accounting-critical execution into a stricter ledger substrate.
 
@@ -89,7 +89,7 @@ This split is intentional. It keeps rich agent behavior where object-level model
 
 Most macro models treat accounting consistency as a secondary validation step. Amor Fati does not.
 
-The simulation pipeline is anchored to the verified [amor-fati-ledger](https://github.com/boombustgroup/amor-fati-ledger-poc) layer that enforces the project’s stock-flow constraints at runtime. In other words:
+The simulation pipeline is anchored to the verified [amor-fati-ledger](https://github.com/boombustgroup/amor-fati-ledger) layer that enforces the project’s stock-flow constraints at runtime. In other words:
 
 - macro behavior is experimental
 - agent rules are revisable
