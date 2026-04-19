@@ -78,14 +78,21 @@ object LedgerFinancialState:
       equity = stocks.equity,
     )
 
+  def firmFinancialStocks(balances: FirmBalances): Firm.FinancialStocks =
+    Firm.FinancialStocks(
+      cash = balances.cash,
+      firmLoan = balances.firmLoan,
+      equity = balances.equity,
+    )
+
   def refreshFirmPopulationBalances(
-      firms: Vector[Firm.State],
+      financialStocks: Vector[Firm.FinancialStocks],
       previous: Vector[FirmBalances],
       newFirmIds: Set[FirmId],
   ): Vector[FirmBalances] =
-    firms.map: firm =>
-      if newFirmIds.contains(firm.id) then initialFirmBalances(firm, corpBond = PLN.Zero)
-      else previous.lift(firm.id.toInt).getOrElse(initialFirmBalances(firm, corpBond = PLN.Zero))
+    financialStocks.zipWithIndex.map: (stocks, index) =>
+      if newFirmIds.contains(FirmId(index)) then firmBalances(stocks, corpBond = PLN.Zero)
+      else firmBalances(stocks, corpBond = previous.lift(index).fold(PLN.Zero)(_.corpBond))
 
   def refreshFirmFinancialBalances(
       balances: Vector[Firm.FinancialStocks],
@@ -189,9 +196,6 @@ object LedgerFinancialState:
       nbfi = nbfiFundBalances(nbfi, corporateBonds.nbfiHoldings),
       quasiFiscal = quasiFiscalBalances(quasiFiscal),
     )
-
-  private def initialFirmBalances(firm: Firm.State, corpBond: PLN): FirmBalances =
-    firmBalances(firm.financial, corpBond)
 
   /** Ledger-backed financial balances owned by a single household. */
   case class HouseholdBalances(

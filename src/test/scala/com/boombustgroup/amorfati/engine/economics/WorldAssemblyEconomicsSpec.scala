@@ -65,10 +65,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
       ledger.households.isDefinedAt(household.id.toInt) shouldBe true
 
     nextState.firms.foreach: firm =>
-      val balances = ledger.firms(firm.id.toInt)
-      balances.cash shouldBe firm.cash
-      balances.firmLoan shouldBe firm.debt
-      balances.equity shouldBe firm.equityRaised
+      ledger.firms.isDefinedAt(firm.id.toInt) shouldBe true
 
     nextState.banks.foreach: bank =>
       val balances = ledger.banks(bank.id.toInt)

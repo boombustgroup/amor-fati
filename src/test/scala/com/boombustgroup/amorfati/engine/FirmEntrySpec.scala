@@ -25,9 +25,11 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       inflation: Rate = Rate.Zero,
       expectedInflation: Rate = Rate.Zero,
       startupAbsorptionRate: Share = Share.One,
+      financialStocks: Vector[Firm.FinancialStocks] = Vector.empty,
   ): FirmEntry.Result =
     FirmEntry.process(
       firms,
+      if financialStocks.nonEmpty then financialStocks else defaultFinancialStocks(firms),
       Share.Zero,
       Share.Zero,
       FirmEntry.LaggedEntrySignals(
@@ -39,6 +41,9 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       ),
       rng,
     )
+
+  private def defaultFinancialStocks(firms: Vector[Firm.State]): Vector[Firm.FinancialStocks] =
+    firms.map(_ => TestFirmState.financial(cash = PLN(100000.0)))
 
   // ==========================================================================
   // Config defaults
@@ -122,7 +127,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have zero debt" in {
-    val entrant = TestFirmState(
+    val entrant = TestFirmState.fixture(
       id = FirmId(0),
       cash = PLN(50000.0),
       debt = PLN.Zero,
@@ -141,7 +146,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
-    entrant.debt shouldBe PLN.Zero
+    entrant.financialStocks.firmLoan shouldBe PLN.Zero
   }
 
   it should "have positive startup cash" in {

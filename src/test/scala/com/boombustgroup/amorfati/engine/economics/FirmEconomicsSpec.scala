@@ -30,11 +30,19 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private val result              = FirmEconomics.runStep(w, init.firms, init.households, init.banks, init.ledgerFinancialState, s1, s2, s3, s4, RandomStream.seeded(42))
   private val ManufacturingSector = 1
 
-  private def runStepFor(world: World, firms: Vector[Firm.State])(using SimParams): FirmEconomics.StepOutput =
+  private case class FirmScenario(
+      firms: Vector[Firm.State],
+      financialStocks: Vector[Firm.FinancialStocks],
+  )
+
+  private def initialFirmStocks: Vector[Firm.FinancialStocks] =
+    init.ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks)
+
+  private def runStepFor(world: World, firms: Vector[Firm.State], financialStocks: Vector[Firm.FinancialStocks])(using SimParams): FirmEconomics.StepOutput =
     val s1                   = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
     val s2                   = LaborEconomics.compute(world, firms, init.households, s1)
     val ledgerFinancialState = init.ledgerFinancialState.copy(
-      firms = LedgerFinancialState.refreshFirmFinancialBalances(firms.map(_.financial), init.ledgerFinancialState.firms),
+      firms = LedgerFinancialState.refreshFirmFinancialBalances(financialStocks, init.ledgerFinancialState.firms),
     )
     val s3                   =
       HouseholdIncomeEconomics.compute(
@@ -51,16 +59,19 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     val s4                   = DemandEconomics.compute(world, s2.employed, s2.living, s3.domesticCons)
     FirmEconomics.runStep(world, firms, init.households, init.banks, ledgerFinancialState, s1, s2, s3, s4, RandomStream.seeded(43))
 
-  private def manufacturingScenario(stateOwned: Boolean, cashRich: Boolean = false): Vector[Firm.State] =
-    init.firms.map { firm =>
+  private def manufacturingScenario(stateOwned: Boolean, cashRich: Boolean = false): FirmScenario =
+    val firms  = init.firms.map { firm =>
       val base =
-        if firm.sector.toInt == ManufacturingSector && cashRich then
-          firm
-            .withFinancial(_.copy(cash = PLN(500e6)))
-            .copy(capitalStock = PLN.Zero, greenCapital = PLN.Zero)
+        if firm.sector.toInt == ManufacturingSector && cashRich then firm.copy(capitalStock = PLN.Zero, greenCapital = PLN.Zero)
         else firm
       if base.sector.toInt == ManufacturingSector then base.copy(stateOwned = stateOwned) else base.copy(stateOwned = false)
     }
+    val stocks = initialFirmStocks
+      .zip(firms)
+      .map: (stock, firm) =>
+        if firm.sector.toInt == ManufacturingSector && cashRich then stock.copy(cash = PLN(500e6))
+        else stock
+    FirmScenario(firms, stocks)
 
   private def manufacturingOutputs(step: FirmEconomics.StepOutput): Vector[Firm.State] =
     step.ioFirms.filter(_.sector.toInt == ManufacturingSector)
@@ -89,8 +100,10 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase manufacturing capital accumulation when strategic firms are state-owned" in {
-    val privateRun          = runStepFor(w, manufacturingScenario(stateOwned = false, cashRich = true))
-    val stateOwnedRun       = runStepFor(w, manufacturingScenario(stateOwned = true, cashRich = true))
+    val privateScenario     = manufacturingScenario(stateOwned = false, cashRich = true)
+    val stateOwnedScenario  = manufacturingScenario(stateOwned = true, cashRich = true)
+    val privateRun          = runStepFor(w, privateScenario.firms, privateScenario.financialStocks)
+    val stateOwnedRun       = runStepFor(w, stateOwnedScenario.firms, stateOwnedScenario.financialStocks)
     val privateManufactured = manufacturingOutputs(privateRun)
     val soeManufactured     = manufacturingOutputs(stateOwnedRun)
     val privateById         = manufacturingById(privateRun)
@@ -106,13 +119,13 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "reduce manufacturing markup pass-through for state-owned firms under a commodity shock" in {
-    val privateFirms          = manufacturingScenario(stateOwned = false)
-    val stateOwnedFirms       = manufacturingScenario(stateOwned = true)
+    val privateScenario       = manufacturingScenario(stateOwned = false)
+    val stateOwnedScenario    = manufacturingScenario(stateOwned = true)
     val shockedWorld          = w.copy(external = w.external.copy(gvc = w.external.gvc.copy(commodityPriceIndex = PriceIndex(1.20))))
-    val baselinePrivateRun    = runStepFor(w, privateFirms)
-    val baselineStateOwnedRun = runStepFor(w, stateOwnedFirms)
-    val shockedPrivateRun     = runStepFor(shockedWorld, privateFirms)
-    val shockedStateOwnedRun  = runStepFor(shockedWorld, stateOwnedFirms)
+    val baselinePrivateRun    = runStepFor(w, privateScenario.firms, privateScenario.financialStocks)
+    val baselineStateOwnedRun = runStepFor(w, stateOwnedScenario.firms, stateOwnedScenario.financialStocks)
+    val shockedPrivateRun     = runStepFor(shockedWorld, privateScenario.firms, privateScenario.financialStocks)
+    val shockedStateOwnedRun  = runStepFor(shockedWorld, stateOwnedScenario.firms, stateOwnedScenario.financialStocks)
     val baselinePrivateById   = manufacturingById(baselinePrivateRun)
     val baselineSoeById       = manufacturingById(baselineStateOwnedRun)
     val shockedPrivateById    = manufacturingById(shockedPrivateRun)

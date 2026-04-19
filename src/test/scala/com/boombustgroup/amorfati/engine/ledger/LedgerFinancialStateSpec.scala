@@ -31,28 +31,29 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
     refreshed.last shouldBe LedgerFinancialState.householdBalances(newStocks)
   }
 
-  "LedgerFinancialState.refreshFirmPopulationBalances" should "preserve existing ledger balances and initialize only new firms" in {
+  "LedgerFinancialState.refreshFirmPopulationBalances" should "refresh execution stocks while preserving existing corporate bonds" in {
     val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val existing      = init.firms.head
-    val existingIndex = existing.id.toInt
+    val existingIndex = init.firms.head.id.toInt
     val previous      = init.ledgerFinancialState.firms.updated(
       existingIndex,
       init.ledgerFinancialState.firms(existingIndex).copy(cash = PLN(123.0), corpBond = PLN(456.0)),
     )
-    val mirrorChanged = existing.withFinancial(_.copy(cash = PLN(999.0), firmLoan = PLN(88.0), equity = PLN(77.0)))
-    val appendedFirm  = init.firms.last
-      .copy(
-        id = FirmId(previous.length),
-      )
-      .withFinancial(_.copy(cash = PLN(777.0), firmLoan = PLN(55.0), equity = PLN(22.0)))
-    val recycledFirm  = existing.withFinancial(_.copy(cash = PLN(333.0), firmLoan = PLN(44.0), equity = PLN(12.0)))
+    val mirrorChanged = Firm.FinancialStocks(cash = PLN(999.0), firmLoan = PLN(88.0), equity = PLN(77.0))
+    val appended      = Firm.FinancialStocks(cash = PLN(777.0), firmLoan = PLN(55.0), equity = PLN(22.0))
+    val recycled      = Firm.FinancialStocks(cash = PLN(333.0), firmLoan = PLN(44.0), equity = PLN(12.0))
 
-    val refreshed = LedgerFinancialState.refreshFirmPopulationBalances(Vector(mirrorChanged, appendedFirm), previous, newFirmIds = Set(appendedFirm.id))
-    val recycled  = LedgerFinancialState.refreshFirmPopulationBalances(Vector(recycledFirm), previous, newFirmIds = Set(recycledFirm.id))
+    val stockRows         =
+      previous.map(LedgerFinancialState.firmFinancialStocks).updated(existingIndex, mirrorChanged) :+ appended
+    val recycledRows      =
+      previous.map(LedgerFinancialState.firmFinancialStocks).updated(existingIndex, recycled)
+    val refreshed         =
+      LedgerFinancialState.refreshFirmPopulationBalances(stockRows, previous, newFirmIds = Set(FirmId(previous.length)))
+    val refreshedRecycled =
+      LedgerFinancialState.refreshFirmPopulationBalances(recycledRows, previous, newFirmIds = Set(FirmId(existingIndex)))
 
-    refreshed.head shouldBe previous(existingIndex)
-    refreshed.last shouldBe LedgerFinancialState.firmBalances(appendedFirm.financial, corpBond = PLN.Zero)
-    recycled.head shouldBe LedgerFinancialState.firmBalances(recycledFirm.financial, corpBond = PLN.Zero)
+    refreshed(existingIndex) shouldBe LedgerFinancialState.firmBalances(mirrorChanged, corpBond = PLN(456.0))
+    refreshed.last shouldBe LedgerFinancialState.firmBalances(appended, corpBond = PLN.Zero)
+    refreshedRecycled(existingIndex) shouldBe LedgerFinancialState.firmBalances(recycled, corpBond = PLN.Zero)
   }
 
   "LedgerFinancialState.refreshFirmFinancialBalances" should "update operational balances while preserving corporate bonds" in {

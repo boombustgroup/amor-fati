@@ -76,6 +76,8 @@ object McTimeseriesSchema:
       ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
     lazy val ledgerHouseholdEquityWealth: PLN                                                       =
       ledgerFinancialState.households.foldLeft(PLN.Zero)((acc, household) => acc + household.equity)
+    lazy val ledgerFirmBalancesById: Map[FirmId, LedgerFinancialState.FirmBalances]                 =
+      firms.zip(ledgerFinancialState.firms).map((firm, balances) => firm.id -> balances).toMap
     lazy val hhAgg: Household.Aggregates                                                            = householdAggregates
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates]                                        = Some(
       Banking.MonetaryAggregates.compute(
@@ -323,9 +325,10 @@ object McTimeseriesSchema:
     ColumnDef(
       "EquityFinancedFrac",
       ctx =>
-        ctx.living.map(f => td.toDouble(f.equityRaised)).sum / Math.max(
+        val balances = ctx.living.flatMap(f => ctx.ledgerFirmBalancesById.get(f.id))
+        balances.map(b => td.toDouble(b.equity)).sum / Math.max(
           1.0,
-          ctx.living.map(f => td.toDouble(f.debt + f.equityRaised)).sum,
+          balances.map(b => td.toDouble(b.firmLoan + b.equity)).sum,
         ),
     ),
     ColumnDef("HhEquityWealth", ctx => td.toDouble(ctx.ledgerHouseholdEquityWealth)),

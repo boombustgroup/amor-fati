@@ -72,8 +72,9 @@ object InitCheck:
 
     // --- Per-bank agent cross-checks ---
 
-    val firmCashByBank   = firms.groupMapReduce(_.bankId.toInt)(_.cash)(_ + _)
-    val firmDebtByBank   = firms.groupMapReduce(_.bankId.toInt)(_.debt)(_ + _)
+    val firmRows         = firms.zip(ledgerFinancialState.firms)
+    val firmCashByBank   = firmRows.groupMapReduce(_._1.bankId.toInt)(_._2.cash)(_ + _)
+    val firmDebtByBank   = firmRows.groupMapReduce(_._1.bankId.toInt)(_._2.firmLoan)(_ + _)
     val householdRows    = households.zip(ledgerFinancialState.households)
     val hhSavingsByBank  = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.demandDeposit)(_ + _)
     val hhConsDebtByBank = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.consumerLoan)(_ + _)

@@ -98,6 +98,6 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
   // --- Backward compatibility ---
 
   "Default initialSize" should "be 10 for backward compatibility" in {
-    val f = mkFirm(TechState.Traditional(10)).withFinancial(_.copy(cash = PLN(50000)))
+    val f = mkFirm(TechState.Traditional(10))
     f.initialSize shouldBe 10
   }

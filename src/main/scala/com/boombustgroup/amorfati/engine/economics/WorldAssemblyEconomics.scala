@@ -87,9 +87,11 @@ object WorldAssemblyEconomics:
 
     val newW = assembleWorld(in, equityAfterStep, fofResidual, informal, obs)
 
-    val postFdiFirms = applyFdiMa(in.s9.reassignedFirms, randomness.fdiMa)
-    val entryStep    = FirmEntry.process(
+    val postFdiFirms               = applyFdiMa(in.s9.reassignedFirms, randomness.fdiMa)
+    val postFdiFirmFinancialStocks = in.s9.ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks)
+    val entryStep                  = FirmEntry.process(
       postFdiFirms,
+      postFdiFirmFinancialStocks,
       newW.real.automationRatio,
       newW.real.hybridRatio,
       FirmEntry.LaggedEntrySignals.fromDecisionSignals(seedIn),
@@ -114,7 +116,7 @@ object WorldAssemblyEconomics:
       regionalWages = in.s2.regionalWages,
     )
     val finalLedgerFinancialState = in.s9.ledgerFinancialState.copy(
-      firms = LedgerFinancialState.refreshFirmPopulationBalances(finalFirms, in.s9.ledgerFinancialState.firms, entryStep.newFirmIds),
+      firms = LedgerFinancialState.refreshFirmPopulationBalances(entryStep.financialStocks, in.s9.ledgerFinancialState.firms, entryStep.newFirmIds),
     )
     PostResult(
       finalW,

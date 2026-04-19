@@ -36,8 +36,13 @@ object FirmInit:
   private val InitHybridMinSigma = 5.0       // minimum sector σ for init Hybrid (BPO=50, Mfg=10, Retail=5)
   private val InitHybridProb     = 0.08      // ~8% of eligible firms start as Hybrid (OECD 2024: 5-10%)
 
-  /** Create firm array with all post-creation enhancements. */
-  def create(randomness: InitRandomness.FirmStreams)(using p: SimParams): Vector[Firm.State] =
+  case class Population(
+      firms: Vector[Firm.State],
+      financialStocks: Vector[Firm.FinancialStocks],
+  )
+
+  /** Create firm population with all post-creation enhancements. */
+  def create(randomness: InitRandomness.FirmStreams)(using p: SimParams): Population =
     val adjList           = buildNetwork(randomness.network)
     val sectorAssignments = assignSectors(randomness.sectorAssignments)
     val skeleton          = buildSkeleton(adjList, sectorAssignments, randomness.skeleton, randomness.regions)
@@ -80,8 +85,9 @@ object FirmInit:
       .map: i =>
         val sec          = p.sectorDefs(sectorAssignments(i))
         val firmSize     = FirmSizeDistribution.draw(rng)
-        val sizeMult     = firmSize.toDouble / p.pop.workersPerFirm
-        val baseCash     = rng.between(CashMin, CashMax) + (if rng.nextDouble() < LargeCashProb then LargeCashBonus else 0.0)
+        // Preserve the historical RNG contract; final cash is assigned in the
+        // deterministic ledger-stock pass below.
+        rng.between(CashMin, CashMax) + (if rng.nextDouble() < LargeCashProb then LargeCashBonus else 0.0)
         val dr           = Share(toDouble(sec.baseDigitalReadiness) + rng.nextGaussian() * DrNoise).clamp(Share(DrFloor), Share(DrCap))
         // Init tech mix: high-σ sectors with high DR may start as Hybrid (OECD 2024: ~5-10% AI adoption)
         val isHybridInit = sec.sigma >= Sigma(InitHybridMinSigma) &&
@@ -95,11 +101,6 @@ object FirmInit:
           else TechState.Traditional(firmSize)
         Firm.State(
           id = FirmId(i),
-          financial = Firm.FinancialStocks(
-            cash = PLN(baseCash * sizeMult),
-            firmLoan = PLN.Zero,
-            equity = PLN.Zero,
-          ),
           tech = tech,
           riskProfile = Share(rng.between(RiskProfileMin, RiskProfileMax)),
           innovationCostFactor = Multiplier(rng.between(InnovCostMin, InnovCostMax)),
@@ -146,19 +147,22 @@ object FirmInit:
     * distribution. No RNG calls — safe to combine into one pass without
     * affecting random sequence.
     */
-  private def finalize(firms: Vector[Firm.State])(using p: SimParams): Vector[Firm.State] =
+  private def finalize(firms: Vector[Firm.State])(using p: SimParams): Population =
     val totalWorkers  = firms.map(Firm.workerCount).sum
     val totalFirmCash = p.banking.initDeposits * Share(FirmDepositShare)
-    firms.map: f =>
+    val rows          = firms.map: f =>
       val wshare     = Firm.workerCount(f).toDouble / totalWorkers
       val withInv    = initInventory(f)
       val withEnergy = initGreenCapital(withInv)
-      withEnergy.withFinancial(
-        _.copy(
+      (
+        withEnergy,
+        Firm.FinancialStocks(
           cash = totalFirmCash * Share(wshare),
           firmLoan = p.banking.initLoans * Share(wshare),
+          equity = PLN.Zero,
         ),
       )
+    Population(rows.map(_._1), rows.map(_._2))
 
   /** Set initial inventory stock from sector target ratio scaled to firm
     * capacity.

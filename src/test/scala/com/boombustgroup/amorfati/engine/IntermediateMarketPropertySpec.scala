@@ -69,7 +69,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     forAll(Gen.choose(0.8, 1.5), genPrice) { (demandMult: Double, price: Double) =>
       val firms    = makeFirms(60)
       val r        = IntermediateMarket.process(baseInput(firms, price = PriceIndex(price), demandMult = Multiplier(demandMult)))
-      val totalAdj = r.firms.zip(firms).map((nf, of) => (nf.cash - of.cash).bd).sum
+      val totalAdj = r.cashAdjustments.map(_.bd).sum
       totalAdj.abs should be < BigDecimal("1.0")
     }
 
@@ -79,7 +79,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     val firms       = makeFirms(30)
     val r           =
       IntermediateMarket.process(IntermediateMarket.Input(firms, Vector.fill(6)(Multiplier.One), PriceIndex.Base, zeroMatrix, zeroColSums))
-    for i <- firms.indices do r.firms(i).cash shouldBe firms(i).cash
+    r.cashAdjustments.foreach(_ shouldBe PLN.Zero)
     r.totalPaid shouldBe PLN.Zero
   }
 
@@ -88,7 +88,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       if i == 0 then f.copy(tech = TechState.Bankrupt(BankruptReason.Other("test"))) else f
     }
     val r     = IntermediateMarket.process(baseInput(firms))
-    r.firms(0).cash shouldBe firms(0).cash
+    r.cashAdjustments(0) shouldBe PLN.Zero
   }
 
   it should "scale linearly with IO_SCALE" in {
@@ -103,7 +103,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   it should "produce no changes with scale=0" in {
     val firms = makeFirms(30)
     val r     = IntermediateMarket.process(baseInput(firms, scale = Multiplier.Zero))
-    for i <- firms.indices do r.firms(i).cash shouldBe firms(i).cash
+    r.cashAdjustments.foreach(_ shouldBe PLN.Zero)
     r.totalPaid shouldBe PLN.Zero
   }
 
@@ -132,7 +132,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   it should "have net zero adjustment for single-sector intra-trade" in {
     val firms    = makeFirms(10, Seq(1))
     val r        = IntermediateMarket.process(baseInput(firms))
-    val totalAdj = r.firms.zip(firms).map((nf, of) => (nf.cash - of.cash).bd).sum
+    val totalAdj = r.cashAdjustments.map(_.bd).sum
     totalAdj.abs should be < BigDecimal("1.0")
   }
 
@@ -161,7 +161,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     val f3                                 = mkF(2, 1)
     val firms                              = Vector(f1, f2, f3)
     val r                                  = IntermediateMarket.process(baseInput(firms))
-    val adj1                               = (r.firms(0).cash - firms(0).cash).bd
-    val adj2                               = (r.firms(1).cash - firms(1).cash).bd
+    val adj1                               = r.cashAdjustments(0).bd
+    val adj2                               = r.cashAdjustments(1).bd
     adj1.shouldBe(adj2 +- BigDecimal("0.000001"))
   }

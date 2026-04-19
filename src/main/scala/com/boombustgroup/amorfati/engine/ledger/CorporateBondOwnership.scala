@@ -51,8 +51,16 @@ object CorporateBondOwnership:
       nbfiHoldings = ledgerFinancialState.funds.nbfi.corpBondHoldings,
     )
 
-  def initializeIssuerBalances(firms: Vector[Firm.State], outstanding: PLN)(using p: SimParams): Vector[LedgerFinancialState.FirmBalances] =
-    val base = firms.map(firm => LedgerFinancialState.firmBalances(firm.financial, corpBond = PLN.Zero))
+  def initializeIssuerBalances(
+      firms: Vector[Firm.State],
+      financialStocks: Vector[Firm.FinancialStocks],
+      outstanding: PLN,
+  )(using p: SimParams): Vector[LedgerFinancialState.FirmBalances] =
+    require(
+      firms.length == financialStocks.length,
+      s"CorporateBondOwnership.initializeIssuerBalances requires aligned firms and financial stocks, got ${firms.length} firms and ${financialStocks.length} stock rows",
+    )
+    val base = financialStocks.map(stocks => LedgerFinancialState.firmBalances(stocks, corpBond = PLN.Zero))
     if outstanding <= PLN.Zero || firms.isEmpty then base
     else
       val eligible = firms.zipWithIndex.filter: (firm, _) =>

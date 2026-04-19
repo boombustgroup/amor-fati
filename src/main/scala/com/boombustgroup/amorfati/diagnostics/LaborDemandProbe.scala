@@ -5,6 +5,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals, SignalExtraction, World}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 
 object LaborDemandProbe:
@@ -102,13 +103,14 @@ object LaborDemandProbe:
       )
     }
 
-  private def hiringSummaries(world: World, firms: Vector[Firm.State])(using p: SimParams): Vector[HiringSummary] =
-    val signals = OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack)
+  private def hiringSummaries(world: World, firms: Vector[Firm.State], ledgerFinancialState: LedgerFinancialState)(using p: SimParams): Vector[HiringSummary] =
+    val signals             = OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack)
+    val financialStocksById = firms.zip(ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks)).map((firm, stocks) => firm.id -> stocks).toMap
     (0 until p.sectorDefs.length)
       .map: s =>
         val ds                           = firms
           .filter(f => Firm.isAlive(f) && f.sector.toInt == s)
-          .map(Firm.hiringDiagnostics(_, world, signals))
+          .map(f => Firm.hiringDiagnostics(f, financialStocksById(f.id), world, signals))
         val positiveDesired              = ds.filter(_.desiredGap > 0)
         val desiredGaps                  = positiveDesired.map(_.desiredGap).sorted
         val feasibleGaps                 = positiveDesired.map(_.feasibleGap).sorted
@@ -162,7 +164,7 @@ object LaborDemandProbe:
     (1 to months).foreach: month =>
       val contract  = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
       val beforeAll = sectorSnapshots(firms)
-      val hiring    = hiringSummaries(world, firms)
+      val hiring    = hiringSummaries(world, firms, ledgerFinancialState)
 
       val s1     = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
       val s2Pre  = LaborEconomics.compute(world, firms, hhs, s1)

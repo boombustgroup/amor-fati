@@ -21,8 +21,10 @@ object WorldInit:
     // --- Firms ---
     val initCorporateBonds      = CorporateBondMarket.initial
     val initCorporateBondStocks = CorporateBondMarket.initialStock
-    val firms                   = FirmInit.create(randomness.firms.newStreams())
-    val initFirmBalances        = CorporateBondOwnership.initializeIssuerBalances(firms, initCorporateBondStocks.outstanding)
+    val firmPop                 = FirmInit.create(randomness.firms.newStreams())
+    val firms                   = firmPop.firms
+    val firmStocks              = firmPop.financialStocks
+    val initFirmBalances        = CorporateBondOwnership.initializeIssuerBalances(firms, firmStocks, initCorporateBondStocks.outstanding)
     assert(firms.length == p.pop.firmsCount)
 
     // --- Households ---
@@ -43,7 +45,7 @@ object WorldInit:
     val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(toDouble(_)).max)
     val initImportCons   = initConsumption - initDomesticCons
 
-    val initBankingSector = BankInit.create(firms, households, householdStocks)
+    val initBankingSector = BankInit.create(firms, firmStocks, households, householdStocks)
     val initBankCorpBonds =
       com.boombustgroup.ledger.Distribute
         .distribute(

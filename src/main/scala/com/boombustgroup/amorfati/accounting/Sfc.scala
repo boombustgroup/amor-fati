@@ -234,6 +234,10 @@ object Sfc:
       households.length == ledgerFinancialState.households.length,
       s"Sfc.snapshot requires aligned households and ledger household balances, got ${households.length} households and ${ledgerFinancialState.households.length} balance rows",
     )
+    require(
+      firms.length == ledgerFinancialState.firms.length,
+      s"Sfc.snapshot requires aligned firms and ledger firm balances, got ${firms.length} firms and ${ledgerFinancialState.firms.length} balance rows",
+    )
     val hhS     = ledgerFinancialState.households.map(_.demandDeposit).sum
     val hhD     = ledgerFinancialState.households.map(_.mortgageLoan).sum
     val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
@@ -242,8 +246,8 @@ object Sfc:
     StockState(
       hhSavings = hhS,
       hhDebt = hhD,
-      firmCash = PLN.fromRaw(firms.map(_.cash.toLong).sum),
-      firmDebt = PLN.fromRaw(firms.map(_.debt.toLong).sum),
+      firmCash = ledgerFinancialState.firms.map(_.cash).sum,
+      firmDebt = ledgerFinancialState.firms.map(_.firmLoan).sum,
       bankCapital = bankAgg.capital,
       bankDeposits = bankAgg.deposits,
       bankLoans = bankAgg.totalLoans,

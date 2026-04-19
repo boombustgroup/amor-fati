@@ -279,7 +279,6 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   "Bankrupt firm" should "have zero inventory" in {
     val f = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))
-      .withFinancial(_.copy(cash = PLN(-1000.0), firmLoan = PLN(50000.0)))
       .copy(inventory = PLN(5000.0))
     // applyInventory should zero out inventory for bankrupt firms
     Firm.isAlive(f) shouldBe false

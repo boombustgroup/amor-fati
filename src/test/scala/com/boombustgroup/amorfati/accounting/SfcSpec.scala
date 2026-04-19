@@ -144,8 +144,26 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         ),
       ),
     )
-  private val zeroWorld                                                                                                     = makeWorld()
-  private val zeroRuntime                                                                                                   = Sfc.RuntimeState(zeroWorld, Vector.empty, Vector.empty, Vector.empty, zeroLedger)
+
+  private def ledgerForFirms(
+      firms: Vector[Firm.State],
+      cash: Double = 50000.0,
+      debt: Double = 0.0,
+      base: LedgerFinancialState = zeroLedger,
+  ): LedgerFinancialState =
+    base.copy(
+      firms = Vector.fill(firms.length)(
+        LedgerFinancialState.FirmBalances(
+          cash = PLN(cash),
+          firmLoan = PLN(debt),
+          corpBond = PLN.Zero,
+          equity = PLN.Zero,
+        ),
+      ),
+    )
+
+  private val zeroWorld   = makeWorld()
+  private val zeroRuntime = Sfc.RuntimeState(zeroWorld, Vector.empty, Vector.empty, Vector.empty, zeroLedger)
 
   private val zeroSnap = Sfc.StockState(
     hhSavings = PLN.Zero,
@@ -248,16 +266,20 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   "Sfc.snapshot" should "correctly sum firm cash and debt" in {
     val w     = makeWorld()
     val firms = makeFirms(5, cash = 10000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, zeroLedger)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, ledgerForFirms(firms, cash = 10000.0, debt = 5000.0))
     snap.firmCash.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
     snap.firmDebt.bd shouldBe (BigDecimal("25000.0") +- BigDecimal("0.01"))
   }
 
   it should "correctly sum household savings and debt" in {
-    val w     = makeWorld()
-    val firms = makeFirms(1)
-    val hhs   = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, hhs, Vector.empty, ledgerForHouseholds(hhs, savings = 20000.0, debt = 5000.0))
+    val w      = makeWorld()
+    val firms  = makeFirms(1)
+    val hhs    = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
+    val ledger = ledgerForFirms(
+      firms,
+      base = ledgerForHouseholds(hhs, savings = 20000.0, debt = 5000.0),
+    )
+    val snap   = Sfc.snapshot(w, firms, hhs, Vector.empty, ledger)
     snap.hhSavings.bd shouldBe (BigDecimal("200000.0") +- BigDecimal("0.01"))
     snap.hhDebt.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
   }
@@ -265,7 +287,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "return zero HH values with empty household vector" in {
     val w     = makeWorld()
     val firms = makeFirms(1)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, zeroLedger)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, ledgerForFirms(firms))
     snap.hhSavings shouldBe PLN.Zero
     snap.hhDebt shouldBe PLN.Zero
   }
@@ -297,7 +319,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         consumerNpl = PLN.Zero,
       ),
     )
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, banks, zeroLedger)
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, banks, ledgerForFirms(firms))
     snap.bankCapital shouldBe PLN(123456.0)
     snap.bankDeposits shouldBe PLN(789012.0)
     snap.bankLoans shouldBe PLN(50000.0)

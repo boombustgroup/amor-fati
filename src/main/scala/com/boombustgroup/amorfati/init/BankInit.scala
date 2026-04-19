@@ -18,15 +18,21 @@ object BankInit:
 
   def create(
       firms: Vector[Firm.State],
+      firmFinancialStocks: Vector[Firm.FinancialStocks],
       households: Vector[Household.State],
       householdFinancialStocks: Vector[Household.FinancialStocks],
   )(using p: SimParams): Result =
     require(
+      firms.length == firmFinancialStocks.length,
+      s"BankInit.create requires aligned firms and financial stocks, got ${firms.length} firms and ${firmFinancialStocks.length} stock rows",
+    )
+    require(
       households.length == householdFinancialStocks.length,
       s"BankInit.create requires aligned households and financial stocks, got ${households.length} households and ${householdFinancialStocks.length} stock rows",
     )
-    val perBankCorpLoans  = firms.groupMapReduce(_.bankId.toInt)(_.debt)(_ + _)
-    val perBankCash       = firms.groupMapReduce(_.bankId.toInt)(_.cash)(_ + _)
+    val firmRows          = firms.zip(firmFinancialStocks)
+    val perBankCorpLoans  = firmRows.groupMapReduce(_._1.bankId.toInt)(_._2.firmLoan)(_ + _)
+    val perBankCash       = firmRows.groupMapReduce(_._1.bankId.toInt)(_._2.cash)(_ + _)
     val householdRows     = households.zip(householdFinancialStocks)
     val perBankConsLoans  = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.consumerLoan)(_ + _)
     val perBankHhDeposits = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.demandDeposit)(_ + _)

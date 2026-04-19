@@ -58,8 +58,8 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
     val init         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val firmStates   = init.firms.take(2)
     val firms        = firmStates.zipWithIndex
-      .map: (firm, index) =>
-        LedgerFinancialState.firmBalances(firm.financial, corpBond = PLN.fromLong((index + 1L) * 100L))
+      .map: (_, index) =>
+        init.ledgerFinancialState.firms(index).copy(corpBond = PLN.fromLong((index + 1L) * 100L))
     val amortization = PLN.fromLong(60)
     val settled      = CorporateBondOwnership.applyAmortization(firms, firmStates, amortization)
 
@@ -72,8 +72,8 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
     val init       = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val firmStates = init.firms.take(2)
     val firms      = firmStates.zipWithIndex
-      .map: (firm, index) =>
-        LedgerFinancialState.firmBalances(firm.financial, corpBond = PLN.fromLong((index + 1L) * 100L))
+      .map: (_, index) =>
+        init.ledgerFinancialState.firms(index).copy(corpBond = PLN.fromLong((index + 1L) * 100L))
     val cleared    = CorporateBondOwnership.clearDefaultedIssuerDebt(firms, Set(firmStates.head.id))
 
     cleared.head.corpBond shouldBe PLN.Zero
