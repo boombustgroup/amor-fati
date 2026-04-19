@@ -21,7 +21,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   private val w    = init.world
   private val rng  = RandomStream.seeded(42)
 
-  private val s1 = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
+  private val s1 = FiscalConstraintEconomics.compute(w, init.banks, init.ledgerFinancialState, ExecutionMonth.First)
   private val s2 = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s3 =
     HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, init.ledgerFinancialState, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
@@ -39,7 +39,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     init.ledgerFinancialState.firms.map(LedgerFinancialState.firmFinancialStocks)
 
   private def runStepFor(world: World, firms: Vector[Firm.State], financialStocks: Vector[Firm.FinancialStocks])(using SimParams): FirmEconomics.StepOutput =
-    val s1                   = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
+    val s1                   = FiscalConstraintEconomics.compute(world, init.banks, init.ledgerFinancialState, ExecutionMonth.First)
     val s2                   = LaborEconomics.compute(world, firms, init.households, s1)
     val ledgerFinancialState = init.ledgerFinancialState.copy(
       firms = LedgerFinancialState.refreshFirmFinancialBalances(financialStocks, init.ledgerFinancialState.firms),

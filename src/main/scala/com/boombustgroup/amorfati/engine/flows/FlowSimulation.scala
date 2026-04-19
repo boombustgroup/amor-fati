@@ -442,7 +442,7 @@ object FlowSimulation:
     val firms             = stateIn.firms
     val households        = stateIn.households
     val banks             = stateIn.banks
-    val s1                = FiscalConstraintEconomics.compute(w, banks, input.executionMonth)
+    val s1                = FiscalConstraintEconomics.compute(w, banks, ledger, input.executionMonth)
     val s2Pre             = LaborEconomics.compute(w, firms, households, s1)
     val s3                = HouseholdIncomeEconomics.compute(
       w,
@@ -467,7 +467,7 @@ object FlowSimulation:
       domesticCons = s3.domesticCons,
       govPurchases = s4.govPurchases,
       avgDemandMult = s4.avgDemandMult,
-      totalSystemLoans = banks.map(_.loans).sum,
+      totalSystemLoans = ledger.banks.map(_.firmLoan).sum,
       firmStep = s5,
     )
     val s8                = OpenEconEconomics.runStep(
@@ -502,7 +502,11 @@ object FlowSimulation:
         bankingDepositRng,
       ),
     )
-    val prevBankAgg       = Banking.aggregateFromBanks(banks, bankId => CorporateBondOwnership.bankHolderFor(ledger, bankId))
+    val prevBankAgg       = Banking.aggregateFromBankStocks(
+      banks,
+      ledger.banks.map(LedgerFinancialState.bankFinancialStocks),
+      bankId => CorporateBondOwnership.bankHolderFor(ledger, bankId),
+    )
     val agg               = s3.hhAgg
     val eq                = w.financialMarkets.equity
     val h                 = s9.housingAfterFlows

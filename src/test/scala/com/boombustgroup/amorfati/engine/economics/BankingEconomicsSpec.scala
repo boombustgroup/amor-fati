@@ -21,7 +21,11 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   "BankingEconomics.runStep" should "produce flows that close at SFC == 0L" in {
     val prepared    = preparedBankingStep()
     val s9          = prepared.run()
-    val prevBankAgg = Banking.aggregateFromBanks(prepared.banks, bankId => CorporateBondOwnership.bankHolderFor(prepared.ledgerFinancialState, bankId))
+    val prevBankAgg = Banking.aggregateFromBankStocks(
+      prepared.banks,
+      prepared.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+      bankId => CorporateBondOwnership.bankHolderFor(prepared.ledgerFinancialState, bankId),
+    )
 
     s9.ledgerFinancialState.government.govBondOutstanding shouldBe FiscalBudget.nextGovBondOutstanding(
       prepared.ledgerFinancialState.government.govBondOutstanding,
@@ -70,6 +74,29 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     fromLedger.ledgerFinancialState.funds.jstCash shouldBe aligned.ledgerFinancialState.funds.jstCash + PLN(555e9)
   }
 
+  it should "source bank financial opening stocks from LedgerFinancialState" in {
+    val prepared   = preparedBankingStep()
+    val aligned    = prepared.run()
+    val staleBanks = prepared.banks.map: bank =>
+      bank.withFinancial(_ =>
+        Banking.BankFinancialStocks(
+          totalDeposits = PLN.Zero,
+          firmLoan = PLN.Zero,
+          govBondAfs = PLN.Zero,
+          govBondHtm = PLN.Zero,
+          reserve = PLN.Zero,
+          interbankLoan = PLN.Zero,
+          demandDeposit = PLN.Zero,
+          termDeposit = PLN.Zero,
+          consumerLoan = PLN.Zero,
+        ),
+      )
+    val fromLedger = prepared.run(banksOverride = staleBanks)
+
+    fromLedger.resolvedBank shouldBe aligned.resolvedBank
+    fromLedger.ledgerFinancialState.banks shouldBe aligned.ledgerFinancialState.banks
+  }
+
   private case class PreparedBankingStep(
       world: World,
       ledgerFinancialState: LedgerFinancialState,
@@ -86,6 +113,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     def run(
         worldOverride: World = world,
         ledgerFinancialStateOverride: LedgerFinancialState = ledgerFinancialState,
+        banksOverride: Vector[Banking.BankState] = banks,
     ): BankingEconomics.StepOutput =
       val bankingRng = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams().bankingEconomics
       BankingEconomics.runStep(
@@ -100,7 +128,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
           s6,
           s7,
           s8,
-          banks,
+          banksOverride,
           bankingRng,
         ),
       )
@@ -111,7 +139,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     val ledgerFinancialState = init.ledgerFinancialState
     val stageRandomness      = MonthRandomness.Contract.fromSeed(TestSeed).stages.newStreams()
 
-    val s1 = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
+    val s1 = FiscalConstraintEconomics.compute(w, init.banks, ledgerFinancialState, ExecutionMonth.First)
     val s2 = LaborEconomics.compute(w, init.firms, init.households, s1)
     val s3 =
       HouseholdIncomeEconomics.compute(
@@ -135,7 +163,7 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
       domesticCons = s3.domesticCons,
       govPurchases = s4.govPurchases,
       avgDemandMult = s4.avgDemandMult,
-      totalSystemLoans = init.banks.map(_.loans).sum,
+      totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sum,
       firmStep = s5,
     )
     val s8 = OpenEconEconomics.runStep(

@@ -411,7 +411,11 @@ object FirmEconomics:
       banks: Vector[Banking.BankState],
       ledgerFinancialState: LedgerFinancialState,
   )(using p: SimParams): BondAbsorptionResult =
-    val bankAgg            = Banking.aggregateFromBanks(banks, bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId))
+    val bankAgg            = Banking.aggregateFromBankStocks(
+      banks,
+      ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+      bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId),
+    )
     val absorption         = CorporateBondMarket
       .computeAbsorption(w.financialMarkets.corporateBonds, result.flows.bondIssuance, bankAgg.car, p.banking.minCar)
     val actualBondIssuance = result.flows.bondIssuance * absorption

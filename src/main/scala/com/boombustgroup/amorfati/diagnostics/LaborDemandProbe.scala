@@ -166,7 +166,7 @@ object LaborDemandProbe:
       val beforeAll = sectorSnapshots(firms)
       val hiring    = hiringSummaries(world, firms, ledgerFinancialState)
 
-      val s1     = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
+      val s1     = FiscalConstraintEconomics.compute(world, banks, ledgerFinancialState, ExecutionMonth(month))
       val s2Pre  = LaborEconomics.compute(world, firms, hhs, s1)
       val s3     =
         HouseholdIncomeEconomics.compute(
@@ -191,7 +191,7 @@ object LaborDemandProbe:
         domesticCons = s3.domesticCons,
         govPurchases = s4.govPurchases,
         avgDemandMult = s4.avgDemandMult,
-        totalSystemLoans = banks.map(_.loans).sum,
+        totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sum,
         firmStep = s5,
       )
       val s8     =

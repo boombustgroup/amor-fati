@@ -41,28 +41,34 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     errors.exists(_.identity == "Bond clearing") shouldBe true
 
   it should "detect tampered bank deposits" in:
-    val result        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val snap          = stockSnapshot(result)
-    val banks         = result.banks
-    val tamperedBank0 = banks.updated(0, banks(0).withFinancial(_.copy(totalDeposits = banks(0).deposits + PLN(5000.0))))
-    val errors        = InitCheck.validate(snap, tamperedBank0, result.firms, result.households, result.ledgerFinancialState)
+    val result         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val snap           = stockSnapshot(result)
+    val bankBalances   = result.ledgerFinancialState.banks
+    val tamperedLedger = result.ledgerFinancialState.copy(
+      banks = bankBalances.updated(0, bankBalances(0).copy(totalDeposits = bankBalances(0).totalDeposits + PLN(5000.0))),
+    )
+    val errors         = InitCheck.validate(snap, result.banks, result.firms, result.households, tamperedLedger)
     errors should not be empty
     errors.exists(_.identity.startsWith("Deposit consistency")) shouldBe true
 
   it should "detect tampered firm debt" in:
-    val result        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val snap          = stockSnapshot(result)
-    val banks         = result.banks
-    val tamperedBank0 = banks.updated(0, banks(0).withFinancial(_.copy(firmLoan = banks(0).loans + PLN(5000.0))))
-    val errors        = InitCheck.validate(snap, tamperedBank0, result.firms, result.households, result.ledgerFinancialState)
+    val result         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val snap           = stockSnapshot(result)
+    val bankBalances   = result.ledgerFinancialState.banks
+    val tamperedLedger = result.ledgerFinancialState.copy(
+      banks = bankBalances.updated(0, bankBalances(0).copy(firmLoan = bankBalances(0).firmLoan + PLN(5000.0))),
+    )
+    val errors         = InitCheck.validate(snap, result.banks, result.firms, result.households, tamperedLedger)
     errors should not be empty
     errors.exists(_.identity.startsWith("Corp loan consistency")) shouldBe true
 
   it should "detect tampered consumer loans" in:
-    val result        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val snap          = stockSnapshot(result)
-    val banks         = result.banks
-    val tamperedBank0 = banks.updated(0, banks(0).withFinancial(_.copy(consumerLoan = banks(0).consumerLoans + PLN(5000.0))))
-    val errors        = InitCheck.validate(snap, tamperedBank0, result.firms, result.households, result.ledgerFinancialState)
+    val result         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val snap           = stockSnapshot(result)
+    val bankBalances   = result.ledgerFinancialState.banks
+    val tamperedLedger = result.ledgerFinancialState.copy(
+      banks = bankBalances.updated(0, bankBalances(0).copy(consumerLoan = bankBalances(0).consumerLoan + PLN(5000.0))),
+    )
+    val errors         = InitCheck.validate(snap, result.banks, result.firms, result.households, tamperedLedger)
     errors should not be empty
     errors.exists(_.identity.startsWith("Consumer loan consistency")) shouldBe true

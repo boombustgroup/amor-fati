@@ -161,20 +161,26 @@ object OpenEconEconomics:
   private case class NbfiResult(state: Nbfi.State, closing: Nbfi.ClosingBalances)
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
-    val bankAgg       = Banking.aggregateFromBanks(in.banks, bankId => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId))
-    val sectorOutputs = runStepSectorOutputs(in)
-    val external      = runStepExternalSector(in, sectorOutputs)
-    val rateAndExp    = runStepRateAndExpectations(in, external.newForex)
-    val interbank     = runStepInterbankFlows(in.w, in.banks)
-    val bondQe        = runStepBondYieldAndQe(in, bankAgg, rateAndExp.refRate, rateAndExp.expectations, external.fxIntervention, interbank)
-    val corpBonds     = runStepCorporateBonds(in, bankAgg, bondQe.marketYield)
-    val insurance     = runStepInsurance(
+    val bankFinancialStocks = in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)
+    val openingBanks        = Banking.withFinancialStocks(in.banks, bankFinancialStocks)
+    val bankAgg             = Banking.aggregateFromBankStocks(
+      openingBanks,
+      bankFinancialStocks,
+      bankId => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId),
+    )
+    val sectorOutputs       = runStepSectorOutputs(in)
+    val external            = runStepExternalSector(in, sectorOutputs)
+    val rateAndExp          = runStepRateAndExpectations(in, external.newForex)
+    val interbank           = runStepInterbankFlows(in.w, openingBanks)
+    val bondQe              = runStepBondYieldAndQe(in, bankAgg, rateAndExp.refRate, rateAndExp.expectations, external.fxIntervention, interbank)
+    val corpBonds           = runStepCorporateBonds(in, bankAgg, bondQe.marketYield)
+    val insurance           = runStepInsurance(
       in,
       bondQe.marketYield,
       corpBonds.newCorpBonds.corpBondYield,
       corpBonds.corpBondInsuranceDefaultLoss,
     )
-    val nbfi          = runStepNbfi(
+    val nbfi                = runStepNbfi(
       in,
       bankAgg,
       bondQe.postFxNbp,

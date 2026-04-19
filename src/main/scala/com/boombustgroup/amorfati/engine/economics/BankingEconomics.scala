@@ -167,8 +167,16 @@ object BankingEconomics:
   private def bankCorpBondHoldings(ledgerFinancialState: LedgerFinancialState): Banking.BankCorpBondHoldings =
     bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId)
 
-  def runStep(in: StepInput)(using p: SimParams): StepOutput =
-    val prevBankAgg               = Banking.aggregateFromBanks(in.banks, bankCorpBondHoldings(in.ledgerFinancialState))
+  def runStep(rawIn: StepInput)(using p: SimParams): StepOutput =
+    val in                        = rawIn.copy(
+      banks = Banking.withFinancialStocks(rawIn.banks, rawIn.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)),
+    )
+    val prevBankAgg               =
+      Banking.aggregateFromBankStocks(
+        in.banks,
+        in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+        bankCorpBondHoldings(in.ledgerFinancialState),
+      )
     val govJst                    = computeGovAndJst(in)
     val housing                   = computeHousingFlows(in)
     val bfgLevy                   = Banking.computeBfgLevy(in.banks).total
@@ -352,7 +360,13 @@ object BankingEconomics:
       YieldCurve
         .compute(
           in.w.bankingSector.interbankRate,
-          nplRatio = Banking.aggregateFromBanks(in.banks, bankCorpBondHoldings(in.ledgerFinancialState)).nplRatio,
+          nplRatio = Banking
+            .aggregateFromBankStocks(
+              in.banks,
+              in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+              bankCorpBondHoldings(in.ledgerFinancialState),
+            )
+            .nplRatio,
           credibility = exp.credibility,
           expectedInflation = exp.expectedInflation,
           targetInflation = p.monetary.targetInfl,
@@ -671,7 +685,12 @@ object BankingEconomics:
       mortgageFlows: HousingMarket.MortgageFlows,
       settledBankCorpBonds: Vector[PLN],
   )(using p: SimParams): MultiBankResult =
-    val prevBankAgg    = Banking.aggregateFromBanks(in.banks, bankCorpBondHoldings(in.ledgerFinancialState))
+    val prevBankAgg    =
+      Banking.aggregateFromBankStocks(
+        in.banks,
+        in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
+        bankCorpBondHoldings(in.ledgerFinancialState),
+      )
     val ibRate         = Banking.interbankRate(updatedBanks, in.w.nbp.referenceRate)
     // Liquidity hoarding: reduce interbank lending when system NPL is high
     val hoarding       = InterbankContagion.hoardingFactor(prevBankAgg.nplRatio)
@@ -942,8 +961,9 @@ object BankingEconomics:
       ledgerFinancialState: LedgerFinancialState,
   ): Option[Banking.MonetaryAggregates] =
     Some(
-      Banking.MonetaryAggregates.compute(
+      Banking.MonetaryAggregates.computeFromBankStocks(
         finalBanks,
+        ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks),
         ledgerFinancialState.funds.nbfi.tfiUnit,
         CorporateBondOwnership.issuerOutstanding(ledgerFinancialState),
       ),

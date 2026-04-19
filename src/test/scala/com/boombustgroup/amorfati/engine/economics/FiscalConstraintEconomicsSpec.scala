@@ -15,7 +15,7 @@ class FiscalConstraintEconomicsSpec extends AnyFlatSpec with Matchers:
   private val world = init.world
 
   "FiscalConstraintEconomics.compute" should "produce fiscal constraint output" in {
-    val output = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
+    val output = FiscalConstraintEconomics.compute(world, init.banks, init.ledgerFinancialState, ExecutionMonth.First)
 
     output.m shouldBe ExecutionMonth.First
     output.baseMinWage should be > PLN.Zero
@@ -26,6 +26,6 @@ class FiscalConstraintEconomicsSpec extends AnyFlatSpec with Matchers:
 
   it should "advance month by 1" in {
     val completedMonth = CompletedMonth.Zero
-    val result         = FiscalConstraintEconomics.compute(world, init.banks, completedMonth.next)
+    val result         = FiscalConstraintEconomics.compute(world, init.banks, init.ledgerFinancialState, completedMonth.next)
     result.month shouldBe completedMonth.next
   }

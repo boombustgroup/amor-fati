@@ -30,6 +30,13 @@ object Banking:
   def bankCorpBondHoldingsFromVector(holdings: Vector[PLN]): BankCorpBondHoldings =
     bankId => holdings.lift(bankId.toInt).getOrElse(PLN.Zero)
 
+  def nplRatio(totalLoans: PLN, nplAmount: PLN): Share =
+    if totalLoans > MinBalanceThreshold then nplAmount.ratioTo(totalLoans).toShare else Share.Zero
+
+  def capitalAdequacyRatio(capital: PLN, firmLoans: PLN, consumerLoans: PLN, corpBondHoldings: PLN): Multiplier =
+    val totalRwa = firmLoans + consumerLoans + corpBondHoldings * CorpBondRiskWeight
+    if totalRwa > MinBalanceThreshold then capital.ratioTo(totalRwa).toMultiplier else SafeRatioFloor
+
   // NSFR weights (Basel III §6)
   private val AsfTermWeight: Share   = Share(0.95)
   private val AsfDemandWeight: Share = Share(0.90)
@@ -78,11 +85,12 @@ object Banking:
   /** Aggregate banking-sector balance sheet — sum over all 7 per-bank
     * BankStates.
     *
-    * Pure DTO recomputed via `Banking.aggregateFromBanks`. Read-only snapshot
-    * consumed by output columns, SFC identities, macro feedback loops
-    * (corporate bond absorption, insurance/NBFI asset allocation), and
-    * government fiscal arithmetic. Ledger-owned corporate-bond holdings are
-    * supplied by the caller; this aggregate is derived, never written back.
+    * Pure DTO recomputed from bank operational state plus explicit financial
+    * stock rows. Read-only snapshot consumed by output columns, SFC identities,
+    * macro feedback loops (corporate bond absorption, insurance/NBFI asset
+    * allocation), and government fiscal arithmetic. Ledger-owned corporate-bond
+    * holdings are supplied by the caller; this aggregate is derived, never
+    * written back.
     */
   case class Aggregate(
       totalLoans: PLN,      // Outstanding corporate loans (sum of per-bank `loans`)
@@ -101,7 +109,7 @@ object Banking:
     /** Non-performing loan ratio: nplAmount / totalLoans. Returns Share.Zero
       * when loan book is empty.
       */
-    def nplRatio: Share = if totalLoans > MinBalanceThreshold then nplAmount.ratioTo(totalLoans).toShare else Share.Zero
+    def nplRatio: Share = Banking.nplRatio(totalLoans, nplAmount)
 
     /** Capital adequacy ratio: capital / risk-weighted assets. Corporate bonds
       * carry 50% risk weight (Basel III, BBB bucket). Returns Multiplier(10.0)
@@ -109,21 +117,31 @@ object Banking:
       * by zero.
       */
     def car: Multiplier =
-      val totalRwa = totalLoans + consumerLoans + corpBondHoldings * CorpBondRiskWeight
-      if totalRwa > MinBalanceThreshold then capital.ratioTo(totalRwa).toMultiplier else SafeRatioFloor
+      Banking.capitalAdequacyRatio(capital, totalLoans, consumerLoans, corpBondHoldings)
 
   def aggregateFromBanks(
       banks: Vector[BankState],
       bankCorpBondHoldings: BankCorpBondHoldings = noBankCorpBondHoldings,
   ): Aggregate =
+    aggregateFromBankStocks(banks, banks.map(_.financial), bankCorpBondHoldings)
+
+  def aggregateFromBankStocks(
+      banks: Vector[BankState],
+      financialStocks: Vector[BankFinancialStocks],
+      bankCorpBondHoldings: BankCorpBondHoldings = noBankCorpBondHoldings,
+  ): Aggregate =
+    require(
+      banks.length == financialStocks.length,
+      s"Banking.aggregateFromBankStocks requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
+    )
     Aggregate(
-      totalLoans = banks.foldLeft(PLN.Zero)(_ + _.loans),
+      totalLoans = financialStocks.foldLeft(PLN.Zero)(_ + _.firmLoan),
       nplAmount = banks.foldLeft(PLN.Zero)(_ + _.nplAmount),
       capital = banks.foldLeft(PLN.Zero)(_ + _.capital),
-      deposits = banks.foldLeft(PLN.Zero)(_ + _.deposits),
-      afsBonds = banks.foldLeft(PLN.Zero)(_ + _.afsBonds),
-      htmBonds = banks.foldLeft(PLN.Zero)(_ + _.htmBonds),
-      consumerLoans = banks.foldLeft(PLN.Zero)(_ + _.consumerLoans),
+      deposits = financialStocks.foldLeft(PLN.Zero)(_ + _.totalDeposits),
+      afsBonds = financialStocks.foldLeft(PLN.Zero)(_ + _.govBondAfs),
+      htmBonds = financialStocks.foldLeft(PLN.Zero)(_ + _.govBondHtm),
+      consumerLoans = financialStocks.foldLeft(PLN.Zero)(_ + _.consumerLoan),
       consumerNpl = banks.foldLeft(PLN.Zero)(_ + _.consumerNpl),
       corpBondHoldings = banks.foldLeft(PLN.Zero)((acc, bank) => acc + bankCorpBondHoldings(bank.id)),
     )
@@ -149,10 +167,22 @@ object Banking:
     val zero: MonetaryAggregates = MonetaryAggregates(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, Multiplier.Zero)
 
     def compute(banks: Vector[BankState], tfiAum: PLN, corpBondOutstanding: PLN): MonetaryAggregates =
-      val alive  = banks.filterNot(_.failed)
-      val m0     = alive.map(_.reservesAtNbp).sum
-      val demand = alive.map(_.demandDeposits).sum
-      val term   = alive.map(_.termDeposits).sum
+      computeFromBankStocks(banks, banks.map(_.financial), tfiAum, corpBondOutstanding)
+
+    def computeFromBankStocks(
+        banks: Vector[BankState],
+        financialStocks: Vector[BankFinancialStocks],
+        tfiAum: PLN,
+        corpBondOutstanding: PLN,
+    ): MonetaryAggregates =
+      require(
+        banks.length == financialStocks.length,
+        s"Banking.MonetaryAggregates.computeFromBankStocks requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
+      )
+      val alive  = banks.zip(financialStocks).filterNot(_._1.failed).map(_._2)
+      val m0     = alive.map(_.reserve).sum
+      val demand = alive.map(_.demandDeposit).sum
+      val term   = alive.map(_.termDeposit).sum
       val m1     = demand
       val m2     = demand + term
       val m3     = m2 + tfiAum + corpBondOutstanding
@@ -269,15 +299,14 @@ object Banking:
       * book is empty.
       */
     def nplRatio: Share =
-      if loans > MinBalanceThreshold then nplAmount.ratioTo(loans).toShare else Share.Zero
+      Banking.nplRatio(loans, nplAmount)
 
     /** Capital adequacy ratio: capital / risk-weighted assets (Basel III).
       * Corporate bonds are ledger-owned, so callers must pass this bank's
       * current corporate-bond holdings explicitly.
       */
     def car(corpBondHoldings: PLN): Multiplier =
-      val totalRwa = loans + consumerLoans + corpBondHoldings * CorpBondRiskWeight
-      if totalRwa > MinBalanceThreshold then capital.ratioTo(totalRwa).toMultiplier else SafeRatioFloor
+      Banking.capitalAdequacyRatio(capital, loans, consumerLoans, corpBondHoldings)
 
     /** High-quality liquid assets: reserves + gov bonds (Basel III Level 1). */
     def hqla: PLN = reservesAtNbp + govBondHoldings
@@ -302,6 +331,13 @@ object Banking:
     def nsfr(corpBondHoldings: PLN): Multiplier =
       val requiredStableFunding = rsf(corpBondHoldings)
       if requiredStableFunding > MinBalanceThreshold then asf.ratioTo(requiredStableFunding).toMultiplier else SafeRatioFloor
+
+  def withFinancialStocks(banks: Vector[BankState], financialStocks: Vector[BankFinancialStocks]): Vector[BankState] =
+    require(
+      banks.length == financialStocks.length,
+      s"Banking.withFinancialStocks requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
+    )
+    banks.zip(financialStocks).map((bank, stocks) => bank.copy(financial = stocks))
 
   /** State of the entire banking sector. */
   case class State(

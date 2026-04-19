@@ -115,6 +115,19 @@ object LedgerFinancialState:
       corpBond = corpBond,
     )
 
+  def bankFinancialStocks(balances: BankBalances): Banking.BankFinancialStocks =
+    Banking.BankFinancialStocks(
+      totalDeposits = balances.totalDeposits,
+      demandDeposit = balances.demandDeposit,
+      termDeposit = balances.termDeposit,
+      firmLoan = balances.firmLoan,
+      consumerLoan = balances.consumerLoan,
+      govBondAfs = balances.govBondAfs,
+      govBondHtm = balances.govBondHtm,
+      reserve = balances.reserve,
+      interbankLoan = balances.interbankLoan,
+    )
+
   def insuranceOpeningBalances(ledgerFinancialState: LedgerFinancialState): Insurance.OpeningBalances =
     Insurance.OpeningBalances(
       lifeReserves = ledgerFinancialState.insurance.lifeReserve,

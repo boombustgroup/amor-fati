@@ -23,7 +23,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   private val rng                      = RandomStream.seeded(TestSeed)
 
   // Run pipeline through Economics objects
-  private val s1 = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
+  private val s1 = FiscalConstraintEconomics.compute(w, init.banks, baseLedgerFinancialState, ExecutionMonth.First)
   private val s2 = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s3 =
     HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, baseLedgerFinancialState, s1.lendingBaseRate, s1.resWage, s2.newWage, rng)
@@ -37,7 +37,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     domesticCons = s3.domesticCons,
     govPurchases = s4.govPurchases,
     avgDemandMult = s4.avgDemandMult,
-    totalSystemLoans = init.banks.map(_.loans).sum,
+    totalSystemLoans = baseLedgerFinancialState.banks.map(_.firmLoan).sum,
     firmStep = s5,
   )
 

@@ -14,7 +14,7 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
   private given SimParams = SimParams.defaults
   private val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val w           = init.world
-  private val s1          = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
+  private val s1          = FiscalConstraintEconomics.compute(w, init.banks, init.ledgerFinancialState, ExecutionMonth.First)
   private val s2          = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s3          =
     HouseholdIncomeEconomics.compute(
@@ -40,7 +40,7 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
       domesticCons = s3.domesticCons,
       govPurchases = s4.govPurchases,
       avgDemandMult = s4.avgDemandMult,
-      totalSystemLoans = init.banks.map(_.loans).sum,
+      totalSystemLoans = init.ledgerFinancialState.banks.map(_.firmLoan).sum,
       firmStep = firmStep,
     )
 
