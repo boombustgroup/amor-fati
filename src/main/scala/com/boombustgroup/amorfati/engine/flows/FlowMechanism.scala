@@ -28,7 +28,6 @@ object FlowMechanism:
   val JstRevenue: MechanismId                   = MechanismId(18)
   val JstSpending: MechanismId                  = MechanismId(19)
   // Government budget
-  val GovTaxRevenue: MechanismId                = MechanismId(20) // legacy aggregate slot kept reserved for mechanism ID stability
   val GovPurchases: MechanismId                 = MechanismId(21)
   val GovDebtService: MechanismId               = MechanismId(22)
   val GovCapitalInvestment: MechanismId         = MechanismId(23)
@@ -59,7 +58,6 @@ object FlowMechanism:
   val FirmInterestPaid: MechanismId             = MechanismId(45)
   val FirmCapex: MechanismId                    = MechanismId(46)
   val FirmEquityIssuance: MechanismId           = MechanismId(47)
-  val FirmBondIssuance: MechanismId             = MechanismId(48) // legacy ID; corporate bond issuance is emitted by CorpBondIssuance
   val FirmIoPayment: MechanismId                = MechanismId(49)
   val FirmNplDefault: MechanismId               = MechanismId(50)
   val FirmProfitShifting: MechanismId           = MechanismId(51)
@@ -111,3 +109,108 @@ object FlowMechanism:
   val GovExciseRevenue: MechanismId             = MechanismId(93)
   val GovCustomsDutyRevenue: MechanismId        = MechanismId(94)
   val BankCorpBondCoupon: MechanismId           = MechanismId(95)
+
+  /** All mechanism IDs emitted by current runtime flow code. */
+  val allMechanisms: Vector[MechanismId] = Vector(
+    ZusContribution,
+    ZusPension,
+    ZusGovSubvention,
+    NfzContribution,
+    NfzSpending,
+    NfzGovSubvention,
+    PpkContribution,
+    PpkBondPurchase,
+    FpContribution,
+    FpSpending,
+    FpGovSubvention,
+    PfronContribution,
+    PfronSpending,
+    PfronGovSubvention,
+    FgspContribution,
+    FgspSpending,
+    FgspGovSubvention,
+    JstRevenue,
+    JstSpending,
+    GovPurchases,
+    GovDebtService,
+    GovCapitalInvestment,
+    GovUnempBenefit,
+    GovSocialTransfer,
+    GovEuCofin,
+    InsLifePremium,
+    InsNonLifePremium,
+    InsLifeClaim,
+    InsNonLifeClaim,
+    InsInvestmentIncome,
+    HhConsumption,
+    HhRent,
+    HhPit,
+    HhDebtService,
+    HhDepositInterest,
+    HhRemittance,
+    HhCcOrigination,
+    HhCcDebtService,
+    HhCcDefault,
+    FirmWages,
+    FirmCit,
+    FirmLoanRepayment,
+    FirmNewLoan,
+    FirmInterestPaid,
+    FirmCapex,
+    FirmEquityIssuance,
+    FirmIoPayment,
+    FirmNplDefault,
+    FirmProfitShifting,
+    FirmFdiRepatriation,
+    FirmGrossInvestment,
+    EquityDomDividend,
+    EquityForDividend,
+    EquityDividendTax,
+    CorpBondCoupon,
+    CorpBondDefault,
+    CorpBondIssuance,
+    CorpBondAmortization,
+    MortgageOrigination,
+    MortgageRepayment,
+    MortgageInterest,
+    MortgageDefault,
+    TradeExports,
+    TradeImports,
+    TourismExport,
+    TourismImport,
+    Fdi,
+    PortfolioFlow,
+    PrimaryIncome,
+    EuFunds,
+    DiasporaInflow,
+    CapitalFlight,
+    BankFirmInterest,
+    BankGovBondIncome,
+    BankNplLoss,
+    BankMortgageNplLoss,
+    BankCcNplLoss,
+    BankCorpBondLoss,
+    BankBfgLevy,
+    BankUnrealizedLoss,
+    BankReserveInterest,
+    BankStandingFacility,
+    BankInterbankInterest,
+    BankBailIn,
+    BankNbpRemittance,
+    EquityGovDividend,
+    NbpFxSettlement,
+    BankStandingFacilityBackstop,
+    GovVatRevenue,
+    GovExciseRevenue,
+    GovCustomsDutyRevenue,
+    BankCorpBondCoupon,
+  )
+
+  /** Runtime-emitted mechanisms that must have a survivability declaration. */
+  val emittedRuntimeMechanisms: Set[MechanismId] =
+    allMechanisms.toSet
+
+  require(
+    allMechanisms.map(_.toInt).distinct.size == allMechanisms.size,
+    "FlowMechanism.allMechanisms must contain unique mechanism IDs.",
+  )
