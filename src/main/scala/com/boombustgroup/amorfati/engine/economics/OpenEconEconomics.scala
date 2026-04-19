@@ -162,16 +162,15 @@ object OpenEconEconomics:
 
   def runStep(in: StepInput)(using p: SimParams): StepOutput =
     val bankFinancialStocks = in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)
-    val openingBanks        = Banking.withFinancialStocks(in.banks, bankFinancialStocks)
     val bankAgg             = Banking.aggregateFromBankStocks(
-      openingBanks,
+      in.banks,
       bankFinancialStocks,
       bankId => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId),
     )
     val sectorOutputs       = runStepSectorOutputs(in)
     val external            = runStepExternalSector(in, sectorOutputs)
     val rateAndExp          = runStepRateAndExpectations(in, external.newForex)
-    val interbank           = runStepInterbankFlows(in.w, openingBanks)
+    val interbank           = runStepInterbankFlows(in.w, in.banks, bankFinancialStocks)
     val bondQe              = runStepBondYieldAndQe(in, bankAgg, rateAndExp.refRate, rateAndExp.expectations, external.fxIntervention, interbank)
     val corpBonds           = runStepCorporateBonds(in, bankAgg, bondQe.marketYield)
     val insurance           = runStepInsurance(
@@ -341,12 +340,14 @@ object OpenEconEconomics:
       Expectations.step(in.w.mechanisms.expectations, in.s7.newInfl, newRefRate, unempRateForExp)
     RateExpResult(newRefRate, newExp)
 
-  private def runStepInterbankFlows(w: World, banks: Vector[Banking.BankState])(using SimParams): InterbankResult =
+  private def runStepInterbankFlows(w: World, banks: Vector[Banking.BankState], bankFinancialStocks: Vector[Banking.BankFinancialStocks])(using
+      SimParams,
+  ): InterbankResult =
     val bsec = w.bankingSector
     InterbankResult(
-      reserveInterest = Banking.computeReserveInterest(banks, w.nbp.referenceRate).total,
-      standingFacilityIncome = Banking.computeStandingFacilities(banks, w.nbp.referenceRate).total,
-      interbankInterest = Banking.interbankInterestFlows(banks, bsec.interbankRate).total,
+      reserveInterest = Banking.computeReserveInterestFromBankStocks(banks, bankFinancialStocks, w.nbp.referenceRate).total,
+      standingFacilityIncome = Banking.computeStandingFacilitiesFromBankStocks(banks, bankFinancialStocks, w.nbp.referenceRate).total,
+      interbankInterest = Banking.interbankInterestFlowsFromBankStocks(banks, bankFinancialStocks, bsec.interbankRate).total,
     )
 
   @boundaryEscape

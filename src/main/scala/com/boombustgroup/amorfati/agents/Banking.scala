@@ -278,7 +278,7 @@ object Banking:
     /** Total government bond holdings (AFS + HTM). All existing read-only
       * references (hqla, rsf, canLend, etc.) use this derived method.
       */
-    def govBondHoldings: PLN = afsBonds + htmBonds
+    def govBondHoldings: PLN = Banking.govBondHoldings(financial)
 
     /** Whether this bank has been resolved by BFG. */
     def failed: Boolean = status match
@@ -299,38 +299,35 @@ object Banking:
       * book is empty.
       */
     def nplRatio: Share =
-      Banking.nplRatio(loans, nplAmount)
+      Banking.nplRatio(this, financial)
 
     /** Capital adequacy ratio: capital / risk-weighted assets (Basel III).
       * Corporate bonds are ledger-owned, so callers must pass this bank's
       * current corporate-bond holdings explicitly.
       */
     def car(corpBondHoldings: PLN): Multiplier =
-      Banking.capitalAdequacyRatio(capital, loans, consumerLoans, corpBondHoldings)
+      Banking.car(this, financial, corpBondHoldings)
 
     /** High-quality liquid assets: reserves + gov bonds (Basel III Level 1). */
-    def hqla: PLN = reservesAtNbp + govBondHoldings
+    def hqla: PLN = Banking.hqla(financial)
 
     /** Net cash outflows (30-day): demand deposits × runoff rate. */
-    def netCashOutflows(using p: SimParams): PLN = demandDeposits * p.banking.demandDepositRunoff
+    def netCashOutflows(using p: SimParams): PLN = Banking.netCashOutflows(financial)
 
     /** Liquidity Coverage Ratio = HQLA / net cash outflows (Basel III). */
     def lcr(using p: SimParams): Multiplier =
-      if netCashOutflows > MinBalanceThreshold then hqla.ratioTo(netCashOutflows).toMultiplier
-      else SafeRatioFloor
+      Banking.lcr(financial)
 
     /** Available Stable Funding (Basel III NSFR numerator). */
-    def asf: PLN = capital + termDeposits * AsfTermWeight + demandDeposits * AsfDemandWeight
+    def asf: PLN = Banking.asf(this, financial)
 
     /** Required Stable Funding (Basel III NSFR denominator). */
     def rsf(corpBondHoldings: PLN): PLN =
-      loansShort * RsfShort + loansMedium * RsfMedium + loansLong * RsfLong +
-        govBondHoldings * RsfGovBond + corpBondHoldings * RsfCorpBond
+      Banking.rsf(this, financial, corpBondHoldings)
 
     /** Net Stable Funding Ratio = ASF / RSF. */
     def nsfr(corpBondHoldings: PLN): Multiplier =
-      val requiredStableFunding = rsf(corpBondHoldings)
-      if requiredStableFunding > MinBalanceThreshold then asf.ratioTo(requiredStableFunding).toMultiplier else SafeRatioFloor
+      Banking.nsfr(this, financial, corpBondHoldings)
 
   def withFinancialStocks(banks: Vector[BankState], financialStocks: Vector[BankFinancialStocks]): Vector[BankState] =
     require(
@@ -338,6 +335,37 @@ object Banking:
       s"Banking.withFinancialStocks requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
     )
     banks.zip(financialStocks).map((bank, stocks) => bank.copy(financial = stocks))
+
+  def govBondHoldings(stocks: BankFinancialStocks): PLN =
+    stocks.govBondAfs + stocks.govBondHtm
+
+  def nplRatio(bank: BankState, stocks: BankFinancialStocks): Share =
+    nplRatio(stocks.firmLoan, bank.nplAmount)
+
+  def car(bank: BankState, stocks: BankFinancialStocks, corpBondHoldings: PLN): Multiplier =
+    capitalAdequacyRatio(bank.capital, stocks.firmLoan, stocks.consumerLoan, corpBondHoldings)
+
+  def hqla(stocks: BankFinancialStocks): PLN =
+    stocks.reserve + govBondHoldings(stocks)
+
+  def netCashOutflows(stocks: BankFinancialStocks)(using p: SimParams): PLN =
+    stocks.demandDeposit * p.banking.demandDepositRunoff
+
+  def lcr(stocks: BankFinancialStocks)(using p: SimParams): Multiplier =
+    val outflows = netCashOutflows(stocks)
+    if outflows > MinBalanceThreshold then hqla(stocks).ratioTo(outflows).toMultiplier
+    else SafeRatioFloor
+
+  def asf(bank: BankState, stocks: BankFinancialStocks): PLN =
+    bank.capital + stocks.termDeposit * AsfTermWeight + stocks.demandDeposit * AsfDemandWeight
+
+  def rsf(bank: BankState, stocks: BankFinancialStocks, corpBondHoldings: PLN): PLN =
+    bank.loansShort * RsfShort + bank.loansMedium * RsfMedium + bank.loansLong * RsfLong +
+      govBondHoldings(stocks) * RsfGovBond + corpBondHoldings * RsfCorpBond
+
+  def nsfr(bank: BankState, stocks: BankFinancialStocks, corpBondHoldings: PLN): Multiplier =
+    val requiredStableFunding = rsf(bank, stocks, corpBondHoldings)
+    if requiredStableFunding > MinBalanceThreshold then asf(bank, stocks).ratioTo(requiredStableFunding).toMultiplier else SafeRatioFloor
 
   /** State of the entire banking sector. */
   case class State(
@@ -845,12 +873,25 @@ object Banking:
   /** Monthly reserve interest for a single bank: reserves × refRate × mult / 12.
     */
   def reserveInterest(bank: BankState, refRate: Rate)(using p: SimParams): PLN =
-    if bank.failed || bank.reservesAtNbp <= PLN.Zero then PLN.Zero
-    else bank.reservesAtNbp * (refRate * p.monetary.reserveRateMult.toMultiplier).monthly
+    reserveInterest(bank, bank.financial, refRate)
+
+  def reserveInterest(bank: BankState, stocks: BankFinancialStocks, refRate: Rate)(using p: SimParams): PLN =
+    if bank.failed || stocks.reserve <= PLN.Zero then PLN.Zero
+    else stocks.reserve * (refRate * p.monetary.reserveRateMult.toMultiplier).monthly
 
   /** Reserve interest for all banks → per-bank amounts + sector total. */
   def computeReserveInterest(banks: Vector[BankState], refRate: Rate)(using SimParams): PerBankAmounts =
     val perBank = banks.map(b => reserveInterest(b, refRate))
+    PerBankAmounts(perBank, perBank.sum)
+
+  def computeReserveInterestFromBankStocks(banks: Vector[BankState], financialStocks: Vector[BankFinancialStocks], refRate: Rate)(using
+      SimParams,
+  ): PerBankAmounts =
+    require(
+      banks.length == financialStocks.length,
+      s"Banking.computeReserveInterestFromBankStocks requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
+    )
+    val perBank = banks.zip(financialStocks).map((bank, stocks) => reserveInterest(bank, stocks, refRate))
     PerBankAmounts(perBank, perBank.sum)
 
   /** Standing facility flows (monthly): deposit rate for excess reserves,
@@ -858,19 +899,39 @@ object Banking:
     * is structural, not optional.
     */
   def computeStandingFacilities(banks: Vector[BankState], refRate: Rate)(using p: SimParams): PerBankAmounts =
+    computeStandingFacilitiesFromBankStocks(banks, banks.map(_.financial), refRate)
+
+  def computeStandingFacilitiesFromBankStocks(banks: Vector[BankState], financialStocks: Vector[BankFinancialStocks], refRate: Rate)(using
+      p: SimParams,
+  ): PerBankAmounts =
+    require(
+      banks.length == financialStocks.length,
+      s"Banking.computeStandingFacilitiesFromBankStocks requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
+    )
     val depositRate = (refRate - p.monetary.depositFacilitySpread).max(Rate.Zero)
     val lombardRate = refRate + p.monetary.lombardSpread
-    val perBank     = banks.map: b =>
-      if b.failed then PLN.Zero
-      else if b.reservesAtNbp > PLN.Zero then b.reservesAtNbp * depositRate.monthly
-      else if b.interbankNet < PLN.Zero then -(b.interbankNet.abs * lombardRate.monthly)
-      else PLN.Zero
+    val perBank     = banks
+      .zip(financialStocks)
+      .map: (bank, stocks) =>
+        if bank.failed then PLN.Zero
+        else if stocks.reserve > PLN.Zero then stocks.reserve * depositRate.monthly
+        else if stocks.interbankLoan < PLN.Zero then -(stocks.interbankLoan.abs * lombardRate.monthly)
+        else PLN.Zero
     PerBankAmounts(perBank, perBank.sum)
 
   /** Interbank interest flows (monthly). Net zero in aggregate (closed system).
     */
   def interbankInterestFlows(banks: Vector[BankState], rate: Rate): PerBankAmounts =
-    val perBank = banks.map: b =>
-      if b.failed then PLN.Zero
-      else b.interbankNet * rate.monthly
+    interbankInterestFlowsFromBankStocks(banks, banks.map(_.financial), rate)
+
+  def interbankInterestFlowsFromBankStocks(banks: Vector[BankState], financialStocks: Vector[BankFinancialStocks], rate: Rate): PerBankAmounts =
+    require(
+      banks.length == financialStocks.length,
+      s"Banking.interbankInterestFlowsFromBankStocks requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
+    )
+    val perBank = banks
+      .zip(financialStocks)
+      .map: (bank, stocks) =>
+        if bank.failed then PLN.Zero
+        else stocks.interbankLoan * rate.monthly
     PerBankAmounts(perBank, perBank.sum)

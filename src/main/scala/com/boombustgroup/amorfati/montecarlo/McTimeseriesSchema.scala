@@ -73,12 +73,12 @@ object McTimeseriesSchema:
       Banking.bankCorpBondHoldingsFromVector(ledgerFinancialState.banks.map(_.corpBond))
     lazy val bankAgg: Banking.Aggregate                                                             =
       Banking.aggregateFromBankStocks(banks, ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks), bankCorpBondHoldings)
-    lazy val ledgerBankBalancesById: Map[BankId, LedgerFinancialState.BankBalances]                 =
-      banks.zip(ledgerFinancialState.banks).map((bank, balances) => bank.id -> balances).toMap
-    lazy val aliveBanksWithLedgerStocks: Vector[Banking.BankState]                                  =
+    lazy val ledgerBankStocksById: Map[BankId, Banking.BankFinancialStocks]                         =
+      banks.zip(ledgerFinancialState.banks).map((bank, balances) => bank.id -> LedgerFinancialState.bankFinancialStocks(balances)).toMap
+    lazy val aliveBankRows: Vector[(Banking.BankState, Banking.BankFinancialStocks)]                =
       aliveBanks.map: bank =>
-        val balances = ledgerBankBalancesById.getOrElse(bank.id, throw IllegalStateException(s"Missing ledger bank balances for bank ${bank.id.toInt}"))
-        bank.copy(financial = LedgerFinancialState.bankFinancialStocks(balances))
+        val stocks = ledgerBankStocksById.getOrElse(bank.id, throw IllegalStateException(s"Missing ledger bank stocks for bank ${bank.id.toInt}"))
+        bank -> stocks
     lazy val ledgerBankGovBondHoldings: PLN                                                         =
       ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
     lazy val ledgerHouseholdEquityWealth: PLN                                                       =
@@ -288,30 +288,33 @@ object McTimeseriesSchema:
     ColumnDef(
       "MinBankCAR",
       ctx =>
-        if ctx.aliveBanksWithLedgerStocks.isEmpty then 0.0
-        else td.toDouble(ctx.aliveBanksWithLedgerStocks.map(bank => bank.car(ctx.bankCorpBondHoldings(bank.id))).min),
+        if ctx.aliveBankRows.isEmpty then 0.0
+        else td.toDouble(ctx.aliveBankRows.map((bank, stocks) => Banking.car(bank, stocks, ctx.bankCorpBondHoldings(bank.id))).min),
     ),
-    ColumnDef("MaxBankNPL", ctx => if ctx.aliveBanksWithLedgerStocks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanksWithLedgerStocks.map(_.nplRatio).max)),
+    ColumnDef(
+      "MaxBankNPL",
+      ctx => if ctx.aliveBankRows.isEmpty then 0.0 else td.toDouble(ctx.aliveBankRows.map((bank, stocks) => Banking.nplRatio(bank, stocks)).max),
+    ),
     ColumnDef("BankFailures", ctx => ctx.banks.count(_.failed).toDouble),
     // LCR/NSFR
     ColumnDef(
       "MinBankLCR",
-      ctx => { given SimParams = ctx.p; if ctx.aliveBanksWithLedgerStocks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanksWithLedgerStocks.map(_.lcr).min) },
+      ctx => { given SimParams = ctx.p; if ctx.aliveBankRows.isEmpty then 0.0 else td.toDouble(ctx.aliveBankRows.map((_, stocks) => Banking.lcr(stocks)).min) },
     ),
     ColumnDef(
       "MinBankNSFR",
       ctx =>
-        if ctx.aliveBanksWithLedgerStocks.isEmpty then 0.0
-        else td.toDouble(ctx.aliveBanksWithLedgerStocks.map(bank => bank.nsfr(ctx.bankCorpBondHoldings(bank.id))).min),
+        if ctx.aliveBankRows.isEmpty then 0.0
+        else td.toDouble(ctx.aliveBankRows.map((bank, stocks) => Banking.nsfr(bank, stocks, ctx.bankCorpBondHoldings(bank.id))).min),
     ),
     ColumnDef(
       "AvgTermDepositFrac",
       ctx =>
-        if ctx.aliveBanksWithLedgerStocks.isEmpty then 0.0
+        if ctx.aliveBankRows.isEmpty then 0.0
         else
-          ctx.aliveBanksWithLedgerStocks
-            .map(b => if b.deposits > PLN.Zero then b.termDeposits / b.deposits else 0.0)
-            .sum / ctx.aliveBanksWithLedgerStocks.length,
+          ctx.aliveBankRows
+            .map((_, stocks) => if stocks.totalDeposits > PLN.Zero then stocks.termDeposit / stocks.totalDeposits else 0.0)
+            .sum / ctx.aliveBankRows.length,
     ),
     // Term structure
     ColumnDef("WIBOR_1M", ctx => ctx.world.bankingSector.interbankCurve.map(c => td.toDouble(c.wibor1m)).getOrElse(0.0)),
