@@ -51,6 +51,28 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.calculus.employed should be > 0
   }
 
+  it should "emit equity issuance once from current-month firm financing" in {
+    val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState     = FlowSimulation.SimState.fromInit(init)
+    val staleIssuance = PLN(987654321.0)
+    val state         = baseState.copy(
+      world = baseState.world.copy(
+        financialMarkets = baseState.world.financialMarkets.copy(
+          equity = baseState.world.financialMarkets.equity.copy(lastIssuance = staleIssuance),
+        ),
+      ),
+    )
+
+    val result                = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val firmIssuance          = mechanismTotal(result.flows, FlowMechanism.FirmEquityIssuance)
+    val equityIssuanceBatches = result.flows.filter(batch => batch.asset == AssetType.Equity && batch.to == EntitySector.Firms)
+
+    equityIssuanceBatches.map(_.mechanism).toSet shouldBe Set(FlowMechanism.FirmEquityIssuance)
+    firmIssuance shouldBe result.calculus.firmEquityIssuance
+    firmIssuance shouldBe result.nextState.world.financialMarkets.equity.lastIssuance
+    firmIssuance should not equal staleIssuance
+  }
+
   it should "keep corporate bond outstanding ledger-owned across month boundaries" in {
     val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state       = FlowSimulation.SimState.fromInit(init)

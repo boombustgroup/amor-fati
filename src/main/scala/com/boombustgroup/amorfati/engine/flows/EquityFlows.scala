@@ -4,10 +4,11 @@ import com.boombustgroup.amorfati.engine.ledger.{ForeignRuntimeContract, Treasur
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
-/** GPW equity market emitting flows.
+/** GPW equity market emitting dividend flows.
   *
   * Dividends: domestic (Firm→HH net of Belka tax), foreign (Firm→Foreign).
-  * Issuance: HH→Firm (equity capital).
+  * Equity issuance belongs to FirmFlows because the current-month financing
+  * decision is produced by FirmEconomics before market memory is finalized.
   *
   * Account IDs: 0=Firm, 1=HH, 2=Foreign, 3=Gov (Belka tax)
   */
@@ -23,7 +24,6 @@ object EquityFlows:
       foreignDividends: PLN,
       dividendTax: PLN,
       govDividends: PLN,
-      issuance: PLN,
   )
 
   def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
@@ -64,15 +64,6 @@ object EquityFlows:
         AssetType.Cash,
         FlowMechanism.EquityGovDividend,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Households,
-        topology.households.investors,
-        EntitySector.Firms,
-        topology.firms.aggregate,
-        input.issuance,
-        AssetType.Equity,
-        FlowMechanism.EquityIssuance,
-      ),
     )
 
   def emit(input: Input): Vector[Flow] =
@@ -82,5 +73,4 @@ object EquityFlows:
     if input.foreignDividends > PLN.Zero then flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.foreignDividends.toLong, FlowMechanism.EquityForDividend.toInt)
     if input.dividendTax > PLN.Zero then flows += Flow(HH_ACCOUNT, GOV_ACCOUNT, input.dividendTax.toLong, FlowMechanism.EquityDividendTax.toInt)
     if input.govDividends > PLN.Zero then flows += Flow(FIRM_ACCOUNT, GOV_ACCOUNT, input.govDividends.toLong, FlowMechanism.EquityGovDividend.toInt)
-    if input.issuance > PLN.Zero then flows += Flow(HH_ACCOUNT, FIRM_ACCOUNT, input.issuance.toLong, FlowMechanism.EquityIssuance.toInt)
     flows.result()
