@@ -172,7 +172,7 @@ object Firm:
       digitalReadiness: Share,             // Digital readiness score [0,1], gates tech upgrades
       sector: SectorIdx,                   // Index into p.sectorDefs
       neighbors: Vector[FirmId],           // Network adjacency (firm IDs)
-      bankId: BankId,                      // Multi-bank: index into Banking.State.banks
+      bankId: BankId,                      // Multi-bank: index into the explicit bank vector
       initialSize: Int,                    // Firm size at creation (heterogeneous when FIRM_SIZE_DIST=gus)
       capitalStock: PLN,                   // Physical capital stock (PLN)
       foreignOwned: Boolean,               // FDI: subject to profit shifting & repatriation

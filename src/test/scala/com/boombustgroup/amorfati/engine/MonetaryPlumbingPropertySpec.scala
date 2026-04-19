@@ -75,7 +75,7 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     }
 
   "computeReserveInterest total" should "equal sum of per-bank interest" in
-    forAll(genBanking.State, genRate) { (bs, rate) =>
+    forAll(genBanking.Sector, genRate) { (bs, rate) =>
       val result = Banking.computeReserveInterest(bs.banks, bs.financialStocks, Rate(rate))
       td.toDouble(result.total) shouldBe (result.perBank.map(td.toDouble(_)).sum +- 0.01)
     }

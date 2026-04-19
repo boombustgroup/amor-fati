@@ -109,7 +109,7 @@ object Household:
       mpc: Share,                                          // marginal propensity to consume (Beta-sampled at init)
       status: HhStatus,                                    // current employment/activity status
       socialNeighbors: Array[HhId],                        // Watts-Strogatz social network neighbor IDs
-      bankId: BankId,                                      // index into Banking.State.banks (multi-bank)
+      bankId: BankId,                                      // index into the explicit bank vector (multi-bank)
       lastSectorIdx: SectorIdx,                            // last sector employed in (-1 = never)
       isImmigrant: Boolean,                                // immigrant status for wage discount + remittances
       numDependentChildren: Int,                           // children ≤ 18 for 800+ social transfers

@@ -62,7 +62,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   // ---- Interbank netting invariant ----
 
   "clearInterbank" should "always produce interbankNet that sums to zero" in
-    forAll(genBanking.State) { (bs: Banking.State) =>
+    forAll(genBanking.Sector) { bs =>
       val cleared = Banking.clearInterbank(bs.banks, bs.financialStocks, bs.configs)
       val netSum  = cleared.financialStocks.map(stocks => td.toDouble(stocks.interbankLoan)).sum
       netSum shouldBe 0.0 +- 1.0 // tolerance for floating-point
@@ -71,7 +71,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   // ---- bond allocation increments sum exactly ----
 
   "allocateBondIssuance/allocateBondRedemption" should "have individual deltas summing to exactly the requested change (residual)" in
-    forAll(genBanking.State, Gen.choose(-1e8, 1e8)) { (bs: Banking.State, signedChange: Double) =>
+    forAll(genBanking.Sector, Gen.choose(-1e8, 1e8)) { (bs, signedChange: Double) =>
       val aliveDep = bs.banks.zip(bs.financialStocks).filterNot(_._1.failed).map((_, stocks) => td.toDouble(stocks.totalDeposits)).sum
       whenever(aliveDep > 0 && signedChange != 0.0) {
         val after  =
@@ -85,7 +85,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     }
 
   it should "keep aggregate bond change within tight tolerance for large issuance" in
-    forAll(genBanking.State, Gen.choose(1e10, 1e14)) { (bs: Banking.State, issuance: Double) =>
+    forAll(genBanking.Sector, Gen.choose(1e10, 1e14)) { (bs, issuance: Double) =>
       val alive = bs.banks.filterNot(_.failed)
       whenever(alive.nonEmpty) {
         val before   = bs.financialStocks.map(stocks => td.toDouble(Banking.govBondHoldings(stocks))).sum
@@ -122,14 +122,14 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   // ---- aggregate.deposits == sum of individual deposits ----
 
   "aggregate" should "have deposits equal to sum of individual deposits" in
-    forAll(genBanking.State) { (bs: Banking.State) =>
+    forAll(genBanking.Sector) { bs =>
       val agg         = Banking.aggregateFromBankStocks(bs.banks, bs.financialStocks)
       val expectedDep = bs.financialStocks.map(stocks => td.toDouble(stocks.totalDeposits)).sum
       td.toDouble(agg.deposits) shouldBe expectedDep +- 1.0
     }
 
   it should "have capital equal to sum of individual capital" in
-    forAll(genBanking.State) { (bs: Banking.State) =>
+    forAll(genBanking.Sector) { bs =>
       val agg         = Banking.aggregateFromBankStocks(bs.banks, bs.financialStocks)
       val expectedCap = bs.banks.map(b => td.toDouble(b.capital)).sum
       td.toDouble(agg.capital) shouldBe expectedCap +- 1.0
@@ -138,7 +138,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   // ---- Failed banks stay failed ----
 
   "checkFailures" should "never un-fail a bank" in
-    forAll(genBanking.State) { (bs: Banking.State) =>
+    forAll(genBanking.Sector) { bs =>
       val failedBefore = bs.banks.filter(_.failed).map(_.id).toSet
       val afterCheck   = Banking.checkFailures(bs.banks, bs.financialStocks, ExecutionMonth(50), enabled = true, Multiplier.Zero)
       val failedAfter  = afterCheck.banks.filter(_.failed).map(_.id).toSet
@@ -148,7 +148,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   // ---- Reserves non-negative after clearing ----
 
   "clearInterbank" should "keep reserves non-negative" in
-    forAll(genBanking.State) { (bs: Banking.State) =>
+    forAll(genBanking.Sector) { bs =>
       val cleared = Banking.clearInterbank(bs.banks, bs.financialStocks, bs.configs)
       cleared.financialStocks.foreach(_.reserve should be >= PLN.Zero)
     }
@@ -165,7 +165,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   // ---- QE purchases don't exceed bond holdings ----
 
   "sellToBuyer" should "not make any bank's bond holdings negative" in
-    forAll(genBanking.State, Gen.choose(0.0, 1e9)) { (bs: Banking.State, qe: Double) =>
+    forAll(genBanking.Sector, Gen.choose(0.0, 1e9)) { (bs, qe: Double) =>
       val result = Banking.sellToBuyer(bs.banks, bs.financialStocks, PLN(qe)).financialStocks
       result.foreach(stocks => Banking.govBondHoldings(stocks) should be >= PLN.Zero)
     }

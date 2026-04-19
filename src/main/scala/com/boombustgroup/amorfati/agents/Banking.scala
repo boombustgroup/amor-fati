@@ -299,15 +299,6 @@ object Banking:
     val requiredStableFunding = rsf(bank, stocks, corpBondHoldings)
     if requiredStableFunding > MinBalanceThreshold then asf(bank, stocks).ratioTo(requiredStableFunding).toMultiplier else SafeRatioFloor
 
-  /** State of the entire banking sector. */
-  case class State(
-      banks: Vector[BankState],
-      interbankRate: Rate,
-      configs: Vector[Config],
-      interbankCurve: Option[YieldCurve.State],
-      financialStocks: Vector[BankFinancialStocks] = Vector.empty,
-  )
-
   /** Banking-sector state that belongs to macro/market runtime state, without
     * the explicit bank population.
     */

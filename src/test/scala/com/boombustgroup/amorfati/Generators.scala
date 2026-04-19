@@ -23,7 +23,7 @@ object Generators:
       totalGovBonds: PLN = PLN.Zero,
       totalConsumerLoans: PLN = PLN.Zero,
       configs: Vector[Banking.Config] = Banking.DefaultConfigs,
-  ): Banking.State =
+  ): Banking.BankStockState =
     val rows = configs.map: cfg =>
       val bankBonds = totalGovBonds * cfg.initMarketShare
       (
@@ -50,7 +50,7 @@ object Generators:
           consumerLoan = totalConsumerLoans * cfg.initMarketShare,
         ),
       )
-    Banking.State(rows.map(_._1), Rate.Zero, configs, None, rows.map(_._2))
+    Banking.BankStockState(rows.map(_._1), rows.map(_._2))
 
   def testHouseholdAggregates(
       employed: Int = 100,
@@ -681,6 +681,12 @@ object Generators:
   // --- Banking sector generators ---
 
   object genBanking:
+    case class SectorFixture(
+        banks: Vector[Banking.BankState],
+        financialStocks: Vector[Banking.BankFinancialStocks],
+        configs: Vector[Banking.Config],
+    )
+
     val Config: Gen[Banking.Config] = for
       id     <- Gen.choose(0, 6)
       share  <- Gen.choose(0.01, 0.50)
@@ -729,9 +735,8 @@ object Generators:
 
     val BankState: Gen[Banking.BankState] = BankRow.map(_._1)
 
-    val State: Gen[Banking.State] = for
+    val Sector: Gen[SectorFixture] = for
       nBanks <- Gen.choose(2, 7)
       rows   <- Gen.listOfN(nBanks, BankRow).map(_.toVector.zipWithIndex.map { case ((bank, stocks), i) => (bank.copy(id = BankId(i)), stocks) })
-      rate   <- genRate
       cfgs   <- Gen.listOfN(nBanks, Config).map(_.toVector.zipWithIndex.map((c, i) => c.copy(id = BankId(i))))
-    yield Banking.State(rows.map(_._1), Rate(rate), cfgs, None, rows.map(_._2))
+    yield SectorFixture(rows.map(_._1), rows.map(_._2), cfgs)
