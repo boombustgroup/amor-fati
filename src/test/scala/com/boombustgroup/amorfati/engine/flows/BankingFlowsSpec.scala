@@ -14,6 +14,10 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
   )
 
   private val baseInput = BankingFlows.Input(
+    firmInterestIncome = PLN(900000.0),
+    firmNplLoss = PLN(120000.0),
+    mortgageNplLoss = PLN(110000.0),
+    consumerNplLoss = PLN(60000.0),
     govBondIncome = PLN(3000000.0),
     reserveInterest = PLN(500000.0),
     standingFacilityIncome = PLN(100000.0),
@@ -38,8 +42,12 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
     val flows    = BankingFlows.emit(baseInput)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
 
-    val income   = baseInput.govBondIncome + baseInput.reserveInterest + baseInput.standingFacilityIncome + baseInput.interbankInterest + baseInput.corpBondCoupon
-    val outflows = baseInput.corpBondDefaultLoss + baseInput.bfgLevy + baseInput.unrealizedBondLoss + baseInput.nbpRemittance
+    val income   =
+      baseInput.firmInterestIncome + baseInput.govBondIncome + baseInput.reserveInterest + baseInput.standingFacilityIncome + baseInput.interbankInterest +
+        baseInput.corpBondCoupon
+    val outflows =
+      baseInput.firmNplLoss + baseInput.mortgageNplLoss + baseInput.consumerNplLoss + baseInput.corpBondDefaultLoss + baseInput.bfgLevy +
+        baseInput.unrealizedBondLoss + baseInput.nbpRemittance
     val bailIn   = baseInput.bailInLoss
 
     balances(BankingFlows.BANK_ACCOUNT) shouldBe (income - outflows + bailIn).toLong
@@ -136,6 +144,10 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
         withClue(s"$label: ") {
           val batches           = BankingFlows.emitBatches(baseInput)(using topology)
           val capitalMechanisms = Set(
+            FlowMechanism.BankFirmInterest,
+            FlowMechanism.BankNplLoss,
+            FlowMechanism.BankMortgageNplLoss,
+            FlowMechanism.BankCcNplLoss,
             FlowMechanism.BankGovBondIncome,
             FlowMechanism.BankCorpBondCoupon,
             FlowMechanism.BankCorpBondLoss,
@@ -148,6 +160,21 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
           capitalBatches should not be empty
           all(capitalBatches.map(_.asset)) shouldBe AssetType.Capital
           all(capitalBatches.map(batch => batch.from == EntitySector.Banks || batch.to == EntitySector.Banks)) shouldBe true
+        }
+
+  it should "wire all bank-specific P&L audit mechanisms into emitted batches" in
+    runtimeTopologies.foreach:
+      case (label, topology) =>
+        withClue(s"$label: ") {
+          val mechanisms = BankingFlows.emitBatches(baseInput)(using topology).map(_.mechanism).toSet
+
+          mechanisms should contain allOf (
+            FlowMechanism.BankFirmInterest,
+            FlowMechanism.BankNplLoss,
+            FlowMechanism.BankMortgageNplLoss,
+            FlowMechanism.BankCcNplLoss,
+            FlowMechanism.BankCorpBondLoss,
+          )
         }
 
   it should "preserve SFC across 120 months" in {

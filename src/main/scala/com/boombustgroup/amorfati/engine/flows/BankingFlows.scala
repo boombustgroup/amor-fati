@@ -12,12 +12,12 @@ import com.boombustgroup.ledger.*
   * MortgageFlows. Corporate bond principal flows are in CorpBondFlows; bank
   * loss recognition is capital P&L here.
   *
-  * This mechanism captures the REMAINING bank-specific flows: gov bond income,
-  * reserve/standing facility/interbank interest, BFG levy, unrealized bond
-  * losses, bail-in, NBP remittance.
+  * This mechanism captures bank-capital P&L audit legs plus NBP settlement
+  * channels. The matching cash or stock event may be emitted elsewhere; these
+  * legs make retained-income/loss recognition explicit for SFC evidence.
   *
   * Account IDs: 0=Bank, 1=NBP, 2=Gov (BFG levy), 3=Depositors (bail-in),
-  * 4=Corporate bond P&L settlement
+  * 4=Corporate bond P&L settlement, 5=Firms, 6=Households
   */
 object BankingFlows:
 
@@ -26,8 +26,14 @@ object BankingFlows:
   val GOV_ACCOUNT: Int       = 2
   val DEPOSITOR_ACCOUNT: Int = 3
   val CORP_BOND_ACCOUNT: Int = 4
+  val FIRM_ACCOUNT: Int      = 5
+  val HH_ACCOUNT: Int        = 6
 
   case class Input(
+      firmInterestIncome: PLN,
+      firmNplLoss: PLN,
+      mortgageNplLoss: PLN,
+      consumerNplLoss: PLN,
       govBondIncome: PLN,
       reserveInterest: PLN,
       standingFacilityIncome: PLN,
@@ -44,6 +50,42 @@ object BankingFlows:
 
   def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     Vector.concat(
+      AggregateBatchedEmission.transfer(
+        EntitySector.Firms,
+        topology.firms.aggregate,
+        EntitySector.Banks,
+        topology.banks.aggregate,
+        input.firmInterestIncome,
+        AssetType.Capital,
+        FlowMechanism.BankFirmInterest,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        topology.banks.aggregate,
+        EntitySector.Firms,
+        topology.firms.aggregate,
+        input.firmNplLoss,
+        AssetType.Capital,
+        FlowMechanism.BankNplLoss,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        topology.banks.aggregate,
+        EntitySector.Households,
+        topology.households.aggregate,
+        input.mortgageNplLoss,
+        AssetType.Capital,
+        FlowMechanism.BankMortgageNplLoss,
+      ),
+      AggregateBatchedEmission.transfer(
+        EntitySector.Banks,
+        topology.banks.aggregate,
+        EntitySector.Households,
+        topology.households.aggregate,
+        input.consumerNplLoss,
+        AssetType.Capital,
+        FlowMechanism.BankCcNplLoss,
+      ),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
@@ -170,6 +212,7 @@ object BankingFlows:
     val flows = Vector.newBuilder[Flow]
 
     // Income
+    if input.firmInterestIncome > PLN.Zero then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.firmInterestIncome.toLong, FlowMechanism.BankFirmInterest.toInt)
     if input.govBondIncome > PLN.Zero then flows += Flow(GOV_ACCOUNT, BANK_ACCOUNT, input.govBondIncome.toLong, FlowMechanism.BankGovBondIncome.toInt)
     if input.reserveInterest > PLN.Zero then flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.reserveInterest.toLong, FlowMechanism.BankReserveInterest.toInt)
     if input.standingFacilityIncome > PLN.Zero then
@@ -192,6 +235,9 @@ object BankingFlows:
       flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.standingFacilityBackstop.toLong, FlowMechanism.BankStandingFacilityBackstop.toInt)
 
     // Losses / outflows
+    if input.firmNplLoss > PLN.Zero then flows += Flow(BANK_ACCOUNT, FIRM_ACCOUNT, input.firmNplLoss.toLong, FlowMechanism.BankNplLoss.toInt)
+    if input.mortgageNplLoss > PLN.Zero then flows += Flow(BANK_ACCOUNT, HH_ACCOUNT, input.mortgageNplLoss.toLong, FlowMechanism.BankMortgageNplLoss.toInt)
+    if input.consumerNplLoss > PLN.Zero then flows += Flow(BANK_ACCOUNT, HH_ACCOUNT, input.consumerNplLoss.toLong, FlowMechanism.BankCcNplLoss.toInt)
     if input.bfgLevy > PLN.Zero then flows += Flow(BANK_ACCOUNT, GOV_ACCOUNT, input.bfgLevy.toLong, FlowMechanism.BankBfgLevy.toInt)
     if input.unrealizedBondLoss > PLN.Zero then
       flows += Flow(BANK_ACCOUNT, GOV_ACCOUNT, input.unrealizedBondLoss.toLong, FlowMechanism.BankUnrealizedLoss.toInt)
