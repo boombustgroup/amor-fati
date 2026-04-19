@@ -17,8 +17,17 @@ object AssetOwnershipContract:
 
   private val zeroPopulationTopology = RuntimeLedgerTopology.zeroPopulation
 
+  /** Logical owner slot in the runtime ledger topology.
+    *
+    * Dynamic slots match every runtime entity in a sector, for example all
+    * households or all banks. Fixed slots identify one stable aggregate owner,
+    * such as the single NBP account or a named Funds bucket.
+    */
   enum SectorId:
+    /** Matches any runtime owner index inside `sector`. */
     case Dynamic(sector: EntitySector)
+
+    /** Matches exactly one owner index inside `sector`. */
     case Fixed(sector: EntitySector, index: Int)
 
     def entitySector: EntitySector =
@@ -34,6 +43,11 @@ object AssetOwnershipContract:
         case Dynamic(ownerSector)         => ownerSector == sector
         case Fixed(ownerSector, ownerIdx) => ownerSector == sector && ownerIdx == index
 
+  /** Expanded `(owner, asset)` contract row used by runtime membership checks.
+    *
+    * These pairs are derived from [[PublicAssetContract.supportedSlots]] for
+    * assets whose status is [[PublicAssetStatus.SupportedPersistedStock]].
+    */
   case class SupportedPair(
       owner: SectorId,
       asset: AssetType,
@@ -44,6 +58,12 @@ object AssetOwnershipContract:
     ): Boolean =
       owner.matches(sector, index)
 
+  /** Current engine contract status for a public `amor-fati-ledger` asset type.
+    *
+    * The public ledger API is wider than the engine's supported persisted
+    * ownership slice. This status records whether an asset is in the supported
+    * slice, deliberately outside it for now, or only exposed by the public API.
+    */
   enum PublicAssetStatus:
     /** Asset has an engine-owned persisted stock contract and participates in
       * the current supported ledger slice.
@@ -60,6 +80,19 @@ object AssetOwnershipContract:
       */
     case PublicAssetWithoutEngineContract
 
+  /** One registry row for a public ledger asset type.
+    *
+    * @param asset
+    *   public asset identifier from the ledger module
+    * @param status
+    *   how the engine currently treats this asset family
+    * @param supportedSlots
+    *   owner slots associated with the asset; for supported persisted stocks
+    *   these are the contracted owners, while for unsupported persisted stocks
+    *   they document where the legacy state still lives
+    * @param note
+    *   short human-facing explanation for audits and tests
+    */
   case class PublicAssetContract(
       asset: AssetType,
       status: PublicAssetStatus,
@@ -76,6 +109,10 @@ object AssetOwnershipContract:
   private def fund(index: Int): SectorId =
     SectorId.Fixed(EntitySector.Funds, index)
 
+  /** Complete asset registry. Every public `AssetType` must appear exactly
+    * once, enforced by the `require`s below and by
+    * `AssetOwnershipContractSpec`.
+    */
   val publicAssets: Vector[PublicAssetContract] = Vector(
     PublicAssetContract(
       AssetType.DemandDeposit,
@@ -241,6 +278,11 @@ object AssetOwnershipContract:
   private val publicAssetsByAsset =
     publicAssetGroups.view.mapValues(_.head).toMap
 
+  /** Flattened supported owner/asset pairs consumed by runtime contract checks.
+    *
+    * Unsupported and orphan public assets are intentionally absent from this
+    * set even when `publicAssets` records their current engine location.
+    */
   val supportedPairs: Set[SupportedPair] =
     publicAssetsByAsset.valuesIterator
       .filter(_.status == PublicAssetStatus.SupportedPersistedStock)
@@ -248,16 +290,31 @@ object AssetOwnershipContract:
         contract.supportedSlots.iterator.map(slot => SupportedPair(slot, contract.asset))
       .toSet
 
+  /** Public asset types with no persisted ownership contract in the engine. */
   val orphanPublicAssets: Set[AssetType] =
     publicAssets.iterator
       .filter(_.status == PublicAssetStatus.PublicAssetWithoutEngineContract)
       .map(_.asset)
       .toSet
 
+  /** Reason a persisted or stock-like family is outside the supported slice. */
   enum UnsupportedCategory:
+    /** Real persisted engine state exists, but is not a supported ledger-owned
+      * transferable asset family yet.
+      */
     case UnsupportedPersistedStock
+
+    /** Aggregate accounting, policy, or market metric that may look stock-like
+      * but is not a holder-resolved asset balance.
+      */
     case MetricOnly
 
+  /** Stable identifiers for non-supported stock families tracked by the audit.
+    *
+    * Add a value here when a stock-like field remains outside `supportedPairs`;
+    * this keeps known gaps explicit instead of letting them hide in `World` or
+    * agent state.
+    */
   enum UnsupportedFamilyId:
     case BankCapital
     case BankCreditRiskState
@@ -267,12 +324,26 @@ object AssetOwnershipContract:
     case NbpQeCumulativePurchases
     case JstDebt
 
+  /** Audit registry entry for a stock-like family outside `supportedPairs`.
+    *
+    * @param id
+    *   stable identifier used by tests and runtime scans
+    * @param category
+    *   whether this is unsupported persisted state or metric-only memory
+    * @param note
+    *   concise explanation of why the family is outside the supported slice
+    */
   case class UnsupportedFamily(
       id: UnsupportedFamilyId,
       category: UnsupportedCategory,
       note: String,
   )
 
+  /** Explicit list of known non-supported stock-like families.
+    *
+    * This is an audit allow-list, not an ownership source. Supported financial
+    * owners must be represented through `publicAssets`/`supportedPairs`.
+    */
   val unsupportedFamilies: Vector[UnsupportedFamily] = Vector(
     UnsupportedFamily(
       UnsupportedFamilyId.BankCapital,
@@ -311,6 +382,12 @@ object AssetOwnershipContract:
     ),
   )
 
+  /** Detect which unsupported families are present in a concrete runtime state.
+    *
+    * The scan is intentionally shallow and conservative: it flags known legacy
+    * or metric fields when they carry non-zero values so tests can ensure the
+    * unsupported-family registry stays aligned with observable state.
+    */
   def presentUnsupportedFamilies(sim: FlowSimulation.SimState): Set[UnsupportedFamilyId] =
     Set.empty[UnsupportedFamilyId]
       ++ Option.when(sim.banks.exists(_.capital != PLN.Zero))(UnsupportedFamilyId.BankCapital)
@@ -334,10 +411,32 @@ object AssetOwnershipContract:
       ++ Option.when(sim.world.nbp.qeCumulative != PLN.Zero)(UnsupportedFamilyId.NbpQeCumulativePurchases)
       ++ Option.when(sim.world.social.jst.debt != PLN.Zero)(UnsupportedFamilyId.JstDebt)
 
+  /** Kind of non-persisted runtime account used during flow execution. */
   enum RuntimeShellCategory:
+    /** Aggregate or synthetic node used to calculate and route flows inside one
+      * step; it is not persisted as an owner after the step.
+      */
     case ExecutionShell
+
+    /** Settlement counterparty for double-entry flow mechanics; it records the
+      * other side of a transaction without becoming a persisted stock owner.
+      */
     case SettlementShell
 
+  /** Non-persisted runtime ledger node.
+    *
+    * Runtime shells may appear in emitted flows, but they are excluded from
+    * `supportedPairs` because they do not own end-of-month financial stocks.
+    *
+    * @param sector
+    *   ledger sector used by emitted flows
+    * @param index
+    *   runtime index within the sector
+    * @param name
+    *   stable diagnostic name used in tests and audit output
+    * @param category
+    *   execution or settlement role
+    */
   case class RuntimeShell(
       sector: EntitySector,
       index: Int,
@@ -489,9 +588,13 @@ object AssetOwnershipContract:
     ),
   )
 
+  /** Lookup helper for the single registry row associated with `asset`. */
   def publicAsset(asset: AssetType): PublicAssetContract =
     publicAssetsByAsset(asset)
 
+  /** True when the concrete runtime owner slot is part of the supported
+    * persisted ownership contract for `asset`.
+    */
   def isSupportedPersistedPair(
       sector: EntitySector,
       asset: AssetType,
