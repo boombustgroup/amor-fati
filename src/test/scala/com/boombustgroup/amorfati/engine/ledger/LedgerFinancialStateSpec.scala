@@ -31,6 +31,45 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
     refreshed.last shouldBe LedgerFinancialState.householdBalances(newStocks)
   }
 
+  "LedgerFinancialState.settleHouseholdMortgageStock" should "write an aggregate closing mortgage stock into household rows" in {
+    val households = Vector(
+      LedgerFinancialState.HouseholdBalances(
+        demandDeposit = PLN(1.0),
+        mortgageLoan = PLN(10.0),
+        consumerLoan = PLN.Zero,
+        equity = PLN.Zero,
+      ),
+      LedgerFinancialState.HouseholdBalances(
+        demandDeposit = PLN(2.0),
+        mortgageLoan = PLN(30.0),
+        consumerLoan = PLN.Zero,
+        equity = PLN.Zero,
+      ),
+    )
+
+    val settled = LedgerFinancialState.settleHouseholdMortgageStock(households, PLN(80.0))
+
+    LedgerFinancialState.householdMortgageStock(settled) shouldBe PLN(80.0)
+    settled.map(_.demandDeposit) shouldBe households.map(_.demandDeposit)
+    settled.map(_.consumerLoan) shouldBe households.map(_.consumerLoan)
+    settled.map(_.equity) shouldBe households.map(_.equity)
+  }
+
+  it should "allocate a positive closing mortgage stock across zero-debt household rows" in {
+    val households = Vector.fill(2)(
+      LedgerFinancialState.HouseholdBalances(
+        demandDeposit = PLN.Zero,
+        mortgageLoan = PLN.Zero,
+        consumerLoan = PLN.Zero,
+        equity = PLN.Zero,
+      ),
+    )
+
+    val settled = LedgerFinancialState.settleHouseholdMortgageStock(households, PLN(30.0))
+
+    LedgerFinancialState.householdMortgageStock(settled) shouldBe PLN(30.0)
+  }
+
   "LedgerFinancialState.refreshFirmPopulationBalances" should "refresh execution stocks while preserving existing corporate bonds" in {
     val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val existingIndex = init.firms.head.id.toInt

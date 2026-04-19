@@ -271,7 +271,7 @@ object Sfc:
       nfzBalance = ledgerFinancialState.funds.nfzCash,
       foreignBondHoldings = bonds.foreignHoldings,
       ppkBondHoldings = bonds.ppkHoldings,
-      mortgageStock = w.real.housing.mortgageStock,
+      mortgageStock = hhD,
       consumerLoans = bankAgg.consumerLoans,
       corpBondsOutstanding = CorporateBondOwnership.issuerOutstanding(ledgerFinancialState),
       insuranceGovBondHoldings = bonds.insuranceHoldings,

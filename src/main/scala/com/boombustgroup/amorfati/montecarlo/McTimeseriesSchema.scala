@@ -83,6 +83,8 @@ object McTimeseriesSchema:
       ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
     lazy val ledgerHouseholdEquityWealth: PLN                                                       =
       ledgerFinancialState.households.foldLeft(PLN.Zero)((acc, household) => acc + household.equity)
+    lazy val ledgerHouseholdMortgageStock: PLN                                                      =
+      LedgerFinancialState.householdMortgageStock(ledgerFinancialState)
     lazy val ledgerFirmBalancesById: Map[FirmId, LedgerFinancialState.FirmBalances]                 =
       firms.zip(ledgerFinancialState.firms).map((firm, balances) => firm.id -> balances).toMap
     lazy val hhAgg: Household.Aggregates                                                            = householdAggregates
@@ -406,7 +408,7 @@ object McTimeseriesSchema:
       // Housing Market
       ColumnDef("HousingPriceIndex", ctx => td.toDouble(ctx.world.real.housing.priceIndex)),
       ColumnDef("HousingMarketValue", ctx => td.toDouble(ctx.world.real.housing.totalValue)),
-      ColumnDef("MortgageStock", ctx => td.toDouble(ctx.world.real.housing.mortgageStock)),
+      ColumnDef("MortgageStock", ctx => td.toDouble(ctx.ledgerHouseholdMortgageStock)),
       ColumnDef("AvgMortgageRate", ctx => td.toDouble(ctx.world.real.housing.avgMortgageRate)),
       ColumnDef("MortgageOrigination", ctx => td.toDouble(ctx.world.real.housing.lastOrigination)),
       ColumnDef("MortgageRepayment", ctx => td.toDouble(ctx.world.real.housing.lastRepayment)),
@@ -417,8 +419,8 @@ object McTimeseriesSchema:
       ColumnDef(
         "MortgageToGdp",
         ctx =>
-          if ctx.monthlyGdp > PLN.Zero && ctx.world.real.housing.mortgageStock > PLN.Zero
-          then td.toDouble(ctx.world.real.housing.mortgageStock) / (td.toDouble(ctx.monthlyGdp) * 12.0)
+          if ctx.monthlyGdp > PLN.Zero && ctx.ledgerHouseholdMortgageStock > PLN.Zero
+          then td.toDouble(ctx.ledgerHouseholdMortgageStock) / (td.toDouble(ctx.monthlyGdp) * 12.0)
           else 0.0,
       ),
     ) ++ regionalHousingColumns ++ Vector(

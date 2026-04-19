@@ -39,6 +39,7 @@ object HousingMarket:
   case class State(
       priceIndex: PriceIndex,
       totalValue: PLN,
+      // Projection of ledger-owned household mortgage principal used by the aggregate housing model.
       mortgageStock: PLN,
       avgMortgageRate: Rate,
       hhHousingWealth: PLN,
@@ -116,6 +117,30 @@ object HousingMarket:
       mortgageInterestIncome = PLN.Zero,
       regions = Some(initRegions),
     )
+
+  def withMortgageStock(state: State, mortgageStock: PLN): State =
+    require(mortgageStock >= PLN.Zero, s"HousingMarket.withMortgageStock requires non-negative mortgage stock, got $mortgageStock")
+    state.copy(
+      mortgageStock = mortgageStock,
+      hhHousingWealth = state.totalValue - mortgageStock,
+      regions = state.regions.map(syncRegionalMortgageStocks(_, mortgageStock)),
+    )
+
+  private def syncRegionalMortgageStocks(regs: Vector[RegionalState], mortgageStock: PLN): Vector[RegionalState] =
+    if regs.isEmpty then regs
+    else if mortgageStock <= PLN.Zero then regs.map(_.copy(mortgageStock = PLN.Zero))
+    else
+      val mortgageWeights = regs.map(_.mortgageStock.distributeRaw.max(0L)).toArray
+      val valueWeights    = regs.map(_.totalValue.distributeRaw.max(0L)).toArray
+      val weights         =
+        if mortgageWeights.exists(_ > 0L) then mortgageWeights
+        else if valueWeights.exists(_ > 0L) then valueWeights
+        else Array.fill(regs.length)(1L)
+      Distribute
+        .distribute(mortgageStock.distributeRaw, weights)
+        .zip(regs)
+        .map((rawStock, reg) => reg.copy(mortgageStock = PLN.fromRaw(rawStock)))
+        .toVector
 
   private def initRegions(using p: SimParams): Vector[RegionalState] =
     p.housing.regionalMarkets.map: marketConfig =>

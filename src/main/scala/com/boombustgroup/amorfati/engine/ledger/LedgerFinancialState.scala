@@ -2,7 +2,8 @@ package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
-import com.boombustgroup.amorfati.types.{FirmId, HhId, PLN}
+import com.boombustgroup.amorfati.types.{distributeRaw, FirmId, HhId, PLN}
+import com.boombustgroup.ledger.Distribute
 
 /** Ledger-owned snapshot of ledger-contracted financial stocks used by the
   * engine.
@@ -51,6 +52,39 @@ object LedgerFinancialState:
       consumerLoan = balances.consumerLoan,
       equity = balances.equity,
     )
+
+  def householdMortgageStock(ledgerFinancialState: LedgerFinancialState): PLN =
+    householdMortgageStock(ledgerFinancialState.households)
+
+  def householdMortgageStock(households: Vector[HouseholdBalances]): PLN =
+    households.map(_.mortgageLoan).sum
+
+  /** Writes the aggregate mortgage model's closing principal back into
+    * household ledger rows. Until origination/defaults are modeled per
+    * household, the aggregate stock is distributed proportionally across the
+    * existing household mortgage book.
+    */
+  def settleHouseholdMortgageStock(households: Vector[HouseholdBalances], closingStock: PLN): Vector[HouseholdBalances] =
+    require(closingStock >= PLN.Zero, s"LedgerFinancialState.settleHouseholdMortgageStock requires non-negative closing stock, got $closingStock")
+    if households.isEmpty then
+      require(
+        closingStock == PLN.Zero,
+        s"LedgerFinancialState.settleHouseholdMortgageStock cannot assign $closingStock to an empty household ledger",
+      )
+      households
+    else
+      val currentStock = householdMortgageStock(households)
+      if currentStock == closingStock then households
+      else
+        val mortgageWeights = households.map(_.mortgageLoan.distributeRaw.max(0L)).toArray
+        val weights         =
+          if mortgageWeights.exists(_ > 0L) then mortgageWeights
+          else Array.fill(households.length)(1L)
+        Distribute
+          .distribute(closingStock.distributeRaw, weights)
+          .zip(households)
+          .map((rawStock, balances) => balances.copy(mortgageLoan = PLN.fromRaw(rawStock)))
+          .toVector
 
   def refreshHouseholdBalances(
       households: Vector[Household.State],

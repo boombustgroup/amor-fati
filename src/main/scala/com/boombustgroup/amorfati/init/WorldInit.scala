@@ -4,7 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.*
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
-import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, EquityMarket, FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.engine.markets.{CorporateBondMarket, EquityMarket, FiscalBudget, HousingMarket, OpenEconomy}
 import com.boombustgroup.amorfati.engine.mechanisms.{Macroprudential, SectoralMobility}
 import com.boombustgroup.amorfati.types.*
 
@@ -119,7 +119,7 @@ object WorldInit:
       totalConsumerPrincipal = PLN.Zero,
     )
 
-    val world = World(
+    val world0 = World(
       inflation = initInflation,
       priceLevel = PriceIndex(1.0),
       currentSigmas = p.sectorDefs.map(_.sigma),
@@ -204,6 +204,12 @@ object WorldInit:
         corporateBonds = initCorporateBondStocks,
         nbfi = initNbfiBalances,
         quasiFiscal = QuasiFiscal.StockState.zero,
+      ),
+    )
+
+    val world = world0.copy(
+      real = world0.real.copy(
+        housing = HousingMarket.withMortgageStock(world0.real.housing, LedgerFinancialState.householdMortgageStock(ledgerFinancialState)),
       ),
     )
 

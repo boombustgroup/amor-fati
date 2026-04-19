@@ -205,6 +205,7 @@ object BankingEconomics:
 
     val ledgerFinancialState =
       in.s5.ledgerFinancialState.copy(
+        households = LedgerFinancialState.settleHouseholdMortgageStock(in.s5.ledgerFinancialState.households, housing.housingAfterFlows.mortgageStock),
         firms = issuerSettledFirmBalances,
         banks = multi.finalBankLedgerBalances,
         government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = govJst.newGovBondOutstanding),
@@ -354,7 +355,9 @@ object BankingEconomics:
   /** Housing market: price step, origination, mortgage flows. */
   private def computeHousingFlows(in: StepInput)(using p: SimParams): HousingResult =
     val unempRate              = in.w.unemploymentRate(in.s2.employed)
-    val prevMortgageRate       = in.w.real.housing.avgMortgageRate
+    val openingHousing         =
+      HousingMarket.withMortgageStock(in.w.real.housing, LedgerFinancialState.householdMortgageStock(in.ledgerFinancialState))
+    val prevMortgageRate       = openingHousing.avgMortgageRate
     val mortgageBaseRate: Rate =
       val exp = in.w.mechanisms.expectations
       YieldCurve
@@ -375,7 +378,7 @@ object BankingEconomics:
     val mortgageRate           = mortgageBaseRate + p.housing.mortgageSpread
     val housingAfterPrice      = HousingMarket.step(
       HousingMarket.StepInput(
-        prev = in.w.real.housing,
+        prev = openingHousing,
         mortgageRate = mortgageRate,
         inflation = in.s7.newInfl,
         incomeGrowth = in.s2.wageGrowth.toMultiplier.toRate,

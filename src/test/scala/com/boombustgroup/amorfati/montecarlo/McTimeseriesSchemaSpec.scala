@@ -299,7 +299,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
 
   it should "source ledger-owned household, public, and fund stock columns from LedgerFinancialState" in {
     val ledger = initState.ledgerFinancialState.copy(
-      households = initState.ledgerFinancialState.households.map(_.copy(equity = PLN(11.0))),
+      households = initState.ledgerFinancialState.households.map(_.copy(mortgageLoan = PLN(12.0), equity = PLN(11.0))),
       banks = initState.ledgerFinancialState.banks.map(_.copy(govBondAfs = PLN(10.0), govBondHtm = PLN(20.0))),
       government = initState.ledgerFinancialState.government.copy(govBondOutstanding = PLN(123.0)),
       foreign = initState.ledgerFinancialState.foreign.copy(govBondHoldings = PLN(45.0)),
@@ -321,6 +321,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     val row    = computeRow(init.world, ledger)
 
     valueAt(row, "HhEquityWealth") shouldBe initState.ledgerFinancialState.households.length.toDouble * 11.0
+    valueAt(row, "MortgageStock") shouldBe initState.ledgerFinancialState.households.length.toDouble * 12.0
     valueAt(row, "BondsOutstanding") shouldBe 123.0
     valueAt(row, "BankBondHoldings") shouldBe initState.ledgerFinancialState.banks.length.toDouble * 30.0
     valueAt(row, "ForeignBondHoldings") shouldBe 45.0

@@ -308,6 +308,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val snap   = Sfc.snapshot(w, firms, hhs, Vector.empty, ledger)
     snap.hhSavings.bd shouldBe (BigDecimal("200000.0") +- BigDecimal("0.01"))
     snap.hhDebt.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
+    snap.mortgageStock.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
   }
 
   it should "return zero HH values with empty household vector" in {
