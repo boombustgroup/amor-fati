@@ -25,6 +25,7 @@ engine/
 | `World.scala` | Case class holding macro/runtime state, decomposed into 9 nested types: `SocialState`, `HouseholdMarketState`, `FinancialMarketsState`, `ExternalState`, `RealState`, `MechanismsState`, `MonetaryPlumbingState`, `PipelineState`, `FlowState`. Financial ownership lives in `LedgerFinancialState`, not `World`. |
 | `ledger/LedgerFinancialState.scala` | Runtime source of truth for supported financial balances; exposes projection DTOs for agent/economics execution. |
 | `ledger/AssetOwnershipContract.scala` | Audit contract for supported persisted owner/asset pairs, unsupported stock-like families, and non-persisted runtime shells. |
+| `ledger/RuntimeMechanismSurvivability.scala` | Audit contract classifying each runtime-emitted `FlowMechanism` as round-trippable stock, execution-delta-only, or unsupported/metric-only. |
 | `MonthSemantics.scala` | Tiny typed phase markers for the internal month step: pre-seed, same-month operational state, post-assembly state, and next pre-seed extraction. |
 | `MonthRandomness.scala` | Explicit month-step randomness contract: one root seed split into named stage and assembly streams for deterministic replay and auditability. |
 | `MonthDriver.scala` | Shared month-by-month unfold driver over the explicit `FlowSimulation.step` boundary. |
@@ -110,6 +111,17 @@ against 13 accounting identities each month.
 | `JstFlows.scala` | JST (local government): PIT/CIT shares, property tax, subventions, spending |
 | `OpenEconFlows.scala` | BoP: trade, FDI, portfolio, primary income (NFA), secondary income (EU funds, diaspora), tourism, capital flight |
 
+## ledger/
+
+The ledger package defines the engine-side boundary between durable financial
+stocks and same-month execution plumbing.
+
+| File | Responsibility |
+|------|----------------|
+| `LedgerFinancialState.scala` | Persisted financial stock surface owned by the ledger-backed engine slice. |
+| `AssetOwnershipContract.scala` | Declares which `(EntitySector, AssetType)` owner pairs are supported persisted stock, which stock-like families remain unsupported, and which runtime nodes are non-persisted execution or settlement shells. Topology-aware checks must be used for concrete emitted batches so aggregate shell indices are not mistaken for persisted owners. |
+| `RuntimeMechanismSurvivability.scala` | Declares the survivability class for every runtime-emitted `FlowMechanism`. It separates mechanisms whose emitted legs can round-trip through persisted stock owners from mechanisms that are execution-delta-only or intentionally outside the supported persisted stock slice. |
+
 ## markets/
 
 Stateless (or thin-state) market-clearing modules. Each computes
@@ -162,9 +174,11 @@ don't clear markets themselves.
 
 **Adding a new flow:**
 1. Add a case to the `FlowMechanism` enum in `FlowMechanism.scala`.
-2. Create or extend the appropriate `*Flows.scala` to emit the flow.
-3. Wire the batch emission call in `FlowSimulation.emitAllBatches(...)` or the relevant aggregation point.
-4. Update the SFC validation projection so the 13-identity check covers the new flow.
+2. Add the mechanism to `FlowMechanism.emittedRuntimeMechanisms`, unless it is a deliberately reserved legacy ID.
+3. Create or extend the appropriate `*Flows.scala` to emit the flow.
+4. Wire the batch emission call in `FlowSimulation.emitAllBatches(...)` or the relevant aggregation point.
+5. Update `RuntimeMechanismSurvivability.scala` with the mechanism's audit class and ensure representative branch coverage exercises it.
+6. Update the SFC validation projection so the 13-identity check covers the new flow.
 
 **SFC rule:** Any flow that modifies bank capital, deposits, government
 debt, NFA, bond holdings, or interbank positions **must** be reflected in

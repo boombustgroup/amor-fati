@@ -17,6 +17,15 @@ object AssetOwnershipContract:
 
   private val zeroPopulationTopology = RuntimeLedgerTopology.zeroPopulation
 
+  /** Number of persisted owner indices that precede runtime-only shell indices
+    * in a concrete topology.
+    *
+    * Dynamic sectors append aggregate execution shells after the real agent
+    * population. Fixed sectors reserve index `0` for the persisted stock owner
+    * where the engine has one, with settlement shells placed after it. This
+    * helper is the boundary that keeps those two index spaces from being
+    * conflated by audit checks.
+    */
   private def persistedOwnerCount(topology: RuntimeLedgerTopology, sector: EntitySector): Int =
     sector match
       case EntitySector.Households => topology.households.persistedCount
@@ -35,10 +44,16 @@ object AssetOwnershipContract:
     * such as the single NBP account or a named Funds bucket.
     */
   enum SectorId:
-    /** Matches any runtime owner index inside `sector`. */
+    /** Registry-level wildcard for persisted owners in a dynamic sector.
+      *
+      * This does not mean every concrete runtime index in that sector is a
+      * persisted owner. Use the topology-aware `matches` overload when checking
+      * emitted batches, because aggregate shell indices live in the same sector
+      * namespace after the persisted population.
+      */
     case Dynamic(sector: EntitySector)
 
-    /** Matches exactly one owner index inside `sector`. */
+    /** Stable fixed owner slot for singleton sectors or named fund buckets. */
     case Fixed(sector: EntitySector, index: Int)
 
     def entitySector: EntitySector =
@@ -67,7 +82,10 @@ object AssetOwnershipContract:
   /** Expanded `(owner, asset)` contract row used by runtime membership checks.
     *
     * These pairs are derived from [[PublicAssetContract.supportedSlots]] for
-    * assets whose status is [[PublicAssetStatus.SupportedPersistedStock]].
+    * assets whose status is [[PublicAssetStatus.SupportedPersistedStock]]. A
+    * pair records the ownership contract; the topology-aware `matches` overload
+    * is needed to prove that a concrete emitted index is still inside the
+    * persisted portion of its sector.
     */
   case class SupportedPair(
       owner: SectorId,
@@ -110,6 +128,12 @@ object AssetOwnershipContract:
 
   /** One registry row for a public ledger asset type.
     *
+    * `status` answers whether the asset family is supported by the current
+    * engine slice. `supportedSlots` answers where that asset can live when it
+    * is persisted. The two fields are intentionally kept together so
+    * unsupported persisted families, like bank capital, remain documented
+    * without being admitted into `supportedPairs`.
+    *
     * @param asset
     *   public asset identifier from the ledger module
     * @param status
@@ -140,6 +164,11 @@ object AssetOwnershipContract:
   /** Complete asset registry. Every public `AssetType` must appear exactly
     * once, enforced by the `require`s below and by
     * `AssetOwnershipContractSpec`.
+    *
+    * This registry is a contract for end-of-month stocks, not for every asset
+    * name that can appear in a runtime flow. A runtime flow may legitimately
+    * use the same `AssetType` through an aggregate or settlement shell; that is
+    * classified separately by `RuntimeMechanismSurvivability`.
     */
   val publicAssets: Vector[PublicAssetContract] = Vector(
     PublicAssetContract(
@@ -415,6 +444,10 @@ object AssetOwnershipContract:
     * The scan is intentionally shallow and conservative: it flags known legacy
     * or metric fields when they carry non-zero values so tests can ensure the
     * unsupported-family registry stays aligned with observable state.
+    *
+    * This method does not discover arbitrary world fields. New unsupported
+    * stock-like state should first get an `UnsupportedFamilyId`, then a focused
+    * predicate here.
     */
   def presentUnsupportedFamilies(sim: FlowSimulation.SimState): Set[UnsupportedFamilyId] =
     Set.empty[UnsupportedFamilyId]
@@ -472,9 +505,10 @@ object AssetOwnershipContract:
       category: RuntimeShellCategory,
   )
 
-  // Dynamic-sector shell indices come from a zero-population runtime
-  // topology. Real runtime positions are derived per step by
-  // RuntimeLedgerTopology.fromState(...).
+  // Dynamic-sector shell indices below come from a zero-population topology as
+  // named shape templates. In a live step, the same shells move after the real
+  // population count, so concrete membership checks must use a real
+  // RuntimeLedgerTopology rather than these template indices.
   val nonPersistedRuntimeShells: Vector[RuntimeShell] = Vector(
     RuntimeShell(
       EntitySector.Households,
