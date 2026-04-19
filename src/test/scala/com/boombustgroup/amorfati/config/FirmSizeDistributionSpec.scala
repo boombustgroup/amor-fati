@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.config
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -27,7 +29,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.agents.{Firm, TechState}
 
   private def mkFirm(tech: TechState, sector: Int = 0, size: Int = 10): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       PLN.Zero,
       PLN.Zero,
@@ -41,7 +43,6 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = size,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
@@ -97,6 +98,6 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
   // --- Backward compatibility ---
 
   "Default initialSize" should "be 10 for backward compatibility" in {
-    val f = mkFirm(TechState.Traditional(10)).copy(cash = PLN(50000))
+    val f = mkFirm(TechState.Traditional(10))
     f.initialSize shouldBe 10
   }

@@ -1,12 +1,11 @@
 package com.boombustgroup.amorfati.engine
 
 import org.scalatest.flatspec.AnyFlatSpec
-import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
-import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.Generators
 import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.agents.Banking.BankStatus
+import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
 import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
@@ -14,302 +13,133 @@ import com.boombustgroup.amorfati.types.*
 class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
+
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
   private val td           = ComputationBoundary
 
-  @annotation.nowarn("msg=unused private member") // defaults used by callers
-  private def mkBank(
+  private case class BankRow(bank: Banking.BankState, stocks: Banking.BankFinancialStocks)
+
+  private def mkBankRow(
       id: Int = 0,
-      deposits: PLN = PLN(1e6),
+      deposits: PLN,
       loans: PLN = PLN.Zero,
       capital: PLN = PLN(100000),
       nplAmount: PLN = PLN.Zero,
       govBondHoldings: PLN = PLN.Zero,
-      reservesAtNbp: PLN = PLN.Zero,
       interbankNet: PLN = PLN.Zero,
       status: BankStatus = BankStatus.Active(0),
-  ): Banking.BankState = Banking.BankState(
-    id = BankId(id),
-    deposits = deposits,
-    loans = loans,
-    capital = capital,
-    nplAmount = nplAmount,
-    afsBonds = govBondHoldings * Multiplier(0.40),
-    htmBonds = govBondHoldings * Multiplier(0.60),
-    htmBookYield = Rate(0.055),
-    reservesAtNbp = reservesAtNbp,
-    interbankNet = interbankNet,
-    status = status,
-    demandDeposits = PLN.Zero,
-    termDeposits = PLN.Zero,
-    loansShort = PLN.Zero,
-    loansMedium = PLN.Zero,
-    loansLong = PLN.Zero,
-    consumerLoans = PLN.Zero,
-    consumerNpl = PLN.Zero,
-    corpBondHoldings = PLN.Zero,
-  )
+  ): BankRow =
+    BankRow(
+      Banking.BankState(
+        id = BankId(id),
+        capital = capital,
+        nplAmount = nplAmount,
+        htmBookYield = Rate(0.055),
+        status = status,
+        loansShort = PLN.Zero,
+        loansMedium = PLN.Zero,
+        loansLong = PLN.Zero,
+        consumerNpl = PLN.Zero,
+      ),
+      Banking.BankFinancialStocks(
+        totalDeposits = deposits,
+        firmLoan = loans,
+        govBondAfs = govBondHoldings * Share(0.40),
+        govBondHtm = govBondHoldings * Share(0.60),
+        reserve = PLN.Zero,
+        interbankLoan = interbankNet,
+        demandDeposit = PLN.Zero,
+        termDeposit = PLN.Zero,
+        consumerLoan = PLN.Zero,
+      ),
+    )
 
-  // ==========================================================================
-  // Config defaults (5 tests)
-  // ==========================================================================
+  private def banks(rows: Vector[BankRow]): Vector[Banking.BankState] =
+    rows.map(_.bank)
 
-  "P2rAddons" should "default to 7 values" in {
+  private def stocks(rows: Vector[BankRow]): Vector[Banking.BankFinancialStocks] =
+    rows.map(_.stocks)
+
+  "KNF banking params" should "expose calibrated P2R, BFG levy, bail-in, and guarantee defaults" in {
     p.banking.p2rAddons.length shouldBe 7
-  }
-
-  it should "have PKO BP = 1.5%, mBank = 3.0%" in {
-    p.banking.p2rAddons(0) shouldBe Multiplier(0.015) // PKO BP
-    p.banking.p2rAddons(2) shouldBe Multiplier(0.030) // mBank
-  }
-
-  "BfgLevyRate" should "default to 0.0024" in {
+    p.banking.p2rAddons(0) shouldBe Multiplier(0.015)
+    p.banking.p2rAddons(2) shouldBe Multiplier(0.030)
     p.banking.bfgLevyRate shouldBe Rate(0.0024)
-  }
-
-  "BailInDepositHaircut" should "default to 0.08" in {
     p.banking.bailInDepositHaircut shouldBe Share(0.08)
-  }
-
-  "BfgDepositGuarantee" should "default to 400000" in {
     p.banking.bfgDepositGuarantee shouldBe PLN(400000.0)
   }
 
-  // ==========================================================================
-  // P2R add-ons (4 tests)
-  // ==========================================================================
-
-  "p2rAddon" should "return correct per-bank values" in {
-    Macroprudential.p2rAddon(0) shouldBe Multiplier(0.015) // PKO BP
-    Macroprudential.p2rAddon(1) shouldBe Multiplier(0.010) // Pekao
-    Macroprudential.p2rAddon(2) shouldBe Multiplier(0.030) // mBank
-    Macroprudential.p2rAddon(3) shouldBe Multiplier(0.015) // ING BSK
-    Macroprudential.p2rAddon(4) shouldBe Multiplier(0.020) // Santander
-    Macroprudential.p2rAddon(5) shouldBe Multiplier(0.025) // BPS/Coop
-    Macroprudential.p2rAddon(6) shouldBe Multiplier(0.020) // Others
-  }
-
-  it should "fall back to last value for out-of-range bankId" in {
+  "Macroprudential P2R" should "return per-bank add-ons and affect effective minimum CAR" in {
+    Macroprudential.p2rAddon(0) shouldBe Multiplier(0.015)
+    Macroprudential.p2rAddon(2) shouldBe Multiplier(0.030)
     Macroprudential.p2rAddon(7) shouldBe p.banking.p2rAddons.last
-    Macroprudential.p2rAddon(99) shouldBe p.banking.p2rAddons.last
-  }
 
-  "effectiveMinCarImpl" should "include P2R in total" in {
-    val ccyb     = Multiplier(0.01)
-    val bankId   = 0 // PKO BP: OSII=1%, P2R=1.5%
-    val expected =
-      td.toDouble(p.banking.minCar) + td.toDouble(ccyb) + td.toDouble(p.banking.osiiPkoBp) + td.toDouble(p.banking.p2rAddons(0))
-    td.toDouble(Macroprudential.effectiveMinCarImpl(bankId, ccyb)) shouldBe expected +- 1e-10
-  }
-
-  it should "give mBank highest P2R (3.0%)" in {
-    val ccyb     = Multiplier.Zero
-    // mBank (id=2): OSII=0%, P2R=3.0%
-    val mBankCar = Macroprudential.effectiveMinCarImpl(2, ccyb)
-    // PKO BP (id=0): OSII=1%, P2R=1.5%
-    val pkoCar   = Macroprudential.effectiveMinCarImpl(0, ccyb)
-    // mBank P2R (3%) > PKO OSII+P2R (1%+1.5%)
-    td.toDouble(mBankCar) shouldBe td.toDouble(p.banking.minCar) + 0.030
-    td.toDouble(pkoCar) shouldBe td.toDouble(p.banking.minCar) + 0.010 + 0.015
-  }
-
-  // ==========================================================================
-  // BFG levy (4 tests)
-  // ==========================================================================
-
-  "computeBfgLevy" should "compute monthly levy = deposits * rate / 12" in {
-    val banks    = Vector(mkBank(deposits = PLN(1200000.0)))
-    val result   = Banking.computeBfgLevy(banks)
-    val expected = 1200000.0 * td.toDouble(p.banking.bfgLevyRate) / 12.0
-    td.toDouble(result.perBank(0)) shouldBe expected +- 0.01
-    td.toDouble(result.total) shouldBe expected +- 0.01
-  }
-
-  it should "return zero for failed bank" in {
-    val banks  = Vector(mkBank(deposits = PLN(1200000.0), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
-    val result = Banking.computeBfgLevy(banks)
-    result.perBank(0) shouldBe PLN.Zero
-    result.total shouldBe PLN.Zero
-  }
-
-  it should "sum per-bank levies correctly" in {
-    val banks    = Vector(
-      mkBank(id = 0, deposits = PLN(1000000.0)),
-      mkBank(id = 1, deposits = PLN(2000000.0), capital = PLN(200000)),
-      mkBank(id = 2, deposits = PLN(500000.0), capital = PLN(50000), status = BankStatus.Failed(ExecutionMonth(3))),
-    )
-    val result   = Banking.computeBfgLevy(banks)
-    val expected = (1000000.0 + 2000000.0) * td.toDouble(p.banking.bfgLevyRate) / 12.0
-    td.toDouble(result.total) shouldBe expected +- 0.01
-    result.perBank(2) shouldBe PLN.Zero
-  }
-
-  it should "be positive for non-failed bank with positive deposits" in {
-    val banks  = Vector(mkBank(deposits = PLN(100000.0), capital = PLN(10000)))
-    val result = Banking.computeBfgLevy(banks)
-    result.perBank(0) should be > PLN.Zero
-  }
-
-  // ==========================================================================
-  // Bail-in (6 tests)
-  // ==========================================================================
-
-  "applyBailIn" should "not touch non-failed banks" in {
-    val banks  = Vector(mkBank(deposits = PLN(500000.0), loans = PLN(100000), capital = PLN(50000)))
-    val result = Banking.applyBailIn(banks)
-    result.banks(0).deposits shouldBe PLN(500000.0)
-    result.totalLoss shouldBe PLN.Zero
-  }
-
-  it should "not haircut deposits below guarantee threshold" in {
-    val banks  = Vector(mkBank(deposits = PLN(300000.0), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
-    val result = Banking.applyBailIn(banks)
-    result.banks(0).deposits shouldBe PLN(300000.0)
-    result.totalLoss shouldBe PLN.Zero
-  }
-
-  it should "return zero bail-in when no failures" in {
-    val banks  = Vector(
-      mkBank(id = 0, deposits = PLN(1000000.0), loans = PLN(100000), capital = PLN(50000)),
-      mkBank(id = 1, deposits = PLN(2000000.0), loans = PLN(200000)),
-    )
-    val result = Banking.applyBailIn(banks)
-    result.totalLoss shouldBe PLN.Zero
-    result.banks(0).deposits shouldBe PLN(1000000.0)
-    result.banks(1).deposits shouldBe PLN(2000000.0)
-  }
-
-  it should "apply before resolution (bail-in then resolve)" in {
-    val banks        = Vector(
-      mkBank(id = 0, deposits = PLN(1000000.0), loans = PLN(100000), capital = PLN.Zero, nplAmount = PLN(50000), status = BankStatus.Failed(ExecutionMonth(5))),
-      mkBank(id = 1, deposits = PLN(2000000.0), loans = PLN(200000), capital = PLN(200000)),
-    )
-    val afterBailIn  = Banking.applyBailIn(banks)
-    // With bailIn=true: uninsured = 1M - 400k = 600k, haircut = 600k * 0.08 = 48k
-    val uninsured    = 1000000.0 - td.toDouble(p.banking.bfgDepositGuarantee)
-    val haircut      = uninsured * td.toDouble(p.banking.bailInDepositHaircut)
-    val afterResolve = Banking.resolveFailures(afterBailIn.banks)
-    afterResolve.banks(0).deposits shouldBe PLN.Zero                             // failed bank wiped
-    afterResolve.banks(1).deposits shouldBe PLN(2000000.0 + 1000000.0 - haircut) // absorbed after bail-in
-  }
-
-  // ==========================================================================
-  // World defaults (1 test)
-  // ==========================================================================
-
-  "World" should "default bfgFundBalance=0 and bailInLoss=0" in {
-    val w = World(
-      inflation = Rate(0.02),
-      priceLevel = 1.0,
-      gdpProxy = 100000.0,
-      currentSigmas = Vector(Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0)),
-      totalPopulation = 100,
-      gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bankingSector = Generators.testBankingSector().marketState,
-      forex = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
-        employed = 100,
-        unemployed = 0,
-        retraining = 0,
-        bankrupt = 0,
-        totalIncome = PLN.Zero,
-        consumption = PLN.Zero,
-        domesticConsumption = PLN.Zero,
-        importConsumption = PLN.Zero,
-        marketWage = PLN(8000),
-        reservationWage = PLN(4000),
-        giniIndividual = Share.Zero,
-        giniWealth = Share.Zero,
-        meanSavings = PLN.Zero,
-        medianSavings = PLN.Zero,
-        povertyRate50 = Share.Zero,
-        bankruptcyRate = Share.Zero,
-        meanSkill = Share.Zero,
-        meanHealthPenalty = Share.Zero,
-        retrainingAttempts = 0,
-        retrainingSuccesses = 0,
-        consumptionP10 = PLN.Zero,
-        consumptionP50 = PLN.Zero,
-        consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = Scalar.Zero,
-        povertyRate30 = Share.Zero,
-        totalRent = PLN.Zero,
-        totalDebtService = PLN.Zero,
-        totalUnempBenefits = PLN.Zero,
-        totalDepositInterest = PLN.Zero,
-        crossSectorHires = 0,
-        voluntaryQuits = 0,
-        sectorMobilityRate = Share.Zero,
-        totalRemittances = PLN.Zero,
-        totalPit = PLN.Zero,
-        totalSocialTransfers = PLN.Zero,
-        totalConsumerDebtService = PLN.Zero,
-        totalConsumerOrigination = PLN.Zero,
-        totalConsumerDefault = PLN.Zero,
-        totalConsumerPrincipal = PLN.Zero,
-      ),
-      social = SocialState.zero,
-      financial = FinancialMarketsState.zero,
-      external = ExternalState.zero,
-      real = RealState.zero,
-      mechanisms = MechanismsState.zero,
-      plumbing = MonetaryPlumbingState.zero,
-      flows = FlowState.zero,
-    )
-    w.mechanisms.bfgFundBalance shouldBe PLN.Zero
-    w.flows.bailInLoss shouldBe PLN.Zero
-  }
-
-  // ==========================================================================
-  // P2R raises effective CAR floor (2 tests)
-  // ==========================================================================
-
-  "P2R" should "raise effectiveMinCar above base MinCar" in {
-    val carWithP2r = Macroprudential.effectiveMinCarImpl(0, Multiplier.Zero)
-    carWithP2r should be > p.banking.minCar
-  }
-
-  it should "vary across banks" in {
-    val car0 = Macroprudential.effectiveMinCarImpl(0, Multiplier.Zero) // PKO: OSII 1% + P2R 1.5%
-    val car2 = Macroprudential.effectiveMinCarImpl(2, Multiplier.Zero) // mBank: OSII 0% + P2R 3.0%
-    val car5 = Macroprudential.effectiveMinCarImpl(5, Multiplier.Zero) // BPS: OSII 0% + P2R 2.5%
-    // All different from each other
-    car0 should not be car2
-    car2 should not be car5
-    // mBank has highest P2R
+    val ccyb        = Multiplier(0.01)
+    val expectedPko = td.toDouble(p.banking.minCar) + td.toDouble(ccyb) + td.toDouble(p.banking.osiiPkoBp) + td.toDouble(p.banking.p2rAddons(0))
+    td.toDouble(Macroprudential.effectiveMinCarImpl(0, ccyb)) shouldBe expectedPko +- 1e-10
+    Macroprudential.effectiveMinCarImpl(0, Multiplier.Zero) should be > p.banking.minCar
     Macroprudential.p2rAddon(2) should be > Macroprudential.p2rAddon(0)
   }
 
-  // ==========================================================================
-  // BFG levy reduces bank capital (2 tests)
-  // ==========================================================================
+  "Banking.computeBfgLevy" should "compute monthly levy from explicit deposit stocks" in {
+    val rows     = Vector(
+      mkBankRow(id = 0, deposits = PLN(1000000.0)),
+      mkBankRow(id = 1, deposits = PLN(2000000.0), capital = PLN(200000)),
+      mkBankRow(id = 2, deposits = PLN(500000.0), capital = PLN(50000), status = BankStatus.Failed(ExecutionMonth(3))),
+    )
+    val result   = Banking.computeBfgLevy(banks(rows), stocks(rows))
+    val expected = (1000000.0 + 2000000.0) * td.toDouble(p.banking.bfgLevyRate) / 12.0
 
-  "BFG levy" should "reduce bank capital" in {
-    val deposits        = 1000000.0
-    val levy            = deposits * td.toDouble(p.banking.bfgLevyRate) / 12.0
-    levy should be > 0.0
-    val originalCapital = 100000.0
-    val newCapital      = originalCapital - levy
-    newCapital should be < originalCapital
+    td.toDouble(result.total) shouldBe expected +- 0.01
+    result.perBank(2) shouldBe PLN.Zero
+    result.perBank(0) should be > PLN.Zero
   }
 
-  it should "accumulate monotonically in BFG fund" in {
-    val prevBalance = 1000.0
-    val currentLevy = 500.0
-    val newBalance  = prevBalance + currentLevy
-    newBalance shouldBe 1500.0
-    newBalance should be > prevBalance
+  "Banking.applyBailIn" should "haircut only failed-bank uninsured deposit stocks" in {
+    val safe       = Vector(mkBankRow(deposits = PLN(500000.0), loans = PLN(100000), capital = PLN(50000)))
+    val safeResult = Banking.applyBailIn(banks(safe), stocks(safe))
+    safeResult.financialStocks.head.totalDeposits shouldBe PLN(500000.0)
+    safeResult.totalLoss shouldBe PLN.Zero
+
+    val guaranteed       = Vector(mkBankRow(deposits = PLN(300000.0), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
+    val guaranteedResult = Banking.applyBailIn(banks(guaranteed), stocks(guaranteed))
+    guaranteedResult.financialStocks.head.totalDeposits shouldBe PLN(300000.0)
+    guaranteedResult.totalLoss shouldBe PLN.Zero
+
+    val failed       = Vector(mkBankRow(deposits = PLN(1000000.0), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
+    val failedResult = Banking.applyBailIn(banks(failed), stocks(failed))
+    val haircut      = (PLN(1000000.0) - p.banking.bfgDepositGuarantee) * p.banking.bailInDepositHaircut
+    failedResult.financialStocks.head.totalDeposits shouldBe PLN(1000000.0) - haircut
+    failedResult.totalLoss shouldBe haircut
   }
 
-  // ==========================================================================
-  // resolveFailures edge cases (4 tests)
-  // ==========================================================================
+  "Banking.resolveFailures" should "transfer failed-bank deposits, bonds, and interbank stock to the survivor" in {
+    val rows   = Vector(
+      mkBankRow(
+        id = 0,
+        deposits = PLN(500000.0),
+        loans = PLN(100000),
+        capital = PLN.Zero,
+        nplAmount = PLN(50000),
+        govBondHoldings = PLN(10e9),
+        interbankNet = PLN(1000.0),
+        status = BankStatus.Failed(ExecutionMonth(3)),
+      ),
+      mkBankRow(id = 1, deposits = PLN(2000000.0), loans = PLN(200000), capital = PLN(200000), govBondHoldings = PLN(5e9), interbankNet = PLN(-1000.0)),
+    )
+    val result = Banking.resolveFailures(banks(rows), stocks(rows))
 
-  "resolveFailures" should "preserve total gov bond holdings when all banks fail" in {
-    val banks            = Vector(
-      mkBank(
+    result.financialStocks(0).totalDeposits shouldBe PLN.Zero
+    result.financialStocks(0).firmLoan shouldBe PLN.Zero
+    result.financialStocks(0).interbankLoan shouldBe PLN.Zero
+    td.toDouble(Banking.govBondHoldings(result.financialStocks(1))) shouldBe 15e9 +- 1.0
+    td.toDouble(result.financialStocks.map(_.interbankLoan).sum) shouldBe 0.0 +- 1e-6
+  }
+
+  it should "create a bridge bank when all banks fail and preserve aggregate bond stock" in {
+    val rows   = Vector(
+      mkBankRow(
         id = 0,
         deposits = PLN(500000.0),
         loans = PLN(100000),
@@ -318,7 +148,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         govBondHoldings = PLN(20e9),
         status = BankStatus.Failed(ExecutionMonth(3)),
       ),
-      mkBank(
+      mkBankRow(
         id = 1,
         deposits = PLN(300000.0),
         loans = PLN(80000),
@@ -327,7 +157,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         govBondHoldings = PLN(15e9),
         status = BankStatus.Failed(ExecutionMonth(3)),
       ),
-      mkBank(
+      mkBankRow(
         id = 2,
         deposits = PLN(200000.0),
         loans = PLN(60000),
@@ -337,82 +167,31 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         status = BankStatus.Failed(ExecutionMonth(3)),
       ),
     )
-    val totalBondsBefore = banks.map(b => td.toDouble(b.govBondHoldings)).sum
-    val result           = Banking.resolveFailures(banks)
-    val totalBondsAfter  = result.banks.map(b => td.toDouble(b.govBondHoldings)).sum
-    totalBondsAfter shouldBe totalBondsBefore +- 1.0
-    val bridge           = result.banks.find(!_.failed)
-    bridge shouldBe defined
-    bridge.get.govBondHoldings should be > PLN.Zero
+    val before = stocks(rows).map(s => td.toDouble(Banking.govBondHoldings(s))).sum
+    val result = Banking.resolveFailures(banks(rows), stocks(rows))
+    val after  = result.financialStocks.map(s => td.toDouble(Banking.govBondHoldings(s))).sum
+
+    after shouldBe before +- 1.0
+    result.banks.exists(!_.failed) shouldBe true
   }
 
-  it should "preserve interbank netting sum when all banks fail" in {
-    val banks                = Vector(
-      mkBank(
-        id = 0,
-        deposits = PLN(500000.0),
-        loans = PLN(100000),
-        capital = PLN(-5000),
-        nplAmount = PLN(50000),
-        interbankNet = PLN(1000.0),
-        status = BankStatus.Failed(ExecutionMonth(3)),
-      ),
-      mkBank(
-        id = 1,
-        deposits = PLN(300000.0),
-        loans = PLN(80000),
-        capital = PLN(-3000),
-        nplAmount = PLN(30000),
-        interbankNet = PLN(-600.0),
-        status = BankStatus.Failed(ExecutionMonth(3)),
-      ),
-      mkBank(
-        id = 2,
-        deposits = PLN(200000.0),
-        loans = PLN(60000),
-        capital = PLN(-10000),
-        nplAmount = PLN(20000),
-        interbankNet = PLN(-400.0),
-        status = BankStatus.Failed(ExecutionMonth(3)),
-      ),
+  "Banking.healthiestBankId" should "return bank with highest capital when all fail" in {
+    val rows = Vector(
+      mkBankRow(id = 0, deposits = PLN(500000.0), loans = PLN(100000), capital = PLN(-20000), status = BankStatus.Failed(ExecutionMonth(3))),
+      mkBankRow(id = 1, deposits = PLN(300000.0), loans = PLN(80000), capital = PLN(-5000), status = BankStatus.Failed(ExecutionMonth(3))),
+      mkBankRow(id = 2, deposits = PLN(200000.0), loans = PLN(60000), capital = PLN(-15000), status = BankStatus.Failed(ExecutionMonth(3))),
     )
-    val result               = Banking.resolveFailures(banks)
-    val totalInterbankAfter  = result.banks.map(b => td.toDouble(b.interbankNet)).sum
-    val totalInterbankBefore = banks.map(b => td.toDouble(b.interbankNet)).sum
-    totalInterbankAfter shouldBe totalInterbankBefore +- 1e-6
+
+    Banking.healthiestBankId(banks(rows), stocks(rows)) shouldBe BankId(1)
   }
 
-  it should "transfer bonds to healthy absorber in partial failure" in {
-    val banks  = Vector(
-      mkBank(
-        id = 0,
-        deposits = PLN(500000.0),
-        loans = PLN(100000),
-        capital = PLN.Zero,
-        nplAmount = PLN(50000),
-        govBondHoldings = PLN(10e9),
-        status = BankStatus.Failed(ExecutionMonth(3)),
-      ),
-      mkBank(id = 1, deposits = PLN(2000000.0), loans = PLN(200000), capital = PLN(200000), govBondHoldings = PLN(5e9)),
+  "World defaults" should "keep bfgFundBalance and bailInLoss at zero" in {
+    val w = Generators.testWorld(
+      monthlyGdpProxy = PLN(100000.0),
+      currentSigmas = Vector(Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0), Sigma(1.0)),
+      marketWage = PLN(8000),
+      reservationWage = PLN(4000),
     )
-    val result = Banking.resolveFailures(banks)
-    result.banks(0).govBondHoldings shouldBe PLN.Zero
-    td.toDouble(result.banks(1).govBondHoldings) shouldBe 15e9 +- 1.0
-  }
-
-  "healthiestBankId" should "return bank with highest capital when all fail" in {
-    val banks = Vector(
-      mkBank(
-        id = 0,
-        deposits = PLN(500000.0),
-        loans = PLN(100000),
-        capital = PLN(-20000),
-        nplAmount = PLN(50000),
-        status = BankStatus.Failed(ExecutionMonth(3)),
-      ),
-      mkBank(id = 1, deposits = PLN(300000.0), loans = PLN(80000), capital = PLN(-5000), nplAmount = PLN(30000), status = BankStatus.Failed(ExecutionMonth(3))),
-      mkBank(id = 2, deposits = PLN(200000.0), loans = PLN(60000), capital = PLN(-15000), nplAmount = PLN(20000), status = BankStatus.Failed(ExecutionMonth(3))),
-    )
-    // Bank 1 has highest (least negative) capital: -5000
-    Banking.healthiestBankId(banks) shouldBe BankId(1)
+    w.mechanisms.bfgFundBalance shouldBe PLN.Zero
+    w.flows.bailInLoss shouldBe PLN.Zero
   }

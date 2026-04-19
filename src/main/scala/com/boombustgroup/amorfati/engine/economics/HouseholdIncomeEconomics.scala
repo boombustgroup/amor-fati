@@ -3,6 +3,7 @@ package com.boombustgroup.amorfati.engine.economics
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.LaborMarket
 import com.boombustgroup.amorfati.engine.mechanisms.SectoralMobility
 import com.boombustgroup.amorfati.types.*
@@ -37,6 +38,7 @@ object HouseholdIncomeEconomics:
       pitRevenue: PLN,                                // personal income tax collected from households
       importAdj: Share,                               // ER-adjusted import propensity (base * ER elasticity)
       aggUnempBenefit: PLN,                           // aggregate unemployment benefit payments
+      ledgerFinancialState: LedgerFinancialState,     // ledger after household financial stock updates
   )
 
   @boundaryEscape
@@ -45,6 +47,7 @@ object HouseholdIncomeEconomics:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
       lendingBaseRate: Rate,
       resWage: PLN,
       newWage: PLN,
@@ -56,21 +59,29 @@ object HouseholdIncomeEconomics:
         Math.pow(toDouble(p.forex.baseExRate) / exchangeRateValue(w.forex.exchangeRate), ImportErElasticity),
     )
 
-    val afterSep           = LaborMarket.separations(households, firms, firms)
-    val afterWages         = LaborMarket.updateWages(afterSep, firms, newWage)
-    val bsec               = w.bankingSector
-    val nBanksHh           = banks.length
-    val hhBankRates        = Some(
+    val afterSep      = LaborMarket.separations(households, firms, firms)
+    val afterWages    = LaborMarket.updateWages(afterSep, firms, newWage)
+    val bsec          = w.bankingSector
+    val nBanksHh      = banks.length
+    val bankStocks    = ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)
+    val hhBankRates   = Some(
       BankRates(
-        lendingRates = banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, lendingBaseRate, w.gov.bondYield)),
+        lendingRates = banks
+          .zip(bankStocks)
+          .zip(bsec.configs)
+          .map { case ((b, stocks), cfg) =>
+            Banking.lendingRate(b, stocks, cfg, lendingBaseRate, w.gov.bondYield, CorporateBondOwnership.bankHolderFor(ledgerFinancialState, b.id))
+          },
         depositRates = banks.map(_ => Banking.hhDepositRate(w.nbp.referenceRate)),
       ),
     )
-    val eqReturn           = w.financial.equity.monthlyReturn
-    val secWages           = Some(SectoralMobility.sectorWages(afterWages))
-    val secVacancies       = Some(SectoralMobility.sectorVacancies(afterWages, firms))
-    val (newHhs, agg, pbf) = Household.step(
+    val eqReturn      = w.financialMarkets.equity.monthlyReturn
+    val secWages      = Some(SectoralMobility.sectorWages(afterWages))
+    val secVacancies  = Some(SectoralMobility.sectorVacancies(afterWages, firms))
+    val openingStocks = ledgerFinancialState.households.map(LedgerFinancialState.projectHouseholdFinancialStocks)
+    val householdStep = Household.step(
       afterWages,
+      openingStocks,
       w,
       newWage,
       resWage,
@@ -82,16 +93,18 @@ object HouseholdIncomeEconomics:
       secWages,
       secVacancies,
     )
+    val agg           = householdStep.aggregates
 
     Output(
       agg.totalIncome,
       agg.consumption,
       agg.importConsumption,
       agg.domesticConsumption,
-      newHhs,
+      householdStep.households,
       agg,
-      pbf,
+      householdStep.perBankFlows,
       agg.totalPit,
       importAdj,
       aggUnempBenefit = PLN.Zero,
+      ledgerFinancialState = ledgerFinancialState.copy(households = householdStep.financialStocks.map(LedgerFinancialState.householdBalances)),
     )

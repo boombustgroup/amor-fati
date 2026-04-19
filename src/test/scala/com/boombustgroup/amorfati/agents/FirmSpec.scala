@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
@@ -7,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.engine.markets.OpenEconomy
 import com.boombustgroup.amorfati.types.*
 
 import com.boombustgroup.amorfati.random.RandomStream
@@ -17,6 +19,34 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   given SimParams              = SimParams.defaults
   private val p: SimParams     = summon[SimParams]
   private val ExecutionMonth31 = ExecutionMonth(31)
+
+  private def defaultStocks(cash: PLN = PLN(50000.0), debt: PLN = PLN.Zero, equity: PLN = PLN.Zero): Firm.FinancialStocks =
+    TestFirmState.financial(cash = cash, debt = debt, equityRaised = equity)
+
+  private def hiringDiagnostics(firm: Firm.State, world: World): Firm.HiringDiagnostics =
+    Firm.hiringDiagnostics(firm, defaultStocks(), world, OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack))
+
+  private def process(
+      firm: Firm.State,
+      world: World,
+      lendRate: Rate,
+      bankCanLend: PLN => Boolean,
+      allFirms: Vector[Firm.State],
+      rng: RandomStream,
+      financialStocks: Firm.FinancialStocks = defaultStocks(),
+  ): Firm.Result =
+    Firm.process(
+      firm,
+      financialStocks,
+      world,
+      ExecutionMonth31,
+      OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack),
+      lendRate,
+      bankCanLend,
+      allFirms,
+      rng,
+      PLN.Zero,
+    )
 
   // --- Firm.isAlive ---
 
@@ -73,13 +103,13 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       ),
       flows = FlowState.zero,
     )
-    val firstSignal = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3), world)
+    val firstSignal = hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3), world)
     firstSignal.desiredWorkers should be > firstSignal.workers
     firstSignal.feasibleWorkers shouldBe firstSignal.workers
     firstSignal.signalMonths shouldBe 1
     firstSignal.requiredSignalMonths shouldBe 2
 
-    val persistedSignal = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3).copy(hiringSignalMonths = 1), world)
+    val persistedSignal = hiringDiagnostics(mkFirm(TechState.Traditional(8), sector = 3).copy(hiringSignalMonths = 1), world)
     persistedSignal.desiredWorkers should be > persistedSignal.workers
     persistedSignal.feasibleWorkers should be > persistedSignal.workers
     persistedSignal.signalMonths shouldBe 2
@@ -95,7 +125,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       ),
       flows = FlowState.zero,
     )
-    val diag  = Firm.hiringDiagnostics(mkFirm(TechState.Traditional(4), sector = 3), world)
+    val diag  = hiringDiagnostics(mkFirm(TechState.Traditional(4), sector = 3), world)
     diag.desiredWorkers should be > diag.workers
     diag.feasibleWorkers should be > diag.workers
     diag.requiredSignalMonths shouldBe 1
@@ -112,7 +142,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       flows = FlowState.zero,
     )
     val startup = mkFirm(TechState.Traditional(1), sector = 3).copy(startupMonthsLeft = 4, startupTargetWorkers = 3)
-    val diag    = Firm.hiringDiagnostics(startup, world)
+    val diag    = hiringDiagnostics(startup, world)
     diag.desiredWorkers shouldBe 3
     diag.feasibleWorkers shouldBe 2
     diag.signalMonths shouldBe 1
@@ -135,8 +165,8 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       operationalHiringSlack = Share.One,
     )
     val firm              = mkFirm(TechState.Traditional(8), sector = 3).copy(hiringSignalMonths = 1)
-    val bridged           = Firm.hiringDiagnostics(firm, weakWorld)
-    val explicit          = Firm.hiringDiagnostics(firm, weakWorld, strongOperational)
+    val bridged           = hiringDiagnostics(firm, weakWorld)
+    val explicit          = Firm.hiringDiagnostics(firm, defaultStocks(), weakWorld, strongOperational)
 
     explicit.desiredWorkers should be > bridged.desiredWorkers
     explicit.feasibleWorkers should be >= bridged.feasibleWorkers
@@ -281,6 +311,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     val commodity    = PriceIndex.Base
     val pnl          = Firm.computePnL(
       firm = firm,
+      financialStocks = defaultStocks(),
       wage = p.household.baseWage,
       sectorDemandMult = Multiplier.One,
       domesticPrice = PriceIndex.Base,
@@ -299,21 +330,21 @@ class FirmSpec extends AnyFlatSpec with Matchers:
 
   "Firm.process" should "keep a Bankrupt firm bankrupt with zero tax/capex" in {
     val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))
-    val result = Firm.process(f, mkWorld(), ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     result.taxPaid shouldBe PLN.Zero
     result.capexSpent shouldBe PLN.Zero
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }
 
   it should "keep an Automated firm alive with large cash" in {
-    val f      = mkFirm(TechState.Automated(Multiplier(1.5))).copy(cash = PLN(10000000.0))
-    val result = Firm.process(f, mkWorld(), ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val f      = mkFirm(TechState.Automated(Multiplier(1.5)))
+    val result = process(f, mkWorld(), Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42), defaultStocks(cash = PLN(10000000.0)))
     Firm.isAlive(result.firm) shouldBe true
   }
 
   it should "bankrupt an Automated firm with negative cash when P&L is negative" in {
     // Very low cash + high price level = deep losses → bankrupt
-    val f      = mkFirm(TechState.Automated(Multiplier(0.1))).copy(cash = PLN(-500000.0), debt = PLN(5000000.0))
+    val f      = mkFirm(TechState.Automated(Multiplier(0.1)))
     val baseW  = mkWorld()
     val w      = baseW.copy(
       priceLevel = PriceIndex(0.3),
@@ -321,12 +352,13 @@ class FirmSpec extends AnyFlatSpec with Matchers:
         sectorDemandMult = Vector.fill(baseW.pipeline.sectorDemandMult.length)(Multiplier(0.1)),
       ),
     )
-    val result = Firm.process(f, w, ExecutionMonth31, Rate(0.20), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate(0.20), _ => true, Vector(f), RandomStream.seeded(42), defaultStocks(cash = PLN(-500000.0), debt = PLN(5000000.0)))
     result.firm.tech shouldBe a[TechState.Bankrupt]
   }
 
   it should "use the carried informal adjustment from world state for CIT evasion" in {
-    val firm       = mkFirm(TechState.Traditional(10), sector = 2).copy(cash = PLN(500000.0))
+    val firm       = mkFirm(TechState.Traditional(10), sector = 2)
+    val stocks     = defaultStocks(cash = PLN(500000.0))
     val baseWorld  =
       mkWorld().copy(
         pipeline = mkWorld().pipeline.copy(
@@ -337,9 +369,9 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       )
     val lowAdj     = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.0))
     val highAdj    = baseWorld.copy(mechanisms = baseWorld.mechanisms.copy(informalCyclicalAdj = 0.4))
-    val lowResult  = Firm.process(firm, lowAdj, ExecutionMonth31, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
+    val lowResult  = process(firm, lowAdj, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42), stocks)
     val highResult =
-      Firm.process(firm, highAdj, ExecutionMonth31, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42))
+      process(firm, highAdj, Rate(0.07), _ => true, Vector(firm), RandomStream.seeded(42), stocks)
 
     lowResult.taxPaid should be > PLN.Zero
     highResult.taxPaid should be > PLN.Zero
@@ -349,7 +381,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
   // --- helpers ---
 
   private def mkFirmWithNeighbors(id: Int, tech: TechState, neighbors: Vector[FirmId]): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(id),
       PLN(50000.0),
       PLN.Zero,
@@ -363,7 +395,6 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
@@ -371,7 +402,7 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     )
 
   private def mkFirm(tech: TechState, sector: Int = 2): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       PLN(50000.0),
       PLN.Zero,
@@ -385,7 +416,6 @@ class FirmSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
@@ -393,62 +423,10 @@ class FirmSpec extends AnyFlatSpec with Matchers:
     )
 
   private def mkWorld(): World =
-    World(
-      inflation = Rate(0.02),
-      priceLevel = PriceIndex.Base,
-      gdpProxy = 1e9,
-      currentSigmas = p.sectorDefs.map(_.sigma).toVector,
+    Generators.testWorld(
       totalPopulation = 100000,
-      gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bankingSector = Generators.testBankingSector().marketState,
+      employed = 100000,
       forex = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
-      hhAgg = Household.Aggregates(
-        employed = 100000,
-        unemployed = 0,
-        retraining = 0,
-        bankrupt = 0,
-        totalIncome = PLN.Zero,
-        consumption = PLN.Zero,
-        domesticConsumption = PLN.Zero,
-        importConsumption = PLN.Zero,
-        marketWage = p.household.baseWage,
-        reservationWage = p.household.baseReservationWage,
-        giniIndividual = Share.Zero,
-        giniWealth = Share.Zero,
-        meanSavings = PLN.Zero,
-        medianSavings = PLN.Zero,
-        povertyRate50 = Share.Zero,
-        bankruptcyRate = Share.Zero,
-        meanSkill = Share.Zero,
-        meanHealthPenalty = Share.Zero,
-        retrainingAttempts = 0,
-        retrainingSuccesses = 0,
-        consumptionP10 = PLN.Zero,
-        consumptionP50 = PLN.Zero,
-        consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = Scalar.Zero,
-        povertyRate30 = Share.Zero,
-        totalRent = PLN.Zero,
-        totalDebtService = PLN.Zero,
-        totalUnempBenefits = PLN.Zero,
-        totalDepositInterest = PLN.Zero,
-        crossSectorHires = 0,
-        voluntaryQuits = 0,
-        sectorMobilityRate = Share.Zero,
-        totalRemittances = PLN.Zero,
-        totalPit = PLN.Zero,
-        totalSocialTransfers = PLN.Zero,
-        totalConsumerDebtService = PLN.Zero,
-        totalConsumerOrigination = PLN.Zero,
-        totalConsumerDefault = PLN.Zero,
-        totalConsumerPrincipal = PLN.Zero,
-      ),
-      social = SocialState.zero,
-      financial = FinancialMarketsState.zero,
-      external = ExternalState.zero,
-      real = RealState.zero,
-      mechanisms = MechanismsState.zero,
-      plumbing = MonetaryPlumbingState.zero,
-      flows = FlowState.zero,
+      marketWage = p.household.baseWage,
+      reservationWage = p.household.baseReservationWage,
     )

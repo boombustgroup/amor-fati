@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
@@ -83,7 +85,7 @@ class RegionSpec extends AnyFlatSpec with Matchers:
   }
 
   private def mkHh(status: HhStatus, region: Region): Household.State =
-    Household.State(
+    TestHouseholdState(
       id = HhId(0),
       savings = PLN(50000.0),
       debt = PLN.Zero,

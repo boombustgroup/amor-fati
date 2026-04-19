@@ -1,50 +1,22 @@
 package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.agents.*
-import com.boombustgroup.amorfati.config.{FirmSizeDistribution, SimParams}
+import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.{EquityMarket, PriceLevel}
 import com.boombustgroup.amorfati.engine.mechanisms.{EuFunds, Macroprudential}
 import com.boombustgroup.amorfati.types.*
 
-import com.boombustgroup.amorfati.random.RandomStream
-
 /** Pure economic logic for price level dynamics, GPW equity market, GDP
-  * computation, macroprudential policy, Arthur-style sigma evolution, and
-  * network rewiring for bankrupt firm replacement — no state mutation, no
-  * flows.
+  * computation, macroprudential policy, and Arthur-style sigma evolution — no
+  * state mutation, no flows.
   *
-  * Integrates real-side aggregates with financial market state.
+  * Integrates real-side aggregates with financial-market state.
   *
   * Extracted from PriceEquityStep (Calculus vs Accounting split).
   */
 object PriceEquityEconomics:
-
-  // ---- Calibration constants ----
-  private val StartupCashMin    = 10000.0 // minimum startup cash for rewired entrant (PLN)
-  private val StartupCashMax    = 80000.0 // maximum startup cash for rewired entrant (PLN)
-  private val RiskProfileMin    = 0.1     // minimum risk profile draw for new entrant
-  private val RiskProfileMax    = 0.9     // maximum risk profile draw for new entrant
-  private val InnovCostMin      = 0.8     // minimum innovation cost factor draw
-  private val InnovCostMax      = 1.5     // maximum innovation cost factor draw
-  private val DigitalReadyFloor = 0.02    // minimum digital readiness for rewired entrant
-  private val DigitalReadyCap   = 0.98    // maximum digital readiness for rewired entrant
-  private val DigitalReadyNoise = 0.20    // std dev of Gaussian noise on sector base DR
-
-  case class Input(
-      w: World,                         // current world state
-      month: ExecutionMonth,            // realized simulation month
-      newWage: PLN,                     // new wage from labor market
-      employed: Int,                    // employment count
-      wageGrowth: Coefficient,          // wage growth coefficient
-      domesticCons: PLN,                // domestic component of household consumption
-      govPurchases: PLN,                // constrained government purchases from demand formation
-      avgDemandMult: Multiplier,        // economy-wide average demand multiplier
-      sectorMults: Vector[Multiplier],  // per-sector demand multipliers
-      banks: Vector[Banking.BankState], // explicit bank population
-      s5: FirmEconomics.StepOutput,     // firm processing output
-  )
 
   case class Output(
       autoR: Share,
@@ -57,7 +29,6 @@ object PriceEquityEconomics:
       gdp: PLN,
       newMacropru: Macroprudential.State,
       newSigmas: Vector[Sigma],
-      rewiredFirms: Vector[Firm.State],
       newInfl: Rate,
       newPrice: PriceIndex,
       equityAfterIssuance: EquityMarket.State,
@@ -151,85 +122,6 @@ object PriceEquityEconomics:
       Multiplier(capMult),
     )
 
-  // ---------------------------------------------------------------------------
-  // Dynamic network rewiring — bankrupt firm replacement with preferential attachment
-  // ---------------------------------------------------------------------------
-
-  private[economics] def rewireFirms(firms: Vector[Firm.State], rho: Share, rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
-    if rho <= Share.Zero then return firms
-
-    val n = firms.length
-    val k = p.firm.networkK
-
-    val toReplace = (0 until n).filter(i => !Firm.isAlive(firms(i)) && rho.sampleBelow(rng)).toSet
-    if toReplace.isEmpty then return firms
-
-    val adj = Array.tabulate(n)(i => scala.collection.mutable.Set.from(firms(i).neighbors.map(_.toInt)))
-
-    val alive = (0 until n).filter(i => Firm.isAlive(firms(i))).toArray
-
-    for idx <- toReplace do
-      for nb <- adj(idx) do adj(nb) -= idx
-      adj(idx).clear()
-
-      if alive.nonEmpty then
-        val numTargets = Math.min(k, alive.length)
-        val targets    = scala.collection.mutable.Set.empty[Int]
-        val degrees    = alive.map(i => Math.max(1, adj(i).size))
-        val totalDeg   = degrees.sum
-
-        var attempts = 0
-        while targets.size < numTargets && attempts < numTargets * 20 do
-          var r = rng.nextInt(if totalDeg > 0 then totalDeg else 1)
-          var j = 0
-          while j < alive.length - 1 && r >= degrees(j) do
-            r -= degrees(j)
-            j += 1
-          targets += alive(j)
-          attempts += 1
-
-        for t <- targets do
-          adj(idx) += t
-          adj(t) += idx
-
-    (0 until n).map { i =>
-      if toReplace.contains(i) then
-        val sec      = firms(i).sector
-        val newSize  = FirmSizeDistribution.draw(rng)
-        val sizeMult = Scalar.fraction(newSize, p.pop.workersPerFirm).toMultiplier
-        val isSoe    = StateOwned.sectorSoeShare(sec.toInt).sampleBelow(rng)
-        Firm.State(
-          id = FirmId(i),
-          cash = PLN.fromRaw(rng.between(PLN(StartupCashMin).toLong, PLN(StartupCashMax).toLong)) * sizeMult,
-          debt = PLN.Zero,
-          tech = TechState.Traditional(newSize),
-          riskProfile = TypedRandom.randomBetween(Share(RiskProfileMin), Share(RiskProfileMax), rng),
-          innovationCostFactor = TypedRandom.randomBetween(Multiplier(InnovCostMin), Multiplier(InnovCostMax), rng),
-          digitalReadiness = TypedRandom
-            .withGaussianNoise(p.sectorDefs(sec.toInt).baseDigitalReadiness, Share(DigitalReadyNoise), rng)
-            .clamp(Share(DigitalReadyFloor), Share(DigitalReadyCap)),
-          sector = sec,
-          neighbors = adj(i).iterator.map(FirmId(_)).toVector,
-          bankId = BankId(0),
-          equityRaised = PLN.Zero,
-          initialSize = newSize,
-          capitalStock = p.capital.klRatios(sec.toInt) * newSize,
-          bondDebt = PLN.Zero,
-          foreignOwned = false,
-          stateOwned = isSoe,
-          inventory = PLN.Zero,
-          greenCapital = PLN.Zero,
-          accumulatedLoss = PLN.Zero,
-        )
-      else
-        val newNb = adj(i).iterator.map(FirmId(_)).toVector
-        if newNb.length != firms(i).neighbors.length then firms(i).copy(neighbors = newNb)
-        else firms(i)
-    }.toVector
-
-  private[economics] def rewireFirms(firms: Vector[Firm.State], rho: Double, rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
-    rewireFirms(firms, Share(rho), rng)
-
   private[economics] def governmentDemandContribution(govPurchases: PLN)(using p: SimParams): PLN =
     govPurchases * (Share.One - p.fiscal.govInvestShare) * p.fiscal.govCurrentMultiplier +
       govPurchases * p.fiscal.govInvestShare * p.fiscal.govCapitalMultiplier
@@ -242,8 +134,17 @@ object PriceEquityEconomics:
   // Main compute logic
   // ---------------------------------------------------------------------------
 
-  def compute(in: Input, rng: RandomStream)(using p: SimParams): Output =
-    val living2           = in.s5.ioFirms.filter(Firm.isAlive)
+  def compute(
+      w: World,
+      month: ExecutionMonth,
+      wageGrowth: Coefficient,
+      domesticCons: PLN,
+      govPurchases: PLN,
+      avgDemandMult: Multiplier,
+      totalSystemLoans: PLN,
+      firmStep: FirmEconomics.StepOutput,
+  )(using p: SimParams): Output =
+    val living2           = firmStep.ioFirms.filter(Firm.isAlive)
     val nLiving           = living2.length
     val autoR             =
       if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Automated]).ratioTo(nLiving).toShare
@@ -251,26 +152,25 @@ object PriceEquityEconomics:
     val hybR              =
       if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]).ratioTo(nLiving).toShare
       else Share.Zero
-    val aggInventoryStock = PLN.fromRaw(living2.map(_.inventory.toLong).sum)
-    val aggGreenCapital   = PLN.fromRaw(living2.map(_.greenCapital.toLong).sum)
+    val aggInventoryStock = living2.map(_.inventory).sum
+    val aggGreenCapital   = living2.map(_.greenCapital).sum
 
-    val euMonthly = EuFunds.monthlyTransfer(in.month)
+    val euMonthly = EuFunds.monthlyTransfer(month)
 
-    val govGdpContribution = governmentDemandContribution(in.govPurchases)
+    val govGdpContribution = governmentDemandContribution(govPurchases)
     val euCofin            = EuFunds.cofinancing(euMonthly)
     val euProjectCapital   = EuFunds.capitalInvestment(euMonthly, euCofin)
     val euGdpContribution  =
       euProjectCapital * p.fiscal.govCapitalMultiplier +
         (euCofin - euProjectCapital).max(PLN.Zero) * p.fiscal.govCurrentMultiplier
-    val greenDomesticGFCF  = in.s5.sumGreenInvestment * (Share.One - p.climate.greenImportShare)
-    val domesticGFCF       = in.s5.sumGrossInvestment * (Share.One - p.capital.importShare) + greenDomesticGFCF
-    val investmentImports  = in.s5.sumGrossInvestment * p.capital.importShare + in.s5.sumGreenInvestment * p.climate.greenImportShare
-    val aggInventoryChange = in.s5.sumInventoryChange
+    val greenDomesticGFCF  = firmStep.sumGreenInvestment * (Share.One - p.climate.greenImportShare)
+    val domesticGFCF       = firmStep.sumGrossInvestment * (Share.One - p.capital.importShare) + greenDomesticGFCF
+    val investmentImports  = firmStep.sumGrossInvestment * p.capital.importShare + firmStep.sumGreenInvestment * p.climate.greenImportShare
+    val aggInventoryChange = firmStep.sumInventoryChange
     val gdp                =
-      in.domesticCons + govGdpContribution + euGdpContribution + in.w.forex.exports + domesticGFCF + aggInventoryChange
+      domesticCons + govGdpContribution + euGdpContribution + w.forex.exports + domesticGFCF + aggInventoryChange
 
-    val totalSystemLoans = PLN.fromRaw(in.banks.map(_.loans.toLong).sum)
-    val newMacropru      = Macroprudential.step(in.w.mechanisms.macropru, totalSystemLoans, gdp)
+    val newMacropru = Macroprudential.step(w.mechanisms.macropru, totalSystemLoans, gdp)
 
     val sectorAdoption = p.sectorDefs.indices.map { s =>
       val secFirms = living2.filter(_.sector.toInt == s)
@@ -283,42 +183,40 @@ object PriceEquityEconomics:
     }.toVector
     val baseSigmas     = p.sectorDefs.map(_.sigma).toVector
     val newSigmas      =
-      evolveSigmas(in.w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
+      evolveSigmas(w.currentSigmas, baseSigmas, sectorAdoption, p.firm.sigmaLambda, p.firm.sigmaCapMult)
 
-    val rewiredFirms = rewireFirms(in.s5.ioFirms, p.firm.rewireRho, rng)
-
-    val exDev    = in.w.forex.exchangeRate.deviationFrom(p.forex.baseExRate)
+    val exDev    = w.forex.exchangeRate.deviationFrom(p.forex.baseExRate)
     val priceUpd = PriceLevel.update(
-      in.w.inflation,
-      in.w.priceLevel,
-      in.avgDemandMult,
-      in.wageGrowth,
+      w.inflation,
+      w.priceLevel,
+      avgDemandMult,
+      wageGrowth,
       exDev,
     )
     // Calvo markup contribution (already annualized Rate from FirmProcessingStep)
-    val newInfl  = priceUpd.inflation + in.s5.markupInflation
-    val newPrice = priceUpd.priceLevel.applyGrowth(in.s5.markupInflation.monthly.toCoefficient)
+    val newInfl  = priceUpd.inflation + firmStep.markupInflation
+    val newPrice = priceUpd.priceLevel.applyGrowth(firmStep.markupInflation.monthly.toCoefficient)
 
-    val prevGdp             = in.w.cachedMonthlyGdpProxy.max(PLN(1.0))
-    val deficitToGdp        = fiscalDeficitToGdp(in.w.gov.deficit.max(PLN.Zero), prevGdp)
-    val firmProfitsPnl      = in.s5.sumRealizedPostTaxProfit
+    val prevGdp             = w.cachedMonthlyGdpProxy.max(PLN(1.0))
+    val deficitToGdp        = fiscalDeficitToGdp(w.gov.deficit.max(PLN.Zero), prevGdp)
+    val firmProfitsPnl      = firmStep.sumRealizedPostTaxProfit
     val gdpGrowthForEquity  = gdp.ratioTo(prevGdp).toMultiplier.deviationFromOne
     val equityAfterIndex    = EquityMarket.step(
       EquityMarket.StepInput(
-        prev = in.w.financial.equity,
-        refRate = in.w.nbp.referenceRate,
+        prev = w.financialMarkets.equity,
+        refRate = w.nbp.referenceRate,
         inflation = newInfl,
         gdpGrowth = gdpGrowthForEquity,
         firmProfits = firmProfitsPnl,
       ),
     )
-    val equityAfterIssuance = EquityMarket.processIssuance(in.s5.sumEquityIssuance, equityAfterIndex)
+    val equityAfterIssuance = EquityMarket.processIssuance(firmStep.sumEquityIssuance, equityAfterIndex)
 
     val dividends              =
       EquityMarket.computeDividends(
         firmProfitsPnl,
         equityAfterIssuance.foreignOwnership,
-        stateOwnedProfits = in.s5.sumStateOwnedPostTaxProfit,
+        stateOwnedProfits = firmStep.sumStateOwnedPostTaxProfit,
         deficitToGdp = deficitToGdp,
       )
     val netDomesticDividends   = dividends.netDomestic
@@ -337,7 +235,6 @@ object PriceEquityEconomics:
       gdp,
       newMacropru,
       newSigmas,
-      rewiredFirms,
       newInfl,
       newPrice,
       equityAfterIssuance,

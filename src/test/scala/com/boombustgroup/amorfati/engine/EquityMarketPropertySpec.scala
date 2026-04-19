@@ -121,6 +121,5 @@ class EquityMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     z.dividendYield shouldBe Rate.Zero
     z.foreignOwnership shouldBe Share.Zero
     z.lastIssuance shouldBe PLN.Zero
-    z.hhEquityWealth shouldBe PLN.Zero
     z.lastWealthEffect shouldBe PLN.Zero
   }

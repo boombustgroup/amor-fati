@@ -145,22 +145,36 @@ object Firm:
 
   // ---- Data types ----
 
-  /** Full mutable state of a single firm, carried across simulation months. */
+  /** Ledger-contracted firm financial stocks passed into firm execution by the
+    * ledger boundary.
+    *
+    * Corporate bonds stay in `LedgerFinancialState` because issuance,
+    * absorption, and default settlement happen outside individual
+    * `Firm.process`.
+    */
+  case class FinancialStocks(
+      cash: PLN,     // cash or deposit-like liquidity owned by the firm
+      firmLoan: PLN, // outstanding bank-loan principal owed by the firm
+      equity: PLN,   // listed equity issued by the firm
+  )
+  object FinancialStocks:
+    val zero: FinancialStocks = FinancialStocks(PLN.Zero, PLN.Zero, PLN.Zero)
+
+  /** Operational state of a single firm, carried across simulation months.
+    * Financial ownership lives in `LedgerFinancialState` and enters firm
+    * execution explicitly as `FinancialStocks`.
+    */
   case class State(
       id: FirmId,                          // Unique firm identifier (index into firms vector)
-      cash: PLN,                           // Current cash balance (can be negative)
-      debt: PLN,                           // Outstanding bank loan debt
       tech: TechState,                     // Current technology regime
       riskProfile: Share,                  // Propensity to invest / adopt technology [0,1]
       innovationCostFactor: Multiplier,    // Firm-specific CAPEX multiplier (drawn at creation)
       digitalReadiness: Share,             // Digital readiness score [0,1], gates tech upgrades
       sector: SectorIdx,                   // Index into p.sectorDefs
       neighbors: Vector[FirmId],           // Network adjacency (firm IDs)
-      bankId: BankId,                      // Multi-bank: index into Banking.State.banks
-      equityRaised: PLN,                   // GPW: cumulative equity raised via IPO/SPO
+      bankId: BankId,                      // Multi-bank: index into the explicit bank vector
       initialSize: Int,                    // Firm size at creation (heterogeneous when FIRM_SIZE_DIST=gus)
       capitalStock: PLN,                   // Physical capital stock (PLN)
-      bondDebt: PLN,                       // Outstanding corporate bond debt
       foreignOwned: Boolean,               // FDI: subject to profit shifting & repatriation
       stateOwned: Boolean = false,         // SOE: Skarb Państwa ownership (dividend/employment/investment policy)
       inventory: PLN,                      // Inventory stock (PLN)
@@ -178,28 +192,30 @@ object Firm:
     * variables.
     */
   case class Result(
-      firm: State,                // Updated firm state after this month
-      taxPaid: PLN,               // CIT actually paid (after informal evasion)
-      realizedPostTaxProfit: PLN, // realized monthly profit after tax, floored at zero for payout logic
-      capexSpent: PLN,            // Technology upgrade CAPEX (AI or hybrid)
-      techImports: PLN,           // Import content of CAPEX (forex demand)
-      newLoan: PLN,               // New bank loan taken for upgrade
-      equityIssuance: PLN,        // GPW equity raised this month (filled by S4)
-      grossInvestment: PLN,       // Physical capital investment this month
-      bondIssuance: PLN,          // Corporate bond issuance (filled by S4)
-      profitShiftCost: PLN,       // FDI profit shifting outflow
-      fdiRepatriation: PLN,       // FDI dividend repatriation outflow
-      inventoryChange: PLN,       // Net inventory change (+ accumulation, - drawdown)
-      citEvasion: PLN,            // CIT evaded via informal economy
-      energyCost: PLN,            // Total energy + ETS cost this month
-      greenInvestment: PLN,       // Green capital investment this month
-      principalRepaid: PLN,       // Monthly firm loan principal repayment
+      firm: State,                      // Updated firm state after this month
+      financialStocks: FinancialStocks, // Closing ledger-contracted financial stocks
+      taxPaid: PLN,                     // CIT actually paid (after informal evasion)
+      realizedPostTaxProfit: PLN,       // realized monthly profit after tax, floored at zero for payout logic
+      capexSpent: PLN,                  // Technology upgrade CAPEX (AI or hybrid)
+      techImports: PLN,                 // Import content of CAPEX (forex demand)
+      newLoan: PLN,                     // New bank loan taken for upgrade
+      equityIssuance: PLN,              // GPW equity raised this month (filled by S4)
+      grossInvestment: PLN,             // Physical capital investment this month
+      bondIssuance: PLN,                // Corporate bond issuance (filled by S4)
+      profitShiftCost: PLN,             // FDI profit shifting outflow
+      fdiRepatriation: PLN,             // FDI dividend repatriation outflow
+      inventoryChange: PLN,             // Net inventory change (+ accumulation, - drawdown)
+      citEvasion: PLN,                  // CIT evaded via informal economy
+      energyCost: PLN,                  // Total energy + ETS cost this month
+      greenInvestment: PLN,             // Green capital investment this month
+      principalRepaid: PLN,             // Monthly firm loan principal repayment
   )
   object Result:
     /** Convenience factory for tests — all flow fields set to `PLN.Zero`. */
-    def zero(firm: State): Result =
+    def zero(firm: State, financialStocks: FinancialStocks = FinancialStocks.zero): Result =
       Result(
         firm,
+        financialStocks,
         PLN.Zero,
         PLN.Zero,
         PLN.Zero,
@@ -372,10 +388,15 @@ object Firm:
   private[amorfati] def applyOperationalHiringSlack(rawTarget: Int, minWorkers: Int, slackFactor: Multiplier): Int =
     Math.max(minWorkers, bankerRound(BigInt(rawTarget.toLong) * BigInt(slackFactor.clamp(Multiplier.Zero, Multiplier.One).toLong)).toInt)
 
-  private[amorfati] def hiringDiagnostics(firm: State, w: World, operationalSignals: OperationalSignals)(using p: SimParams): HiringDiagnostics =
+  private[amorfati] def hiringDiagnostics(
+      firm: State,
+      financialStocks: FinancialStocks,
+      w: World,
+      operationalSignals: OperationalSignals,
+  )(using p: SimParams): HiringDiagnostics =
     val workers         = workerCount(firm)
     val desiredW        = desiredWorkers(firm, w, operationalSignals)
-    val nc              = firm.cash
+    val nc              = financialStocks.cash
     val feasibleW       = feasibleWorkers(firm, workers, desiredW, PnL.zero, nc)
     val desiredGap      = desiredW - workers
     val feasibleGap     = feasibleW - workers
@@ -400,9 +421,6 @@ object Firm:
       signalMonths = nextHiringSignalMonths(firm, desiredW, workers),
       requiredSignalMonths = requiredHiringSignalMonths(workers),
     )
-
-  private[amorfati] def hiringDiagnostics(firm: State, w: World)(using p: SimParams): HiringDiagnostics =
-    hiringDiagnostics(firm, w, OperationalSignals.fromBridgedWorld(w))
 
   /** Effective AI CAPEX for sector — sublinear in firm size (exponent 0.6),
     * digital readiness discount.
@@ -456,6 +474,7 @@ object Firm:
     */
   def process(
       firm: State,
+      financialStocks: FinancialStocks,
       w: World,
       executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
@@ -463,9 +482,10 @@ object Firm:
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       rng: RandomStream,
+      corpBondDebt: PLN,
   )(using p: SimParams): Result =
-    val decision = decide(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, rng)
-    val r0       = updateHiringSignalState(execute(firm, decision), firm, w, operationalSignals)
+    val decision = decide(firm, financialStocks, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, rng, corpBondDebt)
+    val r0       = updateHiringSignalState(execute(firm, financialStocks, decision), firm, w, operationalSignals)
     val r0a      = applyLoanAmortization(r0)
     val r1       = applyGreenInvestment(r0a)
     val r2       = applyInvestment(r1)
@@ -474,23 +494,13 @@ object Firm:
     val r5       = applyFdiFlows(r4)
     applyInformalCitEvasion(r5, Share(w.mechanisms.informalCyclicalAdj))
 
-  def process(
-      firm: State,
-      w: World,
-      executionMonth: ExecutionMonth,
-      lendRate: Rate,
-      bankCanLend: PLN => Boolean,
-      allFirms: Vector[State],
-      rng: RandomStream,
-  )(using p: SimParams): Result =
-    process(firm, w, executionMonth, OperationalSignals.fromBridgedWorld(w), lendRate, bankCanLend, allFirms, rng)
-
   // ---- Decide (all match logic + RandomStream rolls) ----
 
   /** Dispatch to tech-specific decision logic. Contains all RandomStream calls.
     */
   private def decide(
       firm: State,
+      financialStocks: FinancialStocks,
       w: World,
       executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
@@ -498,12 +508,15 @@ object Firm:
       bankCanLend: PLN => Boolean,
       allFirms: Vector[State],
       rng: RandomStream,
+      corpBondDebt: PLN,
   )(using p: SimParams): Decision =
     firm.tech match
       case _: TechState.Bankrupt         => Decision.StayBankrupt
-      case _: TechState.Automated        => decideAutomated(firm, w, executionMonth, operationalSignals, lendRate)
-      case TechState.Hybrid(wkrs, aiEff) => decideHybrid(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, wkrs, aiEff, rng)
-      case TechState.Traditional(wkrs)   => decideTraditional(firm, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, wkrs, rng)
+      case _: TechState.Automated        => decideAutomated(firm, financialStocks, w, executionMonth, operationalSignals, lendRate, corpBondDebt)
+      case TechState.Hybrid(wkrs, aiEff) =>
+        decideHybrid(firm, financialStocks, w, executionMonth, operationalSignals, lendRate, bankCanLend, wkrs, aiEff, rng, corpBondDebt)
+      case TechState.Traditional(wkrs)   =>
+        decideTraditional(firm, financialStocks, w, executionMonth, operationalSignals, lendRate, bankCanLend, allFirms, wkrs, rng, corpBondDebt)
 
   /** Smooth labor adjustment: Δworkers = λ × (target − current), with severance
     * costs. Target = break-even headcount from P&L. If adjustment insufficient
@@ -578,6 +591,7 @@ object Firm:
     */
   private def estimateMonthlyCost(
       firm: State,
+      financialStocks: FinancialStocks,
       opex: PLN,
       laborWorkers: Int,
       additionalDebt: PLN,
@@ -590,20 +604,23 @@ object Firm:
     val otherSizeFactor = Scalar.fraction(firm.initialSize, p.pop.workersPerFirm).toMultiplier
     val wMult           = effectiveWageMult(firm.sector)
     opex * ((domesticPrice * Multiplier(OpexDomesticShare) + importPrice * Multiplier(OpexImportShare)).toMultiplier * opexSizeFactor) +
-      (firm.debt + additionalDebt) * lendRate.monthly +
+      (financialStocks.firmLoan + additionalDebt) * lendRate.monthly +
       laborWorkers * (wage * wMult) +
       p.firm.otherCosts * (domesticPrice.toMultiplier * otherSizeFactor)
 
   /** Automated firm: compute PnL, survive or go bankrupt (AI debt trap). */
   private def decideAutomated(
       firm: State,
+      financialStocks: FinancialStocks,
       w: World,
       executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
       lendRate: Rate,
+      corpBondDebt: PLN,
   )(using p: SimParams): Decision =
     val pnl = computePnL(
       firm,
+      financialStocks,
       w.householdMarket.marketWage,
       operationalSignals.sectorDemandMult(firm.sector.toInt),
       w.priceLevel,
@@ -611,14 +628,16 @@ object Firm:
       w.external.gvc.commodityPriceIndex,
       lendRate,
       executionMonth,
+      corpBondDebt,
     )
-    val nc  = firm.cash + pnl.netAfterTax
+    val nc  = financialStocks.cash + pnl.netAfterTax
     if nc < PLN.Zero then Decision.GoBankrupt(pnl, nc, BankruptReason.AiDebtTrap)
     else Decision.Survive(pnl, nc)
 
   /** Hybrid firm: attempt full-AI upgrade, else survive/downsize/bankrupt. */
   private def decideHybrid(
       firm: State,
+      financialStocks: FinancialStocks,
       w: World,
       executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
@@ -627,9 +646,11 @@ object Firm:
       workers: Int,
       aiEff: Multiplier,
       rng: RandomStream,
+      corpBondDebt: PLN,
   )(using p: SimParams): Decision =
     val pnl    = computePnL(
       firm,
+      financialStocks,
       w.householdMarket.marketWage,
       operationalSignals.sectorDemandMult(firm.sector.toInt),
       w.priceLevel,
@@ -637,16 +658,18 @@ object Firm:
       w.external.gvc.commodityPriceIndex,
       lendRate,
       executionMonth,
+      corpBondDebt,
     )
     val ready2 = (firm.digitalReadiness + Share(HybridMonthlyDrDrift)).min(Share.One)
 
-    if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, w => TechState.Hybrid(w, aiEff), w.householdMarket.marketWage)
+    if isInStartup(firm) then return startupFallbackDecision(firm, financialStocks, pnl, workers, w => TechState.Hybrid(w, aiEff), w.householdMarket.marketWage)
 
     val upCapex    = computeAiCapex(firm) * Share(HybridToFullCapexMul)
     val upLoan     = upCapex * Share(FullAiLoanShare)
     val upDown     = upCapex * Share(FullAiDownShare)
     val upCost     = estimateMonthlyCost(
       firm,
+      financialStocks,
       p.firm.aiOpex,
       skeletonCrew(firm),
       upLoan,
@@ -656,7 +679,7 @@ object Firm:
       w.external.gvc.importCostIndex,
     )
     val profitable = pnl.costs > upCost * Multiplier(FullAiProfitMargin)
-    val canPay     = firm.cash > upDown
+    val canPay     = financialStocks.cash > upDown
     val ready      = firm.digitalReadiness >= p.firm.fullAiReadinessMin
     val bankOk     = bankCanLend(upLoan)
 
@@ -669,7 +692,7 @@ object Firm:
       val eff = Multiplier.One + (Scalar.randomBetween(Scalar(HybToFullEffMin), Scalar(HybToFullEffMax), rng) * firm.digitalReadiness.toScalar).toMultiplier
       Decision.Upgrade(pnl, TechState.Automated(eff), upCapex, upLoan, upDown, drUpdate = Some(ready2))
     else
-      val nc = firm.cash + pnl.netAfterTax
+      val nc = financialStocks.cash + pnl.netAfterTax
       if nc < PLN.Zero then
         attemptDownsize(
           firm,
@@ -698,6 +721,7 @@ object Firm:
   /** Evaluate full-AI upgrade feasibility for a traditional firm. */
   private def evaluateFullAi(
       firm: State,
+      financialStocks: FinancialStocks,
       pnl: PnL,
       w: World,
       lendRate: Rate,
@@ -709,6 +733,7 @@ object Firm:
     val cost  =
       estimateMonthlyCost(
         firm,
+        financialStocks,
         p.firm.aiOpex,
         skeletonCrew(firm),
         loan,
@@ -722,7 +747,7 @@ object Firm:
       loan,
       down,
       profitable = pnl.costs > (cost * Multiplier(FullAiProfitMargin)) / sigmaThreshold(w.currentSigmas(firm.sector.toInt)),
-      canPay = firm.cash > down,
+      canPay = financialStocks.cash > down,
       ready = firm.digitalReadiness >= p.firm.fullAiReadinessMin,
       bankOk = bankCanLend(loan),
     )
@@ -730,6 +755,7 @@ object Firm:
   /** Evaluate hybrid upgrade feasibility for a traditional firm. */
   private def evaluateHybrid(
       firm: State,
+      financialStocks: FinancialStocks,
       pnl: PnL,
       workers: Int,
       w: World,
@@ -742,6 +768,7 @@ object Firm:
     val hWkrs = Math.max(3, p.sectorDefs(firm.sector.toInt).hybridRetainFrac.applyTo(workers))
     val cost  = estimateMonthlyCost(
       firm,
+      financialStocks,
       p.firm.hybridOpex,
       hWkrs,
       loan,
@@ -755,7 +782,7 @@ object Firm:
       loan,
       down,
       profitable = pnl.costs > (cost * Multiplier(HybridProfitMargin)) / sigmaThreshold(w.currentSigmas(firm.sector.toInt)),
-      canPay = firm.cash > down,
+      canPay = financialStocks.cash > down,
       ready = firm.digitalReadiness >= p.firm.hybridReadinessMin,
       bankOk = bankCanLend(loan),
     )
@@ -843,13 +870,14 @@ object Firm:
     */
   private def fallbackDecision(
       firm: State,
+      financialStocks: FinancialStocks,
       pnl: PnL,
       w: World,
       operationalSignals: OperationalSignals,
       workers: Int,
       rng: RandomStream,
   )(using p: SimParams): Decision =
-    val nc            = firm.cash + pnl.netAfterTax
+    val nc            = financialStocks.cash + pnl.netAfterTax
     // Firms now distinguish between a one-period desired workforce target,
     // a feasible near-term target, and the actual monthly adjustment.
     val desiredW      = desiredWorkers(firm, w, operationalSignals)
@@ -879,12 +907,13 @@ object Firm:
 
   private def startupFallbackDecision(
       firm: State,
+      financialStocks: FinancialStocks,
       pnl: PnL,
       currentWorkers: Int,
       nextTech: Int => TechState,
       wage: PLN,
   )(using p: SimParams): Decision =
-    val nc            = firm.cash + pnl.netAfterTax
+    val nc            = financialStocks.cash + pnl.netAfterTax
     val targetWorkers = Math.max(currentWorkers, firm.startupTargetWorkers)
     if currentWorkers < targetWorkers && canFundUpsize(firm, pnl, nc, 1, wage) then Decision.Upsize(pnl, currentWorkers + 1, nc, nextTech(currentWorkers + 1))
     else if nc < PLN.Zero then
@@ -912,6 +941,7 @@ object Firm:
     */
   private def decideTraditional(
       firm: State,
+      financialStocks: FinancialStocks,
       w: World,
       executionMonth: ExecutionMonth,
       operationalSignals: OperationalSignals,
@@ -920,9 +950,11 @@ object Firm:
       allFirms: Vector[State],
       workers: Int,
       rng: RandomStream,
+      corpBondDebt: PLN,
   )(using p: SimParams): Decision =
     val pnl           = computePnL(
       firm,
+      financialStocks,
       w.householdMarket.marketWage,
       operationalSignals.sectorDemandMult(firm.sector.toInt),
       w.priceLevel,
@@ -930,43 +962,45 @@ object Firm:
       w.external.gvc.commodityPriceIndex,
       lendRate,
       executionMonth,
+      corpBondDebt,
     )
-    if isInStartup(firm) then return startupFallbackDecision(firm, pnl, workers, TechState.Traditional(_), w.householdMarket.marketWage)
-    val ai            = evaluateFullAi(firm, pnl, w, lendRate, bankCanLend)
-    val (hyb, hWkrs)  = evaluateHybrid(firm, pnl, workers, w, lendRate, bankCanLend)
+    if isInStartup(firm) then return startupFallbackDecision(firm, financialStocks, pnl, workers, TechState.Traditional(_), w.householdMarket.marketWage)
+    val ai            = evaluateFullAi(firm, financialStocks, pnl, w, lendRate, bankCanLend)
+    val (hyb, hWkrs)  = evaluateHybrid(firm, financialStocks, pnl, workers, w, lendRate, bankCanLend)
     val (pFull, pHyb) = adoptionProbabilities(firm, pnl, ai, hyb, executionMonth, w, allFirms)
     val roll          = Share.random(rng)
 
     if roll < pFull then rollFullAiUpgrade(firm, pnl, ai, rng)
     else if roll < pFull + pHyb then rollHybridUpgrade(firm, pnl, hyb, hWkrs, rng)
-    else fallbackDecision(firm, pnl, w, operationalSignals, workers, rng)
+    else fallbackDecision(firm, financialStocks, pnl, w, operationalSignals, workers, rng)
 
   // ---- Execute (pure dispatch, zero RandomStream calls) ----
 
   /** Pure dispatch: map `Decision` → `Result`. No RandomStream calls, no side
     * effects.
     */
-  private def execute(firm: State, d: Decision)(using p: SimParams): Result =
+  private def execute(firm: State, financialStocks: FinancialStocks, d: Decision)(using p: SimParams): Result =
     d match
       case Decision.StayBankrupt =>
-        buildResult(firm, PnL.zero)
+        buildResult(firm, financialStocks, PnL.zero)
 
       case Decision.Survive(pnl, newCash, drUpdate) =>
-        val f = firm.copy(cash = newCash)
-        buildResult(drUpdate.fold(f)(dr => f.copy(digitalReadiness = dr)), pnl)
+        val stocks = financialStocks.copy(cash = newCash)
+        buildResult(drUpdate.fold(firm)(dr => firm.copy(digitalReadiness = dr)), stocks, pnl)
 
       case Decision.GoBankrupt(pnl, cash, reason) =>
-        buildResult(firm.copy(cash = cash, tech = TechState.Bankrupt(reason)), pnl)
+        buildResult(firm.copy(tech = TechState.Bankrupt(reason)), financialStocks.copy(cash = cash), pnl)
 
       case Decision.Upgrade(pnl, newTech, capex, loan, downPayment, drUpdate) =>
-        val tImp = capex * p.forex.techImportShare
-        val f    = firm.copy(
-          tech = newTech,
-          debt = firm.debt + loan,
-          cash = firm.cash + pnl.netAfterTax + loan - downPayment,
+        val tImp   = capex * p.forex.techImportShare
+        val f      = firm.copy(tech = newTech)
+        val stocks = financialStocks.copy(
+          firmLoan = financialStocks.firmLoan + loan,
+          cash = financialStocks.cash + pnl.netAfterTax + loan - downPayment,
         )
         buildResult(
           drUpdate.fold(f)(dr => f.copy(digitalReadiness = dr)),
+          stocks,
           pnl,
           capex = capex,
           techImports = tImp,
@@ -976,10 +1010,10 @@ object Firm:
       case Decision.UpgradeFailed(pnl, reason, capex, loan, down) =>
         val tImp = capex * p.forex.techImportShare
         buildResult(
-          firm.copy(
-            cash = firm.cash + pnl.netAfterTax + loan - down,
-            debt = firm.debt + loan,
-            tech = TechState.Bankrupt(reason),
+          firm.copy(tech = TechState.Bankrupt(reason)),
+          financialStocks.copy(
+            cash = financialStocks.cash + pnl.netAfterTax + loan - down,
+            firmLoan = financialStocks.firmLoan + loan,
           ),
           pnl,
           capex = capex,
@@ -988,15 +1022,15 @@ object Firm:
         )
 
       case Decision.Downsize(pnl, _, adjustedCash, newTech, drUpdate) =>
-        val f = firm.copy(cash = adjustedCash, tech = newTech)
-        buildResult(drUpdate.fold(f)(dr => f.copy(digitalReadiness = dr)), pnl)
+        val f = firm.copy(tech = newTech)
+        buildResult(drUpdate.fold(f)(dr => f.copy(digitalReadiness = dr)), financialStocks.copy(cash = adjustedCash), pnl)
 
       case Decision.Upsize(pnl, _, newCash, newTech) =>
-        buildResult(firm.copy(cash = newCash, tech = newTech), pnl)
+        buildResult(firm.copy(tech = newTech), financialStocks.copy(cash = newCash), pnl)
 
       case Decision.DigiInvest(pnl, cost, newDR) =>
-        val nc = firm.cash + pnl.netAfterTax
-        buildResult(firm.copy(cash = nc - cost, digitalReadiness = newDR), pnl)
+        val nc = financialStocks.cash + pnl.netAfterTax
+        buildResult(firm.copy(digitalReadiness = newDR), financialStocks.copy(cash = nc - cost), pnl)
 
   /** Assemble `Result` from updated `State` and `PnL`. Flow fields not set by
     * the decision (equity, investment, inventory, FDI, evasion) default to zero
@@ -1004,6 +1038,7 @@ object Firm:
     */
   private def buildResult(
       firm: State,
+      financialStocks: FinancialStocks,
       pnl: PnL,
       capex: PLN = PLN.Zero,
       techImports: PLN = PLN.Zero,
@@ -1011,6 +1046,7 @@ object Firm:
   ): Result =
     Result(
       firm = advanceStartupLifecycle(firm.copy(accumulatedLoss = pnl.newAccumulatedLoss)),
+      financialStocks = financialStocks,
       taxPaid = pnl.tax,
       realizedPostTaxProfit = pnl.netAfterTax.max(PLN.Zero),
       capexSpent = capex,
@@ -1043,16 +1079,17 @@ object Firm:
   // ---- Post-processing pipeline ----
 
   /** Scheduled loan principal repayment: debt × amortRate per month. Reduces
-    * firm.debt and firm.cash; reports flow for SFC accounting. Bankrupt firms
-    * and firms with zero debt skip.
+    * the firm-loan and cash stocks; reports flow for SFC accounting. Bankrupt
+    * firms and firms with zero debt skip.
     */
   private def applyLoanAmortization(r: Result)(using p: SimParams): Result =
     val f         = r.firm
-    if !isAlive(f) || f.debt <= PLN.Zero then return r
-    val principal = f.debt * p.banking.firmLoanAmortRate
-    val paid      = principal.min(f.cash.max(PLN.Zero))
+    val stocks    = r.financialStocks
+    if !isAlive(f) || stocks.firmLoan <= PLN.Zero then return r
+    val principal = stocks.firmLoan * p.banking.firmLoanAmortRate
+    val paid      = principal.min(stocks.cash.max(PLN.Zero))
     r.copy(
-      firm = f.copy(debt = f.debt - paid, cash = f.cash - paid),
+      financialStocks = stocks.copy(firmLoan = stocks.firmLoan - paid, cash = stocks.cash - paid),
       principalRepaid = paid,
     )
 
@@ -1070,6 +1107,7 @@ object Firm:
   private def applyInvestment(r: Result)(using p: SimParams): Result =
     val f          = r.firm
     if !isAlive(f) then return r.copy(firm = f.copy(capitalStock = PLN.Zero))
+    val stocks     = r.financialStocks
     val depRate    = p.capital.depRates(f.sector.toInt).monthly
     val depn: PLN  = f.capitalStock * depRate
     val postDepK   = f.capitalStock - depn
@@ -1077,9 +1115,13 @@ object Firm:
     val gap        = (targetK - postDepK).max(PLN.Zero)
     val invMult    = if f.stateOwned then StateOwned.directedInvestmentMultiplier(f.sector.toInt) else Multiplier.One
     val desiredInv = depn + (gap * p.capital.adjustSpeed * invMult)
-    val actualInv  = desiredInv.min(f.cash.max(PLN.Zero))
+    val actualInv  = desiredInv.min(stocks.cash.max(PLN.Zero))
     val newK       = postDepK + actualInv
-    r.copy(firm = f.copy(cash = f.cash - actualInv, capitalStock = newK), grossInvestment = actualInv)
+    r.copy(
+      firm = f.copy(capitalStock = newK),
+      financialStocks = stocks.copy(cash = stocks.cash - actualInv),
+      grossInvestment = actualInv,
+    )
 
   // ---- PnL computation ----
 
@@ -1124,6 +1166,7 @@ object Firm:
   /** Monthly P&L: revenue minus all cost categories, CIT on positive profit. */
   private[amorfati] def computePnL(
       firm: State,
+      financialStocks: FinancialStocks,
       wage: PLN,
       sectorDemandMult: Multiplier,
       domesticPrice: PriceIndex,
@@ -1131,11 +1174,12 @@ object Firm:
       commodityPrice: PriceIndex,
       lendRate: Rate,
       month: ExecutionMonth,
+      corpBondDebt: PLN = PLN.Zero,
   )(using p: SimParams): PnL =
     val revenue: PLN         = (domesticPrice * computeCapacity(firm)) * sectorDemandMult
     val labor: PLN           = workerCount(firm) * (wage * effectiveWageMult(firm.sector))
     val depnCost: PLN        = firm.capitalStock * p.capital.depRates(firm.sector.toInt).monthly
-    val interest: PLN        = (firm.debt + firm.bondDebt) * lendRate.monthly
+    val interest: PLN        = (financialStocks.firmLoan + corpBondDebt) * lendRate.monthly
     val inventoryCost: PLN   = firm.inventory * p.capital.inventoryCarryingCost.monthly
     val energyCost: PLN      = energyAndEtsCost(firm, revenue, month, commodityPrice)
     val prePsCosts           =
@@ -1164,6 +1208,7 @@ object Firm:
 
   private[amorfati] def realizedPostTaxProfit(
       firm: State,
+      financialStocks: FinancialStocks,
       wage: PLN,
       sectorDemandMult: Multiplier,
       domesticPrice: PriceIndex,
@@ -1171,9 +1216,11 @@ object Firm:
       commodityPrice: PriceIndex,
       lendRate: Rate,
       month: ExecutionMonth,
+      corpBondDebt: PLN = PLN.Zero,
   )(using p: SimParams): PLN =
     computePnL(
       firm,
+      financialStocks,
       wage,
       sectorDemandMult,
       domesticPrice,
@@ -1181,6 +1228,7 @@ object Firm:
       commodityPrice,
       lendRate,
       month,
+      corpBondDebt,
     ).netAfterTax.max(PLN.Zero)
 
   /** Apply green capital investment — separate cash pool. Firms earmark
@@ -1190,6 +1238,7 @@ object Firm:
   private def applyGreenInvestment(r: Result)(using p: SimParams): Result =
     val f           = r.firm
     if !isAlive(f) then return r.copy(firm = f.copy(greenCapital = PLN.Zero))
+    val stocks      = r.financialStocks
     val depRate     = p.climate.greenDepRate.monthly
     val depn: PLN   = f.greenCapital * depRate
     val postDepGK   = f.greenCapital - depn
@@ -1197,10 +1246,14 @@ object Firm:
     val gap         = (targetGK - postDepGK).max(PLN.Zero)
     val invMult     = if f.stateOwned then StateOwned.directedInvestmentMultiplier(f.sector.toInt) else Multiplier.One
     val desiredInv  = depn + (gap * p.climate.greenAdjustSpeed * invMult)
-    val greenBudget = f.cash.max(PLN.Zero) * p.climate.greenBudgetShare
+    val greenBudget = stocks.cash.max(PLN.Zero) * p.climate.greenBudgetShare
     val actualInv   = desiredInv.min(greenBudget)
     val newGK       = postDepGK + actualInv
-    r.copy(firm = f.copy(cash = f.cash - actualInv, greenCapital = newGK), greenInvestment = actualInv)
+    r.copy(
+      firm = f.copy(greenCapital = newGK),
+      financialStocks = stocks.copy(cash = stocks.cash - actualInv),
+      greenInvestment = actualInv,
+    )
 
   /** Apply inventory accumulation/drawdown after firm decision. Includes
     * sector-specific spoilage, target-based adjustment toward desired inventory
@@ -1210,6 +1263,7 @@ object Firm:
   private def applyInventory(r: Result, sectorDemandMult: Multiplier)(using p: SimParams): Result =
     val f                     = r.firm
     if !isAlive(f) then return r.copy(firm = f.copy(inventory = PLN.Zero))
+    val stocks                = r.financialStocks
     val cap                   = computeCapacity(f)
     val productionValue       = cap * p.capital.inventoryCostFraction
     val salesValue            = productionValue * sectorDemandMult.toShare.clamp(Share.Zero, Share.One)
@@ -1227,13 +1281,14 @@ object Firm:
     val invChange             = rawChange.max(-postSpoilage)
     val newInv                = (postSpoilage + invChange).max(PLN.Zero)
     // Stress liquidation: if cash < 0, sell inventory at discount
-    val (finalInv, cashBoost) = if f.cash < PLN.Zero && newInv > PLN.Zero then
-      val liquidate = newInv.min(f.cash.abs / p.capital.inventoryLiquidationDisc)
+    val (finalInv, cashBoost) = if stocks.cash < PLN.Zero && newInv > PLN.Zero then
+      val liquidate = newInv.min(stocks.cash.abs / p.capital.inventoryLiquidationDisc)
       (newInv - liquidate, liquidate * p.capital.inventoryLiquidationDisc)
     else (newInv, PLN.Zero)
     val actualChange          = finalInv - f.inventory
     r.copy(
-      firm = f.copy(inventory = finalInv, cash = f.cash + cashBoost),
+      firm = f.copy(inventory = finalInv),
+      financialStocks = stocks.copy(cash = stocks.cash + cashBoost),
       inventoryChange = actualChange,
     )
 
@@ -1254,7 +1309,7 @@ object Firm:
     if !isAlive(r.firm) || r.taxPaid <= PLN.Zero then return r
     val evaded = r.taxPaid * citEvasionFrac(r.firm.sector, carriedInformalAdj)
     r.copy(
-      firm = r.firm.copy(cash = r.firm.cash + evaded),
+      financialStocks = r.financialStocks.copy(cash = r.financialStocks.cash + evaded),
       taxPaid = r.taxPaid - evaded,
       citEvasion = evaded,
     )
@@ -1268,6 +1323,6 @@ object Firm:
       if p.fiscal.citRate > Rate.Zero && r.taxPaid > PLN.Zero then r.taxPaid * Multiplier(Rate(1.0) / p.fiscal.citRate - 1.0)
       else PLN.Zero
     val repatriation: PLN   =
-      (afterTaxProfit.max(PLN.Zero) * p.fdi.repatriationRate).min(r.firm.cash.max(PLN.Zero))
+      (afterTaxProfit.max(PLN.Zero) * p.fdi.repatriationRate).min(r.financialStocks.cash.max(PLN.Zero))
     if repatriation <= PLN.Zero then return r
-    r.copy(firm = r.firm.copy(cash = r.firm.cash - repatriation), fdiRepatriation = repatriation)
+    r.copy(financialStocks = r.financialStocks.copy(cash = r.financialStocks.cash - repatriation), fdiRepatriation = repatriation)

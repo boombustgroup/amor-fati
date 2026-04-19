@@ -3,24 +3,33 @@ package com.boombustgroup.amorfati.agents
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
-/** Insurance sector: life + non-life reserves, three-asset allocation (gov
-  * bonds, corp bonds, equities). KNF 2024 calibration.
+/** Insurance sector: monthly premiums, claims, investment income and
+  * rebalancing. Financial balances are ledger-owned; the agent only receives an
+  * opening view and returns the non-corporate-bond closing update.
   */
 object Insurance:
 
   // Unemployment threshold below which non-life claims have no cyclical add-on
   private val NonLifeUnempThreshold = 0.05
 
-  case class ReserveState(
-      lifeReserves: PLN,   // life insurance technical reserves
+  case class OpeningBalances(
+      lifeReserves: PLN,     // life insurance technical reserves
+      nonLifeReserves: PLN,  // non-life insurance technical reserves
+      govBondHoldings: PLN,  // government bond allocation
+      corpBondHoldings: PLN, // ledger-owned corporate bond opening stock
+      equityHoldings: PLN,   // equity allocation (GPW)
+  ):
+    def totalReserves: PLN = lifeReserves + nonLifeReserves
+
+  case class ClosingBalances(
+      lifeReserves: PLN,    // life insurance technical reserves
       nonLifeReserves: PLN, // non-life insurance technical reserves
+      govBondHoldings: PLN, // government bond allocation
+      equityHoldings: PLN,  // equity allocation (GPW)
   )
 
-  case class PortfolioState(
-      govBondHoldings: PLN,  // government bond allocation
-      corpBondHoldings: PLN, // corporate bond allocation
-      equityHoldings: PLN,   // equity allocation (GPW)
-  )
+  object ClosingBalances:
+    val zero: ClosingBalances = ClosingBalances(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   case class MonthlyFlowState(
       lastLifePremium: PLN,      // life premium collected this month
@@ -32,15 +41,8 @@ object Insurance:
   )
 
   case class State(
-      reserves: ReserveState,
-      portfolio: PortfolioState,
       monthly: MonthlyFlowState,
   ):
-    def lifeReserves: PLN         = reserves.lifeReserves
-    def nonLifeReserves: PLN      = reserves.nonLifeReserves
-    def govBondHoldings: PLN      = portfolio.govBondHoldings
-    def corpBondHoldings: PLN     = portfolio.corpBondHoldings
-    def equityHoldings: PLN       = portfolio.equityHoldings
     def lastLifePremium: PLN      = monthly.lastLifePremium
     def lastNonLifePremium: PLN   = monthly.lastNonLifePremium
     def lastLifeClaims: PLN       = monthly.lastLifeClaims
@@ -50,11 +52,6 @@ object Insurance:
 
   object State:
     def apply(
-        lifeReserves: PLN,
-        nonLifeReserves: PLN,
-        govBondHoldings: PLN,
-        corpBondHoldings: PLN,
-        equityHoldings: PLN,
         lastLifePremium: PLN,
         lastNonLifePremium: PLN,
         lastLifeClaims: PLN,
@@ -63,8 +60,6 @@ object Insurance:
         lastNetDepositChange: PLN,
     ): State =
       State(
-        reserves = ReserveState(lifeReserves, nonLifeReserves),
-        portfolio = PortfolioState(govBondHoldings, corpBondHoldings, equityHoldings),
         monthly = MonthlyFlowState(
           lastLifePremium,
           lastNonLifePremium,
@@ -82,87 +77,91 @@ object Insurance:
       PLN.Zero,
       PLN.Zero,
       PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
     )
 
   /** Initialize from SimParams calibration (KNF 2024 reserves + target
     * allocation).
     */
-  def initial(using p: SimParams): State =
+  def initial: State = State.zero
+
+  def initialBalances(using p: SimParams): ClosingBalances =
     val totalAssets = p.ins.lifeReserves + p.ins.nonLifeReserves
-    State(
+    ClosingBalances(
       lifeReserves = p.ins.lifeReserves,
       nonLifeReserves = p.ins.nonLifeReserves,
       govBondHoldings = totalAssets * p.ins.govBondShare,
-      corpBondHoldings = totalAssets * p.ins.corpBondShare,
       equityHoldings = totalAssets * p.ins.equityShare,
-      lastLifePremium = PLN.Zero,
-      lastNonLifePremium = PLN.Zero,
-      lastLifeClaims = PLN.Zero,
-      lastNonLifeClaims = PLN.Zero,
-      lastInvestmentIncome = PLN.Zero,
-      lastNetDepositChange = PLN.Zero,
     )
 
-  /** Full monthly step: premiums, claims, investment income, rebalancing. */
-  def step(
-      prev: State,
+  case class StepInput(
+      opening: OpeningBalances,
       employed: Int,       // employed workers (premium base)
       wage: PLN,           // average monthly wage
       unempRate: Share,    // unemployment rate (non-life claim cyclicality)
       govBondYield: Rate,  // government bond yield (annualised)
       corpBondYield: Rate, // corporate bond yield (annualised)
       equityReturn: Rate,  // equity monthly return
-  )(using p: SimParams): State =
+      corpBondDefaultLoss: PLN,
+  )
+
+  case class StepResult(state: State, closing: ClosingBalances)
+
+  /** Full monthly step: premiums, claims, investment income, rebalancing.
+    *
+    * Corporate bond holdings are settled by CorporateBondMarket and owned by
+    * LedgerFinancialState. Insurance only receives the opening corporate-bond
+    * stock to compute monthly investment income.
+    */
+  def step(input: StepInput)(using p: SimParams): StepResult =
+    val opening = input.opening
+
     // Premiums: proportional to wage bill
-    val lifePrem    = employed * (wage * p.ins.lifePremiumRate)
-    val nonLifePrem = employed * (wage * p.ins.nonLifePremiumRate)
+    val lifePrem    = input.employed * (input.wage * p.ins.lifePremiumRate)
+    val nonLifePrem = input.employed * (input.wage * p.ins.nonLifePremiumRate)
 
     // Claims: life steady, non-life widens with unemployment stress
     val lifeCl      = lifePrem * p.ins.lifeLossRatio
     val nonLifeBase = nonLifePrem * p.ins.nonLifeLossRatio
-    val stressGap   = (unempRate - Share(NonLifeUnempThreshold)).max(Share.Zero)
+    val stressGap   = (input.unempRate - Share(NonLifeUnempThreshold)).max(Share.Zero)
     val stressAdj   = (stressGap * p.ins.nonLifeUnempSens).toMultiplier // Share * Coefficient → Coefficient → Multiplier
     val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 
     // Investment income from all three asset classes
-    val invIncome = prev.govBondHoldings * govBondYield.monthly +
-      prev.corpBondHoldings * corpBondYield.monthly +
-      prev.equityHoldings * equityReturn
+    val grossInvestmentIncome = opening.govBondHoldings * input.govBondYield.monthly +
+      opening.corpBondHoldings * input.corpBondYield.monthly +
+      opening.equityHoldings * input.equityReturn
+    val invIncome             = grossInvestmentIncome - input.corpBondDefaultLoss
 
     // Net deposit change: premium outflow from HH minus claims inflow to HH
     val netDepositChange = -(lifePrem + nonLifePrem - lifeCl - nonLifeCl)
 
     // Update reserves: split investment income proportionally
-    val totalReserves = prev.lifeReserves + prev.nonLifeReserves
-    val lifeShare     = if totalReserves > PLN.Zero then Share(prev.lifeReserves / totalReserves) else Share(0.5)
-    val newLifeRes    = prev.lifeReserves + (lifePrem - lifeCl) + invIncome * lifeShare
-    val newNonLifeRes = prev.nonLifeReserves + (nonLifePrem - nonLifeCl) + invIncome * (Share.One - lifeShare)
+    val totalReserves = opening.totalReserves
+    val lifeShare     = if totalReserves > PLN.Zero then Share(opening.lifeReserves / totalReserves) else Share(0.5)
+    val newLifeRes    = opening.lifeReserves + (lifePrem - lifeCl) + invIncome * lifeShare
+    val newNonLifeRes = opening.nonLifeReserves + (nonLifePrem - nonLifeCl) + invIncome * (Share.One - lifeShare)
 
     // Rebalance towards target allocation
     val totalAssets = newLifeRes + newNonLifeRes
     val speed       = p.ins.rebalanceSpeed // Coefficient used as adjustment speed
     val targetGov   = totalAssets * p.ins.govBondShare
-    val targetCorp  = totalAssets * p.ins.corpBondShare
     val targetEq    = totalAssets * p.ins.equityShare
-    val newGov      = prev.govBondHoldings + (targetGov - prev.govBondHoldings) * speed
-    val newCorp     = prev.corpBondHoldings + (targetCorp - prev.corpBondHoldings) * speed
-    val newEq       = prev.equityHoldings + (targetEq - prev.equityHoldings) * speed
+    val newGov      = opening.govBondHoldings + (targetGov - opening.govBondHoldings) * speed
+    val newEq       = opening.equityHoldings + (targetEq - opening.equityHoldings) * speed
 
-    State(
-      newLifeRes,
-      newNonLifeRes,
-      newGov,
-      newCorp,
-      newEq,
-      lifePrem,
-      nonLifePrem,
-      lifeCl,
-      nonLifeCl,
-      invIncome,
-      netDepositChange,
+    StepResult(
+      state = State(
+        lifePrem,
+        nonLifePrem,
+        lifeCl,
+        nonLifeCl,
+        invIncome,
+        netDepositChange,
+      ),
+      closing = ClosingBalances(
+        newLifeRes,
+        newNonLifeRes,
+        newGov,
+        newEq,
+      ),
     )

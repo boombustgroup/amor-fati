@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
-import com.boombustgroup.amorfati.agents.{EarmarkedFunds, SocialSecurity}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -15,47 +14,34 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
   private given SimParams = SimParams.defaults
   private val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
   private val w           = init.world
-  private val fiscal      = FiscalConstraintEconomics.compute(w, init.banks, ExecutionMonth.First)
-  private val s1          = FiscalConstraintEconomics.toOutput(fiscal)
-  private val labor       = LaborEconomics.compute(w, init.firms, init.households, s1)
-  private val s2          = LaborEconomics.Output(
-    labor.wage,
-    labor.employed,
-    labor.laborDemand,
-    labor.wageGrowth,
-    labor.operationalHiringSlack,
-    labor.immigration,
-    labor.netMigration,
-    labor.demographics,
-    SocialSecurity.ZusState.zero,
-    SocialSecurity.NfzState.zero,
-    SocialSecurity.PpkState.zero,
-    PLN.Zero,
-    EarmarkedFunds.State.zero,
-    labor.living,
-    labor.regionalWages,
-  )
+  private val s1          = FiscalConstraintEconomics.compute(w, init.banks, init.ledgerFinancialState, ExecutionMonth.First)
+  private val s2          = LaborEconomics.compute(w, init.firms, init.households, s1)
   private val s3          =
-    HouseholdIncomeEconomics.compute(w, init.firms, init.households, init.banks, s1.lendingBaseRate, s1.resWage, s2.newWage, RandomStream.seeded(42))
-  private val s4          = DemandEconomics.compute(DemandEconomics.Input(w, s2.employed, s2.living, s3.domesticCons))
-  private val s5          = FirmEconomics.runStep(w, init.firms, init.households, init.banks, s1, s2, s3, s4, RandomStream.seeded(43))
+    HouseholdIncomeEconomics.compute(
+      w,
+      init.firms,
+      init.households,
+      init.banks,
+      init.ledgerFinancialState,
+      s1.lendingBaseRate,
+      s1.resWage,
+      s2.newWage,
+      RandomStream.seeded(42),
+    )
+  private val s4          = DemandEconomics.compute(w, s2.employed, s2.living, s3.domesticCons)
+  private val s5          =
+    FirmEconomics.runStep(w, init.firms, init.households, init.banks, init.ledgerFinancialState, s1, s2, s3, s4, RandomStream.seeded(43))
 
   private def runPriceStep(world: com.boombustgroup.amorfati.engine.World, firmStep: FirmEconomics.StepOutput): PriceEquityEconomics.Output =
     PriceEquityEconomics.compute(
-      PriceEquityEconomics.Input(
-        w = world,
-        month = s1.m,
-        newWage = s2.newWage,
-        employed = s2.employed,
-        wageGrowth = s2.wageGrowth,
-        domesticCons = s3.domesticCons,
-        govPurchases = s4.govPurchases,
-        avgDemandMult = s4.avgDemandMult,
-        sectorMults = s4.sectorMults,
-        banks = init.banks,
-        s5 = firmStep,
-      ),
-      RandomStream.seeded(44),
+      w = world,
+      month = s1.m,
+      wageGrowth = s2.wageGrowth,
+      domesticCons = s3.domesticCons,
+      govPurchases = s4.govPurchases,
+      avgDemandMult = s4.avgDemandMult,
+      totalSystemLoans = init.ledgerFinancialState.banks.map(_.firmLoan).sum,
+      firmStep = firmStep,
     )
 
   "PriceEquityEconomics.governmentDemandContribution" should "scale with constrained runtime government purchases" in {

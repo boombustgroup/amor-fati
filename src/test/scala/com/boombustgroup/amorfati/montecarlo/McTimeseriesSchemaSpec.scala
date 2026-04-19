@@ -3,6 +3,8 @@ package com.boombustgroup.amorfati.montecarlo
 import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.flows.FlowSimulation
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -12,7 +14,8 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private lazy val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+  private lazy val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+  private lazy val initState = FlowSimulation.SimState.fromInit(init)
 
   private val expectedColNames = Vector(
     "Month",
@@ -257,7 +260,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     "Unemp_North",
   )
 
-  private def computeRow(world: World): Array[Double] =
+  private def computeRow(world: World, ledgerFinancialState: LedgerFinancialState = initState.ledgerFinancialState): Array[Double] =
     McTimeseriesSchema.compute(
       executionMonth = ExecutionMonth.First,
       world = world,
@@ -265,6 +268,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
       households = init.households,
       banks = init.banks,
       householdAggregates = init.householdAggregates,
+      ledgerFinancialState = ledgerFinancialState,
     )
 
   private def valueAt(row: Array[Double], name: String): Double =
@@ -291,6 +295,48 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
 
     valueAt(updatedRow, "Manuf_Sigma") shouldBe 17.0
     valueAt(updatedRow, "BPO_Sigma") shouldBe valueAt(computeRow(init.world), "BPO_Sigma")
+  }
+
+  it should "source ledger-owned household, public, and fund stock columns from LedgerFinancialState" in {
+    val ledger = initState.ledgerFinancialState.copy(
+      households = initState.ledgerFinancialState.households.map(_.copy(mortgageLoan = PLN(12.0), equity = PLN(11.0))),
+      banks = initState.ledgerFinancialState.banks.map(_.copy(govBondAfs = PLN(10.0), govBondHtm = PLN(20.0))),
+      government = initState.ledgerFinancialState.government.copy(govBondOutstanding = PLN(123.0)),
+      foreign = initState.ledgerFinancialState.foreign.copy(govBondHoldings = PLN(45.0)),
+      nbp = initState.ledgerFinancialState.nbp.copy(govBondHoldings = PLN(67.0)),
+      funds = initState.ledgerFinancialState.funds.copy(
+        jstCash = PLN(89.0),
+        zusCash = PLN(90.0),
+        nfzCash = PLN(91.0),
+        ppkGovBondHoldings = PLN(92.0),
+        fpCash = PLN(93.0),
+        pfronCash = PLN(94.0),
+        fgspCash = PLN(95.0),
+        quasiFiscal = initState.ledgerFinancialState.funds.quasiFiscal.copy(
+          bondsOutstanding = PLN(96.0),
+          loanPortfolio = PLN(97.0),
+          nbpHoldings = PLN(98.0),
+        ),
+      ),
+    )
+    val row    = computeRow(init.world, ledger)
+
+    valueAt(row, "HhEquityWealth") shouldBe initState.ledgerFinancialState.households.length.toDouble * 11.0
+    valueAt(row, "MortgageStock") shouldBe initState.ledgerFinancialState.households.length.toDouble * 12.0
+    valueAt(row, "BondsOutstanding") shouldBe 123.0
+    valueAt(row, "BankBondHoldings") shouldBe initState.ledgerFinancialState.banks.length.toDouble * 30.0
+    valueAt(row, "ForeignBondHoldings") shouldBe 45.0
+    valueAt(row, "NbpBondHoldings") shouldBe 67.0
+    valueAt(row, "QfBondsOutstanding") shouldBe 96.0
+    valueAt(row, "QfLoanPortfolio") shouldBe 97.0
+    valueAt(row, "QfNbpHoldings") shouldBe 98.0
+    valueAt(row, "JstDeposits") shouldBe 89.0
+    valueAt(row, "FusBalance") shouldBe 90.0
+    valueAt(row, "NfzBalance") shouldBe 91.0
+    valueAt(row, "PpkBondHoldings") shouldBe 92.0
+    valueAt(row, "FpBalance") shouldBe 93.0
+    valueAt(row, "PfronBalance") shouldBe 94.0
+    valueAt(row, "FgspBalance") shouldBe 95.0
   }
 
   it should "map regional HPI columns by market identity and preserve schema order" in {

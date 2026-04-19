@@ -10,17 +10,16 @@ import com.boombustgroup.ledger.*
   * Per-agent BatchedFlow.Scatter will replace when new pipeline is built.
   *
   * Account IDs: 0=Firm, 1=HH (wages), 2=Gov (CIT), 3=Bank (loans/interest/NPL),
-  * 4=Capital (investment), 5=Foreign (FDI/profit shifting), 6=BondMarket
+  * 4=Capital (investment), 5=Foreign (FDI/profit shifting)
   */
 object FirmFlows:
 
-  val FIRM_ACCOUNT: Int       = 0
-  val HH_ACCOUNT: Int         = 1
-  val GOV_ACCOUNT: Int        = 2
-  val BANK_ACCOUNT: Int       = 3
-  val CAPITAL_ACCOUNT: Int    = 4
-  val FOREIGN_ACCOUNT: Int    = 5
-  val BONDMARKET_ACCOUNT: Int = 6
+  val FIRM_ACCOUNT: Int    = 0
+  val HH_ACCOUNT: Int      = 1
+  val GOV_ACCOUNT: Int     = 2
+  val BANK_ACCOUNT: Int    = 3
+  val CAPITAL_ACCOUNT: Int = 4
+  val FOREIGN_ACCOUNT: Int = 5
 
   case class Input(
       wages: PLN,
@@ -30,7 +29,6 @@ object FirmFlows:
       interestPaid: PLN,
       capex: PLN,
       equityIssuance: PLN,
-      bondIssuance: PLN,
       ioPayments: PLN,
       nplDefault: PLN,
       profitShifting: PLN,
@@ -106,15 +104,6 @@ object FirmFlows:
         FlowMechanism.FirmEquityIssuance,
       ),
       AggregateBatchedEmission.transfer(
-        EntitySector.Funds,
-        topology.funds.bondMarket,
-        EntitySector.Firms,
-        topology.firms.aggregate,
-        input.bondIssuance,
-        AssetType.CorpBond,
-        FlowMechanism.FirmBondIssuance,
-      ),
-      AggregateBatchedEmission.transfer(
         EntitySector.Firms,
         topology.firms.aggregate,
         EntitySector.Firms,
@@ -171,7 +160,6 @@ object FirmFlows:
     if input.interestPaid > PLN.Zero then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.interestPaid.toLong, FlowMechanism.FirmInterestPaid.toInt)
     if input.capex > PLN.Zero then flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.capex.toLong, FlowMechanism.FirmCapex.toInt)
     if input.equityIssuance > PLN.Zero then flows += Flow(HH_ACCOUNT, FIRM_ACCOUNT, input.equityIssuance.toLong, FlowMechanism.FirmEquityIssuance.toInt)
-    if input.bondIssuance > PLN.Zero then flows += Flow(BONDMARKET_ACCOUNT, FIRM_ACCOUNT, input.bondIssuance.toLong, FlowMechanism.FirmBondIssuance.toInt)
     if input.ioPayments > PLN.Zero then flows += Flow(FIRM_ACCOUNT, FIRM_ACCOUNT + 100, input.ioPayments.toLong, FlowMechanism.FirmIoPayment.toInt)
     if input.nplDefault > PLN.Zero then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.nplDefault.toLong, FlowMechanism.FirmNplDefault.toInt)
     if input.profitShifting > PLN.Zero then flows += Flow(FIRM_ACCOUNT, FOREIGN_ACCOUNT, input.profitShifting.toLong, FlowMechanism.FirmProfitShifting.toInt)

@@ -22,17 +22,23 @@ object Nbfi:
   // State
   // ---------------------------------------------------------------------------
 
-  case class TfiState(
-      tfiAum: PLN,              // total assets under management
-      tfiGovBondHoldings: PLN,  // gov bonds (target share)
-      tfiCorpBondHoldings: PLN, // corp bonds (target share)
-      tfiEquityHoldings: PLN,   // equities (target share)
-      tfiCashHoldings: PLN,     // cash/money market (residual)
+  case class OpeningBalances(
+      tfiAum: PLN,             // total assets under management
+      tfiGovBondHoldings: PLN, // gov bonds (target share)
+      corpBondHoldings: PLN,   // ledger-owned corporate bond opening stock
+      tfiEquityHoldings: PLN,  // equities (target share)
+      nbfiLoanStock: PLN,      // outstanding NBFI loans
   )
 
-  case class CreditState(
-      nbfiLoanStock: PLN, // outstanding NBFI loans
+  case class ClosingBalances(
+      tfiAum: PLN,             // total assets under management
+      tfiGovBondHoldings: PLN, // gov bonds (target share)
+      tfiEquityHoldings: PLN,  // equities (target share)
+      nbfiLoanStock: PLN,      // outstanding NBFI loans
   )
+
+  object ClosingBalances:
+    val zero: ClosingBalances = ClosingBalances(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
   case class FlowState(
       lastTfiNetInflow: PLN,       // HH net fund purchases this month
@@ -45,16 +51,8 @@ object Nbfi:
   )
 
   case class State(
-      tfi: TfiState,
-      credit: CreditState,
       monthly: FlowState,
   ):
-    def tfiAum: PLN                 = tfi.tfiAum
-    def tfiGovBondHoldings: PLN     = tfi.tfiGovBondHoldings
-    def tfiCorpBondHoldings: PLN    = tfi.tfiCorpBondHoldings
-    def tfiEquityHoldings: PLN      = tfi.tfiEquityHoldings
-    def tfiCashHoldings: PLN        = tfi.tfiCashHoldings
-    def nbfiLoanStock: PLN          = credit.nbfiLoanStock
     def lastTfiNetInflow: PLN       = monthly.lastTfiNetInflow
     def lastNbfiOrigination: PLN    = monthly.lastNbfiOrigination
     def lastNbfiRepayment: PLN      = monthly.lastNbfiRepayment
@@ -65,12 +63,6 @@ object Nbfi:
 
   object State:
     def apply(
-        tfiAum: PLN,
-        tfiGovBondHoldings: PLN,
-        tfiCorpBondHoldings: PLN,
-        tfiEquityHoldings: PLN,
-        tfiCashHoldings: PLN,
-        nbfiLoanStock: PLN,
         lastTfiNetInflow: PLN,
         lastNbfiOrigination: PLN,
         lastNbfiRepayment: PLN,
@@ -80,8 +72,6 @@ object Nbfi:
         lastDepositDrain: PLN,
     ): State =
       State(
-        tfi = TfiState(tfiAum, tfiGovBondHoldings, tfiCorpBondHoldings, tfiEquityHoldings, tfiCashHoldings),
-        credit = CreditState(nbfiLoanStock),
         monthly = FlowState(
           lastTfiNetInflow,
           lastNbfiOrigination,
@@ -99,33 +89,20 @@ object Nbfi:
       PLN.Zero,
       PLN.Zero,
       PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
-      PLN.Zero,
       Share.Zero,
       PLN.Zero,
     )
 
   /** Initialize from SimParams calibration. */
-  def initial(using p: SimParams): State =
+  def initial: State = State.zero
+
+  def initialBalances(using p: SimParams): ClosingBalances =
     val aum = p.nbfi.tfiInitAum
-    State(
+    ClosingBalances(
       tfiAum = aum,
       tfiGovBondHoldings = aum * p.nbfi.tfiGovBondShare,
-      tfiCorpBondHoldings = aum * p.nbfi.tfiCorpBondShare,
       tfiEquityHoldings = aum * p.nbfi.tfiEquityShare,
-      tfiCashHoldings = aum * (Share.One - p.nbfi.tfiGovBondShare - p.nbfi.tfiCorpBondShare - p.nbfi.tfiEquityShare),
       nbfiLoanStock = p.nbfi.creditInitStock,
-      lastTfiNetInflow = PLN.Zero,
-      lastNbfiOrigination = PLN.Zero,
-      lastNbfiRepayment = PLN.Zero,
-      lastNbfiDefaultAmount = PLN.Zero,
-      lastNbfiInterestIncome = PLN.Zero,
-      lastBankTightness = Share.Zero,
-      lastDepositDrain = PLN.Zero,
     )
 
   // ---------------------------------------------------------------------------
@@ -170,11 +147,8 @@ object Nbfi:
   // Monthly step
   // ---------------------------------------------------------------------------
 
-  /** Full monthly step: TFI inflow → investment income → rebalance; NBFI credit
-    * flows.
-    */
-  def step(
-      prev: State,
+  case class StepInput(
+      opening: OpeningBalances,
       employed: Int,                                   // employed workers
       wage: PLN,                                       // average monthly wage
       @scala.annotation.unused priceLevel: PriceIndex, // CPI price level (unused in current spec, kept for interface stability)
@@ -185,47 +159,61 @@ object Nbfi:
       equityReturn: Rate,                              // equity monthly return
       depositRate: Rate,                               // bank deposit rate (TFI opportunity cost)
       domesticCons: PLN,                               // domestic consumption (NBFI credit base)
-  )(using p: SimParams): State =
+      corpBondDefaultLoss: PLN,
+  )
+
+  case class StepResult(state: State, closing: ClosingBalances)
+
+  /** Full monthly step: TFI inflow → investment income → rebalance; NBFI credit
+    * flows.
+    *
+    * Corporate bond holdings are settled by CorporateBondMarket and owned by
+    * LedgerFinancialState. TFI receives the opening stock for income; residual
+    * cash is derived later by the ledger from the settled closing stock.
+    */
+  def step(input: StepInput)(using p: SimParams): StepResult =
+    val opening = input.opening
+
     // TFI: inflow + investment income + rebalance
-    val netInflow = tfiInflow(employed, wage, equityReturn, govBondYield, depositRate)
-    val invIncome = prev.tfiGovBondHoldings * govBondYield.monthly +
-      prev.tfiCorpBondHoldings * corpBondYield.monthly +
-      prev.tfiEquityHoldings * equityReturn
-    val newAum    = (prev.tfiAum + netInflow + invIncome).max(PLN.Zero)
+    val netInflow             = tfiInflow(input.employed, input.wage, input.equityReturn, input.govBondYield, input.depositRate)
+    val grossInvestmentIncome = opening.tfiGovBondHoldings * input.govBondYield.monthly +
+      opening.corpBondHoldings * input.corpBondYield.monthly +
+      opening.tfiEquityHoldings * input.equityReturn
+    val invIncome             = grossInvestmentIncome - input.corpBondDefaultLoss
+    val newAum                = (opening.tfiAum + netInflow + invIncome).max(PLN.Zero)
 
     // Rebalance towards target allocation
-    val s          = p.nbfi.tfiRebalanceSpeed
-    val targetGov  = newAum * p.nbfi.tfiGovBondShare
-    val targetCorp = newAum * p.nbfi.tfiCorpBondShare
-    val targetEq   = newAum * p.nbfi.tfiEquityShare
-    val newGov     = prev.tfiGovBondHoldings + (targetGov - prev.tfiGovBondHoldings) * s
-    val newCorp    = prev.tfiCorpBondHoldings + (targetCorp - prev.tfiCorpBondHoldings) * s
-    val newEq      = prev.tfiEquityHoldings + (targetEq - prev.tfiEquityHoldings) * s
-    val newCash    = newAum - newGov - newCorp - newEq
+    val s         = p.nbfi.tfiRebalanceSpeed
+    val targetGov = newAum * p.nbfi.tfiGovBondShare
+    val targetEq  = newAum * p.nbfi.tfiEquityShare
+    val newGov    = opening.tfiGovBondHoldings + (targetGov - opening.tfiGovBondHoldings) * s
+    val newEq     = opening.tfiEquityHoldings + (targetEq - opening.tfiEquityHoldings) * s
 
     // Deposit drain: HH buys fund units → deposits decrease
     val depositDrain = -netInflow
 
     // NBFI credit: counter-cyclical origination → repayment → defaults
-    val tight          = bankTightness(bankNplRatio)
-    val origination    = nbfiOrigination(domesticCons, bankNplRatio)
-    val repayment      = nbfiRepayment(prev.nbfiLoanStock)
-    val defaults       = nbfiDefaults(prev.nbfiLoanStock, unempRate)
-    val newLoanStock   = (prev.nbfiLoanStock + origination - repayment - defaults).max(PLN.Zero)
-    val interestIncome = prev.nbfiLoanStock * p.nbfi.creditRate.monthly
+    val tight          = bankTightness(input.bankNplRatio)
+    val origination    = nbfiOrigination(input.domesticCons, input.bankNplRatio)
+    val repayment      = nbfiRepayment(opening.nbfiLoanStock)
+    val defaults       = nbfiDefaults(opening.nbfiLoanStock, input.unempRate)
+    val newLoanStock   = (opening.nbfiLoanStock + origination - repayment - defaults).max(PLN.Zero)
+    val interestIncome = opening.nbfiLoanStock * p.nbfi.creditRate.monthly
 
-    State(
-      tfiAum = newAum,
-      tfiGovBondHoldings = newGov,
-      tfiCorpBondHoldings = newCorp,
-      tfiEquityHoldings = newEq,
-      tfiCashHoldings = newCash,
-      nbfiLoanStock = newLoanStock,
-      lastTfiNetInflow = netInflow,
-      lastNbfiOrigination = origination,
-      lastNbfiRepayment = repayment,
-      lastNbfiDefaultAmount = defaults,
-      lastNbfiInterestIncome = interestIncome,
-      lastBankTightness = tight,
-      lastDepositDrain = depositDrain,
+    StepResult(
+      state = State(
+        lastTfiNetInflow = netInflow,
+        lastNbfiOrigination = origination,
+        lastNbfiRepayment = repayment,
+        lastNbfiDefaultAmount = defaults,
+        lastNbfiInterestIncome = interestIncome,
+        lastBankTightness = tight,
+        lastDepositDrain = depositDrain,
+      ),
+      closing = ClosingBalances(
+        tfiAum = newAum,
+        tfiGovBondHoldings = newGov,
+        tfiEquityHoldings = newEq,
+        nbfiLoanStock = newLoanStock,
+      ),
     )

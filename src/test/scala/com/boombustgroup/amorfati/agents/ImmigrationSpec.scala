@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.types.*
@@ -15,7 +17,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   "Immigration.computeRemittances" should "return 0 for non-immigrant households" in {
     val hhs = Vector(
-      Household.State(
+      TestHouseholdState(
         HhId(0),
         PLN(5000.0),
         PLN(0.0),
@@ -112,7 +114,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   "Immigration.removeReturnMigrants" should "remove oldest immigrants first" in {
     val hhs    = Vector(
-      Household.State(
+      TestHouseholdState(
         HhId(0),
         PLN(1000.0),
         PLN.Zero,
@@ -132,7 +134,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         taskRoutineness = Share(0.5),
         wageScar = Share.Zero,
       ),
-      Household.State(
+      TestHouseholdState(
         HhId(1),
         PLN(1000.0),
         PLN.Zero,
@@ -152,7 +154,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         taskRoutineness = Share(0.5),
         wageScar = Share.Zero,
       ),
-      Household.State(
+      TestHouseholdState(
         HhId(2),
         PLN(1000.0),
         PLN.Zero,
@@ -172,7 +174,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         taskRoutineness = Share(0.5),
         wageScar = Share.Zero,
       ),
-      Household.State(
+      TestHouseholdState(
         HhId(3),
         PLN(1000.0),
         PLN.Zero,
@@ -203,7 +205,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   it should "not remove natives" in {
     val hhs    = Vector(
-      Household.State(
+      TestHouseholdState(
         HhId(0),
         PLN(1000.0),
         PLN.Zero,
@@ -223,7 +225,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         taskRoutineness = Share(0.5),
         wageScar = Share.Zero,
       ),
-      Household.State(
+      TestHouseholdState(
         HhId(1),
         PLN(1000.0),
         PLN.Zero,
@@ -250,7 +252,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
 
   it should "return unchanged households when count is 0" in {
     val hhs = Vector(
-      Household.State(
+      TestHouseholdState(
         HhId(0),
         PLN(1000.0),
         PLN.Zero,

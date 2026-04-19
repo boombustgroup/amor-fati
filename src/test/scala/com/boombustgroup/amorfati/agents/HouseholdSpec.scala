@@ -1,20 +1,15 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.{
-  ExternalState,
-  FinancialMarketsState,
-  FlowState,
-  MechanismsState,
-  MonetaryPlumbingState,
-  RealState,
-  SocialState,
-  World,
-}
-import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.engine.World
+import com.boombustgroup.amorfati.engine.markets.OpenEconomy
 import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
@@ -29,13 +24,72 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   private inline def shareValue(s: Share): Double =
     s.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
 
+  private val financialById = scala.collection.mutable.Map.empty[Int, Household.FinancialStocks]
+
+  extension (hh: Household.State)
+    private def savings: PLN      = stockOf(hh).demandDeposit
+    private def debt: PLN         = stockOf(hh).mortgageLoan
+    private def consumerDebt: PLN = stockOf(hh).consumerLoan
+    private def equityWealth: PLN = stockOf(hh).equity
+
+  private def stockOf(hh: Household.State): Household.FinancialStocks =
+    financialById.getOrElse(hh.id.toInt, Household.FinancialStocks(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero))
+
+  private def step(
+      households: Vector[Household.State],
+      world: World,
+      marketWage: PLN,
+      reservationWage: PLN,
+      importAdj: Share,
+      rng: RandomStream,
+      nBanks: Int = 1,
+      bankRates: Option[BankRates] = None,
+      equityIndexReturn: Rate = Rate.Zero,
+      sectorWages: Option[Vector[PLN]] = None,
+      sectorVacancies: Option[Vector[Int]] = None,
+  ): Household.StepResult =
+    val result = Household.step(
+      households,
+      households.map(stockOf),
+      world,
+      marketWage,
+      reservationWage,
+      importAdj,
+      rng,
+      nBanks,
+      bankRates,
+      equityIndexReturn,
+      sectorWages,
+      sectorVacancies,
+    )
+    result.households.zip(result.financialStocks).foreach((hh, stocks) => financialById.update(hh.id.toInt, stocks))
+    result
+
+  private def computeAggregates(
+      households: Vector[Household.State],
+      marketWage: PLN,
+      reservationWage: PLN,
+      importAdj: Share,
+      retrainingAttempts: Int,
+      retrainingSuccesses: Int,
+  ): Household.Aggregates =
+    Household.computeAggregates(
+      households,
+      households.map(stockOf),
+      marketWage,
+      reservationWage,
+      importAdj,
+      retrainingAttempts,
+      retrainingSuccesses,
+    )
+
   // --- HouseholdInit ---
 
   "Household.Init.initialize" should "create correct number of households" in {
     val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(100)
     val network = Array.fill(1000)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(1000, firms, network, rng)
+    val hhs     = Household.Init.initialize(1000, firms, network, rng).households
     hhs.length shouldBe 1000
   }
 
@@ -43,7 +97,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(100)
     val network = Array.fill(500)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(500, firms, network, rng)
+    val hhs     = Household.Init.initialize(500, firms, network, rng).households
     hhs.foreach { hh =>
       hh.status shouldBe a[HhStatus.Employed]
     }
@@ -53,15 +107,15 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(50)
     val network = Array.fill(200)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(200, firms, network, rng)
-    hhs.foreach(_.savings should be > PLN.Zero)
+    val init    = Household.Init.initialize(200, firms, network, rng)
+    init.financialStocks.foreach(_.demandDeposit should be > PLN.Zero)
   }
 
   it should "have MPC in [0.5, 0.98]" in {
     val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(50)
     val network = Array.fill(500)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(500, firms, network, rng)
+    val hhs     = Household.Init.initialize(500, firms, network, rng).households
     hhs.foreach { hh =>
       hh.mpc should be >= Share(0.5)
       hh.mpc should be <= Share(0.98)
@@ -72,7 +126,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(50)
     val network = Array.fill(500)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(500, firms, network, rng)
+    val hhs     = Household.Init.initialize(500, firms, network, rng).households
     hhs.foreach { hh =>
       hh.skill should be >= Share(0.3)
       hh.skill should be <= Share.One
@@ -83,28 +137,28 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(50)
     val network = Array.fill(500)(Array.empty[Int])
-    val hhs     = Household.Init.initialize(500, firms, network, rng)
+    val hhs     = Household.Init.initialize(500, firms, network, rng).households
     hhs.foreach(_.monthlyRent should be >= p.household.rentFloor)
   }
 
   // --- Household.step ---
 
   "Household.step" should "not change bankrupt households" in {
-    val rng             = RandomStream.seeded(42)
-    val hhs             = Vector(
+    val rng     = RandomStream.seeded(42)
+    val hhs     = Vector(
       mkHousehold(0, HhStatus.Bankrupt, savings = PLN(0.0)),
       mkHousehold(1, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0)),
     )
-    val (updated, _, _) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val updated = step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng).households
     updated(0).status shouldBe HhStatus.Bankrupt
   }
 
   it should "increase unemployment months for unemployed" in {
-    val rng             = RandomStream.seeded(42)
-    val hhs             = Vector(
+    val rng     = RandomStream.seeded(42)
+    val hhs     = Vector(
       mkHousehold(0, HhStatus.Unemployed(3), savings = PLN(50000.0)),
     )
-    val (updated, _, _) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val updated = step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng).households
     updated(0).status match
       case HhStatus.Unemployed(m)       => m should be >= 4
       case HhStatus.Retraining(_, _, _) => succeed // may enter retraining
@@ -113,81 +167,98 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "apply skill decay after scarring onset" in {
-    val rng             = RandomStream.seeded(42)
-    val hh              = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), skill = 0.8)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val rng     = RandomStream.seeded(42)
+    val hh      = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), skill = 0.8)
+    val updated = step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng).households
     updated(0).skill should be < Share(0.8)
   }
 
   it should "not decay skill before scarring onset" in {
-    val rng             = RandomStream.seeded(42)
-    val hh              = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(100000.0), skill = 0.8)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val rng     = RandomStream.seeded(42)
+    val hh      = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(100000.0), skill = 0.8)
+    val updated = step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng).households
     updated(0).skill shouldBe Share(0.8)
   }
 
   it should "apply health scarring after onset" in {
-    val rng             = RandomStream.seeded(42)
-    val hh              = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), healthPenalty = 0.0)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val rng     = RandomStream.seeded(42)
+    val hh      = mkHousehold(0, HhStatus.Unemployed(5), savings = PLN(100000.0), healthPenalty = 0.0)
+    val updated = step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng).households
     updated(0).healthPenalty should be > Share.Zero
   }
 
   it should "not bankrupt household after a single month of deep distress" in {
-    val rng             = RandomStream.seeded(42)
-    val hh              = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(-10000.0), rent = PLN(1800.0))
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val rng     = RandomStream.seeded(42)
+    val hh      = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(-10000.0), rent = PLN(1800.0))
+    val updated = step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng).households
     updated(0).status should not be HhStatus.Bankrupt
     updated(0).financialDistressMonths shouldBe 1
   }
 
   it should "bankrupt household after persistent deep distress" in {
-    val rng             = RandomStream.seeded(42)
-    val hh              = mkHousehold(
+    val rng     = RandomStream.seeded(42)
+    val hh      = mkHousehold(
       0,
       HhStatus.Unemployed(1),
       savings = PLN(-10000.0),
       rent = PLN(1800.0),
     ).copy(financialDistressMonths = p.household.bankruptcyDistressMonths - 1)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val updated = step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng).households
     updated(0).status shouldBe HhStatus.Bankrupt
   }
 
   it should "reset financial distress months after recovery" in {
-    val rng             = RandomStream.seeded(42)
-    val hh              = mkHousehold(
+    val rng     = RandomStream.seeded(42)
+    val hh      = mkHousehold(
       0,
       HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
       savings = PLN(20000.0),
       rent = PLN(1800.0),
     ).copy(financialDistressMonths = 2)
-    val (updated, _, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val updated = step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng).households
     updated(0).status shouldBe a[HhStatus.Employed]
     updated(0).financialDistressMonths shouldBe 0
   }
 
   it should "return None for perBankHhFlows when bankRates not provided" in {
-    val rng         = RandomStream.seeded(42)
-    val hhs         = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0)))
-    val (_, _, pbf) = Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val rng = RandomStream.seeded(42)
+    val hhs = Vector(mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0)))
+    val pbf = step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng).perBankFlows
     pbf shouldBe None
   }
 
   it should "let unemployed households smooth consumption by drawing down savings" in {
-    val rng               = RandomStream.seeded(42)
-    val hh                = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(30000.0), rent = PLN(1800.0))
-    val (updated, agg, _) = Household.step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val rng            = RandomStream.seeded(42)
+    val hh             = mkHousehold(0, HhStatus.Unemployed(1), savings = PLN(30000.0), rent = PLN(1800.0))
+    val openingSavings = hh.savings
+    val result         = step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val updated        = result.households
+    val agg            = result.aggregates
 
     agg.consumption should be > PLN.Zero
-    updated(0).savings should be < hh.savings
+    updated(0).savings should be < openingSavings
+  }
+
+  it should "return ledger-facing financial balances in the step result" in {
+    val rng     = RandomStream.seeded(42)
+    val hh      = mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), savings = PLN(50000.0))
+    val result  = step(Vector(hh), mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+    val updated = result.households.head
+
+    result.financialStocks.head shouldBe Household.FinancialStocks(
+      demandDeposit = updated.savings,
+      mortgageLoan = updated.debt,
+      consumerLoan = updated.consumerDebt,
+      equity = updated.equityWealth,
+    )
   }
 
   // --- Variable-rate debt service + deposit interest ---
 
   "Household.step with bankRates" should "use variable lending rate for debt service" in {
-    val rng              = RandomStream.seeded(42)
-    val debt             = PLN(100000.0)
-    val hhs              = Vector(
+    val rng         = RandomStream.seeded(42)
+    val debt        = PLN(100000.0)
+    val hhs         = Vector(
       mkHousehold(
         0,
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
@@ -204,16 +275,16 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       ),
     )
     // Bank 0: 6% annual lending rate, Bank 1: 10% annual
-    val br               = BankRates(
+    val br          = BankRates(
       lendingRates = Vector(Rate(0.06), Rate(0.10)),
       depositRates = Vector(Rate(0.04), Rate(0.04)),
     )
-    val (_, _, maybePbf) =
-      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 2, bankRates = Some(br))
-    val pbf              = maybePbf.get
+    val maybePbf    =
+      step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 2, bankRates = Some(br)).perBankFlows
+    val pbf         = maybePbf.get
     // Expected debt service: debt * (HhBaseAmortRate + lendingRate/12)
-    val expectedDs0      = td.toDouble(debt) * (td.toDouble(p.household.baseAmortRate) + 0.06 / 12.0)
-    val expectedDs1      = td.toDouble(debt) * (td.toDouble(p.household.baseAmortRate) + 0.10 / 12.0)
+    val expectedDs0 = td.toDouble(debt) * (td.toDouble(p.household.baseAmortRate) + 0.06 / 12.0)
+    val expectedDs1 = td.toDouble(debt) * (td.toDouble(p.household.baseAmortRate) + 0.10 / 12.0)
     pbf(0).debtService shouldBe PLN(expectedDs0) +- PLN(10.0)
     pbf(1).debtService shouldBe PLN(expectedDs1) +- PLN(10.0)
     // Bank 1's higher rate should mean higher debt service
@@ -221,20 +292,22 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "pay deposit interest to HH with positive savings" in {
-    val rng                = RandomStream.seeded(42)
-    val savings            = PLN(100000.0)
-    val hhs                = Vector(
+    val rng            = RandomStream.seeded(42)
+    val savings        = PLN(100000.0)
+    val hhs            = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)), savings = savings, bankId = 0),
     )
-    val depRate            = 0.04 // 4% annual
-    val br                 = BankRates(
+    val depRate        = 0.04 // 4% annual
+    val br             = BankRates(
       lendingRates = Vector(Rate(0.07)),
       depositRates = Vector(Rate(depRate)),
     )
-    val (_, agg, maybePbf) =
-      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 1, bankRates = Some(br))
-    val pbf                = maybePbf.get
-    val expectedDepInt     = depRate / 12.0 * td.toDouble(savings)
+    val result         =
+      step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 1, bankRates = Some(br))
+    val agg            = result.aggregates
+    val maybePbf       = result.perBankFlows
+    val pbf            = maybePbf.get
+    val expectedDepInt = depRate / 12.0 * td.toDouble(savings)
     pbf(0).depositInterest shouldBe PLN(expectedDepInt) +- PLN(10.0)
     agg.totalDepositInterest shouldBe PLN(expectedDepInt) +- PLN(10.0)
   }
@@ -251,7 +324,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       lendingRates = Vector(Rate(0.07)),
       depositRates = Vector(Rate(depRate)),
     )
-    val (_, agg, _)    = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), Share(0.4), rng, nBanks = 1, bankRates = Some(br))
+    val agg            = step(hhs, mkWorld(), PLN(wage), PLN(4666.0), Share(0.4), rng, nBanks = 1, bankRates = Some(br)).aggregates
     val expectedDepInt = depRate / 12.0 * td.toDouble(savings)
     val grossIncome    = wage + expectedDepInt
     val pitTax         = Household.computeMonthlyPit(PLN(grossIncome))
@@ -260,8 +333,8 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "accumulate per-bank flows correctly for 2 banks" in {
-    val rng              = RandomStream.seeded(42)
-    val hhs              = Vector(
+    val rng        = RandomStream.seeded(42)
+    val hhs        = Vector(
       mkHousehold(
         0,
         HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
@@ -284,36 +357,38 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         bankId = 1,
       ),
     )
-    val br               = BankRates(
+    val br         = BankRates(
       lendingRates = Vector(Rate(0.07), Rate(0.08)),
       depositRates = Vector(Rate(0.035), Rate(0.035)),
     )
-    val (_, _, maybePbf) =
-      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 2, bankRates = Some(br))
-    val pbf              = maybePbf.get
+    val maybePbf   =
+      step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 2, bankRates = Some(br)).perBankFlows
+    val pbf        = maybePbf.get
     // Bank 0 has HH 0 and 1: income should include both
     pbf(0).income should be > PLN.Zero
     pbf(1).income should be > PLN.Zero
     // Bank 0 deposit interest: (50000 + 30000) * 0.035/12
-    val expDepInt0       = (50000.0 + 30000.0) * 0.035 / 12.0
+    val expDepInt0 = (50000.0 + 30000.0) * 0.035 / 12.0
     pbf(0).depositInterest shouldBe PLN(expDepInt0) +- PLN(10.0)
     // Bank 1 deposit interest: 80000 * 0.035/12
-    val expDepInt1       = 80000.0 * 0.035 / 12.0
+    val expDepInt1 = 80000.0 * 0.035 / 12.0
     pbf(1).depositInterest shouldBe PLN(expDepInt1) +- PLN(10.0)
   }
 
   it should "not pay deposit interest on negative savings" in {
-    val rng                = RandomStream.seeded(42)
-    val hhs                = Vector(
+    val rng      = RandomStream.seeded(42)
+    val hhs      = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)), savings = PLN(-5000.0), bankId = 0),
     )
-    val br                 = BankRates(
+    val br       = BankRates(
       lendingRates = Vector(Rate(0.07)),
       depositRates = Vector(Rate(0.04)),
     )
-    val (_, agg, maybePbf) =
-      Household.step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 1, bankRates = Some(br))
-    val pbf                = maybePbf.get
+    val result   =
+      step(hhs, mkWorld(), PLN(8000.0), PLN(4666.0), Share(0.4), rng, nBanks = 1, bankRates = Some(br))
+    val agg      = result.aggregates
+    val maybePbf = result.perBankFlows
+    val pbf      = maybePbf.get
     // Deposit interest on negative savings is floored at 0
     pbf(0).depositInterest shouldBe PLN.Zero
     agg.totalDepositInterest shouldBe PLN.Zero
@@ -322,13 +397,13 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
   // --- Immigration: remittance deduction ---
 
   "Household.step" should "not deduct remittances from non-immigrant HH" in {
-    val rng         = RandomStream.seeded(42)
-    val wage        = 8000.0
-    val hhs         = Vector(
+    val rng  = RandomStream.seeded(42)
+    val wage = 8000.0
+    val hhs  = Vector(
       mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(wage)), savings = PLN(50000.0))
         .copy(isImmigrant = false),
     )
-    val (_, agg, _) = Household.step(hhs, mkWorld(), PLN(wage), PLN(4666.0), Share(0.4), rng)
+    val agg  = step(hhs, mkWorld(), PLN(wage), PLN(4666.0), Share(0.4), rng).aggregates
     agg.totalRemittances shouldBe PLN.Zero
   }
 
@@ -365,7 +440,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       mkHousehold(3, HhStatus.Retraining(4, SectorIdx(1), PLN(5000.0))),
       mkHousehold(4, HhStatus.Bankrupt),
     )
-    val agg = Household.computeAggregates(hhs, PLN(8000.0), PLN(4666.0), Share(0.4), 0, 0)
+    val agg = computeAggregates(hhs, PLN(8000.0), PLN(4666.0), Share(0.4), 0, 0)
     agg.employed shouldBe 2
     agg.unemployed shouldBe 1
     agg.retraining shouldBe 1
@@ -377,7 +452,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
 
   private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n).map { i =>
-      Firm.State(
+      TestFirmState(
         FirmId(i),
         PLN(50000.0),
         PLN(0.0),
@@ -391,7 +466,6 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
         equityRaised = PLN.Zero,
         initialSize = 10,
         capitalStock = PLN.Zero,
-        bondDebt = PLN.Zero,
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
@@ -410,7 +484,7 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       mpc: Double = 0.82,
       bankId: Int = 0,
   ): Household.State =
-    Household.State(
+    val hh = TestHouseholdState(
       HhId(id),
       savings,
       debt,
@@ -430,64 +504,14 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.5),
       wageScar = Share.Zero,
     )
+    financialById.update(id, TestHouseholdState.financial(savings = savings, debt = debt, consumerDebt = PLN.Zero, equityWealth = PLN.Zero))
+    hh
 
   private def mkWorld(): World =
-    World(
-      inflation = Rate(0.02),
-      priceLevel = 1.0,
-      gdpProxy = 1e9,
-      currentSigmas = p.sectorDefs.map(_.sigma).toVector,
+    Generators.testWorld(
       totalPopulation = 100000,
-      gov = FiscalBudget.GovState(PLN(0.0), PLN(0.0), PLN(0.0), PLN(0.0)),
-      nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bankingSector = Generators.testBankingSector().marketState,
+      employed = 100000,
       forex = OpenEconomy.ForexState(ExchangeRate(4.33), PLN(0.0), PLN(190000000), PLN(0.0), PLN(0.0)),
-      hhAgg = Household.Aggregates(
-        employed = 100000,
-        unemployed = 0,
-        retraining = 0,
-        bankrupt = 0,
-        totalIncome = PLN.Zero,
-        consumption = PLN.Zero,
-        domesticConsumption = PLN.Zero,
-        importConsumption = PLN.Zero,
-        marketWage = p.household.baseWage,
-        reservationWage = p.household.baseReservationWage,
-        giniIndividual = Share.Zero,
-        giniWealth = Share.Zero,
-        meanSavings = PLN.Zero,
-        medianSavings = PLN.Zero,
-        povertyRate50 = Share.Zero,
-        bankruptcyRate = Share.Zero,
-        meanSkill = Share.Zero,
-        meanHealthPenalty = Share.Zero,
-        retrainingAttempts = 0,
-        retrainingSuccesses = 0,
-        consumptionP10 = PLN.Zero,
-        consumptionP50 = PLN.Zero,
-        consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = Scalar.Zero,
-        povertyRate30 = Share.Zero,
-        totalRent = PLN.Zero,
-        totalDebtService = PLN.Zero,
-        totalUnempBenefits = PLN.Zero,
-        totalDepositInterest = PLN.Zero,
-        crossSectorHires = 0,
-        voluntaryQuits = 0,
-        sectorMobilityRate = Share.Zero,
-        totalRemittances = PLN.Zero,
-        totalPit = PLN.Zero,
-        totalSocialTransfers = PLN.Zero,
-        totalConsumerDebtService = PLN.Zero,
-        totalConsumerOrigination = PLN.Zero,
-        totalConsumerDefault = PLN.Zero,
-        totalConsumerPrincipal = PLN.Zero,
-      ),
-      social = SocialState.zero,
-      financial = FinancialMarketsState.zero,
-      external = ExternalState.zero,
-      real = RealState.zero,
-      mechanisms = MechanismsState.zero,
-      plumbing = MonetaryPlumbingState.zero,
-      flows = FlowState.zero,
+      marketWage = p.household.baseWage,
+      reservationWage = p.household.baseReservationWage,
     )

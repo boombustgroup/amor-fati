@@ -23,13 +23,6 @@ object DemandEconomics:
   private val PressureSaturationRate = Scalar(1.25)     // how quickly excess-demand pressure saturates above capacity
   private val HiringSignalSmoothing  = Share(0.65)      // persistence in sector hiring plans; avoids month-to-month whipsaw
 
-  case class Input(
-      w: World,                   // current world state
-      employed: Int,              // employment count
-      living: Vector[Firm.State], // living firm population
-      domesticCons: PLN,          // domestic component of household consumption
-  )
-
   case class Output(
       govPurchases: PLN,                        // total government purchases this month
       sectorMults: Vector[Multiplier],          // per-sector demand multiplier (0 = no demand, 1 = full capacity)
@@ -41,31 +34,36 @@ object DemandEconomics:
       fiscalRuleStatus: FiscalRules.RuleStatus, // fiscal rule compliance diagnostics
   )
 
-  def compute(in: Input)(using p: SimParams): Output =
-    val seedIn             = in.w.seedIn
-    val rawGovPurchases    = computeGovPurchases(in)
-    val fiscalResult       = applyFiscalRules(in, rawGovPurchases)
+  def compute(
+      w: World,
+      employed: Int,
+      living: Vector[Firm.State],
+      domesticCons: PLN,
+  )(using p: SimParams): Output =
+    val seedIn             = w.seedIn
+    val rawGovPurchases    = computeGovPurchases(w, employed)
+    val fiscalResult       = applyFiscalRules(w, employed, rawGovPurchases)
     val govPurchases       = fiscalResult.constrainedGovPurchases
-    val sectorCapReal      = computeSectorCapacity(in)
-    val sectorExports      = computeSectorExports(in)
-    val laggedInvestDemand = computeLaggedInvestDemand(in)
-    val sectorDemand       = computeSectorDemand(in, govPurchases, sectorExports, laggedInvestDemand)
-    val rawPressure        = computeRawDemandPressure(sectorDemand, sectorCapReal, in.w.priceLevel)
+    val sectorCapReal      = computeSectorCapacity(living)
+    val sectorExports      = computeSectorExports(w)
+    val laggedInvestDemand = computeLaggedInvestDemand(w)
+    val sectorDemand       = computeSectorDemand(domesticCons, govPurchases, sectorExports, laggedInvestDemand)
+    val rawPressure        = computeRawDemandPressure(sectorDemand, sectorCapReal, w.priceLevel)
     val sectorPressure     = stabilizeDemandPressure(rawPressure)
     val sectorHiringSignal = smoothHiringSignal(seedIn.sectorHiringSignal, sectorPressure)
-    val sectorMults        = applySpillover(sectorDemand, rawPressure, sectorCapReal, in.w.priceLevel)
-    val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCapReal, in)
+    val sectorMults        = applySpillover(sectorDemand, rawPressure, sectorCapReal, w.priceLevel)
+    val avgDemandMult      = computeAvgDemandMult(sectorMults, sectorCapReal, w)
     Output(govPurchases, sectorMults, sectorPressure, sectorHiringSignal, avgDemandMult, sectorCapReal, laggedInvestDemand, fiscalResult.status)
 
   /** Government purchases: base spending x price level plus a small automatic
     * stabilizer tied to labor-market slack. Revenue windfalls are not
     * mechanically recycled back into demand.
     */
-  private def computeGovPurchases(in: Input)(using p: SimParams): PLN =
-    val unempRate = Share.One - Share.fraction(in.employed, in.w.derivedTotalPopulation)
+  private def computeGovPurchases(w: World, employed: Int)(using p: SimParams): PLN =
+    val unempRate = Share.One - Share.fraction(employed, w.derivedTotalPopulation)
     val unempGap  = (unempRate - p.monetary.nairu).max(Share.Zero)
     val stimulus  = p.fiscal.govBaseSpending * unempGap * p.fiscal.govAutoStabMult
-    val target    = p.fiscal.govBaseSpending * in.w.priceLevel.toMultiplier.max(Multiplier.One) + stimulus
+    val target    = p.fiscal.govBaseSpending * w.priceLevel.toMultiplier.max(Multiplier.One) + stimulus
     target
 
   /** Apply fiscal rules to raw government purchases.
@@ -74,28 +72,28 @@ object DemandEconomics:
     * This excludes the separate domestic co-financing outlay and the total EU
     * project envelope, which are reported separately on `GovState`.
     */
-  private def applyFiscalRules(in: Input, rawTarget: PLN)(using p: SimParams): FiscalRules.Output =
-    val prevGovSpend = in.w.gov.domesticBudgetDemand
-    val unempRate    = Share.One - Share.fraction(in.employed, in.w.derivedTotalPopulation)
+  private def applyFiscalRules(w: World, employed: Int, rawTarget: PLN)(using p: SimParams): FiscalRules.Output =
+    val prevGovSpend = w.gov.domesticBudgetDemand
+    val unempRate    = Share.One - Share.fraction(employed, w.derivedTotalPopulation)
     val outputGap    = Coefficient((unempRate - p.monetary.nairu) / p.monetary.nairu)
 
     FiscalRules.constrain(
       FiscalRules.Input(
         rawGovPurchases = rawTarget,
         prevGovSpend = prevGovSpend,
-        cumulativeDebt = in.w.gov.cumulativeDebt,
-        monthlyGdp = in.w.cachedMonthlyGdpProxy,
-        prevRevenue = in.w.gov.taxRevenue,
-        prevDeficit = in.w.gov.deficit,
-        inflation = in.w.inflation,
+        cumulativeDebt = w.gov.cumulativeDebt,
+        monthlyGdp = w.cachedMonthlyGdpProxy,
+        prevRevenue = w.gov.taxRevenue,
+        prevDeficit = w.gov.deficit,
+        inflation = w.inflation,
         outputGap = outputGap,
       ),
     )
 
   /** Per-sector real production capacity before repricing by CPI. */
-  private def computeSectorCapacity(in: Input)(using p: SimParams): Vector[PLN] =
+  private def computeSectorCapacity(living: Vector[Firm.State])(using p: SimParams): Vector[PLN] =
     val caps = Array.fill(p.sectorDefs.length)(PLN.Zero)
-    in.living.foreach: f =>
+    living.foreach: f =>
       val s = f.sector.toInt
       if 0 <= s && s < caps.length then caps(s) = caps(s) + Firm.computeCapacity(f)
       else
@@ -108,28 +106,28 @@ object DemandEconomics:
     * from lagged aggregate exports split by fixed shares. Falls back to
     * aggregate split when GVC sector exports are zero (init month).
     */
-  private def computeSectorExports(in: Input)(using p: SimParams): Vector[PLN] =
-    val gvcExports = in.w.external.gvc.sectorExports
+  private def computeSectorExports(w: World)(using p: SimParams): Vector[PLN] =
+    val gvcExports = w.external.gvc.sectorExports
     if gvcExports.exists(_ > PLN.Zero) then gvcExports
-    else p.fiscal.fofExportShares.map(_ * in.w.forex.exports)
+    else p.fiscal.fofExportShares.map(_ * w.forex.exports)
 
   /** Lagged domestic investment demand (net of import content). */
-  private def computeLaggedInvestDemand(in: Input)(using p: SimParams): PLN =
-    in.w.real.grossInvestment * (Share.One - p.capital.importShare) +
-      in.w.real.aggGreenInvestment * (Share.One - p.climate.greenImportShare)
+  private def computeLaggedInvestDemand(w: World)(using p: SimParams): PLN =
+    w.real.grossInvestment * (Share.One - p.capital.importShare) +
+      w.real.aggGreenInvestment * (Share.One - p.climate.greenImportShare)
 
   /** Per-sector total demand: consumption + gov purchases + investment +
     * exports, allocated via flow-of-funds weights.
     */
   private def computeSectorDemand(
-      in: Input,
+      domesticCons: PLN,
       govPurchases: PLN,
       sectorExports: Vector[PLN],
       laggedInvestDemand: PLN,
   )(using p: SimParams): Vector[PLN] =
     (0 until p.sectorDefs.length)
       .map: s =>
-        p.fiscal.fofConsWeights(s) * in.domesticCons +
+        p.fiscal.fofConsWeights(s) * domesticCons +
           p.fiscal.fofGovWeights(s) * govPurchases +
           p.fiscal.fofInvestWeights(s) * laggedInvestDemand +
           sectorExports(s)
@@ -201,7 +199,7 @@ object DemandEconomics:
   private def computeAvgDemandMult(
       sectorMults: Vector[Multiplier],
       sectorCapReal: Vector[PLN],
-      in: Input,
+      w: World,
   ): Multiplier =
     val totalCapacity = sectorCapReal.foldLeft(PLN.Zero)(_ + _)
     val baseMult      =
@@ -212,5 +210,5 @@ object DemandEconomics:
     val weightedBase  =
       if totalCapacity > PLN.Zero then baseMult.ratioTo(totalCapacity).toMultiplier
       else Multiplier.One
-    val realRateAdj   = ((in.w.nbp.referenceRate - in.w.mechanisms.expectations.expectedInflation).toScalar * RealRateElasticity).toCoefficient
+    val realRateAdj   = ((w.nbp.referenceRate - w.mechanisms.expectations.expectedInflation).toScalar * RealRateElasticity).toCoefficient
     (Coefficient.One + weightedBase.deviationFromOne - realRateAdj).toMultiplier

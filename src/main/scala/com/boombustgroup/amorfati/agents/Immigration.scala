@@ -59,12 +59,12 @@ object Immigration:
   def chooseSector(rng: RandomStream)(using p: SimParams): SectorIdx =
     SectorIdx(Distributions.cdfSample(p.immigration.sectorShares, rng))
 
-  /** Spawn new immigrant households. Start as Unemployed(0) — matched in next
-    * jobSearch round.
+  /** Spawn new immigrant households with their opening ledger financial stock.
+    * They start as Unemployed(0) and are matched in the next jobSearch round.
     */
-  def spawnImmigrants(count: Int, startId: Int, rng: RandomStream)(using p: SimParams): Vector[Household.State] =
+  def spawnImmigrantPopulation(count: Int, startId: Int, rng: RandomStream)(using p: SimParams): Household.Population =
     import ComputationBoundary.toDouble
-    (0 until count).map { i =>
+    val sampled = (0 until count).map { i =>
       val sector                       = chooseSector(rng)
       val edu                          = p.social.drawImmigrantEducation(rng)
       val (skillFloorS, skillCeilingS) = p.social.eduSkillRange(edu)
@@ -76,10 +76,8 @@ object Immigration:
       val rent                         = (baseRent * region.housingCostIndex).max(MinInitRent)
       val numChildren                  = Distributions.poissonSample(toDouble(p.fiscal.social800ChildrenPerHh), rng)
 
-      Household.State(
+      val household = Household.State(
         id = HhId(startId + i),
-        savings = savings,
-        debt = PLN.Zero,
         monthlyRent = rent,
         skill = skill,
         healthPenalty = Share.Zero,
@@ -87,17 +85,29 @@ object Immigration:
         status = HhStatus.Unemployed(0),
         socialNeighbors = Array.empty[HhId],
         bankId = BankId(0),
-        equityWealth = PLN.Zero,
         lastSectorIdx = sector,
         isImmigrant = true,
         numDependentChildren = numChildren,
-        consumerDebt = PLN.Zero,
         education = edu,
         taskRoutineness = Household.Init.sampleTaskRoutineness(edu, sector, rng),
         wageScar = Share.Zero,
         region = region,
       )
+      val stocks    = Household.FinancialStocks(
+        demandDeposit = savings,
+        mortgageLoan = PLN.Zero,
+        consumerLoan = PLN.Zero,
+        equity = PLN.Zero,
+      )
+      (household, stocks)
     }.toVector
+    Household.Population(sampled.map(_._1), sampled.map(_._2))
+
+  /** State-only convenience for behavioral tests and callers that do not need
+    * opening financial balances.
+    */
+  def spawnImmigrants(count: Int, startId: Int, rng: RandomStream)(using p: SimParams): Vector[Household.State] =
+    spawnImmigrantPopulation(count, startId, rng).households
 
   /** Remove returning migrants from household vector. Removes oldest immigrants
     * (lowest ids among immigrants).

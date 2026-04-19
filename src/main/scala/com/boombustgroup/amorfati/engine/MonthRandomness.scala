@@ -14,7 +14,6 @@ object MonthRandomness:
     case HouseholdIncomeEconomics
     case FirmEconomics
     case HouseholdFinancialEconomics
-    case PriceEquityEconomics
     case OpenEconEconomics
     case BankingEconomics
     case FdiMa
@@ -33,7 +32,6 @@ object MonthRandomness:
       householdIncomeEconomics: RandomStream,
       firmEconomics: RandomStream,
       householdFinancialEconomics: RandomStream,
-      priceEquityEconomics: RandomStream,
       openEconEconomics: RandomStream,
       bankingEconomics: RandomStream,
   )
@@ -49,7 +47,6 @@ object MonthRandomness:
       householdIncomeEconomics: StreamSeed,
       firmEconomics: StreamSeed,
       householdFinancialEconomics: StreamSeed,
-      priceEquityEconomics: StreamSeed,
       openEconEconomics: StreamSeed,
       bankingEconomics: StreamSeed,
   ):
@@ -58,7 +55,6 @@ object MonthRandomness:
         householdIncomeEconomics,
         firmEconomics,
         householdFinancialEconomics,
-        priceEquityEconomics,
         openEconEconomics,
         bankingEconomics,
       )
@@ -68,7 +64,6 @@ object MonthRandomness:
         householdIncomeEconomics = householdIncomeEconomics.newStream(),
         firmEconomics = firmEconomics.newStream(),
         householdFinancialEconomics = householdFinancialEconomics.newStream(),
-        priceEquityEconomics = priceEquityEconomics.newStream(),
         openEconEconomics = openEconEconomics.newStream(),
         bankingEconomics = bankingEconomics.newStream(),
       )
@@ -111,7 +106,6 @@ object MonthRandomness:
           householdIncomeEconomics = deriveStream(rootSeed, StreamKey.HouseholdIncomeEconomics),
           firmEconomics = deriveStream(rootSeed, StreamKey.FirmEconomics),
           householdFinancialEconomics = deriveStream(rootSeed, StreamKey.HouseholdFinancialEconomics),
-          priceEquityEconomics = deriveStream(rootSeed, StreamKey.PriceEquityEconomics),
           openEconEconomics = deriveStream(rootSeed, StreamKey.OpenEconEconomics),
           bankingEconomics = deriveStream(rootSeed, StreamKey.BankingEconomics),
         ),

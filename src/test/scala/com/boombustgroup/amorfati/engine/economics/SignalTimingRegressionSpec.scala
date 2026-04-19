@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{DecisionSignals, MonthRandomness, MonthTraceStage, OperationalSignals, SignalExtraction, World}
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
@@ -19,6 +20,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
       s1: FiscalConstraintEconomics.Output,
       s2Pre: LaborEconomics.Output,
       s2: LaborEconomics.Output,
@@ -34,79 +36,80 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
   private val baseline = buildFixture(42L)
 
   private def buildFixture(seed: Long): PipelineFixture =
-    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
-    val world    = init.world
-    val contract = MonthRandomness.Contract.fromSeed(seed)
+    val init                 = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
+    val world                = init.world
+    val contract             = MonthRandomness.Contract.fromSeed(seed)
+    val ledgerFinancialState = init.ledgerFinancialState
 
-    val fiscal = FiscalConstraintEconomics.compute(world, init.banks, ExecutionMonth.First)
-    val s1     = FiscalConstraintEconomics.toOutput(fiscal)
-    val labor  = LaborEconomics.compute(world, init.firms, init.households, s1)
-    val s2Pre  = LaborEconomics.Output(
-      labor.wage,
-      labor.employed,
-      labor.laborDemand,
-      labor.wageGrowth,
-      labor.operationalHiringSlack,
-      labor.immigration,
-      labor.netMigration,
-      labor.demographics,
-      SocialSecurity.ZusState.zero,
-      SocialSecurity.NfzState.zero,
-      SocialSecurity.PpkState.zero,
-      PLN.Zero,
-      EarmarkedFunds.State.zero,
-      labor.living,
-      labor.regionalWages,
-    )
+    val s1     = FiscalConstraintEconomics.compute(world, init.banks, ledgerFinancialState, ExecutionMonth.First)
+    val s2Pre  = LaborEconomics.compute(world, init.firms, init.households, s1)
     val s3     =
       HouseholdIncomeEconomics.compute(
         world,
         init.firms,
         init.households,
         init.banks,
+        ledgerFinancialState,
         s1.lendingBaseRate,
         s1.resWage,
         s2Pre.newWage,
         contract.stages.householdIncomeEconomics.newStream(),
       )
-    val s4     = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
-    val s5     = FirmEconomics.runStep(world, init.firms, init.households, init.banks, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
+    val s4     = DemandEconomics.compute(world, s2Pre.employed, s2Pre.living, s3.domesticCons)
+    val s5     =
+      FirmEconomics.runStep(world, init.firms, init.households, init.banks, ledgerFinancialState, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
     val living = s5.ioFirms.filter(Firm.isAlive)
     val s2     = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, living, s5.households)
     val s6     = HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
     val s7     = PriceEquityEconomics.compute(
-      PriceEquityEconomics.Input(
-        world,
-        s1.m,
-        s2.newWage,
-        s2.employed,
-        s2.wageGrowth,
-        s3.domesticCons,
-        s4.govPurchases,
-        s4.avgDemandMult,
-        s4.sectorMults,
-        init.banks,
-        s5,
-      ),
-      contract.stages.priceEquityEconomics.newStream(),
+      w = world,
+      month = s1.m,
+      wageGrowth = s2.wageGrowth,
+      domesticCons = s3.domesticCons,
+      govPurchases = s4.govPurchases,
+      avgDemandMult = s4.avgDemandMult,
+      totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sum,
+      firmStep = s5,
     )
     val s8     =
       OpenEconEconomics.runStep(
-        OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, init.banks, contract.stages.openEconEconomics.newStream()),
+        OpenEconEconomics.StepInput(
+          world,
+          ledgerFinancialState,
+          s1,
+          s2,
+          s3,
+          s4,
+          s5,
+          s6,
+          s7,
+          init.banks,
+          contract.stages.openEconEconomics.newStream(),
+        ),
       )
     val s9     =
       BankingEconomics.runStep(
-        BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, init.banks, contract.stages.bankingEconomics.newStream()),
+        BankingEconomics.StepInput(
+          world,
+          ledgerFinancialState,
+          s1,
+          s2,
+          s3,
+          s4,
+          s5,
+          s6,
+          s7,
+          s8,
+          init.banks,
+          contract.stages.bankingEconomics.newStream(),
+        ),
       )
 
-    PipelineFixture(world, init.firms, init.households, init.banks, s1, s2Pre, s2, s3, s4, s5, s6, s7, s8, s9)
+    PipelineFixture(world, init.firms, init.households, init.banks, ledgerFinancialState, s1, s2Pre, s2, s3, s4, s5, s6, s7, s8, s9)
 
   private def baseStepInput: WorldAssemblyEconomics.StepInput =
     WorldAssemblyEconomics.StepInput(
       baseline.world,
-      baseline.firms,
-      baseline.households,
-      baseline.banks,
       baseline.s1,
       baseline.s2,
       baseline.s3,
@@ -129,96 +132,42 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       operationalHiringSlack = baseline.s2.operationalHiringSlack,
     )
 
-  private def baseFirmComputeInput(world: World, operationalSignals: OperationalSignals, seed: Long): FirmEconomics.Input =
-    FirmEconomics.Input(
-      w = world,
-      firms = baseline.firms,
-      households = baseline.households,
-      banks = baseline.banks,
-      month = baseline.s1.m,
-      lendingBaseRate = baseline.s1.lendingBaseRate,
-      resWage = baseline.s1.resWage,
-      baseMinWage = baseline.s1.baseMinWage,
-      minWagePriceLevel = baseline.s1.updatedMinWagePriceLevel,
-      newWage = baseline.s2Pre.newWage,
-      employed = baseline.s2Pre.employed,
-      laborDemand = baseline.s2Pre.laborDemand,
-      wageGrowth = baseline.s2Pre.wageGrowth,
-      immigration = baseline.s2Pre.newImmig,
-      netMigration = baseline.s2Pre.netMigration,
-      demographics = baseline.s2Pre.newDemographics,
-      zusState = baseline.s2Pre.newZus,
-      nfzState = baseline.s2Pre.newNfz,
-      ppkState = baseline.s2Pre.newPpk,
-      rawPpkBondPurchase = baseline.s2Pre.rawPpkBondPurchase,
-      earmarked = baseline.s2Pre.newEarmarked,
-      living = baseline.s2Pre.living,
-      regionalWages = baseline.s2Pre.regionalWages,
-      hhOutput = baseline.s3,
-      operationalSignals = operationalSignals,
-      avgDemandMult = baseline.s4.avgDemandMult,
-      sectorCapReal = baseline.s4.sectorCapReal,
-      govPurchases = baseline.s4.govPurchases,
-      laggedInvestDemand = baseline.s4.laggedInvestDemand,
-      fiscalRuleStatus = baseline.s4.fiscalRuleStatus,
-      rng = RandomStream.seeded(seed),
+  private def baseFirmRunStep(world: World, operationalSignals: OperationalSignals, seed: Long): FirmEconomics.StepOutput =
+    val labor  = baseline.s2Pre.copy(operationalHiringSlack = operationalSignals.operationalHiringSlack)
+    val demand = baseline.s4.copy(
+      sectorMults = operationalSignals.sectorDemandMult,
+      sectorDemandPressure = operationalSignals.sectorDemandPressure,
+      sectorHiringSignal = operationalSignals.sectorHiringSignal,
+    )
+    FirmEconomics.runStep(
+      world,
+      baseline.firms,
+      baseline.households,
+      baseline.banks,
+      baseline.ledgerFinancialState,
+      baseline.s1,
+      labor,
+      baseline.s3,
+      demand,
+      RandomStream.seeded(seed),
     )
 
-  private def baseBankingComputeInput(world: World, operationalSignals: OperationalSignals, seed: Long): BankingEconomics.Input =
-    BankingEconomics.Input(
-      w = world,
-      month = baseline.s1.m,
-      lendingBaseRate = baseline.s1.lendingBaseRate,
-      resWage = baseline.s1.resWage,
-      baseMinWage = baseline.s1.baseMinWage,
-      minWagePriceLevel = baseline.s1.updatedMinWagePriceLevel,
-      employed = baseline.s2.employed,
-      newWage = baseline.s2.newWage,
-      laborDemand = baseline.s2.laborDemand,
-      wageGrowth = baseline.s2.wageGrowth,
-      govPurchases = baseline.s4.govPurchases,
-      avgDemandMult = baseline.s4.avgDemandMult,
-      sectorCapReal = baseline.s4.sectorCapReal,
-      laggedInvestDemand = baseline.s4.laggedInvestDemand,
-      fiscalRuleStatus = baseline.s4.fiscalRuleStatus,
-      laborOutput = baseline.s2,
-      operationalSignals = operationalSignals,
-      hhOutput = baseline.s3,
-      firmOutput = baseline.s5,
-      hhFinancialOutput = baseline.s6,
-      priceEquityOutput = baseline.s7,
-      openEconOutput = baseline.s8,
-      banks = baseline.banks,
-      depositRng = RandomStream.seeded(seed),
-    )
-
-  private def baseComputeInput(world: World): WorldAssemblyEconomics.Input =
-    WorldAssemblyEconomics.Input(
-      w = world,
-      firms = baseline.firms,
-      households = baseline.households,
-      banks = baseline.banks,
-      month = baseline.s1.m,
-      lendingBaseRate = baseline.s1.lendingBaseRate,
-      resWage = baseline.s1.resWage,
-      baseMinWage = baseline.s1.baseMinWage,
-      minWagePriceLevel = baseline.s1.updatedMinWagePriceLevel,
-      govPurchases = baseline.s4.govPurchases,
-      sectorMults = baseline.s4.sectorMults,
-      sectorDemandPressure = baseline.s4.sectorDemandPressure,
-      sectorHiringSignal = baseline.s4.sectorHiringSignal,
-      avgDemandMult = baseline.s4.avgDemandMult,
-      sectorCapReal = baseline.s4.sectorCapReal,
-      laggedInvestDemand = baseline.s4.laggedInvestDemand,
-      fiscalRuleStatus = baseline.s4.fiscalRuleStatus,
-      laborOutput = baseline.s2,
-      hhOutput = baseline.s3,
-      firmOutput = baseline.s5,
-      hhFinancialOutput = baseline.s6,
-      priceEquityOutput = baseline.s7,
-      openEconOutput = baseline.s8,
-      bankOutput = baseline.s9,
-      randomness = MonthRandomness.Contract.fromSeed(42L).assembly.newStreams(),
+  private def baseBankingRunStep(world: World, seed: Long): BankingEconomics.StepOutput =
+    BankingEconomics.runStep(
+      BankingEconomics.StepInput(
+        world,
+        baseline.ledgerFinancialState,
+        baseline.s1,
+        baseline.s2,
+        baseline.s3,
+        baseline.s4,
+        baseline.s5,
+        baseline.s6,
+        baseline.s7,
+        baseline.s8,
+        baseline.banks,
+        RandomStream.seeded(seed),
+      ),
     )
 
   private def assemblyRandomness(seed: Long): MonthRandomness.AssemblyStreams =
@@ -274,7 +223,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     )
 
   private def netBirths(in: WorldAssemblyEconomics.StepInput): Int =
-    WorldAssemblyEconomics.runStep(in, assemblyRandomness(1234L)).newWorld.flows.netFirmBirths
+    WorldAssemblyEconomics.computePostMonth(in, assemblyRandomness(1234L)).world.flows.netFirmBirths
 
   "DemandEconomics.compute" should "smooth sector hiring plans from lagged decision signals while keeping same-month pressure fixed" in {
     val weakLagged   = withSeedSignals(
@@ -285,12 +234,8 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       baseline.world,
       _.copy(sectorHiringSignal = multiplierVector(1.60)),
     )
-    val weakResult   = DemandEconomics.compute(
-      DemandEconomics.Input(weakLagged, baseline.s2Pre.employed, baseline.s2Pre.living, baseline.s3.domesticCons),
-    )
-    val strongResult = DemandEconomics.compute(
-      DemandEconomics.Input(strongLagged, baseline.s2Pre.employed, baseline.s2Pre.living, baseline.s3.domesticCons),
-    )
+    val weakResult   = DemandEconomics.compute(weakLagged, baseline.s2Pre.employed, baseline.s2Pre.living, baseline.s3.domesticCons)
+    val strongResult = DemandEconomics.compute(strongLagged, baseline.s2Pre.employed, baseline.s2Pre.living, baseline.s3.domesticCons)
 
     weakResult.sectorDemandPressure shouldBe strongResult.sectorDemandPressure
     weakResult.sectorMults shouldBe strongResult.sectorMults
@@ -302,7 +247,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     strongResult.sectorHiringSignal.head should be > weakResult.sectorHiringSignal.head
   }
 
-  "SignalExtraction.compute" should "derive next-month decision inputs through one explicit post-to-pre boundary" in {
+  "SignalExtraction.fromPostMonth" should "derive next-month decision inputs through one explicit post-to-pre boundary" in {
     val base            = entrySensitiveInput
     val finalHouseholds = withUnemploymentShare(base.s9.reassignedHouseholds, base.s9.reassignedFirms, base.s2.newWage, 0.22)
     val finalWorld      = base.w.copy(
@@ -312,22 +257,15 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         expectations = base.w.mechanisms.expectations.copy(expectedInflation = Rate(0.04)),
       ),
     )
-    val extracted       = SignalExtraction.compute(
-      SignalExtraction.Input(
-        labor = SignalExtraction.LaborOutcomes(
-          unemploymentRate = finalWorld.unemploymentRate(finalHouseholds.count(_.status.isInstanceOf[HhStatus.Employed])),
-          laggedHiringSlack = Share.One,
-          startupAbsorptionRate = Share(0.35),
-        ),
-        nominal = SignalExtraction.NominalOutcomes(
-          inflation = finalWorld.inflation,
-          expectedInflation = finalWorld.mechanisms.expectations.expectedInflation,
-        ),
-        demand = SignalExtraction.DemandOutcomes(
-          sectorDemandMult = base.s4.sectorMults,
-          sectorDemandPressure = base.s4.sectorDemandPressure,
-          sectorHiringSignal = base.s4.sectorHiringSignal,
-        ),
+    val extracted       = SignalExtraction.fromPostMonth(
+      world = finalWorld,
+      households = finalHouseholds,
+      operationalHiringSlack = Share.One,
+      startupAbsorptionRate = Share(0.35),
+      demand = SignalExtraction.DemandOutcomes(
+        sectorDemandMult = base.s4.sectorMults,
+        sectorDemandPressure = base.s4.sectorDemandPressure,
+        sectorHiringSignal = base.s4.sectorHiringSignal,
       ),
     )
 
@@ -343,7 +281,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     extracted.provenance.startupAbsorptionRate.stage shouldBe MonthTraceStage.StartupStaffing
   }
 
-  "FirmEconomics.compute" should "ignore stale persisted demand signals when explicit OperationalSignals define the same-month surface" in {
+  "FirmEconomics.runStep" should "ignore stale persisted demand signals when stage outputs define the same-month surface" in {
     val staleWorld       = withSeedSignals(
       baseline.world,
       _.copy(
@@ -352,11 +290,10 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         sectorHiringSignal = multiplierVector(0.35),
       ),
     )
-    val explicitResult   = FirmEconomics.compute(baseFirmComputeInput(staleWorld, baseOperationalSignals, seed = 9001L))
-    val freshWorldResult = FirmEconomics.compute(baseFirmComputeInput(baseline.world, baseOperationalSignals, seed = 9001L))
-    val bridgedResult    = FirmEconomics.compute(
-      baseFirmComputeInput(staleWorld, OperationalSignals.fromBridgedWorld(staleWorld), seed = 9001L),
-    )
+    val explicitResult   = baseFirmRunStep(staleWorld, baseOperationalSignals, seed = 9001L)
+    val freshWorldResult = baseFirmRunStep(baseline.world, baseOperationalSignals, seed = 9001L)
+    val bridgedResult    =
+      baseFirmRunStep(staleWorld, OperationalSignals.fromDecisionSignals(staleWorld.seedIn, staleWorld.pipeline.operationalHiringSlack), seed = 9001L)
 
     explicitResult.sumNewLoans shouldBe freshWorldResult.sumNewLoans
     explicitResult.sumGrossInvestment shouldBe freshWorldResult.sumGrossInvestment
@@ -367,7 +304,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     explicitResult.perBankWorkers should not be bridgedResult.perBankWorkers
   }
 
-  "BankingEconomics.compute" should "remain insensitive to stale persisted demand signals when explicit OperationalSignals are supplied" in {
+  "BankingEconomics.runStep" should "remain insensitive to stale persisted demand signals when stage outputs are supplied" in {
     val staleWorld       = withSeedSignals(
       baseline.world,
       _.copy(
@@ -376,13 +313,13 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
         sectorHiringSignal = multiplierVector(0.35),
       ),
     )
-    val explicitResult   = BankingEconomics.compute(baseBankingComputeInput(staleWorld, baseOperationalSignals, seed = 777L))
-    val freshWorldResult = BankingEconomics.compute(baseBankingComputeInput(baseline.world, baseOperationalSignals, seed = 777L))
+    val explicitResult   = baseBankingRunStep(staleWorld, seed = 777L)
+    val freshWorldResult = baseBankingRunStep(baseline.world, seed = 777L)
 
     explicitResult shouldBe freshWorldResult
   }
 
-  "WorldAssemblyEconomics.runStep" should "derive entry unemployment from lagged decision signals instead of post-firm households" in {
+  "WorldAssemblyEconomics.computePostMonth" should "derive entry unemployment from lagged decision signals instead of post-firm households" in {
     val base       = entrySensitiveInput
     val lowUnemp   = base.copy(
       s9 = base.s9.copy(
@@ -462,19 +399,9 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     netBirths(strong) should be > netBirths(weak)
   }
 
-  it should "persist extracted same-month hiring slack into next-month decision signals" in {
-    val input  = entrySensitiveInput
-    val base   = input.copy(s2 = input.s2.copy(operationalHiringSlack = Share(0.21)))
-    val result = WorldAssemblyEconomics.runStep(base, assemblyRandomness(1234L))
-
-    result.newWorld.pipeline.operationalHiringSlack shouldBe Share(0.21)
-    result.newWorld.pipeline.laggedHiringSlack shouldBe Share(0.21)
-    result.newWorld.seedIn.laggedHiringSlack shouldBe Share(0.21)
-  }
-
   it should "keep post-month assembly distinct from the next-month seed boundary" in {
     val input = entrySensitiveInput.copy(s2 = entrySensitiveInput.s2.copy(operationalHiringSlack = Share(0.21)))
-    val post  = WorldAssemblyEconomics.runPostStep(input, assemblyRandomness(1234L))
+    val post  = WorldAssemblyEconomics.computePostMonth(input, assemblyRandomness(1234L))
 
     post.world.pipeline.operationalHiringSlack shouldBe Share(0.21)
     post.world.seedIn shouldBe input.w.seedIn
@@ -485,22 +412,4 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
   it should "keep explicit OperationalSignals aligned with post-reconcile labor slack" in {
     baseOperationalSignals.operationalHiringSlack shouldBe baseline.s2.operationalHiringSlack
-  }
-
-  "WorldAssemblyEconomics.compute" should "persist demand and hiring signals from current demand output in the bridge path" in {
-    val stalePressure = Vector.fill(p.sectorDefs.length)(Multiplier(0.33))
-    val staleHiring   = Vector.fill(p.sectorDefs.length)(Multiplier(1.77))
-    val staleWorld    = baseline.world.copy(
-      pipeline = baseline.world.pipeline.copy(
-        sectorDemandPressure = stalePressure,
-        sectorHiringSignal = staleHiring,
-      ),
-    )
-
-    val assembled = WorldAssemblyEconomics.compute(baseComputeInput(staleWorld))
-
-    assembled.world.pipeline.sectorDemandPressure shouldBe baseline.s4.sectorDemandPressure
-    assembled.world.pipeline.sectorHiringSignal shouldBe baseline.s4.sectorHiringSignal
-    assembled.world.pipeline.sectorDemandPressure should not be stalePressure
-    assembled.world.pipeline.sectorHiringSignal should not be staleHiring
   }

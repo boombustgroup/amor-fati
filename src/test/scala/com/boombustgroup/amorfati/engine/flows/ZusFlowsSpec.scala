@@ -73,7 +73,7 @@ class ZusFlowsSpec extends AnyFlatSpec with Matchers:
     val nRetirees = 1000
 
     // Old path
-    val oldZus = com.boombustgroup.amorfati.agents.SocialSecurity.zusStep(PLN.Zero, employed, wage, nRetirees)
+    val oldZus = com.boombustgroup.amorfati.agents.SocialSecurity.zusStep(employed, wage, nRetirees)
 
     // New path
     val flows = ZusFlows.emit(ZusFlows.ZusInput(employed, wage, nRetirees))

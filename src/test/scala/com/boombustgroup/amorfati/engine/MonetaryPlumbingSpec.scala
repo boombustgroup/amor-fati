@@ -111,7 +111,7 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
     eclProvisionChange = PLN.Zero,
   )
 
-  private def mkBank(
+  private def mkBankRow(
       id: Int,
       deposits: PLN = PLN(1e9),
       loans: PLN = PLN(5e8),
@@ -120,55 +120,64 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
       interbankNet: PLN = PLN.Zero,
       failed: Boolean = false,
   ) =
-    Banking.BankState(
-      id = BankId(id),
-      deposits = deposits,
-      loans = loans,
-      capital = capital,
-      nplAmount = PLN.Zero,
-      afsBonds = PLN.Zero,
-      htmBonds = PLN.Zero,
-      htmBookYield = Rate.Zero,
-      reservesAtNbp = reservesAtNbp,
-      interbankNet = interbankNet,
-      status = if failed then Banking.BankStatus.Failed(ExecutionMonth(30)) else Banking.BankStatus.Active(0),
-      demandDeposits = PLN.Zero,
-      termDeposits = PLN.Zero,
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
+    (
+      Banking.BankState(
+        id = BankId(id),
+        capital = capital,
+        nplAmount = PLN.Zero,
+        htmBookYield = Rate.Zero,
+        status = if failed then Banking.BankStatus.Failed(ExecutionMonth(30)) else Banking.BankStatus.Active(0),
+        loansShort = PLN.Zero,
+        loansMedium = PLN.Zero,
+        loansLong = PLN.Zero,
+        consumerNpl = PLN.Zero,
+      ),
+      Banking.BankFinancialStocks(
+        totalDeposits = deposits,
+        firmLoan = loans,
+        govBondAfs = PLN.Zero,
+        govBondHtm = PLN.Zero,
+        reserve = reservesAtNbp,
+        interbankLoan = interbankNet,
+        demandDeposit = PLN.Zero,
+        termDeposit = PLN.Zero,
+        consumerLoan = PLN.Zero,
+      ),
     )
+
+  private def banks(rows: Vector[(Banking.BankState, Banking.BankFinancialStocks)]): Vector[Banking.BankState] =
+    rows.map(_._1)
+
+  private def stocks(rows: Vector[(Banking.BankState, Banking.BankFinancialStocks)]): Vector[Banking.BankFinancialStocks] =
+    rows.map(_._2)
 
   // =========================================================================
   // Reserve Interest
   // =========================================================================
 
   "Banking.reserveInterest" should "compute monthly interest on reserves" in {
-    val bank     = mkBank(0, reservesAtNbp = PLN(1e8)) // 100M in reserves
-    val interest = Banking.reserveInterest(bank, Rate(0.0575))
+    val (bank, bankStocks) = mkBankRow(0, reservesAtNbp = PLN(1e8)) // 100M in reserves
+    val interest           = Banking.reserveInterest(bank, bankStocks, Rate(0.0575))
     // Expected: 100M × 0.0575 × 0.5 / 12 ≈ 239,583
     td.toDouble(interest) shouldBe (1e8 * 0.0575 * 0.5 / 12.0 +- 1000.0)
   }
 
   it should "return 0 for failed banks" in {
-    val bank = mkBank(0, reservesAtNbp = PLN(1e8), failed = true)
-    Banking.reserveInterest(bank, Rate(0.0575)) shouldBe PLN.Zero
+    val (bank, bankStocks) = mkBankRow(0, reservesAtNbp = PLN(1e8), failed = true)
+    Banking.reserveInterest(bank, bankStocks, Rate(0.0575)) shouldBe PLN.Zero
   }
 
   it should "return 0 when reserves are zero" in {
-    val bank = mkBank(0, reservesAtNbp = PLN.Zero)
-    Banking.reserveInterest(bank, Rate(0.0575)) shouldBe PLN.Zero
+    val (bank, bankStocks) = mkBankRow(0, reservesAtNbp = PLN.Zero)
+    Banking.reserveInterest(bank, bankStocks, Rate(0.0575)) shouldBe PLN.Zero
   }
 
   "Banking.computeReserveInterest" should "sum per-bank interest" in {
-    val banks  = Vector(
-      mkBank(0, reservesAtNbp = PLN(1e8)),
-      mkBank(1, reservesAtNbp = PLN(5e7)),
+    val rows   = Vector(
+      mkBankRow(0, reservesAtNbp = PLN(1e8)),
+      mkBankRow(1, reservesAtNbp = PLN(5e7)),
     )
-    val result = Banking.computeReserveInterest(banks, Rate(0.06))
+    val result = Banking.computeReserveInterest(banks(rows), stocks(rows), Rate(0.06))
     result.perBank.length shouldBe 2
     td.toDouble(result.total) shouldBe (result.perBank.map(td.toDouble(_)).sum +- 0.01)
     result.total should be > PLN.Zero
@@ -181,10 +190,10 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   "Banking.computeStandingFacilities" should "compute deposit facility income for banks with excess reserves" in {
     // When standing facilities enabled, banks with reservesAtNbp > 0 earn deposit rate
     // We can't easily set Config at runtime, so test the formula directly
-    val bank            = mkBank(0, reservesAtNbp = PLN(1e8))
+    val (_, bankStocks) = mkBankRow(0, reservesAtNbp = PLN(1e8))
     val refRate         = 0.0575
     val depositRate     = Math.max(0.0, refRate - 0.01) // 4.75%
-    val expectedMonthly = td.toDouble(bank.reservesAtNbp) * depositRate / 12.0
+    val expectedMonthly = td.toDouble(bankStocks.reserve) * depositRate / 12.0
     // Direct formula check: reservesAtNbp × (refRate − spread) / 12
     expectedMonthly shouldBe (1e8 * 0.0475 / 12.0 +- 1.0)
   }
@@ -202,8 +211,8 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "return zero for failed banks" in {
-    val banks  = Vector(mkBank(0, reservesAtNbp = PLN(1e8), failed = true))
-    val result = Banking.computeStandingFacilities(banks, Rate(0.06))
+    val rows   = Vector(mkBankRow(0, reservesAtNbp = PLN(1e8), failed = true))
+    val result = Banking.computeStandingFacilities(banks(rows), stocks(rows), Rate(0.06))
     // Even if enabled, failed banks get 0 — but currently disabled by default
     result.total shouldBe PLN.Zero
   }
@@ -213,11 +222,11 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "Banking.interbankInterestFlows" should "compute interest on net positions" in {
-    val banks  = Vector(
-      mkBank(0, interbankNet = PLN(1e8)), // Lender: +100M
-      mkBank(1, interbankNet = PLN(-1e8)), // Borrower: -100M
+    val rows   = Vector(
+      mkBankRow(0, interbankNet = PLN(1e8)), // Lender: +100M
+      mkBankRow(1, interbankNet = PLN(-1e8)), // Borrower: -100M
     )
-    val result = Banking.interbankInterestFlows(banks, Rate(0.06))
+    val result = Banking.interbankInterestFlows(banks(rows), stocks(rows), Rate(0.06))
     result.perBank(0) should be > PLN.Zero // Lender earns
     result.perBank(1) should be < PLN.Zero // Borrower pays
     // Net should be ≈ 0 (closed system)
@@ -225,39 +234,39 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "sum to zero for balanced interbank positions" in {
-    val banks  = Vector(
-      mkBank(0, interbankNet = PLN(5e7)),
-      mkBank(1, interbankNet = PLN(-3e7)),
-      mkBank(2, interbankNet = PLN(-2e7)),
+    val rows   = Vector(
+      mkBankRow(0, interbankNet = PLN(5e7)),
+      mkBankRow(1, interbankNet = PLN(-3e7)),
+      mkBankRow(2, interbankNet = PLN(-2e7)),
     )
-    val result = Banking.interbankInterestFlows(banks, Rate(0.055))
+    val result = Banking.interbankInterestFlows(banks(rows), stocks(rows), Rate(0.055))
     td.toDouble(result.total) shouldBe (0.0 +- 0.01)
   }
 
   it should "return zeros for zero net positions" in {
-    val banks  = Vector(mkBank(0, interbankNet = PLN.Zero), mkBank(1, interbankNet = PLN.Zero))
-    val result = Banking.interbankInterestFlows(banks, Rate(0.06))
+    val rows   = Vector(mkBankRow(0, interbankNet = PLN.Zero), mkBankRow(1, interbankNet = PLN.Zero))
+    val result = Banking.interbankInterestFlows(banks(rows), stocks(rows), Rate(0.06))
     result.perBank.foreach(_ shouldBe PLN.Zero)
     result.total shouldBe PLN.Zero
   }
 
   it should "return zero for failed banks" in {
-    val banks  = Vector(
-      mkBank(0, interbankNet = PLN(1e8), failed = true),
-      mkBank(1, interbankNet = PLN(-1e8)),
+    val rows   = Vector(
+      mkBankRow(0, interbankNet = PLN(1e8), failed = true),
+      mkBankRow(1, interbankNet = PLN(-1e8)),
     )
-    val result = Banking.interbankInterestFlows(banks, Rate(0.06))
+    val result = Banking.interbankInterestFlows(banks(rows), stocks(rows), Rate(0.06))
     result.perBank(0) shouldBe PLN.Zero
     result.perBank(1) should be < PLN.Zero // Borrower still pays
   }
 
   it should "scale linearly with rate" in {
-    val banks   = Vector(
-      mkBank(0, interbankNet = PLN(1e8)),
-      mkBank(1, interbankNet = PLN(-1e8)),
+    val rows    = Vector(
+      mkBankRow(0, interbankNet = PLN(1e8)),
+      mkBankRow(1, interbankNet = PLN(-1e8)),
     )
-    val result1 = Banking.interbankInterestFlows(banks, Rate(0.06))
-    val result2 = Banking.interbankInterestFlows(banks, Rate(0.12))
+    val result1 = Banking.interbankInterestFlows(banks(rows), stocks(rows), Rate(0.06))
+    val result2 = Banking.interbankInterestFlows(banks(rows), stocks(rows), Rate(0.12))
     td.toDouble(result2.perBank(0)) shouldBe (td.toDouble(result1.perBank(0)) * 2.0 +- 0.01)
   }
 
@@ -327,15 +336,17 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "MonetaryAggregates.compute" should "compute M0/M1/M2/M3 from bank vector" in {
-    val b0  = mkBank(0, deposits = PLN(6e8), reservesAtNbp = PLN(5e7)).copy(
-      demandDeposits = PLN(3.6e8),
-      termDeposits = PLN(2.4e8),
+    val (b0, b0Stocks0) = mkBankRow(0, deposits = PLN(6e8), reservesAtNbp = PLN(5e7))
+    val b0Stocks        = b0Stocks0.copy(
+      demandDeposit = PLN(3.6e8),
+      termDeposit = PLN(2.4e8),
     )
-    val b1  = mkBank(1, deposits = PLN(4e8), reservesAtNbp = PLN(5e7)).copy(
-      demandDeposits = PLN(2.4e8),
-      termDeposits = PLN(1.6e8),
+    val (b1, b1Stocks0) = mkBankRow(1, deposits = PLN(4e8), reservesAtNbp = PLN(5e7))
+    val b1Stocks        = b1Stocks0.copy(
+      demandDeposit = PLN(2.4e8),
+      termDeposit = PLN(1.6e8),
     )
-    val agg = Banking.MonetaryAggregates.compute(Vector(b0, b1), PLN(1e8), PLN(5e7))
+    val agg             = Banking.MonetaryAggregates.computeFromBankStocks(Vector(b0, b1), Vector(b0Stocks, b1Stocks), PLN(1e8), PLN(5e7))
     agg.m0 shouldBe PLN(1e8)                              // sum of reserves
     agg.m1 shouldBe PLN(6e8)                              // sum of demand deposits
     agg.m2 shouldBe PLN(1e9)                              // demand + term
@@ -343,20 +354,22 @@ class MonetaryPlumbingSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "compute credit multiplier as M2/M0" in {
-    val b   = mkBank(0, deposits = PLN(4.5e9), reservesAtNbp = PLN(1e9)).copy(
-      demandDeposits = PLN(2.7e9),
-      termDeposits = PLN(1.8e9),
+    val (b, stocks0) = mkBankRow(0, deposits = PLN(4.5e9), reservesAtNbp = PLN(1e9))
+    val bankStocks   = stocks0.copy(
+      demandDeposit = PLN(2.7e9),
+      termDeposit = PLN(1.8e9),
     )
-    val agg = Banking.MonetaryAggregates.compute(Vector(b), PLN.Zero, PLN.Zero)
+    val agg          = Banking.MonetaryAggregates.computeFromBankStocks(Vector(b), Vector(bankStocks), PLN.Zero, PLN.Zero)
     agg.creditMultiplier shouldBe Multiplier(4.5)
   }
 
   it should "handle zero reserves with floor" in {
-    val b   = mkBank(0, deposits = PLN(1e9), reservesAtNbp = PLN.Zero).copy(
-      demandDeposits = PLN(6e8),
-      termDeposits = PLN(4e8),
+    val (b, stocks0) = mkBankRow(0, deposits = PLN(1e9), reservesAtNbp = PLN.Zero)
+    val bankStocks   = stocks0.copy(
+      demandDeposit = PLN(6e8),
+      termDeposit = PLN(4e8),
     )
-    val agg = Banking.MonetaryAggregates.compute(Vector(b), PLN.Zero, PLN.Zero)
+    val agg          = Banking.MonetaryAggregates.computeFromBankStocks(Vector(b), Vector(bankStocks), PLN.Zero, PLN.Zero)
     agg.creditMultiplier shouldBe Multiplier(1e9) // m2 / max(PLN(1.0), PLN.Zero)
   }
 

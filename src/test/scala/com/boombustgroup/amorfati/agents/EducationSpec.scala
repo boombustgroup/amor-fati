@@ -1,5 +1,9 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -90,7 +94,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   // ---- Household field ----
 
   "Household.education" should "default to 2 (Secondary)" in {
-    val hh = Household.State(
+    val hh = TestHouseholdState(
       HhId(0),
       PLN(1000.0),
       PLN.Zero,
@@ -114,7 +118,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be preserved through copy" in {
-    val hh     = Household.State(
+    val hh     = TestHouseholdState(
       HhId(0),
       PLN(1000.0),
       PLN.Zero,
@@ -134,7 +138,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.5),
       wageScar = Share.Zero,
     )
-    val copied = hh.copy(savings = PLN(2000.0))
+    val copied = hh.copy(monthlyRent = PLN(2000.0))
     copied.education shouldBe 3
   }
 
@@ -144,7 +148,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
     // Set up: one firm that just automated with skeleton crew = 2
     // Two workers: one primary (edu=0, skill=0.5), one tertiary (edu=3, skill=0.4)
     // Tertiary should be retained despite lower skill (skeleton crew = max(2, 10*0.02) = 2, but need 3 workers to test)
-    val prevFirm = Firm.State(
+    val prevFirm = TestFirmState(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -158,13 +162,12 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
-    val newFirm  = Firm.State(
+    val newFirm  = TestFirmState(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -178,14 +181,13 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
 
-    val hhPrimary    = Household.State(
+    val hhPrimary    = TestHouseholdState(
       HhId(0),
       PLN(5000.0),
       PLN.Zero,
@@ -205,7 +207,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.80),
       wageScar = Share.Zero,
     )
-    val hhTertiary   = Household.State(
+    val hhTertiary   = TestHouseholdState(
       HhId(1),
       PLN(5000.0),
       PLN.Zero,
@@ -225,7 +227,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.25),
       wageScar = Share.Zero,
     )
-    val hhVocational = Household.State(
+    val hhVocational = TestHouseholdState(
       HhId(2),
       PLN(5000.0),
       PLN.Zero,
@@ -259,7 +261,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "use skill as tiebreaker within same education level" in {
-    val prevFirm = Firm.State(
+    val prevFirm = TestFirmState(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -273,13 +275,12 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
-    val newFirm  = Firm.State(
+    val newFirm  = TestFirmState(
       FirmId(0),
       PLN(1000000.0),
       PLN.Zero,
@@ -293,14 +294,13 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
 
-    val hhLowSkill  = Household.State(
+    val hhLowSkill  = TestHouseholdState(
       HhId(0),
       PLN(5000.0),
       PLN.Zero,
@@ -320,7 +320,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.5),
       wageScar = Share.Zero,
     )
-    val hhHighSkill = Household.State(
+    val hhHighSkill = TestHouseholdState(
       HhId(1),
       PLN(5000.0),
       PLN.Zero,
@@ -340,7 +340,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.5),
       wageScar = Share.Zero,
     )
-    val hhMidSkill  = Household.State(
+    val hhMidSkill  = TestHouseholdState(
       HhId(2),
       PLN(5000.0),
       PLN.Zero,
@@ -398,7 +398,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   "Household.Init.initialize" should "assign education to all households" in {
     val rng       = RandomStream.seeded(42)
     val mkF       = (id: Int, sec: Int, w: Int) =>
-      Firm.State(
+      TestFirmState(
         FirmId(id),
         PLN(1000000.0),
         PLN.Zero,
@@ -412,7 +412,6 @@ class EducationSpec extends AnyFlatSpec with Matchers:
         equityRaised = PLN.Zero,
         initialSize = w,
         capitalStock = PLN.Zero,
-        bondDebt = PLN.Zero,
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
@@ -420,7 +419,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       )
     val firms     = Vector(mkF(0, 0, 5), mkF(1, 2, 5))
     val socialNet = Array.fill(10)(Array.empty[Int])
-    val hhs       = Household.Init.initialize(10, firms, socialNet, rng)
+    val hhs       = Household.Init.initialize(10, firms, socialNet, rng).households
     hhs.foreach { h =>
       h.education should be >= 0
       h.education should be <= 3
@@ -430,7 +429,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
   it should "clamp skill within education-specific range" in {
     val rng       = RandomStream.seeded(42)
     val firms     = Vector(
-      Firm.State(
+      TestFirmState(
         FirmId(0),
         PLN(1000000.0),
         PLN.Zero,
@@ -444,7 +443,6 @@ class EducationSpec extends AnyFlatSpec with Matchers:
         equityRaised = PLN.Zero,
         initialSize = 10,
         capitalStock = PLN.Zero,
-        bondDebt = PLN.Zero,
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
@@ -452,7 +450,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
-    val hhs       = Household.Init.initialize(10, firms, socialNet, rng)
+    val hhs       = Household.Init.initialize(10, firms, socialNet, rng).households
     hhs.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
       h.skill.bd should be >= floor.bd

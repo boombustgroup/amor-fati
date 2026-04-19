@@ -65,11 +65,12 @@ object McRunner:
       .mapZIO(result => ZIO.fromEither(stepSnapshot(result)))
 
   private def initSeed(seed: Long)(using p: SimParams) =
-    val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
-    val runtime = Sfc.RuntimeState(init.world, init.firms, init.households, init.banks)
-    val errors  = InitCheck.validate(runtime)
+    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
+    val initState = FlowSimulation.SimState.fromInit(init)
+    val runtime   = Sfc.RuntimeState(initState.world, initState.firms, initState.households, initState.banks, initState.ledgerFinancialState)
+    val errors    = InitCheck.validate(runtime)
     if errors.nonEmpty then Left(SimError.Init(errors))
-    else Right(FlowSimulation.SimState.fromInit(init))
+    else Right(initState)
 
   private def runtimeSteps(seed: Long, initState: FlowSimulation.SimState)(using p: SimParams): Iterator[FlowSimulation.StepOutput] =
     MonthDriver.unfoldSteps(initState): state =>
@@ -91,6 +92,7 @@ object McRunner:
           result.nextState.households,
           result.nextState.banks,
           result.nextState.householdAggregates,
+          result.nextState.ledgerFinancialState,
         )
         Right(MonthSnapshot(result.executionMonth, result.nextState, monthData))
 

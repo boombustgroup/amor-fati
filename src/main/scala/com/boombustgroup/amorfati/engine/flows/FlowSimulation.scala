@@ -6,6 +6,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.engine.economics.*
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -33,11 +34,20 @@ object FlowSimulation:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
+      ledgerFinancialState: LedgerFinancialState,
   )
 
   object SimState:
     def fromInit(init: com.boombustgroup.amorfati.init.WorldInit.InitResult): SimState =
-      SimState(CompletedMonth.Zero, init.world, init.firms, init.households, init.banks, init.householdAggregates)
+      SimState(
+        completedMonth = CompletedMonth.Zero,
+        world = init.world,
+        firms = init.firms,
+        households = init.households,
+        banks = init.banks,
+        householdAggregates = init.householdAggregates,
+        ledgerFinancialState = init.ledgerFinancialState,
+      )
 
   /** Executed aggregate batch deltas on top of an empty runtime ledger shell.
     *
@@ -92,7 +102,6 @@ object FlowSimulation:
       firmInterestIncome: PLN,
       firmCapex: PLN,
       firmEquityIssuance: PLN,
-      firmBondIssuance: PLN,
       firmIoPayments: PLN,
       firmNplLoss: PLN,
       firmProfitShifting: PLN,
@@ -119,7 +128,7 @@ object FlowSimulation:
       diasporaInflow: PLN,
       // Stage 8: Corp bonds
       corpBondCoupon: PLN,
-      corpBondDefaultLoss: PLN,
+      corpBondDefaultAmount: PLN,
       corpBondIssuance: PLN,
       corpBondAmortization: PLN,
       // Stage 8: Mortgage
@@ -133,6 +142,8 @@ object FlowSimulation:
       bankStandingFacility: PLN,
       bankStandingFacilityBackstop: PLN,
       bankInterbankInterest: PLN,
+      bankCorpBondCoupon: PLN,
+      bankCorpBondLoss: PLN,
       bankFxReserveSettlement: PLN,
       bankBfgLevy: PLN,
       bankUnrealizedLoss: PLN,
@@ -150,6 +161,7 @@ object FlowSimulation:
       insuranceCurrentNonLifeReserves: PLN,
       insurancePrevGovBonds: PLN,
       insurancePrevCorpBonds: PLN,
+      insuranceCorpBondDefaultLoss: PLN,
       insurancePrevEquity: PLN,
       govBondYield: Rate,
       corpBondYield: Rate,
@@ -189,7 +201,6 @@ object FlowSimulation:
           c.firmInterestIncome,
           c.firmCapex,
           c.firmEquityIssuance,
-          c.firmBondIssuance,
           c.firmIoPayments,
           c.firmNplLoss,
           c.firmProfitShifting,
@@ -219,6 +230,7 @@ object FlowSimulation:
           currentNonLifeReserves = c.insuranceCurrentNonLifeReserves,
           prevGovBondHoldings = c.insurancePrevGovBonds,
           prevCorpBondHoldings = c.insurancePrevCorpBonds,
+          corpBondDefaultLoss = c.insuranceCorpBondDefaultLoss,
           prevEquityHoldings = c.insurancePrevEquity,
           govBondYield = c.govBondYield,
           corpBondYield = c.corpBondYield,
@@ -235,7 +247,7 @@ object FlowSimulation:
           c.equityIssuance,
         ),
       ),
-      CorpBondFlows.emitBatches(CorpBondFlows.Input(c.corpBondCoupon, c.corpBondDefaultLoss, c.corpBondIssuance, c.corpBondAmortization)),
+      CorpBondFlows.emitBatches(CorpBondFlows.Input(c.corpBondCoupon, c.corpBondDefaultAmount, c.corpBondIssuance, c.corpBondAmortization)),
       MortgageFlows.emitBatches(MortgageFlows.Input(c.mortgageOrigination, c.mortgageRepayment, c.mortgageInterest, c.mortgageDefault)),
       OpenEconFlows.emitBatches(
         OpenEconFlows.Input(
@@ -257,6 +269,8 @@ object FlowSimulation:
           c.bankReserveInterest,
           c.bankStandingFacility,
           c.bankInterbankInterest,
+          c.bankCorpBondCoupon,
+          c.bankCorpBondLoss,
           c.bankBfgLevy,
           c.bankUnrealizedLoss,
           c.bankBailIn,
@@ -368,8 +382,8 @@ object FlowSimulation:
     val nextState               = advanceState(input, outcome)
     val sfcFlows                = buildSfcFlows(outcome.semanticProjection, flows, nextState.world.plumbing.fofResidual)
     val sfcResult               = Sfc.validate(
-      prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
-      curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks),
+      prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks, stateIn.ledgerFinancialState),
+      curr = runtimeState(nextState.world, nextState.firms, nextState.households, nextState.banks, nextState.ledgerFinancialState),
       flows = sfcFlows,
       batches = flows,
       executionDeltaLedger = Sfc.ExecutionDeltaLedger.fromRaw(execution.deltaLedger),
@@ -410,7 +424,7 @@ object FlowSimulation:
       executionMonth = stateIn.completedMonth.next,
       seedIn = MonthSemantics.seedIn(stateIn.world.seedIn),
       randomness = randomness,
-      boundaryIn = MonthBoundarySnapshot.capture(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks),
+      boundaryIn = MonthBoundarySnapshot.capture(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks, stateIn.ledgerFinancialState),
     )
 
   /** Compute same-month groups by chaining all Economics. Uses old pipeline
@@ -423,151 +437,100 @@ object FlowSimulation:
   private def computeStageOutputs(input: StepInput)(using p: SimParams): StageOutputs =
     val randomness        = input.randomness.stages
     val stateIn           = input.stateIn
+    val ledger            = stateIn.ledgerFinancialState
     val w                 = stateIn.world
     val firms             = stateIn.firms
     val households        = stateIn.households
     val banks             = stateIn.banks
-    val fiscal            = FiscalConstraintEconomics.compute(w, banks, input.executionMonth)
-    val s1                = FiscalConstraintEconomics.toOutput(fiscal)
-    val labor             = LaborEconomics.compute(w, firms, households, s1)
-    val s2Pre             = LaborEconomics.Output(
-      labor.wage,
-      labor.employed,
-      labor.laborDemand,
-      labor.wageGrowth,
-      labor.operationalHiringSlack,
-      labor.immigration,
-      labor.netMigration,
-      labor.demographics,
-      SocialSecurity.ZusState.zero,
-      SocialSecurity.NfzState.zero,
-      SocialSecurity.PpkState.zero,
-      PLN.Zero,
-      EarmarkedFunds.State.zero,
-      labor.living,
-      labor.regionalWages,
-    )
+    val s1                = FiscalConstraintEconomics.compute(w, banks, ledger, input.executionMonth)
+    val s2Pre             = LaborEconomics.compute(w, firms, households, s1)
     val s3                = HouseholdIncomeEconomics.compute(
       w,
       firms,
       households,
       banks,
+      ledger,
       s1.lendingBaseRate,
       s1.resWage,
       s2Pre.newWage,
       randomness.householdIncomeEconomics.newStream(),
     )
-    val s4                = DemandEconomics.compute(DemandEconomics.Input(w, s2Pre.employed, s2Pre.living, s3.domesticCons))
-    val s5                = FirmEconomics.runStep(w, firms, households, banks, s1, s2Pre, s3, s4, randomness.firmEconomics.newStream())
+    val s4                = DemandEconomics.compute(w, s2Pre.employed, s2Pre.living, s3.domesticCons)
+    val s5                = FirmEconomics.runStep(w, firms, households, banks, ledger, s1, s2Pre, s3, s4, randomness.firmEconomics.newStream())
     val postLivingFirms   = s5.ioFirms.filter(Firm.isAlive)
     val s2                = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
     val s6                = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, randomness.householdFinancialEconomics.newStream())
     val s7                = PriceEquityEconomics.compute(
-      PriceEquityEconomics.Input(
-        w,
-        s1.m,
-        s2.newWage,
-        s2.employed,
-        s2.wageGrowth,
-        s3.domesticCons,
-        s4.govPurchases,
-        s4.avgDemandMult,
-        s4.sectorMults,
-        banks,
-        s5,
-      ),
-      randomness.priceEquityEconomics.newStream(),
-    )
-    val openEcon          = OpenEconEconomics.compute(
-      OpenEconEconomics.Input(
-        w = w,
-        employed = s2.employed,
-        newWage = s2.newWage,
-        domesticConsumption = s3.domesticCons,
-        importConsumption = s3.importCons,
-        totalTechAndInvImports = s5.sumTechImp,
-        gdp = s7.gdp,
-        newInflation = s7.newInfl,
-        autoRatio = s7.autoR,
-        govPurchases = s4.govPurchases,
-        sectorMults = s4.sectorMults,
-        livingFirms = s5.ioFirms,
-        totalBondDefault = s5.totalBondDefault,
-        actualBondIssuance = s5.actualBondIssuance,
-        corpBondAbsorption = s5.corpBondAbsorption,
-        euMonthly = s7.euMonthly,
-        remittanceOutflow = s6.remittanceOutflow,
-        diasporaInflow = s6.diasporaInflow,
-        tourismExport = s6.tourismExport,
-        tourismImport = s6.tourismImport,
-        equityReturn = w.financial.equity.monthlyReturn,
-        investmentImports = s7.investmentImports,
-        profitShifting = s5.sumProfitShifting,
-        fdiRepatriation = s5.sumFdiRepatriation,
-        foreignDividendOutflow = s7.foreignDividendOutflow,
-        banks = banks,
-        month = fiscal.month,
-        commodityRng = randomness.openEconEconomics.newStream(),
-      ),
-    )
-    val s8                = OpenEconEconomics.runStep(
-      OpenEconEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, banks, randomness.openEconEconomics.newStream()),
-    )
-    val operational       = operationalSignals(s2, s4)
-    val bankingDepositRng = randomness.bankingEconomics.newStream()
-    val bankingInput      = BankingEconomics.Input(
       w = w,
-      month = fiscal.month,
-      lendingBaseRate = fiscal.lendingBaseRate,
-      resWage = fiscal.resWage,
-      baseMinWage = fiscal.baseMinWage,
-      minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-      employed = s2.employed,
-      newWage = s2.newWage,
-      laborDemand = s2.laborDemand,
+      month = s1.m,
       wageGrowth = s2.wageGrowth,
+      domesticCons = s3.domesticCons,
       govPurchases = s4.govPurchases,
       avgDemandMult = s4.avgDemandMult,
-      sectorCapReal = s4.sectorCapReal,
-      laggedInvestDemand = s4.laggedInvestDemand,
-      fiscalRuleStatus = s4.fiscalRuleStatus,
-      laborOutput = s2,
-      operationalSignals = operational,
-      hhOutput = s3,
-      firmOutput = s5,
-      hhFinancialOutput = s6,
-      priceEquityOutput = s7,
-      openEconOutput = s8,
-      banks = banks,
-      depositRng = bankingDepositRng,
+      totalSystemLoans = ledger.banks.map(_.firmLoan).sum,
+      firmStep = s5,
     )
+    val s8                = OpenEconEconomics.runStep(
+      OpenEconEconomics.StepInput(
+        w,
+        ledger,
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        banks,
+        randomness.openEconEconomics.newStream(),
+      ),
+    )
+    val bankingDepositRng = randomness.bankingEconomics.newStream()
     val s9                = BankingEconomics.runStep(
-      BankingEconomics.StepInput(w, s1, s2, s3, s4, s5, s6, s7, s8, banks, bankingDepositRng),
+      BankingEconomics.StepInput(
+        w,
+        ledger,
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        s8,
+        banks,
+        bankingDepositRng,
+      ),
     )
-    val banking           = BankingEconomics.toResult(s9, bankingInput)
+    val prevBankAgg       = Banking.aggregateFromBankStocks(
+      banks,
+      ledger.banks.map(LedgerFinancialState.projectBankFinancialStocks),
+      bankId => CorporateBondOwnership.bankHolderFor(ledger, bankId),
+    )
     val agg               = s3.hhAgg
-    val eq                = w.financial.equity
+    val eq                = w.financialMarkets.equity
     val h                 = s9.housingAfterFlows
+    val externalFlowBop   = s8.external.flowBop
     val calc              = MonthlyCalculus(
-      month = fiscal.month,
-      resWage = fiscal.resWage,
-      lendingBaseRate = fiscal.lendingBaseRate,
-      baseMinWage = fiscal.baseMinWage,
-      minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
+      month = s1.month,
+      resWage = s1.resWage,
+      lendingBaseRate = s1.lendingBaseRate,
+      baseMinWage = s1.baseMinWage,
+      minWagePriceLevel = s1.updatedMinWagePriceLevel,
       wage = s2.newWage,
       employed = s2.employed,
       laborDemand = s2.laborDemand,
       livingFirms = s5.ioFirms.count(Firm.isAlive),
-      retirees = labor.demographics.retirees,
-      workingAgePop = labor.demographics.workingAgePop,
-      nBankruptFirms = labor.nBankruptFirms,
-      avgFirmWorkers = if s2.living.nonEmpty then s2.laborDemand / s2.living.length else 0,
+      retirees = s2Pre.newDemographics.retirees,
+      workingAgePop = s2Pre.newDemographics.workingAgePop,
+      nBankruptFirms = firms.length - s2Pre.living.length,
+      avgFirmWorkers = if s2Pre.living.nonEmpty then s2Pre.laborDemand / s2Pre.living.length else 0,
       totalIncome = s3.totalIncome,
       consumption = agg.consumption,
       domesticConsumption = s3.domesticCons,
       importConsumption = s3.importCons,
       totalRent = agg.totalRent,
-      pitRevenue = banking.pitAfterEvasion,
+      pitRevenue = s9.pitAfterEvasion,
       totalDebtService = agg.totalDebtService,
       totalDepositInterest = agg.totalDepositInterest,
       totalRemittances = agg.totalRemittances,
@@ -583,7 +546,6 @@ object FlowSimulation:
       firmInterestIncome = s5.intIncome,
       firmCapex = s5.sumCapex,
       firmEquityIssuance = s5.sumEquityIssuance,
-      firmBondIssuance = s5.actualBondIssuance,
       firmIoPayments = s5.totalIoPaid,
       firmNplLoss = s5.nplLoss,
       firmProfitShifting = s5.sumProfitShifting,
@@ -597,46 +559,49 @@ object FlowSimulation:
       equityGovDividends = w.gov.govDividendRevenue,
       equityIssuance = eq.lastIssuance,
       equityReturn = eq.monthlyReturn,
-      exports = openEcon.exports,
-      totalImports = openEcon.totalImports,
+      exports = externalFlowBop.exports,
+      totalImports = externalFlowBop.totalImports,
       tourismExport = s6.tourismExport,
       tourismImport = s6.tourismImport,
-      fdi = openEcon.fdi,
-      portfolioFlows = openEcon.portfolioFlows,
-      primaryIncome = openEcon.primaryIncome,
-      euFunds = openEcon.euFunds,
+      fdi = externalFlowBop.fdi,
+      portfolioFlows = externalFlowBop.portfolioFlows,
+      primaryIncome = externalFlowBop.primaryIncome,
+      euFunds = externalFlowBop.euFundsMonthly,
       diasporaInflow = s6.diasporaInflow,
-      corpBondCoupon = openEcon.corpBondCoupon,
-      corpBondDefaultLoss = openEcon.corpBondDefaultLoss,
-      corpBondIssuance = openEcon.corpBondIssuance,
-      corpBondAmortization = openEcon.corpBondAmortization,
+      corpBondCoupon = s8.corpBonds.corpBondCoupon,
+      corpBondDefaultAmount = s5.totalBondDefault,
+      corpBondIssuance = s5.actualBondIssuance,
+      corpBondAmortization = s8.corpBonds.corpBondAmort,
       mortgageOrigination = h.lastOrigination,
       mortgageRepayment = h.lastRepayment,
       mortgageInterest = h.mortgageInterestIncome,
       mortgageDefault = h.lastDefault,
-      bankGovBondIncome = banking.govBondIncome,
-      bankReserveInterest = banking.reserveInterest,
-      bankStandingFacility = banking.standingFacilityIncome,
-      bankStandingFacilityBackstop = banking.standingFacilityBackstop,
-      bankInterbankInterest = banking.interbankInterest,
-      bankFxReserveSettlement = openEcon.fxPlnInjection,
-      bankBfgLevy = banking.bfgLevy,
-      bankUnrealizedLoss = banking.unrealizedBondLoss,
-      bankBailIn = banking.bailInLoss,
-      bankNbpRemittance = banking.nbpRemittance,
-      govVatRevenue = banking.vatAfterEvasion,
-      govExciseRevenue = banking.exciseAfterEvasion,
-      govCustomsDutyRevenue = banking.customsDutyRevenue,
+      bankGovBondIncome = prevBankAgg.govBondHoldings * s8.monetary.newBondYield.monthly,
+      bankReserveInterest = s8.banking.totalReserveInterest,
+      bankStandingFacility = s8.banking.totalStandingFacilityIncome,
+      bankStandingFacilityBackstop = s9.standingFacilityBackstop,
+      bankInterbankInterest = s8.banking.totalInterbankInterest,
+      bankCorpBondCoupon = s8.corpBonds.corpBondBankCoupon,
+      bankCorpBondLoss = s8.corpBonds.corpBondBankDefaultLoss,
+      bankFxReserveSettlement = s8.monetary.fxPlnInjection,
+      bankBfgLevy = s9.bfgLevy,
+      bankUnrealizedLoss = s9.unrealizedBondLoss,
+      bankBailIn = s9.bailInLoss,
+      bankNbpRemittance = s8.banking.nbpRemittance,
+      govVatRevenue = s9.vatAfterEvasion,
+      govExciseRevenue = s9.exciseAfterEvasion,
+      govCustomsDutyRevenue = s9.customsDutyRevenue,
       govDebtService = w.gov.debtServiceSpend,
       govEuCofinancing = w.gov.euCofinancing,
       govCapitalSpend = w.gov.govCapitalSpend,
-      insuranceCurrentLifeReserves = w.financial.insurance.lifeReserves,
-      insuranceCurrentNonLifeReserves = w.financial.insurance.nonLifeReserves,
-      insurancePrevGovBonds = w.financial.insurance.govBondHoldings,
-      insurancePrevCorpBonds = w.financial.insurance.corpBondHoldings,
-      insurancePrevEquity = w.financial.insurance.equityHoldings,
-      govBondYield = openEcon.newBondYield,
-      corpBondYield = openEcon.corpBondYield,
+      insuranceCurrentLifeReserves = ledger.insurance.lifeReserve,
+      insuranceCurrentNonLifeReserves = ledger.insurance.nonLifeReserve,
+      insurancePrevGovBonds = ledger.insurance.govBondHoldings,
+      insurancePrevCorpBonds = ledger.insurance.corpBondHoldings,
+      insuranceCorpBondDefaultLoss = s8.corpBonds.corpBondInsuranceDefaultLoss,
+      insurancePrevEquity = ledger.insurance.equityHoldings,
+      govBondYield = s8.monetary.newBondYield,
+      corpBondYield = s8.corpBonds.newCorpBonds.corpBondYield,
     )
     StageOutputs(
       flowPlan = calc,
@@ -646,9 +611,6 @@ object FlowSimulation:
       ),
       postAssembly = WorldAssemblyEconomics.StepInput(
         w = w,
-        firms = firms,
-        households = households,
-        banks = banks,
         s1 = s1,
         s2 = s2,
         s3 = s3,
@@ -687,8 +649,9 @@ object FlowSimulation:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
   ): Sfc.RuntimeState =
-    Sfc.RuntimeState(w, firms, households, banks)
+    Sfc.RuntimeState(w, firms, households, banks, ledgerFinancialState)
 
   private case class ExecutedBatchEvidence(
       totals: Map[MechanismId, Long],
@@ -784,8 +747,8 @@ object FlowSimulation:
       consumerOrigination = evidence.amount(FlowMechanism.HhCcOrigination),
       consumerPrincipalRepaid = hhFinancial.consumerPrincipal,
       consumerDefaultAmount = evidence.amount(FlowMechanism.HhCcDefault),
-      corpBondCouponIncome = evidence.amount(FlowMechanism.CorpBondCoupon),
-      corpBondDefaultLoss = evidence.amount(FlowMechanism.CorpBondDefault),
+      corpBondCouponIncome = evidence.amount(FlowMechanism.BankCorpBondCoupon),
+      corpBondDefaultLoss = evidence.amount(FlowMechanism.BankCorpBondLoss),
       corpBondIssuance = evidence.amount(FlowMechanism.CorpBondIssuance),
       corpBondAmortization = evidence.amount(FlowMechanism.CorpBondAmortization),
       corpBondDefaultAmount = evidence.amount(FlowMechanism.CorpBondDefault),
@@ -858,25 +821,29 @@ object FlowSimulation:
     MonthSemantics.postAssembly(
       PostMonth(
         assembled = assembled,
-        boundaryOut = MonthBoundarySnapshot.capture(assembled.world, assembled.firms, assembled.households, assembled.banks),
+        boundaryOut = MonthBoundarySnapshot.capture(
+          assembled.world,
+          assembled.firms,
+          assembled.households,
+          assembled.banks,
+          assembled.ledgerFinancialState,
+        ),
         timing = MonthTimingTrace.fromInputs(buildTimingInputs(signalView, assembled)),
       ),
     )
 
   private def extractSeedOut(signalView: MonthSemantics.SignalView, post: MonthSemantics.PostAssembly): MonthSemantics.SeedOut =
     val assembled = post.assembled
-    val employed  = Household.countEmployed(assembled.households)
 
     MonthSemantics.seedOut(
-      SignalExtraction.compute(
-        // Seed extraction is the only place that derives the next boundary
-        // signal from realized month-`t` outcomes.
-        SignalExtraction.inputFromRealizedOutcomes(
-          unemploymentRate = assembled.world.unemploymentRate(employed),
-          laggedHiringSlack = signalView.labor.operationalHiringSlack,
-          startupAbsorptionRate = assembled.startupAbsorptionRate,
-          inflation = assembled.world.inflation,
-          expectedInflation = assembled.world.mechanisms.expectations.expectedInflation,
+      // Seed extraction is the only place that derives the next boundary
+      // signal from realized month-`t` outcomes.
+      SignalExtraction.fromPostMonth(
+        world = assembled.world,
+        households = assembled.households,
+        operationalHiringSlack = signalView.labor.operationalHiringSlack,
+        startupAbsorptionRate = assembled.startupAbsorptionRate,
+        demand = SignalExtraction.DemandOutcomes(
           sectorDemandMult = signalView.demand.sectorMults,
           sectorDemandPressure = signalView.demand.sectorDemandPressure,
           sectorHiringSignal = signalView.demand.sectorHiringSignal,
@@ -923,7 +890,7 @@ object FlowSimulation:
   ): SimState =
     val assembled   = outcome.post.assembled
     val nextSeed    = outcome.seedOut.nextSeed
-    val nextWorld   = assembled.world.updatePipeline(_.withDecisionSignals(nextSeed))
+    val nextWorld   = assembled.world.copy(pipeline = assembled.world.pipeline.withDecisionSignals(nextSeed))
     val currentSeed = input.seedIn.decisionSignals
 
     // `advanceState` is the only legal `post -> next-pre` transition:
@@ -932,13 +899,14 @@ object FlowSimulation:
     require(assembled.world.seedIn == currentSeed, "PostMonth world must remain on the pre-step seed until advanceState runs")
     require(nextWorld.seedIn == nextSeed, "advanceState must be the transition that applies SeedOut to the next boundary")
 
-    SimState(
+    new SimState(
       completedMonth = input.executionMonth.completed,
       world = nextWorld,
       firms = assembled.firms,
       households = assembled.households,
       banks = assembled.banks,
       householdAggregates = assembled.householdAggregates,
+      ledgerFinancialState = assembled.ledgerFinancialState,
     )
 
   private def buildMonthTrace(

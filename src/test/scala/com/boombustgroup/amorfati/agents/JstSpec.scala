@@ -12,7 +12,6 @@ class JstSpec extends AnyFlatSpec with Matchers:
 
   "Jst.State.zero" should "have all zero fields" in {
     val z = Jst.State.zero
-    z.deposits shouldBe PLN.Zero
     z.debt shouldBe PLN.Zero
     z.revenue shouldBe PLN.Zero
     z.spending shouldBe PLN.Zero

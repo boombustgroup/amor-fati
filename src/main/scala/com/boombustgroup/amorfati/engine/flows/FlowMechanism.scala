@@ -59,7 +59,7 @@ object FlowMechanism:
   val FirmInterestPaid: MechanismId             = MechanismId(45)
   val FirmCapex: MechanismId                    = MechanismId(46)
   val FirmEquityIssuance: MechanismId           = MechanismId(47)
-  val FirmBondIssuance: MechanismId             = MechanismId(48)
+  val FirmBondIssuance: MechanismId             = MechanismId(48) // legacy ID; corporate bond issuance is emitted by CorpBondIssuance
   val FirmIoPayment: MechanismId                = MechanismId(49)
   val FirmNplDefault: MechanismId               = MechanismId(50)
   val FirmProfitShifting: MechanismId           = MechanismId(51)
@@ -111,3 +111,4 @@ object FlowMechanism:
   val GovVatRevenue: MechanismId                = MechanismId(92)
   val GovExciseRevenue: MechanismId             = MechanismId(93)
   val GovCustomsDutyRevenue: MechanismId        = MechanismId(94)
+  val BankCorpBondCoupon: MechanismId           = MechanismId(95)

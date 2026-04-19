@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.diagnostics
 
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
+import com.boombustgroup.amorfati.engine.{MonthRandomness, SignalExtraction}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
@@ -63,22 +63,22 @@ object InflationProbe:
     given SimParams = SimParams.defaults
     import ComputationBoundary.toDouble
 
-    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
-    var world = init.world
-    var firms = init.firms
-    var hhs   = init.households
-    var banks = init.banks
+    val init                 = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
+    var world                = init.world
+    var firms                = init.firms
+    var hhs                  = init.households
+    var banks                = init.banks
+    var ledgerFinancialState = init.ledgerFinancialState
 
     println(s"seed=$seed months=$months")
 
     (1 to months).foreach: month =>
       val population        = world.derivedTotalPopulation.max(1)
       val contract          = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
-      val fiscal            = FiscalConstraintEconomics.compute(world, banks, ExecutionMonth(month))
-      val s1                = FiscalConstraintEconomics.toOutput(fiscal)
-      val labor             = LaborEconomics.compute(world, firms, hhs, s1)
+      val s1                = FiscalConstraintEconomics.compute(world, banks, ledgerFinancialState, ExecutionMonth(month))
+      val s2Pre             = LaborEconomics.compute(world, firms, hhs, s1)
       val prevWage          = toDouble(world.householdMarket.marketWage)
-      val rawLaborWage      = toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, labor.laborDemand, population).nationalWage)
+      val rawLaborWage      = toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, s2Pre.laborDemand, population).nationalWage)
       val target            = toDouble(summon[SimParams].monetary.targetInfl)
       val expWagePressure   =
         toDouble(summon[SimParams].labor.expWagePassthrough) * Math.max(0.0, toDouble(world.mechanisms.expectations.expectedInflation) - target) / 12.0
@@ -94,64 +94,71 @@ object InflationProbe:
         else wageAfterExp
       val supplyAtPrev      = laborSupplyCount(world.householdMarket.marketWage, s1.resWage, population)
       val newSupply         = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, population)
-      val excessDemand      = (labor.laborDemand - supplyAtPrev).toDouble / population
+      val excessDemand      = (s2Pre.laborDemand - supplyAtPrev).toDouble / population
       val phillipsGrowth    = if prevWage > 0.0 then rawLaborWage / prevWage - 1.0 else 0.0
       val expGrowth         = if rawLaborWage > 0.0 then wageAfterExp / rawLaborWage - 1.0 else 0.0
       val unionGrowth       = if wageAfterExp > 0.0 then unionAdjustedWage / wageAfterExp - 1.0 else 0.0
-      val s2Pre             = LaborEconomics.Output(
-        labor.wage,
-        labor.employed,
-        labor.laborDemand,
-        labor.wageGrowth,
-        labor.operationalHiringSlack,
-        labor.immigration,
-        labor.netMigration,
-        labor.demographics,
-        SocialSecurity.ZusState.zero,
-        SocialSecurity.NfzState.zero,
-        SocialSecurity.PpkState.zero,
-        PLN.Zero,
-        EarmarkedFunds.State.zero,
-        labor.living,
-        labor.regionalWages,
-      )
       val s3                =
         HouseholdIncomeEconomics.compute(
           world,
           firms,
           hhs,
           banks,
+          ledgerFinancialState,
           s1.lendingBaseRate,
           s1.resWage,
           s2Pre.newWage,
           contract.stages.householdIncomeEconomics.newStream(),
         )
-      val s4                = DemandEconomics.compute(DemandEconomics.Input(world, s2Pre.employed, s2Pre.living, s3.domesticCons))
-      val s5                = FirmEconomics.runStep(world, firms, hhs, banks, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
+      val s4                = DemandEconomics.compute(world, s2Pre.employed, s2Pre.living, s3.domesticCons)
+      val s5                = FirmEconomics.runStep(world, firms, hhs, banks, ledgerFinancialState, s1, s2Pre, s3, s4, contract.stages.firmEconomics.newStream())
       val living            = s5.ioFirms.filter(Firm.isAlive)
       val s2                = LaborEconomics.reconcilePostFirmStep(world, s1, s2Pre, living, s5.households)
       val s6                =
         HouseholdFinancialEconomics.compute(world, s1.m, s2.employed, s3.hhAgg, contract.stages.householdFinancialEconomics.newStream())
       val s7                = PriceEquityEconomics.compute(
-        PriceEquityEconomics.Input(
-          world,
-          s1.m,
-          s2.newWage,
-          s2.employed,
-          s2.wageGrowth,
-          s3.domesticCons,
-          s4.govPurchases,
-          s4.avgDemandMult,
-          s4.sectorMults,
-          banks,
-          s5,
-        ),
-        contract.stages.priceEquityEconomics.newStream(),
+        w = world,
+        month = s1.m,
+        wageGrowth = s2.wageGrowth,
+        domesticCons = s3.domesticCons,
+        govPurchases = s4.govPurchases,
+        avgDemandMult = s4.avgDemandMult,
+        totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sum,
+        firmStep = s5,
       )
       val s8                =
-        OpenEconEconomics.runStep(OpenEconEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, banks, contract.stages.openEconEconomics.newStream()))
+        OpenEconEconomics.runStep(
+          OpenEconEconomics.StepInput(
+            world,
+            ledgerFinancialState,
+            s1,
+            s2,
+            s3,
+            s4,
+            s5,
+            s6,
+            s7,
+            banks,
+            contract.stages.openEconEconomics.newStream(),
+          ),
+        )
       val s9                =
-        BankingEconomics.runStep(BankingEconomics.StepInput(world, s1, s2, s3, s4, s5, s6, s7, s8, banks, contract.stages.bankingEconomics.newStream()))
+        BankingEconomics.runStep(
+          BankingEconomics.StepInput(
+            world,
+            ledgerFinancialState,
+            s1,
+            s2,
+            s3,
+            s4,
+            s5,
+            s6,
+            s7,
+            s8,
+            banks,
+            contract.stages.bankingEconomics.newStream(),
+          ),
+        )
 
       val exDev         = exchangeRateValue(world.forex.exchangeRate) / exchangeRateValue(summon[SimParams].forex.baseExRate) - 1.0
       val demandPullM   = toDouble((s4.avgDemandMult.deviationFromOne.toScalar * Scalar(DemandPullWeight)).toCoefficient)
@@ -199,7 +206,7 @@ object InflationProbe:
         f"  wages: phillips=${phillipsGrowth * 100.0}%.2f%% exp=${expGrowth * 100.0}%.2f%% union=${unionGrowth * 100.0}%.2f%% raw=${rawLaborWage}%.0f afterExp=${wageAfterExp}%.0f final=${unionAdjustedWage}%.0f",
       )
       println(
-        f"  labor: demand=${labor.laborDemand}%d supplyPrev=${supplyAtPrev}%d supplyNew=${newSupply}%d excess=${excessDemand * 100.0}%.2f%% employedPre=${labor.employed}%d employedPost=${s2.employed}%d",
+        f"  labor: demand=${s2Pre.laborDemand}%d supplyPrev=${supplyAtPrev}%d supplyNew=${newSupply}%d excess=${excessDemand * 100.0}%.2f%% employedPre=${s2Pre.employed}%d employedPost=${s2.employed}%d",
       )
       println(
         f"  fiscal: govPurch=${govPurchases}%.0f govCur=${govCurrent}%.0f govCapDom=${govCapital}%.0f euProjCap=${euProjectCap}%.0f euCofinDom=${euCofin}%.0f def=${deficit}%.0f def/gdp=${deficitToGdp}%.2f%% debt/gdp=${debtToGdp}%.2f%% rule=${s4.fiscalRuleStatus.bindingRule} cut=${toDouble(s4.fiscalRuleStatus.spendingCutRatio) * 100.0}%.2f%%",
@@ -209,37 +216,35 @@ object InflationProbe:
       )
       println(s"  top pressure: ${topPressures(s4.sectorDemandPressure)}")
 
-      val assembled = WorldAssemblyEconomics.compute(
-        WorldAssemblyEconomics.Input(
-          w = world,
-          firms = firms,
-          households = hhs,
-          banks = banks,
-          month = fiscal.month,
-          lendingBaseRate = fiscal.lendingBaseRate,
-          resWage = fiscal.resWage,
-          baseMinWage = fiscal.baseMinWage,
-          minWagePriceLevel = fiscal.updatedMinWagePriceLevel,
-          govPurchases = s4.govPurchases,
-          sectorMults = s4.sectorMults,
-          sectorDemandPressure = s4.sectorDemandPressure,
-          sectorHiringSignal = s4.sectorHiringSignal,
-          avgDemandMult = s4.avgDemandMult,
-          sectorCapReal = s4.sectorCapReal,
-          laggedInvestDemand = s4.laggedInvestDemand,
-          fiscalRuleStatus = s4.fiscalRuleStatus,
-          laborOutput = s2,
-          hhOutput = s3,
-          firmOutput = s5,
-          hhFinancialOutput = s6,
-          priceEquityOutput = s7,
-          openEconOutput = s8,
-          bankOutput = s9,
-          randomness = contract.assembly.newStreams(),
-        ),
+      val assemblyInput = WorldAssemblyEconomics.StepInput(
+        world,
+        s1,
+        s2,
+        s3,
+        s4,
+        s5,
+        s6,
+        s7,
+        s8,
+        s9,
       )
+      val assembled     = WorldAssemblyEconomics.computePostMonth(assemblyInput, contract.assembly.newStreams())
+      val seedOut       = SignalExtraction
+        .fromPostMonth(
+          world = assembled.world,
+          households = assembled.households,
+          operationalHiringSlack = assemblyInput.s2.operationalHiringSlack,
+          startupAbsorptionRate = assembled.startupAbsorptionRate,
+          demand = SignalExtraction.DemandOutcomes(
+            sectorDemandMult = assemblyInput.s4.sectorMults,
+            sectorDemandPressure = assemblyInput.s4.sectorDemandPressure,
+            sectorHiringSignal = assemblyInput.s4.sectorHiringSignal,
+          ),
+        )
+        .seedOut
 
-      world = assembled.world
+      world = assembled.world.copy(pipeline = assembled.world.pipeline.withDecisionSignals(seedOut))
       firms = assembled.firms
       hhs = assembled.households
       banks = assembled.banks
+      ledgerFinancialState = assembled.ledgerFinancialState

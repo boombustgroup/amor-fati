@@ -7,9 +7,9 @@ import com.boombustgroup.amorfati.types.*
   *
   * Models the Polish corporate bond market with demand-side absorption
   * constraint: issuance by qualifying firms (50+ employees), buyer composition
-  * split across banks, PPK funds, and other investors. Calibrated to KNF 2024
-  * (Catalyst + non-public), with BBB Polish corporate spread (RRRF 2024).
-  * Affects SFC Identity 12.
+  * split across banks, PPK funds, insurance, NBFI/TFI, and residual other
+  * investors. Calibrated to KNF 2024 (Catalyst + non-public), with BBB Polish
+  * corporate spread (RRRF 2024). Affects SFC Identity 12.
   *
   * `initStock` is in raw PLN — scaled by `gdpRatio` in `SimParams.defaults`.
   *

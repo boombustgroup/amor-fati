@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.engine.markets.HousingMarket
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
 import com.boombustgroup.amorfati.fp.ComputationBoundary
@@ -55,6 +56,7 @@ object McTimeseriesSchema:
       val households: Vector[Household.State],
       val banks: Vector[Banking.BankState],
       val householdAggregates: Household.Aggregates,
+      val ledgerFinancialState: LedgerFinancialState,
       val living: Vector[Firm.State],
       val nLiving: Double,
       val aliveBanks: Vector[Banking.BankState],
@@ -67,10 +69,32 @@ object McTimeseriesSchema:
 
     given SimParams                                                                                 = p
     private val sectorIndexByName: Map[String, Int]                                                 = p.sectorDefs.iterator.map(_.name).zipWithIndex.map((name, idx) => name -> idx).toMap
-    lazy val bankAgg: Banking.Aggregate                                                             = Banking.aggregateFromBanks(banks)
+    lazy val bankCorpBondHoldings: Banking.BankCorpBondHoldings                                     =
+      Banking.bankCorpBondHoldingsFromVector(ledgerFinancialState.banks.map(_.corpBond))
+    lazy val bankAgg: Banking.Aggregate                                                             =
+      Banking.aggregateFromBankStocks(banks, ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks), bankCorpBondHoldings)
+    lazy val ledgerBankStocksById: Map[BankId, Banking.BankFinancialStocks]                         =
+      banks.zip(ledgerFinancialState.banks).map((bank, balances) => bank.id -> LedgerFinancialState.projectBankFinancialStocks(balances)).toMap
+    lazy val aliveBankRows: Vector[(Banking.BankState, Banking.BankFinancialStocks)]                =
+      aliveBanks.map: bank =>
+        val stocks = ledgerBankStocksById.getOrElse(bank.id, throw IllegalStateException(s"Missing ledger bank stocks for bank ${bank.id.toInt}"))
+        bank -> stocks
+    lazy val ledgerBankGovBondHoldings: PLN                                                         =
+      ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.govBondAfs + bank.govBondHtm)
+    lazy val ledgerHouseholdEquityWealth: PLN                                                       =
+      ledgerFinancialState.households.foldLeft(PLN.Zero)((acc, household) => acc + household.equity)
+    lazy val ledgerHouseholdMortgageStock: PLN                                                      =
+      LedgerFinancialState.householdMortgageStock(ledgerFinancialState)
+    lazy val ledgerFirmBalancesById: Map[FirmId, LedgerFinancialState.FirmBalances]                 =
+      firms.zip(ledgerFinancialState.firms).map((firm, balances) => firm.id -> balances).toMap
     lazy val hhAgg: Household.Aggregates                                                            = householdAggregates
     lazy val monetaryAgg: Option[Banking.MonetaryAggregates]                                        = Some(
-      Banking.MonetaryAggregates.compute(banks, world.financial.nbfi.tfiAum, world.financial.corporateBonds.outstanding),
+      Banking.MonetaryAggregates.computeFromBankStocks(
+        banks,
+        ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
+        ledgerFinancialState.funds.nbfi.tfiUnit,
+        CorporateBondOwnership.issuerOutstanding(ledgerFinancialState),
+      ),
     )
     lazy val monthlyGdp: PLN                                                                        = world.cachedMonthlyGdpProxy
     lazy val sectorAuto: Vector[Double]                                                             = sectorColumns.map { sector =>
@@ -177,7 +201,7 @@ object McTimeseriesSchema:
         else 0.0,
     ),
     // FX
-    ColumnDef("FxReserves", ctx => td.toDouble(ctx.world.nbp.fxReserves)),
+    ColumnDef("FxReserves", ctx => td.toDouble(ctx.ledgerFinancialState.nbp.foreignAssets)),
     ColumnDef("FxInterventionAmt", ctx => td.toDouble(ctx.world.nbp.lastFxTraded)),
     ColumnDef("FxInterventionActive", _ => 1.0),
     // Diaspora Remittances
@@ -237,13 +261,13 @@ object McTimeseriesSchema:
     // Bond market
     ColumnDef("BondYield", ctx => td.toDouble(ctx.world.gov.bondYield)),
     ColumnDef("WeightedCoupon", ctx => td.toDouble(ctx.world.gov.weightedCoupon)),
-    ColumnDef("BondsOutstanding", ctx => td.toDouble(ctx.world.gov.bondsOutstanding)),
-    ColumnDef("BankBondHoldings", ctx => td.toDouble(ctx.bankAgg.govBondHoldings)),
-    ColumnDef("ForeignBondHoldings", ctx => td.toDouble(ctx.world.gov.foreignBondHoldings)),
-    ColumnDef("NbpBondHoldings", ctx => td.toDouble(ctx.world.nbp.govBondHoldings)),
+    ColumnDef("BondsOutstanding", ctx => td.toDouble(ctx.ledgerFinancialState.government.govBondOutstanding)),
+    ColumnDef("BankBondHoldings", ctx => td.toDouble(ctx.ledgerBankGovBondHoldings)),
+    ColumnDef("ForeignBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.foreign.govBondHoldings)),
+    ColumnDef("NbpBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.nbp.govBondHoldings)),
     ColumnDef("QeActive", ctx => if ctx.world.nbp.qeActive then 1.0 else 0.0),
     ColumnDef("DebtService", ctx => td.toDouble(ctx.world.gov.debtServiceSpend)),
-    ColumnDef("NbpRemittance", ctx => td.toDouble(ctx.world.nbp.govBondHoldings) * td.toDouble(ctx.world.gov.bondYield.monthly)),
+    ColumnDef("NbpRemittance", ctx => td.toDouble(ctx.ledgerFinancialState.nbp.govBondHoldings) * td.toDouble(ctx.world.gov.bondYield.monthly)),
     // Monetary plumbing
     ColumnDef("ReserveInterest", ctx => td.toDouble(ctx.world.plumbing.reserveInterestTotal)),
     ColumnDef("StandingFacilityNet", ctx => td.toDouble(ctx.world.plumbing.standingFacilityNet)),
@@ -261,23 +285,36 @@ object McTimeseriesSchema:
   private def financialGroup: Vector[ColumnDef] = Vector(
     // Interbank
     ColumnDef("InterbankRate", ctx => td.toDouble(ctx.world.bankingSector.interbankRate)),
-    ColumnDef("MinBankCAR", ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.car).min)),
-    ColumnDef("MaxBankNPL", ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.nplRatio).max)),
+    ColumnDef(
+      "MinBankCAR",
+      ctx =>
+        if ctx.aliveBankRows.isEmpty then 0.0
+        else td.toDouble(ctx.aliveBankRows.map((bank, stocks) => Banking.car(bank, stocks, ctx.bankCorpBondHoldings(bank.id))).min),
+    ),
+    ColumnDef(
+      "MaxBankNPL",
+      ctx => if ctx.aliveBankRows.isEmpty then 0.0 else td.toDouble(ctx.aliveBankRows.map((bank, stocks) => Banking.nplRatio(bank, stocks)).max),
+    ),
     ColumnDef("BankFailures", ctx => ctx.banks.count(_.failed).toDouble),
     // LCR/NSFR
     ColumnDef(
       "MinBankLCR",
-      ctx => { given SimParams = ctx.p; if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.lcr).min) },
+      ctx => { given SimParams = ctx.p; if ctx.aliveBankRows.isEmpty then 0.0 else td.toDouble(ctx.aliveBankRows.map((_, stocks) => Banking.lcr(stocks)).min) },
     ),
-    ColumnDef("MinBankNSFR", ctx => if ctx.aliveBanks.isEmpty then 0.0 else td.toDouble(ctx.aliveBanks.map(_.nsfr).min)),
+    ColumnDef(
+      "MinBankNSFR",
+      ctx =>
+        if ctx.aliveBankRows.isEmpty then 0.0
+        else td.toDouble(ctx.aliveBankRows.map((bank, stocks) => Banking.nsfr(bank, stocks, ctx.bankCorpBondHoldings(bank.id))).min),
+    ),
     ColumnDef(
       "AvgTermDepositFrac",
       ctx =>
-        if ctx.aliveBanks.isEmpty then 0.0
+        if ctx.aliveBankRows.isEmpty then 0.0
         else
-          ctx.aliveBanks
-            .map(b => if b.deposits > PLN.Zero then b.termDeposits / b.deposits else 0.0)
-            .sum / ctx.aliveBanks.length,
+          ctx.aliveBankRows
+            .map((_, stocks) => if stocks.totalDeposits > PLN.Zero then stocks.termDeposit / stocks.totalDeposits else 0.0)
+            .sum / ctx.aliveBankRows.length,
     ),
     // Term structure
     ColumnDef("WIBOR_1M", ctx => ctx.world.bankingSector.interbankCurve.map(c => td.toDouble(c.wibor1m)).getOrElse(0.0)),
@@ -294,63 +331,65 @@ object McTimeseriesSchema:
     ColumnDef("ConsumerOrigination", ctx => td.toDouble(ctx.hhAgg.totalConsumerOrigination)),
     ColumnDef("ConsumerDebtService", ctx => td.toDouble(ctx.hhAgg.totalConsumerDebtService)),
     // GPW Equity Market
-    ColumnDef("GpwIndex", ctx => priceIndexValue(ctx.world.financial.equity.index)),
-    ColumnDef("GpwMarketCap", ctx => td.toDouble(ctx.world.financial.equity.marketCap)),
+    ColumnDef("GpwIndex", ctx => priceIndexValue(ctx.world.financialMarkets.equity.index)),
+    ColumnDef("GpwMarketCap", ctx => td.toDouble(ctx.world.financialMarkets.equity.marketCap)),
     ColumnDef(
       "GpwPE",
-      ctx => { val ey = td.toDouble(ctx.world.financial.equity.earningsYield); if ey > 0 then 1.0 / ey else 0.0 },
+      ctx => { val ey = td.toDouble(ctx.world.financialMarkets.equity.earningsYield); if ey > 0 then 1.0 / ey else 0.0 },
     ),
-    ColumnDef("GpwDivYield", ctx => td.toDouble(ctx.world.financial.equity.dividendYield)),
-    ColumnDef("EquityIssuanceTotal", ctx => td.toDouble(ctx.world.financial.equity.lastIssuance)),
+    ColumnDef("GpwDivYield", ctx => td.toDouble(ctx.world.financialMarkets.equity.dividendYield)),
+    ColumnDef("EquityIssuanceTotal", ctx => td.toDouble(ctx.world.financialMarkets.equity.lastIssuance)),
     ColumnDef(
       "EquityFinancedFrac",
       ctx =>
-        ctx.living.map(f => td.toDouble(f.equityRaised)).sum / Math.max(
+        val balances = ctx.living.flatMap(f => ctx.ledgerFirmBalancesById.get(f.id))
+        balances.map(b => td.toDouble(b.equity)).sum / Math.max(
           1.0,
-          ctx.living.map(f => td.toDouble(f.debt + f.equityRaised)).sum,
+          balances.map(b => td.toDouble(b.firmLoan + b.equity)).sum,
         ),
     ),
-    ColumnDef("HhEquityWealth", ctx => td.toDouble(ctx.world.financial.equity.hhEquityWealth)),
-    ColumnDef("EquityWealthEffect", ctx => td.toDouble(ctx.world.financial.equity.lastWealthEffect)),
-    ColumnDef("DomesticDividends", ctx => td.toDouble(ctx.world.financial.equity.lastDomesticDividends)),
-    ColumnDef("ForeignDividendOutflow", ctx => td.toDouble(ctx.world.financial.equity.lastForeignDividends)),
+    ColumnDef("HhEquityWealth", ctx => td.toDouble(ctx.ledgerHouseholdEquityWealth)),
+    ColumnDef("EquityWealthEffect", ctx => td.toDouble(ctx.world.financialMarkets.equity.lastWealthEffect)),
+    ColumnDef("DomesticDividends", ctx => td.toDouble(ctx.world.financialMarkets.equity.lastDomesticDividends)),
+    ColumnDef("ForeignDividendOutflow", ctx => td.toDouble(ctx.world.financialMarkets.equity.lastForeignDividends)),
     ColumnDef("GovernmentDividends", ctx => td.toDouble(ctx.world.gov.govDividendRevenue)),
     // Corporate Bonds / Catalyst
-    ColumnDef("CorpBondOutstanding", ctx => td.toDouble(ctx.world.financial.corporateBonds.outstanding)),
-    ColumnDef("CorpBondYield", ctx => td.toDouble(ctx.world.financial.corporateBonds.corpBondYield)),
-    ColumnDef("CorpBondIssuance", ctx => td.toDouble(ctx.world.financial.corporateBonds.lastIssuance)),
-    ColumnDef("CorpBondSpread", ctx => td.toDouble(ctx.world.financial.corporateBonds.creditSpread)),
-    ColumnDef("BankCorpBondHoldings", ctx => td.toDouble(ctx.world.financial.corporateBonds.bankHoldings)),
-    ColumnDef("PpkCorpBondHoldings", ctx => td.toDouble(ctx.world.financial.corporateBonds.ppkHoldings)),
-    ColumnDef("CorpBondAbsorptionRate", ctx => td.toDouble(ctx.world.financial.corporateBonds.lastAbsorptionRate)),
+    ColumnDef("CorpBondOutstanding", ctx => td.toDouble(CorporateBondOwnership.issuerOutstanding(ctx.ledgerFinancialState))),
+    ColumnDef("CorpBondYield", ctx => td.toDouble(ctx.world.financialMarkets.corporateBonds.corpBondYield)),
+    ColumnDef("CorpBondIssuance", ctx => td.toDouble(ctx.world.financialMarkets.corporateBonds.lastIssuance)),
+    ColumnDef("CorpBondSpread", ctx => td.toDouble(ctx.world.financialMarkets.corporateBonds.creditSpread)),
+    ColumnDef("BankCorpBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.banks.foldLeft(PLN.Zero)((acc, bank) => acc + bank.corpBond))),
+    ColumnDef("PpkCorpBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.funds.ppkCorpBondHoldings)),
+    ColumnDef("CorpBondAbsorptionRate", ctx => td.toDouble(ctx.world.financialMarkets.corporateBonds.lastAbsorptionRate)),
     // Insurance Sector
-    ColumnDef("InsLifeReserves", ctx => td.toDouble(ctx.world.financial.insurance.lifeReserves)),
-    ColumnDef("InsNonLifeReserves", ctx => td.toDouble(ctx.world.financial.insurance.nonLifeReserves)),
-    ColumnDef("InsGovBondHoldings", ctx => td.toDouble(ctx.world.financial.insurance.govBondHoldings)),
-    ColumnDef("InsLifePremium", ctx => td.toDouble(ctx.world.financial.insurance.lastLifePremium)),
-    ColumnDef("InsNonLifePremium", ctx => td.toDouble(ctx.world.financial.insurance.lastNonLifePremium)),
-    ColumnDef("InsLifeClaims", ctx => td.toDouble(ctx.world.financial.insurance.lastLifeClaims)),
-    ColumnDef("InsNonLifeClaims", ctx => td.toDouble(ctx.world.financial.insurance.lastNonLifeClaims)),
+    ColumnDef("InsLifeReserves", ctx => td.toDouble(ctx.ledgerFinancialState.insurance.lifeReserve)),
+    ColumnDef("InsNonLifeReserves", ctx => td.toDouble(ctx.ledgerFinancialState.insurance.nonLifeReserve)),
+    ColumnDef("InsGovBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.insurance.govBondHoldings)),
+    ColumnDef("InsLifePremium", ctx => td.toDouble(ctx.world.financialMarkets.insurance.lastLifePremium)),
+    ColumnDef("InsNonLifePremium", ctx => td.toDouble(ctx.world.financialMarkets.insurance.lastNonLifePremium)),
+    ColumnDef("InsLifeClaims", ctx => td.toDouble(ctx.world.financialMarkets.insurance.lastLifeClaims)),
+    ColumnDef("InsNonLifeClaims", ctx => td.toDouble(ctx.world.financialMarkets.insurance.lastNonLifeClaims)),
     // Shadow Banking / NBFI
-    ColumnDef("NbfiTfiAum", ctx => td.toDouble(ctx.world.financial.nbfi.tfiAum)),
-    ColumnDef("NbfiTfiGovBondHoldings", ctx => td.toDouble(ctx.world.financial.nbfi.tfiGovBondHoldings)),
-    ColumnDef("NbfiLoanStock", ctx => td.toDouble(ctx.world.financial.nbfi.nbfiLoanStock)),
-    ColumnDef("NbfiOrigination", ctx => td.toDouble(ctx.world.financial.nbfi.lastNbfiOrigination)),
-    ColumnDef("NbfiDefaults", ctx => td.toDouble(ctx.world.financial.nbfi.lastNbfiDefaultAmount)),
-    ColumnDef("NbfiBankTightness", ctx => td.toDouble(ctx.world.financial.nbfi.lastBankTightness)),
+    ColumnDef("NbfiTfiAum", ctx => td.toDouble(ctx.ledgerFinancialState.funds.nbfi.tfiUnit)),
+    ColumnDef("NbfiTfiGovBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.funds.nbfi.govBondHoldings)),
+    ColumnDef("NbfiLoanStock", ctx => td.toDouble(ctx.ledgerFinancialState.funds.nbfi.nbfiLoanStock)),
+    ColumnDef("NbfiOrigination", ctx => td.toDouble(ctx.world.financialMarkets.nbfi.lastNbfiOrigination)),
+    ColumnDef("NbfiDefaults", ctx => td.toDouble(ctx.world.financialMarkets.nbfi.lastNbfiDefaultAmount)),
+    ColumnDef("NbfiBankTightness", ctx => td.toDouble(ctx.world.financialMarkets.nbfi.lastBankTightness)),
     // Quasi-fiscal (BGK/PFR)
-    ColumnDef("QfBondsOutstanding", ctx => td.toDouble(ctx.world.financial.quasiFiscal.bondsOutstanding)),
-    ColumnDef("QfNbpHoldings", ctx => td.toDouble(ctx.world.financial.quasiFiscal.nbpHoldings)),
-    ColumnDef("QfLoanPortfolio", ctx => td.toDouble(ctx.world.financial.quasiFiscal.loanPortfolio)),
-    ColumnDef("QfIssuance", ctx => td.toDouble(ctx.world.financial.quasiFiscal.monthlyIssuance)),
+    ColumnDef("QfBondsOutstanding", ctx => td.toDouble(ctx.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding)),
+    ColumnDef("QfNbpHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.funds.quasiFiscal.nbpHoldings)),
+    ColumnDef("QfLoanPortfolio", ctx => td.toDouble(ctx.ledgerFinancialState.funds.quasiFiscal.loanPortfolio)),
+    ColumnDef("QfIssuance", ctx => td.toDouble(ctx.world.financialMarkets.quasiFiscal.monthlyIssuance)),
     ColumnDef(
       "Esa2010DebtToGdp",
       ctx =>
         val annualGdp = td.toDouble(ctx.monthlyGdp) * 12.0
-        if annualGdp > 0 then td.toDouble(QuasiFiscal.esa2010Debt(ctx.world.gov.cumulativeDebt, ctx.world.financial.quasiFiscal.bondsOutstanding)) / annualGdp
+        if annualGdp > 0 then
+          td.toDouble(QuasiFiscal.esa2010Debt(ctx.world.gov.cumulativeDebt, ctx.ledgerFinancialState.funds.quasiFiscal.bondsOutstanding)) / annualGdp
         else 0.0,
     ),
-    ColumnDef("NbfiDepositDrain", ctx => td.toDouble(ctx.world.financial.nbfi.lastDepositDrain)),
+    ColumnDef("NbfiDepositDrain", ctx => td.toDouble(ctx.world.financialMarkets.nbfi.lastDepositDrain)),
     // AFS/HTM bond portfolio split
     ColumnDef("BankAfsBonds", ctx => td.toDouble(ctx.bankAgg.afsBonds)),
     ColumnDef("BankHtmBonds", ctx => td.toDouble(ctx.bankAgg.htmBonds)),
@@ -372,7 +411,7 @@ object McTimeseriesSchema:
       // Housing Market
       ColumnDef("HousingPriceIndex", ctx => td.toDouble(ctx.world.real.housing.priceIndex)),
       ColumnDef("HousingMarketValue", ctx => td.toDouble(ctx.world.real.housing.totalValue)),
-      ColumnDef("MortgageStock", ctx => td.toDouble(ctx.world.real.housing.mortgageStock)),
+      ColumnDef("MortgageStock", ctx => td.toDouble(ctx.ledgerHouseholdMortgageStock)),
       ColumnDef("AvgMortgageRate", ctx => td.toDouble(ctx.world.real.housing.avgMortgageRate)),
       ColumnDef("MortgageOrigination", ctx => td.toDouble(ctx.world.real.housing.lastOrigination)),
       ColumnDef("MortgageRepayment", ctx => td.toDouble(ctx.world.real.housing.lastRepayment)),
@@ -383,8 +422,8 @@ object McTimeseriesSchema:
       ColumnDef(
         "MortgageToGdp",
         ctx =>
-          if ctx.monthlyGdp > PLN.Zero && ctx.world.real.housing.mortgageStock > PLN.Zero
-          then td.toDouble(ctx.world.real.housing.mortgageStock) / (td.toDouble(ctx.monthlyGdp) * 12.0)
+          if ctx.monthlyGdp > PLN.Zero && ctx.ledgerHouseholdMortgageStock > PLN.Zero
+          then td.toDouble(ctx.ledgerHouseholdMortgageStock) / (td.toDouble(ctx.monthlyGdp) * 12.0)
           else 0.0,
       ),
     ) ++ regionalHousingColumns ++ Vector(
@@ -429,27 +468,27 @@ object McTimeseriesSchema:
     ColumnDef("JstRevenue", ctx => td.toDouble(ctx.world.social.jst.revenue)),
     ColumnDef("JstSpending", ctx => td.toDouble(ctx.world.social.jst.spending)),
     ColumnDef("JstDebt", ctx => td.toDouble(ctx.world.social.jst.debt)),
-    ColumnDef("JstDeposits", ctx => td.toDouble(ctx.world.social.jst.deposits)),
+    ColumnDef("JstDeposits", ctx => td.toDouble(ctx.ledgerFinancialState.funds.jstCash)),
     ColumnDef("JstDeficit", ctx => td.toDouble(ctx.world.social.jst.deficit)),
     // ZUS/PPK
     ColumnDef("ZusContributions", ctx => td.toDouble(ctx.world.social.zus.contributions)),
     ColumnDef("ZusPensionPayments", ctx => td.toDouble(ctx.world.social.zus.pensionPayments)),
     ColumnDef("ZusGovSubvention", ctx => td.toDouble(ctx.world.social.zus.govSubvention)),
-    ColumnDef("FusBalance", ctx => td.toDouble(ctx.world.social.zus.fusBalance)),
+    ColumnDef("FusBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.zusCash)),
     ColumnDef("NfzContributions", ctx => td.toDouble(ctx.world.social.nfz.contributions)),
     ColumnDef("NfzSpending", ctx => td.toDouble(ctx.world.social.nfz.spending)),
-    ColumnDef("NfzBalance", ctx => td.toDouble(ctx.world.social.nfz.balance)),
+    ColumnDef("NfzBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.nfzCash)),
     ColumnDef("NfzGovSubvention", ctx => td.toDouble(ctx.world.social.nfz.govSubvention)),
     ColumnDef("PpkContributions", ctx => td.toDouble(ctx.world.social.ppk.contributions)),
-    ColumnDef("PpkBondHoldings", ctx => td.toDouble(ctx.world.social.ppk.bondHoldings)),
+    ColumnDef("PpkBondHoldings", ctx => td.toDouble(ctx.ledgerFinancialState.funds.ppkGovBondHoldings)),
     ColumnDef("NRetirees", ctx => ctx.world.social.demographics.retirees.toDouble),
     ColumnDef("WorkingAgePop", ctx => ctx.world.social.demographics.workingAgePop.toDouble),
     ColumnDef("MonthlyRetirements", ctx => ctx.world.social.demographics.monthlyRetirements.toDouble),
     // Earmarked funds (FP, PFRON, FGŚP)
-    ColumnDef("FpBalance", ctx => td.toDouble(ctx.world.social.earmarked.fpBalance)),
+    ColumnDef("FpBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.fpCash)),
     ColumnDef("FpContributions", ctx => td.toDouble(ctx.world.social.earmarked.fpContributions)),
-    ColumnDef("PfronBalance", ctx => td.toDouble(ctx.world.social.earmarked.pfronBalance)),
-    ColumnDef("FgspBalance", ctx => td.toDouble(ctx.world.social.earmarked.fgspBalance)),
+    ColumnDef("PfronBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.pfronCash)),
+    ColumnDef("FgspBalance", ctx => td.toDouble(ctx.ledgerFinancialState.funds.fgspCash)),
     ColumnDef("FgspSpending", ctx => td.toDouble(ctx.world.social.earmarked.fgspSpending)),
     ColumnDef("EarmarkedGovSubvention", ctx => td.toDouble(ctx.world.social.earmarked.totalGovSubvention)),
     // Forward-Looking Expectations
@@ -649,10 +688,11 @@ object McTimeseriesSchema:
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
       householdAggregates: Household.Aggregates,
+      ledgerFinancialState: LedgerFinancialState,
   )(using p: SimParams): Array[Double] =
     val living     = firms.filter(Firm.isAlive)
     val aliveBanks = banks.filterNot(_.failed).toVector
-    val ctx        = Ctx(executionMonth, world, firms, households, banks, householdAggregates, living, living.length.toDouble, aliveBanks, p)
+    val ctx        = Ctx(executionMonth, world, firms, households, banks, householdAggregates, ledgerFinancialState, living, living.length.toDouble, aliveBanks, p)
     val result     = new Array[Double](schema.length)
     var i          = 0
     while i < schema.length do

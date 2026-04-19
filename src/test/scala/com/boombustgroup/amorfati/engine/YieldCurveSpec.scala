@@ -88,17 +88,17 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
   }
 
   // =========================================================================
-  // Banking.State integration
+  // Banking.MarketState integration
   // =========================================================================
 
-  "Banking.State" should "default to None for interbankCurve" in {
-    val bs = Banking.State(Vector.empty, Rate(0.05), Vector.empty, None)
+  "Banking.MarketState" should "default to None for interbankCurve" in {
+    val bs = Banking.MarketState(Rate(0.05), Vector.empty, None)
     bs.interbankCurve should be(None)
   }
 
   it should "store curve when provided" in {
     val curve = YieldCurve.compute(Rate(0.058))
-    val bs    = Banking.State(Vector.empty, Rate(0.058), Vector.empty, interbankCurve = Some(curve))
+    val bs    = Banking.MarketState(Rate(0.058), Vector.empty, interbankCurve = Some(curve))
     bs.interbankCurve should be(defined)
     td.toDouble(bs.interbankCurve.get.wibor3m) should be(0.058 + td.toDouble(YieldCurve.BasePremium3M) +- 1e-10)
   }

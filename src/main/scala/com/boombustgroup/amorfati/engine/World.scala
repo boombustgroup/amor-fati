@@ -16,13 +16,13 @@ case class World(
     priceLevel: PriceIndex,                                                           // cumulative CPI index (base = 1.0)
     currentSigmas: Vector[Sigma],                                                     // per-sector σ (Arthur increasing returns)
     gov: FiscalBudget.GovState,                                                       // government budget & debt
-    nbp: Nbp.State,                                                                   // central bank: rate, bonds, FX, QE
+    nbp: Nbp.State,                                                                   // central bank: rate, QE regime, monthly FX operations
     bankingSector: Banking.MarketState,                                               // banking macro state: interbank conditions, configs, term structure
     forex: OpenEconomy.ForexState,                                                    // EUR/PLN, exports, imports, trade balance
     bop: OpenEconomy.BopState = OpenEconomy.BopState.zero,                            // balance of payments: NFA, CA, KA, FDI
     householdMarket: HouseholdMarketState = HouseholdMarketState.zero,                // explicit household wage-market state used in hot paths
     social: SocialState,                                                              // JST, ZUS, PPK, demographics
-    financial: FinancialMarketsState,                                                 // equity, corporate bonds, insurance, TFI
+    financialMarkets: FinancialMarketsState,                                          // financial-market memory; ownership lives in LedgerFinancialState
     external: ExternalState,                                                          // GVC, immigration, tourism
     real: RealState,                                                                  // housing, mobility, investment, energy, automation
     mechanisms: MechanismsState,                                                      // macropru, expectations, BFG, informal economy
@@ -44,25 +44,16 @@ case class World(
 
   def cachedMonthlyGdpProxy: PLN = flows.monthlyGdpProxy
 
-  def updateSocial(f: SocialState => SocialState): World                        = copy(social = f(social))
-  def updateFinancial(f: FinancialMarketsState => FinancialMarketsState): World = copy(financial = f(financial))
-  def updateExternal(f: ExternalState => ExternalState): World                  = copy(external = f(external))
-  def updateReal(f: RealState => RealState): World                              = copy(real = f(real))
-  def updateMechanisms(f: MechanismsState => MechanismsState): World            = copy(mechanisms = f(mechanisms))
-  def updatePlumbing(f: MonetaryPlumbingState => MonetaryPlumbingState): World  = copy(plumbing = f(plumbing))
-  def updatePipeline(f: PipelineState => PipelineState): World                  = copy(pipeline = f(pipeline))
-  def updateFlows(f: FlowState => FlowState): World                             = copy(flows = f(flows))
-
 // ---------------------------------------------------------------------------
 // Nested state types
 // ---------------------------------------------------------------------------
 
 /** Social security system and local government state. */
 case class SocialState(
-    jst: Jst.State,                                 // local government (JST): budget, debt, deposits
+    jst: Jst.State,                                 // local government (JST): budget and debt; cash lives in LedgerFinancialState
     zus: SocialSecurity.ZusState,                   // ZUS: contributions, pensions, FUS balance
     nfz: SocialSecurity.NfzState,                   // NFZ: health insurance contributions, spending, balance
-    ppk: SocialSecurity.PpkState,                   // PPK: employee contributions, gov bond portfolio
+    ppk: SocialSecurity.PpkState,                   // PPK monthly contribution flow; holdings live in LedgerFinancialState
     demographics: SocialSecurity.DemographicsState, // working-age, retirees, monthly retirements
     earmarked: EarmarkedFunds.State,                // FP, PFRON, FGŚP
 )
@@ -75,113 +66,6 @@ object SocialState:
     demographics = SocialSecurity.DemographicsState.zero,
     earmarked = EarmarkedFunds.State.zero,
   )
-
-object World:
-  def apply(
-      inflation: Rate,
-      priceLevel: PriceIndex,
-      gdpProxy: Double,
-      currentSigmas: Vector[Sigma],
-      totalPopulation: Int,
-      gov: FiscalBudget.GovState,
-      nbp: Nbp.State,
-      bankingSector: Banking.MarketState,
-      forex: OpenEconomy.ForexState,
-      hhAgg: Household.Aggregates,
-      social: SocialState,
-      financial: FinancialMarketsState,
-      external: ExternalState,
-      real: RealState,
-      mechanisms: MechanismsState,
-      plumbing: MonetaryPlumbingState,
-      flows: FlowState,
-  ): World =
-    val compatDemographics =
-      if social.demographics == SocialSecurity.DemographicsState.zero && totalPopulation > 0
-      then social.demographics.copy(workingAgePop = totalPopulation)
-      else social.demographics
-    val compatFlows        =
-      if flows.monthlyGdpProxy == PLN.Zero && gdpProxy > 0.0 then flows.copy(monthlyGdpProxy = PLN(gdpProxy))
-      else flows
-    val compatPipeline     = PipelineState.bootstrap(
-      currentSigmas.length,
-      if totalPopulation > 0 then Share.One - Share.fraction(hhAgg.employed, totalPopulation) else Share.Zero,
-      inflation,
-      mechanisms.expectations.expectedInflation,
-    )
-    new World(
-      inflation = inflation,
-      priceLevel = priceLevel,
-      currentSigmas = currentSigmas,
-      gov = gov,
-      nbp = nbp,
-      bankingSector = bankingSector,
-      forex = forex,
-      bop = OpenEconomy.BopState.zero,
-      householdMarket = HouseholdMarketState.fromAggregates(hhAgg),
-      social = social.copy(demographics = compatDemographics),
-      financial = financial,
-      external = external,
-      real = real,
-      mechanisms = mechanisms,
-      plumbing = plumbing,
-      pipeline = compatPipeline,
-      flows = compatFlows,
-      regionalWages = Map.empty,
-    )
-
-  def apply(
-      inflation: Rate,
-      priceLevel: Double,
-      gdpProxy: Double,
-      currentSigmas: Vector[Sigma],
-      totalPopulation: Int,
-      gov: FiscalBudget.GovState,
-      nbp: Nbp.State,
-      bankingSector: Banking.MarketState,
-      forex: OpenEconomy.ForexState,
-      hhAgg: Household.Aggregates,
-      social: SocialState,
-      financial: FinancialMarketsState,
-      external: ExternalState,
-      real: RealState,
-      mechanisms: MechanismsState,
-      plumbing: MonetaryPlumbingState,
-      flows: FlowState,
-  ): World =
-    val compatDemographics =
-      if social.demographics == SocialSecurity.DemographicsState.zero && totalPopulation > 0
-      then social.demographics.copy(workingAgePop = totalPopulation)
-      else social.demographics
-    val compatFlows        =
-      if flows.monthlyGdpProxy == PLN.Zero && gdpProxy > 0.0 then flows.copy(monthlyGdpProxy = PLN(gdpProxy))
-      else flows
-    val compatPipeline     = PipelineState.bootstrap(
-      currentSigmas.length,
-      if totalPopulation > 0 then Share.One - Share.fraction(hhAgg.employed, totalPopulation) else Share.Zero,
-      inflation,
-      mechanisms.expectations.expectedInflation,
-    )
-    new World(
-      inflation = inflation,
-      priceLevel = PriceIndex(priceLevel),
-      currentSigmas = currentSigmas,
-      gov = gov,
-      nbp = nbp,
-      bankingSector = bankingSector,
-      forex = forex,
-      bop = OpenEconomy.BopState.zero,
-      householdMarket = HouseholdMarketState.fromAggregates(hhAgg),
-      social = social.copy(demographics = compatDemographics),
-      financial = financial,
-      external = external,
-      real = real,
-      mechanisms = mechanisms,
-      plumbing = plumbing,
-      pipeline = compatPipeline,
-      flows = compatFlows,
-      regionalWages = Map.empty,
-    )
 
 /** Explicit household labor-market state carried outside aggregate caches. */
 case class HouseholdMarketState(
@@ -197,13 +81,18 @@ object HouseholdMarketState:
       reservationWage = agg.reservationWage,
     )
 
-/** Non-bank financial sector state. */
+/** Financial-market memory carried by `World`.
+  *
+  * This is deliberately not the ownership ledger. Keep market prices,
+  * last-month diagnostics, and unsupported transition fields here; keep
+  * ledger-contracted financial stocks in `LedgerFinancialState`.
+  */
 case class FinancialMarketsState(
-    equity: EquityMarket.State,                // GPW: index, market cap, returns, dividends
-    corporateBonds: CorporateBondMarket.State, // Catalyst: outstanding, YTM, spread, holdings
-    insurance: Insurance.State,                // life/non-life reserves, three-asset allocation
-    nbfi: Nbfi.State,                          // TFI: AUM, NBFI credit, deposit drain
-    quasiFiscal: QuasiFiscal.State,            // BGK/PFR: off-balance-sheet bonds, subsidized lending
+    equity: EquityMarket.State,                // GPW market prices, returns, issuance, dividends
+    corporateBonds: CorporateBondMarket.State, // Catalyst pricing and last-month diagnostics
+    insurance: Insurance.State,                // monthly premium, claims, investment-income diagnostics
+    nbfi: Nbfi.State,                          // monthly TFI/NBFI origination, defaults, deposit-drain diagnostics
+    quasiFiscal: QuasiFiscal.State,            // quasi-fiscal monthly issuance/lending diagnostics
 )
 object FinancialMarketsState:
   val zero: FinancialMarketsState = FinancialMarketsState(

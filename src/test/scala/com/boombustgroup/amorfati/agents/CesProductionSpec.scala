@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
@@ -70,7 +72,7 @@ class CesProductionSpec extends AnyFlatSpec with Matchers:
       sector: Int = 0,
       capitalStock: PLN = PLN(1_200_000.0),
   ): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       PLN(50000.0),
       PLN.Zero,
@@ -84,7 +86,6 @@ class CesProductionSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = capitalStock,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,

@@ -38,11 +38,13 @@ object IntermediateMarket:
     )
 
   /** @param firms
-    *   firms with cash adjusted for intermediate purchases/sales (zero-sum)
+    *   operational firm state, unchanged by financial cash settlement
     * @param totalPaid
     *   aggregate intermediate input costs across all living firms
+    * @param cashAdjustments
+    *   per-firm cash deltas from intermediate purchases/sales
     */
-  case class Result(firms: Vector[Firm.State], totalPaid: PLN)
+  case class Result(firms: Vector[Firm.State], totalPaid: PLN, cashAdjustments: Vector[PLN])
 
   def process(in: Input)(using SimParams): Result =
     val nSectors = in.ioMatrix.size
@@ -100,10 +102,4 @@ object IntermediateMarket:
     val totalAdj = cashAdj.sum
     if totalAdj.abs > PLN.fromLong(1) then System.err.println("[IO] WARNING: non-zero-sum cash adjustment exceeded 1 PLN tolerance")
 
-    // Apply cash adjustments
-    val newFirms = arr.clone()
-    for idx <- living do
-      val f = newFirms(idx)
-      newFirms(idx) = f.copy(cash = f.cash + cashAdj(idx))
-
-    Result(newFirms.toVector, sectorCosts.foldLeft(PLN.Zero)(_ + _))
+    Result(in.firms, sectorCosts.foldLeft(PLN.Zero)(_ + _), cashAdj.toVector)

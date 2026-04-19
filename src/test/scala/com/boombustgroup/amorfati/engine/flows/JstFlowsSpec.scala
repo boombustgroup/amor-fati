@@ -22,6 +22,7 @@ class JstFlowsSpec extends AnyFlatSpec with Matchers:
 
     val oldJst = com.boombustgroup.amorfati.agents.Jst.step(
       com.boombustgroup.amorfati.agents.Jst.State.zero,
+      PLN.Zero,
       centralCitRevenue,
       wageIncome,
       gdp,

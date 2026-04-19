@@ -4,7 +4,8 @@ import com.boombustgroup.amorfati.agents.StateOwned
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 
-/** GPW equity market: WIG index, market cap, dividends, foreign ownership.
+/** GPW equity market: WIG index, market cap, dividends, foreign-ownership
+  * share.
   *
   * Index tracks fundamental value via Gordon growth model (Gordon 1959): P = D
   * / (r - g), where D = dividend yield × index, r = refRate + equity risk
@@ -13,7 +14,7 @@ import com.boombustgroup.amorfati.types.*
   *
   * Issuance (IPO/SPO) increases market cap with proportional index dilution.
   * Dividends split between domestic (subject to Belka 19% PIT) and foreign
-  * holders. Foreign ownership mean-reverts to calibrated share.
+  * holders. Foreign-ownership share mean-reverts to calibrated share.
   *
   * Calibration: GPW market data 2024, NBP BoP statistics.
   */
@@ -32,8 +33,10 @@ object EquityMarket:
   private val DivYieldSmoothing      = Share(0.10)       // weight on implied div yield (1-α on prev)
   private val ForeignReversionSpeed  = Share(0.01)       // monthly mean-reversion speed
 
-  /** GPW equity market state: aggregate index, market cap, yields, foreign
-    * ownership.
+  /** GPW equity market state: aggregate index, valuation/yield memory, dividend
+    * diagnostics, and the calibrated foreign share used for BoP dividend
+    * splitting. Supported domestic equity owner balances live in
+    * LedgerFinancialState; this share is not a holder-resolved stock.
     */
   case class State(
       index: PriceIndex,
@@ -45,7 +48,6 @@ object EquityMarket:
       lastDomesticDividends: PLN = PLN.Zero,
       lastForeignDividends: PLN = PLN.Zero,
       lastDividendTax: PLN = PLN.Zero,
-      hhEquityWealth: PLN = PLN.Zero,
       lastWealthEffect: PLN = PLN.Zero,
       monthlyReturn: Rate = Rate.Zero,
   )

@@ -49,7 +49,6 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   "SocialSecurity.ZusState.zero" should "have all zero fields" in {
-    SocialSecurity.ZusState.zero.fusBalance shouldBe PLN.Zero
     SocialSecurity.ZusState.zero.contributions shouldBe PLN.Zero
     SocialSecurity.ZusState.zero.pensionPayments shouldBe PLN.Zero
     SocialSecurity.ZusState.zero.govSubvention shouldBe PLN.Zero
@@ -60,14 +59,13 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "SocialSecurity.ppkBondPurchase" should "be contributions × bondAlloc" in {
-    val ppk      = SocialSecurity.PpkState(bondHoldings = PLN.Zero, contributions = PLN(1e6))
+    val ppk      = SocialSecurity.PpkState(contributions = PLN(1e6))
     // Default bondAlloc = 0.60
     val purchase = SocialSecurity.ppkBondPurchase(ppk)
     td.toDouble(purchase) shouldBe (1e6 * 0.60 +- 0.01)
   }
 
-  "SocialSecurity.PpkState.zero" should "have all zero fields" in {
-    SocialSecurity.PpkState.zero.bondHoldings shouldBe PLN.Zero
+  "SocialSecurity.PpkState.zero" should "have zero contributions" in {
     SocialSecurity.PpkState.zero.contributions shouldBe PLN.Zero
   }
 
@@ -85,9 +83,11 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // BGK (stub)
   // =========================================================================
 
-  "QuasiFiscal.State.zero" should "have zero outstanding and loans" in {
-    QuasiFiscal.State.zero.bondsOutstanding shouldBe PLN.Zero
-    QuasiFiscal.State.zero.loanPortfolio shouldBe PLN.Zero
+  "QuasiFiscal.StockState.zero" should "have zero outstanding and loans" in {
+    QuasiFiscal.StockState.zero.bondsOutstanding shouldBe PLN.Zero
+    QuasiFiscal.StockState.zero.loanPortfolio shouldBe PLN.Zero
+    QuasiFiscal.StockState.zero.bankHoldings shouldBe PLN.Zero
+    QuasiFiscal.StockState.zero.nbpHoldings shouldBe PLN.Zero
   }
 
   // =========================================================================

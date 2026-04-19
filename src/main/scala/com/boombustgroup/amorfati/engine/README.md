@@ -1,16 +1,19 @@
 # Simulation Engine
 
-The engine package orchestrates the monthly simulation loop. It owns the
-`World` state and delegates domain logic to four subpackages: **economics**
-(9-stage computation pipeline), **flows** (SFC-verified monetary flow
-emission via ledger), **markets** (clearing mechanisms), and **mechanisms**
-(policy / regulatory rules).
+The engine package orchestrates the monthly simulation loop. The month
+boundary is `FlowSimulation.SimState`, which carries `World` macro state,
+agent populations, household aggregates, and `LedgerFinancialState`.
+Domain logic is split across **economics** (9-stage computation pipeline),
+**flows** (SFC-verified monetary flow emission via ledger), **ledger**
+(financial ownership contracts and projections), **markets** (clearing
+mechanisms), and **mechanisms** (policy / regulatory rules).
 
 ```
 engine/
-├── World.scala             # Immutable global state container (7 nested types)
+├── World.scala             # Immutable macro/runtime state container (9 nested types)
 ├── economics/              # 9-stage computation pipeline (calculus, no flows)
 ├── flows/                  # SFC flow emission via verified ledger
+├── ledger/                 # Ledger-owned financial state, ownership contracts, projections
 ├── markets/                # Market clearing & price formation
 └── mechanisms/             # Policy rules & regulatory instruments
 ```
@@ -19,7 +22,9 @@ engine/
 
 | File | Responsibility |
 |------|----------------|
-| `World.scala` | Case class holding all macro state, decomposed into 7 nested types: `SocialState`, `FinancialMarketsState`, `ExternalState`, `RealState`, `MechanismsState`, `MonetaryPlumbingState`, `FlowState`. |
+| `World.scala` | Case class holding macro/runtime state, decomposed into 9 nested types: `SocialState`, `HouseholdMarketState`, `FinancialMarketsState`, `ExternalState`, `RealState`, `MechanismsState`, `MonetaryPlumbingState`, `PipelineState`, `FlowState`. Financial ownership lives in `LedgerFinancialState`, not `World`. |
+| `ledger/LedgerFinancialState.scala` | Runtime source of truth for supported financial balances; exposes projection DTOs for agent/economics execution. |
+| `ledger/AssetOwnershipContract.scala` | Audit contract for supported persisted owner/asset pairs, unsupported stock-like families, and non-persisted runtime shells. |
 | `MonthSemantics.scala` | Tiny typed phase markers for the internal month step: pre-seed, same-month operational state, post-assembly state, and next pre-seed extraction. |
 | `MonthRandomness.scala` | Explicit month-step randomness contract: one root seed split into named stage and assembly streams for deterministic replay and auditability. |
 | `MonthDriver.scala` | Shared month-by-month unfold driver over the explicit `FlowSimulation.step` boundary. |
@@ -75,7 +80,7 @@ without emitting monetary flows. `FlowSimulation` wires them together.
 | `DemandEconomics.scala` | s4 | Sector demand allocation: HH consumption, government purchases, investment, exports; capacity constraints and spillover                       |
 | `FirmEconomics.scala` | s5 | Production, I-O intermediate market, CAPEX, financing splits (equity/bonds/loans), labor matching, NPL detection                              |
 | `HouseholdFinancialEconomics.scala` | s6 | Mortgage debt service, deposit interest, diaspora remittances, tourism, consumer credit aggregation                                           |
-| `PriceEquityEconomics.scala` | s7 | Inflation, GPW equity, sigma dynamics, network rewiring, GDP, macroprudential, EU funds                                                       |
+| `PriceEquityEconomics.scala` | s7 | Inflation, GPW equity, sigma dynamics, GDP, macroprudential, EU funds                                                                        |
 | `OpenEconEconomics.scala` | s8 | BoP/forex, GVC trade, Taylor rule, bond yields, interbank, corporate bonds, insurance, NBFI                                                   |
 | `BankingEconomics.scala` | s9 | Bank P&L, provisioning, CAR, multi-bank resolution, bail-in, interbank, BFG levy, monetary aggregates (M1/M2/M3)                              |
 | `WorldAssemblyEconomics.scala` | final | Aggregation, informal economy, observables; assembles final World state + updated agents, 13-identity SFC check                                |
@@ -90,7 +95,6 @@ against 13 accounting identities each month.
 |------|----------------|
 | `FlowSimulation.scala` | Sole pipeline entry point for one month. `step(state, randomness)` is the explicit month boundary: it computes narrow same-month groups for flow emission, signal timing, post-month assembly, and SFC projection, assembles `MonthOutcome`, records monetary flows, emits `MonthTrace`, and returns typed `nextState` for month `t+1`. |
 | `FlowMechanism.scala` | Enum of ~80 named flow mechanisms (e.g. `FirmWages`, `HhConsumption`, `BankBfgLevy`). Each flow in the system maps to exactly one mechanism. |
-| `StateAdapter.scala` | Legacy bridge from economics/world state into specific flow inputs. Kept only as transitional adapter code around the newer pipeline. |
 | `ZusFlows.scala` | ZUS/FUS pensions: contributions (HH → FUS), pensions (FUS → HH), gov subvention covering deficit |
 | `NfzFlows.scala` | NFZ (National Health Fund): 9% składka zdrowotna, healthcare spending, gov subvention |
 | `PpkFlows.scala` | PPK (Pracownicze Plany Kapitałowe): employee + employer contributions, bond purchases |
@@ -119,7 +123,7 @@ equilibrium prices, quantities, or flows given current state.
 | `OpenEconomy.scala` | BoP, floating exchange rate, trade balance, capital account, NFA |
 | `FiscalBudget.scala` | Government budget: revenue (CIT/VAT/excise/customs), spending, deficit, bond issuance |
 | `FiscalRules.scala` | Polish fiscal rules: SRW (stabilizing expenditure rule), SGP 3% deficit, Art. 216 debt brake, consolidation 55% |
-| `EquityMarket.scala` | GPW: WIG index, market cap, dividend yield, foreign ownership, issuance |
+| `EquityMarket.scala` | GPW: WIG index, market cap, dividend yield, foreign-ownership share, issuance |
 | `HousingMarket.scala` | House price index (aggregate + 7 regions), mortgage origination/default/amortization |
 | `CorporateBondMarket.scala` | Catalyst: corporate bond issuance, coupon, default, demand-side absorption |
 | `BondAuction.scala` | SPW primary market: foreign demand f(yield spread vs Bund, ER), absorption constraint |
@@ -159,7 +163,7 @@ don't clear markets themselves.
 **Adding a new flow:**
 1. Add a case to the `FlowMechanism` enum in `FlowMechanism.scala`.
 2. Create or extend the appropriate `*Flows.scala` to emit the flow.
-3. Wire the emission call in `FlowSimulation.emitAllFlows()`.
+3. Wire the batch emission call in `FlowSimulation.emitAllBatches(...)` or the relevant aggregation point.
 4. Update the SFC validation projection so the 13-identity check covers the new flow.
 
 **SFC rule:** Any flow that modifies bank capital, deposits, government

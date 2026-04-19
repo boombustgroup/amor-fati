@@ -1,5 +1,9 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
+import com.boombustgroup.amorfati.TestFirmState
+
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
@@ -64,7 +68,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   "sectorVacancies" should "return array of length 6" in {
     val firms = Vector(
-      Firm.State(
+      TestFirmState(
         FirmId(0),
         PLN(50000.0),
         PLN.Zero,
@@ -78,7 +82,6 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
         equityRaised = PLN.Zero,
         initialSize = 10,
         capitalStock = PLN.Zero,
-        bondDebt = PLN.Zero,
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
@@ -95,7 +98,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   "sectorWages" should "return non-negative values" in {
     val hhs   = (0 until 10)
       .map(i =>
-        Household.State(
+        TestHouseholdState(
           HhId(i),
           PLN(20000.0),
           PLN.Zero,

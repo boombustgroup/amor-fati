@@ -28,7 +28,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
 
   "LaborEconomics.compute" should "produce positive wage" in {
     val result = LaborEconomics.compute(world, firms, households, s1)
-    ComputationBoundary.toDouble(result.wage) should be > 0.0
+    ComputationBoundary.toDouble(result.newWage) should be > 0.0
   }
 
   it should "produce positive employment" in {
@@ -38,7 +38,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
 
   it should "produce demographics with positive working-age pop" in {
     val result = LaborEconomics.compute(world, firms, households, s1)
-    result.demographics.workingAgePop should be > 0
+    result.newDemographics.workingAgePop should be > 0
   }
 
   it should "produce consistent wage growth" in {
@@ -56,24 +56,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "reconcile post-firm labor demand and realized employment from post-step state" in {
-    val pre   = LaborEconomics.compute(world, firms, households, s1)
-    val s2Pre = LaborEconomics.Output(
-      pre.wage,
-      pre.employed,
-      pre.laborDemand,
-      pre.wageGrowth,
-      pre.operationalHiringSlack,
-      pre.immigration,
-      pre.netMigration,
-      pre.demographics,
-      SocialSecurity.ZusState.zero,
-      SocialSecurity.NfzState.zero,
-      SocialSecurity.PpkState.zero,
-      PLN.Zero,
-      EarmarkedFunds.State.zero,
-      pre.living,
-      pre.regionalWages,
-    )
+    val s2Pre = LaborEconomics.compute(world, firms, households, s1)
 
     val postLiving = firms.take(10).filter(Firm.isAlive)
     val postHh     = households.map(_.copy(status = HhStatus.Unemployed(0)))

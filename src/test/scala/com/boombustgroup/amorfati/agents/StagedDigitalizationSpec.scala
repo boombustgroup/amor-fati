@@ -1,12 +1,14 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
+import com.boombustgroup.amorfati.engine.markets.OpenEconomy
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 
@@ -20,7 +22,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   // ---- Helpers ----
 
   private def mkFirm(tech: TechState, sector: Int = 2, cash: Double = 500000.0, dr: Double = 0.5): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(0),
       PLN(cash),
       PLN.Zero,
@@ -34,72 +36,45 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = p.capital.klRatios(sector) * Multiplier(10.0), // exact match for workers=10
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
 
+  private def mkStocks(cash: Double = 500000.0, debt: PLN = PLN.Zero, equity: PLN = PLN.Zero): Firm.FinancialStocks =
+    TestFirmState.financial(cash = PLN(cash), debt = debt, equityRaised = equity)
+
   private def mkWorld(autoRatio: Double = 0.0, hybridRatio: Double = 0.0): World =
-    World(
-      inflation = Rate(0.02),
-      priceLevel = 1.0,
-      gdpProxy = 1e9,
-      currentSigmas = p.sectorDefs.map(_.sigma).toVector,
+    Generators.testWorld(
       totalPopulation = 100000,
-      gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-      bankingSector = Generators.testBankingSector().marketState,
+      employed = 100000,
       forex = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
-      hhAgg = Household.Aggregates(
-        employed = 100000,
-        unemployed = 0,
-        retraining = 0,
-        bankrupt = 0,
-        totalIncome = PLN.Zero,
-        consumption = PLN.Zero,
-        domesticConsumption = PLN.Zero,
-        importConsumption = PLN.Zero,
-        marketWage = PLN(td.toDouble(p.household.baseWage)),
-        reservationWage = PLN(td.toDouble(p.household.baseReservationWage)),
-        giniIndividual = Share.Zero,
-        giniWealth = Share.Zero,
-        meanSavings = PLN.Zero,
-        medianSavings = PLN.Zero,
-        povertyRate50 = Share.Zero,
-        bankruptcyRate = Share.Zero,
-        meanSkill = Share.Zero,
-        meanHealthPenalty = Share.Zero,
-        retrainingAttempts = 0,
-        retrainingSuccesses = 0,
-        consumptionP10 = PLN.Zero,
-        consumptionP50 = PLN.Zero,
-        consumptionP90 = PLN.Zero,
-        meanMonthsToRuin = Scalar.Zero,
-        povertyRate30 = Share.Zero,
-        totalRent = PLN.Zero,
-        totalDebtService = PLN.Zero,
-        totalUnempBenefits = PLN.Zero,
-        totalDepositInterest = PLN.Zero,
-        crossSectorHires = 0,
-        voluntaryQuits = 0,
-        sectorMobilityRate = Share.Zero,
-        totalRemittances = PLN.Zero,
-        totalPit = PLN.Zero,
-        totalSocialTransfers = PLN.Zero,
-        totalConsumerDebtService = PLN.Zero,
-        totalConsumerOrigination = PLN.Zero,
-        totalConsumerDefault = PLN.Zero,
-        totalConsumerPrincipal = PLN.Zero,
-      ),
-      social = SocialState.zero,
-      financial = FinancialMarketsState.zero,
-      external = ExternalState.zero,
+      marketWage = PLN(td.toDouble(p.household.baseWage)),
+      reservationWage = PLN(td.toDouble(p.household.baseReservationWage)),
       real = RealState.zero.copy(automationRatio = Share(autoRatio), hybridRatio = Share(hybridRatio)),
-      mechanisms = MechanismsState.zero,
-      plumbing = MonetaryPlumbingState.zero,
-      flows = FlowState.zero,
+    )
+
+  private def process(
+      firm: Firm.State,
+      world: World,
+      lendRate: Rate,
+      bankCanLend: PLN => Boolean,
+      allFirms: Vector[Firm.State],
+      rng: RandomStream,
+      financialStocks: Firm.FinancialStocks = mkStocks(),
+  ): Firm.Result =
+    Firm.process(
+      firm,
+      financialStocks,
+      world,
+      ExecutionMonth31,
+      OperationalSignals.fromDecisionSignals(world.seedIn, world.pipeline.operationalHiringSlack),
+      lendRate,
+      bankCanLend,
+      allFirms,
+      rng,
+      PLN.Zero,
     )
 
   // ---- Config defaults (3 tests) ----
@@ -144,7 +119,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "applyDigitalDrift" should "increase DR for alive firms" in {
     val f      = mkFirm(TechState.Traditional(10), dr = 0.40)
     val w      = mkWorld()
-    val result = Firm.process(f, w, ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     // DR should be at least initial + drift (could also get digital investment boost)
     td.toDouble(result.firm.digitalReadiness) should be >= (0.40 + td.toDouble(p.firm.digiDrift) - 0.001)
   }
@@ -152,14 +127,14 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   it should "cap digitalReadiness at 1.0" in {
     val f      = mkFirm(TechState.Traditional(10), dr = 0.999)
     val w      = mkWorld()
-    val result = Firm.process(f, w, ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     td.toDouble(result.firm.digitalReadiness) should be <= 1.0
   }
 
   it should "not change DR for bankrupt firms" in {
     val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")), dr = 0.50)
     val w      = mkWorld()
-    val result = Firm.process(f, w, ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     td.toDouble(result.firm.digitalReadiness) shouldBe 0.50
   }
 
@@ -174,7 +149,11 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     // concurrently. Run enough rounds for DR to increase above drift baseline.
     val rng        = RandomStream.seeded(42)
     var f1         = f
-    for _ <- 0 until 200 do f1 = Firm.process(f1, w, ExecutionMonth31, Rate(0.07), _ => false, Vector(f1), rng).firm
+    var stocks     = mkStocks(cash = 1e9)
+    for _ <- 0 until 200 do
+      val result = process(f1, w, Rate(0.07), _ => false, Vector(f1), rng, stocks)
+      f1 = result.firm
+      stocks = result.financialStocks
     assume(Firm.isAlive(f1), "firm must survive processing")
     // DR should have increased from digital investment (beyond just drift)
     val drIncrease = td.toDouble(f1.digitalReadiness) - td.toDouble(f.digitalReadiness)
@@ -189,7 +168,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     val rng      = RandomStream.seeded(42L)
     // Over many trials, no investment should happen (only drift)
     for _ <- 0 until 100 do
-      val result = Firm.process(f, w, ExecutionMonth31, Rate(0.07), _ => false, Vector(f), rng)
+      val result = process(f, w, Rate(0.07), _ => false, Vector(f), rng, mkStocks(cash = digiCost * 0.5))
       // DR should be at most initial + drift (no investment boost)
       // But net income is added to cash, so firm may become solvent enough
       // Just verify no investment boost beyond drift
@@ -225,7 +204,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "Hybrid firm" should "gain at least 0.005 + drift in DR per month" in {
     val f      = mkFirm(TechState.Hybrid(5, Multiplier(1.1)), dr = 0.40)
     val w      = mkWorld()
-    val result = Firm.process(f, w, ExecutionMonth31, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate(0.07), _ => true, Vector(f), RandomStream.seeded(42))
     if Firm.isAlive(result.firm) then
       // Hybrid learning (+0.005) + natural drift (+0.001)
       td.toDouble(result.firm.digitalReadiness) should be >= (0.40 + 0.005 + td.toDouble(p.firm.digiDrift) - 0.001)
@@ -236,11 +215,14 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "Traditional firms" should "accumulate DR over multiple months via drift" in {
     val initDR = 0.30
     var f      = mkFirm(TechState.Traditional(10), cash = 1000000.0, dr = initDR)
+    var stocks = mkStocks(cash = 1000000.0)
     val w      = mkWorld()
     val rng    = RandomStream.seeded(42L)
     // Simulate 10 months — at minimum, drift alone adds 10 × 0.001 = 0.01
     for _ <- 0 until 10 do
-      val result = Firm.process(f, w, ExecutionMonth31, Rate(0.07), _ => false, Vector(f), rng)
-      if Firm.isAlive(result.firm) then f = result.firm.copy(cash = PLN(1000000.0)) // reset cash for next round
+      val result = process(f, w, Rate(0.07), _ => false, Vector(f), rng, financialStocks = stocks)
+      if Firm.isAlive(result.firm) then
+        f = result.firm
+        stocks = result.financialStocks.copy(cash = PLN(1000000.0)) // reset cash for next round
     td.toDouble(f.digitalReadiness) should be >= (initDR + 10 * td.toDouble(p.firm.digiDrift) - 0.001)
   }

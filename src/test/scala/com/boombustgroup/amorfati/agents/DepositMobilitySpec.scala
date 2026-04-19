@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.types.*
@@ -12,34 +14,43 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private def mkBank(id: Int, car: Double, failed: Boolean = false): Banking.BankState =
+  private def mkBankRow(id: Int, car: Double, failed: Boolean = false): (Banking.BankState, Banking.BankFinancialStocks) =
     // Set capital and loans to achieve desired CAR
     val loans = 10e9
     val cap   = car * loans // CAR = capital / RWA ≈ capital / loans
-    Banking.BankState(
-      id = BankId(id),
-      deposits = PLN(10e9),
-      loans = PLN(loans),
-      capital = PLN(cap),
-      nplAmount = PLN.Zero,
-      afsBonds = PLN(1e9),
-      htmBonds = PLN(1e9),
-      htmBookYield = Rate(0.05),
-      reservesAtNbp = PLN.Zero,
-      interbankNet = PLN.Zero,
-      status = if failed then Banking.BankStatus.Failed(ExecutionMonth.First) else Banking.BankStatus.Active(0),
-      demandDeposits = PLN(6e9),
-      termDeposits = PLN(4e9),
-      loansShort = PLN(3e9),
-      loansMedium = PLN(4e9),
-      loansLong = PLN(3e9),
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
+    (
+      Banking.BankState(
+        id = BankId(id),
+        capital = PLN(cap),
+        nplAmount = PLN.Zero,
+        htmBookYield = Rate(0.05),
+        status = if failed then Banking.BankStatus.Failed(ExecutionMonth.First) else Banking.BankStatus.Active(0),
+        loansShort = PLN(3e9),
+        loansMedium = PLN(4e9),
+        loansLong = PLN(3e9),
+        consumerNpl = PLN.Zero,
+      ),
+      Banking.BankFinancialStocks(
+        totalDeposits = PLN(10e9),
+        firmLoan = PLN(loans),
+        govBondAfs = PLN(1e9),
+        govBondHtm = PLN(1e9),
+        reserve = PLN.Zero,
+        interbankLoan = PLN.Zero,
+        demandDeposit = PLN(6e9),
+        termDeposit = PLN(4e9),
+        consumerLoan = PLN.Zero,
+      ),
     )
 
+  private def banks(rows: Vector[(Banking.BankState, Banking.BankFinancialStocks)]): Vector[Banking.BankState] =
+    rows.map(_._1)
+
+  private def stocks(rows: Vector[(Banking.BankState, Banking.BankFinancialStocks)]): Vector[Banking.BankFinancialStocks] =
+    rows.map(_._2)
+
   private def mkHh(bankId: Int, savings: Double = 50000.0): Household.State =
-    Household.State(
+    TestHouseholdState(
       id = HhId(0),
       savings = PLN(savings),
       debt = PLN.Zero,
@@ -61,41 +72,41 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     )
 
   "DepositMobility" should "not move deposits when all banks are healthy" in {
-    val banks  = Vector(mkBank(0, 0.15), mkBank(1, 0.14))
+    val rows   = Vector(mkBankRow(0, 0.15), mkBankRow(1, 0.14))
     val hhs    = Vector(mkHh(0), mkHh(1))
-    val result = DepositMobility(hhs, banks, anyBankFailed = false, RandomStream.seeded(42))
+    val result = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = false, RandomStream.seeded(42))
     result.households.map(_.bankId) shouldBe hhs.map(_.bankId)
   }
 
   it should "trigger flight from weak bank (low CAR)" in {
-    val banks    = Vector(mkBank(0, 0.04), mkBank(1, 0.15)) // bank 0 below threshold
+    val rows     = Vector(mkBankRow(0, 0.04), mkBankRow(1, 0.15)) // bank 0 below threshold
     val hhs      = (0 until 100).map(_ => mkHh(0)).toVector
-    val result   = DepositMobility(hhs, banks, anyBankFailed = false, RandomStream.seeded(42))
+    val result   = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = false, RandomStream.seeded(42))
     val switched = result.households.count(_.bankId == BankId(1))
     switched should be > 0
   }
 
   it should "trigger panic switching when a bank fails" in {
     // HH at bank 2, bank 1 fails, healthiest is bank 0 → some HH panic-switch to bank 0
-    val banks    = Vector(mkBank(0, 0.15), mkBank(1, 0.15, failed = true), mkBank(2, 0.12))
+    val rows     = Vector(mkBankRow(0, 0.15), mkBankRow(1, 0.15, failed = true), mkBankRow(2, 0.12))
     val hhs      = (0 until 100).map(_ => mkHh(2)).toVector
-    val result   = DepositMobility(hhs, banks, anyBankFailed = true, RandomStream.seeded(42))
+    val result   = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = true, RandomStream.seeded(42))
     val switched = result.households.count(_.bankId == BankId(0))
     // With panicRate = 3%, expect ~3 of 100 to switch
     switched should be > 0
   }
 
   it should "preserve total number of households" in {
-    val banks  = Vector(mkBank(0, 0.04), mkBank(1, 0.15))
+    val rows   = Vector(mkBankRow(0, 0.04), mkBankRow(1, 0.15))
     val hhs    = (0 until 50).map(i => mkHh(i % 2)).toVector
-    val result = DepositMobility(hhs, banks, anyBankFailed = true, RandomStream.seeded(42))
+    val result = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = true, RandomStream.seeded(42))
     result.households.length shouldBe hhs.length
   }
 
   it should "move deposits toward healthiest bank" in {
-    val banks   = Vector(mkBank(0, 0.04), mkBank(1, 0.20), mkBank(2, 0.12))
+    val rows    = Vector(mkBankRow(0, 0.04), mkBankRow(1, 0.20), mkBankRow(2, 0.12))
     val hhs     = (0 until 100).map(_ => mkHh(0)).toVector
-    val result  = DepositMobility(hhs, banks, anyBankFailed = false, RandomStream.seeded(42))
+    val result  = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = false, RandomStream.seeded(42))
     // Bank 1 is healthiest (CAR 20%) — switchers should go there
     val atBank1 = result.households.count(_.bankId == BankId(1))
     val atBank2 = result.households.count(_.bankId == BankId(2))
@@ -103,9 +114,9 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be deterministic with same seed" in {
-    val banks = Vector(mkBank(0, 0.04), mkBank(1, 0.15))
-    val hhs   = (0 until 100).map(_ => mkHh(0)).toVector
-    val r1    = DepositMobility(hhs, banks, anyBankFailed = true, RandomStream.seeded(42))
-    val r2    = DepositMobility(hhs, banks, anyBankFailed = true, RandomStream.seeded(42))
+    val rows = Vector(mkBankRow(0, 0.04), mkBankRow(1, 0.15))
+    val hhs  = (0 until 100).map(_ => mkHh(0)).toVector
+    val r1   = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = true, RandomStream.seeded(42))
+    val r2   = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = true, RandomStream.seeded(42))
     r1.households.map(_.bankId) shouldBe r2.households.map(_.bankId)
   }

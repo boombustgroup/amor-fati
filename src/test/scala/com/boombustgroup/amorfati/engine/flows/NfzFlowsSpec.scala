@@ -40,7 +40,7 @@ class NfzFlowsSpec extends AnyFlatSpec with Matchers:
   it should "match old SocialSecurity.nfzStep amounts exactly" in {
     val employed = 80000; val wage = PLN(7000.0); val workingAge = 90000; val nRetirees = 1000
 
-    val oldNfz = com.boombustgroup.amorfati.agents.SocialSecurity.nfzStep(PLN.Zero, employed, wage, workingAge, nRetirees)
+    val oldNfz = com.boombustgroup.amorfati.agents.SocialSecurity.nfzStep(employed, wage, workingAge, nRetirees)
     val flows  = NfzFlows.emit(NfzFlows.NfzInput(employed, wage, workingAge, nRetirees))
 
     val newContribs   = flows.filter(_.mechanism == FlowMechanism.NfzContribution.toInt).map(_.amount).sum

@@ -1,9 +1,10 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import com.boombustgroup.amorfati.Generators
 import org.scalatest.matchers.should.Matchers
-import com.boombustgroup.amorfati.engine.markets.{FiscalBudget, OpenEconomy}
 import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.mechanisms.FirmEntry
@@ -24,9 +25,11 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       inflation: Rate = Rate.Zero,
       expectedInflation: Rate = Rate.Zero,
       startupAbsorptionRate: Share = Share.One,
+      financialStocks: Vector[Firm.FinancialStocks] = Vector.empty,
   ): FirmEntry.Result =
     FirmEntry.process(
       firms,
+      if financialStocks.nonEmpty then financialStocks else defaultFinancialStocks(firms),
       Share.Zero,
       Share.Zero,
       FirmEntry.LaggedEntrySignals(
@@ -38,6 +41,9 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       ),
       rng,
     )
+
+  private def defaultFinancialStocks(firms: Vector[Firm.State]): Vector[Firm.FinancialStocks] =
+    firms.map(_ => TestFirmState.financial(cash = PLN(100000.0)))
 
   // ==========================================================================
   // Config defaults
@@ -90,64 +96,11 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // World fields
   // ==========================================================================
 
-  private def mkMinimalWorld() = World(
+  private def mkMinimalWorld() = Generators.testWorld(
     inflation = Rate(0.0),
-    priceLevel = 1.0,
-    gdpProxy = 1e9,
     currentSigmas = Vector.fill(6)(Sigma(5.0)),
-    totalPopulation = 100,
-    gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-    nbp = com.boombustgroup.amorfati.agents.Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-    bankingSector = Generators.testBankingSector().marketState,
-    forex = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-    hhAgg = com.boombustgroup.amorfati.agents.Household.Aggregates(
-      employed = 100,
-      unemployed = 0,
-      retraining = 0,
-      bankrupt = 0,
-      totalIncome = PLN.Zero,
-      consumption = PLN.Zero,
-      domesticConsumption = PLN.Zero,
-      importConsumption = PLN.Zero,
-      marketWage = PLN(8000),
-      reservationWage = PLN(4500),
-      giniIndividual = Share.Zero,
-      giniWealth = Share.Zero,
-      meanSavings = PLN.Zero,
-      medianSavings = PLN.Zero,
-      povertyRate50 = Share.Zero,
-      bankruptcyRate = Share.Zero,
-      meanSkill = Share.Zero,
-      meanHealthPenalty = Share.Zero,
-      retrainingAttempts = 0,
-      retrainingSuccesses = 0,
-      consumptionP10 = PLN.Zero,
-      consumptionP50 = PLN.Zero,
-      consumptionP90 = PLN.Zero,
-      meanMonthsToRuin = Scalar.Zero,
-      povertyRate30 = Share.Zero,
-      totalRent = PLN.Zero,
-      totalDebtService = PLN.Zero,
-      totalUnempBenefits = PLN.Zero,
-      totalDepositInterest = PLN.Zero,
-      crossSectorHires = 0,
-      voluntaryQuits = 0,
-      sectorMobilityRate = Share.Zero,
-      totalRemittances = PLN.Zero,
-      totalPit = PLN.Zero,
-      totalSocialTransfers = PLN.Zero,
-      totalConsumerDebtService = PLN.Zero,
-      totalConsumerOrigination = PLN.Zero,
-      totalConsumerDefault = PLN.Zero,
-      totalConsumerPrincipal = PLN.Zero,
-    ),
-    social = SocialState.zero,
-    financial = FinancialMarketsState.zero,
-    external = ExternalState.zero,
-    real = RealState.zero,
-    mechanisms = MechanismsState.zero,
-    plumbing = MonetaryPlumbingState.zero,
-    flows = FlowState.zero,
+    marketWage = PLN(8000),
+    reservationWage = PLN(4500),
   )
 
   "World" should "have firmBirths defaulting to 0" in {
@@ -174,7 +127,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have zero debt" in {
-    val entrant = Firm.State(
+    val entrant = TestFirmState.fixture(
       id = FirmId(0),
       cash = PLN(50000.0),
       debt = PLN.Zero,
@@ -188,13 +141,12 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 5,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
       accumulatedLoss = PLN.Zero,
     )
-    entrant.debt shouldBe PLN.Zero
+    entrant.financialStocks.firmLoan shouldBe PLN.Zero
   }
 
   it should "have positive startup cash" in {
@@ -204,7 +156,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be alive" in {
-    val entrant = Firm.State(
+    val entrant = TestFirmState(
       id = FirmId(0),
       cash = PLN(50000.0),
       debt = PLN.Zero,
@@ -218,7 +170,6 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 5,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
@@ -315,7 +266,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     // When households.isDefined, startWorkers = 0
     val tech = TechState.Traditional(0)
     Firm.workerCount(
-      Firm.State(
+      TestFirmState(
         id = FirmId(0),
         cash = PLN(50000.0),
         debt = PLN.Zero,
@@ -329,7 +280,6 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
         equityRaised = PLN.Zero,
         initialSize = 5,
         capitalStock = PLN.Zero,
-        bondDebt = PLN.Zero,
         foreignOwned = false,
         inventory = PLN.Zero,
         greenCapital = PLN.Zero,
@@ -391,7 +341,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   private def mkFirms(n: Int): Vector[Firm.State] =
     (0 until n)
       .map: i =>
-        Firm.State(
+        TestFirmState(
           id = FirmId(i),
           cash = PLN(100000.0),
           debt = PLN.Zero,
@@ -405,7 +355,6 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
           equityRaised = PLN.Zero,
           initialSize = 5,
           capitalStock = PLN.Zero,
-          bondDebt = PLN.Zero,
           foreignOwned = false,
           inventory = PLN.Zero,
           greenCapital = PLN.Zero,
@@ -414,7 +363,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       .toVector
 
   private def mkDeadFirm(id: Int, sector: Int = 2): Firm.State =
-    Firm.State(
+    TestFirmState(
       id = FirmId(id),
       cash = PLN(-1.0),
       debt = PLN.Zero,
@@ -428,7 +377,6 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 0,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
@@ -449,6 +397,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     val result = runEntry(firms, 0.04, rng)
     result.netBirths shouldBe 0
     result.births should be > 0
+    result.newFirmIds.size shouldBe result.births
     result.firms.length shouldBe firms.length
     result.firms.count(Firm.isAlive) should be > firms.count(Firm.isAlive)
   }
@@ -467,6 +416,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     val result = runEntry(firms, 0.20, rng)
     result.births should be >= result.netBirths
     result.netBirths should be > 0
+    result.newFirmIds.size shouldBe result.births
     result.firms.length shouldBe firms.length + result.netBirths
   }
 
@@ -492,6 +442,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     val newFirms = result.firms.drop(firms.length)
     newFirms.zipWithIndex.foreach: (f, i) =>
       f.id.toInt shouldBe firms.length + i
+    newFirms.map(_.id).toSet.subsetOf(result.newFirmIds) shouldBe true
   }
 
   it should "create firms with GUS size distribution" in {

@@ -7,8 +7,6 @@ import org.scalatest.matchers.should.Matchers
 
 class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
 
-  import LedgerTestFixtures.enrichedSimState
-
   "AssetOwnershipContract" should "classify every public ledger asset exactly once" in {
     val grouped = publicAssets.groupBy(_.asset)
 
@@ -16,27 +14,36 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
     grouped.values.foreach(_ should have size 1)
   }
 
-  it should "accept every materialized adapter balance and preserve fund-slot granularity" in {
-    val runtime = enrichedSimState()
-    val ledger  = LedgerStateAdapter.toMutableWorldState(runtime)
-
-    ledger.snapshot.keySet.foreach { case (sector, asset, index) =>
-      isSupportedPersistedPair(sector, asset, index) shouldBe true
-    }
-
-    supportedPairs should contain(SupportedPair(SectorId.Fixed(EntitySector.Funds, LedgerStateAdapter.FundIndex.Zus), AssetType.Cash))
+  it should "preserve fund-slot granularity in supported persisted pairs" in {
+    supportedPairs should contain(SupportedPair(SectorId.Fixed(EntitySector.Funds, FundRuntimeIndex.Zus), AssetType.Cash))
     supportedPairs should not contain SupportedPair(
-      SectorId.Fixed(EntitySector.Funds, LedgerStateAdapter.FundIndex.QuasiFiscal),
+      SectorId.Fixed(EntitySector.Funds, FundRuntimeIndex.QuasiFiscal),
       AssetType.Cash,
     )
-    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, LedgerStateAdapter.FundIndex.Zus) shouldBe true
-    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, LedgerStateAdapter.FundIndex.QuasiFiscal) shouldBe false
+    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, FundRuntimeIndex.Zus) shouldBe true
+    isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, FundRuntimeIndex.QuasiFiscal) shouldBe false
   }
 
-  it should "track currently unsupported persisted families explicitly" in {
+  it should "track currently unsupported persisted and metric families explicitly" in {
+    import LedgerTestFixtures.enrichedSimState
+
     val runtime = enrichedSimState()
 
     presentUnsupportedFamilies(runtime) shouldBe unsupportedFamilies.map(_.id).toSet
+  }
+
+  it should "classify foreign equity share and BoP stocks as metric-only audit exceptions" in {
+    val metricOnlyIds = unsupportedFamilies
+      .filter(_.category == UnsupportedCategory.MetricOnly)
+      .map(_.id)
+      .toSet
+
+    metricOnlyIds should contain allOf (
+      UnsupportedFamilyId.EquityForeignOwnershipShare,
+      UnsupportedFamilyId.BopExternalPositionMetrics,
+    )
+    isSupportedPersistedPair(EntitySector.Foreign, AssetType.Equity, 0) shouldBe false
+    publicAsset(AssetType.ForeignAsset).supportedSlots shouldBe Set(SectorId.Fixed(EntitySector.NBP, 0))
   }
 
   it should "mark orphan public assets as outside the current engine contract" in {

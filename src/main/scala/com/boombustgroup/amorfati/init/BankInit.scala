@@ -11,11 +11,32 @@ import com.boombustgroup.amorfati.types.*
   */
 object BankInit:
 
-  def create(firms: Vector[Firm.State], households: Vector[Household.State])(using p: SimParams): Banking.State =
-    val perBankCorpLoans  = firms.groupMapReduce(_.bankId.toInt)(_.debt)(_ + _)
-    val perBankCash       = firms.groupMapReduce(_.bankId.toInt)(_.cash)(_ + _)
-    val perBankConsLoans  = households.groupMapReduce(_.bankId.toInt)(_.consumerDebt)(_ + _)
-    val perBankHhDeposits = households.groupMapReduce(_.bankId.toInt)(_.savings)(_ + _)
+  case class Result(
+      banks: Vector[Banking.BankState],
+      financialStocks: Vector[Banking.BankFinancialStocks],
+      market: Banking.MarketState,
+  )
+
+  def create(
+      firms: Vector[Firm.State],
+      firmFinancialStocks: Vector[Firm.FinancialStocks],
+      households: Vector[Household.State],
+      householdFinancialStocks: Vector[Household.FinancialStocks],
+  )(using p: SimParams): Result =
+    require(
+      firms.length == firmFinancialStocks.length,
+      s"BankInit.create requires aligned firms and financial stocks, got ${firms.length} firms and ${firmFinancialStocks.length} stock rows",
+    )
+    require(
+      households.length == householdFinancialStocks.length,
+      s"BankInit.create requires aligned households and financial stocks, got ${households.length} households and ${householdFinancialStocks.length} stock rows",
+    )
+    val firmRows          = firms.zip(firmFinancialStocks)
+    val perBankCorpLoans  = firmRows.groupMapReduce(_._1.bankId.toInt)(_._2.firmLoan)(_ + _)
+    val perBankCash       = firmRows.groupMapReduce(_._1.bankId.toInt)(_._2.cash)(_ + _)
+    val householdRows     = households.zip(householdFinancialStocks)
+    val perBankConsLoans  = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.consumerLoan)(_ + _)
+    val perBankHhDeposits = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.demandDeposit)(_ + _)
 
     val totalCapital  = p.banking.initCapital
     val totalGovBonds = p.banking.initGovBonds
@@ -24,35 +45,47 @@ object BankInit:
       Banking.DefaultConfigs.map(_.initMarketShare.toLong).toArray,
     )
 
-    val banks = Banking.DefaultConfigs
+    val rows = Banking.DefaultConfigs
       .zip(bondAlloc)
-      .map: (cfg, bankBondRaw) =>
+      .map { case (cfg, bankBondRaw) =>
         val bId          = cfg.id.toInt
         val corpLoans    = perBankCorpLoans.getOrElse(bId, PLN.Zero)
         val consLoans    = perBankConsLoans.getOrElse(bId, PLN.Zero)
         val firmDeposits = perBankCash.getOrElse(bId, PLN.Zero)
         val hhDeposits   = perBankHhDeposits.getOrElse(bId, PLN.Zero)
         val bankBonds    = PLN.fromRaw(bankBondRaw)
-        Banking.BankState(
-          id = cfg.id,
-          deposits = firmDeposits + hhDeposits,
-          loans = corpLoans,
-          capital = totalCapital * cfg.initMarketShare,
-          nplAmount = PLN.Zero,
-          afsBonds = bankBonds * (Share.One - p.banking.htmShare),
-          htmBonds = bankBonds * p.banking.htmShare,
-          htmBookYield = p.banking.initHtmBookYield,
-          reservesAtNbp = PLN.Zero,
-          interbankNet = PLN.Zero,
-          status = Banking.BankStatus.Active(0),
-          demandDeposits = PLN.Zero,
-          termDeposits = PLN.Zero,
-          loansShort = PLN.Zero,
-          loansMedium = PLN.Zero,
-          loansLong = PLN.Zero,
-          consumerLoans = consLoans,
-          consumerNpl = PLN.Zero,
-          corpBondHoldings = PLN.Zero,
+        (
+          Banking.BankState(
+            id = cfg.id,
+            capital = totalCapital * cfg.initMarketShare,
+            nplAmount = PLN.Zero,
+            htmBookYield = p.banking.initHtmBookYield,
+            status = Banking.BankStatus.Active(0),
+            loansShort = PLN.Zero,
+            loansMedium = PLN.Zero,
+            loansLong = PLN.Zero,
+            consumerNpl = PLN.Zero,
+          ),
+          Banking.BankFinancialStocks(
+            totalDeposits = firmDeposits + hhDeposits,
+            firmLoan = corpLoans,
+            govBondAfs = bankBonds * (Share.One - p.banking.htmShare),
+            govBondHtm = bankBonds * p.banking.htmShare,
+            reserve = PLN.Zero,
+            interbankLoan = PLN.Zero,
+            demandDeposit = PLN.Zero,
+            termDeposit = PLN.Zero,
+            consumerLoan = consLoans,
+          ),
         )
+      }
 
-    Banking.State(banks, Rate.Zero, Banking.DefaultConfigs, None)
+    Result(
+      banks = rows.map(_._1),
+      financialStocks = rows.map(_._2),
+      market = Banking.MarketState(
+        interbankRate = Rate.Zero,
+        configs = Banking.DefaultConfigs,
+        interbankCurve = None,
+      ),
+    )

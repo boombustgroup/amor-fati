@@ -112,16 +112,14 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
     r.plnInjection.should(be(PLN(-5e8 * 4.33)))
   }
 
-  // --- NbpState FX fields ---
+  // --- NbpState monthly operation fields ---
 
-  "Nbp.State" should "have backward-compatible constructor with FX defaults" in {
-    val nbp = Nbp.State(Rate(0.0575), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero)
-    nbp.fxReserves.shouldBe(PLN.Zero)
+  "Nbp.State" should "carry monthly FX operation state without FX reserve ownership" in {
+    val nbp = Nbp.State(Rate(0.0575), false, PLN.Zero, PLN.Zero)
     nbp.lastFxTraded.shouldBe(PLN.Zero)
   }
 
-  it should "accept explicit FX field values" in {
-    val nbp = Nbp.State(Rate(0.05), PLN.Zero, false, PLN.Zero, PLN(5e9), PLN(-1e8))
-    nbp.fxReserves.shouldBe(PLN(5e9))
+  it should "accept explicit last traded amount" in {
+    val nbp = Nbp.State(Rate(0.05), false, PLN.Zero, PLN(-1e8))
     nbp.lastFxTraded.shouldBe(PLN(-1e8))
   }

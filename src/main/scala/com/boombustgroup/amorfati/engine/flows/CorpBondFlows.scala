@@ -5,10 +5,10 @@ import com.boombustgroup.ledger.*
 
 /** Corporate bond market emitting flows.
   *
-  * Coupon (Firm→Holders), default (Firm→Holders loss), issuance (Holders→Firm),
-  * amortization (Firm→Holders principal return).
+  * Coupon (Firm→Holders), default (gross principal write-off), issuance
+  * (Holders→Firm), amortization (Firm→Holders principal return).
   *
-  * Account IDs: 0=Firm, 1=BondHolders (banks+PPK+other)
+  * Account IDs: 0=Firm, 1=BondHolders (aggregate runtime settlement shell)
   */
 object CorpBondFlows:
 
@@ -17,7 +17,7 @@ object CorpBondFlows:
 
   case class Input(
       coupon: PLN,
-      defaultLoss: PLN,
+      defaultAmount: PLN,
       issuance: PLN,
       amortization: PLN,
   )
@@ -38,7 +38,7 @@ object CorpBondFlows:
         topology.firms.aggregate,
         EntitySector.Funds,
         topology.funds.bondholders,
-        input.defaultLoss,
+        input.defaultAmount,
         AssetType.CorpBond,
         FlowMechanism.CorpBondDefault,
       ),
@@ -65,7 +65,7 @@ object CorpBondFlows:
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
     if input.coupon > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.coupon.toLong, FlowMechanism.CorpBondCoupon.toInt)
-    if input.defaultLoss > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.defaultLoss.toLong, FlowMechanism.CorpBondDefault.toInt)
+    if input.defaultAmount > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.defaultAmount.toLong, FlowMechanism.CorpBondDefault.toInt)
     if input.issuance > PLN.Zero then flows += Flow(HOLDER_ACCOUNT, FIRM_ACCOUNT, input.issuance.toLong, FlowMechanism.CorpBondIssuance.toInt)
     if input.amortization > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HOLDER_ACCOUNT, input.amortization.toLong, FlowMechanism.CorpBondAmortization.toInt)
     flows.result()

@@ -67,13 +67,19 @@ object DepositMobility:
   def apply(
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      bankFinancialStocks: Vector[Banking.BankFinancialStocks],
       anyBankFailed: Boolean,
       rng: RandomStream,
+      bankCorpBondHoldings: Banking.BankCorpBondHoldings = Banking.noBankCorpBondHoldings,
   )(using p: SimParams): Result =
-    val healthiest = Banking.healthiestBankId(banks)
-    val carByBank  = banks.map(b => b.id.toInt -> b.car).toMap
+    val healthiest = Banking.healthiestBankId(banks, bankFinancialStocks, bankCorpBondHoldings)
+    val carByBank  = banks
+      .zip(bankFinancialStocks)
+      .map((b, stocks) => b.id.toInt -> Banking.car(b, stocks, bankCorpBondHoldings(b.id)))
+      .toMap
     val systemCar  =
-      if banks.nonEmpty then Multiplier.fromRaw(banks.map(_.car.toLong).sum / banks.length)
+      if banks.nonEmpty then
+        Multiplier.fromRaw(banks.zip(bankFinancialStocks).map((b, stocks) => Banking.car(b, stocks, bankCorpBondHoldings(b.id)).toLong).sum / banks.length)
       else Multiplier.Zero
 
     val updated = households.map: hh =>

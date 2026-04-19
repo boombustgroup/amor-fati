@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.TestHouseholdState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.types.*
@@ -49,17 +51,17 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
 
   it should "have savings in [0, 5000] range" in {
     val rng        = RandomStream.seeded(42)
-    val immigrants = Immigration.spawnImmigrants(200, 0, rng)
-    immigrants.foreach { h =>
-      h.savings should be >= PLN.Zero
-      h.savings should be <= PLN(5000.0)
+    val immigrants = Immigration.spawnImmigrantPopulation(200, 0, rng)
+    immigrants.financialStocks.foreach { stocks =>
+      stocks.demandDeposit should be >= PLN.Zero
+      stocks.demandDeposit should be <= PLN(5000.0)
     }
   }
 
   it should "have zero debt" in {
     val rng        = RandomStream.seeded(42)
-    val immigrants = Immigration.spawnImmigrants(50, 0, rng)
-    immigrants.foreach(_.debt shouldBe PLN.Zero)
+    val immigrants = Immigration.spawnImmigrantPopulation(50, 0, rng)
+    immigrants.financialStocks.foreach(_.mortgageLoan shouldBe PLN.Zero)
   }
 
   it should "have rent >= 800" in {
@@ -79,7 +81,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
 
   "Immigration.removeReturnMigrants" should "never remove more immigrants than exist" in {
     val hhs    = (0 until 10).map { i =>
-      Household.State(
+      TestHouseholdState(
         HhId(i),
         PLN(1000.0),
         PLN.Zero,

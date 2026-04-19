@@ -22,28 +22,12 @@ object LaborEconomics:
       val raw      = buffered / laborDemand.toDouble
       Share(raw.max(p.firm.aggregateLaborSlackFloor / Share.One).min(1.0))
 
-  case class Result(
-      wage: PLN,
-      employed: Int,
-      laborDemand: Int,
-      wageGrowth: Coefficient,
-      operationalHiringSlack: Share = Share.One,
-      demographics: SocialSecurity.DemographicsState,
-      immigration: Immigration.State,
-      netMigration: Int,
-      living: Vector[Firm.State],
-      regionalWages: Map[Region, PLN],
-      nBankruptFirms: Int,
-      avgFirmWorkers: Int,
-  )
-
   private case class ClearedLaborMarket(
       wage: PLN,
       employed: Int,
       regionalWages: Map[Region, PLN],
   )
 
-  /** Bridge type — same fields as the deleted LaborDemographicsStep.Output. */
   case class Output(
       newWage: PLN,
       employed: Int,
@@ -68,7 +52,7 @@ object LaborEconomics:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       s1: FiscalConstraintEconomics.Output,
-  )(using p: SimParams): Result =
+  )(using p: SimParams): Output =
     val living                 = firms.filter(Firm.isAlive)
     val laborDemand            = living.map(f => Firm.workerCount(f)).sum
     val cleared                = clearLaborMarket(w, s1.resWage, laborDemand)
@@ -86,22 +70,22 @@ object LaborEconomics:
     // Wage growth
     val wageGrowth = wageGrowthFrom(w.householdMarket.marketWage, cleared.wage)
 
-    val nBankrupt  = firms.length - living.length
-    val avgWorkers = if living.nonEmpty then laborDemand / living.length else 0
-
-    Result(
-      wage = cleared.wage,
+    Output(
+      newWage = cleared.wage,
       employed = cleared.employed,
       laborDemand = laborDemand,
       wageGrowth = Coefficient(wageGrowth),
       operationalHiringSlack = operationalHiringSlack,
-      demographics = newDemographics,
-      immigration = newImmig,
+      newImmig = newImmig,
       netMigration = netMigration,
+      newDemographics = newDemographics,
+      newZus = SocialSecurity.ZusState.zero,
+      newNfz = SocialSecurity.NfzState.zero,
+      newPpk = SocialSecurity.PpkState.zero,
+      rawPpkBondPurchase = PLN.Zero,
+      newEarmarked = EarmarkedFunds.State.zero,
       living = living,
       regionalWages = cleared.regionalWages,
-      nBankruptFirms = nBankrupt,
-      avgFirmWorkers = avgWorkers,
     )
 
   /** Reconcile labor outputs after firm-side separations and matching so

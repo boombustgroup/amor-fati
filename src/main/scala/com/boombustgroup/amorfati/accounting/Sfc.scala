@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.accounting
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.ledger.{LedgerStateAdapter, TreasuryRuntimeContract}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, FundRuntimeIndex, GovernmentBondCircuit, LedgerFinancialState, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
 
@@ -77,6 +77,7 @@ object Sfc:
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
   )
 
   /** Point-in-time stock state for stock-side diagnostics and exactness checks.
@@ -218,25 +219,43 @@ object Sfc:
     */
   type SfcResult = Either[Vector[SfcIdentityError], Unit]
 
-  /** Build stock state from the current simulation state by aggregating all
-    * agent-level stocks.
+  /** Build stock state from the current simulation state. Supported financial
+    * ownership comes from `LedgerFinancialState`; remaining behavioral or
+    * unsupported diagnostics still come from agent/domain state.
     */
   def snapshot(
       w: World,
       firms: Vector[Firm.State],
       households: Vector[Household.State],
       banks: Vector[Banking.BankState],
+      ledgerFinancialState: LedgerFinancialState,
   ): StockState =
-    val hhS     = PLN.fromRaw(households.map(_.savings.toLong).sum)
-    val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
-    val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
-    val bankAgg = Banking.aggregateFromBanks(banks)
-    val bonds   = LedgerStateAdapter.governmentBondCircuit(w, banks)
+    require(
+      households.length == ledgerFinancialState.households.length,
+      s"Sfc.snapshot requires aligned households and ledger household balances, got ${households.length} households and ${ledgerFinancialState.households.length} balance rows",
+    )
+    require(
+      firms.length == ledgerFinancialState.firms.length,
+      s"Sfc.snapshot requires aligned firms and ledger firm balances, got ${firms.length} firms and ${ledgerFinancialState.firms.length} balance rows",
+    )
+    require(
+      banks.length == ledgerFinancialState.banks.length,
+      s"Sfc.snapshot requires aligned banks and ledger bank balances, got ${banks.length} banks and ${ledgerFinancialState.banks.length} balance rows",
+    )
+    val hhS     = ledgerFinancialState.households.map(_.demandDeposit).sum
+    val hhD     = ledgerFinancialState.households.map(_.mortgageLoan).sum
+    val ibNet   = PLN.fromRaw(ledgerFinancialState.banks.map(_.interbankLoan.toLong).sum)
+    val bankAgg = Banking.aggregateFromBankStocks(
+      banks,
+      ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
+      bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId),
+    )
+    val bonds   = GovernmentBondCircuit.from(ledgerFinancialState)
     StockState(
       hhSavings = hhS,
       hhDebt = hhD,
-      firmCash = PLN.fromRaw(firms.map(_.cash.toLong).sum),
-      firmDebt = PLN.fromRaw(firms.map(_.debt.toLong).sum),
+      firmCash = ledgerFinancialState.firms.map(_.cash).sum,
+      firmDebt = ledgerFinancialState.firms.map(_.firmLoan).sum,
       bankCapital = bankAgg.capital,
       bankDeposits = bankAgg.deposits,
       bankLoans = bankAgg.totalLoans,
@@ -246,22 +265,22 @@ object Sfc:
       nbpBondHoldings = bonds.nbpHoldings,
       bondsOutstanding = bonds.outstanding,
       interbankNetSum = ibNet,
-      jstDeposits = w.social.jst.deposits,
+      jstDeposits = ledgerFinancialState.funds.jstCash,
       jstDebt = w.social.jst.debt,
-      fusBalance = w.social.zus.fusBalance,
-      nfzBalance = w.social.nfz.balance,
+      fusBalance = ledgerFinancialState.funds.zusCash,
+      nfzBalance = ledgerFinancialState.funds.nfzCash,
       foreignBondHoldings = bonds.foreignHoldings,
       ppkBondHoldings = bonds.ppkHoldings,
-      mortgageStock = w.real.housing.mortgageStock,
+      mortgageStock = hhD,
       consumerLoans = bankAgg.consumerLoans,
-      corpBondsOutstanding = w.financial.corporateBonds.outstanding,
+      corpBondsOutstanding = CorporateBondOwnership.issuerOutstanding(ledgerFinancialState),
       insuranceGovBondHoldings = bonds.insuranceHoldings,
       tfiGovBondHoldings = bonds.tfiHoldings,
-      nbfiLoanStock = w.financial.nbfi.nbfiLoanStock,
+      nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
     )
 
   def snapshot(state: RuntimeState): StockState =
-    snapshot(state.world, state.firms, state.households, state.banks)
+    snapshot(state.world, state.firms, state.households, state.banks, state.ledgerFinancialState)
 
   /** Validate exact balance-sheet identities. Returns `Right(())` if all pass,
     * or `Left(errors)` with every violated identity and its expected/actual
@@ -490,42 +509,42 @@ object Sfc:
         runtimeCashIdentity(
           SfcIdentity.JstCash,
           "JST cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Jst)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(FundRuntimeIndex.Jst)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.ZusCash,
           "ZUS cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Zus)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(FundRuntimeIndex.Zus)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.NfzCash,
           "NFZ cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Nfz)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(FundRuntimeIndex.Nfz)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.FpCash,
           "FP cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Fp)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(FundRuntimeIndex.Fp)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.PfronCash,
           "PFRON cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Pfron)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(FundRuntimeIndex.Pfron)),
           batches,
           executionDeltaLedger,
         ) ++
         runtimeCashIdentity(
           SfcIdentity.FgspCash,
           "FGSP cash",
-          AccountRef(EntitySector.Funds, ExecutionIndex(LedgerStateAdapter.FundIndex.Fgsp)),
+          AccountRef(EntitySector.Funds, ExecutionIndex(FundRuntimeIndex.Fgsp)),
           batches,
           executionDeltaLedger,
         )

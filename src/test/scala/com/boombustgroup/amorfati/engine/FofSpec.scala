@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.TestFirmState
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.accounting.Sfc
@@ -228,7 +230,7 @@ class FofSpec extends AnyFlatSpec with Matchers:
   // --- helpers ---
 
   private def mkFirm(id: Int, tech: TechState, sector: Int = 2): Firm.State =
-    Firm.State(
+    TestFirmState(
       FirmId(id),
       PLN(50000.0),
       PLN.Zero,
@@ -242,7 +244,6 @@ class FofSpec extends AnyFlatSpec with Matchers:
       equityRaised = PLN.Zero,
       initialSize = 10,
       capitalStock = PLN.Zero,
-      bondDebt = PLN.Zero,
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,

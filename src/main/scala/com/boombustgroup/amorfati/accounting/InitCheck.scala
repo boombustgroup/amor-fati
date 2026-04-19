@@ -1,7 +1,8 @@
 package com.boombustgroup.amorfati.accounting
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
-import com.boombustgroup.amorfati.engine.ledger.LedgerStateAdapter
+import com.boombustgroup.amorfati.engine.ledger.GovernmentBondCircuit
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.types.*
 
 /** Pure init-time stock validation.
@@ -32,17 +33,18 @@ object InitCheck:
     * all pass).
     */
   def validate(state: Sfc.RuntimeState): Vector[InitCheckResult] =
-    validate(Sfc.snapshot(state), state.banks, state.firms, state.households)
+    validate(Sfc.snapshot(state), state.banks, state.firms, state.households, state.ledgerFinancialState)
 
   def validate(
       snapshot: Sfc.StockState,
       banks: Vector[Banking.BankState],
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      ledgerFinancialState: LedgerFinancialState,
   ): Vector[InitCheckResult] =
     val levelTol   = PLN(0.01)
     val perBankTol = PLN(1.0)
-    val bonds      = LedgerStateAdapter.GovernmentBondCircuit(
+    val bonds      = GovernmentBondCircuit(
       outstanding = snapshot.bondsOutstanding,
       bankHoldings = snapshot.bankBondHoldings,
       foreignHoldings = snapshot.foreignBondHoldings,
@@ -70,43 +72,47 @@ object InitCheck:
 
     // --- Per-bank agent cross-checks ---
 
-    val firmCashByBank   = firms.groupMapReduce(_.bankId.toInt)(_.cash)(_ + _)
-    val firmDebtByBank   = firms.groupMapReduce(_.bankId.toInt)(_.debt)(_ + _)
-    val hhSavingsByBank  = households.groupMapReduce(_.bankId.toInt)(_.savings)(_ + _)
-    val hhConsDebtByBank = households.groupMapReduce(_.bankId.toInt)(_.consumerDebt)(_ + _)
+    val firmRows         = firms.zip(ledgerFinancialState.firms)
+    val firmCashByBank   = firmRows.groupMapReduce(_._1.bankId.toInt)(_._2.cash)(_ + _)
+    val firmDebtByBank   = firmRows.groupMapReduce(_._1.bankId.toInt)(_._2.firmLoan)(_ + _)
+    val householdRows    = households.zip(ledgerFinancialState.households)
+    val hhSavingsByBank  = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.demandDeposit)(_ + _)
+    val hhConsDebtByBank = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.consumerLoan)(_ + _)
 
-    val perBankChecks = banks.flatMap: bank =>
-      val bId = bank.id.toInt
+    val perBankChecks = banks
+      .zip(ledgerFinancialState.banks)
+      .flatMap: (bank, bankBalances) =>
+        val bId = bank.id.toInt
 
-      val expectedDeposits = firmCashByBank.getOrElse(bId, PLN.Zero) + hhSavingsByBank.getOrElse(bId, PLN.Zero)
-      val depositCheck     = check(
-        s"Deposit consistency (bank $bId)",
-        expected = expectedDeposits,
-        actual = bank.deposits,
-        perBankTol,
-      )
+        val expectedDeposits = firmCashByBank.getOrElse(bId, PLN.Zero) + hhSavingsByBank.getOrElse(bId, PLN.Zero)
+        val depositCheck     = check(
+          s"Deposit consistency (bank $bId)",
+          expected = expectedDeposits,
+          actual = bankBalances.totalDeposits,
+          perBankTol,
+        )
 
-      val expectedCorpLoans = firmDebtByBank.getOrElse(bId, PLN.Zero)
-      val corpLoanCheck     = check(
-        s"Corp loan consistency (bank $bId)",
-        expected = expectedCorpLoans,
-        actual = bank.loans,
-        perBankTol,
-      )
+        val expectedCorpLoans = firmDebtByBank.getOrElse(bId, PLN.Zero)
+        val corpLoanCheck     = check(
+          s"Corp loan consistency (bank $bId)",
+          expected = expectedCorpLoans,
+          actual = bankBalances.firmLoan,
+          perBankTol,
+        )
 
-      val expectedConsLoans = hhConsDebtByBank.getOrElse(bId, PLN.Zero)
-      val consLoanCheck     = check(
-        s"Consumer loan consistency (bank $bId)",
-        expected = expectedConsLoans,
-        actual = bank.consumerLoans,
-        perBankTol,
-      )
+        val expectedConsLoans = hhConsDebtByBank.getOrElse(bId, PLN.Zero)
+        val consLoanCheck     = check(
+          s"Consumer loan consistency (bank $bId)",
+          expected = expectedConsLoans,
+          actual = bankBalances.consumerLoan,
+          perBankTol,
+        )
 
-      Vector(depositCheck, corpLoanCheck, consLoanCheck)
+        Vector(depositCheck, corpLoanCheck, consLoanCheck)
 
     // --- Aggregate cross-checks ---
 
-    val aggDeposits     = PLN.fromRaw(banks.map(_.deposits.toLong).sum)
+    val aggDeposits     = PLN.fromRaw(ledgerFinancialState.banks.map(_.totalDeposits.toLong).sum)
     val aggDepositCheck = check(
       "Aggregate deposits",
       expected = aggDeposits,
@@ -114,7 +120,7 @@ object InitCheck:
       levelTol,
     )
 
-    val aggLoans     = PLN.fromRaw(banks.map(_.loans.toLong).sum)
+    val aggLoans     = ledgerFinancialState.banks.map(_.firmLoan).sum
     val aggLoanCheck = check(
       "Aggregate loans",
       expected = aggLoans,

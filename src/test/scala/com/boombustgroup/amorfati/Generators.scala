@@ -23,31 +23,141 @@ object Generators:
       totalGovBonds: PLN = PLN.Zero,
       totalConsumerLoans: PLN = PLN.Zero,
       configs: Vector[Banking.Config] = Banking.DefaultConfigs,
-  ): Banking.State =
-    val banks = configs.map: cfg =>
+  ): Banking.BankStockState =
+    val rows = configs.map: cfg =>
       val bankBonds = totalGovBonds * cfg.initMarketShare
-      Banking.BankState(
-        id = cfg.id,
-        deposits = totalDeposits * cfg.initMarketShare,
-        loans = totalLoans * cfg.initMarketShare,
-        capital = totalCapital * cfg.initMarketShare,
-        nplAmount = PLN.Zero,
-        afsBonds = bankBonds * (Share.One - p.banking.htmShare),
-        htmBonds = bankBonds * p.banking.htmShare,
-        htmBookYield = p.banking.initHtmBookYield,
-        reservesAtNbp = PLN.Zero,
-        interbankNet = PLN.Zero,
-        status = Banking.BankStatus.Active(0),
-        demandDeposits = PLN.Zero,
-        termDeposits = PLN.Zero,
-        loansShort = PLN.Zero,
-        loansMedium = PLN.Zero,
-        loansLong = PLN.Zero,
-        consumerLoans = totalConsumerLoans * cfg.initMarketShare,
-        consumerNpl = PLN.Zero,
-        corpBondHoldings = PLN.Zero,
+      (
+        Banking.BankState(
+          id = cfg.id,
+          capital = totalCapital * cfg.initMarketShare,
+          nplAmount = PLN.Zero,
+          htmBookYield = p.banking.initHtmBookYield,
+          status = Banking.BankStatus.Active(0),
+          loansShort = PLN.Zero,
+          loansMedium = PLN.Zero,
+          loansLong = PLN.Zero,
+          consumerNpl = PLN.Zero,
+        ),
+        Banking.BankFinancialStocks(
+          totalDeposits = totalDeposits * cfg.initMarketShare,
+          firmLoan = totalLoans * cfg.initMarketShare,
+          govBondAfs = bankBonds * (Share.One - p.banking.htmShare),
+          govBondHtm = bankBonds * p.banking.htmShare,
+          reserve = PLN.Zero,
+          interbankLoan = PLN.Zero,
+          demandDeposit = PLN.Zero,
+          termDeposit = PLN.Zero,
+          consumerLoan = totalConsumerLoans * cfg.initMarketShare,
+        ),
       )
-    Banking.State(banks, Rate.Zero, configs, None)
+    Banking.BankStockState(rows.map(_._1), rows.map(_._2))
+
+  def testHouseholdAggregates(
+      employed: Int = 100,
+      unemployed: Int = 0,
+      marketWage: PLN = PLN(8000),
+      reservationWage: PLN = PLN(4666),
+  ): Household.Aggregates =
+    Household.Aggregates(
+      employed = employed,
+      unemployed = unemployed,
+      retraining = 0,
+      bankrupt = 0,
+      totalIncome = PLN.Zero,
+      consumption = PLN.Zero,
+      domesticConsumption = PLN.Zero,
+      importConsumption = PLN.Zero,
+      marketWage = marketWage,
+      reservationWage = reservationWage,
+      giniIndividual = Share.Zero,
+      giniWealth = Share.Zero,
+      meanSavings = PLN.Zero,
+      medianSavings = PLN.Zero,
+      povertyRate50 = Share.Zero,
+      bankruptcyRate = Share.Zero,
+      meanSkill = Share.Zero,
+      meanHealthPenalty = Share.Zero,
+      retrainingAttempts = 0,
+      retrainingSuccesses = 0,
+      consumptionP10 = PLN.Zero,
+      consumptionP50 = PLN.Zero,
+      consumptionP90 = PLN.Zero,
+      meanMonthsToRuin = Scalar.Zero,
+      povertyRate30 = Share.Zero,
+      totalRent = PLN.Zero,
+      totalDebtService = PLN.Zero,
+      totalUnempBenefits = PLN.Zero,
+      totalDepositInterest = PLN.Zero,
+      crossSectorHires = 0,
+      voluntaryQuits = 0,
+      sectorMobilityRate = Share.Zero,
+      totalRemittances = PLN.Zero,
+      totalPit = PLN.Zero,
+      totalSocialTransfers = PLN.Zero,
+      totalConsumerDebtService = PLN.Zero,
+      totalConsumerOrigination = PLN.Zero,
+      totalConsumerDefault = PLN.Zero,
+      totalConsumerPrincipal = PLN.Zero,
+    )
+
+  def testWorld(
+      inflation: Rate = Rate(0.02),
+      priceLevel: PriceIndex = PriceIndex.Base,
+      monthlyGdpProxy: PLN = PLN(1e9),
+      currentSigmas: Vector[Sigma] = p.sectorDefs.map(_.sigma).toVector,
+      totalPopulation: Int = 100,
+      employed: Int = 100,
+      marketWage: PLN = PLN(8000),
+      reservationWage: PLN = PLN(4666),
+      gov: FiscalBudget.GovState = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      nbp: Nbp.State = Nbp.State(Rate(0.0575), false, PLN.Zero, PLN.Zero),
+      bankingSector: Banking.MarketState = Banking.MarketState(Rate.Zero, Banking.DefaultConfigs, None),
+      forex: OpenEconomy.ForexState = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      social: SocialState = SocialState.zero,
+      financialMarkets: FinancialMarketsState = FinancialMarketsState.zero,
+      external: ExternalState = ExternalState.zero,
+      real: RealState = RealState.zero,
+      mechanisms: MechanismsState = MechanismsState.zero,
+      plumbing: MonetaryPlumbingState = MonetaryPlumbingState.zero,
+      flows: FlowState = FlowState.zero,
+  ): World =
+    val demographics =
+      if social.demographics == SocialSecurity.DemographicsState.zero && totalPopulation > 0
+      then social.demographics.copy(workingAgePop = totalPopulation)
+      else social.demographics
+    val households   = testHouseholdAggregates(
+      employed = employed,
+      unemployed = (totalPopulation - employed).max(0),
+      marketWage = marketWage,
+      reservationWage = reservationWage,
+    )
+    val flowState    =
+      if flows.monthlyGdpProxy == PLN.Zero && monthlyGdpProxy != PLN.Zero then flows.copy(monthlyGdpProxy = monthlyGdpProxy)
+      else flows
+
+    World(
+      inflation = inflation,
+      priceLevel = priceLevel,
+      currentSigmas = currentSigmas,
+      gov = gov,
+      nbp = nbp,
+      bankingSector = bankingSector,
+      forex = forex,
+      householdMarket = HouseholdMarketState.fromAggregates(households),
+      social = social.copy(demographics = demographics),
+      financialMarkets = financialMarkets,
+      external = external,
+      real = real,
+      mechanisms = mechanisms,
+      plumbing = plumbing,
+      pipeline = PipelineState.bootstrap(
+        currentSigmas.length,
+        if totalPopulation > 0 then Share.One - Share.fraction(employed, totalPopulation) else Share.Zero,
+        inflation,
+        mechanisms.expectations.expectedInflation,
+      ),
+      flows = flowState,
+    )
 
   // --- Primitive generators ---
 
@@ -110,7 +220,7 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm.State(
+  yield TestFirmState(
     FirmId(id),
     PLN(cash),
     PLN(debt),
@@ -124,7 +234,6 @@ object Generators:
     PLN(eqR),
     iSize,
     capitalStock = PLN.Zero,
-    bondDebt = PLN.Zero,
     foreignOwned = false,
     inventory = PLN.Zero,
     greenCapital = PLN.Zero,
@@ -143,7 +252,7 @@ object Generators:
     bankId <- Gen.choose(0, 6)
     eqR    <- Gen.choose(0.0, 1000000.0)
     iSize  <- Gen.choose(1, 500)
-  yield Firm.State(
+  yield TestFirmState(
     FirmId(id),
     PLN(cash),
     PLN(debt),
@@ -157,7 +266,6 @@ object Generators:
     PLN(eqR),
     iSize,
     capitalStock = PLN.Zero,
-    bondDebt = PLN.Zero,
     foreignOwned = false,
     inventory = PLN.Zero,
     greenCapital = PLN.Zero,
@@ -190,7 +298,6 @@ object Generators:
     deficit     <- Gen.choose(-1e9, 1e9)
     cumDebt     <- Gen.choose(0.0, 1e10)
     unempBen    <- Gen.choose(0.0, 1e8)
-    bondsOut    <- Gen.choose(0.0, 1e10)
     bondYield   <- Gen.choose(0.0, 0.15)
     debtService <- Gen.choose(0.0, 1e8)
   yield FiscalBudget.GovState(
@@ -198,8 +305,6 @@ object Generators:
     PLN(deficit),
     PLN(cumDebt),
     PLN(unempBen),
-    PLN(bondsOut),
-    PLN.Zero,        // foreignBondHoldings
     Rate(bondYield),
     Rate(bondYield), // weightedCoupon starts at market yield
     PLN(debtService),
@@ -276,7 +381,7 @@ object Generators:
     bankId  <- Gen.choose(0, 6)
     eqW     <- Gen.choose(0.0, 100000.0)
     lastSec <- Gen.choose(-1, 5)
-  yield Household.State(
+  yield TestHouseholdState(
     HhId(id),
     PLN(savings),
     PLN(debt),
@@ -311,64 +416,19 @@ object Generators:
     autoR    <- genFraction
     hybR     <- genFraction
     gdp      <- Gen.choose(1e6, 1e11)
-  yield World(
+  yield testWorld(
     inflation = Rate(infl),
-    priceLevel = price,
-    gdpProxy = gdp,
+    priceLevel = PriceIndex(price),
+    monthlyGdpProxy = PLN(gdp),
     currentSigmas = p.sectorDefs.map(_.sigma),
     totalPopulation = employed,
+    employed = employed,
+    marketWage = PLN(wage),
+    reservationWage = PLN(resWage),
     gov = gov,
-    nbp = Nbp.State(Rate(rate), PLN.Zero, false, PLN.Zero, PLN.Zero, PLN.Zero),
-    bankingSector = testBankingSector().marketState,
+    nbp = Nbp.State(Rate(rate), false, PLN.Zero, PLN.Zero),
     forex = forex,
-    hhAgg = Household.Aggregates(
-      employed = employed,
-      unemployed = 0,
-      retraining = 0,
-      bankrupt = 0,
-      totalIncome = PLN.Zero,
-      consumption = PLN.Zero,
-      domesticConsumption = PLN.Zero,
-      importConsumption = PLN.Zero,
-      marketWage = PLN(wage),
-      reservationWage = PLN(resWage),
-      giniIndividual = Share.Zero,
-      giniWealth = Share.Zero,
-      meanSavings = PLN.Zero,
-      medianSavings = PLN.Zero,
-      povertyRate50 = Share.Zero,
-      bankruptcyRate = Share.Zero,
-      meanSkill = Share.Zero,
-      meanHealthPenalty = Share.Zero,
-      retrainingAttempts = 0,
-      retrainingSuccesses = 0,
-      consumptionP10 = PLN.Zero,
-      consumptionP50 = PLN.Zero,
-      consumptionP90 = PLN.Zero,
-      meanMonthsToRuin = Scalar.Zero,
-      povertyRate30 = Share.Zero,
-      totalRent = PLN.Zero,
-      totalDebtService = PLN.Zero,
-      totalUnempBenefits = PLN.Zero,
-      totalDepositInterest = PLN.Zero,
-      crossSectorHires = 0,
-      voluntaryQuits = 0,
-      sectorMobilityRate = Share.Zero,
-      totalRemittances = PLN.Zero,
-      totalPit = PLN.Zero,
-      totalSocialTransfers = PLN.Zero,
-      totalConsumerDebtService = PLN.Zero,
-      totalConsumerOrigination = PLN.Zero,
-      totalConsumerDefault = PLN.Zero,
-      totalConsumerPrincipal = PLN.Zero,
-    ),
-    social = SocialState.zero,
-    financial = FinancialMarketsState.zero,
-    external = ExternalState.zero,
     real = RealState.zero.copy(automationRatio = Share(autoR), hybridRatio = Share(hybR)),
-    mechanisms = MechanismsState.zero,
-    plumbing = MonetaryPlumbingState.zero,
-    flows = FlowState.zero,
   )
 
   // --- SFC Check generators ---
@@ -583,12 +643,10 @@ object Generators:
 
   val genNbpState: Gen[Nbp.State] = for
     rate     <- genRate
-    bonds    <- Gen.choose(0.0, 1e10)
     qeActive <- Gen.oneOf(true, false)
     qeCum    <- Gen.choose(0.0, 1e10)
-    fxRes    <- Gen.choose(0.0, 1e11)
     lastFx   <- Gen.choose(-1e9, 1e9)
-  yield Nbp.State(Rate(rate), PLN(bonds), qeActive, PLN(qeCum), PLN(fxRes), PLN(lastFx))
+  yield Nbp.State(Rate(rate), qeActive, PLN(qeCum), PLN(lastFx))
 
   // --- I-O matrix generator ---
 
@@ -623,6 +681,12 @@ object Generators:
   // --- Banking sector generators ---
 
   object genBanking:
+    case class SectorFixture(
+        banks: Vector[Banking.BankState],
+        financialStocks: Vector[Banking.BankFinancialStocks],
+        configs: Vector[Banking.Config],
+    )
+
     val Config: Gen[Banking.Config] = for
       id     <- Gen.choose(0, 6)
       share  <- Gen.choose(0.01, 0.50)
@@ -631,7 +695,7 @@ object Generators:
       aff    <- Gen.sequence[Vector[Double], Double]((0 until 6).map(_ => Gen.choose(0.05, 0.40)))
     yield Banking.Config(BankId(id), s"Bank$id", Share(share), Share(cet1), Rate(spread), aff.map(Share(_)))
 
-    val BankState: Gen[Banking.BankState] = for
+    val BankRow: Gen[(Banking.BankState, Banking.BankFinancialStocks)] = for
       id       <- Gen.choose(0, 6)
       deposits <- Gen.choose(1e6, 1e10)
       loans    <- Gen.choose(0.0, 1e10)
@@ -644,31 +708,35 @@ object Generators:
       ibNet    <- Gen.choose(-1e8, 1e8)
       failed   <- Gen.oneOf(false, false, false, false, true) // 20% chance
       lowCar   <- Gen.choose(0, 5)
-    yield Banking.BankState(
-      id = BankId(id),
-      deposits = PLN(deposits),
-      loans = PLN(loans),
-      capital = PLN(capital),
-      nplAmount = PLN(loans * nplFrac),
-      afsBonds = PLN(bonds * (1.0 - htmFrac)),
-      htmBonds = PLN(bonds * htmFrac),
-      htmBookYield = Rate(bookYld),
-      reservesAtNbp = PLN(reserves),
-      interbankNet = PLN(ibNet),
-      status = if failed then Banking.BankStatus.Failed(SimulationMonth.ExecutionMonth(30)) else Banking.BankStatus.Active(lowCar),
-      demandDeposits = PLN.Zero,
-      termDeposits = PLN.Zero,
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerLoans = PLN.Zero,
-      consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN.Zero,
+    yield (
+      Banking.BankState(
+        id = BankId(id),
+        capital = PLN(capital),
+        nplAmount = PLN(loans * nplFrac),
+        htmBookYield = Rate(bookYld),
+        status = if failed then Banking.BankStatus.Failed(SimulationMonth.ExecutionMonth(30)) else Banking.BankStatus.Active(lowCar),
+        loansShort = PLN.Zero,
+        loansMedium = PLN.Zero,
+        loansLong = PLN.Zero,
+        consumerNpl = PLN.Zero,
+      ),
+      Banking.BankFinancialStocks(
+        totalDeposits = PLN(deposits),
+        firmLoan = PLN(loans),
+        govBondAfs = PLN(bonds * (1.0 - htmFrac)),
+        govBondHtm = PLN(bonds * htmFrac),
+        reserve = PLN(reserves),
+        interbankLoan = PLN(ibNet),
+        demandDeposit = PLN.Zero,
+        termDeposit = PLN.Zero,
+        consumerLoan = PLN.Zero,
+      ),
     )
 
-    val State: Gen[Banking.State] = for
+    val BankState: Gen[Banking.BankState] = BankRow.map(_._1)
+
+    val Sector: Gen[SectorFixture] = for
       nBanks <- Gen.choose(2, 7)
-      banks  <- Gen.listOfN(nBanks, BankState).map(_.toVector.zipWithIndex.map((b, i) => b.copy(id = BankId(i))))
-      rate   <- genRate
+      rows   <- Gen.listOfN(nBanks, BankRow).map(_.toVector.zipWithIndex.map { case ((bank, stocks), i) => (bank.copy(id = BankId(i)), stocks) })
       cfgs   <- Gen.listOfN(nBanks, Config).map(_.toVector.zipWithIndex.map((c, i) => c.copy(id = BankId(i))))
-    yield Banking.State(banks, Rate(rate), cfgs, None)
+    yield SectorFixture(rows.map(_._1), rows.map(_._2), cfgs)

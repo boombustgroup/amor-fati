@@ -4,27 +4,28 @@ The agents package contains every autonomous agent in the SFC-ABM model.
 Each agent is an `object` with a nested `case class State` and pure functions
 that transform state. No mutable fields — state transitions produce new immutable instances.
 
-All agents that modify monetary stocks participate in the 13-identity
-SFC accounting check.
+All agents that modify monetary flows participate in the SFC accounting check.
+Ledger-contracted financial stocks live in `LedgerFinancialState`; agent states
+carry behavioral state, operational diagnostics, and legacy unsupported metrics.
 
 ## Agents
 
 | File | Agent | State | Key SFC identities |
 |------|-------|-------|-------------------|
-| `Banking.scala` | 7 Polish banks (KNF 2024) | Per-bank: deposits, loans, capital, NPL, gov bonds, interbank, LCR/NSFR | BankCapital, BankDeposits, BondClearing, InterbankNetting |
-| `Firm.scala` | Heterogeneous firms (6 sectors) | Cash, debt, tech state (Traditional/Hybrid/Automated), capital stock, inventory, green capital | BankCapital (NPL), FlowOfFunds, CorpBondStock |
-| `Household.scala` | Individual households | Savings, debt, skill, health, MPC, employment status, consumer credit, equity wealth | BankDeposits, ConsumerCredit |
+| `Banking.scala` | 7 Polish banks (KNF 2024) | Per-bank behavior, capital, NPL/risk buckets, LCR/NSFR inputs; deposits, loans, bonds, reserves, interbank positions are ledger projections | BankCapital, BankDeposits, BondClearing, InterbankNetting |
+| `Firm.scala` | Heterogeneous firms (6 sectors) | Technology state (Traditional/Hybrid/Automated), capital stock, inventory, green capital, labor and production state; cash/debt/equity are ledger projections | BankCapital (NPL), FlowOfFunds, CorpBondStock |
+| `Household.scala` | Individual households | Skill, health, MPC, employment status, housing and demographic state; savings, debt, consumer credit, and equity wealth are ledger projections | BankDeposits, ConsumerCredit |
 | `Immigration.scala` | Immigrant workers | Stock, monthly inflow/outflow, remittance outflow | BankDeposits (remittance → deposit outflow), Nfa |
-| `Insurance.scala` | Life + non-life sector | Reserves, gov/corp bond holdings, equity holdings | BankDeposits (premium/claims), BondClearing |
-| `Jst.scala` | Local government (JST) | Deposits, debt, revenue, spending | BankDeposits (JST deposits), JstDebt |
-| `Nbfi.scala` | TFI funds + NBFI credit | AUM, bond/equity holdings, loan stock | BankDeposits (deposit drain), BondClearing (TFI bonds), NbfiCredit |
-| `Nbp.scala` | National Bank of Poland | Reference rate, gov bond holdings, QE, FX reserves | BankCapital (reserve interest), Nfa (FX intervention), BondClearing (QE bonds) |
+| `Insurance.scala` | Life + non-life sector | Premium, claim, and investment-income diagnostics; reserves and securities holdings are ledger projections | BankDeposits (premium/claims), BondClearing |
+| `Jst.scala` | Local government (JST) | Revenue, spending, deficit, unsupported debt metric; cash is ledger-owned | BankDeposits (JST deposits), JstDebt |
+| `Nbfi.scala` | TFI funds + NBFI credit | Origination, default, and deposit-drain diagnostics; AUM, bond/equity holdings, cash, and loan stock are ledger projections | BankDeposits (deposit drain), BondClearing (TFI bonds), NbfiCredit |
+| `Nbp.scala` | National Bank of Poland | Reference rate, QE policy metrics, monthly FX operations; gov bond holdings and FX reserves are ledger-owned | BankCapital (reserve interest), Nfa (FX intervention), BondClearing (QE bonds) |
 | `DepositMobility.scala` | Deposit flight (Diamond-Dybvig) | Per-bank deposit flows, health-based flight, panic contagion | BankDeposits (redistribution) |
 | `EarmarkedFunds.scala` | FP, PFRON, FGŚP | Payroll-funded statutory funds, bankruptcy payouts, ALMP | GovDebt (gov subvention) |
 | `EclStaging.scala` | IFRS 9 ECL provisioning | S1/S2/S3 staging, macro-driven migration, forward-looking provisions | BankCapital (provision) |
 | `InterbankContagion.scala` | Interbank contagion (Lehman channel) | 7×7 bilateral exposure matrix, counterparty losses, liquidity hoarding | InterbankNetting |
-| `QuasiFiscal.scala` | BGK + PFR (consolidated) | Off-balance-sheet bonds, bank/NBP holdings, subsidized loan portfolio | BondClearing (quasi-fiscal bonds) |
-| `SocialSecurity.scala` | ZUS, NFZ, PPK, demographics | FUS balance, NFZ balance, PPK bond holdings, retirees, working-age pop | BondClearing (PPK bonds), FusBalance, NfzBalance |
+| `QuasiFiscal.scala` | BGK + PFR (consolidated) | Monthly issuance and lending diagnostics; bonds, holder split, and loan portfolio are ledger projections | BondClearing (quasi-fiscal bonds) |
+| `SocialSecurity.scala` | ZUS, NFZ, PPK, demographics | Contribution/pension/health flows, retirees, working-age pop; fund cash and PPK bond holdings are ledger-owned | BondClearing (PPK bonds), FusBalance, NfzBalance |
 
 ## Supporting types
 

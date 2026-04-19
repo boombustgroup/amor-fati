@@ -1,7 +1,9 @@
 package com.boombustgroup.amorfati.integration.montecarlo
 
+import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.fp.{ComputationBoundary, FixedPointBase}
 import com.boombustgroup.amorfati.montecarlo.{McRunConfig, McRunner, McTimeseriesSchema, RunResult, SimError}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -84,12 +86,14 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
       f"${td.toDouble(a.povertyRate50)}%.6f;${td.toDouble(a.povertyRate30)}%.6f"
 
   private def expectedBankRows(seed: Long, result: RunResult): Vector[String] =
-    result.terminalState.banks.map: b =>
-      s"$seed;${b.id};" +
-        f"${td.toDouble(b.deposits)}%.2f;${td.toDouble(b.loans)}%.2f;${td.toDouble(b.capital)}%.2f;" +
-        f"${td.toDouble(b.nplRatio)}%.6f;${td.toDouble(b.car)}%.6f;" +
-        f"${td.toDouble(b.govBondHoldings)}%.2f;${td.toDouble(b.interbankNet)}%.2f;" +
-        s"${b.failed}"
+    result.terminalState.banks.map: bank =>
+      val balances = result.terminalState.ledgerFinancialState.banks(bank.id.toInt)
+      val stocks   = LedgerFinancialState.projectBankFinancialStocks(balances)
+      s"$seed;${bank.id};" +
+        f"${td.toDouble(stocks.totalDeposits)}%.2f;${td.toDouble(stocks.firmLoan)}%.2f;${td.toDouble(bank.capital)}%.2f;" +
+        f"${td.toDouble(Banking.nplRatio(bank, stocks))}%.6f;${td.toDouble(Banking.car(bank, stocks, balances.corpBond))}%.6f;" +
+        f"${td.toDouble(Banking.govBondHoldings(stocks))}%.2f;${td.toDouble(stocks.interbankLoan)}%.2f;" +
+        s"${bank.failed}"
 
   "runZIO" should "write deterministic per-seed and summary CSV files" in withTempDir: outputDir =>
     unsafeRun(McRunner.runZIO(rc, outputDir.toFile))

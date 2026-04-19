@@ -13,6 +13,7 @@ import com.boombustgroup.amorfati.engine.{
   MonthTraceStage,
   SimulationMonth,
 }
+import com.boombustgroup.amorfati.engine.ledger.CorporateBondOwnership
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
@@ -48,6 +49,21 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.execution.netDelta shouldBe 0L
     result.sfcResult shouldBe Right(())
     result.calculus.employed should be > 0
+  }
+
+  it should "keep corporate bond outstanding ledger-owned across month boundaries" in {
+    val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state       = FlowSimulation.SimState.fromInit(init)
+    val initialDebt = CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState)
+
+    initialDebt shouldBe CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState.firms)
+    initialDebt shouldBe CorporateBondOwnership.holderOutstanding(state.ledgerFinancialState)
+
+    val result   = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val nextDebt = CorporateBondOwnership.issuerOutstanding(result.nextState.ledgerFinancialState)
+
+    nextDebt shouldBe CorporateBondOwnership.issuerOutstanding(result.nextState.ledgerFinancialState.firms)
+    nextDebt shouldBe CorporateBondOwnership.holderOutstanding(result.nextState.ledgerFinancialState)
   }
 
   it should "derive runtime ledger topology from actual populations plus explicit shell slots" in {
@@ -94,6 +110,8 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
     val bankCapitalMechanisms = Set(
       FlowMechanism.BankGovBondIncome,
+      FlowMechanism.BankCorpBondCoupon,
+      FlowMechanism.BankCorpBondLoss,
       FlowMechanism.BankBfgLevy,
       FlowMechanism.BankUnrealizedLoss,
       FlowMechanism.BankNbpRemittance,
@@ -106,6 +124,31 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val insuranceIncomeBatches = result.flows.filter(_.mechanism == FlowMechanism.InsInvestmentIncome)
     insuranceIncomeBatches should not be empty
     insuranceIncomeBatches.map(_.asset).toSet shouldBe Set(AssetType.LifeReserve, AssetType.NonLifeReserve)
+  }
+
+  it should "read insurance flow inputs from LedgerFinancialState instead of World market memory" in {
+    val init            = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState       = FlowSimulation.SimState.fromInit(init)
+    val ledgerInsurance = baseState.ledgerFinancialState.insurance.copy(
+      lifeReserve = PLN(21),
+      nonLifeReserve = PLN(22),
+      govBondHoldings = PLN(23),
+      corpBondHoldings = PLN(24),
+      equityHoldings = PLN(25),
+    )
+    val state           = baseState.copy(
+      ledgerFinancialState = baseState.ledgerFinancialState.copy(
+        insurance = ledgerInsurance,
+      ),
+    )
+
+    val calculus = FlowSimulation.computeCalculus(state, MonthRandomness.Contract.fromSeed(42L))
+
+    calculus.insuranceCurrentLifeReserves shouldBe ledgerInsurance.lifeReserve
+    calculus.insuranceCurrentNonLifeReserves shouldBe ledgerInsurance.nonLifeReserve
+    calculus.insurancePrevGovBonds shouldBe ledgerInsurance.govBondHoldings
+    calculus.insurancePrevCorpBonds shouldBe ledgerInsurance.corpBondHoldings
+    calculus.insurancePrevEquity shouldBe ledgerInsurance.equityHoldings
   }
 
   it should "expose the month boundary as SimState -> StepOutput -> (nextState, trace)" in {
@@ -152,7 +195,6 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       MonthRandomness.StreamKey.HouseholdIncomeEconomics,
       MonthRandomness.StreamKey.FirmEconomics,
       MonthRandomness.StreamKey.HouseholdFinancialEconomics,
-      MonthRandomness.StreamKey.PriceEquityEconomics,
       MonthRandomness.StreamKey.OpenEconEconomics,
       MonthRandomness.StreamKey.BankingEconomics,
       MonthRandomness.StreamKey.FdiMa,
@@ -218,14 +260,15 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   it should "propagate informal-economy pressure into fiscal outputs without breaking SFC" in {
     val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState     = FlowSimulation.SimState.fromInit(init)
     val lowShadowW    = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.0))
     val highShadowW   = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.4))
     val lowShadowRun  = FlowSimulation.step(
-      FlowSimulation.SimState(SimulationMonth.CompletedMonth.Zero, lowShadowW, init.firms, init.households, init.banks, init.householdAggregates),
+      baseState.copy(world = lowShadowW),
       MonthRandomness.Contract.fromSeed(42L),
     )
     val highShadowRun = FlowSimulation.step(
-      FlowSimulation.SimState(SimulationMonth.CompletedMonth.Zero, highShadowW, init.firms, init.households, init.banks, init.householdAggregates),
+      baseState.copy(world = highShadowW),
       MonthRandomness.Contract.fromSeed(42L),
     )
 
@@ -282,12 +325,13 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     trace.seedTransition.seedIn shouldBe init.world.seedIn
     trace.seedTransition.seedOut shouldBe result.nextState.world.seedIn
     trace.randomness shouldBe result.randomness
-    trace.boundary.startSnapshot.stock shouldBe Sfc.snapshot(init.world, init.firms, init.households, init.banks)
+    trace.boundary.startSnapshot.stock shouldBe Sfc.snapshot(init.world, init.firms, init.households, init.banks, state.ledgerFinancialState)
     trace.boundary.endSnapshot.stock shouldBe Sfc.snapshot(
       result.nextState.world,
       result.nextState.firms,
       result.nextState.households,
       result.nextState.banks,
+      result.nextState.ledgerFinancialState,
     )
     trace.boundary.startSnapshot.inflation shouldBe init.world.inflation
     trace.boundary.endSnapshot.inflation shouldBe result.nextState.world.inflation
