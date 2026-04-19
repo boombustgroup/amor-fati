@@ -288,9 +288,12 @@ object FirmEconomics:
     val bsec               = in.w.bankingSector
     val nBanks             = in.banks.length
     val ccyb               = in.w.mechanisms.macropru.ccyb
+    val bankStocks         = in.ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)
     val bankCorpBonds      = (bankId: BankId) => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId)
-    val rates              = in.banks.zip(bsec.configs).map((b, cfg) => Banking.lendingRate(b, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield, bankCorpBonds(b.id)))
-    val canLend            = (bankId: Int, amt: PLN) => Banking.canLend(in.banks(bankId), amt, rng, ccyb, bankCorpBonds(BankId(bankId)))
+    val rates              = in.banks.zip(bankStocks).zip(bsec.configs).map { case ((b, stocks), cfg) =>
+      Banking.lendingRate(b, stocks, cfg, in.s1.lendingBaseRate, in.w.gov.bondYield, bankCorpBonds(b.id))
+    }
+    val canLend            = (bankId: Int, amt: PLN) => Banking.canLend(in.banks(bankId), bankStocks(bankId), amt, rng, ccyb, bankCorpBonds(BankId(bankId)))
     val operationalSignals = OperationalSignals(
       sectorDemandMult = in.s4.sectorMults,
       sectorDemandPressure = in.s4.sectorDemandPressure,

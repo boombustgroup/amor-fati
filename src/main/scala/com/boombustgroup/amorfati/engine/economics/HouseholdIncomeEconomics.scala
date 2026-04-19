@@ -63,11 +63,15 @@ object HouseholdIncomeEconomics:
     val afterWages    = LaborMarket.updateWages(afterSep, firms, newWage)
     val bsec          = w.bankingSector
     val nBanksHh      = banks.length
+    val bankStocks    = ledgerFinancialState.banks.map(LedgerFinancialState.bankFinancialStocks)
     val hhBankRates   = Some(
       BankRates(
         lendingRates = banks
+          .zip(bankStocks)
           .zip(bsec.configs)
-          .map((b, cfg) => Banking.lendingRate(b, cfg, lendingBaseRate, w.gov.bondYield, CorporateBondOwnership.bankHolderFor(ledgerFinancialState, b.id))),
+          .map { case ((b, stocks), cfg) =>
+            Banking.lendingRate(b, stocks, cfg, lendingBaseRate, w.gov.bondYield, CorporateBondOwnership.bankHolderFor(ledgerFinancialState, b.id))
+          },
         depositRates = banks.map(_ => Banking.hhDepositRate(w.nbp.referenceRate)),
       ),
     )

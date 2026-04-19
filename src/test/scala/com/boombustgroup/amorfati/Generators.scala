@@ -24,11 +24,21 @@ object Generators:
       totalConsumerLoans: PLN = PLN.Zero,
       configs: Vector[Banking.Config] = Banking.DefaultConfigs,
   ): Banking.State =
-    val banks = configs.map: cfg =>
+    val rows = configs.map: cfg =>
       val bankBonds = totalGovBonds * cfg.initMarketShare
-      Banking.BankState(
-        id = cfg.id,
-        financial = Banking.BankFinancialStocks(
+      (
+        Banking.BankState(
+          id = cfg.id,
+          capital = totalCapital * cfg.initMarketShare,
+          nplAmount = PLN.Zero,
+          htmBookYield = p.banking.initHtmBookYield,
+          status = Banking.BankStatus.Active(0),
+          loansShort = PLN.Zero,
+          loansMedium = PLN.Zero,
+          loansLong = PLN.Zero,
+          consumerNpl = PLN.Zero,
+        ),
+        Banking.BankFinancialStocks(
           totalDeposits = totalDeposits * cfg.initMarketShare,
           firmLoan = totalLoans * cfg.initMarketShare,
           govBondAfs = bankBonds * (Share.One - p.banking.htmShare),
@@ -39,16 +49,8 @@ object Generators:
           termDeposit = PLN.Zero,
           consumerLoan = totalConsumerLoans * cfg.initMarketShare,
         ),
-        capital = totalCapital * cfg.initMarketShare,
-        nplAmount = PLN.Zero,
-        htmBookYield = p.banking.initHtmBookYield,
-        status = Banking.BankStatus.Active(0),
-        loansShort = PLN.Zero,
-        loansMedium = PLN.Zero,
-        loansLong = PLN.Zero,
-        consumerNpl = PLN.Zero,
       )
-    Banking.State(banks, Rate.Zero, configs, None)
+    Banking.State(rows.map(_._1), Rate.Zero, configs, None, rows.map(_._2))
 
   def testHouseholdAggregates(
       employed: Int = 100,
@@ -687,7 +689,7 @@ object Generators:
       aff    <- Gen.sequence[Vector[Double], Double]((0 until 6).map(_ => Gen.choose(0.05, 0.40)))
     yield Banking.Config(BankId(id), s"Bank$id", Share(share), Share(cet1), Rate(spread), aff.map(Share(_)))
 
-    val BankState: Gen[Banking.BankState] = for
+    val BankRow: Gen[(Banking.BankState, Banking.BankFinancialStocks)] = for
       id       <- Gen.choose(0, 6)
       deposits <- Gen.choose(1e6, 1e10)
       loans    <- Gen.choose(0.0, 1e10)
@@ -700,9 +702,19 @@ object Generators:
       ibNet    <- Gen.choose(-1e8, 1e8)
       failed   <- Gen.oneOf(false, false, false, false, true) // 20% chance
       lowCar   <- Gen.choose(0, 5)
-    yield Banking.BankState(
-      id = BankId(id),
-      financial = Banking.BankFinancialStocks(
+    yield (
+      Banking.BankState(
+        id = BankId(id),
+        capital = PLN(capital),
+        nplAmount = PLN(loans * nplFrac),
+        htmBookYield = Rate(bookYld),
+        status = if failed then Banking.BankStatus.Failed(SimulationMonth.ExecutionMonth(30)) else Banking.BankStatus.Active(lowCar),
+        loansShort = PLN.Zero,
+        loansMedium = PLN.Zero,
+        loansLong = PLN.Zero,
+        consumerNpl = PLN.Zero,
+      ),
+      Banking.BankFinancialStocks(
         totalDeposits = PLN(deposits),
         firmLoan = PLN(loans),
         govBondAfs = PLN(bonds * (1.0 - htmFrac)),
@@ -713,19 +725,13 @@ object Generators:
         termDeposit = PLN.Zero,
         consumerLoan = PLN.Zero,
       ),
-      capital = PLN(capital),
-      nplAmount = PLN(loans * nplFrac),
-      htmBookYield = Rate(bookYld),
-      status = if failed then Banking.BankStatus.Failed(SimulationMonth.ExecutionMonth(30)) else Banking.BankStatus.Active(lowCar),
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerNpl = PLN.Zero,
     )
+
+    val BankState: Gen[Banking.BankState] = BankRow.map(_._1)
 
     val State: Gen[Banking.State] = for
       nBanks <- Gen.choose(2, 7)
-      banks  <- Gen.listOfN(nBanks, BankState).map(_.toVector.zipWithIndex.map((b, i) => b.copy(id = BankId(i))))
+      rows   <- Gen.listOfN(nBanks, BankRow).map(_.toVector.zipWithIndex.map { case ((bank, stocks), i) => (bank.copy(id = BankId(i)), stocks) })
       rate   <- genRate
       cfgs   <- Gen.listOfN(nBanks, Config).map(_.toVector.zipWithIndex.map((c, i) => c.copy(id = BankId(i))))
-    yield Banking.State(banks, Rate(rate), cfgs, None)
+    yield Banking.State(rows.map(_._1), Rate(rate), cfgs, None, rows.map(_._2))

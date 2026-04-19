@@ -74,29 +74,6 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     fromLedger.ledgerFinancialState.funds.jstCash shouldBe aligned.ledgerFinancialState.funds.jstCash + PLN(555e9)
   }
 
-  it should "source bank financial opening stocks from LedgerFinancialState" in {
-    val prepared   = preparedBankingStep()
-    val aligned    = prepared.run()
-    val staleBanks = prepared.banks.map: bank =>
-      bank.withFinancial(_ =>
-        Banking.BankFinancialStocks(
-          totalDeposits = PLN.Zero,
-          firmLoan = PLN.Zero,
-          govBondAfs = PLN.Zero,
-          govBondHtm = PLN.Zero,
-          reserve = PLN.Zero,
-          interbankLoan = PLN.Zero,
-          demandDeposit = PLN.Zero,
-          termDeposit = PLN.Zero,
-          consumerLoan = PLN.Zero,
-        ),
-      )
-    val fromLedger = prepared.run(banksOverride = staleBanks)
-
-    fromLedger.resolvedBank shouldBe aligned.resolvedBank
-    fromLedger.ledgerFinancialState.banks shouldBe aligned.ledgerFinancialState.banks
-  }
-
   private case class PreparedBankingStep(
       world: World,
       ledgerFinancialState: LedgerFinancialState,
@@ -185,13 +162,13 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     PreparedBankingStep(w, ledgerFinancialState, init.banks, s1, s2, s3, s4, s5, s6, s7, s8)
 
   "BankingEconomics.distributeFxInjection" should "distribute exact positive injection by non-negative deposit weights" in {
-    val banks  = Vector(
+    val rows   = Vector(
       initBank(0, deposits = PLN(600.0), reserves = PLN(10.0)),
       initBank(1, deposits = PLN(400.0), reserves = PLN(20.0)),
     )
-    val result = BankingEconomics.distributeFxInjection(banks, PLN(101.0))
-    val delta0 = result.banks(0).reservesAtNbp - banks(0).reservesAtNbp
-    val delta1 = result.banks(1).reservesAtNbp - banks(1).reservesAtNbp
+    val result = BankingEconomics.distributeFxInjection(rows.map(_._1), rows.map(_._2), PLN(101.0))
+    val delta0 = result.financialStocks(0).reserve - rows(0)._2.reserve
+    val delta1 = result.financialStocks(1).reserve - rows(1)._2.reserve
     result.standingFacilityBackstop shouldBe PLN.Zero
     result.residual shouldBe PLN.Zero
     delta0.toLong + delta1.toLong shouldBe PLN(101.0).toLong
@@ -200,15 +177,15 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "treat negative deposits as zero weight during PLN drain" in {
-    val banks  = Vector(
+    val rows   = Vector(
       initBank(0, deposits = PLN(-50.0), reserves = PLN(30.0)),
       initBank(1, deposits = PLN(100.0), reserves = PLN(50.0)),
       initBank(2, deposits = PLN(300.0), reserves = PLN(90.0)),
     )
-    val result = BankingEconomics.distributeFxInjection(banks, PLN(-40.0))
-    val delta0 = result.banks(0).reservesAtNbp - banks(0).reservesAtNbp
-    val delta1 = result.banks(1).reservesAtNbp - banks(1).reservesAtNbp
-    val delta2 = result.banks(2).reservesAtNbp - banks(2).reservesAtNbp
+    val result = BankingEconomics.distributeFxInjection(rows.map(_._1), rows.map(_._2), PLN(-40.0))
+    val delta0 = result.financialStocks(0).reserve - rows(0)._2.reserve
+    val delta1 = result.financialStocks(1).reserve - rows(1)._2.reserve
+    val delta2 = result.financialStocks(2).reserve - rows(2)._2.reserve
     result.standingFacilityBackstop shouldBe PLN.Zero
     result.residual shouldBe PLN.Zero
     delta0 shouldBe PLN.Zero
@@ -218,29 +195,30 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "surface the full residual when no bank has positive deposit weight" in {
-    val banks  = Vector(
+    val rows   = Vector(
       initBank(0, deposits = PLN.Zero, reserves = PLN(30.0)),
       initBank(1, deposits = PLN(-10.0), reserves = PLN(40.0)),
     )
-    val result = BankingEconomics.distributeFxInjection(banks, PLN(-25.0))
+    val result = BankingEconomics.distributeFxInjection(rows.map(_._1), rows.map(_._2), PLN(-25.0))
 
-    result.banks shouldBe banks
+    result.banks shouldBe rows.map(_._1)
+    result.financialStocks shouldBe rows.map(_._2)
     result.standingFacilityBackstop shouldBe PLN.Zero
     result.residual shouldBe PLN(-25.0)
   }
 
   "BankingEconomics.applyNbpReserveSettlement" should "apply reserve-side monetary settlement and FX injection to reserves" in {
-    val banks   = Vector(
+    val rows    = Vector(
       initBank(0, deposits = PLN(600.0), reserves = PLN(10.0)),
       initBank(1, deposits = PLN(400.0), reserves = PLN(20.0)),
     )
     val reserve = Banking.PerBankAmounts(Vector(PLN(6.0), PLN(4.0)), PLN(10.0))
     val sf      = Banking.PerBankAmounts(Vector(PLN(3.0), PLN(-1.0)), PLN(2.0))
     val ib      = Banking.PerBankAmounts(Vector(PLN(-2.0), PLN(2.0)), PLN.Zero)
-    val result  = BankingEconomics.applyNbpReserveSettlement(banks, reserve, sf, ib, PLN(100.0))
+    val result  = BankingEconomics.applyNbpReserveSettlement(rows.map(_._1), rows.map(_._2), reserve, sf, ib, PLN(100.0))
 
-    val delta0 = result.banks(0).reservesAtNbp - banks(0).reservesAtNbp
-    val delta1 = result.banks(1).reservesAtNbp - banks(1).reservesAtNbp
+    val delta0 = result.financialStocks(0).reserve - rows(0)._2.reserve
+    val delta1 = result.financialStocks(1).reserve - rows(1)._2.reserve
 
     result.standingFacilityBackstop shouldBe PLN.Zero
     result.residual shouldBe PLN.Zero
@@ -249,20 +227,30 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "convert reserve drain shortfall into explicit standing-facility backstop" in {
-    val banks  = Vector(initBank(0, deposits = PLN(100.0), reserves = PLN(10.0)))
+    val rows   = Vector(initBank(0, deposits = PLN(100.0), reserves = PLN(10.0)))
     val zeros  = Banking.PerBankAmounts(Vector(PLN.Zero), PLN.Zero)
     val drain  = Banking.PerBankAmounts(Vector(PLN(-15.0)), PLN(-15.0))
-    val result = BankingEconomics.applyNbpReserveSettlement(banks, zeros, drain, zeros, PLN.Zero)
+    val result = BankingEconomics.applyNbpReserveSettlement(rows.map(_._1), rows.map(_._2), zeros, drain, zeros, PLN.Zero)
 
-    result.banks.head.reservesAtNbp shouldBe PLN.Zero
+    result.financialStocks.head.reserve shouldBe PLN.Zero
     result.standingFacilityBackstop shouldBe PLN(5.0)
     result.residual shouldBe PLN.Zero
   }
 
-  private def initBank(id: Int, deposits: PLN, reserves: PLN): Banking.BankState =
-    Banking.BankState(
-      id = BankId(id),
-      financial = Banking.BankFinancialStocks(
+  private def initBank(id: Int, deposits: PLN, reserves: PLN): (Banking.BankState, Banking.BankFinancialStocks) =
+    (
+      Banking.BankState(
+        id = BankId(id),
+        capital = PLN(100.0),
+        nplAmount = PLN.Zero,
+        htmBookYield = Rate.Zero,
+        status = Banking.BankStatus.Active(0),
+        loansShort = PLN.Zero,
+        loansMedium = PLN.Zero,
+        loansLong = PLN.Zero,
+        consumerNpl = PLN.Zero,
+      ),
+      Banking.BankFinancialStocks(
         totalDeposits = deposits,
         firmLoan = PLN.Zero,
         govBondAfs = PLN.Zero,
@@ -273,12 +261,4 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
         termDeposit = PLN.Zero,
         consumerLoan = PLN.Zero,
       ),
-      capital = PLN(100.0),
-      nplAmount = PLN.Zero,
-      htmBookYield = Rate.Zero,
-      status = Banking.BankStatus.Active(0),
-      loansShort = PLN.Zero,
-      loansMedium = PLN.Zero,
-      loansLong = PLN.Zero,
-      consumerNpl = PLN.Zero,
     )

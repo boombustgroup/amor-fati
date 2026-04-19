@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.ComputationBoundary
 import org.scalatest.flatspec.AnyFlatSpec
@@ -69,9 +70,8 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
     nextState.banks.foreach: bank =>
       val balances = ledger.banks(bank.id.toInt)
-      balances.totalDeposits shouldBe bank.deposits
-      balances.firmLoan shouldBe bank.loans
-      balances.consumerLoan shouldBe bank.consumerLoans
-      balances.reserve shouldBe bank.reservesAtNbp
-      balances.interbankLoan shouldBe bank.interbankNet
+      LedgerFinancialState.bankBalances(
+        LedgerFinancialState.bankFinancialStocks(balances),
+        balances.corpBond,
+      ) shouldBe balances
   }

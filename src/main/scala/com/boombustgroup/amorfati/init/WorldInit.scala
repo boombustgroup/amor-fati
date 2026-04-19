@@ -55,8 +55,10 @@ object WorldInit:
         .map(PLN.fromRaw)
         .toVector
     val initBankBalances  =
-      initBankingSector.banks.map: bank =>
-        LedgerFinancialState.bankBalances(bank.financial, corpBond = initBankCorpBonds.lift(bank.id.toInt).getOrElse(PLN.Zero))
+      initBankingSector.banks
+        .zip(initBankingSector.financialStocks)
+        .map: (bank, stocks) =>
+          LedgerFinancialState.bankBalances(stocks, corpBond = initBankCorpBonds.lift(bank.id.toInt).getOrElse(PLN.Zero))
 
     // --- Sub-state initializers ---
     val initDemographics      = DemographicsInit.create(totalPop)

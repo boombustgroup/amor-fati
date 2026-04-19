@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.ledger
 
-import com.boombustgroup.amorfati.agents.{Firm, Household, Nbp}
+import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Nbp}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
@@ -120,21 +120,18 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
   }
 
   "LedgerFinancialState.bankBalances" should "write bank execution stocks directly" in {
-    val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val bank = init.banks.head.withFinancial(
-      _.copy(
-        totalDeposits = PLN(123.0),
-        demandDeposit = PLN(100.0),
-        termDeposit = PLN(23.0),
-        firmLoan = PLN(88.0),
-        consumerLoan = PLN(77.0),
-        govBondAfs = PLN(66.0),
-        govBondHtm = PLN(55.0),
-        reserve = PLN(44.0),
-        interbankLoan = PLN(33.0),
-      ),
+    val stocks = Banking.BankFinancialStocks(
+      totalDeposits = PLN(123.0),
+      demandDeposit = PLN(100.0),
+      termDeposit = PLN(23.0),
+      firmLoan = PLN(88.0),
+      consumerLoan = PLN(77.0),
+      govBondAfs = PLN(66.0),
+      govBondHtm = PLN(55.0),
+      reserve = PLN(44.0),
+      interbankLoan = PLN(33.0),
     )
-    LedgerFinancialState.bankBalances(bank.financial, corpBond = PLN(22.0)) shouldBe LedgerFinancialState.BankBalances(
+    LedgerFinancialState.bankBalances(stocks, corpBond = PLN(22.0)) shouldBe LedgerFinancialState.BankBalances(
       totalDeposits = PLN(123.0),
       demandDeposit = PLN(100.0),
       termDeposit = PLN(23.0),

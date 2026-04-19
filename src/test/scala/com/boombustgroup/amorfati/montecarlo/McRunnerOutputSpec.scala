@@ -1,10 +1,11 @@
 package com.boombustgroup.amorfati.montecarlo
 
+import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.agents.Banking.BankState
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.fp.{ComputationBoundary, FixedPointBase}
-import com.boombustgroup.amorfati.types.PLN
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import zio.{Runtime, Unsafe}
@@ -95,20 +96,21 @@ class McRunnerOutputSpec extends AnyFlatSpec with Matchers:
   private def expectedBankLines(results: Vector[(Long, RunResult)]): Vector[String] =
     bankHeader +: results.flatMap: (seed, result) =>
       result.terminalState.banks.map: bank =>
-        val corpBondHoldings = result.terminalState.ledgerFinancialState.banks.lift(bank.id.toInt).fold(PLN.Zero)(_.corpBond)
-        bankRow(seed, bank, corpBondHoldings)
+        val balances = result.terminalState.ledgerFinancialState.banks(bank.id.toInt)
+        bankRow(seed, bank, balances)
 
-  private def bankRow(seed: Long, bank: BankState, corpBondHoldings: PLN): String =
+  private def bankRow(seed: Long, bank: BankState, balances: LedgerFinancialState.BankBalances): String =
+    val stocks = LedgerFinancialState.bankFinancialStocks(balances)
     Vector(
       s"$seed",
       s"${bank.id}",
-      f"${td.toDouble(bank.deposits)}%.2f",
-      f"${td.toDouble(bank.loans)}%.2f",
+      f"${td.toDouble(stocks.totalDeposits)}%.2f",
+      f"${td.toDouble(stocks.firmLoan)}%.2f",
       f"${td.toDouble(bank.capital)}%.2f",
-      f"${td.toDouble(bank.nplRatio)}%.6f",
-      f"${td.toDouble(bank.car(corpBondHoldings))}%.6f",
-      f"${td.toDouble(bank.govBondHoldings)}%.2f",
-      f"${td.toDouble(bank.interbankNet)}%.2f",
+      f"${td.toDouble(Banking.nplRatio(bank, stocks))}%.6f",
+      f"${td.toDouble(Banking.car(bank, stocks, balances.corpBond))}%.6f",
+      f"${td.toDouble(Banking.govBondHoldings(stocks))}%.2f",
+      f"${td.toDouble(stocks.interbankLoan)}%.2f",
       s"${bank.failed}",
     ).mkString(";")
 

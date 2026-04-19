@@ -94,22 +94,9 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       )
     }.toVector
 
-  private val zeroBankFinancialStocks = Banking.BankFinancialStocks(
-    totalDeposits = PLN.Zero,
-    firmLoan = PLN.Zero,
-    govBondAfs = PLN.Zero,
-    govBondHtm = PLN.Zero,
-    reserve = PLN.Zero,
-    interbankLoan = PLN.Zero,
-    demandDeposit = PLN.Zero,
-    termDeposit = PLN.Zero,
-    consumerLoan = PLN.Zero,
-  )
-
   private def makeBank(id: Int = 0, capital: PLN = PLN.Zero): Banking.BankState =
     Banking.BankState(
       id = BankId(id),
-      financial = zeroBankFinancialStocks,
       nplAmount = PLN.Zero,
       capital = capital,
       htmBookYield = Rate.Zero,
