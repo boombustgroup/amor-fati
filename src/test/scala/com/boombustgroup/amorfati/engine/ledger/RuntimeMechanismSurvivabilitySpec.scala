@@ -136,19 +136,31 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
     representativeBatches(using topology)
 
   private lazy val emittedMechanisms: Set[MechanismId] =
+    FlowMechanism.emittedRuntimeMechanisms
+
+  private lazy val representativeMechanisms: Set[MechanismId] =
     emittedBatches.map(_.mechanism).toSet
 
-  "RuntimeMechanismSurvivability" should "declare every representative emitted mechanism" in
+  "RuntimeMechanismSurvivability" should "declare every runtime emitted FlowMechanism" in
     withClue(s"Missing declarations: ${mechanismIds(missingDeclarations(emittedMechanisms)).mkString(",")}") {
       missingDeclarations(emittedMechanisms) shouldBe empty
     }
 
-  it should "avoid stale declarations for mechanisms that are not emitted anymore" in {
+  it should "avoid stale declarations for mechanisms that are not runtime emitted" in {
     val declaredOnly = declaredMechanisms.diff(emittedMechanisms)
     val emittedOnly  = emittedMechanisms.diff(declaredMechanisms)
 
     withClue(s"Declared-only: ${mechanismIds(declaredOnly).mkString(",")}; emitted-only: ${mechanismIds(emittedOnly).mkString(",")}") {
       declaredMechanisms shouldBe emittedMechanisms
+    }
+  }
+
+  it should "exercise every runtime emitted FlowMechanism in representativeBatches" in {
+    val fixtureOnly        = representativeMechanisms.diff(emittedMechanisms)
+    val missingFromFixture = emittedMechanisms.diff(representativeMechanisms)
+
+    withClue(s"Fixture-only: ${mechanismIds(fixtureOnly).mkString(",")}; missing from fixture: ${mechanismIds(missingFromFixture).mkString(",")}") {
+      representativeMechanisms shouldBe emittedMechanisms
     }
   }
 
