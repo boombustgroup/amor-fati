@@ -16,11 +16,20 @@ object BankInit:
       market: Banking.MarketState,
   )
 
-  def create(firms: Vector[Firm.State], households: Vector[Household.State])(using p: SimParams): Result =
+  def create(
+      firms: Vector[Firm.State],
+      households: Vector[Household.State],
+      householdFinancialStocks: Vector[Household.FinancialStocks],
+  )(using p: SimParams): Result =
+    require(
+      households.length == householdFinancialStocks.length,
+      s"BankInit.create requires aligned households and financial stocks, got ${households.length} households and ${householdFinancialStocks.length} stock rows",
+    )
     val perBankCorpLoans  = firms.groupMapReduce(_.bankId.toInt)(_.debt)(_ + _)
     val perBankCash       = firms.groupMapReduce(_.bankId.toInt)(_.cash)(_ + _)
-    val perBankConsLoans  = households.groupMapReduce(_.bankId.toInt)(_.consumerDebt)(_ + _)
-    val perBankHhDeposits = households.groupMapReduce(_.bankId.toInt)(_.savings)(_ + _)
+    val householdRows     = households.zip(householdFinancialStocks)
+    val perBankConsLoans  = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.consumerLoan)(_ + _)
+    val perBankHhDeposits = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.demandDeposit)(_ + _)
 
     val totalCapital  = p.banking.initCapital
     val totalGovBonds = p.banking.initGovBonds

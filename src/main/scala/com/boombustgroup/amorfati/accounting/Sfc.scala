@@ -230,8 +230,12 @@ object Sfc:
       banks: Vector[Banking.BankState],
       ledgerFinancialState: LedgerFinancialState,
   ): StockState =
-    val hhS     = PLN.fromRaw(households.map(_.savings.toLong).sum)
-    val hhD     = PLN.fromRaw(households.map(_.debt.toLong).sum)
+    require(
+      households.length == ledgerFinancialState.households.length,
+      s"Sfc.snapshot requires aligned households and ledger household balances, got ${households.length} households and ${ledgerFinancialState.households.length} balance rows",
+    )
+    val hhS     = ledgerFinancialState.households.map(_.demandDeposit).sum
+    val hhD     = ledgerFinancialState.households.map(_.mortgageLoan).sum
     val ibNet   = PLN.fromRaw(banks.map(_.interbankNet.toLong).sum)
     val bankAgg = Banking.aggregateFromBanks(banks, bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId))
     val bonds   = GovernmentBondCircuit.from(ledgerFinancialState)

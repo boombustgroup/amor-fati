@@ -26,11 +26,13 @@ object WorldInit:
     assert(firms.length == p.pop.firmsCount)
 
     // --- Households ---
-    val households0    = Household.Init.create(randomness.households.newStreams(), firms)
-    val households     = ImmigrantInit.create(randomness.immigration.newStreams(), households0)
-    val totalPop       = households.length
-    val initEmployed   = households.count(_.status.isInstanceOf[HhStatus.Employed])
-    val initUnemployed = totalPop - initEmployed
+    val households0     = Household.Init.create(randomness.households.newStreams(), firms)
+    val householdPop    = ImmigrantInit.create(randomness.immigration.newStreams(), households0)
+    val households      = householdPop.households
+    val householdStocks = householdPop.financialStocks
+    val totalPop        = households.length
+    val initEmployed    = households.count(_.status.isInstanceOf[HhStatus.Employed])
+    val initUnemployed  = totalPop - initEmployed
     assert(totalPop > 0)
 
     // --- Banking sector ---
@@ -41,7 +43,7 @@ object WorldInit:
     val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(toDouble(_)).max)
     val initImportCons   = initConsumption - initDomesticCons
 
-    val initBankingSector = BankInit.create(firms, households)
+    val initBankingSector = BankInit.create(firms, households, householdStocks)
     val initBankCorpBonds =
       com.boombustgroup.ledger.Distribute
         .distribute(
@@ -177,7 +179,7 @@ object WorldInit:
     )
 
     val ledgerFinancialState = LedgerFinancialState(
-      households = households.map(_.financial).map(LedgerFinancialState.householdBalances),
+      households = householdStocks.map(LedgerFinancialState.householdBalances),
       firms = initFirmBalances,
       banks = initBankBalances,
       government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = initBondsOutstanding),

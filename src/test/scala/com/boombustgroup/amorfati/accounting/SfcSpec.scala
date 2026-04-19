@@ -94,7 +94,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       )
     }.toVector
 
-  private val zeroLedger  = LedgerFinancialState(
+  private val zeroLedger = LedgerFinancialState(
     households = Vector.empty,
     firms = Vector.empty,
     banks = Vector.empty,
@@ -132,8 +132,20 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
     ),
   )
-  private val zeroWorld   = makeWorld()
-  private val zeroRuntime = Sfc.RuntimeState(zeroWorld, Vector.empty, Vector.empty, Vector.empty, zeroLedger)
+
+  private def ledgerForHouseholds(households: Vector[Household.State], savings: Double, debt: Double): LedgerFinancialState =
+    zeroLedger.copy(
+      households = Vector.fill(households.length)(
+        LedgerFinancialState.HouseholdBalances(
+          demandDeposit = PLN(savings),
+          mortgageLoan = PLN(debt),
+          consumerLoan = PLN.Zero,
+          equity = PLN.Zero,
+        ),
+      ),
+    )
+  private val zeroWorld                                                                                                     = makeWorld()
+  private val zeroRuntime                                                                                                   = Sfc.RuntimeState(zeroWorld, Vector.empty, Vector.empty, Vector.empty, zeroLedger)
 
   private val zeroSnap = Sfc.StockState(
     hhSavings = PLN.Zero,
@@ -245,7 +257,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val w     = makeWorld()
     val firms = makeFirms(1)
     val hhs   = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, hhs, Vector.empty, zeroLedger)
+    val snap  = Sfc.snapshot(w, firms, hhs, Vector.empty, ledgerForHouseholds(hhs, savings = 20000.0, debt = 5000.0))
     snap.hhSavings.bd shouldBe (BigDecimal("200000.0") +- BigDecimal("0.01"))
     snap.hhDebt.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
   }

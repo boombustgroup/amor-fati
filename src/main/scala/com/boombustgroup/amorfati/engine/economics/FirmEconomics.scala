@@ -211,12 +211,12 @@ object FirmEconomics:
   // ---- Core pipeline ----
 
   private def runInternal(stepIn: StepInput, rng: RandomStream)(using p: SimParams): StepOutput =
-    val lending                             = prepareLending(stepIn, rng)
-    val fp                                  = processFirms(stepIn.firms, stepIn.ledgerFinancialState, lending, rng)
-    val bonded                              = applyBondAbsorption(fp, stepIn.w, stepIn.banks, stepIn.ledgerFinancialState)
-    val intermediate                        = applyIntermediateMarket(bonded.firms, bonded.financialStocks, stepIn)
+    val lending             = prepareLending(stepIn, rng)
+    val fp                  = processFirms(stepIn.firms, stepIn.ledgerFinancialState, lending, rng)
+    val bonded              = applyBondAbsorption(fp, stepIn.w, stepIn.banks, stepIn.ledgerFinancialState)
+    val intermediate        = applyIntermediateMarket(bonded.firms, bonded.financialStocks, stepIn)
     // Calvo staggered pricing: per-firm markup update
-    val calvoFirms                          = intermediate.firms.map: f =>
+    val calvoFirms          = intermediate.firms.map: f =>
       val sectorMult         = stepIn.s4.sectorMults(f.sector.toInt)
       val passthrough        =
         if f.stateOwned then StateOwned.effectiveEnergyPassthrough(f.sector.toInt)
@@ -229,12 +229,12 @@ object FirmEconomics:
         )
       val calvo              = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, stepIn.s2.wageGrowth, energyCostPressure, rng)
       f.copy(markup = calvo.newMarkup)
-    val (finalHouseholds, crossSectorHires) = processLaborMarket(calvoFirms, stepIn, rng)
-    val npl                                 = computeNplAndInterest(stepIn.firms, calvoFirms, bonded.ledgerFinancialState, lending)
-    val issuerSettledLedger                 = bonded.ledgerFinancialState.copy(
+    val laborMarket         = processLaborMarket(calvoFirms, stepIn, rng)
+    val npl                 = computeNplAndInterest(stepIn.firms, calvoFirms, bonded.ledgerFinancialState, lending)
+    val issuerSettledLedger = bonded.ledgerFinancialState.copy(
       firms = CorporateBondOwnership.clearDefaultedIssuerDebt(bonded.ledgerFinancialState.firms, npl.defaultedBondFirmIds),
     )
-    val markupInfl                          = CalvoPricing.aggregateMarkupInflation(calvoFirms, intermediate.firms).annualize
+    val markupInfl          = CalvoPricing.aggregateMarkupInflation(calvoFirms, intermediate.firms).annualize
     assembleOutput(
       fp,
       bonded,
@@ -242,8 +242,9 @@ object FirmEconomics:
       intermediate.financialStocks,
       issuerSettledLedger,
       intermediate.totalPaid,
-      finalHouseholds,
-      crossSectorHires,
+      laborMarket.households,
+      laborMarket.crossSectorHires,
+      laborMarket.newHouseholdFinancialStocksById,
       npl,
       stepIn,
       lending,
@@ -262,6 +263,12 @@ object FirmEconomics:
       s2: LaborEconomics.Output,
       s3: HouseholdIncomeEconomics.Output,
       s4: DemandEconomics.Output,
+  )
+
+  private case class LaborMarketResult(
+      households: Vector[Household.State],
+      crossSectorHires: Int,
+      newHouseholdFinancialStocksById: Map[HhId, Household.FinancialStocks],
   )
 
   // ---- Phase 1: Lending conditions ----
@@ -465,18 +472,18 @@ object FirmEconomics:
       ioFirms: Vector[Firm.State],
       in: StepInput,
       rng: RandomStream,
-  )(using p: SimParams): (Vector[Household.State], Int) =
+  )(using p: SimParams): LaborMarketResult =
     val afterSep     = LaborMarket.separations(in.s3.updatedHouseholds, in.firms, ioFirms)
     val searchResult = LaborMarket.jobSearch(afterSep, ioFirms, in.s2.newWage, rng, in.s2.regionalWages)
     val postWages    = LaborMarket.updateWages(searchResult.households, ioFirms, in.s2.newWage)
 
-    val finalHouseholds =
-      val afterRemoval  = Immigration.removeReturnMigrants(postWages, in.s2.newImmig.monthlyOutflow)
-      val startId       = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
-      val newImmigrants = Immigration.spawnImmigrants(in.s2.newImmig.monthlyInflow, startId, rng)
-      afterRemoval ++ newImmigrants
+    val afterRemoval    = Immigration.removeReturnMigrants(postWages, in.s2.newImmig.monthlyOutflow)
+    val startId         = afterRemoval.map(_.id.toInt).maxOption.getOrElse(-1) + 1
+    val newImmigrants   = Immigration.spawnImmigrantPopulation(in.s2.newImmig.monthlyInflow, startId, rng)
+    val finalHouseholds = afterRemoval ++ newImmigrants.households
+    val newStocksById   = newImmigrants.households.zip(newImmigrants.financialStocks).map((household, stocks) => household.id -> stocks).toMap
 
-    (finalHouseholds, searchResult.crossSectorHires)
+    LaborMarketResult(finalHouseholds, searchResult.crossSectorHires, newStocksById)
 
   // ---- Phase 6: NPL and interest income ----
 
@@ -540,6 +547,7 @@ object FirmEconomics:
       totalIoPaid: PLN,
       households: Vector[Household.State],
       crossSectorHires: Int,
+      newHouseholdFinancialStocksById: Map[HhId, Household.FinancialStocks],
       npl: NplResult,
       in: StepInput,
       lending: LendingConditions,
@@ -547,7 +555,12 @@ object FirmEconomics:
   ): StepOutput =
     val flows                 = fp.flows
     val ledgerAfterFirmStocks = in.s3.ledgerFinancialState.copy(
-      households = LedgerFinancialState.refreshHouseholdBalances(households, in.s3.ledgerFinancialState.households),
+      households = LedgerFinancialState.refreshHouseholdBalances(
+        households,
+        in.s3.updatedHouseholds,
+        in.s3.ledgerFinancialState.households,
+        newHouseholdFinancialStocksById,
+      ),
       firms = LedgerFinancialState.refreshFirmFinancialBalances(firmFinancialStocks, ledgerFinancialState.firms),
     )
 

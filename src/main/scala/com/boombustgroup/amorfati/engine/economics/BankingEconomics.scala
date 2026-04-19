@@ -388,6 +388,7 @@ object BankingEconomics:
   private def computeHhAgg(in: StepInput)(using SimParams): Household.Aggregates =
     Household.computeAggregates(
       in.s5.households,
+      in.s5.ledgerFinancialState.households.map(LedgerFinancialState.householdFinancialStocks),
       in.s2.newWage,
       in.s1.resWage,
       in.s3.importAdj,

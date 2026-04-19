@@ -224,6 +224,7 @@ object WorldAssemblyEconomics:
         else Share.One
       val hhAgg                 = Household.computeAggregates(
         postWages,
+        in.s9.ledgerFinancialState.households.map(LedgerFinancialState.householdFinancialStocks),
         in.s2.newWage,
         in.s1.resWage,
         in.s3.importAdj,

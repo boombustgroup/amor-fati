@@ -79,30 +79,11 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "Bankruptcy" should "trigger consumer debt default" in {
-    val hh      = TestHouseholdState(
-      id = HhId(0),
-      savings = PLN(-5000.0),
-      debt = PLN(1000.0),
-      monthlyRent = PLN(1000.0),
-      skill = Share(0.8),
-      healthPenalty = Share(0.0),
-      mpc = Share(0.82),
-      status = HhStatus.Bankrupt,
-      socialNeighbors = Array.empty[HhId],
-      bankId = BankId(0),
-      equityWealth = PLN.Zero,
-      lastSectorIdx = SectorIdx(-1),
-      isImmigrant = false,
-      numDependentChildren = 0,
-      consumerDebt = PLN(5000.0),
-      education = 2,
-      taskRoutineness = Share(0.5),
-      wageScar = Share.Zero,
-    )
+    val financial = TestHouseholdState.financial(savings = PLN(-5000.0), debt = PLN(1000.0), consumerDebt = PLN(5000.0))
     // Bankrupt HH should have consumer debt -> NPL
-    hh.consumerDebt shouldBe PLN(5000.0)
+    financial.consumerLoan shouldBe PLN(5000.0)
     // NPL loss = consumerDebt * (1 - recovery)
-    val nplLoss = td.toDouble(hh.consumerDebt) * (1.0 - td.toDouble(p.household.ccNplRecovery))
+    val nplLoss   = td.toDouble(financial.consumerLoan) * (1.0 - td.toDouble(p.household.ccNplRecovery))
     nplLoss shouldBe 4250.0 +- 0.01
   }
 
@@ -185,28 +166,8 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
     agg.totalConsumerDefault shouldBe PLN.Zero
   }
 
-  "Household" should "have consumerDebt field defaulting to 0" in {
-    val hh = TestHouseholdState(
-      id = HhId(0),
-      savings = PLN(10000.0),
-      debt = PLN.Zero,
-      monthlyRent = PLN(1000.0),
-      skill = Share(0.8),
-      healthPenalty = Share(0.0),
-      mpc = Share(0.82),
-      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266.0)),
-      socialNeighbors = Array.empty[HhId],
-      bankId = BankId(0),
-      equityWealth = PLN.Zero,
-      lastSectorIdx = SectorIdx(-1),
-      isImmigrant = false,
-      numDependentChildren = 0,
-      consumerDebt = PLN.Zero,
-      education = 2,
-      taskRoutineness = Share(0.5),
-      wageScar = Share.Zero,
-    )
-    hh.consumerDebt shouldBe PLN.Zero
+  "Household financial stocks" should "default consumer loan to 0" in {
+    TestHouseholdState.financial(consumerDebt = PLN.Zero).consumerLoan shouldBe PLN.Zero
   }
 
   "BankingAggregate" should "have consumerLoans and consumerNpl fields" in {

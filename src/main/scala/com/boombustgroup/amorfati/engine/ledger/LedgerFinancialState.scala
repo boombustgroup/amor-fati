@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
-import com.boombustgroup.amorfati.types.{FirmId, PLN}
+import com.boombustgroup.amorfati.types.{FirmId, HhId, PLN}
 
 /** Ledger-owned snapshot of ledger-contracted financial stocks used by the
   * engine.
@@ -44,12 +44,31 @@ object LedgerFinancialState:
       equity = stocks.equity,
     )
 
+  def householdFinancialStocks(balances: HouseholdBalances): Household.FinancialStocks =
+    Household.FinancialStocks(
+      demandDeposit = balances.demandDeposit,
+      mortgageLoan = balances.mortgageLoan,
+      consumerLoan = balances.consumerLoan,
+      equity = balances.equity,
+    )
+
   def refreshHouseholdBalances(
       households: Vector[Household.State],
+      previousHouseholds: Vector[Household.State],
       previous: Vector[HouseholdBalances],
+      newHouseholdFinancialStocksById: Map[HhId, Household.FinancialStocks] = Map.empty,
   ): Vector[HouseholdBalances] =
+    require(
+      previousHouseholds.length == previous.length,
+      s"LedgerFinancialState.refreshHouseholdBalances requires aligned previous households and balances, got ${previousHouseholds.length} households and ${previous.length} balance rows",
+    )
+    val previousById = previousHouseholds.zip(previous).map((household, balances) => household.id -> balances).toMap
     households.map: household =>
-      previous.lift(household.id.toInt).getOrElse(initialHouseholdBalances(household))
+      previousById
+        .get(household.id)
+        .orElse(newHouseholdFinancialStocksById.get(household.id).map(householdBalances))
+        .getOrElse:
+          throw new IllegalStateException(s"Missing ledger financial balances for household ${household.id.toInt}")
 
   def firmBalances(stocks: Firm.FinancialStocks, corpBond: PLN): FirmBalances =
     FirmBalances(
@@ -173,9 +192,6 @@ object LedgerFinancialState:
 
   private def initialFirmBalances(firm: Firm.State, corpBond: PLN): FirmBalances =
     firmBalances(firm.financial, corpBond)
-
-  private def initialHouseholdBalances(household: Household.State): HouseholdBalances =
-    householdBalances(household.financial)
 
   /** Ledger-backed financial balances owned by a single household. */
   case class HouseholdBalances(

@@ -60,12 +60,9 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
     val ledger    = nextState.ledgerFinancialState
 
+    ledger.households.length shouldBe nextState.households.length
     nextState.households.foreach: household =>
-      val balances = ledger.households(household.id.toInt)
-      balances.demandDeposit shouldBe household.savings
-      balances.mortgageLoan shouldBe household.debt
-      balances.consumerLoan shouldBe household.consumerDebt
-      balances.equity shouldBe household.equityWealth
+      ledger.households.isDefinedAt(household.id.toInt) shouldBe true
 
     nextState.firms.foreach: firm =>
       val balances = ledger.firms(firm.id.toInt)

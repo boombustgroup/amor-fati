@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.accounting
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household}
 import com.boombustgroup.amorfati.engine.ledger.GovernmentBondCircuit
+import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.types.*
 
 /** Pure init-time stock validation.
@@ -32,13 +33,14 @@ object InitCheck:
     * all pass).
     */
   def validate(state: Sfc.RuntimeState): Vector[InitCheckResult] =
-    validate(Sfc.snapshot(state), state.banks, state.firms, state.households)
+    validate(Sfc.snapshot(state), state.banks, state.firms, state.households, state.ledgerFinancialState)
 
   def validate(
       snapshot: Sfc.StockState,
       banks: Vector[Banking.BankState],
       firms: Vector[Firm.State],
       households: Vector[Household.State],
+      ledgerFinancialState: LedgerFinancialState,
   ): Vector[InitCheckResult] =
     val levelTol   = PLN(0.01)
     val perBankTol = PLN(1.0)
@@ -72,8 +74,9 @@ object InitCheck:
 
     val firmCashByBank   = firms.groupMapReduce(_.bankId.toInt)(_.cash)(_ + _)
     val firmDebtByBank   = firms.groupMapReduce(_.bankId.toInt)(_.debt)(_ + _)
-    val hhSavingsByBank  = households.groupMapReduce(_.bankId.toInt)(_.savings)(_ + _)
-    val hhConsDebtByBank = households.groupMapReduce(_.bankId.toInt)(_.consumerDebt)(_ + _)
+    val householdRows    = households.zip(ledgerFinancialState.households)
+    val hhSavingsByBank  = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.demandDeposit)(_ + _)
+    val hhConsDebtByBank = householdRows.groupMapReduce(_._1.bankId.toInt)(_._2.consumerLoan)(_ + _)
 
     val perBankChecks = banks.flatMap: bank =>
       val bId = bank.id.toInt

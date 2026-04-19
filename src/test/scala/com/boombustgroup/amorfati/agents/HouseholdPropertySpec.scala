@@ -15,8 +15,19 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  private inline def plnValue(p: PLN): Double =
-    p.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+  private def computeAggregates(
+      households: Vector[Household.State],
+      financialStocks: Vector[Household.FinancialStocks] = Vector.empty,
+  ): Household.Aggregates =
+    Household.computeAggregates(
+      households,
+      if financialStocks.nonEmpty then financialStocks else Vector.fill(households.length)(TestHouseholdState.financial(savings = PLN(10000.0))),
+      PLN(8266.0),
+      PLN(4666.0),
+      Share(0.40),
+      0,
+      0,
+    )
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -88,7 +99,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     forAll(Gen.choose(5, 50)) { (n: Int) =>
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
-        val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), Share(0.40), 0, 0)
+        val agg = computeAggregates(hhs)
         (agg.employed + agg.unemployed + agg.retraining + agg.bankrupt) shouldBe n
       }
     }
@@ -97,7 +108,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     forAll(Gen.choose(10, 50)) { (n: Int) =>
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
-        val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), Share(0.40), 0, 0)
+        val agg = computeAggregates(hhs)
         agg.consumptionP10 should be <= agg.consumptionP50
         agg.consumptionP50 should be <= agg.consumptionP90
       }
@@ -107,7 +118,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     forAll(Gen.choose(5, 50)) { (n: Int) =>
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
-        val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), Share(0.40), 0, 0)
+        val agg = computeAggregates(hhs)
         agg.povertyRate30 should be >= Share.Zero
         agg.povertyRate30 should be <= Share.One
         agg.povertyRate50 should be >= Share.Zero
@@ -119,7 +130,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     forAll(Gen.choose(5, 50)) { (n: Int) =>
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
-        val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), Share(0.40), 0, 0)
+        val agg = computeAggregates(hhs)
         agg.povertyRate30 should be <= agg.povertyRate50
       }
     }
@@ -128,7 +139,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     forAll(Gen.choose(5, 50)) { (n: Int) =>
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs = hhList.toVector
-        val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), Share(0.40), 0, 0)
+        val agg = computeAggregates(hhs)
         agg.bankruptcyRate should be >= Share.Zero
         agg.bankruptcyRate should be <= Share.One
       }
@@ -136,10 +147,10 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
 
   it should "have positive meanSavings when all savings are positive" in
     forAll(Gen.choose(5, 30)) { (n: Int) =>
-      val positiveHhGen = genHousehold.map(h => h.withFinancial(_.copy(demandDeposit = PLN(Math.abs(plnValue(h.savings)) + 1.0))))
-      forAll(Gen.listOfN(n, positiveHhGen)) { (hhList: List[Household.State]) =>
-        val hhs = hhList.toVector
-        val agg = Household.computeAggregates(hhs, PLN(8266.0), PLN(4666.0), Share(0.40), 0, 0)
+      forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
+        val hhs    = hhList.toVector
+        val stocks = hhs.map(h => TestHouseholdState.financial(savings = PLN(Math.abs(h.id.toInt.toDouble) + 1.0)))
+        val agg    = computeAggregates(hhs, stocks)
         agg.meanSavings should be > PLN.Zero
       }
     }
@@ -170,7 +181,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           wageScar = Share.Zero,
         )
       }.toVector
-      val agg         = Household.computeAggregates(bankruptHhs, PLN(8266.0), PLN(4666.0), Share(0.40), 0, 0)
+      val agg         = computeAggregates(bankruptHhs)
       agg.bankrupt shouldBe n
       agg.employed shouldBe 0
       agg.unemployed shouldBe 0

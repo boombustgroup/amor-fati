@@ -138,7 +138,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       taskRoutineness = Share(0.5),
       wageScar = Share.Zero,
     )
-    val copied = hh.withFinancial(_.copy(demandDeposit = PLN(2000.0)))
+    val copied = hh.copy(monthlyRent = PLN(2000.0))
     copied.education shouldBe 3
   }
 
@@ -419,7 +419,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       )
     val firms     = Vector(mkF(0, 0, 5), mkF(1, 2, 5))
     val socialNet = Array.fill(10)(Array.empty[Int])
-    val hhs       = Household.Init.initialize(10, firms, socialNet, rng)
+    val hhs       = Household.Init.initialize(10, firms, socialNet, rng).households
     hhs.foreach { h =>
       h.education should be >= 0
       h.education should be <= 3
@@ -450,7 +450,7 @@ class EducationSpec extends AnyFlatSpec with Matchers:
       ),
     )
     val socialNet = Array.fill(10)(Array.empty[Int])
-    val hhs       = Household.Init.initialize(10, firms, socialNet, rng)
+    val hhs       = Household.Init.initialize(10, firms, socialNet, rng).households
     hhs.foreach { h =>
       val (floor, ceil) = p.social.eduSkillRange(h.education)
       h.skill.bd should be >= floor.bd
