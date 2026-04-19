@@ -34,6 +34,13 @@ object OpenEconomy:
       techImports: PLN,
   )
 
+  /** Balance-of-payments and external-position metrics.
+    *
+    * This is not the holder ledger. NBP FX reserves that participate in the
+    * ownership contract live in LedgerFinancialState.NbpBalances.foreignAssets
+    * and are passed into the step; the BoP stock-like fields below are
+    * aggregate macro memory for NFA, valuation, and external-sector dynamics.
+    */
   case class BopState(
       nfa: PLN,
       foreignAssets: PLN,

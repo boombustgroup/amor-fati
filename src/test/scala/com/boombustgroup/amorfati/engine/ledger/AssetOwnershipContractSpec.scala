@@ -24,12 +24,26 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
     isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, FundRuntimeIndex.QuasiFiscal) shouldBe false
   }
 
-  it should "track currently unsupported persisted families explicitly" in {
+  it should "track currently unsupported persisted and metric families explicitly" in {
     import LedgerTestFixtures.enrichedSimState
 
     val runtime = enrichedSimState()
 
     presentUnsupportedFamilies(runtime) shouldBe unsupportedFamilies.map(_.id).toSet
+  }
+
+  it should "classify foreign equity share and BoP stocks as metric-only audit exceptions" in {
+    val metricOnlyIds = unsupportedFamilies
+      .filter(_.category == UnsupportedCategory.MetricOnly)
+      .map(_.id)
+      .toSet
+
+    metricOnlyIds should contain allOf (
+      UnsupportedFamilyId.EquityForeignOwnershipShare,
+      UnsupportedFamilyId.BopExternalPositionMetrics,
+    )
+    isSupportedPersistedPair(EntitySector.Foreign, AssetType.Equity, 0) shouldBe false
+    publicAsset(AssetType.ForeignAsset).supportedSlots shouldBe Set(SectorId.Fixed(EntitySector.NBP, 0))
   }
 
   it should "mark orphan public assets as outside the current engine contract" in {

@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.engine.flows.{FlowSimulation, RuntimeLedgerTopology}
-import com.boombustgroup.amorfati.types.PLN
+import com.boombustgroup.amorfati.types.{PLN, Share}
 import com.boombustgroup.ledger.{AssetType, EntitySector}
 
 /** Engine-side ownership contract for the current ledger-backed financial
@@ -261,6 +261,8 @@ object AssetOwnershipContract:
   enum UnsupportedFamilyId:
     case BankCapital
     case BankCreditRiskState
+    case EquityForeignOwnershipShare
+    case BopExternalPositionMetrics
     case GovernmentFiscalCumulativeDebt
     case NbpQeCumulativePurchases
     case JstDebt
@@ -281,6 +283,16 @@ object AssetOwnershipContract:
       UnsupportedFamilyId.BankCreditRiskState,
       UnsupportedCategory.UnsupportedPersistedStock,
       "NPL and loan-maturity buckets are accounting/risk state rather than holder-tracked instruments.",
+    ),
+    UnsupportedFamily(
+      UnsupportedFamilyId.EquityForeignOwnershipShare,
+      UnsupportedCategory.MetricOnly,
+      "GPW foreign-ownership share is market memory for dividend/BoP splitting, not a holder-resolved equity stock.",
+    ),
+    UnsupportedFamily(
+      UnsupportedFamilyId.BopExternalPositionMetrics,
+      UnsupportedCategory.MetricOnly,
+      "BoP foreign-asset, liability, reserve, and NFA fields are aggregate external-position metrics; ledger-owned NBP FX reserves live in LedgerFinancialState.",
     ),
     UnsupportedFamily(
       UnsupportedFamilyId.GovernmentFiscalCumulativeDebt,
@@ -311,6 +323,13 @@ object AssetOwnershipContract:
             bank.loansLong != PLN.Zero,
         ),
       )(UnsupportedFamilyId.BankCreditRiskState)
+      ++ Option.when(sim.world.financialMarkets.equity.foreignOwnership != Share.Zero)(UnsupportedFamilyId.EquityForeignOwnershipShare)
+      ++ Option.when(
+        sim.world.bop.nfa != PLN.Zero ||
+          sim.world.bop.foreignAssets != PLN.Zero ||
+          sim.world.bop.foreignLiabilities != PLN.Zero ||
+          sim.world.bop.reserves != PLN.Zero,
+      )(UnsupportedFamilyId.BopExternalPositionMetrics)
       ++ Option.when(sim.world.gov.cumulativeDebt != PLN.Zero)(UnsupportedFamilyId.GovernmentFiscalCumulativeDebt)
       ++ Option.when(sim.world.nbp.qeCumulative != PLN.Zero)(UnsupportedFamilyId.NbpQeCumulativePurchases)
       ++ Option.when(sim.world.social.jst.debt != PLN.Zero)(UnsupportedFamilyId.JstDebt)

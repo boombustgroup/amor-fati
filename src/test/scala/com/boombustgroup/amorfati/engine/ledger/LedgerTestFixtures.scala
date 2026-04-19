@@ -23,6 +23,12 @@ object LedgerTestFixtures:
         ),
       ),
       nbp = base.world.nbp.copy(qeCumulative = PLN(89e6)),
+      bop = base.world.bop.copy(
+        nfa = PLN(91e6),
+        foreignAssets = PLN(92e6),
+        foreignLiabilities = PLN(93e6),
+        reserves = PLN(94e6),
+      ),
       social = base.world.social.copy(
         jst = Jst.State(
           debt = PLN(11e6),
