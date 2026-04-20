@@ -12,9 +12,15 @@ class FlowSimulationNfzRuntimeSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  private def cashMechanismTotal(batches: Vector[BatchedFlow], mechanism: MechanismId): PLN =
-    val selected = batches.filter(_.mechanism == mechanism)
-    selected.map(_.asset).toSet shouldBe Set(AssetType.Cash)
+  private def mechanismBatches(batches: Vector[BatchedFlow], mechanism: MechanismId): Vector[BatchedFlow] =
+    batches.filter(_.mechanism == mechanism)
+
+  private def assertAllCash(selected: Vector[BatchedFlow], mechanism: MechanismId): Unit =
+    withClue(s"Mechanism ${mechanism.toInt} should emit only cash batches: ") {
+      selected.map(_.asset).toSet shouldBe Set(AssetType.Cash)
+    }
+
+  private def cashMechanismTotal(selected: Vector[BatchedFlow]): PLN =
     PLN.fromRaw(
       selected.iterator
         .map(RuntimeLedgerTopology.totalTransferred)
@@ -36,9 +42,17 @@ class FlowSimulationNfzRuntimeSpec extends AnyFlatSpec with Matchers:
     val nfz         = result.nextState.world.social.nfz
     val directFlows = NfzFlows.emit(NfzFlows.NfzInput(nfz))
 
-    val emittedContributions = cashMechanismTotal(result.flows, FlowMechanism.NfzContribution)
-    val emittedSpending      = cashMechanismTotal(result.flows, FlowMechanism.NfzSpending)
-    val emittedSubvention    = cashMechanismTotal(result.flows, FlowMechanism.NfzGovSubvention)
+    val contributionBatches = mechanismBatches(result.flows, FlowMechanism.NfzContribution)
+    val spendingBatches     = mechanismBatches(result.flows, FlowMechanism.NfzSpending)
+    val subventionBatches   = mechanismBatches(result.flows, FlowMechanism.NfzGovSubvention)
+
+    assertAllCash(contributionBatches, FlowMechanism.NfzContribution)
+    assertAllCash(spendingBatches, FlowMechanism.NfzSpending)
+    assertAllCash(subventionBatches, FlowMechanism.NfzGovSubvention)
+
+    val emittedContributions = cashMechanismTotal(contributionBatches)
+    val emittedSpending      = cashMechanismTotal(spendingBatches)
+    val emittedSubvention    = cashMechanismTotal(subventionBatches)
 
     result.sfcResult shouldBe Right(())
     withClue("SimParams.defaults with seed 42 should exercise a positive NFZ deficit path: ") {
