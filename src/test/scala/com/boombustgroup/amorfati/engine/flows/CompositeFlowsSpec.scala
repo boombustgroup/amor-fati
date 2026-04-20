@@ -63,7 +63,7 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
           vatRevenue = PLN(3000000.0),
           exciseRevenue = PLN(1200000.0),
           customsDutyRevenue = PLN(800000.0),
-          govPurchases = PLN(2000000.0),
+          govCurrentSpend = PLN(2000000.0),
           debtService = PLN(500000.0),
           unempBenefitSpend = PLN(800000.0),
           socialTransferSpend = PLN(1200000.0),

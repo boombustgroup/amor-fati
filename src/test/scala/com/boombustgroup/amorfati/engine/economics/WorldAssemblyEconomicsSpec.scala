@@ -51,7 +51,8 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
         + w.gov.euCofinancing
     )
 
-    w.gov.domesticBudgetDemand shouldBe result.calculus.govPurchases
+    w.gov.govCurrentSpend shouldBe result.calculus.govCurrentSpend
+    w.gov.domesticBudgetDemand shouldBe (result.calculus.govCurrentSpend + result.calculus.govCapitalSpend)
     w.gov.domesticBudgetOutlays.should(be >= w.gov.domesticBudgetDemand)
   }
 

@@ -147,6 +147,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val nextJst = result.nextState.world.social.jst
 
     result.sfcResult shouldBe Right(())
+    result.calculus.govCurrentSpend shouldBe nextGov.govCurrentSpend
     result.calculus.govDebtService shouldBe nextGov.debtServiceSpend
     result.calculus.govEuCofinancing shouldBe nextGov.euCofinancing
     result.calculus.govCapitalSpend shouldBe nextGov.govCapitalSpend

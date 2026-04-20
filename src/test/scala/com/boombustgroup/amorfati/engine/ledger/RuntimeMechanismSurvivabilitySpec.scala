@@ -108,7 +108,7 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
           vatRevenue = PLN(9000000.0),
           exciseRevenue = PLN(3500000.0),
           customsDutyRevenue = PLN(2500000.0),
-          govPurchases = PLN(10000000.0),
+          govCurrentSpend = PLN(10000000.0),
           debtService = PLN(4000000.0),
           unempBenefitSpend = PLN(2000000.0),
           socialTransferSpend = PLN(3000000.0),
