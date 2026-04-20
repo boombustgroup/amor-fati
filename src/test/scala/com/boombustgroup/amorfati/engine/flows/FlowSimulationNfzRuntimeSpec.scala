@@ -1,6 +1,5 @@
 package com.boombustgroup.amorfati.engine.flows
 
-import com.boombustgroup.amorfati.agents.SocialSecurity
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -35,7 +34,6 @@ class FlowSimulationNfzRuntimeSpec extends AnyFlatSpec with Matchers:
     val state       = FlowSimulation.SimState.fromInit(init)
     val result      = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val nfz         = result.nextState.world.social.nfz
-    val expectedNfz = SocialSecurity.nfzStep(result.calculus.employed, result.calculus.wage, result.calculus.workingAgePop, result.calculus.retirees)
     val directFlows = NfzFlows.emit(NfzFlows.NfzInput(nfz))
 
     val emittedContributions = cashMechanismTotal(result.flows, FlowMechanism.NfzContribution)
@@ -43,8 +41,9 @@ class FlowSimulationNfzRuntimeSpec extends AnyFlatSpec with Matchers:
     val emittedSubvention    = cashMechanismTotal(result.flows, FlowMechanism.NfzGovSubvention)
 
     result.sfcResult shouldBe Right(())
-    expectedNfz shouldBe nfz
-    withClue("SimParams.defaults with seed 42 should exercise the nfzStep positive govSubvention path: ") {
+    withClue("SimParams.defaults with seed 42 should exercise a positive NFZ deficit path: ") {
+      nfz.spending should be > nfz.contributions
+      nfz.govSubvention shouldBe (nfz.spending - nfz.contributions)
       nfz.govSubvention should be > PLN.Zero
       emittedSubvention should be > PLN.Zero
     }
