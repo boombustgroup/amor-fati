@@ -109,6 +109,7 @@ object FlowMechanism:
   val GovExciseRevenue: MechanismId             = MechanismId(93)
   val GovCustomsDutyRevenue: MechanismId        = MechanismId(94)
   val BankCorpBondCoupon: MechanismId           = MechanismId(95)
+  val CarryTradeFlow: MechanismId               = MechanismId(96)
 
   /** All mechanism IDs emitted by current runtime flow code. */
   val allMechanisms: Vector[MechanismId] = Vector(
@@ -180,6 +181,7 @@ object FlowMechanism:
     TourismImport,
     Fdi,
     PortfolioFlow,
+    CarryTradeFlow,
     PrimaryIncome,
     EuFunds,
     DiasporaInflow,

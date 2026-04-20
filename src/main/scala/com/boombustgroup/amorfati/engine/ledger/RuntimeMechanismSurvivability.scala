@@ -145,6 +145,7 @@ object RuntimeMechanismSurvivability:
       FlowMechanism.TourismImport,
       FlowMechanism.Fdi,
       FlowMechanism.PortfolioFlow,
+      FlowMechanism.CarryTradeFlow,
       FlowMechanism.PrimaryIncome,
       FlowMechanism.EuFunds,
       FlowMechanism.DiasporaInflow,

@@ -12,9 +12,10 @@ import com.boombustgroup.amorfati.types.*
   * competitiveness. BoP identity: CA + KA + ΔReserves = 0.
   *
   * Exchange rate: floating, BoP-driven adjustment with NFA risk premium. FDI:
-  * base flow with automation boost and NFA dampening. Portfolio flows: interest
-  * rate differential + risk premium. NFA: CA + valuation effect (partial ER
-  * pass-through on foreign assets).
+  * base flow with automation boost and NFA dampening. Financial-account flows:
+  * ordinary portfolio allocation, carry trade, and capital-flight stress
+  * outflows. NFA: CA + valuation effect (partial ER pass-through on foreign
+  * assets).
   *
   * Calibration: NBP BoP statistics 2024, GUS national accounts.
   */
@@ -51,7 +52,7 @@ object OpenEconomy:
       primaryIncome: PLN,
       secondaryIncome: PLN,
       fdi: PLN,
-      portfolioFlows: PLN,
+      portfolioFlows: PLN,                 // ordinary signed portfolio allocation, excluding carry trade and stress outflows
       reserves: PLN,
       exports: PLN,
       totalImports: PLN,
@@ -59,6 +60,8 @@ object OpenEconomy:
       euFundsMonthly: PLN = PLN.Zero,
       euCumulativeAbsorption: PLN = PLN.Zero,
       carryTradeStock: PLN = PLN.Zero,
+      carryTradeFlow: PLN = PLN.Zero,      // signed carry-trade accumulation or unwind
+      capitalFlightOutflow: PLN = PLN.Zero, // positive stress/confidence outflow
   )
   object BopState:
     val zero: BopState = BopState(
@@ -116,6 +119,8 @@ object OpenEconomy:
       total: PLN,
       fdi: PLN,
       portfolioFlows: PLN,
+      carryTradeFlow: PLN,
+      capitalFlightOutflow: PLN,
       carryTradeStock: PLN = PLN.Zero,
   )
 
@@ -157,6 +162,8 @@ object OpenEconomy:
       totalImports = totalImports,
       importedIntermediates = totalImportedInterm,
       carryTradeStock = kaResult.carryTradeStock,
+      carryTradeFlow = kaResult.carryTradeFlow,
+      capitalFlightOutflow = kaResult.capitalFlightOutflow,
     )
 
     Result(newForex, newBop, importedInterm, valEffect, fxResult)
@@ -187,28 +194,42 @@ object OpenEconomy:
     CurrentAccountResult(ca, primaryIncome, secondaryIncome)
 
   private def computeCapitalAccount(in: StepInput)(using p: SimParams): CapitalAccountResult =
-    val annualGdp         = in.gdp * MonthsPerYear
-    val nfaGdpRatio       = if in.gdp > PLN.Zero then in.prevBop.nfa.ratioTo(annualGdp).toCoefficient else Coefficient.Zero
-    val autoBoost         = (in.autoRatio * FdiAutoBoost).growthMultiplier
-    val negativeNfaRatio  = (-nfaGdpRatio).max(Coefficient.Zero)
-    val nfaDampening      = (-(negativeNfaRatio * FdiNfaDampening)).growthMultiplier
-    val fdi               = (p.openEcon.fdiBase * autoBoost) * nfaDampening
-    val portfolioFlows    =
+    val annualGdp            = in.gdp * MonthsPerYear
+    val nfaGdpRatio          = if in.gdp > PLN.Zero then in.prevBop.nfa.ratioTo(annualGdp).toCoefficient else Coefficient.Zero
+    val autoBoost            = (in.autoRatio * FdiAutoBoost).growthMultiplier
+    val negativeNfaRatio     = (-nfaGdpRatio).max(Coefficient.Zero)
+    val nfaDampening         = (-(negativeNfaRatio * FdiNfaDampening)).growthMultiplier
+    val fdi                  = (p.openEcon.fdiBase * autoBoost) * nfaDampening
+    val portfolioFlows       =
       val rateDiff      = (in.domesticRate - p.forex.foreignRate).toCoefficient
       val riskPremium   = -(p.openEcon.riskPremiumSensitivity * nfaGdpRatio)
       val monthlyGdp    = if in.gdp > PLN.Zero then in.gdp else PLN.fromLong(1)
       val portfolioRate = (rateDiff + riskPremium) * p.openEcon.portfolioSensitivity
       monthlyGdp * portfolioRate
-    val yieldSpread       = in.bondYield - p.forex.foreignRate
-    val capitalFlight     = CapitalFlows.compute(
+    val yieldSpread          = in.bondYield - p.forex.foreignRate
+    val capitalFlight        = CapitalFlows.compute(
       month = in.month,
       yieldSpread = yieldSpread,
       bidToCover = in.prevBidToCover,
       prevCarry = CapitalFlows.CarryState(in.prevBop.carryTradeStock),
       monthlyGdp = if in.gdp > PLN.Zero then in.gdp else PLN.fromLong(1),
     )
-    val adjustedPortfolio = portfolioFlows + capitalFlight.totalAdjustment
-    CapitalAccountResult(fdi + adjustedPortfolio, fdi, adjustedPortfolio, capitalFlight.newCarryState.stock)
+    require(
+      capitalFlight.riskOffOutflow <= PLN.Zero && capitalFlight.auctionSignal <= PLN.Zero,
+      "CapitalFlows.compute must return non-positive risk-off and auction-signal outflows.",
+    )
+    val carryTradeFlow       = capitalFlight.carryTradeFlow
+    val capitalFlightOutflow =
+      (-capitalFlight.riskOffOutflow).max(PLN.Zero) + (-capitalFlight.auctionSignal).max(PLN.Zero)
+    val portfolioLikeNet     = portfolioFlows + carryTradeFlow - capitalFlightOutflow
+    CapitalAccountResult(
+      total = fdi + portfolioLikeNet,
+      fdi = fdi,
+      portfolioFlows = portfolioFlows,
+      carryTradeFlow = carryTradeFlow,
+      capitalFlightOutflow = capitalFlightOutflow,
+      carryTradeStock = capitalFlight.newCarryState.stock,
+    )
 
   private def realExchangeRateEffect(exchangeRate: ExchangeRate, priceLevel: PriceIndex)(using p: SimParams): Scalar =
     val nominalER = exchangeRate.ratioTo(p.forex.baseExRate)
