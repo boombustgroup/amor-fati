@@ -73,6 +73,49 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     firmIssuance should not equal staleIssuance
   }
 
+  it should "emit equity cash legs from current-month dividends instead of boundary last values" in {
+    val init             = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState        = FlowSimulation.SimState.fromInit(init)
+    val staleDomestic    = PLN(987654321.0)
+    val staleForeign     = PLN(876543210.0)
+    val staleDividendTax = PLN(765432109.0)
+    val staleGovDividend = PLN(654321098.0)
+    val state            = baseState.copy(
+      world = baseState.world.copy(
+        financialMarkets = baseState.world.financialMarkets.copy(
+          equity = baseState.world.financialMarkets.equity.copy(
+            lastDomesticDividends = staleDomestic,
+            lastForeignDividends = staleForeign,
+            lastDividendTax = staleDividendTax,
+          ),
+        ),
+        gov = baseState.world.gov.copy(
+          monthly = baseState.world.gov.monthly.copy(
+            govDividendRevenue = staleGovDividend,
+          ),
+        ),
+      ),
+    )
+
+    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val equity = result.nextState.world.financialMarkets.equity
+
+    result.calculus.equityDomDividends shouldBe equity.lastDomesticDividends
+    result.calculus.equityForDividends shouldBe equity.lastForeignDividends
+    result.calculus.equityDivTax shouldBe equity.lastDividendTax
+    result.calculus.equityGovDividends shouldBe result.nextState.world.gov.govDividendRevenue
+
+    result.calculus.equityDomDividends should not equal staleDomestic
+    result.calculus.equityForDividends should not equal staleForeign
+    result.calculus.equityDivTax should not equal staleDividendTax
+    result.calculus.equityGovDividends should not equal staleGovDividend
+
+    mechanismTotal(result.flows, FlowMechanism.EquityDomDividend) shouldBe result.calculus.equityDomDividends
+    mechanismTotal(result.flows, FlowMechanism.EquityForDividend) shouldBe result.calculus.equityForDividends
+    mechanismTotal(result.flows, FlowMechanism.EquityDividendTax) shouldBe result.calculus.equityDivTax
+    mechanismTotal(result.flows, FlowMechanism.EquityGovDividend) shouldBe result.calculus.equityGovDividends
+  }
+
   it should "keep corporate bond outstanding ledger-owned across month boundaries" in {
     val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state       = FlowSimulation.SimState.fromInit(init)
@@ -305,27 +348,27 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     highShadowRun.nextState.world.gov.deficit should be > lowShadowRun.nextState.world.gov.deficit
   }
 
-  it should "align semantic gov revenue with the emitted SOE dividend batch at the month boundary" in {
-    val init             = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val boundaryDividend = PLN(25e6)
-    val lowState         = FlowSimulation.SimState.fromInit(init)
-    val highState        = lowState.copy(
-      world = lowState.world.copy(
-        gov = lowState.world.gov.copy(
-          monthly = lowState.world.gov.monthly.copy(govDividendRevenue = boundaryDividend),
+  it should "align semantic gov revenue with the emitted current-month SOE dividend batch" in {
+    val init                    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val staleBoundaryDividend   = PLN(25e6)
+    val baseState               = FlowSimulation.SimState.fromInit(init)
+    val state                   = baseState.copy(
+      world = baseState.world.copy(
+        gov = baseState.world.gov.copy(
+          monthly = baseState.world.gov.monthly.copy(govDividendRevenue = staleBoundaryDividend),
         ),
       ),
     )
-    val lowResult        = FlowSimulation.step(lowState, MonthRandomness.Contract.fromSeed(42L))
-    val highResult       = FlowSimulation.step(highState, MonthRandomness.Contract.fromSeed(42L))
-    val lowGovDividend   = mechanismTotal(lowResult.flows, FlowMechanism.EquityGovDividend)
-    val highGovDividend  = mechanismTotal(highResult.flows, FlowMechanism.EquityGovDividend)
+    val result                  = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val currentMonthGovDividend = mechanismTotal(result.flows, FlowMechanism.EquityGovDividend)
+    val emittedGovRevenue       = GovBudgetFlows.CentralGovernmentRevenueMechanisms
+      .map(mechanismTotal(result.flows, _))
+      .foldLeft(PLN.Zero)(_ + _)
 
-    lowResult.sfcResult shouldBe Right(())
-    highResult.sfcResult shouldBe Right(())
-    lowGovDividend shouldBe PLN.Zero
-    highGovDividend shouldBe boundaryDividend
-    highResult.trace.executedFlows.govRevenue - lowResult.trace.executedFlows.govRevenue shouldBe boundaryDividend
+    result.sfcResult shouldBe Right(())
+    currentMonthGovDividend shouldBe result.calculus.equityGovDividends
+    currentMonthGovDividend should not equal staleBoundaryDividend
+    result.trace.executedFlows.govRevenue shouldBe emittedGovRevenue
   }
 
   it should "produce 30+ mechanism IDs" in {
