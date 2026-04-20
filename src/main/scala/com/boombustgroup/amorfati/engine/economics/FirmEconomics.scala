@@ -215,7 +215,7 @@ object FirmEconomics:
   private def runInternal(stepIn: StepInput, rng: RandomStream)(using p: SimParams): StepOutput =
     val lending             = prepareLending(stepIn, rng)
     val fp                  = processFirms(stepIn.firms, stepIn.ledgerFinancialState, lending, rng)
-    val bonded              = applyBondAbsorption(fp, stepIn.w, stepIn.banks, stepIn.ledgerFinancialState)
+    val bonded              = applyBondAbsorption(fp, stepIn.w, stepIn.banks, stepIn.ledgerFinancialState, lending.executionMonth)
     val intermediate        = applyIntermediateMarket(bonded.firms, bonded.financialStocks, stepIn)
     // Calvo staggered pricing: per-firm markup update
     val calvoFirms          = intermediate.firms.map: f =>
@@ -414,6 +414,7 @@ object FirmEconomics:
       w: World,
       banks: Vector[Banking.BankState],
       ledgerFinancialState: LedgerFinancialState,
+      executionMonth: ExecutionMonth,
   )(using p: SimParams): BondAbsorptionResult =
     val bankAgg              = Banking.aggregateFromBankStocks(
       banks,
@@ -428,7 +429,7 @@ object FirmEconomics:
       .map(o => o.firm.id -> result.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero))
       .filter((_, amount) => amount > PLN.Zero)
     val actualIssuanceByFirm =
-      allocateAbsorbedBondIssuance(requestedByFirm, actualBondIssuance)
+      allocateAbsorbedBondIssuance(requestedByFirm, actualBondIssuance, executionMonth)
     val shouldRevert         = revertShare > Share(BondRevertThreshold)
     val bondReversionByFirm  =
       if shouldRevert then
@@ -467,6 +468,7 @@ object FirmEconomics:
   private[amorfati] def allocateAbsorbedBondIssuance(
       requestedByFirm: Vector[(FirmId, PLN)],
       actualBondIssuance: PLN,
+      executionMonth: ExecutionMonth = ExecutionMonth.First,
   ): Map[FirmId, PLN] =
     val positiveRequests = requestedByFirm.filter((_, amount) => amount > PLN.Zero)
     val target           = actualBondIssuance.distributeRaw
@@ -474,7 +476,7 @@ object FirmEconomics:
     if positiveRequests.isEmpty || target <= 0L || totalRequested <= 0L then Map.empty
     else if target >= totalRequested then positiveRequests.toMap
     else
-      case class AllocationRow(index: Int, firmId: FirmId, requested: Long, base: Long, remainder: BigInt)
+      case class AllocationRow(index: Int, firmId: FirmId, requested: Long, base: Long, remainder: BigInt, tieBreak: Long)
 
       val rows = positiveRequests.zipWithIndex.map { case ((firmId, requestedAmount), index) =>
         val requested = requestedAmount.distributeRaw
@@ -485,13 +487,16 @@ object FirmEconomics:
           requested = requested,
           base = (product / BigInt(totalRequested)).toLong,
           remainder = product % BigInt(totalRequested),
+          tieBreak = allocationTieBreak(firmId, executionMonth),
         )
       }
 
       val remaining         = target - rows.iterator.map(_.base).sum
       val (_, bonusByIndex) = rows
         .sortWith: (left, right) =>
-          if left.remainder == right.remainder then left.index < right.index
+          if left.remainder == right.remainder then
+            if left.tieBreak == right.tieBreak then left.index < right.index
+            else left.tieBreak < right.tieBreak
           else left.remainder > right.remainder
         .foldLeft((remaining, Map.empty[Int, Long])) { case ((left, bonuses), row) =>
           if left <= 0L || row.base >= row.requested then (left, bonuses)
@@ -506,6 +511,14 @@ object FirmEconomics:
         s"Corporate bond absorption allocation must sum to target=$target, got $allocatedRaw",
       )
       allocations.filter((_, amount) => amount > PLN.Zero).toMap
+
+  private def allocationTieBreak(firmId: FirmId, executionMonth: ExecutionMonth): Long =
+    val firm  = firmId.toInt.toLong
+    val month = executionMonth.toLong
+    val mixed = (firm * 0x9e3779b97f4a7c15L) ^ (month * 0xbf58476d1ce4e5b9L)
+    val step1 = (mixed ^ (mixed >>> 30)) * 0xbf58476d1ce4e5b9L
+    val step2 = (step1 ^ (step1 >>> 27)) * 0x94d049bb133111ebL
+    (step2 ^ (step2 >>> 31)) & Long.MaxValue
 
   // ---- Phase 4: Intermediate market ----
 

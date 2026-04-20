@@ -17,14 +17,16 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
 
   private def allFlows: Vector[Flow] =
-    val wage     = PLN(7000.0)
-    val employed = 80000
-    val retirees = 1000
+    val wage       = PLN(7000.0)
+    val employed   = 80000
+    val workingAge = 90000
+    val retirees   = 1000
+    val nRetirees  = retirees
 
     Vector.concat(
       // Tier 1: Social funds
       ZusFlows.emit(ZusFlows.ZusInput(employed, wage, retirees)),
-      NfzFlows.emit(NfzFlows.NfzInput.fromDrivers(employed, wage, 90000, retirees)),
+      NfzFlows.emit(NfzFlows.NfzInput.fromDrivers(employed = employed, wage = wage, workingAge = workingAge, nRetirees = nRetirees)),
       PpkFlows.emit(PpkFlows.PpkInput(employed, wage)),
       EarmarkedFlows.emit(EarmarkedFlows.Input(employed, wage, PLN(1000000.0), 10, 15)),
       JstFlows.emit(JstFlows.Input(PLN(5000000.0), PLN(50000000.0), PLN(100000000.0), 9000, PLN(3000000.0))),
