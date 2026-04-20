@@ -69,6 +69,12 @@ object LaborEconomics:
 
     // Wage growth
     val wageGrowth = wageGrowthFrom(w.householdMarket.marketWage, cleared.wage)
+    val newNfz     = SocialSecurity.nfzStep(
+      cleared.employed,
+      cleared.wage,
+      newDemographics.workingAgePop,
+      newDemographics.retirees,
+    )
 
     Output(
       newWage = cleared.wage,
@@ -80,7 +86,7 @@ object LaborEconomics:
       netMigration = netMigration,
       newDemographics = newDemographics,
       newZus = SocialSecurity.ZusState.zero,
-      newNfz = SocialSecurity.NfzState.zero,
+      newNfz = newNfz,
       newPpk = SocialSecurity.PpkState.zero,
       rawPpkBondPurchase = PLN.Zero,
       newEarmarked = EarmarkedFunds.State.zero,
@@ -105,12 +111,19 @@ object LaborEconomics:
     val realizedEmployment = Household.countEmployed(postHouseholds)
     val employedCap        = Math.min(realizedEmployment, pre.newDemographics.workingAgePop)
     val postAvailableLabor = LaborMarket.laborSupplyAtWage(cleared.wage, s1.resWage, w.derivedTotalPopulation)
+    val newNfz             = SocialSecurity.nfzStep(
+      employedCap,
+      cleared.wage,
+      pre.newDemographics.workingAgePop,
+      pre.newDemographics.retirees,
+    )
     pre.copy(
       newWage = cleared.wage,
       employed = employedCap,
       laborDemand = postLaborDemand,
       wageGrowth = Coefficient(wageGrowthFrom(w.householdMarket.marketWage, cleared.wage)),
       operationalHiringSlack = operationalHiringSlackFactor(postLaborDemand, postAvailableLabor),
+      newNfz = newNfz,
       living = postLiving,
       regionalWages = cleared.regionalWages,
     )

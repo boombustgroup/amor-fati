@@ -69,7 +69,7 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
 
     Vector.concat(
       ZusFlows.emitBatches(ZusFlows.ZusInput(1000, PLN(1000.0), 100000)),
-      NfzFlows.emitBatches(NfzFlows.NfzInput(1000, PLN(1000.0), 200000, 100000)),
+      NfzFlows.emitBatches(NfzFlows.NfzInput.fromDrivers(1000, PLN(1000.0), 200000, 100000)),
       PpkFlows.emitBatches(PpkFlows.PpkInput(10000, PLN(1000.0))),
       EarmarkedFlows.emitBatches(EarmarkedFlows.Input(1000, PLN(1000.0), PLN(100000000.0), 100000, 100)),
       EarmarkedFlows.emitBatches(EarmarkedFlows.Input(0, PLN.Zero, PLN.Zero, 0, 0))(using SimParamsTestOverrides.pfronDeficit, summon[RuntimeLedgerTopology]),

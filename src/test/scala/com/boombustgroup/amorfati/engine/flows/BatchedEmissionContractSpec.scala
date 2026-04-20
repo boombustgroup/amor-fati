@@ -22,7 +22,7 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
   "emitBatches" should "preserve mechanism totals across migrated emitters" in {
     val flatFlows = Vector.concat(
       ZusFlows.emit(ZusFlows.ZusInput(80000, PLN(7000.0), 1000)),
-      NfzFlows.emit(NfzFlows.NfzInput(80000, PLN(7000.0), 90000, 1000)),
+      NfzFlows.emit(NfzFlows.NfzInput.fromDrivers(80000, PLN(7000.0), 90000, 1000)),
       PpkFlows.emit(PpkFlows.PpkInput(80000, PLN(7000.0))),
       EarmarkedFlows.emit(EarmarkedFlows.Input(80000, PLN(7000.0), PLN(1000000.0), 10, 15)),
       JstFlows.emit(JstFlows.Input(PLN(5000000.0), PLN(50000000.0), PLN(100000000.0), 9000, PLN(3000000.0))),
@@ -117,7 +117,7 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
 
     val batchedFlows = Vector.concat(
       ZusFlows.emitBatches(ZusFlows.ZusInput(80000, PLN(7000.0), 1000)),
-      NfzFlows.emitBatches(NfzFlows.NfzInput(80000, PLN(7000.0), 90000, 1000)),
+      NfzFlows.emitBatches(NfzFlows.NfzInput.fromDrivers(80000, PLN(7000.0), 90000, 1000)),
       PpkFlows.emitBatches(PpkFlows.PpkInput(80000, PLN(7000.0))),
       EarmarkedFlows.emitBatches(EarmarkedFlows.Input(80000, PLN(7000.0), PLN(1000000.0), 10, 15)),
       JstFlows.emitBatches(JstFlows.Input(PLN(5000000.0), PLN(50000000.0), PLN(100000000.0), 9000, PLN(3000000.0))),

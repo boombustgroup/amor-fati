@@ -117,6 +117,7 @@ object FirmEconomics:
       sumNewLoans: PLN,                           // total new bank loans incl. reversion
       corpBondAbsorption: Share,                  // Catalyst absorption ratio (0-1)
       actualBondIssuance: PLN,                    // bonds issued after absorption constraint
+      bondReversionByFirm: Map[FirmId, PLN],      // unsold bonds reverted to relationship-bank loans
   )
 
   /** Financing split: how a firm's CAPEX loan is divided across three channels.
@@ -414,39 +415,44 @@ object FirmEconomics:
       banks: Vector[Banking.BankState],
       ledgerFinancialState: LedgerFinancialState,
   )(using p: SimParams): BondAbsorptionResult =
-    val bankAgg            = Banking.aggregateFromBankStocks(
+    val bankAgg              = Banking.aggregateFromBankStocks(
       banks,
       ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
       bankId => CorporateBondOwnership.bankHolderFor(ledgerFinancialState, bankId),
     )
-    val absorption         = CorporateBondMarket
+    val absorption           = CorporateBondMarket
       .computeAbsorption(w.financialMarkets.corporateBonds, result.flows.bondIssuance, bankAgg.car, p.banking.minCar)
-    val actualBondIssuance = result.flows.bondIssuance * absorption
-    val revertShare        = Share.One - absorption
+    val actualBondIssuance   = result.flows.bondIssuance * absorption
+    val revertShare          = Share.One - absorption
+    val requestedByFirm      = result.outcomes
+      .map(o => o.firm.id -> result.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero))
+      .filter((_, amount) => amount > PLN.Zero)
+    val actualIssuanceByFirm =
+      allocateAbsorbedBondIssuance(requestedByFirm, actualBondIssuance)
+    val shouldRevert         = revertShare > Share(BondRevertThreshold)
+    val bondReversionByFirm  =
+      if shouldRevert then
+        requestedByFirm
+          .map((firmId, requested) => firmId -> (requested - actualIssuanceByFirm.getOrElse(firmId, PLN.Zero)).max(PLN.Zero))
+          .filter((_, amount) => amount > PLN.Zero)
+          .toMap
+      else Map.empty[FirmId, PLN]
 
     val adjusted =
       result.outcomes.map: o =>
-        val ba = result.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero)
-        if revertShare > Share(BondRevertThreshold) && ba > PLN.Zero then
-          val revert = ba * revertShare
+        val revert = bondReversionByFirm.getOrElse(o.firm.id, PLN.Zero)
+        if revert > PLN.Zero then
           (
             o.firm,
             o.financialStocks.copy(firmLoan = o.financialStocks.firmLoan + revert),
           )
         else (o.firm, o.financialStocks)
 
-    val actualIssuanceByFirm =
-      result.firmBondAmounts.view
-        .mapValues(_ * absorption)
-        .filter((_, amount) => amount > PLN.Zero)
-        .toMap
-    val issuerLedger         = ledgerFinancialState.copy(
+    val issuerLedger = ledgerFinancialState.copy(
       firms = CorporateBondOwnership.applyIssuance(ledgerFinancialState.firms, actualIssuanceByFirm),
     )
 
-    val bondRevertLoans =
-      if revertShare > Share(BondRevertThreshold) then result.flows.bondIssuance * revertShare
-      else PLN.Zero
+    val bondRevertLoans = bondReversionByFirm.valuesIterator.sum
 
     BondAbsorptionResult(
       adjusted.map(_._1),
@@ -455,7 +461,51 @@ object FirmEconomics:
       result.flows.newLoans + bondRevertLoans,
       absorption,
       actualBondIssuance,
+      bondReversionByFirm,
     )
+
+  private[amorfati] def allocateAbsorbedBondIssuance(
+      requestedByFirm: Vector[(FirmId, PLN)],
+      actualBondIssuance: PLN,
+  ): Map[FirmId, PLN] =
+    val positiveRequests = requestedByFirm.filter((_, amount) => amount > PLN.Zero)
+    val target           = actualBondIssuance.distributeRaw
+    val totalRequested   = positiveRequests.iterator.map((_, amount) => amount.distributeRaw).sum
+    if positiveRequests.isEmpty || target <= 0L || totalRequested <= 0L then Map.empty
+    else if target >= totalRequested then positiveRequests.toMap
+    else
+      case class AllocationRow(index: Int, firmId: FirmId, requested: Long, base: Long, remainder: BigInt)
+
+      val rows = positiveRequests.zipWithIndex.map { case ((firmId, requestedAmount), index) =>
+        val requested = requestedAmount.distributeRaw
+        val product   = BigInt(target) * BigInt(requested)
+        AllocationRow(
+          index = index,
+          firmId = firmId,
+          requested = requested,
+          base = (product / BigInt(totalRequested)).toLong,
+          remainder = product % BigInt(totalRequested),
+        )
+      }
+
+      val remaining         = target - rows.iterator.map(_.base).sum
+      val (_, bonusByIndex) = rows
+        .sortWith: (left, right) =>
+          if left.remainder == right.remainder then left.index < right.index
+          else left.remainder > right.remainder
+        .foldLeft((remaining, Map.empty[Int, Long])) { case ((left, bonuses), row) =>
+          if left <= 0L || row.base >= row.requested then (left, bonuses)
+          else (left - 1L, bonuses.updated(row.index, 1L))
+        }
+
+      val allocations  = rows.map: row =>
+        row.firmId -> PLN.fromRaw(row.base + bonusByIndex.getOrElse(row.index, 0L))
+      val allocatedRaw = allocations.iterator.map((_, amount) => amount.distributeRaw).sum
+      require(
+        allocatedRaw == target,
+        s"Corporate bond absorption allocation must sum to target=$target, got $allocatedRaw",
+      )
+      allocations.filter((_, amount) => amount > PLN.Zero).toMap
 
   // ---- Phase 4: Intermediate market ----
 
@@ -598,10 +648,9 @@ object FirmEconomics:
     // Add bond reversion amounts to per-bank loans
     val perBankNewLoansWithRevert =
       if bonded.corpBondAbsorption < Share.One then
-        val revertShare = Share.One - bonded.corpBondAbsorption
         fp.outcomes.foldLeft(perBankNewLoans): (acc, o) =>
-          val ba = fp.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero)
-          if ba > PLN.Zero then acc.updated(o.bankId.toInt, acc(o.bankId.toInt) + ba * revertShare)
+          val revert = bonded.bondReversionByFirm.getOrElse(o.firm.id, PLN.Zero)
+          if revert > PLN.Zero then acc.updated(o.bankId.toInt, acc(o.bankId.toInt) + revert)
           else acc
       else perBankNewLoans
 

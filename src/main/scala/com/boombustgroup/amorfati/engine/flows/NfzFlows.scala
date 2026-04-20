@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.agents.SocialSecurity
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
@@ -7,9 +8,10 @@ import com.boombustgroup.ledger.*
 
 /** NFZ (National Health Fund) mechanism emitting flows.
   *
-  * Same logic as SocialSecurity.nfzStep. 9% skladka zdrowotna from employed,
-  * spending = per-capita cost x (working-age + retirees x aging elasticity).
-  * Deficit covered by government subvention.
+  * Runtime emitter for the NFZ state computed by [[SocialSecurity.nfzStep]] in
+  * the economics pipeline. Keeping the batch input as `NfzState` makes the
+  * runtime ledger and SFC semantic projection share one current-month source of
+  * truth.
   *
   * Account IDs: 0 = HH, 1 = NFZ, 2 = GOV, 3 = Healthcare (spending sink)
   */
@@ -20,55 +22,46 @@ object NfzFlows:
   val GOV_ACCOUNT: Int        = 2
   val HEALTHCARE_ACCOUNT: Int = 3
 
-  case class NfzInput(
-      employed: Int,
-      wage: PLN,
-      workingAge: Int,
-      nRetirees: Int,
-  )
+  case class NfzInput(nfz: SocialSecurity.NfzState)
 
-  def emitBatches(input: NfzInput)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
-    val contributions = input.employed * (input.wage * p.social.nfzContribRate)
-    val spending      =
-      input.workingAge * p.social.nfzPerCapitaCost +
-        input.nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
-    val deficit       = spending - contributions
+  object NfzInput:
+    def fromDrivers(employed: Int, wage: PLN, workingAge: Int, nRetirees: Int)(using p: SimParams): NfzInput =
+      NfzInput(SocialSecurity.nfzStep(employed, wage, workingAge, nRetirees))
+
+  def emitBatches(input: NfzInput)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    val nfz = input.nfz
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
         topology.households.aggregate,
         EntitySector.Funds,
         topology.funds.nfz,
-        contributions,
+        nfz.contributions,
         AssetType.Cash,
         FlowMechanism.NfzContribution,
       ),
       AggregateBatchedEmission
-        .transfer(EntitySector.Funds, topology.funds.nfz, EntitySector.Firms, topology.firms.services, spending, AssetType.Cash, FlowMechanism.NfzSpending),
+        .transfer(EntitySector.Funds, topology.funds.nfz, EntitySector.Firms, topology.firms.services, nfz.spending, AssetType.Cash, FlowMechanism.NfzSpending),
       AggregateBatchedEmission.transfer(
         EntitySector.Government,
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
         topology.funds.nfz,
-        deficit,
+        nfz.govSubvention,
         AssetType.Cash,
         FlowMechanism.NfzGovSubvention,
       ),
     )
 
-  def emit(input: NfzInput)(using p: SimParams): Vector[Flow] =
-    val contributions = input.employed * (input.wage * p.social.nfzContribRate)
-    val spending      =
-      input.workingAge * p.social.nfzPerCapitaCost +
-        input.nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
-    val deficit       = spending - contributions
+  def emit(input: NfzInput): Vector[Flow] =
+    val nfz = input.nfz
 
     val flows = Vector.newBuilder[Flow]
 
-    if contributions > PLN.Zero then flows += Flow(HH_ACCOUNT, NFZ_ACCOUNT, contributions.toLong, FlowMechanism.NfzContribution.toInt)
+    if nfz.contributions > PLN.Zero then flows += Flow(HH_ACCOUNT, NFZ_ACCOUNT, nfz.contributions.toLong, FlowMechanism.NfzContribution.toInt)
 
-    if spending > PLN.Zero then flows += Flow(NFZ_ACCOUNT, HEALTHCARE_ACCOUNT, spending.toLong, FlowMechanism.NfzSpending.toInt)
+    if nfz.spending > PLN.Zero then flows += Flow(NFZ_ACCOUNT, HEALTHCARE_ACCOUNT, nfz.spending.toLong, FlowMechanism.NfzSpending.toInt)
 
-    if deficit > PLN.Zero then flows += Flow(GOV_ACCOUNT, NFZ_ACCOUNT, deficit.toLong, FlowMechanism.NfzGovSubvention.toInt)
+    if nfz.govSubvention > PLN.Zero then flows += Flow(GOV_ACCOUNT, NFZ_ACCOUNT, nfz.govSubvention.toLong, FlowMechanism.NfzGovSubvention.toInt)
 
     flows.result()

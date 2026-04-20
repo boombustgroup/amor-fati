@@ -99,6 +99,20 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
   }
 
+  it should "allocate absorbed corporate bond issuance exactly without over-issuing a firm" in {
+    val requested   = Vector(
+      FirmId(1) -> PLN.fromRaw(1L),
+      FirmId(2) -> PLN.fromRaw(1L),
+      FirmId(3) -> PLN.fromRaw(1L),
+    )
+    val target      = PLN.fromRaw(2L)
+    val allocations = FirmEconomics.allocateAbsorbedBondIssuance(requested, target)
+
+    allocations.valuesIterator.foldLeft(PLN.Zero)(_ + _) shouldBe target
+    requested.foreach: (firmId, requestedAmount) =>
+      allocations.getOrElse(firmId, PLN.Zero) should be <= requestedAmount
+  }
+
   it should "increase manufacturing capital accumulation when strategic firms are state-owned" in {
     val privateScenario     = manufacturingScenario(stateOwned = false, cashRich = true)
     val stateOwnedScenario  = manufacturingScenario(stateOwned = true, cashRich = true)

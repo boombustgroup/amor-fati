@@ -24,7 +24,7 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
     Vector.concat(
       // Tier 1: Social funds
       ZusFlows.emit(ZusFlows.ZusInput(employed, wage, retirees)),
-      NfzFlows.emit(NfzFlows.NfzInput(employed, wage, 90000, retirees)),
+      NfzFlows.emit(NfzFlows.NfzInput.fromDrivers(employed, wage, 90000, retirees)),
       PpkFlows.emit(PpkFlows.PpkInput(employed, wage)),
       EarmarkedFlows.emit(EarmarkedFlows.Input(employed, wage, PLN(1000000.0), 10, 15)),
       JstFlows.emit(JstFlows.Input(PLN(5000000.0), PLN(50000000.0), PLN(100000000.0), 9000, PLN(3000000.0))),
