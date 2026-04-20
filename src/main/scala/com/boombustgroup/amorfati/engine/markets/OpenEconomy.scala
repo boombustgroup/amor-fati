@@ -214,6 +214,10 @@ object OpenEconomy:
       prevCarry = CapitalFlows.CarryState(in.prevBop.carryTradeStock),
       monthlyGdp = if in.gdp > PLN.Zero then in.gdp else PLN.fromLong(1),
     )
+    require(
+      capitalFlight.riskOffOutflow <= PLN.Zero && capitalFlight.auctionSignal <= PLN.Zero,
+      "CapitalFlows.compute must return non-positive risk-off and auction-signal outflows.",
+    )
     val carryTradeFlow       = capitalFlight.carryTradeFlow
     val capitalFlightOutflow =
       (-capitalFlight.riskOffOutflow).max(PLN.Zero) + (-capitalFlight.auctionSignal).max(PLN.Zero)

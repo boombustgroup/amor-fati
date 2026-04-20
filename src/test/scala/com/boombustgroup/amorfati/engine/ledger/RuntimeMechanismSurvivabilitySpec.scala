@@ -122,7 +122,9 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
       CorpBondFlows.emitBatches(CorpBondFlows.Input(PLN(300000.0), PLN(50000.0), PLN(1000000.0), PLN(200000.0))),
       MortgageFlows.emitBatches(MortgageFlows.Input(PLN(5000000.0), PLN(2000000.0), PLN(1500000.0), PLN(300000.0))),
       OpenEconFlows.emitBatches(openEconInput),
-      OpenEconFlows.emitBatches(openEconInput.copy(portfolioFlows = PLN(-50000.0), primaryIncome = PLN(-30000.0))),
+      OpenEconFlows.emitBatches(
+        openEconInput.copy(portfolioFlows = PLN(-50000.0), carryTradeFlow = PLN(-25000.0), primaryIncome = PLN(-30000.0)),
+      ),
       BankingFlows.emitBatches(bankingInput),
       BankingFlows.emitBatches(
         bankingInput.copy(
