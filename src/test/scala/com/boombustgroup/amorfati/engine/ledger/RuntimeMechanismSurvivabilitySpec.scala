@@ -45,6 +45,7 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
       tourismImport = PLN(200000.0),
       fdi = PLN(300000.0),
       portfolioFlows = PLN(50000.0),
+      carryTradeFlow = PLN(25000.0),
       primaryIncome = PLN(20000.0),
       euFunds = PLN(400000.0),
       diasporaInflow = PLN(100000.0),

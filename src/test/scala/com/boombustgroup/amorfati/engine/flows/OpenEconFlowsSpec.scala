@@ -20,6 +20,7 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
     tourismImport = PLN(800000.0),
     fdi = PLN(2000000.0),
     portfolioFlows = PLN(500000.0),
+    carryTradeFlow = PLN(100000.0),
     primaryIncome = PLN(-300000.0),
     euFunds = PLN(1500000.0),
     diasporaInflow = PLN(400000.0),
@@ -36,12 +37,13 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
     val flows    = OpenEconFlows.emit(baseInput)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
 
-    val inflows  = baseInput.exports + baseInput.tourismExport + baseInput.fdi +
-      baseInput.portfolioFlows + baseInput.euFunds + baseInput.diasporaInflow
-    val outflows = baseInput.imports + baseInput.tourismImport +
-      (-baseInput.primaryIncome) + baseInput.capitalFlightOutflow
+    val expected = baseInput.exports - baseInput.imports +
+      baseInput.tourismExport - baseInput.tourismImport +
+      baseInput.fdi + baseInput.portfolioFlows + baseInput.carryTradeFlow +
+      baseInput.primaryIncome + baseInput.euFunds + baseInput.diasporaInflow -
+      baseInput.capitalFlightOutflow
 
-    balances(OpenEconFlows.DOMESTIC_ACCOUNT) shouldBe (inflows - outflows).toLong
+    balances(OpenEconFlows.DOMESTIC_ACCOUNT) shouldBe expected.toLong
   }
 
   it should "handle negative portfolio flows (outflow)" in {
@@ -51,6 +53,14 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(balances) shouldBe 0L
     // Portfolio outflow debits domestic
     flows.filter(_.mechanism == FlowMechanism.PortfolioFlow.toInt).head.from shouldBe OpenEconFlows.DOMESTIC_ACCOUNT
+  }
+
+  it should "handle negative carry trade flows (unwind)" in {
+    val outflow  = baseInput.copy(carryTradeFlow = PLN(-250000.0))
+    val flows    = OpenEconFlows.emit(outflow)
+    val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
+    Interpreter.totalWealth(balances) shouldBe 0L
+    flows.filter(_.mechanism == FlowMechanism.CarryTradeFlow.toInt).head.from shouldBe OpenEconFlows.DOMESTIC_ACCOUNT
   }
 
   it should "handle negative primary income (NFA payment)" in {
@@ -81,6 +91,7 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
 
           onlyFromIndex(FlowMechanism.Fdi) shouldBe ForeignRuntimeContract.CapitalSettlement.index
           onlyFromIndex(FlowMechanism.PortfolioFlow) shouldBe ForeignRuntimeContract.CapitalSettlement.index
+          onlyFromIndex(FlowMechanism.CarryTradeFlow) shouldBe ForeignRuntimeContract.CapitalSettlement.index
           onlyTargetIndex(FlowMechanism.CapitalFlight) shouldBe ForeignRuntimeContract.CapitalSettlement.index
 
           onlyFromIndex(FlowMechanism.PrimaryIncome) shouldBe ForeignRuntimeContract.IncomeSettlement.index

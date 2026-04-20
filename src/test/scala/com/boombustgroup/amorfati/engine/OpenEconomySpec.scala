@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
-import com.boombustgroup.amorfati.engine.markets.OpenEconomy
+import com.boombustgroup.amorfati.engine.markets.{CapitalFlows, OpenEconomy}
 import com.boombustgroup.amorfati.types.*
 
 class OpenEconomySpec extends AnyFlatSpec with Matchers:
@@ -87,6 +87,35 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
     val bopSum = td.toDouble(r.bop.currentAccount) + td.toDouble(r.bop.capitalAccount) +
       td.toDouble(r.bop.reserves - OpenEconomy.BopState.zero.reserves)
     Math.abs(bopSum) should be < 1.0
+  }
+
+  it should "decompose financial-account channels without changing the net portfolio effect" in {
+    val prevBop = OpenEconomy.BopState.zero.copy(carryTradeStock = PLN(20000000.0))
+    val input   = baseInput(prevBop = prevBop, month = 30).copy(
+      domesticRate = Rate(0.08),
+      bondYield = Rate(0.09),
+      prevBidToCover = Multiplier(0.50),
+    )
+
+    val r                            = OpenEconomy.step(input)
+    val capitalFlight                = CapitalFlows.compute(
+      month = input.month,
+      yieldSpread = input.bondYield - p.forex.foreignRate,
+      bidToCover = input.prevBidToCover,
+      prevCarry = CapitalFlows.CarryState(prevBop.carryTradeStock),
+      monthlyGdp = input.gdp,
+    )
+    val expectedCapitalFlightOutflow =
+      (-capitalFlight.riskOffOutflow).max(PLN.Zero) + (-capitalFlight.auctionSignal).max(PLN.Zero)
+    val legacyAdjustedPortfolio      = r.bop.portfolioFlows + capitalFlight.totalAdjustment
+    val decomposedPortfolio          = r.bop.portfolioFlows + r.bop.carryTradeFlow - r.bop.capitalFlightOutflow
+
+    r.bop.carryTradeFlow shouldBe capitalFlight.carryTradeFlow
+    r.bop.carryTradeFlow should be > PLN.Zero
+    r.bop.capitalFlightOutflow shouldBe expectedCapitalFlightOutflow
+    r.bop.capitalFlightOutflow should be > PLN.Zero
+    decomposedPortfolio shouldBe legacyAdjustedPortfolio
+    r.bop.capitalAccount shouldBe r.bop.fdi + decomposedPortfolio
   }
 
   // ---- Current account ----

@@ -119,16 +119,17 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     val flowBop = result.external.flowBop
     val flows   = OpenEconFlows.emit(
       OpenEconFlows.Input(
-        flowBop.exports,
-        flowBop.totalImports,
-        s6.tourismExport,
-        s6.tourismImport,
-        flowBop.fdi,
-        flowBop.portfolioFlows,
-        flowBop.primaryIncome,
-        flowBop.euFundsMonthly,
-        s6.diasporaInflow,
-        PLN.Zero,
+        exports = flowBop.exports,
+        imports = flowBop.totalImports,
+        tourismExport = s6.tourismExport,
+        tourismImport = s6.tourismImport,
+        fdi = flowBop.fdi,
+        portfolioFlows = flowBop.portfolioFlows,
+        carryTradeFlow = flowBop.carryTradeFlow,
+        primaryIncome = flowBop.primaryIncome,
+        euFunds = flowBop.euFundsMonthly,
+        diasporaInflow = s6.diasporaInflow,
+        capitalFlightOutflow = flowBop.capitalFlightOutflow,
       ),
     )
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)) shouldBe 0L

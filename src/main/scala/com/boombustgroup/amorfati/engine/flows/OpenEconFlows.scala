@@ -6,8 +6,9 @@ import com.boombustgroup.ledger.*
 
 /** Open economy / Balance of Payments emitting flows.
   *
-  * Trade (exports/imports), FDI, portfolio flows, primary income (NFA return),
-  * secondary income (EU funds, diaspora), tourism, capital flight.
+  * Trade (exports/imports), FDI, portfolio flows, carry trade, primary income
+  * (NFA return), secondary income (EU funds, diaspora), tourism, capital
+  * flight.
   *
   * Remittances (HH→Foreign) already emitted by HouseholdFlows.
   *
@@ -25,11 +26,12 @@ object OpenEconFlows:
       tourismExport: PLN,
       tourismImport: PLN,
       fdi: PLN,
-      portfolioFlows: PLN,
+      portfolioFlows: PLN,      // ordinary signed portfolio allocation
+      carryTradeFlow: PLN,      // signed carry accumulation or unwind
       primaryIncome: PLN,
       euFunds: PLN,
       diasporaInflow: PLN,
-      capitalFlightOutflow: PLN,
+      capitalFlightOutflow: PLN, // positive stress/confidence outflow
   )
 
   def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
@@ -80,27 +82,24 @@ object OpenEconFlows:
           AssetType.Cash,
           FlowMechanism.Fdi,
         ),
-      if input.portfolioFlows > PLN.Zero then
-        AggregateBatchedEmission.transfer(
-          EntitySector.Foreign,
-          ForeignRuntimeContract.CapitalSettlement.index,
-          EntitySector.Firms,
-          topology.firms.aggregate,
-          input.portfolioFlows,
-          AssetType.Cash,
-          FlowMechanism.PortfolioFlow,
-        )
-      else if input.portfolioFlows < PLN.Zero then
-        AggregateBatchedEmission.transfer(
-          EntitySector.Firms,
-          topology.firms.aggregate,
-          EntitySector.Foreign,
-          ForeignRuntimeContract.CapitalSettlement.index,
-          -input.portfolioFlows,
-          AssetType.Cash,
-          FlowMechanism.PortfolioFlow,
-        )
-      else Vector.empty,
+      AggregateBatchedEmission.signedTransfer(
+        EntitySector.Foreign,
+        ForeignRuntimeContract.CapitalSettlement.index,
+        EntitySector.Firms,
+        topology.firms.aggregate,
+        input.portfolioFlows,
+        AssetType.Cash,
+        FlowMechanism.PortfolioFlow,
+      ),
+      AggregateBatchedEmission.signedTransfer(
+        EntitySector.Foreign,
+        ForeignRuntimeContract.CapitalSettlement.index,
+        EntitySector.Firms,
+        topology.firms.aggregate,
+        input.carryTradeFlow,
+        AssetType.Cash,
+        FlowMechanism.CarryTradeFlow,
+      ),
       if input.primaryIncome > PLN.Zero then
         AggregateBatchedEmission.transfer(
           EntitySector.Foreign,
@@ -161,10 +160,13 @@ object OpenEconFlows:
 
     if input.fdi > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.fdi.toLong, FlowMechanism.Fdi.toInt)
 
-    // Portfolio flows: positive = inflow (Foreign→Domestic), negative = outflow
+    // Portfolio and carry flows: positive = inflow (Foreign→Domestic), negative = outflow
     if input.portfolioFlows > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.portfolioFlows.toLong, FlowMechanism.PortfolioFlow.toInt)
     else if input.portfolioFlows < PLN.Zero then
       flows += Flow(DOMESTIC_ACCOUNT, FOREIGN_ACCOUNT, (-input.portfolioFlows).toLong, FlowMechanism.PortfolioFlow.toInt)
+    if input.carryTradeFlow > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.carryTradeFlow.toLong, FlowMechanism.CarryTradeFlow.toInt)
+    else if input.carryTradeFlow < PLN.Zero then
+      flows += Flow(DOMESTIC_ACCOUNT, FOREIGN_ACCOUNT, (-input.carryTradeFlow).toLong, FlowMechanism.CarryTradeFlow.toInt)
 
     // Primary income: positive = NFA earning (Foreign→Domestic), negative = payment
     if input.primaryIncome > PLN.Zero then flows += Flow(FOREIGN_ACCOUNT, DOMESTIC_ACCOUNT, input.primaryIncome.toLong, FlowMechanism.PrimaryIncome.toInt)
