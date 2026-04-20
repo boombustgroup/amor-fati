@@ -423,14 +423,17 @@ object FirmEconomics:
     )
     val absorption           = CorporateBondMarket
       .computeAbsorption(w.financialMarkets.corporateBonds, result.flows.bondIssuance, bankAgg.car, p.banking.minCar)
-    val actualBondIssuance   = result.flows.bondIssuance * absorption
     val revertShare          = Share.One - absorption
     val requestedByFirm      = result.outcomes
       .map(o => o.firm.id -> result.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero))
       .filter((_, amount) => amount > PLN.Zero)
-    val actualIssuanceByFirm =
-      allocateAbsorbedBondIssuance(requestedByFirm, actualBondIssuance, executionMonth)
     val shouldRevert         = revertShare > Share(BondRevertThreshold)
+    val absorbedBondIssuance = result.flows.bondIssuance * absorption
+    val actualIssuanceByFirm =
+      allocateAbsorbedBondIssuance(requestedByFirm, absorbedBondIssuance, executionMonth)
+    val issuanceMapToApply   =
+      if shouldRevert then actualIssuanceByFirm
+      else requestedByFirm.toMap
     val bondReversionByFirm  =
       if shouldRevert then
         requestedByFirm
@@ -450,10 +453,13 @@ object FirmEconomics:
         else (o.firm, o.financialStocks)
 
     val issuerLedger = ledgerFinancialState.copy(
-      firms = CorporateBondOwnership.applyIssuance(ledgerFinancialState.firms, actualIssuanceByFirm),
+      firms = CorporateBondOwnership.applyIssuance(ledgerFinancialState.firms, issuanceMapToApply),
     )
 
-    val bondRevertLoans = bondReversionByFirm.valuesIterator.sum
+    val bondRevertLoans    = bondReversionByFirm.valuesIterator.sum
+    val actualBondIssuance =
+      if shouldRevert then absorbedBondIssuance
+      else result.flows.bondIssuance
 
     BondAbsorptionResult(
       adjusted.map(_._1),

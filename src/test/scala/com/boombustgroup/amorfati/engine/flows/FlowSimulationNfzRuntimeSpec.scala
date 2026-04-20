@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.agents.SocialSecurity
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -34,6 +35,7 @@ class FlowSimulationNfzRuntimeSpec extends AnyFlatSpec with Matchers:
     val state       = FlowSimulation.SimState.fromInit(init)
     val result      = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val nfz         = result.nextState.world.social.nfz
+    val expectedNfz = SocialSecurity.nfzStep(result.calculus.employed, result.calculus.wage, result.calculus.workingAgePop, result.calculus.retirees)
     val directFlows = NfzFlows.emit(NfzFlows.NfzInput(nfz))
 
     val emittedContributions = cashMechanismTotal(result.flows, FlowMechanism.NfzContribution)
@@ -41,12 +43,16 @@ class FlowSimulationNfzRuntimeSpec extends AnyFlatSpec with Matchers:
     val emittedSubvention    = cashMechanismTotal(result.flows, FlowMechanism.NfzGovSubvention)
 
     result.sfcResult shouldBe Right(())
-    emittedSubvention should be > PLN.Zero
+    expectedNfz shouldBe nfz
+    withClue("SimParams.defaults with seed 42 should exercise the nfzStep positive govSubvention path: ") {
+      nfz.govSubvention should be > PLN.Zero
+      emittedSubvention should be > PLN.Zero
+    }
     emittedContributions shouldBe nfz.contributions
     emittedSpending shouldBe nfz.spending
     emittedSubvention shouldBe nfz.govSubvention
 
-    flowTotal(directFlows, FlowMechanism.NfzContribution) shouldBe nfz.contributions
-    flowTotal(directFlows, FlowMechanism.NfzSpending) shouldBe nfz.spending
-    flowTotal(directFlows, FlowMechanism.NfzGovSubvention) shouldBe nfz.govSubvention
+    emittedContributions shouldBe flowTotal(directFlows, FlowMechanism.NfzContribution)
+    emittedSpending shouldBe flowTotal(directFlows, FlowMechanism.NfzSpending)
+    emittedSubvention shouldBe flowTotal(directFlows, FlowMechanism.NfzGovSubvention)
   }
