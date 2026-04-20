@@ -116,6 +116,59 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     mechanismTotal(result.flows, FlowMechanism.EquityGovDividend) shouldBe result.calculus.equityGovDividends
   }
 
+  it should "emit government and JST flows from current-month fiscal state instead of boundary fields" in {
+    val init               = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState          = FlowSimulation.SimState.fromInit(init)
+    val staleDebtService   = PLN(987654321.0)
+    val staleEuCofinancing = PLN(876543210.0)
+    val staleCapitalSpend  = PLN(765432109.0)
+    val staleJstRevenue    = PLN(654321098.0)
+    val staleJstSpending   = PLN(543210987.0)
+    val state              = baseState.copy(
+      world = baseState.world.copy(
+        gov = baseState.world.gov.copy(
+          monthly = baseState.world.gov.monthly.copy(
+            debtServiceSpend = staleDebtService,
+            euCofinancing = staleEuCofinancing,
+            govCapitalSpend = staleCapitalSpend,
+          ),
+        ),
+        social = baseState.world.social.copy(
+          jst = baseState.world.social.jst.copy(
+            revenue = staleJstRevenue,
+            spending = staleJstSpending,
+          ),
+        ),
+      ),
+    )
+
+    val result  = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val nextGov = result.nextState.world.gov
+    val nextJst = result.nextState.world.social.jst
+
+    result.sfcResult shouldBe Right(())
+    result.calculus.govCurrentSpend shouldBe nextGov.govCurrentSpend
+    result.calculus.govDebtService shouldBe nextGov.debtServiceSpend
+    result.calculus.govEuCofinancing shouldBe nextGov.euCofinancing
+    result.calculus.govCapitalSpend shouldBe nextGov.govCapitalSpend
+
+    result.calculus.govDebtService should not equal staleDebtService
+    result.calculus.govEuCofinancing should not equal staleEuCofinancing
+    result.calculus.govCapitalSpend should not equal staleCapitalSpend
+
+    mechanismTotal(result.flows, FlowMechanism.GovPurchases) shouldBe nextGov.govCurrentSpend
+    mechanismTotal(result.flows, FlowMechanism.GovDebtService) shouldBe result.calculus.govDebtService
+    mechanismTotal(result.flows, FlowMechanism.GovEuCofin) shouldBe result.calculus.govEuCofinancing
+    mechanismTotal(result.flows, FlowMechanism.GovCapitalInvestment) shouldBe result.calculus.govCapitalSpend
+    mechanismTotal(result.flows, FlowMechanism.GovUnempBenefit) shouldBe result.calculus.totalUnempBenefits
+    mechanismTotal(result.flows, FlowMechanism.GovSocialTransfer) shouldBe result.calculus.totalSocialTransfers
+
+    mechanismTotal(result.flows, FlowMechanism.JstRevenue) shouldBe nextJst.revenue
+    mechanismTotal(result.flows, FlowMechanism.JstSpending) shouldBe nextJst.spending
+    mechanismTotal(result.flows, FlowMechanism.JstRevenue) should not equal staleJstRevenue
+    mechanismTotal(result.flows, FlowMechanism.JstSpending) should not equal staleJstSpending
+  }
+
   it should "keep corporate bond outstanding ledger-owned across month boundaries" in {
     val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state       = FlowSimulation.SimState.fromInit(init)
