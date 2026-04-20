@@ -72,6 +72,7 @@ object FlowSimulation:
       // Stage 2: Labor market
       wage: PLN,
       employed: Int,
+      unemploymentRate: Share,
       laborDemand: Int,
       livingFirms: Int,
       retirees: Int,
@@ -227,7 +228,7 @@ object FlowSimulation:
         InsuranceFlows.Input(
           employed = c.employed,
           wage = c.wage,
-          unempRate = Share.One - Share.fraction(c.employed, (c.employed + 1).max(1)),
+          unempRate = c.unemploymentRate,
           currentLifeReserves = c.insuranceCurrentLifeReserves,
           currentNonLifeReserves = c.insuranceCurrentNonLifeReserves,
           prevGovBondHoldings = c.insurancePrevGovBonds,
@@ -525,6 +526,7 @@ object FlowSimulation:
       minWagePriceLevel = s1.updatedMinWagePriceLevel,
       wage = s2.newWage,
       employed = s2.employed,
+      unemploymentRate = w.unemploymentRate(s2.employed),
       laborDemand = s2.laborDemand,
       livingFirms = s5.ioFirms.count(Firm.isAlive),
       retirees = s2Pre.newDemographics.retirees,
@@ -661,7 +663,7 @@ object FlowSimulation:
   ): Sfc.RuntimeState =
     Sfc.RuntimeState(w, firms, households, banks, ledgerFinancialState)
 
-  private case class ExecutedBatchEvidence(
+  private case class ExecutedFlowEvidence(
       totals: Map[MechanismId, Long],
       signedTotals: Map[MechanismId, Long],
   ):
@@ -674,9 +676,42 @@ object FlowSimulation:
     def sum(mechanisms: MechanismId*): PLN =
       PLN.fromRaw(mechanisms.iterator.map(m => totals.getOrElse(m, 0L)).sum)
 
-  private object ExecutedBatchEvidence:
-    def from(batches: Vector[BatchedFlow]): ExecutedBatchEvidence =
-      val (totals, signedTotals) =
+    def sumAll(mechanisms: Iterable[MechanismId]): PLN =
+      PLN.fromRaw(mechanisms.iterator.map(m => totals.getOrElse(m, 0L)).sum)
+
+    def govSpending: PLN =
+      sumAll(ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms) +
+        sumAll(ExecutedFlowEvidence.SocialFundGovSubventionMechanisms)
+
+    def jstDepositChange: PLN =
+      amount(FlowMechanism.JstRevenue) - amount(FlowMechanism.JstSpending)
+
+    def insuranceNetDepositChange: PLN =
+      sum(FlowMechanism.InsLifeClaim, FlowMechanism.InsNonLifeClaim) -
+        sum(FlowMechanism.InsLifePremium, FlowMechanism.InsNonLifePremium)
+
+  private object ExecutedFlowEvidence:
+    private val CentralGovernmentSpendingMechanisms: Vector[MechanismId] =
+      Vector(
+        FlowMechanism.GovPurchases,
+        FlowMechanism.GovDebtService,
+        FlowMechanism.GovUnempBenefit,
+        FlowMechanism.GovSocialTransfer,
+        FlowMechanism.GovEuCofin,
+        FlowMechanism.GovCapitalInvestment,
+      )
+
+    private val SocialFundGovSubventionMechanisms: Vector[MechanismId] =
+      Vector(
+        FlowMechanism.ZusGovSubvention,
+        FlowMechanism.NfzGovSubvention,
+        FlowMechanism.FpGovSubvention,
+        FlowMechanism.PfronGovSubvention,
+        FlowMechanism.FgspGovSubvention,
+      )
+
+    def from(batches: Vector[BatchedFlow]): ExecutedFlowEvidence =
+      val (totals, signedTotals): (Map[MechanismId, Long], Map[MechanismId, Long]) =
         batches.foldLeft(
           Map.empty[MechanismId, Long].withDefaultValue(0L),
           Map.empty[MechanismId, Long].withDefaultValue(0L),
@@ -696,29 +731,28 @@ object FlowSimulation:
               signedAcc.updated(batch.mechanism, signedAcc(batch.mechanism) + signedAmount),
             )
 
-      ExecutedBatchEvidence(totals, signedTotals)
+      ExecutedFlowEvidence(totals, signedTotals)
 
   private def buildSfcFlows(
       semanticProjection: MonthSemantics.SemanticProjection,
       batches: Vector[BatchedFlow],
       fofResidual: PLN,
   )(using p: SimParams): Sfc.SemanticFlows =
-    val labor       = semanticProjection.labor
-    val hhIncome    = semanticProjection.hhIncome
     val firms       = semanticProjection.firms
     val hhFinancial = semanticProjection.hhFinancial
-    val prices      = semanticProjection.prices
     val openEcon    = semanticProjection.openEcon
     val banking     = semanticProjection.banking
-    val evidence    = ExecutedBatchEvidence.from(batches)
+    val evidence    = ExecutedFlowEvidence.from(batches)
+    // Runtime-covered legs are sourced from executed flow evidence. Remaining
+    // month-semantics reads are diagnostics or stock projections without a
+    // first-class emitted mechanism yet.
     Sfc.SemanticFlows(
-      govSpending =
-        banking.newGovWithYield.domesticBudgetOutlays + labor.newZus.govSubvention + labor.newNfz.govSubvention + labor.newEarmarked.totalGovSubvention,
+      govSpending = evidence.govSpending,
       govRevenue = evidence.sum(GovBudgetFlows.CentralGovernmentRevenueMechanisms*),
       nplLoss = evidence.amount(FlowMechanism.BankNplLoss),
       interestIncome = evidence.amount(FlowMechanism.BankFirmInterest),
       hhDebtService = evidence.amount(FlowMechanism.HhDebtService),
-      totalIncome = hhIncome.totalIncome,
+      totalIncome = evidence.amount(FlowMechanism.HhTotalIncome),
       totalConsumption = evidence.amount(FlowMechanism.HhConsumption),
       newLoans = evidence.amount(FlowMechanism.FirmNewLoan),
       nplRecovery = firms.nplNew * p.banking.loanRecovery,
@@ -731,18 +765,18 @@ object FlowSimulation:
       reserveInterest = evidence.amount(FlowMechanism.BankReserveInterest),
       standingFacilityIncome = evidence.signedAmount(FlowMechanism.BankStandingFacility),
       interbankInterest = evidence.signedAmount(FlowMechanism.BankInterbankInterest),
-      jstDepositChange = banking.jstDepositChange,
-      jstSpending = banking.newJst.spending,
-      jstRevenue = banking.newJst.revenue,
-      zusContributions = labor.newZus.contributions,
-      zusPensionPayments = labor.newZus.pensionPayments,
-      zusGovSubvention = labor.newZus.govSubvention,
-      nfzContributions = labor.newNfz.contributions,
-      nfzSpending = labor.newNfz.spending,
-      nfzGovSubvention = labor.newNfz.govSubvention,
-      dividendIncome = prices.netDomesticDividends,
-      foreignDividendOutflow = prices.foreignDividendOutflow,
-      dividendTax = prices.dividendTax,
+      jstDepositChange = evidence.jstDepositChange,
+      jstSpending = evidence.amount(FlowMechanism.JstSpending),
+      jstRevenue = evidence.amount(FlowMechanism.JstRevenue),
+      zusContributions = evidence.amount(FlowMechanism.ZusContribution),
+      zusPensionPayments = evidence.amount(FlowMechanism.ZusPension),
+      zusGovSubvention = evidence.amount(FlowMechanism.ZusGovSubvention),
+      nfzContributions = evidence.amount(FlowMechanism.NfzContribution),
+      nfzSpending = evidence.amount(FlowMechanism.NfzSpending),
+      nfzGovSubvention = evidence.amount(FlowMechanism.NfzGovSubvention),
+      dividendIncome = evidence.amount(FlowMechanism.EquityDomDividend),
+      foreignDividendOutflow = evidence.amount(FlowMechanism.EquityForDividend),
+      dividendTax = evidence.amount(FlowMechanism.EquityDividendTax),
       mortgageInterestIncome = evidence.amount(FlowMechanism.MortgageInterest),
       mortgageNplLoss = evidence.amount(FlowMechanism.BankMortgageNplLoss),
       mortgageOrigination = evidence.amount(FlowMechanism.MortgageOrigination),
@@ -760,7 +794,7 @@ object FlowSimulation:
       corpBondIssuance = evidence.amount(FlowMechanism.CorpBondIssuance),
       corpBondAmortization = evidence.amount(FlowMechanism.CorpBondAmortization),
       corpBondDefaultAmount = evidence.amount(FlowMechanism.CorpBondDefault),
-      insNetDepositChange = openEcon.nonBank.insNetDepositChange,
+      insNetDepositChange = evidence.insuranceNetDepositChange,
       nbfiDepositDrain = openEcon.nonBank.nbfiDepositDrain,
       nbfiOrigination = banking.finalNbfi.lastNbfiOrigination,
       nbfiRepayment = banking.finalNbfi.lastNbfiRepayment,

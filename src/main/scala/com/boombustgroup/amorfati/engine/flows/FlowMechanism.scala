@@ -50,8 +50,8 @@ object FlowMechanism:
   val HhCcOrigination: MechanismId              = MechanismId(38)
   val HhCcDebtService: MechanismId              = MechanismId(39)
   val HhCcDefault: MechanismId                  = MechanismId(40)
-  // Firm
-  val FirmWages: MechanismId                    = MechanismId(41)
+  // Firm / household income carrier
+  val HhTotalIncome: MechanismId                = MechanismId(41)
   val FirmCit: MechanismId                      = MechanismId(42)
   val FirmLoanRepayment: MechanismId            = MechanismId(43)
   val FirmNewLoan: MechanismId                  = MechanismId(44)
@@ -152,7 +152,7 @@ object FlowMechanism:
     HhCcOrigination,
     HhCcDebtService,
     HhCcDefault,
-    FirmWages,
+    HhTotalIncome,
     FirmCit,
     FirmLoanRepayment,
     FirmNewLoan,

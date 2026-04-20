@@ -6,11 +6,13 @@ import com.boombustgroup.ledger.*
 
 /** Firm sector emitting flows from aggregate data.
   *
-  * Aggregate level: total wages, CIT, loans, investment, I-O, NPL, FDI flows.
-  * Per-agent BatchedFlow.Scatter will replace when new pipeline is built.
+  * Aggregate level: household income carrier, CIT, loans, investment, I-O, NPL,
+  * FDI flows. Per-agent BatchedFlow.Scatter will replace when new pipeline is
+  * built.
   *
-  * Account IDs: 0=Firm, 1=HH (wages), 2=Gov (CIT), 3=Bank (loans/interest/NPL),
-  * 4=Capital (investment), 5=Foreign (FDI/profit shifting)
+  * Account IDs: 0=Firm, 1=HH (household income), 2=Gov (CIT), 3=Bank
+  * (loans/interest/NPL), 4=Capital (investment), 5=Foreign (FDI/profit
+  * shifting)
   */
 object FirmFlows:
 
@@ -22,7 +24,7 @@ object FirmFlows:
   val FOREIGN_ACCOUNT: Int = 5
 
   case class Input(
-      wages: PLN,
+      householdIncome: PLN,
       cit: PLN,
       loanRepayment: PLN,
       newLoans: PLN,
@@ -43,9 +45,9 @@ object FirmFlows:
         topology.firms.aggregate,
         EntitySector.Households,
         topology.households.aggregate,
-        input.wages,
+        input.householdIncome,
         AssetType.Cash,
-        FlowMechanism.FirmWages,
+        FlowMechanism.HhTotalIncome,
       ),
       AggregateBatchedEmission
         .transfer(
@@ -153,7 +155,7 @@ object FirmFlows:
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
 
-    if input.wages > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HH_ACCOUNT, input.wages.toLong, FlowMechanism.FirmWages.toInt)
+    if input.householdIncome > PLN.Zero then flows += Flow(FIRM_ACCOUNT, HH_ACCOUNT, input.householdIncome.toLong, FlowMechanism.HhTotalIncome.toInt)
     if input.cit > PLN.Zero then flows += Flow(FIRM_ACCOUNT, GOV_ACCOUNT, input.cit.toLong, FlowMechanism.FirmCit.toInt)
     if input.loanRepayment > PLN.Zero then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.loanRepayment.toLong, FlowMechanism.FirmLoanRepayment.toInt)
     if input.newLoans > PLN.Zero then flows += Flow(BANK_ACCOUNT, FIRM_ACCOUNT, input.newLoans.toLong, FlowMechanism.FirmNewLoan.toInt)
