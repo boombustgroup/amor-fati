@@ -169,6 +169,35 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     mechanismTotal(result.flows, FlowMechanism.JstSpending) should not equal staleJstSpending
   }
 
+  it should "align NFZ runtime subvention emission with semantic current-month state" in {
+    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state  = FlowSimulation.SimState.fromInit(init)
+    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val nfz    = result.nextState.world.social.nfz
+
+    val emittedContributions = mechanismTotal(result.flows, FlowMechanism.NfzContribution)
+    val emittedSpending      = mechanismTotal(result.flows, FlowMechanism.NfzSpending)
+    val emittedSubvention    = mechanismTotal(result.flows, FlowMechanism.NfzGovSubvention)
+
+    result.sfcResult shouldBe Right(())
+    emittedSubvention should be > PLN.Zero
+    emittedContributions shouldBe nfz.contributions
+    emittedSpending shouldBe nfz.spending
+    emittedSubvention shouldBe nfz.govSubvention
+
+    result.trace.executedFlows.nfzContributions shouldBe nfz.contributions
+    result.trace.executedFlows.nfzSpending shouldBe nfz.spending
+    result.trace.executedFlows.nfzGovSubvention shouldBe nfz.govSubvention
+
+    val expectedGovSpending =
+      result.nextState.world.gov.domesticBudgetOutlays +
+        result.nextState.world.social.zus.govSubvention +
+        result.nextState.world.social.nfz.govSubvention +
+        result.nextState.world.social.earmarked.totalGovSubvention
+
+    result.trace.executedFlows.govSpending shouldBe expectedGovSpending
+  }
+
   it should "keep corporate bond outstanding ledger-owned across month boundaries" in {
     val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state       = FlowSimulation.SimState.fromInit(init)

@@ -76,6 +76,7 @@ object FlowSimulation:
       livingFirms: Int,
       retirees: Int,
       workingAgePop: Int,
+      nfz: SocialSecurity.NfzState,
       nBankruptFirms: Int,
       avgFirmWorkers: Int,
       // Stage 3: HH income (aggregates)
@@ -175,7 +176,7 @@ object FlowSimulation:
     Vector.concat(
       // Tier 1: Social funds
       ZusFlows.emitBatches(ZusFlows.ZusInput(c.employed, c.wage, c.retirees)),
-      NfzFlows.emitBatches(NfzFlows.NfzInput(c.employed, c.wage, c.workingAgePop, c.retirees)),
+      NfzFlows.emitBatches(NfzFlows.NfzInput(c.nfz)),
       PpkFlows.emitBatches(PpkFlows.PpkInput(c.employed, c.wage)),
       EarmarkedFlows.emitBatches(EarmarkedFlows.Input(c.employed, c.wage, c.totalUnempBenefits, c.nBankruptFirms, c.avgFirmWorkers)),
       JstFlows.emitBatches(JstFlows.Input(c.firmTax, c.totalIncome, c.gdp, c.livingFirms, c.pitRevenue)),
@@ -528,6 +529,7 @@ object FlowSimulation:
       livingFirms = s5.ioFirms.count(Firm.isAlive),
       retirees = s2Pre.newDemographics.retirees,
       workingAgePop = s2Pre.newDemographics.workingAgePop,
+      nfz = s2.newNfz,
       nBankruptFirms = firms.length - s2Pre.living.length,
       avgFirmWorkers = if s2Pre.living.nonEmpty then s2Pre.laborDemand / s2Pre.living.length else 0,
       totalIncome = s3.totalIncome,
