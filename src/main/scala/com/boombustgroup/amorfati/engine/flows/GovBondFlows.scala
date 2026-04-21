@@ -38,8 +38,7 @@ object GovBondFlows:
       amountsByBank: Vector[PLN],
       mechanism: MechanismId,
   )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
-    requireBankAmountCount("primaryByBank", amountsByBank)
-    val nonZero = amountsByBank.zipWithIndex.collect:
+    val nonZero = persistedBankTargets("primaryByBank", amountsByBank).collect:
       case (amount, bankIndex) if amount > PLN.Zero => amount.toLong -> bankIndex
     if nonZero.isEmpty then Vector.empty
     else
@@ -80,6 +79,16 @@ object GovBondFlows:
     val persisted = amountsByBank.map(_.toLong).toArray
     persisted ++ Array.fill(topology.banks.sectorSize - persisted.length)(0L)
 
+  private def persistedBankTargets(
+      fieldName: String,
+      amountsByBank: Vector[PLN],
+  )(using topology: RuntimeLedgerTopology): Vector[(PLN, Int)] =
+    requireBankAmountCount(fieldName, amountsByBank)
+    amountsByBank.zipWithIndex.map:
+      case (amount, bankIndex) =>
+        requirePersistedBankIndex(fieldName, bankIndex)
+        amount -> bankIndex
+
   private def requireBankAmountCount(
       fieldName: String,
       amountsByBank: Vector[PLN],
@@ -87,6 +96,15 @@ object GovBondFlows:
     require(
       amountsByBank.length <= topology.banks.persistedCount,
       s"GovBondFlows.$fieldName expected at most ${topology.banks.persistedCount} persisted bank amounts, got ${amountsByBank.length}",
+    )
+
+  private def requirePersistedBankIndex(
+      fieldName: String,
+      bankIndex: Int,
+  )(using topology: RuntimeLedgerTopology): Unit =
+    require(
+      bankIndex >= 0 && bankIndex < topology.banks.persistedCount,
+      s"GovBondFlows.$fieldName target bank index $bankIndex must be a persisted bank index in [0, ${topology.banks.persistedCount}); aggregate=${topology.banks.aggregate}",
     )
 
 end GovBondFlows

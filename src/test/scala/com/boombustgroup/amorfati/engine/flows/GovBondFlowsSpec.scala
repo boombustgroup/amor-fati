@@ -88,4 +88,22 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
     thrown.getMessage should include("primaryByBank")
   }
 
+  it should "allow primary-market issuance to the first persisted bank" in {
+    val batches = GovBondFlows.emitBatches(
+      movements(primaryByBank = Vector(PLN(10.0), PLN.Zero)),
+    )(using topology)
+
+    batches should have size 1
+    val primaryBatch = batches.head
+    primaryBatch.mechanism shouldBe FlowMechanism.GovBondPrimaryMarket
+    primaryBatch.from shouldBe EntitySector.Government
+    primaryBatch.to shouldBe EntitySector.Banks
+
+    primaryBatch match
+      case broadcast: BatchedFlow.Broadcast =>
+        broadcast.targetIndices.toVector shouldBe Vector(0)
+        broadcast.amounts.toVector shouldBe Vector(PLN(10.0).toLong)
+      case other                            => fail(s"Expected government-to-bank broadcast, got $other")
+  }
+
 end GovBondFlowsSpec
