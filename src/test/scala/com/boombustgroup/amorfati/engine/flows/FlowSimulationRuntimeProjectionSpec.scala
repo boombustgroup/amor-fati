@@ -41,14 +41,35 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
       result.trace.executedFlows.nfzGovSubvention -
       result.trace.executedFlows.nfzSpending
     funds.jstCash shouldBe state.ledgerFinancialState.funds.jstCash + result.trace.executedFlows.jstDepositChange
+  }
 
-    withClue("seed 42 should exercise runtime materialization beyond the old contribution-minus-spending NFZ stage formula: ") {
-      result.trace.executedFlows.nfzGovSubvention should be > PLN.Zero
-      val stageOnlyNfzCash = state.ledgerFinancialState.funds.nfzCash +
-        result.nextState.world.social.nfz.contributions -
-        result.nextState.world.social.nfz.spending
-      funds.nfzCash should not equal stageOnlyNfzCash
-    }
+  it should "include explicit NFZ gov subvention when materializing a deterministic deficit fixture" in {
+    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state    = FlowSimulation.SimState.fromInit(init)
+    val topology = RuntimeLedgerTopology.fromState(state)
+    val opening  = state.ledgerFinancialState
+
+    val nfzContributions = PLN(10.0)
+    val nfzSpending      = PLN(30.0)
+    val nfzGovSubvention = nfzSpending - nfzContributions
+    nfzGovSubvention should be > PLN.Zero
+
+    val stageOnlyNfzCash = opening.funds.nfzCash + nfzContributions - nfzSpending
+    val semanticClosing  = opening.copy(
+      funds = opening.funds.copy(nfzCash = stageOnlyNfzCash),
+    )
+    val executedDelta    = nfzContributions + nfzGovSubvention - nfzSpending
+
+    val projection = RuntimeFlowProjection.materializeSupportedState(
+      opening = opening,
+      semanticClosing = semanticClosing,
+      deltaLedger = Map((EntitySector.Funds, AssetType.Cash, topology.funds.nfz) -> executedDelta.toLong),
+      topology = topology,
+    )
+
+    projection.publicFundCash.nfzCash shouldBe opening.funds.nfzCash + executedDelta
+    projection.ledgerFinancialState.funds.nfzCash shouldBe opening.funds.nfzCash + executedDelta
+    projection.ledgerFinancialState.funds.nfzCash should not equal stageOnlyNfzCash
   }
 
 end FlowSimulationRuntimeProjectionSpec
