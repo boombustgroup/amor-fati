@@ -110,12 +110,16 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
     reserveBatches should not be empty
     all(reserveBatches.map(_.from)) shouldBe EntitySector.Insurance
     all(reserveBatches.map(_.to)) shouldBe EntitySector.Insurance
+    val aggregate      = summon[RuntimeLedgerTopology].insurance.aggregate
+    val persistedOwner = summon[RuntimeLedgerTopology].insurance.persistedOwner
     reserveBatches.foreach:
       case broadcast: BatchedFlow.Broadcast =>
-        Set(broadcast.fromIndex, broadcast.targetIndices.head) shouldBe Set(
-          summon[RuntimeLedgerTopology].insurance.aggregate,
-          summon[RuntimeLedgerTopology].insurance.persistedOwner,
-        )
+        if broadcast.mechanism == FlowMechanism.InsLifeClaim || broadcast.mechanism == FlowMechanism.InsNonLifeClaim then
+          broadcast.fromIndex shouldBe persistedOwner
+          broadcast.targetIndices.head shouldBe aggregate
+        else
+          broadcast.fromIndex shouldBe aggregate
+          broadcast.targetIndices.head shouldBe persistedOwner
       case other                            => fail(s"Expected reserve broadcast, got $other")
   }
 
