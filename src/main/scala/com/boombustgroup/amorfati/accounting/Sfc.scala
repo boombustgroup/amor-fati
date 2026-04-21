@@ -103,8 +103,8 @@ object Sfc:
       interbankNetSum: PLN,          // Σ interbank net positions (must be 0)
       jstDeposits: PLN,              // local government (JST) deposits at banks
       jstDebt: PLN,                  // local government (JST) cumulative debt
-      fusBalance: PLN,               // ZUS/FUS raw surplus/deficit
-      nfzBalance: PLN,               // NFZ health fund surplus/deficit
+      fusBalance: PLN,               // ZUS/FUS cash balance after runtime-covered flows
+      nfzBalance: PLN,               // NFZ cash balance after runtime-covered flows
       foreignBondHoldings: PLN,      // non-resident SPW holdings
       ppkBondHoldings: PLN,          // PPK government bond holdings
       mortgageStock: PLN,            // Outstanding mortgage debt
@@ -452,14 +452,14 @@ object Sfc:
       ),
       IdentitySpec(
         SfcIdentity.FusBalance,
-        "FUS balance change (contributions - pensions)",
-        expected = flows.zusContributions - flows.zusPensionPayments,
+        "FUS cash change (contributions + gov subvention - pensions)",
+        expected = flows.zusContributions + flows.zusGovSubvention - flows.zusPensionPayments,
         actual = curr.fusBalance - prev.fusBalance,
       ),
       IdentitySpec(
         SfcIdentity.NfzBalance,
-        "NFZ balance change (contributions - spending)",
-        expected = flows.nfzContributions - flows.nfzSpending,
+        "NFZ cash change (contributions + gov subvention - spending)",
+        expected = flows.nfzContributions + flows.nfzGovSubvention - flows.nfzSpending,
         actual = curr.nfzBalance - prev.nfzBalance,
       ),
     ).collect:
