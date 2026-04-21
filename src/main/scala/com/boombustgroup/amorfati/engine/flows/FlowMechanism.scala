@@ -27,6 +27,7 @@ object FlowMechanism:
   // JST
   val JstRevenue: MechanismId                   = MechanismId(18)
   val JstSpending: MechanismId                  = MechanismId(19)
+  val JstGovSubvention: MechanismId             = MechanismId(20)
   // Government budget
   val GovPurchases: MechanismId                 = MechanismId(21)
   val GovDebtService: MechanismId               = MechanismId(22)
@@ -132,6 +133,7 @@ object FlowMechanism:
     FgspGovSubvention,
     JstRevenue,
     JstSpending,
+    JstGovSubvention,
     GovPurchases,
     GovDebtService,
     GovCapitalInvestment,

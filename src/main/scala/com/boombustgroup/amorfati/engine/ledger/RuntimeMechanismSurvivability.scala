@@ -76,6 +76,7 @@ object RuntimeMechanismSurvivability:
       FlowMechanism.FgspGovSubvention,
       FlowMechanism.JstRevenue,
       FlowMechanism.JstSpending,
+      FlowMechanism.JstGovSubvention,
     ),
     declared(
       ExecutionDeltaOnly,

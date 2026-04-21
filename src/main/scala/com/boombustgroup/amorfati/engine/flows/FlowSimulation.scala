@@ -663,7 +663,7 @@ object FlowSimulation:
   ): Sfc.RuntimeState =
     Sfc.RuntimeState(w, firms, households, banks, ledgerFinancialState)
 
-  private case class ExecutedFlowEvidence(
+  private[flows] case class ExecutedFlowEvidence(
       totals: Map[MechanismId, Long],
       signedTotals: Map[MechanismId, Long],
   ):
@@ -683,15 +683,18 @@ object FlowSimulation:
       sumAll(ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms) +
         sumAll(ExecutedFlowEvidence.SocialFundGovSubventionMechanisms)
 
+    def jstRevenue: PLN =
+      sumAll(ExecutedFlowEvidence.JstRevenueMechanisms)
+
     def jstDepositChange: PLN =
-      amount(FlowMechanism.JstRevenue) - amount(FlowMechanism.JstSpending)
+      jstRevenue - amount(FlowMechanism.JstSpending)
 
     def insuranceNetDepositChange: PLN =
       sum(FlowMechanism.InsLifeClaim, FlowMechanism.InsNonLifeClaim) -
         sum(FlowMechanism.InsLifePremium, FlowMechanism.InsNonLifePremium)
 
-  private object ExecutedFlowEvidence:
-    private val CentralGovernmentSpendingMechanisms: Vector[MechanismId] =
+  private[flows] object ExecutedFlowEvidence:
+    val CentralGovernmentSpendingMechanisms: Vector[MechanismId] =
       Vector(
         FlowMechanism.GovPurchases,
         FlowMechanism.GovDebtService,
@@ -699,9 +702,10 @@ object FlowSimulation:
         FlowMechanism.GovSocialTransfer,
         FlowMechanism.GovEuCofin,
         FlowMechanism.GovCapitalInvestment,
+        FlowMechanism.JstGovSubvention,
       )
 
-    private val SocialFundGovSubventionMechanisms: Vector[MechanismId] =
+    val SocialFundGovSubventionMechanisms: Vector[MechanismId] =
       Vector(
         FlowMechanism.ZusGovSubvention,
         FlowMechanism.NfzGovSubvention,
@@ -709,6 +713,9 @@ object FlowSimulation:
         FlowMechanism.PfronGovSubvention,
         FlowMechanism.FgspGovSubvention,
       )
+
+    val JstRevenueMechanisms: Vector[MechanismId] =
+      Vector(FlowMechanism.JstRevenue, FlowMechanism.JstGovSubvention)
 
     def from(batches: Vector[BatchedFlow]): ExecutedFlowEvidence =
       val (totals, signedTotals): (Map[MechanismId, Long], Map[MechanismId, Long]) =
@@ -767,7 +774,7 @@ object FlowSimulation:
       interbankInterest = evidence.signedAmount(FlowMechanism.BankInterbankInterest),
       jstDepositChange = evidence.jstDepositChange,
       jstSpending = evidence.amount(FlowMechanism.JstSpending),
-      jstRevenue = evidence.amount(FlowMechanism.JstRevenue),
+      jstRevenue = evidence.jstRevenue,
       zusContributions = evidence.amount(FlowMechanism.ZusContribution),
       zusPensionPayments = evidence.amount(FlowMechanism.ZusPension),
       zusGovSubvention = evidence.amount(FlowMechanism.ZusGovSubvention),

@@ -31,10 +31,12 @@ class JstFlowsSpec extends AnyFlatSpec with Matchers:
     )
     val flows  = JstFlows.emit(JstFlows.Input(centralCitRevenue, wageIncome, gdp, nFirms, pit))
 
-    val newRevenue  = flows.filter(_.mechanism == FlowMechanism.JstRevenue.toInt).map(_.amount).sum
-    val newSpending = flows.filter(_.mechanism == FlowMechanism.JstSpending.toInt).map(_.amount).sum
+    val newTaxRevenue   = flows.filter(_.mechanism == FlowMechanism.JstRevenue.toInt).map(_.amount).sum
+    val newGovSubsidies = flows.filter(_.mechanism == FlowMechanism.JstGovSubvention.toInt).map(_.amount).sum
+    val newSpending     = flows.filter(_.mechanism == FlowMechanism.JstSpending.toInt).map(_.amount).sum
 
-    newRevenue shouldBe oldJst.state.revenue.toLong
+    newTaxRevenue + newGovSubsidies shouldBe oldJst.state.revenue.toLong
+    newGovSubsidies should be > 0L
     newSpending shouldBe oldJst.state.spending.toLong
   }
 
