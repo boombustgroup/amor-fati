@@ -99,14 +99,15 @@ against 13 accounting identities each month.
 | `FlowMechanism.scala` | Enum of ~80 named flow mechanisms (e.g. `HhTotalIncome`, `HhConsumption`, `BankBfgLevy`). Each flow in the system maps to exactly one mechanism. |
 | `ZusFlows.scala` | ZUS/FUS pensions: contributions (HH → FUS), pensions (FUS → HH), gov subvention covering deficit |
 | `NfzFlows.scala` | NFZ (National Health Fund): 9% składka zdrowotna, healthcare spending, gov subvention |
-| `PpkFlows.scala` | PPK (Pracownicze Plany Kapitałowe): employee + employer contributions, bond purchases |
+| `PpkFlows.scala` | PPK (Pracownicze Plany Kapitałowe): employee + employer contributions |
+| `GovBondFlows.scala` | Holder-resolved SPW circuits: primary issuance/redemption and actual waterfall purchases by foreign, NBP, PPK, insurance, and TFI holders |
 | `EarmarkedFlows.scala` | Earmarked funds (FP, PFRON, FGSP): contributions, spending, gov subvention covering deficit |
 | `HouseholdFlows.scala` | HH aggregate flows: consumption, rent, PIT, debt service, deposits, remittances |
 | `FirmFlows.scala` | Firm aggregate flows: household income carrier, CIT, loans, investment, I-O, NPL, FDI |
 | `GovBudgetFlows.scala` | Government budget: tax revenue, purchases, benefits, transfers, debt service, capital investment |
 | `BankingFlows.scala` | Bank P&L flows: gov bond income, reserve/standing facility/interbank interest, BFG levy, unrealized losses, bail-in, NBP remittance |
 | `EquityFlows.scala` | GPW: dividends (domestic net of Belka tax, foreign), equity issuance |
-| `CorpBondFlows.scala` | Catalyst: coupon, default loss, issuance, amortization |
+| `CorpBondFlows.scala` | Catalyst: holder-class coupon, default, issuance, and amortization evidence |
 | `MortgageFlows.scala` | Housing: origination, principal repayment, interest, default |
 | `InsuranceFlows.scala` | Insurance: life + non-life premiums, claims, investment income |
 | `JstFlows.scala` | JST (local government): PIT/CIT shares, property tax, subventions, spending |

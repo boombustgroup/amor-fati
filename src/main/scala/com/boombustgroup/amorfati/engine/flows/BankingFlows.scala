@@ -135,8 +135,8 @@ object BankingFlows:
         )
       else Vector.empty,
       AggregateBatchedEmission.transfer(
-        EntitySector.Funds,
-        topology.funds.bondholders,
+        EntitySector.Firms,
+        topology.firms.aggregate,
         EntitySector.Banks,
         topology.banks.aggregate,
         input.corpBondCoupon,
@@ -146,8 +146,8 @@ object BankingFlows:
       AggregateBatchedEmission.transfer(
         EntitySector.Banks,
         topology.banks.aggregate,
-        EntitySector.Funds,
-        topology.funds.bondholders,
+        EntitySector.Firms,
+        topology.firms.aggregate,
         input.corpBondDefaultLoss,
         AssetType.Capital,
         FlowMechanism.BankCorpBondLoss,

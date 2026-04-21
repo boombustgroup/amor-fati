@@ -245,7 +245,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       EntitySector.Government -> 3,
       EntitySector.NBP        -> 2,
       EntitySector.Insurance  -> 2,
-      EntitySector.Funds      -> 14,
+      EntitySector.Funds      -> 12,
       EntitySector.Foreign    -> 5,
     )
 

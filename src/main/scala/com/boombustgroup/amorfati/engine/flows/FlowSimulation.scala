@@ -6,7 +6,8 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState, RuntimeFlowProjection}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, GovernmentBondCircuit, LedgerFinancialState, RuntimeFlowProjection}
+import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -134,6 +135,10 @@ object FlowSimulation:
       corpBondDefaultAmount: PLN,
       corpBondIssuance: PLN,
       corpBondAmortization: PLN,
+      corpBondCouponRecipients: CorpBondFlows.HolderBreakdown,
+      corpBondDefaultRecipients: CorpBondFlows.HolderBreakdown,
+      corpBondIssuanceRecipients: CorpBondFlows.HolderBreakdown,
+      corpBondAmortizationRecipients: CorpBondFlows.HolderBreakdown,
       // Stage 8: Mortgage
       mortgageOrigination: PLN,
       mortgageRepayment: PLN,
@@ -157,6 +162,8 @@ object FlowSimulation:
       govExciseRevenue: PLN,
       govCustomsDutyRevenue: PLN,
       govDebtService: PLN,
+      govDebtServiceRecipients: GovBudgetFlows.DebtServiceRecipients,
+      govBondRuntimeMovements: BankingEconomics.GovBondRuntimeMovements,
       govEuCofinancing: PLN,
       govCapitalSpend: PLN,
       // Insurance
@@ -179,6 +186,7 @@ object FlowSimulation:
       ZusFlows.emitBatches(ZusFlows.ZusInput(c.employed, c.wage, c.retirees)),
       NfzFlows.emitBatches(NfzFlows.NfzInput(c.nfz)),
       PpkFlows.emitBatches(PpkFlows.PpkInput(c.employed, c.wage)),
+      GovBondFlows.emitBatches(c.govBondRuntimeMovements),
       EarmarkedFlows.emitBatches(EarmarkedFlows.Input(c.employed, c.wage, c.totalUnempBenefits, c.nBankruptFirms, c.avgFirmWorkers)),
       JstFlows.emitBatches(JstFlows.Input(c.firmTax, c.totalIncome, c.gdp, c.livingFirms, c.pitRevenue)),
       // Tier 2: Agents
@@ -222,6 +230,7 @@ object FlowSimulation:
           socialTransferSpend = c.totalSocialTransfers,
           euCofinancing = c.govEuCofinancing,
           govCapitalSpend = c.govCapitalSpend,
+          debtServiceRecipients = Some(c.govDebtServiceRecipients),
         ),
       ),
       InsuranceFlows.emitBatches(
@@ -249,7 +258,18 @@ object FlowSimulation:
           c.equityGovDividends,
         ),
       ),
-      CorpBondFlows.emitBatches(CorpBondFlows.Input(c.corpBondCoupon, c.corpBondDefaultAmount, c.corpBondIssuance, c.corpBondAmortization)),
+      CorpBondFlows.emitBatches(
+        CorpBondFlows.Input(
+          coupon = c.corpBondCoupon,
+          defaultAmount = c.corpBondDefaultAmount,
+          issuance = c.corpBondIssuance,
+          amortization = c.corpBondAmortization,
+          couponRecipients = Some(c.corpBondCouponRecipients),
+          defaultRecipients = Some(c.corpBondDefaultRecipients),
+          issuanceRecipients = Some(c.corpBondIssuanceRecipients),
+          amortizationRecipients = Some(c.corpBondAmortizationRecipients),
+        ),
+      ),
       MortgageFlows.emitBatches(MortgageFlows.Input(c.mortgageOrigination, c.mortgageRepayment, c.mortgageInterest, c.mortgageDefault)),
       OpenEconFlows.emitBatches(
         OpenEconFlows.Input(
@@ -526,6 +546,9 @@ object FlowSimulation:
     val eq                = w.financialMarkets.equity
     val h                 = s9.housingAfterFlows
     val externalFlowBop   = s8.external.flowBop
+    val openingCorpBonds  = CorporateBondOwnership.stockStateFromLedger(ledger)
+    val corpBondCoupon    = CorporateBondMarket.computeCoupon(w.financialMarkets.corporateBonds, openingCorpBonds)
+    val corpBondIssuance  = CorporateBondMarket.processIssuance(CorporateBondMarket.StockState.zero, s5.actualBondIssuance)
     val calc              = MonthlyCalculus(
       month = s1.month,
       resWage = s1.resWage,
@@ -590,6 +613,10 @@ object FlowSimulation:
       corpBondDefaultAmount = s5.totalBondDefault,
       corpBondIssuance = s5.actualBondIssuance,
       corpBondAmortization = s8.corpBonds.corpBondAmort,
+      corpBondCouponRecipients = corpBondCouponRecipients(corpBondCoupon),
+      corpBondDefaultRecipients = allocateCorpBondReduction(s5.totalBondDefault, openingCorpBonds),
+      corpBondIssuanceRecipients = corpBondStockRecipients(corpBondIssuance),
+      corpBondAmortizationRecipients = allocateCorpBondReduction(s8.corpBonds.corpBondAmort, openingCorpBonds),
       mortgageOrigination = h.lastOrigination,
       mortgageRepayment = h.lastRepayment,
       mortgageInterest = h.mortgageInterestIncome,
@@ -610,6 +637,8 @@ object FlowSimulation:
       govExciseRevenue = s9.exciseAfterEvasion,
       govCustomsDutyRevenue = s9.customsDutyRevenue,
       govDebtService = s8.banking.monthlyDebtService,
+      govDebtServiceRecipients = GovBudgetFlows.DebtServiceRecipients.fromCircuit(GovernmentBondCircuit.from(ledger), s8.banking.monthlyDebtService),
+      govBondRuntimeMovements = s9.govBondRuntimeMovements,
       govEuCofinancing = s9.newGovWithYield.euCofinancing,
       govCapitalSpend = s9.newGovWithYield.govCapitalSpend,
       insuranceCurrentLifeReserves = ledger.insurance.lifeReserve,
@@ -670,6 +699,48 @@ object FlowSimulation:
       ledgerFinancialState: LedgerFinancialState,
   ): Sfc.RuntimeState =
     Sfc.RuntimeState(w, firms, households, banks, ledgerFinancialState)
+
+  private def corpBondCouponRecipients(coupon: CorporateBondMarket.CouponResult): CorpBondFlows.HolderBreakdown =
+    CorpBondFlows.HolderBreakdown(
+      banks = coupon.bank,
+      ppk = coupon.ppk,
+      other = coupon.other,
+      insurance = coupon.insurance,
+      nbfi = coupon.nbfi,
+    )
+
+  private def corpBondStockRecipients(stock: CorporateBondMarket.StockState): CorpBondFlows.HolderBreakdown =
+    CorpBondFlows.HolderBreakdown(
+      banks = stock.bankHoldings,
+      ppk = stock.ppkHoldings,
+      other = stock.otherHoldings,
+      insurance = stock.insuranceHoldings,
+      nbfi = stock.nbfiHoldings,
+    )
+
+  private def allocateCorpBondReduction(
+      amount: PLN,
+      opening: CorporateBondMarket.StockState,
+  ): CorpBondFlows.HolderBreakdown =
+    if amount <= PLN.Zero then CorpBondFlows.HolderBreakdown.zero
+    else
+      val weights = Array(
+        opening.bankHoldings.distributeRaw,
+        opening.ppkHoldings.distributeRaw,
+        opening.otherHoldings.distributeRaw,
+        opening.insuranceHoldings.distributeRaw,
+        opening.nbfiHoldings.distributeRaw,
+      )
+      if weights.forall(_ <= 0L) then CorpBondFlows.HolderBreakdown.copyToOther(amount)
+      else
+        val allocated = Distribute.distribute(amount.distributeRaw, weights)
+        CorpBondFlows.HolderBreakdown(
+          banks = PLN.fromRaw(allocated(0)),
+          ppk = PLN.fromRaw(allocated(1)),
+          other = PLN.fromRaw(allocated(2)),
+          insurance = PLN.fromRaw(allocated(3)),
+          nbfi = PLN.fromRaw(allocated(4)),
+        )
 
   private[flows] case class ExecutedFlowEvidence(
       totals: Map[MechanismId, Long],
@@ -774,7 +845,7 @@ object FlowSimulation:
       currentAccount = openEcon.external.newBop.currentAccount,
       valuationEffect = openEcon.external.oeValuationEffect,
       bankBondIncome = evidence.amount(FlowMechanism.BankGovBondIncome),
-      qePurchase = openEcon.monetary.qePurchaseAmount,
+      qePurchase = evidence.amount(FlowMechanism.NbpQeGovBondPurchase),
       newBondIssuance = banking.actualBondChange,
       depositInterestPaid = evidence.amount(FlowMechanism.HhDepositInterest),
       reserveInterest = evidence.amount(FlowMechanism.BankReserveInterest),

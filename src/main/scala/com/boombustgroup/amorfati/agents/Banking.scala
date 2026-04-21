@@ -762,7 +762,12 @@ object Banking:
     else (b, stocks)
 
   /** Result of a bond sale from banks to a single buyer. */
-  case class BondSaleResult(banks: Vector[BankState], financialStocks: Vector[BankFinancialStocks], actualSold: PLN)
+  case class BondSaleResult(
+      banks: Vector[BankState],
+      financialStocks: Vector[BankFinancialStocks],
+      actualSold: PLN,
+      soldByBank: Vector[PLN],
+  )
 
   /** Remove bonds from banks proportional to holdings, transferring to a buyer.
     * Returns updated banks and the actual PLN sold (may be less than requested
@@ -774,11 +779,12 @@ object Banking:
       banks.length == financialStocks.length,
       s"Banking.sellToBuyer requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
     )
-    if requested <= PLN.Zero then BondSaleResult(banks, financialStocks, PLN.Zero)
+    val zeroSales = Vector.fill(banks.length)(PLN.Zero)
+    if requested <= PLN.Zero then BondSaleResult(banks, financialStocks, PLN.Zero, zeroSales)
     else
       val eligible   = banks.zip(financialStocks).filter((b, stocks) => !b.failed && govBondHoldings(stocks) > PLN.Zero)
       val totalBonds = eligible.map((_, stocks) => govBondHoldings(stocks)).sum
-      if totalBonds <= PLN.Zero then BondSaleResult(banks, financialStocks, PLN.Zero)
+      if totalBonds <= PLN.Zero then BondSaleResult(banks, financialStocks, PLN.Zero, zeroSales)
       else
         val requestedSale  = requested.min(totalBonds)
         val soldMagnitudes = Distribute.distribute(requestedSale.toLong, eligible.map((_, stocks) => govBondHoldings(stocks).toLong).toArray)
@@ -798,7 +804,8 @@ object Banking:
             )
           }
         }
-        BondSaleResult(banks, resultStocks, requestedSale)
+        val soldByBank     = banks.map(bank => soldById.getOrElse(bank.id, PLN.Zero))
+        BondSaleResult(banks, resultStocks, requestedSale, soldByBank)
 
   // ---------------------------------------------------------------------------
   // HTM forced reclassification (interest rate risk)

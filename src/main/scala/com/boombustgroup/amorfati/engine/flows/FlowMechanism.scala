@@ -111,6 +111,12 @@ object FlowMechanism:
   val GovCustomsDutyRevenue: MechanismId        = MechanismId(94)
   val BankCorpBondCoupon: MechanismId           = MechanismId(95)
   val CarryTradeFlow: MechanismId               = MechanismId(96)
+  // Holder-resolved government bond circuits
+  val GovBondPrimaryMarket: MechanismId         = MechanismId(97)
+  val GovBondForeignPurchase: MechanismId       = MechanismId(98)
+  val NbpQeGovBondPurchase: MechanismId         = MechanismId(99)
+  val InsuranceGovBondPurchase: MechanismId     = MechanismId(100)
+  val TfiGovBondPurchase: MechanismId           = MechanismId(101)
 
   /** All mechanism IDs emitted by current runtime flow code. */
   val allMechanisms: Vector[MechanismId] = Vector(
@@ -208,6 +214,11 @@ object FlowMechanism:
     GovExciseRevenue,
     GovCustomsDutyRevenue,
     BankCorpBondCoupon,
+    GovBondPrimaryMarket,
+    GovBondForeignPurchase,
+    NbpQeGovBondPurchase,
+    InsuranceGovBondPurchase,
+    TfiGovBondPurchase,
   )
 
   /** Runtime-emitted mechanisms that must have a survivability declaration. */

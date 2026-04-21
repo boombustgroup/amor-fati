@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
-import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
+import com.boombustgroup.amorfati.engine.ledger.{GovernmentBondCircuit, TreasuryRuntimeContract}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -58,7 +58,46 @@ object GovBudgetFlows:
       socialTransferSpend: PLN,
       euCofinancing: PLN,
       govCapitalSpend: PLN,
+      debtServiceRecipients: Option[DebtServiceRecipients] = None,
   )
+
+  case class DebtServiceRecipients(
+      banks: PLN,
+      foreign: PLN,
+      nbp: PLN,
+      insurance: PLN,
+      ppk: PLN,
+      tfi: PLN,
+  )
+
+  object DebtServiceRecipients:
+    def fromCircuit(circuit: GovernmentBondCircuit, debtService: PLN): DebtServiceRecipients =
+      val weights = Array(
+        circuit.bankHoldings.distributeRaw,
+        circuit.foreignHoldings.distributeRaw,
+        circuit.nbpHoldings.distributeRaw,
+        circuit.insuranceHoldings.distributeRaw,
+        circuit.ppkHoldings.distributeRaw,
+        circuit.tfiHoldings.distributeRaw,
+      )
+      if debtService <= PLN.Zero then zero
+      else if weights.forall(_ <= 0L) then copyToPpk(debtService)
+      else
+        val allocated = Distribute.distribute(debtService.distributeRaw, weights)
+        DebtServiceRecipients(
+          banks = PLN.fromRaw(allocated(0)),
+          foreign = PLN.fromRaw(allocated(1)),
+          nbp = PLN.fromRaw(allocated(2)),
+          insurance = PLN.fromRaw(allocated(3)),
+          ppk = PLN.fromRaw(allocated(4)),
+          tfi = PLN.fromRaw(allocated(5)),
+        )
+
+    val zero: DebtServiceRecipients =
+      DebtServiceRecipients(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+
+    def copyToPpk(debtService: PLN): DebtServiceRecipients =
+      zero.copy(ppk = debtService)
 
   private case class FlowLeg(
       fromSector: EntitySector,
@@ -71,6 +110,77 @@ object GovBudgetFlows:
       asset: AssetType,
       mechanism: MechanismId,
   )
+
+  private def debtServiceFlowLegs(input: Input)(using topology: RuntimeLedgerTopology): Vector[FlowLeg] =
+    val recipients = input.debtServiceRecipients.getOrElse(DebtServiceRecipients.copyToPpk(input.debtService))
+    Vector(
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Banks,
+        toIndex = topology.banks.aggregate,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = BONDHOLDER_ACCOUNT,
+        amount = recipients.banks,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovDebtService,
+      ),
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Foreign,
+        toIndex = topology.foreign.govBondHolder,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = BONDHOLDER_ACCOUNT,
+        amount = recipients.foreign,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovDebtService,
+      ),
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.NBP,
+        toIndex = topology.nbp.persistedOwner,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = BONDHOLDER_ACCOUNT,
+        amount = recipients.nbp,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovDebtService,
+      ),
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Insurance,
+        toIndex = topology.insurance.persistedOwner,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = BONDHOLDER_ACCOUNT,
+        amount = recipients.insurance,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovDebtService,
+      ),
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Funds,
+        toIndex = topology.funds.ppk,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = BONDHOLDER_ACCOUNT,
+        amount = recipients.ppk,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovDebtService,
+      ),
+      FlowLeg(
+        fromSector = EntitySector.Government,
+        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+        toSector = EntitySector.Funds,
+        toIndex = topology.funds.nbfi,
+        flatFrom = GOV_ACCOUNT,
+        flatTo = BONDHOLDER_ACCOUNT,
+        amount = recipients.tfi,
+        asset = AssetType.Cash,
+        mechanism = FlowMechanism.GovDebtService,
+      ),
+    )
 
   private def flowLegs(input: Input)(using topology: RuntimeLedgerTopology): Vector[FlowLeg] =
     Vector(
@@ -118,17 +228,7 @@ object GovBudgetFlows:
         asset = AssetType.Cash,
         mechanism = FlowMechanism.GovPurchases,
       ),
-      FlowLeg(
-        fromSector = EntitySector.Government,
-        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        toSector = EntitySector.Funds,
-        toIndex = topology.funds.bondholders,
-        flatFrom = GOV_ACCOUNT,
-        flatTo = BONDHOLDER_ACCOUNT,
-        amount = input.debtService,
-        asset = AssetType.Cash,
-        mechanism = FlowMechanism.GovDebtService,
-      ),
+    ) ++ debtServiceFlowLegs(input) ++ Vector(
       FlowLeg(
         fromSector = EntitySector.Government,
         fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
