@@ -102,7 +102,7 @@ object RuntimeMechanismSurvivability:
     ),
     declared(
       ExecutionDeltaOnly,
-      "Insurance reserve flows are emitted against aggregate insurance, household, and market shells.",
+      "Insurance reserve flows use the persisted insurance reserve owner plus the aggregate insurance execution shell.",
       FlowMechanism.InsLifePremium,
       FlowMechanism.InsNonLifePremium,
       FlowMechanism.InsLifeClaim,

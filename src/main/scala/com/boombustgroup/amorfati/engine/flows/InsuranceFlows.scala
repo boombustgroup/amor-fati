@@ -55,61 +55,51 @@ object InsuranceFlows:
     val nonLifeInvIncome      = invIncome - lifeInvIncome
 
     Vector.concat(
-      AggregateBatchedEmission.transfer(
-        EntitySector.Households,
-        topology.households.aggregate,
-        EntitySector.Insurance,
-        topology.insurance.aggregate,
-        lifePrem,
-        AssetType.LifeReserve,
-        FlowMechanism.InsLifePremium,
-      ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Households,
-        topology.households.aggregate,
-        EntitySector.Insurance,
-        topology.insurance.aggregate,
-        nonLifePrem,
-        AssetType.NonLifeReserve,
-        FlowMechanism.InsNonLifePremium,
-      ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Insurance,
-        topology.insurance.aggregate,
-        EntitySector.Households,
-        topology.households.aggregate,
-        lifeCl,
-        AssetType.LifeReserve,
-        FlowMechanism.InsLifeClaim,
-      ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Insurance,
-        topology.insurance.aggregate,
-        EntitySector.Households,
-        topology.households.aggregate,
-        nonLifeCl,
-        AssetType.NonLifeReserve,
-        FlowMechanism.InsNonLifeClaim,
-      ),
-      AggregateBatchedEmission.signedTransfer(
-        EntitySector.Funds,
-        topology.funds.markets,
-        EntitySector.Insurance,
-        topology.insurance.aggregate,
-        lifeInvIncome,
-        AssetType.LifeReserve,
-        FlowMechanism.InsInvestmentIncome,
-      ),
-      AggregateBatchedEmission.signedTransfer(
-        EntitySector.Funds,
-        topology.funds.markets,
-        EntitySector.Insurance,
-        topology.insurance.aggregate,
-        nonLifeInvIncome,
-        AssetType.NonLifeReserve,
-        FlowMechanism.InsInvestmentIncome,
-      ),
+      reserveIncrease(lifePrem, AssetType.LifeReserve, FlowMechanism.InsLifePremium),
+      reserveIncrease(nonLifePrem, AssetType.NonLifeReserve, FlowMechanism.InsNonLifePremium),
+      reserveDecrease(lifeCl, AssetType.LifeReserve, FlowMechanism.InsLifeClaim),
+      reserveDecrease(nonLifeCl, AssetType.NonLifeReserve, FlowMechanism.InsNonLifeClaim),
+      reserveSignedChange(lifeInvIncome, AssetType.LifeReserve, FlowMechanism.InsInvestmentIncome),
+      reserveSignedChange(nonLifeInvIncome, AssetType.NonLifeReserve, FlowMechanism.InsInvestmentIncome),
     )
+
+  private def reserveIncrease(
+      amount: PLN,
+      asset: AssetType,
+      mechanism: MechanismId,
+  )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    AggregateBatchedEmission.transfer(
+      EntitySector.Insurance,
+      topology.insurance.aggregate,
+      EntitySector.Insurance,
+      topology.insurance.persistedOwner,
+      amount,
+      asset,
+      mechanism,
+    )
+
+  private def reserveDecrease(
+      amount: PLN,
+      asset: AssetType,
+      mechanism: MechanismId,
+  )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    AggregateBatchedEmission.transfer(
+      EntitySector.Insurance,
+      topology.insurance.persistedOwner,
+      EntitySector.Insurance,
+      topology.insurance.aggregate,
+      amount,
+      asset,
+      mechanism,
+    )
+
+  private def reserveSignedChange(
+      amount: PLN,
+      asset: AssetType,
+      mechanism: MechanismId,
+  )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    if amount >= PLN.Zero then reserveIncrease(amount, asset, mechanism)
+    else reserveDecrease(amount.abs, asset, mechanism)
 
   def emit(input: Input)(using p: SimParams): Vector[Flow] =
     val lifePrem    = input.employed * (input.wage * p.ins.lifePremiumRate)
