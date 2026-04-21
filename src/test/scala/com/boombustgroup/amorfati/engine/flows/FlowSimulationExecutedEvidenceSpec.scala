@@ -17,13 +17,34 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
     val state  = FlowSimulation.SimState.fromInit(init)
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
 
-    val govSpendingMechanisms =
-      FlowSimulation.ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms ++
-        FlowSimulation.ExecutedFlowEvidence.SocialFundGovSubventionMechanisms
+    val expectedCentralGovernmentSpendingMechanisms = Vector(
+      FlowMechanism.GovPurchases,
+      FlowMechanism.GovDebtService,
+      FlowMechanism.GovUnempBenefit,
+      FlowMechanism.GovSocialTransfer,
+      FlowMechanism.GovEuCofin,
+      FlowMechanism.GovCapitalInvestment,
+      FlowMechanism.JstGovSubvention,
+    )
+    val expectedSocialFundGovSubventionMechanisms   = Vector(
+      FlowMechanism.ZusGovSubvention,
+      FlowMechanism.NfzGovSubvention,
+      FlowMechanism.FpGovSubvention,
+      FlowMechanism.PfronGovSubvention,
+      FlowMechanism.FgspGovSubvention,
+    )
+    val expectedJstRevenueMechanisms                =
+      Vector(FlowMechanism.JstRevenue, FlowMechanism.JstGovSubvention)
+
+    FlowSimulation.ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms shouldBe expectedCentralGovernmentSpendingMechanisms
+    FlowSimulation.ExecutedFlowEvidence.SocialFundGovSubventionMechanisms shouldBe expectedSocialFundGovSubventionMechanisms
+    FlowSimulation.ExecutedFlowEvidence.JstRevenueMechanisms shouldBe expectedJstRevenueMechanisms
+
+    val govSpendingMechanisms = expectedCentralGovernmentSpendingMechanisms ++ expectedSocialFundGovSubventionMechanisms
     val emittedGovSpending    =
       govSpendingMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
     val emittedJstRevenue     =
-      FlowSimulation.ExecutedFlowEvidence.JstRevenueMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
+      expectedJstRevenueMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
 
     result.sfcResult shouldBe Right(())
     result.trace.executedFlows.govSpending shouldBe emittedGovSpending
