@@ -26,6 +26,7 @@ engine/
 | `ledger/LedgerFinancialState.scala` | Runtime source of truth for supported financial balances; exposes projection DTOs for agent/economics execution. |
 | `ledger/AssetOwnershipContract.scala` | Audit contract for supported persisted owner/asset pairs, unsupported stock-like families, and non-persisted runtime shells. |
 | `ledger/RuntimeMechanismSurvivability.scala` | Audit contract classifying each runtime-emitted `FlowMechanism` as round-trippable stock, execution-delta-only, or unsupported/metric-only. |
+| `ledger/RuntimeFlowProjection.scala` | Typed projection from executed runtime `deltaLedger` into the currently materialized persisted ledger slice. |
 | `MonthSemantics.scala` | Tiny typed phase markers for the internal month step: pre-seed, same-month operational state, post-assembly state, and next pre-seed extraction. |
 | `MonthRandomness.scala` | Explicit month-step randomness contract: one root seed split into named stage and assembly streams for deterministic replay and auditability. |
 | `MonthDriver.scala` | Shared month-by-month unfold driver over the explicit `FlowSimulation.step` boundary. |
@@ -64,7 +65,7 @@ Read it as a month transition:
 - `operationalSignals` is the explicit same-month surface created inside the step.
 - `signalExtraction` is the dedicated `post -> pre` boundary.
 - `trace` is the emitted audit artifact for month `t`.
-- `nextState` is the typed month `t+1` boundary state.
+- `nextState` is the typed month `t+1` boundary state. Supported public-fund cash balances are materialized from executed runtime deltas before this boundary is exposed; remaining ledger-backed families still use explicit economics-stage closing state until their runtime emissions become holder-resolved closing-stock sources.
 - `MonthDriver.unfoldSteps` is the first-class month driver: callers own the explicit randomness schedule, while the engine owns the `stateIn -> step -> nextState` unfold.
 
 ## economics/
@@ -121,6 +122,7 @@ stocks and same-month execution plumbing.
 | `LedgerFinancialState.scala` | Persisted financial stock surface owned by the ledger-backed engine slice. |
 | `AssetOwnershipContract.scala` | Declares which `(EntitySector, AssetType)` owner pairs are supported persisted stock, which stock-like families remain unsupported, and which runtime nodes are non-persisted execution or settlement shells. Topology-aware checks must be used for concrete emitted batches so aggregate shell indices are not mistaken for persisted owners. |
 | `RuntimeMechanismSurvivability.scala` | Declares the survivability class for every runtime-emitted `FlowMechanism`. It separates mechanisms whose emitted legs can round-trip through persisted stock owners from mechanisms that are execution-delta-only or intentionally outside the supported persisted stock slice. |
+| `RuntimeFlowProjection.scala` | Applies executed runtime ledger deltas to the materialized persisted slice. Today this owns ZUS, NFZ, FP, PFRON, FGSP, and JST cash slots; unsupported/manual slices remain in the stage-produced `LedgerFinancialState` explicitly. |
 
 ## markets/
 

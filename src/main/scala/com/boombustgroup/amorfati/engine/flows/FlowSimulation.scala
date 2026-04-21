@@ -6,7 +6,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.*
 import com.boombustgroup.amorfati.engine.SimulationMonth.{CompletedMonth, ExecutionMonth}
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState, RuntimeFlowProjection}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
@@ -386,7 +386,14 @@ object FlowSimulation:
       err => throw new IllegalStateException(s"Ledger batch execution failed: $err"),
       identity,
     )
-    val nextState               = advanceState(input, outcome)
+    val semanticNextState       = advanceState(input, outcome)
+    val runtimeProjection       = RuntimeFlowProjection.materializeSupportedState(
+      opening = stateIn.ledgerFinancialState,
+      semanticClosing = semanticNextState.ledgerFinancialState,
+      deltaLedger = execution.deltaLedger,
+      topology = execution.topology,
+    )
+    val nextState               = semanticNextState.copy(ledgerFinancialState = runtimeProjection.ledgerFinancialState)
     val sfcFlows                = buildSfcFlows(outcome.semanticProjection, flows, nextState.world.plumbing.fofResidual)
     val sfcResult               = Sfc.validate(
       prev = runtimeState(stateIn.world, stateIn.firms, stateIn.households, stateIn.banks, stateIn.ledgerFinancialState),
@@ -399,6 +406,7 @@ object FlowSimulation:
     val monthTrace              = buildMonthTrace(
       input = input,
       outcome = outcome,
+      nextState = nextState,
       executedFlows = sfcFlows,
       sfcResult = sfcResult,
     )
@@ -961,13 +969,24 @@ object FlowSimulation:
   private def buildMonthTrace(
       input: StepInput,
       outcome: MonthOutcome,
+      nextState: SimState,
       executedFlows: Sfc.SemanticFlows,
       sfcResult: Sfc.SfcResult,
   ): MonthTrace =
+    val projectedBoundary = outcome.traceCore.boundary.copy(
+      endSnapshot = MonthBoundarySnapshot.capture(
+        nextState.world,
+        nextState.firms,
+        nextState.households,
+        nextState.banks,
+        nextState.ledgerFinancialState,
+      ),
+    )
+    val projectedCore     = outcome.traceCore.copy(boundary = projectedBoundary)
     MonthTrace.fromCore(
       executionMonth = input.executionMonth,
       randomness = input.randomness,
-      core = outcome.traceCore,
+      core = projectedCore,
       executedFlows = executedFlows,
       validations = Vector(MonthValidation.fromSfcResult(sfcResult)),
     )

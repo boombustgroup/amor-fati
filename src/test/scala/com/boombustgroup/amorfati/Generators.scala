@@ -604,7 +604,7 @@ object Generators:
       val expectedGovDebtChange  = flows.govSpending - flows.govRevenue
       val expectedNfaChange      = flows.currentAccount + flows.valuationEffect
       val expectedJstDebtChange  = flows.jstSpending - flows.jstRevenue
-      val expectedFusChange      = flows.zusContributions - flows.zusPensionPayments
+      val expectedFusChange      = flows.zusContributions + flows.zusGovSubvention - flows.zusPensionPayments
       val expectedMortgageChange =
         flows.mortgageOrigination - flows.mortgagePrincipalRepaid - flows.mortgageDefaultAmount
       val expectedCcChange       =
