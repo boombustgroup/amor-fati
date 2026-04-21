@@ -17,22 +17,15 @@ import com.boombustgroup.amorfati.engine.ledger.CorporateBondOwnership
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector, ImperativeInterpreter, Interpreter, MechanismId}
+import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector, ImperativeInterpreter, Interpreter}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 @Heavy
 class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
+  import RuntimeFlowsTestSupport.*
 
   private given p: SimParams = SimParams.defaults
-
-  private def mechanismTotal(batches: Vector[BatchedFlow], mechanism: MechanismId): PLN =
-    PLN.fromRaw(
-      batches.iterator
-        .filter(_.mechanism == mechanism)
-        .map(RuntimeLedgerTopology.totalTransferred)
-        .sum,
-    )
 
   private def canonicalHouseholds(households: Vector[Household.State]): Vector[Vector[Any]] =
     households.map: hh =>
@@ -114,6 +107,10 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     mechanismTotal(result.flows, FlowMechanism.EquityForDividend) shouldBe result.calculus.equityForDividends
     mechanismTotal(result.flows, FlowMechanism.EquityDividendTax) shouldBe result.calculus.equityDivTax
     mechanismTotal(result.flows, FlowMechanism.EquityGovDividend) shouldBe result.calculus.equityGovDividends
+
+    result.trace.executedFlows.dividendIncome shouldBe mechanismTotal(result.flows, FlowMechanism.EquityDomDividend)
+    result.trace.executedFlows.foreignDividendOutflow shouldBe mechanismTotal(result.flows, FlowMechanism.EquityForDividend)
+    result.trace.executedFlows.dividendTax shouldBe mechanismTotal(result.flows, FlowMechanism.EquityDividendTax)
   }
 
   it should "emit government and JST flows from current-month fiscal state instead of boundary fields" in {
@@ -163,10 +160,24 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     mechanismTotal(result.flows, FlowMechanism.GovUnempBenefit) shouldBe result.calculus.totalUnempBenefits
     mechanismTotal(result.flows, FlowMechanism.GovSocialTransfer) shouldBe result.calculus.totalSocialTransfers
 
-    mechanismTotal(result.flows, FlowMechanism.JstRevenue) shouldBe nextJst.revenue
+    val emittedJstRevenue =
+      FlowSimulation.ExecutedFlowEvidence.JstRevenueMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
+    emittedJstRevenue shouldBe nextJst.revenue
     mechanismTotal(result.flows, FlowMechanism.JstSpending) shouldBe nextJst.spending
-    mechanismTotal(result.flows, FlowMechanism.JstRevenue) should not equal staleJstRevenue
+    emittedJstRevenue should not equal staleJstRevenue
     mechanismTotal(result.flows, FlowMechanism.JstSpending) should not equal staleJstSpending
+
+    val emittedGovSpending =
+      (FlowSimulation.ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms ++
+        FlowSimulation.ExecutedFlowEvidence.SocialFundGovSubventionMechanisms)
+        .map(mechanismTotal(result.flows, _))
+        .foldLeft(PLN.Zero)(_ + _)
+
+    result.trace.executedFlows.govSpending shouldBe emittedGovSpending
+    result.trace.executedFlows.totalIncome shouldBe mechanismTotal(result.flows, FlowMechanism.HhTotalIncome)
+    result.trace.executedFlows.jstRevenue shouldBe emittedJstRevenue
+    result.trace.executedFlows.jstSpending shouldBe mechanismTotal(result.flows, FlowMechanism.JstSpending)
+    result.trace.executedFlows.jstDepositChange shouldBe emittedJstRevenue - mechanismTotal(result.flows, FlowMechanism.JstSpending)
   }
 
   it should "align NFZ runtime subvention emission with semantic current-month state" in {
@@ -190,10 +201,10 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.trace.executedFlows.nfzGovSubvention shouldBe nfz.govSubvention
 
     val expectedGovSpending =
-      result.nextState.world.gov.domesticBudgetOutlays +
-        result.nextState.world.social.zus.govSubvention +
-        result.nextState.world.social.nfz.govSubvention +
-        result.nextState.world.social.earmarked.totalGovSubvention
+      (FlowSimulation.ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms ++
+        FlowSimulation.ExecutedFlowEvidence.SocialFundGovSubventionMechanisms)
+        .map(mechanismTotal(result.flows, _))
+        .foldLeft(PLN.Zero)(_ + _)
 
     result.trace.executedFlows.govSpending shouldBe expectedGovSpending
   }
@@ -271,6 +282,14 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val insuranceIncomeBatches = result.flows.filter(_.mechanism == FlowMechanism.InsInvestmentIncome)
     insuranceIncomeBatches should not be empty
     insuranceIncomeBatches.map(_.asset).toSet shouldBe Set(AssetType.LifeReserve, AssetType.NonLifeReserve)
+
+    val insurancePremiums = mechanismTotal(result.flows, FlowMechanism.InsLifePremium) +
+      mechanismTotal(result.flows, FlowMechanism.InsNonLifePremium)
+    val insuranceClaims   = mechanismTotal(result.flows, FlowMechanism.InsLifeClaim) +
+      mechanismTotal(result.flows, FlowMechanism.InsNonLifeClaim)
+
+    result.trace.executedFlows.insNetDepositChange shouldBe insuranceClaims - insurancePremiums
+    result.trace.executedFlows.insNetDepositChange shouldBe result.nextState.world.financialMarkets.insurance.lastNetDepositChange
   }
 
   it should "read insurance flow inputs from LedgerFinancialState instead of World market memory" in {

@@ -4,38 +4,15 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.ledger.{AssetType, BatchedFlow, Flow, MechanismId}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class FlowSimulationNfzRuntimeSpec extends AnyFlatSpec with Matchers:
+  import RuntimeFlowsTestSupport.*
 
   private given p: SimParams = SimParams.defaults
 
-  private def mechanismBatches(batches: Vector[BatchedFlow], mechanism: MechanismId): Vector[BatchedFlow] =
-    batches.filter(_.mechanism == mechanism)
-
-  private def assertAllCash(selected: Vector[BatchedFlow], mechanism: MechanismId): Unit =
-    withClue(s"Mechanism ${mechanism.toInt} should emit only cash batches: ") {
-      selected.map(_.asset).toSet shouldBe Set(AssetType.Cash)
-    }
-
-  private def cashMechanismTotal(selected: Vector[BatchedFlow]): PLN =
-    PLN.fromRaw(
-      selected.iterator
-        .map(RuntimeLedgerTopology.totalTransferred)
-        .sum,
-    )
-
-  private def flowTotal(flows: Vector[Flow], mechanism: MechanismId): PLN =
-    PLN.fromRaw(
-      flows.iterator
-        .filter(_.mechanism == mechanism.toInt)
-        .map(_.amount)
-        .sum,
-    )
-
-  "FlowSimulation.step" should "align NFZ runtime emission with direct NfzFlows emission in default CI" in {
+  "FlowSimulation.step" should "align NFZ runtime emission with direct NFZ emission in default CI" in {
     val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state       = FlowSimulation.SimState.fromInit(init)
     val result      = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
@@ -68,4 +45,8 @@ class FlowSimulationNfzRuntimeSpec extends AnyFlatSpec with Matchers:
     emittedContributions shouldBe flowTotal(directFlows, FlowMechanism.NfzContribution)
     emittedSpending shouldBe flowTotal(directFlows, FlowMechanism.NfzSpending)
     emittedSubvention shouldBe flowTotal(directFlows, FlowMechanism.NfzGovSubvention)
+
+    result.trace.executedFlows.nfzContributions shouldBe emittedContributions
+    result.trace.executedFlows.nfzSpending shouldBe emittedSpending
+    result.trace.executedFlows.nfzGovSubvention shouldBe emittedSubvention
   }

@@ -8,7 +8,7 @@ import org.scalatest.matchers.should.Matchers
 class FirmFlowsSpec extends AnyFlatSpec with Matchers:
 
   private val baseInput = FirmFlows.Input(
-    wages = PLN(50000000.0),
+    householdIncome = PLN(50000000.0),
     cit = PLN(5000000.0),
     loanRepayment = PLN(3000000.0),
     newLoans = PLN(4000000.0),
@@ -33,7 +33,7 @@ class FirmFlowsSpec extends AnyFlatSpec with Matchers:
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
 
     val inflows  = baseInput.newLoans + baseInput.equityIssuance
-    val outflows = baseInput.wages + baseInput.cit + baseInput.loanRepayment +
+    val outflows = baseInput.householdIncome + baseInput.cit + baseInput.loanRepayment +
       baseInput.interestPaid + baseInput.capex + baseInput.ioPayments +
       baseInput.nplDefault + baseInput.profitShifting + baseInput.fdiRepatriation +
       baseInput.grossInvestment
@@ -52,7 +52,7 @@ class FirmFlowsSpec extends AnyFlatSpec with Matchers:
   it should "skip zero-amount flows" in {
     val minimal =
       FirmFlows.Input(
-        wages = PLN(1000000.0),
+        householdIncome = PLN(1000000.0),
         cit = PLN.Zero,
         loanRepayment = PLN.Zero,
         newLoans = PLN.Zero,
@@ -67,7 +67,7 @@ class FirmFlowsSpec extends AnyFlatSpec with Matchers:
       )
     val flows   = FirmFlows.emit(minimal)
     flows.length shouldBe 1
-    flows.head.mechanism shouldBe FlowMechanism.FirmWages.toInt
+    flows.head.mechanism shouldBe FlowMechanism.HhTotalIncome.toInt
   }
 
   it should "preserve SFC across 120 months" in {

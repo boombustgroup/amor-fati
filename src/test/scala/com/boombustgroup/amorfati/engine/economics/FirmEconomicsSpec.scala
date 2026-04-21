@@ -82,7 +82,7 @@ class FirmEconomicsSpec extends AnyFlatSpec with Matchers:
   "FirmEconomics.runStep" should "produce flows that close at SFC == 0L" in {
     val flows = FirmFlows.emit(
       FirmFlows.Input(
-        wages = s3.totalIncome,
+        householdIncome = s3.totalIncome,
         cit = result.sumTax,
         loanRepayment = result.sumFirmPrincipal,
         newLoans = result.sumNewLoans,

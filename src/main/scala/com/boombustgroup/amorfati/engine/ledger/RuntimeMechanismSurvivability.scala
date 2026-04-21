@@ -76,6 +76,7 @@ object RuntimeMechanismSurvivability:
       FlowMechanism.FgspGovSubvention,
       FlowMechanism.JstRevenue,
       FlowMechanism.JstSpending,
+      FlowMechanism.JstGovSubvention,
     ),
     declared(
       ExecutionDeltaOnly,
@@ -111,7 +112,7 @@ object RuntimeMechanismSurvivability:
       FlowMechanism.HhCcOrigination,
       FlowMechanism.HhCcDebtService,
       FlowMechanism.HhCcDefault,
-      FlowMechanism.FirmWages,
+      FlowMechanism.HhTotalIncome,
       FlowMechanism.FirmCit,
       FlowMechanism.FirmLoanRepayment,
       FlowMechanism.FirmNewLoan,

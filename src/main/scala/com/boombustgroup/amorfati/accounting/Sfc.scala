@@ -117,11 +117,13 @@ object Sfc:
 
   /** Semantic monthly flow evidence used by the SFC oracle.
     *
-    * These values are assembled in WorldAssemblyEconomics from the intermediate
-    * results of Simulation.step. They must match the '''exact''' values used in
-    * balance sheet updates — any discrepancy will cause validate to report an
-    * SfcIdentityError. Flows for disabled mechanisms are simply zero, so the
-    * corresponding identity holds trivially.
+    * These values are assembled for SFC validation from the executed runtime
+    * flow evidence where a first-class mechanism exists, with residual
+    * non-runtime diagnostics still supplied by the month semantics. They must
+    * match the '''exact''' values used in balance sheet updates — any
+    * discrepancy will cause validate to report an SfcIdentityError. Flows for
+    * disabled mechanisms are simply zero, so the corresponding identity holds
+    * trivially.
     */
   case class SemanticFlows(
       govSpending: PLN,             // total budget expenditure (benefits + transfers + current spend + domestic capital spend + debt service + subventions + domestic EU co-financing)

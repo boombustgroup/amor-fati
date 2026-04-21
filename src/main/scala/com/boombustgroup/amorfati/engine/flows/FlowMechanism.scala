@@ -27,6 +27,7 @@ object FlowMechanism:
   // JST
   val JstRevenue: MechanismId                   = MechanismId(18)
   val JstSpending: MechanismId                  = MechanismId(19)
+  val JstGovSubvention: MechanismId             = MechanismId(20)
   // Government budget
   val GovPurchases: MechanismId                 = MechanismId(21)
   val GovDebtService: MechanismId               = MechanismId(22)
@@ -50,8 +51,8 @@ object FlowMechanism:
   val HhCcOrigination: MechanismId              = MechanismId(38)
   val HhCcDebtService: MechanismId              = MechanismId(39)
   val HhCcDefault: MechanismId                  = MechanismId(40)
-  // Firm
-  val FirmWages: MechanismId                    = MechanismId(41)
+  // Firm / household income carrier
+  val HhTotalIncome: MechanismId                = MechanismId(41)
   val FirmCit: MechanismId                      = MechanismId(42)
   val FirmLoanRepayment: MechanismId            = MechanismId(43)
   val FirmNewLoan: MechanismId                  = MechanismId(44)
@@ -132,6 +133,7 @@ object FlowMechanism:
     FgspGovSubvention,
     JstRevenue,
     JstSpending,
+    JstGovSubvention,
     GovPurchases,
     GovDebtService,
     GovCapitalInvestment,
@@ -152,7 +154,7 @@ object FlowMechanism:
     HhCcOrigination,
     HhCcDebtService,
     HhCcDefault,
-    FirmWages,
+    HhTotalIncome,
     FirmCit,
     FirmLoanRepayment,
     FirmNewLoan,
