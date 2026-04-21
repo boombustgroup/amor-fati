@@ -37,7 +37,8 @@ object GovBondFlows:
   private def emitGovernmentToBanks(
       amountsByBank: Vector[PLN],
       mechanism: MechanismId,
-  ): Vector[BatchedFlow] =
+  )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    requireBankAmountCount("primaryByBank", amountsByBank)
     val nonZero = amountsByBank.zipWithIndex.collect:
       case (amount, bankIndex) if amount > PLN.Zero => amount.toLong -> bankIndex
     if nonZero.isEmpty then Vector.empty
@@ -75,11 +76,17 @@ object GovBondFlows:
       )
 
   private def paddedBankAmounts(amountsByBank: Vector[PLN])(using topology: RuntimeLedgerTopology): Array[Long] =
-    require(
-      amountsByBank.length <= topology.banks.persistedCount,
-      s"GovBondFlows expected at most ${topology.banks.persistedCount} bank amounts, got ${amountsByBank.length}",
-    )
+    requireBankAmountCount("bankSaleByBank", amountsByBank)
     val persisted = amountsByBank.map(_.toLong).toArray
     persisted ++ Array.fill(topology.banks.sectorSize - persisted.length)(0L)
+
+  private def requireBankAmountCount(
+      fieldName: String,
+      amountsByBank: Vector[PLN],
+  )(using topology: RuntimeLedgerTopology): Unit =
+    require(
+      amountsByBank.length <= topology.banks.persistedCount,
+      s"GovBondFlows.$fieldName expected at most ${topology.banks.persistedCount} persisted bank amounts, got ${amountsByBank.length}",
+    )
 
 end GovBondFlows

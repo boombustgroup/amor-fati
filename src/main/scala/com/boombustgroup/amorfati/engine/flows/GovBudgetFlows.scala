@@ -81,7 +81,10 @@ object GovBudgetFlows:
         circuit.tfiHoldings.distributeRaw,
       )
       if debtService <= PLN.Zero then zero
-      else if weights.forall(_ <= 0L) then copyToPpk(debtService)
+      else if weights.forall(_ <= 0L) then
+        throw new IllegalArgumentException(
+          s"GovBudgetFlows.DebtServiceRecipients requires positive holder weights for debtService=$debtService",
+        )
       else
         val allocated = Distribute.distribute(debtService.distributeRaw, weights)
         DebtServiceRecipients(
@@ -96,9 +99,6 @@ object GovBudgetFlows:
     val zero: DebtServiceRecipients =
       DebtServiceRecipients(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
 
-    def copyToPpk(debtService: PLN): DebtServiceRecipients =
-      zero.copy(ppk = debtService)
-
   private case class FlowLeg(
       fromSector: EntitySector,
       fromIndex: Int,
@@ -112,7 +112,7 @@ object GovBudgetFlows:
   )
 
   private def debtServiceFlowLegs(input: Input)(using topology: RuntimeLedgerTopology): Vector[FlowLeg] =
-    val recipients = input.debtServiceRecipients.getOrElse(DebtServiceRecipients.copyToPpk(input.debtService))
+    val recipients = debtServiceRecipients(input)
     Vector(
       FlowLeg(
         fromSector = EntitySector.Government,
@@ -181,6 +181,20 @@ object GovBudgetFlows:
         mechanism = FlowMechanism.GovDebtService,
       ),
     )
+
+  private def debtServiceRecipients(input: Input): DebtServiceRecipients =
+    if input.debtService <= PLN.Zero then input.debtServiceRecipients.getOrElse(DebtServiceRecipients.zero)
+    else
+      val recipients = input.debtServiceRecipients.getOrElse:
+        throw new IllegalArgumentException(
+          s"GovBudgetFlows.debtServiceRecipients is required when debtService=${input.debtService}",
+        )
+      val total      = recipients.banks + recipients.foreign + recipients.nbp + recipients.insurance + recipients.ppk + recipients.tfi
+      require(
+        total == input.debtService,
+        s"GovBudgetFlows.debtServiceRecipients total $total must equal debtService ${input.debtService}",
+      )
+      recipients
 
   private def flowLegs(input: Input)(using topology: RuntimeLedgerTopology): Vector[FlowLeg] =
     Vector(

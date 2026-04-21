@@ -82,6 +82,17 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
     balances(BankingFlows.DEPOSITOR_ACCOUNT) should be < 0L
   }
 
+  it should "route flat corporate-bond P&L through firms like the batched emitter" in {
+    val flows  = BankingFlows.emit(baseInput)
+    val coupon = flows.find(_.mechanism == FlowMechanism.BankCorpBondCoupon.toInt).get
+    val loss   = flows.find(_.mechanism == FlowMechanism.BankCorpBondLoss.toInt).get
+
+    coupon.from shouldBe BankingFlows.FIRM_ACCOUNT
+    coupon.to shouldBe BankingFlows.BANK_ACCOUNT
+    loss.from shouldBe BankingFlows.BANK_ACCOUNT
+    loss.to shouldBe BankingFlows.FIRM_ACCOUNT
+  }
+
   it should "emit NBP reserve-side settlement on the reserve asset contract" in {
     val nbpReserveMechanisms = Set(
       FlowMechanism.BankReserveInterest,

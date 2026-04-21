@@ -28,3 +28,18 @@ class CorpBondFlowsSpec extends AnyFlatSpec with Matchers:
       Interpreter.totalWealth(balances) shouldBe 0L
     }
   }
+
+  it should "reject explicit holder breakdowns that do not match input amounts" in {
+    given RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
+
+    val input = CorpBondFlows.Input(
+      coupon = PLN(300000.0),
+      defaultAmount = PLN(50000.0),
+      issuance = PLN(1000000.0),
+      amortization = PLN(200000.0),
+      couponRecipients = Some(CorpBondFlows.HolderBreakdown.copyToOther(PLN(299999.0))),
+    )
+
+    val thrown = the[IllegalArgumentException] thrownBy CorpBondFlows.emitBatches(input)
+    thrown.getMessage should include("couponRecipients")
+  }

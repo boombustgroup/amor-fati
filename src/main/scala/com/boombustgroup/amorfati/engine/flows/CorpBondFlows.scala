@@ -21,7 +21,8 @@ object CorpBondFlows:
       other: PLN,
       insurance: PLN,
       nbfi: PLN,
-  )
+  ):
+    def total: PLN = banks + ppk + other + insurance + nbfi
 
   object HolderBreakdown:
     val zero: HolderBreakdown =
@@ -42,36 +43,57 @@ object CorpBondFlows:
   )
 
   def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    val couponRecipients       = validatedBreakdown("couponRecipients", input.couponRecipients, input.coupon)
+    val defaultRecipients      = validatedBreakdown("defaultRecipients", input.defaultRecipients, input.defaultAmount)
+    val issuanceRecipients     = validatedBreakdown("issuanceRecipients", input.issuanceRecipients, input.issuance)
+    val amortizationRecipients = validatedBreakdown("amortizationRecipients", input.amortizationRecipients, input.amortization)
+
     Vector.concat(
       emitToHolders(
         EntitySector.Firms,
         topology.firms.aggregate,
-        input.couponRecipients.getOrElse(HolderBreakdown.copyToOther(input.coupon)),
+        couponRecipients,
         AssetType.Cash,
         FlowMechanism.CorpBondCoupon,
       ),
       emitFromHolders(
         EntitySector.Firms,
         topology.firms.aggregate,
-        input.defaultRecipients.getOrElse(HolderBreakdown.copyToOther(input.defaultAmount)),
+        defaultRecipients,
         AssetType.CorpBond,
         FlowMechanism.CorpBondDefault,
       ),
       emitToHolders(
         EntitySector.Firms,
         topology.firms.aggregate,
-        input.issuanceRecipients.getOrElse(HolderBreakdown.copyToOther(input.issuance)),
+        issuanceRecipients,
         AssetType.CorpBond,
         FlowMechanism.CorpBondIssuance,
       ),
       emitFromHolders(
         EntitySector.Firms,
         topology.firms.aggregate,
-        input.amortizationRecipients.getOrElse(HolderBreakdown.copyToOther(input.amortization)),
+        amortizationRecipients,
         AssetType.CorpBond,
         FlowMechanism.CorpBondAmortization,
       ),
     )
+
+  private def validatedBreakdown(
+      fieldName: String,
+      maybeBreakdown: Option[HolderBreakdown],
+      expected: PLN,
+  ): HolderBreakdown =
+    maybeBreakdown match
+      case Some(breakdown) =>
+        val actual = breakdown.total
+        require(
+          actual == expected,
+          s"CorpBondFlows.$fieldName total $actual must equal input amount $expected",
+        )
+        breakdown
+      case None            =>
+        HolderBreakdown.copyToOther(expected)
 
   private def emitToHolders(
       fromSector: EntitySector,

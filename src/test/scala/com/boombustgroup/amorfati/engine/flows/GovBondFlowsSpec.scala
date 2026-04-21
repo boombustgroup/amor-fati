@@ -38,9 +38,12 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
       interbankLoan = PLN.Zero,
     )
 
-  private def emptyMovements(ppkPurchaseByBank: Vector[PLN]): BankingEconomics.GovBondRuntimeMovements =
+  private def movements(
+      primaryByBank: Vector[PLN] = Vector.fill(topology.banks.persistedCount)(PLN.Zero),
+      ppkPurchaseByBank: Vector[PLN] = Vector.fill(topology.banks.persistedCount)(PLN.Zero),
+  ): BankingEconomics.GovBondRuntimeMovements =
     BankingEconomics.GovBondRuntimeMovements(
-      primaryByBank = Vector.fill(topology.banks.persistedCount)(PLN.Zero),
+      primaryByBank = primaryByBank,
       foreignPurchaseByBank = Vector.fill(topology.banks.persistedCount)(PLN.Zero),
       nbpQePurchaseByBank = Vector.fill(topology.banks.persistedCount)(PLN.Zero),
       ppkPurchaseByBank = ppkPurchaseByBank,
@@ -58,7 +61,7 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
     sale.actualSold should be < requested
     sale.soldByBank.sum shouldBe sale.actualSold
 
-    val batches = GovBondFlows.emitBatches(emptyMovements(sale.soldByBank))(using topology)
+    val batches = GovBondFlows.emitBatches(movements(ppkPurchaseByBank = sale.soldByBank))(using topology)
 
     batches should have size 1
     val ppkBatch = batches.head
@@ -73,6 +76,16 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
         scatter.amounts.last shouldBe 0L
         scatter.targetIndices.toSet shouldBe Set(topology.funds.ppk)
       case other                        => fail(s"Expected bank scatter for PPK purchase, got $other")
+  }
+
+  it should "reject primary-market vectors that target non-persisted bank slots" in {
+    val malformedPrimary = Vector.fill(topology.banks.persistedCount + 1)(PLN(1.0))
+
+    val thrown = the[IllegalArgumentException] thrownBy GovBondFlows.emitBatches(
+      movements(primaryByBank = malformedPrimary),
+    )(using topology)
+
+    thrown.getMessage should include("primaryByBank")
   }
 
 end GovBondFlowsSpec

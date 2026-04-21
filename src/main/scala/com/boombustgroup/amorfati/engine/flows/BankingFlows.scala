@@ -17,7 +17,7 @@ import com.boombustgroup.ledger.*
   * legs make retained-income/loss recognition explicit for SFC evidence.
   *
   * Account IDs: 0=Bank, 1=NBP, 2=Gov (BFG levy), 3=Depositors (bail-in),
-  * 4=Corporate bond P&L settlement, 5=Firms, 6=Households
+  * 4=Firms, 5=Households
   */
 object BankingFlows:
 
@@ -25,9 +25,8 @@ object BankingFlows:
   val NBP_ACCOUNT: Int       = 1
   val GOV_ACCOUNT: Int       = 2
   val DEPOSITOR_ACCOUNT: Int = 3
-  val CORP_BOND_ACCOUNT: Int = 4
-  val FIRM_ACCOUNT: Int      = 5
-  val HH_ACCOUNT: Int        = 6
+  val FIRM_ACCOUNT: Int      = 4
+  val HH_ACCOUNT: Int        = 5
 
   case class Input(
       firmInterestIncome: PLN,
@@ -225,9 +224,9 @@ object BankingFlows:
       flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.interbankInterest.toLong, FlowMechanism.BankInterbankInterest.toInt)
     else if input.interbankInterest < PLN.Zero then
       flows += Flow(BANK_ACCOUNT, NBP_ACCOUNT, (-input.interbankInterest).toLong, FlowMechanism.BankInterbankInterest.toInt)
-    if input.corpBondCoupon > PLN.Zero then flows += Flow(CORP_BOND_ACCOUNT, BANK_ACCOUNT, input.corpBondCoupon.toLong, FlowMechanism.BankCorpBondCoupon.toInt)
+    if input.corpBondCoupon > PLN.Zero then flows += Flow(FIRM_ACCOUNT, BANK_ACCOUNT, input.corpBondCoupon.toLong, FlowMechanism.BankCorpBondCoupon.toInt)
     if input.corpBondDefaultLoss > PLN.Zero then
-      flows += Flow(BANK_ACCOUNT, CORP_BOND_ACCOUNT, input.corpBondDefaultLoss.toLong, FlowMechanism.BankCorpBondLoss.toInt)
+      flows += Flow(BANK_ACCOUNT, FIRM_ACCOUNT, input.corpBondDefaultLoss.toLong, FlowMechanism.BankCorpBondLoss.toInt)
     if input.fxReserveSettlement > PLN.Zero then flows += Flow(NBP_ACCOUNT, BANK_ACCOUNT, input.fxReserveSettlement.toLong, FlowMechanism.NbpFxSettlement.toInt)
     else if input.fxReserveSettlement < PLN.Zero then
       flows += Flow(BANK_ACCOUNT, NBP_ACCOUNT, (-input.fxReserveSettlement).toLong, FlowMechanism.NbpFxSettlement.toInt)

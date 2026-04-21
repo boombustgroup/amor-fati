@@ -125,6 +125,16 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
           socialTransferSpend = PLN(3000000.0),
           euCofinancing = PLN(1500000.0),
           govCapitalSpend = PLN(2500000.0),
+          debtServiceRecipients = Some(
+            GovBudgetFlows.DebtServiceRecipients(
+              banks = PLN(4000000.0),
+              foreign = PLN.Zero,
+              nbp = PLN.Zero,
+              insurance = PLN.Zero,
+              ppk = PLN.Zero,
+              tfi = PLN.Zero,
+            ),
+          ),
         ),
       ),
       InsuranceFlows.emitBatches(insuranceInput),
