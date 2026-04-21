@@ -105,13 +105,18 @@ object CorporateBondMarket:
   /** Monthly coupon income from corporate bond holdings. */
   def computeCoupon(state: State, stock: StockState): CouponResult =
     val yieldMonthly = state.corpBondYield.monthly
+    val bank         = stock.bankHoldings * yieldMonthly
+    val ppk          = stock.ppkHoldings * yieldMonthly
+    val other        = stock.otherHoldings * yieldMonthly
+    val insurance    = stock.insuranceHoldings * yieldMonthly
+    val nbfi         = stock.nbfiHoldings * yieldMonthly
     CouponResult(
-      total = stock.outstanding * yieldMonthly,
-      bank = stock.bankHoldings * yieldMonthly,
-      ppk = stock.ppkHoldings * yieldMonthly,
-      other = stock.otherHoldings * yieldMonthly,
-      insurance = stock.insuranceHoldings * yieldMonthly,
-      nbfi = stock.nbfiHoldings * yieldMonthly,
+      total = bank + ppk + other + insurance + nbfi,
+      bank = bank,
+      ppk = ppk,
+      other = other,
+      insurance = insurance,
+      nbfi = nbfi,
     )
 
   /** Gross face-value default plus net loss split across holder buckets. */
