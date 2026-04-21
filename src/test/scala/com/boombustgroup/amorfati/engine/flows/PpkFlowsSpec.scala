@@ -16,17 +16,16 @@ class PpkFlowsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(balances) shouldBe 0L
   }
 
-  it should "match old SocialSecurity.ppkStep amounts exactly" in {
+  it should "match SocialSecurity.ppkStep contribution amounts exactly" in {
     val employed = 80000; val wage = PLN(7000.0)
     val oldPpk   = com.boombustgroup.amorfati.agents.SocialSecurity.ppkStep(employed, wage)
-    val oldBond  = com.boombustgroup.amorfati.agents.SocialSecurity.ppkBondPurchase(oldPpk)
     val flows    = PpkFlows.emit(PpkFlows.PpkInput(employed, wage))
 
     val newContribs = flows.filter(_.mechanism == FlowMechanism.PpkContribution.toInt).map(_.amount).sum
     val newBond     = flows.filter(_.mechanism == FlowMechanism.PpkBondPurchase.toInt).map(_.amount).sum
 
     newContribs shouldBe oldPpk.contributions.toLong
-    newBond shouldBe oldBond.toLong
+    newBond shouldBe 0L
   }
 
   it should "preserve SFC across 120 months" in {

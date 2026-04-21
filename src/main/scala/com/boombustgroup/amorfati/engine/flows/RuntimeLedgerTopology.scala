@@ -201,11 +201,9 @@ object RuntimeLedgerTopology:
     val nbfi: Int           = FundRuntimeIndex.Nbfi
     val quasiFiscal: Int    = FundRuntimeIndex.QuasiFiscal
     val supportedCount: Int = FundRuntimeIndex.Count
-    val bondholders: Int    = supportedCount
-    val bondMarket: Int     = supportedCount + 1
-    val markets: Int        = supportedCount + 2
-    val healthcare: Int     = supportedCount + 3
-    val sectorSize: Int     = supportedCount + 4
+    val markets: Int        = supportedCount
+    val healthcare: Int     = supportedCount + 1
+    val sectorSize: Int     = supportedCount + 2
 
   final case class Foreign():
     val govBondHolder: Int      = 0

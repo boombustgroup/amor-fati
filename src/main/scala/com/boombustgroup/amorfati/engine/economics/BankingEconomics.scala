@@ -83,6 +83,7 @@ object BankingEconomics:
       htmRealizedLoss: PLN,                              // realized loss from HTM forced reclassification
       eclProvisionChange: PLN,                           // aggregate IFRS 9 ECL provision change
       newQuasiFiscal: QuasiFiscal.State,                 // BGK/PFR market memory after issuance and lending
+      govBondRuntimeMovements: GovBondRuntimeMovements,  // holder-resolved SPW runtime movements from the bond waterfall
       ledgerFinancialState: LedgerFinancialState,        // ledger-backed financial state at the banking stage boundary
   )
 
@@ -110,6 +111,15 @@ object BankingEconomics:
       insRequested: PLN,     // insurance bond purchase request (delta)
       tfiRequested: PLN,     // TFI bond purchase request (delta)
       erChange: Coefficient, // month-on-month ER change (for foreign demand)
+  )
+
+  case class GovBondRuntimeMovements(
+      primaryByBank: Vector[PLN],
+      foreignPurchaseByBank: Vector[PLN],
+      nbpQePurchaseByBank: Vector[PLN],
+      ppkPurchaseByBank: Vector[PLN],
+      insurancePurchaseByBank: Vector[PLN],
+      tfiPurchaseByBank: Vector[PLN],
   )
 
   private case class PerBankHhFlows(
@@ -151,6 +161,7 @@ object BankingEconomics:
       standingFacilityBackstop: PLN,                     // reserve shortfall funded by explicit NBP standing-facility backstop
       foreignBondHoldings: PLN,                          // non-resident holdings after auction
       bidToCover: Multiplier,                            // bond auction bid-to-cover ratio
+      govBondRuntimeMovements: GovBondRuntimeMovements,  // holder-resolved SPW movements emitted by runtime batches
   )
 
   private case class AggregateReconciliation(
@@ -283,6 +294,7 @@ object BankingEconomics:
           .sum
       ,
       newQuasiFiscal = newQuasiFiscal,
+      govBondRuntimeMovements = multi.govBondRuntimeMovements,
       ledgerFinancialState = ledgerFinancialState,
     )
 
@@ -729,6 +741,9 @@ object BankingEconomics:
       else if wf.actualBondChange < PLN.Zero then
         Banking.allocateBondRedemption(afterHtm, afterHtmStocks, PLN.fromRaw(-wf.actualBondChange.toLong), in.s8.monetary.newBondYield)
       else Banking.BankStockState(afterHtm, afterHtmStocks)
+    val primaryByBank  = afterBonds.financialStocks
+      .zip(afterHtmStocks)
+      .map((after, before) => Banking.govBondHoldings(after) - Banking.govBondHoldings(before))
 
     // ---- Bond waterfall: single pass, SFC by construction ----
     // Each sellToBuyer removes bonds from banks and returns actualSold.
@@ -762,6 +777,14 @@ object BankingEconomics:
       tfiGovBondHoldings = in.ledgerFinancialState.funds.nbfi.govBondHoldings + tfiSale.actualSold,
     )
     val finalForeignBondHoldings = in.ledgerFinancialState.foreign.govBondHoldings + foreignSale.actualSold
+    val govBondRuntimeMovements  = GovBondRuntimeMovements(
+      primaryByBank = primaryByBank,
+      foreignPurchaseByBank = foreignSale.soldByBank,
+      nbpQePurchaseByBank = qeSale.soldByBank,
+      ppkPurchaseByBank = ppkSale.soldByBank,
+      insurancePurchaseByBank = insSale.soldByBank,
+      tfiPurchaseByBank = tfiSale.soldByBank,
+    )
 
     val bankCorpBondHoldingsAfterSettlement = Banking.bankCorpBondHoldingsFromVector(settledBankCorpBonds)
 
@@ -876,6 +899,7 @@ object BankingEconomics:
       standingFacilityBackstop = nbpSettlement.standingFacilityBackstop,
       foreignBondHoldings = finalForeignBondHoldings,
       bidToCover = auctionResult.bidToCover,
+      govBondRuntimeMovements = govBondRuntimeMovements,
     )
 
   private def reconcileAggregateExactness(

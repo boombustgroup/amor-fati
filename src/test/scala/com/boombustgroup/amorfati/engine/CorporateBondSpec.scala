@@ -84,6 +84,24 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
     coupon.ppk shouldBe (initStock.ppkHoldings * initState.corpBondYield.monthly)
     coupon.insurance shouldBe (initStock.insuranceHoldings * initState.corpBondYield.monthly)
     coupon.nbfi shouldBe (initStock.nbfiHoldings * initState.corpBondYield.monthly)
+    coupon.total shouldBe coupon.holderTotal
+  }
+
+  it should "use holder-resolved coupon total when fixed-point rounding differs from outstanding coupon" in {
+    val stock = CorporateBondMarket.StockState(
+      outstanding = PLN.fromRaw(3L),
+      bankHoldings = PLN.fromRaw(1L),
+      ppkHoldings = PLN.fromRaw(1L),
+      otherHoldings = PLN.fromRaw(1L),
+      insuranceHoldings = PLN.Zero,
+      nbfiHoldings = PLN.Zero,
+    )
+    val state = CorporateBondMarket.zero.copy(corpBondYield = Rate.fromRaw(60000L))
+
+    val coupon = CorporateBondMarket.computeCoupon(state, stock)
+
+    coupon.total shouldBe coupon.holderTotal
+    coupon.total should not be (stock.outstanding * state.corpBondYield.monthly)
   }
 
   it should "return zeros for zero outstanding" in {

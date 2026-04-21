@@ -15,52 +15,140 @@ object CorpBondFlows:
   val FIRM_ACCOUNT: Int   = 0
   val HOLDER_ACCOUNT: Int = 1
 
+  case class HolderBreakdown(
+      banks: PLN,
+      ppk: PLN,
+      other: PLN,
+      insurance: PLN,
+      nbfi: PLN,
+  ):
+    def total: PLN = banks + ppk + other + insurance + nbfi
+
+  object HolderBreakdown:
+    val zero: HolderBreakdown =
+      HolderBreakdown(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+
+    def copyToOther(amount: PLN): HolderBreakdown =
+      zero.copy(other = amount)
+
   case class Input(
       coupon: PLN,
       defaultAmount: PLN,
       issuance: PLN,
       amortization: PLN,
+      couponRecipients: Option[HolderBreakdown] = None,
+      defaultRecipients: Option[HolderBreakdown] = None,
+      issuanceRecipients: Option[HolderBreakdown] = None,
+      amortizationRecipients: Option[HolderBreakdown] = None,
   )
 
   def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    val couponRecipients       = validatedBreakdown("couponRecipients", input.couponRecipients, input.coupon)
+    val defaultRecipients      = validatedBreakdown("defaultRecipients", input.defaultRecipients, input.defaultAmount)
+    val issuanceRecipients     = validatedBreakdown("issuanceRecipients", input.issuanceRecipients, input.issuance)
+    val amortizationRecipients = validatedBreakdown("amortizationRecipients", input.amortizationRecipients, input.amortization)
+
     Vector.concat(
-      AggregateBatchedEmission.transfer(
+      emitToHolders(
         EntitySector.Firms,
         topology.firms.aggregate,
-        EntitySector.Funds,
-        topology.funds.bondholders,
-        input.coupon,
+        couponRecipients,
         AssetType.Cash,
         FlowMechanism.CorpBondCoupon,
       ),
-      AggregateBatchedEmission.transfer(
+      emitFromHolders(
         EntitySector.Firms,
         topology.firms.aggregate,
-        EntitySector.Funds,
-        topology.funds.bondholders,
-        input.defaultAmount,
+        defaultRecipients,
         AssetType.CorpBond,
         FlowMechanism.CorpBondDefault,
       ),
-      AggregateBatchedEmission.transfer(
-        EntitySector.Funds,
-        topology.funds.bondMarket,
+      emitToHolders(
         EntitySector.Firms,
         topology.firms.aggregate,
-        input.issuance,
+        issuanceRecipients,
         AssetType.CorpBond,
         FlowMechanism.CorpBondIssuance,
       ),
-      AggregateBatchedEmission.transfer(
+      emitFromHolders(
         EntitySector.Firms,
         topology.firms.aggregate,
-        EntitySector.Funds,
-        topology.funds.bondholders,
-        input.amortization,
+        amortizationRecipients,
         AssetType.CorpBond,
         FlowMechanism.CorpBondAmortization,
       ),
     )
+
+  private def validatedBreakdown(
+      fieldName: String,
+      maybeBreakdown: Option[HolderBreakdown],
+      expected: PLN,
+  ): HolderBreakdown =
+    maybeBreakdown match
+      case Some(breakdown) =>
+        val actual = breakdown.total
+        require(
+          actual == expected,
+          s"CorpBondFlows.$fieldName total $actual must equal input amount $expected",
+        )
+        breakdown
+      case None            =>
+        HolderBreakdown.copyToOther(expected)
+
+  private def emitToHolders(
+      fromSector: EntitySector,
+      fromIndex: Int,
+      recipients: HolderBreakdown,
+      asset: AssetType,
+      mechanism: MechanismId,
+  )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    emitHolderTransfers(fromSector, fromIndex, recipients, asset, mechanism, fromIssuer = true)
+
+  private def emitFromHolders(
+      toSector: EntitySector,
+      toIndex: Int,
+      senders: HolderBreakdown,
+      asset: AssetType,
+      mechanism: MechanismId,
+  )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    emitHolderTransfers(toSector, toIndex, senders, asset, mechanism, fromIssuer = false)
+
+  private def emitHolderTransfers(
+      issuerSector: EntitySector,
+      issuerIndex: Int,
+      breakdown: HolderBreakdown,
+      asset: AssetType,
+      mechanism: MechanismId,
+      fromIssuer: Boolean,
+  )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    val holders = Vector(
+      (EntitySector.Banks, topology.banks.aggregate, breakdown.banks),
+      (EntitySector.Funds, topology.funds.ppk, breakdown.ppk),
+      (EntitySector.Funds, topology.funds.corpBondOther, breakdown.other),
+      (EntitySector.Insurance, topology.insurance.persistedOwner, breakdown.insurance),
+      (EntitySector.Funds, topology.funds.nbfi, breakdown.nbfi),
+    )
+    holders.flatMap: (holderSector, holderIndex, amount) =>
+      if fromIssuer then
+        AggregateBatchedEmission.transfer(
+          issuerSector,
+          issuerIndex,
+          holderSector,
+          holderIndex,
+          amount,
+          asset,
+          mechanism,
+        )
+      else
+        AggregateBatchedEmission.transfer(
+          holderSector,
+          holderIndex,
+          issuerSector,
+          issuerIndex,
+          amount,
+          asset,
+          mechanism,
+        )
 
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]

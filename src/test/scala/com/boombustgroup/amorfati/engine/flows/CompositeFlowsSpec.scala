@@ -17,10 +17,18 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
 
   private def allFlows: Vector[Flow] =
-    val wage       = PLN(7000.0)
-    val employed   = 80000
-    val workingAge = 90000
-    val retirees   = 1000
+    val wage              = PLN(7000.0)
+    val employed          = 80000
+    val workingAge        = 90000
+    val retirees          = 1000
+    val govDebtRecipients = GovBudgetFlows.DebtServiceRecipients(
+      banks = PLN(500000.0),
+      foreign = PLN.Zero,
+      nbp = PLN.Zero,
+      insurance = PLN.Zero,
+      ppk = PLN.Zero,
+      tfi = PLN.Zero,
+    )
 
     Vector.concat(
       // Tier 1: Social funds
@@ -70,6 +78,7 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
           socialTransferSpend = PLN(1200000.0),
           euCofinancing = PLN(300000.0),
           govCapitalSpend = PLN(400000.0),
+          debtServiceRecipients = Some(govDebtRecipients),
         ),
       ),
       InsuranceFlows.emit(

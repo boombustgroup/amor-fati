@@ -13,6 +13,15 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
   private given SimParams             = SimParams.defaults
   private given RuntimeLedgerTopology = RuntimeLedgerTopology.zeroPopulation
 
+  private val govDebtRecipients = GovBudgetFlows.DebtServiceRecipients(
+    banks = PLN(4000000.0),
+    foreign = PLN.Zero,
+    nbp = PLN.Zero,
+    insurance = PLN.Zero,
+    ppk = PLN.Zero,
+    tfi = PLN.Zero,
+  )
+
   private def flatMechanismTotals(flows: Vector[Flow]): Map[Int, Long] =
     flows.groupMapReduce(_.mechanism)(_.amount)(_ + _)
 
@@ -57,6 +66,7 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
           socialTransferSpend = PLN(3000000.0),
           euCofinancing = PLN(1500000.0),
           govCapitalSpend = PLN(2500000.0),
+          debtServiceRecipients = Some(govDebtRecipients),
         ),
       ),
       InsuranceFlows.emit(
@@ -152,6 +162,7 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
           socialTransferSpend = PLN(3000000.0),
           euCofinancing = PLN(1500000.0),
           govCapitalSpend = PLN(2500000.0),
+          debtServiceRecipients = Some(govDebtRecipients),
         ),
       ),
       InsuranceFlows.emitBatches(

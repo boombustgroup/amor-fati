@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.config.{SimParams, SimParamsTestOverrides}
+import com.boombustgroup.amorfati.engine.economics.BankingEconomics
 import com.boombustgroup.amorfati.engine.flows.*
 import com.boombustgroup.amorfati.engine.ledger.RuntimeMechanismSurvivability.*
 import com.boombustgroup.amorfati.engine.ledger.RuntimeMechanismSurvivability.Classification.*
@@ -71,6 +72,16 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
       ZusFlows.emitBatches(ZusFlows.ZusInput(1000, PLN(1000.0), 100000)),
       NfzFlows.emitBatches(NfzFlows.NfzInput.fromDrivers(1000, PLN(1000.0), 200000, 100000)),
       PpkFlows.emitBatches(PpkFlows.PpkInput(10000, PLN(1000.0))),
+      GovBondFlows.emitBatches(
+        BankingEconomics.GovBondRuntimeMovements(
+          primaryByBank = Vector(PLN(100000.0), PLN(50000.0)),
+          foreignPurchaseByBank = Vector(PLN(10000.0), PLN(5000.0)),
+          nbpQePurchaseByBank = Vector(PLN(20000.0), PLN(10000.0)),
+          ppkPurchaseByBank = Vector(PLN(30000.0), PLN(15000.0)),
+          insurancePurchaseByBank = Vector(PLN(40000.0), PLN(20000.0)),
+          tfiPurchaseByBank = Vector(PLN(50000.0), PLN(25000.0)),
+        ),
+      ),
       EarmarkedFlows.emitBatches(EarmarkedFlows.Input(1000, PLN(1000.0), PLN(100000000.0), 100000, 100)),
       EarmarkedFlows.emitBatches(EarmarkedFlows.Input(0, PLN.Zero, PLN.Zero, 0, 0))(using SimParamsTestOverrides.pfronDeficit, summon[RuntimeLedgerTopology]),
       JstFlows.emitBatches(JstFlows.Input(PLN(5000000.0), PLN(50000000.0), PLN(100000000.0), 9000, PLN(3000000.0))),
@@ -114,6 +125,17 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
           socialTransferSpend = PLN(3000000.0),
           euCofinancing = PLN(1500000.0),
           govCapitalSpend = PLN(2500000.0),
+          debtServiceRecipients = Some(
+            GovBudgetFlows.DebtServiceRecipients(
+              banks = PLN(4000000.0),
+              foreign = PLN.Zero,
+              nbp = PLN.Zero,
+              insurance = PLN.Zero,
+              ppk = PLN.Zero,
+              tfi = PLN.Zero,
+              banksByBank = Vector(PLN(2500000.0), PLN(1500000.0)),
+            ),
+          ),
         ),
       ),
       InsuranceFlows.emitBatches(insuranceInput),

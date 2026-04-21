@@ -602,18 +602,6 @@ object AssetOwnershipContract:
     ),
     RuntimeShell(
       EntitySector.Funds,
-      zeroPopulationTopology.funds.bondholders,
-      "Funds.Bondholders",
-      RuntimeShellCategory.ExecutionShell,
-    ),
-    RuntimeShell(
-      EntitySector.Funds,
-      zeroPopulationTopology.funds.bondMarket,
-      "Funds.BondMarket",
-      RuntimeShellCategory.ExecutionShell,
-    ),
-    RuntimeShell(
-      EntitySector.Funds,
       zeroPopulationTopology.funds.markets,
       "Funds.Markets",
       RuntimeShellCategory.ExecutionShell,
