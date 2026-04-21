@@ -72,7 +72,7 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
 
     ppkBatch match
       case scatter: BatchedFlow.Scatter =>
-        scatter.amounts.toVector.take(topology.banks.persistedCount) shouldBe sale.soldByBank.map(_.toLong)
+        scatter.amounts.toVector.take(sale.soldByBank.length) shouldBe sale.soldByBank.map(_.toLong)
         scatter.amounts.last shouldBe 0L
         scatter.targetIndices.toSet shouldBe Set(topology.funds.ppk)
       case other                        => fail(s"Expected bank scatter for PPK purchase, got $other")
@@ -86,6 +86,16 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
     )(using topology)
 
     thrown.getMessage should include("primaryByBank")
+  }
+
+  it should "name malformed bank-sale movement vectors in validation errors" in {
+    val malformedPpkPurchase = Vector.fill(topology.banks.persistedCount + 1)(PLN(1.0))
+
+    val thrown = the[IllegalArgumentException] thrownBy GovBondFlows.emitBatches(
+      movements(ppkPurchaseByBank = malformedPpkPurchase),
+    )(using topology)
+
+    thrown.getMessage should include("ppkPurchaseByBank")
   }
 
   it should "allow primary-market issuance to the first persisted bank" in {

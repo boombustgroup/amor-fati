@@ -11,14 +11,15 @@ case class GovernmentBondCircuit(
     insuranceHoldings: PLN,
     ppkHoldings: PLN,
     tfiHoldings: PLN,
+    bankHoldingsByBank: Vector[PLN] = Vector.empty,
 ):
   def totalHoldings: PLN =
     bankHoldings + foreignHoldings + nbpHoldings + insuranceHoldings + ppkHoldings + tfiHoldings
 
 object GovernmentBondCircuit:
   def from(ledgerFinancialState: LedgerFinancialState): GovernmentBondCircuit =
-    val bankHoldings = ledgerFinancialState.banks.foldLeft(PLN.Zero): (acc, bank) =>
-      acc + bank.govBondAfs + bank.govBondHtm
+    val bankHoldingsByBank = ledgerFinancialState.banks.map(bank => bank.govBondAfs + bank.govBondHtm)
+    val bankHoldings       = bankHoldingsByBank.foldLeft(PLN.Zero)(_ + _)
     GovernmentBondCircuit(
       outstanding = ledgerFinancialState.government.govBondOutstanding,
       bankHoldings = bankHoldings,
@@ -27,4 +28,5 @@ object GovernmentBondCircuit:
       insuranceHoldings = ledgerFinancialState.insurance.govBondHoldings,
       ppkHoldings = ledgerFinancialState.funds.ppkGovBondHoldings,
       tfiHoldings = ledgerFinancialState.funds.nbfi.govBondHoldings,
+      bankHoldingsByBank = bankHoldingsByBank,
     )

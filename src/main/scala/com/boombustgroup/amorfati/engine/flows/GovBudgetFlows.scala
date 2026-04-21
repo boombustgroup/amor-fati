@@ -68,7 +68,13 @@ object GovBudgetFlows:
       insurance: PLN,
       ppk: PLN,
       tfi: PLN,
-  )
+      banksByBank: Vector[PLN] = Vector.empty,
+  ):
+    def total: PLN =
+      banks + foreign + nbp + insurance + ppk + tfi
+
+    def bankSplitTotal: PLN =
+      banksByBank.foldLeft(PLN.Zero)(_ + _)
 
   object DebtServiceRecipients:
     def fromCircuit(circuit: GovernmentBondCircuit, debtService: PLN): DebtServiceRecipients =
@@ -87,17 +93,33 @@ object GovBudgetFlows:
         )
       else
         val allocated = Distribute.distribute(debtService.distributeRaw, weights)
+        val banks     = PLN.fromRaw(allocated(0))
         DebtServiceRecipients(
-          banks = PLN.fromRaw(allocated(0)),
+          banks = banks,
           foreign = PLN.fromRaw(allocated(1)),
           nbp = PLN.fromRaw(allocated(2)),
           insurance = PLN.fromRaw(allocated(3)),
           ppk = PLN.fromRaw(allocated(4)),
           tfi = PLN.fromRaw(allocated(5)),
+          banksByBank = bankRecipientsFromCircuit(banks, circuit),
         )
 
     val zero: DebtServiceRecipients =
       DebtServiceRecipients(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+
+    private def bankRecipientsFromCircuit(
+        bankDebtService: PLN,
+        circuit: GovernmentBondCircuit,
+    ): Vector[PLN] =
+      if bankDebtService <= PLN.Zero then Vector.empty
+      else if circuit.bankHoldingsByBank.isEmpty then Vector(bankDebtService)
+      else
+        val weights = circuit.bankHoldingsByBank.map(_.distributeRaw).toArray
+        require(
+          weights.exists(_ > 0L),
+          s"GovBudgetFlows.DebtServiceRecipients requires positive bank holder weights for bank debtService=$bankDebtService",
+        )
+        Distribute.distribute(bankDebtService.distributeRaw, weights).map(PLN.fromRaw).toVector
 
   private case class FlowLeg(
       fromSector: EntitySector,
@@ -113,18 +135,7 @@ object GovBudgetFlows:
 
   private def debtServiceFlowLegs(input: Input)(using topology: RuntimeLedgerTopology): Vector[FlowLeg] =
     val recipients = debtServiceRecipients(input)
-    Vector(
-      FlowLeg(
-        fromSector = EntitySector.Government,
-        fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
-        toSector = EntitySector.Banks,
-        toIndex = topology.banks.aggregate,
-        flatFrom = GOV_ACCOUNT,
-        flatTo = BONDHOLDER_ACCOUNT,
-        amount = recipients.banks,
-        asset = AssetType.Cash,
-        mechanism = FlowMechanism.GovDebtService,
-      ),
+    bankDebtServiceFlowLegs(recipients) ++ Vector(
       FlowLeg(
         fromSector = EntitySector.Government,
         fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
@@ -182,19 +193,69 @@ object GovBudgetFlows:
       ),
     )
 
-  private def debtServiceRecipients(input: Input): DebtServiceRecipients =
-    if input.debtService <= PLN.Zero then input.debtServiceRecipients.getOrElse(DebtServiceRecipients.zero)
-    else
-      val recipients = input.debtServiceRecipients.getOrElse:
-        throw new IllegalArgumentException(
-          s"GovBudgetFlows.debtServiceRecipients is required when debtService=${input.debtService}",
-        )
-      val total      = recipients.banks + recipients.foreign + recipients.nbp + recipients.insurance + recipients.ppk + recipients.tfi
-      require(
-        total == input.debtService,
-        s"GovBudgetFlows.debtServiceRecipients total $total must equal debtService ${input.debtService}",
+  private def bankDebtServiceFlowLegs(
+      recipients: DebtServiceRecipients,
+  )(using topology: RuntimeLedgerTopology): Vector[FlowLeg] =
+    if recipients.banks <= PLN.Zero then Vector.empty
+    else if topology.banks.persistedCount == 0 then
+      Vector(
+        debtServiceFlowLeg(
+          toSector = EntitySector.Banks,
+          toIndex = topology.banks.aggregate,
+          amount = recipients.banks,
+        ),
       )
-      recipients
+    else
+      require(
+        recipients.banksByBank.nonEmpty,
+        s"GovBudgetFlows.debtServiceRecipients requires per-bank recipients when banks=${recipients.banks} and persisted banks=${topology.banks.persistedCount}",
+      )
+      require(
+        recipients.banksByBank.length <= topology.banks.persistedCount,
+        s"GovBudgetFlows.debtServiceRecipients.banksByBank expected at most ${topology.banks.persistedCount} persisted bank amounts, got ${recipients.banksByBank.length}",
+      )
+      recipients.banksByBank.zipWithIndex.map:
+        case (amount, bankIndex) =>
+          debtServiceFlowLeg(
+            toSector = EntitySector.Banks,
+            toIndex = bankIndex,
+            amount = amount,
+          )
+
+  private def debtServiceFlowLeg(
+      toSector: EntitySector,
+      toIndex: Int,
+      amount: PLN,
+  ): FlowLeg =
+    FlowLeg(
+      fromSector = EntitySector.Government,
+      fromIndex = TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
+      toSector = toSector,
+      toIndex = toIndex,
+      flatFrom = GOV_ACCOUNT,
+      flatTo = BONDHOLDER_ACCOUNT,
+      amount = amount,
+      asset = AssetType.Cash,
+      mechanism = FlowMechanism.GovDebtService,
+    )
+
+  private def debtServiceRecipients(input: Input): DebtServiceRecipients =
+    val recipients =
+      input.debtServiceRecipients.getOrElse:
+        if input.debtService <= PLN.Zero then DebtServiceRecipients.zero
+        else
+          throw new IllegalArgumentException(
+            s"GovBudgetFlows.debtServiceRecipients is required when debtService=${input.debtService}",
+          )
+    require(
+      recipients.total == input.debtService,
+      s"GovBudgetFlows.debtServiceRecipients total ${recipients.total} must equal debtService ${input.debtService}",
+    )
+    require(
+      recipients.banksByBank.isEmpty || recipients.bankSplitTotal == recipients.banks,
+      s"GovBudgetFlows.debtServiceRecipients.banksByBank total ${recipients.bankSplitTotal} must equal banks ${recipients.banks}",
+    )
+    recipients
 
   private def flowLegs(input: Input)(using topology: RuntimeLedgerTopology): Vector[FlowLeg] =
     Vector(

@@ -19,11 +19,29 @@ object GovBondFlows:
   )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     Vector.concat(
       emitPrimaryMarket(input.primaryByBank),
-      emitBankSale(input.foreignPurchaseByBank, EntitySector.Foreign, ForeignRuntimeContract.GovBondHolderStock.index, FlowMechanism.GovBondForeignPurchase),
-      emitBankSale(input.nbpQePurchaseByBank, EntitySector.NBP, NbpRuntimeContract.GovBondAssetStock.index, FlowMechanism.NbpQeGovBondPurchase),
-      emitBankSale(input.ppkPurchaseByBank, EntitySector.Funds, topology.funds.ppk, FlowMechanism.PpkBondPurchase),
-      emitBankSale(input.insurancePurchaseByBank, EntitySector.Insurance, topology.insurance.persistedOwner, FlowMechanism.InsuranceGovBondPurchase),
-      emitBankSale(input.tfiPurchaseByBank, EntitySector.Funds, topology.funds.nbfi, FlowMechanism.TfiGovBondPurchase),
+      emitBankSale(
+        "foreignPurchaseByBank",
+        input.foreignPurchaseByBank,
+        EntitySector.Foreign,
+        ForeignRuntimeContract.GovBondHolderStock.index,
+        FlowMechanism.GovBondForeignPurchase,
+      ),
+      emitBankSale(
+        "nbpQePurchaseByBank",
+        input.nbpQePurchaseByBank,
+        EntitySector.NBP,
+        NbpRuntimeContract.GovBondAssetStock.index,
+        FlowMechanism.NbpQeGovBondPurchase,
+      ),
+      emitBankSale("ppkPurchaseByBank", input.ppkPurchaseByBank, EntitySector.Funds, topology.funds.ppk, FlowMechanism.PpkBondPurchase),
+      emitBankSale(
+        "insurancePurchaseByBank",
+        input.insurancePurchaseByBank,
+        EntitySector.Insurance,
+        topology.insurance.persistedOwner,
+        FlowMechanism.InsuranceGovBondPurchase,
+      ),
+      emitBankSale("tfiPurchaseByBank", input.tfiPurchaseByBank, EntitySector.Funds, topology.funds.nbfi, FlowMechanism.TfiGovBondPurchase),
     )
 
   private def emitPrimaryMarket(amountsByBank: Vector[PLN])(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
@@ -31,7 +49,13 @@ object GovBondFlows:
     val redemption = amountsByBank.map(amount => if amount < PLN.Zero then -amount else PLN.Zero)
     Vector.concat(
       emitGovernmentToBanks(issuance, FlowMechanism.GovBondPrimaryMarket),
-      emitBankSale(redemption, EntitySector.Government, TreasuryRuntimeContract.SovereignIssuerGovBondStock.index, FlowMechanism.GovBondPrimaryMarket),
+      emitBankSale(
+        "primaryByBank",
+        redemption,
+        EntitySector.Government,
+        TreasuryRuntimeContract.SovereignIssuerGovBondStock.index,
+        FlowMechanism.GovBondPrimaryMarket,
+      ),
     )
 
   private def emitGovernmentToBanks(
@@ -55,12 +79,13 @@ object GovBondFlows:
       )
 
   private def emitBankSale(
+      fieldName: String,
       amountsByBank: Vector[PLN],
       toSector: EntitySector,
       toIndex: Int,
       mechanism: MechanismId,
   )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
-    val amounts = paddedBankAmounts(amountsByBank)
+    val amounts = paddedBankAmounts(fieldName, amountsByBank)
     if amounts.forall(_ == 0L) then Vector.empty
     else
       Vector(
@@ -74,8 +99,8 @@ object GovBondFlows:
         ),
       )
 
-  private def paddedBankAmounts(amountsByBank: Vector[PLN])(using topology: RuntimeLedgerTopology): Array[Long] =
-    requireBankAmountCount("bankSaleByBank", amountsByBank)
+  private def paddedBankAmounts(fieldName: String, amountsByBank: Vector[PLN])(using topology: RuntimeLedgerTopology): Array[Long] =
+    requireBankAmountCount(fieldName, amountsByBank)
     val persisted = amountsByBank.map(_.toLong).toArray
     persisted ++ Array.fill(topology.banks.sectorSize - persisted.length)(0L)
 
@@ -84,10 +109,7 @@ object GovBondFlows:
       amountsByBank: Vector[PLN],
   )(using topology: RuntimeLedgerTopology): Vector[(PLN, Int)] =
     requireBankAmountCount(fieldName, amountsByBank)
-    amountsByBank.zipWithIndex.map:
-      case (amount, bankIndex) =>
-        requirePersistedBankIndex(fieldName, bankIndex)
-        amount -> bankIndex
+    amountsByBank.zipWithIndex
 
   private def requireBankAmountCount(
       fieldName: String,
@@ -96,15 +118,6 @@ object GovBondFlows:
     require(
       amountsByBank.length <= topology.banks.persistedCount,
       s"GovBondFlows.$fieldName expected at most ${topology.banks.persistedCount} persisted bank amounts, got ${amountsByBank.length}",
-    )
-
-  private def requirePersistedBankIndex(
-      fieldName: String,
-      bankIndex: Int,
-  )(using topology: RuntimeLedgerTopology): Unit =
-    require(
-      bankIndex >= 0 && bankIndex < topology.banks.persistedCount,
-      s"GovBondFlows.$fieldName target bank index $bankIndex must be a persisted bank index in [0, ${topology.banks.persistedCount}); aggregate=${topology.banks.aggregate}",
     )
 
 end GovBondFlows

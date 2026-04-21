@@ -133,6 +133,7 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
               insurance = PLN.Zero,
               ppk = PLN.Zero,
               tfi = PLN.Zero,
+              banksByBank = Vector(PLN(2500000.0), PLN(1500000.0)),
             ),
           ),
         ),
