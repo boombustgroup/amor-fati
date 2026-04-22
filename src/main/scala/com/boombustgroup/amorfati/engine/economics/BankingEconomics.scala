@@ -218,9 +218,22 @@ object BankingEconomics:
       )
     val newQuasiFiscal  = quasiFiscalStep.state
 
+    val openingHouseholdCount     = in.ledgerFinancialState.households.length
+    require(
+      in.s5.ledgerFinancialState.households.length >= openingHouseholdCount,
+      s"BankingEconomics cannot settle mortgage stock for ${in.s5.ledgerFinancialState.households.length} closing household rows against $openingHouseholdCount opening rows",
+    )
+    val settledExistingHouseholds = LedgerFinancialState.settleHouseholdMortgageStock(
+      in.s5.ledgerFinancialState.households.take(openingHouseholdCount),
+      housing.housingAfterFlows.mortgageStock,
+    )
+    val newHouseholds             = in.s5.ledgerFinancialState.households
+      .drop(openingHouseholdCount)
+      .map(_.copy(mortgageLoan = PLN.Zero))
+
     val ledgerFinancialState =
       in.s5.ledgerFinancialState.copy(
-        households = LedgerFinancialState.settleHouseholdMortgageStock(in.s5.ledgerFinancialState.households, housing.housingAfterFlows.mortgageStock),
+        households = settledExistingHouseholds ++ newHouseholds,
         firms = issuerSettledFirmBalances,
         banks = multi.finalBankLedgerBalances,
         government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = govJst.newGovBondOutstanding),

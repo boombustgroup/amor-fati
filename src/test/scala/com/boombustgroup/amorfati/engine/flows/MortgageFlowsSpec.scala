@@ -14,11 +14,11 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
     Interpreter.totalWealth(balances) shouldBe 0L
   }
 
-  it should "have bank balance = repayment + interest + default - origination" in {
+  it should "keep the flat mortgage book balance inside household-local accounts" in {
     val input    = MortgageFlows.Input(PLN(5000000.0), PLN(2000000.0), PLN(1500000.0), PLN(300000.0))
     val flows    = MortgageFlows.emit(input)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
-    balances(MortgageFlows.BANK_ACCOUNT) shouldBe (input.principalRepayment + input.interest + input.defaultAmount - input.origination).toLong
+    balances(MortgageFlows.MORTGAGE_BOOK_ACCOUNT) shouldBe (input.principalRepayment + input.interest + input.defaultAmount - input.origination).toLong
   }
 
   it should "preserve SFC across 120 months" in {
@@ -60,13 +60,44 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
     repayment shouldBe a[BatchedFlow.Scatter]
     val repaymentScatter = repayment.asInstanceOf[BatchedFlow.Scatter]
     repaymentScatter.targetIndices.toVector.distinct shouldBe Vector(summon[RuntimeLedgerTopology].households.aggregate)
-    repaymentScatter.amounts.toVector.take(3) shouldBe Vector(7L, 6L, 0L)
+    repaymentScatter.amounts.toVector shouldBe Vector(7L, 6L, 0L) ++ Vector.fill(
+      summon[RuntimeLedgerTopology].households.sectorSize - summon[RuntimeLedgerTopology].households.persistedCount,
+    )(0L)
 
     val defaultBatch   = mortgageBatches.find(_.mechanism == FlowMechanism.MortgageDefault).get
     defaultBatch shouldBe a[BatchedFlow.Scatter]
     val defaultScatter = defaultBatch.asInstanceOf[BatchedFlow.Scatter]
     defaultScatter.targetIndices.toVector.distinct shouldBe Vector(summon[RuntimeLedgerTopology].households.aggregate)
-    defaultScatter.amounts.toVector.take(3) shouldBe Vector(4L, 3L, 0L)
+    defaultScatter.amounts.toVector shouldBe Vector(4L, 3L, 0L) ++ Vector.fill(
+      summon[RuntimeLedgerTopology].households.sectorSize - summon[RuntimeLedgerTopology].households.persistedCount,
+    )(0L)
+  }
+
+  it should "fall back to the household aggregate shell when there are no active mortgage borrowers" in {
+    given topology: RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
+
+    val input = MortgageFlows.Input(
+      origination = PLN.fromRaw(30L),
+      principalRepayment = PLN.fromRaw(13L),
+      interest = PLN.Zero,
+      defaultAmount = PLN.fromRaw(7L),
+      householdMortgageBalances = Vector.fill(topology.households.persistedCount)(PLN.Zero),
+    )
+
+    val mortgageBatches = MortgageFlows.emitBatches(input).filter(_.asset == AssetType.MortgageLoan)
+
+    mortgageBatches should have size 3
+    mortgageBatches.foreach:
+      case broadcast: BatchedFlow.Broadcast =>
+        broadcast.from shouldBe EntitySector.Households
+        broadcast.fromIndex shouldBe topology.households.aggregate
+        broadcast.to shouldBe EntitySector.Households
+        broadcast.targetIndices.toVector shouldBe Vector(topology.households.aggregate)
+      case other                            => fail(s"Expected aggregate shell Broadcast, got $other")
+
+    mortgageBatches.find(_.mechanism == FlowMechanism.MortgageOrigination).map(RuntimeLedgerTopology.totalTransferred) shouldBe Some(30L)
+    mortgageBatches.find(_.mechanism == FlowMechanism.MortgageRepayment).map(RuntimeLedgerTopology.totalTransferred) shouldBe Some(13L)
+    mortgageBatches.find(_.mechanism == FlowMechanism.MortgageDefault).map(RuntimeLedgerTopology.totalTransferred) shouldBe Some(7L)
   }
 
   it should "materialize household mortgage stock from executed runtime deltas" in {
@@ -105,7 +136,7 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
     LedgerFinancialState.householdMortgageStock(projection.ledgerFinancialState.households) shouldBe PLN.fromRaw(110L)
   }
 
-  it should "not materialize mortgage balances for households born after the runtime topology boundary" in {
+  it should "preserve zero-mortgage households born after the runtime topology boundary" in {
     given topology: RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
 
     val openingHouseholds = Vector(
@@ -115,7 +146,7 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
     )
     val opening           = projectionFixture(openingHouseholds)
     val semanticClosing   = opening.copy(
-      households = openingHouseholds :+ LedgerFinancialState.HouseholdBalances(PLN.fromRaw(1L), PLN.fromRaw(999L), PLN.Zero, PLN.Zero),
+      households = openingHouseholds :+ LedgerFinancialState.HouseholdBalances(PLN.fromRaw(1L), PLN.Zero, PLN.Zero, PLN.Zero),
     )
 
     val projection = RuntimeFlowProjection.materializeSupportedState(
@@ -128,6 +159,31 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
     projection.ledgerFinancialState.households should have size 4
     projection.ledgerFinancialState.households.last.demandDeposit shouldBe PLN.fromRaw(1L)
     projection.ledgerFinancialState.households.last.mortgageLoan shouldBe PLN.Zero
+  }
+
+  it should "reject non-zero mortgage balances beyond the runtime topology boundary" in {
+    given topology: RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
+
+    val openingHouseholds = Vector(
+      LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.fromRaw(60L), PLN.Zero, PLN.Zero),
+      LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.fromRaw(40L), PLN.Zero, PLN.Zero),
+      LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+    )
+    val opening           = projectionFixture(openingHouseholds)
+    val semanticClosing   = opening.copy(
+      households = openingHouseholds :+ LedgerFinancialState.HouseholdBalances(PLN.fromRaw(1L), PLN.fromRaw(999L), PLN.Zero, PLN.Zero),
+    )
+
+    val error = intercept[IllegalArgumentException] {
+      RuntimeFlowProjection.materializeSupportedState(
+        opening = opening,
+        semanticClosing = semanticClosing,
+        deltaLedger = Map.empty,
+        topology = topology,
+      )
+    }
+
+    error.getMessage should include("new household mortgageLoan")
   }
 
   private def projectionFixture(households: Vector[LedgerFinancialState.HouseholdBalances]): LedgerFinancialState =

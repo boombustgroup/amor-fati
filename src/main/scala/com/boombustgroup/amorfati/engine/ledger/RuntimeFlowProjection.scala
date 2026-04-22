@@ -115,7 +115,12 @@ object RuntimeFlowProjection:
       .toVector
     val projectedNew      = semanticClosing.households
       .drop(topology.households.persistedCount)
-      .map(_.copy(mortgageLoan = PLN.Zero))
+      .map: household =>
+        require(
+          household.mortgageLoan == PLN.Zero,
+          s"RuntimeFlowProjection expected new household mortgageLoan to be zero beyond persisted runtime households, got ${household.mortgageLoan}",
+        )
+        household
     projectedExisting ++ projectedNew
 
   private def requireMaterializedSlotsAreSupported(topology: RuntimeLedgerTopology): Unit =

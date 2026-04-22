@@ -68,6 +68,9 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
       equityReturn = Rate(0.03),
     )
 
+    val mortgageBalances = Vector.tabulate(summon[RuntimeLedgerTopology].households.persistedCount): index =>
+      PLN(10000000.0 + index.toDouble * 10000000.0)
+
     Vector.concat(
       ZusFlows.emitBatches(ZusFlows.ZusInput(1000, PLN(1000.0), 100000)),
       NfzFlows.emitBatches(NfzFlows.NfzInput.fromDrivers(1000, PLN(1000.0), 200000, 100000)),
@@ -148,7 +151,7 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
           PLN(2000000.0),
           PLN(1500000.0),
           PLN(300000.0),
-          Vector(PLN(60000000.0), PLN(30000000.0), PLN(10000000.0)),
+          mortgageBalances,
         ),
       ),
       OpenEconFlows.emitBatches(openEconInput),

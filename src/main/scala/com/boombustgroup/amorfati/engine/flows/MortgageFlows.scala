@@ -10,12 +10,12 @@ import com.boombustgroup.ledger.*
   * BankingFlows, so `AssetType.MortgageLoan` stays inside the persisted
   * household borrower book instead of creating a bank-side mirror stock.
   *
-  * Account IDs: 0=HH, 1=Bank
+  * Account IDs: 0=HH borrower, 1=household mortgage book.
   */
 object MortgageFlows:
 
-  val HH_ACCOUNT: Int   = 0
-  val BANK_ACCOUNT: Int = 1
+  val HH_ACCOUNT: Int            = 0
+  val MORTGAGE_BOOK_ACCOUNT: Int = 1
 
   case class Input(
       origination: PLN,
@@ -77,18 +77,13 @@ object MortgageFlows:
 
     private def distributeOrigination(amount: PLN, opening: Array[Long]): Array[Long] =
       if amount <= PLN.Zero then Array.fill(opening.length)(0L)
-      else
-        val weights = if opening.exists(_ > 0L) then opening else Array.fill(opening.length)(1L)
-        distributeAcrossActive(amount, weights, "origination")
+      else if opening.exists(_ > 0L) then distributeAcrossActive(amount, opening, "origination")
+      else Array.fill(opening.length)(0L)
 
     private def distributeReduction(amount: PLN, balances: Array[Long], fieldName: String): Array[Long] =
       if amount <= PLN.Zero then Array.fill(balances.length)(0L)
-      else
-        require(
-          balances.exists(_ > 0L),
-          s"MortgageFlows.emitBatches cannot allocate $fieldName without positive household mortgage balances",
-        )
-        distributeAcrossActive(amount, balances, fieldName)
+      else if balances.exists(_ > 0L) then distributeAcrossActive(amount, balances, fieldName)
+      else Array.fill(balances.length)(0L)
 
     private def distributeAcrossActive(amount: PLN, weights: Array[Long], fieldName: String): Array[Long] =
       val active        = weights.zipWithIndex.filter((weight, _) => weight > 0L)
@@ -112,8 +107,10 @@ object MortgageFlows:
       persistedAmounts: Array[Long],
       mechanism: MechanismId,
   )(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    val total = persistedAmounts.iterator.sum
     if amount <= PLN.Zero then Vector.empty
     else if topology.households.persistedCount == 0 then mortgageShellTransfer(amount, mechanism)
+    else if total <= 0L then mortgageShellTransfer(amount, mechanism)
     else
       Vector(
         BatchedFlow.Broadcast(
@@ -135,7 +132,7 @@ object MortgageFlows:
     val total = persistedAmounts.iterator.sum
     if amount <= PLN.Zero then Vector.empty
     else if topology.households.persistedCount == 0 then mortgageShellTransfer(amount, mechanism)
-    else if total <= 0L then Vector.empty
+    else if total <= 0L then mortgageShellTransfer(amount, mechanism)
     else
       Vector(
         BatchedFlow.Scatter(
@@ -161,8 +158,9 @@ object MortgageFlows:
 
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
-    if input.origination > PLN.Zero then flows += Flow(BANK_ACCOUNT, HH_ACCOUNT, input.origination.toLong, FlowMechanism.MortgageOrigination.toInt)
-    if input.principalRepayment > PLN.Zero then flows += Flow(HH_ACCOUNT, BANK_ACCOUNT, input.principalRepayment.toLong, FlowMechanism.MortgageRepayment.toInt)
-    if input.interest > PLN.Zero then flows += Flow(HH_ACCOUNT, BANK_ACCOUNT, input.interest.toLong, FlowMechanism.MortgageInterest.toInt)
-    if input.defaultAmount > PLN.Zero then flows += Flow(HH_ACCOUNT, BANK_ACCOUNT, input.defaultAmount.toLong, FlowMechanism.MortgageDefault.toInt)
+    if input.origination > PLN.Zero then flows += Flow(MORTGAGE_BOOK_ACCOUNT, HH_ACCOUNT, input.origination.toLong, FlowMechanism.MortgageOrigination.toInt)
+    if input.principalRepayment > PLN.Zero then
+      flows += Flow(HH_ACCOUNT, MORTGAGE_BOOK_ACCOUNT, input.principalRepayment.toLong, FlowMechanism.MortgageRepayment.toInt)
+    if input.interest > PLN.Zero then flows += Flow(HH_ACCOUNT, MORTGAGE_BOOK_ACCOUNT, input.interest.toLong, FlowMechanism.MortgageInterest.toInt)
+    if input.defaultAmount > PLN.Zero then flows += Flow(HH_ACCOUNT, MORTGAGE_BOOK_ACCOUNT, input.defaultAmount.toLong, FlowMechanism.MortgageDefault.toInt)
     flows.result()

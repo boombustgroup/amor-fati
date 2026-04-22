@@ -159,11 +159,15 @@ object RuntimeMechanismSurvivability:
     ),
     declared(
       ExecutionDeltaOnly,
-      "Mortgage principal flows use persisted household borrower slots plus the household aggregate execution shell; mortgage interest remains aggregate cash.",
+      "Mortgage principal flows use persisted household borrower slots plus the household aggregate execution shell.",
       FlowMechanism.MortgageOrigination,
       FlowMechanism.MortgageRepayment,
-      FlowMechanism.MortgageInterest,
       FlowMechanism.MortgageDefault,
+    ),
+    declared(
+      ExecutionDeltaOnly,
+      "Mortgage interest remains aggregate cash between Households.aggregate and Banks.aggregate.",
+      FlowMechanism.MortgageInterest,
     ),
     declared(
       ExecutionDeltaOnly,
