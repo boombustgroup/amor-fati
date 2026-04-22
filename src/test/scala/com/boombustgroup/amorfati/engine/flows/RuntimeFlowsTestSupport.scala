@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.types.PLN
-import com.boombustgroup.ledger.{AssetType, BatchedFlow, Flow, MechanismId}
+import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector, Flow, MechanismId}
 import org.scalatest.matchers.should.Matchers
 
 object RuntimeFlowsTestSupport extends Matchers:
@@ -26,6 +26,26 @@ object RuntimeFlowsTestSupport extends Matchers:
 
   def mechanismTotal(batches: Vector[BatchedFlow], mechanism: MechanismId): PLN =
     cashMechanismTotal(mechanismBatches(batches, mechanism))
+
+  def signedMechanismTotal(
+      batches: Vector[BatchedFlow],
+      mechanism: MechanismId,
+      positiveFrom: EntitySector,
+      positiveTo: EntitySector,
+  ): PLN =
+    PLN.fromRaw(
+      mechanismBatches(batches, mechanism).iterator
+        .map: batch =>
+          val amount = RuntimeLedgerTopology.totalTransferred(batch)
+          (batch.from, batch.to) match
+            case (`positiveFrom`, `positiveTo`) => amount
+            case (`positiveTo`, `positiveFrom`) => -amount
+            case _                              =>
+              throw new IllegalArgumentException(
+                s"Mechanism ${mechanism.toInt} has unsupported signed direction ${batch.from}->${batch.to}; expected $positiveFrom->$positiveTo or $positiveTo->$positiveFrom.",
+              )
+        .sum,
+    )
 
   def flowTotal(flows: Vector[Flow], mechanism: MechanismId): PLN =
     PLN.fromRaw(

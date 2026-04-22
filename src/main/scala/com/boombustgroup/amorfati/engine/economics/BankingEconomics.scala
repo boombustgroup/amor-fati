@@ -76,7 +76,7 @@ object BankingEconomics:
       mortgageDefaultLoss: PLN,                          // mortgage default loss (bank share)
       mortgageDefaultAmount: PLN,                        // gross mortgage default amount
       jstDepositChange: PLN,                             // JST deposit flow (Identity 2)
-      investNetDepositFlow: PLN,                         // investment demand net deposit flow
+      investNetDepositFlow: PLN,                         // investment timing deposit settlement
       actualBondChange: PLN,                             // net change in gov bonds outstanding
       standingFacilityBackstop: PLN,                     // reserve shortfall funded by explicit NBP standing-facility backstop
       unrealizedBondLoss: PLN,                           // mark-to-market loss on gov bond portfolio (interest rate risk channel)
@@ -409,8 +409,8 @@ object BankingEconomics:
 
     HousingResult(housingAfterFlows = housingAfterFlows, mortgageFlows = mortgageFlows)
 
-  /** Investment net deposit flow: lagged demand minus current domestic
-    * investment.
+  /** Investment timing deposit settlement: lagged domestic investment demand
+    * minus current domestic investment spending.
     */
   private def computeInvestNetDepositFlow(in: StepInput)(using p: SimParams): PLN =
     val currentInvestDomestic = in.s5.sumGrossInvestment * (Share.One - p.capital.importShare) +

@@ -110,6 +110,7 @@ object FlowSimulation:
       firmProfitShifting: PLN,
       firmFdiRepatriation: PLN,
       firmGrossInvestment: PLN,
+      investNetDepositFlow: PLN,
       // Stage 7: Price / Equity
       gdp: PLN,
       inflation: Rate,
@@ -219,6 +220,7 @@ object FlowSimulation:
           c.firmGrossInvestment,
         ),
       ),
+      InvestmentDepositSettlementFlows.emitBatches(InvestmentDepositSettlementFlows.Input(c.investNetDepositFlow)),
       GovBudgetFlows.emitBatches(
         GovBudgetFlows.Input(
           vatRevenue = c.govVatRevenue,
@@ -590,6 +592,7 @@ object FlowSimulation:
       firmProfitShifting = s5.sumProfitShifting,
       firmFdiRepatriation = s5.sumFdiRepatriation,
       firmGrossInvestment = s5.sumGrossInvestment,
+      investNetDepositFlow = s9.investNetDepositFlow,
       gdp = s7.gdp,
       inflation = s7.newInfl,
       equityDomDividends = s7.netDomesticDividends,
@@ -771,6 +774,9 @@ object FlowSimulation:
       sum(FlowMechanism.InsLifeClaim, FlowMechanism.InsNonLifeClaim) -
         sum(FlowMechanism.InsLifePremium, FlowMechanism.InsNonLifePremium)
 
+    def investNetDepositFlow: PLN =
+      signedAmount(FlowMechanism.InvestmentDepositSettlement)
+
   private[flows] object ExecutedFlowEvidence:
     val CentralGovernmentSpendingMechanisms: Vector[MechanismId] =
       Vector(
@@ -804,12 +810,21 @@ object FlowSimulation:
           case ((totalsAcc, signedAcc), batch) =>
             val amount       = RuntimeLedgerTopology.totalTransferred(batch)
             val signedAmount =
-              if batch.mechanism == FlowMechanism.BankInterbankInterest || batch.mechanism == FlowMechanism.BankStandingFacility then
-                (batch.from, batch.to) match
-                  case (EntitySector.NBP, EntitySector.Banks) => amount
-                  case (EntitySector.Banks, EntitySector.NBP) => -amount
-                  case _                                      => amount
-              else amount
+              batch.mechanism match
+                case FlowMechanism.BankInterbankInterest | FlowMechanism.BankStandingFacility =>
+                  (batch.from, batch.to) match
+                    case (EntitySector.NBP, EntitySector.Banks) => amount
+                    case (EntitySector.Banks, EntitySector.NBP) => -amount
+                    case _                                      => amount
+                case FlowMechanism.InvestmentDepositSettlement                                =>
+                  (batch.from, batch.to) match
+                    case (EntitySector.Banks, EntitySector.Firms) => amount
+                    case (EntitySector.Firms, EntitySector.Banks) => -amount
+                    case _                                        =>
+                      throw new IllegalArgumentException(
+                        s"InvestmentDepositSettlement batch has unsupported direction ${batch.from}->${batch.to}",
+                      )
+                case _                                                                        => amount
 
             (
               totalsAcc.updated(batch.mechanism, totalsAcc(batch.mechanism) + amount),
@@ -892,7 +907,7 @@ object FlowSimulation:
       bfgLevy = evidence.amount(FlowMechanism.BankBfgLevy),
       bailInLoss = evidence.amount(FlowMechanism.BankBailIn),
       bankCapitalDestruction = banking.multiCapDestruction,
-      investNetDepositFlow = banking.investNetDepositFlow,
+      investNetDepositFlow = evidence.investNetDepositFlow,
       firmPrincipalRepaid = evidence.amount(FlowMechanism.FirmLoanRepayment),
       unrealizedBondLoss = evidence.amount(FlowMechanism.BankUnrealizedLoss),
       htmRealizedLoss = banking.htmRealizedLoss,

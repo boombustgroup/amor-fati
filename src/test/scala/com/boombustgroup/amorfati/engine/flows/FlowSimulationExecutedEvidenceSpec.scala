@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.EntitySector
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -40,11 +41,13 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
     FlowSimulation.ExecutedFlowEvidence.SocialFundGovSubventionMechanisms shouldBe expectedSocialFundGovSubventionMechanisms
     FlowSimulation.ExecutedFlowEvidence.JstRevenueMechanisms shouldBe expectedJstRevenueMechanisms
 
-    val govSpendingMechanisms = expectedCentralGovernmentSpendingMechanisms ++ expectedSocialFundGovSubventionMechanisms
-    val emittedGovSpending    =
+    val govSpendingMechanisms              = expectedCentralGovernmentSpendingMechanisms ++ expectedSocialFundGovSubventionMechanisms
+    val emittedGovSpending                 =
       govSpendingMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
-    val emittedJstRevenue     =
+    val emittedJstRevenue                  =
       expectedJstRevenueMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
+    val emittedInvestmentDepositSettlement =
+      signedMechanismTotal(result.flows, FlowMechanism.InvestmentDepositSettlement, EntitySector.Banks, EntitySector.Firms)
 
     result.sfcResult shouldBe Right(())
     result.trace.executedFlows.govSpending shouldBe emittedGovSpending
@@ -55,6 +58,8 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
     result.trace.executedFlows.dividendIncome shouldBe mechanismTotal(result.flows, FlowMechanism.EquityDomDividend)
     result.trace.executedFlows.foreignDividendOutflow shouldBe mechanismTotal(result.flows, FlowMechanism.EquityForDividend)
     result.trace.executedFlows.dividendTax shouldBe mechanismTotal(result.flows, FlowMechanism.EquityDividendTax)
+    result.trace.executedFlows.investNetDepositFlow shouldBe emittedInvestmentDepositSettlement
+    result.trace.executedFlows.investNetDepositFlow shouldBe result.calculus.investNetDepositFlow
 
     val insurancePremiums = mechanismTotal(result.flows, FlowMechanism.InsLifePremium) +
       mechanismTotal(result.flows, FlowMechanism.InsNonLifePremium)
