@@ -113,6 +113,42 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.trace.executedFlows.dividendTax shouldBe mechanismTotal(result.flows, FlowMechanism.EquityDividendTax)
   }
 
+  it should "emit insurance investment income from same-month equity return instead of boundary market memory" in {
+    val init              = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState         = FlowSimulation.SimState.fromInit(init)
+    val staleEquityReturn = Rate(0.42)
+    val state             = baseState.copy(
+      world = baseState.world.copy(
+        financialMarkets = baseState.world.financialMarkets.copy(
+          equity = baseState.world.financialMarkets.equity.copy(monthlyReturn = staleEquityReturn),
+        ),
+      ),
+    )
+
+    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+
+    result.calculus.equityReturn shouldBe result.nextState.world.financialMarkets.equity.monthlyReturn
+    result.calculus.equityReturn should not equal staleEquityReturn
+
+    val insuranceInvestmentBatches = mechanismBatches(result.flows, FlowMechanism.InsInvestmentIncome)
+    insuranceInvestmentBatches should not be empty
+    result.calculus.insurancePrevEquity should be > PLN.Zero
+
+    val sameMonthInvestmentIncome     =
+      result.calculus.insurancePrevGovBonds * result.calculus.govBondYield.monthly +
+        result.calculus.insurancePrevCorpBonds * result.calculus.corpBondYield.monthly +
+        result.calculus.insurancePrevEquity * result.calculus.equityReturn -
+        result.calculus.insuranceCorpBondDefaultLoss
+    val staleBoundaryInvestmentIncome =
+      result.calculus.insurancePrevGovBonds * result.calculus.govBondYield.monthly +
+        result.calculus.insurancePrevCorpBonds * result.calculus.corpBondYield.monthly +
+        result.calculus.insurancePrevEquity * staleEquityReturn -
+        result.calculus.insuranceCorpBondDefaultLoss
+
+    totalTransferred(insuranceInvestmentBatches) shouldBe sameMonthInvestmentIncome.abs
+    totalTransferred(insuranceInvestmentBatches) should not equal staleBoundaryInvestmentIncome.abs
+  }
+
   it should "emit government and JST flows from current-month fiscal state instead of boundary fields" in {
     val init               = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val baseState          = FlowSimulation.SimState.fromInit(init)

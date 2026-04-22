@@ -543,7 +543,6 @@ object FlowSimulation:
       bankId => CorporateBondOwnership.bankHolderFor(ledger, bankId),
     )
     val agg               = s3.hhAgg
-    val eq                = w.financialMarkets.equity
     val h                 = s9.housingAfterFlows
     val externalFlowBop   = s8.external.flowBop
     val openingCorpBonds  = CorporateBondOwnership.stockStateFromLedger(ledger)
@@ -597,7 +596,7 @@ object FlowSimulation:
       equityForDividends = s7.foreignDividendOutflow,
       equityDivTax = s7.dividendTax,
       equityGovDividends = s7.stateOwnedGovDividends,
-      equityReturn = eq.monthlyReturn,
+      equityReturn = s7.equityAfterIssuance.monthlyReturn,
       exports = externalFlowBop.exports,
       totalImports = externalFlowBop.totalImports,
       tourismExport = s6.tourismExport,

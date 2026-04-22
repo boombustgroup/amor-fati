@@ -170,6 +170,28 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
+  private def baseOpenEconRunStep(
+      world: World,
+      ledgerFinancialState: LedgerFinancialState,
+      s7: PriceEquityEconomics.Output,
+      seed: Long,
+  ): OpenEconEconomics.StepOutput =
+    OpenEconEconomics.runStep(
+      OpenEconEconomics.StepInput(
+        world,
+        ledgerFinancialState,
+        baseline.s1,
+        baseline.s2,
+        baseline.s3,
+        baseline.s4,
+        baseline.s5,
+        baseline.s6,
+        s7,
+        baseline.banks,
+        RandomStream.seeded(seed),
+      ),
+    )
+
   private def assemblyRandomness(seed: Long): MonthRandomness.AssemblyStreams =
     MonthRandomness.Contract.fromSeed(seed).assembly.newStreams()
 
@@ -196,6 +218,18 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
 
   private def withSeedSignals(world: World, f: DecisionSignals => DecisionSignals): World =
     world.copy(pipeline = world.pipeline.withDecisionSignals(f(world.seedIn)))
+
+  private def withBoundaryEquityReturn(world: World, equityReturn: Rate): World =
+    world.copy(
+      financialMarkets = world.financialMarkets.copy(
+        equity = world.financialMarkets.equity.copy(monthlyReturn = equityReturn),
+      ),
+    )
+
+  private def withSameMonthEquityReturn(s7: PriceEquityEconomics.Output, equityReturn: Rate): PriceEquityEconomics.Output =
+    s7.copy(
+      equityAfterIssuance = s7.equityAfterIssuance.copy(monthlyReturn = equityReturn),
+    )
 
   private def entrySensitiveInput: WorldAssemblyEconomics.StepInput =
     val base = baseStepInput
@@ -317,6 +351,31 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     val freshWorldResult = baseBankingRunStep(baseline.world, seed = 777L)
 
     explicitResult shouldBe freshWorldResult
+  }
+
+  "OpenEconEconomics.runStep" should "price non-bank equity returns from same-month equity market output" in {
+    val ledger             = baseline.ledgerFinancialState.copy(
+      insurance = baseline.ledgerFinancialState.insurance.copy(equityHoldings = PLN(1000000.0)),
+      funds = baseline.ledgerFinancialState.funds.copy(
+        nbfi = baseline.ledgerFinancialState.funds.nbfi.copy(equityHoldings = PLN(2000000.0)),
+      ),
+    )
+    val sameMonthReturn    = Rate(0.04)
+    val staleBoundaryLoss  = withBoundaryEquityReturn(baseline.world, Rate(-0.20))
+    val staleBoundaryGain  = withBoundaryEquityReturn(baseline.world, Rate(0.20))
+    val sameMonthS7        = withSameMonthEquityReturn(baseline.s7, sameMonthReturn)
+    val lossBoundaryResult = baseOpenEconRunStep(staleBoundaryLoss, ledger, sameMonthS7, seed = 5150L)
+    val gainBoundaryResult = baseOpenEconRunStep(staleBoundaryGain, ledger, sameMonthS7, seed = 5150L)
+    val lowerSameMonthS7   = withSameMonthEquityReturn(baseline.s7, Rate(-0.04))
+    val lowerSameMonth     = baseOpenEconRunStep(staleBoundaryGain, ledger, lowerSameMonthS7, seed = 5150L)
+
+    lossBoundaryResult.nonBank.newInsurance.lastInvestmentIncome shouldBe gainBoundaryResult.nonBank.newInsurance.lastInvestmentIncome
+    lossBoundaryResult.nonBank.newInsuranceBalances shouldBe gainBoundaryResult.nonBank.newInsuranceBalances
+    lossBoundaryResult.nonBank.newNbfi.lastTfiNetInflow shouldBe gainBoundaryResult.nonBank.newNbfi.lastTfiNetInflow
+    lossBoundaryResult.nonBank.newNbfiBalances shouldBe gainBoundaryResult.nonBank.newNbfiBalances
+
+    gainBoundaryResult.nonBank.newInsurance.lastInvestmentIncome should not equal lowerSameMonth.nonBank.newInsurance.lastInvestmentIncome
+    gainBoundaryResult.nonBank.newNbfi.lastTfiNetInflow should not equal lowerSameMonth.nonBank.newNbfi.lastTfiNetInflow
   }
 
   "WorldAssemblyEconomics.computePostMonth" should "derive entry unemployment from lagged decision signals instead of post-firm households" in {
