@@ -133,7 +133,7 @@ object RuntimeMechanismSurvivability:
       FlowMechanism.FirmProfitShifting,
       FlowMechanism.FirmFdiRepatriation,
       FlowMechanism.FirmGrossInvestment,
-      FlowMechanism.InvestNetDepositFlow,
+      FlowMechanism.InvestmentDepositSettlement,
     ),
     declared(
       ExecutionDeltaOnly,

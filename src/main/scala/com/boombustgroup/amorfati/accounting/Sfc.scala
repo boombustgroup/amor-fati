@@ -186,7 +186,7 @@ object Sfc:
       bfgLevy: PLN,                 // BFG levy (bank capital expense)
       bailInLoss: PLN,              // bail-in deposit destruction
       bankCapitalDestruction: PLN,  // Capital wiped when bank fails (shareholders wiped)
-      investNetDepositFlow: PLN,    // Investment demand net flow: lagged revenue - current spending
+      investNetDepositFlow: PLN,    // Investment timing deposit settlement: lagged domestic demand - current domestic spend
       firmPrincipalRepaid: PLN,     // firm loan principal repaid (deposit destruction)
       unrealizedBondLoss: PLN,      // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       htmRealizedLoss: PLN,         // realized loss from HTM forced reclassification (HTM reclassification channel)

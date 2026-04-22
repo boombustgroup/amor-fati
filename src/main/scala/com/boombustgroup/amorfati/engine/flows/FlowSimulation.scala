@@ -220,7 +220,7 @@ object FlowSimulation:
           c.firmGrossInvestment,
         ),
       ),
-      InvestmentDepositFlows.emitBatches(InvestmentDepositFlows.Input(c.investNetDepositFlow)),
+      InvestmentDepositSettlementFlows.emitBatches(InvestmentDepositSettlementFlows.Input(c.investNetDepositFlow)),
       GovBudgetFlows.emitBatches(
         GovBudgetFlows.Input(
           vatRevenue = c.govVatRevenue,
@@ -775,7 +775,7 @@ object FlowSimulation:
         sum(FlowMechanism.InsLifePremium, FlowMechanism.InsNonLifePremium)
 
     def investNetDepositFlow: PLN =
-      signedAmount(FlowMechanism.InvestNetDepositFlow)
+      signedAmount(FlowMechanism.InvestmentDepositSettlement)
 
   private[flows] object ExecutedFlowEvidence:
     val CentralGovernmentSpendingMechanisms: Vector[MechanismId] =
@@ -816,13 +816,13 @@ object FlowSimulation:
                     case (EntitySector.NBP, EntitySector.Banks) => amount
                     case (EntitySector.Banks, EntitySector.NBP) => -amount
                     case _                                      => amount
-                case FlowMechanism.InvestNetDepositFlow                                       =>
+                case FlowMechanism.InvestmentDepositSettlement                                =>
                   (batch.from, batch.to) match
                     case (EntitySector.Banks, EntitySector.Firms) => amount
                     case (EntitySector.Firms, EntitySector.Banks) => -amount
                     case _                                        =>
                       throw new IllegalArgumentException(
-                        s"InvestNetDepositFlow batch has unsupported direction ${batch.from}->${batch.to}",
+                        s"InvestmentDepositSettlement batch has unsupported direction ${batch.from}->${batch.to}",
                       )
                 case _                                                                        => amount
 
