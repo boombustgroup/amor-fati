@@ -158,6 +158,11 @@ object FlowSimulation:
       bankUnrealizedLoss: PLN,
       bankBailIn: PLN,
       bankNbpRemittance: PLN,
+      // Stage 8/9: NBFI / TFI monetary channels
+      nbfiDepositDrain: PLN,
+      nbfiOrigination: PLN,
+      nbfiRepayment: PLN,
+      nbfiDefaultAmount: PLN,
       // Stage 8: Gov budget
       govVatRevenue: PLN,
       govExciseRevenue: PLN,
@@ -308,6 +313,7 @@ object FlowSimulation:
           standingFacilityBackstop = c.bankStandingFacilityBackstop,
         ),
       ),
+      NbfiFlows.emitBatches(NbfiFlows.Input(c.nbfiDepositDrain, c.nbfiOrigination, c.nbfiRepayment, c.nbfiDefaultAmount)),
     )
 
   /** Typed month-`t` boundary input used internally by [[step]]. */
@@ -635,6 +641,10 @@ object FlowSimulation:
       bankUnrealizedLoss = s9.unrealizedBondLoss,
       bankBailIn = s9.bailInLoss,
       bankNbpRemittance = s8.banking.nbpRemittance,
+      nbfiDepositDrain = s8.nonBank.nbfiDepositDrain,
+      nbfiOrigination = s9.finalNbfi.lastNbfiOrigination,
+      nbfiRepayment = s9.finalNbfi.lastNbfiRepayment,
+      nbfiDefaultAmount = s9.finalNbfi.lastNbfiDefaultAmount,
       govVatRevenue = s9.vatAfterEvasion,
       govExciseRevenue = s9.exciseAfterEvasion,
       govCustomsDutyRevenue = s9.customsDutyRevenue,
@@ -777,6 +787,9 @@ object FlowSimulation:
     def investNetDepositFlow: PLN =
       signedAmount(FlowMechanism.InvestmentDepositSettlement)
 
+    def nbfiDepositDrain: PLN =
+      signedAmount(FlowMechanism.TfiDepositDrain)
+
   private[flows] object ExecutedFlowEvidence:
     val CentralGovernmentSpendingMechanisms: Vector[MechanismId] =
       Vector(
@@ -823,6 +836,14 @@ object FlowSimulation:
                     case _                                        =>
                       throw new IllegalArgumentException(
                         s"InvestmentDepositSettlement batch has unsupported direction ${batch.from}->${batch.to}",
+                      )
+                case FlowMechanism.TfiDepositDrain                                            =>
+                  (batch.from, batch.to) match
+                    case (EntitySector.Banks, EntitySector.Households) => amount
+                    case (EntitySector.Households, EntitySector.Banks) => -amount
+                    case _                                             =>
+                      throw new IllegalArgumentException(
+                        s"TfiDepositDrain batch has unsupported direction ${batch.from}->${batch.to}",
                       )
                 case _                                                                        => amount
 
@@ -895,10 +916,10 @@ object FlowSimulation:
       corpBondAmortization = evidence.amount(FlowMechanism.CorpBondAmortization),
       corpBondDefaultAmount = evidence.amount(FlowMechanism.CorpBondDefault),
       insNetDepositChange = evidence.insuranceNetDepositChange,
-      nbfiDepositDrain = openEcon.nonBank.nbfiDepositDrain,
-      nbfiOrigination = banking.finalNbfi.lastNbfiOrigination,
-      nbfiRepayment = banking.finalNbfi.lastNbfiRepayment,
-      nbfiDefaultAmount = banking.finalNbfi.lastNbfiDefaultAmount,
+      nbfiDepositDrain = evidence.nbfiDepositDrain,
+      nbfiOrigination = evidence.amount(FlowMechanism.NbfiOrigination),
+      nbfiRepayment = evidence.amount(FlowMechanism.NbfiRepayment),
+      nbfiDefaultAmount = evidence.amount(FlowMechanism.NbfiDefault),
       fdiProfitShifting = evidence.amount(FlowMechanism.FirmProfitShifting),
       fdiRepatriation = evidence.amount(FlowMechanism.FirmFdiRepatriation),
       diasporaInflow = evidence.amount(FlowMechanism.DiasporaInflow),

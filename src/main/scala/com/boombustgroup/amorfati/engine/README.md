@@ -110,6 +110,7 @@ against 13 accounting identities each month.
 | `CorpBondFlows.scala` | Catalyst: holder-class coupon, default, issuance, and amortization evidence |
 | `MortgageFlows.scala` | Housing: origination, principal repayment, interest, default |
 | `InsuranceFlows.scala` | Insurance: life + non-life reserve deltas for premiums, claims, and investment income |
+| `NbfiFlows.scala` | NBFI/TFI: TFI deposit drain and NBFI credit stock movement evidence |
 | `JstFlows.scala` | JST (local government): PIT/CIT shares, property tax, subventions, spending |
 | `OpenEconFlows.scala` | BoP: trade, FDI, portfolio, carry trade, primary income (NFA), secondary income (EU funds, diaspora), tourism, capital flight |
 

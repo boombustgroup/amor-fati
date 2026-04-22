@@ -48,6 +48,8 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
       expectedJstRevenueMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
     val emittedInvestmentDepositSettlement =
       signedMechanismTotal(result.flows, FlowMechanism.InvestmentDepositSettlement, EntitySector.Banks, EntitySector.Firms)
+    val emittedNbfiDepositDrain            =
+      signedMechanismTotal(result.flows, FlowMechanism.TfiDepositDrain, EntitySector.Banks, EntitySector.Households)
 
     result.sfcResult shouldBe Right(())
     result.trace.executedFlows.govSpending shouldBe emittedGovSpending
@@ -60,6 +62,14 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
     result.trace.executedFlows.dividendTax shouldBe mechanismTotal(result.flows, FlowMechanism.EquityDividendTax)
     result.trace.executedFlows.investNetDepositFlow shouldBe emittedInvestmentDepositSettlement
     result.trace.executedFlows.investNetDepositFlow shouldBe result.calculus.investNetDepositFlow
+    result.trace.executedFlows.nbfiDepositDrain shouldBe emittedNbfiDepositDrain
+    result.trace.executedFlows.nbfiDepositDrain shouldBe result.calculus.nbfiDepositDrain
+    result.trace.executedFlows.nbfiOrigination shouldBe mechanismTotal(result.flows, FlowMechanism.NbfiOrigination)
+    result.trace.executedFlows.nbfiOrigination shouldBe result.calculus.nbfiOrigination
+    result.trace.executedFlows.nbfiRepayment shouldBe mechanismTotal(result.flows, FlowMechanism.NbfiRepayment)
+    result.trace.executedFlows.nbfiRepayment shouldBe result.calculus.nbfiRepayment
+    result.trace.executedFlows.nbfiDefaultAmount shouldBe mechanismTotal(result.flows, FlowMechanism.NbfiDefault)
+    result.trace.executedFlows.nbfiDefaultAmount shouldBe result.calculus.nbfiDefaultAmount
 
     val insurancePremiums = mechanismTotal(result.flows, FlowMechanism.InsLifePremium) +
       mechanismTotal(result.flows, FlowMechanism.InsNonLifePremium)
