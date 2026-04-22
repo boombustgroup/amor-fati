@@ -78,3 +78,25 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
 
     result.trace.executedFlows.insNetDepositChange shouldBe insuranceClaims - insurancePremiums
   }
+
+  it should "route deterministic NBFI and TFI calculus values into executed evidence" in {
+    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state  = FlowSimulation.SimState.fromInit(init)
+    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+
+    val calculus                = result.calculus.copy(
+      nbfiDepositDrain = PLN(-777000.0),
+      nbfiOrigination = PLN(555000.0),
+      nbfiRepayment = PLN(333000.0),
+      nbfiDefaultAmount = PLN(111000.0),
+    )
+    given RuntimeLedgerTopology = result.execution.topology
+
+    val batches  = FlowSimulation.emitAllBatches(calculus)
+    val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)
+
+    evidence.nbfiDepositDrain shouldBe PLN(-777000.0)
+    evidence.amount(FlowMechanism.NbfiOrigination) shouldBe PLN(555000.0)
+    evidence.amount(FlowMechanism.NbfiRepayment) shouldBe PLN(333000.0)
+    evidence.amount(FlowMechanism.NbfiDefault) shouldBe PLN(111000.0)
+  }
