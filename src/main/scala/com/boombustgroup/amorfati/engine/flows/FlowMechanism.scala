@@ -64,6 +64,7 @@ object FlowMechanism:
   val FirmProfitShifting: MechanismId           = MechanismId(51)
   val FirmFdiRepatriation: MechanismId          = MechanismId(52)
   val FirmGrossInvestment: MechanismId          = MechanismId(53)
+  val InvestNetDepositFlow: MechanismId         = MechanismId(102)
   // Equity market (GPW)
   val EquityDomDividend: MechanismId            = MechanismId(54)
   val EquityForDividend: MechanismId            = MechanismId(55)
@@ -172,6 +173,7 @@ object FlowMechanism:
     FirmProfitShifting,
     FirmFdiRepatriation,
     FirmGrossInvestment,
+    InvestNetDepositFlow,
     EquityDomDividend,
     EquityForDividend,
     EquityDividendTax,

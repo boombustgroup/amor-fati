@@ -114,6 +114,8 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
           PLN(5000000.0),
         ),
       ),
+      InvestmentDepositFlows.emitBatches(InvestmentDepositFlows.Input(PLN(2500000.0))),
+      InvestmentDepositFlows.emitBatches(InvestmentDepositFlows.Input(PLN(-1500000.0))),
       GovBudgetFlows.emitBatches(
         GovBudgetFlows.Input(
           vatRevenue = PLN(9000000.0),
