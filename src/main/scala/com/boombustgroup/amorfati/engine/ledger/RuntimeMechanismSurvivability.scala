@@ -134,6 +134,10 @@ object RuntimeMechanismSurvivability:
       FlowMechanism.FirmFdiRepatriation,
       FlowMechanism.FirmGrossInvestment,
       FlowMechanism.InvestmentDepositSettlement,
+      FlowMechanism.TfiDepositDrain,
+      FlowMechanism.NbfiOrigination,
+      FlowMechanism.NbfiRepayment,
+      FlowMechanism.NbfiDefault,
     ),
     declared(
       ExecutionDeltaOnly,
