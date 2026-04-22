@@ -100,6 +100,53 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
     mortgageBatches.find(_.mechanism == FlowMechanism.MortgageDefault).map(RuntimeLedgerTopology.totalTransferred) shouldBe Some(7L)
   }
 
+  it should "materialize target closing mortgage balances from executed gross mechanism deltas" in {
+    given topology: RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
+
+    val input = MortgageFlows.Input(
+      origination = PLN.fromRaw(30L),
+      principalRepayment = PLN.fromRaw(13L),
+      interest = PLN.Zero,
+      defaultAmount = PLN.fromRaw(7L),
+      householdMortgageBalances = Vector(PLN.fromRaw(60L), PLN.fromRaw(40L), PLN.Zero),
+      targetHouseholdMortgageBalances = Vector(PLN.fromRaw(65L), PLN.fromRaw(45L), PLN.Zero),
+    )
+
+    val executionState = topology.emptyExecutionState()
+    val batches        = MortgageFlows.emitBatches(input)
+
+    batches.find(_.mechanism == FlowMechanism.MortgageOrigination).map(RuntimeLedgerTopology.totalTransferred) shouldBe Some(30L)
+    batches.find(_.mechanism == FlowMechanism.MortgageRepayment).map(RuntimeLedgerTopology.totalTransferred) shouldBe Some(13L)
+    batches.find(_.mechanism == FlowMechanism.MortgageDefault).map(RuntimeLedgerTopology.totalTransferred) shouldBe Some(7L)
+
+    ImperativeInterpreter.planAndApplyAll(executionState, batches) shouldBe Right(())
+
+    val opening         = projectionFixture(
+      Vector(
+        LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.fromRaw(60L), PLN.Zero, PLN.Zero),
+        LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.fromRaw(40L), PLN.Zero, PLN.Zero),
+        LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      ),
+    )
+    val semanticClosing = opening.copy(
+      households = Vector(
+        LedgerFinancialState.HouseholdBalances(PLN.fromRaw(1L), PLN.fromRaw(65L), PLN.Zero, PLN.Zero),
+        LedgerFinancialState.HouseholdBalances(PLN.fromRaw(2L), PLN.fromRaw(45L), PLN.Zero, PLN.Zero),
+        LedgerFinancialState.HouseholdBalances(PLN.fromRaw(3L), PLN.Zero, PLN.Zero, PLN.Zero),
+      ),
+    )
+
+    val projection = RuntimeFlowProjection.materializeSupportedState(
+      opening = opening,
+      semanticClosing = semanticClosing,
+      deltaLedger = executionState.snapshot,
+      topology = topology,
+    )
+
+    projection.ledgerFinancialState.households.map(_.mortgageLoan).take(3) shouldBe Vector(PLN.fromRaw(65L), PLN.fromRaw(45L), PLN.Zero)
+    projection.ledgerFinancialState.households.map(_.demandDeposit).take(3) shouldBe Vector(PLN.fromRaw(1L), PLN.fromRaw(2L), PLN.fromRaw(3L))
+  }
+
   it should "materialize household mortgage stock from executed runtime deltas" in {
     given topology: RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
 

@@ -23,6 +23,7 @@ object MortgageFlows:
       interest: PLN,
       defaultAmount: PLN,
       householdMortgageBalances: Vector[PLN] = Vector.empty,
+      targetHouseholdMortgageBalances: Vector[PLN] = Vector.empty,
   )
 
   def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
@@ -58,13 +59,15 @@ object MortgageFlows:
           defaultAmount = Array.empty[Long],
         )
       else
-        val opening     = normalizedOpeningBalances(input.householdMortgageBalances, count)
-        val origination = distributeOrigination(input.origination, opening)
-        val afterOrig   = add(opening, origination)
-        val repayment   = distributeReduction(input.principalRepayment, afterOrig, "principalRepayment")
-        val afterRepay  = subtract(afterOrig, repayment)
-        val defaultAmt  = distributeReduction(input.defaultAmount, afterRepay, "defaultAmount")
-        HouseholdMortgageAllocations(origination, repayment, defaultAmt)
+        val opening = normalizedOpeningBalances(input.householdMortgageBalances, count)
+        if input.targetHouseholdMortgageBalances.nonEmpty then fromTargetClosingBalances(input, opening)
+        else
+          val origination = distributeOrigination(input.origination, opening)
+          val afterOrig   = add(opening, origination)
+          val repayment   = distributeReduction(input.principalRepayment, afterOrig, "principalRepayment")
+          val afterRepay  = subtract(afterOrig, repayment)
+          val defaultAmt  = distributeReduction(input.defaultAmount, afterRepay, "defaultAmount")
+          HouseholdMortgageAllocations(origination, repayment, defaultAmt)
 
     private def normalizedOpeningBalances(balances: Vector[PLN], count: Int): Array[Long] =
       if balances.isEmpty then Array.fill(count)(0L)
@@ -74,6 +77,82 @@ object MortgageFlows:
           s"MortgageFlows.emitBatches expected $count household mortgage balances, got ${balances.length}",
         )
         balances.map(_.distributeRaw.max(0L)).toArray
+
+    private def normalizedTargetBalances(input: Input, count: Int): Array[Long] =
+      require(
+        input.targetHouseholdMortgageBalances.length == count,
+        s"MortgageFlows.emitBatches expected $count target household mortgage balances, got ${input.targetHouseholdMortgageBalances.length}",
+      )
+      input.targetHouseholdMortgageBalances.map(_.distributeRaw.max(0L)).toArray
+
+    private def fromTargetClosingBalances(input: Input, opening: Array[Long]): HouseholdMortgageAllocations =
+      val target              = normalizedTargetBalances(input, opening.length)
+      val originationRaw      = input.origination.distributeRaw.max(0L)
+      val repaymentRaw        = input.principalRepayment.distributeRaw.max(0L)
+      val defaultRaw          = input.defaultAmount.distributeRaw.max(0L)
+      val totalReductionRaw   = repaymentRaw + defaultRaw
+      val openingTotal        = opening.iterator.sum
+      val targetTotal         = target.iterator.sum
+      val expectedTargetTotal = openingTotal + originationRaw - totalReductionRaw
+
+      require(
+        targetTotal == expectedTargetTotal,
+        s"MortgageFlows.emitBatches target household mortgage total $targetTotal does not match opening $openingTotal + origination $originationRaw - reductions $totalReductionRaw = $expectedTargetTotal",
+      )
+
+      val requiredReduction      = opening.zip(target).map((from, to) => (from - to).max(0L))
+      val requiredReductionTotal = requiredReduction.iterator.sum
+      require(
+        requiredReductionTotal <= totalReductionRaw,
+        s"MortgageFlows.emitBatches target household mortgage balances require $requiredReductionTotal reduction but only $totalReductionRaw was emitted",
+      )
+
+      val extraReduction = distributeTargetResidual(
+        totalReductionRaw - requiredReductionTotal,
+        opening.zip(target).map((from, to) => from.max(to)),
+      )
+      val reduction      = add(requiredReduction, extraReduction)
+      val origination    = target.indices.map(index => target(index) - opening(index) + reduction(index)).toArray
+      val repayment      = allocateWithinCaps(repaymentRaw, reduction, "principalRepayment")
+      val defaultAmt     = subtract(reduction, repayment)
+
+      require(origination.iterator.sum == originationRaw, "MortgageFlows.emitBatches failed to preserve mortgage origination total")
+      require(repayment.iterator.sum == repaymentRaw, "MortgageFlows.emitBatches failed to preserve mortgage repayment total")
+      require(defaultAmt.iterator.sum == defaultRaw, "MortgageFlows.emitBatches failed to preserve mortgage default total")
+      HouseholdMortgageAllocations(origination, repayment, defaultAmt)
+
+    private def distributeTargetResidual(total: Long, weights: Array[Long]): Array[Long] =
+      if total <= 0L then Array.fill(weights.length)(0L)
+      else if weights.exists(_ > 0L) then distributeAcrossActive(PLN.fromRaw(total), weights, "targetResidual")
+      else Array.fill(weights.length)(0L)
+
+    private def allocateWithinCaps(total: Long, caps: Array[Long], fieldName: String): Array[Long] =
+      require(total >= 0L, s"MortgageFlows.emitBatches cannot allocate negative $fieldName amount $total")
+      if total == 0L then Array.fill(caps.length)(0L)
+      else
+        val capTotal    = caps.iterator.sum
+        require(
+          total <= capTotal,
+          s"MortgageFlows.emitBatches cannot allocate $fieldName amount $total over capped mortgage reductions $capTotal",
+        )
+        val result      = Array.fill(caps.length)(0L)
+        val capTotalBig = BigInt(capTotal)
+        var allocated   = 0L
+        caps.indices
+          .dropRight(1)
+          .foreach: index =>
+            val amount = ((BigInt(total) * BigInt(caps(index))) / capTotalBig).toLong.min(caps(index))
+            result(index) = amount
+            allocated += amount
+        var remaining   = total - allocated
+        caps.indices.reverseIterator.foreach: index =>
+          if remaining > 0L then
+            val capacity = caps(index) - result(index)
+            val amount   = remaining.min(capacity)
+            result(index) += amount
+            remaining -= amount
+        require(remaining == 0L, s"MortgageFlows.emitBatches failed to allocate $fieldName residual $remaining")
+        result
 
     private def distributeOrigination(amount: PLN, opening: Array[Long]): Array[Long] =
       if amount <= PLN.Zero then Array.fill(opening.length)(0L)
