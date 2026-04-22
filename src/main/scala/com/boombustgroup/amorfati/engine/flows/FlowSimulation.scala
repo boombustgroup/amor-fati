@@ -144,6 +144,7 @@ object FlowSimulation:
       mortgageRepayment: PLN,
       mortgageInterest: PLN,
       mortgageDefault: PLN,
+      mortgageOpeningHouseholdBalances: Vector[PLN],
       // Stage 9: Banking
       bankGovBondIncome: PLN,
       bankReserveInterest: PLN,
@@ -270,7 +271,15 @@ object FlowSimulation:
           amortizationRecipients = Some(c.corpBondAmortizationRecipients),
         ),
       ),
-      MortgageFlows.emitBatches(MortgageFlows.Input(c.mortgageOrigination, c.mortgageRepayment, c.mortgageInterest, c.mortgageDefault)),
+      MortgageFlows.emitBatches(
+        MortgageFlows.Input(
+          c.mortgageOrigination,
+          c.mortgageRepayment,
+          c.mortgageInterest,
+          c.mortgageDefault,
+          c.mortgageOpeningHouseholdBalances,
+        ),
+      ),
       OpenEconFlows.emitBatches(
         OpenEconFlows.Input(
           exports = c.exports,
@@ -621,6 +630,7 @@ object FlowSimulation:
       mortgageRepayment = h.lastRepayment,
       mortgageInterest = h.mortgageInterestIncome,
       mortgageDefault = h.lastDefault,
+      mortgageOpeningHouseholdBalances = ledger.households.map(_.mortgageLoan),
       bankGovBondIncome = prevBankAgg.govBondHoldings * s8.monetary.newBondYield.monthly,
       bankReserveInterest = s8.banking.totalReserveInterest,
       bankStandingFacility = s8.banking.totalStandingFacilityIncome,

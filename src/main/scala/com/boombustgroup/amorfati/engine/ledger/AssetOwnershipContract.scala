@@ -199,7 +199,7 @@ object AssetOwnershipContract:
       AssetType.MortgageLoan,
       PublicAssetStatus.SupportedPersistedStock,
       Set(dynamic(EntitySector.Households)),
-      "Currently only the household-side mortgage liability is in the supported slice.",
+      "Household mortgage liability stock; runtime mortgage principal deltas materialize through persisted household borrower slots.",
     ),
     PublicAssetContract(
       AssetType.GovBondAFS,

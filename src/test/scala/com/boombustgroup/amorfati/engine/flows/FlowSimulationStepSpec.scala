@@ -261,7 +261,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     }
   }
 
-  it should "avoid cash assets on bank capital and insurance investment channels" in {
+  it should "avoid unsupported asset mirrors on bank capital, insurance, and mortgage channels" in {
     val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state  = FlowSimulation.SimState.fromInit(init)
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
@@ -289,6 +289,18 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     insuranceReserveBatches should not be empty
     all(insuranceReserveBatches.map(_.from)) shouldBe EntitySector.Insurance
     all(insuranceReserveBatches.map(_.to)) shouldBe EntitySector.Insurance
+
+    val mortgagePrincipalMechanisms = Set(
+      FlowMechanism.MortgageOrigination,
+      FlowMechanism.MortgageRepayment,
+      FlowMechanism.MortgageDefault,
+    )
+    val mortgagePrincipalBatches    = result.flows.filter(batch => mortgagePrincipalMechanisms.contains(batch.mechanism))
+    mortgagePrincipalBatches should not be empty
+    all(mortgagePrincipalBatches.map(_.asset)) shouldBe AssetType.MortgageLoan
+    all(mortgagePrincipalBatches.map(_.from)) shouldBe EntitySector.Households
+    all(mortgagePrincipalBatches.map(_.to)) shouldBe EntitySector.Households
+    mortgagePrincipalBatches.exists(batch => batch.from == EntitySector.Banks || batch.to == EntitySector.Banks) shouldBe false
 
     val insurancePremiums = mechanismTotal(result.flows, FlowMechanism.InsLifePremium) +
       mechanismTotal(result.flows, FlowMechanism.InsNonLifePremium)

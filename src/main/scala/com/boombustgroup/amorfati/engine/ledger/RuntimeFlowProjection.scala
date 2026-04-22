@@ -54,8 +54,9 @@ object RuntimeFlowProjection:
       topology: RuntimeLedgerTopology,
   ): Projection =
     requireMaterializedSlotsAreSupported(topology)
-    val publicFundCash = projectPublicFundCash(opening, deltaLedger)
-    val projectedFunds = semanticClosing.funds.copy(
+    val publicFundCash      = projectPublicFundCash(opening, deltaLedger)
+    val projectedHouseholds = projectHouseholdMortgageLoans(opening, semanticClosing, deltaLedger, topology)
+    val projectedFunds      = semanticClosing.funds.copy(
       zusCash = publicFundCash.zusCash,
       nfzCash = publicFundCash.nfzCash,
       fpCash = publicFundCash.fpCash,
@@ -64,7 +65,7 @@ object RuntimeFlowProjection:
       jstCash = publicFundCash.jstCash,
     )
     Projection(
-      ledgerFinancialState = semanticClosing.copy(funds = projectedFunds),
+      ledgerFinancialState = semanticClosing.copy(households = projectedHouseholds, funds = projectedFunds),
       publicFundCash = publicFundCash,
     )
 
@@ -88,11 +89,47 @@ object RuntimeFlowProjection:
   ): PLN =
     opening + PLN.fromRaw(deltaLedger.getOrElse((EntitySector.Funds, AssetType.Cash, fundIndex), 0L))
 
+  def projectHouseholdMortgageLoans(
+      opening: LedgerFinancialState,
+      semanticClosing: LedgerFinancialState,
+      deltaLedger: Map[(EntitySector, AssetType, Int), Long],
+      topology: RuntimeLedgerTopology,
+  ): Vector[LedgerFinancialState.HouseholdBalances] =
+    require(
+      opening.households.length == topology.households.persistedCount,
+      s"RuntimeFlowProjection expected ${topology.households.persistedCount} opening household rows, got ${opening.households.length}",
+    )
+    require(
+      semanticClosing.households.length >= topology.households.persistedCount,
+      s"RuntimeFlowProjection expected at least ${topology.households.persistedCount} semantic closing household rows, got ${semanticClosing.households.length}",
+    )
+    requireHouseholdMortgageSlotsAreSupported(topology)
+    val projectedExisting = (0 until topology.households.persistedCount)
+      .map: index =>
+        val delta = deltaLedger.getOrElse((EntitySector.Households, AssetType.MortgageLoan, index), 0L)
+        semanticClosing
+          .households(index)
+          .copy(
+            mortgageLoan = opening.households(index).mortgageLoan + PLN.fromRaw(delta),
+          )
+      .toVector
+    val projectedNew      = semanticClosing.households
+      .drop(topology.households.persistedCount)
+      .map(_.copy(mortgageLoan = PLN.Zero))
+    projectedExisting ++ projectedNew
+
   private def requireMaterializedSlotsAreSupported(topology: RuntimeLedgerTopology): Unit =
     MaterializedPublicFundCashSlots.foreach: fundIndex =>
       require(
         AssetOwnershipContract.isSupportedPersistedPair(topology, EntitySector.Funds, AssetType.Cash, fundIndex),
         s"RuntimeFlowProjection cannot materialize unsupported fund cash slot $fundIndex",
+      )
+
+  private def requireHouseholdMortgageSlotsAreSupported(topology: RuntimeLedgerTopology): Unit =
+    (0 until topology.households.persistedCount).foreach: householdIndex =>
+      require(
+        AssetOwnershipContract.isSupportedPersistedPair(topology, EntitySector.Households, AssetType.MortgageLoan, householdIndex),
+        s"RuntimeFlowProjection cannot materialize unsupported household mortgage slot $householdIndex",
       )
 
 end RuntimeFlowProjection

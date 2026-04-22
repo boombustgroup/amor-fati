@@ -108,7 +108,7 @@ against 13 accounting identities each month.
 | `BankingFlows.scala` | Bank P&L flows: gov bond income, reserve/standing facility/interbank interest, BFG levy, unrealized losses, bail-in, NBP remittance |
 | `EquityFlows.scala` | GPW: dividends (domestic net of Belka tax, foreign), equity issuance |
 | `CorpBondFlows.scala` | Catalyst: holder-class coupon, default, issuance, and amortization evidence |
-| `MortgageFlows.scala` | Housing: origination, principal repayment, interest, default |
+| `MortgageFlows.scala` | Housing: household mortgage principal deltas for origination, repayment, default; cash interest to banks |
 | `InsuranceFlows.scala` | Insurance: life + non-life reserve deltas for premiums, claims, and investment income |
 | `JstFlows.scala` | JST (local government): PIT/CIT shares, property tax, subventions, spending |
 | `OpenEconFlows.scala` | BoP: trade, FDI, portfolio, carry trade, primary income (NFA), secondary income (EU funds, diaspora), tourism, capital flight |

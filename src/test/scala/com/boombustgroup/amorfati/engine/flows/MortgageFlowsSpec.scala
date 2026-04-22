@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.engine.ledger.{LedgerFinancialState, RuntimeFlowProjection}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -28,3 +29,127 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
       Interpreter.totalWealth(balances) shouldBe 0L
     }
   }
+
+  it should "keep mortgage-loan batches inside household borrower accounts" in {
+    given RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
+
+    val input = MortgageFlows.Input(
+      origination = PLN.fromRaw(30L),
+      principalRepayment = PLN.fromRaw(13L),
+      interest = PLN.fromRaw(5L),
+      defaultAmount = PLN.fromRaw(7L),
+      householdMortgageBalances = Vector(PLN.fromRaw(60L), PLN.fromRaw(40L), PLN.Zero),
+    )
+
+    val batches         = MortgageFlows.emitBatches(input)
+    val mortgageBatches = batches.filter(_.asset == AssetType.MortgageLoan)
+
+    mortgageBatches should have size 3
+    all(mortgageBatches.map(_.from)) shouldBe EntitySector.Households
+    all(mortgageBatches.map(_.to)) shouldBe EntitySector.Households
+    mortgageBatches.exists(batch => batch.from == EntitySector.Banks || batch.to == EntitySector.Banks) shouldBe false
+
+    val origination          = mortgageBatches.find(_.mechanism == FlowMechanism.MortgageOrigination).get
+    origination shouldBe a[BatchedFlow.Broadcast]
+    val originationBroadcast = origination.asInstanceOf[BatchedFlow.Broadcast]
+    originationBroadcast.fromIndex shouldBe summon[RuntimeLedgerTopology].households.aggregate
+    originationBroadcast.targetIndices.toVector shouldBe Vector(0, 1, 2)
+    originationBroadcast.amounts.toVector shouldBe Vector(18L, 12L, 0L)
+
+    val repayment        = mortgageBatches.find(_.mechanism == FlowMechanism.MortgageRepayment).get
+    repayment shouldBe a[BatchedFlow.Scatter]
+    val repaymentScatter = repayment.asInstanceOf[BatchedFlow.Scatter]
+    repaymentScatter.targetIndices.toVector.distinct shouldBe Vector(summon[RuntimeLedgerTopology].households.aggregate)
+    repaymentScatter.amounts.toVector.take(3) shouldBe Vector(7L, 6L, 0L)
+
+    val defaultBatch   = mortgageBatches.find(_.mechanism == FlowMechanism.MortgageDefault).get
+    defaultBatch shouldBe a[BatchedFlow.Scatter]
+    val defaultScatter = defaultBatch.asInstanceOf[BatchedFlow.Scatter]
+    defaultScatter.targetIndices.toVector.distinct shouldBe Vector(summon[RuntimeLedgerTopology].households.aggregate)
+    defaultScatter.amounts.toVector.take(3) shouldBe Vector(4L, 3L, 0L)
+  }
+
+  it should "materialize household mortgage stock from executed runtime deltas" in {
+    given topology: RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
+
+    val openingHouseholds = Vector(
+      LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.fromRaw(60L), PLN.Zero, PLN.Zero),
+      LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.fromRaw(40L), PLN.Zero, PLN.Zero),
+      LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+    )
+    val input             = MortgageFlows.Input(
+      origination = PLN.fromRaw(30L),
+      principalRepayment = PLN.fromRaw(13L),
+      interest = PLN.Zero,
+      defaultAmount = PLN.fromRaw(7L),
+      householdMortgageBalances = openingHouseholds.map(_.mortgageLoan),
+    )
+    val executionState    = topology.emptyExecutionState()
+    val batches           = MortgageFlows.emitBatches(input)
+
+    ImperativeInterpreter.planAndApplyAll(executionState, batches) shouldBe Right(())
+    executionState.snapshot.keys.exists((sector, asset, _) => sector == EntitySector.Banks && asset == AssetType.MortgageLoan) shouldBe false
+
+    val opening         = projectionFixture(openingHouseholds)
+    val semanticClosing = opening.copy(
+      households = LedgerFinancialState.settleHouseholdMortgageStock(openingHouseholds, PLN.fromRaw(110L)),
+    )
+    val projection      = RuntimeFlowProjection.materializeSupportedState(
+      opening = opening,
+      semanticClosing = semanticClosing,
+      deltaLedger = executionState.snapshot,
+      topology = topology,
+    )
+
+    projection.ledgerFinancialState.households.map(_.mortgageLoan).take(3) shouldBe Vector(PLN.fromRaw(67L), PLN.fromRaw(43L), PLN.Zero)
+    LedgerFinancialState.householdMortgageStock(projection.ledgerFinancialState.households) shouldBe PLN.fromRaw(110L)
+  }
+
+  it should "not materialize mortgage balances for households born after the runtime topology boundary" in {
+    given topology: RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
+
+    val openingHouseholds = Vector(
+      LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.fromRaw(60L), PLN.Zero, PLN.Zero),
+      LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.fromRaw(40L), PLN.Zero, PLN.Zero),
+      LedgerFinancialState.HouseholdBalances(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+    )
+    val opening           = projectionFixture(openingHouseholds)
+    val semanticClosing   = opening.copy(
+      households = openingHouseholds :+ LedgerFinancialState.HouseholdBalances(PLN.fromRaw(1L), PLN.fromRaw(999L), PLN.Zero, PLN.Zero),
+    )
+
+    val projection = RuntimeFlowProjection.materializeSupportedState(
+      opening = opening,
+      semanticClosing = semanticClosing,
+      deltaLedger = Map.empty,
+      topology = topology,
+    )
+
+    projection.ledgerFinancialState.households should have size 4
+    projection.ledgerFinancialState.households.last.demandDeposit shouldBe PLN.fromRaw(1L)
+    projection.ledgerFinancialState.households.last.mortgageLoan shouldBe PLN.Zero
+  }
+
+  private def projectionFixture(households: Vector[LedgerFinancialState.HouseholdBalances]): LedgerFinancialState =
+    LedgerFinancialState(
+      households = households,
+      firms = Vector.empty,
+      banks = Vector.empty,
+      government = LedgerFinancialState.GovernmentBalances(PLN.Zero),
+      foreign = LedgerFinancialState.ForeignBalances(PLN.Zero),
+      nbp = LedgerFinancialState.NbpBalances(PLN.Zero, PLN.Zero),
+      insurance = LedgerFinancialState.InsuranceBalances(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      funds = LedgerFinancialState.FundBalances(
+        zusCash = PLN.Zero,
+        nfzCash = PLN.Zero,
+        ppkGovBondHoldings = PLN.Zero,
+        ppkCorpBondHoldings = PLN.Zero,
+        fpCash = PLN.Zero,
+        pfronCash = PLN.Zero,
+        fgspCash = PLN.Zero,
+        jstCash = PLN.Zero,
+        corpBondOtherHoldings = PLN.Zero,
+        nbfi = LedgerFinancialState.NbfiFundBalances(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+        quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(PLN.Zero, PLN.Zero),
+      ),
+    )
