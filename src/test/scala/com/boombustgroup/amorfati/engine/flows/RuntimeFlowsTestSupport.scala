@@ -40,7 +40,10 @@ object RuntimeFlowsTestSupport extends Matchers:
           (batch.from, batch.to) match
             case (`positiveFrom`, `positiveTo`) => amount
             case (`positiveTo`, `positiveFrom`) => -amount
-            case _                              => amount
+            case _                              =>
+              throw new IllegalArgumentException(
+                s"Mechanism ${mechanism.toInt} has unsupported signed direction ${batch.from}->${batch.to}; expected $positiveFrom->$positiveTo or $positiveTo->$positiveFrom.",
+              )
         .sum,
     )
 
