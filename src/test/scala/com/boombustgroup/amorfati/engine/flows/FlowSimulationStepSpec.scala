@@ -129,6 +129,24 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
     result.calculus.equityReturn shouldBe result.nextState.world.financialMarkets.equity.monthlyReturn
     result.calculus.equityReturn should not equal staleEquityReturn
+
+    val insuranceInvestmentBatches = mechanismBatches(result.flows, FlowMechanism.InsInvestmentIncome)
+    insuranceInvestmentBatches should not be empty
+    result.calculus.insurancePrevEquity should be > PLN.Zero
+
+    val sameMonthInvestmentIncome     =
+      result.calculus.insurancePrevGovBonds * result.calculus.govBondYield.monthly +
+        result.calculus.insurancePrevCorpBonds * result.calculus.corpBondYield.monthly +
+        result.calculus.insurancePrevEquity * result.calculus.equityReturn -
+        result.calculus.insuranceCorpBondDefaultLoss
+    val staleBoundaryInvestmentIncome =
+      result.calculus.insurancePrevGovBonds * result.calculus.govBondYield.monthly +
+        result.calculus.insurancePrevCorpBonds * result.calculus.corpBondYield.monthly +
+        result.calculus.insurancePrevEquity * staleEquityReturn -
+        result.calculus.insuranceCorpBondDefaultLoss
+
+    totalTransferred(insuranceInvestmentBatches) shouldBe sameMonthInvestmentIncome.abs
+    totalTransferred(insuranceInvestmentBatches) should not equal staleBoundaryInvestmentIncome.abs
   }
 
   it should "emit government and JST flows from current-month fiscal state instead of boundary fields" in {
