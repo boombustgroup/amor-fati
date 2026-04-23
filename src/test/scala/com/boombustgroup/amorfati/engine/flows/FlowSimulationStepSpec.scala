@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.accounting.Sfc
-import com.boombustgroup.amorfati.agents.{ContractType, HhStatus, Household, SocialSecurity}
+import com.boombustgroup.amorfati.agents.{ContractType, HhStatus, Household, Insurance, SocialSecurity}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.{
   DecisionSignals,
@@ -13,7 +13,7 @@ import com.boombustgroup.amorfati.engine.{
   MonthTraceStage,
   SimulationMonth,
 }
-import com.boombustgroup.amorfati.engine.ledger.CorporateBondOwnership
+import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
@@ -399,6 +399,68 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     calculus.insurancePrevGovBonds shouldBe ledgerInsurance.govBondHoldings
     calculus.insurancePrevCorpBonds shouldBe ledgerInsurance.corpBondHoldings
     calculus.insurancePrevEquity shouldBe ledgerInsurance.equityHoldings
+  }
+
+  it should "keep insurance premiums on the post-reconcile insurance stage basis instead of the opening payroll boundary" in {
+    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState = FlowSimulation.SimState.fromInit(init)
+    val state     = baseState.copy(
+      households = baseState.households.zipWithIndex.map:
+        case (hh, idx) if idx < 512 =>
+          hh.status match
+            case HhStatus.Employed(firmId, sectorIdx, _) =>
+              hh.copy(status = HhStatus.Employed(firmId, sectorIdx, PLN(1.0)))
+            case _                                       => hh
+        case (hh, _)                => hh,
+    )
+
+    val result            = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val openingInsurance  = LedgerFinancialState.insuranceOpeningBalances(state.ledgerFinancialState)
+    val expectedInsurance = Insurance.step(
+      Insurance.StepInput(
+        opening = openingInsurance,
+        employed = result.calculus.employed,
+        wage = result.calculus.wage,
+        unempRate = result.calculus.unemploymentRate,
+        govBondYield = result.calculus.govBondYield,
+        corpBondYield = result.calculus.corpBondYield,
+        equityReturn = result.calculus.equityReturn,
+        corpBondDefaultLoss = result.calculus.insuranceCorpBondDefaultLoss,
+      ),
+    )
+    val payrollInsurance  = Insurance.step(
+      Insurance.StepInput(
+        opening = openingInsurance,
+        employed = result.calculus.payroll.employed,
+        wage = result.calculus.payroll.averageWage,
+        unempRate = result.calculus.unemploymentRate,
+        govBondYield = result.calculus.govBondYield,
+        corpBondYield = result.calculus.corpBondYield,
+        equityReturn = result.calculus.equityReturn,
+        corpBondDefaultLoss = result.calculus.insuranceCorpBondDefaultLoss,
+      ),
+    )
+
+    withClue(
+      s"payroll employed=${result.calculus.payroll.employed} avgWage=${result.calculus.payroll.averageWage} " +
+        s"insurance employed=${result.calculus.employed} wage=${result.calculus.wage}",
+    ) {
+      (result.calculus.payroll.employed, result.calculus.payroll.averageWage) should not equal
+        (result.calculus.employed, result.calculus.wage)
+    }
+
+    mechanismTotal(result.flows, FlowMechanism.InsLifePremium) shouldBe expectedInsurance.state.lastLifePremium
+    mechanismTotal(result.flows, FlowMechanism.InsNonLifePremium) shouldBe expectedInsurance.state.lastNonLifePremium
+    mechanismTotal(result.flows, FlowMechanism.InsLifeClaim) shouldBe expectedInsurance.state.lastLifeClaims
+    mechanismTotal(result.flows, FlowMechanism.InsNonLifeClaim) shouldBe expectedInsurance.state.lastNonLifeClaims
+    result.nextState.world.financialMarkets.insurance.lastLifePremium shouldBe expectedInsurance.state.lastLifePremium
+    result.nextState.world.financialMarkets.insurance.lastNonLifePremium shouldBe expectedInsurance.state.lastNonLifePremium
+    result.nextState.world.financialMarkets.insurance.lastLifeClaims shouldBe expectedInsurance.state.lastLifeClaims
+    result.nextState.world.financialMarkets.insurance.lastNonLifeClaims shouldBe expectedInsurance.state.lastNonLifeClaims
+    result.nextState.world.financialMarkets.insurance.lastNetDepositChange shouldBe expectedInsurance.state.lastNetDepositChange
+
+    expectedInsurance.state.lastLifePremium should not equal payrollInsurance.state.lastLifePremium
+    expectedInsurance.state.lastNonLifePremium should not equal payrollInsurance.state.lastNonLifePremium
   }
 
   it should "expose the month boundary as SimState -> StepOutput -> (nextState, trace)" in {

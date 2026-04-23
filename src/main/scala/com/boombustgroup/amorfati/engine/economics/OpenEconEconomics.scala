@@ -443,6 +443,9 @@ object OpenEconEconomics:
       corpBondDefaultLoss: PLN,
   )(using p: SimParams): InsuranceResult =
     val unempRate     = in.w.unemploymentRate(in.s2.employed)
+    // Insurance remains anchored to the reconciled labor state carried by s2.
+    // Unlike social payroll funds, moving premiums to the opening payroll
+    // boundary would require changing both Insurance.step and runtime emission.
     val insuranceStep =
       Insurance.step(
         Insurance.StepInput(
