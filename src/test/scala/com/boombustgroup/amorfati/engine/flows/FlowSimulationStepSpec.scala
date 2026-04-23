@@ -256,6 +256,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     )
 
     val result               = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val openingPayroll       = SocialSecurity.payrollBase(state.households)
     val finalPayroll         = SocialSecurity.payrollBase(result.nextState.households)
     val hiredWithNewContract = state.households
       .zip(result.nextState.households)
@@ -266,6 +267,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
           after.contractType != before.contractType
 
     hiredWithNewContract shouldBe true
+    result.calculus.payroll shouldBe openingPayroll
     result.calculus.zus.contributions shouldBe result.calculus.payroll.zusContributions
     result.calculus.nfz.contributions shouldBe result.calculus.payroll.nfzContributions
     result.calculus.ppk.contributions shouldBe result.calculus.payroll.ppkContributions

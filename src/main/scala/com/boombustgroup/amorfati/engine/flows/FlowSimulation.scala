@@ -524,7 +524,7 @@ object FlowSimulation:
     val postLivingFirms   = s5.ioFirms.filter(Firm.isAlive)
     val nBankruptFirms    = s5.firmDeaths
     val avgFirmWorkers    = if s2Pre.living.nonEmpty then s2Pre.laborDemand / s2Pre.living.length else 0
-    val payroll           = SocialSecurity.payrollBase(s3.updatedHouseholds)
+    val payroll           = SocialSecurity.payrollBase(households)
     val payrollZus        = SocialSecurity.zusStep(payroll, s2Pre.newDemographics.retirees)
     val payrollNfz        = SocialSecurity.nfzStep(payroll, s2Pre.newDemographics.workingAgePop, s2Pre.newDemographics.retirees)
     val payrollPpk        = SocialSecurity.ppkStep(payroll)
@@ -534,7 +534,6 @@ object FlowSimulation:
       newZus = payrollZus,
       newNfz = payrollNfz,
       newPpk = payrollPpk,
-      rawPpkBondPurchase = s2Reconciled.rawPpkBondPurchase,
       newEarmarked = payrollEarmarked,
     )
     val s6                = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, randomness.householdFinancialEconomics.newStream())

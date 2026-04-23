@@ -24,14 +24,24 @@ class SocialSecurityPayrollSpec extends AnyFlatSpec with Matchers:
 
     payroll.employed shouldBe 3
     payroll.grossWages shouldBe PLN(3000.0)
-    val expectedZus =
+    val expectedZus  =
       wage * ContractType.zusEmployerRate(ContractType.Permanent) * p.social.zusScale +
         wage * ContractType.zusEmployerRate(ContractType.Zlecenie) * p.social.zusScale
     payroll.zusContributions shouldBe expectedZus
     payroll.nfzContributions shouldBe 3 * (wage * p.social.nfzContribRate)
     payroll.ppkContributions shouldBe 2 * (wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
-    payroll.fpContributions shouldBe wage * ContractType.fpRate(ContractType.Permanent)
-    payroll.fgspContributions shouldBe 2 * (wage * p.earmarked.fgspRate)
+    val expectedFp   =
+      wage * ContractType.fpRate(ContractType.Permanent) +
+        wage * ContractType.fpRate(ContractType.Zlecenie) +
+        wage * ContractType.fpRate(ContractType.B2B)
+    val expectedFgsp =
+      Vector(ContractType.Permanent, ContractType.Zlecenie, ContractType.B2B)
+        .map:
+          case ContractType.B2B => PLN.Zero
+          case _                => wage * p.earmarked.fgspRate
+        .foldLeft(PLN.Zero)(_ + _)
+    payroll.fpContributions shouldBe expectedFp
+    payroll.fgspContributions shouldBe expectedFgsp
   }
 
   it should "preserve aggregate formulas for legacy employed-and-wage drivers" in {
