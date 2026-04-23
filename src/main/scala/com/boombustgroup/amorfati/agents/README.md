@@ -20,7 +20,7 @@ carry behavioral state, operational diagnostics, and legacy unsupported metrics.
 | `Jst.scala` | Local government (JST) | Revenue, spending, deficit, unsupported debt metric; cash is ledger-owned | BankDeposits (JST deposits), JstDebt |
 | `Nbfi.scala` | TFI funds + NBFI credit | Origination, default, and deposit-drain diagnostics; AUM, bond/equity holdings, cash, and loan stock are ledger projections | BankDeposits (deposit drain), BondClearing (TFI bonds), NbfiCredit |
 | `Nbp.scala` | National Bank of Poland | Reference rate, QE policy metrics, monthly FX operations; gov bond holdings and FX reserves are ledger-owned | BankCapital (reserve interest), Nfa (FX intervention), BondClearing (QE bonds) |
-| `DepositMobility.scala` | Deposit flight (Diamond-Dybvig) | Per-bank deposit flows, health-based flight, panic contagion | BankDeposits (redistribution) |
+| `DepositMobility.scala` | Deposit flight (Diamond-Dybvig) | Boundary `bankId` reassignment, health-based flight, panic contagion; delayed routing only, no same-month balance-sheet transfer | Future BankDeposits routing via reassigned households |
 | `EarmarkedFunds.scala` | FP, PFRON, FGŚP | Payroll-funded statutory funds, bankruptcy payouts, ALMP | GovDebt (gov subvention) |
 | `EclStaging.scala` | IFRS 9 ECL provisioning | S1/S2/S3 staging, macro-driven migration, forward-looking provisions | BankCapital (provision) |
 | `InterbankContagion.scala` | Interbank contagion (Lehman channel) | 7×7 bilateral exposure matrix, counterparty losses, liquidity hoarding | InterbankNetting |

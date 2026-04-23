@@ -19,8 +19,11 @@ import com.boombustgroup.amorfati.random.RandomStream
   *      `baseRunoff + panicPremium × (1 − bankCAR/systemCAR)`. Stressed banks
   *      face higher outflows.
   *
-  * Deposit switching is a zero-sum operation: total system deposits unchanged,
-  * only distribution across banks changes.
+  * Deposit switching is a delayed boundary-routing contract. This module only
+  * updates household `bankId` assignments. It does not emit same-month monetary
+  * batches and it does not move bank balance-sheet deposits in month `t`; those
+  * assignments affect future household income, consumption, debt-service, and
+  * deposit-interest routing from the next boundary onward.
   *
   * Pure function — no mutable state. Called from BankingEconomics after failure
   * resolution.
@@ -30,9 +33,10 @@ import com.boombustgroup.amorfati.random.RandomStream
   */
 object DepositMobility:
 
-  /** Result of deposit mobility: households with updated bankId assignments.
-    * Deposit flows take effect next month when income/consumption routes to the
-    * new bank (1-month lag, consistent with account transfer time).
+  /** Result of deposit mobility: households with updated `bankId` assignments.
+    * No transfer plan is carried here by design. Deposit flows take effect next
+    * month when household flows route to the new bank (1-month lag, consistent
+    * with account transfer time).
     */
   case class Result(households: Vector[Household.State])
 
