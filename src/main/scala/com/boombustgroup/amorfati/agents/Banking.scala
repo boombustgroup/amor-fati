@@ -495,8 +495,9 @@ object Banking:
   // Failure detection and resolution
   // ---------------------------------------------------------------------------
 
-  /** Check for bank failures: CAR < effectiveMinCar for 3 consecutive months,
-    * or LCR breach at 50% of minimum. Already-failed banks pass through.
+  /** Check for bank failures: negative capital immediately, CAR <
+    * effectiveMinCar for 3 consecutive months, or LCR breach at 50% of minimum.
+    * Already-failed banks pass through.
     */
   def checkFailures(
       banks: Vector[BankState],
@@ -530,7 +531,8 @@ object Banking:
             val lowCar    = car(b, stocks, bankCorpBondHoldings(b.id)) < minCar
             val lcrBreach = lcr(stocks) < p.banking.lcrMin * Share(0.5)
             val newConsec = if lowCar then consec + 1 else 0
-            if newConsec >= 3 || lcrBreach then b.copy(status = BankStatus.Failed(month), capital = PLN.Zero)
+            val insolvent = b.capital < PLN.Zero
+            if insolvent || newConsec >= 3 || lcrBreach then b.copy(status = BankStatus.Failed(month), capital = PLN.Zero)
             else b.copy(status = BankStatus.Active(newConsec))
       val prevFailed = banks.filter(_.failed).map(_.id).toSet
       FailureCheckResult(updated, updated.exists(b => b.failed && !prevFailed.contains(b.id)))

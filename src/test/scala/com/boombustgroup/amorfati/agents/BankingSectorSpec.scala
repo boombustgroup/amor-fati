@@ -172,6 +172,15 @@ class BankingSectorSpec extends AnyFlatSpec with Matchers:
       .consecutiveLowCar shouldBe 0
   }
 
+  it should "fail negative-capital banks immediately" in {
+    val insolvent = mkBankRow(capital = PLN(-1.0))
+    val result    = Banking.checkFailures(Vector(insolvent.bank), Vector(insolvent.stocks), ExecutionMonth(30), enabled = true, Multiplier.Zero)
+
+    result.anyFailed shouldBe true
+    result.banks.head.failed shouldBe true
+    result.banks.head.capital shouldBe PLN.Zero
+  }
+
   "Banking.resolveFailures" should "move failed-bank stocks to the healthiest survivor" in {
     val rows   = Vector(
       mkBankRow(id = 0, deposits = PLN(500000.0), loans = PLN(100000.0), capital = PLN(50000.0), govBondHoldings = PLN(10000.0)),
