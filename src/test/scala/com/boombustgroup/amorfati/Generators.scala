@@ -480,6 +480,10 @@ object Generators:
       insuranceGovBondHoldings = PLN.Zero,
       tfiGovBondHoldings = PLN.Zero,
       nbfiLoanStock = PLN.Zero,
+      quasiFiscalBondsOutstanding = PLN.Zero,
+      quasiFiscalBankHoldings = PLN.Zero,
+      quasiFiscalNbpHoldings = PLN.Zero,
+      quasiFiscalLoanPortfolio = PLN.Zero,
     )
 
   val genMonthlyFlows: Gen[Sfc.SemanticFlows] = for
@@ -581,6 +585,12 @@ object Generators:
     unrealizedBondLoss = PLN.Zero,
     htmRealizedLoss = PLN.Zero,
     eclProvisionChange = PLN.Zero,
+    quasiFiscalBondIssuance = PLN.Zero,
+    quasiFiscalBondAmortization = PLN.Zero,
+    quasiFiscalNbpAbsorption = PLN.Zero,
+    quasiFiscalLending = PLN.Zero,
+    quasiFiscalRepayment = PLN.Zero,
+    quasiFiscalDepositChange = PLN.Zero,
   )
 
   /** Generate (prev, curr, flows) where all 9 SFC identities hold exactly. */
@@ -600,7 +610,8 @@ object Generators:
         flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow + flows.diasporaInflow +
         flows.tourismExport - flows.tourismImport - flows.bailInLoss +
         flows.newLoans - flows.firmPrincipalRepaid +
-        flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain
+        flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain +
+        flows.quasiFiscalDepositChange
       val expectedGovDebtChange  = flows.govSpending - flows.govRevenue
       val expectedNfaChange      = flows.currentAccount + flows.valuationEffect
       val expectedJstDebtChange  = flows.jstSpending - flows.jstRevenue

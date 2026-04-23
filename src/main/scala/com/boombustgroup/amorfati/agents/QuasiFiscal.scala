@@ -47,17 +47,26 @@ object QuasiFiscal:
     * LedgerFinancialState.
     */
   case class State(
-      monthlyIssuance: PLN, // this month's new bond issuance
-      monthlyLending: PLN,  // this month's new lending
-      monthlyBondAmortization: PLN = PLN.Zero,
-      monthlyBankBondIssuance: PLN = PLN.Zero,
-      monthlyNbpBondAbsorption: PLN = PLN.Zero,
-      monthlyBankBondAmortization: PLN = PLN.Zero,
-      monthlyNbpBondAmortization: PLN = PLN.Zero,
-      monthlyLoanRepayment: PLN = PLN.Zero,
+      monthlyIssuance: PLN,             // this month's total BGK/PFR bond issuance
+      monthlyLending: PLN,              // this month's new subsidized lending
+      monthlyBondAmortization: PLN,     // this month's total BGK/PFR bond amortization
+      monthlyBankBondIssuance: PLN,     // issuance absorbed by commercial banks
+      monthlyNbpBondAbsorption: PLN,    // issuance absorbed by NBP quasi-QE
+      monthlyBankBondAmortization: PLN, // amortization paid to commercial-bank holders
+      monthlyNbpBondAmortization: PLN,  // amortization paid to NBP holders
+      monthlyLoanRepayment: PLN,        // this month's BGK/PFR loan principal repayment
   )
   object State:
-    val zero: State = State(PLN.Zero, PLN.Zero)
+    val zero: State = State(
+      monthlyIssuance = PLN.Zero,
+      monthlyLending = PLN.Zero,
+      monthlyBondAmortization = PLN.Zero,
+      monthlyBankBondIssuance = PLN.Zero,
+      monthlyNbpBondAbsorption = PLN.Zero,
+      monthlyBankBondAmortization = PLN.Zero,
+      monthlyNbpBondAmortization = PLN.Zero,
+      monthlyLoanRepayment = PLN.Zero,
+    )
 
   case class StepResult(
       state: State,

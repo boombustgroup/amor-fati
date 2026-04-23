@@ -204,6 +204,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     insuranceGovBondHoldings = PLN.Zero,
     tfiGovBondHoldings = PLN.Zero,
     nbfiLoanStock = PLN.Zero,
+    quasiFiscalBondsOutstanding = PLN.Zero,
+    quasiFiscalBankHoldings = PLN.Zero,
+    quasiFiscalNbpHoldings = PLN.Zero,
+    quasiFiscalLoanPortfolio = PLN.Zero,
   )
 
   private val zeroFlows = Sfc.SemanticFlows(
@@ -272,6 +276,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     unrealizedBondLoss = PLN.Zero,
     htmRealizedLoss = PLN.Zero,
     eclProvisionChange = PLN.Zero,
+    quasiFiscalBondIssuance = PLN.Zero,
+    quasiFiscalBondAmortization = PLN.Zero,
+    quasiFiscalNbpAbsorption = PLN.Zero,
+    quasiFiscalLending = PLN.Zero,
+    quasiFiscalRepayment = PLN.Zero,
+    quasiFiscalDepositChange = PLN.Zero,
   )
 
   // ---- Snapshot tests ----

@@ -42,10 +42,7 @@ object LedgerTestFixtures:
         earmarked = EarmarkedFunds.State.zero,
       ),
       financialMarkets = base.world.financialMarkets.copy(
-        quasiFiscal = QuasiFiscal.State(
-          monthlyIssuance = PLN.Zero,
-          monthlyLending = PLN.Zero,
-        ),
+        quasiFiscal = QuasiFiscal.State.zero,
       ),
     )
 
