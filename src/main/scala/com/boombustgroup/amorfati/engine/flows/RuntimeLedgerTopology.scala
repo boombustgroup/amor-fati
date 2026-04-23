@@ -155,11 +155,12 @@ object RuntimeLedgerTopology:
       case broadcast: BatchedFlow.Broadcast => broadcast.amounts.iterator.sum
 
   final case class Households(persistedCount: Int):
-    val aggregate: Int  = persistedCount
-    val landlords: Int  = persistedCount + 1
-    val depositors: Int = persistedCount + 2
-    val investors: Int  = persistedCount + 3
-    val sectorSize: Int = persistedCount + 4
+    val aggregate: Int                   = persistedCount
+    val landlords: Int                   = persistedCount + 1
+    val depositors: Int                  = persistedCount + 2
+    val investors: Int                   = persistedCount + 3
+    val mortgagePrincipalSettlement: Int = persistedCount + 4
+    val sectorSize: Int                  = persistedCount + 5
 
   final case class Firms(persistedCount: Int):
     val aggregate: Int      = persistedCount

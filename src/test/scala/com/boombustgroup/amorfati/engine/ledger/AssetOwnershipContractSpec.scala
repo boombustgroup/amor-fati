@@ -77,6 +77,7 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
       (EntitySector.Government, TreasuryRuntimeContract.TaxpayerCollection.name),
       (EntitySector.NBP, NbpRuntimeContract.ReserveSettlementLiability.name),
       (EntitySector.NBP, NbpRuntimeContract.StandingFacilityBackstop.name),
+      (EntitySector.Households, MortgageRuntimeContract.TemplatePrincipalSettlement.name),
       (EntitySector.Foreign, ForeignRuntimeContract.TradeSettlement.name),
       (EntitySector.Foreign, ForeignRuntimeContract.IncomeSettlement.name),
       (EntitySector.Foreign, ForeignRuntimeContract.CapitalSettlement.name),

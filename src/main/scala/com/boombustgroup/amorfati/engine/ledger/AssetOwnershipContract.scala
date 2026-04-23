@@ -199,7 +199,7 @@ object AssetOwnershipContract:
       AssetType.MortgageLoan,
       PublicAssetStatus.SupportedPersistedStock,
       Set(dynamic(EntitySector.Households)),
-      "Currently only the household-side mortgage liability is in the supported slice.",
+      "Household-side mortgage liability; runtime principal batches use an explicit household settlement shell rather than a bank-side stock mirror.",
     ),
     PublicAssetContract(
       AssetType.GovBondAFS,
@@ -543,6 +543,12 @@ object AssetOwnershipContract:
       zeroPopulationTopology.households.investors,
       "Households.Investors",
       RuntimeShellCategory.ExecutionShell,
+    ),
+    RuntimeShell(
+      MortgageRuntimeContract.TemplatePrincipalSettlement.sector,
+      MortgageRuntimeContract.TemplatePrincipalSettlement.index,
+      MortgageRuntimeContract.TemplatePrincipalSettlement.name,
+      RuntimeShellCategory.SettlementShell,
     ),
     RuntimeShell(
       EntitySector.Firms,

@@ -1,14 +1,16 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.engine.ledger.MortgageRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 
 /** Housing/mortgage market emitting flows.
   *
-  * Origination (Bank→HH), repayment (HH→Bank principal), interest (HH→Bank),
-  * default (HH→Bank loss).
+  * Batched runtime principal flows stay inside the household sector because
+  * `MortgageLoan` has no persisted bank-side stock owner. Cash interest remains
+  * an aggregate household-to-bank payment.
   *
-  * Account IDs: 0=HH, 1=Bank
+  * Legacy flat Account IDs: 0=HH, 1=Bank
   */
 object MortgageFlows:
 
@@ -23,10 +25,11 @@ object MortgageFlows:
   )
 
   def emitBatches(input: Input)(using topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    val principalShell = MortgageRuntimeContract.principalSettlement(topology)
     Vector.concat(
       AggregateBatchedEmission.transfer(
-        EntitySector.Banks,
-        topology.banks.aggregate,
+        principalShell.sector,
+        principalShell.index,
         EntitySector.Households,
         topology.households.aggregate,
         input.origination,
@@ -36,8 +39,8 @@ object MortgageFlows:
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
         topology.households.aggregate,
-        EntitySector.Banks,
-        topology.banks.aggregate,
+        principalShell.sector,
+        principalShell.index,
         input.principalRepayment,
         AssetType.MortgageLoan,
         FlowMechanism.MortgageRepayment,
@@ -54,14 +57,20 @@ object MortgageFlows:
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
         topology.households.aggregate,
-        EntitySector.Banks,
-        topology.banks.aggregate,
+        principalShell.sector,
+        principalShell.index,
         input.defaultAmount,
         AssetType.MortgageLoan,
         FlowMechanism.MortgageDefault,
       ),
     )
 
+  /** Legacy flat interpreter helper used by old unit tests only.
+    *
+    * Production ledger execution uses `emitBatches` through `FlowSimulation`.
+    * This method preserves the legacy flat Account IDs contract above and does
+    * not model the mortgage principal settlement shell.
+    */
   def emit(input: Input): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
     if input.origination > PLN.Zero then flows += Flow(BANK_ACCOUNT, HH_ACCOUNT, input.origination.toLong, FlowMechanism.MortgageOrigination.toInt)
