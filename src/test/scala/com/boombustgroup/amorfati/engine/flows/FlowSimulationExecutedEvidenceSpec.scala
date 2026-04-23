@@ -77,10 +77,17 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
       mechanismTotal(result.flows, FlowMechanism.QuasiFiscalBondIssuance) +
       mechanismTotal(result.flows, FlowMechanism.QuasiFiscalNbpAbsorption)
     result.trace.executedFlows.quasiFiscalBondIssuance shouldBe result.calculus.qfBankBondIssuance + result.calculus.qfNbpBondAbsorption
-    result.trace.executedFlows.quasiFiscalBondAmortization shouldBe mechanismTotal(result.flows, FlowMechanism.QuasiFiscalBondAmortization)
+    result.trace.executedFlows.quasiFiscalBondAmortization shouldBe
+      mechanismTotal(result.flows, FlowMechanism.QuasiFiscalBondAmortization) +
+      mechanismTotal(result.flows, FlowMechanism.QuasiFiscalNbpBondAmortization)
     result.trace.executedFlows.quasiFiscalBondAmortization shouldBe result.calculus.qfBankBondAmortization + result.calculus.qfNbpBondAmortization
     result.trace.executedFlows.quasiFiscalNbpAbsorption shouldBe mechanismTotal(result.flows, FlowMechanism.QuasiFiscalNbpAbsorption)
     result.trace.executedFlows.quasiFiscalNbpAbsorption shouldBe result.calculus.qfNbpBondAbsorption
+    result.trace.executedFlows.quasiFiscalNbpBondAmortization shouldBe mechanismTotal(
+      result.flows,
+      FlowMechanism.QuasiFiscalNbpBondAmortization,
+    )
+    result.trace.executedFlows.quasiFiscalNbpBondAmortization shouldBe result.calculus.qfNbpBondAmortization
     result.trace.executedFlows.quasiFiscalLending shouldBe mechanismTotal(result.flows, FlowMechanism.QuasiFiscalLending)
     result.trace.executedFlows.quasiFiscalLending shouldBe result.calculus.qfLending
     result.trace.executedFlows.quasiFiscalRepayment shouldBe mechanismTotal(result.flows, FlowMechanism.QuasiFiscalRepayment)
@@ -139,6 +146,7 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
     evidence.quasiFiscalBondIssuance shouldBe PLN(1000000.0)
     evidence.quasiFiscalBondAmortization shouldBe PLN(300000.0)
     evidence.quasiFiscalNbpAbsorption shouldBe PLN(300000.0)
+    evidence.quasiFiscalNbpBondAmortization shouldBe PLN(100000.0)
     evidence.quasiFiscalLending shouldBe PLN(500000.0)
     evidence.quasiFiscalRepayment shouldBe PLN(150000.0)
     evidence.quasiFiscalDepositChange shouldBe PLN(350000.0)

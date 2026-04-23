@@ -41,7 +41,7 @@ object QuasiFiscalFlows:
         topology.funds.quasiFiscal,
         input.nbpBondAmortization,
         AssetType.QuasiFiscalBond,
-        FlowMechanism.QuasiFiscalBondAmortization,
+        FlowMechanism.QuasiFiscalNbpBondAmortization,
       ),
       AggregateBatchedEmission.transfer(
         EntitySector.Funds,

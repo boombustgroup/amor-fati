@@ -145,6 +145,7 @@ object RuntimeMechanismSurvivability:
       FlowMechanism.QuasiFiscalBondIssuance,
       FlowMechanism.QuasiFiscalBondAmortization,
       FlowMechanism.QuasiFiscalNbpAbsorption,
+      FlowMechanism.QuasiFiscalNbpBondAmortization,
     ),
     declared(
       ExecutionDeltaOnly,

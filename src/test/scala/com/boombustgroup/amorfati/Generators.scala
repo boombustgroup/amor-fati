@@ -587,13 +587,14 @@ object Generators:
     eclProvisionChange = PLN.Zero,
     quasiFiscalBondIssuance = PLN.Zero,
     quasiFiscalBondAmortization = PLN.Zero,
+    quasiFiscalNbpBondAmortization = PLN.Zero,
     quasiFiscalNbpAbsorption = PLN.Zero,
     quasiFiscalLending = PLN.Zero,
     quasiFiscalRepayment = PLN.Zero,
     quasiFiscalDepositChange = PLN.Zero,
   )
 
-  /** Generate (prev, curr, flows) where all 9 SFC identities hold exactly. */
+  /** Generate (prev, curr, flows) where exact SFC identities hold. */
   val genConsistentFlowsAndSnapshots: Gen[(Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows)] =
     for
       prev  <- genSnapshot

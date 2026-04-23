@@ -114,6 +114,7 @@ class BopSfcSpec extends AnyFlatSpec with Matchers:
     eclProvisionChange = PLN.Zero,
     quasiFiscalBondIssuance = PLN.Zero,
     quasiFiscalBondAmortization = PLN.Zero,
+    quasiFiscalNbpBondAmortization = PLN.Zero,
     quasiFiscalNbpAbsorption = PLN.Zero,
     quasiFiscalLending = PLN.Zero,
     quasiFiscalRepayment = PLN.Zero,

@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.Distribute
 
 /** Quasi-fiscal entities: BGK (Bank Gospodarstwa Krajowego) + PFR (Polski
   * Fundusz Rozwoju), modelled as a single consolidated agent.
@@ -107,8 +108,12 @@ object QuasiFiscal:
     val lendingAmort: PLN     = prevStock.loanPortfolio * loanAmortFrac
     val newLoanPortfolio: PLN = (prevStock.loanPortfolio + lendingGrowth - lendingAmort).max(PLN.Zero)
 
-    val bankAmortization: PLN = amortization * bankShareOf(prevStock)
-    val nbpAmortization: PLN  = amortization * nbpShareOf(prevStock)
+    val amortizationSplit     = Distribute.distribute(
+      amortization.distributeRaw,
+      Array(bankShareOf(prevStock).distributeRaw, nbpShareOf(prevStock).distributeRaw),
+    )
+    val bankAmortization: PLN = PLN.fromRaw(amortizationSplit(0))
+    val nbpAmortization: PLN  = PLN.fromRaw(amortizationSplit(1))
 
     val newOutstanding: PLN  = (prevStock.bondsOutstanding + issuance - amortization).max(PLN.Zero)
     val newBankHoldings: PLN = (prevStock.bankHoldings + bankPurchase - bankAmortization).max(PLN.Zero)

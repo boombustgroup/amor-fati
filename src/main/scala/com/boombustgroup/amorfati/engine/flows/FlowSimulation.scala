@@ -813,14 +813,27 @@ object FlowSimulation:
     def nbfiDepositDrain: PLN =
       signedAmount(FlowMechanism.TfiDepositDrain)
 
+    /** Total BGK/PFR bond issuance. This intentionally includes both the
+      * commercial-bank leg and the separately addressable NBP absorption leg.
+      */
     def quasiFiscalBondIssuance: PLN =
       amount(FlowMechanism.QuasiFiscalBondIssuance) + amount(FlowMechanism.QuasiFiscalNbpAbsorption)
 
+    /** Total BGK/PFR bond amortization across bank and NBP holders. */
     def quasiFiscalBondAmortization: PLN =
-      amount(FlowMechanism.QuasiFiscalBondAmortization)
+      amount(FlowMechanism.QuasiFiscalBondAmortization) + amount(FlowMechanism.QuasiFiscalNbpBondAmortization)
 
+    /** NBP's purchase share of BGK/PFR issuance. Callers that already use
+      * `quasiFiscalBondIssuance` must not add this again.
+      */
     def quasiFiscalNbpAbsorption: PLN =
       amount(FlowMechanism.QuasiFiscalNbpAbsorption)
+
+    /** NBP holder leg of BGK/PFR bond amortization. Callers that already use
+      * `quasiFiscalBondAmortization` must not add this again.
+      */
+    def quasiFiscalNbpBondAmortization: PLN =
+      amount(FlowMechanism.QuasiFiscalNbpBondAmortization)
 
     def quasiFiscalLending: PLN =
       amount(FlowMechanism.QuasiFiscalLending)
@@ -991,6 +1004,7 @@ object FlowSimulation:
       eclProvisionChange = banking.eclProvisionChange,
       quasiFiscalBondIssuance = evidence.quasiFiscalBondIssuance,
       quasiFiscalBondAmortization = evidence.quasiFiscalBondAmortization,
+      quasiFiscalNbpBondAmortization = evidence.quasiFiscalNbpBondAmortization,
       quasiFiscalNbpAbsorption = evidence.quasiFiscalNbpAbsorption,
       quasiFiscalLending = evidence.quasiFiscalLending,
       quasiFiscalRepayment = evidence.quasiFiscalRepayment,

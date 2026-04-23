@@ -50,9 +50,7 @@ class QuasiFiscalFlowsSpec extends AnyFlatSpec with Matchers:
     nbpAbsorption.asset shouldBe AssetType.QuasiFiscalBond
     totalTransferred(Vector(nbpAbsorption)) shouldBe input.nbpBondAbsorption
 
-    val amortizations    = mechanismBatches(batches, FlowMechanism.QuasiFiscalBondAmortization)
-    amortizations should have size 2
-    val bankAmortization = onlyScatter(amortizations.collect { case scatter: BatchedFlow.Scatter => scatter })
+    val bankAmortization = onlyScatter(mechanismBatches(batches, FlowMechanism.QuasiFiscalBondAmortization))
     bankAmortization.from shouldBe EntitySector.Banks
     bankAmortization.to shouldBe EntitySector.Funds
     bankAmortization.asset shouldBe AssetType.QuasiFiscalBond
@@ -60,7 +58,7 @@ class QuasiFiscalFlowsSpec extends AnyFlatSpec with Matchers:
     bankAmortization.amounts.toVector.drop(summon[RuntimeLedgerTopology].banks.persistedCount) shouldBe Vector(0L)
     totalTransferred(Vector(bankAmortization)) shouldBe input.bankBondAmortization
 
-    val nbpAmortization = onlyBroadcast(amortizations.collect { case broadcast: BatchedFlow.Broadcast => broadcast })
+    val nbpAmortization = onlyBroadcast(mechanismBatches(batches, FlowMechanism.QuasiFiscalNbpBondAmortization))
     nbpAmortization.from shouldBe EntitySector.NBP
     nbpAmortization.fromIndex shouldBe summon[RuntimeLedgerTopology].nbp.persistedOwner
     nbpAmortization.to shouldBe EntitySector.Funds
@@ -106,6 +104,7 @@ class QuasiFiscalFlowsSpec extends AnyFlatSpec with Matchers:
     evidence.quasiFiscalBondIssuance shouldBe input.bankBondIssuance + input.nbpBondAbsorption
     evidence.quasiFiscalBondAmortization shouldBe input.bankBondAmortization + input.nbpBondAmortization
     evidence.quasiFiscalNbpAbsorption shouldBe input.nbpBondAbsorption
+    evidence.quasiFiscalNbpBondAmortization shouldBe input.nbpBondAmortization
     evidence.quasiFiscalLending shouldBe input.lending
     evidence.quasiFiscalRepayment shouldBe input.repayment
     evidence.quasiFiscalDepositChange shouldBe input.lending - input.repayment

@@ -130,77 +130,78 @@ object Sfc:
     * trivially.
     */
   case class SemanticFlows(
-      govSpending: PLN,                 // total budget expenditure (benefits + transfers + current spend + domestic capital spend + debt service + subventions + domestic EU co-financing)
-      govRevenue: PLN,                  // total treasury inflow from explicit runtime channels (firm CIT + household PIT + dividend tax + SOE dividends + VAT + excise + customs + NBP remittance)
-      nplLoss: PLN,                     // bank NPL write-off loss (firm loans, after recovery)
-      interestIncome: PLN,              // bank interest income from firm loans
-      hhDebtService: PLN,               // household debt service payments → bank capital
-      totalIncome: PLN,                 // aggregate household income (wages + benefits + transfers)
-      totalConsumption: PLN,            // aggregate household consumption expenditure
-      newLoans: PLN,                    // new firm loans originated this month
-      nplRecovery: PLN,                 // recovered amount from NPL (nplNew × recoveryRate)
-      currentAccount: PLN,              // BoP current account balance
-      valuationEffect: PLN,             // NFA valuation change from exchange rate movements
-      bankBondIncome: PLN,              // bank coupon income from government bonds
-      qePurchase: PLN,                  // NBP quantitative easing bond purchases
-      newBondIssuance: PLN,             // net new government bond issuance
-      depositInterestPaid: PLN,         // bank interest paid on deposits → reduces bank capital
-      reserveInterest: PLN,             // NBP pays on required reserves
-      standingFacilityIncome: PLN,      // Deposit/lombard facility net
-      interbankInterest: PLN,           // Interbank interest (net ≈ 0)
-      jstDepositChange: PLN,            // JST deposit flow
-      jstSpending: PLN,                 // JST spending
-      jstRevenue: PLN,                  // JST revenue
-      zusContributions: PLN,            // ZUS contributions
-      zusPensionPayments: PLN,          // ZUS pension payments
-      zusGovSubvention: PLN,            // ZUS gov subvention
-      nfzContributions: PLN,            // NFZ health insurance contributions
-      nfzSpending: PLN,                 // NFZ health spending
-      nfzGovSubvention: PLN,            // NFZ gov subvention
-      dividendIncome: PLN,              // net domestic dividends → HH deposits
-      foreignDividendOutflow: PLN,      // foreign dividends → CA outflow
-      dividendTax: PLN,                 // Belka tax → gov revenue
-      mortgageInterestIncome: PLN,      // mortgage interest → bank capital
-      mortgageNplLoss: PLN,             // mortgage NPL loss → bank capital
-      mortgageOrigination: PLN,         // new mortgages issued
-      mortgagePrincipalRepaid: PLN,     // monthly principal repaid
-      mortgageDefaultAmount: PLN,       // gross mortgage defaults (before recovery)
-      remittanceOutflow: PLN,           // immigrant remittances → deposit outflow
-      fofResidual: PLN,                 // flow-of-funds residual (Σ firmRevenue - Σ sectorDemand)
-      consumerDebtService: PLN,         // consumer credit: monthly debt service (principal + interest)
-      consumerNplLoss: PLN,             // consumer credit: NPL loss (after recovery)
-      consumerOrigination: PLN,         // consumer credit: new loan origination
-      consumerPrincipalRepaid: PLN,     // consumer credit: principal portion of debt service
-      consumerDefaultAmount: PLN,       // consumer credit: gross default amount (before recovery)
-      corpBondCouponIncome: PLN,        // bank coupon income from corp bonds
-      corpBondDefaultLoss: PLN,         // bank loss from corp bond defaults
-      corpBondIssuance: PLN,            // new corp bonds issued this month
-      corpBondAmortization: PLN,        // corp bond principal repaid
-      corpBondDefaultAmount: PLN,       // gross corp bond defaults
-      insNetDepositChange: PLN,         // insurance net HH deposit change
-      nbfiDepositDrain: PLN,            // TFI deposit drain
-      nbfiOrigination: PLN,             // NBFI monthly origination
-      nbfiRepayment: PLN,               // NBFI monthly repayment
-      nbfiDefaultAmount: PLN,           // NBFI gross monthly defaults
-      fdiProfitShifting: PLN,           // FDI profit shifting (service import)
-      fdiRepatriation: PLN,             // FDI dividend repatriation (primary income debit)
-      diasporaInflow: PLN,              // diaspora remittance inflow → deposit inflow
-      tourismExport: PLN,               // inbound tourism → deposit inflow + export
-      tourismImport: PLN,               // outbound tourism → deposit outflow + import
-      bfgLevy: PLN,                     // BFG levy (bank capital expense)
-      bailInLoss: PLN,                  // bail-in deposit destruction
-      bankCapitalDestruction: PLN,      // Capital wiped when bank fails (shareholders wiped)
-      investNetDepositFlow: PLN,        // Investment timing deposit settlement: lagged domestic demand - current domestic spend
-      firmPrincipalRepaid: PLN,         // firm loan principal repaid (deposit destruction)
-      unrealizedBondLoss: PLN,          // mark-to-market loss on gov bond portfolio (interest rate risk channel)
-      htmRealizedLoss: PLN,             // realized loss from HTM forced reclassification (HTM reclassification channel)
-      eclProvisionChange: PLN,          // IFRS 9 ECL provision change (positive = additional provision → capital hit)
-      quasiFiscalBondIssuance: PLN,     // BGK/PFR bond issuance absorbed by banks and NBP
-      quasiFiscalBondAmortization: PLN, // BGK/PFR bond principal amortization
-      quasiFiscalNbpAbsorption: PLN,    // NBP purchase share of BGK/PFR issuance
-      quasiFiscalLending: PLN,          // new BGK/PFR subsidized lending
-      quasiFiscalRepayment: PLN,        // BGK/PFR loan principal repayment
-      quasiFiscalDepositChange: PLN,    // deposit creation/destruction from BGK/PFR lending net of repayment
+      govSpending: PLN,                    // total budget expenditure (benefits + transfers + current spend + domestic capital spend + debt service + subventions + domestic EU co-financing)
+      govRevenue: PLN,                     // total treasury inflow from explicit runtime channels (firm CIT + household PIT + dividend tax + SOE dividends + VAT + excise + customs + NBP remittance)
+      nplLoss: PLN,                        // bank NPL write-off loss (firm loans, after recovery)
+      interestIncome: PLN,                 // bank interest income from firm loans
+      hhDebtService: PLN,                  // household debt service payments → bank capital
+      totalIncome: PLN,                    // aggregate household income (wages + benefits + transfers)
+      totalConsumption: PLN,               // aggregate household consumption expenditure
+      newLoans: PLN,                       // new firm loans originated this month
+      nplRecovery: PLN,                    // recovered amount from NPL (nplNew × recoveryRate)
+      currentAccount: PLN,                 // BoP current account balance
+      valuationEffect: PLN,                // NFA valuation change from exchange rate movements
+      bankBondIncome: PLN,                 // bank coupon income from government bonds
+      qePurchase: PLN,                     // NBP quantitative easing bond purchases
+      newBondIssuance: PLN,                // net new government bond issuance
+      depositInterestPaid: PLN,            // bank interest paid on deposits → reduces bank capital
+      reserveInterest: PLN,                // NBP pays on required reserves
+      standingFacilityIncome: PLN,         // Deposit/lombard facility net
+      interbankInterest: PLN,              // Interbank interest (net ≈ 0)
+      jstDepositChange: PLN,               // JST deposit flow
+      jstSpending: PLN,                    // JST spending
+      jstRevenue: PLN,                     // JST revenue
+      zusContributions: PLN,               // ZUS contributions
+      zusPensionPayments: PLN,             // ZUS pension payments
+      zusGovSubvention: PLN,               // ZUS gov subvention
+      nfzContributions: PLN,               // NFZ health insurance contributions
+      nfzSpending: PLN,                    // NFZ health spending
+      nfzGovSubvention: PLN,               // NFZ gov subvention
+      dividendIncome: PLN,                 // net domestic dividends → HH deposits
+      foreignDividendOutflow: PLN,         // foreign dividends → CA outflow
+      dividendTax: PLN,                    // Belka tax → gov revenue
+      mortgageInterestIncome: PLN,         // mortgage interest → bank capital
+      mortgageNplLoss: PLN,                // mortgage NPL loss → bank capital
+      mortgageOrigination: PLN,            // new mortgages issued
+      mortgagePrincipalRepaid: PLN,        // monthly principal repaid
+      mortgageDefaultAmount: PLN,          // gross mortgage defaults (before recovery)
+      remittanceOutflow: PLN,              // immigrant remittances → deposit outflow
+      fofResidual: PLN,                    // flow-of-funds residual (Σ firmRevenue - Σ sectorDemand)
+      consumerDebtService: PLN,            // consumer credit: monthly debt service (principal + interest)
+      consumerNplLoss: PLN,                // consumer credit: NPL loss (after recovery)
+      consumerOrigination: PLN,            // consumer credit: new loan origination
+      consumerPrincipalRepaid: PLN,        // consumer credit: principal portion of debt service
+      consumerDefaultAmount: PLN,          // consumer credit: gross default amount (before recovery)
+      corpBondCouponIncome: PLN,           // bank coupon income from corp bonds
+      corpBondDefaultLoss: PLN,            // bank loss from corp bond defaults
+      corpBondIssuance: PLN,               // new corp bonds issued this month
+      corpBondAmortization: PLN,           // corp bond principal repaid
+      corpBondDefaultAmount: PLN,          // gross corp bond defaults
+      insNetDepositChange: PLN,            // insurance net HH deposit change
+      nbfiDepositDrain: PLN,               // TFI deposit drain
+      nbfiOrigination: PLN,                // NBFI monthly origination
+      nbfiRepayment: PLN,                  // NBFI monthly repayment
+      nbfiDefaultAmount: PLN,              // NBFI gross monthly defaults
+      fdiProfitShifting: PLN,              // FDI profit shifting (service import)
+      fdiRepatriation: PLN,                // FDI dividend repatriation (primary income debit)
+      diasporaInflow: PLN,                 // diaspora remittance inflow → deposit inflow
+      tourismExport: PLN,                  // inbound tourism → deposit inflow + export
+      tourismImport: PLN,                  // outbound tourism → deposit outflow + import
+      bfgLevy: PLN,                        // BFG levy (bank capital expense)
+      bailInLoss: PLN,                     // bail-in deposit destruction
+      bankCapitalDestruction: PLN,         // Capital wiped when bank fails (shareholders wiped)
+      investNetDepositFlow: PLN,           // Investment timing deposit settlement: lagged domestic demand - current domestic spend
+      firmPrincipalRepaid: PLN,            // firm loan principal repaid (deposit destruction)
+      unrealizedBondLoss: PLN,             // mark-to-market loss on gov bond portfolio (interest rate risk channel)
+      htmRealizedLoss: PLN,                // realized loss from HTM forced reclassification (HTM reclassification channel)
+      eclProvisionChange: PLN,             // IFRS 9 ECL provision change (positive = additional provision → capital hit)
+      quasiFiscalBondIssuance: PLN,        // BGK/PFR bond issuance absorbed by banks and NBP
+      quasiFiscalBondAmortization: PLN,    // BGK/PFR bond principal amortization
+      quasiFiscalNbpBondAmortization: PLN, // BGK/PFR bond principal amortization paid to NBP
+      quasiFiscalNbpAbsorption: PLN,       // NBP purchase share of BGK/PFR issuance
+      quasiFiscalLending: PLN,             // new BGK/PFR subsidized lending
+      quasiFiscalRepayment: PLN,           // BGK/PFR loan principal repayment
+      quasiFiscalDepositChange: PLN,       // deposit creation/destruction from BGK/PFR lending net of repayment
   )
 
   /** Enumeration of exact runtime identities plus legacy diagnostic metric
@@ -213,7 +214,8 @@ object Sfc:
     case BankCapital, BankDeposits, GovDebt, GovBudgetCash, JstCash, ZusCash,
       NfzCash, FpCash, PfronCash, FgspCash, Nfa, BondClearing, InterbankNetting, JstDebt, FusBalance,
       NfzBalance, MortgageStock,
-      FlowOfFunds, ConsumerCredit, CorpBondStock, NbfiCredit, QuasiFiscalBondStock, QuasiFiscalBondClearing, QuasiFiscalCredit
+      FlowOfFunds, ConsumerCredit, CorpBondStock, NbfiCredit, QuasiFiscalBondStock, QuasiFiscalBondClearing,
+      QuasiFiscalBankBondHoldings, QuasiFiscalNbpBondHoldings, QuasiFiscalCredit
 
   /** A single identity violation, carrying the identity that failed, a
     * human-readable description, and the expected vs actual monetary values so
@@ -306,7 +308,7 @@ object Sfc:
     * matching liability, which implies the Godley sectoral balances rule
     * (S−I)+(G−T)+(X−M)=0 by construction.
     *
-    * The monetary circuit closes via sector-level flow-of-funds (Identity 10).
+    * The monetary circuit closes via the sector-level flow-of-funds identity.
     *
     *   1. Bank capital: Δ = -nplLoss - mortgageNplLoss - consumerNplLoss -
     *      corpBondDefaultLoss - bfgLevy - bankCapitalDestruction +
@@ -340,7 +342,11 @@ object Sfc:
     *       amortization
     *   12. Quasi-fiscal bond clearing: quasiFiscalBankHoldings +
     *       quasiFiscalNbpHoldings = quasiFiscalBondsOutstanding
-    *   13. Quasi-fiscal credit: Δ quasiFiscalLoanPortfolio = lending -
+    *   13. Quasi-fiscal bank bond holdings: Δ quasiFiscalBankHoldings = bank
+    *       issuance - bank amortization
+    *   14. Quasi-fiscal NBP bond holdings: Δ quasiFiscalNbpHoldings = NBP
+    *       absorption - NBP amortization
+    *   15. Quasi-fiscal credit: Δ quasiFiscalLoanPortfolio = lending -
     *       repayment
     *
     * These catch semantic stock-flow mismatches: mis-routed flows, refactoring
@@ -356,6 +362,11 @@ object Sfc:
       flows: SemanticFlows, // all flows that occurred during the month
   )(using p: SimParams): SfcResult =
     import SfcIdentity.*
+
+    val quasiFiscalBankBondIssuance     =
+      flows.quasiFiscalBondIssuance - flows.quasiFiscalNbpAbsorption
+    val quasiFiscalBankBondAmortization =
+      flows.quasiFiscalBondAmortization - flows.quasiFiscalNbpBondAmortization
 
     val identities: Vector[IdentitySpec] = Vector(
       // 1. Bank capital: losses + profit retention
@@ -459,7 +470,21 @@ object Sfc:
         expected = curr.quasiFiscalBondsOutstanding,
         actual = curr.quasiFiscalBankHoldings + curr.quasiFiscalNbpHoldings,
       ),
-      // 13. Quasi-fiscal credit: lending − repayment
+      // 13. Quasi-fiscal bank bond holdings: bank issuance − bank amortization
+      IdentitySpec(
+        QuasiFiscalBankBondHoldings,
+        "quasi-fiscal bank bond holdings change",
+        expected = quasiFiscalBankBondIssuance - quasiFiscalBankBondAmortization,
+        actual = curr.quasiFiscalBankHoldings - prev.quasiFiscalBankHoldings,
+      ),
+      // 14. Quasi-fiscal NBP bond holdings: NBP absorption − NBP amortization
+      IdentitySpec(
+        QuasiFiscalNbpBondHoldings,
+        "quasi-fiscal NBP bond holdings change",
+        expected = flows.quasiFiscalNbpAbsorption - flows.quasiFiscalNbpBondAmortization,
+        actual = curr.quasiFiscalNbpHoldings - prev.quasiFiscalNbpHoldings,
+      ),
+      // 15. Quasi-fiscal credit: lending − repayment
       IdentitySpec(
         QuasiFiscalCredit,
         "quasi-fiscal credit stock change",

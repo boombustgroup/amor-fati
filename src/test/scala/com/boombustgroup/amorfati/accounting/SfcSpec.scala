@@ -278,6 +278,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     eclProvisionChange = PLN.Zero,
     quasiFiscalBondIssuance = PLN.Zero,
     quasiFiscalBondAmortization = PLN.Zero,
+    quasiFiscalNbpBondAmortization = PLN.Zero,
     quasiFiscalNbpAbsorption = PLN.Zero,
     quasiFiscalLending = PLN.Zero,
     quasiFiscalRepayment = PLN.Zero,
@@ -1078,6 +1079,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val flows  = zeroFlows.copy(
       quasiFiscalBondIssuance = PLN(1000.0),
       quasiFiscalBondAmortization = PLN(300.0),
+      quasiFiscalNbpBondAmortization = PLN.Zero,
       quasiFiscalNbpAbsorption = PLN(300.0),
     )
     val result = Sfc.validateStockExactness(prev, curr, flows)
@@ -1085,7 +1087,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     result shouldBe Right(())
   }
 
-  it should "detect quasi-fiscal holder clearing mismatches" in {
+  it should "detect quasi-fiscal holder misrouting even when total clearing matches" in {
     val prev   = zeroSnap.copy(
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
@@ -1096,16 +1098,19 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val curr   = prev.copy(
       quasiFiscalBondsOutstanding = PLN(1700.0),
       quasiFiscalBankHoldings = PLN(1000.0),
-      quasiFiscalNbpHoldings = PLN(600.0),
+      quasiFiscalNbpHoldings = PLN(700.0),
     )
     val flows  = zeroFlows.copy(
       quasiFiscalBondIssuance = PLN(1000.0),
       quasiFiscalBondAmortization = PLN(300.0),
+      quasiFiscalNbpBondAmortization = PLN.Zero,
+      quasiFiscalNbpAbsorption = PLN(300.0),
     )
     val result = Sfc.validateStockExactness(prev, curr, flows)
 
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.QuasiFiscalBondClearing) shouldBe (BigDecimal("-100.0") +- BigDecimal("0.01"))
+    errorDelta(result, Sfc.SfcIdentity.QuasiFiscalBankBondHoldings) shouldBe (BigDecimal("-100.0") +- BigDecimal("0.01"))
+    errorDelta(result, Sfc.SfcIdentity.QuasiFiscalNbpBondHoldings) shouldBe (BigDecimal("100.0") +- BigDecimal("0.01"))
   }
 
   "Sfc.validateStockExactness (quasi-fiscal credit)" should "pass when loan portfolio change matches lending and repayment" in {
