@@ -318,7 +318,7 @@ object Sfc:
     *      investNetDepositFlow + jstDepositChange + dividendIncome -
     *      foreignDividendOutflow - remittanceOutflow + diasporaInflow +
     *      tourismExport - tourismImport - bailInLoss + consumerOrigination +
-    *      insNetDepositChange + nbfiDepositDrain
+    *      insNetDepositChange + nbfiDepositDrain + quasiFiscalDepositChange
     *   3. NFA: Δ = currentAccount + valuationEffect (currentAccount includes
     *      -foreignDividendOutflow, -fdiProfitShifting, -fdiRepatriation,
     *      +diasporaInflow)
@@ -336,6 +336,12 @@ object Sfc:
     *      defaultAmount
     *   10. NBFI credit stock: Δ nbfiLoanStock = origination - repayment -
     *       defaultAmount
+    *   11. Quasi-fiscal bond stock: Δ quasiFiscalBondsOutstanding = issuance -
+    *       amortization
+    *   12. Quasi-fiscal bond clearing: quasiFiscalBankHoldings +
+    *       quasiFiscalNbpHoldings = quasiFiscalBondsOutstanding
+    *   13. Quasi-fiscal credit: Δ quasiFiscalLoanPortfolio = lending -
+    *       repayment
     *
     * These catch semantic stock-flow mismatches: mis-routed flows, refactoring
     * errors in stock updates, and any new flow that changes a tracked stock

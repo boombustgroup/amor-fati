@@ -91,7 +91,7 @@ without emitting monetary flows. `FlowSimulation` wires them together.
 
 SFC-verified monetary flow emission. Every PLN flow is recorded via the
 `amor-fati-ledger` (formally verified with Stainless/Z3) and checked
-against 13 accounting identities each month.
+against 13 exact accounting identities each month.
 
 | File | Responsibility |
 |------|----------------|
