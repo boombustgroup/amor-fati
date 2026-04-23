@@ -21,15 +21,15 @@ import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
   *   2. '''SemanticFlows''' — assemble every flow that occurred during the
   *      month, using the exact same values that were applied to balance sheet
   *      updates in Simulation.step.
-  *   3. '''validate''' — for each of the 13 identities, check that Δstock =
-  *      Σflows exactly.
+  *   3. '''validate''' — for each exact identity, check that Δstock = Σflows
+  *      exactly.
   *
-  * Together these 13 identities cover every financial instrument in the model
-  * (deposits, loans, government bonds, corporate bonds, mortgages, consumer
-  * credit, NBFI credit, interbank positions, NFA, JST debt, FUS balance, and
-  * flow-of-funds). Because every asset is some other sector's liability, the
-  * Godley sectoral balances rule (S−I)+(G−T)+(X−M)=0 holds by construction when
-  * all 13 identities pass.
+  * Together these exact identities cover every financial instrument in the
+  * model (deposits, loans, government bonds, corporate bonds, mortgages,
+  * consumer credit, NBFI credit, interbank positions, NFA, JST debt, FUS
+  * balance, and flow-of-funds). Because every asset is some other sector's
+  * liability, the Godley sectoral balances rule (S−I)+(G−T)+(X−M)=0 holds by
+  * construction when all exact identities pass.
   *
   * '''When to update this file:''' any new mechanism that modifies a monetary
   * stock (bank capital, deposits, government debt, NFA, bond holdings, or
@@ -113,6 +113,10 @@ object Sfc:
       insuranceGovBondHoldings: PLN, // insurance gov bond holdings
       tfiGovBondHoldings: PLN,       // TFI gov bond holdings
       nbfiLoanStock: PLN,            // NBFI credit stock
+      quasiFiscalBondsOutstanding: PLN = PLN.Zero,
+      quasiFiscalBankHoldings: PLN = PLN.Zero,
+      quasiFiscalNbpHoldings: PLN = PLN.Zero,
+      quasiFiscalLoanPortfolio: PLN = PLN.Zero,
   )
 
   /** Semantic monthly flow evidence used by the SFC oracle.
@@ -191,6 +195,12 @@ object Sfc:
       unrealizedBondLoss: PLN,      // mark-to-market loss on gov bond portfolio (interest rate risk channel)
       htmRealizedLoss: PLN,         // realized loss from HTM forced reclassification (HTM reclassification channel)
       eclProvisionChange: PLN,      // IFRS 9 ECL provision change (positive = additional provision → capital hit)
+      quasiFiscalBondIssuance: PLN = PLN.Zero,
+      quasiFiscalBondAmortization: PLN = PLN.Zero,
+      quasiFiscalNbpAbsorption: PLN = PLN.Zero,
+      quasiFiscalLending: PLN = PLN.Zero,
+      quasiFiscalRepayment: PLN = PLN.Zero,
+      quasiFiscalDepositChange: PLN = PLN.Zero,
   )
 
   /** Enumeration of exact runtime identities plus legacy diagnostic metric
@@ -203,7 +213,7 @@ object Sfc:
     case BankCapital, BankDeposits, GovDebt, GovBudgetCash, JstCash, ZusCash,
       NfzCash, FpCash, PfronCash, FgspCash, Nfa, BondClearing, InterbankNetting, JstDebt, FusBalance,
       NfzBalance, MortgageStock,
-      FlowOfFunds, ConsumerCredit, CorpBondStock, NbfiCredit
+      FlowOfFunds, ConsumerCredit, CorpBondStock, NbfiCredit, QuasiFiscalBondStock, QuasiFiscalBondClearing, QuasiFiscalCredit
 
   /** A single identity violation, carrying the identity that failed, a
     * human-readable description, and the expected vs actual monetary values so
@@ -279,6 +289,10 @@ object Sfc:
       insuranceGovBondHoldings = bonds.insuranceHoldings,
       tfiGovBondHoldings = bonds.tfiHoldings,
       nbfiLoanStock = ledgerFinancialState.funds.nbfi.nbfiLoanStock,
+      quasiFiscalBondsOutstanding = ledgerFinancialState.funds.quasiFiscal.bondsOutstanding,
+      quasiFiscalBankHoldings = ledgerFinancialState.funds.quasiFiscal.bankHoldings,
+      quasiFiscalNbpHoldings = ledgerFinancialState.funds.quasiFiscal.nbpHoldings,
+      quasiFiscalLoanPortfolio = ledgerFinancialState.funds.quasiFiscal.loanPortfolio,
     )
 
   def snapshot(state: RuntimeState): StockState =
@@ -364,7 +378,8 @@ object Sfc:
           flows.jstDepositChange + flows.dividendIncome - flows.foreignDividendOutflow -
           flows.remittanceOutflow + flows.diasporaInflow + flows.tourismExport -
           flows.tourismImport - flows.bailInLoss + flows.newLoans - flows.firmPrincipalRepaid +
-          flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain,
+          flows.consumerOrigination + flows.insNetDepositChange + flows.nbfiDepositDrain +
+          flows.quasiFiscalDepositChange,
         actual = curr.bankDeposits - prev.bankDeposits,
       ),
       // 3. NFA: current account + valuation
@@ -423,6 +438,27 @@ object Sfc:
         "NBFI credit stock change",
         expected = flows.nbfiOrigination - flows.nbfiRepayment - flows.nbfiDefaultAmount,
         actual = curr.nbfiLoanStock - prev.nbfiLoanStock,
+      ),
+      // 11. Quasi-fiscal bond stock: issuance − amortization
+      IdentitySpec(
+        QuasiFiscalBondStock,
+        "quasi-fiscal bond stock change",
+        expected = flows.quasiFiscalBondIssuance - flows.quasiFiscalBondAmortization,
+        actual = curr.quasiFiscalBondsOutstanding - prev.quasiFiscalBondsOutstanding,
+      ),
+      // 12. Quasi-fiscal bond clearing: banks + NBP = outstanding
+      IdentitySpec(
+        QuasiFiscalBondClearing,
+        s"quasi-fiscal bond clearing [bank=${curr.quasiFiscalBankHoldings}, nbp=${curr.quasiFiscalNbpHoldings}, outstanding=${curr.quasiFiscalBondsOutstanding}]",
+        expected = curr.quasiFiscalBondsOutstanding,
+        actual = curr.quasiFiscalBankHoldings + curr.quasiFiscalNbpHoldings,
+      ),
+      // 13. Quasi-fiscal credit: lending − repayment
+      IdentitySpec(
+        QuasiFiscalCredit,
+        "quasi-fiscal credit stock change",
+        expected = flows.quasiFiscalLending - flows.quasiFiscalRepayment,
+        actual = curr.quasiFiscalLoanPortfolio - prev.quasiFiscalLoanPortfolio,
       ),
     )
 

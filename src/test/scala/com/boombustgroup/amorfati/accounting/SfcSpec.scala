@@ -358,6 +358,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         nfzCash = PLN(60.0),
         ppkGovBondHoldings = PLN(17.0),
         nbfi = zeroLedger.funds.nbfi.copy(govBondHoldings = PLN(18.0), nbfiLoanStock = PLN(70.0)),
+        quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
+          bondsOutstanding = PLN(90.0),
+          loanPortfolio = PLN(80.0),
+          bankHoldings = PLN(55.0),
+          nbpHoldings = PLN(35.0),
+        ),
       ),
     )
     val snap   = Sfc.snapshot(zeroWorld, Vector.empty, Vector.empty, Vector(makeBank()), ledger)
@@ -372,6 +378,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     snap.ppkBondHoldings shouldBe PLN(17.0)
     snap.tfiGovBondHoldings shouldBe PLN(18.0)
     snap.nbfiLoanStock shouldBe PLN(70.0)
+    snap.quasiFiscalBondsOutstanding shouldBe PLN(90.0)
+    snap.quasiFiscalLoanPortfolio shouldBe PLN(80.0)
+    snap.quasiFiscalBankHoldings shouldBe PLN(55.0)
+    snap.quasiFiscalNbpHoldings shouldBe PLN(35.0)
   }
 
   // ---- Identity 1: Bank capital ----
@@ -1037,6 +1047,82 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val curr   = prev.copy(nbfiLoanStock = PLN(96800.0))
     val flows  = zeroFlows.copy(nbfiOrigination = PLN(1000), nbfiRepayment = PLN(4000), nbfiDefaultAmount = PLN(200))
     val result = Sfc.validateStockExactness(prev, curr, flows)
+    result shouldBe Right(())
+  }
+
+  // ---- Quasi-fiscal bond and credit stock (#350) ----
+
+  "Sfc.validateStockExactness (quasi-fiscal bonds)" should "pass when stock and holder clearing match executed flows" in {
+    val prev   = zeroSnap.copy(
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      quasiFiscalBondsOutstanding = PLN(1000.0),
+      quasiFiscalBankHoldings = PLN(700.0),
+      quasiFiscalNbpHoldings = PLN(300.0),
+    )
+    val curr   = prev.copy(
+      quasiFiscalBondsOutstanding = PLN(1700.0),
+      quasiFiscalBankHoldings = PLN(1100.0),
+      quasiFiscalNbpHoldings = PLN(600.0),
+    )
+    val flows  = zeroFlows.copy(
+      quasiFiscalBondIssuance = PLN(1000.0),
+      quasiFiscalBondAmortization = PLN(300.0),
+      quasiFiscalNbpAbsorption = PLN(300.0),
+    )
+    val result = Sfc.validateStockExactness(prev, curr, flows)
+
+    result shouldBe Right(())
+  }
+
+  it should "detect quasi-fiscal holder clearing mismatches" in {
+    val prev   = zeroSnap.copy(
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      quasiFiscalBondsOutstanding = PLN(1000.0),
+      quasiFiscalBankHoldings = PLN(700.0),
+      quasiFiscalNbpHoldings = PLN(300.0),
+    )
+    val curr   = prev.copy(
+      quasiFiscalBondsOutstanding = PLN(1700.0),
+      quasiFiscalBankHoldings = PLN(1000.0),
+      quasiFiscalNbpHoldings = PLN(600.0),
+    )
+    val flows  = zeroFlows.copy(
+      quasiFiscalBondIssuance = PLN(1000.0),
+      quasiFiscalBondAmortization = PLN(300.0),
+    )
+    val result = Sfc.validateStockExactness(prev, curr, flows)
+
+    result shouldBe a[Left[?, ?]]
+    errorDelta(result, Sfc.SfcIdentity.QuasiFiscalBondClearing) shouldBe (BigDecimal("-100.0") +- BigDecimal("0.01"))
+  }
+
+  "Sfc.validateStockExactness (quasi-fiscal credit)" should "pass when loan portfolio change matches lending and repayment" in {
+    val prev   = zeroSnap.copy(
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+      quasiFiscalLoanPortfolio = PLN(100.0),
+    )
+    val curr   = prev.copy(quasiFiscalLoanPortfolio = PLN(450.0))
+    val flows  = zeroFlows.copy(
+      quasiFiscalLending = PLN(500.0),
+      quasiFiscalRepayment = PLN(150.0),
+    )
+    val result = Sfc.validateStockExactness(prev, curr, flows)
+
+    result shouldBe Right(())
+  }
+
+  it should "include quasi-fiscal lending deposit creation in bank deposit exactness" in {
+    val prev   = zeroSnap.copy(
+      bankCapital = PLN(200000),
+      bankDeposits = PLN(1000000),
+    )
+    val curr   = prev.copy(bankDeposits = PLN(1000350.0))
+    val flows  = zeroFlows.copy(quasiFiscalDepositChange = PLN(350.0))
+    val result = Sfc.validateStockExactness(prev, curr, flows)
+
     result shouldBe Right(())
   }
 

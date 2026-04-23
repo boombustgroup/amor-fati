@@ -23,6 +23,8 @@ class AssetOwnershipContractSpec extends AnyFlatSpec with Matchers:
     )
     isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, FundRuntimeIndex.Zus) shouldBe true
     isSupportedPersistedPair(EntitySector.Funds, AssetType.Cash, FundRuntimeIndex.QuasiFiscal) shouldBe false
+    isSupportedPersistedPair(EntitySector.Funds, AssetType.QuasiFiscalBond, FundRuntimeIndex.QuasiFiscal) shouldBe true
+    isSupportedPersistedPair(EntitySector.Funds, AssetType.NbfiLoan, FundRuntimeIndex.QuasiFiscal) shouldBe true
   }
 
   it should "distinguish persisted dynamic owners from appended runtime shells" in {

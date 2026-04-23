@@ -31,6 +31,7 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
     val withQe    = step(nbpQeActive = true)
     val withoutQe = step(nbpQeActive = false)
     td.toDouble(withQe.stock.nbpHoldings) should be > td.toDouble(withoutQe.stock.nbpHoldings)
+    withQe.state.monthlyBankBondIssuance + withQe.state.monthlyNbpBondAbsorption shouldBe withQe.state.monthlyIssuance
   }
 
   it should "have zero NBP holdings when QE inactive" in {
@@ -59,6 +60,7 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
       nbpQeActive = false,
     )
     td.toDouble(m2.stock.bondsOutstanding) should be < td.toDouble(m1.stock.bondsOutstanding)
+    m2.state.monthlyBankBondAmortization + m2.state.monthlyNbpBondAmortization shouldBe m2.state.monthlyBondAmortization
   }
 
   it should "compute ESA 2010 debt as MF + quasi-fiscal" in {

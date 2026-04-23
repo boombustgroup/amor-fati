@@ -85,7 +85,7 @@ without emitting monetary flows. `FlowSimulation` wires them together.
 | `PriceEquityEconomics.scala` | s7 | Inflation, GPW equity, sigma dynamics, GDP, macroprudential, EU funds                                                                        |
 | `OpenEconEconomics.scala` | s8 | BoP/forex, GVC trade, Taylor rule, bond yields, interbank, corporate bonds, insurance, NBFI                                                   |
 | `BankingEconomics.scala` | s9 | Bank P&L, provisioning, CAR, multi-bank resolution, bail-in, interbank, BFG levy, monetary aggregates (M1/M2/M3)                              |
-| `WorldAssemblyEconomics.scala` | final | Aggregation, informal economy, observables; assembles final World state + updated agents, 13-identity SFC check                                |
+| `WorldAssemblyEconomics.scala` | final | Aggregation, informal economy, observables; assembles final World state + updated agents, exact SFC check                                    |
 
 ## flows/
 
@@ -111,6 +111,7 @@ against 13 accounting identities each month.
 | `MortgageFlows.scala` | Housing: origination, principal repayment, interest, default |
 | `InsuranceFlows.scala` | Insurance: life + non-life reserve deltas for premiums, claims, and investment income |
 | `NbfiFlows.scala` | NBFI/TFI: TFI deposit drain and NBFI credit stock movement evidence |
+| `QuasiFiscalFlows.scala` | BGK/PFR: quasi-fiscal bond issuance/amortization, NBP absorption, subsidized lending/repayment, and explicit deposit creation/destruction legs |
 | `JstFlows.scala` | JST (local government): PIT/CIT shares, property tax, subventions, spending |
 | `OpenEconFlows.scala` | BoP: trade, FDI, portfolio, carry trade, primary income (NFA), secondary income (EU funds, diaspora), tourism, capital flight |
 
@@ -124,7 +125,7 @@ stocks and same-month execution plumbing.
 | `LedgerFinancialState.scala` | Persisted financial stock surface owned by the ledger-backed engine slice. |
 | `AssetOwnershipContract.scala` | Declares which `(EntitySector, AssetType)` owner pairs are supported persisted stock, which stock-like families remain unsupported, and which runtime nodes are non-persisted execution or settlement shells. Topology-aware checks must be used for concrete emitted batches so aggregate shell indices are not mistaken for persisted owners. |
 | `RuntimeMechanismSurvivability.scala` | Declares the survivability class for every runtime-emitted `FlowMechanism`. It separates mechanisms whose emitted legs can round-trip through persisted stock owners from mechanisms that are execution-delta-only or intentionally outside the supported persisted stock slice. |
-| `RuntimeFlowProjection.scala` | Applies executed runtime ledger deltas to the materialized persisted slice. Today this owns ZUS, NFZ, FP, PFRON, FGSP, and JST cash slots; unsupported/manual slices remain in the stage-produced `LedgerFinancialState` explicitly. |
+| `RuntimeFlowProjection.scala` | Applies executed runtime ledger deltas to the materialized persisted slice. Today this owns ZUS, NFZ, FP, PFRON, FGSP, and JST cash slots plus quasi-fiscal bond/loan stocks; unsupported/manual slices remain in the stage-produced `LedgerFinancialState` explicitly. |
 
 ## markets/
 
@@ -182,9 +183,9 @@ don't clear markets themselves.
 3. Create or extend the appropriate `*Flows.scala` to emit the flow.
 4. Wire the batch emission call in `FlowSimulation.emitAllBatches(...)` or the relevant aggregation point.
 5. Update `RuntimeMechanismSurvivability.scala` with the mechanism's audit class and ensure representative branch coverage exercises it.
-6. Update the SFC validation projection so the 13-identity check covers the new flow.
+6. Update the SFC validation projection so exact stock-flow identities cover the new flow.
 
 **SFC rule:** Any flow that modifies bank capital, deposits, government
 debt, NFA, bond holdings, or interbank positions **must** be reflected in
-the SFC validation projection. The 13-identity check runs every month and will
+the SFC validation projection. The exact SFC check runs every month and will
 fail at runtime if the accounting is broken.

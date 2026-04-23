@@ -49,6 +49,12 @@ object QuasiFiscal:
   case class State(
       monthlyIssuance: PLN, // this month's new bond issuance
       monthlyLending: PLN,  // this month's new lending
+      monthlyBondAmortization: PLN = PLN.Zero,
+      monthlyBankBondIssuance: PLN = PLN.Zero,
+      monthlyNbpBondAbsorption: PLN = PLN.Zero,
+      monthlyBankBondAmortization: PLN = PLN.Zero,
+      monthlyNbpBondAmortization: PLN = PLN.Zero,
+      monthlyLoanRepayment: PLN = PLN.Zero,
   )
   object State:
     val zero: State = State(PLN.Zero, PLN.Zero)
@@ -92,14 +98,23 @@ object QuasiFiscal:
     val lendingAmort: PLN     = prevStock.loanPortfolio * loanAmortFrac
     val newLoanPortfolio: PLN = (prevStock.loanPortfolio + lendingGrowth - lendingAmort).max(PLN.Zero)
 
+    val bankAmortization: PLN = amortization * bankShareOf(prevStock)
+    val nbpAmortization: PLN  = amortization * nbpShareOf(prevStock)
+
     val newOutstanding: PLN  = (prevStock.bondsOutstanding + issuance - amortization).max(PLN.Zero)
-    val newBankHoldings: PLN = (prevStock.bankHoldings + bankPurchase - amortization * bankShareOf(prevStock)).max(PLN.Zero)
-    val newNbpHoldings: PLN  = (prevStock.nbpHoldings + nbpPurchase - amortization * nbpShareOf(prevStock)).max(PLN.Zero)
+    val newBankHoldings: PLN = (prevStock.bankHoldings + bankPurchase - bankAmortization).max(PLN.Zero)
+    val newNbpHoldings: PLN  = (prevStock.nbpHoldings + nbpPurchase - nbpAmortization).max(PLN.Zero)
 
     StepResult(
       state = State(
         monthlyIssuance = issuance,
         monthlyLending = lendingGrowth,
+        monthlyBondAmortization = amortization,
+        monthlyBankBondIssuance = bankPurchase,
+        monthlyNbpBondAbsorption = nbpPurchase,
+        monthlyBankBondAmortization = bankAmortization,
+        monthlyNbpBondAmortization = nbpAmortization,
+        monthlyLoanRepayment = lendingAmort,
       ),
       stock = StockState(
         bondsOutstanding = newOutstanding,

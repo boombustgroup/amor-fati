@@ -69,6 +69,13 @@ object FlowMechanism:
   val NbfiOrigination: MechanismId              = MechanismId(104)
   val NbfiRepayment: MechanismId                = MechanismId(105)
   val NbfiDefault: MechanismId                  = MechanismId(106)
+  val QuasiFiscalBondIssuance: MechanismId      = MechanismId(107)
+  val QuasiFiscalBondAmortization: MechanismId  = MechanismId(108)
+  val QuasiFiscalNbpAbsorption: MechanismId     = MechanismId(109)
+  val QuasiFiscalLending: MechanismId           = MechanismId(110)
+  val QuasiFiscalRepayment: MechanismId         = MechanismId(111)
+  val QuasiFiscalLendingDeposit: MechanismId    = MechanismId(112)
+  val QuasiFiscalRepaymentDeposit: MechanismId  = MechanismId(113)
   // Equity market (GPW)
   val EquityDomDividend: MechanismId            = MechanismId(54)
   val EquityForDividend: MechanismId            = MechanismId(55)
@@ -182,6 +189,13 @@ object FlowMechanism:
     NbfiOrigination,
     NbfiRepayment,
     NbfiDefault,
+    QuasiFiscalBondIssuance,
+    QuasiFiscalBondAmortization,
+    QuasiFiscalNbpAbsorption,
+    QuasiFiscalLending,
+    QuasiFiscalRepayment,
+    QuasiFiscalLendingDeposit,
+    QuasiFiscalRepaymentDeposit,
     EquityDomDividend,
     EquityForDividend,
     EquityDividendTax,
