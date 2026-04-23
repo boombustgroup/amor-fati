@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.Generators
 import com.boombustgroup.amorfati.TestHouseholdState
 
 import com.boombustgroup.amorfati.config.SimParams
@@ -71,6 +72,9 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
       wageScar = Share.Zero,
     )
 
+  private def mkWorld() =
+    Generators.testWorld(totalPopulation = 1, employed = 1, marketWage = PLN(8000.0), reservationWage = PLN(4666.0))
+
   "DepositMobility" should "not move deposits when all banks are healthy" in {
     val rows   = Vector(mkBankRow(0, 0.15), mkBankRow(1, 0.14))
     val hhs    = Vector(mkHh(0), mkHh(1))
@@ -119,4 +123,49 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     val r1   = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = true, RandomStream.seeded(42))
     val r2   = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = true, RandomStream.seeded(42))
     r1.households.map(_.bankId) shouldBe r2.households.map(_.bankId)
+  }
+
+  it should "return only delayed boundary bankId updates, not a same-month transfer plan" in {
+    val rows     = Vector(mkBankRow(0, 0.04), mkBankRow(1, 0.20))
+    val original = (0 until 100).map(id => mkHh(0).copy(id = HhId(id))).toVector
+    val result   = DepositMobility(original, banks(rows), stocks(rows), anyBankFailed = false, RandomStream.seeded(42))
+
+    result.productArity shouldBe 1
+    result.productElementName(0) shouldBe "households"
+    result.households.count(_.bankId == BankId(1)) should be > 0
+    original
+      .zip(result.households)
+      .foreach: (before, after) =>
+        after shouldBe before.copy(bankId = after.bankId)
+  }
+
+  it should "route the next household step through the reassigned bankId" in {
+    val rows       = Vector(mkBankRow(0, 0.04), mkBankRow(1, 0.20))
+    val original   = (0 until 100).map(id => mkHh(0, savings = 120000.0).copy(id = HhId(id))).toVector
+    val reassigned =
+      DepositMobility(original, banks(rows), stocks(rows), anyBankFailed = false, RandomStream.seeded(42)).households
+        .find(_.bankId == BankId(1))
+        .getOrElse(fail("expected at least one household to switch to the healthiest bank"))
+
+    reassigned.bankId shouldBe BankId(1)
+
+    val bankRates = BankRates(
+      lendingRates = Vector(Rate(0.07), Rate(0.07)),
+      depositRates = Vector(Rate.Zero, Rate(0.12)),
+    )
+    val step      = Household.step(
+      households = Vector(reassigned),
+      financialStocks = Vector(TestHouseholdState.financial(savings = PLN(120000.0))),
+      world = mkWorld(),
+      marketWage = PLN(8000.0),
+      reservationWage = PLN(4666.0),
+      importAdj = Share(0.4),
+      rng = RandomStream.seeded(7),
+      nBanks = 2,
+      bankRates = Some(bankRates),
+    )
+    val flows     = step.perBankFlows.get
+
+    flows(0).depositInterest shouldBe PLN.Zero
+    flows(1).depositInterest shouldBe PLN(1200.0) +- PLN(1.0)
   }
