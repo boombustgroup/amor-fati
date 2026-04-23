@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
-import com.boombustgroup.amorfati.engine.ledger.{AssetOwnershipContract, RuntimeFlowProjection}
+import com.boombustgroup.amorfati.engine.ledger.{AssetOwnershipContract, LedgerFinancialState, RuntimeFlowProjection}
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector}
@@ -70,6 +70,63 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
     projection.publicFundCash.nfzCash shouldBe opening.funds.nfzCash + executedDelta
     projection.ledgerFinancialState.funds.nfzCash shouldBe opening.funds.nfzCash + executedDelta
     projection.ledgerFinancialState.funds.nfzCash should not equal stageOnlyNfzCash
+  }
+
+  it should "materialize quasi-fiscal bond and loan stocks from executed runtime deltas" in {
+    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state    = FlowSimulation.SimState.fromInit(init)
+    val topology = RuntimeLedgerTopology.fromState(state)
+    val opening  = state.ledgerFinancialState.copy(
+      funds = state.ledgerFinancialState.funds.copy(
+        quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
+          bondsOutstanding = PLN(1000.0),
+          loanPortfolio = PLN(100.0),
+          bankHoldings = PLN(700.0),
+          nbpHoldings = PLN(300.0),
+        ),
+      ),
+    )
+
+    AssetOwnershipContract.isSupportedPersistedPair(topology, EntitySector.Funds, AssetType.QuasiFiscalBond, topology.funds.quasiFiscal) shouldBe true
+    AssetOwnershipContract.isSupportedPersistedPair(topology, EntitySector.Funds, AssetType.NbfiLoan, topology.funds.quasiFiscal) shouldBe true
+    AssetOwnershipContract.isSupportedPersistedPair(topology, EntitySector.Banks, AssetType.QuasiFiscalBond, 0) shouldBe true
+    AssetOwnershipContract.isSupportedPersistedPair(topology, EntitySector.NBP, AssetType.QuasiFiscalBond, topology.nbp.persistedOwner) shouldBe true
+
+    val stageOnlyQf     = LedgerFinancialState.QuasiFiscalBalances(
+      bondsOutstanding = PLN.Zero,
+      loanPortfolio = PLN.Zero,
+      bankHoldings = PLN.Zero,
+      nbpHoldings = PLN.Zero,
+    )
+    val semanticClosing = opening.copy(funds = opening.funds.copy(quasiFiscal = stageOnlyQf))
+    val deltaLedger     = Map(
+      (EntitySector.Funds, AssetType.QuasiFiscalBond, topology.funds.quasiFiscal) -> PLN(-700.0).toLong,
+      (EntitySector.Banks, AssetType.QuasiFiscalBond, 0)                          -> PLN(250.0).toLong,
+      (EntitySector.Banks, AssetType.QuasiFiscalBond, 1)                          -> PLN(150.0).toLong,
+      (EntitySector.NBP, AssetType.QuasiFiscalBond, topology.nbp.persistedOwner)  -> PLN(300.0).toLong,
+      (EntitySector.Funds, AssetType.NbfiLoan, topology.funds.quasiFiscal)        -> PLN(-350.0).toLong,
+    )
+
+    val projection = RuntimeFlowProjection.materializeSupportedState(
+      opening = opening,
+      semanticClosing = semanticClosing,
+      deltaLedger = deltaLedger,
+      topology = topology,
+    )
+
+    projection.quasiFiscal shouldBe RuntimeFlowProjection.QuasiFiscalProjection(
+      bondsOutstanding = PLN(1700.0),
+      loanPortfolio = PLN(450.0),
+      bankHoldings = PLN(1100.0),
+      nbpHoldings = PLN(600.0),
+    )
+    projection.ledgerFinancialState.funds.quasiFiscal shouldBe LedgerFinancialState.QuasiFiscalBalances(
+      bondsOutstanding = PLN(1700.0),
+      loanPortfolio = PLN(450.0),
+      bankHoldings = PLN(1100.0),
+      nbpHoldings = PLN(600.0),
+    )
+    projection.ledgerFinancialState.funds.quasiFiscal should not equal stageOnlyQf
   }
 
 end FlowSimulationRuntimeProjectionSpec

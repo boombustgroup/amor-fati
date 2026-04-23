@@ -97,6 +97,13 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
         unrealizedBondLoss = PLN.Zero,
         htmRealizedLoss = PLN.Zero,
         eclProvisionChange = PLN.Zero,
+        quasiFiscalBondIssuance = PLN.Zero,
+        quasiFiscalBondAmortization = PLN.Zero,
+        quasiFiscalNbpBondAmortization = PLN.Zero,
+        quasiFiscalNbpAbsorption = PLN.Zero,
+        quasiFiscalLending = PLN.Zero,
+        quasiFiscalRepayment = PLN.Zero,
+        quasiFiscalDepositChange = PLN.Zero,
       )
       val result    = Sfc.validateStockExactness(snap, snap, zeroFlows)
       result shouldBe Right(())

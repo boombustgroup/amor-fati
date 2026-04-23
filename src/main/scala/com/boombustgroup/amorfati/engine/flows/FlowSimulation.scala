@@ -163,6 +163,13 @@ object FlowSimulation:
       nbfiOrigination: PLN,
       nbfiRepayment: PLN,
       nbfiDefaultAmount: PLN,
+      // Stage 9: quasi-fiscal monetary channels
+      qfBankBondIssuance: PLN,
+      qfNbpBondAbsorption: PLN,
+      qfBankBondAmortization: PLN,
+      qfNbpBondAmortization: PLN,
+      qfLending: PLN,
+      qfRepayment: PLN,
       // Stage 8: Gov budget
       govVatRevenue: PLN,
       govExciseRevenue: PLN,
@@ -314,6 +321,16 @@ object FlowSimulation:
         ),
       ),
       NbfiFlows.emitBatches(NbfiFlows.Input(c.nbfiDepositDrain, c.nbfiOrigination, c.nbfiRepayment, c.nbfiDefaultAmount)),
+      QuasiFiscalFlows.emitBatches(
+        QuasiFiscalFlows.Input(
+          bankBondIssuance = c.qfBankBondIssuance,
+          nbpBondAbsorption = c.qfNbpBondAbsorption,
+          bankBondAmortization = c.qfBankBondAmortization,
+          nbpBondAmortization = c.qfNbpBondAmortization,
+          lending = c.qfLending,
+          repayment = c.qfRepayment,
+        ),
+      ),
     )
 
   /** Typed month-`t` boundary input used internally by [[step]]. */
@@ -645,6 +662,12 @@ object FlowSimulation:
       nbfiOrigination = s9.finalNbfi.lastNbfiOrigination,
       nbfiRepayment = s9.finalNbfi.lastNbfiRepayment,
       nbfiDefaultAmount = s9.finalNbfi.lastNbfiDefaultAmount,
+      qfBankBondIssuance = s9.newQuasiFiscal.monthlyBankBondIssuance,
+      qfNbpBondAbsorption = s9.newQuasiFiscal.monthlyNbpBondAbsorption,
+      qfBankBondAmortization = s9.newQuasiFiscal.monthlyBankBondAmortization,
+      qfNbpBondAmortization = s9.newQuasiFiscal.monthlyNbpBondAmortization,
+      qfLending = s9.newQuasiFiscal.monthlyLending,
+      qfRepayment = s9.newQuasiFiscal.monthlyLoanRepayment,
       govVatRevenue = s9.vatAfterEvasion,
       govExciseRevenue = s9.exciseAfterEvasion,
       govCustomsDutyRevenue = s9.customsDutyRevenue,
@@ -790,6 +813,38 @@ object FlowSimulation:
     def nbfiDepositDrain: PLN =
       signedAmount(FlowMechanism.TfiDepositDrain)
 
+    /** Total BGK/PFR bond issuance. This intentionally includes both the
+      * commercial-bank leg and the separately addressable NBP absorption leg.
+      */
+    def quasiFiscalBondIssuance: PLN =
+      amount(FlowMechanism.QuasiFiscalBondIssuance) + amount(FlowMechanism.QuasiFiscalNbpAbsorption)
+
+    /** Total BGK/PFR bond amortization across bank and NBP holders. */
+    def quasiFiscalBondAmortization: PLN =
+      amount(FlowMechanism.QuasiFiscalBondAmortization) + amount(FlowMechanism.QuasiFiscalNbpBondAmortization)
+
+    /** NBP's purchase share of BGK/PFR issuance. Callers that already use
+      * `quasiFiscalBondIssuance` must not add this again.
+      */
+    def quasiFiscalNbpAbsorption: PLN =
+      amount(FlowMechanism.QuasiFiscalNbpAbsorption)
+
+    /** NBP holder leg of BGK/PFR bond amortization. Callers that already use
+      * `quasiFiscalBondAmortization` must not add this again.
+      */
+    def quasiFiscalNbpBondAmortization: PLN =
+      amount(FlowMechanism.QuasiFiscalNbpBondAmortization)
+
+    def quasiFiscalLending: PLN =
+      amount(FlowMechanism.QuasiFiscalLending)
+
+    def quasiFiscalRepayment: PLN =
+      amount(FlowMechanism.QuasiFiscalRepayment)
+
+    def quasiFiscalDepositChange: PLN =
+      signedAmount(FlowMechanism.QuasiFiscalLendingDeposit) +
+        signedAmount(FlowMechanism.QuasiFiscalRepaymentDeposit)
+
   private[flows] object ExecutedFlowEvidence:
     val CentralGovernmentSpendingMechanisms: Vector[MechanismId] =
       Vector(
@@ -844,6 +899,20 @@ object FlowSimulation:
                     case _                                             =>
                       throw new IllegalArgumentException(
                         s"TfiDepositDrain batch has unsupported direction ${batch.from}->${batch.to}",
+                      )
+                case FlowMechanism.QuasiFiscalLendingDeposit                                  =>
+                  (batch.from, batch.to) match
+                    case (EntitySector.Banks, EntitySector.Firms) => amount
+                    case _                                        =>
+                      throw new IllegalArgumentException(
+                        s"QuasiFiscalLendingDeposit batch has unsupported direction ${batch.from}->${batch.to}",
+                      )
+                case FlowMechanism.QuasiFiscalRepaymentDeposit                                =>
+                  (batch.from, batch.to) match
+                    case (EntitySector.Firms, EntitySector.Banks) => -amount
+                    case _                                        =>
+                      throw new IllegalArgumentException(
+                        s"QuasiFiscalRepaymentDeposit batch has unsupported direction ${batch.from}->${batch.to}",
                       )
                 case _                                                                        => amount
 
@@ -933,6 +1002,13 @@ object FlowSimulation:
       unrealizedBondLoss = evidence.amount(FlowMechanism.BankUnrealizedLoss),
       htmRealizedLoss = banking.htmRealizedLoss,
       eclProvisionChange = banking.eclProvisionChange,
+      quasiFiscalBondIssuance = evidence.quasiFiscalBondIssuance,
+      quasiFiscalBondAmortization = evidence.quasiFiscalBondAmortization,
+      quasiFiscalNbpBondAmortization = evidence.quasiFiscalNbpBondAmortization,
+      quasiFiscalNbpAbsorption = evidence.quasiFiscalNbpAbsorption,
+      quasiFiscalLending = evidence.quasiFiscalLending,
+      quasiFiscalRepayment = evidence.quasiFiscalRepayment,
+      quasiFiscalDepositChange = evidence.quasiFiscalDepositChange,
     )
 
   private def operationalSignals(

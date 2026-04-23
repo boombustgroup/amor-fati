@@ -41,6 +41,10 @@ class FofSpec extends AnyFlatSpec with Matchers:
     insuranceGovBondHoldings = PLN.Zero,
     tfiGovBondHoldings = PLN.Zero,
     nbfiLoanStock = PLN.Zero,
+    quasiFiscalBondsOutstanding = PLN.Zero,
+    quasiFiscalBankHoldings = PLN.Zero,
+    quasiFiscalNbpHoldings = PLN.Zero,
+    quasiFiscalLoanPortfolio = PLN.Zero,
   )
 
   private def zeroFlows: Sfc.SemanticFlows = Sfc.SemanticFlows(
@@ -109,6 +113,13 @@ class FofSpec extends AnyFlatSpec with Matchers:
     unrealizedBondLoss = PLN.Zero,
     htmRealizedLoss = PLN.Zero,
     eclProvisionChange = PLN.Zero,
+    quasiFiscalBondIssuance = PLN.Zero,
+    quasiFiscalBondAmortization = PLN.Zero,
+    quasiFiscalNbpBondAmortization = PLN.Zero,
+    quasiFiscalNbpAbsorption = PLN.Zero,
+    quasiFiscalLending = PLN.Zero,
+    quasiFiscalRepayment = PLN.Zero,
+    quasiFiscalDepositChange = PLN.Zero,
   )
 
   "FofConsWeights" should "sum to 1.0" in {

@@ -198,25 +198,26 @@ object BankingEconomics:
     val bfgLevy                   = Banking.computeBfgLevy(in.banks, openingBankStocks).total
     val investNetDepositFlow      = computeInvestNetDepositFlow(in)
     val finalHhAgg                = computeHhAgg(in)
-    val wf                        = computeWaterfallInputs(in, govJst.newGovBondOutstanding)
-    val multi                     = processMultiBankPath(
-      in,
-      govJst.jstDepositChange,
-      investNetDepositFlow,
-      housing.mortgageFlows,
-      wf,
-    )
-    val issuerSettledFirmBalances =
-      CorporateBondOwnership.applyAmortization(in.s5.ledgerFinancialState.firms, multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
-
-    val quasiFiscalStep =
+    val quasiFiscalStep           =
       QuasiFiscal.step(
         LedgerFinancialState.quasiFiscalStock(in.ledgerFinancialState),
         govJst.newGovWithYield.govCapitalSpend,
         govJst.newGovWithYield.euCofinancing,
         in.w.nbp.qeActive,
       )
-    val newQuasiFiscal  = quasiFiscalStep.state
+    val newQuasiFiscal            = quasiFiscalStep.state
+    val quasiFiscalDepositChange  = newQuasiFiscal.monthlyLending - newQuasiFiscal.monthlyLoanRepayment
+    val wf                        = computeWaterfallInputs(in, govJst.newGovBondOutstanding)
+    val multi                     = processMultiBankPath(
+      in,
+      govJst.jstDepositChange,
+      investNetDepositFlow,
+      quasiFiscalDepositChange,
+      housing.mortgageFlows,
+      wf,
+    )
+    val issuerSettledFirmBalances =
+      CorporateBondOwnership.applyAmortization(in.s5.ledgerFinancialState.firms, multi.reassignedFirms, in.s8.corpBonds.corpBondAmort)
 
     val ledgerFinancialState =
       in.s5.ledgerFinancialState.copy(
@@ -531,6 +532,7 @@ object BankingEconomics:
       perBankInterbankInt: Banking.PerBankAmounts,
       jstDepositChange: PLN,
       investNetDepositFlow: PLN,
+      quasiFiscalDepositChange: PLN,
       in: StepInput,
   )(using p: SimParams): SingleBankUpdate =
     val bId           = b.id.toInt
@@ -548,6 +550,7 @@ object BankingEconomics:
       hhFlows.incomeShare - hhFlows.consShare +
       investNetDepositFlow * workerShare +
       jstDepositChange * workerShare +
+      quasiFiscalDepositChange * workerShare +
       in.s7.netDomesticDividends * workerShare -
       in.s7.foreignDividendOutflow * workerShare -
       in.s6.remittanceOutflow * workerShare +
@@ -631,6 +634,7 @@ object BankingEconomics:
       in: StepInput,
       jstDepositChange: PLN,
       investNetDepositFlow: PLN,
+      quasiFiscalDepositChange: PLN,
       mortgageFlows: HousingMarket.MortgageFlows,
       wf: BondWaterfallInputs,
   )(using p: SimParams): MultiBankResult =
@@ -672,6 +676,7 @@ object BankingEconomics:
         perBankInterbankInt,
         jstDepositChange,
         investNetDepositFlow,
+        quasiFiscalDepositChange,
         in,
       )
     }
@@ -689,6 +694,7 @@ object BankingEconomics:
       perBankInterbankInt,
       jstDepositChange,
       investNetDepositFlow,
+      quasiFiscalDepositChange,
       mortgageFlows,
       settledBankCorpBonds,
     )
@@ -707,6 +713,7 @@ object BankingEconomics:
       perBankInterbankInt: Banking.PerBankAmounts,
       jstDepositChange: PLN,
       investNetDepositFlow: PLN,
+      quasiFiscalDepositChange: PLN,
       mortgageFlows: HousingMarket.MortgageFlows,
       settledBankCorpBonds: Vector[PLN],
   )(using p: SimParams): MultiBankResult =
@@ -867,6 +874,7 @@ object BankingEconomics:
       in = in,
       jstDepositChange = jstDepositChange,
       investNetDepositFlow = investNetDepositFlow,
+      quasiFiscalDepositChange = quasiFiscalDepositChange,
       mortgageFlows = mortgageFlows,
       bailInLoss = bailInResult.totalLoss,
       multiCapDestruction = multiCapDest,
@@ -909,6 +917,7 @@ object BankingEconomics:
       in: StepInput,
       jstDepositChange: PLN,
       investNetDepositFlow: PLN,
+      quasiFiscalDepositChange: PLN,
       mortgageFlows: HousingMarket.MortgageFlows,
       bailInLoss: PLN,
       multiCapDestruction: PLN,
@@ -922,6 +931,7 @@ object BankingEconomics:
         in = in,
         jstDepositChange = jstDepositChange,
         investNetDepositFlow = investNetDepositFlow,
+        quasiFiscalDepositChange = quasiFiscalDepositChange,
         mortgageFlows = mortgageFlows,
         bailInLoss = bailInLoss,
         multiCapDestruction = multiCapDestruction,
@@ -948,6 +958,7 @@ object BankingEconomics:
       in: StepInput,
       jstDepositChange: PLN,
       investNetDepositFlow: PLN,
+      quasiFiscalDepositChange: PLN,
       mortgageFlows: HousingMarket.MortgageFlows,
       bailInLoss: PLN,
       multiCapDestruction: PLN,
@@ -978,7 +989,7 @@ object BankingEconomics:
       mortgageFlows.interest + in.s6.consumerDebtService + in.s8.corpBonds.corpBondBankCoupon
     val targetCapital      = prevBankAgg.capital - capitalLosses + capitalGrossIncome * p.banking.profitRetention
     val targetDeposits     = prevBankAgg.deposits + in.s3.totalIncome - in.s3.consumption +
-      investNetDepositFlow + jstDepositChange + in.s7.netDomesticDividends -
+      investNetDepositFlow + jstDepositChange + quasiFiscalDepositChange + in.s7.netDomesticDividends -
       in.s7.foreignDividendOutflow - in.s6.remittanceOutflow + in.s6.diasporaInflow +
       in.s6.tourismExport - in.s6.tourismImport - bailInLoss + in.s5.sumNewLoans -
       in.s5.sumFirmPrincipal + in.s6.consumerOrigination + in.s8.nonBank.insNetDepositChange +

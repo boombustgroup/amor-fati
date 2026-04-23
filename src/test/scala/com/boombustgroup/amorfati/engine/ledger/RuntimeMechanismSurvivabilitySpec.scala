@@ -118,6 +118,16 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
       InvestmentDepositSettlementFlows.emitBatches(InvestmentDepositSettlementFlows.Input(PLN(-1500000.0))),
       NbfiFlows.emitBatches(NbfiFlows.Input(PLN(-1200000.0), PLN(900000.0), PLN(400000.0), PLN(100000.0))),
       NbfiFlows.emitBatches(NbfiFlows.Input(PLN(800000.0), PLN.Zero, PLN.Zero, PLN.Zero)),
+      QuasiFiscalFlows.emitBatches(
+        QuasiFiscalFlows.Input(
+          bankBondIssuance = PLN(700000.0),
+          nbpBondAbsorption = PLN(300000.0),
+          bankBondAmortization = PLN(200000.0),
+          nbpBondAmortization = PLN(100000.0),
+          lending = PLN(500000.0),
+          repayment = PLN(150000.0),
+        ),
+      ),
       GovBudgetFlows.emitBatches(
         GovBudgetFlows.Input(
           vatRevenue = PLN(9000000.0),

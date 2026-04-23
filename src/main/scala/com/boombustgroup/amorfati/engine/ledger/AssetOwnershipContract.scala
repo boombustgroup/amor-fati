@@ -236,6 +236,16 @@ object AssetOwnershipContract:
       "Firm bond liabilities plus supported holder stocks.",
     ),
     PublicAssetContract(
+      AssetType.QuasiFiscalBond,
+      PublicAssetStatus.SupportedPersistedStock,
+      Set(
+        dynamic(EntitySector.Banks),
+        singleton(EntitySector.NBP),
+        fund(FundRuntimeIndex.QuasiFiscal),
+      ),
+      "BGK/PFR bond issuer and supported bank/NBP holder stocks.",
+    ),
+    PublicAssetContract(
       AssetType.Reserve,
       PublicAssetStatus.SupportedPersistedStock,
       Set(dynamic(EntitySector.Banks)),

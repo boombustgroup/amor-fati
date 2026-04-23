@@ -140,6 +140,22 @@ object RuntimeMechanismSurvivability:
       FlowMechanism.NbfiDefault,
     ),
     declared(
+      RoundTrippableStock,
+      "Quasi-fiscal bond issuance, NBP absorption, and amortization route through the persisted BGK/PFR issuer and bank/NBP holder slots.",
+      FlowMechanism.QuasiFiscalBondIssuance,
+      FlowMechanism.QuasiFiscalBondAmortization,
+      FlowMechanism.QuasiFiscalNbpAbsorption,
+      FlowMechanism.QuasiFiscalNbpBondAmortization,
+    ),
+    declared(
+      ExecutionDeltaOnly,
+      "Quasi-fiscal lending uses the supported BGK/PFR loan portfolio plus aggregate firm execution shells; deposit legs are explicit aggregate settlement evidence.",
+      FlowMechanism.QuasiFiscalLending,
+      FlowMechanism.QuasiFiscalRepayment,
+      FlowMechanism.QuasiFiscalLendingDeposit,
+      FlowMechanism.QuasiFiscalRepaymentDeposit,
+    ),
+    declared(
       ExecutionDeltaOnly,
       "Market and open-economy flows are routed through aggregate issuer, investor, foreign, and settlement shells.",
       FlowMechanism.EquityDomDividend,

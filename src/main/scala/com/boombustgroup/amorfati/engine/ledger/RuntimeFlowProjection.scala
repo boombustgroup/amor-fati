@@ -12,7 +12,8 @@ import com.boombustgroup.ledger.{AssetType, EntitySector}
   * supported deltas that already have a one-to-one persisted owner in
   * [[LedgerFinancialState]]. Other ledger families still come from the
   * economics stages until their emitted batches model holder-resolved closing
-  * stocks with the same precision.
+  * stocks with the same precision. Public fund cash and quasi-fiscal bond/loan
+  * stocks are currently materialized from executed runtime deltas.
   */
 object RuntimeFlowProjection:
 
@@ -42,9 +43,20 @@ object RuntimeFlowProjection:
       jstCash: PLN,
   )
 
+  /** Supported BGK/PFR stock slice recovered from executed quasi-fiscal runtime
+    * deltas.
+    */
+  final case class QuasiFiscalProjection(
+      bondsOutstanding: PLN,
+      loanPortfolio: PLN,
+      bankHoldings: PLN,
+      nbpHoldings: PLN,
+  )
+
   final case class Projection(
       ledgerFinancialState: LedgerFinancialState,
       publicFundCash: PublicFundCashProjection,
+      quasiFiscal: QuasiFiscalProjection,
   )
 
   def materializeSupportedState(
@@ -55,6 +67,7 @@ object RuntimeFlowProjection:
   ): Projection =
     requireMaterializedSlotsAreSupported(topology)
     val publicFundCash = projectPublicFundCash(opening, deltaLedger)
+    val quasiFiscal    = projectQuasiFiscal(opening, deltaLedger, topology)
     val projectedFunds = semanticClosing.funds.copy(
       zusCash = publicFundCash.zusCash,
       nfzCash = publicFundCash.nfzCash,
@@ -62,10 +75,17 @@ object RuntimeFlowProjection:
       pfronCash = publicFundCash.pfronCash,
       fgspCash = publicFundCash.fgspCash,
       jstCash = publicFundCash.jstCash,
+      quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
+        bondsOutstanding = quasiFiscal.bondsOutstanding,
+        loanPortfolio = quasiFiscal.loanPortfolio,
+        bankHoldings = quasiFiscal.bankHoldings,
+        nbpHoldings = quasiFiscal.nbpHoldings,
+      ),
     )
     Projection(
       ledgerFinancialState = semanticClosing.copy(funds = projectedFunds),
       publicFundCash = publicFundCash,
+      quasiFiscal = quasiFiscal,
     )
 
   def projectPublicFundCash(
@@ -88,11 +108,48 @@ object RuntimeFlowProjection:
   ): PLN =
     opening + PLN.fromRaw(deltaLedger.getOrElse((EntitySector.Funds, AssetType.Cash, fundIndex), 0L))
 
+  def projectQuasiFiscal(
+      opening: LedgerFinancialState,
+      deltaLedger: Map[(EntitySector, AssetType, Int), Long],
+      topology: RuntimeLedgerTopology,
+  ): QuasiFiscalProjection =
+    requireQuasiFiscalSlotsAreSupported(topology)
+    val openingQf       = opening.funds.quasiFiscal
+    val issuerBondDelta =
+      deltaLedger.getOrElse((EntitySector.Funds, AssetType.QuasiFiscalBond, FundRuntimeIndex.QuasiFiscal), 0L)
+    val bankBondDelta   = (0 until topology.banks.persistedCount).iterator
+      .map(bankIndex => deltaLedger.getOrElse((EntitySector.Banks, AssetType.QuasiFiscalBond, bankIndex), 0L))
+      .sum
+    val nbpBondDelta    =
+      deltaLedger.getOrElse((EntitySector.NBP, AssetType.QuasiFiscalBond, topology.nbp.persistedOwner), 0L)
+    val loanIssuerDelta =
+      deltaLedger.getOrElse((EntitySector.Funds, AssetType.NbfiLoan, FundRuntimeIndex.QuasiFiscal), 0L)
+    QuasiFiscalProjection(
+      bondsOutstanding = openingQf.bondsOutstanding - PLN.fromRaw(issuerBondDelta),
+      loanPortfolio = openingQf.loanPortfolio - PLN.fromRaw(loanIssuerDelta),
+      bankHoldings = openingQf.bankHoldings + PLN.fromRaw(bankBondDelta),
+      nbpHoldings = openingQf.nbpHoldings + PLN.fromRaw(nbpBondDelta),
+    )
+
   private def requireMaterializedSlotsAreSupported(topology: RuntimeLedgerTopology): Unit =
     MaterializedPublicFundCashSlots.foreach: fundIndex =>
       require(
         AssetOwnershipContract.isSupportedPersistedPair(topology, EntitySector.Funds, AssetType.Cash, fundIndex),
         s"RuntimeFlowProjection cannot materialize unsupported fund cash slot $fundIndex",
       )
+
+  private def requireQuasiFiscalSlotsAreSupported(topology: RuntimeLedgerTopology): Unit =
+    val required = Vector(
+      (EntitySector.Funds, AssetType.QuasiFiscalBond, FundRuntimeIndex.QuasiFiscal),
+      (EntitySector.Funds, AssetType.NbfiLoan, FundRuntimeIndex.QuasiFiscal),
+      (EntitySector.NBP, AssetType.QuasiFiscalBond, topology.nbp.persistedOwner),
+    ) ++ (0 until topology.banks.persistedCount).map(bankIndex => (EntitySector.Banks, AssetType.QuasiFiscalBond, bankIndex))
+
+    required.foreach:
+      case (sector, asset, index) =>
+        require(
+          AssetOwnershipContract.isSupportedPersistedPair(topology, sector, asset, index),
+          s"RuntimeFlowProjection cannot materialize unsupported quasi-fiscal slot ($sector,$asset,$index)",
+        )
 
 end RuntimeFlowProjection

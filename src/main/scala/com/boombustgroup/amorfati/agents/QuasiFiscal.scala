@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.ledger.Distribute
 
 /** Quasi-fiscal entities: BGK (Bank Gospodarstwa Krajowego) + PFR (Polski
   * Fundusz Rozwoju), modelled as a single consolidated agent.
@@ -47,11 +48,26 @@ object QuasiFiscal:
     * LedgerFinancialState.
     */
   case class State(
-      monthlyIssuance: PLN, // this month's new bond issuance
-      monthlyLending: PLN,  // this month's new lending
+      monthlyIssuance: PLN,             // this month's total BGK/PFR bond issuance
+      monthlyLending: PLN,              // this month's new subsidized lending
+      monthlyBondAmortization: PLN,     // this month's total BGK/PFR bond amortization
+      monthlyBankBondIssuance: PLN,     // issuance absorbed by commercial banks
+      monthlyNbpBondAbsorption: PLN,    // issuance absorbed by NBP quasi-QE
+      monthlyBankBondAmortization: PLN, // amortization paid to commercial-bank holders
+      monthlyNbpBondAmortization: PLN,  // amortization paid to NBP holders
+      monthlyLoanRepayment: PLN,        // this month's BGK/PFR loan principal repayment
   )
   object State:
-    val zero: State = State(PLN.Zero, PLN.Zero)
+    val zero: State = State(
+      monthlyIssuance = PLN.Zero,
+      monthlyLending = PLN.Zero,
+      monthlyBondAmortization = PLN.Zero,
+      monthlyBankBondIssuance = PLN.Zero,
+      monthlyNbpBondAbsorption = PLN.Zero,
+      monthlyBankBondAmortization = PLN.Zero,
+      monthlyNbpBondAmortization = PLN.Zero,
+      monthlyLoanRepayment = PLN.Zero,
+    )
 
   case class StepResult(
       state: State,
@@ -92,14 +108,27 @@ object QuasiFiscal:
     val lendingAmort: PLN     = prevStock.loanPortfolio * loanAmortFrac
     val newLoanPortfolio: PLN = (prevStock.loanPortfolio + lendingGrowth - lendingAmort).max(PLN.Zero)
 
+    val amortizationSplit     = Distribute.distribute(
+      amortization.distributeRaw,
+      Array(bankShareOf(prevStock).distributeRaw, nbpShareOf(prevStock).distributeRaw),
+    )
+    val bankAmortization: PLN = PLN.fromRaw(amortizationSplit(0))
+    val nbpAmortization: PLN  = PLN.fromRaw(amortizationSplit(1))
+
     val newOutstanding: PLN  = (prevStock.bondsOutstanding + issuance - amortization).max(PLN.Zero)
-    val newBankHoldings: PLN = (prevStock.bankHoldings + bankPurchase - amortization * bankShareOf(prevStock)).max(PLN.Zero)
-    val newNbpHoldings: PLN  = (prevStock.nbpHoldings + nbpPurchase - amortization * nbpShareOf(prevStock)).max(PLN.Zero)
+    val newBankHoldings: PLN = (prevStock.bankHoldings + bankPurchase - bankAmortization).max(PLN.Zero)
+    val newNbpHoldings: PLN  = (prevStock.nbpHoldings + nbpPurchase - nbpAmortization).max(PLN.Zero)
 
     StepResult(
       state = State(
         monthlyIssuance = issuance,
         monthlyLending = lendingGrowth,
+        monthlyBondAmortization = amortization,
+        monthlyBankBondIssuance = bankPurchase,
+        monthlyNbpBondAbsorption = nbpPurchase,
+        monthlyBankBondAmortization = bankAmortization,
+        monthlyNbpBondAmortization = nbpAmortization,
+        monthlyLoanRepayment = lendingAmort,
       ),
       stock = StockState(
         bondsOutstanding = newOutstanding,
