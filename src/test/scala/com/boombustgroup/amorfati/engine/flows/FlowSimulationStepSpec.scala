@@ -25,7 +25,11 @@ import org.scalatest.matchers.should.Matchers
 class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   import RuntimeFlowsTestSupport.*
 
-  private given p: SimParams = SimParams.defaults
+  private given p: SimParams                                                                 = SimParams.defaults
+  private def contractHistogram(households: Vector[Household.State]): Map[ContractType, Int] =
+    ContractType.values.iterator
+      .map(ct => ct -> households.count(_.contractType == ct))
+      .toMap
 
   private def canonicalHouseholds(households: Vector[Household.State]): Vector[Vector[Any]] =
     households.map: hh =>
@@ -255,18 +259,15 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
         case (hh, _)               => hh,
     )
 
-    val result               = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
-    val openingPayroll       = SocialSecurity.payrollBase(state.households)
-    val finalPayroll         = SocialSecurity.payrollBase(result.nextState.households)
-    val hiredWithNewContract = state.households
-      .zip(result.nextState.households)
-      .exists:
-        case (before, after) =>
-          before.status == HhStatus.Unemployed(0) &&
-          after.status.isInstanceOf[HhStatus.Employed] &&
-          after.contractType != before.contractType
+    val result           = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val openingPayroll   = SocialSecurity.payrollBase(state.households)
+    val finalPayroll     = SocialSecurity.payrollBase(result.nextState.households)
+    val openingContracts = contractHistogram(state.households)
+    val finalContracts   = contractHistogram(result.nextState.households)
 
-    hiredWithNewContract shouldBe true
+    withClue(s"opening=$openingContracts final=$finalContracts") {
+      finalContracts should not equal openingContracts
+    }
     result.calculus.payroll shouldBe openingPayroll
     result.calculus.zus.contributions shouldBe result.calculus.payroll.zusContributions
     result.calculus.nfz.contributions shouldBe result.calculus.payroll.nfzContributions

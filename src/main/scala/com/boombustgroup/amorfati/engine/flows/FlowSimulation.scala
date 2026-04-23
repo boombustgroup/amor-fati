@@ -523,13 +523,15 @@ object FlowSimulation:
     val s5                = FirmEconomics.runStep(w, firms, households, banks, ledger, s1, s2Pre, s3, s4, randomness.firmEconomics.newStream())
     val postLivingFirms   = s5.ioFirms.filter(Firm.isAlive)
     val nBankruptFirms    = s5.firmDeaths
-    val avgFirmWorkers    = if s2Pre.living.nonEmpty then s2Pre.laborDemand / s2Pre.living.length else 0
+    val avgFirmWorkers    = if s2Pre.living.nonEmpty then s2Pre.employed / s2Pre.living.length else 0
     val payroll           = SocialSecurity.payrollBase(households)
     val payrollZus        = SocialSecurity.zusStep(payroll, s2Pre.newDemographics.retirees)
     val payrollNfz        = SocialSecurity.nfzStep(payroll, s2Pre.newDemographics.workingAgePop, s2Pre.newDemographics.retirees)
     val payrollPpk        = SocialSecurity.ppkStep(payroll)
     val payrollEarmarked  = EarmarkedFunds.step(payroll, s3.hhAgg.totalUnempBenefits, nBankruptFirms, avgFirmWorkers)
     val s2Reconciled      = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
+    // Labor reconciliation refreshes employment/wage state after the firm step,
+    // but social funds are pinned to the opening-boundary payroll for month t.
     val s2                = s2Reconciled.copy(
       newZus = payrollZus,
       newNfz = payrollNfz,
