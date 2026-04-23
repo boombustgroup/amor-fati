@@ -266,18 +266,26 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     val result   = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val topology = result.execution.topology
 
+    val expectedHouseholdSectorSize = state.households.size + 5
+    val expectedFirmSectorSize      = state.firms.size + 5
+    val expectedBankSectorSize      = state.banks.size + 1
+
     topology.households.aggregate shouldBe state.households.size
+    topology.households.mortgagePrincipalSettlement shouldBe state.households.size + 4
+    topology.households.sectorSize shouldBe expectedHouseholdSectorSize
     topology.firms.aggregate shouldBe state.firms.size
+    topology.firms.sectorSize shouldBe expectedFirmSectorSize
     topology.banks.aggregate shouldBe state.banks.size
+    topology.banks.sectorSize shouldBe expectedBankSectorSize
     topology.government.sovereignIssuer shouldBe 0
     topology.government.treasuryBudgetSettlement shouldBe 1
     topology.government.taxpayerCollection shouldBe 2
     topology.nbp.persistedOwner shouldBe 0
     topology.nbp.reserveSettlement shouldBe 1
     topology.sectorSizes shouldBe Map(
-      EntitySector.Households -> (state.households.size + 4),
-      EntitySector.Firms      -> (state.firms.size + 5),
-      EntitySector.Banks      -> (state.banks.size + 1),
+      EntitySector.Households -> expectedHouseholdSectorSize,
+      EntitySector.Firms      -> expectedFirmSectorSize,
+      EntitySector.Banks      -> expectedBankSectorSize,
       EntitySector.Government -> 3,
       EntitySector.NBP        -> 2,
       EntitySector.Insurance  -> 2,

@@ -125,6 +125,7 @@ stocks and same-month execution plumbing.
 |------|----------------|
 | `LedgerFinancialState.scala` | Persisted financial stock surface owned by the ledger-backed engine slice. |
 | `AssetOwnershipContract.scala` | Declares which `(EntitySector, AssetType)` owner pairs are supported persisted stock, which stock-like families remain unsupported, and which runtime nodes are non-persisted execution or settlement shells. Topology-aware checks must be used for concrete emitted batches so aggregate shell indices are not mistaken for persisted owners. |
+| `MortgageRuntimeContract.scala` | Names the household-sector mortgage principal settlement shell used to keep `MortgageLoan` runtime evidence aggregate and bank-mirror-free. |
 | `RuntimeMechanismSurvivability.scala` | Declares the survivability class for every runtime-emitted `FlowMechanism`. It separates mechanisms whose emitted legs can round-trip through persisted stock owners from mechanisms that are execution-delta-only or intentionally outside the supported persisted stock slice. |
 | `RuntimeFlowProjection.scala` | Applies executed runtime ledger deltas to the materialized persisted slice. Today this owns ZUS, NFZ, FP, PFRON, FGSP, and JST cash slots plus quasi-fiscal bond/loan stocks; unsupported/manual slices remain in the stage-produced `LedgerFinancialState` explicitly. |
 

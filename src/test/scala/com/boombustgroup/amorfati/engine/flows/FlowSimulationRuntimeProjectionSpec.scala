@@ -5,7 +5,7 @@ import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.ledger.{AssetOwnershipContract, LedgerFinancialState, RuntimeFlowProjection}
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
-import com.boombustgroup.ledger.{AssetType, EntitySector}
+import com.boombustgroup.ledger.{AssetType, EntitySector, ImperativeInterpreter}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -127,6 +127,34 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
       nbpHoldings = PLN(600.0),
     )
     projection.ledgerFinancialState.funds.quasiFiscal should not equal stageOnlyQf
+  }
+
+  it should "leave household mortgage stocks to semantic closing while runtime principal stays shell-only" in {
+    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state    = FlowSimulation.SimState.fromInit(init)
+    val topology = RuntimeLedgerTopology.fromState(state)
+    val opening  = state.ledgerFinancialState
+    val adjusted = opening.households.head.copy(mortgageLoan = opening.households.head.mortgageLoan + PLN(12345.0))
+
+    val semanticClosing = opening.copy(households = opening.households.updated(0, adjusted))
+    val runtimeState    = topology.emptyExecutionState()
+    val batches         = MortgageFlows.emitBatches(MortgageFlows.Input(PLN(500000.0), PLN(200000.0), PLN(10000.0), PLN(50000.0)))(using topology)
+
+    ImperativeInterpreter.planAndApplyAll(runtimeState, batches) shouldBe Right(())
+    val snapshot         = runtimeState.snapshot
+    val mortgageShellKey = (EntitySector.Households, AssetType.MortgageLoan, topology.households.mortgagePrincipalSettlement)
+    snapshot.keys.exists { case (sector, asset, _) => sector == EntitySector.Banks && asset == AssetType.MortgageLoan } shouldBe false
+    snapshot.keySet should contain(mortgageShellKey)
+    snapshot(mortgageShellKey) should not be 0L
+
+    val projection = RuntimeFlowProjection.materializeSupportedState(
+      opening = opening,
+      semanticClosing = semanticClosing,
+      deltaLedger = snapshot,
+      topology = topology,
+    )
+
+    projection.ledgerFinancialState.households shouldBe semanticClosing.households
   }
 
 end FlowSimulationRuntimeProjectionSpec
