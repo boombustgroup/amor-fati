@@ -5,9 +5,9 @@ import com.boombustgroup.amorfati.types.*
 
 import com.boombustgroup.amorfati.random.RandomStream
 
-/** Deposit mobility: endogenous deposit flight and bank runs.
+/** Deposit mobility: delayed deposit-account reassignment after bank stress.
   *
-  * Models three channels of deposit switching:
+  * Models two channels of household bank switching:
   *
   *   1. '''Health-based flight''' — households observe their bank's health (CAR
   *      ratio). When CAR drops below a threshold, a fraction of depositors
@@ -15,15 +15,17 @@ import com.boombustgroup.amorfati.random.RandomStream
   *   2. '''Panic contagion''' — when any bank fails this month, depositors at
   *      other banks panic-switch with probability `panicRate`. Diamond & Dybvig
   *      (1983) threshold effect. SVB/Credit Suisse/Idea Bank channel.
-  *   3. '''Endogenous LCR runoff''' — bank-level deposit runoff rate becomes
-  *      `baseRunoff + panicPremium × (1 − bankCAR/systemCAR)`. Stressed banks
-  *      face higher outflows.
   *
   * Deposit switching is a delayed boundary-routing contract. This module only
   * updates household `bankId` assignments. It does not emit same-month monetary
   * batches and it does not move bank balance-sheet deposits in month `t`; those
   * assignments affect future household income, consumption, debt-service, and
   * deposit-interest routing from the next boundary onward.
+  *
+  * Input household `bankId` values must already point to surviving banks in the
+  * current bank vector. Failure resolution is responsible for reassigning
+  * failed-bank clients before this module runs; unknown or stale bank IDs fail
+  * fast instead of receiving generic system-average switching behavior.
   *
   * Pure function — no mutable state. Called from BankingEconomics after failure
   * resolution.
@@ -56,6 +58,23 @@ object DepositMobility:
     val panicFlight  = if anyBankFailed then p.banking.depositPanicRate else Share.Zero
     (healthFlight + panicFlight).min(p.banking.maxDepositSwitchRate)
 
+  private def validateHouseholdBankIds(households: Vector[Household.State], banks: Vector[Banking.BankState]): Unit =
+    households.foreach: hh =>
+      val bankIndex = hh.bankId.toInt
+      require(
+        bankIndex >= 0 && bankIndex < banks.length,
+        s"DepositMobility requires household ${hh.id.toInt} to reference a known bankId, got $bankIndex for ${banks.length} banks",
+      )
+      val bank      = banks(bankIndex)
+      require(
+        bank.id == hh.bankId,
+        s"DepositMobility requires bankId/index alignment for household ${hh.id.toInt}, got bankId ${hh.bankId.toInt} at index $bankIndex with bank ${bank.id.toInt}",
+      )
+      require(
+        !bank.failed,
+        s"DepositMobility requires household ${hh.id.toInt} to be reassigned away from failed bank ${hh.bankId.toInt} before mobility runs",
+      )
+
   /** Run deposit mobility: households may switch from weak banks to the
     * healthiest bank.
     *
@@ -76,18 +95,14 @@ object DepositMobility:
       rng: RandomStream,
       bankCorpBondHoldings: Banking.BankCorpBondHoldings = Banking.noBankCorpBondHoldings,
   )(using p: SimParams): Result =
+    validateHouseholdBankIds(households, banks)
     val healthiest = Banking.healthiestBankId(banks, bankFinancialStocks, bankCorpBondHoldings)
-    val carByBank  = banks
+    val carByIndex = banks
       .zip(bankFinancialStocks)
-      .map((b, stocks) => b.id.toInt -> Banking.car(b, stocks, bankCorpBondHoldings(b.id)))
-      .toMap
-    val systemCar  =
-      if banks.nonEmpty then
-        Multiplier.fromRaw(banks.zip(bankFinancialStocks).map((b, stocks) => Banking.car(b, stocks, bankCorpBondHoldings(b.id)).toLong).sum / banks.length)
-      else Multiplier.Zero
+      .map((b, stocks) => Banking.car(b, stocks, bankCorpBondHoldings(b.id)))
 
     val updated = households.map: hh =>
-      val currentCar = carByBank.getOrElse(hh.bankId.toInt, systemCar)
+      val currentCar = carByIndex(hh.bankId.toInt)
       val prob       = switchProbability(currentCar, anyBankFailed)
       if prob > Share.Zero && prob.sampleBelow(rng) && hh.bankId != healthiest then hh.copy(bankId = healthiest)
       else hh
