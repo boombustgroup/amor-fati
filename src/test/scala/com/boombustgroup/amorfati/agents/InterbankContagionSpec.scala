@@ -84,20 +84,51 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
     matrix.flatten.forall(_ == PLN.Zero) shouldBe true
   }
 
+  it should "exclude failed zero-position banks from exposures" in {
+    val rows   = Vector(mkBankRow(0, 100.0), mkBankRow(1, -100.0), mkBankRow(2, 0.0, failed = true))
+    val matrix = InterbankContagion.buildExposureMatrix(banks(rows), stocks(rows))
+    matrix(2).forall(_ == PLN.Zero) shouldBe true
+    matrix.map(_(2)).forall(_ == PLN.Zero) shouldBe true
+  }
+
+  it should "reject failed banks with non-zero interbank positions" in {
+    val rows = Vector(mkBankRow(0, 100.0), mkBankRow(1, -100.0, failed = true))
+    val ex   = intercept[IllegalArgumentException]:
+      InterbankContagion.buildExposureMatrix(banks(rows), stocks(rows))
+    ex.getMessage should include("failed bank 1")
+    ex.getMessage should include("interbankLoan")
+  }
+
   "applyContagionLosses" should "reduce capital of exposed lenders when counterparty fails" in {
-    val rows         = Vector(mkBankRow(0, 100.0, capital = 1e9), mkBankRow(1, -100.0, capital = -1.0, failed = true))
-    val matrix       = InterbankContagion.buildExposureMatrix(banks(rows), stocks(rows))
-    val after        = InterbankContagion.applyContagionLosses(banks(rows), matrix)
+    val exposureRows = Vector(mkBankRow(0, 100.0, capital = 1e9), mkBankRow(1, -100.0, capital = 1e9))
+    val failedRows   = Vector(mkBankRow(0, 100.0, capital = 1e9), mkBankRow(1, -100.0, capital = -1.0, failed = true))
+    val matrix       = InterbankContagion.buildExposureMatrix(banks(exposureRows), stocks(exposureRows))
+    val after        = InterbankContagion.applyContagionLosses(banks(failedRows), matrix)
     // Lender loses exposure × (1 - recovery)
     val expectedLoss = 100.0 * (1.0 - td.toDouble(p.banking.interbankRecoveryRate))
     td.toDouble(after(0).capital) shouldBe (1e9 - expectedLoss) +- 0.01
   }
 
   it should "not affect banks with no exposure to failed bank" in {
-    val rows   = Vector(mkBankRow(0, 0.0, capital = 1e9), mkBankRow(1, -100.0, capital = -1.0, failed = true), mkBankRow(2, 100.0, capital = 1e9))
-    val matrix = InterbankContagion.buildExposureMatrix(banks(rows), stocks(rows))
-    val after  = InterbankContagion.applyContagionLosses(banks(rows), matrix)
+    val exposureRows = Vector(mkBankRow(0, 0.0, capital = 1e9), mkBankRow(1, -100.0, capital = 1e9), mkBankRow(2, 100.0, capital = 1e9))
+    val failedRows   =
+      Vector(mkBankRow(0, 0.0, capital = 1e9), mkBankRow(1, -100.0, capital = -1.0, failed = true), mkBankRow(2, 100.0, capital = 1e9))
+    val matrix       = InterbankContagion.buildExposureMatrix(banks(exposureRows), stocks(exposureRows))
+    val after        = InterbankContagion.applyContagionLosses(banks(failedRows), matrix)
     td.toDouble(after(0).capital) shouldBe 1e9 +- 0.01 // safe bank untouched
+  }
+
+  it should "make contagion insolvency visible to the same-month failure check" in {
+    val exposureRows = Vector(mkBankRow(0, 100.0, capital = 1.0), mkBankRow(1, -100.0, capital = 1e9))
+    val failedRows   = Vector(mkBankRow(0, 100.0, capital = 1.0), mkBankRow(1, -100.0, capital = -1.0, failed = true))
+    val matrix       = InterbankContagion.buildExposureMatrix(banks(exposureRows), stocks(exposureRows))
+    val afterLosses  = InterbankContagion.applyContagionLosses(banks(failedRows), matrix)
+    val cleanStocks  = stocks(exposureRows).map(_.copy(demandDeposit = PLN.Zero, termDeposit = PLN.Zero))
+    val checked      = Banking.checkFailures(afterLosses, cleanStocks, ExecutionMonth(30), enabled = true, Multiplier.Zero)
+
+    afterLosses(0).capital should be < PLN.Zero
+    checked.banks(0).failed shouldBe true
+    checked.anyFailed shouldBe true
   }
 
   "hoardingFactor" should "be 1.0 when NPL below threshold" in {

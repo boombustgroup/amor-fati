@@ -4,11 +4,13 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.Distribute
 
-/** Interbank contagion: bilateral exposures, counterparty losses, liquidity
-  * hoarding.
+/** Interbank contagion: bilateral exposures, counterparty losses, and an
+  * NPL-driven liquidity-hoarding proxy.
   *
   * Models the Lehman/Bear Stearns channel: bank failure → counterparty losses
-  * proportional to bilateral exposure → secondary failures → systemic freeze.
+  * proportional to bilateral exposure → secondary failures. The hoarding proxy
+  * is calibrated from system-wide NPL stress, not directly from realized bank
+  * failures.
   *
   * Three mechanisms:
   *
@@ -20,7 +22,8 @@ import com.boombustgroup.ledger.Distribute
   *      potentially triggering secondary failure (cascade).
   *   3. '''Liquidity hoarding''' — when system-wide NPL ratio exceeds a
   *      threshold, banks cut interbank lending by a hoarding factor. This
-  *      reduces available liquidity, amplifying stress.
+  *      reduces available liquidity, amplifying stress, but it remains separate
+  *      from the realized failure/contagion-loss path.
   *
   * Pure functions — no mutable state. Called from `processInterbankAndFailures`
   * in BankingEconomics.
@@ -47,8 +50,19 @@ object InterbankContagion:
       banks.length == financialStocks.length,
       s"InterbankContagion.buildExposureMatrix requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
     )
+    banks
+      .zip(financialStocks)
+      .foreach: (bank, stocks) =>
+        require(
+          !bank.failed || stocks.interbankLoan == PLN.Zero,
+          s"InterbankContagion.buildExposureMatrix requires failed bank ${bank.id.toInt} to have zero interbankLoan, got ${stocks.interbankLoan}",
+        )
     val n         = banks.length
-    val nets      = financialStocks.map(_.interbankLoan)
+    val nets      = banks
+      .zip(financialStocks)
+      .map:
+        case (bank, _) if bank.failed => PLN.Zero
+        case (_, stocks)              => stocks.interbankLoan
     val borrowers = nets.indices.filter(i => nets(i) < PLN.Zero).toVector
     val weights   = borrowers.map(i => (-nets(i)).toLong)
     if borrowers.isEmpty then Vector.fill(n)(Vector.fill(n)(PLN.Zero))
@@ -67,7 +81,7 @@ object InterbankContagion:
     *
     * For each failed bank j, every lender i loses
     * `exposure(i→j) × (1 − recoveryRate)` from capital. If capital goes
-    * negative, bank i may subsequently fail in the next `checkFailures` round.
+    * negative, bank i fails in the subsequent `checkFailures` round.
     */
   def applyContagionLosses(
       banks: Vector[Banking.BankState],
@@ -90,7 +104,9 @@ object InterbankContagion:
     * `hoardingFactor = clamp(1 − sensitivity × (systemNPL − threshold), 0, 1)`
     *
     * At factor = 0, interbank market freezes completely (all banks hoard). At
-    * factor = 1, normal interbank activity.
+    * factor = 1, normal interbank activity. This proxy is intentionally
+    * NPL-only; realized failures and contagion losses are handled by
+    * `applyContagionLosses` plus `Banking.checkFailures`.
     */
   def hoardingFactor(systemNplRatio: Share)(using p: SimParams): Share =
     val excess = (systemNplRatio - p.banking.hoardingNplThreshold).max(Share.Zero)
