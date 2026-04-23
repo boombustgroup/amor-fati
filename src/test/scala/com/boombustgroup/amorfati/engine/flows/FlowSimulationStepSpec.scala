@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.accounting.Sfc
-import com.boombustgroup.amorfati.agents.Household
+import com.boombustgroup.amorfati.agents.{ContractType, HhStatus, Household, SocialSecurity}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.{
   DecisionSignals,
@@ -243,6 +243,36 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
         .foldLeft(PLN.Zero)(_ + _)
 
     result.trace.executedFlows.govSpending shouldBe expectedGovSpending
+  }
+
+  it should "anchor same-month social payroll before month-end hiring contract changes" in {
+    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val baseState = FlowSimulation.SimState.fromInit(init)
+    val state     = baseState.copy(
+      households = baseState.households.zipWithIndex.map:
+        case (hh, idx) if idx < 24 =>
+          hh.copy(status = HhStatus.Unemployed(0), contractType = ContractType.Permanent)
+        case (hh, _)               => hh,
+    )
+
+    val result               = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val finalPayroll         = SocialSecurity.payrollBase(result.nextState.households)
+    val hiredWithNewContract = state.households
+      .zip(result.nextState.households)
+      .exists:
+        case (before, after) =>
+          before.status == HhStatus.Unemployed(0) &&
+          after.status.isInstanceOf[HhStatus.Employed] &&
+          after.contractType != before.contractType
+
+    hiredWithNewContract shouldBe true
+    result.calculus.zus.contributions shouldBe result.calculus.payroll.zusContributions
+    result.calculus.nfz.contributions shouldBe result.calculus.payroll.nfzContributions
+    result.calculus.ppk.contributions shouldBe result.calculus.payroll.ppkContributions
+    mechanismTotal(result.flows, FlowMechanism.ZusContribution) shouldBe result.calculus.payroll.zusContributions
+    mechanismTotal(result.flows, FlowMechanism.NfzContribution) shouldBe result.calculus.payroll.nfzContributions
+    mechanismTotal(result.flows, FlowMechanism.PpkContribution) shouldBe result.calculus.payroll.ppkContributions
+    result.calculus.payroll.zusContributions should not equal finalPayroll.zusContributions
   }
 
   it should "keep corporate bond outstanding ledger-owned across month boundaries" in {

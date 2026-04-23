@@ -70,6 +70,62 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     result(1).status shouldBe HhStatus.Unemployed(5)
   }
 
+  it should "retain protected contracts first during non-automation reductions" in {
+    val prevFirms = Vector(mkFirms(1)(0).copy(tech = TechState.Traditional(4), initialSize = 4))
+    val newFirms  = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Hybrid(2, Multiplier.One)))
+    val hhs       = Vector(
+      mkHousehold(0, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), contractType = ContractType.Permanent),
+      mkHousehold(1, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), contractType = ContractType.Zlecenie),
+      mkHousehold(2, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), contractType = ContractType.B2B),
+      mkHousehold(3, HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)), contractType = ContractType.B2B),
+    )
+
+    val result = LaborMarket.separations(hhs, prevFirms, newFirms)
+
+    result(0).status shouldBe a[HhStatus.Employed]
+    result(1).status shouldBe a[HhStatus.Employed]
+    result(2).status shouldBe HhStatus.Unemployed(0)
+    result(3).status shouldBe HhStatus.Unemployed(0)
+  }
+
+  it should "retain lowest AI displacement risk first when a firm automates" in {
+    val prevFirms = Vector(mkFirms(1)(0).copy(tech = TechState.Traditional(4), initialSize = 4))
+    val newFirms  = prevFirms.updated(0, prevFirms(0).copy(tech = TechState.Automated(Multiplier(1.5))))
+    val hhs       = Vector(
+      mkHousehold(
+        0,
+        HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)),
+        contractType = ContractType.Permanent,
+        taskRoutineness = Share(0.95),
+      ),
+      mkHousehold(
+        1,
+        HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)),
+        contractType = ContractType.Zlecenie,
+        taskRoutineness = Share(0.10),
+      ),
+      mkHousehold(
+        2,
+        HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)),
+        contractType = ContractType.B2B,
+        taskRoutineness = Share(0.10),
+      ),
+      mkHousehold(
+        3,
+        HhStatus.Employed(FirmId(0), SectorIdx(2), PLN(8000.0)),
+        contractType = ContractType.Permanent,
+        taskRoutineness = Share(0.90),
+      ),
+    )
+
+    val result = LaborMarket.separations(hhs, prevFirms, newFirms)
+
+    result(0).status shouldBe HhStatus.Unemployed(0)
+    result(1).status shouldBe a[HhStatus.Employed]
+    result(2).status shouldBe a[HhStatus.Employed]
+    result(3).status shouldBe HhStatus.Unemployed(0)
+  }
+
   // --- jobSearch ---
 
   "LaborMarket.jobSearch" should "employ unemployed when vacancies exist" in {
@@ -126,6 +182,19 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
     )
     val result = LaborMarket.jobSearch(hhs, firms, PLN(8000.0), rng, Map.empty, Set(FirmId(0))).households
     result.count(_.status.isInstanceOf[HhStatus.Employed]) should be >= 2
+  }
+
+  it should "assign new hires contract types from the hiring firm's sector" in {
+    val rng   = RandomStream.seeded(293)
+    val firms = Vector(mkFirms(1)(0).copy(tech = TechState.Traditional(12), sector = SectorIdx(0), initialSize = 12))
+    val hhs   = (0 until 12).map(i => mkHousehold(i, HhStatus.Unemployed(0), skill = 0.9 - i * 0.01)).toVector
+
+    val result         = LaborMarket.jobSearch(hhs, firms, PLN(8000.0), rng).households
+    val hiredContracts = result.collect { case hh if hh.status.isInstanceOf[HhStatus.Employed] => hh.contractType }
+
+    hiredContracts should have size 12
+    hiredContracts.toSet should contain(ContractType.B2B)
+    hiredContracts.toSet.size should be > 1
   }
 
   // --- updateWages ---
@@ -192,6 +261,8 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       status: HhStatus,
       skill: Double = 0.7,
       healthPenalty: Double = 0.0,
+      taskRoutineness: Share = Share(0.5),
+      contractType: ContractType = ContractType.Permanent,
   ): Household.State =
     TestHouseholdState(
       HhId(id),
@@ -210,6 +281,7 @@ class LaborMarketSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Share(0.5),
+      taskRoutineness = taskRoutineness,
       wageScar = Share.Zero,
+      contractType = contractType,
     )

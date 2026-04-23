@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.fp.ComputationBoundary
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -47,4 +48,20 @@ class ContractTypeSpec extends AnyFlatSpec with Matchers:
   it should "have high Permanent in Public sector" in {
     val (perm, _, _) = ContractType.sectorMix(4) // Public
     perm should be > 0.8
+  }
+
+  "sampleForSector" should "draw deterministically for a seeded stream" in {
+    val firstRng  = RandomStream.seeded(293)
+    val secondRng = RandomStream.seeded(293)
+    val first     = (0 until 20).map(_ => ContractType.sampleForSector(SectorIdx(0), firstRng)).toVector
+    val second    = (0 until 20).map(_ => ContractType.sampleForSector(SectorIdx(0), secondRng)).toVector
+    first shouldBe second
+  }
+
+  it should "sample all contract types from a mixed sector" in {
+    val rng     = RandomStream.seeded(293)
+    val samples = (0 until 1000).map(_ => ContractType.sampleForSector(SectorIdx(0), rng)).toSet
+    samples should contain(ContractType.Permanent)
+    samples should contain(ContractType.Zlecenie)
+    samples should contain(ContractType.B2B)
   }

@@ -77,6 +77,15 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
     immigrants.foreach(_.status shouldBe HhStatus.Unemployed(0))
   }
 
+  it should "assign endogenous contract types from sampled sectors" in {
+    val rng        = RandomStream.seeded(42)
+    val immigrants = Immigration.spawnImmigrants(200, 0, rng)
+    val contracts  = immigrants.map(_.contractType).toSet
+
+    contracts should contain(ContractType.Zlecenie)
+    contracts should contain(ContractType.B2B)
+  }
+
   it should "clamp skill within valid range" in {
     val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)

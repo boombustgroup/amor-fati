@@ -288,6 +288,7 @@ object Household:
           education = edu,
           taskRoutineness = routineness,
           wageScar = Share.Zero,
+          contractType = ContractType.sampleForSector(sectorIdx, rng),
           region = firm.region,
         ),
         financialStocks = FinancialStocks(

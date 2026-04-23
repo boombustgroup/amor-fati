@@ -6,6 +6,66 @@ import com.boombustgroup.amorfati.types.*
 /** Social security and demographics: ZUS/FUS, PPK, demographics, BGK. */
 object SocialSecurity:
 
+  /** Current-month payroll basis derived from household states that are
+    * entitled to month-t income. Hiring later in the month updates the next
+    * boundary contract, not this payroll base.
+    */
+  case class PayrollBase(
+      employed: Int,
+      grossWages: PLN,
+      zusContributions: PLN,
+      nfzContributions: PLN,
+      ppkContributions: PLN,
+      fpContributions: PLN,
+      fgspContributions: PLN,
+  ):
+    def averageWage: PLN =
+      if employed <= 0 then PLN.Zero else grossWages / employed.toLong
+
+  object PayrollBase:
+    val zero: PayrollBase =
+      PayrollBase(0, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+
+    def aggregate(employed: Int, wage: PLN)(using p: SimParams): PayrollBase =
+      val grossWages = employed * wage
+      PayrollBase(
+        employed = employed,
+        grossWages = grossWages,
+        zusContributions = employed * (wage * p.social.zusContribRate * p.social.zusScale),
+        nfzContributions = employed * (wage * p.social.nfzContribRate),
+        ppkContributions = employed * (wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate)),
+        fpContributions = employed * (wage * p.earmarked.fpRate),
+        fgspContributions = employed * (wage * p.earmarked.fgspRate),
+      )
+
+    def fromHouseholds(households: Vector[Household.State])(using p: SimParams): PayrollBase =
+      households.foldLeft(zero):
+        case (acc, hh) =>
+          hh.status match
+            case HhStatus.Employed(_, _, wage) =>
+              val zus  = wage * ContractType.zusEmployerRate(hh.contractType) * p.social.zusScale
+              val nfz  = wage * p.social.nfzContribRate
+              val ppk  =
+                if hh.contractType == ContractType.B2B then PLN.Zero
+                else wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate)
+              val fp   = wage * ContractType.fpRate(hh.contractType)
+              val fgsp =
+                if hh.contractType == ContractType.B2B then PLN.Zero
+                else wage * p.earmarked.fgspRate
+              PayrollBase(
+                employed = acc.employed + 1,
+                grossWages = acc.grossWages + wage,
+                zusContributions = acc.zusContributions + zus,
+                nfzContributions = acc.nfzContributions + nfz,
+                ppkContributions = acc.ppkContributions + ppk,
+                fpContributions = acc.fpContributions + fp,
+                fgspContributions = acc.fgspContributions + fgsp,
+              )
+            case _                             => acc
+
+  def payrollBase(households: Vector[Household.State])(using p: SimParams): PayrollBase =
+    PayrollBase.fromHouseholds(households)
+
   // ---------------------------------------------------------------------------
   // ZUS / FUS
   // ---------------------------------------------------------------------------
@@ -25,7 +85,10 @@ object SocialSecurity:
     * boundary to carry the stock forward.
     */
   def zusStep(employed: Int, wage: PLN, nRetirees: Int)(using p: SimParams): ZusState =
-    val contributions = employed * (wage * p.social.zusContribRate * p.social.zusScale)
+    zusStep(PayrollBase.aggregate(employed, wage), nRetirees)
+
+  def zusStep(payroll: PayrollBase, nRetirees: Int)(using p: SimParams): ZusState =
+    val contributions = payroll.zusContributions
     val pensions      = nRetirees * p.social.zusBasePension
     val monthlyFlow   = contributions - pensions
     val govSubvention = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
@@ -58,7 +121,10 @@ object SocialSecurity:
     * carry the stock forward.
     */
   def nfzStep(employed: Int, wage: PLN, workingAge: Int, nRetirees: Int)(using p: SimParams): NfzState =
-    val contributions = employed * (wage * p.social.nfzContribRate)
+    nfzStep(PayrollBase.aggregate(employed, wage), workingAge, nRetirees)
+
+  def nfzStep(payroll: PayrollBase, workingAge: Int, nRetirees: Int)(using p: SimParams): NfzState =
+    val contributions = payroll.nfzContributions
     val spending      = workingAge * p.social.nfzPerCapitaCost + nRetirees * (p.social.nfzPerCapitaCost * p.social.nfzAgingElasticity)
     val monthlyFlow   = contributions - spending
     val govSubvention = if monthlyFlow < PLN.Zero then -monthlyFlow else PLN.Zero
@@ -86,7 +152,10 @@ object SocialSecurity:
     * a pass-through bond market participant).
     */
   def ppkStep(employed: Int, wage: PLN)(using p: SimParams): PpkState =
-    val contributions = employed * (wage * (p.social.ppkEmployeeRate + p.social.ppkEmployerRate))
+    ppkStep(PayrollBase.aggregate(employed, wage))
+
+  def ppkStep(payroll: PayrollBase): PpkState =
+    val contributions = payroll.ppkContributions
     PpkState(contributions)
 
   /** PPK bond purchase this month: contributions × bond allocation. */

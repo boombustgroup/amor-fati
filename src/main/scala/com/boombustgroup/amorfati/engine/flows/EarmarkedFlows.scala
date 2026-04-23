@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.agents.EarmarkedFunds
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
@@ -21,25 +22,30 @@ object EarmarkedFlows:
   val GOV_ACCOUNT: Int      = 4
   val SERVICES_ACCOUNT: Int = 5
 
-  case class Input(
-      employed: Int,
-      wage: PLN,
-      unempBenefitSpend: PLN,
-      nBankruptFirms: Int,
-      avgFirmWorkers: Int,
-  )
+  case class Input(state: EarmarkedFunds.State)
 
-  def emitBatches(input: Input)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
-    val fpContrib = input.employed * (input.wage * p.earmarked.fpRate)
-    val fpSpend   = input.unempBenefitSpend + input.employed * p.earmarked.fpAlmpSpendPerWorker
+  object Input:
+    def apply(
+        employed: Int,
+        wage: PLN,
+        unempBenefitSpend: PLN,
+        nBankruptFirms: Int,
+        avgFirmWorkers: Int,
+    )(using p: SimParams): Input =
+      Input(EarmarkedFunds.step(employed, wage, unempBenefitSpend, nBankruptFirms, avgFirmWorkers))
+
+  def emitBatches(input: Input)(using @scala.annotation.unused p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    val state     = input.state
+    val fpContrib = state.fpContributions
+    val fpSpend   = state.fpSpending
     val fpDeficit = fpSpend - fpContrib
 
-    val pfronContrib = p.earmarked.pfronMonthlyRevenue
-    val pfronSpend   = p.earmarked.pfronMonthlySpending
+    val pfronContrib = state.pfronContributions
+    val pfronSpend   = state.pfronSpending
     val pfronDeficit = pfronSpend - pfronContrib
 
-    val fgspContrib = input.employed * (input.wage * p.earmarked.fgspRate)
-    val fgspSpend   = (input.nBankruptFirms * input.avgFirmWorkers) * p.earmarked.fgspPayoutPerWorker
+    val fgspContrib = state.fgspContributions
+    val fgspSpend   = state.fgspSpending
     val fgspDeficit = fgspSpend - fgspContrib
 
     Vector.concat(
@@ -115,12 +121,13 @@ object EarmarkedFlows:
       ),
     )
 
-  def emit(input: Input)(using p: SimParams): Vector[Flow] =
+  def emit(input: Input)(using @scala.annotation.unused p: SimParams): Vector[Flow] =
     val flows = Vector.newBuilder[Flow]
+    val state = input.state
 
     // FP: employer levy → unemployment benefits + ALMP
-    val fpContrib = input.employed * (input.wage * p.earmarked.fpRate)
-    val fpSpend   = input.unempBenefitSpend + input.employed * p.earmarked.fpAlmpSpendPerWorker
+    val fpContrib = state.fpContributions
+    val fpSpend   = state.fpSpending
     val fpDeficit = fpSpend - fpContrib
 
     if fpContrib > PLN.Zero then flows += Flow(HH_ACCOUNT, FP_ACCOUNT, fpContrib.toLong, FlowMechanism.FpContribution.toInt)
@@ -128,8 +135,8 @@ object EarmarkedFlows:
     if fpDeficit > PLN.Zero then flows += Flow(GOV_ACCOUNT, FP_ACCOUNT, fpDeficit.toLong, FlowMechanism.FpGovSubvention.toInt)
 
     // PFRON: flat levy → disability spending
-    val pfronContrib = p.earmarked.pfronMonthlyRevenue
-    val pfronSpend   = p.earmarked.pfronMonthlySpending
+    val pfronContrib = state.pfronContributions
+    val pfronSpend   = state.pfronSpending
     val pfronDeficit = pfronSpend - pfronContrib
 
     if pfronContrib > PLN.Zero then flows += Flow(HH_ACCOUNT, PFRON_ACCOUNT, pfronContrib.toLong, FlowMechanism.PfronContribution.toInt)
@@ -137,8 +144,8 @@ object EarmarkedFlows:
     if pfronDeficit > PLN.Zero then flows += Flow(GOV_ACCOUNT, PFRON_ACCOUNT, pfronDeficit.toLong, FlowMechanism.PfronGovSubvention.toInt)
 
     // FGSP: payroll levy → bankruptcy payouts (counter-cyclical)
-    val fgspContrib = input.employed * (input.wage * p.earmarked.fgspRate)
-    val fgspSpend   = (input.nBankruptFirms * input.avgFirmWorkers) * p.earmarked.fgspPayoutPerWorker
+    val fgspContrib = state.fgspContributions
+    val fgspSpend   = state.fgspSpending
     val fgspDeficit = fgspSpend - fgspContrib
 
     if fgspContrib > PLN.Zero then flows += Flow(HH_ACCOUNT, FGSP_ACCOUNT, fgspContrib.toLong, FlowMechanism.FgspContribution.toInt)

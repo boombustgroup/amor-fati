@@ -103,6 +103,17 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     }
   }
 
+  it should "assign endogenous contract types from sector mixes" in {
+    val rng     = RandomStream.seeded(42)
+    val firms   = mkFirms(100)
+    val network = Array.fill(1000)(Array.empty[Int])
+    val hhs     = Household.Init.initialize(1000, firms, network, rng).households
+
+    hhs.exists(_.contractType == ContractType.Zlecenie) shouldBe true
+    hhs.exists(_.contractType == ContractType.B2B) shouldBe true
+    hhs.count(_.contractType == ContractType.Permanent) should be < hhs.length
+  }
+
   it should "assign positive savings to all households" in {
     val rng     = RandomStream.seeded(42)
     val firms   = mkFirms(50)
