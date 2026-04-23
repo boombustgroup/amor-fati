@@ -19,6 +19,9 @@ import com.boombustgroup.amorfati.random.RandomStream
   * skill-ranked matching with same-sector priority and cross-sector friction
   * penalty (when sectoral mobility enabled).
   *
+  * Separations use contract protection and automation vulnerability before
+  * skill tie-breaks.
+  *
   * Calibration: GUS BAEL (Labor Force Survey) 2024, NBP wage statistics.
   */
 object LaborMarket:
@@ -31,6 +34,9 @@ object LaborMarket:
 
   /** Job search matching result. */
   case class JobSearchResult(households: Vector[Household.State], crossSectorHires: Int)
+
+  private enum WorkerLossKind:
+    case Bankruptcy, Automation, HybridReduction
 
   // --- Aggregate wage clearing ---
 
@@ -77,21 +83,22 @@ object LaborMarket:
 
   // --- Separations ---
 
-  /** Separate workers from firms that automated or went bankrupt this step.
-    * Education-ranked retention: highest-educated workers kept first when firm
-    * transitions to Hybrid or Automated (skeleton crew). Returns updated
-    * households with newly unemployed workers.
+  /** Separate workers from firms that automated, downsized, or went bankrupt
+    * this step. Contract protection and automation vulnerability shape
+    * retention before skill tie-breaks. Returns updated households with newly
+    * unemployed workers.
     */
   def separations(
       households: Vector[Household.State],
       prevFirms: Vector[Firm.State],
       newFirms: Vector[Firm.State],
   )(using SimParams): Vector[Household.State] =
-    val lostFirms = firmsThatLostWorkers(prevFirms, newFirms)
-    if lostFirms.isEmpty then households
+    val lossKinds = workerLossKinds(prevFirms, newFirms)
+    if lossKinds.isEmpty then households
     else
-      val counts   = retainCounts(newFirms, lostFirms)
-      val retained = retainSets(households, lostFirms, counts)
+      val lostFirms = lossKinds.keySet
+      val counts    = retainCounts(newFirms, lostFirms)
+      val retained  = retainSets(households, lostFirms, counts, lossKinds)
       applySeparations(households, lostFirms, retained)
 
   // --- Job search ---
@@ -109,14 +116,14 @@ object LaborMarket:
       households: Vector[Household.State],
       firms: Vector[Firm.State],
       marketWage: PLN,
-      @scala.annotation.unused rng: RandomStream,
+      rng: RandomStream,
       regionalWages: Map[Region, PLN] = Map.empty,
       eligibleFirmIds: Set[FirmId] = Set.empty,
   )(using p: SimParams): JobSearchResult =
     val vacancies = computeVacancies(households, firms, eligibleFirmIds)
     if vacancies.isEmpty then JobSearchResult(households, 0)
-    else if regionalWages.nonEmpty then matchWorkersRegional(households, firms, vacancies, marketWage, regionalWages)
-    else matchWorkers(households, firms, vacancies, marketWage)
+    else if regionalWages.nonEmpty then matchWorkersRegional(households, firms, vacancies, marketWage, regionalWages, rng)
+    else matchWorkers(households, firms, vacancies, marketWage, rng)
 
   // --- Wage updating ---
 
@@ -151,15 +158,16 @@ object LaborMarket:
   /** Identify firms that lost workers: bankruptcy, automation, or hybrid
     * reduction.
     */
-  private def firmsThatLostWorkers(
+  private def workerLossKinds(
       prevFirms: Vector[Firm.State],
       newFirms: Vector[Firm.State],
-  ): Set[FirmId] =
-    newFirms.indices.collect {
-      case i if didLoseWorkers(prevFirms(i), newFirms(i)) => newFirms(i).id
-    }.toSet
+  ): Map[FirmId, WorkerLossKind] =
+    newFirms.indices
+      .flatMap: i =>
+        workerLossKind(prevFirms(i), newFirms(i)).map(newFirms(i).id -> _)
+      .toMap
 
-  private def didLoseWorkers(prev: Firm.State, curr: Firm.State): Boolean =
+  private def workerLossKind(prev: Firm.State, curr: Firm.State): Option[WorkerLossKind] =
     val wentBankrupt   = Firm.isAlive(prev) && !Firm.isAlive(curr)
     val newlyAutomated = (prev.tech, curr.tech) match
       case (_: TechState.Automated, _) => false
@@ -168,7 +176,10 @@ object LaborMarket:
     val hybridReduced  = (prev.tech, curr.tech) match
       case (TechState.Traditional(w1), TechState.Hybrid(w2, _)) => w2 < w1
       case _                                                    => false
-    wentBankrupt || newlyAutomated || hybridReduced
+    if wentBankrupt then Some(WorkerLossKind.Bankruptcy)
+    else if newlyAutomated then Some(WorkerLossKind.Automation)
+    else if hybridReduced then Some(WorkerLossKind.HybridReduction)
+    else None
 
   /** How many workers each affected firm retains (hybrid crew or skeleton
     * crew).
@@ -185,13 +196,15 @@ object LaborMarket:
           case _                      => f.id -> 0
     }.toMap
 
-  /** Build retain sets: when SBTC enabled, low-routineness (cognitive) workers
-    * retained first; otherwise education-ranked.
+  /** Build retain sets for affected firms. Automation prioritizes low
+    * AI/routine displacement risk; other reductions prioritize contract
+    * protection.
     */
   private def retainSets(
       households: Vector[Household.State],
       lostFirms: Set[FirmId],
       counts: Map[FirmId, Int],
+      lossKinds: Map[FirmId, WorkerLossKind],
   ): Map[FirmId, Set[Int]] =
     households.zipWithIndex
       .flatMap: (hh, idx) =>
@@ -200,14 +213,32 @@ object LaborMarket:
           case _                                                             => None
       .groupMap(_._1)(_._2)
       .map: (firmId, indices) =>
-        val sorted    = // Low routineness = cognitive = retained; high routineness = routine = displaced
+        val lossKind  = lossKinds(firmId)
+        val sorted    =
           indices.sortWith: (left, right) =>
             val leftHh  = households(left)
             val rightHh = households(right)
-            (leftHh.taskRoutineness < rightHh.taskRoutineness) ||
-            (leftHh.taskRoutineness == rightHh.taskRoutineness && leftHh.skill > rightHh.skill)
+            shouldRetainBefore(leftHh, rightHh, lossKind)
         val maxRetain = counts.getOrElse(firmId, 0)
         firmId -> sorted.take(maxRetain).toSet
+
+  private def shouldRetainBefore(left: Household.State, right: Household.State, lossKind: WorkerLossKind): Boolean =
+    val leftProtection  = ContractType.firingPriority(left.contractType)
+    val rightProtection = ContractType.firingPriority(right.contractType)
+    val leftRisk        = displacementRisk(left)
+    val rightRisk       = displacementRisk(right)
+    lossKind match
+      case WorkerLossKind.Automation =>
+        if leftRisk != rightRisk then leftRisk < rightRisk
+        else if leftProtection != rightProtection then leftProtection > rightProtection
+        else left.skill > right.skill
+      case _                         =>
+        if leftProtection != rightProtection then leftProtection > rightProtection
+        else if leftRisk != rightRisk then leftRisk < rightRisk
+        else left.skill > right.skill
+
+  private def displacementRisk(hh: Household.State): Double =
+    ContractType.aiVulnerability(hh.contractType) * ComputationBoundary.toDouble(hh.taskRoutineness)
 
   /** Apply separations: retained workers stay, others become unemployed. */
   private def applySeparations(
@@ -262,6 +293,7 @@ object LaborMarket:
       firms: Vector[Firm.State],
       vacancies: Map[FirmId, Int],
       marketWage: PLN,
+      rng: RandomStream,
   )(using p: SimParams): JobSearchResult =
     val ranked          = rankUnemployed(households)
     val firmsBySector   = vacancies.keys.groupBy(fid => firms(fid.toInt).sector)
@@ -270,7 +302,7 @@ object LaborMarket:
     val init   = MatchState(Map.empty, vacancies, 0)
     val result = ranked.foldLeft(init): (st, idx) =>
       if st.vacancies.isEmpty then st
-      else tryHire(st, idx, households(idx), firms, firmsBySector, firmsByPriority, marketWage)
+      else tryHire(st, idx, households(idx), firms, firmsBySector, firmsByPriority, marketWage, rng)
 
     val updated = households.zipWithIndex.map((hh, i) => result.hired.getOrElse(i, hh))
     JobSearchResult(updated, result.crossSectorHires)
@@ -284,6 +316,7 @@ object LaborMarket:
       vacancies: Map[FirmId, Int],
       marketWage: PLN,
       regionalWages: Map[Region, PLN],
+      rng: RandomStream,
   )(using p: SimParams): JobSearchResult =
     val ranked = rankUnemployed(households)
 
@@ -298,7 +331,7 @@ object LaborMarket:
     val init   = MatchState(Map.empty, vacancies, 0)
     val result = ranked.foldLeft(init): (st, idx) =>
       if st.vacancies.isEmpty then st
-      else tryHireRegional(st, idx, households(idx), firms, firmsBySectorRegion, firmsByRegion, firmsByPriority, marketWage, regionalWages)
+      else tryHireRegional(st, idx, households(idx), firms, firmsBySectorRegion, firmsByRegion, firmsByPriority, marketWage, regionalWages, rng)
 
     val updated = households.zipWithIndex.map((hh, i) => result.hired.getOrElse(i, hh))
     JobSearchResult(updated, result.crossSectorHires)
@@ -315,6 +348,7 @@ object LaborMarket:
       firmsByPriority: Vector[FirmId],
       marketWage: PLN,
       regionalWages: Map[Region, PLN],
+      rng: RandomStream,
   )(using p: SimParams): MatchState =
     val prevSector = effectivePrevSector(hh, firms)
     val hhRegion   = hh.region
@@ -344,6 +378,7 @@ object LaborMarket:
         val newHh         = hh.copy(
           status = HhStatus.Employed(fid, firm.sector, wage),
           lastSectorIdx = firm.sector,
+          contractType = ContractType.sampleForSector(firm.sector, rng),
           region = firm.region,
         )
         val remaining     = st.vacancies(fid) - 1
@@ -368,6 +403,7 @@ object LaborMarket:
       firmsBySector: Map[SectorIdx, Iterable[FirmId]],
       firmsByPriority: Vector[FirmId],
       marketWage: PLN,
+      rng: RandomStream,
   )(using p: SimParams): MatchState =
     val prevSector = effectivePrevSector(hh, firms)
     val bestFirm   = firmsBySector
@@ -376,7 +412,7 @@ object LaborMarket:
       .orElse(firmsByPriority.find(fid => st.vacancies.contains(fid)))
     bestFirm match
       case None      => st
-      case Some(fid) => hire(st, idx, hh, firms(fid.toInt), fid, prevSector, marketWage)
+      case Some(fid) => hire(st, idx, hh, firms(fid.toInt), fid, prevSector, marketWage, rng)
 
   /** Execute a hire: update household, decrement vacancy, count cross-sector.
     */
@@ -388,12 +424,14 @@ object LaborMarket:
       firmId: FirmId,
       prevSector: SectorIdx,
       marketWage: PLN,
+      rng: RandomStream,
   )(using p: SimParams): MatchState =
     val isCrossSector = firm.sector.toInt != prevSector.toInt
     val wage          = computeHireWage(hh, firm, marketWage, prevSector, isCrossSector)
     val newHh         = hh.copy(
       status = HhStatus.Employed(firmId, firm.sector, wage),
       lastSectorIdx = firm.sector,
+      contractType = ContractType.sampleForSector(firm.sector, rng),
     )
     val remaining     = st.vacancies(firmId) - 1
     val newVacancies  = if remaining <= 0 then st.vacancies - firmId else st.vacancies.updated(firmId, remaining)

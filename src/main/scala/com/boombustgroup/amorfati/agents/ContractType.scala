@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 
 /** Employment contract types in the Polish dual labor market.
@@ -75,3 +76,11 @@ object ContractType:
     case 4 => (0.90, 0.05, 0.05) // Public — almost all permanent
     case 5 => (0.40, 0.40, 0.20) // Agriculture — high zlecenie
     case _ => (0.70, 0.20, 0.10) // default
+
+  /** Draw a sector-specific employment contract. */
+  def sampleForSector(sectorIdx: SectorIdx, rng: RandomStream): ContractType =
+    val (permanent, zlecenie, _) = sectorMix(sectorIdx.toInt)
+    val draw                     = rng.nextDouble()
+    if draw < permanent then Permanent
+    else if draw < permanent + zlecenie then Zlecenie
+    else B2B

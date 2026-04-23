@@ -91,6 +91,7 @@ object Immigration:
         education = edu,
         taskRoutineness = Household.Init.sampleTaskRoutineness(edu, sector, rng),
         wageScar = Share.Zero,
+        contractType = ContractType.sampleForSector(sector, rng),
         region = region,
       )
       val stocks    = Household.FinancialStocks(

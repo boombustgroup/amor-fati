@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.agents.SocialSecurity
 import com.boombustgroup.amorfati.engine.ledger.TreasuryRuntimeContract
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
@@ -24,23 +25,21 @@ object ZusFlows:
   val FUS_ACCOUNT: Int = 1
   val GOV_ACCOUNT: Int = 2
 
-  case class ZusInput(
-      employed: Int,
-      wage: PLN,
-      nRetirees: Int,
-  )
+  case class ZusInput(zus: SocialSecurity.ZusState)
 
-  def emitBatches(input: ZusInput)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
-    val contributions = input.employed * (input.wage * p.social.zusContribRate * p.social.zusScale)
-    val pensions      = input.nRetirees * p.social.zusBasePension
-    val deficit       = pensions - contributions
+  object ZusInput:
+    def apply(employed: Int, wage: PLN, nRetirees: Int)(using p: SimParams): ZusInput =
+      ZusInput(SocialSecurity.zusStep(employed, wage, nRetirees))
+
+  def emitBatches(input: ZusInput)(using @scala.annotation.unused p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
+    val zus = input.zus
     Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Households,
         topology.households.aggregate,
         EntitySector.Funds,
         topology.funds.zus,
-        contributions,
+        zus.contributions,
         AssetType.Cash,
         FlowMechanism.ZusContribution,
       ),
@@ -50,7 +49,7 @@ object ZusFlows:
           topology.funds.zus,
           EntitySector.Households,
           topology.households.aggregate,
-          pensions,
+          zus.pensionPayments,
           AssetType.Cash,
           FlowMechanism.ZusPension,
         ),
@@ -59,24 +58,24 @@ object ZusFlows:
         TreasuryRuntimeContract.TreasuryBudgetSettlement.index,
         EntitySector.Funds,
         topology.funds.zus,
-        deficit,
+        zus.govSubvention,
         AssetType.Cash,
         FlowMechanism.ZusGovSubvention,
       ),
     )
 
-  def emit(input: ZusInput)(using p: SimParams): Vector[Flow] =
-    val contributions = input.employed * (input.wage * p.social.zusContribRate * p.social.zusScale)
-    val pensions      = input.nRetirees * p.social.zusBasePension
-    val deficit       = pensions - contributions
+  def emit(input: ZusInput)(using @scala.annotation.unused p: SimParams): Vector[Flow] =
+    val zus = input.zus
 
     val flows = Vector.newBuilder[Flow]
 
-    if contributions > PLN.Zero then
-      flows += Flow(from = HH_ACCOUNT, to = FUS_ACCOUNT, amount = contributions.toLong, mechanism = FlowMechanism.ZusContribution.toInt)
+    if zus.contributions > PLN.Zero then
+      flows += Flow(from = HH_ACCOUNT, to = FUS_ACCOUNT, amount = zus.contributions.toLong, mechanism = FlowMechanism.ZusContribution.toInt)
 
-    if pensions > PLN.Zero then flows += Flow(from = FUS_ACCOUNT, to = HH_ACCOUNT, amount = pensions.toLong, mechanism = FlowMechanism.ZusPension.toInt)
+    if zus.pensionPayments > PLN.Zero then
+      flows += Flow(from = FUS_ACCOUNT, to = HH_ACCOUNT, amount = zus.pensionPayments.toLong, mechanism = FlowMechanism.ZusPension.toInt)
 
-    if deficit > PLN.Zero then flows += Flow(from = GOV_ACCOUNT, to = FUS_ACCOUNT, amount = deficit.toLong, mechanism = FlowMechanism.ZusGovSubvention.toInt)
+    if zus.govSubvention > PLN.Zero then
+      flows += Flow(from = GOV_ACCOUNT, to = FUS_ACCOUNT, amount = zus.govSubvention.toLong, mechanism = FlowMechanism.ZusGovSubvention.toInt)
 
     flows.result()

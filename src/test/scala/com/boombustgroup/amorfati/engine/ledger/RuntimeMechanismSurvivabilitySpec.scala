@@ -83,7 +83,10 @@ class RuntimeMechanismSurvivabilitySpec extends AnyFlatSpec with Matchers:
         ),
       ),
       EarmarkedFlows.emitBatches(EarmarkedFlows.Input(1000, PLN(1000.0), PLN(100000000.0), 100000, 100)),
-      EarmarkedFlows.emitBatches(EarmarkedFlows.Input(0, PLN.Zero, PLN.Zero, 0, 0))(using SimParamsTestOverrides.pfronDeficit, summon[RuntimeLedgerTopology]),
+      EarmarkedFlows.emitBatches(EarmarkedFlows.Input(0, PLN.Zero, PLN.Zero, 0, 0)(using SimParamsTestOverrides.pfronDeficit))(using
+        summon[SimParams],
+        summon[RuntimeLedgerTopology],
+      ),
       JstFlows.emitBatches(JstFlows.Input(PLN(5000000.0), PLN(50000000.0), PLN(100000000.0), 9000, PLN(3000000.0))),
       HouseholdFlows.emitBatches(
         HouseholdFlows.Input(

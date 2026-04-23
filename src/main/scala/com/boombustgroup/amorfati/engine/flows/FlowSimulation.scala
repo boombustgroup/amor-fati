@@ -73,6 +73,10 @@ object FlowSimulation:
       // Stage 2: Labor market
       wage: PLN,
       employed: Int,
+      payroll: SocialSecurity.PayrollBase,
+      zus: SocialSecurity.ZusState,
+      ppk: SocialSecurity.PpkState,
+      earmarked: EarmarkedFunds.State,
       unemploymentRate: Share,
       laborDemand: Int,
       livingFirms: Int,
@@ -196,11 +200,11 @@ object FlowSimulation:
   def emitAllBatches(c: MonthlyCalculus)(using p: SimParams, topology: RuntimeLedgerTopology): Vector[BatchedFlow] =
     Vector.concat(
       // Tier 1: Social funds
-      ZusFlows.emitBatches(ZusFlows.ZusInput(c.employed, c.wage, c.retirees)),
+      ZusFlows.emitBatches(ZusFlows.ZusInput(c.zus)),
       NfzFlows.emitBatches(NfzFlows.NfzInput(c.nfz)),
-      PpkFlows.emitBatches(PpkFlows.PpkInput(c.employed, c.wage)),
+      PpkFlows.emitBatches(PpkFlows.PpkInput(c.ppk)),
       GovBondFlows.emitBatches(c.govBondRuntimeMovements),
-      EarmarkedFlows.emitBatches(EarmarkedFlows.Input(c.employed, c.wage, c.totalUnempBenefits, c.nBankruptFirms, c.avgFirmWorkers)),
+      EarmarkedFlows.emitBatches(EarmarkedFlows.Input(c.earmarked)),
       JstFlows.emitBatches(JstFlows.Input(c.firmTax, c.totalIncome, c.gdp, c.livingFirms, c.pitRevenue)),
       // Tier 2: Agents
       HouseholdFlows.emitBatches(
@@ -518,7 +522,22 @@ object FlowSimulation:
     val s4                = DemandEconomics.compute(w, s2Pre.employed, s2Pre.living, s3.domesticCons)
     val s5                = FirmEconomics.runStep(w, firms, households, banks, ledger, s1, s2Pre, s3, s4, randomness.firmEconomics.newStream())
     val postLivingFirms   = s5.ioFirms.filter(Firm.isAlive)
-    val s2                = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
+    val nBankruptFirms    = s5.firmDeaths
+    val avgFirmWorkers    = if s2Pre.living.nonEmpty then s2Pre.employed / s2Pre.living.length else 0
+    val payroll           = SocialSecurity.payrollBase(households)
+    val payrollZus        = SocialSecurity.zusStep(payroll, s2Pre.newDemographics.retirees)
+    val payrollNfz        = SocialSecurity.nfzStep(payroll, s2Pre.newDemographics.workingAgePop, s2Pre.newDemographics.retirees)
+    val payrollPpk        = SocialSecurity.ppkStep(payroll)
+    val payrollEarmarked  = EarmarkedFunds.step(payroll, s3.hhAgg.totalUnempBenefits, nBankruptFirms, avgFirmWorkers)
+    val s2Reconciled      = LaborEconomics.reconcilePostFirmStep(w, s1, s2Pre, postLivingFirms, s5.households)
+    // Labor reconciliation refreshes employment/wage state after the firm step,
+    // but social funds are pinned to the opening-boundary payroll for month t.
+    val s2                = s2Reconciled.copy(
+      newZus = payrollZus,
+      newNfz = payrollNfz,
+      newPpk = payrollPpk,
+      newEarmarked = payrollEarmarked,
+    )
     val s6                = HouseholdFinancialEconomics.compute(w, s1.m, s2.employed, s3.hhAgg, randomness.householdFinancialEconomics.newStream())
     val s7                = PriceEquityEconomics.compute(
       w = w,
@@ -581,14 +600,18 @@ object FlowSimulation:
       minWagePriceLevel = s1.updatedMinWagePriceLevel,
       wage = s2.newWage,
       employed = s2.employed,
+      payroll = payroll,
+      zus = s2.newZus,
+      ppk = s2.newPpk,
+      earmarked = s2.newEarmarked,
       unemploymentRate = w.unemploymentRate(s2.employed),
       laborDemand = s2.laborDemand,
       livingFirms = s5.ioFirms.count(Firm.isAlive),
       retirees = s2Pre.newDemographics.retirees,
       workingAgePop = s2Pre.newDemographics.workingAgePop,
       nfz = s2.newNfz,
-      nBankruptFirms = firms.length - s2Pre.living.length,
-      avgFirmWorkers = if s2Pre.living.nonEmpty then s2Pre.laborDemand / s2Pre.living.length else 0,
+      nBankruptFirms = nBankruptFirms,
+      avgFirmWorkers = avgFirmWorkers,
       totalIncome = s3.totalIncome,
       consumption = agg.consumption,
       domesticConsumption = s3.domesticCons,
