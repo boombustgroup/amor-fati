@@ -44,6 +44,24 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
       ),
     )
 
+  private def mkTinyRwaBankRow(id: Int): (Banking.BankState, Banking.BankFinancialStocks) =
+    val row = mkBankRow(id, 0.01)
+    (
+      row._1.copy(
+        capital = PLN(1e6),
+        loansShort = PLN.Zero,
+        loansMedium = PLN.Zero,
+        loansLong = PLN.Zero,
+      ),
+      row._2.copy(
+        totalDeposits = PLN(1e6),
+        firmLoan = PLN.Zero,
+        demandDeposit = PLN(6e5),
+        termDeposit = PLN(4e5),
+        consumerLoan = PLN.Zero,
+      ),
+    )
+
   private def banks(rows: Vector[(Banking.BankState, Banking.BankFinancialStocks)]): Vector[Banking.BankState] =
     rows.map(_._1)
 
@@ -115,6 +133,35 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     val atBank1 = result.households.count(_.bankId == BankId(1))
     val atBank2 = result.households.count(_.bankId == BankId(2))
     atBank1 should be >= atBank2
+  }
+
+  it should "not select a tiny-RWA CAR-floor bank as the flight-to-safety target" in {
+    val rows     = Vector(mkBankRow(0, 0.04), mkTinyRwaBankRow(1), mkBankRow(2, 0.15))
+    val hhs      = (0 until 100).map(id => mkHh(0).copy(id = HhId(id))).toVector
+    val result   = DepositMobility(hhs, banks(rows), stocks(rows), anyBankFailed = false, RandomStream.seeded(42))
+    val switched = result.households.filter(_.bankId != BankId(0))
+
+    Banking.healthiestBankId(banks(rows), stocks(rows)) shouldBe BankId(2)
+    switched.map(_.bankId).distinct shouldBe Vector(BankId(2))
+    switched should not be empty
+  }
+
+  it should "fail fast for an unknown household bankId" in {
+    val rows = Vector(mkBankRow(0, 0.15), mkBankRow(1, 0.14))
+    val ex   = intercept[IllegalArgumentException]:
+      DepositMobility(Vector(mkHh(99)), banks(rows), stocks(rows), anyBankFailed = false, RandomStream.seeded(42))
+
+    ex.getMessage should include("known bankId")
+    ex.getMessage should include("99")
+  }
+
+  it should "fail fast when a household still points at a failed bank" in {
+    val rows = Vector(mkBankRow(0, 0.15), mkBankRow(1, 0.04, failed = true))
+    val ex   = intercept[IllegalArgumentException]:
+      DepositMobility(Vector(mkHh(1)), banks(rows), stocks(rows), anyBankFailed = true, RandomStream.seeded(42))
+
+    ex.getMessage should include("failed bank 1")
+    ex.getMessage should include("before mobility runs")
   }
 
   it should "be deterministic with same seed" in {

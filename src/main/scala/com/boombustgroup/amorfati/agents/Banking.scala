@@ -33,8 +33,11 @@ object Banking:
   def nplRatio(totalLoans: PLN, nplAmount: PLN): Share =
     if totalLoans > MinBalanceThreshold then nplAmount.ratioTo(totalLoans).toShare else Share.Zero
 
+  private def riskWeightedAssets(firmLoans: PLN, consumerLoans: PLN, corpBondHoldings: PLN): PLN =
+    firmLoans + consumerLoans + corpBondHoldings * CorpBondRiskWeight
+
   def capitalAdequacyRatio(capital: PLN, firmLoans: PLN, consumerLoans: PLN, corpBondHoldings: PLN): Multiplier =
-    val totalRwa = firmLoans + consumerLoans + corpBondHoldings * CorpBondRiskWeight
+    val totalRwa = riskWeightedAssets(firmLoans, consumerLoans, corpBondHoldings)
     if totalRwa > MinBalanceThreshold then capital.ratioTo(totalRwa).toMultiplier else SafeRatioFloor
 
   // NSFR weights (Basel III §6)
@@ -641,8 +644,14 @@ object Banking:
       }
       ResolutionResult(resolved, resolvedStocks, absorberId, resolvedCorpBonds)
 
-  /** Find the healthiest (highest CAR) surviving bank. Falls back to highest
-    * capital if all banks have failed.
+  /** Find the healthiest surviving bank.
+    *
+    * Banks with no material risk-weighted assets get the CAR safe floor, so
+    * they are excluded from CAR ranking while any risk-bearing survivor exists.
+    * This prevents empty balance-sheet shells from attracting all
+    * flight-to-safety deposits or failure-resolution assets. Falls back to
+    * highest capital if all candidates have failed or all survivors are
+    * non-risk-bearing.
     */
   def healthiestBankId(
       banks: Vector[BankState],
@@ -655,7 +664,12 @@ object Banking:
     )
     val alive = banks.zip(financialStocks).filterNot(_._1.failed)
     if alive.isEmpty then banks.maxBy(_.capital.toLong).id
-    else alive.maxBy((bank, stocks) => car(bank, stocks, bankCorpBondHoldings(bank.id)))._1.id
+    else
+      val riskBearingAlive = alive.filter: (bank, stocks) =>
+        riskWeightedAssets(stocks.firmLoan, stocks.consumerLoan, bankCorpBondHoldings(bank.id)) > MinBalanceThreshold
+      if riskBearingAlive.nonEmpty then
+        riskBearingAlive.maxBy((bank, stocks) => (car(bank, stocks, bankCorpBondHoldings(bank.id)).toLong, bank.capital.toLong))._1.id
+      else alive.maxBy(_._1.capital.toLong)._1.id
 
   /** Reassign a firm/household from a failed bank to the healthiest surviving
     * bank.
