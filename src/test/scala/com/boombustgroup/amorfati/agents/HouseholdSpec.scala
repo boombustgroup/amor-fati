@@ -218,6 +218,39 @@ class HouseholdSpec extends AnyFlatSpec with Matchers:
     updated(0).status shouldBe HhStatus.Bankrupt
   }
 
+  it should "default the remaining consumer credit balance after same-month debt service on bankruptcy" in {
+    val rng                 = RandomStream.seeded(42)
+    val world               = mkWorld()
+    val openingLoan         = PLN(12000.0)
+    val hh                  = mkHousehold(
+      0,
+      HhStatus.Unemployed(1),
+      savings = PLN(-10000.0),
+      rent = PLN(1800.0),
+    ).copy(financialDistressMonths = p.household.bankruptcyDistressMonths - 1)
+    val totalRate           = p.household.ccAmortRate + (world.nbp.referenceRate + p.household.ccSpread).monthly
+    val expectedDebtService = openingLoan * totalRate
+    val expectedDefault     = openingLoan - expectedDebtService
+
+    financialById.update(
+      hh.id.toInt,
+      TestHouseholdState.financial(
+        savings = PLN(-10000.0),
+        debt = PLN.Zero,
+        consumerDebt = openingLoan,
+        equityWealth = PLN.Zero,
+      ),
+    )
+
+    val result = step(Vector(hh), world, PLN(8000.0), PLN(4666.0), Share(0.4), rng)
+
+    result.households.head.status shouldBe HhStatus.Bankrupt
+    result.financialStocks.head.consumerLoan shouldBe PLN.Zero
+    result.aggregates.totalConsumerDebtService shouldBe expectedDebtService
+    result.aggregates.totalConsumerDefault shouldBe expectedDefault
+    result.aggregates.totalConsumerDebtService + result.aggregates.totalConsumerDefault shouldBe openingLoan
+  }
+
   it should "reset financial distress months after recovery" in {
     val rng     = RandomStream.seeded(42)
     val hh      = mkHousehold(
