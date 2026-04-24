@@ -6,24 +6,14 @@ import com.boombustgroup.amorfati.engine.{MonthRandomness, SignalExtraction}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.economics.*
-import com.boombustgroup.amorfati.engine.markets.RegionalClearing
+import com.boombustgroup.amorfati.engine.markets.{PriceLevel, RegionalClearing}
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 
 object InflationProbe:
 
-  private val DemandPullWeight                            = 0.15
-  private val CostPushWeight                              = 0.25
-  private val ImportPushWeight                            = 0.25
-  private val DeflationFloor                              = -0.015
-  private val FloorPassThrough                            = 0.3
-  private val SmoothingLambda                             = 0.3
   private def exchangeRateValue(er: ExchangeRate): Double =
     er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-
-  private def softFloor(raw: Double): Double =
-    if raw >= DeflationFloor then raw
-    else DeflationFloor + (raw - DeflationFloor) * FloorPassThrough
 
   private def laborSupplyCount(wage: PLN, resWage: PLN, totalPopulation: Int)(using p: SimParams): Int =
     import ComputationBoundary.toDouble
@@ -160,33 +150,40 @@ object InflationProbe:
           ),
         )
 
-      val exDev         = exchangeRateValue(world.forex.exchangeRate) / exchangeRateValue(summon[SimParams].forex.baseExRate) - 1.0
-      val demandPullM   = toDouble((s4.avgDemandMult.deviationFromOne.toScalar * Scalar(DemandPullWeight)).toCoefficient)
-      val costPushM     = toDouble(s2.wageGrowth) * CostPushWeight
-      val rawImportPush = Math.max(0.0, exDev) * toDouble(summon[SimParams].forex.importPropensity) * ImportPushWeight
-      val importPushM   = Math.min(rawImportPush, toDouble(summon[SimParams].openEcon.importPushCap))
-      val rawMonthly    = demandPullM + costPushM + importPushM
-      val flooredM      = softFloor(rawMonthly)
-      val baseAnnual    = toDouble(world.inflation) * (1.0 - SmoothingLambda) + (flooredM * 12.0) * SmoothingLambda
-      val totalInfl     = toDouble(s7.newInfl)
-      val markupAnnual  = toDouble(s5.markupInflation)
-      val unemp         = 1.0 - s2.employed.toDouble / population.toDouble
-      val refRate       = toDouble(s8.monetary.newRefRate)
-      val expInfl       = toDouble(s8.monetary.newExp.expectedInflation)
-      val credibility   = toDouble(s8.monetary.newExp.credibility)
-      val fwdGuidance   = toDouble(s8.monetary.newExp.forwardGuidanceRate)
-      val realRate      = refRate - expInfl
-      val govPurchases  = toDouble(s4.govPurchases)
-      val govBreakdown  = govPurchasesBreakdown(world, s2Pre.employed)
-      val govCurrent    = toDouble(s9.newGovWithYield.govCurrentSpend)
-      val govCapital    = toDouble(s9.newGovWithYield.govCapitalSpend)
-      val euProjectCap  = toDouble(s9.newGovWithYield.euProjectCapital)
-      val euCofin       = toDouble(s9.newGovWithYield.euCofinancing)
-      val deficit       = toDouble(s9.newGovWithYield.deficit)
-      val debtToGdp     =
+      val exDev        = exchangeRateValue(world.forex.exchangeRate) / exchangeRateValue(summon[SimParams].forex.baseExRate) - 1.0
+      val priceUpd     = PriceLevel.update(
+        prevInflation = world.inflation,
+        expectedInflation = world.mechanisms.expectations.expectedInflation,
+        prevPrice = world.priceLevel,
+        demandMult = s4.avgDemandMult,
+        wageGrowth = s2.wageGrowth,
+        exRateDeviation = world.forex.exchangeRate.deviationFrom(summon[SimParams].forex.baseExRate),
+      )
+      val demandPullM  = toDouble(priceUpd.demandPull)
+      val costPushM    = toDouble(priceUpd.costPush)
+      val importPushM  = toDouble(priceUpd.importPush)
+      val rawMonthly   = toDouble(priceUpd.rawMonthly)
+      val flooredM     = toDouble(priceUpd.flooredMonthly)
+      val baseAnnual   = toDouble(priceUpd.inflation)
+      val totalInfl    = toDouble(s7.newInfl)
+      val markupAnnual = toDouble(s5.markupInflation)
+      val unemp        = 1.0 - s2.employed.toDouble / population.toDouble
+      val refRate      = toDouble(s8.monetary.newRefRate)
+      val expInfl      = toDouble(s8.monetary.newExp.expectedInflation)
+      val credibility  = toDouble(s8.monetary.newExp.credibility)
+      val fwdGuidance  = toDouble(s8.monetary.newExp.forwardGuidanceRate)
+      val realRate     = refRate - expInfl
+      val govPurchases = toDouble(s4.govPurchases)
+      val govBreakdown = govPurchasesBreakdown(world, s2Pre.employed)
+      val govCurrent   = toDouble(s9.newGovWithYield.govCurrentSpend)
+      val govCapital   = toDouble(s9.newGovWithYield.govCapitalSpend)
+      val euProjectCap = toDouble(s9.newGovWithYield.euProjectCapital)
+      val euCofin      = toDouble(s9.newGovWithYield.euCofinancing)
+      val deficit      = toDouble(s9.newGovWithYield.deficit)
+      val debtToGdp    =
         if s7.gdp > PLN.Zero then (toDouble(s9.newGovWithYield.cumulativeDebt) / toDouble(s7.gdp)) / 12.0 * 100.0
         else 0.0
-      val deficitToGdp  =
+      val deficitToGdp =
         if s7.gdp > PLN.Zero then (deficit / toDouble(s7.gdp)) * 100.0
         else 0.0
 
