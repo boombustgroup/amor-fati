@@ -306,7 +306,7 @@ object Firm:
     if f.capitalStock > PLN.Zero && laborEff > Multiplier.Zero then
       val targetK: PLN  = workerCount(f) * p.capital.klRatios(f.sector.toInt)
       val k: Multiplier =
-        (if targetK > PLN.Zero then f.capitalStock.ratioTo(targetK).toMultiplier else Multiplier.One).clamp(Multiplier(0.1), Multiplier(2.0))
+        (if targetK > PLN.Zero then f.capitalStock.ratioTo(targetK).toMultiplier else Multiplier.One).clamp(Multiplier("0.1"), Multiplier("2.0"))
       val alpha: Share  = p.capital.prodElast
       p.firm.baseRevenue * tfp * cesOutput(alpha, k, laborEff, sec.sigma)
     else p.firm.baseRevenue * tfp * laborEff
@@ -315,7 +315,7 @@ object Firm:
     * Cobb-Douglas, σ→∞ ≈ linear (perfect substitutes).
     */
   private[amorfati] def cesOutput(alpha: Share, k: Multiplier, l: Multiplier, sigma: Sigma): Multiplier =
-    if !(sigma > Sigma(1.001)) then // near-Leontief/Cobb-Douglas boundary — use Cobb-Douglas
+    if !(sigma > Sigma("1.001")) then // near-Leontief/Cobb-Douglas boundary — use Cobb-Douglas
       k.pow(alpha.toScalar) * l.pow((Share.One - alpha).toScalar)
     else
       val rho   = (sigma.toScalar - Scalar.One).ratioTo(sigma.toScalar)
@@ -492,7 +492,7 @@ object Firm:
     val r3       = applyDigitalDrift(r2)
     val r4       = applyInventory(r3, sectorDemandMult = operationalSignals.sectorDemandMult(firm.sector.toInt))
     val r5       = applyFdiFlows(r4)
-    applyInformalCitEvasion(r5, Share(w.mechanisms.informalCyclicalAdj))
+    applyInformalCitEvasion(r5, w.mechanisms.informalCyclicalAdj)
 
   // ---- Decide (all match logic + RandomStream rolls) ----
 
@@ -541,7 +541,7 @@ object Firm:
     val revenuePerWorker    = if workers > 0 then pnl.revenue / workers else PLN.Zero
     val contributionMargin  = (revenuePerWorker - laborPerWorker).max(PLN.Zero)
     val targetWorkers       =
-      if contributionMargin > PLN.Zero then Math.ceil(nonLaborCost / contributionMargin).toInt
+      if contributionMargin > PLN.Zero then (nonLaborCost / contributionMargin).ceilToInt
       else minRetained
     // Smooth adjustment: cut λ of the gap, not the entire excess
     val gap                 = workers - Math.max(minRetained, targetWorkers)
@@ -894,9 +894,9 @@ object Firm:
       else if newWkrs < workers then return Decision.Downsize(pnl, newWkrs, nc, TechState.Traditional(newWkrs))
     val digiCost: PLN = computeDigiInvestCost(firm)
     val canAfford     = nc > digiCost * Multiplier(DigiInvestCashMult)
-    val competitive   = w.real.automationRatio + w.real.hybridRatio * Share(0.5)
+    val competitive   = w.real.automationRatio + w.real.hybridRatio * Share("0.5")
     val diminishing   = Share.One - firm.digitalReadiness
-    val digiProb      = (p.firm.digiInvestBaseProb * firm.riskProfile * diminishing * (Share(0.5) + competitive)).min(Share.One)
+    val digiProb      = (p.firm.digiInvestBaseProb * firm.riskProfile * diminishing * (Share("0.5") + competitive)).min(Share.One)
     if canAfford && digiProb.sampleBelow(rng) then
       val boost = p.firm.digiInvestBoost * diminishing
       val newDR = (firm.digitalReadiness + boost).min(Share.One)
@@ -1320,7 +1320,7 @@ object Firm:
   private def applyFdiFlows(r: Result)(using p: SimParams): Result =
     if !r.firm.foreignOwned || !isAlive(r.firm) then return r
     val afterTaxProfit: PLN =
-      if p.fiscal.citRate > Rate.Zero && r.taxPaid > PLN.Zero then r.taxPaid * Multiplier(Rate(1.0) / p.fiscal.citRate - 1.0)
+      if p.fiscal.citRate > Rate.Zero && r.taxPaid > PLN.Zero then r.taxPaid * ((Rate("1.0") / p.fiscal.citRate) - Scalar.One).toMultiplier
       else PLN.Zero
     val repatriation: PLN   =
       (afterTaxProfit.max(PLN.Zero) * p.fdi.repatriationRate).min(r.financialStocks.cash.max(PLN.Zero))

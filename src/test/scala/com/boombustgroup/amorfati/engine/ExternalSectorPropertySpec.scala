@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -15,17 +16,16 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
 
-  private val defaultSectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(1e8))
+  private val defaultSectorOutputs = Vector.fill(p.sectorDefs.length)(PLN("1e8"))
 
   private def runStep(
-      er: Double = td.toDouble(p.forex.baseExRate),
-      price: Double = 1.0,
-      autoR: Double = 0.0,
+      er: BigDecimal = decimal(p.forex.baseExRate),
+      price: BigDecimal = BigDecimal("1.0"),
+      autoR: BigDecimal = BigDecimal("0.0"),
       month: Int = 30,
   ): GvcTrade.State =
     GvcTrade.step(
@@ -43,17 +43,17 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   // --- Exports always non-negative ---
 
   "GvcTrade.step" should "always have non-negative total exports" in
-    forAll(genExchangeRate, genPrice, genFraction, Gen.choose(1, 120)) { (er: Double, price: Double, autoR: Double, month: Int) =>
+    forAll(genExchangeRate, genPrice, genFraction, Gen.choose(1, 120)) { (er: BigDecimal, price: BigDecimal, autoR: BigDecimal, month: Int) =>
       val r = runStep(er, price, autoR, month)
-      td.toDouble(r.totalExports).should(be >= 0.0)
+      decimal(r.totalExports).should(be >= BigDecimal("0.0"))
     }
 
   // --- Imports always non-negative ---
 
   it should "always have non-negative total intermediate imports" in
-    forAll(genExchangeRate, genPrice) { (er: Double, price: Double) =>
+    forAll(genExchangeRate, genPrice) { (er: BigDecimal, price: BigDecimal) =>
       val r = runStep(er, price)
-      td.toDouble(r.totalIntermImports).should(be >= 0.0)
+      decimal(r.totalIntermImports).should(be >= BigDecimal("0.0"))
     }
 
   // --- Foreign price always >= 1.0 ---
@@ -61,22 +61,22 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "always have foreign price index >= 1.0" in
     forAll(Gen.choose(1, 120)) { (month: Int) =>
       val r = runStep(month = month)
-      td.toDouble(r.foreignPriceIndex).should(be >= 1.0)
+      decimal(r.foreignPriceIndex).should(be >= BigDecimal("1.0"))
     }
 
   // --- Disruption in [0, 1] ---
 
   it should "keep disruption index in [0, 1]" in
-    forAll(genExchangeRate, genFraction, Gen.choose(1, 120)) { (er: Double, autoR: Double, month: Int) =>
+    forAll(genExchangeRate, genFraction, Gen.choose(1, 120)) { (er: BigDecimal, autoR: BigDecimal, month: Int) =>
       val r = runStep(er, autoR = autoR, month = month)
-      td.toDouble(r.disruptionIndex).should(be >= 0.0)
-      td.toDouble(r.disruptionIndex).should(be <= 1.0)
+      decimal(r.disruptionIndex).should(be >= BigDecimal("0.0"))
+      decimal(r.disruptionIndex).should(be <= BigDecimal("1.0"))
     }
 
   // --- Sector vectors have expected length ---
 
   it should "always have sector vectors matching sector count" in
-    forAll(genExchangeRate, genPrice) { (er: Double, price: Double) =>
+    forAll(genExchangeRate, genPrice) { (er: BigDecimal, price: BigDecimal) =>
       val r = runStep(er, price)
       r.sectorExports.length shouldBe p.sectorDefs.length
       r.sectorImports.length shouldBe p.sectorDefs.length
@@ -85,10 +85,10 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   // --- Trade concentration in (0, 1] ---
 
   it should "have trade concentration HHI in (0, 1]" in
-    forAll(genExchangeRate) { (er: Double) =>
+    forAll(genExchangeRate) { (er: BigDecimal) =>
       val r = runStep(er)
-      td.toDouble(r.tradeConcentration).should(be > 0.0)
-      td.toDouble(r.tradeConcentration).should(be <= 1.0)
+      decimal(r.tradeConcentration).should(be > BigDecimal("0.0"))
+      decimal(r.tradeConcentration).should(be <= BigDecimal("1.0"))
     }
 
   // --- Import cost index >= 1 ---
@@ -96,5 +96,5 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   it should "have import cost index >= 1.0" in
     forAll(Gen.choose(1, 120)) { (month: Int) =>
       val r = runStep(month = month)
-      td.toDouble(r.importCostIndex).should(be >= 1.0)
+      decimal(r.importCostIndex).should(be >= BigDecimal("1.0"))
     }

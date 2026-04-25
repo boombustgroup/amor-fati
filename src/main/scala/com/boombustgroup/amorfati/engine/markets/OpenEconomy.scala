@@ -21,11 +21,11 @@ import com.boombustgroup.amorfati.types.*
   */
 object OpenEconomy:
   private val MonthsPerYear        = 12
-  private val MinRealPrice         = Multiplier(0.1)
-  private val FdiAutoBoost         = Coefficient(0.3)
-  private val FdiNfaDampening      = Coefficient(0.5)
-  private val ValuationPassThrough = Coefficient(0.3)
-  private val MinErShock           = ExchangeRateShock(-0.9999)
+  private val MinRealPrice         = Multiplier("0.1")
+  private val FdiAutoBoost         = Coefficient("0.3")
+  private val FdiNfaDampening      = Coefficient("0.5")
+  private val ValuationPassThrough = Coefficient("0.3")
+  private val MinErShock           = ExchangeRateShock("-0.9999")
 
   case class ForexState(
       exchangeRate: ExchangeRate,
@@ -110,7 +110,7 @@ object OpenEconomy:
       tourismExport: PLN = PLN.Zero,
       tourismImport: PLN = PLN.Zero,
       bondYield: Rate = Rate.Zero,
-      prevBidToCover: Multiplier = Multiplier(2.0),
+      prevBidToCover: Multiplier = Multiplier("2.0"),
   )
 
   private case class CurrentAccountResult(ca: PLN, primaryIncome: PLN, secondaryIncome: PLN)

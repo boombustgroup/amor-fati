@@ -32,13 +32,13 @@ import com.boombustgroup.amorfati.types.*
   *   monthly recovery rate after shock (fraction of lost demand restored)
   */
 case class TourismConfig(
-    inboundShare: Share = Share(0.05),
-    outboundShare: Share = Share(0.03),
-    erElasticity: Coefficient = Coefficient(0.6),
-    seasonality: Share = Share(0.40),
+    inboundShare: Share = Share("0.05"),
+    outboundShare: Share = Share("0.03"),
+    erElasticity: Coefficient = Coefficient("0.6"),
+    seasonality: Share = Share("0.40"),
     peakMonth: Int = 7,
-    growthRate: Rate = Rate(0.03),
+    growthRate: Rate = Rate("0.03"),
     shockMonth: Int = 0,
-    shockSize: Share = Share(0.80),
-    shockRecovery: Rate = Rate(0.03),
+    shockSize: Share = Share("0.80"),
+    shockRecovery: Rate = Rate("0.03"),
 )

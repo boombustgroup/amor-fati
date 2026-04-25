@@ -21,20 +21,20 @@ import com.boombustgroup.amorfati.types.*
 object FirmInit:
 
   // ---- Calibration constants ----
-  private val FirmDepositShare   = 0.35      // NBP M3 2024: ~35% of deposits are corporate
-  private val CashMin            = 10_000.0  // PLN floor for initial cash draw
-  private val CashMax            = 80_000.0  // PLN ceiling for initial cash draw
-  private val LargeCashBonus     = 200_000.0 // PLN bonus for top-decile firms (lottery draw)
-  private val LargeCashProb      = 0.10      // probability of receiving large cash bonus
-  private val RiskProfileMin     = 0.1       // minimum firm risk appetite
-  private val RiskProfileMax     = 0.9       // maximum firm risk appetite
-  private val InnovCostMin       = 0.8       // minimum innovation cost factor
-  private val InnovCostMax       = 1.5       // maximum innovation cost factor
-  private val DrNoise            = 0.20      // std dev for digital readiness draw
-  private val DrFloor            = 0.02      // minimum digital readiness
-  private val DrCap              = 0.98      // maximum digital readiness
-  private val InitHybridMinSigma = 5.0       // minimum sector σ for init Hybrid (BPO=50, Mfg=10, Retail=5)
-  private val InitHybridProb     = 0.08      // ~8% of eligible firms start as Hybrid (OECD 2024: 5-10%)
+  private val FirmDepositShare   = Share("0.35")     // NBP M3 2024: ~35% of deposits are corporate
+  private val CashMin            = PLN("10_000.0")   // PLN floor for initial cash draw
+  private val CashMax            = PLN("80_000.0")   // PLN ceiling for initial cash draw
+  private val LargeCashBonus     = PLN("200_000.0")  // PLN bonus for top-decile firms (lottery draw)
+  private val LargeCashProb      = Share("0.10")     // probability of receiving large cash bonus
+  private val RiskProfileMin     = Share("0.1")      // minimum firm risk appetite
+  private val RiskProfileMax     = Share("0.9")      // maximum firm risk appetite
+  private val InnovCostMin       = Multiplier("0.8") // minimum innovation cost factor
+  private val InnovCostMax       = Multiplier("1.5") // maximum innovation cost factor
+  private val DrNoise            = Share("0.20")     // std dev for digital readiness draw
+  private val DrFloor            = Share("0.02")     // minimum digital readiness
+  private val DrCap              = Share("0.98")     // maximum digital readiness
+  private val InitHybridMinSigma = Sigma("5.0")      // minimum sector sigma for init Hybrid (BPO=50, Mfg=10, Retail=5)
+  private val InitHybridProb     = Share("0.08")     // ~8% of eligible firms start as Hybrid (OECD 2024: 5-10%)
 
   case class Population(
       firms: Vector[Firm.State],
@@ -52,20 +52,16 @@ object FirmInit:
     finalize(withSoe)
 
   /** Build network adjacency list from configured topology. */
-  @boundaryEscape
   private def buildNetwork(rng: RandomStream)(using p: SimParams): Array[Array[Int]] =
-    import ComputationBoundary.toDouble
     p.topology match
-      case Topology.Ws      => Network.wattsStrogatz(p.pop.firmsCount, p.firm.networkK, toDouble(p.firm.networkRewireP), rng)
+      case Topology.Ws      => Network.wattsStrogatz(p.pop.firmsCount, p.firm.networkK, p.firm.networkRewireP, rng)
       case Topology.Er      => Network.erdosRenyi(p.pop.firmsCount, p.firm.networkK, rng)
       case Topology.Ba      => Network.barabasiAlbert(p.pop.firmsCount, p.firm.networkK / 2, rng)
       case Topology.Lattice => Network.lattice(p.pop.firmsCount, p.firm.networkK)
 
   /** Assign sectors to firm slots based on GUS structural shares, shuffled. */
-  @boundaryEscape
   private def assignSectors(rng: RandomStream)(using p: SimParams): Vector[Int] =
-    import ComputationBoundary.toDouble
-    val perSector  = p.sectorDefs.map(s => (toDouble(s.share) * p.pop.firmsCount).toInt)
+    val perSector  = p.sectorDefs.map(s => s.share.applyTo(p.pop.firmsCount))
     val lastSector = p.sectorDefs.length - 1
     val assigned   = perSector.zipWithIndex.flatMap: (count, sector) =>
       Vector.fill(count)(sector)
@@ -73,37 +69,35 @@ object FirmInit:
     rng.shuffle(padded)
 
   /** Create initial firm states with stochastic attributes (cash, size, DR). */
-  @boundaryEscape
   private def buildSkeleton(
       adjList: Array[Array[Int]],
       sectorAssignments: Vector[Int],
       rng: RandomStream,
       regionRng: RandomStream,
   )(using p: SimParams): Vector[Firm.State] =
-    import ComputationBoundary.toDouble
     (0 until p.pop.firmsCount)
       .map: i =>
         val sec          = p.sectorDefs(sectorAssignments(i))
         val firmSize     = FirmSizeDistribution.draw(rng)
         // Preserve the historical RNG contract; final cash is assigned in the
         // deterministic ledger-stock pass below.
-        rng.between(CashMin, CashMax) + (if rng.nextDouble() < LargeCashProb then LargeCashBonus else 0.0)
-        val dr           = Share(toDouble(sec.baseDigitalReadiness) + rng.nextGaussian() * DrNoise).clamp(Share(DrFloor), Share(DrCap))
+        rng.between(CashMin.toLong, CashMax.toLong) + (if LargeCashProb.sampleBelow(rng) then LargeCashBonus.toLong else 0L)
+        val dr           = TypedRandom.withGaussianNoise(sec.baseDigitalReadiness, DrNoise, rng).clamp(DrFloor, DrCap)
         // Init tech mix: high-σ sectors with high DR may start as Hybrid (OECD 2024: ~5-10% AI adoption)
-        val isHybridInit = sec.sigma >= Sigma(InitHybridMinSigma) &&
+        val isHybridInit = sec.sigma >= InitHybridMinSigma &&
           dr > p.firm.hybridReadinessMin &&
-          rng.nextDouble() < InitHybridProb
+          InitHybridProb.sampleBelow(rng)
         val tech         =
           if isHybridInit then
-            val hybW = Math.max(1, (firmSize * toDouble(sec.hybridRetainFrac)).toInt)
-            val eff  = Multiplier(1.0 + rng.nextDouble() * 0.3)
+            val hybW = Math.max(1, sec.hybridRetainFrac.applyTo(firmSize))
+            val eff  = Multiplier.One + TypedRandom.randomBetween(Multiplier.Zero, Multiplier("0.3"), rng)
             TechState.Hybrid(hybW, eff)
           else TechState.Traditional(firmSize)
         Firm.State(
           id = FirmId(i),
           tech = tech,
-          riskProfile = Share(rng.between(RiskProfileMin, RiskProfileMax)),
-          innovationCostFactor = Multiplier(rng.between(InnovCostMin, InnovCostMax)),
+          riskProfile = TypedRandom.randomBetween(RiskProfileMin, RiskProfileMax, rng),
+          innovationCostFactor = TypedRandom.randomBetween(InnovCostMin, InnovCostMax, rng),
           digitalReadiness = dr,
           sector = SectorIdx(sectorAssignments(i)),
           neighbors = adjList(i).iterator.map(FirmId(_)).toVector,
@@ -122,11 +116,9 @@ object FirmInit:
   /** Assign physical capital stock and bank relationship (rng: bank
     * assignment).
     */
-  @boundaryEscape
   private def assignCapitalAndBank(firms: Vector[Firm.State], rng: RandomStream)(using p: SimParams): Vector[Firm.State] =
-    import ComputationBoundary.toDouble
     firms.map: f =>
-      val withCap = f.copy(capitalStock = PLN(toDouble(p.capital.klRatios(f.sector.toInt)) * Firm.workerCount(f)))
+      val withCap = f.copy(capitalStock = p.capital.klRatios(f.sector.toInt) * Firm.workerCount(f))
       withCap.copy(bankId = Banking.assignBank(f.sector, Banking.DefaultConfigs, rng))
 
   /** Mark firms as foreign-owned based on per-sector FDI shares (rng: ownership
@@ -149,16 +141,16 @@ object FirmInit:
     */
   private def finalize(firms: Vector[Firm.State])(using p: SimParams): Population =
     val totalWorkers  = firms.map(Firm.workerCount).sum
-    val totalFirmCash = p.banking.initDeposits * Share(FirmDepositShare)
+    val totalFirmCash = p.banking.initDeposits * FirmDepositShare
     val rows          = firms.map: f =>
-      val wshare     = Firm.workerCount(f).toDouble / totalWorkers
+      val wshare     = Share.fraction(Firm.workerCount(f), totalWorkers)
       val withInv    = initInventory(f)
       val withEnergy = initGreenCapital(withInv)
       (
         withEnergy,
         Firm.FinancialStocks(
-          cash = totalFirmCash * Share(wshare),
-          firmLoan = p.banking.initLoans * Share(wshare),
+          cash = totalFirmCash * wshare,
+          firmLoan = p.banking.initLoans * wshare,
           equity = PLN.Zero,
         ),
       )
@@ -173,8 +165,6 @@ object FirmInit:
     f.copy(inventory = targetInv * p.capital.inventoryInitRatio)
 
   /** Set initial green capital stock from sector-specific green K/L ratio. */
-  @boundaryEscape
   private def initGreenCapital(f: Firm.State)(using p: SimParams): Firm.State =
-    import ComputationBoundary.toDouble
-    val targetGK = PLN(toDouble(p.climate.greenKLRatios(f.sector.toInt)) * Firm.workerCount(f))
+    val targetGK = p.climate.greenKLRatios(f.sector.toInt) * Firm.workerCount(f)
     f.copy(greenCapital = targetGK * p.climate.greenInitRatio)

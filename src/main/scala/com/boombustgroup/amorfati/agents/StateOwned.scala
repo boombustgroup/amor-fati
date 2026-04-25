@@ -43,9 +43,9 @@ object StateOwned:
 
   private val semanticsBySector: Map[Int, SectorSemantics] = Map(
     ManufacturingSector -> SectorSemantics(investmentPriority = Share.One, energyBufferExposure = Share.One),
-    HealthcareSector    -> SectorSemantics(investmentPriority = Share(0.35)),
-    PublicSector        -> SectorSemantics(investmentPriority = Share.One, energyBufferExposure = Share(0.35)),
-    AgricultureSector   -> SectorSemantics(investmentPriority = Share(0.45)),
+    HealthcareSector    -> SectorSemantics(investmentPriority = Share("0.35")),
+    PublicSector        -> SectorSemantics(investmentPriority = Share.One, energyBufferExposure = Share("0.35")),
+    AgricultureSector   -> SectorSemantics(investmentPriority = Share("0.45")),
   )
 
   private def sectorSemantics(sectorIdx: Int): SectorSemantics =
@@ -108,10 +108,10 @@ object StateOwned:
     * Based on actual SOE presence per sector (GUS/GPW 2024).
     */
   def sectorSoeShare(sectorIdx: Int): Share = sectorIdx match
-    case 0 => Share(0.05) // BPO — minimal SOE
-    case 1 => Share(0.20) // Manufacturing — Orlen, KGHM, JSW
-    case 2 => Share(0.05) // Retail — minimal
-    case 3 => Share(0.30) // Healthcare — public hospitals
-    case 4 => Share(0.80) // Public — by definition
-    case 5 => Share(0.15) // Agriculture — KOWR, ANR
-    case _ => Share(0.10)
+    case 0 => Share("0.05") // BPO — minimal SOE
+    case 1 => Share("0.20") // Manufacturing — Orlen, KGHM, JSW
+    case 2 => Share("0.05") // Retail — minimal
+    case 3 => Share("0.30") // Healthcare — public hospitals
+    case 4 => Share("0.80") // Public — by definition
+    case 5 => Share("0.15") // Agriculture — KOWR, ANR
+    case _ => Share("0.10")

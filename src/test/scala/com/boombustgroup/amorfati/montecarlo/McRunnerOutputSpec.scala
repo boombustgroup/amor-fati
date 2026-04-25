@@ -1,11 +1,11 @@
 package com.boombustgroup.amorfati.montecarlo
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.agents.Banking.BankState
 import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.fp.{ComputationBoundary, FixedPointBase}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import zio.{Runtime, Unsafe}
@@ -18,8 +18,6 @@ import scala.util.Using
 class McRunnerOutputSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
-
-  private val td = ComputationBoundary
 
   "runZIO" should "match runSingle CSV outputs on a small deterministic run" in
     withTempDir: outputDir =>
@@ -73,21 +71,21 @@ class McRunnerOutputSpec extends AnyFlatSpec with Matchers:
       s"${agg.unemployed}",
       s"${agg.retraining}",
       s"${agg.bankrupt}",
-      f"${td.toDouble(agg.meanSavings)}%.2f",
-      f"${td.toDouble(agg.medianSavings)}%.2f",
-      f"${td.toDouble(agg.giniIndividual)}%.6f",
-      f"${td.toDouble(agg.giniWealth)}%.6f",
-      f"${td.toDouble(agg.meanSkill)}%.6f",
-      f"${td.toDouble(agg.meanHealthPenalty)}%.6f",
+      f"${decimal(agg.meanSavings)}%.2f",
+      f"${decimal(agg.medianSavings)}%.2f",
+      f"${decimal(agg.giniIndividual)}%.6f",
+      f"${decimal(agg.giniWealth)}%.6f",
+      f"${decimal(agg.meanSkill)}%.6f",
+      f"${decimal(agg.meanHealthPenalty)}%.6f",
       s"${agg.retrainingAttempts}",
       s"${agg.retrainingSuccesses}",
-      f"${td.toDouble(agg.consumptionP10)}%.2f",
-      f"${td.toDouble(agg.consumptionP50)}%.2f",
-      f"${td.toDouble(agg.consumptionP90)}%.2f",
-      f"${td.toDouble(agg.bankruptcyRate)}%.6f",
-      f"${agg.meanMonthsToRuin.toLong.toDouble / FixedPointBase.ScaleD}%.2f",
-      f"${td.toDouble(agg.povertyRate50)}%.6f",
-      f"${td.toDouble(agg.povertyRate30)}%.6f",
+      f"${decimal(agg.consumptionP10)}%.2f",
+      f"${decimal(agg.consumptionP50)}%.2f",
+      f"${decimal(agg.consumptionP90)}%.2f",
+      f"${decimal(agg.bankruptcyRate)}%.6f",
+      f"${decimal(agg.meanMonthsToRuin)}%.2f",
+      f"${decimal(agg.povertyRate50)}%.6f",
+      f"${decimal(agg.povertyRate30)}%.6f",
     ).mkString(";")
 
   private val bankHeader =
@@ -104,13 +102,13 @@ class McRunnerOutputSpec extends AnyFlatSpec with Matchers:
     Vector(
       s"$seed",
       s"${bank.id}",
-      f"${td.toDouble(stocks.totalDeposits)}%.2f",
-      f"${td.toDouble(stocks.firmLoan)}%.2f",
-      f"${td.toDouble(bank.capital)}%.2f",
-      f"${td.toDouble(Banking.nplRatio(bank, stocks))}%.6f",
-      f"${td.toDouble(Banking.car(bank, stocks, balances.corpBond))}%.6f",
-      f"${td.toDouble(Banking.govBondHoldings(stocks))}%.2f",
-      f"${td.toDouble(stocks.interbankLoan)}%.2f",
+      f"${decimal(stocks.totalDeposits)}%.2f",
+      f"${decimal(stocks.firmLoan)}%.2f",
+      f"${decimal(bank.capital)}%.2f",
+      f"${decimal(Banking.nplRatio(bank, stocks))}%.6f",
+      f"${decimal(Banking.car(bank, stocks, balances.corpBond))}%.6f",
+      f"${decimal(Banking.govBondHoldings(stocks))}%.2f",
+      f"${decimal(stocks.interbankLoan)}%.2f",
       s"${bank.failed}",
     ).mkString(";")
 

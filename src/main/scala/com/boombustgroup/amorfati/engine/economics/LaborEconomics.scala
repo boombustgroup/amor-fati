@@ -18,9 +18,8 @@ object LaborEconomics:
   private[amorfati] def operationalHiringSlackFactor(laborDemand: Int, availableLabor: Int)(using p: SimParams): Share =
     if laborDemand <= 0 then Share.One
     else
-      val buffered = availableLabor.toDouble * (p.firm.aggregateLaborSlackBuffer / Share.One)
-      val raw      = buffered / laborDemand.toDouble
-      Share(raw.max(p.firm.aggregateLaborSlackFloor / Share.One).min(1.0))
+      val raw = Share.fraction(availableLabor, laborDemand) * p.firm.aggregateLaborSlackBuffer
+      raw.clamp(p.firm.aggregateLaborSlackFloor, Share.One)
 
   private case class ClearedLaborMarket(
       wage: PLN,
@@ -46,7 +45,6 @@ object LaborEconomics:
       regionalWages: Map[Region, PLN],
   )
 
-  @boundaryEscape
   def compute(
       w: World,
       firms: Vector[Firm.State],
@@ -80,7 +78,7 @@ object LaborEconomics:
       newWage = cleared.wage,
       employed = cleared.employed,
       laborDemand = laborDemand,
-      wageGrowth = Coefficient(wageGrowth),
+      wageGrowth = wageGrowth,
       operationalHiringSlack = operationalHiringSlack,
       newImmig = newImmig,
       netMigration = netMigration,
@@ -98,7 +96,6 @@ object LaborEconomics:
     * downstream blocks use effective post-firm labor demand rather than stale
     * inherited headcount.
     */
-  @boundaryEscape
   def reconcilePostFirmStep(
       w: World,
       s1: FiscalConstraintEconomics.Output,
@@ -121,41 +118,37 @@ object LaborEconomics:
       newWage = cleared.wage,
       employed = employedCap,
       laborDemand = postLaborDemand,
-      wageGrowth = Coefficient(wageGrowthFrom(w.householdMarket.marketWage, cleared.wage)),
+      wageGrowth = wageGrowthFrom(w.householdMarket.marketWage, cleared.wage),
       operationalHiringSlack = operationalHiringSlackFactor(postLaborDemand, postAvailableLabor),
       newNfz = newNfz,
       living = postLiving,
       regionalWages = cleared.regionalWages,
     )
 
-  @boundaryEscape
   private def clearLaborMarket(
       w: World,
       resWage: PLN,
       laborDemand: Int,
   )(using p: SimParams): ClearedLaborMarket =
-    import ComputationBoundary.toDouble
     val (rawWage, rawEmployed, regWages) =
       val rc          = RegionalClearing.clear(w.regionalWages, resWage, laborDemand, w.derivedTotalPopulation)
       val natEmployed = LaborMarket.employmentAtWage(rc.nationalWage, resWage, laborDemand, w.derivedTotalPopulation)
-      (toDouble(rc.nationalWage), natEmployed, rc.regionalWages)
+      (rc.nationalWage, natEmployed, rc.regionalWages)
 
     val wageAfterExp =
-      val target          = toDouble(p.monetary.targetInfl)
-      val expWagePressure = toDouble(p.labor.expWagePassthrough) *
-        Math.max(0.0, toDouble(w.mechanisms.expectations.expectedInflation) - target) / 12.0
-      Math.max(toDouble(resWage), rawWage * (1.0 + expWagePressure))
+      val expInflGap      = (w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).max(Rate.Zero).toCoefficient
+      val expWagePressure = (p.labor.expWagePassthrough * expInflGap) / 12
+      resWage.max(rawWage * expWagePressure.growthMultiplier)
 
     val newWage =
       val aggDensity =
-        p.sectorDefs.zipWithIndex.map((s, i) => toDouble(s.share) * toDouble(p.labor.unionDensity(i))).sum
-      val decline    = toDouble(w.householdMarket.marketWage) - wageAfterExp
-      Math.max(toDouble(resWage), wageAfterExp + decline * toDouble(p.labor.unionRigidity) * aggDensity)
+        p.sectorDefs.zipWithIndex.map((s, i) => s.share * p.labor.unionDensity(i)).foldLeft(Share.Zero)(_ + _)
+      val decline    = w.householdMarket.marketWage - wageAfterExp
+      resWage.max(wageAfterExp + decline * p.labor.unionRigidity * aggDensity)
 
     val employed = Math.min(rawEmployed, w.social.demographics.workingAgePop)
 
-    ClearedLaborMarket(PLN(newWage), employed, regWages)
+    ClearedLaborMarket(newWage, employed, regWages)
 
-  private def wageGrowthFrom(prevWage: PLN, newWage: PLN): Double =
-    import ComputationBoundary.toDouble
-    if toDouble(prevWage) > 0 then toDouble(newWage) / toDouble(prevWage) - 1.0 else 0.0
+  private def wageGrowthFrom(prevWage: PLN, newWage: PLN): Coefficient =
+    if prevWage > PLN.Zero then (newWage / prevWage - Scalar.One).toCoefficient else Coefficient.Zero

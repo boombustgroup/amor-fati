@@ -15,7 +15,7 @@ import com.boombustgroup.ledger.Distribute
 object CorporateBondOwnership:
 
   def issuerOutstanding(firms: Vector[LedgerFinancialState.FirmBalances]): PLN =
-    firms.iterator.map(_.corpBond).sum
+    firms.iterator.map(_.corpBond).sumPln
 
   def issuerOutstanding(ledgerFinancialState: LedgerFinancialState): PLN =
     issuerOutstanding(ledgerFinancialState.firms)
@@ -88,7 +88,7 @@ object CorporateBondOwnership:
       defaultedFirmIds.iterator
         .flatMap(id => firms.lift(id.toInt))
         .map(_.corpBond)
-        .sum
+        .sumPln
 
   def clearDefaultedIssuerDebt(
       firms: Vector[LedgerFinancialState.FirmBalances],
@@ -133,7 +133,7 @@ object CorporateBondOwnership:
       issuers: Vector[(LedgerFinancialState.FirmBalances, Firm.State, Int)],
       requestedReduction: PLN,
   ): Vector[LedgerFinancialState.FirmBalances] =
-    val totalDebt = issuers.iterator.map(_._1.corpBond).sum
+    val totalDebt = issuers.iterator.map(_._1.corpBond).sumPln
     if issuers.isEmpty || totalDebt <= PLN.Zero then firms
     else
       val actualReduction = requestedReduction.min(totalDebt)

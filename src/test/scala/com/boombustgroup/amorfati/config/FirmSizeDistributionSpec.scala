@@ -21,7 +21,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
     sizes.foreach(s => s should (be >= 1 and be <= p.pop.firmSizeLargeMax))
     // Majority should be micro (96.2%)
     val microCount = sizes.count(_ < 10)
-    microCount.toDouble / sizes.length should be > 0.90
+    decimal(microCount) / decimal(sizes.length) should be > BigDecimal("0.90")
   }
 
   // --- FirmOps size-dependent methods ---
@@ -34,9 +34,9 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
       PLN.Zero,
       tech,
-      Share(0.5),
+      Share("0.5"),
       Multiplier.One,
-      Share(0.5),
+      Share("0.5"),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -71,7 +71,7 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
     val f10   = mkFirm(TechState.Traditional(10), sector = 2, size = 10)
     val f25   = mkFirm(TechState.Traditional(25), sector = 2, size = 25)
     val ratio = Firm.computeCapacity(f25) / Firm.computeCapacity(f10)
-    ratio shouldBe (2.5 +- 0.01)
+    decimal(ratio) shouldBe (BigDecimal("2.5") +- BigDecimal("0.01"))
   }
 
   it should "give same per-worker revenue at full employment regardless of size" in {
@@ -90,9 +90,9 @@ class FirmSizeDistributionSpec extends AnyFlatSpec with Matchers:
     val capexSmall = Firm.computeAiCapex(fSmall)
     val capexLarge = Firm.computeAiCapex(fLarge)
     // Sublinear: 10× size → 10^0.6 ≈ 3.98× CAPEX (not 10×)
-    val ratio      = capexLarge / capexSmall // PLN / PLN → Double
-    ratio shouldBe (Math.pow(10.0, 0.6) +- 0.01)
-    ratio should be < 10.0
+    val ratio      = capexLarge / capexSmall
+    decimal(ratio) shouldBe (powDecimal(BigDecimal("10.0"), BigDecimal("0.6")) +- BigDecimal("0.01"))
+    decimal(ratio) should be < BigDecimal("10.0")
   }
 
   // --- Backward compatibility ---

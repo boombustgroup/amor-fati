@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
@@ -11,22 +12,24 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   private val baseForex         = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
-  private val baseSectorOutputs = Vector(30000.0, 160000.0, 450000.0, 60000.0, 220000.0, 80000.0).map(PLN(_))
-  private val gdp               = PLN(1e9)
+  private val baseSectorOutputs =
+    Vector(BigDecimal("30000.0"), BigDecimal("160000.0"), BigDecimal("450000.0"), BigDecimal("60000.0"), BigDecimal("220000.0"), BigDecimal("80000.0")).map(
+      PLN(_),
+    )
+  private val gdp               = PLN("1e9")
 
   private def baseInput(
       prevBop: OpenEconomy.BopState = OpenEconomy.BopState.zero,
       prevForex: OpenEconomy.ForexState = baseForex,
-      autoRatio: Double = 0.0,
+      autoRatio: BigDecimal = BigDecimal("0.0"),
       month: Int = 30,
   ) = OpenEconomy.StepInput(
     prevBop = prevBop,
     prevForex = prevForex,
-    importCons = PLN(1e7),
-    techImports = PLN(5e6),
+    importCons = PLN("1e7"),
+    techImports = PLN("5e6"),
     autoRatio = Share(autoRatio),
     domesticRate = p.monetary.initialRate,
     gdp = gdp,
@@ -40,33 +43,33 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
 
   "OpenEconomy.step" should "produce positive exports" in {
     val r = OpenEconomy.step(baseInput())
-    td.toDouble(r.bop.exports) should be > 0.0
+    decimal(r.bop.exports) should be > BigDecimal("0.0")
   }
 
   it should "use zero elapsed foreign GDP growth in the first execution month" in {
     val r = OpenEconomy.step(baseInput(month = 1))
 
-    td.toDouble(r.bop.exports) shouldBe (td.toDouble(p.openEcon.exportBase) +- 0.01)
+    decimal(r.bop.exports) shouldBe (decimal(p.openEcon.exportBase) +- BigDecimal("0.01"))
   }
 
   it should "increase exports with higher automation (ULC effect)" in {
-    val r0 = OpenEconomy.step(baseInput(autoRatio = 0.0))
-    val r1 = OpenEconomy.step(baseInput(autoRatio = 0.5))
-    td.toDouble(r1.bop.exports) should be > td.toDouble(r0.bop.exports)
+    val r0 = OpenEconomy.step(baseInput(autoRatio = BigDecimal("0.0")))
+    val r1 = OpenEconomy.step(baseInput(autoRatio = BigDecimal("0.5")))
+    decimal(r1.bop.exports) should be > decimal(r0.bop.exports)
   }
 
   it should "increase exports with weaker PLN (higher ER)" in {
-    val weakPln = baseForex.copy(exchangeRate = ExchangeRate(5.5))
+    val weakPln = baseForex.copy(exchangeRate = ExchangeRate("5.5"))
     val r0      = OpenEconomy.step(baseInput(prevForex = baseForex))
     val r1      = OpenEconomy.step(baseInput(prevForex = weakPln))
-    td.toDouble(r1.bop.exports) should be > td.toDouble(r0.bop.exports)
+    decimal(r1.bop.exports) should be > decimal(r0.bop.exports)
   }
 
   // ---- Import tests ----
 
   it should "produce positive total imports" in {
     val r = OpenEconomy.step(baseInput())
-    td.toDouble(r.bop.totalImports) should be > 0.0
+    decimal(r.bop.totalImports) should be > BigDecimal("0.0")
   }
 
   it should "produce per-sector imported intermediates" in {
@@ -84,17 +87,17 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
 
   it should "satisfy BoP identity: CA + KA + deltaReserves = 0" in {
     val r      = OpenEconomy.step(baseInput())
-    val bopSum = td.toDouble(r.bop.currentAccount) + td.toDouble(r.bop.capitalAccount) +
-      td.toDouble(r.bop.reserves - OpenEconomy.BopState.zero.reserves)
-    Math.abs(bopSum) should be < 1.0
+    val bopSum = decimal(r.bop.currentAccount) + decimal(r.bop.capitalAccount) +
+      decimal(r.bop.reserves - OpenEconomy.BopState.zero.reserves)
+    DecimalMath.abs(bopSum) should be < BigDecimal("1.0")
   }
 
   it should "decompose financial-account channels without changing the net portfolio effect" in {
-    val prevBop = OpenEconomy.BopState.zero.copy(carryTradeStock = PLN(20000000.0))
+    val prevBop = OpenEconomy.BopState.zero.copy(carryTradeStock = PLN("20000000.0"))
     val input   = baseInput(prevBop = prevBop, month = 30).copy(
-      domesticRate = Rate(0.08),
-      bondYield = Rate(0.09),
-      prevBidToCover = Multiplier(0.50),
+      domesticRate = Rate("0.08"),
+      bondYield = Rate("0.09"),
+      prevBidToCover = Multiplier("0.50"),
     )
 
     val r                            = OpenEconomy.step(input)
@@ -122,26 +125,26 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
 
   it should "include EU transfers in current account" in {
     val r = OpenEconomy.step(baseInput().copy(euFundsMonthly = p.openEcon.euTransfers))
-    td.toDouble(r.bop.secondaryIncome) shouldBe td.toDouble(p.openEcon.euTransfers) +- 0.01
+    decimal(r.bop.secondaryIncome) shouldBe decimal(p.openEcon.euTransfers) +- BigDecimal("0.01")
   }
 
   it should "compute trade balance as exports - imports" in {
     val r          = OpenEconomy.step(baseInput())
-    val expectedTb = td.toDouble(r.bop.exports - r.bop.totalImports)
-    td.toDouble(r.bop.tradeBalance) shouldBe expectedTb +- 0.01
+    val expectedTb = decimal(r.bop.exports - r.bop.totalImports)
+    decimal(r.bop.tradeBalance) shouldBe expectedTb +- BigDecimal("0.01")
   }
 
   // ---- NFA tracking ----
 
   it should "update NFA from current account" in {
     val r = OpenEconomy.step(baseInput())
-    td.toDouble(r.bop.nfa) should not be 0.0
+    decimal(r.bop.nfa) should not be BigDecimal("0.0")
   }
 
   it should "accumulate NFA across steps" in {
     val r1 = OpenEconomy.step(baseInput(month = 30))
     val r2 = OpenEconomy.step(baseInput(prevBop = r1.bop, prevForex = r1.forex, month = 31))
-    td.toDouble(r2.bop.nfa) should not be td.toDouble(r1.bop.nfa)
+    decimal(r2.bop.nfa) should not be decimal(r1.bop.nfa)
   }
 
   // ---- Exchange rate bounds ----
@@ -155,8 +158,8 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   // ---- PPP drift ----
 
   it should "depreciate PLN when domestic inflation exceeds foreign" in {
-    val highInfl = baseInput().copy(inflation = Rate(0.10)) // 10% domestic vs 2% foreign
-    val lowInfl  = baseInput().copy(inflation = Rate(0.02)) // equal to foreign
+    val highInfl = baseInput().copy(inflation = Rate("0.10")) // 10% domestic vs 2% foreign
+    val lowInfl  = baseInput().copy(inflation = Rate("0.02")) // equal to foreign
     val rHigh    = OpenEconomy.step(highInfl)
     val rLow     = OpenEconomy.step(lowInfl)
     // Higher domestic inflation → weaker PLN (higher ER)
@@ -164,8 +167,8 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "appreciate PLN when domestic inflation below foreign" in {
-    val lowInfl = baseInput().copy(inflation = Rate(0.00)) // 0% domestic vs 2% foreign
-    val eqInfl  = baseInput().copy(inflation = Rate(0.02)) // equal
+    val lowInfl = baseInput().copy(inflation = Rate("0.00")) // 0% domestic vs 2% foreign
+    val eqInfl  = baseInput().copy(inflation = Rate("0.02")) // equal
     val rLow    = OpenEconomy.step(lowInfl)
     val rEq     = OpenEconomy.step(eqInfl)
     // Lower domestic inflation → stronger PLN (lower ER)

@@ -44,17 +44,17 @@ import com.boombustgroup.amorfati.types.*
   *   sensitivity of NBFI defaults to unemployment rate
   */
 case class NbfiConfig(
-    tfiInitAum: PLN = PLN(380e9),      // raw — scaled by gdpRatio
-    tfiGovBondShare: Share = Share(0.40),
-    tfiCorpBondShare: Share = Share(0.10),
-    tfiEquityShare: Share = Share(0.10),
-    tfiInflowRate: Share = Share(0.001),
-    tfiRebalanceSpeed: Coefficient = Coefficient(0.05),
-    creditInitStock: PLN = PLN(231e9), // raw — scaled by gdpRatio
-    creditBaseRate: Share = Share(0.005),
-    creditRate: Rate = Rate(0.10),
-    countercyclical: Coefficient = Coefficient(2.0),
-    creditMaturity: Scalar = Scalar(36.0),
-    defaultBase: Share = Share(0.002),
-    defaultUnempSens: Coefficient = Coefficient(3.0),
+    tfiInitAum: PLN = PLN("380e9"),      // raw — scaled by gdpRatio
+    tfiGovBondShare: Share = Share("0.40"),
+    tfiCorpBondShare: Share = Share("0.10"),
+    tfiEquityShare: Share = Share("0.10"),
+    tfiInflowRate: Share = Share("0.001"),
+    tfiRebalanceSpeed: Coefficient = Coefficient("0.05"),
+    creditInitStock: PLN = PLN("231e9"), // raw — scaled by gdpRatio
+    creditBaseRate: Share = Share("0.005"),
+    creditRate: Rate = Rate("0.10"),
+    countercyclical: Coefficient = Coefficient("2.0"),
+    creditMaturity: Scalar = Scalar("36.0"),
+    defaultBase: Share = Share("0.002"),
+    defaultUnempSens: Coefficient = Coefficient("3.0"),
 )

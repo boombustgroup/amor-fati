@@ -45,18 +45,18 @@ class RegionSpec extends AnyFlatSpec with Matchers:
   }
 
   "migrationProbability" should "be zero for same region" in {
-    Region.migrationProbability(Region.Central, Region.Central, Multiplier(1.5), Share(0.7)) shouldBe Share.Zero
+    Region.migrationProbability(Region.Central, Region.Central, Multiplier("1.5"), Share("0.7")) shouldBe Share.Zero
   }
 
   it should "increase with wage differential" in {
     // East→Northwest: similar housing cost (0.65→0.90), migration not blocked
-    val low  = Region.migrationProbability(Region.East, Region.Northwest, Multiplier(1.1), Share(0.7))
-    val high = Region.migrationProbability(Region.East, Region.Northwest, Multiplier(1.5), Share(0.7))
+    val low  = Region.migrationProbability(Region.East, Region.Northwest, Multiplier("1.1"), Share("0.7"))
+    val high = Region.migrationProbability(Region.East, Region.Northwest, Multiplier("1.5"), Share("0.7"))
     high should be > low
   }
 
   it should "be zero when destination wages are lower" in {
-    Region.migrationProbability(Region.Central, Region.East, Multiplier(0.8), Share(0.7)) shouldBe Share.Zero
+    Region.migrationProbability(Region.Central, Region.East, Multiplier("0.8"), Share("0.7")) shouldBe Share.Zero
   }
 
   "sectorComposition" should "sum to ~1.0 per region" in {
@@ -69,16 +69,16 @@ class RegionSpec extends AnyFlatSpec with Matchers:
 
   "RegionalMigration" should "not move employed workers" in {
     val hh     = Vector(
-      mkHh(HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)), Region.East),
+      mkHh(HhStatus.Employed(FirmId(0), SectorIdx(0), PLN("8000.0")), Region.East),
     )
-    val wages  = Map(Region.Central -> PLN(10000.0), Region.East -> PLN(6000.0))
+    val wages  = Map(Region.Central -> PLN("10000.0"), Region.East -> PLN("6000.0"))
     val result = RegionalMigration(hh, wages, RandomStream.seeded(42))
     result.households.head.region shouldBe Region.East
   }
 
   it should "potentially move unemployed toward higher-wage region" in {
     val hhs    = (0 until 100).map(_ => mkHh(HhStatus.Unemployed(3), Region.East)).toVector
-    val wages  = Map(Region.Central -> PLN(12000.0), Region.East -> PLN(6000.0))
+    val wages  = Map(Region.Central -> PLN("12000.0"), Region.East -> PLN("6000.0"))
     val result = RegionalMigration(hhs, wages, RandomStream.seeded(42))
     val moved  = result.households.count(_.region != Region.East)
     moved should be >= 0 // may be 0 if housing barrier blocks all
@@ -87,12 +87,12 @@ class RegionSpec extends AnyFlatSpec with Matchers:
   private def mkHh(status: HhStatus, region: Region): Household.State =
     TestHouseholdState(
       id = HhId(0),
-      savings = PLN(50000.0),
+      savings = PLN("50000.0"),
       debt = PLN.Zero,
       monthlyRent = PLN.Zero,
-      skill = Share(0.5),
+      skill = Share("0.5"),
       healthPenalty = Share.Zero,
-      mpc = Share(0.7),
+      mpc = Share("0.7"),
       status = status,
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(0),
@@ -102,7 +102,7 @@ class RegionSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Share(0.5),
+      taskRoutineness = Share("0.5"),
       wageScar = Share.Zero,
       region = region,
     )

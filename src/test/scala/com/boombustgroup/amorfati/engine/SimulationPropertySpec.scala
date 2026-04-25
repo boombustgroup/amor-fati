@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -14,7 +15,6 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
@@ -22,23 +22,23 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   private val totalPop = p.pop.firmsCount * p.pop.workersPerFirm
 
   // Combined generator for gov inputs (avoids >6 forAll limit)
-  private val genGovInputs: Gen[(FiscalBudget.GovState, Double, Double, Double, Double)] =
+  private val genGovInputs: Gen[(FiscalBudget.GovState, BigDecimal, BigDecimal, BigDecimal, BigDecimal)] =
     for
       prev     <- genGovState
-      cit      <- Gen.choose(0.0, 1e8)
-      vat      <- Gen.choose(0.0, 1e8)
+      cit      <- genDecimal("0.0", "1e8")
+      vat      <- genDecimal("0.0", "1e8")
       price    <- genPrice
-      unempBen <- Gen.choose(0.0, 1e7)
+      unempBen <- genDecimal("0.0", "1e7")
     yield (prev, cit, vat, price, unempBen)
 
   // Combined generator for inflation inputs (avoids >6 forAll limit)
-  private val genInflInputs: Gen[(Double, Double, Double, Double, Double, Double, Double)] =
+  private val genInflInputs: Gen[(BigDecimal, BigDecimal, BigDecimal, BigDecimal, BigDecimal, BigDecimal, BigDecimal)] =
     for
       prevInfl   <- genInflation
       prevPrice  <- genPrice
-      demandMult <- Gen.choose(0.5, 2.0)
-      wageGrowth <- Gen.choose(-0.10, 0.10)
-      exRateDev  <- Gen.choose(-0.20, 0.20)
+      demandMult <- genDecimal("0.5", "2.0")
+      wageGrowth <- genDecimal("-0.10", "0.10")
+      exRateDev  <- genDecimal("-0.20", "0.20")
       autoR      <- genFraction
       hybR       <- genFraction
     yield (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, autoR, hybR)
@@ -46,39 +46,40 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   // --- updateCbRate properties ---
 
   "updateCbRate" should "be in [RateFloor, RateCeiling] for PLN" in
-    forAll(genRate, genInflation, Gen.choose(-0.10, 0.10), Gen.choose(0, totalPop)) { (prevRate: Double, inflation: Double, exRateChg: Double, employed: Int) =>
-      val r = Nbp.updateRate(Rate(prevRate), Rate(inflation), Coefficient(exRateChg), employed, totalPop)
-      td.toDouble(r) should be >= td.toDouble(p.monetary.rateFloor)
-      td.toDouble(r) should be <= td.toDouble(p.monetary.rateCeiling)
+    forAll(genRate, genInflation, genDecimal("-0.10", "0.10"), Gen.choose(0, totalPop)) {
+      (prevRate: BigDecimal, inflation: BigDecimal, exRateChg: BigDecimal, employed: Int) =>
+        val r = Nbp.updateRate(Rate(prevRate), Rate(inflation), Coefficient(exRateChg), employed, totalPop)
+        decimal(r) should be >= decimal(p.monetary.rateFloor)
+        decimal(r) should be <= decimal(p.monetary.rateCeiling)
     }
 
   it should "be monotonic in inflation (higher inflation -> higher rate)" in
-    forAll(genRate, Gen.choose(-0.10, 0.30), Gen.choose(0, totalPop)) { (prevRate: Double, baseInflation: Double, employed: Int) =>
+    forAll(genRate, genDecimal("-0.10", "0.30"), Gen.choose(0, totalPop)) { (prevRate: BigDecimal, baseInflation: BigDecimal, employed: Int) =>
       val lowInfl  = baseInflation
-      val highInfl = baseInflation + 0.10
+      val highInfl = baseInflation + BigDecimal("0.10")
       val rLow     = Nbp.updateRate(Rate(prevRate), Rate(lowInfl), Coefficient.Zero, employed, totalPop)
       val rHigh    = Nbp.updateRate(Rate(prevRate), Rate(highInfl), Coefficient.Zero, employed, totalPop)
-      td.toDouble(rHigh) should be >= (td.toDouble(rLow) - 1e-10)
+      decimal(rHigh) should be >= (decimal(rLow) - BigDecimal("1e-10"))
     }
 
   // --- updateInflation properties ---
 
   "updateInflation" should "keep price >= 0.30 floor" in
-    forAll(genInflInputs) { (inputs: (Double, Double, Double, Double, Double, Double, Double)) =>
+    forAll(genInflInputs) { (inputs: (BigDecimal, BigDecimal, BigDecimal, BigDecimal, BigDecimal, BigDecimal, BigDecimal)) =>
       val (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, _, _) = inputs
       val r                                                              =
         PriceLevel.update(Rate(prevInfl), PriceIndex(prevPrice), Multiplier(demandMult), Coefficient(wageGrowth), ExchangeRateShock(exRateDev))
-      td.toDouble(r.priceLevel).should(be >= 0.30)
+      decimal(r.priceLevel).should(be >= BigDecimal("0.30"))
     }
 
   it should "apply soft deflation floor (price >= 0.30)" in {
-    val r = PriceLevel.update(Rate(-0.30), PriceIndex.Base, Multiplier(0.5), Coefficient(-0.10), ExchangeRateShock.Zero)
-    td.toDouble(r.priceLevel).should(be >= 0.30)
+    val r = PriceLevel.update(Rate("-0.30"), PriceIndex.Base, Multiplier("0.5"), Coefficient("-0.10"), ExchangeRateShock.Zero)
+    decimal(r.priceLevel).should(be >= BigDecimal("0.30"))
   }
 
   it should "produce higher inflation with more import pressure" in
-    forAll(genInflation, genPrice, Gen.choose(0.8, 1.2), Gen.choose(-0.02, 0.02), Gen.choose(0.0, 0.15), Gen.choose(0.16, 0.40)) {
-      (prevInfl: Double, prevPrice: Double, demandMult: Double, wageGrowth: Double, exLow: Double, exHigh: Double) =>
+    forAll(genInflation, genPrice, genDecimal("0.8", "1.2"), genDecimal("-0.02", "0.02"), genDecimal("0.0", "0.15"), genDecimal("0.16", "0.40")) {
+      (prevInfl: BigDecimal, prevPrice: BigDecimal, demandMult: BigDecimal, wageGrowth: BigDecimal, exLow: BigDecimal, exHigh: BigDecimal) =>
         val r1 =
           PriceLevel.update(
             Rate(prevInfl),
@@ -95,54 +96,54 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
             Coefficient(wageGrowth),
             ExchangeRateShock(exHigh),
           )
-        td.toDouble(r2.inflation).should(be >= (td.toDouble(r1.inflation) - 1e-10))
+        decimal(r2.inflation).should(be >= (decimal(r1.inflation) - BigDecimal("1e-10")))
     }
 
   // --- updateLaborMarket properties ---
 
   "updateLaborMarket" should "keep wage >= reservationWage" in
-    forAll(genWage, Gen.choose(4666.0, 10000.0), Gen.choose(0, totalPop)) { (prevWage: Double, resWage: Double, laborDemand: Int) =>
+    forAll(genWage, genDecimal("4666.0", "10000.0"), Gen.choose(0, totalPop)) { (prevWage: BigDecimal, resWage: BigDecimal, laborDemand: Int) =>
       val r = LaborMarket.updateLaborMarket(PLN(prevWage), PLN(resWage), laborDemand, totalPop)
-      td.toDouble(r.wage) should be >= (resWage - 0.0001)
+      decimal(r.wage) should be >= (resWage - BigDecimal("0.0001"))
     }
 
   it should "keep employed <= min(laborDemand, TotalPopulation)" in
-    forAll(genWage, Gen.choose(4666.0, 10000.0), Gen.choose(0, totalPop * 2)) { (prevWage: Double, resWage: Double, laborDemand: Int) =>
+    forAll(genWage, genDecimal("4666.0", "10000.0"), Gen.choose(0, totalPop * 2)) { (prevWage: BigDecimal, resWage: BigDecimal, laborDemand: Int) =>
       val r = LaborMarket.updateLaborMarket(PLN(prevWage), PLN(resWage), laborDemand, totalPop)
-      r.employed should be <= Math.min(laborDemand, totalPop)
+      r.employed should be <= DecimalMath.min(laborDemand, totalPop)
     }
 
   // --- updateGov properties ---
 
   "updateGov" should "have deficit = spending - revenue" in
-    forAll(genGovInputs) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double)) =>
+    forAll(genGovInputs) { (inputs: (FiscalBudget.GovState, BigDecimal, BigDecimal, BigDecimal, BigDecimal)) =>
       val (prev, cit, vat, price, unempBen) = inputs
-      whenever(price >= 0.01) {
+      whenever(price >= BigDecimal("0.01")) {
         val gov        =
           FiscalBudget.update(
             FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), govDividendRevenue = PLN.Zero, vat = PLN(vat), unempBenefitSpend = PLN(unempBen)),
           )
         val totalRev   = cit + vat
-        val totalSpend = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price
-        val tol        = td.toDouble(p.fiscal.govBaseSpending) * 0.0001 + 1.0
-        td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- tol)
+        val totalSpend = unempBen + decimal(p.fiscal.govBaseSpending) * price
+        val tol        = decimal(p.fiscal.govBaseSpending) * BigDecimal("0.0001") + BigDecimal("1.0")
+        decimal(gov.deficit) shouldBe (totalSpend - totalRev +- tol)
       }
     }
 
   it should "accumulate debt (newDebt = prev + deficit)" in
-    forAll(genGovInputs) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double)) =>
+    forAll(genGovInputs) { (inputs: (FiscalBudget.GovState, BigDecimal, BigDecimal, BigDecimal, BigDecimal)) =>
       val (prev, cit, vat, price, unempBen) = inputs
       val gov                               =
         FiscalBudget.update(
           FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), govDividendRevenue = PLN.Zero, vat = PLN(vat), unempBenefitSpend = PLN(unempBen)),
         )
-      td.toDouble(gov.cumulativeDebt) shouldBe (td.toDouble(prev.cumulativeDebt) + td.toDouble(gov.deficit) +- 1.0)
+      decimal(gov.cumulativeDebt) shouldBe (decimal(prev.cumulativeDebt) + decimal(gov.deficit) +- BigDecimal("1.0"))
     }
 
   it should "include debtService in deficit calculation" in
-    forAll(genGovInputs, Gen.choose(0.0, 1e7)) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double), debtSvc: Double) =>
+    forAll(genGovInputs, genDecimal("0.0", "1e7")) { (inputs: (FiscalBudget.GovState, BigDecimal, BigDecimal, BigDecimal, BigDecimal), debtSvc: BigDecimal) =>
       val (prev, cit, vat, price, unempBen) = inputs
-      whenever(price >= 0.01) {
+      whenever(price >= BigDecimal("0.01")) {
         val gov        =
           FiscalBudget.update(
             FiscalBudget.Input(
@@ -156,19 +157,19 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
             ),
           )
         val totalRev   = cit + vat
-        val totalSpend = unempBen + td.toDouble(p.fiscal.govBaseSpending) * price + debtSvc
-        val tol        = td.toDouble(p.fiscal.govBaseSpending) * 0.0001 + 1.0
-        td.toDouble(gov.deficit) shouldBe (totalSpend - totalRev +- tol)
+        val totalSpend = unempBen + decimal(p.fiscal.govBaseSpending) * price + debtSvc
+        val tol        = decimal(p.fiscal.govBaseSpending) * BigDecimal("0.0001") + BigDecimal("1.0")
+        decimal(gov.deficit) shouldBe (totalSpend - totalRev +- tol)
       }
     }
 
   it should "include nbpRemittance in revenue" in
-    forAll(genGovInputs, Gen.choose(0.0, 1e7)) { (inputs: (FiscalBudget.GovState, Double, Double, Double, Double), nbpRemit: Double) =>
+    forAll(genGovInputs, genDecimal("0.0", "1e7")) { (inputs: (FiscalBudget.GovState, BigDecimal, BigDecimal, BigDecimal, BigDecimal), nbpRemit: BigDecimal) =>
       val (prev, cit, vat, price, unempBen) = inputs
       val base                              =
         FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), govDividendRevenue = PLN.Zero, vat = PLN(vat), unempBenefitSpend = PLN(unempBen))
       val govNoRemit                        = FiscalBudget.update(base)
       val govWithRemit                      = FiscalBudget.update(base.copy(nbpRemittance = PLN(nbpRemit)))
       // nbpRemittance reduces deficit
-      td.toDouble(govWithRemit.deficit) shouldBe (td.toDouble(govNoRemit.deficit) - nbpRemit +- 1.0)
+      decimal(govWithRemit.deficit) shouldBe (decimal(govNoRemit.deficit) - nbpRemit +- BigDecimal("1.0"))
     }

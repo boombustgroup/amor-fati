@@ -19,12 +19,12 @@ import com.boombustgroup.amorfati.types.*
 object Expectations:
 
   // ---- Calibration constants ----
-  private val MinCredibility             = Share(0.01)       // floor on credibility index
-  private val OutputGapClamp             = Coefficient(0.05) // ±5 pp unemployment gap clamp
-  private val FgBlendWeight              = Share(0.6)        // weight on forward guidance in expected rate
-  private val UndershootLearningWeight   = Coefficient(0.35) // below-target inflation updates expectations more slowly
-  private val UndershootCredibilityScale = Share(0.35)       // below-target inflation erodes credibility less than overshooting
-  private val MaxTargetUndershoot        = Rate(0.03)        // expectations can drift at most 3pp below target at zero credibility
+  private val MinCredibility             = Share("0.01")       // floor on credibility index
+  private val OutputGapClamp             = Coefficient("0.05") // ±5 pp unemployment gap clamp
+  private val FgBlendWeight              = Share("0.6")        // weight on forward guidance in expected rate
+  private val UndershootLearningWeight   = Coefficient("0.35") // below-target inflation updates expectations more slowly
+  private val UndershootCredibilityScale = Share("0.35")       // below-target inflation erodes credibility less than overshooting
+  private val MaxTargetUndershoot        = Rate("0.03")        // expectations can drift at most 3pp below target at zero credibility
 
   case class State(
       expectedInflation: Rate,  // πᵉ: anchored inflation expectation

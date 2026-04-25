@@ -51,7 +51,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   it should "emit equity issuance once from current-month firm financing" in {
     val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val baseState     = FlowSimulation.SimState.fromInit(init)
-    val staleIssuance = PLN(987654321.0)
+    val staleIssuance = PLN("987654321.0")
     val state         = baseState.copy(
       world = baseState.world.copy(
         financialMarkets = baseState.world.financialMarkets.copy(
@@ -73,10 +73,10 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   it should "emit equity cash legs from current-month dividends instead of boundary last values" in {
     val init             = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val baseState        = FlowSimulation.SimState.fromInit(init)
-    val staleDomestic    = PLN(987654321.0)
-    val staleForeign     = PLN(876543210.0)
-    val staleDividendTax = PLN(765432109.0)
-    val staleGovDividend = PLN(654321098.0)
+    val staleDomestic    = PLN("987654321.0")
+    val staleForeign     = PLN("876543210.0")
+    val staleDividendTax = PLN("765432109.0")
+    val staleGovDividend = PLN("654321098.0")
     val state            = baseState.copy(
       world = baseState.world.copy(
         financialMarkets = baseState.world.financialMarkets.copy(
@@ -120,7 +120,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   it should "emit insurance investment income from same-month equity return instead of boundary market memory" in {
     val init              = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val baseState         = FlowSimulation.SimState.fromInit(init)
-    val staleEquityReturn = Rate(0.42)
+    val staleEquityReturn = Rate("0.42")
     val state             = baseState.copy(
       world = baseState.world.copy(
         financialMarkets = baseState.world.financialMarkets.copy(
@@ -156,11 +156,11 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   it should "emit government and JST flows from current-month fiscal state instead of boundary fields" in {
     val init               = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val baseState          = FlowSimulation.SimState.fromInit(init)
-    val staleDebtService   = PLN(987654321.0)
-    val staleEuCofinancing = PLN(876543210.0)
-    val staleCapitalSpend  = PLN(765432109.0)
-    val staleJstRevenue    = PLN(654321098.0)
-    val staleJstSpending   = PLN(543210987.0)
+    val staleDebtService   = PLN("987654321.0")
+    val staleEuCofinancing = PLN("876543210.0")
+    val staleCapitalSpend  = PLN("765432109.0")
+    val staleJstRevenue    = PLN("654321098.0")
+    val staleJstSpending   = PLN("543210987.0")
     val state              = baseState.copy(
       world = baseState.world.copy(
         gov = baseState.world.gov.copy(
@@ -409,7 +409,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
         case (hh, idx) if idx < 512 =>
           hh.status match
             case HhStatus.Employed(firmId, sectorIdx, _) =>
-              hh.copy(status = HhStatus.Employed(firmId, sectorIdx, PLN(1.0)))
+              hh.copy(status = HhStatus.Employed(firmId, sectorIdx, PLN("1.0")))
             case _                                       => hh
         case (hh, _)                => hh,
     )
@@ -573,8 +573,8 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   it should "propagate informal-economy pressure into fiscal outputs without breaking SFC" in {
     val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val baseState     = FlowSimulation.SimState.fromInit(init)
-    val lowShadowW    = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.0))
-    val highShadowW   = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = 0.4))
+    val lowShadowW    = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = Share.Zero))
+    val highShadowW   = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = Share("0.4")))
     val lowShadowRun  = FlowSimulation.step(
       baseState.copy(world = lowShadowW),
       MonthRandomness.Contract.fromSeed(42L),
@@ -597,7 +597,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
 
   it should "align semantic gov revenue with the emitted current-month SOE dividend batch" in {
     val init                    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val staleBoundaryDividend   = PLN(25e6)
+    val staleBoundaryDividend   = PLN("25e6")
     val baseState               = FlowSimulation.SimState.fromInit(init)
     val state                   = baseState.copy(
       world = baseState.world.copy(

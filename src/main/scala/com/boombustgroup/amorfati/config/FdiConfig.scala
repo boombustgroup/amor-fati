@@ -23,10 +23,10 @@ import com.boombustgroup.amorfati.types.*
   *   minimum firm size (employees) eligible for M&A
   */
 case class FdiConfig(
-    foreignShares: Vector[Share] = Vector(Share(0.15), Share(0.30), Share(0.10), Share(0.03), Share(0.00), Share(0.05)),
-    profitShiftRate: Share = Share(0.15),
-    repatriationRate: Share = Share(0.70),
-    maProb: Share = Share(0.001),
+    foreignShares: Vector[Share] = Vector(Share("0.15"), Share("0.30"), Share("0.10"), Share("0.03"), Share("0.00"), Share("0.05")),
+    profitShiftRate: Share = Share("0.15"),
+    repatriationRate: Share = Share("0.70"),
+    maProb: Share = Share("0.001"),
     maSizeMin: Int = 50,
 ):
   require(foreignShares.length == 6, s"foreignShares must have 6 sectors: ${foreignShares.length}")

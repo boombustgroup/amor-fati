@@ -2,6 +2,7 @@ package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.TestHouseholdState
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
@@ -28,42 +29,42 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
 
   "Social transfer formula" should "compute rate * children" in {
     // 2 children × 800 PLN = 1600 PLN/month
-    val rate     = 800.0
+    val rate     = BigDecimal("800.0")
     val children = 2
-    val expected = children.toDouble * rate
-    expected shouldBe 1600.0
+    val expected = decimal(children) * rate
+    expected shouldBe BigDecimal("1600.0")
   }
 
   it should "scale linearly with number of children" in {
-    val rate = 800.0
+    val rate = BigDecimal("800.0")
     (1 to 5).foreach { n =>
-      val transfer = n.toDouble * rate
-      transfer shouldBe n * 800.0
+      val transfer = decimal(n) * rate
+      transfer shouldBe decimal(n) * BigDecimal("800.0")
     }
   }
 
   "poissonSample" should "return 0 for lambda=0" in {
     val rng = RandomStream.seeded(42)
-    Distributions.poissonSample(0.0, rng) shouldBe 0
+    Distributions.poissonSample(Scalar.Zero, rng) shouldBe 0
   }
 
   it should "return 0 for negative lambda" in {
     val rng = RandomStream.seeded(42)
-    Distributions.poissonSample(-1.0, rng) shouldBe 0
+    Distributions.poissonSample(Scalar("-1.0"), rng) shouldBe 0
   }
 
   it should "have mean approximately equal to lambda" in {
     val rng     = RandomStream.seeded(42)
-    val lambda  = 0.35
+    val lambda  = Scalar("0.35")
     val n       = 10000
     val samples = (0 until n).map(_ => Distributions.poissonSample(lambda, rng))
-    val mean    = samples.sum.toDouble / n
-    mean shouldBe lambda +- (lambda * 0.10) // ±10% tolerance
+    val mean    = decimal(samples.sum) / decimal(n)
+    mean shouldBe decimal(lambda) +- (decimal(lambda) * BigDecimal("0.10")) // ±10% tolerance
   }
 
   it should "produce non-negative values" in {
     val rng     = RandomStream.seeded(42)
-    val samples = (0 until 1000).map(_ => Distributions.poissonSample(0.35, rng))
+    val samples = (0 until 1000).map(_ => Distributions.poissonSample(Scalar("0.35"), rng))
     all(samples) should be >= 0
   }
 
@@ -118,10 +119,10 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
       savings = PLN(1000),
       debt = PLN.Zero,
       monthlyRent = PLN(1000),
-      skill = Share(0.5),
-      healthPenalty = Share(0.0),
-      mpc = Share(0.8),
-      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
+      skill = Share("0.5"),
+      healthPenalty = Share("0.0"),
+      mpc = Share("0.8"),
+      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN("8000.0")),
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(0),
       equityWealth = PLN.Zero,
@@ -130,7 +131,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Share(0.5),
+      taskRoutineness = Share("0.5"),
       wageScar = Share.Zero,
     )
     hh.numDependentChildren shouldBe 0

@@ -15,9 +15,9 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
   private def bank(id: Int): Banking.BankState =
     Banking.BankState(
       id = BankId(id),
-      capital = PLN(1000.0),
+      capital = PLN("1000.0"),
       nplAmount = PLN.Zero,
-      htmBookYield = Rate(0.05),
+      htmBookYield = Rate("0.05"),
       status = BankStatus.Active(0),
       loansShort = PLN.Zero,
       loansMedium = PLN.Zero,
@@ -27,7 +27,7 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
 
   private def stocks(afs: PLN, htm: PLN): Banking.BankFinancialStocks =
     Banking.BankFinancialStocks(
-      totalDeposits = PLN(1000.0),
+      totalDeposits = PLN("1000.0"),
       demandDeposit = PLN.Zero,
       termDeposit = PLN.Zero,
       firmLoan = PLN.Zero,
@@ -53,13 +53,13 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
 
   "GovBondFlows" should "emit PPK purchases from actual partial-fill sales instead of requested amounts" in {
     val banks      = Vector(bank(0), bank(1))
-    val bankStocks = Vector(stocks(PLN(100.0), PLN(50.0)), stocks(PLN(80.0), PLN(70.0)))
-    val requested  = PLN(1000.0)
+    val bankStocks = Vector(stocks(PLN("100.0"), PLN("50.0")), stocks(PLN("80.0"), PLN("70.0")))
+    val requested  = PLN("1000.0")
     val sale       = Banking.sellToBuyer(banks, bankStocks, requested)
 
-    sale.actualSold shouldBe PLN(300.0)
+    sale.actualSold shouldBe PLN("300.0")
     sale.actualSold should be < requested
-    sale.soldByBank.sum shouldBe sale.actualSold
+    sale.soldByBank.sumPln shouldBe sale.actualSold
 
     val batches = GovBondFlows.emitBatches(movements(ppkPurchaseByBank = sale.soldByBank))(using topology)
 
@@ -79,7 +79,7 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "reject primary-market vectors that target non-persisted bank slots" in {
-    val malformedPrimary = Vector.fill(topology.banks.persistedCount + 1)(PLN(1.0))
+    val malformedPrimary = Vector.fill(topology.banks.persistedCount + 1)(PLN("1.0"))
 
     val thrown = the[IllegalArgumentException] thrownBy GovBondFlows.emitBatches(
       movements(primaryByBank = malformedPrimary),
@@ -89,7 +89,7 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "name malformed bank-sale movement vectors in validation errors" in {
-    val malformedPpkPurchase = Vector.fill(topology.banks.persistedCount + 1)(PLN(1.0))
+    val malformedPpkPurchase = Vector.fill(topology.banks.persistedCount + 1)(PLN("1.0"))
 
     val thrown = the[IllegalArgumentException] thrownBy GovBondFlows.emitBatches(
       movements(ppkPurchaseByBank = malformedPpkPurchase),
@@ -100,7 +100,7 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "allow primary-market issuance to the first persisted bank" in {
     val batches = GovBondFlows.emitBatches(
-      movements(primaryByBank = Vector(PLN(10.0), PLN.Zero)),
+      movements(primaryByBank = Vector(PLN("10.0"), PLN.Zero)),
     )(using topology)
 
     batches should have size 1
@@ -112,7 +112,7 @@ class GovBondFlowsSpec extends AnyFlatSpec with Matchers:
     primaryBatch match
       case broadcast: BatchedFlow.Broadcast =>
         broadcast.targetIndices.toVector shouldBe Vector(0)
-        broadcast.amounts.toVector shouldBe Vector(PLN(10.0).toLong)
+        broadcast.amounts.toVector shouldBe Vector(PLN("10.0").toLong)
       case other                            => fail(s"Expected government-to-bank broadcast, got $other")
   }
 

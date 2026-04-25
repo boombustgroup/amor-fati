@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
@@ -45,10 +46,12 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
       }
 
       val employed = state.households.count(_.status.isInstanceOf[com.boombustgroup.amorfati.agents.HhStatus.Employed])
-      val unemp    = if state.world.derivedTotalPopulation > 0 then 1.0 - employed.toDouble / state.world.derivedTotalPopulation else 0.0
+      val unemp    =
+        if state.world.derivedTotalPopulation > 0 then BigDecimal(1) - decimal(employed) / decimal(state.world.derivedTotalPopulation)
+        else BigDecimal(0)
       withClue(s"Seed $seed unemployment=$unemp: ") {
-        unemp should be >= 0.03
-        unemp should be <= 0.97
+        unemp should be >= BigDecimal("0.03")
+        unemp should be <= BigDecimal("0.97")
       }
     }
 

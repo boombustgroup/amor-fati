@@ -141,12 +141,12 @@ object QuasiFiscal:
   /** Bank share of outstanding (for amortization split). */
   private def bankShareOf(stock: StockState): Share =
     if stock.bondsOutstanding > PLN.Zero then Share(stock.bankHoldings / stock.bondsOutstanding).clamp(Share.Zero, Share.One)
-    else Share(0.5)
+    else Share("0.5")
 
   /** NBP share of outstanding (for amortization split). */
   private def nbpShareOf(stock: StockState): Share =
     if stock.bondsOutstanding > PLN.Zero then Share(stock.nbpHoldings / stock.bondsOutstanding).clamp(Share.Zero, Share.One)
-    else Share(0.5)
+    else Share("0.5")
 
   /** ESA 2010 debt: MF debt + quasi-fiscal outstanding. */
   def esa2010Debt(govCumulativeDebt: PLN, qfOutstanding: PLN): PLN =

@@ -1,10 +1,10 @@
 package com.boombustgroup.amorfati.integration.montecarlo
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
-import com.boombustgroup.amorfati.fp.{ComputationBoundary, FixedPointBase}
 import com.boombustgroup.amorfati.montecarlo.{McRunConfig, McRunner, McTimeseriesSchema, RunResult, SimError}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -18,7 +18,6 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val td                 = ComputationBoundary
   private val DurationMonths     = 3
   private val Seeds              = Vector(1L, 2L)
   private val OutputPrefix       = "mc-it"
@@ -67,8 +66,8 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
   private def readLines(path: Path): Vector[String] =
     Files.readAllLines(path).asScala.toVector
 
-  private def parseCsvRow(line: String): Vector[Double] =
-    line.split(';').toVector.map(_.replace(',', '.').toDouble)
+  private def parseCsvRow(line: String): Vector[BigDecimal] =
+    line.split(';').toVector.map(value => BigDecimal(value.replace(',', '.')))
 
   private def expectedRun(seed: Long): RunResult =
     McRunner.runSingle(seed, DurationMonths).fold(err => fail(err.toString), identity)
@@ -76,23 +75,23 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
   private def expectedHhRow(seed: Long, result: RunResult): String =
     val a = result.terminalState.householdAggregates
     s"$seed;${a.employed};${a.unemployed};${a.retraining};${a.bankrupt};" +
-      f"${td.toDouble(a.meanSavings)}%.2f;${td.toDouble(a.medianSavings)}%.2f;" +
-      f"${td.toDouble(a.giniIndividual)}%.6f;${td.toDouble(a.giniWealth)}%.6f;" +
-      f"${td.toDouble(a.meanSkill)}%.6f;${td.toDouble(a.meanHealthPenalty)}%.6f;" +
+      f"${decimal(a.meanSavings)}%.2f;${decimal(a.medianSavings)}%.2f;" +
+      f"${decimal(a.giniIndividual)}%.6f;${decimal(a.giniWealth)}%.6f;" +
+      f"${decimal(a.meanSkill)}%.6f;${decimal(a.meanHealthPenalty)}%.6f;" +
       s"${a.retrainingAttempts};${a.retrainingSuccesses};" +
-      f"${td.toDouble(a.consumptionP10)}%.2f;${td.toDouble(a.consumptionP50)}%.2f;${td.toDouble(a.consumptionP90)}%.2f;" +
-      f"${td.toDouble(a.bankruptcyRate)}%.6f;" +
-      f"${a.meanMonthsToRuin.toLong.toDouble / FixedPointBase.ScaleD}%.2f;" +
-      f"${td.toDouble(a.povertyRate50)}%.6f;${td.toDouble(a.povertyRate30)}%.6f"
+      f"${decimal(a.consumptionP10)}%.2f;${decimal(a.consumptionP50)}%.2f;${decimal(a.consumptionP90)}%.2f;" +
+      f"${decimal(a.bankruptcyRate)}%.6f;" +
+      f"${decimal(a.meanMonthsToRuin)}%.2f;" +
+      f"${decimal(a.povertyRate50)}%.6f;${decimal(a.povertyRate30)}%.6f"
 
   private def expectedBankRows(seed: Long, result: RunResult): Vector[String] =
     result.terminalState.banks.map: bank =>
       val balances = result.terminalState.ledgerFinancialState.banks(bank.id.toInt)
       val stocks   = LedgerFinancialState.projectBankFinancialStocks(balances)
       s"$seed;${bank.id};" +
-        f"${td.toDouble(stocks.totalDeposits)}%.2f;${td.toDouble(stocks.firmLoan)}%.2f;${td.toDouble(bank.capital)}%.2f;" +
-        f"${td.toDouble(Banking.nplRatio(bank, stocks))}%.6f;${td.toDouble(Banking.car(bank, stocks, balances.corpBond))}%.6f;" +
-        f"${td.toDouble(Banking.govBondHoldings(stocks))}%.2f;${td.toDouble(stocks.interbankLoan)}%.2f;" +
+        f"${decimal(stocks.totalDeposits)}%.2f;${decimal(stocks.firmLoan)}%.2f;${decimal(bank.capital)}%.2f;" +
+        f"${decimal(Banking.nplRatio(bank, stocks))}%.6f;${decimal(Banking.car(bank, stocks, balances.corpBond))}%.6f;" +
+        f"${decimal(Banking.govBondHoldings(stocks))}%.2f;${decimal(stocks.interbankLoan)}%.2f;" +
         s"${bank.failed}"
 
   "runZIO" should "write deterministic per-seed and summary CSV files" in withTempDir: outputDir =>
@@ -125,7 +124,7 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
 
         for col <- 0 until McTimeseriesSchema.nCols do
           withClue(s"seed=$seed month=${month.toInt} col=$col: ") {
-            actual(col) shouldBe (expected(col) +- 1e-6)
+            actual(col) shouldBe (decimal(expected(col)) +- BigDecimal("1e-6"))
           }
 
     val hhLines = readLines(outputDir.resolve(s"${filePrefix(rc)}_hh.csv"))

@@ -11,14 +11,14 @@ class EarmarkedFlowsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
 
   "EarmarkedFlows" should "preserve total wealth at exactly 0L" in {
-    val flows    = EarmarkedFlows.emit(EarmarkedFlows.Input(80000, PLN(7000.0), PLN(1000000.0), 10, 15))
+    val flows    = EarmarkedFlows.emit(EarmarkedFlows.Input(80000, PLN("7000.0"), PLN("1000000.0"), 10, 15))
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L
   }
 
   it should "match old EarmarkedFunds.step amounts" in {
-    val employed     = 80000; val wage               = PLN(7000.0)
-    val unempBenefit = PLN(1000000.0); val nBankrupt = 10; val avgWorkers = 15
+    val employed     = 80000; val wage                 = PLN("7000.0")
+    val unempBenefit = PLN("1000000.0"); val nBankrupt = 10; val avgWorkers = 15
 
     val oldState = com.boombustgroup.amorfati.agents.EarmarkedFunds.step(
       employed,
@@ -39,7 +39,7 @@ class EarmarkedFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "preserve SFC across 120 months" in {
-    val input    = EarmarkedFlows.Input(80000, PLN(7000.0), PLN(1000000.0), 5, 10)
+    val input    = EarmarkedFlows.Input(80000, PLN("7000.0"), PLN("1000000.0"), 5, 10)
     var balances = Map.empty[Int, Long]
     (1 to 120).foreach { _ =>
       balances = Interpreter.applyAll(balances, EarmarkedFlows.emit(input))

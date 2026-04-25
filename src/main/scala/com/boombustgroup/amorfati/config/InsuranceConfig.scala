@@ -39,15 +39,15 @@ import com.boombustgroup.amorfati.types.*
   *   monthly portfolio rebalancing speed toward target allocation
   */
 case class InsuranceConfig(
-    lifeReserves: PLN = PLN(110e9),   // raw — scaled by gdpRatio
-    nonLifeReserves: PLN = PLN(90e9), // raw — scaled by gdpRatio
-    govBondShare: Share = Share(0.35),
-    corpBondShare: Share = Share(0.08),
-    equityShare: Share = Share(0.12),
-    lifePremiumRate: Share = Share(0.003),
-    nonLifePremiumRate: Share = Share(0.0025),
-    lifeLossRatio: Share = Share(0.85),
-    nonLifeLossRatio: Share = Share(0.70),
-    nonLifeUnempSens: Coefficient = Coefficient(0.5),
-    rebalanceSpeed: Coefficient = Coefficient(0.05),
+    lifeReserves: PLN = PLN("110e9"),   // raw — scaled by gdpRatio
+    nonLifeReserves: PLN = PLN("90e9"), // raw — scaled by gdpRatio
+    govBondShare: Share = Share("0.35"),
+    corpBondShare: Share = Share("0.08"),
+    equityShare: Share = Share("0.12"),
+    lifePremiumRate: Share = Share("0.003"),
+    nonLifePremiumRate: Share = Share("0.0025"),
+    lifeLossRatio: Share = Share("0.85"),
+    nonLifeLossRatio: Share = Share("0.70"),
+    nonLifeUnempSens: Coefficient = Coefficient("0.5"),
+    rebalanceSpeed: Coefficient = Coefficient("0.05"),
 )

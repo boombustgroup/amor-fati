@@ -18,10 +18,10 @@ import com.boombustgroup.amorfati.types.*
   *   fraction of commodity price shock SOE energy firms pass to consumers
   */
 case class SoeConfig(
-    baseDividendMultiplier: Multiplier = Multiplier(1.3),
-    dividendFiscalThreshold: Share = Share(0.03),
-    dividendFiscalSensitivity: Coefficient = Coefficient(5.0),
-    firingReduction: Share = Share(0.70),
-    investmentMultiplier: Multiplier = Multiplier(1.2),
-    energyPassthrough: Share = Share(0.60),
+    baseDividendMultiplier: Multiplier = Multiplier("1.3"),
+    dividendFiscalThreshold: Share = Share("0.03"),
+    dividendFiscalSensitivity: Coefficient = Coefficient("5.0"),
+    firingReduction: Share = Share("0.70"),
+    investmentMultiplier: Multiplier = Multiplier("1.2"),
+    energyPassthrough: Share = Share("0.60"),
 )

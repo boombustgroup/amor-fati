@@ -137,7 +137,7 @@ object Insurance:
 
     // Update reserves: split investment income proportionally
     val totalReserves = opening.totalReserves
-    val lifeShare     = if totalReserves > PLN.Zero then Share(opening.lifeReserves / totalReserves) else Share(0.5)
+    val lifeShare     = if totalReserves > PLN.Zero then (opening.lifeReserves / totalReserves).toShare else Share("0.5")
     val newLifeRes    = opening.lifeReserves + (lifePrem - lifeCl) + invIncome * lifeShare
     val newNonLifeRes = opening.nonLifeReserves + (nonLifePrem - nonLifeCl) + invIncome * (Share.One - lifeShare)
 

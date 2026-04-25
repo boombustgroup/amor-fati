@@ -456,7 +456,7 @@ object FirmEconomics:
       firms = CorporateBondOwnership.applyIssuance(ledgerFinancialState.firms, issuanceMapToApply),
     )
 
-    val bondRevertLoans    = bondReversionByFirm.valuesIterator.sum
+    val bondRevertLoans    = bondReversionByFirm.valuesIterator.sumPln
     val actualBondIssuance =
       if shouldRevert then absorbedBondIssuance
       else result.flows.bondIssuance
@@ -592,7 +592,7 @@ object FirmEconomics:
     val newlyDead            = postFirms.filter(f => !Firm.isAlive(f) && prevAlive.contains(f.id))
     val closingStocksById    = postFirms.zip(closingFinancialStocks).map((firm, stocks) => firm.id -> stocks).toMap
     val openingStocksById    = preFirms.zip(openingFinancialStocks).map((firm, stocks) => firm.id -> stocks).toMap
-    val nplNew               = newlyDead.flatMap(f => closingStocksById.get(f.id).map(_.firmLoan)).sum
+    val nplNew               = newlyDead.flatMap(f => closingStocksById.get(f.id).map(_.firmLoan)).sumPln
     val nplLoss              = nplNew * (Share.One - p.banking.loanRecovery)
     val defaultedBondFirmIds = newlyDead.map(_.id).toSet
     val totalBondDefault     = CorporateBondOwnership.defaultedIssuerDebt(ledgerFinancialState.firms, defaultedBondFirmIds)

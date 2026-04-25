@@ -44,24 +44,24 @@ import com.boombustgroup.amorfati.types.*
   *   simulation month when commodity price shock hits (0 = no shock)
   * @param commodityShockMag
   *   one-time shock magnitude as multiplicative increment (e.g.,
-  *   Multiplier(3.0) = +300% gas price, 2022-style). Unbounded — can exceed
+  *   Multiplier("3.0") = +300% gas price, 2022-style). Unbounded — can exceed
   *   1.0.
   */
 case class GvcConfig(
-    euTradeShare: Share = Share(0.70),
-    exportShares: Vector[Share] = Vector(Share(0.05), Share(0.55), Share(0.15), Share(0.03), Share(0.02), Share(0.20)),
-    depth: Vector[Share] = Vector(Share(0.35), Share(0.75), Share(0.30), Share(0.40), Share(0.10), Share(0.45)),
-    foreignInflation: Rate = Rate(0.02),
-    foreignGdpGrowth: Rate = Rate(0.015),
-    erPassthrough: Coefficient = Coefficient(0.60),
-    euErPassthrough: Coefficient = Coefficient(0.15),
+    euTradeShare: Share = Share("0.70"),
+    exportShares: Vector[Share] = Vector(Share("0.05"), Share("0.55"), Share("0.15"), Share("0.03"), Share("0.02"), Share("0.20")),
+    depth: Vector[Share] = Vector(Share("0.35"), Share("0.75"), Share("0.30"), Share("0.40"), Share("0.10"), Share("0.45")),
+    foreignInflation: Rate = Rate("0.02"),
+    foreignGdpGrowth: Rate = Rate("0.015"),
+    erPassthrough: Coefficient = Coefficient("0.60"),
+    euErPassthrough: Coefficient = Coefficient("0.15"),
     demandShockMonth: Int = 0,
-    demandShockSize: Share = Share(0.0),
+    demandShockSize: Share = Share("0.0"),
     demandShockSectors: Set[Int] = Set.empty,
-    disruptionRecovery: Share = Share(0.05),
+    disruptionRecovery: Share = Share("0.05"),
     // Commodity prices (Poland imports ~95% of oil/gas)
-    commodityDrift: Rate = Rate(0.02),
-    commodityVolatility: Sigma = Sigma(0.03),
+    commodityDrift: Rate = Rate("0.02"),
+    commodityVolatility: Sigma = Sigma("0.03"),
     commodityShockMonth: Int = 0,
     commodityShockMag: Multiplier = Multiplier.Zero,
 ):

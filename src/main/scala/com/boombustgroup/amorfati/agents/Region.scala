@@ -28,32 +28,32 @@ enum Region(
   /** Centralny: Warszawa + mazowieckie. Highest wages, lowest unemployment,
     * most expensive housing. Services/BPO hub.
     */
-  case Central extends Region("Centralny", Multiplier(1.35), Share(0.03), Multiplier(1.80), Share(0.21))
+  case Central extends Region("Centralny", Multiplier("1.35"), Share("0.03"), Multiplier("1.80"), Share("0.21"))
 
   /** Południowy: Śląsk + Małopolska. Industry + services mix. Kraków tech hub.
     * Mining restrukturyzacja in Śląsk.
     */
-  case South extends Region("Poludniowy", Multiplier(1.10), Share(0.05), Multiplier(1.20), Share(0.21))
+  case South extends Region("Poludniowy", Multiplier("1.10"), Share("0.05"), Multiplier("1.20"), Share("0.21"))
 
   /** Wschodni: Lubelskie, Podkarpackie, Podlaskie, Świętokrzyskie. Highest
     * unemployment, lowest wages. Agriculture-heavy. "Ściana wschodnia".
     */
-  case East extends Region("Wschodni", Multiplier(0.80), Share(0.09), Multiplier(0.65), Share(0.14))
+  case East extends Region("Wschodni", Multiplier("0.80"), Share("0.09"), Multiplier("0.65"), Share("0.14"))
 
   /** Północno-zachodni: Wielkopolskie, Zachodniopomorskie, Lubuskie. Balanced
     * economy, Poznań as regional center, moderate wages.
     */
-  case Northwest extends Region("Polnocno-zachodni", Multiplier(1.00), Share(0.05), Multiplier(0.90), Share(0.16))
+  case Northwest extends Region("Polnocno-zachodni", Multiplier("1.00"), Share("0.05"), Multiplier("0.90"), Share("0.16"))
 
   /** Południowo-zachodni: Dolnośląskie, Opolskie. Wrocław tech hub. Growing
     * services sector, moderate housing costs.
     */
-  case Southwest extends Region("Poludniowo-zachodni", Multiplier(1.05), Share(0.05), Multiplier(1.00), Share(0.12))
+  case Southwest extends Region("Poludniowo-zachodni", Multiplier("1.05"), Share("0.05"), Multiplier("1.00"), Share("0.12"))
 
   /** Północny: Kujawsko-pomorskie, Warmińsko-mazurskie, Pomorskie.
     * Gdańsk/Gdynia port economy. Warmia high unemployment.
     */
-  case North extends Region("Polnocny", Multiplier(0.95), Share(0.07), Multiplier(0.85), Share(0.16))
+  case North extends Region("Polnocny", Multiplier("0.95"), Share("0.07"), Multiplier("0.85"), Share("0.16"))
 
 object Region:
 
@@ -85,12 +85,12 @@ object Region:
     */
   val frictionMatrix: Vector[Vector[Share]] = Vector(
     //          Central  South  East   NW     SW     North
-    Vector(Share(0.00), Share(0.40), Share(0.60), Share(0.45), Share(0.45), Share(0.50)), // from Central
-    Vector(Share(0.30), Share(0.00), Share(0.50), Share(0.40), Share(0.30), Share(0.45)), // from South
-    Vector(Share(0.25), Share(0.45), Share(0.00), Share(0.55), Share(0.55), Share(0.50)), // from East (easier to Central)
-    Vector(Share(0.35), Share(0.40), Share(0.55), Share(0.00), Share(0.35), Share(0.30)), // from Northwest
-    Vector(Share(0.35), Share(0.30), Share(0.55), Share(0.35), Share(0.00), Share(0.40)), // from Southwest
-    Vector(Share(0.30), Share(0.40), Share(0.50), Share(0.30), Share(0.40), Share(0.00)), // from North
+    Vector(Share("0.00"), Share("0.40"), Share("0.60"), Share("0.45"), Share("0.45"), Share("0.50")), // from Central
+    Vector(Share("0.30"), Share("0.00"), Share("0.50"), Share("0.40"), Share("0.30"), Share("0.45")), // from South
+    Vector(Share("0.25"), Share("0.45"), Share("0.00"), Share("0.55"), Share("0.55"), Share("0.50")), // from East (easier to Central)
+    Vector(Share("0.35"), Share("0.40"), Share("0.55"), Share("0.00"), Share("0.35"), Share("0.30")), // from Northwest
+    Vector(Share("0.35"), Share("0.30"), Share("0.55"), Share("0.35"), Share("0.00"), Share("0.40")), // from Southwest
+    Vector(Share("0.30"), Share("0.40"), Share("0.50"), Share("0.30"), Share("0.40"), Share("0.00")), // from North
   )
 
   /** Migration probability: inverse of friction × wage differential × housing
@@ -122,10 +122,10 @@ object Region:
     */
   val sectorComposition: Vector[Vector[Share]] = Vector(
     // BPO    Mfg    Retail  Health  Public  Agri
-    Vector(Share(0.08), Share(0.12), Share(0.48), Share(0.06), Share(0.20), Share(0.06)), // Central
-    Vector(Share(0.04), Share(0.25), Share(0.40), Share(0.06), Share(0.18), Share(0.07)), // South
-    Vector(Share(0.01), Share(0.15), Share(0.30), Share(0.06), Share(0.23), Share(0.25)), // East
-    Vector(Share(0.03), Share(0.22), Share(0.38), Share(0.06), Share(0.20), Share(0.11)), // Northwest
-    Vector(Share(0.04), Share(0.22), Share(0.40), Share(0.06), Share(0.19), Share(0.09)), // Southwest
-    Vector(Share(0.02), Share(0.18), Share(0.35), Share(0.06), Share(0.22), Share(0.17)), // North
+    Vector(Share("0.08"), Share("0.12"), Share("0.48"), Share("0.06"), Share("0.20"), Share("0.06")), // Central
+    Vector(Share("0.04"), Share("0.25"), Share("0.40"), Share("0.06"), Share("0.18"), Share("0.07")), // South
+    Vector(Share("0.01"), Share("0.15"), Share("0.30"), Share("0.06"), Share("0.23"), Share("0.25")), // East
+    Vector(Share("0.03"), Share("0.22"), Share("0.38"), Share("0.06"), Share("0.20"), Share("0.11")), // Northwest
+    Vector(Share("0.04"), Share("0.22"), Share("0.40"), Share("0.06"), Share("0.19"), Share("0.09")), // Southwest
+    Vector(Share("0.02"), Share("0.18"), Share("0.35"), Share("0.06"), Share("0.22"), Share("0.17")), // North
   )

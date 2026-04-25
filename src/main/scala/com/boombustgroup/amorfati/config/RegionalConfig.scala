@@ -12,6 +12,6 @@ import com.boombustgroup.amorfati.types.*
   *   housing must be ≤ origin housing cost. At 0.5, destination can be 2×.
   */
 case class RegionalConfig(
-    baseMigrationRate: Share = Share(0.005),
-    housingBarrierThreshold: Share = Share(0.7),
+    baseMigrationRate: Share = Share("0.005"),
+    housingBarrierThreshold: Share = Share("0.7"),
 )

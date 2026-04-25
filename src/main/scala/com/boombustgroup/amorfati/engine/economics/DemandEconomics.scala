@@ -18,10 +18,10 @@ import com.boombustgroup.amorfati.types.*
 object DemandEconomics:
 
   // ---- Calibration constants ----
-  private val RealRateElasticity     = Scalar(0.02)     // demand sensitivity to real interest rate gap
-  private val PressureMaxBoost       = Multiplier(0.75) // hiring signal can rise above 1.0, but only moderately
-  private val PressureSaturationRate = Scalar(1.25)     // how quickly excess-demand pressure saturates above capacity
-  private val HiringSignalSmoothing  = Share(0.65)      // persistence in sector hiring plans; avoids month-to-month whipsaw
+  private val RealRateElasticity     = Scalar("0.02")     // demand sensitivity to real interest rate gap
+  private val PressureMaxBoost       = Multiplier("0.75") // hiring signal can rise above 1.0, but only moderately
+  private val PressureSaturationRate = Scalar("1.25")     // how quickly excess-demand pressure saturates above capacity
+  private val HiringSignalSmoothing  = Share("0.65")      // persistence in sector hiring plans; avoids month-to-month whipsaw
 
   case class Output(
       govPurchases: PLN,                        // total government purchases this month

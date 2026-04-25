@@ -6,16 +6,16 @@ import org.scalatest.matchers.should.Matchers
 
 class MonthTraceSpec extends AnyFlatSpec with Matchers:
 
-  private val sectorDemandMult     = Vector(Multiplier(1.1), Multiplier(0.9))
-  private val sectorDemandPressure = Vector(Multiplier(1.2), Multiplier(0.8))
-  private val sectorHiringSignal   = Vector(Multiplier(1.05), Multiplier(0.95))
+  private val sectorDemandMult     = Vector(Multiplier("1.1"), Multiplier("0.9"))
+  private val sectorDemandPressure = Vector(Multiplier("1.2"), Multiplier("0.8"))
+  private val sectorHiringSignal   = Vector(Multiplier("1.05"), Multiplier("0.95"))
 
   "MonthTimingTrace" should "reject duplicate envelope keys" in {
     val err = intercept[IllegalArgumentException]:
       MonthTimingTrace(
         Vector(
-          MonthTimingEnvelope(MonthTimingEnvelopeKey.Labor, MonthTimingPayload.LaborSignals(Share(0.4))),
-          MonthTimingEnvelope(MonthTimingEnvelopeKey.Labor, MonthTimingPayload.LaborSignals(Share(0.6))),
+          MonthTimingEnvelope(MonthTimingEnvelopeKey.Labor, MonthTimingPayload.LaborSignals(Share("0.4"))),
+          MonthTimingEnvelope(MonthTimingEnvelopeKey.Labor, MonthTimingPayload.LaborSignals(Share("0.6"))),
         ),
       )
 
@@ -34,18 +34,18 @@ class MonthTraceSpec extends AnyFlatSpec with Matchers:
   it should "build typed envelopes from timing inputs in a stable order" in {
     val trace = MonthTimingTrace.fromInputs(
       MonthTimingInputs(
-        labor = MonthTimingPayload.LaborSignals(Share(0.4)),
+        labor = MonthTimingPayload.LaborSignals(Share("0.4")),
         demand = MonthTimingPayload.DemandSignals(
           sectorDemandMult = sectorDemandMult,
           sectorDemandPressure = sectorDemandPressure,
           sectorHiringSignal = sectorHiringSignal,
         ),
         nominal = MonthTimingPayload.NominalSignals(
-          realizedInflation = Rate(0.03),
-          expectedInflation = Rate(0.025),
+          realizedInflation = Rate("0.03"),
+          expectedInflation = Rate("0.025"),
         ),
         firmDynamics = MonthTimingPayload.FirmDynamics(
-          startupAbsorptionRate = Share(0.7),
+          startupAbsorptionRate = Share("0.7"),
           firmBirths = 12,
           firmDeaths = 4,
           netFirmBirths = 8,
@@ -59,20 +59,20 @@ class MonthTraceSpec extends AnyFlatSpec with Matchers:
       MonthTimingEnvelopeKey.Nominal,
       MonthTimingEnvelopeKey.Firm,
     )
-    trace.laborSignals.operationalHiringSlack shouldBe Share(0.4)
+    trace.laborSignals.operationalHiringSlack shouldBe Share("0.4")
     trace.demandSignals.sectorDemandMult shouldBe sectorDemandMult
-    trace.nominalSignals.realizedInflation shouldBe Rate(0.03)
+    trace.nominalSignals.realizedInflation shouldBe Rate("0.03")
     trace.firmDynamics.netFirmBirths shouldBe 8
   }
 
   "SeedTransitionTrace" should "derive the seed transition from typed month boundaries" in {
     val seedIn  = MonthSemantics.seedIn(
       DecisionSignals(
-        unemploymentRate = Share(0.08),
-        inflation = Rate(0.02),
-        expectedInflation = Rate(0.025),
-        laggedHiringSlack = Share(0.9),
-        startupAbsorptionRate = Share(0.7),
+        unemploymentRate = Share("0.08"),
+        inflation = Rate("0.02"),
+        expectedInflation = Rate("0.025"),
+        laggedHiringSlack = Share("0.9"),
+        startupAbsorptionRate = Share("0.7"),
         sectorDemandMult = sectorDemandMult,
         sectorDemandPressure = sectorDemandPressure,
         sectorHiringSignal = sectorHiringSignal,
@@ -82,13 +82,13 @@ class MonthTraceSpec extends AnyFlatSpec with Matchers:
       SignalExtraction.compute(
         SignalExtraction.Input(
           labor = SignalExtraction.LaborOutcomes(
-            unemploymentRate = Share(0.07),
-            laggedHiringSlack = Share(0.85),
-            startupAbsorptionRate = Share(0.75),
+            unemploymentRate = Share("0.07"),
+            laggedHiringSlack = Share("0.85"),
+            startupAbsorptionRate = Share("0.75"),
           ),
           nominal = SignalExtraction.NominalOutcomes(
-            inflation = Rate(0.03),
-            expectedInflation = Rate(0.028),
+            inflation = Rate("0.03"),
+            expectedInflation = Rate("0.028"),
           ),
           demand = SignalExtraction.DemandOutcomes(
             sectorDemandMult = sectorDemandMult,

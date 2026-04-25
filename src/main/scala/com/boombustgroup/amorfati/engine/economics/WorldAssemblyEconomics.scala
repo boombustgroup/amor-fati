@@ -42,16 +42,16 @@ object WorldAssemblyEconomics:
   /** Intermediate result for informal economy computations. */
   private case class InformalResult(
       taxEvasionLoss: PLN,
-      realizedTaxShadowShare: Double,
-      cyclicalAdj: Double,
-      nextTaxShadowShare: Double,
+      realizedTaxShadowShare: Share,
+      cyclicalAdj: Share,
+      nextTaxShadowShare: Share,
   )
 
   /** Intermediate result for observable values surfaced on World. */
   private case class Observables(
       depositFacilityUsage: PLN,
-      etsPrice: Double,
-      tourismSeasonalFactor: Double,
+      etsPrice: Multiplier,
+      tourismSeasonalFactor: Multiplier,
   )
 
   private case class StartupStaffingResult(
@@ -142,8 +142,8 @@ object WorldAssemblyEconomics:
     )
 
   /** Flow-of-funds residual: total firm revenue minus adjusted demand. Both
-    * sides computed via the same PLN path to avoid Long/Double rounding
-    * mismatch.
+    * sides computed via the same PLN path to avoid mixed-representation
+    * rounding mismatch.
     */
   private def computeFofResidual(in: StepInput)(using p: SimParams): PLN =
     val nSectors       = p.sectorDefs.length
@@ -163,45 +163,55 @@ object WorldAssemblyEconomics:
     * estimated informal employment, and smoothed cyclical adjustment for the
     * counter-cyclical shadow economy share.
     */
-  @boundaryEscape
   private def computeInformalEconomy(in: StepInput)(using p: SimParams): InformalResult =
-    import ComputationBoundary.toDouble
-
     val taxEvasionLoss =
       in.s5.sumCitEvasion + (in.s9.vat - in.s9.vatAfterEvasion) +
         (in.s3.pitRevenue - in.s9.pitAfterEvasion) +
         (in.s9.exciseRevenue - in.s9.exciseAfterEvasion)
 
-    val realizedTaxShadowShare = toDouble(in.s9.realizedTaxShadowShare)
+    val realizedTaxShadowShare = in.s9.realizedTaxShadowShare
 
     val laborPopulation = in.w.social.demographics.workingAgePop.max(1)
-    val unemp           = 1.0 - in.s2.employed.toDouble / laborPopulation
-    val target          = Math.max(0.0, unemp - toDouble(p.informal.unempThreshold)) * toDouble(p.informal.cyclicalSens)
-    val cyclicalAdj     = in.w.mechanisms.informalCyclicalAdj * toDouble(p.informal.smoothing) +
-      target * (1.0 - toDouble(p.informal.smoothing))
+    val unemp           = Share.One - Share.fraction(in.s2.employed, laborPopulation)
+    val target          = ((unemp - p.informal.unempThreshold.toScalar.toShare).max(Share.Zero) * p.informal.cyclicalSens).toShare
+    val smoothing       = p.informal.smoothing.toShare
+    val cyclicalAdj     = ((in.w.mechanisms.informalCyclicalAdj * smoothing) +
+      (target * (Share.One - smoothing))).clamp(Share.Zero, Share.One)
 
-    val nextTaxShadowShare = toDouble(InformalEconomy.aggregateTaxShadowShare(Share(cyclicalAdj)))
+    val nextTaxShadowShare = InformalEconomy.aggregateTaxShadowShare(cyclicalAdj)
 
     InformalResult(taxEvasionLoss, realizedTaxShadowShare, cyclicalAdj, nextTaxShadowShare)
 
-  @boundaryEscape
   private def computeObservables(in: StepInput)(using p: SimParams): Observables =
-    import ComputationBoundary.toDouble
     val aliveBankIds         = in.s9.banks.filterNot(_.failed).map(_.id.toInt).toSet
     val depositFacilityUsage = in.s9.ledgerFinancialState.banks.zipWithIndex
       .filter((_, index) => aliveBankIds.contains(index))
       .map(_._1.reserve)
       .filter(_ > PLN.Zero)
-      .sum
+      .sumPln
 
-    val monthsPerYear = 12.0
-    val elapsedMonths = in.s1.m.previousCompleted.toInt.toDouble
-    val etsPrice      = toDouble(p.climate.etsBasePrice) * Math.pow(1.0 + toDouble(p.climate.etsPriceDrift) / monthsPerYear, elapsedMonths)
+    val elapsedMonths = in.s1.m.previousCompleted.toInt
+    val etsPrice      = p.climate.etsBasePrice * p.climate.etsPriceDrift.monthly.growthMultiplier.pow(Scalar(elapsedMonths))
 
     val monthInYear           = in.s1.m.monthInYear
-    val tourismSeasonalFactor = 1.0 + toDouble(p.tourism.seasonality) * Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
+    val tourismSeasonalFactor = (p.tourism.seasonality * monthlySeasonalCos(monthInYear, p.tourism.peakMonth)).growthMultiplier
 
     Observables(depositFacilityUsage, etsPrice, tourismSeasonalFactor)
+
+  private def monthlySeasonalCos(monthInYear: Int, peakMonth: Int): Coefficient =
+    Math.floorMod(monthInYear - peakMonth, 12) match
+      case 0  => Coefficient.One
+      case 1  => Coefficient("0.8660254038")
+      case 2  => Coefficient("0.5")
+      case 3  => Coefficient.Zero
+      case 4  => Coefficient("-0.5")
+      case 5  => Coefficient("-0.8660254038")
+      case 6  => Coefficient("-1.0")
+      case 7  => Coefficient("-0.8660254038")
+      case 8  => Coefficient("-0.5")
+      case 9  => Coefficient.Zero
+      case 10 => Coefficient("0.5")
+      case _  => Coefficient("0.8660254038")
 
   private def applyStartupStaffing(
       in: StepInput,
@@ -260,7 +270,6 @@ object WorldAssemblyEconomics:
       else firm
 
   /** Construct the new World state from all step outputs. */
-  @boundaryEscape
   private def assembleWorld(
       in: StepInput,
       equityAfterStep: EquityMarket.State,
@@ -346,9 +355,7 @@ object WorldAssemblyEconomics:
       )
 
   /** Construct the FlowState for this step. */
-  @boundaryEscape
   private def buildFlowState(in: StepInput, informal: InformalResult): FlowState =
-    import ComputationBoundary.toDouble
     FlowState(
       monthlyGdpProxy = in.s7.gdp,
       ioFlows = in.s5.totalIoPaid,
@@ -366,7 +373,7 @@ object WorldAssemblyEconomics:
       taxEvasionLoss = informal.taxEvasionLoss,
       realizedTaxShadowShare = informal.realizedTaxShadowShare,
       bailInLoss = in.s9.bailInLoss,
-      bfgLevyTotal = toDouble(in.s9.bfgLevy),
+      bfgLevyTotal = in.s9.bfgLevy,
     )
 
   /** FDI M&A: monthly stochastic conversion of domestic firms to foreign

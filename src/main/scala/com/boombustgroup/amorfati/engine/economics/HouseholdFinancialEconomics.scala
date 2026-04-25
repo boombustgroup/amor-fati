@@ -20,9 +20,25 @@ import com.boombustgroup.amorfati.types.*
 object HouseholdFinancialEconomics:
 
   // ---- Calibration constants ----
-  private val DiasporaUnempThreshold                      = 0.05 // unemployment threshold for counter-cyclical remittance sensitivity
-  private def exchangeRateValue(er: ExchangeRate): Double =
-    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+  private val DiasporaUnempThreshold = Share("0.05") // unemployment threshold for counter-cyclical remittance sensitivity
+
+  private def trendFactor(annualGrowth: Rate, elapsedMonths: Int): Multiplier =
+    annualGrowth.monthly.growthMultiplier.pow(Scalar(elapsedMonths))
+
+  private def monthlySeasonalCos(monthInYear: Int, peakMonth: Int): Coefficient =
+    Math.floorMod(monthInYear - peakMonth, 12) match
+      case 0  => Coefficient.One
+      case 1  => Coefficient("0.8660254038")
+      case 2  => Coefficient("0.5")
+      case 3  => Coefficient.Zero
+      case 4  => Coefficient("-0.5")
+      case 5  => Coefficient("-0.8660254038")
+      case 6  => Coefficient("-1.0")
+      case 7  => Coefficient("-0.8660254038")
+      case 8  => Coefficient("-0.5")
+      case 9  => Coefficient.Zero
+      case 10 => Coefficient("0.5")
+      case _  => Coefficient("0.8660254038")
 
   case class Output(
       hhDebtService: PLN,       // total household mortgage debt service
@@ -38,7 +54,6 @@ object HouseholdFinancialEconomics:
       consumerPrincipal: PLN,   // consumer loan principal repayment
   )
 
-  @boundaryEscape
   def compute(
       w: World,
       month: ExecutionMonth,
@@ -46,54 +61,39 @@ object HouseholdFinancialEconomics:
       hhAgg: Household.Aggregates,
       @annotation.unused rng: RandomStream,
   )(using p: SimParams): Output =
-    import ComputationBoundary.toDouble
     val hhDebtService       = hhAgg.totalDebtService
     val depositInterestPaid = hhAgg.totalDepositInterest
     val remittanceOutflow   = hhAgg.totalRemittances
 
     // Diaspora remittance inflow (#46)
     val diasporaInflow =
-      val exchangeRate  = exchangeRateValue(w.forex.exchangeRate)
       val wap           = w.social.demographics.workingAgePop
       val elapsedMonths = month.previousCompleted.toInt
-      val base          = toDouble(p.remittance.perCapita) * wap.toDouble
-      val erAdj         = Math.pow(exchangeRate / toDouble(p.forex.baseExRate), toDouble(p.remittance.erElasticity))
-      val trendAdj      = Math.pow(1.0 + toDouble(p.remittance.growthRate) / 12.0, elapsedMonths.toDouble)
-      val unempForRemit = toDouble(w.unemploymentRate(employed))
-      val cyclicalAdj   = 1.0 + toDouble(p.remittance.cyclicalSens) * Math.max(0.0, unempForRemit - DiasporaUnempThreshold)
-      PLN(base * erAdj * trendAdj * cyclicalAdj)
+      val base          = p.remittance.perCapita * wap
+      val erAdj         = w.forex.exchangeRate.ratioTo(p.forex.baseExRate).pow(p.remittance.erElasticity.toScalar)
+      val trendAdj      = trendFactor(p.remittance.growthRate, elapsedMonths)
+      val unempGap      = (w.unemploymentRate(employed) - DiasporaUnempThreshold).max(Share.Zero)
+      val cyclicalAdj   = (p.remittance.cyclicalSens * unempGap).growthMultiplier
+      base * erAdj * trendAdj * cyclicalAdj
 
     // Tourism services export/import (#47)
     val (tourismExport, tourismImport) =
-      val exchangeRate   = exchangeRateValue(w.forex.exchangeRate)
       val monthInt       = month.toInt
       val elapsedMonths  = month.previousCompleted.toInt
       val monthInYear    = month.monthInYear
-      val seasonalFactor = 1.0 + toDouble(p.tourism.seasonality) *
-        Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
-      val inboundErAdj   = Math.pow(exchangeRate / toDouble(p.forex.baseExRate), toDouble(p.tourism.erElasticity))
-      val outboundErAdj  = Math.pow(toDouble(p.forex.baseExRate) / exchangeRate, toDouble(p.tourism.erElasticity))
-      val trendAdj       = Math.pow(1.0 + toDouble(p.tourism.growthRate) / 12.0, elapsedMonths.toDouble)
-      val disruption     =
+      val seasonalFactor = (p.tourism.seasonality * monthlySeasonalCos(monthInYear, p.tourism.peakMonth)).growthMultiplier
+      val inboundErAdj   = w.forex.exchangeRate.ratioTo(p.forex.baseExRate).pow(p.tourism.erElasticity.toScalar)
+      val outboundErAdj  = p.forex.baseExRate.ratioTo(w.forex.exchangeRate).pow(p.tourism.erElasticity.toScalar)
+      val trendAdj       = trendFactor(p.tourism.growthRate, elapsedMonths)
+      val shockFactor    =
         if p.tourism.shockMonth > 0 && monthInt >= p.tourism.shockMonth then
-          toDouble(p.tourism.shockSize) * Math.pow(
-            1.0 - toDouble(p.tourism.shockRecovery),
-            (monthInt - p.tourism.shockMonth).toDouble,
-          )
-        else 0.0
-      val shockFactor    = 1.0 - disruption
-      val baseGdp        = Math.max(0.0, toDouble(w.cachedMonthlyGdpProxy))
-      val inbound        = Math.max(
-        0.0,
-        baseGdp * toDouble(p.tourism.inboundShare) *
-          seasonalFactor * inboundErAdj * trendAdj * shockFactor,
-      )
-      val outbound       = Math.max(
-        0.0,
-        baseGdp * toDouble(p.tourism.outboundShare) *
-          seasonalFactor * outboundErAdj * trendAdj * shockFactor,
-      )
-      (PLN(inbound), PLN(outbound))
+          val decay = (Rate.Zero - p.tourism.shockRecovery).growthMultiplier.pow(Scalar(monthInt - p.tourism.shockMonth))
+          Multiplier.One - (p.tourism.shockSize * decay)
+        else Multiplier.One
+      val baseGdp        = w.cachedMonthlyGdpProxy.max(PLN.Zero)
+      val inbound        = baseGdp * p.tourism.inboundShare * seasonalFactor * inboundErAdj * trendAdj * shockFactor
+      val outbound       = baseGdp * p.tourism.outboundShare * seasonalFactor * outboundErAdj * trendAdj * shockFactor
+      (inbound.max(PLN.Zero), outbound.max(PLN.Zero))
 
     // Consumer credit flows
     val consumerDebtService = hhAgg.totalConsumerDebtService

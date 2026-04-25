@@ -13,10 +13,15 @@ import com.boombustgroup.amorfati.types.*
 object InflationProbe:
 
   private def laborSupplyCount(wage: PLN, resWage: PLN, totalPopulation: Int)(using p: SimParams): Int =
-    import ComputationBoundary.toDouble
-    val x     = toDouble(p.household.laborSupplySteepness) * (wage / resWage - 1.0)
-    val ratio = 1.0 / (1.0 + Math.exp(-x))
-    (totalPopulation * ratio).toInt
+    if resWage <= PLN.Zero then if wage > PLN.Zero then totalPopulation else 0
+    else
+      val wageGap     = wage.ratioTo(resWage).toCoefficient - Coefficient.One
+      val slope       = p.household.laborSupplySteepness * wageGap
+      val denominator = Multiplier.One + (-slope).exp
+      Multiplier.One.ratioTo(denominator).toShare.applyTo(totalPopulation)
+
+  private def pct(value: Scalar, digits: Int = 2): String =
+    (value * Scalar(100)).format(digits) + "%"
 
   private def topPressures(pressures: Vector[Multiplier])(using p: SimParams): String =
     p.sectorDefs
@@ -24,7 +29,7 @@ object InflationProbe:
       .sortBy { case (_, v) => -(v / Multiplier.One) }
       .take(3)
       .map { case (sec, v) =>
-        s"${sec.name}=${"%.2f".formatLocal(java.util.Locale.US, v / Multiplier.One)}"
+        s"${sec.name}=${(v / Multiplier.One).format(2)}"
       }
       .mkString(", ")
 
@@ -48,7 +53,6 @@ object InflationProbe:
 
   @main def runInflationProbe(seed: Long = 1L, months: Int = 12): Unit =
     given SimParams = SimParams.defaults
-    import ComputationBoundary.toDouble
 
     val init                 = WorldInit.initialize(InitRandomness.Contract.fromSeed(seed))
     var world                = init.world
@@ -64,27 +68,28 @@ object InflationProbe:
       val contract          = MonthRandomness.Contract.fromSeed(seed * 1000 + month)
       val s1                = FiscalConstraintEconomics.compute(world, banks, ledgerFinancialState, ExecutionMonth(month))
       val s2Pre             = LaborEconomics.compute(world, firms, hhs, s1)
-      val prevWage          = toDouble(world.householdMarket.marketWage)
-      val rawLaborWage      = toDouble(RegionalClearing.clear(world.regionalWages, s1.resWage, s2Pre.laborDemand, population).nationalWage)
-      val target            = toDouble(summon[SimParams].monetary.targetInfl)
+      val prevWage          = world.householdMarket.marketWage
+      val rawLaborWage      = RegionalClearing.clear(world.regionalWages, s1.resWage, s2Pre.laborDemand, population).nationalWage
       val expWagePressure   =
-        toDouble(summon[SimParams].labor.expWagePassthrough) * Math.max(0.0, toDouble(world.mechanisms.expectations.expectedInflation) - target) / 12.0
-      val wageAfterExp      = Math.max(toDouble(s1.resWage), rawLaborWage * (1.0 + expWagePressure))
+        (summon[SimParams].labor.expWagePassthrough * (world.mechanisms.expectations.expectedInflation - summon[SimParams].monetary.targetInfl)
+          .max(Rate.Zero)
+          .toCoefficient) / 12
+      val wageAfterExp      = s1.resWage.max(rawLaborWage * expWagePressure.growthMultiplier)
       val aggUnionDensity   =
         summon[SimParams].sectorDefs.zipWithIndex
-          .map((s, i) => toDouble(s.share) * toDouble(summon[SimParams].labor.unionDensity(i)))
-          .sum
+          .map((s, i) => s.share * summon[SimParams].labor.unionDensity(i))
+          .foldLeft(Share.Zero)(_ + _)
       val unionAdjustedWage =
         if wageAfterExp < prevWage then
           val decline = prevWage - wageAfterExp
-          Math.max(toDouble(s1.resWage), wageAfterExp + decline * toDouble(summon[SimParams].labor.unionRigidity) * aggUnionDensity)
+          s1.resWage.max(wageAfterExp + decline * summon[SimParams].labor.unionRigidity * aggUnionDensity)
         else wageAfterExp
       val supplyAtPrev      = laborSupplyCount(world.householdMarket.marketWage, s1.resWage, population)
-      val newSupply         = laborSupplyCount(PLN(unionAdjustedWage), s1.resWage, population)
-      val excessDemand      = (s2Pre.laborDemand - supplyAtPrev).toDouble / population
-      val phillipsGrowth    = if prevWage > 0.0 then rawLaborWage / prevWage - 1.0 else 0.0
-      val expGrowth         = if rawLaborWage > 0.0 then wageAfterExp / rawLaborWage - 1.0 else 0.0
-      val unionGrowth       = if wageAfterExp > 0.0 then unionAdjustedWage / wageAfterExp - 1.0 else 0.0
+      val newSupply         = laborSupplyCount(unionAdjustedWage, s1.resWage, population)
+      val excessDemand      = (s2Pre.laborDemand - supplyAtPrev).ratioTo(population)
+      val phillipsGrowth    = if prevWage > PLN.Zero then rawLaborWage / prevWage - Scalar.One else Scalar.Zero
+      val expGrowth         = if rawLaborWage > PLN.Zero then wageAfterExp / rawLaborWage - Scalar.One else Scalar.Zero
+      val unionGrowth       = if wageAfterExp > PLN.Zero then unionAdjustedWage / wageAfterExp - Scalar.One else Scalar.Zero
       val s3                =
         HouseholdIncomeEconomics.compute(
           world,
@@ -110,7 +115,7 @@ object InflationProbe:
         domesticCons = s3.domesticCons,
         govPurchases = s4.govPurchases,
         avgDemandMult = s4.avgDemandMult,
-        totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sum,
+        totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sumPln,
         firmStep = s5,
       )
       val s8                =
@@ -148,7 +153,6 @@ object InflationProbe:
         )
 
       val exRateDeviation = world.forex.exchangeRate.deviationFrom(summon[SimParams].forex.baseExRate)
-      val exDev           = toDouble(exRateDeviation.toCoefficient)
       val priceUpd        = PriceLevel.update(
         // PriceLevel reads the current pre-policy expectation; s8.newExp is next month's post-policy anchor.
         expectedInflation = world.mechanisms.expectations.expectedInflation,
@@ -157,57 +161,37 @@ object InflationProbe:
         wageGrowth = s2.wageGrowth,
         exRateDeviation = exRateDeviation,
       )
-      val demandPullM     = toDouble(priceUpd.demandPull)
-      val costPushM       = toDouble(priceUpd.costPush)
-      val importPushM     = toDouble(priceUpd.importPush)
-      val rawMonthly      = toDouble(priceUpd.rawMonthly)
-      val flooredM        = toDouble(priceUpd.flooredMonthly)
-      val baseAnnual      = toDouble(priceUpd.inflation)
-      val totalInfl       = toDouble(s7.newInfl)
-      val markupAnnual    = toDouble(s5.markupInflation)
-      val unemp           = 1.0 - s2.employed.toDouble / population.toDouble
-      val refRate         = toDouble(s8.monetary.newRefRate)
-      val expInfl         = toDouble(s8.monetary.newExp.expectedInflation)
-      val credibility     = toDouble(s8.monetary.newExp.credibility)
-      val fwdGuidance     = toDouble(s8.monetary.newExp.forwardGuidanceRate)
-      val realRate        = refRate - expInfl
-      val govPurchases    = toDouble(s4.govPurchases)
+      val unemp           = Share.One - Share.fraction(s2.employed, population)
+      val realRate        = s8.monetary.newRefRate - s8.monetary.newExp.expectedInflation
       val govBreakdown    = govPurchasesBreakdown(world, s2Pre.employed)
-      val govCurrent      = toDouble(s9.newGovWithYield.govCurrentSpend)
-      val govCapital      = toDouble(s9.newGovWithYield.govCapitalSpend)
-      val euProjectCap    = toDouble(s9.newGovWithYield.euProjectCapital)
-      val euCofin         = toDouble(s9.newGovWithYield.euCofinancing)
-      val deficit         = toDouble(s9.newGovWithYield.deficit)
       val debtToGdp       =
-        if s7.gdp > PLN.Zero then (toDouble(s9.newGovWithYield.cumulativeDebt) / toDouble(s7.gdp)) / 12.0 * 100.0
-        else 0.0
+        if s7.gdp > PLN.Zero then s9.newGovWithYield.cumulativeDebt / (s7.gdp * 12) else Scalar.Zero
       val deficitToGdp    =
-        if s7.gdp > PLN.Zero then (deficit / toDouble(s7.gdp)) * 100.0
-        else 0.0
+        if s7.gdp > PLN.Zero then s9.newGovWithYield.deficit / s7.gdp else Scalar.Zero
 
       println(
-        f"m=$month%2d u=${unemp * 100.0}%.2f%% pi=${totalInfl * 100.0}%.2f%% wage=${toDouble(s2.newWage)}%.0f wg=${toDouble(s2.wageGrowth) * 100.0}%.2f%% demand=${s4.avgDemandMult / Multiplier.One}%.3f markup=${markupAnnual * 100.0}%.2f%%",
+        s"m=$month u=${pct(unemp.toScalar)} pi=${pct(s7.newInfl.toScalar)} wage=${s2.newWage.format(0)} wg=${pct(s2.wageGrowth.toScalar)} demand=${(s4.avgDemandMult / Multiplier.One).format(3)} markup=${pct(s5.markupInflation.toScalar)}",
       )
       println(
-        f"  channels monthly: demand=${demandPullM * 100.0}%.2fpp cost=${costPushM * 100.0}%.2fpp import=${importPushM * 100.0}%.2fpp raw=${rawMonthly * 100.0}%.2fpp floor=${flooredM * 100.0}%.2fpp",
+        s"  channels monthly: demand=${pct(priceUpd.demandPull.toScalar)}pp cost=${pct(priceUpd.costPush.toScalar)}pp import=${pct(priceUpd.importPush.toScalar)}pp raw=${pct(priceUpd.rawMonthly.toScalar)}pp floor=${pct(priceUpd.flooredMonthly.toScalar)}pp",
       )
       println(
-        f"  annualized: base=${baseAnnual * 100.0}%.2f%% markup=${markupAnnual * 100.0}%.2f%% total=${totalInfl * 100.0}%.2f%% exDev=${exDev * 100.0}%.2f%% importCost=${toDouble(world.external.gvc.importCostIndex)}%.3f commodity=${toDouble(world.external.gvc.commodityPriceIndex)}%.3f",
+        s"  annualized: base=${pct(priceUpd.inflation.toScalar)} markup=${pct(s5.markupInflation.toScalar)} total=${pct(s7.newInfl.toScalar)} exDev=${pct(exRateDeviation.toCoefficient.toScalar)} importCost=${world.external.gvc.importCostIndex.format(3)} commodity=${world.external.gvc.commodityPriceIndex.format(3)}",
       )
       println(
-        f"  policy: ref=${refRate * 100.0}%.2f%% expPi=${expInfl * 100.0}%.2f%% real=${realRate * 100.0}%.2f%% cred=${credibility * 100.0}%.1f%% fg=${fwdGuidance * 100.0}%.2f%%",
+        s"  policy: ref=${pct(s8.monetary.newRefRate.toScalar)} expPi=${pct(s8.monetary.newExp.expectedInflation.toScalar)} real=${pct(realRate.toScalar)} cred=${pct(s8.monetary.newExp.credibility.toScalar)} fg=${pct(s8.monetary.newExp.forwardGuidanceRate.toScalar)}",
       )
       println(
-        f"  wages: phillips=${phillipsGrowth * 100.0}%.2f%% exp=${expGrowth * 100.0}%.2f%% union=${unionGrowth * 100.0}%.2f%% raw=${rawLaborWage}%.0f afterExp=${wageAfterExp}%.0f final=${unionAdjustedWage}%.0f",
+        s"  wages: phillips=${pct(phillipsGrowth)} exp=${pct(expGrowth)} union=${pct(unionGrowth)} raw=${rawLaborWage.format(0)} afterExp=${wageAfterExp.format(0)} final=${unionAdjustedWage.format(0)}",
       )
       println(
-        f"  labor: demand=${s2Pre.laborDemand}%d supplyPrev=${supplyAtPrev}%d supplyNew=${newSupply}%d excess=${excessDemand * 100.0}%.2f%% employedPre=${s2Pre.employed}%d employedPost=${s2.employed}%d",
+        s"  labor: demand=${s2Pre.laborDemand} supplyPrev=${supplyAtPrev} supplyNew=${newSupply} excess=${pct(excessDemand)} employedPre=${s2Pre.employed} employedPost=${s2.employed}",
       )
       println(
-        f"  fiscal: govPurch=${govPurchases}%.0f govCur=${govCurrent}%.0f govCapDom=${govCapital}%.0f euProjCap=${euProjectCap}%.0f euCofinDom=${euCofin}%.0f def=${deficit}%.0f def/gdp=${deficitToGdp}%.2f%% debt/gdp=${debtToGdp}%.2f%% rule=${s4.fiscalRuleStatus.bindingRule} cut=${toDouble(s4.fiscalRuleStatus.spendingCutRatio) * 100.0}%.2f%%",
+        s"  fiscal: govPurch=${s4.govPurchases.format(0)} govCur=${s9.newGovWithYield.govCurrentSpend.format(0)} govCapDom=${s9.newGovWithYield.govCapitalSpend.format(0)} euProjCap=${s9.newGovWithYield.euProjectCapital.format(0)} euCofinDom=${s9.newGovWithYield.euCofinancing.format(0)} def=${s9.newGovWithYield.deficit.format(0)} def/gdp=${pct(deficitToGdp)} debt/gdp=${pct(debtToGdp)} rule=${s4.fiscalRuleStatus.bindingRule} cut=${pct(s4.fiscalRuleStatus.spendingCutRatio.toScalar)}",
       )
       println(
-        f"  gov raw target: base=${toDouble(govBreakdown.base)}%.0f recycleCf=${toDouble(govBreakdown.recycleCounterfactual)}%.0f stimulus=${toDouble(govBreakdown.stimulus)}%.0f raw=${toDouble(govBreakdown.rawTarget)}%.0f zusSurplus=${toDouble(govBreakdown.zusNetSurplus)}%.0f unempGap=${toDouble(govBreakdown.unempGap) * 100.0}%.2f%%",
+        s"  gov raw target: base=${govBreakdown.base.format(0)} recycleCf=${govBreakdown.recycleCounterfactual.format(0)} stimulus=${govBreakdown.stimulus.format(0)} raw=${govBreakdown.rawTarget.format(0)} zusSurplus=${govBreakdown.zusNetSurplus.format(0)} unempGap=${pct(govBreakdown.unempGap.toScalar)}",
       )
       println(s"  top pressure: ${topPressures(s4.sectorDemandPressure)}")
 

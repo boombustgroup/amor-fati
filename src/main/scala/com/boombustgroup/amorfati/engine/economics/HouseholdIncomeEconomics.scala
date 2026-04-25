@@ -23,9 +23,7 @@ import com.boombustgroup.amorfati.random.RandomStream
 object HouseholdIncomeEconomics:
 
   // ---- Calibration constants ----
-  private val ImportErElasticity                          = 0.5 // exchange rate elasticity of import propensity
-  private def exchangeRateValue(er: ExchangeRate): Double =
-    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+  private val ImportErElasticity = Coefficient("0.5") // exchange rate elasticity of import propensity
 
   case class Output(
       totalIncome: PLN,                               // aggregate household income (wages + benefits + transfers)
@@ -41,7 +39,6 @@ object HouseholdIncomeEconomics:
       ledgerFinancialState: LedgerFinancialState,     // ledger after household financial stock updates
   )
 
-  @boundaryEscape
   def compute(
       w: World,
       firms: Vector[Firm.State],
@@ -53,11 +50,11 @@ object HouseholdIncomeEconomics:
       newWage: PLN,
       rng: RandomStream,
   )(using p: SimParams): Output =
-    import ComputationBoundary.toDouble
-    val importAdj = Share(
-      toDouble(p.forex.importPropensity) *
-        Math.pow(toDouble(p.forex.baseExRate) / exchangeRateValue(w.forex.exchangeRate), ImportErElasticity),
-    )
+    val importAdj =
+      (p.forex.importPropensity * p.forex.baseExRate.ratioTo(w.forex.exchangeRate).pow(ImportErElasticity.toScalar)).toShare.clamp(
+        Share.Zero,
+        Share.One,
+      )
 
     val afterSep      = LaborMarket.separations(households, firms, firms)
     val afterWages    = LaborMarket.updateWages(afterSep, firms, newWage)

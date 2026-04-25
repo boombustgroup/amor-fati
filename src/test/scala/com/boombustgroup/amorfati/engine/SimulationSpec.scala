@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.agents.Nbp
@@ -11,7 +12,6 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
   private val totalPop     = p.pop.firmsCount * p.pop.workersPerFirm
 
   // --- updateLaborMarket ---
@@ -25,26 +25,26 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   it should "keep wage at or above reservation wage" in {
     // Very low demand → wage should still be >= reservation
     val r = LaborMarket.updateLaborMarket(p.household.baseWage, p.household.baseReservationWage, 0, totalPop)
-    td.toDouble(r.wage).should(be >= td.toDouble(p.household.baseReservationWage))
+    decimal(r.wage).should(be >= decimal(p.household.baseReservationWage))
   }
 
   // --- updateInflation ---
 
   "PriceLevel.update" should "produce higher inflation with higher demand" in {
-    val r1 = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val r2 = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier(1.5), Coefficient.Zero, ExchangeRateShock.Zero)
+    val r1 = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val r2 = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier("1.5"), Coefficient.Zero, ExchangeRateShock.Zero)
     r2.inflation.should(be > r1.inflation)
   }
 
   it should "produce higher inflation with FX import pressure" in {
-    val r1 = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val r2 = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock(0.2))
+    val r1 = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val r2 = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock("0.2"))
     r2.inflation.should(be > r1.inflation)
   }
 
   it should "ignore negative wage growth in aggregate cost-push" in {
-    val flat = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val down = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient(-0.05), ExchangeRateShock.Zero)
+    val flat = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val down = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient("-0.05"), ExchangeRateShock.Zero)
 
     down.inflation shouldBe flat.inflation
     down.priceLevel shouldBe flat.priceLevel
@@ -52,36 +52,36 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "apply only partial downside pass-through under slack demand" in {
-    val flat  = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val slack = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier(0.8), Coefficient.Zero, ExchangeRateShock.Zero)
+    val flat  = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val slack = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier("0.8"), Coefficient.Zero, ExchangeRateShock.Zero)
 
     slack.inflation should be < flat.inflation
     slack.priceLevel should be < flat.priceLevel
     slack.demandPull should be < Coefficient.Zero
-    slack.demandPull shouldBe Coefficient(-0.0075)
+    slack.demandPull shouldBe Coefficient("-0.0075")
   }
 
   it should "anchor aggregate inflation to expected inflation when fundamentals are flat" in {
-    val low  = PriceLevel.update(Rate(0.015), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val high = PriceLevel.update(Rate(0.030), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val low  = PriceLevel.update(Rate("0.015"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val high = PriceLevel.update(Rate("0.030"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
 
     high.inflation should be > low.inflation
   }
 
   it should "enforce price floor at 0.30" in {
-    val r = PriceLevel.update(Rate(-0.50), PriceIndex(0.31), Multiplier(0.5), Coefficient(-0.1), ExchangeRateShock.Zero)
-    td.toDouble(r.priceLevel).should(be >= 0.30)
+    val r = PriceLevel.update(Rate("-0.50"), PriceIndex("0.31"), Multiplier("0.5"), Coefficient("-0.1"), ExchangeRateShock.Zero)
+    decimal(r.priceLevel).should(be >= BigDecimal("0.30"))
   }
 
   it should "apply soft deflation floor at -1.5%/mo" in {
-    val r = PriceLevel.update(Rate(-0.10), PriceIndex.Base, Multiplier(0.5), Coefficient(-0.05), ExchangeRateShock.Zero)
+    val r = PriceLevel.update(Rate("-0.10"), PriceIndex.Base, Multiplier("0.5"), Coefficient("-0.05"), ExchangeRateShock.Zero)
     // The soft floor means deflation doesn't accelerate as fast
     // Raw monthly would be very negative; with floor, annualized should be bounded
-    td.toDouble(r.inflation).should(be > -1.0) // deflation shouldn't exceed 100% annualized
+    decimal(r.inflation).should(be > BigDecimal("-1.0")) // deflation shouldn't exceed 100% annualized
   }
 
   it should "expose demand, cost, and import channel diagnostics" in {
-    val r = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier(1.10), Coefficient(0.03), ExchangeRateShock(0.08))
+    val r = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier("1.10"), Coefficient("0.03"), ExchangeRateShock("0.08"))
 
     r.rawMonthly shouldBe (r.demandPull + r.costPush + r.importPush)
     r.flooredMonthly shouldBe r.rawMonthly
@@ -93,17 +93,17 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateCbRate ---
 
   "Nbp.updateRate" should "increase rate when inflation rises (PLN)" in {
-    val rate1 = Nbp.updateRate(Rate(0.0575), Rate(0.03), Coefficient.Zero, totalPop * 95 / 100, totalPop)
-    val rate2 = Nbp.updateRate(Rate(0.0575), Rate(0.10), Coefficient.Zero, totalPop * 95 / 100, totalPop)
-    td.toDouble(rate2).should(be >= td.toDouble(rate1))
+    val rate1 = Nbp.updateRate(Rate("0.0575"), Rate("0.03"), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    val rate2 = Nbp.updateRate(Rate("0.0575"), Rate("0.10"), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    decimal(rate2).should(be >= decimal(rate1))
   }
 
   it should "bound rate between floor and ceiling" in {
-    val rateLow = Nbp.updateRate(Rate(0.005), Rate(-0.50), Coefficient.Zero, totalPop * 95 / 100, totalPop)
-    td.toDouble(rateLow).should(be >= td.toDouble(p.monetary.rateFloor))
+    val rateLow = Nbp.updateRate(Rate("0.005"), Rate("-0.50"), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    decimal(rateLow).should(be >= decimal(p.monetary.rateFloor))
 
-    val rateHigh = Nbp.updateRate(Rate(0.25), Rate(1.0), Coefficient(0.5), totalPop * 95 / 100, totalPop)
-    td.toDouble(rateHigh).should(be <= td.toDouble(p.monetary.rateCeiling))
+    val rateHigh = Nbp.updateRate(Rate("0.25"), Rate("1.0"), Coefficient("0.5"), totalPop * 95 / 100, totalPop)
+    decimal(rateHigh).should(be <= decimal(p.monetary.rateCeiling))
   }
 
   // --- updateGov ---
@@ -119,7 +119,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
         vat = PLN(200000),
       ),
     )
-    td.toDouble(result.deficit).shouldBe((td.toDouble(p.fiscal.govBaseSpending) - 300000) +- 1.0)
+    decimal(result.deficit).shouldBe((decimal(p.fiscal.govBaseSpending) - 300000) +- BigDecimal("1.0"))
   }
 
   it should "accumulate debt" in {
@@ -133,7 +133,7 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
         vat = PLN(200000),
       ),
     )
-    td.toDouble(result.cumulativeDebt).shouldBe((1000000 + td.toDouble(result.deficit)) +- 1.0)
+    decimal(result.cumulativeDebt).shouldBe((1000000 + decimal(result.deficit)) +- BigDecimal("1.0"))
   }
 
   it should "track SOE dividends separately from tax revenue" in {

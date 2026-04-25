@@ -1,12 +1,12 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.TestHouseholdState
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 /** Consumer credit unit tests. */
@@ -14,109 +14,108 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   "Config defaults" should "have sensible consumer credit parameters" in {
-    p.household.ccSpread shouldBe Rate(0.04)
-    p.household.ccMaxDti shouldBe Share(0.40)
-    p.household.ccMaxLoan shouldBe PLN(50000.0)
-    p.household.ccAmortRate shouldBe Rate(0.025)
-    p.household.ccNplRecovery shouldBe Share(0.15)
-    p.household.ccEligRate shouldBe Share(0.30)
+    p.household.ccSpread shouldBe Rate("0.04")
+    p.household.ccMaxDti shouldBe Share("0.40")
+    p.household.ccMaxLoan shouldBe PLN("50000.0")
+    p.household.ccAmortRate shouldBe Rate("0.025")
+    p.household.ccNplRecovery shouldBe Share("0.15")
+    p.household.ccEligRate shouldBe Share("0.30")
   }
 
   "DTI limit" should "cap loan at headroom x income" in {
     // HH with income 8000, existing DTI = 0.20 -> headroom = (0.40 - 0.20) x 8000 = 1600
-    val income      = 8000.0
-    val existingDti = 0.20
-    val headroom    = Math.max(0.0, td.toDouble(p.household.ccMaxDti) - existingDti) * income
-    headroom shouldBe 1600.0 +- 0.01
-    headroom should be < td.toDouble(p.household.ccMaxLoan) // 1600 < 50000
+    val income      = BigDecimal("8000.0")
+    val existingDti = BigDecimal("0.20")
+    val headroom    = DecimalMath.max(BigDecimal("0.0"), decimal(p.household.ccMaxDti) - existingDti) * income
+    headroom shouldBe BigDecimal("1600.0") +- BigDecimal("0.01")
+    headroom should be < decimal(p.household.ccMaxLoan) // 1600 < 50000
   }
 
   it should "produce zero loan when at max DTI" in {
-    val income      = 8000.0
-    val existingDti = 0.40
-    val headroom    = Math.max(0.0, td.toDouble(p.household.ccMaxDti) - existingDti) * income
-    headroom shouldBe 0.0
+    val income      = BigDecimal("8000.0")
+    val existingDti = BigDecimal("0.40")
+    val headroom    = DecimalMath.max(BigDecimal("0.0"), decimal(p.household.ccMaxDti) - existingDti) * income
+    headroom shouldBe BigDecimal("0.0")
   }
 
   "Loan size" should "not exceed CcMaxLoan" in {
     // HH with high income, low DTI -> headroom > CcMaxLoan -> capped
-    val income      = 200000.0
-    val existingDti = 0.0
-    val headroom    = Math.max(0.0, td.toDouble(p.household.ccMaxDti) - existingDti) * income
-    val desired     = Math.min(headroom, td.toDouble(p.household.ccMaxLoan))
-    desired shouldBe td.toDouble(p.household.ccMaxLoan)
+    val income      = BigDecimal("200000.0")
+    val existingDti = BigDecimal("0.0")
+    val headroom    = DecimalMath.max(BigDecimal("0.0"), decimal(p.household.ccMaxDti) - existingDti) * income
+    val desired     = DecimalMath.min(headroom, decimal(p.household.ccMaxLoan))
+    desired shouldBe decimal(p.household.ccMaxLoan)
   }
 
   "Consumer debt service" should "include both amortization and interest" in {
-    val consumerDebt = 10000.0
-    val refRate      = 0.0575
-    val rate         = refRate + td.toDouble(p.household.ccSpread)
-    val debtService  = consumerDebt * (td.toDouble(p.household.ccAmortRate) + rate / 12.0)
+    val consumerDebt = BigDecimal("10000.0")
+    val refRate      = BigDecimal("0.0575")
+    val rate         = refRate + decimal(p.household.ccSpread)
+    val debtService  = consumerDebt * (decimal(p.household.ccAmortRate) + rate / BigDecimal("12.0"))
     // 10000 x (0.025 + (0.0575 + 0.04) / 12) = 10000 x (0.025 + 0.008125) = 331.25
-    debtService shouldBe 331.25 +- 0.01
-    debtService should be > 0.0
+    debtService shouldBe BigDecimal("331.25") +- BigDecimal("0.01")
+    debtService should be > BigDecimal("0.0")
   }
 
   it should "reduce disposable income" in {
-    val income          = 8000.0
-    val rent            = 1800.0
-    val existingDebtSvc = 500.0
-    val consumerDebtSvc = 331.25
+    val income          = BigDecimal("8000.0")
+    val rent            = BigDecimal("1800.0")
+    val existingDebtSvc = BigDecimal("500.0")
+    val consumerDebtSvc = BigDecimal("331.25")
     val obligations     = rent + existingDebtSvc + consumerDebtSvc
-    val disposable      = Math.max(0.0, income - obligations)
-    disposable shouldBe (8000.0 - 1800.0 - 500.0 - 331.25) +- 0.01
+    val disposable      = DecimalMath.max(BigDecimal("0.0"), income - obligations)
+    disposable shouldBe (BigDecimal("8000.0") - BigDecimal("1800.0") - BigDecimal("500.0") - BigDecimal("331.25")) +- BigDecimal("0.01")
     disposable should be < (income - rent - existingDebtSvc)
   }
 
   "Consumer spread" should "be applied on top of reference rate" in {
-    val refRate      = 0.0575
-    val consumerRate = refRate + td.toDouble(p.household.ccSpread)
-    consumerRate shouldBe 0.0975 +- 0.001
+    val refRate      = BigDecimal("0.0575")
+    val consumerRate = refRate + decimal(p.household.ccSpread)
+    consumerRate shouldBe BigDecimal("0.0975") +- BigDecimal("0.001")
     // Annualized consumer rate ~9.75% (NBP MIR consumer ~9-10%)
   }
 
   "Bankruptcy" should "trigger consumer debt default" in {
-    val financial = TestHouseholdState.financial(savings = PLN(-5000.0), debt = PLN(1000.0), consumerDebt = PLN(5000.0))
+    val financial = TestHouseholdState.financial(savings = PLN("-5000.0"), debt = PLN("1000.0"), consumerDebt = PLN("5000.0"))
     // Bankrupt HH should have consumer debt -> NPL
-    financial.consumerLoan shouldBe PLN(5000.0)
+    financial.consumerLoan shouldBe PLN("5000.0")
     // NPL loss = consumerDebt * (1 - recovery)
-    val nplLoss   = td.toDouble(financial.consumerLoan) * (1.0 - td.toDouble(p.household.ccNplRecovery))
-    nplLoss shouldBe 4250.0 +- 0.01
+    val nplLoss   = decimal(financial.consumerLoan) * (BigDecimal("1.0") - decimal(p.household.ccNplRecovery))
+    nplLoss shouldBe BigDecimal("4250.0") +- BigDecimal("0.01")
   }
 
   "Bank capital" should "absorb consumer NPL loss with CcNplRecovery" in {
-    val defaultAmount = 10000.0
-    val nplLoss       = defaultAmount * (1.0 - td.toDouble(p.household.ccNplRecovery))
-    nplLoss shouldBe 8500.0 +- 0.01
+    val defaultAmount = BigDecimal("10000.0")
+    val nplLoss       = defaultAmount * (BigDecimal("1.0") - decimal(p.household.ccNplRecovery))
+    nplLoss shouldBe BigDecimal("8500.0") +- BigDecimal("0.01")
     // Lower recovery (15%) than firm NPL (30%) -> higher bank capital impact
-    val firmNplLoss   = defaultAmount * (1.0 - td.toDouble(p.banking.loanRecovery))
+    val firmNplLoss   = defaultAmount * (BigDecimal("1.0") - decimal(p.banking.loanRecovery))
     nplLoss should be > firmNplLoss
   }
 
   "Consumer credit stock identity" should "balance origination minus principal minus defaults" in {
-    val prevStock      = 100000.0
-    val origination    = 5000.0
-    val refRate        = 0.0575
-    val totalRate      = td.toDouble(p.household.ccAmortRate) + (refRate + td.toDouble(p.household.ccSpread)) / 12.0
+    val prevStock      = BigDecimal("100000.0")
+    val origination    = BigDecimal("5000.0")
+    val refRate        = BigDecimal("0.0575")
+    val totalRate      = decimal(p.household.ccAmortRate) + (refRate + decimal(p.household.ccSpread)) / BigDecimal("12.0")
     val debtService    = prevStock * totalRate
-    val principal      = debtService * (td.toDouble(p.household.ccAmortRate) / totalRate)
-    val defaultAmt     = 1000.0
+    val principal      = debtService * (decimal(p.household.ccAmortRate) / totalRate)
+    val defaultAmt     = BigDecimal("1000.0")
     val newStock       = prevStock + origination - principal - defaultAmt
     val expectedChange = origination - principal - defaultAmt
-    (newStock - prevStock) shouldBe expectedChange +- 0.01
+    (newStock - prevStock) shouldBe expectedChange +- BigDecimal("0.01")
   }
 
   "Consumption smoothing" should "allow borrower to consume more than without credit" in {
-    val disposable        = 2000.0
-    val newLoan           = 3000.0
-    val mpc               = 0.82
+    val disposable        = BigDecimal("2000.0")
+    val newLoan           = BigDecimal("3000.0")
+    val mpc               = BigDecimal("0.82")
     val consWithCredit    = (disposable + newLoan) * mpc
     val consWithoutCredit = disposable * mpc
     consWithCredit should be > consWithoutCredit
-    (consWithCredit - consWithoutCredit) shouldBe (newLoan * mpc) +- 0.01
+    (consWithCredit - consWithoutCredit) shouldBe (newLoan * mpc) +- BigDecimal("0.01")
   }
 
   "Household.Aggregates consumer fields" should "default to 0.0" in {
@@ -171,20 +170,20 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "BankingAggregate" should "have consumerLoans and consumerNpl fields" in {
-    val bank = Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val bank = Banking.Aggregate(PLN("1000.0"), PLN("50.0"), PLN("500.0"), PLN("2000.0"), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     bank.consumerLoans shouldBe PLN.Zero
     bank.consumerNpl shouldBe PLN.Zero
   }
 
   "BankingAggregate.car" should "include consumer loans in RWA" in {
     val bank     =
-      Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN(1000.0), PLN.Zero, PLN.Zero)
+      Banking.Aggregate(PLN("1000.0"), PLN("50.0"), PLN("500.0"), PLN("2000.0"), PLN.Zero, PLN.Zero, PLN("1000.0"), PLN.Zero, PLN.Zero)
     // CAR = capital / (totalLoans + consumerLoans) = 500 / 2000 = 0.25
-    td.toDouble(bank.car) shouldBe 0.25 +- 0.01
+    decimal(bank.car) shouldBe BigDecimal("0.25") +- BigDecimal("0.01")
     // Without consumer loans: CAR = 500 / 1000 = 0.50
     val bankNoCc =
-      Banking.Aggregate(PLN(1000.0), PLN(50.0), PLN(500.0), PLN(2000.0), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    td.toDouble(bankNoCc.car) shouldBe 0.50 +- 0.01
+      Banking.Aggregate(PLN("1000.0"), PLN("50.0"), PLN("500.0"), PLN("2000.0"), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    decimal(bankNoCc.car) shouldBe BigDecimal("0.50") +- BigDecimal("0.01")
     bank.car should be < bankNoCc.car
   }
 
@@ -296,7 +295,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   )
 
   "Sfc" should "pass consumer credit identity with zero flows" in {
-    val snap   = zeroSnap.copy(bankCapital = PLN(100.0), bankDeposits = PLN(200.0))
+    val snap   = zeroSnap.copy(bankCapital = PLN("100.0"), bankDeposits = PLN("200.0"))
     val flow   = zeroFlows
     val result = Sfc.validateStockExactness(snap, snap, flow)
     result shouldBe Right(())

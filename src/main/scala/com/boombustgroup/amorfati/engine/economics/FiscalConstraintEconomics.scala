@@ -16,7 +16,7 @@ import com.boombustgroup.amorfati.types.*
   */
 object FiscalConstraintEconomics:
 
-  private val ExpectationsBlendWeight = 0.5
+  private val ExpectationsBlendWeight = Share("0.5")
 
   case class Output(
       month: ExecutionMonth,
@@ -27,37 +27,34 @@ object FiscalConstraintEconomics:
   ):
     def m: ExecutionMonth = month
 
-  @boundaryEscape
   def compute(w: World, banks: Vector[Banking.BankState], ledgerFinancialState: LedgerFinancialState, month: ExecutionMonth)(using p: SimParams): Output =
-    import ComputationBoundary.toDouble
     val bankAgg = Banking.aggregateFromBankStocks(banks, ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks))
 
     val (baseMinWage, updatedMinWagePriceLevel) =
       val isAdjustMonth = month.toInt % p.fiscal.minWageAdjustMonths == 0
       if isAdjustMonth then
         val cumInfl     =
-          if p.fiscal.minWageInflationIndex && w.gov.minWagePriceLevel > PriceIndex.Zero then toDouble(w.priceLevel) / toDouble(w.gov.minWagePriceLevel) - 1.0
-          else 0.0
-        val inflIndexed = toDouble(w.gov.minWageLevel) * (1.0 + Math.max(0.0, cumInfl))
-        val target      = toDouble(w.householdMarket.marketWage) * toDouble(p.fiscal.minWageTargetRatio)
+          if p.fiscal.minWageInflationIndex && w.gov.minWagePriceLevel > PriceIndex.Zero then
+            (w.priceLevel.ratioTo(w.gov.minWagePriceLevel) - Scalar.One).max(Scalar.Zero)
+          else Scalar.Zero
+        val inflIndexed = w.gov.minWageLevel * cumInfl.toCoefficient.growthMultiplier
+        val target      = w.householdMarket.marketWage * p.fiscal.minWageTargetRatio
         val gap         = target - inflIndexed
         val adjusted    =
-          if gap > 0 then inflIndexed + gap * toDouble(p.fiscal.minWageConvergenceSpeed)
+          if gap > PLN.Zero then inflIndexed + gap * p.fiscal.minWageConvergenceSpeed
           else inflIndexed
-        (Math.max(toDouble(w.gov.minWageLevel), adjusted), w.priceLevel)
-      else (toDouble(w.gov.minWageLevel), w.gov.minWagePriceLevel)
+        (w.gov.minWageLevel.max(adjusted), w.priceLevel)
+      else (w.gov.minWageLevel, w.gov.minWagePriceLevel)
 
     val resWage = baseMinWage
 
-    val rawLendingBaseRate: Double =
+    val rawLendingBaseRate =
       val exp = w.mechanisms.expectations
-      toDouble(
-        YieldCurve
-          .compute(w.bankingSector.interbankRate, bankAgg.nplRatio, exp.credibility, exp.expectedInflation, p.monetary.targetInfl)
-          .wibor3m,
-      )
+      YieldCurve
+        .compute(w.bankingSector.interbankRate, bankAgg.nplRatio, exp.credibility, exp.expectedInflation, p.monetary.targetInfl)
+        .wibor3m
 
     val lendingBaseRate =
-      ExpectationsBlendWeight * rawLendingBaseRate + (1.0 - ExpectationsBlendWeight) * toDouble(w.mechanisms.expectations.expectedRate)
+      rawLendingBaseRate * ExpectationsBlendWeight + w.mechanisms.expectations.expectedRate * (Share.One - ExpectationsBlendWeight)
 
-    Output(month, PLN(baseMinWage), updatedMinWagePriceLevel, PLN(resWage), Rate(lendingBaseRate))
+    Output(month, baseMinWage, updatedMinWagePriceLevel, resWage, lendingBaseRate)

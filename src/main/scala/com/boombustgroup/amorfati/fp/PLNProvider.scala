@@ -8,41 +8,34 @@ object PLNProvider:
   opaque type PLN = Long
 
   object PLN:
-    val Zero: PLN               = 0L
-    def apply(d: Double): PLN   = Math.round(d * Scale)
-    def fromLong(l: Long): PLN  = l * Scale
-    def fromRaw(raw: Long): PLN = raw
+    val Zero: PLN                     = 0L
+    def apply(value: BigDecimal): PLN = fromDecimal(value)
+    def apply(value: String): PLN     = parseDecimal(value)
+    def apply(value: Int): PLN        = fromLong(value.toLong)
+    def apply(value: Long): PLN       = fromLong(value)
+    def fromLong(l: Long): PLN        = l * Scale
+    def fromRaw(raw: Long): PLN       = raw
 
   extension (p: PLN)
-    inline def toLong: Long          = p
-    def +(other: PLN): PLN           = p + other
-    def -(other: PLN): PLN           = p - other
-    def unary_- : PLN                = -p
-    def abs: PLN                     = math.abs(p)
-    def max(other: PLN): PLN         = math.max(p, other)
-    def min(other: PLN): PLN         = math.min(p, other)
-    def clamp(lo: PLN, hi: PLN): PLN = math.max(lo, math.min(hi, p))
+    inline def toLong: Long                   = p
+    def +(other: PLN): PLN                    = p + other
+    def -(other: PLN): PLN                    = p - other
+    def unary_- : PLN                         = -p
+    def abs: PLN                              = math.abs(p)
+    def max(other: PLN): PLN                  = math.max(p, other)
+    def min(other: PLN): PLN                  = math.min(p, other)
+    def clamp(lo: PLN, hi: PLN): PLN          = math.max(lo, math.min(hi, p))
     @targetName("plnDivPln")
-    def /(other: PLN): Double        = if other != 0L then p.toDouble / other.toDouble else 0.0
+    def /(other: PLN): ScalarProvider.Scalar  = ScalarProvider.Scalar.fromRaw(ratioRaw(p, other))
     @targetName("plnDivLong")
-    def /(divisor: Long): PLN        = p / divisor
-    def >(other: PLN): Boolean       = p > other
-    def <(other: PLN): Boolean       = p < other
-    def >=(other: PLN): Boolean      = p >= other
-    def <=(other: PLN): Boolean      = p <= other
+    def /(divisor: Long): PLN                 = p / divisor
+    def format(fractionalDigits: Int): String = FixedPointBase.format(p, fractionalDigits)
+    def compact: String                       = FixedPointBase.formatCompact(p)
+    def >(other: PLN): Boolean                = p > other
+    def <(other: PLN): Boolean                = p < other
+    def >=(other: PLN): Boolean               = p >= other
+    def <=(other: PLN): Boolean               = p <= other
 
   extension (n: Int) def *(p: PLN): PLN = p * n.toLong
 
   given Ordering[PLN] = Ordering.Long
-  given Numeric[PLN] with
-    def plus(x: PLN, y: PLN): PLN             = x + y
-    def minus(x: PLN, y: PLN): PLN            = x - y
-    def times(x: PLN, y: PLN): PLN            = PLN.fromRaw(bankerRound(BigInt(x) * BigInt(y)))
-    def negate(x: PLN): PLN                   = -x
-    def fromInt(x: Int): PLN                  = PLN(x.toDouble)
-    def parseString(str: String): Option[PLN] = str.toDoubleOption.map(PLN(_))
-    def toInt(x: PLN): Int                    = (x / Scale).toInt
-    def toLong(x: PLN): Long                  = x / Scale
-    def toFloat(x: PLN): Float                = (x.toDouble / ScaleD).toFloat
-    def toDouble(x: PLN): Double              = x.toDouble / ScaleD
-    def compare(x: PLN, y: PLN): Int          = java.lang.Long.compare(x, y)

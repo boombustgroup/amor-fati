@@ -40,20 +40,20 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
       domesticCons = s3.domesticCons,
       govPurchases = s4.govPurchases,
       avgDemandMult = s4.avgDemandMult,
-      totalSystemLoans = init.ledgerFinancialState.banks.map(_.firmLoan).sum,
+      totalSystemLoans = init.ledgerFinancialState.banks.map(_.firmLoan).sumPln,
       firmStep = firmStep,
     )
 
   "PriceEquityEconomics.governmentDemandContribution" should "scale with constrained runtime government purchases" in {
-    val low  = PriceEquityEconomics.governmentDemandContribution(PLN(250e6))
-    val high = PriceEquityEconomics.governmentDemandContribution(PLN(600e6))
+    val low  = PriceEquityEconomics.governmentDemandContribution(PLN("250e6"))
+    val high = PriceEquityEconomics.governmentDemandContribution(PLN("600e6"))
 
     high should be > low
     high.ratioTo(low).bd shouldBe (BigDecimal("2.4") +- BigDecimal("0.000000001"))
   }
 
   it should "respect the configured current-vs-capital multipliers" in {
-    val gp           = PLN(500e6)
+    val gp           = PLN("500e6")
     val contribution = PriceEquityEconomics.governmentDemandContribution(gp)
     val expected     =
       gp * (Share.One - summon[SimParams].fiscal.govInvestShare) * summon[SimParams].fiscal.govCurrentMultiplier +
@@ -63,13 +63,13 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   "PriceEquityEconomics.compute" should "increase direct SOE dividend extraction when the fiscal deficit is higher" in {
-    val prevGdp           = w.cachedMonthlyGdpProxy.max(PLN(1.0))
+    val prevGdp           = w.cachedMonthlyGdpProxy.max(PLN("1.0"))
     val thresholdDeficit  = prevGdp * summon[SimParams].soe.dividendFiscalThreshold
-    val lowDeficitWorld   = w.copy(gov = w.gov.copy(monthly = w.gov.monthly.copy(deficit = thresholdDeficit * Multiplier(0.9))))
-    val highDeficitWorld  = w.copy(gov = w.gov.copy(monthly = w.gov.monthly.copy(deficit = thresholdDeficit * Multiplier(1.1))))
+    val lowDeficitWorld   = w.copy(gov = w.gov.copy(monthly = w.gov.monthly.copy(deficit = thresholdDeficit * Multiplier("0.9"))))
+    val highDeficitWorld  = w.copy(gov = w.gov.copy(monthly = w.gov.monthly.copy(deficit = thresholdDeficit * Multiplier("1.1"))))
     val dividendSensitive = s5.copy(
-      sumRealizedPostTaxProfit = PLN(200e6),
-      sumStateOwnedPostTaxProfit = PLN(100e6),
+      sumRealizedPostTaxProfit = PLN("200e6"),
+      sumStateOwnedPostTaxProfit = PLN("100e6"),
     )
     val lowDeficit        = runPriceStep(lowDeficitWorld, dividendSensitive)
     val highDeficit       = runPriceStep(highDeficitWorld, dividendSensitive)

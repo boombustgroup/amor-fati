@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.types.*
@@ -11,11 +12,11 @@ class PitSpec extends AnyFlatSpec with Matchers:
   given SimParams = SimParams.defaults
 
   "computeMonthlyPit" should "return 0 for zero income" in {
-    Household.computeMonthlyPit(PLN(0.0)) shouldBe PLN.Zero
+    Household.computeMonthlyPit(PLN("0.0")) shouldBe PLN.Zero
   }
 
   it should "return 0 for negative income" in {
-    Household.computeMonthlyPit(PLN(-5000.0)) shouldBe PLN.Zero
+    Household.computeMonthlyPit(PLN("-5000.0")) shouldBe PLN.Zero
   }
 
   // --- Formula verification tests ---
@@ -23,53 +24,53 @@ class PitSpec extends AnyFlatSpec with Matchers:
 
   "PIT formula" should "compute correctly for income below bracket 1" in {
     // 8266 PLN/month → 99192 PLN/year (below 120000 bracket)
-    val monthly    = 8266.0
-    val annualized = monthly * 12.0
-    val grossTax   = annualized * 0.12                       // 11903.04
-    val netTax     = Math.max(0.0, grossTax - 3600.0) / 12.0 // (11903.04 - 3600) / 12 = 691.92
-    netTax shouldBe 691.92 +- 0.01
+    val monthly    = BigDecimal("8266.0")
+    val annualized = monthly * BigDecimal("12.0")
+    val grossTax   = annualized * BigDecimal("0.12")                                                          // 11903.04
+    val netTax     = DecimalMath.max(BigDecimal("0.0"), grossTax - BigDecimal("3600.0")) / BigDecimal("12.0") // (11903.04 - 3600) / 12 = 691.92
+    netTax shouldBe BigDecimal("691.92") +- BigDecimal("0.01")
   }
 
   it should "compute correctly for income above bracket 1" in {
     // 15000 PLN/month → 180000 PLN/year (above 120000 bracket)
-    val monthly     = 15000.0
-    val annualized  = monthly * 12.0
-    val bracket1Tax = 120000.0 * 0.12                         // 14400
-    val bracket2Tax = (annualized - 120000.0) * 0.32          // 60000 × 0.32 = 19200
-    val grossTax    = bracket1Tax + bracket2Tax               // 33600
-    val netTax      = Math.max(0.0, grossTax - 3600.0) / 12.0 // (33600 - 3600) / 12 = 2500
-    netTax shouldBe 2500.0 +- 0.01
+    val monthly     = BigDecimal("15000.0")
+    val annualized  = monthly * BigDecimal("12.0")
+    val bracket1Tax = BigDecimal("120000.0") * BigDecimal("0.12")                                              // 14400
+    val bracket2Tax = (annualized - BigDecimal("120000.0")) * BigDecimal("0.32")                               // 60000 × 0.32 = 19200
+    val grossTax    = bracket1Tax + bracket2Tax                                                                // 33600
+    val netTax      = DecimalMath.max(BigDecimal("0.0"), grossTax - BigDecimal("3600.0")) / BigDecimal("12.0") // (33600 - 3600) / 12 = 2500
+    netTax shouldBe BigDecimal("2500.0") +- BigDecimal("0.01")
   }
 
   it should "produce effective rate ~9% for median earner" in {
     // Median: ~7000 PLN/month → 84000/year
-    val monthly       = 7000.0
-    val annualized    = monthly * 12.0
-    val grossTax      = annualized * 0.12                       // 10080
-    val netTax        = Math.max(0.0, grossTax - 3600.0) / 12.0 // (10080 - 3600) / 12 = 540
+    val monthly       = BigDecimal("7000.0")
+    val annualized    = monthly * BigDecimal("12.0")
+    val grossTax      = annualized * BigDecimal("0.12")                                                          // 10080
+    val netTax        = DecimalMath.max(BigDecimal("0.0"), grossTax - BigDecimal("3600.0")) / BigDecimal("12.0") // (10080 - 3600) / 12 = 540
     val effectiveRate = netTax / monthly
-    effectiveRate shouldBe 0.0771 +- 0.01
-    effectiveRate should be < 0.12 // kwota wolna reduces effective rate
+    effectiveRate shouldBe BigDecimal("0.0771") +- BigDecimal("0.01")
+    effectiveRate should be < BigDecimal("0.12") // kwota wolna reduces effective rate
   }
 
   it should "have kwota wolna eliminate tax for very low income" in {
     // If annual income × 12% ≤ 3600 → no tax
     // 3600 / 0.12 = 30000 PLN/year → 2500 PLN/month
-    val monthly    = 2500.0
-    val annualized = monthly * 12.0
-    val grossTax   = annualized * 0.12                       // 3600
-    val netTax     = Math.max(0.0, grossTax - 3600.0) / 12.0 // 0
-    netTax shouldBe 0.0
+    val monthly    = BigDecimal("2500.0")
+    val annualized = monthly * BigDecimal("12.0")
+    val grossTax   = annualized * BigDecimal("0.12")                                                          // 3600
+    val netTax     = DecimalMath.max(BigDecimal("0.0"), grossTax - BigDecimal("3600.0")) / BigDecimal("12.0") // 0
+    netTax shouldBe BigDecimal("0.0")
   }
 
   it should "be strictly positive above kwota wolna threshold" in {
     // Just above: 2501 PLN/month → 30012/year → tax = 30012 × 0.12 - 3600 = 1.44/year → 0.12/month
-    val monthly    = 2501.0
-    val annualized = monthly * 12.0
-    val grossTax   = annualized * 0.12
-    val netTax     = Math.max(0.0, grossTax - 3600.0) / 12.0
-    netTax should be > 0.0
-    netTax shouldBe 0.12 +- 0.01
+    val monthly    = BigDecimal("2501.0")
+    val annualized = monthly * BigDecimal("12.0")
+    val grossTax   = annualized * BigDecimal("0.12")
+    val netTax     = DecimalMath.max(BigDecimal("0.0"), grossTax - BigDecimal("3600.0")) / BigDecimal("12.0")
+    netTax should be > BigDecimal("0.0")
+    netTax shouldBe BigDecimal("0.12") +- BigDecimal("0.01")
   }
 
   "Household.Aggregates.totalPit" should "default to 0.0" in {

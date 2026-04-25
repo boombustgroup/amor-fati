@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.TestHouseholdState
 
 import org.scalacheck.Gen
@@ -21,10 +22,10 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   ): Household.Aggregates =
     Household.computeAggregates(
       households,
-      if financialStocks.nonEmpty then financialStocks else Vector.fill(households.length)(TestHouseholdState.financial(savings = PLN(10000.0))),
-      PLN(8266.0),
-      PLN(4666.0),
-      Share(0.40),
+      if financialStocks.nonEmpty then financialStocks else Vector.fill(households.length)(TestHouseholdState.financial(savings = PLN("10000.0"))),
+      PLN("8266.0"),
+      PLN("4666.0"),
+      Share("0.40"),
       0,
       0,
     )
@@ -35,41 +36,41 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   // --- giniSorted properties ---
 
   "giniSorted" should "be in [0, 1] for any non-negative sorted array" in
-    forAll(genSortedArrayWithSize.map(_.map(v => Math.round(v)))) { (arr: Array[Long]) =>
+    forAll(genSortedArrayWithSize) { (arr: Array[Long]) =>
       val g = Household.giniSorted(arr)
       g should be >= Share.Zero
       g should be <= Share.One
     }
 
   it should "be 0 for uniform arrays" in
-    forAll(Gen.choose(2, 100), Gen.choose(1.0, 10000.0)) { (n: Int, v: Double) =>
-      val arr = Array.fill(n)(Math.round(v))
+    forAll(Gen.choose(2, 100), genDecimal("1.0", "10000.0")) { (n: Int, v: BigDecimal) =>
+      val arr = Array.fill(n)(roundedLong(v))
       Household.giniSorted(arr) shouldBe Share.Zero
     }
 
   it should "be 0 for single-element arrays" in
-    forAll(Gen.choose(0.0, 10000.0)) { (v: Double) =>
-      Household.giniSorted(Array(Math.round(v))) shouldBe Share.Zero
+    forAll(genDecimal("0.0", "10000.0")) { (v: BigDecimal) =>
+      Household.giniSorted(Array(roundedLong(v))) shouldBe Share.Zero
     }
 
   it should "be 0 for empty-like arrays (n <= 1)" in {
     Household.giniSorted(Array.emptyLongArray) shouldBe Share.Zero
-    forAll(Gen.choose(0.0, 10000.0)) { (v: Double) =>
-      Household.giniSorted(Array(Math.round(v))) shouldBe Share.Zero
+    forAll(genDecimal("0.0", "10000.0")) { (v: BigDecimal) =>
+      Household.giniSorted(Array(roundedLong(v))) shouldBe Share.Zero
     }
   }
 
   it should "increase when adding an outlier (monotonic with inequality)" in
-    forAll(Gen.choose(5, 50), Gen.choose(100.0, 1000.0)) { (n: Int, v: Double) =>
-      val uniform     = Array.fill(n)(Math.round(v)).sorted
-      val withOutlier = (Array.fill(n)(Math.round(v)) :+ Math.round(v * 100)).sorted
+    forAll(Gen.choose(5, 50), genDecimal("100.0", "1000.0")) { (n: Int, v: BigDecimal) =>
+      val uniform     = Array.fill(n)(roundedLong(v)).sorted
+      val withOutlier = (Array.fill(n)(roundedLong(v)) :+ roundedLong(v * 100)).sorted
       Household.giniSorted(withOutlier) should be > Household.giniSorted(uniform)
     }
 
   it should "handle negatives via shift and still be in [0, 1]" in
     forAll(Gen.choose(2, 50)) { (n: Int) =>
-      forAll(Gen.listOfN(n, Gen.choose(-10000.0, 10000.0))) { (list: List[Double]) =>
-        val arr = list.map(Math.round).toArray.sorted
+      forAll(Gen.listOfN(n, genDecimal("-10000.0", "10000.0"))) { (list: List[BigDecimal]) =>
+        val arr = list.map(roundedLong).toArray.sorted
         val g   = Household.giniSorted(arr)
         g should be >= Share.Zero
         g should be <= Share.One
@@ -149,7 +150,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     forAll(Gen.choose(5, 30)) { (n: Int) =>
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs    = hhList.toVector
-        val stocks = hhs.map(h => TestHouseholdState.financial(savings = PLN(Math.abs(h.id.toInt.toDouble) + 1.0)))
+        val stocks = hhs.map(h => TestHouseholdState.financial(savings = PLN(math.abs(h.id.toInt) + 1)))
         val agg    = computeAggregates(hhs, stocks)
         agg.meanSavings should be > PLN.Zero
       }
@@ -162,12 +163,12 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       val bankruptHhs = (0 until n).map { i =>
         TestHouseholdState(
           HhId(i),
-          PLN(-10000.0),
-          PLN(5000.0),
-          PLN(1800.0),
-          Share(0.5),
-          Share(0.3),
-          Share(0.8),
+          PLN("-10000.0"),
+          PLN("5000.0"),
+          PLN("1800.0"),
+          Share("0.5"),
+          Share("0.3"),
+          Share("0.8"),
           HhStatus.Bankrupt,
           Array.empty[HhId],
           bankId = BankId(0),
@@ -177,7 +178,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           numDependentChildren = 0,
           consumerDebt = PLN.Zero,
           education = 2,
-          taskRoutineness = Share(0.5),
+          taskRoutineness = Share("0.5"),
           wageScar = Share.Zero,
         )
       }.toVector

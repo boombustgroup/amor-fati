@@ -32,9 +32,9 @@ class McRunnerConsoleSpec extends AnyFlatSpec with Matchers:
       seed = 7L,
       totalSeeds = 12,
       elapsedMillis = 3456L,
-      adoption = 0.123,
-      inflation = 0.045,
-      unemployment = 0.067,
+      adoption = MetricValue("0.123"),
+      inflation = MetricValue("0.045"),
+      unemployment = MetricValue("0.067"),
     )
 
     McRunnerConsole.render(seedDone) shouldBe
@@ -52,7 +52,7 @@ class McRunnerConsoleSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "format total time consistently" in {
-    val totalTime = McRunnerConsole.Event.TotalTime(4.6)
+    val totalTime = McRunnerConsole.Event.TotalTime(4600L)
 
     McRunnerConsole.render(totalTime) shouldBe "\nTotal time: 4.6 seconds"
   }

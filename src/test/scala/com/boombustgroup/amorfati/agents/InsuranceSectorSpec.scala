@@ -1,8 +1,8 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
@@ -10,7 +10,6 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams                                       = SimParams.defaults
   private val p: SimParams                              = summon[SimParams]
-  private val td                                        = ComputationBoundary
   private def initialCorpBondHoldings: PLN              =
     (p.ins.lifeReserves + p.ins.nonLifeReserves) * p.ins.corpBondShare
   private def initialOpening: Insurance.OpeningBalances =
@@ -20,11 +19,11 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   private def mkStep(
       opening: Insurance.OpeningBalances = initialOpening,
       employed: Int = 80000,
-      wage: PLN = PLN(8000.0),
-      unempRate: Share = Share(0.05),
-      govBondYield: Rate = Rate(0.06),
-      corpBondYield: Rate = Rate(0.08),
-      equityReturn: Rate = Rate(0.005),
+      wage: PLN = PLN("8000.0"),
+      unempRate: Share = Share("0.05"),
+      govBondYield: Rate = Rate("0.06"),
+      corpBondYield: Rate = Rate("0.08"),
+      equityReturn: Rate = Rate("0.005"),
       prevCorpBondHoldings: PLN = initialCorpBondHoldings,
       corpBondDefaultLoss: PLN = PLN.Zero,
   ): Insurance.StepResult =
@@ -61,56 +60,56 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
 
   "Insurance.initialBalances" should "have correct life reserves" in {
     val s = Insurance.initialBalances
-    td.toDouble(s.lifeReserves) shouldBe (td.toDouble(p.ins.lifeReserves) +- 1.0)
+    decimal(s.lifeReserves) shouldBe (decimal(p.ins.lifeReserves) +- BigDecimal("1.0"))
   }
 
   it should "have correct non-life reserves" in {
     val s = Insurance.initialBalances
-    td.toDouble(s.nonLifeReserves) shouldBe (td.toDouble(p.ins.nonLifeReserves) +- 1.0)
+    decimal(s.nonLifeReserves) shouldBe (decimal(p.ins.nonLifeReserves) +- BigDecimal("1.0"))
   }
 
   it should "have govBondHoldings = totalAssets * govBondShare" in {
     val s           = Insurance.initialBalances
-    val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
-    td.toDouble(s.govBondHoldings) shouldBe (totalAssets * td.toDouble(p.ins.govBondShare) +- 1.0)
+    val totalAssets = decimal(p.ins.lifeReserves) + decimal(p.ins.nonLifeReserves)
+    decimal(s.govBondHoldings) shouldBe (totalAssets * decimal(p.ins.govBondShare) +- BigDecimal("1.0"))
   }
 
   it should "have equityHoldings = totalAssets * equityShare" in {
     val s           = Insurance.initialBalances
-    val totalAssets = td.toDouble(p.ins.lifeReserves) + td.toDouble(p.ins.nonLifeReserves)
-    td.toDouble(s.equityHoldings) shouldBe (totalAssets * td.toDouble(p.ins.equityShare) +- 1.0)
+    val totalAssets = decimal(p.ins.lifeReserves) + decimal(p.ins.nonLifeReserves)
+    decimal(s.equityHoldings) shouldBe (totalAssets * decimal(p.ins.equityShare) +- BigDecimal("1.0"))
   }
 
   it should "have allocation shares summing to < 1.0 (remainder is cash/other)" in {
-    val total = td.toDouble(p.ins.govBondShare) + td.toDouble(p.ins.corpBondShare) + td.toDouble(p.ins.equityShare)
-    total should be <= 1.0
+    val total = decimal(p.ins.govBondShare) + decimal(p.ins.corpBondShare) + decimal(p.ins.equityShare)
+    total should be <= BigDecimal("1.0")
   }
 
   "Insurance.step" should "compute life premium proportional to employment and wage" in {
     val result = mkStep()
-    td.toDouble(result.state.lastLifePremium) shouldBe (80000 * 8000.0 * td.toDouble(p.ins.lifePremiumRate) +- 0.01)
+    decimal(result.state.lastLifePremium) shouldBe (BigDecimal(80000) * BigDecimal("8000.0") * decimal(p.ins.lifePremiumRate) +- BigDecimal("0.01"))
   }
 
   it should "compute non-life premium proportional to employment and wage" in {
     val result = mkStep()
-    td.toDouble(result.state.lastNonLifePremium) shouldBe (80000 * 8000.0 * td.toDouble(p.ins.nonLifePremiumRate) +- 0.01)
+    decimal(result.state.lastNonLifePremium) shouldBe (BigDecimal(80000) * BigDecimal("8000.0") * decimal(p.ins.nonLifePremiumRate) +- BigDecimal("0.01"))
   }
 
   it should "compute life claims = premium * loss ratio" in {
     val r = mkStep().state
-    td.toDouble(r.lastLifeClaims) shouldBe (td.toDouble(r.lastLifePremium) * td.toDouble(p.ins.lifeLossRatio) +- 0.01)
+    decimal(r.lastLifeClaims) shouldBe (decimal(r.lastLifePremium) * decimal(p.ins.lifeLossRatio) +- BigDecimal("0.01"))
   }
 
   it should "widen non-life claims with high unemployment" in {
-    val rLow  = mkStep(unempRate = Share(0.05)).state
-    val rHigh = mkStep(unempRate = Share(0.15)).state
+    val rLow  = mkStep(unempRate = Share("0.05")).state
+    val rHigh = mkStep(unempRate = Share("0.15")).state
     rHigh.lastNonLifeClaims should be > rLow.lastNonLifeClaims
   }
 
   it should "not widen non-life claims when unemployment is at or below 5%" in {
-    val r            = mkStep(unempRate = Share(0.04)).state
-    val expectedBase = td.toDouble(r.lastNonLifePremium) * td.toDouble(p.ins.nonLifeLossRatio)
-    td.toDouble(r.lastNonLifeClaims) shouldBe (expectedBase +- 0.01)
+    val r            = mkStep(unempRate = Share("0.04")).state
+    val expectedBase = decimal(r.lastNonLifePremium) * decimal(p.ins.nonLifeLossRatio)
+    decimal(r.lastNonLifeClaims) shouldBe (expectedBase +- BigDecimal("0.01"))
   }
 
   it should "compute positive investment income with positive yields" in {
@@ -120,14 +119,14 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
 
   it should "reduce investment income by corporate bond default losses" in {
     val noDefault = mkStep().state
-    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000.0)).state
-    withLoss.lastInvestmentIncome shouldBe noDefault.lastInvestmentIncome - PLN(1000.0)
+    val withLoss  = mkStep(corpBondDefaultLoss = PLN("1000.0")).state
+    withLoss.lastInvestmentIncome shouldBe noDefault.lastInvestmentIncome - PLN("1000.0")
   }
 
   it should "include opening ledger corporate bond holdings in investment income" in {
     val withoutCorp = mkStep(prevCorpBondHoldings = PLN.Zero).state
-    val withCorp    = mkStep(prevCorpBondHoldings = PLN(120000.0)).state
-    withCorp.lastInvestmentIncome shouldBe withoutCorp.lastInvestmentIncome + PLN(120000.0) * Rate(0.08).monthly
+    val withCorp    = mkStep(prevCorpBondHoldings = PLN("120000.0")).state
+    withCorp.lastInvestmentIncome shouldBe withoutCorp.lastInvestmentIncome + PLN("120000.0") * Rate("0.08").monthly
   }
 
   it should "compute zero investment income with zero holdings" in {
@@ -142,7 +141,7 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
     val r           = mkStep().state
     val totalPrem   = r.lastLifePremium + r.lastNonLifePremium
     val totalClaims = r.lastLifeClaims + r.lastNonLifeClaims
-    td.toDouble(r.lastNetDepositChange) shouldBe (-td.toDouble(totalPrem - totalClaims) +- 0.01)
+    decimal(r.lastNetDepositChange) shouldBe (-decimal(totalPrem - totalClaims) +- BigDecimal("0.01"))
   }
 
   it should "have negative net deposit change in normal times (premium > claims)" in {

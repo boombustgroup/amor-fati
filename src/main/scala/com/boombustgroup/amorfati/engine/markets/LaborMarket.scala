@@ -59,13 +59,13 @@ object LaborMarket:
       p: SimParams,
   ): WageResult =
     if totalPopulation <= 0 then return WageResult(prevWage.max(resWage), 0)
-    val supplyAtPrev   = (totalPopulation * laborSupplyRatio(prevWage, resWage)).toInt
+    val supplyAtPrev   = laborSupplyRatio(prevWage, resWage).applyTo(totalPopulation)
     val excessDemand   = (laborDemand - supplyAtPrev).ratioTo(totalPopulation).toCoefficient
     val rawWageAdj     = excessDemand * p.household.wageAdjSpeed
     val boundedWageAdj = rawWageAdj.max(MaxMonthlyWageDecrease).min(MaxMonthlyWageIncrease)
     val wageGrowthMult = boundedWageAdj.growthMultiplier
     val newWage        = resWage.max(prevWage * wageGrowthMult)
-    val newSupply      = (totalPopulation * laborSupplyRatio(newWage, resWage)).toInt
+    val newSupply      = laborSupplyRatio(newWage, resWage).applyTo(totalPopulation)
     val employed       = Math.min(laborDemand, newSupply)
     WageResult(newWage, employed)
 
@@ -79,7 +79,7 @@ object LaborMarket:
     Math.min(laborDemand, supply)
 
   def laborSupplyAtWage(wage: PLN, resWage: PLN, totalPopulation: Int)(using p: SimParams): Int =
-    (totalPopulation * laborSupplyRatio(wage, resWage)).toInt
+    laborSupplyRatio(wage, resWage).applyTo(totalPopulation)
 
   // --- Separations ---
 
@@ -237,8 +237,8 @@ object LaborMarket:
         else if leftRisk != rightRisk then leftRisk < rightRisk
         else left.skill > right.skill
 
-  private def displacementRisk(hh: Household.State): Double =
-    ContractType.aiVulnerability(hh.contractType) * ComputationBoundary.toDouble(hh.taskRoutineness)
+  private def displacementRisk(hh: Household.State): Multiplier =
+    hh.taskRoutineness * ContractType.aiVulnerability(hh.contractType)
 
   /** Apply separations: retained workers stay, others become unemployed. */
   private def applySeparations(

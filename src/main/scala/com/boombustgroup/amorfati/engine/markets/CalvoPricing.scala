@@ -33,9 +33,9 @@ import com.boombustgroup.amorfati.random.RandomStream
   */
 object CalvoPricing:
 
-  private val MaxDemandMarkupLift = Coefficient(0.10)
-  private val MaxCostMarkupLift   = Coefficient(0.02)
-  private val MaxEnergyMarkupLift = Coefficient(0.03)
+  private val MaxDemandMarkupLift = Coefficient("0.10")
+  private val MaxCostMarkupLift   = Coefficient("0.02")
+  private val MaxEnergyMarkupLift = Coefficient("0.03")
 
   /** Per-firm markup update result. */
   case class FirmMarkupResult(

@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
-import org.scalacheck.Gen
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -15,15 +15,14 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams                                                         = SimParams.defaults
-  private val td                                                          = ComputationBoundary
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
   private def mkBankRow(
       id: Int = 0,
-      deposits: PLN = PLN(1e9),
-      loans: PLN = PLN(5e8),
-      capital: PLN = PLN(1e8),
+      deposits: PLN = PLN("1e9"),
+      loans: PLN = PLN("5e8"),
+      capital: PLN = PLN("1e8"),
       reservesAtNbp: PLN = PLN.Zero,
       interbankNet: PLN = PLN.Zero,
       status: BankStatus = BankStatus.Active(0),
@@ -64,20 +63,20 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     }
 
   it should "scale linearly with reserves" in
-    forAll(genRate, Gen.choose(1e4, 1e9), Gen.choose(1.1, 5.0)) { (rate, reserves, mult) =>
-      whenever(rate > 0.001) {
+    forAll(genRate, genDecimal("1e4", "1e9"), genDecimal("1.1", "5.0")) { (rate, reserves, mult) =>
+      whenever(rate > BigDecimal("0.001")) {
         val (b1, s1) = mkBankRow(reservesAtNbp = PLN(reserves))
         val s2       = s1.copy(reserve = PLN(reserves * mult))
         val r1       = Banking.reserveInterest(b1, s1, Rate(rate))
         val r2       = Banking.reserveInterest(b1, s2, Rate(rate))
-        td.toDouble(r2) shouldBe (td.toDouble(r1) * mult +- 1.0)
+        decimal(r2) shouldBe (decimal(r1) * mult +- BigDecimal("1.0"))
       }
     }
 
   "computeReserveInterest total" should "equal sum of per-bank interest" in
     forAll(genBanking.Sector, genRate) { (bs, rate) =>
       val result = Banking.computeReserveInterest(bs.banks, bs.financialStocks, Rate(rate))
-      td.toDouble(result.total) shouldBe (result.perBank.map(td.toDouble(_)).sum +- 0.01)
+      decimal(result.total) shouldBe (result.perBank.map(decimal(_)).sum +- BigDecimal("0.01"))
     }
 
   // =========================================================================
@@ -85,14 +84,14 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   // =========================================================================
 
   "interbankInterestFlows" should "net to zero for balanced positions" in
-    forAll(Gen.choose(-1e8, 1e8), genRate) { (net1, rate) =>
-      whenever(rate > 0.001) {
+    forAll(genDecimal("-1e8", "1e8"), genRate) { (net1, rate) =>
+      whenever(rate > BigDecimal("0.001")) {
         val rows   = Vector(
           mkBankRow(id = 0, interbankNet = PLN(net1)),
           mkBankRow(id = 1, interbankNet = PLN(-net1)),
         )
         val result = Banking.interbankInterestFlows(rows.map(_._1), rows.map(_._2), Rate(rate))
-        td.toDouble(result.total) shouldBe (0.0 +- 1.0)
+        decimal(result.total) shouldBe (BigDecimal("0.0") +- BigDecimal("1.0"))
       }
     }
 
@@ -118,7 +117,7 @@ class MonetaryPlumbingPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     }
 
   it should "detect reserve interest perturbation" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 1e6)) { case ((prev, curr, flows), delta) =>
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "1e6")) { case ((prev, curr, flows), delta) =>
       // Add reserve interest to flows but NOT to bank capital → should fail
       val perturbedFlows = flows.copy(reserveInterest = flows.reserveInterest + PLN(delta))
       val result         = Sfc.validateStockExactness(prev, curr, perturbedFlows)

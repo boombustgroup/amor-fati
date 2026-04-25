@@ -21,14 +21,14 @@ import com.boombustgroup.amorfati.types.*
 object PriceLevel:
 
   // ---- Calibration constants ----
-  private val DemandPullWeight       = Coefficient(0.15)   // sensitivity of inflation to demand gap
-  private val DemandSlackPassThrough = Coefficient(0.25)   // partial downside pass-through under slack demand
-  private val CostPushWeight         = Coefficient(0.25)   // wage growth pass-through to prices
-  private val ImportPushWeight       = Coefficient(0.25)   // FX depreciation pass-through
-  private val DeflationFloor         = Coefficient(-0.015) // soft floor: −1.5%/month
-  private val FloorPassThrough       = Coefficient(0.3)    // beyond floor, 30% pass-through
-  private val SmoothingLambda        = Share(0.3)          // EWM weight on new observation
-  private val MinPriceLevel          = PriceIndex(0.30)    // absolute floor on price index
+  private val DemandPullWeight       = Coefficient("0.15")   // sensitivity of inflation to demand gap
+  private val DemandSlackPassThrough = Coefficient("0.25")   // partial downside pass-through under slack demand
+  private val CostPushWeight         = Coefficient("0.25")   // wage growth pass-through to prices
+  private val ImportPushWeight       = Coefficient("0.25")   // FX depreciation pass-through
+  private val DeflationFloor         = Coefficient("-0.015") // soft floor: −1.5%/month
+  private val FloorPassThrough       = Coefficient("0.3")    // beyond floor, 30% pass-through
+  private val SmoothingLambda        = Share("0.3")          // EWM weight on new observation
+  private val MinPriceLevel          = PriceIndex("0.30")    // absolute floor on price index
 
   /** Result of a monthly price-level update. */
   case class Result(

@@ -19,10 +19,10 @@ import com.boombustgroup.amorfati.types.*
   *   maximum markup (ceiling, prevents monopolistic extremes)
   */
 case class PricingConfig(
-    calvoTheta: Share = Share(0.15),
-    baseMarkup: Multiplier = Multiplier(1.15),
-    demandSensitivity: Coefficient = Coefficient(0.5),
-    costPassthrough: Coefficient = Coefficient(0.4),
-    minMarkup: Multiplier = Multiplier(0.95),
-    maxMarkup: Multiplier = Multiplier(1.50),
+    calvoTheta: Share = Share("0.15"),
+    baseMarkup: Multiplier = Multiplier("1.15"),
+    demandSensitivity: Coefficient = Coefficient("0.5"),
+    costPassthrough: Coefficient = Coefficient("0.4"),
+    minMarkup: Multiplier = Multiplier("0.95"),
+    maxMarkup: Multiplier = Multiplier("1.50"),
 )

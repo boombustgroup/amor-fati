@@ -8,7 +8,6 @@ import com.boombustgroup.amorfati.agents.{BankruptReason, Firm, TechState}
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.markets.IntermediateMarket
 import com.boombustgroup.amorfati.types.*
-import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -29,12 +28,12 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       val sector = sectors(i % sectors.length)
       TestFirmState(
         FirmId(i),
-        PLN(500000.0),
+        PLN("500000.0"),
         PLN.Zero,
         TechState.Traditional(10),
-        Share(0.5),
+        Share("0.5"),
         Multiplier.One,
-        Share(0.4),
+        Share("0.4"),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -66,7 +65,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   // --- Zero-sum property ---
 
   "IntermediateMarket.process" should "be zero-sum within tolerance" in
-    forAll(Gen.choose(0.8, 1.5), genPrice) { (demandMult: Double, price: Double) =>
+    forAll(genDecimal("0.8", "1.5"), genPrice) { (demandMult: BigDecimal, price: BigDecimal) =>
       val firms    = makeFirms(60)
       val r        = IntermediateMarket.process(baseInput(firms, price = PriceIndex(price), demandMult = Multiplier(demandMult)))
       val totalAdj = r.cashAdjustments.map(_.bd).sum
@@ -93,10 +92,10 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
 
   it should "scale linearly with IO_SCALE" in {
     val firms = makeFirms(60)
-    forAll(Gen.choose(0.1, 0.9)) { (scale: Double) =>
+    forAll(genDecimal("0.1", "0.9")) { (scale: BigDecimal) =>
       val r1 = IntermediateMarket.process(baseInput(firms))
       val rS = IntermediateMarket.process(baseInput(firms, scale = Multiplier(scale)))
-      if r1.totalPaid > PLN.Zero then rS.totalPaid.bd shouldBe ((r1.totalPaid.bd * BigDecimal.decimal(scale)) +- (r1.totalPaid.bd * BigDecimal("0.01")))
+      if r1.totalPaid > PLN.Zero then rS.totalPaid.bd shouldBe ((r1.totalPaid.bd * scale) +- (r1.totalPaid.bd * BigDecimal("0.01")))
     }
   }
 
@@ -110,19 +109,19 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   it should "scale with sectorMults" in {
     val firms = makeFirms(60)
     val r1    = IntermediateMarket.process(baseInput(firms))
-    val r2    = IntermediateMarket.process(baseInput(firms, demandMult = Multiplier(2.0)))
+    val r2    = IntermediateMarket.process(baseInput(firms, demandMult = Multiplier("2.0")))
     if r1.totalPaid > PLN.Zero then r2.totalPaid should be > r1.totalPaid
   }
 
   it should "scale with price" in {
     val firms = makeFirms(60)
     val r1    = IntermediateMarket.process(baseInput(firms))
-    val r2    = IntermediateMarket.process(baseInput(firms, price = PriceIndex(2.0)))
+    val r2    = IntermediateMarket.process(baseInput(firms, price = PriceIndex("2.0")))
     if r1.totalPaid > PLN.Zero then r2.totalPaid should be > r1.totalPaid
   }
 
   it should "produce non-negative totalPaid" in
-    forAll(Gen.choose(0.5, 2.0), genPrice, Gen.choose(0.0, 1.0)) { (dm: Double, price: Double, scale: Double) =>
+    forAll(genDecimal("0.5", "2.0"), genPrice, genDecimal("0.0", "1.0")) { (dm: BigDecimal, price: BigDecimal, scale: BigDecimal) =>
       val firms = makeFirms(30)
       val r     =
         IntermediateMarket.process(baseInput(firms, scale = Multiplier(scale), price = PriceIndex(price), demandMult = Multiplier(dm)))
@@ -139,12 +138,12 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   it should "distribute revenue proportionally within sector" in {
     def mkF(id: Int, sec: Int): Firm.State = TestFirmState(
       FirmId(id),
-      PLN(500000.0),
+      PLN("500000.0"),
       PLN.Zero,
       TechState.Traditional(10),
-      Share(0.5),
+      Share("0.5"),
       Multiplier.One,
-      Share(0.4),
+      Share("0.4"),
       SectorIdx(sec),
       Vector.empty[FirmId],
       bankId = BankId(0),

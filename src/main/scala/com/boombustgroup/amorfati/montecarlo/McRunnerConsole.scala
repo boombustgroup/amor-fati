@@ -3,8 +3,6 @@ package com.boombustgroup.amorfati.montecarlo
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import zio.{Console, ZIO}
 
-import java.util.Locale
-
 private[montecarlo] object McRunnerConsole:
 
   enum Event:
@@ -14,13 +12,13 @@ private[montecarlo] object McRunnerConsole:
         seed: Long,
         totalSeeds: Int,
         elapsedMillis: Long,
-        adoption: Double,
-        inflation: Double,
-        unemployment: Double,
+        adoption: MetricValue,
+        inflation: MetricValue,
+        unemployment: MetricValue,
     )
     case BlankLine
     case SavedFile(path: String)
-    case TotalTime(seconds: Double)
+    case TotalTime(elapsedMillis: Long)
 
   private val BarWidth = 20
 
@@ -49,10 +47,9 @@ private[montecarlo] object McRunnerConsole:
     s"  run-id: ${runId.runId}"
 
   private def renderMonth(progress: Event.MonthProgress): String =
-    val frac   = progress.month.toInt.toDouble / progress.durationMonths
-    val filled = (frac * BarWidth).toInt
+    val filled = progress.month.toInt * BarWidth / progress.durationMonths
     val bar    = "\u2588" * filled + "\u2591" * (BarWidth - filled)
-    val pct    = (frac * 100).toInt
+    val pct    = progress.month.toInt * 100 / progress.durationMonths
     f"\r  Seed ${progress.seed}%3d/${progress.totalSeeds} [$bar] ${progress.month.toInt}%3d/${progress.durationMonths}m ($pct%3d%%)"
 
   private def renderSeedDone(done: Event.SeedDone): String =
@@ -65,10 +62,10 @@ private[montecarlo] object McRunnerConsole:
     s"Saved: ${saved.path}"
 
   private def renderTotalTime(total: Event.TotalTime): String =
-    String.format(Locale.US, "\nTotal time: %.1f seconds", Double.box(total.seconds))
+    s"\nTotal time: ${MetricValue.secondsFromMillis(total.elapsedMillis).format(1)} seconds"
 
-  private def formatPct(value: Double): String =
-    String.format(Locale.US, "%5.1f%%", Double.box(value * 100.0))
+  private def formatPct(value: MetricValue): String =
+    value.percent(1)
 
   private def runtimeFailure(operation: String)(err: Throwable): SimError =
     SimError.RuntimeFailure(operation, Option(err.getMessage).filter(_.nonEmpty).getOrElse(err.getClass.getSimpleName))

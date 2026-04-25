@@ -225,11 +225,11 @@ object HousingMarket:
       mortgageRate: Rate,
   )(using p: SimParams): PriceUpdate =
     val annualRent       = prevValue * p.housing.rentalYield
-    val effectiveRate    = mortgageRate.max(Rate(0.01))
-    val expectedGrowth   = incomeGrowth.annualize.max(Rate(-0.05)).min(effectiveRate - Rate(0.005))
+    val effectiveRate    = mortgageRate.max(Rate("0.01"))
+    val expectedGrowth   = incomeGrowth.annualize.max(Rate("-0.05")).min(effectiveRate - Rate("0.005"))
     val denominator      = effectiveRate - expectedGrowth
     val fundamentalValue =
-      if denominator > Rate(0.005) then annualRent / denominator.toMultiplier
+      if denominator > Rate("0.005") then annualRent / denominator.toMultiplier
       else prevValue
     val monthlyGamma     = gamma / 12
     val fundamentalGap   =
@@ -237,12 +237,12 @@ object HousingMarket:
       else Coefficient.Zero
     val pricePressure    =
       (p.housing.priceIncomeElast * incomeGrowth.toCoefficient)
-        .max(Coefficient(-10.0))
-        .min(Coefficient(10.0)) +
-        (p.housing.priceRateElast * rateChange.toCoefficient).max(Coefficient(-10.0)).min(Coefficient(10.0)) +
+        .max(Coefficient("-10.0"))
+        .min(Coefficient("10.0")) +
+        (p.housing.priceRateElast * rateChange.toCoefficient).max(Coefficient("-10.0")).min(Coefficient("10.0")) +
         (monthlyGamma * fundamentalGap)
-    val clampedChange    = pricePressure.max(Coefficient(-0.03)).min(Coefficient(0.03))
-    val newValue         = (prevValue * clampedChange.growthMultiplier).max(prevValue * Multiplier(0.30))
+    val clampedChange    = pricePressure.max(Coefficient("-0.03")).min(Coefficient("0.03"))
+    val newValue         = (prevValue * clampedChange.growthMultiplier).max(prevValue * Multiplier("0.30"))
     val newHpi           =
       if prevValue > PLN.Zero then prevHpi * newValue.ratioTo(prevValue).toMultiplier
       else prevHpi
@@ -272,14 +272,14 @@ object HousingMarket:
   private def computeRawOrigination(prev: State, totalIncome: PLN, mortgageRate: Rate)(using p: SimParams): PLN =
     val baseOrigination = prev.totalValue * p.housing.originationRate
     val rateAdj         =
-      (-(mortgageRate - Rate(0.06)).toCoefficient * Coefficient(0.5)).growthMultiplier
-        .clamp(Multiplier(0.3), Multiplier(2.0))
+      (-(mortgageRate - Rate("0.06")).toCoefficient * Coefficient("0.5")).growthMultiplier
+        .clamp(Multiplier("0.3"), Multiplier("2.0"))
     val incomeBase      =
       if prev.totalValue >= MinHousingValueForIncomeRatio then prev.totalValue
       else MinHousingValueForIncomeRatio
     val incomeAdj       =
-      (totalIncome.ratioTo(incomeBase).toCoefficient * Coefficient(10.0)).growthMultiplier
-        .clamp(Multiplier(0.5), Multiplier(1.5))
+      (totalIncome.ratioTo(incomeBase).toCoefficient * Coefficient("10.0")).growthMultiplier
+        .clamp(Multiplier("0.5"), Multiplier("1.5"))
     (baseOrigination * rateAdj) * incomeAdj
 
   private def distributeOrigination(
@@ -317,7 +317,7 @@ object HousingMarket:
       val stock         = prev.mortgageStock
       val interest      = stock * mortgageRate.max(Rate.Zero).monthly
       val principal     = stock / p.housing.mortgageMaturity
-      val unempExcess   = (unemploymentRate - Share(0.05)).max(Share.Zero)
+      val unempExcess   = (unemploymentRate - Share("0.05")).max(Share.Zero)
       val stressAdj     = (p.housing.defaultUnempSens * unempExcess).toMultiplier
       val defaultRate   = p.housing.defaultBase + stressAdj.toShare
       val defaultAmount = stock * defaultRate

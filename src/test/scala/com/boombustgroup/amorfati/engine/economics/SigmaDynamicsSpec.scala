@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.economics
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.types.*
@@ -8,60 +9,68 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams = SimParams.defaults
-  private val td  = ComputationBoundary
+
+  private def evolveSigmas(
+      current: Vector[Sigma],
+      base: Vector[BigDecimal],
+      adoption: Vector[BigDecimal],
+      lambda: BigDecimal,
+      capMult: BigDecimal,
+  ): Vector[Sigma] =
+    PriceEquityEconomics.evolveSigmas(current, base.map(Sigma(_)), adoption.map(Share(_)), Coefficient(lambda), Multiplier(capMult))
 
   "PriceEquityEconomics.evolveSigmas" should "return unchanged sigmas when lambda=0" in {
-    val current  = Vector(50.0, 10.0, 5.0, 2.0, 1.0, 3.0).map(Sigma(_))
-    val base     = Vector(50.0, 10.0, 5.0, 2.0, 1.0, 3.0)
-    val adoption = Vector(0.5, 0.3, 0.2, 0.1, 0.0, 0.1)
-    PriceEquityEconomics.evolveSigmas(current, base, adoption, 0.0, 3.0) shouldBe current
+    val current  = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0")).map(Sigma(_))
+    val base     = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0"))
+    val adoption = Vector(BigDecimal("0.5"), BigDecimal("0.3"), BigDecimal("0.2"), BigDecimal("0.1"), BigDecimal("0.0"), BigDecimal("0.1"))
+    evolveSigmas(current, base, adoption, BigDecimal("0.0"), BigDecimal("3.0")) shouldBe current
   }
 
   it should "increase sigma when lambda>0 and adoption>0" in {
-    val current  = Vector(Sigma(5.0))
-    val base     = Vector(5.0)
-    val adoption = Vector(0.5)
-    val result   = PriceEquityEconomics.evolveSigmas(current, base, adoption, 0.02, 3.0)
-    td.toDouble(result(0)) should be > 5.0
+    val current  = Vector(Sigma("5.0"))
+    val base     = Vector(BigDecimal("5.0"))
+    val adoption = Vector(BigDecimal("0.5"))
+    val result   = evolveSigmas(current, base, adoption, BigDecimal("0.02"), BigDecimal("3.0"))
+    decimal(result(0)) should be > BigDecimal("5.0")
   }
 
   it should "not change sigma when adoption=0" in {
-    val current  = Vector(Sigma(5.0))
-    val base     = Vector(5.0)
-    val adoption = Vector(0.0)
-    val result   = PriceEquityEconomics.evolveSigmas(current, base, adoption, 0.02, 3.0)
-    td.toDouble(result(0)) shouldBe 5.0
+    val current  = Vector(Sigma("5.0"))
+    val base     = Vector(BigDecimal("5.0"))
+    val adoption = Vector(BigDecimal("0.0"))
+    val result   = evolveSigmas(current, base, adoption, BigDecimal("0.02"), BigDecimal("3.0"))
+    decimal(result(0)) shouldBe BigDecimal("5.0")
   }
 
   it should "cap sigma at base * capMult" in {
     // current very close to cap (5.0 * 3.0 = 15.0)
-    val current  = Vector(Sigma(14.99))
-    val base     = Vector(5.0)
-    val adoption = Vector(1.0)
-    val result   = PriceEquityEconomics.evolveSigmas(current, base, adoption, 10.0, 3.0)
-    td.toDouble(result(0)) should be <= 15.0
+    val current  = Vector(Sigma("14.99"))
+    val base     = Vector(BigDecimal("5.0"))
+    val adoption = Vector(BigDecimal("1.0"))
+    val result   = evolveSigmas(current, base, adoption, BigDecimal("10.0"), BigDecimal("3.0"))
+    decimal(result(0)) should be <= BigDecimal("15.0")
   }
 
   it should "never decrease sigma (ratchet)" in {
-    val current  = Vector(Sigma(5.0))
-    val base     = Vector(5.0)
+    val current  = Vector(Sigma("5.0"))
+    val base     = Vector(BigDecimal("5.0"))
     // Negative adoption is pathological but ratchet should still hold
-    val adoption = Vector(-0.5)
-    val result   = PriceEquityEconomics.evolveSigmas(current, base, adoption, 0.02, 3.0)
-    td.toDouble(result(0)) should be >= 5.0
+    val adoption = Vector(-BigDecimal("0.5"))
+    val result   = evolveSigmas(current, base, adoption, BigDecimal("0.02"), BigDecimal("3.0"))
+    decimal(result(0)) should be >= BigDecimal("5.0")
   }
 
   it should "evolve multiple sectors independently" in {
-    val current  = Vector(50.0, 10.0, 5.0, 2.0, 1.0, 3.0).map(Sigma(_))
-    val base     = Vector(50.0, 10.0, 5.0, 2.0, 1.0, 3.0)
-    val adoption = Vector(0.5, 0.0, 0.3, 0.0, 0.0, 0.2)
-    val result   = PriceEquityEconomics.evolveSigmas(current, base, adoption, 0.02, 3.0)
+    val current  = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0")).map(Sigma(_))
+    val base     = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0"))
+    val adoption = Vector(BigDecimal("0.5"), BigDecimal("0.0"), BigDecimal("0.3"), BigDecimal("0.0"), BigDecimal("0.0"), BigDecimal("0.2"))
+    val result   = evolveSigmas(current, base, adoption, BigDecimal("0.02"), BigDecimal("3.0"))
     // Sectors with adoption > 0 should increase
-    td.toDouble(result(0)) should be > 50.0
-    td.toDouble(result(2)) should be > 5.0
-    td.toDouble(result(5)) should be > 3.0
+    decimal(result(0)) should be > BigDecimal("50.0")
+    decimal(result(2)) should be > BigDecimal("5.0")
+    decimal(result(5)) should be > BigDecimal("3.0")
     // Sectors with adoption = 0 should stay the same
-    td.toDouble(result(1)) shouldBe 10.0
-    td.toDouble(result(3)) shouldBe 2.0
-    td.toDouble(result(4)) shouldBe 1.0
+    decimal(result(1)) shouldBe BigDecimal("10.0")
+    decimal(result(3)) shouldBe BigDecimal("2.0")
+    decimal(result(4)) shouldBe BigDecimal("1.0")
   }

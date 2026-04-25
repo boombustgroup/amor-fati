@@ -50,7 +50,7 @@ object InsuranceFlows:
     val invIncome             = grossInvestmentIncome - input.corpBondDefaultLoss
     val totalReserves         = input.currentLifeReserves + input.currentNonLifeReserves
     val lifeShare             =
-      if totalReserves > PLN.Zero then Share(input.currentLifeReserves / totalReserves) else Share(0.5)
+      if totalReserves > PLN.Zero then Share(input.currentLifeReserves / totalReserves) else Share("0.5")
     val lifeInvIncome         = invIncome * lifeShare
     val nonLifeInvIncome      = invIncome - lifeInvIncome
 

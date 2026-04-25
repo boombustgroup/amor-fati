@@ -43,19 +43,20 @@ import com.boombustgroup.amorfati.types.*
   *   share of energy sourced domestically (vs. imported)
   */
 case class ClimateConfig(
-    energyCostShares: Vector[Share] = Vector(Share(0.02), Share(0.10), Share(0.04), Share(0.05), Share(0.03), Share(0.06)),
-    carbonIntensity: Vector[Scalar] = Vector(Scalar(0.01), Scalar(0.08), Scalar(0.02), Scalar(0.01), Scalar(0.02), Scalar(0.04)), // tCO2/PLN, computation-only
-    etsBasePrice: Multiplier = Multiplier(80.0),
-    etsPriceDrift: Rate = Rate(0.03),
-    greenKLRatios: Vector[PLN] = Vector(PLN(5000.0), PLN(30000.0), PLN(10000.0), PLN(15000.0), PLN(8000.0), PLN(20000.0)),
-    greenDepRate: Rate = Rate(0.04),
-    greenAdjustSpeed: Coefficient = Coefficient(0.08),
-    greenMaxDiscount: Share = Share(0.30),
-    greenImportShare: Share = Share(0.35),
-    greenInitRatio: Share = Share(0.10),
-    greenBudgetShare: Share = Share(0.20),
-    energyCostReplace: Share = Share(0.30),
-    energyDomesticShare: Share = Share(0.60),
+    energyCostShares: Vector[Share] = Vector(Share("0.02"), Share("0.10"), Share("0.04"), Share("0.05"), Share("0.03"), Share("0.06")),
+    carbonIntensity: Vector[Scalar] =
+      Vector(Scalar("0.01"), Scalar("0.08"), Scalar("0.02"), Scalar("0.01"), Scalar("0.02"), Scalar("0.04")), // tCO2/PLN, computation-only
+    etsBasePrice: Multiplier = Multiplier("80.0"),
+    etsPriceDrift: Rate = Rate("0.03"),
+    greenKLRatios: Vector[PLN] = Vector(PLN("5000.0"), PLN("30000.0"), PLN("10000.0"), PLN("15000.0"), PLN("8000.0"), PLN("20000.0")),
+    greenDepRate: Rate = Rate("0.04"),
+    greenAdjustSpeed: Coefficient = Coefficient("0.08"),
+    greenMaxDiscount: Share = Share("0.30"),
+    greenImportShare: Share = Share("0.35"),
+    greenInitRatio: Share = Share("0.10"),
+    greenBudgetShare: Share = Share("0.20"),
+    energyCostReplace: Share = Share("0.30"),
+    energyDomesticShare: Share = Share("0.60"),
 ):
   require(energyCostShares.length == 6, s"energyCostShares must have 6 sectors: ${energyCostShares.length}")
   require(carbonIntensity.length == 6, s"carbonIntensity must have 6 sectors: ${carbonIntensity.length}")

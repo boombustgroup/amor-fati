@@ -11,19 +11,19 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val baseMpc = Share(0.82)
-  private val income  = PLN(8000.0)
+  private val baseMpc = Share("0.82")
+  private val income  = PLN("8000.0")
 
-  private def mkHh(savings: PLN = PLN(48000.0), mpc: Share = baseMpc): TestHouseholdState.Fixture =
+  private def mkHh(savings: PLN = PLN("48000.0"), mpc: Share = baseMpc): TestHouseholdState.Fixture =
     TestHouseholdState.fixture(
       id = HhId(0),
       savings = savings,
       debt = PLN.Zero,
-      monthlyRent = PLN(1800.0),
-      skill = Share(0.7),
+      monthlyRent = PLN("1800.0"),
+      skill = Share("0.7"),
       healthPenalty = Share.Zero,
       mpc = mpc,
-      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0)),
+      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN("8000.0")),
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(0),
       equityWealth = PLN.Zero,
@@ -32,26 +32,26 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Share(0.5),
+      taskRoutineness = Share("0.5"),
       wageScar = Share.Zero,
     )
 
   // target savings = 8000 * 6 = 48000
 
   "updateMpc" should "keep MPC near base when savings = target" in {
-    val hh     = mkHh(savings = PLN(48000.0))
+    val hh     = mkHh(savings = PLN("48000.0"))
     val result = Household.updateMpc(hh.state, hh.financialStocks, income, hh.state.status)
     result shouldBe baseMpc
   }
 
   it should "lower MPC when buffer is fat (savings >> target)" in {
-    val hh     = mkHh(savings = PLN(120000.0))
+    val hh     = mkHh(savings = PLN("120000.0"))
     val result = Household.updateMpc(hh.state, hh.financialStocks, income, hh.state.status)
     result should be < baseMpc
   }
 
   it should "raise MPC when buffer is depleted (savings << target)" in {
-    val hh     = mkHh(savings = PLN(5000.0))
+    val hh     = mkHh(savings = PLN("5000.0"))
     val result = Household.updateMpc(hh.state, hh.financialStocks, income, hh.state.status)
     result should be >= baseMpc
   }
@@ -65,15 +65,15 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "clamp MPC to floor" in {
-    val hh     = mkHh(savings = PLN(1_000_000.0))
+    val hh     = mkHh(savings = PLN("1_000_000.0"))
     val result = Household.updateMpc(hh.state, hh.financialStocks, income, hh.state.status)
-    result should be >= Share(0.50)
+    result should be >= Share("0.50")
   }
 
   it should "clamp MPC to ceiling" in {
     val hh     = mkHh(savings = PLN.Zero)
     val result = Household.updateMpc(hh.state, hh.financialStocks, income, HhStatus.Unemployed(12))
-    result should be <= Share(0.98)
+    result should be <= Share("0.98")
   }
 
   it should "return base MPC when income is zero" in {
@@ -83,8 +83,8 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be monotonically decreasing in savings" in {
-    val employed      = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000.0))
-    val savingsLevels = Seq(1000.0, 10000.0, 48000.0, 100000.0, 200000.0)
+    val employed      = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN("8000.0"))
+    val savingsLevels = Seq(BigDecimal("1000.0"), BigDecimal("10000.0"), BigDecimal("48000.0"), BigDecimal("100000.0"), BigDecimal("200000.0"))
     val mpcs          = savingsLevels.map: s =>
       val hh = mkHh(savings = PLN(s))
       Household.updateMpc(hh.state, hh.financialStocks, income, employed)
@@ -95,22 +95,22 @@ class BufferStockMpcSpec extends AnyFlatSpec with Matchers:
   }
 
   "computeSavingsDrawdown" should "draw only excess savings for employed households" in {
-    val hh       = mkHh(savings = PLN(120000.0))
+    val hh       = mkHh(savings = PLN("120000.0"))
     val drawdown = Household.computeSavingsDrawdown(hh.financialStocks, income, hh.state.status)
 
-    drawdown shouldBe PLN(14400.0)
+    drawdown shouldBe PLN("14400.0")
   }
 
   it should "allow stressed households to draw below the full target buffer but above the protected floor" in {
-    val hh       = mkHh(savings = PLN(30000.0))
+    val hh       = mkHh(savings = PLN("30000.0"))
     val status   = HhStatus.Unemployed(4)
     val drawdown = Household.computeSavingsDrawdown(hh.financialStocks, income, status)
 
-    drawdown shouldBe PLN(2100.0)
+    drawdown shouldBe PLN("2100.0")
   }
 
   it should "return zero when savings are already below the protected floor under stress" in {
-    val hh       = mkHh(savings = PLN(10000.0))
+    val hh       = mkHh(savings = PLN("10000.0"))
     val status   = HhStatus.Unemployed(4)
     val drawdown = Household.computeSavingsDrawdown(hh.financialStocks, income, status)
 

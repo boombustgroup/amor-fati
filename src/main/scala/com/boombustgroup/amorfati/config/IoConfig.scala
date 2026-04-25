@@ -21,7 +21,7 @@ import com.boombustgroup.amorfati.types.*
   */
 case class IoConfig(
     matrix: Vector[Vector[Share]] = IoConfig.DefaultMatrix,
-    scale: Multiplier = Multiplier(1.0),
+    scale: Multiplier = Multiplier("1.0"),
 ):
   require(matrix.nonEmpty, "IoConfig.matrix must be non-empty")
 
@@ -48,10 +48,10 @@ object IoConfig:
     * Agriculture.
     */
   val DefaultMatrix: Vector[Vector[Share]] = Vector(
-    Vector(Share(0.05), Share(0.03), Share(0.04), Share(0.02), Share(0.03), Share(0.01)),
-    Vector(Share(0.04), Share(0.35), Share(0.12), Share(0.15), Share(0.05), Share(0.18)),
-    Vector(Share(0.15), Share(0.10), Share(0.12), Share(0.08), Share(0.07), Share(0.08)),
-    Vector(Share(0.01), Share.Zero, Share(0.01), Share(0.05), Share(0.02), Share(0.01)),
-    Vector(Share(0.01), Share(0.01), Share(0.01), Share(0.01), Share(0.03), Share(0.01)),
-    Vector(Share.Zero, Share(0.08), Share(0.05), Share(0.01), Share(0.01), Share(0.12)),
+    Vector(Share("0.05"), Share("0.03"), Share("0.04"), Share("0.02"), Share("0.03"), Share("0.01")),
+    Vector(Share("0.04"), Share("0.35"), Share("0.12"), Share("0.15"), Share("0.05"), Share("0.18")),
+    Vector(Share("0.15"), Share("0.10"), Share("0.12"), Share("0.08"), Share("0.07"), Share("0.08")),
+    Vector(Share("0.01"), Share.Zero, Share("0.01"), Share("0.05"), Share("0.02"), Share("0.01")),
+    Vector(Share("0.01"), Share("0.01"), Share("0.01"), Share("0.01"), Share("0.03"), Share("0.01")),
+    Vector(Share.Zero, Share("0.08"), Share("0.05"), Share("0.01"), Share("0.01"), Share("0.12")),
   )

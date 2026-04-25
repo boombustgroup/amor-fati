@@ -23,16 +23,16 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
     )
 
   private val baseInput = GovBudgetFlows.Input(
-    vatRevenue = PLN(3000000.0),
-    exciseRevenue = PLN(1200000.0),
-    customsDutyRevenue = PLN(800000.0),
-    govCurrentSpend = PLN(2000000.0),
-    debtService = PLN(500000.0),
-    unempBenefitSpend = PLN(800000.0),
-    socialTransferSpend = PLN(1200000.0),
-    euCofinancing = PLN(300000.0),
-    govCapitalSpend = PLN(400000.0),
-    debtServiceRecipients = Some(debtRecipients(PLN(500000.0))),
+    vatRevenue = PLN("3000000.0"),
+    exciseRevenue = PLN("1200000.0"),
+    customsDutyRevenue = PLN("800000.0"),
+    govCurrentSpend = PLN("2000000.0"),
+    debtService = PLN("500000.0"),
+    unempBenefitSpend = PLN("800000.0"),
+    socialTransferSpend = PLN("1200000.0"),
+    euCofinancing = PLN("300000.0"),
+    govCapitalSpend = PLN("400000.0"),
+    debtServiceRecipients = Some(debtRecipients(PLN("500000.0"))),
   )
 
   "GovBudgetFlows" should "preserve total wealth at exactly 0L" in {
@@ -72,7 +72,7 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have surplus when revenue > spending" in {
-    val surplus  = baseInput.copy(vatRevenue = PLN(47000000.0))
+    val surplus  = baseInput.copy(vatRevenue = PLN("47000000.0"))
     val flows    = GovBudgetFlows.emit(surplus)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     balances(GovBudgetFlows.GOV_ACCOUNT) should be > 0L
@@ -80,7 +80,7 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "skip zero-amount flows" in {
     val minimal = GovBudgetFlows.Input(
-      vatRevenue = PLN(1000000.0),
+      vatRevenue = PLN("1000000.0"),
       exciseRevenue = PLN.Zero,
       customsDutyRevenue = PLN.Zero,
       govCurrentSpend = PLN.Zero,
@@ -107,7 +107,7 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
     val thrown = the[IllegalArgumentException] thrownBy GovBudgetFlows.emit(
       baseInput.copy(
         debtService = PLN.Zero,
-        debtServiceRecipients = Some(debtRecipients(PLN(1.0))),
+        debtServiceRecipients = Some(debtRecipients(PLN("1.0"))),
       ),
     )
 
@@ -117,8 +117,8 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
   it should "emit bank debt service to persisted banks instead of the aggregate bank slot" in {
     given topology: RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
     val input                             = baseInput.copy(
-      debtService = PLN(300.0),
-      debtServiceRecipients = Some(debtRecipients(PLN(300.0), banksByBank = Vector(PLN(100.0), PLN(200.0)))),
+      debtService = PLN("300.0"),
+      debtServiceRecipients = Some(debtRecipients(PLN("300.0"), banksByBank = Vector(PLN("100.0"), PLN("200.0")))),
     )
 
     val bankDebtServiceBatches = GovBudgetFlows
@@ -126,8 +126,8 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
       .filter(batch => batch.mechanism == FlowMechanism.GovDebtService && batch.to == EntitySector.Banks)
 
     bankDebtServiceBatches should have size 2
-    RuntimeLedgerTopology.totalTransferred(bankDebtServiceBatches.head) shouldBe PLN(100.0).toLong
-    RuntimeLedgerTopology.totalTransferred(bankDebtServiceBatches(1)) shouldBe PLN(200.0).toLong
+    RuntimeLedgerTopology.totalTransferred(bankDebtServiceBatches.head) shouldBe PLN("100.0").toLong
+    RuntimeLedgerTopology.totalTransferred(bankDebtServiceBatches(1)) shouldBe PLN("200.0").toLong
     bankDebtServiceBatches.foreach:
       case broadcast: BatchedFlow.Broadcast =>
         broadcast.targetIndices.head should not be topology.banks.aggregate
@@ -147,7 +147,7 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
 
     val thrown = the[IllegalArgumentException] thrownBy GovBudgetFlows.DebtServiceRecipients.fromCircuit(
       emptyCircuit,
-      PLN(1.0),
+      PLN("1.0"),
     )
 
     thrown.getMessage should include("positive holder weights")
@@ -155,21 +155,21 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "derive per-bank debt-service recipients from the government bond circuit" in {
     val circuit = GovernmentBondCircuit(
-      outstanding = PLN(1000.0),
-      bankHoldings = PLN(300.0),
-      foreignHoldings = PLN(700.0),
+      outstanding = PLN("1000.0"),
+      bankHoldings = PLN("300.0"),
+      foreignHoldings = PLN("700.0"),
       nbpHoldings = PLN.Zero,
       insuranceHoldings = PLN.Zero,
       ppkHoldings = PLN.Zero,
       tfiHoldings = PLN.Zero,
-      bankHoldingsByBank = Vector(PLN(100.0), PLN(200.0)),
+      bankHoldingsByBank = Vector(PLN("100.0"), PLN("200.0")),
     )
 
-    val recipients = GovBudgetFlows.DebtServiceRecipients.fromCircuit(circuit, PLN(100.0))
+    val recipients = GovBudgetFlows.DebtServiceRecipients.fromCircuit(circuit, PLN("100.0"))
 
-    recipients.banks shouldBe PLN(30.0)
-    recipients.foreign shouldBe PLN(70.0)
-    recipients.banksByBank shouldBe Vector(PLN(10.0), PLN(20.0))
+    recipients.banks shouldBe PLN("30.0")
+    recipients.foreign shouldBe PLN("70.0")
+    recipients.banksByBank shouldBe Vector(PLN("10.0"), PLN("20.0"))
   }
 
   it should "preserve SFC across 120 months" in {

@@ -7,9 +7,12 @@ object ExchangeRateShockProvider:
   opaque type ExchangeRateShock = Long
 
   object ExchangeRateShock:
-    val Zero: ExchangeRateShock               = 0L
-    def apply(d: Double): ExchangeRateShock   = Math.round(d * Scale)
-    def fromRaw(raw: Long): ExchangeRateShock = raw
+    val Zero: ExchangeRateShock                     = 0L
+    def apply(value: BigDecimal): ExchangeRateShock = fromDecimal(value)
+    def apply(value: String): ExchangeRateShock     = parseDecimal(value)
+    def apply(value: Int): ExchangeRateShock        = fromRaw(value.toLong * Scale)
+    def apply(value: Long): ExchangeRateShock       = fromRaw(value * Scale)
+    def fromRaw(raw: Long): ExchangeRateShock       = raw
 
   extension (shock: ExchangeRateShock)
     inline def toLong: Long                                                    = shock
@@ -19,6 +22,8 @@ object ExchangeRateShockProvider:
     def min(other: ExchangeRateShock): ExchangeRateShock                       = math.min(shock, other)
     def clamp(lo: ExchangeRateShock, hi: ExchangeRateShock): ExchangeRateShock = math.max(lo, math.min(hi, shock))
     def sign: Int                                                              = java.lang.Long.signum(shock)
+    def format(fractionalDigits: Int): String                                  = FixedPointBase.format(shock, fractionalDigits)
+    def compact: String                                                        = FixedPointBase.formatCompact(shock)
     def >(other: ExchangeRateShock): Boolean                                   = shock > other
     def <(other: ExchangeRateShock): Boolean                                   = shock < other
     def >=(other: ExchangeRateShock): Boolean                                  = shock >= other

@@ -17,7 +17,7 @@ class ZusFlowsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
 
   "ZusFlows" should "emit contribution + pension flows with correct amounts" in {
-    val input = ZusFlows.ZusInput(employed = 80000, wage = PLN(7000.0), nRetirees = 1000)
+    val input = ZusFlows.ZusInput(employed = 80000, wage = PLN("7000.0"), nRetirees = 1000)
     val flows = ZusFlows.emit(input)
 
     flows should not be empty
@@ -34,7 +34,7 @@ class ZusFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "preserve total wealth at exactly 0L (SFC by construction)" in {
-    val input    = ZusFlows.ZusInput(employed = 80000, wage = PLN(7000.0), nRetirees = 1000)
+    val input    = ZusFlows.ZusInput(employed = 80000, wage = PLN("7000.0"), nRetirees = 1000)
     val flows    = ZusFlows.emit(input)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
 
@@ -43,7 +43,7 @@ class ZusFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "have FUS balance = contributions - pensions + govSubvention" in {
-    val input    = ZusFlows.ZusInput(employed = 80000, wage = PLN(7000.0), nRetirees = 1000)
+    val input    = ZusFlows.ZusInput(employed = 80000, wage = PLN("7000.0"), nRetirees = 1000)
     val flows    = ZusFlows.emit(input)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
 
@@ -57,19 +57,19 @@ class ZusFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "emit gov subvention only when pensions exceed contributions" in {
     // High retirees, low employed → deficit
-    val deficit = ZusFlows.ZusInput(employed = 1000, wage = PLN(5000.0), nRetirees = 5000)
+    val deficit = ZusFlows.ZusInput(employed = 1000, wage = PLN("5000.0"), nRetirees = 5000)
     val flows1  = ZusFlows.emit(deficit)
     flows1.exists(_.mechanism == FlowMechanism.ZusGovSubvention.toInt) shouldBe true
 
     // High employed, low retirees → surplus
-    val surplus = ZusFlows.ZusInput(employed = 80000, wage = PLN(7000.0), nRetirees = 100)
+    val surplus = ZusFlows.ZusInput(employed = 80000, wage = PLN("7000.0"), nRetirees = 100)
     val flows2  = ZusFlows.emit(surplus)
     flows2.exists(_.mechanism == FlowMechanism.ZusGovSubvention.toInt) shouldBe false
   }
 
   it should "match old SocialSecurity.zusStep amounts exactly" in {
     val employed  = 80000
-    val wage      = PLN(7000.0)
+    val wage      = PLN("7000.0")
     val nRetirees = 1000
 
     // Old path
@@ -89,7 +89,7 @@ class ZusFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "preserve SFC across multiple months" in {
-    val input = ZusFlows.ZusInput(employed = 80000, wage = PLN(7000.0), nRetirees = 1000)
+    val input = ZusFlows.ZusInput(employed = 80000, wage = PLN("7000.0"), nRetirees = 1000)
 
     var balances = Map.empty[Int, Long]
     (1 to 120).foreach { _ =>

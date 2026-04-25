@@ -49,8 +49,8 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
     val topology = RuntimeLedgerTopology.fromState(state)
     val opening  = state.ledgerFinancialState
 
-    val nfzContributions = PLN(10.0)
-    val nfzSpending      = PLN(30.0)
+    val nfzContributions = PLN("10.0")
+    val nfzSpending      = PLN("30.0")
     val nfzGovSubvention = nfzSpending - nfzContributions
     nfzGovSubvention should be > PLN.Zero
 
@@ -79,10 +79,10 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
     val opening  = state.ledgerFinancialState.copy(
       funds = state.ledgerFinancialState.funds.copy(
         quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
-          bondsOutstanding = PLN(1000.0),
-          loanPortfolio = PLN(100.0),
-          bankHoldings = PLN(700.0),
-          nbpHoldings = PLN(300.0),
+          bondsOutstanding = PLN("1000.0"),
+          loanPortfolio = PLN("100.0"),
+          bankHoldings = PLN("700.0"),
+          nbpHoldings = PLN("300.0"),
         ),
       ),
     )
@@ -100,11 +100,11 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
     )
     val semanticClosing = opening.copy(funds = opening.funds.copy(quasiFiscal = stageOnlyQf))
     val deltaLedger     = Map(
-      (EntitySector.Funds, AssetType.QuasiFiscalBond, topology.funds.quasiFiscal) -> PLN(-700.0).toLong,
-      (EntitySector.Banks, AssetType.QuasiFiscalBond, 0)                          -> PLN(250.0).toLong,
-      (EntitySector.Banks, AssetType.QuasiFiscalBond, 1)                          -> PLN(150.0).toLong,
-      (EntitySector.NBP, AssetType.QuasiFiscalBond, topology.nbp.persistedOwner)  -> PLN(300.0).toLong,
-      (EntitySector.Funds, AssetType.NbfiLoan, topology.funds.quasiFiscal)        -> PLN(-350.0).toLong,
+      (EntitySector.Funds, AssetType.QuasiFiscalBond, topology.funds.quasiFiscal) -> PLN("-700.0").toLong,
+      (EntitySector.Banks, AssetType.QuasiFiscalBond, 0)                          -> PLN("250.0").toLong,
+      (EntitySector.Banks, AssetType.QuasiFiscalBond, 1)                          -> PLN("150.0").toLong,
+      (EntitySector.NBP, AssetType.QuasiFiscalBond, topology.nbp.persistedOwner)  -> PLN("300.0").toLong,
+      (EntitySector.Funds, AssetType.NbfiLoan, topology.funds.quasiFiscal)        -> PLN("-350.0").toLong,
     )
 
     val projection = RuntimeFlowProjection.materializeSupportedState(
@@ -115,16 +115,16 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
     )
 
     projection.quasiFiscal shouldBe RuntimeFlowProjection.QuasiFiscalProjection(
-      bondsOutstanding = PLN(1700.0),
-      loanPortfolio = PLN(450.0),
-      bankHoldings = PLN(1100.0),
-      nbpHoldings = PLN(600.0),
+      bondsOutstanding = PLN("1700.0"),
+      loanPortfolio = PLN("450.0"),
+      bankHoldings = PLN("1100.0"),
+      nbpHoldings = PLN("600.0"),
     )
     projection.ledgerFinancialState.funds.quasiFiscal shouldBe LedgerFinancialState.QuasiFiscalBalances(
-      bondsOutstanding = PLN(1700.0),
-      loanPortfolio = PLN(450.0),
-      bankHoldings = PLN(1100.0),
-      nbpHoldings = PLN(600.0),
+      bondsOutstanding = PLN("1700.0"),
+      loanPortfolio = PLN("450.0"),
+      bankHoldings = PLN("1100.0"),
+      nbpHoldings = PLN("600.0"),
     )
     projection.ledgerFinancialState.funds.quasiFiscal should not equal stageOnlyQf
   }
@@ -134,11 +134,11 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
     val state    = FlowSimulation.SimState.fromInit(init)
     val topology = RuntimeLedgerTopology.fromState(state)
     val opening  = state.ledgerFinancialState
-    val adjusted = opening.households.head.copy(mortgageLoan = opening.households.head.mortgageLoan + PLN(12345.0))
+    val adjusted = opening.households.head.copy(mortgageLoan = opening.households.head.mortgageLoan + PLN("12345.0"))
 
     val semanticClosing = opening.copy(households = opening.households.updated(0, adjusted))
     val runtimeState    = topology.emptyExecutionState()
-    val batches         = MortgageFlows.emitBatches(MortgageFlows.Input(PLN(500000.0), PLN(200000.0), PLN(10000.0), PLN(50000.0)))(using topology)
+    val batches         = MortgageFlows.emitBatches(MortgageFlows.Input(PLN("500000.0"), PLN("200000.0"), PLN("10000.0"), PLN("50000.0")))(using topology)
 
     ImperativeInterpreter.planAndApplyAll(runtimeState, batches) shouldBe Right(())
     val snapshot         = runtimeState.snapshot

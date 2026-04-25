@@ -11,13 +11,13 @@ class PpkFlowsSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
 
   "PpkFlows" should "preserve total wealth at exactly 0L" in {
-    val flows    = PpkFlows.emit(PpkFlows.PpkInput(employed = 80000, wage = PLN(7000.0)))
+    val flows    = PpkFlows.emit(PpkFlows.PpkInput(employed = 80000, wage = PLN("7000.0")))
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L
   }
 
   it should "match SocialSecurity.ppkStep contribution amounts exactly" in {
-    val employed = 80000; val wage = PLN(7000.0)
+    val employed = 80000; val wage = PLN("7000.0")
     val oldPpk   = com.boombustgroup.amorfati.agents.SocialSecurity.ppkStep(employed, wage)
     val flows    = PpkFlows.emit(PpkFlows.PpkInput(employed, wage))
 
@@ -29,7 +29,7 @@ class PpkFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "preserve SFC across 120 months" in {
-    val input    = PpkFlows.PpkInput(employed = 80000, wage = PLN(7000.0))
+    val input    = PpkFlows.PpkInput(employed = 80000, wage = PLN("7000.0"))
     var balances = Map.empty[Int, Long]
     (1 to 120).foreach { _ =>
       balances = Interpreter.applyAll(balances, PpkFlows.emit(input))

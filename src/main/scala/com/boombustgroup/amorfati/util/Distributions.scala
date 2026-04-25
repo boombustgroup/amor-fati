@@ -1,10 +1,11 @@
 package com.boombustgroup.amorfati.util
 
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.amorfati.fp.FixedPointBase
 
 import com.boombustgroup.amorfati.random.RandomStream
 
-/** Sampling helpers for standard distributions (Poisson, Beta, Gamma). */
+/** Sampling helpers backed by fixed-point arithmetic. */
 object Distributions:
 
   /** Sample a categorical index from non-negative fixed-point weights. */
@@ -28,52 +29,42 @@ object Distributions:
     if hi <= lo then lo
     else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
 
-  /** Sample from Poisson(lambda) using Knuth algorithm (small λ). */
-  def poissonSample(lambda: Double, rng: RandomStream): Int =
-    if lambda <= 0 then 0
+  /** Sample from Poisson(lambda) using Knuth algorithm (small lambda). */
+  def poissonSample(lambda: Scalar, rng: RandomStream): Int =
+    if lambda <= Scalar.Zero then 0
     else
-      val L = Math.exp(-lambda)
-      var k = 0
-      var p = rng.nextDouble()
-      while p > L do
+      val threshold = (-lambda.toCoefficient).exp.toLong
+      var k         = 0
+      var product   = Share.random(rng).toLong
+      while product > threshold do
         k += 1
-        p *= rng.nextDouble()
+        product = FixedPointBase.multiplyRaw(product, Share.random(rng).toLong)
       k
 
-  /** Sample from Beta(alpha, beta) using two Gamma samples. */
-  def betaSample(alpha: Double, beta: Double, rng: RandomStream): Double =
-    val x = gammaSample(alpha, rng)
-    val y = gammaSample(beta, rng)
-    if x + y > 0 then x / (x + y) else 0.5
-
-  /** Sample from Gamma(shape, 1) using Marsaglia-Tsang method. */
-  def gammaSample(shape: Double, rng: RandomStream): Double =
-    if shape < 1.0 then gammaSample(shape + 1.0, rng) * Math.pow(rng.nextDouble(), 1.0 / shape)
+  /** Beta-like share around alpha/(alpha+beta), with fixed-point bounded noise.
+    */
+  def betaSample(alpha: Coefficient, beta: Coefficient, rng: RandomStream): Share =
+    val total = alpha + beta
+    if total <= Coefficient.Zero then Share("0.5")
     else
-      val d      = shape - 1.0 / 3.0
-      val c      = 1.0 / Math.sqrt(9.0 * d)
-      var result = 0.0
-      var done   = false
-      while !done do
-        var x = rng.nextGaussian()
-        var v = 1.0 + c * x
-        while v <= 0 do
-          x = rng.nextGaussian()
-          v = 1.0 + c * x
-        v = v * v * v
-        val u = rng.nextDouble()
-        if u < 1.0 - 0.0331 * x * x * x * x then
-          result = d * v
-          done = true
-        else if Math.log(u) < 0.5 * x * x + d * (1.0 - v + Math.log(v)) then
-          result = d * v
-          done = true
-      result
+      val mean       = alpha.toScalar.ratioTo(total.toScalar).clampToShare
+      val maxStd     = mean.min(mean.complement)
+      val noiseScale = maxStd.toScalar / 3
+      Share.fromRaw((mean.toLong + gaussianNoiseRaw(noiseScale, rng)).max(Share.Zero.toLong).min(Share.One.toLong))
 
-  /** Sample a raw fixed-point Gaussian perturbation with dimensionless stddev.
+  /** Sample a raw fixed-point bell-shaped perturbation with dimensionless
+    * stddev.
     */
   def gaussianNoiseRaw(std: Scalar, rng: RandomStream): Long =
-    math.round(rng.nextGaussian() * std.toLong)
+    FixedPointBase.multiplyRaw(normalCoefficient(rng).toLong, std.toLong)
+
+  private def normalCoefficient(rng: RandomStream): Coefficient =
+    var sum = 0L
+    var i   = 0
+    while i < 12 do
+      sum += Share.random(rng).toLong
+      i += 1
+    Coefficient.fromRaw(sum - 6L * FixedPointBase.Scale)
 
   /** Sample a share around mean with Gaussian noise and clamp to bounds. */
   def gaussianShare(mean: Share, std: Scalar, lo: Share, hi: Share, rng: RandomStream): Share =
@@ -81,11 +72,11 @@ object Distributions:
 
   /** Sample a PLN value around mean with Gaussian noise and clamp to floor. */
   def gaussianPlnAtLeast(mean: PLN, std: PLN, floor: PLN, rng: RandomStream): PLN =
-    PLN.fromRaw((mean.toLong + math.round(std.toLong.toDouble * rng.nextGaussian())).max(floor.toLong))
+    PLN.fromRaw((mean + (std * normalCoefficient(rng))).max(floor).toLong)
 
   /** Sample a PLN value from a lognormal distribution. */
-  def lognormalPln(mu: Double, sigma: Double, rng: RandomStream): PLN =
-    PLN(Math.exp(mu + sigma * rng.nextGaussian()))
+  def lognormalPln(mu: Coefficient, sigma: Coefficient, rng: RandomStream): PLN =
+    PLN.fromRaw((mu + (sigma * normalCoefficient(rng))).exp.toLong)
 
   /** Sample a PLN value uniformly from [0, maxExclusive). */
   def randomPlnBelow(maxExclusive: PLN, rng: RandomStream): PLN =

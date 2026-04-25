@@ -40,23 +40,23 @@ import com.boombustgroup.amorfati.types.*
   *   portfolio outflow sensitivity to auction undersubscription
   */
 case class ForexConfig(
-    baseExRate: ExchangeRate = ExchangeRate(4.33),
-    foreignRate: Rate = Rate(0.04),
-    importPropensity: Share = Share(0.22),
-    techImportShare: Share = Share(0.40),
-    irpSensitivity: Coefficient = Coefficient(0.15),
-    exRateAdjSpeed: Coefficient = Coefficient(0.02),
+    baseExRate: ExchangeRate = ExchangeRate("4.33"),
+    foreignRate: Rate = Rate("0.04"),
+    importPropensity: Share = Share("0.22"),
+    techImportShare: Share = Share("0.40"),
+    irpSensitivity: Coefficient = Coefficient("0.15"),
+    exRateAdjSpeed: Coefficient = Coefficient("0.02"),
     // Capital flight (risk-off, carry trade)
     riskOffShockMonth: Int = 0,
-    riskOffMagnitude: Share = Share(0.10),
+    riskOffMagnitude: Share = Share("0.10"),
     riskOffDurationMonths: Int = 6,
-    carryThreshold: Rate = Rate(0.03),
-    carryAccumulationRate: Coefficient = Coefficient(0.5),
-    carryUnwindSpeed: Share = Share(0.30),
-    auctionConfidenceThreshold: Share = Share(0.90),
-    auctionOutflowSensitivity: Coefficient = Coefficient(2.0),
+    carryThreshold: Rate = Rate("0.03"),
+    carryAccumulationRate: Coefficient = Coefficient("0.5"),
+    carryUnwindSpeed: Share = Share("0.30"),
+    auctionConfidenceThreshold: Share = Share("0.90"),
+    auctionOutflowSensitivity: Coefficient = Coefficient("2.0"),
 ):
-  require(baseExRate > ExchangeRate(0.0001), s"baseExRate must be positive: $baseExRate")
+  require(baseExRate > ExchangeRate("0.0001"), s"baseExRate must be positive: $baseExRate")
   require(
     importPropensity >= Share.Zero && importPropensity <= Share.One,
     s"importPropensity must be in [0,1]: $importPropensity",

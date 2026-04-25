@@ -59,39 +59,39 @@ import com.boombustgroup.amorfati.util.Distributions
   */
 case class SocialConfig(
     // ZUS (Ustawa o systemie ubezpieczen spolecznych)
-    zusContribRate: Rate = Rate(0.1952),
-    zusEmployeeRate: Rate = Rate(0.1371), // employee portion deducted from PIT base (emerytura 9.76% + rentowe 1.5% + chorobowe 2.45%)
-    zusBasePension: PLN = PLN(3500.0),
-    zusScale: Multiplier = Multiplier(1.0),
+    zusContribRate: Rate = Rate("0.1952"),
+    zusEmployeeRate: Rate = Rate("0.1371"), // employee portion deducted from PIT base (emerytura 9.76% + rentowe 1.5% + chorobowe 2.45%)
+    zusBasePension: PLN = PLN("3500.0"),
+    zusScale: Multiplier = Multiplier("1.0"),
     // NFZ (Ustawa o swiadczeniach opieki zdrowotnej, Art. 79)
-    nfzContribRate: Rate = Rate(0.09),
-    nfzPerCapitaCost: PLN = PLN(1250.0),
-    nfzAgingElasticity: Multiplier = Multiplier(2.5),
+    nfzContribRate: Rate = Rate("0.09"),
+    nfzPerCapitaCost: PLN = PLN("1250.0"),
+    nfzAgingElasticity: Multiplier = Multiplier("2.5"),
     // PPK (Ustawa o PPK)
-    ppkEmployeeRate: Rate = Rate(0.02),
-    ppkEmployerRate: Rate = Rate(0.015),
-    ppkBondAlloc: Share = Share(0.60),
+    ppkEmployeeRate: Rate = Rate("0.02"),
+    ppkEmployerRate: Rate = Rate("0.015"),
+    ppkBondAlloc: Share = Share("0.60"),
     // Demographics (GUS 2024)
-    demRetirementRate: Rate = Rate(0.001),
-    demWorkingAgeDecline: Rate = Rate(0.002),
+    demRetirementRate: Rate = Rate("0.001"),
+    demWorkingAgeDecline: Rate = Rate("0.002"),
     demInitialRetirees: Int = 0,
     // Education (GUS LFS 2024)
-    eduShares: Vector[Share] = Vector(Share(0.08), Share(0.25), Share(0.30), Share(0.37)),
+    eduShares: Vector[Share] = Vector(Share("0.08"), Share("0.25"), Share("0.30"), Share("0.37")),
     eduSectorShares: Option[Vector[Vector[Share]]] = None,
-    eduWagePreemia: Vector[Multiplier] = Vector(Multiplier(0.70), Multiplier(0.85), Multiplier(1.00), Multiplier(1.30)),
-    eduRetrainMult: Vector[Multiplier] = Vector(Multiplier(0.67), Multiplier(0.83), Multiplier(1.00), Multiplier(1.25)),
-    eduSkillFloors: Vector[Share] = Vector(Share(0.30), Share(0.35), Share(0.45), Share(0.55)),
-    eduSkillCeilings: Vector[Share] = Vector(Share(0.75), Share(0.85), Share(0.95), Share(1.00)),
-    eduImmigShares: Vector[Share] = Vector(Share(0.15), Share(0.40), Share(0.35), Share(0.10)),
+    eduWagePreemia: Vector[Multiplier] = Vector(Multiplier("0.70"), Multiplier("0.85"), Multiplier("1.00"), Multiplier("1.30")),
+    eduRetrainMult: Vector[Multiplier] = Vector(Multiplier("0.67"), Multiplier("0.83"), Multiplier("1.00"), Multiplier("1.25")),
+    eduSkillFloors: Vector[Share] = Vector(Share("0.30"), Share("0.35"), Share("0.45"), Share("0.55")),
+    eduSkillCeilings: Vector[Share] = Vector(Share("0.75"), Share("0.85"), Share("0.95"), Share("1.00")),
+    eduImmigShares: Vector[Share] = Vector(Share("0.15"), Share("0.40"), Share("0.35"), Share("0.10")),
 ):
 
   private val defaultEduSectorShares: Vector[Vector[Share]] = Vector(
-    Vector(Share(0.02), Share(0.10), Share(0.28), Share(0.60)),
-    Vector(Share(0.08), Share(0.40), Share(0.32), Share(0.20)),
-    Vector(Share(0.06), Share(0.22), Share(0.38), Share(0.34)),
-    Vector(Share(0.02), Share(0.15), Share(0.23), Share(0.60)),
-    Vector(Share(0.03), Share(0.08), Share(0.25), Share(0.64)),
-    Vector(Share(0.15), Share(0.45), Share(0.30), Share(0.10)),
+    Vector(Share("0.02"), Share("0.10"), Share("0.28"), Share("0.60")),
+    Vector(Share("0.08"), Share("0.40"), Share("0.32"), Share("0.20")),
+    Vector(Share("0.06"), Share("0.22"), Share("0.38"), Share("0.34")),
+    Vector(Share("0.02"), Share("0.15"), Share("0.23"), Share("0.60")),
+    Vector(Share("0.03"), Share("0.08"), Share("0.25"), Share("0.64")),
+    Vector(Share("0.15"), Share("0.45"), Share("0.30"), Share("0.10")),
   )
 
   /** Draw education tier for a worker in given sector using CDF sampling. */

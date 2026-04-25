@@ -60,7 +60,7 @@ object FiscalBudget:
       bondYield: Rate = Rate.Zero,                    // lagged market yield (for lending rates)
       weightedCoupon: Rate = Rate.Zero,               // portfolio-weighted average coupon (WAM rolling model)
       publicCapitalStock: PLN = PLN.Zero,             // public capital stock accumulated from domestic capex and EU project capital
-      minWageLevel: PLN = PLN(4666.0),                // statutory minimum wage (PLN/month, GUS 2024)
+      minWageLevel: PLN = PLN("4666.0"),              // statutory minimum wage (PLN/month, GUS 2024)
       minWagePriceLevel: PriceIndex = PriceIndex.Base, // price level at last minimum wage adjustment
   )
 
@@ -131,7 +131,7 @@ object FiscalBudget:
         exciseRevenue: PLN = PLN.Zero,
         customsDutyRevenue: PLN = PLN.Zero,
         govDividendRevenue: PLN = PLN.Zero,
-        minWageLevel: PLN = PLN(4666.0),
+        minWageLevel: PLN = PLN("4666.0"),
         minWagePriceLevel: PriceIndex = PriceIndex.Base,
     ): GovState =
       GovState(

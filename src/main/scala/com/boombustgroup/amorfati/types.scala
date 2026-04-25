@@ -26,10 +26,6 @@ object types:
   export com.boombustgroup.amorfati.fp.ExchangeRateProvider.{ExchangeRate, given}
   export com.boombustgroup.amorfati.fp.ExchangeRateShockProvider.{ExchangeRateShock, given}
 
-  // Transitional compatibility only. Boundary escapes are being removed from
-  // the typed algebra and should not be treated as part of the target API.
-  export com.boombustgroup.amorfati.fp.{boundaryEscape, ComputationBoundary}
-
   import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
 
   private inline def scaledDiv(numerator: Long, denominator: Long): Long =
@@ -58,6 +54,21 @@ object types:
   // === Cross-type operations ===
   // Defined HERE where all types are opaque — compiler enforces type safety.
   // Each operation explicitly uses .toLong to access the raw value.
+
+  extension (values: IterableOnce[PLN])
+    @targetName("iterableOnceSumPln")
+    def sumPln: PLN =
+      values.iterator.foldLeft(PLN.Zero)(_ + _)
+
+  extension (values: IterableOnce[Rate])
+    @targetName("iterableOnceSumRate")
+    def sumRate: Rate =
+      values.iterator.foldLeft(Rate.Zero)(_ + _)
+
+  extension (values: IterableOnce[Share])
+    @targetName("iterableOnceSumShare")
+    def sumShare: Share =
+      values.iterator.foldLeft(Share.Zero)(_ + _)
 
   // --- PLN × typed ---
   extension (p: PLN)
@@ -169,6 +180,10 @@ object types:
     def toCoefficient: Coefficient     = Coefficient.fromRaw(s.toLong)
     @targetName("scalarClampToShare")
     def clampToShare: Share            = Share.fromRaw(scala.math.max(Share.Zero.toLong, scala.math.min(Share.One.toLong, s.toLong)))
+    @targetName("scalarCeilToInt")
+    def ceilToInt: Int                 =
+      if s.toLong <= 0L then 0
+      else checkedInt(((BigInt(s.toLong) + BigInt(FixedPointBase.Scale - 1L)) / BigInt(FixedPointBase.Scale)).toLong, "Scalar.ceilToInt")
 
   // --- Multiplier × typed ---
   extension (m: Multiplier)
@@ -273,7 +288,13 @@ object types:
       else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
 
     def withGaussianNoise(base: Share, stddev: Share, rng: RandomStream): Share =
-      val raw        = base.toLong + scala.math.round(rng.nextGaussian() * stddev.toLong)
+      var sum        = 0L
+      var i          = 0
+      while i < 12 do
+        sum += Share.random(rng).toLong
+        i += 1
+      val noiseRaw   = FixedPointBase.multiplyRaw(sum - 6L * FixedPointBase.Scale, stddev.toLong)
+      val raw        = base.toLong + noiseRaw
       val clampedRaw = scala.math.max(Share.Zero.toLong, scala.math.min(Share.One.toLong, raw))
       Share.fromRaw(clampedRaw)
 

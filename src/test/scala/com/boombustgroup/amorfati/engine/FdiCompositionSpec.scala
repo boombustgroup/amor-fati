@@ -56,7 +56,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   it should "be preserved through copy" in {
     val f  = mkFirm(TechState.Traditional(10)).copy(foreignOwned = true)
     f.foreignOwned shouldBe true
-    val f2 = f.copy(riskProfile = Share(0.6))
+    val f2 = f.copy(riskProfile = Share("0.6"))
     f2.foreignOwned shouldBe true
   }
 
@@ -73,7 +73,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   "calcPnL (via Firm.process)" should "produce profitShiftCost=0 for domestic firm" in {
     val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = false)
     val w = mkWorld()
-    val r = process(f, w, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42))
+    val r = process(f, w, Rate("0.06"), _ => true, Vector(f), RandomStream.seeded(42))
     r.profitShiftCost shouldBe PLN.Zero
   }
 
@@ -81,7 +81,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   "applyFdiFlows" should "not repatriate from domestic firm" in {
     val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = false)
-    val r = Firm.Result.zero(f, mkStocks(cash = PLN(100000.0))).copy(taxPaid = PLN(1000.0))
+    val r = Firm.Result.zero(f, mkStocks(cash = PLN("100000.0"))).copy(taxPaid = PLN("1000.0"))
     // applyFdiFlows is private, but tested through Firm.process
     // Domestic firm should have 0 repatriation regardless
     r.fdiRepatriation shouldBe PLN.Zero
@@ -89,7 +89,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
 
   it should "not repatriate from bankrupt firm" in {
     val f = mkFirm(TechState.Bankrupt(BankruptReason.Other("test"))).copy(foreignOwned = true)
-    val r = Firm.Result.zero(f, mkStocks(cash = PLN(100000.0))).copy(taxPaid = PLN(1000.0))
+    val r = Firm.Result.zero(f, mkStocks(cash = PLN("100000.0"))).copy(taxPaid = PLN("1000.0"))
     r.fdiRepatriation shouldBe PLN.Zero
   }
 
@@ -110,7 +110,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     // When FDI is enabled and firm has low cash, repatriation is capped
     val f = mkFirm(TechState.Traditional(10)).copy(foreignOwned = true)
     val w = mkWorld()
-    val r = process(f, w, Rate(0.06), _ => true, Vector(f), RandomStream.seeded(42), mkStocks(cash = PLN(100.0)))
+    val r = process(f, w, Rate("0.06"), _ => true, Vector(f), RandomStream.seeded(42), mkStocks(cash = PLN("100.0")))
     // Even with FDI enabled, cash should not go below what the base logic sets
     // With FDI disabled (default), just verify firm processes normally
     Firm.isAlive(r.firm) || !Firm.isAlive(r.firm) shouldBe true // always true, no crash
@@ -137,12 +137,12 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
   private def mkFirm(tech: TechState, sector: Int = 2): Firm.State =
     TestFirmState(
       FirmId(0),
-      PLN(50000.0),
+      PLN("50000.0"),
       PLN.Zero,
       tech,
-      Share(0.5),
+      Share("0.5"),
       Multiplier.One,
-      Share(0.5),
+      Share("0.5"),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -159,7 +159,7 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
     Generators.testWorld(
       totalPopulation = 100000,
       employed = 100000,
-      forex = OpenEconomy.ForexState(ExchangeRate(4.33), PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
+      forex = OpenEconomy.ForexState(ExchangeRate("4.33"), PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
       marketWage = p.household.baseWage,
       reservationWage = p.household.baseReservationWage,
     )
@@ -186,5 +186,5 @@ class FdiCompositionSpec extends AnyFlatSpec with Matchers:
       PLN.Zero,
     )
 
-  private def mkStocks(cash: PLN = PLN(50000.0), debt: PLN = PLN.Zero, equity: PLN = PLN.Zero): Firm.FinancialStocks =
+  private def mkStocks(cash: PLN = PLN("50000.0"), debt: PLN = PLN.Zero, equity: PLN = PLN.Zero): Firm.FinancialStocks =
     TestFirmState.financial(cash = cash, debt = debt, equityRaised = equity)

@@ -7,8 +7,8 @@ object SimParamsTestOverrides:
   val pfronDeficit: SimParams =
     SimParams.defaults.copy(
       earmarked = SimParams.defaults.earmarked.copy(
-        pfronMonthlyRevenue = PLN(1.0),
-        pfronMonthlySpending = PLN(2.0),
+        pfronMonthlyRevenue = PLN("1.0"),
+        pfronMonthlySpending = PLN("2.0"),
       ),
     )
 
