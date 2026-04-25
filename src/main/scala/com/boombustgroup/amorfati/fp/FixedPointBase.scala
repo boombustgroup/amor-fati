@@ -16,6 +16,18 @@ object FixedPointBase:
     else if quotient % 2 == 0 then quotient.toLong
     else (quotient + product.signum).toLong
 
+  /** Banker's rounding (half-even) for Long intermediate results. */
+  def bankerRound(product: Long): Long =
+    val quotient  = product / Scale
+    val remainder = product % Scale
+    val absRem    = if remainder < 0L then -remainder else remainder
+    if absRem < HalfScale then quotient
+    else
+      val sign = if product < 0L then -1L else if product > 0L then 1L else 0L
+      if absRem > HalfScale then quotient + sign
+      else if quotient % 2L == 0L then quotient
+      else quotient + sign
+
   /** Parse a decimal literal into the shared fixed-point raw scale. */
   def parseDecimal(value: String): Long =
     (BigDecimal(value.replace("_", "")) * ScaleDecimal).setScale(0, BigDecimal.RoundingMode.HALF_EVEN).toLongExact
@@ -49,40 +61,18 @@ object FixedPointBase:
     * values.
     */
   def divideRaw(dividend: Long, divisor: Long): Long =
-    if divisor == 0L then 0L
-    else
-      val dividendBig    = BigInt(dividend)
-      val divisorBig     = BigInt(divisor)
-      val quotient       = dividendBig / divisorBig
-      val remainder      = (dividendBig % divisorBig).abs
-      val divisorAbs     = divisorBig.abs
-      val twiceRemainder = remainder * 2
-      if twiceRemainder < divisorAbs then quotient.toLong
-      else
-        val resultSign = dividendBig.signum * divisorBig.signum
-        if twiceRemainder > divisorAbs then (quotient + resultSign).toLong
-        else if quotient % 2 == 0 then quotient.toLong
-        else (quotient + resultSign).toLong
+    roundedDivRaw(dividend, divisor)
 
   /** Fixed-point division: `(numerator / denominator) * Scale`. */
   def ratioRaw(numerator: Long, denominator: Long): Long =
     if denominator == 0L then 0L
     else
-      val scaled         = BigInt(numerator) * ScaleBig
-      val den            = BigInt(denominator)
-      val quotient       = scaled / den
-      val remainder      = (scaled % den).abs
-      val denominatorAbs = den.abs
-      val twiceRemainder = remainder * 2
-      if twiceRemainder < denominatorAbs then quotient.toLong
-      else
-        val resultSign = scaled.signum * den.signum
-        if twiceRemainder > denominatorAbs then (quotient + resultSign).toLong
-        else if quotient % 2 == 0 then quotient.toLong
-        else (quotient + resultSign).toLong
+      try roundedDivRaw(java.lang.Math.multiplyExact(numerator, Scale), denominator)
+      catch case _: ArithmeticException => roundedDivBig(BigInt(numerator) * ScaleBig, BigInt(denominator))
 
   def multiplyRaw(left: Long, right: Long): Long =
-    bankerRound(BigInt(left) * BigInt(right))
+    try bankerRound(java.lang.Math.multiplyExact(left, right))
+    catch case _: ArithmeticException => bankerRound(BigInt(left) * BigInt(right))
 
   def reciprocalRaw(raw: Long): Long =
     if raw == 0L then 0L else ratioRaw(Scale, raw)
@@ -102,7 +92,21 @@ object FixedPointBase:
 
   def sqrtRaw(raw: Long): Long =
     if raw <= 0L then 0L
-    else integerSqrt(BigInt(raw) * ScaleBig).toLong
+    else
+      try integerSqrtLong(java.lang.Math.multiplyExact(raw, Scale))
+      catch case _: ArithmeticException => integerSqrt(BigInt(raw) * ScaleBig).toLong
+
+  private def integerSqrtLong(n: Long): Long =
+    var lo     = 1L
+    var hi     = math.min(n, 3037000499L)
+    var result = 0L
+    while lo <= hi do
+      val mid = (lo + hi) >>> 1
+      if mid <= n / mid then
+        result = mid
+        lo = mid + 1L
+      else hi = mid - 1L
+    result
 
   private def integerSqrt(n: BigInt): BigInt =
     if n <= 0 then BigInt(0)
@@ -113,3 +117,35 @@ object FixedPointBase:
         x = y
         y = (x + n / x) >> 1
       x
+
+  private def roundedDivRaw(dividend: Long, divisor: Long): Long =
+    if divisor == 0L then 0L
+    else if divisor == Long.MinValue || (dividend == Long.MinValue && divisor == -1L) then roundedDivBig(BigInt(dividend), BigInt(divisor))
+    else
+      val quotient     = dividend / divisor
+      val remainder    = dividend % divisor
+      val absRemainder = if remainder < 0L then -remainder else remainder
+      val absDivisor   = if divisor < 0L then -divisor else divisor
+      if absRemainder > Long.MaxValue / 2L then roundedDivBig(BigInt(dividend), BigInt(divisor))
+      else
+        val twiceRemainder = absRemainder * 2L
+        if twiceRemainder < absDivisor then quotient
+        else
+          val resultSign = if (dividend < 0L) == (divisor < 0L) then 1L else -1L
+          if twiceRemainder > absDivisor then quotient + resultSign
+          else if quotient % 2L == 0L then quotient
+          else quotient + resultSign
+
+  private def roundedDivBig(dividend: BigInt, divisor: BigInt): Long =
+    if divisor == 0 then 0L
+    else
+      val quotient       = dividend / divisor
+      val remainder      = (dividend % divisor).abs
+      val divisorAbs     = divisor.abs
+      val twiceRemainder = remainder * 2
+      if twiceRemainder < divisorAbs then quotient.toLong
+      else
+        val resultSign = dividend.signum * divisor.signum
+        if twiceRemainder > divisorAbs then (quotient + resultSign).toLong
+        else if quotient % 2 == 0 then quotient.toLong
+        else (quotient + resultSign).toLong

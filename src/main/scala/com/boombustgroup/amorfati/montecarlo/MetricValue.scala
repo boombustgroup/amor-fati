@@ -20,7 +20,7 @@ object MetricValue:
     else fromRaw(FixedPointBase.ratioRaw(num.toLong * FixedPointBase.Scale, den.toLong * FixedPointBase.Scale))
 
   def secondsFromMillis(millis: Long): MetricValue =
-    fromRaw(((BigInt(millis) * BigInt(FixedPointBase.Scale)) / BigInt(1000L)).toLong)
+    fromRaw(FixedPointBase.ratioRaw(millis, 1000L))
 
   def fromInt(value: Int): MetricValue         = MetricValue(value)
   def fromLong(value: Long): MetricValue       = MetricValue(value)

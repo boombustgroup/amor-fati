@@ -26,7 +26,7 @@ object CoefficientProvider:
     def abs: Coefficient                      = math.abs(c)
     def +(other: Coefficient): Coefficient    = c + other
     def -(other: Coefficient): Coefficient    = c - other
-    def *(other: Coefficient): Coefficient    = bankerRound(BigInt(c) * BigInt(other))
+    def *(other: Coefficient): Coefficient    = multiplyRaw(c, other)
     def max(other: Coefficient): Coefficient  = math.max(c, other)
     def min(other: Coefficient): Coefficient  = math.min(c, other)
     def exp: Multiplier                       = Multiplier.fromRaw(FixedPointMath.expRaw(c))

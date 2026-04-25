@@ -25,7 +25,7 @@ object MultiplierProvider:
     def abs: Multiplier                                   = math.abs(m)
     def +(other: Multiplier): Multiplier                  = m + other
     def -(other: Multiplier): Multiplier                  = m - other
-    def *(other: Multiplier): Multiplier                  = bankerRound(BigInt(m) * BigInt(other))
+    def *(other: Multiplier): Multiplier                  = multiplyRaw(m, other)
     def /(other: Multiplier): ScalarProvider.Scalar       = ScalarProvider.Scalar.fromRaw(ratioRaw(m, other))
     def pow(exponent: ScalarProvider.Scalar): Multiplier  = Multiplier.fromRaw(FixedPointMath.powRaw(m, exponent.toLong))
     def max(other: Multiplier): Multiplier                = math.max(m, other)

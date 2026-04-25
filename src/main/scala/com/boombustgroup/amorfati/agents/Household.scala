@@ -9,7 +9,7 @@ import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
 
-import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
+import com.boombustgroup.amorfati.fp.FixedPointBase
 
 // ---- Top-level types (widely referenced, kept flat) ----
 
@@ -53,7 +53,7 @@ object Household:
   private inline def scaledDivRaw(numerator: BigInt, denominator: BigInt): Long =
     if denominator == 0 then 0L
     else
-      val scaled         = numerator * BigInt(com.boombustgroup.amorfati.fp.FixedPointBase.Scale)
+      val scaled         = numerator * BigInt(FixedPointBase.Scale)
       val quotient       = scaled / denominator
       val remainder      = (scaled % denominator).abs
       val denominatorAbs = denominator.abs
@@ -971,8 +971,9 @@ object Household:
     var nUnemployed  = 0
     var nRetraining  = 0
     var nBankrupt    = 0
-    var sumSkill     = BigInt(0)
-    var sumHealth    = BigInt(0)
+    var sumSkill     = 0L
+    var sumHealth    = 0L
+    var sumSavings   = 0L
     val incomes      = new Array[Long](n)
     val consumptions = new Array[Long](n)
     val savingsArr   = new Array[Long](n)
@@ -987,18 +988,18 @@ object Household:
         case HhStatus.Employed(_, _, wage) =>
           nEmployed += 1
           incomes(i) = wage.toLong
-          sumSkill += BigInt(hh.skill.toLong)
-          sumHealth += BigInt(hh.healthPenalty.toLong)
+          sumSkill += hh.skill.toLong
+          sumHealth += hh.healthPenalty.toLong
         case HhStatus.Unemployed(months)   =>
           nUnemployed += 1
           incomes(i) = computeBenefit(months).toLong
-          sumSkill += BigInt(hh.skill.toLong)
-          sumHealth += BigInt(hh.healthPenalty.toLong)
+          sumSkill += hh.skill.toLong
+          sumHealth += hh.healthPenalty.toLong
         case HhStatus.Retraining(_, _, _)  =>
           nRetraining += 1
           incomes(i) = 0L
-          sumSkill += BigInt(hh.skill.toLong)
-          sumHealth += BigInt(hh.healthPenalty.toLong)
+          sumSkill += hh.skill.toLong
+          sumHealth += hh.healthPenalty.toLong
         case HhStatus.Bankrupt             =>
           nBankrupt += 1
           incomes(i) = 0L
@@ -1006,8 +1007,9 @@ object Household:
       val rentRaw       = hh.monthlyRent.toLong
       val debtSvcRaw    = (stocks.mortgageLoan * p.household.debtServiceRate).toLong
       val disposableRaw = math.max(0L, incomes(i) - rentRaw - debtSvcRaw)
-      consumptions(i) = bankerRound(BigInt(disposableRaw) * BigInt(hh.mpc.toLong))
+      consumptions(i) = FixedPointBase.multiplyRaw(disposableRaw, hh.mpc.toLong)
       savingsArr(i) = stocks.demandDeposit.toLong
+      sumSavings += savingsArr(i)
       i += 1
 
     val nAlive = n - nBankrupt
@@ -1037,13 +1039,13 @@ object Household:
       reservationWage = reservationWage,
       giniIndividual = giniSorted(incomes),
       giniWealth = giniSorted(savingsArr),
-      meanSavings = if n > 0 then PLN.fromRaw((savingsArr.foldLeft(BigInt(0))((acc, raw) => acc + raw) / n).toLong) else PLN.Zero,
+      meanSavings = if n > 0 then PLN.fromRaw(sumSavings / n) else PLN.Zero,
       medianSavings = if n > 0 then PLN.fromRaw(savingsArr(n / 2)) else PLN.Zero,
       povertyRate50 =
         if n > 0 && medianIncomeRaw > 0L then Share.fraction(lowerBound(incomes, (PLN.fromRaw(medianIncomeRaw) * PovertyRate50Pct).toLong), n) else Share.Zero,
       bankruptcyRate = if n > 0 then Share.fraction(nBankrupt, n) else Share.Zero,
-      meanSkill = if nAlive > 0 then Share.fromRaw((sumSkill / nAlive).toLong) else Share.Zero,
-      meanHealthPenalty = if nAlive > 0 then Share.fromRaw((sumHealth / nAlive).toLong) else Share.Zero,
+      meanSkill = if nAlive > 0 then Share.fromRaw(sumSkill / nAlive) else Share.Zero,
+      meanHealthPenalty = if nAlive > 0 then Share.fromRaw(sumHealth / nAlive) else Share.Zero,
       retrainingAttempts = t.retrainingAttempts,
       retrainingSuccesses = t.retrainingSuccesses,
       consumptionP10 =
@@ -1074,17 +1076,39 @@ object Household:
   /** Gini coefficient for a pre-sorted array (handles negatives by shifting).
     */
   def giniSorted(sorted: Array[Long]): Share =
+    try giniSortedLong(sorted)
+    catch case _: ArithmeticException => giniSortedBig(sorted)
+
+  private def giniSortedLong(sorted: Array[Long]): Share =
     val n           = sorted.length
     if n <= 1 then return Share.Zero
     val minVal      = sorted(0)
+    if minVal == Long.MinValue then throw new ArithmeticException("gini shift overflows Long")
     val shift       = if minVal < 0L then -minVal else 0L
+    var total       = 0L
+    var weightedSum = 0L
+    var i           = 0
+    while i < n do
+      val v      = java.lang.Math.addExact(sorted(i), shift)
+      total = java.lang.Math.addExact(total, v)
+      val weight = 2L * (i.toLong + 1L) - n.toLong - 1L
+      weightedSum = java.lang.Math.addExact(weightedSum, java.lang.Math.multiplyExact(weight, v))
+      i += 1
+    if total <= 0L then Share.Zero
+    else Share.fromRaw(FixedPointBase.ratioRaw(weightedSum, java.lang.Math.multiplyExact(n.toLong, total)))
+
+  private def giniSortedBig(sorted: Array[Long]): Share =
+    val n           = sorted.length
+    if n <= 1 then return Share.Zero
+    val minVal      = sorted(0)
+    val shift       = if minVal < 0L then BigInt(minVal).abs else BigInt(0)
     var total       = BigInt(0)
     var weightedSum = BigInt(0)
     var i           = 0
     while i < n do
-      val v = BigInt(sorted(i) + shift)
+      val v = BigInt(sorted(i)) + shift
       total += v
-      weightedSum += BigInt(2 * (i + 1) - n - 1) * v
+      weightedSum += BigInt(2L * (i.toLong + 1L) - n.toLong - 1L) * v
       i += 1
     if total <= 0 then Share.Zero else Share.fromRaw(scaledDivRaw(weightedSum, BigInt(n) * total))
 

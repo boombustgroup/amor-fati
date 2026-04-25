@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
+import com.boombustgroup.amorfati.fp.FixedPointBase
 import com.boombustgroup.amorfati.types.*
 
 /** National Bank of Poland: Taylor rule, bond yield, QE, FX intervention. */
@@ -249,10 +249,10 @@ object Nbp:
         val tradeMagnitude = if direction < 0 then maxByReserves.min(reserves) else maxByReserves
         val eurTraded      = if direction < 0 then -tradeMagnitude else tradeMagnitude
         val newReserves    = (reserves + eurTraded).max(PLN.Zero)
-        val tradedPlnValue = PLN.fromRaw(bankerRound(BigInt(eurTraded.abs.toLong) * BigInt(prevER.toLong)))
+        val tradedPlnValue = PLN.fromRaw(FixedPointBase.multiplyRaw(eurTraded.abs.toLong, prevER.toLong))
         val gdpEffect      = if gdp > PLN.Zero then tradedPlnValue.ratioTo(gdp) else Scalar.Zero
         val unsignedShock  = ExchangeRateShock.fromRaw((gdpEffect * p.monetary.fxStrength).toLong)
         val erShock        = if direction < 0 then -unsignedShock else unsignedShock
         // PLN injection: EUR purchase → NBP pays PLN to banks (+), EUR sale → banks pay PLN to NBP (−)
-        val plnInjection   = PLN.fromRaw(bankerRound(BigInt(eurTraded.toLong) * BigInt(prevER.toLong)))
+        val plnInjection   = PLN.fromRaw(FixedPointBase.multiplyRaw(eurTraded.toLong, prevER.toLong))
         FxInterventionResult(erShock, eurTraded, newReserves, plnInjection)

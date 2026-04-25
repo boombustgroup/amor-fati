@@ -16,20 +16,7 @@ object ScalarProvider:
     def apply(value: Long): Scalar                                       = fromRaw(value * Scale)
     def fromRaw(raw: Long): Scalar                                       = raw
     def fraction(num: Int, den: Int): Scalar                             =
-      if den == 0 then Zero
-      else
-        val scaled         = BigInt(num.toLong) * BigInt(Scale)
-        val denominator    = BigInt(den.toLong)
-        val quotient       = scaled / denominator
-        val remainder      = (scaled % denominator).abs
-        val denominatorAbs = denominator.abs
-        val twiceRemainder = remainder * 2
-        if twiceRemainder < denominatorAbs then quotient.toLong
-        else
-          val resultSign = scaled.signum * denominator.signum
-          if twiceRemainder > denominatorAbs then (quotient + resultSign).toLong
-          else if quotient % 2 == 0 then quotient.toLong
-          else (quotient + resultSign).toLong
+      if den == 0 then Zero else fromRaw(ratioRaw(num.toLong, den.toLong))
     def randomBetween(lo: Scalar, hi: Scalar, rng: RandomStream): Scalar =
       if hi <= lo then lo
       else Scalar.fromRaw(rng.between(lo.toLong, hi.toLong))
@@ -40,38 +27,12 @@ object ScalarProvider:
     def abs: Scalar                           = math.abs(s)
     def +(other: Scalar): Scalar              = s + other
     def -(other: Scalar): Scalar              = s - other
-    def *(other: Scalar): Scalar              = bankerRound(BigInt(s) * BigInt(other))
+    def *(other: Scalar): Scalar              = multiplyRaw(s, other)
     def /(n: Int): Scalar                     = Scalar.fromRaw(divideRaw(s, n.toLong))
     def ratioTo(other: Scalar): Scalar        =
-      if other == 0L then Scalar.Zero
-      else
-        val scaled         = BigInt(s) * BigInt(Scale)
-        val denominator    = BigInt(other)
-        val quotient       = scaled / denominator
-        val remainder      = (scaled % denominator).abs
-        val denominatorAbs = denominator.abs
-        val twiceRemainder = remainder * 2
-        if twiceRemainder < denominatorAbs then Scalar.fromRaw(quotient.toLong)
-        else
-          val resultSign = scaled.signum * denominator.signum
-          if twiceRemainder > denominatorAbs then Scalar.fromRaw((quotient + resultSign).toLong)
-          else if quotient % 2 == 0 then Scalar.fromRaw(quotient.toLong)
-          else Scalar.fromRaw((quotient + resultSign).toLong)
+      if other == 0L then Scalar.Zero else Scalar.fromRaw(ratioRaw(s, other))
     def reciprocal: Scalar                    =
-      if s == 0L then Scalar.Zero
-      else
-        val scaled         = BigInt(Scale) * BigInt(Scale)
-        val denominator    = BigInt(s)
-        val quotient       = scaled / denominator
-        val remainder      = (scaled % denominator).abs
-        val denominatorAbs = denominator.abs
-        val twiceRemainder = remainder * 2
-        if twiceRemainder < denominatorAbs then Scalar.fromRaw(quotient.toLong)
-        else
-          val resultSign = scaled.signum * denominator.signum
-          if twiceRemainder > denominatorAbs then Scalar.fromRaw((quotient + resultSign).toLong)
-          else if quotient % 2 == 0 then Scalar.fromRaw(quotient.toLong)
-          else Scalar.fromRaw((quotient + resultSign).toLong)
+      if s == 0L then Scalar.Zero else Scalar.fromRaw(ratioRaw(Scale, s))
     def pow(exponent: Int): Scalar            = Scalar.fromRaw(powIntRaw(s, exponent))
     def pow(exponent: Scalar): Scalar         = Scalar.fromRaw(FixedPointMath.powRaw(s, exponent.toLong))
     def log10: Scalar                         =

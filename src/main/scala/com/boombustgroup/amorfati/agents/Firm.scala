@@ -3,7 +3,7 @@ package com.boombustgroup.amorfati.agents
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.{OperationalSignals, World}
-import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
+import com.boombustgroup.amorfati.fp.FixedPointBase
 import com.boombustgroup.amorfati.types.*
 
 import com.boombustgroup.amorfati.random.RandomStream
@@ -386,7 +386,7 @@ object Firm:
         Math.max(workers, liquidityConstrained)
 
   private[amorfati] def applyOperationalHiringSlack(rawTarget: Int, minWorkers: Int, slackFactor: Multiplier): Int =
-    Math.max(minWorkers, bankerRound(BigInt(rawTarget.toLong) * BigInt(slackFactor.clamp(Multiplier.Zero, Multiplier.One).toLong)).toInt)
+    Math.max(minWorkers, FixedPointBase.multiplyRaw(rawTarget.toLong, slackFactor.clamp(Multiplier.Zero, Multiplier.One).toLong).toInt)
 
   private[amorfati] def hiringDiagnostics(
       firm: State,
@@ -549,7 +549,7 @@ object Firm:
       if firm.stateOwned then (p.firm.laborAdjustSpeed * StateOwned.firingReduction).toLong
       else if isInStartup(firm) then (p.firm.laborAdjustSpeed * Multiplier(StartupDownsizeSpeedMultiplier)).toLong
       else p.firm.laborAdjustSpeed.toLong
-    val cut                 = Math.max(1, bankerRound(BigInt(gap.toLong) * BigInt(cutSpeedRaw)).toInt)
+    val cut                 = Math.max(1, FixedPointBase.multiplyRaw(gap.toLong, cutSpeedRaw).toInt)
     val newWkrs             = Math.max(minRetained, workers - cut)
     // Severance cost = fired workers × wage × severanceMonths
     val fired               = workers - newWkrs

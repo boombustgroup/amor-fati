@@ -20,7 +20,7 @@ object PriceIndexProvider:
     inline def toLong: Long                   = p
     def +(other: PriceIndex): PriceIndex      = p + other
     def -(other: PriceIndex): PriceIndex      = p - other
-    def *(other: PriceIndex): PriceIndex      = bankerRound(BigInt(p) * BigInt(other))
+    def *(other: PriceIndex): PriceIndex      = multiplyRaw(p, other)
     def /(other: PriceIndex): Scalar          = Scalar.fromRaw(ratioRaw(p, other))
     def max(other: PriceIndex): PriceIndex    = math.max(p, other)
     def min(other: PriceIndex): PriceIndex    = math.min(p, other)
