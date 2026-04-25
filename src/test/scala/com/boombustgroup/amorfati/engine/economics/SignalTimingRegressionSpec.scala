@@ -338,6 +338,26 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     explicitResult.perBankWorkers should not be bridgedResult.perBankWorkers
   }
 
+  it should "price Calvo markups from same-month sector demand pressure even when sector demand multipliers are capped" in {
+    val cappedDemand = multiplierVector(1.0)
+    val weakSignals  = baseOperationalSignals.copy(
+      sectorDemandMult = cappedDemand,
+      sectorDemandPressure = multiplierVector(1.0),
+      sectorHiringSignal = cappedDemand,
+    )
+    val hotSignals   = weakSignals.copy(
+      sectorDemandPressure = multiplierVector(1.6),
+    )
+
+    val weakResult = baseFirmRunStep(baseline.world, weakSignals, seed = 9011L)
+    val hotResult  = baseFirmRunStep(baseline.world, hotSignals, seed = 9011L)
+    val weakById   = weakResult.ioFirms.map(f => f.id -> f.markup).toMap
+    val hotById    = hotResult.ioFirms.map(f => f.id -> f.markup).toMap
+
+    hotResult.markupInflation should be > weakResult.markupInflation
+    hotById.keySet.intersect(weakById.keySet).count(id => hotById(id) > weakById(id)) should be > 0
+  }
+
   "BankingEconomics.runStep" should "remain insensitive to stale persisted demand signals when stage outputs are supplied" in {
     val staleWorld       = withSeedSignals(
       baseline.world,

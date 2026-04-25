@@ -46,16 +46,16 @@ object CalvoPricing:
   /** Compute optimal markup for a firm that resets its price.
     *
     * markup = baseMarkup × (1 + demandPressure × sensitivity) where
-    * demandPressure = (sectorDemandMult − 1)
+    * demandPressure = (sectorDemandPressure − 1)
     *
     * Clamped to [minMarkup, maxMarkup] to prevent extreme pricing.
     */
   private[amorfati] def optimalMarkup(
-      sectorDemandMult: Multiplier,
+      sectorDemandPressure: Multiplier,
       wageGrowthMonthly: Coefficient,
       energyPressure: Coefficient,
   )(using p: SimParams): Multiplier =
-    val demandPressure = ((sectorDemandMult - Multiplier.One).max(Multiplier.Zero).toScalar * p.pricing.demandSensitivity.toScalar).toCoefficient
+    val demandPressure = ((sectorDemandPressure - Multiplier.One).max(Multiplier.Zero).toScalar * p.pricing.demandSensitivity.toScalar).toCoefficient
     val costPressure   = (wageGrowthMonthly.max(Coefficient.Zero).toScalar * p.pricing.costPassthrough.toScalar).toCoefficient
     val energyMarkup   = energyPressure.max(Coefficient.Zero)
     val boundedDemand  = demandPressure.min(MaxDemandMarkupLift)
@@ -84,12 +84,12 @@ object CalvoPricing:
     */
   def updateFirmMarkup(
       currentMarkup: Multiplier,
-      sectorDemandMult: Multiplier,
+      sectorDemandPressure: Multiplier,
       wageGrowthMonthly: Coefficient,
       energyPressure: Coefficient,
       rng: RandomStream,
   )(using p: SimParams): FirmMarkupResult =
-    if p.pricing.calvoTheta.sampleBelow(rng) then FirmMarkupResult(optimalMarkup(sectorDemandMult, wageGrowthMonthly, energyPressure), priceChanged = true)
+    if p.pricing.calvoTheta.sampleBelow(rng) then FirmMarkupResult(optimalMarkup(sectorDemandPressure, wageGrowthMonthly, energyPressure), priceChanged = true)
     else FirmMarkupResult(currentMarkup, priceChanged = false)
 
   /** Compute aggregate inflation adjustment from markup dynamics.

@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.economics
 
+import com.boombustgroup.amorfati.TestHouseholdState
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
@@ -60,6 +61,29 @@ class BankingEconomicsSpec extends AnyFlatSpec with Matchers:
     )
 
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)).shouldBe(0L)
+  }
+
+  it should "realign consumer-loan book distribution to household bank routing without changing the aggregate stock" in {
+    val households        = Vector(
+      TestHouseholdState(id = HhId(0), skill = Share(0.7), mpc = Share(0.8), status = HhStatus.Unemployed(0), bankId = BankId(0)),
+      TestHouseholdState(id = HhId(1), skill = Share(0.7), mpc = Share(0.8), status = HhStatus.Unemployed(0), bankId = BankId(2)),
+    )
+    val householdBalances = Vector(
+      LedgerFinancialState.HouseholdBalances(demandDeposit = PLN.Zero, mortgageLoan = PLN.Zero, consumerLoan = PLN(20.0), equity = PLN.Zero),
+      LedgerFinancialState.HouseholdBalances(demandDeposit = PLN.Zero, mortgageLoan = PLN.Zero, consumerLoan = PLN(80.0), equity = PLN.Zero),
+    )
+    val bankStocks        = Vector(
+      initBank(0, deposits = PLN.Zero, reserves = PLN.Zero)._2.copy(consumerLoan = PLN(50.0)),
+      initBank(1, deposits = PLN.Zero, reserves = PLN.Zero)._2.copy(consumerLoan = PLN(50.0)),
+      initBank(2, deposits = PLN.Zero, reserves = PLN.Zero)._2.copy(consumerLoan = PLN.Zero),
+    )
+
+    val aligned = BankingEconomics.alignConsumerLoanBookToHouseholdRouting(households, householdBalances, bankStocks)
+
+    aligned.map(_.consumerLoan).sum shouldBe bankStocks.map(_.consumerLoan).sum
+    aligned(0).consumerLoan shouldBe PLN(20.0)
+    aligned(1).consumerLoan shouldBe PLN.Zero
+    aligned(2).consumerLoan shouldBe PLN(80.0)
   }
 
   it should "read JST cash opening stocks from LedgerFinancialState" in {

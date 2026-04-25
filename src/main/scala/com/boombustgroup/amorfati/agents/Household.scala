@@ -686,8 +686,12 @@ object Household:
     else resolveSurvival(f, sectorWages, sectorVacancies, rng, distressMonths)
 
   /** Bankruptcy branch: write off consumer debt, zero equity. */
-  private def resolveBankruptcy(f: MonthlyFlows, distressMonths: Int)(using p: SimParams): HhMonthlyResult =
-    val ccDefaultAmt  = f.financialStocks.consumerLoan * (Rate(1.0) - p.household.ccAmortRate) + f.credit.newLoan
+  private def resolveBankruptcy(f: MonthlyFlows, distressMonths: Int): HhMonthlyResult =
+    // Consumer credit stock is reduced earlier by the same-month debt-service
+    // amount carried in credit.updatedDebt. Default the remaining balance, not
+    // a principal-only reconstruction, so bankruptcy stays aligned with the
+    // stock identity used by BankingEconomics/SFC.
+    val ccDefaultAmt  = f.credit.updatedDebt
     val creditWithDef = f.credit.copy(defaultAmt = ccDefaultAmt, updatedDebt = PLN.Zero)
     val financial     = FinancialStocks(
       demandDeposit = f.newSavings,

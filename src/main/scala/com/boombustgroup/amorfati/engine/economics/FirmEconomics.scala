@@ -219,7 +219,7 @@ object FirmEconomics:
     val intermediate        = applyIntermediateMarket(bonded.firms, bonded.financialStocks, stepIn)
     // Calvo staggered pricing: per-firm markup update
     val calvoFirms          = intermediate.firms.map: f =>
-      val sectorMult         = stepIn.s4.sectorMults(f.sector.toInt)
+      val sectorPressure     = stepIn.s4.sectorDemandPressure(f.sector.toInt)
       val passthrough        =
         if f.stateOwned then StateOwned.effectiveEnergyPassthrough(f.sector.toInt)
         else Share.One
@@ -229,7 +229,7 @@ object FirmEconomics:
           p.climate.energyCostShares(f.sector.toInt),
           passthrough,
         )
-      val calvo              = CalvoPricing.updateFirmMarkup(f.markup, sectorMult, stepIn.s2.wageGrowth, energyCostPressure, rng)
+      val calvo              = CalvoPricing.updateFirmMarkup(f.markup, sectorPressure, stepIn.s2.wageGrowth, energyCostPressure, rng)
       f.copy(markup = calvo.newMarkup)
     val laborMarket         = processLaborMarket(calvoFirms, stepIn, rng)
     val npl                 = computeNplAndInterest(

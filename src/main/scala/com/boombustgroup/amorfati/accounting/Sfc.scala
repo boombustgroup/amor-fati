@@ -332,7 +332,7 @@ object Sfc:
     *      (trivially 0 when RE disabled)
     *   7. Flow-of-funds: Σ firmRevenue = domesticCons + govPurchases +
     *      investDemand + exports (closes by construction)
-    *   8. Consumer credit: Δ consumerLoans = origination - principalRepaid -
+    *   8. Consumer credit: Δ consumerLoans = origination - debtService -
     *      defaultAmount
     *   9. Corp bond stock: Δ corpBondsOutstanding = issuance - amortization -
     *      defaultAmount

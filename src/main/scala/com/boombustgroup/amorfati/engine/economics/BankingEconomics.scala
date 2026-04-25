@@ -418,6 +418,44 @@ object BankingEconomics:
       in.s5.sumGreenInvestment * (Share.One - p.climate.greenImportShare)
     in.s4.laggedInvestDemand - currentInvestDomestic
 
+  /** Re-distribute the opening unsecured consumer-loan book across banks using
+    * the current household bank routing as weights, while preserving the exact
+    * aggregate stock.
+    *
+    * The model has a single household `bankId` reused for origination, debt
+    * service, and default routing. Deposit mobility / bank reassignment can
+    * change that routing key without changing the aggregate unsecured loan
+    * stock. If we leave the historical per-bank book untouched, a bank can end
+    * up receiving more consumer-loan outflows than the stock it still carries,
+    * forcing per-bank zero clipping and eventually breaking aggregate SFC
+    * exactness. This helper keeps the aggregate book constant but rebalances
+    * its distribution to the routing key used by the current-month household
+    * flows.
+    */
+  private[economics] def alignConsumerLoanBookToHouseholdRouting(
+      households: Vector[Household.State],
+      householdBalances: Vector[LedgerFinancialState.HouseholdBalances],
+      bankStocks: Vector[Banking.BankFinancialStocks],
+  ): Vector[Banking.BankFinancialStocks] =
+    require(
+      households.length == householdBalances.length,
+      s"BankingEconomics.alignConsumerLoanBookToHouseholdRouting requires aligned households and balances, got ${households.length} households and ${householdBalances.length} balance rows",
+    )
+    val totalBook = bankStocks.map(_.consumerLoan).sum
+    if bankStocks.isEmpty || totalBook <= PLN.Zero then bankStocks
+    else
+      val bankWeights = Array.fill(bankStocks.length)(0L)
+      households
+        .zip(householdBalances)
+        .foreach: (hh, balances) =>
+          val bankIndex = hh.bankId.toInt
+          if bankIndex >= 0 && bankIndex < bankWeights.length && balances.consumerLoan > PLN.Zero then
+            bankWeights(bankIndex) += balances.consumerLoan.distributeRaw
+      if !bankWeights.exists(_ > 0L) then bankStocks
+      else
+        val redistributed = Distribute.distribute(totalBook.distributeRaw, bankWeights).map(PLN.fromRaw).toVector
+        bankStocks.zip(redistributed).map((stocks, consumerLoan) => stocks.copy(consumerLoan = consumerLoan))
+
   /** Recompute household aggregates from final households. */
   private def computeHhAgg(in: StepInput)(using SimParams): Household.Aggregates =
     Household.computeAggregates(
@@ -639,7 +677,20 @@ object BankingEconomics:
       wf: BondWaterfallInputs,
   )(using p: SimParams): MultiBankResult =
     val banks               = in.banks
-    val bankStocks          = in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)
+    val openingBankStocks   = in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)
+    // We keep the opening bank-side consumer-loan stock but realign it to the
+    // current household routing keys and household-level consumer-loan balances
+    // carried into s5. This assumes no stage between the opening ledger snapshot
+    // and s5 mutates household consumerLoan principal; only routing may drift.
+    val bankStocks          = alignConsumerLoanBookToHouseholdRouting(
+      in.s5.households,
+      in.s5.ledgerFinancialState.households,
+      openingBankStocks,
+    )
+    require(
+      bankStocks.map(_.consumerLoan).sum == openingBankStocks.map(_.consumerLoan).sum,
+      "BankingEconomics consumer-loan realignment must preserve the aggregate opening bank loan book",
+    )
     val perBankReserveInt   = Banking.computeReserveInterest(banks, bankStocks, in.w.nbp.referenceRate)
     val perBankStandingFac  = Banking.computeStandingFacilities(banks, bankStocks, in.w.nbp.referenceRate)
     val perBankInterbankInt = Banking.interbankInterestFlows(banks, bankStocks, in.w.bankingSector.interbankRate)
