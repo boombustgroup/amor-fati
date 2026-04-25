@@ -26,6 +26,21 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   it should "return positive value at startMonth" in
     EuFunds.monthlyTransfer(ExecutionMonth(p.fiscal.euFundsStartMonth)).should(be > PLN.Zero)
 
+  it should "scale the default total envelope without overflowing" in {
+    val totalPln = EuFundsMath.totalEnvelopePln(p.fiscal.euFundsTotalEur, p.forex.baseExRate, p.pop.firmsCount, 10000)
+
+    totalPln should be > PLN.Zero
+    decimal(totalPln) shouldBe BigDecimal("329080000000.0") +- BigDecimal("1.0")
+  }
+
+  it should "never produce negative transfers during the configured absorption period" in {
+    val transfers = (p.fiscal.euFundsStartMonth until p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths)
+      .map(month => EuFunds.monthlyTransfer(ExecutionMonth(month)))
+
+    transfers.foreach(_ should be >= PLN.Zero)
+    transfers.exists(_ > PLN.Zero) shouldBe true
+  }
+
   it should "return 0 after startMonth + periodMonths" in {
     val afterEnd = p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths + 1
     EuFunds.monthlyTransfer(ExecutionMonth(afterEnd)).shouldBe(PLN.Zero)

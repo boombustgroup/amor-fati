@@ -82,6 +82,14 @@ object FixedPointBase:
     try bankerRound(java.lang.Math.multiplyExact(left, right))
     catch case _: ArithmeticException => bankerRound(BigInt(left) * BigInt(right))
 
+  /** Scale an already-fixed-point raw value by an integer ratio without losing
+    * ordering to intermediate Long overflow.
+    */
+  def scaleRawByRatio(raw: Long, numerator: Long, denominator: Long): Long =
+    require(denominator != 0L, "denominator must be non-zero")
+    try roundedDivRaw(java.lang.Math.multiplyExact(raw, numerator), denominator)
+    catch case _: ArithmeticException => roundedDivBig(BigInt(raw) * BigInt(numerator), BigInt(denominator))
+
   def reciprocalRaw(raw: Long): Long =
     if raw == 0L then 0L else ratioRaw(Scale, raw)
 

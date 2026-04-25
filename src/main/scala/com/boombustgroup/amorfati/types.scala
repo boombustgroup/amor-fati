@@ -58,9 +58,9 @@ object types:
   // --- PLN × typed ---
   extension (p: PLN)
     @targetName("plnTimesInt")
-    def *(n: Int): PLN              = PLN.fromRaw(p.toLong * n.toLong)
+    def *(n: Int): PLN              = PLN.fromRaw(java.lang.Math.multiplyExact(p.toLong, n.toLong))
     @targetName("plnTimesLong")
-    def *(n: Long): PLN             = PLN.fromRaw(p.toLong * n)
+    def *(n: Long): PLN             = PLN.fromRaw(java.lang.Math.multiplyExact(p.toLong, n))
     @targetName("plnTimesRate")
     def *(r: Rate): PLN             = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, r.toLong))
     @targetName("plnTimesShare")

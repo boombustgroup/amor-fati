@@ -12,7 +12,8 @@ object EuFundsMath:
     require(totalEur >= Multiplier.Zero, s"totalEur must be non-negative: $totalEur")
     require(baseExRate.toLong > 0L, s"baseExRate must be positive: $baseExRate")
     require(firmsCount > 0, s"firmsCount must be positive: $firmsCount")
-    PLN.fromRaw(FixedPointBase.multiplyRaw(totalEur.toLong, baseExRate.toLong)) * firmsCount / referenceEconomy
+    val totalPlnRaw = FixedPointBase.multiplyRaw(totalEur.toLong, baseExRate.toLong)
+    PLN.fromRaw(FixedPointBase.scaleRawByRatio(totalPlnRaw, firmsCount.toLong, referenceEconomy.toLong))
 
   /** Returns the normalized monthly absorption weight from a Beta(alpha, beta)
     * draw-down profile.
