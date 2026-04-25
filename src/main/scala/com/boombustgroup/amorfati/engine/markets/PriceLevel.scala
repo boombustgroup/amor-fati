@@ -49,8 +49,8 @@ object PriceLevel:
       wageGrowth: Coefficient,
       exRateDeviation: ExchangeRateShock,
   )(using p: SimParams): Result =
-    val _                           = prevInflation
-    val demandGap                   = demandMult.deviationFromOne
+    val _                          = prevInflation
+    val demandGap                  = demandMult.deviationFromOne
     val demandPull: Coefficient    =
       if demandGap >= Coefficient.Zero then demandGap * DemandPullWeight
       else demandGap * DemandPullWeight * DemandSlackPassThrough
