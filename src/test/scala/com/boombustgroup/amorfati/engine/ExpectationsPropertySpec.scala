@@ -19,14 +19,14 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   private val unempGen     = genDecimal("0.01", "0.50")
 
   private def step(prev: Expectations.State, infl: BigDecimal, rate: BigDecimal, unemp: BigDecimal): Expectations.State =
-    Expectations.step(prev, Rate(infl), Rate(rate), Share(unemp))
+    Expectations.step(prev, rateBD(infl), rateBD(rate), shareBD(unemp))
 
   private def step(prev: Expectations.State, infl: Rate, rate: Rate, unemp: Share): Expectations.State =
     Expectations.step(prev, infl, rate, unemp)
 
   "Expectations.step" should "always bound credibility in [0.01, 1.0]" in
     forAll(inflationGen, rateGen, credGen, unempGen) { (infl: BigDecimal, rate: BigDecimal, cred: BigDecimal, unemp: BigDecimal) =>
-      val prev = Expectations.initial.copy(credibility = Share(cred))
+      val prev = Expectations.initial.copy(credibility = shareBD(cred))
       val r    = step(prev, infl, rate, unemp)
       decimal(r.credibility).should(be >= BigDecimal("0.01"))
       decimal(r.credibility).should(be <= BigDecimal("1.0"))
@@ -34,14 +34,14 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   it should "produce finite expected inflation" in
     forAll(inflationGen, rateGen, credGen, unempGen) { (infl: BigDecimal, rate: BigDecimal, cred: BigDecimal, unemp: BigDecimal) =>
-      val prev = Expectations.initial.copy(credibility = Share(cred))
+      val prev = Expectations.initial.copy(credibility = shareBD(cred))
       val r    = step(prev, infl, rate, unemp)
       decimal(r.expectedInflation).isFinite.shouldBe(true)
     }
 
   it should "produce finite expected rate" in
     forAll(inflationGen, rateGen, credGen, unempGen) { (infl: BigDecimal, rate: BigDecimal, cred: BigDecimal, unemp: BigDecimal) =>
-      val prev = Expectations.initial.copy(credibility = Share(cred))
+      val prev = Expectations.initial.copy(credibility = shareBD(cred))
       val r    = step(prev, infl, rate, unemp)
       decimal(r.expectedRate).isFinite.shouldBe(true)
     }
@@ -54,7 +54,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     }
 
   it should "increase credibility monotonically as deviation decreases (at fixed credibility)" in {
-    val prev   = Expectations.initial.copy(credibility = Share("0.5"))
+    val prev   = Expectations.initial.copy(credibility = Share.decimal(5, 1))
     val target = decimal(p.monetary.targetInfl)
     // Low deviation
     val r1     = step(prev, target + BigDecimal("0.005"), BigDecimal("0.0575"), BigDecimal("0.05"))
@@ -65,7 +65,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   it should "keep expected inflation between target and adaptive" in
     forAll(inflationGen, credGen) { (infl: BigDecimal, cred: BigDecimal) =>
-      val prev     = Expectations.initial.copy(credibility = Share(cred))
+      val prev     = Expectations.initial.copy(credibility = shareBD(cred))
       val r        = step(prev, infl, BigDecimal("0.0575"), BigDecimal("0.05"))
       val target   = decimal(p.monetary.targetInfl)
       val adaptive =
@@ -78,7 +78,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   it should "produce finite forward guidance rate" in
     forAll(inflationGen, rateGen, credGen, unempGen) { (infl: BigDecimal, rate: BigDecimal, cred: BigDecimal, unemp: BigDecimal) =>
-      val prev = Expectations.initial.copy(credibility = Share(cred))
+      val prev = Expectations.initial.copy(credibility = shareBD(cred))
       val r    = step(prev, infl, rate, unemp)
       decimal(r.forwardGuidanceRate).isFinite.shouldBe(true)
     }
@@ -93,7 +93,7 @@ class ExpectationsPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   "step with no change" should "preserve stability at target" in {
     val prev = Expectations.initial
-    val r    = step(prev, p.monetary.targetInfl, p.monetary.initialRate, Share("0.05"))
+    val r    = step(prev, p.monetary.targetInfl, p.monetary.initialRate, Share.decimal(5, 2))
     // Expectations should stay near initial values
     DecimalMath.abs(decimal(r.expectedInflation) - decimal(p.monetary.targetInfl)).should(be < BigDecimal("0.01"))
     decimal(r.credibility).should(be >= decimal(prev.credibility))

@@ -88,64 +88,64 @@ import com.boombustgroup.amorfati.types.*
   *   fraction of employed households eligible for consumer credit each month
   */
 case class HouseholdConfig(
-    baseWage: PLN = PLN("8266.0"),
-    baseReservationWage: PLN = PLN("4666.0"),
-    mpc: Share = Share("0.82"),
-    laborSupplySteepness: Coefficient = Coefficient("8.0"),
-    wageAdjSpeed: Coefficient = Coefficient("0.12"),
+    baseWage: PLN = PLN(8266),
+    baseReservationWage: PLN = PLN(4666),
+    mpc: Share = Share.decimal(82, 2),
+    laborSupplySteepness: Coefficient = Coefficient(8),
+    wageAdjSpeed: Coefficient = Coefficient.decimal(12, 2),
     // Household count (defaults to totalPopulation — set in SimParams.defaults)
     count: Int = 100000,
     // Savings distribution
-    savingsMu: Coefficient = Coefficient("9.6"),
-    savingsSigma: Coefficient = Coefficient("1.2"),
+    savingsMu: Coefficient = Coefficient.decimal(96, 1),
+    savingsSigma: Coefficient = Coefficient.decimal(12, 1),
     // Debt
-    debtFraction: Share = Share("0.40"),
-    debtMu: Coefficient = Coefficient("10.5"),
-    debtSigma: Coefficient = Coefficient("1.5"),
+    debtFraction: Share = Share.decimal(40, 2),
+    debtMu: Coefficient = Coefficient.decimal(105, 1),
+    debtSigma: Coefficient = Coefficient.decimal(15, 1),
     // Rent
-    rentMean: PLN = PLN("1800.0"),
-    rentStd: PLN = PLN("400.0"),
-    rentFloor: PLN = PLN("800.0"),
+    rentMean: PLN = PLN(1800),
+    rentStd: PLN = PLN(400),
+    rentFloor: PLN = PLN(800),
     // MPC distribution
-    mpcAlpha: Coefficient = Coefficient("8.2"),
-    mpcBeta: Coefficient = Coefficient("1.8"),
+    mpcAlpha: Coefficient = Coefficient.decimal(82, 1),
+    mpcBeta: Coefficient = Coefficient.decimal(18, 1),
     // State-dependent MPC (Carroll 1997 buffer-stock)
-    bufferTargetMonths: Multiplier = Multiplier("6.0"),  // target savings = 6 months of income
-    bufferSensitivity: Coefficient = Coefficient("0.4"), // MPC adjustment strength (0 = static, 1 = fully responsive)
-    mpcUnemployedBoost: Share = Share("0.10"),           // MPC uplift when unemployed (desperate spending)
-    bufferProtectedShare: Share = Share("0.50"),         // protected share of target buffer under stress
-    bufferExcessDrawdownRate: Share = Share("0.20"),     // monthly drawdown rate for savings above target buffer
-    bufferStressDrawdownRate: Share = Share("0.35"),     // monthly drawdown rate for savings above protected buffer under stress
+    bufferTargetMonths: Multiplier = Multiplier(6),             // target savings = 6 months of income
+    bufferSensitivity: Coefficient = Coefficient.decimal(4, 1), // MPC adjustment strength (0 = static, 1 = fully responsive)
+    mpcUnemployedBoost: Share = Share.decimal(10, 2),           // MPC uplift when unemployed (desperate spending)
+    bufferProtectedShare: Share = Share.decimal(50, 2),         // protected share of target buffer under stress
+    bufferExcessDrawdownRate: Share = Share.decimal(20, 2),     // monthly drawdown rate for savings above target buffer
+    bufferStressDrawdownRate: Share = Share.decimal(35, 2),     // monthly drawdown rate for savings above protected buffer under stress
     // Skill decay & scarring
-    skillDecayRate: Share = Share("0.02"),
-    scarringRate: Share = Share("0.02"),
-    scarringCap: Share = Share("0.50"),
+    skillDecayRate: Share = Share.decimal(2, 2),
+    scarringRate: Share = Share.decimal(2, 2),
+    scarringCap: Share = Share.decimal(50, 2),
     scarringOnset: Int = 3,
     // Post-reemployment wage scarring (Jacobson, LaLonde & Sullivan 1993)
-    wageScarRate: Share = Share("0.025"),                // monthly wage scar accumulation during long-term unemployment
-    wageScarCap: Share = Share("0.30"),                  // max 30% permanent wage loss
-    wageScarDecay: Share = Share("0.005"),               // monthly recovery once reemployed (~0.5%/mo → ~10 year half-life)
+    wageScarRate: Share = Share.decimal(25, 3),                 // monthly wage scar accumulation during long-term unemployment
+    wageScarCap: Share = Share.decimal(30, 2),                  // max 30% permanent wage loss
+    wageScarDecay: Share = Share.decimal(5, 3),                 // monthly recovery once reemployed (~0.5%/mo → ~10 year half-life)
     // Retraining
-    retrainingCost: PLN = PLN("5000.0"),
+    retrainingCost: PLN = PLN(5000),
     retrainingDuration: Int = 6,
-    retrainingBaseSuccess: Share = Share("0.60"),
-    retrainingProb: Share = Share("0.15"),
+    retrainingBaseSuccess: Share = Share.decimal(60, 2),
+    retrainingProb: Share = Share.decimal(15, 2),
     retrainingEnabled: Boolean = true,
     // Bankruptcy
-    bankruptcyThreshold: Coefficient = Coefficient("-3.0"),
+    bankruptcyThreshold: Coefficient = Coefficient(-3),
     bankruptcyDistressMonths: Int = 3,
     // Social network
     socialK: Int = 10,
-    socialP: Share = Share("0.15"),
+    socialP: Share = Share.decimal(15, 2),
     // Debt service
-    debtServiceRate: Share = Share("0.02"),
-    baseAmortRate: Share = Share("0.015"),
-    depositSpread: Rate = Rate("0.02"),
+    debtServiceRate: Share = Share.decimal(2, 2),
+    baseAmortRate: Share = Share.decimal(15, 3),
+    depositSpread: Rate = Rate.decimal(2, 2),
     // Consumer credit
-    ccSpread: Rate = Rate("0.04"),
-    ccMaxDti: Share = Share("0.40"),
-    ccMaxLoan: PLN = PLN("50000.0"),
-    ccAmortRate: Rate = Rate("0.025"),
-    ccNplRecovery: Share = Share("0.15"),
-    ccEligRate: Share = Share("0.30"),
+    ccSpread: Rate = Rate.decimal(4, 2),
+    ccMaxDti: Share = Share.decimal(40, 2),
+    ccMaxLoan: PLN = PLN(50000),
+    ccAmortRate: Rate = Rate.decimal(25, 3),
+    ccNplRecovery: Share = Share.decimal(15, 2),
+    ccEligRate: Share = Share.decimal(30, 2),
 )

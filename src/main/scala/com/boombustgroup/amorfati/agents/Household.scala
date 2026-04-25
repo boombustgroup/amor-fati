@@ -68,34 +68,34 @@ object Household:
   // ---- Named constants ----
 
   // MPC sampling bounds (Beta distribution, NBP household survey)
-  private val MpcFloor   = Share("0.5")
-  private val MpcCeiling = Share("0.98")
+  private val MpcFloor   = Share.decimal(5, 1)
+  private val MpcCeiling = Share.decimal(98, 2)
 
   // Social network precautionary saving
-  private val NeighborDistressThreshold    = Share("0.30") // fraction of neighbors in distress that triggers adj
-  private val NeighborDistressConsAdj      = Share("0.90") // consumption multiplier when distress exceeds threshold
-  private val NeighborDistressRetrainBoost = Share("0.05") // additional retraining prob when neighbors distressed
+  private val NeighborDistressThreshold    = Share.decimal(30, 2) // fraction of neighbors in distress that triggers adj
+  private val NeighborDistressConsAdj      = Share.decimal(90, 2) // consumption multiplier when distress exceeds threshold
+  private val NeighborDistressRetrainBoost = Share.decimal(5, 2)  // additional retraining prob when neighbors distressed
 
   // Labor market
   private val UnemploymentRetrainingThreshold = 6 // months unemployed before eligible for retraining
   private val PostFailedRetrainingMonths      = 7 // months assigned after failed retraining (duration + 1)
 
   // Consumer credit
-  private val DisposableWageThreshold = Share("0.3") // disposable/wage ratio below which HH may borrow
-  private val MinConsumerLoanSize     = PLN("100.0") // minimum loan size (PLN)
-  private val ConsumerDebtInitFrac    = Share("0.3") // init consumer debt as fraction of mortgage draw
+  private val DisposableWageThreshold = Share.decimal(3, 1) // disposable/wage ratio below which HH may borrow
+  private val MinConsumerLoanSize     = PLN(100)            // minimum loan size (PLN)
+  private val ConsumerDebtInitFrac    = Share.decimal(3, 1) // init consumer debt as fraction of mortgage draw
 
   // Init sampling
-  private val GpwEquityInitFrac     = Share("0.05")  // fraction of savings allocated to GPW equity at init
-  private val SectorSkillBonusCoeff = Scalar("0.02") // coefficient for sector-specific skill bonus (log sigma)
-  private val SectorSkillBonusMax   = Scalar("0.1")  // maximum sector-specific skill bonus
+  private val GpwEquityInitFrac     = Share.decimal(5, 2)  // fraction of savings allocated to GPW equity at init
+  private val SectorSkillBonusCoeff = Scalar.decimal(2, 2) // coefficient for sector-specific skill bonus (log sigma)
+  private val SectorSkillBonusMax   = Scalar.decimal(1, 1) // maximum sector-specific skill bonus
 
   // Aggregates
-  private val ImportRatioCap   = Share("0.65") // cap on import ratio applied to goods consumption
-  private val PovertyRate50Pct = Share("0.50") // poverty line at 50% of median income (EU AROP)
-  private val PovertyRate30Pct = Share("0.30") // poverty line at 30% of median income (deep poverty)
-  private val ConsumptionP10   = Share("0.10") // P10 percentile index
-  private val ConsumptionP90   = Share("0.90") // P90 percentile index
+  private val ImportRatioCap   = Share.decimal(65, 2) // cap on import ratio applied to goods consumption
+  private val PovertyRate50Pct = Share.decimal(50, 2) // poverty line at 50% of median income (EU AROP)
+  private val PovertyRate30Pct = Share.decimal(30, 2) // poverty line at 30% of median income (deep poverty)
+  private val ConsumptionP10   = Share.decimal(10, 2) // P10 percentile index
+  private val ConsumptionP90   = Share.decimal(90, 2) // P90 percentile index
 
   // ---- Individual household ----
 
@@ -317,9 +317,9 @@ object Household:
       */
     private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: RandomStream)(using p: SimParams): Share =
       val eduBase  = p.labor.sbtcEduRoutineness(edu)
-      val sigmaAdj = (Scalar("0.05") * p.sectorDefs(sectorIdx.toInt).sigma.toScalar.log10).toShare
-      val noise    = Scalar.randomBetween(Scalar("-0.025"), Scalar("0.025"), rng).toShare
-      (eduBase + sigmaAdj + noise).clamp(Share("0.05"), Share("0.95"))
+      val sigmaAdj = (Scalar.decimal(5, 2) * p.sectorDefs(sectorIdx.toInt).sigma.toScalar.log10).toShare
+      val noise    = Scalar.randomBetween(Scalar.decimal(-25, 3), Scalar.decimal(25, 3), rng).toShare
+      (eduBase + sigmaAdj + noise).clamp(Share.decimal(5, 2), Share.decimal(95, 2))
 
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 
@@ -438,7 +438,7 @@ object Household:
     if monthlyIncome <= PLN.Zero then PLN.Zero
     else
       val afterZus   = monthlyIncome - monthlyIncome * p.social.zusEmployeeRate
-      val annualized = afterZus * Multiplier("12.0")
+      val annualized = afterZus * Multiplier(12)
       val grossTax   =
         if annualized <= p.fiscal.pitBracket1Annual then annualized * p.fiscal.pitRate1
         else

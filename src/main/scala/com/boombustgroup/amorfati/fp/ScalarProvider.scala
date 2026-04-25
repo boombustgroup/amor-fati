@@ -10,10 +10,10 @@ object ScalarProvider:
   object Scalar:
     val Zero: Scalar                                                     = 0L
     val One: Scalar                                                      = Scale
-    def apply(value: BigDecimal): Scalar                                 = fromDecimal(value)
-    def apply(value: String): Scalar                                     = parseDecimal(value)
     def apply(value: Int): Scalar                                        = fromRaw(value.toLong * Scale)
     def apply(value: Long): Scalar                                       = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): Scalar           =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
     def fromRaw(raw: Long): Scalar                                       = raw
     def fraction(num: Int, den: Int): Scalar                             =
       if den == 0 then Zero else fromRaw(ratioRaw(num.toLong, den.toLong))

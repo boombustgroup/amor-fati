@@ -16,11 +16,11 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
 
   private def mkBankRow(
       id: Int = 0,
-      deposits: PLN = PLN("1e9"),
-      loans: PLN = PLN("5e8"),
-      capital: PLN = PLN("1e8"),
-      reservesAtNbp: PLN = PLN("1e7"),
-      govBonds: PLN = PLN("1e8"),
+      deposits: PLN = PLN(1000000000),
+      loans: PLN = PLN(500000000),
+      capital: PLN = PLN(100000000),
+      reservesAtNbp: PLN = PLN(10000000),
+      govBonds: PLN = PLN(100000000),
       demandDep: PLN = PLN.Zero,
       termDep: PLN = PLN.Zero,
       loansS: PLN = PLN.Zero,
@@ -32,7 +32,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
         id = BankId(id),
         capital = capital,
         nplAmount = PLN.Zero,
-        htmBookYield = Rate("0.055"),
+        htmBookYield = Rate.decimal(55, 3),
         status = BankStatus.Active(0),
         loansShort = loansS,
         loansMedium = loansM,
@@ -42,8 +42,8 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
       Banking.BankFinancialStocks(
         totalDeposits = deposits,
         firmLoan = loans,
-        govBondAfs = govBonds * Share("0.40"),
-        govBondHtm = govBonds * Share("0.60"),
+        govBondAfs = govBonds * Share.decimal(40, 2),
+        govBondHtm = govBonds * Share.decimal(60, 2),
         reserve = reservesAtNbp,
         interbankLoan = PLN.Zero,
         demandDeposit = demandDep,
@@ -57,8 +57,8 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "Banking.BankState.hqla" should "equal reserves + gov bonds" in {
-    val (_, stocks) = mkBankRow(reservesAtNbp = PLN("5e7"), govBonds = PLN("2e8"))
-    Banking.hqla(stocks) shouldBe PLN(BigDecimal("5e7") + BigDecimal("2e8"))
+    val (_, stocks) = mkBankRow(reservesAtNbp = PLN(50000000), govBonds = PLN(200000000))
+    Banking.hqla(stocks) shouldBe PLN(250000000)
   }
 
   // =========================================================================
@@ -66,7 +66,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "Banking.BankState.lcr" should "compute HQLA / net cash outflows" in {
-    val (_, stocks) = mkBankRow(reservesAtNbp = PLN("5e7"), govBonds = PLN("2e8"), demandDep = PLN("1e9"))
+    val (_, stocks) = mkBankRow(reservesAtNbp = PLN(50000000), govBonds = PLN(200000000), demandDep = PLN(1000000000))
     // HQLA = 50M + 200M = 250M
     // Net outflows = 1B × 0.10 = 100M
     // LCR = 250M / 100M = 2.5
@@ -75,7 +75,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
 
   it should "return 10.0 when outflows are zero" in {
     val (_, stocks) = mkBankRow(demandDep = PLN.Zero)
-    Banking.lcr(stocks) shouldBe Multiplier("10.0")
+    Banking.lcr(stocks) shouldBe Multiplier(10)
   }
 
   // =========================================================================
@@ -84,13 +84,13 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
 
   "Banking.BankState.nsfr" should "compute ASF / RSF" in {
     val (bank, stocks) = mkBankRow(
-      capital = PLN("1e8"),
-      demandDep = PLN("6e8"),
-      termDep = PLN("4e8"),
-      loansS = PLN("1e8"),
-      loansM = PLN("1.5e8"),
-      loansL = PLN("2.5e8"),
-      govBonds = PLN("5e7"),
+      capital = PLN(100000000),
+      demandDep = PLN(600000000),
+      termDep = PLN(400000000),
+      loansS = PLN(100000000),
+      loansM = PLN(150000000),
+      loansL = PLN(250000000),
+      govBonds = PLN(50000000),
     )
     // ASF = 100M + 400M×0.95 + 600M×0.90 = 100M + 380M + 540M = 1,020M
     // RSF = 100M×0.50 + 150M×0.65 + 250M×0.85 + 50M×0.05
@@ -101,7 +101,7 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
 
   it should "return 10.0 when RSF is zero" in {
     val (bank, stocks) = mkBankRow(loansS = PLN.Zero, loansM = PLN.Zero, loansL = PLN.Zero, govBonds = PLN.Zero)
-    Banking.nsfr(bank, stocks, PLN.Zero) shouldBe Multiplier("10.0")
+    Banking.nsfr(bank, stocks, PLN.Zero) shouldBe Multiplier(10)
   }
 
   // =========================================================================
@@ -109,9 +109,9 @@ class LcrNsfrSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "canLend" should "reject when LCR below minimum (when enabled)" in {
-    val (_, stocks) = mkBankRow(reservesAtNbp = PLN.Zero, govBonds = PLN.Zero, demandDep = PLN("1e9"))
+    val (_, stocks) = mkBankRow(reservesAtNbp = PLN.Zero, govBonds = PLN.Zero, demandDep = PLN(1000000000))
     decimal(Banking.lcr(stocks)) shouldBe (BigDecimal("0.0") +- BigDecimal("0.01")) // zero HQLA -> LCR approx 0
-    Banking.lcr(stocks) should be < Multiplier("1.0")                               // Below LCR min
+    Banking.lcr(stocks) should be < Multiplier(1)                                   // Below LCR min
   }
 
   // =========================================================================
@@ -142,9 +142,9 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
     PropertyCheckConfiguration(minSuccessful = 200)
 
   private def mkBankRow(
-      deposits: PLN = PLN("1e9"),
-      loans: PLN = PLN("5e8"),
-      capital: PLN = PLN("1e8"),
+      deposits: PLN = PLN(1000000000),
+      loans: PLN = PLN(500000000),
+      capital: PLN = PLN(100000000),
       govBonds: PLN = PLN.Zero,
       reservesAtNbp: PLN = PLN.Zero,
       demandDeposits: PLN = PLN.Zero,
@@ -157,7 +157,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
       id = BankId(0),
       capital = capital,
       nplAmount = PLN.Zero,
-      htmBookYield = Rate("0.055"),
+      htmBookYield = Rate.decimal(55, 3),
       status = BankStatus.Active(0),
       loansShort = loansShort,
       loansMedium = loansMedium,
@@ -167,8 +167,8 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
     Banking.BankFinancialStocks(
       totalDeposits = deposits,
       firmLoan = loans,
-      govBondAfs = govBonds * Share("0.40"),
-      govBondHtm = govBonds * Share("0.60"),
+      govBondAfs = govBonds * Share.decimal(40, 2),
+      govBondHtm = govBonds * Share.decimal(60, 2),
       reserve = reservesAtNbp,
       interbankLoan = PLN.Zero,
       demandDeposit = demandDeposits,
@@ -179,7 +179,7 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
 
   "LCR" should "be non-negative" in
     forAll(genDecimal("0.0", "1e9"), genDecimal("0.0", "1e9"), genDecimal("0.0", "1e9")) { (reserves, bonds, demandDep) =>
-      val (_, stocks) = mkBankRow(reservesAtNbp = PLN(reserves), govBonds = PLN(bonds), demandDeposits = PLN(demandDep))
+      val (_, stocks) = mkBankRow(reservesAtNbp = plnBD(reserves), govBonds = plnBD(bonds), demandDeposits = plnBD(demandDep))
       Banking.lcr(stocks) should be >= Multiplier.Zero
     }
 
@@ -193,18 +193,18 @@ class LcrNsfrPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
       genDecimal("0.0", "2.5e8"),
     ) { (capital, demandDep, termDep, loansS, loansM, loansL) =>
       val (bank, stocks) = mkBankRow(
-        capital = PLN(capital),
-        demandDeposits = PLN(demandDep),
-        termDeposits = PLN(termDep),
-        loansShort = PLN(loansS),
-        loansMedium = PLN(loansM),
-        loansLong = PLN(loansL),
+        capital = plnBD(capital),
+        demandDeposits = plnBD(demandDep),
+        termDeposits = plnBD(termDep),
+        loansShort = plnBD(loansS),
+        loansMedium = plnBD(loansM),
+        loansLong = plnBD(loansL),
       )
       Banking.nsfr(bank, stocks, PLN.Zero) should be >= Multiplier.Zero
     }
 
   "HQLA" should "equal reserves + gov bonds" in
     forAll(genDecimal("0.0", "1e9"), genDecimal("0.0", "1e9")) { (reserves, bonds) =>
-      val (_, stocks) = mkBankRow(reservesAtNbp = PLN(reserves), govBonds = PLN(bonds))
+      val (_, stocks) = mkBankRow(reservesAtNbp = plnBD(reserves), govBonds = plnBD(bonds))
       decimal(Banking.hqla(stocks)) shouldBe (reserves + bonds +- BigDecimal("0.01"))
     }

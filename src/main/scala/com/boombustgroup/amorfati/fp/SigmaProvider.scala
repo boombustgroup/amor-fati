@@ -7,12 +7,12 @@ object SigmaProvider:
   opaque type Sigma = Long
 
   object Sigma:
-    val Zero: Sigma                     = 0L
-    def apply(value: BigDecimal): Sigma = fromDecimal(value)
-    def apply(value: String): Sigma     = parseDecimal(value)
-    def apply(value: Int): Sigma        = fromRaw(value.toLong * Scale)
-    def apply(value: Long): Sigma       = fromRaw(value * Scale)
-    def fromRaw(raw: Long): Sigma       = raw
+    val Zero: Sigma                                           = 0L
+    def apply(value: Int): Sigma                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): Sigma                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): Sigma =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    def fromRaw(raw: Long): Sigma                             = raw
 
   extension (s: Sigma)
     inline def toLong: Long                   = s

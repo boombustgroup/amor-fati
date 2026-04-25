@@ -16,7 +16,7 @@ import com.boombustgroup.amorfati.types.*
   */
 object FiscalConstraintEconomics:
 
-  private val ExpectationsBlendWeight = Share("0.5")
+  private val ExpectationsBlendWeight = Share.decimal(5, 1)
 
   case class Output(
       month: ExecutionMonth,

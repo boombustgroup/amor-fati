@@ -20,12 +20,12 @@ import com.boombustgroup.ledger.Distribute
 object CorporateBondMarket:
 
   // --- Named constants ---
-  private val NplSensitivity      = Multiplier("5.0")  // spread multiplier per unit NPL ratio
-  private val MaxSpread           = Rate("0.10")       // spread cap (1000 bps)
-  private val MinYield            = Rate("0.01")       // yield floor (100 bps)
-  private val MinAbsorption       = Share("0.3")       // absorption floor
-  private val CarBufferZone       = Multiplier("0.02") // 200 bps CAR ramp zone above minCar
-  private val SpreadAbsorptionCap = Rate("0.10")       // excess spread at which absorption hits floor
+  private val NplSensitivity      = Multiplier(5)            // spread multiplier per unit NPL ratio
+  private val MaxSpread           = Rate.decimal(10, 2)      // spread cap (1000 bps)
+  private val MinYield            = Rate.decimal(1, 2)       // yield floor (100 bps)
+  private val MinAbsorption       = Share.decimal(3, 1)      // absorption floor
+  private val CarBufferZone       = Multiplier.decimal(2, 2) // 200 bps CAR ramp zone above minCar
+  private val SpreadAbsorptionCap = Rate.decimal(10, 2)      // excess spread at which absorption hits floor
 
   /** Projection of ledger-owned corporate bond balances used by market
     * calculus.
@@ -55,7 +55,7 @@ object CorporateBondMarket:
       lastCouponIncome: PLN = PLN.Zero,
       lastDefaultLoss: PLN = PLN.Zero,
       lastDefaultAmount: PLN = PLN.Zero,
-      creditSpread: Rate = Rate("0.025"),
+      creditSpread: Rate = Rate.decimal(25, 3),
       lastAbsorptionRate: Share = Share.One,
   )
 
@@ -65,7 +65,7 @@ object CorporateBondMarket:
 
   def initial(using p: SimParams): State =
     State(
-      corpBondYield = Rate("0.06") + p.corpBond.spread,
+      corpBondYield = Rate.decimal(6, 2) + p.corpBond.spread,
       creditSpread = p.corpBond.spread,
     )
 

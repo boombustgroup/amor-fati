@@ -22,10 +22,10 @@ import com.boombustgroup.amorfati.random.RandomStream
 object BankingEconomics:
 
   // ---- Calibration constants ----
-  private val NplMonthlyWriteOff = 0.05 // monthly NPL write-off rate (aggregate and per-bank)
-  private val ShortLoanFrac      = 0.20 // fraction of loans in short-term maturity bucket
-  private val MediumLoanFrac     = 0.30 // fraction of loans in medium-term maturity bucket
-  private val LongLoanFrac       = 0.50 // fraction of loans in long-term maturity bucket
+  private val NplMonthlyWriteOff: Share = Share.decimal(5, 2)  // monthly NPL write-off rate (aggregate and per-bank)
+  private val ShortLoanFrac: Share      = Share.decimal(20, 2) // fraction of loans in short-term maturity bucket
+  private val MediumLoanFrac: Share     = Share.decimal(30, 2) // fraction of loans in medium-term maturity bucket
+  private val LongLoanFrac: Share       = Share.decimal(50, 2) // fraction of loans in long-term maturity bucket
 
   // ---- Step-level types (formerly BankUpdateStep.Input / BankUpdateStep.Output) ----
 
@@ -648,13 +648,13 @@ object BankingEconomics:
 
     SingleBankUpdate(
       bank = b.copy(
-        nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * Share(NplMonthlyWriteOff)).max(PLN.Zero),
+        nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * NplMonthlyWriteOff).max(PLN.Zero),
         capital = capitalPnl.newCapital - eclResult.provisionChange,
         eclStaging = eclResult.newStaging,
-        loansShort = newLoansTotal * Share(ShortLoanFrac),
-        loansMedium = newLoansTotal * Share(MediumLoanFrac),
-        loansLong = newLoansTotal * Share(LongLoanFrac),
-        consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * Share(NplMonthlyWriteOff)).max(PLN.Zero),
+        loansShort = newLoansTotal * ShortLoanFrac,
+        loansMedium = newLoansTotal * MediumLoanFrac,
+        loansLong = newLoansTotal * LongLoanFrac,
+        consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * NplMonthlyWriteOff).max(PLN.Zero),
       ),
       financialStocks = stocks.copy(
         firmLoan = newLoansTotal,

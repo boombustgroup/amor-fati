@@ -14,7 +14,7 @@ class MinWageSpec extends AnyFlatSpec with Matchers:
 
   "GovState defaults" should "have minWageLevel=4666 and minWagePriceLevel=1.0" in {
     val gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-    gov.minWageLevel shouldBe PLN("4666.0")
+    gov.minWageLevel shouldBe PLN(4666)
     gov.minWagePriceLevel shouldBe PriceIndex.Base
   }
 

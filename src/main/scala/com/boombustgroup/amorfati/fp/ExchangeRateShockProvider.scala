@@ -7,12 +7,12 @@ object ExchangeRateShockProvider:
   opaque type ExchangeRateShock = Long
 
   object ExchangeRateShock:
-    val Zero: ExchangeRateShock                     = 0L
-    def apply(value: BigDecimal): ExchangeRateShock = fromDecimal(value)
-    def apply(value: String): ExchangeRateShock     = parseDecimal(value)
-    def apply(value: Int): ExchangeRateShock        = fromRaw(value.toLong * Scale)
-    def apply(value: Long): ExchangeRateShock       = fromRaw(value * Scale)
-    def fromRaw(raw: Long): ExchangeRateShock       = raw
+    val Zero: ExchangeRateShock                                           = 0L
+    def apply(value: Int): ExchangeRateShock                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): ExchangeRateShock                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): ExchangeRateShock =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    def fromRaw(raw: Long): ExchangeRateShock                             = raw
 
   extension (shock: ExchangeRateShock)
     inline def toLong: Long                                                    = shock

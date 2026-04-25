@@ -9,15 +9,17 @@ object MultiplierProvider:
   opaque type Multiplier = Long
 
   object Multiplier:
-    val Zero: Multiplier                     = 0L
-    val One: Multiplier                      = Scale
-    def apply(value: BigDecimal): Multiplier = fromDecimal(value)
-    def apply(value: String): Multiplier     = parseDecimal(value)
-    def apply(value: Int): Multiplier        = fromRaw(value.toLong * Scale)
-    def apply(value: Long): Multiplier       = fromRaw(value * Scale)
+    val Zero: Multiplier                                           = 0L
+    val One: Multiplier                                            = Scale
+    def apply(value: Int): Multiplier                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): Multiplier                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): Multiplier =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    def fraction(num: Int, den: Int): Multiplier                   =
+      if den == 0 then Zero else fromRaw(ratioRaw(num.toLong, den.toLong))
     @targetName("fromScalar")
-    def apply(value: Scalar): Multiplier     = fromRaw(value.toLong)
-    def fromRaw(raw: Long): Multiplier       = raw
+    def apply(value: Scalar): Multiplier                           = fromRaw(value.toLong)
+    def fromRaw(raw: Long): Multiplier                             = raw
 
   extension (m: Multiplier)
     inline def toLong: Long                               = m

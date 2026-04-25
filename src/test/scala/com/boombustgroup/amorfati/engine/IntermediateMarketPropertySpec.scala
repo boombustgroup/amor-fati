@@ -28,12 +28,12 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
       val sector = sectors(i % sectors.length)
       TestFirmState(
         FirmId(i),
-        PLN("500000.0"),
+        PLN(500000),
         PLN.Zero,
         TechState.Traditional(10),
-        Share("0.5"),
+        Share.decimal(5, 1),
         Multiplier.One,
-        Share("0.4"),
+        Share.decimal(4, 1),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -67,7 +67,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   "IntermediateMarket.process" should "be zero-sum within tolerance" in
     forAll(genDecimal("0.8", "1.5"), genPrice) { (demandMult: BigDecimal, price: BigDecimal) =>
       val firms    = makeFirms(60)
-      val r        = IntermediateMarket.process(baseInput(firms, price = PriceIndex(price), demandMult = Multiplier(demandMult)))
+      val r        = IntermediateMarket.process(baseInput(firms, price = priceIndexBD(price), demandMult = multiplierBD(demandMult)))
       val totalAdj = r.cashAdjustments.map(_.bd).sum
       totalAdj.abs should be < BigDecimal("1.0")
     }
@@ -94,7 +94,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     val firms = makeFirms(60)
     forAll(genDecimal("0.1", "0.9")) { (scale: BigDecimal) =>
       val r1 = IntermediateMarket.process(baseInput(firms))
-      val rS = IntermediateMarket.process(baseInput(firms, scale = Multiplier(scale)))
+      val rS = IntermediateMarket.process(baseInput(firms, scale = multiplierBD(scale)))
       if r1.totalPaid > PLN.Zero then rS.totalPaid.bd shouldBe ((r1.totalPaid.bd * scale) +- (r1.totalPaid.bd * BigDecimal("0.01")))
     }
   }
@@ -109,14 +109,14 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   it should "scale with sectorMults" in {
     val firms = makeFirms(60)
     val r1    = IntermediateMarket.process(baseInput(firms))
-    val r2    = IntermediateMarket.process(baseInput(firms, demandMult = Multiplier("2.0")))
+    val r2    = IntermediateMarket.process(baseInput(firms, demandMult = Multiplier(2)))
     if r1.totalPaid > PLN.Zero then r2.totalPaid should be > r1.totalPaid
   }
 
   it should "scale with price" in {
     val firms = makeFirms(60)
     val r1    = IntermediateMarket.process(baseInput(firms))
-    val r2    = IntermediateMarket.process(baseInput(firms, price = PriceIndex("2.0")))
+    val r2    = IntermediateMarket.process(baseInput(firms, price = PriceIndex(2)))
     if r1.totalPaid > PLN.Zero then r2.totalPaid should be > r1.totalPaid
   }
 
@@ -124,7 +124,7 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
     forAll(genDecimal("0.5", "2.0"), genPrice, genDecimal("0.0", "1.0")) { (dm: BigDecimal, price: BigDecimal, scale: BigDecimal) =>
       val firms = makeFirms(30)
       val r     =
-        IntermediateMarket.process(baseInput(firms, scale = Multiplier(scale), price = PriceIndex(price), demandMult = Multiplier(dm)))
+        IntermediateMarket.process(baseInput(firms, scale = multiplierBD(scale), price = priceIndexBD(price), demandMult = multiplierBD(dm)))
       r.totalPaid should be >= PLN.Zero
     }
 
@@ -138,12 +138,12 @@ class IntermediateMarketPropertySpec extends AnyFlatSpec with Matchers with Scal
   it should "distribute revenue proportionally within sector" in {
     def mkF(id: Int, sec: Int): Firm.State = TestFirmState(
       FirmId(id),
-      PLN("500000.0"),
+      PLN(500000),
       PLN.Zero,
       TechState.Traditional(10),
-      Share("0.5"),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share("0.4"),
+      Share.decimal(4, 1),
       SectorIdx(sec),
       Vector.empty[FirmId],
       bankId = BankId(0),

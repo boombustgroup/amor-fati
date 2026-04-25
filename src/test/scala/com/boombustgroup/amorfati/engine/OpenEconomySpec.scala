@@ -16,9 +16,9 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   private val baseForex         = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, p.openEcon.exportBase, PLN.Zero, PLN.Zero)
   private val baseSectorOutputs =
     Vector(BigDecimal("30000.0"), BigDecimal("160000.0"), BigDecimal("450000.0"), BigDecimal("60000.0"), BigDecimal("220000.0"), BigDecimal("80000.0")).map(
-      PLN(_),
+      plnBD(_),
     )
-  private val gdp               = PLN("1e9")
+  private val gdp               = PLN(1000000000)
 
   private def baseInput(
       prevBop: OpenEconomy.BopState = OpenEconomy.BopState.zero,
@@ -28,9 +28,9 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   ) = OpenEconomy.StepInput(
     prevBop = prevBop,
     prevForex = prevForex,
-    importCons = PLN("1e7"),
-    techImports = PLN("5e6"),
-    autoRatio = Share(autoRatio),
+    importCons = PLN(10000000),
+    techImports = PLN(5000000),
+    autoRatio = shareBD(autoRatio),
     domesticRate = p.monetary.initialRate,
     gdp = gdp,
     priceLevel = PriceIndex.Base,
@@ -59,7 +59,7 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase exports with weaker PLN (higher ER)" in {
-    val weakPln = baseForex.copy(exchangeRate = ExchangeRate("5.5"))
+    val weakPln = baseForex.copy(exchangeRate = ExchangeRate.decimal(55, 1))
     val r0      = OpenEconomy.step(baseInput(prevForex = baseForex))
     val r1      = OpenEconomy.step(baseInput(prevForex = weakPln))
     decimal(r1.bop.exports) should be > decimal(r0.bop.exports)
@@ -93,11 +93,11 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "decompose financial-account channels without changing the net portfolio effect" in {
-    val prevBop = OpenEconomy.BopState.zero.copy(carryTradeStock = PLN("20000000.0"))
+    val prevBop = OpenEconomy.BopState.zero.copy(carryTradeStock = PLN(20000000))
     val input   = baseInput(prevBop = prevBop, month = 30).copy(
-      domesticRate = Rate("0.08"),
-      bondYield = Rate("0.09"),
-      prevBidToCover = Multiplier("0.50"),
+      domesticRate = Rate.decimal(8, 2),
+      bondYield = Rate.decimal(9, 2),
+      prevBidToCover = Multiplier.decimal(50, 2),
     )
 
     val r                            = OpenEconomy.step(input)
@@ -158,8 +158,8 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   // ---- PPP drift ----
 
   it should "depreciate PLN when domestic inflation exceeds foreign" in {
-    val highInfl = baseInput().copy(inflation = Rate("0.10")) // 10% domestic vs 2% foreign
-    val lowInfl  = baseInput().copy(inflation = Rate("0.02")) // equal to foreign
+    val highInfl = baseInput().copy(inflation = Rate.decimal(10, 2)) // 10% domestic vs 2% foreign
+    val lowInfl  = baseInput().copy(inflation = Rate.decimal(2, 2))  // equal to foreign
     val rHigh    = OpenEconomy.step(highInfl)
     val rLow     = OpenEconomy.step(lowInfl)
     // Higher domestic inflation → weaker PLN (higher ER)
@@ -167,8 +167,8 @@ class OpenEconomySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "appreciate PLN when domestic inflation below foreign" in {
-    val lowInfl = baseInput().copy(inflation = Rate("0.00")) // 0% domestic vs 2% foreign
-    val eqInfl  = baseInput().copy(inflation = Rate("0.02")) // equal
+    val lowInfl = baseInput().copy(inflation = Rate(0))            // 0% domestic vs 2% foreign
+    val eqInfl  = baseInput().copy(inflation = Rate.decimal(2, 2)) // equal
     val rLow    = OpenEconomy.step(lowInfl)
     val rEq     = OpenEconomy.step(eqInfl)
     // Lower domestic inflation → stronger PLN (lower ER)

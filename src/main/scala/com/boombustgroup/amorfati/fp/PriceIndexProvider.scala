@@ -8,13 +8,13 @@ object PriceIndexProvider:
   opaque type PriceIndex = Long
 
   object PriceIndex:
-    val Zero: PriceIndex                     = 0L
-    val Base: PriceIndex                     = Scale
-    def apply(value: BigDecimal): PriceIndex = fromDecimal(value)
-    def apply(value: String): PriceIndex     = parseDecimal(value)
-    def apply(value: Int): PriceIndex        = fromRaw(value.toLong * Scale)
-    def apply(value: Long): PriceIndex       = fromRaw(value * Scale)
-    def fromRaw(raw: Long): PriceIndex       = raw
+    val Zero: PriceIndex                                           = 0L
+    val Base: PriceIndex                                           = Scale
+    def apply(value: Int): PriceIndex                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): PriceIndex                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): PriceIndex =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    def fromRaw(raw: Long): PriceIndex                             = raw
 
   extension (p: PriceIndex)
     inline def toLong: Long                   = p

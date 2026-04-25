@@ -109,20 +109,20 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
 
     val calculus                = result.calculus.copy(
-      nbfiDepositDrain = PLN("-777000.0"),
-      nbfiOrigination = PLN("555000.0"),
-      nbfiRepayment = PLN("333000.0"),
-      nbfiDefaultAmount = PLN("111000.0"),
+      nbfiDepositDrain = PLN(-777000),
+      nbfiOrigination = PLN(555000),
+      nbfiRepayment = PLN(333000),
+      nbfiDefaultAmount = PLN(111000),
     )
     given RuntimeLedgerTopology = result.execution.topology
 
     val batches  = FlowSimulation.emitAllBatches(calculus)
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)
 
-    evidence.nbfiDepositDrain shouldBe PLN("-777000.0")
-    evidence.amount(FlowMechanism.NbfiOrigination) shouldBe PLN("555000.0")
-    evidence.amount(FlowMechanism.NbfiRepayment) shouldBe PLN("333000.0")
-    evidence.amount(FlowMechanism.NbfiDefault) shouldBe PLN("111000.0")
+    evidence.nbfiDepositDrain shouldBe PLN(-777000)
+    evidence.amount(FlowMechanism.NbfiOrigination) shouldBe PLN(555000)
+    evidence.amount(FlowMechanism.NbfiRepayment) shouldBe PLN(333000)
+    evidence.amount(FlowMechanism.NbfiDefault) shouldBe PLN(111000)
   }
 
   it should "route deterministic quasi-fiscal calculus values into executed evidence" in {
@@ -131,23 +131,23 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
 
     val calculus                = result.calculus.copy(
-      qfBankBondIssuance = PLN("700000.0"),
-      qfNbpBondAbsorption = PLN("300000.0"),
-      qfBankBondAmortization = PLN("200000.0"),
-      qfNbpBondAmortization = PLN("100000.0"),
-      qfLending = PLN("500000.0"),
-      qfRepayment = PLN("150000.0"),
+      qfBankBondIssuance = PLN(700000),
+      qfNbpBondAbsorption = PLN(300000),
+      qfBankBondAmortization = PLN(200000),
+      qfNbpBondAmortization = PLN(100000),
+      qfLending = PLN(500000),
+      qfRepayment = PLN(150000),
     )
     given RuntimeLedgerTopology = result.execution.topology
 
     val batches  = FlowSimulation.emitAllBatches(calculus)
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)
 
-    evidence.quasiFiscalBondIssuance shouldBe PLN("1000000.0")
-    evidence.quasiFiscalBondAmortization shouldBe PLN("300000.0")
-    evidence.quasiFiscalNbpAbsorption shouldBe PLN("300000.0")
-    evidence.quasiFiscalNbpBondAmortization shouldBe PLN("100000.0")
-    evidence.quasiFiscalLending shouldBe PLN("500000.0")
-    evidence.quasiFiscalRepayment shouldBe PLN("150000.0")
-    evidence.quasiFiscalDepositChange shouldBe PLN("350000.0")
+    evidence.quasiFiscalBondIssuance shouldBe PLN(1000000)
+    evidence.quasiFiscalBondAmortization shouldBe PLN(300000)
+    evidence.quasiFiscalNbpAbsorption shouldBe PLN(300000)
+    evidence.quasiFiscalNbpBondAmortization shouldBe PLN(100000)
+    evidence.quasiFiscalLending shouldBe PLN(500000)
+    evidence.quasiFiscalRepayment shouldBe PLN(150000)
+    evidence.quasiFiscalDepositChange shouldBe PLN(350000)
   }

@@ -8,13 +8,13 @@ object PLNProvider:
   opaque type PLN = Long
 
   object PLN:
-    val Zero: PLN                     = 0L
-    def apply(value: BigDecimal): PLN = fromDecimal(value)
-    def apply(value: String): PLN     = parseDecimal(value)
-    def apply(value: Int): PLN        = fromLong(value.toLong)
-    def apply(value: Long): PLN       = fromLong(value)
-    def fromLong(l: Long): PLN        = l * Scale
-    def fromRaw(raw: Long): PLN       = raw
+    val Zero: PLN                                           = 0L
+    def apply(value: Int): PLN                              = fromLong(value.toLong)
+    def apply(value: Long): PLN                             = fromLong(value)
+    def decimal(unscaled: Long, fractionalDigits: Int): PLN =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    def fromLong(l: Long): PLN                              = l * Scale
+    def fromRaw(raw: Long): PLN                             = raw
 
   extension (p: PLN)
     inline def toLong: Long                   = p

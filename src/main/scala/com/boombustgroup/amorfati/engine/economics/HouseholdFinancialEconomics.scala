@@ -20,7 +20,7 @@ import com.boombustgroup.amorfati.types.*
 object HouseholdFinancialEconomics:
 
   // ---- Calibration constants ----
-  private val DiasporaUnempThreshold = Share("0.05") // unemployment threshold for counter-cyclical remittance sensitivity
+  private val DiasporaUnempThreshold = Share.decimal(5, 2) // unemployment threshold for counter-cyclical remittance sensitivity
 
   private def trendFactor(annualGrowth: Rate, elapsedMonths: Int): Multiplier =
     annualGrowth.monthly.growthMultiplier.pow(Scalar(elapsedMonths))
@@ -28,17 +28,17 @@ object HouseholdFinancialEconomics:
   private def monthlySeasonalCos(monthInYear: Int, peakMonth: Int): Coefficient =
     Math.floorMod(monthInYear - peakMonth, 12) match
       case 0  => Coefficient.One
-      case 1  => Coefficient("0.8660254038")
-      case 2  => Coefficient("0.5")
+      case 1  => Coefficient.decimal(8660254038L, 10)
+      case 2  => Coefficient.decimal(5, 1)
       case 3  => Coefficient.Zero
-      case 4  => Coefficient("-0.5")
-      case 5  => Coefficient("-0.8660254038")
-      case 6  => Coefficient("-1.0")
-      case 7  => Coefficient("-0.8660254038")
-      case 8  => Coefficient("-0.5")
+      case 4  => Coefficient.decimal(-5, 1)
+      case 5  => Coefficient.decimal(-8660254038L, 10)
+      case 6  => Coefficient(-1)
+      case 7  => Coefficient.decimal(-8660254038L, 10)
+      case 8  => Coefficient.decimal(-5, 1)
       case 9  => Coefficient.Zero
-      case 10 => Coefficient("0.5")
-      case _  => Coefficient("0.8660254038")
+      case 10 => Coefficient.decimal(5, 1)
+      case _  => Coefficient.decimal(8660254038L, 10)
 
   case class Output(
       hhDebtService: PLN,       // total household mortgage debt service

@@ -33,7 +33,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       val current = base.zip(fracs).map((b, f) => b * capMult * f)
       (current, base, capMult)
 
-  private def toSigmas(v: Vector[BigDecimal]): Vector[Sigma] = v.map(Sigma(_))
+  private def toSigmas(v: Vector[BigDecimal]): Vector[Sigma] = v.map(sigmaBD(_))
 
   private def evolveSigmas(
       current: Vector[BigDecimal],
@@ -42,7 +42,7 @@ class SigmaDynamicsPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       lambda: BigDecimal,
       capMult: BigDecimal,
   ): Vector[Sigma] =
-    PriceEquityEconomics.evolveSigmas(toSigmas(current), toSigmas(base), adoption.map(Share(_)), Coefficient(lambda), Multiplier(capMult))
+    PriceEquityEconomics.evolveSigmas(toSigmas(current), toSigmas(base), adoption.map(shareBD(_)), coefficientBD(lambda), multiplierBD(capMult))
 
   // --- Ratchet property ---
 

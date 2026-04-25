@@ -199,17 +199,17 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       importCons = PLN.Zero,
       techImports = PLN.Zero,
       autoRatio = Share.Zero,
-      domesticRate = Rate("0.05"),
-      gdp = PLN("1e9"),
+      domesticRate = Rate.decimal(5, 2),
+      gdp = PLN(1000000000),
       priceLevel = PriceIndex.Base,
-      sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN("1e8")),
+      sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(100000000)),
       month = ExecutionMonth(1),
       nbpFxReserves = prevBop.reserves,
     )
-    val resultWith    = OpenEconomy.step(base.copy(tourismExport = PLN("1000.0")))
+    val resultWith    = OpenEconomy.step(base.copy(tourismExport = PLN(1000)))
     val resultWithout = OpenEconomy.step(base.copy(tourismExport = PLN.Zero))
 
-    resultWith.bop.exports.shouldBe(resultWithout.bop.exports + PLN("1000.0"))
+    resultWith.bop.exports.shouldBe(resultWithout.bop.exports + PLN(1000))
   }
 
   "OpenEconomy imports" should "include tourismImport" in {
@@ -222,17 +222,17 @@ class TourismSpec extends AnyFlatSpec with Matchers:
       importCons = PLN.Zero,
       techImports = PLN.Zero,
       autoRatio = Share.Zero,
-      domesticRate = Rate("0.05"),
-      gdp = PLN("1e9"),
+      domesticRate = Rate.decimal(5, 2),
+      gdp = PLN(1000000000),
       priceLevel = PriceIndex.Base,
-      sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN("1e8")),
+      sectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(100000000)),
       month = ExecutionMonth(1),
       nbpFxReserves = prevBop.reserves,
     )
-    val resultWith    = OpenEconomy.step(base.copy(tourismImport = PLN("500.0")))
+    val resultWith    = OpenEconomy.step(base.copy(tourismImport = PLN(500)))
     val resultWithout = OpenEconomy.step(base.copy(tourismImport = PLN.Zero))
 
-    resultWith.bop.totalImports.shouldBe(resultWithout.bop.totalImports + PLN("500.0"))
+    resultWith.bop.totalImports.shouldBe(resultWithout.bop.totalImports + PLN(500))
   }
 
   // ==========================================================================
@@ -242,7 +242,7 @@ class TourismSpec extends AnyFlatSpec with Matchers:
   "World" should "default tourismExport and tourismImport to 0.0" in {
     val w = Generators.testWorld(
       priceLevel = PriceIndex.Base,
-      currentSigmas = Vector.fill(p.sectorDefs.length)(Sigma("0.1")),
+      currentSigmas = Vector.fill(p.sectorDefs.length)(Sigma.decimal(1, 1)),
       forex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       marketWage = PLN(5000),
       reservationWage = PLN(4000),

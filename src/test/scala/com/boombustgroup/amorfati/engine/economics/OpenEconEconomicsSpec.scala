@@ -73,7 +73,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     val erAdj         = powDecimal(exchangeRate / decimal(p.forex.baseExRate), decimal(p.remittance.erElasticity))
     val unempForRemit = decimal(w.unemploymentRate(s2.employed))
     val cyclicalAdj   = BigDecimal(1) + decimal(p.remittance.cyclicalSens) * (unempForRemit - BigDecimal("0.05")).max(BigDecimal(0))
-    val expected      = PLN(base * erAdj * cyclicalAdj)
+    val expected      = plnBD(base * erAdj * cyclicalAdj)
 
     s6.diasporaInflow shouldBe expected
   }
@@ -86,8 +86,8 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     val inboundErAdj   = powDecimal(exchangeRate / decimal(p.forex.baseExRate), decimal(p.tourism.erElasticity))
     val outboundErAdj  = powDecimal(decimal(p.forex.baseExRate) / exchangeRate, decimal(p.tourism.erElasticity))
     val baseGdp        = decimal(w.cachedMonthlyGdpProxy).max(BigDecimal(0))
-    val expectedExport = PLN(baseGdp * decimal(p.tourism.inboundShare) * seasonalFactor * inboundErAdj)
-    val expectedImport = PLN(baseGdp * decimal(p.tourism.outboundShare) * seasonalFactor * outboundErAdj)
+    val expectedExport = plnBD(baseGdp * decimal(p.tourism.inboundShare) * seasonalFactor * inboundErAdj)
+    val expectedImport = plnBD(baseGdp * decimal(p.tourism.outboundShare) * seasonalFactor * outboundErAdj)
 
     s6.tourismExport shouldBe expectedExport
     s6.tourismImport shouldBe expectedImport

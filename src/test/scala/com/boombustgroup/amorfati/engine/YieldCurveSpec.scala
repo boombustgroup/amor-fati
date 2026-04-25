@@ -18,15 +18,15 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "YieldCurve.compute" should "produce base premiums from O/N rate" in {
-    val curve = YieldCurve.compute(Rate("0.058"))
-    curve.overnight should be(Rate("0.058"))
+    val curve = YieldCurve.compute(Rate.decimal(58, 3))
+    curve.overnight should be(Rate.decimal(58, 3))
     decimal(curve.wibor1m) should be(BigDecimal("0.058") + decimal(YieldCurve.BasePremium1M) +- BigDecimal("1e-10"))
     decimal(curve.wibor3m) should be(BigDecimal("0.058") + decimal(YieldCurve.BasePremium3M) +- BigDecimal("1e-10"))
     decimal(curve.wibor6m) should be(BigDecimal("0.058") + decimal(YieldCurve.BasePremium6M) +- BigDecimal("1e-10"))
   }
 
   it should "preserve term structure ordering: O/N < 1M < 3M < 6M" in {
-    val curve = YieldCurve.compute(Rate("0.05"))
+    val curve = YieldCurve.compute(Rate.decimal(5, 2))
     curve.overnight should be < curve.wibor1m
     curve.wibor1m should be < curve.wibor3m
     curve.wibor3m should be < curve.wibor6m
@@ -41,12 +41,12 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle very low O/N rate" in {
-    val curve = YieldCurve.compute(Rate("0.001"))
+    val curve = YieldCurve.compute(Rate.decimal(1, 3))
     decimal(curve.wibor3m) should be(BigDecimal("0.001") + decimal(YieldCurve.BasePremium3M) +- BigDecimal("1e-10"))
   }
 
   it should "handle high O/N rate" in {
-    val curve = YieldCurve.compute(Rate("0.25"))
+    val curve = YieldCurve.compute(Rate.decimal(25, 2))
     decimal(curve.wibor6m) should be(BigDecimal("0.25") + decimal(YieldCurve.BasePremium6M) +- BigDecimal("1e-10"))
   }
 
@@ -55,20 +55,20 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   it should "widen premium under credit stress (NPL > 0)" in {
-    val calm     = YieldCurve.compute(Rate("0.05"))
-    val stressed = YieldCurve.compute(Rate("0.05"), nplRatio = Share("0.10"))
+    val calm     = YieldCurve.compute(Rate.decimal(5, 2))
+    val stressed = YieldCurve.compute(Rate.decimal(5, 2), nplRatio = Share.decimal(10, 2))
     stressed.wibor3m should be > calm.wibor3m
   }
 
   it should "widen premium when expectations de-anchor (credibility < 1)" in {
-    val anchored   = YieldCurve.compute(Rate("0.05"))
-    val deAnchored = YieldCurve.compute(Rate("0.05"), credibility = Share("0.5"), expectedInflation = Rate("0.08"))
+    val anchored   = YieldCurve.compute(Rate.decimal(5, 2))
+    val deAnchored = YieldCurve.compute(Rate.decimal(5, 2), credibility = Share.decimal(5, 1), expectedInflation = Rate.decimal(8, 2))
     deAnchored.wibor3m should be > anchored.wibor3m
   }
 
   it should "have no extra premium when credibility = 1 regardless of expected inflation" in {
-    val base = YieldCurve.compute(Rate("0.05"))
-    val high = YieldCurve.compute(Rate("0.05"), credibility = Share.One, expectedInflation = Rate("0.10"))
+    val base = YieldCurve.compute(Rate.decimal(5, 2))
+    val high = YieldCurve.compute(Rate.decimal(5, 2), credibility = Share.One, expectedInflation = Rate.decimal(10, 2))
     high.wibor3m should be(base.wibor3m)
   }
 
@@ -92,13 +92,13 @@ class YieldCurveSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "Banking.MarketState" should "default to None for interbankCurve" in {
-    val bs = Banking.MarketState(Rate("0.05"), Vector.empty, None)
+    val bs = Banking.MarketState(Rate.decimal(5, 2), Vector.empty, None)
     bs.interbankCurve should be(None)
   }
 
   it should "store curve when provided" in {
-    val curve = YieldCurve.compute(Rate("0.058"))
-    val bs    = Banking.MarketState(Rate("0.058"), Vector.empty, interbankCurve = Some(curve))
+    val curve = YieldCurve.compute(Rate.decimal(58, 3))
+    val bs    = Banking.MarketState(Rate.decimal(58, 3), Vector.empty, interbankCurve = Some(curve))
     bs.interbankCurve should be(defined)
     decimal(bs.interbankCurve.get.wibor3m) should be(BigDecimal("0.058") + decimal(YieldCurve.BasePremium3M) +- BigDecimal("1e-10"))
   }

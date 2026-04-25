@@ -14,23 +14,23 @@ class NetworkSpec extends AnyFlatSpec with Matchers:
   // --- Watts-Strogatz ---
 
   "wattsStrogatz" should "produce average degree ≈ k" in {
-    val adj    = Network.wattsStrogatz(1000, 6, Share("0.10"), RandomStream.seeded(42))
+    val adj    = Network.wattsStrogatz(1000, 6, Share.decimal(10, 2), RandomStream.seeded(42))
     val avgDeg = decimal(adj.map(_.length).sum) / decimal(adj.length)
     avgDeg shouldBe BigDecimal("6.0") +- BigDecimal("0.3") // ±5%
   }
 
   it should "be symmetric" in {
-    val adj = Network.wattsStrogatz(1000, 6, Share("0.10"), RandomStream.seeded(42))
+    val adj = Network.wattsStrogatz(1000, 6, Share.decimal(10, 2), RandomStream.seeded(42))
     for i <- adj.indices; j <- adj(i) do adj(j) should contain(i)
   }
 
   it should "have no self-loops" in {
-    val adj = Network.wattsStrogatz(1000, 6, Share("0.10"), RandomStream.seeded(42))
+    val adj = Network.wattsStrogatz(1000, 6, Share.decimal(10, 2), RandomStream.seeded(42))
     for i <- adj.indices do adj(i) should not contain i
   }
 
   it should "be a single connected component" in {
-    val adj     = Network.wattsStrogatz(1000, 6, Share("0.10"), RandomStream.seeded(42))
+    val adj     = Network.wattsStrogatz(1000, 6, Share.decimal(10, 2), RandomStream.seeded(42))
     val visited = Array.fill(adj.length)(false)
     val queue   = scala.collection.mutable.Queue(0)
     visited(0) = true

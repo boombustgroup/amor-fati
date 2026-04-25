@@ -23,7 +23,7 @@ import com.boombustgroup.amorfati.random.RandomStream
 object HouseholdIncomeEconomics:
 
   // ---- Calibration constants ----
-  private val ImportErElasticity = Coefficient("0.5") // exchange rate elasticity of import propensity
+  private val ImportErElasticity = Coefficient.decimal(5, 1) // exchange rate elasticity of import propensity
 
   case class Output(
       totalIncome: PLN,                               // aggregate household income (wages + benefits + transfers)

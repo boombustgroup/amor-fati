@@ -59,39 +59,39 @@ import com.boombustgroup.amorfati.util.Distributions
   */
 case class SocialConfig(
     // ZUS (Ustawa o systemie ubezpieczen spolecznych)
-    zusContribRate: Rate = Rate("0.1952"),
-    zusEmployeeRate: Rate = Rate("0.1371"), // employee portion deducted from PIT base (emerytura 9.76% + rentowe 1.5% + chorobowe 2.45%)
-    zusBasePension: PLN = PLN("3500.0"),
-    zusScale: Multiplier = Multiplier("1.0"),
+    zusContribRate: Rate = Rate.decimal(1952, 4),
+    zusEmployeeRate: Rate = Rate.decimal(1371, 4), // employee portion deducted from PIT base (emerytura 9.76% + rentowe 1.5% + chorobowe 2.45%)
+    zusBasePension: PLN = PLN(3500),
+    zusScale: Multiplier = Multiplier(1),
     // NFZ (Ustawa o swiadczeniach opieki zdrowotnej, Art. 79)
-    nfzContribRate: Rate = Rate("0.09"),
-    nfzPerCapitaCost: PLN = PLN("1250.0"),
-    nfzAgingElasticity: Multiplier = Multiplier("2.5"),
+    nfzContribRate: Rate = Rate.decimal(9, 2),
+    nfzPerCapitaCost: PLN = PLN(1250),
+    nfzAgingElasticity: Multiplier = Multiplier.decimal(25, 1),
     // PPK (Ustawa o PPK)
-    ppkEmployeeRate: Rate = Rate("0.02"),
-    ppkEmployerRate: Rate = Rate("0.015"),
-    ppkBondAlloc: Share = Share("0.60"),
+    ppkEmployeeRate: Rate = Rate.decimal(2, 2),
+    ppkEmployerRate: Rate = Rate.decimal(15, 3),
+    ppkBondAlloc: Share = Share.decimal(60, 2),
     // Demographics (GUS 2024)
-    demRetirementRate: Rate = Rate("0.001"),
-    demWorkingAgeDecline: Rate = Rate("0.002"),
+    demRetirementRate: Rate = Rate.decimal(1, 3),
+    demWorkingAgeDecline: Rate = Rate.decimal(2, 3),
     demInitialRetirees: Int = 0,
     // Education (GUS LFS 2024)
-    eduShares: Vector[Share] = Vector(Share("0.08"), Share("0.25"), Share("0.30"), Share("0.37")),
+    eduShares: Vector[Share] = Vector(Share.decimal(8, 2), Share.decimal(25, 2), Share.decimal(30, 2), Share.decimal(37, 2)),
     eduSectorShares: Option[Vector[Vector[Share]]] = None,
-    eduWagePreemia: Vector[Multiplier] = Vector(Multiplier("0.70"), Multiplier("0.85"), Multiplier("1.00"), Multiplier("1.30")),
-    eduRetrainMult: Vector[Multiplier] = Vector(Multiplier("0.67"), Multiplier("0.83"), Multiplier("1.00"), Multiplier("1.25")),
-    eduSkillFloors: Vector[Share] = Vector(Share("0.30"), Share("0.35"), Share("0.45"), Share("0.55")),
-    eduSkillCeilings: Vector[Share] = Vector(Share("0.75"), Share("0.85"), Share("0.95"), Share("1.00")),
-    eduImmigShares: Vector[Share] = Vector(Share("0.15"), Share("0.40"), Share("0.35"), Share("0.10")),
+    eduWagePreemia: Vector[Multiplier] = Vector(Multiplier.decimal(70, 2), Multiplier.decimal(85, 2), Multiplier(1), Multiplier.decimal(130, 2)),
+    eduRetrainMult: Vector[Multiplier] = Vector(Multiplier.decimal(67, 2), Multiplier.decimal(83, 2), Multiplier(1), Multiplier.decimal(125, 2)),
+    eduSkillFloors: Vector[Share] = Vector(Share.decimal(30, 2), Share.decimal(35, 2), Share.decimal(45, 2), Share.decimal(55, 2)),
+    eduSkillCeilings: Vector[Share] = Vector(Share.decimal(75, 2), Share.decimal(85, 2), Share.decimal(95, 2), Share(1)),
+    eduImmigShares: Vector[Share] = Vector(Share.decimal(15, 2), Share.decimal(40, 2), Share.decimal(35, 2), Share.decimal(10, 2)),
 ):
 
   private val defaultEduSectorShares: Vector[Vector[Share]] = Vector(
-    Vector(Share("0.02"), Share("0.10"), Share("0.28"), Share("0.60")),
-    Vector(Share("0.08"), Share("0.40"), Share("0.32"), Share("0.20")),
-    Vector(Share("0.06"), Share("0.22"), Share("0.38"), Share("0.34")),
-    Vector(Share("0.02"), Share("0.15"), Share("0.23"), Share("0.60")),
-    Vector(Share("0.03"), Share("0.08"), Share("0.25"), Share("0.64")),
-    Vector(Share("0.15"), Share("0.45"), Share("0.30"), Share("0.10")),
+    Vector(Share.decimal(2, 2), Share.decimal(10, 2), Share.decimal(28, 2), Share.decimal(60, 2)),
+    Vector(Share.decimal(8, 2), Share.decimal(40, 2), Share.decimal(32, 2), Share.decimal(20, 2)),
+    Vector(Share.decimal(6, 2), Share.decimal(22, 2), Share.decimal(38, 2), Share.decimal(34, 2)),
+    Vector(Share.decimal(2, 2), Share.decimal(15, 2), Share.decimal(23, 2), Share.decimal(60, 2)),
+    Vector(Share.decimal(3, 2), Share.decimal(8, 2), Share.decimal(25, 2), Share.decimal(64, 2)),
+    Vector(Share.decimal(15, 2), Share.decimal(45, 2), Share.decimal(30, 2), Share.decimal(10, 2)),
   )
 
   /** Draw education tier for a worker in given sector using CDF sampling. */

@@ -143,6 +143,22 @@ object types:
           val scale   = BigInt(FixedPointBase.Scale)
           if product >= 0 then checkedInt(((product + scale - 1) / scale).toLong, "Share.ceilApplyTo")
           else checkedInt((product / scale).toLong, "Share.ceilApplyTo")
+    @targetName("shareFloorApplyToInt")
+    def floorApplyTo(n: Int): Int      =
+      try
+        val product   = java.lang.Math.multiplyExact(n.toLong, s.toLong)
+        val quotient  = product / FixedPointBase.Scale
+        val remainder = product % FixedPointBase.Scale
+        val floored   = if product < 0L && remainder != 0L then quotient - 1L else quotient
+        checkedInt(floored, "Share.floorApplyTo")
+      catch
+        case _: ArithmeticException =>
+          val product   = BigInt(n.toLong) * BigInt(s.toLong)
+          val scale     = BigInt(FixedPointBase.Scale)
+          val quotient  = product / scale
+          val remainder = product % scale
+          val floored   = if product < 0 && remainder != 0 then quotient - 1 else quotient
+          checkedInt(floored.toLong, "Share.floorApplyTo")
     @targetName("shareToScalar")
     def toScalar: Scalar               = Scalar.fromRaw(s.toLong)
     @targetName("shareToComplement")

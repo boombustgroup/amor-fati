@@ -138,88 +138,92 @@ import com.boombustgroup.amorfati.types.*
   */
 case class FiscalConfig(
     // Tax rates
-    citRate: Rate = Rate("0.19"),
-    citCarryforwardMaxShare: Share = Share("0.50"),             // max 50% of profit offset per year (Art. 7 ustawy o CIT)
-    citCarryforwardDecay: Rate = Rate(1.0 / 60),                // monthly decay ≈ 5-year expiry horizon
-    vatRates: Vector[Rate] = Vector(Rate("0.23"), Rate("0.19"), Rate("0.12"), Rate("0.06"), Rate("0.10"), Rate("0.07")),
-    exciseRates: Vector[Rate] = Vector(Rate("0.01"), Rate("0.04"), Rate("0.03"), Rate("0.005"), Rate("0.002"), Rate("0.02")),
-    customsDutyRate: Rate = Rate("0.04"),
-    customsNonEuShare: Share = Share("0.30"),
+    citRate: Rate = Rate.decimal(19, 2),
+    citCarryforwardMaxShare: Share = Share.decimal(50, 2),             // max 50% of profit offset per year (Art. 7 ustawy o CIT)
+    citCarryforwardDecay: Rate = Rate.fraction(1, 60),                 // monthly decay ≈ 5-year expiry horizon
+    vatRates: Vector[Rate] = Vector(Rate.decimal(23, 2), Rate.decimal(19, 2), Rate.decimal(12, 2), Rate.decimal(6, 2), Rate.decimal(10, 2), Rate.decimal(7, 2)),
+    exciseRates: Vector[Rate] = Vector(Rate.decimal(1, 2), Rate.decimal(4, 2), Rate.decimal(3, 2), Rate.decimal(5, 3), Rate.decimal(2, 3), Rate.decimal(2, 2)),
+    customsDutyRate: Rate = Rate.decimal(4, 2),
+    customsNonEuShare: Share = Share.decimal(30, 2),
     // Government spending (raw — scaled by gdpRatio in SimParams.defaults)
-    govBaseSpending: PLN = PLN("58.3e9"),
-    govFiscalRecyclingRate: Share = Share("0.85"),
-    govAutoStabMult: Coefficient = Coefficient("3.0"),
+    govBaseSpending: PLN = PLN(58300000000L),
+    govFiscalRecyclingRate: Share = Share.decimal(85, 2),
+    govAutoStabMult: Coefficient = Coefficient(3),
     // Government investment
-    govInvestShare: Share = Share("0.20"),
-    govCapitalMultiplier: Multiplier = Multiplier("1.5"),
-    govCurrentMultiplier: Multiplier = Multiplier("0.8"),
-    govDepreciationRate: Rate = Rate("0.06"),
-    govInitCapital: PLN = PLN("0.0"),
+    govInvestShare: Share = Share.decimal(20, 2),
+    govCapitalMultiplier: Multiplier = Multiplier.decimal(15, 1),
+    govCurrentMultiplier: Multiplier = Multiplier.decimal(8, 1),
+    govDepreciationRate: Rate = Rate.decimal(6, 2),
+    govInitCapital: PLN = PLN(0),
     // EU Funds
-    euFundsTotalEur: Multiplier = Multiplier("76e9"),
+    euFundsTotalEur: Multiplier = Multiplier(76000000000L),
     euFundsPeriodMonths: Int = 84,
     euFundsStartMonth: Int = 1,
-    euFundsAlpha: Scalar = Scalar("2.0"),
-    euFundsBeta: Scalar = Scalar("5.0"),
-    euCofinanceRate: Share = Share("0.15"),
-    euCapitalShare: Share = Share("0.60"),
+    euFundsAlpha: Scalar = Scalar(2),
+    euFundsBeta: Scalar = Scalar(5),
+    euCofinanceRate: Share = Share.decimal(15, 2),
+    euCapitalShare: Share = Share.decimal(60, 2),
     // Minimum wage
     minWageAdjustMonths: Int = 12,
     minWageInflationIndex: Boolean = true,
-    minWageTargetRatio: Share = Share("0.50"),
-    minWageConvergenceSpeed: Share = Share("0.33"),
+    minWageTargetRatio: Share = Share.decimal(50, 2),
+    minWageConvergenceSpeed: Share = Share.decimal(33, 2),
     // Flow-of-Funds weights (6 sectors)
-    fofConsWeights: Vector[Share] = Vector(Share("0.02"), Share("0.22"), Share("0.53"), Share("0.06"), Share("0.07"), Share("0.10")),
-    fofGovWeights: Vector[Share] = Vector(Share("0.04"), Share("0.12"), Share("0.08"), Share("0.16"), Share("0.50"), Share("0.10")),
-    fofExportShares: Vector[Share] = Vector(Share("0.07"), Share("0.52"), Share("0.12"), Share("0.02"), Share("0.03"), Share("0.24")),
-    fofInvestWeights: Vector[Share] = Vector(Share("0.10"), Share("0.40"), Share("0.15"), Share("0.05"), Share("0.20"), Share("0.10")),
+    fofConsWeights: Vector[Share] =
+      Vector(Share.decimal(2, 2), Share.decimal(22, 2), Share.decimal(53, 2), Share.decimal(6, 2), Share.decimal(7, 2), Share.decimal(10, 2)),
+    fofGovWeights: Vector[Share] =
+      Vector(Share.decimal(4, 2), Share.decimal(12, 2), Share.decimal(8, 2), Share.decimal(16, 2), Share.decimal(50, 2), Share.decimal(10, 2)),
+    fofExportShares: Vector[Share] =
+      Vector(Share.decimal(7, 2), Share.decimal(52, 2), Share.decimal(12, 2), Share.decimal(2, 2), Share.decimal(3, 2), Share.decimal(24, 2)),
+    fofInvestWeights: Vector[Share] =
+      Vector(Share.decimal(10, 2), Share.decimal(40, 2), Share.decimal(15, 2), Share.decimal(5, 2), Share.decimal(20, 2), Share.decimal(10, 2)),
     // Unemployment benefits
-    govBenefitM1to3: PLN = PLN("1500.0"),
-    govBenefitM4to6: PLN = PLN("1200.0"),
+    govBenefitM1to3: PLN = PLN(1500),
+    govBenefitM4to6: PLN = PLN(1200),
     govBenefitDuration: Int = 6,
-    govBenefitCoverage: Share = Share("0.15"),
+    govBenefitCoverage: Share = Share.decimal(15, 2),
     // Bond market
-    govFiscalRiskBeta: Coefficient = Coefficient("2.0"),
-    govTermPremium: Rate = Rate("0.005"),
+    govFiscalRiskBeta: Coefficient = Coefficient(2),
+    govTermPremium: Rate = Rate.decimal(5, 3),
     govAvgMaturityMonths: Int = 54,
     // Bond auction — foreign demand (NBP SPW holder structure 2024)
-    baseForeignShare: Share = Share("0.35"),
-    maxForeignShare: Share = Share("0.55"),
-    foreignYieldSensitivity: Coefficient = Coefficient("8.0"),
-    foreignErSensitivity: Coefficient = Coefficient("4.0"),
-    bundYield: Rate = Rate("0.025"),
-    bankBondAbsorptionShare: Share = Share("0.30"),
+    baseForeignShare: Share = Share.decimal(35, 2),
+    maxForeignShare: Share = Share.decimal(55, 2),
+    foreignYieldSensitivity: Coefficient = Coefficient(8),
+    foreignErSensitivity: Coefficient = Coefficient(4),
+    bundYield: Rate = Rate.decimal(25, 3),
+    bankBondAbsorptionShare: Share = Share.decimal(30, 2),
     // Fiscal rules (Art. 216 Konstytucja RP, SRW Art. 112aa uFP, SGP)
-    fiscalRuleDebtCeiling: Share = Share("0.60"),               // Art. 216: constitutional 60% debt/GDP ceiling
-    fiscalRuleCautionThreshold: Share = Share("0.55"),          // Art. 86 uFP: cautionary 55% debt/GDP threshold
-    srwRealGrowthCap: Rate = Rate("0.015"),                     // SRW: max real growth allowance (CPI + 1.5pp)
-    srwCorrectionSpeed: Share = Share("0.33"),                  // SRW: annual convergence speed toward ceiling
-    srwOutputGapSensitivity: Coefficient = Coefficient("0.50"), // SRW: correction term sensitivity to output gap
-    fiscalConsolidationSpeed55: Share = Share("0.10"),          // annual spending cut rate at 55% threshold
-    fiscalConsolidationSpeed60: Share = Share("0.25"),          // annual spending cut rate at 60% threshold
-    sgpDeficitLimit: Share = Share("0.03"),                     // SGP: 3% deficit/GDP Maastricht limit
-    fiscalRiskBeta55: Coefficient = Coefficient("3.5"),         // bond yield sensitivity above 55% debt/GDP
-    fiscalRiskBeta60: Coefficient = Coefficient("6.0"),         // bond yield sensitivity above 60% debt/GDP
+    fiscalRuleDebtCeiling: Share = Share.decimal(60, 2),               // Art. 216: constitutional 60% debt/GDP ceiling
+    fiscalRuleCautionThreshold: Share = Share.decimal(55, 2),          // Art. 86 uFP: cautionary 55% debt/GDP threshold
+    srwRealGrowthCap: Rate = Rate.decimal(15, 3),                      // SRW: max real growth allowance (CPI + 1.5pp)
+    srwCorrectionSpeed: Share = Share.decimal(33, 2),                  // SRW: annual convergence speed toward ceiling
+    srwOutputGapSensitivity: Coefficient = Coefficient.decimal(50, 2), // SRW: correction term sensitivity to output gap
+    fiscalConsolidationSpeed55: Share = Share.decimal(10, 2),          // annual spending cut rate at 55% threshold
+    fiscalConsolidationSpeed60: Share = Share.decimal(25, 2),          // annual spending cut rate at 60% threshold
+    sgpDeficitLimit: Share = Share.decimal(3, 2),                      // SGP: 3% deficit/GDP Maastricht limit
+    fiscalRiskBeta55: Coefficient = Coefficient.decimal(35, 1),        // bond yield sensitivity above 55% debt/GDP
+    fiscalRiskBeta60: Coefficient = Coefficient(6),                    // bond yield sensitivity above 60% debt/GDP
     // Government debt (raw — scaled by gdpRatio in SimParams.defaults)
-    initGovDebt: PLN = PLN("1600e9"),
+    initGovDebt: PLN = PLN(1600000000000L),
     // JST (local government, Art. 4 Ustawa o dochodach JST)
-    jstPitShare: Share = Share("0.3846"),
-    jstCitShare: Share = Share("0.0671"),
-    jstPropertyTax: PLN = PLN("5000.0"),
-    jstSubventionShare: Share = Share("0.03"),
-    jstDotacjeShare: Share = Share("0.01"),
-    jstSpendingMult: Multiplier = Multiplier("1.02"),
+    jstPitShare: Share = Share.decimal(3846, 4),
+    jstCitShare: Share = Share.decimal(671, 4),
+    jstPropertyTax: PLN = PLN(5000),
+    jstSubventionShare: Share = Share.decimal(3, 2),
+    jstDotacjeShare: Share = Share.decimal(1, 2),
+    jstSpendingMult: Multiplier = Multiplier.decimal(102, 2),
     // PIT (Ustawa o PIT 2024)
-    pitRate1: Rate = Rate("0.12"),
-    pitRate2: Rate = Rate("0.32"),
-    pitBracket1Annual: PLN = PLN("120000.0"),
-    pitTaxCreditAnnual: PLN = PLN("3600.0"),
-    pitEffectiveRate: Rate = Rate("0.09"),
+    pitRate1: Rate = Rate.decimal(12, 2),
+    pitRate2: Rate = Rate.decimal(32, 2),
+    pitBracket1Annual: PLN = PLN(120000),
+    pitTaxCreditAnnual: PLN = PLN(3600),
+    pitEffectiveRate: Rate = Rate.decimal(9, 2),
     // Social 800+ (Dz.U. 2023)
-    social800: PLN = PLN("800.0"),
-    social800ChildrenPerHh: Scalar = Scalar("0.35"),
+    social800: PLN = PLN(800),
+    social800ChildrenPerHh: Scalar = Scalar.decimal(35, 2),
 ):
-  require(citRate >= Rate.Zero && citRate <= Rate("1.0"), s"citRate must be in [0,1]: $citRate")
+  require(citRate >= Rate.Zero && citRate <= Rate(1), s"citRate must be in [0,1]: $citRate")
   require(govBaseSpending >= PLN.Zero, s"govBaseSpending must be non-negative: $govBaseSpending")
   require(initGovDebt >= PLN.Zero, s"initGovDebt must be non-negative: $initGovDebt")
   require(vatRates.length == 6, s"vatRates must have 6 sectors: ${vatRates.length}")

@@ -34,13 +34,14 @@ import com.boombustgroup.amorfati.types.*
   *   inertia)
   */
 case class InformalConfig(
-    sectorShares: Vector[Share] = Vector(Share("0.05"), Share("0.15"), Share("0.30"), Share("0.20"), Share("0.02"), Share("0.35")),
-    citEvasion: Share = Share("0.80"),
-    vatEvasion: Share = Share("0.90"),
-    pitEvasion: Share = Share("0.85"),
-    exciseEvasion: Share = Share("0.70"),
-    unempThreshold: Rate = Rate("0.05"),
-    cyclicalSens: Coefficient = Coefficient("0.50"),
-    smoothing: Coefficient = Coefficient("0.92"),
+    sectorShares: Vector[Share] =
+      Vector(Share.decimal(5, 2), Share.decimal(15, 2), Share.decimal(30, 2), Share.decimal(20, 2), Share.decimal(2, 2), Share.decimal(35, 2)),
+    citEvasion: Share = Share.decimal(80, 2),
+    vatEvasion: Share = Share.decimal(90, 2),
+    pitEvasion: Share = Share.decimal(85, 2),
+    exciseEvasion: Share = Share.decimal(70, 2),
+    unempThreshold: Rate = Rate.decimal(5, 2),
+    cyclicalSens: Coefficient = Coefficient.decimal(50, 2),
+    smoothing: Coefficient = Coefficient.decimal(92, 2),
 ):
   require(sectorShares.length == 6, s"sectorShares must have 6 sectors: ${sectorShares.length}")

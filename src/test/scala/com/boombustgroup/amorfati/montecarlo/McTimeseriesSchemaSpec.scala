@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.montecarlo
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
@@ -289,33 +290,33 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep sector sigma columns aligned with the schema" in {
-    val updatedSigma = Sigma("17.0")
+    val updatedSigma = Sigma(17)
     val updatedWorld = init.world.copy(currentSigmas = init.world.currentSigmas.updated(1, updatedSigma))
     val updatedRow   = computeRow(updatedWorld)
 
-    valueAt(updatedRow, "Manuf_Sigma") shouldBe MetricValue("17.0")
+    valueAt(updatedRow, "Manuf_Sigma") shouldBe MetricValue(17)
     valueAt(updatedRow, "BPO_Sigma") shouldBe valueAt(computeRow(init.world), "BPO_Sigma")
   }
 
   it should "source ledger-owned household, public, and fund stock columns from LedgerFinancialState" in {
     val ledger = initState.ledgerFinancialState.copy(
-      households = initState.ledgerFinancialState.households.map(_.copy(mortgageLoan = PLN("12.0"), equity = PLN("11.0"))),
-      banks = initState.ledgerFinancialState.banks.map(_.copy(govBondAfs = PLN("10.0"), govBondHtm = PLN("20.0"))),
-      government = initState.ledgerFinancialState.government.copy(govBondOutstanding = PLN("123.0")),
-      foreign = initState.ledgerFinancialState.foreign.copy(govBondHoldings = PLN("45.0")),
-      nbp = initState.ledgerFinancialState.nbp.copy(govBondHoldings = PLN("67.0")),
+      households = initState.ledgerFinancialState.households.map(_.copy(mortgageLoan = PLN(12), equity = PLN(11))),
+      banks = initState.ledgerFinancialState.banks.map(_.copy(govBondAfs = PLN(10), govBondHtm = PLN(20))),
+      government = initState.ledgerFinancialState.government.copy(govBondOutstanding = PLN(123)),
+      foreign = initState.ledgerFinancialState.foreign.copy(govBondHoldings = PLN(45)),
+      nbp = initState.ledgerFinancialState.nbp.copy(govBondHoldings = PLN(67)),
       funds = initState.ledgerFinancialState.funds.copy(
-        jstCash = PLN("89.0"),
-        zusCash = PLN("90.0"),
-        nfzCash = PLN("91.0"),
-        ppkGovBondHoldings = PLN("92.0"),
-        fpCash = PLN("93.0"),
-        pfronCash = PLN("94.0"),
-        fgspCash = PLN("95.0"),
+        jstCash = PLN(89),
+        zusCash = PLN(90),
+        nfzCash = PLN(91),
+        ppkGovBondHoldings = PLN(92),
+        fpCash = PLN(93),
+        pfronCash = PLN(94),
+        fgspCash = PLN(95),
         quasiFiscal = initState.ledgerFinancialState.funds.quasiFiscal.copy(
-          bondsOutstanding = PLN("96.0"),
-          loanPortfolio = PLN("97.0"),
-          nbpHoldings = PLN("98.0"),
+          bondsOutstanding = PLN(96),
+          loanPortfolio = PLN(97),
+          nbpHoldings = PLN(98),
         ),
       ),
     )
@@ -323,20 +324,20 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
 
     valueAt(row, "HhEquityWealth") shouldBe MetricValue(initState.ledgerFinancialState.households.length) * 11
     valueAt(row, "MortgageStock") shouldBe MetricValue(initState.ledgerFinancialState.households.length) * 12
-    valueAt(row, "BondsOutstanding") shouldBe MetricValue("123.0")
+    valueAt(row, "BondsOutstanding") shouldBe MetricValue(123)
     valueAt(row, "BankBondHoldings") shouldBe MetricValue(initState.ledgerFinancialState.banks.length) * 30
-    valueAt(row, "ForeignBondHoldings") shouldBe MetricValue("45.0")
-    valueAt(row, "NbpBondHoldings") shouldBe MetricValue("67.0")
-    valueAt(row, "QfBondsOutstanding") shouldBe MetricValue("96.0")
-    valueAt(row, "QfLoanPortfolio") shouldBe MetricValue("97.0")
-    valueAt(row, "QfNbpHoldings") shouldBe MetricValue("98.0")
-    valueAt(row, "JstDeposits") shouldBe MetricValue("89.0")
-    valueAt(row, "FusBalance") shouldBe MetricValue("90.0")
-    valueAt(row, "NfzBalance") shouldBe MetricValue("91.0")
-    valueAt(row, "PpkBondHoldings") shouldBe MetricValue("92.0")
-    valueAt(row, "FpBalance") shouldBe MetricValue("93.0")
-    valueAt(row, "PfronBalance") shouldBe MetricValue("94.0")
-    valueAt(row, "FgspBalance") shouldBe MetricValue("95.0")
+    valueAt(row, "ForeignBondHoldings") shouldBe MetricValue(45)
+    valueAt(row, "NbpBondHoldings") shouldBe MetricValue(67)
+    valueAt(row, "QfBondsOutstanding") shouldBe MetricValue(96)
+    valueAt(row, "QfLoanPortfolio") shouldBe MetricValue(97)
+    valueAt(row, "QfNbpHoldings") shouldBe MetricValue(98)
+    valueAt(row, "JstDeposits") shouldBe MetricValue(89)
+    valueAt(row, "FusBalance") shouldBe MetricValue(90)
+    valueAt(row, "NfzBalance") shouldBe MetricValue(91)
+    valueAt(row, "PpkBondHoldings") shouldBe MetricValue(92)
+    valueAt(row, "FpBalance") shouldBe MetricValue(93)
+    valueAt(row, "PfronBalance") shouldBe MetricValue(94)
+    valueAt(row, "FgspBalance") shouldBe MetricValue(95)
   }
 
   it should "map regional HPI columns by market identity and preserve schema order" in {
@@ -350,16 +351,16 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
       HousingConfig.RegionalMarket.Poznan       -> BigDecimal("106.0"),
       HousingConfig.RegionalMarket.RestOfPoland -> BigDecimal("107.0"),
     )
-    val updated     = regions.reverse.map(region => region.copy(priceIndex = PriceIndex(hpiByMarket(region.market))))
+    val updated     = regions.reverse.map(region => region.copy(priceIndex = priceIndexBD(hpiByMarket(region.market))))
     val updatedRow  = computeRow(init.world.copy(real = init.world.real.copy(housing = init.world.real.housing.copy(regions = Some(updated)))))
 
-    valueAt(updatedRow, "WawHpi") shouldBe MetricValue("101.0")
-    valueAt(updatedRow, "KrkHpi") shouldBe MetricValue("102.0")
-    valueAt(updatedRow, "WroHpi") shouldBe MetricValue("103.0")
-    valueAt(updatedRow, "GdnHpi") shouldBe MetricValue("104.0")
-    valueAt(updatedRow, "LdzHpi") shouldBe MetricValue("105.0")
-    valueAt(updatedRow, "PozHpi") shouldBe MetricValue("106.0")
-    valueAt(updatedRow, "RestHpi") shouldBe MetricValue("107.0")
+    valueAt(updatedRow, "WawHpi") shouldBe MetricValue(101)
+    valueAt(updatedRow, "KrkHpi") shouldBe MetricValue(102)
+    valueAt(updatedRow, "WroHpi") shouldBe MetricValue(103)
+    valueAt(updatedRow, "GdnHpi") shouldBe MetricValue(104)
+    valueAt(updatedRow, "LdzHpi") shouldBe MetricValue(105)
+    valueAt(updatedRow, "PozHpi") shouldBe MetricValue(106)
+    valueAt(updatedRow, "RestHpi") shouldBe MetricValue(107)
   }
 
   it should "reject malformed regional housing state shapes before output indexing" in {

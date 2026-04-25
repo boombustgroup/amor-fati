@@ -31,20 +31,20 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateInflation ---
 
   "PriceLevel.update" should "produce higher inflation with higher demand" in {
-    val r1 = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val r2 = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier("1.5"), Coefficient.Zero, ExchangeRateShock.Zero)
+    val r1 = PriceLevel.update(Rate.decimal(25, 3), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val r2 = PriceLevel.update(Rate.decimal(25, 3), PriceIndex.Base, Multiplier.decimal(15, 1), Coefficient.Zero, ExchangeRateShock.Zero)
     r2.inflation.should(be > r1.inflation)
   }
 
   it should "produce higher inflation with FX import pressure" in {
-    val r1 = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val r2 = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock("0.2"))
+    val r1 = PriceLevel.update(Rate.decimal(25, 3), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val r2 = PriceLevel.update(Rate.decimal(25, 3), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.decimal(2, 1))
     r2.inflation.should(be > r1.inflation)
   }
 
   it should "ignore negative wage growth in aggregate cost-push" in {
-    val flat = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val down = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient("-0.05"), ExchangeRateShock.Zero)
+    val flat = PriceLevel.update(Rate.decimal(25, 3), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val down = PriceLevel.update(Rate.decimal(25, 3), PriceIndex.Base, Multiplier.One, Coefficient.decimal(-5, 2), ExchangeRateShock.Zero)
 
     down.inflation shouldBe flat.inflation
     down.priceLevel shouldBe flat.priceLevel
@@ -52,36 +52,36 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "apply only partial downside pass-through under slack demand" in {
-    val flat  = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val slack = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier("0.8"), Coefficient.Zero, ExchangeRateShock.Zero)
+    val flat  = PriceLevel.update(Rate.decimal(25, 3), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val slack = PriceLevel.update(Rate.decimal(25, 3), PriceIndex.Base, Multiplier.decimal(8, 1), Coefficient.Zero, ExchangeRateShock.Zero)
 
     slack.inflation should be < flat.inflation
     slack.priceLevel should be < flat.priceLevel
     slack.demandPull should be < Coefficient.Zero
-    slack.demandPull shouldBe Coefficient("-0.0075")
+    slack.demandPull shouldBe Coefficient.decimal(-75, 4)
   }
 
   it should "anchor aggregate inflation to expected inflation when fundamentals are flat" in {
-    val low  = PriceLevel.update(Rate("0.015"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val high = PriceLevel.update(Rate("0.030"), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val low  = PriceLevel.update(Rate.decimal(15, 3), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val high = PriceLevel.update(Rate.decimal(30, 3), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
 
     high.inflation should be > low.inflation
   }
 
   it should "enforce price floor at 0.30" in {
-    val r = PriceLevel.update(Rate("-0.50"), PriceIndex("0.31"), Multiplier("0.5"), Coefficient("-0.1"), ExchangeRateShock.Zero)
+    val r = PriceLevel.update(Rate.decimal(-50, 2), PriceIndex.decimal(31, 2), Multiplier.decimal(5, 1), Coefficient.decimal(-1, 1), ExchangeRateShock.Zero)
     decimal(r.priceLevel).should(be >= BigDecimal("0.30"))
   }
 
   it should "apply soft deflation floor at -1.5%/mo" in {
-    val r = PriceLevel.update(Rate("-0.10"), PriceIndex.Base, Multiplier("0.5"), Coefficient("-0.05"), ExchangeRateShock.Zero)
+    val r = PriceLevel.update(Rate.decimal(-10, 2), PriceIndex.Base, Multiplier.decimal(5, 1), Coefficient.decimal(-5, 2), ExchangeRateShock.Zero)
     // The soft floor means deflation doesn't accelerate as fast
     // Raw monthly would be very negative; with floor, annualized should be bounded
     decimal(r.inflation).should(be > BigDecimal("-1.0")) // deflation shouldn't exceed 100% annualized
   }
 
   it should "expose demand, cost, and import channel diagnostics" in {
-    val r = PriceLevel.update(Rate("0.025"), PriceIndex.Base, Multiplier("1.10"), Coefficient("0.03"), ExchangeRateShock("0.08"))
+    val r = PriceLevel.update(Rate.decimal(25, 3), PriceIndex.Base, Multiplier.decimal(110, 2), Coefficient.decimal(3, 2), ExchangeRateShock.decimal(8, 2))
 
     r.rawMonthly shouldBe (r.demandPull + r.costPush + r.importPush)
     r.flooredMonthly shouldBe r.rawMonthly
@@ -93,16 +93,16 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateCbRate ---
 
   "Nbp.updateRate" should "increase rate when inflation rises (PLN)" in {
-    val rate1 = Nbp.updateRate(Rate("0.0575"), Rate("0.03"), Coefficient.Zero, totalPop * 95 / 100, totalPop)
-    val rate2 = Nbp.updateRate(Rate("0.0575"), Rate("0.10"), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    val rate1 = Nbp.updateRate(Rate.decimal(575, 4), Rate.decimal(3, 2), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    val rate2 = Nbp.updateRate(Rate.decimal(575, 4), Rate.decimal(10, 2), Coefficient.Zero, totalPop * 95 / 100, totalPop)
     decimal(rate2).should(be >= decimal(rate1))
   }
 
   it should "bound rate between floor and ceiling" in {
-    val rateLow = Nbp.updateRate(Rate("0.005"), Rate("-0.50"), Coefficient.Zero, totalPop * 95 / 100, totalPop)
+    val rateLow = Nbp.updateRate(Rate.decimal(5, 3), Rate.decimal(-50, 2), Coefficient.Zero, totalPop * 95 / 100, totalPop)
     decimal(rateLow).should(be >= decimal(p.monetary.rateFloor))
 
-    val rateHigh = Nbp.updateRate(Rate("0.25"), Rate("1.0"), Coefficient("0.5"), totalPop * 95 / 100, totalPop)
+    val rateHigh = Nbp.updateRate(Rate.decimal(25, 2), Rate(1), Coefficient.decimal(5, 1), totalPop * 95 / 100, totalPop)
     decimal(rateHigh).should(be <= decimal(p.monetary.rateCeiling))
   }
 

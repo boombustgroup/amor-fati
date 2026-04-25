@@ -45,7 +45,7 @@ object Distributions:
     */
   def betaSample(alpha: Coefficient, beta: Coefficient, rng: RandomStream): Share =
     val total = alpha + beta
-    if total <= Coefficient.Zero then Share("0.5")
+    if total <= Coefficient.Zero then Share.decimal(5, 1)
     else
       val mean       = alpha.toScalar.ratioTo(total.toScalar).clampToShare
       val maxStd     = mean.min(mean.complement)

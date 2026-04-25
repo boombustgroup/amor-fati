@@ -10,8 +10,8 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val govCapital = PLN("5e9")
-  private val euCapital  = PLN("2e9")
+  private val govCapital = PLN(5000000000L)
+  private val euCapital  = PLN(2000000000)
 
   private def step(
       stock: QuasiFiscal.StockState = QuasiFiscal.StockState.zero,
@@ -64,8 +64,8 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "compute ESA 2010 debt as MF + quasi-fiscal" in {
-    val govDebt = PLN("100e9")
-    val qfDebt  = PLN("20e9")
+    val govDebt = PLN(100000000000L)
+    val qfDebt  = PLN(20000000000L)
     val esa     = QuasiFiscal.esa2010Debt(govDebt, qfDebt)
     decimal(esa) shouldBe BigDecimal("120e9") +- BigDecimal("1.0")
   }

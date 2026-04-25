@@ -23,24 +23,24 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
     (
       Banking.BankState(
         id = BankId(id),
-        capital = PLN(capital),
+        capital = plnBD(capital),
         nplAmount = PLN.Zero,
-        htmBookYield = Rate("0.05"),
+        htmBookYield = Rate.decimal(5, 2),
         status = if failed then Banking.BankStatus.Failed(ExecutionMonth.First) else Banking.BankStatus.Active(0),
-        loansShort = PLN("1.5e9"),
-        loansMedium = PLN("2e9"),
-        loansLong = PLN("1.5e9"),
+        loansShort = PLN(1500000000),
+        loansMedium = PLN(2000000000),
+        loansLong = PLN(1500000000),
         consumerNpl = PLN.Zero,
       ),
       Banking.BankFinancialStocks(
-        totalDeposits = PLN("10e9"),
-        firmLoan = PLN("5e9"),
-        govBondAfs = PLN("2e9"),
-        govBondHtm = PLN("1e9"),
+        totalDeposits = PLN(10000000000L),
+        firmLoan = PLN(5000000000L),
+        govBondAfs = PLN(2000000000),
+        govBondHtm = PLN(1000000000),
         reserve = PLN.Zero,
-        interbankLoan = PLN(interbankNet),
-        demandDeposit = PLN("6e9"),
-        termDeposit = PLN("4e9"),
+        interbankLoan = plnBD(interbankNet),
+        demandDeposit = PLN(6000000000L),
+        termDeposit = PLN(4000000000L),
         consumerLoan = PLN.Zero,
       ),
     )
@@ -71,7 +71,7 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
   it should "preserve each lender row sum exactly" in {
     val rows   = Vector(mkBankRow(0, BigDecimal("101.0")), mkBankRow(1, -BigDecimal("60.0")), mkBankRow(2, -BigDecimal("41.0")))
     val matrix = InterbankContagion.buildExposureMatrix(banks(rows), stocks(rows))
-    matrix(0).map(_.toLong).sum shouldBe PLN("101.0").toLong
+    matrix(0).map(_.toLong).sum shouldBe PLN(101).toLong
   }
 
   it should "match borrower deficits exactly when interbank market clears exactly" in {
@@ -80,8 +80,8 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
     val matrix = InterbankContagion.buildExposureMatrix(banks(rows), stocks(rows))
     val col2   = matrix.map(_(2).toLong).sum
     val col3   = matrix.map(_(3).toLong).sum
-    col2 shouldBe PLN("60.0").toLong
-    col3 shouldBe PLN("140.0").toLong
+    col2 shouldBe PLN(60).toLong
+    col3 shouldBe PLN(140).toLong
   }
 
   it should "return zero matrix when no borrowing" in {
@@ -148,17 +148,17 @@ class InterbankContagionSpec extends AnyFlatSpec with Matchers:
   }
 
   "hoardingFactor" should "be 1.0 when NPL below threshold" in {
-    val factor = InterbankContagion.hoardingFactor(Share("0.02"))
+    val factor = InterbankContagion.hoardingFactor(Share.decimal(2, 2))
     decimal(factor) shouldBe BigDecimal("1.0") +- BigDecimal("0.01")
   }
 
   it should "decrease when NPL exceeds threshold" in {
-    val factor = InterbankContagion.hoardingFactor(Share("0.10"))
+    val factor = InterbankContagion.hoardingFactor(Share.decimal(10, 2))
     decimal(factor) should be < BigDecimal("1.0")
     decimal(factor) should be >= BigDecimal("0.0")
   }
 
   it should "be zero (full freeze) at very high NPL" in {
-    val factor = InterbankContagion.hoardingFactor(Share("0.50"))
+    val factor = InterbankContagion.hoardingFactor(Share.decimal(50, 2))
     decimal(factor) shouldBe BigDecimal("0.0") +- BigDecimal("0.01")
   }

@@ -7,14 +7,11 @@ object ExchangeRateProvider:
   opaque type ExchangeRate = Long
 
   object ExchangeRate:
-    def apply(value: BigDecimal): ExchangeRate             =
-      require(value > 0, s"ExchangeRate must be > 0, got: $value")
-      fromDecimal(value)
-    def apply(value: String): ExchangeRate                 =
-      apply(BigDecimal(value.replace("_", "")))
-    def apply(value: Int): ExchangeRate                    = fromRaw(value.toLong * Scale)
-    def apply(value: Long): ExchangeRate                   = fromRaw(value * Scale)
-    private[amorfati] def fromRaw(raw: Long): ExchangeRate =
+    def apply(value: Int): ExchangeRate                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): ExchangeRate                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): ExchangeRate =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    private[amorfati] def fromRaw(raw: Long): ExchangeRate           =
       require(raw > 0L, s"ExchangeRate raw value must be > 0, got: $raw")
       raw
 

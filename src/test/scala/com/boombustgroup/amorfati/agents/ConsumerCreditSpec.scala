@@ -16,12 +16,12 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   private val p: SimParams = summon[SimParams]
 
   "Config defaults" should "have sensible consumer credit parameters" in {
-    p.household.ccSpread shouldBe Rate("0.04")
-    p.household.ccMaxDti shouldBe Share("0.40")
-    p.household.ccMaxLoan shouldBe PLN("50000.0")
-    p.household.ccAmortRate shouldBe Rate("0.025")
-    p.household.ccNplRecovery shouldBe Share("0.15")
-    p.household.ccEligRate shouldBe Share("0.30")
+    p.household.ccSpread shouldBe Rate.decimal(4, 2)
+    p.household.ccMaxDti shouldBe Share.decimal(40, 2)
+    p.household.ccMaxLoan shouldBe PLN(50000)
+    p.household.ccAmortRate shouldBe Rate.decimal(25, 3)
+    p.household.ccNplRecovery shouldBe Share.decimal(15, 2)
+    p.household.ccEligRate shouldBe Share.decimal(30, 2)
   }
 
   "DTI limit" should "cap loan at headroom x income" in {
@@ -78,9 +78,9 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "Bankruptcy" should "trigger consumer debt default" in {
-    val financial = TestHouseholdState.financial(savings = PLN("-5000.0"), debt = PLN("1000.0"), consumerDebt = PLN("5000.0"))
+    val financial = TestHouseholdState.financial(savings = PLN(-5000), debt = PLN(1000), consumerDebt = PLN(5000))
     // Bankrupt HH should have consumer debt -> NPL
-    financial.consumerLoan shouldBe PLN("5000.0")
+    financial.consumerLoan shouldBe PLN(5000)
     // NPL loss = consumerDebt * (1 - recovery)
     val nplLoss   = decimal(financial.consumerLoan) * (BigDecimal("1.0") - decimal(p.household.ccNplRecovery))
     nplLoss shouldBe BigDecimal("4250.0") +- BigDecimal("0.01")
@@ -170,19 +170,19 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   }
 
   "BankingAggregate" should "have consumerLoans and consumerNpl fields" in {
-    val bank = Banking.Aggregate(PLN("1000.0"), PLN("50.0"), PLN("500.0"), PLN("2000.0"), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+    val bank = Banking.Aggregate(PLN(1000), PLN(50), PLN(500), PLN(2000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     bank.consumerLoans shouldBe PLN.Zero
     bank.consumerNpl shouldBe PLN.Zero
   }
 
   "BankingAggregate.car" should "include consumer loans in RWA" in {
     val bank     =
-      Banking.Aggregate(PLN("1000.0"), PLN("50.0"), PLN("500.0"), PLN("2000.0"), PLN.Zero, PLN.Zero, PLN("1000.0"), PLN.Zero, PLN.Zero)
+      Banking.Aggregate(PLN(1000), PLN(50), PLN(500), PLN(2000), PLN.Zero, PLN.Zero, PLN(1000), PLN.Zero, PLN.Zero)
     // CAR = capital / (totalLoans + consumerLoans) = 500 / 2000 = 0.25
     decimal(bank.car) shouldBe BigDecimal("0.25") +- BigDecimal("0.01")
     // Without consumer loans: CAR = 500 / 1000 = 0.50
     val bankNoCc =
-      Banking.Aggregate(PLN("1000.0"), PLN("50.0"), PLN("500.0"), PLN("2000.0"), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+      Banking.Aggregate(PLN(1000), PLN(50), PLN(500), PLN(2000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     decimal(bankNoCc.car) shouldBe BigDecimal("0.50") +- BigDecimal("0.01")
     bank.car should be < bankNoCc.car
   }
@@ -295,7 +295,7 @@ class ConsumerCreditSpec extends AnyFlatSpec with Matchers:
   )
 
   "Sfc" should "pass consumer credit identity with zero flows" in {
-    val snap   = zeroSnap.copy(bankCapital = PLN("100.0"), bankDeposits = PLN("200.0"))
+    val snap   = zeroSnap.copy(bankCapital = PLN(100), bankDeposits = PLN(200))
     val flow   = zeroFlows
     val result = Sfc.validateStockExactness(snap, snap, flow)
     result shouldBe Right(())

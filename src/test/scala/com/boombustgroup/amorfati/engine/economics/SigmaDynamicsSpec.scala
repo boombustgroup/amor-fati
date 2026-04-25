@@ -17,17 +17,17 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
       lambda: BigDecimal,
       capMult: BigDecimal,
   ): Vector[Sigma] =
-    PriceEquityEconomics.evolveSigmas(current, base.map(Sigma(_)), adoption.map(Share(_)), Coefficient(lambda), Multiplier(capMult))
+    PriceEquityEconomics.evolveSigmas(current, base.map(sigmaBD(_)), adoption.map(shareBD(_)), coefficientBD(lambda), multiplierBD(capMult))
 
   "PriceEquityEconomics.evolveSigmas" should "return unchanged sigmas when lambda=0" in {
-    val current  = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0")).map(Sigma(_))
+    val current  = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0")).map(sigmaBD(_))
     val base     = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0"))
     val adoption = Vector(BigDecimal("0.5"), BigDecimal("0.3"), BigDecimal("0.2"), BigDecimal("0.1"), BigDecimal("0.0"), BigDecimal("0.1"))
     evolveSigmas(current, base, adoption, BigDecimal("0.0"), BigDecimal("3.0")) shouldBe current
   }
 
   it should "increase sigma when lambda>0 and adoption>0" in {
-    val current  = Vector(Sigma("5.0"))
+    val current  = Vector(Sigma(5))
     val base     = Vector(BigDecimal("5.0"))
     val adoption = Vector(BigDecimal("0.5"))
     val result   = evolveSigmas(current, base, adoption, BigDecimal("0.02"), BigDecimal("3.0"))
@@ -35,7 +35,7 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "not change sigma when adoption=0" in {
-    val current  = Vector(Sigma("5.0"))
+    val current  = Vector(Sigma(5))
     val base     = Vector(BigDecimal("5.0"))
     val adoption = Vector(BigDecimal("0.0"))
     val result   = evolveSigmas(current, base, adoption, BigDecimal("0.02"), BigDecimal("3.0"))
@@ -44,7 +44,7 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
 
   it should "cap sigma at base * capMult" in {
     // current very close to cap (5.0 * 3.0 = 15.0)
-    val current  = Vector(Sigma("14.99"))
+    val current  = Vector(Sigma.decimal(1499, 2))
     val base     = Vector(BigDecimal("5.0"))
     val adoption = Vector(BigDecimal("1.0"))
     val result   = evolveSigmas(current, base, adoption, BigDecimal("10.0"), BigDecimal("3.0"))
@@ -52,7 +52,7 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "never decrease sigma (ratchet)" in {
-    val current  = Vector(Sigma("5.0"))
+    val current  = Vector(Sigma(5))
     val base     = Vector(BigDecimal("5.0"))
     // Negative adoption is pathological but ratchet should still hold
     val adoption = Vector(-BigDecimal("0.5"))
@@ -61,7 +61,7 @@ class SigmaDynamicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "evolve multiple sectors independently" in {
-    val current  = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0")).map(Sigma(_))
+    val current  = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0")).map(sigmaBD(_))
     val base     = Vector(BigDecimal("50.0"), BigDecimal("10.0"), BigDecimal("5.0"), BigDecimal("2.0"), BigDecimal("1.0"), BigDecimal("3.0"))
     val adoption = Vector(BigDecimal("0.5"), BigDecimal("0.0"), BigDecimal("0.3"), BigDecimal("0.0"), BigDecimal("0.0"), BigDecimal("0.2"))
     val result   = evolveSigmas(current, base, adoption, BigDecimal("0.02"), BigDecimal("3.0"))

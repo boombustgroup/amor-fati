@@ -18,9 +18,9 @@ object Generators:
     * market share.
     */
   def testBankingSector(
-      totalDeposits: PLN = PLN("1e9"),
-      totalCapital: PLN = PLN("5e8"),
-      totalLoans: PLN = PLN("5e8"),
+      totalDeposits: PLN = PLN(1000000000),
+      totalCapital: PLN = PLN(500000000),
+      totalLoans: PLN = PLN(500000000),
       totalGovBonds: PLN = PLN.Zero,
       totalConsumerLoans: PLN = PLN.Zero,
       configs: Vector[Banking.Config] = Banking.DefaultConfigs,
@@ -102,18 +102,18 @@ object Generators:
     )
 
   def testWorld(
-      inflation: Rate = Rate("0.02"),
+      inflation: Rate = Rate.decimal(2, 2),
       priceLevel: PriceIndex = PriceIndex.Base,
-      monthlyGdpProxy: PLN = PLN("1e9"),
+      monthlyGdpProxy: PLN = PLN(1000000000),
       currentSigmas: Vector[Sigma] = p.sectorDefs.map(_.sigma).toVector,
       totalPopulation: Int = 100,
       employed: Int = 100,
       marketWage: PLN = PLN(8000),
       reservationWage: PLN = PLN(4666),
       gov: FiscalBudget.GovState = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
-      nbp: Nbp.State = Nbp.State(Rate("0.0575"), false, PLN.Zero, PLN.Zero),
+      nbp: Nbp.State = Nbp.State(Rate.decimal(575, 4), false, PLN.Zero, PLN.Zero),
       bankingSector: Banking.MarketState = Banking.MarketState(Rate.Zero, Banking.DefaultConfigs, None),
-      forex: OpenEconomy.ForexState = OpenEconomy.ForexState(ExchangeRate("4.33"), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
+      forex: OpenEconomy.ForexState = OpenEconomy.ForexState(ExchangeRate.decimal(433, 2), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       social: SocialState = SocialState.zero,
       financialMarkets: FinancialMarketsState = FinancialMarketsState.zero,
       external: ExternalState = ExternalState.zero,
@@ -182,9 +182,9 @@ object Generators:
 
   // --- PLN generator helper ---
 
-  val genPLN: Gen[PLN] = genDecimal("-10000000000.0", "10000000000.0").map(PLN(_))
+  val genPLN: Gen[PLN] = genDecimal("-10000000000.0", "10000000000.0").map(plnBD(_))
 
-  def genPLNRange(lo: String, hi: String): Gen[PLN] = genDecimal(lo, hi).map(PLN(_))
+  def genPLNRange(lo: String, hi: String): Gen[PLN] = genDecimal(lo, hi).map(plnBD(_))
 
   // --- TechState generators ---
 
@@ -193,8 +193,8 @@ object Generators:
     for
       w   <- Gen.choose(1, 15)
       eff <- genDecimal("0.5", "2.0")
-    yield TechState.Hybrid(w, Multiplier(eff)),
-    genDecimal("0.5", "3.0").map(e => TechState.Automated(Multiplier(e))),
+    yield TechState.Hybrid(w, multiplierBD(eff)),
+    genDecimal("0.5", "3.0").map(e => TechState.Automated(multiplierBD(e))),
     Gen.const(TechState.Bankrupt(BankruptReason.Other("test"))),
   )
 
@@ -203,8 +203,8 @@ object Generators:
     for
       w   <- Gen.choose(1, 15)
       eff <- genDecimal("0.5", "2.0")
-    yield TechState.Hybrid(w, Multiplier(eff)),
-    genDecimal("0.5", "3.0").map(e => TechState.Automated(Multiplier(e))),
+    yield TechState.Hybrid(w, multiplierBD(eff)),
+    genDecimal("0.5", "3.0").map(e => TechState.Automated(multiplierBD(e))),
   )
 
   // --- Firm generators ---
@@ -223,16 +223,16 @@ object Generators:
     iSize  <- Gen.choose(1, 500)
   yield TestFirmState(
     FirmId(id),
-    PLN(cash),
-    PLN(debt),
+    plnBD(cash),
+    plnBD(debt),
     tech,
-    Share(risk),
-    Multiplier(innov),
-    Share(digiR),
+    shareBD(risk),
+    multiplierBD(innov),
+    shareBD(digiR),
     SectorIdx(sector),
     Vector.empty[FirmId],
     BankId(bankId),
-    PLN(eqR),
+    plnBD(eqR),
     iSize,
     capitalStock = PLN.Zero,
     foreignOwned = false,
@@ -255,16 +255,16 @@ object Generators:
     iSize  <- Gen.choose(1, 500)
   yield TestFirmState(
     FirmId(id),
-    PLN(cash),
-    PLN(debt),
+    plnBD(cash),
+    plnBD(debt),
     tech,
-    Share(risk),
-    Multiplier(innov),
-    Share(digiR),
+    shareBD(risk),
+    multiplierBD(innov),
+    shareBD(digiR),
     SectorIdx(sector),
     Vector.empty[FirmId],
     BankId(bankId),
-    PLN(eqR),
+    plnBD(eqR),
     iSize,
     capitalStock = PLN.Zero,
     foreignOwned = false,
@@ -283,12 +283,12 @@ object Generators:
     bonds      <- genDecimal("0.0", "1000000000.0")
     htmFrac    <- genFraction
   yield Banking.Aggregate(
-    PLN(totalLoans),
-    PLN(totalLoans * nplFrac),
-    PLN(capital),
-    PLN(deposits),
-    PLN(bonds * (BigDecimal(1) - htmFrac)),
-    PLN(bonds * htmFrac),
+    plnBD(totalLoans),
+    plnBD(totalLoans * nplFrac),
+    plnBD(capital),
+    plnBD(deposits),
+    plnBD(bonds * (BigDecimal(1) - htmFrac)),
+    plnBD(bonds * htmFrac),
     PLN.Zero,
     PLN.Zero,
     PLN.Zero,
@@ -302,13 +302,13 @@ object Generators:
     bondYield   <- genDecimal("0.0", "0.15")
     debtService <- genDecimal("0.0", "100000000.0")
   yield FiscalBudget.GovState(
-    PLN(taxRev),
-    PLN(deficit),
-    PLN(cumDebt),
-    PLN(unempBen),
-    Rate(bondYield),
-    Rate(bondYield), // weightedCoupon starts at market yield
-    PLN(debtService),
+    plnBD(taxRev),
+    plnBD(deficit),
+    plnBD(cumDebt),
+    plnBD(unempBen),
+    rateBD(bondYield),
+    rateBD(bondYield), // weightedCoupon starts at market yield
+    plnBD(debtService),
   )
 
   val genForexState: Gen[OpenEconomy.ForexState] = for
@@ -316,7 +316,7 @@ object Generators:
     imports <- genDecimal("0.0", "1000000000.0")
     exports <- genDecimal("0.0", "1000000000.0")
     techImp <- genDecimal("0.0", "100000000.0")
-  yield OpenEconomy.ForexState(ExchangeRate(er), PLN(imports), PLN(exports), PLN(exports - imports), PLN(techImp))
+  yield OpenEconomy.ForexState(exchangeRateBD(er), plnBD(imports), plnBD(exports), plnBD(exports - imports), plnBD(techImp))
 
   val genBopState: Gen[OpenEconomy.BopState] = for
     nfa     <- genDecimal("-10000000000.0", "10000000000.0")
@@ -335,20 +335,20 @@ object Generators:
     val ca = tb + pi + si
     val ka = fdi + pf
     OpenEconomy.BopState(
-      PLN(nfa),
-      PLN(fAssets),
-      PLN(fLiab),
-      PLN(ca),
-      PLN(ka),
-      PLN(tb),
-      PLN(pi),
-      PLN(si),
-      PLN(fdi),
-      PLN(pf),
-      PLN(res),
-      PLN(exp),
-      PLN(totImp),
-      PLN(impInt),
+      plnBD(nfa),
+      plnBD(fAssets),
+      plnBD(fLiab),
+      plnBD(ca),
+      plnBD(ka),
+      plnBD(tb),
+      plnBD(pi),
+      plnBD(si),
+      plnBD(fdi),
+      plnBD(pf),
+      plnBD(res),
+      plnBD(exp),
+      plnBD(totImp),
+      plnBD(impInt),
     )
 
   // --- HhStatus generators ---
@@ -358,13 +358,13 @@ object Generators:
       fid    <- Gen.choose(0, 9999)
       sector <- Gen.choose(0, 5)
       wage   <- genWage
-    yield HhStatus.Employed(FirmId(fid), SectorIdx(sector), PLN(wage)),
+    yield HhStatus.Employed(FirmId(fid), SectorIdx(sector), plnBD(wage)),
     Gen.choose(0, 24).map(m => HhStatus.Unemployed(m)),
     for
       ml   <- Gen.choose(1, 6)
       sec  <- Gen.choose(0, 5)
       cost <- genDecimal("1000.0", "10000.0")
-    yield HhStatus.Retraining(ml, SectorIdx(sec), PLN(cost)),
+    yield HhStatus.Retraining(ml, SectorIdx(sec), plnBD(cost)),
     Gen.const(HhStatus.Bankrupt),
   )
 
@@ -384,22 +384,22 @@ object Generators:
     lastSec <- Gen.choose(-1, 5)
   yield TestHouseholdState(
     HhId(id),
-    PLN(savings),
-    PLN(debt),
-    PLN(rent),
-    Share(skill),
-    Share(health),
-    Share(mpc),
+    plnBD(savings),
+    plnBD(debt),
+    plnBD(rent),
+    shareBD(skill),
+    shareBD(health),
+    shareBD(mpc),
     status,
     Array.empty[HhId],
     BankId(bankId),
-    PLN(eqW),
+    plnBD(eqW),
     SectorIdx(lastSec),
     isImmigrant = false,
     numDependentChildren = 0,
     consumerDebt = PLN.Zero,
     education = 2,
-    taskRoutineness = Share("0.5"),
+    taskRoutineness = Share.decimal(5, 1),
     wageScar = Share.Zero,
   )
 
@@ -418,18 +418,18 @@ object Generators:
     hybR     <- genFraction
     gdp      <- genDecimal("1000000.0", "100000000000.0")
   yield testWorld(
-    inflation = Rate(infl),
-    priceLevel = PriceIndex(price),
-    monthlyGdpProxy = PLN(gdp),
+    inflation = rateBD(infl),
+    priceLevel = priceIndexBD(price),
+    monthlyGdpProxy = plnBD(gdp),
     currentSigmas = p.sectorDefs.map(_.sigma),
     totalPopulation = employed,
     employed = employed,
-    marketWage = PLN(wage),
-    reservationWage = PLN(resWage),
+    marketWage = plnBD(wage),
+    reservationWage = plnBD(resWage),
     gov = gov,
-    nbp = Nbp.State(Rate(rate), false, PLN.Zero, PLN.Zero),
+    nbp = Nbp.State(rateBD(rate), false, PLN.Zero, PLN.Zero),
     forex = forex,
-    real = RealState.zero.copy(automationRatio = Share(autoR), hybridRatio = Share(hybR)),
+    real = RealState.zero.copy(automationRatio = shareBD(autoR), hybridRatio = shareBD(hybR)),
   )
 
   // --- SFC Check generators ---
@@ -452,30 +452,30 @@ object Generators:
     ppkBonds  <- genDecimal("0.0", "1000000000.0")
     mortStock <- genDecimal("0.0", "1000000000000.0")
   yield
-    val bankBondHoldings = PLN(bankBonds)
-    val nbpBondHoldings  = PLN(nbpBonds)
-    val ppkBondHoldings  = PLN(ppkBonds)
+    val bankBondHoldings = plnBD(bankBonds)
+    val nbpBondHoldings  = plnBD(nbpBonds)
+    val ppkBondHoldings  = plnBD(ppkBonds)
     Sfc.StockState(
-      hhSavings = PLN(hhS),
-      hhDebt = PLN(hhD),
-      firmCash = PLN(fCash),
-      firmDebt = PLN(fDebt),
-      bankCapital = PLN(bCap),
-      bankDeposits = PLN(bDep),
-      bankLoans = PLN(bLoans),
-      govDebt = PLN(govDebt),
-      nfa = PLN(nfa),
+      hhSavings = plnBD(hhS),
+      hhDebt = plnBD(hhD),
+      firmCash = plnBD(fCash),
+      firmDebt = plnBD(fDebt),
+      bankCapital = plnBD(bCap),
+      bankDeposits = plnBD(bDep),
+      bankLoans = plnBD(bLoans),
+      govDebt = plnBD(govDebt),
+      nfa = plnBD(nfa),
       bankBondHoldings = bankBondHoldings,
       nbpBondHoldings = nbpBondHoldings,
       bondsOutstanding = bankBondHoldings + nbpBondHoldings + ppkBondHoldings,
       interbankNetSum = PLN.Zero,
-      jstDeposits = PLN(jstDep),
-      jstDebt = PLN(jstDebt),
-      fusBalance = PLN(fusBal),
+      jstDeposits = plnBD(jstDep),
+      jstDebt = plnBD(jstDebt),
+      fusBalance = plnBD(fusBal),
       nfzBalance = PLN.Zero,
       foreignBondHoldings = PLN.Zero,
       ppkBondHoldings = ppkBondHoldings,
-      mortgageStock = PLN(mortStock),
+      mortgageStock = plnBD(mortStock),
       consumerLoans = PLN.Zero,
       corpBondsOutstanding = PLN.Zero,
       insuranceGovBondHoldings = PLN.Zero,
@@ -521,41 +521,41 @@ object Generators:
     mortPrinc    <- genDecimal("0.0", "100000000.0")
     mortDefAmt   <- genDecimal("0.0", "10000000.0")
   yield Sfc.SemanticFlows(
-    govSpending = PLN(govSpend),
-    govRevenue = PLN(govRev),
-    nplLoss = PLN(nplLoss),
-    interestIncome = PLN(intIncome),
-    hhDebtService = PLN(hhDebtSvc),
-    totalIncome = PLN(totIncome),
-    totalConsumption = PLN(totCons),
-    newLoans = PLN(newLoans),
-    nplRecovery = PLN(nplRecov),
-    currentAccount = PLN(ca),
-    valuationEffect = PLN(valEff),
-    bankBondIncome = PLN(bankBondInc),
-    qePurchase = PLN(qePurchase),
-    newBondIssuance = PLN(newBondIssue),
-    depositInterestPaid = PLN(depIntPaid),
-    reserveInterest = PLN(resInt),
-    standingFacilityIncome = PLN(sfIncome),
-    interbankInterest = PLN(ibInterest),
-    jstDepositChange = PLN(jstDepChg),
-    jstSpending = PLN(jstSpend),
-    jstRevenue = PLN(jstRev),
-    zusContributions = PLN(zusContrib),
-    zusPensionPayments = PLN(zusPension),
-    zusGovSubvention = PLN(zusGovSub),
+    govSpending = plnBD(govSpend),
+    govRevenue = plnBD(govRev),
+    nplLoss = plnBD(nplLoss),
+    interestIncome = plnBD(intIncome),
+    hhDebtService = plnBD(hhDebtSvc),
+    totalIncome = plnBD(totIncome),
+    totalConsumption = plnBD(totCons),
+    newLoans = plnBD(newLoans),
+    nplRecovery = plnBD(nplRecov),
+    currentAccount = plnBD(ca),
+    valuationEffect = plnBD(valEff),
+    bankBondIncome = plnBD(bankBondInc),
+    qePurchase = plnBD(qePurchase),
+    newBondIssuance = plnBD(newBondIssue),
+    depositInterestPaid = plnBD(depIntPaid),
+    reserveInterest = plnBD(resInt),
+    standingFacilityIncome = plnBD(sfIncome),
+    interbankInterest = plnBD(ibInterest),
+    jstDepositChange = plnBD(jstDepChg),
+    jstSpending = plnBD(jstSpend),
+    jstRevenue = plnBD(jstRev),
+    zusContributions = plnBD(zusContrib),
+    zusPensionPayments = plnBD(zusPension),
+    zusGovSubvention = plnBD(zusGovSub),
     nfzContributions = PLN.Zero,
     nfzSpending = PLN.Zero,
     nfzGovSubvention = PLN.Zero,
-    dividendIncome = PLN(divIncome),
-    foreignDividendOutflow = PLN(foreignDiv),
-    dividendTax = PLN(divTax),
-    mortgageInterestIncome = PLN(mortIntInc),
-    mortgageNplLoss = PLN(mortNplLoss),
-    mortgageOrigination = PLN(mortOrig),
-    mortgagePrincipalRepaid = PLN(mortPrinc),
-    mortgageDefaultAmount = PLN(mortDefAmt),
+    dividendIncome = plnBD(divIncome),
+    foreignDividendOutflow = plnBD(foreignDiv),
+    dividendTax = plnBD(divTax),
+    mortgageInterestIncome = plnBD(mortIntInc),
+    mortgageNplLoss = plnBD(mortNplLoss),
+    mortgageOrigination = plnBD(mortOrig),
+    mortgagePrincipalRepaid = plnBD(mortPrinc),
+    mortgageDefaultAmount = plnBD(mortDefAmt),
     remittanceOutflow = PLN.Zero,
     fofResidual = PLN.Zero,
     consumerDebtService = PLN.Zero,
@@ -606,7 +606,7 @@ object Generators:
         (flows.interestIncome + flows.hhDebtService + flows.bankBondIncome
           + flows.mortgageInterestIncome + flows.consumerDebtService + flows.corpBondCouponIncome
           - flows.depositInterestPaid
-          + flows.reserveInterest + flows.standingFacilityIncome + flows.interbankInterest) * Share("0.3")
+          + flows.reserveInterest + flows.standingFacilityIncome + flows.interbankInterest) * Share.decimal(3, 1)
       val expectedDepChange      = flows.totalIncome - flows.totalConsumption + flows.investNetDepositFlow +
         flows.jstDepositChange +
         flows.dividendIncome - flows.foreignDividendOutflow - flows.remittanceOutflow + flows.diasporaInflow +
@@ -659,7 +659,7 @@ object Generators:
     qeActive <- Gen.oneOf(true, false)
     qeCum    <- genDecimal("0.0", "10000000000.0")
     lastFx   <- genDecimal("-1000000000.0", "1000000000.0")
-  yield Nbp.State(Rate(rate), qeActive, PLN(qeCum), PLN(lastFx))
+  yield Nbp.State(rateBD(rate), qeActive, plnBD(qeCum), plnBD(lastFx))
 
   // --- I-O matrix generator ---
 
@@ -706,7 +706,7 @@ object Generators:
       cet1   <- genDecimal("0.10", "0.25")
       spread <- genDecimal("-0.005", "0.005")
       aff    <- Gen.sequence[Vector[BigDecimal], BigDecimal]((0 until 6).map(_ => genDecimal("0.05", "0.40")))
-    yield Banking.Config(BankId(id), s"Bank$id", Share(share), Share(cet1), Rate(spread), aff.map(Share(_)))
+    yield Banking.Config(BankId(id), s"Bank$id", shareBD(share), shareBD(cet1), rateBD(spread), aff.map(shareBD(_)))
 
     val BankRow: Gen[(Banking.BankState, Banking.BankFinancialStocks)] = for
       id       <- Gen.choose(0, 6)
@@ -724,9 +724,9 @@ object Generators:
     yield (
       Banking.BankState(
         id = BankId(id),
-        capital = PLN(capital),
-        nplAmount = PLN(loans * nplFrac),
-        htmBookYield = Rate(bookYld),
+        capital = plnBD(capital),
+        nplAmount = plnBD(loans * nplFrac),
+        htmBookYield = rateBD(bookYld),
         status = if failed then Banking.BankStatus.Failed(SimulationMonth.ExecutionMonth(30)) else Banking.BankStatus.Active(lowCar),
         loansShort = PLN.Zero,
         loansMedium = PLN.Zero,
@@ -734,12 +734,12 @@ object Generators:
         consumerNpl = PLN.Zero,
       ),
       Banking.BankFinancialStocks(
-        totalDeposits = PLN(deposits),
-        firmLoan = PLN(loans),
-        govBondAfs = PLN(bonds * (BigDecimal(1) - htmFrac)),
-        govBondHtm = PLN(bonds * htmFrac),
-        reserve = PLN(reserves),
-        interbankLoan = PLN(ibNet),
+        totalDeposits = plnBD(deposits),
+        firmLoan = plnBD(loans),
+        govBondAfs = plnBD(bonds * (BigDecimal(1) - htmFrac)),
+        govBondHtm = plnBD(bonds * htmFrac),
+        reserve = plnBD(reserves),
+        interbankLoan = plnBD(ibNet),
         demandDeposit = PLN.Zero,
         termDeposit = PLN.Zero,
         consumerLoan = PLN.Zero,

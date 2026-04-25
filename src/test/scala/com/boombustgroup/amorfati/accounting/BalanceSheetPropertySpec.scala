@@ -33,7 +33,7 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
 
   "BankingAggregate.nplRatio" should "be in [0, 1] when totalLoans > 1" in
     forAll(genBankingAggregate) { (bs: Banking.Aggregate) =>
-      whenever(bs.totalLoans > PLN("1.0")) {
+      whenever(bs.totalLoans > PLN(1)) {
         bs.nplRatio.bd should be >= BigDecimal("0.0")
         bs.nplRatio.bd should be <= BigDecimal("1.0")
       }
@@ -42,7 +42,7 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
   it should "be 0 when totalLoans <= 1" in
     forAll(genDecimal("-100.0", "1.0"), genDecimal("0.0", "1e6")) { (loans: BigDecimal, capital: BigDecimal) =>
       val bs =
-        Banking.Aggregate(PLN(loans), PLN("500.0"), PLN(capital), PLN("1000.0"), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+        Banking.Aggregate(plnBD(loans), PLN(500), plnBD(capital), PLN(1000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
       bs.nplRatio shouldBe Share.Zero
     }
 
@@ -50,15 +50,15 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     forAll(genDecimal("0.0", "1e9"), genDecimal("0.0", "1e9")) { (capital: BigDecimal, loans: BigDecimal) =>
       whenever(loans > BigDecimal("1.0")) {
         val bs =
-          Banking.Aggregate(PLN(loans), PLN("0.0"), PLN(capital), PLN("1000.0"), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+          Banking.Aggregate(plnBD(loans), PLN(0), plnBD(capital), PLN(1000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
         bs.car.bd should be >= BigDecimal("0.0")
       }
     }
 
   it should "be 10.0 when totalLoans <= 1" in
     forAll(genDecimal("-100.0", "1.0")) { (loans: BigDecimal) =>
-      val bs = Banking.Aggregate(PLN(loans), PLN("0.0"), PLN("1000.0"), PLN("1000.0"), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
-      bs.car shouldBe Multiplier("10.0")
+      val bs = Banking.Aggregate(plnBD(loans), PLN(0), PLN(1000), PLN(1000), PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
+      bs.car shouldBe Multiplier(10)
     }
 
   // lendingRate and canLend removed from BankingAggregate — now only on Banking.BankState
@@ -71,7 +71,14 @@ class BalanceSheetPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
       whenever(price >= BigDecimal("0.01")) {
         val gov        =
           FiscalBudget.update(
-            FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), govDividendRevenue = PLN.Zero, vat = PLN(vat), unempBenefitSpend = PLN(unempBen)),
+            FiscalBudget.Input(
+              prev,
+              priceIndexBD(price),
+              citPaid = plnBD(cit),
+              govDividendRevenue = PLN.Zero,
+              vat = plnBD(vat),
+              unempBenefitSpend = plnBD(unempBen),
+            ),
           )
         val totalRev   = cit + vat
         val totalSpend = unempBen + p.fiscal.govBaseSpending.bd * price

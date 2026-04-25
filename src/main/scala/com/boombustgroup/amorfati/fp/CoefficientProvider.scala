@@ -10,15 +10,17 @@ object CoefficientProvider:
   opaque type Coefficient = Long
 
   object Coefficient:
-    val Zero: Coefficient                     = 0L
-    val One: Coefficient                      = Scale
-    def apply(value: BigDecimal): Coefficient = fromDecimal(value)
-    def apply(value: String): Coefficient     = parseDecimal(value)
-    def apply(value: Int): Coefficient        = fromRaw(value.toLong * Scale)
-    def apply(value: Long): Coefficient       = fromRaw(value * Scale)
+    val Zero: Coefficient                                           = 0L
+    val One: Coefficient                                            = Scale
+    def apply(value: Int): Coefficient                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): Coefficient                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): Coefficient =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    def fraction(num: Int, den: Int): Coefficient                   =
+      if den == 0 then Zero else fromRaw(ratioRaw(num.toLong, den.toLong))
     @targetName("fromScalar")
-    def apply(value: Scalar): Coefficient     = fromRaw(value.toLong)
-    def fromRaw(raw: Long): Coefficient       = raw
+    def apply(value: Scalar): Coefficient                           = fromRaw(value.toLong)
+    def fromRaw(raw: Long): Coefficient                             = raw
 
   extension (c: Coefficient)
     inline def toLong: Long                   = c

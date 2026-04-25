@@ -13,7 +13,7 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
   private val p: SimParams = summon[SimParams]
 
   private def step(prev: Expectations.State, infl: BigDecimal, rate: BigDecimal, unemp: BigDecimal): Expectations.State =
-    Expectations.step(prev, Rate(infl), Rate(rate), Share(unemp))
+    Expectations.step(prev, rateBD(infl), rateBD(rate), shareBD(unemp))
 
   // --- Initialization ---
 
@@ -43,27 +43,27 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep expected inflation near target when credibility is high" in {
-    val prev = Expectations.initial.copy(credibility = Share("0.99"))
+    val prev = Expectations.initial.copy(credibility = Share.decimal(99, 2))
     val r    = step(prev, BigDecimal("0.08"), BigDecimal("0.0575"), BigDecimal("0.05"))
     // With 99% credibility, expectations should stay close to target
     decimal(r.expectedInflation) should be < BigDecimal("0.04")
   }
 
   it should "track realized inflation when credibility is low" in {
-    val prev = Expectations.initial.copy(credibility = Share("0.05"))
+    val prev = Expectations.initial.copy(credibility = Share.decimal(5, 2))
     val r    = step(prev, BigDecimal("0.10"), BigDecimal("0.0575"), BigDecimal("0.05"))
     // With 5% credibility, expectations should move toward realized
     decimal(r.expectedInflation) should be > BigDecimal("0.06")
   }
 
   it should "keep expected inflation meaningfully anchored under deflation when credibility is high" in {
-    val prev = Expectations.initial.copy(credibility = Share("0.90"))
+    val prev = Expectations.initial.copy(credibility = Share.decimal(90, 2))
     val r    = step(prev, -BigDecimal("0.10"), BigDecimal("0.0100"), BigDecimal("0.10"))
     decimal(r.expectedInflation) should be > BigDecimal("0.015")
   }
 
   it should "bound downward de-anchoring even when credibility is low" in {
-    val prev = Expectations.initial.copy(credibility = Share("0.05"), expectedInflation = Rate("0.01"))
+    val prev = Expectations.initial.copy(credibility = Share.decimal(5, 2), expectedInflation = Rate.decimal(1, 2))
     val r    = step(prev, -BigDecimal("0.20"), BigDecimal("0.0100"), BigDecimal("0.12"))
     decimal(r.expectedInflation) should be >= BigDecimal("-0.005")
   }
@@ -71,20 +71,20 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
   // --- Credibility dynamics ---
 
   it should "build credibility when inflation is near target" in {
-    val prev = Expectations.initial.copy(credibility = Share("0.5"))
-    val r    = Expectations.step(prev, p.monetary.targetInfl, Rate("0.0575"), Share("0.05"))
+    val prev = Expectations.initial.copy(credibility = Share.decimal(5, 1))
+    val r    = Expectations.step(prev, p.monetary.targetInfl, Rate.decimal(575, 4), Share.decimal(5, 2))
     decimal(r.credibility) should be > BigDecimal("0.5")
   }
 
   it should "erode credibility when inflation deviates from target" in {
-    val prev = Expectations.initial.copy(credibility = Share("0.8"))
+    val prev = Expectations.initial.copy(credibility = Share.decimal(8, 1))
     // 10% inflation -> well above 2pp threshold
     val r    = step(prev, BigDecimal("0.10"), BigDecimal("0.0575"), BigDecimal("0.05"))
     decimal(r.credibility) should be < BigDecimal("0.8")
   }
 
   it should "erode credibility less under equal undershooting than overshooting" in {
-    val prev          = Expectations.initial.copy(credibility = Share("0.8"))
+    val prev          = Expectations.initial.copy(credibility = Share.decimal(8, 1))
     val target        = decimal(p.monetary.targetInfl)
     val sameDeviation = BigDecimal("0.05")
     val low           = step(prev, target - sameDeviation, BigDecimal("0.0575"), BigDecimal("0.08"))
@@ -94,20 +94,20 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
 
   it should "bound credibility in [0.01, 1.0]" in {
     // Test lower bound
-    val low = Expectations.initial.copy(credibility = Share("0.02"))
+    val low = Expectations.initial.copy(credibility = Share.decimal(2, 2))
     val r1  = step(low, BigDecimal("0.50"), BigDecimal("0.0575"), BigDecimal("0.05"))
     decimal(r1.credibility) should be >= BigDecimal("0.01")
 
     // Test upper bound
-    val high = Expectations.initial.copy(credibility = Share("0.99"))
-    val r2   = Expectations.step(high, p.monetary.targetInfl, Rate("0.0575"), Share("0.05"))
+    val high = Expectations.initial.copy(credibility = Share.decimal(99, 2))
+    val r2   = Expectations.step(high, p.monetary.targetInfl, Rate.decimal(575, 4), Share.decimal(5, 2))
     decimal(r2.credibility) should be <= BigDecimal("1.0")
   }
 
   it should "be harder to build credibility than to lose it (asymmetric)" in {
-    val mid        = Expectations.initial.copy(credibility = Share("0.5"))
+    val mid        = Expectations.initial.copy(credibility = Share.decimal(5, 1))
     // Build: at target
-    val rBuild     = Expectations.step(mid, p.monetary.targetInfl, Rate("0.0575"), Share("0.05"))
+    val rBuild     = Expectations.step(mid, p.monetary.targetInfl, Rate.decimal(575, 4), Share.decimal(5, 2))
     val buildDelta = decimal(rBuild.credibility) - BigDecimal("0.5")
     // Erode: 5% above target (symmetric deviation)
     val rErode     = step(mid, decimal(p.monetary.targetInfl) + BigDecimal("0.05"), BigDecimal("0.0575"), BigDecimal("0.05"))
@@ -132,15 +132,15 @@ class ExpectationsSpec extends AnyFlatSpec with Matchers:
   // --- Stability ---
 
   it should "converge when inflation equals target persistently" in {
-    var s = Expectations.initial.copy(credibility = Share("0.5"))
-    for _ <- 0 until 120 do s = Expectations.step(s, p.monetary.targetInfl, p.monetary.initialRate, Share("0.05"))
+    var s = Expectations.initial.copy(credibility = Share.decimal(5, 1))
+    for _ <- 0 until 120 do s = Expectations.step(s, p.monetary.targetInfl, p.monetary.initialRate, Share.decimal(5, 2))
     decimal(s.credibility) should be > BigDecimal("0.9")
     decimal(s.expectedInflation) shouldBe decimal(p.monetary.targetInfl) +- BigDecimal("0.005")
     decimal(s.forecastError) shouldBe BigDecimal("0.0") +- BigDecimal("0.005")
   }
 
   it should "avoid free-fall expected inflation under repeated deflation" in {
-    var s = Expectations.initial.copy(credibility = Share("0.2"))
+    var s = Expectations.initial.copy(credibility = Share.decimal(2, 1))
     for _ <- 0 until 24 do s = step(s, -BigDecimal("0.10"), BigDecimal("0.0100"), BigDecimal("0.12"))
     decimal(s.expectedInflation) should be >= BigDecimal("-0.005")
   }

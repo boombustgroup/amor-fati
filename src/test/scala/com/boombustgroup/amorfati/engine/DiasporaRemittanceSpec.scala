@@ -150,17 +150,17 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       importCons = PLN.Zero,
       techImports = PLN.Zero,
       autoRatio = Share.Zero,
-      domesticRate = Rate("0.05"),
-      gdp = PLN("1e9"),
+      domesticRate = Rate.decimal(5, 2),
+      gdp = PLN(1000000000),
       priceLevel = PriceIndex.Base,
-      sectorOutputs = Vector.fill(6)(PLN("1e8")),
+      sectorOutputs = Vector.fill(6)(PLN(100000000)),
       month = ExecutionMonth(1),
       nbpFxReserves = prevBop.reserves,
     )
-    val resultWith    = OpenEconomy.step(base.copy(diasporaInflow = PLN("1000.0")))
+    val resultWith    = OpenEconomy.step(base.copy(diasporaInflow = PLN(1000)))
     val resultWithout = OpenEconomy.step(base.copy(diasporaInflow = PLN.Zero))
 
-    resultWith.bop.secondaryIncome.shouldBe(resultWithout.bop.secondaryIncome + PLN("1000.0"))
+    resultWith.bop.secondaryIncome.shouldBe(resultWithout.bop.secondaryIncome + PLN(1000))
   }
 
   it should "net outflow and inflow" in {
@@ -173,17 +173,17 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
       importCons = PLN.Zero,
       techImports = PLN.Zero,
       autoRatio = Share.Zero,
-      domesticRate = Rate("0.05"),
-      gdp = PLN("1e9"),
+      domesticRate = Rate.decimal(5, 2),
+      gdp = PLN(1000000000),
       priceLevel = PriceIndex.Base,
-      sectorOutputs = Vector.fill(6)(PLN("1e8")),
+      sectorOutputs = Vector.fill(6)(PLN(100000000)),
       month = ExecutionMonth(1),
       nbpFxReserves = prevBop.reserves,
     )
-    val result = OpenEconomy.step(base.copy(remittanceOutflow = PLN("500.0"), diasporaInflow = PLN("800.0")))
+    val result = OpenEconomy.step(base.copy(remittanceOutflow = PLN(500), diasporaInflow = PLN(800)))
 
     // secondaryIncome = euFunds(0) - outflow(500) + inflow(800) = 300
-    result.bop.secondaryIncome.shouldBe(PLN("300.0"))
+    result.bop.secondaryIncome.shouldBe(PLN(300))
   }
 
   // ==========================================================================
@@ -202,7 +202,7 @@ class DiasporaRemittanceSpec extends AnyFlatSpec with Matchers:
 
   "World" should "default diasporaRemittanceInflow to 0.0" in {
     val w = Generators.testWorld(
-      currentSigmas = Vector.fill(6)(Sigma("0.1")),
+      currentSigmas = Vector.fill(6)(Sigma.decimal(1, 1)),
       forex = OpenEconomy.ForexState(p.forex.baseExRate, PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero),
       marketWage = PLN(5000),
       reservationWage = PLN(4000),

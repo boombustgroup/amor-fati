@@ -68,7 +68,7 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   it should "reject out-of-range regional value shares" in {
     val malformed = p.housing.regionalMarkets.updated(
       0,
-      p.housing.regionalMarkets.head.copy(valueShare = Share("-0.01")),
+      p.housing.regionalMarkets.head.copy(valueShare = Share.decimal(-1, 2)),
     )
     val err       = intercept[IllegalArgumentException]:
       p.housing.copy(regionalMarkets = malformed)
@@ -79,7 +79,7 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   it should "reject out-of-range regional mortgage shares" in {
     val malformed = p.housing.regionalMarkets.updated(
       0,
-      p.housing.regionalMarkets.head.copy(mortgageShare = Share("1.01")),
+      p.housing.regionalMarkets.head.copy(mortgageShare = Share.decimal(101, 2)),
     )
     val err       = intercept[IllegalArgumentException]:
       p.housing.copy(regionalMarkets = malformed)
@@ -90,7 +90,7 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   it should "reject regional value shares that do not sum to 1.0" in {
     val malformed = p.housing.regionalMarkets.updated(
       0,
-      p.housing.regionalMarkets.head.copy(valueShare = Share("0.20")),
+      p.housing.regionalMarkets.head.copy(valueShare = Share.decimal(20, 2)),
     )
     val err       = intercept[IllegalArgumentException]:
       p.housing.copy(regionalMarkets = malformed)
@@ -101,7 +101,7 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   it should "reject regional mortgage shares that do not sum to 1.0" in {
     val malformed = p.housing.regionalMarkets.updated(
       0,
-      p.housing.regionalMarkets.head.copy(mortgageShare = Share("0.20")),
+      p.housing.regionalMarkets.head.copy(mortgageShare = Share.decimal(20, 2)),
     )
     val err       = intercept[IllegalArgumentException]:
       p.housing.copy(regionalMarkets = malformed)
@@ -124,15 +124,15 @@ class SimConfigSpec extends AnyFlatSpec with Matchers:
   }
 
   "sigmaThreshold" should "return ~0.91 for sigma=2" in
-    Firm.sigmaThreshold(Sigma("2.0")).bd.shouldBe(BigDecimal("0.9026") +- BigDecimal("0.01"))
+    Firm.sigmaThreshold(Sigma(2)).bd.shouldBe(BigDecimal("0.9026") +- BigDecimal("0.01"))
 
   it should "return ~0.955 for sigma=5" in
-    Firm.sigmaThreshold(Sigma("5.0")).bd.shouldBe(BigDecimal("0.9324") +- BigDecimal("0.01"))
+    Firm.sigmaThreshold(Sigma(5)).bd.shouldBe(BigDecimal("0.9324") +- BigDecimal("0.01"))
 
   it should "return ~0.955 for sigma=10" in
-    Firm.sigmaThreshold(Sigma("10.0")).bd.shouldBe(BigDecimal("0.955") +- BigDecimal("0.01"))
+    Firm.sigmaThreshold(Sigma(10)).bd.shouldBe(BigDecimal("0.955") +- BigDecimal("0.01"))
 
   it should "be capped at 1.0 for sigma=50" in {
-    Firm.sigmaThreshold(Sigma("50.0")).bd.should(be <= BigDecimal("1.0"))
-    Firm.sigmaThreshold(Sigma("50.0")).bd.shouldBe(BigDecimal("1.0") +- BigDecimal("0.01"))
+    Firm.sigmaThreshold(Sigma(50)).bd.should(be <= BigDecimal("1.0"))
+    Firm.sigmaThreshold(Sigma(50)).bd.shouldBe(BigDecimal("1.0") +- BigDecimal("0.01"))
   }

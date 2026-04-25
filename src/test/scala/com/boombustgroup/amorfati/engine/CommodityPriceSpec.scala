@@ -21,9 +21,9 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
   ) =
     GvcTrade.StepInput(
       prev = prev,
-      sectorOutputs = Vector.fill(6)(PLN("100000.0")),
+      sectorOutputs = Vector.fill(6)(PLN(100000)),
       priceLevel = PriceIndex.Base,
-      exchangeRate = ExchangeRate("4.33"),
+      exchangeRate = ExchangeRate.decimal(433, 2),
       autoRatio = Share.Zero,
       month = ExecutionMonth(month),
       rng = RandomStream.seeded(seed * 31 + month),
@@ -65,19 +65,19 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
   }
 
   "PriceIndex" should "multiply two indices" in {
-    val a = PriceIndex("1.5")
-    val b = PriceIndex("2.0")
+    val a = PriceIndex.decimal(15, 1)
+    val b = PriceIndex(2)
     (a * b).bd shouldBe (BigDecimal("3.0") +- BigDecimal("1e-10"))
   }
 
   it should "multiply with PLN" in {
-    val idx  = PriceIndex("1.5")
-    val cost = PLN("1000.0")
+    val idx  = PriceIndex.decimal(15, 1)
+    val cost = PLN(1000)
     (idx * cost).bd shouldBe (BigDecimal("1500.0") +- BigDecimal("1e-10"))
   }
 
   it should "divide two indices to get ratio" in {
-    val a = PriceIndex("3.0")
-    val b = PriceIndex("1.5")
+    val a = PriceIndex(3)
+    val b = PriceIndex.decimal(15, 1)
     a.ratioTo(b).bd shouldBe (BigDecimal("2.0") +- BigDecimal("1e-10"))
   }

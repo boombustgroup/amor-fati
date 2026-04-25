@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.TestHouseholdState
 
 import org.scalatest.flatspec.AnyFlatSpec
@@ -16,7 +17,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
   "Immigration.computeInflow" should "always return non-negative" in {
     val rng = RandomStream.seeded(42)
     for _ <- 0 until 100 do
-      val wage   = PLN(rng.nextLong(20000L))
+      val wage   = plnBD(rng.nextLong(20000L))
       val unemp  = Share.random(rng)
       val result = Immigration.computeInflow(wage, unemp)
       result should be >= 0
@@ -54,7 +55,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
     val immigrants = Immigration.spawnImmigrantPopulation(200, 0, rng)
     immigrants.financialStocks.foreach { stocks =>
       stocks.demandDeposit should be >= PLN.Zero
-      stocks.demandDeposit should be <= PLN("5000.0")
+      stocks.demandDeposit should be <= PLN(5000)
     }
   }
 
@@ -67,7 +68,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
   it should "have rent >= 800" in {
     val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
-    immigrants.foreach(_.monthlyRent should be >= PLN("800.0"))
+    immigrants.foreach(_.monthlyRent should be >= PLN(800))
   }
 
   "Immigration.step" should "preserve non-negative stock" in {
@@ -75,7 +76,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
     for _ <- 0 until 100 do
       val prevStock = rng.nextInt(5000)
       val prev      = Immigration.State(prevStock, 0, 0, PLN.Zero)
-      val result    = Immigration.step(prev, Vector.empty, PLN("8000.0"), Share("0.05"))
+      val result    = Immigration.step(prev, Vector.empty, PLN(8000), Share.decimal(5, 2))
       result.immigrantStock should be >= 0
   }
 
@@ -83,13 +84,13 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
     val hhs    = (0 until 10).map { i =>
       TestHouseholdState(
         HhId(i),
-        PLN("1000.0"),
+        PLN(1000),
         PLN.Zero,
-        PLN("1800.0"),
-        Share("0.5"),
-        Share("0.0"),
-        Share("0.85"),
-        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN("6000.0")),
+        PLN(1800),
+        Share.decimal(5, 1),
+        Share(0),
+        Share.decimal(85, 2),
+        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -98,7 +99,7 @@ class ImmigrationPropertySpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share("0.5"),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       ) // 5 natives + 5 immigrants
     }.toVector

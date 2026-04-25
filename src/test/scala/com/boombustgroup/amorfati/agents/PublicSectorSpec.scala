@@ -59,7 +59,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
   // =========================================================================
 
   "SocialSecurity.ppkBondPurchase" should "be contributions × bondAlloc" in {
-    val ppk      = SocialSecurity.PpkState(contributions = PLN("1e6"))
+    val ppk      = SocialSecurity.PpkState(contributions = PLN(1000000))
     // Default bondAlloc = 0.60
     val purchase = SocialSecurity.ppkBondPurchase(ppk)
     decimal(purchase) shouldBe (BigDecimal("1e6") * BigDecimal("0.60") +- BigDecimal("0.01"))

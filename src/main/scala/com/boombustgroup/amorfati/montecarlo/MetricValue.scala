@@ -10,10 +10,11 @@ object MetricValue:
   val Zero: MetricValue = 0L
   val One: MetricValue  = FixedPointBase.Scale
 
-  def apply(value: Int): MetricValue    = fromRaw(value.toLong * FixedPointBase.Scale)
-  def apply(value: Long): MetricValue   = fromRaw(value * FixedPointBase.Scale)
-  def apply(value: String): MetricValue = fromRaw(FixedPointBase.parseDecimal(value))
-  def fromRaw(raw: Long): MetricValue   = raw
+  def apply(value: Int): MetricValue                                        = fromRaw(value.toLong * FixedPointBase.Scale)
+  def apply(value: Long): MetricValue                                       = fromRaw(value * FixedPointBase.Scale)
+  def fromDecimalDigits(unscaled: Long, fractionalDigits: Int): MetricValue =
+    fromRaw(FixedPointBase.decimalRaw(unscaled, fractionalDigits))
+  def fromRaw(raw: Long): MetricValue                                       = raw
 
   def fraction(num: Int, den: Int): MetricValue =
     if den == 0 then Zero

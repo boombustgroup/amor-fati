@@ -25,9 +25,9 @@ import com.boombustgroup.amorfati.types.*
 object Macroprudential:
 
   // ---- Calibration constants ----
-  private val TrendSmoothing: Share     = Share("0.05")          // EWM λ for credit-to-GDP trend (≈ HP 1600 quarterly)
-  private val CcybBuildRate: Multiplier = Multiplier(0.0025 / 3) // ~0.25pp per quarter ÷ 3 months
-  private val AnnualizeFactor           = 12                     // monthly GDP → annual
+  private val TrendSmoothing: Share     = Share.decimal(5, 2)          // EWM λ for credit-to-GDP trend (≈ HP 1600 quarterly)
+  private val CcybBuildRate: Multiplier = Multiplier.fraction(1, 1200) // ~0.25pp per quarter ÷ 3 months
+  private val AnnualizeFactor           = 12                           // monthly GDP → annual
 
   case class State(
       ccyb: Multiplier,            // countercyclical capital buffer
@@ -75,7 +75,7 @@ object Macroprudential:
     stepImpl(prev, totalLoans, gdp)
 
   private[engine] def stepImpl(prev: State, totalLoans: PLN, gdp: PLN)(using p: SimParams): State =
-    val annualGdp   = (gdp * AnnualizeFactor).max(PLN("1.0"))
+    val annualGdp   = (gdp * AnnualizeFactor).max(PLN(1))
     val creditToGdp = Multiplier(totalLoans / annualGdp)
 
     // Exponential smoothing of trend (proxy for HP filter)

@@ -48,7 +48,7 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
   "updateCbRate" should "be in [RateFloor, RateCeiling] for PLN" in
     forAll(genRate, genInflation, genDecimal("-0.10", "0.10"), Gen.choose(0, totalPop)) {
       (prevRate: BigDecimal, inflation: BigDecimal, exRateChg: BigDecimal, employed: Int) =>
-        val r = Nbp.updateRate(Rate(prevRate), Rate(inflation), Coefficient(exRateChg), employed, totalPop)
+        val r = Nbp.updateRate(rateBD(prevRate), rateBD(inflation), coefficientBD(exRateChg), employed, totalPop)
         decimal(r) should be >= decimal(p.monetary.rateFloor)
         decimal(r) should be <= decimal(p.monetary.rateCeiling)
     }
@@ -57,8 +57,8 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genRate, genDecimal("-0.10", "0.30"), Gen.choose(0, totalPop)) { (prevRate: BigDecimal, baseInflation: BigDecimal, employed: Int) =>
       val lowInfl  = baseInflation
       val highInfl = baseInflation + BigDecimal("0.10")
-      val rLow     = Nbp.updateRate(Rate(prevRate), Rate(lowInfl), Coefficient.Zero, employed, totalPop)
-      val rHigh    = Nbp.updateRate(Rate(prevRate), Rate(highInfl), Coefficient.Zero, employed, totalPop)
+      val rLow     = Nbp.updateRate(rateBD(prevRate), rateBD(lowInfl), Coefficient.Zero, employed, totalPop)
+      val rHigh    = Nbp.updateRate(rateBD(prevRate), rateBD(highInfl), Coefficient.Zero, employed, totalPop)
       decimal(rHigh) should be >= (decimal(rLow) - BigDecimal("1e-10"))
     }
 
@@ -68,12 +68,12 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genInflInputs) { (inputs: (BigDecimal, BigDecimal, BigDecimal, BigDecimal, BigDecimal, BigDecimal, BigDecimal)) =>
       val (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, _, _) = inputs
       val r                                                              =
-        PriceLevel.update(Rate(prevInfl), PriceIndex(prevPrice), Multiplier(demandMult), Coefficient(wageGrowth), ExchangeRateShock(exRateDev))
+        PriceLevel.update(rateBD(prevInfl), priceIndexBD(prevPrice), multiplierBD(demandMult), coefficientBD(wageGrowth), exchangeRateShockBD(exRateDev))
       decimal(r.priceLevel).should(be >= BigDecimal("0.30"))
     }
 
   it should "apply soft deflation floor (price >= 0.30)" in {
-    val r = PriceLevel.update(Rate("-0.30"), PriceIndex.Base, Multiplier("0.5"), Coefficient("-0.10"), ExchangeRateShock.Zero)
+    val r = PriceLevel.update(Rate.decimal(-30, 2), PriceIndex.Base, Multiplier.decimal(5, 1), Coefficient.decimal(-10, 2), ExchangeRateShock.Zero)
     decimal(r.priceLevel).should(be >= BigDecimal("0.30"))
   }
 
@@ -82,19 +82,19 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
       (prevInfl: BigDecimal, prevPrice: BigDecimal, demandMult: BigDecimal, wageGrowth: BigDecimal, exLow: BigDecimal, exHigh: BigDecimal) =>
         val r1 =
           PriceLevel.update(
-            Rate(prevInfl),
-            PriceIndex(prevPrice),
-            Multiplier(demandMult),
-            Coefficient(wageGrowth),
-            ExchangeRateShock(exLow),
+            rateBD(prevInfl),
+            priceIndexBD(prevPrice),
+            multiplierBD(demandMult),
+            coefficientBD(wageGrowth),
+            exchangeRateShockBD(exLow),
           )
         val r2 =
           PriceLevel.update(
-            Rate(prevInfl),
-            PriceIndex(prevPrice),
-            Multiplier(demandMult),
-            Coefficient(wageGrowth),
-            ExchangeRateShock(exHigh),
+            rateBD(prevInfl),
+            priceIndexBD(prevPrice),
+            multiplierBD(demandMult),
+            coefficientBD(wageGrowth),
+            exchangeRateShockBD(exHigh),
           )
         decimal(r2.inflation).should(be >= (decimal(r1.inflation) - BigDecimal("1e-10")))
     }
@@ -103,13 +103,13 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
 
   "updateLaborMarket" should "keep wage >= reservationWage" in
     forAll(genWage, genDecimal("4666.0", "10000.0"), Gen.choose(0, totalPop)) { (prevWage: BigDecimal, resWage: BigDecimal, laborDemand: Int) =>
-      val r = LaborMarket.updateLaborMarket(PLN(prevWage), PLN(resWage), laborDemand, totalPop)
+      val r = LaborMarket.updateLaborMarket(plnBD(prevWage), plnBD(resWage), laborDemand, totalPop)
       decimal(r.wage) should be >= (resWage - BigDecimal("0.0001"))
     }
 
   it should "keep employed <= min(laborDemand, TotalPopulation)" in
     forAll(genWage, genDecimal("4666.0", "10000.0"), Gen.choose(0, totalPop * 2)) { (prevWage: BigDecimal, resWage: BigDecimal, laborDemand: Int) =>
-      val r = LaborMarket.updateLaborMarket(PLN(prevWage), PLN(resWage), laborDemand, totalPop)
+      val r = LaborMarket.updateLaborMarket(plnBD(prevWage), plnBD(resWage), laborDemand, totalPop)
       r.employed should be <= DecimalMath.min(laborDemand, totalPop)
     }
 
@@ -121,7 +121,14 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
       whenever(price >= BigDecimal("0.01")) {
         val gov        =
           FiscalBudget.update(
-            FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), govDividendRevenue = PLN.Zero, vat = PLN(vat), unempBenefitSpend = PLN(unempBen)),
+            FiscalBudget.Input(
+              prev,
+              priceIndexBD(price),
+              citPaid = plnBD(cit),
+              govDividendRevenue = PLN.Zero,
+              vat = plnBD(vat),
+              unempBenefitSpend = plnBD(unempBen),
+            ),
           )
         val totalRev   = cit + vat
         val totalSpend = unempBen + decimal(p.fiscal.govBaseSpending) * price
@@ -135,7 +142,14 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
       val (prev, cit, vat, price, unempBen) = inputs
       val gov                               =
         FiscalBudget.update(
-          FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), govDividendRevenue = PLN.Zero, vat = PLN(vat), unempBenefitSpend = PLN(unempBen)),
+          FiscalBudget.Input(
+            prev,
+            priceIndexBD(price),
+            citPaid = plnBD(cit),
+            govDividendRevenue = PLN.Zero,
+            vat = plnBD(vat),
+            unempBenefitSpend = plnBD(unempBen),
+          ),
         )
       decimal(gov.cumulativeDebt) shouldBe (decimal(prev.cumulativeDebt) + decimal(gov.deficit) +- BigDecimal("1.0"))
     }
@@ -148,12 +162,12 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
           FiscalBudget.update(
             FiscalBudget.Input(
               prev,
-              PriceIndex(price),
-              citPaid = PLN(cit),
+              priceIndexBD(price),
+              citPaid = plnBD(cit),
               govDividendRevenue = PLN.Zero,
-              vat = PLN(vat),
-              unempBenefitSpend = PLN(unempBen),
-              debtService = PLN(debtSvc),
+              vat = plnBD(vat),
+              unempBenefitSpend = plnBD(unempBen),
+              debtService = plnBD(debtSvc),
             ),
           )
         val totalRev   = cit + vat
@@ -167,9 +181,16 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genGovInputs, genDecimal("0.0", "1e7")) { (inputs: (FiscalBudget.GovState, BigDecimal, BigDecimal, BigDecimal, BigDecimal), nbpRemit: BigDecimal) =>
       val (prev, cit, vat, price, unempBen) = inputs
       val base                              =
-        FiscalBudget.Input(prev, PriceIndex(price), citPaid = PLN(cit), govDividendRevenue = PLN.Zero, vat = PLN(vat), unempBenefitSpend = PLN(unempBen))
+        FiscalBudget.Input(
+          prev,
+          priceIndexBD(price),
+          citPaid = plnBD(cit),
+          govDividendRevenue = PLN.Zero,
+          vat = plnBD(vat),
+          unempBenefitSpend = plnBD(unempBen),
+        )
       val govNoRemit                        = FiscalBudget.update(base)
-      val govWithRemit                      = FiscalBudget.update(base.copy(nbpRemittance = PLN(nbpRemit)))
+      val govWithRemit                      = FiscalBudget.update(base.copy(nbpRemittance = plnBD(nbpRemit)))
       // nbpRemittance reduces deficit
       decimal(govWithRemit.deficit) shouldBe (decimal(govNoRemit.deficit) - nbpRemit +- BigDecimal("1.0"))
     }

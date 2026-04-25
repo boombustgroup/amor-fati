@@ -11,7 +11,7 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val wage = PLN("8000.0")
+  private val wage = PLN(8000)
 
   private def mkFirm(workers: Int, cash: PLN): Firm.State =
     TestFirmState(
@@ -19,9 +19,9 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
       cash,
       PLN.Zero,
       TechState.Traditional(workers),
-      Share("0.5"),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share("0.5"),
+      Share.decimal(5, 1),
       SectorIdx(2),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -41,9 +41,9 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
     mkFirm(workers, cash).copy(stateOwned = true)
 
   "attemptDownsize" should "cut fewer workers than old 30% panic (smooth λ=0.15)" in {
-    val cash   = PLN("500000.0")
+    val cash   = PLN(500000)
     val firm   = mkFirm(workers = 100, cash = cash)
-    val pnl    = mkPnl(revenue = PLN("100000.0"), costs = PLN("120000.0"))
+    val pnl    = mkPnl(revenue = PLN(100000), costs = PLN(120000))
     val nc     = cash + pnl.netAfterTax
     val result = Firm.attemptDownsize(firm, pnl, nc, 100, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency)
     result match
@@ -55,9 +55,9 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "never go below minWorkersRetained" in {
-    val cash   = PLN("100000.0")
+    val cash   = PLN(100000)
     val firm   = mkFirm(workers = 5, cash = cash)
-    val pnl    = mkPnl(revenue = PLN("1000.0"), costs = PLN("50000.0"))
+    val pnl    = mkPnl(revenue = PLN(1000), costs = PLN(50000))
     val nc     = cash + pnl.netAfterTax
     val result = Firm.attemptDownsize(firm, pnl, nc, 5, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency)
     result match
@@ -69,8 +69,8 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
 
   it should "allow a small temporary cash shortfall at minWorkersRetained when profit stays positive" in {
     val min    = summon[SimParams].firm.minWorkersRetained
-    val pnl    = mkPnl(revenue = PLN("5000.0"), costs = PLN("1200.0"))
-    val cash   = -pnl.netAfterTax + PLN("-100.0")
+    val pnl    = mkPnl(revenue = PLN(5000), costs = PLN(1200))
+    val cash   = -pnl.netAfterTax + PLN(-100)
     val firm   = mkFirm(workers = min, cash = cash)
     val nc     = cash + pnl.netAfterTax
     val result = Firm.attemptDownsize(firm, pnl, nc, min, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency)
@@ -79,27 +79,27 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
 
   it should "still go bankrupt at minWorkersRetained when the liquidity gap is too large" in {
     val min    = summon[SimParams].firm.minWorkersRetained
-    val cash   = PLN("-10000.0")
+    val cash   = PLN(-10000)
     val firm   = mkFirm(workers = min, cash = cash)
-    val pnl    = mkPnl(revenue = PLN("5000.0"), costs = PLN("1200.0"))
+    val pnl    = mkPnl(revenue = PLN(5000), costs = PLN(1200))
     val nc     = cash + pnl.netAfterTax
     val result = Firm.attemptDownsize(firm, pnl, nc, min, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency)
     result shouldBe a[Firm.Decision.GoBankrupt]
   }
 
   it should "go bankrupt when severance cost exceeds cash" in {
-    val cash   = PLN("100.0")
+    val cash   = PLN(100)
     val firm   = mkFirm(workers = 50, cash = cash)
-    val pnl    = mkPnl(revenue = PLN("10000.0"), costs = PLN("100000.0"))
+    val pnl    = mkPnl(revenue = PLN(10000), costs = PLN(100000))
     val nc     = cash + pnl.netAfterTax // very negative
     val result = Firm.attemptDownsize(firm, pnl, nc, 50, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency)
     result shouldBe a[Firm.Decision.GoBankrupt]
   }
 
   it should "account for severance in adjusted cash" in {
-    val cash   = PLN("500000.0")
+    val cash   = PLN(500000)
     val firm   = mkFirm(workers = 100, cash = cash)
-    val pnl    = mkPnl(revenue = PLN("100000.0"), costs = PLN("110000.0"))
+    val pnl    = mkPnl(revenue = PLN(100000), costs = PLN(110000))
     val nc     = cash + pnl.netAfterTax
     val result = Firm.attemptDownsize(firm, pnl, nc, 100, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency)
     result match
@@ -112,10 +112,10 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
   it should "retain more workers when non-labor costs are higher" in {
     // Higher fixed overhead requires more contribution margin from retained workers,
     // so the break-even target headcount should not fall.
-    val cash       = PLN("500000.0")
+    val cash       = PLN(500000)
     val firm       = mkFirm(workers = 100, cash = cash)
-    val pnlLow     = mkPnl(PLN("200000.0"), PLN("210000.0")) // low non-labor overhead
-    val pnlHigh    = mkPnl(PLN("200000.0"), PLN("280000.0")) // high non-labor overhead
+    val pnlLow     = mkPnl(PLN(200000), PLN(210000)) // low non-labor overhead
+    val pnlHigh    = mkPnl(PLN(200000), PLN(280000)) // high non-labor overhead
     val resultLow  = Firm.attemptDownsize(
       firm,
       pnlLow,
@@ -141,9 +141,9 @@ class SmoothLaborAdjustmentSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "not force immediate labor-cost bankruptcy for state-owned firms" in {
-    val cash   = PLN("100.0")
+    val cash   = PLN(100)
     val firm   = mkStateOwnedFirm(workers = 50, cash = cash)
-    val pnl    = mkPnl(revenue = PLN("10000.0"), costs = PLN("100000.0"))
+    val pnl    = mkPnl(revenue = PLN(10000), costs = PLN(100000))
     val nc     = cash + pnl.netAfterTax
     val result = Firm.attemptDownsize(firm, pnl, nc, 50, TechState.Traditional(_), wage, BankruptReason.LaborCostInsolvency)
     result should not be a[Firm.Decision.GoBankrupt]

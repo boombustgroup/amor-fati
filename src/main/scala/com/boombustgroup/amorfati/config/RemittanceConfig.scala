@@ -22,8 +22,8 @@ import com.boombustgroup.amorfati.types.*
   *   (counter-cyclical buffer)
   */
 case class RemittanceConfig(
-    perCapita: PLN = PLN("40.0"),
-    erElasticity: Coefficient = Coefficient("0.5"),
-    growthRate: Rate = Rate("0.02"),
-    cyclicalSens: Coefficient = Coefficient("0.3"),
+    perCapita: PLN = PLN(40),
+    erElasticity: Coefficient = Coefficient.decimal(5, 1),
+    growthRate: Rate = Rate.decimal(2, 2),
+    cyclicalSens: Coefficient = Coefficient.decimal(3, 1),
 )

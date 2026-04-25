@@ -64,7 +64,7 @@ class BalanceSheetSpec extends AnyFlatSpec with Matchers:
         PLN.Zero,
         PLN.Zero,
       )
-      .car shouldBe Multiplier("10.0")
+      .car shouldBe Multiplier(10)
   }
 
   // lendingRate and canLend removed from BankingAggregate — now only on Banking.BankState

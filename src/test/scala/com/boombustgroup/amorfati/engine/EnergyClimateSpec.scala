@@ -137,12 +137,12 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   private def mkFirm(tech: TechState = TechState.Traditional(10), sector: Int = 0): Firm.State =
     TestFirmState(
       FirmId(0),
-      PLN("50000.0"),
+      PLN(50000),
       PLN.Zero,
       tech,
-      Share("0.5"),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share("0.3"),
+      Share.decimal(3, 1),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -179,11 +179,11 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   private def mkMinimalWorld() = Generators.testWorld(
-    currentSigmas = Vector.fill(6)(Sigma("5.0")),
+    currentSigmas = Vector.fill(6)(Sigma(5)),
     totalPopulation = 100000,
     employed = 100000,
-    marketWage = PLN("8266.0"),
-    reservationWage = PLN("4666.0"),
+    marketWage = PLN(8266),
+    reservationWage = PLN(4666),
   )
 
   "World" should "default aggEnergyCost to 0.0" in {
@@ -276,7 +276,7 @@ class EnergyClimateSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "be zero for bankrupt firms" in {
-    val f = mkFirm(tech = TechState.Bankrupt(BankruptReason.Other("test"))).copy(greenCapital = PLN("5000.0"))
+    val f = mkFirm(tech = TechState.Bankrupt(BankruptReason.Other("test"))).copy(greenCapital = PLN(5000))
     Firm.isAlive(f) shouldBe false
   }
 

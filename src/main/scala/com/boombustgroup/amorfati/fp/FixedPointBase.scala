@@ -32,6 +32,14 @@ object FixedPointBase:
   def parseDecimal(value: String): Long =
     (BigDecimal(value.replace("_", "")) * ScaleDecimal).setScale(0, BigDecimal.RoundingMode.HALF_EVEN).toLongExact
 
+  /** Build an exact fixed-point raw value from decimal digits, e.g. (30, 2) =
+    * 0.30.
+    */
+  def decimalRaw(unscaled: Long, fractionalDigits: Int): Long =
+    require(fractionalDigits >= 0, s"fractionalDigits must be non-negative: $fractionalDigits")
+    if fractionalDigits <= 4 then java.lang.Math.multiplyExact(unscaled, pow10(4 - fractionalDigits))
+    else divideRaw(unscaled, pow10(fractionalDigits - 4))
+
   /** Convert a decimal value into the shared fixed-point raw scale. */
   def fromDecimal(value: BigDecimal): Long =
     (value * ScaleDecimal).setScale(0, BigDecimal.RoundingMode.HALF_EVEN).toLongExact
@@ -117,6 +125,15 @@ object FixedPointBase:
         x = y
         y = (x + n / x) >> 1
       x
+
+  private def pow10(exponent: Int): Long =
+    require(exponent >= 0 && exponent <= 18, s"unsupported decimal exponent: $exponent")
+    var result = 1L
+    var i      = 0
+    while i < exponent do
+      result *= 10L
+      i += 1
+    result
 
   private def roundedDivRaw(dividend: Long, divisor: Long): Long =
     if divisor == 0L then 0L

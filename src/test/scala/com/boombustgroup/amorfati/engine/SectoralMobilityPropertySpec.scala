@@ -21,7 +21,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   given SimParams = SimParams.defaults
 
   private def adjustedSuccess(base: BigDecimal, friction: BigDecimal): BigDecimal =
-    decimal(SectoralMobility.frictionAdjustedSuccess(Share(base), Share(friction)))
+    decimal(SectoralMobility.frictionAdjustedSuccess(shareBD(base), shareBD(friction)))
 
   // --- Friction matrix properties ---
 
@@ -36,7 +36,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   "crossSectorWagePenalty" should "be in [0.7, 1.0] for friction in [0, 1]" in
     forAll(genDecimal("0.0", "1.0")) { friction =>
-      val p = SectoralMobility.crossSectorWagePenalty(Share(friction)).bd
+      val p = SectoralMobility.crossSectorWagePenalty(shareBD(friction)).bd
       p should be >= BigDecimal("0.7")
       p should be <= BigDecimal("1.0")
     }
@@ -55,10 +55,10 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
   "selectTargetSector" should "always return a valid sector != from" in
     forAll(Gen.choose(0, 5)) { from =>
       val rng    = RandomStream.seeded(42)
-      val wages  = Vector.fill(6)(PLN("10000.0"))
+      val wages  = Vector.fill(6)(PLN(10000))
       val vac    = Vector.fill(6)(5)
       val target =
-        SectoralMobility.selectTargetSector(from, wages, vac, SectoralMobility.DefaultFrictionMatrix, Coefficient("2.0"), rng)
+        SectoralMobility.selectTargetSector(from, wages, vac, SectoralMobility.DefaultFrictionMatrix, Coefficient(2), rng)
       target should not be from
       target should be >= 0
       target should be < 6
@@ -70,12 +70,12 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
     val firms = Vector(
       TestFirmState(
         FirmId(0),
-        PLN("50000.0"),
+        PLN(50000),
         PLN.Zero,
         TechState.Traditional(10),
-        Share("0.5"),
+        Share.decimal(5, 1),
         Multiplier.One,
-        Share("0.5"),
+        Share.decimal(5, 1),
         SectorIdx(2),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -100,13 +100,13 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
       .map(i =>
         TestHouseholdState(
           HhId(i),
-          PLN("20000.0"),
+          PLN(20000),
           PLN.Zero,
-          PLN("1800.0"),
-          Share("0.7"),
-          Share("0.0"),
-          Share("0.82"),
-          HhStatus.Employed(FirmId(i), SectorIdx(i % 6), PLN(BigDecimal("8000.0") + i * 100)),
+          PLN(1800),
+          Share.decimal(7, 1),
+          Share(0),
+          Share.decimal(82, 2),
+          HhStatus.Employed(FirmId(i), SectorIdx(i % 6), plnBD(8000 + i * 100)),
           Array.empty[HhId],
           bankId = BankId(0),
           equityWealth = PLN.Zero,
@@ -115,7 +115,7 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
           numDependentChildren = 0,
           consumerDebt = PLN.Zero,
           education = 2,
-          taskRoutineness = Share("0.5"),
+          taskRoutineness = Share.decimal(5, 1),
           wageScar = Share.Zero,
         ),
       )
@@ -128,8 +128,8 @@ class SectoralMobilityPropertySpec extends AnyFlatSpec with Matchers with ScalaC
 
   "frictionAdjustedParams" should "increase monotonically with friction" in
     forAll(genDecimal("0.0", "0.99"), genDecimal("0.01", "2.0"), genDecimal("0.01", "2.0")) { (friction, durMult, costMult) =>
-      val rp1 = SectoralMobility.frictionAdjustedParams(Share(friction), Multiplier(durMult), Share(costMult))
-      val rp2 = SectoralMobility.frictionAdjustedParams(Share(friction + BigDecimal("0.01")), Multiplier(durMult), Share(costMult))
+      val rp1 = SectoralMobility.frictionAdjustedParams(shareBD(friction), multiplierBD(durMult), shareBD(costMult))
+      val rp2 = SectoralMobility.frictionAdjustedParams(shareBD(friction + BigDecimal("0.01")), multiplierBD(durMult), shareBD(costMult))
       rp2.duration should be >= rp1.duration
       rp2.cost.bd should be >= rp1.cost.bd
     }

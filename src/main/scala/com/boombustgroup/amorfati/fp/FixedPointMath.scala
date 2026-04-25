@@ -12,8 +12,8 @@ object FixedPointMath:
   private val Pi      = BigDecimal("3.1415926535897932384626433832795029")
   private val Tau     = Pi * Two
   private val Ln2     = BigDecimal("0.6931471805599453094172321214581766")
-  private val Ln2Raw  = FixedPointBase.parseDecimal("0.6931471805599453094172321214581766")
-  private val ExpCap  = FixedPointBase.parseDecimal("20.0")
+  private val Ln2Raw  = 6931L
+  private val ExpCap  = FixedPointBase.Scale * 20L
   private val LnCache = java.util.concurrent.ConcurrentHashMap[Long, java.lang.Long]()
 
   def expRaw(raw: Long): Long =

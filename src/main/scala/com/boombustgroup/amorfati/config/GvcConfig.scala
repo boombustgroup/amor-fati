@@ -43,25 +43,26 @@ import com.boombustgroup.amorfati.types.*
   * @param commodityShockMonth
   *   simulation month when commodity price shock hits (0 = no shock)
   * @param commodityShockMag
-  *   one-time shock magnitude as multiplicative increment (e.g.,
-  *   Multiplier("3.0") = +300% gas price, 2022-style). Unbounded — can exceed
-  *   1.0.
+  *   one-time shock magnitude as multiplicative increment (e.g., Multiplier(3) =
+  *   +300% gas price, 2022-style). Unbounded — can exceed 1.0.
   */
 case class GvcConfig(
-    euTradeShare: Share = Share("0.70"),
-    exportShares: Vector[Share] = Vector(Share("0.05"), Share("0.55"), Share("0.15"), Share("0.03"), Share("0.02"), Share("0.20")),
-    depth: Vector[Share] = Vector(Share("0.35"), Share("0.75"), Share("0.30"), Share("0.40"), Share("0.10"), Share("0.45")),
-    foreignInflation: Rate = Rate("0.02"),
-    foreignGdpGrowth: Rate = Rate("0.015"),
-    erPassthrough: Coefficient = Coefficient("0.60"),
-    euErPassthrough: Coefficient = Coefficient("0.15"),
+    euTradeShare: Share = Share.decimal(70, 2),
+    exportShares: Vector[Share] =
+      Vector(Share.decimal(5, 2), Share.decimal(55, 2), Share.decimal(15, 2), Share.decimal(3, 2), Share.decimal(2, 2), Share.decimal(20, 2)),
+    depth: Vector[Share] =
+      Vector(Share.decimal(35, 2), Share.decimal(75, 2), Share.decimal(30, 2), Share.decimal(40, 2), Share.decimal(10, 2), Share.decimal(45, 2)),
+    foreignInflation: Rate = Rate.decimal(2, 2),
+    foreignGdpGrowth: Rate = Rate.decimal(15, 3),
+    erPassthrough: Coefficient = Coefficient.decimal(60, 2),
+    euErPassthrough: Coefficient = Coefficient.decimal(15, 2),
     demandShockMonth: Int = 0,
-    demandShockSize: Share = Share("0.0"),
+    demandShockSize: Share = Share(0),
     demandShockSectors: Set[Int] = Set.empty,
-    disruptionRecovery: Share = Share("0.05"),
+    disruptionRecovery: Share = Share.decimal(5, 2),
     // Commodity prices (Poland imports ~95% of oil/gas)
-    commodityDrift: Rate = Rate("0.02"),
-    commodityVolatility: Sigma = Sigma("0.03"),
+    commodityDrift: Rate = Rate.decimal(2, 2),
+    commodityVolatility: Sigma = Sigma.decimal(3, 2),
     commodityShockMonth: Int = 0,
     commodityShockMag: Multiplier = Multiplier.Zero,
 ):

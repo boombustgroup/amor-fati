@@ -42,6 +42,67 @@ object FixedPointSpecSupport:
   @targetName("metricValueDecimal")
   def decimal(value: MetricValue): BigDecimal       = rawValue(value.toLong)
 
+  def plnBD(value: BigDecimal): PLN =
+    PLN.fromRaw(FixedPointBase.fromDecimal(value))
+  def plnBD(value: Int): PLN        = PLN(value)
+  def plnBD(value: Long): PLN       = PLN(value)
+
+  def rateBD(value: BigDecimal): Rate =
+    Rate.fromRaw(FixedPointBase.fromDecimal(value))
+  def rateBD(value: Int): Rate        = Rate(value)
+  def rateBD(value: Long): Rate       = Rate(value)
+  @targetName("rateBDScalar")
+  def rateBD(value: Scalar): Rate     = Rate(value)
+
+  def shareBD(value: BigDecimal): Share =
+    Share.fromRaw(FixedPointBase.fromDecimal(value))
+  def shareBD(value: Int): Share        = Share(value)
+  def shareBD(value: Long): Share       = Share(value)
+  @targetName("shareBDScalar")
+  def shareBD(value: Scalar): Share     = Share(value)
+
+  def scalarBD(value: BigDecimal): Scalar =
+    Scalar.fromRaw(FixedPointBase.fromDecimal(value))
+  def scalarBD(value: Int): Scalar        = Scalar(value)
+  def scalarBD(value: Long): Scalar       = Scalar(value)
+
+  def multiplierBD(value: BigDecimal): Multiplier =
+    Multiplier.fromRaw(FixedPointBase.fromDecimal(value))
+  def multiplierBD(value: Int): Multiplier        = Multiplier(value)
+  def multiplierBD(value: Long): Multiplier       = Multiplier(value)
+  @targetName("multiplierBDScalar")
+  def multiplierBD(value: Scalar): Multiplier     = Multiplier(value)
+
+  def coefficientBD(value: BigDecimal): Coefficient =
+    Coefficient.fromRaw(FixedPointBase.fromDecimal(value))
+  def coefficientBD(value: Int): Coefficient        = Coefficient(value)
+  def coefficientBD(value: Long): Coefficient       = Coefficient(value)
+  @targetName("coefficientBDScalar")
+  def coefficientBD(value: Scalar): Coefficient     = Coefficient(value)
+
+  def priceIndexBD(value: BigDecimal): PriceIndex =
+    PriceIndex.fromRaw(FixedPointBase.fromDecimal(value))
+  def priceIndexBD(value: Int): PriceIndex        = PriceIndex(value)
+  def priceIndexBD(value: Long): PriceIndex       = PriceIndex(value)
+
+  def sigmaBD(value: BigDecimal): Sigma =
+    Sigma.fromRaw(FixedPointBase.fromDecimal(value))
+  def sigmaBD(value: Int): Sigma        = Sigma(value)
+  def sigmaBD(value: Long): Sigma       = Sigma(value)
+
+  def exchangeRateBD(value: BigDecimal): ExchangeRate =
+    ExchangeRate.fromRaw(FixedPointBase.fromDecimal(value))
+  def exchangeRateBD(value: Int): ExchangeRate        = ExchangeRate(value)
+  def exchangeRateBD(value: Long): ExchangeRate       = ExchangeRate(value)
+
+  def exchangeRateShockBD(value: BigDecimal): ExchangeRateShock =
+    ExchangeRateShock.fromRaw(FixedPointBase.fromDecimal(value))
+  def exchangeRateShockBD(value: Int): ExchangeRateShock        = ExchangeRateShock(value)
+  def exchangeRateShockBD(value: Long): ExchangeRateShock       = ExchangeRateShock(value)
+
+  def metricValueBD(value: BigDecimal): MetricValue =
+    MetricValue.fromRaw(FixedPointBase.fromDecimal(value))
+
   def genDecimal(lo: String, hi: String): Gen[BigDecimal] =
     Gen
       .choose(FixedPointBase.parseDecimal(lo), FixedPointBase.parseDecimal(hi))

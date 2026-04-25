@@ -182,7 +182,7 @@ object PriceEquityEconomics:
     val newInfl  = priceUpd.inflation + firmStep.markupInflation
     val newPrice = priceUpd.priceLevel.applyGrowth(firmStep.markupInflation.monthly.toCoefficient)
 
-    val prevGdp             = w.cachedMonthlyGdpProxy.max(PLN("1.0"))
+    val prevGdp             = w.cachedMonthlyGdpProxy.max(PLN(1))
     val deficitToGdp        = fiscalDeficitToGdp(w.gov.deficit.max(PLN.Zero), prevGdp)
     val firmProfitsPnl      = firmStep.sumRealizedPostTaxProfit
     val gdpGrowthForEquity  = gdp.ratioTo(prevGdp).toMultiplier.deviationFromOne

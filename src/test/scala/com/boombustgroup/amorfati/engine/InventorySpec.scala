@@ -79,8 +79,8 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   private def mkMinimalWorld() = Generators.testWorld(
-    inflation = Rate("0.0"),
-    currentSigmas = Vector.fill(6)(Sigma("5.0")),
+    inflation = Rate(0),
+    currentSigmas = Vector.fill(6)(Sigma(5)),
     marketWage = PLN(8000),
     reservationWage = PLN(4500),
   )
@@ -102,12 +102,12 @@ class InventorySpec extends AnyFlatSpec with Matchers:
   private def mkFirm(tech: TechState = TechState.Traditional(10)): Firm.State =
     TestFirmState(
       FirmId(0),
-      PLN("50000.0"),
+      PLN(50000),
       PLN.Zero,
       tech,
-      Share("0.5"),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share("0.3"),
+      Share.decimal(3, 1),
       SectorIdx(0),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -280,7 +280,7 @@ class InventorySpec extends AnyFlatSpec with Matchers:
 
   "Bankrupt firm" should "have zero inventory" in {
     val f = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")))
-      .copy(inventory = PLN("5000.0"))
+      .copy(inventory = PLN(5000))
     // applyInventory should zero out inventory for bankrupt firms
     Firm.isAlive(f) shouldBe false
   }

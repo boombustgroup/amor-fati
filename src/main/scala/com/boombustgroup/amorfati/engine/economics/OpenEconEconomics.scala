@@ -23,7 +23,7 @@ import com.boombustgroup.amorfati.random.RandomStream
   */
 object OpenEconEconomics:
 
-  private val MaxDebtServiceGdpShare = Share("0.50")
+  private val MaxDebtServiceGdpShare = Share.decimal(50, 2)
 
   case class MonetaryPolicy(
       newRefRate: Rate,
@@ -90,7 +90,7 @@ object OpenEconEconomics:
       deficit: PLN,
       avgMaturityMonths: Int,
   ): Rate =
-    val rolloverFrac: Share = Share(1.0 / avgMaturityMonths.max(1))
+    val rolloverFrac: Share = Share.fraction(1, avgMaturityMonths.max(1))
     val deficitFrac: Share  =
       if bondsOutstanding > PLN.Zero then Share(deficit.max(PLN.Zero) / bondsOutstanding)
       else Share.Zero
@@ -115,7 +115,7 @@ object OpenEconEconomics:
       commodityRng: RandomStream,
   )
 
-  private val NbfiDepositRateSpread = 0.02
+  private val NbfiDepositRateSpread: Rate = Rate.decimal(2, 2)
 
   // Internal intermediate types for sub-method returns
   private case class ForexResult(
@@ -464,7 +464,7 @@ object OpenEconEconomics:
       newCorpBondYield: Rate,
       corpBondDefaultLoss: PLN,
   )(using p: SimParams): NbfiResult =
-    val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
+    val nbfiDepositRate = (postFxNbp.referenceRate - NbfiDepositRateSpread).max(Rate.Zero)
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
     val nbfiStep        =
       Nbfi.step(

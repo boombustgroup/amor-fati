@@ -47,7 +47,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   // --- cofinancing tests ---
 
   "cofinancing" should "equal euMonthly * rate / (1 - rate)" in {
-    val eu       = PLN("1000000.0")
+    val eu       = PLN(1000000)
     val rate     = BigDecimal("0.15")
     val expected = BigDecimal("1000000.0") * rate / (BigDecimal("1.0") - rate)
     decimal(EuFunds.cofinancing(eu)).shouldBe(expected +- BigDecimal("0.01"))
@@ -59,8 +59,8 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   // --- capitalInvestment tests ---
 
   "capitalInvestment" should "equal (eu + cofin) * capitalShare" in {
-    val eu       = PLN("1000000.0")
-    val cofin    = PLN("176470.59")
+    val eu       = PLN(1000000)
+    val cofin    = PLN.decimal(17647059, 2)
     val expected = (BigDecimal("1000000.0") + BigDecimal("176470.59")) * BigDecimal("0.60")
     decimal(EuFunds.capitalInvestment(eu, cofin)).shouldBe(expected +- BigDecimal("0.01"))
   }
@@ -71,7 +71,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     val prev      = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val baseInput = FiscalBudget.Input(prev, priceLevel = PriceIndex.Base, citPaid = PLN(100000), govDividendRevenue = PLN.Zero, vat = PLN(200000))
     val base      = FiscalBudget.update(baseInput)
-    val withEu    = FiscalBudget.update(baseInput.copy(euCofinancing = PLN("50000.0")))
+    val withEu    = FiscalBudget.update(baseInput.copy(euCofinancing = PLN(50000)))
     // Deficit should increase by euCofinancing amount
     decimal(withEu.deficit - base.deficit) shouldBe BigDecimal("50000.0") +- BigDecimal("0.01")
   }
@@ -85,7 +85,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
         citPaid = PLN(100000),
         govDividendRevenue = PLN.Zero,
         vat = PLN(200000),
-        euCofinancing = PLN("75000.0"),
+        euCofinancing = PLN(75000),
       ),
     )
     decimal(result.euCofinancing) shouldBe BigDecimal("75000.0")
@@ -109,7 +109,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
         citPaid = PLN(100000),
         govDividendRevenue = PLN.Zero,
         vat = PLN(200000),
-        euProjectCapital = PLN("30000.0"),
+        euProjectCapital = PLN(30000),
       ),
     )
     decimal(result.govCapitalSpend) shouldBe decimal(base.govCapitalSpend) +- BigDecimal("0.01")

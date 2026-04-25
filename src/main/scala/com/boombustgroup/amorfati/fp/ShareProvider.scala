@@ -10,18 +10,18 @@ object ShareProvider:
   opaque type Share = Long
 
   object Share:
-    val Zero: Share                         = 0L
-    val One: Share                          = Scale
-    def apply(value: BigDecimal): Share     = fromDecimal(value)
-    def apply(value: String): Share         = parseDecimal(value)
-    def apply(value: Int): Share            = fromRaw(value.toLong * Scale)
-    def apply(value: Long): Share           = fromRaw(value * Scale)
+    val Zero: Share                                           = 0L
+    val One: Share                                            = Scale
+    def apply(value: Int): Share                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): Share                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): Share =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
     @targetName("fromScalar")
-    def apply(value: Scalar): Share         = fromRaw(value.toLong)
-    def fraction(num: Int, den: Int): Share =
+    def apply(value: Scalar): Share                           = fromRaw(value.toLong)
+    def fraction(num: Int, den: Int): Share                   =
       if den == 0 then Zero else fromRaw(ratioRaw(num.toLong, den.toLong))
-    def fromRaw(raw: Long): Share           = raw
-    def random(rng: RandomStream): Share    = Share.fromRaw(rng.nextInt(Scale.toInt).toLong)
+    def fromRaw(raw: Long): Share                             = raw
+    def random(rng: RandomStream): Share                      = Share.fromRaw(rng.nextInt(Scale.toInt).toLong)
 
   extension (s: Share)
     inline def toLong: Long                    = s

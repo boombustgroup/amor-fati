@@ -9,14 +9,16 @@ object RateProvider:
   opaque type Rate = Long
 
   object Rate:
-    val Zero: Rate                     = 0L
-    def apply(value: BigDecimal): Rate = fromDecimal(value)
-    def apply(value: String): Rate     = parseDecimal(value)
-    def apply(value: Int): Rate        = fromRaw(value.toLong * Scale)
-    def apply(value: Long): Rate       = fromRaw(value * Scale)
+    val Zero: Rate                                           = 0L
+    def apply(value: Int): Rate                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): Rate                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): Rate =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    def fraction(num: Int, den: Int): Rate                   =
+      if den == 0 then Zero else fromRaw(ratioRaw(num.toLong, den.toLong))
     @targetName("fromScalar")
-    def apply(value: Scalar): Rate     = fromRaw(value.toLong)
-    def fromRaw(raw: Long): Rate       = raw
+    def apply(value: Scalar): Rate                           = fromRaw(value.toLong)
+    def fromRaw(raw: Long): Rate                             = raw
 
   extension (r: Rate)
     inline def toLong: Long                   = r

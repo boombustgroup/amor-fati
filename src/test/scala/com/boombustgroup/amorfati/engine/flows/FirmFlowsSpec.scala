@@ -8,18 +8,18 @@ import org.scalatest.matchers.should.Matchers
 class FirmFlowsSpec extends AnyFlatSpec with Matchers:
 
   private val baseInput = FirmFlows.Input(
-    householdIncome = PLN("50000000.0"),
-    cit = PLN("5000000.0"),
-    loanRepayment = PLN("3000000.0"),
-    newLoans = PLN("4000000.0"),
-    interestPaid = PLN("2000000.0"),
-    capex = PLN("1500000.0"),
-    equityIssuance = PLN("1000000.0"),
-    ioPayments = PLN("10000000.0"),
-    nplDefault = PLN("500000.0"),
-    profitShifting = PLN("300000.0"),
-    fdiRepatriation = PLN("200000.0"),
-    grossInvestment = PLN("6000000.0"),
+    householdIncome = PLN(50000000),
+    cit = PLN(5000000),
+    loanRepayment = PLN(3000000),
+    newLoans = PLN(4000000),
+    interestPaid = PLN(2000000),
+    capex = PLN(1500000),
+    equityIssuance = PLN(1000000),
+    ioPayments = PLN(10000000),
+    nplDefault = PLN(500000),
+    profitShifting = PLN(300000),
+    fdiRepatriation = PLN(200000),
+    grossInvestment = PLN(6000000),
   )
 
   "FirmFlows" should "preserve total wealth at exactly 0L" in {
@@ -52,7 +52,7 @@ class FirmFlowsSpec extends AnyFlatSpec with Matchers:
   it should "skip zero-amount flows" in {
     val minimal =
       FirmFlows.Input(
-        householdIncome = PLN("1000000.0"),
+        householdIncome = PLN(1000000),
         cit = PLN.Zero,
         loanRepayment = PLN.Zero,
         newLoans = PLN.Zero,

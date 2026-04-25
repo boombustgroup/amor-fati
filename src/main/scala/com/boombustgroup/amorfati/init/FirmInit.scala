@@ -21,20 +21,20 @@ import com.boombustgroup.amorfati.types.*
 object FirmInit:
 
   // ---- Calibration constants ----
-  private val FirmDepositShare   = Share("0.35")     // NBP M3 2024: ~35% of deposits are corporate
-  private val CashMin            = PLN("10_000.0")   // PLN floor for initial cash draw
-  private val CashMax            = PLN("80_000.0")   // PLN ceiling for initial cash draw
-  private val LargeCashBonus     = PLN("200_000.0")  // PLN bonus for top-decile firms (lottery draw)
-  private val LargeCashProb      = Share("0.10")     // probability of receiving large cash bonus
-  private val RiskProfileMin     = Share("0.1")      // minimum firm risk appetite
-  private val RiskProfileMax     = Share("0.9")      // maximum firm risk appetite
-  private val InnovCostMin       = Multiplier("0.8") // minimum innovation cost factor
-  private val InnovCostMax       = Multiplier("1.5") // maximum innovation cost factor
-  private val DrNoise            = Share("0.20")     // std dev for digital readiness draw
-  private val DrFloor            = Share("0.02")     // minimum digital readiness
-  private val DrCap              = Share("0.98")     // maximum digital readiness
-  private val InitHybridMinSigma = Sigma("5.0")      // minimum sector sigma for init Hybrid (BPO=50, Mfg=10, Retail=5)
-  private val InitHybridProb     = Share("0.08")     // ~8% of eligible firms start as Hybrid (OECD 2024: 5-10%)
+  private val FirmDepositShare   = Share.decimal(35, 2)      // NBP M3 2024: ~35% of deposits are corporate
+  private val CashMin            = PLN(10000)                // PLN floor for initial cash draw
+  private val CashMax            = PLN(80000)                // PLN ceiling for initial cash draw
+  private val LargeCashBonus     = PLN(200000)               // PLN bonus for top-decile firms (lottery draw)
+  private val LargeCashProb      = Share.decimal(10, 2)      // probability of receiving large cash bonus
+  private val RiskProfileMin     = Share.decimal(1, 1)       // minimum firm risk appetite
+  private val RiskProfileMax     = Share.decimal(9, 1)       // maximum firm risk appetite
+  private val InnovCostMin       = Multiplier.decimal(8, 1)  // minimum innovation cost factor
+  private val InnovCostMax       = Multiplier.decimal(15, 1) // maximum innovation cost factor
+  private val DrNoise            = Share.decimal(20, 2)      // std dev for digital readiness draw
+  private val DrFloor            = Share.decimal(2, 2)       // minimum digital readiness
+  private val DrCap              = Share.decimal(98, 2)      // maximum digital readiness
+  private val InitHybridMinSigma = Sigma(5)                  // minimum sector sigma for init Hybrid (BPO=50, Mfg=10, Retail=5)
+  private val InitHybridProb     = Share.decimal(8, 2)       // ~8% of eligible firms start as Hybrid (OECD 2024: 5-10%)
 
   case class Population(
       firms: Vector[Firm.State],
@@ -90,7 +90,7 @@ object FirmInit:
         val tech         =
           if isHybridInit then
             val hybW = Math.max(1, sec.hybridRetainFrac.applyTo(firmSize))
-            val eff  = Multiplier.One + TypedRandom.randomBetween(Multiplier.Zero, Multiplier("0.3"), rng)
+            val eff  = Multiplier.One + TypedRandom.randomBetween(Multiplier.Zero, Multiplier.decimal(3, 1), rng)
             TechState.Hybrid(hybW, eff)
           else TechState.Traditional(firmSize)
         Firm.State(

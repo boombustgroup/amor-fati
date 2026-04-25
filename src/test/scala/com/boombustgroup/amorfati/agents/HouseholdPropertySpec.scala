@@ -22,10 +22,10 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   ): Household.Aggregates =
     Household.computeAggregates(
       households,
-      if financialStocks.nonEmpty then financialStocks else Vector.fill(households.length)(TestHouseholdState.financial(savings = PLN("10000.0"))),
-      PLN("8266.0"),
-      PLN("4666.0"),
-      Share("0.40"),
+      if financialStocks.nonEmpty then financialStocks else Vector.fill(households.length)(TestHouseholdState.financial(savings = PLN(10000))),
+      PLN(8266),
+      PLN(4666),
+      Share.decimal(40, 2),
       0,
       0,
     )
@@ -150,7 +150,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     forAll(Gen.choose(5, 30)) { (n: Int) =>
       forAll(Gen.listOfN(n, genHousehold)) { (hhList: List[Household.State]) =>
         val hhs    = hhList.toVector
-        val stocks = hhs.map(h => TestHouseholdState.financial(savings = PLN(math.abs(h.id.toInt) + 1)))
+        val stocks = hhs.map(h => TestHouseholdState.financial(savings = plnBD(math.abs(h.id.toInt) + 1)))
         val agg    = computeAggregates(hhs, stocks)
         agg.meanSavings should be > PLN.Zero
       }
@@ -163,12 +163,12 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       val bankruptHhs = (0 until n).map { i =>
         TestHouseholdState(
           HhId(i),
-          PLN("-10000.0"),
-          PLN("5000.0"),
-          PLN("1800.0"),
-          Share("0.5"),
-          Share("0.3"),
-          Share("0.8"),
+          PLN(-10000),
+          PLN(5000),
+          PLN(1800),
+          Share.decimal(5, 1),
+          Share.decimal(3, 1),
+          Share.decimal(8, 1),
           HhStatus.Bankrupt,
           Array.empty[HhId],
           bankId = BankId(0),
@@ -178,7 +178,7 @@ class HouseholdPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
           numDependentChildren = 0,
           consumerDebt = PLN.Zero,
           education = 2,
-          taskRoutineness = Share("0.5"),
+          taskRoutineness = Share.decimal(5, 1),
           wageScar = Share.Zero,
         )
       }.toVector

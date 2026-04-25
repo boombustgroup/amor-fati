@@ -24,18 +24,18 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   private def mkFirm(tech: TechState, sector: Int = 2, cash: BigDecimal = BigDecimal("500000.0"), dr: BigDecimal = BigDecimal("0.5")): Firm.State =
     TestFirmState(
       FirmId(0),
-      PLN(cash),
+      plnBD(cash),
       PLN.Zero,
       tech,
-      Share("0.5"),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share(dr),
+      shareBD(dr),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),
       equityRaised = PLN.Zero,
       initialSize = 10,
-      capitalStock = p.capital.klRatios(sector) * Multiplier("10.0"), // exact match for workers=10
+      capitalStock = p.capital.klRatios(sector) * Multiplier(10), // exact match for workers=10
       foreignOwned = false,
       inventory = PLN.Zero,
       greenCapital = PLN.Zero,
@@ -43,16 +43,16 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     )
 
   private def mkStocks(cash: BigDecimal = BigDecimal("500000.0"), debt: PLN = PLN.Zero, equity: PLN = PLN.Zero): Firm.FinancialStocks =
-    TestFirmState.financial(cash = PLN(cash), debt = debt, equityRaised = equity)
+    TestFirmState.financial(cash = plnBD(cash), debt = debt, equityRaised = equity)
 
   private def mkWorld(autoRatio: BigDecimal = BigDecimal("0.0"), hybridRatio: BigDecimal = BigDecimal("0.0")): World =
     Generators.testWorld(
       totalPopulation = 100000,
       employed = 100000,
-      forex = OpenEconomy.ForexState(ExchangeRate("4.33"), PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
-      marketWage = PLN(decimal(p.household.baseWage)),
-      reservationWage = PLN(decimal(p.household.baseReservationWage)),
-      real = RealState.zero.copy(automationRatio = Share(autoRatio), hybridRatio = Share(hybridRatio)),
+      forex = OpenEconomy.ForexState(ExchangeRate.decimal(433, 2), PLN.Zero, PLN(190000000), PLN.Zero, PLN.Zero),
+      marketWage = plnBD(decimal(p.household.baseWage)),
+      reservationWage = plnBD(decimal(p.household.baseReservationWage)),
+      real = RealState.zero.copy(automationRatio = shareBD(autoRatio), hybridRatio = shareBD(hybridRatio)),
     )
 
   private def process(
@@ -119,7 +119,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   "applyDigitalDrift" should "increase DR for alive firms" in {
     val f      = mkFirm(TechState.Traditional(10), dr = BigDecimal("0.40"))
     val w      = mkWorld()
-    val result = process(f, w, Rate("0.07"), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate.decimal(7, 2), _ => true, Vector(f), RandomStream.seeded(42))
     // DR should be at least initial + drift (could also get digital investment boost)
     decimal(result.firm.digitalReadiness) should be >= (BigDecimal("0.40") + decimal(p.firm.digiDrift) - BigDecimal("0.001"))
   }
@@ -127,14 +127,14 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   it should "cap digitalReadiness at 1.0" in {
     val f      = mkFirm(TechState.Traditional(10), dr = BigDecimal("0.999"))
     val w      = mkWorld()
-    val result = process(f, w, Rate("0.07"), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate.decimal(7, 2), _ => true, Vector(f), RandomStream.seeded(42))
     decimal(result.firm.digitalReadiness) should be <= BigDecimal("1.0")
   }
 
   it should "not change DR for bankrupt firms" in {
     val f      = mkFirm(TechState.Bankrupt(BankruptReason.Other("test")), dr = BigDecimal("0.50"))
     val w      = mkWorld()
-    val result = process(f, w, Rate("0.07"), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate.decimal(7, 2), _ => true, Vector(f), RandomStream.seeded(42))
     decimal(result.firm.digitalReadiness) shouldBe BigDecimal("0.50")
   }
 
@@ -151,7 +151,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     var f1         = f
     var stocks     = mkStocks(cash = BigDecimal("1e9"))
     for _ <- 0 until 200 do
-      val result = process(f1, w, Rate("0.07"), _ => false, Vector(f1), rng, stocks)
+      val result = process(f1, w, Rate.decimal(7, 2), _ => false, Vector(f1), rng, stocks)
       f1 = result.firm
       stocks = result.financialStocks
     assume(Firm.isAlive(f1), "firm must survive processing")
@@ -168,7 +168,7 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     val rng      = RandomStream.seeded(42L)
     // Over many trials, no investment should happen (only drift)
     for _ <- 0 until 100 do
-      val result = process(f, w, Rate("0.07"), _ => false, Vector(f), rng, mkStocks(cash = digiCost * BigDecimal("0.5")))
+      val result = process(f, w, Rate.decimal(7, 2), _ => false, Vector(f), rng, mkStocks(cash = digiCost * BigDecimal("0.5")))
       // DR should be at most initial + drift (no investment boost)
       // But net income is added to cash, so firm may become solvent enough
       // Just verify no investment boost beyond drift
@@ -202,9 +202,9 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
   // ---- Hybrid learning + drift (1 test) ----
 
   "Hybrid firm" should "gain at least 0.005 + drift in DR per month" in {
-    val f      = mkFirm(TechState.Hybrid(5, Multiplier("1.1")), dr = BigDecimal("0.40"))
+    val f      = mkFirm(TechState.Hybrid(5, Multiplier.decimal(11, 1)), dr = BigDecimal("0.40"))
     val w      = mkWorld()
-    val result = process(f, w, Rate("0.07"), _ => true, Vector(f), RandomStream.seeded(42))
+    val result = process(f, w, Rate.decimal(7, 2), _ => true, Vector(f), RandomStream.seeded(42))
     if Firm.isAlive(result.firm) then
       // Hybrid learning (+0.005) + natural drift (+0.001)
       decimal(result.firm.digitalReadiness) should be >= (BigDecimal("0.40") + BigDecimal("0.005") + decimal(p.firm.digiDrift) - BigDecimal("0.001"))
@@ -220,9 +220,9 @@ class StagedDigitalizationSpec extends AnyFlatSpec with Matchers:
     val rng    = RandomStream.seeded(42L)
     // Simulate 10 months — at minimum, drift alone adds 10 × 0.001 = 0.01
     for _ <- 0 until 10 do
-      val result = process(f, w, Rate("0.07"), _ => false, Vector(f), rng, financialStocks = stocks)
+      val result = process(f, w, Rate.decimal(7, 2), _ => false, Vector(f), rng, financialStocks = stocks)
       if Firm.isAlive(result.firm) then
         f = result.firm
-        stocks = result.financialStocks.copy(cash = PLN("1000000.0")) // reset cash for next round
+        stocks = result.financialStocks.copy(cash = PLN(1000000)) // reset cash for next round
     decimal(f.digitalReadiness) should be >= (initDR + 10 * decimal(p.firm.digiDrift) - BigDecimal("0.001"))
   }

@@ -32,9 +32,9 @@ class McRunnerConsoleSpec extends AnyFlatSpec with Matchers:
       seed = 7L,
       totalSeeds = 12,
       elapsedMillis = 3456L,
-      adoption = MetricValue("0.123"),
-      inflation = MetricValue("0.045"),
-      unemployment = MetricValue("0.067"),
+      adoption = MetricValue.fromDecimalDigits(123, 3),
+      inflation = MetricValue.fromDecimalDigits(45, 3),
+      unemployment = MetricValue.fromDecimalDigits(67, 3),
     )
 
     McRunnerConsole.render(seedDone) shouldBe

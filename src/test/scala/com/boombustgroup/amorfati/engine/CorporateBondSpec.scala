@@ -67,8 +67,8 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "widen with NPL ratio" in {
-    val y0 = CorporateBondMarket.computeYield(Rate("0.06"), Share.Zero)
-    val y1 = CorporateBondMarket.computeYield(Rate("0.06"), Share("0.05"))
+    val y0 = CorporateBondMarket.computeYield(Rate.decimal(6, 2), Share.Zero)
+    val y1 = CorporateBondMarket.computeYield(Rate.decimal(6, 2), Share.decimal(5, 2))
     y1 should be > y0
   }
 
@@ -261,16 +261,16 @@ class CorporateBondSpec extends AnyFlatSpec with Matchers:
   "BankingAggregate.car" should "include corpBondHoldings at 50% risk weight" in {
     import com.boombustgroup.amorfati.agents.Banking
     val bank = Banking.Aggregate(
-      totalLoans = PLN("1000.0"),
-      nplAmount = PLN("0.0"),
-      capital = PLN("200.0"),
-      deposits = PLN("5000.0"),
+      totalLoans = PLN(1000),
+      nplAmount = PLN(0),
+      capital = PLN(200),
+      deposits = PLN(5000),
       afsBonds = PLN.Zero,
       htmBonds = PLN.Zero,
       consumerLoans = PLN.Zero,
       consumerNpl = PLN.Zero,
-      corpBondHoldings = PLN("400.0"),
+      corpBondHoldings = PLN(400),
     )
     // RWA = 1000 + 400 * 0.5 = 1200; CAR = 200 / 1200 = 0.1667
-    shouldBeCloseMultiplier(bank.car, Multiplier(BigDecimal("200.0") / BigDecimal("1200.0")), Multiplier("0.001"))
+    shouldBeCloseMultiplier(bank.car, Scalar.fraction(200, 1200).toMultiplier, Multiplier.decimal(1, 3))
   }

@@ -9,13 +9,13 @@ import com.boombustgroup.amorfati.random.RandomStream
 /** Immigration: tracks immigrant stock, flows, remittances, spawning/removal.
   */
 object Immigration:
-  private val MaxInitSavings = PLN("5000.0")
-  private val MinInitRent    = PLN("800.0")
-  private val ImmigrantMpcMu = Share("0.85")
-  private val ImmigrantMpcLo = Share("0.7")
-  private val ImmigrantMpcHi = Share("0.98")
-  private val SkillNoiseStd  = Scalar("0.15")
-  private val MpcNoiseStd    = Scalar("0.05")
+  private val MaxInitSavings = PLN(5000)
+  private val MinInitRent    = PLN(800)
+  private val ImmigrantMpcMu = Share.decimal(85, 2)
+  private val ImmigrantMpcLo = Share.decimal(7, 1)
+  private val ImmigrantMpcHi = Share.decimal(98, 2)
+  private val SkillNoiseStd  = Scalar.decimal(15, 2)
+  private val MpcNoiseStd    = Scalar.decimal(5, 2)
 
   case class State(
       immigrantStock: Int,   // total immigrant workers currently in economy
@@ -30,7 +30,7 @@ object Immigration:
   /** Monthly immigration inflow. Exogenous: fixed rate × basePop. Endogenous:
     * responds to (domesticWage / foreignWage − 1) × elasticity.
     */
-  private val HalfShare = Share("0.5")
+  private val HalfShare = Share.decimal(5, 1)
 
   def computeInflow(wage: PLN, unempRate: Share)(using p: SimParams): Int =
     val basePop = p.pop.firmsCount * p.pop.workersPerFirm

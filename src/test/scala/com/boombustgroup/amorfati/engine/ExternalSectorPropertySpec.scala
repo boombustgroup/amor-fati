@@ -20,7 +20,7 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
 
-  private val defaultSectorOutputs = Vector.fill(p.sectorDefs.length)(PLN("1e8"))
+  private val defaultSectorOutputs = Vector.fill(p.sectorDefs.length)(PLN(100000000))
 
   private def runStep(
       er: BigDecimal = decimal(p.forex.baseExRate),
@@ -32,9 +32,9 @@ class ExternalSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
       GvcTrade.StepInput(
         GvcTrade.initial,
         defaultSectorOutputs,
-        PriceIndex(price),
-        ExchangeRate(er),
-        Share(autoR),
+        priceIndexBD(price),
+        exchangeRateBD(er),
+        shareBD(autoR),
         ExecutionMonth(month),
         rng = RandomStream.seeded(42),
       ),

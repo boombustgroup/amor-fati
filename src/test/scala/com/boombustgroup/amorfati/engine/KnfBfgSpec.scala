@@ -34,7 +34,7 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
         id = BankId(id),
         capital = capital,
         nplAmount = nplAmount,
-        htmBookYield = Rate("0.055"),
+        htmBookYield = Rate.decimal(55, 3),
         status = status,
         loansShort = PLN.Zero,
         loansMedium = PLN.Zero,
@@ -44,8 +44,8 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
       Banking.BankFinancialStocks(
         totalDeposits = deposits,
         firmLoan = loans,
-        govBondAfs = govBondHoldings * Share("0.40"),
-        govBondHtm = govBondHoldings * Share("0.60"),
+        govBondAfs = govBondHoldings * Share.decimal(40, 2),
+        govBondHtm = govBondHoldings * Share.decimal(60, 2),
         reserve = PLN.Zero,
         interbankLoan = interbankNet,
         demandDeposit = PLN.Zero,
@@ -62,19 +62,19 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "KNF banking params" should "expose calibrated P2R, BFG levy, bail-in, and guarantee defaults" in {
     p.banking.p2rAddons.length shouldBe 7
-    p.banking.p2rAddons(0) shouldBe Multiplier("0.015")
-    p.banking.p2rAddons(2) shouldBe Multiplier("0.030")
-    p.banking.bfgLevyRate shouldBe Rate("0.0024")
-    p.banking.bailInDepositHaircut shouldBe Share("0.08")
-    p.banking.bfgDepositGuarantee shouldBe PLN("400000.0")
+    p.banking.p2rAddons(0) shouldBe Multiplier.decimal(15, 3)
+    p.banking.p2rAddons(2) shouldBe Multiplier.decimal(30, 3)
+    p.banking.bfgLevyRate shouldBe Rate.decimal(24, 4)
+    p.banking.bailInDepositHaircut shouldBe Share.decimal(8, 2)
+    p.banking.bfgDepositGuarantee shouldBe PLN(400000)
   }
 
   "Macroprudential P2R" should "return per-bank add-ons and affect effective minimum CAR" in {
-    Macroprudential.p2rAddon(0) shouldBe Multiplier("0.015")
-    Macroprudential.p2rAddon(2) shouldBe Multiplier("0.030")
+    Macroprudential.p2rAddon(0) shouldBe Multiplier.decimal(15, 3)
+    Macroprudential.p2rAddon(2) shouldBe Multiplier.decimal(30, 3)
     Macroprudential.p2rAddon(7) shouldBe p.banking.p2rAddons.last
 
-    val ccyb        = Multiplier("0.01")
+    val ccyb        = Multiplier.decimal(1, 2)
     val expectedPko = decimal(p.banking.minCar) + decimal(ccyb) + decimal(p.banking.osiiPkoBp) + decimal(p.banking.p2rAddons(0))
     decimal(Macroprudential.effectiveMinCarImpl(0, ccyb)) shouldBe expectedPko +- BigDecimal("1e-10")
     Macroprudential.effectiveMinCarImpl(0, Multiplier.Zero) should be > p.banking.minCar
@@ -83,9 +83,9 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "Banking.computeBfgLevy" should "compute monthly levy from explicit deposit stocks" in {
     val rows     = Vector(
-      mkBankRow(id = 0, deposits = PLN("1000000.0")),
-      mkBankRow(id = 1, deposits = PLN("2000000.0"), capital = PLN(200000)),
-      mkBankRow(id = 2, deposits = PLN("500000.0"), capital = PLN(50000), status = BankStatus.Failed(ExecutionMonth(3))),
+      mkBankRow(id = 0, deposits = PLN(1000000)),
+      mkBankRow(id = 1, deposits = PLN(2000000), capital = PLN(200000)),
+      mkBankRow(id = 2, deposits = PLN(500000), capital = PLN(50000), status = BankStatus.Failed(ExecutionMonth(3))),
     )
     val result   = Banking.computeBfgLevy(banks(rows), stocks(rows))
     val expected = (BigDecimal("1000000.0") + BigDecimal("2000000.0")) * decimal(p.banking.bfgLevyRate) / BigDecimal("12.0")
@@ -96,20 +96,20 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
   }
 
   "Banking.applyBailIn" should "haircut only failed-bank uninsured deposit stocks" in {
-    val safe       = Vector(mkBankRow(deposits = PLN("500000.0"), loans = PLN(100000), capital = PLN(50000)))
+    val safe       = Vector(mkBankRow(deposits = PLN(500000), loans = PLN(100000), capital = PLN(50000)))
     val safeResult = Banking.applyBailIn(banks(safe), stocks(safe))
-    safeResult.financialStocks.head.totalDeposits shouldBe PLN("500000.0")
+    safeResult.financialStocks.head.totalDeposits shouldBe PLN(500000)
     safeResult.totalLoss shouldBe PLN.Zero
 
-    val guaranteed       = Vector(mkBankRow(deposits = PLN("300000.0"), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
+    val guaranteed       = Vector(mkBankRow(deposits = PLN(300000), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
     val guaranteedResult = Banking.applyBailIn(banks(guaranteed), stocks(guaranteed))
-    guaranteedResult.financialStocks.head.totalDeposits shouldBe PLN("300000.0")
+    guaranteedResult.financialStocks.head.totalDeposits shouldBe PLN(300000)
     guaranteedResult.totalLoss shouldBe PLN.Zero
 
-    val failed       = Vector(mkBankRow(deposits = PLN("1000000.0"), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
+    val failed       = Vector(mkBankRow(deposits = PLN(1000000), capital = PLN.Zero, status = BankStatus.Failed(ExecutionMonth(5))))
     val failedResult = Banking.applyBailIn(banks(failed), stocks(failed))
-    val haircut      = (PLN("1000000.0") - p.banking.bfgDepositGuarantee) * p.banking.bailInDepositHaircut
-    failedResult.financialStocks.head.totalDeposits shouldBe PLN("1000000.0") - haircut
+    val haircut      = (PLN(1000000) - p.banking.bfgDepositGuarantee) * p.banking.bailInDepositHaircut
+    failedResult.financialStocks.head.totalDeposits shouldBe PLN(1000000) - haircut
     failedResult.totalLoss shouldBe haircut
   }
 
@@ -117,15 +117,15 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
     val rows   = Vector(
       mkBankRow(
         id = 0,
-        deposits = PLN("500000.0"),
+        deposits = PLN(500000),
         loans = PLN(100000),
         capital = PLN.Zero,
         nplAmount = PLN(50000),
-        govBondHoldings = PLN("10e9"),
-        interbankNet = PLN("1000.0"),
+        govBondHoldings = PLN(10000000000L),
+        interbankNet = PLN(1000),
         status = BankStatus.Failed(ExecutionMonth(3)),
       ),
-      mkBankRow(id = 1, deposits = PLN("2000000.0"), loans = PLN(200000), capital = PLN(200000), govBondHoldings = PLN("5e9"), interbankNet = PLN("-1000.0")),
+      mkBankRow(id = 1, deposits = PLN(2000000), loans = PLN(200000), capital = PLN(200000), govBondHoldings = PLN(5000000000L), interbankNet = PLN(-1000)),
     )
     val result = Banking.resolveFailures(banks(rows), stocks(rows))
 
@@ -140,29 +140,29 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
     val rows   = Vector(
       mkBankRow(
         id = 0,
-        deposits = PLN("500000.0"),
+        deposits = PLN(500000),
         loans = PLN(100000),
         capital = PLN(-10000),
         nplAmount = PLN(50000),
-        govBondHoldings = PLN("20e9"),
+        govBondHoldings = PLN(20000000000L),
         status = BankStatus.Failed(ExecutionMonth(3)),
       ),
       mkBankRow(
         id = 1,
-        deposits = PLN("300000.0"),
+        deposits = PLN(300000),
         loans = PLN(80000),
         capital = PLN(-5000),
         nplAmount = PLN(30000),
-        govBondHoldings = PLN("15e9"),
+        govBondHoldings = PLN(15000000000L),
         status = BankStatus.Failed(ExecutionMonth(3)),
       ),
       mkBankRow(
         id = 2,
-        deposits = PLN("200000.0"),
+        deposits = PLN(200000),
         loans = PLN(60000),
         capital = PLN(-20000),
         nplAmount = PLN(20000),
-        govBondHoldings = PLN("13.8e9"),
+        govBondHoldings = PLN(13800000000L),
         status = BankStatus.Failed(ExecutionMonth(3)),
       ),
     )
@@ -176,9 +176,9 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "Banking.healthiestBankId" should "return bank with highest capital when all fail" in {
     val rows = Vector(
-      mkBankRow(id = 0, deposits = PLN("500000.0"), loans = PLN(100000), capital = PLN(-20000), status = BankStatus.Failed(ExecutionMonth(3))),
-      mkBankRow(id = 1, deposits = PLN("300000.0"), loans = PLN(80000), capital = PLN(-5000), status = BankStatus.Failed(ExecutionMonth(3))),
-      mkBankRow(id = 2, deposits = PLN("200000.0"), loans = PLN(60000), capital = PLN(-15000), status = BankStatus.Failed(ExecutionMonth(3))),
+      mkBankRow(id = 0, deposits = PLN(500000), loans = PLN(100000), capital = PLN(-20000), status = BankStatus.Failed(ExecutionMonth(3))),
+      mkBankRow(id = 1, deposits = PLN(300000), loans = PLN(80000), capital = PLN(-5000), status = BankStatus.Failed(ExecutionMonth(3))),
+      mkBankRow(id = 2, deposits = PLN(200000), loans = PLN(60000), capital = PLN(-15000), status = BankStatus.Failed(ExecutionMonth(3))),
     )
 
     Banking.healthiestBankId(banks(rows), stocks(rows)) shouldBe BankId(1)
@@ -186,8 +186,8 @@ class KnfBfgSpec extends AnyFlatSpec with Matchers:
 
   "World defaults" should "keep bfgFundBalance and bailInLoss at zero" in {
     val w = Generators.testWorld(
-      monthlyGdpProxy = PLN("100000.0"),
-      currentSigmas = Vector(Sigma("1.0"), Sigma("1.0"), Sigma("1.0"), Sigma("1.0"), Sigma("1.0"), Sigma("1.0")),
+      monthlyGdpProxy = PLN(100000),
+      currentSigmas = Vector(Sigma(1), Sigma(1), Sigma(1), Sigma(1), Sigma(1), Sigma(1)),
       marketWage = PLN(8000),
       reservationWage = PLN(4000),
     )

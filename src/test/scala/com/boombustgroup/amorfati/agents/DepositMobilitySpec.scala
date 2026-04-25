@@ -23,24 +23,24 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     (
       Banking.BankState(
         id = BankId(id),
-        capital = PLN(cap),
+        capital = plnBD(cap),
         nplAmount = PLN.Zero,
-        htmBookYield = Rate("0.05"),
+        htmBookYield = Rate.decimal(5, 2),
         status = if failed then Banking.BankStatus.Failed(ExecutionMonth.First) else Banking.BankStatus.Active(0),
-        loansShort = PLN("3e9"),
-        loansMedium = PLN("4e9"),
-        loansLong = PLN("3e9"),
+        loansShort = PLN(3000000000L),
+        loansMedium = PLN(4000000000L),
+        loansLong = PLN(3000000000L),
         consumerNpl = PLN.Zero,
       ),
       Banking.BankFinancialStocks(
-        totalDeposits = PLN("10e9"),
-        firmLoan = PLN(loans),
-        govBondAfs = PLN("1e9"),
-        govBondHtm = PLN("1e9"),
+        totalDeposits = PLN(10000000000L),
+        firmLoan = plnBD(loans),
+        govBondAfs = PLN(1000000000),
+        govBondHtm = PLN(1000000000),
         reserve = PLN.Zero,
         interbankLoan = PLN.Zero,
-        demandDeposit = PLN("6e9"),
-        termDeposit = PLN("4e9"),
+        demandDeposit = PLN(6000000000L),
+        termDeposit = PLN(4000000000L),
         consumerLoan = PLN.Zero,
       ),
     )
@@ -49,16 +49,16 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     val row = mkBankRow(id, BigDecimal("0.01"))
     (
       row._1.copy(
-        capital = PLN("1e6"),
+        capital = PLN(1000000),
         loansShort = PLN.Zero,
         loansMedium = PLN.Zero,
         loansLong = PLN.Zero,
       ),
       row._2.copy(
-        totalDeposits = PLN("1e6"),
+        totalDeposits = PLN(1000000),
         firmLoan = PLN.Zero,
-        demandDeposit = PLN("6e5"),
-        termDeposit = PLN("4e5"),
+        demandDeposit = PLN(600000),
+        termDeposit = PLN(400000),
         consumerLoan = PLN.Zero,
       ),
     )
@@ -72,13 +72,13 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
   private def mkHh(bankId: Int, savings: BigDecimal = BigDecimal("50000.0")): Household.State =
     TestHouseholdState(
       id = HhId(0),
-      savings = PLN(savings),
+      savings = plnBD(savings),
       debt = PLN.Zero,
       monthlyRent = PLN.Zero,
-      skill = Share("0.5"),
+      skill = Share.decimal(5, 1),
       healthPenalty = Share.Zero,
-      mpc = Share("0.7"),
-      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN("8000.0")),
+      mpc = Share.decimal(7, 1),
+      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000)),
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(bankId),
       equityWealth = PLN.Zero,
@@ -87,12 +87,12 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Share("0.5"),
+      taskRoutineness = Share.decimal(5, 1),
       wageScar = Share.Zero,
     )
 
   private def mkWorld() =
-    Generators.testWorld(totalPopulation = 1, employed = 1, marketWage = PLN("8000.0"), reservationWage = PLN("4666.0"))
+    Generators.testWorld(totalPopulation = 1, employed = 1, marketWage = PLN(8000), reservationWage = PLN(4666))
 
   "DepositMobility" should "not move deposits when all banks are healthy" in {
     val rows   = Vector(mkBankRow(0, BigDecimal("0.15")), mkBankRow(1, BigDecimal("0.14")))
@@ -198,16 +198,16 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     reassigned.bankId shouldBe BankId(1)
 
     val bankRates = BankRates(
-      lendingRates = Vector(Rate("0.07"), Rate("0.07")),
-      depositRates = Vector(Rate.Zero, Rate("0.12")),
+      lendingRates = Vector(Rate.decimal(7, 2), Rate.decimal(7, 2)),
+      depositRates = Vector(Rate.Zero, Rate.decimal(12, 2)),
     )
     val step      = Household.step(
       households = Vector(reassigned),
-      financialStocks = Vector(TestHouseholdState.financial(savings = PLN("120000.0"))),
+      financialStocks = Vector(TestHouseholdState.financial(savings = PLN(120000))),
       world = mkWorld(),
-      marketWage = PLN("8000.0"),
-      reservationWage = PLN("4666.0"),
-      importAdj = Share("0.4"),
+      marketWage = PLN(8000),
+      reservationWage = PLN(4666),
+      importAdj = Share.decimal(4, 1),
       rng = RandomStream.seeded(7),
       nBanks = 2,
       bankRates = Some(bankRates),
@@ -215,5 +215,5 @@ class DepositMobilitySpec extends AnyFlatSpec with Matchers:
     val flows     = step.perBankFlows.get
 
     flows(0).depositInterest shouldBe PLN.Zero
-    decimal(flows(1).depositInterest) shouldBe (decimal(PLN("1200.0")) +- decimal(PLN("1.0")))
+    decimal(flows(1).depositInterest) shouldBe (decimal(PLN(1200)) +- decimal(PLN(1)))
   }

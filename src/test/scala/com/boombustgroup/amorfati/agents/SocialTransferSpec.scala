@@ -50,12 +50,12 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
 
   it should "return 0 for negative lambda" in {
     val rng = RandomStream.seeded(42)
-    Distributions.poissonSample(Scalar("-1.0"), rng) shouldBe 0
+    Distributions.poissonSample(Scalar(-1), rng) shouldBe 0
   }
 
   it should "have mean approximately equal to lambda" in {
     val rng     = RandomStream.seeded(42)
-    val lambda  = Scalar("0.35")
+    val lambda  = Scalar.decimal(35, 2)
     val n       = 10000
     val samples = (0 until n).map(_ => Distributions.poissonSample(lambda, rng))
     val mean    = decimal(samples.sum) / decimal(n)
@@ -64,7 +64,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
 
   it should "produce non-negative values" in {
     val rng     = RandomStream.seeded(42)
-    val samples = (0 until 1000).map(_ => Distributions.poissonSample(Scalar("0.35"), rng))
+    val samples = (0 until 1000).map(_ => Distributions.poissonSample(Scalar.decimal(35, 2), rng))
     all(samples) should be >= 0
   }
 
@@ -119,10 +119,10 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
       savings = PLN(1000),
       debt = PLN.Zero,
       monthlyRent = PLN(1000),
-      skill = Share("0.5"),
-      healthPenalty = Share("0.0"),
-      mpc = Share("0.8"),
-      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN("8000.0")),
+      skill = Share.decimal(5, 1),
+      healthPenalty = Share(0),
+      mpc = Share.decimal(8, 1),
+      status = HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8000)),
       socialNeighbors = Array.empty[HhId],
       bankId = BankId(0),
       equityWealth = PLN.Zero,
@@ -131,7 +131,7 @@ class SocialTransferSpec extends AnyFlatSpec with Matchers:
       numDependentChildren = 0,
       consumerDebt = PLN.Zero,
       education = 2,
-      taskRoutineness = Share("0.5"),
+      taskRoutineness = Share.decimal(5, 1),
       wageScar = Share.Zero,
     )
     hh.numDependentChildren shouldBe 0

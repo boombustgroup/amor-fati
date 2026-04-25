@@ -6,7 +6,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import com.boombustgroup.amorfati.engine.mechanisms.Macroprudential
-import com.boombustgroup.amorfati.types.*
 
 /** Property-based tests for macroprudential instruments. */
 class MacroprudentialPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
@@ -25,22 +24,22 @@ class MacroprudentialPropertySpec extends AnyFlatSpec with Matchers with ScalaCh
       genDecimal("0.0", "1e10"),
       genDecimal("1.0", "1e9"),
     ) { (prevCcyb, prevGap, prevTrend, totalLoans, gdp) =>
-      val prev   = Macroprudential.State(Multiplier(prevCcyb), Coefficient(prevGap), Multiplier(prevTrend))
-      val result = Macroprudential.stepImpl(prev, PLN(totalLoans), PLN(gdp))
+      val prev   = Macroprudential.State(multiplierBD(prevCcyb), coefficientBD(prevGap), multiplierBD(prevTrend))
+      val result = Macroprudential.stepImpl(prev, plnBD(totalLoans), plnBD(gdp))
       decimal(result.ccyb) should be >= BigDecimal("0.0")
       decimal(result.ccyb) should be <= decimal(p.banking.ccybMax)
     }
 
   "effectiveMinCarImpl" should "be >= base MinCar for all banks" in
     forAll(Gen.choose(0, 6), genDecimal("0.0", "0.025")) { (bankId, ccyb) =>
-      val eff = Macroprudential.effectiveMinCarImpl(bankId, Multiplier(ccyb))
+      val eff = Macroprudential.effectiveMinCarImpl(bankId, multiplierBD(ccyb))
       eff should be >= p.banking.minCar
     }
 
   it should "be monotonically increasing in CCyB" in
     forAll(Gen.choose(0, 6), genDecimal("0.0", "0.01"), genDecimal("0.005", "0.025")) { (bankId, ccyb1, delta) =>
       val ccyb2 = ccyb1 + delta
-      val eff1  = Macroprudential.effectiveMinCarImpl(bankId, Multiplier(ccyb1))
-      val eff2  = Macroprudential.effectiveMinCarImpl(bankId, Multiplier(ccyb2))
+      val eff1  = Macroprudential.effectiveMinCarImpl(bankId, multiplierBD(ccyb1))
+      val eff2  = Macroprudential.effectiveMinCarImpl(bankId, multiplierBD(ccyb2))
       eff2 should be >= eff1
     }

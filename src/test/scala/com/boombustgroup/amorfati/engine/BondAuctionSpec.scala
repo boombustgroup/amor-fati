@@ -21,35 +21,35 @@ class BondAuctionSpec extends AnyFlatSpec with Matchers:
   given SimParams = SimParams.defaults
 
   private val p         = summon[SimParams]
-  private val issuance  = PLN("10e9")
-  private val bankCap   = PLN("50e9")
-  private val baseYield = Rate("0.055")
+  private val issuance  = PLN(10000000000L)
+  private val bankCap   = PLN(50000000000L)
+  private val baseYield = Rate.decimal(55, 3)
 
   "foreignDemandShare" should "increase with higher yield spread vs Bund" in {
-    val lowSpread  = BondAuction.foreignDemandShare(Rate("0.03"), Coefficient.Zero)
-    val highSpread = BondAuction.foreignDemandShare(Rate("0.08"), Coefficient.Zero)
+    val lowSpread  = BondAuction.foreignDemandShare(Rate.decimal(3, 2), Coefficient.Zero)
+    val highSpread = BondAuction.foreignDemandShare(Rate.decimal(8, 2), Coefficient.Zero)
     decimal(highSpread) should be > decimal(lowSpread)
   }
 
   it should "decrease with PLN depreciation (risk-off)" in {
     val stable      = BondAuction.foreignDemandShare(baseYield, Coefficient.Zero)
-    val depreciated = BondAuction.foreignDemandShare(baseYield, Coefficient("0.05"))
+    val depreciated = BondAuction.foreignDemandShare(baseYield, Coefficient.decimal(5, 2))
     decimal(depreciated) should be < decimal(stable)
   }
 
   it should "increase with PLN appreciation" in {
     val stable      = BondAuction.foreignDemandShare(baseYield, Coefficient.Zero)
-    val appreciated = BondAuction.foreignDemandShare(baseYield, Coefficient("-0.05"))
+    val appreciated = BondAuction.foreignDemandShare(baseYield, Coefficient.decimal(-5, 2))
     decimal(appreciated) should be > decimal(stable)
   }
 
   it should "not exceed maxForeignShare" in {
-    val extreme = BondAuction.foreignDemandShare(Rate("0.20"), Coefficient("-0.10"))
+    val extreme = BondAuction.foreignDemandShare(Rate.decimal(20, 2), Coefficient.decimal(-10, 2))
     decimal(extreme) should be <= decimal(p.fiscal.maxForeignShare)
   }
 
   it should "not go below zero" in {
-    val extreme = BondAuction.foreignDemandShare(Rate("0.001"), Coefficient("0.50"))
+    val extreme = BondAuction.foreignDemandShare(Rate.decimal(1, 3), Coefficient.decimal(50, 2))
     decimal(extreme) should be >= BigDecimal("0.0")
   }
 
@@ -81,13 +81,13 @@ class BondAuctionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase foreign absorption when yield rises" in {
-    val lowYield  = BondAuction.auction(issuance, bankCap, Rate("0.03"), Coefficient.Zero)
-    val highYield = BondAuction.auction(issuance, bankCap, Rate("0.08"), Coefficient.Zero)
+    val lowYield  = BondAuction.auction(issuance, bankCap, Rate.decimal(3, 2), Coefficient.Zero)
+    val highYield = BondAuction.auction(issuance, bankCap, Rate.decimal(8, 2), Coefficient.Zero)
     decimal(highYield.foreignAbsorbed) should be > decimal(lowYield.foreignAbsorbed)
   }
 
   it should "reduce foreign absorption during PLN depreciation" in {
     val stable = BondAuction.auction(issuance, bankCap, baseYield, Coefficient.Zero)
-    val crisis = BondAuction.auction(issuance, bankCap, baseYield, Coefficient("0.10"))
+    val crisis = BondAuction.auction(issuance, bankCap, baseYield, Coefficient.decimal(10, 2))
     decimal(crisis.foreignAbsorbed) should be < decimal(stable.foreignAbsorbed)
   }

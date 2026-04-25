@@ -219,14 +219,14 @@ class FofSpec extends AnyFlatSpec with Matchers:
   "Sfc Identity 10" should "pass when fofResidual is zero" in {
     // All flows zero except fofResidual — all deltas are 0 = 0
     val flows  = zeroFlows
-    val snap   = zeroSnap.copy(bankCapital = PLN("500000.0"), bankDeposits = PLN("1000000.0"))
+    val snap   = zeroSnap.copy(bankCapital = PLN(500000), bankDeposits = PLN(1000000))
     val result = Sfc.validateStockExactness(snap, snap, flows)
     result shouldBe Right(())
   }
 
   it should "fail when fofResidual exceeds tolerance" in {
-    val flows  = zeroFlows.copy(fofResidual = PLN("5000.0"))
-    val snap   = zeroSnap.copy(bankCapital = PLN("500000.0"), bankDeposits = PLN("1000000.0"))
+    val flows  = zeroFlows.copy(fofResidual = PLN(5000))
+    val snap   = zeroSnap.copy(bankCapital = PLN(500000), bankDeposits = PLN(1000000))
     val result = Sfc.validateStockExactness(snap, snap, flows)
     result shouldBe a[Left[?, ?]]
     decimal(
@@ -243,12 +243,12 @@ class FofSpec extends AnyFlatSpec with Matchers:
   private def mkFirm(id: Int, tech: TechState, sector: Int = 2): Firm.State =
     TestFirmState(
       FirmId(id),
-      PLN("50000.0"),
+      PLN(50000),
       PLN.Zero,
       tech,
-      Share("0.5"),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share("0.5"),
+      Share.decimal(5, 1),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),

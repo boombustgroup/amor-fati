@@ -201,17 +201,17 @@ object WorldAssemblyEconomics:
   private def monthlySeasonalCos(monthInYear: Int, peakMonth: Int): Coefficient =
     Math.floorMod(monthInYear - peakMonth, 12) match
       case 0  => Coefficient.One
-      case 1  => Coefficient("0.8660254038")
-      case 2  => Coefficient("0.5")
+      case 1  => Coefficient.decimal(8660254038L, 10)
+      case 2  => Coefficient.decimal(5, 1)
       case 3  => Coefficient.Zero
-      case 4  => Coefficient("-0.5")
-      case 5  => Coefficient("-0.8660254038")
-      case 6  => Coefficient("-1.0")
-      case 7  => Coefficient("-0.8660254038")
-      case 8  => Coefficient("-0.5")
+      case 4  => Coefficient.decimal(-5, 1)
+      case 5  => Coefficient.decimal(-8660254038L, 10)
+      case 6  => Coefficient(-1)
+      case 7  => Coefficient.decimal(-8660254038L, 10)
+      case 8  => Coefficient.decimal(-5, 1)
       case 9  => Coefficient.Zero
-      case 10 => Coefficient("0.5")
-      case _  => Coefficient("0.8660254038")
+      case 10 => Coefficient.decimal(5, 1)
+      case _  => Coefficient.decimal(8660254038L, 10)
 
   private def applyStartupStaffing(
       in: StepInput,

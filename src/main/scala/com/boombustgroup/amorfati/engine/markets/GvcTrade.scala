@@ -22,8 +22,8 @@ import com.boombustgroup.amorfati.util.Distributions
 object GvcTrade:
 
   private val NumPartners           = 2
-  private val AutomationExportBoost = Coefficient("0.15")
-  private val MinErEffect           = Multiplier("0.1")
+  private val AutomationExportBoost = Coefficient.decimal(15, 2)
+  private val MinErEffect           = Multiplier.decimal(1, 1)
 
   case class ForeignFirm(
       id: Int,

@@ -21,9 +21,9 @@ import com.boombustgroup.amorfati.types.*
   *   average maturity of BGK subsidized loans (~120 months / 10 years)
   */
 case class QuasiFiscalConfig(
-    issuanceShare: Share = Share("0.40"),
+    issuanceShare: Share = Share.decimal(40, 2),
     avgMaturityMonths: Int = 72,
-    nbpAbsorptionShare: Share = Share("0.70"),
-    lendingShare: Share = Share("0.50"),
+    nbpAbsorptionShare: Share = Share.decimal(70, 2),
+    lendingShare: Share = Share.decimal(50, 2),
     loanMaturityMonths: Int = 120,
 )

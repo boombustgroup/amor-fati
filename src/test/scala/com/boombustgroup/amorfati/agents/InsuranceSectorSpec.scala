@@ -19,11 +19,11 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   private def mkStep(
       opening: Insurance.OpeningBalances = initialOpening,
       employed: Int = 80000,
-      wage: PLN = PLN("8000.0"),
-      unempRate: Share = Share("0.05"),
-      govBondYield: Rate = Rate("0.06"),
-      corpBondYield: Rate = Rate("0.08"),
-      equityReturn: Rate = Rate("0.005"),
+      wage: PLN = PLN(8000),
+      unempRate: Share = Share.decimal(5, 2),
+      govBondYield: Rate = Rate.decimal(6, 2),
+      corpBondYield: Rate = Rate.decimal(8, 2),
+      equityReturn: Rate = Rate.decimal(5, 3),
       prevCorpBondHoldings: PLN = initialCorpBondHoldings,
       corpBondDefaultLoss: PLN = PLN.Zero,
   ): Insurance.StepResult =
@@ -101,13 +101,13 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "widen non-life claims with high unemployment" in {
-    val rLow  = mkStep(unempRate = Share("0.05")).state
-    val rHigh = mkStep(unempRate = Share("0.15")).state
+    val rLow  = mkStep(unempRate = Share.decimal(5, 2)).state
+    val rHigh = mkStep(unempRate = Share.decimal(15, 2)).state
     rHigh.lastNonLifeClaims should be > rLow.lastNonLifeClaims
   }
 
   it should "not widen non-life claims when unemployment is at or below 5%" in {
-    val r            = mkStep(unempRate = Share("0.04")).state
+    val r            = mkStep(unempRate = Share.decimal(4, 2)).state
     val expectedBase = decimal(r.lastNonLifePremium) * decimal(p.ins.nonLifeLossRatio)
     decimal(r.lastNonLifeClaims) shouldBe (expectedBase +- BigDecimal("0.01"))
   }
@@ -119,14 +119,14 @@ class InsuranceSectorSpec extends AnyFlatSpec with Matchers:
 
   it should "reduce investment income by corporate bond default losses" in {
     val noDefault = mkStep().state
-    val withLoss  = mkStep(corpBondDefaultLoss = PLN("1000.0")).state
-    withLoss.lastInvestmentIncome shouldBe noDefault.lastInvestmentIncome - PLN("1000.0")
+    val withLoss  = mkStep(corpBondDefaultLoss = PLN(1000)).state
+    withLoss.lastInvestmentIncome shouldBe noDefault.lastInvestmentIncome - PLN(1000)
   }
 
   it should "include opening ledger corporate bond holdings in investment income" in {
     val withoutCorp = mkStep(prevCorpBondHoldings = PLN.Zero).state
-    val withCorp    = mkStep(prevCorpBondHoldings = PLN("120000.0")).state
-    withCorp.lastInvestmentIncome shouldBe withoutCorp.lastInvestmentIncome + PLN("120000.0") * Rate("0.08").monthly
+    val withCorp    = mkStep(prevCorpBondHoldings = PLN(120000)).state
+    withCorp.lastInvestmentIncome shouldBe withoutCorp.lastInvestmentIncome + PLN(120000) * Rate.decimal(8, 2).monthly
   }
 
   it should "compute zero investment income with zero holdings" in {

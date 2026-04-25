@@ -45,12 +45,12 @@ case class PopulationConfig(
     firmsCount: Int = 10000,
     workersPerFirm: Int = 10,
     firmSizeDist: FirmSizeDist = FirmSizeDist.Gus,
-    firmSizeMicroShare: Share = Share("0.962"),
-    firmSizeSmallShare: Share = Share("0.028"),
-    firmSizeMediumShare: Share = Share("0.008"),
-    firmSizeLargeShare: Share = Share("0.002"),
+    firmSizeMicroShare: Share = Share.decimal(962, 3),
+    firmSizeSmallShare: Share = Share.decimal(28, 3),
+    firmSizeMediumShare: Share = Share.decimal(8, 3),
+    firmSizeLargeShare: Share = Share.decimal(2, 3),
     firmSizeLargeMax: Int = 1000,
-    realGdp: PLN = PLN("3500e9"),
+    realGdp: PLN = PLN(3500000000000L),
 ):
   require(firmsCount > 0, s"firmsCount must be positive: $firmsCount")
   require(workersPerFirm > 0, s"workersPerFirm must be positive: $workersPerFirm")

@@ -33,7 +33,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       Share.Zero,
       Share.Zero,
       FirmEntry.LaggedEntrySignals(
-        unemploymentRate = Share(unemploymentRate),
+        unemploymentRate = shareBD(unemploymentRate),
         inflation = inflation,
         expectedInflation = expectedInflation,
         laggedHiringSlack = laggedHiringSlack,
@@ -43,18 +43,18 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     )
 
   private def defaultFinancialStocks(firms: Vector[Firm.State]): Vector[Firm.FinancialStocks] =
-    firms.map(_ => TestFirmState.financial(cash = PLN("100000.0")))
+    firms.map(_ => TestFirmState.financial(cash = PLN(100000)))
 
   // ==========================================================================
   // Config defaults
   // ==========================================================================
 
   "FirmEntryRate" should "default to 0.02" in {
-    p.firm.entryRate shouldBe Share("0.02")
+    p.firm.entryRate shouldBe Share.decimal(2, 2)
   }
 
   "FirmEntryProfitSens" should "default to 2.0" in {
-    p.firm.entryProfitSens shouldBe Coefficient("2.0")
+    p.firm.entryProfitSens shouldBe Coefficient(2)
   }
 
   "FirmEntrySectorBarriers" should "have 6 elements" in {
@@ -66,29 +66,29 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   it should "match expected defaults" in {
     p.firm.entrySectorBarriers shouldBe Vector(
-      Coefficient("0.8"),
-      Coefficient("0.6"),
-      Coefficient("1.2"),
-      Coefficient("0.5"),
-      Coefficient("0.1"),
-      Coefficient("0.7"),
+      Coefficient.decimal(8, 1),
+      Coefficient.decimal(6, 1),
+      Coefficient.decimal(12, 1),
+      Coefficient.decimal(5, 1),
+      Coefficient.decimal(1, 1),
+      Coefficient.decimal(7, 1),
     )
   }
 
   "FirmEntryAiThreshold" should "default to 0.15" in {
-    p.firm.entryAiThreshold shouldBe Share("0.15")
+    p.firm.entryAiThreshold shouldBe Share.decimal(15, 2)
   }
 
   "FirmEntryAiProb" should "default to 0.20" in {
-    p.firm.entryAiProb shouldBe Share("0.20")
+    p.firm.entryAiProb shouldBe Share.decimal(20, 2)
   }
 
   "FirmEntryStartupCash" should "default to 50000.0" in {
-    p.firm.entryStartupCash shouldBe PLN("50000.0")
+    p.firm.entryStartupCash shouldBe PLN(50000)
   }
 
   "ReplacementEntryRate" should "default to 0.35" in {
-    p.firm.replacementEntryRate shouldBe Share("0.35")
+    p.firm.replacementEntryRate shouldBe Share.decimal(35, 2)
   }
 
   "ReplacementEntryMinMonthly" should "default to 1" in {
@@ -104,8 +104,8 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   private def mkMinimalWorld() = Generators.testWorld(
-    inflation = Rate("0.0"),
-    currentSigmas = Vector.fill(6)(Sigma("5.0")),
+    inflation = Rate(0),
+    currentSigmas = Vector.fill(6)(Sigma(5)),
     marketWage = PLN(8000),
     reservationWage = PLN(4500),
   )
@@ -136,12 +136,12 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "have zero debt" in {
     val entrant = TestFirmState.fixture(
       id = FirmId(0),
-      cash = PLN("50000.0"),
+      cash = PLN(50000),
       debt = PLN.Zero,
       tech = TechState.Traditional(5),
-      riskProfile = Share("0.5"),
+      riskProfile = Share.decimal(5, 1),
       innovationCostFactor = Multiplier.One,
-      digitalReadiness = Share("0.15"),
+      digitalReadiness = Share.decimal(15, 2),
       sector = SectorIdx(2),
       neighbors = Vector.empty[FirmId],
       bankId = BankId(0),
@@ -165,12 +165,12 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "be alive" in {
     val entrant = TestFirmState(
       id = FirmId(0),
-      cash = PLN("50000.0"),
+      cash = PLN(50000),
       debt = PLN.Zero,
       tech = TechState.Traditional(5),
-      riskProfile = Share("0.5"),
+      riskProfile = Share.decimal(5, 1),
       innovationCostFactor = Multiplier.One,
-      digitalReadiness = Share("0.15"),
+      digitalReadiness = Share.decimal(15, 2),
       sector = SectorIdx(2),
       neighbors = Vector.empty[FirmId],
       bankId = BankId(0),
@@ -190,16 +190,16 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "AI-native entrant" should "have Hybrid tech state" in {
-    val tech = TechState.Hybrid(3, Multiplier("0.65"))
+    val tech = TechState.Hybrid(3, Multiplier.decimal(65, 2))
     tech shouldBe a[TechState.Hybrid]
   }
 
   it should "have high digital readiness (0.50-0.90)" in {
     val rng = RandomStream.seeded(42)
-    val drs = (1 to 100).map(_ => TypedRandom.randomBetween(Share("0.50"), Share("0.90"), rng))
+    val drs = (1 to 100).map(_ => TypedRandom.randomBetween(Share.decimal(50, 2), Share.decimal(90, 2), rng))
     drs.foreach { dr =>
-      dr should be >= Share("0.50")
-      dr should be <= Share("0.90")
+      dr should be >= Share.decimal(50, 2)
+      dr should be <= Share.decimal(90, 2)
     }
   }
 
@@ -212,11 +212,11 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     val rng = RandomStream.seeded(42)
     val drs = (1 to 100).map { _ =>
       val sec = p.sectorDefs(2) // Retail
-      TypedRandom.withGaussianNoise(sec.baseDigitalReadiness, Share("0.10"), rng).clamp(Share("0.02"), Share("0.30"))
+      TypedRandom.withGaussianNoise(sec.baseDigitalReadiness, Share.decimal(10, 2), rng).clamp(Share.decimal(2, 2), Share.decimal(30, 2))
     }
     drs.foreach { dr =>
-      dr should be >= Share("0.02")
-      dr should be <= Share("0.30")
+      dr should be >= Share.decimal(2, 2)
+      dr should be <= Share.decimal(30, 2)
     }
   }
 
@@ -226,7 +226,14 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
 
   "Sector choice" should "reach all 6 sectors with profit-weighted draws" in {
     val rng     = RandomStream.seeded(42)
-    val weights = Vector("0.8", "0.6", "1.2", "0.5", "0.1", "0.7").map(Multiplier(_))
+    val weights = Vector(
+      Multiplier.decimal(8, 1),
+      Multiplier.decimal(6, 1),
+      Multiplier.decimal(12, 1),
+      Multiplier.decimal(5, 1),
+      Multiplier.decimal(1, 1),
+      Multiplier.decimal(7, 1),
+    )
     val sectors = (1 to 1000).map { _ =>
       WeightedSelection.choose(weights, rng)
     }
@@ -267,12 +274,12 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
     Firm.workerCount(
       TestFirmState(
         id = FirmId(0),
-        cash = PLN("50000.0"),
+        cash = PLN(50000),
         debt = PLN.Zero,
         tech = tech,
-        riskProfile = Share("0.5"),
+        riskProfile = Share.decimal(5, 1),
         innovationCostFactor = Multiplier.One,
-        digitalReadiness = Share("0.15"),
+        digitalReadiness = Share.decimal(15, 2),
         sector = SectorIdx(0),
         neighbors = Vector.empty[FirmId],
         bankId = BankId(0),
@@ -345,12 +352,12 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
       .map: i =>
         TestFirmState(
           id = FirmId(i),
-          cash = PLN("100000.0"),
+          cash = PLN(100000),
           debt = PLN.Zero,
           tech = TechState.Traditional(5),
-          riskProfile = Share("0.5"),
+          riskProfile = Share.decimal(5, 1),
           innovationCostFactor = Multiplier.One,
-          digitalReadiness = Share("0.1"),
+          digitalReadiness = Share.decimal(1, 1),
           sector = SectorIdx(i % 6),
           neighbors = Vector.empty[FirmId],
           bankId = BankId(0),
@@ -367,12 +374,12 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   private def mkDeadFirm(id: Int, sector: Int = 2): Firm.State =
     TestFirmState(
       id = FirmId(id),
-      cash = PLN("-1.0"),
+      cash = PLN(-1),
       debt = PLN.Zero,
       tech = TechState.Bankrupt(BankruptReason.Other("test")),
-      riskProfile = Share("0.5"),
+      riskProfile = Share.decimal(5, 1),
       innovationCostFactor = Multiplier.One,
-      digitalReadiness = Share("0.1"),
+      digitalReadiness = Share.decimal(1, 1),
       sector = SectorIdx(sector),
       neighbors = Vector.empty[FirmId],
       bankId = BankId(0),
@@ -471,34 +478,34 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   it should "dampen net entry when lagged hiring slack is tight" in {
     val firms       = mkFirms(1000)
     val looseResult = runEntry(firms, BigDecimal("0.20"), RandomStream.seeded(42))
-    val tightResult = runEntry(firms, BigDecimal("0.20"), RandomStream.seeded(42), laggedHiringSlack = Share("0.5"))
+    val tightResult = runEntry(firms, BigDecimal("0.20"), RandomStream.seeded(42), laggedHiringSlack = Share.decimal(5, 1))
     tightResult.netBirths.should(be < looseResult.netBirths)
   }
 
   it should "dampen net entry when startup absorption is weak" in {
     val firms        = mkFirms(1000)
-    val strongAbsorb = runEntry(firms, BigDecimal("0.20"), RandomStream.seeded(42), inflation = Rate("0.03"), expectedInflation = Rate("0.025"))
+    val strongAbsorb = runEntry(firms, BigDecimal("0.20"), RandomStream.seeded(42), inflation = Rate.decimal(3, 2), expectedInflation = Rate.decimal(25, 3))
     val weakAbsorb   =
       runEntry(
         firms,
         BigDecimal("0.20"),
         RandomStream.seeded(42),
-        inflation = Rate("0.03"),
-        expectedInflation = Rate("0.025"),
-        startupAbsorptionRate = Share("0.25"),
+        inflation = Rate.decimal(3, 2),
+        expectedInflation = Rate.decimal(25, 3),
+        startupAbsorptionRate = Share.decimal(25, 2),
       )
     weakAbsorb.netBirths should be < strongAbsorb.netBirths
   }
 
   it should "suppress expansionary net entry under deflation and negative expectations" in {
     val firms  = mkFirms(1000)
-    val result = runEntry(firms, BigDecimal("0.20"), RandomStream.seeded(42), inflation = Rate("-0.02"), expectedInflation = Rate("-0.01"))
+    val result = runEntry(firms, BigDecimal("0.20"), RandomStream.seeded(42), inflation = Rate.decimal(-2, 2), expectedInflation = Rate.decimal(-1, 2))
     result.netBirths.shouldBe(0)
   }
 
   it should "allow expansionary net entry when labor slack is high and nominal conditions are positive" in {
     val firms  = mkFirms(1000)
-    val result = runEntry(firms, BigDecimal("0.20"), RandomStream.seeded(42), inflation = Rate("0.03"), expectedInflation = Rate("0.025"))
+    val result = runEntry(firms, BigDecimal("0.20"), RandomStream.seeded(42), inflation = Rate.decimal(3, 2), expectedInflation = Rate.decimal(25, 3))
     result.netBirths.should(be > 0)
   }
 
@@ -510,7 +517,7 @@ class FirmEntrySpec extends AnyFlatSpec with Matchers:
   }
 
   "NetEntryRate" should "default to 0.06" in {
-    p.firm.netEntryRate shouldBe Share("0.06")
+    p.firm.netEntryRate shouldBe Share.decimal(6, 2)
   }
 
   "NetEntryMaxMonthly" should "default to 100" in {

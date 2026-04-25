@@ -16,7 +16,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
 
   // Helper: call fxIntervention with enabled=true for tests that need active intervention
   private def fxEnabled(er: BigDecimal, reserves: BigDecimal, gdp: BigDecimal) =
-    Nbp.fxIntervention(ExchangeRate(er), PLN(reserves), PLN(gdp), enabled = true)
+    Nbp.fxIntervention(exchangeRateBD(er), plnBD(reserves), plnBD(gdp), enabled = true)
 
   // --- fxIntervention ---
 
@@ -44,7 +44,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
     val result   = fxEnabled(er, reserves, BigDecimal("1e9"))
     result.eurTraded.should(be < PLN.Zero) // sold EUR
     shockValue(result.erShock).should(be < BigDecimal("0.0")) // dampens upward ER deviation
-    result.newReserves.should(be < PLN(reserves))
+    result.newReserves.should(be < plnBD(reserves))
   }
 
   it should "intervene when PLN appreciates beyond band (buy EUR)" in {
@@ -55,7 +55,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
     val result   = fxEnabled(er, reserves, BigDecimal("1e9"))
     result.eurTraded.should(be > PLN.Zero) // bought EUR
     shockValue(result.erShock).should(be > BigDecimal("0.0")) // dampens downward ER deviation
-    result.newReserves.should(be > PLN(reserves))
+    result.newReserves.should(be > plnBD(reserves))
   }
 
   it should "not sell more EUR than available reserves" in {
@@ -63,7 +63,7 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
     val reserves = BigDecimal("100.0")         // tiny reserves
     val result   = fxEnabled(er, reserves, BigDecimal("1e9"))
     result.newReserves.should(be >= PLN.Zero)
-    result.eurTraded.abs.should(be <= PLN(reserves))
+    result.eurTraded.abs.should(be <= plnBD(reserves))
   }
 
   it should "produce erShock opposing the deviation direction" in {
@@ -104,21 +104,21 @@ class FxInterventionSpec extends AnyFlatSpec with Matchers:
   // --- FxInterventionResult ---
 
   "FxInterventionResult" should "be constructable with all fields" in {
-    val r = Nbp.FxInterventionResult(ExchangeRateShock("0.01"), PLN("-5e8"), PLN("9.5e9"), PLN(-BigDecimal("5e8") * BigDecimal("4.33")))
+    val r = Nbp.FxInterventionResult(ExchangeRateShock.decimal(1, 2), PLN(-500000000), PLN(9500000000L), plnBD(-BigDecimal("5e8") * BigDecimal("4.33")))
     shockValue(r.erShock).should(be(BigDecimal("0.01")))
-    r.eurTraded.should(be(PLN("-5e8")))
-    r.newReserves.should(be(PLN("9.5e9")))
-    r.plnInjection.should(be(PLN(-BigDecimal("5e8") * BigDecimal("4.33"))))
+    r.eurTraded.should(be(PLN(-500000000)))
+    r.newReserves.should(be(PLN(9500000000L)))
+    r.plnInjection.should(be(plnBD(-BigDecimal("5e8") * BigDecimal("4.33"))))
   }
 
   // --- NbpState monthly operation fields ---
 
   "Nbp.State" should "carry monthly FX operation state without FX reserve ownership" in {
-    val nbp = Nbp.State(Rate("0.0575"), false, PLN.Zero, PLN.Zero)
+    val nbp = Nbp.State(Rate.decimal(575, 4), false, PLN.Zero, PLN.Zero)
     nbp.lastFxTraded.shouldBe(PLN.Zero)
   }
 
   it should "accept explicit last traded amount" in {
-    val nbp = Nbp.State(Rate("0.05"), false, PLN.Zero, PLN("-1e8"))
-    nbp.lastFxTraded.shouldBe(PLN("-1e8"))
+    val nbp = Nbp.State(Rate.decimal(5, 2), false, PLN.Zero, PLN(-100000000))
+    nbp.lastFxTraded.shouldBe(PLN(-100000000))
   }

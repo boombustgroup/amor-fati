@@ -41,8 +41,8 @@ object InitCheck:
       households: Vector[Household.State],
       ledgerFinancialState: LedgerFinancialState,
   ): Vector[InitCheckResult] =
-    val levelTol   = PLN("0.01")
-    val perBankTol = PLN("1.0")
+    val levelTol   = PLN.decimal(1, 2)
+    val perBankTol = PLN(1)
     val bonds      = GovernmentBondCircuit(
       outstanding = snapshot.bondsOutstanding,
       bankHoldings = snapshot.bankBondHoldings,

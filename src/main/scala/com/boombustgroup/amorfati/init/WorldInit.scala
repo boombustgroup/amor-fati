@@ -120,7 +120,7 @@ object WorldInit:
 
     val world0 = World(
       inflation = initInflation,
-      priceLevel = PriceIndex("1.0"),
+      priceLevel = PriceIndex(1),
       currentSigmas = p.sectorDefs.map(_.sigma),
       gov = FiscalBudget.GovState(
         taxRevenue = PLN.Zero,

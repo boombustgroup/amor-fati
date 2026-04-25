@@ -20,7 +20,7 @@ import com.boombustgroup.amorfati.random.RandomStream
 object FirmEconomics:
 
   // ---- Calibration constants ----
-  private val BondRevertThreshold = 0.001 // minimum revert ratio to trigger bond-to-loan reversion
+  private val BondRevertThreshold: Share = Share.decimal(1, 3) // minimum revert ratio to trigger bond-to-loan reversion
 
   // ---- Accumulated flows (monoid on PLN) ----
 
@@ -427,7 +427,7 @@ object FirmEconomics:
     val requestedByFirm      = result.outcomes
       .map(o => o.firm.id -> result.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero))
       .filter((_, amount) => amount > PLN.Zero)
-    val shouldRevert         = revertShare > Share(BondRevertThreshold)
+    val shouldRevert         = revertShare > BondRevertThreshold
     val absorbedBondIssuance = result.flows.bondIssuance * absorption
     val actualIssuanceByFirm =
       allocateAbsorbedBondIssuance(requestedByFirm, absorbedBondIssuance, executionMonth)

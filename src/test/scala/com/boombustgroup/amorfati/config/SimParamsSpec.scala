@@ -133,26 +133,26 @@ class SimParamsSpec extends AnyFlatSpec with Matchers:
   }
 
   "MonetaryConfig" should "reject rateFloor >= rateCeiling" in {
-    an[IllegalArgumentException] should be thrownBy MonetaryConfig(rateFloor = Rate("0.5"), rateCeiling = Rate("0.1"))
+    an[IllegalArgumentException] should be thrownBy MonetaryConfig(rateFloor = Rate.decimal(5, 1), rateCeiling = Rate.decimal(1, 1))
   }
 
   "BankingConfig" should "reject invalid minCar" in {
-    an[IllegalArgumentException] should be thrownBy BankingConfig(minCar = Multiplier("0.0"))
-    an[IllegalArgumentException] should be thrownBy BankingConfig(minCar = Multiplier("1.0"))
+    an[IllegalArgumentException] should be thrownBy BankingConfig(minCar = Multiplier(0))
+    an[IllegalArgumentException] should be thrownBy BankingConfig(minCar = Multiplier(1))
   }
 
   // ── Vector length validation ──
 
   "FiscalConfig" should "reject wrong-length vatRates" in {
-    an[IllegalArgumentException] should be thrownBy FiscalConfig(vatRates = Vector(Rate("0.23"), Rate("0.19")))
+    an[IllegalArgumentException] should be thrownBy FiscalConfig(vatRates = Vector(Rate.decimal(23, 2), Rate.decimal(19, 2)))
   }
 
   "CapitalConfig" should "reject wrong-length klRatios" in {
-    an[IllegalArgumentException] should be thrownBy CapitalConfig(klRatios = Vector(PLN("1.0")))
+    an[IllegalArgumentException] should be thrownBy CapitalConfig(klRatios = Vector(PLN(1)))
   }
 
   "ClimateConfig" should "reject wrong-length energyCostShares" in {
-    an[IllegalArgumentException] should be thrownBy ClimateConfig(energyCostShares = Vector(Share("0.1")))
+    an[IllegalArgumentException] should be thrownBy ClimateConfig(energyCostShares = Vector(Share.decimal(1, 1)))
   }
 
   // ── Private constructor ──

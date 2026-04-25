@@ -14,17 +14,17 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
   )
 
   private val baseInput = OpenEconFlows.Input(
-    exports = PLN("20000000.0"),
-    imports = PLN("18000000.0"),
-    tourismExport = PLN("1000000.0"),
-    tourismImport = PLN("800000.0"),
-    fdi = PLN("2000000.0"),
-    portfolioFlows = PLN("500000.0"),
-    carryTradeFlow = PLN("100000.0"),
-    primaryIncome = PLN("-300000.0"),
-    euFunds = PLN("1500000.0"),
-    diasporaInflow = PLN("400000.0"),
-    capitalFlightOutflow = PLN("200000.0"),
+    exports = PLN(20000000),
+    imports = PLN(18000000),
+    tourismExport = PLN(1000000),
+    tourismImport = PLN(800000),
+    fdi = PLN(2000000),
+    portfolioFlows = PLN(500000),
+    carryTradeFlow = PLN(100000),
+    primaryIncome = PLN(-300000),
+    euFunds = PLN(1500000),
+    diasporaInflow = PLN(400000),
+    capitalFlightOutflow = PLN(200000),
   )
 
   "OpenEconFlows" should "preserve total wealth at exactly 0L" in {
@@ -47,7 +47,7 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle negative portfolio flows (outflow)" in {
-    val outflow  = baseInput.copy(portfolioFlows = PLN("-1000000.0"))
+    val outflow  = baseInput.copy(portfolioFlows = PLN(-1000000))
     val flows    = OpenEconFlows.emit(outflow)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L
@@ -56,7 +56,7 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle negative carry trade flows (unwind)" in {
-    val outflow  = baseInput.copy(carryTradeFlow = PLN("-250000.0"))
+    val outflow  = baseInput.copy(carryTradeFlow = PLN(-250000))
     val flows    = OpenEconFlows.emit(outflow)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L
@@ -64,7 +64,7 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle negative primary income (NFA payment)" in {
-    val payment  = baseInput.copy(primaryIncome = PLN("-500000.0"))
+    val payment  = baseInput.copy(primaryIncome = PLN(-500000))
     val flows    = OpenEconFlows.emit(payment)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L
@@ -74,7 +74,7 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
     runtimeTopologies.foreach:
       case (label, topology) =>
         withClue(s"$label: ") {
-          val batches                                      = OpenEconFlows.emitBatches(baseInput.copy(primaryIncome = PLN("300000.0")))(using topology)
+          val batches                                      = OpenEconFlows.emitBatches(baseInput.copy(primaryIncome = PLN(300000)))(using topology)
           def onlyFromIndex(mechanism: MechanismId): Int   =
             batches.find(_.mechanism == mechanism).get match
               case broadcast: BatchedFlow.Broadcast => broadcast.fromIndex

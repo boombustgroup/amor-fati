@@ -11,20 +11,20 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
   private given RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
 
   "MortgageFlows" should "preserve total wealth at exactly 0L" in {
-    val flows    = MortgageFlows.emit(MortgageFlows.Input(PLN("5000000.0"), PLN("2000000.0"), PLN("1500000.0"), PLN("300000.0")))
+    val flows    = MortgageFlows.emit(MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000)))
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L
   }
 
   it should "have bank balance = repayment + interest + default - origination" in {
-    val input    = MortgageFlows.Input(PLN("5000000.0"), PLN("2000000.0"), PLN("1500000.0"), PLN("300000.0"))
+    val input    = MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000))
     val flows    = MortgageFlows.emit(input)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     balances(MortgageFlows.BANK_ACCOUNT) shouldBe (input.principalRepayment + input.interest + input.defaultAmount - input.origination).toLong
   }
 
   it should "preserve SFC across 120 months" in {
-    val input    = MortgageFlows.Input(PLN("5000000.0"), PLN("2000000.0"), PLN("1500000.0"), PLN("300000.0"))
+    val input    = MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000))
     var balances = Map.empty[Int, Long]
     (1 to 120).foreach { _ =>
       balances = Interpreter.applyAll(balances, MortgageFlows.emit(input))
@@ -34,7 +34,7 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "route batched mortgage principal through the household settlement shell" in {
     val topology       = summon[RuntimeLedgerTopology]
-    val input          = MortgageFlows.Input(PLN("5000000.0"), PLN("2000000.0"), PLN("1500000.0"), PLN("300000.0"))
+    val input          = MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000))
     val batches        = MortgageFlows.emitBatches(input)
     val principalShell = MortgageRuntimeContract.principalSettlement(topology)
     val principal      = batches.filter(_.asset == AssetType.MortgageLoan)
@@ -62,7 +62,7 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
 
   it should "execute batched mortgage principal without bank-side MortgageLoan deltas" in {
     val topology       = summon[RuntimeLedgerTopology]
-    val input          = MortgageFlows.Input(PLN("5000000.0"), PLN("2000000.0"), PLN("1500000.0"), PLN("300000.0"))
+    val input          = MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000))
     val batches        = MortgageFlows.emitBatches(input)
     val state          = topology.emptyExecutionState()
     val principalShell = MortgageRuntimeContract.principalSettlement(topology)

@@ -14,7 +14,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  private val sectorOutputs = Vector(PLN("30000.0"), PLN("160000.0"), PLN("450000.0"), PLN("60000.0"), PLN("220000.0"), PLN("80000.0"))
+  private val sectorOutputs = Vector(PLN(30000), PLN(160000), PLN(450000), PLN(60000), PLN(220000), PLN(80000))
 
   private def baseInput(
       prev: GvcTrade.State = GvcTrade.initial,
@@ -22,7 +22,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
       price: BigDecimal = BigDecimal("1.0"),
       autoR: BigDecimal = BigDecimal("0.0"),
       month: Int = 30,
-  ) = GvcTrade.StepInput(prev, sectorOutputs, PriceIndex(price), ExchangeRate(er), Share(autoR), ExecutionMonth(month), rng = RandomStream.seeded(42))
+  ) = GvcTrade.StepInput(prev, sectorOutputs, priceIndexBD(price), exchangeRateBD(er), shareBD(autoR), ExecutionMonth(month), rng = RandomStream.seeded(42))
 
   // ---- Initialization ----
 

@@ -19,17 +19,17 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  private val defaultSectorOutputs = Vector.fill(6)(PLN("1e8"))
+  private val defaultSectorOutputs = Vector.fill(6)(PLN(100000000))
 
   @annotation.nowarn("msg=unused private member") // default used by callers
   private def makeForex(er: BigDecimal = decimal(p.forex.baseExRate)): OpenEconomy.ForexState =
-    OpenEconomy.ForexState(ExchangeRate(er), PLN("1e8"), PLN("1e8"), PLN.Zero, PLN("1e7"))
+    OpenEconomy.ForexState(exchangeRateBD(er), PLN(100000000), PLN(100000000), PLN.Zero, PLN(10000000))
 
   private def makeBop(nfa: BigDecimal = BigDecimal("0.0"), fAssets: BigDecimal = BigDecimal("1e9")): OpenEconomy.BopState =
     OpenEconomy.BopState(
-      PLN(nfa),
-      PLN(fAssets),
-      PLN("5e8"),
+      plnBD(nfa),
+      plnBD(fAssets),
+      PLN(500000000),
       PLN.Zero,
       PLN.Zero,
       PLN.Zero,
@@ -37,9 +37,9 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
       PLN.Zero,
       PLN.Zero,
       PLN.Zero,
-      PLN("1e8"),
-      PLN("1e8"),
-      PLN("1e8"),
+      PLN(100000000),
+      PLN(100000000),
+      PLN(100000000),
       PLN.Zero,
     )
 
@@ -56,12 +56,12 @@ class OpenEconomyPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckP
   ) = OpenEconomy.StepInput(
     prevBop = prevBop,
     prevForex = makeForex(er),
-    importCons = PLN(importCons),
-    techImports = PLN(techImp),
-    autoRatio = Share(autoR),
-    domesticRate = Rate(rate),
-    gdp = PLN(gdp),
-    priceLevel = PriceIndex(price),
+    importCons = plnBD(importCons),
+    techImports = plnBD(techImp),
+    autoRatio = shareBD(autoR),
+    domesticRate = rateBD(rate),
+    gdp = plnBD(gdp),
+    priceLevel = priceIndexBD(price),
     sectorOutputs = defaultSectorOutputs,
     month = ExecutionMonth(month),
     nbpFxReserves = prevBop.reserves,

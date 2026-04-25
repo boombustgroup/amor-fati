@@ -25,21 +25,21 @@ import com.boombustgroup.amorfati.random.RandomStream
 object FirmEntry:
 
   // ---- Calibration constants ----
-  private val ProfitClampMin      = Coefficient("-1.0") // floor for normalized sector profit signal
-  private val ProfitClampMax      = Coefficient("2.0")  // ceiling for normalized sector profit signal
-  private val MinSectorWeight     = Multiplier("0.01")  // floor so no sector has zero entry probability
-  private val MaxNeighbors        = 6                   // network degree for new entrants
-  private val AiNativeMinDr       = Share("0.50")       // digital readiness floor for AI-native entrants
-  private val AiNativeMaxDr       = Share("0.90")       // digital readiness ceiling for AI-native entrants
-  private val ConventionalDrNoise = Share("0.10")       // std dev for conventional entrant DR draw
-  private val ConventionalDrFloor = Share("0.02")       // minimum DR for conventional entrant
-  private val ConventionalDrCap   = Share("0.30")       // maximum DR for conventional entrant
-  private val MinAiProductivity   = Multiplier("0.5")   // AI productivity floor for hybrid entrants
-  private val MaxAiProductivity   = Multiplier("0.8")   // AI productivity ceiling for hybrid entrants
-  private val HybridMinWorkers    = 1                   // minimum viable hybrid workforce
-  private val StartupMonths       = 4                   // short entrant startup ramp-up window
-  private val StartupMinWorkers   = 1                   // minimum planned startup team
-  private val StartupMaxWorkers   = 4                   // entrant startup team cap
+  private val ProfitClampMin      = Coefficient(-1)          // floor for normalized sector profit signal
+  private val ProfitClampMax      = Coefficient(2)           // ceiling for normalized sector profit signal
+  private val MinSectorWeight     = Multiplier.decimal(1, 2) // floor so no sector has zero entry probability
+  private val MaxNeighbors        = 6                        // network degree for new entrants
+  private val AiNativeMinDr       = Share.decimal(50, 2)     // digital readiness floor for AI-native entrants
+  private val AiNativeMaxDr       = Share.decimal(90, 2)     // digital readiness ceiling for AI-native entrants
+  private val ConventionalDrNoise = Share.decimal(10, 2)     // std dev for conventional entrant DR draw
+  private val ConventionalDrFloor = Share.decimal(2, 2)      // minimum DR for conventional entrant
+  private val ConventionalDrCap   = Share.decimal(30, 2)     // maximum DR for conventional entrant
+  private val MinAiProductivity   = Multiplier.decimal(5, 1) // AI productivity floor for hybrid entrants
+  private val MaxAiProductivity   = Multiplier.decimal(8, 1) // AI productivity ceiling for hybrid entrants
+  private val HybridMinWorkers    = 1                        // minimum viable hybrid workforce
+  private val StartupMonths       = 4                        // short entrant startup ramp-up window
+  private val StartupMinWorkers   = 1                        // minimum planned startup team
+  private val StartupMaxWorkers   = 4                        // entrant startup team cap
 
   case class Result(
       firms: Vector[Firm.State],                     // post-entry firm population (may be longer than input if net creation occurred)
@@ -151,20 +151,20 @@ object FirmEntry:
     val laborSlack    = (c.unemploymentRate - p.monetary.nairu).max(Share.Zero)
     if laborSlack <= Share.Zero then return Share.Zero
     val nominalSignal =
-      if c.inflation < Rate.Zero && c.expectedInflation < Rate.Zero then 0.0
-      else if c.inflation < Rate.Zero || c.expectedInflation < Rate.Zero then 0.35
-      else 1.0
-    laborSlack * Share(nominalSignal) * c.laggedHiringSlack.clamp(Share.Zero, Share.One) * c.startupAbsorptionRate.clamp(Share.Zero, Share.One)
+      if c.inflation < Rate.Zero && c.expectedInflation < Rate.Zero then Share.Zero
+      else if c.inflation < Rate.Zero || c.expectedInflation < Rate.Zero then Share.decimal(35, 2)
+      else Share.One
+    laborSlack * nominalSignal * c.laggedHiringSlack.clamp(Share.Zero, Share.One) * c.startupAbsorptionRate.clamp(Share.Zero, Share.One)
 
   private def computeProfitSignals(living: Vector[(Firm.State, Firm.FinancialStocks)])(using p: SimParams): Vector[Coefficient] =
     val bySector      = living.groupBy(_._1.sector.toInt)
     val sectorAvgCash = p.sectorDefs.indices.map: s =>
       bySector.get(s).fold(PLN.Zero)(fs => fs.map(_._2.cash).foldLeft(PLN.Zero)(_ + _).divideBy(fs.length))
-    val globalAvgCash = if living.nonEmpty then living.map(_._2.cash).foldLeft(PLN.Zero)(_ + _).divideBy(living.length) else PLN("1.0")
+    val globalAvgCash = if living.nonEmpty then living.map(_._2.cash).foldLeft(PLN.Zero)(_ + _).divideBy(living.length) else PLN(1)
     sectorAvgCash
       .map: c =>
         (c - globalAvgCash)
-          .ratioTo(globalAvgCash.abs.max(PLN("1.0")))
+          .ratioTo(globalAvgCash.abs.max(PLN(1)))
           .toCoefficient
           .clamp(ProfitClampMin, ProfitClampMax)
       .toVector
@@ -202,8 +202,8 @@ object FirmEntry:
       Firm.State(
         id = slotId,
         tech = tech,
-        riskProfile = TypedRandom.randomBetween(Share("0.1"), Share("0.9"), rng),
-        innovationCostFactor = TypedRandom.randomBetween(Multiplier("0.8"), Multiplier("1.5"), rng),
+        riskProfile = TypedRandom.randomBetween(Share.decimal(1, 1), Share.decimal(9, 1), rng),
+        innovationCostFactor = TypedRandom.randomBetween(Multiplier.decimal(8, 1), Multiplier.decimal(15, 1), rng),
         digitalReadiness = dr,
         sector = SectorIdx(newSector),
         neighbors = newNeighbors,

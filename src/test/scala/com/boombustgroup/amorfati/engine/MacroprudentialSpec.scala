@@ -51,19 +51,19 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "add CCyB to MinCar + P2R" in {
-    val ccyb = Multiplier("0.015")
+    val ccyb = Multiplier.decimal(15, 3)
     val eff  = Macroprudential.effectiveMinCarImpl(3, ccyb)
     decimal(eff) shouldBe (decimal(p.banking.minCar) + BigDecimal("0.015") + decimal(p.banking.p2rAddons(3))) +- BigDecimal("1e-10")
   }
 
   it should "add both CCyB and OSII and P2R for PKO BP" in {
-    val ccyb = Multiplier("0.01")
+    val ccyb = Multiplier.decimal(1, 2)
     val eff  = Macroprudential.effectiveMinCarImpl(0, ccyb)
     decimal(eff) shouldBe (decimal(p.banking.minCar) + BigDecimal("0.01") + BigDecimal("0.01") + decimal(p.banking.p2rAddons(0))) +- BigDecimal("1e-10")
   }
 
   it should "add CCyB and OSII and P2R for Pekao" in {
-    val ccyb = Multiplier("0.02")
+    val ccyb = Multiplier.decimal(2, 2)
     val eff  = Macroprudential.effectiveMinCarImpl(1, ccyb)
     decimal(eff) shouldBe (decimal(p.banking.minCar) + BigDecimal("0.02") + BigDecimal("0.005") + decimal(p.banking.p2rAddons(1))) +- BigDecimal("1e-10")
   }
@@ -74,7 +74,7 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
 
   "stepImpl" should "initialize trend on first call" in {
     val prev   = Macroprudential.State.zero
-    val result = Macroprudential.stepImpl(prev, PLN("1000.0"), PLN("100.0"))
+    val result = Macroprudential.stepImpl(prev, PLN(1000), PLN(100))
     // creditToGdp = 1000 / (100*12) = 0.8333
     // First call: trend = creditToGdp (since prev trend = 0)
     decimal(result.creditToGdpTrend) shouldBe (BigDecimal("1000.0") / BigDecimal("1200.0")) +- BigDecimal("0.01")
@@ -83,42 +83,42 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "maintain ccyb=0 when gap is within neutral zone" in {
-    val prev       = Macroprudential.State(Multiplier.Zero, Coefficient.Zero, Multiplier("0.5")) // trend already established
+    val prev       = Macroprudential.State(Multiplier.Zero, Coefficient.Zero, Multiplier.decimal(5, 1)) // trend already established
     // creditToGdp ≈ trend → gap ≈ 0 → within neutral zone
-    val totalLoans = PLN(BigDecimal("0.5") * BigDecimal("100.0") * BigDecimal("12.0"))           // exactly at trend
-    val result     = Macroprudential.stepImpl(prev, totalLoans, PLN("100.0"))
+    val totalLoans = PLN(600)                                                                           // exactly at trend
+    val result     = Macroprudential.stepImpl(prev, totalLoans, PLN(100))
     decimal(result.ccyb) shouldBe BigDecimal("0.0")
   }
 
   it should "build CCyB gradually when gap exceeds activation threshold" in {
     // Set up so credit-to-GDP ratio is much higher than trend
     // trend = 0.30, make creditToGdp ≈ 0.40 → gap ≈ 0.10 > 0.02
-    val prev   = Macroprudential.State(Multiplier.Zero, Coefficient.Zero, Multiplier("0.30"))
+    val prev   = Macroprudential.State(Multiplier.Zero, Coefficient.Zero, Multiplier.decimal(30, 2))
     // creditToGdp = totalLoans / (gdp*12) = X / 1200
     // We want gap = creditToGdp - newTrend > 0.02
     // newTrend = 0.30*0.95 + creditToGdp*0.05
     // gap = creditToGdp - (0.285 + 0.05*creditToGdp) = 0.95*creditToGdp - 0.285
     // gap > 0.02 → creditToGdp > 0.305/0.95 ≈ 0.321
     // totalLoans = 0.40 * 1200 = 480
-    val result = Macroprudential.stepImpl(prev, PLN("480.0"), PLN("100.0"))
+    val result = Macroprudential.stepImpl(prev, PLN(480), PLN(100))
     decimal(result.ccyb) should be > BigDecimal("0.0")
     decimal(result.ccyb) should be <= decimal(p.banking.ccybMax)
   }
 
   it should "release CCyB immediately when gap falls below release threshold" in {
     // trend = 0.50, make creditToGdp very low → gap < -0.02
-    val prev   = Macroprudential.State(Multiplier("0.02"), Coefficient.Zero, Multiplier("0.50"))
+    val prev   = Macroprudential.State(Multiplier.decimal(2, 2), Coefficient.Zero, Multiplier.decimal(50, 2))
     // creditToGdp = 10 / 1200 ≈ 0.0083
     // newTrend = 0.50*0.95 + 0.0083*0.05 ≈ 0.4754
     // gap = 0.0083 - 0.4754 ≈ -0.467 < -0.02
-    val result = Macroprudential.stepImpl(prev, PLN("10.0"), PLN("100.0"))
+    val result = Macroprudential.stepImpl(prev, PLN(10), PLN(100))
     decimal(result.ccyb) shouldBe BigDecimal("0.0") // immediate release
   }
 
   it should "cap CCyB at CcybMax" in {
     // Start near max and build further
-    val prev   = Macroprudential.State(Multiplier("0.024"), Coefficient.Zero, Multiplier("0.30"))
-    val result = Macroprudential.stepImpl(prev, PLN("480.0"), PLN("100.0"))
+    val prev   = Macroprudential.State(Multiplier.decimal(24, 3), Coefficient.Zero, Multiplier.decimal(30, 2))
+    val result = Macroprudential.stepImpl(prev, PLN(480), PLN(100))
     decimal(result.ccyb) should be <= decimal(p.banking.ccybMax)
   }
 
@@ -128,11 +128,11 @@ class MacroprudentialSpec extends AnyFlatSpec with Matchers:
 
   "withinConcentrationLimitImpl" should "return true when loan share is below limit" in
     // 100/1000 = 10% < 25%
-    Macroprudential.withinConcentrationLimitImpl(PLN("100.0"), PLN("500.0"), PLN("1000.0")).shouldBe(true)
+    Macroprudential.withinConcentrationLimitImpl(PLN(100), PLN(500), PLN(1000)).shouldBe(true)
 
   it should "return false when loan share exceeds limit" in
     // 300/1000 = 30% > 25% concentration limit
-    Macroprudential.withinConcentrationLimitImpl(PLN("300.0"), PLN("500.0"), PLN("1000.0")).shouldBe(false)
+    Macroprudential.withinConcentrationLimitImpl(PLN(300), PLN(500), PLN(1000)).shouldBe(false)
 
   it should "return true when total system loans is zero" in
-    Macroprudential.withinConcentrationLimitImpl(PLN("100.0"), PLN("500.0"), PLN.Zero).shouldBe(true)
+    Macroprudential.withinConcentrationLimitImpl(PLN(100), PLN(500), PLN.Zero).shouldBe(true)

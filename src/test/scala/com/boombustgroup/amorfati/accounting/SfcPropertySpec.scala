@@ -113,7 +113,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
         val (prev, curr, flows) = triple
-        val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(perturbation))
+        val perturbed           = curr.copy(bankCapital = curr.bankCapital + plnBD(perturbation))
         val result              = Sfc.validateStockExactness(prev, perturbed, flows)
         result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankCapital) shouldBe true
     }
@@ -122,7 +122,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
         val (prev, curr, flows) = triple
-        val perturbed           = curr.copy(bankDeposits = curr.bankDeposits + PLN(perturbation))
+        val perturbed           = curr.copy(bankDeposits = curr.bankDeposits + plnBD(perturbation))
         val result              = Sfc.validateStockExactness(prev, perturbed, flows)
         result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
     }
@@ -131,7 +131,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
         val (prev, curr, flows) = triple
-        val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(perturbation))
+        val perturbed           = curr.copy(govDebt = curr.govDebt + plnBD(perturbation))
         val result              = Sfc.metricDiagnostics(prev, perturbed, flows)
         result.exists(_.identity == Sfc.SfcIdentity.GovDebt) shouldBe true
     }
@@ -140,7 +140,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
         val (prev, curr, flows) = triple
-        val perturbed           = curr.copy(nfa = curr.nfa + PLN(perturbation))
+        val perturbed           = curr.copy(nfa = curr.nfa + plnBD(perturbation))
         val result              = Sfc.validateStockExactness(prev, perturbed, flows)
         result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.Nfa) shouldBe true
     }
@@ -151,7 +151,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), delta: BigDecimal) =>
         val (prev, curr, flows) = triple
-        val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(delta))
+        val perturbed           = curr.copy(bankCapital = curr.bankCapital + plnBD(delta))
         val result              = Sfc.validateStockExactness(prev, perturbed, flows)
         errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (delta +- BigDecimal("1.0"))
     }
@@ -162,7 +162,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), delta: BigDecimal) =>
         val (prev, curr, flows) = triple
-        val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(delta))
+        val perturbed           = curr.copy(govDebt = curr.govDebt + plnBD(delta))
         val result              = Sfc.metricDiagnostics(prev, perturbed, flows)
         result.map(_.identity) should contain(Sfc.SfcIdentity.GovDebt)
         result.exists(e => e.identity == Sfc.SfcIdentity.BankCapital) shouldBe false
@@ -182,7 +182,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
         val (prev, curr, flows) = triple
-        val perturbed           = curr.copy(bankBondHoldings = curr.bankBondHoldings + PLN(perturbation))
+        val perturbed           = curr.copy(bankBondHoldings = curr.bankBondHoldings + plnBD(perturbation))
         val result              = Sfc.validateStockExactness(prev, perturbed, flows)
         result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BondClearing) shouldBe true
     }
@@ -200,7 +200,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
         val (prev, curr, flows) = triple
-        val perturbed           = curr.copy(interbankNetSum = PLN(perturbation))
+        val perturbed           = curr.copy(interbankNetSum = plnBD(perturbation))
         val result              = Sfc.validateStockExactness(prev, perturbed, flows)
         result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.InterbankNetting) shouldBe true
     }
@@ -221,7 +221,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
         val (prev, curr, flows) = triple
         // Perturb dividendIncome without updating deposits → Identity 2 fails
-        val badFlows            = flows.copy(dividendIncome = flows.dividendIncome + PLN(perturbation))
+        val badFlows            = flows.copy(dividendIncome = flows.dividendIncome + plnBD(perturbation))
         val result              = Sfc.validateStockExactness(prev, curr, badFlows)
         result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
     }
@@ -232,7 +232,7 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
       (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
         val (prev, curr, flows) = triple
-        val perturbed           = curr.copy(mortgageStock = curr.mortgageStock + PLN(perturbation))
+        val perturbed           = curr.copy(mortgageStock = curr.mortgageStock + plnBD(perturbation))
         val result              = Sfc.validateStockExactness(prev, perturbed, flows)
         result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.MortgageStock) shouldBe true
     }

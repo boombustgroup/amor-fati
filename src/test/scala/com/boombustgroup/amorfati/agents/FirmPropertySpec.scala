@@ -59,7 +59,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   "Firm.sigmaThreshold" should "be in [0, 1]" in
     forAll(genSigma) { (sigma: BigDecimal) =>
-      val t = Firm.sigmaThreshold(Sigma(sigma))
+      val t = Firm.sigmaThreshold(sigmaBD(sigma))
       t.bd should be >= BigDecimal(0)
       t.bd should be <= BigDecimal("1.0")
     }
@@ -67,14 +67,14 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   it should "be monotonic in sigma" in
     forAll(genSigma) { (sigma: BigDecimal) =>
       whenever(sigma > BigDecimal("0.1") && sigma < BigDecimal("99.0")) {
-        val t1 = Firm.sigmaThreshold(Sigma(sigma)).bd
-        val t2 = Firm.sigmaThreshold(Sigma(sigma * 2)).bd
+        val t1 = Firm.sigmaThreshold(sigmaBD(sigma)).bd
+        val t2 = Firm.sigmaThreshold(sigmaBD(sigma * 2)).bd
         t2 should be >= t1
       }
     }
 
   it should "be 1.0 for very large sigma" in {
-    Firm.sigmaThreshold(Sigma("1000.0")).bd shouldBe BigDecimal("1.0")
+    Firm.sigmaThreshold(Sigma(1000)).bd shouldBe BigDecimal("1.0")
   }
 
   // --- aiCapex properties ---
@@ -91,7 +91,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
 
   "Firm.computeAiCapex" should "scale with innovationCostFactor" in
     forAll(genAliveFirm, genDecimal("1.0", "3.0")) { (firm: Firm.State, factor: BigDecimal) =>
-      val scaledFactor = Multiplier(factor)
+      val scaledFactor = multiplierBD(factor)
       val f1           = firm.copy(innovationCostFactor = Multiplier.One)
       val f2           = firm.copy(innovationCostFactor = scaledFactor)
       val expected     = Firm.computeAiCapex(f1).bd * scaledFactor.bd
@@ -109,9 +109,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(4),
-        Share("0.5"),
-        Multiplier(innov),
-        Share(digiR),
+        Share.decimal(5, 1),
+        multiplierBD(innov),
+        shareBD(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -128,9 +128,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(16),
-        Share("0.5"),
-        Multiplier(innov),
-        Share(digiR),
+        Share.decimal(5, 1),
+        multiplierBD(innov),
+        shareBD(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -153,9 +153,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(10),
-        Share("0.5"),
-        Multiplier(innov),
-        Share(digiR),
+        Share.decimal(5, 1),
+        multiplierBD(innov),
+        shareBD(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -172,9 +172,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(25),
-        Share("0.5"),
-        Multiplier(innov),
-        Share(digiR),
+        Share.decimal(5, 1),
+        multiplierBD(innov),
+        shareBD(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -200,9 +200,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN(100000),
         PLN.Zero,
         tech,
-        Share("0.5"),
+        Share.decimal(5, 1),
         Multiplier.One,
-        Share("0.4"),
+        Share.decimal(4, 1),
         SectorIdx(0),
         (0 until 10).filter(_ != i).map(FirmId(_)).toVector,
         bankId = BankId(0),
@@ -227,9 +227,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       PLN(100000),
       PLN.Zero,
       TechState.Traditional(10),
-      Share("0.5"),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share("0.4"),
+      Share.decimal(4, 1),
       SectorIdx(0),
       Vector.empty[FirmId],
       bankId = BankId(0),

@@ -11,7 +11,7 @@ class NfzSpec extends AnyFlatSpec with Matchers:
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
 
-  private val wage     = PLN("8000.0")
+  private val wage     = PLN(8000)
   private val employed = 80000
 
   "nfzStep" should "compute contributions as wage × employed × 9%" in {
@@ -35,7 +35,7 @@ class NfzSpec extends AnyFlatSpec with Matchers:
 
   it should "produce zero govSubvention when in surplus" in {
     // High employment + high wage + few retirees → surplus
-    val result = SocialSecurity.nfzStep(100000, PLN("20000.0"), 100000, 100)
+    val result = SocialSecurity.nfzStep(100000, PLN(20000), 100000, 100)
     result.contributions should be > result.spending
     result.govSubvention shouldBe PLN.Zero
   }
