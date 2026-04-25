@@ -51,13 +51,14 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
     down.costPush shouldBe Coefficient.Zero
   }
 
-  it should "ignore slack demand in aggregate demand-pull" in {
+  it should "apply only partial downside pass-through under slack demand" in {
     val flat  = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
     val slack = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier(0.8), Coefficient.Zero, ExchangeRateShock.Zero)
 
-    slack.inflation shouldBe flat.inflation
-    slack.priceLevel shouldBe flat.priceLevel
-    slack.demandPull shouldBe Coefficient.Zero
+    slack.inflation should be < flat.inflation
+    slack.priceLevel should be < flat.priceLevel
+    slack.demandPull should be < Coefficient.Zero
+    slack.demandPull shouldBe Coefficient(-0.0075)
   }
 
   it should "anchor aggregate inflation to expected inflation when fundamentals are flat" in {

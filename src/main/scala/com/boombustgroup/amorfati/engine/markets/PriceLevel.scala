@@ -5,9 +5,10 @@ import com.boombustgroup.amorfati.types.*
 
 /** Aggregate price level: Phillips-curve-style monthly inflation update.
   *
-  * Three channels: demand-pull (positive output-gap proxy via demandMult),
-  * cost-push (positive wage growth pass-through), and import push (exchange
-  * rate deviation × import propensity).
+  * Three channels: demand-pull (positive output-gap proxy via demandMult, with
+  * partial downside pass-through under slack), cost-push (positive wage growth
+  * pass-through), and import push (exchange rate deviation × import
+  * propensity).
   *
   * A soft floor at −1.5%/month with 30% pass-through approximates downward
   * nominal rigidity (cf. Bewley 1999). These are calibration choices, not
@@ -20,13 +21,14 @@ import com.boombustgroup.amorfati.types.*
 object PriceLevel:
 
   // ---- Calibration constants ----
-  private val DemandPullWeight = Coefficient(0.15)   // sensitivity of inflation to demand gap
-  private val CostPushWeight   = Coefficient(0.25)   // wage growth pass-through to prices
-  private val ImportPushWeight = Coefficient(0.25)   // FX depreciation pass-through
-  private val DeflationFloor   = Coefficient(-0.015) // soft floor: −1.5%/month
-  private val FloorPassThrough = Coefficient(0.3)    // beyond floor, 30% pass-through
-  private val SmoothingLambda  = Share(0.3)          // EWM weight on new observation
-  private val MinPriceLevel    = PriceIndex(0.30)    // absolute floor on price index
+  private val DemandPullWeight       = Coefficient(0.15)   // sensitivity of inflation to demand gap
+  private val DemandSlackPassThrough = Coefficient(0.25)   // partial downside pass-through under slack demand
+  private val CostPushWeight         = Coefficient(0.25)   // wage growth pass-through to prices
+  private val ImportPushWeight       = Coefficient(0.25)   // FX depreciation pass-through
+  private val DeflationFloor         = Coefficient(-0.015) // soft floor: −1.5%/month
+  private val FloorPassThrough       = Coefficient(0.3)    // beyond floor, 30% pass-through
+  private val SmoothingLambda        = Share(0.3)          // EWM weight on new observation
+  private val MinPriceLevel          = PriceIndex(0.30)    // absolute floor on price index
 
   /** Result of a monthly price-level update. */
   case class Result(
@@ -48,7 +50,10 @@ object PriceLevel:
       exRateDeviation: ExchangeRateShock,
   )(using p: SimParams): Result =
     val _                           = prevInflation
-    val demandPull: Coefficient    = demandMult.deviationFromOne.max(Coefficient.Zero) * DemandPullWeight
+    val demandGap                   = demandMult.deviationFromOne
+    val demandPull: Coefficient    =
+      if demandGap >= Coefficient.Zero then demandGap * DemandPullWeight
+      else demandGap * DemandPullWeight * DemandSlackPassThrough
     val costPush: Coefficient      = wageGrowth.max(Coefficient.Zero) * CostPushWeight
     val rawImportPush: Coefficient =
       exRateDeviation.max(ExchangeRateShock.Zero).toCoefficient * p.forex.importPropensity * ImportPushWeight
