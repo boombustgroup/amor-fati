@@ -7,6 +7,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      SBT_OPTS: "-Xmx4G -XX:+UseG1GC"
     steps:
       - uses: actions/checkout@v4
         with:
