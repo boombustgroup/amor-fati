@@ -355,7 +355,7 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
     val hotById    = hotResult.ioFirms.map(f => f.id -> f.markup).toMap
 
     hotResult.markupInflation should be > weakResult.markupInflation
-    hotById.keys.count(id => hotById(id) > weakById(id)) should be > 0
+    hotById.keySet.intersect(weakById.keySet).count(id => hotById(id) > weakById(id)) should be > 0
   }
 
   "BankingEconomics.runStep" should "remain insensitive to stale persisted demand signals when stage outputs are supplied" in {

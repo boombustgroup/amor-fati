@@ -187,7 +187,6 @@ object PriceEquityEconomics:
 
     val exDev    = w.forex.exchangeRate.deviationFrom(p.forex.baseExRate)
     val priceUpd = PriceLevel.update(
-      w.inflation,
       w.mechanisms.expectations.expectedInflation,
       w.priceLevel,
       avgDemandMult,

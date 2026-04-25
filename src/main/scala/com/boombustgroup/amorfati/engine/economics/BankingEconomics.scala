@@ -677,10 +677,19 @@ object BankingEconomics:
       wf: BondWaterfallInputs,
   )(using p: SimParams): MultiBankResult =
     val banks               = in.banks
+    val openingBankStocks   = in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks)
+    // We keep the opening bank-side consumer-loan stock but realign it to the
+    // current household routing keys and household-level consumer-loan balances
+    // carried into s5. This assumes no stage between the opening ledger snapshot
+    // and s5 mutates household consumerLoan principal; only routing may drift.
     val bankStocks          = alignConsumerLoanBookToHouseholdRouting(
       in.s5.households,
       in.s5.ledgerFinancialState.households,
-      in.ledgerFinancialState.banks.map(LedgerFinancialState.projectBankFinancialStocks),
+      openingBankStocks,
+    )
+    require(
+      bankStocks.map(_.consumerLoan).sum == openingBankStocks.map(_.consumerLoan).sum,
+      "BankingEconomics consumer-loan realignment must preserve the aggregate opening bank loan book",
     )
     val perBankReserveInt   = Banking.computeReserveInterest(banks, bankStocks, in.w.nbp.referenceRate)
     val perBankStandingFac  = Banking.computeStandingFacilities(banks, bankStocks, in.w.nbp.referenceRate)

@@ -12,9 +12,6 @@ import com.boombustgroup.amorfati.types.*
 
 object InflationProbe:
 
-  private def exchangeRateValue(er: ExchangeRate): Double =
-    er.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-
   private def laborSupplyCount(wage: PLN, resWage: PLN, totalPopulation: Int)(using p: SimParams): Int =
     import ComputationBoundary.toDouble
     val x     = toDouble(p.household.laborSupplySteepness) * (wage / resWage - 1.0)
@@ -150,40 +147,41 @@ object InflationProbe:
           ),
         )
 
-      val exDev        = exchangeRateValue(world.forex.exchangeRate) / exchangeRateValue(summon[SimParams].forex.baseExRate) - 1.0
-      val priceUpd     = PriceLevel.update(
-        prevInflation = world.inflation,
+      val exRateDeviation = world.forex.exchangeRate.deviationFrom(summon[SimParams].forex.baseExRate)
+      val exDev           = toDouble(exRateDeviation.toCoefficient)
+      val priceUpd        = PriceLevel.update(
+        // PriceLevel reads the current pre-policy expectation; s8.newExp is next month's post-policy anchor.
         expectedInflation = world.mechanisms.expectations.expectedInflation,
         prevPrice = world.priceLevel,
         demandMult = s4.avgDemandMult,
         wageGrowth = s2.wageGrowth,
-        exRateDeviation = world.forex.exchangeRate.deviationFrom(summon[SimParams].forex.baseExRate),
+        exRateDeviation = exRateDeviation,
       )
-      val demandPullM  = toDouble(priceUpd.demandPull)
-      val costPushM    = toDouble(priceUpd.costPush)
-      val importPushM  = toDouble(priceUpd.importPush)
-      val rawMonthly   = toDouble(priceUpd.rawMonthly)
-      val flooredM     = toDouble(priceUpd.flooredMonthly)
-      val baseAnnual   = toDouble(priceUpd.inflation)
-      val totalInfl    = toDouble(s7.newInfl)
-      val markupAnnual = toDouble(s5.markupInflation)
-      val unemp        = 1.0 - s2.employed.toDouble / population.toDouble
-      val refRate      = toDouble(s8.monetary.newRefRate)
-      val expInfl      = toDouble(s8.monetary.newExp.expectedInflation)
-      val credibility  = toDouble(s8.monetary.newExp.credibility)
-      val fwdGuidance  = toDouble(s8.monetary.newExp.forwardGuidanceRate)
-      val realRate     = refRate - expInfl
-      val govPurchases = toDouble(s4.govPurchases)
-      val govBreakdown = govPurchasesBreakdown(world, s2Pre.employed)
-      val govCurrent   = toDouble(s9.newGovWithYield.govCurrentSpend)
-      val govCapital   = toDouble(s9.newGovWithYield.govCapitalSpend)
-      val euProjectCap = toDouble(s9.newGovWithYield.euProjectCapital)
-      val euCofin      = toDouble(s9.newGovWithYield.euCofinancing)
-      val deficit      = toDouble(s9.newGovWithYield.deficit)
-      val debtToGdp    =
+      val demandPullM     = toDouble(priceUpd.demandPull)
+      val costPushM       = toDouble(priceUpd.costPush)
+      val importPushM     = toDouble(priceUpd.importPush)
+      val rawMonthly      = toDouble(priceUpd.rawMonthly)
+      val flooredM        = toDouble(priceUpd.flooredMonthly)
+      val baseAnnual      = toDouble(priceUpd.inflation)
+      val totalInfl       = toDouble(s7.newInfl)
+      val markupAnnual    = toDouble(s5.markupInflation)
+      val unemp           = 1.0 - s2.employed.toDouble / population.toDouble
+      val refRate         = toDouble(s8.monetary.newRefRate)
+      val expInfl         = toDouble(s8.monetary.newExp.expectedInflation)
+      val credibility     = toDouble(s8.monetary.newExp.credibility)
+      val fwdGuidance     = toDouble(s8.monetary.newExp.forwardGuidanceRate)
+      val realRate        = refRate - expInfl
+      val govPurchases    = toDouble(s4.govPurchases)
+      val govBreakdown    = govPurchasesBreakdown(world, s2Pre.employed)
+      val govCurrent      = toDouble(s9.newGovWithYield.govCurrentSpend)
+      val govCapital      = toDouble(s9.newGovWithYield.govCapitalSpend)
+      val euProjectCap    = toDouble(s9.newGovWithYield.euProjectCapital)
+      val euCofin         = toDouble(s9.newGovWithYield.euCofinancing)
+      val deficit         = toDouble(s9.newGovWithYield.deficit)
+      val debtToGdp       =
         if s7.gdp > PLN.Zero then (toDouble(s9.newGovWithYield.cumulativeDebt) / toDouble(s7.gdp)) / 12.0 * 100.0
         else 0.0
-      val deficitToGdp =
+      val deficitToGdp    =
         if s7.gdp > PLN.Zero then (deficit / toDouble(s7.gdp)) * 100.0
         else 0.0
 

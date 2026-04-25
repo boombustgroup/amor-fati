@@ -42,14 +42,12 @@ object PriceLevel:
   )
 
   def update(
-      prevInflation: Rate,
       expectedInflation: Rate,
       prevPrice: PriceIndex,
       demandMult: Multiplier,
       wageGrowth: Coefficient,
       exRateDeviation: ExchangeRateShock,
   )(using p: SimParams): Result =
-    val _                          = prevInflation
     val demandGap                  = demandMult.deviationFromOne
     val demandPull: Coefficient    =
       if demandGap >= Coefficient.Zero then demandGap * DemandPullWeight

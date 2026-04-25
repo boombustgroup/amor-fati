@@ -67,12 +67,12 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
     forAll(genInflInputs) { (inputs: (Double, Double, Double, Double, Double, Double, Double)) =>
       val (prevInfl, prevPrice, demandMult, wageGrowth, exRateDev, _, _) = inputs
       val r                                                              =
-        PriceLevel.update(Rate(prevInfl), Rate(prevInfl), PriceIndex(prevPrice), Multiplier(demandMult), Coefficient(wageGrowth), ExchangeRateShock(exRateDev))
+        PriceLevel.update(Rate(prevInfl), PriceIndex(prevPrice), Multiplier(demandMult), Coefficient(wageGrowth), ExchangeRateShock(exRateDev))
       td.toDouble(r.priceLevel).should(be >= 0.30)
     }
 
   it should "apply soft deflation floor (price >= 0.30)" in {
-    val r = PriceLevel.update(Rate(-0.30), Rate(-0.30), PriceIndex.Base, Multiplier(0.5), Coefficient(-0.10), ExchangeRateShock.Zero)
+    val r = PriceLevel.update(Rate(-0.30), PriceIndex.Base, Multiplier(0.5), Coefficient(-0.10), ExchangeRateShock.Zero)
     td.toDouble(r.priceLevel).should(be >= 0.30)
   }
 
@@ -82,7 +82,6 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
         val r1 =
           PriceLevel.update(
             Rate(prevInfl),
-            Rate(prevInfl),
             PriceIndex(prevPrice),
             Multiplier(demandMult),
             Coefficient(wageGrowth),
@@ -90,7 +89,6 @@ class SimulationPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPr
           )
         val r2 =
           PriceLevel.update(
-            Rate(prevInfl),
             Rate(prevInfl),
             PriceIndex(prevPrice),
             Multiplier(demandMult),

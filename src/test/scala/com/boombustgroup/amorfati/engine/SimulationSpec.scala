@@ -31,20 +31,20 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   // --- updateInflation ---
 
   "PriceLevel.update" should "produce higher inflation with higher demand" in {
-    val r1 = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val r2 = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier(1.5), Coefficient.Zero, ExchangeRateShock.Zero)
+    val r1 = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val r2 = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier(1.5), Coefficient.Zero, ExchangeRateShock.Zero)
     r2.inflation.should(be > r1.inflation)
   }
 
   it should "produce higher inflation with FX import pressure" in {
-    val r1 = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val r2 = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock(0.2))
+    val r1 = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val r2 = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock(0.2))
     r2.inflation.should(be > r1.inflation)
   }
 
   it should "ignore negative wage growth in aggregate cost-push" in {
-    val flat = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val down = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient(-0.05), ExchangeRateShock.Zero)
+    val flat = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val down = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient(-0.05), ExchangeRateShock.Zero)
 
     down.inflation shouldBe flat.inflation
     down.priceLevel shouldBe flat.priceLevel
@@ -52,8 +52,8 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "apply only partial downside pass-through under slack demand" in {
-    val flat  = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val slack = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier(0.8), Coefficient.Zero, ExchangeRateShock.Zero)
+    val flat  = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val slack = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier(0.8), Coefficient.Zero, ExchangeRateShock.Zero)
 
     slack.inflation should be < flat.inflation
     slack.priceLevel should be < flat.priceLevel
@@ -62,26 +62,26 @@ class SimulationSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "anchor aggregate inflation to expected inflation when fundamentals are flat" in {
-    val low  = PriceLevel.update(Rate.Zero, Rate(0.015), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
-    val high = PriceLevel.update(Rate.Zero, Rate(0.030), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val low  = PriceLevel.update(Rate(0.015), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
+    val high = PriceLevel.update(Rate(0.030), PriceIndex.Base, Multiplier.One, Coefficient.Zero, ExchangeRateShock.Zero)
 
     high.inflation should be > low.inflation
   }
 
   it should "enforce price floor at 0.30" in {
-    val r = PriceLevel.update(Rate(-0.50), Rate(-0.50), PriceIndex(0.31), Multiplier(0.5), Coefficient(-0.1), ExchangeRateShock.Zero)
+    val r = PriceLevel.update(Rate(-0.50), PriceIndex(0.31), Multiplier(0.5), Coefficient(-0.1), ExchangeRateShock.Zero)
     td.toDouble(r.priceLevel).should(be >= 0.30)
   }
 
   it should "apply soft deflation floor at -1.5%/mo" in {
-    val r = PriceLevel.update(Rate(-0.10), Rate(-0.10), PriceIndex.Base, Multiplier(0.5), Coefficient(-0.05), ExchangeRateShock.Zero)
+    val r = PriceLevel.update(Rate(-0.10), PriceIndex.Base, Multiplier(0.5), Coefficient(-0.05), ExchangeRateShock.Zero)
     // The soft floor means deflation doesn't accelerate as fast
     // Raw monthly would be very negative; with floor, annualized should be bounded
     td.toDouble(r.inflation).should(be > -1.0) // deflation shouldn't exceed 100% annualized
   }
 
   it should "expose demand, cost, and import channel diagnostics" in {
-    val r = PriceLevel.update(Rate(0.02), Rate(0.025), PriceIndex.Base, Multiplier(1.10), Coefficient(0.03), ExchangeRateShock(0.08))
+    val r = PriceLevel.update(Rate(0.025), PriceIndex.Base, Multiplier(1.10), Coefficient(0.03), ExchangeRateShock(0.08))
 
     r.rawMonthly shouldBe (r.demandPull + r.costPush + r.importPush)
     r.flooredMonthly shouldBe r.rawMonthly
