@@ -38,7 +38,7 @@ class McRunnerConsoleSpec extends AnyFlatSpec with Matchers:
     )
 
     McRunnerConsole.render(seedDone) shouldBe
-      s"\r  Seed   7/12 [${fullBlock * 20}] done (3456ms) | Adopt= 12.3% | pi=  4.5% | Unemp=  6.7%"
+      s"\r  Seed   7/12 [${fullBlock * 20}] done (3456ms) | Adopt=12.3% | pi=4.5% | Unemp=6.7%"
   }
 
   it should "format saved file reporting consistently" in {
