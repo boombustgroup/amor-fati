@@ -1,4 +1,8 @@
+import complete.DefaultParsers.spaceDelimited
+
 lazy val ledger = ProjectRef(file("modules/ledger"), "root")
+
+lazy val sfcMatrices = inputKey[Unit]("Generate symbolic SFC BSM/TFM matrix artifacts")
 
 lazy val baseScalacOptions = Seq(
   "-Werror",
@@ -47,6 +51,13 @@ lazy val root = project
       "dev.zio"           %% "zio-streams"     % "2.1.16",
       "com.github.lalyos"  % "jfiglet"         % "0.0.9",
     ) ++ testDeps,
+    sfcMatrices := Def
+      .inputTaskDyn {
+        val parsedArgs = spaceDelimited("<sfc matrix args>").parsed
+        (Compile / runMain)
+          .toTask(" com.boombustgroup.amorfati.diagnostics.SfcMatrixExport " + parsedArgs.mkString(" "))
+      }
+      .evaluated,
     Test / testOptions ++= {
       val heavyTag         = "com.boombustgroup.amorfati.tags.Heavy"
       // Local `sbt test` skips @Heavy suites by default.
