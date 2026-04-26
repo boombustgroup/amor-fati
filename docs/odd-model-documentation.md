@@ -330,7 +330,8 @@ Observation surfaces include:
 ## ODD+D Decision Notes
 
 The following table summarizes the current human and institutional decision
-surfaces. Detailed mathematical rule documentation is tracked in #431.
+surfaces. Detailed mathematical rules are documented in
+`docs/behavioral-equations-and-decision-rules.md`.
 
 | Decision unit | Decisions | Information used | Constraints | Heterogeneity and adaptation |
 | --- | --- | --- | --- | --- |
@@ -397,9 +398,11 @@ The model is organized into submodels by package:
 - `accounting`: exact SFC identities and ledger-derived matrix evidence;
 - `montecarlo`: multi-seed execution and output schemas.
 
-The current paper-facing behavioral equation catalog is not yet complete. This
-ODD document therefore identifies submodels and decision surfaces, while #431
-will document equations and algorithmic rules in greater depth.
+The paper-facing behavioral equation catalog is documented in
+`docs/behavioral-equations-and-decision-rules.md`. This ODD document keeps the
+protocol-level model description, while that rule book carries equations,
+algorithmic rules, implementation references, output columns, and explicit
+simplifications.
 
 ## Accounting And Validation Boundary
 
@@ -424,7 +427,6 @@ outputs.
 
 This document deliberately marks unfinished research-readiness work:
 
-- #431: detailed behavioral equations and decision-rule book;
 - #432: calibration register with parameter provenance, units, targets, and
   status;
 - #433: empirical validation report and stylized-fact mapping;

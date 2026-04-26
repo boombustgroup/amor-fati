@@ -105,6 +105,8 @@ That distinction matters. A nonlinear ABM can explore unstable, surprising, even
 
 The paper-facing ODD / ODD+D model description is documented in [docs/odd-model-documentation.md](docs/odd-model-documentation.md). It covers purpose, entities, state variables, scales, scheduling, design concepts, initialization, inputs, submodels, observation surfaces, decision-making notes, and open research-readiness gaps.
 
+The detailed behavioral equations and institutional decision rules are documented in [docs/behavioral-equations-and-decision-rules.md](docs/behavioral-equations-and-decision-rules.md). It links household, firm, bank, fiscal, monetary, external, insurance, NBFI, quasi-fiscal, and JST rules to implementation modules and numeric output columns.
+
 ## Ledger-Derived Matrix Artifacts
 
 The project can regenerate paper-facing symbolic SFC matrices from an executed deterministic simulation step:
