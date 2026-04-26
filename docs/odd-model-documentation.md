@@ -345,7 +345,7 @@ surfaces. Detailed mathematical rules are documented in
 
 Decision rules are currently procedural and bounded. The project does not claim
 that every behavioral rule is empirically final. Parameter provenance and
-calibration status are tracked in #432.
+calibration status are documented in `docs/calibration-register.md`.
 
 ## 5. Initialization
 
@@ -378,8 +378,9 @@ Current inputs are:
 - scenario changes expressed by modifying/copying config values in code.
 
 The model contains many Poland-specific calibration comments and values, but a
-single structured calibration register is not yet available. That work is
-tracked in #432. A reproducible scenario registry is tracked in #435.
+structured calibration register is documented in
+`docs/calibration-register.md`. A reproducible scenario registry is tracked in
+#435.
 
 ## 7. Submodels
 
@@ -427,8 +428,6 @@ outputs.
 
 This document deliberately marks unfinished research-readiness work:
 
-- #432: calibration register with parameter provenance, units, targets, and
-  status;
 - #433: empirical validation report and stylized-fact mapping;
 - #434: sensitivity and robustness workflow;
 - #435: reproducible scenario registry;

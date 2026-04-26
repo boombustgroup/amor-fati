@@ -107,6 +107,8 @@ The paper-facing ODD / ODD+D model description is documented in [docs/odd-model-
 
 The detailed behavioral equations and institutional decision rules are documented in [docs/behavioral-equations-and-decision-rules.md](docs/behavioral-equations-and-decision-rules.md). It links household, firm, bank, fiscal, monetary, external, insurance, NBFI, quasi-fiscal, and JST rules to implementation modules and numeric output columns.
 
+The calibration register is documented in [docs/calibration-register.md](docs/calibration-register.md). It records key parameter values, units, implementation owners, empirical targets, transformations, provenance status, and explicit searchable gaps.
+
 ## Ledger-Derived Matrix Artifacts
 
 The project can regenerate paper-facing symbolic SFC matrices from an executed deterministic simulation step:
