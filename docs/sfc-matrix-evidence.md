@@ -35,11 +35,9 @@ does not dirty the repository. The output set is:
 - `matrix-mapping.tex`
 - `matrix-mapping.md`
 
-CSV and JSON are deliberately not produced by this exporter. Use the engine or
-Monte Carlo CSV output for numeric evidence.
-
-The BSM and TFM LaTeX files are plain `tabular` fragments. The mapping LaTeX
-file uses `longtable` so the runtime mapping can break across pages.
+The Balance Sheet Matrix and Transactions Flow Matrix LaTeX files are plain
+`tabular` fragments. The mapping LaTeX file uses `longtable` so the runtime
+mapping can break across pages.
 
 ## Source Contract
 
@@ -47,11 +45,12 @@ The export still executes the deterministic runtime before writing artifacts:
 
 1. Initialize deterministic state from `WorldInit.initialize`.
 2. Execute month steps through `MonthDriver.unfoldSteps`.
-3. Build ledger-derived matrix evidence from the selected step.
-4. Validate complete BSM rows, exact TFM row sums, stock-flow reconciliation,
-   and the underlying `Sfc.validate` status.
-5. Render symbolic BSM, symbolic TFM, and the mapping table only if validation
-   status is available for the selected run.
+3. Build ledger-derived validation inputs from the selected step.
+4. Validate complete Balance Sheet Matrix rows, exact Transactions Flow Matrix
+   row sums, stock-flow reconciliation, and the underlying `Sfc.validate`
+   status.
+5. Render symbolic Balance Sheet Matrix, symbolic Transactions Flow Matrix, and
+   the mapping table for the selected run.
 
 The symbolic matrix definitions live in `SfcSymbolicMatrices`. The registry in
 `SfcMatrixRegistry` fixes sector metadata, instrument metadata, mechanism
@@ -59,16 +58,16 @@ labels, LaTeX symbols, and row coverage policy.
 
 ## Sign Conventions
 
-BSM rows use asset-positive and liability-negative signs:
+Balance Sheet Matrix rows use asset-positive and liability-negative signs:
 
 - holder assets are positive;
 - issuer or borrower liabilities are negative;
 - unsupported or incomplete rows are not silently balanced;
 - the net-worth row is a paper-level column-balancing row, not a runtime asset.
 
-TFM rows use payer-negative and receiver-positive signs. Financial-account rows
-such as loan origination, repayment, bond issuance, and deposit change follow
-the same row-sum-zero convention as the paper matrix.
+Transactions Flow Matrix rows use payer-negative and receiver-positive signs.
+Financial-account rows such as loan origination, repayment, bond issuance, and
+deposit change follow the same row-sum-zero convention as the paper matrix.
 
 ## Sector Order
 
@@ -102,12 +101,13 @@ gaps in the ledger-derived validation layer. Examples include:
 - bank capital, which is persisted engine state but outside the supported
   ledger-owned stock slice.
 
-These gaps are review evidence. They are not balancing rows.
+These gaps are review diagnostics. They are not balancing rows.
 
 ## Review Checklist
 
 - The export command exits with status 0.
 - Only `.tex` and `.md` files are written by the symbolic exporter.
-- `symbolic-bsm.*` and `symbolic-tfm.*` contain paper-style symbolic matrices.
+- `symbolic-bsm.*` contains the paper-style symbolic Balance Sheet Matrix.
+- `symbolic-tfm.*` contains the paper-style symbolic Transactions Flow Matrix.
 - `matrix-mapping.*` links each symbolic row to runtime assets and mechanisms.
-- Numeric checks are reviewed against the engine or Monte Carlo CSV output.
+- `matrix-mapping.tex` is included with `\usepackage{longtable}`.
