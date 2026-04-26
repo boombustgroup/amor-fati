@@ -83,7 +83,7 @@ Amor Fati uses a hybrid runtime ontology rather than a single undifferentiated w
 - macro and market state
   - prices, policy, external conditions, and inter-step signals live in the macro runtime layer
 - ledger-owned financial state
-  - supported financial balances live in `LedgerFinancialState` and are projected into the ledger runtime for execution and validation
+  - supported financial balances are kept in an accounting-controlled stock layer and projected into runtime execution and validation
 
 This split is intentional. It keeps rich agent behavior where object-level modeling is useful, while moving accounting-critical execution into a stricter ledger substrate.
 
@@ -118,13 +118,32 @@ replication, calibration, validation, and publication work:
 
 ## Ledger-Derived Matrix Artifacts
 
-The project can regenerate paper-facing symbolic SFC matrices from an executed deterministic simulation step:
+The project includes committed Markdown snapshots of the paper-facing SFC
+matrix artifacts:
+
+| Artifact | Link |
+| --- | --- |
+| Balance Sheet Matrix (BSM) | [docs/sfc-matrix-artifacts/symbolic-bsm.md](docs/sfc-matrix-artifacts/symbolic-bsm.md) |
+| Transactions Flow Matrix (TFM) | [docs/sfc-matrix-artifacts/symbolic-tfm.md](docs/sfc-matrix-artifacts/symbolic-tfm.md) |
+| Stock-Flow Reconciliation and Revaluation Evidence | [docs/sfc-matrix-artifacts/stock-flow-reconciliation.md](docs/sfc-matrix-artifacts/stock-flow-reconciliation.md) |
+| Symbolic-row to runtime mapping | [docs/sfc-matrix-artifacts/matrix-mapping.md](docs/sfc-matrix-artifacts/matrix-mapping.md) |
+
+These snapshots are generated from an executed deterministic simulation step.
+To regenerate a scratch copy under `target/`:
 
 ```bash
 sbt "sfcMatrices --seed 1 --months 12 --out target/sfc-matrices"
 ```
 
-This writes symbolic Balance Sheet Matrix (BSM), Transactions Flow Matrix (TFM), and stock-flow reconciliation/revaluation artifacts in LaTeX and Markdown, plus a symbolic-row to runtime-ledger mapping under `target/`. The workflow, sign conventions, coverage gaps, exact reconciliation rows, and review checklist are documented in [docs/sfc-matrix-evidence.md](docs/sfc-matrix-evidence.md).
+To refresh the committed Markdown snapshots:
+
+```bash
+sbt "sfcMatrices --seed 1 --months 12 --out docs/sfc-matrix-artifacts --format md"
+```
+
+The workflow, sign conventions, coverage gaps, exact reconciliation rows, and
+review checklist are documented in
+[docs/sfc-matrix-evidence.md](docs/sfc-matrix-evidence.md).
 
 ## Tech Stack
 

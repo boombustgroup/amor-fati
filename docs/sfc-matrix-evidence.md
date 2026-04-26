@@ -38,6 +38,13 @@ does not dirty the repository. The output set is:
 - `matrix-mapping.tex`
 - `matrix-mapping.md`
 
+The repository also keeps a canonical Markdown snapshot under
+`docs/sfc-matrix-artifacts/`. Refresh it with:
+
+```bash
+sbt "sfcMatrices --seed 1 --months 12 --out docs/sfc-matrix-artifacts --format md"
+```
+
 The Balance Sheet Matrix and Transactions Flow Matrix LaTeX files are plain
 `tabular` fragments. The reconciliation and mapping LaTeX files use `longtable`
 so runtime evidence can break across pages.
