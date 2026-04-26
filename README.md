@@ -121,12 +121,12 @@ replication, calibration, validation, and publication work:
 The project includes committed Markdown snapshots of the paper-facing SFC
 matrix artifacts:
 
-| Artifact | Link |
+| Artifact | Purpose |
 | --- | --- |
-| Balance Sheet Matrix (BSM) | [docs/sfc-matrix-artifacts/symbolic-bsm.md](docs/sfc-matrix-artifacts/symbolic-bsm.md) |
-| Transactions Flow Matrix (TFM) | [docs/sfc-matrix-artifacts/symbolic-tfm.md](docs/sfc-matrix-artifacts/symbolic-tfm.md) |
-| Stock-Flow Reconciliation and Revaluation Evidence | [docs/sfc-matrix-artifacts/stock-flow-reconciliation.md](docs/sfc-matrix-artifacts/stock-flow-reconciliation.md) |
-| Symbolic-row to runtime mapping | [docs/sfc-matrix-artifacts/matrix-mapping.md](docs/sfc-matrix-artifacts/matrix-mapping.md) |
+| [Balance Sheet Matrix (BSM)](docs/sfc-matrix-artifacts/symbolic-bsm.md) | Symbolic stock matrix by instrument and sector, using SFC asset/liability signs and explicit row sums. |
+| [Transactions Flow Matrix (TFM)](docs/sfc-matrix-artifacts/symbolic-tfm.md) | Symbolic monthly flow matrix by sector, including income, taxes, transfers, interest, trade, credit, bonds, and deposit changes. |
+| [Stock-Flow Reconciliation and Revaluation Evidence](docs/sfc-matrix-artifacts/stock-flow-reconciliation.md) | Executed-run evidence comparing observed stock deltas or level identities with independent transaction, revaluation, default, write-off, and other-change channels. |
+| [Symbolic-row to runtime mapping](docs/sfc-matrix-artifacts/matrix-mapping.md) | Traceability table linking each symbolic matrix row to runtime assets, mechanisms, ids, and coverage notes. |
 
 These snapshots are generated from an executed deterministic simulation step.
 To regenerate a scratch copy under `target/`:
