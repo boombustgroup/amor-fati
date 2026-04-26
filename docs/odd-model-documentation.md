@@ -66,8 +66,8 @@ The current model is expected to generate and expose:
   bank failure and resolution, BFG levy and bail-in, government-bond portfolio
   effects, and credit rationing;
 - accounting artifacts: symbolic Balance Sheet Matrix (BSM), Transactions
-  Flow Matrix (TFM), and runtime mapping generated from an executed simulation
-  step.
+  Flow Matrix (TFM), stock-flow reconciliation evidence, and runtime mapping
+  generated from an executed simulation step.
 
 Empirical validation of these patterns is structured in
 `docs/empirical-validation-report.md`.
@@ -194,8 +194,9 @@ Economics stages compute quantities. Monetary execution is done through
 runtime flows. Each emitted flow has a `FlowMechanism` and an `AssetType`.
 Flows are grouped into `BatchedFlow` values and executed through the ledger.
 
-The SFC matrix evidence workflow generates symbolic BSM and TFM artifacts from
-an executed deterministic step. See `docs/sfc-matrix-evidence.md`.
+The SFC matrix evidence workflow generates symbolic BSM, TFM, stock-flow
+reconciliation, and runtime-mapping artifacts from an executed deterministic
+step. See `docs/sfc-matrix-evidence.md`.
 
 ### Timing Contract
 
@@ -325,7 +326,7 @@ Observation surfaces include:
 - Monte Carlo per-seed CSV time series;
 - household and bank terminal summary CSVs;
 - SFC validation results;
-- ledger-derived symbolic BSM and TFM artifacts;
+- ledger-derived symbolic BSM, TFM, and stock-flow reconciliation artifacts;
 - symbolic-row to runtime-ledger mapping.
 
 ## ODD+D Decision Notes
@@ -435,6 +436,7 @@ The matrix evidence workflow adds paper-facing symbolic artifacts:
 
 - Balance Sheet Matrix (BSM);
 - Transactions Flow Matrix (TFM);
+- Stock-Flow Reconciliation and Revaluation Evidence;
 - symbolic-row to runtime-ledger mapping.
 
 Numeric evidence remains in the simulation and Monte Carlo outputs. Symbolic
@@ -445,7 +447,6 @@ outputs.
 
 This document deliberately marks unfinished research-readiness work:
 
-- #436: stock-flow reconciliation and revaluation matrix artifact;
 - #437: data bridge to national and financial accounts.
 
 These gaps do not mean the engine is undocumented or untestable. They mean the

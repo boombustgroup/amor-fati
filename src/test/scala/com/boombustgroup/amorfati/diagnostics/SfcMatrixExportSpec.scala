@@ -54,13 +54,16 @@ class SfcMatrixExportSpec extends AnyFlatSpec with Matchers:
         "symbolic-bsm.md",
         "symbolic-tfm.md",
         "matrix-mapping.md",
+        "stock-flow-reconciliation.md",
       )
       Files.exists(out.resolve("symbolic-bsm.md")) shouldBe true
       Files.exists(out.resolve("symbolic-tfm.md")) shouldBe true
       Files.exists(out.resolve("matrix-mapping.md")) shouldBe true
+      Files.exists(out.resolve("stock-flow-reconciliation.md")) shouldBe true
       Files.exists(out.resolve("symbolic-bsm.tex")) shouldBe false
       Files.exists(out.resolve("symbolic-tfm.tex")) shouldBe false
       Files.exists(out.resolve("matrix-mapping.tex")) shouldBe false
+      Files.exists(out.resolve("stock-flow-reconciliation.tex")) shouldBe false
     } finally deleteRecursively(out)
   }
 

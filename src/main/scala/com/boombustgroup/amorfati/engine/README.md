@@ -46,6 +46,8 @@ case class StepOutput(
   operationalSignals: OperationalSignals,
   signalExtraction: SignalExtraction.Output,
   randomness: MonthRandomness.Contract,
+  semanticFlows: Sfc.SemanticFlows,
+  sfcResult: Sfc.SfcResult,
   trace: MonthTrace,
   nextState: SimState,
   ...

@@ -1,8 +1,11 @@
 package com.boombustgroup.amorfati.accounting.matrix
 
 import com.boombustgroup.amorfati.accounting.Sfc
+import com.boombustgroup.amorfati.config.SimParams
+import com.boombustgroup.amorfati.engine.flows.FlowMechanism
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, GovernmentBondCircuit}
+import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.BuildInfo
 import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector, MechanismId}
 
@@ -129,6 +132,33 @@ object SfcMatrixEvidence:
     def nonZeroCells: Vector[OtherChangeCell] =
       cells.filter(cell => cell.stockDeltaRaw != 0L || cell.transactionDeltaRaw != 0L || cell.otherChangeRaw != 0L)
 
+  final case class ReconciliationRowMetadata(
+      label: String,
+      source: String,
+      assets: Vector[AssetType],
+      mechanisms: Vector[MechanismId],
+      note: String,
+  )
+
+  final case class StockFlowReconciliationCell(
+      identity: Sfc.SfcIdentity,
+      label: String,
+      expectedRaw: Long,
+      actualRaw: Long,
+      residualRaw: Long,
+      status: String,
+      source: String,
+      assets: Vector[AssetType],
+      mechanisms: Vector[MechanismId],
+      note: String,
+  )
+
+  final case class StockFlowReconciliationEvidence(
+      rows: Vector[StockFlowReconciliationCell],
+  ):
+    def failures: Vector[StockFlowReconciliationCell] =
+      rows.filter(_.residualRaw != 0L)
+
   enum MatrixValidationError:
     case BsmRowSumError(snapshot: SnapshotKind, asset: AssetType, actualRaw: Long, reason: String)
     case TfmRowSumError(rowKey: String, mechanism: MechanismId, asset: AssetType, actualRaw: Long)
@@ -145,6 +175,7 @@ object SfcMatrixEvidence:
       closingBsm: BsmEvidence,
       tfm: TfmEvidence,
       otherChanges: OtherChangesEvidence,
+      reconciliation: StockFlowReconciliationEvidence,
       validation: MatrixValidationReport,
   )
 
@@ -377,6 +408,245 @@ object SfcMatrixEvidence:
               case _                                          =>
                 (OtherChangeKind.CoverageGap, instrument.note)
 
+  object StockFlowReconciliationEvidence:
+    def fromStep(step: FlowSimulation.StepOutput)(using SimParams): StockFlowReconciliationEvidence =
+      val prev  = Sfc.RuntimeState(
+        step.stateIn.world,
+        step.stateIn.firms,
+        step.stateIn.households,
+        step.stateIn.banks,
+        step.stateIn.ledgerFinancialState,
+      )
+      val curr  = Sfc.RuntimeState(
+        step.nextState.world,
+        step.nextState.firms,
+        step.nextState.households,
+        step.nextState.banks,
+        step.nextState.ledgerFinancialState,
+      )
+      val flows = step.semanticFlows.copy(fofResidual = PLN.Zero)
+      val rows  = Sfc
+        .stockFlowReconciliationRows(prev, curr, flows)
+        .map: row =>
+          val rowMetadata = metadata(row.identity)
+          StockFlowReconciliationCell(
+            identity = row.identity,
+            label = rowMetadata.label,
+            expectedRaw = row.expected.toLong,
+            actualRaw = row.actual.toLong,
+            residualRaw = row.residual.toLong,
+            status = if row.isValid then "pass" else "fail",
+            source = rowMetadata.source,
+            assets = rowMetadata.assets,
+            mechanisms = rowMetadata.mechanisms,
+            note = rowMetadata.note,
+          )
+
+      StockFlowReconciliationEvidence(rows)
+
+    private def metadata(identity: Sfc.SfcIdentity): ReconciliationRowMetadata =
+      import Sfc.SfcIdentity.*
+
+      identity match
+        case BankCapital                 =>
+          rowMetadata(
+            "Bank capital",
+            "Actual delta from bank capital stocks; expected delta from bank P&L, default/write-off, valuation, provision, and capital-destruction channels.",
+            Vector(AssetType.Capital),
+            Vector(
+              FlowMechanism.BankFirmInterest,
+              FlowMechanism.HhDebtService,
+              FlowMechanism.BankGovBondIncome,
+              FlowMechanism.MortgageInterest,
+              FlowMechanism.HhCcDebtService,
+              FlowMechanism.BankCorpBondCoupon,
+              FlowMechanism.HhDepositInterest,
+              FlowMechanism.BankReserveInterest,
+              FlowMechanism.BankStandingFacility,
+              FlowMechanism.BankInterbankInterest,
+              FlowMechanism.BankNplLoss,
+              FlowMechanism.BankMortgageNplLoss,
+              FlowMechanism.BankCcNplLoss,
+              FlowMechanism.BankCorpBondLoss,
+              FlowMechanism.BankBfgLevy,
+              FlowMechanism.BankUnrealizedLoss,
+            ),
+            "Includes non-batch htmRealizedLoss, eclProvisionChange, and bankCapitalDestruction from BankingEconomics.",
+          )
+        case BankDeposits                =>
+          rowMetadata(
+            "Bank deposits",
+            "Actual delta from aggregate bank deposit stocks; expected delta from executed income, spending, loan, bail-in, insurance, fund, and quasi-fiscal deposit channels.",
+            Vector(AssetType.DemandDeposit, AssetType.TermDeposit),
+            Vector(
+              FlowMechanism.HhTotalIncome,
+              FlowMechanism.HhConsumption,
+              FlowMechanism.InvestmentDepositSettlement,
+              FlowMechanism.JstRevenue,
+              FlowMechanism.JstSpending,
+              FlowMechanism.EquityDomDividend,
+              FlowMechanism.EquityForDividend,
+              FlowMechanism.HhRemittance,
+              FlowMechanism.DiasporaInflow,
+              FlowMechanism.TourismExport,
+              FlowMechanism.TourismImport,
+              FlowMechanism.BankBailIn,
+              FlowMechanism.FirmNewLoan,
+              FlowMechanism.FirmLoanRepayment,
+              FlowMechanism.HhCcOrigination,
+              FlowMechanism.InsLifePremium,
+              FlowMechanism.InsNonLifePremium,
+              FlowMechanism.InsLifeClaim,
+              FlowMechanism.InsNonLifeClaim,
+              FlowMechanism.TfiDepositDrain,
+              FlowMechanism.QuasiFiscalLendingDeposit,
+              FlowMechanism.QuasiFiscalRepaymentDeposit,
+            ),
+            "Deposit stock reconciliation is not computed as a residual; every expected component is sourced from the semantic flow surface.",
+          )
+        case Nfa                         =>
+          rowMetadata(
+            "Net foreign assets",
+            "Actual delta from BoP NFA stock; expected delta from current account plus the independent FX valuation effect.",
+            Vector(AssetType.ForeignAsset),
+            Vector(
+              FlowMechanism.TradeExports,
+              FlowMechanism.TradeImports,
+              FlowMechanism.TourismExport,
+              FlowMechanism.TourismImport,
+              FlowMechanism.PrimaryIncome,
+              FlowMechanism.EuFunds,
+              FlowMechanism.DiasporaInflow,
+              FlowMechanism.HhRemittance,
+              FlowMechanism.CapitalFlight,
+            ),
+            "The FX valuation leg is OpenEconEconomics.valuationEffect, not stockDelta minus transactions.",
+          )
+        case BondClearing                =>
+          rowMetadata(
+            "Government bond clearing",
+            "Actual level check: supported holder stocks must equal government bonds outstanding.",
+            Vector(AssetType.GovBondHTM, AssetType.GovBondAFS),
+            Vector(
+              FlowMechanism.GovBondPrimaryMarket,
+              FlowMechanism.GovBondForeignPurchase,
+              FlowMechanism.NbpQeGovBondPurchase,
+              FlowMechanism.InsuranceGovBondPurchase,
+              FlowMechanism.TfiGovBondPurchase,
+            ),
+            "This is a holder/issuer clearing identity, not a valuation residual.",
+          )
+        case InterbankNetting            =>
+          rowMetadata(
+            "Interbank netting",
+            "Actual level check: interbank positions must net to zero.",
+            Vector(AssetType.InterbankLoan),
+            Vector(FlowMechanism.BankInterbankInterest),
+            "Single-bank runs pass trivially; multi-bank runs expose netting errors.",
+          )
+        case MortgageStock               =>
+          rowMetadata(
+            "Mortgage stock",
+            "Actual delta from household mortgage stock; expected delta from origination minus principal repayment and defaults.",
+            Vector(AssetType.MortgageLoan),
+            Vector(FlowMechanism.MortgageOrigination, FlowMechanism.MortgageRepayment, FlowMechanism.MortgageDefault),
+            "The current holder side is household-resolved; bank-side mortgage stock remains a documented BSM coverage gap.",
+          )
+        case FlowOfFunds                 =>
+          rowMetadata(
+            "Flow of funds",
+            "Runtime ledger conservation is checked by Sfc.validate through the executed delta ledger.",
+            Vector(AssetType.Cash),
+            Vector(FlowMechanism.HhConsumption, FlowMechanism.GovPurchases, FlowMechanism.TradeExports, FlowMechanism.InvestmentDepositSettlement),
+            "The old hand-assembled residual is neutralized in production validation to avoid double-counting the ledger conservation check.",
+          )
+        case ConsumerCredit              =>
+          rowMetadata(
+            "Consumer credit",
+            "Actual delta from consumer loan stocks; expected delta from origination minus debt service and defaults.",
+            Vector(AssetType.ConsumerLoan),
+            Vector(FlowMechanism.HhCcOrigination, FlowMechanism.HhCcDebtService, FlowMechanism.HhCcDefault),
+            "Bank loss recognition is separately included in the bank-capital identity.",
+          )
+        case CorpBondStock               =>
+          rowMetadata(
+            "Corporate bond stock",
+            "Actual delta from corporate bond issuer stock; expected delta from issuance minus amortization and defaults.",
+            Vector(AssetType.CorpBond),
+            Vector(FlowMechanism.CorpBondIssuance, FlowMechanism.CorpBondAmortization, FlowMechanism.CorpBondDefault),
+            "Holder loss recognition is separately represented through bank and insurance/fund channels.",
+          )
+        case NbfiCredit                  =>
+          rowMetadata(
+            "NBFI credit",
+            "Actual delta from NBFI loan stock; expected delta from origination minus repayment and defaults.",
+            Vector(AssetType.NbfiLoan),
+            Vector(FlowMechanism.NbfiOrigination, FlowMechanism.NbfiRepayment, FlowMechanism.NbfiDefault),
+            "Quasi-fiscal credit has a separate exact identity.",
+          )
+        case QuasiFiscalBondStock        =>
+          rowMetadata(
+            "Quasi-fiscal bond stock",
+            "Actual delta from BGK/PFR bonds outstanding; expected delta from issuance minus amortization.",
+            Vector(AssetType.QuasiFiscalBond),
+            Vector(FlowMechanism.QuasiFiscalBondIssuance, FlowMechanism.QuasiFiscalBondAmortization),
+            "NBP absorption and amortization are split out in holder identities.",
+          )
+        case QuasiFiscalBondClearing     =>
+          rowMetadata(
+            "Quasi-fiscal bond clearing",
+            "Actual level check: commercial-bank plus NBP quasi-fiscal holdings must equal bonds outstanding.",
+            Vector(AssetType.QuasiFiscalBond),
+            Vector(
+              FlowMechanism.QuasiFiscalBondIssuance,
+              FlowMechanism.QuasiFiscalNbpAbsorption,
+              FlowMechanism.QuasiFiscalBondAmortization,
+              FlowMechanism.QuasiFiscalNbpBondAmortization,
+            ),
+            "This is a holder/issuer clearing identity.",
+          )
+        case QuasiFiscalBankBondHoldings =>
+          rowMetadata(
+            "Quasi-fiscal bank bond holdings",
+            "Actual delta from commercial-bank quasi-fiscal bond holdings; expected delta from bank issuance minus bank amortization.",
+            Vector(AssetType.QuasiFiscalBond),
+            Vector(FlowMechanism.QuasiFiscalBondIssuance, FlowMechanism.QuasiFiscalBondAmortization),
+            "Bank leg excludes NBP absorption and NBP amortization.",
+          )
+        case QuasiFiscalNbpBondHoldings  =>
+          rowMetadata(
+            "Quasi-fiscal NBP bond holdings",
+            "Actual delta from NBP quasi-fiscal bond holdings; expected delta from NBP absorption minus NBP amortization.",
+            Vector(AssetType.QuasiFiscalBond),
+            Vector(FlowMechanism.QuasiFiscalNbpAbsorption, FlowMechanism.QuasiFiscalNbpBondAmortization),
+            "This keeps quasi-fiscal monetary financing inspectable as its own channel.",
+          )
+        case QuasiFiscalCredit           =>
+          rowMetadata(
+            "Quasi-fiscal credit",
+            "Actual delta from BGK/PFR subsidized loan portfolio; expected delta from lending minus repayment.",
+            Vector(AssetType.NbfiLoan),
+            Vector(FlowMechanism.QuasiFiscalLending, FlowMechanism.QuasiFiscalRepayment),
+            "Deposit creation/destruction from lending is reconciled in the bank-deposit identity.",
+          )
+        case other                       =>
+          rowMetadata(
+            other.toString,
+            "Legacy diagnostic identity outside the stock-flow reconciliation artifact.",
+            Vector.empty,
+            Vector.empty,
+            "This identity is not part of the 15 exact stock-flow rows rendered here.",
+          )
+
+    private def rowMetadata(
+        label: String,
+        source: String,
+        assets: Vector[AssetType],
+        mechanisms: Vector[MechanismId],
+        note: String,
+    ): ReconciliationRowMetadata =
+      ReconciliationRowMetadata(label, source, assets, mechanisms, note)
+
   object MatrixValidation:
     def validate(
         opening: BsmEvidence,
@@ -414,15 +684,16 @@ object SfcMatrixEvidence:
       MatrixValidationReport(sfcErrors ++ bsmErrors ++ tfmErrors ++ registryErrors)
 
   object MatrixEvidenceBundle:
-    def fromStep(seed: Long, step: FlowSimulation.StepOutput, commit: String = BuildInfo.gitCommit): MatrixEvidenceBundle =
-      val opening      = BsmEvidence.fromStepOpening(step)
-      val closing      = BsmEvidence.fromStepClosing(step)
-      val tfm          = TfmEvidence.fromStep(step)
-      val other        = OtherChangesEvidence.from(opening, closing, tfm)
-      val validation   = MatrixValidation.validate(opening, closing, tfm, step.sfcResult)
-      val sfcStatus    = if step.sfcResult.isRight then "pass" else "fail"
-      val matrixStatus = if validation.isValid then "pass" else "fail"
-      val metadata     = MatrixMetadata(
+    def fromStep(seed: Long, step: FlowSimulation.StepOutput, commit: String = BuildInfo.gitCommit)(using SimParams): MatrixEvidenceBundle =
+      val opening        = BsmEvidence.fromStepOpening(step)
+      val closing        = BsmEvidence.fromStepClosing(step)
+      val tfm            = TfmEvidence.fromStep(step)
+      val other          = OtherChangesEvidence.from(opening, closing, tfm)
+      val reconciliation = StockFlowReconciliationEvidence.fromStep(step)
+      val validation     = MatrixValidation.validate(opening, closing, tfm, step.sfcResult)
+      val sfcStatus      = if step.sfcResult.isRight then "pass" else "fail"
+      val matrixStatus   = if validation.isValid then "pass" else "fail"
+      val metadata       = MatrixMetadata(
         seed = seed,
         executionMonth = step.executionMonth.toInt,
         commit = commit,
@@ -430,6 +701,6 @@ object SfcMatrixEvidence:
         sfcStatus = sfcStatus,
         matrixStatus = matrixStatus,
       )
-      MatrixEvidenceBundle(metadata, opening, closing, tfm, other, validation)
+      MatrixEvidenceBundle(metadata, opening, closing, tfm, other, reconciliation, validation)
 
 end SfcMatrixEvidence

@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.accounting.matrix
 
 import com.boombustgroup.amorfati.accounting.matrix.SfcMatrixEvidence.*
+import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.flows.{FlowMechanism, FlowSimulation}
@@ -112,7 +113,19 @@ class SfcMatrixEvidenceSpec extends AnyFlatSpec with Matchers:
     bundle.validation.isValid shouldBe true
   }
 
-  it should "report actionable BSM and TFM perturbations" in {
+  "StockFlowReconciliationEvidence" should "render exact identity rows from independent semantic flow channels" in {
+    val reconciliation = bundle.reconciliation
+
+    reconciliation.rows.map(_.identity).toSet should contain(Sfc.SfcIdentity.Nfa)
+    reconciliation.rows.map(_.identity).toSet should contain(Sfc.SfcIdentity.BankCapital)
+    reconciliation.failures shouldBe empty
+
+    val nfa = reconciliation.rows.find(_.identity == Sfc.SfcIdentity.Nfa).get
+    nfa.source should include("current account")
+    nfa.note should include("valuationEffect")
+  }
+
+  "MatrixValidation" should "report actionable BSM and TFM perturbations" in {
     val openingIndex = bundle.openingBsm.rows.indexWhere(_.asset == AssetType.GovBondHTM)
     val openingRow   = bundle.openingBsm.rows(openingIndex)
     val badOpening   = bundle.openingBsm.copy(

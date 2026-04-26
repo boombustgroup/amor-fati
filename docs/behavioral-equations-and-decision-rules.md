@@ -9,7 +9,8 @@ The document complements:
 - `docs/odd-model-documentation.md`, which describes the model using the ODD
   and ODD+D structure;
 - `docs/sfc-matrix-evidence.md`, which documents the symbolic Balance Sheet
-  Matrix (BSM) and Transactions Flow Matrix (TFM) evidence.
+  Matrix (BSM), Transactions Flow Matrix (TFM), and stock-flow reconciliation
+  evidence.
 
 ## Scope And Notation
 

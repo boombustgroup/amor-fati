@@ -16,9 +16,9 @@ Accounting validation and empirical validation answer different questions:
 | Surface | Question | Artifact |
 | --- | --- | --- |
 | Runtime ledger checks | Did emitted monetary flows conserve value through the ledger? | Engine runtime checks and SFC identity validation |
-| Paper-facing accounting structure | Are Balance Sheet Matrix and Transactions Flow Matrix rows documented and traceable to runtime mechanisms? | `docs/sfc-matrix-evidence.md` |
+| Paper-facing accounting structure | Are Balance Sheet Matrix, Transactions Flow Matrix, and stock-flow reconciliation rows documented and traceable to runtime mechanisms? | `docs/sfc-matrix-evidence.md` |
 | Empirical validation | Do simulated paths reproduce empirical Polish/EU macro, meso, and micro stylized facts? | This report |
-| Revaluation and other-change accounting | Do stocks reconcile with transactions plus independent revaluations or other changes? | Follow-up #436 |
+| Revaluation and other-change accounting | Do stocks reconcile with transactions plus independent revaluations or other changes? | `docs/sfc-matrix-evidence.md` |
 
 Empirical validation must not be used to relax accounting constraints. A model
 run can fit an empirical target and still be invalid if the ledger or SFC
@@ -147,6 +147,4 @@ mapping and frequency conventions belong in #437.
   baseline report.
 - `docs/scenario-registry.md`: named scenarios whose outputs should reuse the
   same validation target table.
-- #436: stock-flow reconciliation and revaluation artifact; keep this separate
-  from empirical fit.
 - #438: milestone tracker for the full research-readiness spine.

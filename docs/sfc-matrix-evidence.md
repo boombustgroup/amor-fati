@@ -5,6 +5,7 @@ an executed deterministic simulation step:
 
 - a symbolic Balance Sheet Matrix (BSM);
 - a symbolic Transactions Flow Matrix (TFM);
+- a Stock-Flow Reconciliation and Revaluation Evidence table;
 - a mapping from symbolic rows to runtime `AssetType` and `FlowMechanism`
   concepts.
 
@@ -32,12 +33,14 @@ does not dirty the repository. The output set is:
 - `symbolic-bsm.md`
 - `symbolic-tfm.tex`
 - `symbolic-tfm.md`
+- `stock-flow-reconciliation.tex`
+- `stock-flow-reconciliation.md`
 - `matrix-mapping.tex`
 - `matrix-mapping.md`
 
 The Balance Sheet Matrix and Transactions Flow Matrix LaTeX files are plain
-`tabular` fragments. The mapping LaTeX file uses `longtable` so the runtime
-mapping can break across pages.
+`tabular` fragments. The reconciliation and mapping LaTeX files use `longtable`
+so runtime evidence can break across pages.
 
 ## Source Contract
 
@@ -49,8 +52,9 @@ The export still executes the deterministic runtime before writing artifacts:
 4. Validate complete Balance Sheet Matrix rows, exact Transactions Flow Matrix
    row sums, stock-flow reconciliation, and the underlying `Sfc.validate`
    status.
-5. Render symbolic Balance Sheet Matrix, symbolic Transactions Flow Matrix, and
-   the mapping table for the selected run.
+5. Render symbolic Balance Sheet Matrix, symbolic Transactions Flow Matrix,
+   Stock-Flow Reconciliation and Revaluation Evidence, and the mapping table
+   for the selected run.
 
 The symbolic matrix definitions live in `SfcSymbolicMatrices`. The registry in
 `SfcMatrixRegistry` fixes sector metadata, instrument metadata, mechanism
@@ -68,6 +72,40 @@ Balance Sheet Matrix rows use asset-positive and liability-negative signs:
 Transactions Flow Matrix rows use payer-negative and receiver-positive signs.
 Financial-account rows such as loan origination, repayment, bond issuance, and
 deposit change follow the same row-sum-zero convention as the paper matrix.
+
+## Stock-Flow Reconciliation And Revaluation
+
+`stock-flow-reconciliation.*` is not a residual balancing row. It renders the
+15 exact SFC identities used by `Sfc.validate`:
+
+- actual values come from observed opening and closing `Sfc.StockState` values
+  or level-clearing checks;
+- expected values come from `Sfc.SemanticFlows`, which is assembled from
+  executed runtime mechanisms where a mechanism exists;
+- the row residual is `actual - expected` and must be zero for a passing row.
+
+The artifact deliberately avoids validating `otherChange = stockDelta -
+transactionDelta`. That diagnostic residual remains useful for coverage review,
+but it is not used as proof that stock-flow reconciliation holds.
+
+Runtime channel coverage:
+
+- FX and NFA valuation: `OpenEconEconomics.valuationEffect`, combined with
+  current-account channels such as trade, tourism, primary income, EU funds,
+  remittances, and capital flight.
+- Defaults and write-offs: consumer credit, firm NPL, mortgage, corporate bond,
+  and NBFI default mechanisms, plus bank loss-recognition mechanisms.
+- Bond valuation and loss recognition: `BankUnrealizedLoss`, plus
+  `htmRealizedLoss` and `eclProvisionChange` from `BankingEconomics`.
+- Bond clearing: government and quasi-fiscal holder/issuer level checks over
+  supported bank, NBP, insurance, fund, foreign, and issuer stocks.
+- Equity valuation: equity returns enter insurance and NBFI investment-income
+  channels. A holder-resolved exact equity-stock revaluation row still requires
+  a first-class runtime equity revaluation mechanism and complete persisted
+  equity holder stocks.
+- Other changes in volume: bank capital destruction, bail-in, amortization,
+  repayment, and quasi-fiscal lending channels are explicit components of the
+  exact identities where they affect supported stocks.
 
 ## Sector Order
 
@@ -109,5 +147,8 @@ These gaps are review diagnostics. They are not balancing rows.
 - Only `.tex` and `.md` files are written by the symbolic exporter.
 - `symbolic-bsm.*` contains the paper-style symbolic Balance Sheet Matrix.
 - `symbolic-tfm.*` contains the paper-style symbolic Transactions Flow Matrix.
+- `stock-flow-reconciliation.*` contains exact SFC identity evidence with
+  expected, actual, residual, status, and runtime channels.
 - `matrix-mapping.*` links each symbolic row to runtime assets and mechanisms.
 - `matrix-mapping.tex` is included with `\usepackage{longtable}`.
+- `stock-flow-reconciliation.tex` is included with `\usepackage{longtable}`.

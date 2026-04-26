@@ -50,7 +50,10 @@ object SfcMatrixRenderers:
     val mappingArtifacts = formats.map: format =>
       RenderedArtifact(s"matrix-mapping.${format.extension}", renderMapping(bundle.metadata, format))
 
-    matrixArtifacts ++ mappingArtifacts
+    val reconciliationArtifacts = formats.map: format =>
+      RenderedArtifact(s"stock-flow-reconciliation.${format.extension}", renderReconciliation(bundle, format))
+
+    matrixArtifacts ++ mappingArtifacts ++ reconciliationArtifacts
 
   def writeSymbolicBundle(
       bundle: MatrixEvidenceBundle,
@@ -167,6 +170,68 @@ object SfcMatrixRenderers:
       rows,
     )
 
+  private def renderReconciliation(bundle: MatrixEvidenceBundle, format: OutputFormat): String =
+    format match
+      case OutputFormat.Latex    => renderReconciliationLatex(bundle)
+      case OutputFormat.Markdown => renderReconciliationMarkdown(bundle)
+
+  private def renderReconciliationLatex(bundle: MatrixEvidenceBundle): String =
+    val metadata = bundle.metadata
+    val header   = Vector("Identity", "Expected", "Actual", "Residual", "Status", "Runtime channels", "Source").map(escapeLatex).mkString(" & ")
+    val body     = bundle.reconciliation.rows.map: row =>
+      Vector(
+        escapeLatex(row.label),
+        escapeLatex(formatAmountRaw(row.expectedRaw)),
+        escapeLatex(formatAmountRaw(row.actualRaw)),
+        escapeLatex(formatAmountRaw(row.residualRaw)),
+        escapeLatex(row.status),
+        latexTextList(reconciliationChannels(row)),
+        escapeLatex(s"${row.source} ${row.note}"),
+      ).mkString(" & ") + " \\\\"
+
+    s"""% schema=${metadata.schemaVersion} seed=${metadata.seed} month=${metadata.executionMonth} commit=${escapeLatex(
+        metadata.commit,
+      )} sfc=${metadata.sfcStatus} matrix=${metadata.matrixStatus} output=stock-flow-reconciliation
+       |% requires \\usepackage{longtable}
+       |\\begingroup
+       |\\scriptsize
+       |\\setlength{\\tabcolsep}{2pt}
+       |\\renewcommand{\\arraystretch}{1.15}
+       |\\begin{longtable}{p{0.13\\linewidth}p{0.10\\linewidth}p{0.10\\linewidth}p{0.10\\linewidth}p{0.06\\linewidth}p{0.24\\linewidth}p{0.20\\linewidth}}
+       |$header \\\\
+       |\\hline
+       |\\endfirsthead
+       |$header \\\\
+       |\\hline
+       |\\endhead
+       |${body.mkString("\n")}
+       |\\end{longtable}
+       |\\endgroup
+       |""".stripMargin
+
+  private def renderReconciliationMarkdown(bundle: MatrixEvidenceBundle): String =
+    val metadata = bundle.metadata
+    val rows     = bundle.reconciliation.rows.map: row =>
+      Vector(
+        row.label,
+        formatAmountRaw(row.expectedRaw),
+        formatAmountRaw(row.actualRaw),
+        formatAmountRaw(row.residualRaw),
+        row.status,
+        reconciliationChannels(row).mkString("<br>"),
+        s"${row.source} ${row.note}",
+      )
+
+    renderMarkdownTable(
+      s"""<!-- schema=${metadata.schemaVersion} seed=${metadata.seed} month=${metadata.executionMonth} commit=${metadata.commit} sfc=${metadata.sfcStatus} matrix=${metadata.matrixStatus} output=stock-flow-reconciliation -->
+         |# Stock-Flow Reconciliation and Revaluation Evidence
+         |
+         |Rows compare independently sourced transaction, revaluation, default, write-off, and other-change channels with observed stock deltas or level identities. Residual is actual minus expected.
+         |""".stripMargin,
+      Vector("Identity", "Expected", "Actual", "Residual", "Status", "Runtime channels", "Source"),
+      rows,
+    )
+
   private def renderMarkdownTable(prefix: String, header: Vector[String], rows: Vector[Vector[String]]): String =
     val tableHeader = markdownRow(header)
     val separator   = markdownRow(header.map(_ => "---"))
@@ -190,6 +255,18 @@ object SfcMatrixRenderers:
   private def mechanismLabel(mechanism: MechanismId): String =
     val metadata = SfcMatrixRegistry.mechanism(mechanism)
     s"${metadata.label} [id: ${mechanism.toInt}]"
+
+  private def reconciliationChannels(row: StockFlowReconciliationCell): Vector[String] =
+    val channels = (row.assets.map(assetLabel) ++ row.mechanisms.map(mechanismLabel)).distinct
+    if channels.nonEmpty then channels else Vector("No first-class runtime asset or mechanism")
+
+  private def formatAmountRaw(value: Long): String =
+    val scale = 10000L
+    val abs   = BigInt(value).abs
+    val sign  = if value < 0L then "-" else ""
+    val whole = abs / scale
+    val frac  = (abs % scale).toString.reverse.padTo(4, '0').reverse
+    s"$sign$whole.$frac"
 
   private[matrix] def escapeLatex(value: String): String =
     value.flatMap:
