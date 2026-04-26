@@ -33,7 +33,8 @@ source. Missing or weak provenance is marked explicitly with searchable tokens:
   `Agriculture`.
 - Runtime numeric evidence comes from Monte Carlo output columns in
   `McTimeseriesSchema`; this register documents parameter provenance, not run
-  results.
+  results. Empirical validation targets and output mappings are documented in
+  `docs/empirical-validation-report.md`.
 
 ## Core Scale And Sectors
 
@@ -300,4 +301,5 @@ Priority gaps before publication:
 - Decide whether currently unscaled institutional monthly flows, such as PFRON
   monthly revenue/spending, should remain agent-scale values or be moved into
   the `gdpRatio`-scaled macro-stock convention.
-- Move scenario defaults into a scenario registry once #435 is implemented.
+- Keep scenario deltas in `docs/scenario-registry.md`; this register remains
+  the baseline parameter-provenance surface.

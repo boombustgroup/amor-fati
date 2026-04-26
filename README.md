@@ -109,6 +109,12 @@ The detailed behavioral equations and institutional decision rules are documente
 
 The calibration register is documented in [docs/calibration-register.md](docs/calibration-register.md). It records key parameter values, units, implementation owners, empirical targets, transformations, provenance status, and explicit searchable gaps.
 
+The empirical validation report skeleton is documented in [docs/empirical-validation-report.md](docs/empirical-validation-report.md). It maps macro, meso, micro, financial, and external validation targets to Monte Carlo output columns and keeps missing data/output gaps visible.
+
+The sensitivity and robustness workflow is documented in [docs/sensitivity-robustness-workflow.md](docs/sensitivity-robustness-workflow.md). It generates seed envelopes and one-at-a-time parameter-sensitivity artifacts from the Monte Carlo runner.
+
+The reproducible scenario registry is documented in [docs/scenario-registry.md](docs/scenario-registry.md). It defines named policy and shock scenarios, exact parameter deltas from baseline, expected channels, seed/run metadata, and the `scenarioRun` execution path.
+
 ## Ledger-Derived Matrix Artifacts
 
 The project can regenerate paper-facing symbolic SFC matrices from an executed deterministic simulation step:
