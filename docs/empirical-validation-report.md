@@ -152,4 +152,3 @@ mapping and frequency conventions are documented in
   baseline report.
 - `docs/scenario-registry.md`: named scenarios whose outputs should reuse the
   same validation target table.
-- #438: milestone tracker for the full research-readiness spine.
