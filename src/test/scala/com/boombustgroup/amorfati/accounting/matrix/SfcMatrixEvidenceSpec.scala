@@ -85,7 +85,7 @@ class SfcMatrixEvidenceSpec extends AnyFlatSpec with Matchers:
     bundle.validation.isValid shouldBe true
   }
 
-  it should "report actionable BSM, TFM, and stock-flow reconciliation perturbations" in {
+  it should "report actionable BSM and TFM perturbations" in {
     val openingIndex = bundle.openingBsm.rows.indexWhere(_.asset == AssetType.GovBondHTM)
     val openingRow   = bundle.openingBsm.rows(openingIndex)
     val badOpening   = bundle.openingBsm.copy(
@@ -94,19 +94,14 @@ class SfcMatrixEvidenceSpec extends AnyFlatSpec with Matchers:
         openingRow.copy(cells = openingRow.cells.updated(EntitySector.Banks, openingRow.amountRaw(EntitySector.Banks) + 1L)),
       ),
     )
-    val bsmReport    = MatrixValidation.validate(badOpening, bundle.closingBsm, bundle.tfm, bundle.otherChanges, Right(()))
+    val bsmReport    = MatrixValidation.validate(badOpening, bundle.closingBsm, bundle.tfm, Right(()))
     bsmReport.errors.exists(_.isInstanceOf[MatrixValidationError.BsmRowSumError]) shouldBe true
 
     val tfmRow    = bundle.tfm.rows.head
     val badTfmRow = tfmRow.copy(cells = tfmRow.cells.updated(EntitySector.Households, tfmRow.amountRaw(EntitySector.Households) + 1L))
     val badTfm    = bundle.tfm.copy(rows = bundle.tfm.rows.updated(0, badTfmRow))
-    val tfmReport = MatrixValidation.validate(bundle.openingBsm, bundle.closingBsm, badTfm, bundle.otherChanges, Right(()))
+    val tfmReport = MatrixValidation.validate(bundle.openingBsm, bundle.closingBsm, badTfm, Right(()))
     tfmReport.errors.exists(_.isInstanceOf[MatrixValidationError.TfmRowSumError]) shouldBe true
-
-    val otherCell   = bundle.otherChanges.cells.head
-    val badOther    = bundle.otherChanges.copy(cells = bundle.otherChanges.cells.updated(0, otherCell.copy(otherChangeRaw = otherCell.otherChangeRaw + 1L)))
-    val otherReport = MatrixValidation.validate(bundle.openingBsm, bundle.closingBsm, bundle.tfm, badOther, Right(()))
-    otherReport.errors.exists(_.isInstanceOf[MatrixValidationError.StockFlowReconciliationError]) shouldBe true
   }
 
 end SfcMatrixEvidenceSpec

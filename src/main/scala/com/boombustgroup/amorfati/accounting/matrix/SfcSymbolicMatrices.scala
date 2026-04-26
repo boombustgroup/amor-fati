@@ -280,7 +280,7 @@ object SfcSymbolicMatrices:
             FlowMechanism.CorpBondAmortization,
           ),
         ),
-        row("deposit-change", "Deposit change", HH -> "-dD_h", Firms -> "-dD_f", Banks -> "+dD", Funds -> "-dD_fnd")(
+        row("deposit-change", "Deposit change", HH -> "-dD_h", Firms -> "-dD_f", Banks -> "+dD", Funds -> "-dD_{fnd}")(
           assets = Vector(AssetType.DemandDeposit, AssetType.TermDeposit),
           mechanisms = Vector(
             FlowMechanism.InvestmentDepositSettlement,

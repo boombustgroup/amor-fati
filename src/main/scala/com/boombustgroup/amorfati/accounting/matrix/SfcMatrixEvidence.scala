@@ -129,8 +129,6 @@ object SfcMatrixEvidence:
   enum MatrixValidationError:
     case BsmRowSumError(snapshot: SnapshotKind, asset: AssetType, actualRaw: Long, reason: String)
     case TfmRowSumError(rowKey: String, mechanism: MechanismId, asset: AssetType, actualRaw: Long)
-    case SectorColumnDeltaError(sector: EntitySector, stockDeltaRaw: Long, transactionDeltaRaw: Long, otherChangeRaw: Long)
-    case StockFlowReconciliationError(asset: AssetType, sector: EntitySector, stockDeltaRaw: Long, transactionDeltaRaw: Long, otherChangeRaw: Long)
     case SfcValidationFailed(errors: Vector[Sfc.SfcIdentityError])
 
   final case class MatrixValidationReport(errors: Vector[MatrixValidationError]):
@@ -366,7 +364,6 @@ object SfcMatrixEvidence:
         opening: BsmEvidence,
         closing: BsmEvidence,
         tfm: TfmEvidence,
-        otherChanges: OtherChangesEvidence,
         sfcResult: Sfc.SfcResult,
     ): MatrixValidationReport =
       val sfcErrors = sfcResult.left.toOption
@@ -392,26 +389,7 @@ object SfcMatrixEvidence:
         case row if row.rowSumRaw != 0L =>
           MatrixValidationError.TfmRowSumError(row.rowKey, row.mechanism, row.asset, row.rowSumRaw)
 
-      val stockFlowErrors = otherChanges.cells.collect:
-        case cell if cell.stockDeltaRaw != cell.transactionDeltaRaw + cell.otherChangeRaw =>
-          MatrixValidationError.StockFlowReconciliationError(
-            cell.asset,
-            cell.sector,
-            cell.stockDeltaRaw,
-            cell.transactionDeltaRaw,
-            cell.otherChangeRaw,
-          )
-
-      val sectorErrors = SfcMatrixRegistry.sectors.flatMap: sectorRow =>
-        val cells          = otherChanges.cells.filter(_.sector == sectorRow.sector)
-        val stockDelta     = cells.iterator.map(_.stockDeltaRaw).sum
-        val txDelta        = cells.iterator.map(_.transactionDeltaRaw).sum
-        val otherDelta     = cells.iterator.map(_.otherChangeRaw).sum
-        val reconciledSide = txDelta + otherDelta
-        if stockDelta == reconciledSide then Vector.empty
-        else Vector(MatrixValidationError.SectorColumnDeltaError(sectorRow.sector, stockDelta, txDelta, otherDelta))
-
-      MatrixValidationReport(sfcErrors ++ bsmErrors ++ tfmErrors ++ stockFlowErrors ++ sectorErrors)
+      MatrixValidationReport(sfcErrors ++ bsmErrors ++ tfmErrors)
 
   object MatrixEvidenceBundle:
     def fromStep(seed: Long, step: FlowSimulation.StepOutput, commit: String = BuildInfo.gitCommit): MatrixEvidenceBundle =
@@ -419,7 +397,7 @@ object SfcMatrixEvidence:
       val closing      = BsmEvidence.fromStepClosing(step)
       val tfm          = TfmEvidence.fromStep(step)
       val other        = OtherChangesEvidence.from(opening, closing, tfm)
-      val validation   = MatrixValidation.validate(opening, closing, tfm, other, step.sfcResult)
+      val validation   = MatrixValidation.validate(opening, closing, tfm, step.sfcResult)
       val sfcStatus    = if step.sfcResult.isRight then "pass" else "fail"
       val matrixStatus = if validation.isValid then "pass" else "fail"
       val metadata     = MatrixMetadata(

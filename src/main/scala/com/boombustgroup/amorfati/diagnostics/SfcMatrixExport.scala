@@ -63,23 +63,34 @@ object SfcMatrixExport:
           status
 
   def parseArgs(args: Vector[String]): Either[String, Config] =
+    def missingValue(flag: String): Left[String, Config] =
+      Left(s"Missing value for ${if flag == "--formats" then "--format" else flag}")
+
     def loop(rest: Vector[String], config: Config): Either[String, Config] =
       rest match
-        case Vector()                                    => Right(config)
-        case "--help" +: _                               => Left(usage)
-        case "--seed" +: value +: tail                   =>
-          parseLong(value, "--seed").flatMap(seed => loop(tail, config.copy(seed = seed)))
-        case "--months" +: value +: tail                 =>
-          parseInt(value, "--months").flatMap(months => loop(tail, config.copy(months = months)))
-        case "--out" +: value +: tail                    =>
-          loop(tail, config.copy(out = Path.of(value)))
-        case ("--format" | "--formats") +: value +: tail =>
-          OutputFormat.parseList(value).flatMap(formats => loop(tail, config.copy(formats = formats)))
-        case flag +: _ if flag.startsWith("--")          => Left(s"Unknown argument: $flag")
-        case value +: _                                  => Left(s"Unexpected positional argument: $value")
-        case other                                       => Left(s"Invalid argument list: ${other.mkString(" ")}")
+        case Vector()                           => Right(config)
+        case "--help" +: _                      => Left(usage)
+        case flag +: tail if knownFlag(flag)    =>
+          tail match
+            case Vector()                                                   => missingValue(flag)
+            case value +: _ if value.startsWith("--")                       => missingValue(flag)
+            case value +: next if flag == "--seed"                          =>
+              parseLong(value, flag).flatMap(seed => loop(next, config.copy(seed = seed)))
+            case value +: next if flag == "--months"                        =>
+              parseInt(value, flag).flatMap(months => loop(next, config.copy(months = months)))
+            case value +: next if flag == "--out"                           =>
+              loop(next, config.copy(out = Path.of(value)))
+            case value +: next if flag == "--format" || flag == "--formats" =>
+              OutputFormat.parseList(value).flatMap(formats => loop(next, config.copy(formats = formats)))
+            case _                                                          => Left(s"Unknown argument: $flag")
+        case flag +: _ if flag.startsWith("--") => Left(s"Unknown argument: $flag")
+        case value +: _                         => Left(s"Unexpected positional argument: $value")
+        case invalid                            => Left(s"Invalid argument list: ${invalid.mkString(" ")}")
 
     loop(args, Config())
+
+  private def knownFlag(flag: String): Boolean =
+    flag == "--seed" || flag == "--months" || flag == "--out" || flag == "--format" || flag == "--formats"
 
   private def parseLong(value: String, name: String): Either[String, Long] =
     Try(value.toLong).toEither.left.map(_ => s"$name must be a long integer")
