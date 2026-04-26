@@ -75,76 +75,82 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
   private def expectedHhRow(seed: Long, result: RunResult): String =
     val a = result.terminalState.householdAggregates
     s"$seed;${a.employed};${a.unemployed};${a.retraining};${a.bankrupt};" +
-      f"${decimal(a.meanSavings)}%.2f;${decimal(a.medianSavings)}%.2f;" +
-      f"${decimal(a.giniIndividual)}%.6f;${decimal(a.giniWealth)}%.6f;" +
-      f"${decimal(a.meanSkill)}%.6f;${decimal(a.meanHealthPenalty)}%.6f;" +
+      s"${a.meanSavings.format(2)};${a.medianSavings.format(2)};" +
+      s"${a.giniIndividual.format(6)};${a.giniWealth.format(6)};" +
+      s"${a.meanSkill.format(6)};${a.meanHealthPenalty.format(6)};" +
       s"${a.retrainingAttempts};${a.retrainingSuccesses};" +
-      f"${decimal(a.consumptionP10)}%.2f;${decimal(a.consumptionP50)}%.2f;${decimal(a.consumptionP90)}%.2f;" +
-      f"${decimal(a.bankruptcyRate)}%.6f;" +
-      f"${decimal(a.meanMonthsToRuin)}%.2f;" +
-      f"${decimal(a.povertyRate50)}%.6f;${decimal(a.povertyRate30)}%.6f"
+      s"${a.consumptionP10.format(2)};${a.consumptionP50.format(2)};${a.consumptionP90.format(2)};" +
+      s"${a.bankruptcyRate.format(6)};" +
+      s"${a.meanMonthsToRuin.format(2)};" +
+      s"${a.povertyRate50.format(6)};${a.povertyRate30.format(6)}"
 
   private def expectedBankRows(seed: Long, result: RunResult): Vector[String] =
     result.terminalState.banks.map: bank =>
       val balances = result.terminalState.ledgerFinancialState.banks(bank.id.toInt)
       val stocks   = LedgerFinancialState.projectBankFinancialStocks(balances)
       s"$seed;${bank.id};" +
-        f"${decimal(stocks.totalDeposits)}%.2f;${decimal(stocks.firmLoan)}%.2f;${decimal(bank.capital)}%.2f;" +
-        f"${decimal(Banking.nplRatio(bank, stocks))}%.6f;${decimal(Banking.car(bank, stocks, balances.corpBond))}%.6f;" +
-        f"${decimal(Banking.govBondHoldings(stocks))}%.2f;${decimal(stocks.interbankLoan)}%.2f;" +
+        s"${stocks.totalDeposits.format(2)};${stocks.firmLoan.format(2)};${bank.capital.format(2)};" +
+        s"${Banking.nplRatio(bank, stocks).format(6)};${Banking.car(bank, stocks, balances.corpBond).format(6)};" +
+        s"${Banking.govBondHoldings(stocks).format(2)};${stocks.interbankLoan.format(2)};" +
         s"${bank.failed}"
 
-  "runZIO" should "write deterministic per-seed and summary CSV files" in withTempDir: outputDir =>
-    unsafeRun(McRunner.runZIO(rc, outputDir.toFile))
+  "runZIO".should("write deterministic per-seed and summary CSV files").in {
+    withTempDir { outputDir =>
+      unsafeRun(McRunner.runZIO(rc, outputDir.toFile))
 
-    val expectedRuns      = Seeds.map(seed => seed -> expectedRun(seed)).toMap
-    val expectedFileNames = (
-      Seeds.map(seed => seedFileName(seed, rc)) :+
-        s"${filePrefix(rc)}_hh.csv" :+
-        s"${filePrefix(rc)}_banks.csv"
-    ).toSet
+      val expectedRuns      = Seeds.map(seed => seed -> expectedRun(seed)).toMap
+      val expectedFileNames = (
+        Seeds.map(seed => seedFileName(seed, rc)) :+
+          s"${filePrefix(rc)}_hh.csv" :+
+          s"${filePrefix(rc)}_banks.csv"
+      ).toSet
 
-    Using.resource(Files.list(outputDir)): stream =>
-      stream.iterator.asScala.map(_.getFileName.toString).toSet shouldBe expectedFileNames
+      Using.resource(Files.list(outputDir)): stream =>
+        stream.iterator.asScala.map(_.getFileName.toString).toSet.shouldBe(expectedFileNames)
 
-    for seed <- Seeds do
-      val path   = outputDir.resolve(seedFileName(seed, rc))
-      val lines  = readLines(path)
-      val result = expectedRuns(seed)
+      for seed <- Seeds do
+        val path   = outputDir.resolve(seedFileName(seed, rc))
+        val lines  = readLines(path)
+        val result = expectedRuns(seed)
 
-      lines.head shouldBe McTimeseriesSchema.colNames.mkString(";")
-      lines.length shouldBe DurationMonths + 1
+        lines.head.shouldBe(McTimeseriesSchema.colNames.mkString(";"))
+        lines.length.shouldBe(DurationMonths + 1)
 
-      for (line, monthIndex) <- lines.tail.zipWithIndex do
-        val actual   = parseCsvRow(line)
-        val month    = ExecutionMonth.First.advanceBy(monthIndex)
-        val expected = result.timeSeries.monthRow(month)
+        for (line, monthIndex) <- lines.tail.zipWithIndex do
+          val actual   = parseCsvRow(line)
+          val month    = ExecutionMonth.First.advanceBy(monthIndex)
+          val expected = result.timeSeries.monthRow(month)
 
-        actual.length shouldBe McTimeseriesSchema.nCols
+          actual.length.shouldBe(McTimeseriesSchema.nCols)
 
-        for col <- 0 until McTimeseriesSchema.nCols do
-          withClue(s"seed=$seed month=${month.toInt} col=$col: ") {
-            actual(col) shouldBe (decimal(expected(col)) +- BigDecimal("1e-6"))
-          }
+          for col <- 0 until McTimeseriesSchema.nCols do
+            withClue(s"seed=$seed month=${month.toInt} col=$col: ") {
+              actual(col).shouldBe(decimal(expected(col)) +- BigDecimal("1e-6"))
+            }
 
-    val hhLines = readLines(outputDir.resolve(s"${filePrefix(rc)}_hh.csv"))
-    hhLines.head shouldBe ExpectedHhHeader
-    hhLines.length shouldBe Seeds.length + 1
-    hhLines.tail shouldBe Seeds.map(seed => expectedHhRow(seed, expectedRuns(seed)))
+      val hhLines = readLines(outputDir.resolve(s"${filePrefix(rc)}_hh.csv"))
+      hhLines.head.shouldBe(ExpectedHhHeader)
+      hhLines.length.shouldBe(Seeds.length + 1)
+      hhLines.tail.shouldBe(Seeds.map(seed => expectedHhRow(seed, expectedRuns(seed))))
 
-    val bankLines = readLines(outputDir.resolve(s"${filePrefix(rc)}_banks.csv"))
-    bankLines.head shouldBe ExpectedBankHeader
-    bankLines.length shouldBe 1 + expectedRuns.valuesIterator.map(_.terminalState.banks.length).sum
-    bankLines.tail shouldBe Seeds.flatMap(seed => expectedBankRows(seed, expectedRuns(seed)))
+      val bankLines = readLines(outputDir.resolve(s"${filePrefix(rc)}_banks.csv"))
+      bankLines.head.shouldBe(ExpectedBankHeader)
+      bankLines.length.shouldBe(1 + expectedRuns.valuesIterator.map(_.terminalState.banks.length).sum)
+      bankLines.tail.shouldBe(Seeds.flatMap(seed => expectedBankRows(seed, expectedRuns(seed))))
+    }
+  }
 
-  it should "surface a typed error when the output location is not a directory" in withTempDir: tempDir =>
-    val outputFile = tempDir.resolve("not-a-directory")
-    Files.writeString(outputFile, "occupied")
+  it.should("surface a typed error when the output location is not a directory").in {
+    withTempDir { tempDir =>
+      val outputFile = tempDir.resolve("not-a-directory")
+      Files.writeString(outputFile, "occupied")
 
-    unsafeRunEither(McRunner.runZIO(rc, outputFile.toFile)) match
-      case Left(SimError.OutputFailure(operation, path, details)) =>
-        operation shouldBe "prepare output directory"
-        path shouldBe outputFile.toFile.getPath
-        details should include("not a directory")
-      case other                                       =>
-        fail(s"expected typed output failure, got: $other")
+      unsafeRunEither(McRunner.runZIO(rc, outputFile.toFile)) match
+        case Left(SimError.OutputFailure(operation, path, details)) =>
+          operation.shouldBe("prepare output directory")
+          path.shouldBe(outputFile.toFile.getPath)
+          details.should(include("not a directory"))
+        case other                                                 =>
+          fail(s"expected typed output failure, got: $other")
+    }
+  }

@@ -51,7 +51,7 @@ object RobustnessScenarios:
         variedParameter = "household.mpc",
         variation = "0.82 -> 0.72",
         rationale = "First-pass demand sensitivity to lower household consumption out of income.",
-        params = baseline.copy(household = baseline.household.copy(mpc = Share(0.72))),
+        params = baseline.copy(household = baseline.household.copy(mpc = Share.decimal(72, 2))),
       ),
       Scenario(
         id = "mpc-high",
@@ -60,7 +60,7 @@ object RobustnessScenarios:
         variedParameter = "household.mpc",
         variation = "0.82 -> 0.90",
         rationale = "First-pass demand sensitivity to higher household consumption out of income.",
-        params = baseline.copy(household = baseline.household.copy(mpc = Share(0.90))),
+        params = baseline.copy(household = baseline.household.copy(mpc = Share.decimal(90, 2))),
       ),
       Scenario(
         id = "markup-high",
@@ -71,8 +71,8 @@ object RobustnessScenarios:
         rationale = "Tests price-level sensitivity to firm pricing power and cost pass-through.",
         params = baseline.copy(
           pricing = baseline.pricing.copy(
-            baseMarkup = Multiplier(1.25),
-            costPassthrough = Coefficient(0.55),
+            baseMarkup = Multiplier.decimal(125, 2),
+            costPassthrough = Coefficient.decimal(55, 2),
           ),
         ),
       ),
@@ -83,7 +83,7 @@ object RobustnessScenarios:
         variedParameter = "capital.adjustSpeed",
         variation = "0.10 -> 0.16",
         rationale = "Tests output, imports, and balance-sheet sensitivity to faster investment adjustment.",
-        params = baseline.copy(capital = baseline.capital.copy(adjustSpeed = Coefficient(0.16))),
+        params = baseline.copy(capital = baseline.capital.copy(adjustSpeed = Coefficient.decimal(16, 2))),
       ),
       Scenario(
         id = "credit-tight",
@@ -94,9 +94,9 @@ object RobustnessScenarios:
         rationale = "Tests financial-stability sensitivity to tighter credit and weaker default recovery.",
         params = baseline.copy(
           banking = baseline.banking.copy(
-            baseSpread = Rate(0.030),
-            loanRecovery = Share(0.20),
-            eclMigrationSensitivity = Coefficient(4.0),
+            baseSpread = Rate.decimal(30, 3),
+            loanRecovery = Share.decimal(20, 2),
+            eclMigrationSensitivity = Coefficient(4),
           ),
         ),
       ),
@@ -109,8 +109,8 @@ object RobustnessScenarios:
         rationale = "Tests unemployment, deficit, and debt sensitivity to stronger fiscal stabilization and consolidation.",
         params = baseline.copy(
           fiscal = baseline.fiscal.copy(
-            govAutoStabMult = Coefficient(4.0),
-            fiscalConsolidationSpeed55 = Share(0.15),
+            govAutoStabMult = Coefficient(4),
+            fiscalConsolidationSpeed55 = Share.decimal(15, 2),
           ),
         ),
       ),
@@ -123,9 +123,9 @@ object RobustnessScenarios:
         rationale = "Tests inflation, credit, debt-service, and unemployment sensitivity to tighter policy rates.",
         params = baseline.copy(
           monetary = baseline.monetary.copy(
-            initialRate = Rate(0.075),
-            neutralRate = Rate(0.050),
-            taylorAlpha = Coefficient(1.8),
+            initialRate = Rate.decimal(75, 3),
+            neutralRate = Rate.decimal(50, 3),
+            taylorAlpha = Coefficient.decimal(18, 1),
           ),
         ),
       ),
@@ -139,8 +139,8 @@ object RobustnessScenarios:
         params = baseline.copy(
           forex = baseline.forex.copy(
             riskOffShockMonth = 6,
-            riskOffMagnitude = Share(0.16),
-            irpSensitivity = Coefficient(0.25),
+            riskOffMagnitude = Share.decimal(16, 2),
+            irpSensitivity = Coefficient.decimal(25, 2),
           ),
         ),
       ),

@@ -64,9 +64,9 @@ object ScenarioRegistry:
         ),
         params = Baseline.copy(
           monetary = Baseline.monetary.copy(
-            initialRate = Rate(0.075),
-            neutralRate = Rate(0.050),
-            taylorAlpha = Coefficient(1.8),
+            initialRate = Rate.decimal(75, 3),
+            neutralRate = Rate.decimal(50, 3),
+            taylorAlpha = Coefficient.decimal(18, 1),
           ),
         ),
       ),
@@ -86,9 +86,9 @@ object ScenarioRegistry:
         ),
         params = Baseline.copy(
           fiscal = Baseline.fiscal.copy(
-            govBaseSpending = Baseline.fiscal.govBaseSpending * Multiplier(1.15),
-            govInvestShare = Share(0.30),
-            govAutoStabMult = Coefficient(3.5),
+            govBaseSpending = Baseline.fiscal.govBaseSpending * Multiplier.decimal(115, 2),
+            govInvestShare = Share.decimal(30, 2),
+            govAutoStabMult = Coefficient.decimal(35, 1),
           ),
         ),
       ),
@@ -110,12 +110,12 @@ object ScenarioRegistry:
         ),
         params = Baseline.copy(
           banking = Baseline.banking.copy(
-            baseSpread = Rate(0.035),
-            minCar = Multiplier(0.10),
-            loanRecovery = Share(0.20),
-            eclMigrationSensitivity = Coefficient(4.5),
+            baseSpread = Rate.decimal(35, 3),
+            minCar = Multiplier.decimal(10, 2),
+            loanRecovery = Share.decimal(20, 2),
+            eclMigrationSensitivity = Coefficient.decimal(45, 1),
           ),
-          household = Baseline.household.copy(ccMaxDti = Share(0.30)),
+          household = Baseline.household.copy(ccMaxDti = Share.decimal(30, 2)),
         ),
       ),
       ScenarioSpec(
@@ -141,13 +141,20 @@ object ScenarioRegistry:
         ),
         params = Baseline.copy(
           climate = Baseline.climate.copy(
-            etsBasePrice = Multiplier(120.0),
-            energyCostShares = Vector(Share(0.03), Share(0.15), Share(0.06), Share(0.075), Share(0.045), Share(0.09)),
-            greenBudgetShare = Share(0.12),
+            etsBasePrice = Multiplier(120),
+            energyCostShares = Vector(
+              Share.decimal(3, 2),
+              Share.decimal(15, 2),
+              Share.decimal(6, 2),
+              Share.decimal(75, 3),
+              Share.decimal(45, 3),
+              Share.decimal(9, 2),
+            ),
+            greenBudgetShare = Share.decimal(12, 2),
           ),
           gvc = Baseline.gvc.copy(
             commodityShockMonth = 6,
-            commodityShockMag = Multiplier(1.5),
+            commodityShockMag = Multiplier.decimal(15, 1),
           ),
         ),
       ),
@@ -169,9 +176,9 @@ object ScenarioRegistry:
         params = Baseline.copy(
           tourism = Baseline.tourism.copy(
             shockMonth = 6,
-            shockSize = Share(0.60),
-            shockRecovery = Rate(0.05),
-            inboundShare = Share(0.04),
+            shockSize = Share.decimal(60, 2),
+            shockRecovery = Rate.decimal(5, 2),
+            inboundShare = Share.decimal(4, 2),
           ),
         ),
       ),
@@ -192,10 +199,10 @@ object ScenarioRegistry:
         ),
         params = Baseline.copy(
           banking = Baseline.banking.copy(
-            initCapital = Baseline.banking.initCapital * Multiplier(0.55),
-            minCar = Multiplier(0.12),
-            depositPanicRate = Share(0.08),
-            maxDepositSwitchRate = Share(0.18),
+            initCapital = Baseline.banking.initCapital * Multiplier.decimal(55, 2),
+            minCar = Multiplier.decimal(12, 2),
+            depositPanicRate = Share.decimal(8, 2),
+            maxDepositSwitchRate = Share.decimal(18, 2),
           ),
         ),
       ),
@@ -219,12 +226,12 @@ object ScenarioRegistry:
         params = Baseline.copy(
           forex = Baseline.forex.copy(
             riskOffShockMonth = 6,
-            riskOffMagnitude = Share(0.20),
+            riskOffMagnitude = Share.decimal(20, 2),
             riskOffDurationMonths = 9,
-            irpSensitivity = Coefficient(0.30),
-            exRateAdjSpeed = Coefficient(0.05),
+            irpSensitivity = Coefficient.decimal(30, 2),
+            exRateAdjSpeed = Coefficient.decimal(5, 2),
           ),
-          monetary = Baseline.monetary.copy(fxMaxMonthly = Share(0.06)),
+          monetary = Baseline.monetary.copy(fxMaxMonthly = Share.decimal(6, 2)),
         ),
       ),
       ScenarioSpec(
@@ -245,12 +252,12 @@ object ScenarioRegistry:
         ),
         params = Baseline.copy(
           quasiFiscal = Baseline.quasiFiscal.copy(
-            issuanceShare = Share(0.65),
-            lendingShare = Share(0.70),
-            nbpAbsorptionShare = Share(0.85),
+            issuanceShare = Share.decimal(65, 2),
+            lendingShare = Share.decimal(70, 2),
+            nbpAbsorptionShare = Share.decimal(85, 2),
           ),
-          fiscal = Baseline.fiscal.copy(govInvestShare = Share(0.30)),
-          monetary = Baseline.monetary.copy(qeMaxGdpShare = Share(0.40)),
+          fiscal = Baseline.fiscal.copy(govInvestShare = Share.decimal(30, 2)),
+          monetary = Baseline.monetary.copy(qeMaxGdpShare = Share.decimal(40, 2)),
         ),
       ),
     )

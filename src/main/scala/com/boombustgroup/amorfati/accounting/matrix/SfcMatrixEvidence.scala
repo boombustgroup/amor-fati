@@ -191,17 +191,17 @@ object SfcMatrixEvidence:
       val bonds  = GovernmentBondCircuit.from(ledger)
       val corp   = CorporateBondOwnership.stockStateFromLedger(ledger)
 
-      val bankCapital = state.banks.iterator.map(_.capital).sum
+      val bankCapital = state.banks.iterator.map(_.capital).sumPln
       val entries     = Vector(
         // Deposits and loans.
-        (AssetType.DemandDeposit, EntitySector.Households, ledger.households.iterator.map(_.demandDeposit).sum),
-        (AssetType.DemandDeposit, EntitySector.Banks, -ledger.banks.iterator.map(_.demandDeposit).sum),
-        (AssetType.TermDeposit, EntitySector.Banks, -ledger.banks.iterator.map(_.termDeposit).sum),
-        (AssetType.FirmLoan, EntitySector.Banks, ledger.banks.iterator.map(_.firmLoan).sum),
-        (AssetType.FirmLoan, EntitySector.Firms, -ledger.firms.iterator.map(_.firmLoan).sum),
-        (AssetType.ConsumerLoan, EntitySector.Banks, ledger.banks.iterator.map(_.consumerLoan).sum),
-        (AssetType.ConsumerLoan, EntitySector.Households, -ledger.households.iterator.map(_.consumerLoan).sum),
-        (AssetType.MortgageLoan, EntitySector.Households, -ledger.households.iterator.map(_.mortgageLoan).sum),
+        (AssetType.DemandDeposit, EntitySector.Households, ledger.households.iterator.map(_.demandDeposit).sumPln),
+        (AssetType.DemandDeposit, EntitySector.Banks, -ledger.banks.iterator.map(_.demandDeposit).sumPln),
+        (AssetType.TermDeposit, EntitySector.Banks, -ledger.banks.iterator.map(_.termDeposit).sumPln),
+        (AssetType.FirmLoan, EntitySector.Banks, ledger.banks.iterator.map(_.firmLoan).sumPln),
+        (AssetType.FirmLoan, EntitySector.Firms, -ledger.firms.iterator.map(_.firmLoan).sumPln),
+        (AssetType.ConsumerLoan, EntitySector.Banks, ledger.banks.iterator.map(_.consumerLoan).sumPln),
+        (AssetType.ConsumerLoan, EntitySector.Households, -ledger.households.iterator.map(_.consumerLoan).sumPln),
+        (AssetType.MortgageLoan, EntitySector.Households, -ledger.households.iterator.map(_.mortgageLoan).sumPln),
         // Government and corporate bond circuits.
         (AssetType.GovBondHTM, EntitySector.Banks, bonds.bankHoldings),
         (AssetType.GovBondHTM, EntitySector.Government, -bonds.outstanding),
@@ -217,17 +217,17 @@ object SfcMatrixEvidence:
         (AssetType.CorpBond, EntitySector.Insurance, corp.insuranceHoldings),
         (AssetType.CorpBond, EntitySector.Funds, corp.ppkHoldings + corp.otherHoldings + corp.nbfiHoldings),
         // Central-bank, equity, insurance, NBFI, public fund, and diagnostic stocks.
-        (AssetType.Reserve, EntitySector.Banks, ledger.banks.iterator.map(_.reserve).sum),
-        (AssetType.InterbankLoan, EntitySector.Banks, ledger.banks.iterator.map(_.interbankLoan).sum),
-        (AssetType.Equity, EntitySector.Households, ledger.households.iterator.map(_.equity).sum),
-        (AssetType.Equity, EntitySector.Firms, -ledger.firms.iterator.map(_.equity).sum),
+        (AssetType.Reserve, EntitySector.Banks, ledger.banks.iterator.map(_.reserve).sumPln),
+        (AssetType.InterbankLoan, EntitySector.Banks, ledger.banks.iterator.map(_.interbankLoan).sumPln),
+        (AssetType.Equity, EntitySector.Households, ledger.households.iterator.map(_.equity).sumPln),
+        (AssetType.Equity, EntitySector.Firms, -ledger.firms.iterator.map(_.equity).sumPln),
         (AssetType.Equity, EntitySector.Insurance, ledger.insurance.equityHoldings),
         (AssetType.Equity, EntitySector.Funds, ledger.funds.nbfi.equityHoldings),
         (AssetType.LifeReserve, EntitySector.Insurance, -ledger.insurance.lifeReserve),
         (AssetType.NonLifeReserve, EntitySector.Insurance, -ledger.insurance.nonLifeReserve),
         (AssetType.TfiUnit, EntitySector.Funds, -ledger.funds.nbfi.tfiUnit),
         (AssetType.NbfiLoan, EntitySector.Funds, ledger.funds.nbfi.nbfiLoanStock + ledger.funds.quasiFiscal.loanPortfolio),
-        (AssetType.Cash, EntitySector.Firms, ledger.firms.iterator.map(_.cash).sum),
+        (AssetType.Cash, EntitySector.Firms, ledger.firms.iterator.map(_.cash).sumPln),
         (
           AssetType.Cash,
           EntitySector.Funds,

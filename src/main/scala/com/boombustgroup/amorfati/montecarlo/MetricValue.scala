@@ -34,6 +34,7 @@ object MetricValue:
     def *(other: MetricValue): MetricValue       = fromRaw(FixedPointBase.multiplyRaw(value, other))
     def *(n: Int): MetricValue                   = fromRaw(value * n.toLong)
     def /(n: Int): MetricValue                   = fromRaw(FixedPointBase.divideRaw(value, n.toLong))
+    def abs: MetricValue                         = fromRaw(math.abs(value))
     def ratioTo(other: MetricValue): MetricValue = fromRaw(FixedPointBase.ratioRaw(value, other))
     def format(fractionalDigits: Int): String    = FixedPointBase.format(value, fractionalDigits)
     def percent(fractionalDigits: Int): String   = (value * 100).format(fractionalDigits) + "%"
@@ -41,6 +42,8 @@ object MetricValue:
     def <(other: MetricValue): Boolean           = value < other
     def >=(other: MetricValue): Boolean          = value >= other
     def <=(other: MetricValue): Boolean          = value <= other
+
+  given Ordering[MetricValue] = Ordering.Long
 
 private[montecarlo] trait MetricEncoder[-A]:
   def encode(value: A): MetricValue
