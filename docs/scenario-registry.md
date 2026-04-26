@@ -114,3 +114,6 @@ outputs can be compared directly with validation and robustness artifacts.
   one-at-a-time.
 - `docs/calibration-register.md`: baseline parameter provenance remains there;
   this document records scenario deltas from that baseline.
+- `docs/data-bridge-national-financial-accounts.md`: official source mapping
+  and transformation rules for scenario inputs that are empirical or based on
+  historical analogues.
