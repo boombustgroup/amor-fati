@@ -3,6 +3,8 @@ import complete.DefaultParsers.spaceDelimited
 lazy val ledger = ProjectRef(file("modules/ledger"), "root")
 
 lazy val sfcMatrices = inputKey[Unit]("Generate symbolic SFC BSM/TFM matrix artifacts")
+lazy val robustnessReport = inputKey[Unit]("Generate lightweight sensitivity and robustness artifacts")
+lazy val scenarioRun = inputKey[Unit]("Run named scenario-registry experiments")
 
 lazy val baseScalacOptions = Seq(
   "-Werror",
@@ -56,6 +58,20 @@ lazy val root = project
         val parsedArgs = spaceDelimited("<sfc matrix args>").parsed
         (Compile / runMain)
           .toTask(" com.boombustgroup.amorfati.diagnostics.SfcMatrixExport " + parsedArgs.mkString(" "))
+      }
+      .evaluated,
+    robustnessReport := Def
+      .inputTaskDyn {
+        val parsedArgs = spaceDelimited("<robustness args>").parsed
+        (Compile / runMain)
+          .toTask(" com.boombustgroup.amorfati.diagnostics.SensitivityRobustnessExport " + parsedArgs.mkString(" "))
+      }
+      .evaluated,
+    scenarioRun := Def
+      .inputTaskDyn {
+        val parsedArgs = spaceDelimited("<scenario args>").parsed
+        (Compile / runMain)
+          .toTask(" com.boombustgroup.amorfati.diagnostics.ScenarioRunExport " + parsedArgs.mkString(" "))
       }
       .evaluated,
     Test / testOptions ++= {
