@@ -934,8 +934,9 @@ The current rule book is intentionally explicit about areas that remain
 research hypotheses or calibration targets:
 
 - Many behavioral coefficients are calibrated in `SimParams` and domain config
-  files, but empirical validation against historical Polish macro and micro
-  series is tracked separately.
+  files. Their current values and provenance status are documented in
+  `docs/calibration-register.md`; empirical validation against historical
+  Polish macro and micro series is tracked separately.
 - Household decision rules are bounded procedural heuristics, not an estimated
   structural life-cycle model.
 - Firm technology adoption and entry include network, risk, and readiness
