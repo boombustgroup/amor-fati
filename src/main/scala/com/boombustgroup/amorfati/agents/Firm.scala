@@ -400,8 +400,8 @@ object Firm:
     val feasibleW       = feasibleWorkers(firm, workers, desiredW, PnL.zero, nc)
     val desiredGap      = desiredW - workers
     val feasibleGap     = feasibleW - workers
-    val hiringThresh    = if workers <= 5 then MicroFirmHiringThreshold else Math.max(2, (workers * 0.10).toInt)
-    val firingThresh    = Math.max(2, (workers * 0.10).toInt)
+    val hiringThresh    = if workers <= 5 then MicroFirmHiringThreshold else Math.max(2, workers / 10)
+    val firingThresh    = Math.max(2, workers / 10)
     val shouldAdjust    = if feasibleGap > 0 then feasibleGap >= hiringThresh else -feasibleGap >= firingThresh
     val proposedAdjust  =
       if shouldAdjust then Math.max(1, LaborAdjustFrac.floorApplyTo(Math.abs(feasibleGap))) * (if feasibleGap > 0 then 1 else -1)
@@ -882,8 +882,8 @@ object Firm:
     val desiredW      = desiredWorkers(firm, w, operationalSignals)
     val feasibleW     = feasibleWorkers(firm, workers, desiredW, pnl, nc)
     val gap           = feasibleW - workers
-    val hiringThresh  = if workers <= 5 then MicroFirmHiringThreshold else Math.max(2, (workers * 0.10).toInt)
-    val firingThresh  = Math.max(2, (workers * 0.10).toInt)
+    val hiringThresh  = if workers <= 5 then MicroFirmHiringThreshold else Math.max(2, workers / 10)
+    val firingThresh  = Math.max(2, workers / 10)
     val shouldAdjust  = if gap > 0 then gap >= hiringThresh else -gap >= firingThresh
     if shouldAdjust then
       val adj     = Math.max(1, LaborAdjustFrac.floorApplyTo(Math.abs(gap))) * (if gap > 0 then 1 else -1)
