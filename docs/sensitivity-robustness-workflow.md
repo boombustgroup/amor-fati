@@ -109,7 +109,7 @@ Recommended local defaults are intentionally small:
 | Smoke | `--scenario-set smoke --seeds 1 --months 6` | Confirms the workflow compiles, runs, and writes artifacts. |
 | Local review | `--scenario-set core --seeds 2 --months 24` | Good default before opening or reviewing a PR. |
 | Heavier review | `--scenario-set core --seeds 5 --months 60` | Useful before merging research-sensitive parameter changes. |
-| Publication prep | `--scenario-set core --seeds 10+ --months 120+` | Coordinate with the data bridge (#437), scenario registry (#435), and `docs/empirical-validation-report.md`. |
+| Publication prep | `--scenario-set core --seeds 10+ --months 120+` | Coordinate with the data bridge (#437), `docs/scenario-registry.md`, and `docs/empirical-validation-report.md`. |
 
 Runtime grows roughly with:
 
@@ -123,6 +123,7 @@ The default core run is therefore `9 * 2 * 24 = 432` simulated monthly steps.
 
 - `docs/empirical-validation-report.md` provides the empirical target table
   that these robustness outputs should eventually feed.
-- #435 should reuse this output shape for named scenario comparisons.
+- `docs/scenario-registry.md` defines named scenario comparisons that can
+  reuse this output shape later.
 - #437 should provide source vintages and empirical transformations used to
   interpret robustness against real-world data.
