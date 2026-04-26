@@ -189,7 +189,7 @@ object SfcMatrixRenderers:
 
   private def mechanismLabel(mechanism: MechanismId): String =
     val metadata = SfcMatrixRegistry.mechanism(mechanism)
-    s"${metadata.label} (#${mechanism.toInt})"
+    s"${metadata.label} [id: ${mechanism.toInt}]"
 
   private[matrix] def escapeLatex(value: String): String =
     value.flatMap:
