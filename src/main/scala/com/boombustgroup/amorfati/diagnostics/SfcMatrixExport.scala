@@ -63,24 +63,25 @@ object SfcMatrixExport:
     def missingValue(flag: String): Left[String, Config] =
       Left(s"Missing value for ${if flag == "--formats" then "--format" else flag}")
 
-    def loop(rest: Vector[String], config: Config): Either[String, Config] =
+    def loop(rest: Seq[String], config: Config): Either[String, Config] =
       rest match
-        case Vector()                                  => Right(config)
-        case Vector("--help", _*)                      => Left(usage)
-        case Vector(flag, tail*) if knownFlag(flag)    =>
-          tail.toVector match
-            case Vector()                                    => missingValue(flag)
-            case Vector(value, _*) if value.startsWith("--") => missingValue(flag)
-            case Vector(value, next*) if flag == "--seed"    =>
-              parseLong(value, flag).flatMap(seed => loop(next.toVector, config.copy(seed = seed)))
-            case Vector(value, next*) if flag == "--months"  =>
-              parseInt(value, flag).flatMap(months => loop(next.toVector, config.copy(months = months)))
-            case Vector(value, next*) if flag == "--out"     =>
-              loop(next.toVector, config.copy(out = Path.of(value)))
-            case Vector(value, next*)                        =>
-              OutputFormat.parseList(value).flatMap(formats => loop(next.toVector, config.copy(formats = formats)))
-        case Vector(flag, _*) if flag.startsWith("--") => Left(s"Unknown argument: $flag")
-        case Vector(value, _*)                         => Left(s"Unexpected positional argument: $value")
+        case Seq()                                  => Right(config)
+        case Seq("--help", _*)                      => Left(usage)
+        case Seq(flag, tail*) if knownFlag(flag)    =>
+          tail match
+            case Seq()                                                          => missingValue(flag)
+            case Seq(value, _*) if value.startsWith("--")                       => missingValue(flag)
+            case Seq(value, next*) if flag == "--seed"                          =>
+              parseLong(value, flag).flatMap(seed => loop(next, config.copy(seed = seed)))
+            case Seq(value, next*) if flag == "--months"                        =>
+              parseInt(value, flag).flatMap(months => loop(next, config.copy(months = months)))
+            case Seq(value, next*) if flag == "--out"                           =>
+              loop(next, config.copy(out = Path.of(value)))
+            case Seq(value, next*) if flag == "--format" || flag == "--formats" =>
+              OutputFormat.parseList(value).flatMap(formats => loop(next, config.copy(formats = formats)))
+            case Seq(_, _*)                                                     => Left(s"Unknown argument: $flag")
+        case Seq(flag, _*) if flag.startsWith("--") => Left(s"Unknown argument: $flag")
+        case Seq(value, _*)                         => Left(s"Unexpected positional argument: $value")
 
     loop(args, Config())
 
@@ -94,6 +95,6 @@ object SfcMatrixExport:
     Try(value.toInt).toEither.left.map(_ => s"$name must be an integer")
 
   private val usage: String =
-    "Usage: SfcMatrixExport [--seed <long>] [--months <int>] [--out <path>] [--format tex,md]"
+    "Usage: SfcMatrixExport [--seed <long>] [--months <int>] [--out <path>] [--format|--formats tex,md]"
 
 end SfcMatrixExport

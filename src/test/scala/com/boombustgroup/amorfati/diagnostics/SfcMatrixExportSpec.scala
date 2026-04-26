@@ -16,6 +16,9 @@ class SfcMatrixExportSpec extends AnyFlatSpec with Matchers:
 
     parsed.map(config => (config.seed, config.months, config.out, config.formats)) shouldBe
       Right((7L, 3, Path.of("target/sfc-export-parse"), Vector(OutputFormat.Markdown, OutputFormat.Latex)))
+
+    SfcMatrixExport.parseArgs(Vector("--formats", "md")).map(_.formats) shouldBe
+      Right(Vector(OutputFormat.Markdown))
   }
 
   it should "reject unsupported matrix formats" in {
@@ -27,7 +30,14 @@ class SfcMatrixExportSpec extends AnyFlatSpec with Matchers:
     SfcMatrixExport.parseArgs(Vector("--months")) shouldBe Left("Missing value for --months")
     SfcMatrixExport.parseArgs(Vector("--out")) shouldBe Left("Missing value for --out")
     SfcMatrixExport.parseArgs(Vector("--format")) shouldBe Left("Missing value for --format")
+    SfcMatrixExport.parseArgs(Vector("--formats")) shouldBe Left("Missing value for --format")
     SfcMatrixExport.parseArgs(Vector("--seed", "--months", "3")) shouldBe Left("Missing value for --seed")
+  }
+
+  it should "document format aliases in help output" in {
+    SfcMatrixExport.parseArgs(Vector("--help")) match
+      case Left(help) => help should include("--format|--formats")
+      case Right(_)   => fail("Expected --help to return usage text")
   }
 
   it should "write generated artifacts under the requested output directory" in {
