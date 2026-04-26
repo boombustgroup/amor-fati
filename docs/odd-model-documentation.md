@@ -69,7 +69,8 @@ The current model is expected to generate and expose:
   Flow Matrix (TFM), and runtime mapping generated from an executed simulation
   step.
 
-Empirical validation of these patterns is tracked separately in #433.
+Empirical validation of these patterns is structured in
+`docs/empirical-validation-report.md`.
 
 ## 2. Entities, State Variables, And Scales
 
@@ -405,6 +406,11 @@ protocol-level model description, while that rule book carries equations,
 algorithmic rules, implementation references, output columns, and explicit
 simplifications.
 
+The empirical validation report skeleton is documented in
+`docs/empirical-validation-report.md`. It maps the current Monte Carlo output
+surface to macro, meso, micro, financial, and external validation targets and
+keeps missing data or output coverage visible.
+
 ## Accounting And Validation Boundary
 
 Amor Fati has two related but distinct accounting surfaces:
@@ -428,7 +434,6 @@ outputs.
 
 This document deliberately marks unfinished research-readiness work:
 
-- #433: empirical validation report and stylized-fact mapping;
 - #434: sensitivity and robustness workflow;
 - #435: reproducible scenario registry;
 - #436: stock-flow reconciliation and revaluation matrix artifact;

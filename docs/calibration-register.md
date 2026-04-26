@@ -33,7 +33,8 @@ source. Missing or weak provenance is marked explicitly with searchable tokens:
   `Agriculture`.
 - Runtime numeric evidence comes from Monte Carlo output columns in
   `McTimeseriesSchema`; this register documents parameter provenance, not run
-  results.
+  results. Empirical validation targets and output mappings are documented in
+  `docs/empirical-validation-report.md`.
 
 ## Core Scale And Sectors
 
