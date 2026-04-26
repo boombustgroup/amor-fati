@@ -367,7 +367,8 @@ The initialized state is produced by `WorldInit.initialize`, using
 Default parameters are hardcoded in `SimParams.defaults`; stock values are
 scaled by `gdpRatio` to map agent-level monthly flows to real Polish macro
 magnitudes. The current initialization does not yet read a formal external data
-bundle. That data bridge is tracked in #437.
+bundle, but the source-to-model bridge for future empirical bundles is
+documented in `docs/data-bridge-national-financial-accounts.md`.
 
 ## 6. Input Data
 
@@ -383,7 +384,9 @@ Current inputs are:
 The model contains many Poland-specific calibration comments and values, but a
 structured calibration register is documented in
 `docs/calibration-register.md`. The reproducible scenario registry is
-documented in `docs/scenario-registry.md`.
+documented in `docs/scenario-registry.md`. External source selection,
+unit/frequency conversion, and national/financial-account crosswalks are
+documented in `docs/data-bridge-national-financial-accounts.md`.
 
 ## 7. Submodels
 
@@ -445,10 +448,8 @@ outputs.
 
 ## Open Gaps
 
-This document deliberately marks unfinished research-readiness work:
-
-- #437: data bridge to national and financial accounts.
-
-These gaps do not mean the engine is undocumented or untestable. They mean the
-model is not yet fully packaged as a publication-ready empirical research
-system.
+This document links the research-readiness spine docs. Remaining gaps are
+tracked inside the calibration register, data bridge, empirical validation
+report, and matrix evidence artifact as table-level statuses such as
+`UNKNOWN_SOURCE`, `MISSING_OUTPUT`, `MISSING_DATA_BRIDGE`,
+`BRIDGE_ASSUMPTION`, and `PARTIAL`.

@@ -2,8 +2,10 @@
 
 This report defines how Amor Fati outputs should be compared with empirical
 macro, meso, and micro stylized facts. It is deliberately a skeleton: the
-model already writes numeric simulation evidence, but the external data bridge
-and publication-grade source tables are still tracked separately in #437.
+model already writes numeric simulation evidence, while external source
+selection, transformation rules, source vintages, and prioritized empirical
+gaps are documented in
+`docs/data-bridge-national-financial-accounts.md`.
 
 The goal is to keep failed, missing, or weak validation targets visible. A row
 with `MISSING_OUTPUT`, `MISSING_DATA_BRIDGE`, or `NOT_RUN` is part of the report
@@ -57,14 +59,15 @@ Use the per-seed CSV files for monthly macro, meso, financial, and mechanism
 paths. Use the `_hh.csv` and `_banks.csv` files for terminal household and bank
 cross-section summaries.
 
-Manual update procedure until #437 adds a formal data bridge:
+Manual update procedure after a baseline run:
 
 1. Run the command above from the repository root.
 2. Record commit hash, run id, duration, seed count, and parameter branch.
 3. For each target row below, compute the model statistic from the mapped CSV
    column or terminal summary field.
-4. Fill empirical source, vintage, target value, model value, tolerance, and
-   status in the report snapshot.
+4. Use `docs/data-bridge-national-financial-accounts.md` to fill empirical
+   source, vintage, target value, model value, tolerance, and status in the
+   report snapshot.
 5. Keep rows with missing model output or missing empirical data in the table.
 
 ## Output Mapping
@@ -101,18 +104,18 @@ bridge and baseline analysis have been completed.
 
 | Target | Empirical source and vintage | Empirical value | Model run | Model value | Tolerance / criterion | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| GDP growth | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Direct GDP output column still needed. |
-| Inflation | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use `Inflation` and `PriceLevel`. |
-| Unemployment | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Include regional dispersion. |
-| Wages | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Current output is aggregate market wage. |
-| Credit/GDP | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Firm-loan split depends partly on terminal bank summary. |
-| Public debt/GDP | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Compare `DebtToGdp` and `Esa2010DebtToGdp`. |
-| Current account | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Needs GDP denominator and annualization convention. |
-| Firm-size distribution | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Terminal firm-size histogram not emitted yet. |
-| Bankruptcies | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use firm deaths and household bankruptcy separately. |
-| Bank capital/liquidity | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use minima and terminal bank distribution. |
-| Inequality | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Terminal household summary has first-pass measures. |
-| Sectoral output | TBD via #437 | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Direct sector output columns still needed. |
+| GDP growth | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Direct GDP output column still needed. |
+| Inflation | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use `Inflation` and `PriceLevel`. |
+| Unemployment | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Include regional dispersion. |
+| Wages | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Current output is aggregate market wage. |
+| Credit/GDP | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Firm-loan split depends partly on terminal bank summary. |
+| Public debt/GDP | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Compare `DebtToGdp` and `Esa2010DebtToGdp`. |
+| Current account | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Needs GDP denominator and annualization convention. |
+| Firm-size distribution | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Terminal firm-size histogram not emitted yet. |
+| Bankruptcies | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use firm deaths and household bankruptcy separately. |
+| Bank capital/liquidity | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use minima and terminal bank distribution. |
+| Inequality | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Terminal household summary has first-pass measures. |
+| Sectoral output | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Direct sector output columns still needed. |
 
 ## Target-Specific Notes
 
@@ -136,12 +139,14 @@ firm-size histogram or sector output shares.
 
 Inequality validation is terminal-only for now. The household summary already
 emits Gini, poverty, and consumption percentile fields, but external source
-mapping and frequency conventions belong in #437.
+mapping and frequency conventions are documented in
+`docs/data-bridge-national-financial-accounts.md`.
 
 ## Follow-Up Links
 
-- #437: external data bridge, source vintages, licenses, transformations, and
-  empirical target values.
+- `docs/data-bridge-national-financial-accounts.md`: external source mapping,
+  source vintages, license/reuse notes, transformations, and prioritized
+  empirical gaps.
 - `docs/sensitivity-robustness-workflow.md`: stochastic uncertainty, parameter
   sensitivity, confidence envelopes, and robustness metrics around this
   baseline report.

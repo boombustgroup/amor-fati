@@ -35,6 +35,10 @@ source. Missing or weak provenance is marked explicitly with searchable tokens:
   `McTimeseriesSchema`; this register documents parameter provenance, not run
   results. Empirical validation targets and output mappings are documented in
   `docs/empirical-validation-report.md`.
+- External source selection, unit/frequency conversion, sector/instrument
+  crosswalks, source vintages, license/reuse notes, and prioritized empirical
+  gaps are documented in
+  `docs/data-bridge-national-financial-accounts.md`.
 
 ## Core Scale And Sectors
 
@@ -295,7 +299,7 @@ Priority gaps before publication:
 - Replace `UNKNOWN_SOURCE` rows with source table, year, and transformation
   notes.
 - Split `CODE_NOTE_EMPIRICAL` rows into source-specific evidence links once
-  the data bridge exists.
+  the data bridge identifies the target source family and extraction rule.
 - Validate `TUNED_NEEDS_VALIDATION` coefficients with historical fit,
   stylized-fact matching, or sensitivity ranges.
 - Decide whether currently unscaled institutional monthly flows, such as PFRON
