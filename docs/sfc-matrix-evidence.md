@@ -1,4 +1,4 @@
-# Ledger-Derived SFC Matrix Evidence
+# Ledger-Derived SFC Matrix Artifacts
 
 This workflow generates paper-facing Stock-Flow Consistent matrix artifacts from
 an executed deterministic simulation step:
@@ -9,9 +9,7 @@ an executed deterministic simulation step:
   concepts.
 
 The matrices are intentionally symbolic. They are meant to look like the tables
-used in SFC papers and reports. Numeric evidence is not duplicated here because
-the simulation engine and Monte Carlo runner already emit CSV outputs with the
-actual time-series values.
+used in SFC papers and reports.
 
 ## Regeneration
 

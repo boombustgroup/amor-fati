@@ -40,7 +40,7 @@ That is the hard floor under every experiment in the model. Behavioral rules, po
 - [Core Invariants](#core-invariants)
 - [State Ontology](#state-ontology)
 - [Verified Ledger](#verified-ledger)
-- [Ledger-Derived Matrix Evidence](#ledger-derived-matrix-evidence)
+- [Ledger-Derived Matrix Artifacts](#ledger-derived-matrix-artifacts)
 - [Tech Stack](#tech-stack)
 - [License](#license)
 
@@ -100,15 +100,15 @@ This is why Amor Fati is useful even when the long-run path is still being calib
 
 That distinction matters. A nonlinear ABM can explore unstable, surprising, even pathological futures. But it should never "lose money" in the plumbing.
 
-## Ledger-Derived Matrix Evidence
+## Ledger-Derived Matrix Artifacts
 
-The project can regenerate academic SFC matrix evidence directly from an executed deterministic simulation step:
+The project can regenerate paper-facing symbolic SFC matrices from an executed deterministic simulation step:
 
 ```bash
 sbt "sfcMatrices --seed 1 --months 12 --out target/sfc-matrices"
 ```
 
-This writes paper-facing symbolic BSM and TFM artifacts in LaTeX and Markdown, plus a symbolic-row to runtime-ledger mapping under `target/`. Numeric evidence remains the engine's CSV output; this workflow documents the accounting structure used to interpret it. The workflow, sign conventions, coverage gaps, and review checklist are documented in [docs/sfc-matrix-evidence.md](docs/sfc-matrix-evidence.md).
+This writes symbolic Balance Sheet Matrix (BSM) and Transactions Flow Matrix (TFM) artifacts in LaTeX and Markdown, plus a symbolic-row to runtime-ledger mapping under `target/`. The workflow, sign conventions, coverage gaps, and review checklist are documented in [docs/sfc-matrix-evidence.md](docs/sfc-matrix-evidence.md).
 
 ## Tech Stack
 
