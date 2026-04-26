@@ -145,8 +145,8 @@ mapping and frequency conventions belong in #437.
 - `docs/sensitivity-robustness-workflow.md`: stochastic uncertainty, parameter
   sensitivity, confidence envelopes, and robustness metrics around this
   baseline report.
-- #435: named scenarios whose outputs should reuse the same validation target
-  table.
+- `docs/scenario-registry.md`: named scenarios whose outputs should reuse the
+  same validation target table.
 - #436: stock-flow reconciliation and revaluation artifact; keep this separate
   from empirical fit.
 - #438: milestone tracker for the full research-readiness spine.

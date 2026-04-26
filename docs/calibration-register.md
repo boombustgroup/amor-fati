@@ -301,4 +301,5 @@ Priority gaps before publication:
 - Decide whether currently unscaled institutional monthly flows, such as PFRON
   monthly revenue/spending, should remain agent-scale values or be moved into
   the `gdpRatio`-scaled macro-stock convention.
-- Move scenario defaults into a scenario registry once #435 is implemented.
+- Keep scenario deltas in `docs/scenario-registry.md`; this register remains
+  the baseline parameter-provenance surface.

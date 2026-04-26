@@ -376,12 +376,13 @@ Current inputs are:
 - explicit initialization seed;
 - explicit monthly randomness schedule;
 - Monte Carlo configuration (`nSeeds`, duration, run id, output prefix);
-- scenario changes expressed by modifying/copying config values in code.
+- named scenario changes from `docs/scenario-registry.md`, or direct config
+  changes in code for exploratory work.
 
 The model contains many Poland-specific calibration comments and values, but a
 structured calibration register is documented in
-`docs/calibration-register.md`. A reproducible scenario registry is tracked in
-#435.
+`docs/calibration-register.md`. The reproducible scenario registry is
+documented in `docs/scenario-registry.md`.
 
 ## 7. Submodels
 
@@ -416,6 +417,11 @@ The sensitivity and robustness workflow is documented in
 and one-at-a-time parameter sweeps, producing seed envelopes and sensitivity
 summaries under `target/`.
 
+The reproducible scenario registry is documented in
+`docs/scenario-registry.md`. It defines named baseline, policy, banking,
+external, energy, tourism, and quasi-fiscal experiments with exact parameter
+deltas and an executable `scenarioRun` command path.
+
 ## Accounting And Validation Boundary
 
 Amor Fati has two related but distinct accounting surfaces:
@@ -439,7 +445,6 @@ outputs.
 
 This document deliberately marks unfinished research-readiness work:
 
-- #435: reproducible scenario registry;
 - #436: stock-flow reconciliation and revaluation matrix artifact;
 - #437: data bridge to national and financial accounts.
 
