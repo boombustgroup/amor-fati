@@ -411,6 +411,11 @@ The empirical validation report skeleton is documented in
 surface to macro, meso, micro, financial, and external validation targets and
 keeps missing data or output coverage visible.
 
+The sensitivity and robustness workflow is documented in
+`docs/sensitivity-robustness-workflow.md`. It runs small Monte Carlo seed bands
+and one-at-a-time parameter sweeps, producing seed envelopes and sensitivity
+summaries under `target/`.
+
 ## Accounting And Validation Boundary
 
 Amor Fati has two related but distinct accounting surfaces:
@@ -434,7 +439,6 @@ outputs.
 
 This document deliberately marks unfinished research-readiness work:
 
-- #434: sensitivity and robustness workflow;
 - #435: reproducible scenario registry;
 - #436: stock-flow reconciliation and revaluation matrix artifact;
 - #437: data bridge to national and financial accounts.

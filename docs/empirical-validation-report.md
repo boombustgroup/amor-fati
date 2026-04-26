@@ -142,8 +142,9 @@ mapping and frequency conventions belong in #437.
 
 - #437: external data bridge, source vintages, licenses, transformations, and
   empirical target values.
-- #434: stochastic uncertainty, parameter sensitivity, confidence envelopes,
-  and robustness metrics around this baseline report.
+- `docs/sensitivity-robustness-workflow.md`: stochastic uncertainty, parameter
+  sensitivity, confidence envelopes, and robustness metrics around this
+  baseline report.
 - #435: named scenarios whose outputs should reuse the same validation target
   table.
 - #436: stock-flow reconciliation and revaluation artifact; keep this separate
