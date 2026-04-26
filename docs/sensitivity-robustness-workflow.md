@@ -121,10 +121,11 @@ The default core run is therefore `9 * 2 * 24 = 432` simulated monthly steps.
 
 ## Follow-Ups
 
-- `docs/empirical-validation-report.md` provides the empirical target table
-  that these robustness outputs should eventually feed.
-- `docs/scenario-registry.md` defines named scenario comparisons that can
-  reuse this output shape later.
-- `docs/data-bridge-national-financial-accounts.md` provides source vintages,
-  license/reuse notes, and empirical transformations used to interpret
-  robustness against real-world data.
+- [docs/empirical-validation-report.md](empirical-validation-report.md)
+  provides the empirical target table that these robustness outputs should
+  eventually feed.
+- [docs/scenario-registry.md](scenario-registry.md) defines named scenario
+  comparisons that can reuse this output shape later.
+- [docs/data-bridge-national-financial-accounts.md](data-bridge-national-financial-accounts.md)
+  provides source vintages, license/reuse notes, and empirical transformations
+  used to interpret robustness against real-world data.

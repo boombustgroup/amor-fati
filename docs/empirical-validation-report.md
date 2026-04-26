@@ -144,11 +144,13 @@ mapping and frequency conventions are documented in
 
 ## Follow-Up Links
 
-- `docs/data-bridge-national-financial-accounts.md`: external source mapping,
+- [docs/data-bridge-national-financial-accounts.md](data-bridge-national-financial-accounts.md):
+  external source mapping,
   source vintages, license/reuse notes, transformations, and prioritized
   empirical gaps.
-- `docs/sensitivity-robustness-workflow.md`: stochastic uncertainty, parameter
+- [docs/sensitivity-robustness-workflow.md](sensitivity-robustness-workflow.md):
+  stochastic uncertainty, parameter
   sensitivity, confidence envelopes, and robustness metrics around this
   baseline report.
-- `docs/scenario-registry.md`: named scenarios whose outputs should reuse the
-  same validation target table.
+- [docs/scenario-registry.md](scenario-registry.md): named scenarios whose
+  outputs should reuse the same validation target table.

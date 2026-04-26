@@ -103,19 +103,18 @@ That distinction matters. A nonlinear ABM can explore unstable, surprising, even
 
 ## Model Documentation
 
-The paper-facing ODD / ODD+D model description is documented in [docs/odd-model-documentation.md](docs/odd-model-documentation.md). It covers purpose, entities, state variables, scales, scheduling, design concepts, initialization, inputs, submodels, observation surfaces, decision-making notes, and open research-readiness gaps.
+Amor Fati now includes a research-readiness documentation spine for review,
+replication, calibration, validation, and publication work:
 
-The detailed behavioral equations and institutional decision rules are documented in [docs/behavioral-equations-and-decision-rules.md](docs/behavioral-equations-and-decision-rules.md). It links household, firm, bank, fiscal, monetary, external, insurance, NBFI, quasi-fiscal, and JST rules to implementation modules and numeric output columns.
-
-The calibration register is documented in [docs/calibration-register.md](docs/calibration-register.md). It records key parameter values, units, implementation owners, empirical targets, transformations, provenance status, and explicit searchable gaps.
-
-The data bridge to national and financial accounts is documented in [docs/data-bridge-national-financial-accounts.md](docs/data-bridge-national-financial-accounts.md). It maps official Polish, EU, and financial-account sources to initialization stocks, calibrated parameters, scenario inputs, validation targets, transformation rules, and prioritized empirical gaps.
-
-The empirical validation report skeleton is documented in [docs/empirical-validation-report.md](docs/empirical-validation-report.md). It maps macro, meso, micro, financial, and external validation targets to Monte Carlo output columns and keeps missing data/output gaps visible.
-
-The sensitivity and robustness workflow is documented in [docs/sensitivity-robustness-workflow.md](docs/sensitivity-robustness-workflow.md). It generates seed envelopes and one-at-a-time parameter-sensitivity artifacts from the Monte Carlo runner.
-
-The reproducible scenario registry is documented in [docs/scenario-registry.md](docs/scenario-registry.md). It defines named policy and shock scenarios, exact parameter deltas from baseline, expected channels, seed/run metadata, and the `scenarioRun` execution path.
+| Artifact | Purpose |
+| --- | --- |
+| [ODD / ODD+D model documentation](docs/odd-model-documentation.md) | Paper-facing model description: purpose, entities, state variables, scales, scheduling, initialization, inputs, submodels, observation surfaces, and decision-making notes. |
+| [Behavioral equations and decision rules](docs/behavioral-equations-and-decision-rules.md) | Household, firm, bank, fiscal, monetary, external, insurance, NBFI, quasi-fiscal, and JST rules linked to implementation modules and numeric output columns. |
+| [Calibration register](docs/calibration-register.md) | Key parameter values, units, implementation owners, empirical targets, transformations, provenance status, and searchable gaps. |
+| [Data bridge to national and financial accounts](docs/data-bridge-national-financial-accounts.md) | Official Polish, EU, and financial-account sources mapped to initialization stocks, calibrated parameters, scenario inputs, validation targets, transformations, and prioritized empirical gaps. |
+| [Empirical validation report skeleton](docs/empirical-validation-report.md) | Macro, meso, micro, financial, and external validation targets mapped to Monte Carlo output columns, with missing data/output gaps kept visible. |
+| [Sensitivity and robustness workflow](docs/sensitivity-robustness-workflow.md) | Seed envelopes and one-at-a-time parameter-sensitivity artifacts generated from the Monte Carlo runner. |
+| [Reproducible scenario registry](docs/scenario-registry.md) | Named policy and shock scenarios with exact parameter deltas from baseline, expected channels, seed/run metadata, and the `scenarioRun` execution path. |
 
 ## Ledger-Derived Matrix Artifacts
 
