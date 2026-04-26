@@ -107,13 +107,14 @@ outputs can be compared directly with validation and robustness artifacts.
 
 ## Links To Other Research Artifacts
 
-- `docs/empirical-validation-report.md`: scenario outputs reuse the same
-  Monte Carlo columns and validation targets.
-- `docs/sensitivity-robustness-workflow.md`: robustness runs can wrap named
-  scenarios later, but the current sensitivity workflow remains local and
-  one-at-a-time.
-- `docs/calibration-register.md`: baseline parameter provenance remains there;
-  this document records scenario deltas from that baseline.
-- `docs/data-bridge-national-financial-accounts.md`: official source mapping
-  and transformation rules for scenario inputs that are empirical or based on
-  historical analogues.
+- [docs/empirical-validation-report.md](empirical-validation-report.md):
+  scenario outputs reuse the same Monte Carlo columns and validation targets.
+- [docs/sensitivity-robustness-workflow.md](sensitivity-robustness-workflow.md):
+  robustness runs can wrap named scenarios later, but the current sensitivity
+  workflow remains local and one-at-a-time.
+- [docs/calibration-register.md](calibration-register.md): baseline parameter
+  provenance remains there; this document records scenario deltas from that
+  baseline.
+- [docs/data-bridge-national-financial-accounts.md](data-bridge-national-financial-accounts.md):
+  official source mapping and transformation rules for scenario inputs that are
+  empirical or based on historical analogues.
