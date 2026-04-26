@@ -40,6 +40,7 @@ That is the hard floor under every experiment in the model. Behavioral rules, po
 - [Core Invariants](#core-invariants)
 - [State Ontology](#state-ontology)
 - [Verified Ledger](#verified-ledger)
+- [Model Documentation](#model-documentation)
 - [Ledger-Derived Matrix Artifacts](#ledger-derived-matrix-artifacts)
 - [Tech Stack](#tech-stack)
 - [License](#license)
@@ -99,6 +100,10 @@ The simulation pipeline is anchored to the verified [amor-fati-ledger](https://g
 This is why Amor Fati is useful even when the long-run path is still being calibrated. If a branch generates a bad macro regime, that may be a modeling problem. If the ledger breaks, the simulation itself is wrong.
 
 That distinction matters. A nonlinear ABM can explore unstable, surprising, even pathological futures. But it should never "lose money" in the plumbing.
+
+## Model Documentation
+
+The paper-facing ODD / ODD+D model description is documented in [docs/odd-model-documentation.md](docs/odd-model-documentation.md). It covers purpose, entities, state variables, scales, scheduling, design concepts, initialization, inputs, submodels, observation surfaces, decision-making notes, and open research-readiness gaps.
 
 ## Ledger-Derived Matrix Artifacts
 
