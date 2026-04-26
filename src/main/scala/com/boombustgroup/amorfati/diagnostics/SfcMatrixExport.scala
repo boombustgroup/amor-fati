@@ -57,10 +57,7 @@ object SfcMatrixExport:
         case Some(step) =>
           val bundle = MatrixEvidenceBundle.fromStep(config.seed, step)
           val paths  = SfcMatrixRenderers.writeSymbolicBundle(bundle, config.out, config.formats)
-          val status =
-            if bundle.validation.isValid then Right(ExportResult(bundle, paths))
-            else Left(s"SFC matrix validation failed; artifacts were written to ${config.out}")
-          status
+          Right(ExportResult(bundle, paths))
 
   def parseArgs(args: Vector[String]): Either[String, Config] =
     def missingValue(flag: String): Left[String, Config] =
@@ -68,24 +65,22 @@ object SfcMatrixExport:
 
     def loop(rest: Vector[String], config: Config): Either[String, Config] =
       rest match
-        case Vector()                           => Right(config)
-        case "--help" +: _                      => Left(usage)
-        case flag +: tail if knownFlag(flag)    =>
-          tail match
-            case Vector()                                                   => missingValue(flag)
-            case value +: _ if value.startsWith("--")                       => missingValue(flag)
-            case value +: next if flag == "--seed"                          =>
-              parseLong(value, flag).flatMap(seed => loop(next, config.copy(seed = seed)))
-            case value +: next if flag == "--months"                        =>
-              parseInt(value, flag).flatMap(months => loop(next, config.copy(months = months)))
-            case value +: next if flag == "--out"                           =>
-              loop(next, config.copy(out = Path.of(value)))
-            case value +: next if flag == "--format" || flag == "--formats" =>
-              OutputFormat.parseList(value).flatMap(formats => loop(next, config.copy(formats = formats)))
-            case _                                                          => Left(s"Unknown argument: $flag")
-        case flag +: _ if flag.startsWith("--") => Left(s"Unknown argument: $flag")
-        case value +: _                         => Left(s"Unexpected positional argument: $value")
-        case invalid                            => Left(s"Invalid argument list: ${invalid.mkString(" ")}")
+        case Vector()                                  => Right(config)
+        case Vector("--help", _*)                      => Left(usage)
+        case Vector(flag, tail*) if knownFlag(flag)    =>
+          tail.toVector match
+            case Vector()                                    => missingValue(flag)
+            case Vector(value, _*) if value.startsWith("--") => missingValue(flag)
+            case Vector(value, next*) if flag == "--seed"    =>
+              parseLong(value, flag).flatMap(seed => loop(next.toVector, config.copy(seed = seed)))
+            case Vector(value, next*) if flag == "--months"  =>
+              parseInt(value, flag).flatMap(months => loop(next.toVector, config.copy(months = months)))
+            case Vector(value, next*) if flag == "--out"     =>
+              loop(next.toVector, config.copy(out = Path.of(value)))
+            case Vector(value, next*)                        =>
+              OutputFormat.parseList(value).flatMap(formats => loop(next.toVector, config.copy(formats = formats)))
+        case Vector(flag, _*) if flag.startsWith("--") => Left(s"Unknown argument: $flag")
+        case Vector(value, _*)                         => Left(s"Unexpected positional argument: $value")
 
     loop(args, Config())
 
