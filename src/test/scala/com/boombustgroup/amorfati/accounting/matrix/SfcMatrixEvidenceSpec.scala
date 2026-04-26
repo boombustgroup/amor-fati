@@ -60,7 +60,7 @@ class SfcMatrixEvidenceSpec extends AnyFlatSpec with Matchers:
     tfm.sectorTotals shouldBe expectedSectorTotals.toMap
   }
 
-  it should "omit all-zero transaction rows explicitly" in {
+  it should "count all-zero batches separately from omitted transaction rows" in {
     val zero    = BatchedFlow.Broadcast(
       from = EntitySector.Government,
       fromIndex = 0,
@@ -74,9 +74,36 @@ class SfcMatrixEvidenceSpec extends AnyFlatSpec with Matchers:
 
     val evidence = TfmEvidence.fromBatches(Vector(zero, nonZero))
 
-    evidence.omittedZeroRows shouldBe 1
+    evidence.omittedZeroBatches shouldBe 1
+    evidence.omittedZeroRows shouldBe 0
+    evidence.droppedRows shouldBe empty
     evidence.rows should have size 1
     evidence.rows.head.rowSumRaw shouldBe 0L
+  }
+
+  it should "retain provenance for rows that net to zero after aggregation" in {
+    val govToFirm = BatchedFlow.Broadcast(
+      from = EntitySector.Government,
+      fromIndex = 0,
+      to = EntitySector.Firms,
+      amounts = Array(10L),
+      targetIndices = Array(0),
+      asset = AssetType.Cash,
+      mechanism = FlowMechanism.GovPurchases,
+    )
+    val firmToGov = govToFirm.copy(
+      from = EntitySector.Firms,
+      to = EntitySector.Government,
+    )
+
+    val evidence = TfmEvidence.fromBatches(Vector(govToFirm, firmToGov))
+
+    evidence.omittedZeroBatches shouldBe 0
+    evidence.omittedZeroRows shouldBe 1
+    evidence.rows shouldBe empty
+    evidence.droppedRows should have size 1
+    evidence.droppedRows.head.contributors should have size 2
+    evidence.droppedRows.head.cells shouldBe empty
   }
 
   "MatrixValidation" should "include SFC status and pass for deterministic evidence" in {
@@ -102,6 +129,10 @@ class SfcMatrixEvidenceSpec extends AnyFlatSpec with Matchers:
     val badTfm    = bundle.tfm.copy(rows = bundle.tfm.rows.updated(0, badTfmRow))
     val tfmReport = MatrixValidation.validate(bundle.openingBsm, bundle.closingBsm, badTfm, Right(()))
     tfmReport.errors.exists(_.isInstanceOf[MatrixValidationError.TfmRowSumError]) shouldBe true
+
+    val nonRegistryTfm    = bundle.tfm.copy(droppedNonRegistrySectors = Vector(EntitySector.Foreign))
+    val nonRegistryReport = MatrixValidation.validate(bundle.openingBsm, bundle.closingBsm, nonRegistryTfm, Right(()))
+    nonRegistryReport.errors.exists(_.isInstanceOf[MatrixValidationError.TfmNonRegistrySectorError]) shouldBe true
   }
 
 end SfcMatrixEvidenceSpec

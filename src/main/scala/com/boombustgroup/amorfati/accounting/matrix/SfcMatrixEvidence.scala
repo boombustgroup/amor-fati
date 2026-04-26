@@ -91,7 +91,10 @@ object SfcMatrixEvidence:
 
   final case class TfmEvidence(
       rows: Vector[TfmRow],
+      omittedZeroBatches: Int,
       omittedZeroRows: Int,
+      droppedRows: Vector[TfmRow],
+      droppedNonRegistrySectors: Vector[EntitySector],
   ):
     def sectorTotals: Map[EntitySector, Long] =
       SfcMatrixRegistry.sectors
@@ -129,6 +132,7 @@ object SfcMatrixEvidence:
   enum MatrixValidationError:
     case BsmRowSumError(snapshot: SnapshotKind, asset: AssetType, actualRaw: Long, reason: String)
     case TfmRowSumError(rowKey: String, mechanism: MechanismId, asset: AssetType, actualRaw: Long)
+    case TfmNonRegistrySectorError(sectors: Vector[EntitySector])
     case SfcValidationFailed(errors: Vector[Sfc.SfcIdentityError])
 
   final case class MatrixValidationReport(errors: Vector[MatrixValidationError]):
@@ -243,7 +247,7 @@ object SfcMatrixEvidence:
       final case class Acc(
           cells: Map[(MechanismId, AssetType, EntitySector), Long],
           contributors: Map[(MechanismId, AssetType), Vector[BatchContribution]],
-          omittedZeroRows: Int,
+          omittedZeroBatches: Int,
       )
 
       def addCell(
@@ -261,7 +265,7 @@ object SfcMatrixEvidence:
       val acc               = batches.zipWithIndex.foldLeft(Acc(Map.empty, emptyContributors, 0)):
         case (state, (batch, index)) =>
           val nonZeroAmounts = amounts(batch).filter(_ != 0L)
-          if nonZeroAmounts.isEmpty then state.copy(omittedZeroRows = state.omittedZeroRows + 1)
+          if nonZeroAmounts.isEmpty then state.copy(omittedZeroBatches = state.omittedZeroBatches + 1)
           else
             val total = nonZeroAmounts.sum
             val cells = batch match
@@ -301,19 +305,33 @@ object SfcMatrixEvidence:
               contributors = state.contributors.updated(key, state.contributors(key) :+ contribution),
             )
 
-      val keys = acc.cells.keysIterator.map((mechanism, asset, _) => (mechanism, asset)).toSet.toVector
-      val rows = keys
+      val registrySectors           = SfcMatrixRegistry.sectors.map(_.sector)
+      val registrySectorSet         = registrySectors.toSet
+      val keys                      = acc.cells.keysIterator.map((mechanism, asset, _) => (mechanism, asset)).toSet.toVector
+      val candidateRows             = keys
         .map: (mechanism, asset) =>
-          val cells = SfcMatrixRegistry.sectors
-            .map(_.sector)
+          val cells = registrySectors
             .map(sector => sector -> acc.cells.getOrElse((mechanism, asset, sector), 0L))
             .toMap
             .filter(_._2 != 0L)
           TfmRow(mechanism, asset, cells, acc.contributors((mechanism, asset)))
-        .filter(_.cells.nonEmpty)
-        .sortBy(row => (SfcMatrixRegistry.mechanismOrder(row.mechanism), SfcMatrixRegistry.instrumentOrder(row.asset)))
+      val (keptRows, droppedRows)   = candidateRows.partition(_.cells.nonEmpty)
+      val rowOrdering               = (row: TfmRow) => (SfcMatrixRegistry.mechanismOrder(row.mechanism), SfcMatrixRegistry.instrumentOrder(row.asset))
+      val droppedNonRegistrySectors = acc.cells.keysIterator
+        .map((_, _, sector) => sector)
+        .filterNot(registrySectorSet)
+        .toSet
+        .toVector
+        .sortBy(_.ordinal)
+      val rows                      = keptRows.sortBy(rowOrdering)
 
-      TfmEvidence(rows, acc.omittedZeroRows)
+      TfmEvidence(
+        rows = rows,
+        omittedZeroBatches = acc.omittedZeroBatches,
+        omittedZeroRows = droppedRows.size,
+        droppedRows = droppedRows.sortBy(rowOrdering),
+        droppedNonRegistrySectors = droppedNonRegistrySectors,
+      )
 
     private def amounts(batch: BatchedFlow): Vector[Long] =
       batch match
@@ -389,7 +407,11 @@ object SfcMatrixEvidence:
         case row if row.rowSumRaw != 0L =>
           MatrixValidationError.TfmRowSumError(row.rowKey, row.mechanism, row.asset, row.rowSumRaw)
 
-      MatrixValidationReport(sfcErrors ++ bsmErrors ++ tfmErrors)
+      val registryErrors =
+        if tfm.droppedNonRegistrySectors.nonEmpty then Vector(MatrixValidationError.TfmNonRegistrySectorError(tfm.droppedNonRegistrySectors))
+        else Vector.empty
+
+      MatrixValidationReport(sfcErrors ++ bsmErrors ++ tfmErrors ++ registryErrors)
 
   object MatrixEvidenceBundle:
     def fromStep(seed: Long, step: FlowSimulation.StepOutput, commit: String = BuildInfo.gitCommit): MatrixEvidenceBundle =
