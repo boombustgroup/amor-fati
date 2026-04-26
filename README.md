@@ -40,6 +40,7 @@ That is the hard floor under every experiment in the model. Behavioral rules, po
 - [Core Invariants](#core-invariants)
 - [State Ontology](#state-ontology)
 - [Verified Ledger](#verified-ledger)
+- [Model Documentation](#model-documentation)
 - [Ledger-Derived Matrix Artifacts](#ledger-derived-matrix-artifacts)
 - [Tech Stack](#tech-stack)
 - [License](#license)
@@ -99,6 +100,20 @@ The simulation pipeline is anchored to the verified [amor-fati-ledger](https://g
 This is why Amor Fati is useful even when the long-run path is still being calibrated. If a branch generates a bad macro regime, that may be a modeling problem. If the ledger breaks, the simulation itself is wrong.
 
 That distinction matters. A nonlinear ABM can explore unstable, surprising, even pathological futures. But it should never "lose money" in the plumbing.
+
+## Model Documentation
+
+The paper-facing ODD / ODD+D model description is documented in [docs/odd-model-documentation.md](docs/odd-model-documentation.md). It covers purpose, entities, state variables, scales, scheduling, design concepts, initialization, inputs, submodels, observation surfaces, decision-making notes, and open research-readiness gaps.
+
+The detailed behavioral equations and institutional decision rules are documented in [docs/behavioral-equations-and-decision-rules.md](docs/behavioral-equations-and-decision-rules.md). It links household, firm, bank, fiscal, monetary, external, insurance, NBFI, quasi-fiscal, and JST rules to implementation modules and numeric output columns.
+
+The calibration register is documented in [docs/calibration-register.md](docs/calibration-register.md). It records key parameter values, units, implementation owners, empirical targets, transformations, provenance status, and explicit searchable gaps.
+
+The empirical validation report skeleton is documented in [docs/empirical-validation-report.md](docs/empirical-validation-report.md). It maps macro, meso, micro, financial, and external validation targets to Monte Carlo output columns and keeps missing data/output gaps visible.
+
+The sensitivity and robustness workflow is documented in [docs/sensitivity-robustness-workflow.md](docs/sensitivity-robustness-workflow.md). It generates seed envelopes and one-at-a-time parameter-sensitivity artifacts from the Monte Carlo runner.
+
+The reproducible scenario registry is documented in [docs/scenario-registry.md](docs/scenario-registry.md). It defines named policy and shock scenarios, exact parameter deltas from baseline, expected channels, seed/run metadata, and the `scenarioRun` execution path.
 
 ## Ledger-Derived Matrix Artifacts
 
