@@ -18,17 +18,16 @@ class SfcMatrixRenderersSpec extends AnyFlatSpec with Matchers:
     val step = FlowSimulation.step(FlowSimulation.SimState.fromInit(init), MonthRandomness.Contract.fromSeed(1001L))
     MatrixEvidenceBundle.fromStep(seed = 1L, step = step, commit = "renderer-test")
 
-  "SfcMatrixRenderers" should "escape LaTeX labels and format raw PLN deterministically" in {
+  "SfcMatrixRenderers" should "escape LaTeX labels deterministically" in {
     SfcMatrixRenderers.escapeLatex("A&B_%$#{}~^") should include("\\&")
     SfcMatrixRenderers.escapeLatex("A&B_%$#{}~^") should include("\\_")
-    SfcMatrixRenderers.formatPLN(1234567L) shouldBe "PLN 123.4567"
   }
 
   it should "render symbolic LaTeX and Markdown artifacts with runtime mapping" in {
     val artifacts = SfcMatrixRenderers.renderSymbolicBundle(bundle, OutputFormat.Default)
     val byName    = artifacts.map(artifact => artifact.relativePath -> artifact.contents).toMap
 
-    byName.keySet should contain allOf (
+    byName.keySet shouldBe Set(
       "symbolic-bsm.tex",
       "symbolic-bsm.md",
       "symbolic-tfm.tex",
@@ -43,16 +42,12 @@ class SfcMatrixRenderersSpec extends AnyFlatSpec with Matchers:
     byName("symbolic-tfm.md") should include("Consumption")
     byName("matrix-mapping.md") should include("Demand deposits")
     byName("matrix-mapping.md") should include("Household consumption")
-    byName.keySet.exists(_.endsWith(".csv")) shouldBe false
-    byName.keySet.exists(_.endsWith(".json")) shouldBe false
   }
 
   it should "parse output format lists and reject unknown formats" in {
     OutputFormat.parseList("latex,md") shouldBe Right(OutputFormat.Default)
     OutputFormat.parseList("tex") shouldBe Right(Vector(OutputFormat.Latex))
     OutputFormat.parseList("markdown") shouldBe Right(Vector(OutputFormat.Markdown))
-    OutputFormat.parseList("csv").isLeft shouldBe true
-    OutputFormat.parseList("json").isLeft shouldBe true
     OutputFormat.parseList("yaml").isLeft shouldBe true
   }
 

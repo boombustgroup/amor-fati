@@ -29,8 +29,6 @@ object SfcMatrixRenderers:
         .map:
           case "latex" | "tex"   => Right(OutputFormat.Latex)
           case "markdown" | "md" => Right(OutputFormat.Markdown)
-          case "csv" | "json"    =>
-            Left("SFC matrix export writes only tex and md; numeric evidence is already available from the engine CSV output.")
           case other             => Left(s"Unknown matrix output format: $other")
 
       parsed.collectFirst { case Left(err) => err } match
@@ -192,12 +190,6 @@ object SfcMatrixRenderers:
   private def mechanismLabel(mechanism: MechanismId): String =
     val metadata = SfcMatrixRegistry.mechanism(mechanism)
     s"${metadata.label} (#${mechanism.toInt})"
-
-  private[matrix] def formatPLN(raw: Long): String =
-    s"PLN ${formatDecimal(raw)}"
-
-  private[matrix] def formatDecimal(raw: Long): String =
-    (BigDecimal(raw) / BigDecimal(10000)).setScale(4).bigDecimal.toPlainString
 
   private[matrix] def escapeLatex(value: String): String =
     value.flatMap:

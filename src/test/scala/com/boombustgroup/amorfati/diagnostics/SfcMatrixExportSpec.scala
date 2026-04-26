@@ -17,9 +17,8 @@ class SfcMatrixExportSpec extends AnyFlatSpec with Matchers:
       Right((7L, 3, Path.of("target/sfc-export-parse"), Vector(OutputFormat.Markdown, OutputFormat.Latex)))
   }
 
-  it should "reject CSV and JSON matrix formats" in {
-    SfcMatrixExport.parseArgs(Vector("--format", "csv")).isLeft shouldBe true
-    SfcMatrixExport.parseArgs(Vector("--format", "json")).isLeft shouldBe true
+  it should "reject unsupported matrix formats" in {
+    SfcMatrixExport.parseArgs(Vector("--format", "pdf")).isLeft shouldBe true
   }
 
   it should "write generated artifacts under the requested output directory" in {
@@ -31,11 +30,14 @@ class SfcMatrixExportSpec extends AnyFlatSpec with Matchers:
     )
 
     result.isRight shouldBe true
+    result.toOption.get.paths.map(_.getFileName.toString).toSet shouldBe Set(
+      "symbolic-bsm.md",
+      "symbolic-tfm.md",
+      "matrix-mapping.md",
+    )
     Files.exists(out.resolve("symbolic-bsm.md")) shouldBe true
     Files.exists(out.resolve("symbolic-tfm.md")) shouldBe true
     Files.exists(out.resolve("matrix-mapping.md")) shouldBe true
-    Files.exists(out.resolve("symbolic-bsm.csv")) shouldBe false
-    Files.exists(out.resolve("metadata.json")) shouldBe false
   }
 
 end SfcMatrixExportSpec
